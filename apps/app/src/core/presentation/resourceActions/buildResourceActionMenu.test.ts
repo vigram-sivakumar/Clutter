@@ -245,10 +245,18 @@ describe('folder menu', () => {
       (item) => item.id === 'sort-by'
     );
     expect(row?.panel?.title).toBe('Sort by');
-    expect(row?.panel?.items.map((item) => item.label)).toEqual(['Name', 'Kind', 'Created', 'Last edited']);
+    expect(row?.panel?.items.map((item) => item.label)).toEqual(['Name', 'Created time', 'Last edited', 'Manual']);
     expect(row?.panel?.items.find((item) => item.id === 'sort:created')?.icon).toBe('tick');
     expect(row?.panel?.items.find((item) => item.id === 'sort:created')?.trailing).toBeTruthy();
     expect(row?.panel?.items.find((item) => item.id === 'sort:name')?.trailing).toBeUndefined();
+  });
+
+  it('Manual is a Sort by choice with a tick but no direction arrow', () => {
+    const items = buildResourceActionMenu('folder', { status: 'active', sort: { key: 'manual', direction: 'down' } }, 'sidebar').find(
+      (item) => item.id === 'sort-by'
+    )?.panel?.items;
+    expect(items?.find((item) => item.id === 'sort:manual')?.icon).toBe('tick');
+    expect(items?.find((item) => item.id === 'sort:manual')?.trailing).toBeUndefined();
   });
 
   it('is never duplicable and its Copy path has no As Markdown', () => {

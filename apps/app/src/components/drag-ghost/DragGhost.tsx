@@ -4,7 +4,19 @@ import type { PointerDragSession } from '@shared/interaction';
 import './DragGhost.css';
 
 /** Attributes that must not be duplicated into the ghost: it is a picture of the row, not a second row. */
-const STRIPPED_ATTRIBUTES = ['id', 'data-testid', 'tabindex', 'role', 'aria-disabled', 'aria-expanded'];
+const STRIPPED_ATTRIBUTES = [
+  'id',
+  'data-testid',
+  'tabindex',
+  'role',
+  'aria-disabled',
+  'aria-expanded',
+  // Drop-target row markers: the picture of a row must never be mistaken for a row.
+  'data-drag-kind',
+  'data-drag-id',
+  'data-drag-parent',
+  'data-drag-tail-hidden',
+];
 const STRIPPED_CLASSES = ['entry-interactive', 'entry-force-hover'];
 
 function prepareSnapshot(snapshot: HTMLElement): HTMLElement {

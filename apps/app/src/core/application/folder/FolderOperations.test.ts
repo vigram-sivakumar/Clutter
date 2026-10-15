@@ -1575,3 +1575,48 @@ describe('FolderOperations — defaultTemplateId (folder default template)', () 
     expect((await diskFrontmatter(fileSystem, restored.path)).defaultTemplateId).toBe('template-a');
   });
 });
+
+describe('FolderOperations.canMove() — the read-only twin of move()', () => {
+  it('accepts what move() accepts, including the vault root', () => {
+    const parent = makeFolder('folder-parent', `${ROOT}/Parent`);
+    const child = makeFolder('folder-1', `${ROOT}/Parent/Projects`, 'folder-parent');
+    const other = makeFolder('folder-2', `${ROOT}/Elsewhere`);
+    const { folderOperations } = setup([parent, child, other]);
+
+    expect(folderOperations.canMove('folder-1', 'folder-2')).toBe(true);
+    expect(folderOperations.canMove('folder-1', null)).toBe(true);
+  });
+
+  it('rejects itself, its descendants and an unknown folder', () => {
+    const parent = makeFolder('folder-parent', `${ROOT}/Parent`);
+    const child = makeFolder('folder-child', `${ROOT}/Parent/Child`, 'folder-parent');
+    const grandchild = makeFolder('folder-grand', `${ROOT}/Parent/Child/Grand`, 'folder-child');
+    const { folderOperations } = setup([parent, child, grandchild]);
+
+    expect(folderOperations.canMove('folder-parent', 'folder-parent')).toBe(false);
+    expect(folderOperations.canMove('folder-parent', 'folder-child')).toBe(false);
+    expect(folderOperations.canMove('folder-parent', 'folder-grand')).toBe(false);
+    expect(folderOperations.canMove('missing', null)).toBe(false);
+  });
+
+  it('rejects Daily Notes, as a destination and as a source', () => {
+    const daily = makeFolder('folder-daily', `${ROOT}/Daily Notes`);
+    const month = makeFolder('folder-month', `${ROOT}/Daily Notes/2026`, 'folder-daily');
+    const plain = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { folderOperations } = setup([daily, month, plain]);
+
+    expect(folderOperations.canMove('folder-1', 'folder-daily')).toBe(false);
+    expect(folderOperations.canMove('folder-month', null)).toBe(false);
+  });
+
+  it('enqueues nothing and changes nothing', () => {
+    const source = makeFolder('folder-1', `${ROOT}/Projects`);
+    const destination = makeFolder('folder-2', `${ROOT}/Elsewhere`);
+    const { vault, folderOperations } = setup([source, destination]);
+
+    folderOperations.canMove('folder-1', 'folder-2');
+
+    expect(vault.getFolder('folder-1')!.path).toBe(`${ROOT}/Projects`);
+    expect(vault.getFolder('folder-1')!.parentId).toBeNull();
+  });
+});

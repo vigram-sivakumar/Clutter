@@ -1,4 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import { OverflowMenu } from '@components/menu/OverflowMenu';
+import { buildSortByMenuItems } from '@core/presentation/resourceActions/folderSortAction';
+import { applyFolderSortSelection } from '../helpers/buildFolderMenuHandlers';
+import { DEFAULT_SIDEBAR_SORT } from '@core/properties/sidebarSort';
 import { View } from '@app/layouts/sidebar/View/Sidebar.View';
 import { Section } from '@app/layouts/sidebar/section/Section';
 import { FavoritesSection } from '@app/layouts/sidebar/section/FavoritesSection';
@@ -95,8 +99,13 @@ interface NotesProps {
   expandedFolders?: readonly string[];
   onToggleFolderCap?(key: string): void;
   /** A folder's sidebar order (Sort by in its menu) and how to change it — owned by Sidebar, persisted per folder. */
-  getFolderSort?(folderId: string): SidebarSort | undefined;
-  onFolderSortChange?(folderId: string, sort: SidebarSort): void;
+  getFolderSort?(folderId: string | null): SidebarSort | undefined;
+  onFolderSortChange?(folderId: string | null, sort: SidebarSort): void;
+  /** A level's manual order (`null` = the root) and how to store one — see FolderTree. */
+  getLevelOrder?(parentId: string | null): readonly string[] | undefined;
+  onLevelOrderChange?(parentId: string | null, order: readonly string[]): void;
+  /** An item moved out of `parentId` successfully: its entry in that level's saved order is stale. */
+  onItemLeftLevel?(parentId: string | null, kind: 'folder' | 'note', id: string): void;
 }
 
 export function Notes({
@@ -119,6 +128,9 @@ export function Notes({
   onToggleFolderCap,
   getFolderSort,
   onFolderSortChange,
+  getLevelOrder,
+  onLevelOrderChange,
+  onItemLeftLevel,
 }: NotesProps) {
   const [pendingNewFolder, setPendingNewFolder] =
     useState<PendingNewFolder | null>(null);
@@ -172,7 +184,8 @@ export function Notes({
             folder.parentId,
             'folder',
             folderId,
-            folder.parentId ? getFolderSort?.(folder.parentId) : undefined
+            getFolderSort?.(folder.parentId),
+            getLevelOrder?.(folder.parentId)
           )
         );
       }
@@ -184,7 +197,8 @@ export function Notes({
         page.parentId ?? null,
         'page',
         revealPageId,
-        page.parentId ? getFolderSort?.(page.parentId) : undefined
+        getFolderSort?.(page.parentId ?? null),
+        getLevelOrder?.(page.parentId ?? null)
       )
     );
 
@@ -232,6 +246,7 @@ export function Notes({
   // shared by every row FolderTree recurses through (SidebarRowActions),
   // the mechanism that guarantees only one menu is ever open at a time and
   // that starting a rename elsewhere closes any other in-progress one.
+  const [rootOrderMenuOpen, setRootOrderMenuOpen] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   // FavoriteList renders its own Entry instances for the same page/folder
@@ -321,8 +336,24 @@ export function Notes({
         folderId,
         moveZoneFor('folder', { moveZone: membershipSelector.getMoveZoneOfFolder(folderId) })
       ),
-    onMoveFolder: (folderId, destinationFolderId) =>
-      void folderOperations.move(folderId, destinationFolderId),
+    // Returns the promise (the picker ignores it) so a drag-and-drop can observe a rejection.
+    onMoveFolder: async (folderId, destinationFolderId) => {
+      const from = vault.getFolder(folderId)?.parentId ?? null;
+      await folderOperations.move(folderId, destinationFolderId);
+      // (Only reached when the move succeeded.)
+      if (from !== destinationFolderId) {
+        onItemLeftLevel?.(from, 'folder', folderId);
+      }
+    },
+    onMoveNote: async (pageId, destinationFolderId) => {
+      const from = vault.getPage(pageId)?.parentId ?? null;
+      await pageOperations.move(pageId, destinationFolderId);
+      if (from !== destinationFolderId) {
+        onItemLeftLevel?.(from, 'note', pageId);
+      }
+    },
+    canMoveFolderInto: (folderId, destinationFolderId) =>
+      folderOperations.canMove(folderId, destinationFolderId),
 
     // Discrete-commit only, never rejects — see SidebarRowActions'
     // onResourceTitleCommit doc comment for why a resource rename has no
@@ -481,6 +512,10 @@ export function Notes({
         // available from getVaultDisplayName (the Workspace Collection page title uses it), kept
         // for where the sidebar will want it again.
         title="Folders"
+        // The header's actions are revealed by hovering the row (Entry.css). The menu opens in a portal, so the
+        // pointer leaves the row — and without this the button collapses and the menu loses its anchor and jumps
+        // to the window's corner. The same forceHover a folder row holds while its own menu is open.
+        forceHover={rootOrderMenuOpen}
         isCollapsible
         // Header click only expands/collapses; the Workspace Collection
         // page is no longer opened from here.
@@ -490,15 +525,30 @@ export function Notes({
           workspace.setSectionExpanded('folders', expanded)
         }
         actions={
-          <Button
-            size="small"
-            variant="ghost"
-            interaction="subtle"
-            isIconOnly
-            onClick={startNewRootFolder}
-          >
-            <AppIcon icon="plus" />
-          </Button>
+          <>
+            <Button
+              size="small"
+              variant="ghost"
+              interaction="subtle"
+              isIconOnly
+              onClick={startNewRootFolder}
+            >
+              <AppIcon icon="plus" />
+            </Button>
+            {/* The section's three-dot menu, like a folder row's: the vault root's sort choices, listed directly
+                under a "Sort by" heading. */}
+            <OverflowMenu
+              items={buildSortByMenuItems(getFolderSort?.(null) ?? DEFAULT_SIDEBAR_SORT)}
+              open={rootOrderMenuOpen}
+              onOpenChange={setRootOrderMenuOpen}
+              onSelect={(id) => {
+                applyFolderSortSelection(id, null, getFolderSort?.(null), onFolderSortChange);
+              }}
+              side="bottom"
+              alignment="start"
+              buttonProps={{ 'aria-label': 'Folders actions' }}
+            />
+          </>
         }
       >
         <FolderTree
@@ -518,6 +568,8 @@ export function Notes({
           onToggleFolderCap={onToggleFolderCap}
           enableDrag
           getFolderSort={getFolderSort}
+          getLevelOrder={getLevelOrder}
+          onLevelOrderChange={onLevelOrderChange}
           onFolderSortChange={onFolderSortChange}
           onPageClick={onOpen}
           onDraftPageClick={onOpenDraft}

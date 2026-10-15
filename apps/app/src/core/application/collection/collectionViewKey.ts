@@ -28,6 +28,15 @@ export function collectionViewKeyForFolder(folderId: string): CollectionViewKey 
   return `${COLLECTION_VIEW_KEY_PREFIX.folder}${folderId}`;
 }
 
+/**
+ * The vault root's own entry for how the notes sidebar orders its root folders (ADR-055). Not
+ * `view:workspace`, which is the Workspace collection PAGE's configuration: manual sidebar order must
+ * never reach a collection page, and the root has no folder id to key by.
+ */
+export function collectionViewKeyForSidebarRoot(): CollectionViewKey {
+  return 'sidebar:root';
+}
+
 export function collectionViewKeyForFilteredView(
   kind: 'workspace' | 'favorites' | 'assets' | 'tasks'
 ): CollectionViewKey {

@@ -1,7 +1,9 @@
 import type { Application } from '@core/application/Application';
 import { useWorkspace } from '@app/hooks/useWorkspace';
 import { useState, type ReactNode } from 'react';
-import { collectionViewKeyForFolder } from '@core/application/collection/collectionViewKey';
+import { collectionViewKeyForFolder, collectionViewKeyForSidebarRoot } from '@core/application/collection/collectionViewKey';
+import { displayedOrderIds } from '@features/notes/sidebar/sidebarSort';
+import { sidebarOrderId } from '@core/properties/sidebarSort';
 import type { TaskGroupId } from '@features/tasks/helpers/groupTasks';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import type { TaskDisplayConfig } from '@features/tasks/helpers/groupTasks';
@@ -45,6 +47,10 @@ interface SidebarProps {
   /** See AppLayout's own doc comment on its `pendingReveal` state — set here by Tasks' "Show in note" (and by PageHost's own Tag collection "Open note"), consumed by PageHost. */
   readonly onRequestReveal: (reveal: PendingEditorReveal) => void;
 }
+
+/** Where a level's sidebar sort and manual order are stored: its parent folder's entry, or the dedicated root entry. */
+const sidebarKey = (parentId: string | null) =>
+  parentId === null ? collectionViewKeyForSidebarRoot() : collectionViewKeyForFolder(parentId);
 
 export function Sidebar({
   application,
@@ -123,13 +129,39 @@ export function Sidebar({
           onOpenDraft={(pageId) => workspace.openPage(pageId)}
           onOpenResource={onOpenResource}
           expandedFolders={expandedFolders}
-          getFolderSort={(folderId) =>
-            application.collectionViewConfigStore.get(collectionViewKeyForFolder(folderId))
-              ?.sidebarSort
-          }
+          getFolderSort={(parentId) => application.collectionViewConfigStore.get(sidebarKey(parentId))?.sidebarSort}
+          getLevelOrder={(parentId) => application.collectionViewConfigStore.get(sidebarKey(parentId))?.sidebarOrder}
+          onLevelOrderChange={(parentId, order) => {
+            // A reorder makes the level Manual and stores its order in one write (ADR-055).
+            application.collectionViewConfigStore.update(sidebarKey(parentId), {
+              sidebarSort: { key: 'manual', direction: 'down' },
+              sidebarOrder: order,
+            });
+            setSortRevision((revision) => revision + 1);
+          }}
+          onItemLeftLevel={(parentId, kind, id) => {
+            // A successful move out of `parentId`: forget the item in that level's saved order, so coming
+            // back later puts it at the end rather than at its old position.
+            const order = application.collectionViewConfigStore.get(sidebarKey(parentId))?.sidebarOrder;
+            const remaining = order?.filter((entry) => entry !== sidebarOrderId(kind, id));
+            if (order && remaining && remaining.length !== order.length) {
+              application.collectionViewConfigStore.update(sidebarKey(parentId), {
+                sidebarOrder: remaining.length > 0 ? remaining : undefined,
+              });
+              setSortRevision((revision) => revision + 1);
+            }
+          }}
           onFolderSortChange={(folderId, sort) => {
-            application.collectionViewConfigStore.update(collectionViewKeyForFolder(folderId), {
+            const stored = application.collectionViewConfigStore.get(sidebarKey(folderId));
+            application.collectionViewConfigStore.update(sidebarKey(folderId), {
               sidebarSort: sort,
+              // Choosing Manual restores the arrangement the user saved. Only a level with none yet starts from
+              // what is drawn now, so nothing visibly jumps. (Leaving Manual never touches the saved order.)
+              ...(sort.key === 'manual' && {
+                sidebarOrder:
+                  stored?.sidebarOrder ??
+                  displayedOrderIds(membershipSelector, folderId, stored?.sidebarSort, stored?.sidebarOrder),
+              }),
             });
             // The store is the source of truth; this just re-renders the tree to read it again.
             setSortRevision((revision) => revision + 1);

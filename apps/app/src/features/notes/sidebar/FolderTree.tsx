@@ -1,5 +1,6 @@
 // React
 import { Fragment } from 'react/jsx-runtime';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 // Components
 import { Folder as FolderEntry } from './Folder';
 import { Note as NoteEntry } from './Note';
@@ -10,15 +11,19 @@ import type { MovePickerZone } from '@core/vault/initialize/ReservedResources';
 import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
 import { buildPageMenuHandlers } from '../helpers/buildPageMenuHandlers';
 import { applyFolderSortSelection, buildFolderMenuHandlers } from '../helpers/buildFolderMenuHandlers';
-import { levelKindOrder, sortSidebarFolders, sortSidebarPages } from './sidebarSort';
+import { displayedOrderIds, levelEntries, placeInOrder } from './sidebarSort';
 import {
   DEFAULT_SIDEBAR_SORT,
+  sidebarOrderId,
   type SidebarSort,
 } from '@core/properties/sidebarSort';
 import { buildAssetMenuHandlers } from '../helpers/buildAssetMenuHandlers';
 import { testIds } from '@shared/testing/selectors';
-import { usePointerDrag } from '@shared/interaction';
+import { createDragAutoScroller, findScrollContainer, usePointerDrag } from '@shared/interaction';
 import { DragGhost } from '@components/drag-ghost/DragGhost';
+import { DropFeedback } from '@components/drag-ghost/DropFeedback';
+import { executeDrop, type DropActions } from './executeDrop';
+import { collectDragRows, resolveDropTarget, sameDropTarget, type DropTarget } from './dropTarget';
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 // Models
 import type { Folder } from '@core/vault/models';
@@ -47,45 +52,87 @@ import type { ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbe
 /** A folder shows this many of its own notes and files; the rest sit behind its "N more" row. */
 export const SIDEBAR_FOLDER_ITEM_LIMIT = 10;
 
+/** How long a drag must rest on a collapsed "N more" row before the hidden items are revealed for the rest of the drag. */
+export const DRAG_REVEAL_DELAY_MS = 500;
+
 /** The key the vault root's own notes/files use in `expandedFolders` (a real folder id is never this). */
 export const ROOT_FOLDER_CAP_KEY = '__root__';
 
 /**
- * Where a folder or note sits in its parent's list, in the order that list is drawn (the root: folders,
- * notes, files; a nested level: notes, files, subfolders) — what the 10-item cap counts against.
- * -1 when the item isn't in that list.
+ * Where a folder or note sits in its parent's list, in the order that list is drawn (folders and notes as
+ * one sequence under the level's sort; then, at the root, its own notes; files last in every level) — what
+ * the 10-item cap counts against. -1 when the item isn't in that list.
  */
 export function getLevelIndex(
   membershipSelector: MembershipSelector,
   parentId: string | null,
   kind: 'folder' | 'page',
   id: string,
-  sort?: SidebarSort
+  sort?: SidebarSort,
+  order?: readonly string[]
 ): number {
-  const folders = sortSidebarFolders(
-    parentId === null
-      ? membershipSelector.getWorkspaceFolders()
-      : membershipSelector.getVisibleChildFolders(parentId),
-    sort
+  const sequence = levelEntries(membershipSelector, parentId, sort, order);
+  const index = sequence.findIndex((entry) =>
+    entry.kind === 'folder' ? kind === 'folder' && entry.folder.id === id : kind === 'page' && entry.entry.id === id
   );
-  const pages = sortSidebarPages(membershipSelector.getNotesChildPages(parentId), sort);
-  const resourceCount =
-    parentId === null
-      ? membershipSelector.getRootResources().length
-      : membershipSelector.getVisibleChildResources(parentId).length;
 
-  if (kind === 'folder') {
-    const index = folders.findIndex((folder) => folder.id === id);
-    return index < 0 ? -1 : parentId === null ? index : pages.length + resourceCount + index;
+  if (index >= 0 || parentId !== null || kind !== 'page') {
+    return index;
   }
-  const index = pages.findIndex((entry) => entry.id === id);
-  return index < 0 ? -1 : parentId === null ? folders.length + index : index;
+
+  // The root draws its own notes after its folders, in name order.
+  const rootNote = membershipSelector.getNotesChildPages(null).findIndex((entry) => entry.id === id);
+  return rootNote < 0 ? -1 : sequence.length + rootNote;
 }
 
 /** What a sidebar drag carries. A note id and a folder id are different namespaces, hence the kind. */
 interface SidebarDragItem {
   readonly kind: 'folder' | 'note';
   readonly id: string;
+  /** The parent folder it is dragged from (`null` = root). */
+  readonly parentId: string | null;
+}
+
+interface DropTargetStore {
+  get(): DropTarget | null;
+  set(next: DropTarget | null): void;
+  subscribe(listener: () => void): () => void;
+}
+
+function createDropTargetStore(): DropTargetStore {
+  let current: DropTarget | null = null;
+  const listeners = new Set<() => void>();
+
+  return {
+    get: () => current,
+    set(next) {
+      if (!sameDropTarget(current, next)) {
+        current = next;
+        listeners.forEach((listener) => listener());
+      }
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+}
+
+/** Draws the one drop indicator for the store's target; re-renders alone when it changes. */
+function DropFeedbackHost({ store }: { store: DropTargetStore }) {
+  const target = useSyncExternalStore(store.subscribe, store.get);
+  return target ? <DropFeedback shape={target} /> : null;
+}
+
+/** The collapsed "N more" row under the pointer, by cap key (only drag-enabled lists mark theirs). */
+function showMoreCapKeyAt(pointer: { x: number; y: number }): string | null {
+  for (const element of document.querySelectorAll<HTMLElement>('[data-cap-key]')) {
+    const rect = element.getBoundingClientRect();
+    if (pointer.x >= rect.left && pointer.x <= rect.right && pointer.y >= rect.top && pointer.y < rect.bottom) {
+      return element.dataset.capKey ?? null;
+    }
+  }
+  return null;
 }
 
 export interface PendingNewFolder {
@@ -176,7 +223,7 @@ export interface NoteRowActions {
    * zone's own root, so it is a destination the move will accept (see createFolderInZone).
    */
   createFolderInZone(zone: MovePickerZone): ((name: string) => Promise<string>) | undefined;
-  onMoveNote(pageId: string, destinationFolderId: string | null): void;
+  onMoveNote(pageId: string, destinationFolderId: string | null): void | Promise<void>;
   /**
    * Shared by every Move entry point in the sidebar (note and folder
    * rows alike) — the same FolderOperations.create() the "+" button
@@ -227,7 +274,12 @@ export interface SidebarRowActions extends NoteRowActions {
    * excludeFolderId does for the topbar's folder Move.
    */
   getFolderMoveDestinations(folderId: string): PickerListItem[];
-  onMoveFolder(folderId: string, destinationFolderId: string | null): void;
+  onMoveFolder(folderId: string, destinationFolderId: string | null): void | Promise<void>;
+  /**
+   * Would moving this folder there be accepted (FolderOperations.canMove)? Asked by drag feedback so it
+   * only ever offers destinations the move would accept. Optional: without it a dragged folder is offered none.
+   */
+  canMoveFolderInto?(folderId: string, destinationFolderId: string | null): boolean;
 
   /**
    * Discrete-commit-only, mirroring a draft Note's onDraftTitleCommit shape
@@ -355,14 +407,28 @@ interface FolderTreeProps {
    * cannot pick the interaction up by accident.
    */
   enableDrag?: boolean;
-  getFolderSort?(folderId: string): SidebarSort | undefined;
+  /**
+   * Lists (by cap key) revealed only for the length of a drag, by resting on their "N more" row. Owned by
+   * the root tree and handed down; never persisted and never merged into `expandedFolders`.
+   */
+  dragRevealedCaps?: readonly string[];
+  onDragReveal?(capKey: string): void;
+  onDragRevealEnd?(): void;
+  /** `null` = the vault root, whose only stored sort is Manual. */
+  getFolderSort?(folderId: string | null): SidebarSort | undefined;
+  /** A level's manual order (ADR-055); `null` = the root. Present only when that level's sort is Manual. */
+  getLevelOrder?(parentId: string | null): readonly string[] | undefined;
+  /** Stores a level's order and makes it Manual — one write. The level's owner (Sidebar) persists it. */
+  onLevelOrderChange?(parentId: string | null, order: readonly string[]): void;
   /** Called when a Sort by row in a folder's menu is picked. */
-  onFolderSortChange?(folderId: string, sort: SidebarSort): void;
+  onFolderSortChange?(folderId: string | null, sort: SidebarSort): void;
 }
 
 /** Opt-in drag wiring for a row; omitted (the default) means the row is not draggable. */
 export interface RowDragProps {
   readonly isSource: boolean;
+  /** `data-drag-*` markers that make the row a drop target (read by dropTarget.ts). */
+  readonly attributes: Readonly<Record<string, string | undefined>>;
   onPointerDown(event: React.PointerEvent<HTMLElement>): void;
 }
 
@@ -492,6 +558,7 @@ export function PageEntry({
       level={level}
       className={drag?.isSource ? 'entry--drag-source' : undefined}
       onPointerDown={drag?.onPointerDown}
+      {...drag?.attributes}
       selected={highlightActive && workspace.activePageId === entry.id}
       // A row mid-rename must not also navigate on click — EditableText's
       // contenteditable surface isn't one of Entry's recognized
@@ -664,17 +731,144 @@ export function FolderTree({
   expandedFolders = [],
   onToggleFolderCap,
   enableDrag = false,
+  dragRevealedCaps: inheritedRevealedCaps,
+  onDragReveal: inheritedOnDragReveal,
+  onDragRevealEnd: inheritedOnDragRevealEnd,
   getFolderSort,
+  getLevelOrder,
+  onLevelOrderChange,
   onFolderSortChange,
 }: FolderTreeProps) {
-  // Drag presentation for the Notes section's folders and notes: one lifecycle, shared by both row kinds.
-  // Presentation only — there are deliberately no drop targets, so a release changes nothing.
-  const { drag: activeDrag, press: pressRow } = usePointerDrag<SidebarDragItem>();
-  const dragFor = (kind: SidebarDragItem['kind'], id: string, disabled = false): RowDragProps | undefined =>
+  // Drag for the Notes section's folders and notes: one lifecycle, shared by both row kinds. While dragging,
+  // `dropTarget` is what the user is shown; on release the move for THAT target runs (never a recalculation).
+  const rowActionsRef = useRef(rowActions);
+  rowActionsRef.current = rowActions;
+  const lastShownTargetRef = useRef<DropTarget | null>(null);
+  const placeSiblingRef = useRef<DropActions['placeSibling']>(undefined);
+  const { drag: activeDrag, press: pressRow } = usePointerDrag<SidebarDragItem>({
+    onRelease: (item) => {
+      // Consumed once: a second call for the same release finds nothing to do.
+      const shown = lastShownTargetRef.current;
+      lastShownTargetRef.current = null;
+      void executeDrop(
+        item,
+        shown,
+        rowActionsRef.current && { ...rowActionsRef.current, placeSibling: placeSiblingRef.current }
+      );
+    },
+    onCancel: () => {
+      lastShownTargetRef.current = null;
+    },
+  });
+  // The shown target lives in a tiny store read by <DropFeedbackHost>, not in this component's state: while the
+  // list auto-scrolls it changes every frame, and that must re-render the indicator, not the whole tree.
+  const dropTargetStoreRef = useRef<DropTargetStore>();
+  dropTargetStoreRef.current ??= createDropTargetStore();
+  const dropTargetStore = dropTargetStoreRef.current;
+  // Temporarily revealed lists. The root owns them; nested levels get them (and the way to change them) from it.
+  const [ownRevealedCaps, setOwnRevealedCaps] = useState<readonly string[]>([]);
+  const dragRevealedCaps = inheritedRevealedCaps ?? ownRevealedCaps;
+  const onDragReveal =
+    inheritedOnDragReveal ??
+    ((capKey: string) => setOwnRevealedCaps((previous) => (previous.includes(capKey) ? previous : [...previous, capKey])));
+  const onDragRevealEnd = inheritedOnDragRevealEnd ?? (() => setOwnRevealedCaps((previous) => (previous.length ? [] : previous)));
+  const dragRevealRef = useRef({ reveal: onDragReveal, end: onDragRevealEnd });
+  dragRevealRef.current = { reveal: onDragReveal, end: onDragRevealEnd };
+  const recomputeDropTargetRef = useRef<(() => void) | null>(null);
+  const canMoveFolderIntoRef = useRef(rowActions?.canMoveFolderInto);
+  const getFolderSortRef = useRef(getFolderSort);
+  getFolderSortRef.current = getFolderSort;
+  canMoveFolderIntoRef.current = rowActions?.canMoveFolderInto;
+
+  useEffect(() => {
+    if (!activeDrag) {
+      return;
+    }
+    const { session, payload } = activeDrag;
+    const parent = session.source.dataset.dragParent;
+    const dragged = { kind: payload.kind, id: payload.id, parentId: parent ? parent : null };
+
+    // Resting on a collapsed "N more" row reveals its hidden items for the rest of the drag.
+    let hoveredCap: string | null = null;
+    let revealTimer: ReturnType<typeof setTimeout> | undefined;
+    const watchShowMore = () => {
+      const capKey = showMoreCapKeyAt(session.pointer);
+      if (capKey === hoveredCap) {
+        return;
+      }
+      clearTimeout(revealTimer);
+      hoveredCap = capKey;
+      if (capKey !== null) {
+        revealTimer = setTimeout(() => dragRevealRef.current.reveal(capKey), DRAG_REVEAL_DELAY_MS);
+      }
+    };
+
+    const update = () => {
+      watchShowMore();
+      const next = resolveDropTarget({
+        pointer: session.pointer,
+        dragged,
+        rows: collectDragRows(),
+        canMoveFolderInto: (folderId, destinationId) =>
+          canMoveFolderIntoRef.current?.(folderId, destinationId) ?? false,
+        isManualLevel: (parent) => getFolderSortRef.current?.(parent)?.key === 'manual',
+      });
+      lastShownTargetRef.current = next;
+      dropTargetStore.set(next);
+      scroller?.poke();
+    };
+
+    // Near the top or bottom of whatever scrolls the list, the list scrolls toward the pointer; each frame that
+    // moved it re-resolves the target, since the rows under a stationary pointer have changed.
+    const scrollContainer = findScrollContainer(session.source);
+    const scroller = scrollContainer
+      ? createDragAutoScroller(scrollContainer, () => session.pointer, () => update())
+      : null;
+
+    recomputeDropTargetRef.current = update;
+    update();
+    const unsubscribe = session.subscribe(update);
+    // Scrolling moves rows under a still pointer.
+    document.addEventListener('scroll', update, true);
+
+    return () => {
+      unsubscribe();
+      document.removeEventListener('scroll', update, true);
+      clearTimeout(revealTimer);
+      scroller?.stop();
+      recomputeDropTargetRef.current = null;
+      dragRevealRef.current.end();
+      lastShownTargetRef.current = null;
+      dropTargetStore.set(null);
+    };
+  }, [activeDrag, dropTargetStore]);
+
+  // Rows appeared (or went) under a still pointer: the target shown must be the one for the rows now there.
+  useEffect(() => {
+    recomputeDropTargetRef.current?.();
+  }, [dragRevealedCaps]);
+
+  const dragFor = (
+    kind: SidebarDragItem['kind'],
+    id: string,
+    rowParentId: string | null,
+    { disabled = false, tailHidden = false } = {}
+  ): RowDragProps | undefined =>
     enableDrag
       ? {
           isSource: activeDrag?.payload.kind === kind && activeDrag.payload.id === id,
-          onPointerDown: (event) => pressRow(event, { kind, id }, { disabled }),
+          attributes: {
+            'data-drag-kind': kind,
+            'data-drag-id': id,
+            'data-drag-parent': rowParentId ?? '',
+            'data-drag-tail-hidden': tailHidden ? 'true' : undefined,
+          },
+          onPointerDown: (event) =>
+            pressRow(event, { kind, id, parentId: rowParentId }, {
+              disabled,
+              // The caret takes over a folder's icon on hover, so it is where a folder is naturally grabbed.
+              allowFrom: kind === 'folder' ? '.caret-slot' : undefined,
+            }),
         }
       : undefined;
 
@@ -691,14 +885,24 @@ export function FolderTree({
   // query.getChildFolders() structural source.
   // The order the user chose for this level in the sidebar (a nested level only — the root has no
   // Sort by); undefined keeps the default order.
-  const levelSort = parentId === null ? undefined : getFolderSort?.(parentId);
-  const rootFolders = sortSidebarFolders(
-    parentId === null
-      ? membershipSelector.getWorkspaceFolders()
-      : membershipSelector.getVisibleChildFolders(parentId),
-    levelSort
-  );
+  const levelSort = getFolderSort?.(parentId);
+  const levelOrder = levelSort?.key === 'manual' ? getLevelOrder?.(parentId) : undefined;
 
+  // Writes a dropped item's place among `parent`'s children into that level's manual order, seeded from
+  // what is drawn now (so switching a name- or date-sorted level to Manual changes nothing visible).
+  placeSiblingRef.current = (item, parent, anchor, edge) => {
+    const sort = getFolderSort?.(parent);
+    // Positions are only ever written to a level that is in Manual mode: another sort mode leaves the saved
+    // arrangement alone.
+    if (sort?.key !== 'manual') {
+      return;
+    }
+    const drawn = displayedOrderIds(membershipSelector, parent, sort, getLevelOrder?.(parent));
+    onLevelOrderChange?.(
+      parent,
+      placeInOrder(drawn, sidebarOrderId(item.kind, item.id), sidebarOrderId(anchor.kind, anchor.id), edge)
+    );
+  };
   // Only meaningful at the true root — a nested folder's own pages are
   // already rendered via getNotesChildPages(folder.id) below, per folder.
   // ADR-020 (M3 amendment): sidebar membership includes draft-only pages
@@ -727,7 +931,7 @@ export function FolderTree({
   const isCreatingHere =
     pendingNewFolder !== null && pendingNewFolder.parentId === parentId;
 
-  const renderFolder = (folder: Folder) => {
+  const renderFolder = (folder: Folder, tailHidden: boolean) => {
         // Every page that should currently be shown as a child of this
         // folder — durable and draft-only alike (ADR-020), narrowed to
         // Notes membership (ADR-023); see the rootPages comment above for
@@ -745,7 +949,7 @@ export function FolderTree({
         // expanded-by-default state, since there's nothing to reveal.
         const isExpanded = isEmpty ? false : workspace.isFolderExpanded(folder.id);
         const isEditingFolder = rowActions?.editingId === folder.id;
-        const folderDragProps = dragFor('folder', folder.id, isEditingFolder);
+        const folderDragProps = dragFor('folder', folder.id, parentId, { disabled: isEditingFolder, tailHidden });
         const folderLabel = getFolderDisplayLabel(folder);
         // Same "blank, not the literal generated string" rule the page
         // header (toResourcePageModel) applies to Notes — an untitled
@@ -770,6 +974,7 @@ export function FolderTree({
               level={level}
               className={folderDragProps?.isSource ? 'entry--drag-source' : undefined}
               onPointerDown={folderDragProps?.onPointerDown}
+              {...folderDragProps?.attributes}
               isEmpty={isEmpty}
               selected={workspace.activeFolderId === folder.id}
               isExpanded={isExpanded}
@@ -877,7 +1082,12 @@ export function FolderTree({
                   expandedFolders={expandedFolders}
                   onToggleFolderCap={onToggleFolderCap}
                   enableDrag={enableDrag}
+                  dragRevealedCaps={dragRevealedCaps}
+                  onDragReveal={onDragReveal}
+                  onDragRevealEnd={onDragRevealEnd}
                   getFolderSort={getFolderSort}
+                  getLevelOrder={getLevelOrder}
+                  onLevelOrderChange={onLevelOrderChange}
                   onFolderSortChange={onFolderSortChange}
                 />
             )}
@@ -889,10 +1099,6 @@ export function FolderTree({
   // rootResources above). A nested level lists its notes, then files, then subfolders; the root
   // lists folders first, then notes, then files. Whatever the order, the level shows its first
   // SIDEBAR_FOLDER_ITEM_LIMIT items, then a "N more" / "Show less" row.
-  const levelPages =
-    parentId === null
-      ? rootPages
-      : sortSidebarPages(membershipSelector.getNotesChildPages(parentId), levelSort);
   const levelResources =
     parentId === null ? rootResources : membershipSelector.getVisibleChildResources(parentId);
 
@@ -900,34 +1106,37 @@ export function FolderTree({
     | { kind: 'folder'; folder: Folder }
     | { kind: 'page'; entry: EffectivePage }
     | { kind: 'resource'; resource: VaultResource };
-  const folderItems: LevelItem[] = rootFolders.map((folder) => ({ kind: 'folder', folder }));
-  const pageItems: LevelItem[] = levelPages.map((entry) => ({ kind: 'page', entry }));
-  const resourceItems: LevelItem[] = levelResources.map((resource) => ({
-    kind: 'resource',
-    resource,
-  }));
-  const itemsByKind = { folder: folderItems, page: pageItems, resource: resourceItems };
-  const items = levelKindOrder(parentId === null, levelSort).flatMap((kind) => itemsByKind[kind]);
+  // Folders and notes are ONE sequence in the level's sort (the root's has folders only; its notes, in name
+  // order, and then the files, follow). Files are never part of the sequence.
+  const items: LevelItem[] = [
+    ...levelEntries(membershipSelector, parentId, levelSort, levelOrder),
+    ...rootPages.map((entry): LevelItem => ({ kind: 'page', entry })),
+    ...levelResources.map((resource): LevelItem => ({ kind: 'resource', resource })),
+  ];
 
   const capKey = parentId ?? ROOT_FOLDER_CAP_KEY;
-  const isCapExpanded = expandedFolders.includes(capKey);
+  const isCapExpanded = expandedFolders.includes(capKey) || dragRevealedCaps.includes(capKey);
   const visibleItems = isCapExpanded ? items : items.slice(0, SIDEBAR_FOLDER_ITEM_LIMIT);
 
-  const renderItem = (item: LevelItem) => {
+  // A capped level hides siblings after its last visible folder/note; a position after that row would be
+  // among rows we do not show, so the row is marked and never offered an "after" position.
+  const isCapped = items.length > visibleItems.length;
+  const lastDraggableIndex = visibleItems.reduce((last, item, index) => (item.kind === 'resource' ? last : index), -1);
+  const renderItem = (item: LevelItem, index: number) => {
+    const tailHidden = isCapped && index >= lastDraggableIndex;
     if (item.kind === 'folder') {
-      return renderFolder(item.folder);
+      return renderFolder(item.folder, tailHidden);
     }
     if (item.kind === 'page') {
       return (
         <PageEntry
           key={item.entry.id}
           entry={item.entry}
-          drag={dragFor(
-            'note',
-            item.entry.id,
+          drag={dragFor('note', item.entry.id, parentId, {
             // A draft is not a saved note yet, and a row being renamed owns its pointer.
-            item.entry.isDraft || rowActions?.editingId === item.entry.id
-          )}
+            disabled: item.entry.isDraft || rowActions?.editingId === item.entry.id,
+            tailHidden,
+          })}
           level={level}
           workspace={workspace}
           onPageClick={onPageClick}
@@ -970,16 +1179,18 @@ export function FolderTree({
       {visibleItems.map((item, index) => (
         <Fragment key={item.kind === 'folder' ? item.folder.id : item.kind === 'page' ? item.entry.id : item.resource.id}>
           {parentId !== null && index === firstFolderIndex && newFolderRow}
-          {renderItem(item)}
+          {renderItem(item, index)}
         </Fragment>
       ))}
       {parentId !== null && firstFolderIndex === -1 && newFolderRow}
       {activeDrag && <DragGhost session={activeDrag.session} />}
+      {activeDrag && <DropFeedbackHost store={dropTargetStore} />}
       {items.length > SIDEBAR_FOLDER_ITEM_LIMIT && (
         <ShowMoreEntry
           level={level}
           hiddenCount={items.length - SIDEBAR_FOLDER_ITEM_LIMIT}
           isExpanded={isCapExpanded}
+          capKey={enableDrag && !isCapExpanded ? capKey : undefined}
           onToggle={() => onToggleFolderCap?.(capKey)}
         />
       )}

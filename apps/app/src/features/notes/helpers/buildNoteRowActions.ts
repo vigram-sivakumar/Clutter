@@ -99,8 +99,8 @@ export function buildNoteRowActions(deps: BuildNoteRowActionsDeps): NoteRowActio
     // nothing about Move is reimplemented for a second caller.
     noteMoveDestinations: buildMoveDestinationItems(membershipSelector),
     createFolderInZone: (zone) => createFolderInZone(folderOperations, membershipSelector, zone),
-    onMoveNote: (pageId, destinationFolderId) =>
-      void pageOperations.move(pageId, destinationFolderId),
+    // Returns the promise (the picker ignores it) so a drag-and-drop can observe a rejection.
+    onMoveNote: (pageId, destinationFolderId) => pageOperations.move(pageId, destinationFolderId),
     // Same flow as the topbar's Move (PageHost.tsx): root-level creation
     // via the existing FolderOperations.create(), the same operation the
     // Notes sidebar's "+" button already uses.

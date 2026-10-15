@@ -4,7 +4,7 @@ import {
 } from '../../vault/initialize/workspaceStateFile';
 import { isPropertyId, type PropertyId } from '../../properties/collectionProperties';
 import type { CollectionSort } from '../../properties/collectionSort';
-import { isSidebarSortKey, type SidebarSort } from '../../properties/sidebarSort';
+import { isSidebarSortKey, normalizeSidebarOrder, type SidebarSort } from '../../properties/sidebarSort';
 import {
   isCollectionLayout,
   type CollectionLayout,
@@ -267,7 +267,7 @@ export class CollectionViewConfigStore {
 
 /** An entry without its absent (undefined) fields, or `undefined` when nothing is left — so "clear this field" and "no entry" are the same thing. */
 function compact(entry: PersistedCollectionViewConfig): PersistedCollectionViewConfig | undefined {
-  const { layout, propertyOverrides, listPropertyOverrides, layoutPropertyOverrides, sort, sidebarSort, legacyProperties } = entry;
+  const { layout, propertyOverrides, listPropertyOverrides, layoutPropertyOverrides, sort, sidebarSort, sidebarOrder, legacyProperties } = entry;
   const result: PersistedCollectionViewConfig = {
     ...(layout !== undefined && { layout }),
     ...(propertyOverrides !== undefined && Object.keys(propertyOverrides).length > 0 && { propertyOverrides }),
@@ -277,6 +277,7 @@ function compact(entry: PersistedCollectionViewConfig): PersistedCollectionViewC
       Object.keys(layoutPropertyOverrides).length > 0 && { layoutPropertyOverrides }),
     ...(sort !== undefined && { sort }),
     ...(sidebarSort !== undefined && { sidebarSort }),
+    ...(sidebarOrder !== undefined && sidebarOrder.length > 0 && { sidebarOrder }),
     ...(legacyProperties !== undefined && { legacyProperties }),
   };
 
@@ -293,7 +294,7 @@ function parseCollectionViewConfigEntry(raw: unknown): PersistedCollectionViewCo
     return undefined;
   }
 
-  const { layout, propertyOverrides, listPropertyOverrides, layoutPropertyOverrides, properties, sort, sidebarSort } = raw as {
+  const { layout, propertyOverrides, listPropertyOverrides, layoutPropertyOverrides, properties, sort, sidebarSort, sidebarOrder } = raw as {
     layout?: unknown;
     propertyOverrides?: unknown;
     listPropertyOverrides?: unknown;
@@ -301,6 +302,7 @@ function parseCollectionViewConfigEntry(raw: unknown): PersistedCollectionViewCo
     properties?: unknown;
     sort?: unknown;
     sidebarSort?: unknown;
+    sidebarOrder?: unknown;
   };
 
   return compact({
@@ -315,6 +317,7 @@ function parseCollectionViewConfigEntry(raw: unknown): PersistedCollectionViewCo
     ...(parseLegacyProperties(properties) && { legacyProperties: parseLegacyProperties(properties) }),
     ...(parseSort(sort) && { sort: parseSort(sort) }),
     ...(parseSidebarSort(sidebarSort) && { sidebarSort: parseSidebarSort(sidebarSort) }),
+    ...(normalizeSidebarOrder(sidebarOrder) && { sidebarOrder: normalizeSidebarOrder(sidebarOrder) }),
   });
 }
 

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { CollectionViewConfigStore } from './CollectionViewConfigStore';
 import { InMemoryVaultFileSystem } from '../../vault/testing/InMemoryVaultFileSystem';
-import { collectionViewKeyForFilteredView, deriveCollectionViewKey } from './collectionViewKey';
+import { collectionViewKeyForFilteredView, collectionViewKeyForSidebarRoot, deriveCollectionViewKey } from './collectionViewKey';
 import { ARCHIVE_COLLECTION, FOLDER_COLLECTION, TASKS_COLLECTION } from '../../presentation/collection/collectionDefinitions';
 import { resolveCollectionView, toCollectionViewConfig } from '../../presentation/collection/resolveCollectionView';
 
@@ -574,6 +574,83 @@ describe('CollectionViewConfigStore — sidebarSort', () => {
     expect((await CollectionViewConfigStore.load(fileSystem, ROOT)).get('folder:f1')).toEqual({
       layout: 'list',
     });
+  });
+});
+
+describe('CollectionViewConfigStore — sidebarOrder (manual sidebar order, ADR-055)', () => {
+  it('persists a manual sort and its order in ONE write and restores both after a restart', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    const store = await CollectionViewConfigStore.load(fileSystem, ROOT);
+
+    store.update('folder:f1', { sidebarSort: { key: 'manual', direction: 'down' }, sidebarOrder: ['n:a', 'f:b', 'n:c'] });
+    await flushMicrotasks();
+
+    const reloaded = await reload(fileSystem);
+    expect(reloaded.get('folder:f1')).toEqual({
+      sidebarSort: { key: 'manual', direction: 'down' },
+      sidebarOrder: ['n:a', 'f:b', 'n:c'],
+    });
+    // Written into the shared file, beside whatever else lives there — never into a note.
+    expect(JSON.parse(await fileSystem.readFile(WORKSPACE_PATH)).collectionViewConfig['folder:f1'].sidebarOrder).toEqual([
+      'n:a',
+      'f:b',
+      'n:c',
+    ]);
+  });
+
+  it('keeps each parent folder\'s order independent, and the collection page\'s own sort untouched', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    const store = await CollectionViewConfigStore.load(fileSystem, ROOT);
+
+    store.update('folder:f1', { sort: { property: 'name', direction: 'up' } });
+    store.update('folder:f1', { sidebarSort: { key: 'manual', direction: 'down' }, sidebarOrder: ['f:x'] });
+    store.update('folder:f2', { sidebarSort: { key: 'manual', direction: 'down' }, sidebarOrder: ['f:y'] });
+    await flushMicrotasks();
+
+    const reloaded = await reload(fileSystem);
+    expect(reloaded.get('folder:f1')?.sort).toEqual({ property: 'name', direction: 'up' });
+    expect(reloaded.get('folder:f1')?.sidebarOrder).toEqual(['f:x']);
+    expect(reloaded.get('folder:f2')?.sidebarOrder).toEqual(['f:y']);
+  });
+
+  it('the vault root has its own dedicated key, distinct from the Workspace collection page', async () => {
+    expect(collectionViewKeyForSidebarRoot()).toBe('sidebar:root');
+    expect(collectionViewKeyForSidebarRoot()).not.toBe(collectionViewKeyForFilteredView('workspace'));
+
+    const fileSystem = new InMemoryVaultFileSystem();
+    const store = await CollectionViewConfigStore.load(fileSystem, ROOT);
+    store.update(collectionViewKeyForSidebarRoot(), { sidebarSort: { key: 'manual', direction: 'down' }, sidebarOrder: ['f:a'] });
+    await flushMicrotasks();
+
+    expect((await reload(fileSystem)).get(collectionViewKeyForSidebarRoot())?.sidebarOrder).toEqual(['f:a']);
+    expect((await reload(fileSystem)).get(collectionViewKeyForFilteredView('workspace'))).toBeUndefined();
+  });
+
+  it('reads a damaged list defensively: non-strings and repeats dropped, first occurrence kept; an empty list is no list', async () => {
+    const store = await loadWith({
+      'folder:f1': { sidebarOrder: ['n:a', 7, null, 'f:b', 'n:a', '', 'f:b'] },
+      'folder:f2': { sidebarOrder: [] },
+      'folder:f3': { sidebarOrder: 'n:a' },
+    });
+
+    expect(store.get('folder:f1')).toEqual({ sidebarOrder: ['n:a', 'f:b'] });
+    expect(store.get('folder:f2')).toBeUndefined();
+    expect(store.get('folder:f3')).toBeUndefined();
+  });
+
+  it('clearing the order and the sort (or deleting the key, as Reset does) leaves nothing behind', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    const store = await CollectionViewConfigStore.load(fileSystem, ROOT);
+    const key = collectionViewKeyForSidebarRoot();
+
+    store.update(key, { sidebarSort: { key: 'manual', direction: 'down' }, sidebarOrder: ['f:a'] });
+    store.update(key, { sidebarSort: undefined, sidebarOrder: undefined });
+    expect(store.get(key)).toBeUndefined();
+
+    store.update(key, { sidebarSort: { key: 'manual', direction: 'down' }, sidebarOrder: ['f:a'] });
+    store.deleteKey(key);
+    await flushMicrotasks();
+    expect((await reload(fileSystem)).get(key)).toBeUndefined();
   });
 });
 

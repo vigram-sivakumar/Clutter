@@ -1,7 +1,8 @@
 import { AppIcon } from '@shared/icon';
-import { SIDEBAR_SORT_OPTIONS } from '@core/properties/sidebarSort';
+import { SIDEBAR_SORT_OPTIONS, type SidebarSort } from '@core/properties/sidebarSort';
+import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 
-import type { ResourceActionDefinition } from './resourceActionTypes';
+import type { ResourceActionContext, ResourceActionDefinition } from './resourceActionTypes';
 
 /** The id prefix of a Sort by row (`sort:<property id>`), so a row's handler can tell it from an action. */
 export const SORT_MENU_ID_PREFIX = 'sort:';
@@ -28,7 +29,7 @@ export const FOLDER_SORT_BY: ResourceActionDefinition = {
         label,
         icon: isActive ? 'tick' : undefined,
         reserveIconSpace: true,
-        trailing: isActive ? (
+        trailing: isActive && key !== 'manual' ? (
           <AppIcon
             icon={context.sort?.direction === 'down' ? 'arrowDown' : 'arrowUp'}
             className="menu__item-indicator"
@@ -38,3 +39,16 @@ export const FOLDER_SORT_BY: ResourceActionDefinition = {
     }),
   }),
 };
+
+/**
+ * The sort choices as plain rows of a menu's own list, under a non-interactive "Sort by" heading — for a menu
+ * that has no folder row to build the "Sort by" submenu from (the Folders section's own, which sorts the vault
+ * root). The rows are the very ones the folder menu's panel lists (`FOLDER_SORT_BY`): same labels, same tick
+ * and direction arrow for the active key.
+ */
+export function buildSortByMenuItems(sort: SidebarSort): OverflowMenuItemConfig[] {
+  const context: ResourceActionContext = { status: 'active', sort };
+  const items = FOLDER_SORT_BY.panel?.(context).items ?? [];
+
+  return items.map((item, index) => (index === 0 ? { ...item, groupTitle: 'Sort by' } : item));
+}

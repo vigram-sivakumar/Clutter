@@ -44,6 +44,12 @@ export interface CollectionViewConfig {
   readonly sort?: CollectionSort;
   /** How the notes sidebar orders this folder's children; absent means the sidebar's default order. */
   readonly sidebarSort?: SidebarSort;
+  /**
+   * The folder's children in the user's own order when `sidebarSort` is `manual`: kind-prefixed ids
+   * (`sidebarOrderId`), notes and folders in one list. Presentation state only — never written to a
+   * note or the Gate (ADR-055). Items missing from it follow it, by name.
+   */
+  readonly sidebarOrder?: readonly string[];
 }
 
 /**

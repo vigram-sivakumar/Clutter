@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
 import type { ResourceActionSurface } from '@core/presentation/resourceActions/resourceActionSurfaces';
-import { buildFolderMenuHandlers } from './buildFolderMenuHandlers';
+import { applyFolderSortSelection, buildFolderMenuHandlers } from './buildFolderMenuHandlers';
 
 function rowActions() {
   return {
@@ -54,4 +54,21 @@ describe('buildFolderMenuHandlers', () => {
       }
     }
   );
+});
+
+describe('applyFolderSortSelection — Manual', () => {
+  it('picking Manual selects it with the default direction, even when it is already active (it has no direction to flip)', () => {
+    const onChange = vi.fn();
+    applyFolderSortSelection('sort:manual', 'f1', { key: 'name', direction: 'up' }, onChange);
+    applyFolderSortSelection('sort:manual', 'f1', { key: 'manual', direction: 'down' }, onChange);
+
+    expect(onChange).toHaveBeenNthCalledWith(1, 'f1', { key: 'manual', direction: 'down' });
+    expect(onChange).toHaveBeenNthCalledWith(2, 'f1', { key: 'manual', direction: 'down' });
+  });
+
+  it('the other keys still flip their direction when re-picked', () => {
+    const onChange = vi.fn();
+    applyFolderSortSelection('sort:name', 'f1', { key: 'name', direction: 'down' }, onChange);
+    expect(onChange).toHaveBeenCalledWith('f1', { key: 'name', direction: 'up' });
+  });
 });

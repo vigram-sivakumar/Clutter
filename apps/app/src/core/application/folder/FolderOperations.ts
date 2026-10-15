@@ -9,7 +9,7 @@ import { FieldEditState } from '../../engine/FieldEditState';
 import { DocumentState } from '../../engine/DocumentState';
 import type { Folder } from '../../vault/models/Folder';
 import type { FolderMetadata } from '../../vault/models/FolderMetadata';
-import type { ReservedFolderId } from '../../vault/initialize/ReservedResources';
+import { isDailyNotesFolderOrDescendant, type ReservedFolderId } from '../../vault/initialize/ReservedResources';
 import { VaultPath } from '../../vault/ingest/VaultPath';
 import { resolveFolderPathOrRoot } from '../../vault/persistence/resolveFolderPathOrRoot';
 
@@ -480,6 +480,35 @@ export class FolderOperations {
 
     if (result.status !== 'folder-renamed' && result.status !== 'abandoned') {
       throw new Error(`Failed to move folder ${folderId}: ${result.status}`);
+    }
+  }
+
+  /**
+   * Read-only twin of move(): would moving `folderId` into `destinationFolderId` (`null` = the vault
+   * root) be accepted? It runs the checks move() and the Gate's 'move-folder' kind run — archived
+   * source or destination, Daily Notes, move zones, itself or a descendant — through the same
+   * FolderPathResolver, and enqueues nothing. For UI that wants to offer a destination only when the
+   * move would succeed (e.g. drag feedback), so it never re-states those rules itself.
+   */
+  public canMove(folderId: string, destinationFolderId: string | null): boolean {
+    const folder = this.vault.getFolder(folderId);
+
+    if (!folder) {
+      return false;
+    }
+
+    try {
+      this.assertEditable(folderId);
+      this.assertNotInArchivedFolder(destinationFolderId, 'Cannot move into an archived folder');
+
+      if (isDailyNotesFolderOrDescendant(this.vault.root, folder.path)) {
+        return false;
+      }
+
+      this.pathResolver.resolveMoveDestination(folderId, destinationFolderId);
+      return true;
+    } catch {
+      return false;
     }
   }
 

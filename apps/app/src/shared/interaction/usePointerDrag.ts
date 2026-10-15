@@ -28,6 +28,12 @@ export interface ActiveDrag<T> {
 export interface PressOptions {
   /** The press is ignored entirely (e.g. the row is being renamed). */
   readonly disabled?: boolean;
+  /**
+   * A selector for nested controls a press may still START a drag from (a click on them keeps working: only
+   * movement past the threshold makes it a drag). For a control that covers a large part of the row — the
+   * folder caret, which takes over the folder icon on hover.
+   */
+  readonly allowFrom?: string;
 }
 
 export interface UsePointerDragOptions<T> {
@@ -62,14 +68,14 @@ export function usePointerDrag<T>(options: UsePointerDragOptions<T> = {}) {
   useEffect(() => () => teardownRef.current?.(), []);
 
   const press = useCallback(
-    (event: ReactPointerEvent<HTMLElement>, payload: T, { disabled = false }: PressOptions = {}) => {
+    (event: ReactPointerEvent<HTMLElement>, payload: T, { disabled = false, allowFrom }: PressOptions = {}) => {
       if (disabled || event.button !== 0 || event.isPrimary === false) {
         return;
       }
 
       const source = event.currentTarget;
       const nested = (event.target as HTMLElement).closest(NESTED_INTERACTIVE_SELECTOR);
-      if (nested && nested !== source) {
+      if (nested && nested !== source && !(allowFrom && nested.matches(allowFrom))) {
         return;
       }
 

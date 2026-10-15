@@ -132,6 +132,8 @@ function setup(folders: Folder[], pages: Page[] = []) {
     workspace,
     membershipSelector,
     coordinator,
+    fileSystem,
+    pageOperations,
     folderOperations,
     enqueueSpy: vi.spyOn(coordinator, 'enqueue'),
     moveSpy: vi.spyOn(folderOperations, 'move'),
@@ -156,6 +158,8 @@ function renderTree(env: ReturnType<typeof setup>, extra: { rowActions?: Sidebar
       onCommitNewFolder={vi.fn()}
       onCancelNewFolder={vi.fn()}
       enableDrag
+      // Positions ("before/after this row") are only offered in a level ordered by hand.
+      getFolderSort={() => ({ key: 'manual', direction: 'down' })}
       {...extra}
     />
   );
@@ -193,14 +197,29 @@ let env: ReturnType<typeof setup>;
 
 beforeEach(() => {
   env = setup([makeFolder('a', `${ROOT}/Alpha`, null), makeFolder('b', `${ROOT}/Beta`, null)]);
+  // jsdom measures everything as 0. Rows are stacked top to bottom in document order, one ROW_RECT.height
+  // apart from ROW_RECT.top; the ghost's copy of a row is placed by DragGhost itself, so its rect is moot.
   vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
-    return (this.classList.contains('entry')
-      ? { ...ROW_RECT, right: ROW_RECT.left + ROW_RECT.width, bottom: ROW_RECT.top + ROW_RECT.height, x: ROW_RECT.left, y: ROW_RECT.top }
-      : { left: 0, top: 0, width: 0, height: 0, right: 0, bottom: 0, x: 0, y: 0 }) as DOMRect;
+    if (!this.classList.contains('entry')) {
+      return { left: 0, top: 0, width: 0, height: 0, right: 0, bottom: 0, x: 0, y: 0 } as DOMRect;
+    }
+    const rows = Array.from(document.querySelectorAll('.entry')).filter((row) => !row.closest('.drag-ghost'));
+    const top = ROW_RECT.top + Math.max(0, rows.indexOf(this)) * ROW_RECT.height;
+    return {
+      left: ROW_RECT.left,
+      top,
+      width: ROW_RECT.width,
+      height: ROW_RECT.height,
+      right: ROW_RECT.left + ROW_RECT.width,
+      bottom: top + ROW_RECT.height,
+      x: ROW_RECT.left,
+      y: top,
+    } as DOMRect;
   });
 });
 
 afterEach(async () => {
+  rules.allowFolderMoves = true;
   // A release arms a one-shot click swallower that disarms on the next task; let it, so it cannot eat the next test's click.
   await new Promise((resolve) => setTimeout(resolve, 0));
   cleanup();
@@ -238,11 +257,16 @@ describe('FolderTree drag: initiation', () => {
     expect(onFolderClick).toHaveBeenCalledTimes(1);
   });
 
-  it('does not start from the caret', () => {
+  it('starts from the caret only once it is dragged — a click on the caret is still just the caret', () => {
     const { container } = renderTree(env);
-    press(container.querySelector('.folder__caret .caret-slot')!);
-    move(40, 160);
+    const caret = container.querySelector('.folder__caret .caret-slot')!;
+
+    press(caret);
+    move(40, 114 + DRAG_THRESHOLD_PX - 2);
     expect(ghost()).toBeNull();
+
+    move(40, 160);
+    expect(ghost()).not.toBeNull();
   });
 
   it('does not start from the row actions ("+")', () => {
@@ -664,5 +688,577 @@ describe('FolderTree drag: scope is the Notes section only', () => {
       'src/features/notes/sidebar/FolderTree.tsx',
       'src/features/notes/sidebar/Sidebar.Notes.tsx',
     ]);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------
+// Drop-target feedback: which region of which row the pointer is over, and the one indicator it shows.
+// Rows (28px tall, from y=100): Alpha 100, Note One 128, Child 156, Beta 184, Gamma 212 — Alpha is expanded.
+// ---------------------------------------------------------------------------------------------------------
+
+const feedback = () => Array.from(document.body.querySelectorAll<HTMLElement>('[data-drop-feedback]'));
+const only = () => {
+  const found = feedback();
+  expect(found.length).toBeLessThanOrEqual(1);
+  return found[0] ?? null;
+};
+
+/** The drop tree on an in-memory disk too, so a drop that really moves things can run end to end. */
+async function setupDropTreeOnDisk() {
+  const e = setupDropTree();
+  for (const folder of e.vault.folders()) {
+    await e.fileSystem.createDirectory(folder.path);
+  }
+  const page = e.vault.getPage('n1')!;
+  e.fileSystem.seedFile(page.path, new FrontmatterSerializer().serializeDocument(page, page.source.markdown));
+  return e;
+}
+
+function setupDropTree() {
+  const folders = [
+    makeFolder('a', `${ROOT}/Alpha`, null),
+    makeFolder('c', `${ROOT}/Alpha/Child`, 'a'),
+    makeFolder('b', `${ROOT}/Beta`, null),
+    makeFolder('g', `${ROOT}/Gamma`, null),
+  ];
+  return setup(folders, [makePage('n1', `${ROOT}/Alpha/Note One.md`, 'a')]);
+}
+
+/** Lets a test flip the move rules between the moment a target is shown and the release. */
+const rules = { allowFolderMoves: true };
+
+function dropActions(e: ReturnType<typeof setup>): SidebarRowActions {
+  return new Proxy(
+    {
+      // The Move picker's own handlers, wired to the real operations.
+      onMoveNote: (pageId: string, destinationId: string | null) => e.pageOperations.move(pageId, destinationId),
+      onMoveFolder: (folderId: string, destinationId: string | null) => e.folderOperations.move(folderId, destinationId),
+      editingId: null,
+      openMenuId: null,
+      noteMoveDestinations: [],
+      resourceMoveDestinations: [],
+      createFolderInZone: () => undefined,
+      canMoveFolderInto: (folderId: string, destinationId: string | null) =>
+        rules.allowFolderMoves && e.folderOperations.canMove(folderId, destinationId),
+    },
+    { get: (target, key) => (key in target ? (target as Record<PropertyKey, unknown>)[key] : vi.fn()) }
+  ) as unknown as SidebarRowActions;
+}
+
+/** Press on `title`'s row, then move to `y` (x inside the sidebar). */
+function dragOver(title: string, y: number, x = 60) {
+  press(rowFor(title), 40, rowFor(title).getBoundingClientRect().top + 14);
+  move(x, y);
+}
+
+describe('FolderTree drop target: folder rows', () => {
+  beforeEach(() => {
+    env = setupDropTree();
+    renderTree(env, { rowActions: dropActions(env) });
+  });
+
+  it('top edge → an insertion line before the folder, with no row highlight', () => {
+    dragOver('Gamma', 102); // Alpha: 100–128, ratio ≈ 0.07
+    expect(only()).toHaveAttribute('data-drop-feedback', 'insert');
+    expect(only()!.style.top).toBe('100px');
+  });
+
+  it('central region → the whole folder row is highlighted as the destination, with no line', () => {
+    dragOver('Gamma', 114);
+    expect(only()).toHaveAttribute('data-drop-feedback', 'inside');
+    expect(only()!.style.top).toBe('100px');
+    expect(only()!.style.height).toBe('28px');
+    expect(only()!.style.width).toBe(`${ROW_RECT.width}px`);
+  });
+
+  it('an EXPANDED folder has no "after" on its header: its after position is the end of its whole subtree', () => {
+    dragOver('Gamma', 126); // the bottom edge of Alpha's header
+    expect(only()).toBeNull();
+
+    move(60, 182); // the bottom edge of the last row of Alpha's subtree (Child, 156–184)
+    expect(only()).toHaveAttribute('data-drop-feedback', 'insert');
+    expect(only()!.style.top).toBe('184px');
+  });
+
+  it('an empty folder is a destination too', () => {
+    dragOver('Gamma', 198); // Beta: 184–212, centre
+    expect(only()).toHaveAttribute('data-drop-feedback', 'inside');
+    expect(only()!.style.top).toBe('184px');
+  });
+
+  it('the first and last rows of the root list get edge positions', () => {
+    dragOver('Beta', 102);
+    expect(only()).toHaveAttribute('data-drop-feedback', 'insert'); // before Alpha, the first
+    move(60, 238); // Gamma: 212–240, bottom edge — but Gamma is the last row and not the dragged one
+    expect(only()).toHaveAttribute('data-drop-feedback', 'insert');
+    expect(only()!.style.top).toBe('240px');
+  });
+
+  it('a position beside the dragged row itself is a no-op, so nothing is shown', () => {
+    dragOver('Gamma', 210); // bottom edge of Beta, directly above Gamma
+    expect(only()).toBeNull();
+    move(60, 214); // top edge of Gamma itself
+    expect(only()).toBeNull();
+  });
+
+  it('never targets the dragged row itself', () => {
+    dragOver('Beta', 198);
+    expect(only()).toBeNull();
+  });
+});
+
+describe('FolderTree drop target: note rows', () => {
+  beforeEach(() => {
+    env = setupDropTree();
+    renderTree(env, { rowActions: dropActions(env) });
+  });
+
+  it('a note\'s middle is never a folder destination; against another note it is an insertion position', () => {
+    cleanup();
+    env = setup([makeFolder('a', `${ROOT}/Alpha`, null)], [
+      makePage('n1', `${ROOT}/Alpha/Note One.md`, 'a'),
+      makePage('n2', `${ROOT}/Alpha/Note Two.md`, 'a'),
+    ]);
+    renderTree(env, { rowActions: dropActions(env) });
+    // Alpha 100, Note One 128, Note Two 156.
+    dragOver('Note One', 170); // the middle of Note Two (156–184)
+    expect(only()).toHaveAttribute('data-drop-feedback', 'insert');
+    expect(only()!.style.top).toBe('184px');
+    move(60, 160); // its upper half: directly beside Note One itself, so the item would not move
+    expect(only()).toBeNull();
+  });
+
+  it('a folder can be placed beside a note: notes and folders share one sibling sequence', () => {
+    // Alpha's children are one sequence by name: Child (128), Note One (156).
+    dragOver('Gamma', 170); // Note One (156–184), the middle → after it
+    expect(only()).toHaveAttribute('data-drop-feedback', 'insert');
+    expect(only()!.style.top).toBe('184px');
+    move(60, 158); // its top edge → before it
+    expect(only()).toHaveAttribute('data-drop-feedback', 'insert');
+    expect(only()!.style.top).toBe('156px');
+  });
+
+  it('a note is a drag source: over a folder it can go inside, and the folder it already lives in is not offered', () => {
+    dragOver('Note One', 198); // into Beta
+    expect(only()).toHaveAttribute('data-drop-feedback', 'inside');
+
+    move(60, 114); // the middle of its own parent, Alpha: a no-op, so not a destination…
+    expect(only()).toBeNull(); // …and the positions beside Alpha are in the root list, which a note can't join
+  });
+});
+
+describe('FolderTree drop target: invalid folder destinations', () => {
+  beforeEach(() => {
+    env = setupDropTree();
+    renderTree(env, { rowActions: dropActions(env) });
+  });
+
+  it('a folder over itself shows nothing', () => {
+    dragOver('Alpha', 114);
+    expect(only()).toBeNull();
+  });
+
+  it('a folder over its own descendants shows nothing: not inside, and no position within them either', () => {
+    dragOver('Alpha', 170); // Child, centre
+    expect(only()).toBeNull();
+    move(60, 140); // Note One, inside Alpha
+    expect(only()).toBeNull();
+  });
+
+  it('a nested folder can be positioned next to its parent (moving out to the root) but not dropped "into" it', () => {
+    dragOver('Child', 114); // Alpha, centre — Child already lives there: not a destination, and Alpha's header has no "after"
+    expect(only()).toBeNull();
+    move(60, 102); // before Alpha: a position at the root
+    expect(only()).toHaveAttribute('data-drop-feedback', 'insert');
+  });
+
+  it('asks the move rules instead of restating them: with no answer available a folder gets no destination', () => {
+    cleanup();
+    env = setupDropTree();
+    renderTree(env); // no rowActions → no canMoveFolderInto
+    dragOver('Gamma', 198);
+    expect(only()).toBeNull();
+  });
+});
+
+describe('FolderTree drop target: transitions and clearing', () => {
+  beforeEach(() => {
+    env = setupDropTree();
+    renderTree(env, { rowActions: dropActions(env) });
+  });
+
+  it('crossing regions swaps the one indicator — never two, never stale', () => {
+    dragOver('Gamma', 102);
+    expect(only()).toHaveAttribute('data-drop-feedback', 'insert');
+    move(60, 114);
+    expect(only()).toHaveAttribute('data-drop-feedback', 'inside');
+    move(60, 126); // the bottom of an expanded folder's header: nothing
+    expect(only()).toBeNull();
+    move(60, 198); // a different row entirely
+    expect(only()).toHaveAttribute('data-drop-feedback', 'inside');
+    expect(only()!.style.top).toBe('184px');
+  });
+
+  it('leaving the rows (over the page, or past the last row) clears it, and coming back restores it', () => {
+    dragOver('Gamma', 114);
+    expect(only()).not.toBeNull();
+    move(500, 114);
+    expect(only()).toBeNull();
+    move(60, 114);
+    expect(only()).not.toBeNull();
+    move(60, 400);
+    expect(only()).toBeNull();
+  });
+
+  it.each([
+    ['release', () => release(60, 114)],
+    ['Escape', () => act(() => void fireEvent.keyDown(document, { key: 'Escape' }))],
+    ['pointercancel', () => act(() => void fireEvent.pointerCancel(document, { pointerId: 1 }))],
+  ])('%s clears the indicator', (_name, end) => {
+    dragOver('Gamma', 114);
+    expect(only()).not.toBeNull();
+    end();
+    expect(feedback()).toHaveLength(0);
+  });
+
+  it('unmounting mid-drag removes the indicator', () => {
+    cleanup();
+    env = setupDropTree();
+    const { unmount } = renderTree(env, { rowActions: dropActions(env) });
+    dragOver('Gamma', 114);
+    unmount();
+    expect(feedback()).toHaveLength(0);
+  });
+
+  it('is not shown before the drag begins (a press under the threshold)', () => {
+    press(rowFor('Gamma'), 40, 226);
+    move(60, 227);
+    expect(feedback()).toHaveLength(0);
+  });
+
+  it('the ghost is never mistaken for a row, and releasing on an insertion position moves, reorders and persists nothing', () => {
+    dragOver('Gamma', 186); // Beta's top edge: an insertion position, not a destination
+    expect(only()).toHaveAttribute('data-drop-feedback', 'insert');
+    expect(ghost()!.querySelector('[data-drag-id]')).toBeNull();
+    release(60, 186);
+
+    expect(env.moveSpy).not.toHaveBeenCalled();
+    expect(env.renameSpy).not.toHaveBeenCalled();
+    expect(env.enqueueSpy).not.toHaveBeenCalled();
+    expect(env.vault.getFolder('g')!.parentId).toBeNull();
+    expect(env.vault.getPage('n1')!.path).toBe(`${ROOT}/Alpha/Note One.md`);
+  });
+});
+
+describe('FolderTree drop target: capped lists and scope', () => {
+  it('after the last visible row of a capped list is not offered — the real position is among hidden rows', () => {
+    const folders = Array.from({ length: 12 }, (_, i) => makeFolder(`f${i}`, `${ROOT}/F${String(i).padStart(2, '0')}`, null));
+    env = setup(folders);
+    renderTree(env, { rowActions: dropActions(env) });
+
+    // 10 rows are shown; F09 is the last visible. Drag F00 over it.
+    dragOver('F00', ROW_RECT.top + 9 * 28 + 26); // F09's bottom edge
+    expect(only()).toBeNull();
+
+    move(60, ROW_RECT.top + 9 * 28 + 2); // its top edge is a precise position
+    expect(only()).toHaveAttribute('data-drop-feedback', 'insert');
+    move(60, ROW_RECT.top + 9 * 28 + 14); // and its middle is a destination
+    expect(only()).toHaveAttribute('data-drop-feedback', 'inside');
+  });
+
+  it('without enableDrag, rows carry no drop markers and nothing is ever shown', () => {
+    env = setupDropTree();
+    renderTree(env, { rowActions: dropActions(env), enableDrag: false });
+    expect(document.querySelector('[data-drag-id]')).toBeNull();
+    press(rowFor('Gamma'));
+    move(60, 114);
+    expect(feedback()).toHaveLength(0);
+  });
+});
+
+describe('FolderTree drop target: root-level restrictions', () => {
+  // Rows from y=100: Alpha, Note One, Child, Beta, Gamma (root folders: Alpha, Beta, Gamma; Alpha expanded).
+  beforeEach(() => {
+    env = setupDropTree();
+    renderTree(env, { rowActions: dropActions(env) });
+  });
+
+  it('a note over root-level folders never gets an insertion target — top, bottom or the expanded folder\'s tail', () => {
+    press(rowFor('Note One'), 40, 142);
+    for (const y of [102, 126, 186, 210, 214, 238]) {
+      move(60, y); // edge bands of Alpha, Beta and Gamma
+      expect(feedback().filter((f) => f.dataset.dropFeedback === 'insert')).toHaveLength(0);
+    }
+  });
+
+  it('a note over a root folder\'s middle is still a valid folder destination (the one way to move it)', () => {
+    press(rowFor('Note One'), 40, 142);
+    move(60, 198); // Beta
+    expect(only()).toHaveAttribute('data-drop-feedback', 'inside');
+    move(60, 226); // Gamma
+    expect(only()).toHaveAttribute('data-drop-feedback', 'inside');
+  });
+
+  it('a note that sits at the root cannot be placed among the root rows either', () => {
+    cleanup();
+    env = setup([makeFolder('b', `${ROOT}/Beta`, null), makeFolder('g', `${ROOT}/Gamma`, null)], [
+      makePage('r1', `${ROOT}/Loose.md`, null),
+    ]);
+    renderTree(env, { rowActions: dropActions(env) });
+    // Rows: Beta 100, Gamma 128, Loose 156.
+    press(rowFor('Loose'), 40, 170);
+    move(60, 130); // Gamma's top edge
+    expect(only()).toBeNull();
+    move(60, 102); // Beta's top edge
+    expect(only()).toBeNull();
+    move(60, 114); // Beta's middle → into Beta
+    expect(only()).toHaveAttribute('data-drop-feedback', 'inside');
+  });
+
+  it('a folder over root-level folders gets before and after positions', () => {
+    press(rowFor('Gamma'), 40, 226);
+    move(60, 186); // Beta's top edge
+    expect(only()).toHaveAttribute('data-drop-feedback', 'insert');
+    expect(only()!.style.top).toBe('184px');
+    move(60, 102); // Alpha's top edge — first in the root list
+    expect(only()).toHaveAttribute('data-drop-feedback', 'insert');
+    move(60, 126); // Alpha's header bottom edge: expanded, so nothing
+    expect(only()).toBeNull();
+    move(60, 182); // the end of Alpha's subtree
+    expect(only()).toHaveAttribute('data-drop-feedback', 'insert');
+    expect(only()!.style.top).toBe('184px');
+  });
+
+  it('a folder dragged out of a folder can be positioned at the root', () => {
+    press(rowFor('Child'), 40, 170);
+    move(60, 188); // Beta's top edge
+    expect(only()).toHaveAttribute('data-drop-feedback', 'insert');
+  });
+
+  it('a note can be reordered among its siblings inside its own parent folder', () => {
+    cleanup();
+    env = setup([makeFolder('a', `${ROOT}/Alpha`, null)], [
+      makePage('n1', `${ROOT}/Alpha/Note One.md`, 'a'),
+      makePage('n2', `${ROOT}/Alpha/Note Two.md`, 'a'),
+      makePage('n3', `${ROOT}/Alpha/Note Three.md`, 'a'),
+    ]);
+    renderTree(env, { rowActions: dropActions(env) });
+    // Alpha 100, then its notes by name: Note One 128, Note Three 156, Note Two 184.
+    press(rowFor('Note One'), 40, 142);
+    move(60, 186); // Note Two's top edge: between Note Three and Note Two
+    expect(only()).toHaveAttribute('data-drop-feedback', 'insert');
+    expect(only()!.style.top).toBe('184px');
+    move(60, 210); // Note Two's bottom edge: after the last note
+    expect(only()).toHaveAttribute('data-drop-feedback', 'insert');
+    move(60, 158); // directly beside itself (before Note Three) → no-op
+    expect(only()).toBeNull();
+  });
+
+  it('a note can be moved into another valid folder', () => {
+    press(rowFor('Note One'), 40, 142);
+    move(60, 198);
+    expect(only()).toHaveAttribute('data-drop-feedback', 'inside');
+    expect(only()!.style.top).toBe('184px');
+  });
+
+  it('an invalid target shows nothing at all — no highlight, no line', () => {
+    press(rowFor('Alpha'), 40, 114);
+    for (const y of [114, 140, 170]) {
+      move(60, y); // itself, its note, its child folder
+      expect(feedback()).toHaveLength(0);
+    }
+    move(500, 114);
+    expect(feedback()).toHaveLength(0);
+  });
+
+});
+
+// ---------------------------------------------------------------------------------------------------------
+// Phase 3a: releasing on a folder destination runs the existing Move, for the target that was shown.
+// ---------------------------------------------------------------------------------------------------------
+
+/** Lets the (async) move that a release started finish. */
+const settle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+
+describe('FolderTree drop: moving into a folder', () => {
+  let pageMove: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(async () => {
+    env = await setupDropTreeOnDisk();
+    pageMove = vi.spyOn(env.pageOperations, 'move');
+    renderTree(env, { rowActions: dropActions(env) });
+  });
+
+  it('a note dropped on a folder is moved there by PageOperations.move — once, keeping its id', async () => {
+    press(rowFor('Note One'), 40, 142);
+    move(60, 198); // Beta
+    release(60, 198);
+    await settle();
+
+    expect(pageMove).toHaveBeenCalledExactlyOnceWith('n1', 'b');
+    const moved = env.vault.getPage('n1')!;
+    expect(moved.parentId).toBe('b');
+    expect(moved.path).toBe(`${ROOT}/Beta/Note One.md`);
+  });
+
+  it('a folder dropped on a folder is moved there by FolderOperations.move, with its descendants and ids', async () => {
+    press(rowFor('Alpha'), 40, 114);
+    move(60, 198); // Beta
+    release(60, 198);
+    await settle();
+
+    expect(env.moveSpy).toHaveBeenCalledExactlyOnceWith('a', 'b');
+    expect(env.vault.getFolder('a')!.parentId).toBe('b');
+    expect(env.vault.getFolder('a')!.path).toBe(`${ROOT}/Beta/Alpha`);
+    expect(env.vault.getFolder('c')!.path).toBe(`${ROOT}/Beta/Alpha/Child`);
+    expect(env.vault.getPage('n1')!.path).toBe(`${ROOT}/Beta/Alpha/Note One.md`);
+  });
+
+  it('the move is for the target that was SHOWN, not for wherever the pointer is when it is released', async () => {
+    press(rowFor('Note One'), 40, 142);
+    move(60, 198); // Beta is highlighted…
+    release(60, 226); // …and the button comes up over Gamma
+    await settle();
+
+    expect(pageMove).toHaveBeenCalledExactlyOnceWith('n1', 'b');
+  });
+
+  it('the displayed highlight, the ghost and the dimming are gone straight after the release', async () => {
+    const row = rowFor('Note One');
+    press(row, 40, 142);
+    move(60, 198);
+    release(60, 198);
+
+    expect(feedback()).toHaveLength(0);
+    expect(ghost()).toBeNull();
+    await settle();
+    expect(document.querySelector('.entry--drag-source')).toBeNull();
+  });
+
+  it('re-checks the move rules at release: a destination no longer allowed is not moved to', async () => {
+    press(rowFor('Gamma'), 40, 226);
+    move(60, 198); // Beta highlighted
+    expect(only()).toHaveAttribute('data-drop-feedback', 'inside');
+
+    rules.allowFolderMoves = false;
+    release(60, 198);
+    await settle();
+
+    expect(env.moveSpy).not.toHaveBeenCalled();
+    expect(env.vault.getFolder('g')!.parentId).toBeNull();
+  });
+
+  it('a move the operation rejects leaves everything where it was and the drag state clean', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    pageMove.mockRejectedValueOnce(new Error('Cannot move'));
+
+    const row = rowFor('Note One');
+    press(row, 40, 142);
+    move(60, 198);
+    release(60, 198);
+    await settle();
+
+    expect(warn).toHaveBeenCalled();
+    expect(env.vault.getPage('n1')!.parentId).toBe('a');
+    expect(feedback()).toHaveLength(0);
+    expect(ghost()).toBeNull();
+    expect(row).not.toHaveClass('entry--drag-source');
+    expect(document.body.style.userSelect).toBe('');
+
+    // And the next drag works.
+    press(row, 40, 142);
+    move(60, 198);
+    expect(only()).toHaveAttribute('data-drop-feedback', 'inside');
+  });
+
+  it('keeps an open note open: same id, same session, now in its new folder', async () => {
+    await env.pageOperations.open('n1');
+    expect(env.workspace.activePageId).toBe('n1');
+
+    press(rowFor('Note One'), 40, 142);
+    move(60, 198);
+    release(60, 198);
+    await settle();
+
+    expect(env.workspace.activePageId).toBe('n1');
+    expect(env.vault.getPage('n1')!.parentId).toBe('b');
+  });
+
+  it('keeps a note open when the folder containing it is moved', async () => {
+    await env.pageOperations.open('n1');
+
+    press(rowFor('Alpha'), 40, 114);
+    move(60, 198);
+    release(60, 198);
+    await settle();
+
+    expect(env.workspace.activePageId).toBe('n1');
+    expect(env.vault.getPage('n1')!.path).toBe(`${ROOT}/Beta/Alpha/Note One.md`);
+  });
+});
+
+describe('FolderTree drop: nothing else ever moves anything', () => {
+  beforeEach(async () => {
+    env = await setupDropTreeOnDisk();
+    vi.spyOn(env.pageOperations, 'move');
+    renderTree(env, { rowActions: dropActions(env) });
+  });
+
+  const nothingMoved = async () => {
+    await settle();
+    expect(env.pageOperations.move).not.toHaveBeenCalled();
+    expect(env.moveSpy).not.toHaveBeenCalled();
+    expect(env.enqueueSpy).not.toHaveBeenCalled();
+    expect(env.vault.getPage('n1')!.parentId).toBe('a');
+    expect(env.vault.getFolder('g')!.parentId).toBeNull();
+  };
+
+  it('releasing with no target performs no operation', async () => {
+    press(rowFor('Gamma'), 40, 226);
+    move(500, 226);
+    release(500, 226);
+    await nothingMoved();
+  });
+
+  it('releasing on a destination that is not valid performs no operation', async () => {
+    press(rowFor('Alpha'), 40, 114);
+    move(60, 170); // its own child folder
+    expect(feedback()).toHaveLength(0);
+    release(60, 170);
+    await nothingMoved();
+  });
+
+  it.each([
+    ['Escape', () => act(() => void fireEvent.keyDown(document, { key: 'Escape' }))],
+    ['pointercancel', () => act(() => void fireEvent.pointerCancel(document, { pointerId: 1 }))],
+  ])('%s after a destination was shown never moves anything, even if the button is released over it', async (_name, cancel) => {
+    press(rowFor('Gamma'), 40, 226);
+    move(60, 198);
+    expect(only()).toHaveAttribute('data-drop-feedback', 'inside');
+    cancel();
+    release(60, 198);
+    await nothingMoved();
+  });
+
+  it('a plain click on a row moves nothing and still opens it', async () => {
+    const { onFolderClick } = (() => {
+      cleanup();
+      return renderTree(env, { rowActions: dropActions(env) });
+    })();
+    const row = rowFor('Beta');
+    press(row);
+    release(40, 114);
+    fireEvent.click(row);
+    expect(onFolderClick).toHaveBeenCalledTimes(1);
+    await nothingMoved();
+  });
+
+  it('is exclusive to the Notes tree: without enableDrag a release over a folder moves nothing', async () => {
+    cleanup();
+    renderTree(env, { rowActions: dropActions(env), enableDrag: false });
+    press(rowFor('Gamma'), 40, 226);
+    move(60, 198);
+    release(60, 198);
+    await nothingMoved();
   });
 });

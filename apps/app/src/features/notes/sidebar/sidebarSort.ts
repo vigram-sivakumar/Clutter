@@ -2,69 +2,137 @@ import type { Folder } from '@core/vault/models';
 import type { EffectivePage } from '@core/application/page/EffectivePageState';
 import { getPageDisplayLabel } from '@core/presentation/getPageDisplayLabel';
 import { getFolderDisplayLabel } from '@core/presentation/getFolderDisplayLabel';
-import { NOTE_SORT_OPTIONS, sortEntries, type CollectionSort } from '@core/properties/collectionSort';
-import type { SidebarSort } from '@core/properties/sidebarSort';
+import type { PropertyId } from '@core/properties/collectionProperties';
+import { sortEntries } from '@core/properties/collectionSort';
+import { sidebarOrderId, type SidebarSort } from '@core/properties/sidebarSort';
+import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import { toFolderValues, toNoteValues } from '@features/collection/page/toCollectionPageModel';
 
-export type LevelKind = 'folder' | 'page' | 'resource';
+/** One child of a level: notes and folders are ONE sibling sequence, whatever the sort. */
+export type LevelEntry =
+  | { readonly kind: 'folder'; readonly folder: Folder }
+  | { readonly kind: 'page'; readonly entry: EffectivePage };
 
-/**
- * The order a level's three groups are drawn in. The root lists folders, notes, files; a nested
- * folder lists notes, files, subfolders. Kind is the one sort that rearranges the groups: 'down'
- * is folders → notes → files, 'up' the reverse. Every other sort keeps the arrangement and orders
- * within each group.
- */
-export function levelKindOrder(isRoot: boolean, sort: SidebarSort | undefined): readonly LevelKind[] {
-  if (!isRoot && sort?.key === 'kind') {
-    return sort.direction === 'down' ? ['folder', 'page', 'resource'] : ['resource', 'page', 'folder'];
-  }
-
-  return isRoot ? ['folder', 'page', 'resource'] : ['page', 'resource', 'folder'];
+/** The id a level entry has in a manual order (`n:`/`f:` + its id). */
+export function levelEntryOrderId(entry: LevelEntry): string {
+  return entry.kind === 'folder' ? sidebarOrderId('folder', entry.folder.id) : sidebarOrderId('note', entry.entry.id);
 }
 
-/** The collection engine's sort for a key that orders within a group, or undefined (Kind, or no sort) to keep the order given. */
-function withinGroupSort(sort: SidebarSort | undefined): CollectionSort | undefined {
-  if (!sort || sort.key === 'kind') {
-    return undefined;
-  }
+const labelOf = (entry: LevelEntry): string =>
+  entry.kind === 'folder' ? getFolderDisplayLabel(entry.folder).text : getPageDisplayLabel(entry.entry).text;
 
-  return { property: sort.key, direction: sort.direction };
+/** Equal (or both-missing) timestamps are ordered by name, A→Z, whichever the direction. */
+const TIMESTAMP_TIE_BREAK: ReadonlySet<PropertyId> = new Set<PropertyId>(['created', 'updated']);
+
+/**
+ * Manual order (ADR-055): listed items in their stored positions, then everything not listed — new,
+ * moved in, created outside the app — in the order given (by name). Ids in the list that match nothing are
+ * ignored and a repeated id counts once (first position), so a stale or hand-edited list can never lose or
+ * duplicate a row. An absent list leaves everything in the order given.
+ */
+function applyManualOrder<T>(items: readonly T[], idOf: (item: T) => string, order: readonly string[] | undefined): readonly T[] {
+  const rank = new Map<string, number>();
+  (order ?? []).forEach((id, index) => {
+    if (!rank.has(id)) {
+      rank.set(id, index);
+    }
+  });
+
+  const listed = items.filter((item) => rank.has(idOf(item))).sort((a, b) => rank.get(idOf(a))! - rank.get(idOf(b))!);
+  const unlisted = items.filter((item) => !rank.has(idOf(item)));
+
+  return [...listed, ...unlisted];
 }
 
 /**
- * A folder's children in the order the user chose for it — the collection views' own sort engine
- * (`sortEntries`) over the same property values (`toFolderValues`/`toNoteValues`), ordering by the
- * name each row displays. Folders and notes are ordered separately, as the collection page does;
- * files keep their order. Without a chosen sort (or with Kind) the input order stands.
+ * A level's folders and notes as ONE sequence, in the order the level's sort gives:
+ *
+ *  - `name`    — alphabetical (a stored `kind` sort, retired from the menu, reads as this)
+ *  - `created` — by creation time, `down` newest first / `up` oldest first
+ *  - `updated` — by last edit, `down` newest first / `up` oldest first
+ *  - `manual`  — the user's saved order; anything not in it follows, by name
+ *
+ * Folders carry no created/edited date (`FolderMetadata` has none), so under those two sorts they count as
+ * missing — which sorts last, in name order. Missing or invalid timestamps never reorder anything unstably:
+ * ties and missing values fall back to name, then to id. No sort at all reads as `name`, A→Z.
  */
-export function sortSidebarFolders(
+export function sortLevelEntries(
   folders: readonly Folder[],
-  sort: SidebarSort | undefined
-): readonly Folder[] {
-  const engineSort = withinGroupSort(sort);
-  if (!engineSort) {
-    return folders;
+  pages: readonly EffectivePage[],
+  sort: SidebarSort | undefined,
+  order: readonly string[] | undefined
+): readonly LevelEntry[] {
+  const entries: LevelEntry[] = [
+    ...pages.map((entry): LevelEntry => ({ kind: 'page', entry })),
+    ...folders.map((folder): LevelEntry => ({ kind: 'folder', folder })),
+  ];
+  const named = entries
+    .map((entry) => ({ entry, name: labelOf(entry), id: levelEntryOrderId(entry) }))
+    // The deterministic floor under every mode: by name, then by id (the engine's sorts are stable).
+    .sort((a, b) => a.name.localeCompare(b.name) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+
+  if (sort?.key === 'manual') {
+    return applyManualOrder(
+      named.map((item) => item.entry),
+      levelEntryOrderId,
+      order
+    );
   }
 
+  const property = sort?.key === 'created' || sort?.key === 'updated' ? sort.key : 'name';
+
   return sortEntries(
-    folders.map((folder) => ({ folder, values: toFolderValues(getFolderDisplayLabel(folder).text, folder) })),
-    engineSort,
-    NOTE_SORT_OPTIONS
-  ).map((entry) => entry.folder);
+    named.map(({ entry, name }) => ({
+      entry,
+      values: entry.kind === 'folder' ? toFolderValues(name, entry.folder) : toNoteValues(name, entry.entry),
+    })),
+    { property, direction: sort?.direction ?? 'down' },
+    { nameTieBreak: TIMESTAMP_TIE_BREAK }
+  ).map((item) => item.entry);
 }
 
-export function sortSidebarPages(
-  pages: readonly EffectivePage[],
-  sort: SidebarSort | undefined
-): readonly EffectivePage[] {
-  const engineSort = withinGroupSort(sort);
-  if (!engineSort) {
-    return pages;
+/** A level's folders (the root's are the workspace's) and — nested only; the root draws its own — its notes. */
+export function levelEntries(
+  membershipSelector: MembershipSelector,
+  parentId: string | null,
+  sort: SidebarSort | undefined,
+  order: readonly string[] | undefined
+): readonly LevelEntry[] {
+  return sortLevelEntries(
+    parentId === null ? membershipSelector.getWorkspaceFolders() : membershipSelector.getVisibleChildFolders(parentId),
+    parentId === null ? [] : membershipSelector.getNotesChildPages(parentId),
+    sort,
+    order
+  );
+}
+
+/**
+ * The ids of a level's reorderable children (folders and notes — files are not part of manual order) in
+ * the order they are drawn right now. It is what a first manual reorder starts from, so nothing visibly
+ * jumps. The root has folders only.
+ */
+export function displayedOrderIds(
+  membershipSelector: MembershipSelector,
+  parentId: string | null,
+  sort: SidebarSort | undefined,
+  order: readonly string[] | undefined
+): string[] {
+  return levelEntries(membershipSelector, parentId, sort, order).map(levelEntryOrderId);
+}
+
+/** `order` with `movedId` taken out and put just before/after `anchorId`. Unchanged if the anchor is missing or is the item itself. */
+export function placeInOrder(
+  order: readonly string[],
+  movedId: string,
+  anchorId: string,
+  edge: 'before' | 'after'
+): string[] {
+  if (movedId === anchorId || !order.includes(anchorId)) {
+    return [...order];
   }
 
-  return sortEntries(
-    pages.map((page) => ({ page, values: toNoteValues(getPageDisplayLabel(page).text, page) })),
-    engineSort,
-    NOTE_SORT_OPTIONS
-  ).map((entry) => entry.page);
+  const rest = order.filter((id) => id !== movedId);
+  const at = rest.indexOf(anchorId) + (edge === 'after' ? 1 : 0);
+
+  return [...rest.slice(0, at), movedId, ...rest.slice(at)];
 }

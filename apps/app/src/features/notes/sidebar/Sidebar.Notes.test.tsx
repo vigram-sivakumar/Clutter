@@ -237,6 +237,10 @@ function notesElement(
     onOpenFolder?(folderId: string): void;
     revealPageId?: string | null;
     onRevealHandled?(): void;
+    getFolderSort?: React.ComponentProps<typeof Notes>['getFolderSort'];
+    getLevelOrder?: React.ComponentProps<typeof Notes>['getLevelOrder'];
+    onToggleFolderCap?(key: string): void;
+    onFolderSortChange?: React.ComponentProps<typeof Notes>['onFolderSortChange'];
   }
 ) {
   return (
@@ -255,6 +259,10 @@ function notesElement(
       onOpenDraft={vi.fn()}
       revealPageId={overrides?.revealPageId}
       onRevealHandled={overrides?.onRevealHandled}
+      getFolderSort={overrides?.getFolderSort}
+      getLevelOrder={overrides?.getLevelOrder}
+      onToggleFolderCap={overrides?.onToggleFolderCap}
+      onFolderSortChange={overrides?.onFolderSortChange}
     />
   );
 }
@@ -1305,5 +1313,138 @@ describe('Sidebar Notes: revealPageId ("Reveal in Clutter")', () => {
     );
 
     expect(onRevealHandled).toHaveBeenCalledTimes(1);
+  });
+});
+
+
+describe('Notes: the Folders section\'s three-dot menu sorts the vault root (ADR-055)', () => {
+  const headerButtons = () => {
+    const header = screen.getByText('Folders').closest('.section')!.querySelector('[class*="header"]')!;
+    return Array.from(header.querySelectorAll('button'));
+  };
+  const openMenu = () => fireEvent.click(screen.getByRole('button', { name: 'Folders actions' }));
+
+  it('is the last button in the header, after the "+"', () => {
+    const deps = setup([makeFolder('f1', `${ROOT}/Projects`)]);
+    renderNotes(deps, {});
+    expect(headerButtons().at(-1)).toBe(screen.getByRole('button', { name: 'Folders actions' }));
+  });
+
+  it('keeps the header\'s actions shown while its menu is open, so the menu stays anchored to the button', () => {
+    const deps = setup([makeFolder('f1', `${ROOT}/Projects`)]);
+    renderNotes(deps, {});
+    const header = () => screen.getByText('Folders').closest('.entry')!;
+
+    expect(header()).not.toHaveClass('entry-force-hover');
+    openMenu();
+    expect(header()).toHaveClass('entry-force-hover'); // as a folder row does (Folder.tsx)
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    expect(header()).not.toHaveClass('entry-force-hover');
+  });
+
+  it('lists the four choices directly under a "Sort by" heading — no submenu — and nothing else', () => {
+    const deps = setup([makeFolder('f1', `${ROOT}/Projects`)]);
+    renderNotes(deps, { getFolderSort: () => undefined });
+    openMenu();
+
+    const menu = screen.getByRole('menu');
+    const heading = within(menu).getByText('Sort by');
+    expect(heading.closest('button, [role="menuitem"]')).toBeNull(); // a label, not a row or a submenu trigger
+    expect(within(menu).getAllByRole('menuitem').map((item) => item.textContent?.trim())).toEqual(
+      ['Name', 'Created time', 'Last edited', 'Manual']
+    );
+    expect(within(menu).queryByText('Reset to name order')).not.toBeInTheDocument();
+    expect(within(menu).queryByText('Kind')).not.toBeInTheDocument();
+  });
+
+  it('ticks the active choice (Name by default) and moves the tick when the sort changes', () => {
+    const deps = setup([makeFolder('f1', `${ROOT}/Projects`)]);
+    const view = renderNotes(deps, { getFolderSort: () => undefined });
+    openMenu();
+    // The active choice carries the tick icon in its leading slot; the others have an empty one.
+    const ticked = () =>
+      within(screen.getByRole('menu'))
+        .getAllByRole('menuitem')
+        .filter((item) => item.querySelector('.entry__leading svg') !== null)
+        .map((item) => item.textContent?.trim());
+    expect(ticked()).toEqual(['Name']);
+    view.unmount();
+
+    renderNotes(deps, { getFolderSort: () => ({ key: 'updated', direction: 'down' }) });
+    openMenu();
+    expect(ticked()).toEqual(['Last edited']);
+  });
+
+  it.each([
+    ['Name', { key: 'name', direction: 'down' }],
+    ['Created time', { key: 'created', direction: 'up' }],
+    ['Last edited', { key: 'updated', direction: 'down' }],
+    ['Manual', { key: 'manual', direction: 'down' }],
+  ])('picking %s sorts the root (null) with that choice\'s default direction', (label, sort) => {
+    const deps = setup([makeFolder('f1', `${ROOT}/Projects`)]);
+    const onFolderSortChange = vi.fn();
+    renderNotes(deps, { getFolderSort: () => ({ key: 'manual', direction: 'up' }), onFolderSortChange });
+    openMenu();
+    fireEvent.click(within(screen.getByRole('menu')).getByText(label));
+
+    expect(onFolderSortChange).toHaveBeenCalledExactlyOnceWith(null, sort);
+  });
+});
+
+describe('Sidebar Notes: "Reveal in Clutter" counts positions in the level\'s manual order', () => {
+  const MANUAL = { key: 'manual', direction: 'down' } as const;
+  const notesIn = (folderId: string, count: number) =>
+    Array.from({ length: count }, (_, i) => ({
+      ...makePage(`n${i + 1}`, `${ROOT}/F/Note ${String(i + 1).padStart(2, '0')}.md`),
+      parentId: folderId,
+    }));
+
+  it('a note near the front of a hand-ordered folder is within the cap even though it is last alphabetically', () => {
+    const deps = setup([makeFolder('f', `${ROOT}/F`)], notesIn('f', 12));
+    const toggled = vi.fn();
+    // Manual order is the reverse of the alphabetical one: Note 12 first … Note 01 last.
+    const order = notesIn('f', 12).map((page) => `n:${page.id}`).reverse();
+    const manual = {
+      getFolderSort: (parentId: string | null) => (parentId === 'f' ? MANUAL : undefined),
+      getLevelOrder: (parentId: string | null) => (parentId === 'f' ? order : undefined),
+      onToggleFolderCap: toggled,
+    };
+
+    render(notesElement(deps, { revealPageId: 'n12', ...manual }));
+    expect(toggled).not.toHaveBeenCalled(); // index 0: visible without expanding "N more"
+  });
+
+  it('a note near the back of a hand-ordered folder is past the cap even though it is first alphabetically', () => {
+    const deps = setup([makeFolder('f', `${ROOT}/F`)], notesIn('f', 12));
+    const toggled = vi.fn();
+    const order = notesIn('f', 12).map((page) => `n:${page.id}`).reverse();
+
+    render(
+      notesElement(deps, {
+        revealPageId: 'n1',
+        getFolderSort: (parentId) => (parentId === 'f' ? MANUAL : undefined),
+        getLevelOrder: (parentId) => (parentId === 'f' ? order : undefined),
+        onToggleFolderCap: toggled,
+      })
+    );
+    expect(toggled).toHaveBeenCalledWith('f'); // index 11: "N more" must open
+  });
+
+  it('the same for the root: a folder moved to the front is not counted at its alphabetical place', () => {
+    const folders = Array.from({ length: 12 }, (_, i) => makeFolder(`r${i + 1}`, `${ROOT}/R${String(i + 1).padStart(2, '0')}`));
+    const page = { ...makePage('p1', `${ROOT}/R12/Note.md`), parentId: 'r12' };
+    const deps = setup(folders, [page]);
+    const toggled = vi.fn();
+    const order = folders.map((folder) => `f:${folder.id}`).reverse(); // R12 first
+
+    render(
+      notesElement(deps, {
+        revealPageId: 'p1',
+        getFolderSort: (parentId) => (parentId === null ? MANUAL : undefined),
+        getLevelOrder: (parentId) => (parentId === null ? order : undefined),
+        onToggleFolderCap: toggled,
+      })
+    );
+    expect(toggled).not.toHaveBeenCalledWith('__root__');
   });
 });

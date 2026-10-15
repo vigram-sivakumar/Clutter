@@ -46,7 +46,7 @@ interface FavoriteListProps {
    * folder's own (a Favorites row lists no children, but the folder's tree row does).
    */
   getFolderSort?(folderId: string): SidebarSort | undefined;
-  onFolderSortChange?(folderId: string, sort: SidebarSort): void;
+  onFolderSortChange?(folderId: string | null, sort: SidebarSort): void;
 }
 
 /**

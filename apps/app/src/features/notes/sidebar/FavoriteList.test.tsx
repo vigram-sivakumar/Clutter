@@ -253,9 +253,10 @@ describe('FavoriteList — a favorited folder\'s Sort by is the folder\'s own, l
     );
 
     fireEvent.click(screen.getByText('Sort by'));
-    fireEvent.click(screen.getByText('Created'));
+    fireEvent.click(screen.getByText('Created time'));
 
-    expect(onFolderSortChange).toHaveBeenCalledWith('folder-1', { key: 'created', direction: 'down' });
+    // Created time starts oldest first (`up`: `down` is newest first for dates).
+    expect(onFolderSortChange).toHaveBeenCalledWith('folder-1', { key: 'created', direction: 'up' });
   });
 
   it('re-picking the active key flips its direction', () => {

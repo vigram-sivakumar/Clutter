@@ -9,6 +9,8 @@ export interface ShowMoreEntryProps {
   readonly onToggle: () => void;
   /** Tree indent, in the same levels every Entry uses — match the rows it caps. */
   readonly level?: number;
+  /** Marks the row as a drag-hover target (`data-cap-key`) — set only by a list that reveals itself during a drag. */
+  readonly capKey?: string;
 }
 
 /**
@@ -16,10 +18,11 @@ export interface ShowMoreEntryProps {
  * horizontal three-dots icon. A plain Entry — normal row size, tertiary foreground — shared by every sidebar list that caps
  * its rows (Tasks groups, Notes folders).
  */
-export function ShowMoreEntry({ hiddenCount, isExpanded, onToggle, level }: ShowMoreEntryProps) {
+export function ShowMoreEntry({ hiddenCount, isExpanded, onToggle, level, capKey }: ShowMoreEntryProps) {
   return (
     <Entry
       className="show-more-entry"
+      data-cap-key={capKey}
       level={level}
       leading={<AppIcon icon="moreHorizontal" />}
       onClick={onToggle}

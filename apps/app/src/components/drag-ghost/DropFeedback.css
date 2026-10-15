@@ -1,0 +1,22 @@
+/* Below the drag ghost, above everything else; never intercepts the pointer. */
+.drop-feedback {
+  position: fixed;
+  z-index: calc(var(--z-overlay) - 1);
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+/* "Into this folder": the whole row. */
+.drop-feedback--inside {
+  border: 1.5px solid var(--border-focus);
+  border-radius: var(--radius-lg);
+  background: var(--state-hover-strong);
+}
+
+/* "Between rows": a line centred on the boundary. */
+.drop-feedback--insert {
+  height: 2px;
+  transform: translateY(-1px);
+  border-radius: 1px;
+  background: var(--border-focus);
+}

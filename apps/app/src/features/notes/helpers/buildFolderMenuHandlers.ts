@@ -1,6 +1,6 @@
 import type { ResourceActionHandlers } from '@core/presentation/resourceActions/resourceActionTypes';
 import { SORT_MENU_ID_PREFIX } from '@core/presentation/resourceActions/folderSortAction';
-import { DEFAULT_SIDEBAR_SORT, isSidebarSortKey, type SidebarSort } from '@core/properties/sidebarSort';
+import { DEFAULT_SIDEBAR_SORT, defaultSidebarSortDirection, isSidebarSortKey, type SidebarSort } from '@core/properties/sidebarSort';
 import type { SidebarRowActions } from '../sidebar/FolderTree';
 
 /**
@@ -34,15 +34,15 @@ export function buildFolderMenuHandlers(
 
 /**
  * A Sort by row (`sort:<key>`) picked from a folder row's menu — the same rule the collection views'
- * Configure menu uses: re-picking the active key flips its direction; another key starts at its own
- * default ('down'). Shared by the Notes tree and Favorites, so a favorited folder sorts exactly like
+ * Configure menu uses: re-picking the active key flips its direction; another key starts in its own
+ * default direction (`defaultSidebarSortDirection`). Shared by the Notes tree and Favorites, so a favorited folder sorts exactly like
  * its tree row. Returns whether `id` was a sort row (so the caller knows not to dispatch it again).
  */
 export function applyFolderSortSelection(
   id: string,
-  folderId: string,
+  folderId: string | null,
   current: SidebarSort | undefined,
-  onChange: ((folderId: string, sort: SidebarSort) => void) | undefined
+  onChange: ((folderId: string | null, sort: SidebarSort) => void) | undefined
 ): boolean {
   if (!id.startsWith(SORT_MENU_ID_PREFIX)) {
     return false;
@@ -54,9 +54,10 @@ export function applyFolderSortSelection(
     const active = current ?? DEFAULT_SIDEBAR_SORT;
     onChange?.(
       folderId,
-      active.key === key
+      // Manual has no direction to flip.
+      active.key === key && key !== 'manual'
         ? { key, direction: active.direction === 'down' ? 'up' : 'down' }
-        : { key, direction: 'down' }
+        : { key, direction: defaultSidebarSortDirection(key) }
     );
   }
 

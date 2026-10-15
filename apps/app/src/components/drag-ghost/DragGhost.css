@@ -1,3 +1,8 @@
+:root {
+  /* How opaque the ghost's BACKGROUND is. Only the fill: the row's text and icons stay fully solid. */
+  --drag-ghost-background-opacity: 5%;
+}
+
 /* A fixed, non-interactive layer above the app. Position and size are set from JS (DragGhost.tsx). */
 .drag-ghost {
   position: fixed;
@@ -9,9 +14,12 @@
   overflow: hidden;
   border-radius: var(--radius-lg);
 
-  background: var(--surface-primary);
+  background: color-mix(
+    in srgb,
+    white var(--drag-ghost-background-opacity),
+    transparent
+  );
   box-shadow: var(--shadow-md);
-  opacity: 0.96;
 
   pointer-events: none;
   user-select: none;
