@@ -311,10 +311,8 @@ export function AppLayout({ application }: AppLayoutProps) {
     }
   }
 
-  // Save to vault runs immediately (like Archive and Move — no confirmation or
-  // result dialog) and reports the outcome in a toast. Application joins a
-  // second request for the same URL, so a repeated click while one is running
-  // doesn't start another save. The detailed breakdown is backlog.
+  // Toast host for transient messages from page-level actions (PageHost's
+  // onShowToast). Save to vault does not report through it.
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const dismissToast = useCallback(() => setToast(null), []);
   const showToast = useCallback(
@@ -333,24 +331,9 @@ export function AppLayout({ application }: AppLayoutProps) {
 
   function startSaveToVault(url: string): void {
     setResourceOverlay(null);
-    application
-      .saveRemoteImageToVault(url)
-      .then((result) => {
-        const partial = result.failed.length > 0;
-        setToast({
-          id: Date.now(),
-          tone: partial ? 'error' : 'default',
-          text: partial
-            ? `Saved to vault, but ${result.failed.length} ${result.failed.length === 1 ? 'reference' : 'references'} could not be updated`
-            : result.reusedExisting
-              ? 'Already saved in the vault'
-              : 'Saved to vault',
-        });
-      })
-      .catch((error: unknown) => {
-        console.error('Could not save the image to the vault.', error);
-        setToast({ id: Date.now(), tone: 'error', text: 'Could not save to the vault' });
-      });
+    application.saveRemoteImageToVault(url).catch((error: unknown) => {
+      console.error('Could not save the image to the vault.', error);
+    });
   }
 
   // "Set as cover image" from an asset's viewer: the asset's cover reference
