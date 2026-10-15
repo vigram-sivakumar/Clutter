@@ -26,6 +26,7 @@ import './CollectionBody.css';
 import { CreateCard, createNewItem } from './collectionCreate';
 import { renderFolderGrid } from './collectionFolders';
 import { useCollectionMoveDrag, type CollectionMoveDrag } from './useCollectionMoveDrag';
+import { useCollectionItemContextMenu, type CollectionItemMenuResolver } from './useCollectionItemContextMenu';
 import { PageBody } from './Page.Body';
 
 /**
@@ -128,10 +129,16 @@ export interface CollectionBodyProps {
    * or Templates. Its presence is the capability gate; see `CollectionMoveDrag`.
    */
   moveDrag?: CollectionMoveDrag;
+  /**
+   * Right-click menu for the folders and notes: each entry's More actions, resolved from the entry that
+   * was clicked (see `useCollectionItemContextMenu`). Its presence is the capability gate; a collection
+   * without it has plain entries.
+   */
+  itemMenu?: CollectionItemMenuResolver;
 }
 
 interface RenderNoteListOptions {
-  /** Extra attributes per note row — the drag handlers and markers (see `useCollectionMoveDrag`). */
+  /** Extra attributes per note row — the drag handlers and markers (see `useCollectionMoveDrag`) and the context menu. */
   dragProps?: (entry: CollectionEntryModel) => object | undefined;
   /**
    * Each note's cover thumbnail at the row's trailing end — present only when
@@ -181,7 +188,7 @@ function renderNoteList(
 }
 
 interface RenderNoteTableOptions {
-  /** Extra attributes per note row — the drag handlers and markers (see `useCollectionMoveDrag`). */
+  /** Extra attributes per note row — the drag handlers and markers (see `useCollectionMoveDrag`) and the context menu. */
   dragProps?: (entry: CollectionEntryModel) => object | undefined;
   /** The Cover image column's per-note cell — present only when the host can change covers (see `NoteCoverActions`). */
   coverFor?: (entry: CollectionEntryModel) => {
@@ -238,8 +245,16 @@ export function CollectionBody({
   previewResolvers,
   noteCover,
   moveDrag,
+  itemMenu,
 }: CollectionBodyProps) {
   const drag = useCollectionMoveDrag(moveDrag);
+  const contextMenu = useCollectionItemContextMenu(itemMenu);
+  // Per-entry attributes from both behaviors, merged: the drag's pointer handlers and the context menu.
+  const entryProps = (entry: CollectionEntryModel) => {
+    const dragProps = drag.entryProps(entry);
+    const menuProps = contextMenu.entryProps(entry);
+    return dragProps || menuProps ? { ...dragProps, ...menuProps } : undefined;
+  };
   const sortedFolders = foldersInGivenOrder ? [...folders] : sortEntries(folders, sort, NOTE_SORT_OPTIONS);
   const sortedNotes = sortEntries(notes, sort, NOTE_SORT_OPTIONS);
 
@@ -277,7 +292,7 @@ export function CollectionBody({
       onCreate: createInNotes,
       coverFor,
       resolvers: previewResolvers,
-      dragProps: drag.entryProps,
+      dragProps: entryProps,
     }) : viewMode === 'card' ? (
       <CollectionGrid columns={NOTE_GRID}>
         {sortedNotes.map((entry) => (
@@ -287,7 +302,7 @@ export function CollectionBody({
               visible,
               resolvers: previewResolvers,
             })}
-            {...drag.entryProps(entry)}
+            {...entryProps(entry)}
           />
         ))}
         {createInNotes && <CreateCard onCreate={createInNotes} aspectRatio={NOTE_CARD_ASPECT_RATIO} />}
@@ -296,7 +311,7 @@ export function CollectionBody({
       onCreate: createInNotes,
       coverFor,
       resolvers: previewResolvers,
-      dragProps: drag.entryProps,
+      dragProps: entryProps,
     });
 
   // A collection with nothing in it at all — no folders and no notes (in the sections it draws) —
@@ -312,7 +327,7 @@ export function CollectionBody({
       ) : (
         <>
           {/* The folders' Create card is likewise only for adding to folders that are there. */}
-          {sortedFolders.length > 0 && renderFolderGrid(sortedFolders, onCreateFolder, drag.entryProps)}
+          {sortedFolders.length > 0 && renderFolderGrid(sortedFolders, onCreateFolder, entryProps)}
           {showNotes && noteSection}
         </>
       )}
@@ -331,6 +346,7 @@ export function CollectionBody({
           flex child rather than padding on .collection__content. */}
       <div className="collection__bottom-spacer" aria-hidden="true" />
       {drag.overlay}
+      {contextMenu.overlay}
     </PageBody>
   );
 }

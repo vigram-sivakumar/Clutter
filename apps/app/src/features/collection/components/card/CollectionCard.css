@@ -25,7 +25,7 @@
 .collection-card[role='button'] {
   cursor: pointer;
 }
-.collection-card:hover {
+.collection-card:is(:hover, [data-context-menu-open='true']) {
   background: color-mix(in srgb, var(--surface-subtle) 99%, rgb(var(--state-base)) 1%);
 }
 .collection-card:focus-visible {
@@ -33,7 +33,7 @@
   outline-offset: 1px;
 }
 .collection-card--selected,
-.collection-card--selected:hover {
+.collection-card--selected:is(:hover, [data-context-menu-open='true']) {
   background: var(--surface-selected);
 }
 

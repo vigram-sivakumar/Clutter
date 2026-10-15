@@ -1,23 +1,15 @@
 import { useState } from 'react';
 
 import { Button } from '@components/button/Button';
-import { Confirmation } from '@components/confirmation/Confirmation';
-import { useConfirmationSurface } from '@components/confirmation/useConfirmationSurface';
 import { OverflowMenu } from '@components/menu/OverflowMenu';
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 import type {
   OverlayAlignment,
   OverlaySide,
 } from '@components/overlay/Overlay.types';
-import { Dialog } from '@components/dialog/Dialog';
-import { MoveDestinationPicker } from '@components/move-destination-picker/MoveDestinationPicker';
-import { useMoveDestinationTrigger } from '@components/move-destination-picker/useMoveDestinationTrigger';
 import type { PickerListItem } from '@components/picker-list/PickerList.types';
 import { AppIcon } from '@shared/icon';
-import {
-  FOLDER_ARCHIVE_CONFIRMATION_TITLE,
-  FOLDER_ARCHIVE_CONFIRM_LABEL,
-} from '@features/notes/helpers/folderActionConfirmation';
+import { ResourceMenuDialogs, useResourceMenuDispatch } from './useResourceMenuDispatch';
 import type { PageStatus } from '@core/vault/models/PageMetadata';
 
 /**
@@ -143,46 +135,15 @@ export function ResourceTopBarActions({
   onToggleFavorite,
 }: ResourceTopBarActionsProps) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const confirmation = useConfirmationSurface();
-  const moveTrigger = useMoveDestinationTrigger(moveDestinations);
-
-  function handleMenuSelect(id: string) {
-    moveTrigger.handleSelect(id, (id) => {
-      if (id === 'delete' && deleteConfirmationMessage !== undefined) {
-        // A resource-type-neutral title — unlike 'Archive this folder?'
-        // below (archive confirmation stays folder-only), Delete
-        // confirmation now applies to every archived/Archive-descendant
-        // resource type (note, daily note, folder), not folders alone.
-        confirmation.request({
-          title: deleteConfirmationTitle ?? 'Delete permanently?',
-          message: deleteConfirmationMessage,
-          confirmLabel: 'Delete',
-          onConfirm: () => handlers?.['delete']?.(),
-        });
-        return;
-      }
-
-      if (id === 'delete-all' && deleteAllConfirmation !== undefined) {
-        confirmation.request({
-          ...deleteAllConfirmation,
-          onConfirm: () => handlers?.['delete-all']?.(),
-        });
-        return;
-      }
-
-      if (id === 'archive' && archiveConfirmationMessage !== undefined) {
-        confirmation.request({
-          title: FOLDER_ARCHIVE_CONFIRMATION_TITLE,
-          message: archiveConfirmationMessage,
-          confirmLabel: FOLDER_ARCHIVE_CONFIRM_LABEL,
-          onConfirm: () => handlers?.['archive']?.(),
-        });
-        return;
-      }
-
-      handlers?.[id]?.();
-    });
-  }
+  const dispatch = useResourceMenuDispatch({
+    handlers,
+    archiveConfirmationMessage,
+    deleteConfirmationMessage,
+    deleteConfirmationTitle,
+    deleteAllConfirmation,
+    moveDestinations,
+  });
+  const { moveTrigger } = dispatch;
 
   return (
     <>
@@ -203,7 +164,7 @@ export function ResourceTopBarActions({
           triggerRef={moveTrigger.triggerRef}
           open={menuOpen}
           onOpenChange={setMenuOpen}
-          onSelect={handleMenuSelect}
+          onSelect={dispatch.select}
           side={OVERFLOW_SIDE}
           alignment={OVERFLOW_ALIGNMENT}
           buttonSize="medium"
@@ -214,38 +175,15 @@ export function ResourceTopBarActions({
         />
       )}
 
-      {moveDestinations !== undefined && (
-        <MoveDestinationPicker
-          anchorRef={moveTrigger.triggerRef}
-          open={moveTrigger.open}
-          onClose={moveTrigger.close}
-          items={moveDestinations}
-          onSelect={(destinationFolderId) => {
-            moveTrigger.close();
-            onMove?.(destinationFolderId);
-          }}
-          onCreateFolder={onCreateFolder}
-          side={OVERFLOW_SIDE}
-          alignment={OVERFLOW_ALIGNMENT}
-        />
-      )}
-      <Dialog
-        open={confirmation.pending !== null}
-        onClose={confirmation.cancel}
-        returnFocusRef={moveTrigger.triggerRef}
-        size="medium"
-      >
-        {confirmation.pending && (
-          <Confirmation
-            title={confirmation.pending.title}
-            description={confirmation.pending.message}
-            confirmLabel={confirmation.pending.confirmLabel}
-            confirmVariant={confirmation.pending.confirmVariant}
-            onConfirm={confirmation.confirm}
-            onCancel={confirmation.cancel}
-          />
-        )}
-      </Dialog>
+      <ResourceMenuDialogs
+        dispatch={dispatch}
+        anchorRef={moveTrigger.triggerRef}
+        moveDestinations={moveDestinations}
+        onMove={onMove}
+        onCreateFolder={onCreateFolder}
+        side={OVERFLOW_SIDE}
+        alignment={OVERFLOW_ALIGNMENT}
+      />
     </>
   );
 }

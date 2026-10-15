@@ -57,3 +57,33 @@ describe('CollectionTable', () => {
     expect(container.firstElementChild).toHaveAttribute('data-x', '1');
   });
 });
+
+describe('CollectionTable — horizontal scrolling only when the columns overflow', () => {
+  const sizes = (scrollWidth: number, clientWidth: number) => {
+    Object.defineProperty(HTMLElement.prototype, 'scrollWidth', { configurable: true, get: () => scrollWidth });
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => clientWidth });
+  };
+  afterEach(() => {
+    delete (HTMLElement.prototype as unknown as Record<string, unknown>).scrollWidth;
+    delete (HTMLElement.prototype as unknown as Record<string, unknown>).clientWidth;
+  });
+
+  it('is not a scroller when the content fits, or is over by a sub-pixel amount', () => {
+    sizes(800, 800);
+    expect(render(<CollectionTable columns={columns} />).container.firstElementChild).not.toHaveClass('collection-table--scrolls');
+    cleanup();
+    sizes(801, 800);
+    expect(render(<CollectionTable columns={columns} />).container.firstElementChild).not.toHaveClass('collection-table--scrolls');
+  });
+
+  it('becomes a scroller when the content is genuinely wider than it', () => {
+    sizes(1200, 800);
+    expect(render(<CollectionTable columns={columns} />).container.firstElementChild).toHaveClass('collection-table--scrolls');
+  });
+
+  it('keeps the scroll room and the scrolling together in the stylesheet', async () => {
+    const { readFileSync } = await import('node:fs');
+    const css = readFileSync(`${__dirname}/CollectionTable.css`, 'utf8');
+    expect(css).toMatch(/\.collection-table--scrolls\s*{[^}]*overflow-x:\s*auto;[^}]*padding-block-end:/);
+  });
+});

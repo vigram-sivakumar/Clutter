@@ -134,11 +134,11 @@
 /* Interaction States */
 
 /* Hover belongs to the list layout; a cell sits inside a table row, which owns its hover. */
-.collection-entry--layout-list:hover,
-.collection-entry--folder-card-new:hover {
+.collection-entry--layout-list:is(:hover, [data-context-menu-open='true']),
+.collection-entry--folder-card-new:is(:hover, [data-context-menu-open='true']) {
   background: var(--state-hover);
 }
-.collection-entry--folder-card:hover {
+.collection-entry--folder-card:is(:hover, [data-context-menu-open='true']) {
   background: color-mix(
     in srgb,
     var(--surface-subtle) 99%,

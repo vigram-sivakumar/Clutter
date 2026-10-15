@@ -16,11 +16,11 @@
   outline-offset: -2px;
 }
 
-.collection-table-row:hover {
+.collection-table-row:is(:hover, [data-context-menu-open='true']) {
   background: var(--state-hover);
 }
 .collection-table-row--selected,
-.collection-table-row--selected:hover {
+.collection-table-row--selected:is(:hover, [data-context-menu-open='true']) {
   background: var(--surface-selected);
 }
 

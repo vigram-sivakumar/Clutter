@@ -32,11 +32,6 @@ import {
   buildTopBarActions,
   buildDraftTopBarActions,
 } from '@app/layouts/page/topbar/buildTopBarActions';
-import {
-  getFolderArchiveConfirmation,
-  getFolderDeleteConfirmation,
-  PAGE_DELETE_CONFIRMATION_MESSAGE,
-} from '@features/notes/helpers/folderActionConfirmation';
 import { duplicateAndOpenPage } from '@features/notes/helpers/duplicateAndOpenPage';
 import { createFolderInZone } from '@features/notes/helpers/createFolderInZone';
 import { createNoteForTag } from '@features/tags/helpers/createNoteForTag';
@@ -69,6 +64,9 @@ import type { PageType } from '@core/vault/models/Page';
 import { CurrentNoteTemplateSuggestions } from '@app/layouts/page/CurrentNoteTemplateSuggestions';
 import { resolveDefaultTemplateId } from '@features/notes/helpers/resolveDefaultTemplateId';
 import { uploadAssets } from '@features/notes/helpers/uploadAssets';
+import { buildResourceMenuOptions, type ResourceMenuOps } from '@app/layouts/page/topbar/buildResourceMenuOptions';
+import { buildCollectionItemMenu } from '@app/layouts/page/body/buildCollectionItemMenu';
+import type { CollectionItemMenuResolver } from '@app/layouts/page/body/useCollectionItemContextMenu';
 import { buildMoveDestinationItems } from '@features/notes/helpers/buildMoveDestinationItems';
 import { Breadcrumbs } from '@app/layouts/page/breadcrumb/Breadcrumbs';
 import { Pill } from '@components/property-list/Pill';
@@ -126,7 +124,6 @@ import {
   getTagDeleteConfirmationTitle,
 } from '@app/layouts/page/tagCollectionDelete';
 import { useRequestCreateTemplate } from '@app/layouts/createTemplate/CreateTemplateProvider';
-import { moveZoneFor } from '@core/presentation/resourceActions/moveZoneFor';
 import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
 import { ResourceTopBarActions } from '@app/layouts/page/topbar/ResourceTopBarActions';
 import { MarkdownBody } from '@app/layouts/page/body/MarkdownBody';
@@ -1057,21 +1054,13 @@ export function PageHost({
     });
   };
 
-  const onArchive = (): void => {
-    if (!activePageId) {
-      return;
-    }
-
-    void application.pageOperations.archive(activePageId);
+  // The page operations below take the page's id so the topbar (the open page) and a Collection View
+  // item's right-click menu (any listed note) run the very same code; `onArchive` etc. are the open
+  // page's.
+  const archivePage = (pageId: string): void => {
+    void application.pageOperations.archive(pageId);
   };
-
-  const onRestore = (): void => {
-    if (!activePageId) {
-      return;
-    }
-
-    const pageId = activePageId;
-
+  const restorePage = (pageId: string): void => {
     void application.pageOperations.restore(pageId).then((outcome) => {
       if (outcome.status === 'needs-destination') {
         onNeedsRestoreDestination?.({ kind: 'page', id: pageId });
@@ -1092,6 +1081,11 @@ export function PageHost({
           : date,
       });
     });
+  };
+  const onRestore = (): void => {
+    if (activePageId) {
+      restorePage(activePageId);
+    }
   };
 
   const onResolveRestoreConflict = (choice: 'inbox' | 'replace'): void => {
@@ -1118,11 +1112,7 @@ export function PageHost({
       });
   };
 
-  const onDelete = (): void => {
-    if (!activePageId) {
-      return;
-    }
-
+  const deletePage = (pageId: string): void => {
     // Deletion is the one truly non-reversible page action — unlike
     // archive/restore below (which deliberately do NOT clear this),
     // a deleted page's cached editing session (editorHistoryCache.ts)
@@ -1134,32 +1124,45 @@ export function PageHost({
     // own cleanup will write the entry back — a known, accepted race
     // (see clearCachedEditorSession's own doc comment) that can only
     // ever make this a no-op, never cause incorrect behavior.
-    clearCachedEditorSession(activePageId);
+    clearCachedEditorSession(pageId);
     // ADR-033: same rationale as clearCachedEditorSession above, applied
     // to the durable fold-state store instead of the session cache.
-    application.foldStateStore.clear(activePageId);
+    application.foldStateStore.clear(pageId);
     // ADR-052: same rationale, for the note's saved References display preferences.
-    application.referencesDisplayStore.clear(activePageId);
-    void application.pageOperations.delete(activePageId);
+    application.referencesDisplayStore.clear(pageId);
+    void application.pageOperations.delete(pageId);
   };
 
-  const onDuplicate = (): void => {
-    if (!activePageId) {
-      return;
-    }
-
-    void duplicateAndOpenPage(application.pageOperations, activePageId);
+  const duplicatePage = (pageId: string): void => {
+    void duplicateAndOpenPage(application.pageOperations, pageId);
   };
 
-  const onToggleFavorite = (): void => {
-    if (!activePageId || !page) {
-      return;
-    }
+  const restoreFolder = (folderId: string): void =>
+    void application.folderOperations
+      .restore(folderId)
+      .catch((error: unknown) => {
+        if (error instanceof RestoreNeedsDestinationError) {
+          onNeedsRestoreDestination?.({ kind: 'folder', id: folderId });
+          return;
+        }
 
-    void application.pageOperations.updateMetadata(activePageId, {
-      favorite: !page.metadata.favorite,
-    });
+        throw error;
+      });
+
+  // What the shared More actions menu runs for a resource other than the open one's own state (see
+  // `buildResourceMenuOptions`): one set, used by the topbar below and by the Collection View's
+  // right-click menu.
+  const resourceMenuOps: ResourceMenuOps = {
+    archivePage,
+    restorePage,
+    deletePage,
+    duplicatePage,
+    restoreFolder,
+    createTemplate: requestCreateTemplate,
   };
+  // A Collection View entry's right-click menu — its resource's topbar menu (see `buildCollectionItemMenu`).
+  const collectionItemMenu: CollectionItemMenuResolver = (entry) =>
+    buildCollectionItemMenu(application, resourceMenuOps, entry);
 
   // Shared by both the persisted-page and draft render branches below —
   // PageOperations.updateMetadata() already handles both cases itself
@@ -1304,21 +1307,6 @@ export function PageHost({
     void application.pageOperations.updateMetadata(activePageId, {
       coverLayout: layout,
     });
-  };
-
-  const onMoveNote = (destinationFolderId: string | null): void => {
-    if (!activePageId) {
-      return;
-    }
-
-    void application.pageOperations.move(activePageId, destinationFolderId);
-  };
-
-  const onMoveFolder = (
-    folderId: string,
-    destinationFolderId: string | null
-  ): void => {
-    void application.folderOperations.move(folderId, destinationFolderId);
   };
 
   // Both a persisted Note's title and a folder's name use the same
@@ -1547,16 +1535,6 @@ export function PageHost({
       application.membershipSelector,
       onOpenFolder
     );
-    // Confirmation copy is computed here (one predicate, shared with the
-    // sidebar's identical computation in Sidebar.Notes.tsx) and handed to
-    // ResourceTopBarActions as a message — that component owns showing the
-    // Confirmation surface and gating dispatch on it, so onArchive/onDelete
-    // below are plain, unconditional calls straight to the domain
-    // operation; navigation after a successful archive/delete is owned by
-    // FolderOperations itself (ADR-025's fallback-page pattern), not by
-    // this component.
-    const archiveConfirmation = getFolderArchiveConfirmation(vault, folder.id);
-    const deleteConfirmation = getFolderDeleteConfirmation(vault, folder.id);
     // Named (not inlined into buildTopBarActions' options below) so
     // PageCover's own "Remove" menu action can call the exact same
     // removal, not a second copy of it — see the Note/DailyNote branch's
@@ -1641,65 +1619,15 @@ export function PageHost({
       folder,
       application.membershipSelector
     );
-    const folderMoveZone = moveZoneFor('folder', {
-      moveZone: application.membershipSelector.getMoveZoneOfFolder(folder.id),
-    });
-    const onRestoreFolder = (): void =>
-      void application.folderOperations
-        .restore(folder.id)
-        .catch((error: unknown) => {
-          if (error instanceof RestoreNeedsDestinationError) {
-            onNeedsRestoreDestination?.({ kind: 'folder', id: folder.id });
-            return;
-          }
-
-          throw error;
-        });
+    const onRestoreFolder = (): void => restoreFolder(folder.id);
     const topBar = buildTopBarActions(folder, {
-      membershipSelector: application.membershipSelector,
-      vaultRoot: vault.root,
-      onArchive: () => void application.folderOperations.archive(folder.id),
-      onRestore: onRestoreFolder,
-      onDelete: () => void application.folderOperations.delete(folder.id),
+      ...buildResourceMenuOptions(application, folder, resourceMenuOps),
       // The Archive page's page-level 'Delete all' — wired only for the Archive; every other
       // reserved folder keeps no top bar actions at all.
       ...(folderSystemLocationId === 'archive' && {
         onDeleteAll: () => void deleteAllArchived(application, folder.id),
         archiveIsEmpty: !hasArchivedItems(application, folder.id),
       }),
-      onToggleFavorite: () =>
-        void application.folderOperations.updateMetadata(folder.id, {
-          favorite: !folder.metadata.favorite,
-        }),
-      archiveConfirmationMessage: archiveConfirmation.hasDescendants
-        ? archiveConfirmation.message
-        : undefined,
-      // Unlike Archive above, Delete always confirms — a delete is only
-      // ever reachable here for an archived/Archive-descendant folder
-      // (buildTopBarActions.tsx's isDeletable), and the product decision is
-      // to require confirmation for every such delete regardless of
-      // whether the folder is empty (see getFolderDeleteConfirmation's own
-      // doc comment).
-      deleteConfirmationMessage: deleteConfirmation.message,
-      // A reserved folder never reaches this branch's menu (buildFolderTopBarMenu
-      // only renders for an ordinary folder — see topBar's own dispatch), so
-      // excluding `folder.id` (and its descendants, via
-      // buildMoveDestinationItems' own walk) is always excluding a real,
-      // movable folder here, never a reserved one.
-      // A folder moves within the hierarchy it sits in (ADR-049): the same picker, rooted at
-      // Templates or Assets for a folder inside one of them.
-      moveDestinations: buildMoveDestinationItems(
-        application.membershipSelector,
-        folder.id,
-        folderMoveZone
-      ),
-      onMove: (destinationFolderId) =>
-        onMoveFolder(folder.id, destinationFolderId),
-      onCreateFolder: createFolderInZone(
-        application.folderOperations,
-        application.membershipSelector,
-        folderMoveZone
-      ),
     });
     // A reserved folder (Archive, Templates, Daily Notes) can't be
     // renamed or deleted — buildTopBarActions already dispatches it to
@@ -1989,6 +1917,7 @@ export function PageHost({
                 noteCover={isFolderArchived ? undefined : noteCoverActions}
                 previewResolvers={notePreviewResolvers}
                 moveDrag={moveDrag}
+                itemMenu={collectionItemMenu}
               />
             )
           }
@@ -2409,6 +2338,7 @@ export function PageHost({
                 ? { parentId: null, actions: buildMoveDropActions(application) }
                 : undefined
             }
+            itemMenu={collectionItemMenu}
           />
         }
       />
@@ -2859,41 +2789,13 @@ export function PageHost({
     onUpdateMarkdown,
     onRequestSave
   );
-  // Move applies only to Notes and Folders (approved contract) — a Daily
-  // Note's menu never includes a `move-to` item (the daily-note canonical actions),
-  // so moveDestinations/onMove are only ever computed and passed for a
-  // real Note, never for a Daily Note.
-  // A Template is a note like any other for Move (ADR-049, amended): it gets the same Move props.
-  const canMoveNote = page.type === 'note';
   const topBar = buildTopBarActions(page, {
-    membershipSelector: application.membershipSelector,
-    vaultRoot: vault.root,
-    onArchive,
-    onRestore,
-    onDelete,
-    onDuplicate,
-    onCreateTemplate: requestCreateTemplate
-      ? () => requestCreateTemplate(page.id)
-      : undefined,
-    onToggleFavorite,
+    ...buildResourceMenuOptions(application, page, resourceMenuOps),
     // ADR-052: flips the note's saved Hide/Show choice (Show keeps the section visible even when empty).
     referencesHidden,
     referencesCount,
     onToggleReferences: () =>
       application.referencesDisplayStore.setHidden(page.id, !referencesHidden),
-    // A note/daily-note delete is only ever reachable here for an
-    // archived/Archive-descendant page (buildTopBarActions.tsx's
-    // isDeletable) — every such delete now requires confirmation, so this
-    // is always passed rather than gated (see PAGE_DELETE_CONFIRMATION_MESSAGE's
-    // own doc comment).
-    deleteConfirmationMessage: PAGE_DELETE_CONFIRMATION_MESSAGE,
-    moveDestinations: canMoveNote
-      ? buildMoveDestinationItems(application.membershipSelector)
-      : undefined,
-    onMove: canMoveNote ? onMoveNote : undefined,
-    onCreateFolder: canMoveNote
-      ? (name) => application.folderOperations.create(name, null)
-      : undefined,
   });
   // A Daily Note's title is derived from its date and is its permanent
   // calendar identity (toResourcePageModel's own title comment) — renaming

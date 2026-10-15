@@ -5,7 +5,7 @@ import type { ResourceActionContext, ResourceKind } from './resourceActionTypes'
  * presentation decisions, not second implementations: an omitted action is still one definition
  * and one handler elsewhere (ADR-048). Every omission here states why.
  */
-export type ResourceActionSurface = 'sidebar' | 'favorites' | 'topbar' | 'overlay';
+export type ResourceActionSurface = 'sidebar' | 'favorites' | 'topbar' | 'overlay' | 'context';
 
 export interface ResourceActionSurfaceProfile {
   /** Action ids this surface never shows. */
@@ -31,6 +31,20 @@ const SIDEBAR_PROFILE: ResourceActionSurfaceProfile = {
   unavailable: 'hide',
 };
 
+const TOPBAR_PROFILE: ResourceActionSurfaceProfile = {
+  // The title is editable inline and the header already exposes the icon control, so Rename and
+  // Change icon are not repeated here. Sort by is a sidebar view preference. A tag's page
+  // exposes no Pin today (adding it is a product decision, not an accident of the menu).
+  omit: ['rename', 'change-icon', 'sort-by', 'toggle-pin'],
+  // Reveal in Finder is a topbar action for an ordinary, active Note only — not a Daily Note,
+  // Template, Folder or archived note. (Assets and Tags have no resource-action topbar.) The
+  // sidebar rows keep it for every resource.
+  omitWhen: (kind, context) =>
+    kind === 'note' && !context.isTemplate && context.status !== 'archived' ? [] : ['reveal-in-finder'],
+  // ADR-017 item 9: disabled, not omitted.
+  unavailable: 'disable',
+};
+
 export const RESOURCE_ACTION_SURFACES: Readonly<
   Record<ResourceActionSurface, ResourceActionSurfaceProfile>
 > = {
@@ -50,17 +64,11 @@ export const RESOURCE_ACTION_SURFACES: Readonly<
     // image does nothing yet; a live control must never be a silent no-op).
     unavailable: 'disable',
   },
-  topbar: {
-    // The title is editable inline and the header already exposes the icon control, so Rename and
-    // Change icon are not repeated here. Sort by is a sidebar view preference. A tag's page
-    // exposes no Pin today (adding it is a product decision, not an accident of the menu).
-    omit: ['rename', 'change-icon', 'sort-by', 'toggle-pin'],
-    // Reveal in Finder is a topbar action for an ordinary, active Note only — not a Daily Note,
-    // Template, Folder or archived note. (Assets and Tags have no resource-action topbar.) The
-    // sidebar rows keep it for every resource.
-    omitWhen: (kind, context) =>
-      kind === 'note' && !context.isTemplate && context.status !== 'archived' ? [] : ['reveal-in-finder'],
-    // ADR-017 item 9: disabled, not omitted.
-    unavailable: 'disable',
-  },
+  topbar: TOPBAR_PROFILE,
+  // A right-click menu on a Collection View item (a card, list row or table row) is the topbar's menu
+  // for that item — the same actions, order, groups and disabled states — so it is the topbar profile,
+  // not a second list. Its one difference: Hide/Show references is a display preference of the OPEN
+  // note's page (like the sidebar, which omits it for the same reason), so it is not offered for an
+  // item the user has not opened.
+  context: { ...TOPBAR_PROFILE, omit: [...TOPBAR_PROFILE.omit, 'toggle-references'] },
 };

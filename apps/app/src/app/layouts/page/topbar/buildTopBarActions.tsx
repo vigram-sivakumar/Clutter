@@ -5,6 +5,7 @@ import type { MembershipSelector } from '@core/application/membership/Membership
 import type { PickerListItem } from '@components/picker-list/PickerList.types';
 import { CountBadge } from '@components/count-badge/CountBadge';
 import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
+import type { ResourceActionSurface } from '@core/presentation/resourceActions/resourceActionSurfaces';
 import {
   buildArchiveTopBarMenu,
   DELETE_ALL_ARCHIVED_CONFIRMATION,
@@ -12,8 +13,12 @@ import {
 import { createLocationActions } from '@features/notes/helpers/createLocationActions';
 import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
 
-import { renderTopBarActions } from './topBarRegistry';
-import type { TopBarMenuItemConfig, TopBarPageState } from './ResourceTopBarActions';
+import { renderTopBarActions, topBarActionProps, type TopBarActionsOptions } from './topBarRegistry';
+import type {
+  ResourceTopBarActionsProps,
+  TopBarMenuItemConfig,
+  TopBarPageState,
+} from './ResourceTopBarActions';
 
 function isPage(entry: Page | Folder): entry is Page {
   return 'type' in entry;
@@ -54,7 +59,8 @@ function buildMenuForType(
   isDeletable: boolean,
   isTemplate: boolean = false,
   isEffectivelyArchived: boolean = false,
-  referencesHidden: boolean = false
+  referencesHidden: boolean = false,
+  surface: ResourceActionSurface = 'topbar'
 ): readonly TopBarMenuItemConfig[] {
   switch (type) {
     case 'note':
@@ -69,7 +75,7 @@ function buildMenuForType(
           isEffectivelyArchived,
           referencesHidden,
         },
-        'topbar'
+        surface
       );
     // Daily Notes deliberately do not support favoriting (unlike Note/
     // Folder) — buildDailyNoteTopBarMenu takes no isFavorite param.
@@ -83,7 +89,7 @@ function buildMenuForType(
           isEffectivelyArchived,
           referencesHidden,
         },
-        'topbar'
+        surface
       );
     default:
       return [];
@@ -153,12 +159,16 @@ export interface BuildTopBarActionsOptions {
 }
 
 /**
- * Builds trailing top bar actions for the currently active resource.
+ * Resolves a resource's More actions menu and the options its handlers are bound from. The one
+ * place that decides which actions a resource has, in which state — read by the topbar
+ * (`buildTopBarActions`) and by the Collection View's right-click menu (`buildResourceContextMenu`),
+ * which differ only in the surface profile the menu is built for.
  */
-export function buildTopBarActions(
+function resolveTopBarMenu(
   resource: Page | Folder,
-  options: BuildTopBarActionsOptions
-): TopBarParts {
+  options: BuildTopBarActionsOptions,
+  surface: ResourceActionSurface
+): { resourceType: TopBarResourceType; actionOptions: TopBarActionsOptions } {
   const resourceType = getTopBarResourceType(resource, options.membershipSelector);
   // Daily Notes deliberately do not support favoriting (unlike Note/
   // Folder) — isFavorite/onToggleFavorite are never forwarded for one, so
@@ -195,12 +205,13 @@ export function buildTopBarActions(
         isDeletable,
         options.membershipSelector.isInTemplatesFolder(resource.parentId),
         isEffectivelyArchived,
-        options.referencesHidden
+        options.referencesHidden,
+        surface
       )
     : buildResourceActionMenu(
         'folder',
         { status: restorableState, isFavorite, isDeletable, isEffectivelyArchived },
-        'topbar'
+        surface
       );
 
   // The reference count trails the Hide/Show references item, as a CountBadge (a UI component, so it is
@@ -223,7 +234,8 @@ export function buildTopBarActions(
     location.copyPath(resource, isPage(resource) ? 'page' : 'folder', format);
 
   return {
-    actions: renderTopBarActions(resourceType, {
+    resourceType,
+    actionOptions: {
       menu,
       onArchive: options.onArchive,
       onRestore: options.onRestore,
@@ -246,8 +258,34 @@ export function buildTopBarActions(
       onRevealInFinder,
       onCopyPath,
       onToggleReferences: options.onToggleReferences,
-    }),
+    },
   };
+}
+
+/**
+ * Builds trailing top bar actions for the currently active resource.
+ */
+export function buildTopBarActions(
+  resource: Page | Folder,
+  options: BuildTopBarActionsOptions
+): TopBarParts {
+  const { resourceType, actionOptions } = resolveTopBarMenu(resource, options, 'topbar');
+  return { actions: renderTopBarActions(resourceType, actionOptions) };
+}
+
+/**
+ * The right-click menu for a resource that is NOT the open page (a Collection View item): the
+ * topbar's menu and handler wiring for that resource, built from the same options and the same
+ * definitions, on the `context` surface profile. `null` when the resource has no actions (a reserved
+ * folder), so no empty menu is ever shown.
+ */
+export function buildResourceContextMenu(
+  resource: Page | Folder,
+  options: BuildTopBarActionsOptions
+): ResourceTopBarActionsProps | null {
+  const { resourceType, actionOptions } = resolveTopBarMenu(resource, options, 'context');
+  const props = topBarActionProps(resourceType, actionOptions);
+  return props && props.menu.length > 0 ? props : null;
 }
 
 /**

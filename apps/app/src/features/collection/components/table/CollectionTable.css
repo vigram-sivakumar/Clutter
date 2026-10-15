@@ -7,18 +7,29 @@
   width: 100%;
 
   /*
-   * The table is the horizontal-scroll container, not the page: its columns may
+   * The table is the horizontal-scroll container, not the page (see `--scrolls` below, which turns
+   * scrolling on only when it is needed): its columns may
    * add up to more than 100% (a `minmax(400px, 1fr)` name plus content-sized and
    * fixed columns) and this contains that overflow locally. Vertical scrolling stays with the page,
    * so overflow-y is hidden and overscroll-behavior-y restores normal
    * chaining (base.css sets `overscroll-behavior: none` globally, which would
    * otherwise swallow a vertical wheel over the table).
    */
-  overflow-x: auto;
+  overflow-x: hidden;
   overflow-y: hidden;
   overscroll-behavior-y: auto;
   /* As a flex item, overflow != visible would let flex-shrink squeeze (and clip) the table; keep its natural height. */
   flex-shrink: 0;
+}
+
+/*
+ * Only a table whose columns really overflow is a scroller (CollectionTable measures it). Its scrollbar
+ * is drawn over the bottom of the scroll box, so the box keeps room under the last row for it to sit in
+ * rather than on the row — and a table that fits has neither a scrollbar nor the room.
+ */
+.collection-table--scrolls {
+  overflow-x: auto;
+  padding-block-end: var(--space-8);
 }
 
 .collection-table__header {

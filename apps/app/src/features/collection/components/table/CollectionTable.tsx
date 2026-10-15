@@ -1,4 +1,4 @@
-import type { HTMLAttributes, ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type HTMLAttributes, type ReactNode, type RefObject } from 'react';
 import {
   buildCollectionTableGridTemplateColumns,
   type CollectionTableColumn,
@@ -23,11 +23,14 @@ export interface CollectionTableProps extends HTMLAttributes<HTMLDivElement> {
  */
 export function CollectionTable({ columns, children, footer, className, style, ...props }: CollectionTableProps) {
   const gridTemplateColumns = buildCollectionTableGridTemplateColumns(columns);
+  const tableRef = useRef<HTMLDivElement>(null);
+  const scrollsX = useHorizontalOverflow(tableRef);
 
   return (
     <div
       {...props}
-      className={['collection-table', className].filter(Boolean).join(' ')}
+      ref={tableRef}
+      className={['collection-table', scrollsX && 'collection-table--scrolls', className].filter(Boolean).join(' ')}
       style={{ gridTemplateColumns, ...style }}
     >
       <div className="collection-table__header">
@@ -46,4 +49,33 @@ export function CollectionTable({ columns, children, footer, className, style, .
       </div>
     </div>
   );
+}
+
+/**
+ * Whether the element's content is genuinely wider than it (more than a rounded pixel — a fractional
+ * grid track must not make a table scrollable). The table is a horizontal scroller only while this is
+ * true: a scroller that has nothing to scroll still lets the platform flash its scrollbar when a
+ * trackpad touch begins over it (a two-finger right-click), over the last row.
+ */
+function useHorizontalOverflow(ref: RefObject<HTMLElement>): boolean {
+  const [overflows, setOverflows] = useState(false);
+
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) {
+      return;
+    }
+    const measure = () => setOverflows(element.scrollWidth - element.clientWidth > 1);
+    measure();
+    if (typeof ResizeObserver === 'undefined') {
+      return;
+    }
+    // The table itself (its width) and its content (columns and rows added or resized).
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    Array.from(element.children).forEach((child) => observer.observe(child));
+    return () => observer.disconnect();
+  }, [ref]);
+
+  return overflows;
 }
