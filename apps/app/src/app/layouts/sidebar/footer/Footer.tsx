@@ -20,6 +20,14 @@ interface FooterProps {
    * nothing to load (the initial is shown instead). Defaults to using `src` as-is.
    */
   resolveImageUrl?(src: string): string | null;
+  /** Every registered Space, active one included. Omitted: the menu lists just the active Space. */
+  spaces?: readonly { path: string; name: string }[];
+  /** The active Space's path, matched against `spaces` to mark the current one. */
+  activeSpacePath?: string;
+  /** Presence makes the other Spaces selectable. */
+  onSwitchSpace?(path: string): void;
+  /** Presence enables "New space"; absent (no folder picker, e.g. the web runtime) it is disabled. */
+  onNewSpace?(): void;
   onOpenArchive(): void;
 }
 
@@ -30,6 +38,10 @@ export function Footer({
   spaceName,
   avatar = DEFAULT_AVATAR,
   resolveImageUrl,
+  spaces,
+  activeSpacePath,
+  onSwitchSpace,
+  onNewSpace,
   onOpenArchive,
 }: FooterProps) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -53,7 +65,6 @@ export function Footer({
       >
         <span className="space__title">{title}</span>
       </Entry>
-      {/* UI only: the items carry no handlers yet — switching, creating a Space and Settings are not built. */}
       <Overlay
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
@@ -62,17 +73,50 @@ export function Footer({
         alignment="start"
       >
         <Menu size="medium">
+          {(spaces ?? [{ path: activeSpacePath ?? '', name: title }]).map((space) => {
+            const isActive = space.path === activeSpacePath || spaces === undefined;
+            return isActive ? (
+              <MenuItem
+                key={space.path}
+                className="space-menu__current"
+                leading={avatarView}
+                trailing={<AppIcon icon="tick" />}
+                aria-current="true"
+                title={space.path || undefined}
+              >
+                <span className="space__title">{spaceName || space.name}</span>
+              </MenuItem>
+            ) : (
+              <MenuItem
+                key={space.path}
+                className="space-menu__current"
+                leading={<SpaceAvatar avatar={DEFAULT_AVATAR} folderName={space.name} />}
+                title={space.path}
+                disabled={!onSwitchSpace}
+                onClick={() => {
+                  setMenuOpen(false);
+                  onSwitchSpace?.(space.path);
+                }}
+              >
+                <span className="space__title">{space.name}</span>
+              </MenuItem>
+            );
+          })}
           <MenuItem
-            className="space-menu__current"
-            leading={avatarView}
-            trailing={<AppIcon icon="tick" />}
-            aria-current="true"
+            leading={<AppIcon icon="plus" />}
+            disabled={!onNewSpace}
+            onClick={() => {
+              setMenuOpen(false);
+              onNewSpace?.();
+            }}
           >
-            <span className="space__title">{title}</span>
+            New space
           </MenuItem>
-          <MenuItem leading={<AppIcon icon="plus" />}>New space</MenuItem>
+          {/* Settings has no destination yet, so it is shown but not actionable. */}
           <div className="menu__divider" role="separator" />
-          <MenuItem leading={<AppIcon icon="settings" />}>Settings</MenuItem>
+          <MenuItem leading={<AppIcon icon="settings" />} disabled>
+            Settings
+          </MenuItem>
         </Menu>
       </Overlay>
       <div className="footer__actions">

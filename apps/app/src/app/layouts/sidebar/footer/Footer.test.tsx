@@ -140,3 +140,70 @@ describe('Footer space selector: menu', () => {
     expect(screen.queryByRole('menu')).toBeNull();
   });
 });
+
+describe('Footer space selector: multiple Spaces', () => {
+  const spaces = [
+    { path: '/a/Notes', name: 'Notes' },
+    { path: '/b/Work', name: 'Work' },
+  ];
+
+  function openMulti(extra: Partial<Parameters<typeof Footer>[0]> = {}) {
+    const onSwitchSpace = vi.fn();
+    const onNewSpace = vi.fn();
+    const view = render(
+      <Footer
+        vaultFolderName="Notes"
+        spaces={spaces}
+        activeSpacePath="/a/Notes"
+        onSwitchSpace={onSwitchSpace}
+        onNewSpace={onNewSpace}
+        onOpenArchive={() => {}}
+        {...extra}
+      />
+    );
+    fireEvent.click(view.container.querySelector('.space-selector') as HTMLElement);
+    return { ...view, onSwitchSpace, onNewSpace };
+  }
+
+  it('lists every Space, marking only the active one', () => {
+    openMulti();
+    const rows = within(screen.getByRole('menu')).getAllByRole('menuitem');
+    expect(rows.map((row) => row.textContent)).toEqual(['NNotes', 'WWork', 'New space', 'Settings']);
+    expect(rows[0]).toHaveAttribute('aria-current', 'true');
+    expect(rows[1]).not.toHaveAttribute('aria-current');
+  });
+
+  it('switches to another Space and closes the menu', () => {
+    const { onSwitchSpace } = openMulti();
+    fireEvent.click(screen.getByText('Work'));
+    expect(onSwitchSpace).toHaveBeenCalledWith('/b/Work');
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('does nothing when the active Space is clicked', () => {
+    const { onSwitchSpace } = openMulti();
+    fireEvent.click(within(screen.getByRole('menu')).getAllByRole('menuitem')[0]!);
+    expect(onSwitchSpace).not.toHaveBeenCalled();
+  });
+
+  it('starts the New space flow and closes the menu', () => {
+    const { onNewSpace } = openMulti();
+    fireEvent.click(screen.getByText('New space'));
+    expect(onNewSpace).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('disables New space where there is no folder picker', () => {
+    openMulti({ onNewSpace: undefined });
+    expect(screen.getByText('New space').closest('[role="menuitem"]')).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+  });
+
+  it('shows the active Space name from its folder, whichever Space it is', () => {
+    const { container } = openMulti({ vaultFolderName: 'Work', activeSpacePath: '/b/Work' });
+    expect(container.querySelector('.space-selector .space__title')).toHaveTextContent('Work');
+    expect(container.querySelector('.space-selector .space__initial')).toHaveTextContent('W');
+  });
+});

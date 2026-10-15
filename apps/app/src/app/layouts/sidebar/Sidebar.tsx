@@ -22,6 +22,8 @@ import { Tags } from '@features/tags/sidebar/Sidebar.Tags';
 import { SearchPanel } from '@features/search/SearchPanel';
 import { Controls } from '@app/layouts/sidebar/controls/Controls';
 import { Footer } from './footer/Footer';
+import { useSpaces } from '@app/spaces/SpacesContext';
+import { VaultPath } from '@core/vault/ingest/VaultPath';
 import { NewTaskDialog } from '@features/tasks/shortcuts/NewTaskDialog';
 import { NewTagDialog } from '@features/tags/shortcuts/NewTagDialog';
 import { NewFolderDialog } from '@features/notes/shortcuts/NewFolderDialog';
@@ -68,6 +70,7 @@ export function Sidebar({
     membershipSelector,
   } = application;
   const workspace = useWorkspace(application.workspace);
+  const spaces = useSpaces();
   const activeDailyNoteDate = getActiveDailyNoteDate(
     vault,
     workspace.activePageId,
@@ -290,7 +293,11 @@ export function Sidebar({
         {tabs.find((tab) => tab.value === workspace.activeSidebarTab)?.panel}
       </div>
       <Footer
-        vaultFolderName={vault.root.split('/').filter(Boolean).pop() ?? ''}
+        vaultFolderName={VaultPath.filename(vault.root)}
+        spaces={spaces?.spaces}
+        activeSpacePath={vault.root}
+        onSwitchSpace={spaces?.onSwitchSpace}
+        onNewSpace={spaces?.onAddSpace}
         resolveImageUrl={(src) => application.resolveCoverImageForDisplay(src)}
         onOpenArchive={() => navigation.openArchive()}
       />
