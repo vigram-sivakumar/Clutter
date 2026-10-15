@@ -480,7 +480,14 @@ export function Notes({
   }
 
   return (
-    <View navigation={<NotesShortcuts onShortcut={onShortcut} />}>
+    <View navigation={<NotesShortcuts
+          onShortcut={onShortcut}
+          dropFolderIds={{
+            templates: membershipSelector.getTemplatesFolder()?.id,
+            inbox: membershipSelector.getInboxFolder()?.id,
+            assets: membershipSelector.getAssetsStorageFolder()?.id,
+          }}
+        />}>
       <FavoritesSection
         isEmpty={favoriteItems.length === 0}
         title={getSystemLocationPresentation('favorites').label}

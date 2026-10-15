@@ -199,22 +199,18 @@ export function isDailyNotesFolderOrDescendant(vaultRoot: string, path: string):
 }
 
 /**
- * Which hierarchy a path belongs to for Move (ADR-049). Templates and the Assets storage folder are
- * sealed hierarchies: what lives in one stays in it, and nothing else moves in. Everything else
- * (the vault root, the Inbox, ordinary folders) is the workspace.
+ * Which hierarchy a path belongs to for Move (ADR-049, amended). The Assets storage folder is a
+ * sealed hierarchy: what lives in it stays in it, and nothing else moves in. Everything else (the
+ * vault root, the Inbox, Templates, ordinary folders) is the workspace: Templates is an ordinary
+ * move destination, and an item's template status simply follows where it now lives (ADR-041).
  */
-export type MoveZone = 'workspace' | 'templates' | 'assets';
+export type MoveZone = 'workspace' | 'assets';
 
-/** The hierarchies that have their own Move picker root: Templates are flat and never move, so only these. */
-export type MovePickerZone = Extract<MoveZone, 'workspace' | 'assets'>;
+/** The hierarchies that have their own Move picker root. */
+export type MovePickerZone = MoveZone;
 
 export function moveZoneOfPath(vaultRoot: string, path: string): MoveZone {
-  const templates = `${vaultRoot}/${RESERVED_FOLDER_IDS.templates}`;
   const assets = `${vaultRoot}/${ASSETS_DIRECTORY_NAME}`;
-
-  if (path === templates || VaultPath.isDescendantOf(path, templates)) {
-    return 'templates';
-  }
 
   if (path === assets || VaultPath.isDescendantOf(path, assets)) {
     return 'assets';

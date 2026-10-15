@@ -19,9 +19,9 @@ import { DailyNoteService } from '@core/application/daily-notes/DailyNoteService
 import type { Folder } from '@core/vault/models/Folder';
 
 /**
- * Creating a folder is inline: the page shows a card with an empty, focused name field ("New folder"
- * as its placeholder only), and nothing is created until the name is committed. Through the real
- * AppLayout composition.
+ * Creating a folder from a collection opens the one New folder dialog (name, icon, description) —
+ * the same one the sidebar uses — and nothing is created until it is submitted. No inline card.
+ * Through the real AppLayout composition.
  */
 
 class ResizeObserverMock {
@@ -84,8 +84,8 @@ async function renderProjects() {
   return { application, create };
 }
 
-/** Header caret → the Add menu's "New folder": the inline name field appears. */
-async function startCreatingFolder(): Promise<HTMLElement> {
+/** Header caret → the Add menu's "New folder": the New folder dialog opens. */
+async function startCreatingFolder(): Promise<HTMLInputElement> {
   fireEvent.click(document.querySelector('button[aria-label="Add options"]')!);
   await flush();
   const item = Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]')).find(
@@ -93,88 +93,93 @@ async function startCreatingFolder(): Promise<HTMLElement> {
   );
   fireEvent.click(item!);
   await flush();
-  return document.querySelector<HTMLElement>('.collection-grid--fixed-rows [role="textbox"]')!;
+  return document.querySelector<HTMLInputElement>('input[aria-label="Folder name"]')!;
 }
 
-function type(field: HTMLElement, text: string) {
-  field.textContent = text;
-  fireEvent.input(field);
-}
+const submit = async () => {
+  fireEvent.click(document.querySelector<HTMLElement>('.new-folder__create-button')!);
+  await flush();
+};
+const type = (field: HTMLInputElement, text: string) => fireEvent.change(field, { target: { value: text } });
+const hasInlineCard = () => document.querySelector('.collection-grid--fixed-rows [role="textbox"]') !== null;
 
-describe('creating a folder inline', () => {
-  it('shows a focused, empty name field with "New folder" as its placeholder, and creates nothing yet', async () => {
+describe('creating a folder from a collection', () => {
+  it('opens the existing New folder dialog, with no inline card, and creates nothing yet', async () => {
     const { create } = await renderProjects();
     const field = await startCreatingFolder();
 
     expect(field).not.toBeNull();
-    expect(document.activeElement).toBe(field);
-    expect(field.textContent).toBe('');
-    expect(field.getAttribute('data-placeholder')).toBe('New folder');
+    expect(document.querySelector('.new-folder__title')?.textContent).toBe('New folder');
+    expect(document.querySelector('textarea[aria-label="Description"], [aria-label="Description"]')).not.toBeNull();
+    expect(document.querySelector('.new-folder__emoji-button')).not.toBeNull();
+    expect(hasInlineCard()).toBe(false);
     expect(create).not.toHaveBeenCalled();
   });
 
-  it('persists the typed name', async () => {
-    const { create } = await renderProjects();
+  it('creates the folder in the collection being viewed with the typed name, description, and closes', async () => {
+    const { application, create } = await renderProjects();
     const field = await startCreatingFolder();
+    const update = vi.spyOn(application.folderOperations, 'updateMetadata');
 
     type(field, 'Trips');
-    fireEvent.keyDown(field, { key: 'Enter' });
-    await flush();
+    fireEvent.change(document.querySelector<HTMLInputElement>('[aria-label="Description"]')!, {
+      target: { value: 'Holiday plans' },
+    });
+    await submit();
 
     expect(create).toHaveBeenCalledTimes(1);
     expect(create).toHaveBeenCalledWith('Trips', `${ROOT}/Projects`);
+    expect(update).toHaveBeenCalledWith(expect.any(String), { description: 'Holiday plans' });
+    expect(document.querySelector('.new-folder')).toBeNull();
   });
 
-  it('commits an empty field as "New folder"', async () => {
-    const { create } = await renderProjects();
-    const field = await startCreatingFolder();
-
-    fireEvent.keyDown(field, { key: 'Enter' });
-    await flush();
-
-    expect(create).toHaveBeenCalledTimes(1);
-    expect(create).toHaveBeenCalledWith('New folder', `${ROOT}/Projects`);
-  });
-
-  it('cancelling (Escape) creates no folder and removes the field', async () => {
+  it('cancelling (Close) creates no folder', async () => {
     const { create } = await renderProjects();
     const field = await startCreatingFolder();
 
     type(field, 'Trips');
-    fireEvent.keyDown(field, { key: 'Escape' });
+    fireEvent.click(document.querySelector<HTMLElement>('.new-folder button[aria-label="Close"]')!);
     await flush();
 
     expect(create).not.toHaveBeenCalled();
-    expect(document.querySelector('.collection-grid--fixed-rows [role="textbox"]')).toBeNull();
+    expect(document.querySelector('.new-folder')).toBeNull();
   });
 
-  it.each(['a/b', 'a:b', '..', '.hidden', 'a\\b', 'a*b', 'a?b', 'a"b', 'a<b', 'a>b', 'a|b'])('rejects the name "%s" (a character a folder name may not have): the field stays open', async (name) => {
+  it('Create with an empty name creates nothing, shakes the name input and keeps the dialog open', async () => {
+    const { create } = await renderProjects();
+    const field = await startCreatingFolder();
+
+    await submit();
+
+    expect(create).not.toHaveBeenCalled();
+    expect(field).toHaveClass('editable-text--shake');
+    expect(document.querySelector('.new-folder')).not.toBeNull();
+  });
+
+  it('a duplicate name shows the dialog\'s error and cannot be submitted', async () => {
+    const { application, create } = await renderProjects();
+    await application.folderOperations.create('Trips', `${ROOT}/Projects`);
+    create.mockClear();
+    const field = await startCreatingFolder();
+
+    type(field, 'Trips');
+    await flush();
+
+    expect(document.querySelector('.new-folder__error')?.textContent).toContain('already exists');
+    expect(document.querySelector<HTMLButtonElement>('.new-folder__create-button')!.disabled).toBe(false);
+    await submit();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it.each(['a/b', 'a:b', '..', '.hidden', 'a\\b', 'a*b', 'a?b', 'a"b', 'a<b', 'a>b', 'a|b'])('rejects the name "%s": nothing is created and the dialog stays open with an error', async (name) => {
     const { create } = await renderProjects();
     const field = await startCreatingFolder();
 
     type(field, name);
-    fireEvent.keyDown(field, { key: 'Enter' });
-    await flush();
+    await submit();
 
     expect(create).not.toHaveBeenCalled();
-    expect(document.querySelector('.collection-grid--fixed-rows [role="textbox"]')).not.toBeNull();
-  });
-
-  it('clicking outside cancels too — empty or typed — and creates no folder', async () => {
-    const { create } = await renderProjects();
-    let field = await startCreatingFolder();
-    fireEvent.blur(field);
-    await flush();
-
-    expect(create).not.toHaveBeenCalled();
-    expect(document.querySelector('.collection-grid--fixed-rows [role="textbox"]')).toBeNull();
-
-    field = await startCreatingFolder();
-    type(field, 'Trips');
-    fireEvent.blur(field);
-    await flush();
-
-    expect(create).not.toHaveBeenCalled();
-    expect(document.querySelector('.collection-grid--fixed-rows [role="textbox"]')).toBeNull();
+    expect(document.querySelector('.new-folder')).not.toBeNull();
+    expect(document.querySelector('.new-folder__error')?.textContent).toContain('A folder name can');
   });
 });

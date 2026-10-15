@@ -38,10 +38,11 @@ import { getVaultDisplayName } from '@core/presentation/getVaultDisplayName';
  * and translates it back to the `null` destination every Move facade
  * method already accepts.
  *
- * `zone` (ADR-049) picks the root: `'workspace'` (default) is the vault root and its ordinary
- * folders; `'assets'` is the Assets hierarchy — its own root row first (the one the picker pins,
+ * `zone` (ADR-049) picks the root: `'workspace'` (default) is the vault root, then Templates (an
+ * ordinary destination: moving in makes a template, moving out makes an ordinary item again) with
+ * its folders, then the ordinary folders; `'assets'` is the Assets hierarchy — its own root row first (the one the picker pins,
  * like the vault root), then only folders inside it. An Asset moves only within Assets, and nothing
- * else is offered it. Templates are flat and never move, so they have no zone here.
+ * else is offered it.
  *
  * `excludeFolderId`, when given (a folder being moved, never a page), is
  * the one exclusion this helper does add: the folder itself is omitted,
@@ -54,11 +55,14 @@ import { getVaultDisplayName } from '@core/presentation/getVaultDisplayName';
 export function buildMoveDestinationItems(
   membershipSelector: MembershipSelector,
   excludeFolderId?: string,
-  zone: MovePickerZone = 'workspace'
+  zone: MovePickerZone = 'workspace',
+  // A non-Move caller of this folder walk (the cover picker) has no use for the Templates entry.
+  { includeTemplates = true }: { readonly includeTemplates?: boolean } = {}
 ): PickerListItem[] {
   const items: PickerListItem[] = [];
   let startFolders: readonly Folder[];
   let startAncestors: PickerListAncestor[] = [];
+  let pinnedAfterRoot: { folder: Folder; ancestors: PickerListAncestor[] } | undefined;
 
   if (zone === 'workspace') {
     // A folder may be moved to the vault root; a note may not. `excludeFolderId` is only ever
@@ -73,6 +77,27 @@ export function buildMoveDestinationItems(
         parentId: null,
       });
     }
+    // Templates sits directly below the vault root, whatever its alphabetical place. It exists only
+    // once a first template has been made (ADR-030), so it is offered only then.
+    const templates = includeTemplates ? membershipSelector.getTemplatesFolder() : undefined;
+
+    if (templates && templates.id !== excludeFolderId) {
+      const label = getFolderDisplayLabel(templates);
+
+      items.push({
+        id: templates.id,
+        title: label.text,
+        isRoot: true,
+        icon: 'template',
+        level: 0,
+        parentId: null,
+      });
+      pinnedAfterRoot = {
+        folder: templates,
+        ancestors: [{ id: templates.id, title: label.text, emoji: templates.metadata.icon }],
+      };
+    }
+
     startFolders = membershipSelector.getWorkspaceFolders();
   } else {
     // The Assets hierarchy (ADR-049): its own root takes the vault root's place, and nothing outside
@@ -126,6 +151,15 @@ export function buildMoveDestinationItems(
         [...ancestors, { id: folder.id, title: label.text, emoji: folder.metadata.icon }]
       );
     }
+  }
+
+  if (pinnedAfterRoot) {
+    walk(
+      membershipSelector.getVisibleChildFolders(pinnedAfterRoot.folder.id),
+      1,
+      pinnedAfterRoot.folder.id,
+      pinnedAfterRoot.ancestors
+    );
   }
 
   walk(startFolders, zone === 'workspace' ? 0 : 1, zone === 'workspace' ? null : (items[0]?.id ?? null), startAncestors);

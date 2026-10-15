@@ -2,7 +2,7 @@ import { useState, type KeyboardEvent, type ReactNode } from 'react';
 import type { SystemIcon } from '@shared/icon';
 
 import { CreateCard, createNewItem } from './collectionCreate';
-import { renderFolderGrid, type FolderCreation } from './collectionFolders';
+import { renderFolderGrid } from './collectionFolders';
 import { NOTE_SORT_OPTIONS } from './CollectionBody';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
 import { PageBody } from './Page.Body';
@@ -37,8 +37,6 @@ export interface AssetsCollectionBodyProps {
   readonly folders?: readonly CollectionEntryModel[];
   /** Creates a folder here. The folders' "+" card is drawn only once there is at least one folder. */
   readonly onCreateFolder?: () => void;
-  /** A folder being named inline, drawn as a card in the folders section while it lasts. */
-  readonly folderCreation?: FolderCreation;
   /** The collection's assets (`MembershipSelector.getAllAssets`): vault files and the remote images Clutter uses. */
   readonly assets: readonly Asset[];
   /**
@@ -100,7 +98,6 @@ const DEFAULT_VIEW = resolveCollectionView(ASSETS_COLLECTION);
 export function AssetsCollectionBody({
   folders = [],
   onCreateFolder,
-  folderCreation,
   assets: unsorted,
   viewMode = DEFAULT_VIEW.layout,
   visible = DEFAULT_VIEW.visible,
@@ -210,11 +207,11 @@ export function AssetsCollectionBody({
 
   return (
     <PageBody className="collection__content">
-      {assets.length === 0 && folders.length === 0 && !folderCreation ? (
+      {assets.length === 0 && folders.length === 0 ? (
         <CollectionEmptyState message={emptyMessage} action={onCreate && emptyCreateLabel ? { label: emptyCreateLabel, onClick: onCreate, icon: emptyCreateIcon } : undefined} />
       ) : (
         <>
-          {(folders.length > 0 || folderCreation) && renderFolderGrid(sortedFolders, onCreateFolder, folderCreation)}
+          {folders.length > 0 && renderFolderGrid(sortedFolders, onCreateFolder)}
           {assets.length > 0 && layout}
         </>
       )}

@@ -23,7 +23,7 @@ import { createDragAutoScroller, findScrollContainer, usePointerDrag } from '@sh
 import { DragGhost } from '@components/drag-ghost/DragGhost';
 import { DropFeedback } from '@components/drag-ghost/DropFeedback';
 import { executeDrop, type DropActions } from './executeDrop';
-import { collectDragRows, resolveDropTarget, sameDropTarget, type DropTarget } from './dropTarget';
+import { collectDragRows, collectDropDestinations, resolveDropTarget, sameDropTarget, type DropTarget } from './dropTarget';
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 // Models
 import type { Folder } from '@core/vault/models';
@@ -87,7 +87,7 @@ export function getLevelIndex(
 
 /** What a sidebar drag carries. A note id and a folder id are different namespaces, hence the kind. */
 interface SidebarDragItem {
-  readonly kind: 'folder' | 'note';
+  readonly kind: 'folder' | 'note' | 'asset';
   readonly id: string;
   /** The parent folder it is dragged from (`null` = root). */
   readonly parentId: string | null;
@@ -651,11 +651,14 @@ function ResourceRow({
   level,
   onResourceClick,
   rowActions,
+  drag,
 }: {
   resource: VaultResource;
   level: number;
   onResourceClick?(resource: VaultResource): void;
   rowActions?: SidebarRowActions;
+  /** Supplied only by the Notes section's FolderTree: a file can be dragged onto the Assets entry. */
+  drag?: RowDragProps;
 }) {
   const isEditing = rowActions?.editingId === resource.id;
 
@@ -663,6 +666,9 @@ function ResourceRow({
     <ResourceEntry
       resource={resource}
       level={level}
+      className={drag?.isSource ? 'entry--drag-source' : undefined}
+      onPointerDown={drag?.onPointerDown}
+      {...drag?.attributes}
       // Same rename/navigate conflict guard as PageEntry/FolderEntry above
       // — Resource.tsx's own isClickable check already excludes edit mode,
       // this just avoids passing a stale click target while renaming.
@@ -809,6 +815,7 @@ export function FolderTree({
         pointer: session.pointer,
         dragged,
         rows: collectDragRows(),
+        destinations: collectDropDestinations(),
         canMoveFolderInto: (folderId, destinationId) =>
           canMoveFolderIntoRef.current?.(folderId, destinationId) ?? false,
         isManualLevel: (parent) => getFolderSortRef.current?.(parent)?.key === 'manual',
@@ -891,6 +898,10 @@ export function FolderTree({
   // Writes a dropped item's place among `parent`'s children into that level's manual order, seeded from
   // what is drawn now (so switching a name- or date-sorted level to Manual changes nothing visible).
   placeSiblingRef.current = (item, parent, anchor, edge) => {
+    // An asset is never placed among the manual order (the drop only ever moves it).
+    if (item.kind === 'asset') {
+      return;
+    }
     const sort = getFolderSort?.(parent);
     // Positions are only ever written to a level that is in Manual mode: another sort mode leaves the saved
     // arrangement alone.
@@ -1155,6 +1166,9 @@ export function FolderTree({
         level={level}
         onResourceClick={onResourceClick}
         rowActions={rowActions}
+        drag={dragFor('asset', item.resource.id, parentId, {
+          disabled: rowActions?.editingId === item.resource.id,
+        })}
       />
     );
   };

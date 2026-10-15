@@ -212,12 +212,13 @@ describe('CURRENT BEHAVIOR — header actions and create affordances, by collect
     expect(bodyHasText('Create')).toBe(true);
   });
 
-  it('Templates (flat): a single New template button — no menu, no New folder, no create-folder card, NO From template; Table by default', async () => {
+  it('Templates: a New template button with a menu offering New folder — NO From template; Table by default', async () => {
     await renderFolder(TEMPLATES);
 
     expect(newButton()).toBeNull();
     expect(document.querySelector('button[aria-label="New template"]')).not.toBeNull();
-    expect(hasCreateFolderCard()).toBe(false);
+    expect(newMenuRows()).toEqual(['New folder']);
+    expect(hasCreateFolderCard()).toBe(true);
     expect(hasTable()).toBe(true);
   });
 
@@ -265,10 +266,10 @@ describe('FIXED BY THE COLLECTION DEFINITION — Templates lists the subfolders 
   const folderCards = () =>
     document.querySelectorAll('.collection-grid--fixed-rows > .collection-entry--folder-card:not(.collection-entry--folder-card-new)');
 
-  it('Templates are flat: no create-folder card — a folder already on disk is still listed, never created from here', async () => {
+  it('Templates list their subfolders next to the create-folder card', async () => {
     await renderFolder(TEMPLATES);
 
-    expect(hasCreateFolderCard()).toBe(false);
+    expect(hasCreateFolderCard()).toBe(true);
     expect(folderCards()).toHaveLength(1);
     expect(bodyHasText('Meetings')).toBe(true);
   });
@@ -280,12 +281,30 @@ describe('FIXED BY THE COLLECTION DEFINITION — Templates lists the subfolders 
     expect(bodyHasText('Sub')).toBe(true);
   });
 
-  it('Templates still has no folders to create and no From template', async () => {
+  it('Templates creates a folder through the same New folder dialog, directly under Templates', async () => {
+    const application = await renderFolder(TEMPLATES);
+    const create = vi.spyOn(application.folderOperations, 'create');
+    newMenuRows();
+    fireEvent.click([...document.querySelectorAll('[role="menuitem"]')].find((i) => i.textContent === 'New folder')!);
+    await flush();
+
+    expect(document.querySelector('.new-folder__title')?.textContent).toBe('New folder');
+    expect(create).not.toHaveBeenCalled();
+    fireEvent.change(document.querySelector<HTMLInputElement>('input[aria-label="Folder name"]')!, {
+      target: { value: 'Standups' },
+    });
+    fireEvent.click(document.querySelector<HTMLElement>('.new-folder__create-button')!);
+    await flush();
+
+    expect(create).toHaveBeenCalledWith('Standups', TEMPLATES);
+    expect(application.vault.getFolderByPathCaseInsensitive(`${TEMPLATES}/Standups`)).toBeDefined();
+  });
+
+  it('Templates offers New folder but no From template', async () => {
     await renderFolder(TEMPLATES);
 
     expect(document.querySelector('button[aria-label="New template"]')).not.toBeNull();
     expect(bodyHasText('From template')).toBe(false);
-    expect(bodyHasText('New folder')).toBe(false);
   });
 
   it('ordinary folders — including a nested one — offer New folder and From template beside the New plus', async () => {
@@ -475,7 +494,12 @@ describe('Default template — the folder Add menu section, by collection kind',
     cleanup();
 
     await renderFolder(TEMPLATES);
-    expect(newMenuRows()).toEqual([]);
+    expect(newMenuRows()).toEqual(['New folder']);
+    expect(bodyHasText('Default template')).toBe(false);
+    cleanup();
+
+    await renderFolder(`${TEMPLATES}/Meetings`);
+    expect(newMenuRows()).toEqual(['New folder']);
     cleanup();
 
     await renderFolder(ARCHIVE);

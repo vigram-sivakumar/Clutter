@@ -147,7 +147,7 @@ describe('actions — what each collection can create (capability only; handlers
   it('pins the capabilities that used to be scattered conditionals in PageHost', () => {
     expect(actions(FOLDER_COLLECTION)).toEqual(['create', 'createFolder', 'fromTemplate']);
     expect(actions(WORKSPACE_COLLECTION)).toEqual(['create', 'createFolder', 'fromTemplate']);
-    expect(actions(TEMPLATES_COLLECTION)).toEqual(['create']); // flat: no folders (ADR-049)
+    expect(actions(TEMPLATES_COLLECTION)).toEqual(['create', 'createFolder']); // folders allowed (ADR-049, amended); no fromTemplate
     expect(actions(TAG_COLLECTION)).toEqual(['create']);
     // Inbox: a note can be made blank or from a template — and no folder can be made there.
     expect(actions(INBOX_COLLECTION)).toEqual(['create', 'fromTemplate']);

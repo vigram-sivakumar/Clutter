@@ -393,8 +393,6 @@ describe('FolderPathResolver.resolveMoveDestination — movement zones (ADR-049)
   });
 
   it.each([
-    ['Templates', 'templates'],
-    ['a Templates subfolder', 'templates-sub'],
     ['Assets', 'assets'],
     ['an Assets subfolder', 'assets-sub'],
   ])('an ordinary folder cannot move into %s', (_label, destinationId) => {
@@ -403,14 +401,24 @@ describe('FolderPathResolver.resolveMoveDestination — movement zones (ADR-049)
     );
   });
 
-  it('a folder inside Templates moves only within Templates', () => {
+  it.each([
+    ['Templates', 'templates', `${ROOT}/Templates/Projects`],
+    ['a Templates subfolder', 'templates-sub', `${ROOT}/Templates/Meetings/Projects`],
+  ])('an ordinary folder moves into %s (and becomes a template folder by location)', (_label, destinationId, path) => {
+    const resolved = resolver().resolveMoveDestination('projects', destinationId);
+    expect(resolved.parentId).toBe(destinationId);
+    expect(resolved.path).toBe(path);
+  });
+
+  it('a folder inside Templates moves to Templates folders, ordinary folders and the root — never into Assets', () => {
     expect(resolver().resolveMoveDestination('templates-sub', 'templates-other').parentId).toBe('templates-other');
-    expect(resolver().resolveMoveDestination('templates-sub', 'templates').parentId).toBe('templates');
-    for (const destinationId of ['projects', 'assets', null]) {
-      expect(() => resolver().resolveMoveDestination('templates-sub', destinationId)).toThrow(
-        /can only be moved within templates/
-      );
-    }
+    expect(resolver().resolveMoveDestination('templates-sub', 'projects').path).toBe(`${ROOT}/Projects/Meetings`);
+    expect(resolver().resolveMoveDestination('templates-sub', null).path).toBe(`${ROOT}/Meetings`);
+    expect(() => resolver().resolveMoveDestination('templates-sub', 'assets')).toThrow(/can only be moved within workspace/);
+  });
+
+  it('a folder still cannot move into itself or a descendant, Templates or not', () => {
+    expect(() => resolver().resolveMoveDestination('templates-sub', 'templates-sub')).toThrow(/itself or a descendant/);
   });
 
   it('a folder inside Assets moves only within Assets', () => {
@@ -430,14 +438,17 @@ describe('FolderPathResolver.resolveMoveDestination — movement zones (ADR-049)
   });
 });
 
-describe('FolderPathResolver.createFolderPath — Templates are flat (ADR-049)', () => {
+describe('FolderPathResolver.createFolderPath — folders inside Templates (ADR-049, amended)', () => {
   const resolver = () =>
     new FolderPathResolver(
       makeVault([makeFolder('templates', `${ROOT}/Templates`), makeFolder('projects', `${ROOT}/Projects`)])
     );
 
-  it('refuses to create a folder inside Templates', () => {
-    expect(() => resolver().createFolderPath('templates', 'Meetings')).toThrow(/Cannot create a folder inside Templates/);
+  it('creates a folder inside Templates', () => {
+    expect(resolver().createFolderPath('templates', 'Meetings')).toEqual({
+      path: `${ROOT}/Templates/Meetings`,
+      parentId: 'templates',
+    });
   });
 
   it('still creates folders at the root and inside ordinary folders (and the Templates root itself)', () => {

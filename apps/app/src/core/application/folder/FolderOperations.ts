@@ -12,6 +12,7 @@ import type { FolderMetadata } from '../../vault/models/FolderMetadata';
 import { isDailyNotesFolderOrDescendant, type ReservedFolderId } from '../../vault/initialize/ReservedResources';
 import { VaultPath } from '../../vault/ingest/VaultPath';
 import { resolveFolderPathOrRoot } from '../../vault/persistence/resolveFolderPathOrRoot';
+import { evaluateTemplateMarker } from '../../vault/ingest/frontmatter/templateMarker';
 
 /**
  * The folder-name channel's own debounce/ceiling — mirrors
@@ -473,6 +474,10 @@ export class FolderOperations {
   ): Promise<void> {
     this.assertEditable(folderId);
     this.assertNotInArchivedFolder(destinationFolderId, 'Cannot move into an archived folder');
+    const wasInTemplates = this.vault.isFolderWithinReservedFolder(
+      this.vault.getFolder(folderId)?.parentId ?? null,
+      'templates'
+    );
     const result = await this.coordinator.enqueue(folderId, {
       kind: 'move-folder',
       destinationFolderId,
@@ -480,6 +485,70 @@ export class FolderOperations {
 
     if (result.status !== 'folder-renamed' && result.status !== 'abandoned') {
       throw new Error(`Failed to move folder ${folderId}: ${result.status}`);
+    }
+
+    if (result.status === 'folder-renamed') {
+      await this.syncTemplateMarkers(
+        folderId,
+        wasInTemplates,
+        this.vault.isFolderWithinReservedFolder(destinationFolderId, 'templates')
+      );
+    }
+  }
+
+  /**
+   * Keeps every descendant note's `kind: template` frontmatter (ADR-041) in step with where the
+   * moved folder's subtree now lives — the folder-move counterpart of
+   * PageOperations.move()'s syncTemplateMarker. The rule is the same shared evaluateTemplateMarker
+   * and each rewrite goes through the Gate's existing page 'save' kind (its metadata patch), so
+   * nothing here writes a file itself. Runs only when the subtree crossed the Templates boundary,
+   * and a note whose marker is already right is not rewritten. Archived notes are skipped, like
+   * PageOperations'. Every rewrite is attempted; if any fails the move is reported as failed
+   * (the move itself is not undone — Sync's reconciliation repairs what was missed).
+   */
+  private async syncTemplateMarkers(
+    folderId: string,
+    wasInTemplates: boolean,
+    nowInTemplates: boolean
+  ): Promise<void> {
+    const folder = this.vault.getFolder(folderId);
+
+    if (!folder || wasInTemplates === nowInTemplates) {
+      return;
+    }
+
+    const failures: string[] = [];
+
+    for (const page of [...this.vault.pages()]) {
+      if (!VaultPath.isDescendantOf(page.path, folder.path) || this.vault.isPageEffectivelyArchived(page)) {
+        continue;
+      }
+
+      const lines = evaluateTemplateMarker(page.metadata.unownedFrontmatter ?? [], nowInTemplates);
+
+      if (lines === null) {
+        continue;
+      }
+
+      try {
+        const saved = await this.coordinator.enqueue(page.id, {
+          kind: 'save',
+          content: page.source.markdown,
+          metadata: { unownedFrontmatter: lines },
+        });
+
+        if (saved.status === 'abandoned') {
+          failures.push(page.path);
+        }
+      } catch {
+        failures.push(page.path);
+      }
+    }
+
+    if (failures.length > 0) {
+      throw new Error(
+        `Moved folder ${folderId}, but the template marker could not be updated for: ${failures.join(', ')}`
+      );
     }
   }
 

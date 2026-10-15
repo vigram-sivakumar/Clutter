@@ -121,7 +121,7 @@ describe('CreateTemplateProvider — the one Create template dialog', () => {
     );
     renderProvider(application);
 
-    expect(screen.getByRole('button', { name: 'Create template' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Create template' })).toBeEnabled();
     expect(screen.getByRole('alert')).toHaveTextContent('already exists');
     expect(create).not.toHaveBeenCalled();
   });

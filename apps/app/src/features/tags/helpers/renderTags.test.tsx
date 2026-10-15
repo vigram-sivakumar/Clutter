@@ -830,7 +830,7 @@ describe('renderTags', () => {
 
   // ADR-049: the resource decides its Move root, not the surface it is listed on. A Template reached
   // through a tag is still a Template — the same Move picker opens, rooted at Templates.
-  describe('expanded tag children — Templates are flat: a Template listed under a tag has no Move', () => {
+  describe('expanded tag children — a Template listed under a tag can be moved', () => {
     const noteDestinations = [
       { id: '__vault-root__', title: 'vault', secondaryLabel: 'Home', isRoot: true, level: 0, parentId: null },
       { id: 'projects', title: 'Projects', level: 0, parentId: null },
@@ -877,10 +877,10 @@ describe('renderTags', () => {
       expect(screen.queryByText('Save as template')).not.toBeInTheDocument();
     });
 
-    it('a Template listed under a tag has no Move to… (and no Save as template), wherever it is shown', () => {
+    it('a Template listed under a tag has Move to… but no Save as template, wherever it is shown', () => {
       renderTaggedNote(fakeNote({ isTemplate: true }));
 
-      expect(screen.queryByText('Move to…')).not.toBeInTheDocument();
+      expect(screen.getByText('Move to…')).toBeInTheDocument();
       expect(screen.queryByText('Save as template')).not.toBeInTheDocument();
       // Its other actions are the ordinary note's.
       expect(screen.getByText('Rename')).toBeInTheDocument();

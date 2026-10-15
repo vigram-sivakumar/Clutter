@@ -740,47 +740,37 @@ describe('MoveService.resolveMoveDestination — movement zones (ADR-049)', () =
     return { moveService: new MoveService(vault, new InMemoryVaultFileSystem()), template, note };
   };
 
-  // ADR-049: Templates are a flat collection — a Template is never moved, anywhere.
+  // ADR-049 (amended): Templates is an ordinary workspace destination in both directions.
   it.each([
-    ['the Templates root itself', 'folder-templates'],
-    ['a Templates subfolder', 'folder-sub-templates'],
-    ['a normal folder', 'folder-1'],
-    ['the Inbox', 'folder-inbox'],
-    ['Assets', 'folder-assets'],
-    ['the vault root', null],
-  ])('a Template cannot be moved to %s', (_label, destinationId) => {
-    const { moveService, template } = setup();
-    expect(() => moveService.resolveMoveDestination(template, destinationId)).toThrow(
-      /Cannot move a Template/
-    );
+    ['the Templates root', 'folder-templates', `${ROOT}/Templates/Roadmap.md`],
+    ['a Templates subfolder', 'folder-sub-templates', `${ROOT}/Templates/Meetings/Roadmap.md`],
+  ])('a normal note moves into %s', (_label, destinationId, path) => {
+    const { moveService, note } = setup();
+    expect(moveService.resolveMoveDestination(note, destinationId).path).toBe(path);
   });
 
   it.each([
-    ['Templates', 'folder-templates'],
-    ['a Templates subfolder', 'folder-sub-templates'],
-    ['Assets', 'folder-assets'],
-  ])('a normal note cannot move into %s', (_label, destinationId) => {
-    const { moveService, note } = setup();
-    expect(() => moveService.resolveMoveDestination(note, destinationId)).toThrow(
-      /can only be moved within workspace/
-    );
+    ['a normal folder', 'folder-1', `${ROOT}/Projects/Standup.md`],
+    ['the Inbox', 'folder-inbox', `${ROOT}/Inbox/Standup.md`],
+    ['the vault root', null, `${ROOT}/Standup.md`],
+    ['a Templates subfolder', 'folder-sub-templates', `${ROOT}/Templates/Meetings/Standup.md`],
+  ])('a Template moves to %s', (_label, destinationId, path) => {
+    const { moveService, template } = setup();
+    expect(moveService.resolveMoveDestination(template, destinationId).path).toBe(path);
+  });
+
+  it('nothing moves into Assets', () => {
+    const { moveService, note, template } = setup();
+    for (const page of [note, template]) {
+      expect(() => moveService.resolveMoveDestination(page, 'folder-assets')).toThrow(
+        /can only be moved within workspace/
+      );
+    }
   });
 
   it('a normal note still moves between workspace folders and the root', () => {
     const { moveService, note } = setup();
     expect(moveService.resolveMoveDestination(note, 'folder-inbox').parentId).toBe('folder-inbox');
     expect(moveService.resolveMoveDestination(note, null).parentId).toBeNull();
-  });
-
-  it('"Use as template" (toTemplates) is the one sanctioned crossing — directly under the Templates root, never deeper or elsewhere', () => {
-    const { moveService, note } = setup();
-    expect(
-      moveService.resolveMoveDestination(note, 'folder-templates', { toTemplates: true }).path
-    ).toBe(`${ROOT}/Templates/Roadmap.md`);
-    for (const destinationId of ['folder-sub-templates', 'folder-1', null]) {
-      expect(() =>
-        moveService.resolveMoveDestination(note, destinationId, { toTemplates: true })
-      ).toThrow(/directly under Templates/);
-    }
   });
 });

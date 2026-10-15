@@ -124,14 +124,14 @@ export const INBOX_COLLECTION: CollectionDefinition = {
 };
 
 /**
- * The template source — a FLAT collection (ADR-049): only templates are created in it, no folders,
- * and "From template" is not offered from it.
+ * The template source: templates and folders of templates are created in it (ADR-049, amended), and
+ * "From template" is not offered from it. Also the collection of every folder beneath Templates.
  */
 export const TEMPLATES_COLLECTION: CollectionDefinition = {
   ...NOTE_COLLECTION,
   kind: 'templates',
   emptyMessage: 'Create templates to start new notes faster',
-  actions: { create: true },
+  actions: { create: true, createFolder: true },
 };
 
 /**
@@ -263,7 +263,10 @@ export function collectionDefinitionForFolder(
     case 'templates':
       return TEMPLATES_COLLECTION;
     default:
-      return FOLDER_COLLECTION;
+      // A folder anywhere beneath Templates is part of that collection, like one inside Assets/.
+      return membershipSelector.isInTemplatesFolder(folder.id)
+        ? TEMPLATES_COLLECTION
+        : FOLDER_COLLECTION;
   }
 }
 

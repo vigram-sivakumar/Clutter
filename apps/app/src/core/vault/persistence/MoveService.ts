@@ -10,8 +10,6 @@ import { resolveFolderPathOrRoot } from './resolveFolderPathOrRoot';
 import {
   assertMoveWithinZone,
   isDailyNotesFolderOrDescendant,
-  moveZoneOfPath,
-  reservedFolderRelativePath,
 } from '../initialize/ReservedResources';
 
 export class MoveService {
@@ -133,8 +131,7 @@ export class MoveService {
    */
   resolveMoveDestination(
     current: Page,
-    destinationFolderId: string | null,
-    options: { toTemplates?: boolean } = {}
+    destinationFolderId: string | null
   ): { path: string; parentId: string | null } {
     const destinationPath = resolveFolderPathOrRoot(this.vault, destinationFolderId);
 
@@ -142,20 +139,9 @@ export class MoveService {
       throw new Error(`Cannot move into Daily Notes: ${destinationPath}`);
     }
 
-    // ADR-049: Templates are a flat collection. A Template is never moved, and an ordinary note
-    // never moves into Templates or Assets. `toTemplates` is the one sanctioned crossing — "Use as
-    // template" converts a note — and it lands directly under the Templates root, never deeper.
-    if (moveZoneOfPath(this.vault.root, current.path) === 'templates') {
-      throw new Error(`Cannot move a Template: ${current.path} stays directly under Templates`);
-    }
-
-    if (options.toTemplates) {
-      if (destinationPath !== `${this.vault.root}/${reservedFolderRelativePath('templates')}`) {
-        throw new Error(`A template can only be placed directly under Templates: ${destinationPath}`);
-      }
-    } else {
-      assertMoveWithinZone(this.vault.root, 'workspace', destinationPath);
-    }
+    // ADR-049: a note moves within the workspace, which includes Templates — it becomes a template
+    // there (ADR-041) and an ordinary note again when moved out. It never moves into Assets.
+    assertMoveWithinZone(this.vault.root, 'workspace', destinationPath);
 
     const baseName = VaultPath.pageName(current.path);
 

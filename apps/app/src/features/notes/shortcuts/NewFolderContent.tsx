@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { AppIcon } from '@shared/icon';
 import { Input } from '@components/input/Input';
 import { Button } from '@components/button/Button';
 import { ChangeIconPicker } from '@components/change-icon-picker/ChangeIconPicker';
+import { useRejectShake } from '@components/property-list/useRejectShake';
 import { useOverlay } from '@components/overlay/hooks/useOverlay';
 import { getFolderTitlePlaceholder } from '@core/presentation/PageDisplayPlaceholders';
 
@@ -74,6 +75,17 @@ export function NewFolderContent({
   const [icon, setIcon] = useState<string | undefined>(undefined);
   const emojiPicker = useOverlay<HTMLButtonElement>();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // The name field's reject shake (EditableText's, via useRejectShake), played when Create is
+  // pressed with no name. Input puts its className on its wrapper, so the class goes on the native
+  // field itself through the ref.
+  const nameFieldRef = useRef<HTMLInputElement>(null);
+  const { shakeClassName, shake } = useRejectShake();
+  useEffect(() => {
+    const field = nameFieldRef.current;
+    if (!field || !shakeClassName) return;
+    field.classList.add(shakeClassName);
+    return () => field.classList.remove(shakeClassName);
+  }, [shakeClassName]);
   const [submitError, setSubmitError] = useState<string | undefined>(undefined);
 
   const trimmed = name.trim();
@@ -82,6 +94,12 @@ export function NewFolderContent({
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+
+    if (trimmed === '') {
+      shake();
+      nameFieldRef.current?.focus();
+      return;
+    }
 
     if (!canSubmit) {
       return;
@@ -118,6 +136,7 @@ export function NewFolderContent({
 
       <div className="new-folder__field">
         <Input
+          ref={nameFieldRef}
           value={name}
           placeholder={labels.namePlaceholder}
           aria-label={labels.nameLabel}
@@ -172,7 +191,6 @@ export function NewFolderContent({
             className="new-folder__create-button"
             variant="primary"
             size="medium"
-            disabled={!canSubmit}
           >
             {labels.submitLabel}
           </Button>

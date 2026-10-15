@@ -735,6 +735,146 @@ describe('FolderOperations.move()', () => {
   });
 });
 
+describe('FolderOperations.move() — across the Templates boundary (ADR-049, amended)', () => {
+  const build = () => {
+    const templates = makeFolder('templates', `${ROOT}/Templates`);
+    const projects = makeFolder('projects', `${ROOT}/Projects`);
+    const sub = makeFolder('sub', `${ROOT}/Projects/Sub`, 'projects');
+    const note = makePage('note-1', `${ROOT}/Projects/Sub/Plan.md`, 'sub');
+    const context = setup([templates, projects, sub], ['x'], () => {}, [note]);
+    return { ...context, note };
+  };
+  const seed = async (fileSystem: InMemoryVaultFileSystem) => {
+    await fileSystem.createDirectory(`${ROOT}/Templates`);
+    await fileSystem.createDirectory(`${ROOT}/Projects`);
+    await fileSystem.createDirectory(`${ROOT}/Projects/Sub`);
+    await fileSystem.writeFile(`${ROOT}/Projects/Sub/Plan.md`, 'plan');
+  };
+
+  it('an ordinary folder moves into Templates with its whole subtree, keeping every id — all of it is then template content', async () => {
+    const { vault, fileSystem, folderOperations } = build();
+    await seed(fileSystem);
+    expect(vault.isFolderWithinReservedFolder('sub', 'templates')).toBe(false);
+
+    await folderOperations.move('projects', 'templates');
+
+    expect(vault.getFolder('projects')!.path).toBe(`${ROOT}/Templates/Projects`);
+    expect(vault.getFolder('sub')!.path).toBe(`${ROOT}/Templates/Projects/Sub`);
+    expect(vault.getPage('note-1')!.path).toBe(`${ROOT}/Templates/Projects/Sub/Plan.md`);
+    expect(vault.isFolderWithinReservedFolder('projects', 'templates')).toBe(true);
+    expect(vault.isFolderWithinReservedFolder(vault.getPage('note-1')!.parentId, 'templates')).toBe(true);
+    // On disk (what a reload reads), not just in memory.
+    expect(await fileSystem.exists(`${ROOT}/Templates/Projects/Sub/Plan.md`)).toBe(true);
+    expect(await fileSystem.exists(`${ROOT}/Projects/Sub/Plan.md`)).toBe(false);
+  });
+
+  it('a template folder moves back out to an ordinary folder or the root: the subtree is ordinary again, ids and metadata intact', async () => {
+    const { vault, fileSystem, folderOperations } = build();
+    await seed(fileSystem);
+    const before = vault.getFolder('sub')!.metadata;
+    await folderOperations.move('projects', 'templates');
+
+    await folderOperations.move('projects', null);
+
+    expect(vault.getFolder('projects')!.path).toBe(`${ROOT}/Projects`);
+    expect(vault.getFolder('sub')!.path).toBe(`${ROOT}/Projects/Sub`);
+    expect(vault.getPage('note-1')!.path).toBe(`${ROOT}/Projects/Sub/Plan.md`);
+    expect(vault.isFolderWithinReservedFolder('sub', 'templates')).toBe(false);
+    expect(vault.getFolder('sub')!.metadata).toEqual(before);
+    expect(await fileSystem.exists(`${ROOT}/Projects/Sub/Plan.md`)).toBe(true);
+  });
+
+  describe('descendant `kind: template` frontmatter follows the subtree (ADR-041)', () => {
+    const withLines = (page: Page, lines: string[], markdown = 'Body text'): Page => ({
+      ...page,
+      metadata: { ...page.metadata, unownedFrontmatter: lines },
+      source: { markdown },
+    });
+    const tree = async (lines: string[]) => {
+      const templates = makeFolder('templates', `${ROOT}/Templates`);
+      const projects = makeFolder('projects', `${ROOT}/Projects`);
+      const sub = makeFolder('sub', `${ROOT}/Projects/Sub`, 'projects');
+      const deep = makeFolder('deep', `${ROOT}/Projects/Sub/Deep`, 'sub');
+      const pages = [
+        withLines(makePage('n1', `${ROOT}/Projects/One.md`, 'projects'), [...lines, 'author: Ada']),
+        withLines(makePage('n2', `${ROOT}/Projects/Sub/Two.md`, 'sub'), [...lines]),
+        withLines(makePage('n3', `${ROOT}/Projects/Sub/Deep/Three.md`, 'deep'), [...lines, 'kind-note: keep']),
+      ];
+      const context = setup([templates, projects, sub, deep], ['x'], () => {}, pages);
+      for (const path of [templates.path, projects.path, sub.path, deep.path]) {
+        await context.fileSystem.createDirectory(path);
+      }
+      for (const page of pages) await context.fileSystem.writeFile(page.path, page.source.markdown);
+      return context;
+    };
+    const markerOf = (vault: Vault, id: string) => vault.getPage(id)!.metadata.unownedFrontmatter ?? [];
+    const saveCount = (spy: { mock: { calls: unknown[][] } }) =>
+      spy.mock.calls.filter(([, operation]) => (operation as { kind: string }).kind === 'save').length;
+
+    it('moving a folder into Templates marks every descendant note at every depth, persisted, keeping other frontmatter and content', async () => {
+      const context = await tree([]);
+
+      await context.folderOperations.move('projects', 'templates');
+
+      for (const id of ['n1', 'n2', 'n3']) {
+        expect(markerOf(context.vault, id), id).toContain('kind: template');
+        const onDisk = await context.fileSystem.readFile(context.vault.getPage(id)!.path);
+        expect(onDisk, id).toContain('kind: template');
+        expect(onDisk, id).toContain('Body text');
+      }
+      expect(markerOf(context.vault, 'n1')).toContain('author: Ada');
+      expect(markerOf(context.vault, 'n3')).toContain('kind-note: keep');
+      expect(context.vault.getPage('n2')!.id).toBe('n2');
+    });
+
+    it('moving a template folder out removes the template marker from every descendant, persisted, keeping other frontmatter', async () => {
+      const context = await tree(['kind: template']);
+      await context.folderOperations.move('projects', 'templates');
+
+      await context.folderOperations.move('projects', null);
+
+      for (const id of ['n1', 'n3']) {
+        expect(markerOf(context.vault, id), id).not.toContain('kind: template');
+        expect(await context.fileSystem.readFile(context.vault.getPage(id)!.path), id).not.toContain('kind: template');
+      }
+      expect(markerOf(context.vault, 'n1')).toContain('author: Ada');
+      expect(markerOf(context.vault, 'n3')).toContain('kind-note: keep');
+      expect(markerOf(context.vault, 'n2').some((l) => l.startsWith('kind'))).toBe(false);
+    });
+
+    it('rewrites nothing when the classification does not change: within Templates, or between ordinary folders', async () => {
+      const context = await tree([]);
+      const spy = vi.spyOn(context.coordinator, 'enqueue');
+
+      await context.folderOperations.move('deep', 'projects'); // ordinary → ordinary
+      expect(saveCount(spy)).toBe(0);
+
+      await context.folderOperations.move('projects', 'templates'); // crosses: marks the notes
+      spy.mockClear();
+      await context.folderOperations.move('sub', 'templates'); // within Templates
+      expect(saveCount(spy)).toBe(0);
+    });
+
+    it('does not report success when a descendant marker cannot be written', async () => {
+      const context = await tree([]);
+      const original = context.coordinator.enqueue.bind(context.coordinator);
+      vi.spyOn(context.coordinator, 'enqueue').mockImplementation((id, operation) =>
+        operation.kind === 'save' && id === 'n2' ? Promise.reject(new Error('disk full')) : original(id, operation)
+      );
+
+      await expect(context.folderOperations.move('projects', 'templates')).rejects.toThrow(
+        /template marker could not be updated.*Two\.md/
+      );
+    });
+  });
+
+  it('canMove accepts Templates as a destination and still rejects a folder into its own descendant', async () => {
+    const { folderOperations } = build();
+    expect(folderOperations.canMove('projects', 'templates')).toBe(true);
+    expect(folderOperations.canMove('projects', 'sub')).toBe(false);
+  });
+});
+
 describe('FolderOperations.archive() (ADR-026)', () => {
   it('archives an empty folder into the reserved Archive folder', async () => {
     const archiveFolder = makeFolder('folder-archive', `${ROOT}/Archive`);

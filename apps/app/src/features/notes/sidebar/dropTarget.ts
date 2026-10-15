@@ -38,15 +38,33 @@ export function resolveDropRegion(
   return 'inside';
 }
 
+/**
+ * The special drop destinations outside the tree's own rows — reserved folders the sidebar shows as
+ * entries — and what each accepts. This is the one place that rule lives: hover feedback reads it, and
+ * the drop re-reads it, so a highlight alone can never allow a move. An asset is accepted nowhere else.
+ */
+export type DropZone = 'templates' | 'inbox' | 'assets';
+
+export const DROP_ZONE_ACCEPTS: Readonly<Record<DropZone, readonly DragItem['kind'][]>> = {
+  templates: ['note', 'folder'],
+  inbox: ['note'],
+  assets: ['asset'],
+};
+
+export const isDropZone = (value: string | undefined): value is DropZone =>
+  value === 'templates' || value === 'inbox' || value === 'assets';
+
 export interface DragItem {
-  readonly kind: 'folder' | 'note';
+  readonly kind: 'folder' | 'note' | 'asset';
   readonly id: string;
   /** `null` = the vault root. */
   readonly parentId: string | null;
 }
 
 /** A rendered, drag-aware row. */
-export interface DragRow extends DragItem {
+export interface DragRow extends Omit<DragItem, 'kind'> {
+  /** Only folders and notes are layout rows; an asset is dragged but never positioned among them. */
+  readonly kind: 'folder' | 'note';
   readonly element: HTMLElement;
   readonly level: number;
   /** Siblings after this one exist but are hidden behind the list's "N more" row. */
@@ -57,6 +75,8 @@ export type DropTarget =
   | {
       readonly kind: 'inside';
       readonly folderId: string;
+      /** Set when the folder is one of the special destinations (see DropZone), not a tree row. */
+      readonly zone?: DropZone;
       /** The whole folder row, in viewport coordinates. */
       readonly rect: { top: number; left: number; width: number; height: number };
     }
@@ -79,6 +99,7 @@ export function sameDropTarget(a: DropTarget | null, b: DropTarget | null): bool
   if (a.kind === 'inside' && b.kind === 'inside') {
     return (
       a.folderId === b.folderId &&
+      a.zone === b.zone &&
       a.rect.top === b.rect.top &&
       a.rect.left === b.rect.left &&
       a.rect.width === b.rect.width &&
@@ -107,7 +128,8 @@ function levelOf(element: HTMLElement): number {
 
 /** Every drag-aware row currently rendered, in document order. */
 export function collectDragRows(root: ParentNode = document): DragRow[] {
-  return Array.from(root.querySelectorAll<HTMLElement>('[data-drag-id]')).map((element) => ({
+  // Asset rows are draggable but are never part of a sibling list, so they are not layout rows.
+  return Array.from(root.querySelectorAll<HTMLElement>('[data-drag-id]:not([data-drag-kind="asset"])')).map((element) => ({
     element,
     kind: element.dataset.dragKind === 'folder' ? 'folder' : 'note',
     id: element.dataset.dragId!,
@@ -117,8 +139,33 @@ export function collectDragRows(root: ParentNode = document): DragRow[] {
   }));
 }
 
+/**
+ * A folder that lives outside the tree's own rows but can still be dropped onto — today the sidebar's
+ * Templates entry (a reserved folder the tree never lists). It resolves to the same "inside this
+ * folder" target a folder row does, so the highlight and the move are the ones a folder drop already
+ * has; it is never part of a manual sibling order.
+ */
+export interface DropDestination {
+  readonly element: HTMLElement;
+  readonly folderId: string;
+  readonly zone: DropZone;
+}
+
+/** Every rendered drop destination marked with `data-drop-folder-id` and a known `data-drop-zone`, in document order. */
+export function collectDropDestinations(root: ParentNode = document): DropDestination[] {
+  return Array.from(root.querySelectorAll<HTMLElement>('[data-drop-folder-id]'))
+    .filter((element) => isDropZone(element.dataset.dropZone))
+    .map((element) => ({
+      element,
+      folderId: element.dataset.dropFolderId!,
+      zone: element.dataset.dropZone as DropZone,
+    }));
+}
+
 export interface ResolveDropTargetInput {
   readonly pointer: { readonly x: number; readonly y: number };
+  /** Folders outside the tree that accept drops (see DropDestination). Absent: none. */
+  readonly destinations?: readonly DropDestination[];
   readonly dragged: DragItem;
   readonly rows: readonly DragRow[];
   /**
@@ -171,12 +218,37 @@ function neighbourAcross(row: DragRow, region: 'before' | 'after'): HTMLElement 
   return candidate;
 }
 
-export function resolveDropTarget({ pointer, dragged, rows, canMoveFolderInto, isManualLevel }: ResolveDropTargetInput): DropTarget | null {
+export function resolveDropTarget({ pointer, dragged, rows, destinations, canMoveFolderInto, isManualLevel }: ResolveDropTargetInput): DropTarget | null {
   const draggedKey = rowKey(dragged);
   const contains = (element: HTMLElement) => {
     const rect = element.getBoundingClientRect();
     return pointer.x >= rect.left && pointer.x <= rect.right && pointer.y >= rect.top && pointer.y < rect.bottom;
   };
+
+  // Over a folder outside the tree (Templates): the whole row means "into it" — there is no before/after,
+  // since it is not in any sibling list. Offered only where the move would be accepted, like a folder row.
+  const destination = destinations?.find((candidate) => contains(candidate.element));
+  if (destination) {
+    const accepted =
+      DROP_ZONE_ACCEPTS[destination.zone].includes(dragged.kind) &&
+      destination.folderId !== dragged.parentId &&
+      (dragged.kind !== 'folder' || (canMoveFolderInto?.(dragged.id, destination.folderId) ?? false));
+    if (!accepted) {
+      return null;
+    }
+    const rect = destination.element.getBoundingClientRect();
+    return {
+      kind: 'inside',
+      folderId: destination.folderId,
+      zone: destination.zone,
+      rect: { top: rect.top, left: rect.left, width: rect.width, height: rect.height },
+    };
+  }
+
+  // An asset belongs only on its own destination (above): never into a folder row or a sibling list.
+  if (dragged.kind === 'asset') {
+    return null;
+  }
 
   // May the dragged item end up as a child of `destination` (a folder id, or null for the root)?
   const canJoin = (destination: string | null): boolean => {

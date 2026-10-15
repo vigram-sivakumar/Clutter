@@ -38,6 +38,7 @@ import { FolderCreator } from '@core/application/folder/FolderCreator';
 import { DailyNoteService } from '@core/application/daily-notes/DailyNoteService';
 import type { Folder } from '@core/vault/models/Folder';
 import type { Page } from '@core/vault/models/Page';
+import type { VaultResource } from '@core/vault/models/VaultResource';
 
 const ROOT = '/vault';
 
@@ -82,8 +83,8 @@ function makePage(id: string, path: string, parentId: string | null): Page {
   });
 }
 
-function setup(folders: Folder[], pages: Page[] = []) {
-  const vault = new Vault(ROOT, pages, folders, [], [], [], new KnowledgeGraph([]), new VaultProjectionBuilder());
+function setup(folders: Folder[], pages: Page[] = [], resources: VaultResource[] = []) {
+  const vault = new Vault(ROOT, pages, folders, [], [], [], new KnowledgeGraph([]), new VaultProjectionBuilder(), new Map(), resources);
   const query = new VaultQuery(vault);
   const fileSystem = new InMemoryVaultFileSystem();
   const workspace = new Workspace();
@@ -1260,5 +1261,299 @@ describe('FolderTree drop: nothing else ever moves anything', () => {
     move(60, 198);
     release(60, 198);
     await nothingMoved();
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------
+// Templates as a drop destination: the sidebar's Templates entry sits outside the tree (a reserved folder the
+// tree never lists) and is marked `data-drop-folder-id`. It resolves to the same "into this folder" target a
+// folder row does — same highlight, same Move — and is never part of a manual order.
+// ---------------------------------------------------------------------------------------------------------
+
+describe('FolderTree drop: the Templates entry is a destination', () => {
+  // Stacked rows: Alpha 100, Note One 128, Child 156, Deep 184, Beta 212, Gamma 240, then the Templates entry at 268.
+  const TEMPLATES_Y = 282;
+
+  async function setupWithTemplates() {
+    const e = setup(
+      [
+        makeFolder('a', `${ROOT}/Alpha`, null),
+        makeFolder('c', `${ROOT}/Alpha/Child`, 'a'),
+        makeFolder('b', `${ROOT}/Beta`, null),
+        makeFolder('g', `${ROOT}/Gamma`, null),
+        makeFolder('t', `${ROOT}/Templates`, null),
+      ],
+      [makePage('n1', `${ROOT}/Alpha/Note One.md`, 'a'), makePage('n2', `${ROOT}/Alpha/Child/Deep.md`, 'c')]
+    );
+    for (const folder of e.vault.folders()) {
+      await e.fileSystem.createDirectory(folder.path);
+    }
+    for (const id of ['n1', 'n2']) {
+      const page = e.vault.getPage(id)!;
+      e.fileSystem.seedFile(page.path, new FrontmatterSerializer().serializeDocument(page, page.source.markdown));
+    }
+    return e;
+  }
+
+  /** The sidebar's Templates entry, rendered after the tree like it is in the real sidebar. */
+  function addTemplatesEntry() {
+    const entry = document.createElement('div');
+    entry.className = 'entry';
+    entry.dataset.dropFolderId = 't';
+    entry.dataset.dropZone = 'templates';
+    document.body.appendChild(entry);
+    return entry;
+  }
+
+  beforeEach(async () => {
+    env = await setupWithTemplates();
+    renderTree(env, { rowActions: dropActions(env) });
+    addTemplatesEntry();
+  });
+
+  afterEach(() => {
+    document.querySelectorAll('[data-drop-folder-id]').forEach((element) => element.remove());
+  });
+
+  it('hovering it with a note highlights the whole Templates entry — no insertion line', () => {
+    press(rowFor('Note One'), 40, 142);
+    move(60, TEMPLATES_Y);
+
+    const indicator = only();
+    expect(indicator).toHaveAttribute('data-drop-feedback', 'inside');
+    expect(indicator!.style.top).toBe('268px');
+  });
+
+  it('dropping a note on it moves the note into Templates — same id — and it is then a template with the marker on disk', async () => {
+    const pageMove = vi.spyOn(env.pageOperations, 'move');
+    press(rowFor('Note One'), 40, 142);
+    move(60, TEMPLATES_Y);
+    release(60, TEMPLATES_Y);
+    await settle();
+
+    expect(pageMove).toHaveBeenCalledExactlyOnceWith('n1', 't');
+    const moved = env.vault.getPage('n1')!;
+    expect(moved.path).toBe(`${ROOT}/Templates/Note One.md`);
+    expect(env.membershipSelector.isInTemplatesFolder(moved.parentId)).toBe(true);
+    expect(await env.fileSystem.readFile(moved.path)).toContain('kind: template');
+  });
+
+  it('dropping a folder on it moves the folder and its whole subtree; every descendant note is a template, persisted at once', async () => {
+    press(rowFor('Alpha'), 40, 114);
+    move(60, TEMPLATES_Y);
+    expect(only()).toHaveAttribute('data-drop-feedback', 'inside');
+    release(60, TEMPLATES_Y);
+    await settle();
+
+    expect(env.moveSpy).toHaveBeenCalledExactlyOnceWith('a', 't');
+    expect(env.vault.getFolder('a')!.path).toBe(`${ROOT}/Templates/Alpha`);
+    expect(env.vault.getFolder('c')!.path).toBe(`${ROOT}/Templates/Alpha/Child`);
+    for (const id of ['n1', 'n2']) {
+      const page = env.vault.getPage(id)!;
+      expect(env.membershipSelector.isInTemplatesFolder(page.parentId), id).toBe(true);
+      expect(await env.fileSystem.readFile(page.path), id).toContain('kind: template');
+    }
+  });
+
+  it('releasing anywhere else, or cancelling with Escape, moves nothing', async () => {
+    const pageMove = vi.spyOn(env.pageOperations, 'move');
+    press(rowFor('Note One'), 40, 142);
+    move(60, TEMPLATES_Y);
+    move(60, 900); // away from every row and from Templates
+    expect(only()).toBeNull();
+    release(60, 900);
+    await settle();
+
+    press(rowFor('Note One'), 40, 142);
+    move(60, TEMPLATES_Y);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    release(60, TEMPLATES_Y);
+    await settle();
+
+    expect(pageMove).not.toHaveBeenCalled();
+    expect(env.vault.getPage('n1')!.parentId).toBe('a');
+  });
+
+  it('a folder the move rules refuse gets no highlight and is not moved', async () => {
+    rules.allowFolderMoves = false;
+    press(rowFor('Gamma'), 40, 254);
+    move(60, TEMPLATES_Y);
+    expect(only()).toBeNull();
+    release(60, TEMPLATES_Y);
+    await settle();
+
+    expect(env.moveSpy).not.toHaveBeenCalled();
+    expect(env.vault.getFolder('g')!.parentId).toBeNull();
+  });
+
+  it('ordinary drops are unchanged: a note dropped on Beta still moves into Beta', async () => {
+    press(rowFor('Note One'), 40, 142);
+    move(60, 226); // Beta
+    expect(only()).toHaveAttribute('data-drop-feedback', 'inside');
+    release(60, 226);
+    await settle();
+
+    expect(env.vault.getPage('n1')!.parentId).toBe('b');
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------
+// Inbox takes notes only; Assets takes assets only. Eligibility is decided on hover (no highlight for an
+// ineligible item) and again at the drop (a target is never trusted to have been valid).
+// ---------------------------------------------------------------------------------------------------------
+
+describe('FolderTree drop: the Inbox and Assets entries', () => {
+  // Stacked rows: Alpha 100, Note One 128, pic 156, Beta 184, then the Inbox entry 212, the Assets entry 240 and
+  // the Templates entry 268 (appended in that order).
+  const INBOX_Y = 226;
+  const ASSETS_Y = 254;
+  const TEMPLATES_Y = 282;
+  let onMoveResource: ReturnType<typeof vi.fn>;
+
+  async function setupWithZones() {
+    const e = setup(
+      [
+        makeFolder('a', `${ROOT}/Alpha`, null),
+        makeFolder('b', `${ROOT}/Beta`, null),
+        makeFolder('i', `${ROOT}/Inbox`, null),
+        makeFolder('as', `${ROOT}/Assets`, null),
+        makeFolder('t', `${ROOT}/Templates`, null),
+      ],
+      [makePage('n1', `${ROOT}/Alpha/Note One.md`, 'a')],
+      [{ id: 'r1', kind: 'image', name: 'pic.png', path: `${ROOT}/Alpha/pic.png`, parentId: 'a' }]
+    );
+    for (const folder of e.vault.folders()) {
+      await e.fileSystem.createDirectory(folder.path);
+    }
+    const page = e.vault.getPage('n1')!;
+    e.fileSystem.seedFile(page.path, new FrontmatterSerializer().serializeDocument(page, page.source.markdown));
+    return e;
+  }
+
+  const addEntry = (zone: string, folderId: string) => {
+    const entry = document.createElement('div');
+    entry.className = 'entry';
+    entry.dataset.dropFolderId = folderId;
+    entry.dataset.dropZone = zone;
+    document.body.appendChild(entry);
+  };
+
+  const assetRow = () => rowFor('pic');
+
+  beforeEach(async () => {
+    env = await setupWithZones();
+    onMoveResource = vi.fn();
+    // Assigned onto the actions object itself (not wrapped) so it survives executeDrop's spread of them.
+    const actions = dropActions(env) as unknown as Record<string, unknown>;
+    actions.onMoveResource = onMoveResource;
+    renderTree(env, { rowActions: actions as unknown as SidebarRowActions });
+    addEntry('inbox', 'i');
+    addEntry('assets', 'as');
+    addEntry('templates', 't');
+  });
+
+  afterEach(() => {
+    document.querySelectorAll('[data-drop-folder-id]').forEach((element) => element.remove());
+  });
+
+  it('a note over Inbox highlights it; released there it is moved into Inbox by PageOperations.move, keeping its id', async () => {
+    const pageMove = vi.spyOn(env.pageOperations, 'move');
+    press(rowFor('Note One'), 40, 142);
+    move(60, INBOX_Y);
+    expect(only()).toHaveAttribute('data-drop-feedback', 'inside');
+    expect(only()!.style.top).toBe('212px');
+    release(60, INBOX_Y);
+    await settle();
+
+    expect(pageMove).toHaveBeenCalledExactlyOnceWith('n1', 'i');
+    expect(env.vault.getPage('n1')!.path).toBe(`${ROOT}/Inbox/Note One.md`);
+    expect(onMoveResource).not.toHaveBeenCalled();
+  });
+
+  it('a folder over Inbox gets no highlight, and released there nothing moves', async () => {
+    press(rowFor('Alpha'), 40, 114);
+    move(60, INBOX_Y);
+    expect(only()).toBeNull();
+    release(60, INBOX_Y);
+    await settle();
+
+    expect(env.moveSpy).not.toHaveBeenCalled();
+    expect(env.vault.getFolder('a')!.path).toBe(`${ROOT}/Alpha`);
+  });
+
+  it('an asset over Assets highlights it; released there it is moved by the existing asset move, once', async () => {
+    press(assetRow(), 40, 170);
+    move(60, ASSETS_Y);
+    expect(only()).toHaveAttribute('data-drop-feedback', 'inside');
+    expect(only()!.style.top).toBe('240px');
+    release(60, ASSETS_Y);
+    await settle();
+
+    expect(onMoveResource).toHaveBeenCalledExactlyOnceWith('r1', 'as');
+  });
+
+  it('a note or a folder over Assets gets no highlight, and released there nothing moves', async () => {
+    const pageMove = vi.spyOn(env.pageOperations, 'move');
+    press(rowFor('Note One'), 40, 142);
+    move(60, ASSETS_Y);
+    expect(only()).toBeNull();
+    release(60, ASSETS_Y);
+    await settle();
+
+    press(rowFor('Alpha'), 40, 114);
+    move(60, ASSETS_Y);
+    expect(only()).toBeNull();
+    release(60, ASSETS_Y);
+    await settle();
+
+    expect(pageMove).not.toHaveBeenCalled();
+    expect(env.moveSpy).not.toHaveBeenCalled();
+    expect(onMoveResource).not.toHaveBeenCalled();
+    expect(env.vault.getPage('n1')!.parentId).toBe('a');
+  });
+
+  it('an asset goes nowhere else: no highlight over Inbox, Templates or a folder row, and nothing moves', async () => {
+    const pageMove = vi.spyOn(env.pageOperations, 'move');
+    press(assetRow(), 40, 170);
+    for (const y of [INBOX_Y, TEMPLATES_Y, 114 /* Alpha's middle */, 102 /* Alpha's top edge */]) {
+      move(60, y);
+      expect(only(), `y=${y}`).toBeNull();
+    }
+    release(60, TEMPLATES_Y);
+    await settle();
+
+    expect(onMoveResource).not.toHaveBeenCalled();
+    expect(pageMove).not.toHaveBeenCalled();
+    expect(env.moveSpy).not.toHaveBeenCalled();
+  });
+
+  it('a note over Templates still highlights and moves there; Templates is unaffected by the new destinations', async () => {
+    press(rowFor('Note One'), 40, 142);
+    move(60, TEMPLATES_Y);
+    expect(only()).toHaveAttribute('data-drop-feedback', 'inside');
+    release(60, TEMPLATES_Y);
+    await settle();
+
+    expect(env.vault.getPage('n1')!.path).toBe(`${ROOT}/Templates/Note One.md`);
+  });
+
+  it('eligibility is checked again at the drop: an ineligible target is rejected even if one were shown', async () => {
+    const { executeDrop } = await import('./executeDrop');
+    const actions = { onMoveNote: vi.fn(), onMoveFolder: vi.fn(), onMoveResource: vi.fn(), canMoveFolderInto: () => true };
+    const inside = (zone: 'inbox' | 'assets' | 'templates', folderId: string) =>
+      ({ kind: 'inside', folderId, zone, rect: { top: 0, left: 0, width: 1, height: 1 } }) as const;
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    expect(await executeDrop({ kind: 'folder', id: 'a', parentId: null }, inside('inbox', 'i'), actions)).toBe('rejected');
+    expect(await executeDrop({ kind: 'note', id: 'n1', parentId: 'a' }, inside('assets', 'as'), actions)).toBe('rejected');
+    expect(await executeDrop({ kind: 'asset', id: 'r1', parentId: 'a' }, inside('inbox', 'i'), actions)).toBe('rejected');
+    expect(await executeDrop({ kind: 'asset', id: 'r1', parentId: 'a' }, { kind: 'inside', folderId: 'b', rect: { top: 0, left: 0, width: 1, height: 1 } }, actions)).toBe('rejected');
+    expect(actions.onMoveNote).not.toHaveBeenCalled();
+    expect(actions.onMoveFolder).not.toHaveBeenCalled();
+    expect(actions.onMoveResource).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalled();
+
+    expect(await executeDrop({ kind: 'asset', id: 'r1', parentId: 'a' }, inside('assets', 'as'), actions)).toBe('moved');
+    expect(actions.onMoveResource).toHaveBeenCalledExactlyOnceWith('r1', 'as');
   });
 });

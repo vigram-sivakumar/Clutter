@@ -41,15 +41,44 @@ describe('NewFolderContent', () => {
     expect(screen.getByRole('button', { name: 'Choose emoji' })).toBeInTheDocument();
   });
 
-  it('Create is disabled until a name is typed, and a duplicate name is refused', () => {
-    setup((() => false) as () => boolean);
+  it('Create is always enabled, and a duplicate name is refused without submitting', () => {
+    const { onSubmit } = setup((() => false) as () => boolean);
     const create = screen.getByRole('button', { name: 'Create' });
-    expect(create).toBeDisabled();
+    expect(create).toBeEnabled();
 
     fireEvent.change(screen.getByPlaceholderText('New folder'), { target: { value: 'Work' } });
 
-    expect(create).toBeDisabled();
+    expect(create).toBeEnabled();
     expect(screen.getByRole('alert')).toHaveTextContent('already exists');
+    fireEvent.click(create);
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it.each(['', '   '])('Create with the name %j submits nothing, shakes the name input itself, and keeps the dialog open', (typed) => {
+    const { onSubmit, onClose } = setup();
+    const field = screen.getByPlaceholderText('New folder');
+    fireEvent.change(field, { target: { value: typed } });
+
+    expect(screen.getByRole('button', { name: 'Create' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(field.tagName).toBe('INPUT');
+    expect(field).toHaveClass('editable-text--shake');
+    expect(field.closest('.input')).not.toHaveClass('editable-text--shake');
+    expect(field.closest('form')).not.toHaveClass('editable-text--shake');
+  });
+
+  it('after an empty attempt, a valid name then creates the folder', async () => {
+    const { onSubmit } = setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByPlaceholderText('New folder'), { target: { value: 'Work' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('Work', undefined, undefined));
   });
 
   it('submits the name with no icon or description by default', async () => {
@@ -128,13 +157,15 @@ describe('NewFolderContent — configured as Create template', () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('Weekly review', undefined, undefined));
   });
 
-  it('the CTA is disabled for a blank name, and a duplicate template name is refused with a template-worded error', () => {
-    setupTemplate({ initialName: '' });
-    expect(screen.getByRole('button', { name: 'Create template' })).toBeDisabled();
+  it('the CTA stays enabled for a blank name (which shakes instead of submitting), and a duplicate template name is refused with a template-worded error', () => {
+    const blank = setupTemplate({ initialName: '' });
+    expect(screen.getByRole('button', { name: 'Create template' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Create template' }));
+    expect(blank.onSubmit).not.toHaveBeenCalled();
     cleanup();
 
     setupTemplate({ canCreate: () => false });
-    expect(screen.getByRole('button', { name: 'Create template' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Create template' })).toBeEnabled();
     expect(screen.getByRole('alert')).toHaveTextContent('A template named “Weekly review” already exists');
   });
 

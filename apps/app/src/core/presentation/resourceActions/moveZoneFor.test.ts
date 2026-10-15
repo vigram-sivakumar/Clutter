@@ -15,10 +15,10 @@ describe('moveZoneFor — the resource decides its Move picker root (ADR-049)', 
     expect(moveZoneFor('folder', { moveZone: 'assets' })).toBe('assets');
   });
 
-  it('there is no Templates zone: Templates are flat and a Template is never moved', () => {
+  it('there is no Templates zone: a Template moves within the workspace picker, like any note', () => {
     expect(moveZoneFor('note', { isTemplate: true })).toBe('workspace');
     for (const surface of ['sidebar', 'favorites', 'topbar'] as const) {
-      expect(buildResourceActionMenu('note', { isTemplate: true, status: 'active' }, surface).map((i) => i.id)).not.toContain('move-to');
+      expect(buildResourceActionMenu('note', { isTemplate: true, status: 'active' }, surface).map((i) => i.id)).toContain('move-to');
     }
   });
 

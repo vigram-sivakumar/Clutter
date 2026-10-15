@@ -40,7 +40,12 @@ import {
 import { duplicateAndOpenPage } from '@features/notes/helpers/duplicateAndOpenPage';
 import { createFolderInZone } from '@features/notes/helpers/createFolderInZone';
 import { createNoteForTag } from '@features/tags/helpers/createNoteForTag';
-import { createAndOpenFolder } from '@features/notes/helpers/createAndOpenFolder';
+import {
+  createAndOpenFolder,
+  DISALLOWED_FOLDER_NAME_MESSAGE,
+  isAllowedFolderName,
+} from '@features/notes/helpers/createAndOpenFolder';
+import { NewFolderDialog } from '@features/notes/shortcuts/NewFolderDialog';
 import { ASSETS_DIRECTORY_NAME } from '@core/vault/initialize/ensureAssetsDirectory';
 import type { Asset } from '@core/vault/models/Asset';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
@@ -168,7 +173,6 @@ import { ArchiveCollectionBody } from '@app/layouts/page/body/ArchiveCollectionB
 import { RestoreNeedsDestinationError } from '@core/vault/persistence/PagePersistenceCoordinator';
 import type { RestoreDestinationRequest } from '@app/layouts/page/restoreDestination';
 import { AssetsCollectionBody } from '@app/layouts/page/body/AssetsCollectionBody';
-import type { FolderCreation } from '@app/layouts/page/body/collectionFolders';
 import {
   TasksCollectionBody,
   type TasksCollectionView,
@@ -725,9 +729,12 @@ export function PageHost({
   const [startingPropertyPageId, setStartingPropertyPageId] = useState<
     string | null
   >(null);
-  // The collection (by its view key) in which a folder is being named inline — the card shows only on
-  // that collection's page, and creates nothing until the name is committed.
-  const [namingFolderIn, setNamingFolderIn] = useState<string | null>(null);
+  // The New folder dialog while a collection is creating a folder: where the folder goes. Nothing is
+  // created until the dialog is submitted.
+  const [folderDialog, setFolderDialog] = useState<{
+    resolveParentId: () => string | null | Promise<string | null>;
+    checkParentId: string | null;
+  } | null>(null);
 
   const rawSession = activePageId
     ? application.pageOperations.getSession(activePageId)
@@ -818,33 +825,38 @@ export function PageHost({
     );
   };
 
-  // Create folder: start naming it inline — the folder itself is made only when the name is committed.
-  const startFolderCreation = (): void =>
-    setNamingFolderIn(collectionViewKey ?? '');
+  // Create folder: opens the one New folder dialog (the sidebar's), creating in the given parent.
+  // `resolveParentId` is read at submit (Assets/ may not exist yet); `checkParentId` is the parent
+  // already known, for the duplicate check.
+  const folderCreationTrigger =
+    (
+      resolveParentId: () => string | null | Promise<string | null>,
+      checkParentId: string | null
+    ) =>
+    (): void =>
+      setFolderDialog({ resolveParentId, checkParentId });
 
-  // The inline folder card, while this collection is the one naming a folder. `resolveParentId` is read
-  // at commit (Assets/ may not exist yet); `checkParentId` is the parent already known, for the duplicate check.
-  const folderCreationFor = (
-    resolveParentId: () => string | null | Promise<string | null>,
-    checkParentId: string | null
-  ): FolderCreation | undefined =>
-    namingFolderIn !== null && namingFolderIn === (collectionViewKey ?? '')
-      ? {
-          canCreate: (name) =>
-            application.folderOperations.canCreate(name, checkParentId),
-          onCommit: (name) => {
-            setNamingFolderIn(null);
-            void (async () => {
-              await createAndOpenFolder(
-                application.folderOperations,
-                name,
-                await resolveParentId()
-              );
-            })();
-          },
-          onCancel: () => setNamingFolderIn(null),
+  const folderCreationDialog = (
+    <NewFolderDialog
+      open={folderDialog !== null}
+      onClose={() => setFolderDialog(null)}
+      canCreate={(name) =>
+        application.folderOperations.canCreate(name, folderDialog?.checkParentId ?? null)
+      }
+      onSubmit={async (name, icon, description) => {
+        if (!folderDialog) return;
+        if (!isAllowedFolderName(name)) {
+          throw new Error(DISALLOWED_FOLDER_NAME_MESSAGE);
         }
-      : undefined;
+        await createAndOpenFolder(
+          application.folderOperations,
+          name,
+          await folderDialog.resolveParentId(),
+          { icon, description }
+        );
+      }}
+    />
+  );
 
   // Where a folder made on an Assets page goes: inside the folder the page shows — or, on the
   // top-level page, inside `Assets/`, which is created first if the vault has none yet.
@@ -875,13 +887,11 @@ export function PageHost({
     folders: readonly CollectionEntryModel[];
     onCreate?: () => void;
     onCreateFolder?: () => void;
-    folderCreation?: FolderCreation;
   }) => (
     <AssetsCollectionBody
       assets={props.assets}
       folders={props.folders}
       onCreateFolder={props.onCreateFolder}
-      folderCreation={props.folderCreation}
       viewMode={collectionView.layout}
       visible={collectionView.visible}
       sort={collectionView.sort}
@@ -1774,9 +1784,8 @@ export function PageHost({
     // of the folder currently being viewed.
     const onCreateSubfolder =
       collectionDefinition.actions.createFolder && !isFolderArchived
-        ? startFolderCreation
+        ? folderCreationTrigger(() => folder.id, folder.id)
         : undefined;
-    const subfolderCreation = folderCreationFor(() => folder.id, folder.id);
 
     return (
       <>
@@ -1924,7 +1933,6 @@ export function PageHost({
                 folders: model.folders,
                 onCreate,
                 onCreateFolder: onCreateSubfolder,
-                folderCreation: subfolderCreation,
               })
             ) : isArchiveView ? (
               <ArchiveCollectionBody
@@ -1955,9 +1963,6 @@ export function PageHost({
                 visible={collectionView.visible}
                 sort={collectionView.sort}
                 onCreateFolder={onCreateSubfolder}
-                folderCreation={
-                  isFolderArchived ? undefined : subfolderCreation
-                }
                 onCreate={onCreate}
                 emptyCreateLabel={
                   collectionDefinition.kind === 'templates'
@@ -1976,6 +1981,7 @@ export function PageHost({
             )
           }
         />
+      {folderCreationDialog}
       </>
     );
   }
@@ -1996,12 +2002,11 @@ export function PageHost({
       : undefined;
     // Create folder: inside Assets/. Declared by the definition like every other collection's.
     const onCreateFolder = collectionDefinition.actions.createFolder
-      ? startFolderCreation
+      ? folderCreationTrigger(
+          assetsParentResolver(null),
+          application.membershipSelector.getAssetsStorageFolder()?.id ?? null
+        )
       : undefined;
-    const folderCreation = folderCreationFor(
-      assetsParentResolver(null),
-      application.membershipSelector.getAssetsStorageFolder()?.id ?? null
-    );
     // The folders in Assets/ — each opens as an Assets page of its own.
     const assetsStorageFolder =
       application.membershipSelector.getAssetsStorageFolder();
@@ -2022,6 +2027,7 @@ export function PageHost({
       : [];
 
     return (
+      <>
       <Page
         canNavigateBack={workspace.canNavigateBack}
         canNavigateForward={workspace.canNavigateForward}
@@ -2045,9 +2051,10 @@ export function PageHost({
           folders: assetFolders,
           onCreate,
           onCreateFolder,
-          folderCreation,
         })}
       />
+      {folderCreationDialog}
+      </>
     );
   }
 
@@ -2276,11 +2283,11 @@ export function PageHost({
     // createAndOpenFolder.ts. Creates at the vault root (parentId: null), the same root scope
     // Workspace-root's own folder listing already shows.
     const onCreateFolder = collectionDefinition.actions.createFolder
-      ? startFolderCreation
+      ? folderCreationTrigger(() => null, null)
       : undefined;
-    const folderCreation = folderCreationFor(() => null, null);
 
     return (
+      <>
       <Page
         canNavigateBack={workspace.canNavigateBack}
         canNavigateForward={workspace.canNavigateForward}
@@ -2379,7 +2386,6 @@ export function PageHost({
             visible={collectionView.visible}
             sort={collectionView.sort}
             onCreateFolder={onCreateFolder}
-            folderCreation={folderCreation}
             onCreate={onCreate}
             emptyCreateLabel="New note"
             emptyMessage={collectionDefinition.emptyMessage}
@@ -2388,6 +2394,8 @@ export function PageHost({
           />
         }
       />
+      {folderCreationDialog}
+      </>
     );
   }
 
@@ -2825,11 +2833,8 @@ export function PageHost({
   // Note's menu never includes a `move-to` item (the daily-note canonical actions),
   // so moveDestinations/onMove are only ever computed and passed for a
   // real Note, never for a Daily Note.
-  // Templates are a flat collection (ADR-049): a Template is never moved, so its menu has no
-  // `move-to` item (the canonical action is hidden for one) and no Move props either.
-  const canMoveNote =
-    page.type === 'note' &&
-    !application.membershipSelector.isInTemplatesFolder(page.parentId);
+  // A Template is a note like any other for Move (ADR-049, amended): it gets the same Move props.
+  const canMoveNote = page.type === 'note';
   const topBar = buildTopBarActions(page, {
     membershipSelector: application.membershipSelector,
     vaultRoot: vault.root,

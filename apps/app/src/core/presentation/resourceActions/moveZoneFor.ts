@@ -8,8 +8,7 @@ import type { ResourceActionContext, ResourceKind } from './resourceActionTypes'
  *
  *   Note → the vault root's workspace      Asset → Assets
  *
- * A Template has no Move at all (Templates are a flat collection; the canonical `move-to` action is
- * hidden for one), so it has no zone. A folder moves within the hierarchy it already sits in; the
+ * A Template is a note like any other here (Templates are an ordinary move destination, ADR-049 amended). A folder moves within the hierarchy it already sits in; the
  * caller passes that as `moveZone` (MembershipSelector.getMoveZoneOfFolder).
  */
 export function moveZoneFor(kind: ResourceKind, context: ResourceActionContext): MovePickerZone {

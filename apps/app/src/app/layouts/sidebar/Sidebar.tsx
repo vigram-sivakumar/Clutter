@@ -25,6 +25,7 @@ import { Footer } from './footer/Footer';
 import { NewTaskDialog } from '@features/tasks/shortcuts/NewTaskDialog';
 import { NewTagDialog } from '@features/tags/shortcuts/NewTagDialog';
 import { NewFolderDialog } from '@features/notes/shortcuts/NewFolderDialog';
+import { createAndOpenFolder } from '@features/notes/helpers/createAndOpenFolder';
 import { createNoteInInbox } from '@features/notes/helpers/createNote';
 import { uploadAssets } from '@features/notes/helpers/uploadAssets';
 import { createTemplate } from '@features/notes/helpers/createTemplate';
@@ -317,20 +318,9 @@ export function Sidebar({
         open={creationDialog === 'folder'}
         onClose={closeCreationDialog}
         canCreate={(name) => folderOperations.canCreate(name, null)}
-        onSubmit={async (name, icon, description) => {
-          const id = await folderOperations.create(name, null);
-
-          if (icon !== undefined || description !== undefined) {
-            await folderOperations.updateMetadata(id, {
-              ...(icon !== undefined ? { icon } : {}),
-              ...(description !== undefined ? { description } : {}),
-            });
-          }
-
-          // Create, then open the result — the same shape as createAndOpenFolder, with the optional
-          // metadata written in between so the folder opens already carrying it.
-          await folderOperations.open(id);
-        }}
+        onSubmit={(name, icon, description) =>
+          createAndOpenFolder(folderOperations, name, null, { icon, description })
+        }
       />
     </aside>
   );

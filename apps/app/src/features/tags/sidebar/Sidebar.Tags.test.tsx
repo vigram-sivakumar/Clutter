@@ -125,6 +125,7 @@ function extraPanelProps() {
     membershipSelector: {
       vaultRoot: '/vault',
       getWorkspaceFolders: () => [],
+      getTemplatesFolder: () => undefined,
       getVisibleChildFolders: () => [],
       getMoveZoneRoot: () => undefined,
     } as unknown as MembershipSelector,

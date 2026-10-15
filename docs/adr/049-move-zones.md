@@ -1,6 +1,6 @@
 # ADR-049: Move zones — Templates are flat; Assets are a sealed hierarchy
 
-**Status:** Accepted (amended: Templates are a flat collection)
+**Status:** Accepted (amended twice: Templates were made flat, then made an ordinary workspace location again — see "Amendment: Templates are movable")
 
 ## Context
 
@@ -21,3 +21,13 @@ The Move picker is unchanged as a component. `buildMoveDestinationItems` takes a
 ## Consequences
 
 The invariants live in the domain layer, so no caller can bypass them; the picker offers exactly what the Gate will accept. Tests that encoded the old behavior (assets to ordinary folders, notes into Templates, Templates with subfolders) were updated. A folder that already exists inside Templates on disk (created outside Clutter) is read as an ordinary folder page and cannot be added to, moved into, or created within.
+
+
+## Amendment: Templates are movable
+
+Templates is an ordinary workspace location again, for moves and for folders. `moveZoneOfPath()` no longer has a `templates` zone: only Assets stays sealed. Consequences:
+
+- A note or folder moves into Templates (any depth) and out again, using the existing Move picker, `PageOperations.move` and `FolderOperations.move`. The `toTemplates` option and the "a Template is never moved" guard are removed; nothing is copied or recreated, so ids and metadata are kept.
+- Folders can be created inside Templates (`FolderPathResolver.createFolderPath` no longer refuses).
+- Template status stays derived from location (ADR-041): `Vault.isFolderWithinReservedFolder(…, 'templates')` for the UI; the `kind: template` marker is written/removed for a moved note by `PageOperations.move` and, for every page, by Sync's reconciliation at startup and on external changes. A moved folder's descendants are reclassified by location immediately; their on-disk marker is repaired by that reconciliation.
+- The Move picker lists Templates (and its folders) directly below the vault root (`buildMoveDestinationItems`). Templates is offered only once it exists (ADR-030). The cover picker opts out.

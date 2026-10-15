@@ -59,8 +59,6 @@ export type PersistenceOperation =
   | {
       readonly kind: 'move';
       readonly destinationFolderId: string | null;
-      /** "Use as template": the one sanctioned move of an ordinary note into Templates (ADR-049). */
-      readonly toTemplates?: boolean;
     }
   | { readonly kind: 'rename'; readonly title: string }
   | {
@@ -387,7 +385,7 @@ export class PagePersistenceCoordinator {
       case 'delete':
         return this.runDelete(current);
       case 'move':
-        return this.runMove(current, operation.destinationFolderId, operation.toTemplates);
+        return this.runMove(current, operation.destinationFolderId);
       case 'rename':
         return this.runRename(current, operation.title);
     }
@@ -411,8 +409,7 @@ export class PagePersistenceCoordinator {
    */
   private async runMove(
     current: Page,
-    destinationFolderId: string | null,
-    toTemplates?: boolean
+    destinationFolderId: string | null
   ): Promise<PersistenceResult> {
     if (current.type === 'daily-note') {
       throw new Error(`Cannot move a Daily Note: ${current.id}`);
@@ -422,11 +419,7 @@ export class PagePersistenceCoordinator {
       throw new Error(`Cannot move an archived page: ${current.id}`);
     }
 
-    const destination = this.moveService.resolveMoveDestination(
-      current,
-      destinationFolderId,
-      { toTemplates }
-    );
+    const destination = this.moveService.resolveMoveDestination(current, destinationFolderId);
 
     const updated: Page = {
       ...current,

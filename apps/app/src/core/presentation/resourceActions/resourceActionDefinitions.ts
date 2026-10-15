@@ -87,8 +87,7 @@ const MOVE_TO: ResourceActionDefinition = activeOnly({
   order: 30,
   label: 'Move to…',
   icon: 'arrowDownRight',
-  // Templates are a flat collection (ADR-049): a Template is never moved.
-  availability: (context) => (context.isTemplate ? 'hidden' : activePersistedOnly(context)),
+  availability: activePersistedOnly,
 });
 
 /**

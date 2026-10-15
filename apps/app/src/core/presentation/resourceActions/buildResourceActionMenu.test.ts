@@ -147,11 +147,11 @@ describe('availability', () => {
     expect(ids(buildResourceActionMenu('note', { status: 'archived' }, 'topbar'))).not.toContain('archive');
   });
 
-  it('Move is absent for an archived note, and absent for a Template on every surface (Templates are flat)', () => {
+  it('Move is absent for an archived note, and present for a Template on every surface (Templates are movable)', () => {
     const archived = buildResourceActionMenu('note', { status: 'archived' }, 'topbar');
     expect(ids(archived)).not.toContain('move-to');
     for (const surface of ['sidebar', 'favorites', 'topbar'] as const) {
-      expect(ids(buildResourceActionMenu('note', { isTemplate: true, status: 'active' }, surface))).not.toContain('move-to');
+      expect(ids(buildResourceActionMenu('note', { isTemplate: true, status: 'active' }, surface))).toContain('move-to');
     }
   });
 

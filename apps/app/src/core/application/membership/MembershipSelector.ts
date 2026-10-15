@@ -227,6 +227,16 @@ export class MembershipSelector {
     return this.getAssetsStorageFolder();
   }
 
+  /** The reserved Templates folder, if the vault has one (it is created with the first template). */
+  public getTemplatesFolder(): Folder | undefined {
+    return this.vault.getReservedFolder('templates');
+  }
+
+  /** The reserved Inbox folder, if the vault has one (it is created when a note first lands there). */
+  public getInboxFolder(): Folder | undefined {
+    return this.vault.getReservedFolder('inbox');
+  }
+
   /** The physical Assets/ storage folder, if the vault has one (it is created with the first import). */
   public getAssetsStorageFolder(): Folder | undefined {
     return this.query.getRootFolders().find((folder) => this.isAssetsStorageFolder(folder));

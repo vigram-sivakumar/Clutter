@@ -52,10 +52,11 @@ export interface MoveDestinationPickerProps {
  * already accept for "move to vault root".
  */
 /**
- * The destination list as a flat, searchable list — no tree. The root row (the vault's "Home", or the Templates / Assets root) stays first;
- * every folder after it is one alphabetical row with its parent path shown under the name (the
- * `ancestors` the builder already attaches). They are one "Folders" section — only so the card
- * can cap it with Show more / Show less; its title is not drawn (`showSectionTitles={false}`).
+ * The destination list as a flat, searchable list — no tree. The root rows (the vault's "Home" and
+ * Templates, or an Assets root) stay first, in the builder's order, with no section title; below
+ * a divider, every folder is one alphabetical row with its parent path shown under the name (the
+ * `ancestors` the builder already attaches) in a "Folders" section (titled only when rows sit above it), which the card
+ * can also cap with Show more / Show less.
  */
 function flattenDestinations(items: PickerListItem[]): PickerListItem[] {
   const flat = (item: PickerListItem): PickerListItem => ({
@@ -65,7 +66,7 @@ function flattenDestinations(items: PickerListItem[]): PickerListItem[] {
     section: 'Folders',
   });
   const isRoot = (item: PickerListItem) => item.isRoot || item.id === ROOT_DESTINATION_ID;
-  const root = items.filter(isRoot).map(flat);
+  const root = items.filter(isRoot).map((item) => ({ ...item, level: 0, parentId: null }));
   const folders = items
     .filter((item) => !isRoot(item))
     .map(flat)
@@ -84,6 +85,8 @@ export function MoveDestinationPicker({
   alignment,
 }: MoveDestinationPickerProps) {
   const destinations = useMemo(() => flattenDestinations(items), [items]);
+  // The "Folders" title only has a reason to exist when pinned root rows sit above it.
+  const hasPinnedRows = destinations.some((item) => item.section === undefined);
 
   return (
     <Popover anchorRef={anchorRef} open={open} onClose={onClose} side={side} alignment={alignment}>
@@ -94,7 +97,7 @@ export function MoveDestinationPicker({
         placeholder="Search folders"
         leadingIcon="folder"
         sectionLimit={5}
-        showSectionTitles={false}
+        showSectionTitles={hasPinnedRows}
         onSelect={(item) =>
           onSelect(item.id === ROOT_DESTINATION_ID ? null : item.id)
         }

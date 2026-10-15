@@ -219,7 +219,7 @@ describe('buildMoveDestinationItems', () => {
 });
 
 // ADR-049: the same builder (and so the same picker) serves each resource's own root.
-describe('buildMoveDestinationItems — zones (workspace and Assets roots; Templates are flat and never move)', () => {
+describe('buildMoveDestinationItems — zones (workspace, Templates and Assets roots)', () => {
   const zoneFolders = () => [
     makeFolder('templates', `${ROOT}/Templates`),
     makeFolder('templates-meetings', `${ROOT}/Templates/Meetings`, 'templates'),
@@ -233,15 +233,59 @@ describe('buildMoveDestinationItems — zones (workspace and Assets roots; Templ
   ];
   const ids = (items: { id: string }[]) => items.map((item) => item.id);
 
-  it('the workspace (default, a note move) offers ordinary folders and no vault root — never Templates or Assets', () => {
+  it('the workspace (default, a note move) offers Templates first (no vault root for a note), then ordinary folders — never Assets', () => {
     const items = buildMoveDestinationItems(makeMembershipSelector(zoneFolders()));
 
     expect(ids(items)).not.toContain('__vault-root__');
+    expect(ids(items).slice(0, 3)).toEqual(['templates', 'templates-meetings', 'templates-reviews']);
     expect(ids(items)).toEqual(expect.arrayContaining(['projects']));
-    // Templates are flat and a note never moves into one; Assets is its own hierarchy.
-    for (const forbidden of ['templates', 'templates-meetings', 'assets', 'assets-images']) {
+    expect(items[0]).toMatchObject({ icon: 'template', isRoot: true });
+    expect(items[1]).toMatchObject({ level: 1, parentId: 'templates' });
+    // Assets is its own hierarchy.
+    for (const forbidden of ['assets', 'assets-images']) {
       expect(ids(items)).not.toContain(forbidden);
     }
+  });
+
+  it('a folder move offers the vault root, then Templates directly below it, then the rest — whatever the alphabetical order', () => {
+    const items = buildMoveDestinationItems(makeMembershipSelector(zoneFolders()), 'projects');
+
+    expect(ids(items).slice(0, 2)).toEqual(['__vault-root__', 'templates']);
+  });
+
+  it('a Templates folder being moved is not offered itself or its descendants, and without Templates nothing is added', () => {
+    const items = buildMoveDestinationItems(makeMembershipSelector(zoneFolders()), 'templates-meetings');
+    expect(ids(items)).toContain('templates-reviews');
+    expect(ids(items)).not.toContain('templates-meetings');
+
+    const none = buildMoveDestinationItems(makeMembershipSelector(zoneFolders().filter((f) => !f.path.includes('/Templates'))), 'projects');
+    expect(ids(none)).not.toContain('templates');
+  });
+
+  it('lists folders under Templates at every depth, once each, with their path — alongside the ordinary folders', () => {
+    const folders = [
+      ...zoneFolders(),
+      makeFolder('templates-weekly', `${ROOT}/Templates/Meetings/Weekly`, 'templates-meetings'),
+      makeFolder('templates-deep', `${ROOT}/Templates/Meetings/Weekly/Archive 2`, 'templates-weekly'),
+      makeFolder('projects-sub', `${ROOT}/Projects/Sub`, 'projects'),
+    ];
+    const items = buildMoveDestinationItems(makeMembershipSelector(folders));
+    const all = ids(items);
+
+    for (const id of ['templates-meetings', 'templates-reviews', 'templates-weekly', 'templates-deep', 'projects', 'projects-sub']) {
+      expect(all.filter((candidate) => candidate === id), id).toHaveLength(1);
+    }
+    expect(new Set(all).size).toBe(all.length);
+    expect(items.find((item) => item.id === 'templates-deep')?.ancestors?.map((a) => a.title)).toEqual([
+      'Templates',
+      'Meetings',
+      'Weekly',
+    ]);
+  });
+
+  it('can leave Templates out for non-Move callers', () => {
+    const items = buildMoveDestinationItems(makeMembershipSelector(zoneFolders()), undefined, 'workspace', { includeTemplates: false });
+    expect(ids(items)).not.toContain('templates');
   });
 
   it('an Asset is offered the Assets root first, then only folders inside Assets', () => {

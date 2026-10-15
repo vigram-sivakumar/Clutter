@@ -110,6 +110,46 @@ describe('MoveDestinationPicker', () => {
     expect(titles()).toHaveLength(5);
   });
 
+  it('pins the vault root and Templates first (Templates with the template icon), then a divider and a "Folders" title above the alphabetical folders', () => {
+    const pinned: PickerListItem[] = [
+      { id: '__vault-root__', title: 'Clutter', secondaryLabel: 'Home', isRoot: true, level: 0, parentId: null },
+      { id: 'templates', title: 'Templates', isRoot: true, icon: 'template', level: 0, parentId: null },
+      ...items,
+    ];
+    render(<MoveDestinationPickerHarness items={pinned} onSelect={vi.fn()} />);
+
+    expect(
+      Array.from(document.querySelectorAll('.picker-list__title')).map((el) => el.textContent)
+    ).toEqual(['Clutter', 'Templates', 'Finance', 'Project']);
+    const order = Array.from(document.querySelectorAll('.picker-list__list > *'));
+    const separator = order.findIndex((el) => el.getAttribute('role') === 'separator');
+    expect(separator).toBe(2);
+    expect(order[separator + 1]?.textContent).toBe('Folders');
+    expect(document.querySelectorAll('.menu__group-title')).toHaveLength(1);
+  });
+
+  it('lists Templates folders in the same Folders section as ordinary ones (no separate group), and search finds both', () => {
+    const mixed: PickerListItem[] = [
+      { id: '__vault-root__', title: 'Clutter', secondaryLabel: 'Home', isRoot: true, level: 0, parentId: null },
+      { id: 'templates', title: 'Templates', isRoot: true, icon: 'template', level: 0, parentId: null },
+      { id: 'meetings', title: 'Meetings', level: 1, parentId: 'templates', ancestors: [{ id: 'templates', title: 'Templates' }] },
+      { id: 'weekly', title: 'Weekly', level: 2, parentId: 'meetings', ancestors: [{ id: 'templates', title: 'Templates' }, { id: 'meetings', title: 'Meetings' }] },
+      { id: 'projects', title: 'Projects', level: 0, parentId: null },
+    ];
+    const onSelect = vi.fn();
+    render(<MoveDestinationPickerHarness items={mixed} onSelect={onSelect} />);
+
+    expect(
+      Array.from(document.querySelectorAll('.picker-list__title')).map((el) => el.textContent)
+    ).toEqual(['Clutter', 'Templates', 'Meetings', 'Projects', 'Weekly']);
+    expect(document.querySelectorAll('.menu__group-title')).toHaveLength(1);
+
+    fireEvent.change(screen.getByPlaceholderText('Search folders'), { target: { value: 'week' } });
+    expect(screen.getByText('Weekly')).toBeDefined();
+    fireEvent.click(screen.getByText('Weekly'));
+    expect(onSelect).toHaveBeenCalledWith('weekly');
+  });
+
   it('keeps the vault root first and reports it as null', () => {
     const onSelect = vi.fn();
     const withRoot: PickerListItem[] = [

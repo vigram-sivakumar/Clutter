@@ -1,15 +1,17 @@
-import type { DragItem, DropTarget } from './dropTarget';
+import { DROP_ZONE_ACCEPTS, type DragItem, type DropTarget } from './dropTarget';
 
 /** The slice of the row actions a drop uses: the Move picker's own handlers, plus the move-rule check. */
 export interface DropActions {
   onMoveNote(pageId: string, destinationFolderId: string | null): void | Promise<void>;
   onMoveFolder(folderId: string, destinationFolderId: string | null): void | Promise<void>;
+  /** An asset (a file row): the Move picker's own handler for it — only ever called for the Assets destination. */
+  onMoveResource?(resourceId: string, destinationFolderId: string | null): void | Promise<void>;
   canMoveFolderInto?(folderId: string, destinationFolderId: string | null): boolean;
   /** Writes the item's place among `parentId`'s children (the sidebar's manual order) — presentation state, never a move. */
   placeSibling?(
     item: DragItem,
     parentId: string | null,
-    anchor: { kind: DragItem['kind']; id: string },
+    anchor: { kind: 'folder' | 'note'; id: string },
     edge: 'before' | 'after'
   ): void;
 }
@@ -43,6 +45,15 @@ export async function executeDrop(
   }
 
   try {
+    // Eligibility is decided again here, from the rule itself — the target that was drawn is not trusted
+    // to have been valid. A special destination takes only what it accepts, and an asset goes nowhere else.
+    if (target.kind === 'inside' && target.zone && !DROP_ZONE_ACCEPTS[target.zone].includes(item.kind)) {
+      throw new Error(`The ${target.zone} destination does not accept a ${item.kind}`);
+    }
+    if (item.kind === 'asset' && !(target.kind === 'inside' && target.zone === 'assets')) {
+      throw new Error('An asset can only be dropped onto Assets');
+    }
+
     if (target.kind === 'inside') {
       await moveInto(item, target.folderId, actions);
       return 'moved';
@@ -72,6 +83,11 @@ async function moveInto(item: DragItem, destinationFolderId: string | null, acti
       throw new Error(`The move rules do not allow ${item.id} into ${destinationFolderId ?? 'the vault root'}`);
     }
     await actions.onMoveFolder(item.id, destinationFolderId);
+  } else if (item.kind === 'asset') {
+    if (!actions.onMoveResource) {
+      throw new Error('Assets cannot be moved from here');
+    }
+    await actions.onMoveResource(item.id, destinationFolderId);
   } else {
     await actions.onMoveNote(item.id, destinationFolderId);
   }

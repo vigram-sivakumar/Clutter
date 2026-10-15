@@ -2469,26 +2469,26 @@ describe('PageOperations.move() — kind: template marker', () => {
     const page = buildPage();
     const { vault, pageOperations } = setup(page, undefined, [makeArchiveFolder(), templatesFolder()]);
 
-    await pageOperations.move(page.id, 'templates', { toTemplates: true });
+    await pageOperations.move(page.id, 'templates');
 
     expect(markerLines(vault, page.id)).toContain('kind: template');
   });
 
-  it('rejects an ordinary move of a note into Templates — only "Use as template" crosses (ADR-049)', async () => {
+  it('moves an ordinary note into Templates, keeping its id', async () => {
     const page = buildPage();
     const { vault, pageOperations } = setup(page, undefined, [makeArchiveFolder(), templatesFolder()]);
 
-    await expect(pageOperations.move(page.id, 'templates')).rejects.toThrow(
-      /can only be moved within workspace/
-    );
-    expect(vault.getPage(page.id)!.parentId).toBeNull();
+    await pageOperations.move(page.id, 'templates');
+
+    expect(vault.getPage(page.id)!.parentId).toBe('templates');
+    expect(vault.getPage(page.id)!.path).toBe(`${ROOT}/Templates/Note.md`);
   });
 
   it('updates an existing `kind` line instead of adding a second one', async () => {
     const page = withKind(buildPage(), ['kind: book']);
     const { vault, pageOperations } = setup(page, undefined, [makeArchiveFolder(), templatesFolder()]);
 
-    await pageOperations.move(page.id, 'templates', { toTemplates: true });
+    await pageOperations.move(page.id, 'templates');
 
     const lines = markerLines(vault, page.id);
     expect(lines.filter((line) => line.startsWith('kind'))).toEqual(['kind: template']);
@@ -2506,6 +2506,38 @@ describe('PageOperations.move() — kind: template marker', () => {
     await pageOperations.move(page.id, 'projects');
 
     expect(markerLines(vault, page.id).some((line) => line.startsWith('kind'))).toBe(false);
+  });
+
+  it('moves a note into a nested Templates folder and back to the vault root, keeping its id; the marker follows the location', async () => {
+    const page = buildPage();
+    const nested = { ...makeFolder('templates-meetings', `${ROOT}/Templates/Meetings`), name: 'Meetings', parentId: 'templates' };
+    const { vault, pageOperations } = setup(page, undefined, [makeArchiveFolder(), templatesFolder(), nested]);
+
+    await pageOperations.move(page.id, 'templates-meetings');
+
+    expect(vault.getPage(page.id)!.parentId).toBe('templates-meetings');
+    expect(vault.isFolderWithinReservedFolder(vault.getPage(page.id)!.parentId, 'templates')).toBe(true);
+    expect(markerLines(vault, page.id)).toContain('kind: template');
+
+    await pageOperations.move(page.id, null);
+
+    const back = vault.getPage(page.id)!;
+    expect(back.id).toBe(page.id);
+    expect(back.parentId).toBeNull();
+    expect(vault.isFolderWithinReservedFolder(back.parentId, 'templates')).toBe(false);
+    expect(markerLines(vault, page.id).some((line) => line.startsWith('kind'))).toBe(false);
+  });
+
+  it('moves a template between Templates folders, still a template', async () => {
+    const page = withKind(buildPage(), ['kind: template']);
+    const nested = { ...makeFolder('templates-meetings', `${ROOT}/Templates/Meetings`), name: 'Meetings', parentId: 'templates' };
+    const { vault, pageOperations } = setup(page, undefined, [makeArchiveFolder(), templatesFolder(), nested]);
+    await pageOperations.move(page.id, 'templates');
+
+    await pageOperations.move(page.id, 'templates-meetings');
+
+    expect(vault.getPage(page.id)!.path).toBe(`${ROOT}/Templates/Meetings/Note.md`);
+    expect(markerLines(vault, page.id)).toContain('kind: template');
   });
 
   it("leaves a user's own `kind` value alone when moving between ordinary folders", async () => {
