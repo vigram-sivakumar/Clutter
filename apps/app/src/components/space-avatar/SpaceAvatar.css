@@ -1,0 +1,23 @@
+.space__avatar {
+  display: block;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-inset-thin-strong);
+}
+.space__initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: baseline;
+  flex-shrink: 0;
+  width: 20px;
+  aspect-ratio: 1;
+  background-color: var(--surface-tertiary);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label-small);
+  font-weight: var(--fw-bold);
+}

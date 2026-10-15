@@ -1,10 +1,38 @@
 .footer {
   display: flex;
-  justify-content: right;
+  justify-content: space-between;
+  gap: var(--space-6);
   color: var(--foreground-tertiary);
   padding-inline: var(--sidebar-padding-inline);
 }
 .footer__actions {
   display: flex;
+  flex-shrink: 0;
   gap: var(--space-2);
+}
+.space-selector {
+  width: auto;
+  min-width: 0;
+}
+.space-selector .entry__content {
+  flex: 1 1 auto;
+  width: auto;
+}
+.space-selector .space__title,
+.space-menu__current .space__title {
+  display: block;
+  width: auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--foreground-primary);
+
+  font-weight: var(--fw-medium);
+}
+.space-selector .app-icon {
+  color: var(--foreground-primary);
+}
+.space-menu__current .entry__trailing .app-icon {
+  color: var(--foreground-primary);
 }

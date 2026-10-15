@@ -289,7 +289,11 @@ export function Sidebar({
       <div className="sidebar--content">
         {tabs.find((tab) => tab.value === workspace.activeSidebarTab)?.panel}
       </div>
-      <Footer onOpenArchive={() => navigation.openArchive()} />
+      <Footer
+        vaultFolderName={vault.root.split('/').filter(Boolean).pop() ?? ''}
+        resolveImageUrl={(src) => application.resolveCoverImageForDisplay(src)}
+        onOpenArchive={() => navigation.openArchive()}
+      />
 
       <NewTaskDialog
         open={creationDialog === 'task'}
