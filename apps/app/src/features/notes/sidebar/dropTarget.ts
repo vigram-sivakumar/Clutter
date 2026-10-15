@@ -8,6 +8,8 @@
  * carries no attributes and so can never be a target.
  */
 
+import { findScrollContainer } from '@shared/interaction';
+
 /** Share of a row's height, from each edge, that means "next to this row" rather than "into it". */
 export const EDGE_BAND_RATIO = 0.25;
 
@@ -69,6 +71,11 @@ export interface DragRow extends Omit<DragItem, 'kind'> {
   readonly level: number;
   /** Siblings after this one exist but are hidden behind the list's "N more" row. */
   readonly tailHidden: boolean;
+  /**
+   * A Collection View card or row: a folder here is only ever a destination to move INTO (the whole
+   * card), never a place in a sibling list — there is no manual order there. See `data-drag-inside-only`.
+   */
+  readonly insideOnly: boolean;
 }
 
 export type DropTarget =
@@ -136,6 +143,7 @@ export function collectDragRows(root: ParentNode = document): DragRow[] {
     parentId: element.dataset.dragParent ? element.dataset.dragParent : null,
     level: levelOf(element),
     tailHidden: element.dataset.dragTailHidden === 'true',
+    insideOnly: element.dataset.dragInsideOnly === 'true',
   }));
 }
 
@@ -173,13 +181,8 @@ export interface ResolveDropTargetInput {
    * folder gets no destination at all: the rules are never guessed.
    */
   readonly canMoveFolderInto?: (folderId: string, destinationFolderId: string | null) => boolean;
-  /**
-   * Whether `parentId`'s list is ordered by hand. Positions ("before/after this row") are only offered in
-   * such a list — in a list sorted another way there is nothing to write them to, and the saved manual order
-   * must not be overwritten. (The root has no other mode, so it counts.) Moving INTO a folder is not a
-   * position and is unaffected. Absent: every list counts.
-   */
-  readonly isManualLevel?: (parentId: string | null) => boolean;
+  /** The note-move rules (PageOperations.canMove), asked the same way. Absent: a note is offered every folder. */
+  readonly canMoveNoteInto?: (pageId: string, destinationFolderId: string | null) => boolean;
 }
 
 /** The first rendered element after `row` that is not part of its subtree — the row's visual end. */
@@ -218,7 +221,9 @@ function neighbourAcross(row: DragRow, region: 'before' | 'after'): HTMLElement 
   return candidate;
 }
 
-export function resolveDropTarget({ pointer, dragged, rows, destinations, canMoveFolderInto, isManualLevel }: ResolveDropTargetInput): DropTarget | null {
+export function resolveDropTarget({ pointer, dragged, rows: allRows, destinations, canMoveFolderInto, canMoveNoteInto }: ResolveDropTargetInput): DropTarget | null {
+  // Sibling-list logic (neighbours, subtrees) only ever concerns the tree's own rows.
+  const rows = allRows.filter((row) => !row.insideOnly);
   const draggedKey = rowKey(dragged);
   const contains = (element: HTMLElement) => {
     const rect = element.getBoundingClientRect();
@@ -232,7 +237,9 @@ export function resolveDropTarget({ pointer, dragged, rows, destinations, canMov
     const accepted =
       DROP_ZONE_ACCEPTS[destination.zone].includes(dragged.kind) &&
       destination.folderId !== dragged.parentId &&
-      (dragged.kind !== 'folder' || (canMoveFolderInto?.(dragged.id, destination.folderId) ?? false));
+      (dragged.kind === 'folder'
+        ? (canMoveFolderInto?.(dragged.id, destination.folderId) ?? false)
+        : dragged.kind !== 'note' || (canMoveNoteInto?.(dragged.id, destination.folderId) ?? true));
     if (!accepted) {
       return null;
     }
@@ -260,7 +267,7 @@ export function resolveDropTarget({ pointer, dragged, rows, destinations, canMov
     if (destination === dragged.parentId) {
       return true; // reordering where it already is
     }
-    return dragged.kind === 'note' ? true : (canMoveFolderInto?.(dragged.id, destination) ?? false);
+    return dragged.kind === 'note' ? (canMoveNoteInto?.(dragged.id, destination) ?? true) : (canMoveFolderInto?.(dragged.id, destination) ?? false);
   };
 
   /**
@@ -272,7 +279,7 @@ export function resolveDropTarget({ pointer, dragged, rows, destinations, canMov
    * hidden rows: neither is drawn.
    */
   const insertTarget = (candidate: DragRow, edge: 'before' | 'after'): DropTarget | null => {
-    if (rowKey(candidate) === draggedKey || !canJoin(candidate.parentId) || isManualLevel?.(candidate.parentId) === false) {
+    if (rowKey(candidate) === draggedKey || !canJoin(candidate.parentId)) {
       return null;
     }
     if (edge === 'after' && candidate.tailHidden) {
@@ -334,7 +341,42 @@ export function resolveDropTarget({ pointer, dragged, rows, destinations, canMov
     }
   };
 
-  const row = rows.find((candidate) => contains(candidate.element));
+  const row = allRows.find((candidate) => contains(candidate.element));
+
+  // A Collection View card: moving INTO a folder is the only thing it offers, to a drag from ANY surface —
+  // there is no manual order there. (What a drop target offers belongs to the target, never to the drag's origin.)
+  if (row && row.insideOnly) {
+    const accepted =
+      rowKey(row) !== draggedKey &&
+      row.kind === 'folder' &&
+      row.id !== dragged.parentId &&
+      (dragged.kind === 'note' ? (canMoveNoteInto?.(dragged.id, row.id) ?? true) : (canMoveFolderInto?.(dragged.id, row.id) ?? false));
+    if (!accepted) {
+      return null;
+    }
+    const rect = row.element.getBoundingClientRect();
+    return { kind: 'inside', folderId: row.id, rect: { top: rect.top, left: rect.left, width: rect.width, height: rect.height } };
+  }
+  // The empty space below the tree's last row (inside the sidebar's scrolling area) is the END of the top-level
+  // list: "after" the outermost folder the last row sits in — the same candidate, validation and indicator as
+  // hovering that row's bottom edge, never "into" anything, and never a level picked from the pointer's x.
+  if (!row) {
+    const last = rows[rows.length - 1];
+    const container = last ? findScrollContainer(last.element) : null;
+    if (last && container) {
+      let lastEntry = last.element;
+      for (let next = lastEntry.nextElementSibling; next && next.classList.contains('entry'); next = next.nextElementSibling) {
+        lastEntry = next as HTMLElement;
+      }
+      const area = container.getBoundingClientRect();
+      const belowTree = pointer.y >= lastEntry.getBoundingClientRect().bottom && pointer.y <= area.bottom;
+      if (belowTree && pointer.x >= area.left && pointer.x <= area.right) {
+        // (`lastEntry`, not the last row's own subtree end: a folder's "N more" row is part of that folder's subtree.)
+        const enclosing = foldersEndingAt(last, lastEntry);
+        return insertTarget(enclosing[enclosing.length - 1] ?? last, 'after');
+      }
+    }
+  }
 
   // Over a row that cannot be dragged (a file, a capped list's "N more") which is nevertheless where one or
   // more folders' subtrees end: its bottom edge is "after" those folders.
@@ -371,7 +413,7 @@ export function resolveDropTarget({ pointer, dragged, rows, destinations, canMov
   const canContain =
     row.kind === 'folder' &&
     row.id !== dragged.parentId &&
-    (dragged.kind === 'note' ? true : (canMoveFolderInto?.(dragged.id, row.id) ?? false));
+    (dragged.kind === 'note' ? (canMoveNoteInto?.(dragged.id, row.id) ?? true) : (canMoveFolderInto?.(dragged.id, row.id) ?? false));
 
   const region = resolveDropRegion(rect, pointer.y, canContain);
 

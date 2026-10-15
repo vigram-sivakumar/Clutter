@@ -354,6 +354,7 @@ export function Notes({
     },
     canMoveFolderInto: (folderId, destinationFolderId) =>
       folderOperations.canMove(folderId, destinationFolderId),
+    canMoveNoteInto: (pageId, destinationFolderId) => pageOperations.canMove(pageId, destinationFolderId),
 
     // Discrete-commit only, never rejects — see SidebarRowActions'
     // onResourceTitleCommit doc comment for why a resource rename has no

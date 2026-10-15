@@ -1,6 +1,6 @@
 // React
 import { Fragment } from 'react/jsx-runtime';
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useRef, useSyncExternalStore } from 'react';
 // Components
 import { Folder as FolderEntry } from './Folder';
 import { Note as NoteEntry } from './Note';
@@ -11,19 +11,21 @@ import type { MovePickerZone } from '@core/vault/initialize/ReservedResources';
 import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
 import { buildPageMenuHandlers } from '../helpers/buildPageMenuHandlers';
 import { applyFolderSortSelection, buildFolderMenuHandlers } from '../helpers/buildFolderMenuHandlers';
-import { displayedOrderIds, levelEntries, placeInOrder } from './sidebarSort';
+import { levelEntries } from './sidebarSort';
 import {
   DEFAULT_SIDEBAR_SORT,
-  sidebarOrderId,
   type SidebarSort,
 } from '@core/properties/sidebarSort';
 import { buildAssetMenuHandlers } from '../helpers/buildAssetMenuHandlers';
 import { testIds } from '@shared/testing/selectors';
-import { createDragAutoScroller, findScrollContainer, usePointerDrag } from '@shared/interaction';
+import { usePointerDrag } from '@shared/interaction';
 import { DragGhost } from '@components/drag-ghost/DragGhost';
-import { DropFeedback } from '@components/drag-ghost/DropFeedback';
 import { executeDrop, type DropActions } from './executeDrop';
-import { collectDragRows, collectDropDestinations, resolveDropTarget, sameDropTarget, type DropTarget } from './dropTarget';
+import type { DropTarget } from './dropTarget';
+import { useDropTargetTracking } from './useDropTargetTracking';
+import { dragRevealStore } from './dragRevealStore';
+import { placeSiblingInLevel } from './sidebarOrderActions';
+import { createDropTargetStore, DropFeedbackHost, type DropTargetStore } from './dropTargetStore';
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 // Models
 import type { Folder } from '@core/vault/models';
@@ -52,8 +54,7 @@ import type { ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbe
 /** A folder shows this many of its own notes and files; the rest sit behind its "N more" row. */
 export const SIDEBAR_FOLDER_ITEM_LIMIT = 10;
 
-/** How long a drag must rest on a collapsed "N more" row before the hidden items are revealed for the rest of the drag. */
-export const DRAG_REVEAL_DELAY_MS = 500;
+export { DRAG_REVEAL_DELAY_MS } from './useDropTargetTracking';
 
 /** The key the vault root's own notes/files use in `expandedFolders` (a real folder id is never this). */
 export const ROOT_FOLDER_CAP_KEY = '__root__';
@@ -91,48 +92,6 @@ interface SidebarDragItem {
   readonly id: string;
   /** The parent folder it is dragged from (`null` = root). */
   readonly parentId: string | null;
-}
-
-interface DropTargetStore {
-  get(): DropTarget | null;
-  set(next: DropTarget | null): void;
-  subscribe(listener: () => void): () => void;
-}
-
-function createDropTargetStore(): DropTargetStore {
-  let current: DropTarget | null = null;
-  const listeners = new Set<() => void>();
-
-  return {
-    get: () => current,
-    set(next) {
-      if (!sameDropTarget(current, next)) {
-        current = next;
-        listeners.forEach((listener) => listener());
-      }
-    },
-    subscribe(listener) {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-  };
-}
-
-/** Draws the one drop indicator for the store's target; re-renders alone when it changes. */
-function DropFeedbackHost({ store }: { store: DropTargetStore }) {
-  const target = useSyncExternalStore(store.subscribe, store.get);
-  return target ? <DropFeedback shape={target} /> : null;
-}
-
-/** The collapsed "N more" row under the pointer, by cap key (only drag-enabled lists mark theirs). */
-function showMoreCapKeyAt(pointer: { x: number; y: number }): string | null {
-  for (const element of document.querySelectorAll<HTMLElement>('[data-cap-key]')) {
-    const rect = element.getBoundingClientRect();
-    if (pointer.x >= rect.left && pointer.x <= rect.right && pointer.y >= rect.top && pointer.y < rect.bottom) {
-      return element.dataset.capKey ?? null;
-    }
-  }
-  return null;
 }
 
 export interface PendingNewFolder {
@@ -280,6 +239,8 @@ export interface SidebarRowActions extends NoteRowActions {
    * only ever offers destinations the move would accept. Optional: without it a dragged folder is offered none.
    */
   canMoveFolderInto?(folderId: string, destinationFolderId: string | null): boolean;
+  /** Would moving this note there be accepted (PageOperations.canMove)? Asked by drag feedback and re-asked at the drop. */
+  canMoveNoteInto?(pageId: string, destinationFolderId: string | null): boolean;
 
   /**
    * Discrete-commit-only, mirroring a draft Note's onDraftTitleCommit shape
@@ -407,13 +368,6 @@ interface FolderTreeProps {
    * cannot pick the interaction up by accident.
    */
   enableDrag?: boolean;
-  /**
-   * Lists (by cap key) revealed only for the length of a drag, by resting on their "N more" row. Owned by
-   * the root tree and handed down; never persisted and never merged into `expandedFolders`.
-   */
-  dragRevealedCaps?: readonly string[];
-  onDragReveal?(capKey: string): void;
-  onDragRevealEnd?(): void;
   /** `null` = the vault root, whose only stored sort is Manual. */
   getFolderSort?(folderId: string | null): SidebarSort | undefined;
   /** A level's manual order (ADR-055); `null` = the root. Present only when that level's sort is Manual. */
@@ -737,9 +691,6 @@ export function FolderTree({
   expandedFolders = [],
   onToggleFolderCap,
   enableDrag = false,
-  dragRevealedCaps: inheritedRevealedCaps,
-  onDragReveal: inheritedOnDragReveal,
-  onDragRevealEnd: inheritedOnDragRevealEnd,
   getFolderSort,
   getLevelOrder,
   onLevelOrderChange,
@@ -752,6 +703,8 @@ export function FolderTree({
   const lastShownTargetRef = useRef<DropTarget | null>(null);
   const placeSiblingRef = useRef<DropActions['placeSibling']>(undefined);
   const { drag: activeDrag, press: pressRow } = usePointerDrag<SidebarDragItem>({
+    // A row can be dragged out of the sidebar, onto a folder card in the Collection View.
+    allowDragOutsideContainer: true,
     onRelease: (item) => {
       // Consumed once: a second call for the same release finds nothing to do.
       const shown = lastShownTargetRef.current;
@@ -771,89 +724,13 @@ export function FolderTree({
   const dropTargetStoreRef = useRef<DropTargetStore>();
   dropTargetStoreRef.current ??= createDropTargetStore();
   const dropTargetStore = dropTargetStoreRef.current;
-  // Temporarily revealed lists. The root owns them; nested levels get them (and the way to change them) from it.
-  const [ownRevealedCaps, setOwnRevealedCaps] = useState<readonly string[]>([]);
-  const dragRevealedCaps = inheritedRevealedCaps ?? ownRevealedCaps;
-  const onDragReveal =
-    inheritedOnDragReveal ??
-    ((capKey: string) => setOwnRevealedCaps((previous) => (previous.includes(capKey) ? previous : [...previous, capKey])));
-  const onDragRevealEnd = inheritedOnDragRevealEnd ?? (() => setOwnRevealedCaps((previous) => (previous.length ? [] : previous)));
-  const dragRevealRef = useRef({ reveal: onDragReveal, end: onDragRevealEnd });
-  dragRevealRef.current = { reveal: onDragReveal, end: onDragRevealEnd };
-  const recomputeDropTargetRef = useRef<(() => void) | null>(null);
-  const canMoveFolderIntoRef = useRef(rowActions?.canMoveFolderInto);
-  const getFolderSortRef = useRef(getFolderSort);
-  getFolderSortRef.current = getFolderSort;
-  canMoveFolderIntoRef.current = rowActions?.canMoveFolderInto;
-
-  useEffect(() => {
-    if (!activeDrag) {
-      return;
-    }
-    const { session, payload } = activeDrag;
-    const parent = session.source.dataset.dragParent;
-    const dragged = { kind: payload.kind, id: payload.id, parentId: parent ? parent : null };
-
-    // Resting on a collapsed "N more" row reveals its hidden items for the rest of the drag.
-    let hoveredCap: string | null = null;
-    let revealTimer: ReturnType<typeof setTimeout> | undefined;
-    const watchShowMore = () => {
-      const capKey = showMoreCapKeyAt(session.pointer);
-      if (capKey === hoveredCap) {
-        return;
-      }
-      clearTimeout(revealTimer);
-      hoveredCap = capKey;
-      if (capKey !== null) {
-        revealTimer = setTimeout(() => dragRevealRef.current.reveal(capKey), DRAG_REVEAL_DELAY_MS);
-      }
-    };
-
-    const update = () => {
-      watchShowMore();
-      const next = resolveDropTarget({
-        pointer: session.pointer,
-        dragged,
-        rows: collectDragRows(),
-        destinations: collectDropDestinations(),
-        canMoveFolderInto: (folderId, destinationId) =>
-          canMoveFolderIntoRef.current?.(folderId, destinationId) ?? false,
-        isManualLevel: (parent) => getFolderSortRef.current?.(parent)?.key === 'manual',
-      });
-      lastShownTargetRef.current = next;
-      dropTargetStore.set(next);
-      scroller?.poke();
-    };
-
-    // Near the top or bottom of whatever scrolls the list, the list scrolls toward the pointer; each frame that
-    // moved it re-resolves the target, since the rows under a stationary pointer have changed.
-    const scrollContainer = findScrollContainer(session.source);
-    const scroller = scrollContainer
-      ? createDragAutoScroller(scrollContainer, () => session.pointer, () => update())
-      : null;
-
-    recomputeDropTargetRef.current = update;
-    update();
-    const unsubscribe = session.subscribe(update);
-    // Scrolling moves rows under a still pointer.
-    document.addEventListener('scroll', update, true);
-
-    return () => {
-      unsubscribe();
-      document.removeEventListener('scroll', update, true);
-      clearTimeout(revealTimer);
-      scroller?.stop();
-      recomputeDropTargetRef.current = null;
-      dragRevealRef.current.end();
-      lastShownTargetRef.current = null;
-      dropTargetStore.set(null);
-    };
-  }, [activeDrag, dropTargetStore]);
-
-  // Rows appeared (or went) under a still pointer: the target shown must be the one for the rows now there.
-  useEffect(() => {
-    recomputeDropTargetRef.current?.();
-  }, [dragRevealedCaps]);
+  // Lists a drag has revealed by resting on their "N more" row (shared by every surface a drag can begin on).
+  const dragRevealedCaps = useSyncExternalStore(dragRevealStore.subscribe, dragRevealStore.get);
+  // Where the drag would land, shown, scrolled and revealed — the one tracking every drag uses, whatever it began on.
+  useDropTargetTracking(activeDrag, dropTargetStore, lastShownTargetRef, () => ({
+    canMoveFolderInto: rowActionsRef.current?.canMoveFolderInto,
+    canMoveNoteInto: rowActionsRef.current?.canMoveNoteInto,
+  }));
 
   const dragFor = (
     kind: SidebarDragItem['kind'],
@@ -865,6 +742,7 @@ export function FolderTree({
       ? {
           isSource: activeDrag?.payload.kind === kind && activeDrag.payload.id === id,
           attributes: {
+            'data-drag-ghost-follow': 'outside-container',
             'data-drag-kind': kind,
             'data-drag-id': id,
             'data-drag-parent': rowParentId ?? '',
@@ -895,25 +773,20 @@ export function FolderTree({
   const levelSort = getFolderSort?.(parentId);
   const levelOrder = levelSort?.key === 'manual' ? getLevelOrder?.(parentId) : undefined;
 
-  // Writes a dropped item's place among `parent`'s children into that level's manual order, seeded from
-  // what is drawn now (so switching a name- or date-sorted level to Manual changes nothing visible).
-  placeSiblingRef.current = (item, parent, anchor, edge) => {
-    // An asset is never placed among the manual order (the drop only ever moves it).
-    if (item.kind === 'asset') {
-      return;
-    }
-    const sort = getFolderSort?.(parent);
-    // Positions are only ever written to a level that is in Manual mode: another sort mode leaves the saved
-    // arrangement alone.
-    if (sort?.key !== 'manual') {
-      return;
-    }
-    const drawn = displayedOrderIds(membershipSelector, parent, sort, getLevelOrder?.(parent));
-    onLevelOrderChange?.(
+  // A dropped position is written by the same function whichever surface the drag began on (sidebarOrderActions).
+  placeSiblingRef.current = (item, parent, anchor, edge) =>
+    placeSiblingInLevel(
+      {
+        membershipSelector,
+        getSort: (level) => getFolderSort?.(level),
+        getOrder: (level) => getLevelOrder?.(level),
+        setOrder: (level, order) => onLevelOrderChange?.(level, order),
+      },
+      item,
       parent,
-      placeInOrder(drawn, sidebarOrderId(item.kind, item.id), sidebarOrderId(anchor.kind, anchor.id), edge)
+      anchor,
+      edge
     );
-  };
   // Only meaningful at the true root — a nested folder's own pages are
   // already rendered via getNotesChildPages(folder.id) below, per folder.
   // ADR-020 (M3 amendment): sidebar membership includes draft-only pages
@@ -1093,9 +966,6 @@ export function FolderTree({
                   expandedFolders={expandedFolders}
                   onToggleFolderCap={onToggleFolderCap}
                   enableDrag={enableDrag}
-                  dragRevealedCaps={dragRevealedCaps}
-                  onDragReveal={onDragReveal}
-                  onDragRevealEnd={onDragRevealEnd}
                   getFolderSort={getFolderSort}
                   getLevelOrder={getLevelOrder}
                   onLevelOrderChange={onLevelOrderChange}

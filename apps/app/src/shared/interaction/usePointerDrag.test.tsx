@@ -120,3 +120,115 @@ describe('usePointerDrag', () => {
     expect(fireEvent.keyDown(document, { key: 'Escape' })).toBe(false);
   });
 });
+
+describe('usePointerDrag — text selection', () => {
+  /** Dispatches the browser's `selectstart` at `target`; true when something cancelled it. */
+  const selectStart = (target: Element | Document) => {
+    const event = new Event('selectstart', { bubbles: true, cancelable: true });
+    target.dispatchEvent(event);
+    return event.defaultPrevented;
+  };
+
+  function Page(props: UsePointerDragOptions<string>) {
+    return (
+      <div>
+        <Harness {...props} />
+        <h1 data-testid="title">Page title</h1>
+      </div>
+    );
+  }
+
+  const selectText = (element: Element) => {
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    const selection = document.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+  };
+
+  it('is not touched when no drag is active: selecting text anywhere works', () => {
+    const { getByTestId } = render(<Page />);
+    expect(selectStart(getByTestId('title'))).toBe(false);
+    expect(selectStart(getByTestId('row'))).toBe(false);
+    expect(document.body.style.userSelect).toBe('');
+  });
+
+  it('while a press is still under the threshold, only selection starting in the pressed row is blocked', () => {
+    const { getByTestId } = render(<Page />);
+    down(getByTestId('row'));
+    move(11, 10); // not yet a drag
+
+    expect(selectStart(getByTestId('label'))).toBe(true); // would anchor a selection in the row
+    expect(selectStart(getByTestId('title'))).toBe(false); // elsewhere: still ordinary
+  });
+
+  it('once the drag is on, selection is blocked EVERYWHERE the pointer travels — the page title included', () => {
+    const { getByTestId } = render(<Page />);
+    down(getByTestId('row'));
+    move(60, 60);
+
+    expect(selectStart(getByTestId('title'))).toBe(true);
+    expect(selectStart(document.body)).toBe(true);
+    expect(document.body.style.userSelect).toBe('none');
+    expect(document.body.style.getPropertyValue('-webkit-user-select')).toBe('none');
+  });
+
+  it('drops a selection the press had already begun (so no title stays highlighted behind the ghost)', () => {
+    const { getByTestId } = render(<Page />);
+    down(getByTestId('row'));
+    selectText(getByTestId('title'));
+    expect(document.getSelection()!.rangeCount).toBe(1);
+
+    move(60, 60);
+    expect(document.getSelection()!.rangeCount).toBe(0);
+  });
+
+  it.each([
+    ['a release', () => act(() => void fireEvent.pointerUp(document, { pointerId: 1 }))],
+    ['pointer cancel', () => act(() => void fireEvent.pointerCancel(document, { pointerId: 1 }))],
+    ['window blur', () => act(() => void fireEvent.blur(window))],
+  ])('is restored after %s: selection works again and the body is as it was', (_name, end) => {
+    const { getByTestId } = render(<Page />);
+    document.body.style.userSelect = 'text';
+    down(getByTestId('row'));
+    move(60, 60);
+    end();
+
+    expect(selectStart(getByTestId('title'))).toBe(false);
+    expect(selectStart(getByTestId('label'))).toBe(false);
+    expect(document.body.style.userSelect).toBe('text');
+    expect(document.body.style.getPropertyValue('-webkit-user-select')).toBe('');
+  });
+
+  it('after Escape the body is restored at once, and the selection block lifts when the button is released', () => {
+    const { getByTestId } = render(<Page />);
+    down(getByTestId('row'));
+    move(60, 60);
+    act(() => void fireEvent.keyDown(document, { key: 'Escape' }));
+    expect(document.body.style.userSelect).toBe('');
+    expect(selectStart(getByTestId('title'))).toBe(true); // the button is still down: still no incidental selection
+
+    up();
+    expect(selectStart(getByTestId('title'))).toBe(false);
+  });
+
+  it('a press released without ever dragging leaves no block behind', () => {
+    const { getByTestId } = render(<Page />);
+    down(getByTestId('row'));
+    up();
+    expect(selectStart(getByTestId('label'))).toBe(false);
+    expect(selectStart(getByTestId('title'))).toBe(false);
+  });
+
+  it('unmounting mid-drag removes the block and restores the body', () => {
+    const { getByTestId, unmount } = render(<Page />);
+    const title = getByTestId('title');
+    down(getByTestId('row'));
+    move(60, 60);
+    expect(selectStart(title)).toBe(true);
+
+    unmount();
+    expect(selectStart(document.body)).toBe(false);
+    expect(document.body.style.userSelect).toBe('');
+  });
+});

@@ -7,6 +7,8 @@ export interface DropActions {
   /** An asset (a file row): the Move picker's own handler for it — only ever called for the Assets destination. */
   onMoveResource?(resourceId: string, destinationFolderId: string | null): void | Promise<void>;
   canMoveFolderInto?(folderId: string, destinationFolderId: string | null): boolean;
+  /** The note-move rules (PageOperations.canMove), re-asked at release. Absent: PageOperations.move's own validation decides. */
+  canMoveNoteInto?(pageId: string, destinationFolderId: string | null): boolean;
   /** Writes the item's place among `parentId`'s children (the sidebar's manual order) — presentation state, never a move. */
   placeSibling?(
     item: DragItem,
@@ -55,6 +57,10 @@ export async function executeDrop(
     }
 
     if (target.kind === 'inside') {
+      // Dropping an item where it already is would change nothing.
+      if (item.parentId === target.folderId) {
+        return 'ignored';
+      }
       await moveInto(item, target.folderId, actions);
       return 'moved';
     }
@@ -89,6 +95,9 @@ async function moveInto(item: DragItem, destinationFolderId: string | null, acti
     }
     await actions.onMoveResource(item.id, destinationFolderId);
   } else {
+    if (actions.canMoveNoteInto && !actions.canMoveNoteInto(item.id, destinationFolderId)) {
+      throw new Error(`The move rules do not allow ${item.id} into ${destinationFolderId ?? 'the vault root'}`);
+    }
     await actions.onMoveNote(item.id, destinationFolderId);
   }
 }

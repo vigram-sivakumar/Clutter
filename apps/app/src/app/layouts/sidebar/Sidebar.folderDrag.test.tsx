@@ -507,19 +507,19 @@ describe('switching between Manual and the other sorts', () => {
     expect(sortEntry('Projects')?.sidebarOrder).toEqual([n('Zed'), n('Alpha')]);
   });
 
-  it('a level that is not Manual offers no positions, and a drag there never writes the saved order', async () => {
-    chooseSort('Projects', 'Manual');
-    await drag('Zed', on('Alpha', 'top'));
-    chooseSort('Projects', 'Name');
-    const saved = sortEntry('Projects');
+  it('a Name-sorted level takes a position: it becomes Manual, with the new order shown at once and saved', async () => {
+    expect(noteTitles()).toEqual(['Alpha', 'Zed']);
+    expect(sortEntry('Projects')).toBeUndefined();
 
     await drag('Zed', on('Alpha', 'top'), { release: false });
-    expect(feedback()).toHaveLength(0);
+    expect(feedback()[0]).toHaveAttribute('data-drop-feedback', 'insert'); // the line is offered without choosing Manual
+    expect(sortEntry('Projects')).toBeUndefined(); // …and merely dragging changed nothing
     act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: 60, clientY: on('Alpha', 'top') }));
     await settle();
 
-    expect(sortEntry('Projects')).toEqual(saved);
-    expect(noteTitles()).toEqual(['Alpha', 'Zed']);
+    expect(noteTitles()).toEqual(['Zed', 'Alpha']);
+    expect(sortEntry('Projects')).toEqual({ sidebarSort: { key: 'manual', direction: 'down' }, sidebarOrder: [n('Zed'), n('Alpha')] });
+    expect(tickedSort('Projects')).toEqual(['Manual']);
   });
 });
 
@@ -582,14 +582,19 @@ describe('moves between parents and the saved orders', () => {
     expect(sortEntry('Source')?.sidebarOrder).toEqual([f('Sub'), n('S1')]); // S2 is unlisted again, so it follows them
   });
 
-  it('a position inside a non-manual destination is not offered, so a drop there cannot reorder it', async () => {
-    await drag('S1', on('D1', 'top'), { release: false });
-    expect(feedback()).toHaveLength(0);
-    act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: 60, clientY: on('D1', 'top') }));
-    await settle();
+  it('a position inside a non-manual destination switches THAT level to Manual; the source keeps its own sort', async () => {
+    await drag('S1', on('D1', 'top'));
 
-    expect(application.vault.getPage(ids.S1!)!.parentId).toBe(ids.Source);
-    expect(sortEntry('Dest')?.sidebarOrder).toEqual([n('D1')]);
+    expect(application.vault.getPage(ids.S1!)!.parentId).toBe(ids.Dest);
+    expect(sortEntry('Dest')).toEqual({ sidebarSort: { key: 'manual', direction: 'down' }, sidebarOrder: [n('S1'), n('D1')] });
+    expect(sortEntry('Source')?.sidebarSort).toEqual({ key: 'manual', direction: 'down' }); // unchanged
+    expect(sortEntry('Source')?.sidebarOrder).toEqual([n('S2'), f('Sub')]); // S1 left it
+  });
+
+  it('dropping INTO that destination without a position leaves its sort mode alone', async () => {
+    await drag('S1', on('Dest', 'middle'));
+    expect(application.vault.getPage(ids.S1!)!.parentId).toBe(ids.Dest);
+    expect(sortEntry('Dest')?.sidebarSort).toEqual({ key: 'name', direction: 'down' });
   });
 });
 
@@ -729,17 +734,22 @@ describe('the sort options on a level of real notes and folders', () => {
     expect(sortEntry('Projects')?.sidebarSort).toEqual({ key: 'created', direction: 'up' });
   });
 
-  it('positions are offered only in Manual', async () => {
-    for (const label of ['Name', 'Created time', 'Last edited']) {
-      chooseSort('Projects', label);
-      const first = kids('Projects')[0]!;
-      const second = kids('Projects')[1]!;
-      await drag(second, on(first, 'top'), { release: false });
-      expect(feedback(), label).toHaveLength(0);
-      act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: 60, clientY: on(first, 'top') }));
-      await settle();
-    }
+  it.each(['Name', 'Created time', 'Last edited'])('in %s, a position is offered and its drop switches the level to Manual', async (label) => {
+    chooseSort('Projects', label);
+    const [first, second] = kids('Projects') as [string, string];
+    expect(tickedSort('Projects')).not.toEqual(['Manual']);
 
+    await drag(second, on(first, 'top'), { release: false });
+    expect(feedback()[0]).toHaveAttribute('data-drop-feedback', 'insert');
+    act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: 60, clientY: on(first, 'top') }));
+    await settle();
+
+    expect(kids('Projects')[0]).toBe(second); // shown at once
+    expect(sortEntry('Projects')?.sidebarSort).toEqual({ key: 'manual', direction: 'down' });
+    expect(tickedSort('Projects')).toEqual(['Manual']);
+  });
+
+  it('already Manual, a reorder keeps working and keeps Manual', async () => {
     chooseSort('Projects', 'Manual');
     await drag(kids('Projects')[1]!, on(kids('Projects')[0]!, 'top'), { release: false });
     expect(feedback()[0]).toHaveAttribute('data-drop-feedback', 'insert');
@@ -786,15 +796,21 @@ describe('sort modes are independent per level, root included', () => {
     expect(rootRows()).toEqual(['Gamma', 'Alpha', 'Beta']);
   });
 
-  it('root positions are offered only when the root is Manual', async () => {
-    await drag('Gamma', on('Alpha', 'top'), { release: false });
-    expect(feedback()).toHaveLength(0);
-    act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: 60, clientY: on('Alpha', 'top') }));
-    await settle();
+  it('root folders can be reordered from any sort mode: the drop switches the root to Manual and saves the order', async () => {
+    expect(rootRows()).toEqual(['Alpha', 'Beta', 'Gamma']); // the default: Name
+    await drag('Gamma', on('Alpha', 'top'));
 
-    chooseRootSort('Manual');
-    await drag('Gamma', on('Alpha', 'top'), { release: false });
-    expect(feedback()[0]).toHaveAttribute('data-drop-feedback', 'insert');
+    expect(rootRows()).toEqual(['Gamma', 'Alpha', 'Beta']);
+    expect(application.collectionViewConfigStore.get('sidebar:root')).toEqual({
+      sidebarSort: { key: 'manual', direction: 'down' },
+      sidebarOrder: [f('Gamma'), f('Alpha'), f('Beta')],
+    });
+
+    chooseRootSort('Name'); // back to a sort: the saved arrangement is kept…
+    expect(rootRows()).toEqual(['Alpha', 'Beta', 'Gamma']);
+    await drag('Beta', on('Alpha', 'top')); // …and a position works from here too
+    expect(application.collectionViewConfigStore.get('sidebar:root')?.sidebarSort).toEqual({ key: 'manual', direction: 'down' });
+    expect(rootRows()[0]).toBe('Beta');
   });
 });
 
@@ -842,14 +858,25 @@ describe('the selected sort mode: default, persistence, and drag never changes i
     expect(tickedSort('Projects')).toEqual(['Manual']);
   });
 
-  it('a drag in a level that is not Manual changes neither its mode nor its tick', async () => {
+  it('only a successful positional drop changes the mode: starting, hovering and cancelling a drag do not', async () => {
     await drag('Zed', on('Alpha', 'top'), { release: false });
-    expect(feedback()).toHaveLength(0);
+    expect(sortEntry('Projects')).toBeUndefined();
+    act(() => void fireEvent.keyDown(document, { key: 'Escape' }));
     act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: 60, clientY: on('Alpha', 'top') }));
     await settle();
 
     expect(sortEntry('Projects')).toBeUndefined();
     expect(tickedSort('Projects')).toEqual(['Name']);
+    expect(noteTitles()).toEqual(['Alpha', 'Zed']);
+  });
+
+  it('a Name level reordered by drag reopens as Manual, in the new order', async () => {
+    await drag('Zed', on('Alpha', 'top'));
+    await settle();
+    await restart();
+
+    expect(noteTitles()).toEqual(['Zed', 'Alpha']);
+    expect(tickedSort('Projects')).toEqual(['Manual']);
   });
 
   it('the mode and the manual order both survive a restart', async () => {

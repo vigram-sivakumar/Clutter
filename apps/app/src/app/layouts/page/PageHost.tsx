@@ -170,6 +170,7 @@ import {
   toCollectionViewConfig,
 } from '@core/presentation/collection/resolveCollectionView';
 import { ArchiveCollectionBody } from '@app/layouts/page/body/ArchiveCollectionBody';
+import { buildMoveDropActions } from '@features/notes/helpers/buildMoveDropActions';
 import { RestoreNeedsDestinationError } from '@core/vault/persistence/PagePersistenceCoordinator';
 import type { RestoreDestinationRequest } from '@app/layouts/page/restoreDestination';
 import { AssetsCollectionBody } from '@app/layouts/page/body/AssetsCollectionBody';
@@ -1786,6 +1787,16 @@ export function PageHost({
       collectionDefinition.actions.createFolder && !isFolderArchived
         ? folderCreationTrigger(() => folder.id, folder.id)
         : undefined;
+    // Where this collection's notes and folders can be dragged into a folder (a card here, a folder in the
+    // sidebar, Templates): the collections that are an ordinary place to move things from. Daily Notes, the
+    // Archive and an archived folder are opaque to Move; their entries stay plain.
+    const moveDrag =
+      !isFolderArchived &&
+      (collectionDefinition.kind === 'folder' ||
+        collectionDefinition.kind === 'inbox' ||
+        collectionDefinition.kind === 'templates')
+        ? { parentId: folder.id, actions: buildMoveDropActions(application) }
+        : undefined;
 
     return (
       <>
@@ -1977,6 +1988,7 @@ export function PageHost({
                 // A frozen folder's notes show their covers but offer no way to change one.
                 noteCover={isFolderArchived ? undefined : noteCoverActions}
                 previewResolvers={notePreviewResolvers}
+                moveDrag={moveDrag}
               />
             )
           }
@@ -2391,6 +2403,12 @@ export function PageHost({
             emptyMessage={collectionDefinition.emptyMessage}
             noteCover={noteCoverActions}
             previewResolvers={notePreviewResolvers}
+            // The vault root's own collection: its folders and notes move like any other folder's.
+            moveDrag={
+              collectionDefinition.kind === 'workspace'
+                ? { parentId: null, actions: buildMoveDropActions(application) }
+                : undefined
+            }
           />
         }
       />

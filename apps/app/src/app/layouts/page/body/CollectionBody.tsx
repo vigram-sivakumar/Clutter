@@ -25,6 +25,7 @@ import './CollectionBody.css';
 
 import { CreateCard, createNewItem } from './collectionCreate';
 import { renderFolderGrid } from './collectionFolders';
+import { useCollectionMoveDrag, type CollectionMoveDrag } from './useCollectionMoveDrag';
 import { PageBody } from './Page.Body';
 
 /**
@@ -122,9 +123,16 @@ export interface CollectionBodyProps {
    * when it is clicked. Absent, it isn't offered. Never consulted in Card mode.
    */
   noteCover?: NoteCoverActions;
+  /**
+   * Lets this collection's folders and notes be dragged into folders — a card here, a folder in the sidebar,
+   * or Templates. Its presence is the capability gate; see `CollectionMoveDrag`.
+   */
+  moveDrag?: CollectionMoveDrag;
 }
 
 interface RenderNoteListOptions {
+  /** Extra attributes per note row — the drag handlers and markers (see `useCollectionMoveDrag`). */
+  dragProps?: (entry: CollectionEntryModel) => object | undefined;
   /**
    * Each note's cover thumbnail at the row's trailing end — present only when
    * the host can change covers (see `NoteCoverActions`); shown while the Cover
@@ -154,23 +162,27 @@ interface RenderNoteListOptions {
 function renderNoteList(
   entries: readonly CollectionEntryModel[],
   visible: readonly PropertyId[] = DEFAULT_VIEW.visible,
-  { coverFor, onCreate, resolvers }: RenderNoteListOptions = {}
+  { coverFor, onCreate, resolvers, dragProps }: RenderNoteListOptions = {}
 ) {
   return (
     <CollectionDataList
-      items={entries.map((entry) =>
-        toNoteListItem(entry, {
+      items={entries.map((entry) => {
+        const item = toNoteListItem(entry, {
           visible,
           cover: visible.includes('cover') ? coverFor?.(entry) : undefined,
           resolvers,
-        })
-      )}
+        });
+        const drag = dragProps?.(entry);
+        return drag ? { ...item, props: { ...item.props, ...drag } } : item;
+      })}
       newItem={createNewItem(onCreate)}
     />
   );
 }
 
 interface RenderNoteTableOptions {
+  /** Extra attributes per note row — the drag handlers and markers (see `useCollectionMoveDrag`). */
+  dragProps?: (entry: CollectionEntryModel) => object | undefined;
   /** The Cover image column's per-note cell — present only when the host can change covers (see `NoteCoverActions`). */
   coverFor?: (entry: CollectionEntryModel) => {
     url: string | null;
@@ -192,18 +204,20 @@ interface RenderNoteTableOptions {
 function renderNoteTable(
   entries: readonly CollectionEntryModel[],
   visible: readonly PropertyId[] = DEFAULT_VIEW.visible,
-  { coverFor, onCreate, resolvers }: RenderNoteTableOptions = {}
+  { coverFor, onCreate, resolvers, dragProps }: RenderNoteTableOptions = {}
 ) {
   return (
     <CollectionDataTable
       columns={buildPropertyTableColumns(visible, { cover: coverFor !== undefined })}
-      rows={entries.map((entry) =>
-        toNoteTableRow(entry, {
+      rows={entries.map((entry) => {
+        const row = toNoteTableRow(entry, {
           visible,
           cover: coverFor?.(entry),
           resolvers,
-        })
-      )}
+        });
+        const drag = dragProps?.(entry);
+        return drag ? { ...row, props: { ...row.props, ...drag } } : row;
+      })}
       newItem={createNewItem(onCreate)}
     />
   );
@@ -223,7 +237,9 @@ export function CollectionBody({
   foldersInGivenOrder = false,
   previewResolvers,
   noteCover,
+  moveDrag,
 }: CollectionBodyProps) {
+  const drag = useCollectionMoveDrag(moveDrag);
   const sortedFolders = foldersInGivenOrder ? [...folders] : sortEntries(folders, sort, NOTE_SORT_OPTIONS);
   const sortedNotes = sortEntries(notes, sort, NOTE_SORT_OPTIONS);
 
@@ -261,6 +277,7 @@ export function CollectionBody({
       onCreate: createInNotes,
       coverFor,
       resolvers: previewResolvers,
+      dragProps: drag.entryProps,
     }) : viewMode === 'card' ? (
       <CollectionGrid columns={NOTE_GRID}>
         {sortedNotes.map((entry) => (
@@ -270,6 +287,7 @@ export function CollectionBody({
               visible,
               resolvers: previewResolvers,
             })}
+            {...drag.entryProps(entry)}
           />
         ))}
         {createInNotes && <CreateCard onCreate={createInNotes} aspectRatio={NOTE_CARD_ASPECT_RATIO} />}
@@ -278,6 +296,7 @@ export function CollectionBody({
       onCreate: createInNotes,
       coverFor,
       resolvers: previewResolvers,
+      dragProps: drag.entryProps,
     });
 
   // A collection with nothing in it at all — no folders and no notes (in the sections it draws) —
@@ -293,7 +312,7 @@ export function CollectionBody({
       ) : (
         <>
           {/* The folders' Create card is likewise only for adding to folders that are there. */}
-          {sortedFolders.length > 0 && renderFolderGrid(sortedFolders, onCreateFolder)}
+          {sortedFolders.length > 0 && renderFolderGrid(sortedFolders, onCreateFolder, drag.entryProps)}
           {showNotes && noteSection}
         </>
       )}
@@ -311,6 +330,7 @@ export function CollectionBody({
           class's own comment in CollectionBody.css for why it's a real
           flex child rather than padding on .collection__content. */}
       <div className="collection__bottom-spacer" aria-hidden="true" />
+      {drag.overlay}
     </PageBody>
   );
 }

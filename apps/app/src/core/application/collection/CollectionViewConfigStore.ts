@@ -66,6 +66,8 @@ const LEGACY_KEY_FALLBACKS: Readonly<Record<string, readonly string[]>> = {
  * requires reading the other keys fresh immediately before every write.
  */
 export class CollectionViewConfigStore {
+  private readonly listeners = new Set<() => void>();
+
   private constructor(
     private readonly fileSystem: VaultFileSystem,
     private readonly rootPath: string,
@@ -149,6 +151,20 @@ export class CollectionViewConfigStore {
    * — the caller (`PageHost.tsx`) resolves any missing field to the
    * ordinary `CollectionBody.tsx` default, never this store's concern.
    */
+  /**
+   * Calls `listener` after every change to any entry — an update, a renamed key, a deleted one. The sidebar
+   * redraws from it, so a sort or order written from anywhere (a drop that started in the Collection View, say)
+   * shows at once. Returns the unsubscribe.
+   */
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  private notify(): void {
+    this.listeners.forEach((listener) => listener());
+  }
+
   get(collectionKey: string): PersistedCollectionViewConfig | undefined {
     return this.read(collectionKey);
   }
@@ -198,6 +214,7 @@ export class CollectionViewConfigStore {
     } else {
       this.entries.set(collectionKey, merged);
     }
+    this.notify();
     void this.persist();
   }
 
@@ -229,6 +246,7 @@ export class CollectionViewConfigStore {
     if (!this.entries.has(newKey)) {
       this.entries.set(newKey, entry);
     }
+    this.notify();
     void this.persist();
   }
 
@@ -240,6 +258,7 @@ export class CollectionViewConfigStore {
    */
   deleteKey(key: string): void {
     if (this.entries.delete(key)) {
+      this.notify();
       void this.persist();
     }
   }

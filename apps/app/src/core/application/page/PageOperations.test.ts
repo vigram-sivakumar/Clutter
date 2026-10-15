@@ -2649,6 +2649,44 @@ describe('PageOperations.move()', () => {
   });
 });
 
+describe('PageOperations.canMove() — the read-only twin of move()', () => {
+  it('accepts what move() accepts, and enqueues nothing', () => {
+    const page = buildPage();
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { vault, pageOperations } = setup(page, undefined, [makeArchiveFolder(), folder]);
+
+    expect(pageOperations.canMove(page.id, 'folder-1')).toBe(true);
+    expect(vault.getPage(page.id)!.parentId).toBeNull(); // nothing moved
+  });
+
+  it('rejects an unknown page or destination', () => {
+    const page = buildPage();
+    const { pageOperations } = setup(page);
+
+    expect(pageOperations.canMove('missing', null)).toBe(false);
+    expect(pageOperations.canMove(page.id, 'does-not-exist')).toBe(false);
+  });
+
+  it('rejects a destination inside Daily Notes and an archived destination', () => {
+    const page = buildPage();
+    const daily = makeFolder('daily', `${ROOT}/Daily Notes`);
+    // Archived is a place, not a flag: a folder inside Archive/.
+    const archived = { ...makeFolder('old', `${ROOT}/Archive/Old`), parentId: ARCHIVE_FOLDER_ID };
+    const { pageOperations } = setup(page, undefined, [makeArchiveFolder(), daily, archived]);
+
+    expect(pageOperations.canMove(page.id, 'daily')).toBe(false);
+    expect(pageOperations.canMove(page.id, 'old')).toBe(false);
+  });
+
+  it('agrees with move() about Templates: an ordinary destination', () => {
+    const page = buildPage();
+    const templates = { ...makeFolder('templates', `${ROOT}/Templates`), name: 'Templates' };
+    const { pageOperations } = setup(page, undefined, [makeArchiveFolder(), templates]);
+
+    expect(pageOperations.canMove(page.id, 'templates')).toBe(true);
+  });
+});
+
 describe('PageOperations.move() — kind: template marker', () => {
   const templatesFolder = (): Folder => ({
     ...makeFolder('templates', `${ROOT}/Templates`),

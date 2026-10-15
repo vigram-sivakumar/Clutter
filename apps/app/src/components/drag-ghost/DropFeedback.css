@@ -10,7 +10,7 @@
 .drop-feedback--inside {
   border: 1.5px solid var(--border-focus);
   border-radius: var(--radius-lg);
-  background: var(--state-hover-strong);
+  background: var(--state-selected-accent);
 }
 
 /* "Between rows": a line centred on the boundary. */
@@ -19,4 +19,10 @@
   transform: translateY(-1px);
   border-radius: 1px;
   background: var(--border-focus);
+}
+
+/* The original of an in-progress drag from a Collection View: invisible but still laid out, like the sidebar's
+   `.entry--drag-source`; its ghost carries the visible copy. */
+[data-drag-source='true'] {
+  opacity: 0;
 }

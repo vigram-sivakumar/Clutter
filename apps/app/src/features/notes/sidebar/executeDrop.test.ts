@@ -140,3 +140,40 @@ describe('executeDrop — insertion positions (manual order)', () => {
     expect(spies.onMoveNote).not.toHaveBeenCalled();
   });
 });
+
+describe('executeDrop — moves from any surface (Collection View or sidebar)', () => {
+  const into = (folderId: string): DropTarget => ({ kind: 'inside', folderId, rect: { top: 0, left: 0, width: 1, height: 1 } });
+
+  it('a drop onto the folder the item is already in is a no-op: nothing is called', async () => {
+    const { spies, actions: a } = actions();
+    expect(await executeDrop(NOTE, into('src'), a)).toBe('ignored');
+    expect(await executeDrop(FOLDER, into('src'), a)).toBe('ignored');
+    expect(spies.onMoveNote).not.toHaveBeenCalled();
+    expect(spies.onMoveFolder).not.toHaveBeenCalled();
+  });
+
+  it('a note is re-checked against the note-move rules at release, and a "no" moves nothing', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const canMoveNoteInto = vi.fn(() => false);
+    const { spies, actions: a } = actions({ canMoveNoteInto });
+    expect(await executeDrop(NOTE, into('dest'), a)).toBe('rejected');
+    expect(canMoveNoteInto).toHaveBeenCalledExactlyOnceWith('n1', 'dest');
+    expect(spies.onMoveNote).not.toHaveBeenCalled();
+  });
+
+  it('a note the rules accept is moved by the existing handler', async () => {
+    const { spies, actions: a } = actions({ canMoveNoteInto: () => true });
+    expect(await executeDrop(NOTE, into('dest'), a)).toBe('moved');
+    expect(spies.onMoveNote).toHaveBeenCalledExactlyOnceWith('n1', 'dest');
+  });
+
+  it('a zone destination that does not accept the item is refused from any surface (Inbox takes no folder)', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { spies, actions: a } = actions();
+    const inbox: DropTarget = { kind: 'inside', folderId: 'inbox', zone: 'inbox', rect: { top: 0, left: 0, width: 1, height: 1 } };
+    expect(await executeDrop(FOLDER, inbox, a)).toBe('rejected');
+    expect(await executeDrop(NOTE, inbox, a)).toBe('moved');
+    expect(spies.onMoveFolder).not.toHaveBeenCalled();
+    expect(spies.onMoveNote).toHaveBeenCalledExactlyOnceWith('n1', 'inbox');
+  });
+});

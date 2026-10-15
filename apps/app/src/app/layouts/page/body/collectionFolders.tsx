@@ -13,12 +13,14 @@ import { FOLDER_GRID, toFolderEntryProps } from '@features/collection/components
  */
 export function renderFolderGrid(
   entries: readonly CollectionEntryModel[],
-  onCreateFolder?: () => void
+  onCreateFolder?: () => void,
+  /** Extra props per card (the Collection View's drag handlers and markers); absent, none. */
+  dragProps?: (entry: CollectionEntryModel) => object | undefined
 ) {
   return (
     <CollectionGrid {...FOLDER_GRID}>
       {entries.map((entry) => (
-        <CollectionEntry key={entry.id} {...toFolderEntryProps(entry)} />
+        <CollectionEntry key={entry.id} {...toFolderEntryProps(entry)} {...dragProps?.(entry)} />
       ))}
       {onCreateFolder && (
         <CollectionEntry

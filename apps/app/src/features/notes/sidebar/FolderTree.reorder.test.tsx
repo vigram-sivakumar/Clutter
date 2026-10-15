@@ -194,6 +194,7 @@ function actionsFor(e: ReturnType<typeof setup>): SidebarRowActions {
       createFolderInZone: () => undefined,
       onMoveNote: (pageId: string, destinationId: string | null) => e.pageOperations.move(pageId, destinationId),
       onMoveFolder: (folderId: string, destinationId: string | null) => e.folderOperations.move(folderId, destinationId),
+      canMoveNoteInto: (pageId: string, destinationId: string | null) => e.pageOperations.canMove(pageId, destinationId),
       canMoveFolderInto: (folderId: string, destinationId: string | null) => e.folderOperations.canMove(folderId, destinationId),
     },
     { get: (target, k) => (k in target ? (target as Record<PropertyKey, unknown>)[k] : vi.fn()) }
@@ -300,22 +301,83 @@ describe('Alpha, expanded, from y=100: Alpha, Note A, Note B, Note C, Sub, Sub2,
     expect(feedbackNow()).toHaveLength(0);
   });
 
-  it('a level sorted another way offers no positions and never touches its saved manual order', async () => {
+  it('a level sorted another way still takes a position: the drop switches it to Manual, seeded from what it drew', async () => {
     store.update('folder:a', { sidebarSort: { key: 'name', direction: 'up' }, sidebarOrder: ['n:nb', 'n:na', 'n:nc'] });
     renderOrdered(env, store);
-    // Drawn Z→A across notes AND folders — not by the saved order.
+    // Drawn Z→A across notes AND folders — not by the old saved order.
     expect(rowTitles().slice(1, 6)).toEqual(['Sub2', 'Sub', 'Note C', 'Note B', 'Note A']);
 
     press(rowFor('Note A'), 40, 254);
-    move(60, 186); // Note C's top edge: a position — but this level is not Manual
-    expect(feedbackNow()).toHaveLength(0);
+    move(60, 186); // Note C's top edge: a position, in a level that is not Manual
+    expect(feedbackNow()[0]).toHaveAttribute('data-drop-feedback', 'insert');
     release(60, 186);
     await settle();
 
+    // One write: the mode and the order together. The new order is what was drawn, with Note A placed.
     expect(store.get('folder:a')).toEqual({
-      sidebarSort: { key: 'name', direction: 'up' },
-      sidebarOrder: ['n:nb', 'n:na', 'n:nc'],
+      sidebarSort: { key: 'manual', direction: 'down' },
+      sidebarOrder: ['f:s2', 'f:s', 'n:na', 'n:nc', 'n:nb'],
     });
+    // …and the tree shows it at once, never the Z→A order in between.
+    expect(rowTitles().slice(1, 6)).toEqual(['Sub2', 'Sub', 'Note A', 'Note C', 'Note B']);
+  });
+
+  it.each([
+    ['Created time', { key: 'created', direction: 'up' }],
+    ['Last edited', { key: 'updated', direction: 'down' }],
+  ] as const)('%s levels take a position too, and become Manual', async (_label, sort) => {
+    store.update('folder:a', { sidebarSort: sort });
+    renderOrdered(env, store);
+    const before = rowTitles().slice(1, 4); // undated notes: name order
+
+    await dragTo('Note C', 130); // before Note A
+    expect(store.get('folder:a')?.sidebarSort).toEqual({ key: 'manual', direction: 'down' });
+    expect(rowTitles().slice(1, 4)).toEqual([before[2], before[0], before[1]]);
+  });
+
+  it('a cross-parent position switches only the DESTINATION to Manual — the source keeps its own sort', async () => {
+    store.update('folder:a', { sidebarSort: { key: 'updated', direction: 'down' } }); // source: not Manual
+    store.update('folder:b', { sidebarSort: { key: 'name', direction: 'down' } }); // destination: not Manual
+    renderOrdered(env, store);
+
+    // Note A → before Note X (Beta's only note). Rows: Alpha, then its five children, Beta, Note X.
+    await dragTo('Note A', 100 + 7 * 28 + 2);
+
+    expect(env.vault.getPage('na')!.parentId).toBe('b');
+    expect(store.get('folder:b')).toEqual({ sidebarSort: { key: 'manual', direction: 'down' }, sidebarOrder: ['n:na', 'n:nx'] });
+    expect(store.get('folder:a')?.sidebarSort).toEqual({ key: 'updated', direction: 'down' }); // unchanged
+    expect(store.get(collectionViewKeyForSidebarRoot())?.sidebarSort?.key).toBe('manual'); // (the fixture's own root preset)
+  });
+
+  it('dropping INTO a folder (no position) does not switch the destination to Manual', async () => {
+    store.update('folder:b', { sidebarSort: { key: 'name', direction: 'down' } });
+    renderOrdered(env, store);
+
+    // Note A → the middle of Beta's row (a destination, not a position).
+    await dragTo('Note A', rowFor('Beta').getBoundingClientRect().top + 14);
+
+    expect(env.vault.getPage('na')!.parentId).toBe('b');
+    expect(store.get('folder:b')).toEqual({ sidebarSort: { key: 'name', direction: 'down' } });
+  });
+
+  it('a cancelled drag, and a drop on no valid position, change no sort mode and no order', async () => {
+    store.update('folder:a', { sidebarSort: { key: 'name', direction: 'up' }, sidebarOrder: ['n:nb'] });
+    renderOrdered(env, store);
+    const before = JSON.stringify([store.get('folder:a'), store.get('folder:b'), store.get('sidebar:root')]);
+
+    press(rowFor('Note A'), 40, 254);
+    move(60, 186);
+    expect(feedbackNow()).toHaveLength(1);
+    act(() => void fireEvent.keyDown(document, { key: 'Escape' })); // cancelled
+    release(60, 186);
+    await settle();
+    expect(JSON.stringify([store.get('folder:a'), store.get('folder:b'), store.get('sidebar:root')])).toBe(before);
+
+    press(rowFor('Note A'), 40, 254);
+    move(500, 186); // off the list: no target
+    release(500, 186);
+    await settle();
+    expect(JSON.stringify([store.get('folder:a'), store.get('folder:b'), store.get('sidebar:root')])).toBe(before);
   });
 
   it('keeps each parent independent', async () => {
@@ -1036,7 +1098,7 @@ describe('auto-scroll while dragging', () => {
 
     expect(scrollTop).toBeGreaterThan(0);
     expect(document.querySelector<HTMLElement>('.drag-ghost')!.style.transform).toBe(before);
-    expect(before).toBe('translate3d(0, 376px, 0)'); // 390 − 14
+    expect(before).toBe('translate3d(0, 376px, 0)'); // pinned to the sidebar column while over it: 390 − the 14px grip, 390 − 14
   });
 
   it('re-reads the scroller\'s size every frame: a resize during the drag stops a scroll that no longer applies', async () => {

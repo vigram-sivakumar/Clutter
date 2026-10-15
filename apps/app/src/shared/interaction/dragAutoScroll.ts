@@ -66,23 +66,42 @@ export interface DragAutoScroller {
  * is under it changed).
  */
 export function createDragAutoScroller(
-  container: HTMLElement,
+  containers: HTMLElement | readonly HTMLElement[],
   getPointer: () => { readonly x: number; readonly y: number },
   onScrolled: () => void
 ): DragAutoScroller {
   let frame = 0;
   let last: number | null = null;
+  const candidates = 'length' in containers ? containers : [containers];
+
+  // The area to scroll is the one the pointer is over — not the one the drag began in, which may be a
+  // different container (a Collection View drag held over the sidebar). Several areas can share the pointer's
+  // column only if nested, so the element under the pointer decides; otherwise the first one the pointer is
+  // inside the horizontal extent of and near the edge of.
+  const pick = () => {
+    const pointer = getPointer();
+    const under = document.elementFromPoint?.(pointer.x, pointer.y) ?? null;
+    const ordered = under ? [...candidates.filter((c) => c.contains(under)), ...candidates.filter((c) => !c.contains(under))] : candidates;
+    for (const container of ordered) {
+      const speed = autoScrollSpeed(pointer, container.getBoundingClientRect());
+      if (speed !== 0) {
+        return { container, speed };
+      }
+    }
+    return null;
+  };
 
   const step = (time: number) => {
     frame = 0;
     const elapsed = last === null ? 1000 / 60 : Math.min(time - last, 50);
     last = time;
 
-    const speed = autoScrollSpeed(getPointer(), container.getBoundingClientRect());
-    if (speed === 0) {
+    const picked = pick();
+    if (!picked) {
       last = null;
       return;
     }
+    const { container, speed } = picked;
 
     const before = container.scrollTop;
     container.scrollTop = before + speed * (elapsed / (1000 / 60));
@@ -100,7 +119,7 @@ export function createDragAutoScroller(
 
   return {
     poke() {
-      if (frame === 0 && autoScrollSpeed(getPointer(), container.getBoundingClientRect()) !== 0) {
+      if (frame === 0 && pick() !== null) {
         frame = requestAnimationFrame(step);
       }
     },

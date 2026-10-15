@@ -299,7 +299,7 @@ describe('FolderTree drag: initiation', () => {
 });
 
 describe('FolderTree drag: ghost', () => {
-  it("matches the row's width, height and left edge, and leaves the original row in place", () => {
+  it("is the row's own width and height, and leaves the original row in place", () => {
     renderTree(env);
     const rowsBefore = document.querySelectorAll('.entry').length;
     const row = rowFor('Alpha');
@@ -309,7 +309,6 @@ describe('FolderTree drag: ghost', () => {
     const g = ghost()!;
     expect(g.style.width).toBe(`${ROW_RECT.width}px`);
     expect(g.style.height).toBe(`${ROW_RECT.height}px`);
-    expect(g.style.left).toBe(`${ROW_RECT.left}px`);
     expect(g).toHaveTextContent('Alpha');
 
     // Original row: same node, same place, subdued; no rows added to the tree (the ghost is portaled out).
@@ -332,29 +331,38 @@ describe('FolderTree drag: ghost', () => {
     expect(g.parentElement).toBe(document.body);
   });
 
-  it('keeps its grip on the row and follows the pointer vertically', () => {
+  it('is centred under the cursor on both axes, wherever the row is and however the pointer moves', () => {
     renderTree(env);
-    // Pressed 14px below the row's top (114 - 100).
+    // The ghost is the row's own 236px wide and 28px tall: its centre is (118, 14).
     press(rowFor('Alpha'), 40, 114);
     move(40, 140);
-    expect(ghost()!.style.transform).toBe('translate3d(0, 126px, 0)');
+    expect(ghost()!.style.transform).toBe('translate3d(-78px, 126px, 0)'); // 40 − 118, 140 − 14
 
     move(90, 200);
-    expect(ghost()!.style.transform).toBe('translate3d(0, 186px, 0)');
-    // Horizontal pointer movement never shifts it off the sidebar's content area.
-    expect(ghost()!.style.left).toBe(`${ROW_RECT.left}px`);
+    expect(ghost()!.style.transform).toBe('translate3d(-28px, 186px, 0)');
+
+    move(700, 650); // far outside the sidebar, over the page: still centred on the cursor
+    expect(ghost()!.style.transform).toBe('translate3d(582px, 636px, 0)');
+    expect(ghost()!.style.width).toBe(`${ROW_RECT.width}px`); 
   });
 
-  it('re-measures the row, so it tracks a resized sidebar', () => {
+  it('is centred regardless of where in the row it was grabbed', () => {
+    renderTree(env);
+    press(rowFor('Alpha'), 20, 102); // near the row's top-left corner
+    move(300, 400);
+    expect(ghost()!.style.transform).toBe('translate3d(182px, 386px, 0)'); // 300 − 118, 400 − 14
+  });
+
+  it('is as wide as the row, whatever width the sidebar has been resized to', () => {
     renderTree(env);
     press(rowFor('Alpha'));
     move(40, 140);
-    expect(ghost()!.style.width).toBe('236px');
+    expect(ghost()!.style.width).toBe(`${ROW_RECT.width}px`);
 
     ROW_RECT.width = 300;
     try {
       move(40, 150);
-      expect(ghost()!.style.width).toBe('300px');
+      expect(ghost()!.style.width).toBe(`${ROW_RECT.width}px`);
     } finally {
       ROW_RECT.width = 236;
     }
@@ -739,6 +747,7 @@ function dropActions(e: ReturnType<typeof setup>): SidebarRowActions {
       noteMoveDestinations: [],
       resourceMoveDestinations: [],
       createFolderInZone: () => undefined,
+      canMoveNoteInto: (pageId: string, destinationId: string | null) => e.pageOperations.canMove(pageId, destinationId),
       canMoveFolderInto: (folderId: string, destinationId: string | null) =>
         rules.allowFolderMoves && e.folderOperations.canMove(folderId, destinationId),
     },

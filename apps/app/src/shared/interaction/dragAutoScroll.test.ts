@@ -99,6 +99,34 @@ describe('createDragAutoScroller', () => {
     scroller.stop();
   });
 
+  it('scrolls the area under the pointer when several are offered — not the one the drag began in', () => {
+    const makeArea = (left: number, width: number) => {
+      const area = document.createElement('div');
+      let top = 0;
+      Object.defineProperty(area, 'scrollTop', { get: () => top, set: (v: number) => (top = Math.min(400, Math.max(0, v))) });
+      area.getBoundingClientRect = () => ({ ...RECT, left, right: left + width, x: left, y: RECT.top, width, height: 400, toJSON: () => ({}) });
+      return area;
+    };
+    const page = makeArea(300, 500);
+    const sidebar = makeArea(0, 260);
+    const scroller = createDragAutoScroller([page, sidebar], () => ({ x: 100, y: 495 }), vi.fn());
+    scroller.poke();
+    frames(5);
+    expect(sidebar.scrollTop).toBeGreaterThan(0);
+    expect(page.scrollTop).toBe(0);
+    scroller.stop();
+
+    // …and the page, when the pointer is over the page.
+    const overPage = createDragAutoScroller([page, sidebar], () => ({ x: 500, y: 105 }), vi.fn());
+    page.scrollTop = 200;
+    overPage.poke();
+    frames(5);
+    expect(page.scrollTop).toBeLessThan(200);
+    expect(sidebar.scrollTop).toBeGreaterThan(0);
+    overPage.stop();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it('scrolls up from the top zone', () => {
     scrollTop = 300;
     const scroller = createDragAutoScroller(container, () => ({ x: 100, y: 105 }), vi.fn());

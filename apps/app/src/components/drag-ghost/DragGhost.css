@@ -34,3 +34,27 @@
 .drag-ghost .entry__actions {
   display: none;
 }
+
+/* The ghost is a picture of the dragged element, not a second card: whatever borders, outlines or inset shadows
+   the original draws (a folder card's frame, a table row's rules) are not carried over. Colours go transparent
+   rather than the borders being removed, so the clone keeps its exact size and layout. The ghost's own
+   elevation (above) is unaffected: it is on `.drag-ghost` itself, not on the clone. */
+.drag-ghost > *,
+.drag-ghost > * * {
+  border-color: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* One background, not two: the ghost's own fill (above) is the only one. The dragged element's own surface — a
+   folder card's fill, a selected row's tint — would show as a second, differently shaped layer inside it. */
+.drag-ghost > * {
+  background-color: transparent !important;
+}
+
+/* A table row draws its divider as a 1px `::after` (a background, not a border), so the rule above never reaches it:
+   without this the dragged row's picture carries its top rule. Hidden, not recoloured — it is absolutely
+   positioned, so removing it changes nothing about the clone's layout. */
+.drag-ghost .collection-table-row::after {
+  display: none;
+}

@@ -15,6 +15,8 @@ export interface PointerDragSession {
   readonly snapshot: HTMLElement;
   /** Where inside `source` the press landed, vertically, so the ghost keeps the same grip on the row. */
   readonly grabOffsetY: number;
+  /** The option this drag was started with: its ghost may travel past the source's container (see `UsePointerDragOptions`). */
+  readonly allowDragOutsideContainer: boolean;
   /** The pointer's latest viewport position. */
   readonly pointer: { x: number; y: number };
   subscribe(listener: () => void): () => void;
@@ -37,6 +39,14 @@ export interface PressOptions {
 }
 
 export interface UsePointerDragOptions<T> {
+  /**
+   * Lets the drag travel beyond the container the source sits in, with its ghost centred under the cursor
+   * wherever it goes. Pointer tracking was always document-wide and the ghost is drawn in `document.body`
+   * (no ancestor's `overflow` clips it); what held a drag inside its source's column was the ghost's
+   * alignment to that column. Off (the default), the ghost keeps that column alignment and the grip the
+   * user took on the row; on, it follows the pointer freely on both axes, centred on it.
+   */
+  allowDragOutsideContainer?: boolean;
   /** The drag ended by pointer release. Phase 1 has no drop targets, so this is only an end signal. */
   onRelease?(payload: T): void;
   /** The drag ended without a release: Escape, pointer cancel, window blur or unmount. */
@@ -96,6 +106,7 @@ export function usePointerDrag<T>(options: UsePointerDragOptions<T> = {}) {
         source,
         snapshot: source.cloneNode(true) as HTMLElement,
         grabOffsetY,
+        allowDragOutsideContainer: optionsRef.current.allowDragOutsideContainer === true,
         pointer,
         subscribe(listener) {
           listeners.add(listener);
@@ -109,7 +120,16 @@ export function usePointerDrag<T>(options: UsePointerDragOptions<T> = {}) {
         setDrag(null);
       };
 
+      // Native text selection must not start or extend for the drag: not in the pressed row (the press itself
+      // would otherwise anchor a selection there) and, once the drag is on, not anywhere it travels.
+      const blockSelection = (selectEvent: Event) => {
+        if (phase !== 'pending' || source.contains(selectEvent.target as Node)) {
+          selectEvent.preventDefault();
+        }
+      };
+
       const stopTracking = () => {
+        document.removeEventListener('selectstart', blockSelection, true);
         document.removeEventListener('pointermove', onMove);
         document.removeEventListener('pointerup', onUp);
         document.removeEventListener('pointercancel', onPointerCancel);
@@ -132,6 +152,8 @@ export function usePointerDrag<T>(options: UsePointerDragOptions<T> = {}) {
           }
           phase = 'dragging';
           didDrag = true;
+          // A selection the press may already have begun is dropped, so nothing stays highlighted behind the ghost.
+          document.getSelection()?.removeAllRanges();
           restoreBody = lockBodyForDrag();
           setDrag({ payload, session });
         }
@@ -191,6 +213,7 @@ export function usePointerDrag<T>(options: UsePointerDragOptions<T> = {}) {
         }
       }
 
+      document.addEventListener('selectstart', blockSelection, true);
       document.addEventListener('pointermove', onMove);
       document.addEventListener('pointerup', onUp);
       document.addEventListener('pointercancel', onPointerCancel);
@@ -213,14 +236,25 @@ export function usePointerDrag<T>(options: UsePointerDragOptions<T> = {}) {
   return { drag, press };
 }
 
-/** No text selection and a grabbing cursor for the length of a drag. Returns the undo. */
+/** No text selection (both spellings) and a grabbing cursor for the length of a drag. Returns the undo. */
 function lockBodyForDrag(): () => void {
   const { style } = document.body;
-  const previous = { userSelect: style.userSelect, cursor: style.cursor };
+  const previous = {
+    userSelect: style.userSelect,
+    webkitUserSelect: style.getPropertyValue('-webkit-user-select'),
+    cursor: style.cursor,
+  };
   style.userSelect = 'none';
+  // WebKit (the macOS webview) only honours the prefixed property on older versions.
+  style.setProperty('-webkit-user-select', 'none');
   style.cursor = 'grabbing';
   return () => {
     style.userSelect = previous.userSelect;
+    if (previous.webkitUserSelect) {
+      style.setProperty('-webkit-user-select', previous.webkitUserSelect);
+    } else {
+      style.removeProperty('-webkit-user-select');
+    }
     style.cursor = previous.cursor;
   };
 }

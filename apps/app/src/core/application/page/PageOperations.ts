@@ -2479,6 +2479,23 @@ export class PageOperations {
     return result;
   }
 
+  /**
+   * Read-only twin of move(): would moving the page into `destinationFolderId` (`null` = the vault root)
+   * be accepted? The same checks move() and the Gate's 'move' kind make — an archived destination, a Daily
+   * Note or archived page, Daily Notes, move zones — enqueuing nothing. For UI that offers a destination
+   * only where the move would succeed (drag feedback), so it never restates those rules; a drop still
+   * calls move(), which validates again.
+   */
+  public canMove(pageId: string, destinationFolderId: string | null): boolean {
+    try {
+      this.assertFolderAcceptsContent(destinationFolderId);
+    } catch {
+      return false;
+    }
+
+    return this.coordinator.canMovePage(pageId, destinationFolderId);
+  }
+
   public async move(
     pageId: string,
     destinationFolderId: string | null

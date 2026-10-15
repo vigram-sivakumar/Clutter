@@ -433,6 +433,28 @@ export class PagePersistenceCoordinator {
   }
 
   /**
+   * Read-only twin of runMove: would moving `pageId` into `destinationFolderId` (`null` = the vault root)
+   * be accepted? It runs the checks runMove runs — a Daily Note or an archived page never moves — and the
+   * destination resolution (`MoveService.resolveMoveDestination`: Daily Notes, move zones) and changes
+   * nothing. For UI that offers a destination only where the move would succeed (drag feedback), so it
+   * never restates those rules.
+   */
+  public canMovePage(pageId: string, destinationFolderId: string | null): boolean {
+    const current = this.vault.getPage(pageId);
+
+    if (!current || current.type === 'daily-note' || this.vault.isPageEffectivelyArchived(current)) {
+      return false;
+    }
+
+    try {
+      this.moveService.resolveMoveDestination(current, destinationFolderId);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Renames a page in place (completes the rename() capability spec §6
    * always listed but left unimplemented — ADR-012's disposition). Same
    * parent only, mirroring runRenameFolder's shape exactly, one aggregate
@@ -1505,7 +1527,15 @@ export class PagePersistenceCoordinator {
 
     await this.fileSystem.deleteFile(resource.path);
     await this.resourceArchiveStore.remove(resource.path);
-    this.vault.removeResource(resourceId);
+
+    // Deleting the file is also what the watcher reports, and Sync converges "not on disk" by
+    // removing the resource itself (VaultSyncService.reconcilePath) — in a lane this per-id queue
+    // doesn't share. If that echo lands before this line, the Vault is already in the state this
+    // step produces, so there is nothing left to remove. Only that case is tolerated: a failed
+    // delete above has already thrown, and an id the Vault never held was abandoned at the top.
+    if (this.vault.getResource(resourceId)) {
+      this.vault.removeResource(resourceId);
+    }
 
     return { status: 'resource-deleted' };
   }

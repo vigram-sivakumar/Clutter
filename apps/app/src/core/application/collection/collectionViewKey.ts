@@ -29,6 +29,15 @@ export function collectionViewKeyForFolder(folderId: string): CollectionViewKey 
 }
 
 /**
+ * Where a sidebar level's sort and manual order are stored: its parent folder's entry, or — for the vault
+ * root, which has no folder id — the dedicated root entry. One definition for everything that reads or
+ * writes a level's order (the sidebar, a drop from any surface).
+ */
+export function collectionViewKeyForSidebarLevel(parentId: string | null): CollectionViewKey {
+  return parentId === null ? collectionViewKeyForSidebarRoot() : collectionViewKeyForFolder(parentId);
+}
+
+/**
  * The vault root's own entry for how the notes sidebar orders its root folders (ADR-055). Not
  * `view:workspace`, which is the Workspace collection PAGE's configuration: manual sidebar order must
  * never reach a collection page, and the root has no folder id to key by.

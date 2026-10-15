@@ -1,9 +1,9 @@
 import type { Application } from '@core/application/Application';
 import { useWorkspace } from '@app/hooks/useWorkspace';
-import { useState, type ReactNode } from 'react';
-import { collectionViewKeyForFolder, collectionViewKeyForSidebarRoot } from '@core/application/collection/collectionViewKey';
+import { useEffect, useState, type ReactNode } from 'react';
+import { collectionViewKeyForSidebarLevel } from '@core/application/collection/collectionViewKey';
 import { displayedOrderIds } from '@features/notes/sidebar/sidebarSort';
-import { sidebarOrderId } from '@core/properties/sidebarSort';
+import { forgetInLevelOrder, levelOrderContextFor } from '@features/notes/sidebar/sidebarOrderActions';
 import type { TaskGroupId } from '@features/tasks/helpers/groupTasks';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import type { TaskDisplayConfig } from '@features/tasks/helpers/groupTasks';
@@ -49,10 +49,6 @@ interface SidebarProps {
   readonly onRequestReveal: (reveal: PendingEditorReveal) => void;
 }
 
-/** Where a level's sidebar sort and manual order are stored: its parent folder's entry, or the dedicated root entry. */
-const sidebarKey = (parentId: string | null) =>
-  parentId === null ? collectionViewKeyForSidebarRoot() : collectionViewKeyForFolder(parentId);
-
 export function Sidebar({
   application,
   onOpenResource,
@@ -90,6 +86,11 @@ export function Sidebar({
   // mounted, the Tasks panel doesn't) and never written to disk, so a restart collapses them again.
   // Same idea for the Notes tree: folders (by id, or the root key) showing all their notes/files.
   const [, setSortRevision] = useState(0);
+  // A sort or order written from ANYWHERE — here, or by a drop that began in a Collection View — is drawn at once.
+  useEffect(
+    () => application.collectionViewConfigStore.subscribe(() => setSortRevision((revision) => revision + 1)),
+    [application]
+  );
   const [expandedFolders, setExpandedFolders] = useState<readonly string[]>([]);
   const [expandedTaskGroups, setExpandedTaskGroups] = useState<readonly TaskGroupId[]>([]);
 
@@ -130,31 +131,20 @@ export function Sidebar({
           onOpenDraft={(pageId) => workspace.openPage(pageId)}
           onOpenResource={onOpenResource}
           expandedFolders={expandedFolders}
-          getFolderSort={(parentId) => application.collectionViewConfigStore.get(sidebarKey(parentId))?.sidebarSort}
-          getLevelOrder={(parentId) => application.collectionViewConfigStore.get(sidebarKey(parentId))?.sidebarOrder}
-          onLevelOrderChange={(parentId, order) => {
-            // A reorder makes the level Manual and stores its order in one write (ADR-055).
-            application.collectionViewConfigStore.update(sidebarKey(parentId), {
-              sidebarSort: { key: 'manual', direction: 'down' },
-              sidebarOrder: order,
-            });
-            setSortRevision((revision) => revision + 1);
-          }}
-          onItemLeftLevel={(parentId, kind, id) => {
-            // A successful move out of `parentId`: forget the item in that level's saved order, so coming
-            // back later puts it at the end rather than at its old position.
-            const order = application.collectionViewConfigStore.get(sidebarKey(parentId))?.sidebarOrder;
-            const remaining = order?.filter((entry) => entry !== sidebarOrderId(kind, id));
-            if (order && remaining && remaining.length !== order.length) {
-              application.collectionViewConfigStore.update(sidebarKey(parentId), {
-                sidebarOrder: remaining.length > 0 ? remaining : undefined,
-              });
-              setSortRevision((revision) => revision + 1);
-            }
-          }}
+          getFolderSort={(parentId) => application.collectionViewConfigStore.get(collectionViewKeyForSidebarLevel(parentId))?.sidebarSort}
+          getLevelOrder={(parentId) => application.collectionViewConfigStore.get(collectionViewKeyForSidebarLevel(parentId))?.sidebarOrder}
+          onLevelOrderChange={(parentId, order) =>
+            // A reorder makes the level Manual and stores its order in one write (ADR-055) — the same write a
+            // drop from a Collection View makes.
+            levelOrderContextFor(application.collectionViewConfigStore, membershipSelector).setOrder(parentId, order)
+          }
+          onItemLeftLevel={(parentId, kind, id) =>
+            // A successful move out of `parentId`: forget the item in that level's saved order.
+            forgetInLevelOrder(application.collectionViewConfigStore, parentId, kind, id)
+          }
           onFolderSortChange={(folderId, sort) => {
-            const stored = application.collectionViewConfigStore.get(sidebarKey(folderId));
-            application.collectionViewConfigStore.update(sidebarKey(folderId), {
+            const stored = application.collectionViewConfigStore.get(collectionViewKeyForSidebarLevel(folderId));
+            application.collectionViewConfigStore.update(collectionViewKeyForSidebarLevel(folderId), {
               sidebarSort: sort,
               // Choosing Manual restores the arrangement the user saved. Only a level with none yet starts from
               // what is drawn now, so nothing visibly jumps. (Leaving Manual never touches the saved order.)
