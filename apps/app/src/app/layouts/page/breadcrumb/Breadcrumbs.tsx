@@ -31,6 +31,7 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
         title={current.title}
         icon={current.icon}
         emoji={current.emoji}
+        isSpaceRoot={current.isSpaceRoot}
         onClick={current.onClick}
         isCurrentPage
       />
@@ -59,6 +60,7 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
           id={current.id}
           icon={current.icon}
           emoji={current.emoji}
+          isSpaceRoot={current.isSpaceRoot}
           title={current.title}
           onClick={current.onClick}
           isCurrentPage

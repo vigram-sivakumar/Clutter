@@ -15,7 +15,9 @@ import { scheduleAfterFirstPaint } from './scheduleAfterFirstPaint';
 import { createWindowCloseHandler } from './windowCloseHandler';
 import { pickSpaceFolder } from './spaces/pickSpaceFolder';
 import { SpacesContext, type SpacesApi } from './spaces/SpacesContext';
-import { listSpaces } from './spaces/spaceRegistry';
+import { listSpaces, spaceName } from './spaces/spaceRegistry';
+import { ActiveSpaceAvatarContext } from '../components/space-avatar/ActiveSpaceAvatarContext';
+import type { SpaceAvatarProps } from '../components/space-avatar/SpaceAvatar';
 import { useSpaceRegistry } from './spaces/useSpaceRegistry';
 
 /** Closes an Application that never became (or no longer is) the open one; a failed close is only logged. */
@@ -245,6 +247,20 @@ export function AppShell() {
     [spaces.registry, spaces.addSpace, spaces.switchSpace]
   );
 
+  // The open Space's avatar, for every surface that shows the Space root. No avatar is chosen
+  // yet, so it is the initial of the Space's folder name.
+  const activeSpaceAvatar = useMemo<SpaceAvatarProps | null>(
+    () =>
+      application
+        ? {
+            avatar: { type: 'initial' },
+            folderName: spaceName(application.vault.root),
+            resolveImageUrl: (src) => application.resolveCoverImageForDisplay(src),
+          }
+        : null,
+    [application]
+  );
+
   const notice = spaces.notice && (
     <Toast
       toast={{ id: spaces.notice.id, text: spaces.notice.text, tone: 'error' }}
@@ -274,8 +290,10 @@ export function AppShell() {
   // at mount, so a different Space must mount it fresh rather than reuse the previous one's.
   return (
     <SpacesContext.Provider value={spacesApi}>
-      <AppLayout key={application.vault.root} application={application} />
-      {notice}
+      <ActiveSpaceAvatarContext.Provider value={activeSpaceAvatar}>
+        <AppLayout key={application.vault.root} application={application} />
+        {notice}
+      </ActiveSpaceAvatarContext.Provider>
     </SpacesContext.Provider>
   );
 }

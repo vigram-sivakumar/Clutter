@@ -1,13 +1,15 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 
-import type { PickerListItem, PickerListProps } from './PickerList.types';
+import { ROOT_DESTINATION_ID, type PickerListItem, type PickerListProps } from './PickerList.types';
 import { Search } from '@components/search/Search';
 import { Entry } from '@components/entry/Entry';
 import { Pill } from '@components/property-list/Pill';
 import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
 import { FolderLeading } from '@features/notes/sidebar/FolderLeading';
 import { AppIcon } from '@shared/icon';
+import { SpaceAvatar } from '@components/space-avatar/SpaceAvatar';
+import { useActiveSpaceAvatar } from '@components/space-avatar/ActiveSpaceAvatarContext';
 import { useMenuKeyboard } from '@components/menu/useMenuKeyboard';
 import { matchesSearchText } from '@shared/helpers/matchesSearchText';
 
@@ -26,6 +28,7 @@ export function PickerList({
   onSelect,
   onCreate,
 }: PickerListProps) {
+  const spaceAvatar = useActiveSpaceAvatar();
   const [query, setQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -328,6 +331,11 @@ export function PickerList({
                 item.thumbnail ? (
                   <span className="picker-list__thumbnail">
                     <img src={item.thumbnail} alt="" draggable={false} />
+                  </span>
+                ) : item.id === ROOT_DESTINATION_ID && spaceAvatar ? (
+                  // The Space root is the active Space, not an ordinary folder.
+                  <span className="picker-list__leading">
+                    <SpaceAvatar {...spaceAvatar} />
                   </span>
                 ) : leadingIcon ? (
                   <span className="picker-list__leading">

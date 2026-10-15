@@ -13,7 +13,6 @@
   --pill-height: 24px;
   /* The pill's background, shared by the dismiss button and its fade so
      all three always match — including on hover, below. */
-  --pill-surface: var(--surface-tertiary);
 
   position: relative;
   display: inline-flex;

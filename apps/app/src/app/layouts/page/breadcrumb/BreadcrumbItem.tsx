@@ -1,5 +1,7 @@
 import { forwardRef } from 'react';
 import { AppIcon, SystemIcon } from '@shared/icon';
+import { SpaceAvatar } from '@components/space-avatar/SpaceAvatar';
+import { useActiveSpaceAvatar } from '@components/space-avatar/ActiveSpaceAvatarContext';
 import './Breadcrumb.css';
 
 export interface BreadcrumbItemProps {
@@ -7,6 +9,8 @@ export interface BreadcrumbItemProps {
   title?: string;
   icon?: SystemIcon;
   emoji?: string;
+  /** This crumb is the Space root — shown with the active Space's avatar instead of `icon`. */
+  isSpaceRoot?: boolean;
 
   isIconOnly?: boolean;
   /**
@@ -25,9 +29,10 @@ export const BreadcrumbItem = forwardRef<
   HTMLButtonElement,
   BreadcrumbItemProps
 >(function BreadcrumbItem(
-  { id, title, icon, emoji, isIconOnly, isCurrentPage, onClick },
+  { id, title, icon, emoji, isSpaceRoot, isIconOnly, isCurrentPage, onClick },
   ref
 ) {
+  const spaceAvatar = useActiveSpaceAvatar();
   const className = [
     'breadcrumb-item',
     isIconOnly && 'breadcrumb-item--icon',
@@ -38,7 +43,11 @@ export const BreadcrumbItem = forwardRef<
 
   const content = (
     <>
-      {icon && <AppIcon icon={icon} emoji={emoji} />}
+      {isSpaceRoot && spaceAvatar ? (
+        <SpaceAvatar {...spaceAvatar} />
+      ) : (
+        icon && <AppIcon icon={icon} emoji={emoji} />
+      )}
 
       {!isIconOnly && <span className="breadcrumb-item--title">{title}</span>}
     </>

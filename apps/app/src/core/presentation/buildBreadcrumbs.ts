@@ -129,6 +129,7 @@ export function buildSystemLocationBreadcrumbs(
       id,
       title: title ?? presentation.label,
       icon: presentation.collectionIcon ?? presentation.icon,
+      ...(id === 'workspace' && { isSpaceRoot: true }),
     },
   ];
 }

@@ -11,5 +11,7 @@ export interface Breadcrumb {
   title: string;
   icon?: SystemIcon;
   emoji?: string;
+  /** The crumb is the Space root (the Workspace view): drawn with the active Space's avatar, `icon` being the fallback. */
+  isSpaceRoot?: boolean;
   onClick?: () => void;
 }

@@ -113,6 +113,12 @@ Neutrals    charcoal / gray
      not three. */
   --md-card-inset-border: var(--shadow-inset-thin);
 
+  --pill-surface: color-mix(
+    in srgb,
+    var(--surface-secondary) 88%,
+    rgb(var(--state-base)) 10%
+  );
+
   /* Interactive states */
   --state-base: 255 255 255;
   --state-hover-strength-medium: 3.5%;
@@ -263,6 +269,12 @@ Neutrals    charcoal / gray
   --md-embed-surface: var(--neutral-50);
   --fenced-code-surface: var(--neutral-50);
   --md-card-inset-border: var(--shadow-inset-thin);
+
+  --pill-surface: color-mix(
+    in srgb,
+    var(--surface-secondary) 88%,
+    rgb(var(--state-base)) 10%
+  );
 
   /* Interactive states */
   --state-base: 0 0 0;
