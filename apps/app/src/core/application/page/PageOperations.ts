@@ -42,11 +42,13 @@ import {
   deleteAllPropertiesLines,
   deleteCustomPropertyLines,
   removeSystemPropertyLines,
+  renameCustomPropertyLines,
+  reorderPropertiesLines,
   setSectionHiddenLines,
+  type PropertyFrontmatter,
 } from '../../vault/ingest/frontmatter/propertyLines';
 import {
   removeCustomListItem,
-  renameCustomProperty,
   setCustomListValue,
   setCustomScalarValue,
   validateCustomPropertyName,
@@ -1767,7 +1769,7 @@ export class PageOperations {
    */
   private async materializeDraftWithProperties(
     pageId: string,
-    change: (lines: readonly string[]) => string[] | null
+    change: (state: PropertyFrontmatter) => PropertyFrontmatter | null
   ): Promise<void> {
     const descriptor = this.draftFor(pageId);
 
@@ -1775,15 +1777,15 @@ export class PageOperations {
       throw new Error(`Page not found: ${pageId}`);
     }
 
-    const lines = change([]);
+    const next = change({ lines: [] });
 
-    if (lines === null) {
+    if (next === null) {
       return;
     }
 
     const body = this.documentRegistry.get(pageId)?.currentRevision.markdown ?? '';
 
-    await this.persistDraft(pageId, descriptor, body, undefined, lines);
+    await this.persistDraft(pageId, descriptor, body, undefined, next.lines);
   }
 
   /**
@@ -1866,18 +1868,18 @@ export class PageOperations {
    * write is the Gate's 'save' with a metadata patch, exactly like it.
    */
   public async renameCustomProperty(pageId: string, key: string, name: string): Promise<void> {
-    await this.saveCustomFrontmatter(pageId, (lines) => {
+    await this.saveFrontmatterState(pageId, (state) => {
       if (name.trim() === key) {
         return null;
       }
 
-      const problem = validateCustomPropertyName(lines, key, name);
+      const problem = validateCustomPropertyName(state.lines, key, name);
 
       if (problem) {
         throw new Error(`Cannot rename property "${key}" to "${name}": ${problem}.`);
       }
 
-      return renameCustomProperty(lines, key, name);
+      return renameCustomPropertyLines(state, key, name);
     });
   }
 
@@ -1902,7 +1904,7 @@ export class PageOperations {
     // A custom property is displayed because its key exists, so there is
     // nothing to list; adding one also lifts an explicit hide, so a first
     // property makes the section appear — all in the same save.
-    await this.saveCustomFrontmatter(pageId, (lines) => addCustomPropertyLines(lines, name, property));
+    await this.saveFrontmatterState(pageId, (state) => addCustomPropertyLines(state, name, property));
   }
 
   /**
@@ -1920,7 +1922,7 @@ export class PageOperations {
       throw new Error(`"${key}" is not a system property that can be added.`);
     }
 
-    await this.saveCustomFrontmatter(pageId, (lines) => addSystemPropertyLines(lines, key));
+    await this.saveFrontmatterState(pageId, (state) => addSystemPropertyLines(state, key));
   }
 
   /**
@@ -1948,7 +1950,7 @@ export class PageOperations {
    * `save` as addSystemProperty().
    */
   public async setPropertiesSectionHidden(pageId: string, hidden: boolean): Promise<void> {
-    await this.saveCustomFrontmatter(pageId, (lines) => setSectionHiddenLines(lines, hidden));
+    await this.saveFrontmatterState(pageId, (state) => setSectionHiddenLines(state, hidden));
   }
 
   /**
@@ -1961,7 +1963,7 @@ export class PageOperations {
    * `save` as renameCustomProperty().
    */
   public async deleteCustomProperty(pageId: string, key: string): Promise<void> {
-    await this.saveCustomFrontmatter(pageId, (lines) => deleteCustomPropertyLines(lines, key));
+    await this.saveFrontmatterState(pageId, (state) => deleteCustomPropertyLines(state, key));
   }
 
   /**
@@ -1979,7 +1981,20 @@ export class PageOperations {
       throw new Error(`"${key}" is not a property that can be removed.`);
     }
 
-    await this.saveCustomFrontmatter(pageId, (lines) => removeSystemPropertyLines(lines, key));
+    await this.saveFrontmatterState(pageId, (state) => removeSystemPropertyLines(state, key));
+  }
+
+  /**
+   * Reorders the page's displayed properties to `keys` — system canonical keys and custom property
+   * names, in the order they should now appear — by moving the property's whole frontmatter entry
+   * (`movedKey`, when the caller knows which one moved) to its new place (reorderPropertiesLines): a nested
+   * mapping or list goes with its key line, every other entry stays where it is, and `properties.visible`
+   * is untouched — it says which system properties show, never where. The physical order of the entries is
+   * the Properties list's order; nothing else stores it. An order that changes nothing writes nothing.
+   * Same archived-page guard and Gate `save` as renameCustomProperty().
+   */
+  public async reorderProperties(pageId: string, keys: readonly string[], movedKey?: string): Promise<void> {
+    await this.saveFrontmatterState(pageId, (state) => reorderPropertiesLines(state, keys, movedKey));
   }
 
   /**
@@ -1993,19 +2008,21 @@ export class PageOperations {
    * as deleteCustomProperty().
    */
   public async deleteAllProperties(pageId: string): Promise<void> {
-    await this.saveCustomFrontmatter(pageId, (lines) => deleteAllPropertiesLines(lines));
+    await this.saveFrontmatterState(pageId, (state) => deleteAllPropertiesLines(state));
   }
 
   /**
-   * The one write every custom-property method above shares: the Gate's
-   * 'save' with a metadata patch carrying this page's new preserved
-   * frontmatter lines — only this page, never its body or any other page.
-   * `change` gets the current lines and returns the new ones (or null for
-   * a no-op); it throws to refuse, before anything is enqueued.
+   * The one write every property method above shares: the Gate's 'save' with a metadata patch carrying
+   * this page's new preserved frontmatter lines — and, when a change moved entries, the new physical
+   * order of the file's entries — only this page, never its body or any other page. `change` gets the
+   * current state and returns the new one (or null for a no-op); it throws to refuse, before anything is
+   * enqueued. The order in the patch only matters to the write: the saved document is parsed again
+   * and the page rebuilt from the file (the Gate's write-parse-rebuild-replace), so the page's order is
+   * always the file's.
    */
-  private async saveCustomFrontmatter(
+  private async saveFrontmatterState(
     pageId: string,
-    change: (lines: readonly string[]) => string[] | null
+    change: (state: PropertyFrontmatter) => PropertyFrontmatter | null
   ): Promise<void> {
     const page = this.vault.getPage(pageId);
 
@@ -2018,21 +2035,39 @@ export class PageOperations {
       throw new Error(`Cannot edit archived page: ${pageId}. Restore it before editing.`);
     }
 
-    const lines = change(page.metadata.unownedFrontmatter ?? []);
+    const next = change({
+      lines: page.metadata.unownedFrontmatter ?? [],
+      order: page.metadata.frontmatterEntryOrder,
+    });
 
-    if (lines === null) {
+    if (next === null) {
       return;
     }
 
     const result = await this.coordinator.enqueue(pageId, {
       kind: 'save',
       content: page.source.markdown,
-      metadata: { unownedFrontmatter: lines },
+      metadata: {
+        unownedFrontmatter: next.lines,
+        ...(next.order !== undefined && { frontmatterEntryOrder: next.order }),
+      },
     });
 
     if (result.status === 'abandoned') {
       throw new Error(`Page not found: ${pageId}`);
     }
+  }
+
+  /** A property change that only edits preserved lines (a value, a list item, the template marker): the entry order is as it was. */
+  private async saveCustomFrontmatter(
+    pageId: string,
+    change: (lines: readonly string[]) => string[] | null
+  ): Promise<void> {
+    await this.saveFrontmatterState(pageId, (state) => {
+      const lines = change(state.lines);
+
+      return lines === null ? null : { lines, order: state.order };
+    });
   }
 
   /**

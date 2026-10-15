@@ -138,7 +138,7 @@ describe('Properties — system properties', () => {
     expect(latest().join('\n')).not.toContain('show:');
   });
 
-  it('rows are always in the canonical order — Tags, Aliases, Created, Last edited — whatever order they were added in', () => {
+  it('a note with no recorded entry order lists its system properties in the canonical order — Tags, Aliases, Created, Last edited — whatever order they were added in', () => {
     setup();
 
     clickTitle('Properties');
@@ -205,14 +205,14 @@ describe('Properties — system properties', () => {
     expect(latest()).toEqual([]);
   });
 
-  it('Created and Last edited offer only Remove; Tags and Aliases offer Clear then Remove; none can be deleted', () => {
+  it('Created and Last edited offer Move up/down and Remove; Tags and Aliases also Clear; none can be deleted', () => {
     setup('properties:\n  visible: [tags, aliases, created, modified]');
 
     for (const [name, expected] of [
-      ['Tags', ['Clear', 'Remove']],
-      ['Aliases', ['Clear', 'Remove']],
-      ['Created', ['Remove']],
-      ['Last edited', ['Remove']],
+      ['Tags', ['Move up', 'Move down', 'Clear', 'Remove']],
+      ['Aliases', ['Move up', 'Move down', 'Clear', 'Remove']],
+      ['Created', ['Move up', 'Move down', 'Remove']],
+      ['Last edited', ['Move up', 'Move down', 'Remove']],
     ] as const) {
       openRowMenu(name);
       expect(menuItems()).toEqual(expected);
@@ -340,13 +340,13 @@ describe('Properties — custom properties', () => {
     expect(latest()).toEqual(['Due date: 2026-10-01', 'priority: high', 'properties:', '  visible:', '    - tags']);
   });
 
-  it('custom properties offer Clear then Delete, and no Remove or Hide', () => {
+  it('custom properties offer Move up/down, Clear and Delete, and no Remove or Hide', () => {
     setup('priority: high');
 
     openRowMenu('priority');
 
-    expect(menuItems()).toEqual(['Clear', 'Delete']);
-    expect(document.querySelectorAll('.menu [role="separator"]')).toHaveLength(1);
+    expect(menuItems()).toEqual(['Move up', 'Move down', 'Clear', 'Delete']);
+    expect(document.querySelectorAll('.menu [role="separator"]')).toHaveLength(2);
   });
 
   it('deleting the last property returns to the zero-property state with no properties block', () => {

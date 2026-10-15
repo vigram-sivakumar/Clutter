@@ -6,7 +6,7 @@ import type { PageSystemPropertyKey } from '@core/properties/systemProperties';
 import type { Page } from '@core/vault/models/Page';
 import type { MultiSelectSuggestion } from '@components/property-list/PropertyList.types';
 import type { GetTagSuggestions } from '@features/markdown/editor/codemirror/tag/tagSuggestion';
-import { readListedSystemProperties } from '@core/vault/ingest/frontmatter/propertyVisibility';
+import { readPropertySequence } from '@core/vault/ingest/frontmatter/propertyLines';
 import { readVisibleCustomProperties } from '@core/vault/ingest/frontmatter/templateMarker';
 import {
   readCustomProperties,
@@ -182,12 +182,18 @@ function toCustomPropertyItem(
  * normalized for PropertyList (which stays a dumb presentational
  * component). The same rules for a Note and a Daily Note.
  *
- * Which Properties are listed: the system properties (`tags`, `aliases`,
- * `created`, `modified`) whose canonical key is in the note's
- * `properties.visible` (propertyVisibility.ts), always in the one canonical
- * system order; then every custom property — a custom property is listed
- * because its frontmatter key exists, so it has no visibility of its own — in
- * frontmatter order. Listing a system property or not never changes its value.
+ * Which Properties are listed, and in what order: readPropertySequence
+ * (propertyLines.ts) decides both. The order is the PHYSICAL order of the
+ * note's frontmatter entries (PageMetadata.frontmatterEntryOrder): each entry
+ * that is a listed system property — a canonical key in `properties.visible`
+ * (`tags`, `aliases`, `created`, `modified`) — or a custom property (listed
+ * because its frontmatter key exists) is a row, where its entry is in the
+ * file. Everything else is not a row: a hidden system property, `id`,
+ * `favorite`, `status`… and the `properties` configuration, whichever entries
+ * surround it. `visible` says which system properties show, never where.
+ * Listing a system property or not never changes its value. Every row carries
+ * a stable `id` and the `orderKey` a reorder names it by. Properties being
+ * added come last.
  *
  * Being present in frontmatter does not make a field a Property. Excluded
  * on purpose: fields with dedicated UI (favorite, icon, cover*, description),
@@ -349,12 +355,13 @@ export function buildPageProperties(
   const pendingNames = (drafts?.items ?? []).flatMap((draft) => (draft.name === undefined ? [] : [draft.name]));
   const draftItems = (drafts?.items ?? []).flatMap((draft): PropertyListItem[] => {
     if (draft.name !== undefined) {
-      return customKeys.has(draft.name.toLowerCase()) ? [] : [emptyItem(draft.type, draft.name)];
+      return customKeys.has(draft.name.toLowerCase()) ? [] : [{ ...emptyItem(draft.type, draft.name), id: `draft:${draft.id}` }];
     }
 
     return [
       {
         ...emptyItem(draft.type, ''),
+        id: `draft:${draft.id}`,
         onRename: (name) => {
           if (validateCustomPropertyName(customLines, '', name, pendingNames) !== null) {
             return false;
@@ -402,23 +409,35 @@ export function buildPageProperties(
     modified: { name: systemPropertyLabel('modified'), type: 'date', value: page.metadata.updatedAt, editable: false },
   };
 
-  // What the section lists: the system properties in `properties.visible`, in
-  // the one canonical system order whatever order they are written in; then
-  // every custom property in frontmatter order (a custom property is shown
-  // because its key exists); then any property being added. Every system row
-  // can be removed from the list (its value is kept); Tags and Aliases can
-  // also be cleared. Created and Last edited are system-maintained, so they
+  // What the section lists, in the order readPropertySequence gives: system and custom properties
+  // together, then any property being added. Every system row can be removed from the list (its value is
+  // kept); Tags and Aliases can also be cleared. Created and Last edited are system-maintained, so they
   // can't be cleared, and no system property can be deleted.
   const systemClear: Partial<Record<PageSystemPropertyKey, () => void>> = {
     tags: onCommitTags && (() => onCommitTags([])),
     aliases: aliasActions && (() => aliasActions.onCommit([])),
   };
-  const systemItems = readListedSystemProperties(customLines).map((key) =>
-    withActions(systemRows[key], {
-      onClear: systemClear[key],
-      onRemove: onRemoveSystemProperty && (() => onRemoveSystemProperty(key)),
-    })
-  );
+  const listedItems = readPropertySequence({
+    lines: customLines,
+    order: page.metadata.frontmatterEntryOrder,
+  }).flatMap((ref): PropertyListItem[] => {
+    if (ref.kind === 'system') {
+      return [
+        {
+          ...withActions(systemRows[ref.key], {
+            onClear: systemClear[ref.key],
+            onRemove: onRemoveSystemProperty && (() => onRemoveSystemProperty(ref.key)),
+          }),
+          id: `system:${ref.key}`,
+          orderKey: ref.key,
+        },
+      ];
+    }
 
-  return [...systemItems, ...customItems.values(), ...draftItems];
+    const item = customItems.get(ref.key);
+
+    return item ? [{ ...item, id: `custom:${ref.key}`, orderKey: ref.key }] : [];
+  });
+
+  return [...listedItems, ...draftItems];
 }

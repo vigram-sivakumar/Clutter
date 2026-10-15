@@ -9,6 +9,7 @@ import {
 import { isReservedRawKey, OWNED_FRONTMATTER_KEYS, matchSystemKey } from './ownedFrontmatterKeys';
 import {
   addVisibleProperty,
+  adoptLegacyOrder,
   isPropertiesSectionHidden,
   normalizePropertiesConfig,
   readListedSystemProperties,
@@ -404,5 +405,44 @@ describe('removePropertiesListing', () => {
     const lines = customLines('priority: high');
 
     expect(removePropertiesListing(lines)).toEqual(lines);
+  });
+});
+
+describe('a leftover `properties.order` (written by an earlier build)', () => {
+  it('shows the system properties it named while there is no `visible`, and is ignored once there is one', () => {
+    expect(readListedSystemProperties(customLines('properties:\n  order:\n    - created\n    - priority\n    - tags'))).toEqual(['tags', 'created']);
+    expect(readListedSystemProperties(customLines('properties:\n  order: [Aliases, "modified"]'))).toEqual(['aliases', 'modified']);
+    expect(readListedSystemProperties(customLines('properties:\n  visible: [aliases]\n  order: [tags, created]'))).toEqual(['aliases']);
+  });
+
+  it('is adopted by a write: its system keys become `visible` (canonical order), `order` goes, other settings stay', () => {
+    expect(adoptLegacyOrder(customLines('a: 1\nproperties:\n  other: 1\n  order:\n    - created\n    - a\n    - tags\nb: 2'))).toEqual([
+      'a: 1',
+      'properties:',
+      '  other: 1',
+      '  visible:',
+      '    - tags',
+      '    - created',
+      'b: 2',
+    ]);
+  });
+
+  it('with a `visible` as well, `visible` is kept untouched and only `order` goes', () => {
+    expect(adoptLegacyOrder(customLines('properties:\n  visible: [aliases]\n  order: [tags]'))).toEqual(['properties:', '  visible: [aliases]']);
+  });
+
+  it('an `order` that named no system key leaves nothing behind, the block with it', () => {
+    expect(adoptLegacyOrder(customLines('a: 1\nproperties:\n  order: [a]'))).toEqual(['a: 1']);
+  });
+
+  it('changes nothing without an `order`', () => {
+    const lines = customLines('a: 1\nproperties:\n  visible: [tags]');
+
+    expect(adoptLegacyOrder(lines)).toEqual(lines);
+    expect(adoptLegacyOrder(customLines('a: 1'))).toEqual(['a: 1']);
+  });
+
+  it('is dropped with the rest of the listing when it is reset', () => {
+    expect(removePropertiesListing(customLines('a: 1\nproperties:\n  other: 1\n  order: [tags]\n  visible: [tags]'))).toEqual(['a: 1', 'properties:', '  other: 1']);
   });
 });

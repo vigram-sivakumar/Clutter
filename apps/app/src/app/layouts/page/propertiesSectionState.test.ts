@@ -131,13 +131,13 @@ describe('derivePropertiesSectionState — an archived page is view-only', () =>
 
 describe('after the last property goes, the note behaves exactly like one that never had Properties', () => {
   it('unlisting the last system property', () => {
-    const after = removeSystemPropertyLines(lines('properties:\n  show: true\n  visible:\n    - tags'), 'tags')!;
+    const after = removeSystemPropertyLines({ lines: lines('properties:\n  show: true\n  visible:\n    - tags') }, 'tags')!.lines;
 
     expect(derivePropertiesSectionState({ lines: after, isArchived: false, hasDraft: false })).toEqual(DEFAULT);
   });
 
   it('Delete all', () => {
-    const after = deleteAllPropertiesLines(lines('priority: high\nproperties:\n  show: false\n  visible:\n    - tags'))!;
+    const after = deleteAllPropertiesLines({ lines: lines('priority: high\nproperties:\n  show: false\n  visible:\n    - tags') })!.lines;
 
     expect(derivePropertiesSectionState({ lines: after, isArchived: false, hasDraft: false })).toEqual(DEFAULT);
   });

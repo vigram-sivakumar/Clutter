@@ -3,6 +3,8 @@ import type { Folder } from '../models/Folder';
 import type { PageFrontmatter } from './frontmatter';
 import { quoteFrontmatterString } from './frontmatter/frontmatterStringValue';
 import { formatCoverCredit } from './frontmatter/coverCredit';
+import { splitEntryBlocks } from './frontmatter/customFrontmatter';
+import { OWNED_FRONTMATTER_KEYS } from './frontmatter/ownedFrontmatterKeys';
 
 /**
  * Formats one block-list item. `aliases` are free text, so they go through
@@ -13,6 +15,28 @@ import { formatCoverCredit } from './frontmatter/coverCredit';
 function formatListItem(key: string, item: string): string {
   return `  - ${key === 'aliases' || key === 'tags' ? quoteFrontmatterString(item) : item}`;
 }
+
+/** The default order of the owned entries of a page that was not read from a file — what every save wrote before entry order was kept. */
+const OWNED_WRITE_ORDER = [
+  'id',
+  'created',
+  'modified',
+  'favorite',
+  'icon',
+  'cover',
+  'coverCredit',
+  'coverHidden',
+  'coverLayout',
+  'coverPositionAbove',
+  'coverPositionSide',
+  'description',
+  'status',
+  'archivedAt',
+  'originalPath',
+  'originalParentId',
+  'tags',
+  'aliases',
+] as const;
 
 /**
  * FrontmatterSerializer is the sole component responsible for converting the canonical `Page` model
@@ -146,9 +170,12 @@ export class FrontmatterSerializer {
       ['originalParentId', page.metadata.originalParentId],
     ];
 
+    // Every entry Clutter owns, as its lines, by canonical key.
+    const owned = new Map<string, string[]>();
+
     for (const [key, value] of entries) {
       if (value !== undefined && value !== null) {
-        lines.push(`${keyFor(key)}: ${value}`);
+        owned.set(key, [`${keyFor(key)}: ${value}`]);
       }
     }
 
@@ -156,31 +183,94 @@ export class FrontmatterSerializer {
     // for `aliases`/`tags` (a `key:` line with no inline value, followed
     // by `  - value` lines) — omitted entirely while empty, the same
     // omit-on-default convention as coverHidden/coverLayout above, so a
-    // note with no tags never grows a bare `tags:` line.
-    if (page.metadata.tags && page.metadata.tags.length > 0) {
-      lines.push(`${keyFor('tags')}:`);
-      for (const tag of page.metadata.tags) {
-        lines.push(`  - ${tag}`);
+    // note with no tags never grows a bare `tags:` line. The exception: an
+    // entry the file already has (or a property being listed) in the
+    // recorded entry order stays as an explicit empty list (`tags: []`).
+    const order = page.metadata.frontmatterEntryOrder;
+    const listLines = (key: 'tags' | 'aliases', values: readonly string[] | undefined): string[] | undefined => {
+      if (values && values.length > 0) {
+        // Values are written as they are in PageMetadata — never deduplicated or re-cased here;
+        // aliases are quoted only where a plain value would be misread.
+        return [`${keyFor(key)}:`, ...values.map((value) => (key === 'tags' ? `  - ${value}` : formatListItem(key, value)))];
+      }
+
+      return order?.includes(key) ? [`${keyFor(key)}: []`] : undefined;
+    };
+    const tagLines = listLines('tags', page.metadata.tags);
+    const aliasLines = listLines('aliases', page.metadata.aliases);
+
+    if (tagLines) owned.set('tags', tagLines);
+    if (aliasLines) owned.set('aliases', aliasLines);
+
+    // Frontmatter Clutter doesn't own (custom keys, the `properties` configuration) — written
+    // back verbatim, whole entries, so a save never deletes it. The serializer still never
+    // invents or reformats any of it.
+    const { preamble, blocks } = splitEntryBlocks(page.metadata.unownedFrontmatter ?? []);
+
+    if (!order) {
+      // Not read from a file (a new page): the default order — owned keys, then everything else.
+      for (const key of OWNED_WRITE_ORDER) {
+        lines.push(...(owned.get(key) ?? []));
+      }
+      lines.push(...preamble, ...blocks.flatMap((block) => block.lines));
+      lines.push('---');
+
+      return lines.join('\n');
+    }
+
+    // Read from a file: every entry stays where the file had it (the recorded entry order). What the
+    // order doesn't mention — an entry Clutter just added — follows the last entry, before a trailing
+    // `properties` block (kept last when it is).
+    const out: string[] = [];
+    const usedBlocks = new Set<number>();
+    let lastEntry: { key: string; at: number } | undefined;
+    let preambleWritten = preamble.length === 0;
+    const emitBlock = (index: number) => {
+      usedBlocks.add(index);
+      lastEntry = { key: blocks[index]!.key, at: out.length };
+
+      if (!preambleWritten) {
+        out.push(...preamble);
+        lastEntry = { key: blocks[index]!.key, at: out.length };
+        preambleWritten = true;
+      }
+
+      out.push(...blocks[index]!.lines);
+    };
+
+    for (const token of order) {
+      const ownedLines = owned.get(token);
+      const blockIndex = blocks.findIndex((block, index) => block.key === token && !usedBlocks.has(index));
+
+      if (ownedLines) {
+        lastEntry = { key: token, at: out.length };
+        out.push(...ownedLines);
+        owned.delete(token);
+      } else if (blockIndex !== -1 && !OWNED_FRONTMATTER_KEYS.has(token)) {
+        emitBlock(blockIndex);
       }
     }
 
-    // Same block-list shape and omit-while-empty convention as `tags`.
-    // Values are written as they are in PageMetadata.aliases — never
-    // deduplicated or re-cased here — quoted only where a plain value
-    // would be misread.
-    if (page.metadata.aliases && page.metadata.aliases.length > 0) {
-      lines.push(`${keyFor('aliases')}:`);
-      for (const alias of page.metadata.aliases) {
-        lines.push(formatListItem('aliases', alias));
+    const leftovers: string[] = [];
+
+    for (const key of OWNED_WRITE_ORDER) {
+      leftovers.push(...(owned.get(key) ?? []));
+    }
+    blocks.forEach((block, index) => {
+      if (!usedBlocks.has(index)) {
+        usedBlocks.add(index);
+        leftovers.push(...(preambleWritten ? [] : preamble), ...block.lines);
+        preambleWritten = true;
       }
+    });
+
+    if (lastEntry?.key === 'properties' && leftovers.length > 0) {
+      out.splice(lastEntry.at, 0, ...leftovers);
+    } else {
+      out.push(...leftovers);
     }
 
-    // Frontmatter Clutter doesn't own (custom keys) — written
-    // back verbatim after the owned fields, so a save never deletes it.
-    // The serializer still never invents or reformats any of it.
-    if (page.metadata.unownedFrontmatter) {
-      lines.push(...page.metadata.unownedFrontmatter);
-    }
+    lines.push(...out);
 
     lines.push('---');
 

@@ -31,7 +31,7 @@ Moved to `ingest/frontmatter/ownedFrontmatterKeys.ts`. `FrontmatterParser` uses 
 `ingest/frontmatter/customFrontmatter.ts` holds pure functions over the preserved raw lines:
 
 - `readCustomProperties(lines)` → `{ key, type, value }[]` in file order, the type inferred from how the value is written (number, `true`/`false`, ISO date/timestamp, `http(s)://` URL, block or flow list, else text; quoted values are text). Nothing is persisted about a custom property beyond its raw lines.
-- `validateCustomPropertyName(lines, key, name, otherNames?)` → `'empty' | 'reserved' | 'unsupported' | 'taken' | null`. Names are trimmed (the parser's own key normalization). `reserved` is a case-insensitive match against `OWNED_FRONTMATTER_KEYS`. `unsupported` covers names this parser cannot read back as the same key (`:`, a line break, a leading YAML indicator such as `#` or `-`). `taken` is another key on the same page — compared ignoring letter case (amended: see "Amendment — adding custom properties"; `Priority` and `priority` cannot coexist), the property's own key never conflicting with itself, with an optional `otherNames` for names held only in the UI.
+- `validateCustomPropertyName(lines, key, name, otherNames?)` → `'empty' | 'reserved' | 'unsupported' | 'taken' | null`. Names are trimmed (the parser's own key normalization). `reserved` is a case-insensitive match against `OWNED_FRONTMATTER_KEYS`. `unsupported` covers names that cannot be one key line — a line break (amended: a `:`, a leading `#` or `-` and quotes are supported, written as quoted keys — see "Amendment — quoted custom-property names"). `taken` is another key on the same page — compared ignoring letter case (amended: see "Amendment — adding custom properties"; `Priority` and `priority` cannot coexist), the property's own key never conflicting with itself, with an optional `otherNames` for names held only in the UI.
 - `renameCustomProperty(lines, key, name)` rewrites only the key text of that key's line; its value lines and every other line stay byte-identical.
 
 ### 4. `PageOperations.renameCustomProperty(pageId, key, name)`
@@ -106,13 +106,15 @@ The labels are defined once, in the system property definitions (`core/propertie
 
 ## Amendment — the Properties model (final)
 
+> Superseded in part by [Amendment — property ordering](#amendment--property-ordering) below: the Properties list is in the **physical order of the note's frontmatter entries**, and `properties.visible` only says which system properties show. Where this section says a fixed canonical order, "no operation reorders anything", or "rows no longer follow insertion order", read that amendment.
+
 This amendment replaces the earlier, iterated descriptions of which properties a note shows, how they are hidden, removed and added, and how the title control behaves. It describes what the code does.
 
 ### What exists, and what is displayed
 
 - **System properties** — `tags`, `aliases`, `created`, `modified` (labelled Tags, Aliases, Created, Last edited; `lastOpened` is a collection-view field, never a page property, and is excluded by the page-only key type `PageSystemPropertyKey`) — conceptually always exist. A note displays one only when its **canonical key** is listed in `properties.visible`. Listing or unlisting a key never touches the property's value. There is no per-property hidden state.
 - **Custom properties** exist when their frontmatter key exists, and are displayed automatically. There is no visibility representation for them and no hidden-custom state; a legacy custom entry in `visible` is ignored when reading and dropped the next time the block is written.
-- **Order.** System rows always follow the one canonical order — Tags, Aliases, Created, Last edited (`PAGE_SYSTEM_PROPERTY_KEYS`) — whatever order `visible` is written in; custom rows follow, in frontmatter order; a property being added comes last.
+- **Order.** Rows are in the physical order of the frontmatter entries (see the property-ordering amendment); a note whose entry order is not recorded (a page not read from a file) shows its listed system properties in the canonical order — Tags, Aliases, Created, Last edited (`PAGE_SYSTEM_PROPERTY_KEYS`) — then its custom properties in frontmatter order; a property being added comes last.
 
 ### Storage: preserved raw lines, never a second representation
 
@@ -142,7 +144,7 @@ The pure frontmatter change for each lives in `propertyLines.ts`; `PageOperation
 - `setPropertiesSectionHidden(pageId, hidden)` — hiding writes only `show: false` (every property, value and `visible` stay); showing removes the override. Setting what it already is writes nothing.
 - `deleteAllProperties` — deletes every custom property and removes the whole `properties:` block (no `show`, no `visible: []`), in one save; system values are untouched.
 - The last two removals above — `removeSystemProperty` / `deleteCustomProperty` of the last thing to show — end in the zero-property state in the same save.
-- No operation reorders anything, and there is no per-property hide and no hidden-custom concept: `hideProperty`, `showProperty` (the hidden-custom variant) and `setPropertiesSectionVisibility` no longer exist.
+- Reordering is `reorderProperties` (property-ordering amendment); there is no per-property hide and no hidden-custom concept: `hideProperty`, `showProperty` (the hidden-custom variant) and `setPropertiesSectionVisibility` no longer exist.
 
 ### The UI
 
@@ -158,7 +160,47 @@ A `url` custom property is stored as an **absolute `http(s)` URL**, the only spe
 
 ### Consequences
 
-The model is smaller: one set (`visible`, system keys only), one override (`show: false`), one derived UI state and one pure module of frontmatter changes. Notes written under the earlier models keep working and are normalized on the first write to their `properties:` block. Behavior that changed from the earlier amendments: Tags/Aliases Remove no longer clears the value; a custom property no longer needs listing; rows no longer follow insertion order; `show: true` is never written.
+The model is smaller: one set (`visible`, system keys only), one override (`show: false`), one derived UI state and one pure module of frontmatter changes. Notes written under the earlier models keep working and are normalized on the first write to their `properties:` block. Behavior that changed from the earlier amendments: Tags/Aliases Remove no longer clears the value; a custom property no longer needs listing; rows followed the canonical order (the property-ordering amendment changes that: they follow the file's entries); `show: true` is never written.
+
+## Amendment — property ordering
+
+Users can reorder the Properties list — system and custom properties together — by dragging a row's label, or with Move up / Move down in its menu. **The frontmatter is the single source of truth**: the order of the list is the **physical order of the note's top-level frontmatter entries**, and reordering moves an entry in the file. There is no ordering list and no separate store. (An earlier iteration kept the order in a `properties.order` list; it was removed in favour of this model — see "Leftover `order`" below.)
+
+### The architecture
+
+- **`properties.visible`** says which **system** properties show (`tags`, `aliases`, `created`, `modified`, canonical keys). It is a set — its own order means nothing — and it never orders anything. Hiding a system property removes it from `visible` and neither deletes nor moves its entry; showing it adds the key to `visible`, again without moving the entry. When the entry already exists it is never duplicated; when it does not (`tags` on a note that has none), one is appended after the existing entries as an empty list (`tags: []`) and then listed.
+- **Custom properties** show when their frontmatter key exists — no listing, whatever their name or type. `Name` is an ordinary custom text property, not the note title and not a system property.
+- **Order.** The list shows, in file order, every entry that is a listed system property or a custom property. Everything else is not a row: a hidden system property, `id`, `favorite`, `icon`, `status`, the cover fields, `kind: template`, and the `properties` configuration — wherever it sits among the entries. A listed system property that has no entry yet shows after the entries; draft rows (properties still being named) are last, have no key to reorder by and are never persisted.
+- **Reordering moves the complete entry.** The property's key line and everything that belongs to it — a nested mapping, a block list, comments — move together; every other entry, hidden ones included, keeps its place. The entry is placed immediately before the property that now follows it (or after the one that now precedes it, at the end). A drop in the original position, or an order that changes nothing, writes nothing.
+- **Adding** a custom property appends its entry after the existing ones. **Renaming** keeps the entry in place. **Deleting** removes the whole entry, so a recreated property goes last.
+
+### Why this needed the page model to keep order
+
+`FrontmatterSerializer.serializePage` used to write the owned keys (`id`, `created`, `modified`, `favorite`, `status`, …, then `tags`, `aliases`) in one fixed order on every save, then all custom lines — so a system key's position in the file was neither read nor kept. Now `FrontmatterParser` records `entryOrder` — every top-level entry once, system keys by canonical name, the rest as written (a quoted key as the name it denotes) — which `PageMetadata.frontmatterEntryOrder` carries (like `frontmatterKeySpellings`, always from the re-parsed file: the Gate parses what it wrote and rebuilds the page). The serializer writes the entries back in that order, whole custom entries verbatim (`splitEntryBlocks`), so **every save — not only a property change — keeps each entry where the file had it**, and a note that is only read is never rewritten. A page with no recorded order (a new page) is written in the old default order. What the order does not mention — an entry Clutter just added, or one the file lacked (`favorite`, `status`) — follows the last entry, before a trailing `properties` block. An entry that is an empty list in the file stays (`tags: []`); with no such entry no empty `tags:` is invented. Because parser output changed, `PARSER_VERSION` is 3 (ADR-053), invalidating existing parsed-note caches.
+
+### The configuration block
+
+`properties` is a reserved raw entry, not a property. It may be **anywhere** among the entries, and nothing relocates it on read or on a plain save. The write convention is that **a write that changes the configuration or adds or removes an entry** (list/unlist a system property, hide/show the section, add/delete a custom property, delete all, reorder) writes it **last, as one complete entry**, after the actual property entries — a serialization convention, never an ordering mechanism. Other settings under `properties` (`show`, anything else) move with it, untouched; the nothing-to-show state still removes the block. A rename or a value edit does not touch the configuration, so does not move it.
+
+### Safe entry reordering in the line-based layer
+
+The preserved frontmatter stays raw lines, edited by pure functions (`propertyLines.ts`) over `{ lines, order }` — `lines` the preserved entries of the keys Clutter does not own, `order` the physical order of all entries. `splitEntryBlocks` (beside `splitKeyBlocks`, using `readKeyLine`, so a quoted key such as `"Project: Name"` is one entry) turns the lines into complete entries; a reorder changes `order` and re-sequences those blocks to match. Nothing is rebuilt from parsed objects, so unknown metadata and formatting survive, and a system key's value stays model-owned (written from the page, in the position the order gives it).
+
+### Leftover `order`
+
+Clutter has no external users, so there is no permanent compatibility layer. A note an earlier build wrote with `properties.order` is handled narrowly: while it has no `visible` list, the system keys `order` named still show (read only — nothing is rewritten on read). The first write that touches the configuration adopts it: with a `visible` list, that list stays and `order` is dropped; without one, the system keys `order` named become `visible` — so what the note showed is kept — and `order` is dropped. The custom properties' positions from that list are not carried over; the file's own entry order is. Everything else under `properties:` is preserved. There is no bulk migration and no write on read.
+
+### The UI
+
+`buildPageProperties` returns the rows in `readPropertySequence` order, each with a stable `id` (`system:<key>`, `custom:<name>`, `draft:<n>`) — its React key and drag identity — and an `orderKey`. `PropertyList` takes `onReorder(orderKeys, movedKey)`: a row is dragged by pressing its label (the existing `usePointerDrag` threshold; presses on values, buttons and a label being edited are not drags), with the existing ghost, insertion line and edge auto-scroll; Escape cancels, a drop in place writes nothing, and the click after a drag is swallowed. `PropertyMenu` adds Move up / Move down (disabled at the ends), which call the same reorder. `PageHost` passes `reorderProperties` unless the page is archived.
+
+## Amendment — quoted custom-property names
+
+A custom property's name may contain a `:`, quotes, a leading `#` or `-`, or other characters a plain YAML key cannot carry — only a line break is refused (`validateCustomPropertyName`). Such a name is **written as a quoted key** and **read back as the name it denotes**: `"Project: Name": Clutter` is the property `Project: Name` everywhere — the model, the Properties list, edits, renames, deletion and reordering (an entry is found and moved by the name it denotes, never by its quoted spelling). Quoting is only the spelling.
+
+- **One reader.** `readKeyLine` (`frontmatterStringValue.ts`, beside the other string-value rules) splits a key line at its separator: a `"double"` or `'single'` quoted key up to its closing quote (a `:` inside it is part of the name), else the first `:` as before. `FrontmatterParser` and `splitKeyBlocks` use it, and so does every writer that keeps a key's text (`separatorOf` in `customFrontmatter.ts`), so a quoted key is never split inside its quotes.
+- **One writer.** `quoteFrontmatterKey` (same file) quotes a key only where a plain key could not carry it — a `:`, a leading indicator or quote or space, a trailing space, ` #` — with the escapes `quoteFrontmatterString` uses. `true`, `2026`, `Due date` and every other ordinary name are written exactly as before. `addCustomProperty` and `renameCustomProperty` write the key through it; values, continuation lines and every other line are untouched.
+- **Unchanged.** A quoted spelling of a system key (`"tags":`) is still that system key; custom lines are still preserved verbatim; a colon in a value or URL is not a key separator.
 
 ## Amendment — Aliases autocomplete suggests aliases, not pages
 

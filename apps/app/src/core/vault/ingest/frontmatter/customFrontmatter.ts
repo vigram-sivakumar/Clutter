@@ -1,5 +1,7 @@
 import {
+  quoteFrontmatterKey,
   quoteFrontmatterString,
+  readKeyLine,
   splitFlowSequence,
   unquoteFrontmatterString,
 } from './frontmatterStringValue';
@@ -117,6 +119,9 @@ function stringArray(items: readonly string[]): string[] | null {
   return strings.every((item): item is string => item !== null) ? strings : null;
 }
 
+/** Index of the key/value separator `:` of a key line (after a quoted key's closing quote, not inside it). */
+const separatorOf = (keyLine: string): number => readKeyLine(keyLine)?.separator ?? keyLine.indexOf(':');
+
 /**
  * Splits raw frontmatter lines into top-level key blocks — the same
  * boundaries FrontmatterParser captured them by: a block starts at an
@@ -128,13 +133,13 @@ export function splitKeyBlocks(lines: readonly string[]): KeyBlock[] {
 
   lines.forEach((line, index) => {
     const isTopLevel = line !== '' && !/^\s/.test(line) && !line.startsWith('- ');
-    const separator = line.indexOf(':');
+    const keyLine = readKeyLine(line);
 
-    if (isTopLevel && separator !== -1 && !line.startsWith('#')) {
+    if (isTopLevel && keyLine !== null && !line.startsWith('#')) {
       blocks.push({
-        key: line.slice(0, separator).trim(),
+        key: keyLine.key,
         start: index,
-        inlineValue: line.slice(separator + 1).trim(),
+        inlineValue: line.slice(keyLine.separator + 1).trim(),
         continuation: [],
       });
     } else {
@@ -143,6 +148,31 @@ export function splitKeyBlocks(lines: readonly string[]): KeyBlock[] {
   });
 
   return blocks;
+}
+
+/** One complete top-level entry of preserved frontmatter: its key (unquoted) and every one of its lines. */
+export interface EntryBlock {
+  readonly key: string;
+  readonly lines: readonly string[];
+}
+
+/**
+ * The preserved raw lines as complete top-level entries, in order. An entry is its key line and everything up
+ * to the next key line — a nested mapping, a block list, a block scalar, comments and blank lines in between —
+ * so moving an entry means moving all of those lines. Lines before the first key (`preamble`: leading comments)
+ * belong to no entry. Quoted keys are read by readKeyLine, so `"Project: Name":` is the entry `Project: Name`.
+ */
+export function splitEntryBlocks(lines: readonly string[]): { preamble: string[]; blocks: EntryBlock[] } {
+  const keyBlocks = splitKeyBlocks(lines);
+  const first = keyBlocks[0]?.start ?? lines.length;
+
+  return {
+    preamble: lines.slice(0, first),
+    blocks: keyBlocks.map((block) => ({
+      key: block.key,
+      lines: lines.slice(block.start, block.start + 1 + block.continuation.length),
+    })),
+  };
 }
 
 /**
@@ -243,8 +273,8 @@ export type CustomPropertyNameProblem = 'empty' | 'reserved' | 'unsupported' | '
  * - `empty`: nothing but whitespace;
  * - `reserved`: a system property's canonical key, case-insensitively;
  * - `unsupported`: text the frontmatter reader can't read back as this
- *   key — a `:` (the key/value separator), a line break, or a leading YAML
- *   indicator (`#` would make it a comment, `-` a list item, …);
+ *   key — a line break. (A `:`, a leading `#` or `-`, a quote… are fine: the
+ *   key is written quoted where a plain key could not carry them);
  * - `taken`: another custom key on this page — or one of `otherNames`,
  *   names the UI holds that aren't in the lines yet — already has that
  *   name, ignoring letter case (`Priority` and `priority` can't coexist).
@@ -267,7 +297,9 @@ export function validateCustomPropertyName(
     return 'reserved';
   }
 
-  if (/[:\n\r]/.test(trimmed) || /^[-?,[\]{}#&*!|>'"%@`]/.test(trimmed)) {
+  // Anything else can be written as a (quoted) key and read back as itself — a `:`, a leading indicator or
+  // quote included (quoteFrontmatterKey); only a line break can't be a one-line key.
+  if (/[\n\r]/.test(trimmed)) {
     return 'unsupported';
   }
 
@@ -308,7 +340,7 @@ export function renameCustomProperty(
 
   const line = lines[block.start]!;
   const renamed = [...lines];
-  renamed[block.start] = `${name.trim()}${line.slice(line.indexOf(':'))}`;
+  renamed[block.start] = `${quoteFrontmatterKey(name.trim())}${line.slice(separatorOf(line))}`;
   return renamed;
 }
 
@@ -324,7 +356,7 @@ function withEmptiedList(lines: readonly string[], block: KeyBlock): string[] {
 
   return lines.flatMap((line, index) => {
     if (index === block.start) {
-      return [`${keyLine.slice(0, keyLine.indexOf(':'))}: []`];
+      return [`${keyLine.slice(0, separatorOf(keyLine))}: []`];
     }
 
     return index > block.start && index < end && /^\s*-(?:\s|$)/.test(line) ? [] : [line];
@@ -368,7 +400,7 @@ export function removeCustomListItem(
   if (block.inlineValue !== '') {
     const remaining = splitFlowSequence(block.inlineValue)!.filter((_, itemIndex) => itemIndex !== index);
     const line = lines[block.start]!;
-    result[block.start] = `${line.slice(0, line.indexOf(':'))}: [${remaining.join(', ')}]`;
+    result[block.start] = `${line.slice(0, separatorOf(line))}: [${remaining.join(', ')}]`;
     return result;
   }
 
@@ -434,7 +466,7 @@ export function setCustomListValue(
   }
 
   const keyLine = lines[block.start]!;
-  const keyPrefix = keyLine.slice(0, keyLine.indexOf(':'));
+  const keyPrefix = keyLine.slice(0, separatorOf(keyLine));
   const result = [...lines];
 
   // An empty list (`key: []`) has no form of its own to keep: it fills as a
@@ -592,7 +624,7 @@ export function setCustomScalarValue(
 
   const raw = formatCustomScalar(type, value);
   const keyLine = lines[block.start]!;
-  const prefix = keyLine.slice(0, keyLine.indexOf(':'));
+  const prefix = keyLine.slice(0, separatorOf(keyLine));
 
   let last = block.start;
   block.continuation.forEach((line, offset) => {
@@ -660,14 +692,14 @@ export function addCustomProperty(
     return [
       ...lines,
       ...(items.length === 0
-        ? [`${key}: []`]
-        : [`${key}:`, ...items.map((item) => `  - ${quoteFrontmatterString(item)}`)]),
+        ? [`${quoteFrontmatterKey(key)}: []`]
+        : [`${quoteFrontmatterKey(key)}:`, ...items.map((item) => `  - ${quoteFrontmatterString(item)}`)]),
     ];
   }
 
   const raw = formatCustomScalar(property.type, property.value);
 
-  return [...lines, raw === '' ? `${key}:` : `${key}: ${raw}`];
+  return [...lines, raw === '' ? `${quoteFrontmatterKey(key)}:` : `${quoteFrontmatterKey(key)}: ${raw}`];
 }
 
 /**

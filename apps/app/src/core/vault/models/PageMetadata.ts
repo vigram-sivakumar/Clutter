@@ -129,4 +129,11 @@ export interface PageMetadata {
    * is spelled canonically.
    */
   readonly frontmatterKeySpellings?: Readonly<Record<string, string>>;
+  /**
+   * The frontmatter's top-level entries in physical order — canonical system keys and custom/other keys
+   * as written, each once (see PageFrontmatter.entryOrder). It is what orders the Properties list and
+   * what FrontmatterSerializer follows, so a save keeps every entry where the file had it. Like
+   * `unownedFrontmatter`, always taken from the reparsed file; absent for a page not read from a file.
+   */
+  readonly frontmatterEntryOrder?: readonly string[];
 }

@@ -2581,6 +2581,18 @@ export function PageHost({
             key={target.id}
             items={propertyItems}
             footer={addPropertyRow}
+            // An archived page is view-only: its rows don't move. Every other order change is one
+            // PageOperations write (the Gate save), including the first one on a legacy note.
+            onReorder={
+              isArchived
+                ? undefined
+                : (keys, movedKey) =>
+                    void application.pageOperations.reorderProperties(
+                      target.id,
+                      keys,
+                      movedKey
+                    )
+            }
           />
         ) : undefined,
     };

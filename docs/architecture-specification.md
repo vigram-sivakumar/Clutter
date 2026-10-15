@@ -433,9 +433,11 @@ Own the entire lifecycle of a page as a single capability surface: the one file 
     setCustomPropertyValue(pageId: string, key: string, type: CustomScalarType, value: CustomScalarValue | null): Promise<void>;
       // ADR-036 amendment — sets (or, with null, clears while keeping its type) one scalar custom property on this page only
     addCustomProperty(pageId: string, name: string, property: NewCustomProperty): Promise<void>;
-      // ADR-036 amendment — appends one typed custom property (empty or with a value) to this page's frontmatter only, and its key to properties.visible in the same save
+      // ADR-036 amendment — appends one typed custom property (empty or with a value) to this page's frontmatter only, (an entry after the existing ones, before the `properties` block, which is written last)
     addSystemProperty(pageId: string, key: PageSystemPropertyKey): Promise<void>;
-      // ADR-036 — lists a system key in properties.visible (and lifts an explicit hide); the value is never touched
+      // ADR-036 — lists a system key in properties.visible (and lifts an explicit hide); its entry is where it is in the file — one is appended, as an empty list, only when the file has none; the value is never touched
+    reorderProperties(pageId: string, keys: readonly string[], movedKey?: string): Promise<void>;
+      // ADR-036 amendment (property ordering) — moves the property's whole frontmatter entry (a nested mapping with its key line) to its new place in one save; the physical order of the entries is the Properties list's order, properties.visible is untouched; an order that changes nothing writes nothing
     removeSystemProperty(pageId: string, key: PageSystemPropertyKey): Promise<void>;
       // ADR-036 — unlists a system key only; the value is preserved; the last thing to show returns the note to the never-configured state
     setPropertiesSectionHidden(pageId: string, hidden: boolean): Promise<void>;

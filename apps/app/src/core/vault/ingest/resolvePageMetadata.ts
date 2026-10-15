@@ -39,5 +39,8 @@ export function resolvePageMetadata(frontmatter: PageFrontmatter): PageMetadata 
     ...(frontmatter.keySpellings && {
       frontmatterKeySpellings: frontmatter.keySpellings,
     }),
+    ...(frontmatter.entryOrder && {
+      frontmatterEntryOrder: frontmatter.entryOrder,
+    }),
   };
 }

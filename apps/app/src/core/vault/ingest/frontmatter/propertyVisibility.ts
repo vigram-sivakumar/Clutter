@@ -42,6 +42,7 @@ import {
 const PROPERTIES_KEY = 'properties';
 const VISIBLE_KEY = 'visible';
 const SHOW_KEY = 'show';
+const LEGACY_ORDER_KEY = 'order';
 
 const indentOf = (line: string): string => /^\s*/.exec(line)![0];
 const isBlank = (line: string): boolean => line.trim() === '';
@@ -72,7 +73,7 @@ function lastContentLine(block: KeyBlock): number {
   return last;
 }
 
-function findVisible(lines: readonly string[]): VisibleList | undefined {
+function findList(lines: readonly string[], name: string): VisibleList | undefined {
   const block = findProperties(lines);
 
   if (!block) {
@@ -85,7 +86,7 @@ function findVisible(lines: readonly string[]): VisibleList | undefined {
     (line) =>
       childIndent !== '' &&
       indentOf(line) === childIndent &&
-      new RegExp(`^${VISIBLE_KEY}\\s*:`).test(line.trim())
+      new RegExp(`^${name}\\s*:`).test(line.trim())
   );
 
   if (offset === -1) {
@@ -116,27 +117,33 @@ function findVisible(lines: readonly string[]): VisibleList | undefined {
   return { block, line, inline, items };
 }
 
+const findVisible = (lines: readonly string[]): VisibleList | undefined => findList(lines, VISIBLE_KEY);
+/** The `order` list an earlier build wrote (see adoptLegacyOrder); nothing writes it any more. */
+const findLegacyOrder = (lines: readonly string[]): VisibleList | undefined => findList(lines, LEGACY_ORDER_KEY);
+
 const itemText = (line: string): string => unquoteFrontmatterString(line.trim().slice(1)).trim();
 
 /** The page system key `entry` spells (any letter case), or null for anything else. */
 const systemKeyOf = (entry: string): PageSystemPropertyKey | null =>
   PAGE_SYSTEM_PROPERTY_KEYS.find((key) => key === entry.trim().toLowerCase()) ?? null;
 
-/** Every entry of `properties.visible` as written (a block list or a one-line flow list), blanks skipped. */
-function readVisibleEntries(lines: readonly string[]): string[] {
-  const visible = findVisible(lines);
+/** Every entry of list `name` under `properties` as written (a block list or a one-line flow list), blanks skipped. */
+function readEntries(lines: readonly string[], name: string): string[] {
+  const list = findList(lines, name);
 
-  if (!visible || visible.line === -1) {
+  if (!list || list.line === -1) {
     return [];
   }
 
   const entries =
-    visible.inline !== ''
-      ? (splitFlowSequence(visible.inline)?.map((raw) => unquoteFrontmatterString(raw).trim()) ?? [])
-      : visible.items.map((index) => itemText(lines[index]!));
+    list.inline !== ''
+      ? (splitFlowSequence(list.inline)?.map((raw) => unquoteFrontmatterString(raw).trim()) ?? [])
+      : list.items.map((index) => itemText(lines[index]!));
 
   return entries.filter((entry) => entry !== '');
 }
+
+const readVisibleEntries = (lines: readonly string[]): string[] => readEntries(lines, VISIBLE_KEY);
 
 /**
  * The system properties the note lists, in the canonical system order
@@ -146,7 +153,12 @@ function readVisibleEntries(lines: readonly string[]): string[] {
  * means none.
  */
 export function readListedSystemProperties(lines: readonly string[]): PageSystemPropertyKey[] {
-  const listed = new Set(readVisibleEntries(lines).map(systemKeyOf));
+  // A note an earlier build configured with an `order` list (and no `visible`) still shows the system
+  // properties that list named, until a write adopts it (adoptLegacyOrder). Nothing writes `order`.
+  const visible = findVisible(lines);
+  const entries =
+    visible && visible.line !== -1 ? readVisibleEntries(lines) : readEntries(lines, LEGACY_ORDER_KEY);
+  const listed = new Set(entries.map(systemKeyOf));
 
   return PAGE_SYSTEM_PROPERTY_KEYS.filter((key) => listed.has(key));
 }
@@ -390,6 +402,13 @@ export function removePropertiesListing(lines: readonly string[]): string[] {
     visible.items.forEach((index) => drop.add(index));
   }
 
+  const order = findLegacyOrder(lines);
+
+  if (order && order.line !== -1) {
+    drop.add(order.line);
+    order.items.forEach((index) => drop.add(index));
+  }
+
   return finishBlock(lines, drop);
 }
 
@@ -476,4 +495,35 @@ export function normalizePropertiesConfig(lines: readonly string[]): string[] {
   const rewritten = finishBlock(result, drop);
 
   return rewritten;
+}
+
+/**
+ * The raw lines with a leftover `order` list adopted: an earlier build kept the Properties' order in
+ * `properties.order`, which no longer exists — the physical order of the frontmatter entries is the order now.
+ * Called by every write that touches the configuration (propertyLines.ts). With a `visible` list, that list
+ * stays as it is and `order` goes; without one, the system keys `order` named become `visible` (so what the note
+ * showed is kept) and `order` goes. The custom properties' positions in that list are not carried over — the
+ * entries' own file order is. No `order`: nothing changes. Everything else under `properties:` is untouched.
+ */
+export function adoptLegacyOrder(lines: readonly string[]): string[] {
+  const order = findLegacyOrder(lines);
+
+  if (!order || order.line === -1) {
+    return [...lines];
+  }
+
+  const hasVisible = (() => {
+    const visible = findVisible(lines);
+
+    return Boolean(visible && visible.line !== -1);
+  })();
+  const named = hasVisible ? [] : readListedSystemProperties(lines);
+  const drop = new Set<number>([order.line, ...order.items]);
+  let result = finishBlock(lines, drop);
+
+  for (const key of named) {
+    result = addVisibleProperty(result, key);
+  }
+
+  return result;
 }

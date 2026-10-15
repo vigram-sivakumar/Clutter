@@ -14,6 +14,7 @@ import { FrontmatterSerializer } from '../../vault/ingest/FrontmatterSerializer'
 import { FrontmatterParser } from '../../vault/ingest/FrontmatterParser';
 import { readCustomProperties } from '../../vault/ingest/frontmatter/customFrontmatter';
 import { isPropertiesSectionHidden, readListedSystemProperties } from '../../vault/ingest/frontmatter/propertyVisibility';
+import { readPropertySequence } from '../../vault/ingest/frontmatter/propertyLines';
 import { PageRebuilder } from '../../vault/ingest/PageRebuilder';
 import { MoveService } from '../../vault/persistence/MoveService';
 import { PageBuilder } from '../../vault/ingest/PageBuilder';
@@ -569,7 +570,9 @@ describe('PageOperations.updateMetadata(): aliases', () => {
     await pageOperations.updateMetadata(page.id, { aliases: [] });
 
     expect(vault.getPage(page.id)!.metadata.aliases).toEqual([]);
-    expect(await fileSystem.readFile(page.path)).not.toContain('aliases');
+    // The entry stays (now an empty list) where it was — an emptied entry is not deleted.
+    expect(await fileSystem.readFile(page.path)).toContain('aliases: []');
+    expect(await fileSystem.readFile(page.path)).not.toContain('Second');
   });
 
   it('keeps existing aliases through an unrelated metadata save', async () => {
@@ -934,6 +937,197 @@ describe('PageOperations.renameCustomProperty()', () => {
       readListedSystemProperties(vault.getPage(id)!.metadata.unownedFrontmatter ?? []);
     const linesOf = (vault: any, id: string) => vault.getPage(id)!.metadata.unownedFrontmatter ?? [];
 
+    describe('the order of the Properties list is the physical order of the frontmatter entries', () => {
+      const sequenceOf = (vault: any, id: string) =>
+        readPropertySequence({
+          lines: vault.getPage(id)!.metadata.unownedFrontmatter ?? [],
+          order: vault.getPage(id)!.metadata.frontmatterEntryOrder,
+        }).map((ref) => ref.key);
+      /** What a fresh start would read: the Markdown file parsed again, not the in-memory page. */
+      const reloaded = async (fileSystem: any, path: string) => {
+        const { frontmatter } = new FrontmatterParser().parse(await fileSystem.readFile(path));
+
+        return {
+          sequence: readPropertySequence({ lines: frontmatter.unownedLines ?? [], order: frontmatter.entryOrder }).map((ref) => ref.key),
+          // The entries Clutter always keeps (a bare test note gains them on its first save) are not what these
+          // tests are about.
+          entries: (frontmatter.entryOrder ?? []).filter((entry) => !['id', 'created', 'modified', 'favorite', 'status'].includes(entry)),
+        };
+      };
+
+      it('reorderProperties moves the whole entry in one save — a nested mapping with its key line — and it survives reloading the file', async () => {
+        const { page, other, coordinator, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
+          'tags:\n  - work\nproject:\n  name: Clutter\n  settings:\n    priority: high\nOwner: Vikram\nproperties:\n  visible:\n    - tags',
+          'priority: low'
+        );
+        const otherBefore = await fileSystem.readFile(other.path);
+        const enqueue = vi.spyOn(coordinator, 'enqueue');
+
+        await pageOperations.reorderProperties(page.id, ['Owner', 'tags', 'project'], 'Owner');
+
+        expect(enqueue).toHaveBeenCalledTimes(1);
+        expect(enqueue.mock.calls[0]![1].kind).toBe('save');
+        const content = await fileSystem.readFile(page.path);
+        expect(content).toContain('Owner: Vikram\ntags:\n  - work\nproject:\n  name: Clutter\n  settings:\n    priority: high\n');
+        expect(content).toContain('properties:\n  visible:\n    - tags\n---');
+        expect(content).toContain('Body text');
+        expect(sequenceOf(vault, page.id)).toEqual(['Owner', 'tags', 'project']);
+        expect((await reloaded(fileSystem, page.path)).sequence).toEqual(['Owner', 'tags', 'project']);
+        expect(await fileSystem.readFile(other.path)).toBe(otherBefore);
+      });
+
+      it('moving a property never changes `properties.visible`', async () => {
+        const { page, vault, pageOperations } = await setupWithFrontmatter('A: 1\ntags:\n  - x\nproperties:\n  visible:\n    - tags');
+
+        await pageOperations.reorderProperties(page.id, ['tags', 'A'], 'tags');
+
+        expect(sequenceOf(vault, page.id)).toEqual(['tags', 'A']);
+        expect(vault.getPage(page.id)!.metadata.unownedFrontmatter).toEqual(['A: 1', 'properties:', '  visible:', '    - tags']);
+      });
+
+      it('adding a system property with no entry appends its entry after the others (an empty list) and lists it; Tags then shows last', async () => {
+        const { page, vault, fileSystem, pageOperations } = await setupWithFrontmatter('A: 1\nB: 2\nproperties:\n  visible:\n    - created');
+
+        await pageOperations.addSystemProperty(page.id, 'tags');
+
+        const content = await fileSystem.readFile(page.path);
+        expect(content).toContain('B: 2\ntags: []\n');
+        expect(content).toContain('  visible:\n    - created\n    - tags');
+        expect(sequenceOf(vault, page.id).slice(0, 3)).toEqual(['A', 'B', 'tags']);
+        expect((await reloaded(fileSystem, page.path)).entries.slice(-2)).toEqual(['tags', 'properties']);
+      });
+
+      it('with an entry already there (hidden) it is only listed: never duplicated, never moved', async () => {
+        const { page, vault, fileSystem, pageOperations } = await setupWithFrontmatter('tags:\n  - x\nA: 1\nproperties:\n  visible:\n    - created');
+        const before = (await reloaded(fileSystem, page.path)).entries;
+
+        await pageOperations.addSystemProperty(page.id, 'tags');
+
+        const content = await fileSystem.readFile(page.path);
+        expect(content.match(/^tags:/gm)).toHaveLength(1);
+        expect(content).toContain('tags:\n  - x\nA: 1');
+        expect((await reloaded(fileSystem, page.path)).entries.filter((entry) => before.includes(entry))).toEqual(before);
+        expect(sequenceOf(vault, page.id).slice(0, 2)).toEqual(['tags', 'A']);
+      });
+
+      it('hiding and showing a system property does not move its entry', async () => {
+        const { page, fileSystem, pageOperations } = await setupWithFrontmatter('A: 1\ntags:\n  - x\nB: 2\nproperties:\n  visible:\n    - tags');
+        const before = (await reloaded(fileSystem, page.path)).entries.filter((entry) => entry !== 'properties');
+
+        await pageOperations.removeSystemProperty(page.id, 'tags');
+        await pageOperations.addSystemProperty(page.id, 'tags');
+
+        expect((await reloaded(fileSystem, page.path)).entries.filter((entry) => entry !== 'properties')).toEqual(before);
+      });
+
+      it('a relevant write puts the configuration block last, as one entry; the entries around it keep their order', async () => {
+        const { page, fileSystem, pageOperations } = await setupWithFrontmatter('A: 1\nproperties:\n  other: 1\n  visible:\n    - created\nB: 2');
+
+        await pageOperations.addCustomProperty(page.id, 'C', { type: 'text', value: 'x' });
+
+        const { entries, sequence } = await reloaded(fileSystem, page.path);
+        expect(entries.slice(-4)).toEqual(['A', 'B', 'C', 'properties']);
+        expect(sequence.slice(0, 3)).toEqual(['A', 'B', 'C']);
+        expect(await fileSystem.readFile(page.path)).toContain('properties:\n  other: 1\n  visible:\n    - created\n---');
+      });
+
+      it('opening or reading a note writes nothing — whatever the order of its entries', async () => {
+        const { page, coordinator, fileSystem, pageOperations } = await setupWithFrontmatter('A: 1\nproperties:\n  visible:\n    - created\nB: 2');
+        const before = await fileSystem.readFile(page.path);
+        const enqueue = vi.spyOn(coordinator, 'enqueue');
+
+        await pageOperations.open(page.id);
+
+        expect(enqueue).not.toHaveBeenCalled();
+        expect(await fileSystem.readFile(page.path)).toBe(before);
+      });
+
+      it('an order that changes nothing writes nothing', async () => {
+        const { page, coordinator, pageOperations } = await setupWithFrontmatter('A: 1\nB: 2');
+        const enqueue = vi.spyOn(coordinator, 'enqueue');
+
+        await pageOperations.reorderProperties(page.id, ['A', 'B']);
+        await pageOperations.reorderProperties(page.id, ['ghost']);
+
+        expect(enqueue).not.toHaveBeenCalled();
+      });
+
+      it('rejects for an archived page, writing nothing', async () => {
+        const { page, coordinator, pageOperations } = await setupWithFrontmatter('a: 1\nb: 2');
+        await archiveDirectly(coordinator, page.id);
+        const enqueue = vi.spyOn(coordinator, 'enqueue');
+
+        await expect(pageOperations.reorderProperties(page.id, ['b', 'a'])).rejects.toThrow(/Cannot edit archived page/);
+        expect(enqueue).not.toHaveBeenCalled();
+      });
+
+      it('a failed save leaves the page and the file as they were', async () => {
+        const { page, coordinator, vault, fileSystem, pageOperations } = await setupWithFrontmatter('a: 1\nb: 2');
+        const before = await fileSystem.readFile(page.path);
+        const entriesBefore = vault.getPage(page.id)!.metadata.frontmatterEntryOrder;
+        const original = coordinator.enqueue.bind(coordinator);
+        vi.spyOn(coordinator, 'enqueue').mockImplementation(((id: string, operation: any) =>
+          operation.kind === 'save' ? Promise.reject(new Error('disk full')) : original(id, operation)) as any);
+
+        await expect(pageOperations.reorderProperties(page.id, ['b', 'a'], 'b')).rejects.toThrow('disk full');
+
+        expect(vault.getPage(page.id)!.metadata.frontmatterEntryOrder).toEqual(entriesBefore);
+        expect(sequenceOf(vault, page.id)).toEqual(['a', 'b']);
+        expect(await fileSystem.readFile(page.path)).toBe(before);
+      });
+
+      it('a renamed property keeps its entry where it is; a deleted one leaves; a recreated one goes last', async () => {
+        const { page, vault, fileSystem, pageOperations } = await setupWithFrontmatter('a: 1\nb: 2\nc: 3');
+
+        await pageOperations.renameCustomProperty(page.id, 'b', 'bb');
+        expect(sequenceOf(vault, page.id)).toEqual(['a', 'bb', 'c']);
+
+        await pageOperations.deleteCustomProperty(page.id, 'a');
+        await pageOperations.addCustomProperty(page.id, 'a', { type: 'text', value: 'x' });
+
+        expect(sequenceOf(vault, page.id)).toEqual(['bb', 'c', 'a']);
+        expect((await reloaded(fileSystem, page.path)).sequence).toEqual(['bb', 'c', 'a']);
+      });
+
+      it('an `order` list an earlier build wrote keeps what it showed until a write adopts it: `visible` replaces it, nothing else changes', async () => {
+        const { page, vault, fileSystem, pageOperations } = await setupWithFrontmatter('A: 1\nproperties:\n  other: 1\n  order:\n    - created\n    - A');
+
+        expect(sequenceOf(vault, page.id)).toEqual(['A', 'created']);
+
+        await pageOperations.addCustomProperty(page.id, 'B', { type: 'text', value: 'x' });
+
+        const content = await fileSystem.readFile(page.path);
+        expect(content).not.toContain('order');
+        expect(content).toContain('properties:\n  other: 1\n  visible:\n    - created\n---');
+        expect(readListedSystemProperties(vault.getPage(page.id)!.metadata.unownedFrontmatter ?? [])).toEqual(['created']);
+        expect(sequenceOf(vault, page.id).slice(0, 2)).toEqual(['A', 'B']);
+      });
+
+      it('a property whose name contains a colon is added, edited, reordered, renamed and deleted under that exact name, and reloads from the file', async () => {
+        const { page, vault, fileSystem, pageOperations } = await setupWithFrontmatter('author: Jane');
+        const keys = async () =>
+          readCustomProperties(new FrontmatterParser().parse(await fileSystem.readFile(page.path)).frontmatter.unownedLines ?? []).map((property) => [property.key, property.value]);
+
+        await pageOperations.addCustomProperty(page.id, 'Project: Name', { type: 'text', value: 'Clutter' });
+        expect(await fileSystem.readFile(page.path)).toContain('"Project: Name": Clutter');
+        expect(await keys()).toEqual([['author', 'Jane'], ['Project: Name', 'Clutter']]);
+
+        await pageOperations.setCustomPropertyValue(page.id, 'Project: Name', 'text', 'Other');
+        expect(await keys()).toEqual([['author', 'Jane'], ['Project: Name', 'Other']]);
+
+        await pageOperations.reorderProperties(page.id, ['Project: Name', 'author'], 'Project: Name');
+        expect(sequenceOf(vault, page.id)).toEqual(['Project: Name', 'author']);
+        expect((await reloaded(fileSystem, page.path)).sequence).toEqual(['Project: Name', 'author']);
+
+        await pageOperations.renameCustomProperty(page.id, 'Project: Name', 'Project: Title');
+        expect((await reloaded(fileSystem, page.path)).sequence).toEqual(['Project: Title', 'author']);
+
+        await pageOperations.deleteCustomProperty(page.id, 'Project: Title');
+        expect(await keys()).toEqual([['author', 'Jane']]);
+        expect(await fileSystem.readFile(page.path)).not.toContain('Project');
+      });
+    });
+
     describe('addSystemProperty', () => {
       it.each(['tags', 'aliases', 'created', 'modified'] as const)(
         'lists %s in properties.visible through the Gate in one save — no `show` is written, nothing else is touched',
@@ -950,7 +1144,9 @@ describe('PageOperations.renameCustomProperty()', () => {
           expect(enqueue).toHaveBeenCalledTimes(1);
           expect(enqueue.mock.calls[0]![1].kind).toBe('save');
           const content = await fileSystem.readFile(page.path);
-          expect(content).toContain(`author: Jane\npriority: high\nproperties:\n  visible:\n    - ${key}`);
+          // A property with no entry yet gets one — an empty list — after the entries, then the block, last.
+          const entry = key === 'tags' || key === 'aliases' ? `${key}: []\n` : '';
+          expect(content).toContain(`author: Jane\npriority: high\n${entry}favorite: false\nstatus: active\nproperties:\n  visible:\n    - ${key}`);
           expect(content).not.toContain('show:');
           expect(content).toContain('Body text');
           expect(listedOf(vault, page.id)).toEqual([key]);
@@ -1154,8 +1350,8 @@ describe('PageOperations.renameCustomProperty()', () => {
         await pageOperations.addCustomProperty(page.id, 'Due date', { type: 'date', value: null });
 
         expect(isPropertiesSectionHidden(linesOf(vault, page.id))).toBe(false);
-        // The legacy custom entry (`author`) is dropped; the system key stays.
-        expect(linesOf(vault, page.id)).toEqual(['author: Jane', 'properties:', '  visible:', '    - tags', 'Due date: # date']);
+        // The legacy custom entry (`author`) is dropped; the system key stays; the new entry goes before the block, which is last.
+        expect(linesOf(vault, page.id)).toEqual(['author: Jane', 'Due date: # date', 'properties:', '  visible:', '    - tags']);
       });
 
       it('renameCustomProperty changes only the key; it never reads or writes properties.visible', async () => {
@@ -1180,7 +1376,7 @@ describe('PageOperations.renameCustomProperty()', () => {
 
         expect(enqueue).toHaveBeenCalledTimes(1);
         const content = await fileSystem.readFile(page.path);
-        expect(content).toContain('author: Jane\npriority: high\nproperties:');
+        expect(content).toContain('author: Jane\npriority: high\nfavorite: false\nstatus: active\nproperties:');
         expect(content).not.toContain('people');
         expect(content).not.toContain('Ana');
         expect(content).toContain('Body text');

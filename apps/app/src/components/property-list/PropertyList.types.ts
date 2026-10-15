@@ -68,7 +68,14 @@ export type PropertyActions = {
   onRemove?(): void;
 };
 
-export type PropertyListItem = PropertyNameEditability & PropertyActions & PropertyListItemByType;
+/**
+ * A row's stable identity, set by the adapter. `id` keys the row (never its position or name, which change)
+ * and names it while it is dragged; `orderKey` is what the host persists for it in the list's order. A row
+ * without an `orderKey` (a property still being named) can't be reordered and stays last.
+ */
+export type PropertyIdentity = { id?: string; orderKey?: string };
+
+export type PropertyListItem = PropertyIdentity & PropertyNameEditability & PropertyActions & PropertyListItemByType;
 
 type PropertyListItemByType =
   | ({ name: string; type: 'text'; value: string } & PropertyEditability<string>)

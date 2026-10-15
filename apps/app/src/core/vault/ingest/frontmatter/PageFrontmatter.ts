@@ -44,4 +44,12 @@ export interface PageFrontmatter {
    * constructing a new page.
    */
   keySpellings?: Readonly<Record<string, string>>;
+  /**
+   * The file's top-level entries in their physical order, each once: a system key by its canonical
+   * name (`created`, `tags`, …), any other key — a custom property, `properties` — as written
+   * (unquoted). The order the Properties list shows, and the order FrontmatterSerializer writes the
+   * entries back in. Carried through PageMetadata.frontmatterEntryOrder. Never set when constructing a
+   * new page (it is then written in the serializer's default order).
+   */
+  entryOrder?: readonly string[];
 }

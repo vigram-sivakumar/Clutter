@@ -169,9 +169,13 @@ describe('validateCustomPropertyName', () => {
     ['TAGS', 'reserved'],
     ['Created', 'reserved'],
     ['ALIASES', 'reserved'],
-    ['a: b', 'unsupported'],
-    ['# note', 'unsupported'],
-    ['- item', 'unsupported'],
+    // Written quoted where a plain key could not carry them, so all of these are fine names.
+    ['a: b', null],
+    ['# note', null],
+    ['- item', null],
+    ['"quoted"', null],
+    // Only a line break can't be a one-line key.
+    ['a\nb', 'unsupported'],
     ['owner', 'taken'],
     ['OWNER', 'taken'],
     ['Owner', 'taken'],

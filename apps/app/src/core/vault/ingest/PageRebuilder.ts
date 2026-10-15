@@ -75,6 +75,10 @@ export class PageRebuilder {
         ...(frontmatter.keySpellings && {
           frontmatterKeySpellings: frontmatter.keySpellings,
         }),
+        // And the physical order of the entries (see PageMetadata.frontmatterEntryOrder).
+        ...(frontmatter.entryOrder && {
+          frontmatterEntryOrder: frontmatter.entryOrder,
+        }),
       },
       source: {
         markdown: body,

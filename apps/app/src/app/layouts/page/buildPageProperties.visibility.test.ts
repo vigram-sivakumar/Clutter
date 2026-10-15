@@ -167,3 +167,90 @@ describe('buildPageProperties — what the note shows', () => {
     expect(items[0]!.onRename!('OWNER')).toBe(false);
   });
 });
+
+describe('buildPageProperties — the physical order of the entries is the order shown', () => {
+  /** A page read from `yaml` as a file: its entries' physical order is recorded, as the parser records it. */
+  function pageRead(yaml: string): Page {
+    const parsed = new FrontmatterParser().parse(`---\nid: p1\n${yaml}\n---\nbody`);
+
+    return pageFrom(yaml, {
+      unownedFrontmatter: parsed.frontmatter.unownedLines ?? [],
+      frontmatterEntryOrder: parsed.frontmatter.entryOrder,
+    });
+  }
+  const readNames = (yaml: string, actions = {}) => buildPageProperties(pageRead(yaml), actions).map((item) => item.name);
+  const ids = (yaml: string, actions = {}) => buildPageProperties(pageRead(yaml), actions).map((item) => item.id);
+
+  it('interleaves listed system properties and custom properties exactly as their entries are in the file', () => {
+    const yaml = 'Alpha: 1\ncreated: 2026-01-01\nBeta: 2\ntags:\n  - x\nGamma: 3\nproperties:\n  visible: [tags, created]';
+
+    expect(readNames(yaml)).toEqual(['Alpha', 'Created', 'Beta', 'Tags', 'Gamma']);
+  });
+
+  it('`visible` only filters: a system property whose key is not listed is not shown wherever its entry is', () => {
+    const yaml = 'Alpha: 1\ntags:\n  - x\nBeta: 2\ncreated: 2026-01-01\nproperties:\n  visible: [created]';
+
+    expect(readNames(yaml)).toEqual(['Alpha', 'Beta', 'Created']);
+  });
+
+  it('the order of the entries decides, never the order of `visible`', () => {
+    const entries = 'Alpha: 1\ncreated: 2026-01-01\ntags:\n  - x';
+
+    expect(readNames(`${entries}\nproperties:\n  visible: [tags, created]`)).toEqual(['Alpha', 'Created', 'Tags']);
+    expect(readNames(`${entries}\nproperties:\n  visible: [created, tags]`)).toEqual(['Alpha', 'Created', 'Tags']);
+  });
+
+  it('the configuration block between entries is not a row, wherever it is', () => {
+    expect(readNames('A: 1\nproperties:\n  visible: [created]\nB: 2\ncreated: 2026-01-01\nC: 3')).toEqual(['A', 'B', 'Created', 'C']);
+  });
+
+  it('a nested mapping and a block list are single rows, with `Name` an ordinary custom property', () => {
+    const yaml = 'project:\n  name: Clutter\n  settings:\n    priority: high\nName: This is weft\npeople:\n  - Ana';
+
+    expect(readNames(yaml)).toEqual(['project', 'Name', 'people']);
+  });
+
+  it('a listed system property with no entry shows after the entries; one that is hidden shows nowhere', () => {
+    expect(readNames('A: 1\nB: 2\nproperties:\n  visible: [aliases]')).toEqual(['A', 'B', 'Aliases']);
+  });
+
+  it('every row has a stable id and the key a reorder names it by — system by canonical key, custom by name', () => {
+    const items = buildPageProperties(pageRead('Due date: 2026-10-01\ntags:\n  - x\nproperties:\n  visible: [tags]'));
+
+    expect(items.map((item) => [item.id, item.orderKey])).toEqual([
+      ['custom:Due date', 'Due date'],
+      ['system:tags', 'tags'],
+    ]);
+  });
+
+  it('a row keeps its id when its entry moves: identity is the property, not its position', () => {
+    const before = ids('a: 1\nb: 2\nc: 3');
+    const after = ids('c: 3\na: 1\nb: 2');
+
+    expect([...before].sort()).toEqual([...after].sort());
+  });
+
+  it('drafts come last and have no order key; the `kind: template` marker is never a row', () => {
+    const items = buildPageProperties(pageRead('kind: template\na: 1\ntags:\n  - x\nproperties:\n  visible: [tags]'), {
+      drafts: { items: [{ id: 7, type: 'text' as const }], onName: vi.fn(), onAbandon: vi.fn() },
+    });
+
+    expect(items.map((item) => item.name)).toEqual(['a', 'Tags', '']);
+    expect(items.at(-1)).toMatchObject({ id: 'draft:7' });
+    expect(items.at(-1)!.orderKey).toBeUndefined();
+  });
+
+  it('Daily Notes show the same rows', () => {
+    const daily = { ...pageRead('a: 1\ntags:\n  - x\nproperties:\n  visible: [tags]'), type: 'daily-note' } as Page;
+
+    expect(buildPageProperties(daily).map((item) => item.name)).toEqual(['a', 'Tags']);
+  });
+
+  it('a note with no recorded order shows its listed system properties first, then the custom ones — as before', () => {
+    expect(names(pageFrom('b: 1\na: 2\nproperties:\n  visible: [created]'))).toEqual(['Created', 'b', 'a']);
+  });
+
+  it('an `order` list an earlier build wrote still shows the system properties it named, and is not a custom property', () => {
+    expect(readNames('a: 1\nproperties:\n  order: [created, a]')).toEqual(['a', 'Created']);
+  });
+});

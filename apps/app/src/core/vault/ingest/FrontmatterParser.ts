@@ -4,6 +4,7 @@ import { MarkdownAnalyzer } from './analysis';
 import { FrontmatterAnalyzer, type FrontmatterAnalysis } from './analysis';
 import { parseFlowSequence, unquoteFrontmatterString } from './frontmatter/frontmatterStringValue';
 import { matchSystemKey } from './frontmatter/ownedFrontmatterKeys';
+import { readKeyLine } from './frontmatter/frontmatterStringValue';
 import { parseCoverCredit } from './frontmatter/coverCredit';
 
 export type ParsedFrontmatter = Record<string, unknown>;
@@ -84,6 +85,8 @@ export class FrontmatterParser {
     const unownedLines: string[] = [];
     // Canonical system key → the differently-cased spelling the file uses.
     const keySpellings: Record<string, string> = {};
+    // Every top-level entry once, in file order (PageFrontmatter.entryOrder).
+    const entryOrder: string[] = [];
     let capturingUnowned = false;
     let pendingBlankLines: string[] = [];
 
@@ -120,16 +123,21 @@ export class FrontmatterParser {
       // one of Clutter's own keys.
       if (isContinuation) continue;
 
-      const sepIdx = trimmed.indexOf(':');
-      if (sepIdx === -1) continue;
+      // A quoted key (`"Project: Name": x`) is read as the name it denotes.
+      const keyLine = readKeyLine(trimmed);
+      if (keyLine === null) continue;
 
-      const rawKey = trimmed.slice(0, sepIdx).trim();
-      const value = trimmed.slice(sepIdx + 1).trim();
+      const rawKey = keyLine.key;
+      const value = trimmed.slice(keyLine.separator + 1).trim();
       // System keys are recognized case-insensitively (matchSystemKey) and
       // handled under their canonical name; the spelling the file uses is
       // recorded when it differs, so FrontmatterSerializer keeps writing it
       // until that property is actually edited (see keySpellings).
       const key = matchSystemKey(rawKey) ?? rawKey;
+
+      if (!entryOrder.includes(key)) {
+        entryOrder.push(key);
+      }
 
       if (key === rawKey) {
         if (matchSystemKey(rawKey) === null) {
@@ -282,6 +290,10 @@ export class FrontmatterParser {
 
     if (Object.keys(keySpellings).length > 0) {
       frontmatter.keySpellings = keySpellings;
+    }
+
+    if (entryOrder.length > 0) {
+      frontmatter.entryOrder = entryOrder;
     }
 
     return frontmatter;

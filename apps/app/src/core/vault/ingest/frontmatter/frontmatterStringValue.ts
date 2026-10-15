@@ -26,6 +26,60 @@ export function quoteFrontmatterString(value: string): string {
 }
 
 /**
+ * A frontmatter KEY as written: plain when a plain key reads back as itself, else double-quoted with the
+ * same escapes as quoteFrontmatterString. Keys are quoted less eagerly than values (`true`, `2026` and
+ * `Due date` stay plain, so existing output is unchanged): only for what a plain key can't carry — a `:`
+ * (the key/value separator, which `Project: Name` contains), a leading YAML indicator or quote, a leading or
+ * trailing space, or ` #` (a comment). The quotes are a spelling only: readKeyLine returns the name unquoted.
+ */
+export function quoteFrontmatterKey(key: string): string {
+  if (!/:|^[\s\-?,[\]{}#&*!|>'"%@`]|\s$|\s#/.test(key)) {
+    return key;
+  }
+
+  return `"${key.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+/**
+ * Splits a top-level `key: value` line at its key/value separator: the key unquoted (a `"double"` or
+ * `'single'` quoted key — where a `:` inside the quotes is part of the name — or a plain key up to the first
+ * `:`, as before), and the index of the separator `:`. Null when there is no separator. A line that starts
+ * with a quote but whose quoted text isn't followed by a `:` is read as a plain key.
+ */
+export function readKeyLine(line: string): { key: string; separator: number } | null {
+  const lead = line.length - line.trimStart().length;
+  const quote = line[lead];
+
+  if (quote === '"' || quote === "'") {
+    for (let index = lead + 1; index < line.length; index++) {
+      const char = line[index];
+
+      if (quote === '"' && char === '\\') {
+        index++;
+      } else if (char === quote && quote === "'" && line[index + 1] === "'") {
+        index++;
+      } else if (char === quote) {
+        let separator = index + 1;
+
+        while (line[separator] === ' ' || line[separator] === '\t') {
+          separator++;
+        }
+
+        if (line[separator] === ':') {
+          return { key: unquoteFrontmatterString(line.slice(lead, index + 1)), separator };
+        }
+
+        break;
+      }
+    }
+  }
+
+  const separator = line.indexOf(':');
+
+  return separator === -1 ? null : { key: line.slice(0, separator).trim(), separator };
+}
+
+/**
  * The string a raw frontmatter value denotes: a double-quoted value with
  * its `\\`/`\"` escapes undone, a single-quoted value with `''` undone, or
  * the plain value trimmed.

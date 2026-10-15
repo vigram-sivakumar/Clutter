@@ -60,14 +60,14 @@ describe('buildPageProperties', () => {
   it('exposes exactly Tags, Aliases, Created, Last edited, in order', () => {
     const items = buildPageProperties(makePage('note'));
     expect(items.map((i) => i.name)).toEqual(['Tags', 'Aliases', 'Created', 'Last edited']);
-    expect(items[0]).toEqual({
+    expect(items[0]).toMatchObject({
       name: 'Tags',
       type: 'tag',
       value: ['a', 'b'],
       onOpenTag: undefined,
       editable: false,
     });
-    expect(items[1]).toEqual({
+    expect(items[1]).toMatchObject({
       name: 'Aliases',
       type: 'multi-select',
       value: ['Alt'],
@@ -159,9 +159,10 @@ describe('buildPageProperties', () => {
     });
 
     const items = buildPageProperties(page);
-    expect(items.map((item) => item.name)).toEqual(['Tags', 'Aliases', 'Created', 'Last edited']);
-    expect(items[0]!.value).toEqual(['work']);
-    expect(items[1]!.value).toEqual(['UX']);
+    // In the file's own order: `ALIASES` is written before `Tags`; Created and Last edited have no entry, so they follow.
+    expect(items.map((item) => item.name)).toEqual(['Aliases', 'Tags', 'Created', 'Last edited']);
+    expect(items[0]!.value).toEqual(['UX']);
+    expect(items[1]!.value).toEqual(['work']);
     // `properties` is Clutter's own configuration: never a row of its own.
     expect(items.map((item) => item.name)).not.toContain('properties');
   });
@@ -175,7 +176,7 @@ describe('buildPageProperties', () => {
 
     it('follow the system Properties, as read-only Properties of their inferred type', () => {
       const items = buildPageProperties(custom());
-      expect(items.slice(4)).toEqual([
+      expect(items.slice(4)).toMatchObject([
         { name: 'priority', type: 'text', value: 'high', editable: false },
         { name: 'estimate', type: 'number', value: 3, editable: false },
         { name: 'people', type: 'multi-select', value: ['Ana'], editable: false },
@@ -433,7 +434,7 @@ describe('buildPageProperties', () => {
         ['a duplicate in upper case', 'PRIORITY'],
         ['a reserved system name', 'tags'],
         ['a reserved system name in another case', 'MODIFIED'],
-        ['an unreadable key', 'a: b'],
+        ['a key with a line break', 'a\nb'],
       ])('%s is rejected, with no commit', (_label, name) => {
         const actions = drafts([{ id: 1, type: 'text' as never }]);
         const draft = buildPageProperties(customPage(), { drafts: actions })[5]!;
@@ -493,8 +494,8 @@ describe('buildPageProperties', () => {
 
   it('exposes Created/Last edited as read-only date Properties carrying the raw timestamp', () => {
     const items = buildPageProperties(makePage('note', { createdAt: null }));
-    expect(items[2]).toEqual({ name: 'Created', type: 'date', value: null, editable: false });
-    expect(items[3]).toEqual({
+    expect(items[2]).toMatchObject({ name: 'Created', type: 'date', value: null, editable: false });
+    expect(items[3]).toMatchObject({
       name: 'Last edited',
       type: 'date',
       value: 'not-a-date',

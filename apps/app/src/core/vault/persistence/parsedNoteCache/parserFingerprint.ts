@@ -6,7 +6,9 @@
  * Bump `PARSER_VERSION` whenever a change in this repository can alter what
  * `FrontmatterParser.parse` returns for some text. History: 1 = initial cache;
  * 2 = `coverCredit` (ADR-054) became an owned frontmatter key, so a note with
- * that line now parses to `frontmatter.coverCredit` instead of an unowned line. The golden-corpus test
+ * that line now parses to `frontmatter.coverCredit` instead of an unowned line;
+ * 3 = the parser records the physical order of the frontmatter's entries (`frontmatter.entryOrder`, ADR-036), and a
+ * quoted key (`"Project: Name": x`) is read as the name it denotes. The golden-corpus test
  * (`parserGolden.test.ts`) fails if the output changes without a bump.
  *
  * The dependency versions — the resolved versions of the packages the
@@ -15,7 +17,7 @@
  * version number did not change; that is managed by lockfile-controlled
  * installs, the golden-corpus test and `PARSER_VERSION`.
  */
-export const PARSER_VERSION = 2;
+export const PARSER_VERSION = 3;
 
 declare const __PARSE_DEPENDENCY_VERSIONS__: Record<string, string> | undefined;
 
