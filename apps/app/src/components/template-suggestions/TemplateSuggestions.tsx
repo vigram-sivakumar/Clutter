@@ -15,6 +15,11 @@ export interface TemplateSuggestionsProp {
    * picker to it. It only asks to open the picker; it never creates anything.
    */
   onOverflowClick: (anchor: HTMLElement) => void;
+  /**
+   * Called when "+ New template" is clicked. That entry takes the place of the templates only while there
+   * are none, so the row stays useful before the first template exists; it is never shown alongside templates.
+   */
+  onNewTemplate?: () => void;
 }
 
 /**
@@ -29,6 +34,7 @@ export function TemplateSuggestions({
   templates,
   onSelect,
   onOverflowClick,
+  onNewTemplate,
 }: TemplateSuggestionsProp) {
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -136,6 +142,15 @@ export function TemplateSuggestions({
               <span className="truncate">{template.values.name}</span>
             </Entry>
           ))}
+          {templates.length === 0 && onNewTemplate && (
+            <Entry
+              className="template-suggestions__item template-suggestions__item--overflow"
+              data-suggestion="new-template"
+              onClick={onNewTemplate}
+            >
+              + New template
+            </Entry>
+          )}
           {overflowCount > 0 && (
             <Entry
               className="template-suggestions__item template-suggestions__item--overflow"

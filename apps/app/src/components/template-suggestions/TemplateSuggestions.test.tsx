@@ -34,6 +34,37 @@ const NO_OVERFLOW_CLICK = vi.fn();
 afterEach(cleanup);
 
 describe('TemplateSuggestions', () => {
+  it('with no templates, shows "+ New template" (and the title) and calls onNewTemplate', () => {
+    const onNewTemplate = vi.fn();
+    render(
+      <TemplateSuggestions
+        templates={[]}
+        onSelect={vi.fn()}
+        onOverflowClick={NO_OVERFLOW_CLICK}
+        onNewTemplate={onNewTemplate}
+      />
+    );
+
+    expect(screen.getByText('Start with template')).toBeTruthy();
+    fireEvent.click(screen.getByText('+ New template'));
+
+    expect(onNewTemplate).toHaveBeenCalledTimes(1);
+    expect(NO_OVERFLOW_CLICK).not.toHaveBeenCalled();
+  });
+
+  it('with templates, never shows "+ New template"', () => {
+    render(
+      <TemplateSuggestions
+        templates={[template('a', 'Meeting')]}
+        onSelect={vi.fn()}
+        onOverflowClick={NO_OVERFLOW_CLICK}
+        onNewTemplate={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByText('+ New template')).toBeNull();
+  });
+
   it('renders one entry per template with its title', () => {
     render(
       <TemplateSuggestions

@@ -215,6 +215,67 @@ describe('TemplateSuggestions visibility follows the body, not the metadata', ()
   });
 });
 
+describe('with no templates', () => {
+  it('an empty note still shows the suggestions, with "+ New template"', async () => {
+    await setup({}, 0);
+
+    expect(suggestionsShown()).toBe(true);
+    expect(screen.getByText('+ New template')).toBeInTheDocument();
+  });
+
+  it('a note with content shows neither', async () => {
+    const { application, noteId } = await setup({}, 0);
+
+    act(() => application.pageOperations.commitEdit(noteId, 'hello'));
+    await flush();
+
+    expect(suggestionsShown()).toBe(false);
+    expect(screen.queryByText('+ New template')).toBeNull();
+  });
+
+  it('"+ New template" opens a draft in Templates and keeps the persisted empty note', async () => {
+    const { application, noteId } = await setup({ cover: 'https://example.com/c.jpg' }, 0);
+
+    fireEvent.click(screen.getByText('+ New template'));
+    await flush();
+
+    const templatesFolder = application.vault.getReservedFolder('templates')!;
+    const active = application.workspace.activePageId!;
+    expect(active).not.toBe(noteId);
+    expect(application.pageOperations.getSession(active)).toBeDefined();
+    expect(application.membershipSelector.isInTemplatesFolder(templatesFolder.id)).toBe(true);
+    // The note the user left keeps its metadata: it is not discarded by starting a template.
+    expect(application.vault.getPage(noteId)?.metadata.cover).toBe('https://example.com/c.jpg');
+  });
+
+  it('a template created from there shows up in the suggestions on an empty note', async () => {
+    const { application, noteId } = await setup({}, 0);
+
+    fireEvent.click(screen.getByText('+ New template'));
+    await flush();
+    const draft = application.workspace.activePageId!;
+    await application.pageOperations.mutateBody(draft, () => '# Agenda');
+    await application.pageOperations.requestSave(draft);
+    await application.pageOperations.open(noteId);
+    await flush();
+
+    expect(screen.queryByText('+ New template')).toBeNull();
+    expect(document.querySelectorAll('.template-suggestions__item').length).toBeGreaterThan(0);
+  });
+
+  it('a note inside Templates gets no suggestions', async () => {
+    const { application } = await setup({}, 1);
+    const template = [...application.vault.pages()].find((page) =>
+      application.membershipSelector.isInTemplatesFolder(page.parentId)
+    )!;
+
+    await application.pageOperations.open(template.id);
+    await flush();
+
+    expect(suggestionsShown()).toBe(false);
+  });
+});
+
 describe('applying a template through the picker (+N more)', () => {
   beforeEach(() => {
     // No layout in jsdom: every measured element is 100px wide and the row 150px, so one template and "+N more" show.

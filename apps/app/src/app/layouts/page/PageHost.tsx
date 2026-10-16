@@ -1469,10 +1469,6 @@ export function PageHost({
       toTemplateEntries(vault, application.membershipSelector, () => undefined)
     );
 
-    if (templates.length === 0) {
-      return undefined;
-    }
-
     const applyTemplate = (templatePageId: string): void => {
       const template = application.effectivePageState.getPage(templatePageId);
 
