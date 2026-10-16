@@ -19,6 +19,16 @@
         } catch (e) {}
       })();
     </script>
+    <!-- First-paint background: the stylesheet (and its --surface-root token)
+         isn't loaded yet. Values mirror --surface-root in design-system/theme.css. -->
+    <style>
+      html[data-theme='dark'] {
+        background: #1f1f1f;
+      }
+      html[data-theme='light'] {
+        background: #f9f8f7;
+      }
+    </style>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

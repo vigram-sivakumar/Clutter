@@ -13,6 +13,7 @@ import {
 import { WelcomeScreen } from '../components/welcome-screen/WelcomeScreen';
 
 import { AppLayout } from './layouts/app-layout/AppLayout';
+import { useFrontendReady } from './frontendReady';
 
 // Outside Tauri (npm run dev:web), this is just a namespace string for an
 // in-memory vault (Application.bootstrap() picks InMemoryVaultFileSystem
@@ -37,6 +38,11 @@ function ConfiguredShell() {
   const [vaultPath, setVaultPath] = useState<string | null | undefined>(
     undefined
   );
+
+  // The window starts hidden; show it once the screen is decided (welcome or
+  // workspace) and rendered — not while still waiting on Rust, and not for
+  // the workspace's own vault bootstrap, which WorkspaceShell handles itself.
+  useFrontendReady(vaultPath !== undefined);
 
   useEffect(() => {
     invoke<string | null>('get_configured_space')
