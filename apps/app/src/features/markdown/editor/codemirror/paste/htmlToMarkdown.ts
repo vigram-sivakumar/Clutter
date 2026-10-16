@@ -35,7 +35,7 @@ export function hasRichHtml(html: string): boolean {
 }
 
 function escapeText(text: string): string {
-  return text.replace(/[\\*_`[\]]/g, '\\$&');
+  return text.replace(/[\\*_`[\]<]/g, '\\$&');
 }
 
 /** A line that would start a block when it is only text: its first character is escaped. */
@@ -48,6 +48,8 @@ interface Context {
   readonly pieces: HtmlPiece[];
   /** Markdown blocks collected since the last image. */
   blocks: string[];
+  /** Inside a list item or quote an image can't split the surrounding Markdown: it is set aside here and emitted right after that block. */
+  readonly deferred?: HtmlPiece[];
 }
 
 function flush(context: Context): void {
@@ -79,10 +81,15 @@ function inline(node: Node, context: Context, buffer: { text: string }): void {
   }
 
   if (tag === 'IMG') {
+    const image: HtmlPiece = { kind: 'image', src: element.getAttribute('src') ?? '', alt: element.getAttribute('alt') ?? '' };
+    if (context.deferred) {
+      context.deferred.push(image);
+      return;
+    }
     // Text so far becomes its own block, the image is its own piece, text after it starts a new block.
     commitBuffer(context, buffer);
     flush(context);
-    context.pieces.push({ kind: 'image', src: element.getAttribute('src') ?? '', alt: element.getAttribute('alt') ?? '' });
+    context.pieces.push(image);
     return;
   }
 
@@ -123,7 +130,7 @@ function inline(node: Node, context: Context, buffer: { text: string }): void {
       for (const child of Array.from(element.childNodes)) {
         inline(child, context, inner);
       }
-      buffer.text += SAFE_LINK.test(href.trim()) && inner.text.trim() !== '' ? `[${inner.text.trim()}](${href.trim().replace(/[()\s]/g, encodeURIComponent)})` : inner.text;
+      buffer.text += SAFE_LINK.test(href.trim()) && inner.text.trim() !== '' ? `[${inner.text.trim()}](${href.trim().replace(/[()\s]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')}`)})` : inner.text;
       return;
     }
     default:
@@ -148,6 +155,7 @@ function commitBuffer(context: Context, buffer: { text: string }): void {
 }
 
 function listItems(list: Element, context: Context, depth: number): string {
+  // `context` carries the `deferred` images of the whole list (see `block`).
   const ordered = list.tagName.toUpperCase() === 'OL';
   let index = Number.parseInt(list.getAttribute('start') ?? '1', 10) || 1;
   const lines: string[] = [];
@@ -167,7 +175,7 @@ function listItems(list: Element, context: Context, depth: number): string {
       if (child.nodeType === Node.ELEMENT_NODE && /^(?:UL|OL)$/i.test((child as Element).tagName)) {
         nested.push(listItems(child as Element, context, depth + 1));
       } else {
-        inline(child, { pieces: [], blocks: [] }, own);
+        inline(child, context, own);
       }
     }
 
@@ -210,9 +218,15 @@ function block(node: Node, context: Context, buffer: { text: string }): void {
   switch (tag) {
     case 'UL':
     case 'OL': {
-      const text = listItems(element, context, 0);
+      const deferred: HtmlPiece[] = [];
+      const text = listItems(element, { pieces: [], blocks: [], deferred }, 0);
       if (text !== '') {
         context.blocks.push(text);
+      }
+      // Images inside list items go right after the list.
+      for (const image of deferred) {
+        flush(context);
+        context.pieces.push(image);
       }
       return;
     }
@@ -228,7 +242,7 @@ function block(node: Node, context: Context, buffer: { text: string }): void {
       context.blocks.push('---');
       return;
     case 'BLOCKQUOTE': {
-      const inner: Context = { pieces: [], blocks: [] };
+      const inner: Context = { pieces: [], blocks: [], deferred: [] };
       const innerBuffer = { text: '' };
       for (const child of Array.from(element.childNodes)) {
         block(child, inner, innerBuffer);
@@ -239,7 +253,7 @@ function block(node: Node, context: Context, buffer: { text: string }): void {
       if (text !== '') {
         context.blocks.push(text.split('\n').map((line) => (line === '' ? '>' : `> ${line}`)).join('\n'));
       }
-      for (const piece of inner.pieces) {
+      for (const piece of inner.deferred ?? []) {
         flush(context);
         context.pieces.push(piece);
       }

@@ -78,6 +78,18 @@ describe('htmlToPieces', () => {
     ]);
   });
 
+  it('an image inside a list item keeps the item text and comes right after the list', () => {
+    expect(md('<ul><li>a <img src="https://x/y.png"> b</li><li>c</li></ul><p>after</p>')).toEqual(['- a b\n- c', '<img https://x/y.png>', 'after']);
+  });
+
+  it('an image inside a quote keeps the whole quote together and comes right after it', () => {
+    expect(md('<blockquote><p>q1</p><img src="https://x/y.png"><p>q2</p></blockquote><p>z</p>')).toEqual(['> q1\n>\n> q2', '<img https://x/y.png>', 'z']);
+  });
+
+  it('literal angle brackets stay text, and link addresses with parentheses or spaces stay one link', () => {
+    expect(md('<p>&lt;b&gt;x</p><p><a href="https://x.com/(a b)">l</a></p>')).toEqual(['\\<b>x\n\n[l](https://x.com/%28a%20b%29)']);
+  });
+
   it('drops scripts, handlers and unsafe links, keeping the link text', () => {
     expect(md('<p onclick="x()">hi <a href="javascript:alert(1)">there</a><script>alert(1)</script></p>')).toEqual(['hi there']);
   });
