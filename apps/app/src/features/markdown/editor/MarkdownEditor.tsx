@@ -88,6 +88,9 @@ import type {
   MarkdownEditorProps,
 } from './MarkdownEditor.types';
 
+/** A first line that is already a thematic break (`---`, `***`, `___`, spaced or longer). */
+const STARTS_WITH_RULE = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
+
 export type {
   MarkdownEditorHandle,
   MarkdownEditorProps,
@@ -1446,6 +1449,19 @@ export const MarkdownEditor = forwardRef<
         scrollIntoView: true,
       });
       view.focus();
+    },
+    insertSeparatorAtStart() {
+      const view = viewRef.current;
+      if (!view || readOnly || STARTS_WITH_RULE.test(view.state.doc.line(1).text)) {
+        return;
+      }
+      const changes = view.state.changes({ from: 0, insert: '---\n' });
+      view.dispatch({
+        changes,
+        // Mapped to the right so a caret at the start stays with its text, below the new rule.
+        selection: view.state.selection.map(changes, 1),
+        userEvent: 'input',
+      });
     },
     focusAtPoint(clientX, clientY) {
       const view = viewRef.current;

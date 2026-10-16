@@ -389,6 +389,12 @@ export interface MarkdownEditorHandle {
    */
   focusAtNewLineAtStart(): void;
   /**
+   * Inserts a literal Markdown horizontal rule (`---` plus a newline) at the very start of the body — an
+   * ordinary undoable edit, reported through `onEdit` — unless the body already begins with a rule, so
+   * calling it twice never stacks two. The caret stays with the text it was in; focus is not touched.
+   */
+  insertSeparatorAtStart(): void;
+  /**
    * Focuses the editor with the caret at the document position nearest the
    * given viewport point (clamped: below the last line is the end of the
    * document, left/right of a line is its start/end). Used for a click on

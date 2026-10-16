@@ -2441,13 +2441,23 @@ export function PageHost({
           }
 
           propertyDrafts.name(id, name);
+          const isFirstProperty = !sectionState.hasProperties;
           void application.pageOperations
             .addCustomProperty(target.id, name, emptyCustomProperty(draft.type))
+            .then(() => separateFirstProperty(isFirstProperty))
             .finally(() => propertyDrafts.remove(id));
         },
         onAbandon: propertyDrafts.remove,
       },
     });
+    // Once, after the note's FIRST property was actually written (never on opening the menu, never when
+    // it is cancelled or fails): a literal `---` rule at the top of the body, separating it from the
+    // properties. Later properties don't add one, and a user who deletes it keeps it deleted.
+    const separateFirstProperty = (isFirstProperty: boolean): void => {
+      if (isFirstProperty) {
+        editorRef.current?.insertSeparatorAtStart();
+      }
+    };
     // The Properties section — see derivePropertiesSectionState, the one place
     // its state (displayed, add button, title control) is derived.
     const sectionState = derivePropertiesSectionState({
@@ -2487,11 +2497,13 @@ export function PageHost({
         // either written the property or begun a draft, which keep the section).
         autoOpen={startingPropertyPageId === target.id}
         onDismiss={() => setStartingPropertyPageId(null)}
-        onAddSystemProperty={(key) =>
+        onAddSystemProperty={(key) => {
+          const isFirstProperty = !sectionState.hasProperties;
           void application.pageOperations
             .addSystemProperty(target.id, key)
-            .finally(() => setStartingPropertyPageId(null))
-        }
+            .then(() => separateFirstProperty(isFirstProperty))
+            .finally(() => setStartingPropertyPageId(null));
+        }}
         onAddCustomProperty={(type) => {
           propertyDrafts.add(type);
           setStartingPropertyPageId(null);
