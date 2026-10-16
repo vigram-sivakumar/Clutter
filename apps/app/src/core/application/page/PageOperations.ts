@@ -1770,7 +1770,8 @@ export class PageOperations {
    */
   private async materializeDraftWithProperties(
     pageId: string,
-    change: (state: PropertyFrontmatter) => PropertyFrontmatter | null
+    change: (state: PropertyFrontmatter) => PropertyFrontmatter | null,
+    declareDates = true
   ): Promise<void> {
     const descriptor = this.draftFor(pageId);
 
@@ -1786,7 +1787,7 @@ export class PageOperations {
 
     const body = this.documentRegistry.get(pageId)?.currentRevision.markdown ?? '';
 
-    await this.persistDraft(pageId, descriptor, body, undefined, next.lines);
+    await this.persistDraft(pageId, descriptor, body, undefined, next.lines, declareDates);
   }
 
   /**
@@ -1923,10 +1924,11 @@ export class PageOperations {
       throw new Error(`"${key}" is not a system property that can be added.`);
     }
 
-    // A draft has no entry order yet to declare the key in: persist it first (it is written with its
-    // `created` / `modified`), then declare the property against the file's own order.
+    // A draft has no entry order yet to declare the key in: persist it first — without the default
+    // `created` / `modified`, so listing one property lists only that one — then declare the property
+    // against the file's own order.
     if (!this.vault.getPage(pageId) && this.draftFor(pageId)) {
-      await this.materializeDraftWithProperties(pageId, () => ({ lines: [] }));
+      await this.materializeDraftWithProperties(pageId, () => ({ lines: [] }), false);
     }
 
     await this.saveFrontmatterState(pageId, (state) => addSystemPropertyLines(state, key));
@@ -2345,7 +2347,9 @@ export class PageOperations {
     body: string,
     metadataPatch?: Partial<EditablePageMetadata>,
     /** Raw frontmatter lines of custom properties, for a draft whose first change is a property — written in the same create. */
-    unownedLines?: readonly string[]
+    unownedLines?: readonly string[],
+    /** False writes neither `created` nor `modified`: the draft is promoted by listing one system property, which declares only itself. */
+    declareDates = true
   ): Promise<Page> {
     const destination = descriptor.deterministicPath
       ? {
@@ -2372,10 +2376,11 @@ export class PageOperations {
       id,
       descriptor.type,
       body,
-      effectivePatch || unownedLines
+      effectivePatch || unownedLines || !declareDates
         ? {
             ...(effectivePatch ? this.toFrontmatterMetadataPatch(effectivePatch) : {}),
             ...(unownedLines && { unownedLines }),
+            ...(!declareDates && { created: undefined, modified: undefined }),
           }
         : undefined
     );

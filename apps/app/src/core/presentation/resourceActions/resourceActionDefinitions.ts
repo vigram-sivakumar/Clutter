@@ -283,8 +283,9 @@ export const RESOURCE_ACTIONS: Readonly<Record<ResourceKind, readonly ResourceAc
     RESTORE,
     DELETE,
   ],
-  // A Daily Note's title is its date: no rename, icon, favorite, duplicate or move.
-  'daily-note': [CREATE_TEMPLATE, TOGGLE_REFERENCES, revealInFinder(), copyPath('page'), ARCHIVE, RESTORE, DELETE],
+  // A Daily Note's title is its date: no rename, favorite, duplicate or move. It can carry an emoji
+  // (the same frontmatter `icon` a Note's does).
+  'daily-note': [CHANGE_ICON, CREATE_TEMPLATE, TOGGLE_REFERENCES, revealInFinder(), copyPath('page'), ARCHIVE, RESTORE, DELETE],
   // Folders are never duplicable or templates. Sort by is a sidebar view preference (the topbar
   // surface profile omits it).
   folder: [

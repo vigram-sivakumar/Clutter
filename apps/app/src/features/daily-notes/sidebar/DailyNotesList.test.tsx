@@ -735,6 +735,7 @@ describe('DailyNotesList — virtual Today entry (Today is always represented)',
       onOpenMenu: vi.fn(),
       onCloseMenu: vi.fn(),
       onArchiveNote: vi.fn(),
+      onChangeNoteIcon: vi.fn(),
       onCreateTemplate: vi.fn(),
       onRevealPageInFinder: vi.fn(),
       onCopyPagePath: vi.fn(),
@@ -830,6 +831,7 @@ describe('DailyNotesList — location actions (Reveal in Finder / Copy path)', (
       onOpenMenu: vi.fn(),
       onCloseMenu: vi.fn(),
       onArchiveNote: vi.fn(),
+      onChangeNoteIcon: vi.fn(),
       onCreateTemplate: vi.fn(),
       onRevealPageInFinder: vi.fn(),
       onCopyPagePath: vi.fn(),
@@ -880,6 +882,83 @@ describe('DailyNotesList — location actions (Reveal in Finder / Copy path)', (
     renderList({ vault, query, membershipSelector, workspace, rowActions });
 
     expect(screen.queryByText('Reveal in Finder')).not.toBeInTheDocument();
+  });
+});
+
+describe('DailyNotesList — emoji', () => {
+  function setupDailyNote(icon: string | null) {
+    const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
+    const year = makeFolder('year', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root');
+    const month = makeMonthFolder('month', TODAY, 'year');
+    const date = dayInMonth(TODAY, 3) === TODAY ? dayInMonth(TODAY, 4) : dayInMonth(TODAY, 3);
+    const base = makeDailyNote('daily-1', date, 'month');
+    const note: Page = { ...base, metadata: { ...base.metadata, icon } };
+
+    return { ...setup([note], [dailyNotesRoot, year, month]), note };
+  }
+
+  function rowOf(container: HTMLElement, note: Page) {
+    return Array.from(container.querySelectorAll('.entry')).find((row) =>
+      row.textContent?.includes(String(Number(note.name.slice(8))))
+    )!;
+  }
+
+  it('a Daily Note with an emoji shows it in the row\'s trailing metadata slot', () => {
+    const { vault, query, membershipSelector, workspace, note } = setupDailyNote('🍄');
+
+    const { container } = renderList({ vault, query, membershipSelector, workspace });
+
+    const row = rowOf(container, note);
+    expect(row.querySelector('.entry__meta')).toHaveTextContent('🍄');
+    expect(row).toHaveClass('entry-hide-trailing-on-hover');
+  });
+
+  it('a Daily Note without an emoji keeps its current appearance (no trailing metadata)', () => {
+    const { vault, query, membershipSelector, workspace, note } = setupDailyNote(null);
+
+    const { container } = renderList({ vault, query, membershipSelector, workspace });
+
+    expect(rowOf(container, note).querySelector('.entry__meta')).toBeNull();
+  });
+
+  it('its overflow menu exposes Change icon, and picking an emoji reports it for that page', () => {
+    const { vault, query, membershipSelector, workspace, note } = setupDailyNote(null);
+    const rowActions = {
+      openMenuId: note.id,
+      onOpenMenu: vi.fn(),
+      onCloseMenu: vi.fn(),
+      onArchiveNote: vi.fn(),
+      onChangeNoteIcon: vi.fn(),
+      onCreateTemplate: vi.fn(),
+      onRevealPageInFinder: vi.fn(),
+      onCopyPagePath: vi.fn(),
+    };
+
+    renderList({ vault, query, membershipSelector, workspace, rowActions });
+    fireEvent.click(screen.getByText('Change icon'));
+    fireEvent.click(screen.getByRole('button', { name: 'grinning face' }));
+
+    expect(rowActions.onChangeNoteIcon).toHaveBeenCalledWith(note.id, '😀');
+  });
+
+  it('removing the emoji reports null for that page', () => {
+    const { vault, query, membershipSelector, workspace, note } = setupDailyNote('🍄');
+    const rowActions = {
+      openMenuId: note.id,
+      onOpenMenu: vi.fn(),
+      onCloseMenu: vi.fn(),
+      onArchiveNote: vi.fn(),
+      onChangeNoteIcon: vi.fn(),
+      onCreateTemplate: vi.fn(),
+      onRevealPageInFinder: vi.fn(),
+      onCopyPagePath: vi.fn(),
+    };
+
+    renderList({ vault, query, membershipSelector, workspace, rowActions });
+    fireEvent.click(screen.getByText('Change icon'));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove icon' }));
+
+    expect(rowActions.onChangeNoteIcon).toHaveBeenCalledWith(note.id, null);
   });
 });
 

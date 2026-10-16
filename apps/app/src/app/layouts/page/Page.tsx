@@ -89,7 +89,7 @@ type PageProps = {
   emoji?: string;
   icon?: SystemIcon;
   showMoreActions?: boolean;
-  /** Forwarded to PageTitleSection's own More-actions menu — see PageHeaderControls' doc comments. Presence gates the Emoji/Cover image menu items (undefined omits the corresponding item entirely, e.g. a Daily Note never gets onSelectEmoji). */
+  /** Forwarded to PageTitleSection's own More-actions menu — see PageHeaderControls' doc comments. Presence gates the Emoji/Cover image menu items (undefined omits the corresponding item entirely, e.g. an archived page gets none). */
   onSelectEmoji?(emoji: string): void;
   onRemoveEmoji?(): void;
   onSetCoverImage?(url: string, credit?: CoverCredit | null): void;

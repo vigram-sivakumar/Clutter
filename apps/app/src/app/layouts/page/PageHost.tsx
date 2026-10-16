@@ -2674,11 +2674,9 @@ export function PageHost({
             {draftTopBar.actions}
           </>
         }
-        // Same user-owned-vs-Daily-Note gating as the persisted branch
-        // below (page.type === 'note' there, draft.type === 'note' here)
-        // — a fresh Daily Note draft never offers an emoji control either.
-        onSelectEmoji={draft.type === 'note' ? onSelectEmoji : undefined}
-        onRemoveEmoji={draft.type === 'note' ? onRemoveEmoji : undefined}
+        // A Note and a Daily Note both carry an emoji (frontmatter `icon`).
+        onSelectEmoji={onSelectEmoji}
+        onRemoveEmoji={onRemoveEmoji}
         belowDescription={
           draft.type === 'daily-note' && draft.title ? (
             <DailyNoteNavControls
@@ -2946,21 +2944,14 @@ export function PageHost({
             {topBar.actions}
           </>
         }
-        // Page-header-controls configuration: a Note is user-owned (its
-        // metadata.icon, when set, always shows; More actions is
-        // hover-revealed). A Daily Note shows neither emoji nor icon — its
-        // title is already its calendar identity — but keeps More actions
-        // on hover, same as a Note (isRenameable above draws the same
-        // note-vs-daily-note line for the title's own editability).
-        emoji={
-          page.type === 'note' ? (page.metadata.icon ?? undefined) : undefined
-        }
-        onSelectEmoji={
-          page.type === 'note' && !isPageArchived ? onSelectEmoji : undefined
-        }
-        onRemoveEmoji={
-          page.type === 'note' && !isPageArchived ? onRemoveEmoji : undefined
-        }
+        // Page-header-controls configuration: a Note and a Daily Note are
+        // both user-owned for their emoji (metadata.icon, when set, always
+        // shows; More actions is hover-revealed). A Daily Note's title is
+        // still its date (isRenameable above draws that line), but nothing
+        // about it stops it carrying an emoji.
+        emoji={page.metadata.icon ?? undefined}
+        onSelectEmoji={!isPageArchived ? onSelectEmoji : undefined}
+        onRemoveEmoji={!isPageArchived ? onRemoveEmoji : undefined}
         belowDescription={
           page.type === 'daily-note' && !isPageArchived ? (
             <DailyNoteNavControls

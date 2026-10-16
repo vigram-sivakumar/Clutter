@@ -88,6 +88,8 @@ export interface DailyNoteRowActions {
    * renders an archived Daily Note), so there is no dispatch target for it.
    */
   onArchiveNote(pageId: string): void;
+  /** Sets (or, with `null`, clears) the Daily Note's emoji — the same `icon` metadata write a Note's uses. */
+  onChangeNoteIcon(pageId: string, emoji: string | null): void;
   /** Opens the Create template dialog for this Daily Note — a generic-named copy as a new Template; the note itself is untouched. */
   onCreateTemplate(pageId: string): void;
   /**
@@ -476,6 +478,7 @@ export const DailyNotesList = forwardRef<
             resolveEmbed={resolveEmbed}
             date={entry.name}
             isToday={isToday(entry.name)}
+            emoji={entry.icon}
             selected={workspace.activePageId === entry.id}
             onClick={() => {
               if (entry.isVirtual) {
@@ -500,6 +503,11 @@ export const DailyNotesList = forwardRef<
                     open
                       ? rowActions.onOpenMenu(entry.id)
                       : rowActions.onCloseMenu()
+                : undefined
+            }
+            onChangeIcon={
+              rowActions && !entry.isVirtual && !entry.isDraft
+                ? (emoji) => rowActions.onChangeNoteIcon(entry.id, emoji)
                 : undefined
             }
             onMenuSelect={

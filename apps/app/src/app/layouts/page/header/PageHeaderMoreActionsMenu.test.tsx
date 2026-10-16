@@ -76,7 +76,7 @@ describe('PageHeaderMoreActionsMenu — root view', () => {
     expect(screen.getByText('Description')).toBeInTheDocument();
   });
 
-  it('omits Emoji entirely when onSelectEmoji is not supplied (e.g. a Daily Note)', () => {
+  it('omits Emoji entirely when onSelectEmoji is not supplied (e.g. an archived page)', () => {
     renderMenu({ onSelectEmoji: undefined });
 
     expect(screen.queryByText('Change icon')).not.toBeInTheDocument();

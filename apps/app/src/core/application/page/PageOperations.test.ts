@@ -3522,9 +3522,38 @@ describe('PageOperations: custom properties on a draft', () => {
     await pageOperations.addSystemProperty(id, 'tags');
 
     const saved = vault.getPage(id)!.metadata;
-    // The promoted note is written declaring Created and Last edited (`created: true`, `modified: true`), and Tags on top.
-    expect(readListedSystemProperties(saved.frontmatterEntryOrder)).toEqual(['tags', 'created', 'modified']);
+    // Only the property that was added is declared — not Created / Last edited as well.
+    expect(readListedSystemProperties(saved.frontmatterEntryOrder)).toEqual(['tags']);
     expect(pageOperations.getDraft(id)).toBeUndefined();
+  });
+
+  it.each([
+    ['created', ['created']],
+    ['modified', ['modified']],
+  ] as const)('adding %s to a draft declares only %s, never the other date', async (key, expected) => {
+    const { vault, fileSystem, pageOperations } = setupEmpty();
+    const id = await pageOperations.openDraft({ folderId: null });
+
+    await pageOperations.addSystemProperty(id, key);
+
+    const page = vault.getPage(id)!;
+    expect(readListedSystemProperties(page.metadata.frontmatterEntryOrder)).toEqual(expected);
+    const content = await fileSystem.readFile(page.path);
+    expect(content).toMatch(new RegExp(`^${key}: true$`, 'm'));
+    expect(content).not.toMatch(key === 'created' ? /^modified:/m : /^created:/m);
+  });
+
+  it('adding both dates explicitly declares both', async () => {
+    const { vault, pageOperations } = setupEmpty();
+    const id = await pageOperations.openDraft({ folderId: null });
+
+    await pageOperations.addSystemProperty(id, 'created');
+    await pageOperations.addSystemProperty(id, 'modified');
+
+    expect(readListedSystemProperties(vault.getPage(id)!.metadata.frontmatterEntryOrder)).toEqual([
+      'created',
+      'modified',
+    ]);
   });
 
   it('keeps what the draft already had — its title and its body', async () => {

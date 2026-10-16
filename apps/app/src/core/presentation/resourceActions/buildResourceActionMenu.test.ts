@@ -175,8 +175,9 @@ describe('availability', () => {
 });
 
 describe('daily note', () => {
-  it('offers only Save as template, location and lifecycle actions on the sidebar', () => {
+  it('offers Change icon, Save as template, location and lifecycle actions on the sidebar', () => {
     expect(ids(buildResourceActionMenu('daily-note', { status: 'active' }, 'sidebar'))).toEqual([
+      'change-icon',
       'create-template',
       'reveal-in-finder',
       'copy-path',
@@ -184,11 +185,11 @@ describe('daily note', () => {
     ]);
   });
 
-  it('its menus never contain rename, icon, favorite, duplicate, move or template actions', () => {
+  it('its menus never contain rename, favorite, duplicate or move actions', () => {
     for (const surface of ['sidebar', 'favorites', 'topbar'] as const) {
       for (const context of [{ status: 'active' }, { status: 'archived', isDeletable: true }] as const) {
         const menu = ids(buildResourceActionMenu('daily-note', context, surface));
-        for (const absent of ['rename', 'change-icon', 'toggle-favorite', 'duplicate', 'move-to']) {
+        for (const absent of ['rename', 'toggle-favorite', 'duplicate', 'move-to']) {
           expect(menu).not.toContain(absent);
         }
       }

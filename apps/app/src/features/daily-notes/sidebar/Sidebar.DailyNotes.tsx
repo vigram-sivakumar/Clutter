@@ -82,6 +82,8 @@ export function DailyNotes({
     onCloseMenu: () => setOpenMenuId(null),
 
     onArchiveNote: (pageId) => void pageOperations.archive(pageId),
+    onChangeNoteIcon: (pageId, emoji) =>
+      void pageOperations.updateMetadata(pageId, { icon: emoji }),
     onCreateTemplate: (pageId) => requestCreateTemplate?.(pageId),
 
     // Same location-actions pipeline Sidebar.Notes.tsx's onRevealPageInFinder/

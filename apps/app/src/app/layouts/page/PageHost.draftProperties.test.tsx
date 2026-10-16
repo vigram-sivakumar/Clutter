@@ -153,10 +153,10 @@ describe('Properties on a draft', () => {
     expect(pageExists()).toBe(true);
     expect(application.pageOperations.getDraft(id)).toBeUndefined();
     const page = application.vault.getPage(id)!;
-    // Tags was declared by the choice; the saved page also carries the `created` / `modified` it is written with.
+    // Only Tags was declared by the choice — not Created / Last edited as well.
     expect(
       readListedSystemProperties(page.metadata.frontmatterEntryOrder)
-    ).toEqual(['tags', 'created', 'modified']);
+    ).toEqual(['tags']);
     // Ordinary saved page now: the section is on screen, and the title no longer offers Properties.
     expect(document.querySelector('.property-list')).not.toBeNull();
     fireEvent.click(titleMenuButton());

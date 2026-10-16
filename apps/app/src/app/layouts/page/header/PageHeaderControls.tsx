@@ -34,8 +34,8 @@ export interface PageHeaderControlsProps {
    * Persists a newly-picked emoji (FolderOperations.updateMetadata /
    * PageOperations.updateMetadata, both already the one existing write
    * path — see PageHeaderMoreActionsMenu's own doc comment). Presence
-   * gates the entire emoji capability: `undefined` for a Daily Note,
-   * which never offers one, matching the same "handler presence decides
+   * gates the entire emoji capability: `undefined` for a page that
+   * cannot change one (an archived page, a system folder), matching the same "handler presence decides
    * whether the affordance exists" convention `onSetCoverImage` below
    * already uses.
    */

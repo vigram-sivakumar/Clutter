@@ -51,6 +51,10 @@ export class PageCreator {
         | 'tags'
         | 'aliases'
         | 'unownedLines'
+        // Passed as `undefined` to omit the default declaration (ADR-058) — a draft promoted by
+        // listing one system property declares only that property, not both dates too.
+        | 'created'
+        | 'modified'
       >
     >
   ): string {
