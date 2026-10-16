@@ -59,7 +59,7 @@ import { isClutterInternalPath } from '../vault/initialize/ReservedResources';
 import { findCoverCredit } from './page/coverCredit';
 import { isUnsplashImageUrl } from '../integrations/unsplash/unsplashAttribution';
 import { trackPhotoDownload } from '../integrations/unsplash/UnsplashApi';
-import { importAsset } from '../vault/asset/importAsset';
+import { importAsset, importAssetBytes, pastedAssetFileName } from '../vault/asset/importAsset';
 import type { Page } from '../vault/models/Page';
 import type { CoverCredit } from '../vault/models/PageMetadata';
 import { findRemoteImageDisplayName } from './asset/remoteImageDisplayName';
@@ -830,6 +830,23 @@ export class Application {
     }
 
     const reference = await importAsset(this.fileSystem, this.rootPath, sourceAbsolutePath, destinationFolderPath);
+
+    await this.vaultSyncService.reconcileKnownPath(`${this.rootPath}/${reference}`);
+
+    return reference;
+  }
+
+  /**
+   * Stores a file from the clipboard (an image or PDF, as bytes) in `Assets/` and registers it with the
+   * Vault like any imported asset. Returns the vault-relative reference a Markdown embed uses.
+   */
+  public async importPastedAsset(name: string, mimeType: string, bytes: Uint8Array): Promise<string> {
+    const reference = await importAssetBytes(
+      this.fileSystem,
+      this.rootPath,
+      pastedAssetFileName(name, mimeType),
+      bytes
+    );
 
     await this.vaultSyncService.reconcileKnownPath(`${this.rootPath}/${reference}`);
 

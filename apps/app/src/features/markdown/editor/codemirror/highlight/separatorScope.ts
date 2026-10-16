@@ -329,6 +329,59 @@ function isContiguousBlockquoteParagraph(
   );
 }
 
+/** The `Paragraph` containing the end of `line` (its text, never the line's leading markup), or null. */
+function paragraphEndingLine(
+  state: EditorState,
+  line: { from: number; to: number }
+): SyntaxNode | null {
+  for (
+    let node: SyntaxNode | null = syntaxTree(state).resolveInner(line.to, -1);
+    node;
+    node = node.parent
+  ) {
+    if (node.name === 'Paragraph') {
+      return node;
+    }
+  }
+  return null;
+}
+
+/**
+ * Whether the line holding `prevPos` ends in a Markdown hard break (a `HardBreak` node — the
+ * backslash form Shift+Enter writes, or two trailing spaces) and the line holding `pos` is the next
+ * line of that same `Paragraph`. The tree decides, so a literal backslash the parser does not treat as
+ * a break (end of block, inside inline code, escaped) never qualifies, and neither does a different
+ * paragraph or a blank line. A same-line boundary (an inline image) is not a line break at all.
+ */
+function continuesAcrossHardBreak(
+  state: EditorState,
+  prevPos: number,
+  pos: number
+): boolean {
+  const prevLine = state.doc.lineAt(prevPos);
+  const line = state.doc.lineAt(pos);
+  if (prevLine.from === line.from) {
+    return false;
+  }
+  const paragraph = paragraphEndingLine(state, prevLine);
+  const next = paragraphEndingLine(state, line);
+  if (!paragraph || !next || !sameNode(paragraph, next)) {
+    return false;
+  }
+  let found = false;
+  syntaxTree(state).iterate({
+    from: prevLine.from,
+    to: prevLine.to,
+    enter: (node) => {
+      if (node.name === 'HardBreak' && node.from >= prevLine.from && node.from <= prevLine.to) {
+        found = true;
+      }
+      return !found;
+    },
+  });
+  return found;
+}
+
 /**
  * Node names that make up the "unordered list" visual family — every
  * marker variant (`-`/`+`/`*`) parses as a plain `BulletList` node (the
@@ -579,6 +632,14 @@ export function resolveBoundaryHeight(
   prevPos: number,
   pos: number
 ): SeparatorHeight {
+  // The one exception to "spacing follows physical lines, not Paragraph grouping": a hard break
+  // (Shift+Enter's trailing `\`, or two trailing spaces) continues its own Paragraph on the next
+  // line, so there is no gap — in a list item or a quote as much as at the top level. Checked first
+  // because those constructs would otherwise grant their own 6px (or 12px).
+  if (continuesAcrossHardBreak(state, prevPos, pos)) {
+    return SEPARATOR.none;
+  }
+
   const prevChain = scopeChain(state, prevPos);
   const chain = scopeChain(state, pos);
 

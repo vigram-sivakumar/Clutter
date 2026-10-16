@@ -1,5 +1,6 @@
 import { resolveCollisionFreeName } from '../../shared/naming/resolveCollisionFreeName';
 import { VaultPath } from '../ingest/VaultPath';
+import { classifySupportedResourceFile } from '../ingest/SupportedResourceKind';
 import { ASSETS_DIRECTORY_NAME, ensureAssetsDirectory } from '../initialize/ensureAssetsDirectory';
 import type { VaultFileSystem } from '../providers/VaultFileSystem';
 
@@ -73,4 +74,64 @@ export async function resolveAssetDestination(
     // Vault-relative: `Assets/photo.png`, or `Assets/Trips/photo.png` for a folder inside it.
     reference: `${assetsDir.slice(vaultRoot.length + 1)}/${destinationFileName}`,
   };
+}
+
+const EXTENSION_BY_MIME_TYPE: Readonly<Record<string, string>> = {
+  'image/png': '.png',
+  'image/jpeg': '.jpg',
+  'image/gif': '.gif',
+  'image/webp': '.webp',
+  'image/svg+xml': '.svg',
+  'application/pdf': '.pdf',
+};
+
+/** Whether a clipboard/file MIME type is an image or PDF Clutter stores as an asset. */
+export function isSupportedAssetMimeType(mimeType: string): boolean {
+  return mimeType.toLowerCase() in EXTENSION_BY_MIME_TYPE;
+}
+
+/** The file name a pasted file is stored under: its own name when that already has a supported extension, else one from its MIME type. Never contains a path separator. */
+export function pastedAssetFileName(name: string, mimeType: string): string {
+  const base = name.split(/[\\/]/).pop()?.trim() ?? '';
+  const stem = base.replace(/\.[^.]*$/, '');
+  const extension = EXTENSION_BY_MIME_TYPE[mimeType.toLowerCase()];
+
+  // A clipboard screenshot arrives as a generic `image.png`: give it a name that says what it is.
+  const displayStem = !stem || stem.toLowerCase() === 'image' ? 'Pasted image' : stem;
+
+  if (base && classifySupportedResourceFile(base) !== null) {
+    return `${displayStem}${base.slice(stem.length)}`;
+  }
+
+  if (!extension) {
+    throw new Error(`Not a supported image or PDF: ${name}`);
+  }
+
+  return `${displayStem}${extension}`;
+}
+
+/**
+ * Writes bytes from the clipboard into `{vaultRoot}/Assets/` (collision-free, like `importAsset`) and
+ * returns the vault-relative reference. The bytes-in counterpart of `importAsset`; non-Gate for the same
+ * reason (an asset file never becomes a Page/Folder).
+ */
+export async function importAssetBytes(
+  fileSystem: VaultFileSystem,
+  vaultRoot: string,
+  fileName: string,
+  bytes: Uint8Array
+): Promise<string> {
+  if (!fileSystem.writeBinaryFile) {
+    throw new Error('This vault cannot save pasted files.');
+  }
+
+  if (bytes.byteLength === 0) {
+    throw new Error(`The pasted file was empty: ${fileName}`);
+  }
+
+  const { destinationAbsolutePath, reference } = await resolveAssetDestination(fileSystem, vaultRoot, fileName);
+
+  await fileSystem.writeBinaryFile(destinationAbsolutePath, bytes);
+
+  return reference;
 }

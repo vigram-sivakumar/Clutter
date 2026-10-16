@@ -1415,6 +1415,22 @@ export function PageHost({
 
   // The one order every template selection surface shows — the inline suggestions, their "+N more" picker and
   // the Add menu's From template: most recently used first, a never-used template by its creation date.
+  // Images/PDFs pasted into a note are kept as vault assets (Application.importPastedAsset) and embedded.
+  const pasteAssets = {
+    importFile: (file: { name: string; type: string }, bytes: Uint8Array) =>
+      application.importPastedAsset(file.name, file.type, bytes),
+    onFailed: (names: readonly string[]) =>
+      onShowToast?.({
+        tone: 'error',
+        text: `Couldn’t add ${names.length === 1 ? names[0] : `${names.length} pasted files`}`,
+      }),
+    onNotInserted: (stored: number) =>
+      onShowToast?.({
+        tone: 'default',
+        text: `${stored === 1 ? 'Pasted file' : `${stored} pasted files`} saved to Assets, but not added to the note`,
+      }),
+  };
+
   const rankTemplates = (
     templates: readonly CollectionEntryModel[]
   ): CollectionEntryModel[] =>
@@ -2746,6 +2762,7 @@ export function PageHost({
                 resolvePageEmbed={resolvePageEmbed}
                 onOpenPage={onOpenPage}
                 resolveImageSrc={resolveImageSrc}
+                pasteAssets={pasteAssets}
                 resolveTag={resolveTag}
                 getTagSuggestions={getTagSuggestions}
                 resolveDate={resolveDate}
@@ -3042,6 +3059,7 @@ export function PageHost({
                 resolvePageEmbed={resolvePageEmbed}
                 onOpenPage={onOpenPage}
                 resolveImageSrc={resolveImageSrc}
+                pasteAssets={pasteAssets}
                 resolveTag={editorResolveTag}
                 getTagSuggestions={getTagSuggestions}
                 resolveDate={editorResolveDate}

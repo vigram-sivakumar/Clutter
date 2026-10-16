@@ -3,6 +3,7 @@ import {
   insertNewlineContinueMarkupCommand,
   markdownLanguage,
 } from '@codemirror/lang-markdown';
+import { insertNewlineAndIndent } from '@codemirror/commands';
 import { getIndentUnit, indentString, syntaxTree } from '@codemirror/language';
 import type { SyntaxNode } from '@lezer/common';
 import {
@@ -14,8 +15,12 @@ import {
   type StateCommand,
   type Transaction,
 } from '@codemirror/state';
-import { keymap } from '@codemirror/view';
+import { keymap, type Command } from '@codemirror/view';
 
+import {
+  deleteAroundHardBreakBackward,
+  deleteAroundHardBreakForward,
+} from '../highlight/hardBreakMarkerDecoration';
 import { resolveLineIndentContext } from '../indent/markdownIndentContext';
 import { computeListItemFold } from '../fold/listItemFoldService';
 import { classifyMarkerText, firstSameLineListMark } from '../list/listMarkerDecoration';
@@ -1564,6 +1569,89 @@ export const deleteCompleteListItemSelection: StateCommand = ({ state, dispatch 
   return true;
 };
 
+/** Ancestors inside which a `\` + newline is not a hard break (or the position is not paragraph text). */
+const NO_SOFT_BREAK_ANCESTORS = new Set(['FencedCode', 'CodeBlock', 'Table', 'InlineCode', 'HTMLBlock']);
+
+/** A line's leading quote markers and indentation, then an optional list marker (with its trailing spaces). */
+const CONTINUATION_PREFIX = /^((?:[ \t]*>[ \t]?)*[ \t]*)(?:([-*+]|\d{1,9}[.)])([ \t]+))?/;
+
+/**
+ * What a Shift+Enter inserts at `[from, to)`, or null when the position is not ordinary paragraph text
+ * (a heading, fenced code, a table, a code span, several cursors …), which the caller hands to Enter.
+ *
+ * `\` + newline is the CommonMark backslash hard break: one Paragraph, two lines. Then the structure the
+ * line sits in is continued without starting anything new: a quote line repeats its `>` markers, a list
+ * item's first line becomes indentation as wide as its marker (so the text stays in the item, not a new
+ * item), and later lines of a paragraph repeat their own indentation. A backslash already right before
+ * the cursor is reused when it is an unescaped one — adding another would turn the pair into a literal.
+ */
+function softBreakInsert(state: EditorState): { from: number; to: number; insert: string } | null {
+  const { selection } = state;
+  if (selection.ranges.length !== 1) {
+    return null;
+  }
+
+  const { from, to } = selection.main;
+  // The text on either side of the cursor: at the start of a line only the following side is paragraph text.
+  const sides = [-1, 1] as const;
+  const inParagraph = sides.some((side) => {
+    let paragraph = false;
+    for (
+      let node: SyntaxNode | null = syntaxTree(state).resolveInner(from, side);
+      node;
+      node = node.parent
+    ) {
+      if (NO_SOFT_BREAK_ANCESTORS.has(node.name)) {
+        return false;
+      }
+      paragraph ||= node.name === 'Paragraph';
+    }
+    return paragraph;
+  });
+  if (!inParagraph) {
+    return null;
+  }
+
+  const line = state.doc.lineAt(from);
+  const before = line.text.slice(0, from - line.from);
+  const trailingBackslashes = /\\*$/.exec(before)?.[0].length ?? 0;
+  const prefix = CONTINUATION_PREFIX.exec(line.text.slice(0, Math.max(0, from - line.from)));
+  const quoteAndIndent = prefix?.[1] ?? '';
+  // Only a marker the cursor is past counts as this line's marker.
+  const markerWidth = prefix?.[2] ? prefix[2].length + (prefix[3]?.length ?? 0) : 0;
+
+  return {
+    from,
+    to,
+    insert: `${trailingBackslashes % 2 === 1 ? '' : '\\'}\n${quoteAndIndent}${' '.repeat(markerWidth)}`,
+  };
+}
+
+/**
+ * Shift+Enter: a line break inside the current block — no new paragraph, list item or quote. Anywhere a
+ * hard break cannot live it behaves exactly like Enter, so the key is never dead. Never touches an
+ * IME composition (the composition owns Enter/Shift+Enter until it commits).
+ */
+export const insertSoftLineBreak: Command = (view) => {
+  if (view.composing) {
+    return false;
+  }
+
+  const change = softBreakInsert(view.state);
+  if (!change) {
+    // Enter's own chain: Clutter's Markdown Enter, then — as `defaultKeymap` does — the generic newline.
+    return markdownEnterCommand(view) || insertNewlineAndIndent(view);
+  }
+
+  view.dispatch({
+    changes: change,
+    selection: EditorSelection.cursor(change.from + change.insert.length),
+    scrollIntoView: true,
+    userEvent: 'input',
+  });
+  return true;
+};
+
 /**
  * Replaces `markdownKeymap`, which `markdownLanguageExtension()` no longer
  * installs (`addKeymap: false`). Same precedence (`Prec.high`) as
@@ -1594,15 +1682,22 @@ export function markdownEnterKeymap(): Extension {
   return Prec.high(
     keymap.of([
       { key: 'Enter', run: markdownEnterCommand },
+      { key: 'Shift-Enter', run: insertSoftLineBreak },
       {
         key: 'Backspace',
         run: (target) =>
+          deleteAroundHardBreakBackward(target) ||
           deleteBulletMarkerSeparator(target) ||
           deleteTaskMarker(target) ||
           deleteCompleteListItemSelection(target) ||
           deleteMarkupBackward(target),
       },
-      { key: 'Delete', run: deleteCompleteListItemSelection },
+      {
+        key: 'Delete',
+        run: (target) =>
+          deleteAroundHardBreakForward(target) ||
+          deleteCompleteListItemSelection(target),
+      },
       { key: 'Space', run: insertOrderedListMarkerSeparator },
     ])
   );

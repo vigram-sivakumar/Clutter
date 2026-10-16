@@ -38,6 +38,7 @@ import { taskCheckboxDecoration } from './task/taskCheckboxDecoration';
 import { taskCheckboxMouseHandlers } from './task/taskCheckboxMouseHandlers';
 import { taskCompletedContentDecoration } from './task/taskCompletedContentDecoration';
 import { taskCompletionMetadataDecoration } from './task/taskCompletionMetadataDecoration';
+import { hardBreakMarkerDecoration } from './highlight/hardBreakMarkerDecoration';
 import { horizontalRuleDecoration } from './hr/horizontalRuleDecoration';
 import type { OnImageClick, OnOpenImageMenu } from './image/ImageWidget';
 import { imageLivePreview } from './image/imageLivePreview';
@@ -76,6 +77,7 @@ import { tableRangeClipboard } from './table/tableRangeClipboard';
 import { tableRangeSelectionTyping } from './table/tableRangeSelectionTyping';
 import { tablePaste } from './table/tablePaste';
 import { externalPasteNormalization } from './paste/externalPaste';
+import { pasteAssets, type PasteAssets } from './paste/assetPaste';
 import { tableRectangularNormalization } from './table/tableRectangularNormalization';
 import { tableRootSelectionSnap } from './table/tableRootSelectionSnap';
 import { tableSelectionField } from './table/tableSelection';
@@ -149,6 +151,8 @@ export interface BuildEditorExtensionsOptions {
    */
   readonly onOpenTableHandleMenu?: () => OnTableHandleMenuChange | undefined;
   readonly resolveImageSrc: () => ResolveImageSrc | undefined;
+  /** Stores pasted images/PDFs as assets. Omitted for a read-only nested view — nothing is pasted there. */
+  readonly pasteAssets?: () => PasteAssets | undefined;
   readonly resolveTag: () => ResolveTag | undefined;
   readonly getTagSuggestions?: () => GetTagSuggestions | undefined;
   readonly resolveDate: () => ResolveDate | undefined;
@@ -259,6 +263,7 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
     onOpenUrlPasteMenu,
     onOpenTableHandleMenu,
     resolveImageSrc,
+    pasteAssets: getPasteAssets,
     resolveTag,
     getTagSuggestions,
     resolveDate,
@@ -316,6 +321,7 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
     taskCompletedContentDecoration(),
     taskCompletionMetadataDecoration(),
     blockquoteMarkerDecoration(),
+    hardBreakMarkerDecoration(),
     blockquoteLineDecoration(),
     headingMarkerDecoration(),
     fencedCodeBackgroundLayer(),
@@ -440,6 +446,8 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
     // (both already unconditional here) for caret safety — see
     // `tableCreatePaste()`'s own doc comment.
     tableCreatePaste(),
+    // Pasted image/PDF files are stored as assets and embedded; any other paste is untouched (declines).
+    ...(getPasteAssets ? [pasteAssets(getPasteAssets)] : []),
     // Text from outside Clutter is pasted compactly; text Clutter copied or cut is pasted as it was.
     externalPasteNormalization(),
     // Listed before `tableWholeDeletionKeymap()` — both are `Prec.highest`;

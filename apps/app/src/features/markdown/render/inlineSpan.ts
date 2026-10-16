@@ -314,6 +314,15 @@ function tokenizeChildren(
       return;
     }
 
+    // A backslash hard break (`text\` + newline): the marker is syntax, not text — dropped here, the
+    // newline after it stays, so the line splits exactly as the editor shows it (two-space breaks have
+    // nothing visible to drop).
+    if (n.name === 'HardBreak' && text[n.from] === '\\') {
+      pushText(cursor, n.from);
+      cursor = n.from + 1;
+      return;
+    }
+
     const container = STYLED_CONTAINER_NODES[n.name];
     if (container) {
       pushText(cursor, n.from);

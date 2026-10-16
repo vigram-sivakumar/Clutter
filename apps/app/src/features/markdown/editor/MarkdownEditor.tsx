@@ -264,6 +264,7 @@ export const MarkdownEditor = forwardRef<
     onOpenPage,
     onOpenImageOverlay,
     resolveImageSrc,
+    pasteAssets,
     resolveTag,
     getTagSuggestions,
     resolveDate,
@@ -402,6 +403,8 @@ export const MarkdownEditor = forwardRef<
   // path resolution accessor below.
   const resolveImageSrcRef = useRef(resolveImageSrc);
   resolveImageSrcRef.current = resolveImageSrc;
+  const pasteAssetsRef = useRef(pasteAssets);
+  pasteAssetsRef.current = pasteAssets;
 
   // Same freshness pattern as resolveEmbedImageRef above — this one IS an
   // injected Vault-backed boundary function (unlike opening the overlay
@@ -1558,6 +1561,7 @@ export const MarkdownEditor = forwardRef<
       onOpenUrlPasteMenu: () => (readOnlyRef.current ? undefined : onOpenUrlPasteMenuRef.current),
       onOpenTableHandleMenu: () => (readOnlyRef.current ? undefined : onOpenTableHandleMenuRef.current),
       resolveImageSrc: () => resolveImageSrcRef.current,
+      pasteAssets: () => (readOnlyRef.current ? undefined : pasteAssetsRef.current),
       resolveTag: () => resolveTagRef.current,
       getTagSuggestions: () => getTagSuggestionsRef.current,
       resolveDate: () => resolveDateRef.current,

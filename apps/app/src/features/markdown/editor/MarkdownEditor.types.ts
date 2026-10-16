@@ -1,3 +1,4 @@
+import type { PasteAssets } from './codemirror/paste/assetPaste';
 import type { MetadataHistoryChange, MetadataHistoryStep } from './codemirror/metadataHistoryStep';
 import type { PickerListItem } from '@components/picker-list/PickerList.types';
 import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
@@ -257,6 +258,8 @@ export interface MarkdownEditorProps {
    * comment.
    */
   readonly resolveImageSrc?: ResolveImageSrc;
+  /** Keeps files pasted from the clipboard (images, PDFs) as vault assets and embeds them — see `paste/assetPaste.ts`. Omitted: files are not handled. */
+  readonly pasteAssets?: PasteAssets;
   /**
    * Resolves a Tag's identifier into a status and activation behavior —
    * supplied entirely by the feature/app layer, same injected-boundary

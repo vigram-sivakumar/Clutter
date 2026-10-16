@@ -299,3 +299,25 @@ describe('renderMarkdownBlocks — images and resolvers', () => {
     expect(root.querySelector('.compact-markdown-tag')?.textContent).toContain('Real Tag');
   });
 });
+
+describe('renderMarkdownBlocks — backslash hard break (the editor\'s Shift+Enter)', () => {
+  it('splits the paragraph at the break and drops the backslash marker', () => {
+    const lines = [...renderBlocks('one\\\ntwo').querySelectorAll('.markdown-blocks__line')];
+
+    expect(lines.map((line) => line.textContent)).toEqual(['one', 'two']);
+  });
+
+  it('does the same inside a list item and a quote', () => {
+    const list = renderBlocks('- one\\\n  two');
+    const quote = renderBlocks('> one\\\n> two');
+
+    for (const root of [list, quote]) {
+      expect([...root.querySelectorAll('.markdown-blocks__line')].map((line) => line.textContent)).toEqual(['one', 'two']);
+    }
+  });
+
+  it('keeps a backslash that is not a break (end of block, escaped) as text', () => {
+    expect(renderBlocks('end\\').textContent).toBe('end\\');
+    expect(renderBlocks('a\\\\\nb').textContent).toContain('a\\');
+  });
+});
