@@ -2,14 +2,45 @@ import { syntaxTree } from '@codemirror/language';
 import type { EditorState } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
-import { firstNonWhitespaceOffset, isIndentedPastColumn, resolveLineIndentContext } from '../indent/markdownIndentContext';
+import {
+  firstNonWhitespaceOffset,
+  isIndentedPastColumn,
+  resolveLineIndentContext,
+} from '../indent/markdownIndentContext';
 import { taskMarkerOfListItem } from '../task/taskEngagement';
+
+/**
+ * The one source of truth for every separator height (px) — the vertical gap between two blocks.
+ * `resolveBoundaryHeight`'s rules and the `SeparatorHeight` type both read from here, so changing a
+ * number changes every rule that uses it. Edit the values, never the rules, to retune spacing.
+ */
+export const SEPARATOR = {
+  /** Ordinary spacing between document-level blocks (and a heading's exit). */
+  normal: 12,
+  /** Inside a List / Blockquote, and between unordered-family list items. */
+  tight: 6,
+  /** Inside a Table / FencedCode, and between contiguous blockquote paragraphs. */
+  none: 0,
+  /** Owed above a heading's first line, by level (Setext 1/2 share h1/h2). */
+  heading: { h1: 36, h2: 30, h3: 24, h4: 18, h5: 18, h6: 18 },
+} as const;
+
+/** Every height the system can produce — derived from {@link SEPARATOR}, never listed by hand. */
+export type SeparatorHeight =
+  | typeof SEPARATOR.normal
+  | typeof SEPARATOR.tight
+  | typeof SEPARATOR.none
+  | (typeof SEPARATOR.heading)[keyof typeof SEPARATOR.heading];
 
 /**
  * Node names that group their own content tightly (6px) rather than at
  * normal document-level spacing (12px).
  */
-const GROUPING_NODE_NAMES = new Set(['BulletList', 'OrderedList', 'Blockquote']);
+const GROUPING_NODE_NAMES = new Set([
+  'BulletList',
+  'OrderedList',
+  'Blockquote',
+]);
 
 /**
  * Node names whose own interior gets zero spacing from this system —
@@ -42,18 +73,17 @@ const ATOMIC_NODE_NAMES = new Set(['Table', 'FencedCode']);
  * height (18) per the product requirement — there is no level 7+ in
  * CommonMark, so this map is exhaustive.
  */
-const HEADING_ENTRY_HEIGHT_BY_NODE_NAME: ReadonlyMap<string, SeparatorHeight> = new Map([
-  ['ATXHeading1', 36],
-  ['SetextHeading1', 36],
-  ['ATXHeading2', 30],
-  ['SetextHeading2', 30],
-  ['ATXHeading3', 24],
-  ['ATXHeading4', 18],
-  ['ATXHeading5', 18],
-  ['ATXHeading6', 18],
-]);
-
-export type SeparatorHeight = 36 | 30 | 24 | 18 | 12 | 6 | 0;
+const HEADING_ENTRY_HEIGHT_BY_NODE_NAME: ReadonlyMap<string, SeparatorHeight> =
+  new Map([
+    ['ATXHeading1', SEPARATOR.heading.h1],
+    ['SetextHeading1', SEPARATOR.heading.h1],
+    ['ATXHeading2', SEPARATOR.heading.h2],
+    ['SetextHeading2', SEPARATOR.heading.h2],
+    ['ATXHeading3', SEPARATOR.heading.h3],
+    ['ATXHeading4', SEPARATOR.heading.h4],
+    ['ATXHeading5', SEPARATOR.heading.h5],
+    ['ATXHeading6', SEPARATOR.heading.h6],
+  ]);
 
 /** The document position used to resolve a physical line's own owning syntax nodes — its first non-whitespace character, so leading indentation never resolves into the wrong nesting level. */
 export function lineProbePos(state: EditorState, lineNumber: number): number {
@@ -76,7 +106,10 @@ function scopeChain(state: EditorState, pos: number): SyntaxNode[] {
   const chain: SyntaxNode[] = [];
   let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, 1);
   for (; node; node = node.parent) {
-    if (GROUPING_NODE_NAMES.has(node.name) || ATOMIC_NODE_NAMES.has(node.name)) {
+    if (
+      GROUPING_NODE_NAMES.has(node.name) ||
+      ATOMIC_NODE_NAMES.has(node.name)
+    ) {
       chain.push(node);
     }
   }
@@ -121,7 +154,11 @@ function enclosingListItemIsTask(state: EditorState, pos: number): boolean {
  * definition genuinely part of whichever grouping construct actually
  * contains it structurally.
  */
-function isOwnMarkerLine(state: EditorState, pos: number, ancestorNode: SyntaxNode): boolean {
+function isOwnMarkerLine(
+  state: EditorState,
+  pos: number,
+  ancestorNode: SyntaxNode
+): boolean {
   const line = state.doc.lineAt(pos);
   if (ancestorNode.name === 'Blockquote') {
     return line.text.trimStart().startsWith('>');
@@ -170,16 +207,25 @@ function isOwnMarkerLine(state: EditorState, pos: number, ancestorNode: SyntaxNo
  *    column — genuine nested/continuation content, not a lazy
  *    continuation sitting at (or above) the ancestor's own column.
  */
-function isGenuinelyGrouped(state: EditorState, prevPos: number, pos: number, ancestorNode: SyntaxNode): boolean {
+function isGenuinelyGrouped(
+  state: EditorState,
+  prevPos: number,
+  pos: number,
+  ancestorNode: SyntaxNode
+): boolean {
   const line = state.doc.lineAt(pos);
   if (line.text.trim() === '') {
     return true;
   }
   if (isOwnMarkerLine(state, pos, ancestorNode)) {
     const prevLine = state.doc.lineAt(prevPos);
-    return prevLine.text.trim() === '' || isOwnMarkerLine(state, prevPos, ancestorNode);
+    return (
+      prevLine.text.trim() === '' ||
+      isOwnMarkerLine(state, prevPos, ancestorNode)
+    );
   }
-  const ancestorColumn = ancestorNode.from - state.doc.lineAt(ancestorNode.from).from;
+  const ancestorColumn =
+    ancestorNode.from - state.doc.lineAt(ancestorNode.from).from;
   return isIndentedPastColumn(line, ancestorColumn);
 }
 
@@ -216,7 +262,10 @@ function isGenuinelyGrouped(state: EditorState, prevPos: number, pos: number, an
  * to fold the trailing text into the same `Paragraph` node as the list
  * item's own text.
  */
-function lineEnclosingParagraph(state: EditorState, line: { from: number; to: number }): SyntaxNode | null {
+function lineEnclosingParagraph(
+  state: EditorState,
+  line: { from: number; to: number }
+): SyntaxNode | null {
   let node: SyntaxNode | null = syntaxTree(state).resolveInner(line.to, -1);
   let paragraph: SyntaxNode | null = null;
   for (; node; node = node.parent) {
@@ -224,7 +273,10 @@ function lineEnclosingParagraph(state: EditorState, line: { from: number; to: nu
       paragraph = node;
       continue;
     }
-    if (paragraph && (node.name === 'BulletList' || node.name === 'OrderedList')) {
+    if (
+      paragraph &&
+      (node.name === 'BulletList' || node.name === 'OrderedList')
+    ) {
       return null;
     }
     if (node.name === 'Blockquote') {
@@ -258,7 +310,11 @@ function lineEnclosingParagraph(state: EditorState, line: { from: number; to: nu
  * to protect, so that case is deliberately left to fall through to the
  * normal 6px grouping height instead.
  */
-function isContiguousBlockquoteParagraph(state: EditorState, prevPos: number, pos: number): boolean {
+function isContiguousBlockquoteParagraph(
+  state: EditorState,
+  prevPos: number,
+  pos: number
+): boolean {
   const prevLine = state.doc.lineAt(prevPos);
   const line = state.doc.lineAt(pos);
   if (prevLine.from === line.from) {
@@ -266,7 +322,11 @@ function isContiguousBlockquoteParagraph(state: EditorState, prevPos: number, po
   }
   const prevParagraph = lineEnclosingParagraph(state, prevLine);
   const paragraph = lineEnclosingParagraph(state, line);
-  return prevParagraph !== null && paragraph !== null && sameNode(prevParagraph, paragraph);
+  return (
+    prevParagraph !== null &&
+    paragraph !== null &&
+    sameNode(prevParagraph, paragraph)
+  );
 }
 
 /**
@@ -308,9 +368,16 @@ const UNORDERED_LIST_FAMILY_NODE_NAMES = new Set(['BulletList']);
  * content, and the boundary falls through to the heading-entry/default
  * rules instead of the family rule.
  */
-function unorderedListFamilyMembership(state: EditorState, pos: number): SyntaxNode | null {
+function unorderedListFamilyMembership(
+  state: EditorState,
+  pos: number
+): SyntaxNode | null {
   const node = syntaxTree(state).resolveInner(pos, 1);
-  for (let ancestor: SyntaxNode | null = node; ancestor; ancestor = ancestor.parent) {
+  for (
+    let ancestor: SyntaxNode | null = node;
+    ancestor;
+    ancestor = ancestor.parent
+  ) {
     if (UNORDERED_LIST_FAMILY_NODE_NAMES.has(ancestor.name)) {
       // A lazy-continuation line (see isGenuinelyGrouped's own doc
       // comment) structurally resolves inside the ancestor's own last
@@ -334,7 +401,12 @@ function unorderedListFamilyMembership(state: EditorState, pos: number): SyntaxN
 
   const before = node.childBefore(pos);
   const after = node.childAfter(pos);
-  if (before && after && UNORDERED_LIST_FAMILY_NODE_NAMES.has(before.name) && UNORDERED_LIST_FAMILY_NODE_NAMES.has(after.name)) {
+  if (
+    before &&
+    after &&
+    UNORDERED_LIST_FAMILY_NODE_NAMES.has(before.name) &&
+    UNORDERED_LIST_FAMILY_NODE_NAMES.has(after.name)
+  ) {
     return before;
   }
   return null;
@@ -362,10 +434,14 @@ function unorderedListFamilyMembership(state: EditorState, pos: number): SyntaxN
  * declined (see its own doc comment) — so this function is never asked
  * to arbitrate a pair its caller already has a real answer for.
  */
-function unorderedListFamilyHeight(state: EditorState, prevPos: number, pos: number): SeparatorHeight | null {
+function unorderedListFamilyHeight(
+  state: EditorState,
+  prevPos: number,
+  pos: number
+): SeparatorHeight | null {
   const prevFamily = unorderedListFamilyMembership(state, prevPos);
   const family = unorderedListFamilyMembership(state, pos);
-  return prevFamily && family ? 6 : null;
+  return prevFamily && family ? SEPARATOR.tight : null;
 }
 
 /**
@@ -389,7 +465,10 @@ function unorderedListFamilyHeight(state: EditorState, prevPos: number, pos: num
  * own walk — `pos` typically resolves to a heading's inline content or
  * its `HeaderMark`, never the heading node itself directly.
  */
-function headingEntryHeight(state: EditorState, pos: number): SeparatorHeight | null {
+function headingEntryHeight(
+  state: EditorState,
+  pos: number
+): SeparatorHeight | null {
   const posLineFrom = state.doc.lineAt(pos).from;
   let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, 1);
   for (; node; node = node.parent) {
@@ -495,7 +574,11 @@ function headingEntryHeight(state: EditorState, pos: number): SeparatorHeight | 
  * boundaries fall through to rules 3/4 exactly as they did before this
  * rule existed.
  */
-export function resolveBoundaryHeight(state: EditorState, prevPos: number, pos: number): SeparatorHeight {
+export function resolveBoundaryHeight(
+  state: EditorState,
+  prevPos: number,
+  pos: number
+): SeparatorHeight {
   const prevChain = scopeChain(state, prevPos);
   const chain = scopeChain(state, pos);
 
@@ -515,19 +598,23 @@ export function resolveBoundaryHeight(state: EditorState, prevPos: number, pos: 
     if (prevChain.some((candidate) => sameNode(candidate, node))) {
       sharedAncestorFound = true;
       if (ATOMIC_NODE_NAMES.has(node.name)) {
-        return 0;
+        return SEPARATOR.none;
       }
       if (isGenuinelyGrouped(state, prevPos, pos, node)) {
-        if (node.name === 'Blockquote' && isContiguousBlockquoteParagraph(state, prevPos, pos)) {
-          return 0;
+        if (
+          node.name === 'Blockquote' &&
+          isContiguousBlockquoteParagraph(state, prevPos, pos)
+        ) {
+          return SEPARATOR.none;
         }
         if (
           node.name === 'BulletList' &&
-          enclosingListItemIsTask(state, prevPos) !== enclosingListItemIsTask(state, pos)
+          enclosingListItemIsTask(state, prevPos) !==
+            enclosingListItemIsTask(state, pos)
         ) {
-          return 12;
+          return SEPARATOR.normal;
         }
-        return 6;
+        return SEPARATOR.tight;
       }
       // Shares this ancestor only via CommonMark's lazy-continuation quirk
       // (see isGenuinelyGrouped's own doc comment) — not a genuine grouping
@@ -536,7 +623,9 @@ export function resolveBoundaryHeight(state: EditorState, prevPos: number, pos: 
     }
   }
 
-  const familyHeight = sharedAncestorFound ? null : unorderedListFamilyHeight(state, prevPos, pos);
+  const familyHeight = sharedAncestorFound
+    ? null
+    : unorderedListFamilyHeight(state, prevPos, pos);
   if (familyHeight !== null) {
     return familyHeight;
   }
@@ -546,5 +635,5 @@ export function resolveBoundaryHeight(state: EditorState, prevPos: number, pos: 
     return headingHeight;
   }
 
-  return 12;
+  return SEPARATOR.normal;
 }

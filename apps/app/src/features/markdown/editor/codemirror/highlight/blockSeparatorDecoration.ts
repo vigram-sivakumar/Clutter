@@ -6,7 +6,7 @@ import type { SyntaxNode } from '@lezer/common';
 import { resolveExistingAttributeLineRange } from '../table/tableColumnWidthMetadata';
 import { findAllTables, findTableStartingAt } from '../table/tableGeometry';
 import { BLOCK_SPACING_PARTICIPANTS } from './blockSpacingParticipants';
-import { lineProbePos, resolveBoundaryHeight, type SeparatorHeight } from './separatorScope';
+import { lineProbePos, resolveBoundaryHeight, SEPARATOR, type SeparatorHeight } from './separatorScope';
 
 /**
  * One shared, empty, fixed-height block widget for every separator this
@@ -26,7 +26,7 @@ import { lineProbePos, resolveBoundaryHeight, type SeparatorHeight } from './sep
  */
 class SeparatorWidget extends WidgetType {
   constructor(
-    readonly height: Exclude<SeparatorHeight, 0>,
+    readonly height: Exclude<SeparatorHeight, typeof SEPARATOR.none>,
     /**
      * The table's own `.from` when this separator sits immediately above
      * that table's first line — `null` for every other separator (the
@@ -96,7 +96,7 @@ class SeparatorWidget extends WidgetType {
 }
 
 function separatorRange(height: SeparatorHeight, pos: number, side: -1 | 1, tableFrom: number | null = null): Range<Decoration> | null {
-  if (height === 0) {
+  if (height === SEPARATOR.none) {
     return null;
   }
   return Decoration.widget({ widget: new SeparatorWidget(height, tableFrom), block: true, side }).range(pos);

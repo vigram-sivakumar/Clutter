@@ -57,6 +57,10 @@
   padding-inline: 12px;
 }
 
+.template-suggestions__list:has([data-suggestion='new-template']) {
+  margin-left: 0;
+}
+
 /* Hover: the same slightly lifted surface a clickable Pill gets. Specific enough to beat Entry's own
    `.entry-interactive:not(...):not(...):hover` background. */
 .template-suggestions__list

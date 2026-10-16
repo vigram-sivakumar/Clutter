@@ -6,6 +6,7 @@ import { EditorView } from '@codemirror/view';
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { findAllTables } from '../table/tableGeometry';
 import { blockSeparatorDecoration } from './blockSeparatorDecoration';
+import { SEPARATOR } from './separatorScope';
 
 /**
  * Table-specific click-to-insert-a-line-above affordance on the existing
@@ -70,7 +71,7 @@ describe('block separator — table as the first document content (clickable)', 
     const sep = tableSeparator(view);
 
     expect(sep).toBeDefined();
-    expect(parseInt(sep!.style.height, 10)).toBe(12);
+    expect(parseInt(sep!.style.height, 10)).toBe(SEPARATOR.normal);
     expect(sep!.dataset.tableFrom).toBe(String(tableFrom));
   });
 
@@ -139,7 +140,7 @@ describe('block separator — table with existing content above (unchanged, clic
 
     expect(tableSeparator(view)).toBeUndefined();
     const heights = separators(view).map((el) => parseInt(el.style.height, 10));
-    expect(heights).toContain(12);
+    expect(heights).toContain(SEPARATOR.normal);
   });
 
   it('clicking the separator immediately above the table does nothing: no insert, no cursor move, document unchanged', () => {
