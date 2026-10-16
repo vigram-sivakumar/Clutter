@@ -51,10 +51,6 @@ export class PageCreator {
         | 'tags'
         | 'aliases'
         | 'unownedLines'
-        // Passed as `undefined` to omit the default declaration (ADR-058) — a draft promoted by
-        // listing one system property declares only that property, not both dates too.
-        | 'created'
-        | 'modified'
       >
     >
   ): string {
@@ -62,8 +58,8 @@ export class PageCreator {
       {
         id,
         type,
-        created: true,
-        modified: true,
+        // No `created` / `modified`: a note declares a date property only when one is explicitly
+        // added (ADR-058) — creating or persisting a note never lists either.
         ...metadata,
       },
       body

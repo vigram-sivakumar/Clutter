@@ -166,15 +166,9 @@ describe('Properties on a draft', () => {
 
   it('a named custom property materializes the draft with its title and content preserved, then further edits are ordinary saves', async () => {
     const { application, id, pageExists } = await renderDraft({ title: 'Trip plan', body: 'Pack light' });
-    // Opening the title menu saves a draft that has content, and a saved note is written with
-    // `created` / `modified` — so (ADR-058) its section is on screen at once and the picker opens from the
-    // section's own button instead of the title menu.
-    fireEvent.click(titleMenuButton());
-    await flush();
-    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
-    await flush();
-    fireEvent.click(screen.getByText('Add a property'));
-    await flush();
+    // Opening the title menu saves a draft that has content. A note made in Clutter declares no
+    // properties (ADR-058), so the picker opens from the title menu.
+    await openProperties();
     clickMenuItem('Text');
     await flush();
     const field = document.querySelector<HTMLElement>('.property-list__name .editable-text')!;

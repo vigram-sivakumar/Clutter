@@ -336,7 +336,32 @@ export class PageOperations {
      * same with its own filesystem). Optional like `duplicator`: without it that check is skipped.
      */
     private readonly readFile?: (path: string) => Promise<string>
-  ) {}
+  ) {
+    // The one rule for an empty draft's end of life, independent of HOW the user left it: whatever
+    // changes the active view (a page, a folder, any filtered view, a history step, a direct
+    // workspace.openPage) lands here, so no navigation path needs its own cleanup call. The draft that
+    // WAS active is discarded when it is empty; flushActivePage()'s chained discard stays as the
+    // path that also settles a draft with pending content before deciding.
+    this.activeViewPageId = workspace.activePageId;
+    this.unsubscribeActiveView = workspace.subscribe(() => {
+      const previous = this.activeViewPageId;
+      const next = workspace.activePageId;
+
+      this.activeViewPageId = next;
+
+      if (previous !== null && previous !== next) {
+        this.discardAbandonedDraft(previous);
+      }
+    });
+  }
+
+  private activeViewPageId: string | null;
+  private readonly unsubscribeActiveView: () => void;
+
+  /** Stops watching the active view — the Composition Root's teardown. */
+  public dispose(): void {
+    this.unsubscribeActiveView();
+  }
 
   /**
    * NAVIGATION SUPPORT ONLY — not a general-purpose persistence API.
@@ -463,6 +488,13 @@ export class PageOperations {
     }
 
     if (!this.canAutoDiscardDraft(descriptor)) {
+      return;
+    }
+
+    // The one definition of "empty" (isEmptyDraft, the same one acquireDraft reuses a draft by): a
+    // draft with any body content is meaningful work and is never discarded here. A committed title
+    // or metadata change never reaches this point as a draft at all — it promotes the draft.
+    if (!this.isEmptyDraft(pageId)) {
       return;
     }
 
@@ -1770,8 +1802,7 @@ export class PageOperations {
    */
   private async materializeDraftWithProperties(
     pageId: string,
-    change: (state: PropertyFrontmatter) => PropertyFrontmatter | null,
-    declareDates = true
+    change: (state: PropertyFrontmatter) => PropertyFrontmatter | null
   ): Promise<void> {
     const descriptor = this.draftFor(pageId);
 
@@ -1787,7 +1818,7 @@ export class PageOperations {
 
     const body = this.documentRegistry.get(pageId)?.currentRevision.markdown ?? '';
 
-    await this.persistDraft(pageId, descriptor, body, undefined, next.lines, declareDates);
+    await this.persistDraft(pageId, descriptor, body, undefined, next.lines);
   }
 
   /**
@@ -1924,11 +1955,10 @@ export class PageOperations {
       throw new Error(`"${key}" is not a system property that can be added.`);
     }
 
-    // A draft has no entry order yet to declare the key in: persist it first — without the default
-    // `created` / `modified`, so listing one property lists only that one — then declare the property
-    // against the file's own order.
+    // A draft has no entry order yet to declare the key in: persist it first (a new note declares no
+    // dates), then declare the property against the file's own order, so listing one lists only that one.
     if (!this.vault.getPage(pageId) && this.draftFor(pageId)) {
-      await this.materializeDraftWithProperties(pageId, () => ({ lines: [] }), false);
+      await this.materializeDraftWithProperties(pageId, () => ({ lines: [] }));
     }
 
     await this.saveFrontmatterState(pageId, (state) => addSystemPropertyLines(state, key));
@@ -2347,9 +2377,7 @@ export class PageOperations {
     body: string,
     metadataPatch?: Partial<EditablePageMetadata>,
     /** Raw frontmatter lines of custom properties, for a draft whose first change is a property — written in the same create. */
-    unownedLines?: readonly string[],
-    /** False writes neither `created` nor `modified`: the draft is promoted by listing one system property, which declares only itself. */
-    declareDates = true
+    unownedLines?: readonly string[]
   ): Promise<Page> {
     const destination = descriptor.deterministicPath
       ? {
@@ -2376,11 +2404,10 @@ export class PageOperations {
       id,
       descriptor.type,
       body,
-      effectivePatch || unownedLines || !declareDates
+      effectivePatch || unownedLines
         ? {
             ...(effectivePatch ? this.toFrontmatterMetadataPatch(effectivePatch) : {}),
             ...(unownedLines && { unownedLines }),
-            ...(!declareDates && { created: undefined, modified: undefined }),
           }
         : undefined
     );

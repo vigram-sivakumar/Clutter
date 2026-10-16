@@ -19,9 +19,9 @@ Which properties a note listed was configuration kept beside the data: a reserve
 
 ## Consequences
 
-- **Notes made in Clutter declare both dates** (`PageCreator` writes `created: true` and `modified: true`), so every new note shows Created and Last edited from the start; the "Add a property" title control appears only on a note with none of the keys.
+- **A note made in Clutter declares no dates** (amended 2026-10-16: `PageCreator` writes neither `created` nor `modified`; creating or persisting a note never lists either). Created and Last edited appear only when added through Properties or inherited from a template that declares them; the "Add a property" title control appears only on a note with none of the keys.
 - **Remove is destructive for system properties** (it used to be "unlist only"): Removing Tags deletes the note's frontmatter tags.
-- A draft's first property change persists the draft, then declares the property against the file's own order. Listing a system property (e.g. Created) on a draft writes only that key — the default `created` / `modified` of a note made by typing are not added alongside it (amended 2026-10-16: the two dates are independent).
+- A draft's first property change persists the draft, then declares the property against the file's own order. Listing a system property (e.g. Created) on a draft writes only that key (the two dates are independent).
 - `PARSER_VERSION` is 4 (the parser no longer reads `created` / `modified`).
 
 ## Alternatives considered

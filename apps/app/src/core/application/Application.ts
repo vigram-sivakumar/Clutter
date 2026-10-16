@@ -1110,6 +1110,7 @@ export class Application {
     // is inert. Same ordering constraint flushAll() documents for itself
     // above, applied to a second consumer of the same resource.
     this.effectivePageState.dispose();
+    this.pageOperations.dispose();
     this.workspaceVaultReconciliationUnsubscribe();
     this.documentRegistry.clear();
   }

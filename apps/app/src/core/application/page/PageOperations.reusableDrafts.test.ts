@@ -200,17 +200,19 @@ describe('PageOperations: only one unsaved draft can exist', () => {
     expect(documentRegistry.getAll()).toHaveLength(1);
   });
 
-  it('reopening the draft brings it to the front even after focus moved to a real page', async () => {
-    const { pageOperations, workspace } = setup();
+  it('an empty draft is discarded once focus moves to a real page — the next New note is a fresh draft', async () => {
+    const { pageOperations, workspace, draftCount } = setup();
 
     const draftId = await pageOperations.openDraft({ folderId: null });
     const real = await pageOperations.create({ folderId: null, title: 'Real' });
     expect(workspace.activePageId).toBe(real);
+    expect(pageOperations.getDraft(draftId)).toBeUndefined();
+    expect(draftCount()).toBe(0);
 
     const again = await pageOperations.openDraft({ folderId: null });
 
-    expect(again).toBe(draftId);
-    expect(workspace.activePageId).toBe(draftId);
+    expect(again).not.toBe(draftId);
+    expect(workspace.activePageId).toBe(again);
   });
 
   it('eager create() never occupies or displaces the single draft slot', async () => {
