@@ -127,3 +127,11 @@
   gap: var(--space-4);
   overflow: visible;
 }
+.entry-interactive:not(.entry-disabled):hover .pill,
+.entry-force-hover:not(.entry-disabled) .pill {
+  background: color-mix(
+    in srgb,
+    var(--pill-surface),
+    rgb(var(--state-base)) 6%
+  );
+}

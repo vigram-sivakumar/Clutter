@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { NESTED_INTERACTIVE_SELECTOR } from './buildActivationProps';
+import './pointerDrag.css';
 
 /** Pointer travel, in CSS pixels, before a press becomes a drag. Matches the table drag (`tableHandleOverlay.ts`). */
 export const DRAG_THRESHOLD_PX = 4;
@@ -101,6 +102,8 @@ export function usePointerDrag<T>(options: UsePointerDragOptions<T> = {}) {
       let phase: 'pending' | 'dragging' | 'cancelled' = 'pending';
       let didDrag = false;
       let restoreBody: (() => void) | null = null;
+      // What was selected before this press, so the drag only ever removes a selection the gesture itself made.
+      const selectionBeforePress = snapshotSelection();
 
       const session: PointerDragSession = {
         source,
@@ -152,9 +155,9 @@ export function usePointerDrag<T>(options: UsePointerDragOptions<T> = {}) {
           }
           phase = 'dragging';
           didDrag = true;
-          // A selection the press may already have begun is dropped, so nothing stays highlighted behind the ghost.
-          document.getSelection()?.removeAllRanges();
-          restoreBody = lockBodyForDrag();
+          // Locks selection for the whole drag, and drops one the press may already have begun so nothing stays
+          // highlighted behind the ghost.
+          restoreBody = acquireDragSelectionLock(selectionBeforePress);
           setDrag({ payload, session });
         }
 
@@ -236,9 +239,63 @@ export function usePointerDrag<T>(options: UsePointerDragOptions<T> = {}) {
   return { drag, press };
 }
 
-/** No text selection (both spellings) and a grabbing cursor for the length of a drag. Returns the undo. */
-function lockBodyForDrag(): () => void {
+interface SelectionSnapshot {
+  readonly anchorNode: Node | null;
+  readonly anchorOffset: number;
+  readonly focusNode: Node | null;
+  readonly focusOffset: number;
+}
+
+/** The current non-collapsed selection, or null when there is none (a bare caret is not a selection to protect). */
+function snapshotSelection(): SelectionSnapshot | null {
+  const selection = document.getSelection();
+  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+    return null;
+  }
+  const { anchorNode, anchorOffset, focusNode, focusOffset } = selection;
+  return { anchorNode, anchorOffset, focusNode, focusOffset };
+}
+
+/**
+ * The drag-selection guard. Every `usePointerDrag` session takes one for the length of its drag, so
+ * suppression lives here, once, for every drag source and destination. It is reference-counted: the guard
+ * is applied by the first live drag and lifted by the last, so one drag ending never re-enables selection
+ * under another that is still going.
+ *
+ * While held it:
+ * - sets `user-select: none` on the body (both spellings) and a grabbing cursor;
+ * - marks `<html data-pointer-drag>`, whose stylesheet (`pointerDrag.css`) extends the same rule to EVERY
+ *   element — an editable field (a contentEditable title, an input, CodeMirror) stays selectable under an
+ *   inherited `user-select: none`, so the body style alone cannot keep a drag from selecting the page title;
+ * - drops any selection that appears while it is held (`selectionchange`): the browser extends a selection
+ *   begun by the press without a new `selectstart`, so vetoing `selectstart` alone is not enough.
+ *
+ * A selection that already existed before the press is left alone. Returns an idempotent release.
+ */
+let guardHolders = 0;
+let guardBaseline: SelectionSnapshot | null = null;
+let undoGuard: (() => void) | null = null;
+
+function dropSelectionMadeByTheDrag(): void {
+  const selection = document.getSelection();
+  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+    return;
+  }
+  const kept = guardBaseline;
+  const isPreexisting =
+    kept !== null &&
+    selection.anchorNode === kept.anchorNode &&
+    selection.anchorOffset === kept.anchorOffset &&
+    selection.focusNode === kept.focusNode &&
+    selection.focusOffset === kept.focusOffset;
+  if (!isPreexisting) {
+    selection.removeAllRanges();
+  }
+}
+
+function applyDragSelectionGuard(): () => void {
   const { style } = document.body;
+  const root = document.documentElement;
   const previous = {
     userSelect: style.userSelect,
     webkitUserSelect: style.getPropertyValue('-webkit-user-select'),
@@ -248,7 +305,12 @@ function lockBodyForDrag(): () => void {
   // WebKit (the macOS webview) only honours the prefixed property on older versions.
   style.setProperty('-webkit-user-select', 'none');
   style.cursor = 'grabbing';
+  root.setAttribute('data-pointer-drag', '');
+  document.addEventListener('selectionchange', dropSelectionMadeByTheDrag);
+
   return () => {
+    document.removeEventListener('selectionchange', dropSelectionMadeByTheDrag);
+    root.removeAttribute('data-pointer-drag');
     style.userSelect = previous.userSelect;
     if (previous.webkitUserSelect) {
       style.setProperty('-webkit-user-select', previous.webkitUserSelect);
@@ -256,6 +318,29 @@ function lockBodyForDrag(): () => void {
       style.removeProperty('-webkit-user-select');
     }
     style.cursor = previous.cursor;
+  };
+}
+
+function acquireDragSelectionLock(selectionBeforePress: SelectionSnapshot | null): () => void {
+  if (guardHolders === 0) {
+    guardBaseline = selectionBeforePress;
+    undoGuard = applyDragSelectionGuard();
+  }
+  guardHolders += 1;
+  dropSelectionMadeByTheDrag();
+
+  let released = false;
+  return () => {
+    if (released) {
+      return;
+    }
+    released = true;
+    guardHolders -= 1;
+    if (guardHolders === 0) {
+      undoGuard?.();
+      undoGuard = null;
+      guardBaseline = null;
+    }
   };
 }
 

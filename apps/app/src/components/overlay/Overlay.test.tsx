@@ -866,3 +866,72 @@ describe('Overlay — a right-click while open dismisses it', () => {
     expect(rightClick(document.body).defaultPrevented).toBe(false);
   });
 });
+
+describe('Overlay — focus is handed back by how it was dismissed', () => {
+  function Harness({ returnToInput = false }: { returnToInput?: boolean }) {
+    const [open, setOpen] = useState(true);
+    const buttonRef = useRef<HTMLButtonElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+    return (
+      <>
+        <button ref={buttonRef}>trigger</button>
+        <input ref={inputRef} aria-label="field" />
+        <Overlay
+          open={open}
+          onClose={() => setOpen(false)}
+          anchorRef={buttonRef}
+          returnFocusRef={returnToInput ? inputRef : undefined}
+        >
+          <div>content</div>
+        </Overlay>
+      </>
+    );
+  }
+
+  it('opened and closed from the keyboard, focus goes back to the trigger (keyboard focus stays correct)', () => {
+    fireEvent.keyDown(document, { key: 'ArrowDown' });
+    render(<Harness />);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.getByText('trigger')).toHaveFocus();
+  });
+
+  it('opened with the mouse, Escape does not push focus onto the trigger (no ring around a button that was only clicked)', () => {
+    fireEvent.pointerDown(document.body);
+    render(<Harness />);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.getByText('trigger')).not.toHaveFocus();
+  });
+
+  it('a click outside does not push focus onto the trigger (no ring from a pointer dismissal)', () => {
+    fireEvent.keyDown(document, { key: 'ArrowDown' });
+    render(<Harness />);
+    const backdrop = document.querySelector('.overlay__backdrop')!;
+    fireEvent.pointerDown(backdrop);
+    fireEvent.click(backdrop);
+    expect(screen.getByText('trigger')).not.toHaveFocus();
+  });
+
+  it('a right-click dismissal does not push focus onto the trigger either', () => {
+    fireEvent.keyDown(document, { key: 'ArrowDown' });
+    render(<Harness />);
+    fireEvent.contextMenu(document.body);
+    expect(screen.getByText('trigger')).not.toHaveFocus();
+  });
+
+  it('a pointer dismissal still returns focus to a text field that asked for it', () => {
+    fireEvent.pointerDown(document.body);
+    render(<Harness returnToInput />);
+    const backdrop = document.querySelector('.overlay__backdrop')!;
+    fireEvent.pointerDown(backdrop);
+    fireEvent.click(backdrop);
+    expect(screen.getByLabelText('field')).toHaveFocus();
+  });
+
+  it('opened from the keyboard, a pointer press and then Escape still restores focus (the last input is the keyboard)', () => {
+    fireEvent.keyDown(document, { key: 'Enter' });
+    render(<Harness />);
+    fireEvent.pointerDown(document.body);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.getByText('trigger')).toHaveFocus();
+  });
+});

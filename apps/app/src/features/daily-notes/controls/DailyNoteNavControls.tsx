@@ -56,7 +56,7 @@ export function DailyNoteNavControls({
           aria-label="Previous day"
           onClick={() => shiftDate(-1)}
         >
-          <AppIcon icon="arrowLeft" />
+          <AppIcon icon="caretLeft" />
         </Button>
         <Button
           size="small"
@@ -74,7 +74,7 @@ export function DailyNoteNavControls({
           aria-label="Next day"
           onClick={() => shiftDate(1)}
         >
-          <AppIcon icon="arrowRight" />
+          <AppIcon icon="caretRight" />
         </Button>
       </div>
 

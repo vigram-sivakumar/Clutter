@@ -1,3 +1,4 @@
+import { tripleClickLineSelection } from './tripleClickLineSelection';
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import {
   defaultKeymap,
@@ -313,6 +314,8 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       // for the caret itself once this hides the native one; `.cm-cursor`
       // styling (MarkdownEditor.css) is what's visible now.
       drawSelection(),
+      // Triple-click selects the line's text, not its line break (see tripleClickLineSelection.ts).
+      tripleClickLineSelection(),
       EditorView.lineWrapping,
       ...(enableHistory ? [history(), metadataHistoryStep((change) => onMetadataHistoryStep?.(change))] : []),
       EditorState.allowMultipleSelections.of(true),

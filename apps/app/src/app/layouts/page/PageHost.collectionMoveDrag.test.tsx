@@ -600,3 +600,100 @@ describe('the empty space below the sidebar\'s last row — from either source',
     });
   }
 });
+
+describe('text selection during every drag — one guard, whatever the source, destination or exit', () => {
+  const locked = () => document.documentElement.hasAttribute('data-pointer-drag');
+  const title = () => document.querySelector<HTMLElement>('h1, .page__title, [class*="title"]')!;
+  /** What the browser does while a press is held and the pointer travels: puts a selection on the page title. */
+  const selectTitle = () => {
+    const range = document.createRange();
+    range.selectNodeContents(title());
+    const selection = document.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+    document.dispatchEvent(new Event('selectionchange'));
+  };
+
+  beforeEach(async () => {
+    await build(
+      [['Projects', null], ['Alpha', 'Projects'], ['Gamma', null], ['Delta', null]],
+      [['N1', 'Projects']]
+    );
+    await show('Projects');
+    document.getSelection()?.removeAllRanges();
+  });
+
+  // [name, the thing pressed, where it is taken]
+  const sources: Array<[string, () => HTMLElement, () => { x: number; y: number }]> = [
+    ['Sidebar folder row → Collection View card', () => row(ids.Delta!), () => centre(card(ids.Alpha!))],
+    ['Sidebar note row → Collection View card', () => row(ids.N1!), () => centre(card(ids.Alpha!))],
+    ['Sidebar folder grabbed by its caret → Collection View card', () => row(ids.Gamma!).querySelector<HTMLElement>('.caret-slot')!, () => centre(card(ids.Alpha!))],
+    ['Collection View card → Sidebar row', () => card(ids.Alpha!), () => centre(row(ids.Gamma!))],
+    ['Collection View note row → Sidebar row', () => card(ids.N1!), () => centre(row(ids.Gamma!))],
+    ['Sidebar row → Sidebar row', () => row(ids.Delta!), () => centre(row(ids.Gamma!))],
+  ];
+
+  describe.each(sources)('%s', (_name, pressed, destination) => {
+    /** `drag` presses at the centre of the thing; a caret is a child, so press on it directly. */
+    const start = async () => {
+      const el = pressed();
+      const from = centre(el.closest<HTMLElement>('[data-drag-id]')!);
+      fireEvent.pointerDown(el, { button: 0, pointerId: 1, isPrimary: true, clientX: from.x, clientY: from.y });
+      act(() => void fireEvent.pointerMove(document, { pointerId: 1, clientX: destination().x, clientY: destination().y }));
+    };
+
+    it('selection is suppressed for the whole drag — a selection the browser makes under the pointer is dropped', async () => {
+      expect(locked()).toBe(false);
+      await start();
+      expect(locked()).toBe(true);
+      expect(document.body.style.userSelect).toBe('none');
+
+      selectTitle();
+      expect(document.getSelection()!.rangeCount).toBe(0);
+    });
+
+    it.each([
+      ['a successful drop', () => act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: 550, clientY: 120 }))],
+      ['a drop outside the application window', () => act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: -50, clientY: -50 }))],
+      ['a drop on nothing', () => act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: 900, clientY: 900 }))],
+      ['Escape', () => act(() => void fireEvent.keyDown(document, { key: 'Escape' }))],
+      ['pointer cancel', () => act(() => void fireEvent.pointerCancel(document, { pointerId: 1 }))],
+      ['the window losing focus', () => act(() => void fireEvent.blur(window))],
+    ])('selection works again after %s', async (_exit, end) => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+      await start();
+      end();
+      await settle();
+
+      expect(locked()).toBe(false);
+      expect(document.body.style.userSelect).toBe('');
+      selectTitle();
+      expect(document.getSelection()!.rangeCount).toBe(1); // ordinary again: nothing removes it
+    });
+
+    it('selection works again after a drop the operation rejects', async () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+      vi.spyOn(application.folderOperations, 'move').mockRejectedValue(new Error('Cannot move'));
+      vi.spyOn(application.pageOperations, 'move').mockRejectedValue(new Error('Cannot move'));
+      await start();
+      act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: destination().x, clientY: destination().y }));
+      await settle();
+
+      expect(locked()).toBe(false);
+      selectTitle();
+      expect(document.getSelection()!.rangeCount).toBe(1);
+    });
+  });
+
+  it('ordinary selection outside a drag is untouched, and a bare click on a row never takes the guard', () => {
+    selectTitle();
+    expect(document.getSelection()!.rangeCount).toBe(1);
+
+    const el = row(ids.Delta!);
+    fireEvent.pointerDown(el, { button: 0, pointerId: 1, isPrimary: true, clientX: 20, clientY: 120 });
+    expect(locked()).toBe(false);
+    fireEvent.pointerUp(document, { pointerId: 1 });
+    expect(locked()).toBe(false);
+    expect(document.getSelection()!.rangeCount).toBe(1);
+  });
+});

@@ -20,4 +20,17 @@
   font-size: var(--text-label-small);
   line-height: var(--lh-label-small);
   font-weight: var(--fw-bold);
+  background-color: color-mix(
+    in srgb,
+    var(--pill-surface),
+    rgb(var(--state-base)) 4%
+  );
+}
+.entry-interactive:not(.entry-disabled):hover .space__initial,
+.entry-force-hover:not(.entry-disabled) .space__initial {
+  background: color-mix(
+    in srgb,
+    var(--pill-surface),
+    rgb(var(--state-base)) 8%
+  );
 }

@@ -115,8 +115,8 @@ Neutrals    charcoal / gray
 
   --pill-surface: color-mix(
     in srgb,
-    var(--surface-secondary) 88%,
-    rgb(var(--state-base)) 10%
+    var(--surface-secondary) 96%,
+    rgb(var(--state-base)) 4%
   );
 
   /* Interactive states */
@@ -272,8 +272,8 @@ Neutrals    charcoal / gray
 
   --pill-surface: color-mix(
     in srgb,
-    var(--surface-secondary) 88%,
-    rgb(var(--state-base)) 10%
+    var(--surface-secondary) 96%,
+    rgb(var(--state-base)) 4%
   );
 
   /* Interactive states */

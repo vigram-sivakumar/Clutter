@@ -24,6 +24,9 @@
   font-size: var(--text-label);
   line-height: var(--lh-label);
 
+  user-select: none;
+  -webkit-user-select: none;
+
   transition:
     background-color 120ms ease,
     color 120ms ease;
@@ -100,6 +103,13 @@
 .entry__trailing:has(.entry__actions):not(:has(.entry__meta)) {
   display: none;
 }
+/* Keyboard focus: the app's own focus ring (the one Collection cards and rows use), not WebKit's native one. Drawn
+   inside the row so the sidebar's edges never clip it. */
+.entry:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: -2px;
+}
+
 .entry:hover:has(.entry__actions) .entry__trailing,
 .entry:focus-visible:has(.entry__actions) .entry__trailing,
 .entry-force-hover:has(.entry__actions) .entry__trailing {

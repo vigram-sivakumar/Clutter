@@ -1,0 +1,11 @@
+/*
+ * Held on <html> by usePointerDrag for the length of an item drag (see the drag-selection guard there).
+ * `user-select: none` set on the body does not reach an editable element (a contentEditable title, an input,
+ * CodeMirror): the browser keeps those selectable, so a drag crossing one would highlight it. Applying the rule
+ * to every element, `!important`, closes that — and exists only while the attribute does.
+ */
+html[data-pointer-drag],
+html[data-pointer-drag] * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}

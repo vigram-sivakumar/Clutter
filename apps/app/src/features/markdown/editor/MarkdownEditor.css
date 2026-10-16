@@ -14,6 +14,17 @@
 }
 
 /*
+ * The editable surface never draws a focus ring either. CodeMirror's own `.cm-content { outline: none }` is
+ * injected at runtime as a <style> tag; where that cannot be relied on (a packaged build's CSP), the platform's
+ * default focus ring would otherwise show around the whole content while the editor has focus.
+ */
+.markdown__editor .cm-content,
+.markdown__editor .cm-content:focus,
+.markdown__editor .cm-content:focus-visible {
+  outline: none;
+}
+
+/*
  * `overflow: visible`, not CM6's own `auto` default — `.cm-scroller` is
  * never actually the scrolling element in this app's layout. `EditorView.
  * lineWrapping` (createEditorView.ts) lets the editor's content grow to

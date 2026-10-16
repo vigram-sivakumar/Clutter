@@ -32,7 +32,8 @@
   align-items: center;
   justify-content: center;
 }
-.page-header-controls__emoji:not(.page-header-controls__emoji--static):hover {
+.page-header-controls__emoji:not(.page-header-controls__emoji--static):hover
+  .app-icon {
   opacity: var(--opacity-subtle);
   transition: opacity 120ms ease;
 }

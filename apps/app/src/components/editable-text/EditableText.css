@@ -3,6 +3,7 @@
   cursor: text;
   position: relative;
   min-width: 1px;
+  width: 100%;
   white-space: pre-wrap;
   overflow-wrap: break-word;
 }

@@ -232,3 +232,155 @@ describe('usePointerDrag — text selection', () => {
     expect(document.body.style.userSelect).toBe('');
   });
 });
+
+describe('usePointerDrag — the drag-selection guard', () => {
+  const root = document.documentElement;
+  const locked = () => root.hasAttribute('data-pointer-drag');
+
+  function Two() {
+    return (
+      <div>
+        <Harness />
+        <Harness />
+        <h1 data-testid="title">Page title</h1>
+        <input data-testid="field" defaultValue="typed text" />
+        <div data-testid="editable" contentEditable suppressContentEditableWarning>
+          editable text
+        </div>
+      </div>
+    );
+  }
+
+  const selectStartPrevented = (target: Element) => {
+    const event = new Event('selectstart', { bubbles: true, cancelable: true });
+    target.dispatchEvent(event);
+    return event.defaultPrevented;
+  };
+
+  const select = (element: Element, start = 0, end?: number) => {
+    const range = document.createRange();
+    const node = element.firstChild!;
+    range.setStart(node, start);
+    range.setEnd(node, end ?? node.textContent!.length);
+    const selection = document.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+    document.dispatchEvent(new Event('selectionchange'));
+  };
+
+  const allRows = () => Array.from(document.querySelectorAll<HTMLElement>('[data-testid="row"]'));
+
+  it('marks <html> for exactly the length of the drag, on every way a drag can end', () => {
+    const exits: Array<[string, () => void]> = [
+      ['release', () => up()],
+      ['pointer cancel', () => act(() => void fireEvent.pointerCancel(document, { pointerId: 1 }))],
+      ['window blur', () => act(() => void fireEvent.blur(window))],
+      ['Escape', () => act(() => void fireEvent.keyDown(document, { key: 'Escape' }))],
+    ];
+    for (const [name, end] of exits) {
+      const { getByTestId, unmount } = render(<Harness />);
+      expect(locked(), name).toBe(false);
+      down(getByTestId('row'));
+      expect(locked(), `${name}: a bare press is not a drag`).toBe(false);
+      move(60, 60);
+      expect(locked(), name).toBe(true);
+      end();
+      expect(locked(), name).toBe(false);
+      up();
+      unmount();
+      expect(locked(), `${name} (after unmount)`).toBe(false);
+    }
+  });
+
+  it('is lifted when the component unmounts mid-drag', () => {
+    const { getByTestId, unmount } = render(<Harness />);
+    down(getByTestId('row'));
+    move(60, 60);
+    expect(locked()).toBe(true);
+    unmount();
+    expect(locked()).toBe(false);
+    expect(document.body.style.userSelect).toBe('');
+  });
+
+  it('removes a selection that appears while dragging — including inside an editable title, an input and contentEditable', () => {
+    const { getByTestId } = render(<Two />);
+    down(allRows()[0]!);
+    move(60, 60);
+
+    for (const id of ['title', 'editable']) {
+      select(getByTestId(id));
+      expect(document.getSelection()!.rangeCount, id).toBe(0);
+    }
+  });
+
+  it('keeps extending-selection out for the whole drag, not just once at the threshold', () => {
+    const { getByTestId } = render(<Two />);
+    down(allRows()[0]!);
+    move(60, 60);
+    select(getByTestId('title'));
+    move(90, 90);
+    select(getByTestId('title'), 2, 5);
+    expect(document.getSelection()!.rangeCount).toBe(0);
+  });
+
+  it('leaves a selection that existed before the press alone', () => {
+    const { getByTestId } = render(<Two />);
+    select(getByTestId('title'), 1, 4);
+    down(allRows()[0]!);
+    move(60, 60);
+    document.dispatchEvent(new Event('selectionchange'));
+
+    const selection = document.getSelection()!;
+    expect(selection.rangeCount).toBe(1);
+    expect(selection.toString()).toBe('age');
+  });
+
+  it('does nothing outside a drag: selecting in the title, an input or contentEditable works, and a bare press changes nothing', () => {
+    const { getByTestId } = render(<Two />);
+    select(getByTestId('title'));
+    expect(document.getSelection()!.rangeCount).toBe(1);
+    select(getByTestId('editable'));
+    expect(document.getSelection()!.rangeCount).toBe(1);
+
+    const field = getByTestId('field') as HTMLInputElement;
+    field.focus();
+    field.setSelectionRange(0, 5);
+    down(allRows()[0]!);
+    up();
+    expect(field.selectionStart).toBe(0);
+    expect(field.selectionEnd).toBe(5);
+    expect(locked()).toBe(false);
+    expect(selectStartPrevented(field)).toBe(false);
+  });
+
+  it('is reference-counted: one drag ending does not lift the guard under another that is still going', () => {
+    render(<Two />);
+    const [first, second] = allRows();
+    // Distinct pointer ids: two sessions that are live at the same time.
+    fireEvent.pointerDown(first!, { button: 0, pointerId: 1, isPrimary: true, clientX: 10, clientY: 10 });
+    fireEvent.pointerDown(second!, { button: 0, pointerId: 2, isPrimary: true, clientX: 10, clientY: 10 });
+    act(() => {
+      fireEvent.pointerMove(document, { pointerId: 1, clientX: 60, clientY: 60 });
+      fireEvent.pointerMove(document, { pointerId: 2, clientX: 60, clientY: 60 });
+    });
+    expect(locked()).toBe(true);
+
+    act(() => void fireEvent.pointerUp(document, { pointerId: 1 }));
+    expect(locked()).toBe(true);
+    expect(document.body.style.userSelect).toBe('none');
+
+    act(() => void fireEvent.pointerUp(document, { pointerId: 2 }));
+    expect(locked()).toBe(false);
+    expect(document.body.style.userSelect).toBe('');
+  });
+
+  it('the stylesheet it sets the mark for reaches every element, editable ones included', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const css = readFileSync(resolve(process.cwd(), 'src/shared/interaction/pointerDrag.css'), 'utf-8');
+    expect(css).toMatch(/html\[data-pointer-drag\] \*/);
+    expect(css).toMatch(/user-select:\s*none\s*!important/);
+    expect(css).toMatch(/-webkit-user-select:\s*none\s*!important/);
+    expect(css.match(/\{/g)).toHaveLength(1); // one rule, and it is scoped to the mark: nothing applies outside a drag
+  });
+});
