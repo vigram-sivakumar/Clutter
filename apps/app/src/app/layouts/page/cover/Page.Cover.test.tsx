@@ -639,7 +639,7 @@ describe('PageCover — Unsplash attribution (ADR-054)', () => {
   it('shows the credit-less fallback for an Unsplash cover saved before credits existed', () => {
     const { container } = render(<PageCover src={COVER} />);
 
-    expect(container.querySelector('.page-cover__attribution')).toHaveTextContent(/^Photo on Unsplash$/);
+    expect(container.querySelector('.page-cover__attribution')).toHaveTextContent(/^by Unsplash$/);
   });
 
   it('shows no attribution on non-Unsplash covers', () => {

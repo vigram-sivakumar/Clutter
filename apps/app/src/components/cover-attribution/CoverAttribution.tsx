@@ -16,7 +16,7 @@ export interface CoverAttributionProps {
 export function coverAttributionLabel(attribution: CoverAttributionData): string {
   return attribution.kind === 'credit'
     ? `Photo by ${attribution.name} on Unsplash`
-    : 'Photo on Unsplash';
+    : 'by Unsplash';
 }
 
 function keepKeyboardLocal(event: KeyboardEvent<HTMLAnchorElement>): void {
@@ -39,7 +39,7 @@ function openLink(event: MouseEvent<HTMLAnchorElement>, url: string): void {
  * (`unsplashAttribution.ts`). A long name is truncated, never the surrounding
  * words or the links; the full name is the link's tooltip and accessible name.
  * A cover saved before credits were recorded has no photographer to name, so it
- * reads "Photo on Unsplash" (ADR-054).
+ * reads "by Unsplash" (ADR-054).
  */
 // The spaces live in the text itself (not only in the CSS gap) so copying the line, and
 // assistive tech, read it as a sentence; the flex layout collapses them visually.
@@ -62,10 +62,8 @@ export function CoverAttribution({ attribution, className }: CoverAttributionPro
             {attribution.name}
           </a>
         </>
-      ) : (
-        <span className="cover-attribution__text">Photo</span>
-      )}
-      <span className="cover-attribution__text"> on </span>
+      ) : null}
+      <span className="cover-attribution__text">{attribution.kind === 'credit' ? ' on ' : 'by '}</span>
       <a
         className="cover-attribution__unsplash"
         href={UNSPLASH_HOME_URL}

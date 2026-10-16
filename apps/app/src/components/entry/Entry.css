@@ -1,5 +1,5 @@
 :root {
-  --entry-foreground: var(--foreground-secondary);
+  --entry-foreground: var(--foreground-entry);
   --entry-muted-foreground: var(--foreground-tertiary);
 
   --entry-hover-surface: var(--state-hover);

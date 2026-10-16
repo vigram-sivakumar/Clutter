@@ -50,10 +50,10 @@ describe('CoverAttribution', () => {
     expect(container.querySelectorAll('.cover-attribution__text, .cover-attribution__unsplash').length).toBeGreaterThan(0);
   });
 
-  it('a credit-less Unsplash cover reads "Photo on Unsplash", linking only Unsplash', () => {
+  it('a credit-less Unsplash cover reads "by Unsplash", linking only Unsplash', () => {
     const { container } = render(<CoverAttribution attribution={{ kind: 'unsplash' }} />);
 
-    expect(container.querySelector('.cover-attribution')).toHaveTextContent(/^Photo on Unsplash$/);
+    expect(container.querySelector('.cover-attribution')).toHaveTextContent(/^by Unsplash$/);
     expect(screen.getAllByRole('link')).toHaveLength(1);
     expect(screen.getByRole('link', { name: 'Unsplash' })).toHaveAttribute('href', HOME);
   });
@@ -79,6 +79,6 @@ describe('CoverAttribution', () => {
     expect(coverAttributionLabel({ kind: 'credit', name: 'Alex Doe', profileUrl: PROFILE })).toBe(
       'Photo by Alex Doe on Unsplash'
     );
-    expect(coverAttributionLabel({ kind: 'unsplash' })).toBe('Photo on Unsplash');
+    expect(coverAttributionLabel({ kind: 'unsplash' })).toBe('by Unsplash');
   });
 });

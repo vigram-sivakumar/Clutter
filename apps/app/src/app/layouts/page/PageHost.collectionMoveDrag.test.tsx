@@ -20,6 +20,7 @@ import { PageFactory } from '@core/application/page/PageFactory';
 import { UuidGenerator } from '@core/shared/identity/UuidGenerator';
 import { DailyNoteService } from '@core/application/daily-notes/DailyNoteService';
 import { CollectionViewConfigStore } from '@core/application/collection/CollectionViewConfigStore';
+import { collectionViewKeyForFolder } from '@core/application/collection/collectionViewKey';
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn().mockResolvedValue(undefined),
@@ -205,6 +206,15 @@ describe('the ghost of a Collection View folder card', () => {
   it('a note row dragged from the page gets the compact ghost', async () => {
     await drag(card(ids.N1!), { x: 120, y: 300 }, { release: false });
     expect(document.body.querySelector<HTMLElement>('.drag-ghost')!.style.width).toBe('256px');
+  });
+
+  it('a note CARD (Card layout) keeps its own width, unlike a table or list row', async () => {
+    application.collectionViewConfigStore.update(collectionViewKeyForFolder(ids.Projects!), { layout: 'card' });
+    await show('Projects');
+    const source = card(ids.N1!);
+    await drag(source, { x: 120, y: 300 }, { release: false });
+    expect(source.hasAttribute('data-drag-ghost-size')).toBe(false);
+    expect(document.body.querySelector<HTMLElement>('.drag-ghost')!.style.width).toBe(`${source.getBoundingClientRect().width}px`);
   });
 
   it('a sidebar row dragged out keeps the sidebar row\'s own width', async () => {

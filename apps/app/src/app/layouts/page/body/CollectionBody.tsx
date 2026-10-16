@@ -303,6 +303,9 @@ export function CollectionBody({
               resolvers: previewResolvers,
             })}
             {...entryProps(entry)}
+            // A note card is a card: its ghost keeps the card's own width. Only a table or list row, which can
+            // span the page, is drawn compact (that marker is what `useCollectionMoveDrag` sets for every note).
+            data-drag-ghost-size={undefined}
           />
         ))}
         {createInNotes && <CreateCard onCreate={createInNotes} aspectRatio={NOTE_CARD_ASPECT_RATIO} />}

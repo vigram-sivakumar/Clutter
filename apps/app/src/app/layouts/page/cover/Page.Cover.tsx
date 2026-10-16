@@ -65,7 +65,7 @@ type PageCoverProps = {
   /**
    * Who to credit for `src` (ADR-054). Shown, with Unsplash, as a line on the cover —
    * required wherever an Unsplash photo is displayed. A cover with no credit that is
-   * still an Unsplash URL (saved before credits were recorded) reads "Photo on Unsplash".
+   * still an Unsplash URL (saved before credits were recorded) reads "by Unsplash".
    */
   coverCredit?: CoverCredit | null;
   onSetCoverImageFromUpload?: (sourcePath: string) => void;

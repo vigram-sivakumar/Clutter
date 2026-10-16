@@ -44,11 +44,12 @@ Neutrals    charcoal / gray
 
   /* Text & icons */
   --foreground-primary: #f7f7f7;
-  --foreground-secondary: #a6a6a6;
+  --foreground-secondary: hsl(0, 0%, 65%);
   --foreground-tertiary: #737373;
   --foreground-placeholder: #575757;
   --foreground-inverse: var(--neutral-700);
   --foreground-brand: white;
+  --foreground-entry: #cccccc;
 
   /* Global decoration */
   --link-underline: rgb(
@@ -214,11 +215,12 @@ Neutrals    charcoal / gray
 
   /* Text & icons */
   --foreground-primary: #333333;
-  --foreground-secondary: #575757;
-  --foreground-tertiary: #a6a6a6;
+  --foreground-secondary: #737373;
+  --foreground-tertiary: #8c8c8c;
   --foreground-placeholder: #cccccc;
   --foreground-inverse: #d4d4d4;
   --foreground-brand: white;
+  --foreground-entry: #404040;
 
   /* Global decoration */
   --link-underline: rgb(

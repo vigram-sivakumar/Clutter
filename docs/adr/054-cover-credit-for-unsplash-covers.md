@@ -55,7 +55,7 @@ A cover is credited when it has a `coverCredit` — **whatever its address now i
 
 ### 4. Backward compatibility / existing notes
 
-Notes written before this ADR have `cover: <unsplash url>` and no `coverCredit`. They parse unchanged (absent key → `null`). Clutter does **not** invent a photographer and does **not** call the API to find one (no render-time requests). Their cover shows the fallback **"Photo on Unsplash"** (link to `https://unsplash.com` with referral parameters) until the user re-picks the photo. This satisfies "credit Unsplash" but not "credit the photographer" for those covers; the limitation is documented here and in the verification report. No migration is run. Files with `coverCredit` read by an older build treat the key as a custom property and preserve it verbatim.
+Notes written before this ADR have `cover: <unsplash url>` and no `coverCredit`. They parse unchanged (absent key → `null`). Clutter does **not** invent a photographer and does **not** call the API to find one (no render-time requests). Their cover shows the fallback **"by Unsplash"** (link to `https://unsplash.com` with referral parameters) until the user re-picks the photo. This satisfies "credit Unsplash" but not "credit the photographer" for those covers; the limitation is documented here and in the verification report. No migration is run. Files with `coverCredit` read by an older build treat the key as a custom property and preserve it verbatim.
 
 ### 5. Hotlinking vs. an explicit save — what the guidelines say
 
@@ -83,7 +83,7 @@ Three different things, which the [API Guidelines](https://help.unsplash.com/en/
 ## Consequences
 
 - Every cover writer and cover reader of the metadata family gains one field (list in the implementation: models, frontmatter types, parser, serializer, `resolvePageMetadata`/`PageRebuilder`/`FolderBuilder`, `PagePersistenceCoordinator`'s draft-promotion patch, `PageOperations`/`FolderOperations`/`PageCreator` patch types, `EffectivePageState`, template pickers, UI models).
-- Old covers display the "Photo on Unsplash" fallback until re-picked.
+- Old covers display the "by Unsplash" fallback until re-picked.
 - Non-Unsplash covers are unaffected (`coverCredit` is `null` and never serialized).
 - **Parsed-note cache ([ADR-053](./053-persistent-parsed-note-cache.md)).** Owning `coverCredit` in `FrontmatterParser` changes what `parse` returns for a note that has the line (it used to be an unowned property), so `PARSER_VERSION` was raised from 1 to 2 and every cache written before this change is discarded on load. The golden corpus (`parserGolden`) now includes valid, download-location, malformed, non-https, empty and absent credits, and the cache equivalence tests assert that a credit survives parse, cache encode/decode and `Page` construction identically (with and without `downloadLocation`). A future change to how a cover-related key is parsed must bump `PARSER_VERSION` the same way.
 
