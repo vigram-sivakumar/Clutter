@@ -137,8 +137,6 @@ describe('toResourcePageModel', () => {
         archivedAt: null,
         originalParentId: null,
         originalPath: null,
-        createdAt: null,
-        updatedAt: null,
       },
       source: { markdown: 'Hello world I am here' },
       analysis: {
@@ -179,8 +177,6 @@ describe('toResourcePageModel', () => {
         archivedAt: null,
         originalParentId: null,
         originalPath: null,
-        createdAt: null,
-        updatedAt: null,
       },
       source: { markdown: '' },
       analysis: {

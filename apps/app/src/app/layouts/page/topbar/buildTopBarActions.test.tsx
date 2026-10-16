@@ -129,8 +129,6 @@ function makePage(
       archivedAt: null,
       originalParentId: null,
       originalPath: null,
-      createdAt: null,
-      updatedAt: null,
     },
     source: { markdown: '' },
     analysis: {

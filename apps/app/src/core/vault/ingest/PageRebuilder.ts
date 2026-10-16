@@ -1,4 +1,5 @@
 import { Page } from '../models/Page';
+import type { PageFileTimes } from '../models/effectivePageDates';
 import type { ParsedMarkdown } from './FrontmatterParser';
 import { PageAnalysisMapper } from './PageAnalysisMapper';
 
@@ -21,7 +22,12 @@ import { PageAnalysisMapper } from './PageAnalysisMapper';
 export class PageRebuilder {
   private readonly analysisMapper = new PageAnalysisMapper();
 
-  rebuild(page: Page, parsedMarkdown: ParsedMarkdown): Page {
+  /**
+   * `fileTimes` is the file's freshly read birth/modification times (ADR-057) and
+   * replaces whatever the previous page held — a stale value is never carried
+   * over; omit it (or pass `undefined`) when the file could not be stat'd.
+   */
+  rebuild(page: Page, parsedMarkdown: ParsedMarkdown, fileTimes?: PageFileTimes): Page {
     const { frontmatter, frontmatterAnalysis, body, analysis } = parsedMarkdown;
 
     return {
@@ -50,8 +56,6 @@ export class PageRebuilder {
         archivedAt: frontmatter.archivedAt ?? null,
         originalPath: frontmatter.originalPath ?? null,
         originalParentId: frontmatter.originalParentId ?? null,
-        createdAt: frontmatter.created ?? page.metadata.createdAt,
-        updatedAt: frontmatter.modified ?? new Date().toISOString(),
         // Preserve, never re-derive from the body: once a user (or the
         // Tags sidebar's "+") has set this, an absent `tags` key on a
         // later reparse means "unchanged," not "gone" — this is what
@@ -80,6 +84,7 @@ export class PageRebuilder {
           frontmatterEntryOrder: frontmatter.entryOrder,
         }),
       },
+      ...(fileTimes && { fileTimes }),
       source: {
         markdown: body,
       },

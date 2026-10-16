@@ -237,8 +237,8 @@ const FULL_TEMPLATE: Partial<PageFrontmatter> = {
   tags: ['tpl', 'meeting'],
   aliases: ['Tpl alias'],
   favorite: true,
-  created: '2020-01-01T00:00:00.000Z',
-  modified: '2020-02-02T00:00:00.000Z',
+  created: true,
+  modified: true,
   unownedLines: ['kind: template', 'Priority: High', 'Attendees:', '  - Ann', '  - Bo', 'reviewed: true'],
 };
 
@@ -273,8 +273,6 @@ describe('createNoteFromTemplate — full inheritance rules', () => {
     expect(note!.metadata.aliases ?? []).toEqual([]);
     expect(note!.metadata.favorite).toBe(false);
     expect(note!.id).not.toBe('template-1');
-    expect(note!.metadata.createdAt).not.toBe('2020-01-01T00:00:00.000Z');
-    expect(note!.metadata.updatedAt).not.toBe('2020-02-02T00:00:00.000Z');
     expect(note!.metadata.unownedFrontmatter!.join('\n')).not.toMatch(/kind/);
   });
 

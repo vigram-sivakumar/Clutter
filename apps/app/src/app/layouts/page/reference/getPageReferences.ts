@@ -1,5 +1,6 @@
 import type { Vault } from '@core/vault/models/Vault';
 import type { Page } from '@core/vault/models/Page';
+import { resolveEffectivePageDates } from '@core/vault/models/effectivePageDates';
 import type { GraphEdge } from '@core/vault/models/graph/GraphEdge';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
 import type { SourceRange } from '@core/presentation/getTagOccurrenceRanges';
@@ -196,8 +197,8 @@ function isEdgeWithin(edge: GraphEdge, task: TaskOccurrence): boolean {
 
 /** Newest first; a page with no `modified` stamp sorts last. */
 function byModifiedDesc(a: Page, b: Page): number {
-  const left = a.metadata.updatedAt;
-  const right = b.metadata.updatedAt;
+  const left = resolveEffectivePageDates(a).updatedAt;
+  const right = resolveEffectivePageDates(b).updatedAt;
 
   if (left === right) {
     return 0;

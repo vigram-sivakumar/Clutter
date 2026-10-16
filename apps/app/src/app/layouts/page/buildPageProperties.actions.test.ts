@@ -14,7 +14,7 @@ const buildPageProperties = (
   actions: NonNullable<Parameters<typeof buildPagePropertiesForHost>[1]> = {}
 ) => buildPagePropertiesForHost(page, { isEffectivelyArchived: page.metadata.status === 'archived', ...actions });
 
-const ALL = 'properties:\n  visible:\n    - tags\n    - aliases\n    - created\n    - modified';
+const ALL = 'tags:\n  - work\naliases:\n  - Alt\ncreated: true\nmodified: true';
 
 function pageFrom(yaml: string, status: 'active' | 'archived' = 'active'): Page {
   const parsed = new FrontmatterParser().parse(`---\nid: p1\n${yaml}\n---\nbody`);
@@ -27,11 +27,10 @@ function pageFrom(yaml: string, status: 'active' | 'archived' = 'active'): Page 
     parentId: null,
     metadata: {
       status,
-      createdAt: '2026-01-02T03:04:05.000Z',
-      updatedAt: '2026-02-03T04:05:06.000Z',
       tags: ['work'],
       aliases: ['Alt'],
       unownedFrontmatter: parsed.frontmatter.unownedLines ?? [],
+      frontmatterEntryOrder: parsed.frontmatter.entryOrder,
     },
   } as unknown as Page;
 }

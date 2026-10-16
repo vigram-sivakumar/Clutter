@@ -10,7 +10,7 @@ import type { AddableSystemProperty } from './header/AddPropertyMenu';
 
 /**
  * The system properties the property picker can add to `page`: the page
- * system keys not in `properties.visible`, in the canonical system order. A
+ * system keys the note does not declare, in the canonical system order. A
  * listed one is never offered again, and a removed one is offered again. (A
  * custom property is displayed because its key exists, so there is nothing
  * custom to add here besides a new type.)
@@ -19,7 +19,7 @@ import type { AddableSystemProperty } from './header/AddPropertyMenu';
  * property type registry — the same sources the Properties list uses.
  */
 export function getAddableSystemProperties(page: Pick<Page, 'metadata'>): AddableSystemProperty[] {
-  const listed = new Set(readListedSystemProperties(page.metadata.unownedFrontmatter ?? []));
+  const listed = new Set(readListedSystemProperties(page.metadata.frontmatterEntryOrder));
 
   return PAGE_SYSTEM_PROPERTY_KEYS.filter((key) => !listed.has(key)).map((key) => ({
     id: key,

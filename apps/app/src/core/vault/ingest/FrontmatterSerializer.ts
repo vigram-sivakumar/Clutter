@@ -133,8 +133,6 @@ export class FrontmatterSerializer {
     // out of this list the next time that file is saved.
     const entries: [string, any][] = [
       ['id', page.id],
-      ['created', page.metadata.createdAt],
-      ['modified', page.metadata.updatedAt],
       ['favorite', page.metadata.favorite],
       ['icon', page.metadata.icon],
       ['cover', page.metadata.cover],
@@ -196,6 +194,13 @@ export class FrontmatterSerializer {
 
       return order?.includes(key) ? [`${keyFor(key)}: []`] : undefined;
     };
+    // Created / Last edited are declared by their key alone (ADR-058): written as `true` when the file has the key
+    // (the recorded entry order), never with a date — their values come from the file's own times (ADR-057).
+    for (const key of ['created', 'modified'] as const) {
+      if (order?.includes(key)) {
+        owned.set(key, [`${keyFor(key)}: true`]);
+      }
+    }
     const tagLines = listLines('tags', page.metadata.tags);
     const aliasLines = listLines('aliases', page.metadata.aliases);
 
@@ -219,19 +224,15 @@ export class FrontmatterSerializer {
     }
 
     // Read from a file: every entry stays where the file had it (the recorded entry order). What the
-    // order doesn't mention — an entry Clutter just added — follows the last entry, before a trailing
-    // `properties` block (kept last when it is).
+    // order doesn't mention — an entry Clutter just added — follows the last entry.
     const out: string[] = [];
     const usedBlocks = new Set<number>();
-    let lastEntry: { key: string; at: number } | undefined;
     let preambleWritten = preamble.length === 0;
     const emitBlock = (index: number) => {
       usedBlocks.add(index);
-      lastEntry = { key: blocks[index]!.key, at: out.length };
 
       if (!preambleWritten) {
         out.push(...preamble);
-        lastEntry = { key: blocks[index]!.key, at: out.length };
         preambleWritten = true;
       }
 
@@ -243,7 +244,6 @@ export class FrontmatterSerializer {
       const blockIndex = blocks.findIndex((block, index) => block.key === token && !usedBlocks.has(index));
 
       if (ownedLines) {
-        lastEntry = { key: token, at: out.length };
         out.push(...ownedLines);
         owned.delete(token);
       } else if (blockIndex !== -1 && !OWNED_FRONTMATTER_KEYS.has(token)) {
@@ -264,11 +264,7 @@ export class FrontmatterSerializer {
       }
     });
 
-    if (lastEntry?.key === 'properties' && leftovers.length > 0) {
-      out.splice(lastEntry.at, 0, ...leftovers);
-    } else {
-      out.push(...leftovers);
-    }
+    out.push(...leftovers);
 
     lines.push(...out);
 

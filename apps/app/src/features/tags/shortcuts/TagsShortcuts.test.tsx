@@ -59,8 +59,6 @@ function makeNote(id: string, markdown: string): Page {
       archivedAt: null,
       originalParentId: null,
       originalPath: null,
-      createdAt: null,
-      updatedAt: null,
     },
     source: { markdown },
     analysis: {

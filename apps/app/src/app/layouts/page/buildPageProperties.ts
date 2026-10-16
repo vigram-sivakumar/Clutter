@@ -4,6 +4,7 @@ import type { CustomPropertyType } from '@core/properties/Property.types';
 import { systemPropertyLabel } from '@core/properties/systemProperties';
 import type { PageSystemPropertyKey } from '@core/properties/systemProperties';
 import type { Page } from '@core/vault/models/Page';
+import { resolveEffectivePageDates } from '@core/vault/models/effectivePageDates';
 import type { MultiSelectSuggestion } from '@components/property-list/PropertyList.types';
 import type { GetTagSuggestions } from '@features/markdown/editor/codemirror/tag/tagSuggestion';
 import { readPropertySequence } from '@core/vault/ingest/frontmatter/propertyLines';
@@ -185,13 +186,12 @@ function toCustomPropertyItem(
  * Which Properties are listed, and in what order: readPropertySequence
  * (propertyLines.ts) decides both. The order is the PHYSICAL order of the
  * note's frontmatter entries (PageMetadata.frontmatterEntryOrder): each entry
- * that is a listed system property — a canonical key in `properties.visible`
- * (`tags`, `aliases`, `created`, `modified`) — or a custom property (listed
- * because its frontmatter key exists) is a row, where its entry is in the
- * file. Everything else is not a row: a hidden system property, `id`,
- * `favorite`, `status`… and the `properties` configuration, whichever entries
- * surround it. `visible` says which system properties show, never where.
- * Listing a system property or not never changes its value. Every row carries
+ * that is a system property (`tags`, `aliases`, `created`, `modified` — a
+ * canonical key declared in the file) or a custom property (listed because its
+ * frontmatter key exists) is a row, where its entry is in the file. Everything
+ * else is not a row: `id`, `favorite`, `status`… and the `showProperties`
+ * setting, whichever entries surround it (ADR-058). Created and Last edited
+ * show the dates ADR-057 resolves; the key only declares the row. Every row carries
  * a stable `id` and the `orderKey` a reorder names it by. Properties being
  * added come last.
  *
@@ -225,7 +225,7 @@ function toCustomPropertyItem(
  * Tags pills open their Tag Collection; `aliases` makes Aliases editable.
  */
 export function buildPageProperties(
-  page: Pick<Page, 'metadata'>,
+  page: Pick<Page, 'metadata' | 'fileTimes'>,
   actions: {
     onOpenTag?(name: string): void;
     aliases?: AliasPropertyActions;
@@ -375,6 +375,8 @@ export function buildPageProperties(
     ];
   });
 
+  const effectiveDates = resolveEffectivePageDates(page);
+
   const systemRows: Record<PageSystemPropertyKey, PropertyListItem> = {
     tags: onCommitTags
         ? {
@@ -405,8 +407,8 @@ export function buildPageProperties(
             onCommit: aliasActions.onCommit,
           }
         : { name: systemPropertyLabel('aliases'), type: 'multi-select', value: aliases, editable: false },
-    created: { name: systemPropertyLabel('created'), type: 'date', value: page.metadata.createdAt, editable: false },
-    modified: { name: systemPropertyLabel('modified'), type: 'date', value: page.metadata.updatedAt, editable: false },
+    created: { name: systemPropertyLabel('created'), type: 'date', value: effectiveDates.createdAt, editable: false },
+    modified: { name: systemPropertyLabel('modified'), type: 'date', value: effectiveDates.updatedAt, editable: false },
   };
 
   // What the section lists, in the order readPropertySequence gives: system and custom properties

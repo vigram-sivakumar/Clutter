@@ -61,9 +61,9 @@ describe('differently-cased system keys in the file', () => {
   );
 
   it.each(['created', 'Created', 'CREATED'])('%s: is the system created property', (key) => {
-    const page = buildPage(`${key}: 2026-01-02T03:04:05.000Z`);
+    const page = buildPage(`${key}: true`);
 
-    expect(page.metadata.createdAt).toBe('2026-01-02T03:04:05.000Z');
+    expect(page.metadata.frontmatterEntryOrder).toContain('created');
     expect(page.metadata.unownedFrontmatter).toBeUndefined();
   });
 
@@ -77,7 +77,7 @@ describe('differently-cased system keys in the file', () => {
       'Alias',
     ]);
     expect(page.metadata.aliases).toEqual([]);
-    expect(page.metadata.createdAt).toBeNull();
+    expect(page.metadata.frontmatterEntryOrder).not.toContain('created');
   });
 
   it("a user's own `Type:` stays a preserved custom key — only the retired exact `type` is dropped", () => {

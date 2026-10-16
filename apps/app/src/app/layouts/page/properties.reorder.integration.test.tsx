@@ -71,8 +71,8 @@ function setup(yaml: string, options: { status?: 'active' | 'archived' } = {}) {
   return { onLines: onState, latest };
 }
 
-// Tags is listed (its entry is first), then three custom properties; the file's entries are in this order.
-const START = 'tags:\n  - x\na: 1\nb: 2\nc: 3\nproperties:\n  visible: [tags]';
+// Tags is declared (its entry is first), then three custom properties; the file's entries are in this order.
+const START = 'tags:\n  - x\na: 1\nb: 2\nc: 3';
 const names = () => [...document.querySelectorAll('.property-list__row')].map((row) => row.querySelector('.property-list__name')?.textContent);
 const rowOf = (name: string) =>
   [...document.querySelectorAll<HTMLElement>('.property-list__row')].find((row) => row.querySelector('.property-list__name')?.textContent === name)!;
@@ -192,10 +192,10 @@ describe('dragging a property by its handle', () => {
   });
 
   it('every reorderable row has a handle drawn with the drag-handle icon, outside the accessibility tree; a draft row has none', () => {
-    setup('a: 1\nproperties:\n  visible: [tags]');
+    setup('tags:\n  - x\na: 1');
     const expected = render(<AppIcon icon="dragHandle" />).container.querySelector('svg')!.outerHTML;
     cleanup();
-    setup('a: 1\nproperties:\n  visible: [tags]');
+    setup('tags:\n  - x\na: 1');
 
     for (const name of ['Tags', 'a']) {
       const handle = handleOf(name);
@@ -301,14 +301,14 @@ describe('a reordered list keeps its identity and persists', () => {
     expect(names()).toEqual(['Tags', 'a', 'c', 'b']);
   });
 
-  it('a reorder moves the entries in the file — `visible` is untouched and the configuration block stays last', () => {
+  it('a reorder moves the entries in the file and writes nothing else', () => {
     const { latest } = setup(START);
 
     fireEvent.click(screen.getByRole('button', { name: 'c actions' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Move up' }));
 
-    expect(latest().order).toEqual(['id', 'tags', 'a', 'c', 'b', 'properties']);
-    expect(latest().lines).toEqual(['a: 1', 'c: 3', 'b: 2', 'properties:', '  visible: [tags]']);
+    expect(latest().order).toEqual(['id', 'tags', 'a', 'c', 'b']);
+    expect(latest().lines).toEqual(['a: 1', 'c: 3', 'b: 2']);
     expect(order(latest())).toEqual(['tags', 'a', 'c', 'b']);
   });
 

@@ -1,5 +1,5 @@
 {
- "parserVersion": 3,
+ "parserVersion": 4,
  "samples": {
   "empty": {
    "frontmatter": {},
@@ -140,7 +140,6 @@
   },
   "frontmatter, no id": {
    "frontmatter": {
-    "created": "2026-01-02T03:04:05.000Z",
     "unownedLines": [
      "title: No id here"
     ],

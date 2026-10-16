@@ -10,7 +10,6 @@ const buildPageProperties = (
   page: Parameters<typeof buildPagePropertiesForHost>[0],
   actions: NonNullable<Parameters<typeof buildPagePropertiesForHost>[1]> = {}
 ) => buildPagePropertiesForHost(page, { isEffectivelyArchived: page.metadata.status === 'archived', ...actions });
-import { withAllVisible } from './showAllVisibleLines';
 
 function makePage(type: 'note' | 'daily-note', overrides: Partial<Page['metadata']> = {}): Page {
   return {
@@ -32,16 +31,11 @@ function makePage(type: 'note' | 'daily-note', overrides: Partial<Page['metadata
       archivedAt: null,
       originalPath: null,
       originalParentId: null,
-      createdAt: '2026-01-02T03:04:05.000Z',
-      updatedAt: 'not-a-date',
       tags: ['a', 'b'],
       aliases: ['Alt'],
+      // Every system property declared, unless the test supplies its own entry order (ADR-058).
+      frontmatterEntryOrder: ['tags', 'aliases', 'created', 'modified'],
       ...overrides,
-      // Everything shown, unless the test supplies its own `properties:`
-      // block (the visibility tests do): nothing is shown by default.
-      unownedFrontmatter: overrides.unownedFrontmatter?.some((line) => /^properties\s*:/i.test(line))
-        ? overrides.unownedFrontmatter
-        : withAllVisible(overrides.unownedFrontmatter),
     },
     source: { markdown: '' },
     analysis: {
@@ -145,7 +139,7 @@ describe('buildPageProperties', () => {
   it('a differently-cased system key shows as the system property, never as a custom one', async () => {
     const { FrontmatterParser } = await import('@core/vault/ingest/FrontmatterParser');
     const { PageBuilder } = await import('@core/vault/ingest/PageBuilder');
-    const parsed = new FrontmatterParser().parse('---\nid: p1\nALIASES:\n  - UX\nTags:\n  - work\nproperties:\n  visible:\n    - tags\n    - aliases\n    - created\n    - modified\n---\n');
+    const parsed = new FrontmatterParser().parse('---\nid: p1\nALIASES:\n  - UX\nTags:\n  - work\nCreated: true\nMODIFIED: true\n---\n');
     const page = new PageBuilder().build({
       parentId: null,
       page: {
@@ -159,12 +153,10 @@ describe('buildPageProperties', () => {
     });
 
     const items = buildPageProperties(page);
-    // In the file's own order: `ALIASES` is written before `Tags`; Created and Last edited have no entry, so they follow.
+    // In the file's own order, whatever the letter case of the keys.
     expect(items.map((item) => item.name)).toEqual(['Aliases', 'Tags', 'Created', 'Last edited']);
     expect(items[0]!.value).toEqual(['UX']);
     expect(items[1]!.value).toEqual(['work']);
-    // `properties` is Clutter's own configuration: never a row of its own.
-    expect(items.map((item) => item.name)).not.toContain('properties');
   });
 
   describe('custom properties', () => {
@@ -492,16 +484,19 @@ describe('buildPageProperties', () => {
     );
   });
 
-  it('exposes Created/Last edited as read-only date Properties carrying the raw timestamp', () => {
-    const items = buildPageProperties(makePage('note', { createdAt: null }));
+  it('exposes Created/Last edited as read-only date Properties carrying the file times (ADR-057)', () => {
+    // Declared (ADR-058) but with no file time yet: the rows are there, their values are null.
+    const items = buildPageProperties(makePage('note'));
     expect(items[2]).toMatchObject({ name: 'Created', type: 'date', value: null, editable: false });
-    expect(items[3]).toMatchObject({
-      name: 'Last edited',
-      type: 'date',
-      value: 'not-a-date',
-      editable: false,
-    });
-    expect(buildPageProperties(makePage('note'))[2]!.value).toBe('2026-01-02T03:04:05.000Z');
+    expect(items[3]).toMatchObject({ name: 'Last edited', type: 'date', value: null, editable: false });
+
+    const withFileTimes = {
+      ...makePage('note'),
+      fileTimes: { createdAt: '2026-05-01T00:00:00.000Z', modifiedAt: '2026-05-02T00:00:00.000Z' },
+    } as Page;
+    const resolved = buildPageProperties(withFileTimes);
+    expect(resolved[2]!.value).toBe('2026-05-01T00:00:00.000Z');
+    expect(resolved[3]!.value).toBe('2026-05-02T00:00:00.000Z');
   });
 
   it('wires onOpenTag onto the Tags Property', () => {

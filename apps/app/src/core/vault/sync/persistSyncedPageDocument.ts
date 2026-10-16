@@ -4,6 +4,7 @@ import type { VaultFileSystem } from '../providers/VaultFileSystem';
 import { FrontmatterSerializer } from '../ingest/FrontmatterSerializer';
 import { FrontmatterParser } from '../ingest/FrontmatterParser';
 import { PageRebuilder } from '../ingest/PageRebuilder';
+import { readPageFileTimes } from '../ingest/readResourceMetadata';
 
 export interface PersistSyncedPageDocumentDeps {
   readonly fileSystem: VaultFileSystem;
@@ -29,7 +30,7 @@ export async function persistSyncedPageDocument(
   await deps.fileSystem.writeFile(page.path, document);
 
   const parsed = deps.parser.parse(document);
-  const rebuilt = deps.rebuilder.rebuild(page, parsed);
+  const rebuilt = deps.rebuilder.rebuild(page, parsed, await readPageFileTimes(deps.fileSystem, page.path));
 
   deps.vault.replacePage(rebuilt);
 

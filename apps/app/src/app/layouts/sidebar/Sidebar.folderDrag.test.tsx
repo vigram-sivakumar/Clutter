@@ -472,7 +472,8 @@ function chooseSort(folderName: string, label: string) {
     fireEvent.click(trigger()); // (a menu left open by the previous pick toggles shut on the first click)
   }
   fireEvent.click(screen.getByText('Sort by'));
-  fireEvent.click(screen.getByText(label));
+  // (A note open in the page may show a Properties row of the same name, e.g. "Last edited" — pick the menu's.)
+  fireEvent.click(screen.getAllByText(label).find((element) => element.closest('[role="menu"]')) ?? screen.getByText(label));
 }
 const sortEntry = (folderName: string) => application.collectionViewConfigStore.get(`folder:${ids[folderName]!}`);
 const n = (title: string) => `n:${ids[title]}`;
@@ -660,31 +661,31 @@ describe('the sort options on a level of real notes and folders', () => {
     expect(sortEntry('Projects')?.sidebarSort).toEqual({ key: 'updated', direction: 'down' });
   });
 
-  it('a note moves when its modification timestamp changes', async () => {
+  it('a note moves when its file\'s modification time changes (ADR-057: the filesystem time is primary)', async () => {
     chooseSort('Projects', 'Last edited');
     const zed = application.vault.getPage(ids.Zed!)!;
     await tick();
     act(() => {
-      application.vault.replacePage({ ...zed, metadata: { ...zed.metadata, updatedAt: new Date().toISOString() } });
+      application.vault.replacePage({
+        ...zed,
+        fileTimes: { createdAt: zed.fileTimes?.createdAt ?? null, modifiedAt: new Date().toISOString() },
+      });
     });
     await settle();
     expect(kids('Projects')[0]).toBe('Zed');
   });
 
-  it('CHARACTERIZATION — today no edit changes a note\'s modification timestamp, so Last edited follows creation order for notes edited in the app', async () => {
-    // `updatedAt` is the frontmatter `modified`, which saves carry over unchanged (and `PageRebuilder` only
-    // stamps it when the file has none): body saves and metadata edits leave it alone; archive and restore
-    // set it. If that ever changes, this test says so and the sort will start tracking edits.
+  it('an in-app edit moves the note to the top under Last edited, and writes no date into the file (ADR-057)', async () => {
+    // The Gate re-reads the file's modification time after every successful write, so an edit shows as
+    // the note's Last edited at once; no date is ever written into the frontmatter.
     chooseSort('Projects', 'Last edited');
-    const before = application.vault.getPage(ids.Zed!)!.metadata.updatedAt;
     await tick();
     await application.pageOperations.open(ids.Zed!);
     await application.pageOperations.save(ids.Zed!, 'An edit of the body.');
     await application.pageOperations.updateMetadata(ids.Zed!, { icon: '📝' });
     await settle();
 
-    expect(application.vault.getPage(ids.Zed!)!.metadata.updatedAt).toBe(before);
-    expect(kids('Projects')).toEqual(['Mango', 'Alpha', '📝Zed', 'Beta']);
+    expect(kids('Projects')).toEqual(['📝Zed', 'Mango', 'Alpha', 'Beta']);
   });
 
   it('a new item appears where each sort puts it', async () => {

@@ -14,6 +14,12 @@ export async function makeFileSystem(
   await fileSystem.createDirectory(ROOT);
   for (const path of Object.keys(files)) {
     await fileSystem.createDirectory(path.slice(0, path.lastIndexOf('/')));
+    // Pinned: pages now carry the file's own times (ADR-057), and two scans of the "same" files
+    // must compare equal whatever the wall clock says.
+    fileSystem.setFileTimes(path, {
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      modifiedAt: new Date('2026-01-02T00:00:00.000Z'),
+    });
   }
   return fileSystem;
 }

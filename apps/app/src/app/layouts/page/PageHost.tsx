@@ -2456,6 +2456,7 @@ export function PageHost({
     // its state (displayed, add button, title control) is derived.
     const sectionState = derivePropertiesSectionState({
       lines: target.metadata.unownedFrontmatter ?? [],
+      ...(target.metadata.frontmatterEntryOrder && { order: target.metadata.frontmatterEntryOrder }),
       isArchived,
       hasDraft: propertyDrafts.drafts.length > 0,
       isStarting: startingPropertyPageId === target.id,

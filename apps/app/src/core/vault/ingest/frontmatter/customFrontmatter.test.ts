@@ -559,9 +559,9 @@ describe('removeCustomProperty', () => {
     expect(readCustomProperties(removed).map((p) => p.key)).toEqual(['x']);
   });
 
-  it('refuses a missing key and the reserved `properties` key', () => {
+  it('refuses a missing key and the reserved `showProperties` key', () => {
     expect(() => removeCustomProperty(customLines('a: 1'), 'missing')).toThrow(/No custom property/);
-    expect(() => removeCustomProperty(customLines('properties:\n  visible:\n    - tags'), 'properties')).toThrow(
+    expect(() => removeCustomProperty(customLines('showProperties: false'), 'showProperties')).toThrow(
       /No custom property/
     );
   });

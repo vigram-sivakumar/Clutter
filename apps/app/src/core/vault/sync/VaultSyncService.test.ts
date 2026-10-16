@@ -14,6 +14,7 @@ import { VaultScanner } from '../ingest/VaultScanner';
 import { VaultBuilder } from '../ingest/VaultBuilder';
 import { VaultQuery } from '../queries/VaultQuery';
 import type { Page } from '../models/Page';
+import { resolveEffectivePageDates } from '../models/effectivePageDates';
 import type { Folder } from '../models/Folder';
 import type { VaultResource } from '../models/VaultResource';
 import type { VaultFileSystem } from '../providers/VaultFileSystem';
@@ -489,6 +490,60 @@ describe('VaultSyncService', () => {
     const page = vault.getPage('nested-page');
     expect(page).toBeDefined();
     expect(page!.parentId).toBe('folder-1');
+  });
+});
+
+describe('VaultSyncService: page file times (ADR-057)', () => {
+  it('refreshes fileTimes when a page is edited externally — Last edited follows the file, not its frontmatter', async () => {
+    const existing = buildPage('Note.md', 'Original body', 'note-1');
+    const { vault, fileSystem, watcher } = setup([existing]);
+
+    fileSystem.seedFile(`${ROOT}/Note.md`, '---\nid: note-1\nmodified: true\n---\nEdited at 14:00');
+    fileSystem.setFileTimes(`${ROOT}/Note.md`, {
+      createdAt: new Date('2025-12-01T00:00:00.000Z'),
+      modifiedAt: new Date('2026-01-01T14:00:00.000Z'),
+    });
+
+    watcher.emit({ type: 'changed', path: 'Note.md' });
+    await flush();
+
+    const page = vault.getPage('note-1')!;
+    expect(page.fileTimes).toEqual({
+      createdAt: '2025-12-01T00:00:00.000Z',
+      modifiedAt: '2026-01-01T14:00:00.000Z',
+    });
+    expect(resolveEffectivePageDates(page).updatedAt).toBe('2026-01-01T14:00:00.000Z');
+    expect(page.metadata.frontmatterEntryOrder).toContain('modified');
+  });
+
+  it('an externally edited note that was given no time by the file system has no Last edited — nothing is invented', async () => {
+    const existing = buildPage('Note.md', 'Original body', 'note-1');
+    const { vault, fileSystem, watcher } = setup([existing]);
+
+    fileSystem.seedFile(`${ROOT}/Note.md`, '---\nid: note-1\nmodified: true\n---\nEdited');
+    // Nothing is set for this file, and the stat of a vanished-and-recreated entry yields none we can use.
+    vi.spyOn(fileSystem, 'stat').mockRejectedValue(new Error('no stat'));
+
+    watcher.emit({ type: 'changed', path: 'Note.md' });
+    await flush();
+
+    expect(vault.getPage('note-1')!.fileTimes).toBeUndefined();
+    expect(resolveEffectivePageDates(vault.getPage('note-1')!).updatedAt).toBeNull();
+  });
+
+  it('gives a newly discovered external note its file times (Created is no longer empty)', async () => {
+    const { vault, fileSystem, watcher } = setup();
+
+    fileSystem.seedFile(`${ROOT}/New.md`, '---\nid: new-page\n---\nHello');
+    fileSystem.setFileTimes(`${ROOT}/New.md`, {
+      createdAt: new Date('2026-04-01T08:00:00.000Z'),
+      modifiedAt: new Date('2026-04-01T08:30:00.000Z'),
+    });
+
+    watcher.emit({ type: 'created', path: 'New.md', isDirectory: false });
+    await flush();
+
+    expect(resolveEffectivePageDates(vault.getPage('new-page')!).createdAt).toBe('2026-04-01T08:00:00.000Z');
   });
 });
 

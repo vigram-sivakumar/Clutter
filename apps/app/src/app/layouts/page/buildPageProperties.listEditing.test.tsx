@@ -15,7 +15,6 @@ const buildPageProperties = (
   page: Parameters<typeof buildPagePropertiesForHost>[0],
   actions: NonNullable<Parameters<typeof buildPagePropertiesForHost>[1]> = {}
 ) => buildPagePropertiesForHost(page, { isEffectivelyArchived: page.metadata.status === 'archived', ...actions });
-import { withAllVisible } from './showAllVisibleLines';
 
 // Overlay positions itself with a ResizeObserver, which jsdom lacks.
 beforeAll(() => {
@@ -46,9 +45,8 @@ function pageWith(status: 'active' | 'archived', unownedFrontmatter = ['people:'
       status,
       tags: [],
       aliases: [],
-      createdAt: null,
-      updatedAt: null,
-      unownedFrontmatter: withAllVisible(unownedFrontmatter),
+      frontmatterEntryOrder: ['tags', 'aliases', 'created', 'modified'],
+      unownedFrontmatter,
     },
   } as unknown as Page;
 }

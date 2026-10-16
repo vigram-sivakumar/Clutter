@@ -3,6 +3,7 @@ import type { CoverCredit } from '../../vault/models/PageMetadata';
 import type { VaultQuery } from '../../vault/queries/VaultQuery';
 import type { Workspace } from '../../workspace/Workspace';
 import type { PageType } from '../../vault/models/Page';
+import { resolveEffectivePageDates } from '../../vault/models/effectivePageDates';
 import type { PageOperations } from './PageOperations';
 import { normalizeTagName } from '../../vault/models/Tag';
 
@@ -288,8 +289,8 @@ export class EffectivePageState {
       coverCredit: page ? (page.metadata.coverCredit ?? null) : null,
       coverHidden: page ? page.metadata.coverHidden : false,
       coverPositionAbove: page ? page.metadata.coverPositionAbove : 50,
-      createdAt: page ? page.metadata.createdAt : null,
-      updatedAt: page ? page.metadata.updatedAt : null,
+      createdAt: page ? resolveEffectivePageDates(page).createdAt : null,
+      updatedAt: page ? resolveEffectivePageDates(page).updatedAt : null,
       archivedAt: page ? page.metadata.archivedAt : null,
     };
   }

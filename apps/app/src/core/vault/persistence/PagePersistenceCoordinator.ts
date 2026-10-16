@@ -9,6 +9,7 @@ import type { VaultFileSystem } from '../providers/VaultFileSystem';
 import { FrontmatterSerializer } from '../ingest/FrontmatterSerializer';
 import { FrontmatterParser } from '../ingest/FrontmatterParser';
 import { PageRebuilder } from '../ingest/PageRebuilder';
+import { readPageFileTimes } from '../ingest/readResourceMetadata';
 import { PageBuilder } from '../ingest/PageBuilder';
 import { FolderBuilder } from '../ingest/FolderBuilder';
 import { FolderPathResolver } from './FolderPathResolver';
@@ -554,9 +555,10 @@ export class PagePersistenceCoordinator {
       analysis: parsed.analysis,
     };
 
+    const fileTimes = await readPageFileTimes(this.fileSystem, operation.path);
     const built = this.pageBuilder.build({
       parentId: operation.parentId,
-      page: scannedPage,
+      page: { ...scannedPage, ...(fileTimes && { fileTimes }) },
     });
 
     try {
@@ -820,9 +822,7 @@ export class PagePersistenceCoordinator {
   /**
    * ADR-026 §0: the archive metadata-patch computation is fully shared
    * business logic between a page's archive and a folder's — only the
-   * persistence (flatten-move vs. directory-relocate) differs. `Page`'s
-   * `updatedAt` is folded in by runArchive's own caller, since
-   * `FolderMetadata` has no `updatedAt` field to carry it.
+   * persistence (flatten-move vs. directory-relocate) differs.
    */
   private computeArchiveMetadataPatch(
     currentPath: string,
@@ -894,7 +894,6 @@ export class PagePersistenceCoordinator {
       metadata: {
         ...current.metadata,
         ...archivePatch,
-        updatedAt: archivePatch.archivedAt,
       },
     };
 
@@ -923,7 +922,11 @@ export class PagePersistenceCoordinator {
     await this.fileSystem.writeFile(page.path, document);
 
     const parsed = this.parser.parse(document);
-    const rebuilt = this.rebuilder.rebuild(page, parsed);
+    const rebuilt = this.rebuilder.rebuild(
+      page,
+      parsed,
+      await readPageFileTimes(this.fileSystem, page.path)
+    );
 
     this.vault.replacePage(rebuilt);
 
@@ -1229,7 +1232,6 @@ export class PagePersistenceCoordinator {
       throw new Error(`Page is not archived on its own: ${current.id}. Restore the folder that holds it.`);
     }
 
-    const now = new Date().toISOString();
     let destination: { path: string; parentId: string | null };
 
     if (destinationFolderId !== undefined) {
@@ -1272,7 +1274,6 @@ export class PagePersistenceCoordinator {
         archivedAt: null,
         originalPath: null,
         originalParentId: null,
-        updatedAt: now,
       },
     };
 
@@ -1676,7 +1677,11 @@ export class PagePersistenceCoordinator {
     await this.fileSystem.writeFile(page.path, document);
 
     const parsed = this.parser.parse(document);
-    const rebuilt = this.rebuilder.rebuild(page, parsed);
+    const rebuilt = this.rebuilder.rebuild(
+      page,
+      parsed,
+      await readPageFileTimes(this.fileSystem, page.path)
+    );
 
     try {
       this.vault.replacePage(rebuilt);

@@ -19,10 +19,10 @@ const written = (document: string, change: Parameters<typeof writeDocument>[1]) 
 const keysOf = (...frontmatter: string[]) => readPropertySequence(stateOf(...frontmatter)).map((ref) => ref.key);
 
 const ID = 'id: 04a5ec3b-996d-435c-bcf0-c3e42bdb01f4';
-const CREATED = 'created: 2026-08-25T15:42:49.206Z';
-const MODIFIED = 'modified: 2026-08-25T15:42:49.206Z';
+const CREATED = 'created: true';
+const MODIFIED = 'modified: true';
 
-/** The spec's Example 1: the configuration block in the middle, a custom property after it. */
+/** The spec's example: system and custom entries mixed, `showProperties` in the middle. */
 const EXAMPLE_1 = documentOf(
   ID,
   CREATED,
@@ -33,19 +33,14 @@ const EXAMPLE_1 = documentOf(
   'icon: 🍄',
   'status: active',
   '',
-  'properties:',
-  '  visible:',
-  '    - created',
-  '    - modified',
-  '    - aliases',
+  'showProperties: true',
   '',
   'Name: This is weft'
 );
 
 describe('what the Properties list shows — the physical order of the entries', () => {
-  it('Example 1: custom properties and listed system properties in file order; the configuration block and other metadata are not rows', () => {
-    // aliases is listed but has no entry: it shows after the entries, empty.
-    expect(keysOf(...frontmatterLines(EXAMPLE_1))).toEqual(['created', 'Manual properties', 'Priority', 'modified', 'Name', 'aliases']);
+  it('custom and declared system properties in file order; `showProperties` and other metadata are not rows', () => {
+    expect(keysOf(...frontmatterLines(EXAMPLE_1))).toEqual(['created', 'Manual properties', 'Priority', 'modified', 'Name']);
   });
 
   it('`Name` is an ordinary custom property — neither a system property nor the title', () => {
@@ -55,29 +50,22 @@ describe('what the Properties list shows — the physical order of the entries',
     expect(page.name).not.toBe('This is weft');
   });
 
-  it('a system property shows only when it is listed in `visible` — whatever its entry holds', () => {
-    expect(keysOf(ID, 'tags:', '  - a', CREATED, 'Priority: High')).toEqual(['Priority']);
-    expect(keysOf(ID, 'tags:', '  - a', CREATED, 'Priority: High', 'properties:', '  visible:', '    - tags')).toEqual(['tags', 'Priority']);
+  it('a system property shows when its key is an entry of the file — whatever its entry holds, even nothing', () => {
+    expect(keysOf(ID, 'tags:', '  - a', CREATED, 'Priority: High')).toEqual(['tags', 'created', 'Priority']);
+    expect(keysOf(ID, 'tags: []', 'aliases: []')).toEqual(['tags', 'aliases']);
+    expect(keysOf(ID, 'Priority: High')).toEqual(['Priority']);
   });
 
   it('system and custom properties interleave exactly as their entries do', () => {
-    expect(
-      keysOf(ID, 'Alpha: 1', CREATED, 'Beta: 2', 'tags:', '  - x', 'Gamma: 3', 'properties:', '  visible: [tags, created]')
-    ).toEqual(['Alpha', 'created', 'Beta', 'tags', 'Gamma']);
+    expect(keysOf(ID, 'Alpha: 1', CREATED, 'Beta: 2', 'tags:', '  - x', 'Gamma: 3')).toEqual(['Alpha', 'created', 'Beta', 'tags', 'Gamma']);
   });
 
-  it('`visible` never orders anything: its own order is irrelevant', () => {
-    const doc = ['Alpha: 1', CREATED, 'tags:', '  - x'];
-
-    expect(keysOf(ID, ...doc, 'properties:', '  visible: [created, tags]')).toEqual(keysOf(ID, ...doc, 'properties:', '  visible: [tags, created]'));
+  it('`showProperties` between property entries is not a row, and `kind: template` never is', () => {
+    expect(keysOf(ID, 'A: 1', 'showProperties: false', 'B: 2', 'kind: template', CREATED)).toEqual(['A', 'B', 'created']);
   });
 
-  it('the configuration block between property entries is not a row, and `kind: template` never is', () => {
-    expect(keysOf(ID, 'A: 1', 'properties:', '  visible: [created]', 'B: 2', 'kind: template', CREATED)).toEqual(['A', 'B', 'created']);
-  });
-
-  it('a note with no recorded order (not read from a file) shows its listed system properties, then the custom ones', () => {
-    expect(readPropertySequence({ lines: ['b: 1', 'properties:', '  visible: [created]'] }).map((ref) => ref.key)).toEqual(['created', 'b']);
+  it('a note with no recorded order (not read from a file) shows only its custom properties', () => {
+    expect(readPropertySequence({ lines: ['b: 1'] }).map((ref) => ref.key)).toEqual(['b']);
   });
 
   it('a nested mapping or a block list is one custom property', () => {
@@ -85,26 +73,14 @@ describe('what the Properties list shows — the physical order of the entries',
   });
 });
 
-describe('Example 2 — a relevant write puts the configuration block last, and nothing else moves', () => {
-  it('removing aliases from the list: the entries keep their order, `properties` goes last', () => {
-    expect(written(EXAMPLE_1, (state) => removeSystemPropertyLines(state, 'aliases'))).toEqual([
-      ID,
-      CREATED,
-      'Manual properties: here',
-      'Priority: High',
-      MODIFIED,
-      'favorite: false',
-      'icon: 🍄',
-      'status: active',
-      'Name: This is weft',
-      'properties:',
-      '  visible:',
-      '    - created',
-      '    - modified',
-    ]);
+describe('a relevant write changes only what it names', () => {
+  it('removing aliases deletes its entry; the other entries keep their order', () => {
+    const doc = documentOf(ID, CREATED, 'Priority: High', 'aliases:', '  - Alt', MODIFIED, 'favorite: false', 'status: active');
+
+    expect(written(doc, (state) => removeSystemPropertyLines(state, 'aliases'))).toEqual([ID, CREATED, 'Priority: High', MODIFIED, 'favorite: false', 'status: active']);
   });
 
-  it('adding a custom property appends it after the entries, before the block, without regrouping system properties', () => {
+  it('adding a custom property appends it after the entries, without regrouping system properties', () => {
     expect(written(EXAMPLE_1, (state) => addCustomPropertyLines(state, 'Extra', { type: 'text', value: 'x' }))).toEqual([
       ID,
       CREATED,
@@ -114,54 +90,59 @@ describe('Example 2 — a relevant write puts the configuration block last, and 
       'favorite: false',
       'icon: 🍄',
       'status: active',
+      'showProperties: true',
       'Name: This is weft',
       'Extra: x',
-      'properties:',
-      '  visible:',
-      '    - created',
-      '    - modified',
-      '    - aliases',
     ]);
   });
 
-  it('a note that is only read is not rewritten: a change that changes nothing returns null', () => {
-    expect(removeSystemPropertyLines(stateOf(...frontmatterLines(EXAMPLE_1)), 'tags')).toBeNull();
-    expect(addSystemPropertyLines(stateOf(...frontmatterLines(EXAMPLE_1)), 'created')).toBeNull();
-    expect(setSectionHiddenLines(stateOf(...frontmatterLines(EXAMPLE_1)), false)).toBeNull();
-    expect(reorderPropertiesLines(stateOf(...frontmatterLines(EXAMPLE_1)), keysOf(...frontmatterLines(EXAMPLE_1)))).toBeNull();
-  });
+  it('a change that changes nothing returns null', () => {
+    const state = stateOf(...frontmatterLines(EXAMPLE_1));
 
-  it('hiding and showing the section moves only the block (to the end) — and the entries stay', () => {
-    const hidden = written(EXAMPLE_1, (state) => setSectionHiddenLines(state, true));
-
-    expect(hidden.slice(0, 9)).toEqual([ID, CREATED, 'Manual properties: here', 'Priority: High', MODIFIED, 'favorite: false', 'icon: 🍄', 'status: active', 'Name: This is weft']);
-    expect(hidden.slice(9)).toEqual(['properties:', '  show: false', '  visible:', '    - created', '    - modified', '    - aliases']);
+    expect(removeSystemPropertyLines(state, 'tags')).toBeNull();
+    expect(addSystemPropertyLines(state, 'created')).toBeNull();
+    expect(setSectionHiddenLines(state, false)).toBeNull();
+    expect(reorderPropertiesLines(state, keysOf(...frontmatterLines(EXAMPLE_1)))).toBeNull();
   });
 });
 
-describe('Example 3 — adding a system property', () => {
-  const BEFORE = documentOf(
-    ID,
-    CREATED,
-    'Manual properties: here',
-    'Priority: High',
-    MODIFIED,
-    'favorite: false',
-    'icon: 🍄',
-    'status: active',
-    'Name: This is weft',
-    '',
-    'properties:',
-    '  visible:',
-    '    - created',
-    '    - modified',
-    '    - aliases'
-  );
+describe('showProperties', () => {
+  it('hiding rewrites the existing entry in place and moves nothing', () => {
+    const hidden = written(EXAMPLE_1, (state) => setSectionHiddenLines(state, true));
 
-  it('with no entry yet: appends the entry (an empty list) after the property entries, then lists it', () => {
-    const after = written(BEFORE, (state) => addSystemPropertyLines(state, 'tags'));
+    expect(hidden).toEqual([ID, CREATED, 'Manual properties: here', 'Priority: High', MODIFIED, 'favorite: false', 'icon: 🍄', 'status: active', 'showProperties: false', 'Name: This is weft']);
+  });
 
-    expect(after).toEqual([
+  it('hiding appends the entry to a note without one, and every property is still declared', () => {
+    const doc = documentOf(ID, CREATED, 'A: 1', 'tags: []');
+    const hidden = written(doc, (state) => setSectionHiddenLines(state, true));
+
+    expect(hidden).toContain('showProperties: false');
+    expect(keysOf(...hidden)).toEqual(['created', 'A', 'tags']);
+  });
+
+  it('showing removes the entry; hide then show returns the original frontmatter', () => {
+    const doc = documentOf(ID, CREATED, 'A: 1', 'tags: []');
+    const hidden = writeDocument(doc, (state) => setSectionHiddenLines(state, true));
+    const shown = writeDocument(hidden, (state) => setSectionHiddenLines(state, false));
+
+    expect(frontmatterLines(shown)).toEqual(frontmatterLines(writeDocument(doc, (state) => state)));
+    expect(frontmatterLines(shown).join('\n')).not.toContain('showProperties');
+  });
+
+  it('adding any property lifts a hide', () => {
+    const hidden = documentOf(ID, 'showProperties: false', 'A: 1');
+
+    expect(written(hidden, (state) => addCustomPropertyLines(state, 'B', { type: 'text', value: 'x' }))).toEqual([ID, 'A: 1', 'B: x', 'favorite: false', 'status: active']);
+    expect(written(hidden, (state) => addSystemPropertyLines(state, 'tags'))).toEqual([ID, 'A: 1', 'tags: []', 'favorite: false', 'status: active']);
+  });
+});
+
+describe('adding a system property', () => {
+  const BEFORE = documentOf(ID, CREATED, 'Manual properties: here', 'Priority: High', MODIFIED, 'favorite: false', 'icon: 🍄', 'status: active', 'Name: This is weft');
+
+  it('with no entry yet: appends the entry after the property entries — an empty list for tags, `true` for a date', () => {
+    expect(written(BEFORE, (state) => addSystemPropertyLines(state, 'tags'))).toEqual([
       ID,
       CREATED,
       'Manual properties: here',
@@ -172,77 +153,53 @@ describe('Example 3 — adding a system property', () => {
       'status: active',
       'Name: This is weft',
       'tags: []',
-      'properties:',
-      '  visible:',
-      '    - created',
-      '    - modified',
-      '    - aliases',
-      '    - tags',
     ]);
-    // Tags shows after Name: its entry follows Name.
-    expect(readPropertySequence(readDocument(documentOf(...after)).state).map((ref) => ref.key)).toEqual([
-      'created',
-      'Manual properties',
-      'Priority',
-      'modified',
-      'Name',
-      'tags',
-      'aliases',
-    ]);
+
+    const noDates = documentOf(ID, 'A: 1');
+    expect(written(noDates, (state) => addSystemPropertyLines(state, 'created')).filter((line) => line.startsWith('created'))).toEqual(['created: true']);
+    expect(written(noDates, (state) => addSystemPropertyLines(state, 'modified')).filter((line) => line.startsWith('modified'))).toEqual(['modified: true']);
   });
 
-  it('with an entry already there (hidden): never duplicated, never moved — it is only listed', () => {
-    const hiddenTags = documentOf(ID, 'tags:', '  - test-tag', CREATED, 'Priority: High', 'favorite: false', 'status: active', 'properties:', '  visible:', '    - created');
-    const after = written(hiddenTags, (state) => addSystemPropertyLines(state, 'tags'));
+  it('shows after Name — its entry follows Name', () => {
+    const after = written(BEFORE, (state) => addSystemPropertyLines(state, 'tags'));
 
-    expect(after).toEqual([ID, 'tags:', '  - test-tag', CREATED, 'Priority: High', 'favorite: false', 'status: active', 'properties:', '  visible:', '    - created', '    - tags']);
-    expect(after.filter((line) => line.startsWith('tags'))).toHaveLength(1);
+    expect(keysOf(...after)).toEqual(['created', 'Manual properties', 'Priority', 'modified', 'Name', 'tags']);
   });
 
-  it('removing and showing again leaves the entry exactly where it was', () => {
-    const doc = documentOf(ID, 'A: 1', 'tags:', '  - x', 'B: 2', CREATED, 'favorite: false', 'status: active', 'properties:', '  visible: [tags, created]');
-    const hidden = writeDocument(doc, (state) => removeSystemPropertyLines(state, 'tags'));
+  it('with an entry already there: it is already listed — nothing is written, nothing duplicated or moved', () => {
+    const declared = documentOf(ID, 'tags:', '  - test-tag', CREATED, 'Priority: High', 'favorite: false', 'status: active');
 
-    expect(frontmatterLines(hidden)).toEqual([ID, 'A: 1', 'tags:', '  - x', 'B: 2', CREATED, 'favorite: false', 'status: active', 'properties:', '  visible: [created]']);
+    expect(addSystemPropertyLines(readDocument(declared).state, 'tags')).toBeNull();
+  });
 
-    const shown = writeDocument(hidden, (state) => addSystemPropertyLines(state, 'tags'));
+  it('removing deletes the entry and its value; adding again declares an empty one at the end', () => {
+    const doc = documentOf(ID, 'A: 1', 'tags:', '  - x', 'B: 2', CREATED, 'favorite: false', 'status: active');
+    const removed = writeDocument(doc, (state) => removeSystemPropertyLines(state, 'tags'));
 
-    expect(frontmatterLines(shown).slice(0, 6)).toEqual([ID, 'A: 1', 'tags:', '  - x', 'B: 2', CREATED]);
-    expect(keysOf(...frontmatterLines(shown))).toEqual(['A', 'tags', 'B', 'created']);
+    expect(frontmatterLines(removed)).toEqual([ID, 'A: 1', 'B: 2', CREATED, 'favorite: false', 'status: active']);
+
+    const added = writeDocument(removed, (state) => addSystemPropertyLines(state, 'tags'));
+
+    expect(frontmatterLines(added)).toEqual([ID, 'A: 1', 'B: 2', CREATED, 'favorite: false', 'status: active', 'tags: []']);
+    expect(keysOf(...frontmatterLines(added))).toEqual(['A', 'B', 'created', 'tags']);
+  });
+
+  it('removing Created / Last edited deletes the key — no value to clear', () => {
+    const doc = documentOf(ID, CREATED, 'A: 1', MODIFIED, 'favorite: false', 'status: active');
+
+    expect(written(doc, (state) => removeSystemPropertyLines(state, 'created'))).toEqual([ID, 'A: 1', MODIFIED, 'favorite: false', 'status: active']);
+    expect(written(doc, (state) => removeSystemPropertyLines(state, 'modified'))).toEqual([ID, CREATED, 'A: 1', 'favorite: false', 'status: active']);
   });
 });
 
-describe('Example 4 — reordering a system property', () => {
-  const BEFORE = documentOf(
-    ID,
-    CREATED,
-    'Manual properties: here',
-    'Priority: High',
-    MODIFIED,
-    'favorite: false',
-    'icon: 🍄',
-    'status: active',
-    'Name: This is weft',
-    'tags:',
-    '  - test-tag',
-    '',
-    'properties:',
-    '  visible:',
-    '    - created',
-    '    - modified',
-    '    - aliases',
-    '    - tags'
-  );
+describe('reordering a system property', () => {
+  const BEFORE = documentOf(ID, CREATED, 'Manual properties: here', 'Priority: High', MODIFIED, 'favorite: false', 'icon: 🍄', 'status: active', 'Name: This is weft', 'tags:', '  - test-tag');
+  const ORDER = ['tags', 'created', 'Manual properties', 'Priority', 'modified', 'Name'];
 
-  it('dragging Tags above Created moves the whole `tags` entry; `visible` and every other entry stay', () => {
-    const state = readDocument(BEFORE).state;
-    const keys = readPropertySequence(state).map((ref) => ref.key);
+  it('dragging Tags above Created moves the whole `tags` entry; every other entry stays', () => {
+    expect(keysOf(...frontmatterLines(BEFORE))).toEqual(['created', 'Manual properties', 'Priority', 'modified', 'Name', 'tags']);
 
-    expect(keys).toEqual(['created', 'Manual properties', 'Priority', 'modified', 'Name', 'tags', 'aliases']);
-
-    const after = written(BEFORE, (s) => reorderPropertiesLines(s, ['tags', 'created', 'Manual properties', 'Priority', 'modified', 'Name', 'aliases'], 'tags'));
-
-    expect(after).toEqual([
+    expect(written(BEFORE, (s) => reorderPropertiesLines(s, ORDER, 'tags'))).toEqual([
       ID,
       'tags:',
       '  - test-tag',
@@ -254,67 +211,38 @@ describe('Example 4 — reordering a system property', () => {
       'icon: 🍄',
       'status: active',
       'Name: This is weft',
-      'properties:',
-      '  visible:',
-      '    - created',
-      '    - modified',
-      '    - aliases',
-      '    - tags',
     ]);
   });
 
   it('the resulting display order reflects the move', () => {
-    const after = frontmatterLines(
-      writeDocument(BEFORE, (s) => reorderPropertiesLines(s, ['tags', 'created', 'Manual properties', 'Priority', 'modified', 'Name', 'aliases'], 'tags'))
-    );
-
-    expect(keysOf(...after)).toEqual(['tags', 'created', 'Manual properties', 'Priority', 'modified', 'Name', 'aliases']);
+    expect(keysOf(...written(BEFORE, (s) => reorderPropertiesLines(s, ORDER, 'tags')))).toEqual(ORDER);
   });
 
   it('moving a property down places its entry right after the one it now follows', () => {
-    const after = written(BEFORE, (s) => reorderPropertiesLines(s, ['Manual properties', 'created', 'Priority', 'modified', 'Name', 'tags', 'aliases'], 'created'));
+    const after = written(BEFORE, (s) => reorderPropertiesLines(s, ['Manual properties', 'created', 'Priority', 'modified', 'Name', 'tags'], 'created'));
 
     expect(after.slice(0, 4)).toEqual([ID, 'Manual properties: here', CREATED, 'Priority: High']);
   });
 
   it('hidden entries between two properties stay where they were when a neighbour moves', () => {
-    // `favorite`, `icon` and `status` sit between Priority/modified and Name; Name moves above modified.
-    const after = written(BEFORE, (s) => reorderPropertiesLines(s, ['created', 'Manual properties', 'Priority', 'Name', 'modified', 'tags', 'aliases'], 'Name'));
+    const after = written(BEFORE, (s) => reorderPropertiesLines(s, ['created', 'Manual properties', 'Priority', 'Name', 'modified', 'tags'], 'Name'));
 
     expect(after.slice(0, 11)).toEqual([ID, CREATED, 'Manual properties: here', 'Priority: High', 'Name: This is weft', MODIFIED, 'favorite: false', 'icon: 🍄', 'status: active', 'tags:', '  - test-tag']);
   });
+
+  it('keeps `showProperties` where it is, and writes none that was not there', () => {
+    const doc = documentOf(ID, 'A: 1', 'showProperties: false', 'B: 2');
+
+    expect(written(doc, (state) => reorderPropertiesLines(state, ['B', 'A'], 'B'))).toEqual([ID, 'B: 2', 'A: 1', 'showProperties: false', 'favorite: false', 'status: active']);
+    expect(written(documentOf(ID, 'A: 1', 'B: 2'), (state) => reorderPropertiesLines(state, ['B', 'A'], 'B')).join('\n')).not.toContain('showProperties');
+  });
 });
 
-describe('Example 5 — reordering moves the complete entry', () => {
-  const NESTED = documentOf(
-    ID,
-    'project:',
-    '  name: Clutter',
-    '  settings:',
-    '    priority: high',
-    '    archived: false',
-    '',
-    'Owner: Vikram',
-    'favorite: false',
-    'status: active'
-  );
+describe('reordering moves the complete entry', () => {
+  const NESTED = documentOf(ID, 'project:', '  name: Clutter', '  settings:', '    priority: high', '    archived: false', '', 'Owner: Vikram', 'favorite: false', 'status: active');
 
   it('moving Owner above project moves Owner and leaves the whole project mapping intact', () => {
     expect(written(NESTED, (state) => reorderPropertiesLines(state, ['Owner', 'project'], 'Owner'))).toEqual([
-      ID,
-      'Owner: Vikram',
-      'project:',
-      '  name: Clutter',
-      '  settings:',
-      '    priority: high',
-      '    archived: false',
-      'favorite: false',
-      'status: active',
-    ]);
-  });
-
-  it('moving project below Owner moves the whole mapping, not just its first line', () => {
-    expect(written(NESTED, (state) => reorderPropertiesLines(state, ['Owner', 'project'], 'project'))).toEqual([
       ID,
       'Owner: Vikram',
       'project:',
@@ -344,62 +272,29 @@ describe('Example 5 — reordering moves the complete entry', () => {
 
   it('a quoted key such as "Project: Name" is one entry, moved whole, and keeps its name', () => {
     const doc = documentOf(ID, '"Project: Name": Clutter', 'plain: 1', 'favorite: false', 'status: active');
-    const state = readDocument(doc).state;
 
-    expect(readPropertySequence(state).map((ref) => ref.key)).toEqual(['Project: Name', 'plain']);
-    expect(written(doc, (s) => reorderPropertiesLines(s, ['plain', 'Project: Name'], 'plain'))).toEqual([
-      ID,
-      'plain: 1',
-      '"Project: Name": Clutter',
-      'favorite: false',
-      'status: active',
-    ]);
-  });
-
-  it('the entries around the configuration block move around it, and the block is last afterwards', () => {
-    const doc = documentOf(ID, 'A: 1', 'properties:', '  visible: [created]', 'B: 2', CREATED, 'favorite: false', 'status: active');
-
-    expect(written(doc, (state) => reorderPropertiesLines(state, ['B', 'A', 'created'], 'B'))).toEqual([
-      ID,
-      'B: 2',
-      'A: 1',
-      CREATED,
-      'favorite: false',
-      'status: active',
-      'properties:',
-      '  visible: [created]',
-    ]);
+    expect(readPropertySequence(readDocument(doc).state).map((ref) => ref.key)).toEqual(['Project: Name', 'plain']);
+    expect(written(doc, (s) => reorderPropertiesLines(s, ['plain', 'Project: Name'], 'plain'))).toEqual([ID, 'plain: 1', '"Project: Name": Clutter', 'favorite: false', 'status: active']);
   });
 
   it('the same order writes nothing', () => {
     expect(reorderPropertiesLines(readDocument(NESTED).state, ['project', 'Owner'])).toBeNull();
     expect(reorderPropertiesLines(readDocument(NESTED).state, ['ghost'])).toBeNull();
   });
-
-  it('a reorder keeps `show` and other settings under `properties`', () => {
-    const doc = documentOf(ID, 'A: 1', 'B: 2', 'properties:', '  show: false', '  other: 1', '  visible: [created]', CREATED, 'favorite: false', 'status: active');
-    const after = written(doc, (state) => reorderPropertiesLines(state, ['B', 'A', 'created'], 'B'));
-
-    expect(after).toContain('  show: false');
-    expect(after).toContain('  other: 1');
-  });
 });
 
 describe('custom properties — add, rename, delete', () => {
-  const DOC = documentOf(ID, 'a: 1', 'properties:', '  visible: [created]', 'b: 2', CREATED, 'favorite: false', 'status: active');
+  const DOC = documentOf(ID, 'a: 1', 'b: 2', CREATED, 'favorite: false', 'status: active');
 
-  it('a new custom property is appended after the existing entries, without moving the block relative to them beyond putting it last', () => {
+  it('a new custom property is appended after the existing entries', () => {
     const after = written(DOC, (state) => addCustomPropertyLines(state, 'c', { type: 'text', value: 'v' }));
 
-    expect(after).toEqual([ID, 'a: 1', 'b: 2', CREATED, 'favorite: false', 'status: active', 'c: v', 'properties:', '  visible: [created]']);
+    expect(after).toEqual([ID, 'a: 1', 'b: 2', CREATED, 'favorite: false', 'status: active', 'c: v']);
     expect(keysOf(...after)).toEqual(['a', 'b', 'created', 'c']);
   });
 
   it('renaming keeps the entry where it is', () => {
-    const after = written(DOC, (state) => renameCustomPropertyLines(state, 'b', 'bb'));
-
-    // Not a change to the configuration: the block stays where the file had it.
-    expect(after).toEqual([ID, 'a: 1', 'properties:', '  visible: [created]', 'bb: 2', CREATED, 'favorite: false', 'status: active']);
+    expect(written(DOC, (state) => renameCustomPropertyLines(state, 'b', 'bb'))).toEqual([ID, 'a: 1', 'bb: 2', CREATED, 'favorite: false', 'status: active']);
   });
 
   it('renaming to and from a name with a colon keeps the entry in place', () => {
@@ -416,19 +311,17 @@ describe('custom properties — add, rename, delete', () => {
     expect(written(doc, (state) => deleteCustomPropertyLines(state, 'project'))).toEqual([ID, 'a: 1', 'b: 2', CREATED, 'favorite: false', 'status: active']);
   });
 
-  it('deleting the last thing to show resets the block; deleting a missing property throws', () => {
+  it('deleting a missing property throws; deleting the last one leaves nothing behind', () => {
     expect(() => deleteCustomPropertyLines(stateOf(ID, 'a: 1'), 'ghost')).toThrow(/No custom property/);
-    expect(written(documentOf(ID, 'a: 1', 'properties:', '  show: true', 'favorite: false', 'status: active'), (state) => deleteCustomPropertyLines(state, 'a'))).toEqual([
-      ID,
-      'favorite: false',
-      'status: active',
-    ]);
+    expect(() => deleteCustomPropertyLines(stateOf(ID, 'showProperties: false'), 'showProperties')).toThrow(/No custom property/);
+    expect(written(documentOf(ID, 'a: 1', 'favorite: false', 'status: active'), (state) => deleteCustomPropertyLines(state, 'a'))).toEqual([ID, 'favorite: false', 'status: active']);
   });
 
-  it('delete all removes every custom property and the block, leaving the system entries', () => {
-    const doc = documentOf(ID, 'a: 1', CREATED, 'b: 2', 'properties:', '  visible: [created]', 'favorite: false', 'status: active');
+  it('delete all removes every property — custom entries and system entries with their values — and `showProperties`', () => {
+    const doc = documentOf(ID, 'a: 1', CREATED, 'b: 2', 'tags:', '  - x', 'showProperties: false', 'favorite: false', 'status: active');
 
-    expect(written(doc, (state) => deleteAllPropertiesLines(state))).toEqual([ID, CREATED, 'favorite: false', 'status: active']);
+    expect(written(doc, (state) => deleteAllPropertiesLines(state))).toEqual([ID, 'favorite: false', 'status: active']);
+    expect(deleteAllPropertiesLines(stateOf(ID, 'favorite: false'))).toBeNull();
   });
 
   it('a deleted property that is added again goes last', () => {
@@ -436,31 +329,5 @@ describe('custom properties — add, rename, delete', () => {
     const readded = frontmatterLines(writeDocument(removed, (state) => addCustomPropertyLines(state, 'a', { type: 'text', value: 'x' })));
 
     expect(keysOf(...readded)).toEqual(['b', 'created', 'a']);
-  });
-});
-
-describe('an `order` list an earlier build wrote', () => {
-  it('is read for visibility until a write adopts it: the system keys it named become `visible`, `order` goes, nothing is reordered', () => {
-    const doc = documentOf(ID, 'a: 1', CREATED, 'properties:', '  other: 1', '  order:', '    - created', '    - a', '    - tags', 'favorite: false', 'status: active');
-
-    expect(keysOf(...frontmatterLines(doc))).toEqual(['a', 'created', 'tags']);
-
-    const after = written(doc, (state) => addCustomPropertyLines(state, 'b', { type: 'text', value: 'x' }));
-
-    expect(after).toEqual([ID, 'a: 1', CREATED, 'favorite: false', 'status: active', 'b: x', 'properties:', '  other: 1', '  visible:', '    - tags', '    - created']);
-  });
-
-  it('with a `visible` list too, `visible` is kept and `order` is dropped', () => {
-    const doc = documentOf(ID, 'a: 1', 'properties:', '  visible: [aliases]', '  order: [a, tags]', 'favorite: false', 'status: active');
-    const after = written(doc, (state) => removeSystemPropertyLines(state, 'aliases'));
-
-    expect(after.join('\n')).not.toContain('order');
-    expect(after).toEqual([ID, 'a: 1', 'favorite: false', 'status: active']);
-  });
-
-  it('is not touched by a note that is only read', () => {
-    const doc = documentOf(ID, 'properties:', '  order: [tags]');
-
-    expect(removeSystemPropertyLines(readDocument(doc).state, 'created')).toBeNull();
   });
 });

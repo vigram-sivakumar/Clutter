@@ -1,4 +1,5 @@
 import type { PageMetadata } from './PageMetadata';
+import type { PageFileTimes } from './effectivePageDates';
 import type { Heading } from './analysis/Heading';
 import type { Alias } from './Alias';
 import type { BlockReference } from './analysis/BlockReference';
@@ -54,6 +55,13 @@ export interface Page {
   readonly parentId: string | null;
 
   readonly metadata: PageMetadata;
+  /**
+   * The file's own birth/modification times (ADR-057). Separate from `metadata`
+   * on purpose: the serializer writes `metadata`, so a filesystem value here can
+   * never reach frontmatter. Absent when the file could not be stat'd. Display
+   * code reads `resolveEffectivePageDates`, not this directly.
+   */
+  readonly fileTimes?: PageFileTimes;
   /**
    * The latest durable Markdown known by the Vault.
    *

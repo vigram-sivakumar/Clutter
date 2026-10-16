@@ -25,8 +25,6 @@ export function resolvePageMetadata(frontmatter: PageFrontmatter): PageMetadata 
     archivedAt: frontmatter.archivedAt ?? null,
     originalPath: frontmatter.originalPath ?? null,
     originalParentId: frontmatter.originalParentId ?? null,
-    createdAt: frontmatter.created ?? null,
-    updatedAt: frontmatter.modified ?? null,
     // Empty, never derived from the body's own inline tags — see
     // PageMetadata.tags's own doc comment for why that distinction
     // matters (an auto-derived value would be indistinguishable from a

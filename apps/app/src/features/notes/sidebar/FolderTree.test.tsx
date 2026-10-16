@@ -532,8 +532,6 @@ describe('FolderTree: Daily Note membership (ADR-023) — the bug this phase fix
         archivedAt: null,
         originalParentId: null,
         originalPath: null,
-        createdAt: null,
-        updatedAt: null,
       },
       source: { markdown: '' },
       analysis: {

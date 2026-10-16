@@ -22,6 +22,7 @@ import {
 } from '@core/vault/ingest/frontmatter/propertyLines';
 import type { Page } from '@core/vault/models/Page';
 
+import { splitEntryBlocks } from '@core/vault/ingest/frontmatter/customFrontmatter';
 import { getAddableSystemProperties } from './addableProperties';
 import { AddPropertyRow } from './AddPropertyRow';
 import { buildPageProperties } from './buildPageProperties';
@@ -66,7 +67,11 @@ export function PropertiesHarness({
   onLines?(lines: readonly string[]): void;
   onState?(state: PropertyFrontmatter): void;
 }) {
-  const [state, setState] = useState<PropertyFrontmatter>({ lines: initial, order: initialOrder });
+  // A file's entry order always exists (the parser records it); by default it is the preserved entries in their order.
+  const [state, setState] = useState<PropertyFrontmatter>({
+    lines: initial,
+    order: initialOrder ?? splitEntryBlocks(initial).blocks.map((block) => block.key),
+  });
   const { lines } = state;
   const [tags, setTags] = useState<string[]>(initialTags);
   const [aliases, setAliases] = useState<string[]>(initialAliases);
@@ -104,6 +109,7 @@ export function PropertiesHarness({
 
   const section = derivePropertiesSectionState({
     lines,
+    ...(state.order && { order: state.order }),
     isArchived: status === 'archived',
     hasDraft: drafts.drafts.length > 0,
     isStarting,

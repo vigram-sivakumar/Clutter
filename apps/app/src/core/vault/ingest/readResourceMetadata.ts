@@ -1,3 +1,4 @@
+import type { PageFileTimes } from '../models/effectivePageDates';
 import type { VaultResourceMetadata } from '../models/VaultResource';
 import type { VaultFileSystem } from '../providers/VaultFileSystem';
 
@@ -28,4 +29,19 @@ export async function readResourceMetadata(
   } catch {
     return undefined;
   }
+}
+
+/**
+ * A page file's birth/modification times (ADR-057), through the same tolerant
+ * stat as a resource's metadata: `undefined` when the file system cannot
+ * report them. Shared by the scan, Sync's reconcile and the Persistence Gate's
+ * post-write refresh so the three can never disagree.
+ */
+export async function readPageFileTimes(
+  fileSystem: VaultFileSystem,
+  path: string
+): Promise<PageFileTimes | undefined> {
+  const metadata = await readResourceMetadata(fileSystem, path);
+
+  return metadata ? { createdAt: metadata.createdAt, modifiedAt: metadata.modifiedAt } : undefined;
 }

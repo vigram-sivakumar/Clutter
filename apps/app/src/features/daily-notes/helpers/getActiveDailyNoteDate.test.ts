@@ -33,8 +33,6 @@ function makePage(overrides: Partial<Page> = {}): Page {
       archivedAt: null,
       originalPath: null,
       originalParentId: null,
-      createdAt: null,
-      updatedAt: null,
     },
     source: { markdown: '' },
     analysis: {

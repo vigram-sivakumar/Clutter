@@ -34,11 +34,11 @@ export interface PropertiesSectionState {
  * The Properties section's state, from what is in the note's frontmatter
  * and the two pieces of transient UI state:
  *
- * - *what there is to show* — a listed system property (`properties.visible`,
- *   system keys only) or a custom property (its key exists). There is no
+ * - *what there is to show* — a declared system property (its key is an
+ *   entry of the file) or a custom property (its key exists). There is no
  *   hidden state of an individual property;
- * - `properties.show: false` — the one explicit section-level override
- *   (a missing `show` is the normal state);
+ * - `showProperties: false` — the one explicit section-level override
+ *   (a missing `showProperties` is the normal state);
  * - `hasDraft` — a new property is being named (never persisted);
  * - `isStarting` — the title's "Add a property" was chosen and the picker is
  *   open on the empty property row (never persisted).
@@ -47,7 +47,7 @@ export interface PropertiesSectionState {
  * nothing to show           title: Add a property        (no section, no add button)
  *   ↓ add a property          — the section appears with it
  * something to show         title: (no item)             section + "+ Add a property"
- *   ↓ Hide properties         — in the section's menu; only `show: false` is written
+ *   ↓ Hide properties         — in the section's menu; only `showProperties: false` is written
  * hidden                    title: Show properties
  *   ↓ Show properties         — the override is removed
  * something to show         …as before
@@ -63,17 +63,20 @@ export interface PropertiesSectionState {
  */
 export function derivePropertiesSectionState({
   lines,
+  order,
   isArchived,
   hasDraft,
   isStarting = false,
 }: {
   lines: readonly string[];
+  /** The file's top-level entries in order (PageMetadata.frontmatterEntryOrder): the system properties it declares. */
+  order?: readonly string[];
   isArchived: boolean;
   hasDraft: boolean;
   /** The title's "Add a property" was chosen and the picker is open on the empty row (never persisted). */
   isStarting?: boolean;
 }): PropertiesSectionState {
-  const hasProperties = readListedSystemProperties(lines).length > 0 || readVisibleCustomProperties(lines).length > 0;
+  const hasProperties = readListedSystemProperties(order).length > 0 || readVisibleCustomProperties(lines).length > 0;
   const showsProperties = hasProperties && !isPropertiesSectionHidden(lines);
 
   if (isArchived) {

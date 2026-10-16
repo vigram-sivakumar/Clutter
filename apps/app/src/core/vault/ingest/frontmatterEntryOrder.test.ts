@@ -21,12 +21,12 @@ const roundTrip = (...frontmatter: string[]): string[] => {
 describe('the parser records the physical order of the entries', () => {
   it('system keys by canonical name, other keys as written, each once, in file order', () => {
     expect(
-      parse('id: a', 'Priority: High', 'created: 2026-01-01', 'Tags:', '  - x', 'project:', '  name: Clutter', '  settings:', '    a: 1', 'ALIASES: []', 'Name: n').entryOrder
+      parse('id: a', 'Priority: High', 'created: true', 'Tags:', '  - x', 'project:', '  name: Clutter', '  settings:', '    a: 1', 'ALIASES: []', 'Name: n').entryOrder
     ).toEqual(['id', 'Priority', 'created', 'tags', 'project', 'aliases', 'Name']);
   });
 
-  it('a quoted key is recorded as the name it denotes; a repeated key once; the configuration block is an entry', () => {
-    expect(parse('"Project: Name": x', 'a: 1', 'properties:', '  visible:', '    - tags', 'a: 2').entryOrder).toEqual(['Project: Name', 'a', 'properties']);
+  it('a quoted key is recorded as the name it denotes; a repeated key once; `showProperties` is an entry', () => {
+    expect(parse('"Project: Name": x', 'a: 1', 'showProperties: false', 'a: 2').entryOrder).toEqual(['Project: Name', 'a', 'showProperties']);
   });
 
   it('is absent for frontmatter with no entries', () => {
@@ -34,25 +34,25 @@ describe('the parser records the physical order of the entries', () => {
   });
 
   it('is carried by the page read from the file', () => {
-    expect(readDocument(documentOf('id: a', 'x: 1', 'created: 2026-01-01')).page.metadata.frontmatterEntryOrder).toEqual(['id', 'x', 'created']);
+    expect(readDocument(documentOf('id: a', 'x: 1', 'created: true')).page.metadata.frontmatterEntryOrder).toEqual(['id', 'x', 'created']);
   });
 });
 
 describe('a save writes every entry where the file had it', () => {
   it('a system key stays among the custom ones — nothing is regrouped', () => {
-    const entries = ['id: a', 'created: 2026-01-01T00:00:00.000Z', 'Manual: here', 'modified: 2026-01-02T00:00:00.000Z', 'favorite: false', 'icon: 🍄', 'status: active', 'Name: n'];
+    const entries = ['id: a', 'created: true', 'Manual: here', 'modified: true', 'favorite: false', 'icon: 🍄', 'status: active', 'Name: n'];
 
     expect(roundTrip(...entries)).toEqual(entries);
   });
 
   it('an entry order that Clutter itself never writes is kept: tags before id, custom entries first', () => {
-    const entries = ['Priority: High', 'tags:', '  - x', 'id: a', 'favorite: false', 'status: active', 'created: 2026-01-01T00:00:00.000Z'];
+    const entries = ['Priority: High', 'tags:', '  - x', 'id: a', 'favorite: false', 'status: active', 'created: true'];
 
     expect(roundTrip(...entries)).toEqual(entries);
   });
 
-  it('a configuration block in the middle stays in the middle — a plain save relocates nothing', () => {
-    const entries = ['id: a', 'created: 2026-01-01T00:00:00.000Z', 'A: 1', 'properties:', '  visible:', '    - created', 'B: 2', 'favorite: false', 'status: active'];
+  it('`showProperties` in the middle stays in the middle — a plain save relocates nothing', () => {
+    const entries = ['id: a', 'created: true', 'A: 1', 'showProperties: false', 'B: 2', 'favorite: false', 'status: active'];
 
     expect(roundTrip(...entries)).toEqual(entries);
   });
@@ -74,18 +74,17 @@ describe('a save writes every entry where the file had it', () => {
     expect(roundTrip('id: a', 'favorite: false', 'status: active')).toEqual(['id: a', 'favorite: false', 'status: active']);
   });
 
-  it('an entry the file lacks is appended after the last one — before a trailing configuration block, which stays last', () => {
+  it('an entry the file lacks is appended after the last one', () => {
     expect(roundTrip('id: a', 'A: 1')).toEqual(['id: a', 'A: 1', 'favorite: false', 'status: active']);
-    expect(roundTrip('id: a', 'A: 1', 'properties:', '  visible: [tags]')).toEqual(['id: a', 'A: 1', 'favorite: false', 'status: active', 'properties:', '  visible: [tags]']);
+    expect(roundTrip('id: a', 'A: 1', 'showProperties: false')).toEqual(['id: a', 'A: 1', 'showProperties: false', 'favorite: false', 'status: active']);
   });
 
-  it('a page with no recorded order (a new page) is written in the default order, as before', () => {
-    const { page, body } = readDocument(documentOf('id: a', 'created: 2026-01-01T00:00:00.000Z', 'favorite: false', 'status: active', 'x: 1'));
+  it('a page with no recorded order is written in the default order — and without Created / Last edited, which only a recorded key declares', () => {
+    const { page, body } = readDocument(documentOf('id: a', 'created: true', 'favorite: false', 'status: active', 'x: 1'));
     const fresh = { ...page, metadata: { ...page.metadata, frontmatterEntryOrder: undefined } };
 
     expect(frontmatterLines(new FrontmatterSerializer().serializeDocument(fresh, body))).toEqual([
       'id: a',
-      'created: 2026-01-01T00:00:00.000Z',
       'favorite: false',
       'status: active',
       'x: 1',
@@ -97,7 +96,7 @@ describe('a save writes every entry where the file had it', () => {
   });
 
   it('is stable: a second round trip changes nothing', () => {
-    const once = roundTrip('B: 2', 'id: a', 'properties:', '  visible: [created]', 'created: 2026-01-01T00:00:00.000Z', 'A: 1');
+    const once = roundTrip('B: 2', 'id: a', 'showProperties: false', 'created: true', 'A: 1');
 
     expect(roundTrip(...once)).toEqual(once);
   });

@@ -45,6 +45,7 @@ import {
   renameCustomPropertyLines,
   reorderPropertiesLines,
   setSectionHiddenLines,
+  systemValuePatch,
   type PropertyFrontmatter,
 } from '../../vault/ingest/frontmatter/propertyLines';
 import {
@@ -134,10 +135,10 @@ export interface CreatePageOptions {
 /**
  * The subset of PageMetadata a caller may set through updateMetadata().
  * Deliberately excludes status/archivedAt/originalPath/originalParentId
- * (owned solely by archive()/restore()), createdAt (owned solely by page
- * creation), and updatedAt (derived by the rebuild pipeline on every
- * write) — those fields already have a single owner elsewhere, and
- * updateMetadata() must not become a second way to reach them.
+ * (owned solely by archive()/restore()) — those fields already have a single
+ * owner elsewhere, and updateMetadata() must not become a second way to reach
+ * them. Created / Last edited are not page metadata at all (ADR-057/058): the
+ * file's own times, declared by the `created` / `modified` keys.
  */
 export type EditablePageMetadata = Pick<
   PageMetadata,
@@ -1909,17 +1910,23 @@ export class PageOperations {
 
   /**
    * Lists system property `key` (`tags`, `aliases`, `created`, `modified`)
-   * on this page: adds its canonical key to `properties.visible` — and lifts
-   * an explicit `show: false`, so choosing a property when none is shown
-   * makes the section appear — in one save. It never touches the
-   * property's value, so a property removed earlier returns with the value
-   * it had. Already listed in a visible section is a no-op. Any other key
+   * on this page by declaring its key in the frontmatter (an empty `created:` /
+   * `modified:` when the page has no value, `tags: []` / `aliases: []` for the
+   * lists) — and lifts an explicit `showProperties: false`, so choosing a
+   * property when none is shown makes the section appear — in one save.
+   * Existing values are untouched. Already listed in a visible section is a no-op. Any other key
    * is refused, with no write: a custom property is displayed because its
    * key exists. Same guard and Gate `save` as renameCustomProperty().
    */
   public async addSystemProperty(pageId: string, key: PageSystemPropertyKey): Promise<void> {
     if (!isPageSystemPropertyKey(key)) {
       throw new Error(`"${key}" is not a system property that can be added.`);
+    }
+
+    // A draft has no entry order yet to declare the key in: persist it first (it is written with its
+    // `created` / `modified`), then declare the property against the file's own order.
+    if (!this.vault.getPage(pageId) && this.draftFor(pageId)) {
+      await this.materializeDraftWithProperties(pageId, () => ({ lines: [] }));
     }
 
     await this.saveFrontmatterState(pageId, (state) => addSystemPropertyLines(state, key));
@@ -1944,9 +1951,8 @@ export class PageOperations {
 
   /**
    * Hides or shows the whole Properties section. Hiding writes only
-   * `properties.show: false` — every property and value, and `visible`, stay
-   * as they are; showing removes that override (`show: true` is never
-   * written). Setting what it already is writes nothing. Same guard and Gate
+   * `showProperties: false` — every property and value stays as it is;
+   * showing removes that entry (`showProperties: true` is never written). Setting what it already is writes nothing. Same guard and Gate
    * `save` as addSystemProperty().
    */
   public async setPropertiesSectionHidden(pageId: string, hidden: boolean): Promise<void> {
@@ -1967,12 +1973,9 @@ export class PageOperations {
   }
 
   /**
-   * Removes a system property from the Properties list: takes its key out of
-   * `properties.visible` and nothing else — the value (tags, aliases, the
-   * note's timestamps) is preserved, and the property can be added again
-   * with that value intact. Body `#tags` are independent of all of this.
-   * When nothing is left to show afterwards the note returns to its
-   * never-configured state (see propertyLines.ts). Not listed is a no-op.
+   * Removes a system property from the Properties list: its key leaves the
+   * frontmatter with its value (ADR-058 — a property is declared by its key).
+   * Body `#tags` are independent of all of this. Not listed is a no-op.
    * Any other key is refused, with no write. Same guard and Gate `save` as
    * addSystemProperty().
    */
@@ -1988,8 +1991,8 @@ export class PageOperations {
    * Reorders the page's displayed properties to `keys` — system canonical keys and custom property
    * names, in the order they should now appear — by moving the property's whole frontmatter entry
    * (`movedKey`, when the caller knows which one moved) to its new place (reorderPropertiesLines): a nested
-   * mapping or list goes with its key line, every other entry stays where it is, and `properties.visible`
-   * is untouched — it says which system properties show, never where. The physical order of the entries is
+   * mapping or list goes with its key line, every other entry stays where it is, and no
+   * configuration is written (ADR-058). The physical order of the entries is
    * the Properties list's order; nothing else stores it. An order that changes nothing writes nothing.
    * Same archived-page guard and Gate `save` as renameCustomProperty().
    */
@@ -2050,6 +2053,7 @@ export class PageOperations {
       metadata: {
         unownedFrontmatter: next.lines,
         ...(next.order !== undefined && { frontmatterEntryOrder: next.order }),
+        ...systemValuePatch(next),
       },
     });
 

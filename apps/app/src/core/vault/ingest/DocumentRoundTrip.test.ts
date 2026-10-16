@@ -29,8 +29,9 @@ describe('Document round-trip (serialize -> write -> parse -> rebuild)', () => {
           type: 'note',
           icon: '📝',
           favorite: true,
-          created: '2026-01-01T00:00:00.000Z',
-          modified: '2026-01-01T00:00:00.000Z',
+          created: true,
+          modified: true,
+          entryOrder: ['id', 'type', 'icon', 'favorite', 'created', 'modified'],
         },
         frontmatterAnalysis: { aliases: [] },
         content: 'Original body text.',
@@ -74,7 +75,8 @@ describe('Document round-trip (serialize -> write -> parse -> rebuild)', () => {
 
     expect(rebuilt.metadata.icon).toBe(page.metadata.icon);
     expect(rebuilt.metadata.favorite).toBe(page.metadata.favorite);
-    expect(rebuilt.metadata.createdAt).toBe(page.metadata.createdAt);
+    // Created is declared by its key, which survives the round trip.
+    expect(rebuilt.metadata.frontmatterEntryOrder).toContain('created');
   });
 
   it('round-trips an edited page (changed body + changed favorite) without losing identity or path', () => {

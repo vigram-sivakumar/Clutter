@@ -192,7 +192,7 @@ describe('getPageReferences', () => {
     expect(ids(getPageReferences(vault, 'target').dailyNotes)).toEqual(['plain']);
   });
 
-  const modified = (updatedAt: string | null): Partial<Page> => ({ metadata: { ...pageMeta, updatedAt } });
+  const modified = (modifiedAt: string | null): Partial<Page> => ({ fileTimes: { createdAt: null, modifiedAt } });
   const taskTexts = (vault: Vault) =>
     getPageReferences(vault, 'target').tasks.map(({ task }) => task.text.replace(' [[Projects/Target]]', ''));
 

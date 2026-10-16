@@ -3,6 +3,7 @@ import type { FolderFrontmatter } from './frontmatter';
 import type { PageFrontmatter } from './frontmatter';
 import type { ScannedPageAnalysis } from './analysis';
 import type { VaultResourceMetadata } from '../models/VaultResource';
+import type { PageFileTimes } from '../models/effectivePageDates';
 import type { SupportedResourceKind } from './SupportedResourceKind';
 
 export interface VaultScanResult {
@@ -32,6 +33,8 @@ export interface ScannedPage {
   readonly frontmatterAnalysis: FrontmatterAnalysis;
   readonly content: string;
   readonly analysis: ScannedPageAnalysis;
+  /** The file's birth/modification times, read once by the scan or Sync (ADR-057); absent when it could not be stat'd. */
+  readonly fileTimes?: PageFileTimes;
 }
 
 export interface ScannedResourceFile {

@@ -153,7 +153,10 @@ describe('Properties on a draft', () => {
     expect(pageExists()).toBe(true);
     expect(application.pageOperations.getDraft(id)).toBeUndefined();
     const page = application.vault.getPage(id)!;
-    expect(readListedSystemProperties(page.metadata.unownedFrontmatter ?? [])).toEqual(['tags']);
+    // Tags was declared by the choice; the saved page also carries the `created` / `modified` it is written with.
+    expect(
+      readListedSystemProperties(page.metadata.frontmatterEntryOrder)
+    ).toEqual(['tags', 'created', 'modified']);
     // Ordinary saved page now: the section is on screen, and the title no longer offers Properties.
     expect(document.querySelector('.property-list')).not.toBeNull();
     fireEvent.click(titleMenuButton());
@@ -163,8 +166,15 @@ describe('Properties on a draft', () => {
 
   it('a named custom property materializes the draft with its title and content preserved, then further edits are ordinary saves', async () => {
     const { application, id, pageExists } = await renderDraft({ title: 'Trip plan', body: 'Pack light' });
-    await openProperties();
-
+    // Opening the title menu saves a draft that has content, and a saved note is written with
+    // `created` / `modified` — so (ADR-058) its section is on screen at once and the picker opens from the
+    // section's own button instead of the title menu.
+    fireEvent.click(titleMenuButton());
+    await flush();
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+    await flush();
+    fireEvent.click(screen.getByText('Add a property'));
+    await flush();
     clickMenuItem('Text');
     await flush();
     const field = document.querySelector<HTMLElement>('.property-list__name .editable-text')!;

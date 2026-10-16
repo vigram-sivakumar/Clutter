@@ -61,8 +61,6 @@ const defaultPageMetadata: Page['metadata'] = {
   archivedAt: null,
   originalParentId: null,
   originalPath: null,
-  createdAt: null,
-  updatedAt: null,
 };
 
 const defaultAnalysis: Page['analysis'] = {
@@ -964,10 +962,10 @@ describe('toCollectionPageModel — the entry\'s collection property values (the
           ...defaultPageMetadata,
           description: 'About the plan',
           cover: 'Assets/hero.png',
-          createdAt: '2026-01-01T10:00:00.000Z',
-          updatedAt: '2026-02-02T11:00:00.000Z',
           archivedAt: '2026-03-03T12:00:00.000Z',
         },
+        // Created / Last edited are the file's own times (ADR-057).
+        fileTimes: { createdAt: '2026-01-01T10:00:00.000Z', modifiedAt: '2026-02-02T11:00:00.000Z' },
       })
     );
 
@@ -1003,7 +1001,7 @@ describe('toCollectionPageModel — the entry\'s collection property values (the
   });
 
   it('the entry no longer carries the old per-property fields beside `values`', () => {
-    const entry = build(makePage({ name: 'Plan', metadata: { ...defaultPageMetadata, description: 'x', createdAt: '2026-01-01T00:00:00.000Z' } })).notes[0]!;
+    const entry = build(makePage({ name: 'Plan', metadata: { ...defaultPageMetadata, description: 'x' } })).notes[0]!;
 
     for (const retired of ['title', 'created', 'createdAt', 'updated', 'updatedAt', 'archived', 'archivedAt', 'description', 'cover', 'coverHidden']) {
       expect(entry, retired).not.toHaveProperty(retired);

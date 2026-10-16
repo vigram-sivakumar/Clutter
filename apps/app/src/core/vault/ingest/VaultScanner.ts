@@ -3,7 +3,7 @@ import type { VaultScanResult } from './VaultScanResult';
 import type { VaultFileSystem } from '../providers';
 import { DocumentLoader } from './DocumentLoader';
 import { isClutterInternalPath } from '../initialize/ReservedResources';
-import { readResourceMetadata } from './readResourceMetadata';
+import { readPageFileTimes, readResourceMetadata } from './readResourceMetadata';
 import { classifySupportedResourceFile } from './SupportedResourceKind';
 import type { ParseMemo } from './ParseMemo';
 
@@ -113,9 +113,12 @@ export class VaultScanner {
       return;
     }
 
+    const fileTimes = await readPageFileTimes(this.fileSystem, path);
+
     result.pages.push({
       ...markdown,
       directoryPath,
+      ...(fileTimes && { fileTimes }),
     });
   }
 }

@@ -62,7 +62,14 @@ const folderBuilder = new FolderBuilder();
 const folder = (path: string) =>
   folderBuilder.build({ parentId: null, directory: { path, parentPath: null, frontmatter: null } });
 
-function pageIn(folderPath: string, id: string, name: string, body: string, frontmatter: Record<string, unknown> = {}): Page {
+function pageIn(
+  folderPath: string,
+  id: string,
+  name: string,
+  body: string,
+  frontmatter: Record<string, unknown> = {},
+  fileTimes?: { createdAt: string; modifiedAt: string }
+): Page {
   return new PageBuilder(ROOT).build({
     parentId: folderPath,
     page: {
@@ -72,6 +79,7 @@ function pageIn(folderPath: string, id: string, name: string, body: string, fron
       frontmatterAnalysis: { aliases: [] },
       content: body,
       analysis: { headings: [], blockReferences: [], tasks: [], tags: [], links: [], embeds: [] },
+      ...(fileTimes && { fileTimes }),
     },
   });
 }
@@ -87,9 +95,10 @@ async function setup(options: { defaultTemplateId?: string } = {}) {
   const pages = [
     pageIn(PROJECTS, 'note-1', 'Blank', ''),
     ...TEMPLATE_SPECS.map((spec) =>
-      pageIn(TEMPLATES, spec.id, spec.name, `# ${spec.name} body`, {
-        created: spec.created,
-        cover: `https://example.com/${spec.id}.jpg`,
+      // Creation order is the file's own birth time (ADR-057).
+      pageIn(TEMPLATES, spec.id, spec.name, `# ${spec.name} body`, { cover: `https://example.com/${spec.id}.jpg` }, {
+        createdAt: spec.created,
+        modifiedAt: spec.created,
       })
     ),
   ];

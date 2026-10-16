@@ -86,8 +86,6 @@ function fakePage(overrides: {
       archivedAt: null,
       originalParentId: null,
       originalPath: null,
-      createdAt: null,
-      updatedAt: null,
       ...(overrides.frontmatterTags ? { tags: overrides.frontmatterTags } : {}),
     },
     source: { markdown: overrides.markdown },

@@ -54,14 +54,12 @@ export class PageCreator {
       >
     >
   ): string {
-    const now = new Date().toISOString();
-
     return this.pageFactory.create(
       {
         id,
         type,
-        created: now,
-        modified: now,
+        created: true,
+        modified: true,
         ...metadata,
       },
       body

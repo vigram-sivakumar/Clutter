@@ -22,8 +22,10 @@ export interface PageFrontmatter {
   archivedAt?: string | null;
   originalPath?: string | null;
   originalParentId?: string | null;
-  created?: string;
-  modified?: string;
+  /** `true` when a new note is written declaring the Created property (ADR-058); never read back — the key's presence is the declaration. */
+  created?: boolean;
+  /** Same, for Last edited. */
+  modified?: boolean;
   /** See PageMetadata.tags's own doc comment — note-level, independent of inline `#tag` occurrences. */
   tags?: string[];
   /** See PageMetadata.aliases's own doc comment. Non-empty, trimmed, unquoted values in file order. */

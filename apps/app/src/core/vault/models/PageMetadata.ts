@@ -67,9 +67,6 @@ export interface PageMetadata {
   readonly originalParentId: string | null;
   readonly originalPath: string | null;
 
-  readonly createdAt: string | null;
-  readonly updatedAt: string | null;
-
   /**
    * Note-level tags declared in frontmatter — independent of, and never
    * synchronized with, inline `#tag` occurrences in the body (see

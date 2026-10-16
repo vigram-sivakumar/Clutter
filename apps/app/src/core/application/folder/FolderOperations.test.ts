@@ -64,8 +64,6 @@ function makePage(id: string, path: string, parentId: string | null): Page {
       archivedAt: null,
       originalParentId: null,
       originalPath: null,
-      createdAt: null,
-      updatedAt: null,
     },
     source: { markdown: '' },
     analysis: {

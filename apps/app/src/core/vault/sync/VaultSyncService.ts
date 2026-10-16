@@ -8,7 +8,7 @@ import { PageBuilder } from '../ingest/PageBuilder';
 import { PageRebuilder } from '../ingest/PageRebuilder';
 import { FolderBuilder } from '../ingest/FolderBuilder';
 import { ResourceBuilder } from '../ingest/ResourceBuilder';
-import { readResourceMetadata } from '../ingest/readResourceMetadata';
+import { readPageFileTimes, readResourceMetadata } from '../ingest/readResourceMetadata';
 import { classifySupportedResourceFile, type SupportedResourceKind } from '../ingest/SupportedResourceKind';
 import { VaultScanner } from '../ingest/VaultScanner';
 import type { VaultScanResult } from '../ingest/VaultScanResult';
@@ -454,9 +454,12 @@ export class VaultSyncService {
     const parsedMarkdown = this.frontmatterParser.parse(fileContent);
 
     const existingPage = this.vault.getPageByPath(absolutePath);
+    // Re-read on every reconcile (ADR-057): an external edit changes the file's mtime even when its
+    // frontmatter is untouched.
+    const fileTimes = await readPageFileTimes(this.fileSystem, absolutePath);
 
     if (existingPage) {
-      const rebuiltPage = this.pageRebuilder.rebuild(existingPage, parsedMarkdown);
+      const rebuiltPage = this.pageRebuilder.rebuild(existingPage, parsedMarkdown, fileTimes);
 
       this.vault.replacePage(rebuiltPage);
       this.convergeOpenSession(rebuiltPage.id, rebuiltPage.source.markdown);
@@ -484,6 +487,7 @@ export class VaultSyncService {
           frontmatterAnalysis: parsedMarkdown.frontmatterAnalysis,
           content: parsedMarkdown.body,
           analysis: parsedMarkdown.analysis,
+          ...(fileTimes && { fileTimes }),
         },
       });
 
@@ -735,7 +739,7 @@ export class VaultSyncService {
           body: scannedPage.content,
           analysis: scannedPage.analysis,
         };
-        const rebuiltPage = this.pageRebuilder.rebuild(existingPage, parsedMarkdown);
+        const rebuiltPage = this.pageRebuilder.rebuild(existingPage, parsedMarkdown, scannedPage.fileTimes);
 
         this.vault.replacePage(rebuiltPage);
         this.convergeOpenSession(rebuiltPage.id, rebuiltPage.source.markdown);

@@ -59,6 +59,7 @@ export class PageBuilder {
       parentId,
 
       metadata,
+      ...(page.fileTimes && { fileTimes: page.fileTimes }),
       source: {
         markdown: page.content,
       },

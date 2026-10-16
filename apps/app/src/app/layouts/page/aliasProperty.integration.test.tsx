@@ -35,7 +35,7 @@ function page(id: string, path: string, aliases: string[] = []): Page {
     name: path.slice(path.lastIndexOf('/') + 1, -3),
     path,
     parentId: null,
-    metadata: { status: 'active', aliases, tags: [], createdAt: null, updatedAt: null },
+    metadata: { status: 'active', aliases, tags: [] },
     source: { markdown: '' },
     analysis: { headings: [], aliases: aliases.map((value) => ({ value })), blockReferences: [], tasks: [], tags: [], links: [], embeds: [] },
   } as unknown as Page;
@@ -60,7 +60,7 @@ function setup(currentAliases: string[]) {
   );
   render(
     <PropertiesHarness
-      initial={['properties:', '  visible:', '    - aliases']}
+      initialOrder={['id', 'aliases']}
       aliases={currentAliases}
       aliasSuggestions={createAliasSuggester(vault, 'p1')}
     />

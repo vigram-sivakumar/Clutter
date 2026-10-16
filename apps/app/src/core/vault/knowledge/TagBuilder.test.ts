@@ -27,8 +27,6 @@ function makePage(
       archivedAt: null,
       originalParentId: null,
       originalPath: null,
-      createdAt: null,
-      updatedAt: null,
       ...(frontmatterTags && { tags: frontmatterTags }),
     },
     source: { markdown: '' },

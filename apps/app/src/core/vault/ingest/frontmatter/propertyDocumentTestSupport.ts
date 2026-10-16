@@ -2,7 +2,7 @@ import { FrontmatterParser } from '../FrontmatterParser';
 import { FrontmatterSerializer } from '../FrontmatterSerializer';
 import { PageBuilder } from '../PageBuilder';
 import type { Page } from '../../models/Page';
-import type { PropertyFrontmatter } from './propertyLines';
+import { systemValuePatch, type PropertyFrontmatter } from './propertyLines';
 
 /**
  * Test support: a whole Markdown document read the way Clutter reads a file, and written the way Clutter
@@ -55,6 +55,7 @@ export function writeDocument(
       ...page.metadata,
       unownedFrontmatter: next.lines,
       ...(next.order !== undefined && { frontmatterEntryOrder: next.order }),
+      ...systemValuePatch(next),
     },
   };
 

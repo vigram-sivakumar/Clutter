@@ -10,7 +10,7 @@ function pageFrom(yaml: string): Page {
 
   return {
     id: 'p1',
-    metadata: { unownedFrontmatter: parsed.frontmatter.unownedLines ?? [] },
+    metadata: { unownedFrontmatter: parsed.frontmatter.unownedLines ?? [], frontmatterEntryOrder: parsed.frontmatter.entryOrder },
   } as unknown as Page;
 }
 
@@ -30,21 +30,19 @@ describe('getAddableSystemProperties', () => {
     expect(properties.map((property) => property.icon)).toEqual(['tag', 'multiLine', 'calendar', 'calendar']);
   });
 
-  it('does not offer a system property already in properties.visible', () => {
-    expect(ids('properties:\n  visible:\n    - tags\n    - created')).toEqual(['aliases', 'modified']);
+  it('does not offer a system property the note already declares', () => {
+    expect(ids('tags: []\ncreated: true')).toEqual(['aliases', 'modified']);
   });
 
   it('offers a removed system property again, in its canonical place', () => {
-    expect(ids('properties:\n  visible:\n    - aliases\n    - modified')).toEqual(['tags', 'created']);
+    expect(ids('aliases: []\nmodified: true')).toEqual(['tags', 'created']);
   });
 
   it('matches listed keys ignoring letter case, and offers nothing once all four are listed', () => {
-    expect(ids('properties:\n  visible: [TAGS, Aliases, created, MODIFIED]')).toEqual([]);
+    expect(ids('TAGS: []\nAliases: []\ncreated: true\nMODIFIED: true')).toEqual([]);
   });
 
   it('is only ever system properties: custom properties are displayed because their key exists, so none is offered', () => {
     expect(ids('priority: high\nDue date: 2026-10-01')).toEqual(['tags', 'aliases', 'created', 'modified']);
-    // A legacy custom entry in `visible` changes nothing.
-    expect(ids('priority: high\nproperties:\n  visible:\n    - priority')).toEqual(['tags', 'aliases', 'created', 'modified']);
   });
 });

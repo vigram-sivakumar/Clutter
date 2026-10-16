@@ -57,8 +57,6 @@ const defaultPageMetadata: Page['metadata'] = {
   archivedAt: null,
   originalParentId: null,
   originalPath: null,
-  createdAt: null,
-  updatedAt: null,
 };
 
 const defaultAnalysis: Page['analysis'] = {

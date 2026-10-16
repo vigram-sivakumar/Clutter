@@ -27,8 +27,6 @@ function makePage(id: string, path: string, aliases: string[] = [], markdown = '
       archivedAt: null,
       originalParentId: null,
       originalPath: null,
-      createdAt: null,
-      updatedAt: null,
       aliases,
     },
     source: { markdown },

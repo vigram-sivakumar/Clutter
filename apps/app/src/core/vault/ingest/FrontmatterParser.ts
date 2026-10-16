@@ -244,16 +244,6 @@ export class FrontmatterParser {
             frontmatter.originalPath = scalar;
           }
           break;
-        case 'created':
-          if (typeof scalar === 'string') {
-            frontmatter.created = scalar;
-          }
-          break;
-        case 'modified':
-          if (typeof scalar === 'string') {
-            frontmatter.modified = scalar;
-          }
-          break;
         case 'aliases':
           // Block list (`aliases:` then `  - value` lines, handled above),
           // one-line flow list (`aliases: [a, "b"]`), or a single value

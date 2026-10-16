@@ -9,14 +9,9 @@ import {
 } from './customFrontmatter';
 import { readVisibleCustomProperties } from './templateMarker';
 import {
-  addVisibleProperty,
-  adoptLegacyOrder,
+  SHOW_PROPERTIES_KEY,
   isPropertiesSectionHidden,
-  normalizePropertiesConfig,
   readListedSystemProperties,
-  removePropertiesBlock,
-  removePropertiesListing,
-  removeVisibleProperty,
   setPropertiesSectionHidden,
 } from './propertyVisibility';
 
@@ -34,35 +29,27 @@ import {
  * keys by canonical name, the rest as written). The order is the Properties
  * list's order and the order the file is written in; nothing else orders it.
  *
- * The model, in short:
- * - a system property (`tags`, `aliases`, `created`, `modified`) is displayed
- *   when its key is in `properties.visible`; listing or unlisting it never
- *   touches its value or moves its entry. `visible` is a set — it says nothing
- *   about order;
- * - a custom property is displayed because its frontmatter key exists, where
- *   its entry is in the file;
- * - reordering moves a property's whole entry (a nested mapping or block list
- *   goes with its key line); every other entry keeps its place;
- * - a write that changes the configuration or adds/removes an entry also
- *   writes the `properties` block last, as one complete entry (a note is never
- *   rewritten just by being read);
- * - the section is hidden only by an explicit `properties.show: false`;
- * - with nothing to show (no listed system property, no custom property) the
- *   note is back in the never-configured state: no `properties:` block.
+ * The model, in short (ADR-058):
+ * - a property is declared by its frontmatter key: a system property (`tags`, `aliases`, `created`, `modified`)
+ *   is displayed when its key is one of the file's entries (`order`), a custom property when its key exists.
+ *   Adding one declares its key; removing one removes its key and value;
+ * - `showProperties: false` hides the whole section and nothing else;
+ * - reordering moves a property's whole entry (a nested mapping or block list goes with its key line); every other
+ *   entry keeps its place. The physical order is the Properties list's order; nothing else stores it;
  */
 export interface PropertyFrontmatter {
   /** The preserved raw lines (custom properties and the `properties` block), in file order. */
   readonly lines: readonly string[];
   /** Every top-level entry once, in file order (PageMetadata.frontmatterEntryOrder); absent for a page not read from a file. */
   readonly order?: readonly string[];
+  /** System keys whose entry and value this change deletes (PageOperations patches a list's value away). */
+  readonly retract?: readonly PageSystemPropertyKey[];
 }
 
 /** One displayed property: a system key (canonical) or a custom property (its actual key). */
 export type PropertyRef =
   | { readonly kind: 'system'; readonly key: PageSystemPropertyKey }
   | { readonly kind: 'custom'; readonly key: string };
-
-const CONFIG_KEY = 'properties';
 
 const sameLines = (a: readonly string[], b: readonly string[]): boolean =>
   a.length === b.length && a.every((line, index) => line === b[index]);
@@ -82,7 +69,7 @@ const sameState = (a: PropertyFrontmatter, b: PropertyFrontmatter): boolean =>
  */
 export function readPropertySequence(state: PropertyFrontmatter): PropertyRef[] {
   const customs = readVisibleCustomProperties(state.lines).map((property) => property.key);
-  const listed = readListedSystemProperties(state.lines);
+  const listed = readListedSystemProperties(state.order);
   const refs: PropertyRef[] = [];
   const seen = new Set<string>();
   const push = (ref: PropertyRef) => {
@@ -113,29 +100,8 @@ export function readPropertySequence(state: PropertyFrontmatter): PropertyRef[] 
 /** The displayed keys, as the Properties list's rows carry them (`orderKey`). */
 const displayedKeys = (state: PropertyFrontmatter): string[] => readPropertySequence(state).map((ref) => ref.key);
 
-/** Whether `key` is the reserved `properties` configuration entry (any letter case). */
-const isConfigToken = (key: string): boolean => key.trim().toLowerCase() === CONFIG_KEY;
-
-/**
- * The `properties` configuration entry moved last — as one complete entry, in both the preserved lines and the
- * entry order. The write convention: the configuration sits at the end of the frontmatter, after the actual
- * property entries. No entry, or already last: nothing moves.
- */
-function configBlockLast(state: PropertyFrontmatter): PropertyFrontmatter {
-  const { preamble, blocks } = splitEntryBlocks(state.lines);
-  const index = blocks.findIndex((block) => isConfigToken(block.key));
-  const lines =
-    index === -1 || index === blocks.length - 1
-      ? state.lines
-      : [...preamble, ...blocks.filter((_, i) => i !== index).flatMap((block) => block.lines), ...blocks[index]!.lines];
-  const token = state.order?.find(isConfigToken);
-  const order =
-    token === undefined || state.order![state.order!.length - 1] === token
-      ? state.order
-      : [...state.order!.filter((entry) => entry !== token), token];
-
-  return { lines, order };
-}
+/** Whether `key` is the `showProperties` setting entry (any letter case). */
+const isConfigToken = (key: string): boolean => key.trim().toLowerCase() === SHOW_PROPERTIES_KEY.toLowerCase();
 
 /** The preserved entries in the order of `order` (an entry it doesn't name keeps its place after the named ones). */
 function linesInOrder(lines: readonly string[], order: readonly string[]): string[] {
@@ -155,54 +121,44 @@ function linesInOrder(lines: readonly string[], order: readonly string[]): strin
   ];
 }
 
-/**
- * Ends every change to the Properties configuration. A leftover `properties.order` from an earlier build is
- * adopted first (adoptLegacyOrder). When nothing is left to show the listing is reset (removePropertiesListing:
- * no `visible`, no `show`, no `properties:` block unless something else is configured under it); otherwise the
- * block is brought to the current model (normalizePropertiesConfig). The block then goes last. `null` when that
- * leaves the state as it was.
- */
-function settle(before: PropertyFrontmatter, after: PropertyFrontmatter): PropertyFrontmatter | null {
-  // A change that changed nothing writes nothing — and relocates nothing.
-  if (sameState(before, after)) {
-    return null;
-  }
-
-  const adopted = adoptLegacyOrder(after.lines);
-  const hasContent = readListedSystemProperties(adopted).length > 0 || readCustomProperties(adopted).length > 0;
-  const lines = hasContent ? normalizePropertiesConfig(adopted) : removePropertiesListing(adopted);
-  const settled = configBlockLast({ lines, order: after.order });
-
-  return sameState(before, settled) ? null : settled;
-}
-
 /** `order` with `key` added last, unless it is already there (or the state has no order). */
 const withToken = (order: readonly string[] | undefined, key: string): readonly string[] | undefined =>
   order === undefined || order.includes(key) ? order : [...order, key];
 
+/** The lines with an explicit hide lifted — and untouched when the section is not hidden (`showProperties: true` stays as written). */
+const unhidden = (lines: readonly string[]): string[] =>
+  isPropertiesSectionHidden(lines) ? setPropertiesSectionHidden(lines, false) : [...lines];
+
+/** `null` when a change leaves the state as it was. */
+function settle(before: PropertyFrontmatter, after: PropertyFrontmatter): PropertyFrontmatter | null {
+  return sameState(before, after) && !after.retract ? null : after;
+}
+
 /**
- * System property `key` listed, and an explicit hide lifted. Its entry is where it already is — never duplicated or
- * moved; a property with no entry yet (`tags` before any tag) gets one at the end of the entries, written as an empty
- * list. Already listed changes nothing but the hide.
+ * System property `key` listed, and an explicit hide lifted. Listing declares its key: it joins the entry order
+ * (a key the file has is where it is, never duplicated or moved; a new one goes at the end of the entries).
+ * Already listed in a shown section changes nothing.
  */
 export function addSystemPropertyLines(state: PropertyFrontmatter, key: PageSystemPropertyKey): PropertyFrontmatter | null {
-  // Already listed in a shown section: nothing to do — and so nothing to adopt or relocate.
-  if (readListedSystemProperties(state.lines).includes(key) && !isPropertiesSectionHidden(state.lines)) {
+  if (readListedSystemProperties(state.order).includes(key) && !isPropertiesSectionHidden(state.lines)) {
     return null;
   }
 
-  const lines = setPropertiesSectionHidden(addVisibleProperty(adoptLegacyOrder(state.lines), key), false);
+  const lines = unhidden(state.lines);
 
   return settle(state, { lines, order: withToken(state.order, key) });
 }
 
-/** System property `key` unlisted — its value and its entry are never touched. */
+/**
+ * System property `key` removed — its key leaves the entry order and PageOperations deletes its value (`retract`);
+ * the note's body `#tags` are independent of all of this.
+ */
 export function removeSystemPropertyLines(state: PropertyFrontmatter, key: PageSystemPropertyKey): PropertyFrontmatter | null {
-  if (!readListedSystemProperties(state.lines).includes(key)) {
+  if (!readListedSystemProperties(state.order).includes(key)) {
     return null;
   }
 
-  return settle(state, { lines: removeVisibleProperty(adoptLegacyOrder(state.lines), key), order: state.order });
+  return settle(state, { lines: state.lines, order: state.order?.filter((token) => token !== key), retract: [key] });
 }
 
 /** Custom property `name` added after every existing entry (throws as addCustomProperty does), and an explicit hide lifted. */
@@ -211,7 +167,7 @@ export function addCustomPropertyLines(
   name: string,
   property: NewCustomProperty
 ): PropertyFrontmatter | null {
-  const lines = setPropertiesSectionHidden(addCustomProperty(state.lines, name, property), false);
+  const lines = unhidden(addCustomProperty(state.lines, name, property));
 
   return settle(state, { lines, order: withToken(state.order, name.trim()) });
 }
@@ -232,28 +188,35 @@ export function renameCustomPropertyLines(state: PropertyFrontmatter, key: strin
   };
 }
 
-/** Every custom property deleted and the whole `properties:` block removed. */
+/**
+ * Every property removed: each custom property deleted (keys and values), each listed system property retracted
+ * (key and value), and `showProperties` gone — the note's frontmatter is back to its other entries.
+ */
 export function deleteAllPropertiesLines(state: PropertyFrontmatter): PropertyFrontmatter | null {
   const customs = readCustomProperties(state.lines).map((property) => property.key);
+  const listed = readListedSystemProperties(state.order);
   const withoutCustom = customs.reduce((current, key) => removeCustomProperty(current, key), [...state.lines]);
-  const reset = removePropertiesBlock(withoutCustom);
-  const order = state.order?.filter((token) => !customs.includes(token) && !isConfigToken(token));
-  const next = { lines: reset, order };
+  const lines = setPropertiesSectionHidden(withoutCustom, false);
+  const order = state.order?.filter(
+    (token) => !customs.includes(token) && !isConfigToken(token) && !listed.some((key) => key === token)
+  );
+  const next = { lines, order, ...(listed.length > 0 && { retract: listed }) };
 
-  return sameState(state, next) ? null : next;
+  return sameState(state, next) && !next.retract ? null : next;
 }
 
-/** The section explicitly hidden (`show: false`, nothing else written) or shown (the override removed). */
+/** The section hidden (`showProperties: false`, nothing else written) or shown (the entry removed). */
 export function setSectionHiddenLines(state: PropertyFrontmatter, hidden: boolean): PropertyFrontmatter | null {
-  const lines = setPropertiesSectionHidden(state.lines, hidden);
-
-  if (sameLines(state.lines, lines)) {
+  if (hidden === isPropertiesSectionHidden(state.lines)) {
     return null;
   }
 
-  const next = configBlockLast({ lines, order: state.order });
+  const lines = setPropertiesSectionHidden(state.lines, hidden);
+  const order = hidden
+    ? withToken(state.order, SHOW_PROPERTIES_KEY)
+    : state.order?.filter((token) => token.trim().toLowerCase() !== SHOW_PROPERTIES_KEY.toLowerCase());
 
-  return sameState(state, next) ? null : next;
+  return settle(state, { lines, order });
 }
 
 /** `order` with `key` moved to sit immediately before (or after) `target`. */
@@ -345,4 +308,20 @@ export function reorderPropertiesLines(
   }
 
   return settle(state, { lines: linesInOrder(state.lines, order), order });
+}
+
+/**
+ * The page values behind a change's retracted system keys (ADR-058), as a metadata patch for the same save: tags and
+ * aliases are emptied (the serializer then omits them, their keys having left the entry order). Created and Last
+ * edited hold no value in the page — their key alone declares them — so removing them needs no patch.
+ */
+export function systemValuePatch(change: PropertyFrontmatter): { tags?: string[]; aliases?: string[] } {
+  const patch: { tags?: string[]; aliases?: string[] } = {};
+
+  for (const key of change.retract ?? []) {
+    if (key === 'tags') patch.tags = [];
+    if (key === 'aliases') patch.aliases = [];
+  }
+
+  return patch;
 }

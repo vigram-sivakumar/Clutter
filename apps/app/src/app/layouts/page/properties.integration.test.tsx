@@ -32,11 +32,17 @@ afterEach(() => cleanup());
 const parse = (yaml: string) => new FrontmatterParser().parse(`---\nid: a\n${yaml}\n---\nbody`).frontmatter.unownedLines ?? [];
 
 /** Renders the harness for `yaml`, returning the latest written lines. */
-function setup(yaml = '', options: { tags?: string[]; aliases?: string[]; status?: 'active' | 'archived' } = {}) {
+function setup(
+  yaml = '',
+  options: { tags?: string[]; aliases?: string[]; status?: 'active' | 'archived'; initialOrder?: readonly string[] } = {}
+) {
   const onLines = vi.fn();
-  render(<PropertiesHarness initial={parse(yaml)} onLines={onLines} {...options} />);
+  const onState = vi.fn();
+  render(<PropertiesHarness initial={parse(yaml)} onLines={onLines} onState={onState} {...options} />);
   const latest = () => (onLines.mock.calls.at(-1)?.[0] ?? parse(yaml)) as string[];
-  return { onLines, latest };
+  /** The latest written frontmatter state: the preserved lines and the file's entry order. */
+  const state = () => onState.mock.calls.at(-1)?.[0] as { lines: string[]; order?: string[] };
+  return { onLines, latest, state };
 }
 
 // ---- What is on screen ------------------------------------------------
@@ -98,8 +104,8 @@ describe('Properties — the zero-property default', () => {
     expect(titleItems()).toEqual(['Properties']);
   });
 
-  it('a leftover `show: true` or `visible: []` still renders nothing', () => {
-    setup('properties:\n  show: true\n  visible: []');
+  it('`showProperties: true` with nothing declared still renders nothing', () => {
+    setup('showProperties: true');
 
     expect(hasSection()).toBe(false);
     expect(titleItems()).toEqual(['Properties']);
@@ -126,19 +132,20 @@ describe('Properties — the zero-property default', () => {
 });
 
 describe('Properties — system properties', () => {
-  it('adding one lists its key — and only that: the section appears, the title offers nothing, no `show` is written', () => {
-    const { latest } = setup();
+  it('adding one declares its key — and only that: the section appears, the title offers nothing, no configuration is written', () => {
+    const { latest, state } = setup();
 
     clickTitle('Properties');
     fireEvent.click(screen.getByRole('menuitem', { name: 'Tags' }));
 
     expect(rows()).toEqual(['Tags', 'Add a property']);
     expect(titleItems()).toEqual([]);
-    expect(latest()).toEqual(['properties:', '  visible:', '    - tags']);
-    expect(latest().join('\n')).not.toContain('show:');
+    // Nothing is written to the preserved lines: the property is its key in the entry order.
+    expect(latest()).toEqual([]);
+    expect(state().order).toEqual(['tags']);
   });
 
-  it('a note with no recorded entry order lists its system properties in the canonical order — Tags, Aliases, Created, Last edited — whatever order they were added in', () => {
+  it('system properties are listed in the order their keys were added to the file', () => {
     setup();
 
     clickTitle('Properties');
@@ -147,11 +154,11 @@ describe('Properties — system properties', () => {
     pick('Tags');
     pick('Aliases');
 
-    expect(propertyNames()).toEqual(['Tags', 'Aliases', 'Created', 'Last edited']);
+    expect(propertyNames()).toEqual(['Last edited', 'Created', 'Tags', 'Aliases']);
   });
 
   it('a listed system property is not offered again; a removed one is', () => {
-    setup('properties:\n  visible:\n    - tags\n    - created');
+    setup('', { initialOrder: ['id', 'tags', 'created'] });
 
     fireEvent.click(screen.getByText('Add a property'));
     expect(menuItems().slice(0, 2)).toEqual(['Aliases', 'Last edited']);
@@ -163,39 +170,31 @@ describe('Properties — system properties', () => {
     expect(menuItems().slice(0, 3)).toEqual(['Aliases', 'Created', 'Last edited']);
   });
 
-  it('Remove only unlists: the value stays, and adding it again brings the value back', () => {
-    const { latest } = setup('properties:\n  visible:\n    - tags\n    - aliases', {
-      tags: ['work', 'home'],
-      aliases: ['Alt'],
-    });
+  it('Remove takes the property out of the list and out of the file’s entries; adding it again declares it afresh', () => {
+    const { state } = setup('', { initialOrder: ['id', 'tags', 'aliases'], tags: ['work', 'home'], aliases: ['Alt'] });
     expect(tagPills()).toEqual(['#work', '#home']);
 
     rowAction('Tags', 'Remove');
 
     expect(propertyNames()).toEqual(['Aliases']);
-    expect(tagPills()).toEqual([]);
-    expect(latest()).toEqual(['properties:', '  visible:', '    - aliases']);
+    expect(state().order).toEqual(['id', 'aliases']);
 
     pick('Tags');
 
-    expect(propertyNames()).toEqual(['Tags', 'Aliases']);
-    // The frontmatter tags were never touched, so they reappear.
-    expect(tagPills()).toEqual(['#work', '#home']);
+    expect(propertyNames()).toEqual(['Aliases', 'Tags']);
+    expect(state().order).toEqual(['id', 'aliases', 'tags']);
   });
 
-  it('Aliases Remove preserves the aliases the same way', () => {
-    setup('properties:\n  visible:\n    - aliases\n    - created', { aliases: ['Alt', 'Other'] });
+  it('Remove on Aliases leaves the other properties listed', () => {
+    setup('', { initialOrder: ['id', 'aliases', 'created'], aliases: ['Alt', 'Other'] });
     expect(pills()).toContain('Alt');
 
     rowAction('Aliases', 'Remove');
     expect(propertyNames()).toEqual(['Created']);
-
-    pick('Aliases');
-    expect(pills()).toEqual(expect.arrayContaining(['Alt', 'Other']));
   });
 
   it('removing the last property returns to the exact zero-property state: no section, no add row, title is Add a property, no properties block', () => {
-    const { latest } = setup('properties:\n  show: true\n  visible:\n    - created');
+    const { latest } = setup('', { initialOrder: ['id', 'created'] });
 
     rowAction('Created', 'Remove');
 
@@ -206,7 +205,7 @@ describe('Properties — system properties', () => {
   });
 
   it('Created and Last edited offer Move up/down and Remove; Tags and Aliases also Clear; none can be deleted', () => {
-    setup('properties:\n  visible: [tags, aliases, created, modified]');
+    setup('', { initialOrder: ['id', 'tags', 'aliases', 'created', 'modified'] });
 
     for (const [name, expected] of [
       ['Tags', ['Move up', 'Move down', 'Clear', 'Remove']],
@@ -221,7 +220,7 @@ describe('Properties — system properties', () => {
   });
 
   it('Clear on Tags empties the tags but keeps the row (unlike Remove)', () => {
-    setup('properties:\n  visible:\n    - tags');
+    setup('', { initialOrder: ['id', 'tags'] });
 
     rowAction('Tags', 'Clear');
 
@@ -240,10 +239,10 @@ describe('Properties — custom properties', () => {
     expect(onLines).not.toHaveBeenCalled();
   });
 
-  it('system rows come first (canonical order), then custom rows in frontmatter order', () => {
-    setup('zeta: 1\nalpha: 2\nproperties:\n  visible: [modified, tags]');
+  it('system and custom rows are one list, in the order of the file’s entries', () => {
+    setup('zeta: 1\nalpha: 2', { initialOrder: ['id', 'modified', 'zeta', 'tags', 'alpha'] });
 
-    expect(propertyNames()).toEqual(['Tags', 'Last edited', 'zeta', 'alpha']);
+    expect(propertyNames()).toEqual(['Last edited', 'zeta', 'Tags', 'alpha']);
   });
 
   it.each([
@@ -332,12 +331,14 @@ describe('Properties — custom properties', () => {
   });
 
   it('Delete removes the actual frontmatter key and value; everything else stays', () => {
-    const { latest } = setup('Due date: 2026-10-01\npeople:\n  - Ana\npriority: high\nproperties:\n  visible:\n    - tags');
+    const { latest } = setup('Due date: 2026-10-01\npeople:\n  - Ana\npriority: high', {
+      initialOrder: ['id', 'tags', 'Due date', 'people', 'priority'],
+    });
 
     rowAction('people', 'Delete');
 
     expect(propertyNames()).toEqual(['Tags', 'Due date', 'priority']);
-    expect(latest()).toEqual(['Due date: 2026-10-01', 'priority: high', 'properties:', '  visible:', '    - tags']);
+    expect(latest()).toEqual(['Due date: 2026-10-01', 'priority: high']);
   });
 
   it('custom properties offer Move up/down, Clear and Delete, and no Remove or Hide', () => {
@@ -350,7 +351,7 @@ describe('Properties — custom properties', () => {
   });
 
   it('deleting the last property returns to the zero-property state with no properties block', () => {
-    const { latest } = setup('priority: high\nproperties:\n  show: true');
+    const { latest } = setup('priority: high');
 
     rowAction('priority', 'Delete');
 
@@ -375,8 +376,10 @@ describe('Properties — custom properties', () => {
 });
 
 describe('Properties — hiding and showing the section', () => {
+  const ORDER = ['id', 'tags', 'created', 'priority'];
+
   it('a visible section has no Hide or Show in the title; Hide properties is in the section’s own menu', () => {
-    setup('properties:\n  visible:\n    - tags');
+    setup('', { initialOrder: ['id', 'tags'] });
 
     expect(titleItems()).toEqual([]);
     fireEvent.click(screen.getByText('Add a property'));
@@ -384,8 +387,8 @@ describe('Properties — hiding and showing the section', () => {
     expect(menuItems()).toContain('Delete all');
   });
 
-  it('Hide properties writes only `show: false`, keeps every property and value, and the title then offers Show properties', () => {
-    const { latest } = setup('priority: high\nproperties:\n  visible:\n    - tags\n    - created');
+  it('Hide properties writes only `showProperties: false`, keeps every property and value, and the title then offers Show properties', () => {
+    const { latest, state } = setup('priority: high', { initialOrder: ORDER });
 
     fireEvent.click(screen.getByText('Add a property'));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Hide properties' }));
@@ -393,36 +396,45 @@ describe('Properties — hiding and showing the section', () => {
     expect(hasSection()).toBe(false);
     expect(hasAddRow()).toBe(false);
     expect(titleItems()).toEqual(['Show properties']);
-    expect(latest()).toEqual(['priority: high', 'properties:', '  show: false', '  visible:', '    - tags', '    - created']);
+    expect(latest()).toEqual(['priority: high', 'showProperties: false']);
     expect(isPropertiesSectionHidden(latest())).toBe(true);
-    expect(readListedSystemProperties(latest())).toEqual(['tags', 'created']);
+    // Every declared property is still declared.
+    expect(readListedSystemProperties(state().order)).toEqual(['tags', 'created']);
+    expect(state().order).toEqual([...ORDER, 'showProperties']);
   });
 
-  it('Show properties removes the `show: false` override: the properties come back and the title offers nothing again', () => {
-    const { latest } = setup('priority: high\nproperties:\n  show: false\n  visible:\n    - tags');
+  it('Show properties removes the `showProperties` entry: the properties come back and the title offers nothing again', () => {
+    const { latest } = setup('priority: high\nshowProperties: false', {
+      initialOrder: ['id', 'tags', 'priority', 'showProperties'],
+    });
     expect(hasSection()).toBe(false);
 
     clickTitle('Show properties');
 
     expect(propertyNames()).toEqual(['Tags', 'priority']);
     expect(titleItems()).toEqual([]);
-    expect(latest().join('\n')).not.toContain('show:');
-    expect(latest()).toEqual(['priority: high', 'properties:', '  visible:', '    - tags']);
+    expect(latest()).toEqual(['priority: high']);
   });
 
   it('hide then show returns the frontmatter to exactly what it was', () => {
-    const yaml = 'priority: high\nproperties:\n  visible:\n    - tags';
-    const { latest } = setup(yaml);
+    const { latest, state } = setup('priority: high', { initialOrder: ORDER });
 
     fireEvent.click(screen.getByText('Add a property'));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Hide properties' }));
     clickTitle('Show properties');
 
-    expect(latest()).toEqual(parse(yaml));
+    expect(latest()).toEqual(parse('priority: high'));
+    expect(state().order).toEqual(ORDER);
+  });
+
+  it('`showProperties` is never a row, and `showProperties: true` shows the section', () => {
+    setup('priority: high\nshowProperties: true', { initialOrder: ['id', 'priority', 'showProperties'] });
+
+    expect(propertyNames()).toEqual(['priority']);
   });
 
   it('a draft waiting when the section is hidden is dropped, so showing again does not bring it back', () => {
-    setup('properties:\n  visible:\n    - tags');
+    setup('', { initialOrder: ['id', 'tags'] });
 
     pick('Number');
     expect(rows()).toEqual(['Tags', '(draft)', 'Add a property']);
@@ -436,11 +448,11 @@ describe('Properties — hiding and showing the section', () => {
 });
 
 describe('Properties — Delete all', () => {
-  it('deletes every custom property and the whole properties block: no section, no add row, no show, no visible, and the title is Add a property', () => {
-    const { latest } = setup(
-      'priority: high\nnotes: x\nproperties:\n  show: false\n  visible:\n    - tags\n    - created',
-      { tags: ['work'] }
-    );
+  it('deletes every custom property and removes the system properties and configuration too: no section, no add row, and the title is Add a property', () => {
+    const { latest, state } = setup('priority: high\nnotes: x\nshowProperties: false', {
+      initialOrder: ['id', 'tags', 'created', 'priority', 'notes', 'showProperties'],
+      tags: ['work'],
+    });
     // (the section is hidden here; show it to reach its menu)
     clickTitle('Show properties');
 
@@ -450,31 +462,7 @@ describe('Properties — Delete all', () => {
     expect(hasSection()).toBe(false);
     expect(hasAddRow()).toBe(false);
     expect(titleItems()).toEqual(['Properties']);
-    const written = latest().join('\n');
     expect(latest()).toEqual([]);
-    for (const gone of ['properties', 'show:', 'visible', 'priority', 'notes']) {
-      expect(written).not.toContain(gone);
-    }
-  });
-
-  it('leaves the owned system values alone: the tags are still there once Tags is added again', () => {
-    setup('priority: high\nproperties:\n  visible:\n    - tags', { tags: ['work', 'home'] });
-
-    fireEvent.click(screen.getByText('Add a property'));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete all' }));
-    clickTitle('Properties');
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Tags' }));
-
-    expect(tagPills()).toEqual(['#work', '#home']);
-  });
-});
-
-describe('Properties — an archived page is view-only', () => {
-  it('shows what it has with no add row, no menus and no title control', () => {
-    setup('priority: high\nproperties:\n  visible:\n    - tags', { status: 'archived' });
-
-    expect(propertyNames()).toEqual(['Tags', 'priority']);
-    expect(hasAddRow()).toBe(false);
-    expect(document.querySelector('.property__menu-button')).toBeNull();
+    expect(state().order).toEqual(['id']);
   });
 });

@@ -104,7 +104,7 @@ const TEMPLATE: Partial<PageFrontmatter> = {
   tags: ['tpl', 'meeting'],
   aliases: ['Tpl alias'],
   favorite: true,
-  created: '2020-01-01T00:00:00.000Z',
+  created: true,
   unownedLines: ['kind: template', 'Priority: High', 'Attendees:', '  - Ann', '  - Bo', 'reviewed: true'],
 };
 

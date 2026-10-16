@@ -3,6 +3,7 @@ export * from './occurrences';
 export * from './graph';
 
 export * from './Page';
+export * from './effectivePageDates';
 // export * from './PageAnalysis';
 export * from './PageMetadata';
 // export * from './PageSource';

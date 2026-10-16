@@ -30,6 +30,31 @@ describe('PageRebuilder', () => {
     return { ...page, ...overrides };
   }
 
+  const emptyParsed = (frontmatter: Record<string, unknown> = {}) => ({
+    frontmatter,
+    frontmatterAnalysis: { aliases: [] },
+    body: 'Body text.',
+    analysis: { headings: [], blockReferences: [], tasks: [], tags: [], links: [], embeds: [] },
+  });
+
+  describe('dates (ADR-057, ADR-058)', () => {
+    it('keeps no date in the page: a created / modified value in the frontmatter is not read, and none is invented', () => {
+      const rebuilt = rebuilder.rebuild(buildPage(), emptyParsed({ created: true, modified: true }));
+
+      expect(rebuilt.metadata).not.toHaveProperty('createdAt');
+      expect(rebuilt.metadata).not.toHaveProperty('updatedAt');
+    });
+
+    it('takes fileTimes from the argument and never retains the previous page\'s', () => {
+      const old = { createdAt: '2020-01-01T00:00:00.000Z', modifiedAt: '2020-01-02T00:00:00.000Z' };
+      const fresh = { createdAt: '2026-01-01T00:00:00.000Z', modifiedAt: '2026-01-02T00:00:00.000Z' };
+      const page = { ...buildPage(), fileTimes: old };
+
+      expect(rebuilder.rebuild(page, emptyParsed(), fresh).fileTimes).toEqual(fresh);
+      expect(rebuilder.rebuild(page, emptyParsed()).fileTimes).toBeUndefined();
+    });
+  });
+
   it('reads originalPath from parsed frontmatter when the existing page has null', () => {
     const page = buildPage({
       metadata: {

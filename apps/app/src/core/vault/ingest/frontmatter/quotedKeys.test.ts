@@ -262,17 +262,15 @@ describe('a property with a colon in its name through a whole page', () => {
     const source = [
       '---',
       'id: page-1',
-      'created: 2026-01-02T03:04:05.000Z',
-      'modified: 2026-02-03T04:05:06.000Z',
+      'created: true',
+      'modified: true',
       'favorite: false',
       'status: active',
       'tags:',
       '  - work',
       '"Project: Name": Clutter',
       'link: https://example.com:8080/x',
-      'properties:',
-      '  visible:',
-      '    - tags',
+      'showProperties: false',
       '---',
       'Body',
     ].join('\n');
@@ -292,7 +290,7 @@ describe('a property with a colon in its name through a whole page', () => {
 
     const written = new FrontmatterSerializer().serializeDocument(page, parsed.body);
 
-    expect(written).toContain('tags:\n  - work\n"Project: Name": Clutter\nlink: https://example.com:8080/x\nproperties:\n  visible:\n    - tags');
+    expect(written).toContain('tags:\n  - work\n"Project: Name": Clutter\nlink: https://example.com:8080/x\nshowProperties: false');
     const reparsed = parser.parse(written);
     expect(reparsed.frontmatter.unownedLines).toEqual(parsed.frontmatter.unownedLines);
     expect(readCustomProperties(reparsed.frontmatter.unownedLines ?? []).map((p) => [p.key, p.value])).toEqual([

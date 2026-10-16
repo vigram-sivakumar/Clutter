@@ -41,8 +41,8 @@ export interface AddPropertyMenuProps {
  * list of its own. Hosted by the Properties section's "+ Add a property"
  * button (AddPropertyRow), which closes it after a choice.
  *
- * Choosing a system property just lists it (its key joins the note's
- * `properties.visible`; its value is untouched). Choosing a custom type adds
+ * Choosing a system property just declares it (its key joins the note's
+ * frontmatter; an existing value is untouched). Choosing a custom type adds
  * its row at once (unnamed, name field focused) rather than asking anything
  * else: the type is picked first, then named.
  */

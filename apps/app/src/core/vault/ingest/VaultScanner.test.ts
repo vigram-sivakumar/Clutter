@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { VaultScanner } from './VaultScanner';
 import type { VaultEntry, VaultFileSystem } from '../providers';
+import { InMemoryVaultFileSystem } from '../testing/InMemoryVaultFileSystem';
 
 class FakeFileSystem implements VaultFileSystem {
   constructor(
@@ -290,15 +291,16 @@ describe('VaultScanner resource metadata (ADR-038)', () => {
     });
   });
 
-  it('does not stat Markdown pages', async () => {
+  it('stats each Markdown page exactly once (ADR-057 supersedes ADR-038\'s "pages are not stat\'d")', async () => {
     const fileSystem = new StatFileSystem(
       new Map([['/vault', [entry('Idea.md', '/vault/Idea.md', false)]]]),
       new Map([['/vault/Idea.md', '---\n---\ncontent']])
     );
 
-    await new VaultScanner(fileSystem).scan('/vault');
+    const result = await new VaultScanner(fileSystem).scan('/vault');
 
-    expect(fileSystem.statCalls).toEqual([]);
+    expect(fileSystem.statCalls).toEqual(['/vault/Idea.md']);
+    expect(result.pages[0]!.fileTimes).toEqual({ createdAt: '2026-01-02T03:04:05.000Z', modifiedAt: null });
   });
 
   it('still discovers a resource, without metadata, when stat fails', async () => {
@@ -315,5 +317,36 @@ describe('VaultScanner resource metadata (ADR-038)', () => {
     const result = await new VaultScanner(fileSystem).scan('/vault');
 
     expect(result.files).toEqual([{ path: '/vault/a.png', directoryPath: '/vault', kind: 'image' }]);
+  });
+});
+
+describe('VaultScanner page file times (ADR-057)', () => {
+  it('reads each page file\'s birth and modification time once, as ISO strings', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    await fileSystem.createDirectory('/vault');
+    fileSystem.seedFile('/vault/External.md', '# made elsewhere');
+    fileSystem.setFileTimes('/vault/External.md', {
+      createdAt: new Date('2026-02-03T04:05:06.000Z'),
+      modifiedAt: new Date('2026-02-04T04:05:06.000Z'),
+    });
+
+    const result = await new VaultScanner(fileSystem).scan('/vault');
+
+    expect(result.pages[0]!.fileTimes).toEqual({
+      createdAt: '2026-02-03T04:05:06.000Z',
+      modifiedAt: '2026-02-04T04:05:06.000Z',
+    });
+  });
+
+  it('still discovers the page, without fileTimes, when the file system cannot stat', async () => {
+    const fileSystem = new FakeFileSystem(
+      new Map([['/vault', [entry('Idea.md', '/vault/Idea.md', false)]]]),
+      new Map([['/vault/Idea.md', 'content']])
+    );
+
+    const result = await new VaultScanner(fileSystem).scan('/vault');
+
+    expect(result.pages).toHaveLength(1);
+    expect(result.pages[0]!.fileTimes).toBeUndefined();
   });
 });

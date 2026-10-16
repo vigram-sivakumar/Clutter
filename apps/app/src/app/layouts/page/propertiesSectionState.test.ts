@@ -5,34 +5,41 @@ import { deleteAllPropertiesLines, removeSystemPropertyLines } from '@core/vault
 
 import { derivePropertiesSectionState } from './propertiesSectionState';
 
-const lines = (yaml: string): readonly string[] =>
-  new FrontmatterParser().parse(`---\nid: a\n${yaml}\n---\nbody`).frontmatter.unownedLines ?? [];
+const read = (yaml: string) => {
+  const { frontmatter } = new FrontmatterParser().parse(`---\nid: a\n${yaml}\n---\nbody`);
+
+  return { lines: frontmatter.unownedLines ?? [], order: frontmatter.entryOrder };
+};
 
 const state = (
   yaml: string,
   options: { isArchived?: boolean; hasDraft?: boolean; isStarting?: boolean } = {}
-) => derivePropertiesSectionState({ lines: lines(yaml), isArchived: false, hasDraft: false, ...options });
+) => {
+  const { lines, order } = read(yaml);
+
+  return derivePropertiesSectionState({ lines, ...(order && { order }), isArchived: false, hasDraft: false, ...options });
+};
 
 const DEFAULT = { isDisplayed: false, showsAddRow: false, hasProperties: false, control: 'add' } as const;
 
 describe('derivePropertiesSectionState — the zero-property default', () => {
   it('nothing to show: no section, no add button, and the title says "Add a property"', () => {
-    for (const yaml of ['', 'description: hi', 'properties:\n  visible:', 'properties:\n  visible: []']) {
+    for (const yaml of ['', 'description: hi', 'favorite: true\nicon: x']) {
       expect(state(yaml)).toEqual(DEFAULT);
     }
   });
 
-  it('a note with a leftover `show: false` and nothing to show is still the default', () => {
-    expect(state('properties:\n  show: false')).toEqual(DEFAULT);
+  it('`showProperties: false` with nothing to show is still the default', () => {
+    expect(state('showProperties: false')).toEqual(DEFAULT);
   });
 
-  it('a legacy `show: true` with nothing listed does not display an empty section or an add button', () => {
-    expect(state('properties:\n  show: true')).toEqual(DEFAULT);
-    expect(state('properties:\n  show: true\n  visible: []')).toEqual(DEFAULT);
+  it('`showProperties` itself is never something to show', () => {
+    expect(state('showProperties: true')).toEqual(DEFAULT);
   });
 
-  it('a listed key that is not a system key shows nothing', () => {
-    expect(state('properties:\n  visible:\n    - Due date\n    - lastOpened')).toEqual(DEFAULT);
+  it('a `properties:` block is just a custom property now, and `lastOpened` is nothing special', () => {
+    expect(state('lastOpened: 2026-01-01').hasProperties).toBe(true);
+    expect(state('properties:\n  visible:\n    - tags').hasProperties).toBe(true);
   });
 });
 
@@ -47,43 +54,35 @@ describe('derivePropertiesSectionState — the template marker', () => {
 });
 
 describe('derivePropertiesSectionState — something to show', () => {
-  it('a listed system property displays the section with its add button; the title offers nothing', () => {
-    expect(state('properties:\n  visible:\n    - tags')).toEqual({
-      isDisplayed: true,
-      showsAddRow: true,
-      hasProperties: true,
-      control: null,
-    });
+  it('a declared system property displays the section with its add button; the title offers nothing', () => {
+    for (const yaml of ['tags: []', 'created: true', 'modified: true', 'aliases:\n  - a']) {
+      expect(state(yaml)).toEqual({ isDisplayed: true, showsAddRow: true, hasProperties: true, control: null });
+    }
   });
 
-  it('a custom property displays the section automatically — no listing is needed', () => {
+  it('a custom property displays the section automatically — its key is its declaration', () => {
     expect(state('priority: high')).toEqual({ isDisplayed: true, showsAddRow: true, hasProperties: true, control: null });
   });
 
   it('system keys are recognized in any letter case', () => {
-    expect(state('properties:\n  visible:\n    - TAGS').isDisplayed).toBe(true);
+    expect(state('TAGS: []').isDisplayed).toBe(true);
   });
 
-  it('a legacy `show: true` is the normal state, not a second one', () => {
-    expect(state('properties:\n  show: true\n  visible:\n    - tags')).toEqual(
-      state('properties:\n  visible:\n    - tags')
-    );
+  it('`showProperties: true` is the normal state, not a second one', () => {
+    expect(state('showProperties: true\ntags: []')).toEqual(state('tags: []'));
   });
 });
 
 describe('derivePropertiesSectionState — an explicitly hidden section', () => {
-  it('`show: false` with properties still there: no section, no add button, the title says "Show properties"', () => {
-    for (const yaml of [
-      'properties:\n  show: false\n  visible:\n    - tags',
-      'priority: high\nproperties:\n  show: false',
-    ]) {
+  it('`showProperties: false` with properties still there: no section, no add button, the title says "Show properties"', () => {
+    for (const yaml of ['showProperties: false\ntags: []', 'priority: high\nshowProperties: false']) {
       expect(state(yaml)).toEqual({ isDisplayed: false, showsAddRow: false, hasProperties: true, control: 'show' });
     }
   });
 
-  it('hiding changes only `show`: the same properties give "no title item" shown and "Show properties" hidden', () => {
-    const shown = state('properties:\n  visible:\n    - tags');
-    const hidden = state('properties:\n  show: false\n  visible:\n    - tags');
+  it('hiding changes only `showProperties`: the same properties give "no title item" shown and "Show properties" hidden', () => {
+    const shown = state('tags: []');
+    const hidden = state('showProperties: false\ntags: []');
 
     expect([shown.control, hidden.control]).toEqual([null, 'show']);
     expect([shown.hasProperties, hidden.hasProperties]).toEqual([true, true]);
@@ -112,13 +111,13 @@ describe('derivePropertiesSectionState — starting and drafts (never persisted)
 
 describe('derivePropertiesSectionState — an archived page is view-only', () => {
   it('displays what its file says, with no control and no add button', () => {
-    expect(state('properties:\n  visible:\n    - tags', { isArchived: true })).toEqual({
+    expect(state('tags: []', { isArchived: true })).toEqual({
       isDisplayed: true,
       showsAddRow: false,
       hasProperties: true,
       control: null,
     });
-    expect(state('priority: high\nproperties:\n  show: false', { isArchived: true })).toEqual({
+    expect(state('priority: high\nshowProperties: false', { isArchived: true })).toEqual({
       isDisplayed: false,
       showsAddRow: false,
       hasProperties: true,
@@ -130,15 +129,14 @@ describe('derivePropertiesSectionState — an archived page is view-only', () =>
 });
 
 describe('after the last property goes, the note behaves exactly like one that never had Properties', () => {
-  it('unlisting the last system property', () => {
-    const after = removeSystemPropertyLines({ lines: lines('properties:\n  show: true\n  visible:\n    - tags') }, 'tags')!.lines;
+  const after = (next: { lines: readonly string[]; order?: readonly string[] }) =>
+    derivePropertiesSectionState({ lines: next.lines, ...(next.order && { order: next.order }), isArchived: false, hasDraft: false });
 
-    expect(derivePropertiesSectionState({ lines: after, isArchived: false, hasDraft: false })).toEqual(DEFAULT);
+  it('removing the last system property', () => {
+    expect(after(removeSystemPropertyLines(read('tags: []'), 'tags')!)).toEqual(DEFAULT);
   });
 
   it('Delete all', () => {
-    const after = deleteAllPropertiesLines({ lines: lines('priority: high\nproperties:\n  show: false\n  visible:\n    - tags') })!.lines;
-
-    expect(derivePropertiesSectionState({ lines: after, isArchived: false, hasDraft: false })).toEqual(DEFAULT);
+    expect(after(deleteAllPropertiesLines(read('priority: high\ncreated: true\nshowProperties: false\ntags: []'))!)).toEqual(DEFAULT);
   });
 });

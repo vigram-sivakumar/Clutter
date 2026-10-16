@@ -4,8 +4,8 @@
  *
  * Each is identified by its canonical internal key: the frontmatter key
  * (`created`, `modified`, `tags`, `aliases`). The key is the
- * identity — what is stored, matched and persisted (`properties.visible`
- * lists these keys) — and never changes with the wording; the label is display
+ * identity — what is stored, matched and persisted (a note declares
+ * them by having these keys, ADR-058) — and never changes with the wording; the label is display
  * copy only, so renaming it can never break stored data. Every place that
  * shows one of these to the user (the Properties list, the property picker, the collection columns, sort and property menus) reads its label
  * from here rather than writing its own.
@@ -15,7 +15,8 @@
  *
  * User-facing terminology: Created / Last edited. The
  * internal names stay as they are (`modified` in frontmatter, `updatedAt`
- * on PageMetadata).
+ * on the resolved dates): `created: true` / `modified: true` declare the rows,
+ * and their values are the file's birth / modification time (ADR-057).
  */
 import type { PropertyType } from './Property.types';
 

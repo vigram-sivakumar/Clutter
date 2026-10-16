@@ -23,8 +23,6 @@ function makePage(overrides: Partial<Page> = {}): Page {
       archivedAt: null,
       originalParentId: null,
       originalPath: null,
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-02T00:00:00.000Z',
     },
     source: {
       markdown: 'Hello world',
@@ -59,8 +57,6 @@ describe('FrontmatterSerializer round-trip', () => {
     // its documented field list (see entries[] in FrontmatterSerializer);
     // "status" is written under the "status" key so parse should recover it.
     expect(parsed.frontmatter.status).toBe(page.metadata.status);
-    expect(parsed.frontmatter.created).toBe(page.metadata.createdAt);
-    expect(parsed.frontmatter.modified).toBe(page.metadata.updatedAt);
   });
 
   // A page's Daily Note vs. Note role is derived from its current path at
@@ -303,9 +299,9 @@ describe('aliases frontmatter round-trip', () => {
 describe('serialize(): a page created already holding custom properties', () => {
   it('writes the raw unowned lines after the owned keys, and they read back as the same unowned lines', () => {
     const serializer = new FrontmatterSerializer();
-    const text = `${serializer.serialize({ id: 'p1', created: 'c', unownedLines: ['owner: ', 'rank: 3'] })}\nbody`;
+    const text = `${serializer.serialize({ id: 'p1', created: true, unownedLines: ['owner: ', 'rank: 3'] })}\nbody`;
 
-    expect(text).toBe('---\nid: p1\ncreated: c\nowner: \nrank: 3\n---\nbody');
+    expect(text).toBe('---\nid: p1\ncreated: true\nowner: \nrank: 3\n---\nbody');
     expect(new FrontmatterParser().parse(text).frontmatter.unownedLines).toEqual(['owner: ', 'rank: 3']);
   });
 

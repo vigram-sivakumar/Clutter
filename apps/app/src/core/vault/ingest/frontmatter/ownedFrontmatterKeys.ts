@@ -66,12 +66,12 @@ export function matchSystemKey(rawKey: string): string | null {
  * deliberately not in OWNED_FRONTMATTER_KEYS — adding one there would make
  * the flat, line-based FrontmatterParser stop capturing its lines.
  *
- * - `properties`: the Properties section's configuration — `visible`, the
- *   canonical keys of the system Properties a note shows (it never orders anything), and `show`
- *   (propertyVisibility.ts). It is never a custom Property: not
- *   listed as one, and not a name one can be given, in any letter case.
+ * - `showProperties`: the presentation setting that hides the whole Properties
+ *   section (`false` hides, absent shows — propertyVisibility.ts, ADR-058). It is
+ *   not a property: never a row, never a custom Property, and not a name one can
+ *   be given, in any letter case.
  */
-export const RESERVED_RAW_FRONTMATTER_KEYS: ReadonlySet<string> = new Set(['properties']);
+export const RESERVED_RAW_FRONTMATTER_KEYS: ReadonlySet<string> = new Set(['showproperties']);
 
 /** Whether `key` is a reserved raw key, ignoring letter case and surrounding space. */
 export function isReservedRawKey(key: string): boolean {
