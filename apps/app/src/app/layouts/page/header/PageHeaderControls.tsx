@@ -1,12 +1,20 @@
 import type { PropertiesControl } from './propertiesControl';
 import type { CoverCredit } from '@core/vault/models/PageMetadata';
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { Button } from '@components/button/Button';
 import { ChangeIconPicker } from '@components/change-icon-picker/ChangeIconPicker';
 import { AppIcon } from '@shared/icon';
 import type { SystemIcon } from '@shared/icon';
 import { PageHeaderMoreActionsMenu } from './PageHeaderMoreActionsMenu';
 import './PageHeaderControls.css';
+
+/** What a caller's extra control is given so its menu takes part in the row's single open-menu state. */
+export interface HeaderControlMenu {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+type HeaderMenuId = 'more' | 'extra';
 
 export interface PageHeaderControlsProps {
   /**
@@ -62,6 +70,13 @@ export interface PageHeaderControlsProps {
   onEditDescription?: () => void;
   /** Forwarded to the More-actions Properties control — see PropertiesControl. */
   propertiesControl?: PropertiesControl;
+  /**
+   * Further controls at the end of the row, after the More actions button — a generic slot, the caller decides
+   * what fills it (a Daily Note puts its calendar button here). Absent, nothing extra is rendered. A function
+   * receives the extra control's share of the row's open-menu state: the row has one, so the More menu and the
+   * extra control's menu are never open together, and while either is open both buttons stay visible.
+   */
+  extraControls?: ReactNode | ((menu: HeaderControlMenu) => ReactNode);
 }
 
 export function PageHeaderControls({
@@ -79,6 +94,7 @@ export function PageHeaderControls({
   hasDescription,
   onEditDescription,
   propertiesControl,
+  extraControls,
 }: PageHeaderControlsProps) {
   // The one already-set-emoji entry point — "Clicking the visible emoji
   // opens the picker directly, without opening More Actions first." Same
@@ -90,8 +106,16 @@ export function PageHeaderControls({
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const emojiButtonRef = useRef<HTMLButtonElement>(null);
 
+  // Which of the row's two menus is open, if either — one state, so opening one closes the other.
+  const [openMenu, setOpenMenu] = useState<HeaderMenuId | null>(null);
+  const menuState = (id: HeaderMenuId): HeaderControlMenu => ({
+    open: openMenu === id,
+    onOpenChange: (next) => setOpenMenu((current) => (next ? id : current === id ? null : current)),
+  });
+
   return (
-    <div className="page-header-controls">
+    // data-menu-open keeps both hover-revealed buttons visible while either menu is open (PageHeaderControls.css).
+    <div className="page-header-controls" data-menu-open={openMenu !== null ? '' : undefined}>
       {emoji && !onSelectEmoji && (
         // Nothing here can change the icon (an archived page, say): it is shown, not offered.
         <span className="page-header-controls__emoji page-header-controls__emoji--static">
@@ -108,7 +132,7 @@ export function PageHeaderControls({
             interaction="subtle"
             aria-label="Change emoji"
             onClick={() => setEmojiPickerOpen(true)}
-          >
+            >
             <AppIcon emoji={emoji} />
           </Button>
           <ChangeIconPicker
@@ -126,8 +150,13 @@ export function PageHeaderControls({
               onRemoveEmoji?.();
               setEmojiPickerOpen(false);
             }}
-          />
+            />
         </>
+      )}
+      {extraControls && (
+        <div className="page-header-controls__extra">
+          {typeof extraControls === 'function' ? extraControls(menuState('extra')) : extraControls}
+        </div>
       )}
       {icon && (
         <span className="page-header-controls__icon">
@@ -136,6 +165,7 @@ export function PageHeaderControls({
       )}
       {showMoreActions && (
         <PageHeaderMoreActionsMenu
+          {...menuState('more')}
           emoji={emoji}
           onSelectEmoji={onSelectEmoji}
           onRemoveEmoji={onRemoveEmoji}

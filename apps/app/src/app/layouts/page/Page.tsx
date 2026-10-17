@@ -1,4 +1,5 @@
 import type { PropertiesControl } from './header/propertiesControl';
+import type { PageHeaderControlsProps } from './header/PageHeaderControls';
 import type { CoverCredit } from '@core/vault/models/PageMetadata';
 import { useImperativeHandle, useRef, type MouseEvent, type ReactNode, type RefObject } from 'react';
 import type { EditableTextHandle } from '@components/editable-text/EditableText.types';
@@ -71,14 +72,8 @@ type PageProps = {
    * currently supply anything here (the List/Table view menu).
    */
   titleActions?: ReactNode;
-  /**
-   * Forwarded to PageTitleSection's own `belowDescription` slot — the
-   * generic "below title/description" area. Only a Daily Note (real or
-   * draft) currently supplies anything (its [Calendar] [←] [Today] [→]
-   * nav row), decided by PageHost the same way it decides `emoji`/`icon`
-   * below.
-   */
-  belowDescription?: ReactNode;
+  /** Forwarded to PageTitleSection's `headerControls` — extra controls in the row above the title (a Daily Note's calendar button). */
+  headerControls?: PageHeaderControlsProps['extraControls'];
   /**
    * Forwarded to PageTitleSection's own `tabs` slot — a tab strip below the title and description; while it is
    * set, the title actions (`titleActions`) sit on the tabs row instead of beside the title. Only the Tasks
@@ -255,7 +250,7 @@ export function Page({
   actions,
   archived,
   titleActions,
-  belowDescription,
+  headerControls,
   tabs,
   emoji,
   icon,
@@ -469,7 +464,7 @@ export function Page({
                 ) : undefined
               }
               actions={titleActions}
-              belowDescription={belowDescription}
+              headerControls={headerControls}
               tabs={tabs}
               emoji={emoji}
               icon={icon}

@@ -668,6 +668,137 @@ describe('An empty Daily Note draft referenced by navigation history is not auto
   });
 });
 
+describe('An abandoned empty Note draft is discarded however it was last activated', () => {
+  function setupWithRouter(pages: Page[]) {
+    const rest = setup(pages);
+    const navigation = new NavigationRouter(rest.folderOperations, rest.pageOperations, rest.vault, rest.workspace);
+    return { ...rest, navigation };
+  }
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  /** Everything that could let the draft come back: the slot, the open tab, the editor session, history. */
+  function expectGone(
+    ctx: ReturnType<typeof setupWithRouter>,
+    draftId: string
+  ) {
+    expect(ctx.pageOperations.getDraft(draftId)).toBeUndefined();
+    expect(ctx.workspace.openPages).not.toContain(draftId);
+    expect(ctx.documentRegistry.get(draftId)).toBeUndefined();
+    expect(ctx.vault.getPage(draftId)).toBeUndefined();
+  }
+
+  it('re-selecting the draft through the facade (a sidebar row, a collection card) records no history stop, and leaving discards it', async () => {
+    const ctx = setupWithRouter([buildPage('page-a', 'A'), buildPage('page-b', 'B')]);
+    await ctx.pageOperations.open('page-a');
+    const draftId = await ctx.pageOperations.openDraft({ folderId: null });
+
+    await ctx.pageOperations.open(draftId);
+    await ctx.pageOperations.open('page-b');
+    await settle();
+
+    expect(ctx.workspace.isReferencedInHistory(draftId)).toBe(false);
+    expectGone(ctx, draftId);
+  });
+
+  it('even a bare workspace.openPage(draftId) — which records it as a history stop — cannot keep it alive', async () => {
+    const ctx = setupWithRouter([buildPage('page-a', 'A'), buildPage('page-b', 'B')]);
+    await ctx.pageOperations.open('page-a');
+    const draftId = await ctx.pageOperations.openDraft({ folderId: null });
+
+    ctx.workspace.openPage(draftId); // recordable by default: the old route that pinned the draft
+    await ctx.pageOperations.open('page-b');
+    await settle();
+
+    expectGone(ctx, draftId);
+  });
+
+  it('does not reappear: Back/Forward skip the dead history entry and never reactivate the discarded draft', async () => {
+    const ctx = setupWithRouter([buildPage('page-a', 'A'), buildPage('page-b', 'B')]);
+    await ctx.pageOperations.open('page-a');
+    const draftId = await ctx.pageOperations.openDraft({ folderId: null });
+    ctx.workspace.openPage(draftId);
+    await ctx.pageOperations.open('page-b');
+    await settle();
+
+    ctx.navigation.back();
+    await settle();
+    expect(ctx.workspace.activePageId).toBe('page-a');
+    ctx.navigation.forward();
+    await settle();
+    expect(ctx.workspace.activePageId).toBe('page-b');
+
+    expectGone(ctx, draftId);
+    await expect(ctx.pageOperations.open(draftId)).rejects.toThrow('Page not found');
+  });
+
+  it('returning to where it was created gives a fresh draft, not the discarded one', async () => {
+    const ctx = setupWithRouter([buildPage('page-a', 'A')]);
+    await ctx.pageOperations.open('page-a');
+    const first = await ctx.pageOperations.openDraft({ folderId: null });
+    await ctx.pageOperations.open('page-a');
+    await settle();
+    expectGone(ctx, first);
+
+    const second = await ctx.pageOperations.openDraft({ folderId: null });
+
+    expect(second).not.toBe(first);
+    expect(ctx.pageOperations.getDraft(first)).toBeUndefined();
+    expect(ctx.pageOperations.getDraft(second)).toBeDefined();
+  });
+
+  it('a draft with real content is preserved through the existing promotion flow, however it was re-selected', async () => {
+    const ctx = setupWithRouter([buildPage('page-a', 'A'), buildPage('page-b', 'B')]);
+    await ctx.pageOperations.open('page-a');
+    const draftId = await ctx.pageOperations.openDraft({ folderId: null });
+    ctx.pageOperations.commitEdit(draftId, 'Something worth keeping');
+    ctx.workspace.openPage(draftId);
+
+    await ctx.pageOperations.open('page-b');
+    await vi.waitFor(() => {
+      expect(ctx.vault.getPage(draftId)).toBeDefined();
+    });
+    await settle();
+
+    expect(ctx.pageOperations.getDraft(draftId)).toBeUndefined(); // promoted, not discarded
+    expect(ctx.vault.getPage(draftId)!.source.markdown).toContain('Something worth keeping');
+    expect(ctx.workspace.openPages).toContain(draftId);
+  });
+
+  it('rapid navigation: leaving immediately, with no time to settle, still discards it and nothing can resurrect it', async () => {
+    const ctx = setupWithRouter([buildPage('page-a', 'A')]);
+    await ctx.pageOperations.open('page-a');
+    const pagesBefore = Array.from(ctx.vault.pages()).length;
+    const draftId = await ctx.pageOperations.openDraft({ folderId: null });
+
+    void ctx.pageOperations.open('page-a'); // not awaited
+    ctx.navigation.back();
+    ctx.navigation.forward();
+    await settle();
+
+    expectGone(ctx, draftId);
+    // Late callbacks addressed to the discarded id do nothing: no save, no promotion, no page.
+    await ctx.pageOperations.requestSave(draftId);
+    await settle();
+    expectGone(ctx, draftId);
+    expect(Array.from(ctx.vault.pages()).length).toBe(pagesBefore);
+  });
+
+  it('opening the draft and leaving it twice over discards each in turn, leaving exactly one live draft slot', async () => {
+    const ctx = setupWithRouter([buildPage('page-a', 'A')]);
+    await ctx.pageOperations.open('page-a');
+    const ids: string[] = [];
+
+    for (let i = 0; i < 3; i++) {
+      ids.push(await ctx.pageOperations.openDraft({ folderId: null }));
+      await ctx.pageOperations.open('page-a');
+      await settle();
+    }
+
+    for (const id of ids) expectGone(ctx, id);
+    expect(ctx.workspace.openPages).toEqual(['page-a']);
+  });
+});
+
 describe('PageOperations.ensureAtPath: non-activating resolve-or-create', () => {
   it('persists a missing Daily Note without opening it or changing the active view', async () => {
     const { vault, workspace, pageOperations } = setup([buildPage('page-a', 'A')]);

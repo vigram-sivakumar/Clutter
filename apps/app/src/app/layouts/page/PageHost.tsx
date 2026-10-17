@@ -687,7 +687,7 @@ export function PageHost({
     resolveCoverImage: (cover) =>
       application.resolveCoverImageForDisplay(cover),
   };
-  // Daily Notes nav row (PageTitleSection's belowDescription slot) reuses
+  // The Daily Note calendar control (in the title section's controls row) reuses
   // this exact same resolveDate/openAtPath flow — the same one the
   // editor's inline date links and Sidebar's calendar already open
   // through — rather than a second Daily-Note-opening implementation.
@@ -1554,7 +1554,7 @@ export function PageHost({
       {
         onOpenFolder,
         onOpenNote: openNoteFromCollection,
-        onOpenDraftNote: (id: string) => application.workspace.openPage(id),
+        onOpenDraftNote: (id: string) => application.pageOperations.open(id),
       }
     );
 
@@ -1991,7 +1991,7 @@ export function PageHost({
           {
             onOpenFolder,
             onOpenNote: openNoteFromCollection,
-            onOpenDraftNote: (id: string) => application.workspace.openPage(id),
+            onOpenDraftNote: (id: string) => application.pageOperations.open(id),
           }
         ).folders
       : [];
@@ -2196,7 +2196,7 @@ export function PageHost({
       {
         onOpenFolder,
         onOpenNote: openNoteFromCollection,
-        onOpenDraftNote: (id: string) => application.workspace.openPage(id),
+        onOpenDraftNote: (id: string) => application.pageOperations.open(id),
       }
     );
 
@@ -2598,6 +2598,8 @@ export function PageHost({
       throw new Error(`Page not found: ${activePageId}`);
     }
 
+    // The draft Daily Note's date (its title), when it is one — captured here so the header-controls callback below keeps the narrowing.
+    const draftDailyNoteDate = draft.type === 'daily-note' && draft.title ? draft.title : undefined;
     const draftBreadcrumbs = buildBreadcrumbsForDraft(
       activePageId,
       draft.folderId,
@@ -2677,15 +2679,10 @@ export function PageHost({
           hideDescriptionEditor(activePageId);
         }}
         onEditDescription={() => onOpenDescriptionEditor(activePageId)}
+        // A Daily Note's title already is its date and it has its own date navigation, so it shows no
+        // breadcrumbs at all (no element: the top bar leaves no gap where they would be).
         breadcrumbs={
-          <Breadcrumbs
-            items={
-              draft.type === 'daily-note' &&
-              !isDailyNotesCollectionPagesEnabled()
-                ? draftBreadcrumbs.slice(-1)
-                : draftBreadcrumbs
-            }
-          />
+          draft.type === 'daily-note' ? undefined : <Breadcrumbs items={draftBreadcrumbs} />
         }
         // Same page chrome as a persisted page (ADR-017 Decision item 9) —
         // archive/restore/delete render disabled, not omitted, since they
@@ -2701,13 +2698,19 @@ export function PageHost({
         // A Note and a Daily Note both carry an emoji (frontmatter `icon`).
         onSelectEmoji={onSelectEmoji}
         onRemoveEmoji={onRemoveEmoji}
-        belowDescription={
-          draft.type === 'daily-note' && draft.title ? (
-            <DailyNoteNavControls
-              date={draft.title}
-              onNavigateToDate={onNavigateToDailyNote}
-            />
-          ) : undefined
+        // A Daily Note's calendar button sits in the controls row above its title (a visual placement experiment).
+        headerControls={
+          draftDailyNoteDate
+            ? (menu) => (
+                <DailyNoteNavControls
+                  date={draftDailyNoteDate}
+                  onNavigateToDate={onNavigateToDailyNote}
+                  visibleControls={['calendar']}
+                  calendarOpen={menu.open}
+                  onCalendarOpenChange={menu.onOpenChange}
+                />
+              )
+            : undefined
         }
         onSetCoverImage={onSetCoverImage}
         onSetCoverImageFromUpload={onSetCoverImageFromUpload}
@@ -2939,18 +2942,9 @@ export function PageHost({
           isPageArchived ? undefined : () => onOpenDescriptionEditor(page.id)
         }
         showMoreActions={!isPageArchived}
-        // A Daily Note's ancestor crumbs only lead to the Daily Notes collection pages, so with those
-        // off (core/featureFlags.ts) only the note's own crumb is shown.
-        breadcrumbs={
-          <Breadcrumbs
-            items={
-              page.type === 'daily-note' &&
-              !isDailyNotesCollectionPagesEnabled()
-                ? breadcrumbs.slice(-1)
-                : breadcrumbs
-            }
-          />
-        }
+        // A Daily Note's title already is its date and it has its own date navigation, so it shows no
+        // breadcrumbs at all (no element: the top bar leaves no gap where they would be).
+        breadcrumbs={page.type === 'daily-note' ? undefined : <Breadcrumbs items={breadcrumbs} />}
         archived={
           isPageArchived
             ? {
@@ -2977,13 +2971,19 @@ export function PageHost({
         emoji={page.metadata.icon ?? undefined}
         onSelectEmoji={!isPageArchived ? onSelectEmoji : undefined}
         onRemoveEmoji={!isPageArchived ? onRemoveEmoji : undefined}
-        belowDescription={
-          page.type === 'daily-note' && !isPageArchived ? (
-            <DailyNoteNavControls
-              date={page.name}
-              onNavigateToDate={onNavigateToDailyNote}
-            />
-          ) : undefined
+        // A Daily Note's calendar button sits in the controls row above its title (a visual placement experiment).
+        headerControls={
+          page.type === 'daily-note' && !isPageArchived
+            ? (menu) => (
+                <DailyNoteNavControls
+                  date={page.name}
+                  onNavigateToDate={onNavigateToDailyNote}
+                  visibleControls={['calendar']}
+                  calendarOpen={menu.open}
+                  onCalendarOpenChange={menu.onOpenChange}
+                />
+              )
+            : undefined
         }
         onSetCoverImage={onSetCoverImage}
         onSetCoverImageFromUpload={onSetCoverImageFromUpload}

@@ -11,6 +11,9 @@ import type { PropertiesControl } from './propertiesControl';
 import './PageHeaderMoreActionsMenu.css';
 
 export interface PageHeaderMoreActionsMenuProps {
+  /** Controlled open state (with `onOpenChange`); omitted, the menu keeps its own. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   /** The page's current emoji, if any — gates whether the root view offers "Change icon" at all (only when unset; a set emoji's own button is the entry point instead, see PageHeaderControls). */
   emoji?: string;
   /**
@@ -129,6 +132,8 @@ type MenuView = 'root' | 'emoji' | 'cover';
  * image, gated by `hasDescription`.
  */
 export function PageHeaderMoreActionsMenu({
+  open: controlledOpen,
+  onOpenChange,
   emoji,
   onSelectEmoji,
   onRemoveEmoji,
@@ -141,7 +146,15 @@ export function PageHeaderMoreActionsMenu({
   onEditDescription,
   propertiesControl,
 }: PageHeaderMoreActionsMenuProps) {
-  const [open, setOpen] = useState(false);
+  // Open state: owned here unless the caller passes `open` — PageHeaderControls does, so the More menu and the
+  // controls beside it (a Daily Note's calendar) are never open together.
+  const [localOpen, setLocalOpen] = useState(false);
+  const open = controlledOpen ?? localOpen;
+  const setOpen = (next: boolean | ((current: boolean) => boolean)): void => {
+    const value = typeof next === 'function' ? next(open) : next;
+    if (controlledOpen === undefined) setLocalOpen(value);
+    onOpenChange?.(value);
+  };
   const [view, setView] = useState<MenuView>('root');
   const anchorRef = useRef<HTMLButtonElement>(null);
   // Suppresses Overlay's own "return focus to the trigger button on close"
@@ -206,6 +219,8 @@ export function PageHeaderMoreActionsMenu({
         isIconOnly
         aria-haspopup="menu"
         aria-expanded={open}
+        // Stays highlighted while its menu is open, like every other menu trigger (see Controls).
+        isActive={open}
         aria-label="More actions"
         onClick={() => setOpen((value) => !value)}
       >

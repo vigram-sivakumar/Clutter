@@ -483,7 +483,10 @@ export class PageOperations {
       return;
     }
 
-    if (this.workspace.isReferencedInHistory(pageId)) {
+    // Only a recordable draft (a Daily Note) is a valid Back/Forward target worth keeping alive; a plain Note
+    // draft is never retained for navigation, even if something recorded it. A history entry left pointing
+    // at a discarded draft is skipped on traversal (NavigationRouter.stillExists).
+    if (this.isRecordableDraft(descriptor) && this.workspace.isReferencedInHistory(pageId)) {
       return;
     }
 
@@ -564,8 +567,9 @@ export class PageOperations {
     options?: { readonly recordHistory?: boolean }
   ): Promise<void> {
     const page = this.vault.getPage(pageId);
+    const draft = page ? undefined : this.draftFor(pageId);
 
-    if (!page && !(this.draftFor(pageId) !== undefined)) {
+    if (!page && !draft) {
       throw new Error(`Page not found: ${pageId}`);
     }
 
@@ -578,7 +582,12 @@ export class PageOperations {
       this.documentRegistry.open(page.id, page.source.markdown);
     }
 
-    this.workspace.openPage(pageId, options);
+    // Re-activating a draft (a sidebar row, a collection card, a history replay) is bound by the same rule
+    // that opened it: a plain Note draft is looked at, never recorded as a history stop.
+    this.workspace.openPage(
+      pageId,
+      draft ? { ...options, recordable: this.isRecordableDraft(draft) } : options
+    );
   }
 
   /**
@@ -751,7 +760,7 @@ export class PageOperations {
       if (!(await this.persistExistingDraft(existing.id))) {
         this.flushActivePage();
         this.workspace.openPage(existing.id, {
-          recordable: existing.descriptor.type === 'daily-note',
+          recordable: this.isRecordableDraft(existing.descriptor),
         });
         return existing.id;
       }
@@ -790,6 +799,17 @@ export class PageOperations {
     }
 
     return this.draftFor(pageId) === undefined;
+  }
+
+  /**
+   * Whether leaving this draft may make it a Back/Forward stop. The one rule: a Daily Note draft is a
+   * destination worth returning to; a plain Note draft never is (see openDraft()). Every place that
+   * (re)activates a draft consults it — acquireDraft(), open() — and discardAbandonedDraft() only honors
+   * a history reference for a draft this says is recordable, so an empty plain draft can never be pinned
+   * alive by navigation history, however it was last activated.
+   */
+  private isRecordableDraft(descriptor: DraftDescriptor): boolean {
+    return descriptor.type === 'daily-note';
   }
 
   private draftFor(pageId: string): DraftDescriptor | undefined {

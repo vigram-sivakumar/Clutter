@@ -28,6 +28,8 @@ interface FooterProps {
   onSwitchSpace?(path: string): void;
   /** Presence enables "New space"; absent (no folder picker, e.g. the web runtime) it is disabled. */
   onNewSpace?(): void;
+  /** Called as the Space menu opens — the moment to re-check which listed Spaces still exist. */
+  onSpacesMenuOpen?(): void;
   onOpenArchive(): void;
 }
 
@@ -42,6 +44,7 @@ export function Footer({
   activeSpacePath,
   onSwitchSpace,
   onNewSpace,
+  onSpacesMenuOpen,
   onOpenArchive,
 }: FooterProps) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -61,7 +64,10 @@ export function Footer({
         forceHover={menuOpen}
         aria-haspopup="menu"
         aria-expanded={menuOpen}
-        onClick={() => setMenuOpen((open) => !open)}
+        onClick={() => {
+          if (!menuOpen) onSpacesMenuOpen?.();
+          setMenuOpen((open) => !open);
+        }}
       >
         <span className="space__title">{title}</span>
       </Entry>

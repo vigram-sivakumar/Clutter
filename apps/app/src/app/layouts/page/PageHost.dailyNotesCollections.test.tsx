@@ -204,21 +204,22 @@ describe('Daily Notes collection pages (flag on)', () => {
     expect(noteRows()).toBe(1);
   });
 
-  it('a Daily Note shows its breadcrumb, and its ancestors open the collection pages', async () => {
+  it('a Daily Note shows no breadcrumbs at all, even with the collection pages on', async () => {
     await renderDailyNote('2026-10-04');
 
-    const breadcrumb = document.querySelector('.breadcrumb');
-    expect(breadcrumb).not.toBeNull();
+    expect(document.querySelector('.breadcrumb')).toBeNull();
+    expect(document.querySelector('.breadcrumb-item')).toBeNull();
+    // The rest of the top bar is untouched: history controls stay, and nothing but them leads it.
+    expect(document.querySelectorAll('.topbar--leading .history-controls button')).toHaveLength(2);
+  });
 
-    fireEvent.click(breadcrumb!.querySelector('button')!);
-    const year = Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]')).find(
-      (item) => item.textContent === '2026'
-    );
-    expect(year).toBeDefined();
-    fireEvent.click(year!);
+  it('an ordinary note keeps its breadcrumb with the collection pages on', async () => {
+    const application = makeApplication();
+    await application.pageOperations.open('plan');
+    render(<AppLayout application={application} />);
     await flush();
 
-    expect(folderCardNames()).toEqual(['January', 'April', 'October']);
+    expect(document.querySelector('.breadcrumb')).not.toBeNull();
   });
 });
 
@@ -268,11 +269,41 @@ describe('Daily Notes collection pages (flag off)', () => {
     featureFlags.dailyNotesCollectionPages = false;
   });
 
-  it('a Daily Note shows only its own crumb, with no ancestors to open', async () => {
+  it('a Daily Note shows no breadcrumbs at all', async () => {
     await renderDailyNote('2026-10-04');
 
-    expect(document.querySelector('.breadcrumb-item')).not.toBeNull();
+    expect(document.querySelector('.breadcrumb-item')).toBeNull();
     expect(document.querySelector('.breadcrumb')).toBeNull();
+    expect(document.querySelectorAll('.topbar--leading .history-controls button')).toHaveLength(2);
+    // The title and the date navigation are unaffected.
+    expect(document.querySelector('.page__header')).not.toBeNull();
+  });
+
+  it('follows the page when navigating between an ordinary note and Daily Notes', async () => {
+    const application = makeApplication();
+    await application.pageOperations.open('plan');
+    render(<AppLayout application={application} />);
+    await flush();
+    expect(document.querySelector('.breadcrumb')).not.toBeNull();
+
+    await act(async () => {
+      await application.pageOperations.open(dailyNote('2026-10-04').id);
+    });
+    await flush();
+    expect(document.querySelector('.breadcrumb')).toBeNull();
+    expect(document.querySelector('.breadcrumb-item')).toBeNull();
+
+    await act(async () => {
+      await application.pageOperations.open(dailyNote('2026-10-03').id);
+    });
+    await flush();
+    expect(document.querySelector('.breadcrumb-item')).toBeNull();
+
+    await act(async () => {
+      await application.pageOperations.open('plan');
+    });
+    await flush();
+    expect(document.querySelector('.breadcrumb')).not.toBeNull();
   });
 
   it('an ordinary note keeps its breadcrumb', async () => {

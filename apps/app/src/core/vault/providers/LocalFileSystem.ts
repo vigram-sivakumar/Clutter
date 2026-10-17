@@ -13,9 +13,30 @@ import {
 } from '@tauri-apps/plugin-fs';
 import type { VaultEntry, VaultFileStat, VaultFileSystem } from './VaultFileSystem';
 import { resolveLocalDuplicatePath } from './localDuplicateNaming';
+import { isNotFoundError } from './probeSpaceFolder';
+import { VaultRootMissingError } from './VaultRootMissingError';
 
 export class LocalVaultProvider implements VaultFileSystem {
+  private sealed = false;
+
   constructor(private readonly rootPath: string) {}
+
+  /**
+   * Called when the vault's root has been confirmed gone and its Application is being discarded:
+   * from then on every mutation is refused, so a write still queued, in flight or debounced inside
+   * the discarded Application can never land — not even if the folder later reappears (a restored
+   * or recreated folder must only receive writes from a freshly opened Application). Reads and
+   * existence checks are unaffected. Permanent for this provider instance.
+   */
+  seal(): void {
+    this.sealed = true;
+  }
+
+  private assertWritable(): void {
+    if (this.sealed) {
+      throw new VaultRootMissingError(this.rootPath);
+    }
+  }
 
   private resolvePath(path: string): string {
     return path.startsWith(this.rootPath) ? path : `${this.rootPath}/${path}`;
@@ -25,7 +46,29 @@ export class LocalVaultProvider implements VaultFileSystem {
     return exists(this.resolvePath(path));
   }
 
+  /**
+   * Every recursive `mkdir` in a vault (`.clutter`, `Assets`, reserved and Daily Note folders, moves,
+   * duplicates) goes through here, and `mkdir -p` would also re-create a vault root that has been
+   * deleted or moved away — turning any background write into a silent, empty replacement vault.
+   * So the root must still exist; creation *inside* an existing vault is unaffected. (Creating a new
+   * Space's own folder is a separate, explicit operation: `createSpaceFolder`.)
+   *
+   * Only a confirmed absence is refused. Any other `stat` failure (permission, scope) lets the
+   * `mkdir` run and report its own error. Plain file writes need no guard: they never create parents.
+   */
+  private async assertRootExists(): Promise<void> {
+    this.assertWritable();
+    try {
+      await stat(this.rootPath);
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        throw new VaultRootMissingError(this.rootPath, { cause: error });
+      }
+    }
+  }
+
   async createDirectory(path: string): Promise<void> {
+    await this.assertRootExists();
     await mkdir(this.resolvePath(path), { recursive: true });
   }
 
@@ -43,14 +86,17 @@ export class LocalVaultProvider implements VaultFileSystem {
   }
 
   async writeFile(path: string, contents: string): Promise<void> {
+    this.assertWritable();
     await writeTextFile(path, contents);
   }
 
   async deleteFile(path: string, options?: { recursive?: boolean }): Promise<void> {
+    this.assertWritable();
     await remove(this.resolvePath(path), { recursive: options?.recursive ?? false });
   }
 
   async moveFile(sourcePath: string, destinationPath: string): Promise<void> {
+    this.assertWritable();
     await rename(
       this.resolvePath(sourcePath),
       this.resolvePath(destinationPath)
@@ -67,6 +113,7 @@ export class LocalVaultProvider implements VaultFileSystem {
   }
 
   async writeBinaryFile(path: string, bytes: Uint8Array): Promise<void> {
+    this.assertWritable();
     await writeFile(this.resolvePath(path), bytes);
   }
 
@@ -74,6 +121,7 @@ export class LocalVaultProvider implements VaultFileSystem {
     sourceAbsolutePath: string,
     destinationAbsolutePath: string
   ): Promise<void> {
+    this.assertWritable();
     await copyFile(sourceAbsolutePath, destinationAbsolutePath);
   }
 
@@ -89,6 +137,7 @@ export class LocalVaultProvider implements VaultFileSystem {
     const destinationPath = await resolveLocalDuplicatePath(this, resolvedSource, kind);
 
     if (kind === 'directory') {
+      await this.assertRootExists();
       await mkdir(destinationPath, { recursive: true });
     } else {
       await copyFile(resolvedSource, destinationPath);

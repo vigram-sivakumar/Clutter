@@ -1,7 +1,7 @@
 import type { PropertiesControl } from './propertiesControl';
 import type { CoverCredit } from '@core/vault/models/PageMetadata';
 import type { HTMLAttributes, ReactNode } from 'react';
-import { PageHeaderControls } from './PageHeaderControls';
+import { PageHeaderControls, type PageHeaderControlsProps } from './PageHeaderControls';
 import type { SystemIcon } from '@shared/icon';
 import './Page.TitleSection.css';
 
@@ -56,14 +56,8 @@ interface PageTitleSectionProps extends Omit<
    * this, and only collection pages currently pass anything through it.
    */
   actions?: ReactNode;
-  /**
-   * Generic slot rendered after `.page-title-section__content` (a sibling,
-   * not nested inside it — its own row, not part of the title/description
-   * block) — same "PageTitleSection stays reusable, caller decides what
-   * fills it" pattern as `actions` above. Only Daily Notes (PageHost)
-   * currently pass anything through it (the [Calendar] [←] [Today] [→] row).
-   */
-  belowDescription?: ReactNode;
+  /** Forwarded to PageHeaderControls' `extraControls` slot — the row above the title (see its doc comment). */
+  headerControls?: PageHeaderControlsProps['extraControls'];
 }
 
 export function PageTitleSection({
@@ -84,7 +78,7 @@ export function PageTitleSection({
   onEditDescription,
   propertiesControl,
   actions,
-  belowDescription,
+  headerControls,
   tabs,
   className,
   ...props
@@ -110,6 +104,7 @@ export function PageTitleSection({
         hasDescription={hasDescription}
         onEditDescription={onEditDescription}
         propertiesControl={propertiesControl}
+        extraControls={headerControls}
       />
 
       <div className="page-title-section__content">
@@ -121,7 +116,6 @@ export function PageTitleSection({
         </div>
         {description}
       </div>
-      {belowDescription}
       {tabs && (
         <div className="page-title-section__tabs-row">
           {tabs}

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import {
   afterAll,
@@ -511,3 +512,41 @@ describe('ResourceTopBarActions', () => {
     });
   });
 });
+
+describe('ResourceTopBarActions: the More actions trigger while its menu is open', () => {
+  const trigger = () => document.querySelector('button[aria-haspopup="menu"]') as HTMLButtonElement;
+
+  it('is not highlighted at rest', () => {
+    render(<ResourceTopBarActions menu={menu} />);
+
+    expect(trigger()).not.toHaveClass('button--active');
+    expect(trigger()).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('keeps the active (forced-hover) state while open — even as the pointer leaves it and moves onto the menu', () => {
+    render(<ResourceTopBarActions menu={menu} />);
+
+    fireEvent.click(trigger());
+    expect(trigger()).toHaveClass('button--active');
+    expect(trigger()).toHaveAttribute('aria-expanded', 'true');
+
+    fireEvent.mouseLeave(trigger());
+    fireEvent.pointerLeave(trigger());
+    fireEvent.mouseEnter(screen.getByText('Move to trash'));
+    fireEvent.pointerEnter(screen.getByText('Add a description'));
+
+    expect(trigger()).toHaveClass('button--active');
+  });
+
+  it('returns to the normal (hover-driven) state once the menu closes', () => {
+    render(<ResourceTopBarActions menu={menu} />);
+    fireEvent.click(trigger());
+    expect(trigger()).toHaveClass('button--active');
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(trigger()).toHaveAttribute('aria-expanded', 'false');
+    expect(trigger()).not.toHaveClass('button--active');
+  });
+});
+

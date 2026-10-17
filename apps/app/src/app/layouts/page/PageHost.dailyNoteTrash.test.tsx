@@ -160,7 +160,7 @@ describe('A Daily Note shows its date on every generic title surface', () => {
   const dateOnly = formatDailyNoteDateLabel('2026-01-15');
   const main = () => document.querySelector<HTMLElement>('.page')!;
 
-  it('page header keeps the prefixed title; the breadcrumb is the plain date — active and in the Trash', async () => {
+  it('page header keeps the prefixed title, and a Daily Note has no breadcrumb — active and in the Trash', async () => {
     const { application, dailyNote } = makeApplication();
     await application.pageOperations.open(dailyNote.id);
     render(<AppLayout application={application} />);
@@ -173,7 +173,9 @@ describe('A Daily Note shows its date on every generic title surface', () => {
       }
 
       expect(titleRoot().textContent).toBe(pageTitle);
-      expect(within(main()).getAllByText(dateOnly).length).toBeGreaterThanOrEqual(1);
+      // The breadcrumb that used to carry the plain date is gone for a Daily Note (the Trash list row, below, is
+      // the plain-date surface that remains).
+      expect(main().querySelector('.breadcrumb-item')).toBeNull();
       expect(dateOnly).not.toMatch(/^(Today|Yesterday|Tomorrow|Mon|Tue|Wed|Thu|Fri|Sat|Sun)/);
       expect(within(main()).queryByText('Start typing…')).toBeNull();
     }

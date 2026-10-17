@@ -1,4 +1,6 @@
 import { isTauri } from '@tauri-apps/api/core';
+import { isFolderConfirmedMissing, probeSpaceFolder } from '../vault/providers/probeSpaceFolder';
+import { VaultRootMissingError } from '../vault/providers/VaultRootMissingError';
 import { LocalVaultProvider } from '../vault/providers/LocalFileSystem';
 import { InMemoryVaultFileSystem } from '../vault/testing/InMemoryVaultFileSystem';
 import { BrowserFileSystemWatcher } from '../vault/providers/BrowserFileSystemWatcher';
@@ -206,6 +208,15 @@ export class Application {
   /** Remote-image saves running right now, by URL — see saveRemoteImageToVault. */
   private readonly remoteImageSaves = new Map<string, Promise<SaveToVaultResult>>();
   private closed = false;
+  // The vault's root folder was confirmed gone while this Application was open (see verifyRoot()).
+  private rootLost = false;
+  private readonly rootLostListeners = new Set<() => void>();
+  private unsubscribeRootWatch: (() => void) | null = null;
+  private pendingRootCheck: Promise<boolean> | null = null;
+  /** Refuses every further write on the underlying local filesystem; null where there is none (web). */
+  private sealFileSystem: (() => void) | null = null;
+  /** The platform's "is this folder confirmed gone" check; replaceable only by tests. */
+  private isRootConfirmedMissing: (path: string) => Promise<boolean> = isFolderConfirmedMissing;
   private workspaceVaultReconciliationUnsubscribe!: () => void;
 
   static async bootstrap(
@@ -254,10 +265,12 @@ export class Application {
       // below requires the root to "exist" the same way a real vault
       // directory always does.
       await rawFileSystem.createDirectory(rootPath);
-    } else if (!(await rawFileSystem.exists(rootPath))) {
-      // First run, or a vault folder that is gone: start an empty vault there rather than fail the
-      // scan below. (The folder is only created — nothing else is written until the user does something.)
-      await rawFileSystem.createDirectory(rootPath);
+    } else if ((await probeSpaceFolder(rootPath)) === 'missing') {
+      // Opening never creates the vault folder: a root that is gone is reported, not recreated
+      // (creating a vault is an explicit user action, separate from opening one). Only a
+      // *confirmed* absence lands here; a permission or scope error carries on and surfaces from
+      // the scan below as before.
+      throw new VaultRootMissingError(rootPath);
     }
 
     const fileSystem = new SelfWriteAwareFileSystem(
@@ -415,6 +428,8 @@ export class Application {
     );
 
     application.rootPath = rootPath;
+    application.sealFileSystem =
+      rawFileSystem instanceof LocalVaultProvider ? () => rawFileSystem.seal() : null;
 
     const pageCreator = new PageCreator(new UuidGenerator(), new PageFactory());
 
@@ -651,6 +666,16 @@ export class Application {
     this.fileSystemWatcher = isTauri()
       ? new LocalFileSystemWatcher()
       : new BrowserFileSystemWatcher();
+
+    // A deleted or moved path is a hint the vault root itself may have gone. Only a hint: the
+    // watcher is not trusted to report the loss of its own root, so it just triggers the same
+    // existence check the window-focus path uses. Subscribed before the sync service's own
+    // subscription (made by the wrapper below) so the check starts first.
+    this.unsubscribeRootWatch = this.fileSystemWatcher.subscribe((change) => {
+      if (change.type === 'deleted' || change.type === 'moved') {
+        void this.verifyRoot();
+      }
+    });
 
     // VaultSyncService subscribes to the self-write-aware wrapper, not the
     // raw watcher, so it never sees an echo of a write PagePersistenceCoordinator
@@ -1094,21 +1119,88 @@ export class Application {
     }
   }
 
+  /**
+   * Subscribes to the loss of this vault's root folder (see verifyRoot()). Fires at most once, after
+   * which this Application is unusable: its writes are refused and the caller is expected to close()
+   * it and stop showing it. Returns the unsubscribe function.
+   */
+  public onRootLost(listener: () => void): () => void {
+    this.rootLostListeners.add(listener);
+    return () => {
+      this.rootLostListeners.delete(listener);
+    };
+  }
+
+  public isRootLost(): boolean {
+    return this.rootLost;
+  }
+
+  /**
+   * Confirms the vault's root folder still exists, and if it is confirmed gone treats the vault as lost
+   * (see handleRootLost). Cheap (one `stat`), concurrent calls share one check, and only a confirmed
+   * absence counts: a permission or scope failure, or any other I/O error, leaves the Application as
+   * it is for the existing error paths. Called by the shell when the window regains focus and by the
+   * watcher hint above — never polled. A no-op in the web runtime.
+   */
+  public async verifyRoot(): Promise<void> {
+    if (this.closed || this.rootLost) {
+      return;
+    }
+
+    this.pendingRootCheck ??= this.isRootConfirmedMissing(this.rootPath).finally(() => {
+      this.pendingRootCheck = null;
+    });
+
+    if (await this.pendingRootCheck) {
+      this.handleRootLost();
+    }
+  }
+
+  /**
+   * The root is gone. Everything that could still write for this vault is neutralised *before* anyone
+   * is told: the filesystem is sealed (a queued, in-flight or debounced write is refused, and cannot
+   * land even if the folder reappears), the session and autosave timers and the sync service stop, and
+   * the parsed-note cache write is dropped. The in-memory vault is never persisted again. close()
+   * afterwards skips every flush.
+   */
+  private handleRootLost(): void {
+    if (this.closed || this.rootLost) {
+      return;
+    }
+
+    this.rootLost = true;
+    this.sealFileSystem?.();
+    this.parsedNoteCache.cancel();
+    this.workspaceSessionStore.dispose();
+    this.saveCoordinator.cancelAllTimers();
+    this.vaultSyncService.dispose();
+
+    for (const listener of [...this.rootLostListeners]) {
+      listener();
+    }
+  }
+
   public async close(): Promise<void> {
     if (this.closed) {
       return;
     }
 
     this.closed = true;
+    this.rootLostListeners.clear();
+    this.unsubscribeRootWatch?.();
+    this.unsubscribeRootWatch = null;
     // Never delays shutdown: a write that has not started is dropped, and one
     // in flight is atomic and is not waited for.
     this.parsedNoteCache.cancel();
 
-    await this.pageOperations.flushAll(SHUTDOWN_FLUSH_TIMEOUT_MS);
-    await this.folderOperations.flushAll(SHUTDOWN_FLUSH_TIMEOUT_MS);
-    // ADR-035: after the page flush above, so a draft promoted by that
-    // flush is already a real page and is written as restorable.
-    await this.workspaceSessionStore.flush();
+    // A lost root has nowhere to flush to (and the filesystem is sealed): skip straight to teardown.
+    if (!this.rootLost) {
+      await this.pageOperations.flushAll(SHUTDOWN_FLUSH_TIMEOUT_MS);
+      await this.folderOperations.flushAll(SHUTDOWN_FLUSH_TIMEOUT_MS);
+      // ADR-035: after the page flush above, so a draft promoted by that
+      // flush is already a real page and is written as restorable.
+      await this.workspaceSessionStore.flush();
+    }
     this.workspaceSessionStore.dispose();
     await this.fileSystemWatcher.stop();
     this.vaultSyncService.dispose();

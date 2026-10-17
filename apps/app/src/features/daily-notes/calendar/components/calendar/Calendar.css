@@ -1,6 +1,6 @@
 :root {
   --calendar-surface: var(--surface-subtle);
-  --calendar-foreground: var(--foreground-secondary);
+  --calendar-foreground: var(--entry-foreground);
   --calendar-muted-foreground: var(--foreground-placeholder);
   --calendar-today-foreground: var(--calendar-accent);
   --calendar-weekday-foreground: var(--foreground-tertiary);

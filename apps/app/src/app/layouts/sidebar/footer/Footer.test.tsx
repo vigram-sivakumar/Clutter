@@ -207,3 +207,26 @@ describe('Footer space selector: multiple Spaces', () => {
     expect(container.querySelector('.space-selector .space__initial')).toHaveTextContent('W');
   });
 });
+
+describe('Footer space selector: availability refresh', () => {
+  it('asks for a re-check each time the menu is opened, and not when it is closed', () => {
+    const onSpacesMenuOpen = vi.fn();
+    const { container } = render(
+      <Footer vaultFolderName="vault" onOpenArchive={() => {}} onSpacesMenuOpen={onSpacesMenuOpen} />
+    );
+    const selector = container.querySelector('.space-selector') as HTMLElement;
+
+    fireEvent.click(selector); // open
+    expect(onSpacesMenuOpen).toHaveBeenCalledTimes(1);
+    fireEvent.click(selector); // close
+    expect(onSpacesMenuOpen).toHaveBeenCalledTimes(1);
+    fireEvent.click(selector); // open again
+    expect(onSpacesMenuOpen).toHaveBeenCalledTimes(2);
+  });
+
+  it('works without the callback', () => {
+    const { container } = render(<Footer vaultFolderName="vault" onOpenArchive={() => {}} />);
+    expect(() => fireEvent.click(container.querySelector('.space-selector') as HTMLElement)).not.toThrow();
+  });
+});
+

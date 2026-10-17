@@ -86,27 +86,13 @@ describe('PageTitleSection — PageHeaderControls wiring', () => {
   });
 });
 
-describe('PageTitleSection — belowDescription slot', () => {
-  it('renders nothing extra when belowDescription is omitted', () => {
+describe('PageTitleSection — the content block', () => {
+  it('renders just the title row and the description in the content block', () => {
     render(<PageTitleSection title="Untitled" description={<span>A description</span>} />);
 
     const content = document.querySelector('.page-title-section__content')!;
     // Just the title row and description — no third child.
     expect(content.children).toHaveLength(2);
-  });
-
-  it('renders belowDescription as a sibling of .page-title-section__content, after it', () => {
-    render(
-      <PageTitleSection
-        title="Untitled"
-        description={<span>A description</span>}
-        belowDescription={<div data-testid="nav-row">nav</div>}
-      />
-    );
-
-    const content = document.querySelector('.page-title-section__content')!;
-    expect(screen.getByTestId('nav-row')).toBeInTheDocument();
-    expect(content.nextElementSibling).toBe(screen.getByTestId('nav-row'));
   });
 });
 
@@ -306,3 +292,34 @@ describe('PageTitleSection — an emoji nothing can change (an archived page)', 
     expect(container.querySelector('button.page-header-controls__emoji')).toBeNull();
   });
 });
+
+describe('PageTitleSection — headerControls (the row above the title)', () => {
+  it('renders them at the end of the controls row, above the title block', () => {
+    render(<PageTitleSection title="Untitled" headerControls={<button>extra</button>} />);
+
+    const row = document.querySelector('.page-title-section > .page-header-controls')!;
+    const extra = screen.getByRole('button', { name: 'extra' });
+    expect(row.contains(extra)).toBe(true);
+    expect(row.lastElementChild).toBe(extra.closest('.page-header-controls__extra'));
+    expect(row.nextElementSibling).toBe(document.querySelector('.page-title-section__content'));
+  });
+
+  it('renders no wrapper at all when there are none', () => {
+    render(<PageTitleSection title="Untitled" />);
+    expect(document.querySelector('.page-header-controls__extra')).toBeNull();
+  });
+
+  it('keeps the other controls alongside it', () => {
+    render(
+      <PageTitleSection
+        title="Untitled"
+        emoji="📝"
+        onSelectEmoji={() => {}}
+        headerControls={<button>extra</button>}
+      />
+    );
+    expect(screen.getByRole('button', { name: 'Change emoji' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'extra' })).toBeInTheDocument();
+  });
+});
+

@@ -7,8 +7,12 @@ import { VaultPath } from '@core/vault/ingest/VaultPath';
  */
 export interface SpaceRegistry {
   readonly paths: readonly string[];
-  readonly activePath: string;
+  /** `null` when no Space has been configured yet (first run in the desktop app). */
+  readonly activePath: string | null;
 }
+
+/** Nothing configured. Never written to storage: only a Space that opened is ever saved. */
+export const EMPTY_SPACE_REGISTRY: SpaceRegistry = { paths: [], activePath: null };
 
 export interface SpaceListEntry {
   readonly path: string;
@@ -50,12 +54,19 @@ export function defaultSpaceStorage(): SpaceRegistryStorage | null {
   }
 }
 
-/** Tolerant read: anything missing, malformed or inconsistent yields the default registry — never throws. */
+/**
+ * Tolerant read: anything missing, malformed or inconsistent yields the fallback — never throws and
+ * never writes. The fallback is a registry holding `defaultPath` when one is given (the web runtime's
+ * in-memory vault), otherwise the empty registry ("no Space configured").
+ */
 export function loadSpaceRegistry(
   storage: SpaceRegistryStorage | null,
-  defaultPath: string
+  defaultPath?: string
 ): SpaceRegistry {
-  const fallback: SpaceRegistry = { paths: [defaultPath], activePath: defaultPath };
+  const fallback: SpaceRegistry =
+    defaultPath === undefined
+      ? EMPTY_SPACE_REGISTRY
+      : { paths: [defaultPath], activePath: defaultPath };
 
   try {
     const raw = storage?.getItem(STORAGE_KEY);
@@ -84,11 +95,17 @@ export function loadSpaceRegistry(
   }
 }
 
-/** Best effort: a storage that is full or blocked loses persistence, never the running session. */
-export function saveSpaceRegistry(storage: SpaceRegistryStorage | null, registry: SpaceRegistry): void {
+/**
+ * Best effort: a storage that is full or blocked loses persistence, never the running session.
+ * Returns whether the registry was actually written, so the caller can tell the user it won't be remembered.
+ */
+export function saveSpaceRegistry(storage: SpaceRegistryStorage | null, registry: SpaceRegistry): boolean {
   try {
-    storage?.setItem(STORAGE_KEY, JSON.stringify(registry));
+    if (!storage) return false;
+    storage.setItem(STORAGE_KEY, JSON.stringify(registry));
+    return true;
   } catch {
-    // Nothing to do: the in-memory registry still drives this session.
+    // The in-memory registry still drives this session.
+    return false;
   }
 }

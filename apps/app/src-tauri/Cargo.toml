@@ -25,6 +25,10 @@ tauri = { version = "2.11.3", features = ["protocol-asset"] }
 tauri-plugin-log = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
+# Saves the filesystem/asset scope the native folder picker grants at runtime and restores it at launch, so a
+# space the user picked outside the static `$HOME/**` scope (an external drive, /Volumes, another user's
+# shared folder) can be reopened after a restart. Must be registered after the fs plugin (see lib.rs).
+tauri-plugin-persisted-scope = "2"
 tauri-plugin-http = "2"
 notify = "6"
 # Opaque per-space cache id for the parsed-note cache (src/parse_cache.rs); already in the graph via tauri.

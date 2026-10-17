@@ -28,6 +28,16 @@ describe('spaceRegistry', () => {
     });
   });
 
+  it('is the empty registry (no active Space) when nothing is stored and there is no default', () => {
+    expect(loadSpaceRegistry(memoryStorage())).toEqual({ paths: [], activePath: null });
+  });
+
+  it('is the empty registry for malformed storage without a default, and never writes', () => {
+    const storage = memoryStorage('{not json');
+    expect(loadSpaceRegistry(storage)).toEqual({ paths: [], activePath: null });
+    expect(storage.value).toBe('{not json');
+  });
+
   it('registers a new folder and makes it active', () => {
     const next = withActiveSpace({ paths: ['/a'], activePath: '/a' }, '/b');
     expect(next).toEqual({ paths: ['/a', '/b'], activePath: '/b' });

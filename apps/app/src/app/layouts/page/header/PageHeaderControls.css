@@ -90,3 +90,33 @@
   opacity: 1;
   pointer-events: auto;
 }
+
+/* The extra-controls slot (a Daily Note's calendar button) follows the More actions button's visibility: hidden at
+   rest, revealed by the title section's hover (Page.TitleSection.css, the rule that owns that surface), and — so it
+   never vanishes from under what it opened or from a keyboard user — while it has focus or while either menu in
+   the row is open. A popup portals to <body>, outside .page-title-section, so an open menu is not "hovering the
+   title section".
+   A hidden slot is still in the tab order: tabbing onto it focuses it, which reveals it.
+
+   Also: a 24px control in a row whose floor is 16px would make the row, and so the title below it, taller. Equal
+   negative block margins give it a 16px layout footprint (same as the More actions button), centred on that button. */
+.page-header-controls__extra {
+  display: flex;
+  align-items: center;
+  margin-block: calc((16px - var(--height-sm)) / 2);
+
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+  /* Same WKWebView opacity-transition workaround as .page-header-controls__menu above. */
+  will-change: opacity;
+}
+
+/* While either menu in the row is open (data-menu-open, set by PageHeaderControls from its single open-menu state)
+   both buttons stay visible, wherever the pointer is; focus on the slot reveals it too. */
+.page-header-controls[data-menu-open] .page-header-controls__menu,
+.page-header-controls[data-menu-open] .page-header-controls__extra,
+.page-header-controls__extra:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}

@@ -176,7 +176,7 @@ export function Tags({
         onOpenContextEntry,
         onOpenDraftEntry: (pageId) => {
           setDirectlyOpenedNoteId(pageId);
-          workspace.openPage(pageId);
+          void pageOperations.open(pageId);
         },
         directlyOpenedNoteId,
         vault,

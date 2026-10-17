@@ -171,6 +171,8 @@ export function ResourceTopBarActions({
           buttonProps={{
             interaction: 'default',
             'aria-label': 'More actions',
+            // Stays highlighted while its menu is open (even with the pointer over the menu), like every other menu trigger.
+            isActive: menuOpen,
           }}
         />
       )}

@@ -209,19 +209,20 @@ describe('a Daily Note', () => {
     await flush();
   };
 
-  it('active: shows the previous/next day navigation', async () => {
+  const controls = () => document.querySelector('.page-title-section > .page-header-controls .daily-note-nav-controls');
+
+  it('active: shows the calendar button in the controls row above the title', async () => {
     await open({});
 
-    expect(document.querySelector('.daily-note-nav-controls')).not.toBeNull();
-    expect(document.querySelector('[aria-label="Previous day"]')).not.toBeNull();
+    expect(controls()).not.toBeNull();
+    expect(controls()!.querySelector('[aria-label="Open calendar"]')).not.toBeNull();
+    expect(document.querySelectorAll('.daily-note-nav-controls')).toHaveLength(1);
   });
 
-  it('archived: the whole navigation control is gone', async () => {
+  it('archived: the control is gone', async () => {
     await open({ status: 'archived' });
 
     expect(document.querySelector('.daily-note-nav-controls')).toBeNull();
-    expect(document.querySelector('[aria-label="Previous day"]')).toBeNull();
-    expect(document.querySelector('[aria-label="Next day"]')).toBeNull();
     expect(document.querySelector('[aria-label="Open calendar"]')).toBeNull();
   });
 });

@@ -9,7 +9,11 @@ describe('pickSpaceFolder', () => {
   it('asks for a single existing directory and returns it', async () => {
     open.mockResolvedValue('/Users/me/Notes');
     expect(await pickSpaceFolder()).toBe('/Users/me/Notes');
-    expect(open).toHaveBeenCalledWith({ directory: true, multiple: false });
+    expect(open).toHaveBeenCalledWith({
+      directory: true,
+      multiple: false,
+      recursive: true,
+    });
   });
 
   it('returns null when the user cancels', async () => {

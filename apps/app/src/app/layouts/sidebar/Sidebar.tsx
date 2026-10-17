@@ -136,7 +136,7 @@ export function Sidebar({
           membershipSelector={membershipSelector}
           onOpen={(pageId) => pageOperations.open(pageId)}
           onOpenFolder={(folderId) => folderOperations.open(folderId)}
-          onOpenDraft={(pageId) => workspace.openPage(pageId)}
+          onOpenDraft={(pageId) => pageOperations.open(pageId)}
           onOpenResource={onOpenResource}
           expandedFolders={expandedFolders}
           getFolderSort={(parentId) => application.collectionViewConfigStore.get(collectionViewKeyForSidebarLevel(parentId))?.sidebarSort}
@@ -191,7 +191,7 @@ export function Sidebar({
           effectivePageState={effectivePageState}
           activeDate={activeDailyNoteDate}
           onOpen={(pageId) => pageOperations.open(pageId)}
-          onOpenDraft={(pageId) => workspace.openPage(pageId)}
+          onOpenDraft={(pageId) => pageOperations.open(pageId)}
           onOpenDate={(date) =>
             pageOperations.openAtPath(
               DailyNotePath.absoluteFrom(vault.root, new Date(date)),
@@ -306,6 +306,7 @@ export function Sidebar({
         activeSpacePath={vault.root}
         onSwitchSpace={spaces?.onSwitchSpace}
         onNewSpace={spaces?.onAddSpace}
+        onSpacesMenuOpen={spaces?.refreshAvailability}
         resolveImageUrl={(src) => application.resolveCoverImageForDisplay(src)}
         onOpenArchive={() => navigation.openArchive()}
       />

@@ -81,6 +81,7 @@ dependencies = [
  "tauri-plugin-http",
  "tauri-plugin-log",
  "tauri-plugin-opener",
+ "tauri-plugin-persisted-scope",
  "tauri-plugin-wdio-webdriver",
 ]
 
@@ -319,6 +320,15 @@ name = "base64"
 version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
+
+[[package]]
+name = "bincode"
+version = "1.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "bit-set"
@@ -4418,6 +4428,22 @@ dependencies = [
  "url",
  "windows",
  "zbus",
+]
+
+[[package]]
+name = "tauri-plugin-persisted-scope"
+version = "2.3.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3455c9b9d86158aa9acf596b2385fd99f3963e16fce0f5a613020b4388a36770"
+dependencies = [
+ "aho-corasick",
+ "bincode",
+ "log",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin-fs",
+ "thiserror 2.0.20",
 ]
 
 [[package]]

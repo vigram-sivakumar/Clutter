@@ -27,14 +27,14 @@ export function CalendarHeader({
 
       {/* Navigation */}
       <div className="calendar-actions">
-        <Button isIconOnly size="medium" variant="ghost" onClick={onPrevious}>
-          <AppIcon icon="caretLeft" />
+        <Button className='week-navigation' isIconOnly size="medium" variant="ghost" onClick={onPrevious}>
+          <AppIcon icon="caretLeft" size={12} />
         </Button>
         <Button isIconOnly size="medium" variant="ghost" onClick={onToday}>
           <AppIcon icon="calendarDot" />
         </Button>
-        <Button isIconOnly size="medium" variant="ghost" onClick={onNext}>
-          <AppIcon icon="caretRight" />
+        <Button className='week-navigation' isIconOnly size="medium" variant="ghost" onClick={onNext}>
+          <AppIcon icon="caretRight" size={12} />
         </Button>
       </div>
     </header>
