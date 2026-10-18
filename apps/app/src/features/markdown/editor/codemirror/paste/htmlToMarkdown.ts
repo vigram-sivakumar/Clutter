@@ -180,7 +180,7 @@ function listItems(list: Element, context: Context, depth: number): string {
     }
 
     const text = own.text.replace(/\s+/g, ' ').trim();
-    lines.push(`${'  '.repeat(depth)}${marker} ${task}${text}`.trimEnd(), ...nested);
+    lines.push(`${'    '.repeat(depth)}${marker} ${task}${text}`.trimEnd(), ...nested);
   }
 
   return lines.join('\n');

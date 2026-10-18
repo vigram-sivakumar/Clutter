@@ -64,8 +64,12 @@ describe('htmlToPieces', () => {
 
   it('converts nested lists, ordered lists and tasks', () => {
     expect(md('<ul><li>one<ul><li>two</li></ul></li></ul><ol><li>x</li><li>y</li></ol><ul><li><input type="checkbox" checked> done</li></ul>')).toEqual([
-      '- one\n  - two\n\n1. x\n2. y\n\n- [x] done',
+      '- one\n    - two\n\n1. x\n2. y\n\n- [x] done',
     ]);
+  });
+
+  it('indents a list nested in an ordered item far enough to stay nested', () => {
+    expect(md('<ol><li>Parent<ol><li>Nested</li></ol></li></ol>')).toEqual(['1. Parent\n    1. Nested']);
   });
 
   it('keeps images where they were, between the text around them', () => {

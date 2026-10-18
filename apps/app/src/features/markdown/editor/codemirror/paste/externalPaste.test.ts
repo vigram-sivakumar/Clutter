@@ -3,6 +3,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { EditorState, Transaction } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { history, undo, redo } from '@codemirror/commands';
+import { syntaxTree } from '@codemirror/language';
+
+import { markdownLanguageExtension } from '../markdownLanguage';
 
 import {
   externalPasteNormalization,
@@ -42,9 +45,9 @@ describe('normalizeExternalPaste', () => {
   it('removes extra spaces after a task marker only, for every list marker and checked state', () => {
     expect(
       normalizeExternalPaste(
-        '- [ ]   a\n* [x]  b\n+ [X]   c\n1. [ ]  d\n  - [ ]   nested'
+        '- [ ]   a\n* [x]  b\n+ [X]   c\n1. [ ]  d\n   - [ ]   nested'
       )
-    ).toBe('- [ ] a\n* [x] b\n+ [X] c\n1. [ ] d\n  - [ ] nested');
+    ).toBe('- [ ] a\n* [x] b\n+ [X] c\n1. [ ] d\n    - [ ] nested');
     expect(normalizeExternalPaste('- [ ] a  b\ntext [ ]   x\n- item   y')).toBe(
       '- [ ] a  b\ntext [ ]   x\n- item   y'
     );
@@ -70,7 +73,7 @@ describe('normalizeExternalPaste', () => {
       normalizeExternalPaste(
         '# Title\n\n- a\n\n  - nested\n\n- b\n\n1. one\n\n2. two'
       )
-    ).toBe('# Title\n- a\n  - nested\n- b\n1. one\n2. two');
+    ).toBe('# Title\n- a\n    - nested\n- b\n1. one\n2. two');
     expect(normalizeExternalPaste('> quote\n\n> more\n\n## H')).toBe(
       '> quote\n> more\n## H'
     );
@@ -116,6 +119,138 @@ describe('normalizeExternalPaste', () => {
     );
 
     expect(normalizeExternalPaste(once)).toBe(once);
+  });
+});
+
+describe('normalizeExternalPaste — escaped task markers', () => {
+  it('restores a task marker an exporter escaped right after the list marker', () => {
+    expect(normalizeExternalPaste('- \\[ \\] Unchecked task')).toBe('- [ ] Unchecked task');
+    expect(normalizeExternalPaste('- \\[x\\] Checked task')).toBe('- [x] Checked task');
+    expect(normalizeExternalPaste('* \\[X\\] a\n1. \\[ \\] b\n    - \\[ \\]  c')).toBe(
+      '* [X] a\n1. [ ] b\n    - [ ] c'
+    );
+  });
+
+  it('leaves an unescaped task and ordinary text alone', () => {
+    expect(normalizeExternalPaste('- [ ] Unchecked task\n- [x] Checked task')).toBe(
+      '- [ ] Unchecked task\n- [x] Checked task'
+    );
+    expect(normalizeExternalPaste('A normal line\n\nAnother line')).toBe('A normal line\nAnother line');
+  });
+
+  it('keeps escapes that are not a task marker at the start of a list item', () => {
+    for (const literal of [
+      'see \\[ \\] here',
+      '\\[ \\] not in a list',
+      '- note \\[ \\] mid-line',
+      '- \\[link\\](x)',
+      '- \\[ ] half escaped',
+      '- \\\\[ \\\\] escaped backslash',
+      '- \\[ \\]text',
+      '    \\[ \\] indented code',
+    ]) {
+      expect(normalizeExternalPaste(literal)).toBe(literal);
+    }
+  });
+
+  it('keeps an escaped marker inside fenced code exactly', () => {
+    expect(normalizeExternalPaste('```\n- \\[ \\] code\n```')).toBe('```\n- \\[ \\] code\n```');
+  });
+
+  it('restores the tasks in a paste that mixes text, tasks and other list items', () => {
+    expect(
+      normalizeExternalPaste(
+        'This is a normal text line\n\nAnother line here\n\n- \\[ \\] This is a task\n- \\[x\\] Done\n- plain item\n1. ordered'
+      )
+    ).toBe(
+      'This is a normal text line\nAnother line here\n- [ ] This is a task\n- [x] Done\n- plain item\n1. ordered'
+    );
+  });
+});
+
+describe('normalizeExternalPaste — nested list indentation', () => {
+  it('keeps sequential ordered items at one level', () => {
+    expect(normalizeExternalPaste('1. First item\n2. Second item')).toBe('1. First item\n2. Second item');
+  });
+
+  it('re-indents a nested ordered list (3 spaces) to one Clutter level', () => {
+    expect(normalizeExternalPaste('1. Parent item\n   1. Nested item')).toBe('1. Parent item\n    1. Nested item');
+  });
+
+  it('re-indents a nested bullet list (2 spaces) to one Clutter level', () => {
+    expect(normalizeExternalPaste('- Parent item\n  - Nested item')).toBe('- Parent item\n    - Nested item');
+  });
+
+  it('nests an ordered list under a task and keeps the paragraph a paragraph', () => {
+    expect(
+      normalizeExternalPaste(
+        'This is a normal text line\nAnother line here\n- [ ] This is a task\n  1. This is a ordered list item\n  2. wefwe'
+      )
+    ).toBe(
+      'This is a normal text line\nAnother line here\n- [ ] This is a task\n    1. This is a ordered list item\n    2. wefwe'
+    );
+  });
+
+  it('keeps mixed nesting by level', () => {
+    expect(
+      normalizeExternalPaste('Ordinary paragraph\n- First item\n  - Nested item\n    1. Deeper ordered item\n  - Back\n- Top')
+    ).toBe(
+      'Ordinary paragraph\n- First item\n    - Nested item\n        1. Deeper ordered item\n    - Back\n- Top'
+    );
+  });
+
+  it('keeps text that is already indented 4 spaces per level exactly', () => {
+    const text = '- a\n    - b\n        1. c\n- d';
+    expect(normalizeExternalPaste(text)).toBe(text);
+  });
+
+  it('follows the parser: an item that does not reach its predecessor\'s content is a sibling', () => {
+    expect(normalizeExternalPaste('1. a\n  2. b')).toBe('1. a\n2. b');
+  });
+
+  it('leaves a run alone when 4-space nesting could not keep its structure', () => {
+    const wideMarker = '100. a\n     1. b';
+    expect(normalizeExternalPaste(wideMarker)).toBe(wideMarker);
+    const startsIndented = '  - a\n    - b';
+    expect(normalizeExternalPaste(startsIndented)).toBe(startsIndented);
+    const tabbed = '- a\n\t- b';
+    expect(normalizeExternalPaste(tabbed)).toBe(tabbed);
+    const code = '- a\n          - far past the parent';
+    expect(normalizeExternalPaste(code)).toBe(code);
+  });
+
+  it('keeps list lines inside fenced code exactly', () => {
+    expect(normalizeExternalPaste('```\n- a\n  - b\n```')).toBe('```\n- a\n  - b\n```');
+  });
+
+  it('keeps nesting identical to the source: the re-indented text parses to the same list tree', () => {
+    const shape = (doc: string): string[] => {
+      const state = EditorState.create({ doc, extensions: [markdownLanguageExtension()] });
+      const out: string[] = [];
+      let depth = 0;
+      syntaxTree(state).iterate({
+        enter: (node) => {
+          if (/^(?:BulletList|OrderedList|ListItem)$/.test(node.name)) {
+            out.push(`${depth}${node.name}`);
+          }
+          depth++;
+        },
+        leave: () => {
+          depth--;
+        },
+      });
+      return out;
+    };
+
+    for (const source of [
+      '- [ ] This is a task\n  1. This is a ordered list item\n  2. wefwe',
+      '1. Parent item\n   1. Nested item\n   2. Second',
+      '- Parent item\n  - Nested item',
+      'Ordinary paragraph\n\n- First item\n  - Nested item\n    1. Deeper ordered item',
+      '- a\n    - b\n- c',
+    ]) {
+      expect(shape(normalizeExternalPaste(source))).toEqual(shape(source));
+    }
   });
 });
 
@@ -291,7 +426,20 @@ describe('external versus internal paste, through CodeMirror', () => {
 
     expect(view.state.doc.toString()).toBe(
       // A table keeps the blank line before it (see `blankSeparates`); everything else is compacted.
-      '# H\n> quote\n- a\n  - nested\n1. one\n```\n\n- [ ]   code\n\n```\n\n| a | b |\n|---|---|\n| 1 | 2 |'
+      '# H\n> quote\n- a\n    - nested\n1. one\n```\n\n- [ ]   code\n\n```\n\n| a | b |\n|---|---|\n| 1 | 2 |'
     );
+  });
+
+  it('pastes escaped tasks as tasks and nests the ordered list, and an internal copy keeps its text', () => {
+    const view = mount();
+    paste(view, 'Text\n\n- \\[ \\] This is a task\n  1. one\n  2. two');
+    expect(view.state.doc.toString()).toBe('Text\n- [ ] This is a task\n    1. one\n    2. two');
+
+    const internal = mount('- \\[ \\] kept\n  - nested');
+    internal.dispatch({ selection: { anchor: 0, head: internal.state.doc.length } });
+    const copied = copyOrCut(internal, 'copy');
+    const other = mount();
+    paste(other, copied);
+    expect(other.state.doc.toString()).toBe('- \\[ \\] kept\n  - nested');
   });
 });
