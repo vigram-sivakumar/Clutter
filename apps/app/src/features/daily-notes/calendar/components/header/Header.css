@@ -19,7 +19,7 @@
 }
 
 .calendar-year {
-  color: var(--calendar-muted-foreground);
+  opacity: var(--opacity-strong);
 }
 .calendar-actions {
   display: flex;

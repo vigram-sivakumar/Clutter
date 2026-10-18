@@ -73,6 +73,7 @@ vi.mock('./layouts/app-layout/AppLayout', async () => {
 });
 
 import { AppShell } from './AppShell';
+import { probeSpaceFolder } from '../core/vault/providers/probeSpaceFolder';
 import { VaultRootMissingError } from '../core/vault/providers/VaultRootMissingError';
 
 interface FakeApplication {
@@ -213,6 +214,18 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
     expect(screen.queryByText(OPENING)).toBeNull();
     expect(bootstrap).not.toHaveBeenCalled();
     expect(window.localStorage.getItem('clutter.spaces.v1')).toBeNull();
+  });
+
+  it('lets the window be dragged from the Welcome screen: a drag strip over the scrim, none on the dialog itself', async () => {
+    render(<AppShell />);
+    await screen.findByText(WELCOME);
+
+    // The dialog's backdrop is a full-screen layer over the frame's own strip, so it carries one.
+    const strip = document.querySelector('.overlay__backdrop > [data-tauri-drag-region]');
+    expect(strip).not.toBeNull();
+    expect(document.querySelector('.overlay__surface [data-tauri-drag-region]')).toBeNull();
+    expect(screen.getByText('Select a folder').closest('[data-tauri-drag-region]')).toBeNull();
+    expect(screen.getByText(WELCOME).closest('[data-tauri-drag-region]')).toBeNull();
   });
 
   it('fills the app frame behind the Welcome dialog with the background image, centred and covering', async () => {
@@ -446,6 +459,7 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
+      await click('Open');
 
       expect(await screen.findByTestId('open-root')).toHaveTextContent('/Users/me/Notes');
       expect(JSON.parse(SAVED()!)).toEqual({
@@ -476,6 +490,11 @@ async function click(text: string) {
   await act(async () => screen.getByText(text).click());
 }
 
+// After "Select a folder" the dialog shows the picked folder's settings, still waiting on Open.
+function expectSpaceDetailsShown() {
+  expect(document.getElementById('space-details-name')).not.toBeNull();
+}
+
 async function typeName(name: string) {
   fireEvent.change(document.getElementById('space-details-name') as HTMLInputElement, {
     target: { value: name },
@@ -496,10 +515,11 @@ describe('AppShell: Welcome dialog actions', () => {
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
+      await click('Open');
       await waitFor(() => expect(bootstrap).toHaveBeenCalledWith('/Users/me/Notes', expect.anything()));
 
       // Still opening: dialog up, nothing remembered yet, no "Opening Clutter…" frame.
-      expect(screen.getByText(WELCOME)).toBeInTheDocument();
+      expectSpaceDetailsShown();
       expect(screen.queryByText(OPENING)).toBeNull();
       expect(SAVED()).toBeNull();
 
@@ -541,6 +561,7 @@ describe('AppShell: Welcome dialog actions', () => {
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
+      await click('Open');
       await waitFor(() => expect(bootstrap).toHaveBeenCalledWith(picked, expect.anything()));
       expect(SAVED()).toBeNull();
 
@@ -571,6 +592,7 @@ describe('AppShell: Welcome dialog actions', () => {
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
+      await click('Open');
 
       expect(await screen.findByRole('alert')).toHaveTextContent("can't open that folder");
       expect(screen.getByRole('alert')).not.toHaveTextContent("doesn't exist");
@@ -584,6 +606,7 @@ describe('AppShell: Welcome dialog actions', () => {
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
+      await click('Open');
 
       expect(await screen.findByRole('alert')).toHaveTextContent('scan failed');
       expect(SAVED()).toBeNull();
@@ -594,6 +617,7 @@ describe('AppShell: Welcome dialog actions', () => {
       const first = render(<AppShell />);
       await screen.findByText(WELCOME);
       await click('Select a folder');
+      await click('Open');
       expect(await screen.findByTestId('open-root')).toHaveTextContent('/Volumes/Drive/Vault');
       first.unmount();
       bootstrap.mockClear();
@@ -614,10 +638,11 @@ describe('AppShell: Welcome dialog actions', () => {
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
+      await click('Open');
 
       expect(await screen.findByRole('alert')).toHaveTextContent("can't open that folder");
       expect(bootstrap).not.toHaveBeenCalled();
-      expect(screen.getByText(WELCOME)).toBeInTheDocument();
+      expectSpaceDetailsShown();
     });
 
     it('keeps the dialog, shows the reason and leaves the registry untouched when opening fails', async () => {
@@ -626,9 +651,10 @@ describe('AppShell: Welcome dialog actions', () => {
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
+      await click('Open');
 
       expect(await screen.findByRole('alert')).toHaveTextContent('scan failed');
-      expect(screen.getByText(WELCOME)).toBeInTheDocument();
+      expectSpaceDetailsShown();
       expect(SAVED()).toBeNull();
       expect(screen.queryByText('scan failed', { selector: '.startup-frame__message' })).toBeNull();
     });
@@ -642,13 +668,16 @@ describe('AppShell: Welcome dialog actions', () => {
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
+      await click('Open');
       await screen.findByRole('alert');
 
       expect(SAVED()).toBe(before);
-      expect(screen.getByText(WELCOME)).toBeInTheDocument();
+      expectSpaceDetailsShown();
       // Still the missing-folder state, not an error screen: choosing again works.
       tauri.openDialog.mockResolvedValue('/Users/me/Notes');
+      await click('Go back');
       await click('Select a folder');
+      await click('Open');
       expect(await screen.findByTestId('open-root')).toHaveTextContent('/Users/me/Notes');
     });
   });
@@ -702,6 +731,54 @@ describe('AppShell: Welcome dialog actions', () => {
       expect(screen.queryByText('Space Name')).toBeNull();
       expect(JSON.parse(SAVED()!).activePath).toBe('/Users/me/Documents/Personal');
       expect(JSON.parse(SAVED()!).paths).toEqual(['/Users/me/Documents/Personal']);
+    });
+
+    it('remembers an emoji avatar chosen while creating the space, once the space has opened', async () => {
+      render(<AppShell />);
+      await screen.findByText(WELCOME);
+      await click('Create a new space');
+      await screen.findByText('Space Name');
+      await typeName('Personal');
+
+      await act(async () => screen.getByLabelText('Change avatar').click());
+      await act(async () => screen.getAllByLabelText('grinning face')[0]!.click());
+      await click('Create');
+
+      expect(await screen.findByTestId('open-root')).toHaveTextContent('/Users/me/Documents/Personal');
+      expect(JSON.parse(SAVED()!).avatars).toEqual({
+        '/Users/me/Documents/Personal': { type: 'emoji', emoji: '😀' },
+      });
+    });
+
+    it('remembers an uploaded image avatar for a selected folder, as the picked file path', async () => {
+      tauri.openDialog.mockResolvedValueOnce('/Volumes/Drive/Vault');
+      render(<AppShell />);
+      await screen.findByText(WELCOME);
+      await click('Select a folder');
+
+      tauri.openDialog.mockResolvedValueOnce('/Users/me/Pictures/logo.png');
+      await act(async () => screen.getByLabelText('Change avatar').click());
+      await click('Image');
+      await click('Upload');
+      await click('Open');
+
+      expect(await screen.findByTestId('open-root')).toHaveTextContent('/Volumes/Drive/Vault');
+      expect(JSON.parse(SAVED()!).avatars).toEqual({
+        '/Volumes/Drive/Vault': { type: 'image', src: '/Users/me/Pictures/logo.png' },
+      });
+    });
+
+    it('does not remember the avatar of a space that failed to open', async () => {
+      tauri.openDialog.mockResolvedValueOnce('/Users/me/Broken');
+      render(<AppShell />);
+      await screen.findByText(WELCOME);
+      await click('Select a folder');
+      await act(async () => screen.getByLabelText('Change avatar').click());
+      await act(async () => screen.getAllByLabelText('grinning face')[0]!.click());
+      await click('Open');
+      await screen.findByRole('alert');
+
+      expect(SAVED()).toBeNull();
     });
 
     it.each(['', '   ', '..', '.', '../evil', 'a/b', '/etc', 'a:b'])(
@@ -849,9 +926,10 @@ describe('AppShell: the open vault disappears while the app is running', () => {
       tauri.openDialog.mockResolvedValue('/Users/me/Notes');
 
       await click('Select a folder');
+      await click('Open');
       await waitFor(() => expect(bootstrap).toHaveBeenCalledWith('/Users/me/Notes', expect.anything()));
       expect(JSON.parse(SAVED()!).activePath).toBe('/Users/me/A');
-      expect(screen.getByText(WELCOME)).toBeInTheDocument();
+      expectSpaceDetailsShown();
 
       await act(async () => gate.resolve());
       expect(await screen.findByTestId('open-root')).toHaveTextContent('/Users/me/Notes');
@@ -870,9 +948,10 @@ describe('AppShell: the open vault disappears while the app is running', () => {
       tauri.openDialog.mockResolvedValue('/Users/me/Broken');
 
       await click('Select a folder');
+      await click('Open');
 
       expect(await screen.findByRole('alert')).toHaveTextContent('scan failed');
-      expect(screen.getByText(WELCOME)).toBeInTheDocument();
+      expectSpaceDetailsShown();
       expect(SAVED()).toBe(before);
     });
 
@@ -994,6 +1073,169 @@ describe('AppShell: the open vault disappears while the app is running', () => {
     expect(app.verifyRoot).toHaveBeenCalledTimes(2);
     expect(screen.getByTestId('open-root')).toHaveTextContent('/Users/me/A');
     expect(screen.queryByText(WELCOME)).toBeNull();
+  });
+});
+
+/**
+ * Watches every DOM mutation from now on and remembers whether the Welcome dialog was ever inserted — even for
+ * a single commit that a later one removes again, which a check of the final DOM (or of a `waitFor`) cannot see.
+ */
+function watchForWelcome() {
+  let shown = false;
+  const inspect = (node: Node) => {
+    if (node.textContent?.includes(WELCOME)) shown = true;
+  };
+  const observer = new MutationObserver((records) => {
+    for (const record of records) {
+      record.addedNodes.forEach(inspect);
+      if (record.type === 'characterData' && record.target.parentNode) inspect(record.target.parentNode);
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+  return {
+    get shown() {
+      observer.takeRecords().forEach((record) => record.addedNodes.forEach(inspect));
+      return shown;
+    },
+    stop: () => observer.disconnect(),
+  };
+}
+
+describe('AppShell: an open vault is lost and another registered vault takes over, without Welcome', () => {
+  const originalProbe = vi.mocked(probeSpaceFolder).getMockImplementation()!;
+
+  beforeEach(() => {
+    tauri.isTauri = true;
+    // Real timing: the native folder probe and the vault scan each take a macrotask, which is what lets the
+    // shell's state updates land in separate renders (instant mocks hide every race between them).
+    vi.mocked(probeSpaceFolder).mockImplementation(async (path: string) => {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      return originalProbe(path);
+    });
+    // The real `Application.bootstrap` never creates a missing root: it throws, whatever else is true.
+    const baseBootstrap = bootstrap.getMockImplementation()!;
+    bootstrap.mockImplementation(async (root: string, ...rest: unknown[]) => {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      if (probeOverrides.get(root) === 'missing') {
+        events.push(`bootstrap:${root}`);
+        throw new VaultRootMissingError(root);
+      }
+      return baseBootstrap(root, ...rest);
+    });
+  });
+
+  afterEach(async () => {
+    // Let the delayed probes and scans of a finished scenario settle while the shell is still mounted, so
+    // none of them lands in the next test, then put the instant probe back.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 40));
+    });
+    vi.mocked(probeSpaceFolder).mockImplementation(originalProbe);
+  });
+
+  async function openA(paths: string[]) {
+    seed(paths, '/Users/me/A');
+    render(<AppShell />);
+    await screen.findByTestId('open-root');
+    return created[0]!;
+  }
+
+  it('never renders the Welcome dialog when the active vault is deleted and the next one opens', async () => {
+    const app = await openA(['/Users/me/A', '/Users/me/B']);
+    probeOverrides.set('/Users/me/A', 'missing');
+    const welcome = watchForWelcome();
+
+    await loseVault(app);
+
+    expect(await screen.findByTestId('open-root')).toHaveTextContent('/Users/me/B');
+    expect(welcome.shown).toBe(false);
+    // The lost vault is never opened again, and never recreated.
+    expect(bootstrap.mock.calls.filter(([root]) => root === '/Users/me/A')).toHaveLength(1);
+    expect(tauri.mkdir).not.toHaveBeenCalled();
+    expect(JSON.parse(SAVED()!)).toEqual({ paths: ['/Users/me/A', '/Users/me/B'], activePath: '/Users/me/B' });
+    welcome.stop();
+  });
+
+  it('never renders it when the loss is found through window focus (availability refresh and root check together)', async () => {
+    const app = await openA(['/Users/me/A', '/Users/me/B', '/Users/me/C']);
+    probeOverrides.set('/Users/me/A', 'missing');
+    // The real `verifyRoot` reports the loss through the subscription once the root is confirmed gone.
+    app.verifyRoot.mockImplementation(async () => {
+      [...app.lostListeners].forEach((listener) => listener());
+    });
+    const welcome = watchForWelcome();
+
+    await act(async () => window.dispatchEvent(new Event('focus')));
+
+    expect(await screen.findByTestId('open-root')).toHaveTextContent('/Users/me/B');
+    await act(async () => {});
+    expect(welcome.shown).toBe(false);
+    expect(bootstrap.mock.calls.filter(([root]) => root === '/Users/me/B')).toHaveLength(1);
+    expect(created.filter((created) => created.vault.root === '/Users/me/B' && created.open.mock.calls.length > 0)).toHaveLength(1);
+    welcome.stop();
+  });
+
+
+  it('never renders it while the fallback is still opening, nor between two candidates', async () => {
+    const app = await openA(['/Users/me/A', '/Users/me/Broken', '/Users/me/Gone', '/Users/me/D']);
+    probeOverrides.set('/Users/me/A', 'missing');
+    probeOverrides.set('/Users/me/Gone', 'missing');
+    const gate = deferred<void>();
+    gates.set('/Users/me/D', gate);
+    const welcome = watchForWelcome();
+
+    await loseVault(app);
+    await waitFor(() => expect(bootstrap).toHaveBeenCalledWith('/Users/me/D', expect.anything()));
+    expect(screen.getByText(OPENING)).toBeInTheDocument();
+    expect(welcome.shown).toBe(false);
+
+    await act(async () => gate.resolve());
+    expect(await screen.findByTestId('open-root')).toHaveTextContent('/Users/me/D');
+    expect(welcome.shown).toBe(false);
+    expect(bootstrap.mock.calls.filter(([root]) => root === '/Users/me/A')).toHaveLength(1);
+    expect(bootstrap.mock.calls.filter(([root]) => root === '/Users/me/Gone')).toHaveLength(0);
+    expect(JSON.parse(SAVED()!)).toEqual({
+      paths: ['/Users/me/A', '/Users/me/Broken', '/Users/me/Gone', '/Users/me/D'],
+      activePath: '/Users/me/D',
+    });
+    welcome.stop();
+  });
+
+  it('shows Welcome only after every candidate failed, and leaves the registry as stored', async () => {
+    const app = await openA(['/Users/me/A', '/Users/me/Broken', '/Users/me/Gone']);
+    probeOverrides.set('/Users/me/A', 'missing');
+    probeOverrides.set('/Users/me/Gone', 'missing');
+    const before = SAVED();
+    const welcome = watchForWelcome();
+
+    await loseVault(app);
+
+    expect(await screen.findByText(WELCOME)).toBeInTheDocument();
+    expect(welcome.shown).toBe(true);
+    expect(SAVED()).toBe(before);
+    expect(tauri.mkdir).not.toHaveBeenCalled();
+    welcome.stop();
+  });
+
+  it('does not restore the lost vault when a second loss report arrives while the fallback opens', async () => {
+    const app = await openA(['/Users/me/A', '/Users/me/B']);
+    probeOverrides.set('/Users/me/A', 'missing');
+    const gate = deferred<void>();
+    gates.set('/Users/me/B', gate);
+    const welcome = watchForWelcome();
+
+    await loseVault(app);
+    await waitFor(() => expect(bootstrap).toHaveBeenCalledWith('/Users/me/B', expect.anything()));
+    await loseVault(app);
+    await act(async () => window.dispatchEvent(new Event('focus')));
+    await act(async () => gate.resolve());
+
+    expect(await screen.findByTestId('open-root')).toHaveTextContent('/Users/me/B');
+    expect(welcome.shown).toBe(false);
+    expect(bootstrap.mock.calls.filter(([root]) => root === '/Users/me/A')).toHaveLength(1);
+    expect(bootstrap.mock.calls.filter(([root]) => root === '/Users/me/B')).toHaveLength(1);
+    expect(JSON.parse(SAVED()!).activePath).toBe('/Users/me/B');
+    welcome.stop();
   });
 });
 

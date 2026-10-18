@@ -21,6 +21,8 @@ export const SEPARATOR = {
   tight: 6,
   /** Inside a Table / FencedCode, and between contiguous blockquote paragraphs. */
   none: 0,
+  /** Above and below a document-level horizontal rule (every rule variant, labeled or not). */
+  horizontalRule: 12,
   /** Owed above a heading's first line, by level (Setext 1/2 share h1/h2). */
   heading: { h1: 36, h2: 30, h3: 24, h4: 18, h5: 18, h6: 18 },
 } as const;
@@ -30,6 +32,7 @@ export type SeparatorHeight =
   | typeof SEPARATOR.normal
   | typeof SEPARATOR.tight
   | typeof SEPARATOR.none
+  | typeof SEPARATOR.horizontalRule
   | (typeof SEPARATOR.heading)[keyof typeof SEPARATOR.heading];
 
 /**
@@ -373,7 +376,11 @@ function continuesAcrossHardBreak(
     from: prevLine.from,
     to: prevLine.to,
     enter: (node) => {
-      if (node.name === 'HardBreak' && node.from >= prevLine.from && node.from <= prevLine.to) {
+      if (
+        node.name === 'HardBreak' &&
+        node.from >= prevLine.from &&
+        node.from <= prevLine.to
+      ) {
         found = true;
       }
       return !found;
@@ -534,6 +541,49 @@ function headingEntryHeight(
 }
 
 /**
+ * Every horizontal-rule node: native `---`/`***`/`___` plus Clutter's wavy, double, dotted and labeled
+ * variants (see `hr/horizontalRuleDecoration.ts`).
+ */
+const HORIZONTAL_RULE_NODE_NAMES: ReadonlySet<string> = new Set([
+  'HorizontalRule',
+  'WavyHorizontalRule',
+  'DoubleHorizontalRule',
+  'DottedHorizontalRule',
+  'LabeledHorizontalRule',
+]);
+
+/**
+ * Whether `pos` is on a document-level horizontal rule (a direct child of the document, so a rule inside a
+ * list or quote keeps that construct's own grouping height).
+ */
+function isOnHorizontalRule(state: EditorState, pos: number): boolean {
+  const node = syntaxTree(state).resolveInner(pos, 1);
+  return (
+    HORIZONTAL_RULE_NODE_NAMES.has(node.name) &&
+    node.parent?.name === 'Document' &&
+    state.doc.lineAt(node.from).from === state.doc.lineAt(pos).from
+  );
+}
+
+/**
+ * The height owed when *either* side of the boundary is a horizontal rule — the separator immediately above
+ * and the one immediately below it. A heading entered right after a rule keeps the larger of the two.
+ */
+function horizontalRuleHeight(
+  state: EditorState,
+  prevPos: number,
+  pos: number
+): SeparatorHeight | null {
+  if (!isOnHorizontalRule(state, prevPos) && !isOnHorizontalRule(state, pos)) {
+    return null;
+  }
+  return Math.max(
+    SEPARATOR.horizontalRule,
+    headingEntryHeight(state, pos) ?? 0
+  ) as SeparatorHeight;
+}
+
+/**
  * The spacing for a boundary between two document positions, `prevPos`
  * (the earlier side) and `pos` (the later side). Used identically for
  * two kinds of boundaries — between two physical lines, and between a
@@ -682,6 +732,13 @@ export function resolveBoundaryHeight(
       // relationship, so keep searching outward for a different shared
       // ancestor rather than granting 6px here.
     }
+  }
+
+  const ruleHeight = sharedAncestorFound
+    ? null
+    : horizontalRuleHeight(state, prevPos, pos);
+  if (ruleHeight !== null) {
+    return ruleHeight;
   }
 
   const familyHeight = sharedAncestorFound

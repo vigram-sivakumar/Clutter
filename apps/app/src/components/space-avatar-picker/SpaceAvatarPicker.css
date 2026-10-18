@@ -1,0 +1,51 @@
+.space-avatar-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding-bottom: var(--space-12);
+  padding-top: var(--space-6);
+  border-radius: var(--radius-xl);
+  background: var(--surface-secondary);
+  box-shadow: var(--shadow-inset-default), var(--shadow-lg);
+}
+
+.space-avatar-picker__tabs {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline: var(--space-6);
+  padding-bottom: 3.5px;
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.space-avatar-picker__panels {
+  display: grid;
+}
+
+.space-avatar-picker__panel {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+
+/* Both panels share one grid cell, so the width is the wider one's on either tab. The inactive panel
+   has no height, so the height hugs the active one. It stays mounted, which keeps the emoji search and
+   scroll position across a visit to Image. */
+.space-avatar-picker__panel[hidden] {
+  display: block;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+}
+
+/* The tray is already inside this card; drop its own surface and spacing. */
+.space-avatar-picker .emoji-tray {
+  padding-block: 0;
+  background: none;
+  box-shadow: none;
+}
+.space-avatar-picker .image-picker-upload {
+  padding-block: 24px;
+}
+.space-avatar-picker .image-picker-upload .button--primary {
+  background: var(--surface-tertiary);
+}

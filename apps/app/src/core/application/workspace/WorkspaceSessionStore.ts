@@ -465,13 +465,18 @@ function parseStringArray(value: unknown): string[] | undefined {
 }
 
 /**
- * `null` is a valid stored value ("nothing to restore") but is returned as
- * `undefined` here so the caller's `?? null` handles both alike. Shape
- * validation only — whether the view still exists is checked against the
- * Vault at restore time (`NavigationRouter.restore()`).
+ * `null` is a valid stored value ("nothing to restore" — what `serializeSession` writes while the active
+ * view is an unsaved draft or there is none), so it is returned as `null`; `undefined` is reserved for a
+ * malformed value, which `parseField` warns about. The caller's `?? null` makes both restore as no view.
+ * Shape validation only — whether the view still exists is checked against the Vault at restore time
+ * (`NavigationRouter.restore()`).
  */
-function parseActiveView(value: unknown): ActiveView | undefined {
-  if (value === null || !isRecord(value)) {
+function parseActiveView(value: unknown): ActiveView | null | undefined {
+  if (value === null) {
+    return null;
+  }
+
+  if (!isRecord(value)) {
     return undefined;
   }
 

@@ -41,8 +41,6 @@ describe('inlineLivePreviewRegion — decoration build performance (diagnostic, 
     const view = new EditorView({ state, parent });
     const mountEnd = performance.now();
 
-    const markerCountAtRest = view.dom.querySelectorAll('.cm-marker').length;
-
     // Simulate moving the caret through the document, forcing a full
     // recompute each time (selectionSet triggers buildDecorations again).
     const moveStart = performance.now();
@@ -57,11 +55,6 @@ describe('inlineLivePreviewRegion — decoration build performance (diagnostic, 
     const avgMoveMs = (moveEnd - moveStart) / sampleCount;
 
     // eslint-disable-next-line no-console
-    console.log(
-      `[marker decoration perf] doc=${doc.length} chars, 5000 lines, 5 constructs/line -> ` +
-        `initial mount: ${mountMs.toFixed(2)}ms, markers at rest (viewport-only): ${markerCountAtRest}, ` +
-        `avg per-caret-move recompute (${sampleCount} samples): ${avgMoveMs.toFixed(3)}ms`
-    );
 
     view.destroy();
 

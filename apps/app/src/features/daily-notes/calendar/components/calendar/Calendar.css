@@ -1,7 +1,7 @@
 :root {
   --calendar-surface: var(--surface-subtle);
   --calendar-foreground: var(--entry-foreground);
-  --calendar-muted-foreground: var(--foreground-placeholder);
+  --calendar-muted-foreground: var(--calendar-on-accent-foreground);
   --calendar-today-foreground: var(--calendar-accent);
   --calendar-weekday-foreground: var(--foreground-tertiary);
 
@@ -44,7 +44,7 @@
 .calendar-toggle--bar {
   width: 48px;
   height: 6px;
-  background: var(--calendar-surface);
+  background: var(--border-strong);
 
   border-radius: 999px;
   transition: width 300ms ease;

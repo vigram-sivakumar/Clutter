@@ -307,7 +307,7 @@ export function Sidebar({
         onSwitchSpace={spaces?.onSwitchSpace}
         onNewSpace={spaces?.onAddSpace}
         onSpacesMenuOpen={spaces?.refreshAvailability}
-        resolveImageUrl={(src) => application.resolveCoverImageForDisplay(src)}
+        resolveImageUrl={spaces?.resolveAvatarImageUrl ?? ((src) => application.resolveCoverImageForDisplay(src))}
         onOpenArchive={() => navigation.openArchive()}
       />
 

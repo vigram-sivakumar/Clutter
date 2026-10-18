@@ -192,6 +192,52 @@ describe('WorkspaceSessionStore — load()', () => {
   });
 });
 
+describe('WorkspaceSessionStore — a stored activeView of null', () => {
+  it('is a valid value ("nothing to restore"), restored as null without a warning', async () => {
+    const store = await WorkspaceSessionStore.load(
+      fileWith({ ...FULL_SESSION, navigation: { activeSidebarTab: 'notes', activeView: null } }),
+      ROOT
+    );
+
+    expect(store.restoredSession.activeView).toBeNull();
+    expect(store.restoredSession.activeSidebarTab).toBe('notes');
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('is what the store itself writes for an unsaved view, so a reload of its own output stays silent', async () => {
+    vi.useFakeTimers();
+    const fileSystem = new InMemoryVaultFileSystem();
+    const first = await WorkspaceSessionStore.load(fileSystem, ROOT);
+    const session = owners({ isPersistableView: () => false });
+    first.attach(session);
+    session.workspace.openPage('draft-1');
+    await vi.runAllTimersAsync();
+    first.dispose();
+    vi.useRealTimers();
+    expect(((await readFile(fileSystem)).workspaceSession as { navigation: { activeView: unknown } }).navigation.activeView).toBeNull();
+
+    const reloaded = await WorkspaceSessionStore.load(fileSystem, ROOT);
+
+    expect(reloaded.restoredSession.activeView).toBeNull();
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('does not hide a genuinely malformed view: it still warns, and only that field falls back', async () => {
+    const store = await WorkspaceSessionStore.load(
+      fileWith({
+        ...FULL_SESSION,
+        navigation: { activeSidebarTab: 'tasks', activeView: { type: 'filtered-view', view: { kind: 'tasks-today' } } },
+      }),
+      ROOT
+    );
+
+    expect(store.restoredSession.activeView).toBeNull();
+    expect(store.restoredSession.activeSidebarTab).toBe('tasks');
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]![0]).toContain('"navigation.activeView" is malformed');
+  });
+});
+
 describe('WorkspaceSessionStore — seed()', () => {
   it('applies the restored chrome state to the runtime owners, but not the active view', async () => {
     const store = await WorkspaceSessionStore.load(fileWith(FULL_SESSION), ROOT);

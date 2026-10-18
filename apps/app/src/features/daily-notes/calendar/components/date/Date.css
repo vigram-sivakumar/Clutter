@@ -25,6 +25,7 @@
 .calendar-cell--today,
 .calendar-cell--today.calendar-cell--outside-month {
   color: var(--calendar-today-foreground);
+  font-weight: var(--fw-semibold);
 }
 .calendar-cell--outside-month {
   color: var(--calendar-muted-foreground);
@@ -50,19 +51,24 @@
 
 .calendar-cell__indicator {
   position: absolute;
-  bottom: 2px;
+  bottom: 3px;
   left: 50%;
   transform: translateX(-50%);
 }
 
 .calendar-cell--today.calendar-cell--selected .calendar-cell__dot {
   background: var(--calendar-today-selected-foreground);
-  opacity: var(--opacity-strong);
+  opacity: var(--opacity-medium);
 }
 .calendar-cell__dot {
   display: block;
-  width: 4px;
+  width: 16px;
   height: 4px;
-  border-radius: 50%;
+  border-radius: 4px;
   background: var(--calendar-muted-foreground);
+  opacity: var(--opacity-medium);
+}
+.calendar-cell--selected .calendar-cell__dot {
+  background: var(--calendar-foreground);
+  opacity: var(--opacity-strong);
 }

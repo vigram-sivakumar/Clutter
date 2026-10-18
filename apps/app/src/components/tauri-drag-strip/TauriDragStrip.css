@@ -3,6 +3,6 @@
   top: 0px;
   left: 0;
   right: 0;
-  height: 48px;
+  height: var(--tauri-drag-strip-height);
   pointer-events: auto;
 }

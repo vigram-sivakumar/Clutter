@@ -325,26 +325,15 @@ export function installResizeDiagnostics(): void {
       state.domMutations = 0;
       state.longTasks.length = 0;
       state.geometrySamples.length = 0;
-      console.log(
-        '[resizeDiag] reset. Now drag-resize the window for a few seconds, then run window.__resizeDiag.report()'
-      );
     },
     report() {
       const s = summary();
-      console.log('[resizeDiag] summary:', s);
       return s;
     },
     disconnectAllResizeObservers() {
       for (const ro of liveResizeObservers) {
         ro.disconnect();
       }
-      console.log(
-        `[resizeDiag] disconnected ${liveResizeObservers.length} ResizeObserver instance(s) (includes CodeMirror's, if it had created one by now). Reload the page to restore normal behavior.`
-      );
     },
   };
-
-  console.log(
-    '[resizeDiag] instrumentation active. Run window.__resizeDiag.reset(), drag-resize, then window.__resizeDiag.report().'
-  );
 }

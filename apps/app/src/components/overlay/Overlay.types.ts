@@ -41,6 +41,15 @@ interface OverlayBaseProps {
   dismissible?: boolean;
 
   /**
+   * Lets the native window be dragged from a strip along the top of the backdrop (the app's shared
+   * `TauriDragStrip`). A backdrop covers the whole app, and with it the app's own drag regions (topbar,
+   * sidebar), so every overlay with a backdrop keeps the window draggable. The strip sits in the backdrop,
+   * below the overlay's surface, so it never covers the surface's content. Needs a backdrop. On by default;
+   * pass `false` to opt out.
+   */
+  dragRegion?: boolean;
+
+  /**
    * A right-click anywhere while this overlay is open dismisses it, and neither the platform's own context
    * menu nor any other `contextmenu` handler sees that event — the way a native menu closes on a second
    * right-click. On by default for every overlay (menus, pickers, popovers), and only while it is

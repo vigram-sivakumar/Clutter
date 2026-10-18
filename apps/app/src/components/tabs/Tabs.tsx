@@ -12,7 +12,7 @@ type TabsProps = {
    * Always use the `ghost` variant for tabs rendered in the
    * PageTitleSection.
    */
-  variant?: 'filled' | 'ghost';
+  variant?: 'filled' | 'ghost' | 'flat';
   children?: ReactNode;
   onValueChange: (value: string) => void;
 };

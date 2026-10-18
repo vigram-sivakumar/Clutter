@@ -100,8 +100,6 @@ export function attachDevTools(app: Application): void {
     writable: false,
     configurable: false,
   });
-
-  console.log('✨ Clutter DevTools available at window.__clutter_devtools');
 }
 
 export type { ClutterDevTools };

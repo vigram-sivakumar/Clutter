@@ -638,3 +638,58 @@ describe('blockSeparatorDecoration — general', () => {
     view.destroy();
   });
 });
+
+describe('blockSeparatorDecoration — horizontal rules', () => {
+  const rule = SEPARATOR.horizontalRule;
+
+  it('is 12px', () => {
+    expect(rule).toBe(12);
+  });
+
+  it('gives the separators above and below a rule the horizontal-rule height (12px), and the rest the normal height', () => {
+    const view = mountView('Paragraph A\n\n---\n\nParagraph B\nLine two');
+    // A→blank, blank→rule, rule→blank, blank→B, B→line two
+    expect(separatorHeights(view)).toEqual([SEPARATOR.normal, rule, rule, SEPARATOR.normal, SEPARATOR.normal]);
+    view.destroy();
+  });
+
+  it('gives a rule directly between two paragraphs the horizontal-rule height on both sides', () => {
+    const view = mountView('A\n\n***\n\nB');
+    expect(separatorHeights(view)).toEqual([SEPARATOR.normal, rule, rule, SEPARATOR.normal]);
+    view.destroy();
+  });
+
+  it('covers the wavy, double, dotted and labeled variants', () => {
+    for (const hr of ['~---~', '=---=', '.---.', '---Label---', '~---Label---~']) {
+      const view = mountView(`before\n\n${hr}\n\nafter`);
+      expect(separatorHeights(view), hr).toEqual([SEPARATOR.normal, rule, rule, SEPARATOR.normal]);
+      view.destroy();
+    }
+  });
+
+  it('keeps lists, quotes and headings around a rule at their own heights, except the rule edge', () => {
+    const list = mountView('- a\n- b\n---\npara');
+    expect(separatorHeights(list)).toEqual([SEPARATOR.tight, rule, rule]);
+    list.destroy();
+
+    const heading = mountView('# Title\n---\nText');
+    expect(separatorHeights(heading)).toEqual([rule, rule]);
+    heading.destroy();
+
+    const quote = mountView('> a\n> b\n\n---');
+    expect(separatorHeights(quote)).toEqual([SEPARATOR.normal, rule]); // the 0px quote-internal boundary emits no element
+    quote.destroy();
+  });
+
+  it('keeps a heading right after a rule at its own larger height', () => {
+    const view = mountView('---\n# Title');
+    expect(separatorHeights(view)).toEqual([SEPARATOR.heading.h1]);
+    view.destroy();
+  });
+
+  it('gives consecutive rules one horizontal-rule separator between them, never stacked', () => {
+    const view = mountView('a\n\n---\n***\n___\n\nb');
+    expect(separatorHeights(view)).toEqual([SEPARATOR.normal, rule, rule, rule, rule, SEPARATOR.normal]);
+    view.destroy();
+  });
+});

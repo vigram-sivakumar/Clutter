@@ -1,6 +1,11 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { Button } from '@components/button/Button';
+import {
+  SpaceAvatar,
+  type SpaceAvatarChoice,
+} from '@components/space-avatar/SpaceAvatar';
+import { SpaceAvatarPicker } from '@components/space-avatar-picker/SpaceAvatarPicker';
 import { isValidSpaceFolderName } from '@core/vault/ingest/spaceFolderName';
 import { Input } from '../input/Input';
 import { useRejectShake } from '../property-list/useRejectShake';
@@ -19,6 +24,31 @@ export interface NewSpaceDraft {
   parentName: string;
   /** Space name — also the new folder's name. Starts empty. */
   name: string;
+  /**
+   * Set when the user picked a folder that already exists: it is opened as is on confirm — never created —
+   * and `parentPath` / `parentName` / `name` are just that folder's own path, shown read-only.
+   */
+  existingPath?: string;
+  /** The avatar chosen in the picker (an image's `src` is the absolute path of the uploaded file); absent shows the name's initial. */
+  avatar?: SpaceAvatarChoice;
+}
+
+/** The settings draft for an existing folder, prefilled from its path. */
+export function draftForExistingFolder(path: string): NewSpaceDraft {
+  const trimmed = path.replace(/[\\/]+$/, '');
+  const cut = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'));
+  const parentPath =
+    cut > 0 ? trimmed.slice(0, cut) : trimmed.slice(0, cut + 1);
+  const parentCut = Math.max(
+    parentPath.lastIndexOf('/'),
+    parentPath.lastIndexOf('\\')
+  );
+  return {
+    parentPath,
+    parentName: parentPath.slice(parentCut + 1),
+    name: trimmed.slice(cut + 1),
+    existingPath: path,
+  };
 }
 
 /** The outcome of creating the folder: its path, or a message to show. */
@@ -27,10 +57,17 @@ export type CreateFolderResult = { path: string } | { error: string };
 interface SpaceDetailsProps {
   draft: NewSpaceDraft;
   onNameChange: (name: string) => void;
+  /** The avatar picked, or `undefined` when removed. */
+  onAvatarChange: (avatar: SpaceAvatarChoice | undefined) => void;
+  /** Turns an uploaded image's path into a loadable URL for the preview. */
+  resolveImageUrl?: (path: string) => string | null;
   /** Creates `<parent>/<name>` — explicitly, on the user's Create. Never overwrites an existing folder. */
   onCreateFolder: (name: string) => Promise<CreateFolderResult>;
-  /** Opens the created folder as the space: `null` on success, otherwise a message to show. */
-  onOpenSpace: (path: string) => Promise<string | null>;
+  /**
+   * Opens the folder as the space, with the avatar chosen for it (none: `undefined`): `null` on success,
+   * otherwise a message to show.
+   */
+  onOpenSpace: (path: string, avatar?: SpaceAvatarChoice) => Promise<string | null>;
   /** Returns to the previous screen; the Back button only renders when provided. */
   onBack?: () => void;
 }
@@ -38,11 +75,15 @@ interface SpaceDetailsProps {
 export function SpaceDetails({
   draft,
   onNameChange,
+  onAvatarChange,
+  resolveImageUrl,
   onCreateFolder,
   onOpenSpace,
   onBack,
 }: SpaceDetailsProps) {
   const { shakeClassName, shake } = useRejectShake();
+  const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
+  const avatarRef = useRef<HTMLDivElement>(null);
   const [isCreating, setIsCreating] = useState(false);
   // What the last Create attempt reported, shown under the name; cleared as soon as the name is edited.
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +103,9 @@ export function SpaceDetails({
   // Where the folder will be created: the parent, plus the trimmed name once
   // the user has typed one (never a default name).
   const folderName = draft.name.trim();
+  const isExisting = draft.existingPath !== undefined;
+  // The avatar shows the name's first character as it's typed; a smile icon is the placeholder until then.
+  const avatarInitial = Array.from(folderName)[0]?.toUpperCase();
 
   // Create makes `<parent>/<trimmed name>` and then opens it as the space. Buttons are never
   // disabled — an invalid name, a taken name or any failure shakes the Space Name card and says why
@@ -69,14 +113,18 @@ export function SpaceDetails({
   async function handleCreate() {
     if (isCreating) return;
     setError(null);
-    if (createdPath === null && !isValidSpaceFolderName(draft.name)) {
+    if (
+      createdPath === null &&
+      !isExisting &&
+      !isValidSpaceFolderName(draft.name)
+    ) {
       setError('Enter a name without slashes or colons.');
       shake();
       return;
     }
     setIsCreating(true);
     try {
-      let path = createdPath;
+      let path = createdPath ?? draft.existingPath ?? null;
       if (path === null) {
         const created = await onCreateFolder(folderName);
         if ('error' in created) {
@@ -87,9 +135,11 @@ export function SpaceDetails({
         path = created.path;
         setCreatedPath(path);
       }
-      const openError = await onOpenSpace(path);
+      const openError = await onOpenSpace(path, draft.avatar);
       if (openError !== null) {
-        setError(`${openError} The folder was created; press Create to try opening it again.`);
+        setError(
+          `${openError} ${isExisting ? 'Press Open' : 'The folder was created; press Create'} to try opening it again.`
+        );
         shake();
       }
     } catch (caught) {
@@ -107,16 +157,65 @@ export function SpaceDetails({
         <Button
           className="space-details__back"
           variant="ghost"
-          interaction='subtle'
+          interaction="subtle"
           leading={<AppIcon icon="arrowLeft" />}
           onClick={onBack}
         >
           Go back
         </Button>
       )}
-        <div className="space-details__avatar-picker" role="button">
-          <span className="space-details__initial">M</span>
-        </div>
+      <div
+        className="space-details__avatar-picker"
+        role="button"
+        tabIndex={0}
+        aria-label="Change avatar"
+        ref={avatarRef}
+        onClick={() => setAvatarPickerOpen(true)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            setAvatarPickerOpen(true);
+          }
+        }}
+      >
+        {draft.avatar ? (
+          <SpaceAvatar
+            avatar={draft.avatar}
+            folderName={folderName}
+            resolveImageUrl={resolveImageUrl}
+          />
+        ) : (
+          <span className="space-details__initial">
+            {avatarInitial ?? (
+              <AppIcon
+                className="space-details__placeholder-icon"
+                icon="smile"
+                size={40}
+                strokeWidth={0.8}
+              />
+            )}
+          </span>
+        )}
+      </div>
+      <SpaceAvatarPicker
+        anchorRef={avatarRef}
+        open={avatarPickerOpen}
+        onClose={() => setAvatarPickerOpen(false)}
+        hasAvatar={draft.avatar !== undefined}
+        onSelectEmoji={(emoji) => {
+          onAvatarChange({ type: 'emoji', emoji });
+          setAvatarPickerOpen(false);
+        }}
+        onUploadImage={(src) => {
+          onAvatarChange({ type: 'image', src });
+          setAvatarPickerOpen(false);
+        }}
+        onRemove={() => {
+          onAvatarChange(undefined);
+          setAvatarPickerOpen(false);
+        }}
+      />
+
       <div className="space-details__main">
         <div
           className={['space-details__card', shakeClassName]
@@ -132,7 +231,8 @@ export function SpaceDetails({
             hasBackground={false}
             hasBorder={false}
             value={draft.name}
-            aria-invalid={!isValidSpaceFolderName(draft.name)}
+            readOnly={isExisting}
+            aria-invalid={!isExisting && !isValidSpaceFolderName(draft.name)}
             onChange={(event) => handleNameChange(event.target.value)}
           />
         </div>
@@ -152,15 +252,14 @@ export function SpaceDetails({
             </span>
           </div>
         </div>
-      <Button
-        className="space-details__button"
-        variant="primary"
-        onClick={() => void handleCreate()}
-      >
-        Create
-      </Button>
+        <Button
+          className="space-details__button"
+          variant="primary"
+          onClick={() => void handleCreate()}
+        >
+          {isExisting ? 'Open' : 'Create'}
+        </Button>
       </div>
-
     </div>
   );
 }

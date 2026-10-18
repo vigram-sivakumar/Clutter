@@ -230,3 +230,60 @@ describe('Footer space selector: availability refresh', () => {
   });
 });
 
+
+describe('Footer space selector: each listed Space shows its own avatar', () => {
+  const spaces = [
+    { path: '/s/Work', name: 'Work', avatar: { type: 'emoji', emoji: '🚀' } },
+    { path: '/s/Notes', name: 'Notes', avatar: { type: 'image', src: '/Users/me/notes.png' } },
+    { path: '/s/Plain', name: 'Plain' },
+  ] as const;
+
+  function openMenu(extra: { activeSpacePath?: string; resolveImageUrl?: (src: string) => string | null } = {}) {
+    const view = render(
+      <Footer
+        vaultFolderName="Work"
+        spaces={spaces}
+        activeSpacePath={extra.activeSpacePath ?? '/s/Work'}
+        onSwitchSpace={() => {}}
+        resolveImageUrl={extra.resolveImageUrl ?? ((src) => `asset://localhost${src}`)}
+        onOpenArchive={() => {}}
+      />
+    );
+    fireEvent.click(view.container.querySelector('.space-selector') as HTMLElement);
+    const rows = within(screen.getByRole('menu')).getAllByRole('menuitem');
+    return { ...view, rows };
+  }
+
+  it('shows an emoji, an image and an initial, each on its own row', () => {
+    const { rows } = openMenu();
+    expect(rows[0]!.querySelector('.emoji-icon')).toHaveTextContent('🚀');
+    expect(rows[1]!.querySelector('img.space__avatar')).toHaveAttribute('src', 'asset://localhost/Users/me/notes.png');
+    expect(rows[2]!.querySelector('.space__initial')).toHaveTextContent('P');
+  });
+
+  it('uses the open Space’s own avatar in the selector, whichever Space is open', () => {
+    const { container, unmount } = openMenu({ activeSpacePath: '/s/Work' });
+    expect(container.querySelector('.space-selector .emoji-icon')).toHaveTextContent('🚀');
+    unmount();
+
+    const second = openMenu({ activeSpacePath: '/s/Notes' });
+    expect(second.container.querySelector('.space-selector img.space__avatar')).toHaveAttribute(
+      'src',
+      'asset://localhost/Users/me/notes.png'
+    );
+    expect(second.container.querySelector('.space-selector .emoji-icon')).toBeNull();
+  });
+
+  it('falls back to the initial when an image fails to load', () => {
+    const { rows } = openMenu();
+    fireEvent.error(rows[1]!.querySelector('img.space__avatar')!);
+    expect(rows[1]!.querySelector('img.space__avatar')).toBeNull();
+    expect(rows[1]!.querySelector('.space__initial')).toHaveTextContent('N');
+  });
+
+  it('falls back to the initial when the image cannot be resolved to a URL', () => {
+    const { rows } = openMenu({ resolveImageUrl: () => null });
+    expect(rows[1]!.querySelector('img')).toBeNull();
+    expect(rows[1]!.querySelector('.space__initial')).toHaveTextContent('N');
+  });
+});

@@ -13,6 +13,10 @@
   background: transparent;
   padding: var(--space-0);
 }
+.tabs--flat {
+  background: transparent;
+  padding: var(--space-0);
+}
 .tab {
   display: flex;
   align-items: center;
@@ -49,9 +53,33 @@
 .tabs--ghost .tab:hover {
   background: var(--state-hover-strong);
 }
+.tabs--flat .tab {
+  position: relative;
+  padding-inline: var(--space-12);
+  box-shadow: none;
+}
+.tabs--flat .tab:hover {
+  background: var(--state-hover-strong);
+}
 
 .tab--active {
   background: var(--tab-selected-surface);
   color: var(--foreground-primary);
   box-shadow: var(--shadow-inset-thin-strong), var(--shadow-md);
+}
+
+.tabs--flat .tab--active {
+  background: transparent;
+}
+.tabs--flat .tab--active::before {
+  content: '';
+  position: absolute;
+  inset-inline: var(--space-12);
+  bottom: 0;
+  height: 2px;
+  left: 4px;
+  right: 4px;
+  bottom: -5px;
+  border-radius: 4px;
+  background: var(--foreground-primary);
 }

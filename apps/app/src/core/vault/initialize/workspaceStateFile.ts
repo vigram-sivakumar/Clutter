@@ -4,6 +4,7 @@ import {
   WORKSPACE_STATE_RELATIVE_PATH,
 } from './ReservedResources';
 import type { VaultFileSystem } from '../providers/VaultFileSystem';
+import { VaultRootMissingError } from '../providers/VaultRootMissingError';
 
 /**
  * Reads `.clutter/workspace.json`'s raw text, tolerant of a missing file
@@ -69,7 +70,19 @@ export function mergeAndWriteWorkspaceStateFile(
   rootPath: string,
   patch: Record<string, unknown>
 ): Promise<void> {
-  const write = writeQueue.then(() => mergeAndWrite(fileSystem, rootPath, patch));
+  const write = writeQueue
+    .then(() => mergeAndWrite(fileSystem, rootPath, patch))
+    // The vault is gone (its root was deleted or moved, or its Application was discarded and the
+    // filesystem sealed): the filesystem refused the write, which is the guard working — the store that
+    // asked belongs to a vault nobody is showing any more, and the in-memory state it persists is
+    // discarded with it. That is an expected outcome of the vault lifecycle (ADR-056), not a failure, so
+    // it ends here instead of reaching the stores' fire-and-forget callers as an unhandled rejection.
+    // Every other error (disk full, permission, a serialization bug) still propagates to the caller.
+    .catch((error: unknown) => {
+      if (!(error instanceof VaultRootMissingError)) {
+        throw error;
+      }
+    });
   // A failed write must not wedge the queue for every later writer — the
   // failure still propagates to this call's own caller via `write`.
   writeQueue = write.catch(() => {});

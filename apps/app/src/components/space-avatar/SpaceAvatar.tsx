@@ -12,6 +12,9 @@ export type SpaceAvatarValue =
   | { readonly type: 'image'; readonly src: string }
   | { readonly type: 'emoji'; readonly emoji: string };
 
+/** An avatar the user chose (emoji or image); `initial` is what a Space has when nothing is chosen. */
+export type SpaceAvatarChoice = Exclude<SpaceAvatarValue, { readonly type: 'initial' }>;
+
 export interface SpaceAvatarProps {
   avatar: SpaceAvatarValue;
   /** The vault folder's name — the source of the `initial` variant, and the fallback for the other two. */

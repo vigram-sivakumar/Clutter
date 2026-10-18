@@ -238,7 +238,6 @@ export class ImageWidget extends WidgetType {
     readonly presentation: ImagePresentation = { width: 11, height: null, alignment: 'left', mode: 'fill' }
   ) {
     super();
-    console.log(`[ImageWidget] constructor pos=${this.pos} displayMode=${this.ui.displayMode} presentation.mode=${this.presentation.mode} revealed=${this.ui.revealed}`);
   }
 
   /**
@@ -298,7 +297,6 @@ export class ImageWidget extends WidgetType {
    * exactly as before this method existed.
    */
   override updateDOM(dom: HTMLElement, view: EditorView, from: ImageWidget): boolean {
-    console.log(`[ImageWidget.updateDOM] pos=${this.pos} from.displayMode=${from.ui.displayMode} → this.displayMode=${this.ui.displayMode} from.revealed=${from.ui.revealed} → this.revealed=${this.ui.revealed}`);
 
     // Deliberately does NOT compare `this.to`/`from.to` — the node's own
     // `to` legitimately shifts on a pure presentation update (`{6}` vs
@@ -321,7 +319,6 @@ export class ImageWidget extends WidgetType {
       this.pos !== from.pos ||
       this.ui.revealed !== from.ui.revealed
     ) {
-      console.log(`[ImageWidget.updateDOM] returning false - full rebuild needed`);
       return false;
     }
 
@@ -440,7 +437,6 @@ export class ImageWidget extends WidgetType {
   }
 
   override toDOM(view: EditorView): HTMLElement {
-    console.log(`[ImageWidget.toDOM] pos=${this.pos} displayMode=${this.ui.displayMode} presentation.mode=${this.presentation.mode} revealed=${this.ui.revealed}`);
     const container = document.createElement('div');
     // `cm-media-block` — the shared global media/embed block-flow
     // contract (`mediaPresentation/embedLayout.css`) every media widget
@@ -478,7 +474,6 @@ export class ImageWidget extends WidgetType {
   }
 
   private renderWorking(container: HTMLElement, view: EditorView): HTMLElement {
-    console.log(`[ImageWidget.renderWorking] pos=${this.pos} displayMode=${this.ui.displayMode} applying class: cm-image-container--${this.ui.displayMode}`);
     // The working-state container identity — added only here, never in
     // `toDOM` before branching; see that method's own doc comment for why.
     container.classList.add('cm-image-container');
@@ -685,130 +680,11 @@ export class ImageWidget extends WidgetType {
         // (`.tok-image--fill`/`.tok-image--fit`, MarkdownEditor.css): the
         // image carries no inline sizing of its own, it simply fills
         // whatever box its mode's own rule describes the moment it mounts.
-
-        // DIAGNOSTIC: Measure layout after widget mounts and image loads
-        // Deferred to next microtask to ensure CodeMirror has positioned the widget
-        Promise.resolve().then(() => {
-          this.logLayoutMeasurements(imageButton, img);
-        });
       },
       { once: true }
     );
     probe.addEventListener('error', dispatchBroken, { once: true });
     probe.src = this.url;
-  }
-
-  private logLayoutMeasurements(imageButton: HTMLElement, img: HTMLImageElement): void {
-    const container = imageButton.closest('.cm-image-container') as HTMLElement | null;
-    const cmLine = container?.closest('.cm-line') as HTMLElement | null;
-
-    if (!container || !cmLine) {
-      console.log('[ImageWidget.logLayoutMeasurements] Could not find container or line in DOM');
-      return;
-    }
-
-    console.log(`\n${'='.repeat(100)}`);
-    console.log(`[ImageWidget LAYOUT DIAGNOSTIC] Fill Image: ${this.ui.displayMode}`);
-    console.log(`${'='.repeat(100)}`);
-
-    const rect = cmLine.getBoundingClientRect();
-    const lineStyles = window.getComputedStyle(cmLine);
-    console.log(`\n.cm-line:`);
-    console.log(`  bounding height: ${rect.height.toFixed(0)}px`);
-    console.log(`  offsetHeight: ${cmLine.offsetHeight}px`);
-    console.log(`  scrollHeight: ${cmLine.scrollHeight}px`);
-    console.log(`  computed height: ${lineStyles.height}`);
-    console.log(`  computed min-height: ${lineStyles.minHeight}`);
-    console.log(`  computed max-height: ${lineStyles.maxHeight}`);
-    console.log(`  computed display: ${lineStyles.display}`);
-    console.log(`  computed line-height: ${lineStyles.lineHeight}`);
-
-    // Log direct children
-    console.log(`\n.cm-line direct children (${cmLine.children.length}):`);
-    let childrenBoundingHeightSum = 0;
-    for (let i = 0; i < cmLine.children.length; i++) {
-      const child = cmLine.children[i] as HTMLElement;
-      const childRect = child.getBoundingClientRect();
-      childrenBoundingHeightSum += childRect.height;
-      console.log(
-        `  [${i}] ${child.className || child.tagName}: bounding=${childRect.height.toFixed(0)}px, offset=${child.offsetHeight}px`
-      );
-    }
-    console.log(`  sum of bounding heights: ${childrenBoundingHeightSum.toFixed(0)}px`);
-
-    const containerRect = container.getBoundingClientRect();
-    const containerStyles = window.getComputedStyle(container);
-    console.log(`\n.cm-image-container:`);
-    console.log(`  bounding height: ${containerRect.height.toFixed(0)}px`);
-    console.log(`  offsetHeight: ${container.offsetHeight}px`);
-    console.log(`  scrollHeight: ${container.scrollHeight}px`);
-    console.log(`  computed height: ${containerStyles.height}`);
-    console.log(`  computed min-height: ${containerStyles.minHeight}`);
-    console.log(`  computed max-height: ${containerStyles.maxHeight}`);
-    console.log(`  computed display: ${containerStyles.display}`);
-    console.log(`  computed overflow: ${containerStyles.overflow}`);
-    console.log(`  inline style.height: '${container.style.height || '(empty)'}'`);
-    console.log(`  inline style.width: '${container.style.width || '(empty)'}'`);
-
-    const buttonRect = imageButton.getBoundingClientRect();
-    const buttonStyles = window.getComputedStyle(imageButton);
-    console.log(`\n.cm-image-button:`);
-    console.log(`  bounding height: ${buttonRect.height.toFixed(0)}px`);
-    console.log(`  offsetHeight: ${imageButton.offsetHeight}px`);
-    console.log(`  computed height: ${buttonStyles.height}`);
-    console.log(`  computed display: ${buttonStyles.display}`);
-    console.log(`  inline style.height: '${imageButton.style.height || '(empty)'}'`);
-
-    const imgRect = img.getBoundingClientRect();
-    const imgStyles = window.getComputedStyle(img);
-    console.log(`\nimg.tok-image:`);
-    console.log(`  bounding height: ${imgRect.height.toFixed(0)}px`);
-    console.log(`  offsetHeight: ${img.offsetHeight}px`);
-    console.log(`  computed height: ${imgStyles.height}`);
-    console.log(`  computed display: ${imgStyles.display}`);
-    console.log(`  inline style.height: '${img.style.height || '(empty)'}'`);
-    console.log(`  naturalWidth: ${img.naturalWidth}px`);
-    console.log(`  naturalHeight: ${img.naturalHeight}px`);
-    console.log(`  rendered width: ${img.width}px`);
-    console.log(`  rendered height: ${img.height}px`);
-
-    // Measure widget buffers
-    const buffers = cmLine.querySelectorAll('.cm-widgetBuffer');
-    console.log(`\n.cm-widgetBuffer (count: ${buffers.length}):`);
-    let bufferHeightSum = 0;
-    for (let idx = 0; idx < buffers.length; idx++) {
-      const buffer = buffers[idx] as HTMLElement;
-      const bufferRect = buffer.getBoundingClientRect();
-      const bufferStyles = window.getComputedStyle(buffer);
-      bufferHeightSum += bufferRect.height;
-      console.log(
-        `  [${idx}] bounding=${bufferRect.height.toFixed(0)}px, offset=${buffer.offsetHeight}px, computed height=${bufferStyles.height}, display=${bufferStyles.display}`
-      );
-    }
-    console.log(`  total buffer bounding height: ${bufferHeightSum.toFixed(0)}px`);
-
-    // Analysis
-    console.log(`\n${'─'.repeat(100)}`);
-    console.log('ANALYSIS:');
-    console.log(`${'-'.repeat(100)}`);
-    console.log(`\nLine vs Container:`);
-    console.log(`  line bounding height: ${rect.height.toFixed(0)}px`);
-    console.log(`  container bounding height: ${containerRect.height.toFixed(0)}px`);
-    console.log(`  EXTRA HEIGHT: ${(rect.height - containerRect.height).toFixed(0)}px`);
-    console.log(`\nChildren Analysis:`);
-    console.log(`  sum of direct children bounding heights: ${childrenBoundingHeightSum.toFixed(0)}px`);
-    console.log(`  line bounding height: ${rect.height.toFixed(0)}px`);
-    console.log(`  difference: ${(rect.height - childrenBoundingHeightSum).toFixed(0)}px`);
-
-    if (Math.abs(rect.height - 800) < 10 && Math.abs(containerRect.height - 400) < 10) {
-      console.log(`\n⚠️  CONFIRMED: Line ~800px, Container ~400px`);
-      const extraHeight = rect.height - containerRect.height;
-      if (Math.abs(extraHeight - containerRect.height) < 50) {
-        console.log(`⚠️  HYPOTHESIS: Extra height ≈ container height (double rendering?)`);
-      }
-    }
-
-    console.log(`\n${'='.repeat(100)}\n`);
   }
 
   private renderBroken(container: HTMLElement, view: EditorView): HTMLElement {
@@ -919,7 +795,6 @@ export class ImageWidget extends WidgetType {
       () => {
         const revealing = !this.ui.revealed;
         const to = getTo();
-        console.log(`[ImageWidget.makeEditButton] pos=${this.pos} BEFORE dispatch: displayMode=${this.ui.displayMode} revealed=${this.ui.revealed} → revealing=${revealing}`);
         view.dispatch({
           effects: setImageUiState.of({
             pos: this.pos,

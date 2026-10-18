@@ -935,3 +935,46 @@ describe('Overlay — focus is handed back by how it was dismissed', () => {
     expect(screen.getByText('trigger')).toHaveFocus();
   });
 });
+
+describe('Overlay dragRegion', () => {
+  afterEach(cleanup);
+
+  function mountOverlay(props: { dragRegion?: boolean; backdrop?: false | 'transparent' | 'tinted' }) {
+    const anchor = document.createElement('button');
+    document.body.appendChild(anchor);
+    render(
+      <Overlay open onClose={() => {}} anchorRef={{ current: anchor }} {...props}>
+        <button type="button">Overlay action</button>
+      </Overlay>
+    );
+  }
+
+  it('is on by default: the shared drag strip sits inside the backdrop, not in the surface', () => {
+    mountOverlay({ backdrop: 'tinted' });
+    const strips = document.querySelectorAll('[data-tauri-drag-region]');
+    expect(strips).toHaveLength(1);
+    expect(strips[0]!.classList.contains('tauri-drag-strip')).toBe(true);
+    expect(strips[0]!.parentElement).toBe(document.querySelector('.overlay__backdrop'));
+    expect(document.querySelector('.overlay__surface [data-tauri-drag-region]')).toBeNull();
+  });
+
+  it('covers a transparent backdrop too (menus and popovers cover the app as well)', () => {
+    mountOverlay({ backdrop: 'transparent' });
+    expect(document.querySelectorAll('.overlay__backdrop > [data-tauri-drag-region]')).toHaveLength(1);
+  });
+
+  it('can be switched off', () => {
+    mountOverlay({ backdrop: 'tinted', dragRegion: false });
+    expect(document.querySelector('[data-tauri-drag-region]')).toBeNull();
+  });
+
+  it('renders no strip without a backdrop to hold it', () => {
+    mountOverlay({ backdrop: false });
+    expect(document.querySelector('[data-tauri-drag-region]')).toBeNull();
+  });
+
+  it('keeps the overlay content outside the drag region', () => {
+    mountOverlay({ backdrop: 'tinted' });
+    expect(screen.getByText('Overlay action').closest('[data-tauri-drag-region]')).toBeNull();
+  });
+});

@@ -20,12 +20,27 @@ import { StartupFrame } from './StartupFrame';
 import { scheduleAfterFirstPaint } from './scheduleAfterFirstPaint';
 import { createWindowCloseHandler } from './windowCloseHandler';
 import { WelcomeScreenDialog } from '../components/welcome-screen/WelcomeScreenDialog';
+import { draftForExistingFolder, type NewSpaceDraft } from '../components/space-details/SpaceDetails';
 import { pickSpaceFolder } from './spaces/pickSpaceFolder';
 import { SpacesContext, type SpacesApi } from './spaces/SpacesContext';
+import { localCoverImageUrlResolver } from '../core/vault/providers/LocalCoverImageUrlResolver';
 import { listSpaces, normalizeSpacePath, spaceName } from './spaces/spaceRegistry';
 import { ActiveSpaceAvatarContext } from '../components/space-avatar/ActiveSpaceAvatarContext';
-import type { SpaceAvatarProps } from '../components/space-avatar/SpaceAvatar';
+import type { SpaceAvatarChoice, SpaceAvatarProps } from '../components/space-avatar/SpaceAvatar';
 import { useSpaceRegistry } from './spaces/useSpaceRegistry';
+
+/**
+ * A Space avatar's image is the absolute path of a file the user picked (it lives outside every Space), so
+ * it loads through the Tauri file resolver. Where there is none (the web runtime) it is `null`, which
+ * shows the Space's initial instead.
+ */
+function resolveSpaceAvatarImage(path: string): string | null {
+  try {
+    return localCoverImageUrlResolver.toLoadableUrl(path);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * The first-run Welcome screen's background (a remote image, so it needs the network; offline it is just
@@ -95,6 +110,13 @@ export function AppShell() {
   // suppress the Welcome dialog from the very first render in which the replacement Space starts to open,
   // whatever order React flushes the several state updates of that sequence in.
   const recoveringRef = useRef(false);
+  // The lost Spaces whose replacement search is queued or running. The open effect never bootstraps one of
+  // them: the lost folder is not a candidate, and re-opening it mid-search only fails with
+  // `VaultRootMissingError` and starts a second, overlapping search. How many searches are queued, and the
+  // tail of the queue (they run one at a time, see `recoverFromLostSpace`).
+  const lostBeingRecoveredRef = useRef(new Set<string>());
+  const recoveriesQueuedRef = useRef(0);
+  const recoveryChainRef = useRef<Promise<void>>(Promise.resolve());
   const [, forceRender] = useReducer((count: number) => count + 1, 0);
   const recovering = recoveringRef.current;
   const [recoveryDoneFor, setRecoveryDoneFor] = useState<string | null>(null);
@@ -186,6 +208,12 @@ export function AppShell() {
       return;
     }
     const openPath: string = vaultPath;
+
+    // Its replacement is being searched for right now (and the search is what decides what opens next).
+    if (lostBeingRecoveredRef.current.has(openPath)) {
+      setIsLoading(false);
+      return;
+    }
 
     // Already showing it — or the user went back to it while another was being prepared.
     if (openedPathRef.current === openPath) {
@@ -375,23 +403,45 @@ export function AppShell() {
   // is persisted only if it opens, and is put back if it doesn't — then the next candidate is tried.
   // Only when none opens does the Welcome dialog show. The lost entry stays in the registry; nothing is
   // created, and a lost folder is never treated as an empty vault.
-  async function recoverFromLostSpace(lostPath: string): Promise<void> {
+  //
+  // Searches run one at a time, and the flag that keeps the opening frame up stays set until the last one
+  // is done, so one search finishing can never expose the Welcome dialog while another is still opening a
+  // replacement. A queued search whose loss has been overtaken (an Application is open again by the time
+  // its turn comes) does nothing.
+  function recoverFromLostSpace(lostPath: string): Promise<void> {
+    // The same loss reported twice (the watcher hint and the focus check, say) is one search.
+    if (lostBeingRecoveredRef.current.has(lostPath)) return recoveryChainRef.current;
+    recoveriesQueuedRef.current++;
     recoveringRef.current = true;
+    lostBeingRecoveredRef.current.add(lostPath);
     forceRender();
-    let opened = false;
-    try {
-      for (const candidate of await spaces.fallbackCandidates(lostPath)) {
-        if ((await openSpaceRef.current(candidate)) === null) {
+
+    const search = async (): Promise<void> => {
+      let opened = false;
+      try {
+        if (applicationRef.current !== null) {
           opened = true;
-          break;
+          return;
         }
+        for (const candidate of await spaces.fallbackCandidates(lostPath)) {
+          if ((await openSpaceRef.current(candidate)) === null) {
+            opened = true;
+            break;
+          }
+        }
+      } finally {
+        lostBeingRecoveredRef.current.delete(lostPath);
+        recoveriesQueuedRef.current--;
+        if (recoveriesQueuedRef.current === 0) recoveringRef.current = false;
+        if (!opened) setRecoveryDoneFor(lostPath);
+        forceRender();
       }
-    } finally {
-      recoveringRef.current = false;
-      if (!opened) setRecoveryDoneFor(lostPath);
-      forceRender();
-    }
-    if (opened) void spaces.refreshAvailability();
+      if (opened) void spaces.refreshAvailability();
+    };
+
+    const searching = recoveryChainRef.current.then(search);
+    recoveryChainRef.current = searching.catch(() => {});
+    return searching;
   }
 
   // Effects and callbacks created in an earlier render must still call the current versions.
@@ -414,7 +464,7 @@ export function AppShell() {
   // Opens `rawPath` as the first Space from the Welcome dialog. Resolves `null` once it has opened
   // (and been remembered), or a message for the dialog. The registry only changes through
   // `selectSpace`, is put back on failure, and is written only by `confirmOpened`.
-  async function openSpaceFromWelcome(rawPath: string): Promise<string | null> {
+  async function openSpaceFromWelcome(rawPath: string, avatar?: SpaceAvatarChoice): Promise<string | null> {
     if (onboardingRef.current) return 'Already opening a space.';
     const path = normalizeSpacePath(rawPath);
     const status = await probeSpaceFolder(path);
@@ -428,8 +478,11 @@ export function AppShell() {
       setMissingRoot(null);
       // The configured Space is the one `bootstrap` found missing and it is now back: clearing the
       // report above is all that is needed for the open effect to run again.
-      if (missingRoot === path && spaces.registry.activePath === path) return;
-      void spaces.selectSpace(path).then((accepted) => {
+      if (missingRoot === path && spaces.registry.activePath === path) {
+        if (avatar) spaces.setSpaceAvatar(path, avatar);
+        return;
+      }
+      void spaces.selectSpace(path, avatar).then((accepted) => {
         if (!accepted && onboardingRef.current?.path === path) {
           setMissingRoot(onboardingRef.current.restoreMissingRoot);
           onboardingRef.current = null;
@@ -440,14 +493,15 @@ export function AppShell() {
     });
   }
 
-  async function selectFolderFromWelcome(): Promise<string | null> {
+  async function selectFolderFromWelcome(): Promise<NewSpaceDraft | string | null> {
     const picked = await pickSpaceFolder();
     if (picked === null) return null;
     // Any other folder the user can pick is fine. Access to one outside the static `$HOME/**` scope comes
     // from the picker's own grant, which the persisted-scope plugin saves for the next launch.
     const refusal = await acceptPickedSpace(picked);
     if (refusal !== null) return refusal;
-    return openSpaceFromWelcome(picked);
+    // Not opened yet: the dialog shows the space's settings first, and opens it on the user's confirm.
+    return draftForExistingFolder(picked);
   }
 
   const spacesApi = useMemo<SpacesApi>(
@@ -460,24 +514,25 @@ export function AppShell() {
       // Only provided with an open Application, which means a Space is configured.
       activePath: spaces.registry.activePath ?? '',
       onAddSpace: spaces.addSpace && (() => void spaces.addSpace?.()),
+      resolveAvatarImageUrl: resolveSpaceAvatarImage,
       onSwitchSpace: (path) => void spaces.switchSpace(path),
       refreshAvailability: () => void spaces.refreshAvailability(),
     }),
     [spaces.registry, spaces.missingPaths, spaces.addSpace, spaces.switchSpace, spaces.refreshAvailability]
   );
 
-  // The open Space's avatar, for every surface that shows the Space root. No avatar is chosen
-  // yet, so it is the initial of the Space's folder name.
+  // The open Space's avatar, for every surface that shows the Space root: the one chosen for it in the
+  // registry, else the initial of the Space's folder name.
   const activeSpaceAvatar = useMemo<SpaceAvatarProps | null>(
     () =>
       application
         ? {
-            avatar: { type: 'initial' },
+            avatar: spaces.registry.avatars?.[application.vault.root] ?? { type: 'initial' },
             folderName: spaceName(application.vault.root),
-            resolveImageUrl: (src) => application.resolveCoverImageForDisplay(src),
+            resolveImageUrl: resolveSpaceAvatarImage,
           }
         : null,
-    [application]
+    [application, spaces.registry.avatars]
   );
 
   const notice = spaces.notice && (
@@ -511,6 +566,7 @@ export function AppShell() {
           onResolveSpaceParent={resolveSpaceParent}
           onCreateFolder={createSpaceFolder}
           onOpenSpace={openSpaceFromWelcome}
+          resolveImageUrl={resolveSpaceAvatarImage}
         />
       </>
     );

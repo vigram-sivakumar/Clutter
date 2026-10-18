@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 import { createPortal } from 'react-dom';
 
+import { TauriDragStrip } from '../tauri-drag-strip/TauriDragStrip';
 import type { OverlayProps } from './Overlay.types';
 import { useEscape } from './hooks/useEscape';
 import { useOverlayPosition } from './hooks/useOverlayPosition';
@@ -25,6 +26,7 @@ export function Overlay(props: OverlayProps) {
     suppressReturnFocusRef,
     dismissible = true,
     dismissOnContextMenu = true,
+    dragRegion = true,
   } = props;
 
   const isCentered = props.position === 'centered';
@@ -103,7 +105,9 @@ export function Overlay(props: OverlayProps) {
               onClose();
             }
           }}
-        />
+        >
+          {dragRegion && <TauriDragStrip />}
+        </div>
       )}
 
       <div

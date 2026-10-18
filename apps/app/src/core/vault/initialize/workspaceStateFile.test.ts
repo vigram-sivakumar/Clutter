@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { mergeAndWriteWorkspaceStateFile } from './workspaceStateFile';
 import { InMemoryVaultFileSystem } from '../testing/InMemoryVaultFileSystem';
+import { LostableVaultFileSystem } from '../testing/LostableVaultFileSystem';
+import { VaultRootMissingError } from '../providers/VaultRootMissingError';
 
 const ROOT = '/vault';
 const WORKSPACE_PATH = `${ROOT}/.clutter/workspace.json`;
@@ -77,5 +79,77 @@ describe('mergeAndWriteWorkspaceStateFile', () => {
       foldState: { p1: { doc: 'x', fold: [] } },
       tagExpansion: ['design'],
     });
+  });
+});
+
+describe('mergeAndWriteWorkspaceStateFile — a vault that is gone', () => {
+  const OTHER_ROOT = '/other-vault';
+  const OTHER_PATH = `${OTHER_ROOT}/.clutter/workspace.json`;
+
+  it('resolves, without writing or recreating anything, when the vault was lost before the write ran', async () => {
+    const fileSystem = new LostableVaultFileSystem(ROOT, { [WORKSPACE_PATH]: '{"kept":true}' });
+    fileSystem.lose();
+
+    await expect(mergeAndWriteWorkspaceStateFile(fileSystem, ROOT, { a: 1 })).resolves.toBeUndefined();
+
+    expect(fileSystem.landed).toEqual({ writeFile: 0, createDirectory: 0, deleteFile: 0, moveFile: 0 });
+    expect(await readWorkspaceFile(fileSystem)).toEqual({ kept: true });
+  });
+
+  it('never recreates the vault folder when `.clutter` is gone with it', async () => {
+    const fileSystem = new LostableVaultFileSystem(ROOT);
+    fileSystem.lose();
+
+    await expect(mergeAndWriteWorkspaceStateFile(fileSystem, ROOT, { a: 1 })).resolves.toBeUndefined();
+
+    expect(await fileSystem.exists(`${ROOT}/.clutter`)).toBe(false);
+    expect(await fileSystem.exists(WORKSPACE_PATH)).toBe(false);
+    expect(fileSystem.landed.createDirectory).toBe(0);
+  });
+
+  it('drops a write that is already queued when the vault is lost, and a later vault still writes', async () => {
+    const lost = new LostableVaultFileSystem(ROOT, { [WORKSPACE_PATH]: '{}' });
+    const replacement = new LostableVaultFileSystem(OTHER_ROOT, { [OTHER_PATH]: '{}' });
+
+    // The write is queued behind another one; the vault disappears before it gets its turn.
+    const first = mergeAndWriteWorkspaceStateFile(lost, ROOT, { first: 1 });
+    const stale = mergeAndWriteWorkspaceStateFile(lost, ROOT, { stale: 1 });
+    lost.lose();
+    const fresh = mergeAndWriteWorkspaceStateFile(replacement, OTHER_ROOT, { fresh: 1 });
+
+    await expect(Promise.all([first, stale, fresh])).resolves.toBeDefined();
+
+    expect(lost.landed.writeFile).toBe(0);
+    expect(await readWorkspaceFile(lost)).toEqual({});
+    // Only the replacement vault received its own write, in its own folder.
+    expect(JSON.parse(await replacement.readFile(OTHER_PATH))).toEqual({ fresh: 1 });
+    expect(await replacement.exists(WORKSPACE_PATH)).toBe(false);
+  });
+
+  it('still rejects for every other error, so a real failure stays observable', async () => {
+    const diskFull = new Error('disk full');
+    class FailingFileSystem extends InMemoryVaultFileSystem {
+      override async writeFile(): Promise<void> {
+        throw diskFull;
+      }
+    }
+    await expect(
+      mergeAndWriteWorkspaceStateFile(new FailingFileSystem({ [WORKSPACE_PATH]: '{}' }), ROOT, { a: 1 })
+    ).rejects.toBe(diskFull);
+
+    class PermissionDenied extends InMemoryVaultFileSystem {
+      override async createDirectory(): Promise<void> {
+        throw new Error('Permission denied (os error 13)');
+      }
+    }
+    await expect(mergeAndWriteWorkspaceStateFile(new PermissionDenied(), ROOT, { a: 1 })).rejects.toThrow(
+      'Permission denied'
+    );
+  });
+
+  it('a lost vault does not wedge the queue or change what VaultRootMissingError is', async () => {
+    const error = new VaultRootMissingError(ROOT);
+    expect(error).toBeInstanceOf(Error);
+    expect(error.rootPath).toBe(ROOT);
   });
 });

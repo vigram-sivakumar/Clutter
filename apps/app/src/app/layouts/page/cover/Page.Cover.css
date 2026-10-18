@@ -239,3 +239,14 @@
   bottom: var(--space-8);
   max-width: calc(100% - var(--space-24) - var(--space-8));
 }
+
+/* Side layout: the window drag strip (TauriDragStrip) overlays the top of the cover — absolute, so it takes no
+   layout space and the cover keeps its own size and position. It sits above the image and below the cover's
+   actions (same z-index, earlier in the DOM), so the hover actions stay reachable; it does not catch
+   anything below its own height. While repositioning, the image owns pointer drags, so the strip steps aside. */
+.page__cover > .tauri-drag-strip {
+  z-index: 1;
+}
+.page__cover[data-repositioning] > .tauri-drag-strip {
+  pointer-events: none;
+}

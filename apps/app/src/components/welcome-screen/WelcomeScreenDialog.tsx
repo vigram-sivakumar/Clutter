@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import type { SpaceAvatarChoice } from '@components/space-avatar/SpaceAvatar';
 import { Dialog } from '@components/dialog/Dialog';
 import {
   SpaceDetails,
@@ -9,13 +10,15 @@ import {
 import { WelcomeScreen } from './WelcomeScreen';
 
 interface WelcomeScreenDialogProps {
-  /** Native picker, then open the chosen folder. A message when it failed; `null` when opened or cancelled. */
-  onSelectFolder: () => Promise<string | null>;
+  /** Native picker. The chosen folder's settings draft, a message when it can't be used, or `null` when cancelled. */
+  onSelectFolder: () => Promise<NewSpaceDraft | string | null>;
   /** Where new spaces are created (the user's Documents folder). */
   onResolveSpaceParent: () => Promise<{ path: string; name: string }>;
   onCreateFolder: (name: string) => Promise<CreateFolderResult>;
   /** Open a folder as the space. A message when it failed; `null` when opened. */
-  onOpenSpace: (path: string) => Promise<string | null>;
+  onOpenSpace: (path: string, avatar?: SpaceAvatarChoice) => Promise<string | null>;
+  /** Turns an uploaded avatar image's path into a loadable URL for the preview. */
+  resolveImageUrl?: (path: string) => string | null;
 }
 
 /**
@@ -29,6 +32,7 @@ export function WelcomeScreenDialog({
   onResolveSpaceParent,
   onCreateFolder,
   onOpenSpace,
+  resolveImageUrl,
 }: WelcomeScreenDialogProps) {
   const [draft, setDraft] = useState<NewSpaceDraft | null>(null);
 
@@ -43,17 +47,28 @@ export function WelcomeScreenDialog({
     }
   }
 
+  async function selectExistingFolder(): Promise<string | null> {
+    const picked = await onSelectFolder();
+    if (picked === null || typeof picked === 'string') return picked;
+    setDraft(picked);
+    return null;
+  }
+
   return (
-    // The default tinted backdrop is the one scrim over the app frame's background image.
+    // The default tinted backdrop is the one scrim over the app frame's background image. It also covers
+    // the frame's own drag strip; the overlay's backdrop carries one (its default), so the window moves from
+    // the top edge.
     <Dialog open onClose={() => {}} dismissible={false} size="large">
       {/* Both screens fill their parent's height, so it is given a fixed one. */}
       <div style={{ height: 480 }}>
         {draft === null ? (
-          <WelcomeScreen onSelectFolder={onSelectFolder} onCreateSpace={startNewSpace} />
+          <WelcomeScreen onSelectFolder={selectExistingFolder} onCreateSpace={startNewSpace} />
         ) : (
           <SpaceDetails
             draft={draft}
             onNameChange={(name) => setDraft((current) => current && { ...current, name })}
+            onAvatarChange={(avatar) => setDraft((current) => current && { ...current, avatar })}
+            resolveImageUrl={resolveImageUrl}
             onCreateFolder={onCreateFolder}
             onOpenSpace={onOpenSpace}
             onBack={() => setDraft(null)}

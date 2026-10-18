@@ -97,12 +97,15 @@ interface EmojiTrayProps {
   onSelect: (emoji: string) => void;
   hasIcon?: boolean;
   onRemove?: () => void;
+  /** Whether the header shows its remove (trash) button. Callers that offer their own remove action hide it. */
+  showRemove?: boolean;
 }
 
 export function EmojiTray({
   onSelect,
   hasIcon = false,
   onRemove,
+  showRemove = true,
 }: EmojiTrayProps) {
   const [query, setQuery] = useState('');
   const [preferredTone, setPreferredTone] =
@@ -231,15 +234,17 @@ export function EmojiTray({
           placeholder="Search emoji"
         />
 
-        <Button
-          isIconOnly
-          variant="outline-fill"
-          aria-label="Remove icon"
-          disabled={!hasIcon}
-          onClick={onRemove}
-        >
-          <AppIcon icon="trash" />
-        </Button>
+        {showRemove && (
+          <Button
+            isIconOnly
+            variant="outline-fill"
+            aria-label="Remove icon"
+            disabled={!hasIcon}
+            onClick={onRemove}
+          >
+            <AppIcon icon="trash" />
+          </Button>
+        )}
       </div>
 
       <div ref={emojiGridRef} className="emoji-tray__grid">

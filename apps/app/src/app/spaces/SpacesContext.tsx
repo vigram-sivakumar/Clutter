@@ -7,6 +7,8 @@ export interface SpacesApi {
   /** Opens the folder picker and activates the chosen folder; absent where no picker exists (web runtime). */
   readonly onAddSpace?: () => void;
   readonly onSwitchSpace: (path: string) => void;
+  /** Turns a Space avatar image's `src` (a file path) into a loadable URL; `null` shows the initial instead. */
+  readonly resolveAvatarImageUrl?: (src: string) => string | null;
   /** Re-checks which listed Spaces still exist; called when the selector opens. */
   readonly refreshAvailability?: () => void;
 }

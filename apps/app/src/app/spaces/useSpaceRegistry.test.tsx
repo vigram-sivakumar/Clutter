@@ -384,3 +384,86 @@ describe('useSpaceRegistry', () => {
   });
 });
 
+describe('useSpaceRegistry: avatars', () => {
+  const emoji = { type: 'emoji', emoji: '🌿' } as const;
+  const image = { type: 'image', src: '/Users/me/Pictures/logo.png' } as const;
+
+  it('records the avatar with the selection and persists it only once the Space has opened', async () => {
+    const { result, storage } = await setup({});
+
+    await act(async () => void (await result.current.selectSpace('/Picked/Notes', emoji)));
+    expect(result.current.registry.avatars).toEqual({ '/Picked/Notes': emoji });
+    expect(storage.value).toBeNull();
+
+    act(() => result.current.confirmOpened());
+    expect(JSON.parse(storage.value!).avatars).toEqual({ '/Picked/Notes': emoji });
+  });
+
+  it('persists an image avatar and restores it after a restart', async () => {
+    const first = await setup({});
+    await act(async () => void (await first.result.current.selectSpace('/Volumes/Drive/Vault', image)));
+    act(() => first.result.current.confirmOpened());
+    first.unmount();
+
+    const restarted = await setup({ stored: JSON.parse(first.storage.value!) });
+    expect(restarted.result.current.registry.avatars).toEqual({ '/Volumes/Drive/Vault': image });
+  });
+
+  it('rolls the avatar back with the selection when the open fails', async () => {
+    const { result, storage } = await setup({});
+
+    await act(async () => void (await result.current.selectSpace('/Picked/Notes', emoji)));
+    act(() => result.current.cancelSelection());
+
+    expect(result.current.registry.avatars).toBeUndefined();
+    expect(storage.value).toBeNull();
+  });
+
+  it("leaves a Space's existing avatar alone when selected again without one", async () => {
+    const stored = { paths: ['/Default', '/A'], activePath: '/Default', avatars: { '/A': emoji } };
+    const { result } = await setup({ stored });
+
+    await act(async () => void (await result.current.selectSpace('/A')));
+    expect(result.current.registry.avatars).toEqual({ '/A': emoji });
+  });
+
+  it('updates an avatar of an opened Space and remembers it immediately', async () => {
+    const { result, storage } = await setup({ stored: { paths: ['/Default'], activePath: '/Default' } });
+    act(() => result.current.confirmOpened());
+
+    act(() => result.current.setSpaceAvatar('/Default', image));
+
+    expect(result.current.registry.avatars).toEqual({ '/Default': image });
+    expect(JSON.parse(storage.value!).avatars).toEqual({ '/Default': image });
+  });
+
+  it('removing the avatar removes its registry entry, in memory and in storage', async () => {
+    const stored = { paths: ['/Default'], activePath: '/Default', avatars: { '/Default': emoji } };
+    const { result, storage } = await setup({ stored });
+    act(() => result.current.confirmOpened());
+
+    act(() => result.current.setSpaceAvatar('/Default', undefined));
+
+    expect(result.current.registry.avatars).toBeUndefined();
+    expect('avatars' in JSON.parse(storage.value!)).toBe(false);
+  });
+
+  it('never persists a Space whose switch is still in flight when an avatar is updated', async () => {
+    const stored = { paths: ['/Default', '/Other'], activePath: '/Default' };
+    const { result, storage } = await setup({ stored });
+    act(() => result.current.confirmOpened());
+    await act(async () => void (await result.current.selectSpace('/Other')));
+
+    act(() => result.current.setSpaceAvatar('/Default', emoji));
+
+    expect(JSON.parse(storage.value!).activePath).toBe('/Default');
+    expect(JSON.parse(storage.value!).avatars).toEqual({ '/Default': emoji });
+  });
+
+  it('does nothing for a Space that is not registered', async () => {
+    const { result } = await setup({});
+    act(() => result.current.setSpaceAvatar('/Nope', emoji));
+    expect(result.current.registry.avatars).toBeUndefined();
+  });
+});
+

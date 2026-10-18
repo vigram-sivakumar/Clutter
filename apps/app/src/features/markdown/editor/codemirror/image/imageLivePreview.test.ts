@@ -626,35 +626,19 @@ describe('Edit source: presentation mode (Fit/Fill) must be preserved', () => {
     const imageTo = fitImageMd.length;
 
     // Before Edit Source
-    console.log('=== BEFORE EDIT SOURCE ===');
     const uiBefore = getImageUiState(view.state, 0, imageTo);
-    console.log('getImageUiState(0, imageTo):', uiBefore);
     const imgBefore = getImg(view);
-    console.log('img.classList:', imgBefore?.className);
-    console.log('tok-image--fit present?', imgBefore?.classList.contains('tok-image--fit'));
-    console.log('tok-image--fill present?', imgBefore?.classList.contains('tok-image--fill'));
 
     // Click Edit Source - capture state right before dispatch
     const editButton = getEditButton(view);
-    console.log('\n=== CLICK EDIT SOURCE ===');
 
     // Dispatch the click
     editButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     settleAllProbes();
 
     // After Edit Source
-    console.log('\n=== AFTER EDIT SOURCE ===');
     const uiAfter = getImageUiState(view.state, 0, imageTo);
-    console.log('getImageUiState(0, imageTo):', uiAfter);
     const imgAfter = getImg(view);
-    console.log('img.classList:', imgAfter?.className);
-    console.log('tok-image--fit present?', imgAfter?.classList.contains('tok-image--fit'));
-    console.log('tok-image--fill present?', imgAfter?.classList.contains('tok-image--fill'));
-
-    // Also check WITHOUT passing imageTo to see what happens
-    console.log('\n=== ALTERNATIVE: getImageUiState WITHOUT to parameter ===');
-    const uiNoTo = getImageUiState(view.state, 0);  // NO imageTo
-    console.log('getImageUiState(0) [no to]:', uiNoTo);
 
     // Assertions
     expect(uiBefore.displayMode).toBe('fit');

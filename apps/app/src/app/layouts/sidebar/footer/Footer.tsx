@@ -21,7 +21,7 @@ interface FooterProps {
    */
   resolveImageUrl?(src: string): string | null;
   /** Every registered Space, active one included. Omitted: the menu lists just the active Space. */
-  spaces?: readonly { path: string; name: string }[];
+  spaces?: readonly { path: string; name: string; avatar?: SpaceAvatarValue }[];
   /** The active Space's path, matched against `spaces` to mark the current one. */
   activeSpacePath?: string;
   /** Presence makes the other Spaces selectable. */
@@ -50,8 +50,11 @@ export function Footer({
   const [menuOpen, setMenuOpen] = useState(false);
   const selectorRef = useRef<HTMLDivElement>(null);
   const title = spaceName || vaultFolderName;
+  // Each listed Space shows its own avatar; the open one falls back to its entry's when none is passed.
+  const activeAvatar =
+    avatar !== DEFAULT_AVATAR ? avatar : (spaces?.find((space) => space.path === activeSpacePath)?.avatar ?? avatar);
   const avatarView = (
-    <SpaceAvatar avatar={avatar} folderName={vaultFolderName} resolveImageUrl={resolveImageUrl} />
+    <SpaceAvatar avatar={activeAvatar} folderName={vaultFolderName} resolveImageUrl={resolveImageUrl} />
   );
 
   return (
@@ -96,7 +99,13 @@ export function Footer({
               <MenuItem
                 key={space.path}
                 className="space-menu__current"
-                leading={<SpaceAvatar avatar={DEFAULT_AVATAR} folderName={space.name} />}
+                leading={
+                  <SpaceAvatar
+                    avatar={space.avatar ?? DEFAULT_AVATAR}
+                    folderName={space.name}
+                    resolveImageUrl={resolveImageUrl}
+                  />
+                }
                 title={space.path}
                 disabled={!onSwitchSpace}
                 onClick={() => {

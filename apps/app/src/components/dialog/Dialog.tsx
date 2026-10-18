@@ -13,6 +13,7 @@ export interface DialogProps extends Pick<
   | 'animate'
   | 'top'
   | 'dismissible'
+  | 'dragRegion'
 > {
   size?: 'small' | 'medium' | 'large';
 

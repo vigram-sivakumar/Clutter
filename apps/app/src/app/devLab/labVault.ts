@@ -112,6 +112,9 @@ const membershipSelector = {
   getAllVisibleResources: () => RESOURCES,
   getWorkspaceFolders: () => FOLDERS.filter((f) => f.parentId === null && !SYSTEM_FOLDER_IDS.has(f.id)),
   getVisibleChildFolders: (id: string) => FOLDERS.filter((f) => f.parentId === id),
+  // What the real selector answers for a vault that has neither folder yet; the move-destination builder asks both.
+  getInboxFolder: () => undefined,
+  getTemplatesFolder: () => undefined,
 } as unknown as MembershipSelector;
 
 const effectivePageState = { getPage: () => undefined } as unknown as EffectivePageState;

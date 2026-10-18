@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { FoldStateStore } from './FoldStateStore';
 import { InMemoryVaultFileSystem } from '../../vault/testing/InMemoryVaultFileSystem';
+import { LostableVaultFileSystem } from '../../vault/testing/LostableVaultFileSystem';
 
 const ROOT = '/vault';
 const WORKSPACE_PATH = `${ROOT}/.clutter/workspace.json`;
@@ -327,3 +328,107 @@ describe('FoldStateStore — embedCollapse (getEmbedCollapse/setEmbedCollapse)',
 async function flushMicrotasks(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
+
+describe('FoldStateStore — the vault disappears while writes are pending', () => {
+  const ENTRY = { doc: 'a', fold: [0, 1] };
+  let rejections: unknown[] = [];
+  let saved: NodeJS.UnhandledRejectionListener[] = [];
+
+  /** Takes over `unhandledRejection` from the test runner (which would fail the run) and records instead. */
+  function recordUnhandledRejections(): void {
+    rejections = [];
+    saved = process.listeners('unhandledRejection');
+    process.removeAllListeners('unhandledRejection');
+    process.on('unhandledRejection', (reason) => rejections.push(reason));
+  }
+
+  afterEach(() => {
+    process.removeAllListeners('unhandledRejection');
+    for (const listener of saved) process.on('unhandledRejection', listener);
+    saved = [];
+  });
+
+  /** Lets every fire-and-forget persist settle, then the runtime deliver any unhandled rejection. */
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
+
+  it('set / setEmbedCollapse / clear after the loss reject nothing and write nothing', async () => {
+    const fileSystem = new LostableVaultFileSystem(ROOT, { [WORKSPACE_PATH]: '{}' });
+    const store = await FoldStateStore.load(fileSystem, ROOT);
+    recordUnhandledRejections();
+
+    fileSystem.lose();
+    store.set('page-1', ENTRY);
+    store.setEmbedCollapse('page-1', 'page-2', true);
+    store.clear('page-1');
+    await settle();
+
+    expect(rejections).toEqual([]);
+    expect(fileSystem.landed).toEqual({ writeFile: 0, createDirectory: 0, deleteFile: 0, moveFile: 0 });
+  });
+
+  it('a write already pending when the vault disappears is dropped, not reported', async () => {
+    const fileSystem = new LostableVaultFileSystem(ROOT, { [WORKSPACE_PATH]: '{}' });
+    const store = await FoldStateStore.load(fileSystem, ROOT);
+    recordUnhandledRejections();
+
+    store.set('page-1', ENTRY);
+    fileSystem.lose();
+    await settle();
+
+    expect(rejections).toEqual([]);
+    expect(fileSystem.landed.writeFile).toBe(0);
+  });
+
+  it('never recreates the vault folder: a vault without `.clutter` stays empty', async () => {
+    const fileSystem = new LostableVaultFileSystem(ROOT);
+    const store = await FoldStateStore.load(fileSystem, ROOT);
+    recordUnhandledRejections();
+
+    fileSystem.lose();
+    store.set('page-1', ENTRY);
+    await settle();
+
+    expect(rejections).toEqual([]);
+    expect(await fileSystem.exists(`${ROOT}/.clutter`)).toBe(false);
+    expect(fileSystem.landed.createDirectory).toBe(0);
+  });
+
+  it("a stale store never writes into the replacement vault, and the replacement's own store still persists", async () => {
+    const lost = new LostableVaultFileSystem(ROOT, { [WORKSPACE_PATH]: '{}' });
+    const oldStore = await FoldStateStore.load(lost, ROOT);
+    const REPLACEMENT_ROOT = '/replacement';
+    const replacement = new LostableVaultFileSystem(REPLACEMENT_ROOT, {
+      [`${REPLACEMENT_ROOT}/.clutter/workspace.json`]: '{}',
+    });
+    const newStore = await FoldStateStore.load(replacement, REPLACEMENT_ROOT);
+    recordUnhandledRejections();
+
+    lost.lose();
+    oldStore.set('stale-page', ENTRY); // e.g. an editor of the discarded vault unmounting late
+    newStore.set('new-page', ENTRY);
+    await settle();
+
+    expect(rejections).toEqual([]);
+    const written = JSON.parse(await replacement.readFile(`${REPLACEMENT_ROOT}/.clutter/workspace.json`)) as {
+      foldState: Record<string, unknown>;
+    };
+    expect(Object.keys(written.foldState)).toEqual(['new-page']);
+    expect(lost.landed.writeFile).toBe(0);
+  });
+
+  it('an unexpected filesystem error is still reported as an unhandled rejection', async () => {
+    const diskFull = new Error('disk full');
+    class FailingFileSystem extends InMemoryVaultFileSystem {
+      override async writeFile(): Promise<void> {
+        throw diskFull;
+      }
+    }
+    const store = await FoldStateStore.load(new FailingFileSystem({ [WORKSPACE_PATH]: '{}' }), ROOT);
+    recordUnhandledRejections();
+
+    store.set('page-1', ENTRY);
+    await settle();
+
+    expect(rejections).toEqual([diskFull]);
+  });
+});

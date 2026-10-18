@@ -130,6 +130,10 @@
   --dialog-width-md: 320px; /* Default */
   --dialog-width-lg: 420px;
 
+  /* Window drag strip (TauriDragStrip): the band along the top of the app, the sidebar, the side cover and
+     overlay backdrops that moves the native window. An absolute overlay — it never takes layout space. */
+  --tauri-drag-strip-height: var(--space-48);
+
   /* Z-index */
   --z-overlay: 1000;
 

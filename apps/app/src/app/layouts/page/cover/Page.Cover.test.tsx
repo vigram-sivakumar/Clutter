@@ -665,3 +665,44 @@ describe('PageCover — Unsplash attribution (ADR-054)', () => {
     expect(screen.getByText('Unsplash')).toBeInTheDocument();
   });
 });
+
+describe('PageCover — window drag strip', () => {
+  const strips = (container: HTMLElement) =>
+    container.querySelectorAll('.page__cover > [data-tauri-drag-region]');
+
+  it('overlays the side cover with one shared strip, a sibling of the image, before the actions', () => {
+    const { container } = render(<PageCover src="cover.png" layout="side" onRemove={vi.fn()} />);
+    const cover = container.querySelector('.page__cover')!;
+
+    expect(strips(container)).toHaveLength(1);
+    const strip = strips(container)[0]!;
+    expect(strip.classList.contains('tauri-drag-strip')).toBe(true);
+    expect(cover.firstElementChild).toBe(strip);
+    expect(strip.nextElementSibling?.classList.contains('page__cover__actions')).toBe(true);
+    // Not the cover and not the image, and it wraps nothing.
+    expect(cover.hasAttribute('data-tauri-drag-region')).toBe(false);
+    expect(container.querySelector('.page-cover__image')!.closest('[data-tauri-drag-region]')).toBeNull();
+    expect(strip.childElementCount).toBe(0);
+  });
+
+  it('keeps the cover actions outside the drag region', () => {
+    const { container } = render(<PageCover src="cover.png" layout="side" onRemove={vi.fn()} />);
+
+    expect(screen.getByRole('button', { name: 'More actions' }).closest('[data-tauri-drag-region]')).toBeNull();
+    expect(container.querySelector('.page__cover__actions')!.closest('[data-tauri-drag-region]')).toBeNull();
+  });
+
+  it('adds no strip to the Above layout, which sits under the topbar', () => {
+    const { container } = render(<PageCover src="cover.png" layout="above" onRemove={vi.fn()} />);
+
+    expect(strips(container)).toHaveLength(0);
+  });
+
+  it('adds no element to the image or its size: same image attributes with or without the strip', () => {
+    const side = render(<PageCover src="cover.png" layout="side" onRemove={vi.fn()} />);
+    const sideImage = side.container.querySelector('.page-cover__image')!;
+    expect(sideImage.parentElement).toBe(side.container.querySelector('.page__cover'));
+    expect(sideImage.getAttribute('draggable')).toBe('false');
+    expect(sideImage.hasAttribute('data-tauri-drag-region')).toBe(false);
+  });
+});

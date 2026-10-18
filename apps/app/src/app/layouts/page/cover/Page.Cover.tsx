@@ -4,6 +4,7 @@ import { coverAttributionFor } from '@core/integrations/unsplash/unsplashAttribu
 import type { CoverCredit } from '@core/vault/models/PageMetadata';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { Button } from '@components/button/Button';
+import { TauriDragStrip } from '@components/tauri-drag-strip/TauriDragStrip';
 import { Overlay } from '@components/overlay/Overlay';
 import { Menu } from '@components/menu/Menu';
 import { MenuItem } from '@components/menu/MenuItem';
@@ -471,6 +472,10 @@ export function PageCover({
       data-emoji-overlap={hasEmoji || undefined}
       data-repositioning={repositioning || undefined}
     >
+      {/* Side layout only: the Above layout sits under the topbar, which is already a drag region. An overlay
+          (absolute) and a sibling of the image, never the cover or image itself; first, so the actions below
+          stack over it. */}
+      {layout === 'side' && <TauriDragStrip />}
       {editable && (
         <div className="page__cover__actions">
           {repositioning ? (

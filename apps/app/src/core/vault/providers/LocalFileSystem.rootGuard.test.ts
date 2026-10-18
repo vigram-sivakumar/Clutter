@@ -86,9 +86,11 @@ describe('LocalVaultProvider: a vault root that has gone is never recreated', ()
   });
 
   it('stops workspace-session / metadata persistence from recreating the root via .clutter', async () => {
+    // The refusal is an expected vault-lifecycle outcome: the shared write boundary ends it quietly (it does
+    // not reach the stores' fire-and-forget callers as an unhandled rejection), and nothing is created.
     await expect(
       mergeAndWriteWorkspaceStateFile(provider(), ROOT, { workspaceSession: { activeView: null } })
-    ).rejects.toBeInstanceOf(VaultRootMissingError);
+    ).resolves.toBeUndefined();
     expect(disk.dirs.size).toBe(0);
     expect(disk.files.size).toBe(0);
   });
@@ -161,7 +163,7 @@ describe('LocalVaultProvider.seal: nothing queued for a discarded vault can land
     const provider = sealed();
     await expect(
       mergeAndWriteWorkspaceStateFile(provider, ROOT, { workspaceSession: { activeView: null } })
-    ).rejects.toBeInstanceOf(VaultRootMissingError);
+    ).resolves.toBeUndefined();
     expect(disk.dirs.has(`${ROOT}/.clutter`)).toBe(false);
     expect(disk.files.size).toBe(0);
   });
