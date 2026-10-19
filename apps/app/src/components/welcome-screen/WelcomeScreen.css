@@ -14,6 +14,7 @@
   gap: var(--space-40);
   padding-inline: var(--welcome-card-padding);
   padding-block: var(--welcome-card-padding);
+  padding-bottom: var(--space-32);
   border-radius: var(--radius-lg);
 
   box-shadow: var(--shadow-inset-thin-strong);
@@ -49,4 +50,24 @@
 }
 .settings-entry-interactive:hover .icon-badge {
   scale: 1;
+}
+
+/* The onboarding dialogs scale in without the overlay's fade: same scale, duration and easing as the
+   centered overlay-enter (components/overlay/Overlay.css), opacity left at 1. The extra classes win over
+   .overlay__content--animated.overlay__content--center. */
+.overlay__content--animated.overlay__content--center.welcome-dialog {
+  animation: welcome-dialog-enter 250ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes welcome-dialog-enter {
+  from {
+    transform: scale(0.95);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .overlay__content--animated.overlay__content--center.welcome-dialog {
+    animation: none;
+  }
 }

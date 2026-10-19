@@ -23,8 +23,8 @@ interface WelcomeScreenDialogProps {
 
 /**
  * First-run onboarding: the WelcomeScreen, and the SpaceDetails it leads to, in one standard Dialog
- * over whatever is mounted behind it. Both screens swap inside the same Overlay — it is never closed
- * and reopened. It has no dismissal of its own (nothing to return to until a Space is open); the
+ * over whatever is mounted behind it. Each screen is its own Dialog (keyed), so the dialog's appear animation
+ * plays again on every swap. It has no dismissal of its own (nothing to return to until a Space is open); the
  * caller unmounts it once a Space has opened.
  */
 export function WelcomeScreenDialog({
@@ -70,7 +70,14 @@ export function WelcomeScreenDialog({
     // The default tinted backdrop is the one scrim over the app frame's background image. It also covers
     // the frame's own drag strip; the overlay's backdrop carries one (its default), so the window moves from
     // the top edge.
-    <Dialog open onClose={() => {}} dismissible={false} size="large">
+    <Dialog
+      key={draft === null ? 'welcome' : 'details'}
+      className="welcome-dialog"
+      open
+      onClose={() => {}}
+      dismissible={false}
+      size="large"
+    >
       {draft === null ? (
         <WelcomeScreen onSelectFolder={selectExistingFolder} onCreateSpace={startNewSpace} />
       ) : (
