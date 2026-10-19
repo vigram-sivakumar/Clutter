@@ -6,7 +6,8 @@ import {
   normalizeSpacePath,
   saveSpaceRegistry,
   withActiveSpace,
-  withSpaceAvatar,
+  withReplacedSpace,
+  withoutSpace,
   type SpaceRegistryStorage,
 } from './spaceRegistry';
 
@@ -89,79 +90,51 @@ describe('spaceRegistry', () => {
     expect(() => saveSpaceRegistry(broken, { paths: ['/d'], activePath: '/d' })).not.toThrow();
   });
 
-  describe('avatars', () => {
-    const base = { paths: ['/a', '/b'], activePath: '/a' };
+  it('stays paths and an active path only: extra keys from any older build are ignored, never kept or re-saved', () => {
+    const storage = memoryStorage(
+      '{"paths":["/a","/b"],"activePath":"/b","avatars":{"/a":{"type":"emoji","emoji":"🌿"}},"ids":{"/a":"x"}}'
+    );
 
-    it('sets an emoji avatar and an image avatar, keyed by the Space path', () => {
-      const withEmoji = withSpaceAvatar(base, '/a', { type: 'emoji', emoji: '🌿' });
-      const both = withSpaceAvatar(withEmoji, '/b/', { type: 'image', src: '/Users/me/logo.png' });
-      expect(both.avatars).toEqual({
-        '/a': { type: 'emoji', emoji: '🌿' },
-        '/b': { type: 'image', src: '/Users/me/logo.png' },
+    const loaded = loadSpaceRegistry(storage);
+
+    expect(loaded).toEqual({ paths: ['/a', '/b'], activePath: '/b' });
+    saveSpaceRegistry(storage, withActiveSpace(loaded, '/a'));
+    expect(JSON.parse(storage.value!)).toEqual({ paths: ['/a', '/b'], activePath: '/a' });
+  });
+
+  describe('withReplacedSpace', () => {
+    const base = { paths: ['/a', '/gone', '/b'], activePath: '/a' };
+
+    it('puts the chosen folder where the old entry was and makes it active', () => {
+      expect(withReplacedSpace(base, '/gone', '/new/')).toEqual({
+        paths: ['/a', '/new', '/b'],
+        activePath: '/new',
       });
     });
 
-    it('removing an avatar drops its entry, and the whole field once none is left', () => {
-      const both = withSpaceAvatar(withSpaceAvatar(base, '/a', { type: 'emoji', emoji: '🌿' }), '/b', {
-        type: 'emoji',
-        emoji: '🔥',
+    it('keeps an already registered target as it is and drops the replaced entry', () => {
+      expect(withReplacedSpace(base, '/gone', '/b')).toEqual({ paths: ['/a', '/b'], activePath: '/b' });
+    });
+
+    it('just registers and activates the target when the replaced path was never registered', () => {
+      expect(withReplacedSpace(base, '/nope', '/c')).toEqual({
+        paths: ['/a', '/gone', '/b', '/c'],
+        activePath: '/c',
       });
-      const one = withSpaceAvatar(both, '/a', undefined);
-      expect(one.avatars).toEqual({ '/b': { type: 'emoji', emoji: '🔥' } });
-      expect(withSpaceAvatar(one, '/b', undefined)).toEqual(base);
-      expect('avatars' in withSpaceAvatar(one, '/b', undefined)).toBe(false);
+    });
+  });
+
+  describe('withoutSpace', () => {
+    const base = { paths: ['/a', '/gone', '/b'], activePath: '/a' };
+
+    it('removes only that entry', () => {
+      expect(withoutSpace(base, '/gone/')).toEqual({ paths: ['/a', '/b'], activePath: '/a' });
     });
 
-    it('ignores a path that is not registered', () => {
-      expect(withSpaceAvatar(base, '/zzz', { type: 'emoji', emoji: '🌿' })).toBe(base);
-    });
-
-    it('keeps avatars when another Space is registered or activated', () => {
-      const registry = withSpaceAvatar(base, '/a', { type: 'emoji', emoji: '🌿' });
-      expect(withActiveSpace(registry, '/c').avatars).toEqual({ '/a': { type: 'emoji', emoji: '🌿' } });
-    });
-
-    it('lists each Space with its own avatar, and none for a Space without one', () => {
-      const registry = withSpaceAvatar(base, '/b', { type: 'image', src: '/p/x.png' });
-      expect(listSpaces(registry)).toEqual([
-        { path: '/a', name: 'a' },
-        { path: '/b', name: 'b', avatar: { type: 'image', src: '/p/x.png' } },
-      ]);
-    });
-
-    it('restores emoji and image avatars after a restart (save, then load)', () => {
-      const storage = memoryStorage();
-      const registry = withSpaceAvatar(withSpaceAvatar(base, '/a', { type: 'emoji', emoji: '🌿' }), '/b', {
-        type: 'image',
-        src: '/Volumes/Drive/logo.png',
-      });
-      expect(saveSpaceRegistry(storage, registry)).toBe(true);
-      expect(loadSpaceRegistry(storage)).toEqual(registry);
-    });
-
-    it('reads a registry saved before avatars existed, unchanged', () => {
-      const old = memoryStorage('{"paths":["/a","/b"],"activePath":"/b"}');
-      const loaded = loadSpaceRegistry(old);
-      expect(loaded).toEqual({ paths: ['/a', '/b'], activePath: '/b' });
-      expect('avatars' in loaded).toBe(false);
-    });
-
-    it('drops malformed avatar entries and entries for unregistered paths, keeping the rest', () => {
-      const raw = JSON.stringify({
-        ...base,
-        avatars: {
-          '/a': { type: 'emoji', emoji: '🌿' },
-          '/b': { type: 'emoji', emoji: '' },
-          '/zzz': { type: 'emoji', emoji: '🔥' },
-          '/a/': { type: 'sparkle' },
-        },
-      });
-      expect(loadSpaceRegistry(memoryStorage(raw)).avatars).toEqual({ '/a': { type: 'emoji', emoji: '🌿' } });
-    });
-
-    it.each([['an array', '[]'], ['a string', '"x"'], ['null', 'null']])('ignores avatars that are %s', (_n, avatars) => {
-      const raw = `{"paths":["/a"],"activePath":"/a","avatars":${avatars}}`;
-      expect(loadSpaceRegistry(memoryStorage(raw))).toEqual({ paths: ['/a'], activePath: '/a' });
+    it('never removes the active Space, and ignores an unregistered path', () => {
+      expect(withoutSpace(base, '/a')).toBe(base);
+      expect(withoutSpace(base, '/zzz')).toBe(base);
     });
   });
 });
+

@@ -14,10 +14,18 @@ const tauri = vi.hoisted(() => ({
   openDialog: vi.fn(),
   mkdir: vi.fn(),
 }));
+/** The `space` profile each folder carries in its own `.clutter/workspace.json` (read-only to the shell). */
+type TestAvatar = { type: 'emoji'; emoji: string } | { type: 'image'; src: string };
+const profileFiles = vi.hoisted(() => new Map<string, { id: string; avatar?: TestAvatar }>());
+vi.mock('../core/application/space/SpaceProfileStore', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../core/application/space/SpaceProfileStore')>()),
+  readSpaceProfile: async (_fs: unknown, root: string) => profileFiles.get(root) ?? null,
+}));
 /** Per-path overrides for the folder probe, on top of the name-based default below. */
 const probeOverrides = vi.hoisted(() => new Map<string, string>());
 vi.mock('@tauri-apps/api/core', () => ({
   isTauri: () => tauri.isTauri,
+  convertFileSrc: (path: string) => `asset://localhost${path}`,
   invoke: (...args: unknown[]) => tauri.invoke(...args),
 }));
 vi.mock('@tauri-apps/api/path', () => ({
@@ -49,11 +57,21 @@ vi.mock('./scheduleAfterFirstPaint', () => ({ scheduleAfterFirstPaint: () => () 
 vi.mock('./layouts/app-layout/AppLayout', async () => {
   const { useSpaces } = await import('./spaces/SpacesContext');
   return {
-    AppLayout: ({ application }: { application: { vault: { root: string } } }) => {
+    AppLayout: ({
+      application,
+      narrowSidebarOverride,
+      onNarrowSidebarOverrideChange,
+    }: {
+      application: { vault: { root: string } };
+      narrowSidebarOverride?: boolean | null;
+      onNarrowSidebarOverrideChange?: (override: boolean | null) => void;
+    }) => {
       const spaces = useSpaces();
       return (
         <div>
           <div data-testid="open-root">{application.vault.root}</div>
+          <div data-testid="narrow-override">{String(narrowSidebarOverride)}</div>
+          <button onClick={() => onNarrowSidebarOverrideChange?.(true)}>open-narrow-sidebar</button>
           <button onClick={() => spaces?.onSwitchSpace('/Other')}>switch-other</button>
           <button onClick={() => spaces?.onSwitchSpace('/Missing')}>switch-missing</button>
           <button onClick={() => spaces?.onSwitchSpace('/Broken')}>switch-broken</button>
@@ -63,7 +81,7 @@ vi.mock('./layouts/app-layout/AppLayout', async () => {
           <button onClick={() => spaces?.onAddSpace?.()}>add-space</button>
           <ul data-testid="space-selector">
             {spaces?.spaces.map((space) => (
-              <li key={space.path} data-path={space.path} />
+              <li key={space.path} data-path={space.path} data-missing={space.missing ? 'true' : undefined} />
             ))}
           </ul>
         </div>
@@ -85,6 +103,8 @@ interface FakeApplication {
   open: ReturnType<typeof vi.fn>;
   close: ReturnType<typeof vi.fn>;
   persistParsedNoteCache: ReturnType<typeof vi.fn>;
+  applySpaceProfile: ReturnType<typeof vi.fn>;
+  workspace: { isSidebarVisible: boolean; setSidebarVisible: ReturnType<typeof vi.fn> };
 }
 
 interface Deferred<T> {
@@ -129,6 +149,33 @@ function makeApp(root: string): FakeApplication {
       events.push(`close:${root}`);
     }),
     persistParsedNoteCache: vi.fn(async () => {}),
+    // The Space's own sidebar state: each Space starts from its saved session (here: open).
+    workspace: {
+      isSidebarVisible: true,
+      setSidebarVisible: vi.fn((visible: boolean) => {
+        app.workspace.isSidebarVisible = visible;
+        events.push(`sidebar:${root}:${visible}`);
+      }),
+    },
+    // Stands in for the Space writing its own profile: identity always, then the avatar change.
+    applySpaceProfile: vi.fn(async (change?: { avatar?: unknown }) => {
+      const current = profileFiles.get(root) ?? { id: `id-of-${root}` };
+      const avatar = change?.avatar as
+        | { type: 'emoji'; emoji: string }
+        | { type: 'image'; sourcePath: string }
+        | null
+        | undefined;
+      const next: { id: string; avatar?: TestAvatar } = { id: current.id };
+      if (avatar === undefined) {
+        if (current.avatar) next.avatar = current.avatar;
+      } else if (avatar?.type === 'emoji') {
+        next.avatar = avatar;
+      } else if (avatar?.type === 'image') {
+        next.avatar = { type: 'image', src: `Assets/${avatar.sourcePath.split('/').pop()}` };
+      }
+      profileFiles.set(root, next);
+      return next;
+    }),
   };
   created.push(app);
   return app;
@@ -155,6 +202,7 @@ beforeEach(() => {
   tauri.mkdir.mockReset();
   tauri.mkdir.mockResolvedValue(undefined);
   probeOverrides.clear();
+  profileFiles.clear();
   created = [];
   events = [];
   gates = new Map();
@@ -206,10 +254,10 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
   it('with no configured Space, shows the Welcome dialog over the shell and opens nothing', async () => {
     render(<AppShell />);
 
-    expect(await screen.findByText("Let's create a space")).toBeInTheDocument();
+    expect(await screen.findByText('Let’s create a space')).toBeInTheDocument();
     // Presented through the Overlay/Dialog (portal on body), over the still-mounted startup surface.
-    expect(screen.getByText("Let's create a space").closest('.overlay')).not.toBeNull();
-    expect(screen.getByText("Let's create a space").closest('.dialog')).not.toBeNull();
+    expect(screen.getByText('Let’s create a space').closest('.overlay')).not.toBeNull();
+    expect(screen.getByText('Let’s create a space').closest('.dialog')).not.toBeNull();
     expect(document.querySelector('.startup-frame')).not.toBeNull();
     expect(screen.queryByText(OPENING)).toBeNull();
     expect(bootstrap).not.toHaveBeenCalled();
@@ -230,13 +278,13 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
 
   it('fills the app frame behind the Welcome dialog with the background image, centred and covering', async () => {
     render(<AppShell />);
-    await screen.findByText("Let's create a space");
+    await screen.findByText('Let’s create a space');
 
     const frame = document.querySelector('.startup-frame') as HTMLElement;
     expect(frame.getAttribute('data-backdrop')).toBe('image');
     expect(frame.style.backgroundImage).toContain('images.unsplash.com');
     // The dialog is portalled to <body>, outside (and above) the frame; the frame holds no workspace.
-    expect(frame.contains(screen.getByText("Let's create a space"))).toBe(false);
+    expect(frame.contains(screen.getByText('Let’s create a space'))).toBe(false);
     expect(screen.queryByTestId('open-root')).toBeNull();
     // The scrim is the dialog's own overlay backdrop; the frame adds none, so nothing is dimmed twice.
     expect(document.querySelector('.overlay__backdrop')!.className).toBe(
@@ -247,7 +295,7 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
   it('shows the same background when the configured folder is missing', async () => {
     seed(['/Missing'], '/Missing');
     render(<AppShell />);
-    await screen.findByText("Let's create a space");
+    await screen.findByText('Let’s create a space');
 
     expect((document.querySelector('.startup-frame') as HTMLElement).style.backgroundImage).toContain(
       'images.unsplash.com'
@@ -276,14 +324,14 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
 
   it('keeps the dialog open on Escape and on a backdrop click', async () => {
     render(<AppShell />);
-    await screen.findByText("Let's create a space");
+    await screen.findByText('Let’s create a space');
 
     await act(async () => {
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       (document.querySelector('.overlay__backdrop') as HTMLElement).click();
     });
 
-    expect(screen.getByText("Let's create a space")).toBeInTheDocument();
+    expect(screen.getByText('Let’s create a space')).toBeInTheDocument();
   });
 
   it('opens a configured Space normally, without ever showing the Welcome dialog', async () => {
@@ -291,7 +339,7 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
     render(<AppShell />);
 
     expect(await screen.findByTestId('open-root')).toHaveTextContent('/Configured');
-    expect(screen.queryByText("Let's create a space")).toBeNull();
+    expect(screen.queryByText('Let’s create a space')).toBeNull();
     expect(bootstrap).toHaveBeenCalledWith('/Configured', expect.anything());
   });
 
@@ -302,7 +350,7 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
     render(<AppShell />);
 
     expect(await screen.findByText(OPENING)).toBeInTheDocument();
-    expect(screen.queryByText("Let's create a space")).toBeNull();
+    expect(screen.queryByText('Let’s create a space')).toBeNull();
 
     await act(async () => gate.resolve());
     expect(await screen.findByTestId('open-root')).toBeInTheDocument();
@@ -314,7 +362,7 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
     render(<AppShell />);
 
     expect(await screen.findByText('scan failed')).toBeInTheDocument();
-    expect(screen.queryByText("Let's create a space")).toBeNull();
+    expect(screen.queryByText('Let’s create a space')).toBeNull();
     expect(window.localStorage.getItem('clutter.spaces.v1')).toBe(before);
   });
 
@@ -323,7 +371,7 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
     const before = window.localStorage.getItem('clutter.spaces.v1');
     render(<AppShell />);
 
-    expect(await screen.findByText("Let's create a space")).toBeInTheDocument();
+    expect(await screen.findByText('Let’s create a space')).toBeInTheDocument();
     expect(document.querySelector('.startup-frame')).not.toBeNull();
     expect(screen.queryByRole('alert')).toBeNull();
     // A missing folder must never be re-created by bootstrap or anything else on the way.
@@ -341,7 +389,7 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
     const before = window.localStorage.getItem('clutter.spaces.v1');
     render(<AppShell />);
 
-    expect(await screen.findByText("Let's create a space")).toBeInTheDocument();
+    expect(await screen.findByText('Let’s create a space')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).toBeNull();
     expect(window.localStorage.getItem('clutter.spaces.v1')).toBe(before);
   });
@@ -459,7 +507,7 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
-      await click('Open');
+      await click('Create');
 
       expect(await screen.findByTestId('open-root')).toHaveTextContent('/Users/me/Notes');
       expect(JSON.parse(SAVED()!)).toEqual({
@@ -478,12 +526,12 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
     render(<AppShell />);
 
     expect(await screen.findByText('Permission denied (os error 13)')).toBeInTheDocument();
-    expect(screen.queryByText("Let's create a space")).toBeNull();
+    expect(screen.queryByText('Let’s create a space')).toBeNull();
     expect(window.localStorage.getItem('clutter.spaces.v1')).toBe(before);
   });
 });
 
-const WELCOME = "Let's create a space";
+const WELCOME = 'Let’s create a space';
 const SAVED = () => window.localStorage.getItem('clutter.spaces.v1');
 
 async function click(text: string) {
@@ -515,7 +563,7 @@ describe('AppShell: Welcome dialog actions', () => {
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
-      await click('Open');
+      await click('Create');
       await waitFor(() => expect(bootstrap).toHaveBeenCalledWith('/Users/me/Notes', expect.anything()));
 
       // Still opening: dialog up, nothing remembered yet, no "Opening Clutter…" frame.
@@ -561,7 +609,7 @@ describe('AppShell: Welcome dialog actions', () => {
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
-      await click('Open');
+      await click('Create');
       await waitFor(() => expect(bootstrap).toHaveBeenCalledWith(picked, expect.anything()));
       expect(SAVED()).toBeNull();
 
@@ -592,10 +640,10 @@ describe('AppShell: Welcome dialog actions', () => {
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
-      await click('Open');
+      await click('Create');
 
-      expect(await screen.findByRole('alert')).toHaveTextContent("can't open that folder");
-      expect(screen.getByRole('alert')).not.toHaveTextContent("doesn't exist");
+      expect(await screen.findByRole('alert')).toHaveTextContent('can’t open that folder');
+      expect(screen.getByRole('alert')).not.toHaveTextContent('doesn’t exist');
       expect(bootstrap).not.toHaveBeenCalled();
       expect(SAVED()).toBeNull();
     });
@@ -606,7 +654,7 @@ describe('AppShell: Welcome dialog actions', () => {
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
-      await click('Open');
+      await click('Create');
 
       expect(await screen.findByRole('alert')).toHaveTextContent('scan failed');
       expect(SAVED()).toBeNull();
@@ -617,7 +665,7 @@ describe('AppShell: Welcome dialog actions', () => {
       const first = render(<AppShell />);
       await screen.findByText(WELCOME);
       await click('Select a folder');
-      await click('Open');
+      await click('Create');
       expect(await screen.findByTestId('open-root')).toHaveTextContent('/Volumes/Drive/Vault');
       first.unmount();
       bootstrap.mockClear();
@@ -638,9 +686,9 @@ describe('AppShell: Welcome dialog actions', () => {
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
-      await click('Open');
+      await click('Create');
 
-      expect(await screen.findByRole('alert')).toHaveTextContent("can't open that folder");
+      expect(await screen.findByRole('alert')).toHaveTextContent('can’t open that folder');
       expect(bootstrap).not.toHaveBeenCalled();
       expectSpaceDetailsShown();
     });
@@ -651,7 +699,7 @@ describe('AppShell: Welcome dialog actions', () => {
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
-      await click('Open');
+      await click('Create');
 
       expect(await screen.findByRole('alert')).toHaveTextContent('scan failed');
       expectSpaceDetailsShown();
@@ -668,7 +716,7 @@ describe('AppShell: Welcome dialog actions', () => {
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
-      await click('Open');
+      await click('Create');
       await screen.findByRole('alert');
 
       expect(SAVED()).toBe(before);
@@ -677,7 +725,7 @@ describe('AppShell: Welcome dialog actions', () => {
       tauri.openDialog.mockResolvedValue('/Users/me/Notes');
       await click('Go back');
       await click('Select a folder');
-      await click('Open');
+      await click('Create');
       expect(await screen.findByTestId('open-root')).toHaveTextContent('/Users/me/Notes');
     });
   });
@@ -690,7 +738,7 @@ describe('AppShell: Welcome dialog actions', () => {
       const content = document.querySelector('.overlay__content');
 
       await click('Create a new space');
-      expect(await screen.findByText('Space Name')).toBeInTheDocument();
+      expect(await screen.findByText('Space name')).toBeInTheDocument();
       expect(screen.queryByText(WELCOME)).toBeNull();
       expect(document.querySelector('.overlay')).toBe(overlay);
       expect(document.querySelector('.overlay__content')).toBe(content);
@@ -710,7 +758,7 @@ describe('AppShell: Welcome dialog actions', () => {
       render(<AppShell />);
       await screen.findByText(WELCOME);
       await click('Create a new space');
-      await screen.findByText('Space Name');
+      await screen.findByText('Space name');
 
       await typeName('  Personal ');
       expect(screen.getByText('Documents/Personal')).toBeInTheDocument();
@@ -724,11 +772,11 @@ describe('AppShell: Welcome dialog actions', () => {
       // The created path reaches the opening flow unchanged — never the home folder or Documents.
       expect(bootstrap.mock.calls.map(([root]) => root)).toEqual(['/Users/me/Documents/Personal']);
       expect(SAVED()).toBeNull();
-      expect(screen.getByText('Space Name')).toBeInTheDocument();
+      expect(screen.getByText('Space name')).toBeInTheDocument();
 
       await act(async () => gate.resolve());
       expect(await screen.findByTestId('open-root')).toHaveTextContent('/Users/me/Documents/Personal');
-      expect(screen.queryByText('Space Name')).toBeNull();
+      expect(screen.queryByText('Space name')).toBeNull();
       expect(JSON.parse(SAVED()!).activePath).toBe('/Users/me/Documents/Personal');
       expect(JSON.parse(SAVED()!).paths).toEqual(['/Users/me/Documents/Personal']);
     });
@@ -737,7 +785,7 @@ describe('AppShell: Welcome dialog actions', () => {
       render(<AppShell />);
       await screen.findByText(WELCOME);
       await click('Create a new space');
-      await screen.findByText('Space Name');
+      await screen.findByText('Space name');
       await typeName('Personal');
 
       await act(async () => screen.getByLabelText('Change avatar').click());
@@ -745,12 +793,15 @@ describe('AppShell: Welcome dialog actions', () => {
       await click('Create');
 
       expect(await screen.findByTestId('open-root')).toHaveTextContent('/Users/me/Documents/Personal');
-      expect(JSON.parse(SAVED()!).avatars).toEqual({
-        '/Users/me/Documents/Personal': { type: 'emoji', emoji: '😀' },
+      // The avatar is written into the Space itself, not into the app-level registry.
+      expect(profileFiles.get('/Users/me/Documents/Personal')?.avatar).toEqual({ type: 'emoji', emoji: '😀' });
+      expect(JSON.parse(SAVED()!)).toEqual({
+        paths: ['/Users/me/Documents/Personal'],
+        activePath: '/Users/me/Documents/Personal',
       });
     });
 
-    it('remembers an uploaded image avatar for a selected folder, as the picked file path', async () => {
+    it('hands an uploaded image to the opened Space, which stores a Space-relative reference to its own copy', async () => {
       tauri.openDialog.mockResolvedValueOnce('/Volumes/Drive/Vault');
       render(<AppShell />);
       await screen.findByText(WELCOME);
@@ -760,12 +811,14 @@ describe('AppShell: Welcome dialog actions', () => {
       await act(async () => screen.getByLabelText('Change avatar').click());
       await click('Image');
       await click('Upload');
-      await click('Open');
+      await click('Create');
 
       expect(await screen.findByTestId('open-root')).toHaveTextContent('/Volumes/Drive/Vault');
-      expect(JSON.parse(SAVED()!).avatars).toEqual({
-        '/Volumes/Drive/Vault': { type: 'image', src: '/Users/me/Pictures/logo.png' },
+      expect(created.at(-1)!.applySpaceProfile).toHaveBeenCalledWith({
+        avatar: { type: 'image', sourcePath: '/Users/me/Pictures/logo.png' },
       });
+      expect(profileFiles.get('/Volumes/Drive/Vault')?.avatar).toEqual({ type: 'image', src: 'Assets/logo.png' });
+      expect(JSON.parse(SAVED()!)).toEqual({ paths: ['/Volumes/Drive/Vault'], activePath: '/Volumes/Drive/Vault' });
     });
 
     it('does not remember the avatar of a space that failed to open', async () => {
@@ -775,7 +828,7 @@ describe('AppShell: Welcome dialog actions', () => {
       await click('Select a folder');
       await act(async () => screen.getByLabelText('Change avatar').click());
       await act(async () => screen.getAllByLabelText('grinning face')[0]!.click());
-      await click('Open');
+      await click('Create');
       await screen.findByRole('alert');
 
       expect(SAVED()).toBeNull();
@@ -787,7 +840,7 @@ describe('AppShell: Welcome dialog actions', () => {
         render(<AppShell />);
         await screen.findByText(WELCOME);
         await click('Create a new space');
-        await screen.findByText('Space Name');
+        await screen.findByText('Space name');
 
         await typeName(name);
         await click('Create');
@@ -804,7 +857,7 @@ describe('AppShell: Welcome dialog actions', () => {
       render(<AppShell />);
       await screen.findByText(WELCOME);
       await click('Create a new space');
-      await screen.findByText('Space Name');
+      await screen.findByText('Space name');
 
       await typeName('Personal');
       await click('Create');
@@ -825,14 +878,14 @@ describe('AppShell: Welcome dialog actions', () => {
       render(<AppShell />);
       await screen.findByText(WELCOME);
       await click('Create a new space');
-      await screen.findByText('Space Name');
+      await screen.findByText('Space name');
 
       await typeName('Personal');
       await click('Create');
 
-      expect(await screen.findByRole('alert')).toHaveTextContent("doesn't have permission");
+      expect(await screen.findByRole('alert')).toHaveTextContent('doesn’t have permission');
       expect(bootstrap).not.toHaveBeenCalled();
-      expect(screen.getByText('Space Name')).toBeInTheDocument();
+      expect(screen.getByText('Space name')).toBeInTheDocument();
       expect(SAVED()).toBeNull();
     });
 
@@ -846,7 +899,7 @@ describe('AppShell: Welcome dialog actions', () => {
       render(<AppShell />);
       await screen.findByText(WELCOME);
       await click('Create a new space');
-      await screen.findByText('Space Name');
+      await screen.findByText('Space name');
       await typeName('Personal');
 
       await click('Create');
@@ -857,7 +910,7 @@ describe('AppShell: Welcome dialog actions', () => {
       expect(bootstrap.mock.calls.map(([root]) => root)).toEqual(['/Users/me/Documents/Personal']);
       expect(tauri.mkdir).toHaveBeenCalledTimes(1);
       expect(SAVED()).toBeNull();
-      expect(screen.getByText('Space Name')).toBeInTheDocument();
+      expect(screen.getByText('Space name')).toBeInTheDocument();
 
       failOpen = false;
       await click('Create');
@@ -926,7 +979,7 @@ describe('AppShell: the open vault disappears while the app is running', () => {
       tauri.openDialog.mockResolvedValue('/Users/me/Notes');
 
       await click('Select a folder');
-      await click('Open');
+      await click('Create');
       await waitFor(() => expect(bootstrap).toHaveBeenCalledWith('/Users/me/Notes', expect.anything()));
       expect(JSON.parse(SAVED()!).activePath).toBe('/Users/me/A');
       expectSpaceDetailsShown();
@@ -948,7 +1001,7 @@ describe('AppShell: the open vault disappears while the app is running', () => {
       tauri.openDialog.mockResolvedValue('/Users/me/Broken');
 
       await click('Select a folder');
-      await click('Open');
+      await click('Create');
 
       expect(await screen.findByRole('alert')).toHaveTextContent('scan failed');
       expectSpaceDetailsShown();
@@ -963,7 +1016,7 @@ describe('AppShell: the open vault disappears while the app is running', () => {
       await screen.findByText(WELCOME);
 
       await click('Create a new space');
-      await screen.findByText('Space Name');
+      await screen.findByText('Space name');
       await typeName('Personal');
       await click('Create');
 
@@ -1004,7 +1057,7 @@ describe('AppShell: the open vault disappears while the app is running', () => {
         paths: ['/Users/me/A', '/Users/me/B', '/Users/me/C'],
         activePath: '/Users/me/B',
       });
-      // The lost folder is neither reopened nor recreated, and drops out of the selector.
+      // The lost folder is neither reopened nor recreated, and stays in the selector, marked missing.
       expect(bootstrap.mock.calls.filter(([root]) => root === '/Users/me/A')).toHaveLength(1); // only the original open
       expect(tauri.mkdir).not.toHaveBeenCalled();
       await waitFor(() =>
@@ -1012,8 +1065,9 @@ describe('AppShell: the open vault disappears while the app is running', () => {
           Array.from(screen.getByTestId('space-selector').querySelectorAll('li')).map((li) =>
             li.getAttribute('data-path')
           )
-        ).toEqual(['/Users/me/B', '/Users/me/C'])
+        ).toEqual(['/Users/me/A', '/Users/me/B', '/Users/me/C'])
       );
+
     });
 
     it('moves on to the next candidate when the first one fails to open', async () => {
@@ -1248,15 +1302,22 @@ describe('AppShell: the space selector lists only spaces that are available', ()
     Array.from(screen.getByTestId('space-selector').querySelectorAll('li')).map((li) =>
       li.getAttribute('data-path')
     );
-
-  it('shows existing spaces and leaves confirmed-missing ones out — but keeps them in the saved registry', async () => {
+  it('lists every space, confirmed-missing ones included, and keeps them in the saved registry', async () => {
     seed(['/Users/me/A', '/Users/me/Gone', '/Users/me/B'], '/Users/me/A');
     probeOverrides.set('/Users/me/Gone', 'missing');
     const before = SAVED();
     render(<AppShell />);
     await screen.findByTestId('open-root');
 
-    await waitFor(() => expect(listed()).toEqual(['/Users/me/A', '/Users/me/B']));
+    await waitFor(() => expect(listed()).toEqual(['/Users/me/A', '/Users/me/Gone', '/Users/me/B']));
+    // Only the confirmed-missing one is flagged (for the avatar's error badge).
+    await waitFor(() =>
+      expect(
+        Array.from(screen.getByTestId('space-selector').querySelectorAll('li[data-missing="true"]')).map((li) =>
+          li.getAttribute('data-path')
+        )
+      ).toEqual(['/Users/me/Gone'])
+    );
     expect(SAVED()).toBe(before);
     expect(JSON.parse(SAVED()!).paths).toContain('/Users/me/Gone');
     expect(JSON.parse(SAVED()!).activePath).toBe('/Users/me/A');
@@ -1273,7 +1334,7 @@ describe('AppShell: the space selector lists only spaces that are available', ()
     await waitFor(() => expect(listed()).toEqual(['/Users/me/A', '/Users/me/Denied']));
   });
 
-  it('drops a space whose folder is deleted while the app runs, once availability is re-checked', async () => {
+  it('keeps a space listed, and saved, when its folder is deleted while the app runs and availability is re-checked', async () => {
     seed(['/Users/me/A', '/Users/me/B'], '/Users/me/A');
     render(<AppShell />);
     await screen.findByTestId('open-root');
@@ -1284,13 +1345,13 @@ describe('AppShell: the space selector lists only spaces that are available', ()
     expect(listed()).toEqual(['/Users/me/A', '/Users/me/B']);
     // …and the selector opening (or the window refocusing) re-checks it.
     await act(async () => screen.getByText('refresh-spaces').click());
-    await waitFor(() => expect(listed()).toEqual(['/Users/me/A']));
+    expect(listed()).toEqual(['/Users/me/A', '/Users/me/B']);
     expect(JSON.parse(SAVED()!).paths).toEqual(['/Users/me/A', '/Users/me/B']);
 
-    // Restored later: it comes back.
+    // Restored later: still just there.
     probeOverrides.delete('/Users/me/B');
     await act(async () => window.dispatchEvent(new Event('focus')));
-    await waitFor(() => expect(listed()).toEqual(['/Users/me/A', '/Users/me/B']));
+    expect(listed()).toEqual(['/Users/me/A', '/Users/me/B']);
   });
 
   it('adds a valid space to the selector once it is opened', async () => {
@@ -1311,78 +1372,357 @@ describe('AppShell: the sidebar "New space" picker', () => {
     tauri.isTauri = true;
   });
 
-  async function openA() {
-    seed(['/Users/me/A'], '/Users/me/A');
+  async function openA(stored?: object) {
+    if (stored) window.localStorage.setItem('clutter.spaces.v1', JSON.stringify(stored));
+    else seed(['/Users/me/A'], '/Users/me/A');
     render(<AppShell />);
     await screen.findByTestId('open-root');
   }
+
+  /** Clicks New space and lets the picker resolve with `picked`. */
+  async function pickFolder(picked: string | null) {
+    tauri.openDialog.mockResolvedValueOnce(picked);
+    await act(async () => screen.getByText('add-space').click());
+  }
+
+  const nameInput = () => document.getElementById('space-details-name') as HTMLInputElement | null;
 
   it.each([
     ['the home folder itself', '/Users/me'],
     ['a folder containing it', '/Users'],
     ['the disk root', '/'],
-  ])('refuses %s — it is never opened as a vault', async (_name, picked) => {
+  ])('refuses %s — it is never opened as a vault, and no settings dialog appears', async (_name, picked) => {
     await openA();
     const before = SAVED();
     const bootstraps = bootstrap.mock.calls.length;
-    tauri.openDialog.mockResolvedValue(picked);
 
-    await act(async () => screen.getByText('add-space').click());
+    await pickFolder(picked);
 
     expect(await screen.findByText(/too broad to be a space/)).toBeInTheDocument();
+    expect(nameInput()).toBeNull();
     expect(bootstrap.mock.calls.length).toBe(bootstraps);
     expect(SAVED()).toBe(before);
     expect(screen.getByTestId('open-root')).toHaveTextContent('/Users/me/A');
   });
 
+  it('opens Space Settings for the chosen folder without registering or opening it', async () => {
+    await openA();
+    const before = SAVED();
+    const bootstraps = bootstrap.mock.calls.length;
+
+    await pickFolder('/Users/me/Projects/notes');
+
+    expect(nameInput()).not.toBeNull();
+    // Nothing is registered, active, opened, persisted or written to the folder.
+    expect(bootstrap.mock.calls.length).toBe(bootstraps);
+    expect(SAVED()).toBe(before);
+    expect(screen.getByTestId('open-root')).toHaveTextContent('/Users/me/A');
+    expect(screen.getAllByTestId('space-selector')[0]!.querySelectorAll('li')).toHaveLength(1);
+    expect(tauri.mkdir).not.toHaveBeenCalled();
+  });
+
+  it('prefills the folder name and shows the default (initial) avatar when none is saved', async () => {
+    await openA();
+
+    await pickFolder('/Users/me/Projects/notes');
+
+    expect(nameInput()).toHaveValue('notes');
+    expect(nameInput()).toHaveAttribute('readonly');
+    expect(document.querySelector('.space-details__initial')).toHaveTextContent('N');
+    expect(document.querySelector('.space-details__avatar-picker img')).toBeNull();
+  });
+
+  it('restores the emoji avatar the folder itself carries', async () => {
+    profileFiles.set('/Users/me/B', { id: 'b', avatar: { type: 'emoji', emoji: '🌿' } });
+    await openA({ paths: ['/Users/me/A', '/Users/me/B'], activePath: '/Users/me/A' });
+
+    await pickFolder('/Users/me/B');
+
+    expect(nameInput()).toHaveValue('B');
+    expect(document.querySelector('.space-details__avatar-picker .emoji-icon')).toHaveTextContent('🌿');
+  });
+
+  it('restores the image avatar the folder carries, resolved against that folder', async () => {
+    profileFiles.set('/Volumes/Drive/Vault', { id: 'v', avatar: { type: 'image', src: 'Assets/logo.png' } });
+    await openA();
+
+    await pickFolder('/Volumes/Drive/Vault');
+
+    expect(document.querySelector('.space-details__avatar-picker img')).toHaveAttribute(
+      'src',
+      'asset://localhost/Volumes/Drive/Vault/Assets/logo.png'
+    );
+  });
+
+  it('writes nothing into the folder just because it was selected', async () => {
+    await openA();
+    const apps = created.length;
+    const bootstraps = bootstrap.mock.calls.length;
+    const profileWrites = created[0]!.applySpaceProfile.mock.calls.length;
+
+    await pickFolder('/Users/me/Projects/notes');
+
+    expect(created.length).toBe(apps);
+    expect(bootstrap.mock.calls.length).toBe(bootstraps);
+    expect(created[0]!.applySpaceProfile.mock.calls.length).toBe(profileWrites);
+    expect(profileFiles.has('/Users/me/Projects/notes')).toBe(false);
+  });
+
+  it('confirming registers the folder and starts the existing open flow, persisting once it has opened', async () => {
+    await openA();
+    const gate = deferred<void>();
+    gates.set('/Volumes/Drive/Vault', gate);
+    await pickFolder('/Volumes/Drive/Vault');
+
+    await click('Create');
+
+    await waitFor(() => expect(bootstrap).toHaveBeenCalledWith('/Volumes/Drive/Vault', expect.anything()));
+    expect(nameInput()).toBeNull();
+    // Still opening: the open Space and the stored registry are as before.
+    expect(JSON.parse(SAVED()!)).toEqual({ paths: ['/Users/me/A'], activePath: '/Users/me/A' });
+
+    await act(async () => gate.resolve());
+    await waitFor(() => expect(screen.getByTestId('open-root')).toHaveTextContent('/Volumes/Drive/Vault'));
+    expect(JSON.parse(SAVED()!)).toEqual({
+      paths: ['/Users/me/A', '/Volumes/Drive/Vault'],
+      activePath: '/Volumes/Drive/Vault',
+    });
+  });
+
   it.each([
     ['inside Documents', '/Users/me/Documents/Notes'],
     ['elsewhere inside the home folder', '/Users/me/Projects/notes'],
-    ['outside the home folder (an external drive)', '/Volumes/Drive/Vault'],
-  ])('opens a folder %s unchanged, and persists it once it has opened', async (_name, picked) => {
+  ])('opens a confirmed folder %s unchanged', async (_name, picked) => {
     await openA();
-    tauri.openDialog.mockResolvedValue(picked);
-
-    await act(async () => screen.getByText('add-space').click());
+    await pickFolder(picked);
+    await click('Create');
 
     await waitFor(() => expect(screen.getByTestId('open-root')).toHaveTextContent(picked));
-    expect(bootstrap).toHaveBeenCalledWith(picked, expect.anything());
     expect(JSON.parse(SAVED()!)).toEqual({ paths: ['/Users/me/A', picked], activePath: picked });
   });
 
-  it('does not report an inaccessible folder outside the home folder as missing, and changes nothing', async () => {
+  it('cancelling the native picker changes nothing', async () => {
     await openA();
     const before = SAVED();
-    tauri.openDialog.mockResolvedValue('/Volumes/Drive/Denied');
 
-    await act(async () => screen.getByText('add-space').click());
+    await pickFolder(null);
 
-    expect(await screen.findByRole('status')).toHaveTextContent(/Can't open "\/Volumes\/Drive\/Denied"/);
+    expect(nameInput()).toBeNull();
+    expect(SAVED()).toBe(before);
+    expect(screen.getByTestId('open-root')).toHaveTextContent('/Users/me/A');
+  });
+
+  it('shows × instead of Go back in the selector’s Space Settings, and × only dismisses it', async () => {
+    await openA();
+    const before = SAVED();
+    const bootstraps = bootstrap.mock.calls.length;
+    await pickFolder('/Users/me/Notes');
+
+    expect(nameInput()).not.toBeNull();
+    expect(screen.queryByText('Go back')).toBeNull();
+
+    await act(async () => screen.getByRole('button', { name: 'Close' }).click());
+
+    await waitFor(() => expect(nameInput()).toBeNull());
+    expect(bootstrap.mock.calls.length).toBe(bootstraps);
+    expect(SAVED()).toBe(before);
+    expect(screen.getByTestId('open-root')).toHaveTextContent('/Users/me/A');
+  });
+
+  it('is not dismissed by Escape or a click outside — only by ×', async () => {
+    await openA();
+    const before = SAVED();
+    await pickFolder('/Users/me/Notes');
+
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      (document.querySelector('.overlay__backdrop') as HTMLElement).click();
+    });
+    expect(nameInput()).not.toBeNull();
+
+    await act(async () => screen.getByRole('button', { name: 'Close' }).click());
+    await waitFor(() => expect(nameInput()).toBeNull());
+    expect(SAVED()).toBe(before);
+  });
+
+  it('labels the confirm button Create whether the folder is new or already exists', async () => {
+    await openA();
+    await pickFolder('/Users/me/Notes');
+    expect(screen.getByRole('button', { name: 'Create' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Open' })).toBeNull();
+  });
+
+  it('shows Go back and no × in the Space Settings reached from the Welcome screen', async () => {
+    tauri.openDialog.mockResolvedValueOnce('/Users/me/Notes');
+    render(<AppShell />);
+    await screen.findByText(WELCOME);
+    await click('Select a folder');
+
+    expect(screen.getByText('Go back')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();
+  });
+
+  it('cancelling Space Settings registers nothing and keeps the active Space', async () => {
+    await openA();
+    const before = SAVED();
+    const bootstraps = bootstrap.mock.calls.length;
+    await pickFolder('/Users/me/Notes');
+
+    await act(async () => screen.getByRole('button', { name: 'Close' }).click());
+    await waitFor(() => expect(nameInput()).toBeNull());
+
+    expect(nameInput()).toBeNull();
+    expect(bootstrap.mock.calls.length).toBe(bootstraps);
+    expect(SAVED()).toBe(before);
+    expect(screen.getByTestId('open-root')).toHaveTextContent('/Users/me/A');
+    expect(screen.getAllByTestId('space-selector')[0]!.querySelectorAll('li')).toHaveLength(1);
+  });
+
+  it('does not persist an avatar edited in the dialog unless the dialog is confirmed', async () => {
+    await openA();
+    const before = SAVED();
+    await pickFolder('/Users/me/Notes');
+
+    await act(async () => screen.getByLabelText('Change avatar').click());
+    await act(async () => screen.getAllByLabelText('grinning face')[0]!.click());
+    expect(document.querySelector('.space-details__avatar-picker .emoji-icon')).toHaveTextContent('😀');
+    await act(async () => screen.getByRole('button', { name: 'Close' }).click());
+    await waitFor(() => expect(nameInput()).toBeNull());
+
+    expect(SAVED()).toBe(before);
+    expect(profileFiles.has('/Users/me/Notes')).toBe(false);
+    // Choosing the same folder again starts from what is saved, not from the abandoned edit.
+    await pickFolder('/Users/me/Notes');
+    expect(document.querySelector('.space-details__avatar-picker .emoji-icon')).toBeNull();
+  });
+
+  it('writes a confirmed avatar into the opened Space, not into the registry', async () => {
+    await openA();
+    await pickFolder('/Users/me/Notes');
+    await act(async () => screen.getByLabelText('Change avatar').click());
+    await act(async () => screen.getAllByLabelText('grinning face')[0]!.click());
+
+    await click('Create');
+
+    await waitFor(() => expect(screen.getByTestId('open-root')).toHaveTextContent('/Users/me/Notes'));
+    expect(profileFiles.get('/Users/me/Notes')?.avatar).toEqual({ type: 'emoji', emoji: '😀' });
+    expect(JSON.parse(SAVED()!)).toEqual({ paths: ['/Users/me/A', '/Users/me/Notes'], activePath: '/Users/me/Notes' });
+  });
+
+  it('leaves a registered folder’s own avatar untouched unless the user changes it', async () => {
+    profileFiles.set('/Users/me/B', { id: 'b', avatar: { type: 'emoji', emoji: '🌿' } });
+    await openA({ paths: ['/Users/me/A', '/Users/me/B'], activePath: '/Users/me/A' });
+    // A trailing slash is the same folder: no duplicate entry.
+    await pickFolder('/Users/me/B/');
+
+    await click('Create');
+
+    await waitFor(() => expect(screen.getByTestId('open-root')).toHaveTextContent('/Users/me/B'));
+    expect(created.at(-1)!.applySpaceProfile).toHaveBeenCalledWith({});
+    expect(profileFiles.get('/Users/me/B')?.avatar).toEqual({ type: 'emoji', emoji: '🌿' });
+    expect(JSON.parse(SAVED()!)).toEqual({ paths: ['/Users/me/A', '/Users/me/B'], activePath: '/Users/me/B' });
+  });
+
+  it('removing the avatar a folder carries removes it from the Space on confirm', async () => {
+    profileFiles.set('/Users/me/B', { id: 'b', avatar: { type: 'emoji', emoji: '🌿' } });
+    await openA({ paths: ['/Users/me/A', '/Users/me/B'], activePath: '/Users/me/A' });
+    await pickFolder('/Users/me/B');
+    await act(async () => screen.getByLabelText('Change avatar').click());
+    await act(async () => screen.getByLabelText('Remove avatar').click());
+
+    await click('Create');
+
+    await waitFor(() => expect(screen.getByTestId('open-root')).toHaveTextContent('/Users/me/B'));
+    expect(created.at(-1)!.applySpaceProfile).toHaveBeenCalledWith({ avatar: null });
+    expect(profileFiles.get('/Users/me/B')?.avatar).toBeUndefined();
+    expect(profileFiles.get('/Users/me/B')?.id).toBe('b');
+  });
+
+  it('confirming the already open Space only applies the avatar to it and opens nothing', async () => {
+    await openA();
+    const bootstraps = bootstrap.mock.calls.length;
+    await pickFolder('/Users/me/A');
+    await act(async () => screen.getByLabelText('Change avatar').click());
+    await act(async () => screen.getAllByLabelText('grinning face')[0]!.click());
+
+    await click('Create');
+
+    await waitFor(() => expect(nameInput()).toBeNull());
+    expect(bootstrap.mock.calls.length).toBe(bootstraps);
+    expect(profileFiles.get('/Users/me/A')?.avatar).toEqual({ type: 'emoji', emoji: '😀' });
+  });
+
+  it('gives a Space that has no identity one when it first opens, and records nothing about it in the registry', async () => {
+    await openA();
+
+    expect(profileFiles.get('/Users/me/A')?.id).toBe('id-of-/Users/me/A');
+    expect(JSON.parse(window.localStorage.getItem('clutter.spaces.v1')!)).toEqual({
+      paths: ['/Users/me/A'],
+      activePath: '/Users/me/A',
+    });
+  });
+
+  it('never stores Space metadata in the global registry, whatever the Space carries', async () => {
+    profileFiles.set('/Users/me/B', { id: 'b', avatar: { type: 'emoji', emoji: '🌿' } });
+    await openA({ paths: ['/Users/me/A', '/Users/me/B'], activePath: '/Users/me/A' });
+    await pickFolder('/Users/me/B');
+    await act(async () => screen.getByLabelText('Change avatar').click());
+    await act(async () => screen.getAllByLabelText('grinning face')[0]!.click());
+    await click('Create');
+    await waitFor(() => expect(screen.getByTestId('open-root')).toHaveTextContent('/Users/me/B'));
+
+    const stored = JSON.parse(window.localStorage.getItem('clutter.spaces.v1')!);
+    expect(Object.keys(stored).sort()).toEqual(['activePath', 'paths']);
+    expect(window.localStorage.getItem('clutter.spaces.v1')).not.toMatch(/emoji|avatar|"id"/);
+  });
+
+  it('a folder moved or renamed outside Clutter is just opened from its new path; the old entry is left alone', async () => {
+    // The Space once lived at /Users/me/Old (now gone) and carries its identity and avatar with it.
+    profileFiles.set('/Users/me/Renamed', { id: 'same-space', avatar: { type: 'emoji', emoji: '🌿' } });
+    await openA({ paths: ['/Users/me/A', '/Users/me/Missing Old'], activePath: '/Users/me/A' });
+
+    await pickFolder('/Users/me/Renamed');
+    expect(document.querySelector('.space-details__avatar-picker .emoji-icon')).toHaveTextContent('🌿');
+    await click('Create');
+
+    await waitFor(() => expect(screen.getByTestId('open-root')).toHaveTextContent('/Users/me/Renamed'));
+    // No relocation: the moved folder is a new path; the unavailable one stays registered as it was.
+    expect(JSON.parse(SAVED()!)).toEqual({
+      paths: ['/Users/me/A', '/Users/me/Missing Old', '/Users/me/Renamed'],
+      activePath: '/Users/me/Renamed',
+    });
+    expect(profileFiles.get('/Users/me/Renamed')).toEqual({
+      id: 'same-space',
+      avatar: { type: 'emoji', emoji: '🌿' },
+    });
+  });
+
+  it('a failed open leaves the registry, the active Space and the folder as they were', async () => {
+    await openA();
+    const before = SAVED();
+    await pickFolder('/Users/me/Stringy');
+    await act(async () => screen.getByLabelText('Change avatar').click());
+    await act(async () => screen.getAllByLabelText('grinning face')[0]!.click());
+
+    await click('Create');
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Permission denied (os error 13)');
+    expect(screen.getByTestId('open-root')).toHaveTextContent('/Users/me/A');
+    expect(SAVED()).toBe(before);
+  });
+
+  it('keeps the dialog open and explains when the confirmed folder cannot be opened', async () => {
+    await openA();
+    const before = SAVED();
+    await pickFolder('/Volumes/Drive/Denied');
+
+    await click('Create');
+
+    expect(await screen.findByRole('status')).toHaveTextContent(/Can’t open “\/Volumes\/Drive\/Denied”/);
+    expect(nameInput()).not.toBeNull();
     expect(SAVED()).toBe(before);
     expect(screen.getByTestId('open-root')).toHaveTextContent('/Users/me/A');
     expect(screen.queryByText(WELCOME)).toBeNull();
-  });
-
-  it('still opens an ordinary folder, persisting it after it opens', async () => {
-    await openA();
-    tauri.openDialog.mockResolvedValue('/Users/me/Notes');
-
-    await act(async () => screen.getByText('add-space').click());
-
-    await waitFor(() => expect(screen.getByTestId('open-root')).toHaveTextContent('/Users/me/Notes'));
-    expect(JSON.parse(SAVED()!).activePath).toBe('/Users/me/Notes');
-  });
-
-  it("reports the real reason when a switch fails with the fs plugin's plain-string error, and keeps the previous space", async () => {
-    await openA();
-    tauri.openDialog.mockResolvedValue('/Users/me/Stringy');
-
-    await act(async () => screen.getByText('add-space').click());
-
-    expect(await screen.findByRole('status')).toHaveTextContent('Permission denied (os error 13)');
-    expect(screen.queryByText(/Failed to open vault/)).toBeNull();
-    expect(screen.getByTestId('open-root')).toHaveTextContent('/Users/me/A');
-    expect(JSON.parse(SAVED()!)).toEqual({ paths: ['/Users/me/A'], activePath: '/Users/me/A' });
   });
 });
 
@@ -1391,7 +1731,63 @@ describe('AppShell: web development runtime', () => {
     render(<AppShell />);
 
     expect(await screen.findByTestId('open-root')).toHaveTextContent('/web-dev-vault');
-    expect(screen.queryByText("Let's create a space")).toBeNull();
+    expect(screen.queryByText('Let’s create a space')).toBeNull();
+  });
+});
+
+describe('AppShell: the sidebar across a Space switch', () => {
+  async function openFirst() {
+    seed(['/web-dev-vault', '/Other'], '/web-dev-vault');
+    render(<AppShell />);
+    await screen.findByText('/web-dev-vault');
+    return created[0]!;
+  }
+
+  it('does not touch the sidebar of the first Space it opens', async () => {
+    const first = await openFirst();
+    expect(first.workspace.setSidebarVisible).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { visible: true, name: 'expanded' },
+    { visible: false, name: 'collapsed' },
+  ])('carries a $name sidebar into the Space switched to, before it opens', async ({ visible }) => {
+    const first = await openFirst();
+    first.workspace.isSidebarVisible = visible;
+
+    await act(async () => screen.getByText('switch-other').click());
+    await waitFor(() => expect(screen.getByTestId('open-root')).toHaveTextContent('/Other'));
+
+    const second = created[1]!;
+    expect(second.workspace.setSidebarVisible).toHaveBeenCalledWith(visible);
+    expect(second.workspace.isSidebarVisible).toBe(visible);
+    expect(events.indexOf(`sidebar:/Other:${visible}`)).toBeLessThan(events.indexOf('open:/Other'));
+  });
+
+  it('keeps the narrow-window override across the switch, though the layout is rebuilt for the new Space', async () => {
+    await openFirst();
+    await act(async () => screen.getByText('open-narrow-sidebar').click());
+    expect(screen.getByTestId('narrow-override')).toHaveTextContent('true');
+
+    await act(async () => screen.getByText('switch-other').click());
+    await waitFor(() => expect(screen.getByTestId('open-root')).toHaveTextContent('/Other'));
+
+    expect(screen.getByTestId('narrow-override')).toHaveTextContent('true');
+  });
+
+  it('puts the previous Space back with the same sidebar when the switch fails after closing it', async () => {
+    seed(['/web-dev-vault', '/Other'], '/web-dev-vault');
+    openFails.add('/Other');
+    render(<AppShell />);
+    await screen.findByText('/web-dev-vault');
+    created[0]!.workspace.isSidebarVisible = false;
+
+    await act(async () => screen.getByText('switch-other').click());
+    await waitFor(() => expect(created.length).toBeGreaterThanOrEqual(3));
+
+    const restored = created.at(-1)!;
+    expect(restored.vault.root).toBe('/web-dev-vault');
+    expect(restored.workspace.setSidebarVisible).toHaveBeenCalledWith(false);
   });
 });
 
@@ -1539,15 +1935,141 @@ describe('AppShell: switching Spaces', () => {
     expect(created.every((app) => app.close.mock.calls.length >= 1)).toBe(true);
   });
 
-  it('refuses an unavailable folder without touching the current Space', async () => {
-    seed(['/web-dev-vault', '/Missing'], '/web-dev-vault');
-    render(<AppShell />);
-    await screen.findByText('/web-dev-vault');
+  describe('a Space whose folder is missing', () => {
+    async function chooseMissing() {
+      seed(['/web-dev-vault', '/Missing', '/Third'], '/web-dev-vault');
+      render(<AppShell />);
+      await screen.findByText('/web-dev-vault');
+      await act(async () => screen.getByText('switch-missing').click());
+      await screen.findByText('Space not found');
+    }
 
-    await act(async () => screen.getByText('switch-missing').click());
+    it('opens a "Space not found" confirmation with Change location and Remove space, not an error toast, touching nothing', async () => {
+      seed(['/web-dev-vault', '/Missing'], '/web-dev-vault');
+      const before = SAVED();
+      render(<AppShell />);
+      await screen.findByText('/web-dev-vault');
 
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('/Missing'));
-    expect(created).toHaveLength(1);
-    expect(created[0]!.close).not.toHaveBeenCalled();
+      await act(async () => screen.getByText('switch-missing').click());
+
+      expect(await screen.findByText('Space not found')).toBeInTheDocument();
+      expect(
+        screen.getByText('Clutter can’t find this space at its saved location. It may have been moved, renamed, or deleted')
+      ).toBeInTheDocument();
+      // Which space it is, and where Clutter last had it.
+      expect(document.querySelector('.missing-space__name')).toHaveTextContent('Missing');
+      expect(document.querySelector('.missing-space__path')).toHaveTextContent('/Missing');
+      expect(screen.getByRole('button', { name: 'Change location' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Remove space' })).toBeInTheDocument();
+      expect(screen.queryByRole('status')).toBeNull();
+      expect(bootstrap).toHaveBeenCalledTimes(1);
+      expect(created[0]!.close).not.toHaveBeenCalled();
+      expect(SAVED()).toBe(before);
+      expect(screen.getByTestId('open-root')).toHaveTextContent('/web-dev-vault');
+    });
+
+    it('puts Change location on the left and Remove space (danger) on the right, like "Delete permanently?"', async () => {
+      await chooseMissing();
+      const change = screen.getByRole('button', { name: 'Change location' });
+      const remove = screen.getByRole('button', { name: 'Remove space' });
+
+      expect(change.compareDocumentPosition(remove) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(remove).toHaveClass('button--danger');
+      expect(change).not.toHaveClass('button--danger');
+    });
+
+    it('the safe action takes the focus, so Enter never deletes', async () => {
+      await chooseMissing();
+      expect(screen.getByRole('button', { name: 'Change location' })).toHaveFocus();
+    });
+
+    it('closing it (Escape) changes nothing', async () => {
+      await chooseMissing();
+      const before = SAVED();
+
+      await act(async () => void fireEvent.keyDown(document, { key: 'Escape' }));
+
+      await waitFor(() => expect(screen.queryByText('Space not found')).toBeNull());
+      expect(SAVED()).toBe(before);
+    });
+
+    it('Remove space forgets only that entry, never touching disk, and it stays gone', async () => {
+      await chooseMissing();
+
+      await click('Remove space');
+
+      await waitFor(() => expect(screen.queryByText('Space not found')).toBeNull());
+      expect(JSON.parse(SAVED()!)).toEqual({ paths: ['/web-dev-vault', '/Third'], activePath: '/web-dev-vault' });
+      expect(tauri.mkdir).not.toHaveBeenCalled();
+      expect(bootstrap).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('open-root')).toHaveTextContent('/web-dev-vault');
+    });
+
+    it('Change location: opens the chosen folder straight away — no settings dialog — replacing the entry in place', async () => {
+      tauri.isTauri = true;
+      await chooseMissing();
+      const gate = deferred<void>();
+      gates.set('/Users/me/Moved', gate);
+      const before = SAVED();
+      tauri.openDialog.mockResolvedValueOnce('/Users/me/Moved');
+
+      await click('Change location');
+
+      await waitFor(() => expect(bootstrap).toHaveBeenCalledWith('/Users/me/Moved', expect.anything()));
+      expect(document.getElementById('space-details-name')).toBeNull();
+      expect(screen.queryByText('Space not found')).toBeNull();
+      // Still opening: the open space and the saved list are as they were.
+      expect(SAVED()).toBe(before);
+      expect(screen.getByTestId('open-root')).toHaveTextContent('/web-dev-vault');
+
+      await act(async () => gate.resolve());
+      await waitFor(() => expect(screen.getByTestId('open-root')).toHaveTextContent('/Users/me/Moved'));
+      expect(JSON.parse(SAVED()!)).toEqual({
+        paths: ['/web-dev-vault', '/Users/me/Moved', '/Third'],
+        activePath: '/Users/me/Moved',
+      });
+      expect(document.getElementById('space-details-name')).toBeNull();
+    });
+
+    it('Change location: a folder that fails to open leaves the missing entry as it was', async () => {
+      tauri.isTauri = true;
+      await chooseMissing();
+      const before = SAVED();
+      tauri.openDialog.mockResolvedValueOnce('/Users/me/Broken');
+
+      await click('Change location');
+
+      await waitFor(() => expect(bootstrap).toHaveBeenCalledWith('/Users/me/Broken', expect.anything()));
+      await waitFor(() => expect(screen.getByRole('status')).toBeInTheDocument());
+      expect(screen.getByTestId('open-root')).toHaveTextContent('/web-dev-vault');
+      expect(SAVED()).toBe(before);
+    });
+
+    it('Change location: cancelling the picker changes nothing', async () => {
+      tauri.isTauri = true;
+      await chooseMissing();
+      const before = SAVED();
+      tauri.openDialog.mockResolvedValueOnce(null);
+
+      await click('Change location');
+
+      await waitFor(() => expect(screen.queryByText('Space not found')).toBeNull());
+      expect(document.getElementById('space-details-name')).toBeNull();
+      expect(bootstrap).toHaveBeenCalledTimes(1);
+      expect(SAVED()).toBe(before);
+      expect(screen.getByTestId('open-root')).toHaveTextContent('/web-dev-vault');
+    });
+
+    it('a Space whose folder has come back opens normally instead', async () => {
+      await chooseMissing();
+      await act(async () => void fireEvent.keyDown(document, { key: 'Escape' }));
+      await waitFor(() => expect(screen.queryByText('Space not found')).toBeNull());
+      probeOverrides.set('/Missing', 'available');
+
+      await act(async () => screen.getByText('switch-missing').click());
+
+      await waitFor(() => expect(screen.getByTestId('open-root')).toHaveTextContent('/Missing'));
+      expect(screen.queryByText('Space not found')).toBeNull();
+    });
   });
 });

@@ -1,8 +1,17 @@
 import { createContext, useContext } from 'react';
+import type { SpaceAvatarChoice } from '../../components/space-avatar/SpaceAvatar';
 import type { SpaceListEntry } from './spaceRegistry';
 
+/** A listed Space: its saved path and name, and the avatar it carries (absent: its initial). */
+export type SpaceListItem = SpaceListEntry & {
+  /** An image's `src` is an absolute path. */
+  readonly avatar?: SpaceAvatarChoice;
+  /** The folder is confirmed missing, so the Space can't be opened until it is back. */
+  readonly missing?: boolean;
+};
+
 export interface SpacesApi {
-  readonly spaces: readonly SpaceListEntry[];
+  readonly spaces: readonly SpaceListItem[];
   readonly activePath: string;
   /** Opens the folder picker and activates the chosen folder; absent where no picker exists (web runtime). */
   readonly onAddSpace?: () => void;

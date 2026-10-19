@@ -50,6 +50,7 @@ import Download from './svg/download.svg?react';
 import DragHandle from './svg/drag-handle.svg?react';
 import Edit from './svg/edit.svg?react';
 import Exclamation from './svg/exclamation.svg?react';
+import ExclamationMark from './svg/exclamation-mark.svg?react';
 import Description from './svg/description.svg?react';
 import ExpandDiagonal from './svg/expand-diagonal.svg?react';
 import FavouriteFilled from './svg/favourite-filled.svg?react';
@@ -143,6 +144,7 @@ export const iconRegistry = {
   calendarNote: CalendarNote,
   calendarToday: CalendarTodayIcon,
   exclamation: Exclamation,
+  exclamationMark: ExclamationMark,
   car: Car,
   card: Card,
   caretDown: CaretDown,

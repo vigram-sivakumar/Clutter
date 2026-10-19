@@ -1,0 +1,60 @@
+/* The space's identity and its saved location: one card, two visually distinct parts. */
+.missing-space__details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-12);
+  background: var(--surface-subtle);
+  border-radius: var(--radius-lg);
+  /* box-shadow: var(--shadow-inset-thin); */
+}
+.missing-space__space {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+}
+.missing-space__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--foreground-primary);
+  font-size: var(--text-label);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-label);
+  letter-spacing: var(--ls-body-small);
+}
+.missing-space__location {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.missing-space__label {
+  color: var(--foreground-tertiary);
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label-small);
+  letter-spacing: var(--ls-label-small);
+}
+.missing-space__path-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+}
+/* A long path is cut with an ellipsis (the full path is the tooltip) so the dialog never grows. */
+.missing-space__path {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--foreground-secondary);
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label-small);
+  letter-spacing: var(--ls-label-small);
+}
+.missing-space__path-row .button {
+  flex-shrink: 0;
+}

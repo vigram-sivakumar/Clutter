@@ -24,6 +24,14 @@ export interface SpaceAvatarProps {
    * nothing to load (the initial is shown instead). Defaults to using `src` as-is.
    */
   resolveImageUrl?(src: string): string | null;
+  /**
+   * A status mark over the avatar's top-right corner. `error` is the red exclamation badge: something is
+   * wrong with the Space itself (its folder is missing), not with the avatar. Absent: the avatar is drawn
+   * exactly as before, with no wrapper around it.
+   */
+  badge?: 'error';
+  /** What the badge means, for assistive technology and hover (e.g. "Folder not found"). */
+  badgeLabel?: string;
 }
 
 const identity = (src: string): string => src;
@@ -47,7 +55,7 @@ function Image({ url, folderName }: { url: string; folderName: string }) {
   return <img className="space__avatar" src={url} alt="" onError={() => setFailed(true)} />;
 }
 
-export function SpaceAvatar({ avatar, folderName, resolveImageUrl = identity }: SpaceAvatarProps) {
+function Avatar({ avatar, folderName, resolveImageUrl = identity }: SpaceAvatarProps) {
   switch (avatar.type) {
     case 'emoji':
       return avatar.emoji ? <AppIcon emoji={avatar.emoji} /> : <Initial folderName={folderName} />;
@@ -63,4 +71,24 @@ export function SpaceAvatar({ avatar, folderName, resolveImageUrl = identity }: 
     case 'initial':
       return <Initial folderName={folderName} />;
   }
+}
+
+export function SpaceAvatar({ badge, badgeLabel, ...avatarProps }: SpaceAvatarProps) {
+  if (!badge) {
+    return <Avatar {...avatarProps} />;
+  }
+
+  return (
+    <span className="space__badged">
+      <Avatar {...avatarProps} />
+      <span
+        className={`space__badge space__badge--${badge}`}
+        role="img"
+        aria-label={badgeLabel}
+        title={badgeLabel}
+      >
+        <AppIcon icon="exclamationMark" size={10} strokeWidth={1.6} />
+      </span>
+    </span>
+  );
 }

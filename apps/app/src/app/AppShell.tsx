@@ -2,7 +2,10 @@ import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { isTauri } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
-import { Application } from '../core/application/Application';
+import {
+  Application,
+  type SpaceProfileChange,
+} from '../core/application/Application';
 import { VaultRootMissingError } from '../core/vault/providers/VaultRootMissingError';
 import { normalizeAllTablesInMarkdown } from '../features/markdown/editor/codemirror/table/tableColumnNormalization';
 
@@ -20,14 +23,52 @@ import { StartupFrame } from './StartupFrame';
 import { scheduleAfterFirstPaint } from './scheduleAfterFirstPaint';
 import { createWindowCloseHandler } from './windowCloseHandler';
 import { WelcomeScreenDialog } from '../components/welcome-screen/WelcomeScreenDialog';
-import { draftForExistingFolder, type NewSpaceDraft } from '../components/space-details/SpaceDetails';
+import { Dialog } from '../components/dialog/Dialog';
+import {
+  SpaceDetails,
+  draftForExistingFolder,
+  type NewSpaceDraft,
+} from '../components/space-details/SpaceDetails';
 import { pickSpaceFolder } from './spaces/pickSpaceFolder';
 import { SpacesContext, type SpacesApi } from './spaces/SpacesContext';
 import { localCoverImageUrlResolver } from '../core/vault/providers/LocalCoverImageUrlResolver';
-import { listSpaces, normalizeSpacePath, spaceName } from './spaces/spaceRegistry';
+import {
+  listSpaces,
+  normalizeSpacePath,
+  spaceName,
+} from './spaces/spaceRegistry';
+import { LocalVaultProvider } from '../core/vault/providers/LocalFileSystem';
+import {
+  readSpaceProfile,
+  type SpaceProfile,
+} from '../core/application/space/SpaceProfileStore';
 import { ActiveSpaceAvatarContext } from '../components/space-avatar/ActiveSpaceAvatarContext';
-import type { SpaceAvatarChoice, SpaceAvatarProps } from '../components/space-avatar/SpaceAvatar';
+import type {
+  SpaceAvatarChoice,
+  SpaceAvatarProps,
+} from '../components/space-avatar/SpaceAvatar';
 import { useSpaceRegistry } from './spaces/useSpaceRegistry';
+import type { NarrowSidebarOverride } from './layouts/app-layout/useSidebarVisibility';
+import { MissingSpaceDialog } from '@components/missing-space-dialog/MissingSpaceDialog';
+
+/** A Space's own profile, read without opening it (read-only, never throws). The web runtime has none. */
+async function readProfileAt(path: string): Promise<SpaceProfile | null> {
+  return isTauri()
+    ? readSpaceProfile(new LocalVaultProvider(path), path)
+    : null;
+}
+
+/** The avatar a Space carries, ready to show: an image's Space-relative reference becomes its absolute path. */
+function displayAvatar(
+  path: string,
+  profile: SpaceProfile | null
+): SpaceAvatarChoice | undefined {
+  const avatar = profile?.avatar;
+  if (!avatar) return undefined;
+  return avatar.type === 'image'
+    ? { type: 'image', src: `${path}/${avatar.src}` }
+    : avatar;
+}
 
 /**
  * A Space avatar's image is the absolute path of a file the user picked (it lives outside every Space), so
@@ -50,7 +91,7 @@ const WELCOME_BACKGROUND_IMAGE =
   'https://images.unsplash.com/flagged/photo-1572392640988-ba48d1a74457?q=80&w=1364&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D';
 
 const TOO_BROAD_MESSAGE =
-  'That folder is too broad to be a space (your home folder or the disk root). Choose a more specific folder.';
+  'That folder is too broad to be a space (your home folder or the disk root). Choose a more specific folder';
 
 /** Why an error rejected an open. The fs plugin rejects with plain strings, not `Error`s. */
 function failureReason(error: unknown): string {
@@ -92,6 +133,32 @@ export function AppShell() {
   const vaultPath = spaces.registry.activePath;
 
   const [application, setApplication] = useState<Application | null>(null);
+  const [pendingSpace, setPendingSpace] = useState<NewSpaceDraft | null>(null);
+  // Choosing a Space whose folder is missing opens the "Space not found" dialog for it, not a toast.
+  const [missingSpacePath, setMissingSpacePath] = useState<string | null>(null);
+  // The sidebar's temporary toggle while the window is narrow. Kept here, above the layout that is rebuilt for
+  // every Space, so switching Spaces never changes whether the sidebar is shown.
+  const [narrowSidebarOverride, setNarrowSidebarOverride] = useState<NarrowSidebarOverride>(null);
+  // What each registered Space says about itself (`space` in its own `.clutter/workspace.json`), read from
+  // the Spaces — never stored here. Display only; an unreadable or never-opened Space has none.
+  const [profiles, setProfiles] = useState<
+    Readonly<Record<string, SpaceProfile | null>>
+  >({});
+  const [profilesTick, refreshProfiles] = useReducer(
+    (count: number) => count + 1,
+    0
+  );
+  // The folder the open dialog was prefilled from, and the avatar it was prefilled with: a confirmed avatar
+  // equal to it is no change at all (an existing Space's avatar is only touched when the user changes it).
+  const prefilledRef = useRef<{
+    path: string;
+    avatar: SpaceAvatarChoice | undefined;
+  } | null>(null);
+  // The confirmed profile change for the Space about to open; applied inside it, once it has opened.
+  const pendingProfileRef = useRef<{
+    path: string;
+    change: SpaceProfileChange;
+  } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // The Space path whose folder `bootstrap` found missing (it was there when startup probed it, or the
@@ -175,7 +242,7 @@ export function AppShell() {
         );
         if (!disposed) {
           setError(
-            'Failed to set up window handling. Restart Clutter to continue.'
+            'Failed to set up window handling. Restart Clutter to continue'
           );
         }
       })
@@ -203,7 +270,11 @@ export function AppShell() {
 
     // Nothing to open — no Space configured, or the configured folder is confirmed missing (and
     // bootstrap would create it): there is no Application, and the Welcome dialog is showing.
-    if (vaultPath === null || spaces.activeSpaceMissing || missingRoot === vaultPath) {
+    if (
+      vaultPath === null ||
+      spaces.activeSpaceMissing ||
+      missingRoot === vaultPath
+    ) {
       setIsLoading(false);
       return;
     }
@@ -239,6 +310,10 @@ export function AppShell() {
 
       const previous = applicationRef.current;
       const previousPath = openedPathRef.current;
+      // Whether the sidebar is open is the user's, not the Space's: the Space being switched to starts with
+      // the state they have now, not with whatever its own saved session says.
+      const sidebarVisible = previous?.workspace.isSidebarVisible;
+      if (sidebarVisible !== undefined) prepared.workspace.setSidebarVisible(sidebarVisible);
 
       if (previous) {
         applicationRef.current = null;
@@ -252,6 +327,7 @@ export function AppShell() {
         if (previous && previousPath) {
           // The previous Space is already closed, so put it back before reporting the failure.
           const restored = await prepare(previousPath);
+          if (sidebarVisible !== undefined) restored.workspace.setSidebarVisible(sidebarVisible);
           await restored.open();
           applicationRef.current = restored;
           setApplication(restored);
@@ -263,6 +339,19 @@ export function AppShell() {
       applicationRef.current = prepared;
       setApplication(prepared);
       setError(null);
+      // The Space's own profile, now that it is open and the user has confirmed it: its identity (the lazy
+      // migration of a Space that has none) and any avatar change. A failure here never un-opens the Space.
+      const pendingProfile =
+        pendingProfileRef.current?.path === openPath
+          ? pendingProfileRef.current
+          : null;
+      pendingProfileRef.current = null;
+      try {
+        await prepared.applySpaceProfile(pendingProfile?.change);
+      } catch (profileError) {
+        console.error('Saving the Space profile failed:', profileError);
+      }
+      refreshProfiles();
       // Only a Space that actually opened is remembered for the next launch.
       spaces.confirmOpened();
       if (onboardingRef.current?.path === openPath) {
@@ -284,11 +373,16 @@ export function AppShell() {
         }
 
         // Commits never overlap: each waits for the one before it.
-        const committing = commitChainRef.current.then(() => commit(prepared as Application));
+        const committing = commitChainRef.current.then(() =>
+          commit(prepared as Application)
+        );
         commitChainRef.current = committing.catch(() => {});
         await committing;
       } catch (loadError) {
         console.error('Failed to open vault:', loadError);
+        // A confirmed profile change belongs to the open that just failed, never to a later one.
+        if (pendingProfileRef.current?.path === openPath)
+          pendingProfileRef.current = null;
         if (prepared && applicationRef.current !== prepared) {
           await discardApplication(prepared);
         }
@@ -304,13 +398,16 @@ export function AppShell() {
           setOnboardingPending(false);
           onboarding.settle(
             loadError instanceof VaultRootMissingError
-              ? 'That folder no longer exists.'
-              : `Couldn't open "${openPath}": ${failureReason(loadError)}.`
+              ? 'That folder no longer exists'
+              : `Couldn’t open “${openPath}”: ${failureReason(loadError)}`
           );
           return;
         }
 
-        if (loadError instanceof VaultRootMissingError && applicationRef.current === null) {
+        if (
+          loadError instanceof VaultRootMissingError &&
+          applicationRef.current === null
+        ) {
           setMissingRoot(openPath);
           void recoverRef.current(openPath);
           return;
@@ -370,7 +467,9 @@ export function AppShell() {
   // Application's own watcher hint. No polling.
   useEffect(() => {
     if (!application || !isTauri()) return;
-    const unsubscribe = application.onRootLost(() => handleVaultLost(application));
+    const unsubscribe = application.onRootLost(() =>
+      handleVaultLost(application)
+    );
     const verify = () => {
       void application.verifyRoot();
       void spaces.refreshAvailability();
@@ -394,7 +493,9 @@ export function AppShell() {
   // returning does not mean that. Best effort; never affects editing.
   useEffect(() => {
     if (!application) return;
-    return scheduleAfterFirstPaint(() => void application.persistParsedNoteCache());
+    return scheduleAfterFirstPaint(
+      () => void application.persistParsedNoteCache()
+    );
   }, [application]);
 
   // The active Space `lostPath` can't be used. Tries the other registered Spaces whose folders exist, in
@@ -410,7 +511,8 @@ export function AppShell() {
   // its turn comes) does nothing.
   function recoverFromLostSpace(lostPath: string): Promise<void> {
     // The same loss reported twice (the watcher hint and the focus check, say) is one search.
-    if (lostBeingRecoveredRef.current.has(lostPath)) return recoveryChainRef.current;
+    if (lostBeingRecoveredRef.current.has(lostPath))
+      return recoveryChainRef.current;
     recoveriesQueuedRef.current++;
     recoveringRef.current = true;
     lostBeingRecoveredRef.current.add(lostPath);
@@ -453,7 +555,8 @@ export function AppShell() {
   // Startup with a saved active Space whose folder is confirmed missing: the same fallback.
   const startupRecoveryRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!spaces.ready || !spaces.activeSpaceMissing || vaultPath === null) return;
+    if (!spaces.ready || !spaces.activeSpaceMissing || vaultPath === null)
+      return;
     if (startupRecoveryRef.current === vaultPath) return;
     startupRecoveryRef.current = vaultPath;
     void recoverRef.current(vaultPath);
@@ -464,36 +567,47 @@ export function AppShell() {
   // Opens `rawPath` as the first Space from the Welcome dialog. Resolves `null` once it has opened
   // (and been remembered), or a message for the dialog. The registry only changes through
   // `selectSpace`, is put back on failure, and is written only by `confirmOpened`.
-  async function openSpaceFromWelcome(rawPath: string, avatar?: SpaceAvatarChoice): Promise<string | null> {
-    if (onboardingRef.current) return 'Already opening a space.';
+  async function openSpaceFromWelcome(
+    rawPath: string,
+    avatar?: SpaceAvatarChoice
+  ): Promise<string | null> {
+    if (onboardingRef.current) return 'Already opening a space';
     const path = normalizeSpacePath(rawPath);
     const status = await probeSpaceFolder(path);
-    if (status === 'missing') return "That folder doesn't exist.";
+    if (status === 'missing') return 'That folder doesn’t exist';
     if (status !== 'available') {
-      return "Clutter can't open that folder. It may not be a folder, or access was denied.";
+      return 'Clutter can’t open that folder. It may not be a folder, or access was denied';
     }
+    pendingProfileRef.current = {
+      path,
+      change: profileChangeFor(path, avatar),
+    };
     return new Promise<string | null>((resolve) => {
-      onboardingRef.current = { path, settle: resolve, restoreMissingRoot: missingRoot };
+      onboardingRef.current = {
+        path,
+        settle: resolve,
+        restoreMissingRoot: missingRoot,
+      };
       setOnboardingPending(true);
       setMissingRoot(null);
       // The configured Space is the one `bootstrap` found missing and it is now back: clearing the
       // report above is all that is needed for the open effect to run again.
-      if (missingRoot === path && spaces.registry.activePath === path) {
-        if (avatar) spaces.setSpaceAvatar(path, avatar);
-        return;
-      }
-      void spaces.selectSpace(path, avatar).then((accepted) => {
+      if (missingRoot === path && spaces.registry.activePath === path) return;
+      void spaces.selectSpace(path).then((accepted) => {
         if (!accepted && onboardingRef.current?.path === path) {
+          pendingProfileRef.current = null;
           setMissingRoot(onboardingRef.current.restoreMissingRoot);
           onboardingRef.current = null;
           setOnboardingPending(false);
-          resolve("Clutter couldn't start opening that folder.");
+          resolve('Clutter couldn’t start opening that folder');
         }
       });
     });
   }
 
-  async function selectFolderFromWelcome(): Promise<NewSpaceDraft | string | null> {
+  async function selectFolderFromWelcome(): Promise<
+    NewSpaceDraft | string | null
+  > {
     const picked = await pickSpaceFolder();
     if (picked === null) return null;
     // Any other folder the user can pick is fine. Access to one outside the static `$HOME/**` scope comes
@@ -501,38 +615,178 @@ export function AppShell() {
     const refusal = await acceptPickedSpace(picked);
     if (refusal !== null) return refusal;
     // Not opened yet: the dialog shows the space's settings first, and opens it on the user's confirm.
-    return draftForExistingFolder(picked);
+    return draftFromFolder(picked);
+  }
+
+  // The settings draft for an existing folder: its name, and the avatar the folder itself carries (a
+  // read-only look at its own `.clutter/workspace.json`; nothing is created or written by selecting it).
+  async function draftFromFolder(rawPath: string): Promise<NewSpaceDraft> {
+    const path = normalizeSpacePath(rawPath);
+    const draft = draftForExistingFolder(path);
+    const avatar = displayAvatar(path, await readProfileAt(path));
+    prefilledRef.current = { path, avatar };
+    return avatar ? { ...draft, avatar } : draft;
+  }
+
+  // What a confirmed avatar means for the Space: unchanged (the usual case), removed, an emoji, or a
+  // new image — a path outside the Space, copied into its `Assets/` once it has opened.
+  function profileChangeFor(
+    path: string,
+    avatar: SpaceAvatarChoice | undefined
+  ): SpaceProfileChange {
+    const prefilled =
+      prefilledRef.current?.path === path
+        ? prefilledRef.current.avatar
+        : undefined;
+    if (JSON.stringify(avatar) === JSON.stringify(prefilled)) return {};
+    if (avatar === undefined) return { avatar: null };
+    return avatar.type === 'emoji'
+      ? { avatar: { type: 'emoji', emoji: avatar.emoji } }
+      : { avatar: { type: 'image', sourcePath: avatar.src } };
+  }
+
+  // "New space" in the selector: the folder picker, then the Space Settings dialog. Until the user
+  // confirms, the folder is only this pending draft — the registry and the active Space are untouched.
+  // The draft starts from what the folder itself carries (its avatar, if it is a Space Clutter has opened).
+  async function chooseSpaceForSettings() {
+    const path = await spaces.chooseSpace?.();
+    if (path === null || path === undefined) return;
+    setPendingSpace(await draftFromFolder(path));
+  }
+
+  // Confirming registers (or re-uses) the folder and starts the usual switch; the dialog closes once the
+  // folder is accepted. A refused folder says why through the usual notice and the dialog stays.
+  async function confirmPendingSpace(
+    path: string,
+    avatar?: SpaceAvatarChoice
+  ): Promise<string | null> {
+    const change = profileChangeFor(path, avatar);
+    if (path === spaces.registry.activePath && applicationRef.current) {
+      // Already the open Space: nothing to switch to, but a confirmed avatar change still applies.
+      try {
+        await applicationRef.current.applySpaceProfile(change);
+        refreshProfiles();
+        setPendingSpace(null);
+        return null;
+      } catch (profileError) {
+        console.error('Saving the Space profile failed:', profileError);
+        return 'Couldn’t save the space settings';
+      }
+    }
+    pendingProfileRef.current = { path, change };
+    if (await spaces.switchSpace(path)) {
+      setPendingSpace(null);
+    } else {
+      pendingProfileRef.current = null;
+    }
+    return null;
+  }
+
+  // Re-read every registered Space's own profile when the list changes, a Space opens, its avatar is saved,
+  // or the selector opens. Reads only: a folder that can't be read simply shows its initial.
+  const registeredPathsKey = spaces.registry.paths.join('\n');
+  useEffect(() => {
+    if (!isTauri()) return;
+    let cancelled = false;
+    void (async () => {
+      const entries = await Promise.all(
+        spaces.registry.paths.map(
+          async (path) => [path, await readProfileAt(path)] as const
+        )
+      );
+      if (!cancelled) setProfiles(Object.fromEntries(entries));
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [registeredPathsKey, profilesTick]);
+
+  // "Remove space": forgets the missing Space's entry in Clutter. The folder and its files are never touched.
+  function removeMissingSpace() {
+    if (missingSpacePath !== null) spaces.removeSpace(missingSpacePath);
+    setMissingSpacePath(null);
+  }
+
+  // "Change location": the same picker and checks as "New space". The folder that is chosen replaces the
+  // missing entry in place and is opened straight away — no settings dialog. Choosing is the confirmation;
+  // cancelling the picker, or a refused folder, changes nothing, and the registry only changes for good once the
+  // folder has opened (a failed open puts the old entry back). The folder's own identity and avatar are read as
+  // part of opening it; nothing is matched to the missing space automatically.
+  async function changeMissingSpaceLocation() {
+    const missing = missingSpacePath;
+    setMissingSpacePath(null);
+    const path = await spaces.chooseSpace?.();
+    if (path === null || path === undefined || missing === null) return;
+    pendingProfileRef.current = null;
+    void spaces.switchSpace(path, missing);
+  }
+
+  // A Space whose folder is confirmed missing is not switched to: it opens the confirmation window instead of
+  // the error toast. Checked at the moment it is chosen, so a folder that has come back opens normally; any
+  // other refusal (unreadable, outside the allowed location) still explains itself through the usual notice.
+  async function switchOrExplainMissing(path: string) {
+    if ((await probeSpaceFolder(normalizeSpacePath(path))) === 'missing') {
+      setMissingSpacePath(normalizeSpacePath(path));
+      return;
+    }
+    void spaces.switchSpace(path);
   }
 
   const spacesApi = useMemo<SpacesApi>(
     () => ({
-      // Registered is not available: a Space whose folder is confirmed missing is left out of the
-      // selector (it stays in the registry for recovery). The open Space is always listed.
-      spaces: listSpaces(spaces.registry).filter(
-        (space) => space.path === spaces.registry.activePath || !spaces.missingPaths.has(space.path)
-      ),
+      // Every registered Space is listed, a missing one included: its name comes from its path, and its
+      // avatar (kept inside the folder) is not available, so it shows its initial. Choosing it explains why
+      // it can't be opened.
+      spaces: listSpaces(spaces.registry).map((space) => {
+        const avatar = displayAvatar(space.path, profiles[space.path] ?? null);
+        const missing =
+          space.path !== spaces.registry.activePath &&
+          spaces.missingPaths.has(space.path);
+        return {
+          ...space,
+          ...(avatar ? { avatar } : {}),
+          ...(missing ? { missing: true } : {}),
+        };
+      }),
       // Only provided with an open Application, which means a Space is configured.
       activePath: spaces.registry.activePath ?? '',
-      onAddSpace: spaces.addSpace && (() => void spaces.addSpace?.()),
+      onAddSpace: spaces.chooseSpace && (() => void chooseSpaceForSettings()),
       resolveAvatarImageUrl: resolveSpaceAvatarImage,
-      onSwitchSpace: (path) => void spaces.switchSpace(path),
-      refreshAvailability: () => void spaces.refreshAvailability(),
+      onSwitchSpace: (path) => {
+        pendingProfileRef.current = null;
+        void switchOrExplainMissing(path);
+      },
+      refreshAvailability: () => {
+        void spaces.refreshAvailability();
+        refreshProfiles();
+      },
     }),
-    [spaces.registry, spaces.missingPaths, spaces.addSpace, spaces.switchSpace, spaces.refreshAvailability]
+    [
+      spaces.registry,
+      spaces.missingPaths,
+      spaces.chooseSpace,
+      spaces.switchSpace,
+      spaces.refreshAvailability,
+      profiles,
+    ]
   );
 
-  // The open Space's avatar, for every surface that shows the Space root: the one chosen for it in the
-  // registry, else the initial of the Space's folder name.
+  // The open Space's avatar, for every surface that shows the Space root: the one the Space itself carries,
+  // else the initial of the Space's folder name.
   const activeSpaceAvatar = useMemo<SpaceAvatarProps | null>(
     () =>
       application
         ? {
-            avatar: spaces.registry.avatars?.[application.vault.root] ?? { type: 'initial' },
+            avatar: displayAvatar(
+              application.vault.root,
+              profiles[application.vault.root] ?? null
+            ) ?? { type: 'initial' },
             folderName: spaceName(application.vault.root),
             resolveImageUrl: resolveSpaceAvatarImage,
           }
         : null,
-    [application, spaces.registry.avatars]
+    [application, profiles]
   );
 
   const notice = spaces.notice && (
@@ -552,15 +806,21 @@ export function AppShell() {
   // `recoverFromLostSpace`) has finished empty-handed. The themed startup surface stays mounted behind the
   // Welcome dialog. The real workspace (AppLayout) needs an Application, so it cannot mount before a Space
   // exists — and none is faked to draw it.
-  const lostActiveSpace = spaces.activeSpaceMissing || (vaultPath !== null && missingRoot === vaultPath);
+  const lostActiveSpace =
+    spaces.activeSpaceMissing ||
+    (vaultPath !== null && missingRoot === vaultPath);
   if (
     !application &&
     !recovering &&
-    (vaultPath === null || onboardingPending || (lostActiveSpace && recoveryDoneFor === vaultPath))
+    (vaultPath === null ||
+      onboardingPending ||
+      (lostActiveSpace && recoveryDoneFor === vaultPath))
   ) {
     return (
       <>
-        <StartupFrame backgroundImage={WELCOME_BACKGROUND_IMAGE}>{null}</StartupFrame>
+        <StartupFrame backgroundImage={WELCOME_BACKGROUND_IMAGE}>
+          {null}
+        </StartupFrame>
         <WelcomeScreenDialog
           onSelectFolder={selectFolderFromWelcome}
           onResolveSpaceParent={resolveSpaceParent}
@@ -573,7 +833,10 @@ export function AppShell() {
   }
 
   // Looking for a replacement for a lost active Space (or about to): the opening frame, not the dialog.
-  if (!application && (recovering || (lostActiveSpace && recoveryDoneFor !== vaultPath))) {
+  if (
+    !application &&
+    (recovering || (lostActiveSpace && recoveryDoneFor !== vaultPath))
+  ) {
     return (
       <>
         <StartupFrame>Opening Clutter…</StartupFrame>
@@ -600,7 +863,39 @@ export function AppShell() {
   return (
     <SpacesContext.Provider value={spacesApi}>
       <ActiveSpaceAvatarContext.Provider value={activeSpaceAvatar}>
-        <AppLayout key={application.vault.root} application={application} />
+        <AppLayout
+          key={application.vault.root}
+          application={application}
+          narrowSidebarOverride={narrowSidebarOverride}
+          onNarrowSidebarOverrideChange={setNarrowSidebarOverride}
+        />
+        {pendingSpace && (
+          <Dialog
+            open
+            onClose={() => setPendingSpace(null)}
+            dismissible={false}
+            size="large"
+          >
+            <SpaceDetails
+              draft={pendingSpace}
+              onNameChange={() => {}}
+              onAvatarChange={(avatar) =>
+                setPendingSpace((current) => current && { ...current, avatar })
+              }
+              onOpenSpace={confirmPendingSpace}
+              onClose={() => setPendingSpace(null)}
+              resolveImageUrl={resolveSpaceAvatarImage}
+            />
+          </Dialog>
+        )}
+        <MissingSpaceDialog
+          open={missingSpacePath !== null}
+          path={missingSpacePath ?? ''}
+          name={spaceName(missingSpacePath ?? '')}
+          onChangeLocation={() => void changeMissingSpaceLocation()}
+          onRemove={removeMissingSpace}
+          onClose={() => setMissingSpacePath(null)}
+        />
         {notice}
       </ActiveSpaceAvatarContext.Provider>
     </SpacesContext.Provider>

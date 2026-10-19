@@ -8,6 +8,7 @@
   width: 100%;
   height: 100%;
   gap: var(--space-40);
+  padding-block: var(--space-40);
   padding-inline: var(--space-40);
   border-radius: var(--radius-lg);
 

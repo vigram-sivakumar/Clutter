@@ -21,7 +21,7 @@ interface FooterProps {
    */
   resolveImageUrl?(src: string): string | null;
   /** Every registered Space, active one included. Omitted: the menu lists just the active Space. */
-  spaces?: readonly { path: string; name: string; avatar?: SpaceAvatarValue }[];
+  spaces?: readonly { path: string; name: string; avatar?: SpaceAvatarValue; missing?: boolean }[];
   /** The active Space's path, matched against `spaces` to mark the current one. */
   activeSpacePath?: string;
   /** Presence makes the other Spaces selectable. */
@@ -104,6 +104,8 @@ export function Footer({
                     avatar={space.avatar ?? DEFAULT_AVATAR}
                     folderName={space.name}
                     resolveImageUrl={resolveImageUrl}
+                    badge={space.missing ? 'error' : undefined}
+                    badgeLabel={space.missing ? 'Folder not found' : undefined}
                   />
                 }
                 title={space.path}

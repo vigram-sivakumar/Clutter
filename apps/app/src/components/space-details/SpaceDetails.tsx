@@ -62,7 +62,7 @@ interface SpaceDetailsProps {
   /** Turns an uploaded image's path into a loadable URL for the preview. */
   resolveImageUrl?: (path: string) => string | null;
   /** Creates `<parent>/<name>` — explicitly, on the user's Create. Never overwrites an existing folder. */
-  onCreateFolder: (name: string) => Promise<CreateFolderResult>;
+  onCreateFolder?: (name: string) => Promise<CreateFolderResult>;
   /**
    * Opens the folder as the space, with the avatar chosen for it (none: `undefined`): `null` on success,
    * otherwise a message to show.
@@ -70,6 +70,11 @@ interface SpaceDetailsProps {
   onOpenSpace: (path: string, avatar?: SpaceAvatarChoice) => Promise<string | null>;
   /** Returns to the previous screen; the Back button only renders when provided. */
   onBack?: () => void;
+  /**
+   * Dismisses the screen when there is nothing to go back to: a close (×) button renders in the corner, and
+   * only when `onBack` is absent — the screen shows Go back or ×, never both.
+   */
+  onClose?: () => void;
 }
 
 export function SpaceDetails({
@@ -80,6 +85,7 @@ export function SpaceDetails({
   onCreateFolder,
   onOpenSpace,
   onBack,
+  onClose,
 }: SpaceDetailsProps) {
   const { shakeClassName, shake } = useRejectShake();
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
@@ -91,7 +97,7 @@ export function SpaceDetails({
   // again (which would rightly be refused). The folder is never deleted on a failed open.
   const [createdPath, setCreatedPath] = useState<string | null>(null);
 
-  // An unusable name shakes the whole Space Name card; the input is left exactly as typed. Editing the
+  // An unusable name shakes the whole Space name card; the input is left exactly as typed. Editing the
   // name starts over: a folder created for the previous name stays on disk, but is no longer the target.
   function handleNameChange(name: string) {
     if (!isValidSpaceFolderName(name)) shake();
@@ -108,7 +114,7 @@ export function SpaceDetails({
   const avatarInitial = Array.from(folderName)[0]?.toUpperCase();
 
   // Create makes `<parent>/<trimmed name>` and then opens it as the space. Buttons are never
-  // disabled — an invalid name, a taken name or any failure shakes the Space Name card and says why
+  // disabled — an invalid name, a taken name or any failure shakes the Space name card and says why
   // under it; nothing else changes. Clicks while in flight are ignored.
   async function handleCreate() {
     if (isCreating) return;
@@ -118,7 +124,7 @@ export function SpaceDetails({
       !isExisting &&
       !isValidSpaceFolderName(draft.name)
     ) {
-      setError('Enter a name without slashes or colons.');
+      setError('Enter a name without slashes or colons');
       shake();
       return;
     }
@@ -126,7 +132,10 @@ export function SpaceDetails({
     try {
       let path = createdPath ?? draft.existingPath ?? null;
       if (path === null) {
-        const created = await onCreateFolder(folderName);
+        // Only an existing folder (opened as is) has no use for it; a draft for a new folder always has one.
+        const created = (await onCreateFolder?.(folderName)) ?? {
+          error: 'Something went wrong creating the space',
+        };
         if ('error' in created) {
           setError(created.error);
           shake();
@@ -138,13 +147,13 @@ export function SpaceDetails({
       const openError = await onOpenSpace(path, draft.avatar);
       if (openError !== null) {
         setError(
-          `${openError} ${isExisting ? 'Press Open' : 'The folder was created; press Create'} to try opening it again.`
+          `${openError}. ${isExisting ? 'Press Create' : 'The folder was created; press Create'} to try opening it again`
         );
         shake();
       }
     } catch (caught) {
       console.error('Creating the space failed:', caught);
-      setError('Something went wrong creating the space.');
+      setError('Something went wrong creating the space');
       shake();
     } finally {
       setIsCreating(false);
@@ -162,6 +171,19 @@ export function SpaceDetails({
           onClick={onBack}
         >
           Go back
+        </Button>
+      )}
+      {!onBack && onClose && (
+        <Button
+          className="space-details__close"
+          variant="ghost"
+          interaction="subtle"
+          size="small"
+          isIconOnly
+          aria-label="Close"
+          onClick={onClose}
+        >
+          <AppIcon icon="dismiss" />
         </Button>
       )}
       <div
@@ -223,7 +245,7 @@ export function SpaceDetails({
             .join(' ')}
         >
           <label className="space-details__label" htmlFor="space-details-name">
-            Space Name
+            Space name
           </label>
           <Input
             id="space-details-name"
@@ -257,7 +279,7 @@ export function SpaceDetails({
           variant="primary"
           onClick={() => void handleCreate()}
         >
-          {isExisting ? 'Open' : 'Create'}
+          Create
         </Button>
       </div>
     </div>

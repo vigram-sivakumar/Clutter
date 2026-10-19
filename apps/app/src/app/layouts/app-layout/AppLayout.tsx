@@ -12,6 +12,7 @@ import type { Application } from '@core/application/Application';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import { useVault } from '@app/hooks/useVault';
 import { useMaxWidth, SIDEBAR_COLLAPSE_BREAKPOINT, COVER_HIDE_BREAKPOINT } from '@app/hooks/useMaxWidth';
+import { useSidebarVisibility, type NarrowSidebarOverride } from './useSidebarVisibility';
 import { useEffectivePageState } from '@app/hooks/useEffectivePageState';
 import { useWorkspace } from '@app/hooks/useWorkspace';
 import { TauriDragStrip } from '@components/tauri-drag-strip/TauriDragStrip';
@@ -76,9 +77,16 @@ function resolveTasksViewConfig(store: TasksViewConfigStore): TaskDisplayConfig 
 
 interface AppLayoutProps {
   application: Application;
+  /**
+   * The temporary sidebar toggle made while the window is narrow, owned by the shell: the layout is rebuilt
+   * for every Space, and the sidebar must not change just because the Space did. Both are given together;
+   * without them the layout keeps the override itself (only a layout rendered on its own does that).
+   */
+  narrowSidebarOverride?: NarrowSidebarOverride;
+  onNarrowSidebarOverrideChange?: (override: NarrowSidebarOverride) => void;
 }
 
-export function AppLayout({ application }: AppLayoutProps) {
+export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarOverrideChange }: AppLayoutProps) {
   // Single vault subscription for sibling Sidebar + PageHost re-renders.
   useVault(application.vault);
   // ADR-020, M3: EffectivePageState notifies on draft open/close/promotion
@@ -98,26 +106,16 @@ export function AppLayout({ application }: AppLayoutProps) {
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
   // The collapse/expand slide, from the slot's own CSS transition: the resize handle is hidden for its duration.
   const sidebarSlotRef = useRef<HTMLDivElement>(null);
-  // Responsive collapse. `workspace.isSidebarVisible` stays the persisted manual preference and is never
-  // written by a resize. Narrow, the sidebar is collapsed regardless of it; a manual toggle while narrow is a
-  // temporary override (local, not persisted) that lasts until the breakpoint is next crossed.
+  // Responsive collapse (see useSidebarVisibility). The narrow-window override lives in the shell, so a Space
+  // switch, which rebuilds this layout, leaves the sidebar exactly as it was.
   const isNarrow = useMaxWidth(SIDEBAR_COLLAPSE_BREAKPOINT);
-  const [narrowOverride, setNarrowOverride] = useState<boolean | null>(null);
-  const [wasNarrow, setWasNarrow] = useState(isNarrow);
-  if (isNarrow !== wasNarrow) {
-    setWasNarrow(isNarrow);
-    setNarrowOverride(null);
-  }
-  const isSidebarVisible = isNarrow
-    ? (narrowOverride ?? false)
-    : workspace.isSidebarVisible;
-  function toggleSidebar(): void {
-    if (isNarrow) {
-      setNarrowOverride(!isSidebarVisible);
-    } else {
-      workspace.toggleSidebarVisible();
-    }
-  }
+  const [ownNarrowOverride, setOwnNarrowOverride] = useState<NarrowSidebarOverride>(null);
+  const { isSidebarVisible, toggleSidebar } = useSidebarVisibility(
+    workspace,
+    isNarrow,
+    onNarrowSidebarOverrideChange ? (narrowSidebarOverride ?? null) : ownNarrowOverride,
+    onNarrowSidebarOverrideChange ?? setOwnNarrowOverride
+  );
   // The cover yields to the editor: always at the cover breakpoint and below, and between the breakpoints
   // whenever the sidebar is (manually) open. Collapsing the sidebar lets it return.
   const isCoverSuppressed = useMaxWidth(COVER_HIDE_BREAKPOINT) || (isNarrow && isSidebarVisible);

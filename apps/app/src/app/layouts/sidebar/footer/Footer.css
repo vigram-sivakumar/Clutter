@@ -36,3 +36,8 @@
 .space-menu__current .entry__trailing .app-icon {
   color: var(--foreground-primary);
 }
+
+/* The error badge sits half outside the avatar; the leading slot clips by default. */
+.space-menu__current .entry__leading {
+  overflow: visible;
+}

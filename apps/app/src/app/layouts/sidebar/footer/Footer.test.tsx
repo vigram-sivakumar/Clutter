@@ -287,3 +287,45 @@ describe('Footer space selector: each listed Space shows its own avatar', () => 
     expect(rows[1]!.querySelector('.space__initial')).toHaveTextContent('N');
   });
 });
+
+describe('Footer space selector: a space whose folder is missing', () => {
+  function openMenu(onSwitchSpace = vi.fn()) {
+    const view = render(
+      <Footer
+        vaultFolderName="Work"
+        spaces={[
+          { path: '/s/Work', name: 'Work' },
+          { path: '/s/Coconut', name: 'Coconut', missing: true },
+          { path: '/s/Fine', name: 'Fine' },
+        ]}
+        activeSpacePath="/s/Work"
+        onSwitchSpace={onSwitchSpace}
+        onOpenArchive={() => {}}
+      />
+    );
+    fireEvent.click(view.container.querySelector('.space-selector') as HTMLElement);
+    return { rows: within(screen.getByRole('menu')).getAllByRole('menuitem'), onSwitchSpace };
+  }
+
+  it('is listed by its folder name with its initial and an error badge on the avatar', () => {
+    const { rows } = openMenu();
+    expect(rows[1]).toHaveTextContent('Coconut');
+    expect(rows[1]!.querySelector('.space__initial')).toHaveTextContent('C');
+    const badge = rows[1]!.querySelector('.space__badge--error');
+    expect(badge).not.toBeNull();
+    expect(badge).toHaveAttribute('aria-label', 'Folder not found');
+    expect(rows[1]!.querySelector('.entry__trailing')).toBeNull();
+  });
+
+  it('is enabled, and choosing it still asks to switch (the switch explains the problem)', () => {
+    const { rows, onSwitchSpace } = openMenu();
+    expect(rows[1]).not.toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(rows[1]!);
+    expect(onSwitchSpace).toHaveBeenCalledWith('/s/Coconut');
+  });
+
+  it('puts no badge on a space that is fine', () => {
+    const { rows } = openMenu();
+    expect(rows[2]!.querySelector('.space__badge')).toBeNull();
+  });
+});

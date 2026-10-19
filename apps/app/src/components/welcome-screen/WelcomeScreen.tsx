@@ -41,7 +41,7 @@ export function WelcomeScreen({
       }
     } catch (caught) {
       console.error('Welcome screen action failed:', caught);
-      setError('Something went wrong. Try again.');
+      setError('Something went wrong. Try again');
       shake();
     } finally {
       setIsPending(false);
@@ -51,7 +51,7 @@ export function WelcomeScreen({
   return (
     <div className="welcome-screen">
       <div className="title-section">
-        <span className="welcome__title">Let's create a space</span>
+        <span className="welcome__title">Let’s create a space</span>
         <span className="welcome__description">
           Bring everything together, and organize your space
           <br />

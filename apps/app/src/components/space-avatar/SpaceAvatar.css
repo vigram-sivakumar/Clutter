@@ -20,6 +20,7 @@
   font-size: var(--text-label-small);
   line-height: var(--lh-label-small);
   font-weight: var(--fw-bold);
+  color: var(--foreground-secondary);
   background-color: color-mix(
     in srgb,
     var(--pill-surface),
@@ -33,4 +34,32 @@
     var(--pill-surface),
     rgb(var(--state-base)) 8%
   );
+}
+
+/* Only wraps an avatar that has a badge; the avatar itself is untouched. */
+.space__badged {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.space__badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  pointer-events: auto;
+}
+/* `.app-icon` has its own fixed wrapper size, so the mark's box is sized to the badge. */
+.space__badge .app-icon {
+  width: 100%;
+  height: 100%;
+}
+.space__badge--error {
+  background: var(--danger-surface);
+  color: var(--danger-foreground-on-surface);
 }

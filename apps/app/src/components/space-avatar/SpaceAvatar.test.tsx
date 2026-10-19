@@ -105,3 +105,43 @@ describe('SpaceAvatar: image', () => {
     expect(container.querySelector('img')).toHaveAttribute('src', 'https://example.com/ok.png');
   });
 });
+
+describe('SpaceAvatar: badge', () => {
+  it('draws no wrapper and no badge by default', () => {
+    const { container } = renderAvatar({ avatar: { type: 'initial' } });
+    expect(container.querySelector('.space__badged')).toBeNull();
+    expect(container.querySelector('.space__badge')).toBeNull();
+  });
+
+  it('puts an error badge with an exclamation mark over any kind of avatar, keeping the avatar itself', () => {
+    const avatars = [
+      { type: 'initial' },
+      { type: 'emoji', emoji: '🌿' },
+      { type: 'image', src: 'https://example.com/a.png' },
+    ] as const;
+    for (const avatar of avatars) {
+      const { container, unmount } = renderAvatar({ avatar, badge: 'error', badgeLabel: 'Folder not found' });
+      const badge = container.querySelector('.space__badged > .space__badge--error');
+      expect(badge).not.toBeNull();
+      expect(badge).toHaveClass('space__badge');
+      expect(badge).toHaveAttribute('role', 'img');
+      expect(badge).toHaveAttribute('aria-label', 'Folder not found');
+      expect(badge!.querySelector('svg')).not.toBeNull();
+      const kind = avatar.type === 'initial' ? '.space__initial' : avatar.type === 'emoji' ? '.emoji-icon' : 'img';
+      expect(container.querySelector(`.space__badged > ${kind}, .space__badged > .app-icon ${kind}`)).not.toBeNull();
+      unmount();
+    }
+  });
+
+  it('keeps the initial fallback of a failed image under the badge', () => {
+    const { container } = renderAvatar({
+      avatar: { type: 'image', src: 'x.png' },
+      folderName: 'coconut',
+      badge: 'error',
+    });
+    fireEvent.error(container.querySelector('img')!);
+    expect(container.querySelector('.space__badged .space__initial')).toHaveTextContent('C');
+    expect(container.querySelector('.space__badge--error')).not.toBeNull();
+  });
+});
+

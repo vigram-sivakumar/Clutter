@@ -40,6 +40,6 @@
 /* The corner close button of a two-action confirmation (see Confirmation's alternate action). */
 .confirmation__dismiss {
   position: absolute;
-  top: var(--space-8);
-  right: var(--space-8);
+  top: var(--space-12);
+  right: var(--space-12);
 }

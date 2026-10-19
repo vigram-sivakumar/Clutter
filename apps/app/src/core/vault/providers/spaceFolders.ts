@@ -38,18 +38,18 @@ export async function isTooBroadForSpace(path: string): Promise<boolean> {
 function describeCreateFailure(error: unknown, parentName: string): string {
   const message = error instanceof Error ? error.message : String(error);
   if (/File exists|already exists|\(os error 17\)/i.test(message)) {
-    return 'A folder with that name already exists. Choose another name.';
+    return 'A folder with that name already exists. Choose another name';
   }
   if (/forbidden path/i.test(message)) {
-    return `Clutter isn't allowed to create folders in ${parentName}.`;
+    return `Clutter isn’t allowed to create folders in ${parentName}`;
   }
   if (/Permission denied|Operation not permitted|\(os error 13\)|\(os error 1\)/i.test(message)) {
-    return `Clutter doesn't have permission to create a folder in ${parentName}. Check System Settings → Privacy & Security → Files and Folders.`;
+    return `Clutter doesn’t have permission to create a folder in ${parentName}. Check System Settings → Privacy & Security → Files and Folders`;
   }
   if (/No such file or directory|\(os error 2\)/i.test(message)) {
-    return `The ${parentName} folder could not be found.`;
+    return `The ${parentName} folder could not be found`;
   }
-  return `Couldn't create the folder: ${message}`;
+  return `Couldn’t create the folder: ${message}`;
 }
 
 /**
@@ -62,13 +62,13 @@ function describeCreateFailure(error: unknown, parentName: string): string {
  */
 export async function createSpaceFolder(name: string): Promise<CreateSpaceFolderResult> {
   if (!isValidSpaceFolderName(name)) {
-    return { error: 'Enter a name without slashes or colons.' };
+    return { error: 'Enter a name without slashes or colons' };
   }
 
   const parent = await resolveSpaceParent();
   const path = `${parent.path}/${name.trim()}`;
   if (VaultPath.parentDirectory(path) !== parent.path) {
-    return { error: 'Enter a name without slashes or colons.' };
+    return { error: 'Enter a name without slashes or colons' };
   }
 
   try {

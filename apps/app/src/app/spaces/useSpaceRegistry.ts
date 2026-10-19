@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { SpaceAvatarChoice } from '../../components/space-avatar/SpaceAvatar';
 import type { SpaceFolderStatus } from '../../core/vault/providers/probeSpaceFolder';
 import {
   defaultSpaceStorage,
@@ -7,7 +6,8 @@ import {
   normalizeSpacePath,
   saveSpaceRegistry,
   withActiveSpace,
-  withSpaceAvatar,
+  withReplacedSpace,
+  withoutSpace,
   type SpaceRegistry,
   type SpaceRegistryStorage,
 } from './spaceRegistry';
@@ -57,22 +57,31 @@ export interface SpaceRegistryState {
   /** A user-facing message about the last refused or failed switch; cleared by `dismissNotice`. */
   notice: { id: number; text: string } | null;
   dismissNotice(): void;
-  addSpace?: () => Promise<void>;
-  switchSpace(path: string): Promise<void>;
+  /**
+   * "New space": shows the folder picker and vets the choice. Resolves the chosen folder's normalized path,
+   * or `null` when the picker was cancelled or the folder refused (a refusal is shown as a notice).
+   * Changes nothing — the folder is only a candidate until the caller confirms it with `switchSpace`.
+   * Absent where there is no picker.
+   */
+  chooseSpace?: () => Promise<string | null>;
+  /**
+   * Registers `path` if new and makes it active (the caller's open follows). With `replaces`, the entry of
+   * that registered path (a Space the user is re-pointing) takes `path` in its place instead. Resolves whether
+   * the folder was accepted; a refusal is shown as a notice. Nothing is persisted until `confirmOpened`.
+   */
+  switchSpace(path: string, replaces?: string): Promise<boolean>;
+  /**
+   * "Remove space" for a Space whose folder is gone: forgets its entry — and only that; nothing on disk is
+   * touched. Remembered at once, onto the registry as of the last Space that opened, so a switch still in
+   * flight is never persisted early. The active Space can't be removed; an unregistered path changes nothing.
+   */
+  removeSpace(path: string): void;
   /**
    * First-run / recovery selection: like `switchSpace`, but resolves whether the folder was accepted
    * for opening, and the previous registry (and missing-folder report) can be put back with
    * `cancelSelection` if the open then fails. Nothing is persisted until `confirmOpened`.
-   * `avatar`, when given, is recorded for the Space with the selection (and so is rolled back with it);
-   * absent, the Space's existing avatar, if any, is left as it is.
    */
-  selectSpace(path: string, avatar?: SpaceAvatarChoice): Promise<boolean>;
-  /**
-   * Sets, or with `undefined` removes, a registered Space's avatar and remembers it right away — but only
-   * on top of the registry as of the last Space that opened, so a switch still in flight is never
-   * persisted early. An unregistered path changes nothing.
-   */
-  setSpaceAvatar(path: string, avatar: SpaceAvatarChoice | undefined): void;
+  selectSpace(path: string): Promise<boolean>;
   /** Undoes the last `selectSpace` that has not been confirmed. */
   cancelSelection(): void;
   /**
@@ -88,7 +97,7 @@ export interface SpaceRegistryState {
 }
 
 function unavailableMessage(path: string): string {
-  return `Can't open "${path}". The folder is missing, unreadable, or outside the allowed location.`;
+  return `Can’t open “${path}”. The folder is missing, unreadable, or outside the allowed location`;
 }
 
 export function useSpaceRegistry(deps: SpaceRegistryDeps): SpaceRegistryState {
@@ -178,7 +187,7 @@ export function useSpaceRegistry(deps: SpaceRegistryDeps): SpaceRegistryState {
 
   /** Returns whether the folder was accepted and made the active Space (the caller's open then follows). */
   const activate = useCallback(
-    async (rawPath: string, recordSelection: boolean, avatar?: SpaceAvatarChoice): Promise<boolean> => {
+    async (rawPath: string, recordSelection: boolean, replaces?: string): Promise<boolean> => {
       const path = normalizeSpacePath(rawPath);
       // Re-choosing the configured Space is only meaningful when it was reported missing: it has
       // since reappeared (or been created), so clear the report and let the open run.
@@ -205,33 +214,34 @@ export function useSpaceRegistry(deps: SpaceRegistryDeps): SpaceRegistryState {
       if (reopeningMissing) {
         setMissingPath(null);
       } else {
-        setRegistry((current) => withActiveSpace(current, path));
+        setRegistry((current) =>
+          replaces === undefined ? withActiveSpace(current, path) : withReplacedSpace(current, replaces, path)
+        );
       }
-      if (avatar) setRegistry((current) => withSpaceAvatar(current, path, avatar));
       return true;
     },
     [probe, say]
   );
 
-  const switchSpace = useCallback(async (path: string) => void (await activate(path, false)), [activate]);
-  const selectSpace = useCallback(
-    (path: string, avatar?: SpaceAvatarChoice) => activate(path, true, avatar),
+  const switchSpace = useCallback(
+    (path: string, replaces?: string) => activate(path, false, replaces),
     [activate]
   );
-
-  const setSpaceAvatar = useCallback(
-    (path: string, avatar: SpaceAvatarChoice | undefined) => {
-      setRegistry((current) => withSpaceAvatar(current, path, avatar));
+  const removeSpace = useCallback(
+    (path: string) => {
+      setRegistry((current) => withoutSpace(current, path));
       const lastOpened = lastOpenedRef.current;
       if (!lastOpened) return; // Nothing has opened yet: `confirmOpened` writes it with the Space.
-      const remembered = withSpaceAvatar(lastOpened, path, avatar);
+      const remembered = withoutSpace(lastOpened, path);
+      if (remembered === lastOpened) return;
       lastOpenedRef.current = remembered;
       if (!saveSpaceRegistry(storageRef.current, remembered)) {
-        say("Clutter couldn't save the avatar, so it won't be remembered next launch.");
+        say('Clutter couldn’t save that change, so the space may come back next launch');
       }
     },
     [say]
   );
+  const selectSpace = useCallback((path: string) => activate(path, true), [activate]);
 
   const cancelSelection = useCallback(() => {
     const pending = pendingSelectionRef.current;
@@ -241,22 +251,22 @@ export function useSpaceRegistry(deps: SpaceRegistryDeps): SpaceRegistryState {
     setMissingPath(pending.previousMissing);
   }, []);
 
-  const addSpace = useCallback(async () => {
+  const chooseSpace = useCallback(async (): Promise<string | null> => {
     const picked = await pick?.();
-    if (!picked) return;
+    if (!picked) return null;
     const refusal = await accept?.(picked);
     if (refusal) {
       say(refusal);
-      return;
+      return null;
     }
-    await activate(picked, false);
-  }, [pick, accept, activate, say]);
+    return normalizeSpacePath(picked);
+  }, [pick, accept, say]);
 
   const confirmOpened = useCallback(() => {
     lastOpenedRef.current = registryRef.current;
     pendingSelectionRef.current = null;
     if (!saveSpaceRegistry(storageRef.current, registryRef.current)) {
-      say("This Space is open, but Clutter couldn't save it, so it won't be reopened next launch.");
+      say('This space is open, but Clutter couldn’t save it, so it won’t be reopened next launch');
     }
   }, [say]);
 
@@ -282,10 +292,10 @@ export function useSpaceRegistry(deps: SpaceRegistryDeps): SpaceRegistryState {
     fallbackCandidates,
     notice,
     dismissNotice: useCallback(() => setNotice(null), []),
-    addSpace: pick ? addSpace : undefined,
+    chooseSpace: pick ? chooseSpace : undefined,
     switchSpace,
+    removeSpace,
     selectSpace,
-    setSpaceAvatar,
     cancelSelection,
     confirmOpened,
     openFailed,

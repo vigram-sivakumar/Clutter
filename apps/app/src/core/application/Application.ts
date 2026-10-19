@@ -34,6 +34,7 @@ import { ReferencesDisplayStore } from './references/ReferencesDisplayStore';
 import { TemplateUsageStore } from './templates/TemplateUsageStore';
 import { DailyNotesSidebarState } from './daily-notes/DailyNotesSidebarState';
 import { WorkspaceSessionStore } from './workspace/WorkspaceSessionStore';
+import { SpaceProfileStore, type SpaceProfile } from './space/SpaceProfileStore';
 import { TagMetadataStore } from '../vault/persistence/TagMetadataStore';
 import { FolderPathResolver } from '../vault/persistence/FolderPathResolver';
 import { FolderCreator } from './folder/FolderCreator';
@@ -73,6 +74,14 @@ import { SelfWriteRegistry } from '../vault/providers/SelfWriteRegistry';
 import { SelfWriteAwareFileSystem } from '../vault/providers/SelfWriteAwareFileSystem';
 import { SelfWriteAwareWatcher } from '../vault/providers/SelfWriteAwareWatcher';
 import { attachDevTools } from '@devtools/index';
+
+/** A change to the open Space's avatar: an emoji, an image still outside the Space (its picked file), or `null` to remove. */
+export interface SpaceProfileChange {
+  readonly avatar?:
+    | { readonly type: 'emoji'; readonly emoji: string }
+    | { readonly type: 'image'; readonly sourcePath: string }
+    | null;
+}
 
 /**
  * Composition root for the application layer.
@@ -184,6 +193,7 @@ export class Application {
    * `dailyNotesSidebarState` stay the runtime owners and never see it.
    */
   public readonly workspaceSessionStore: WorkspaceSessionStore;
+  public readonly spaceProfileStore: SpaceProfileStore;
   private readonly tagMetadataStore: TagMetadataStore;
   public pageOperations!: PageOperations;
   public folderOperations!: FolderOperations;
@@ -343,6 +353,10 @@ export class Application {
     // attached (below) and restoring the active view happens in open().
     const workspaceSessionStore = await WorkspaceSessionStore.load(fileSystem, rootPath);
 
+    // The Space's own profile (identity, avatar): a read-only load of the `space` key — nothing is written
+    // until the caller asks (`applySpaceProfile`).
+    const spaceProfileStore = await SpaceProfileStore.load(fileSystem, rootPath);
+
     // Tag definitions (`.clutter/tags.json`) are loaded by their one owner,
     // TagMetadataStore — tolerantly: a missing file is "no definitions" and a
     // corrupt one is backed up and treated as empty, so this can never fail
@@ -424,7 +438,8 @@ export class Application {
       tagMetadataStore,
       templateUsageStore,
       referencesDisplayStore,
-      parsedNoteCache
+      parsedNoteCache,
+      spaceProfileStore
     );
 
     application.rootPath = rootPath;
@@ -492,7 +507,9 @@ export class Application {
     // Same default reasoning, for tests that construct Application directly without exercising References display.
     referencesDisplayStore: ReferencesDisplayStore = ReferencesDisplayStore.empty(fileSystem, ''),
     // Same default reasoning: tests that construct Application directly never use a parse cache.
-    parsedNoteCache: ParsedNoteCache = ParsedNoteCache.disabled()
+    parsedNoteCache: ParsedNoteCache = ParsedNoteCache.disabled(),
+    // Same default reasoning: tests that construct Application directly never touch the Space profile.
+    spaceProfileStore: SpaceProfileStore = SpaceProfileStore.empty(fileSystem, '')
   ) {
     this.vault = vault;
     // Constructed once, here, per ARCHITECTURE_RULES.md rule 6 — UI reads
@@ -511,6 +528,7 @@ export class Application {
     this.templateUsageStore = templateUsageStore;
     this.referencesDisplayStore = referencesDisplayStore;
     this.parsedNoteCache = parsedNoteCache;
+    this.spaceProfileStore = spaceProfileStore;
     this.workspace = new Workspace();
     this.dailyNotesSidebarState = new DailyNotesSidebarState();
     this.documentRegistry = new DocumentRegistry();
@@ -876,6 +894,36 @@ export class Application {
     await this.vaultSyncService.reconcileKnownPath(`${this.rootPath}/${reference}`);
 
     return reference;
+  }
+
+  /**
+   * The open Space's profile, or `null` while it has no identity yet (a Space that predates identities,
+   * or a folder that has never been opened by Clutter).
+   */
+  public get spaceProfile(): SpaceProfile | null {
+    return this.spaceProfileStore.profile;
+  }
+
+  /**
+   * Settles the open Space's own profile after the user has confirmed it: gives the Space an identity if it
+   * has none (the lazy migration of a Space that predates them), and applies the avatar change — `undefined`
+   * leaves the avatar as it is, `null` removes it, an emoji sets it, and an image is copied into the Space's
+   * `Assets/` (the usual asset convention) and stored as that vault-relative reference, so nothing depends
+   * on the original file. Only ever called for the Space that is open, never merely because it was selected.
+   */
+  public async applySpaceProfile(change: SpaceProfileChange = {}): Promise<SpaceProfile> {
+    const { avatar } = change;
+    if (avatar === undefined) {
+      return this.spaceProfileStore.ensureIdentity();
+    }
+    if (avatar === null) {
+      return this.spaceProfileStore.setAvatar(undefined);
+    }
+    if (avatar.type === 'emoji') {
+      return this.spaceProfileStore.setAvatar(avatar);
+    }
+    const reference = await this.importCoverAsset(avatar.sourcePath);
+    return this.spaceProfileStore.setAvatar({ type: 'image', src: reference });
   }
 
   /**

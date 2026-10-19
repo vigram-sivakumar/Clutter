@@ -33,10 +33,24 @@ async function setup(options: {
 }
 
 describe('useSpaceRegistry', () => {
-  it('registers and activates the picked folder, persisting only once it has opened', async () => {
-    const { result, storage } = await setup({ pick: async () => '/Picked/Notes' });
+  it('choosing a folder changes nothing: no registration, no active Space, nothing persisted', async () => {
+    const { result, storage } = await setup({ pick: async () => '/Picked/Notes/' });
+    const before = result.current.registry;
 
-    await act(() => result.current.addSpace!());
+    let chosen: string | null = null;
+    await act(async () => {
+      chosen = await result.current.chooseSpace!();
+    });
+
+    expect(chosen).toBe('/Picked/Notes');
+    expect(result.current.registry).toBe(before);
+    expect(storage.value).toBeNull();
+  });
+
+  it('registers and activates a confirmed folder, persisting only once it has opened', async () => {
+    const { result, storage } = await setup({});
+
+    await act(async () => void (await result.current.switchSpace('/Picked/Notes')));
 
     expect(result.current.registry).toEqual({
       paths: ['/Default', '/Picked/Notes'],
@@ -48,12 +62,16 @@ describe('useSpaceRegistry', () => {
     expect(JSON.parse(storage.value!)).toEqual(result.current.registry);
   });
 
-  it('leaves everything unchanged when the picker is cancelled', async () => {
+  it('chooses nothing when the picker is cancelled', async () => {
     const { result } = await setup({ pick: async () => null });
     const before = result.current.registry;
 
-    await act(() => result.current.addSpace!());
+    let chosen: string | null = 'x';
+    await act(async () => {
+      chosen = await result.current.chooseSpace!();
+    });
 
+    expect(chosen).toBeNull();
     expect(result.current.registry).toBe(before);
     expect(result.current.notice).toBeNull();
   });
@@ -61,29 +79,32 @@ describe('useSpaceRegistry', () => {
   it('activates an already registered Space instead of registering it twice', async () => {
     const { result } = await setup({
       stored: { paths: ['/Default', '/Other'], activePath: '/Default' },
-      pick: async () => '/Other/',
     });
 
-    await act(() => result.current.addSpace!());
+    await act(async () => void (await result.current.switchSpace('/Other/')));
 
     expect(result.current.registry).toEqual({ paths: ['/Default', '/Other'], activePath: '/Other' });
   });
 
-  it('refuses an unavailable folder with a message and keeps the active Space', async () => {
+  it('refuses an unavailable confirmed folder with a message and keeps the active Space', async () => {
     const probe = vi.fn(async (path: string): Promise<SpaceFolderStatus> => (path === '/Default' ? 'available' : 'missing'));
-    const { result } = await setup({ probe, pick: async () => '/Gone' });
+    const { result } = await setup({ probe });
 
-    await act(() => result.current.addSpace!());
+    let accepted = true;
+    await act(async () => {
+      accepted = await result.current.switchSpace('/Gone');
+    });
 
+    expect(accepted).toBe(false);
     expect(result.current.registry).toEqual({ paths: ['/Default'], activePath: '/Default' });
     expect(result.current.notice?.text).toContain('/Gone');
   });
 
-  it('returns to the previous Space when the new one fails to open', async () => {
-    const { result } = await setup({ pick: async () => '/Bad' });
+  it('returns to the previous Space when the confirmed one fails to open', async () => {
+    const { result } = await setup({});
     act(() => result.current.confirmOpened());
 
-    await act(() => result.current.addSpace!());
+    await act(async () => void (await result.current.switchSpace('/Bad')));
     expect(result.current.registry.activePath).toBe('/Bad');
 
     let reverted = false;
@@ -108,9 +129,9 @@ describe('useSpaceRegistry', () => {
     expect(result.current.registry.activePath).toBe('/Other');
   });
 
-  it('has no addSpace without a folder picker', async () => {
+  it('has no chooseSpace without a folder picker', async () => {
     const { result } = await setup({});
-    expect(result.current.addSpace).toBeUndefined();
+    expect(result.current.chooseSpace).toBeUndefined();
   });
 
   it('with no default and nothing stored, is ready with an empty registry and probes nothing', async () => {
@@ -250,7 +271,7 @@ describe('useSpaceRegistry', () => {
 
     act(() => view.result.current.confirmOpened());
 
-    expect(view.result.current.notice?.text).toContain("won't be reopened");
+    expect(view.result.current.notice?.text).toContain("won’t be reopened");
     expect(view.result.current.registry.activePath).toBe('/Default');
   });
 
@@ -343,7 +364,7 @@ describe('useSpaceRegistry', () => {
     });
   });
 
-  describe('addSpace with an accept() guard', () => {
+  describe('chooseSpace with an accept() guard', () => {
     it('refuses a picked folder with a notice, without probing, activating or persisting anything', async () => {
       const storage = memoryStorage({ paths: ['/A'], activePath: '/A' });
       const probe = vi.fn(async (): Promise<SpaceFolderStatus> => 'available');
@@ -358,14 +379,18 @@ describe('useSpaceRegistry', () => {
       await waitFor(() => expect(view.result.current.ready).toBe(true));
       probe.mockClear();
 
-      await act(() => view.result.current.addSpace!());
+      let chosen: string | null = 'x';
+      await act(async () => {
+        chosen = await view.result.current.chooseSpace!();
+      });
 
+      expect(chosen).toBeNull();
       expect(view.result.current.notice?.text).toBe('Not allowed here.');
       expect(view.result.current.registry).toEqual({ paths: ['/A'], activePath: '/A' });
       expect(probe).not.toHaveBeenCalledWith('/Home');
     });
 
-    it('activates the folder when accept() allows it', async () => {
+    it('returns the folder when accept() allows it, still without activating it', async () => {
       const storage = memoryStorage({ paths: ['/A'], activePath: '/A' });
       const view = renderHook(() =>
         useSpaceRegistry({
@@ -377,93 +402,71 @@ describe('useSpaceRegistry', () => {
       );
       await waitFor(() => expect(view.result.current.ready).toBe(true));
 
-      await act(() => view.result.current.addSpace!());
+      let chosen: string | null = null;
+      await act(async () => {
+        chosen = await view.result.current.chooseSpace!();
+      });
 
-      expect(view.result.current.registry.activePath).toBe('/B');
+      expect(chosen).toBe('/B');
+      expect(view.result.current.registry.activePath).toBe('/A');
     });
   });
-});
 
-describe('useSpaceRegistry: avatars', () => {
-  const emoji = { type: 'emoji', emoji: '🌿' } as const;
-  const image = { type: 'image', src: '/Users/me/Pictures/logo.png' } as const;
+  describe('re-pointing and forgetting a missing Space', () => {
+    const stored = { paths: ['/A', '/Gone', '/B'], activePath: '/A' };
 
-  it('records the avatar with the selection and persists it only once the Space has opened', async () => {
-    const { result, storage } = await setup({});
+    it('removeSpace forgets only that entry, remembered at once onto the last opened registry', async () => {
+      const { result, storage } = await setup({ stored });
+      act(() => result.current.confirmOpened());
 
-    await act(async () => void (await result.current.selectSpace('/Picked/Notes', emoji)));
-    expect(result.current.registry.avatars).toEqual({ '/Picked/Notes': emoji });
-    expect(storage.value).toBeNull();
+      act(() => result.current.removeSpace('/Gone'));
 
-    act(() => result.current.confirmOpened());
-    expect(JSON.parse(storage.value!).avatars).toEqual({ '/Picked/Notes': emoji });
-  });
+      expect(result.current.registry).toEqual({ paths: ['/A', '/B'], activePath: '/A' });
+      expect(JSON.parse(storage.value!)).toEqual({ paths: ['/A', '/B'], activePath: '/A' });
+    });
 
-  it('persists an image avatar and restores it after a restart', async () => {
-    const first = await setup({});
-    await act(async () => void (await first.result.current.selectSpace('/Volumes/Drive/Vault', image)));
-    act(() => first.result.current.confirmOpened());
-    first.unmount();
+    it('removeSpace never persists a Space whose switch is still in flight', async () => {
+      const { result, storage } = await setup({ stored });
+      act(() => result.current.confirmOpened());
+      await act(async () => void (await result.current.switchSpace('/B')));
 
-    const restarted = await setup({ stored: JSON.parse(first.storage.value!) });
-    expect(restarted.result.current.registry.avatars).toEqual({ '/Volumes/Drive/Vault': image });
-  });
+      act(() => result.current.removeSpace('/Gone'));
 
-  it('rolls the avatar back with the selection when the open fails', async () => {
-    const { result, storage } = await setup({});
+      expect(JSON.parse(storage.value!)).toEqual({ paths: ['/A', '/B'], activePath: '/A' });
+    });
 
-    await act(async () => void (await result.current.selectSpace('/Picked/Notes', emoji)));
-    act(() => result.current.cancelSelection());
+    it('removeSpace refuses the active Space and ignores an unregistered path', async () => {
+      const { result } = await setup({ stored });
+      const before = result.current.registry;
 
-    expect(result.current.registry.avatars).toBeUndefined();
-    expect(storage.value).toBeNull();
-  });
+      act(() => result.current.removeSpace('/A'));
+      act(() => result.current.removeSpace('/nope'));
 
-  it("leaves a Space's existing avatar alone when selected again without one", async () => {
-    const stored = { paths: ['/Default', '/A'], activePath: '/Default', avatars: { '/A': emoji } };
-    const { result } = await setup({ stored });
+      expect(result.current.registry).toBe(before);
+    });
 
-    await act(async () => void (await result.current.selectSpace('/A')));
-    expect(result.current.registry.avatars).toEqual({ '/A': emoji });
-  });
+    it('switchSpace with replaces re-points that entry in place, persisted only once the Space has opened', async () => {
+      const { result, storage } = await setup({ stored });
+      act(() => result.current.confirmOpened());
+      const before = storage.value;
 
-  it('updates an avatar of an opened Space and remembers it immediately', async () => {
-    const { result, storage } = await setup({ stored: { paths: ['/Default'], activePath: '/Default' } });
-    act(() => result.current.confirmOpened());
+      await act(async () => void (await result.current.switchSpace('/Moved', '/Gone')));
 
-    act(() => result.current.setSpaceAvatar('/Default', image));
+      expect(result.current.registry).toEqual({ paths: ['/A', '/Moved', '/B'], activePath: '/Moved' });
+      expect(storage.value).toBe(before);
+      act(() => result.current.confirmOpened());
+      expect(JSON.parse(storage.value!)).toEqual({ paths: ['/A', '/Moved', '/B'], activePath: '/Moved' });
+    });
 
-    expect(result.current.registry.avatars).toEqual({ '/Default': image });
-    expect(JSON.parse(storage.value!).avatars).toEqual({ '/Default': image });
-  });
+    it('a failed open puts the replaced entry back', async () => {
+      const { result } = await setup({ stored });
+      act(() => result.current.confirmOpened());
+      await act(async () => void (await result.current.switchSpace('/Moved', '/Gone')));
 
-  it('removing the avatar removes its registry entry, in memory and in storage', async () => {
-    const stored = { paths: ['/Default'], activePath: '/Default', avatars: { '/Default': emoji } };
-    const { result, storage } = await setup({ stored });
-    act(() => result.current.confirmOpened());
+      act(() => void result.current.openFailed('boom'));
 
-    act(() => result.current.setSpaceAvatar('/Default', undefined));
-
-    expect(result.current.registry.avatars).toBeUndefined();
-    expect('avatars' in JSON.parse(storage.value!)).toBe(false);
-  });
-
-  it('never persists a Space whose switch is still in flight when an avatar is updated', async () => {
-    const stored = { paths: ['/Default', '/Other'], activePath: '/Default' };
-    const { result, storage } = await setup({ stored });
-    act(() => result.current.confirmOpened());
-    await act(async () => void (await result.current.selectSpace('/Other')));
-
-    act(() => result.current.setSpaceAvatar('/Default', emoji));
-
-    expect(JSON.parse(storage.value!).activePath).toBe('/Default');
-    expect(JSON.parse(storage.value!).avatars).toEqual({ '/Default': emoji });
-  });
-
-  it('does nothing for a Space that is not registered', async () => {
-    const { result } = await setup({});
-    act(() => result.current.setSpaceAvatar('/Nope', emoji));
-    expect(result.current.registry.avatars).toBeUndefined();
+      expect(result.current.registry).toEqual(stored);
+    });
   });
 });
 

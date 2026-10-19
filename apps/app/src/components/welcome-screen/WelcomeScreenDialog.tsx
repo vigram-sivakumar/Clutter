@@ -59,22 +59,19 @@ export function WelcomeScreenDialog({
     // the frame's own drag strip; the overlay's backdrop carries one (its default), so the window moves from
     // the top edge.
     <Dialog open onClose={() => {}} dismissible={false} size="large">
-      {/* Both screens fill their parent's height, so it is given a fixed one. */}
-      <div style={{ height: 480 }}>
-        {draft === null ? (
-          <WelcomeScreen onSelectFolder={selectExistingFolder} onCreateSpace={startNewSpace} />
-        ) : (
-          <SpaceDetails
-            draft={draft}
-            onNameChange={(name) => setDraft((current) => current && { ...current, name })}
-            onAvatarChange={(avatar) => setDraft((current) => current && { ...current, avatar })}
-            resolveImageUrl={resolveImageUrl}
-            onCreateFolder={onCreateFolder}
-            onOpenSpace={onOpenSpace}
-            onBack={() => setDraft(null)}
-          />
-        )}
-      </div>
+      {draft === null ? (
+        <WelcomeScreen onSelectFolder={selectExistingFolder} onCreateSpace={startNewSpace} />
+      ) : (
+        <SpaceDetails
+          draft={draft}
+          onNameChange={(name) => setDraft((current) => current && { ...current, name })}
+          onAvatarChange={(avatar) => setDraft((current) => current && { ...current, avatar })}
+          resolveImageUrl={resolveImageUrl}
+          onCreateFolder={onCreateFolder}
+          onOpenSpace={onOpenSpace}
+          onBack={() => setDraft(null)}
+        />
+      )}
     </Dialog>
   );
 }
