@@ -1,0 +1,69 @@
+.gradient-grainy {
+  position: absolute;
+  inset: 0;
+  isolation: isolate;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+  background: var(--gg-bg);
+}
+
+/* One large soft glow. The falloff (a flat core easing out to nothing, as a blurred shape's edge would) is painted
+   into the gradient, so there is no blur filter to re-run each frame. Position, size, speed, phase and stretch
+   are per-blob custom properties set by the component. It is moved only by `transform` (drift, turn, stretch),
+   which the browser animates on the compositor: no style recalculation, layout or repaint per frame. */
+.gradient-grainy__blob {
+  position: absolute;
+  left: var(--gg-x);
+  top: var(--gg-y);
+  width: var(--gg-size);
+  aspect-ratio: var(--gg-aspect);
+  translate: -50% -50%;
+  background: radial-gradient(
+    closest-side,
+    rgb(var(--gg-rgb) / 1) 0%,
+    rgb(var(--gg-rgb) / 0.96) 30%,
+    rgb(var(--gg-rgb) / 0.84) 45%,
+    rgb(var(--gg-rgb) / 0.62) 58%,
+    rgb(var(--gg-rgb) / 0.38) 70%,
+    rgb(var(--gg-rgb) / 0.17) 82%,
+    rgb(var(--gg-rgb) / 0.05) 92%,
+    rgb(var(--gg-rgb) / 0) 100%
+  );
+  animation: gradient-grainy-flow var(--gg-duration) ease-in-out infinite
+    alternate;
+  animation-delay: var(--gg-delay);
+  will-change: transform;
+}
+
+/* A still film grain: black and white speckle, strongest at the extremes of the noise, drawn with normal blending
+   (a blend mode would make the browser blend the whole animated layer stack every frame). */
+.gradient-grainy__grain {
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='discrete' tableValues='0 1'/%3E%3CfeFuncG type='discrete' tableValues='0 1'/%3E%3CfeFuncB type='discrete' tableValues='0 1'/%3E%3CfeFuncA type='table' tableValues='1 0 1'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+  opacity: 0.09;
+}
+
+/* The one animation: the shape turns and stretches (non-uniform scale under rotation) as it drifts. */
+@keyframes gradient-grainy-flow {
+  0% {
+    transform: translate(-6%, 4%) rotate(0deg) scale(1, 1);
+  }
+  33% {
+    transform: translate(5%, -3%) rotate(55deg) scale(1.25, 0.8);
+  }
+  66% {
+    transform: translate(-3%, -6%) rotate(115deg) scale(0.85, 1.2);
+  }
+  100% {
+    transform: translate(7%, 5%) rotate(180deg) scale(1.2, 0.9);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gradient-grainy__blob {
+    animation: none;
+  }
+}

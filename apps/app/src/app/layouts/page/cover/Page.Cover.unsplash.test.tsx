@@ -94,3 +94,20 @@ describe('PageCover — choosing an Unsplash photo end to end (picker → cover 
     expect(trackPhotoDownload).not.toHaveBeenCalled();
   });
 });
+
+describe('PageCover — the Unsplash search follows the cover’s layout', () => {
+  it.each([
+    ['above', 'landscape'],
+    ['side', 'portrait'],
+  ] as const)('a cover in the %s layout searches for %s photos', async (layout, orientation) => {
+    const { container } = render(
+      <PageCover src="https://example.com/old.png" layout={layout} onSetCoverImage={vi.fn()} />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    fireEvent.click(screen.getByText('Change cover image'));
+    await waitFor(() => expect(container.ownerDocument.querySelectorAll('.image-picker-unsplash__image')).toHaveLength(2));
+
+    expect(searchPhotos).toHaveBeenCalledWith(expect.any(String), expect.any(Number), orientation);
+  });
+});

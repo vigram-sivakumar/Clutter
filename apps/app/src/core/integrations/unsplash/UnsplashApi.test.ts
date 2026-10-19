@@ -236,3 +236,40 @@ describe('UnsplashApi', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+describe('UnsplashApi orientation', () => {
+  beforeEach(() => {
+    vi.stubEnv('VITE_UNSPLASH_ACCESS_KEY', 'test-access-key');
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it.each(['landscape', 'portrait', 'squarish'] as const)('searchPhotos() requests %s results when asked to', async (orientation) => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ results: [sampleRawPhoto] }) });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await searchPhotos('mountains', 2, orientation);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        href: `https://api.unsplash.com/search/photos?query=mountains&page=2&per_page=30&orientation=${orientation}`,
+      }),
+      { headers: unsplashHeaders },
+    );
+  });
+
+  it('searchPhotos() stays portrait when no orientation is given (every existing caller)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ results: [sampleRawPhoto] }) });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await searchPhotos('mountains');
+    await searchPhotos('mountains', 3, undefined);
+
+    for (const [url] of fetchMock.mock.calls) {
+      expect((url as URL).searchParams.get('orientation')).toBe('portrait');
+    }
+  });
+});

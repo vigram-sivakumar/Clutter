@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { UnsplashOrientation } from '@core/integrations/unsplash/UnsplashApi';
 import type { CoverCredit } from '@core/vault/models/PageMetadata';
 import './ImagePicker.css';
 import { ImagePickerLink } from './ImagePicker.Link';
@@ -25,6 +26,8 @@ interface ImagePickerProps {
   onUnsplashSelect: (url: string, credit: CoverCredit) => void;
   /** An existing vault image (or remote asset), offered under Upload: sets the cover and closes, like Upload. */
   onAssetSelect: (cover: string) => void;
+  /** The photo shape Unsplash searches for; defaults to portrait. */
+  unsplashOrientation?: UnsplashOrientation;
 }
 
 type ImageSource = 'upload' | 'link' | 'unsplash';
@@ -47,6 +50,7 @@ export function ImagePicker({
   onUploadSubmit,
   onUnsplashSelect,
   onAssetSelect,
+  unsplashOrientation,
 }: ImagePickerProps) {
   const [imageSource, setImageSource] = useState<ImageSource>(
     readStoredImageSource
@@ -115,7 +119,10 @@ export function ImagePicker({
       {imageSource === 'link' && <ImagePickerLink onSubmit={onLinkSubmit} />}
 
       {imageSource === 'unsplash' && (
-        <ImagePickerUnsplash onSelect={onUnsplashSelect} />
+        <ImagePickerUnsplash
+          onSelect={onUnsplashSelect}
+          orientation={unsplashOrientation}
+        />
       )}
     </div>
   );

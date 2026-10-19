@@ -80,7 +80,7 @@ describe('ImagePickerUnsplash', () => {
     await waitFor(() => expect(container.querySelector('img')).not.toBeNull());
 
     fireEvent.change(screen.getByPlaceholderText('Search Unsplash'), { target: { value: 'books' } });
-    await waitFor(() => expect(searchPhotos).toHaveBeenCalledWith('books', 1));
+    await waitFor(() => expect(searchPhotos).toHaveBeenCalledWith('books', 1, undefined));
     fireEvent.click(await screen.findByLabelText('Shuffle'));
     fireEvent.mouseEnter(container.querySelector('img')!);
 
@@ -94,5 +94,38 @@ describe('ImagePickerUnsplash', () => {
     fireEvent.click(imgs[0]!.closest('button')!);
     fireEvent.click(imgs[1]!.closest('button')!);
     expect(trackPhotoDownload).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('ImagePickerUnsplash orientation', () => {
+  beforeEach(() => {
+    vi.mocked(searchPhotos).mockResolvedValue([photo]);
+  });
+  afterEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+  });
+
+  it.each(['landscape', 'portrait', 'squarish'] as const)('searches for %s photos when asked to', async (orientation) => {
+    render(<ImagePickerUnsplash onSelect={vi.fn()} orientation={orientation} />);
+
+    await waitFor(() => expect(searchPhotos).toHaveBeenCalled());
+    expect(vi.mocked(searchPhotos).mock.calls.every(([, , shape]) => shape === orientation)).toBe(true);
+  });
+
+  it('leaves the shape to the API’s default (portrait) when not given one', async () => {
+    render(<ImagePickerUnsplash onSelect={vi.fn()} />);
+
+    await waitFor(() => expect(searchPhotos).toHaveBeenCalled());
+    expect(vi.mocked(searchPhotos).mock.calls.every(([, , shape]) => shape === undefined)).toBe(true);
+  });
+
+  it('searches again, for the new shape, when the orientation changes', async () => {
+    const { rerender } = render(<ImagePickerUnsplash onSelect={vi.fn()} orientation="portrait" />);
+    await waitFor(() => expect(searchPhotos).toHaveBeenCalledTimes(1));
+
+    rerender(<ImagePickerUnsplash onSelect={vi.fn()} orientation="landscape" />);
+
+    await waitFor(() => expect(searchPhotos).toHaveBeenLastCalledWith(expect.any(String), expect.any(Number), 'landscape'));
   });
 });

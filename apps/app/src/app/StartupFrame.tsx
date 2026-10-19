@@ -10,6 +10,11 @@ interface StartupFrameProps {
    * load, that surface is what shows.
    */
   backgroundImage?: string;
+  /**
+   * A decorative layer filling the frame, painted under the drag strip and the message (e.g. the animated
+   * gradient on the Welcome screen). It must not take clicks.
+   */
+  backdrop?: ReactNode;
   children: ReactNode;
 }
 
@@ -18,7 +23,7 @@ interface StartupFrameProps {
  * quiet line of text, and the same drag strip the workspace has so the window
  * can be moved from the first frame.
  */
-export function StartupFrame({ tone = 'status', backgroundImage, children }: StartupFrameProps) {
+export function StartupFrame({ tone = 'status', backgroundImage, backdrop, children }: StartupFrameProps) {
   return (
     <div
       className="startup-frame"
@@ -27,6 +32,7 @@ export function StartupFrame({ tone = 'status', backgroundImage, children }: Sta
       style={backgroundImage ? { backgroundImage: `url(${JSON.stringify(backgroundImage)})` } : undefined}
       role={tone === 'error' ? 'alert' : 'status'}
     >
+      {backdrop}
       <TauriDragStrip />
       <p className="startup-frame__message">{children}</p>
     </div>

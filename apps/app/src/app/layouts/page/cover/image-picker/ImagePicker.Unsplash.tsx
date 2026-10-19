@@ -5,6 +5,7 @@ import {
   searchPhotos,
   trackPhotoDownload,
   UNSPLASH_SHUFFLE_MAX_PAGE,
+  type UnsplashOrientation,
 } from '@core/integrations/unsplash/UnsplashApi';
 import type { UnsplashPhoto } from '@core/integrations/unsplash/UnsplashPhoto';
 import { openExternalUrl } from '@shared/helpers/openExternalUrl';
@@ -13,6 +14,8 @@ import './ImagePicker.Unsplash.css';
 
 interface ImagePickerUnsplashProps {
   onSelect: (url: string, credit: CoverCredit) => void;
+  /** The photo shape to search for (the cover's layout decides it). Defaults to portrait. */
+  orientation?: UnsplashOrientation;
 }
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -36,7 +39,7 @@ function unsplashErrorMessage(error: unknown): string {
   return 'Unable to load Unsplash images';
 }
 
-export function ImagePickerUnsplash({ onSelect }: ImagePickerUnsplashProps) {
+export function ImagePickerUnsplash({ onSelect, orientation }: ImagePickerUnsplashProps) {
   const [query, setQuery] = useState('');
   const [shuffleKey, setShuffleKey] = useState(0);
   const [searchPage, setSearchPage] = useState(1);
@@ -62,7 +65,7 @@ export function ImagePickerUnsplash({ onSelect }: ImagePickerUnsplashProps) {
           ? searchPage
           : Math.floor(Math.random() * UNSPLASH_SHUFFLE_MAX_PAGE) + 1;
 
-        const results = await searchPhotos(query, page);
+        const results = await searchPhotos(query, page, orientation);
 
         if (!cancelled) {
           setPhotos(results);
@@ -87,7 +90,7 @@ export function ImagePickerUnsplash({ onSelect }: ImagePickerUnsplashProps) {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [query, shuffleKey, searchPage]);
+  }, [query, shuffleKey, searchPage, orientation]);
 
   const handleShuffle = () => {
     if (query.trim() !== '') {

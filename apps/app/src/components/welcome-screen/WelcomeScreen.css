@@ -12,8 +12,7 @@
   width: 100%;
   height: 100%;
   gap: var(--space-40);
-  padding-inline: var(--welcome-card-padding);
-  padding-block: var(--welcome-card-padding);
+  padding: var(--welcome-card-padding);
   padding-bottom: var(--space-32);
   border-radius: var(--radius-lg);
 

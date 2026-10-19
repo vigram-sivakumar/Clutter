@@ -2,7 +2,9 @@ import type { UnsplashPhoto } from './UnsplashPhoto';
 
 const UNSPLASH_API_URL = 'https://api.unsplash.com';
 const PER_PAGE = '30';
-const ORIENTATION = 'portrait';
+/** The photo shape asked for: what the surface showing it crops to best. */
+export type UnsplashOrientation = 'landscape' | 'portrait' | 'squarish';
+const DEFAULT_ORIENTATION: UnsplashOrientation = 'portrait';
 /** Upper bound for shuffle-with-search — avoids unbounded page requests. */
 export const UNSPLASH_SHUFFLE_MAX_PAGE = 10;
 
@@ -110,7 +112,8 @@ async function unsplashFetch(url: URL): Promise<Response> {
 
 export async function searchPhotos(
   query: string,
-  page = 1
+  page = 1,
+  orientation: UnsplashOrientation = DEFAULT_ORIENTATION
 ): Promise<UnsplashPhoto[]> {
   const trimmed = query.trim() || pickDefaultSearchQuery();
 
@@ -119,7 +122,7 @@ export async function searchPhotos(
   url.searchParams.set('query', trimmed);
   url.searchParams.set('page', String(page));
   url.searchParams.set('per_page', PER_PAGE);
-  url.searchParams.set('orientation', ORIENTATION);
+  url.searchParams.set('orientation', orientation);
 
   const response = await unsplashFetch(url);
 
@@ -157,12 +160,17 @@ export async function trackPhotoDownload(
     const response = await unsplashFetch(url);
 
     if (!response.ok) {
-      console.warn(`Unsplash download tracking was not accepted (${response.status}).`);
+      console.warn(
+        `Unsplash download tracking was not accepted (${response.status}).`
+      );
     }
 
     return response.ok;
   } catch (error) {
-    console.warn('Unsplash download tracking failed.', error instanceof Error ? error.message : error);
+    console.warn(
+      'Unsplash download tracking failed.',
+      error instanceof Error ? error.message : error
+    );
 
     return false;
   }

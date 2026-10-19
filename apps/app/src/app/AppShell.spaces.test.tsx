@@ -68,6 +68,24 @@ vi.mock('../core/vault/providers/probeSpaceFolder', () => ({
     return path.includes('Missing') ? 'missing' : 'available';
   }),
 }));
+// The Welcome background searches Unsplash; tests never reach the network (it just stays the plain surface).
+const unsplash = vi.hoisted(() => ({ search: vi.fn() }));
+vi.mock('../core/integrations/unsplash/UnsplashApi', () => ({
+  searchPhotos: (...args: unknown[]) => unsplash.search(...args),
+  trackPhotoDownload: async () => false,
+}));
+/** What the mocked Unsplash search finds for the Welcome background. */
+const WELCOME_PHOTO = {
+  id: 'welcome',
+  urls: {
+    small: 'https://images.unsplash.com/welcome-small',
+    regular: 'https://images.unsplash.com/welcome',
+  },
+  user: { name: 'Ada Lovelace', links: { html: 'https://unsplash.com/@ada' } },
+  links: {
+    downloadLocation: 'https://api.unsplash.com/photos/welcome/download',
+  },
+};
 vi.mock('./frontendReady', () => ({ useFrontendReady: vi.fn() }));
 vi.mock('./scheduleAfterFirstPaint', () => ({
   scheduleAfterFirstPaint: () => () => {},
@@ -244,6 +262,7 @@ vi.stubGlobal(
 
 beforeEach(() => {
   tauri.isTauri = false;
+  unsplash.search.mockReset().mockResolvedValue([]);
   tauri.invoke.mockReset();
   tauri.openDialog.mockReset();
   tauri.mkdir.mockReset();
@@ -337,13 +356,18 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
     ).toBeNull();
   });
 
-  it('fills the app frame behind the Welcome dialog with the background image, centred and covering', async () => {
+  it('fills the app frame behind the Welcome dialog with the animated gradient, not an Unsplash image', async () => {
+    // WELCOME_BACKDROP in AppShell picks the gradient; the Unsplash image is kept for switching back.
+    unsplash.search.mockResolvedValue([WELCOME_PHOTO]);
     render(<AppShell />);
     await screen.findByText('Let’s create a space');
 
     const frame = document.querySelector('.startup-frame') as HTMLElement;
-    expect(frame.getAttribute('data-backdrop')).toBe('image');
-    expect(frame.style.backgroundImage).toContain('images.unsplash.com');
+    expect(frame.querySelector('.gradient-grainy')).not.toBeNull();
+    expect(frame.getAttribute('data-backdrop')).toBeNull();
+    expect(frame.style.backgroundImage).toBe('');
+    expect(unsplash.search).not.toHaveBeenCalled();
+    expect(screen.queryByRole('link', { name: /Unsplash/ })).toBeNull();
     // The dialog is portalled to <body>, outside (and above) the frame; the frame holds no workspace.
     expect(frame.contains(screen.getByText('Let’s create a space'))).toBe(
       false
@@ -361,9 +385,10 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
     await screen.findByText('Let’s create a space');
 
     expect(
-      (document.querySelector('.startup-frame') as HTMLElement).style
-        .backgroundImage
-    ).toContain('images.unsplash.com');
+      (document.querySelector('.startup-frame') as HTMLElement).querySelector(
+        '.gradient-grainy'
+      )
+    ).not.toBeNull();
   });
 
   it('shows no background image on the opening frame, the error frame or the workspace', async () => {

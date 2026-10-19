@@ -21,6 +21,8 @@ import {
 import { AppLayout } from './layouts/app-layout/AppLayout';
 import { useFrontendReady } from './frontendReady';
 import { StartupFrame } from './StartupFrame';
+import { WelcomeBackground } from './WelcomeBackground';
+import { GradientGrainy } from '../components/gradient-grainy/GradientGrainy';
 import { scheduleAfterFirstPaint } from './scheduleAfterFirstPaint';
 import { createWindowCloseHandler } from './windowCloseHandler';
 import { WelcomeScreenDialog } from '../components/welcome-screen/WelcomeScreenDialog';
@@ -86,11 +88,10 @@ function resolveSpaceAvatarImage(path: string): string | null {
 }
 
 /**
- * The first-run Welcome screen's background (a remote image, so it needs the network; offline it is just
- * the plain themed surface).
+ * What fills the app frame behind the first-run Welcome dialog: the animated grainy gradient, or the Unsplash
+ * artwork (`WelcomeBackground`, kept intact). One word to switch back.
  */
-const WELCOME_BACKGROUND_IMAGE =
-  'https://images.unsplash.com/flagged/photo-1572392640988-ba48d1a74457?q=80&w=1364&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D';
+const WELCOME_BACKDROP: 'gradient' | 'image' = 'gradient';
 
 const TOO_BROAD_MESSAGE =
   'That folder is too broad to be a space (your home folder or the disk root). Choose a more specific folder';
@@ -859,9 +860,11 @@ export function AppShell() {
   ) {
     return (
       <>
-        <StartupFrame backgroundImage={WELCOME_BACKGROUND_IMAGE}>
-          {null}
-        </StartupFrame>
+        {WELCOME_BACKDROP === 'gradient' ? (
+          <StartupFrame backdrop={<GradientGrainy />}>{null}</StartupFrame>
+        ) : (
+          <WelcomeBackground />
+        )}
         <WelcomeScreenDialog
           onSelectFolder={selectFolderFromWelcome}
           onResolveSpaceParent={resolveSpaceParent}

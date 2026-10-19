@@ -1,0 +1,9 @@
+/* Bottom right, as on a page cover. It sits above the Welcome dialog's overlay (and its scrim), so its links
+   stay clickable. */
+.welcome-background__credit {
+  position: fixed;
+  right: var(--space-12);
+  bottom: var(--space-8);
+  z-index: calc(var(--z-overlay) + 1);
+  max-width: calc(100% - var(--space-12) * 2);
+}

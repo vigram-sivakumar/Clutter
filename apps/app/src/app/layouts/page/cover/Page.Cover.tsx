@@ -642,6 +642,8 @@ export function PageCover({
         {view === 'picker' && onSetCoverImage && (
           <div className="page__cover__picker">
             <ImagePicker
+              // A cover above the title is wide, one beside it is tall: Unsplash searches for that shape.
+              unsplashOrientation={layout === 'above' ? 'landscape' : 'portrait'}
               onRemove={() => {
                 setView('menu');
                 handleRemove();
