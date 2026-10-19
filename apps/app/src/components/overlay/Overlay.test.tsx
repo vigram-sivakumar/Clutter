@@ -978,3 +978,65 @@ describe('Overlay dragRegion', () => {
     expect(screen.getByText('Overlay action').closest('[data-tauri-drag-region]')).toBeNull();
   });
 });
+
+describe('Overlay — the window drag region is not a click outside', () => {
+  function setup() {
+    const onClose = vi.fn();
+    render(<Harness onClose={onClose} />);
+    const backdrop = document.body.querySelector('.overlay__backdrop') as HTMLElement;
+    const strip = backdrop.querySelector('[data-tauri-drag-region]') as HTMLElement;
+    return { onClose, backdrop, strip };
+  }
+
+  it('does not close on either click of a double-click on the drag region', () => {
+    const { onClose, strip } = setup();
+
+    fireEvent.pointerDown(strip);
+    fireEvent.click(strip, { detail: 1 });
+    fireEvent.pointerDown(strip);
+    fireEvent.click(strip, { detail: 2 });
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('does not close when the click lands on the backdrop after a press that began on the drag region (window moved under the pointer)', () => {
+    const { onClose, backdrop, strip } = setup();
+
+    fireEvent.pointerDown(strip);
+    fireEvent.click(backdrop);
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('closes on an ordinary backdrop click, including right after a drag-region press', () => {
+    const { onClose, backdrop, strip } = setup();
+
+    fireEvent.pointerDown(strip);
+    fireEvent.click(strip);
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.pointerDown(backdrop);
+    fireEvent.click(backdrop);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the native press and click events on the drag region untouched, so Tauri can still drag and maximise', () => {
+    const { strip } = setup();
+
+    // fireEvent returns false when a listener called preventDefault.
+    expect(fireEvent.pointerDown(strip)).toBe(true);
+    expect(fireEvent.mouseDown(strip)).toBe(true);
+    expect(fireEvent.click(strip)).toBe(true);
+    expect(fireEvent.doubleClick(strip)).toBe(true);
+  });
+
+  it('does not close when the dialog content is pressed and clicked', () => {
+    const { onClose } = setup();
+    const action = screen.getByText('Overlay action');
+
+    fireEvent.pointerDown(action);
+    fireEvent.click(action);
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});

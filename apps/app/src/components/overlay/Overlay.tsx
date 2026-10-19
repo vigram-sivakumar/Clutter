@@ -13,6 +13,10 @@ import './Overlay.css';
 
 const CENTERED_ANCHOR_PLACEHOLDER: RefObject<HTMLElement> = { current: null };
 
+function isInDragRegion(target: EventTarget): boolean {
+  return target instanceof Element && target.closest('[data-tauri-drag-region]') !== null;
+}
+
 export function Overlay(props: OverlayProps) {
   const {
     open,
@@ -31,6 +35,7 @@ export function Overlay(props: OverlayProps) {
 
   const isCentered = props.position === 'centered';
   const surfaceRef = useRef<HTMLDivElement>(null);
+  const pressStartedOnDragRegionRef = useRef(false);
 
   const focusRestoreRef = isCentered
     ? returnFocusRef
@@ -99,8 +104,20 @@ export function Overlay(props: OverlayProps) {
           ]
             .filter(Boolean)
             .join(' ')}
+          onPointerDown={(event) => {
+            pressStartedOnDragRegionRef.current = isInDragRegion(event.target);
+          }}
           onClick={(event) => {
             event.stopPropagation();
+            // The drag strip lives inside the backdrop. A press that began on it is window chrome (drag, or a
+            // double-click to maximise/restore), never a click outside the overlay. The press is what counts, not
+            // the click's target: the native resize moves the window under the pointer mid-gesture, so the
+            // resulting click can land on the backdrop itself, or on the backdrop as the common ancestor.
+            const pressedOnDragRegion = pressStartedOnDragRegionRef.current;
+            pressStartedOnDragRegionRef.current = false;
+            if (pressedOnDragRegion || isInDragRegion(event.target)) {
+              return;
+            }
             if (dismissible) {
               onClose();
             }
