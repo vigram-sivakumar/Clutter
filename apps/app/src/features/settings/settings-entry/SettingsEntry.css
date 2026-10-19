@@ -1,0 +1,61 @@
+.settings-entry {
+  display: flex;
+  align-items: center;
+  justify-content: start;
+  gap: var(--space-24);
+  padding: var(--space-12);
+  background: var(--surface-secondary);
+  border-radius: var(--radius-md);
+}
+
+/* Clickable entry (only when `onClick` is given). The hover is suppressed while the pointer is over a nested
+   control, so it never reads as "this whole row is the target". The control list mirrors
+   NESTED_INTERACTIVE_SELECTOR (shared/interaction/buildActivationProps.ts) — keep them in sync. */
+.settings-entry-interactive {
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+.settings-entry-interactive:hover:not(
+    :has(:is(a, button, input, select, textarea, [role='button']):hover)
+  ) {
+  background: color-mix(
+    in srgb,
+    var(--surface-secondary),
+    rgb(var(--state-base)) var(--state-hover-strength-medium)
+  );
+}
+.settings-entry-interactive
+  :is(a, button, input, select, textarea, [role='button']) {
+  cursor: auto;
+}
+.settings-entry__main {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  justify-content: center;
+  width: 100%;
+  /* Lets the column shrink below its text's width, so a `truncate` title/description can cut. */
+  min-width: 0;
+}
+.settings-entry__title {
+  max-width: 100%;
+  color: var(--foreground-primary);
+  font-size: var(--text-label);
+  line-height: var(--lh-label);
+  font-weight: var(--fw-medium);
+}
+.settings-entry__description {
+  max-width: 100%;
+  color: var(--foreground-secondary);
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label-small);
+}
+.settings-entry__footer {
+  width: 100%;
+}
+
+.settings-entry__trailing {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}

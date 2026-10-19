@@ -1,4 +1,14 @@
-import { forwardRef, useContext, useMemo, useRef, useState, type HTMLAttributes, type MouseEvent } from 'react';
+import {
+  forwardRef,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type HTMLAttributes,
+  type MouseEvent,
+  type ReactNode,
+} from 'react';
 import { buildActivationProps } from '@shared/interaction';
 import {
   EntryMenuContext,
@@ -14,12 +24,12 @@ const EDITABLE = 'input, textarea, select, [contenteditable="true"]';
 const NESTED_CONTROL = 'button, a, [role="menu"]';
 
 export interface EntryProps extends HTMLAttributes<HTMLDivElement> {
-  children: React.ReactNode;
+  children: ReactNode;
 
-  leading?: React.ReactNode;
-  trailing?: React.ReactNode;
+  leading?: ReactNode;
+  trailing?: ReactNode;
   hideTrailingOnHover?: boolean;
-  actions?: React.ReactNode;
+  actions?: ReactNode;
 
   selected?: boolean;
   /**
@@ -99,7 +109,14 @@ export const Entry = forwardRef<HTMLDivElement, EntryProps>(function Entry(
     onContextMenu?.(event);
     const target = event.target as HTMLElement;
     // A portaled menu's events bubble through the React tree; only this row's own DOM counts.
-    if (!enabled || disabled || menuCount.current === 0 || !event.currentTarget.contains(target) || target.closest(EDITABLE) || event.currentTarget.querySelector(EDITABLE)) {
+    if (
+      !enabled ||
+      disabled ||
+      menuCount.current === 0 ||
+      !event.currentTarget.contains(target) ||
+      target.closest(EDITABLE) ||
+      event.currentTarget.querySelector(EDITABLE)
+    ) {
       return;
     }
     event.preventDefault();
@@ -109,50 +126,55 @@ export const Entry = forwardRef<HTMLDivElement, EntryProps>(function Entry(
     }
     // A keyboard-invoked context menu has no pointer: open at the row's corner.
     const rect = event.currentTarget.getBoundingClientRect();
-    const keyboard = event.clientX === 0 && event.clientY === 0 && event.detail === 0;
+    const keyboard =
+      event.clientX === 0 && event.clientY === 0 && event.detail === 0;
     seq.current += 1;
-    setRequest({ x: keyboard ? rect.left : event.clientX, y: keyboard ? rect.bottom : event.clientY, seq: seq.current });
+    setRequest({
+      x: keyboard ? rect.left : event.clientX,
+      y: keyboard ? rect.bottom : event.clientY,
+      seq: seq.current,
+    });
   };
 
   return (
     <EntryMenuContext.Provider value={menuApi}>
-    <div
-      {...props}
-      onContextMenu={handleContextMenu}
-      ref={ref}
-      style={
-        {
-          '--tree-level': level,
-          ...style,
-        } as React.CSSProperties
-      }
-      className={[
-        'entry',
-        className,
-        onClick && 'entry-interactive',
-        forceHover && 'entry-force-hover',
-        hideTrailingOnHover && 'entry-hide-trailing-on-hover',
-        selected && 'entry-selected',
-        disabled && 'entry-disabled',
-      ]
-        .filter(Boolean)
-        .join(' ')}
-      {...activation}
-      role={activation.role ?? role}
-      tabIndex={activation.tabIndex ?? tabIndex}
-      aria-disabled={disabled || undefined}
-    >
-      {leading && <div className="entry__leading">{leading}</div>}
+      <div
+        {...props}
+        onContextMenu={handleContextMenu}
+        ref={ref}
+        style={
+          {
+            '--tree-level': level,
+            ...style,
+          } as CSSProperties
+        }
+        className={[
+          'entry',
+          className,
+          onClick && 'entry-interactive',
+          forceHover && 'entry-force-hover',
+          hideTrailingOnHover && 'entry-hide-trailing-on-hover',
+          selected && 'entry-selected',
+          disabled && 'entry-disabled',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        {...activation}
+        role={activation.role ?? role}
+        tabIndex={activation.tabIndex ?? tabIndex}
+        aria-disabled={disabled || undefined}
+      >
+        {leading && <div className="entry__leading">{leading}</div>}
 
-      <div className="entry__content">{children}</div>
+        <div className="entry__content">{children}</div>
 
-      {(trailing || actions) && (
-        <div className="entry__trailing">
-          {trailing && <div className="entry__meta">{trailing}</div>}
-          {actions && <div className="entry__actions">{actions}</div>}
-        </div>
-      )}
-    </div>
+        {(trailing || actions) && (
+          <div className="entry__trailing">
+            {trailing && <div className="entry__meta">{trailing}</div>}
+            {actions && <div className="entry__actions">{actions}</div>}
+          </div>
+        )}
+      </div>
     </EntryMenuContext.Provider>
   );
 });

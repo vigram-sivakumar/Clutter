@@ -1,3 +1,7 @@
+:root {
+  --welcome-card-padding: var(--space-16);
+}
+
 .welcome-screen {
   display: flex;
   flex-direction: column;
@@ -8,8 +12,8 @@
   width: 100%;
   height: 100%;
   gap: var(--space-40);
-  padding-block: var(--space-40);
-  padding-inline: var(--space-40);
+  padding-inline: var(--welcome-card-padding);
+  padding-block: var(--welcome-card-padding);
   border-radius: var(--radius-lg);
 
   box-shadow: var(--shadow-inset-thin-strong);
@@ -20,13 +24,12 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: var(--space-0);
   width: 100%;
 }
 .welcome__title {
   width: 100%;
   color: var(--foreground-primary);
-  font-size: var(--text-heading-1);
+  font-size: var(--text-heading-3);
   font-weight: var(--fw-bold);
   line-height: var(--lh-heading-1);
   letter-spacing: var(--ls-heading-1);
@@ -34,108 +37,16 @@
 .welcome__description {
   width: 100%;
   color: var(--foreground-tertiary);
-  font-size: var(--text-label);
-  line-height: var(--lh-label);
-  letter-spacing: var(--ls-label);
-}
-.welcome__footer {
-  color: var(--foreground-placeholder);
-}
-.space-picker {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-  gap: var(--space-16);
-}
-.space-picker__button {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  padding: var(--space-12);
-  background: var(--surface-subtle);
-  border-radius: var(--radius-lg);
-  width: 100%;
-  box-shadow: var(--shadow-inset-thin);
-
-  transition: background 250ms ease;
-}
-.space-picker__button--content {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-
-  gap: 0;
-  padding: 0;
-  width: 100%;
-}
-.space-picker__title {
-  color: var(--foreground-primary);
-  font-size: var(--text-label);
-  font-weight: var(--fw-medium);
-  line-height: var(--lh-label);
-  letter-spacing: var(--ls-body-small);
-}
-.space-picker__description {
-  color: var(--foreground-tertiary);
   font-size: var(--text-label-small);
   line-height: var(--lh-label-small);
   letter-spacing: var(--ls-label-small);
 }
-.space-picker__icon {
+.space-option {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--height-xs);
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background-color: var(--surface-inverse);
-  color: var(--foreground-inverse);
-  scale: 0.85;
-
-  transition: scale 250ms ease;
-}
-.space-picker__button:hover {
-  background: var(--state-hover);
-}
-.space-picker__button:hover .space-picker__icon {
-  scale: 1;
-}
-
-/* Wavy divider with a label between the two buttons — same look as the
-   editor's `~---Text---~` (MarkdownEditor.css, .cm-hr-labeled--wavy). */
-.space-picker__divider {
-  display: flex;
-  align-items: center;
+  flex-direction: column;
+  width: 100%;
   gap: var(--space-12);
-  width: 25%;
-  display: none;
 }
-.space-picker__divider-rule {
-  flex: 1 1 auto;
-  height: 6px;
-  background-color: var(--md-hr-line);
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='6'%3E%3Cpath d='M0 3 C4 3, 4 1, 8 1 S12 3, 16 3' fill='none' stroke='white' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='6'%3E%3Cpath d='M0 3 C4 3, 4 1, 8 1 S12 3, 16 3' fill='none' stroke='white' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
-  -webkit-mask-repeat: repeat-x;
-  mask-repeat: repeat-x;
-  -webkit-mask-size: 16px 6px;
-  mask-size: 16px 6px;
-  -webkit-mask-position: left center;
-  mask-position: left center;
-}
-.space-picker__divider-text {
-  color: var(--foreground-tertiary);
-  font-size: var(--text-label-small);
-  line-height: var(--lh-label-small);
-  letter-spacing: var(--ls-label-small);
-}
-
-.space-picker__error {
-  width: 65%;
-  text-align: center;
-  color: var(--danger-foreground);
-  font-size: var(--text-label-small);
-  line-height: var(--lh-label-small);
-  letter-spacing: var(--ls-label-small);
+.settings-entry-interactive:hover .icon-badge {
+  scale: 1;
 }

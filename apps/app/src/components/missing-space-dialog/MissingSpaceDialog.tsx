@@ -2,9 +2,10 @@ import { useEffect, useRef } from 'react';
 
 import { Button } from '@components/button/Button';
 import { Dialog } from '@components/dialog/Dialog';
-import { SpaceAvatar } from '@components/space-avatar/SpaceAvatar';
+import { SettingsEntry } from '@features/settings/settings-entry/SettingsEntry';
 import { AppIcon } from '@shared/icon';
 import '@components/confirmation/Confirmation.css';
+import '@components/space-details/SpaceDetails.css';
 import './MissingSpaceDialog.css';
 
 interface MissingSpaceDialogProps {
@@ -61,20 +62,20 @@ export function MissingSpaceDialog({
           </div>
         </div>
 
-        <div className="missing-space__details">
-          <div className="missing-space__space">
-            {/* Its own avatar is kept inside the folder that can't be reached, so this is the initial. */}
-            <SpaceAvatar avatar={{ type: 'initial' }} folderName={name} />
-            <span className="missing-space__name">{name}</span>
-          </div>
-          <div className="missing-space__location">
-            <div className="missing-space__path-row">
-              <span className="missing-space__path" title={path}>
-                {path}
-              </span>
+        {/* Its own avatar is kept inside the folder that can't be reached, so this is the initial. A long
+            path is cut with an ellipsis (the full path is the tooltip) so the dialog never grows. */}
+        <SettingsEntry
+          className="missing-space__entry"
+          title={name}
+          description={path}
+          titleClassName="truncate"
+          descriptionClassName="truncate"
+          trailing={
+            <div className="space-details__avatar-picker">
+              {Array.from(name.trim())[0]?.toUpperCase()}
             </div>
-          </div>
-        </div>
+          }
+        />
 
         <div className="confirmation__actions">
           <Button

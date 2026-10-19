@@ -32,3 +32,19 @@
   white-space: normal;
   overflow-wrap: anywhere;
 }
+
+/* A round inverse badge around an icon (the arrow on the Welcome entries and Go back). It rests slightly
+   small; the host scales it to 1 on its own hover, so the hover selector lives with the host. */
+.icon-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--height-xs);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background-color: var(--surface-inverse);
+  color: var(--foreground-inverse);
+  scale: 0.85;
+
+  transition: scale 250ms ease;
+}

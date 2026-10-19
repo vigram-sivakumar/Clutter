@@ -8,6 +8,8 @@ import { SpaceAvatar, type SpaceAvatarValue } from '@components/space-avatar/Spa
 import { Overlay } from '@components/overlay/Overlay';
 import { Menu } from '@components/menu/Menu';
 import { MenuItem } from '@components/menu/MenuItem';
+import { Dialog } from '@components/dialog/Dialog';
+import { Settings } from '@features/settings/Settings';
 
 interface FooterProps {
   /** The vault folder's name — source of the `initial` avatar's letter, and the title when `spaceName` is absent. */
@@ -48,6 +50,7 @@ export function Footer({
   onOpenArchive,
 }: FooterProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const selectorRef = useRef<HTMLDivElement>(null);
   const title = spaceName || vaultFolderName;
   // Each listed Space shows its own avatar; the open one falls back to its entry's when none is passed.
@@ -129,13 +132,26 @@ export function Footer({
           >
             New space
           </MenuItem>
-          {/* Settings has no destination yet, so it is shown but not actionable. */}
           <div className="menu__divider" role="separator" />
-          <MenuItem leading={<AppIcon icon="settings" />} disabled>
+          <MenuItem
+            leading={<AppIcon icon="settings" />}
+            onClick={() => {
+              setMenuOpen(false);
+              setSettingsOpen(true);
+            }}
+          >
             Settings
           </MenuItem>
         </Menu>
       </Overlay>
+      <Dialog
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        returnFocusRef={selectorRef}
+        className="settings-dialog"
+      >
+        <Settings />
+      </Dialog>
       <div className="footer__actions">
         <Button isIconOnly size="medium" variant="ghost" onClick={onOpenArchive}>
           <AppIcon icon={getSystemLocationPresentation('archive').icon} />

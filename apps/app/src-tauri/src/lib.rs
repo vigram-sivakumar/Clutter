@@ -4,6 +4,7 @@ use std::time::Duration;
 use tauri::{AppHandle, Manager, RunEvent, Url, WebviewWindow};
 
 mod parse_cache;
+mod space_folder;
 mod startup_notice;
 mod vault_asset_scope;
 mod vault_watcher;
@@ -167,6 +168,7 @@ pub fn run() {
             parse_cache::parse_cache_read,
             parse_cache::parse_cache_write,
             parse_cache::parse_cache_remove,
+            space_folder::rename_space_folder,
             vault_asset_scope::allow_vault_asset_scope,
             vault_watcher::start_vault_watcher,
             vault_watcher::stop_vault_watcher,

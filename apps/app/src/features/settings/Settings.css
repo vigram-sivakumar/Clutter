@@ -1,0 +1,15 @@
+.settings {
+  width: 90vw;
+  max-width: 1440px;
+  height: 90vh;
+  background: var(--surface-primary);
+  box-shadow: var(--shadow-inset-thin-strong);
+  border-radius: var(--radius-lg);
+
+  padding: 48px;
+}
+
+/* The dialog sizes to the settings surface (80vw × 80vh) instead of a fixed dialog width. */
+.dialog.settings-dialog {
+  width: auto;
+}

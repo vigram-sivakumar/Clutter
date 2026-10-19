@@ -50,8 +50,20 @@ export function WelcomeScreenDialog({
   async function selectExistingFolder(): Promise<string | null> {
     const picked = await onSelectFolder();
     if (picked === null || typeof picked === 'string') return picked;
+    // An existing folder has nothing to configure: it opens straight away, with the avatar it already carries.
+    return onOpenSpace(picked.existingPath ?? picked.parentPath, picked.avatar);
+  }
+
+  // "Change" in the settings: the same picker as "Select a folder", but the chosen folder's draft replaces
+  // this one instead of opening it — the user confirms with Create.
+  async function changeFolder(): Promise<void> {
+    const picked = await onSelectFolder();
+    if (picked === null) return;
+    if (typeof picked === 'string') {
+      console.error('The chosen folder can’t be used:', picked);
+      return;
+    }
     setDraft(picked);
-    return null;
   }
 
   return (
@@ -70,6 +82,10 @@ export function WelcomeScreenDialog({
           onCreateFolder={onCreateFolder}
           onOpenSpace={onOpenSpace}
           onBack={() => setDraft(null)}
+          onChangeFolder={changeFolder}
+          hasChangeFolder={false}
+          hasTitle={false}
+          isDismissible={false}
         />
       )}
     </Dialog>

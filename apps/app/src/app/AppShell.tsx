@@ -13,6 +13,7 @@ import { Toast } from '../components/toast/Toast';
 import { probeSpaceFolder } from '../core/vault/providers/probeSpaceFolder';
 import {
   createSpaceFolder,
+  renameSpaceFolder,
   isTooBroadForSpace,
   resolveSpaceParent,
 } from '../core/vault/providers/spaceFolders';
@@ -27,6 +28,7 @@ import { Dialog } from '../components/dialog/Dialog';
 import {
   SpaceDetails,
   draftForExistingFolder,
+  type CreateFolderResult,
   type NewSpaceDraft,
 } from '../components/space-details/SpaceDetails';
 import { pickSpaceFolder } from './spaces/pickSpaceFolder';
@@ -138,7 +140,8 @@ export function AppShell() {
   const [missingSpacePath, setMissingSpacePath] = useState<string | null>(null);
   // The sidebar's temporary toggle while the window is narrow. Kept here, above the layout that is rebuilt for
   // every Space, so switching Spaces never changes whether the sidebar is shown.
-  const [narrowSidebarOverride, setNarrowSidebarOverride] = useState<NarrowSidebarOverride>(null);
+  const [narrowSidebarOverride, setNarrowSidebarOverride] =
+    useState<NarrowSidebarOverride>(null);
   // What each registered Space says about itself (`space` in its own `.clutter/workspace.json`), read from
   // the Spaces — never stored here. Display only; an unreadable or never-opened Space has none.
   const [profiles, setProfiles] = useState<
@@ -154,6 +157,9 @@ export function AppShell() {
     path: string;
     avatar: SpaceAvatarChoice | undefined;
   } | null>(null);
+  // Where the folder in the open dialog was before the dialog renamed it (ADR-056, "renaming a Space's
+  // folder"): the registry entry to replace, in place, when the renamed folder opens.
+  const renamedFromRef = useRef<string | null>(null);
   // The confirmed profile change for the Space about to open; applied inside it, once it has opened.
   const pendingProfileRef = useRef<{
     path: string;
@@ -313,7 +319,8 @@ export function AppShell() {
       // Whether the sidebar is open is the user's, not the Space's: the Space being switched to starts with
       // the state they have now, not with whatever its own saved session says.
       const sidebarVisible = previous?.workspace.isSidebarVisible;
-      if (sidebarVisible !== undefined) prepared.workspace.setSidebarVisible(sidebarVisible);
+      if (sidebarVisible !== undefined)
+        prepared.workspace.setSidebarVisible(sidebarVisible);
 
       if (previous) {
         applicationRef.current = null;
@@ -327,7 +334,8 @@ export function AppShell() {
         if (previous && previousPath) {
           // The previous Space is already closed, so put it back before reporting the failure.
           const restored = await prepare(previousPath);
-          if (sidebarVisible !== undefined) restored.workspace.setSidebarVisible(sidebarVisible);
+          if (sidebarVisible !== undefined)
+            restored.workspace.setSidebarVisible(sidebarVisible);
           await restored.open();
           applicationRef.current = restored;
           setApplication(restored);
@@ -622,9 +630,14 @@ export function AppShell() {
   // read-only look at its own `.clutter/workspace.json`; nothing is created or written by selecting it).
   async function draftFromFolder(rawPath: string): Promise<NewSpaceDraft> {
     const path = normalizeSpacePath(rawPath);
-    const draft = draftForExistingFolder(path);
+    // The open Space can't be renamed underneath the running Application; anything else can.
+    const draft: NewSpaceDraft = {
+      ...draftForExistingFolder(path),
+      nameLocked: path === spaces.registry.activePath,
+    };
     const avatar = displayAvatar(path, await readProfileAt(path));
     prefilledRef.current = { path, avatar };
+    renamedFromRef.current = null;
     return avatar ? { ...draft, avatar } : draft;
   }
 
@@ -654,6 +667,31 @@ export function AppShell() {
     setPendingSpace(await draftFromFolder(path));
   }
 
+  // The dialog's Create with a changed name: the folder is renamed in place first, and the dialog continues on
+  // the renamed folder (its draft, and the avatar prefill, follow it). Nothing is registered or opened here;
+  // a failed rename changes nothing at all.
+  async function renamePendingSpaceFolder(
+    path: string,
+    name: string
+  ): Promise<CreateFolderResult> {
+    const renamed = await renameSpaceFolder(path, name);
+    if ('error' in renamed) return renamed;
+    const from = normalizeSpacePath(path);
+    const to = normalizeSpacePath(renamed.path);
+    renamedFromRef.current ??= from;
+    if (prefilledRef.current?.path === from) {
+      prefilledRef.current = { ...prefilledRef.current, path: to };
+    }
+    setPendingSpace(
+      (current) =>
+        current && {
+          ...draftForExistingFolder(to),
+          ...(current.avatar ? { avatar: current.avatar } : {}),
+        }
+    );
+    return renamed;
+  }
+
   // Confirming registers (or re-uses) the folder and starts the usual switch; the dialog closes once the
   // folder is accepted. A refused folder says why through the usual notice and the dialog stays.
   async function confirmPendingSpace(
@@ -674,7 +712,10 @@ export function AppShell() {
       }
     }
     pendingProfileRef.current = { path, change };
-    if (await spaces.switchSpace(path)) {
+    // A folder the dialog renamed replaces its old registry entry in place (an unregistered one is just added).
+    const replaces = renamedFromRef.current ?? undefined;
+    if (await spaces.switchSpace(path, replaces)) {
+      renamedFromRef.current = null;
       setPendingSpace(null);
     } else {
       pendingProfileRef.current = null;
@@ -875,15 +916,20 @@ export function AppShell() {
             onClose={() => setPendingSpace(null)}
             dismissible={false}
             size="large"
+            scrim="strong"
           >
             <SpaceDetails
               draft={pendingSpace}
-              onNameChange={() => {}}
+              onNameChange={(name) =>
+                setPendingSpace((current) => current && { ...current, name })
+              }
+              onRenameFolder={renamePendingSpaceFolder}
               onAvatarChange={(avatar) =>
                 setPendingSpace((current) => current && { ...current, avatar })
               }
               onOpenSpace={confirmPendingSpace}
               onClose={() => setPendingSpace(null)}
+              onChangeFolder={chooseSpaceForSettings}
               resolveImageUrl={resolveSpaceAvatarImage}
             />
           </Dialog>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
+import { SettingsEntry } from '@features/settings/settings-entry/SettingsEntry';
 import { AppIcon } from '@shared/icon';
-import { useRejectShake } from '../property-list/useRejectShake';
 import './WelcomeScreen.css';
 
 interface WelcomeScreenProps {
@@ -20,29 +20,16 @@ export function WelcomeScreen({
   onCreateSpace,
 }: WelcomeScreenProps) {
   const [isPending, setIsPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const selectShake = useRejectShake();
-  const createShake = useRejectShake();
 
-  // One action at a time. A failure shakes the button that was clicked and says why below the
-  // buttons; the screen stays so the user can try again or choose the other action.
-  async function run(
-    action: () => Promise<string | null>,
-    shake: () => void
-  ) {
+  // One action at a time. A failure is only logged for now; the screen stays so the user can try again or
+  // choose the other action. Surfacing it waits for the app-wide toast/banner.
+  async function run(action: () => Promise<string | null>) {
     if (isPending) return;
     setIsPending(true);
-    setError(null);
     try {
-      const message = await action();
-      if (message !== null) {
-        setError(message);
-        shake();
-      }
+      await action();
     } catch (caught) {
       console.error('Welcome screen action failed:', caught);
-      setError('Something went wrong. Try again');
-      shake();
     } finally {
       setIsPending(false);
     }
@@ -58,49 +45,27 @@ export function WelcomeScreen({
           just the way you like
         </span>
       </div>
-      <div className="space-picker">
-        <button
-          className={['space-picker__button', selectShake.shakeClassName]
-            .filter(Boolean)
-            .join(' ')}
-          onClick={() => void run(onSelectFolder, selectShake.shake)}
-        >
-          <div className="space-picker__button--content">
-            <span className="space-picker__title">Select a folder</span>
-            <span className="space-picker__description">
-              Open an existing folder to create a space
+      <div className="space-option">
+        <SettingsEntry
+          title="Select a folder"
+          description="Open an existing folder to create a space"
+          trailing={
+            <span className="icon-badge">
+              <AppIcon icon="arrowRight" />
             </span>
-          </div>
-          <span className="space-picker__icon">
-            <AppIcon icon="arrowRight" />
-          </span>
-        </button>
-        <div className="space-picker__divider" aria-hidden="true">
-          <span className="space-picker__divider-rule" />
-          <span className="space-picker__divider-text">or</span>
-          <span className="space-picker__divider-rule" />
-        </div>
-        <button
-          className={['space-picker__button', createShake.shakeClassName]
-            .filter(Boolean)
-            .join(' ')}
-          onClick={() => void run(onCreateSpace, createShake.shake)}
-        >
-          <div className="space-picker__button--content">
-            <span className="space-picker__title">Create a new space</span>
-            <span className="space-picker__description">
-              We’ll create a new space for you
+          }
+          onClick={() => void run(onSelectFolder)}
+        />
+        <SettingsEntry
+          title="Create a new space"
+          description="We’ll create a new space for you"
+          trailing={
+            <span className="icon-badge">
+              <AppIcon icon="arrowRight" />
             </span>
-          </div>
-          <span className="space-picker__icon">
-            <AppIcon icon="arrowRight" />
-          </span>
-        </button>
-        {error && (
-          <span className="space-picker__error" role="alert">
-            {error}
-          </span>
-        )}
+          }
+          onClick={() => void run(onCreateSpace)}
+        />
       </div>
     </div>
   );

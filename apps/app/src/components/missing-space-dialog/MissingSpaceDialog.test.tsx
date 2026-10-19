@@ -21,12 +21,25 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const LONG_PATH = '/Volumes/External Drive/Projects/Clients/Acme/2026/Research/Notes/Coconut';
+const LONG_PATH =
+  '/Volumes/External Drive/Projects/Clients/Acme/2026/Research/Notes/Coconut';
 
-function renderDialog(overrides: Partial<React.ComponentProps<typeof MissingSpaceDialog>> = {}) {
-  const handlers = { onChangeLocation: vi.fn(), onRemove: vi.fn(), onClose: vi.fn() };
+function renderDialog(
+  overrides: Partial<React.ComponentProps<typeof MissingSpaceDialog>> = {}
+) {
+  const handlers = {
+    onChangeLocation: vi.fn(),
+    onRemove: vi.fn(),
+    onClose: vi.fn(),
+  };
   render(
-    <MissingSpaceDialog open path="/Users/me/Coconut" name="Coconut" {...handlers} {...overrides} />
+    <MissingSpaceDialog
+      open
+      path="/Users/me/Coconut"
+      name="Coconut"
+      {...handlers}
+      {...overrides}
+    />
   );
   return handlers;
 }
@@ -43,23 +56,28 @@ describe('MissingSpaceDialog', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows the space’s avatar (its initial) and name apart from the saved location', () => {
+  it('shows the space’s name and saved location in a settings entry, with its initial as the avatar', () => {
     renderDialog();
 
-    expect(document.querySelector('.missing-space__space .space__initial')).toHaveTextContent('C');
-    expect(document.querySelector('.missing-space__name')).toHaveTextContent('Coconut');
-    expect(document.querySelector('.missing-space__location')).toHaveTextContent('/Users/me/Coconut');
-    expect(document.querySelector('.missing-space__space')).not.toContainElement(
-      document.querySelector('.missing-space__path') as HTMLElement
+    expect(document.querySelector('.settings-entry__title')).toHaveTextContent(
+      'Coconut'
     );
+    expect(
+      document.querySelector('.settings-entry__description')
+    ).toHaveTextContent('/Users/me/Coconut');
+    expect(
+      document.querySelector(
+        '.settings-entry__trailing .space-details__avatar-picker'
+      )
+    ).toHaveTextContent('C');
   });
 
-  it('keeps a long path to one line, with the whole path as its tooltip', () => {
+  it('keeps a long path to one line', () => {
     renderDialog({ path: LONG_PATH });
 
-    const path = document.querySelector('.missing-space__path')!;
+    const path = document.querySelector('.settings-entry__description')!;
     expect(path).toHaveTextContent(LONG_PATH);
-    expect(path).toHaveAttribute('title', LONG_PATH);
+    expect(path).toHaveClass('truncate');
   });
 
   it('has Change location (secondary) and Remove space (danger), in that order, and no editable path', () => {
@@ -67,7 +85,9 @@ describe('MissingSpaceDialog', () => {
     const change = screen.getByRole('button', { name: 'Change location' });
     const remove = screen.getByRole('button', { name: 'Remove space' });
 
-    expect(change.compareDocumentPosition(remove) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      change.compareDocumentPosition(remove) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
     expect(remove).toHaveClass('button--danger');
     expect(change).not.toHaveClass('button--danger');
     expect(screen.queryByRole('textbox')).toBeNull();
@@ -87,7 +107,9 @@ describe('MissingSpaceDialog', () => {
 
   it('gives the focus to the safe action, so Enter never removes the space', () => {
     renderDialog();
-    expect(screen.getByRole('button', { name: 'Change location' })).toHaveFocus();
+    expect(
+      screen.getByRole('button', { name: 'Change location' })
+    ).toHaveFocus();
   });
 
   it('dismisses with Escape, through onClose only', () => {

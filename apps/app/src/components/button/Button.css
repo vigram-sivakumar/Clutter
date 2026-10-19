@@ -4,6 +4,7 @@
   cursor: pointer;
   color: var(--foreground-secondary);
   font-size: var(--text-label);
+  white-space: nowrap;
 
   user-select: none;
   -webkit-user-select: none;
