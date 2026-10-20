@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import './AppLayout.css';
 import { CreateTemplateProvider } from '@app/layouts/createTemplate/CreateTemplateProvider';
 import { Sidebar } from '../sidebar/Sidebar';
@@ -11,6 +11,8 @@ import { useSidebarWidth, MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH } from './useSide
 import type { Application } from '@core/application/Application';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import { useVault } from '@app/hooks/useVault';
+import { useArchiveCleanup } from '@app/hooks/useArchiveCleanup';
+import { useSpaceSettingsMigration } from '@app/hooks/useSpaceSettingsMigration';
 import { useDateDisplayVersion } from '@app/hooks/useDateDisplayVersion';
 import { useMaxWidth, SIDEBAR_COLLAPSE_BREAKPOINT, COVER_HIDE_BREAKPOINT } from '@app/hooks/useMaxWidth';
 import { useSidebarVisibility, type NarrowSidebarOverride } from './useSidebarVisibility';
@@ -37,7 +39,7 @@ import type { RestoreDestinationRequest } from '@app/layouts/page/restoreDestina
 import { CoverNotePicker, type CoverTarget } from './CoverNotePicker';
 import { buildCoverNoteItems } from '@features/notes/helpers/buildCoverNoteItems';
 import { buildCoverFolderItems } from '@features/notes/helpers/buildCoverFolderItems';
-import { newCoverPatch } from '@core/application/page/coverPatch';
+import { initialCoverLayoutPatch, newCoverPatch } from '@core/application/page/coverPatch';
 import { CoverAssetsProvider, type CoverPickerAsset } from '@app/layouts/page/cover/image-picker/CoverAssetsContext';
 import {
   ImageFileActionsProvider,
@@ -97,6 +99,10 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
   useEffectivePageState(application.effectivePageState);
   // Every date label follows the Date format preference and the system language: render again when either changes.
   useDateDisplayVersion();
+  // The two settings that used to be app-wide and are now saved per Space: seed this Space from the old values, once.
+  useSpaceSettingsMigration(application);
+  // Opt-in cleanup of archived items older than 30 days (Settings → Preferences → Data & storage); a no-op unless this Space turned it on.
+  useArchiveCleanup(application);
   const workspace = useWorkspace(application.workspace);
   const { width: sidebarWidth, setWidth: setSidebarWidth, commitWidth: commitSidebarWidth } =
     useSidebarWidth();
@@ -322,6 +328,16 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
     []
   );
 
+  // A Space setting that could not be written to the Space's `.clutter/workspace.json` holds for this session but is
+  // not saved: say so, instead of letting it look saved and then be gone on the next launch.
+  useEffect(
+    () =>
+      application.subscribeSettingsWriteError(() =>
+        showToast({ tone: 'error', text: 'Couldn’t save this setting. It will be lost when you quit.' })
+      ),
+    [application, showToast]
+  );
+
   // "Download" of a remote image: reported to Unsplash (when it is a photo picked from there) only once the file was written.
   function downloadRemote(url: string): void {
     void downloadRemoteImage(url).then((saved) => {
@@ -358,10 +374,14 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
               target.id,
               newCoverPatch(reference, application.findCoverCredit(reference))
             )
-          : application.pageOperations.updateMetadata(
-              target.id,
-              newCoverPatch(reference, application.findCoverCredit(reference))
-            );
+          : application.pageOperations.updateMetadata(target.id, {
+              ...newCoverPatch(reference, application.findCoverCredit(reference)),
+              // A note takes the app-wide default position when it gets a cover; a folder has no such default.
+              ...initialCoverLayoutPatch(
+                application.vault.getPage(target.id)?.metadata,
+                application.defaultCoverPosition
+              ),
+            });
       void update.catch((error: unknown) => console.error('Could not set the cover image.', error));
     }
   }

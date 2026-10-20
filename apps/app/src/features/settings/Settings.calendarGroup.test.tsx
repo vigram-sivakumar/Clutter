@@ -64,18 +64,30 @@ describe('Settings — dismiss button', () => {
   });
 });
 
-describe('Settings — buttons carry no icons', () => {
+describe('Settings — buttons have no leading icon', () => {
   const textButtons = () =>
     Array.from(document.querySelectorAll<HTMLButtonElement>('.settings button')).filter(
       (button) => button.textContent?.trim() !== '' && !button.closest('[role="menu"]')
     );
 
-  it('no text button on the Preferences page has an icon (the dropdown buttons have no caret)', () => {
+  // A dropdown button keeps its trailing caret; what none of them has is an icon in front of its text.
+  const hasLeadingIcon = (button: HTMLButtonElement) => {
+    // The first child node: an icon in front of the text is an element there; the text itself is a text node.
+    const first = button.querySelector('.button__content')?.firstChild;
+    return first instanceof Element && first.classList.contains('app-icon');
+  };
+
+  it('no text button on the Preferences page has a leading icon, and the dropdowns keep their caret', () => {
     render(<Settings />);
     const buttons = textButtons();
     expect(buttons.length).toBeGreaterThan(0);
     for (const button of buttons) {
-      expect(button.querySelector('svg'), button.textContent ?? '').toBeNull();
+      expect(hasLeadingIcon(button), button.textContent ?? '').toBe(false);
+    }
+    const dropdowns = buttons.filter((button) => button.getAttribute('aria-haspopup') === 'menu');
+    expect(dropdowns.length).toBeGreaterThan(0);
+    for (const dropdown of dropdowns) {
+      expect(dropdown.querySelector('[data-icon="caretDown"]'), dropdown.textContent ?? '').not.toBeNull();
     }
   });
 
@@ -83,7 +95,7 @@ describe('Settings — buttons carry no icons', () => {
     render(<Settings />);
     fireEvent.click(screen.getByText(page));
     for (const button of textButtons()) {
-      expect(button.querySelector('svg'), button.textContent ?? '').toBeNull();
+      expect(hasLeadingIcon(button), button.textContent ?? '').toBe(false);
     }
   });
 });

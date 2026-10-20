@@ -1,5 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { DateFormatChoice } from '@shared/helpers/time/dateFormatPreference';
 import { formatTaskDueDate, formatTaskDueDateLong } from './formatTaskDueDate';
+
+// Which Date format the formatter reads for the test in hand. The long label is about how a date is written in a
+// specific format, so each test says which one; none leans on the global default.
+const preference = vi.hoisted(() => ({ format: 'full' as DateFormatChoice }));
+vi.mock('@shared/helpers/time/dateFormatPreference', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@shared/helpers/time/dateFormatPreference')>()),
+  readDateFormatChoice: () => preference.format,
+}));
 
 describe('formatTaskDueDate', () => {
   beforeEach(() => {
@@ -43,24 +52,40 @@ describe('formatTaskDueDateLong', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2026, 7, 4)); // 2026-08-04
+    preference.format = 'full';
   });
 
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it('spells the month out and leaves the year off in the current year, unlike the sidebar label', () => {
+  it('in the Full date format, spells the month out and leaves the year off in the current year, unlike the sidebar label', () => {
     expect(formatTaskDueDate('2026-08-20')).toBe('20 Aug');
     expect(formatTaskDueDateLong('2026-08-20')).toBe('20 August');
   });
 
-  it('shows the year in any other year', () => {
+  it('in the Full date format, shows the year in any other year', () => {
     expect(formatTaskDueDateLong('2027-09-02')).toBe('2 September 2027');
   });
 
-  it('still reads Today / Tomorrow / Yesterday by name', () => {
+  it('in the Full date format, writes today and its neighbours as dates: no relative words', () => {
+    expect(formatTaskDueDateLong('2026-08-04')).toBe('4 August');
+    expect(formatTaskDueDateLong('2026-08-05')).toBe('5 August');
+    expect(formatTaskDueDateLong('2026-08-03')).toBe('3 August');
+  });
+
+  it('in the Relative format, still reads Today / Tomorrow / Yesterday by name', () => {
+    preference.format = 'relative';
+
     expect(formatTaskDueDateLong('2026-08-04')).toBe('Today');
     expect(formatTaskDueDateLong('2026-08-05')).toBe('Tomorrow');
     expect(formatTaskDueDateLong('2026-08-03')).toBe('Yesterday');
+  });
+
+  it('in the Relative format, writes the other dates short', () => {
+    preference.format = 'relative';
+
+    expect(formatTaskDueDateLong('2026-08-20')).toBe('20 Aug');
+    expect(formatTaskDueDateLong('2027-09-02')).toMatch(/^2 Sep(t)? 2027$/);
   });
 });

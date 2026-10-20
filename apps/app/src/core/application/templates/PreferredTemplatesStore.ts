@@ -203,8 +203,19 @@ export class PreferredTemplatesStore implements Observable {
       this.defaultDailyNoteTemplateId = defaultChange.value;
     }
     this.listeners.forEach((listener) => listener());
-    void this.persist();
+    // The change holds in memory either way; a failed write is reported, never swallowed and never an unhandled rejection.
+    this.persist().catch((error: unknown) => this.writeErrorListeners.forEach((listener) => listener(error)));
   }
+
+  private readonly writeErrorListeners = new Set<(error: unknown) => void>();
+
+  /** Called when a change could not be written to the file; the change still holds in memory for this session. */
+  subscribeWriteError = (listener: (error: unknown) => void): (() => void) => {
+    this.writeErrorListeners.add(listener);
+    return () => {
+      this.writeErrorListeners.delete(listener);
+    };
+  };
 
   /**
    * Fire-and-forget, the accepted posture of the other `.clutter/workspace.json` stores. Writes through

@@ -58,6 +58,7 @@ export function SidebarSetting() {
           <Button
             ref={triggerRef}
             variant="outline"
+            trailing={<AppIcon icon="caretDown" size={12} />}
             isActive={menuOpen}
             aria-haspopup="menu"
             aria-expanded={menuOpen}

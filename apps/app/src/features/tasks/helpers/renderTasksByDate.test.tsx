@@ -8,6 +8,9 @@ import { renderTasksByDate } from './renderTasksByDate';
 import { Workspace } from '@core/workspace/Workspace';
 import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
+import { pinDateFormat } from '@shared/testing/pinDateFormat';
+
+pinDateFormat('full');
 
 class ResizeObserverMock {
   observe = vi.fn();

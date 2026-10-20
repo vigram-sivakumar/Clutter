@@ -201,7 +201,7 @@ import { clearCachedEditorSession } from '@features/markdown/editor/codemirror/e
 import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal';
 import { PropertyList } from '@components/property-list/PropertyList';
 import { buildPageProperties } from './buildPageProperties';
-import { newCoverPatch } from '@core/application/page/coverPatch';
+import { initialCoverLayoutPatch, newCoverPatch } from '@core/application/page/coverPatch';
 import { isDailyNotesCollectionPagesEnabled } from '@core/featureFlags';
 import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
 import {
@@ -1233,6 +1233,11 @@ export function PageHost({
   // (a draft's committed cover patch promotes it via the same persistDraft
   // helper title/body commits already use), so there is no separate
   // draft-specific persistence path to wire here.
+  // Where a cover added to `noteId` goes, from the app-wide default (Settings → Preferences → Cover image). A draft
+  // has no page yet, so no cover and no saved position — it takes the default like any note without a cover.
+  const coverLayoutFor = (noteId: string) =>
+    initialCoverLayoutPatch(vault.getPage(noteId)?.metadata, application.defaultCoverPosition);
+
   const onSetCoverImage = (url: string, credit?: CoverCredit | null): void => {
     if (!activePageId) {
       return;
@@ -1249,6 +1254,7 @@ export function PageHost({
       coverCredit: credit ?? application.findCoverCredit(url),
       coverPositionAbove: 50,
       coverPositionSide: 50,
+      ...coverLayoutFor(activePageId),
     });
   };
 
@@ -1257,6 +1263,9 @@ export function PageHost({
       return;
     }
 
+    // Read before the import: by the time it finishes, nothing about the note's own cover has changed.
+    const layout = coverLayoutFor(activePageId);
+
     void (async () => {
       const relativePath = await application.importCoverAsset(sourcePath);
       await application.pageOperations.updateMetadata(activePageId, {
@@ -1264,6 +1273,7 @@ export function PageHost({
         coverCredit: null,
         coverPositionAbove: 50,
         coverPositionSide: 50,
+        ...layout,
       });
     })();
   };
@@ -1408,18 +1418,20 @@ export function PageHost({
   const noteCoverActions: NoteCoverActions = {
     resolveUrl: (cover) => application.resolveCoverImageForDisplay(cover),
     onSet: (noteId, url, credit) => {
-      void application.pageOperations.updateMetadata(
-        noteId,
-        newCoverPatch(url, credit ?? application.findCoverCredit(url))
-      );
+      void application.pageOperations.updateMetadata(noteId, {
+        ...newCoverPatch(url, credit ?? application.findCoverCredit(url)),
+        ...coverLayoutFor(noteId),
+      });
     },
     onSetFromUpload: (noteId, sourcePath) => {
+      const layout = coverLayoutFor(noteId);
+
       void (async () => {
         const relativePath = await application.importCoverAsset(sourcePath);
-        await application.pageOperations.updateMetadata(
-          noteId,
-          newCoverPatch(relativePath)
-        );
+        await application.pageOperations.updateMetadata(noteId, {
+          ...newCoverPatch(relativePath),
+          ...layout,
+        });
       })();
     },
     onRemove: (noteId) => {

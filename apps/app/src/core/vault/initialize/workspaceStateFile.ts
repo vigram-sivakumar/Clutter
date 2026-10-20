@@ -91,6 +91,15 @@ export function mergeAndWriteWorkspaceStateFile(
 
 let writeQueue: Promise<void> = Promise.resolve();
 
+/**
+ * Resolves once every `.clutter/workspace.json` write requested so far has finished (succeeded or failed — a failed
+ * write never wedges the queue). What shutdown waits on so a setting changed just before quitting still reaches
+ * the file: the stores write in the background and nothing else holds the process open for them.
+ */
+export function flushWorkspaceStateWrites(): Promise<void> {
+  return writeQueue;
+}
+
 async function mergeAndWrite(
   fileSystem: VaultFileSystem,
   rootPath: string,

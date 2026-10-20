@@ -10,6 +10,9 @@ import { DEFAULT_TASK_DISPLAY_CONFIG } from '../helpers/groupTasks';
 import { resolveCollectionView } from '@core/presentation/collection/resolveCollectionView';
 import { TASKS_COLLECTION } from '@core/presentation/collection/collectionDefinitions';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
+import { pinDateFormat } from '@shared/testing/pinDateFormat';
+
+pinDateFormat('full');
 
 beforeAll(() => {
   globalThis.ResizeObserver ??= class {

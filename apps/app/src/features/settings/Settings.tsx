@@ -16,6 +16,10 @@ import {
   DefaultNoteLocationSetting,
   type NoteLocationSource,
 } from './default-note-location-setting/DefaultNoteLocationSetting';
+import type { SpaceSettingsSource } from './space-settings/SpaceSettingsSource';
+import { AutoDeleteArchivedSetting } from './auto-delete-archived-setting/AutoDeleteArchivedSetting';
+import { ShowAssetsInFoldersSetting } from './assets-setting/ShowAssetsInFoldersSetting';
+import { CoverPositionSetting } from './cover-position-setting/CoverPositionSetting';
 import { FolderItemsSetting } from './folder-items-setting/FolderItemsSetting';
 import { SidebarSetting } from './sidebar-setting/SidebarSetting';
 import { StartupSetting } from './startup-setting/StartupSetting';
@@ -27,6 +31,7 @@ const PAGE_TITLES: Record<SettingsPageId, string> = {
   preferences: 'Preferences',
   notes: 'Notes',
   'daily-notes': 'Daily notes',
+  assets: 'Assets',
 };
 
 interface SettingsProps {
@@ -34,11 +39,13 @@ interface SettingsProps {
   templates?: TemplatesSource;
   /** The open Space's folders and default note location, for the Default note location setting. */
   noteLocation?: NoteLocationSource;
+  /** The open Space's own settings (cover position, automatic archive cleanup): saved in the Space, so each Space has its own. */
+  spaceSettings?: SpaceSettingsSource;
   /** Closes the dialog the settings are shown in, for a setting that navigates away (e.g. opening a template). */
   onClose?: () => void;
 }
 
-export function Settings({ templates, noteLocation, onClose }: SettingsProps = {}) {
+export function Settings({ templates, noteLocation, spaceSettings, onClose }: SettingsProps = {}) {
   const [pageId, setPageId] = useState<SettingsPageId>(DEFAULT_SETTINGS_PAGE);
 
   return (
@@ -49,6 +56,7 @@ export function Settings({ templates, noteLocation, onClose }: SettingsProps = {
           <>
             <SettingsGroup title="Appearance">
               <ThemeSetting />
+              <CoverPositionSetting source={spaceSettings} />
             </SettingsGroup>
             <SettingsGroup title="Startup">
               <StartupSetting />
@@ -57,6 +65,9 @@ export function Settings({ templates, noteLocation, onClose }: SettingsProps = {
             <SettingsGroup title="Calendar">
               <WeekStartSetting />
               <DateFormatSetting />
+            </SettingsGroup>
+            <SettingsGroup title="Data & storage">
+              <AutoDeleteArchivedSetting source={spaceSettings} />
             </SettingsGroup>
           </>
         )}
@@ -72,6 +83,11 @@ export function Settings({ templates, noteLocation, onClose }: SettingsProps = {
               onCloseSettings={onClose}
             />
           </>
+        )}
+        {pageId === 'assets' && (
+          <SettingsGroup>
+            <ShowAssetsInFoldersSetting />
+          </SettingsGroup>
         )}
         {pageId === 'daily-notes' && (
           <PreferredTemplates

@@ -1,6 +1,8 @@
 import { isTauri } from '@tauri-apps/api/core';
 import { isFolderConfirmedMissing, probeSpaceFolder } from '../vault/providers/probeSpaceFolder';
 import { VaultRootMissingError } from '../vault/providers/VaultRootMissingError';
+import { isArchiveRetentionElapsed } from './archive/archiveRetention';
+import { flushWorkspaceStateWrites } from '../vault/initialize/workspaceStateFile';
 import { LocalVaultProvider } from '../vault/providers/LocalFileSystem';
 import { InMemoryVaultFileSystem } from '../vault/testing/InMemoryVaultFileSystem';
 import { BrowserFileSystemWatcher } from '../vault/providers/BrowserFileSystemWatcher';
@@ -798,6 +800,10 @@ export class Application {
       }
     });
 
+    // A saved default note folder that no longer exists, or is no longer a valid destination, goes back to Inbox as
+    // the Space loads, not only on the next vault change.
+    this.resolveDefaultNoteFolderId();
+
     // Optional, dev-only: exposes window.__clutter_devtools for e2e tests.
     // No-op unless import.meta.env.DEV && VITE_DEVTOOLS=true (see attachDevTools).
     attachDevTools(this);
@@ -935,6 +941,162 @@ export class Application {
    */
   public get spaceProfile(): SpaceProfile | null {
     return this.spaceProfileStore.profile;
+  }
+
+  /** Where covers go on notes of this Space that have no saved position — Right until the Space chose otherwise. */
+  public get defaultCoverPosition(): 'side' | 'above' {
+    return this.spaceProfileStore.profile?.defaultCoverPosition ?? 'side';
+  }
+
+  /** Whether this Space deletes archived items after 30 days. Off unless the Space's own saved setting is on. */
+  public get autoDeleteArchived(): boolean {
+    return this.spaceProfileStore.profile?.autoDeleteArchived === true;
+  }
+
+  /**
+   * Called when a Space setting (a template choice, the default note location, cover position, automatic cleanup)
+   * could not be written to `.clutter/workspace.json`. The setting still holds for this session; the caller says
+   * it was not saved. Returns the unsubscribe.
+   */
+  public subscribeSettingsWriteError(listener: (error: unknown) => void): () => void {
+    const unsubscribers = [
+      this.spaceProfileStore.subscribeWriteError(listener),
+      this.preferredTemplatesStore.subscribeWriteError(listener),
+    ];
+
+    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
+  }
+
+  /**
+   * The scheduled cleanup entry point: runs `purgeExpiredArchivedItems` only when this Space has the setting on.
+   * The rule that cleanup never runs for a Space that did not turn it on lives here, with the setting, not with
+   * whoever schedules it.
+   */
+  public async runArchiveCleanupIfEnabled(now: Date = new Date()): Promise<number> {
+    return this.autoDeleteArchived ? this.purgeExpiredArchivedItems(now) : 0;
+  }
+
+  /** The cleanup run in progress, so a second request joins it instead of racing it. */
+  private archiveCleanupInFlight: Promise<number> | undefined;
+
+  /**
+   * Permanently deletes the archived items that have been archived for 30 calendar days (`archiveRetention.ts`),
+   * and returns how many it deleted. Whether to run it at all is the caller's decision — the app-wide "Automatically
+   * delete archived items" setting is read by whoever schedules this, never here.
+   *
+   * Reuses the permanent deletes the Archive's own Delete uses (`PageOperations.delete`, `FolderOperations.delete`,
+   * `ResourceOperations.deleteResource`), so every guard they have applies and there is no second deletion path. It
+   * only considers an item sitting directly in `Archive/` (ADR-026: what is deeper goes with its folder, whose own
+   * date decides) and goes by the `archivedAt` Clutter recorded when it archived it. An item with no usable date —
+   * put there from outside Clutter, or an unreadable record — is left alone, and so is an archived asset an active
+   * note still embeds. A restored item has left `Archive/` and no longer matches; a re-archived one has a new date.
+   *
+   * Safe to repeat: what is already gone is no longer a candidate. One item that cannot be deleted is left in place
+   * and the rest continue; a missing vault root ends the run (nothing is recreated). Never throws.
+   */
+  public purgeExpiredArchivedItems(now: Date = new Date()): Promise<number> {
+    this.archiveCleanupInFlight ??= this.runArchiveCleanup(now).finally(() => {
+      this.archiveCleanupInFlight = undefined;
+    });
+
+    return this.archiveCleanupInFlight;
+  }
+
+  private async runArchiveCleanup(now: Date): Promise<number> {
+    const vault = this.vault;
+    const isDue = (path: string, archivedAt: string | null | undefined): boolean =>
+      vault.isDirectlyInArchive(path) && isArchiveRetentionElapsed(archivedAt, now);
+    let deleted = 0;
+
+    const attempt = async (stillDue: () => boolean, remove: () => Promise<void>): Promise<boolean> => {
+      // Looked at again right before deleting: it may have been restored, moved or deleted since the list was made.
+      if (!stillDue()) {
+        return true;
+      }
+
+      try {
+        await remove();
+        deleted += 1;
+        return true;
+      } catch (error) {
+        // The vault is gone: stop, and do not touch anything else. Any other failure leaves that one item in place.
+        return !(error instanceof VaultRootMissingError);
+      }
+    };
+
+    try {
+      for (const folder of Array.from(vault.folders())) {
+        if (!isDue(folder.path, folder.metadata.archivedAt)) continue;
+
+        const folderId = folder.id;
+        const keepGoing = await attempt(
+          () => {
+            const current = vault.getFolder(folderId);
+            return current !== undefined && isDue(current.path, current.metadata.archivedAt);
+          },
+          () => this.folderOperations.delete(folderId)
+        );
+
+        if (!keepGoing) return deleted;
+      }
+
+      for (const page of Array.from(vault.pages())) {
+        if (!isDue(page.path, page.metadata.archivedAt)) continue;
+
+        const pageId = page.id;
+        const keepGoing = await attempt(
+          () => {
+            const current = vault.getPage(pageId);
+            return current !== undefined && isDue(current.path, current.metadata.archivedAt);
+          },
+          () => this.pageOperations.delete(pageId)
+        );
+
+        if (!keepGoing) return deleted;
+      }
+
+      const archivedResources = await this.resourceArchiveStore.read();
+
+      for (const resource of Array.from(vault.resources())) {
+        const record = archivedResources.get(resource.path);
+
+        if (!record || !isDue(resource.path, record.archivedAt)) continue;
+        if (this.isEmbeddedByActiveNote(resource.name, record.originalPath)) continue;
+
+        const resourceId = resource.id;
+        const keepGoing = await attempt(
+          () => {
+            const current = vault.getResource(resourceId);
+            return current !== undefined && isDue(current.path, archivedResources.get(current.path)?.archivedAt);
+          },
+          () => this.resourceOperations.deleteResource(resourceId)
+        );
+
+        if (!keepGoing) return deleted;
+      }
+    } catch {
+      // Reading the archive records failed: nothing more is deleted this run, and the next run tries again.
+    }
+
+    return deleted;
+  }
+
+  /** Whether any note that is not archived embeds or links the file, by its original path or its file name. */
+  private isEmbeddedByActiveNote(fileName: string, originalPath: string): boolean {
+    const root = `${this.vault.root}/`;
+    const original = originalPath.startsWith(root) ? originalPath.slice(root.length) : originalPath;
+    const reference = (target: string) => target.split(/[#|]/)[0]!.trim().replace(/^\.\//, '');
+    const matches = (target: string) => {
+      const value = reference(target);
+      return value === original || value === fileName || value.endsWith(`/${fileName}`);
+    };
+
+    return Array.from(this.vault.pages()).some(
+      (page) =>
+        !this.vault.isPageEffectivelyArchived(page) &&
+        (page.analysis.embeds.some((embed) => matches(embed.target)) ||
+          page.analysis.links.some((link) => matches(link.target)))
+    );
   }
 
   /**
@@ -1301,6 +1463,9 @@ export class Application {
       // ADR-035: after the page flush above, so a draft promoted by that
       // flush is already a real page and is written as restorable.
       await this.workspaceSessionStore.flush();
+      // Settings written in the background (templates, note location, cover position, cleanup): a change made just
+      // before quitting must reach `.clutter/workspace.json`, which nothing else holds the process open for.
+      await flushWorkspaceStateWrites();
     }
     this.workspaceSessionStore.dispose();
     await this.fileSystemWatcher.stop();

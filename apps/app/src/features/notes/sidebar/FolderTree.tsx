@@ -1,6 +1,7 @@
 // React
 import { Fragment } from 'react/jsx-runtime';
 import { useFolderItemLimit } from '@shared/helpers/folderItemLimitPreference';
+import { useShowAssetsInFolders } from '@shared/helpers/showAssetsInFoldersPreference';
 import { useRef, useSyncExternalStore } from 'react';
 // Components
 import { Folder as FolderEntry } from './Folder';
@@ -810,7 +811,9 @@ export function FolderTree({
   // interleaved with them — matches how folders and pages themselves are
   // already two separate, non-interleaved blocks rather than one
   // alphabetically-merged list.
-  const rootResources = parentId === null ? membershipSelector.getRootResources() : [];
+  // Asset files listed in an ordinary folder follow the Show assets in folders setting; the Assets section never reads it.
+  const showAssets = useShowAssetsInFolders();
+  const rootResources = parentId === null && showAssets ? membershipSelector.getRootResources() : [];
 
   const isCreatingHere =
     pendingNewFolder !== null && pendingNewFolder.parentId === parentId;
@@ -822,7 +825,7 @@ export function FolderTree({
         // both why draft accumulation isn't a concern here and why the
         // narrowing is necessary.
         const childPages = membershipSelector.getNotesChildPages(folder.id);
-        const childResources = membershipSelector.getVisibleChildResources(folder.id);
+        const childResources = showAssets ? membershipSelector.getVisibleChildResources(folder.id) : [];
         const subFolders = membershipSelector.getVisibleChildFolders(folder.id);
         // Checks if the folder is empty
         const isEmpty =
@@ -981,7 +984,7 @@ export function FolderTree({
   // lists folders first, then notes, then files. Whatever the order, the level shows its first
   // folderItemLimit items, then a "N more" / "Show less" row.
   const levelResources =
-    parentId === null ? rootResources : membershipSelector.getVisibleChildResources(parentId);
+    parentId === null ? rootResources : showAssets ? membershipSelector.getVisibleChildResources(parentId) : [];
 
   type LevelItem =
     | { kind: 'folder'; folder: Folder }

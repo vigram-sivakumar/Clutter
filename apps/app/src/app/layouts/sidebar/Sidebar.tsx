@@ -34,6 +34,7 @@ import { NewFolderDialog } from '@features/notes/shortcuts/NewFolderDialog';
 import { createAndOpenFolder } from '@features/notes/helpers/createAndOpenFolder';
 import { createNote } from '@features/notes/helpers/createNote';
 import { buildNoteLocationFolders } from '@features/notes/helpers/buildNoteLocationFolders';
+import type { SpaceSettingsSource } from '@features/settings/space-settings/SpaceSettingsSource';
 import type { NoteLocationSource } from '@features/settings/default-note-location-setting/DefaultNoteLocationSetting';
 import { uploadAssets } from '@features/notes/helpers/uploadAssets';
 import { createTemplate } from '@features/notes/helpers/createTemplate';
@@ -130,6 +131,18 @@ export function Sidebar({
       },
     }),
     [application, vault, membershipSelector]
+  );
+  // The Space's own settings (cover position, automatic archive cleanup), read from and written to the open
+  // Space's profile — so switching Space (a new Application) shows that Space's values.
+  const settingsSpace = useMemo<SpaceSettingsSource>(
+    () => ({
+      getCoverPosition: () => application.defaultCoverPosition,
+      setCoverPosition: (position) => void application.spaceProfileStore.setDefaultCoverPosition(position),
+      getAutoDeleteArchived: () => application.autoDeleteArchived,
+      setAutoDeleteArchived: (enabled) => void application.spaceProfileStore.setAutoDeleteArchived(enabled),
+      subscribe: application.spaceProfileStore.subscribe,
+    }),
+    [application]
   );
   const workspace = useWorkspace(application.workspace);
   const spaces = useSpaces();
@@ -377,6 +390,7 @@ export function Sidebar({
         onOpenArchive={() => navigation.openArchive()}
         templates={settingsTemplates}
         noteLocation={settingsNoteLocation}
+        spaceSettings={settingsSpace}
       />
 
       <NewTaskDialog

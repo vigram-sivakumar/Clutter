@@ -21,6 +21,9 @@ import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
 import type { Page } from '@core/vault/models/Page';
 import type { Folder } from '@core/vault/models/Folder';
 import type { VaultResource } from '@core/vault/models/VaultResource';
+import { pinDateFormat } from '@shared/testing/pinDateFormat';
+
+pinDateFormat('full');
 
 /** The archived banner at the top of the page content of an effectively archived Note, Daily Note and Folder. */
 

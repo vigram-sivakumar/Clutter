@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FolderTree } from './FolderTree';
 import { writeFolderItemLimitChoice } from '@shared/helpers/folderItemLimitPreference';
+import { writeShowAssetsInFolders } from '@shared/helpers/showAssetsInFoldersPreference';
 import { PageOperations } from '@core/application/page/PageOperations';
 import { EffectivePageState } from '@core/application/page/EffectivePageState';
 import { PagePersistenceCoordinator } from '@core/vault/persistence/PagePersistenceCoordinator';
@@ -1319,5 +1320,95 @@ describe('FolderTree: the Folder items setting', () => {
     renderFolders([12], ['f0']);
     expect(screen.getByText('Note 11')).toBeInTheDocument();
     expect(screen.getByText('Show less')).toBeInTheDocument();
+  });
+});
+
+describe('FolderTree: the Show assets in folders setting', () => {
+  beforeEach(() => localStorage.clear());
+
+  const projects = () => makeFolder('folder-1', `${ROOT}/Projects`, null);
+  const inProjects = (name: string, id = name) =>
+    makeResource({ id, name, path: `${ROOT}/Projects/${name}`, parentId: 'folder-1' });
+  const rootAsset = () => makeResource({ id: 'root-asset', name: 'brochure.pdf', kind: 'pdf', path: `${ROOT}/brochure.pdf` });
+
+  function renderWith(resources: VaultResource[], pages: Page[] = []) {
+    const { query, workspace, membershipSelector } = setup(pages, [projects()], resources);
+    return { ...renderTree(query, membershipSelector, workspace), membershipSelector };
+  }
+
+  it('shows assets in folders and at the root by default, as it always did', () => {
+    renderWith([inProjects('floorplan.png'), rootAsset()], [buildPersistedPage(`${ROOT}/Projects/Plan.md`, { parentId: 'folder-1', id: 'n1' })]);
+
+    expect(screen.getByText('floorplan')).toBeInTheDocument();
+    expect(screen.getByText('brochure')).toBeInTheDocument();
+    expect(screen.getByText('Plan')).toBeInTheDocument();
+  });
+
+  it('hides asset files in folders and at the root when turned off, keeping notes and folders', () => {
+    writeShowAssetsInFolders(false);
+    renderWith(
+      [inProjects('floorplan.png'), rootAsset()],
+      [
+        buildPersistedPage(`${ROOT}/Projects/Plan.md`, { parentId: 'folder-1', id: 'n1' }),
+        buildPersistedPage(`${ROOT}/Ideas.md`, { id: 'n2' }),
+      ]
+    );
+
+    expect(screen.queryByText('floorplan')).toBeNull();
+    expect(screen.queryByText('brochure')).toBeNull();
+    expect(screen.getByText('Projects')).toBeInTheDocument();
+    expect(screen.getByText('Plan')).toBeInTheDocument();
+    expect(screen.getByText('Ideas')).toBeInTheDocument();
+  });
+
+  it('a folder holding only assets reads as empty while they are hidden, and is not empty when shown', () => {
+    writeShowAssetsInFolders(false);
+    renderWith([inProjects('photo.png')]);
+    const caret = () => screen.getByText('Projects').closest('.entry')!.querySelector('.caret-slot') as HTMLButtonElement;
+    expect(caret().disabled).toBe(true);
+
+    cleanup();
+    writeShowAssetsInFolders(true);
+    renderWith([inProjects('photo.png')]);
+    expect(caret().disabled).toBe(false);
+  });
+
+  it('updates the open tree at once when the setting changes, both ways', () => {
+    renderWith([inProjects('floorplan.png')]);
+    expect(screen.getByText('floorplan')).toBeInTheDocument();
+
+    act(() => writeShowAssetsInFolders(false));
+    expect(screen.queryByText('floorplan')).toBeNull();
+
+    act(() => writeShowAssetsInFolders(true));
+    expect(screen.getByText('floorplan')).toBeInTheDocument();
+  });
+
+  it('counts only what is listed toward "N more": hidden assets neither fill the cap nor appear in it', () => {
+    const notes = Array.from({ length: 3 }, (_, i) =>
+      buildPersistedPage(`${ROOT}/Projects/Note ${i}.md`, { parentId: 'folder-1', id: `n${i}` })
+    );
+    const assets = Array.from({ length: 9 }, (_, i) => inProjects(`img-${i}.png`, `r${i}`));
+
+    // Shown: 3 notes + 9 assets is twelve rows, so two sit behind "2 more".
+    renderWith(assets, notes);
+    expect(screen.getAllByText(/^\d+ more$/).map((el) => el.textContent)).toEqual(['2 more']);
+
+    cleanup();
+    // Hidden: only the three notes are listed, so there is nothing behind a "more" row.
+    writeShowAssetsInFolders(false);
+    renderWith(assets, notes);
+    expect(screen.queryAllByText(/^\d+ more$/)).toHaveLength(0);
+    expect(screen.getByText('Note 2')).toBeInTheDocument();
+  });
+
+  it('never touches the assets: they stay in the vault, and the Assets collection still has every one', () => {
+    writeShowAssetsInFolders(false);
+    const { membershipSelector } = renderWith([inProjects('floorplan.png'), rootAsset()]);
+
+    expect(membershipSelector.getAllVisibleResources().map((resource) => resource.name).sort()).toEqual([
+      'brochure.pdf',
+      'floorplan.png',
+    ]);
   });
 });

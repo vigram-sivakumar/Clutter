@@ -9,6 +9,9 @@ import { SHAKE_DURATION_MS } from '@components/editable-text/EditableText';
 import { DatePropertyValue } from './DatePropertyValue';
 import { PropertyList } from './PropertyList';
 import { formatDatePropertyValue } from './formatDatePropertyValue';
+import { pinDateFormat } from '@shared/testing/pinDateFormat';
+
+pinDateFormat('full');
 
 // Overlay positions itself with a ResizeObserver, which jsdom lacks —
 // same local stub as Overlay.test.tsx.

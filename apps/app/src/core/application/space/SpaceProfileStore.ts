@@ -25,6 +25,14 @@ export interface SpaceProfile {
    * Absent means Inbox, the default. Whoever reads it checks it is still a valid destination.
    */
   readonly defaultNoteFolderId?: string;
+  /**
+   * Where a cover image goes on a note of this Space that has no saved position: `'side'` (Right) or `'above'`
+   * (Top). Stored explicitly when chosen — Right included — so "chose the default" can be told from "never chose"
+   * (a Space that never chose may still be seeded from the old app-wide setting, once).
+   */
+  readonly defaultCoverPosition?: 'side' | 'above';
+  /** Whether this Space deletes archived items after 30 days. Present only when on; absent is off, the default. */
+  readonly autoDeleteArchived?: true;
 }
 
 const SPACE_KEY = 'space';
@@ -48,11 +56,13 @@ export function parseSpaceProfile(contents: string): SpaceProfile | null {
     if (typeof file !== 'object' || file === null || Array.isArray(file)) return null;
     const raw = (file as Record<string, unknown>)[SPACE_KEY];
     if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
-    const { version, id, avatar, defaultNoteFolderId } = raw as {
+    const { version, id, avatar, defaultNoteFolderId, defaultCoverPosition, autoDeleteArchived } = raw as {
       version?: unknown;
       id?: unknown;
       avatar?: unknown;
       defaultNoteFolderId?: unknown;
+      defaultCoverPosition?: unknown;
+      autoDeleteArchived?: unknown;
     };
     if (typeof version === 'number' && version > CURRENT_VERSION) return null;
     if (typeof id !== 'string' || id === '') return null;
@@ -62,6 +72,10 @@ export function parseSpaceProfile(contents: string): SpaceProfile | null {
       ...(parsedAvatar && { avatar: parsedAvatar }),
       ...(typeof defaultNoteFolderId === 'string' &&
         defaultNoteFolderId !== '' && { defaultNoteFolderId }),
+      // Anything but a known value is "never chose" (a hand-edited or newer file never changes behaviour), and
+      // only a literal `true` turns the destructive cleanup on.
+      ...((defaultCoverPosition === 'side' || defaultCoverPosition === 'above') && { defaultCoverPosition }),
+      ...(autoDeleteArchived === true && { autoDeleteArchived: true as const }),
     };
   } catch {
     return null;
@@ -140,7 +154,36 @@ export class SpaceProfileStore {
     }
 
     const { defaultNoteFolderId: _previous, ...rest } = this.current ?? { id: new UuidGenerator().generate() };
-    return this.write(folderId === undefined ? rest : { ...rest, defaultNoteFolderId: folderId });
+    const next = folderId === undefined ? rest : { ...rest, defaultNoteFolderId: folderId };
+
+    return this.persistSetting(next).then(() => next);
+  }
+
+  /**
+   * Chooses where covers go on notes of this Space with no saved position. Always written explicitly, `'side'`
+   * too: removing the value would make a chosen Right look like a Space that never chose.
+   */
+  setDefaultCoverPosition(position: 'side' | 'above'): Promise<void> {
+    if (this.current?.defaultCoverPosition === position) {
+      return Promise.resolve();
+    }
+
+    const base = this.current ?? { id: new UuidGenerator().generate() };
+    return this.persistSetting({ ...base, defaultCoverPosition: position });
+  }
+
+  /**
+   * Turns this Space's automatic cleanup of archived items on or off. Off removes the value, which is also what
+   * a Space that never chose has: off is the default, and nothing is ever deleted unless this was set to on.
+   */
+  setAutoDeleteArchived(enabled: boolean): Promise<void> {
+    // Already as asked — on, or off (which is also what a Space with no value has): nothing to change or write.
+    if (enabled === (this.current?.autoDeleteArchived === true)) {
+      return Promise.resolve();
+    }
+
+    const { autoDeleteArchived: _previous, ...rest } = this.current ?? { id: new UuidGenerator().generate() };
+    return this.persistSetting(enabled ? { ...rest, autoDeleteArchived: true } : rest);
   }
 
   /** Called whenever the profile changes. Returns the unsubscribe. */
@@ -150,6 +193,31 @@ export class SpaceProfileStore {
       this.listeners.delete(listener);
     };
   };
+
+  private readonly writeErrorListeners = new Set<(error: unknown) => void>();
+
+  /**
+   * Called when a setting's file write failed. The setting still holds in memory for this session — so the UI is
+   * not lied to the other way — but it did not reach the file, and whoever shows messages should say so.
+   */
+  subscribeWriteError = (listener: (error: unknown) => void): (() => void) => {
+    this.writeErrorListeners.add(listener);
+    return () => {
+      this.writeErrorListeners.delete(listener);
+    };
+  };
+
+  /**
+   * A setting change: in memory at once, the file after, and a failed write reported rather than lost. Never
+   * rejects, because every caller is a fire-and-forget settings control; the avatar flows, which do need to hear
+   * about a failure, await `write` directly.
+   */
+  private persistSetting(profile: SpaceProfile): Promise<void> {
+    return this.write(profile).then(
+      () => undefined,
+      (error: unknown) => this.writeErrorListeners.forEach((listener) => listener(error))
+    );
+  }
 
   private async write(profile: SpaceProfile): Promise<SpaceProfile> {
     // In memory first, so a change is visible immediately; the file follows.

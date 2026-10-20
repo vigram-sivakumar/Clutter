@@ -10,6 +10,7 @@ import { Menu } from '@components/menu/Menu';
 import { MenuItem } from '@components/menu/MenuItem';
 import { Dialog } from '@components/dialog/Dialog';
 import { Settings } from '@features/settings/Settings';
+import type { SpaceSettingsSource } from '@features/settings/space-settings/SpaceSettingsSource';
 import type { NoteLocationSource } from '@features/settings/default-note-location-setting/DefaultNoteLocationSetting';
 import type { TemplatesSource } from '@features/settings/preferred-templates/PreferredTemplates';
 
@@ -39,6 +40,8 @@ interface FooterProps {
   templates?: TemplatesSource;
   /** The open Space's folders and default note location, for Settings. */
   noteLocation?: NoteLocationSource;
+  /** The open Space's own settings, for Settings. */
+  spaceSettings?: SpaceSettingsSource;
 }
 
 const DEFAULT_AVATAR: SpaceAvatarValue = { type: 'initial' };
@@ -56,6 +59,7 @@ export function Footer({
   onOpenArchive,
   templates,
   noteLocation,
+  spaceSettings,
 }: FooterProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -158,7 +162,7 @@ export function Footer({
         returnFocusRef={selectorRef}
         className="settings-dialog"
       >
-        <Settings templates={templates} noteLocation={noteLocation} onClose={() => setSettingsOpen(false)} />
+        <Settings templates={templates} noteLocation={noteLocation} spaceSettings={spaceSettings} onClose={() => setSettingsOpen(false)} />
       </Dialog>
       <div className="footer__actions">
         <Button isIconOnly size="medium" variant="ghost" onClick={onOpenArchive}>

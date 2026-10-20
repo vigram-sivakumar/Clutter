@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFolderItemLimit } from '@shared/helpers/folderItemLimitPreference';
+import { useShowAssetsInFolders } from '@shared/helpers/showAssetsInFoldersPreference';
 import { OverflowMenu } from '@components/menu/OverflowMenu';
 import { buildSortByMenuItems } from '@core/presentation/resourceActions/folderSortAction';
 import { applyFolderSortSelection } from '../helpers/buildFolderMenuHandlers';
@@ -136,6 +137,7 @@ export function Notes({
   getDefaultNoteFolderId,
 }: NotesProps) {
   const folderItemLimit = useFolderItemLimit();
+  const showAssets = useShowAssetsInFolders();
   const [pendingNewFolder, setPendingNewFolder] =
     useState<PendingNewFolder | null>(null);
 
@@ -439,7 +441,7 @@ export function Notes({
   const isFoldersEmpty =
     membershipSelector.getWorkspaceFolders().length === 0 &&
     membershipSelector.getNotesChildPages(null).length === 0 &&
-    membershipSelector.getRootResources().length === 0 &&
+    (!showAssets || membershipSelector.getRootResources().length === 0) &&
     pendingNewFolder?.parentId !== null;
 
   // The section's "+": open the section if it

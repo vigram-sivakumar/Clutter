@@ -6,6 +6,9 @@ import { acceptCompletion, completionStatus, currentCompletions } from '@codemir
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { semanticCompletion } from '../completion';
+import { pinDateFormat } from '@shared/testing/pinDateFormat';
+
+pinDateFormat('full');
 
 /**
  * Integration-level regression coverage for the Date-autocomplete

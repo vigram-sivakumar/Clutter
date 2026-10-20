@@ -1,12 +1,28 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { DateFormatChoice } from '@shared/helpers/time/dateFormatPreference';
 import { resolveDateQuery } from './dateQueryResolver';
+
+// Which Date format the labels are written in for the test in hand. Most of these are about the Full date wording
+// ("20 March 2027"); the time ones are about the Relative words ("Today 1:00 am"), so they say so.
+const preference = vi.hoisted(() => ({ format: 'full' as DateFormatChoice }));
+vi.mock('@shared/helpers/time/dateFormatPreference', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@shared/helpers/time/dateFormatPreference')>()),
+  readDateFormatChoice: () => preference.format,
+}));
+beforeEach(() => {
+  preference.format = 'full';
+});
 
 // Thursday, 2026-08-20 — same fixed reference date dateSuggestion.test.ts uses.
 const REFERENCE = new Date(2026, 7, 20);
 
 describe('resolveDateQuery', () => {
   describe('time', () => {
+    beforeEach(() => {
+      preference.format = 'relative';
+    });
+
     it('@1 → Today 1:00 am (bare hour with no suffix defaults to AM, except 12)', () => {
       const result = resolveDateQuery('1', REFERENCE);
       expect(result).toEqual({ isoDate: '2026-08-20', label: 'Today 1:00 am' });

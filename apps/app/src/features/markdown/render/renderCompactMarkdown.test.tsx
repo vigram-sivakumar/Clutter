@@ -8,6 +8,9 @@ import type { ResolveTag, TagResolution } from '../editor/codemirror/tag/tagReso
 import type { ResolveWikiLink, WikiLinkResolution } from '../editor/codemirror/wikilink/wikiLinkResolution';
 import type { PageEmbedResolution, ResolvePageEmbed } from './blocks/pageEmbedResolution';
 import { renderCompactMarkdown } from './renderCompactMarkdown';
+import { pinDateFormat } from '@shared/testing/pinDateFormat';
+
+pinDateFormat('full');
 
 describe('renderCompactMarkdown', () => {
   it('renders plain text verbatim', () => {

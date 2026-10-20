@@ -7,7 +7,7 @@ import {
 import { AppIcon, type SystemIcon } from '@shared/icon';
 import './SettingsSidebar.css';
 
-export type SettingsPageId = 'preferences' | 'notes' | 'daily-notes';
+export type SettingsPageId = 'preferences' | 'notes' | 'daily-notes' | 'assets';
 
 export const DEFAULT_SETTINGS_PAGE: SettingsPageId = 'preferences';
 
@@ -30,6 +30,7 @@ const SECTIONS: { title: string; entries: SettingsSidebarEntry[] }[] = [
     entries: [
       { id: 'notes', title: 'Notes', location: 'notes' },
       { id: 'daily-notes', title: 'Daily notes', location: 'daily-notes' },
+      { id: 'assets', title: 'Assets', location: 'assets' },
     ],
   },
 ];

@@ -8,6 +8,9 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { Note } from './Note';
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 import type { PickerListItem } from '@components/picker-list/PickerList.types';
+import { pinDateFormat } from '@shared/testing/pinDateFormat';
+
+pinDateFormat('full');
 
 class ResizeObserverMock {
   observe = vi.fn();
