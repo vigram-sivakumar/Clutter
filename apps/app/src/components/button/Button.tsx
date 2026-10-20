@@ -6,7 +6,13 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   children?: ReactNode;
 
   variant?:
-    'filled' | 'outline' | 'ghost' | 'outline-fill' | 'primary' | 'danger';
+    | 'filled'
+    | 'outline'
+    | 'ghost'
+    | 'outline-fill'
+    | 'primary'
+    | 'danger'
+    | 'outline-danger';
   size?: 'large' | 'medium' | 'small';
   interaction?: 'default' | 'subtle';
 

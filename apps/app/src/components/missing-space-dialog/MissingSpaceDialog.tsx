@@ -43,51 +43,53 @@ export function MissingSpaceDialog({
 
   return (
     <Dialog open={open} onClose={onClose} size="large">
-      <div className="confirmation">
-        <Button
-          className="confirmation__dismiss"
-          variant="ghost"
-          size="small"
-          isIconOnly
-          aria-label="Close"
-          onClick={onClose}
-        >
-          <AppIcon icon="dismiss" />
-        </Button>
-        <div className="confirmation__content">
+      <div className="confirmation missing-space">
+        <div className="missing-space__title">
           <div className="confirmation__header">Space not found</div>
+          <Button
+            // className="confirmation__dismiss"
+            variant="ghost"
+            size="small"
+            isIconOnly
+            aria-label="Close"
+            onClick={onClose}
+          >
+            <AppIcon icon="dismiss" />
+          </Button>
+        </div>
+
+        <div className="missing-space__content">
+          {/* Its own avatar is kept inside the folder that can't be reached, so this is the initial. A long
+              path is cut with an ellipsis so the dialog never grows. */}
+          <SettingsEntry
+            className="missing-space__entry"
+            title={name}
+            description={path}
+            titleClassName="truncate"
+            descriptionClassName="truncate"
+            trailing={
+              <div className="space-details__avatar-picker">
+                {Array.from(name.trim())[0]?.toUpperCase()}
+              </div>
+            }
+          />
           <div className="confirmation__body">
             Clutter can’t find this space at its saved location. It may have
             been moved, renamed, or deleted
           </div>
         </div>
 
-        {/* Its own avatar is kept inside the folder that can't be reached, so this is the initial. A long
-            path is cut with an ellipsis (the full path is the tooltip) so the dialog never grows. */}
-        <SettingsEntry
-          className="missing-space__entry"
-          title={name}
-          description={path}
-          titleClassName="truncate"
-          descriptionClassName="truncate"
-          trailing={
-            <div className="space-details__avatar-picker">
-              {Array.from(name.trim())[0]?.toUpperCase()}
-            </div>
-          }
-        />
-
-        <div className="confirmation__actions">
+        <div className="confirmation__actions missing-space__footer">
+          <Button variant="outline-danger" size="large" onClick={onRemove}>
+            Remove space
+          </Button>
           <Button
             ref={changeRef}
-            variant="outline"
+            variant="primary"
             size="large"
             onClick={onChangeLocation}
           >
             Change location
-          </Button>
-          <Button variant="danger" size="large" onClick={onRemove}>
-            Remove space
           </Button>
         </div>
       </div>

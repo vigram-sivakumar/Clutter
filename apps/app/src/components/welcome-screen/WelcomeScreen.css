@@ -13,7 +13,7 @@
   height: 100%;
   gap: var(--space-40);
   padding: var(--welcome-card-padding);
-  padding-bottom: var(--space-32);
+  padding-block: var(--space-32);
   border-radius: var(--radius-lg);
 
   box-shadow: var(--shadow-inset-thin-strong);

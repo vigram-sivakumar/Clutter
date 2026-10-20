@@ -1199,6 +1199,37 @@ describe('AppShell: the open vault disappears while the app is running', () => {
       expect(screen.queryByRole('alert')).toBeNull();
     });
 
+    it('runs the animated Welcome background only while the Welcome dialog is up: never behind a workspace, kept while a space opens, gone once it is open, back when Welcome returns', async () => {
+      const app = await openWithNoFallback();
+      expect(document.querySelector('.gradient-grainy')).toBeNull(); // a workspace is open
+
+      await loseVault(app);
+      await screen.findByText(WELCOME);
+      expect(document.querySelectorAll('.gradient-grainy')).toHaveLength(1); // Welcome is back
+
+      const gate = deferred<void>();
+      gates.set('/Users/me/Notes', gate);
+      tauri.openDialog.mockResolvedValue('/Users/me/Notes');
+      await click('Select a folder');
+      await waitFor(() =>
+        expect(bootstrap).toHaveBeenCalledWith(
+          '/Users/me/Notes',
+          expect.anything()
+        )
+      );
+      // Still opening: the Welcome dialog (and its background) stays up, once.
+      expect(document.querySelectorAll('.gradient-grainy')).toHaveLength(1);
+
+      await act(async () => gate.resolve());
+      await waitFor(() =>
+        expect(screen.getByTestId('open-root')).toHaveTextContent(
+          '/Users/me/Notes'
+        )
+      );
+      expect(document.querySelector('.gradient-grainy')).toBeNull();
+      expect(document.querySelector('.startup-frame')).toBeNull();
+    });
+
     it('discards the Application and keeps the registry — missing paths included', async () => {
       const app = await openWithNoFallback();
       const before = SAVED();

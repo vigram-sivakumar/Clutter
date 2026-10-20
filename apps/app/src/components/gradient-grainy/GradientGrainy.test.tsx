@@ -218,3 +218,29 @@ describe('GradientGrainy nebula palette', () => {
     expect(colours).toEqual(['15 107 255', '162 89 217', '42 31 143']);
   });
 });
+
+describe('GradientGrainy leaves nothing running behind it', () => {
+  it('leaves none of its elements behind when unmounted', () => {
+    const { unmount } = render(<GradientGrainy palette="iris" />);
+    expect(document.querySelector('.gradient-grainy')).not.toBeNull();
+
+    unmount();
+
+    expect(document.querySelector('[class*="gradient-grainy"]')).toBeNull();
+    expect(document.getAnimations?.() ?? []).toHaveLength(0);
+  });
+
+  it('has no effects, timers, frame loops, listeners or observers of its own to leave behind', () => {
+    const source = readFileSync(
+      resolve(
+        process.cwd(),
+        'src/components/gradient-grainy/GradientGrainy.tsx'
+      ),
+      'utf8'
+    );
+
+    expect(source).not.toMatch(/useEffect|useLayoutEffect|useInsertionEffect/);
+    expect(source).not.toMatch(/setInterval|setTimeout|requestAnimationFrame/);
+    expect(source).not.toMatch(/addEventListener|Observer/);
+  });
+});

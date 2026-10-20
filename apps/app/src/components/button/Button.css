@@ -91,6 +91,15 @@
   background: var(--danger-surface);
   font-weight: var(--fw-medium);
 }
+/* The quiet counterpart of danger: a red outline and red text on no fill, for a destructive action that
+   should not be the loudest thing on screen. The red is --danger-foreground, the theme's readable red. */
+.button--outline-danger {
+  color: var(--danger-foreground);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--danger-foreground) 45%, transparent);
+  font-weight: var(--fw-medium);
+}
 
 /* State */
 .button:not(:disabled):hover {
@@ -143,4 +152,9 @@
     var(--danger-surface),
     rgb(var(--state-base)) var(--state-hover-strength-strong)
   );
+}
+.button--outline-danger:not(:disabled):hover {
+  background: color-mix(in srgb, var(--danger-foreground) 12%, transparent);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--danger-foreground) 70%, transparent);
 }

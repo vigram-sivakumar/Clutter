@@ -80,15 +80,43 @@ describe('MissingSpaceDialog', () => {
     expect(path).toHaveClass('truncate');
   });
 
-  it('has Change location (secondary) and Remove space (danger), in that order, and no editable path', () => {
+  it('is three sections: the title, the content (the space’s entry, then the description), and the footer (the actions)', () => {
+    renderDialog();
+    const root = document.querySelector('.confirmation')!;
+    const [title, content, footer] = [...root.children] as [
+      HTMLElement,
+      HTMLElement,
+      HTMLElement,
+    ];
+
+    expect(root.children).toHaveLength(3);
+    expect(title).toHaveClass('missing-space__title');
+    expect(title).toHaveTextContent('Space not found');
+    expect(title.querySelector('.confirmation__dismiss')).not.toBeNull();
+
+    expect(content).toHaveClass('missing-space__content');
+    // The space's entry first, the description under it.
+    expect([...content.children].map((child) => child.className)).toEqual([
+      expect.stringContaining('settings-entry'),
+      'confirmation__body',
+    ]);
+
+    expect(footer).toHaveClass('missing-space__footer');
+    expect(
+      [...footer.querySelectorAll('button')].map((button) => button.textContent)
+    ).toEqual(['Remove space', 'Change location']);
+  });
+
+  it('has Remove space (danger outline) on the left and Change location (primary) on the right, and no editable path', () => {
     renderDialog();
     const change = screen.getByRole('button', { name: 'Change location' });
     const remove = screen.getByRole('button', { name: 'Remove space' });
 
     expect(
-      change.compareDocumentPosition(remove) & Node.DOCUMENT_POSITION_FOLLOWING
+      remove.compareDocumentPosition(change) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
-    expect(remove).toHaveClass('button--danger');
+    expect(remove).toHaveClass('button--outline-danger');
+    expect(change).toHaveClass('button--primary');
     expect(change).not.toHaveClass('button--danger');
     expect(screen.queryByRole('textbox')).toBeNull();
   });
