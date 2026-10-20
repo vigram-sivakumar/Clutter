@@ -13,6 +13,7 @@ import { getMonth } from '../../helpers/getMonth';
 import { moveCalendar } from '../../helpers/moveCalendar';
 import { getCalendarTitle } from '../../helpers/getCalendarTitle';
 import { toISODate } from '@shared/helpers/time/helpers/toISODate';
+import { useWeekStart } from '../../weekStart';
 
 interface CalendarProps {
   mode: CalendarMode;
@@ -33,6 +34,9 @@ export function Calendar({
   onSelectedDateChange,
   onModeChange,
 }: CalendarProps) {
+  // The user's "Week starts on" choice; every calendar in the app renders through here, so all follow it.
+  const weekStart = useWeekStart();
+
   // Date currently visible in the calendar. Purely a browsing position —
   // independent of selection — so it needs its own fallback when nothing
   // is selected yet.
@@ -83,17 +87,17 @@ export function Calendar({
         onToday={handleToday}
       />
       <div className="calendar-view">
-        <CalendarWeekdays />
+        <CalendarWeekdays weekStart={weekStart} />
         {mode === 'week' ? (
           <CalendarWeek
-            dates={getWeek(visibleDate, selectedDate)}
+            dates={getWeek(visibleDate, selectedDate, weekStart)}
             isCurrentWeek
             notedDates={notedDates}
             onSelectedDateChange={onSelectedDateChange}
           />
         ) : (
           <CalendarMonth
-            weeks={getMonth(visibleDate, selectedDate)}
+            weeks={getMonth(visibleDate, selectedDate, weekStart)}
             notedDates={notedDates}
             onSelectedDateChange={onSelectedDateChange}
           />

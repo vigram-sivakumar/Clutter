@@ -48,6 +48,14 @@ describe('Confirmation', () => {
       expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
     });
 
+    it('marks the card so its title keeps clear of the corner close button', () => {
+      setup();
+
+      expect(screen.getByRole('button', { name: 'Close' }).closest('.confirmation')).toHaveClass(
+        'confirmation--has-dismiss'
+      );
+    });
+
     it('routes each button to its own handler; close is the dismiss', () => {
       const { onConfirm, onAlternate, onCancel } = setup();
 

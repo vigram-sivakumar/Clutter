@@ -1228,3 +1228,52 @@ describe('MembershipSelector.isEntityEffectivelyArchived — archived state is p
     expect(membershipSelector.isRestorable(active)).toBe(false);
   });
 });
+
+describe('MembershipSelector.isNoteDestinationFolder (the Default note location)', () => {
+  const folder = (id: string, name: string, path: string, parentId: string | null = null, status: 'active' | 'archived' = 'active') =>
+    makeFolder({ id, name, path, parentId, metadata: { ...defaultFolderMetadata, status } });
+
+  it('accepts an ordinary folder and a nested one, however deep', () => {
+    const { membershipSelector } = setup([
+      folder('a', 'Projects', `${ROOT}/Projects`),
+      folder('b', 'Alpha', `${ROOT}/Projects/Alpha`, 'a'),
+      folder('c', 'Notes', `${ROOT}/Projects/Alpha/Notes`, 'b'),
+    ]);
+
+    expect(['a', 'b', 'c'].map((id) => membershipSelector.isNoteDestinationFolder(id))).toEqual([true, true, true]);
+  });
+
+  it('rejects the reserved folders and what is inside them, and the Assets storage folder', () => {
+    const { membershipSelector } = setup([
+      folder('inbox', 'Inbox', `${ROOT}/Inbox`),
+      folder('templates', 'Templates', `${ROOT}/Templates`),
+      folder('inside-templates', 'Weekly', `${ROOT}/Templates/Weekly`, 'templates'),
+      folder('daily', 'Daily Notes', `${ROOT}/Daily Notes`),
+      folder('archive', 'Archive', `${ROOT}/Archive`),
+      folder('assets', 'Assets', `${ROOT}/Assets`),
+      folder('inside-assets', 'Images', `${ROOT}/Assets/Images`, 'assets'),
+    ]);
+
+    for (const id of ['inbox', 'templates', 'inside-templates', 'daily', 'archive', 'assets', 'inside-assets']) {
+      expect(membershipSelector.isNoteDestinationFolder(id), id).toBe(false);
+    }
+  });
+
+  it('rejects an archived folder, one inside Archive, a hidden one and one inside a hidden one', () => {
+    const { membershipSelector } = setup([
+      folder('archive', 'Archive', `${ROOT}/Archive`),
+      folder('archived', 'Old', `${ROOT}/Archive/Old`, 'archive', 'archived'),
+      folder('hidden', '.Secret', `${ROOT}/.Secret`),
+      folder('inside-hidden', 'Child', `${ROOT}/.Secret/Child`, 'hidden'),
+    ]);
+
+    for (const id of ['archived', 'hidden', 'inside-hidden']) {
+      expect(membershipSelector.isNoteDestinationFolder(id), id).toBe(false);
+    }
+  });
+
+  it('rejects an id that is not in the vault', () => {
+    const { membershipSelector } = setup([folder('a', 'Projects', `${ROOT}/Projects`)]);
+    expect(membershipSelector.isNoteDestinationFolder('gone')).toBe(false);
+  });
+});

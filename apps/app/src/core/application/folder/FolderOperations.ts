@@ -119,7 +119,13 @@ export class FolderOperations {
      * page saves. archive() calls it for every open page beneath the folder and aborts if it throws.
      */
     private readonly flushPagesBeforeArchive: (pageIds: readonly string[]) => Promise<void> = () =>
-      Promise.resolve()
+      Promise.resolve(),
+    /**
+     * Told after a folder was permanently deleted, with every page that went with it (never for archive,
+     * move or any other reversible operation). The folder counterpart of `PageOperations`' hook of the same
+     * name: supplied by the Composition Root, decides nothing here.
+     */
+    private readonly onPagesPermanentlyDeleted: (pageIds: readonly string[]) => void = () => {}
   ) {}
 
   /**
@@ -294,6 +300,8 @@ export class FolderOperations {
     }
 
     await this.coordinator.enqueue(folderId, { kind: 'delete-folder' });
+
+    this.onPagesPermanentlyDeleted(descendantPageIds);
 
     for (const pageId of descendantPageIds) {
       this.workspace.closePage(pageId);

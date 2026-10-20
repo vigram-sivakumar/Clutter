@@ -20,6 +20,11 @@ export type SpaceProfileAvatar =
 export interface SpaceProfile {
   readonly id: string;
   readonly avatar?: SpaceProfileAvatar;
+  /**
+   * The folder (by id, so a rename or move keeps it) where a new note is created when nothing says otherwise.
+   * Absent means Inbox, the default. Whoever reads it checks it is still a valid destination.
+   */
+  readonly defaultNoteFolderId?: string;
 }
 
 const SPACE_KEY = 'space';
@@ -43,11 +48,21 @@ export function parseSpaceProfile(contents: string): SpaceProfile | null {
     if (typeof file !== 'object' || file === null || Array.isArray(file)) return null;
     const raw = (file as Record<string, unknown>)[SPACE_KEY];
     if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
-    const { version, id, avatar } = raw as { version?: unknown; id?: unknown; avatar?: unknown };
+    const { version, id, avatar, defaultNoteFolderId } = raw as {
+      version?: unknown;
+      id?: unknown;
+      avatar?: unknown;
+      defaultNoteFolderId?: unknown;
+    };
     if (typeof version === 'number' && version > CURRENT_VERSION) return null;
     if (typeof id !== 'string' || id === '') return null;
     const parsedAvatar = parseAvatar(avatar);
-    return parsedAvatar ? { id, avatar: parsedAvatar } : { id };
+    return {
+      id,
+      ...(parsedAvatar && { avatar: parsedAvatar }),
+      ...(typeof defaultNoteFolderId === 'string' &&
+        defaultNoteFolderId !== '' && { defaultNoteFolderId }),
+    };
   } catch {
     return null;
   }
@@ -75,9 +90,12 @@ export async function readSpaceProfile(
  *
  * Nothing here writes on its own: loading is read-only, and a profile is only ever written when the caller
  * asks — to give an identity to a Space that has none (`ensureIdentity`, the deliberate, lazy migration of
- * a Space that predates identities) or to change its avatar (`setAvatar`).
+ * a Space that predates identities), to change its avatar (`setAvatar`) or to choose where new notes go
+ * (`setDefaultNoteFolder`).
  */
 export class SpaceProfileStore {
+  private readonly listeners = new Set<() => void>();
+
   private constructor(
     private readonly fileSystem: VaultFileSystem,
     private readonly rootPath: string,
@@ -107,14 +125,39 @@ export class SpaceProfileStore {
   /** Sets, or with `undefined` removes, the Space's avatar. Gives the Space an identity first if needed. */
   async setAvatar(avatar: SpaceProfileAvatar | undefined): Promise<SpaceProfile> {
     const base = await this.ensureIdentity();
-    return this.write(avatar ? { id: base.id, avatar } : { id: base.id });
+    const { avatar: _previous, ...rest } = base;
+    return this.write(avatar ? { ...rest, avatar } : rest);
   }
 
+  /**
+   * Chooses where new notes are created — a folder id, or `undefined` for Inbox, the default. Takes effect (and
+   * notifies subscribers) at once; the file follows. Choosing Inbox in a Space with no profile changes nothing
+   * and writes nothing: it would not give the Space an identity just to say "the default".
+   */
+  setDefaultNoteFolder(folderId: string | undefined): Promise<SpaceProfile | null> {
+    if (!this.current && folderId === undefined) {
+      return Promise.resolve(null);
+    }
+
+    const { defaultNoteFolderId: _previous, ...rest } = this.current ?? { id: new UuidGenerator().generate() };
+    return this.write(folderId === undefined ? rest : { ...rest, defaultNoteFolderId: folderId });
+  }
+
+  /** Called whenever the profile changes. Returns the unsubscribe. */
+  subscribe = (listener: () => void): (() => void) => {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  };
+
   private async write(profile: SpaceProfile): Promise<SpaceProfile> {
+    // In memory first, so a change is visible immediately; the file follows.
+    this.current = profile;
+    this.listeners.forEach((listener) => listener());
     await mergeAndWriteWorkspaceStateFile(this.fileSystem, this.rootPath, {
       [SPACE_KEY]: { version: CURRENT_VERSION, ...profile },
     });
-    this.current = profile;
     return profile;
   }
 }

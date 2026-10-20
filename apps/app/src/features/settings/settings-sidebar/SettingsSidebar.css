@@ -1,0 +1,9 @@
+.settings-sidebar {
+  height: 100%;
+  width: var(--app-sidebar-width);
+  flex-shrink: 0;
+  padding: var(--space-12);
+  background-color: var(--surface-secondary);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-inset-thin), var(--shadow-md);
+}

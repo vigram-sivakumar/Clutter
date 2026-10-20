@@ -1,0 +1,63 @@
+.switch {
+  --switch-height: var(--height-xs);
+  --switch-inset: 2px;
+  --switch-thumb-size: calc(var(--switch-height) - var(--switch-inset) * 2);
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+
+  height: var(--switch-height);
+  width: calc(var(--switch-height) * 1.8);
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: calc(var(--switch-height) / 2);
+
+  background: var(--state-hover-strong);
+  box-shadow: var(--shadow-inset-thin);
+  cursor: pointer;
+
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    opacity 150ms ease;
+}
+
+.switch__thumb {
+  position: absolute;
+  top: var(--switch-inset);
+  left: var(--switch-inset);
+  width: var(--switch-thumb-size);
+  height: var(--switch-thumb-size);
+  border-radius: 50%;
+
+  background: var(--foreground-tertiary);
+
+  transition:
+    transform 160ms ease,
+    background-color 160ms ease;
+}
+
+.switch--checked {
+  background: var(--checkbox-accent);
+  box-shadow: none;
+}
+
+.switch--checked .switch__thumb {
+  /* On the brand-colored track the thumb is white, as `--danger-foreground-on-surface` is on a danger surface. */
+  background: white;
+  transform: translateX(calc(var(--switch-height) * 0.8));
+}
+
+.switch:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.switch:disabled,
+.switch--disabled {
+  opacity: var(--opacity-disabled);
+  cursor: default;
+}

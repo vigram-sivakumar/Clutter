@@ -1,15 +1,35 @@
 .settings {
-  width: 90vw;
-  max-width: 1440px;
-  height: 90vh;
+  display: flex;
+  width: calc(100vw - 80px);
+  max-width: 920px;
+  height: 80vh;
   background: var(--surface-primary);
   box-shadow: var(--shadow-inset-thin-strong);
   border-radius: var(--radius-lg);
 
-  padding: 48px;
+  padding: var(--space-8);
+  position: relative;
+}
+
+/* The corner dismiss button of the dialog. */
+.settings__close {
+  position: absolute;
+  top: var(--space-12);
+  right: var(--space-12);
+}
+/* A long page title keeps clear of the corner button: the button's width plus a gap. */
+.settings .settings-page__header {
+  padding-right: calc(var(--height-xs) + var(--space-8));
 }
 
 /* The dialog sizes to the settings surface (80vw × 80vh) instead of a fixed dialog width. */
 .dialog.settings-dialog {
   width: auto;
+}
+.settings__content {
+  display: flex;
+  /* Fills what the fixed-width sidebar leaves; min-width: 0 lets it shrink below its content. */
+  flex: 1;
+  min-width: 0;
+  padding: 24px;
 }

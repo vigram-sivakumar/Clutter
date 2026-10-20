@@ -248,16 +248,15 @@ describe('renderTasksByDate', () => {
       );
 
       // System time is faked to 2026-08-04 — @2026-08-01 is outside the
-      // current week, so it renders via 'compact' mode's full-date
-      // fallback, day + full month + year (dateDisplay.ts: only
-      // 'condensed' mode ever drops the year) — same formatter the
+      // current week, so it renders as the shared 'long' date, day + full
+      // month, no year in the current year (dateDisplay.ts' year rule) — same formatter the
       // editor's at-rest DateWidget uses — now via renderCompactMarkdown's
       // own <span class="compact-markdown-date">, not a plain string
       // formatTaskTitle produces itself, so this reads the title's
       // combined text content rather than querying one exact text node.
       const title = container.querySelector('.task-title')!;
-      expect(title).toHaveTextContent('Moved from @1 August 2026 to');
-      expect(title.querySelector('.compact-markdown-date')).toHaveTextContent('@1 August 2026');
+      expect(title).toHaveTextContent('Moved from @1 August to');
+      expect(title.querySelector('.compact-markdown-date')).toHaveTextContent('@1 August');
     });
 
     it('formats two tasks with different bare dates independently in the same render, without cross-contamination', () => {
@@ -292,20 +291,20 @@ describe('renderTasksByDate', () => {
 
       // Task A: its own due date (@2026-08-20) is hidden from the title;
       // its other bare date (@2026-08-22, outside the current week) is
-      // reformatted via the shared compact formatter — full month + year,
-      // per dateDisplay.ts's 'compact' mode (rendered as its own <span>,
+      // reformatted via the shared 'long' style — the full month,
+      // per dateDisplay.ts (rendered as its own <span>,
       // hence the combined-text-content assertion); the trailing badge
-      // ('contextual' mode) still shows its due date.
-      expect(titleA).toHaveTextContent('Review and compare with @22 August 2026');
+      // ('short' style) still shows its due date.
+      expect(titleA).toHaveTextContent('Review and compare with @22 August');
       const rowA = titleA.closest('.entry') as HTMLElement;
       expect(within(rowA).getByText('20 Aug')).not.toBeNull();
 
       // Task B: its own due date (@2026-08-05) is hidden from the title;
       // its other bare date (@2026-08-07, a weekday within the current
-      // week) is reformatted as its weekday name; the trailing badge
+      // week) is reformatted as its 'long' date (no weekday names any more); the trailing badge
       // still shows its own (different) due date — neither task's title
       // or badge leaks into the other's.
-      expect(titleB).toHaveTextContent('Prepare slides before @Friday');
+      expect(titleB).toHaveTextContent('Prepare slides before @7 August');
       const rowB = titleB.closest('.entry') as HTMLElement;
       expect(within(rowB).getByText('Tomorrow')).not.toBeNull();
     });

@@ -37,6 +37,11 @@
   padding-inline: var(--space-6);
   border-radius: var(--radius-sm);
 }
+.button--xs {
+  height: var(--height-xs);
+  padding-inline: var(--space-4);
+  border-radius: var(--radius-sm);
+}
 
 /* Extra 4px on the side away from a leading/trailing icon, on top of the
    size rules' own base padding-inline above — placed after them so it
@@ -63,7 +68,7 @@
 }
 .button--outline {
   background: transparent;
-  box-shadow: var(--shadow-inset-default);
+  box-shadow: var(--shadow-inset-strong);
 }
 .button--ghost {
   background: transparent;

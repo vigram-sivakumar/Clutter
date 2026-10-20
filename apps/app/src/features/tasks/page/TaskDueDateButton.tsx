@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { CollectionEntryProperties } from '@features/collection/components/entry/CollectionEntryProperties';
 import { TaskDatePicker } from '../sidebar/TaskDatePicker';
-import { formatTaskDueDateWithYear } from '../helpers/formatTaskDueDate';
+import { formatTaskDueDateLong } from '../helpers/formatTaskDueDate';
 
 interface TaskDueDateButtonProps {
   /** The task's raw ISO `YYYY-MM-DD` due date. A task with no due date has no control at all (it gets one in the Edit task modal). */
@@ -33,7 +33,7 @@ export function TaskDueDateButton({ date, onChange }: TaskDueDateButtonProps) {
           setOpen(true);
         }}
       >
-        {formatTaskDueDateWithYear(date)}
+        {formatTaskDueDateLong(date)}
       </CollectionEntryProperties>
       <TaskDatePicker
         anchorRef={anchorRef}

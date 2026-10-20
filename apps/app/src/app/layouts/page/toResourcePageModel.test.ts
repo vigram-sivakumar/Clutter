@@ -193,7 +193,7 @@ describe('toResourcePageModel', () => {
 
     const model = toResourcePageModel(page, session, vi.fn(), vi.fn());
 
-    expect(model.title).toBe(formatDateDisplay('2026-08-20', 'full'));
+    expect(model.title).toBe(formatDateDisplay('2026-08-20', 'heading'));
     expect(model.title).not.toBe(page.name);
   });
 });
@@ -230,7 +230,7 @@ describe('toDraftPageModel (ADR-017)', () => {
 
     const model = toDraftPageModel('draft-1', 'daily-note', '2026-08-20', session, vi.fn(), vi.fn());
 
-    expect(model.title).toBe(formatDateDisplay('2026-08-20', 'full'));
+    expect(model.title).toBe(formatDateDisplay('2026-08-20', 'heading'));
 
     vi.useRealTimers();
   });

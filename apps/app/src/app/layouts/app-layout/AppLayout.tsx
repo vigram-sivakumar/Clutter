@@ -11,6 +11,7 @@ import { useSidebarWidth, MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH } from './useSide
 import type { Application } from '@core/application/Application';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import { useVault } from '@app/hooks/useVault';
+import { useDateDisplayVersion } from '@app/hooks/useDateDisplayVersion';
 import { useMaxWidth, SIDEBAR_COLLAPSE_BREAKPOINT, COVER_HIDE_BREAKPOINT } from '@app/hooks/useMaxWidth';
 import { useSidebarVisibility, type NarrowSidebarOverride } from './useSidebarVisibility';
 import { useEffectivePageState } from '@app/hooks/useEffectivePageState';
@@ -94,6 +95,8 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
   // (drafts are deliberately outside Vault, ADR-017). Sidebar is the only
   // consumer today; PageHost doesn't read this projection.
   useEffectivePageState(application.effectivePageState);
+  // Every date label follows the Date format preference and the system language: render again when either changes.
+  useDateDisplayVersion();
   const workspace = useWorkspace(application.workspace);
   const { width: sidebarWidth, setWidth: setSidebarWidth, commitWidth: commitSidebarWidth } =
     useSidebarWidth();

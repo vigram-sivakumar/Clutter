@@ -1,78 +1,56 @@
+import { readDateFormatChoice, type DateFormatChoice } from './dateFormatPreference';
+import { getSystemLocale } from './dateLocale';
 import type { ISODate } from './types';
 
 /**
- * The single source of truth for every user-visible "rendered date label"
- * in Clutter — the `@date` at-rest widget, task due dates, and Daily Note
- * titles all resolve through this one classification + formatting rule
- * instead of each keeping its own relative-label-else-short-date logic.
+ * The single source of truth for every user-visible "rendered date label" in Clutter. Three day styles and
+ * one timestamp style — nothing else formats a date for display — all following two inputs: the user's
+ * **Date format** preference (`dateFormatPreference.ts`) and the **system locale** (`dateLocale.ts`).
  *
- * Deliberately separate from `getDateSuggestions`/`resolveDateQuery`
- * (`features/markdown/editor/codemirror/date/`) — those compute
- * autocomplete *suggestion* labels ("Today", "March 12, 2027") for a
- * query still being typed; this formats an *already-resolved* date for
- * display. The two never share code, on purpose: a suggestion label and a
- * rendered label answer different questions, and conflating them was
- * exactly the kind of "second, competing" logic this module exists to
- * avoid introducing elsewhere.
+ * The preference chooses how a date reads:
+ * - `relative` (default) — `Today`/`Tomorrow`/`Yesterday`, then the abbreviated weekday and date (`Thu, 22 Oct`) for the next five days
+ *   (day +2 to +6: each weekday name occurs once in the coming week, and none can mean "last Friday"),
+ *   otherwise the `short` date.
+ * - `full` — the locale's natural long date (`20 August`, `August 20`), without the relative words.
+ * - `short` — the locale's abbreviated date (`20 Oct`).
+ * - `weekday` — the abbreviated weekday, then the abbreviated date (`Tue, 20 Oct`, `Tue, Oct 20`; the locale's
+ *   own short weekday and date order).
+ * - `mdy` / `dmy` / `ymd` — numeric and zero-padded (`10/20/2026`, `20/10/2026`, `2026/10/20`).
  *
- * Three presentation modes share one underlying date-relationship
- * classification (today / tomorrow / yesterday / another day this week /
- * outside this week) *and* one "day identity" label derived from it
- * (Today/Tomorrow/Yesterday, else the date's weekday name — always
- * defined, not only for dates within the current week) — only the
- * surrounding text (and, for `'condensed'`, the month-name length)
- * differs:
- * - `'compact'` — for space-constrained inline rendering (`@date`'s
- *   Markdown token): the bare day-identity word *only* within the
- *   current week (`Today`, `Friday`, ...); outside it, no weekday name
- *   at all — just `12 August 2026` (full month name, year always shown).
- * - `'condensed'` — for a narrower list surface (the Tasks sidebar):
- *   identical day-identity behavior to `'compact'`, but the "outside the
- *   current week" fallback uses an abbreviated month name — `12 Aug 2026`
- *   — since a sidebar row has less room than an inline `@date` token.
- *   Unlike `'compact'`, the year itself is dropped when it matches
- *   `referenceDate`'s year — `12 Aug` — since a sidebar row's due date is
- *   read against "now" far more often than an inline `@date` token is.
- * - `'full'` — for a title-sized surface (Daily Note titles): always
- *   `"<day identity>, <day month year>"` — e.g. `"Today, 20 August 2026"`,
- *   `"Friday, 21 August 2026"`, and, unlike the other two modes, still
- *   `"Thursday, 12 August 2027"` even for a date outside the current
- *   week/year — the day identity is never dropped in this mode, and the
- *   year is never omitted either. A title has the room a `@date` token
- *   or a sidebar row doesn't.
- * - `'shortWeekday'` — identical to `'full'` in every respect (format,
- *   always-shown year, day identity never dropped) except that a genuine
- *   weekday day-identity (the `'weekday'`/`'other'` classification —
- *   never `Today`/`Tomorrow`/`Yesterday`, which stay full words in every
- *   mode) is abbreviated — `"Sat, 22 August 2026"` rather than
- *   `"Saturday, 22 August 2026"`. For the Date-autocomplete popup
- *   (`dateCompletionRenderer.ts`), which has less room than a page title.
- * - `'contextual'` — the Tasks sidebar's due-date badge. `Today`/
- *   `Tomorrow`/`Yesterday` stay bare words, exactly like every other mode.
- *   Every other date in `referenceDate`'s year — regardless of how far
- *   from today, unlike `'compact'`/`'condensed'`'s "within the current
- *   week" cutoff — is just an abbreviated date, `"2 Sep"`, no weekday and
- *   no year. A date outside `referenceDate`'s year abbreviates the year
- *   to its last two digits instead — `"2 Sep 27"` — the only mode that
- *   ever shortens the year rather than showing it in full or omitting it.
- * - `'condensedFullYear'` — the Property list's date values.
- *   `Today`/`Tomorrow`/`Yesterday` stay bare words, exactly like every
- *   other mode; every other date — even one within the current week — is
- *   `'condensed'`'s abbreviated-month date with the year always shown,
- *   `"11 Nov 2026"`, never a weekday name.
- * - `'longFullYear'` — the collection List/Table's due dates: exactly
- *   `'condensedFullYear'`, but with the full month name — `"11 November 2026"`.
+ * **The year rule:** a date in the current local calendar year (the reference date's, never UTC's) leaves the
+ * year off in every named-month format above — `20 October`, `Tue, 20 Oct` — and any other year keeps it
+ * (`20 October 2025`, `Mon, 20 Oct 2025`). The numeric formats always show it, in any year.
+ *
+ * The style says where the date is shown:
+ * - `'heading'` — a Daily Note's title, everywhere it is shown (`formatDailyNoteTitle`). Under `relative`: `Today, 20 August` or `Sat, 22 August`; under any other choice, the date exactly as chosen.
+ * - `'long'` — a date inside content and detail views (mentions, properties, collection columns): the
+ *   chosen format.
+ * - `'short'` — the Tasks sidebar due badge only, the one **documented exception**: a row there has no room
+ *   for a chosen format, so it always shows the locale's compact `22 Aug` (`5 Mar 27` in another year), and
+ *   `Today`/`Tomorrow`/`Yesterday` for those days, whatever the preference.
+ *
+ * `formatAbsoluteDate` is a date without the relative words, for a label that must name the day itself (a
+ * breadcrumb, the archived banner). The calendar's own chrome (month and year titles, the day number, the
+ * weekday header) is `formatDate` in `format.ts`: locale-aware, but not part of the preference.
+ *
+ * Date-only values (`YYYY-MM-DD`) are calendar dates: they are built from their own numbers into a local
+ * `Date` and formatted without any timezone conversion, so they can never land on the neighbouring day.
+ * Display only — parsing, storage, Daily Note paths and task dates never come through here.
+ *
+ * Deliberately separate from `getDateSuggestions`/`resolveDateQuery` (the Date autocomplete's resolver):
+ * those turn a query still being typed into a date; this formats an already-resolved one.
  */
-export type DateDisplayMode =
-  | 'compact'
-  | 'condensed'
-  | 'condensedFullYear'
-  | 'longFullYear'
-  | 'full'
-  | 'shortWeekday'
-  | 'contextual';
+export type DateDisplayStyle = 'heading' | 'long' | 'short';
 
-/** Also read by `parseDateInput` so typed month names match the displayed ones. */
+/** Overrides for one call: tests and callers that must not depend on the user's settings or machine. */
+export interface DateDisplayOptions {
+  /** A BCP 47 locale (`en-IN`). Defaults to the system's. */
+  readonly locale?: string;
+  /** Defaults to the user's saved Date format preference. */
+  readonly format?: DateFormatChoice;
+}
+
+/** Month names for typed-input parsing (`parseDateInput`); display goes through `Intl`. */
 export const MONTH_LABELS = [
   'January',
   'February',
@@ -88,43 +66,53 @@ export const MONTH_LABELS = [
   'December',
 ] as const;
 
-/** Only used by `'condensed'` mode's "outside the current week" fallback. */
-const MONTH_LABELS_SHORT = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-] as const;
-
-const WEEKDAY_LABELS = [
-  'Sunday',
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
-] as const;
-
-/** Only used by `'shortWeekday'` mode's genuine-weekday day identity. */
-const WEEKDAY_LABELS_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
-
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
+/** The coming days that read as a weekday name under `relative`: +2 … +6. */
+const WEEKDAY_NAME_FIRST_DAY = 2;
+const WEEKDAY_NAME_LAST_DAY = 6;
+
+function resolveOptions(options: DateDisplayOptions): { locale: string; format: DateFormatChoice } {
+  return { locale: options.locale ?? getSystemLocale(), format: options.format ?? readDateFormatChoice() };
+}
+
+const dateTimeFormats = new Map<string, Intl.DateTimeFormat>();
+
 /**
- * Parses `YYYY-MM-DD` into a local-midnight `Date` via numeric-component
- * construction — never `new Date(isoString)`. That form is parsed as
- * **UTC** midnight per spec, which would silently disagree with every
- * local-getter-based comparison below (the same already-documented trap
- * `resolveDate.ts` and the Date autocomplete resolver both work around).
+ * A formatter for a calendar date, cached per locale and options. It formats in UTC, and `describeDate` hands
+ * it the date as UTC midnight: a calendar date has no timezone, so nothing about the machine's zone — or a
+ * zone that changes while the app runs — can move it to the neighbouring day (a formatter otherwise keeps the
+ * zone it was created in).
+ */
+function intl(locale: string, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const key = `${locale}|${JSON.stringify(options)}`;
+  let format = dateTimeFormats.get(key);
+
+  if (!format) {
+    format = new Intl.DateTimeFormat(locale, { ...options, timeZone: 'UTC' });
+    dateTimeFormats.set(key, format);
+  }
+
+  return format;
+}
+
+const relativeFormats = new Map<string, Intl.RelativeTimeFormat>();
+
+function relativeFormat(locale: string, numeric: 'auto' | 'always'): Intl.RelativeTimeFormat {
+  const key = `${locale}|${numeric}`;
+  let format = relativeFormats.get(key);
+
+  if (!format) {
+    format = new Intl.RelativeTimeFormat(locale, { numeric });
+    relativeFormats.set(key, format);
+  }
+
+  return format;
+}
+
+/**
+ * Parses `YYYY-MM-DD` into a local-midnight `Date` via numeric-component construction — never
+ * `new Date(isoString)`, which is parsed as **UTC** midnight and, west of UTC, lands on the previous day.
  */
 function parseISODate(isoDate: ISODate): Date {
   const [year, month, day] = isoDate.split('-').map(Number);
@@ -135,221 +123,236 @@ function startOfLocalDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-interface DateRelation {
-  /**
-   * `'weekday'` vs `'other'` only matters to `'compact'` mode (whether the
-   * bare weekday name alone is enough, or the date needs to be spelled
-   * out) — `'full'` mode treats both identically via `dayIdentityLabel`.
-   */
-  readonly kind: 'today' | 'tomorrow' | 'yesterday' | 'weekday' | 'other';
-  /**
-   * The date's weekday index (`Date.getDay()`, 0 = Sunday) — always
-   * populated, regardless of `kind`. Kept as an index rather than a
-   * pre-resolved label so `dayIdentityLabel` can pick the full or short
-   * weekday name per `mode` at format time, without `classify` itself
-   * needing to know which mode is in play.
-   */
-  readonly weekdayIndex: number;
+interface DateParts {
+  /** The calendar date as UTC midnight, for `intl` (which formats in UTC). */
+  readonly date: Date;
+  /** Calendar days from the reference day: 0 today, 1 tomorrow, -1 yesterday. */
+  readonly diffDays: number;
   readonly day: number;
   readonly month: number;
   readonly year: number;
 }
 
 /**
- * Classifies `isoDate` relative to `referenceDate`'s local calendar day.
- * "Current week" is Sunday-start, the same convention
- * `shared/helpers/time/math.ts`'s `startOfWeek`/`endOfWeek` already use
- * (`getDay()`-based) — reimplemented here against a safely-constructed
- * local `Date` rather than calling those directly, since they route
- * through the UTC-unsafe `toDate()` internally.
+ * Splits `isoDate` into its parts and counts calendar days from `referenceDate`'s local day. The count is
+ * rounded, so a 23- or 25-hour day at a daylight-saving change never shifts the result.
  */
-function classify(isoDate: ISODate, referenceDate: Date): DateRelation {
-  const date = parseISODate(isoDate);
-  const today = startOfLocalDay(referenceDate);
-  const day = date.getDate();
-  const month = date.getMonth() + 1;
-  const year = date.getFullYear();
-  const weekdayIndex = date.getDay();
+function describeDate(isoDate: ISODate, referenceDate: Date): DateParts {
+  const local = parseISODate(isoDate);
+  const diffDays = Math.round((local.getTime() - startOfLocalDay(referenceDate).getTime()) / MS_PER_DAY);
+  const year = local.getFullYear();
+  const month = local.getMonth() + 1;
+  const day = local.getDate();
+  // `Date.UTC` reads a year below 100 as 19xx, so the year is set separately (the day and month are valid in it).
+  const date = new Date(Date.UTC(2000, month - 1, day));
+  date.setUTCFullYear(year);
 
-  const diffDays = Math.round((date.getTime() - today.getTime()) / MS_PER_DAY);
+  return { date, diffDays, day, month, year };
+}
 
-  if (diffDays === 0) {
-    return { kind: 'today', weekdayIndex, day, month, year };
-  }
-  if (diffDays === 1) {
-    return { kind: 'tomorrow', weekdayIndex, day, month, year };
-  }
-  if (diffDays === -1) {
-    return { kind: 'yesterday', weekdayIndex, day, month, year };
-  }
+function isNearDay(parts: DateParts): boolean {
+  return parts.diffDays >= -1 && parts.diffDays <= 1;
+}
 
-  const weekStart = new Date(today);
-  weekStart.setDate(today.getDate() - today.getDay());
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekStart.getDate() + 6);
+/** `Today` / `Tomorrow` / `Yesterday` in the locale, capitalised (`today` in English, `heute` in German). */
+function relativeWord(diffDays: number, locale: string): string {
+  const word = relativeFormat(locale, 'auto').format(diffDays, 'day');
+  return word.charAt(0).toLocaleUpperCase(locale) + word.slice(1);
+}
 
-  const kind = date.getTime() >= weekStart.getTime() && date.getTime() <= weekEnd.getTime() ? 'weekday' : 'other';
-  return { kind, weekdayIndex, day, month, year };
+const pad2 = (value: number): string => String(value).padStart(2, '0');
+
+function weekdayShort(parts: DateParts, locale: string): string {
+  return intl(locale, { weekday: 'short' }).format(parts.date);
 }
 
 /**
- * The "day identity" every presentation mode shares: Today/Tomorrow/
- * Yesterday when applicable, otherwise the date's weekday name (full, or
- * short for `'shortWeekday'` mode — see this module's own doc comment) —
- * defined for every date, not only one within the current week.
- * `'compact'`/`'condensed'` only *use* this for `kind !== 'other'`;
- * `'full'`/`'shortWeekday'` always use it.
+ * The date itself in `format`, under the year rule: the named-month formats leave the year off in the reference
+ * year; the numeric ones always carry it.
  */
-function dayIdentityLabel(relation: DateRelation, mode: DateDisplayMode): string {
-  switch (relation.kind) {
-    case 'today':
-      return 'Today';
-    case 'tomorrow':
-      return 'Tomorrow';
-    case 'yesterday':
-      return 'Yesterday';
+function dateText(parts: DateParts, format: DateFormatChoice, locale: string, referenceYear: number): string {
+  const yearIfNotCurrent = parts.year !== referenceYear && { year: 'numeric' as const };
+
+  switch (format) {
+    case 'mdy':
+      return `${pad2(parts.month)}/${pad2(parts.day)}/${parts.year}`;
+    case 'dmy':
+      return `${pad2(parts.day)}/${pad2(parts.month)}/${parts.year}`;
+    case 'ymd':
+      return `${parts.year}/${pad2(parts.month)}/${pad2(parts.day)}`;
     case 'weekday':
-    case 'other': {
-      const weekdayLabels = mode === 'shortWeekday' ? WEEKDAY_LABELS_SHORT : WEEKDAY_LABELS;
-      return weekdayLabels[relation.weekdayIndex]!;
-    }
+      // The weekday, then the locale's own abbreviated date (not one `Intl` call, which in some locales puts a
+      // second comma after the month): `Tue, 20 Oct 2026` in en-IN and en-GB, `Tue, Oct 20, 2026` in en-US.
+      return `${weekdayShort(parts, locale)}, ${intl(locale, { day: 'numeric', month: 'short', ...yearIfNotCurrent }).format(parts.date)}`;
+    case 'short':
+    case 'relative':
+      return intl(locale, { day: 'numeric', month: 'short', ...yearIfNotCurrent }).format(parts.date);
+    case 'full':
+      return intl(locale, { day: 'numeric', month: 'long', ...yearIfNotCurrent }).format(parts.date);
   }
 }
 
+/** Whether `Today`/`Tomorrow`/`Yesterday` stand in for the date: the relative choice (the default). */
+function usesRelativeWords(format: DateFormatChoice): boolean {
+  return format === 'relative';
+}
+
 /**
- * Formats `isoDate` for display, per `mode` — see this module's own doc
- * comment for the exact rules. `referenceDate` defaults to real local
- * "now"; a parameter only so callers/tests can pin it, same convention
- * `getDateSuggestions` already uses.
+ * The date named in full, never replaced by `Today` and the like — for a label that has to say which day it
+ * is. Follows the chosen format and the year rule.
+ */
+export function formatAbsoluteDate(
+  isoDate: ISODate,
+  referenceDate: Date = new Date(),
+  options: DateDisplayOptions = {}
+): string {
+  const { locale, format } = resolveOptions(options);
+
+  return dateText(describeDate(isoDate, referenceDate), format, locale, referenceDate.getFullYear());
+}
+
+/**
+ * Formats `isoDate` for display in one of the three styles (see this module's doc comment).
+ * `referenceDate` defaults to real local "now"; a parameter only so callers and tests can pin it.
  */
 export function formatDateDisplay(
   isoDate: ISODate,
-  mode: DateDisplayMode,
-  referenceDate: Date = new Date()
+  style: DateDisplayStyle,
+  referenceDate: Date = new Date(),
+  options: DateDisplayOptions = {}
 ): string {
-  const relation = classify(isoDate, referenceDate);
-  const monthLabels =
-    mode === 'condensed' || mode === 'condensedFullYear' || mode === 'contextual'
-      ? MONTH_LABELS_SHORT
-      : MONTH_LABELS;
-  const monthLabel = monthLabels[relation.month - 1]!;
-  const fullDate = `${relation.day} ${monthLabel} ${relation.year}`;
+  const { locale, format } = resolveOptions(options);
+  const parts = describeDate(isoDate, referenceDate);
+  const referenceYear = referenceDate.getFullYear();
 
-  if (mode === 'condensedFullYear' || mode === 'longFullYear') {
-    if (relation.kind === 'today' || relation.kind === 'tomorrow' || relation.kind === 'yesterday') {
-      return dayIdentityLabel(relation, mode);
+  switch (style) {
+    case 'heading': {
+      if (usesRelativeWords(format)) {
+        const identity = isNearDay(parts) ? relativeWord(parts.diffDays, locale) : weekdayShort(parts, locale);
+        return `${identity}, ${dateText(parts, 'full', locale, referenceYear)}`;
+      }
+
+      return dateText(parts, format, locale, referenceYear);
     }
 
-    return fullDate;
-  }
+    case 'long': {
+      if (usesRelativeWords(format) && isNearDay(parts)) {
+        return relativeWord(parts.diffDays, locale);
+      }
 
-  if (mode === 'full' || mode === 'shortWeekday') {
-    return `${dayIdentityLabel(relation, mode)}, ${fullDate}`;
-  }
+      if (
+        format === 'relative' &&
+        parts.diffDays >= WEEKDAY_NAME_FIRST_DAY &&
+        parts.diffDays <= WEEKDAY_NAME_LAST_DAY
+      ) {
+        return dateText(parts, 'weekday', locale, referenceYear);
+      }
 
-  if (mode === 'contextual') {
-    if (relation.kind === 'today' || relation.kind === 'tomorrow' || relation.kind === 'yesterday') {
-      return dayIdentityLabel(relation, mode);
+      return dateText(parts, format, locale, referenceYear);
     }
 
-    if (relation.year === referenceDate.getFullYear()) {
-      return `${relation.day} ${monthLabel}`;
+    case 'short': {
+      // The Tasks sidebar's exception: compact whatever the chosen format (see the module comment).
+      if (isNearDay(parts)) {
+        return relativeWord(parts.diffDays, locale);
+      }
+
+      return intl(locale, {
+        day: 'numeric',
+        month: 'short',
+        ...(parts.year !== referenceYear && { year: '2-digit' }),
+      }).format(parts.date);
     }
-
-    return `${relation.day} ${monthLabel} ${String(relation.year).slice(-2)}`;
   }
-
-  if (relation.kind !== 'other') {
-    return dayIdentityLabel(relation, mode);
-  }
-
-  if (mode === 'condensed' && relation.year === referenceDate.getFullYear()) {
-    return `${relation.day} ${monthLabel}`;
-  }
-
-  return fullDate;
 }
 
 /**
- * Formats the local time of day of `date` as a 12-hour label with a
- * two-digit hour — `08:20 PM`, `12:05 AM` — the companion to
- * `formatDateDisplay` for a value that carries a time (e.g. a page's
- * `created`/`modified` timestamp).
+ * The local time of day of `date` in the locale's own clock (`9:05 AM`, `09:05`). Built per call, never cached:
+ * an instant is shown in the machine's current timezone, which a cached formatter would keep from the past.
  */
-export function formatTimeDisplay(date: Date): string {
-  const hours = date.getHours();
-  const hour12 = String(hours % 12 === 0 ? 12 : hours % 12).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  return `${hour12}:${minutes} ${hours < 12 ? 'AM' : 'PM'}`;
+export function formatTimeDisplay(date: Date, options: DateDisplayOptions = {}): string {
+  const { locale } = resolveOptions(options);
+
+  return new Intl.DateTimeFormat(locale, { timeStyle: 'short' }).format(date);
 }
 
 /**
- * Formats a full timestamp (an instant, not a calendar date) for a
- * surface that shows both when and what time — the collection Table/List
- * `created`/`updated` columns. The date half is local-calendar-day based
- * (`Date`'s local getters, so a late-evening instant never lands on the
- * adjacent UTC day): `Today`/`Tomorrow`/`Yesterday` stay bare words,
- * every other date is `12 Aug` in `referenceDate`'s year and
- * `12 Aug 2025` otherwise — never a weekday name. The time half is
- * `formatTimeDisplay`'s 12-hour label, joined with `", "` exactly like
- * the Property list's date-time values.
+ * Formats a full timestamp (an instant, not a calendar date) for a surface that shows both when and what
+ * time — the collection `created`/`updated` columns and the property list. The date half is local-calendar-day
+ * based (`Date`'s local getters, so a late-evening instant never lands on the adjacent UTC day) and follows the
+ * chosen format and the year rule; the time half is
+ * `formatTimeDisplay`'s, joined with `", "`.
  */
 export function formatDateTimeDisplay(
   date: Date,
   referenceDate: Date = new Date(),
-  /** `'long'` spells the month out (`12 September`); the default keeps `12 Sep`. */
-  monthStyle: 'short' | 'long' = 'short'
+  options: DateDisplayOptions = {}
 ): string {
+  const { locale, format } = resolveOptions(options);
   const isoDate = [
     String(date.getFullYear()).padStart(4, '0'),
     String(date.getMonth() + 1).padStart(2, '0'),
     String(date.getDate()).padStart(2, '0'),
   ].join('-');
-  const relation = classify(isoDate, referenceDate);
+  const parts = describeDate(isoDate, referenceDate);
+  const dayLabel =
+    usesRelativeWords(format) && isNearDay(parts)
+      ? relativeWord(parts.diffDays, locale)
+      : dateText(parts, format, locale, referenceDate.getFullYear());
 
-  let dayLabel: string;
-  if (relation.kind === 'today' || relation.kind === 'tomorrow' || relation.kind === 'yesterday') {
-    dayLabel = dayIdentityLabel(relation, 'condensed');
-  } else {
-    const monthLabel = (monthStyle === 'long' ? MONTH_LABELS : MONTH_LABELS_SHORT)[relation.month - 1]!;
-    dayLabel =
-      relation.year === referenceDate.getFullYear()
-        ? `${relation.day} ${monthLabel}`
-        : `${relation.day} ${monthLabel} ${relation.year}`;
-  }
-
-  return `${dayLabel}, ${formatTimeDisplay(date)}`;
+  return `${dayLabel}, ${formatTimeDisplay(date, options)}`;
 }
 
 /** Beyond this age a timestamp reads as an absolute date/time, not "N ago". */
 const RELATIVE_TIMESTAMP_MAX_MS = 2 * 60 * 60 * 1000;
 
-function pluralize(count: number, unit: string): string {
-  return `${count} ${unit}${count === 1 ? '' : 's'} ago`;
-}
-
 /**
- * `formatDateTimeDisplay`, except a timestamp under two hours old reads as
- * a relative age — `Just now`, `5 minutes ago`, `1 hour ago`. The window
- * is deliberately short: labels are formatted once rather than ticking, so
- * the longer a relative label could stay on screen the more stale it could
- * get, and past a couple of hours `Today, 09:03 AM` is the more useful
- * answer anyway. Anything older, or a future instant (clock skew), falls
- * through to the absolute label.
+ * `formatDateTimeDisplay`, except a timestamp under two hours old reads as a relative age — `Just now`,
+ * `5 minutes ago`, `1 hour ago` (the locale's own wording). The window is deliberately short: labels are
+ * formatted once rather than ticking, so the longer a relative label could stay on screen the more stale it
+ * could get, and past a couple of hours `Today, 09:03` is the more useful answer anyway. Anything older, or a
+ * future instant (clock skew), falls through to the absolute label.
  */
 export function formatRelativeTimestamp(
   date: Date,
   referenceDate: Date = new Date(),
-  monthStyle: 'short' | 'long' = 'short'
+  options: DateDisplayOptions = {}
 ): string {
   const ageMs = referenceDate.getTime() - date.getTime();
 
   if (ageMs >= 0 && ageMs < RELATIVE_TIMESTAMP_MAX_MS) {
+    const { locale } = resolveOptions(options);
     const minutes = Math.floor(ageMs / 60_000);
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return pluralize(minutes, 'minute');
-    return pluralize(Math.floor(minutes / 60), 'hour');
+
+    if (minutes < 1) {
+      return locale.toLowerCase().startsWith('en')
+        ? 'Just now'
+        : relativeFormat(locale, 'auto').format(0, 'second');
+    }
+
+    return minutes < 60
+      ? relativeFormat(locale, 'always').format(-minutes, 'minute')
+      : relativeFormat(locale, 'always').format(-Math.floor(minutes / 60), 'hour');
   }
 
-  return formatDateTimeDisplay(date, referenceDate, monthStyle);
+  return formatDateTimeDisplay(date, referenceDate, options);
+}
+
+/** The day every Date format example is shown with: Tuesday, 20 October 2026. */
+const EXAMPLE_DATE: ISODate = '2026-10-20';
+
+/**
+ * What a Date format option looks like, for the Settings menu: the example date written by `formatDateDisplay`
+ * itself, in the system locale (or `locale`), so it can never drift from what the app shows. Each option is
+ * shown in its typical form — the named-month formats that carry a year show one (`20 October 2026`,
+ * `Tue, 20 Oct 2026`), `short` shows the current-year form without it (`20 Oct`), the numeric formats always
+ * have it. That is done by choosing the reference "today" the example is formatted against, not by a separate
+ * layout: a year is shown exactly when the year rule would show it.
+ */
+export function formatDateFormatExample(format: DateFormatChoice, options: { locale?: string } = {}): string {
+  const sameYear = new Date(2026, 0, 15);
+  const otherYear = new Date(2025, 0, 15);
+  const reference = format === 'short' ? sameYear : format === 'relative' ? new Date(2026, 9, 20) : otherYear;
+
+  return formatDateDisplay(EXAMPLE_DATE, 'long', reference, { locale: options.locale, format });
 }

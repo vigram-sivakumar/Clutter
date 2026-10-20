@@ -59,3 +59,30 @@ export function sortTemplatesByRecentUse(
 ): CollectionEntryModel[] {
   return sortByTimeDescending(templates, (template) => lastUsedAt(template.id) ?? createdTime(template));
 }
+
+/**
+ * Puts the user's preferred templates first, in the order they chose them, and leaves every other template
+ * after them in the order it already had (the recent-use ranking). Each template appears once. A preferred
+ * id with no template among `ranked` — one archived, deleted or moved out of Templates, so not offered —
+ * is skipped here; the saved list itself is the caller's and is never changed by this, so the template
+ * takes its original place again as soon as it is offered again.
+ */
+export function putPreferredTemplatesFirst(
+  ranked: readonly CollectionEntryModel[],
+  preferredIds: readonly string[]
+): CollectionEntryModel[] {
+  const byId = new Map(ranked.map((template) => [template.id, template]));
+  const preferred: CollectionEntryModel[] = [];
+  const placed = new Set<string>();
+
+  for (const id of preferredIds) {
+    const template = byId.get(id);
+
+    if (template && !placed.has(id)) {
+      preferred.push(template);
+      placed.add(id);
+    }
+  }
+
+  return [...preferred, ...ranked.filter((template) => !placed.has(template.id))];
+}

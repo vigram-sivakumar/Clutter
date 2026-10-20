@@ -13,14 +13,12 @@ export interface DateCompletion extends RowCompletion {
 }
 
 /**
- * How a Date suggestion reads in the popup: always the full human-readable date
- * (`formatDateDisplay`'s `'shortWeekday'` — the Daily Note title format with an abbreviated
- * weekday, since a row has less room than a page title), never the raw ISO value. A relative
- * keyword already leads that text (`Today, 4 October 2026`), so nothing is added beside it.
+ * How a Date suggestion reads in the popup: the shared `'long'` date (`4 October 2026`, or `Today` for
+ * today), never the raw ISO value.
  */
 export function dateRow(suggestion: DateSuggestion): DateCompletion['row'] {
   return {
     iconSvg: COMPLETION_ICONS.calendarBlank,
-    title: formatDateDisplay(suggestion.isoDate, 'shortWeekday'),
+    title: formatDateDisplay(suggestion.isoDate, 'long'),
   };
 }

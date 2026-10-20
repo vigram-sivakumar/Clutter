@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { AppIcon } from '@shared/icon';
 import { Input } from '@components/input/Input';
 import { Button } from '@components/button/Button';
+import { RoundIconButton } from '@components/button/RoundIconButton';
 import { ChangeIconPicker } from '@components/change-icon-picker/ChangeIconPicker';
 import { useRejectShake } from '@components/property-list/useRejectShake';
 import { useOverlay } from '@components/overlay/hooks/useOverlay';
@@ -121,17 +122,12 @@ export function NewFolderContent({
     <form className="new-folder" onSubmit={handleSubmit} noValidate>
       <div className="new-folder__header">
         <span className="new-folder__title">{labels.title}</span>
-        <Button
+        <RoundIconButton
           type="button"
-          size="small"
-          variant="ghost"
-          interaction="subtle"
-          isIconOnly
+          icon="dismiss"
           aria-label="Close"
           onClick={onClose}
-        >
-          <AppIcon icon="dismiss" />
-        </Button>
+        />
       </div>
 
       <div className="new-folder__field">

@@ -1,63 +1,52 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  formatDailyNoteDateLabel,
-  formatDailyNotePickerTitle,
-  formatDailyNoteTitle,
-} from './formatDailyNoteTitle';
+import { formatDailyNoteTitle } from './formatDailyNoteTitle';
 
-beforeEach(() => {
-  vi.useFakeTimers();
-  vi.setSystemTime(new Date(2026, 9, 4, 12)); // Sunday 4 Oct 2026
-});
 afterEach(() => vi.useRealTimers());
 
-describe('formatDailyNoteDateLabel — the date alone, for every surface but the Daily Note page', () => {
-  it.each([
-    ['2026-10-04', '4 October 2026'], // today: no "Today,"
-    ['2026-10-03', '3 October 2026'], // yesterday: no "Yesterday,"
-    ['2026-10-07', '7 October 2026'], // this week: no weekday
-    ['2025-12-31', '31 December 2025'],
-  ])('%s reads %s', (name, expected) => {
-    expect(formatDailyNoteDateLabel(name)).toBe(expected);
+describe('formatDailyNoteTitle (default system format, locale en-IN, today = Sunday 4 October 2026)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 9, 4, 12));
   });
 
-  it('leaves a malformed name as it is', () => {
-    expect(formatDailyNoteDateLabel('not-a-date')).toBe('not-a-date');
-  });
-});
-
-describe('formatDailyNoteTitle — the Daily Note page title keeps the full date', () => {
   it.each([
-    ['2026-10-04', 'Today, 4 October 2026'],
-    ['2026-10-03', 'Yesterday, 3 October 2026'],
-    ['2026-10-05', 'Tomorrow, 5 October 2026'],
-    ['2026-10-07', 'Wednesday, 7 October 2026'],
-    ['2026-10-02', 'Friday, 2 October 2026'],
-    ['2025-12-31', 'Wednesday, 31 December 2025'],
+    ['2026-10-04', 'Today, 4 October'],
+    ['2026-10-03', 'Yesterday, 3 October'],
+    ['2026-10-05', 'Tomorrow, 5 October'],
+    ['2026-10-07', 'Wed, 7 October'],
+    ['2026-10-02', 'Fri, 2 October'],
+    ['2026-01-01', 'Thu, 1 January'],
+    ['2025-12-31', 'Wed, 31 December 2025'],
+    ['2027-01-02', 'Sat, 2 January 2027'],
   ])('%s reads %s', (name, expected) => {
     expect(formatDailyNoteTitle(name)).toBe(expected);
   });
 
-  it('leaves a malformed name as it is', () => {
-    expect(formatDailyNoteTitle('not-a-date')).toBe('not-a-date');
-  });
+  it.each(['not-a-date', '2026-02-30', '2026-13-01', ''])(
+    'leaves a malformed name (%j) as it is',
+    (name) => {
+      expect(formatDailyNoteTitle(name)).toBe(name);
+    }
+  );
 });
 
-describe('formatDailyNotePickerTitle — a Daily Note as one row of the note picker is short and relative', () => {
-  it.each([
-    ['2026-10-04', 'Today'],
-    ['2026-10-03', 'Yesterday'],
-    ['2026-10-05', 'Tomorrow'],
-    ['2026-10-07', 'Wednesday'],
-    ['2026-10-02', '2 Oct'],
-    ['2026-03-15', '15 Mar'],
-    ['2025-12-31', '31 Dec 2025'],
-  ])('%s reads %s', (name, expected) => {
-    expect(formatDailyNotePickerTitle(name)).toBe(expected);
+describe('formatDailyNoteTitle across a year change', () => {
+  it("on New Year's Eve, 23:30 local time, the new year is the other year", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 11, 31, 23, 30));
+
+    expect(formatDailyNoteTitle('2026-12-31')).toBe('Today, 31 December');
+    expect(formatDailyNoteTitle('2027-01-01')).toBe('Tomorrow, 1 January 2027');
   });
 
-  it('leaves a malformed name as it is', () => {
-    expect(formatDailyNotePickerTitle('not-a-date')).toBe('not-a-date');
+  it('ten minutes into the new year, last year is the other year', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2027, 0, 1, 0, 10));
+
+    expect(formatDailyNoteTitle('2027-01-01')).toBe('Today, 1 January');
+    expect(formatDailyNoteTitle('2026-12-31')).toBe(
+      'Yesterday, 31 December 2026'
+    );
   });
 });

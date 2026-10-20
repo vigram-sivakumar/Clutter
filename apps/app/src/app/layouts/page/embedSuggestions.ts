@@ -7,11 +7,10 @@ import { getResourceDisplayName } from '@core/presentation/getResourceDisplayNam
 import { dailyNoteSearchText } from '@core/presentation/dailyNoteSearchText';
 import { matchesSearchText } from '@shared/helpers/matchesSearchText';
 import type {
-  EmbedPageSuggestion,
   EmbedResourceSuggestion,
   GetEmbedSuggestions,
 } from '@features/markdown/editor/MarkdownEditor';
-import { toPageSuggestion } from './wikiLinkSuggestions';
+import { sortPageSuggestions, toPageSuggestion } from './wikiLinkSuggestions';
 
 /**
  * Composes `Vault` + `MembershipSelector` into the editor's injected
@@ -63,14 +62,12 @@ export function createEmbedSuggester(
     const byPath = (a: EmbedResourceSuggestion, b: EmbedResourceSuggestion) =>
       a.path.localeCompare(b.path, undefined, { numeric: true, sensitivity: 'base' });
 
-    const byTitle = (a: EmbedPageSuggestion, b: EmbedPageSuggestion) =>
-      a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' });
-
-    const pages = embeddablePages()
-      .filter((page) => !normalizedQuery || matchesPage(vault, page, normalizedQuery))
-      .map((page) => toPageSuggestion(vault, page))
-      .map(({ alias: _alias, ...suggestion }) => suggestion)
-      .sort(byTitle);
+    const pages = sortPageSuggestions(
+      embeddablePages()
+        .filter((page) => !normalizedQuery || matchesPage(vault, page, normalizedQuery))
+        .map((page) => toPageSuggestion(vault, page))
+        .map(({ alias: _alias, ...suggestion }) => suggestion)
+    );
     const notes = pages.filter((page) => !page.dailyNote);
     const dailyNotes = pages.filter((page) => page.dailyNote);
 

@@ -30,6 +30,13 @@
   color: var(--foreground-primary);
 }
 
+/* Global rule: the selection tick in any menu row (leading or trailing, any menu, present or future) reads at
+ * the row's primary color. The trailing slot is muted metadata (see `.menu__item-indicator`), so a tick would
+ * otherwise render gray there. Matched by icon kind (`AppIcon`'s `data-icon`), so no call site has to opt in. */
+.menu__item [data-icon='tick'] {
+  color: var(--foreground-primary);
+}
+
 /* A menu row's highlight must be driven exclusively by the shared roving
  * `activeId` (`forceHover` -> `.entry-force-hover`) — never by native
  * `:hover` on its own. `Entry.css`'s own rule paints the same background

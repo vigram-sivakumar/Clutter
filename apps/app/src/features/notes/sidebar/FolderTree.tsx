@@ -1,5 +1,6 @@
 // React
 import { Fragment } from 'react/jsx-runtime';
+import { useFolderItemLimit } from '@shared/helpers/folderItemLimitPreference';
 import { useRef, useSyncExternalStore } from 'react';
 // Components
 import { Folder as FolderEntry } from './Folder';
@@ -51,9 +52,8 @@ import type { MembershipSelector } from '@core/application/membership/Membership
 import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
 import type { ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbedResolution';
 
-/** A folder shows this many of its own notes and files; the rest sit behind its "N more" row. */
-export const SIDEBAR_FOLDER_ITEM_LIMIT = 10;
-
+/* A folder shows this many of its own notes and files (the Folder items setting: `useFolderItemLimit`, 10 by
+   default, or all of them); the rest sit behind its "N more" row. */
 export { DRAG_REVEAL_DELAY_MS } from './useDropTargetTracking';
 
 /** The key the vault root's own notes/files use in `expandedFolders` (a real folder id is never this). */
@@ -979,7 +979,7 @@ export function FolderTree({
   // This folder's own notes and files for a nested level — the root has its own (rootPages/
   // rootResources above). A nested level lists its notes, then files, then subfolders; the root
   // lists folders first, then notes, then files. Whatever the order, the level shows its first
-  // SIDEBAR_FOLDER_ITEM_LIMIT items, then a "N more" / "Show less" row.
+  // folderItemLimit items, then a "N more" / "Show less" row.
   const levelResources =
     parentId === null ? rootResources : membershipSelector.getVisibleChildResources(parentId);
 
@@ -995,9 +995,10 @@ export function FolderTree({
     ...levelResources.map((resource): LevelItem => ({ kind: 'resource', resource })),
   ];
 
+  const folderItemLimit = useFolderItemLimit();
   const capKey = parentId ?? ROOT_FOLDER_CAP_KEY;
   const isCapExpanded = expandedFolders.includes(capKey) || dragRevealedCaps.includes(capKey);
-  const visibleItems = isCapExpanded ? items : items.slice(0, SIDEBAR_FOLDER_ITEM_LIMIT);
+  const visibleItems = isCapExpanded ? items : items.slice(0, folderItemLimit);
 
   // A capped level hides siblings after its last visible folder/note; a position after that row would be
   // among rows we do not show, so the row is marked and never offered an "after" position.
@@ -1069,10 +1070,10 @@ export function FolderTree({
       {parentId !== null && firstFolderIndex === -1 && newFolderRow}
       {activeDrag && <DragGhost session={activeDrag.session} />}
       {activeDrag && <DropFeedbackHost store={dropTargetStore} />}
-      {items.length > SIDEBAR_FOLDER_ITEM_LIMIT && (
+      {items.length > folderItemLimit && (
         <ShowMoreEntry
           level={level}
-          hiddenCount={items.length - SIDEBAR_FOLDER_ITEM_LIMIT}
+          hiddenCount={items.length - folderItemLimit}
           isExpanded={isCapExpanded}
           capKey={enableDrag && !isCapExpanded ? capKey : undefined}
           onToggle={() => onToggleFolderCap?.(capKey)}

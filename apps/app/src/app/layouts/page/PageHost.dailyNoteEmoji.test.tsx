@@ -115,7 +115,7 @@ describe('Daily Note page title — emoji', () => {
     await flush();
 
     expect(emojiButton()).toHaveTextContent('🍄');
-    expect(titleRoot().textContent).toMatch(/15 January 2026/);
+    expect(titleRoot().textContent).toMatch(/15 January/);
   });
 
   it('without an emoji it shows no emoji control, but offers Change icon in More actions', async () => {
@@ -148,7 +148,7 @@ describe('Daily Note page title — emoji', () => {
     expect(after.name).toBe(ISO);
     expect(after.type).toBe('daily-note');
     expect(after.path).toBe(PATH);
-    expect(titleRoot().textContent).toMatch(/15 January 2026/);
+    expect(titleRoot().textContent).toMatch(/15 January/);
     expect(editableControlsInTitle()).toHaveLength(0);
   });
 

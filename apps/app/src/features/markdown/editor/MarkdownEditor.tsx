@@ -127,6 +127,9 @@ export type {
 export type { OnPdfEmbedClick } from './codemirror/pdf/PdfEmbedWidget';
 export type { ResolveImageResource } from './codemirror/image/imageResourceResolution';
 export type { ResolveImageSrc, ImageSrcResolution } from './codemirror/image/imageSrcResolution';
+import { refreshInlinePresentation } from './codemirror/highlight/inlineLivePreviewRegion';
+import { subscribeDateFormatChoice } from '@shared/helpers/time/dateFormatPreference';
+import { subscribeSystemLocale } from '@shared/helpers/time/dateLocale';
 import './MarkdownEditor.css';
 // Shared embed/media CSS — genuinely used by more than one embed widget
 // (Image, PDF, and/or Note), so no single widget's own `.ts` module
@@ -284,6 +287,20 @@ export const MarkdownEditor = forwardRef<
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
+  // `@date` labels follow the Date format preference and the system language, which can change while a note is
+  // open: have the editor rebuild its inline decorations so the labels follow too.
+  useEffect(() => {
+    const refresh = (): void => {
+      viewRef.current?.dispatch({ effects: refreshInlinePresentation.of(null) });
+    };
+    const unsubscribeFormat = subscribeDateFormatChoice(refresh);
+    const unsubscribeLocale = subscribeSystemLocale(refresh);
+
+    return () => {
+      unsubscribeFormat();
+      unsubscribeLocale();
+    };
+  }, []);
   /**
    * The mount effect's own cleanup, stored so the Tauri-dev-only HMR
    * handler below (`ENABLE_TAURI_DEV_EDITOR_HMR`) can tear down and

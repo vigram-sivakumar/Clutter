@@ -114,6 +114,7 @@ export function Task({
         }
         actions={
           <OverflowMenu
+            buttonSize="xs"
             items={menuItems}
             open={menuOpen}
             onOpenChange={setMenuOpen}

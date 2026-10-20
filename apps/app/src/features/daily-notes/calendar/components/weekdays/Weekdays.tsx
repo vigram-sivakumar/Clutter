@@ -1,13 +1,20 @@
 import './Weekdays.css';
+import { weekdayNames, type WeekStart } from '../../weekStart';
 
-export function CalendarWeekdays() {
-  const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+interface CalendarWeekdaysProps {
+  weekStart?: WeekStart;
+}
+
+export function CalendarWeekdays({
+  weekStart = 'sunday',
+}: CalendarWeekdaysProps) {
+  const narrow = weekdayNames(weekStart, undefined, 'narrow');
 
   return (
     <div className="calendar-weekdays-row">
-      {DAYS.map((day, index) => (
-        <span key={index} className="calendar-weekday">
-          {day}
+      {weekdayNames(weekStart).map((name, index) => (
+        <span key={name} className="calendar-weekday" title={name}>
+          {narrow[index]}
         </span>
       ))}
     </div>

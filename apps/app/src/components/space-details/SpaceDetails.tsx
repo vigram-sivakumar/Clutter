@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { Button } from '@components/button/Button';
+import { RoundIconButton } from '@components/button/RoundIconButton';
 import {
   SpaceAvatar,
   type SpaceAvatarChoice,
@@ -243,16 +244,7 @@ export function SpaceDetails({
             <h2 className="space-details__modal-title">New space</h2>
           )}
           {showClose && (
-            <Button
-              variant="ghost"
-              interaction="subtle"
-              size="small"
-              isIconOnly
-              aria-label="Close"
-              onClick={onClose}
-            >
-              <AppIcon icon="dismiss" />
-            </Button>
+            <RoundIconButton icon="dismiss" aria-label="Close" onClick={onClose} />
           )}
         </div>
       )}

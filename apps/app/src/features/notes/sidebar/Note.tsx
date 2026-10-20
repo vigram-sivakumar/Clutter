@@ -133,6 +133,7 @@ export function Note({
         }
         actions={
           <OverflowMenu
+            buttonSize="xs"
             items={menuItems ?? []}
             triggerRef={moveTrigger.triggerRef}
             open={menuOpen}

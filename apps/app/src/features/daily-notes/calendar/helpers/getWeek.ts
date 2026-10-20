@@ -1,7 +1,9 @@
 import type { CalendarDate } from '../models/CalendarDate';
 
 import { isSame, isToday } from '@shared/helpers/time';
+import { toDate } from '@shared/helpers/time/helpers/toDate';
 import { toISODate } from '@shared/helpers/time/helpers/toISODate';
+import { startOfWeek, type WeekStart } from '../weekStart';
 
 /**
  * Returns the seven calendar cells
@@ -9,13 +11,15 @@ import { toISODate } from '@shared/helpers/time/helpers/toISODate';
  */
 export function getWeek(
   visibleDate: string,
-  selectedDate: string | undefined
+  selectedDate: string | undefined,
+  weekStart: WeekStart = 'sunday'
 ): CalendarDate[] {
   // Create a Date from the visible date.
-  const start = new Date(visibleDate);
+  // Local-component parse: `new Date('YYYY-MM-DD')` is UTC midnight, which west of UTC is the day before.
+  const start = toDate(visibleDate);
 
-  // Move back to the beginning of the week (Sunday).
-  start.setDate(start.getDate() - start.getDay());
+  // Move back to the beginning of the week (Sunday unless the user chose Monday).
+  startOfWeek(start, weekStart);
 
   const week: CalendarDate[] = [];
 

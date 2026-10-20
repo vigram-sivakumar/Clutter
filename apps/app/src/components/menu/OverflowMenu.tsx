@@ -98,7 +98,7 @@ export interface OverflowMenuProps {
   open: boolean;
   onOpenChange(open: boolean): void;
   onSelect(id: string): void;
-  buttonSize?: 'small' | 'medium' | 'large';
+  buttonSize?: 'xs' | 'small' | 'medium' | 'large';
   size?: 'medium' | 'small';
   side?: OverlaySide;
   alignment?: OverlayAlignment;
@@ -190,8 +190,6 @@ export function OverflowMenu({
     <>
       <Button
         size={buttonSize}
-        variant="ghost"
-        interaction="subtle"
         isIconOnly
         {...buttonProps}
         ref={anchorRef}

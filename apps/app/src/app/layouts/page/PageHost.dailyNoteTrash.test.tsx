@@ -19,7 +19,8 @@ import { UuidGenerator } from '@core/shared/identity/UuidGenerator';
 import { DailyNoteService } from '@core/application/daily-notes/DailyNoteService';
 import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
 import { FrontmatterSerializer } from '@core/vault/ingest/FrontmatterSerializer';
-import { formatDailyNoteDateLabel, formatDailyNoteTitle } from '@core/presentation/formatDailyNoteTitle';
+import { formatDailyNoteTitle } from '@core/presentation/formatDailyNoteTitle';
+import { formatAbsoluteDate } from '@shared/helpers/time/dateDisplay';
 import type { Folder } from '@core/vault/models/Folder';
 import type { Page } from '@core/vault/models/Page';
 
@@ -130,7 +131,7 @@ describe('A Daily Note in the Trash keeps its title', () => {
     await flush();
 
     const activeTitle = titleRoot().textContent;
-    expect(activeTitle).toMatch(/15 January 2026/);
+    expect(activeTitle).toMatch(/15 January/);
     expect(activeTitle).not.toContain('2026-01-15');
     expect(editableInTitle()).toHaveLength(0);
 
@@ -154,13 +155,12 @@ describe('A Daily Note in the Trash keeps its title', () => {
   });
 });
 
-describe('A Daily Note shows its date on every generic title surface', () => {
-  // The page title keeps the "Today,"/weekday prefix; every other surface is just the date.
+describe('A Daily Note shows the same title on every title surface', () => {
+  // One shared formatter writes it everywhere: the page header, and the Trash list below.
   const pageTitle = formatDailyNoteTitle('2026-01-15');
-  const dateOnly = formatDailyNoteDateLabel('2026-01-15');
   const main = () => document.querySelector<HTMLElement>('.page')!;
 
-  it('page header keeps the prefixed title, and a Daily Note has no breadcrumb — active and in the Trash', async () => {
+  it('page header shows the title, and a Daily Note has no breadcrumb — active and in the Trash', async () => {
     const { application, dailyNote } = makeApplication();
     await application.pageOperations.open(dailyNote.id);
     render(<AppLayout application={application} />);
@@ -173,22 +173,20 @@ describe('A Daily Note shows its date on every generic title surface', () => {
       }
 
       expect(titleRoot().textContent).toBe(pageTitle);
-      // The breadcrumb that used to carry the plain date is gone for a Daily Note (the Trash list row, below, is
-      // the plain-date surface that remains).
+      // A Daily Note has no breadcrumb: the Trash list row, below, is the other surface that shows its title.
       expect(main().querySelector('.breadcrumb-item')).toBeNull();
-      expect(dateOnly).not.toMatch(/^(Today|Yesterday|Tomorrow|Mon|Tue|Wed|Thu|Fri|Sat|Sun)/);
       expect(within(main()).queryByText('Start typing…')).toBeNull();
     }
   });
 
-  it('the Trash list row is the plain date, even for a note with content', async () => {
+  it('the Trash list row is the same title, even for a note with content', async () => {
     const { application, dailyNote } = makeApplication();
     await application.pageOperations.archive(dailyNote.id);
     application.navigation.openArchive();
     render(<AppLayout application={application} />);
     await flush();
 
-    expect(within(main()).getByText(dateOnly)).toBeInTheDocument();
+    expect(within(main()).getByText(pageTitle)).toBeInTheDocument();
     expect(within(main()).queryByText('Start typing…')).toBeNull();
     expect(within(main()).queryByText('Trashed day.')).toBeNull();
   });
@@ -217,7 +215,7 @@ describe('Restoring a Daily Note whose day already has one', () => {
 
     expect(dialog()).toBeInTheDocument();
     expect(document.querySelector('.confirmation__body')!.textContent).toBe(
-      'A daily note for January 15 already exists.\nWhat would you like to do?'
+      `A daily note for ${formatAbsoluteDate('2026-01-15')} already exists.\nWhat would you like to do?`
     );
     expect(screen.getByRole('button', { name: 'Move to Inbox' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Replace' })).toBeInTheDocument();

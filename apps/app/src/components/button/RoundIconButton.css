@@ -1,0 +1,7 @@
+/* A circular, filled icon-only button — the dismiss control of an overlay. Only the shape and the resting fill
+   are its own: size, hover, active and disabled all come from Button. The doubled class outranks `.button--ghost`'s
+   transparent background whatever order the stylesheets load in. */
+.button.round-icon-button {
+  border-radius: 50%;
+  background: var(--surface-tertiary);
+}

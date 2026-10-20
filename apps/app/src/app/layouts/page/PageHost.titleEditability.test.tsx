@@ -120,7 +120,7 @@ describe('Daily Note title is never editable', () => {
     render(<AppLayout application={(await open()).application} />);
     await flush();
 
-    expect(titleRoot().textContent).toMatch(/15 January 2026/);
+    expect(titleRoot().textContent).toMatch(/15 January/);
     expect(editableControlsInTitle()).toHaveLength(0);
   });
 
@@ -158,7 +158,7 @@ describe('Daily Note title is never editable', () => {
     await flush();
 
     expect(updateDraftTitle).not.toHaveBeenCalled();
-    expect(titleRoot().textContent).toMatch(/15 January 2026/);
+    expect(titleRoot().textContent).toMatch(/15 January/);
   });
 
   it('the displayed title stays derived from the date it belongs to', async () => {
@@ -167,7 +167,7 @@ describe('Daily Note title is never editable', () => {
     await flush();
 
     expect(application.pageOperations.getDraft(id)?.title).toBe(ISO);
-    expect(titleRoot().textContent).toMatch(/15 January 2026/);
+    expect(titleRoot().textContent).toMatch(/15 January/);
   });
 });
 

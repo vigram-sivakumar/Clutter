@@ -50,19 +50,19 @@ describe('dateCompletionSource', () => {
     const source = dateCompletionSource();
     const result = call(source, contextAt('@12 mar', 7));
     expect(result).not.toBeNull();
-    expect(result!.options.map((o) => o.label)).toEqual(['March 12, 2027']);
+    expect(result!.options.map((o) => o.label)).toEqual(['12 March 2027']);
   });
 
   it('resolves the reordered form the same way: @mar 12', () => {
     const source = dateCompletionSource();
     const result = call(source, contextAt('@mar 12', 7));
-    expect(result!.options.map((o) => o.label)).toEqual(['March 12, 2027']);
+    expect(result!.options.map((o) => o.label)).toEqual(['12 March 2027']);
   });
 
   it('resolves the year+month+day form: @2027 jan 12', () => {
     const source = dateCompletionSource();
     const result = call(source, contextAt('@2027 jan 12', 12));
-    expect(result!.options.map((o) => o.label)).toEqual(['January 12, 2027']);
+    expect(result!.options.map((o) => o.label)).toEqual(['12 January 2027']);
   });
 
   it('terminates (returns null) once trailing text is no longer part of the Date expression, even though the trigger itself still bounds the token count', () => {

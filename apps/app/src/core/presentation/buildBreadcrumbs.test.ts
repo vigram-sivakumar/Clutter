@@ -5,7 +5,7 @@ import {
   buildSystemLocationBreadcrumbs,
 } from './buildBreadcrumbs';
 import { getPageIcon } from './getPageIcon';
-import { formatDailyNoteDateLabel } from './formatDailyNoteTitle';
+import { formatDailyNoteTitle } from './formatDailyNoteTitle';
 import { getSystemLocationPresentation } from './systemPresentation';
 import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 import { Vault } from '../vault/models/Vault';
@@ -283,7 +283,7 @@ describe('buildBreadcrumbs — nested entries render the full chain', () => {
 
     expect(crumbs.map((crumb) => crumb.title)).toEqual([
       'Ancestor',
-      formatDailyNoteDateLabel('2026-08-02'),
+      formatDailyNoteTitle('2026-08-02'),
     ]);
   });
 });
@@ -368,7 +368,7 @@ describe('buildBreadcrumbs — trailing crumb (Category B)', () => {
       vi.fn()
     );
 
-    expect(crumbs.at(-1)!.title).toBe(formatDailyNoteDateLabel('2026-08-02'));
+    expect(crumbs.at(-1)!.title).toBe(formatDailyNoteTitle('2026-08-02'));
   });
 
   it('shows the formatted date for a trashed daily note too', () => {
@@ -380,7 +380,7 @@ describe('buildBreadcrumbs — trailing crumb (Category B)', () => {
     const vault = makeVault([]);
     const crumbs = buildBreadcrumbs(page, vault, makeMembershipSelector(vault), vi.fn());
 
-    expect(crumbs.at(-1)!.title).toBe(formatDailyNoteDateLabel('2026-08-02'));
+    expect(crumbs.at(-1)!.title).toBe(formatDailyNoteTitle('2026-08-02'));
   });
 
   it('shows the formatted date for a daily note draft', () => {
@@ -395,7 +395,7 @@ describe('buildBreadcrumbs — trailing crumb (Category B)', () => {
       vi.fn()
     );
 
-    expect(crumbs.at(-1)!.title).toBe(formatDailyNoteDateLabel('2026-08-02'));
+    expect(crumbs.at(-1)!.title).toBe(formatDailyNoteTitle('2026-08-02'));
   });
 });
 

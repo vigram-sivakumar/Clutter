@@ -1,7 +1,7 @@
-import { Button } from '@components/button/Button';
+import { RoundIconButton } from '@components/button/RoundIconButton';
 import { PickerList } from '@components/picker-list/PickerList';
 import type { PickerListItem } from '@components/picker-list/PickerList.types';
-import { AppIcon, type SystemIcon } from '@shared/icon';
+import type { SystemIcon } from '@shared/icon';
 
 import './PickerCard.css';
 
@@ -46,9 +46,7 @@ export function PickerCard({
     <div className={['picker-card', sectioned && 'picker-card--sectioned'].filter(Boolean).join(' ')}>
       <span className="picker-card__header">
         {title}
-        <Button isIconOnly size="small" interaction="subtle" aria-label="Dismiss" onClick={onClose}>
-          <AppIcon icon="dismiss" />
-        </Button>
+        <RoundIconButton icon="dismiss" aria-label="Dismiss" onClick={onClose} />
       </span>
       <PickerList
         items={items}

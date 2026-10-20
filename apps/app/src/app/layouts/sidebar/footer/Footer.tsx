@@ -10,6 +10,8 @@ import { Menu } from '@components/menu/Menu';
 import { MenuItem } from '@components/menu/MenuItem';
 import { Dialog } from '@components/dialog/Dialog';
 import { Settings } from '@features/settings/Settings';
+import type { NoteLocationSource } from '@features/settings/default-note-location-setting/DefaultNoteLocationSetting';
+import type { TemplatesSource } from '@features/settings/preferred-templates/PreferredTemplates';
 
 interface FooterProps {
   /** The vault folder's name — source of the `initial` avatar's letter, and the title when `spaceName` is absent. */
@@ -33,6 +35,10 @@ interface FooterProps {
   /** Called as the Space menu opens — the moment to re-check which listed Spaces still exist. */
   onSpacesMenuOpen?(): void;
   onOpenArchive(): void;
+  /** The open Space's templates, for the pickers in Settings. */
+  templates?: TemplatesSource;
+  /** The open Space's folders and default note location, for Settings. */
+  noteLocation?: NoteLocationSource;
 }
 
 const DEFAULT_AVATAR: SpaceAvatarValue = { type: 'initial' };
@@ -48,6 +54,8 @@ export function Footer({
   onNewSpace,
   onSpacesMenuOpen,
   onOpenArchive,
+  templates,
+  noteLocation,
 }: FooterProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -150,7 +158,7 @@ export function Footer({
         returnFocusRef={selectorRef}
         className="settings-dialog"
       >
-        <Settings />
+        <Settings templates={templates} noteLocation={noteLocation} onClose={() => setSettingsOpen(false)} />
       </Dialog>
       <div className="footer__actions">
         <Button isIconOnly size="medium" variant="ghost" onClick={onOpenArchive}>

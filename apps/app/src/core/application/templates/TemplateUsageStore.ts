@@ -31,7 +31,10 @@ export class TemplateUsageStore {
   }
 
   /** A non-persisting-until-written store with no usage; the default for tests and a missing file. */
-  static empty(fileSystem: VaultFileSystem, rootPath: string): TemplateUsageStore {
+  static empty(
+    fileSystem: VaultFileSystem,
+    rootPath: string
+  ): TemplateUsageStore {
     return new TemplateUsageStore(fileSystem, rootPath, new Map());
   }
 
@@ -40,7 +43,10 @@ export class TemplateUsageStore {
    * logged and discarded, and a malformed individual record is dropped without affecting its neighbours —
    * the same boot-time posture as every other store of this file.
    */
-  static async load(fileSystem: VaultFileSystem, rootPath: string): Promise<TemplateUsageStore> {
+  static async load(
+    fileSystem: VaultFileSystem,
+    rootPath: string
+  ): Promise<TemplateUsageStore> {
     const contents = await readWorkspaceStateFileText(fileSystem, rootPath);
 
     let parsed: unknown;
@@ -53,7 +59,11 @@ export class TemplateUsageStore {
       return TemplateUsageStore.empty(fileSystem, rootPath);
     }
 
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
       console.warn(
         `TemplateUsageStore: ${WORKSPACE_STATE_RELATIVE_PATH}'s top level is not an object — starting with no template usage.`
       );
@@ -66,7 +76,11 @@ export class TemplateUsageStore {
       return TemplateUsageStore.empty(fileSystem, rootPath);
     }
 
-    if (typeof templateUsage !== 'object' || templateUsage === null || Array.isArray(templateUsage)) {
+    if (
+      typeof templateUsage !== 'object' ||
+      templateUsage === null ||
+      Array.isArray(templateUsage)
+    ) {
       console.warn(
         `TemplateUsageStore: ${WORKSPACE_STATE_RELATIVE_PATH}'s "templateUsage" is not an object — discarding it.`
       );
@@ -75,8 +89,11 @@ export class TemplateUsageStore {
 
     const lastUsedAtById = new Map<string, number>();
 
-    for (const [templateId, record] of Object.entries(templateUsage as Record<string, unknown>)) {
-      const lastUsedAt = (record as { lastUsedAt?: unknown } | null)?.lastUsedAt;
+    for (const [templateId, record] of Object.entries(
+      templateUsage as Record<string, unknown>
+    )) {
+      const lastUsedAt = (record as { lastUsedAt?: unknown } | null)
+        ?.lastUsedAt;
 
       if (typeof lastUsedAt === 'number' && Number.isFinite(lastUsedAt)) {
         lastUsedAtById.set(templateId, lastUsedAt);
@@ -116,6 +133,8 @@ export class TemplateUsageStore {
       templateUsage[templateId] = { lastUsedAt };
     }
 
-    await mergeAndWriteWorkspaceStateFile(this.fileSystem, this.rootPath, { templateUsage });
+    await mergeAndWriteWorkspaceStateFile(this.fileSystem, this.rootPath, {
+      templateUsage,
+    });
   }
 }

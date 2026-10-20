@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useFolderItemLimit } from '@shared/helpers/folderItemLimitPreference';
 import { OverflowMenu } from '@components/menu/OverflowMenu';
 import { buildSortByMenuItems } from '@core/presentation/resourceActions/folderSortAction';
 import { applyFolderSortSelection } from '../helpers/buildFolderMenuHandlers';
@@ -27,7 +28,6 @@ import {
   FolderTree,
   getLevelIndex,
   ROOT_FOLDER_CAP_KEY,
-  SIDEBAR_FOLDER_ITEM_LIMIT,
   type PendingNewFolder,
   type SidebarRowActions,
 } from './FolderTree';
@@ -67,6 +67,8 @@ interface NotesProps {
   resourceOperations: ResourceOperations;
   effectivePageState: EffectivePageState;
   membershipSelector: MembershipSelector;
+  /** The Space's default note folder (Settings → Notes), or undefined for Inbox; where the New row creates. */
+  getDefaultNoteFolderId?: () => string | undefined;
   onOpen(pageId: string): void;
   onOpenFolder(folderId: string): void;
   /**
@@ -131,7 +133,9 @@ export function Notes({
   getLevelOrder,
   onLevelOrderChange,
   onItemLeftLevel,
+  getDefaultNoteFolderId,
 }: NotesProps) {
+  const folderItemLimit = useFolderItemLimit();
   const [pendingNewFolder, setPendingNewFolder] =
     useState<PendingNewFolder | null>(null);
 
@@ -166,11 +170,11 @@ export function Notes({
       }
     }
 
-    // Anything past its parent's 10-item cap isn't rendered until that parent shows everything —
+    // Anything past its parent's item cap isn't rendered until that parent shows everything —
     // the note itself, and each ancestor folder on the way down.
     const expandCapFor = (parentId: string | null, index: number) => {
       const capKey = parentId ?? ROOT_FOLDER_CAP_KEY;
-      if (index >= SIDEBAR_FOLDER_ITEM_LIMIT && !expandedFolders?.includes(capKey)) {
+      if (index >= folderItemLimit && !expandedFolders?.includes(capKey)) {
         onToggleFolderCap?.(capKey);
       }
     };
@@ -420,7 +424,8 @@ export function Notes({
   const onShortcut = buildNotesShortcutHandler(
     navigation,
     pageOperations,
-    folderOperations
+    folderOperations,
+    getDefaultNoteFolderId
   );
   const favoriteItems = getFavoriteItems(
     query,
@@ -535,9 +540,7 @@ export function Notes({
         actions={
           <>
             <Button
-              size="small"
-              variant="ghost"
-              interaction="subtle"
+              size="xs"
               isIconOnly
               onClick={startNewRootFolder}
             >
@@ -546,6 +549,7 @@ export function Notes({
             {/* The section's three-dot menu, like a folder row's: the vault root's sort choices, listed directly
                 under a "Sort by" heading. */}
             <OverflowMenu
+              buttonSize="xs"
               items={buildSortByMenuItems(getFolderSort?.(null) ?? DEFAULT_SIDEBAR_SORT)}
               open={rootOrderMenuOpen}
               onOpenChange={setRootOrderMenuOpen}

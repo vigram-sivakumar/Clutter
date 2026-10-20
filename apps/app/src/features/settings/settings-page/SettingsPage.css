@@ -1,0 +1,43 @@
+.settings-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-48);
+  flex: 1;
+  min-width: 0;
+  padding-block: var(--space-12);
+  padding-inline: var(--space-24);
+}
+
+.settings-page__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.settings-page__title {
+  color: var(--foreground-primary);
+  font-size: var(--text-heading-3);
+  line-height: var(--lh-heading-3);
+  letter-spacing: var(--ls-heading-3);
+  font-weight: var(--fw-bold);
+  margin: 0;
+}
+
+.settings-page__description {
+  color: var(--foreground-secondary);
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label-small);
+  letter-spacing: var(--ls-label-small);
+}
+.settings-page__divider {
+  height: 1px;
+  background: var(--border-default);
+  display: none;
+}
+
+.settings-page__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+  min-width: 0;
+}

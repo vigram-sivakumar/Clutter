@@ -491,3 +491,40 @@ describe('createWikiLinkSuggester — Daily Notes are found by their date', () =
     expect(suggest(makeVault([lookalike]), '2020-08-24')).toEqual(['2020-08-24']);
   });
 });
+
+describe('createWikiLinkSuggester — Daily Notes are ordered by date, newest first', () => {
+  const daily = (iso: string) =>
+    makePage({
+      id: `d-${iso}`,
+      path: `/vault/Daily Notes/${iso.slice(0, 4)}/x/${iso}.md`,
+      name: iso,
+      type: 'daily-note',
+    });
+  const titles = (suggestions: ReturnType<ReturnType<typeof createWikiLinkSuggester>>) =>
+    suggestions.map((s) => (s.kind === 'page' ? s.title : ''));
+
+  // Formatted labels ("Fri, 25 Sep", "Fri, 23 Oct", "Thu, 02 Jan") sort wrongly alphabetically.
+  const dates = ['2025-09-25', '2026-10-23', '2026-01-02', '2025-12-31', '2026-09-25', '2026-10-04'];
+  const newestFirst = ['2026-10-23', '2026-10-04', '2026-09-25', '2026-01-02', '2025-12-31', '2025-09-25'];
+
+  it('orders an empty query across month and year boundaries', () => {
+    const suggest = createWikiLinkSuggester(makeVault(dates.map(daily)), fakePageOperations(), fakeFolderOperations());
+    expect(titles(suggest(''))).toEqual(newestFirst);
+  });
+
+  it('orders a filtered query the same way', () => {
+    const suggest = createWikiLinkSuggester(makeVault(dates.map(daily)), fakePageOperations(), fakeFolderOperations());
+    expect(titles(suggest('2026'))).toEqual(['2026-10-23', '2026-10-04', '2026-09-25', '2026-01-02']);
+  });
+
+  it('leaves notes ordered by title', () => {
+    const vault = makeVault([
+      makePage({ id: 'b', path: '/vault/Beta.md', name: 'Beta' }),
+      daily('2026-01-02'),
+      makePage({ id: 'a', path: '/vault/Alpha.md', name: 'Alpha' }),
+      daily('2026-10-23'),
+    ]);
+    const suggest = createWikiLinkSuggester(vault, fakePageOperations(), fakeFolderOperations());
+    expect(titles(suggest(''))).toEqual(['Alpha', 'Beta', '2026-10-23', '2026-01-02']);
+  });
+});

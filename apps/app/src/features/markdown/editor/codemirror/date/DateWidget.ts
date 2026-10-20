@@ -1,6 +1,8 @@
 import { WidgetType } from '@codemirror/view';
 
 import { formatDateDisplay } from '@shared/helpers/time/dateDisplay';
+import { readDateFormatChoice } from '@shared/helpers/time/dateFormatPreference';
+import { getSystemLocale } from '@shared/helpers/time/dateLocale';
 import { isValidCalendarDate } from '@shared/helpers/time/helpers/isValidCalendarDate';
 
 import type { DateResolution } from './dateResolution';
@@ -9,10 +11,10 @@ import type { DateResolution } from './dateResolution';
  * The at-rest rendered form of a Date. Unlike `WikiLinkWidget`, the label
  * is computed purely from `isoDate` (no injected resolver involved — see
  * `dateResolution.ts`'s own comment for why) via `formatDateDisplay`'s
- * `'compact'` mode — the single shared rendered-date-label formatter also
- * used by `formatTaskDueDate.ts` (a sibling feature) and Daily Note titles
- * (`'full'` mode there), so all three stay in sync by construction instead
- * of each keeping its own copy of the relative-label-else-date logic.
+ * `'long'` style — the single shared rendered-date-label formatter every date
+ * surface uses (Daily Note titles use its `'heading'` style, the Tasks sidebar its
+ * `'short'` one), so they stay in sync by construction instead of each keeping
+ * its own copy of the relative-label-else-date logic.
  *
  * A calendar-invalid-but-shape-valid date (`2026-13-45`) still renders —
  * as its own raw text, un-formatted, with `data-date-status="invalid"` —
@@ -43,6 +45,12 @@ export class DateWidget extends WidgetType {
     super();
   }
 
+  /**
+   * What the label depends on besides the date: the Date format preference and the system locale. Part of
+   * `eq`, so a rebuild after either changes replaces the widget's DOM instead of reusing the old label.
+   */
+  private readonly formatKey = `${readDateFormatChoice()}|${getSystemLocale()}`;
+
   private get valid(): boolean {
     return isValidCalendarDate(this.isoDate);
   }
@@ -52,12 +60,13 @@ export class DateWidget extends WidgetType {
       return this.isoDate;
     }
 
-    return formatDateDisplay(this.isoDate, 'compact');
+    return formatDateDisplay(this.isoDate, 'long');
   }
 
   override eq(other: DateWidget): boolean {
     return (
       this.isoDate === other.isoDate &&
+      this.formatKey === other.formatKey &&
       this.extraClasses.length === other.extraClasses.length &&
       this.extraClasses.every((cls, i) => cls === other.extraClasses[i])
     );

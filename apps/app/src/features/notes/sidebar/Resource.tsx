@@ -128,6 +128,7 @@ export function Resource({
           archiveActions ??
           (menuItems ? (
             <OverflowMenu
+              buttonSize="xs"
               items={menuItems}
               triggerRef={moveTrigger.triggerRef}
               open={menuOpen}

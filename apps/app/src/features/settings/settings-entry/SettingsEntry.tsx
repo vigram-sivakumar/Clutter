@@ -81,24 +81,28 @@ export function SettingsEntry({
       onClick={onClick ? handleClick : undefined}
     >
       <div className="settings-entry__main">
-        {title && (
-          <TextElement
-            htmlFor={labelFor}
-            className={joinClasses('settings-entry__title', titleClassName)}
-          >
-            {title}
-          </TextElement>
-        )}
-        {description && (
-          <TextElement
-            htmlFor={title ? undefined : labelFor}
-            className={joinClasses(
-              'settings-entry__description',
-              descriptionClassName
+        {(title || description) && (
+          <div className="settings-entry__content">
+            {title && (
+              <TextElement
+                htmlFor={labelFor}
+                className={joinClasses('settings-entry__title', titleClassName)}
+              >
+                {title}
+              </TextElement>
             )}
-          >
-            {description}
-          </TextElement>
+            {description && (
+              <TextElement
+                htmlFor={title ? undefined : labelFor}
+                className={joinClasses(
+                  'settings-entry__description',
+                  descriptionClassName
+                )}
+              >
+                {description}
+              </TextElement>
+            )}
+          </div>
         )}
         {footer && <div className="settings-entry__footer">{footer}</div>}
       </div>

@@ -1,4 +1,11 @@
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react';
 import type { CoverCredit } from '@core/vault/models/PageMetadata';
 import type { Application } from '@core/application/Application';
 import type { VaultResource } from '@core/vault/models/VaultResource';
@@ -22,7 +29,7 @@ import {
 } from '@core/presentation/buildBreadcrumbs';
 import { isPageTitleEditable } from '@core/presentation/isPageTitleEditable';
 import { VaultPath } from '@core/vault/ingest/VaultPath';
-import { formatDate } from '@shared/helpers/time';
+import { formatAbsoluteDate } from '@shared/helpers/time';
 import { isValidCalendarDate } from '@shared/helpers/time/helpers/isValidCalendarDate';
 import {
   getPageTitlePlaceholder,
@@ -57,6 +64,7 @@ import {
 } from '@features/notes/helpers/applyTemplateToNote';
 import type { MetadataHistoryChange } from '@features/markdown/editor/codemirror/metadataHistoryStep';
 import {
+  putPreferredTemplatesFirst,
   shouldSuggestTemplates,
   sortTemplatesByRecentUse,
 } from '@features/notes/helpers/templateSuggestions';
@@ -206,6 +214,34 @@ import {
   useImageFileActions,
 } from './ImageFileActionsContext';
 import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
+
+/** The open note a template is applied to: what `shouldSuggestTemplates` reads, and what the merge must not overwrite. */
+interface TemplateTargetNote {
+  readonly id: string;
+  readonly type: PageType;
+  readonly markdown: string;
+  readonly isArchived: boolean;
+  readonly folderId: string | null;
+  readonly existing: ExistingNoteMetadata;
+}
+
+/**
+ * Runs `apply` once, when a brand-new (still unsaved) Daily Note is first shown — the moment it is created. It
+ * renders nothing. The draft's id is the key, so one draft applies once; an existing note is never a draft, so
+ * opening or revisiting one never reaches it.
+ */
+function DefaultTemplateOnCreate({ apply }: { readonly apply: () => void }) {
+  const applied = useRef(false);
+
+  useEffect(() => {
+    if (!applied.current) {
+      applied.current = true;
+      apply();
+    }
+  }, []);
+
+  return null;
+}
 
 interface PageHostProps {
   application: Application;
@@ -706,6 +742,17 @@ export function PageHost({
   const savedReferencesHidden = activePageId
     ? referencesDisplay.getHidden(activePageId)
     : undefined;
+  // The templates the user prefers for Daily Notes (Settings → Daily notes) and for regular notes (Settings →
+  // Notes). Subscribed, so changing a list in Settings reorders an already-open suggestion row instead of
+  // waiting for the next navigation.
+  const preferredTemplateIds = useSyncExternalStore(
+    application.preferredTemplatesStore.subscribe,
+    () => application.preferredTemplatesStore.getIds('dailyNotes')
+  );
+  const preferredNoteTemplateIds = useSyncExternalStore(
+    application.preferredTemplatesStore.subscribe,
+    () => application.preferredTemplatesStore.getIds('notes')
+  );
   const knowledgeGraph = vault.knowledgeGraph();
   const referencesCount = useMemo(
     () =>
@@ -1094,7 +1141,7 @@ export function PageHost({
       setRestoreConflict({
         pageId,
         dayLabel: isValidCalendarDate(date)
-          ? `${formatDate(date, 'monthLong')} ${formatDate(date, 'date')}`
+          ? formatAbsoluteDate(date)
           : date,
       });
     });
@@ -1441,14 +1488,18 @@ export function PageHost({
   const buildFromTemplate = (
     targetFolderId: string | null
   ): NonNullable<CollectionHeaderActionsProps['fromTemplate']> => ({
+    // Creates a regular note, so the Notes preferences lead the list (the same order as its suggestions).
     getTemplates: () =>
-      rankTemplates(
-        toTemplateEntries(
-          vault,
-          application.membershipSelector,
-          (_markdown, templatePageId) =>
-            createNoteFromTemplatePage(targetFolderId, templatePageId)
-        )
+      putPreferredTemplatesFirst(
+        rankTemplates(
+          toTemplateEntries(
+            vault,
+            application.membershipSelector,
+            (_markdown, templatePageId) =>
+              createNoteFromTemplatePage(targetFolderId, templatePageId)
+          )
+        ),
+        preferredNoteTemplateIds
       ),
     onCreateTemplate: () => {
       void createTemplate(
@@ -1458,16 +1509,81 @@ export function PageHost({
     },
   });
 
+  // Applies the template page `templatePageId` to the open note — what a "Start with template" suggestion does,
+  // and what a new Daily Note's default template does on its own (applyTemplateToNote either way).
+  const applyTemplateToOpenNote = (
+    note: TemplateTargetNote,
+    templatePageId: string
+  ): void => {
+    const template = application.effectivePageState.getPage(templatePageId);
+
+    if (!template) {
+      return;
+    }
+
+    void applyTemplateToNote(
+      application.pageOperations,
+      note.id,
+      note.type,
+      note.existing,
+      template.markdown,
+      vault.getPage(templatePageId)?.metadata,
+      {
+        // Through the open editor, so the body and the metadata it brought undo and redo as one step.
+        applyBody: (markdown, step) => {
+          const editor = editorRef.current;
+
+          if (editor) {
+            editor.applyBodyWithMetadata(markdown, step);
+          } else {
+            return application.pageOperations.mutateBody(
+              note.id,
+              (current) => (current.trim() === '' ? markdown : current)
+            );
+          }
+        },
+      }
+    )
+      // Counted only now that the application succeeded; a failure goes to the toast below and is not a use.
+      .then(() => application.templateUsageStore.recordUse(templatePageId))
+      // No focus call: the content is in the editor either way, and where the user types next is theirs to choose.
+      .catch(() =>
+        onShowToast?.({ tone: 'error', text: 'Couldn’t apply the template' })
+      );
+  };
+
+
+  // A new Daily Note gets the default template (Settings → Daily notes → Default daily note template) applied by
+  // the same applyTemplateToNote a "Start with template" click uses. Only for an empty Daily Note, and only a
+  // template that is still offered — one archived, deleted or moved out of Templates is skipped, never swapped for
+  // another. Preferred templates are not consulted: they order suggestions, this one is applied.
+  const applyDefaultDailyNoteTemplate = (note: TemplateTargetNote): void => {
+    const templateId = application.preferredTemplatesStore.getDefaultDailyNoteTemplateId();
+
+    if (
+      templateId === undefined ||
+      !shouldSuggestTemplates({
+        type: note.type,
+        markdown: note.markdown,
+        isArchived: note.isArchived,
+        isInTemplatesFolder: application.membershipSelector.isInTemplatesFolder(note.folderId),
+      })
+    ) {
+      return;
+    }
+
+    const isOffered = toTemplateEntries(vault, application.membershipSelector, () => undefined).some(
+      (template) => template.id === templateId
+    );
+
+    if (note.type === 'daily-note' && isOffered) {
+      applyTemplateToOpenNote(note, templateId);
+    }
+  };
+
   // "Start with template" for the open note, while its body is empty: the same templates, in the same
   // order, as From template (rankTemplates), applied to THIS note (applyTemplateToNote) instead of making a new one.
-  const buildTemplateSuggestions = (note: {
-    readonly id: string;
-    readonly type: PageType;
-    readonly markdown: string;
-    readonly isArchived: boolean;
-    readonly folderId: string | null;
-    readonly existing: ExistingNoteMetadata;
-  }): ReactNode => {
+  const buildTemplateSuggestions = (note: TemplateTargetNote): ReactNode => {
     if (
       !shouldSuggestTemplates({
         type: note.type,
@@ -1481,52 +1597,20 @@ export function PageHost({
       return undefined;
     }
 
-    const templates = rankTemplates(
+    const ranked = rankTemplates(
       toTemplateEntries(vault, application.membershipSelector, () => undefined)
     );
-
-    const applyTemplate = (templatePageId: string): void => {
-      const template = application.effectivePageState.getPage(templatePageId);
-
-      if (!template) {
-        return;
-      }
-
-      void applyTemplateToNote(
-        application.pageOperations,
-        note.id,
-        note.type,
-        note.existing,
-        template.markdown,
-        vault.getPage(templatePageId)?.metadata,
-        {
-          // Through the open editor, so the body and the metadata it brought undo and redo as one step.
-          applyBody: (markdown, step) => {
-            const editor = editorRef.current;
-
-            if (editor) {
-              editor.applyBodyWithMetadata(markdown, step);
-            } else {
-              return application.pageOperations.mutateBody(
-                note.id,
-                (current) => (current.trim() === '' ? markdown : current)
-              );
-            }
-          },
-        }
-      )
-        // Counted only now that the application succeeded; a failure goes to the toast below and is not a use.
-        .then(() => application.templateUsageStore.recordUse(templatePageId))
-        // No focus call: the content is in the editor either way, and where the user types next is theirs to choose.
-        .catch(() =>
-          onShowToast?.({ tone: 'error', text: 'Couldn’t apply the template' })
-        );
-    };
+    // Preferred templates lead the suggestions, in their saved order — the Daily notes list for a Daily Note, the
+    // Notes list for every other note; the recent-use ranking orders whatever follows them.
+    const templates = putPreferredTemplatesFirst(
+      ranked,
+      note.type === 'daily-note' ? preferredTemplateIds : preferredNoteTemplateIds
+    );
 
     return (
       <CurrentNoteTemplateSuggestions
         templates={templates}
-        onApply={applyTemplate}
+        onApply={(templatePageId) => applyTemplateToOpenNote(note, templatePageId)}
         onCreateTemplate={() => {
           void createTemplate(
             application.folderOperations,
@@ -2798,6 +2882,20 @@ export function PageHost({
                 )}
               />
             </MarkdownBody>
+            {/* After the editor: effects run in tree order, and the body must go into an editor that has already been built. */}
+            <DefaultTemplateOnCreate
+              key={activePageId}
+              apply={() =>
+                applyDefaultDailyNoteTemplate({
+                  id: activePageId,
+                  type: draft.type,
+                  markdown: model.markdown,
+                  isArchived: false,
+                  folderId: draft.folderId,
+                  existing: { tags: draft.tags },
+                })
+              }
+            />
             <div className="markdown__bottom-spacer" aria-hidden="true" />
           </>
         }

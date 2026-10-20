@@ -270,6 +270,35 @@ export class MembershipSelector {
     return parent !== undefined && !this.isAssetsStorageFolder(parent) && this.isAssetsFolder(parent);
   }
 
+  /**
+   * Whether new notes may be created in `folderId` by default: an ordinary folder a user can navigate to and
+   * add notes to — it exists, is not archived (itself or through an ancestor) and is not hidden, and its
+   * top-level folder is a Workspace folder, so nothing inside Inbox, Templates, Daily Notes, Archive, Assets or
+   * `.clutter` qualifies. The same folders the sidebar's tree (getWorkspaceFolders / getVisibleChildFolders)
+   * lists, asked about one folder instead of walked.
+   */
+  public isNoteDestinationFolder(folderId: string): boolean {
+    if (this.isEffectivelyArchived(folderId)) {
+      return false;
+    }
+
+    let folder = this.vault.getFolder(folderId);
+
+    while (folder) {
+      if (!this.isVisibleFolder(folder)) {
+        return false;
+      }
+
+      if (folder.parentId === null) {
+        return this.isWorkspaceFolder(folder);
+      }
+
+      folder = this.vault.getFolder(folder.parentId);
+    }
+
+    return false;
+  }
+
   /** Every root folder that belongs to Workspace — see isWorkspaceFolder. */
   public getWorkspaceFolders(): Folder[] {
     return this.query.getRootFolders().filter((folder) => this.isWorkspaceFolder(folder));

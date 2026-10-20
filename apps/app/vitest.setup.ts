@@ -1,3 +1,5 @@
+import { setSystemLocaleOverride } from './src/shared/helpers/time/dateLocale';
+
 /**
  * Shared jsdom polyfills for every test file, registered once via
  * `vite.config.ts`'s `test.setupFiles` rather than duplicated per test
@@ -52,3 +54,10 @@ if (typeof Range !== 'undefined' && !Range.prototype.getClientRects) {
     return zeroRect();
   };
 }
+
+/**
+ * Date labels follow the system locale (`shared/helpers/time/dateLocale.ts`), which would otherwise be
+ * whatever the machine running the tests uses. Pinned for every test; a test that is about a locale passes
+ * its own (`{ locale }` to a formatter, or `setSystemLocaleOverride`).
+ */
+setSystemLocaleOverride('en-IN');

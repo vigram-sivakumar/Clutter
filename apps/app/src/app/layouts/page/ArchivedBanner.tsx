@@ -1,10 +1,11 @@
 import { Button } from '@components/button/Button';
-import { MONTH_LABELS } from '@shared/helpers/time/dateDisplay';
+import { formatAbsoluteDate } from '@shared/helpers/time/dateDisplay';
+import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 import { AppIcon } from '@shared/icon';
 import './ArchivedBanner.css';
 
 /**
- * `08 October 2026` for a recorded archive instant (`archivedAt`), in the local calendar day. Absent
+ * `8 October 2026` for a recorded archive instant (`archivedAt`), in the local calendar day. Absent
  * or unparseable → `undefined`: a date is never invented for something archived only by location.
  */
 export function formatArchivedDate(
@@ -19,7 +20,8 @@ export function formatArchivedDate(
     return undefined;
   }
 
-  return `${String(date.getDate()).padStart(2, '0')} ${MONTH_LABELS[date.getMonth()]} ${date.getFullYear()}`;
+  // The local calendar day of the recorded instant.
+  return formatAbsoluteDate(toISODate(date));
 }
 
 interface ArchivedBannerProps {

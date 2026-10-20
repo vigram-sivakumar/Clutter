@@ -5,7 +5,7 @@ import {
   getPageDisplayLabelStyle,
   toPageDisplayLabelInput,
 } from './getPageDisplayLabel';
-import { formatDailyNoteDateLabel } from './formatDailyNoteTitle';
+import { formatDailyNoteTitle } from './formatDailyNoteTitle';
 import type { Page } from '../vault/models/Page';
 
 const defaultMetadata: Page['metadata'] = {
@@ -119,7 +119,7 @@ describe('getPageDisplayLabel — Notes', () => {
 });
 
 describe('getPageDisplayLabel — Daily Notes (generic title surfaces)', () => {
-  const expectedTitle = formatDailyNoteDateLabel('2026-08-02');
+  const expectedTitle = formatDailyNoteTitle('2026-08-02');
 
   it('is always the canonical date title, even with no other content', () => {
     const page = makePage({ type: 'daily-note', name: '2026-08-02' });

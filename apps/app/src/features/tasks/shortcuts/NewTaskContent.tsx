@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { AppIcon } from '@shared/icon';
 import { Input } from '@components/input/Input';
 import { Button } from '@components/button/Button';
+import { RoundIconButton } from '@components/button/RoundIconButton';
 import { useOverlay } from '@components/overlay/hooks/useOverlay';
 import { TaskDatePicker } from '@features/tasks/sidebar/TaskDatePicker';
 import type { ISODate } from '@shared/helpers/time/types';
@@ -81,16 +82,7 @@ export function NewTaskContent({ onClose, onSubmit, editing }: NewTaskContentPro
     <div className="new-task">
       <div className="new-task__header">
         <span className="new-task__title">{isEditing ? 'Edit task' : 'New task'}</span>
-        <Button
-          size="small"
-          variant="ghost"
-          interaction="subtle"
-          isIconOnly
-          aria-label="Close"
-          onClick={onClose}
-        >
-          <AppIcon icon="dismiss" />
-        </Button>
+        <RoundIconButton icon="dismiss" aria-label="Close" onClick={onClose} />
       </div>
       <Input
         className="new-task__input"

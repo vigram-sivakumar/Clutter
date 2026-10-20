@@ -25,10 +25,10 @@ describe('wikiLinkRow', () => {
     expect(row).toMatchObject({ titleSuffix: 'Roadmap', emoji: '🗺' });
   });
 
-  it('lists a Daily Note under Daily notes by its short date, with no path', () => {
+  it('lists a Daily Note under Daily notes by its title, with no path', () => {
     const { row, section } = wikiLinkRow(page({ path: 'Daily Notes/2020/March/2020-03-05', title: '2020-03-05', breadcrumb: 'Daily Notes/2020/March', dailyNote: true }));
 
-    expect(row.title).toBe('5 Mar 2020');
+    expect(row.title).toBe('Thu, 5 March 2020');
     expect(row.path).toBeUndefined();
     expect(section?.name).toBe('Daily notes');
   });

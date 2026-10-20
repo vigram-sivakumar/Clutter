@@ -6,6 +6,6 @@ import { formatDate } from '@shared/helpers/time';
 export function getCalendarTitle(visibleDate: string) {
   return {
     month: formatDate(visibleDate, 'monthLong'),
-    year: formatDate(visibleDate, 'monthYear').split(' ')[1],
+    year: formatDate(visibleDate, 'year'),
   };
 }

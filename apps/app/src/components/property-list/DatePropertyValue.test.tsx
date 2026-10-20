@@ -88,7 +88,7 @@ describe('DatePropertyValue — read-only', () => {
     );
 
     expect(screen.queryByRole('textbox')).toBeNull();
-    fireEvent.click(screen.getByText('15 Sep 2025'));
+    fireEvent.click(screen.getByText('15 September 2025'));
     expect(isCalendarOpen()).toBe(false);
   });
 });
@@ -100,7 +100,7 @@ describe('DatePropertyValue — editable', () => {
     const field = getField();
     expect(field.tagName).toBe('INPUT');
     expect(field.value).toBe(formatDatePropertyValue('2025-09-15'));
-    expect(field.value).toBe('15 Sep 2025');
+    expect(field.value).toBe('15 September 2025');
     expect(isCalendarOpen()).toBe(false);
   });
 
@@ -146,7 +146,7 @@ describe('DatePropertyValue — editable', () => {
     fireEvent.click(getField());
     fireEvent.click(getDay(20));
 
-    expect(getField().value).toBe('20 Sep 2025');
+    expect(getField().value).toBe('20 September 2025');
   });
 
   it('does not reopen the calendar when focus returns to the input after selecting', () => {
@@ -397,7 +397,7 @@ describe('DatePropertyValue — typing', () => {
     type('1/1/2');
     fireEvent.blur(getField());
 
-    expect(getField().value).toBe('15 Sep 2025');
+    expect(getField().value).toBe('15 September 2025');
   });
 
   it('keeps input and calendar in sync across typing then picking', () => {
@@ -524,7 +524,7 @@ describe('DatePropertyValue — only valid dates commit', () => {
     type('31/9/2026');
     act(() => getField().blur());
 
-    expect(getField().value).toBe('15 Sep 2025');
+    expect(getField().value).toBe('15 September 2025');
     expect(onCommit).not.toHaveBeenCalled();
   });
 
@@ -538,7 +538,7 @@ describe('DatePropertyValue — only valid dates commit', () => {
     expect(selectedDay()).toBe('1');
 
     act(() => getField().blur());
-    expect(getField().value).toBe('15 Sep 2025');
+    expect(getField().value).toBe('15 September 2025');
   });
 });
 
@@ -589,7 +589,7 @@ describe('DatePropertyValue — Clear', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
     fireEvent.click(getDay(20));
 
-    expect(getField().value).toBe('20 Sep 2025');
+    expect(getField().value).toBe('20 September 2025');
   });
 
   it('shows the dismiss icon on the Clear button', () => {
@@ -657,7 +657,7 @@ describe('PropertyList date Property', () => {
       <PropertyList items={[{ name: 'Created', type: 'date', value: '2025-09-15', editable: false }]} />
     );
 
-    expect(screen.getByText('15 Sep 2025')).toBeTruthy();
+    expect(screen.getByText('15 September 2025')).toBeTruthy();
     expect(screen.queryByRole('textbox')).toBeNull();
   });
 
@@ -670,6 +670,6 @@ describe('PropertyList date Property', () => {
       />
     );
 
-    expect(getField().value).toBe('15 Sep 2025');
+    expect(getField().value).toBe('15 September 2025');
   });
 });

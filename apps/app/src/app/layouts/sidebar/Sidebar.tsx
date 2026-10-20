@@ -1,6 +1,7 @@
 import type { Application } from '@core/application/Application';
 import { useWorkspace } from '@app/hooks/useWorkspace';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useFolderItemLimit } from '@shared/helpers/folderItemLimitPreference';
 import { collectionViewKeyForSidebarLevel } from '@core/application/collection/collectionViewKey';
 import { displayedOrderIds } from '@features/notes/sidebar/sidebarSort';
 import { forgetInLevelOrder, levelOrderContextFor } from '@features/notes/sidebar/sidebarOrderActions';
@@ -31,9 +32,14 @@ import type { TaskOccurrence } from '@core/vault/models/occurrences';
 import { NewTagDialog } from '@features/tags/shortcuts/NewTagDialog';
 import { NewFolderDialog } from '@features/notes/shortcuts/NewFolderDialog';
 import { createAndOpenFolder } from '@features/notes/helpers/createAndOpenFolder';
-import { createNoteInInbox } from '@features/notes/helpers/createNote';
+import { createNote } from '@features/notes/helpers/createNote';
+import { buildNoteLocationFolders } from '@features/notes/helpers/buildNoteLocationFolders';
+import type { NoteLocationSource } from '@features/settings/default-note-location-setting/DefaultNoteLocationSetting';
 import { uploadAssets } from '@features/notes/helpers/uploadAssets';
 import { createTemplate } from '@features/notes/helpers/createTemplate';
+import type { PreferredTemplatesContext } from '@core/application/templates/PreferredTemplatesStore';
+import { sortTemplatesByRecentUse } from '@features/notes/helpers/templateSuggestions';
+import { toTemplateEntries } from '@features/collection/page/toCollectionPageModel';
 import { createTaskInDailyNote } from '@features/tasks/helpers/createTaskInDailyNote';
 import { testIds } from '@shared/testing/selectors';
 import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal';
@@ -72,6 +78,59 @@ export function Sidebar({
     effectivePageState,
     membershipSelector,
   } = application;
+
+  // The open Space's templates for the pickers in Settings: the same templates, in the same order, as From
+  // template and the note's template suggestions, plus the user's preferred-template list.
+  const settingsTemplates = useMemo(
+    () => ({
+      getTemplates: () =>
+        sortTemplatesByRecentUse(
+          toTemplateEntries(vault, membershipSelector, () => undefined),
+          (templateId) => application.templateUsageStore.lastUsedAt(templateId)
+        ),
+      onCreateTemplate: () =>
+        void createTemplate(folderOperations, pageOperations).catch(() => {}),
+      // A template is a note: the same open the sidebar's own rows use.
+      onOpenTemplate: (templateId: string) => void pageOperations.open(templateId),
+      preferred: {
+        getIds: (context: PreferredTemplatesContext) =>
+          application.preferredTemplatesStore.getIds(context),
+        add: (templateId: string, context: PreferredTemplatesContext) =>
+          application.preferredTemplatesStore.add(templateId, context),
+        remove: (templateId: string, context: PreferredTemplatesContext) =>
+          application.preferredTemplatesStore.remove(templateId, context),
+        subscribe: application.preferredTemplatesStore.subscribe,
+        getDefaultDailyNoteId: () => application.preferredTemplatesStore.getDefaultDailyNoteTemplateId(),
+        setDefaultDailyNote: (templateId: string | undefined) =>
+          application.preferredTemplatesStore.setDefaultDailyNoteTemplate(templateId),
+      },
+    }),
+    [application, vault, membershipSelector, folderOperations, pageOperations]
+  );
+  // The Default note location setting's folders: the same list a Move picker offers for a note (every folder
+  // the sidebar's tree can show, nested ones with their parents), without Inbox (the default, listed first by
+  // the setting itself) and without Templates (a note created there is a template, a different thing).
+  const settingsNoteLocation = useMemo<NoteLocationSource>(
+    () => ({
+      getFolders: () => buildNoteLocationFolders(membershipSelector),
+      // A read, never a write: it runs while the setting renders. A saved folder that is no longer a valid
+      // destination reads as Inbox here, and the Application puts the saved value back to Inbox on the vault change.
+      getSelectedId: () => {
+        const saved = application.spaceProfile?.defaultNoteFolderId;
+        return saved !== undefined && membershipSelector.isNoteDestinationFolder(saved) ? saved : undefined;
+      },
+      select: (folderId) => void application.spaceProfileStore.setDefaultNoteFolder(folderId),
+      subscribe: (listener) => {
+        const unsubscribeProfile = application.spaceProfileStore.subscribe(listener);
+        const unsubscribeVault = vault.subscribe(() => listener());
+        return () => {
+          unsubscribeProfile();
+          unsubscribeVault();
+        };
+      },
+    }),
+    [application, vault, membershipSelector]
+  );
   const workspace = useWorkspace(application.workspace);
   const spaces = useSpaces();
   const activeDailyNoteDate = getActiveDailyNoteDate(
@@ -98,6 +157,10 @@ export function Sidebar({
     [application]
   );
   const [expandedFolders, setExpandedFolders] = useState<readonly string[]>([]);
+  // A new Folder items limit applies to every folder alike: whichever ones had been opened with "N more" go back
+  // to the limit, so none is left showing everything (or part of it) under a limit that no longer says so.
+  const folderItemLimit = useFolderItemLimit();
+  useEffect(() => setExpandedFolders((prev) => (prev.length > 0 ? [] : prev)), [folderItemLimit]);
   const [expandedTaskGroups, setExpandedTaskGroups] = useState<readonly TaskGroupId[]>([]);
 
   // The creation dialogs are hosted here, not inside their panels, so the top controls' menu and
@@ -134,6 +197,7 @@ export function Sidebar({
           resourceOperations={resourceOperations}
           effectivePageState={effectivePageState}
           membershipSelector={membershipSelector}
+          getDefaultNoteFolderId={() => application.resolveDefaultNoteFolderId()}
           onOpen={(pageId) => pageOperations.open(pageId)}
           onOpenFolder={(folderId) => folderOperations.open(folderId)}
           onOpenDraft={(pageId) => pageOperations.open(pageId)}
@@ -262,7 +326,9 @@ export function Sidebar({
           state. Controls no longer renders the sidebar-toggle button
           itself — see SidebarToggle (app-layout/sidebar-toggle). */}
       <Controls
-        onNewNote={() => void createNoteInInbox(folderOperations, pageOperations).catch(() => {})}
+        onNewNote={() =>
+          void createNote(folderOperations, pageOperations, application.resolveDefaultNoteFolderId()).catch(() => {})
+        }
         onOpenDailyNote={() =>
           void pageOperations
             .openAtPath(DailyNotePath.absoluteFrom(vault.root, new Date()), {
@@ -309,6 +375,8 @@ export function Sidebar({
         onSpacesMenuOpen={spaces?.refreshAvailability}
         resolveImageUrl={spaces?.resolveAvatarImageUrl ?? ((src) => application.resolveCoverImageForDisplay(src))}
         onOpenArchive={() => navigation.openArchive()}
+        templates={settingsTemplates}
+        noteLocation={settingsNoteLocation}
       />
 
       <NewTaskDialog

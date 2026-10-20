@@ -42,7 +42,7 @@ describe('DailyNote — compact Markdown title rendering', () => {
     expect(titleEl.querySelector('strong')).toHaveTextContent('Ship');
     expect(titleEl.querySelector('.compact-markdown-wikilink')).toHaveTextContent('Project Alpha');
     expect(titleEl.querySelector('.compact-markdown-tag')).toHaveTextContent('#urgent');
-    expect(titleEl.querySelector('.compact-markdown-date')).toHaveTextContent('@15 January 2020');
+    expect(titleEl.querySelector('.compact-markdown-date')).toHaveTextContent('@15 Jan 2020');
     expect(titleEl).not.toHaveTextContent('**Ship**');
     expect(titleEl).not.toHaveTextContent('[[Project Alpha]]');
   });

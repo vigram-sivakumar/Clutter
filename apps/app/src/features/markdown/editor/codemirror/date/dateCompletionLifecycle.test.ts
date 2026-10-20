@@ -92,7 +92,7 @@ describe('Date autocomplete — real CM6 accept/reopen lifecycle', () => {
   it('2. @12 → accept → Space → no popup', async () => {
     const view = mount();
     await type(view, '@12');
-    expect(labels(view)).toEqual(['Today 12:00 PM']);
+    expect(labels(view)).toEqual(['Today 12:00 pm']);
 
     await settle();
     accept(view);
@@ -110,7 +110,7 @@ describe('Date autocomplete — real CM6 accept/reopen lifecycle', () => {
     await type(view, '@12');
     await type(view, ' ');
     await type(view, 'mar');
-    expect(labels(view)).toEqual(['March 12, 2027']);
+    expect(labels(view)).toEqual(['12 March 2027']);
 
     await settle();
     accept(view);
@@ -128,7 +128,7 @@ describe('Date autocomplete — real CM6 accept/reopen lifecycle', () => {
     await type(view, '@2027');
     await type(view, ' ');
     await type(view, 'jan');
-    expect(labels(view)).toEqual(['January 1, 2027']);
+    expect(labels(view)).toEqual(['1 January 2027']);
 
     await settle();
     accept(view);
@@ -148,7 +148,7 @@ describe('Date autocomplete — real CM6 accept/reopen lifecycle', () => {
     await type(view, 'jan');
     await type(view, ' ');
     await type(view, '12');
-    expect(labels(view)).toEqual(['January 12, 2027']);
+    expect(labels(view)).toEqual(['12 January 2027']);
 
     await settle();
     accept(view);
@@ -183,7 +183,7 @@ describe('Date autocomplete — real CM6 accept/reopen lifecycle', () => {
     await type(view, ' ');
 
     expect(completionStatus(view.state)).toBe('active');
-    expect(labels(view)).toEqual(['Today 12:00 PM']);
+    expect(labels(view)).toEqual(['Today 12:00 pm']);
 
     view.destroy();
   });
@@ -197,7 +197,7 @@ describe('Date autocomplete — real CM6 accept/reopen lifecycle', () => {
     await type(view, 'mar');
 
     expect(completionStatus(view.state)).toBe('active');
-    expect(labels(view)).toEqual(['March 12, 2027']);
+    expect(labels(view)).toEqual(['12 March 2027']);
 
     await settle();
     accept(view);

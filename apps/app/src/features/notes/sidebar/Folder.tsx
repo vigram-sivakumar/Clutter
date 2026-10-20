@@ -138,9 +138,7 @@ export function Folder({
           <>
             {onAddClick && (
               <Button
-                size="small"
-                variant="ghost"
-                interaction="subtle"
+                size="xs"
                 isIconOnly
                 onClick={onAddClick}
               >
@@ -149,6 +147,7 @@ export function Folder({
             )}
             {menuItems && menuItems.length > 0 && (
               <OverflowMenu
+                buttonSize="xs"
                 items={menuItems ?? []}
                 triggerRef={moveTrigger.triggerRef}
                 open={menuOpen}

@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
 
 import { Button } from '@components/button/Button';
+import { RoundIconButton } from '@components/button/RoundIconButton';
 import { Dialog } from '@components/dialog/Dialog';
 import { SettingsEntry } from '@features/settings/settings-entry/SettingsEntry';
-import { AppIcon } from '@shared/icon';
 import '@components/confirmation/Confirmation.css';
 import '@components/space-details/SpaceDetails.css';
 import './MissingSpaceDialog.css';
@@ -46,16 +46,7 @@ export function MissingSpaceDialog({
       <div className="confirmation missing-space">
         <div className="missing-space__title">
           <div className="confirmation__header">Space not found</div>
-          <Button
-            // className="confirmation__dismiss"
-            variant="ghost"
-            size="small"
-            isIconOnly
-            aria-label="Close"
-            onClick={onClose}
-          >
-            <AppIcon icon="dismiss" />
-          </Button>
+          <RoundIconButton icon="dismiss" aria-label="Close" onClick={onClose} />
         </div>
 
         <div className="missing-space__content">

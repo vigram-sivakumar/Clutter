@@ -134,8 +134,9 @@ function buildFolder(id: string, path: string, status: 'active' | 'archived', fa
   };
 }
 
-const ARCHIVED_AT = new Date(2026, 9, 8, 14, 30).toISOString();
-const BANNER_TEXT = 'This has been archived on 08 October 2026';
+// A past year, so the banner always shows it (a date in the current year leaves the year off).
+const ARCHIVED_AT = new Date(2020, 9, 8, 14, 30).toISOString();
+const BANNER_TEXT = 'This has been archived on 8 October 2020';
 const banner = () => document.querySelector<HTMLElement>('.page__content .archived-banner');
 const restoreButton = () =>
   Array.from(banner()?.querySelectorAll('button') ?? []).find((button) => button.textContent === 'Restore');

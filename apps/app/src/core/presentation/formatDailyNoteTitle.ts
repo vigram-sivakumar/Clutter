@@ -1,37 +1,20 @@
-import { formatDate, formatDateDisplay } from '@shared/helpers/time';
+import { formatDateDisplay } from '@shared/helpers/time';
 import { isValidCalendarDate } from '@shared/helpers/time/helpers/isValidCalendarDate';
 
 /**
- * A real Daily Note's name is always its canonical `YYYY-MM-DD` (enforced
- * at classification time — DailyNotePath's convention). The
- * `isValidCalendarDate` guard exists only so a malformed/synthetic name
- * degrades to showing the raw string instead of formatting garbage —
- * mirrors `DateWidget`'s own guard before calling `formatDateDisplay`.
+ * A Daily Note's title — the one way every surface writes it: the page header, lists, the Trash, breadcrumbs,
+ * pickers, references, autocomplete rows. It is the shared `'heading'` date (`Today, 20 October`,
+ * `Sat, 22 October`, `Fri, 5 March 2027`), so it follows the user's Date format preference, the system locale
+ * and the year rule exactly as every other date does.
  *
- * The Daily Note's own page title: the day, then the full date
- * (`Today, 4 October 2026`).
+ * Whether a page IS a Daily Note is the domain model's call (`page.type === 'daily-note'`, which a page gets
+ * from living at its Daily Notes path), and its calendar date is its canonical `YYYY-MM-DD` name; callers
+ * check the first and pass the second. An ordinary note whose title merely looks like a date is never given
+ * to this, so it keeps its own title. The `isValidCalendarDate` guard only lets a malformed or synthetic name
+ * degrade to the raw string instead of formatting garbage.
+ *
+ * Display only: the name stays the note's identity (path, link target, search).
  */
 export function formatDailyNoteTitle(name: string): string {
-  return isValidCalendarDate(name) ? formatDateDisplay(name, 'full') : name;
-}
-
-/**
- * A Daily Note's date without the relative-day prefix ("Today,", "Yesterday,", a weekday) —
- * `6 October 2026`. That prefix belongs to the Daily Note page's own title
- * (`formatDailyNoteTitle`); every other generic surface that names a Daily Note (lists, the Trash,
- * breadcrumbs) shows just the date. Same shared `formatDate` the rest of the app uses, same
- * malformed-name guard.
- */
-export function formatDailyNoteDateLabel(name: string): string {
-  return isValidCalendarDate(name) ? formatDate(name, 'longDate') : name;
-}
-
-/**
- * A Daily Note's title as one row of a list (the note picker), where room is short: it reads the
- * way dates do elsewhere in the app (`'condensed'`) — Today / Yesterday / Tomorrow, a weekday name
- * within the current week, otherwise a short month and day (`2 Oct`), with the year only when it
- * isn't the current one (`31 Dec 2025`). Not used for the page itself, which keeps the full title.
- */
-export function formatDailyNotePickerTitle(name: string): string {
-  return isValidCalendarDate(name) ? formatDateDisplay(name, 'condensed') : name;
+  return isValidCalendarDate(name) ? formatDateDisplay(name, 'heading') : name;
 }

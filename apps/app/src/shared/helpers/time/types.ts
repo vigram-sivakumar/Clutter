@@ -7,12 +7,10 @@
 export type ISODate = string;
 
 /**
- * Supported date formats.
+ * The structural calendar pieces `formatDate` can produce (in the system locale). Displaying a date is `formatDateDisplay`'s job.
  */
 export type DateFormat =
   | 'date' // 12
-  | 'monthShort' // Jan
   | 'monthLong' // January
   | 'monthYear' // Jan 2027
-  | 'longDate' // 12 January 2027
-  | 'weekday'; // Monday, 12 January 2027
+  | 'year'; // 2027

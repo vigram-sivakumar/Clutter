@@ -1,5 +1,5 @@
 import { syntaxTree } from '@codemirror/language';
-import type { Extension, Range } from '@codemirror/state';
+import { StateEffect, type Extension, type Range } from '@codemirror/state';
 import {
   Decoration,
   type DecorationSet,
@@ -58,6 +58,13 @@ const HEADING_CLASS_BY_NODE_NAME: ReadonlyMap<string, string> = new Map([
   ['SetextHeading1', 'tok-heading1'],
   ['SetextHeading2', 'tok-heading2'],
 ]);
+
+/**
+ * Rebuilds the inline decorations without any edit, for a presentation that depends on something outside the
+ * document — an `@date`'s label follows the Date format preference and the system locale, which can change
+ * while the note is open. Dispatched alone, it changes neither the text, the selection nor the undo history.
+ */
+export const refreshInlinePresentation = StateEffect.define<null>();
 
 /**
  * The single authoritative mechanism for resolving inline Live Preview
@@ -242,7 +249,12 @@ export function inlineLivePreviewRegion(
       }
 
       update(update: ViewUpdate) {
-        if (update.docChanged || update.viewportChanged || update.selectionSet) {
+        if (
+          update.docChanged ||
+          update.viewportChanged ||
+          update.selectionSet ||
+          update.transactions.some((tr) => tr.effects.some((effect) => effect.is(refreshInlinePresentation)))
+        ) {
           ({ decorations: this.decorations, atomic: this.atomic } = buildDecorations(update.view, participants));
         }
       }

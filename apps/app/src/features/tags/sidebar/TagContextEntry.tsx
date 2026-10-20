@@ -65,6 +65,7 @@ export function TagContextEntry({
       actions={
         lineMenu && (
           <OverflowMenu
+            buttonSize="xs"
             items={lineMenu.menu}
             open={menuOpen}
             onOpenChange={setMenuOpen}

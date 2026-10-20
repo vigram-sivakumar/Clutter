@@ -81,7 +81,7 @@ describe('TasksCollectionBody', () => {
     ).not.toBeNull();
     expect(
       container.querySelector('.collection-entry__trailing')
-    ).toHaveTextContent('20 Aug 2026');
+    ).toHaveTextContent('20 August');
     expect(container.querySelector('.pill')).toBeNull();
     expect(queryByRole('button', { name: 'Add due date' })).toBeNull();
     expect(queryByRole('button', { name: /more actions/i })).toBeNull();
@@ -165,13 +165,13 @@ describe('TasksCollectionBody', () => {
       />
     );
 
-    fireEvent.click(getByRole('button', { name: '20 Aug 2026' }));
+    fireEvent.click(getByRole('button', { name: '20 August' }));
     expect(onOpenTask).not.toHaveBeenCalled();
 
     fireEvent.click(getByText('Clear date'));
     expect(onChangeDueDate).toHaveBeenLastCalledWith(target, null);
 
-    fireEvent.click(getByRole('button', { name: '20 Aug 2026' }));
+    fireEvent.click(getByRole('button', { name: '20 August' }));
     fireEvent.click(getByText('15'));
     expect(onChangeDueDate).toHaveBeenCalledTimes(2);
     expect(onChangeDueDate.mock.calls[1]![0]).toBe(target);
@@ -197,7 +197,7 @@ describe('TasksCollectionBody', () => {
       'collection-entry-properties--action',
       'task-row__due'
     );
-    expect(trailing.firstElementChild).toHaveTextContent('20 Aug 2026');
+    expect(trailing.firstElementChild).toHaveTextContent('20 August');
     expect(trailing.lastElementChild).toHaveClass(
       'collection-entry-properties--wiki'
     );
@@ -281,7 +281,7 @@ describe('TasksCollectionBody', () => {
       // The same controls as the List's trailing slot: the due-date button, and the source as the wiki link.
       expect(
         row!.querySelector('.collection-table-row__dueDate .task-row__due')
-      ).toHaveTextContent('20 Aug 2026');
+      ).toHaveTextContent('20 August');
       const link = row!.querySelector(
         '.collection-table-row__source .collection-entry-properties--wiki'
       );

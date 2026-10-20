@@ -43,10 +43,10 @@ describe('embedPageRow', () => {
     expect(section?.name).toBe('Notes');
   });
 
-  it('shows a Daily Note by its short date, with no path, in the Daily notes section', () => {
-    const { row, section } = embedPageRow({ kind: 'page', path: '2026-08-24', title: '2026-08-24', breadcrumb: null, dailyNote: true });
+  it('shows a Daily Note by its title, with no path, in the Daily notes section', () => {
+    const { row, section } = embedPageRow({ kind: 'page', path: '2020-08-24', title: '2020-08-24', breadcrumb: null, dailyNote: true });
 
-    expect(row.title).toBe('24 Aug');
+    expect(row.title).toBe('Mon, 24 August 2020');
     expect(row.path).toBeUndefined();
     expect(section?.name).toBe('Daily notes');
   });

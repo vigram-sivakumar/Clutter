@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 import { Button } from '../button/Button';
-import { AppIcon } from '@shared/icon';
+import { RoundIconButton } from '../button/RoundIconButton';
 
 import './Confirmation.css';
 
@@ -52,18 +52,18 @@ export function Confirmation({
   }, [hasAlternate]);
 
   return (
-    <div className="confirmation">
+    <div
+      className={['confirmation', hasAlternate && 'confirmation--has-dismiss']
+        .filter(Boolean)
+        .join(' ')}
+    >
       {hasAlternate && (
-        <Button
+        <RoundIconButton
           className="confirmation__dismiss"
-          variant="ghost"
-          size="small"
-          isIconOnly
+          icon="dismiss"
           aria-label="Close"
           onClick={onCancel}
-        >
-          <AppIcon icon="dismiss" />
-        </Button>
+        />
       )}
       <div className="confirmation__content">
         <div className="confirmation__header">{title}</div>

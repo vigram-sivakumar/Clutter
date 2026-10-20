@@ -335,7 +335,14 @@ export class PageOperations {
      * to overwrite a note that changed on disk after the Vault last read it (TagOperations does the
      * same with its own filesystem). Optional like `duplicator`: without it that check is skipped.
      */
-    private readonly readFile?: (path: string) => Promise<string>
+    private readonly readFile?: (path: string) => Promise<string>,
+    /**
+     * Told after a page was permanently deleted (never for archive, move or any other reversible
+     * operation), so whoever keeps a per-page preference can drop it. Supplied by the Composition Root and
+     * decides nothing here, the same shape as `openFallbackPage` (ADR-025). Optional: callers without any
+     * such state need not supply it.
+     */
+    private readonly onPagesPermanentlyDeleted: (pageIds: readonly string[]) => void = () => {}
   ) {
     // The one rule for an empty draft's end of life, independent of HOW the user left it: whatever
     // changes the active view (a page, a folder, any filtered view, a history step, a direct
@@ -2963,6 +2970,9 @@ export class PageOperations {
     this.disposeDescriptionState(pageId);
 
     await this.coordinator.enqueue(pageId, { kind: 'delete' });
+
+    // Only after the Gate delete succeeded: a delete that threw leaves the page, and so its preferences.
+    this.onPagesPermanentlyDeleted([pageId]);
 
     this.workspace.closePage(pageId);
 

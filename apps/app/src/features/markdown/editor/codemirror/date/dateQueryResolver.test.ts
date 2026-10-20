@@ -7,34 +7,34 @@ const REFERENCE = new Date(2026, 7, 20);
 
 describe('resolveDateQuery', () => {
   describe('time', () => {
-    it('@1 → Today 1:00 AM (bare hour with no suffix defaults to AM, except 12)', () => {
+    it('@1 → Today 1:00 am (bare hour with no suffix defaults to AM, except 12)', () => {
       const result = resolveDateQuery('1', REFERENCE);
-      expect(result).toEqual({ isoDate: '2026-08-20', label: 'Today 1:00 AM' });
+      expect(result).toEqual({ isoDate: '2026-08-20', label: 'Today 1:00 am' });
     });
 
-    it('@12 → Today 12:00 PM (bare 12 defaults to noon/PM)', () => {
+    it('@12 → Today 12:00 pm (bare 12 defaults to noon/PM)', () => {
       const result = resolveDateQuery('12', REFERENCE);
-      expect(result).toEqual({ isoDate: '2026-08-20', label: 'Today 12:00 PM' });
+      expect(result).toEqual({ isoDate: '2026-08-20', label: 'Today 12:00 pm' });
     });
 
-    it('@1p → Today 1:00 PM (explicit suffix overrides the default)', () => {
-      expect(resolveDateQuery('1p', REFERENCE)).toEqual({ isoDate: '2026-08-20', label: 'Today 1:00 PM' });
+    it('@1p → Today 1:00 pm (explicit suffix overrides the default)', () => {
+      expect(resolveDateQuery('1p', REFERENCE)).toEqual({ isoDate: '2026-08-20', label: 'Today 1:00 pm' });
     });
 
-    it('@12p → Today 12:00 PM', () => {
-      expect(resolveDateQuery('12p', REFERENCE)).toEqual({ isoDate: '2026-08-20', label: 'Today 12:00 PM' });
+    it('@12p → Today 12:00 pm', () => {
+      expect(resolveDateQuery('12p', REFERENCE)).toEqual({ isoDate: '2026-08-20', label: 'Today 12:00 pm' });
     });
 
-    it('@1:30 → Today 1:30 AM', () => {
-      expect(resolveDateQuery('1:30', REFERENCE)).toEqual({ isoDate: '2026-08-20', label: 'Today 1:30 AM' });
+    it('@1:30 → Today 1:30 am', () => {
+      expect(resolveDateQuery('1:30', REFERENCE)).toEqual({ isoDate: '2026-08-20', label: 'Today 1:30 am' });
     });
 
-    it('@1:30p → Today 1:30 PM', () => {
-      expect(resolveDateQuery('1:30p', REFERENCE)).toEqual({ isoDate: '2026-08-20', label: 'Today 1:30 PM' });
+    it('@1:30p → Today 1:30 pm', () => {
+      expect(resolveDateQuery('1:30p', REFERENCE)).toEqual({ isoDate: '2026-08-20', label: 'Today 1:30 pm' });
     });
 
-    it('@12a → Today 12:00 AM (explicit "a" beats the bare-12-defaults-PM rule)', () => {
-      expect(resolveDateQuery('12a', REFERENCE)).toEqual({ isoDate: '2026-08-20', label: 'Today 12:00 AM' });
+    it('@12a → Today 12:00 am (explicit "a" beats the bare-12-defaults-PM rule)', () => {
+      expect(resolveDateQuery('12a', REFERENCE)).toEqual({ isoDate: '2026-08-20', label: 'Today 12:00 am' });
     });
 
     it('a bare number outside 1–12 (e.g. @23) is not a valid time and offers nothing', () => {
@@ -52,15 +52,15 @@ describe('resolveDateQuery', () => {
 
   describe('month alone', () => {
     it('@mar → next March on today\'s day-of-month, jumping to next year since March 20 2026 has already passed', () => {
-      expect(resolveDateQuery('mar', REFERENCE)).toEqual({ isoDate: '2027-03-20', label: 'March 20, 2027' });
+      expect(resolveDateQuery('mar', REFERENCE)).toEqual({ isoDate: '2027-03-20', label: '20 March 2027' });
     });
 
     it('@march → same result as the abbreviation', () => {
-      expect(resolveDateQuery('march', REFERENCE)).toEqual({ isoDate: '2027-03-20', label: 'March 20, 2027' });
+      expect(resolveDateQuery('march', REFERENCE)).toEqual({ isoDate: '2027-03-20', label: '20 March 2027' });
     });
 
     it('@sep → next September on today\'s day-of-month, still this year (Sept 20 2026 is in the future)', () => {
-      expect(resolveDateQuery('sep', REFERENCE)).toEqual({ isoDate: '2026-09-20', label: 'September 20, 2026' });
+      expect(resolveDateQuery('sep', REFERENCE)).toEqual({ isoDate: '2026-09-20', label: '20 September' });
     });
 
     it('@m → no result — ambiguous between March and May, and too short regardless', () => {
@@ -77,25 +77,25 @@ describe('resolveDateQuery', () => {
 
     it('if the exact date is today, resolves to today rather than jumping a year', () => {
       // Reference date IS August 20 — @aug should resolve to today, not next year.
-      expect(resolveDateQuery('aug', REFERENCE)).toEqual({ isoDate: '2026-08-20', label: 'August 20, 2026' });
+      expect(resolveDateQuery('aug', REFERENCE)).toEqual({ isoDate: '2026-08-20', label: '20 August' });
     });
   });
 
   describe('day + month', () => {
     it('@12 mar → March 12, next applicable year (March 12 2026 already passed)', () => {
-      expect(resolveDateQuery('12 mar', REFERENCE)).toEqual({ isoDate: '2027-03-12', label: 'March 12, 2027' });
+      expect(resolveDateQuery('12 mar', REFERENCE)).toEqual({ isoDate: '2027-03-12', label: '12 March 2027' });
     });
 
     it('@mar 12 → same result regardless of token order', () => {
-      expect(resolveDateQuery('mar 12', REFERENCE)).toEqual({ isoDate: '2027-03-12', label: 'March 12, 2027' });
+      expect(resolveDateQuery('mar 12', REFERENCE)).toEqual({ isoDate: '2027-03-12', label: '12 March 2027' });
     });
 
     it('@12 may → May 12, next applicable year', () => {
-      expect(resolveDateQuery('12 may', REFERENCE)).toEqual({ isoDate: '2027-05-12', label: 'May 12, 2027' });
+      expect(resolveDateQuery('12 may', REFERENCE)).toEqual({ isoDate: '2027-05-12', label: '12 May 2027' });
     });
 
     it('day/month combination still in the future this year resolves within this year', () => {
-      expect(resolveDateQuery('25 dec', REFERENCE)).toEqual({ isoDate: '2026-12-25', label: 'December 25, 2026' });
+      expect(resolveDateQuery('25 dec', REFERENCE)).toEqual({ isoDate: '2026-12-25', label: '25 December' });
     });
 
     it('an invalid calendar date (31 Feb) never rolls over — no result', () => {
@@ -112,18 +112,18 @@ describe('resolveDateQuery', () => {
       expect(resolveDateQuery('2027', REFERENCE)).toBeNull();
     });
 
-    it('@2027 j → January 1, 2027 (lenient single-letter match, first calendar-order month wins)', () => {
-      expect(resolveDateQuery('2027 j', REFERENCE)).toEqual({ isoDate: '2027-01-01', label: 'January 1, 2027' });
+    it('@2027 j → 1 January 2027 (lenient single-letter match, first calendar-order month wins)', () => {
+      expect(resolveDateQuery('2027 j', REFERENCE)).toEqual({ isoDate: '2027-01-01', label: '1 January 2027' });
     });
 
-    it('@2027 jan → January 1, 2027', () => {
-      expect(resolveDateQuery('2027 jan', REFERENCE)).toEqual({ isoDate: '2027-01-01', label: 'January 1, 2027' });
+    it('@2027 jan → 1 January 2027', () => {
+      expect(resolveDateQuery('2027 jan', REFERENCE)).toEqual({ isoDate: '2027-01-01', label: '1 January 2027' });
     });
 
-    it('@2027 jan 12 → January 12, 2027', () => {
+    it('@2027 jan 12 → 12 January 2027', () => {
       expect(resolveDateQuery('2027 jan 12', REFERENCE)).toEqual({
         isoDate: '2027-01-12',
-        label: 'January 12, 2027',
+        label: '12 January 2027',
       });
     });
 
@@ -145,7 +145,7 @@ describe('resolveDateQuery', () => {
       expect(resolveDateQuery('2027-', REFERENCE)).toBeNull();
     });
 
-    it('@2027-08-20 → August 20, 2027, echoed back verbatim as its own label', () => {
+    it('@2027-08-20 → 20 August 2027, echoed back verbatim as its own label', () => {
       expect(resolveDateQuery('2027-08-20', REFERENCE)).toEqual({ isoDate: '2027-08-20', label: '2027-08-20' });
     });
 

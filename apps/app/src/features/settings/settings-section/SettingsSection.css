@@ -1,0 +1,17 @@
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  /* Title to the first card: the same gap a group puts under its own title. */
+  gap: var(--space-6);
+}
+.settings-section__groups {
+  display: flex;
+  flex-direction: column;
+  /* Card to card. */
+  gap: var(--space-12);
+}
+/* A group is `flex: 1` so it fills a row of the page; inside the section it is only as tall as its content. */
+.settings-section__groups > .settings-group {
+  flex: none;
+}

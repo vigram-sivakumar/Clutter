@@ -32,8 +32,9 @@ import { TasksViewConfigStore } from './task/TasksViewConfigStore';
 import { TagExpansionStore } from './tags/TagExpansionStore';
 import { ReferencesDisplayStore } from './references/ReferencesDisplayStore';
 import { TemplateUsageStore } from './templates/TemplateUsageStore';
+import { PreferredTemplatesStore } from './templates/PreferredTemplatesStore';
 import { DailyNotesSidebarState } from './daily-notes/DailyNotesSidebarState';
-import { WorkspaceSessionStore } from './workspace/WorkspaceSessionStore';
+import { WorkspaceSessionStore, type SidebarTab } from './workspace/WorkspaceSessionStore';
 import { SpaceProfileStore, type SpaceProfile } from './space/SpaceProfileStore';
 import { TagMetadataStore } from '../vault/persistence/TagMetadataStore';
 import { FolderPathResolver } from '../vault/persistence/FolderPathResolver';
@@ -82,6 +83,13 @@ export interface SpaceProfileChange {
     | { readonly type: 'image'; readonly sourcePath: string }
     | null;
 }
+
+/**
+ * What `Application.open()` shows at boot (the ADR-019/025/035 startup seam): the last session's active view
+ * when it is still valid, or always today's Daily Note. Either way an invalid saved view falls back to today's
+ * Daily Note.
+ */
+export type StartupBehavior = 'last-opened-note' | 'todays-note';
 
 /**
  * Composition root for the application layer.
@@ -165,6 +173,8 @@ export class Application {
    * Not Gate-backed: application metadata, not document content (see `TemplateUsageStore`).
    */
   public readonly templateUsageStore: TemplateUsageStore;
+  /** The templates the user chose as preferred (per Space, `.clutter/workspace.json`); same non-Gate posture. */
+  public readonly preferredTemplatesStore: PreferredTemplatesStore;
   /**
    * Per-note References visibility/expansion (ADR-052), through the `referencesDisplay` top-level key of the
    * same `.clutter/workspace.json` — loaded once in `bootstrap()` below. Not Gate-backed and not owned by
@@ -344,6 +354,9 @@ export class Application {
 
     const templateUsageStore = await TemplateUsageStore.load(fileSystem, rootPath);
 
+    // Same tolerant read-once shape: malformed content is discarded inside load(), never thrown.
+    const preferredTemplatesStore = await PreferredTemplatesStore.load(fileSystem, rootPath);
+
     // ADR-052: same tolerant read-once shape — malformed content is discarded inside load(), never thrown.
     const referencesDisplayStore = await ReferencesDisplayStore.load(fileSystem, rootPath);
 
@@ -439,7 +452,8 @@ export class Application {
       templateUsageStore,
       referencesDisplayStore,
       parsedNoteCache,
-      spaceProfileStore
+      spaceProfileStore,
+      preferredTemplatesStore
     );
 
     application.rootPath = rootPath;
@@ -509,7 +523,9 @@ export class Application {
     // Same default reasoning: tests that construct Application directly never use a parse cache.
     parsedNoteCache: ParsedNoteCache = ParsedNoteCache.disabled(),
     // Same default reasoning: tests that construct Application directly never touch the Space profile.
-    spaceProfileStore: SpaceProfileStore = SpaceProfileStore.empty(fileSystem, '')
+    spaceProfileStore: SpaceProfileStore = SpaceProfileStore.empty(fileSystem, ''),
+    // Same default reasoning: tests that construct Application directly never use preferred templates.
+    preferredTemplatesStore: PreferredTemplatesStore = PreferredTemplatesStore.empty(fileSystem, '')
   ) {
     this.vault = vault;
     // Constructed once, here, per ARCHITECTURE_RULES.md rule 6 — UI reads
@@ -526,6 +542,7 @@ export class Application {
     this.workspaceSessionStore = workspaceSessionStore;
     this.tagMetadataStore = tagMetadataStore;
     this.templateUsageStore = templateUsageStore;
+    this.preferredTemplatesStore = preferredTemplatesStore;
     this.referencesDisplayStore = referencesDisplayStore;
     this.parsedNoteCache = parsedNoteCache;
     this.spaceProfileStore = spaceProfileStore;
@@ -611,7 +628,10 @@ export class Application {
       () => {
         void this.openFallbackPage();
       },
-      (pageIds) => this.pageOperations.flushPagesBeforeArchive(pageIds)
+      (pageIds) => this.pageOperations.flushPagesBeforeArchive(pageIds),
+      // A permanently deleted template's preference goes with it; the closure decides nothing, the store
+      // ignores pages that were never preferred.
+      (pageIds) => this.preferredTemplatesStore.removeAll(pageIds)
     );
     this.pageOperations = new PageOperations(
       vault,
@@ -633,7 +653,9 @@ export class Application {
       },
       duplicator,
       normalizeMarkdownForSave,
-      (path) => this.fileSystem.readFile(path)
+      (path) => this.fileSystem.readFile(path),
+      // Same hook as FolderOperations' above, for a single page.
+      (pageIds) => this.preferredTemplatesStore.removeAll(pageIds)
     );
     this.navigation = new NavigationRouter(
       this.folderOperations,
@@ -748,6 +770,9 @@ export class Application {
     // draft concept (spec §7), so activeFolderId is checked against Vault
     // alone.
     this.workspaceVaultReconciliationUnsubscribe = vault.subscribe(() => {
+      // A default note folder that was deleted, archived or moved somewhere invalid goes back to Inbox.
+      this.resolveDefaultNoteFolderId();
+
       for (;;) {
         const { activePageId, activeFolderId } = this.workspace;
 
@@ -788,11 +813,15 @@ export class Application {
    * the fallback navigation can overwrite the saved session before it was
    * restored.
    */
-  public async open(): Promise<void> {
+  public async open(options: { startup?: StartupBehavior; sidebarTab?: SidebarTab } = {}): Promise<void> {
     await registerVaultAssetScope(this.rootPath);
     await this.fileSystemWatcher.start(this.rootPath);
 
-    await this.restoreLastSessionOrFallback();
+    // The user's configured default tab wins over the tab saved with the last session (seeded in
+    // bootstrap()). Set before persistence attaches, so the saved session then records it like any change.
+    if (options.sidebarTab) this.workspace.setActiveSidebarTab(options.sidebarTab);
+
+    await this.restoreLastSessionOrFallback(options.startup ?? 'last-opened-note');
 
     this.workspaceSessionStore.attach({
       workspace: this.workspace,
@@ -808,9 +837,13 @@ export class Application {
    * one is logged and boot continues, the same outcome the previous
    * fire-and-forget `void this.openFallbackPage()` had.
    */
-  private async restoreLastSessionOrFallback(): Promise<void> {
+  private async restoreLastSessionOrFallback(startup: StartupBehavior): Promise<void> {
     try {
-      const savedView = this.workspaceSessionStore.restoredSession.activeView;
+      // 'todays-note' skips the restore branch: the saved view is simply not consulted, so the fallback
+      // (today's Daily Note) is the startup page. The saved session itself is untouched and keeps being
+      // persisted from here on.
+      const savedView =
+        startup === 'last-opened-note' ? this.workspaceSessionStore.restoredSession.activeView : null;
       const restored = savedView ? await this.navigation.restore(savedView) : false;
 
       if (!restored) {
@@ -902,6 +935,26 @@ export class Application {
    */
   public get spaceProfile(): SpaceProfile | null {
     return this.spaceProfileStore.profile;
+  }
+
+  /**
+   * The folder new notes are created in by default, or `undefined` for Inbox. The saved folder is only honoured
+   * while it is still a valid destination (it exists, isn't archived or hidden, isn't a reserved folder); if it
+   * isn't, the setting is put back to Inbox here, so a deleted or archived folder never lingers as the choice.
+   */
+  public resolveDefaultNoteFolderId(): string | undefined {
+    const saved = this.spaceProfileStore.profile?.defaultNoteFolderId;
+
+    if (saved === undefined) {
+      return undefined;
+    }
+
+    if (this.membershipSelector.isNoteDestinationFolder(saved)) {
+      return saved;
+    }
+
+    void this.spaceProfileStore.setDefaultNoteFolder(undefined);
+    return undefined;
   }
 
   /**

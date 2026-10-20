@@ -13,7 +13,7 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
     | 'primary'
     | 'danger'
     | 'outline-danger';
-  size?: 'large' | 'medium' | 'small';
+  size?: 'large' | 'medium' | 'small' | 'xs';
   interaction?: 'default' | 'subtle';
 
   isActive?: boolean;

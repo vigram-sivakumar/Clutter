@@ -59,4 +59,52 @@ describe('getWeek', () => {
     expect(week.some((day) => day.isSelected)).toBe(false);
     expect(week.some((day) => day.isToday)).toBe(true);
   });
+
+  describe('week start', () => {
+    it('defaults to Sunday-first', () => {
+      expect(getWeek('2026-07-15', undefined)).toEqual(
+        getWeek('2026-07-15', undefined, 'sunday')
+      );
+    });
+
+    it('Monday-first: the week containing a Wednesday runs Monday to Sunday', () => {
+      const week = getWeek('2026-07-15', '2026-07-15', 'monday');
+      expect(week.map((day) => day.fullDate)).toEqual([
+        '2026-07-13',
+        '2026-07-14',
+        '2026-07-15',
+        '2026-07-16',
+        '2026-07-17',
+        '2026-07-18',
+        '2026-07-19',
+      ]);
+    });
+
+    it('a Sunday belongs to the week that starts the Monday before it (Monday-first) or on itself (Sunday-first)', () => {
+      expect(getWeek('2026-07-12', undefined, 'sunday')[0]!.fullDate).toBe(
+        '2026-07-12'
+      );
+      expect(getWeek('2026-07-12', undefined, 'monday')[0]!.fullDate).toBe(
+        '2026-07-06'
+      );
+      expect(getWeek('2026-07-12', undefined, 'monday')[6]!.fullDate).toBe(
+        '2026-07-12'
+      );
+    });
+
+    it('a Monday starts its own week Monday-first, and ends the previous one Sunday-first', () => {
+      expect(getWeek('2026-07-13', undefined, 'monday')[0]!.fullDate).toBe(
+        '2026-07-13'
+      );
+      expect(getWeek('2026-07-13', undefined, 'sunday')[0]!.fullDate).toBe(
+        '2026-07-12'
+      );
+    });
+
+    it('crosses a month boundary without marking days outside the month', () => {
+      const week = getWeek('2026-07-01', undefined, 'monday');
+      expect(week.map((day) => day.fullDate)[0]).toBe('2026-06-29');
+      expect(week.every((day) => day.isOutsideMonth === false)).toBe(true);
+    });
+  });
 });

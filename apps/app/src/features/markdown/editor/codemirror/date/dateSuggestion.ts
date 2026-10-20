@@ -12,8 +12,8 @@ import { resolveDateQuery } from './dateQueryResolver';
  *
  * `label` is no longer what the popup row itself visibly shows —
  * `dateCompletionRenderer.ts` derives the visible text from `isoDate` via
- * `formatDateDisplay(isoDate, 'full')` (the same call Daily Note titles
- * use) instead, since that always spells out the full calendar date,
+ * `formatDateDisplay(isoDate, 'long')` (the same call every other date surface
+ * uses) instead, since that spells out the full calendar date,
  * making a separately-shown ISO value redundant. `label` remains CM6's
  * own `Completion.label` (`dateCompletionSource.ts`) — an internal
  * identifier existing consumers, including this file's own tests, key off

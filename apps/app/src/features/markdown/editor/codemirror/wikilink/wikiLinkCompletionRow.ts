@@ -1,4 +1,4 @@
-import { formatDailyNotePickerTitle } from '@core/presentation/formatDailyNoteTitle';
+import { formatDailyNoteTitle } from '@core/presentation/formatDailyNoteTitle';
 import { isToday } from '@shared/helpers/time';
 
 import { COMPLETION_ICONS } from '../completionPopup/completionIcons';
@@ -38,7 +38,7 @@ export function wikiLinkRow(suggestion: WikiLinkSuggestion): Pick<WikiLinkComple
     return {
       row: {
         iconSvg: isToday(suggestion.title) ? COMPLETION_ICONS.calendarDot : COMPLETION_ICONS.calendarNote,
-        title: formatDailyNotePickerTitle(suggestion.title),
+        title: formatDailyNoteTitle(suggestion.title),
       },
       section: COMPLETION_SECTIONS.dailyNotes,
     };

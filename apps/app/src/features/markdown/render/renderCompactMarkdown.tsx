@@ -85,7 +85,7 @@ function renderDate(isoDate: string, key: number, struck: boolean): ReactNode {
   // still renders, as its own raw text, rather than throwing or silently
   // reformatting something meaningless.
   const valid = isValidCalendarDate(isoDate);
-  const label = valid ? formatDateDisplay(isoDate, 'compact') : isoDate;
+  const label = valid ? formatDateDisplay(isoDate, 'long') : isoDate;
 
   return (
     <span

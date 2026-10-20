@@ -1,3 +1,4 @@
+import { formatAbsoluteDate, formatTimeDisplay } from '@shared/helpers/time/dateDisplay';
 import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 import { isValidCalendarDate } from '@shared/helpers/time/helpers/isValidCalendarDate';
 
@@ -28,19 +29,19 @@ export interface DateQueryResult {
 /** Shared with `dateTrigger.ts` — no supported grammar form uses more than 3 space-separated tokens (`year month day`). */
 export const MAX_DATE_QUERY_TOKENS = 3;
 
-const MONTHS: readonly { readonly name: string; readonly label: string }[] = [
-  { name: 'january', label: 'January' },
-  { name: 'february', label: 'February' },
-  { name: 'march', label: 'March' },
-  { name: 'april', label: 'April' },
-  { name: 'may', label: 'May' },
-  { name: 'june', label: 'June' },
-  { name: 'july', label: 'July' },
-  { name: 'august', label: 'August' },
-  { name: 'september', label: 'September' },
-  { name: 'october', label: 'October' },
-  { name: 'november', label: 'November' },
-  { name: 'december', label: 'December' },
+const MONTHS: readonly { readonly name: string }[] = [
+  { name: 'january' },
+  { name: 'february' },
+  { name: 'march' },
+  { name: 'april' },
+  { name: 'may' },
+  { name: 'june' },
+  { name: 'july' },
+  { name: 'august' },
+  { name: 'september' },
+  { name: 'october' },
+  { name: 'november' },
+  { name: 'december' },
 ];
 
 /**
@@ -79,13 +80,18 @@ function classifyMonthLenient(token: string): number | null {
   return index === -1 ? null : index + 1;
 }
 
-function formatMonthDayYearLabel(month: number, day: number, year: number): string {
-  return `${MONTHS[month - 1]!.label} ${day}, ${year}`;
+/**
+ * The date as the shared formatter writes it (the user's Date format preference, in the system locale), never
+ * a layout of its own. The label is CM6's internal identifier for the option, not the visible popup text.
+ */
+function formatMonthDayYearLabel(month: number, day: number, year: number, referenceDate: Date): string {
+  const isoDate = `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  return formatAbsoluteDate(isoDate, referenceDate);
 }
 
 function formatTimeLabel(hour: number, minute: number, meridiem: 'am' | 'pm'): string {
-  const mm = String(minute).padStart(2, '0');
-  return `Today ${hour}:${mm} ${meridiem === 'am' ? 'AM' : 'PM'}`;
+  const hour24 = (hour % 12) + (meridiem === 'pm' ? 12 : 0);
+  return `Today ${formatTimeDisplay(new Date(2000, 0, 1, hour24, minute))}`;
 }
 
 function startOfDay(date: Date): Date {
@@ -202,7 +208,7 @@ function resolveSingleToken(token: string, referenceDate: Date): DateQueryResult
     }
     return {
       isoDate: toISODate(resolved),
-      label: formatMonthDayYearLabel(month, resolved.getDate(), resolved.getFullYear()),
+      label: formatMonthDayYearLabel(month, resolved.getDate(), resolved.getFullYear(), referenceDate),
     };
   }
 
@@ -221,7 +227,7 @@ function resolveMonthDayPair(monthToken: string, dayToken: string, referenceDate
   }
   return {
     isoDate: toISODate(resolved),
-    label: formatMonthDayYearLabel(month, resolved.getDate(), resolved.getFullYear()),
+    label: formatMonthDayYearLabel(month, resolved.getDate(), resolved.getFullYear(), referenceDate),
   };
 }
 
@@ -234,7 +240,7 @@ function resolveTwoTokens(a: string, b: string, referenceDate: Date): DateQueryR
     }
     const year = Number(a);
     const built = buildValidLocalDate(year, month, 1);
-    return built ? { isoDate: toISODate(built), label: formatMonthDayYearLabel(month, 1, year) } : null;
+    return built ? { isoDate: toISODate(built), label: formatMonthDayYearLabel(month, 1, year, referenceDate) } : null;
   }
 
   // day + month, either order.
@@ -249,7 +255,7 @@ function resolveTwoTokens(a: string, b: string, referenceDate: Date): DateQueryR
 }
 
 /** year + month + day, literal order only — the one 3-token form the frozen UX defines. */
-function resolveThreeTokens(a: string, b: string, c: string): DateQueryResult | null {
+function resolveThreeTokens(a: string, b: string, c: string, referenceDate: Date): DateQueryResult | null {
   if (!/^\d{4}$/.test(a) || !/^\d{1,2}$/.test(c)) {
     return null;
   }
@@ -261,7 +267,7 @@ function resolveThreeTokens(a: string, b: string, c: string): DateQueryResult | 
   const year = Number(a);
   const day = Number(c);
   const built = buildValidLocalDate(year, month, day);
-  return built ? { isoDate: toISODate(built), label: formatMonthDayYearLabel(month, day, year) } : null;
+  return built ? { isoDate: toISODate(built), label: formatMonthDayYearLabel(month, day, year, referenceDate) } : null;
 }
 
 /**
@@ -287,5 +293,5 @@ export function resolveDateQuery(query: string, referenceDate: Date = new Date()
   if (tokens.length === 2) {
     return resolveTwoTokens(tokens[0]!, tokens[1]!, referenceDate);
   }
-  return resolveThreeTokens(tokens[0]!, tokens[1]!, tokens[2]!);
+  return resolveThreeTokens(tokens[0]!, tokens[1]!, tokens[2]!, referenceDate);
 }

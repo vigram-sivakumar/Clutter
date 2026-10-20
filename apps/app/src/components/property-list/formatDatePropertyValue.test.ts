@@ -24,11 +24,11 @@ describe('parseDatePropertyValue', () => {
 });
 
 describe('formatDatePropertyValue', () => {
-  it("formats a date through formatDateDisplay's 'condensedFullYear' mode", () => {
+  it("formats a date through formatDateDisplay's 'long' style", () => {
     expect(formatDatePropertyValue('2026-10-02', NOW)).toBe('Today');
-    expect(formatDatePropertyValue('2026-09-30', NOW)).toBe('30 Sep 2026');
-    expect(formatDatePropertyValue('2026-11-11', NOW)).toBe('11 Nov 2026');
-    expect(formatDatePropertyValue('2025-09-15', NOW)).toBe('15 Sep 2025');
+    expect(formatDatePropertyValue('2026-09-30', NOW)).toBe('30 September');
+    expect(formatDatePropertyValue('2026-11-11', NOW)).toBe('11 November');
+    expect(formatDatePropertyValue('2025-09-15', NOW)).toBe('15 September 2025');
   });
 
   it("formats a timestamp through formatRelativeTimestamp (relative under 2 hours, else date and time)", () => {
@@ -36,13 +36,13 @@ describe('formatDatePropertyValue', () => {
       '35 minutes ago'
     );
     expect(formatDatePropertyValue(new Date(2026, 10, 11, 20, 20).toISOString(), NOW)).toBe(
-      '11 Nov, 08:20 PM'
+      '11 November, 8:20 pm'
     );
     expect(formatDatePropertyValue(new Date(2025, 10, 11, 20, 20).toISOString(), NOW)).toBe(
-      '11 Nov 2025, 08:20 PM'
+      '11 November 2025, 8:20 pm'
     );
     expect(formatDatePropertyValue(new Date(2026, 9, 1, 9, 5).toISOString(), NOW)).toBe(
-      'Yesterday, 09:05 AM'
+      'Yesterday, 9:05 am'
     );
   });
 

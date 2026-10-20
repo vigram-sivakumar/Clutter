@@ -33,8 +33,8 @@ export function parseDatePropertyValue(raw: string): ParsedDatePropertyValue | n
 
 /**
  * Display string for a raw `date` Property value. A date-only value goes
- * through the shared date-label helper (`'condensedFullYear'` —
- * `Today`/`Tomorrow`/`Yesterday`, else `11 Nov 2026`); a timestamp (the
+ * through the shared date-label helper (`'long'` —
+ * `Today`/`Tomorrow`/`Yesterday`, else `11 November 2026`); a timestamp (the
  * system Created / Last edited values) goes through
  * `formatRelativeTimestamp` — the same `35 minutes ago` / `Today, 09:03 AM`
  * / `12 Aug, 09:03 AM` label the collection views show. Display only; the
@@ -50,5 +50,5 @@ export function formatDatePropertyValue(raw: string, referenceDate: Date = new D
 
   return parsed.dateTime
     ? formatRelativeTimestamp(parsed.dateTime, referenceDate)
-    : formatDateDisplay(parsed.isoDate, 'condensedFullYear', referenceDate);
+    : formatDateDisplay(parsed.isoDate, 'long', referenceDate);
 }

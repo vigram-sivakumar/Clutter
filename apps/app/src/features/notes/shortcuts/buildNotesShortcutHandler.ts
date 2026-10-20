@@ -2,19 +2,21 @@ import type { NavigationRouter } from '@core/application/navigation/NavigationRo
 import type { FolderOperations } from '@core/application/folder/FolderOperations';
 import type { PageOperations } from '@core/application/page/PageOperations';
 
-import { createNoteInInbox } from '../helpers/createNote';
+import { createNote } from '../helpers/createNote';
 import type { NotesShortcutId } from './notesShortcuts.config';
 
 export function buildNotesShortcutHandler(
   navigation: NavigationRouter,
   pageOperations: PageOperations,
-  folderOperations: FolderOperations
+  folderOperations: FolderOperations,
+  /** The Space's default note folder (Settings → Notes), or undefined for Inbox. */
+  getDefaultNoteFolderId: () => string | undefined = () => undefined
 ): (id: NotesShortcutId) => void {
   return (id) => {
     switch (id) {
       case 'new-note':
-        // Always targets Inbox — see createNoteInInbox.
-        void createNoteInInbox(folderOperations, pageOperations).catch(() => {});
+        // The default note location, Inbox unless chosen otherwise — see createNote.
+        void createNote(folderOperations, pageOperations, getDefaultNoteFolderId()).catch(() => {});
         break;
       case 'inbox':
         navigation.openInbox();

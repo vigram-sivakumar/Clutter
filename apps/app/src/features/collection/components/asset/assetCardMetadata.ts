@@ -21,7 +21,7 @@ const CARD_LINE_LABELS: Partial<Record<PropertyId, string>> = { size: 'Size', up
 
 /**
  * The asset card's metadata lines, in canonical property order — Size `12 KB`, Created
- * `Yesterday, 09:03 AM`, Edited `35 minutes ago` — one per visible plain-value property the
+ * `Yesterday, 9:03 am`, Edited `35 minutes ago` — one per visible plain-value property the
  * asset has a value for, from the values its adapter (`toAssetEntry`) filled from the vault
  * file's own facts. Dates use the same formatter every collection uses. A fact the platform
  * couldn't report is left out, and so is any line the collection's visible properties hide;

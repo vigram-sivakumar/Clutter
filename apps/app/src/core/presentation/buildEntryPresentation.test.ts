@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildEntryPresentation } from './buildEntryPresentation';
-import { formatDailyNoteDateLabel } from './formatDailyNoteTitle';
+import { formatDailyNoteTitle } from './formatDailyNoteTitle';
 import type { Folder } from '@core/vault/models/Folder';
 
 const defaultMetadata: Folder['metadata'] = {
@@ -65,7 +65,7 @@ describe('buildEntryPresentation (page)', () => {
     ]) {
       const result = buildEntryPresentation(page({ type: 'daily-note', name: '2026-08-02', ...content }));
 
-      expect(result.title).toBe(formatDailyNoteDateLabel('2026-08-02'));
+      expect(result.title).toBe(formatDailyNoteTitle('2026-08-02'));
       expect(result.titleStyle).toBe('default');
     }
   });

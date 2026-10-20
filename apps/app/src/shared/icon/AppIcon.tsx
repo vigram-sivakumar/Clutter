@@ -28,7 +28,12 @@ export function AppIcon({
   } as React.CSSProperties;
 
   return (
-    <span className={`app-icon ${className || ''}`} style={style}>
+    // `data-icon` names the icon for CSS that styles one by kind (e.g. the selection tick in a menu row).
+    <span
+      className={`app-icon ${className || ''}`}
+      style={style}
+      data-icon={!emoji ? icon : undefined}
+    >
       {emoji ? (
         <span className="emoji-icon">{emoji}</span>
       ) : Icon ? (

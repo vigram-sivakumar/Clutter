@@ -4,6 +4,7 @@ import type { PageOperations } from '@core/application/page/PageOperations';
 import type { FolderOperations } from '@core/application/folder/FolderOperations';
 import { VaultPath } from '@core/vault/ingest/VaultPath';
 import { dailyNoteSearchText } from '@core/presentation/dailyNoteSearchText';
+import { isValidCalendarDate } from '@shared/helpers/time/helpers/isValidCalendarDate';
 import { matchesSearchText } from '@shared/helpers/matchesSearchText';
 import type {
   GetWikiLinkSuggestions,
@@ -57,8 +58,7 @@ export function createWikiLinkSuggester(
     // same comparator convention VaultQuery.ts's compareByName already
     // establishes for every other listing in this codebase — not a
     // relevance ranking, just a stable, predictable order.
-    const byTitle = (a: WikiLinkPageSuggestion, b: WikiLinkPageSuggestion) =>
-      a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' });
+    const sortSuggestions = sortPageSuggestions;
 
     // Empty query: a freshly typed `[[` (closeBrackets already produces
     // the closed, empty `[[]]` node before any character is typed) — show
@@ -68,15 +68,15 @@ export function createWikiLinkSuggester(
     // investigation). No Create option here: an empty path has nothing to
     // create yet.
     if (!normalizedQuery) {
-      return livePages().map((page) => toPageSuggestion(vault, page)).sort(byTitle);
+      return sortSuggestions(livePages().map((page) => toPageSuggestion(vault, page)));
     }
 
     const matches = findPageMatches(livePages(), normalizedQuery, (page) => page.type === 'daily-note')
-      .map(({ page, alias }) => toPageSuggestion(vault, page, alias))
-      .sort(byTitle);
+      .map(({ page, alias }) => toPageSuggestion(vault, page, alias));
+    const sortedMatches = sortSuggestions(matches);
 
-    if (matches.length > 0) {
-      return matches;
+    if (sortedMatches.length > 0) {
+      return sortedMatches;
     }
 
     // Mirrors PickerList's own rule exactly (PickerList.tsx's
@@ -100,6 +100,31 @@ export function createWikiLinkSuggester(
 
     return [suggestion];
   };
+}
+
+/**
+ * The order of page suggestions: notes by title (natural/alphanumeric), then Daily Notes by their
+ * calendar date, newest first. A Daily Note's title is its ISO `YYYY-MM-DD` name, so the date is
+ * compared as a value — never by the label the app shows, which doesn't sort chronologically.
+ * Notes and Daily Notes are separate popup sections, so their relative order is unchanged.
+ */
+export function sortPageSuggestions<T extends WikiLinkPageSuggestion>(suggestions: readonly T[]): T[] {
+  const byTitle = (a: T, b: T) =>
+    a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' });
+  const byDateNewestFirst = (a: T, b: T) => {
+    const aValid = isValidCalendarDate(a.title);
+    const bValid = isValidCalendarDate(b.title);
+    if (aValid && bValid) {
+      return a.title < b.title ? 1 : a.title > b.title ? -1 : 0;
+    }
+    // A Daily Note with an unreadable name sorts after the dated ones, by title.
+    return aValid ? -1 : bValid ? 1 : byTitle(a, b);
+  };
+
+  return [
+    ...suggestions.filter((s) => !s.dailyNote).sort(byTitle),
+    ...suggestions.filter((s) => s.dailyNote).sort(byDateNewestFirst),
+  ];
 }
 
 /** A page matching a search, and the alias it matched by (null when its title matched). */

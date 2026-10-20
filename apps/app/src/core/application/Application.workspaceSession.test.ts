@@ -114,6 +114,52 @@ describe('Application.open — restore last session (ADR-035)', () => {
     await application.close();
   });
 
+  it("opens today's Daily Note instead of the saved page when the startup behavior is 'todays-note'", async () => {
+    const { application, fileSystem } = await boot(
+      [buildPage('Note.md', 'page-note')],
+      session({ type: 'page', id: 'page-note' })
+    );
+
+    await application.open({ startup: 'todays-note' });
+
+    const activePageId = application.workspace.activePageId;
+    expect(activePageId).not.toBe('page-note');
+    expect(application.pageOperations.getDraft(activePageId!)?.type).toBe('daily-note');
+    await application.close();
+    // The draft isn't restorable, so the saved session ends up with no view to restore — never the stale note.
+    expect((await persistedSession(fileSystem)).workspaceSession.navigation.activeView).toBeNull();
+  });
+
+  it("restores the saved page when the startup behavior is explicitly 'last-opened-note'", async () => {
+    const { application } = await boot(
+      [buildPage('Note.md', 'page-note')],
+      session({ type: 'page', id: 'page-note' })
+    );
+
+    await application.open({ startup: 'last-opened-note' });
+
+    expect(application.workspace.activeView).toEqual({ type: 'page', id: 'page-note' });
+    await application.close();
+  });
+
+  it('open({ sidebarTab }) overrides the saved sidebar tab and is what the session then persists', async () => {
+    const { application, fileSystem } = await boot([], session(null, 'tags'));
+    expect(application.workspace.activeSidebarTab).toBe('tags');
+
+    await application.open({ sidebarTab: 'search' });
+    expect(application.workspace.activeSidebarTab).toBe('search');
+
+    await application.close();
+    expect((await persistedSession(fileSystem)).workspaceSession.navigation.activeSidebarTab).toBe('search');
+  });
+
+  it('keeps the saved sidebar tab when no default tab is given', async () => {
+    const { application } = await boot([], session(null, 'tags'));
+    await application.open();
+    expect(application.workspace.activeSidebarTab).toBe('tags');
+    await application.close();
+  });
+
   it('seeds the sidebar chrome before open()', async () => {
     const { application } = await boot([], session(null, 'tags'));
 

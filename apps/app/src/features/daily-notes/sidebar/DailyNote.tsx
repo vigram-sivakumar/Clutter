@@ -77,6 +77,7 @@ export function DailyNote({
         trailing={emoji ? <AppIcon emoji={emoji} /> : undefined}
         actions={
           <OverflowMenu
+            buttonSize="xs"
             items={menuItems ?? []}
             triggerRef={changeIconTrigger.triggerRef}
             open={menuOpen}

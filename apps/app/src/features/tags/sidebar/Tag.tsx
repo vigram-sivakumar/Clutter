@@ -95,14 +95,12 @@ export function Tag({
             onExpandToggle={onExpandToggle}
           />
         }
-        trailing={<CountBadge count={count} />}
+        trailing={<CountBadge size="small" count={count} />}
         actions={
           <>
             {onAddClick && (
               <Button
-                size="small"
-                variant="ghost"
-                interaction="subtle"
+                size="xs"
                 isIconOnly
                 onClick={onAddClick}
               >
@@ -111,6 +109,7 @@ export function Tag({
             )}
             {menuItems && menuItems.length > 0 && (
               <OverflowMenu
+                buttonSize="xs"
                 items={menuItems}
                 triggerRef={triggerRef}
                 open={menuOpen}

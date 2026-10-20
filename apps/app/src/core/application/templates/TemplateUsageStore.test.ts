@@ -7,7 +7,8 @@ const ROOT = '/vault';
 const WORKSPACE_PATH = `${ROOT}/.clutter/workspace.json`;
 
 /** Simulates an app restart: reads whatever was persisted back into a fresh store. */
-const reload = (fileSystem: InMemoryVaultFileSystem) => TemplateUsageStore.load(fileSystem, ROOT);
+const reload = (fileSystem: InMemoryVaultFileSystem) =>
+  TemplateUsageStore.load(fileSystem, ROOT);
 
 /** Lets the store's fire-and-forget recordUse() writes complete before assertions. */
 const flushWrites = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -24,7 +25,9 @@ describe('TemplateUsageStore — load()', () => {
 
   it('a workspace.json without a "templateUsage" key starts with no usage', async () => {
     const store = await reload(
-      new InMemoryVaultFileSystem({ [WORKSPACE_PATH]: JSON.stringify({ foldState: {} }) })
+      new InMemoryVaultFileSystem({
+        [WORKSPACE_PATH]: JSON.stringify({ foldState: {} }),
+      })
     );
 
     expect(store.lastUsedAt('meeting-notes-id')).toBeUndefined();
@@ -50,7 +53,9 @@ describe('TemplateUsageStore — load()', () => {
   it('invalid JSON is caught and discarded: the app still boots, with no usage', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    const store = await reload(new InMemoryVaultFileSystem({ [WORKSPACE_PATH]: 'not json{{{' }));
+    const store = await reload(
+      new InMemoryVaultFileSystem({ [WORKSPACE_PATH]: 'not json{{{' })
+    );
 
     expect(store.lastUsedAt('meeting-notes-id')).toBeUndefined();
     expect(warn).toHaveBeenCalled();
@@ -61,17 +66,22 @@ describe('TemplateUsageStore — load()', () => {
     ['an array', []],
     ['a string', 'recent'],
     ['null', null],
-  ])('a "templateUsage" that is %s is discarded whole, with a warning', async (_label, value) => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  ])(
+    'a "templateUsage" that is %s is discarded whole, with a warning',
+    async (_label, value) => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    const store = await reload(
-      new InMemoryVaultFileSystem({ [WORKSPACE_PATH]: JSON.stringify({ templateUsage: value }) })
-    );
+      const store = await reload(
+        new InMemoryVaultFileSystem({
+          [WORKSPACE_PATH]: JSON.stringify({ templateUsage: value }),
+        })
+      );
 
-    expect(store.lastUsedAt('meeting-notes-id')).toBeUndefined();
-    expect(warn).toHaveBeenCalled();
-    warn.mockRestore();
-  });
+      expect(store.lastUsedAt('meeting-notes-id')).toBeUndefined();
+      expect(warn).toHaveBeenCalled();
+      warn.mockRestore();
+    }
+  );
 
   it('a malformed record is dropped without affecting its neighbours', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -175,7 +185,9 @@ describe('TemplateUsageStore — recordUse()', () => {
 
   it('a record for one template does not disturb the records already loaded for others', async () => {
     const fileSystem = new InMemoryVaultFileSystem({
-      [WORKSPACE_PATH]: JSON.stringify({ templateUsage: { a: { lastUsedAt: 1 } } }),
+      [WORKSPACE_PATH]: JSON.stringify({
+        templateUsage: { a: { lastUsedAt: 1 } },
+      }),
     });
     const store = await reload(fileSystem);
 

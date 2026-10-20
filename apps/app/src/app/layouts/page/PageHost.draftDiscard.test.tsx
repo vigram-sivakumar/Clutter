@@ -18,7 +18,7 @@ import { PageFactory } from '@core/application/page/PageFactory';
 import { PageBuilder } from '@core/vault/ingest/PageBuilder';
 import { UuidGenerator } from '@core/shared/identity/UuidGenerator';
 import { DailyNoteService } from '@core/application/daily-notes/DailyNoteService';
-import { createNoteInInbox } from '@features/notes/helpers/createNote';
+import { createNote } from '@features/notes/helpers/createNote';
 
 /**
  * An empty new-note draft is discarded the moment the user leaves it, through the real UI: the sidebar's New
@@ -78,7 +78,7 @@ describe('an empty new-note draft, through the real UI', () => {
   it('is discarded when the user clicks another page, and does not come back on Back/Forward', async () => {
     const { application, vault } = await launch();
     await act(async () => {
-      await createNoteInInbox(application.folderOperations, application.pageOperations);
+      await createNote(application.folderOperations, application.pageOperations);
     });
     await flush();
     const draftId = application.workspace.activePageId!;
@@ -105,7 +105,7 @@ describe('an empty new-note draft, through the real UI', () => {
   it('is discarded when the user opens a folder or a filtered view instead', async () => {
     const { application } = await launch();
     await act(async () => {
-      await createNoteInInbox(application.folderOperations, application.pageOperations);
+      await createNote(application.folderOperations, application.pageOperations);
     });
     await flush();
     const draftId = application.workspace.activePageId!;
@@ -120,7 +120,7 @@ describe('an empty new-note draft, through the real UI', () => {
   it('a draft with content is kept: it becomes a real note, not discarded', async () => {
     const { application, vault } = await launch();
     await act(async () => {
-      await createNoteInInbox(application.folderOperations, application.pageOperations);
+      await createNote(application.folderOperations, application.pageOperations);
     });
     await flush();
     const draftId = application.workspace.activePageId!;

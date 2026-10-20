@@ -268,14 +268,14 @@ describe('createEmbedSuggester — notes and Daily Notes alongside assets', () =
     createEmbedSuggester(makeVault(resources, pages), fakeMembershipSelector(resources), undefined, isArchived)(query);
   const paths = (query: string, isArchived?: (page: Page) => boolean) => suggest(query, isArchived).map((s) => s.path);
 
-  it('a freshly typed ![[ offers images and PDFs, then notes, then Daily Notes', () => {
+  it('a freshly typed ![[ offers images and PDFs, then notes, then Daily Notes (newest first)', () => {
     expect(suggest('').map((s) => [s.kind, s.path])).toEqual([
       ['resource', 'hero.png'],
       ['resource', 'Projects/plan.pdf'],
       ['page', 'My Project Notes'],
       ['page', 'Projects/Roadmap'],
-      ['page', '2026-07-02'],
       ['page', '2026-08-24'],
+      ['page', '2026-07-02'],
     ]);
   });
 

@@ -5,10 +5,11 @@
 // these matchers) — imported locally rather than adding project-wide
 // config for one test file.
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FolderTree } from './FolderTree';
+import { writeFolderItemLimitChoice } from '@shared/helpers/folderItemLimitPreference';
 import { PageOperations } from '@core/application/page/PageOperations';
 import { EffectivePageState } from '@core/application/page/EffectivePageState';
 import { PagePersistenceCoordinator } from '@core/vault/persistence/PagePersistenceCoordinator';
@@ -1201,5 +1202,122 @@ describe('FolderTree: the 10-item cap per folder', () => {
       .map((el) => el.textContent ?? '')
       .filter((text) => text.startsWith('Note'));
     expect(order).toEqual(['Note 02', 'Note 01', 'Note 00']);
+  });
+});
+
+describe('FolderTree: the Folder items setting', () => {
+  beforeEach(() => localStorage.clear());
+
+  const notesIn = (folderPath: string, parentId: string, count: number) =>
+    Array.from({ length: count }, (_, i) =>
+      buildPersistedPage(`${folderPath}/Note ${String(i).padStart(2, '0')}.md`, {
+        parentId,
+        id: `${parentId}-note-${i}`,
+      })
+    );
+
+  /** Root-level folders `Folder A`, `Folder B`, … holding the given numbers of notes. */
+  function renderFolders(counts: number[], expandedFolders: readonly string[] = []) {
+    const folders = counts.map((_, i) =>
+      makeFolder(`f${i}`, `${ROOT}/Folder ${String.fromCharCode(65 + i)}`, null)
+    );
+    const pages = counts.flatMap((count, i) =>
+      notesIn(`${ROOT}/Folder ${String.fromCharCode(65 + i)}`, `f${i}`, count)
+    );
+    const { query, workspace, membershipSelector } = setup(pages, folders);
+    return render(
+      <FolderTree
+        query={query}
+        membershipSelector={membershipSelector}
+        workspace={workspace}
+        parentId={null}
+        level={0}
+        onPageClick={vi.fn()}
+        onDraftPageClick={vi.fn()}
+        onFolderClick={vi.fn()}
+        onCreateNote={vi.fn()}
+        pendingNewFolder={null}
+        onCommitNewFolder={vi.fn()}
+        onCancelNewFolder={vi.fn()}
+        expandedFolders={expandedFolders}
+        onToggleFolderCap={vi.fn()}
+      />
+    );
+  }
+  const shown = () => document.querySelectorAll('.entry').length;
+  const moreLabels = () =>
+    screen.queryAllByText(/^\d+ more$/).map((el) => el.textContent);
+
+  it('defaults to 10: twelve notes show a "2 more" row', () => {
+    renderFolders([12]);
+    expect(moreLabels()).toEqual(['2 more']);
+  });
+
+  it.each([
+    [5, ['7 more']],
+    [10, ['2 more']],
+    [15, []],
+    [20, []],
+    ['all', []],
+  ] as const)('with a limit of %s, a folder of 12 notes shows %j', (limit, expected) => {
+    writeFolderItemLimitChoice(limit);
+    renderFolders([12]);
+    expect(moreLabels()).toEqual(expected);
+  });
+
+  it('shows exactly the configured number of rows before "N more"', () => {
+    writeFolderItemLimitChoice(5);
+    renderFolders([12]);
+    expect(screen.getByText('Note 04')).toBeInTheDocument();
+    expect(screen.queryByText('Note 05')).not.toBeInTheDocument();
+  });
+
+  it('Show all lists every note and never offers "N more" or "Show less"', () => {
+    writeFolderItemLimitChoice('all');
+    renderFolders([30]);
+    expect(screen.getByText('Note 29')).toBeInTheDocument();
+    expect(moreLabels()).toEqual([]);
+    expect(screen.queryByText('Show less')).not.toBeInTheDocument();
+  });
+
+  it.each([
+    [4, []],
+    [5, []],
+    [6, ['1 more']],
+  ])('with a limit of 5, a folder of %s notes shows %j', (count, expected) => {
+    writeFolderItemLimitChoice(5);
+    renderFolders([count]);
+    expect(moreLabels()).toEqual(expected);
+  });
+
+  it('applies the limit to each folder on its own', () => {
+    writeFolderItemLimitChoice(5);
+    renderFolders([12, 3, 6], ['f0']);
+    // A (12) is expanded by its own "N more"; B (3) is under the limit; C (6) is one over.
+    expect(screen.getByText('Show less')).toBeInTheDocument();
+    expect(moreLabels()).toEqual(['1 more']);
+  });
+
+  it('updates the open sidebar at once when the setting changes, both ways', () => {
+    renderFolders([12]);
+    expect(moreLabels()).toEqual(['2 more']);
+
+    act(() => writeFolderItemLimitChoice(5));
+    expect(moreLabels()).toEqual(['7 more']);
+    expect(shown()).toBeLessThan(12);
+
+    act(() => writeFolderItemLimitChoice(20));
+    expect(moreLabels()).toEqual([]);
+    expect(screen.getByText('Note 11')).toBeInTheDocument();
+
+    act(() => writeFolderItemLimitChoice('all'));
+    expect(moreLabels()).toEqual([]);
+  });
+
+  it('an expanded folder keeps showing every note whatever the limit', () => {
+    writeFolderItemLimitChoice(5);
+    renderFolders([12], ['f0']);
+    expect(screen.getByText('Note 11')).toBeInTheDocument();
+    expect(screen.getByText('Show less')).toBeInTheDocument();
   });
 });

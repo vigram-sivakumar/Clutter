@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Page } from '@core/vault/models/Page';
-import { formatDailyNotePickerTitle } from '@core/presentation/formatDailyNoteTitle';
+import { formatDailyNoteTitle } from '@core/presentation/formatDailyNoteTitle';
 import { getPageIcon } from '@core/presentation/getPageIcon';
 import { buildCoverNoteItems } from './buildCoverNoteItems';
 
@@ -27,7 +27,7 @@ describe('buildCoverNoteItems', () => {
   it('shows a daily note as its date title with the daily note icon', () => {
     const [item] = buildCoverNoteItems([page('d', '2026-08-02', null, 'daily-note')], noFolders);
 
-    expect(item!.title).toBe(formatDailyNotePickerTitle('2026-08-02'));
+    expect(item!.title).toBe(formatDailyNoteTitle('2026-08-02'));
     expect(item!.icon).toBe(getPageIcon('daily-note', false));
     expect(item!.emoji).toBeNull();
   });
@@ -38,7 +38,7 @@ describe('buildCoverNoteItems', () => {
 
     expect(note!).not.toHaveProperty('searchText');
     expect(daily!.searchText).toContain('2020-08-24');
-    expect(daily!.searchText).toContain('Monday, 24 August 2020');
+    expect(daily!.searchText).toContain('Mon, 24 August 2020');
   });
 
   it("carries the note's folder chain, root-first, as ancestors", () => {
