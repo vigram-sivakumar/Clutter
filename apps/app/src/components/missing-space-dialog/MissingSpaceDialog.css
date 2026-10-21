@@ -2,7 +2,7 @@
    actions). The shared .confirmation gap is 24px; here the sections sit 12px apart and the footer adds the other
    12px, so the content keeps its 24px from the actions, as before. */
 .confirmation.missing-space {
-  gap: var(--space-12);
+  gap: var(--space-24);
 }
 .missing-space__title {
   display: flex;
@@ -12,7 +12,7 @@
 .missing-space__content {
   display: flex;
   flex-direction: column;
-  gap: var(--space-12);
+  gap: var(--space-6);
 }
 .confirmation__body {
   color: var(--foreground-tertiary);
@@ -20,9 +20,9 @@
   line-height: var(--lh-label-small);
   letter-spacing: var(--ls-label-small);
 }
-.missing-space__footer {
+/* .missing-space__footer {
   padding-top: var(--space-12);
-}
+} */
 
 /* The space's name and saved location sit on the subtle surface. */
 .settings-entry.missing-space__entry {
