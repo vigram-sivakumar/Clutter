@@ -206,3 +206,18 @@ describe('DailyNote — Change icon wiring', () => {
     expect(screen.getByRole('button', { name: 'Remove icon' })).toBeDisabled();
   });
 });
+
+describe('DailyNote — showEmoji', () => {
+  it('draws the emoji by default', () => {
+    const { container } = render(<DailyNote title="Plain title" emoji="🍄" />);
+
+    expect(container.querySelector('.entry__meta')).toHaveTextContent('🍄');
+  });
+
+  it('draws nothing in the trailing slot when showEmoji is off, though the note still has an emoji', () => {
+    const { container } = render(<DailyNote title="Plain title" emoji="🍄" showEmoji={false} />);
+
+    expect(container.querySelector('.entry__meta')).toBeNull();
+    expect(container).not.toHaveTextContent('🍄');
+  });
+});

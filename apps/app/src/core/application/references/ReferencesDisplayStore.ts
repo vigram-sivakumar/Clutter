@@ -9,9 +9,9 @@ import type { VaultFileSystem } from '../../vault/providers/VaultFileSystem';
  * One note's saved References display preferences. Both fields are absent at
  * their default, and an entry with neither is not kept (ADR-052).
  *
- * - `hidden`: absent or `true` = hidden (the default, ADR-053; `true` is a
- *   legacy explicit Hide); `false` = the user chose Show references, which
- *   keeps the section visible even when empty.
+ * - `hidden`: `true` = the user chose Hide references (never shown); `false` = the user chose Show references (shown even
+ *   when empty); absent = no choice, which is hidden — or shown automatically when the note has references and the app-wide
+ *   Show references automatically setting is on (ADR-060, amending ADR-053). A choice is always kept as stored.
  * - `collapsed` is only ever stored as `true` (absent = expanded).
  */
 export interface ReferencesDisplayEntry {

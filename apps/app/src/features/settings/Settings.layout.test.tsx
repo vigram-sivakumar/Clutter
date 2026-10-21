@@ -30,7 +30,8 @@ describe('Settings → Editor → Layout', () => {
     render(<Settings />);
     fireEvent.click(screen.getByText('Layout'));
 
-    const titles = Array.from(document.querySelectorAll('.settings-entry__title')).map((el) => el.textContent);
+    const group = screen.getByText('Header separator', { selector: '.settings-entry__title' }).closest('.settings-group')!;
+    const titles = Array.from(group.querySelectorAll('.settings-entry__title')).map((el) => el.textContent);
     expect(titles).toEqual(['Header separator', 'Header separator style']);
   });
 });

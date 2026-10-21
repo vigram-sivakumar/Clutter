@@ -1,6 +1,6 @@
 # ADR-037: One Global Draft — `PageOperations` holds at most one unsaved draft
 
-**Status:** Accepted (product decision, Vigram, 2026-10-03)
+**Status:** Accepted (product decision, Vigram, 2026-10-03) — the "history references" retention rule listed under "Unchanged" below was later removed by [ADR-059](./059-empty-daily-note-draft-is-temporary.md)
 
 ## Context
 

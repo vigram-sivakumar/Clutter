@@ -27,6 +27,7 @@ import { buildResourceActionMenu } from '@core/presentation/resourceActions/buil
 import { buildPageSharedMenuHandlers } from '@features/notes/helpers/buildPageMenuHandlers';
 import { Entry } from '@components/entry/Entry';
 import { AppIcon } from '@shared/icon';
+import { useShowDailyNoteEmoji } from '@shared/helpers/showDailyNoteEmojiPreference';
 import type {
   ResolveTag,
   ResolveWikiLink,
@@ -287,6 +288,8 @@ export const DailyNotesList = forwardRef<
   const sidebarState = useDailyNotesSidebarState(dailyNotesSidebarState);
   const isUpcomingExpanded = sidebarState.upcomingExpanded;
   const isEarlierExpanded = sidebarState.earlierExpanded;
+  // The Show emoji setting (off by default): whether a row shows its note's emoji.
+  const showEmoji = useShowDailyNoteEmoji();
 
   const sectionsByMonth = new Map<ISODate, RenderedMonthSection>();
 
@@ -479,6 +482,9 @@ export const DailyNotesList = forwardRef<
             date={entry.name}
             isToday={isToday(entry.name)}
             emoji={entry.icon}
+            // The Show emoji preference hides the drawn emoji only: the note's `icon` and the row's Change icon picker
+            // (which still offers Remove for it) are untouched.
+            showEmoji={showEmoji}
             selected={workspace.activePageId === entry.id}
             onClick={() => {
               if (entry.isVirtual) {

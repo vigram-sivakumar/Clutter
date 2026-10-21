@@ -400,7 +400,7 @@ describe('PageOperations: navigating away from the single draft', () => {
 });
 
 describe('PageOperations: existing persisted Daily Notes open normally', () => {
-  it('opens the real page, creates no draft, and leaves an existing draft untouched', async () => {
+  it('opens the real page, creates no draft, and discards the empty draft it was opened from', async () => {
     const root = makeFolder('root', `${ROOT}/Daily Notes`, null);
     const { pageOperations, vault, workspace, draftCount } = setup([root]);
 
@@ -416,8 +416,11 @@ describe('PageOperations: existing persisted Daily Notes open normally', () => {
 
     expect(reopened).toBe(id);
     expect(workspace.activePageId).toBe(id);
-    // The pending Aug 15 draft is still the one and only draft.
-    expect(pageOperations.getDraft(otherDraft)?.title).toBe('2026-08-15');
+    // The empty Aug 15 draft was left for an existing Daily Note: it is temporary, so it is discarded (ADR-059).
+    await vi.waitFor(() => {
+      expect(pageOperations.getDraft(otherDraft)).toBeUndefined();
+    });
+    expect(draftCount()).toBe(0);
   });
 });
 

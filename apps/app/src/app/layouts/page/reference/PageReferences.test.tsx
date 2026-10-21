@@ -6,6 +6,7 @@ import {
   afterAll,
   afterEach,
   beforeAll,
+  beforeEach,
   describe,
   expect,
   it,
@@ -23,6 +24,7 @@ import type { Page } from '@core/vault/models/Page';
 import type { PageOperations } from '@core/application/page/PageOperations';
 import type { TaskOperations } from '@core/application/task/TaskOperations';
 import { ReferencesDisplayStore } from '@core/application/references/ReferencesDisplayStore';
+import { writeShowReferencesAutomatically } from '@shared/helpers/showReferencesAutomaticallyPreference';
 import { InMemoryVaultFileSystem } from '@core/vault/testing/InMemoryVaultFileSystem';
 
 import * as buildEditorExtensionsModule from '@features/markdown/editor/codemirror/buildEditorExtensions';
@@ -774,7 +776,8 @@ describe('PageReferences: saved display preferences (ADR-052)', () => {
   const heading = () => screen.queryByText(/^\d+ References?$/);
   const withReference = [TARGET, page('a', 'Alpha.md', 'one [[Target]]')];
 
-  it('with no saved choice: nothing is rendered, even with references', () => {
+  it('with no saved choice and Show references automatically off: nothing is rendered, even with references', () => {
+    localStorage.setItem('clutter-show-references-automatically', 'false');
     const { displayStore } = setup(withReference);
 
     act(() => displayStore.clear('target'));
@@ -845,5 +848,83 @@ describe('PageReferences: saved display preferences (ADR-052)', () => {
 
     expect(heading()).toHaveTextContent('1 Reference');
     expect(document.querySelectorAll('.reference__entry')).toHaveLength(1);
+  });
+});
+
+describe('PageReferences: Show references automatically', () => {
+  const heading = () => screen.queryByText(/^\d+ References?$/);
+  const withReference = [TARGET, page('a', 'Alpha.md', 'one [[Target]]')];
+  const AUTO_KEY = 'clutter-show-references-automatically';
+
+  beforeEach(() => localStorage.clear());
+
+  it('is on by default: a page with a reference and no saved choice shows the section', () => {
+    const { displayStore } = setup(withReference);
+
+    act(() => displayStore.clear('target'));
+
+    expect(localStorage.getItem(AUTO_KEY)).toBeNull();
+    expect(heading()).toHaveTextContent('1 Reference');
+  });
+
+  it('does not show a page with no references automatically', () => {
+    const { displayStore } = setup([TARGET]);
+
+    act(() => displayStore.clear('target'));
+
+    expect(heading()).toBeNull();
+  });
+
+  it('a manual Hide while it is on hides the section, and it is stored as an explicit Hide', () => {
+    const { displayStore } = setup(withReference);
+    act(() => displayStore.clear('target'));
+    expect(heading()).not.toBeNull();
+
+    act(() => displayStore.setHidden('target', true));
+
+    expect(heading()).toBeNull();
+    expect(displayStore.getHidden('target')).toBe(true);
+  });
+
+  it('a manually hidden section does not reopen as references change or the page re-renders', () => {
+    const { vault, rerender, pageOperations, displayStore, taskOperations, onRequestReveal } = setup(withReference);
+    const props = { pageId: 'target', vault, pageOperations, displayStore, taskOperations, onRequestReveal };
+    act(() => displayStore.setHidden('target', true));
+
+    vault.replacePage(page('a', 'Alpha.md', 'one [[Target]] and again [[Target]]'));
+    rerender(<PageReferences {...props} />);
+    vault.replacePage(page('a', 'Alpha.md', 'no longer references it'));
+    rerender(<PageReferences {...props} />);
+    vault.replacePage(page('a', 'Alpha.md', 'references it once more [[Target]]'));
+    rerender(<PageReferences {...props} />);
+    rerender(<PageReferences {...props} />);
+
+    expect(heading()).toBeNull();
+    expect(displayStore.getHidden('target')).toBe(true);
+  });
+
+  it('turning it off mid-session hides an automatically shown section, and turning it on shows it again', () => {
+    const { displayStore } = setup(withReference);
+    act(() => displayStore.clear('target'));
+    expect(heading()).not.toBeNull();
+
+    act(() => writeShowReferencesAutomatically(false));
+    expect(heading()).toBeNull();
+
+    act(() => writeShowReferencesAutomatically(true));
+    expect(heading()).not.toBeNull();
+  });
+
+  it('an explicit Show still shows the section while it is off, and turning it off never changes a saved choice', () => {
+    localStorage.setItem(AUTO_KEY, 'false');
+    const { displayStore } = setup(withReference);
+    act(() => displayStore.setHidden('target', false));
+    expect(heading()).not.toBeNull();
+
+    act(() => writeShowReferencesAutomatically(true));
+    act(() => writeShowReferencesAutomatically(false));
+
+    expect(displayStore.getHidden('target')).toBe(false);
+    expect(heading()).not.toBeNull();
   });
 });

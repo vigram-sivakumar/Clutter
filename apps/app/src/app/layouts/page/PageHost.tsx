@@ -200,6 +200,7 @@ import {
 } from '@features/markdown/editor/MarkdownEditor';
 import { clearCachedEditorSession } from '@features/markdown/editor/codemirror/editorHistoryCache';
 import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal';
+import { useShowReferencesAutomatically } from '@shared/helpers/showReferencesAutomaticallyPreference';
 import { PropertyList } from '@components/property-list/PropertyList';
 import { buildPageProperties } from './buildPageProperties';
 import { initialCoverLayoutPatch, newCoverPatch } from '@core/application/page/coverPatch';
@@ -764,7 +765,11 @@ export function PageHost({
         : 0,
     [vault, knowledgeGraph, activePageId]
   );
-  const referencesHidden = !isReferencesDisplayed(savedReferencesHidden);
+  const showReferencesAutomatically = useShowReferencesAutomatically();
+  const referencesHidden = !isReferencesDisplayed(savedReferencesHidden, {
+    enabled: showReferencesAutomatically,
+    count: referencesCount,
+  });
   const propertyDrafts = useCustomPropertyDrafts(activePageId);
   const propertiesConfirmation = useConfirmationSurface();
   // A restore whose original path is taken by another page (a Daily Note for a date that exists

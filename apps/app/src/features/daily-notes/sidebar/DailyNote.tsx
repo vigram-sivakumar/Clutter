@@ -39,6 +39,11 @@ interface DailyNoteProps extends Omit<EntryProps, 'children'> {
    * its leading icon; a Daily Note's leading slot is its date, so the emoji goes trailing.
    */
   emoji?: string | null;
+  /**
+   * Whether `emoji` is drawn on the row (true when omitted). Presentation only: the picker still knows the note has an
+   * emoji (so it offers Remove), whatever is shown. The sidebar's Show emoji setting drives this.
+   */
+  showEmoji?: boolean;
   /** Present when `menuItems` includes a `change-icon` item — same contract as Note's. */
   onChangeIcon?: (emoji: string | null) => void;
 }
@@ -56,6 +61,7 @@ export function DailyNote({
   onMenuOpenChange,
   onMenuSelect,
   emoji,
+  showEmoji = true,
   onChangeIcon,
   ...entryProps
 }: DailyNoteProps) {
@@ -74,7 +80,7 @@ export function DailyNote({
         // forced while the Change icon picker is open.
         forceHover={menuOpen || changeIconTrigger.open}
         leading={<DateLabel isToday={isToday} date={day} />}
-        trailing={emoji ? <AppIcon emoji={emoji} /> : undefined}
+        trailing={emoji && showEmoji ? <AppIcon emoji={emoji} /> : undefined}
         actions={
           <OverflowMenu
             buttonSize="xs"

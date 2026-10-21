@@ -228,3 +228,12 @@ describe('Note — title truncation', () => {
     expect(screen.getByText('My Note').closest('.note__title')).toHaveClass('truncate');
   });
 });
+
+describe('Note — unaffected by the Daily notes Show emoji setting', () => {
+  it('still shows its emoji while Show emoji (Daily notes) is off', () => {
+    localStorage.clear();
+    const { container } = render(<NoteHarness onMenuSelect={vi.fn()} emoji="📝" />);
+
+    expect(container).toHaveTextContent('📝');
+  });
+});

@@ -14,11 +14,12 @@ import type { Page } from '@core/vault/models/Page';
 import type { Vault } from '@core/vault/models/Vault';
 import type { ReferencesDisplayStore } from '@core/application/references/ReferencesDisplayStore';
 import { useReferencesDisplayStore } from '@app/hooks/useReferencesDisplayStore';
+import { useShowReferencesAutomatically } from '@shared/helpers/showReferencesAutomaticallyPreference';
 
 import { containsEmbed } from './extractReferenceLine';
 import { getSourceNoteHeadings } from './sourceNoteHeadings';
 import { getPageReferences, type PageReference } from './getPageReferences';
-import { countPageReferences } from './referencesDisplay';
+import { countPageReferences, isReferencesDisplayed } from './referencesDisplay';
 import { References, ReferenceEntry, ReferenceGroup } from './Reference';
 import {
   createReferencePreviewExtensions,
@@ -92,6 +93,7 @@ export function PageReferences({
 }: PageReferencesProps) {
   useReferencesDisplayStore(displayStore);
   const savedHidden = displayStore.getHidden(pageId);
+  const showAutomatically = useShowReferencesAutomatically();
   const isExpanded = !displayStore.isCollapsed(pageId);
 
   // The previews' resolvers are read at use time through this ref, so the one shared extension list below
@@ -186,8 +188,9 @@ export function PageReferences({
     vault.root
   );
 
-  // Hidden unless the user chose Show references; the saved expansion is untouched either way.
-  if (savedHidden !== false) {
+  // The note's saved choice wins; with none, shown automatically when the setting is on and there are references. The
+  // saved expansion is untouched either way.
+  if (!isReferencesDisplayed(savedHidden, { enabled: showAutomatically, count })) {
     return null;
   }
 

@@ -35,6 +35,8 @@ import { StartupSetting } from './startup-setting/StartupSetting';
 import { DateFormatSetting } from './date-format-setting/DateFormatSetting';
 import { WeekStartSetting } from './week-start-setting/WeekStartSetting';
 import { ThemeSetting } from './theme-setting/ThemeSetting';
+import { ShowDailyNoteEmojiSetting } from './daily-notes-setting/ShowDailyNoteEmojiSetting';
+import { ShowReferencesAutomaticallySetting } from './references-setting/ShowReferencesAutomaticallySetting';
 import { HeaderSeparatorSetting } from './header-separator-setting/HeaderSeparatorSetting';
 import { HeaderSeparatorStyleSetting } from './header-separator-style-setting/HeaderSeparatorStyleSetting';
 
@@ -150,17 +152,27 @@ export function Settings({ templates, noteLocation, spaceSettings, space, onClos
           </SettingsGroup>
         )}
         {pageId === 'layout' && (
-          <SettingsGroup>
-            <HeaderSeparatorSetting />
-            <HeaderSeparatorStyleSetting />
-          </SettingsGroup>
+          <>
+            <SettingsGroup>
+              <HeaderSeparatorSetting />
+              <HeaderSeparatorStyleSetting />
+            </SettingsGroup>
+            <SettingsGroup>
+              <ShowReferencesAutomaticallySetting />
+            </SettingsGroup>
+          </>
         )}
         {pageId === 'daily-notes' && (
-          <PreferredTemplates
-            context="dailyNotes"
-            templates={templates}
-            onCloseSettings={onClose}
-          />
+          <>
+            <SettingsGroup title="Sidebar appearance">
+              <ShowDailyNoteEmojiSetting />
+            </SettingsGroup>
+            <PreferredTemplates
+              context="dailyNotes"
+              templates={templates}
+              onCloseSettings={onClose}
+            />
+          </>
         )}
       </SettingsPage>
       {onClose && (

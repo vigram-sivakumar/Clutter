@@ -453,7 +453,7 @@ export class PageOperations {
    * draft that was never promoted (persistDraft() deletes it from
    * `drafts` the moment it is — ADR-017) has nothing left to keep it
    * alive once its owning flush has settled and the user has actually
-   * moved on. Three guards, each necessary:
+   * moved on. Each guard is necessary:
    *
    * - `activePageId !== pageId` — the user may have navigated straight
    *   back to this exact draft before this callback ran; still-active
@@ -469,16 +469,12 @@ export class PageOperations {
    *   product-level exception (not an ordinary abandoned draft): it acts
    *   as a persistent scratchpad for the current day, so it must survive
    *   navigating away empty. See canAutoDiscardDraft/shouldRetainDraft.
-   * - `workspace.isReferencedInHistory(pageId)` — a draft Back/Forward can
-   *   still return to (any Daily Note draft the user navigated through)
-   *   is not abandoned merely because it isn't the active view right now;
-   *   discarding it here would silently strand that history entry (see
-   *   the bug this guard closes: Back off an empty Daily Note draft used
-   *   to auto-discard it before Forward could ever replay it). Independent
-   *   of, and does not alter, canAutoDiscardDraft/shouldRetainDraft/
-   *   acquireDraft — a plain Note draft is never recordable (see
-   *   PageOperations.openDraft()), so it can never match this check and
-   *   keeps its existing abandonment behavior unchanged.
+   *
+   * Navigation history is deliberately NOT a guard: an empty draft is temporary however the user left it,
+   * Daily Note drafts included. A Back/Forward entry that still names a discarded draft is stale, and
+   * NavigationRouter skips it (stillExists) — it never reopens or recreates the draft. (An earlier rule kept an
+   * empty Daily Note draft alive while history referenced it; it left empty drafts lingering in the sidebar
+   * after the user had navigated to another Daily Note — see ADR-059.)
    */
   private discardAbandonedDraft(pageId: string): void {
     if (this.workspace.activePageId === pageId) {
@@ -492,13 +488,6 @@ export class PageOperations {
     }
 
     if (this.documentRegistry.get(pageId)?.state === DocumentState.SaveError) {
-      return;
-    }
-
-    // Only a recordable draft (a Daily Note) is a valid Back/Forward target worth keeping alive; a plain Note
-    // draft is never retained for navigation, even if something recorded it. A history entry left pointing
-    // at a discarded draft is skipped on traversal (NavigationRouter.stillExists).
-    if (this.isRecordableDraft(descriptor) && this.workspace.isReferencedInHistory(pageId)) {
       return;
     }
 
@@ -815,10 +804,9 @@ export class PageOperations {
 
   /**
    * Whether leaving this draft may make it a Back/Forward stop. The one rule: a Daily Note draft is a
-   * destination worth returning to; a plain Note draft never is (see openDraft()). Every place that
-   * (re)activates a draft consults it — acquireDraft(), open() — and discardAbandonedDraft() only honors
-   * a history reference for a draft this says is recordable, so an empty plain draft can never be pinned
-   * alive by navigation history, however it was last activated.
+   * recorded stop; a plain Note draft never is (see openDraft()). Every place that (re)activates a draft
+   * consults it — acquireDraft(), open(). Recording a stop does not keep the draft alive: an empty draft is
+   * discarded on navigating away (discardAbandonedDraft), and NavigationRouter skips the stale entry.
    */
   private isRecordableDraft(descriptor: DraftDescriptor): boolean {
     return descriptor.type === 'daily-note';

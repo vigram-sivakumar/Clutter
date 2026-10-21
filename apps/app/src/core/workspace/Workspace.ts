@@ -263,20 +263,6 @@ export class Workspace implements Observable {
   }
 
   /**
-   * Whether `pageId` currently sits in either history stack — the read
-   * PageOperations.discardAbandonedDraft() uses to decide whether a draft
-   * (a Daily Note draft, specifically — plain Note drafts are never
-   * recordable, so they can never match here) is still a valid Back/
-   * Forward target and therefore must not be auto-discarded. A pure read
-   * over Workspace's own arrays, the same shape as isPageOpen()/peekBack()
-   * — no new dependency, no change to recording/traversal.
-   */
-  public isReferencedInHistory(pageId: string): boolean {
-    const matches = (entry: ActiveView) => entry.type === 'page' && entry.id === pageId;
-    return this.backStack.some(matches) || this.forwardStack.some(matches);
-  }
-
-  /**
    * Whether back() has anywhere to go (ADR-027) — drives Controls' Previous
    * button's disabled state.
    */

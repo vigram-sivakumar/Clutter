@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { act, cleanup, fireEvent, render } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import {
   afterAll,
   afterEach,
   beforeAll,
+  beforeEach,
   describe,
   expect,
   it,
@@ -14,6 +15,7 @@ import {
 import { EditorView } from '@codemirror/view';
 
 import { AppLayout } from '../app-layout/AppLayout';
+import { writeShowReferencesAutomatically } from '@shared/helpers/showReferencesAutomaticallyPreference';
 import { Application } from '@core/application/Application';
 import { Vault } from '@core/vault/models/Vault';
 import { VaultProjectionBuilder } from '@core/vault/knowledge/VaultProjectionBuilder';
@@ -258,7 +260,8 @@ describe('PageHost: the References section', () => {
     ).toEqual(['1 Reference']);
   });
 
-  it('is hidden by default, even for a page that something references', async () => {
+  it('is hidden with no saved choice and Show references automatically off, even for a page that something references', async () => {
+    localStorage.setItem('clutter-show-references-automatically', 'false');
     const application = makeApplication([
       note('Some text'),
       source('See [[Note]] for details.'),
@@ -368,5 +371,136 @@ describe('PageHost: the editor and template suggestions are unchanged by it', ()
     ).toBe('# Agenda');
     expect(editorView().state.doc.toString()).toBe('# Agenda');
     expectPlacedAfterTheEditor();
+  });
+});
+
+describe('PageHost: Show references automatically', () => {
+  const AUTO_KEY = 'clutter-show-references-automatically';
+  beforeEach(() => localStorage.clear());
+
+  /** The page top bar's More actions (the title section has one of its own too). */
+  const topBarMenuButton = () =>
+    Array.from(document.querySelectorAll<HTMLButtonElement>('button[aria-label="More actions"]')).find(
+      (button) => !button.closest('.page-header-controls')
+    )!;
+  const openTopBarMenu = () => fireEvent.click(topBarMenuButton());
+  const noteWithReference = () => makeApplication([note('Some text'), source('See [[Note]] for details.')]);
+  const dailyNoteWithReference = () => {
+    const page = dailyNote('2026-01-15', 'Daily text');
+    const link = DailyNotePath.from(new Date(2026, 0, 15)).replace(/\.md$/, '');
+    return { page, application: makeApplication([page, source(`Written on [[${link}]].`)]) };
+  };
+  const open = (application: Application, id: string) =>
+    show(application, () => application.pageOperations.open(id), { shown: false });
+
+  it('is on by default: a note that has a reference shows its section with no saved choice', async () => {
+    expect(localStorage.getItem(AUTO_KEY)).toBeNull();
+    const application = noteWithReference();
+
+    await open(application, 'note-1');
+
+    expect(section()).not.toBeNull();
+    expect(application.referencesDisplayStore.getHidden('note-1')).toBeUndefined(); // shown without saving anything
+  });
+
+  it('shows a daily note\'s section the same way', async () => {
+    const { page, application } = dailyNoteWithReference();
+
+    await open(application, page.id);
+
+    expect(section()).not.toBeNull();
+  });
+
+  it.each(['note', 'daily note'] as const)('does not show a %s with no references automatically', async (kind) => {
+    const page = kind === 'note' ? note('Some text') : dailyNote('2026-01-15', 'Daily text');
+    const application = makeApplication([page, source('Nothing about it.')]);
+
+    await open(application, page.id);
+
+    expect(section()).toBeNull();
+  });
+
+  it('shows nothing automatically for a page with references when the setting is off', async () => {
+    localStorage.setItem(AUTO_KEY, 'false');
+    const application = noteWithReference();
+
+    await open(application, 'note-1');
+
+    expect(section()).toBeNull();
+  });
+
+  it('with the setting off, the top-bar Show references still shows it manually', async () => {
+    localStorage.setItem(AUTO_KEY, 'false');
+    const application = noteWithReference();
+    await open(application, 'note-1');
+    expect(section()).toBeNull();
+
+    openTopBarMenu();
+    fireEvent.click(screen.getByText('Show references'));
+    await flush();
+
+    expect(section()).not.toBeNull();
+    expect(application.referencesDisplayStore.getHidden('note-1')).toBe(false);
+  });
+
+  it('with it on, the top-bar Hide references hides an automatically shown section, and it stays hidden', async () => {
+    const application = noteWithReference();
+    await open(application, 'note-1');
+    expect(section()).not.toBeNull();
+
+    openTopBarMenu();
+    fireEvent.click(screen.getByText('Hide references'));
+    await flush();
+
+    expect(section()).toBeNull();
+    expect(application.referencesDisplayStore.getHidden('note-1')).toBe(true);
+
+    // A new reference arrives, and the page re-renders: it does not reopen.
+    application.vault.replacePage(source('See [[Note]] twice: [[Note]].'));
+    await flush();
+    act(() => application.referencesDisplayStore.setCollapsed('note-1', false));
+    await flush();
+    expect(section()).toBeNull();
+  });
+
+  it('the top-bar item is labelled for what it does: Hide while shown automatically, Show once hidden', async () => {
+    const application = noteWithReference();
+    await open(application, 'note-1');
+
+    openTopBarMenu();
+    expect(screen.getByText('Hide references')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Hide references'));
+    await flush();
+    openTopBarMenu();
+    expect(screen.getByText('Show references')).toBeInTheDocument();
+  });
+
+  it('an existing per-page choice is kept: a saved Hide stays hidden when the setting is on, a saved Show stays shown when it is off', async () => {
+    const hidden = noteWithReference();
+    hidden.referencesDisplayStore.setHidden('note-1', true);
+    await open(hidden, 'note-1');
+    expect(section()).toBeNull();
+    expect(hidden.referencesDisplayStore.getHidden('note-1')).toBe(true);
+    cleanup();
+
+    localStorage.setItem(AUTO_KEY, 'false');
+    const shown = noteWithReference();
+    shown.referencesDisplayStore.setHidden('note-1', false);
+    await open(shown, 'note-1');
+    expect(section()).not.toBeNull();
+    expect(shown.referencesDisplayStore.getHidden('note-1')).toBe(false);
+  });
+
+  it('follows the setting changing while the page is open, without touching the saved choice', async () => {
+    const application = noteWithReference();
+    await open(application, 'note-1');
+    expect(section()).not.toBeNull();
+
+    act(() => writeShowReferencesAutomatically(false));
+    expect(section()).toBeNull();
+    act(() => writeShowReferencesAutomatically(true));
+    expect(section()).not.toBeNull();
+    expect(application.referencesDisplayStore.getHidden('note-1')).toBeUndefined();
   });
 });

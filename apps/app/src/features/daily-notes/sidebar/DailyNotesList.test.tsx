@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, render, screen, fireEvent } from '@testing-library/react';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, render, screen, fireEvent } from '@testing-library/react';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DailyNotesList } from './DailyNotesList';
 import { DailyNotesSidebarState } from '@core/application/daily-notes/DailyNotesSidebarState';
@@ -32,6 +32,7 @@ import { VaultProjectionBuilder } from '@core/vault/knowledge/VaultProjectionBui
 import { KnowledgeGraph } from '@core/vault/models/graph/KnowledgeGraph';
 import { Workspace } from '@core/workspace/Workspace';
 import { toISODate } from '@shared/helpers/time/helpers/toISODate';
+import { writeShowDailyNoteEmoji } from '@shared/helpers/showDailyNoteEmojiPreference';
 import type { Folder } from '@core/vault/models/Folder';
 import type { Page } from '@core/vault/models/Page';
 
@@ -886,6 +887,9 @@ describe('DailyNotesList — location actions (Reveal in Finder / Copy path)', (
 });
 
 describe('DailyNotesList — emoji', () => {
+  beforeEach(() => localStorage.clear());
+  afterEach(() => localStorage.clear());
+
   function setupDailyNote(icon: string | null) {
     const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
     const year = makeFolder('year', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root');
@@ -903,7 +907,8 @@ describe('DailyNotesList — emoji', () => {
     )!;
   }
 
-  it('a Daily Note with an emoji shows it in the row\'s trailing metadata slot', () => {
+  it('a Daily Note with an emoji shows it in the row\'s trailing metadata slot (Show emoji on)', () => {
+    writeShowDailyNoteEmoji(true);
     const { vault, query, membershipSelector, workspace, note } = setupDailyNote('🍄');
 
     const { container } = renderList({ vault, query, membershipSelector, workspace });
@@ -1001,5 +1006,85 @@ describe("DailyNotesList — the side panel keeps its content preview", () => {
     renderList({ vault, query, membershipSelector, workspace });
 
     expect(screen.getByText('Planning day')).toBeInTheDocument();
+  });
+});
+
+describe('DailyNotesList — Show emoji setting', () => {
+  beforeEach(() => localStorage.clear());
+  afterEach(() => localStorage.clear());
+
+  function setupDailyNotes() {
+    const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
+    const year = makeFolder('year', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root');
+    const month = makeMonthFolder('month', TODAY, 'year');
+    const dayA = dayInMonth(TODAY, 3) === TODAY ? dayInMonth(TODAY, 4) : dayInMonth(TODAY, 3);
+    const dayB = dayInMonth(TODAY, 9) === TODAY ? dayInMonth(TODAY, 10) : dayInMonth(TODAY, 9);
+    const withEmoji = makeDailyNote('daily-a', dayA, 'month');
+    const noteA: Page = { ...withEmoji, metadata: { ...withEmoji.metadata, icon: '🍄' } };
+    const plain = makeDailyNote('daily-b', dayB, 'month');
+    return { ...setup([noteA, plain], [dailyNotesRoot, year, month]), noteA, plain };
+  }
+  const rowOf = (container: HTMLElement, note: Page) =>
+    Array.from(container.querySelectorAll('.entry')).find((row) =>
+      row.textContent?.includes(String(Number(note.name.slice(8))))
+    )!;
+
+  it('is off when nothing is stored: no Daily Note row shows its emoji', () => {
+    const { vault, query, membershipSelector, workspace, noteA } = setupDailyNotes();
+
+    const { container } = renderList({ vault, query, membershipSelector, workspace });
+
+    expect(rowOf(container, noteA).querySelector('.entry__meta')).toBeNull();
+    expect(container).not.toHaveTextContent('🍄');
+  });
+
+  it('shows the emoji of a Daily Note that has one when it is on, and nothing for one that has none', () => {
+    writeShowDailyNoteEmoji(true);
+    const { vault, query, membershipSelector, workspace, noteA, plain } = setupDailyNotes();
+
+    const { container } = renderList({ vault, query, membershipSelector, workspace });
+
+    expect(rowOf(container, noteA).querySelector('.entry__meta')).toHaveTextContent('🍄');
+    expect(rowOf(container, plain).querySelector('.entry__meta')).toBeNull();
+  });
+
+  it('updates the rows at once when the setting changes, with no remount', () => {
+    const { vault, query, membershipSelector, workspace, noteA } = setupDailyNotes();
+    const { container } = renderList({ vault, query, membershipSelector, workspace });
+    expect(container).not.toHaveTextContent('🍄');
+
+    act(() => writeShowDailyNoteEmoji(true));
+    expect(rowOf(container, noteA).querySelector('.entry__meta')).toHaveTextContent('🍄');
+
+    act(() => writeShowDailyNoteEmoji(false));
+    expect(container).not.toHaveTextContent('🍄');
+  });
+
+  it('only hides it in the list: the note\'s own emoji is unchanged', () => {
+    const { vault, query, membershipSelector, workspace, noteA } = setupDailyNotes();
+
+    renderList({ vault, query, membershipSelector, workspace });
+
+    expect(vault.getPage(noteA.id)?.metadata.icon).toBe('🍄');
+  });
+
+  it('keeps the row\'s Change icon picker aware of the hidden emoji: Remove icon is still offered', () => {
+    const { vault, query, membershipSelector, workspace, noteA } = setupDailyNotes();
+    const rowActions = {
+      openMenuId: noteA.id,
+      onOpenMenu: vi.fn(),
+      onCloseMenu: vi.fn(),
+      onArchiveNote: vi.fn(),
+      onChangeNoteIcon: vi.fn(),
+      onCreateTemplate: vi.fn(),
+      onRevealPageInFinder: vi.fn(),
+      onCopyPagePath: vi.fn(),
+    };
+
+    renderList({ vault, query, membershipSelector, workspace, rowActions });
+    fireEvent.click(screen.getByText('Change icon'));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove icon' }));
+
+    expect(rowActions.onChangeNoteIcon).toHaveBeenCalledWith(noteA.id, null);
   });
 });
