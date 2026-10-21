@@ -299,7 +299,11 @@ export class FolderOperations {
       }
     }
 
-    await this.coordinator.enqueue(folderId, { kind: 'delete-folder' });
+    // Checked again when the delete runs (not only above): a restore queued ahead of it must win.
+    await this.coordinator.enqueue(folderId, {
+      kind: 'delete-folder',
+      ...(!options.allowActive && { requireArchived: true }),
+    });
 
     this.onPagesPermanentlyDeleted(descendantPageIds);
 
@@ -964,6 +968,14 @@ export class FolderOperations {
    * Folders have no DocumentSession/body to flush, so this only ever
    * concerns these two channels.
    */
+  /** Whether any folder's name or description change is dirty or still being saved (a synchronous snapshot). */
+  public hasUnsavedWork(): boolean {
+    const isUnsaved = (state: { isDirty: boolean; state: DocumentState }) =>
+      state.isDirty || state.state === DocumentState.Saving;
+
+    return [...this.nameStates.values()].some(isUnsaved) || [...this.descriptionStates.values()].some(isUnsaved);
+  }
+
   public async flushAll(timeoutMs: number): Promise<void> {
     const dirtyOrSavingFolderIds = [...this.nameStates.entries()]
       .filter(

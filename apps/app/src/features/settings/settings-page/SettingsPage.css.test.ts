@@ -23,11 +23,11 @@ describe('SettingsPage scrolling', () => {
     expect(declarations).toContain('min-height: 0');
   });
 
-  it('puts its scrollbar at the dialog edge and takes the width back from the right padding, so the content is not pushed in', () => {
+  it('puts its scrollbar at the dialog edge, with the same inline padding on both sides', () => {
     const declarations = rule('.settings-page');
 
     expect(declarations).toContain('margin-inline-end: calc(var(--space-8) * -1)');
-    expect(declarations).toContain('padding-inline: var(--space-24) var(--space-12)');
+    expect(declarations).toContain('padding-inline: var(--space-24)');
     expect(declarations).toContain('scrollbar-gutter: stable');
   });
 

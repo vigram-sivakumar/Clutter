@@ -1,0 +1,62 @@
+.space-page__input {
+  color: var(--foreground-primary);
+  font-size: var(--text-label);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-label);
+  letter-spacing: var(--ls-body-small);
+  min-height: 0;
+  padding: 0;
+}
+.space-page__error {
+  color: var(--danger-foreground-on-surface);
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label-small);
+  letter-spacing: var(--ls-label-small);
+}
+
+/* The Space's avatar, above the groups: 40px square. SpaceAvatar draws itself at a fixed 20px whatever box it sits in, so
+   the image, the initial and the emoji's wrapper are made to fill this one, and the emoji and the initial are sized on
+   their own (the emoji is a font glyph, the initial a letter). */
+.space-page__avatar {
+  display: flex;
+  align-self: flex-start;
+  flex-shrink: 0;
+  height: var(--space-64);
+  aspect-ratio: 1;
+  cursor: pointer;
+}
+.space-page__avatar .space__avatar,
+.space-page__avatar .space__initial,
+.space-page__avatar .app-icon {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+}
+.space-page__avatar:hover .space__avatar {
+  opacity: 1;
+  transition: opacity 220ms ease;
+}
+.space-page__avatar .space__initial {
+  font-size: var(--text-heading-1);
+  line-height: var(--lh-heading-1);
+  border-radius: var(--radius-md);
+  color: var(--foreground-tertiary);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+  opacity: 1;
+  transition: opacity 220ms ease;
+}
+.space-page__avatar .emoji-icon {
+  font-size: var(--text-display);
+  opacity: 1;
+  transition: opacity 220ms ease;
+}
+.space-page__avatar:hover .emoji-icon,
+.space-page__avatar:hover .space__initial,
+.space-page__avatar:hover .space__avatar {
+  opacity: var(--opacity-subtle);
+}
+.space-page__avatar--editable {
+  cursor: pointer;
+}

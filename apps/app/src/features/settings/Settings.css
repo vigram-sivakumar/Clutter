@@ -4,7 +4,7 @@
   max-width: 920px;
   height: 80vh;
   background: var(--surface-primary);
-  box-shadow: var(--shadow-inset-thin-strong);
+  box-shadow: var(--shadow-inset-thin);
   border-radius: var(--radius-lg);
 
   padding: var(--space-8);

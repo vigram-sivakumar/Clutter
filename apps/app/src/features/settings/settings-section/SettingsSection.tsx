@@ -2,8 +2,8 @@ import type { HTMLAttributes, ReactNode } from 'react';
 import './SettingsSection.css';
 
 export interface SettingsSectionProps extends HTMLAttributes<HTMLElement> {
-  /** Shown once, above every group in the section. */
-  title: string;
+  /** Shown once, above every group in the section. Absent: the section only groups its children. */
+  title?: string;
   /** `SettingsGroup`s, stacked as separate cards with a small gap between them. */
   children: ReactNode;
 }
@@ -16,7 +16,7 @@ export interface SettingsSectionProps extends HTMLAttributes<HTMLElement> {
 export function SettingsSection({ title, children, className, ...props }: SettingsSectionProps) {
   return (
     <section {...props} className={['settings-section', className].filter(Boolean).join(' ')}>
-      <span className="settings-group__title">{title}</span>
+      {title && <span className="settings-group__title">{title}</span>}
       <div className="settings-section__groups">{children}</div>
     </section>
   );

@@ -70,6 +70,7 @@ export function mergeAndWriteWorkspaceStateFile(
   rootPath: string,
   patch: Record<string, unknown>
 ): Promise<void> {
+  pendingWrites++;
   const write = writeQueue
     .then(() => mergeAndWrite(fileSystem, rootPath, patch))
     // The vault is gone (its root was deleted or moved, or its Application was discarded and the
@@ -85,11 +86,19 @@ export function mergeAndWriteWorkspaceStateFile(
     });
   // A failed write must not wedge the queue for every later writer — the
   // failure still propagates to this call's own caller via `write`.
-  writeQueue = write.catch(() => {});
+  writeQueue = write.catch(() => {}).finally(() => {
+    pendingWrites--;
+  });
   return write;
 }
 
 let writeQueue: Promise<void> = Promise.resolve();
+let pendingWrites = 0;
+
+/** Whether a `.clutter/workspace.json` write has been requested and has not finished (a synchronous snapshot). */
+export function hasPendingWorkspaceStateWrites(): boolean {
+  return pendingWrites > 0;
+}
 
 /**
  * Resolves once every `.clutter/workspace.json` write requested so far has finished (succeeded or failed — a failed

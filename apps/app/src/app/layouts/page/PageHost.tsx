@@ -64,6 +64,7 @@ import {
 } from '@features/notes/helpers/applyTemplateToNote';
 import type { MetadataHistoryChange } from '@features/markdown/editor/codemirror/metadataHistoryStep';
 import {
+  isTodaysDailyNotePath,
   putPreferredTemplatesFirst,
   shouldSuggestTemplates,
   sortTemplatesByRecentUse,
@@ -223,6 +224,8 @@ interface TemplateTargetNote {
   readonly isArchived: boolean;
   readonly folderId: string | null;
   readonly existing: ExistingNoteMetadata;
+  /** For a Daily Note draft: the path it will be saved at, whose file name is its date. */
+  readonly dailyNotePath?: string;
 }
 
 /**
@@ -1565,15 +1568,20 @@ export function PageHost({
   };
 
 
-  // A new Daily Note gets the default template (Settings → Daily notes → Default daily note template) applied by
-  // the same applyTemplateToNote a "Start with template" click uses. Only for an empty Daily Note, and only a
-  // template that is still offered — one archived, deleted or moved out of Templates is skipped, never swapped for
-  // another. Preferred templates are not consulted: they order suggestions, this one is applied.
+  // A new Daily Note for TODAY gets the "Today's template" (Settings → Daily notes) applied by the same
+  // applyTemplateToNote a "Start with template" click uses. Only today's: a note for a past or a future date — which
+  // opens as an empty draft just the same — is left empty, with its suggestions. Today is the user's local calendar
+  // day (isTodaysDailyNotePath), judged here, where the template is applied, not in the settings screen. Only for an
+  // empty Daily Note, and only a template that is still offered — one archived, deleted or moved out of Templates is
+  // skipped, never swapped for another. Preferred templates are not consulted: they order suggestions, this one is
+  // applied.
   const applyDefaultDailyNoteTemplate = (note: TemplateTargetNote): void => {
     const templateId = application.preferredTemplatesStore.getDefaultDailyNoteTemplateId();
 
     if (
       templateId === undefined ||
+      note.type !== 'daily-note' ||
+      !isTodaysDailyNotePath(note.dailyNotePath) ||
       !shouldSuggestTemplates({
         type: note.type,
         markdown: note.markdown,
@@ -2905,6 +2913,7 @@ export function PageHost({
                   isArchived: false,
                   folderId: draft.folderId,
                   existing: { tags: draft.tags },
+                  dailyNotePath: draft.deterministicPath,
                 })
               }
             />

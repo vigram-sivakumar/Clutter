@@ -1,7 +1,7 @@
 .settings-entry {
   display: flex;
-  align-items: flex-start;
-  justify-content: start;
+  align-items: center;
+  justify-content: center;
   gap: var(--space-12);
   padding: var(--space-12);
   background: var(--surface-secondary);
@@ -68,4 +68,13 @@
   align-items: center;
   flex-shrink: 0;
   min-height: 36px;
+}
+
+/* A group whose entry sits bare on the page: no card background and no padding (e.g. a lone action button). */
+.settings-group--bare .settings-group__entries,
+.settings-group--bare .settings-entry {
+  background: transparent;
+}
+.settings-group--bare .settings-entry {
+  padding: 0;
 }

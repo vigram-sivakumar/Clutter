@@ -62,7 +62,7 @@ const EXPLICIT: [string, string][] = [
 // What each locale's menu shows: the seven options, Relative first, in menu order.
 const EXAMPLES: Record<string, string[]> = {
   'en-IN': [
-    'Today',
+    'Relative',
     '20 October 2026',
     '20 Oct',
     'Tue, 20 Oct 2026',
@@ -71,7 +71,7 @@ const EXAMPLES: Record<string, string[]> = {
     '2026/10/20',
   ],
   'en-GB': [
-    'Today',
+    'Relative',
     '20 October 2026',
     '20 Oct',
     'Tue, 20 Oct 2026',
@@ -80,7 +80,7 @@ const EXAMPLES: Record<string, string[]> = {
     '2026/10/20',
   ],
   'en-US': [
-    'Today',
+    'Relative',
     'October 20, 2026',
     'Oct 20',
     'Tue, Oct 20, 2026',
@@ -105,7 +105,7 @@ describe('DateFormatSetting — the entry and its button', () => {
 
   it('shows only the chosen format\'s example date on the button, not its name', () => {
     render(<DateFormatSetting />);
-    expect(trigger()).toHaveTextContent(/^Today$/);
+    expect(trigger()).toHaveTextContent(/^Relative$/);
     choose('Month/Day/Year');
     expect(trigger()).toHaveTextContent(/^10\/20\/2026$/);
   });
@@ -157,7 +157,10 @@ describe('DateFormatSetting — the menu', () => {
             'dmy',
             'ymd',
           ] as const
-        ).map((format) => formatDateFormatExample(format, { locale }))
+        ).map((format) =>
+          // Relative is shown by its name; every other row is the app's own example for that format.
+          format === 'relative' ? 'Relative' : formatDateFormatExample(format, { locale })
+        )
       );
     }
   );

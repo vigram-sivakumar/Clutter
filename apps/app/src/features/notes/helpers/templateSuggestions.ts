@@ -1,4 +1,23 @@
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
+import { VaultPath } from '@core/vault/ingest/VaultPath';
+import { isValidCalendarDate } from '@shared/helpers/time/helpers/isValidCalendarDate';
+import { toISODate } from '@shared/helpers/time/helpers/toISODate';
+
+/**
+ * Whether `path` is the Daily Note for today, on the user's local calendar: its file name is its date
+ * (`2026-10-20.md`, `VaultPath.pageName`), compared as a plain `YYYY-MM-DD` with today's local date (`toISODate`:
+ * the machine's own year, month and day — never UTC, never a formatted label). Anything that is not a real calendar
+ * date, or no path at all, is not today. `now` is a parameter only so the answer can be pinned for a given moment.
+ */
+export function isTodaysDailyNotePath(path: string | undefined, now: Date = new Date()): boolean {
+  if (!path) {
+    return false;
+  }
+
+  const date = VaultPath.pageName(path);
+
+  return isValidCalendarDate(date) && date === toISODate(now);
+}
 
 /**
  * Whether the page offers "Start with template": an empty body (the live text — a new note, or one the

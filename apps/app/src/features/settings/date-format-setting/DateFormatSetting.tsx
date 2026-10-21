@@ -28,6 +28,14 @@ const OPTIONS: readonly DateFormatOption[] = [
   { value: 'ymd', label: 'Year/Month/Day' },
 ];
 
+/**
+ * What a row, and the button, shows for a format: its own example date — except Relative, whose example ("Today")
+ * would read as a date rather than the format, so it is called what it is.
+ */
+function displayFor(format: DateFormatChoice): string {
+  return format === 'relative' ? 'Relative' : formatDateFormatExample(format);
+}
+
 export function DateFormatSetting() {
   const choice = useSyncExternalStore(
     subscribeDateFormatChoice,
@@ -53,7 +61,7 @@ export function DateFormatSetting() {
             aria-label={`Date format: ${label}`}
             onClick={() => setMenuOpen((open) => !open)}
           >
-            {formatDateFormatExample(choice)}
+            {displayFor(choice)}
           </Button>
           <Overlay
             open={menuOpen}
@@ -78,7 +86,7 @@ export function DateFormatSetting() {
                     setMenuOpen(false);
                   }}
                 >
-                  {formatDateFormatExample(option.value)}
+                  {displayFor(option.value)}
                 </MenuItem>
               ))}
             </Menu>

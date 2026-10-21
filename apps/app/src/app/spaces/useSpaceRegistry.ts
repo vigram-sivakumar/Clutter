@@ -1,12 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SpaceFolderStatus } from '../../core/vault/providers/probeSpaceFolder';
+import { reconcilePendingRename, type SpaceIdReading } from './reconcilePendingRename';
+import { SpaceLifecycleGuard } from './spaceLifecycleGuard';
 import {
   defaultSpaceStorage,
   loadSpaceRegistry,
   normalizeSpacePath,
   saveSpaceRegistry,
   withActiveSpace,
+  withPendingRename,
+  withRenamedActiveSpace,
+  withoutPendingRename,
+  withRenamedInactiveSpace,
   withReplacedSpace,
+  withoutActiveSpace,
   withoutSpace,
   type SpaceRegistry,
   type SpaceRegistryStorage,
@@ -28,7 +35,17 @@ export interface SpaceRegistryDeps {
    */
   accept?: (path: string) => Promise<string | null>;
   storage?: SpaceRegistryStorage | null;
+  /**
+   * The Space id stored in the folder at `path` (read-only): its id, `null` for a folder with no Space profile, or
+   * `'unreadable'`. Lets startup verify identity at both paths of an unfinished rename; without it nothing can be
+   * verified, and such a rename is left undecided.
+   */
+  readSpaceId?(path: string): Promise<SpaceIdReading>;
+  /** Carries saved state over to a renamed folder (idempotent); lets startup retry it before finishing a rename. */
+  migrateState?(oldRoot: string, newRoot: string): Promise<boolean>;
 }
+
+export type RemoveActiveSpaceResult = 'switching' | 'closed' | 'failed' | 'busy' | 'none';
 
 export interface SpaceRegistryState {
   registry: SpaceRegistry;
@@ -54,6 +71,32 @@ export interface SpaceRegistryState {
    * persists nothing — opening one goes through the normal `selectSpace` flow.
    */
   fallbackCandidates(lostPath: string): Promise<string[]>;
+  /** Shows `text` to the user through the registry's own notice (for outcomes the shell reports on its behalf). */
+  notify(text: string): void;
+  /**
+   * A Space that is not open had its folder renamed to `to`: its entry moves to the new path and the active Space is
+   * untouched. Remembered at once, onto the registry as of the last Space that opened (as `removeSpace` is), so a switch
+   * in flight is never persisted early. `false` when `from` is the open Space or is not registered, or when the write
+   * fails (the in-memory registry still follows the new path and the user is told).
+   */
+  renameInactiveSpace(from: string, to: string): boolean;
+  /** The one lifecycle guard: switching, removing and renaming never overlap. Shared with whoever orchestrates a rename. */
+  readonly lifecycle: SpaceLifecycleGuard;
+  /**
+   * Starts renaming the ACTIVE Space's folder: records `pendingRename` and writes it to storage synchronously, BEFORE
+   * anything on disk changes. `false` (nothing recorded) when one is already recorded, nothing is active, or the
+   * write fails — the caller then aborts without closing anything.
+   */
+  beginRename(to: string, spaceId: string | null): boolean;
+  /**
+   * The folder was renamed: the active entry takes `to` and the record is resolved in ONE mutation and ONE write.
+   * `false` when that write failed — the folder is at `to` but storage still holds the record and the old path, so
+   * the caller must NOT open anything and falls back to recovery (the record is what lets the next launch finish it).
+   * Either way the in-memory registry follows the new path so nothing can ever return to the old one.
+   */
+  completeRename(to: string): boolean;
+  /** The rename did not happen and the original is verified: clears the record. `false` if that could not be saved. */
+  abandonRename(): boolean;
   /** A user-facing message about the last refused or failed switch; cleared by `dismissNotice`. */
   notice: { id: number; text: string } | null;
   dismissNotice(): void;
@@ -77,11 +120,27 @@ export interface SpaceRegistryState {
    */
   removeSpace(path: string): void;
   /**
+   * "Remove space" for the ACTIVE Space (the registry entry only; nothing on disk is touched).
+   * - Another registered Space is available: switches to it through the normal switch (`activate`); the old entry
+   *   is forgotten only once that Space has actually opened (`confirmOpened`), so a failed switch removes nothing.
+   *   Resolves `'switching'`.
+   * - None is available (the last openable Space): `closeApplication` flushes and closes the open Application;
+   *   then the entry is forgotten and no Space is active, the remaining (unavailable) entries kept. `'closed'`,
+   *   or `'failed'` — nothing removed, a notice shown — when the close threw.
+   * A repeated call while one is in progress is `'busy'`; with no active Space it is `'none'`.
+   */
+  removeActiveSpace(closeApplication: () => Promise<void>): Promise<RemoveActiveSpaceResult>;
+  /**
    * First-run / recovery selection: like `switchSpace`, but resolves whether the folder was accepted
    * for opening, and the previous registry (and missing-folder report) can be put back with
    * `cancelSelection` if the open then fails. Nothing is persisted until `confirmOpened`.
    */
   selectSpace(path: string): Promise<boolean>;
+  /**
+   * Drops a removal that is waiting for its replacement Space to open, releasing the lifecycle guard; the entry it
+   * would have forgotten stays registered. For a failed open that no other callback reports.
+   */
+  abortPendingRemoval(): void;
   /** Undoes the last `selectSpace` that has not been confirmed. */
   cancelSelection(): void;
   /**
@@ -120,6 +179,18 @@ export function useSpaceRegistry(deps: SpaceRegistryDeps): SpaceRegistryState {
   const lastOpenedRef = useRef<SpaceRegistry | null>(null);
   const registryRef = useRef(registry);
   registryRef.current = registry;
+  // The active Space being removed by switching away from it: forgotten once its replacement has opened.
+  const pendingRemovalRef = useRef<string | null>(null);
+  const lifecycleRef = useRef<SpaceLifecycleGuard | null>(null);
+  lifecycleRef.current ??= new SpaceLifecycleGuard();
+  const lifecycle = lifecycleRef.current;
+  // Held from the start of a removal that switches away until its replacement has opened (or failed to).
+  const removalReleaseRef = useRef<(() => void) | null>(null);
+  const finishRemoval = () => {
+    pendingRemovalRef.current = null;
+    removalReleaseRef.current?.();
+    removalReleaseRef.current = null;
+  };
 
   const say = useCallback((text: string) => setNotice({ id: Date.now(), text }), []);
 
@@ -131,8 +202,35 @@ export function useSpaceRegistry(deps: SpaceRegistryDeps): SpaceRegistryState {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
+      // An unfinished rename is settled first, and its outcome persisted, before anything is probed or opened.
+      const stored = registryRef.current;
+      let blocked: string | null = null;
+      if (stored.pendingRename !== undefined) {
+        const outcome = await reconcilePendingRename(stored, {
+          probe,
+          readSpaceId: deps.readSpaceId ?? (async () => 'unreadable' as const),
+          migrateState: deps.migrateState,
+        });
+        if (cancelled) return;
+        if (outcome.changed) {
+          const repoints = outcome.registry.activePath !== stored.activePath;
+          const saved = saveSpaceRegistry(storageRef.current, outcome.registry);
+          if (saved || !repoints) {
+            // Clearing a record needs no write to be safe: the next launch reaches the same conclusion.
+            registryRef.current = outcome.registry;
+            setRegistry(outcome.registry);
+          } else {
+            // Moving the entry could not be saved: nothing is opened from an unconfirmed registry.
+            blocked = stored.activePath;
+          }
+        }
+        if (outcome.blockedActivePath !== null) blocked = outcome.blockedActivePath;
+        if (outcome.notice) say(outcome.notice);
+      }
       const activePath = registryRef.current.activePath;
-      if (activePath !== null && (await probe(activePath)) === 'missing' && !cancelled) {
+      if (blocked !== null) {
+        setMissingPath(blocked);
+      } else if (activePath !== null && (await probe(activePath)) === 'missing' && !cancelled) {
         setMissingPath(activePath);
       }
       if (!cancelled) setReady(true);
@@ -223,12 +321,25 @@ export function useSpaceRegistry(deps: SpaceRegistryDeps): SpaceRegistryState {
     [probe, say]
   );
 
+  // While a removal or a rename holds the lifecycle guard, no other Space operation may start.
+  const refuseWhileBusy = useCallback((): boolean => {
+    if (lifecycle.active === null) return false;
+    say(
+      lifecycle.active === 'renaming'
+        ? 'A space is being renamed. Try again in a moment'
+        : 'A space is being removed. Try again in a moment'
+    );
+    return true;
+  }, [lifecycle, say]);
+
   const switchSpace = useCallback(
-    (path: string, replaces?: string) => activate(path, false, replaces),
-    [activate]
+    async (path: string, replaces?: string): Promise<boolean> =>
+      refuseWhileBusy() ? false : activate(path, false, replaces),
+    [activate, refuseWhileBusy]
   );
   const removeSpace = useCallback(
     (path: string) => {
+      if (refuseWhileBusy()) return;
       setRegistry((current) => withoutSpace(current, path));
       const lastOpened = lastOpenedRef.current;
       if (!lastOpened) return; // Nothing has opened yet: `confirmOpened` writes it with the Space.
@@ -239,16 +350,126 @@ export function useSpaceRegistry(deps: SpaceRegistryDeps): SpaceRegistryState {
         say('Clutter couldn’t save that change, so the space may come back next launch');
       }
     },
-    [say]
+    [say, refuseWhileBusy]
   );
-  const selectSpace = useCallback((path: string) => activate(path, true), [activate]);
+  const selectSpace = useCallback(
+    async (path: string): Promise<boolean> => {
+      // Welcome and the lost-Space recovery choose through here, and must never be left waiting on a removal that is
+      // itself waiting for a Space to open: if that open went wrong, the removal is dropped (the old entry stays) and
+      // the recovery proceeds. A rename is different: it owns the Application and the registry, so this waits.
+      if (lifecycle.active === 'removing' && pendingRemovalRef.current !== null) finishRemoval();
+      return refuseWhileBusy() ? false : activate(path, true);
+    },
+    [activate, refuseWhileBusy, lifecycle]
+  );
+
+  const removeActiveSpace = useCallback(
+    async (closeApplication: () => Promise<void>): Promise<RemoveActiveSpaceResult> => {
+      const active = registryRef.current.activePath;
+      if (active === null) return 'none';
+      if (pendingRemovalRef.current !== null) return 'busy';
+      const release = lifecycle.begin('removing');
+      if (release === null) return 'busy';
+      let keepHeld = false;
+      try {
+        for (const candidate of await fallbackCandidates(active)) {
+          if (await activate(candidate, false)) {
+            pendingRemovalRef.current = active;
+            // Held until the replacement has opened (`confirmOpened`) or failed (`openFailed`, `cancelSelection`).
+            removalReleaseRef.current = release;
+            keepHeld = true;
+            return 'switching';
+          }
+        }
+        // Nothing else can open: close this Space (flushing pending writes) before forgetting it.
+        try {
+          await closeApplication();
+        } catch (caught) {
+          console.error('Closing the space before removing it failed:', caught);
+          say('Clutter couldn’t save this space’s pending changes, so it was not removed');
+          return 'failed';
+        }
+        const remaining = withoutActiveSpace(registryRef.current, null);
+        registryRef.current = remaining;
+        lastOpenedRef.current = remaining;
+        setRegistry(remaining);
+        if (!saveSpaceRegistry(storageRef.current, remaining)) {
+          say('The space was removed, but Clutter couldn’t save that, so it may come back next launch');
+        }
+        return 'closed';
+      } finally {
+        if (!keepHeld) release();
+      }
+    },
+    [activate, fallbackCandidates, say, lifecycle]
+  );
 
   const cancelSelection = useCallback(() => {
+    finishRemoval();
     const pending = pendingSelectionRef.current;
     pendingSelectionRef.current = null;
     if (!pending) return;
     setRegistry(pending.previous);
     setMissingPath(pending.previousMissing);
+  }, []);
+
+  const beginRename = useCallback(
+    (to: string, spaceId: string | null): boolean => {
+      const current = registryRef.current;
+      if (current.activePath === null || current.pendingRename !== undefined) return false;
+      const next = withPendingRename(current, { from: current.activePath, to, spaceId });
+      // Written before anything on disk changes; if it can't be, the rename never starts.
+      if (!saveSpaceRegistry(storageRef.current, next)) return false;
+      registryRef.current = next;
+      lastOpenedRef.current = next;
+      setRegistry(next);
+      return true;
+    },
+    []
+  );
+
+  const completeRename = useCallback(
+    (to: string): boolean => {
+      const next = withRenamedActiveSpace(registryRef.current, to);
+      // The in-memory registry follows the new path whatever the write does, so nothing in this session can go back
+      // to the old one, and a failed open never restores it (`openFailed` returns to `lastOpened`, which is this).
+      registryRef.current = next;
+      lastOpenedRef.current = next;
+      setRegistry(next);
+      const saved = saveSpaceRegistry(storageRef.current, next);
+      if (!saved) {
+        say('The space was renamed, but Clutter couldn’t save that. It will finish the next time Clutter starts');
+      }
+      return saved;
+    },
+    [say]
+  );
+
+  const renameInactiveSpace = useCallback(
+    (from: string, to: string): boolean => {
+      const next = withRenamedInactiveSpace(registryRef.current, from, to);
+      if (next === registryRef.current) return false;
+      registryRef.current = next;
+      setRegistry(next);
+      const lastOpened = lastOpenedRef.current;
+      if (!lastOpened) return true; // Nothing has opened yet: `confirmOpened` writes it with the Space.
+      const remembered = withRenamedInactiveSpace(lastOpened, from, to);
+      lastOpenedRef.current = remembered;
+      if (!saveSpaceRegistry(storageRef.current, remembered)) {
+        say('The space was renamed, but Clutter couldn’t save that. It may show its old name after the next start');
+        return false;
+      }
+      return true;
+    },
+    [say]
+  );
+
+  const abandonRename = useCallback((): boolean => {
+    const next = withoutPendingRename(registryRef.current);
+    registryRef.current = next;
+    lastOpenedRef.current = next;
+    setRegistry(next);
+    return saveSpaceRegistry(storageRef.current, next);
   }, []);
 
   const chooseSpace = useCallback(async (): Promise<string | null> => {
@@ -263,15 +484,29 @@ export function useSpaceRegistry(deps: SpaceRegistryDeps): SpaceRegistryState {
   }, [pick, accept, say]);
 
   const confirmOpened = useCallback(() => {
-    lastOpenedRef.current = registryRef.current;
+    // The Space being removed is forgotten together with this save, so a crash can't persist one without the other.
+    // Not if the user went back to it meanwhile: it is active again, and stays.
+    const removing = pendingRemovalRef.current;
+    finishRemoval();
+    const opened =
+      removing !== null && removing !== registryRef.current.activePath
+        ? withoutSpace(registryRef.current, removing)
+        : registryRef.current;
+    if (opened !== registryRef.current) {
+      registryRef.current = opened;
+      setRegistry(opened);
+    }
+    lastOpenedRef.current = opened;
     pendingSelectionRef.current = null;
-    if (!saveSpaceRegistry(storageRef.current, registryRef.current)) {
+    if (!saveSpaceRegistry(storageRef.current, opened)) {
       say('This space is open, but Clutter couldn’t save it, so it won’t be reopened next launch');
     }
   }, [say]);
 
   const openFailed = useCallback(
     (reason: string) => {
+      // The replacement didn't open, so the Space being removed stays registered.
+      finishRemoval();
       const lastOpened = lastOpenedRef.current;
       if (!lastOpened || lastOpened.activePath === registryRef.current.activePath) {
         return false;
@@ -295,8 +530,16 @@ export function useSpaceRegistry(deps: SpaceRegistryDeps): SpaceRegistryState {
     chooseSpace: pick ? chooseSpace : undefined,
     switchSpace,
     removeSpace,
+    removeActiveSpace,
+    lifecycle,
+    notify: say,
+    beginRename,
+    completeRename,
+    abandonRename,
+    renameInactiveSpace,
     selectSpace,
     cancelSelection,
+    abortPendingRemoval: finishRemoval,
     confirmOpened,
     openFailed,
   };

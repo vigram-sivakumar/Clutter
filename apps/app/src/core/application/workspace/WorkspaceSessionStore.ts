@@ -215,6 +215,11 @@ export class WorkspaceSessionStore {
     await this.persist();
   }
 
+  /** Whether a change is waiting on the debounce to be written (a synchronous snapshot). */
+  hasPendingWrite(): boolean {
+    return this.persistTimer !== null;
+  }
+
   /** Stops observing and cancels any pending write (without writing it). */
   dispose(): void {
     if (this.persistTimer !== null) {

@@ -588,12 +588,12 @@ describe('PreferredTemplates — the default daily note template', () => {
     return { fileSystem, store, source, view };
   }
 
-  it('is None by default: a small "Select template" button under its own "Default" entry, above Preferred templates', async () => {
+  it("is None by default: a small \"Select template\" button under its own \"Today's template\" entry, above Preferred templates", async () => {
     await act(async () => void (await mountDaily()));
     const entries = Array.from(document.querySelectorAll('.settings-entry__title')).map((el) => el.textContent);
-    expect(entries).toEqual(['Default', 'Preferred templates']);
+    expect(entries).toEqual(["Today's template", 'Preferred templates']);
     expect(
-      screen.getByText('Choose which template to apply when creating a daily note')
+      screen.getByText("Choose which template to apply when creating today's daily note")
     ).toBeInTheDocument();
     expect(selectButton()).toHaveClass('button--small', 'button--outline');
     expect(selectButton().querySelector('.app-icon')).toBeNull();
@@ -603,7 +603,7 @@ describe('PreferredTemplates — the default daily note template', () => {
   it('is only on the Daily notes page', async () => {
     const store = await PreferredTemplatesStore.load(new InMemoryVaultFileSystem(), ROOT);
     render(<PreferredTemplates context="notes" templates={sourceFor(store, () => [MEETING])} />);
-    expect(screen.queryByText('Default')).toBeNull();
+    expect(screen.queryByText("Today's template")).toBeNull();
     expect(screen.queryByRole('button', { name: 'Select template' })).toBeNull();
   });
 
@@ -656,7 +656,7 @@ describe('PreferredTemplates — the default daily note template', () => {
       Array.from(document.querySelectorAll('.settings-group__title')).map((el) => el.textContent)
     ).toEqual(['Template']);
 
-    const group = screen.getByText('Default').closest('.settings-group')!;
+    const group = screen.getByText("Today's template").closest('.settings-group')!;
     expect(group.querySelector('.settings-entry')).not.toBeNull();
     expect(group.querySelector('.preferred-templates__list--default')).not.toBeNull();
     expect(group.querySelectorAll('.settings-group__divider')).toHaveLength(1);

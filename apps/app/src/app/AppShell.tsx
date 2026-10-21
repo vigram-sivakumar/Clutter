@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
 import { isTauri } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
@@ -36,6 +36,12 @@ import {
   type NewSpaceDraft,
 } from '../components/space-details/SpaceDetails';
 import { pickSpaceFolder } from './spaces/pickSpaceFolder';
+import { ActiveSpaceSettingsDialog } from './ActiveSpaceSettingsDialog';
+import {
+  SettingsDialogStateProvider,
+  useSharedSettingsDialogState,
+} from '../features/settings/SettingsDialogState';
+import { spacePageId } from '../features/settings/settings-sidebar/SettingsSidebar';
 import { SpacesContext, type SpacesApi } from './spaces/SpacesContext';
 import { localCoverImageUrlResolver } from '../core/vault/providers/LocalCoverImageUrlResolver';
 import {
@@ -44,6 +50,10 @@ import {
   spaceName,
 } from './spaces/spaceRegistry';
 import { LocalVaultProvider } from '../core/vault/providers/LocalFileSystem';
+import { migrateRenamedRootState } from '../core/application/space/migrateRenamedRootState';
+import { readSpaceIdFrom } from './spaces/readSpaceId';
+import { renameActiveSpaceFolder, type RenameOutcome } from './spaces/renameActiveSpace';
+import { renameInactiveSpaceFolder, type InactiveRenameOutcome } from './spaces/renameInactiveSpace';
 import {
   readSpaceProfile,
   type SpaceProfile,
@@ -119,7 +129,22 @@ async function discardApplication(application: Application): Promise<void> {
   }
 }
 
+/**
+ * The Settings dialog's open/closed state and page are held out here, above everything that is replaced when a Space
+ * closes and another opens, so Settings stays open across a rename (and across a switch from inside it).
+ */
 export function AppShell() {
+  return (
+    <SettingsDialogStateProvider>
+      <AppShellContent />
+    </SettingsDialogStateProvider>
+  );
+}
+
+function AppShellContent() {
+  const settingsDialog = useSharedSettingsDialogState();
+  // A rename is running (from its start until it ends, refused or not): Space controls in Settings are disabled.
+  const [renameInFlight, setRenameInFlight] = useState(false);
   // Outside Tauri (npm run dev:web) the Space is just a namespace string for an in-memory vault
   // (Application.bootstrap() picks InMemoryVaultFileSystem when !isTauri()), and there is no folder
   // picker to add another. The desktop app has no default: until a Space is configured the registry
@@ -133,6 +158,9 @@ export function AppShell() {
     probe: probeSpaceFolder,
     pick: isTauri() ? pickSpaceFolder : undefined,
     accept: isTauri() ? acceptPickedSpace : undefined,
+    // Identity of the folder at a path, to settle an unfinished rename before anything opens.
+    readSpaceId: (path) => (isTauri() ? readSpaceIdFrom(new LocalVaultProvider(path), path) : Promise.resolve(null)),
+    migrateState: (oldRoot, newRoot) => migrateRenamedRootState(new LocalVaultProvider(newRoot), oldRoot, newRoot),
   });
   // `null`: no Space configured (desktop first run). Nothing is bootstrapped.
   const vaultPath = spaces.registry.activePath;
@@ -196,6 +224,9 @@ export function AppShell() {
   const [, forceRender] = useReducer((count: number) => count + 1, 0);
   const recovering = recoveringRef.current;
   const [recoveryDoneFor, setRecoveryDoneFor] = useState<string | null>(null);
+  // Bumped to open the active Space again with a fresh Application when its path has not changed (a rename that
+  // did not happen): the open effect otherwise only runs when the path does.
+  const [reopenNonce, setReopenNonce] = useState(0);
   const onboardingRef = useRef<{
     path: string;
     settle: (message: string | null) => void;
@@ -425,6 +456,8 @@ export function AppShell() {
           loadError instanceof VaultRootMissingError &&
           applicationRef.current === null
         ) {
+          // A removal waiting on this open is dropped: recovery must not be held up by it.
+          spaces.abortPendingRemoval();
           setMissingRoot(openPath);
           void recoverRef.current(openPath);
           return;
@@ -435,6 +468,7 @@ export function AppShell() {
         // with no Space left open (the first open, or a failed return to the previous one) becomes
         // the full-screen error.
         if (applicationRef.current === null || !spaces.openFailed(reason)) {
+          spaces.abortPendingRemoval();
           setError(reason);
         }
       } finally {
@@ -447,7 +481,7 @@ export function AppShell() {
     bootstrapRef.current = run();
     // `spaces` is a fresh object each render; only a change of root, readiness or missing-folder state starts a run.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vaultPath, spaces.ready, spaces.activeSpaceMissing, missingRoot]);
+  }, [vaultPath, spaces.ready, spaces.activeSpaceMissing, missingRoot, reopenNonce]);
 
   // Unmount: supersede any run in flight and close the open Application.
   useEffect(
@@ -758,6 +792,160 @@ export function AppShell() {
     setMissingSpacePath(null);
   }
 
+  // "Remove space" from Settings. A Space that isn't open is just forgotten. The open one is switched away from
+  // first (the registry forgets it once its replacement has opened); if nothing else can open, the Application
+  // is closed — flushing its pending writes — before the entry is forgotten, and Welcome takes over. The folder
+  // and its files are never touched.
+  function removeSpaceFromSettings(path: string) {
+    if (normalizeSpacePath(path) !== spaces.registry.activePath) {
+      spaces.removeSpace(path);
+      return;
+    }
+    void spaces.removeActiveSpace(async () => {
+      const open = applicationRef.current;
+      if (open) {
+        await open.close();
+        applicationRef.current = null;
+        openedPathRef.current = null;
+        setApplication(null);
+      }
+    });
+  }
+
+  // Renames the open Space's folder (the whole sequence is `renameActiveSpaceFolder`'s). The Application it closes is
+  // discarded here, so nothing can reach the old one; the open effect opens the new path (or, for a rename that did
+  // not happen, the old one again, via `reopenNonce`).
+  async function renameActiveSpace(newName: string): Promise<RenameOutcome> {
+    setRenameInFlight(true);
+    let outcome: RenameOutcome;
+    try {
+      outcome = await renameActiveSpaceFolder(
+      {
+        guard: spaces.lifecycle,
+        activePath: () => spaces.registry.activePath,
+        application: () => {
+          const open = applicationRef.current;
+          return open
+            ? {
+                get spaceId() {
+                  return open.spaceProfile?.id ?? null;
+                },
+                quiesceForRename: () => open.quiesceForRename(),
+                close: () => open.close(),
+              }
+            : null;
+        },
+        detachApplication: () => {
+          applicationRef.current = null;
+          openedPathRef.current = null;
+          // The opening frame shows until the next Application (or recovery) takes over, not a "no vault" error.
+          setIsLoading(true);
+          setApplication(null);
+        },
+        registry: {
+          beginRename: spaces.beginRename,
+          // The Settings page for the renamed Space is keyed by its path: move the selection to the new path in the same
+          // step the registry moves, so the dialog never sits on a page that no longer exists.
+          completeRename: (to) => {
+            const saved = spaces.completeRename(to);
+            const from = spaces.registry.activePath;
+            if (from !== null) settingsDialog?.replacePageId(spacePageId(from), spacePageId(to));
+            return saved;
+          },
+          abandonRename: spaces.abandonRename,
+          hasPendingRename: () => spaces.registry.pendingRename !== undefined,
+        },
+        renameFolder: renameSpaceFolder,
+        readSpaceId: (path) => readSpaceIdFrom(new LocalVaultProvider(path), path),
+        destinationExists: async (path) => (await probeSpaceFolder(path)) === 'available',
+        migrateState: (oldRoot, newRoot) =>
+          migrateRenamedRootState(new LocalVaultProvider(newRoot), oldRoot, newRoot),
+        reopenActive: () => setReopenNonce((nonce) => nonce + 1),
+        recoverFromLost: (lostPath) => {
+          setMissingRoot(lostPath);
+          setRecoveryDoneFor(null);
+          void recoverRef.current(lostPath);
+        },
+      },
+      newName
+    );
+    } finally {
+      setRenameInFlight(false);
+    }
+
+    // The Settings page that asked for this closed with the Application it belonged to, so everything that is not a
+    // refusal (nothing was closed, and the caller still shows it) is reported here.
+    if (outcome.status === 'failed') {
+      spaces.notify(`Couldn’t rename the space: ${outcome.message}`);
+    } else if (outcome.status === 'recovery') {
+      spaces.notify(`Couldn’t finish renaming the space: ${outcome.message}`);
+    } else if (outcome.status === 'renamed' && outcome.warnings.includes('state-not-migrated')) {
+      spaces.notify('The space was renamed, but some of its saved view settings couldn’t be carried over');
+    }
+
+    return outcome;
+  }
+
+  // Renames the folder of a Space that is not open. Nothing about the open Space is touched: it stays open, with no
+  // quiescence, no close and no reopen — `renameInactiveSpaceFolder` holds the same guard as every other Space
+  // operation, so it cannot overlap one.
+  async function renameInactiveSpace(path: string, newName: string): Promise<InactiveRenameOutcome> {
+    setRenameInFlight(true);
+    let outcome: InactiveRenameOutcome;
+    try {
+      outcome = await renameInactiveSpaceFolder(
+        {
+          guard: spaces.lifecycle,
+          activePath: () => spaces.registry.activePath,
+          isRegistered: (candidate) => spaces.registry.paths.includes(normalizeSpacePath(candidate)),
+          probe: probeSpaceFolder,
+          readSpaceId: (candidate) => readSpaceIdFrom(new LocalVaultProvider(candidate), candidate),
+          destinationExists: async (candidate) => (await probeSpaceFolder(candidate)) === 'available',
+          renameFolder: renameSpaceFolder,
+          migrateState: (oldRoot, newRoot) =>
+            migrateRenamedRootState(new LocalVaultProvider(newRoot), oldRoot, newRoot),
+          renameEntry: (from, to) => {
+            const saved = spaces.renameInactiveSpace(from, to);
+            // This Space's Settings page is keyed by its path: follow it in the same step as the registry.
+            settingsDialog?.replacePageId(spacePageId(from), spacePageId(to));
+            return saved;
+          },
+        },
+        path,
+        newName
+      );
+    } finally {
+      setRenameInFlight(false);
+    }
+
+    // The page that asked is still open, so a refusal or a failure is shown there; what it cannot show is reported here.
+    if (outcome.status === 'unconfirmed') {
+      spaces.notify(outcome.message);
+    } else if (outcome.status === 'renamed' && outcome.warnings.includes('state-not-migrated')) {
+      spaces.notify('The space was renamed, but some of its saved view settings couldn’t be carried over');
+    }
+
+    return outcome;
+  }
+
+  // The open Space's avatar, changed from its Settings page: the same profile write the Space details dialog makes for
+  // the open Space (`applySpaceProfile`; an image is copied into the Space's `Assets/`). Only the open Space's profile is
+  // ever written — that is the Application's job — so another Space's avatar is not offered here.
+  async function changeActiveSpaceAvatar(avatar: SpaceAvatarChoice | undefined): Promise<{ error?: string }> {
+    const open = applicationRef.current;
+    if (!open) return { error: 'Couldn’t save the space settings' };
+    try {
+      await open.applySpaceProfile({
+        avatar: avatar === undefined ? null : avatar.type === 'emoji' ? { type: 'emoji', emoji: avatar.emoji } : { type: 'image', sourcePath: avatar.src },
+      });
+      refreshProfiles();
+      return {};
+    } catch (caught) {
+      console.error('Saving the Space avatar failed:', caught);
+      return { error: 'Couldn’t save the space settings' };
+    }
+  }
+
   // "Change location": the same picker and checks as "New space". The folder that is chosen replaces the
   // missing entry in place and is opened straight away — no settings dialog. Choosing is the confirmation;
   // cancelling the picker, or a refused folder, changes nothing, and the registry only changes for good once the
@@ -803,6 +991,12 @@ export function AppShell() {
       activePath: spaces.registry.activePath ?? '',
       onAddSpace: spaces.chooseSpace && (() => void chooseSpaceForSettings()),
       resolveAvatarImageUrl: resolveSpaceAvatarImage,
+      // Removing the open Space needs the desktop's Welcome to fall back to; the web runtime has one fixed Space.
+      onRemoveSpace: isTauri() ? removeSpaceFromSettings : undefined,
+      // Plumbing only: the Space settings page does not offer it yet.
+      onRenameActiveSpace: isTauri() ? renameActiveSpace : undefined,
+      onRenameInactiveSpace: isTauri() ? renameInactiveSpace : undefined,
+      onChangeActiveSpaceAvatar: changeActiveSpaceAvatar,
       onSwitchSpace: (path) => {
         pendingProfileRef.current = null;
         void switchOrExplainMissing(path);
@@ -847,6 +1041,30 @@ export function AppShell() {
     />
   );
 
+  // A Space can't be shown, and no other has opened (yet): either none is configured, or the configured
+  // one's folder is confirmed missing — and the search for another registered Space (see
+  // `recoverFromLostSpace`) has finished empty-handed.
+  const lostActiveSpace =
+    spaces.activeSpaceMissing ||
+    (vaultPath !== null && missingRoot === vaultPath);
+  const showWelcome =
+    !application &&
+    !recovering &&
+    (vaultPath === null ||
+      onboardingPending ||
+      (lostActiveSpace && recoveryDoneFor === vaultPath));
+
+  // The Settings dialog is drawn by the persistent shell below, outside whichever frame is showing, so it is not
+  // torn down when a Space closes and another opens (a rename, a switch from inside Settings, a recovery). It is
+  // only closed where there is no Space to show it for: the Welcome dialog, or a full-screen error.
+  const settingsAvailable = !error && !showWelcome;
+  const closeSettings = settingsDialog?.setOpen;
+  const settingsOpen = settingsDialog?.open ?? false;
+  useEffect(() => {
+    if (!settingsAvailable && settingsOpen) closeSettings?.(false);
+  }, [settingsAvailable, settingsOpen, closeSettings]);
+
+  const renderFrame = (): ReactNode => {
   if (error) {
     return <StartupFrame tone="error">{error}</StartupFrame>;
   }
@@ -856,16 +1074,7 @@ export function AppShell() {
   // `recoverFromLostSpace`) has finished empty-handed. The themed startup surface stays mounted behind the
   // Welcome dialog. The real workspace (AppLayout) needs an Application, so it cannot mount before a Space
   // exists — and none is faked to draw it.
-  const lostActiveSpace =
-    spaces.activeSpaceMissing ||
-    (vaultPath !== null && missingRoot === vaultPath);
-  if (
-    !application &&
-    !recovering &&
-    (vaultPath === null ||
-      onboardingPending ||
-      (lostActiveSpace && recoveryDoneFor === vaultPath))
-  ) {
+  if (showWelcome) {
     return (
       <>
         {WELCOME_BACKDROP === 'gradient' ? (
@@ -955,6 +1164,16 @@ export function AppShell() {
         />
         {notice}
       </ActiveSpaceAvatarContext.Provider>
+    </SpacesContext.Provider>
+  );
+  };
+
+  return (
+    <SpacesContext.Provider value={spacesApi}>
+      {renderFrame()}
+      {settingsAvailable && (
+        <ActiveSpaceSettingsDialog application={application} busy={application === null || renameInFlight} />
+      )}
     </SpacesContext.Provider>
   );
 }

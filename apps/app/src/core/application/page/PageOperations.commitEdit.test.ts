@@ -262,3 +262,86 @@ describe('PageOperations.commitEdit: DocumentSession invariants (audit)', () => 
     expect(notifications).toBe(2);
   });
 });
+
+describe('PageOperations.hasUnsavedWork', () => {
+  it('is false until a page has a change, true while it is unsaved, and false once it has been saved', async () => {
+    const page = buildPage();
+    const { pageOperations } = setup(page);
+    await pageOperations.open(page.id);
+    expect(pageOperations.hasUnsavedWork()).toBe(false);
+
+    pageOperations.commitEdit(page.id, 'Edited body');
+    expect(pageOperations.hasUnsavedWork()).toBe(true);
+
+    await pageOperations.flushAll(1000);
+    expect(pageOperations.hasUnsavedWork()).toBe(false);
+  });
+
+  it('an edit that arrives while a save is in flight is never reported as saved when it is not on disk', async () => {
+    const page = buildPage();
+    const { pageOperations, fileSystem } = setup(page);
+    await pageOperations.open(page.id);
+    const realWrite = fileSystem.writeFile.bind(fileSystem);
+    let writes = 0;
+    vi.spyOn(fileSystem, 'writeFile').mockImplementation(async (path, contents) => {
+      writes++;
+      if (writes === 1) {
+        // The save already holds its content; this edit comes after it, while the write is under way.
+        pageOperations.commitEdit(page.id, 'Second edit, mid-flush');
+        await realWrite(path, contents);
+        return;
+      }
+      // The engine's own follow-up save cannot land: the second edit stays unsaved.
+      throw new Error('disk full');
+    });
+
+    pageOperations.commitEdit(page.id, 'First edit');
+    await pageOperations.flushAll(2000);
+
+    expect(await fileSystem.readFile(page.path)).toContain('First edit');
+    expect(pageOperations.hasUnsavedWork()).toBe(true);
+  });
+
+  it('when the follow-up save does land, the edit made mid-flush is on disk and nothing is reported unsaved', async () => {
+    const page = buildPage();
+    const { pageOperations, fileSystem } = setup(page);
+    await pageOperations.open(page.id);
+    const realWrite = fileSystem.writeFile.bind(fileSystem);
+    let editedMidFlush = false;
+    vi.spyOn(fileSystem, 'writeFile').mockImplementation(async (path, contents) => {
+      if (!editedMidFlush) {
+        editedMidFlush = true;
+        pageOperations.commitEdit(page.id, 'Second edit, mid-flush');
+      }
+      await realWrite(path, contents);
+    });
+
+    pageOperations.commitEdit(page.id, 'First edit');
+    await pageOperations.flushAll(2000);
+
+    // Whichever way the engine gets there, "not unsaved" must mean "on disk".
+    expect(pageOperations.hasUnsavedWork()).toBe(false);
+    expect(await fileSystem.readFile(page.path)).toContain('Second edit, mid-flush');
+  });
+
+  it('a flush whose save fails leaves the edit in the open session, still unsaved, and a later flush saves it', async () => {
+    const page = buildPage();
+    const { pageOperations, fileSystem, documentRegistry } = setup(page);
+    await pageOperations.open(page.id);
+    const realWrite = fileSystem.writeFile.bind(fileSystem);
+    const failing = vi.spyOn(fileSystem, 'writeFile').mockRejectedValue(new Error('disk full'));
+
+    pageOperations.commitEdit(page.id, 'Edit that cannot be saved yet');
+    await pageOperations.flushAll(2000);
+
+    expect(pageOperations.hasUnsavedWork()).toBe(true);
+    expect(documentRegistry.get(page.id)?.currentRevision.markdown).toBe('Edit that cannot be saved yet');
+
+    failing.mockImplementation(realWrite);
+    await pageOperations.flushAll(2000);
+
+    expect(pageOperations.hasUnsavedWork()).toBe(false);
+    expect(await fileSystem.readFile(page.path)).toContain('Edit that cannot be saved yet');
+  });
+});
+

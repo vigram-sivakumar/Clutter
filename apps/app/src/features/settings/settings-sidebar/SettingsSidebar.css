@@ -5,5 +5,5 @@
   padding: var(--space-12);
   background-color: var(--surface-secondary);
   border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-inset-thin), var(--shadow-md);
+  /* box-shadow: var(--shadow-inset-thin), var(--shadow-md); */
 }

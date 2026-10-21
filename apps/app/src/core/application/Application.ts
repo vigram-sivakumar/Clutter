@@ -2,7 +2,13 @@ import { isTauri } from '@tauri-apps/api/core';
 import { isFolderConfirmedMissing, probeSpaceFolder } from '../vault/providers/probeSpaceFolder';
 import { VaultRootMissingError } from '../vault/providers/VaultRootMissingError';
 import { isArchiveRetentionElapsed } from './archive/archiveRetention';
-import { flushWorkspaceStateWrites } from '../vault/initialize/workspaceStateFile';
+import {
+  collectAssetReferences,
+  collectMarkdownReferences,
+  isArchivedAssetReferenced,
+  type ArchivedAsset,
+} from './archive/archivedAssetReferences';
+import { flushWorkspaceStateWrites, hasPendingWorkspaceStateWrites } from '../vault/initialize/workspaceStateFile';
 import { LocalVaultProvider } from '../vault/providers/LocalFileSystem';
 import { InMemoryVaultFileSystem } from '../vault/testing/InMemoryVaultFileSystem';
 import { BrowserFileSystemWatcher } from '../vault/providers/BrowserFileSystemWatcher';
@@ -67,6 +73,8 @@ import { isUnsplashImageUrl } from '../integrations/unsplash/unsplashAttribution
 import { trackPhotoDownload } from '../integrations/unsplash/UnsplashApi';
 import { importAsset, importAssetBytes, pastedAssetFileName } from '../vault/asset/importAsset';
 import type { Page } from '../vault/models/Page';
+import type { Folder } from '../vault/models/Folder';
+import type { VaultResource } from '../vault/models/VaultResource';
 import type { CoverCredit } from '../vault/models/PageMetadata';
 import { findRemoteImageDisplayName } from './asset/remoteImageDisplayName';
 import { rewriteRemoteAssetReferences } from './asset/rewriteRemoteAssetReferences';
@@ -230,6 +238,16 @@ export class Application {
   /** Remote-image saves running right now, by URL — see saveRemoteImageToVault. */
   private readonly remoteImageSaves = new Map<string, Promise<SaveToVaultResult>>();
   private closed = false;
+  /**
+   * Whether new write-producing work (asset imports, archive cleanup) is admitted. `'quiescing'` is the reversible
+   * phase of `quiesceForRename`; `'sealed'` is final: the filesystem refuses every write and the Application is
+   * only fit to be closed. Page and folder edits are not gated here — they go through the Gate, which the
+   * drain below waits for, and the seal is what finally stops them.
+   */
+  private writeAdmission: 'open' | 'quiescing' | 'sealed' = 'open';
+  /** Write-producing operations (imports, remote image saves) running right now. */
+  private readonly activeWrites = new Set<Promise<unknown>>();
+  private persistenceCoordinator!: PagePersistenceCoordinator;
   // The vault's root folder was confirmed gone while this Application was open (see verifyRoot()).
   private rootLost = false;
   private readonly rootLostListeners = new Set<() => void>();
@@ -600,6 +618,7 @@ export class Application {
     // needs only the Gate itself (rename-resource/archive-resource/
     // restore-resource are already fully self-contained there, per Step 4),
     // so it has no construction-order dependency on anything below.
+    this.persistenceCoordinator = persistenceCoordinator;
     this.resourceOperations = new ResourceOperations(persistenceCoordinator);
 
     // Constructed before PageOperations: PageOperations' Daily Note persist
@@ -903,7 +922,11 @@ export class Application {
    * inside it that the Assets page is showing (`destinationFolderPath`, absolute) — and registers it
    * with the Vault through Sync, like any imported asset. Returns the vault-relative reference.
    */
-  public async importAsset(sourceAbsolutePath: string, destinationFolderPath?: string): Promise<string> {
+  public importAsset(sourceAbsolutePath: string, destinationFolderPath?: string): Promise<string> {
+    return this.trackWrite(() => this.runImportAsset(sourceAbsolutePath, destinationFolderPath));
+  }
+
+  private async runImportAsset(sourceAbsolutePath: string, destinationFolderPath?: string): Promise<string> {
     // Nothing is added to an archived folder.
     const destinationFolder = destinationFolderPath ? this.vault.getFolderByPath(destinationFolderPath) : undefined;
 
@@ -922,7 +945,11 @@ export class Application {
    * Stores a file from the clipboard (an image or PDF, as bytes) in `Assets/` and registers it with the
    * Vault like any imported asset. Returns the vault-relative reference a Markdown embed uses.
    */
-  public async importPastedAsset(name: string, mimeType: string, bytes: Uint8Array): Promise<string> {
+  public importPastedAsset(name: string, mimeType: string, bytes: Uint8Array): Promise<string> {
+    return this.trackWrite(() => this.runImportPastedAsset(name, mimeType, bytes));
+  }
+
+  private async runImportPastedAsset(name: string, mimeType: string, bytes: Uint8Array): Promise<string> {
     const reference = await importAssetBytes(
       this.fileSystem,
       this.rootPath,
@@ -995,6 +1022,10 @@ export class Application {
    * and the rest continue; a missing vault root ends the run (nothing is recreated). Never throws.
    */
   public purgeExpiredArchivedItems(now: Date = new Date()): Promise<number> {
+    if (this.closed || this.writeAdmission !== 'open') {
+      return Promise.resolve(0);
+    }
+
     this.archiveCleanupInFlight ??= this.runArchiveCleanup(now).finally(() => {
       this.archiveCleanupInFlight = undefined;
     });
@@ -1008,8 +1039,34 @@ export class Application {
       vault.isDirectlyInArchive(path) && isArchiveRetentionElapsed(archivedAt, now);
     let deleted = 0;
 
+    // What still points at a file, worked out once per run and only if something archived has files to check. If it
+    // cannot be worked out, nothing that holds a file is deleted: a failure here must never read as "not referenced".
+    let context:
+      | { references: readonly string[]; staying: ReadonlyMap<string, VaultResource> }
+      | undefined;
+    const isReferenced = (assets: readonly ArchivedAsset[]): boolean => {
+      try {
+        context ??= this.buildAssetReferenceContext();
+        // The saved notes are read once for the run; what the open notes say is read fresh each time, because a
+        // note can be edited while the run is under way and an edit is not saved the moment it is typed.
+        const references = [...context.references, ...this.openNoteReferences()];
+        const { staying } = context;
+
+        return assets.some((asset) => isArchivedAssetReferenced({ root: vault.root, references, staying, asset }));
+      } catch {
+        return true;
+      }
+    };
+
     const attempt = async (stillDue: () => boolean, remove: () => Promise<void>): Promise<boolean> => {
+      // A closed Application (the Space was switched away from, or the app is quitting), or one being prepared for a
+      // folder rename, deletes nothing more.
+      if (this.closed || this.writeAdmission !== 'open') {
+        return false;
+      }
+
       // Looked at again right before deleting: it may have been restored, moved or deleted since the list was made.
+      // (The delete itself checks once more when it runs, for a restore that was queued after this look.)
       if (!stillDue()) {
         return true;
       }
@@ -1027,6 +1084,9 @@ export class Application {
     try {
       for (const folder of Array.from(vault.folders())) {
         if (!isDue(folder.path, folder.metadata.archivedAt)) continue;
+        // Deleting the folder deletes every file inside it: leave it while anything that stays still points at one
+        // of them — or while that cannot be settled (see archivedAssetReferences.ts).
+        if (isReferenced(this.assetsInsideArchivedFolder(folder))) continue;
 
         const folderId = folder.id;
         const keepGoing = await attempt(
@@ -1061,7 +1121,7 @@ export class Application {
         const record = archivedResources.get(resource.path);
 
         if (!record || !isDue(resource.path, record.archivedAt)) continue;
-        if (this.isEmbeddedByActiveNote(resource.name, record.originalPath)) continue;
+        if (isReferenced([{ resource, paths: [resource.path, record.originalPath] }])) continue;
 
         const resourceId = resource.id;
         const keepGoing = await attempt(
@@ -1081,22 +1141,67 @@ export class Application {
     return deleted;
   }
 
-  /** Whether any note that is not archived embeds or links the file, by its original path or its file name. */
-  private isEmbeddedByActiveNote(fileName: string, originalPath: string): boolean {
-    const root = `${this.vault.root}/`;
-    const original = originalPath.startsWith(root) ? originalPath.slice(root.length) : originalPath;
-    const reference = (target: string) => target.split(/[#|]/)[0]!.trim().replace(/^\.\//, '');
-    const matches = (target: string) => {
-      const value = reference(target);
-      return value === original || value === fileName || value.endsWith(`/${fileName}`);
-    };
+  /**
+   * Every reference to a vault file that is held by something not archived — active notes (bodies, covers), active
+   * folders (covers) and the Space avatar — and every file that is staying, by path. The two halves of
+   * `isArchivedAssetReferenced`'s question; see archivedAssetReferences.ts for the rule.
+   */
+  private buildAssetReferenceContext(): {
+    references: readonly string[];
+    staying: ReadonlyMap<string, VaultResource>;
+  } {
+    const vault = this.vault;
+    const avatar = this.spaceProfileStore.profile?.avatar;
 
-    return Array.from(this.vault.pages()).some(
-      (page) =>
-        !this.vault.isPageEffectivelyArchived(page) &&
-        (page.analysis.embeds.some((embed) => matches(embed.target)) ||
-          page.analysis.links.some((link) => matches(link.target)))
+    return {
+      references: collectAssetReferences({
+        pages: Array.from(vault.pages()).filter((page) => !vault.isPageEffectivelyArchived(page)),
+        folders: Array.from(vault.folders()).filter((folder) => !vault.isFolderEffectivelyArchived(folder.id)),
+        avatarSource: avatar?.type === 'image' ? avatar.src : undefined,
+      }),
+      staying: new Map(
+        Array.from(vault.resources())
+          .filter((resource) => !vault.isResourceEffectivelyArchived(resource))
+          .map((resource) => [resource.path, resource] as const)
+      ),
+    };
+  }
+
+  /**
+   * What every open note says right now, unsaved edits included (the open session's committed text). An edit is
+   * committed to its session the moment it is typed and written to disk by autosave a moment later — or not at all
+   * while saving keeps failing — so a reference added in that window is in no saved note yet. Read through the
+   * sessions themselves, with the same extractors as saved notes. An open note that is archived is skipped, like any
+   * archived note; an unsaved draft is included.
+   */
+  private openNoteReferences(): readonly string[] {
+    const vault = this.vault;
+
+    return collectMarkdownReferences(
+      this.documentRegistry
+        .getAll()
+        .filter((session) => {
+          const page = vault.getPage(session.id);
+
+          return !page || !vault.isPageEffectivelyArchived(page);
+        })
+        .map((session) => session.currentRevision.markdown)
     );
+  }
+
+  /**
+   * The files inside an archived folder, each with where it sits now and where it was before the folder was archived
+   * (the folder's own recorded original path, plus the file's place inside it) — the places a note may still look.
+   */
+  private assetsInsideArchivedFolder(folder: Folder): readonly ArchivedAsset[] {
+    const original = folder.metadata.originalPath;
+
+    return Array.from(this.vault.resources())
+      .filter((resource) => resource.path.startsWith(`${folder.path}/`))
+      .map((resource) => ({
+        resource,
+        paths: original ? [resource.path, `${original}${resource.path.slice(folder.path.length)}`] : [resource.path],
+      }));
   }
 
   /**
@@ -1152,7 +1257,11 @@ export class Application {
    * very event as a self-write to suppress, so the watcher never told Sync
    * about an uploaded asset and it stayed invisible until the next scan.
    */
-  public async importCoverAsset(sourceAbsolutePath: string): Promise<string> {
+  public importCoverAsset(sourceAbsolutePath: string): Promise<string> {
+    return this.trackWrite(() => this.runImportCoverAsset(sourceAbsolutePath));
+  }
+
+  private async runImportCoverAsset(sourceAbsolutePath: string): Promise<string> {
     const reference = await importCoverAsset(this.fileSystem, this.rootPath, sourceAbsolutePath);
 
     await this.vaultSyncService.reconcileKnownPath(`${this.rootPath}/${reference}`);
@@ -1183,6 +1292,10 @@ export class Application {
 
     if (inFlight) {
       return inFlight;
+    }
+
+    if (this.writeAdmission !== 'open') {
+      return Promise.reject(new SpaceQuiescedError());
     }
 
     // Looked up before the save: the rewrite step repoints the covers that held this URL at the
@@ -1229,6 +1342,11 @@ export class Application {
       .finally(() => this.remoteImageSaves.delete(url));
 
     this.remoteImageSaves.set(url, run);
+    this.activeWrites.add(run);
+    void run.then(
+      () => this.activeWrites.delete(run),
+      () => this.activeWrites.delete(run)
+    );
 
     return run;
   }
@@ -1373,7 +1491,8 @@ export class Application {
    * never throws, never touches the Vault or any Markdown file.
    */
   public async persistParsedNoteCache(): Promise<void> {
-    if (this.closed) {
+    // Not while being prepared for a folder rename, nor once sealed: the cache is keyed by this Space's path.
+    if (this.closed || this.writeAdmission !== 'open') {
       return;
     }
     const report = await this.parsedNoteCache.persist();
@@ -1443,6 +1562,102 @@ export class Application {
     }
   }
 
+  private trackWrite<T>(run: () => Promise<T>): Promise<T> {
+    if (this.writeAdmission !== 'open') {
+      return Promise.reject(new SpaceQuiescedError());
+    }
+    const running = run();
+    this.activeWrites.add(running);
+    const done = () => void this.activeWrites.delete(running);
+    running.then(done, done);
+
+    return running;
+  }
+
+  /** Whether there is anything left to save or finish — a synchronous snapshot, taken in one tick. */
+  private isQuiescent(): boolean {
+    return (
+      this.activeWrites.size === 0 &&
+      this.archiveCleanupInFlight === undefined &&
+      !this.pageOperations.hasUnsavedWork() &&
+      !this.folderOperations.hasUnsavedWork() &&
+      !this.persistenceCoordinator.hasPendingOperations() &&
+      !this.workspaceSessionStore.hasPendingWrite() &&
+      !hasPendingWorkspaceStateWrites()
+    );
+  }
+
+  /**
+   * Gets this Application ready for its Space's folder to be renamed underneath it: stops admitting new
+   * write-producing work, drains and flushes everything, and — only once a synchronous check finds nothing left —
+   * seals the filesystem in that same tick, so no write can begin between "verified clean" and "sealed".
+   *
+   * `flushAll` alone cannot give that: it flushes what was dirty when it was called, swallows failures and gives up
+   * silently after a timeout, and nothing stops a keystroke, an autosave or an import from starting afterwards.
+   *
+   * Resolves `{ ok: true }` once sealed: the Application is then only good for `close()`, and cannot be resumed.
+   * Any other result leaves it open, editable and exactly as it was (admission is restored): `'unsupported'` where
+   * there is no local filesystem to seal, `'busy'` when it is closed, lost or already being prepared, `'unsaved'`
+   * when it could not be brought to a clean state within `timeoutMs`, `'cancelled'` when `signal` aborted.
+   */
+  public async quiesceForRename(
+    options: { timeoutMs?: number; signal?: AbortSignal } = {}
+  ): Promise<QuiesceResult> {
+    const { timeoutMs = SHUTDOWN_FLUSH_TIMEOUT_MS, signal } = options;
+
+    if (this.closed || this.rootLost || this.writeAdmission !== 'open') {
+      return { ok: false, reason: 'busy' };
+    }
+    if (this.sealFileSystem === null) {
+      return { ok: false, reason: 'unsupported' };
+    }
+
+    this.writeAdmission = 'quiescing';
+    const deadline = Date.now() + timeoutMs;
+
+    try {
+      for (;;) {
+        if (signal?.aborted) {
+          return this.stayOpen('cancelled');
+        }
+
+        // A failed save leaves its change dirty, which the check below sees: failures are never "flushed".
+        await Promise.allSettled([
+          this.pageOperations.flushAll(Math.max(1, deadline - Date.now())),
+          this.folderOperations.flushAll(Math.max(1, deadline - Date.now())),
+          this.workspaceSessionStore.flush(),
+          this.archiveCleanupInFlight,
+          ...this.activeWrites,
+        ]);
+        await this.persistenceCoordinator.whenIdle();
+        await flushWorkspaceStateWrites();
+
+        // No await from here to the seal: nothing can start between the check and the seal.
+        if (this.isQuiescent() && !signal?.aborted) {
+          this.sealFileSystem();
+          this.writeAdmission = 'sealed';
+
+          return { ok: true };
+        }
+
+        if (Date.now() >= deadline) {
+          return this.stayOpen('unsaved');
+        }
+        // Dirty or busy again (an edit or an import landed meanwhile): give the retry a moment, and go around.
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+    } catch (error) {
+      this.writeAdmission = 'open';
+      throw error;
+    }
+  }
+
+  private stayOpen(reason: Exclude<QuiesceResult, { ok: true }>['reason']): QuiesceResult {
+    this.writeAdmission = 'open';
+
+    return { ok: false, reason };
+  }
+
   public async close(): Promise<void> {
     if (this.closed) {
       return;
@@ -1456,8 +1671,10 @@ export class Application {
     // in flight is atomic and is not waited for.
     this.parsedNoteCache.cancel();
 
-    // A lost root has nowhere to flush to (and the filesystem is sealed): skip straight to teardown.
-    if (!this.rootLost) {
+    // A lost root has nowhere to flush to (and the filesystem is sealed): skip straight to teardown. So does an
+    // Application sealed for a folder rename: `quiesceForRename` verified that nothing was left to save, and the
+    // sealed filesystem would refuse a write anyway.
+    if (!this.rootLost && this.writeAdmission !== 'sealed') {
       await this.pageOperations.flushAll(SHUTDOWN_FLUSH_TIMEOUT_MS);
       await this.folderOperations.flushAll(SHUTDOWN_FLUSH_TIMEOUT_MS);
       // ADR-035: after the page flush above, so a draft promoted by that
@@ -1490,3 +1707,16 @@ export class Application {
     this.documentRegistry.clear();
   }
 }
+
+/** Why a write-producing operation was refused: the Application is being prepared for a folder rename. */
+export class SpaceQuiescedError extends Error {
+  constructor() {
+    super('This space is being renamed, so nothing can be added to it right now');
+    this.name = 'SpaceQuiescedError';
+  }
+}
+
+/** The outcome of `Application.quiesceForRename`. Only `ok: true` has sealed the filesystem. */
+export type QuiesceResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly reason: 'unsupported' | 'busy' | 'unsaved' | 'cancelled' };

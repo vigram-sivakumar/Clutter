@@ -85,6 +85,8 @@
   padding-inline: 8px;
   min-width: 0;
   height: 280px;
+  min-height: 200px;
+  max-height: 25vh;
 
   margin-left: 0;
   margin-bottom: -52px;

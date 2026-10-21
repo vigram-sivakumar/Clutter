@@ -1,12 +1,11 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { Footer } from './Footer';
 import type { SpaceAvatarValue } from '@components/space-avatar/SpaceAvatar';
-import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
 
 class ResizeObserverMock {
   observe = vi.fn();
@@ -328,48 +327,5 @@ describe('Footer space selector: a space whose folder is missing', () => {
   it('puts no badge on a space that is fine', () => {
     const { rows } = openMenu();
     expect(rows[2]!.querySelector('.space__badge')).toBeNull();
-  });
-});
-
-describe('Footer Settings: opening a preferred template', () => {
-  it('closes the Settings dialog and opens the template', async () => {
-    // The Theme setting on the Preferences page reads the system color scheme.
-    vi.stubGlobal('matchMedia', () => ({
-      matches: false,
-      addEventListener: () => {},
-      removeEventListener: () => {},
-    }));
-    const onOpenTemplate = vi.fn();
-    const ids: readonly string[] = ['t1'];
-    const template = {
-      id: 't1',
-      type: 'note',
-      icon: 'template',
-      emoji: null,
-      selected: false,
-      onClick: () => {},
-      values: { name: 'Meeting' },
-    } as unknown as CollectionEntryModel;
-    const view = render(
-      <Footer
-        vaultFolderName="vault"
-        onOpenArchive={() => {}}
-        templates={{
-          getTemplates: () => [template],
-          onCreateTemplate: () => {},
-          onOpenTemplate,
-          preferred: { getIds: () => ids, add: () => {}, remove: () => {}, subscribe: () => () => {} },
-        }}
-      />
-    );
-    fireEvent.click(view.container.querySelector('.space-selector') as HTMLElement);
-    fireEvent.click(screen.getByText('Settings'));
-    fireEvent.click(screen.getByText('Daily notes'));
-    expect(document.querySelector('.settings')).not.toBeNull();
-
-    fireEvent.click(document.querySelector('.preferred-templates__list .entry') as HTMLElement);
-
-    expect(onOpenTemplate).toHaveBeenCalledWith('t1');
-    await waitFor(() => expect(document.querySelector('.settings')).toBeNull());
   });
 });

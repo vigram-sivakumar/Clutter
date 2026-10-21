@@ -56,7 +56,10 @@ export type PersistenceOperation =
   // `conflict: 'inbox'` is the answer to a RestoreConflictError (the original path is taken by
   // another page): restore into the Inbox instead. Without it, a taken original path rejects.
   | { readonly kind: 'restore'; readonly conflict?: 'inbox'; readonly destinationFolderId?: string | null }
-  | { readonly kind: 'delete' }
+  // `requireArchived`: the delete only goes ahead if the page is (still) archived when it actually runs. The facade checks
+  // before enqueueing, but a restore queued ahead of this delete changes that before it runs — without this, a delete
+  // that was right when requested would remove a note the user has just restored.
+  | { readonly kind: 'delete'; readonly requireArchived?: boolean }
   | {
       readonly kind: 'move';
       readonly destinationFolderId: string | null;
@@ -68,7 +71,8 @@ export type PersistenceOperation =
       readonly parentId: string | null;
       readonly content: string;
     }
-  | { readonly kind: 'delete-folder' }
+  // `requireArchived`: as for 'delete' — checked again when the delete runs, so a restore queued first wins.
+  | { readonly kind: 'delete-folder'; readonly requireArchived?: boolean }
   // ADR-024 §4's originally-specified unified kind, reached here per the
   // ADR's own implementation-sequencing amendment: 'rename-folder' shipped
   // first as an interim, explicitly time-boxed kind, then was retired and
@@ -290,6 +294,21 @@ export class PagePersistenceCoordinator {
     });
   }
 
+  /** Whether any enqueued operation has not finished yet (queued, running, or waiting on its predecessor). */
+  public hasPendingOperations(): boolean {
+    return this.queues.size > 0;
+  }
+
+  /**
+   * Resolves once every operation enqueued so far — and any enqueued while waiting — has settled. A failed
+   * operation still counts as settled; its own caller sees the failure.
+   */
+  public async whenIdle(): Promise<void> {
+    while (this.queues.size > 0) {
+      await Promise.allSettled([...this.queues.values()]);
+    }
+  }
+
   private async runOperation(
     id: string,
     operation: PersistenceOperation
@@ -316,7 +335,7 @@ export class PagePersistenceCoordinator {
     // guard right below would incorrectly abandon them (a folder id never
     // resolves via vault.getPage).
     if (operation.kind === 'delete-folder') {
-      return this.runDeleteFolder(id);
+      return this.runDeleteFolder(id, operation.requireArchived);
     }
 
     if (operation.kind === 'move-folder') {
@@ -384,7 +403,7 @@ export class PagePersistenceCoordinator {
       case 'restore':
         return this.runRestore(current, operation.conflict, operation.destinationFolderId);
       case 'delete':
-        return this.runDelete(current);
+        return this.runDelete(current, operation.requireArchived);
       case 'move':
         return this.runMove(current, operation.destinationFolderId);
       case 'rename':
@@ -482,7 +501,11 @@ export class PagePersistenceCoordinator {
     return { status: 'saved', page: this.vault.getPage(current.id)! };
   }
 
-  private async runDelete(current: Page): Promise<PersistenceResult> {
+  private async runDelete(current: Page, requireArchived = false): Promise<PersistenceResult> {
+    if (requireArchived && !this.vault.isPageEffectivelyArchived(current)) {
+      return { status: 'abandoned', reason: `Page is no longer archived, so it was not deleted: ${current.id}` };
+    }
+
     await this.fileSystem.deleteFile(current.path);
     // Only possible caller of removePage for an app-initiated deletion is
     // this dispatch, reached only after the existing-page guard above, so
@@ -740,7 +763,7 @@ export class PagePersistenceCoordinator {
    * descendant cascade independent of disk state, so no separate
    * enumeration is needed here.
    */
-  private async runDeleteFolder(folderId: string): Promise<PersistenceResult> {
+  private async runDeleteFolder(folderId: string, requireArchived = false): Promise<PersistenceResult> {
     const folder = this.vault.getFolder(folderId);
 
     if (!folder) {
@@ -748,6 +771,10 @@ export class PagePersistenceCoordinator {
         status: 'abandoned',
         reason: `Folder no longer exists in the vault: ${folderId}`,
       };
+    }
+
+    if (requireArchived && !this.vault.isFolderEffectivelyArchived(folderId)) {
+      return { status: 'abandoned', reason: `Folder is no longer archived, so it was not deleted: ${folderId}` };
     }
 
     if (await this.fileSystem.exists(folder.path)) {

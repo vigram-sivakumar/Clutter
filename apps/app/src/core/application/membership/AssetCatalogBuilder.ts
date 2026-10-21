@@ -169,7 +169,19 @@ export class AssetCatalogBuilder {
   }
 }
 
-/** A vault-relative reference (`assets/photo.png`, `./photo.png`, percent-encoded) → the resource at that exact path. */
+/**
+ * A vault-relative reference (`assets/photo.png`, `./photo.png`, percent-encoded) → the resource at that exact path.
+ * The one place a local asset reference is turned into a file: the catalog uses it for every kind of use, and the
+ * archive cleanup uses it to ask whether a note still points at a file it is about to delete.
+ */
+export function resolveLocalAssetReference(
+  root: string,
+  resourcesByPath: ReadonlyMap<string, VaultResource>,
+  reference: string
+): VaultResource | undefined {
+  return resolveLocal(root, resourcesByPath, reference);
+}
+
 function resolveLocal(
   root: string,
   resourcesByPath: ReadonlyMap<string, VaultResource>,

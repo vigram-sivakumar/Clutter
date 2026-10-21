@@ -129,6 +129,8 @@ async function setup(
     existingToday?: string;
     /** A template archived before anything is opened. */
     archiveTemplate?: string;
+    /** The date whose Daily Note is opened, instead of today's. */
+    openDate?: Date;
   } = {}
 ) {
   const templates = folder('folder-templates', 'Templates');
@@ -194,7 +196,7 @@ async function setup(
 
   if (open === 'daily-note') {
     await application.pageOperations.openAtPath(
-      DailyNotePath.absoluteFrom(ROOT, new Date()),
+      DailyNotePath.absoluteFrom(ROOT, options.openDate ?? new Date()),
       { type: 'daily-note' }
     );
   } else {
@@ -465,5 +467,72 @@ describe('The default daily note template', () => {
 
     expect(activeBody(application)).toBe('');
     expect(suggested()).toEqual(['Alpha', 'Delta', 'Gamma']);
+  });
+});
+
+describe("Today's template applies only to today's Daily Note", () => {
+  const activeBody = (application: Application) =>
+    application.effectivePageState.getPage(application.workspace.activePageId!)?.markdown;
+  const daysFromToday = (offset: number) => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset, 12);
+  };
+
+  it('applies to today', async () => {
+    const { application } = await setup('daily-note', { defaultTemplate: 'tpl-beta', openDate: daysFromToday(0) });
+    await flush();
+
+    expect(activeBody(application)).toBe('Body');
+  });
+
+  it.each([
+    ['yesterday', -1],
+    ['tomorrow', 1],
+    ['a week ago', -7],
+    ['a month ahead', 31],
+    ['a year ago', -365],
+  ])('does not apply to %s: it stays empty and keeps its suggestions', async (_label, offset) => {
+    const { application } = await setup('daily-note', { defaultTemplate: 'tpl-beta', openDate: daysFromToday(offset) });
+    await flush();
+
+    expect(activeBody(application)).toBe('');
+    expect(suggested()).toEqual(BASELINE);
+  });
+
+  it('preferred templates still lead the suggestions on a past or future Daily Note', async () => {
+    const { application } = await setup('daily-note', {
+      defaultTemplate: 'tpl-beta',
+      openDate: daysFromToday(-3),
+    });
+    act(() => application.preferredTemplatesStore.add('tpl-delta', 'dailyNotes'));
+    await flush();
+
+    expect(suggested()[0]).toBe('Delta');
+    expect(activeBody(application)).toBe('');
+  });
+
+  it('judges "today" on the local calendar at the moment the note is created, across midnight', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      // 23:59 local on 20 October: the 20th is today, the 21st is not.
+      vi.setSystemTime(new Date(2026, 9, 20, 23, 59));
+      const evening = await setup('daily-note', { defaultTemplate: 'tpl-beta', openDate: new Date(2026, 9, 20, 12) });
+      await flush();
+      expect(activeBody(evening.application)).toBe('Body');
+      cleanup();
+
+      // 00:01 local on the 21st: now the 20th is yesterday, and the 21st is today.
+      vi.setSystemTime(new Date(2026, 9, 21, 0, 1));
+      const past = await setup('daily-note', { defaultTemplate: 'tpl-beta', openDate: new Date(2026, 9, 20, 12) });
+      await flush();
+      expect(activeBody(past.application)).toBe('');
+      cleanup();
+
+      const today = await setup('daily-note', { defaultTemplate: 'tpl-beta', openDate: new Date(2026, 9, 21, 12) });
+      await flush();
+      expect(activeBody(today.application)).toBe('Body');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -1,6 +1,6 @@
 import type { Application } from '@core/application/Application';
 import { useWorkspace } from '@app/hooks/useWorkspace';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useFolderItemLimit } from '@shared/helpers/folderItemLimitPreference';
 import { collectionViewKeyForSidebarLevel } from '@core/application/collection/collectionViewKey';
 import { displayedOrderIds } from '@features/notes/sidebar/sidebarSort';
@@ -33,14 +33,8 @@ import { NewTagDialog } from '@features/tags/shortcuts/NewTagDialog';
 import { NewFolderDialog } from '@features/notes/shortcuts/NewFolderDialog';
 import { createAndOpenFolder } from '@features/notes/helpers/createAndOpenFolder';
 import { createNote } from '@features/notes/helpers/createNote';
-import { buildNoteLocationFolders } from '@features/notes/helpers/buildNoteLocationFolders';
-import type { SpaceSettingsSource } from '@features/settings/space-settings/SpaceSettingsSource';
-import type { NoteLocationSource } from '@features/settings/default-note-location-setting/DefaultNoteLocationSetting';
-import { uploadAssets } from '@features/notes/helpers/uploadAssets';
 import { createTemplate } from '@features/notes/helpers/createTemplate';
-import type { PreferredTemplatesContext } from '@core/application/templates/PreferredTemplatesStore';
-import { sortTemplatesByRecentUse } from '@features/notes/helpers/templateSuggestions';
-import { toTemplateEntries } from '@features/collection/page/toCollectionPageModel';
+import { uploadAssets } from '@features/notes/helpers/uploadAssets';
 import { createTaskInDailyNote } from '@features/tasks/helpers/createTaskInDailyNote';
 import { testIds } from '@shared/testing/selectors';
 import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal';
@@ -80,70 +74,6 @@ export function Sidebar({
     membershipSelector,
   } = application;
 
-  // The open Space's templates for the pickers in Settings: the same templates, in the same order, as From
-  // template and the note's template suggestions, plus the user's preferred-template list.
-  const settingsTemplates = useMemo(
-    () => ({
-      getTemplates: () =>
-        sortTemplatesByRecentUse(
-          toTemplateEntries(vault, membershipSelector, () => undefined),
-          (templateId) => application.templateUsageStore.lastUsedAt(templateId)
-        ),
-      onCreateTemplate: () =>
-        void createTemplate(folderOperations, pageOperations).catch(() => {}),
-      // A template is a note: the same open the sidebar's own rows use.
-      onOpenTemplate: (templateId: string) => void pageOperations.open(templateId),
-      preferred: {
-        getIds: (context: PreferredTemplatesContext) =>
-          application.preferredTemplatesStore.getIds(context),
-        add: (templateId: string, context: PreferredTemplatesContext) =>
-          application.preferredTemplatesStore.add(templateId, context),
-        remove: (templateId: string, context: PreferredTemplatesContext) =>
-          application.preferredTemplatesStore.remove(templateId, context),
-        subscribe: application.preferredTemplatesStore.subscribe,
-        getDefaultDailyNoteId: () => application.preferredTemplatesStore.getDefaultDailyNoteTemplateId(),
-        setDefaultDailyNote: (templateId: string | undefined) =>
-          application.preferredTemplatesStore.setDefaultDailyNoteTemplate(templateId),
-      },
-    }),
-    [application, vault, membershipSelector, folderOperations, pageOperations]
-  );
-  // The Default note location setting's folders: the same list a Move picker offers for a note (every folder
-  // the sidebar's tree can show, nested ones with their parents), without Inbox (the default, listed first by
-  // the setting itself) and without Templates (a note created there is a template, a different thing).
-  const settingsNoteLocation = useMemo<NoteLocationSource>(
-    () => ({
-      getFolders: () => buildNoteLocationFolders(membershipSelector),
-      // A read, never a write: it runs while the setting renders. A saved folder that is no longer a valid
-      // destination reads as Inbox here, and the Application puts the saved value back to Inbox on the vault change.
-      getSelectedId: () => {
-        const saved = application.spaceProfile?.defaultNoteFolderId;
-        return saved !== undefined && membershipSelector.isNoteDestinationFolder(saved) ? saved : undefined;
-      },
-      select: (folderId) => void application.spaceProfileStore.setDefaultNoteFolder(folderId),
-      subscribe: (listener) => {
-        const unsubscribeProfile = application.spaceProfileStore.subscribe(listener);
-        const unsubscribeVault = vault.subscribe(() => listener());
-        return () => {
-          unsubscribeProfile();
-          unsubscribeVault();
-        };
-      },
-    }),
-    [application, vault, membershipSelector]
-  );
-  // The Space's own settings (cover position, automatic archive cleanup), read from and written to the open
-  // Space's profile — so switching Space (a new Application) shows that Space's values.
-  const settingsSpace = useMemo<SpaceSettingsSource>(
-    () => ({
-      getCoverPosition: () => application.defaultCoverPosition,
-      setCoverPosition: (position) => void application.spaceProfileStore.setDefaultCoverPosition(position),
-      getAutoDeleteArchived: () => application.autoDeleteArchived,
-      setAutoDeleteArchived: (enabled) => void application.spaceProfileStore.setAutoDeleteArchived(enabled),
-      subscribe: application.spaceProfileStore.subscribe,
-    }),
-    [application]
-  );
   const workspace = useWorkspace(application.workspace);
   const spaces = useSpaces();
   const activeDailyNoteDate = getActiveDailyNoteDate(
@@ -388,9 +318,6 @@ export function Sidebar({
         onSpacesMenuOpen={spaces?.refreshAvailability}
         resolveImageUrl={spaces?.resolveAvatarImageUrl ?? ((src) => application.resolveCoverImageForDisplay(src))}
         onOpenArchive={() => navigation.openArchive()}
-        templates={settingsTemplates}
-        noteLocation={settingsNoteLocation}
-        spaceSettings={settingsSpace}
       />
 
       <NewTaskDialog

@@ -20,6 +20,8 @@ interface SpaceAvatarPickerProps {
   /** An image chosen from the user's computer (an absolute path). */
   onUploadImage: (filePath: string) => void;
   onRemove: () => void;
+  /** Where the popover sits along the anchor's bottom edge. Defaults to `center`, as the Space details dialog has it. */
+  alignment?: 'start' | 'center' | 'end';
 }
 
 /**
@@ -35,6 +37,7 @@ export function SpaceAvatarPicker({
   onSelectEmoji,
   onUploadImage,
   onRemove,
+  alignment = 'center',
 }: SpaceAvatarPickerProps) {
   const [tab, setTab] = useState<AvatarTab>('emoji');
 
@@ -44,7 +47,7 @@ export function SpaceAvatarPicker({
       open={open}
       onClose={onClose}
       side="bottom"
-      alignment="center"
+      alignment={alignment}
       size="fit-content"
     >
       <div className="space-avatar-picker">

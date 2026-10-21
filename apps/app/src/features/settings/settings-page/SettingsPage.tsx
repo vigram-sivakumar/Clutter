@@ -2,7 +2,8 @@ import type { HTMLAttributes, ReactNode } from 'react';
 import './SettingsPage.css';
 
 export interface SettingsPageProps extends HTMLAttributes<HTMLDivElement> {
-  title: string;
+  /** Absent: the page shows only its description. */
+  title?: string;
   description?: string;
   children?: ReactNode;
 }
@@ -20,7 +21,7 @@ export function SettingsPage({
       className={['settings-page', className].filter(Boolean).join(' ')}
     >
       <header className="settings-page__header">
-        <h1 className="settings-page__title">{title}</h1>
+        {title && <h1 className="settings-page__title">{title}</h1>}
         {description && (
           <p className="settings-page__description">{description}</p>
         )}

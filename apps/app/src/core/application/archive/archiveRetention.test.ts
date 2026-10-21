@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
   ARCHIVE_RETENTION_DAYS,
@@ -103,5 +103,86 @@ describe('archiveRetention', () => {
       expect(toLocalIsoDate(new Date(2026, 0, 5, 23, 59))).toBe('2026-01-05');
       expect(toLocalIsoDate(new Date(2026, 11, 31, 0, 0))).toBe('2026-12-31');
     });
+  });
+});
+
+/**
+ * The 30-day rule counts local calendar days, so it must give the same answer for the same local dates in any time
+ * zone — east of UTC, west of it, with and without daylight saving, and one with a half-hour offset. Each block
+ * switches the process time zone, checks the switch really took effect (so a runner that ignored it would fail loudly
+ * rather than pass vacuously), and runs the same boundary cases.
+ */
+const ZONES: readonly (readonly [zone: string, juneOffsetMinutes: number])[] = [
+  ['UTC', 0],
+  ['America/Los_Angeles', 420],
+  ['Asia/Tokyo', -540],
+  ['Pacific/Kiritimati', -840],
+  ['America/St_Johns', 150],
+  ['Australia/Lord_Howe', -630],
+];
+
+describe.each(ZONES)('the 30-day boundary in %s', (zone, juneOffsetMinutes) => {
+  const original = process.env.TZ;
+
+  beforeAll(() => {
+    process.env.TZ = zone;
+    expect(new Date(2026, 5, 1, 12).getTimezoneOffset()).toBe(juneOffsetMinutes);
+  });
+  afterAll(() => {
+    if (original === undefined) {
+      delete process.env.TZ;
+    } else {
+      process.env.TZ = original;
+    }
+  });
+
+  // Archived at the start of 1 June, local time.
+  const archivedAtStartOfDay = () => new Date(2026, 5, 1, 0, 1).toISOString();
+  // Archived at the very end of 1 June, local time.
+  const archivedAtEndOfDay = () => new Date(2026, 5, 1, 23, 59).toISOString();
+
+  it('29 calendar days old is not eligible, even at the last minute of that day', () => {
+    expect(isArchiveRetentionElapsed(archivedAtStartOfDay(), new Date(2026, 5, 30, 23, 59))).toBe(false);
+    expect(isArchiveRetentionElapsed(archivedAtEndOfDay(), new Date(2026, 5, 30, 23, 59))).toBe(false);
+  });
+
+  it('exactly 30 calendar days old is eligible from its first minute, even when fewer than 30 x 24 hours have passed', () => {
+    // 23:59 on 1 June to 00:00 on 1 July is 29 days and 1 minute of elapsed time — and 30 calendar days.
+    expect(isArchiveRetentionElapsed(archivedAtEndOfDay(), new Date(2026, 6, 1, 0, 0))).toBe(true);
+    expect(isArchiveRetentionElapsed(archivedAtStartOfDay(), new Date(2026, 6, 1, 0, 0))).toBe(true);
+  });
+
+  it('31 calendar days old is eligible', () => {
+    expect(isArchiveRetentionElapsed(archivedAtStartOfDay(), new Date(2026, 6, 2, 12, 0))).toBe(true);
+  });
+
+  it('crosses a month end, a year end and a leap day on the calendar', () => {
+    expect(isArchiveRetentionElapsed(new Date(2026, 0, 1, 12).toISOString(), new Date(2026, 0, 30, 12))).toBe(false);
+    expect(isArchiveRetentionElapsed(new Date(2026, 0, 1, 12).toISOString(), new Date(2026, 0, 31, 12))).toBe(true);
+    expect(isArchiveRetentionElapsed(new Date(2025, 11, 15, 12).toISOString(), new Date(2026, 0, 13, 12))).toBe(false);
+    expect(isArchiveRetentionElapsed(new Date(2025, 11, 15, 12).toISOString(), new Date(2026, 0, 14, 12))).toBe(true);
+    expect(isArchiveRetentionElapsed(new Date(2028, 0, 30, 12).toISOString(), new Date(2028, 1, 28, 12))).toBe(false);
+    expect(isArchiveRetentionElapsed(new Date(2028, 0, 30, 12).toISOString(), new Date(2028, 1, 29, 12))).toBe(true);
+  });
+
+  it('a future archive date is never eligible, however far ahead', () => {
+    expect(isArchiveRetentionElapsed(new Date(2026, 5, 2, 0, 0).toISOString(), new Date(2026, 5, 1, 23, 59))).toBe(false);
+    expect(isArchiveRetentionElapsed(new Date(2099, 0, 1, 12).toISOString(), new Date(2026, 6, 1, 12))).toBe(false);
+  });
+
+  it('an instant is read as the local calendar day it falls on in THIS zone, not its UTC date', () => {
+    // The same instant (1 June, 03:00 UTC) is a different local day in different zones.
+    const instant = '2026-06-01T03:00:00.000Z';
+    const localDay = archiveDateOf(instant);
+
+    expect(localDay).toBe(
+      { UTC: '2026-06-01', 'America/Los_Angeles': '2026-05-31', 'Asia/Tokyo': '2026-06-01', 'Pacific/Kiritimati': '2026-06-01', 'America/St_Johns': '2026-06-01', 'Australia/Lord_Howe': '2026-06-01' }[zone]
+    );
+  });
+
+  it('a date with no time reads as that calendar day in any zone', () => {
+    expect(archiveDateOf('2026-06-01')).toBe('2026-06-01');
+    expect(isArchiveRetentionElapsed('2026-06-01', new Date(2026, 5, 30, 12))).toBe(false);
+    expect(isArchiveRetentionElapsed('2026-06-01', new Date(2026, 6, 1, 12))).toBe(true);
   });
 });

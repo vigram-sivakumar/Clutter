@@ -201,6 +201,27 @@ describe('Space settings — settings changed close together', () => {
   });
 });
 
+describe('Space settings — the first identity and a setting changed together', () => {
+  it('a setting changed while the Space is being given its identity (by an avatar change) is not written over', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    const store = await reload(fileSystem); // no profile yet
+
+    // setAvatar has to give the Space an identity first, which is a file write; the setting changes meanwhile.
+    const avatar = store.setAvatar({ type: 'emoji', emoji: '🌿' });
+    void store.setAutoDeleteArchived(true);
+    void store.setDefaultCoverPosition('above');
+    await avatar;
+    await flushWorkspaceStateWrites();
+
+    const reopened = (await reload(fileSystem)).profile;
+    expect(reopened).toMatchObject({
+      avatar: { type: 'emoji', emoji: '🌿' },
+      autoDeleteArchived: true,
+      defaultCoverPosition: 'above',
+    });
+  });
+});
+
 describe('Space settings — failed writes', () => {
   const failingWrites = (fileSystem: InMemoryVaultFileSystem) =>
     vi.spyOn(fileSystem, 'writeFile').mockRejectedValue(new Error('disk is full'));

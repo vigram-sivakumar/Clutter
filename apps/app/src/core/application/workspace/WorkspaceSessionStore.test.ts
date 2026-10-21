@@ -321,6 +321,26 @@ describe('WorkspaceSessionStore — attach()/persistence', () => {
     });
   });
 
+  it('hasPendingWrite is true while a change waits on the debounce, and false once flushed or disposed', async () => {
+    vi.useFakeTimers();
+    const store = await WorkspaceSessionStore.load(new InMemoryVaultFileSystem(), ROOT);
+    const session = owners();
+    store.attach(session);
+    await vi.runAllTimersAsync();
+    expect(store.hasPendingWrite()).toBe(false);
+
+    session.workspace.setActiveSidebarTab('tasks');
+    expect(store.hasPendingWrite()).toBe(true);
+
+    await store.flush();
+    expect(store.hasPendingWrite()).toBe(false);
+
+    session.workspace.setActiveSidebarTab('tags');
+    expect(store.hasPendingWrite()).toBe(true);
+    store.dispose();
+    expect(store.hasPendingWrite()).toBe(false);
+  });
+
   it('never persists a draft as the active view', async () => {
     vi.useFakeTimers();
     const fileSystem = new InMemoryVaultFileSystem();

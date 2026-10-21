@@ -1,6 +1,8 @@
 import { createContext, useContext } from 'react';
 import type { SpaceAvatarChoice } from '../../components/space-avatar/SpaceAvatar';
 import type { SpaceListEntry } from './spaceRegistry';
+import type { RenameOutcome } from './renameActiveSpace';
+import type { InactiveRenameOutcome } from './renameInactiveSpace';
 
 /** A listed Space: its saved path and name, and the avatar it carries (absent: its initial). */
 export type SpaceListItem = SpaceListEntry & {
@@ -18,6 +20,14 @@ export interface SpacesApi {
   readonly onSwitchSpace: (path: string) => void;
   /** Turns a Space avatar image's `src` (a file path) into a loadable URL; `null` shows the initial instead. */
   readonly resolveAvatarImageUrl?: (src: string) => string | null;
+  /** Forgets a Space's entry in Clutter; its folder and files are never touched. The open Space can't be removed. */
+  readonly onRemoveSpace?: (path: string) => void;
+  /** Renames the open Space's folder in place (see `renameActiveSpaceFolder`). Absent where there is no local filesystem. */
+  readonly onRenameActiveSpace?: (newName: string) => Promise<RenameOutcome>;
+  /** Renames the folder of a Space that is NOT open (see `renameInactiveSpaceFolder`); the open Space is untouched. */
+  readonly onRenameInactiveSpace?: (path: string, newName: string) => Promise<InactiveRenameOutcome>;
+  /** Changes the open Space's avatar (`undefined` removes it); `{ error }` when it could not be saved. */
+  readonly onChangeActiveSpaceAvatar?: (avatar: SpaceAvatarChoice | undefined) => Promise<{ error?: string }>;
   /** Re-checks which listed Spaces still exist; called when the selector opens. */
   readonly refreshAvailability?: () => void;
 }

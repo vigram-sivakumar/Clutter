@@ -5,14 +5,8 @@ import { AppIcon } from '@shared/icon';
 import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
 import { Entry } from '@components/entry/Entry';
 import { SpaceAvatar, type SpaceAvatarValue } from '@components/space-avatar/SpaceAvatar';
-import { Overlay } from '@components/overlay/Overlay';
-import { Menu } from '@components/menu/Menu';
-import { MenuItem } from '@components/menu/MenuItem';
-import { Dialog } from '@components/dialog/Dialog';
-import { Settings } from '@features/settings/Settings';
-import type { SpaceSettingsSource } from '@features/settings/space-settings/SpaceSettingsSource';
-import type { NoteLocationSource } from '@features/settings/default-note-location-setting/DefaultNoteLocationSetting';
-import type { TemplatesSource } from '@features/settings/preferred-templates/PreferredTemplates';
+import { SpaceMenu, DEFAULT_SPACE_AVATAR } from './SpaceMenu';
+import { useSharedSettingsDialogState } from '@features/settings/SettingsDialogState';
 
 interface FooterProps {
   /** The vault folder's name — source of the `initial` avatar's letter, and the title when `spaceName` is absent. */
@@ -36,15 +30,9 @@ interface FooterProps {
   /** Called as the Space menu opens — the moment to re-check which listed Spaces still exist. */
   onSpacesMenuOpen?(): void;
   onOpenArchive(): void;
-  /** The open Space's templates, for the pickers in Settings. */
-  templates?: TemplatesSource;
-  /** The open Space's folders and default note location, for Settings. */
-  noteLocation?: NoteLocationSource;
-  /** The open Space's own settings, for Settings. */
-  spaceSettings?: SpaceSettingsSource;
 }
 
-const DEFAULT_AVATAR: SpaceAvatarValue = { type: 'initial' };
+const DEFAULT_AVATAR = DEFAULT_SPACE_AVATAR;
 
 export function Footer({
   vaultFolderName,
@@ -57,12 +45,9 @@ export function Footer({
   onNewSpace,
   onSpacesMenuOpen,
   onOpenArchive,
-  templates,
-  noteLocation,
-  spaceSettings,
 }: FooterProps) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsDialog = useSharedSettingsDialogState();
   const selectorRef = useRef<HTMLDivElement>(null);
   const title = spaceName || vaultFolderName;
   // Each listed Space shows its own avatar; the open one falls back to its entry's when none is passed.
@@ -89,81 +74,20 @@ export function Footer({
       >
         <span className="space__title">{title}</span>
       </Entry>
-      <Overlay
+      <SpaceMenu
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
         anchorRef={selectorRef}
-        side="top"
-        alignment="start"
-      >
-        <Menu size="medium">
-          {(spaces ?? [{ path: activeSpacePath ?? '', name: title }]).map((space) => {
-            const isActive = space.path === activeSpacePath || spaces === undefined;
-            return isActive ? (
-              <MenuItem
-                key={space.path}
-                className="space-menu__current"
-                leading={avatarView}
-                trailing={<AppIcon icon="tick" />}
-                aria-current="true"
-                title={space.path || undefined}
-              >
-                <span className="space__title">{spaceName || space.name}</span>
-              </MenuItem>
-            ) : (
-              <MenuItem
-                key={space.path}
-                className="space-menu__current"
-                leading={
-                  <SpaceAvatar
-                    avatar={space.avatar ?? DEFAULT_AVATAR}
-                    folderName={space.name}
-                    resolveImageUrl={resolveImageUrl}
-                    badge={space.missing ? 'error' : undefined}
-                    badgeLabel={space.missing ? 'Folder not found' : undefined}
-                  />
-                }
-                title={space.path}
-                disabled={!onSwitchSpace}
-                onClick={() => {
-                  setMenuOpen(false);
-                  onSwitchSpace?.(space.path);
-                }}
-              >
-                <span className="space__title">{space.name}</span>
-              </MenuItem>
-            );
-          })}
-          <MenuItem
-            leading={<AppIcon icon="plus" />}
-            disabled={!onNewSpace}
-            onClick={() => {
-              setMenuOpen(false);
-              onNewSpace?.();
-            }}
-          >
-            New space
-          </MenuItem>
-          <div className="menu__divider" role="separator" />
-          <MenuItem
-            leading={<AppIcon icon="settings" />}
-            onClick={() => {
-              setMenuOpen(false);
-              setSettingsOpen(true);
-            }}
-          >
-            Settings
-          </MenuItem>
-        </Menu>
-      </Overlay>
-      <Dialog
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        returnFocusRef={selectorRef}
-        className="settings-dialog"
-      >
-        <Settings templates={templates} noteLocation={noteLocation} spaceSettings={spaceSettings} onClose={() => setSettingsOpen(false)} />
-      </Dialog>
+        spaces={spaces}
+        activeSpacePath={activeSpacePath}
+        title={title}
+        spaceName={spaceName}
+        activeAvatarView={avatarView}
+        resolveImageUrl={resolveImageUrl}
+        onSwitchSpace={onSwitchSpace}
+        onNewSpace={onNewSpace}
+        onOpenSettings={() => settingsDialog?.setOpen(true)}
+      />
       <div className="footer__actions">
         <Button isIconOnly size="medium" variant="ghost" onClick={onOpenArchive}>
           <AppIcon icon={getSystemLocationPresentation('archive').icon} />

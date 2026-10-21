@@ -138,8 +138,10 @@ export class SpaceProfileStore {
 
   /** Sets, or with `undefined` removes, the Space's avatar. Gives the Space an identity first if needed. */
   async setAvatar(avatar: SpaceProfileAvatar | undefined): Promise<SpaceProfile> {
-    const base = await this.ensureIdentity();
-    const { avatar: _previous, ...rest } = base;
+    await this.ensureIdentity();
+    // The profile as it is NOW, not as ensureIdentity returned it: a setting changed while the identity was being
+    // written is already in `current`, and building on the older copy would write over it.
+    const { avatar: _previous, ...rest } = this.current!;
     return this.write(avatar ? { ...rest, avatar } : rest);
   }
 

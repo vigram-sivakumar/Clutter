@@ -230,3 +230,56 @@ describe('PagePersistenceCoordinator cross-kind concurrency', () => {
     expect(vault.getPage('page-new')!.source.markdown).toBe('Brand new body');
   });
 });
+
+describe('PagePersistenceCoordinator: knowing when it is idle', () => {
+  it('reports pending operations from the moment one is enqueued until it has settled', async () => {
+    const { coordinator } = setup([], new SlowWriteFileSystem(new InMemoryVaultFileSystem(), 15));
+    expect(coordinator.hasPendingOperations()).toBe(false);
+
+    const saving = coordinator.enqueue('page-a', {
+      kind: 'create',
+      path: `${ROOT}/A.md`,
+      parentId: null,
+      content: noteDocument('page-a', 'one'),
+    });
+
+    expect(coordinator.hasPendingOperations()).toBe(true);
+    await saving;
+    expect(coordinator.hasPendingOperations()).toBe(false);
+  });
+
+  it('whenIdle waits for operations queued behind others and for ones enqueued while it waits', async () => {
+    const { coordinator, vault } = setup([], new SlowWriteFileSystem(new InMemoryVaultFileSystem(), 20));
+    void coordinator.enqueue('page-a', {
+      kind: 'create',
+      path: `${ROOT}/A.md`,
+      parentId: null,
+      content: noteDocument('page-a', 'a'),
+    });
+    // Enqueued after whenIdle has started waiting, while the first is still writing.
+    setTimeout(() => {
+      void coordinator.enqueue('page-b', {
+        kind: 'create',
+        path: `${ROOT}/B.md`,
+        parentId: null,
+        content: noteDocument('page-b', 'b'),
+      });
+    }, 5);
+
+    await coordinator.whenIdle();
+
+    expect(coordinator.hasPendingOperations()).toBe(false);
+    expect(vault.getPage('page-a')).toBeDefined();
+    expect(vault.getPage('page-b')).toBeDefined();
+  });
+
+  it('counts a failed operation as settled', async () => {
+    const { coordinator } = setup();
+    await coordinator.enqueue('missing', { kind: 'save', content: 'x' }).catch(() => undefined);
+
+    await coordinator.whenIdle();
+
+    expect(coordinator.hasPendingOperations()).toBe(false);
+  });
+});
+

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { mergeAndWriteWorkspaceStateFile } from './workspaceStateFile';
+import {
+  flushWorkspaceStateWrites,
+  hasPendingWorkspaceStateWrites,
+  mergeAndWriteWorkspaceStateFile,
+} from './workspaceStateFile';
 import { InMemoryVaultFileSystem } from '../testing/InMemoryVaultFileSystem';
 import { LostableVaultFileSystem } from '../testing/LostableVaultFileSystem';
 import { VaultRootMissingError } from '../providers/VaultRootMissingError';
@@ -151,5 +155,29 @@ describe('mergeAndWriteWorkspaceStateFile — a vault that is gone', () => {
     const error = new VaultRootMissingError(ROOT);
     expect(error).toBeInstanceOf(Error);
     expect(error.rootPath).toBe(ROOT);
+  });
+});
+
+describe('hasPendingWorkspaceStateWrites', () => {
+  it('is true from the moment a write is requested until it has finished, and false after a failed one too', async () => {
+    expect(hasPendingWorkspaceStateWrites()).toBe(false);
+    const slow = new SlowReadFileSystem({ [WORKSPACE_PATH]: '{}' });
+
+    const first = mergeAndWriteWorkspaceStateFile(slow, ROOT, { a: 1 });
+    const second = mergeAndWriteWorkspaceStateFile(slow, ROOT, { b: 2 });
+    expect(hasPendingWorkspaceStateWrites()).toBe(true);
+
+    await Promise.all([first, second]);
+    await flushWorkspaceStateWrites();
+    expect(hasPendingWorkspaceStateWrites()).toBe(false);
+
+    class Failing extends InMemoryVaultFileSystem {
+      override async writeFile(): Promise<void> {
+        throw new Error('disk full');
+      }
+    }
+    await mergeAndWriteWorkspaceStateFile(new Failing({ [WORKSPACE_PATH]: '{}' }), ROOT, { a: 1 }).catch(() => undefined);
+    await flushWorkspaceStateWrites();
+    expect(hasPendingWorkspaceStateWrites()).toBe(false);
   });
 });

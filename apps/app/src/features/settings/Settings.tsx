@@ -1,11 +1,17 @@
 import { useState } from 'react';
+import { useSharedSettingsDialogState } from './SettingsDialogState';
 import './Settings.css';
 import {
   DEFAULT_SETTINGS_PAGE,
   SettingsSidebar,
+  isSpacePageId,
+  spacePageId,
+  type FixedSettingsPageId,
   type SettingsPageId,
+  type SettingsSpace,
 } from './settings-sidebar/SettingsSidebar';
 import { RoundIconButton } from '@components/button/RoundIconButton';
+import { SpacePage } from './space-page/SpacePage';
 import { SettingsPage } from './settings-page/SettingsPage';
 import {
   PreferredTemplates,
@@ -27,7 +33,7 @@ import { DateFormatSetting } from './date-format-setting/DateFormatSetting';
 import { WeekStartSetting } from './week-start-setting/WeekStartSetting';
 import { ThemeSetting } from './theme-setting/ThemeSetting';
 
-const PAGE_TITLES: Record<SettingsPageId, string> = {
+const PAGE_TITLES: Record<FixedSettingsPageId, string> = {
   preferences: 'Preferences',
   notes: 'Notes',
   'daily-notes': 'Daily notes',
@@ -41,17 +47,53 @@ interface SettingsProps {
   noteLocation?: NoteLocationSource;
   /** The open Space's own settings (cover position, automatic archive cleanup): saved in the Space, so each Space has its own. */
   spaceSettings?: SpaceSettingsSource;
+  /** The open Space's avatar and name for the sidebar header. */
+  space?: SettingsSpace;
   /** Closes the dialog the settings are shown in, for a setting that navigates away (e.g. opening a template). */
   onClose?: () => void;
 }
 
-export function Settings({ templates, noteLocation, spaceSettings, onClose }: SettingsProps = {}) {
-  const [pageId, setPageId] = useState<SettingsPageId>(DEFAULT_SETTINGS_PAGE);
+export function Settings({ templates, noteLocation, spaceSettings, space, onClose }: SettingsProps = {}) {
+  const shared = useSharedSettingsDialogState();
+  const [localPageId, setLocalPageId] = useState<SettingsPageId>(DEFAULT_SETTINGS_PAGE);
+  const pageId = shared?.pageId ?? localPageId;
+  const setPageId = shared?.setPageId ?? setLocalPageId;
+
+  const selectedSpace = isSpacePageId(pageId)
+    ? space?.spaces?.find((item) => spacePageId(item.path) === pageId)
+    : undefined;
 
   return (
     <div className="settings">
-      <SettingsSidebar selectedId={pageId} onSelect={setPageId} />
-      <SettingsPage key={pageId} title={PAGE_TITLES[pageId]}>
+      <SettingsSidebar selectedId={pageId} onSelect={setPageId} space={space} />
+      <SettingsPage key={pageId} title={isSpacePageId(pageId) ? undefined : PAGE_TITLES[pageId]}
+        description={isSpacePageId(pageId) ? 'Space setting' : undefined}
+      >
+        {isSpacePageId(pageId) && selectedSpace && (
+          <SpacePage
+            key={selectedSpace.path}
+            name={selectedSpace.name}
+            path={selectedSpace.path}
+            // Every Space can be renamed from here: the open one through its Application, another one directly.
+            onRename={
+              selectedSpace.active
+                ? space?.onRenameActiveSpace
+                : space?.onRenameInactiveSpace && ((newName) => space.onRenameInactiveSpace!(selectedSpace.path, newName))
+            }
+            busy={space?.busy}
+            avatar={selectedSpace.avatar}
+            hasAvatar={selectedSpace.hasAvatar}
+            onChangeAvatar={selectedSpace.active ? space?.onChangeActiveSpaceAvatar : undefined}
+            onRemove={
+              space?.onRemoveSpace &&
+              (() => {
+                // The page being removed goes away with it.
+                setPageId(DEFAULT_SETTINGS_PAGE);
+                space.onRemoveSpace?.(selectedSpace.path);
+              })
+            }
+          />
+        )}
         {pageId === 'preferences' && (
           <>
             <SettingsGroup title="Appearance">

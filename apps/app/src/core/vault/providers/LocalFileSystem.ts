@@ -133,6 +133,8 @@ export class LocalVaultProvider implements VaultFileSystem {
    * provider-internal policy, never seen by Application.
    */
   async duplicate(sourcePath: string, kind: 'file' | 'directory'): Promise<string> {
+    // Checked first: the file branch below copies without any other guard, so a sealed provider would still write.
+    this.assertWritable();
     const resolvedSource = this.resolvePath(sourcePath);
     const destinationPath = await resolveLocalDuplicatePath(this, resolvedSource, kind);
 

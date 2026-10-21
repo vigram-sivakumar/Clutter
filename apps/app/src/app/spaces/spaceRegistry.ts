@@ -9,6 +9,21 @@ export interface SpaceRegistry {
   readonly paths: readonly string[];
   /** `null` when no Space has been configured yet (first run in the desktop app). */
   readonly activePath: string | null;
+  /**
+   * A rename of the active Space's folder that has begun and not been resolved. A best-effort recovery HINT, not a
+   * transaction: the registry is one `localStorage` blob, whose write the browser may flush lazily, so after a hard
+   * crash it can be missing. `from` stays authoritative until the filesystem rename succeeds and the registry then
+   * moves to `to` in one write; startup reconciles an unresolved record before opening anything
+   * (`reconcilePendingRename`). `spaceId` is the Space's stable id (`.clutter/workspace.json`) at both paths' check:
+   * a consistency check, not proof — a copied Space shares it.
+   */
+  readonly pendingRename?: PendingRename;
+}
+
+export interface PendingRename {
+  readonly from: string;
+  readonly to: string;
+  readonly spaceId: string | null;
 }
 
 /** Nothing configured. Never written to storage: only a Space that opened is ever saved. */
@@ -41,9 +56,43 @@ export function listSpaces(registry: SpaceRegistry): SpaceListEntry[] {
 export function withActiveSpace(registry: SpaceRegistry, path: string): SpaceRegistry {
   const normalized = normalizeSpacePath(path);
   return {
+    ...registry,
     paths: registry.paths.includes(normalized) ? registry.paths : [...registry.paths, normalized],
     activePath: normalized,
   };
+}
+
+/** `registry` without its pending rename (when there was none, the same object). */
+export function withoutPendingRename(registry: SpaceRegistry): SpaceRegistry {
+  if (registry.pendingRename === undefined) return registry;
+  const { pendingRename: _resolved, ...rest } = registry;
+  return rest;
+}
+
+/** Records the rename that is about to start. The registry is otherwise unchanged: `from` stays the active path. */
+export function withPendingRename(registry: SpaceRegistry, pending: PendingRename): SpaceRegistry {
+  return {
+    ...registry,
+    pendingRename: { from: normalizeSpacePath(pending.from), to: normalizeSpacePath(pending.to), spaceId: pending.spaceId },
+  };
+}
+
+/**
+ * The rename succeeded: the active entry takes the new path and the pending record is resolved, in ONE mutation —
+ * so one storage write — never one without the other. Nothing is replaced unless `activePath` is the renamed path.
+ */
+export function withRenamedActiveSpace(registry: SpaceRegistry, toPath: string): SpaceRegistry {
+  const to = normalizeSpacePath(toPath);
+  const from = registry.activePath;
+  if (from === null || from === to) return withoutPendingRename(registry);
+  const paths = Array.from(new Set(registry.paths.map((path) => (path === from ? to : path))));
+  return withoutPendingRename({ ...registry, paths, activePath: to });
+}
+
+/** The pending record, unless it is about `path` (an explicit choice about that entry settles it). */
+function pendingUnless(registry: SpaceRegistry, ...paths: string[]): Pick<SpaceRegistry, 'pendingRename'> {
+  const pending = registry.pendingRename;
+  return pending === undefined || paths.includes(pending.from) ? {} : { pendingRename: pending };
 }
 
 /**
@@ -57,7 +106,7 @@ export function withReplacedSpace(registry: SpaceRegistry, fromPath: string, toP
   const to = normalizeSpacePath(toPath);
   if (from === to || !registry.paths.includes(from)) return withActiveSpace(registry, to);
   const paths = Array.from(new Set(registry.paths.map((path) => (path === from ? to : path))));
-  return { paths, activePath: to };
+  return { paths, activePath: to, ...pendingUnless(registry, from) };
 }
 
 /**
@@ -67,7 +116,47 @@ export function withReplacedSpace(registry: SpaceRegistry, fromPath: string, toP
 export function withoutSpace(registry: SpaceRegistry, path: string): SpaceRegistry {
   const normalized = normalizeSpacePath(path);
   if (normalized === registry.activePath || !registry.paths.includes(normalized)) return registry;
-  return { ...registry, paths: registry.paths.filter((entry) => entry !== normalized) };
+  const { pendingRename: _p, ...rest } = registry;
+  return { ...rest, paths: registry.paths.filter((entry) => entry !== normalized), ...pendingUnless(registry, normalized) };
+}
+
+/**
+ * A registered Space that is NOT the open one now lives at `toPath` (its folder was renamed): its entry keeps its place
+ * in the list and the active Space is untouched. Nothing changes for the active entry, an unregistered path, or the
+ * same path. A pending rename that was about this entry is settled by it.
+ */
+export function withRenamedInactiveSpace(registry: SpaceRegistry, fromPath: string, toPath: string): SpaceRegistry {
+  const from = normalizeSpacePath(fromPath);
+  const to = normalizeSpacePath(toPath);
+  if (from === to || from === registry.activePath || !registry.paths.includes(from)) return registry;
+  const { pendingRename: _p, ...rest } = registry;
+  const paths = Array.from(new Set(registry.paths.map((path) => (path === from ? to : path))));
+  return { ...rest, paths, ...pendingUnless(registry, from) };
+}
+
+/**
+ * Forgets the ACTIVE Space after it has been left or closed: only its entry is removed — nothing on disk is touched.
+ * `nextActive` is the registered Space that took its place (already active in practice), or `null` when none did:
+ * the remaining entries are kept, unavailable ones included, with no Space active (the Welcome state). A path that
+ * is not the active one changes nothing.
+ */
+export function withoutActiveSpace(registry: SpaceRegistry, nextActive: string | null): SpaceRegistry {
+  if (registry.activePath === null) return registry;
+  const active = registry.activePath;
+  const next = nextActive === null ? null : normalizeSpacePath(nextActive);
+  if (next === active) return registry;
+  const paths = registry.paths.filter((entry) => entry !== active);
+  if (next !== null && !paths.includes(next)) return registry;
+  return { paths, activePath: next, ...pendingUnless(registry, active) };
+}
+
+/** A well-formed pending rename, or nothing: a malformed or hand-edited record is dropped, never guessed at. */
+function parsePendingRename(raw: unknown): PendingRename | undefined {
+  if (typeof raw !== 'object' || raw === null) return undefined;
+  const { from, to, spaceId } = raw as { from?: unknown; to?: unknown; spaceId?: unknown };
+  if (typeof from !== 'string' || from === '' || typeof to !== 'string' || to === '') return undefined;
+  if (spaceId !== null && typeof spaceId !== 'string') return undefined;
+  return { from: normalizeSpacePath(from), to: normalizeSpacePath(to), spaceId: spaceId === '' ? null : spaceId };
 }
 
 export function defaultSpaceStorage(): SpaceRegistryStorage | null {
@@ -101,18 +190,28 @@ export function loadSpaceRegistry(
     if (typeof parsed !== 'object' || parsed === null) {
       return fallback;
     }
-    const { paths, activePath } = parsed as { paths?: unknown; activePath?: unknown };
+    const { paths, activePath, pendingRename } = parsed as {
+      paths?: unknown;
+      activePath?: unknown;
+      pendingRename?: unknown;
+    };
     if (
       !Array.isArray(paths) ||
       !paths.every((entry) => typeof entry === 'string' && entry !== '') ||
-      typeof activePath !== 'string'
+      (typeof activePath !== 'string' && activePath !== null)
     ) {
       return fallback;
     }
     const unique = Array.from(new Set(paths.map(normalizeSpacePath)));
+    // No active Space with entries left: what removing the last openable Space leaves. The entries (even
+    // unavailable ones) are kept, and the app starts at Welcome. With no entries at all it is just "nothing configured".
+    const pending = parsePendingRename(pendingRename);
+    if (activePath === null) {
+      return unique.length > 0 ? { paths: unique, activePath: null, ...(pending && { pendingRename: pending }) } : fallback;
+    }
     const active = normalizeSpacePath(activePath);
     return unique.length > 0 && unique.includes(active)
-      ? { paths: unique, activePath: active }
+      ? { paths: unique, activePath: active, ...(pending && { pendingRename: pending }) }
       : fallback;
   } catch {
     return fallback;

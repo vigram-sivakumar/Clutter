@@ -168,6 +168,11 @@ export interface DraftInfo {
   readonly title?: string;
   /** Tags the draft will carry once promoted — see DraftDescriptor.tags. */
   readonly tags?: readonly string[];
+  /**
+   * The absolute path a Daily Note draft will be saved at (its date is in it), set only for an entry point with a known
+   * target path — see DraftDescriptor.deterministicPath. Absent for a plain Note draft.
+   */
+  readonly deterministicPath?: string;
 }
 
 /**
@@ -1589,6 +1594,22 @@ export class PageOperations {
    * "settled" and "resolved" are equivalent here in practice — allSettled
    * is used anyway as the explicit, defensive form of that guarantee.
    */
+  /**
+   * Whether any open page still has a change that is not saved (its body, title or description is dirty or
+   * being saved). A synchronous snapshot — `flushAll` cannot say this, since it only acts on what was dirty when
+   * it was called.
+   */
+  public hasUnsavedWork(): boolean {
+    const isUnsaved = (state: { isDirty: boolean; state: DocumentState }) =>
+      state.isDirty || state.state === DocumentState.Saving;
+
+    return (
+      this.documentRegistry.getAll().some((session) => session.isDirty || session.state === DocumentState.Saving) ||
+      [...this.titleStates.values()].some(isUnsaved) ||
+      [...this.descriptionStates.values()].some(isUnsaved)
+    );
+  }
+
   public async flushAll(timeoutMs: number): Promise<void> {
     const dirtyOrSaving = this.documentRegistry
       .getAll()
@@ -2969,7 +2990,11 @@ export class PageOperations {
     this.pendingHeadingBaselines.delete(pageId);
     this.disposeDescriptionState(pageId);
 
-    await this.coordinator.enqueue(pageId, { kind: 'delete' });
+    // Checked again when the delete runs (not only above): a restore queued ahead of it must win.
+    await this.coordinator.enqueue(pageId, {
+      kind: 'delete',
+      ...(!options.allowActive && { requireArchived: true }),
+    });
 
     // Only after the Gate delete succeeded: a delete that threw leaves the page, and so its preferences.
     this.onPagesPermanentlyDeleted([pageId]);

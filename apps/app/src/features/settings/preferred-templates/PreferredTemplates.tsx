@@ -121,8 +121,8 @@ export function PreferredTemplates({
     <SettingsGroup>
       {[
             <SettingsEntry key="default-daily-note-template"
-              title="Default"
-              description="Choose which template to apply when creating a daily note"
+              title="Today's template"
+              description="Choose which template to apply when creating today's daily note"
               trailing={
                 defaultTemplate ? undefined : (
                   <>
