@@ -1,9 +1,10 @@
 .settings-sidebar {
   height: 100%;
   width: var(--app-sidebar-width);
-  flex-shrink: 0;
+  min-width: 220px;
+  /* Shrinks much faster than the page (flex-shrink 1), so the sidebar gives up width first, down to its 220px floor. */
+  flex-shrink: 8;
   padding: var(--space-12);
   background-color: var(--surface-secondary);
   border-radius: var(--radius-sm);
-  /* box-shadow: var(--shadow-inset-thin), var(--shadow-md); */
 }

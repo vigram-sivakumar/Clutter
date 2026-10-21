@@ -26,10 +26,3 @@
 .dialog.settings-dialog {
   width: auto;
 }
-.settings__content {
-  display: flex;
-  /* Fills what the fixed-width sidebar leaves; min-width: 0 lets it shrink below its content. */
-  flex: 1;
-  min-width: 0;
-  padding: 24px;
-}

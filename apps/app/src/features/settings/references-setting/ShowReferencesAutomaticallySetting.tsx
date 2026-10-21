@@ -10,11 +10,11 @@ export function ShowReferencesAutomaticallySetting() {
 
   return (
     <SettingsEntry
-      title="Show references automatically"
-      description="Automatically show references when a page has at least one reference."
+      title="Show references"
+      description="Automatically show references when a page has at least one reference"
       trailing={
         <Switch
-          aria-label="Show references automatically"
+          aria-label="Show references"
           isChecked={show}
           onCheckedChange={writeShowReferencesAutomatically}
         />

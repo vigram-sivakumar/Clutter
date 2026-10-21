@@ -7,6 +7,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn() }));
 
 import { CHANGE_LOCATION_LABEL } from '@components/missing-space-dialog/MissingSpaceDialog';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { CONFIRM_RENAME_BY_DEFAULT, SpacePage } from './SpacePage';
 
 class ResizeObserverMock {
@@ -22,17 +24,21 @@ afterAll(() => {
 });
 afterEach(cleanup);
 
+/** The Location entry's path (one line, middle-truncated by CSS, full path in its tooltip). */
+const location = () => document.querySelector<HTMLElement>('.space-page__path')!;
+const locationEntry = () => location().closest('.settings-entry')!;
+
 describe('SpacePage', () => {
   it('shows the Space name and its location, both read-only', () => {
     render(<SpacePage name="Personal mind space" path="/Users/me/Documents/Personal mind space" />);
 
     const name = screen.getByLabelText('Space name');
-    const location = screen.getByLabelText('Location');
     expect(name).toHaveValue('Personal mind space');
     expect(name).toHaveAttribute('readonly');
-    expect(location).toHaveValue('Documents/Personal mind space');
-    expect(location).toHaveAttribute('title', '/Users/me/Documents/Personal mind space');
-    expect(location).toHaveAttribute('readonly');
+    // The full absolute path, not a shortened one.
+    expect(location()).toHaveTextContent('/Users/me/Documents/Personal mind space');
+    expect(location()).toHaveAttribute('title', '/Users/me/Documents/Personal mind space');
+    expect(document.querySelector('.space-page__path input, input.space-page__path')).toBeNull();
   });
 
   const beta = (onRemove = vi.fn()) =>
@@ -291,7 +297,8 @@ describe('SpacePage: renaming the open Space', () => {
   it('never makes the location editable', () => {
     renderOpen();
 
-    expect(screen.getByLabelText('Location')).toHaveAttribute('readonly');
+    expect(location().querySelector('input, textarea, [contenteditable]')).toBeNull();
+    expect(screen.queryByRole('button', { name: /edit location/i })).toBeNull();
   });
 
   it('leaves the Remove space entry as it was', () => {
@@ -388,7 +395,7 @@ describe('SpacePage: renaming the open Space', () => {
     expect(section).not.toBeNull();
     expect(section.querySelector('.space-page__avatar')).not.toBeNull();
     expect(within(section).getByLabelText('Space name')).toBeInTheDocument();
-    expect(within(section).getByLabelText('Location')).toBeInTheDocument();
+    expect(section.querySelector('.space-page__path')).not.toBeNull();
     expect(within(section).queryByRole('button', { name: 'Remove space' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Remove space' })).toBeInTheDocument();
     // The section carries no title of its own.
@@ -487,10 +494,10 @@ describe('SpacePage: changing the avatar', () => {
     it('puts the Missing badge, with its exclamation-in-circle icon, beside the Location title and not the name', () => {
       missing(vi.fn());
 
-      const location = screen.getByLabelText('Location').closest('.settings-entry')!;
-      const badge = within(location as HTMLElement).getByText('Missing');
+      const entry = locationEntry();
+      const badge = within(entry as HTMLElement).getByText('Missing');
       expect(badge.closest('.pill')?.querySelector('svg')).not.toBeNull();
-      expect(location.querySelector('.settings-entry__description-row')).toContainElement(badge);
+      expect(entry.querySelector('.settings-entry__description-row')).toContainElement(badge);
       expect(screen.getByLabelText('Space name').closest('.settings-entry')).not.toHaveTextContent('Missing');
     });
 
@@ -515,7 +522,8 @@ describe('SpacePage: changing the avatar', () => {
     it('keeps the current location visible', () => {
       missing(vi.fn());
 
-      expect(screen.getByLabelText('Location')).toHaveValue('me/Gone');
+      expect(location()).toHaveTextContent('/Users/me/Gone');
+      expect(location()).toHaveAttribute('title', '/Users/me/Gone');
     });
 
     it('runs the recovery flow it is given when the button is clicked', () => {
@@ -548,9 +556,9 @@ describe('SpacePage: changing the avatar', () => {
       expect(screen.queryByText('Missing')).toBeNull();
       expect(screen.queryByRole('button', { name: 'Change location' })).toBeNull();
       // Its name entry still holds only the edit button, and its location entry has no badge row or trailing slot.
-      expect(screen.getByLabelText('Location').closest('.settings-entry')?.querySelector('.settings-entry__description-row')).toBeNull();
+      expect(locationEntry().querySelector('.settings-entry__description-row')).toBeNull();
       expect(screen.getByRole('button', { name: 'Edit space name' })).toBeInTheDocument();
-      expect(screen.getByLabelText('Location').closest('.settings-entry')?.querySelector('.settings-entry__trailing')).toBeNull();
+      expect(locationEntry().querySelector('.settings-entry__trailing')).toBeNull();
     });
 
     it('renders no trailing slot on the name entry when nothing is editable', () => {
@@ -558,5 +566,49 @@ describe('SpacePage: changing the avatar', () => {
 
       expect(screen.getByLabelText('Space name').closest('.settings-entry')?.querySelector('.settings-entry__trailing')).toBeNull();
     });
+  });
+});
+
+describe('SpacePage — the Location path', () => {
+  const LONG = '/Users/someone/Documents/Projects/Clutter vaults /Archive/2026/Quarter 4/Planning and Research/Cherry red';
+
+  it('shows the whole absolute path as one string, spaces and all, with the complete path as its tooltip', () => {
+    render(<SpacePage name="Cherry red" path={LONG} />);
+
+    expect(location().textContent).toBe(LONG);
+    expect(location().children).toHaveLength(0); // one run of text, not pieces
+    expect(location()).toHaveAttribute('title', LONG);
+  });
+
+  it('is cut on one line with the app\'s own truncate utility, not a bespoke trick', () => {
+    render(<SpacePage name="Cherry red" path={LONG} />);
+    const css = readFileSync(join(__dirname, 'SpacePage.css'), 'utf8');
+
+    expect(location()).toHaveClass('truncate');
+    expect(css).not.toMatch(/direction: rtl|text-overflow|space-page__path-probe/);
+  });
+
+  it('is plain text: no editable control, no copy interaction is added', () => {
+    render(<SpacePage name="Cherry red" path={LONG} onChangeLocation={vi.fn()} missing />);
+
+    expect(location().querySelector('button, input, textarea')).toBeNull();
+  });
+
+  it('keeps a long missing Space\'s path, its Missing badge and its Change location button all present', () => {
+    const onChangeLocation = vi.fn();
+    render(<SpacePage name="Cherry red" path={LONG} missing onChangeLocation={onChangeLocation} />);
+
+    const entry = locationEntry();
+    expect(location().textContent).toBe(LONG);
+    expect(within(entry as HTMLElement).getByText('Missing')).toBeInTheDocument();
+    // The button sits in the entry's trailing slot, a sibling of the text column that holds the path, so a long path
+    // can only shrink inside its own column and never covers the button.
+    const trailing = entry.querySelector('.settings-entry__trailing')!;
+    const column = entry.querySelector('.settings-entry__main')!;
+    expect(trailing).toContainElement(screen.getByRole('button', { name: 'Change location' }));
+    expect(column).toContainElement(location());
+    expect(column.contains(trailing)).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Change location' }));
+    expect(onChangeLocation).toHaveBeenCalledOnce();
   });
 });

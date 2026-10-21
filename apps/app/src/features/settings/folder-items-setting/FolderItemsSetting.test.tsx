@@ -102,7 +102,7 @@ describe('Settings — Notes page', () => {
     const groups = Array.from(document.querySelectorAll('.settings-group__title')).map(
       (el) => el.textContent
     );
-    expect(groups).toEqual(['Sidebar', 'Template']);
+    expect(groups).toEqual(['Sidebar appearance', 'Template']);
     expect(trigger()).toBeInTheDocument();
   });
 

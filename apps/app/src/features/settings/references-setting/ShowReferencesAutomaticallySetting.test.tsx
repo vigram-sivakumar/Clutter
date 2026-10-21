@@ -18,14 +18,14 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const toggle = () => screen.getByRole('switch', { name: 'Show references automatically' });
+const toggle = () => screen.getByRole('switch', { name: 'Show references' });
 
 describe('ShowReferencesAutomaticallySetting', () => {
   it('is labelled and described as specified, and on by default', () => {
     render(<ShowReferencesAutomaticallySetting />);
 
-    expect(screen.getByText('Show references automatically', { selector: '.settings-entry__title' })).toBeInTheDocument();
-    expect(screen.getByText('Automatically show references when a page has at least one reference.')).toBeInTheDocument();
+    expect(screen.getByText('Show references', { selector: '.settings-entry__title' })).toBeInTheDocument();
+    expect(screen.getByText('Automatically show references when a page has at least one reference')).toBeInTheDocument();
     expect(toggle()).toBeChecked();
   });
 
@@ -54,7 +54,7 @@ describe('Settings → Editor → Layout', () => {
     render(<Settings />);
     fireEvent.click(screen.getByText('Layout'));
 
-    const entry = screen.getByText('Show references automatically', { selector: '.settings-entry__title' });
+    const entry = screen.getByText('Show references', { selector: '.settings-entry__title' });
     const group = entry.closest('.settings-group')!;
     const separatorGroup = screen.getByText('Header separator', { selector: '.settings-entry__title' }).closest('.settings-group')!;
     expect(group).not.toBe(separatorGroup);
@@ -65,6 +65,6 @@ describe('Settings → Editor → Layout', () => {
   it('does not appear on the Preferences page', () => {
     render(<Settings />);
 
-    expect(screen.queryByText('Show references automatically')).toBeNull();
+    expect(screen.queryByText('Show references')).toBeNull();
   });
 });

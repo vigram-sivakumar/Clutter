@@ -8,7 +8,7 @@ export function ShowDailyNoteEmojiSetting() {
   return (
     <SettingsEntry
       title="Show emoji"
-      description="Show daily note emojis in the sidebar."
+      description="Show daily note emojis in the sidebar"
       trailing={<Switch aria-label="Show emoji" isChecked={show} onCheckedChange={writeShowDailyNoteEmoji} />}
     />
   );

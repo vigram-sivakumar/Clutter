@@ -214,7 +214,7 @@ describe('Settings — Notes page', () => {
       title: group.querySelector('.settings-group__title')?.textContent,
       entries: Array.from(group.querySelectorAll('.settings-entry__title')).map((el) => el.textContent),
     }));
-    expect(groups[0]).toEqual({ title: 'Sidebar', entries: ['Default note location', 'Show'] });
+    expect(groups[0]).toEqual({ title: 'Sidebar appearance', entries: ['Default note location', 'Show'] });
     expect(groups[1]?.title).toBe('Template');
   });
 

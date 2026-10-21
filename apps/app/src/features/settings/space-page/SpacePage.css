@@ -105,3 +105,14 @@
 .space-page__avatar--static:hover .space__avatar {
   opacity: 1;
 }
+
+/* The Space's full path: one string on one line; the global `truncate` utility cuts it with an ellipsis when it is too long.
+   Only the text styling lives here, the same as the Space name's field. */
+.space-page__path {
+  display: block;
+  color: var(--foreground-primary);
+  font-size: var(--text-label);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-label);
+  letter-spacing: var(--ls-body-small);
+}

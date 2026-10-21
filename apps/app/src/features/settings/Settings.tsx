@@ -128,7 +128,7 @@ export function Settings({ templates, noteLocation, spaceSettings, space, onClos
         )}
         {pageId === 'notes' && (
           <>
-            <SettingsGroup title="Sidebar">
+            <SettingsGroup title="Sidebar appearance">
               <DefaultNoteLocationSetting source={noteLocation} />
               <FolderItemsSetting />
             </SettingsGroup>

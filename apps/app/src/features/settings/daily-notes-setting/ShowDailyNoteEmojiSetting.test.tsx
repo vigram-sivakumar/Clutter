@@ -25,7 +25,7 @@ describe('ShowDailyNoteEmojiSetting', () => {
     render(<ShowDailyNoteEmojiSetting />);
 
     expect(screen.getByText('Show emoji', { selector: '.settings-entry__title' })).toBeInTheDocument();
-    expect(screen.getByText('Show daily note emojis in the sidebar.')).toBeInTheDocument();
+    expect(screen.getByText('Show daily note emojis in the sidebar')).toBeInTheDocument();
     expect(toggle()).not.toBeChecked();
   });
 
@@ -50,7 +50,7 @@ describe('ShowDailyNoteEmojiSetting', () => {
 });
 
 describe('Settings → Daily notes → Sidebar appearance', () => {
-  it('holds Show emoji, in a group named Sidebar appearance, on the Daily notes page only', () => {
+  it('holds Show emoji, in a group named Sidebar appearance (as on the Notes page), on the Daily notes page only', () => {
     render(<Settings />);
     expect(screen.queryByText('Sidebar appearance')).toBeNull();
 

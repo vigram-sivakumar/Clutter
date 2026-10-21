@@ -5,7 +5,6 @@ import { Dialog } from '@components/dialog/Dialog';
 import { Input } from '@components/input/Input';
 import { SpaceAvatarPicker } from '@components/space-avatar-picker/SpaceAvatarPicker';
 import { AppIcon } from '@shared/icon';
-import { draftForExistingFolder } from '@components/space-details/SpaceDetails';
 import { isValidSpaceFolderName } from '@core/vault/ingest/spaceFolderName';
 import { Pill } from '@components/property-list/Pill';
 import { CHANGE_LOCATION_LABEL } from '@components/missing-space-dialog/MissingSpaceDialog';
@@ -59,6 +58,18 @@ interface SpacePageProps {
 }
 
 /**
+ * The Space's full absolute path, one string on one line. When it does not fit it is cut with the ellipsis the app's other
+ * single-line text uses (the global `truncate` utility), and the complete path is the tooltip.
+ */
+function SpacePath({ path }: { path: string }) {
+  return (
+    <span className="space-page__path truncate" title={path}>
+      {path}
+    </span>
+  );
+}
+
+/**
  * A Space's own page: the same two entries the Space details dialog uses, its name and its location. A Space's name
  * is its folder's name, so editing it renames the folder — offered only for the open Space (`onRename`), and only
  * after a confirmation, because the Space is closed and reopened to do it. The location is never editable here.
@@ -76,7 +87,6 @@ export function SpacePage({
   missing = false,
   onChangeLocation,
 }: SpacePageProps) {
-  const folder = draftForExistingFolder(path);
   const [confirmingRemoval, setConfirmingRemoval] = useState(false);
   const [draft, setDraft] = useState(name);
   const [confirmingRename, setConfirmingRename] = useState(false);
@@ -275,7 +285,6 @@ export function SpacePage({
       />
       <SettingsEntry
         description="Location"
-        labelFor="space-page-location"
         descriptionAdornment={
           missing && (
             <span className="space-page__missing">
@@ -294,17 +303,7 @@ export function SpacePage({
             </Button>
           )
         }
-        footer={
-          <Input
-            id="space-page-location"
-            className="space-page__input"
-            hasBackground={false}
-            hasBorder={false}
-            value={`${folder.parentName}/${folder.name}`}
-            title={path}
-            readOnly
-          />
-        }
+        footer={<SpacePath path={path} />}
       />
     </SettingsGroup>
     </SettingsSection>

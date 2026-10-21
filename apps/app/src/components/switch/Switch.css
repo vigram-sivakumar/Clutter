@@ -1,7 +1,11 @@
 .switch {
-  --switch-height: var(--height-xs);
+  /* The track keeps the width it always had (1.8 x --height-xs); only its height is set on its own. */
+  --switch-width: calc(var(--height-xs) * 1.8);
+  --switch-height: var(--space-16);
   --switch-inset: 2px;
   --switch-thumb-size: calc(var(--switch-height) - var(--switch-inset) * 2);
+  /* A pill, not a circle: wider than it is tall. */
+  --switch-thumb-width: calc(var(--switch-thumb-size) * 1.6);
 
   position: relative;
   display: inline-flex;
@@ -9,7 +13,7 @@
   flex-shrink: 0;
 
   height: var(--switch-height);
-  width: calc(var(--switch-height) * 1.8);
+  width: var(--switch-width);
   padding: 0;
   margin: 0;
   border: none;
@@ -29,9 +33,9 @@
   position: absolute;
   top: var(--switch-inset);
   left: var(--switch-inset);
-  width: var(--switch-thumb-size);
+  width: var(--switch-thumb-width);
   height: var(--switch-thumb-size);
-  border-radius: 50%;
+  border-radius: calc(var(--switch-thumb-size) / 2);
 
   background: var(--foreground-tertiary);
 
@@ -48,7 +52,7 @@
 .switch--checked .switch__thumb {
   /* On the brand-colored track the thumb is white, as `--danger-foreground-on-surface` is on a danger surface. */
   background: white;
-  transform: translateX(calc(var(--switch-height) * 0.8));
+  transform: translateX(calc(var(--switch-width) - var(--switch-thumb-width) - var(--switch-inset) * 2));
 }
 
 .switch:focus-visible {
