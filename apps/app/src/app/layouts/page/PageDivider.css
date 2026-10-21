@@ -9,7 +9,7 @@
   min-width: 0;
   height: 1px;
   margin-block: calc(var(--space-24) - var(--space-32));
-  background: var(--border-strong);
+  background: var(--border-default);
   border-radius: var(--space-2);
 }
 
@@ -19,13 +19,13 @@
 .page-divider--wavy,
 .page-divider--dotted {
   border-top: 0;
-  background-color: var(--border-strong);
   -webkit-mask-repeat: repeat-x;
   mask-repeat: repeat-x;
   -webkit-mask-position: left center;
   mask-position: left center;
 }
 .page-divider--wavy {
+  background-color: var(--border-default);
   height: 6px;
   -webkit-mask-image: var(--hr-wavy-mask);
   mask-image: var(--hr-wavy-mask);
@@ -33,6 +33,7 @@
   mask-size: 16px 6px;
 }
 .page-divider--dotted {
+  background-color: var(--border-stronger);
   height: 2px;
   -webkit-mask-image: var(--hr-dotted-mask);
   mask-image: var(--hr-dotted-mask);

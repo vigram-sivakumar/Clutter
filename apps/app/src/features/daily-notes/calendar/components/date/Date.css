@@ -64,11 +64,9 @@
   display: block;
   width: 16px;
   height: 4px;
+  background: var(--border-default);
   border-radius: 4px;
-  background: var(--calendar-muted-foreground);
-  opacity: var(--opacity-medium);
 }
-.calendar-cell--selected .calendar-cell__dot {
-  background: var(--calendar-foreground);
-  opacity: var(--opacity-strong);
-}
+/* .calendar-cell--selected .calendar-cell__dot {
+  opacity: 10%;
+} */
