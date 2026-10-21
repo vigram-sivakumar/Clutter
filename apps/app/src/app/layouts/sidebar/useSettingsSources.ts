@@ -71,6 +71,9 @@ function buildSettingsSources(application: Application): SettingsSources {
       setCoverPosition: (position) => void application.spaceProfileStore.setDefaultCoverPosition(position),
       getAutoDeleteArchived: () => application.autoDeleteArchived,
       setAutoDeleteArchived: (enabled) => void application.spaceProfileStore.setAutoDeleteArchived(enabled),
+      getAutoDeleteUnusedTags: () => application.autoDeleteUnusedTags,
+      // Through the Application, which also tidies up straight away when it is turned on.
+      setAutoDeleteUnusedTags: (enabled) => void application.setAutoDeleteUnusedTags(enabled),
       subscribe: (listener: () => void) => application.spaceProfileStore.subscribe(listener),
   };
   return { templates: settingsTemplates, noteLocation: settingsNoteLocation, spaceSettings: settingsSpace };

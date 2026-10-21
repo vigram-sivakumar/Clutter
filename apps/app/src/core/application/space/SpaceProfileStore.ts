@@ -33,6 +33,11 @@ export interface SpaceProfile {
   readonly defaultCoverPosition?: 'side' | 'above';
   /** Whether this Space deletes archived items after 30 days. Present only when on; absent is off, the default. */
   readonly autoDeleteArchived?: true;
+  /**
+   * Whether this Space removes the definitions of tags that no note uses any more. Present only when on; absent is off,
+   * the default — nothing is removed unless this was turned on.
+   */
+  readonly autoDeleteUnusedTags?: true;
 }
 
 const SPACE_KEY = 'space';
@@ -56,13 +61,14 @@ export function parseSpaceProfile(contents: string): SpaceProfile | null {
     if (typeof file !== 'object' || file === null || Array.isArray(file)) return null;
     const raw = (file as Record<string, unknown>)[SPACE_KEY];
     if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
-    const { version, id, avatar, defaultNoteFolderId, defaultCoverPosition, autoDeleteArchived } = raw as {
+    const { version, id, avatar, defaultNoteFolderId, defaultCoverPosition, autoDeleteArchived, autoDeleteUnusedTags } = raw as {
       version?: unknown;
       id?: unknown;
       avatar?: unknown;
       defaultNoteFolderId?: unknown;
       defaultCoverPosition?: unknown;
       autoDeleteArchived?: unknown;
+      autoDeleteUnusedTags?: unknown;
     };
     if (typeof version === 'number' && version > CURRENT_VERSION) return null;
     if (typeof id !== 'string' || id === '') return null;
@@ -76,6 +82,8 @@ export function parseSpaceProfile(contents: string): SpaceProfile | null {
       // only a literal `true` turns the destructive cleanup on.
       ...((defaultCoverPosition === 'side' || defaultCoverPosition === 'above') && { defaultCoverPosition }),
       ...(autoDeleteArchived === true && { autoDeleteArchived: true as const }),
+      // Same rule: only a literal `true` turns the cleanup on; anything else is the default, off.
+      ...(autoDeleteUnusedTags === true && { autoDeleteUnusedTags: true as const }),
     };
   } catch {
     return null;
@@ -186,6 +194,19 @@ export class SpaceProfileStore {
 
     const { autoDeleteArchived: _previous, ...rest } = this.current ?? { id: new UuidGenerator().generate() };
     return this.persistSetting(enabled ? { ...rest, autoDeleteArchived: true } : rest);
+  }
+
+  /**
+   * Turns this Space's automatic removal of unused tag definitions on or off. Off removes the value, which is also what
+   * a Space that never chose has.
+   */
+  setAutoDeleteUnusedTags(enabled: boolean): Promise<void> {
+    if (enabled === (this.current?.autoDeleteUnusedTags === true)) {
+      return Promise.resolve();
+    }
+
+    const { autoDeleteUnusedTags: _previous, ...rest } = this.current ?? { id: new UuidGenerator().generate() };
+    return this.persistSetting(enabled ? { ...rest, autoDeleteUnusedTags: true } : rest);
   }
 
   /** Called whenever the profile changes. Returns the unsubscribe. */

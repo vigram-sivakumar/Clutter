@@ -240,7 +240,7 @@ describe('ActiveSpaceSettingsDialog: the persistent Settings shell', () => {
 
       // No navigation away and back: the renamed Space's page is simply there, with its new name.
       expect(nameField()).toHaveValue('Journal');
-      expect(document.querySelector('.settings-page__description')).toHaveTextContent('Space setting');
+      expect(document.querySelector('.settings-page__title')).toHaveTextContent('Space setting');
       // The same sidebar item is still the selected one — now under the Space's new name.
       const sidebar = document.querySelector('.settings-sidebar') as HTMLElement;
       const selected = sidebar.querySelectorAll('.entry-selected');

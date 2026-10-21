@@ -24,6 +24,8 @@ function makeSpace(initial: { cover?: 'side' | 'above'; autoDelete?: boolean } =
       notify();
     }),
     getAutoDeleteArchived: () => autoDelete,
+    getAutoDeleteUnusedTags: () => false,
+    setAutoDeleteUnusedTags: vi.fn(),
     setAutoDeleteArchived: vi.fn((enabled) => {
       autoDelete = enabled;
       notify();

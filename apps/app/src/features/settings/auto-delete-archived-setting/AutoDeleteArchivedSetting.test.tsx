@@ -18,6 +18,8 @@ function makeSpace(initial = false) {
     getCoverPosition: () => 'side',
     setCoverPosition: vi.fn(),
     getAutoDeleteArchived: () => autoDelete,
+    getAutoDeleteUnusedTags: () => false,
+    setAutoDeleteUnusedTags: vi.fn(),
     setAutoDeleteArchived: vi.fn((enabled) => {
       autoDelete = enabled;
       notify();

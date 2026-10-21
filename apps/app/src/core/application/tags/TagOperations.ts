@@ -66,6 +66,14 @@ export interface TagBatchResult {
   readonly complete: boolean;
 }
 
+/** Extra caution for `TagOperations.deleteUnusedTags()`, both read at the moment of the write. */
+export interface DeleteUnusedTagsOptions {
+  /** `false` leaves every definition as it is (the caller has something unsaved or in flight that could use a tag). */
+  readonly mayProceed?: () => boolean;
+  /** `true` keeps that tag (by its normalized name) even though no saved note uses it: something still references it. */
+  readonly isStillReferenced?: (key: string) => boolean;
+}
+
 /** The outcome of `TagOperations.checkNewTagName()` — a reason code, never UI copy. */
 export type NewTagNameCheck =
   | { readonly ok: true; readonly name: string }
@@ -403,7 +411,7 @@ export class TagOperations {
    * Vault at the moment of the write, so a tag that gained a usage since the
    * caller last looked is kept.
    */
-  async deleteUnusedTags(): Promise<number> {
+  async deleteUnusedTags(options: DeleteUnusedTagsOptions = {}): Promise<number> {
     if (this.countUnusedTags() === 0) {
       return 0;
     }
@@ -411,10 +419,16 @@ export class TagOperations {
     let removed = 0;
 
     await this.applyDefinitions((definitions) => {
+      // Asked again at the moment of the write, not when the call was made: whatever has appeared since is respected.
+      if (options.mayProceed && !options.mayProceed()) {
+        return definitions;
+      }
+
       const unused = new Set(
         Array.from(this.vault.tags())
           .filter((tag) => tag.usageCount === 0)
           .map((tag) => normalizeTagName(tag.name))
+          .filter((key) => !options.isStillReferenced?.(key))
       );
       const next = new Map(definitions);
 

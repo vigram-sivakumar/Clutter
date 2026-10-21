@@ -27,6 +27,8 @@ import { Workspace } from '../workspace/Workspace';
 import { Vault } from '../vault/models/Vault';
 import { VaultQuery } from '../vault/queries/VaultQuery';
 import { PageOperations, SHUTDOWN_FLUSH_TIMEOUT_MS } from './page/PageOperations';
+import { TagExtractor } from '../vault/ingest/extractors/TagExtractor';
+import { normalizeTagName } from '../vault/models/Tag';
 import { EffectivePageState } from './page/EffectivePageState';
 import { MembershipSelector } from './membership/MembershipSelector';
 import { FolderOperations } from './folder/FolderOperations';
@@ -791,6 +793,9 @@ export class Application {
     // draft concept (spec §7), so activeFolderId is checked against Vault
     // alone.
     this.workspaceVaultReconciliationUnsubscribe = vault.subscribe(() => {
+      // Something in the Space changed: a tag may have just lost its last reference (when the Space cleans those up).
+      this.scheduleUnusedTagCleanup();
+
       // A default note folder that was deleted, archived or moved somewhere invalid goes back to Inbox.
       this.resolveDefaultNoteFolderId();
 
@@ -855,6 +860,9 @@ export class Application {
       // it's never written as restorable.
       isPersistableView: (view) => view.type !== 'page' || this.vault.getPage(view.id) !== undefined,
     });
+
+    // Tags that nothing used before this Space was opened are tidied up too, once it has settled.
+    this.scheduleUnusedTagCleanup();
   }
 
   /**
@@ -1001,6 +1009,125 @@ export class Application {
    */
   public async runArchiveCleanupIfEnabled(now: Date = new Date()): Promise<number> {
     return this.autoDeleteArchived ? this.purgeExpiredArchivedItems(now) : 0;
+  }
+
+  /** Whether this Space removes the definitions of tags nothing uses any more. Off unless the Space's own saved setting is on. */
+  public get autoDeleteUnusedTags(): boolean {
+    return this.spaceProfileStore.profile?.autoDeleteUnusedTags === true;
+  }
+
+  /**
+   * Turns the automatic removal of unused tag definitions on or off for THIS Space (saved in its own profile, so no other
+   * Space is affected). Turning it on tidies up straight away.
+   */
+  public async setAutoDeleteUnusedTags(enabled: boolean): Promise<void> {
+    await this.spaceProfileStore.setAutoDeleteUnusedTags(enabled);
+
+    if (enabled) {
+      this.scheduleUnusedTagCleanup();
+    }
+  }
+
+  private unusedTagCleanupTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /**
+   * Looks again, shortly, whether a tag has become unused — after the Vault changes (a note edited, moved, deleted,
+   * restored, a tag renamed or removed). Debounced so a burst of saves is one look; and a look that finds nothing to do
+   * writes nothing, which is also what ends the loop of our own `tags.json` write coming back as a Vault change.
+   */
+  private scheduleUnusedTagCleanup(): void {
+    if (this.closed || !this.autoDeleteUnusedTags) {
+      return;
+    }
+    if (this.unusedTagCleanupTimer !== null) {
+      clearTimeout(this.unusedTagCleanupTimer);
+    }
+    this.unusedTagCleanupTimer = setTimeout(() => {
+      this.unusedTagCleanupTimer = null;
+      void this.runUnusedTagCleanupIfEnabled();
+    }, UNUSED_TAG_CLEANUP_DELAY_MS);
+  }
+
+  /**
+   * Removes the definitions of tags that no note in this Space references, when the Space has the setting on. Never
+   * touches a note, and never another Space.
+   *
+   * A reference still counts while it is anywhere: in an active note, in an archived one (the Vault's tag index counts only
+   * active notes, so those are looked at separately — an archived note can be restored), or in an open note's text that has
+   * not been saved yet. And nothing is removed
+   * while something is waiting to be saved, being written or moved, or while the Application is closed, closing or being
+   * prepared for a rename: usage is read from saved notes, so the safe moment is when they are up to date. It is checked
+   * again at the moment of the write, and a tag that has gained a reference since is kept. A look that is skipped is
+   * simply made again after the next change. Resolves how many definitions were removed.
+   */
+  public async runUnusedTagCleanupIfEnabled(): Promise<number> {
+    if (!this.autoDeleteUnusedTags || !this.canCleanUpTags()) {
+      return 0;
+    }
+
+    try {
+      // Read once per write (the check below is called for each candidate, all inside one synchronous step).
+      let referencedElsewhere: ReadonlySet<string> | null = null;
+
+      return await this.tagOperations.deleteUnusedTags({
+        mayProceed: () => this.autoDeleteUnusedTags && this.canCleanUpTags(),
+        isStillReferenced: (key) => {
+          referencedElsewhere ??= new Set([...this.openNoteTagKeys(), ...this.archivedNoteTagKeys()]);
+
+          return referencedElsewhere.has(key);
+        },
+      });
+    } catch (error) {
+      // Housekeeping: a failure leaves the definitions as they were and is tried again after the next change.
+      console.warn('Removing unused tags failed:', error);
+
+      return 0;
+    }
+  }
+
+  private canCleanUpTags(): boolean {
+    return (
+      !this.closed &&
+      this.writeAdmission === 'open' &&
+      this.activeWrites.size === 0 &&
+      !this.pageOperations.hasUnsavedWork() &&
+      !this.folderOperations.hasUnsavedWork() &&
+      !this.persistenceCoordinator.hasPendingOperations()
+    );
+  }
+
+  /**
+   * The tags (by normalized name) of the archived notes. The Vault's tag index counts only active notes, so a tag used
+   * only by an archived one reads as unused there — but the note can be restored, and it still references the tag.
+   */
+  private archivedNoteTagKeys(): ReadonlySet<string> {
+    const keys = new Set<string>();
+
+    for (const page of this.vault.pages()) {
+      if (!this.vault.isPageEffectivelyArchived(page)) {
+        continue;
+      }
+
+      for (const name of [...page.analysis.tags.map((occurrence) => occurrence.name), ...(page.metadata.tags ?? [])]) {
+        keys.add(normalizeTagName(name));
+      }
+    }
+
+    return keys;
+  }
+
+  /** The tags (by normalized name) named in the text of every open note, saved or not — a draft included. */
+  private openNoteTagKeys(): ReadonlySet<string> {
+    const extractor = new TagExtractor();
+    const keys = new Set<string>();
+
+    for (const session of this.documentRegistry.getAll()) {
+      for (const occurrence of extractor.extract(session.currentRevision.markdown)) {
+        keys.add(normalizeTagName(occurrence.name));
+      }
+    }
+
+    return keys;
   }
 
   /** The cleanup run in progress, so a second request joins it instead of racing it. */
@@ -1704,6 +1831,11 @@ export class Application {
     this.effectivePageState.dispose();
     this.pageOperations.dispose();
     this.workspaceVaultReconciliationUnsubscribe();
+    // No cleanup after close: a Space that was switched away from never has a tag removed on its behalf.
+    if (this.unusedTagCleanupTimer !== null) {
+      clearTimeout(this.unusedTagCleanupTimer);
+      this.unusedTagCleanupTimer = null;
+    }
     this.documentRegistry.clear();
   }
 }
@@ -1720,3 +1852,6 @@ export class SpaceQuiescedError extends Error {
 export type QuiesceResult =
   | { readonly ok: true }
   | { readonly ok: false; readonly reason: 'unsupported' | 'busy' | 'unsaved' | 'cancelled' };
+
+/** How long after a change in the Space the unused tags are looked at again. */
+const UNUSED_TAG_CLEANUP_DELAY_MS = 2000;

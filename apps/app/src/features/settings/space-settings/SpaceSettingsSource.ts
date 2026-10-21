@@ -11,9 +11,12 @@ export interface SpaceSettingsSource {
   /** Whether archived items are deleted after 30 days. Off until turned on. */
   getAutoDeleteArchived(): boolean;
   setAutoDeleteArchived(enabled: boolean): void;
-  /** Called when either value changes, here or anywhere else. */
+  /** Whether tags that no note uses any more are removed. Off until turned on. */
+  getAutoDeleteUnusedTags(): boolean;
+  setAutoDeleteUnusedTags(enabled: boolean): void;
+  /** Called when any value changes, here or anywhere else. */
   subscribe(listener: () => void): () => void;
 }
 
 /** The values a Space has before anything is chosen; what the controls show when no Space is supplied. */
-export const DEFAULT_SPACE_SETTINGS = { coverPosition: 'side', autoDeleteArchived: false } as const;
+export const DEFAULT_SPACE_SETTINGS = { coverPosition: 'side', autoDeleteArchived: false, autoDeleteUnusedTags: false } as const;

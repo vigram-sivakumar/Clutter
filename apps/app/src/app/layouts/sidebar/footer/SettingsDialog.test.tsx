@@ -118,8 +118,8 @@ describe('Settings dialog: Spaces', () => {
 
     fireEvent.click(rows[1]!);
 
-    expect(document.querySelector('.settings-page__title')).toBeNull();
-    expect(document.querySelector('.settings-page__description')).toHaveTextContent('Space setting');
+    expect(document.querySelector('.settings-page__title')).toHaveTextContent('Space setting');
+    expect(document.querySelector('.settings-page__description')).toBeNull();
     expect(rows[1]).toHaveClass('entry-selected');
     expect(onSwitch).not.toHaveBeenCalled();
   });

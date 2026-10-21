@@ -23,6 +23,7 @@ import {
   type NoteLocationSource,
 } from './default-note-location-setting/DefaultNoteLocationSetting';
 import type { SpaceSettingsSource } from './space-settings/SpaceSettingsSource';
+import { AutoDeleteUnusedTagsSetting } from './auto-delete-unused-tags-setting/AutoDeleteUnusedTagsSetting';
 import { AutoDeleteArchivedSetting } from './auto-delete-archived-setting/AutoDeleteArchivedSetting';
 import { ShowAssetsInFoldersSetting } from './assets-setting/ShowAssetsInFoldersSetting';
 import { CoverPositionSetting } from './cover-position-setting/CoverPositionSetting';
@@ -37,6 +38,7 @@ const PAGE_TITLES: Record<FixedSettingsPageId, string> = {
   preferences: 'Preferences',
   notes: 'Notes',
   'daily-notes': 'Daily notes',
+  tags: 'Tags',
   assets: 'Assets',
 };
 
@@ -66,9 +68,7 @@ export function Settings({ templates, noteLocation, spaceSettings, space, onClos
   return (
     <div className="settings">
       <SettingsSidebar selectedId={pageId} onSelect={setPageId} space={space} />
-      <SettingsPage key={pageId} title={isSpacePageId(pageId) ? undefined : PAGE_TITLES[pageId]}
-        description={isSpacePageId(pageId) ? 'Space setting' : undefined}
-      >
+      <SettingsPage key={pageId} title={isSpacePageId(pageId) ? 'Space setting' : PAGE_TITLES[pageId]}>
         {isSpacePageId(pageId) && selectedSpace && (
           <SpacePage
             key={selectedSpace.path}
@@ -125,6 +125,11 @@ export function Settings({ templates, noteLocation, spaceSettings, space, onClos
               onCloseSettings={onClose}
             />
           </>
+        )}
+        {pageId === 'tags' && (
+          <SettingsGroup>
+            <AutoDeleteUnusedTagsSetting source={spaceSettings} />
+          </SettingsGroup>
         )}
         {pageId === 'assets' && (
           <SettingsGroup>
