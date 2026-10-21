@@ -63,3 +63,9 @@
   background: var(--danger-surface);
   color: var(--danger-foreground-on-surface);
 }
+/* The badge sits 4px outside the avatar's box, but an Entry's leading slot clips (`overflow: hidden`), which cut it off
+   in a list row (the Settings Spaces list). A slot holding a badged avatar must not clip. Scoped here so the shared
+   Entry is untouched. */
+.entry__leading:has(.space__badged) {
+  overflow: visible;
+}

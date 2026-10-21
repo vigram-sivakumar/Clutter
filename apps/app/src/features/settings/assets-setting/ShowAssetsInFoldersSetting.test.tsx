@@ -77,8 +77,8 @@ describe('Settings — Assets page', () => {
     const order = Array.from(document.querySelectorAll('.entry')).map(
       (el) => el.querySelector('.entry__content')?.textContent ?? el.textContent
     );
-    // The two section headers (General, Features) and the four pages, in order: Assets is the last of Features.
-    expect(order).toEqual(['General', 'Preferences', 'Features', 'Notes', 'Daily notes', 'Tags', 'Assets']);
+    // The three section headers (General, Features, Editor) and the five pages, in order: Assets is the last of Features.
+    expect(order).toEqual(['General', 'Preferences', 'Features', 'Notes', 'Daily notes', 'Tags', 'Assets', 'Editor', 'Layout']);
     const row = screen.getByText('Assets').closest('.entry')!;
     expect(row.querySelector('.entry__leading svg')).not.toBeNull();
   });

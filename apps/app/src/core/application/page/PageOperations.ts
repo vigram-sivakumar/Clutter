@@ -2944,6 +2944,16 @@ export class PageOperations {
   }
 
   /** Whether the file on disk still holds the body the Vault last read for this note. */
+  /**
+   * Whether the note's file still holds exactly what Clutter last read (an outside edit it has not reconciled yet makes
+   * this false). A maintenance edit that rewrites a note checks this first, so it never overwrites such an edit.
+   */
+  public async isUnchangedOnDisk(pageId: string): Promise<boolean> {
+    const page = this.vault.getPage(pageId);
+
+    return page ? this.matchesDisk(page) : false;
+  }
+
   private async matchesDisk(page: Page): Promise<boolean> {
     if (!this.readFile) {
       return true;

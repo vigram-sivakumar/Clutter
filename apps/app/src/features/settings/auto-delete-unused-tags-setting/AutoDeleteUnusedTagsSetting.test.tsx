@@ -19,6 +19,8 @@ function makeSpace(initial = false) {
     setCoverPosition: vi.fn(),
     getAutoDeleteArchived: () => false,
     setAutoDeleteArchived: vi.fn(),
+    getAllowMovingAssetsToFolders: () => false,
+    setAllowMovingAssetsToFolders: vi.fn(),
     getAutoDeleteUnusedTags: () => on,
     setAutoDeleteUnusedTags: vi.fn((enabled) => {
       on = enabled;
@@ -53,7 +55,7 @@ describe('Settings — Tags page', () => {
     const rows = Array.from(document.querySelectorAll('.entry')).map(
       (el) => el.querySelector('.entry__content')?.textContent ?? el.textContent
     );
-    expect(rows.slice(rows.indexOf('Features'))).toEqual(['Features', 'Notes', 'Daily notes', 'Tags', 'Assets']);
+    expect(rows.slice(rows.indexOf('Features'), rows.indexOf('Editor'))).toEqual(['Features', 'Notes', 'Daily notes', 'Tags', 'Assets']);
     expect(screen.getByText('Tags').closest('.entry')!.querySelector('.entry__leading svg')).not.toBeNull();
   });
 

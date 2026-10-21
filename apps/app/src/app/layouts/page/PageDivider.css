@@ -1,0 +1,41 @@
+/* One column with the title, the Properties list and the editor (.page__properties > * uses the same two widths). The page
+   lays its sections out with --space-32 between them, so the negative block margin trims the space on each side of the
+   rule to 24px. All variants share this width and spacing; only the line itself differs. */
+.page-divider {
+  align-self: center;
+  flex-shrink: 0;
+  width: var(--content-width);
+  max-width: var(--editor-width-max);
+  min-width: 0;
+  height: 1px;
+  margin-block: calc(var(--space-24) - var(--space-32));
+  background: var(--border-strong);
+  border-radius: var(--space-2);
+}
+
+/* The wavy and dotted rules are the editor's own shapes (--hr-wavy-mask, --hr-dotted-mask in tokens.css), painted the way
+   the editor paints them: a mask over a background colour, here the same token as the solid line so the three variants
+   match. */
+.page-divider--wavy,
+.page-divider--dotted {
+  border-top: 0;
+  background-color: var(--border-strong);
+  -webkit-mask-repeat: repeat-x;
+  mask-repeat: repeat-x;
+  -webkit-mask-position: left center;
+  mask-position: left center;
+}
+.page-divider--wavy {
+  height: 6px;
+  -webkit-mask-image: var(--hr-wavy-mask);
+  mask-image: var(--hr-wavy-mask);
+  -webkit-mask-size: 16px 6px;
+  mask-size: 16px 6px;
+}
+.page-divider--dotted {
+  height: 2px;
+  -webkit-mask-image: var(--hr-dotted-mask);
+  mask-image: var(--hr-dotted-mask);
+  -webkit-mask-size: 6px 2px;
+  mask-size: 6px 2px;
+}

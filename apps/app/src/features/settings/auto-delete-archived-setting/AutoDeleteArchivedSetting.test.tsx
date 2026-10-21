@@ -18,6 +18,8 @@ function makeSpace(initial = false) {
     getCoverPosition: () => 'side',
     setCoverPosition: vi.fn(),
     getAutoDeleteArchived: () => autoDelete,
+    getAllowMovingAssetsToFolders: () => false,
+    setAllowMovingAssetsToFolders: vi.fn(),
     getAutoDeleteUnusedTags: () => false,
     setAutoDeleteUnusedTags: vi.fn(),
     setAutoDeleteArchived: vi.fn((enabled) => {

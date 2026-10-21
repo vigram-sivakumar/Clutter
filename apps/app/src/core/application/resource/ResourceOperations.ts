@@ -1,3 +1,8 @@
+import {
+  AssetMoveRefusedError,
+  type AssetMoveFeedback,
+  type AssetMoveReferenceSummary,
+} from '../../vault/persistence/AssetMovePolicy';
 import type { PagePersistenceCoordinator } from '../../vault/persistence/PagePersistenceCoordinator';
 
 /**
@@ -31,6 +36,9 @@ import type { PagePersistenceCoordinator } from '../../vault/persistence/PagePer
  * one error-reporting convention below.
  */
 export class ResourceOperations {
+  /** Told when a move out of Assets was refused, or moved the file but could not update everything that points at it. */
+  public assetMoveFeedback?: (feedback: AssetMoveFeedback) => void;
+
   constructor(private readonly coordinator: PagePersistenceCoordinator) {}
 
   /**
@@ -120,14 +128,35 @@ export class ResourceOperations {
   public async moveResource(
     resourceId: string,
     destinationFolderId: string | null
-  ): Promise<void> {
-    const result = await this.coordinator.enqueue(resourceId, {
-      kind: 'move-resource',
-      destinationFolderId,
-    });
+  ): Promise<AssetMoveReferenceSummary | undefined> {
+    let result;
+
+    try {
+      result = await this.coordinator.enqueue(resourceId, {
+        kind: 'move-resource',
+        destinationFolderId,
+      });
+    } catch (error) {
+      // A move refused because references could not be kept pointing at the file is explained to the user, wherever the
+      // menu was — and still thrown, for any caller that wants to know.
+      if (error instanceof AssetMoveRefusedError) {
+        this.assetMoveFeedback?.({ kind: 'refused', message: error.message });
+      }
+      throw error;
+    }
 
     if (result.status === 'abandoned') {
       throw new Error(`Resource not found: ${resourceId}`);
     }
+
+    // Set only for a move out of, or back into, Assets: what happened to the references to the file. Not hidden
+    // when something could not be updated — the caller is told, since the file has already moved.
+    const summary = result.status === 'resource-moved' ? result.referenceUpdate : undefined;
+
+    if (summary && !summary.complete) {
+      this.assetMoveFeedback?.({ kind: 'incomplete', summary });
+    }
+
+    return summary;
   }
 }

@@ -78,3 +78,10 @@
 .settings-group--bare .settings-entry {
   padding: 0;
 }
+
+/* A description with an inline adornment (a status badge) beside it. */
+.settings-entry__description-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}

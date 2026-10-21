@@ -33,6 +33,7 @@ export function ActiveSpaceSettingsDialog({ application, busy = false }: ActiveS
       activeSpacePath={activePath}
       busy={busy}
       onRemoveSpace={spaces?.onRemoveSpace}
+      onChangeMissingSpaceLocation={spaces?.onChangeMissingSpaceLocation}
       onRenameActiveSpace={
         spaces?.onRenameActiveSpace &&
         (async (newName) => {

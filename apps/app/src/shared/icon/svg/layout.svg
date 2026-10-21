@@ -1,0 +1,17 @@
+<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path
+    d="M3.5 2H5.5C6.32843 2 7 2.67157 7 3.5V12.5C7 13.3284 6.32843 14 5.5 14H3.5C2.67157 14 2 13.3284 2 12.5V3.5C2 2.67157 2.67157 2 3.5 2Z"
+    stroke="currentColor"
+    stroke-linecap="round"
+  />
+  <path
+    d="M10.5 2H12.5C13.3284 2 14 2.67157 14 3.5V5.5C14 6.32843 13.3284 7 12.5 7H10.5C9.67157 7 9 6.32843 9 5.5V3.5C9 2.67157 9.67157 2 10.5 2Z"
+    stroke="currentColor"
+    stroke-linecap="round"
+  />
+  <path
+    d="M10.5 9H12.5C13.3284 9 14 9.67157 14 10.5V12.5C14 13.3284 13.3284 14 12.5 14H10.5C9.67157 14 9 13.3284 9 12.5V10.5C9 9.67157 9.67157 9 10.5 9Z"
+    stroke="currentColor"
+    stroke-linecap="round"
+  />
+</svg>

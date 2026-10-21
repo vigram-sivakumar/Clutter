@@ -8,6 +8,9 @@ import '@components/confirmation/Confirmation.css';
 import '@components/space-details/SpaceDetails.css';
 import './MissingSpaceDialog.css';
 
+/** The recovery action's label, shared with Settings' Space page so both name the same action identically. */
+export const CHANGE_LOCATION_LABEL = 'Change location';
+
 interface MissingSpaceDialogProps {
   open: boolean;
   /** The saved location the space is no longer at. */
@@ -80,7 +83,7 @@ export function MissingSpaceDialog({
             size="large"
             onClick={onChangeLocation}
           >
-            Change location
+            {CHANGE_LOCATION_LABEL}
           </Button>
         </div>
       </div>

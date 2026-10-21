@@ -12,11 +12,12 @@ const row = (title: string) =>
   screen.getByText(title).closest('.entry') as HTMLElement;
 
 describe('SettingsSidebar', () => {
-  it('shows General → Preferences and Features → Daily notes', () => {
+  it('shows General → Preferences, Features → Daily notes and Editor → Layout', () => {
     render(<SettingsSidebar selectedId="preferences" onSelect={() => {}} />);
     expect(screen.getByText('General')).toBeInTheDocument();
     expect(screen.getByText('Features')).toBeInTheDocument();
-    expect(screen.queryByText('Editor')).toBeNull();
+    expect(screen.getByText('Editor')).toBeInTheDocument();
+    expect(screen.getByText('Layout')).toBeInTheDocument();
   });
 
   it('lists Notes above Daily notes under Features, each on its own location icon', () => {
@@ -28,6 +29,23 @@ describe('SettingsSidebar', () => {
     ).toBeTruthy();
     expect(notes.querySelector('.entry__leading svg')).not.toBeNull();
     expect(notes.querySelector('[data-icon="settings"]')).toBeNull();
+  });
+
+  it('puts Layout under its own Editor section, after Features, and reports it by id', () => {
+    const onSelect = vi.fn();
+    render(<SettingsSidebar selectedId="preferences" onSelect={onSelect} />);
+
+    expect(
+      screen.getByText('Features').compareDocumentPosition(screen.getByText('Editor')) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    fireEvent.click(screen.getByText('Layout'));
+    expect(onSelect).toHaveBeenCalledWith('layout');
+  });
+
+  it('draws the layout icon for Layout', () => {
+    render(<SettingsSidebar selectedId="preferences" onSelect={() => {}} />);
+
+    expect(row('Layout').querySelector('[data-icon="layout"]')).not.toBeNull();
   });
 
   it('reports a click on Notes by its stable id', () => {

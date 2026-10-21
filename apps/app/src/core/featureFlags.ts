@@ -15,8 +15,18 @@ export const featureFlags = {
    * link to.
    */
   dailyNotesCollectionPages: false,
+  /**
+   * The Assets settings page's "Allow moving assets to folders" toggle. Off: the toggle is not shown, so a Space has no
+   * way to turn it on from Settings. Only the setting is behind this flag — the behavior it controls (the Gate's rule,
+   * the Move picker, updating references) is not, and works for any Space whose saved setting is on.
+   */
+  allowMovingAssetsSetting: false,
 };
 
 export function isDailyNotesCollectionPagesEnabled(): boolean {
   return featureFlags.dailyNotesCollectionPages;
+}
+
+export function isAllowMovingAssetsSettingEnabled(): boolean {
+  return featureFlags.allowMovingAssetsSetting;
 }

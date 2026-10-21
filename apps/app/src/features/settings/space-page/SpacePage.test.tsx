@@ -6,6 +6,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn() }));
 
+import { CHANGE_LOCATION_LABEL } from '@components/missing-space-dialog/MissingSpaceDialog';
 import { CONFIRM_RENAME_BY_DEFAULT, SpacePage } from './SpacePage';
 
 class ResizeObserverMock {
@@ -469,5 +470,93 @@ describe('SpacePage: changing the avatar', () => {
     render(<SpacePage name="Alpha" path="/Users/me/Alpha" avatar={avatar} onChangeAvatar={vi.fn(async () => ({}))} busy />);
 
     expect(screen.queryByRole('button', { name: 'Change avatar' })).toBeNull();
+  });
+
+  describe('a missing Space', () => {
+    const missing = (onChangeLocation?: () => void) =>
+      render(<SpacePage name="Gone" path="/Users/me/Gone" missing onChangeLocation={onChangeLocation} />);
+
+    it('shows a Missing badge, and the Change location button with the Space-not-found dialog\'s own label', () => {
+      missing(vi.fn());
+
+      expect(screen.getByText('Missing')).toBeInTheDocument();
+      expect(CHANGE_LOCATION_LABEL).toBe('Change location');
+      expect(screen.getByRole('button', { name: 'Change location' })).toBeInTheDocument();
+    });
+
+    it('puts the Missing badge, with its exclamation-in-circle icon, beside the Location title and not the name', () => {
+      missing(vi.fn());
+
+      const location = screen.getByLabelText('Location').closest('.settings-entry')!;
+      const badge = within(location as HTMLElement).getByText('Missing');
+      expect(badge.closest('.pill')?.querySelector('svg')).not.toBeNull();
+      expect(location.querySelector('.settings-entry__description-row')).toContainElement(badge);
+      expect(screen.getByLabelText('Space name').closest('.settings-entry')).not.toHaveTextContent('Missing');
+    });
+
+    it('cannot be renamed or have its avatar changed: no edit button, no avatar button, no hover styling', () => {
+      render(
+        <SpacePage
+          name="Gone"
+          path="/Users/me/Gone"
+          missing
+          avatar={<div data-testid="avatar" />}
+          onRename={vi.fn()}
+          onChangeAvatar={vi.fn(async () => ({}))}
+        />
+      );
+
+      expect(screen.queryByRole('button', { name: 'Edit space name' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Change avatar' })).toBeNull();
+      expect(screen.getByTestId('avatar').closest('.space-page__avatar')).toHaveClass('space-page__avatar--static');
+      expect(screen.getByLabelText('Space name')).toHaveAttribute('readonly');
+    });
+
+    it('keeps the current location visible', () => {
+      missing(vi.fn());
+
+      expect(screen.getByLabelText('Location')).toHaveValue('me/Gone');
+    });
+
+    it('runs the recovery flow it is given when the button is clicked', () => {
+      const onChangeLocation = vi.fn();
+      missing(onChangeLocation);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Change location' }));
+
+      expect(onChangeLocation).toHaveBeenCalledOnce();
+    });
+
+    it('offers no button when there is no recovery flow to run (still badged)', () => {
+      missing(undefined);
+
+      expect(screen.getByText('Missing')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Change location' })).toBeNull();
+    });
+
+    it('disables the button while the Space is changing under the page', () => {
+      render(<SpacePage name="Gone" path="/Users/me/Gone" missing onChangeLocation={vi.fn()} busy />);
+
+      expect(screen.getByRole('button', { name: 'Change location' })).toBeDisabled();
+    });
+  });
+
+  describe('a valid Space', () => {
+    it('shows neither the Missing badge nor the Change location button, even if a recovery flow is given', () => {
+      render(<SpacePage name="Alpha" path="/Users/me/Alpha" onChangeLocation={vi.fn()} onRename={vi.fn()} />);
+
+      expect(screen.queryByText('Missing')).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Change location' })).toBeNull();
+      // Its name entry still holds only the edit button, and its location entry has no badge row or trailing slot.
+      expect(screen.getByLabelText('Location').closest('.settings-entry')?.querySelector('.settings-entry__description-row')).toBeNull();
+      expect(screen.getByRole('button', { name: 'Edit space name' })).toBeInTheDocument();
+      expect(screen.getByLabelText('Location').closest('.settings-entry')?.querySelector('.settings-entry__trailing')).toBeNull();
+    });
+
+    it('renders no trailing slot on the name entry when nothing is editable', () => {
+      render(<SpacePage name="Alpha" path="/Users/me/Alpha" />);
+
+      expect(screen.getByLabelText('Space name').closest('.settings-entry')?.querySelector('.settings-entry__trailing')).toBeNull();
+    });
   });
 });

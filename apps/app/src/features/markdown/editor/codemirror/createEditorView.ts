@@ -28,6 +28,7 @@ import {
   keymap,
 } from '@codemirror/view';
 
+import { cspNonceExtension } from './cspNonce';
 import { editorTheme } from './editorTheme';
 import { fencedCodeHoverMouseHandlers } from './fencedCode/fencedCodeHoverMouseHandlers';
 import { foldAwareArrowKeymap } from './fold/foldAwareArrowKeymap';
@@ -304,6 +305,8 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       // construct the way headingMarkerDecoration() (wired in
       // MarkdownEditor.tsx, not here) does, and disabling them would just
       // make the editor hard to see.
+      // So CodeMirror's injected <style> elements are allowed by a packaged Tauri build's CSP (see cspNonce.ts).
+      cspNonceExtension(),
       editorTheme(),
       highlightActiveLine(),
       // Current rendering baseline: CM6 draws its own cursor/selection

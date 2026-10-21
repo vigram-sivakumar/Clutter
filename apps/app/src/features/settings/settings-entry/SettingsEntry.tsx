@@ -15,6 +15,8 @@ export interface SettingsEntryProps extends HTMLAttributes<HTMLDivElement> {
    * click on the text focuses it.
    */
   labelFor?: string;
+  /** Shown inline right after the description text (e.g. a status badge beside "Location"). Absent: the markup is unchanged. */
+  descriptionAdornment?: ReactNode;
   trailing?: ReactNode;
   footer?: ReactNode;
   /**
@@ -54,6 +56,7 @@ export function SettingsEntry({
   titleClassName,
   descriptionClassName,
   labelFor,
+  descriptionAdornment,
   trailing,
   footer,
   onClick,
@@ -67,6 +70,15 @@ export function SettingsEntry({
     if (nested && nested !== event.currentTarget) return;
     onClick?.(event);
   }
+
+  const descriptionText = description && (
+    <TextElement
+      htmlFor={title ? undefined : labelFor}
+      className={joinClasses('settings-entry__description', descriptionClassName)}
+    >
+      {description}
+    </TextElement>
+  );
 
   return (
     <div
@@ -91,16 +103,13 @@ export function SettingsEntry({
                 {title}
               </TextElement>
             )}
-            {description && (
-              <TextElement
-                htmlFor={title ? undefined : labelFor}
-                className={joinClasses(
-                  'settings-entry__description',
-                  descriptionClassName
-                )}
-              >
-                {description}
-              </TextElement>
+            {description && descriptionAdornment ? (
+              <div className="settings-entry__description-row">
+                {descriptionText}
+                {descriptionAdornment}
+              </div>
+            ) : (
+              description && descriptionText
             )}
           </div>
         )}

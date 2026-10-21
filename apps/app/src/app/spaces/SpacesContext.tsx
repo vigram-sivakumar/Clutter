@@ -28,6 +28,8 @@ export interface SpacesApi {
   readonly onRenameInactiveSpace?: (path: string, newName: string) => Promise<InactiveRenameOutcome>;
   /** Changes the open Space's avatar (`undefined` removes it); `{ error }` when it could not be saved. */
   readonly onChangeActiveSpaceAvatar?: (avatar: SpaceAvatarChoice | undefined) => Promise<{ error?: string }>;
+  /** Recovers a missing Space: the same "Change location" flow as the Space-not-found dialog, for `path`. */
+  readonly onChangeMissingSpaceLocation?: (path: string) => void;
   /** Re-checks which listed Spaces still exist; called when the selector opens. */
   readonly refreshAvailability?: () => void;
 }

@@ -1,0 +1,22 @@
+/* A small copy of the real divider (PageDivider, in its own variant) beside the selected value on the button. Only the page-layout
+   sizing of the divider is replaced; its line, wave and dots are the divider's own. */
+.header-separator-style__preview {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  width: 40px;
+}
+.header-separator-style__preview .page-divider {
+  align-self: auto;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  /* One step stronger than the page's own divider, so the small preview reads clearly on the button. The line, wave and dots
+     keep the divider's own shapes; only the colour differs. */
+  background-color: var(--border-stronger);
+}
+.header-separator-style__value {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+}

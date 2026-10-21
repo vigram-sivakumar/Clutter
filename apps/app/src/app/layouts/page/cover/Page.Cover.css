@@ -231,7 +231,7 @@
   right: var(--space-12);
   bottom: var(--space-8);
   z-index: 2;
-  max-width: calc(100% - var(--space-8) * 2);
+  max-width: calc(100% - var(--space-12) * 2);
 }
 
 /* Top layout (the cover sits above the title, inside `.page__content`): the credit is

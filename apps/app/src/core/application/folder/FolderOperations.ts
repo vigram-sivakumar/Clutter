@@ -1,3 +1,8 @@
+import {
+  AssetMoveRefusedError,
+  type AssetMoveFeedback,
+  type AssetMoveReferenceSummary,
+} from '../../vault/persistence/AssetMovePolicy';
 import { Vault } from '../../vault/models/Vault';
 import { Workspace } from '../../workspace/Workspace';
 import { PagePersistenceCoordinator } from '../../vault/persistence/PagePersistenceCoordinator';
@@ -50,6 +55,9 @@ export const FOLDER_NAME_AUTOSAVE_CEILING_MS = 60000;
  * the active resource disappears," shared by both facades.
  */
 export class FolderOperations {
+  /** Told when a move out of Assets was refused, or moved the files but could not update everything that points at them. */
+  public assetMoveFeedback?: (feedback: AssetMoveFeedback) => void;
+
   /**
    * Per-folder name edit/save state — the folder-name channel's
    * counterpart to PageOperations' titleStates, using the exact same
@@ -483,17 +491,27 @@ export class FolderOperations {
   public async move(
     folderId: string,
     destinationFolderId: string | null
-  ): Promise<void> {
+  ): Promise<AssetMoveReferenceSummary | undefined> {
     this.assertEditable(folderId);
     this.assertNotInArchivedFolder(destinationFolderId, 'Cannot move into an archived folder');
     const wasInTemplates = this.vault.isFolderWithinReservedFolder(
       this.vault.getFolder(folderId)?.parentId ?? null,
       'templates'
     );
-    const result = await this.coordinator.enqueue(folderId, {
-      kind: 'move-folder',
-      destinationFolderId,
-    });
+    let result;
+
+    try {
+      result = await this.coordinator.enqueue(folderId, {
+        kind: 'move-folder',
+        destinationFolderId,
+      });
+    } catch (error) {
+      // See ResourceOperations.moveResource: a refused move out of Assets is explained wherever the menu was.
+      if (error instanceof AssetMoveRefusedError) {
+        this.assetMoveFeedback?.({ kind: 'refused', message: error.message });
+      }
+      throw error;
+    }
 
     if (result.status !== 'folder-renamed' && result.status !== 'abandoned') {
       throw new Error(`Failed to move folder ${folderId}: ${result.status}`);
@@ -505,7 +523,16 @@ export class FolderOperations {
         wasInTemplates,
         this.vault.isFolderWithinReservedFolder(destinationFolderId, 'templates')
       );
+
+      // Set only for an asset folder taken out of Assets: what happened to the references to the files in it.
+      if (result.referenceUpdate && !result.referenceUpdate.complete) {
+        this.assetMoveFeedback?.({ kind: 'incomplete', summary: result.referenceUpdate });
+      }
+
+      return result.referenceUpdate;
     }
+
+    return undefined;
   }
 
   /**

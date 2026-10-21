@@ -7,6 +7,8 @@ import { SpaceAvatarPicker } from '@components/space-avatar-picker/SpaceAvatarPi
 import { AppIcon } from '@shared/icon';
 import { draftForExistingFolder } from '@components/space-details/SpaceDetails';
 import { isValidSpaceFolderName } from '@core/vault/ingest/spaceFolderName';
+import { Pill } from '@components/property-list/Pill';
+import { CHANGE_LOCATION_LABEL } from '@components/missing-space-dialog/MissingSpaceDialog';
 import { SettingsEntry } from '../settings-entry/SettingsEntry';
 import { SettingsGroup } from '../settings-group/SettingsGroup';
 import { SettingsSection } from '../settings-section/SettingsSection';
@@ -45,6 +47,13 @@ interface SpacePageProps {
   onChangeAvatar?: (
     avatar: { type: 'emoji'; emoji: string } | { type: 'image'; src: string } | undefined
   ) => Promise<{ error?: string }>;
+  /** The Space's folder is missing (detected by the registry): shows a "Missing" badge beside "Location". */
+  missing?: boolean;
+  /**
+   * Recovers a missing Space: the same location-recovery flow as the Space-not-found dialog. Its button is shown in the
+   * Location entry only for a missing Space, and only when this is given.
+   */
+  onChangeLocation?: () => void;
   /** The Space is changing under this page (see `SettingsSpace.busy`): nothing here can be started. */
   busy?: boolean;
 }
@@ -64,6 +73,8 @@ export function SpacePage({
   avatar,
   hasAvatar = false,
   onChangeAvatar,
+  missing = false,
+  onChangeLocation,
 }: SpacePageProps) {
   const folder = draftForExistingFolder(path);
   const [confirmingRemoval, setConfirmingRemoval] = useState(false);
@@ -76,7 +87,8 @@ export function SpacePage({
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const avatarRef = useRef<HTMLDivElement>(null);
-  const canChangeAvatar = onChangeAvatar !== undefined && !busy;
+  // A missing Space's folder can't be renamed or have its avatar rewritten, so neither is offered for it.
+  const canChangeAvatar = onChangeAvatar !== undefined && !busy && !missing;
   const [error, setError] = useState<string | null>(null);
   // A rename in flight is never started twice, however fast the clicks come.
   const startedRef = useRef(false);
@@ -89,9 +101,10 @@ export function SpacePage({
   );
 
   const trimmed = draft.trim();
-  const canRename = onRename !== undefined;
+  const canRename = onRename !== undefined && !missing;
   const changed = canRename && trimmed !== name;
   const valid = isValidSpaceFolderName(draft);
+  const showEditButton = canRename && !editing && !renaming && !busy;
 
   useEffect(() => {
     if (!editing) return;
@@ -175,7 +188,7 @@ export function SpacePage({
         {/* The same way the Space details dialog changes it: click the avatar, pick an emoji or an image. */}
         <div
           ref={avatarRef}
-          className={['space-page__avatar', canChangeAvatar && 'space-page__avatar--editable'].filter(Boolean).join(' ')}
+          className={['space-page__avatar', canChangeAvatar && 'space-page__avatar--editable', missing && 'space-page__avatar--static'].filter(Boolean).join(' ')}
           {...(canChangeAvatar
             ? {
                 role: 'button',
@@ -218,10 +231,7 @@ export function SpacePage({
         description="Space name"
         labelFor="space-page-name"
         trailing={
-          canRename &&
-          !editing &&
-          !renaming &&
-          !busy && (
+          showEditButton && (
             // The same edit button the Space details dialog uses for its location: default size, default icon.
             <Button isIconOnly variant="ghost" aria-label="Edit space name" onClick={startEditing}>
               <AppIcon icon="edit" />
@@ -266,6 +276,24 @@ export function SpacePage({
       <SettingsEntry
         description="Location"
         labelFor="space-page-location"
+        descriptionAdornment={
+          missing && (
+            <span className="space-page__missing">
+              <Pill size="small">
+                <AppIcon icon="exclamation" size={16} slotSize={16} />
+                Missing
+              </Pill>
+            </span>
+          )
+        }
+        trailing={
+          missing &&
+          onChangeLocation && (
+            <Button variant="primary" size="small" disabled={busy} onClick={onChangeLocation}>
+              {CHANGE_LOCATION_LABEL}
+            </Button>
+          )
+        }
         footer={
           <Input
             id="space-page-location"

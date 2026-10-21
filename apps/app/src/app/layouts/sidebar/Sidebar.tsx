@@ -23,6 +23,9 @@ import { Tags } from '@features/tags/sidebar/Sidebar.Tags';
 import { SearchPanel } from '@features/search/SearchPanel';
 import { Controls } from '@app/layouts/sidebar/controls/Controls';
 import { Footer } from './footer/Footer';
+import { useNativeFileMenu } from './useNativeFileMenu';
+import { useNativeEditMenu } from './useNativeEditMenu';
+import { createLocationActions } from '@features/notes/helpers/createLocationActions';
 import { useSpaces } from '@app/spaces/SpacesContext';
 import { VaultPath } from '@core/vault/ingest/VaultPath';
 import { RowContextMenuEnabled } from '@components/entry/EntryMenuContext';
@@ -262,6 +265,24 @@ export function Sidebar({
     },
   ];
 
+  // One implementation each for the Create menu and the native File menu.
+  const newNote = () =>
+    void createNote(folderOperations, pageOperations, application.resolveDefaultNoteFolderId()).catch(() => {});
+  const openDailyNote = () =>
+    void pageOperations
+      .openAtPath(DailyNotePath.absoluteFrom(vault.root, new Date()), {
+        type: 'daily-note',
+      })
+      .catch(() => {});
+  const newFolder = () => setCreationDialog('folder');
+  useNativeFileMenu({ onNewNote: newNote, onNewDailyNote: openDailyNote, onNewFolder: newFolder });
+  // The native Edit menu's "Copy Link to Current Page": the same "Copy path → As Markdown" action the page menus use,
+  // on the open page. Enabled only while a page (note or daily note) is open.
+  const openPage = workspace.activePageId ? vault.getPage(workspace.activePageId) : undefined;
+  useNativeEditMenu(openPage !== undefined, () =>
+    createLocationActions(vault.root).copyPath(openPage, 'page', 'as-markdown')
+  );
+
   return (
     <aside className="sidebar" data-testid={testIds.sidebar.root}>
       {/* Sidebar content always stays mounted regardless of
@@ -269,18 +290,10 @@ export function Sidebar({
           state. Controls no longer renders the sidebar-toggle button
           itself — see SidebarToggle (app-layout/sidebar-toggle). */}
       <Controls
-        onNewNote={() =>
-          void createNote(folderOperations, pageOperations, application.resolveDefaultNoteFolderId()).catch(() => {})
-        }
-        onOpenDailyNote={() =>
-          void pageOperations
-            .openAtPath(DailyNotePath.absoluteFrom(vault.root, new Date()), {
-              type: 'daily-note',
-            })
-            .catch(() => {})
-        }
+        onNewNote={newNote}
+        onOpenDailyNote={openDailyNote}
         onNewTask={() => setCreationDialog('task')}
-        onNewFolder={() => setCreationDialog('folder')}
+        onNewFolder={newFolder}
         onNewTag={() => setCreationDialog('tag')}
         onNewTemplate={() =>
           void createTemplate(folderOperations, pageOperations).catch(() => {})

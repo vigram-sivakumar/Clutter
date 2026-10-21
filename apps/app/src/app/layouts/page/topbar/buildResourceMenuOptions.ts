@@ -87,7 +87,7 @@ export function buildResourceMenuOptions(
     })(),
     deleteConfirmationMessage: getFolderDeleteConfirmation(vault, id).message,
     moveDestinations: buildMoveDestinationItems(membershipSelector, id, moveZone),
-    onMove: (destinationFolderId) => void folderOperations.move(id, destinationFolderId),
+    onMove: (destinationFolderId) => void folderOperations.move(id, destinationFolderId).catch(() => undefined),
     onCreateFolder: createFolderInZone(folderOperations, membershipSelector, moveZone),
   };
 }

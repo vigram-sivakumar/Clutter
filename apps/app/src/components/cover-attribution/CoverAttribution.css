@@ -1,5 +1,5 @@
 /* One line, never wrapping. Room is given up in a fixed order (see below): the
-   filler words, then the photographer's name (ellipsis), never the Unsplash link. */
+   photographer's name, then the Unsplash link (both ellipsis). */
 .cover-attribution {
   display: flex;
   align-items: baseline;
@@ -14,23 +14,24 @@
   pointer-events: auto;
 }
 
-/* Under pressure (a narrow cover) the filler words ("Photo by", "on") give way
-   first, then the name down to a few characters; the Unsplash link never shrinks. */
+/* Under pressure (a narrow cover) the name gives way first, down to a few
+   characters, then the Unsplash link; the "on" between them stays visible. */
 .cover-attribution__text {
-  flex: 0 10 auto;
-  min-width: 0;
-  overflow: hidden;
+  flex: 0 0 auto;
 }
 
 .cover-attribution__name {
-  flex: 0 1 auto;
+  flex: 0 5 auto;
   min-width: 5ch;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .cover-attribution__unsplash {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-width: 5ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .cover-attribution a {

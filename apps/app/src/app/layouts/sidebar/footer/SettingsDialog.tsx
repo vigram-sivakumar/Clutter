@@ -16,6 +16,7 @@ interface SettingsDialogProps {
   spaces?: readonly ListedSpace[];
   activeSpacePath?: string;
   onRemoveSpace?(path: string): void;
+  onChangeMissingSpaceLocation?(path: string): void;
   onRenameActiveSpace?(newName: string): Promise<{ error?: string }>;
   onRenameInactiveSpace?(path: string, newName: string): Promise<{ error?: string }>;
   onChangeActiveSpaceAvatar?: SettingsSpace['onChangeActiveSpaceAvatar'];
@@ -40,6 +41,7 @@ export function SettingsDialog({
   spaces,
   activeSpacePath,
   onRemoveSpace,
+  onChangeMissingSpaceLocation,
   onRenameActiveSpace,
   onRenameInactiveSpace,
   onChangeActiveSpaceAvatar,
@@ -69,6 +71,7 @@ export function SettingsDialog({
         spaceSettings={spaceSettings}
         space={{
           onRemoveSpace,
+          onChangeMissingSpaceLocation,
           onRenameActiveSpace,
           onRenameInactiveSpace,
           onChangeActiveSpaceAvatar,
@@ -80,7 +83,9 @@ export function SettingsDialog({
               path: space.path,
               name: active ? title : space.name,
               active,
+              missing: !active && listed.missing === true,
               hasAvatar: active ? activeAvatar.type !== 'initial' : listed.avatar !== undefined && listed.avatar.type !== 'initial',
+              // The sidebar row shows the missing-folder badge; the Space's own page does not.
               avatar: active ? (
                 avatarView
               ) : (
@@ -90,6 +95,13 @@ export function SettingsDialog({
                   resolveImageUrl={resolveImageUrl}
                   badge={listed.missing ? 'error' : undefined}
                   badgeLabel={listed.missing ? 'Folder not found' : undefined}
+                />
+              ),
+              pageAvatar: active ? undefined : (
+                <SpaceAvatar
+                  avatar={listed.avatar ?? DEFAULT_SPACE_AVATAR}
+                  folderName={space.name}
+                  resolveImageUrl={resolveImageUrl}
                 />
               ),
             };

@@ -10,7 +10,7 @@ import { Entry } from '@components/entry/Entry';
 import { AppIcon, type SystemIcon } from '@shared/icon';
 import './SettingsSidebar.css';
 
-export type FixedSettingsPageId = 'preferences' | 'notes' | 'daily-notes' | 'tags' | 'assets';
+export type FixedSettingsPageId = 'preferences' | 'notes' | 'daily-notes' | 'tags' | 'assets' | 'layout';
 /** A Space's own page, identified by its path. */
 export type SpaceSettingsPageId = `space:${string}`;
 export type SettingsPageId = FixedSettingsPageId | SpaceSettingsPageId;
@@ -43,6 +43,10 @@ const SECTIONS: { title: string; entries: SettingsSidebarEntry[] }[] = [
       { id: 'assets', title: 'Assets', location: 'assets' },
     ],
   },
+  {
+    title: 'Editor',
+    entries: [{ id: 'layout', title: 'Layout', icon: 'layout' }],
+  },
 ];
 
 /** One Space in the sidebar's Spaces section. The avatar is drawn by whoever renders Settings, with the shared `SpaceAvatar`. */
@@ -51,7 +55,11 @@ export interface SettingsSpaceItem {
   readonly name: string;
   /** Drawn by the caller with the shared SpaceAvatar. */
   readonly avatar: ReactNode;
+  /** The avatar for this Space's own page, when it should differ from `avatar` (e.g. without the status badge). */
+  readonly pageAvatar?: ReactNode;
   readonly active: boolean;
+  /** The Space's folder is confirmed missing (the registry's own detection), so its page offers recovery. */
+  readonly missing?: boolean;
   /** Whether the Space has an avatar of its own (an emoji or an image), so the picker can offer Remove. */
   readonly hasAvatar?: boolean;
 }
@@ -61,6 +69,8 @@ export interface SettingsSpace {
   readonly spaces?: readonly SettingsSpaceItem[];
   /** Forgets a Space in Clutter (its folder is untouched). Absent: the Space page has no Remove space. */
   readonly onRemoveSpace?: (path: string) => void;
+  /** Recovers a missing Space by choosing its new location (the Space-not-found dialog's "Change location"). Absent: no such button. */
+  readonly onChangeMissingSpaceLocation?: (path: string) => void;
   /**
    * The Space is changing under the dialog (renamed, switched, recovered): its Application is closed or about to be,
    * so nothing Space-related can be changed or started from here until the next one is open. The dialog and its

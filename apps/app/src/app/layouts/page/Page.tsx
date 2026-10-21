@@ -1,4 +1,6 @@
 import type { PropertiesControl } from './header/propertiesControl';
+import { PageDivider, type DividerVariant } from './PageDivider';
+import { shouldShowHeaderSeparator, useHeaderSeparatorMode, useHeaderSeparatorStyle } from './headerSeparator';
 import type { PageHeaderControlsProps } from './header/PageHeaderControls';
 import type { CoverCredit } from '@core/vault/models/PageMetadata';
 import { useImperativeHandle, useRef, type MouseEvent, type ReactNode, type RefObject } from 'react';
@@ -95,6 +97,18 @@ type PageProps = {
    * presentation here; whatever the caller supplies renders as-is.
    */
   properties?: ReactNode;
+  /**
+   * Whether this page applies the Header separator preferences (visibility and style). Only note pages — regular notes and
+   * daily notes, saved or draft — pass it: `Page` also lays out folders, collections, tasks, tags, assets and the rest, which
+   * never show the separator whatever the preferences say.
+   */
+  appliesHeaderSeparator?: boolean;
+  /**
+   * The look of the rule between the header and the body, overriding the `Header separator style` preference (which is what
+   * every page uses when this is omitted). Appearance only: whether the rule shows is the `Header separator` preference and
+   * the Properties section (`headerSeparator.ts`).
+   */
+  dividerVariant?: DividerVariant;
   /** Forwarded to the More-actions Properties control — see PropertiesControl. */
   propertiesControl?: PropertiesControl;
   body?: ReactNode;
@@ -260,6 +274,8 @@ export function Page({
   onSetCoverImage,
   onSetCoverImageFromUpload,
   properties,
+  appliesHeaderSeparator = false,
+  dividerVariant,
   propertiesControl,
   body,
   bodyOverlay,
@@ -297,6 +313,12 @@ export function Page({
   // Responsive hide (AppLayout decides). Display-only — OR-ed into PageCover's `hidden` below and never
   // written to `coverHidden`, so the note's saved cover state is untouched.
   const isCoverSuppressed = useCoverSuppressed();
+  // One rule for every note page (notes and daily notes both render through here, and opt in): the preference, and whether the Properties
+  // section — its rows, or only its "Add a property" row — is on screen, which is exactly whether `properties` was given.
+  const headerSeparatorMode = useHeaderSeparatorMode();
+  const showHeaderSeparator =
+    appliesHeaderSeparator && shouldShowHeaderSeparator(headerSeparatorMode, Boolean(properties));
+  const headerSeparatorStyle = useHeaderSeparatorStyle();
   // The one place "is this entity missing its title" is decided for the
   // editing/identity surface — driven entirely by the title string the
   // caller already resolved (empty means missing, per the same
@@ -483,6 +505,7 @@ export function Page({
             />
           </header>
           {properties && <div className="page__properties">{properties}</div>}
+          {showHeaderSeparator && <PageDivider variant={dividerVariant ?? headerSeparatorStyle} />}
           <main className="page__body" onMouseDown={handleBodyMouseDown}>
             {body}
           </main>

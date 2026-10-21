@@ -323,6 +323,22 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
   // onShowToast). Save to vault does not report through it.
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const dismissToast = useCallback(() => setToast(null), []);
+  // An asset move that was refused, or that moved the file but left a reference pointing at the old place, is explained
+  // wherever the menu was (the Assets page, the sidebar, the overlay).
+  useEffect(
+    () =>
+      application.subscribeAssetMoveFeedback((feedback) =>
+        setToast({
+          id: Date.now(),
+          tone: 'error',
+          text:
+            feedback.kind === 'refused'
+              ? feedback.message
+              : `Moved, but ${feedback.summary.failed.length} ${feedback.summary.failed.length === 1 ? 'reference' : 'references'} still point to the old location`,
+        })
+      ),
+    [application]
+  );
   const showToast = useCallback(
     (message: Omit<ToastMessage, 'id'>) => setToast({ id: Date.now(), ...message }),
     []
@@ -525,7 +541,7 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
         onDeleteResource={askToDeleteResource}
         resourceMoveDestinations={resourceMoveDestinations}
         onMoveResource={(id, destinationFolderId) =>
-          void application.resourceOperations.moveResource(id, destinationFolderId)
+          void application.resourceOperations.moveResource(id, destinationFolderId).catch(() => undefined)
         }
         onCreateFolder={createAssetFolder}
         remoteImageActions={
@@ -611,7 +627,7 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
         onMoveResource={
           resourceOverlay?.kind === 'pdf' && resourceOverlay.actionsEnabled
             ? (id, destinationFolderId) =>
-                void application.resourceOperations.moveResource(id, destinationFolderId)
+                void application.resourceOperations.moveResource(id, destinationFolderId).catch(() => undefined)
             : undefined
         }
         onCreateFolder={

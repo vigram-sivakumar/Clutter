@@ -28,6 +28,8 @@ import { Vault } from '../vault/models/Vault';
 import { VaultQuery } from '../vault/queries/VaultQuery';
 import { PageOperations, SHUTDOWN_FLUSH_TIMEOUT_MS } from './page/PageOperations';
 import { TagExtractor } from '../vault/ingest/extractors/TagExtractor';
+import type { AssetMoveFeedback, AssetMovePolicy } from '../vault/persistence/AssetMovePolicy';
+import { planMovedAssetReferences, type MovedAssetReferenceDeps } from './asset/rewriteMovedAssetReferences';
 import { normalizeTagName } from '../vault/models/Tag';
 import { EffectivePageState } from './page/EffectivePageState';
 import { MembershipSelector } from './membership/MembershipSelector';
@@ -599,7 +601,17 @@ export class Application {
     // through as an opaque function rather than constructed here.
     normalizeMarkdownForSave?: (markdown: string) => string
   ): void {
-    const moveService = new MoveService(vault, this.fileSystem);
+    // What this Space lets assets do about leaving Assets, asked by every Move that resolves an asset's destination.
+    const assetMovePolicy: AssetMovePolicy = {
+      allowOutsideAssets: () => this.allowMovingAssetsToFolders,
+      prepareReferenceUpdates: (steps) =>
+        planMovedAssetReferences(
+          this.movedAssetReferenceDeps(),
+          steps,
+          steps.length === 1 ? `“${steps[0]!.resource.name}”` : `These ${steps.length} files`
+        ),
+    };
+    const moveService = new MoveService(vault, this.fileSystem, assetMovePolicy);
     const duplicator = new VaultEntryDuplicator(rawFileSystem);
 
     // Single instance shared by PageOperations for both edit-save and
@@ -622,6 +634,9 @@ export class Application {
     // so it has no construction-order dependency on anything below.
     this.persistenceCoordinator = persistenceCoordinator;
     this.resourceOperations = new ResourceOperations(persistenceCoordinator);
+    const relayAssetMoveFeedback = (feedback: AssetMoveFeedback) =>
+      this.assetMoveFeedbackListeners.forEach((listener) => listener(feedback));
+    this.resourceOperations.assetMoveFeedback = relayAssetMoveFeedback;
 
     // Constructed before PageOperations: PageOperations' Daily Note persist
     // path (DailyNoteService.ensureFolderChain) needs a real FolderOperations
@@ -640,7 +655,7 @@ export class Application {
       vault,
       this.workspace,
       persistenceCoordinator,
-      new FolderPathResolver(vault),
+      new FolderPathResolver(vault, assetMovePolicy),
       new FolderCreator(new UuidGenerator()),
       () => this.pageOperations.flushActivePage(),
       this.documentRegistry,
@@ -656,6 +671,7 @@ export class Application {
       // ignores pages that were never preferred.
       (pageIds) => this.preferredTemplatesStore.removeAll(pageIds)
     );
+    this.folderOperations.assetMoveFeedback = relayAssetMoveFeedback;
     this.pageOperations = new PageOperations(
       vault,
       this.workspace,
@@ -724,7 +740,8 @@ export class Application {
     this.membershipSelector = new MembershipSelector(
       vault,
       this.query,
-      this.effectivePageState
+      this.effectivePageState,
+      () => this.allowMovingAssetsToFolders
     );
     this.fileSystemWatcher = isTauri()
       ? new LocalFileSystemWatcher()
@@ -1009,6 +1026,64 @@ export class Application {
    */
   public async runArchiveCleanupIfEnabled(now: Date = new Date()): Promise<number> {
     return this.autoDeleteArchived ? this.purgeExpiredArchivedItems(now) : 0;
+  }
+
+  private readonly assetMoveFeedbackListeners = new Set<(feedback: AssetMoveFeedback) => void>();
+
+  /** Hears when an asset move was refused, or could not update everything that points at what moved. Returns the unsubscribe. */
+  public subscribeAssetMoveFeedback(listener: (feedback: AssetMoveFeedback) => void): () => void {
+    this.assetMoveFeedbackListeners.add(listener);
+
+    return () => {
+      this.assetMoveFeedbackListeners.delete(listener);
+    };
+  }
+
+  /** Whether this Space lets assets and asset folders move out of Assets into ordinary folders. Off unless the Space's own saved setting is on. */
+  public get allowMovingAssetsToFolders(): boolean {
+    return this.spaceProfileStore.profile?.allowMovingAssetsToFolders === true;
+  }
+
+  public async setAllowMovingAssetsToFolders(enabled: boolean): Promise<void> {
+    await this.spaceProfileStore.setAllowMovingAssetsToFolders(enabled);
+  }
+
+  /**
+   * What the planner and the rewriter of references to moved assets read and write — all of it this Space's own, and every
+   * write one of the existing, supported edits (a note's body or cover through PageOperations, a folder's cover through
+   * FolderOperations, the avatar through the Space profile).
+   */
+  private movedAssetReferenceDeps(): MovedAssetReferenceDeps {
+    return {
+      root: this.vault.root,
+      resources: () => this.vault.resources(),
+      pages: () => this.vault.pages(),
+      folders: () => this.vault.folders(),
+      isPageArchived: (page) => this.vault.isPageEffectivelyArchived(page),
+      isFolderArchived: (folder) => this.vault.isFolderEffectivelyArchived(folder.id),
+      openNoteMarkdown: () =>
+        new Map(this.documentRegistry.getAll().map((session) => [session.id, session.currentRevision.markdown])),
+      isUnchangedOnDisk: (pageId) => this.pageOperations.isUnchangedOnDisk(pageId),
+      avatarSource: () => {
+        const avatar = this.spaceProfileStore.profile?.avatar;
+
+        return avatar?.type === 'image' ? avatar.src : undefined;
+      },
+      writeBody: async (pageId, transform) => {
+        await this.pageOperations.mutateBody(pageId, transform, { allowArchived: true });
+        const page = this.vault.getPage(pageId);
+
+        // An open note's rewritten text is saved like any edit; an archived one has no editor to save from.
+        if (this.documentRegistry.get(pageId) && page && !this.vault.isPageEffectivelyArchived(page)) {
+          await this.pageOperations.requestSave(pageId);
+        }
+      },
+      writePageCover: (pageId, cover) => this.pageOperations.updateMetadata(pageId, { cover }, { allowArchived: true }),
+      writeFolderCover: (folderId, cover) => this.folderOperations.updateMetadata(folderId, { cover }),
+      writeAvatar: async (reference) => {
+        await this.spaceProfileStore.setAvatar({ type: 'image', src: reference });
+      },
+    };
   }
 
   /** Whether this Space removes the definitions of tags nothing uses any more. Off unless the Space's own saved setting is on. */

@@ -2824,6 +2824,7 @@ export function PageHost({
         pageFocusRef={pageFocusRef}
         propertiesControl={draftProperties.propertiesControl}
         properties={draftProperties.propertiesSection}
+        appliesHeaderSeparator
         onTitleCommit={
           isPageTitleEditable(draft.type)
             ? (title) =>
@@ -2890,10 +2891,9 @@ export function PageHost({
                   'assets'
                 )}
                 onMoveResource={(id, destinationFolderId) =>
-                  void application.resourceOperations.moveResource(
-                    id,
-                    destinationFolderId
-                  )
+                  void application.resourceOperations
+                    .moveResource(id, destinationFolderId)
+                    .catch(() => undefined)
                 }
                 onCreateFolder={createFolderInZone(
                   application.folderOperations,
@@ -3127,6 +3127,7 @@ export function PageHost({
         // An archived page is view-only: nothing can be added to it.
         propertiesControl={propertiesControl}
         properties={propertiesSection}
+        appliesHeaderSeparator
         bodyOverlay={buildTemplateSuggestions({
           id: activePageId,
           type: page.type,
@@ -3219,10 +3220,9 @@ export function PageHost({
                   isPageArchived
                     ? undefined
                     : (id, destinationFolderId) =>
-                        void application.resourceOperations.moveResource(
-                          id,
-                          destinationFolderId
-                        )
+                        void application.resourceOperations
+                          .moveResource(id, destinationFolderId)
+                          .catch(() => undefined)
                 }
                 onCreateFolder={
                   isPageArchived

@@ -18,8 +18,10 @@ import { VaultPath } from '../ingest/VaultPath';
 import { MoveService } from './MoveService';
 import { ResourceArchiveMetadataStore } from './ResourceArchiveMetadataStore';
 import { resolveResourceRestoreDestination } from './resolveResourceRestoreDestination';
+import { leavesOrEntersWorkspace, type AssetMoveReferenceSummary } from './AssetMovePolicy';
 import {
   isDailyNotesFolderOrDescendant,
+  moveZoneOfPath,
   reservedFolderRelativePath,
   type ReservedFolderId,
 } from '../initialize/ReservedResources';
@@ -159,6 +161,8 @@ export type PersistenceResult =
   | {
       readonly status: 'folder-renamed';
       readonly folder: Folder;
+      /** Set when the move took asset files out of, or into, Assets: what happened to the references to them. */
+      readonly referenceUpdate?: AssetMoveReferenceSummary;
     }
   | {
       readonly status: 'folder-archived';
@@ -187,6 +191,8 @@ export type PersistenceResult =
   | {
       readonly status: 'resource-moved';
       readonly resource: VaultResource;
+      /** Set when the move took the file out of, or into, Assets: what happened to the references to it. */
+      readonly referenceUpdate?: AssetMoveReferenceSummary;
     }
   | {
       readonly status: 'resource-deleted';
@@ -832,18 +838,40 @@ export class PagePersistenceCoordinator {
       throw new Error(`Cannot move a folder out of Daily Notes: ${folderId}`);
     }
 
-    const destination = new FolderPathResolver(this.vault).resolveMoveDestination(
+    const policy = this.moveService.assetMovePolicy;
+    const destination = new FolderPathResolver(this.vault, policy).resolveMoveDestination(
       folderId,
       destinationFolderId,
       name
     );
+
+    // An asset folder taken out of Assets takes every file in it along: what points at any of them is found and checked
+    // BEFORE anything moves, and the move is refused, with nothing changed, if it cannot be kept pointing at them.
+    const plan =
+      destination.path !== folder.path &&
+      policy.allowOutsideAssets() &&
+      moveZoneOfPath(this.vault.root, folder.path) === 'assets' &&
+      moveZoneOfPath(this.vault.root, destination.path) !== 'assets'
+        ? await policy.prepareReferenceUpdates(
+            this.vault.getDescendantFoldersAndPages(folderId).resources.map((resource) => ({
+              resource,
+              newPath: `${destination.path}${resource.path.slice(folder.path.length)}`,
+            }))
+          )
+        : undefined;
 
     if (destination.path !== folder.path) {
       await this.fileSystem.moveFile(folder.path, destination.path);
       this.vault.moveFolder(folderId, destination.path, destination.parentId);
     }
 
-    return { status: 'folder-renamed', folder: this.vault.getFolder(folderId)! };
+    const referenceUpdate = plan ? await plan.commit() : undefined;
+
+    return {
+      status: 'folder-renamed',
+      folder: this.vault.getFolder(folderId)!,
+      ...(referenceUpdate && { referenceUpdate }),
+    };
   }
 
   /**
@@ -1610,6 +1638,16 @@ export class PagePersistenceCoordinator {
       destinationFolderId
     );
 
+    // Out of Assets (or back in, once it has been out): what points at the file is found and checked BEFORE it moves,
+    // and a move that cannot keep them pointing at it is refused here, with nothing changed.
+    const policy = this.moveService.assetMovePolicy;
+    const plan =
+      destination.path !== resource.path &&
+      policy.allowOutsideAssets() &&
+      leavesOrEntersWorkspace(this.vault.root, resource.path, destination.path)
+        ? await policy.prepareReferenceUpdates([{ resource, newPath: destination.path }])
+        : undefined;
+
     if (destination.path !== resource.path) {
       this.assertResourceDestinationAvailable(destination.path, resource.id);
       await this.fileSystem.moveFile(resource.path, destination.path);
@@ -1626,7 +1664,14 @@ export class PagePersistenceCoordinator {
       };
     }
 
-    return { status: 'resource-moved', resource: this.vault.getResource(resourceId)! };
+    // The file has moved. Updating what pointed at it is not undone-able with it, so the result says how it went.
+    const referenceUpdate = plan ? await plan.commit() : undefined;
+
+    return {
+      status: 'resource-moved',
+      resource: this.vault.getResource(resourceId)!,
+      ...(referenceUpdate && { referenceUpdate }),
+    };
   }
 
   /**

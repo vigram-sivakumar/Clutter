@@ -71,6 +71,8 @@ function buildSettingsSources(application: Application): SettingsSources {
       setCoverPosition: (position) => void application.spaceProfileStore.setDefaultCoverPosition(position),
       getAutoDeleteArchived: () => application.autoDeleteArchived,
       setAutoDeleteArchived: (enabled) => void application.spaceProfileStore.setAutoDeleteArchived(enabled),
+      getAllowMovingAssetsToFolders: () => application.allowMovingAssetsToFolders,
+      setAllowMovingAssetsToFolders: (enabled) => void application.setAllowMovingAssetsToFolders(enabled),
       getAutoDeleteUnusedTags: () => application.autoDeleteUnusedTags,
       // Through the Application, which also tidies up straight away when it is turned on.
       setAutoDeleteUnusedTags: (enabled) => void application.setAutoDeleteUnusedTags(enabled),

@@ -85,7 +85,7 @@ export function buildAssetItemMenu(
     ),
     handlers: buildAssetMenuHandlers(actions, id),
     moveDestinations: buildMoveDestinationItems(membershipSelector, undefined, 'assets'),
-    onMove: (destinationFolderId) => void resourceOperations.moveResource(id, destinationFolderId),
+    onMove: (destinationFolderId) => void resourceOperations.moveResource(id, destinationFolderId).catch(() => undefined),
     onCreateFolder: createFolderInZone(folderOperations, membershipSelector, 'assets'),
   };
 }

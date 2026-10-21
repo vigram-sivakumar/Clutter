@@ -34,8 +34,15 @@ export class MembershipSelector {
   constructor(
     private readonly vault: Vault,
     private readonly query: VaultQuery,
-    private readonly effectivePageState: EffectivePageState
+    private readonly effectivePageState: EffectivePageState,
+    // Whether this Space lets assets move out of Assets into ordinary folders (read each time a Move picker is built).
+    private readonly assetsMayMoveToFolders: () => boolean = () => false
   ) {}
+
+  /** Whether a Move picker for an asset (or an asset folder) also offers the Space's ordinary folders. */
+  public get assetMovesMayLeaveAssets(): boolean {
+    return this.assetsMayMoveToFolders();
+  }
 
   /**
    * The vault's own root path — not a membership question (ADR-023 §5:

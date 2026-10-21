@@ -23,6 +23,8 @@ import {
   type NoteLocationSource,
 } from './default-note-location-setting/DefaultNoteLocationSetting';
 import type { SpaceSettingsSource } from './space-settings/SpaceSettingsSource';
+import { isAllowMovingAssetsSettingEnabled } from '@core/featureFlags';
+import { AllowMovingAssetsSetting } from './allow-moving-assets-setting/AllowMovingAssetsSetting';
 import { AutoDeleteUnusedTagsSetting } from './auto-delete-unused-tags-setting/AutoDeleteUnusedTagsSetting';
 import { AutoDeleteArchivedSetting } from './auto-delete-archived-setting/AutoDeleteArchivedSetting';
 import { ShowAssetsInFoldersSetting } from './assets-setting/ShowAssetsInFoldersSetting';
@@ -33,6 +35,8 @@ import { StartupSetting } from './startup-setting/StartupSetting';
 import { DateFormatSetting } from './date-format-setting/DateFormatSetting';
 import { WeekStartSetting } from './week-start-setting/WeekStartSetting';
 import { ThemeSetting } from './theme-setting/ThemeSetting';
+import { HeaderSeparatorSetting } from './header-separator-setting/HeaderSeparatorSetting';
+import { HeaderSeparatorStyleSetting } from './header-separator-style-setting/HeaderSeparatorStyleSetting';
 
 const PAGE_TITLES: Record<FixedSettingsPageId, string> = {
   preferences: 'Preferences',
@@ -40,6 +44,7 @@ const PAGE_TITLES: Record<FixedSettingsPageId, string> = {
   'daily-notes': 'Daily notes',
   tags: 'Tags',
   assets: 'Assets',
+  layout: 'Layout',
 };
 
 interface SettingsProps {
@@ -81,8 +86,14 @@ export function Settings({ templates, noteLocation, spaceSettings, space, onClos
                 : space?.onRenameInactiveSpace && ((newName) => space.onRenameInactiveSpace!(selectedSpace.path, newName))
             }
             busy={space?.busy}
-            avatar={selectedSpace.avatar}
+            avatar={selectedSpace.pageAvatar ?? selectedSpace.avatar}
             hasAvatar={selectedSpace.hasAvatar}
+            missing={selectedSpace.missing}
+            onChangeLocation={
+              selectedSpace.missing && space?.onChangeMissingSpaceLocation
+                ? () => space.onChangeMissingSpaceLocation!(selectedSpace.path)
+                : undefined
+            }
             onChangeAvatar={selectedSpace.active ? space?.onChangeActiveSpaceAvatar : undefined}
             onRemove={
               space?.onRemoveSpace &&
@@ -134,6 +145,14 @@ export function Settings({ templates, noteLocation, spaceSettings, space, onClos
         {pageId === 'assets' && (
           <SettingsGroup>
             <ShowAssetsInFoldersSetting />
+            {/* Hidden for now (core/featureFlags.ts): the setting only, not what it controls. */}
+            {isAllowMovingAssetsSettingEnabled() && <AllowMovingAssetsSetting source={spaceSettings} />}
+          </SettingsGroup>
+        )}
+        {pageId === 'layout' && (
+          <SettingsGroup>
+            <HeaderSeparatorSetting />
+            <HeaderSeparatorStyleSetting />
           </SettingsGroup>
         )}
         {pageId === 'daily-notes' && (

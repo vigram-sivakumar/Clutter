@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use tauri::{AppHandle, Manager, RunEvent, Url, WebviewWindow};
 
+mod app_menu;
 mod parse_cache;
 mod space_folder;
 mod startup_notice;
@@ -161,10 +162,12 @@ pub fn run() {
                 RETRY_PENDING.store(false, Ordering::SeqCst);
             }
         })
+        .on_menu_event(app_menu::handle_event)
         .manage(vault_watcher::VaultWatcherState::default())
         .invoke_handler(tauri::generate_handler![
             frontend_ready,
             frontend_failed,
+            app_menu::set_copy_page_link_enabled,
             parse_cache::parse_cache_read,
             parse_cache::parse_cache_write,
             parse_cache::parse_cache_remove,
@@ -202,6 +205,7 @@ pub fn run() {
                         .build(),
                 )?;
             }
+            app_menu::install(app.handle())?;
             spawn_startup_watchdog(app.handle().clone(), STARTUP_ATTEMPT.load(Ordering::SeqCst));
             Ok(())
         })

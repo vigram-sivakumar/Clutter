@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
 import { isTauri } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
@@ -37,6 +37,7 @@ import {
 } from '../components/space-details/SpaceDetails';
 import { pickSpaceFolder } from './spaces/pickSpaceFolder';
 import { ActiveSpaceSettingsDialog } from './ActiveSpaceSettingsDialog';
+import { useNativeSettingsMenu } from './useNativeSettingsMenu';
 import {
   SettingsDialogStateProvider,
   useSharedSettingsDialogState,
@@ -951,13 +952,17 @@ function AppShellContent() {
   // cancelling the picker, or a refused folder, changes nothing, and the registry only changes for good once the
   // folder has opened (a failed open puts the old entry back). The folder's own identity and avatar are read as
   // part of opening it; nothing is matched to the missing space automatically.
-  async function changeMissingSpaceLocation() {
-    const missing = missingSpacePath;
+  // Also the action behind "Change location" on a missing Space's Settings page, which names the Space itself
+  // (`fromSettings`) instead of reading the dialog's.
+  async function changeMissingSpaceLocation(fromSettings?: string) {
+    const missing = fromSettings ?? missingSpacePath;
     setMissingSpacePath(null);
     const path = await spaces.chooseSpace?.();
     if (path === null || path === undefined || missing === null) return;
     pendingProfileRef.current = null;
-    void spaces.switchSpace(path, missing);
+    const opened = await spaces.switchSpace(path, missing);
+    // The Space's Settings page is keyed by its path: follow it to the new location in the same step as the registry.
+    if (opened) settingsDialog?.replacePageId(spacePageId(missing), spacePageId(normalizeSpacePath(path)));
   }
 
   // A Space whose folder is confirmed missing is not switched to: it opens the confirmation window instead of
@@ -1001,6 +1006,7 @@ function AppShellContent() {
         pendingProfileRef.current = null;
         void switchOrExplainMissing(path);
       },
+      onChangeMissingSpaceLocation: (path) => void changeMissingSpaceLocation(path),
       refreshAvailability: () => {
         void spaces.refreshAvailability();
         refreshProfiles();
@@ -1063,6 +1069,9 @@ function AppShellContent() {
   useEffect(() => {
     if (!settingsAvailable && settingsOpen) closeSettings?.(false);
   }, [settingsAvailable, settingsOpen, closeSettings]);
+  // The native Clutter menu's "Settings…" (⌘,) opens this same dialog.
+  const openSettings = useCallback(() => closeSettings?.(true), [closeSettings]);
+  useNativeSettingsMenu(settingsAvailable, openSettings);
 
   const renderFrame = (): ReactNode => {
   if (error) {
@@ -1158,7 +1167,7 @@ function AppShellContent() {
           open={missingSpacePath !== null}
           path={missingSpacePath ?? ''}
           name={spaceName(missingSpacePath ?? '')}
-          onChangeLocation={() => void changeMissingSpaceLocation()}
+          onChangeLocation={() => void changeMissingSpaceLocation(undefined)}
           onRemove={removeMissingSpace}
           onClose={() => setMissingSpacePath(null)}
         />

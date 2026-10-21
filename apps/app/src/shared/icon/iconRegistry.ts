@@ -78,6 +78,7 @@ import MoveUp from './svg/move-up.svg?react';
 import MultiLine from './svg/multi-line.svg?react';
 import Note from './svg/note.svg?react';
 import Layers from './svg/layers.svg?react';
+import Layout from './svg/layout.svg?react';
 import Link from './svg/link.svg?react';
 import Hide from './svg/hide.svg?react';
 import NotePencil from './svg/note-pencil.svg?react';
@@ -186,6 +187,7 @@ export const iconRegistry = {
   keyEsc: KeyEsc,
   keyboard: Keyboard,
   layers: Layers,
+  layout: Layout,
   link: Link,
   magnifyingGlass: MagnifyingGlass,
   minus: Minus,

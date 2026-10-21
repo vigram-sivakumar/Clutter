@@ -14,9 +14,14 @@ export interface SpaceSettingsSource {
   /** Whether tags that no note uses any more are removed. Off until turned on. */
   getAutoDeleteUnusedTags(): boolean;
   setAutoDeleteUnusedTags(enabled: boolean): void;
+  /** Whether assets and asset folders may be moved out of Assets into ordinary folders. Off until turned on. */
+  getAllowMovingAssetsToFolders(): boolean;
+  setAllowMovingAssetsToFolders(enabled: boolean): void;
   /** Called when any value changes, here or anywhere else. */
   subscribe(listener: () => void): () => void;
 }
 
 /** The values a Space has before anything is chosen; what the controls show when no Space is supplied. */
-export const DEFAULT_SPACE_SETTINGS = { coverPosition: 'side', autoDeleteArchived: false, autoDeleteUnusedTags: false } as const;
+export const DEFAULT_SPACE_SETTINGS = { coverPosition: 'side', autoDeleteArchived: false, autoDeleteUnusedTags: false,
+  allowMovingAssetsToFolders: false,
+} as const;

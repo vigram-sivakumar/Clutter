@@ -38,6 +38,11 @@ export interface SpaceProfile {
    * the default — nothing is removed unless this was turned on.
    */
   readonly autoDeleteUnusedTags?: true;
+  /**
+   * Whether assets and asset folders may be moved out of Assets into the Space's ordinary folders. Present only when on;
+   * absent is off, the default: they move only within Assets.
+   */
+  readonly allowMovingAssetsToFolders?: true;
 }
 
 const SPACE_KEY = 'space';
@@ -61,7 +66,7 @@ export function parseSpaceProfile(contents: string): SpaceProfile | null {
     if (typeof file !== 'object' || file === null || Array.isArray(file)) return null;
     const raw = (file as Record<string, unknown>)[SPACE_KEY];
     if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
-    const { version, id, avatar, defaultNoteFolderId, defaultCoverPosition, autoDeleteArchived, autoDeleteUnusedTags } = raw as {
+    const { version, id, avatar, defaultNoteFolderId, defaultCoverPosition, autoDeleteArchived, autoDeleteUnusedTags, allowMovingAssetsToFolders } = raw as {
       version?: unknown;
       id?: unknown;
       avatar?: unknown;
@@ -69,6 +74,7 @@ export function parseSpaceProfile(contents: string): SpaceProfile | null {
       defaultCoverPosition?: unknown;
       autoDeleteArchived?: unknown;
       autoDeleteUnusedTags?: unknown;
+      allowMovingAssetsToFolders?: unknown;
     };
     if (typeof version === 'number' && version > CURRENT_VERSION) return null;
     if (typeof id !== 'string' || id === '') return null;
@@ -84,6 +90,7 @@ export function parseSpaceProfile(contents: string): SpaceProfile | null {
       ...(autoDeleteArchived === true && { autoDeleteArchived: true as const }),
       // Same rule: only a literal `true` turns the cleanup on; anything else is the default, off.
       ...(autoDeleteUnusedTags === true && { autoDeleteUnusedTags: true as const }),
+      ...(allowMovingAssetsToFolders === true && { allowMovingAssetsToFolders: true as const }),
     };
   } catch {
     return null;
@@ -207,6 +214,19 @@ export class SpaceProfileStore {
 
     const { autoDeleteUnusedTags: _previous, ...rest } = this.current ?? { id: new UuidGenerator().generate() };
     return this.persistSetting(enabled ? { ...rest, autoDeleteUnusedTags: true } : rest);
+  }
+
+  /**
+   * Lets this Space's assets and asset folders be moved out of Assets into its ordinary folders, or not. Off removes the
+   * value, which is also what a Space that never chose has.
+   */
+  setAllowMovingAssetsToFolders(enabled: boolean): Promise<void> {
+    if (enabled === (this.current?.allowMovingAssetsToFolders === true)) {
+      return Promise.resolve();
+    }
+
+    const { allowMovingAssetsToFolders: _previous, ...rest } = this.current ?? { id: new UuidGenerator().generate() };
+    return this.persistSetting(enabled ? { ...rest, allowMovingAssetsToFolders: true } : rest);
   }
 
   /** Called whenever the profile changes. Returns the unsubscribe. */

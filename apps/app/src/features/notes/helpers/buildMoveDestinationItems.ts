@@ -49,7 +49,8 @@ import { DROP_ZONE_ACCEPTS } from '@features/notes/sidebar/dropTarget';
  * ordinary destination: moving in makes a template, moving out makes an ordinary item again) with
  * its folders, then the ordinary folders; `'assets'` is the Assets hierarchy — its own root row first (the one the picker pins,
  * like the vault root), then only folders inside it. An Asset moves only within Assets, and nothing
- * else is offered it.
+ * else is offered it — unless the Space allows assets to leave Assets (`assetMovesMayLeaveAssets`), when the vault
+ * ordinary folders follow, and the vault root for a folder (only a folder may go there).
  *
  * `excludeFolderId`, when given (a folder being moved, never a page), is
  * the one exclusion this helper does add: the folder itself is omitted,
@@ -189,6 +190,24 @@ export function buildMoveDestinationItems(
   }
 
   walk(startFolders, zone === 'workspace' ? 0 : 1, zone === 'workspace' ? null : (items[0]?.id ?? null), startAncestors);
+
+  // An asset (or an asset folder) in a Space that lets assets leave Assets: the ordinary folders too, after the Assets
+  // ones — the vault root, then the workspace's folders. (Inbox and Templates take notes, not files, so they are not
+  // listed.) The Gate decides again when the move runs, and refuses a file that something still points at.
+  if (zone === 'assets' && membershipSelector.assetMovesMayLeaveAssets) {
+    // Only a folder may be moved to the vault root (a file may not): `excludeFolderId` is given only for a folder.
+    if (excludeFolderId !== undefined) {
+      items.push({
+        id: ROOT_DESTINATION_ID,
+        title: getVaultDisplayName(membershipSelector.vaultRoot),
+        secondaryLabel: 'Home',
+        isRoot: true,
+        level: 0,
+        parentId: null,
+      });
+    }
+    walk(membershipSelector.getWorkspaceFolders(), 0, null, []);
+  }
 
   return items;
 }
