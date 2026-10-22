@@ -40,9 +40,6 @@ pub const ZOOM_ACTUAL_SIZE_ITEM_ID: &str = "view-actual-size";
 pub const ZOOM_IN_ITEM_ID: &str = "view-zoom-in";
 pub const ZOOM_OUT_ITEM_ID: &str = "view-zoom-out";
 
-/// Event the frontend listens for to learn the zoom factor (see src/app/nativeZoom.ts); the payload is the factor.
-pub const ZOOM_CHANGED_EVENT: &str = "zoom:changed";
-
 /// Label of the one window the zoom applies to (see tauri.conf.json).
 const MAIN_WINDOW_LABEL: &str = "main";
 
@@ -95,14 +92,7 @@ fn apply_zoom<R: Runtime>(app: &AppHandle<R>, action: ZoomAction) {
     let Ok(mut zoom) = state.0.lock() else { return };
     let next = next_zoom(*zoom, action);
     match window.set_zoom(next) {
-        Ok(()) => {
-            *zoom = next;
-            // The page's top-left controls sit beside the native traffic lights, which do not scale with the zoom.
-            // The frontend counter-scales them from this factor (src/app/nativeZoom.ts).
-            if let Err(error) = app.emit(ZOOM_CHANGED_EVENT, next) {
-                log::error!("could not announce zoom {next}: {error}");
-            }
-        }
+        Ok(()) => *zoom = next,
         Err(error) => log::error!("could not set zoom to {next}: {error}"),
     }
 }
@@ -318,12 +308,6 @@ mod tests {
         assert_eq!(zoom_action_for_item(SETTINGS_ITEM_ID), None);
         // Zoom is handled natively, so it never forwards a frontend event.
         assert_eq!(event_for_item(ZOOM_IN_ITEM_ID), None);
-    }
-
-    #[test]
-    fn zoom_event_name_is_stable() {
-        // The frontend listens for this exact name; changing one side alone silently breaks the traffic-light alignment.
-        assert_eq!(ZOOM_CHANGED_EVENT, "zoom:changed");
     }
 
     #[test]

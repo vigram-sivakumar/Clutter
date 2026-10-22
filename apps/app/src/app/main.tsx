@@ -8,7 +8,6 @@ import { isTauri } from '@tauri-apps/api/core';
 import { App } from './App';
 import { installResizeDiagnostics } from './devResizeDiagnostics';
 import { installNativeContextMenuPolicy } from './suppressNativeContextMenu';
-import { installNativeZoom } from './nativeZoom';
 
 import '../design-system/tokens.css';
 import '../design-system/theme.css';
@@ -28,9 +27,6 @@ document.documentElement.dataset.runtime = isTauri() ? 'tauri' : 'web';
 // Production draws its own context menus: no native WebView menu (Reload, Inspect Element…) anywhere.
 // Development keeps the native one, for Inspect Element.
 installNativeContextMenuPolicy();
-
-// Keeps the controls beside the native traffic lights level with them while the webview is zoomed (--app-zoom).
-installNativeZoom();
 
 // TEMPORARY — resize-lag investigation. Remove this line and
 // devResizeDiagnostics.ts once the investigation is done. Static
