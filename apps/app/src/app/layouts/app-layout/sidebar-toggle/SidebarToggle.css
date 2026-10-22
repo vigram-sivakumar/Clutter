@@ -34,11 +34,18 @@
    whichever of those two corners currently applies, so it needs the same
    offset in each to clear the native traffic lights
    (tauri.conf.json's trafficLightPosition, x: 16). */
+/* The native traffic lights do not scale with the webview's zoom, so under the desktop app this control is held at
+   the same screen position and size at every zoom: its offsets are divided by the zoom factor (nativeZoom.ts sets
+   --app-zoom, 1 at actual size) and it is scaled back by the same factor from its top-left corner. */
 :root[data-runtime='tauri'] .sidebar-toggle {
-  left: calc(72px + var(--sidebar-padding-inline));
+  top: calc(var(--space-16) / var(--app-zoom, 1));
+  left: calc((72px + var(--sidebar-padding-inline)) / var(--app-zoom, 1));
+  transform: scale(calc(1 / var(--app-zoom, 1)));
+  transform-origin: top left;
 }
 :root[data-runtime='tauri']
   .app-layout[data-sidebar-collapsed='true']
   .sidebar-toggle {
-  left: calc(var(--space-8) + 76px);
+  top: calc(var(--space-16) / var(--app-zoom, 1));
+  left: calc((var(--space-8) + 76px) / var(--app-zoom, 1));
 }

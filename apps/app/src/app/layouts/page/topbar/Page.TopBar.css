@@ -76,7 +76,9 @@
 
 /* Tauri/macOS + collapsed sidebar */
 :root[data-runtime='tauri'] .app-layout[data-sidebar-collapsed='true'] .topbar {
-  padding-left: calc(var(--space-8) + 100px);
+  /* Divided by the zoom factor so the clearance for the (unscaled) traffic lights and sidebar toggle stays the same
+     on screen; see SidebarToggle.css. */
+  padding-left: calc((var(--space-8) + 100px) / var(--app-zoom, 1));
 }
 
 /* Expanded — padding shrinks back down as the page slides away, with the
