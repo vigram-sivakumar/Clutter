@@ -3,6 +3,8 @@ import { NESTED_INTERACTIVE_SELECTOR } from '@shared/interaction';
 import './SettingsEntry.css';
 
 export interface SettingsEntryProps extends HTMLAttributes<HTMLDivElement> {
+  /** `ghost` drops the card background and border; the padding stays. Default: the card surface. */
+  variant?: 'default' | 'ghost';
   title?: string;
   description?: string;
   /** Extra classes for the title text, e.g. the global `truncate` utility to cut it to one line. */
@@ -51,6 +53,7 @@ function TextElement({
 }
 
 export function SettingsEntry({
+  variant = 'default',
   title,
   description,
   titleClassName,
@@ -85,6 +88,7 @@ export function SettingsEntry({
       {...props}
       className={[
         'settings-entry',
+        variant === 'ghost' && 'settings-entry--ghost',
         className,
         onClick && 'settings-entry-interactive',
       ]

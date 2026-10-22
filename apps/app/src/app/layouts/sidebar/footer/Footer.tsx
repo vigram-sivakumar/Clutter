@@ -4,7 +4,15 @@ import { Button } from '@components/button/Button';
 import { AppIcon } from '@shared/icon';
 import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
 import { Entry } from '@components/entry/Entry';
-import { SpaceAvatar, type SpaceAvatarValue } from '@components/space-avatar/SpaceAvatar';
+import { Overlay } from '@components/overlay/Overlay';
+import { useOverlay } from '@components/overlay/hooks/useOverlay';
+import { Menu } from '@components/menu/Menu';
+import { MenuItem } from '@components/menu/MenuItem';
+import {
+  SpaceAvatar,
+  type SpaceAvatarValue,
+} from '@components/space-avatar/SpaceAvatar';
+import { KeyboardShortcutsDialog } from './KeyboardShortcutsDialog';
 import { SpaceMenu, DEFAULT_SPACE_AVATAR } from './SpaceMenu';
 import { useSharedSettingsDialogState } from '@features/settings/SettingsDialogState';
 
@@ -20,7 +28,12 @@ interface FooterProps {
    */
   resolveImageUrl?(src: string): string | null;
   /** Every registered Space, active one included. Omitted: the menu lists just the active Space. */
-  spaces?: readonly { path: string; name: string; avatar?: SpaceAvatarValue; missing?: boolean }[];
+  spaces?: readonly {
+    path: string;
+    name: string;
+    avatar?: SpaceAvatarValue;
+    missing?: boolean;
+  }[];
   /** The active Space's path, matched against `spaces` to mark the current one. */
   activeSpacePath?: string;
   /** Presence makes the other Spaces selectable. */
@@ -49,12 +62,21 @@ export function Footer({
   const [menuOpen, setMenuOpen] = useState(false);
   const settingsDialog = useSharedSettingsDialogState();
   const selectorRef = useRef<HTMLDivElement>(null);
+  const helpMenu = useOverlay<HTMLButtonElement>();
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const title = spaceName || vaultFolderName;
   // Each listed Space shows its own avatar; the open one falls back to its entry's when none is passed.
   const activeAvatar =
-    avatar !== DEFAULT_AVATAR ? avatar : (spaces?.find((space) => space.path === activeSpacePath)?.avatar ?? avatar);
+    avatar !== DEFAULT_AVATAR
+      ? avatar
+      : (spaces?.find((space) => space.path === activeSpacePath)?.avatar ??
+        avatar);
   const avatarView = (
-    <SpaceAvatar avatar={activeAvatar} folderName={vaultFolderName} resolveImageUrl={resolveImageUrl} />
+    <SpaceAvatar
+      avatar={activeAvatar}
+      folderName={vaultFolderName}
+      resolveImageUrl={resolveImageUrl}
+    />
   );
 
   return (
@@ -89,10 +111,51 @@ export function Footer({
         onOpenSettings={() => settingsDialog?.setOpen(true)}
       />
       <div className="footer__actions">
-        <Button isIconOnly size="medium" variant="ghost" onClick={onOpenArchive}>
+        <Button
+          ref={helpMenu.anchorRef}
+          isIconOnly
+          size="medium"
+          variant="ghost"
+          isActive={helpMenu.open}
+          aria-label="Help"
+          aria-haspopup="menu"
+          aria-expanded={helpMenu.open}
+          onClick={helpMenu.toggle}
+        >
+          <AppIcon icon="question" />
+        </Button>
+        <Overlay
+          open={helpMenu.open}
+          onClose={helpMenu.hide}
+          anchorRef={helpMenu.anchorRef}
+          side="top"
+          alignment="start"
+        >
+          <Menu size="medium">
+            <MenuItem
+              leading={<AppIcon icon="keyboard" />}
+              onClick={() => {
+                helpMenu.hide();
+                setShortcutsOpen(true);
+              }}
+            >
+              Keyboard shortcuts
+            </MenuItem>
+            <MenuItem leading={<AppIcon icon="option" />} onClick={helpMenu.hide}>
+              Markdown shortcuts
+            </MenuItem>
+          </Menu>
+        </Overlay>
+        <Button
+          isIconOnly
+          size="medium"
+          variant="ghost"
+          onClick={onOpenArchive}
+        >
           <AppIcon icon={getSystemLocationPresentation('archive').icon} />
         </Button>
       </div>
+      <KeyboardShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </div>
   );
 }

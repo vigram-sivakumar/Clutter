@@ -8,6 +8,12 @@
   border-radius: var(--radius-md);
 }
 
+/* No card surface and no border; the padding stays. */
+.settings-entry--ghost {
+  background: transparent;
+  border: none;
+}
+
 /* Clickable entry (only when `onClick` is given). The hover is suppressed while the pointer is over a nested
    control, so it never reads as "this whole row is the target". The control list mirrors
    NESTED_INTERACTIVE_SELECTOR (shared/interaction/buildActivationProps.ts) — keep them in sync. */
@@ -23,6 +29,11 @@
     var(--surface-secondary),
     rgb(var(--state-base)) var(--state-hover-strength-medium)
   );
+}
+.settings-entry--ghost.settings-entry-interactive:hover:not(
+    :has(:is(a, button, input, select, textarea, [role='button']):hover)
+  ) {
+  background: rgb(var(--state-base) / var(--state-hover-strength-medium));
 }
 .settings-entry-interactive
   :is(a, button, input, select, textarea, [role='button']) {

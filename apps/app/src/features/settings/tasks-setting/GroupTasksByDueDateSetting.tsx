@@ -11,7 +11,7 @@ export function GroupTasksByDueDateSetting() {
   return (
     <SettingsEntry
       title="Group by due date"
-      description="Group tasks by their due date."
+      description="Group tasks by their due date"
       trailing={
         <Switch
           aria-label="Group by due date"

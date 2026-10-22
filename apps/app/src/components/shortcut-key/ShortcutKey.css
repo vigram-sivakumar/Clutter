@@ -1,0 +1,29 @@
+.shortcut-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  gap: var(--space-4);
+
+  height: var(--height-xs);
+  min-width: var(--height-xs);
+  padding-inline: var(--space-6);
+  /* No `--radius-xs` token yet: 4px, the step below `--radius-sm` (6px). */
+  border-radius: var(--space-4);
+  background: var(--surface-tertiary);
+}
+/* Only an icon: a square, as tall as it is wide. */
+.shortcut-key--square {
+  width: var(--height-xs);
+  padding-inline: 0;
+}
+.shortcut-key__leading {
+  display: inline-flex;
+  align-items: center;
+  color: var(--foreground-secondary);
+}
+.shortcut-key__label {
+  color: var(--foreground-secondary);
+  font-size: var(--text-label);
+  line-height: var(--lh-label);
+}

@@ -95,7 +95,7 @@ export function Tag({
             onExpandToggle={onExpandToggle}
           />
         }
-        trailing={<CountBadge size="small" count={count} />}
+        trailing={<CountBadge size="small" count={count} className="count-badge--on-sidebar-hover" />}
         actions={
           <>
             {onAddClick && (

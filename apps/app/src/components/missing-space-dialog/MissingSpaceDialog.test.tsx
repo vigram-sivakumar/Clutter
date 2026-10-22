@@ -92,7 +92,11 @@ describe('MissingSpaceDialog', () => {
     expect(root.children).toHaveLength(3);
     expect(title).toHaveClass('missing-space__title');
     expect(title).toHaveTextContent('Space not found');
-    expect(title.querySelector('.confirmation__dismiss')).not.toBeNull();
+    // The close button sits at the right of the title row (a flex row), not absolutely positioned like Confirmation's.
+    const close = title.querySelector('button[aria-label="Close"]');
+    expect(close).not.toBeNull();
+    expect(close).toHaveClass('round-icon-button');
+    expect(close).not.toHaveClass('confirmation__dismiss');
 
     expect(content).toHaveClass('missing-space__content');
     // The space's entry first, the description under it.
@@ -150,11 +154,12 @@ describe('MissingSpaceDialog', () => {
     expect(onRemove).not.toHaveBeenCalled();
   });
 
-  it('has a close button in the corner, like the app’s other confirmations, that only dismisses', () => {
+  it('has a round close button at the right of the title row that only dismisses', () => {
     const { onChangeLocation, onRemove, onClose } = renderDialog();
     const close = screen.getByRole('button', { name: 'Close' });
 
-    expect(close).toHaveClass('confirmation__dismiss');
+    expect(close).toHaveClass('round-icon-button');
+    expect(close.parentElement).toHaveClass('missing-space__title');
     fireEvent.click(close);
 
     expect(onClose).toHaveBeenCalledTimes(1);

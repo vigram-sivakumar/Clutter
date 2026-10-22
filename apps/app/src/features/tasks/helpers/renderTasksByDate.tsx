@@ -9,7 +9,10 @@ import { Section } from '@app/layouts/sidebar/section/Section';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
 import type { Workspace } from '@core/workspace/Workspace';
 import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
-import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
+import type {
+  ResolveTag,
+  ResolveWikiLink,
+} from '@features/markdown/editor/MarkdownEditor';
 import type { ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbedResolution';
 
 // Helpers
@@ -25,6 +28,7 @@ import { formatTaskTitle } from './formatTaskTitle';
 import { isPast, isToday } from '@shared/helpers/time';
 import { EmptyEntry } from '@components/entry/EmptyEntry';
 import { ShowMoreEntry } from '@components/entry/ShowMoreEntry';
+import { AppIcon } from '@shared/icon';
 
 /** A sidebar list shows this many tasks unless the caller passes the user's own limit; the rest sit behind its "N more" row. */
 export const SIDEBAR_GROUP_TASK_LIMIT = 10;
@@ -87,7 +91,11 @@ export function renderTaskRow(
       // share a React key. See TaskOccurrence's own positional-identity note.
       key={`${task.sourcePageId}:${task.startOffset ?? task.text}`}
       title={formatTaskTitle(task.text, dueDate)}
-      dueDate={dueDate && !isDueToday && !hideDueDate ? formatTaskDueDate(dueDate) : undefined}
+      dueDate={
+        dueDate && !isDueToday && !hideDueDate
+          ? formatTaskDueDate(dueDate)
+          : undefined
+      }
       isOverdue={isOverdue}
       date={dueDate}
       isChecked={task.completed}
@@ -111,13 +119,12 @@ function renderTaskList(
   callbacks: TaskRowCallbacks & TaskRowResolvers & TaskRowOptions
 ) {
   return (
-    <Fragment>
-      {tasks.map((task) => renderTaskRow(task, callbacks))}
-    </Fragment>
+    <Fragment>{tasks.map((task) => renderTaskRow(task, callbacks))}</Fragment>
   );
 }
 
-export interface RenderTodayContentProps extends TaskRowCallbacks, TaskRowResolvers {
+export interface RenderTodayContentProps
+  extends TaskRowCallbacks, TaskRowResolvers {
   // Pre-grouped, not raw tasks, and already filtered/ordered per the
   // Tasks-view display config (groupTasks) — the outer Section
   // (renderTasksByDate) and the Today collection page (TasksCollectionBody)
@@ -158,7 +165,8 @@ export function renderTodayContent({
   });
 }
 
-export interface RenderOverdueContentProps extends TaskRowCallbacks, TaskRowResolvers {
+export interface RenderOverdueContentProps
+  extends TaskRowCallbacks, TaskRowResolvers {
   // Pre-grouped, not raw tasks — see RenderTodayContentProps.today.
   readonly overdue: readonly TaskOccurrence[];
 }
@@ -194,7 +202,8 @@ export function renderOverdueContent({
   });
 }
 
-export interface RenderUpcomingContentProps extends TaskRowCallbacks, TaskRowResolvers {
+export interface RenderUpcomingContentProps
+  extends TaskRowCallbacks, TaskRowResolvers {
   // Pre-grouped, not raw tasks — see RenderTodayContentProps.today.
   readonly upcoming: readonly TaskOccurrence[];
 }
@@ -277,7 +286,9 @@ export function renderTasksByDate({
   const groups = groupTasks(tasks, displayConfig);
   const { today, overdue, unscheduled } = groups;
   // `groups.upcoming` carries the unscheduled tasks as its tail; they get their own section below.
-  const upcoming = groups.upcoming.filter((task) => !unscheduled.includes(task));
+  const upcoming = groups.upcoming.filter(
+    (task) => !unscheduled.includes(task)
+  );
   // Today is not a hideable group (the Options menu doesn't offer it and AppLayout drops a stale persisted
   // one), so the Today section below always renders.
   const hidden = displayConfig.hiddenGroups ?? [];
@@ -335,8 +346,16 @@ export function renderTasksByDate({
           const key: TaskExpansionKey = `${id}:${date}`;
           const tasks = byDate.get(date)!;
           return (
-            <Section key={key} hasHeader interaction="subtle" title={formatTaskDueDateLong(date)}>
-              {renderTaskList(capped(key, tasks), { ...rowProps, hideDueDate: true })}
+            <Section
+              key={key}
+              hasHeader
+              interaction="subtle"
+              title={formatTaskDueDateLong(date)}
+            >
+              {renderTaskList(capped(key, tasks), {
+                ...rowProps,
+                hideDueDate: true,
+              })}
               {moreRow(key, tasks)}
             </Section>
           );
@@ -363,6 +382,7 @@ export function renderTasksByDate({
       </Section>
       {!hidden.includes('overdue') && overdue.length > 0 && (
         <Section
+          data-section="overdue"
           hasHeader
           title="Overdue"
           isCollapsible

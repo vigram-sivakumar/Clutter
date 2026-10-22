@@ -8,7 +8,7 @@ export function ShowTagEmojisSetting() {
   return (
     <SettingsEntry
       title="Show tag emojis"
-      description="Show tag emojis in the editor and its Tags property."
+      description="Display tag emojis in the editor and properties list"
       trailing={<Switch aria-label="Show tag emojis" isChecked={show} onCheckedChange={writeShowTagEmojis} />}
     />
   );

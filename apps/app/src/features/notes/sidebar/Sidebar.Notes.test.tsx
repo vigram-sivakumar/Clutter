@@ -1448,3 +1448,43 @@ describe('Sidebar Notes: "Reveal in Clutter" counts positions in the level\'s ma
     expect(toggled).not.toHaveBeenCalledWith('__root__');
   });
 });
+
+describe('Sidebar Notes: Inbox count badge', () => {
+  const inboxRow = () => screen.getByText('Inbox', { selector: '.sidebar__navigation .entry__content' }).closest('.entry') as HTMLElement;
+
+  function inboxVault(noteCount: number) {
+    const inbox = makeFolder('inbox-id', `${ROOT}/Inbox`);
+    const sub = { ...makeFolder('inbox-sub', `${ROOT}/Inbox/Sub`), parentId: 'inbox-id' };
+    const pages = Array.from({ length: noteCount }, (_, index) =>
+      new PageBuilder().build({
+        parentId: 'inbox-id',
+        page: {
+          path: `${ROOT}/Inbox/n${index}.md`,
+          directoryPath: `${ROOT}/Inbox`,
+          frontmatter: { id: `n${index}` },
+          frontmatterAnalysis: { aliases: [] },
+          content: 'Body',
+          analysis: { headings: [], blockReferences: [], tasks: [], tags: [], links: [], embeds: [] },
+        },
+      })
+    );
+    return setup([inbox, sub], pages);
+  }
+
+  it('counts the Inbox’s notes and subfolders, in a badge on the Inbox shortcut', () => {
+    renderNotes(inboxVault(3));
+
+    const badge = inboxRow().querySelector('.entry__meta .count-badge') as HTMLElement;
+    expect(badge.textContent).toBe('4');
+    expect(badge).toHaveClass('count-badge--on-sidebar-hover');
+  });
+
+  it('shows no badge when the Inbox is empty or does not exist yet', () => {
+    renderNotes(setup([makeFolder('inbox-id', `${ROOT}/Inbox`)]));
+    expect(inboxRow().querySelector('.count-badge')).toBeNull();
+    cleanup();
+
+    renderNotes(setup([]));
+    expect(inboxRow().querySelector('.count-badge')).toBeNull();
+  });
+});

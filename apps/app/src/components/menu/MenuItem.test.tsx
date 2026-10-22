@@ -25,7 +25,7 @@ describe('MenuItem label', () => {
     expect(getByRole('menuitem').querySelector('.entry__meta')?.textContent).toBe('Default');
   });
 
-  it('renders custom element content exactly as given — no wrapper', () => {
+  it('renders custom element content as given, inside the one label wrapper every MenuItem has', () => {
     const { getByRole } = render(
       <Menu>
         <MenuItem>
@@ -37,9 +37,13 @@ describe('MenuItem label', () => {
     );
 
     const content = getByRole('menuitem').querySelector('.entry__content')!;
+    const label = content.querySelector('.menu__item-label')!;
     expect(content.children).toHaveLength(1);
-    expect(content.firstElementChild).toHaveClass('custom-suggestion');
-    expect(content.querySelector('.menu__item-label')).toBeNull();
+    expect(label.parentElement).toBe(content);
+    // The custom content itself is untouched: one element, with its own children, inside the label.
+    expect(label.children).toHaveLength(1);
+    expect(label.firstElementChild).toHaveClass('custom-suggestion');
+    expect(label.querySelector('.detail')?.textContent).toBe('detail');
   });
 
   it('truncation lives in MenuItem.css, scoped to the menu label', () => {

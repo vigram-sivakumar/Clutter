@@ -159,7 +159,11 @@ describe('the icon rule in MarkdownEditor.css', () => {
   const stripped = css.replace(/\/\*[\s\S]*?\*\//g, '');
   /** Every declaration block with exactly this selector, joined: a selector can have more than one rule. */
   const ruleFor = (selector: string): string => {
-    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Whitespace between the selector's parts is any whitespace: a formatter may wrap a long selector across lines.
+    const escaped = selector
+      .split(' ')
+      .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      .join('\\s+');
     const matches = [...stripped.matchAll(new RegExp(`(?:^|\\})\\s*${escaped}\\s*\\{([^}]*)\\}`, 'g'))];
     expect(matches.length, `${selector} rule not found`).toBeGreaterThan(0);
 

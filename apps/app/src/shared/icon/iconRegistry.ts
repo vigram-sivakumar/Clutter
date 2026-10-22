@@ -14,6 +14,8 @@ import ArrowRightSmallHead from './svg/arrow-right-small-head.svg?react';
 import ArrowUp from './svg/arrow-up.svg?react';
 import ArrowUpRight from './svg/arrow-up-right.svg?react';
 import BookshelfBox from './svg/bookshelf-box.svg?react';
+import BracketLeft from './svg/bracket-left.svg?react';
+import BracketRight from './svg/bracket-right.svg?react';
 import Branch from './svg/branch.svg?react';
 import BrokenImage from './svg/broken-image.svg?react';
 import Brush from './svg/brush.svg?react';
@@ -45,6 +47,9 @@ import CircleDashed from './svg/circle-dashed.svg?react';
 import CircleTick from './svg/circle-tick.svg?react';
 import Clock from './svg/clock.svg?react';
 import Code from './svg/code.svg?react';
+import Comma from './svg/comma.svg?react';
+import Command from './svg/command.svg?react';
+import Control from './svg/control.svg?react';
 import Dismiss from './svg/dismiss.svg?react';
 import Download from './svg/download.svg?react';
 import DragHandle from './svg/drag-handle.svg?react';
@@ -82,6 +87,7 @@ import Layout from './svg/layout.svg?react';
 import Link from './svg/link.svg?react';
 import Hide from './svg/hide.svg?react';
 import NotePencil from './svg/note-pencil.svg?react';
+import Option from './svg/option.svg?react';
 import PDF from './svg/pdf.svg?react';
 import Pin from './svg/pin.svg?react';
 import Plus from './svg/plus.svg?react';
@@ -94,6 +100,7 @@ import Portrait from './svg/portrait.svg?react';
 import Restore from './svg/restore.svg?react';
 import RightSidebar from './svg/right-sidebar.svg?react';
 import Settings from './svg/settings.svg?react';
+import Shift from './svg/shift.svg?react';
 import Shuffle from './svg/shuffle.svg?react';
 import Sidebar from './svg/sidebar.svg?react';
 import Signature from './svg/signature.svg?react';
@@ -135,6 +142,8 @@ export const iconRegistry = {
   arrowUp: ArrowUp,
   arrowUpRight: ArrowUpRight,
   bookshelfBox: BookshelfBox,
+  bracketLeft: BracketLeft,
+  bracketRight: BracketRight,
   branch: Branch,
   brokenImage: BrokenImage,
   brush: Brush,
@@ -168,6 +177,9 @@ export const iconRegistry = {
   circleTick: CircleTick,
   clock: Clock,
   code: Code,
+  comma: Comma,
+  command: Command,
+  control: Control,
   dismiss: Dismiss,
   download: Download,
   dragHandle: DragHandle,
@@ -203,6 +215,7 @@ export const iconRegistry = {
   hide: Hide,
   notePencil: NotePencil,
   note: Note,
+  option: Option,
   pdf: PDF,
   pin: Pin,
   plus: Plus,
@@ -215,6 +228,7 @@ export const iconRegistry = {
   restore: Restore,
   rightSidebar: RightSidebar,
   settings: Settings,
+  shift: Shift,
   shuffle: Shuffle,
   sidebar: Sidebar,
   signature: Signature,

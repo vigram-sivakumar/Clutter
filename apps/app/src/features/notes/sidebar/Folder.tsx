@@ -1,4 +1,5 @@
 import { Button } from '@components/button/Button';
+import { CountBadge } from '@components/count-badge/CountBadge';
 import { Entry, type EntryProps } from '@components/entry/Entry';
 import { EditableText } from '@components/editable-text/EditableText';
 import { OverflowMenu } from '@components/menu/OverflowMenu';
@@ -18,6 +19,11 @@ export interface FolderProps extends Omit<EntryProps, 'children'> {
   /** Shown by EditableText during rename when the title buffer is empty. */
   titlePlaceholder?: string;
   emoji?: string | null;
+  /**
+   * How many items the folder holds (its subfolders and notes), shown as a CountBadge in the trailing slot — drawn only
+   * while the sidebar is hovered (Sidebar.css). Omitted: no badge, and the caller's own `trailing` (if any) is used.
+   */
+  count?: number;
 
   isEmpty?: boolean;
   hasCaret?: boolean;
@@ -83,6 +89,7 @@ export function Folder({
   titleStyle = 'default',
   titlePlaceholder,
   emoji,
+  count,
   isEmpty = false,
   hasCaret = true,
   isExpanded = false,
@@ -125,6 +132,9 @@ export function Folder({
         // forced while the Move picker is open, or when a caller
         // (PickerList's keyboard navigation) asks for it explicitly.
         forceHover={externalForceHover || menuOpen || moveTrigger.open || changeIconTrigger.open}
+        trailing={
+          count === undefined ? entryProps.trailing : <CountBadge size="small" count={count} className="count-badge--on-sidebar-hover" />
+        }
         leading={
           <FolderLeading
             emoji={emoji}

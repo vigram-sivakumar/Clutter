@@ -155,3 +155,43 @@ describe('Folder — title truncation', () => {
     expect(document.querySelector('.folder__title')).toHaveClass('truncate');
   });
 });
+
+describe('Folder — count badge', () => {
+  it('shows a CountBadge in the trailing slot when given a count, marked to show only on sidebar hover', () => {
+    render(<Folder title="Projects" count={4} />);
+
+    const badge = screen.getByText('Projects').closest('.entry')!.querySelector('.entry__meta .count-badge')!;
+    expect(badge.textContent).toBe('4');
+    expect(badge.classList.contains('count-badge--small')).toBe(true);
+    expect(badge.classList.contains('count-badge--on-sidebar-hover')).toBe(true);
+  });
+
+  it('shows nothing for a count of zero', () => {
+    render(<Folder title="Projects" count={0} />);
+
+    expect(document.querySelector('.count-badge')).toBeNull();
+  });
+
+  it('caps a large count the way every badge does', () => {
+    render(<Folder title="Projects" count={250} />);
+
+    expect(document.querySelector('.count-badge')!.textContent).toBe('99+');
+  });
+
+  it('without a count, adds no badge and leaves the caller’s own trailing content alone', () => {
+    render(<Folder title="Projects" trailing={<span data-testid="mine">x</span>} />);
+
+    expect(document.querySelector('.count-badge')).toBeNull();
+    expect(screen.getByTestId('mine')).not.toBeNull();
+  });
+
+  it('does not change the label: the title is the same with or without the badge', () => {
+    const { container, rerender } = render(<Folder title="Projects" />);
+    const without = container.querySelector('.folder__title')!.outerHTML;
+
+    rerender(<Folder title="Projects" count={4} />);
+
+    expect(container.querySelector('.folder__title')!.outerHTML).toBe(without);
+  });
+});
+

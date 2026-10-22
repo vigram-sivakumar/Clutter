@@ -15,7 +15,6 @@
   gap: var(--space-6);
 }
 .confirmation__body {
-  color: var(--foreground-tertiary);
   font-size: var(--text-label-small);
   line-height: var(--lh-label-small);
   letter-spacing: var(--ls-label-small);

@@ -5,6 +5,7 @@ import { useShowAssetsInFolders } from '@shared/helpers/showAssetsInFoldersPrefe
 import { useRef, useSyncExternalStore } from 'react';
 // Components
 import { Folder as FolderEntry } from './Folder';
+import { countFolderItems } from '../helpers/countFolderItems';
 import { Note as NoteEntry } from './Note';
 import { Resource as ResourceEntry } from './Resource';
 import { NewFolderRow } from './NewFolderRow';
@@ -858,6 +859,7 @@ export function FolderTree({
               }
               titleStyle={getPageDisplayLabelStyle(folderLabel)}
               emoji={folder.metadata.icon}
+              count={countFolderItems(membershipSelector, folder.id)}
               level={level}
               className={folderDragProps?.isSource ? 'entry--drag-source' : undefined}
               onPointerDown={folderDragProps?.onPointerDown}

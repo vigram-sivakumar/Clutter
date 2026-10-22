@@ -376,10 +376,21 @@ describe('applying a template through the picker (+N more)', () => {
     expect(
       [...application.vault.pages()].map((page) => page.id).sort()
     ).toEqual(pagesBefore);
+    // The note's own cover is never replaced by the template's.
+    expect(application.vault.getPage(noteId)!.metadata.cover).toBe(
+      'https://example.com/note.jpg'
+    );
+    expect(suggestionsShown()).toBe(false);
+  });
+
+  it('a template chosen in the picker gives a note with no cover of its own the template’s cover', async () => {
+    const { application, noteId } = await setup({}, 4, 'https://example.com/tpl.jpg');
+
+    await pickLastTemplateInPicker();
+
     expect(application.vault.getPage(noteId)!.metadata.cover).toBe(
       'https://example.com/tpl.jpg'
     );
-    expect(suggestionsShown()).toBe(false);
   });
 
   it('the editor shows an applied template even when it had focus while it was applied', async () => {

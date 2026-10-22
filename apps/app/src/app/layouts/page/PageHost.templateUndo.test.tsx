@@ -306,7 +306,7 @@ describe('applying a template is one undoable step', () => {
     ).toEqual(pagesBefore);
   });
 
-  it("undo gives back the note's own icon, cover and cover settings that the template replaced", async () => {
+  it("keeps the note's own icon, cover and cover settings when a template is applied, and through undo and redo; only what the note lacked moves", async () => {
     const env = await setup(
       {
         icon: '📌',
@@ -316,17 +316,30 @@ describe('applying a template is one undoable step', () => {
       },
       { metadata: FULL_TEMPLATE }
     );
+    const ownPresentation = () => ({
+      icon: env.metadata().icon,
+      cover: env.metadata().cover,
+      coverLayout: env.metadata().coverLayout,
+      coverPositionAbove: env.metadata().coverPositionAbove,
+    });
+    const own = {
+      icon: '📌',
+      cover: 'https://example.com/mine.jpg',
+      coverLayout: 'side',
+      coverPositionAbove: 70,
+    };
 
     await env.apply();
-    expect(env.metadata().cover).toBe('https://example.com/tpl.jpg');
-    expect(env.metadata().icon).toBe('🧾');
+    expect(ownPresentation()).toEqual(own);
+    expect(env.metadata().description).toBe('From the template');
 
     await env.pressUndo();
+    expect(ownPresentation()).toEqual(own);
+    expect(env.metadata().description).toBeNull();
 
-    expect(env.metadata().icon).toBe('📌');
-    expect(env.metadata().cover).toBe('https://example.com/mine.jpg');
-    expect(env.metadata().coverLayout).toBe('side');
-    expect(env.metadata().coverPositionAbove).toBe(70);
+    await env.pressRedo();
+    expect(ownPresentation()).toEqual(own);
+    expect(env.metadata().description).toBe('From the template');
   });
 
   it('keeps the earlier typing history: undoing the template steps back to what was typed before it', async () => {
@@ -416,7 +429,7 @@ describe('applying a template is one undoable step', () => {
     expect(env.doc()).toBe(TEMPLATE_BODY);
   });
 
-  it('the example: 📝 + existing cover + #work, then "Meeting Notes" — undo restores exactly that, redo restores the application', async () => {
+  it('the example: 📝 + existing cover + #work, then "Meeting Notes" — the icon and cover stay, the tags merge; undo and redo move the body and the tags', async () => {
     const MEETING_BODY = '# Meeting Notes\n\n## Agenda\n\n## Action Items';
     const env = await setup(
       {
@@ -438,8 +451,9 @@ describe('applying a template is one undoable step', () => {
 
     await env.apply();
     expect(env.doc()).toBe(MEETING_BODY);
-    expect(env.metadata().icon).toBe('📅');
-    expect(env.metadata().cover).toBe('https://example.com/meeting-cover.jpg');
+    // The note's own icon and cover are never replaced by the template's.
+    expect(env.metadata().icon).toBe('📝');
+    expect(env.metadata().cover).toBe('https://example.com/existing-cover.jpg');
     // Merged without duplicates: the note's #work first, then the template's new one.
     expect(env.metadata().tags).toEqual(['work', 'meetings']);
     expect(env.page().id).toBe(id);
@@ -455,15 +469,15 @@ describe('applying a template is one undoable step', () => {
     await env.pressRedo();
     expect(env.doc()).toBe(MEETING_BODY);
     expect(env.session().currentRevision.markdown).toBe(MEETING_BODY);
-    expect(env.metadata().icon).toBe('📅');
-    expect(env.metadata().cover).toBe('https://example.com/meeting-cover.jpg');
+    expect(env.metadata().icon).toBe('📝');
+    expect(env.metadata().cover).toBe('https://example.com/existing-cover.jpg');
     expect(env.metadata().tags).toEqual(['work', 'meetings']);
     expect(env.page().id).toBe(id);
   });
 
   it('typing after the template is undone first, then the template, and redone in that order', async () => {
     const env = await setup(
-      { icon: '📝', tags: ['work'] },
+      { tags: ['work'] },
       { metadata: FULL_TEMPLATE }
     );
 
@@ -479,7 +493,7 @@ describe('applying a template is one undoable step', () => {
 
     await env.pressUndo(); // the template application
     expect(env.doc()).toBe('');
-    expect(env.metadata().icon).toBe('📝');
+    expect(env.metadata().icon).toBeNull();
     expect(env.metadata().tags).toEqual(['work']);
 
     await env.pressRedo(); // the template application
@@ -516,7 +530,7 @@ describe('applying a template is one undoable step', () => {
 
   it('the real Cmd/Ctrl+Z and Cmd/Ctrl+Shift+Z shortcuts undo and redo the whole application', async () => {
     const env = await setup(
-      { icon: '📝', tags: ['work'] },
+      { tags: ['work'] },
       { metadata: FULL_TEMPLATE }
     );
     await env.apply();
@@ -525,7 +539,7 @@ describe('applying a template is one undoable step', () => {
 
     await env.pressUndoShortcut();
     expect(env.doc()).toBe('');
-    expect(env.metadata().icon).toBe('📝');
+    expect(env.metadata().icon).toBeNull();
     expect(env.metadata().tags).toEqual(['work']);
 
     await env.pressRedoShortcut();
@@ -536,7 +550,7 @@ describe('applying a template is one undoable step', () => {
 
   it('survives a save in between: after undo the file holds the empty body and the old metadata, after redo the template', async () => {
     const env = await setup(
-      { icon: '📝', tags: ['work'] },
+      { tags: ['work'] },
       { metadata: FULL_TEMPLATE }
     );
     const onDisk = () => env.fileSystem.readFile(env.page().path);
@@ -549,8 +563,7 @@ describe('applying a template is one undoable step', () => {
     const afterUndo = await onDisk();
     expect(env.doc()).toBe('');
     expect(afterUndo).not.toContain('# Agenda');
-    expect(afterUndo).toContain('📝');
-    expect(afterUndo).not.toContain('🧾');
+        expect(afterUndo).not.toContain('🧾');
 
     await env.pressRedo();
     await env.application.pageOperations.requestSave(env.noteId);
@@ -598,7 +611,7 @@ describe('applying a template is one undoable step', () => {
     ])(
       '%s: applying does not force focus, and the shortcuts undo and redo the template',
       async (_label, template) => {
-        const env = await setup({ icon: '📝', tags: ['work'] }, template, {
+        const env = await setup({ tags: ['work'] }, template, {
           extraTemplates: 3,
         });
 
@@ -610,7 +623,7 @@ describe('applying a template is one undoable step', () => {
 
         await env.pressUndoShortcut();
         expect(env.doc()).toBe('');
-        expect(env.metadata().icon).toBe('📝');
+        expect(env.metadata().icon).toBeNull();
         expect(env.metadata().tags).toEqual(['work']);
 
         await env.pressRedoShortcut();
@@ -621,7 +634,7 @@ describe('applying a template is one undoable step', () => {
 
   it('still undoes the metadata after switching to another note and back (the restored history carries the step)', async () => {
     const env = await setup(
-      { icon: '📝', tags: ['work'] },
+      { tags: ['work'] },
       { metadata: FULL_TEMPLATE }
     );
     await env.apply();
@@ -641,7 +654,7 @@ describe('applying a template is one undoable step', () => {
 
     await env.pressUndo();
     expect(env.doc()).toBe('');
-    expect(env.metadata().icon).toBe('📝');
+    expect(env.metadata().icon).toBeNull();
     expect(env.metadata().tags).toEqual(['work']);
     expect(env.metadata().cover).toBeNull();
 
@@ -702,7 +715,7 @@ describe('undoing and redoing a template application respects what the user chan
 
 describe('a metadata save that fails while undoing or redoing', () => {
   it('is reported (not silent), the properties are left as they were, and redo then undo work once saving works', async () => {
-    const env = await setup({ tags: ['mine'], icon: '📝' }, { metadata: FULL_TEMPLATE });
+    const env = await setup({ tags: ['mine'] }, { metadata: FULL_TEMPLATE });
     await env.apply();
     const operations = env.application.pageOperations;
     const real = operations.updateMetadata.bind(operations);
@@ -726,7 +739,7 @@ describe('a metadata save that fails while undoing or redoing', () => {
 
     await env.pressUndo();
     expect(env.doc()).toBe('');
-    expect(env.metadata().icon).toBe('📝');
+    expect(env.metadata().icon).toBeNull();
     expect(env.metadata().tags).toEqual(['mine']);
   });
 });

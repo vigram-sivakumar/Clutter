@@ -4,6 +4,7 @@ import '@testing-library/jest-dom/vitest';
 
 import { useRef, useState, type MutableRefObject } from 'react';
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -979,44 +980,95 @@ describe('Overlay dragRegion', () => {
   });
 });
 
-describe('Overlay — the window drag region is not a click outside', () => {
+describe('Overlay — the window drag region', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+  });
+
   function setup() {
     const onClose = vi.fn();
-    render(<Harness onClose={onClose} />);
+    render(
+      <>
+        <header data-testid="topbar" data-tauri-drag-region>
+          <button type="button">Other control</button>
+        </header>
+        <Harness onClose={onClose} />
+      </>
+    );
     const backdrop = document.body.querySelector('.overlay__backdrop') as HTMLElement;
     const strip = backdrop.querySelector('[data-tauri-drag-region]') as HTMLElement;
-    return { onClose, backdrop, strip };
+    const settle = () => act(() => void vi.advanceTimersByTime(1000));
+    return { onClose, backdrop, strip, settle };
   }
 
-  it('does not close on either click of a double-click on the drag region', () => {
-    const { onClose, strip } = setup();
+  it('a single click dismisses, once the double-click window has passed', () => {
+    const { onClose, strip, settle } = setup();
 
-    fireEvent.pointerDown(strip);
-    fireEvent.click(strip, { detail: 1 });
-    fireEvent.pointerDown(strip);
-    fireEvent.click(strip, { detail: 2 });
+    fireEvent.pointerDown(strip, { screenX: 10, screenY: 10 });
+    fireEvent.click(strip, { detail: 1, screenX: 10, screenY: 10 });
+    expect(onClose).not.toHaveBeenCalled();
+    settle();
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('a double-click does not dismiss', () => {
+    const { onClose, strip, settle } = setup();
+
+    fireEvent.pointerDown(strip, { screenX: 10, screenY: 10 });
+    fireEvent.click(strip, { detail: 1, screenX: 10, screenY: 10 });
+    fireEvent.pointerDown(strip, { screenX: 10, screenY: 10 });
+    fireEvent.click(strip, { detail: 2, screenX: 10, screenY: 10 });
+    fireEvent.doubleClick(strip);
+    settle();
 
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it('does not close when the click lands on the backdrop after a press that began on the drag region (window moved under the pointer)', () => {
-    const { onClose, backdrop, strip } = setup();
+  it('a drag does not dismiss, whether or not a click ends it', () => {
+    const { onClose, backdrop, strip, settle } = setup();
 
-    fireEvent.pointerDown(strip);
-    fireEvent.click(backdrop);
+    fireEvent.pointerDown(strip, { screenX: 10, screenY: 10 });
+    settle();
+    expect(onClose).not.toHaveBeenCalled();
 
+    // The click ending a drag: the pointer (and window) moved, and it may land on the backdrop.
+    fireEvent.pointerDown(strip, { screenX: 10, screenY: 10 });
+    fireEvent.click(backdrop, { screenX: 80, screenY: 40 });
+    settle();
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it('closes on an ordinary backdrop click, including right after a drag-region press', () => {
-    const { onClose, backdrop, strip } = setup();
+  it('a pending dismissal is dropped when the overlay closes another way', () => {
+    const { onClose, strip, settle } = setup();
 
-    fireEvent.pointerDown(strip);
-    fireEvent.click(strip);
-    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.pointerDown(strip, { screenX: 1, screenY: 1 });
+    fireEvent.click(strip, { screenX: 1, screenY: 1 });
+    fireEvent.keyDown(document, { key: 'Escape' });
+    settle();
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('an ordinary backdrop click dismisses immediately', () => {
+    const { onClose, backdrop } = setup();
 
     fireEvent.pointerDown(backdrop);
     fireEvent.click(backdrop);
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('a click on the backdrop right after a drag-region double-click still dismisses immediately', () => {
+    const { onClose, backdrop, strip } = setup();
+
+    fireEvent.pointerDown(strip, { screenX: 1, screenY: 1 });
+    fireEvent.pointerDown(strip, { screenX: 1, screenY: 1 });
+    fireEvent.pointerDown(backdrop);
+    fireEvent.click(backdrop);
+
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -1030,7 +1082,7 @@ describe('Overlay — the window drag region is not a click outside', () => {
     expect(fireEvent.doubleClick(strip)).toBe(true);
   });
 
-  it('does not close when the dialog content is pressed and clicked', () => {
+  it('does not close when the overlay content is pressed and clicked', () => {
     const { onClose } = setup();
     const action = screen.getByText('Overlay action');
 
@@ -1038,5 +1090,40 @@ describe('Overlay — the window drag region is not a click outside', () => {
     fireEvent.click(action);
 
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+
+  it('a non-dismissible overlay ignores a drag-region click', () => {
+    cleanup();
+    const onClose = vi.fn();
+    const anchor = document.createElement('button');
+    document.body.appendChild(anchor);
+    render(
+      <Overlay open onClose={onClose} anchorRef={{ current: anchor }} dismissible={false}>
+        <button type="button">Locked</button>
+      </Overlay>
+    );
+    const strip = document.querySelector('.overlay__backdrop [data-tauri-drag-region]') as HTMLElement;
+
+    fireEvent.pointerDown(strip);
+    fireEvent.click(strip);
+    act(() => void vi.advanceTimersByTime(1000));
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('closes on Escape', () => {
+    const { onClose } = setup();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('is portalled to document.body, so a press on the underlying top bar hits the backdrop, not the top bar', () => {
+    const { backdrop } = setup();
+
+    expect(backdrop.closest('.overlay')!.parentElement).toBe(document.body);
+    expect(screen.getByTestId('topbar').contains(backdrop)).toBe(false);
   });
 });

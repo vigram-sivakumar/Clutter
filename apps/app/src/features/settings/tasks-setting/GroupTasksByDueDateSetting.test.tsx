@@ -25,7 +25,7 @@ describe('GroupTasksByDueDateSetting', () => {
     render(<GroupTasksByDueDateSetting />);
 
     expect(screen.getByText('Group by due date', { selector: '.settings-entry__title' })).toBeInTheDocument();
-    expect(screen.getByText('Group tasks by their due date.')).toBeInTheDocument();
+    expect(screen.getByText('Group tasks by their due date')).toBeInTheDocument();
     expect(toggle()).not.toBeChecked();
   });
 

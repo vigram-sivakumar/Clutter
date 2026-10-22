@@ -54,6 +54,7 @@ import { Confirmation } from '@components/confirmation/Confirmation';
 import { useConfirmationSurface } from '@components/confirmation/useConfirmationSurface';
 import { downloadResource } from '@shared/helpers/downloadResource';
 import { createLocationActions } from '../helpers/createLocationActions';
+import { countFolderItems } from '../helpers/countFolderItems';
 import { scrollRowIntoView } from '@shared/helpers/scrollRowIntoView';
 import { flashRevealHighlight } from '@shared/helpers/flashRevealHighlight';
 import { testIds } from '@shared/testing/selectors';
@@ -487,12 +488,15 @@ export function Notes({
     }
   }
 
+  const inboxFolder = membershipSelector.getInboxFolder();
+
   return (
     <View navigation={<NotesShortcuts
           onShortcut={onShortcut}
+          counts={{ inbox: inboxFolder ? countFolderItems(membershipSelector, inboxFolder.id) : 0 }}
           dropFolderIds={{
             templates: membershipSelector.getTemplatesFolder()?.id,
-            inbox: membershipSelector.getInboxFolder()?.id,
+            inbox: inboxFolder?.id,
             assets: membershipSelector.getAssetsStorageFolder()?.id,
           }}
         />}>

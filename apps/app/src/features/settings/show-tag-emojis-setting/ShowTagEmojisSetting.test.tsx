@@ -25,7 +25,7 @@ describe('ShowTagEmojisSetting', () => {
     render(<ShowTagEmojisSetting />);
 
     expect(screen.getByText('Show tag emojis', { selector: '.settings-entry__title' })).toBeInTheDocument();
-    expect(screen.getByText('Show tag emojis in the editor and its Tags property.')).toBeInTheDocument();
+    expect(screen.getByText('Display tag emojis in the editor and properties list')).toBeInTheDocument();
     expect(toggle()).toBeChecked();
   });
 

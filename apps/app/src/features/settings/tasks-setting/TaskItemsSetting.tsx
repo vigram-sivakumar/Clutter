@@ -11,7 +11,7 @@ export function TaskItemsSetting() {
 
   return (
     <ItemLimitSetting
-      description="Choose how many tasks to show in each section before showing more."
+      description="Choose how many tasks to show in each section before showing more"
       choice={choice}
       onChange={writeTaskItemLimitChoice}
     />

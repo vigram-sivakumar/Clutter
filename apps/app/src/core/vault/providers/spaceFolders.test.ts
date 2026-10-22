@@ -108,10 +108,10 @@ describe('createSpaceFolder', () => {
   });
 
   it.each([
-    ['Permission denied (os error 13)', "doesn't have permission"],
-    ['forbidden path: /Users/someone-else/Documents/Personal', "isn't allowed"],
+    ['Permission denied (os error 13)', "doesn’t have permission"],
+    ['forbidden path: /Users/someone-else/Documents/Personal', "isn’t allowed"],
     ['No such file or directory (os error 2)', 'could not be found'],
-    ['Disk quota exceeded (os error 122)', "Couldn't create the folder"],
+    ['Disk quota exceeded (os error 122)', "Couldn’t create the folder"],
   ])('describes the failure %j', async (reason, expected) => {
     mkdir.mockRejectedValue(reason);
     expect(await createSpaceFolder('Personal')).toEqual({

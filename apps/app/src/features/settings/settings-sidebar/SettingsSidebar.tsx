@@ -40,8 +40,8 @@ const SECTIONS: { title: string; entries: SettingsSidebarEntry[] }[] = [
       { id: 'notes', title: 'Notes', location: 'notes' },
       { id: 'daily-notes', title: 'Daily notes', location: 'daily-notes' },
       { id: 'tags', title: 'Tags', location: 'tags' },
-      { id: 'assets', title: 'Assets', location: 'assets' },
       { id: 'tasks', title: 'Tasks', location: 'tasks' },
+      { id: 'assets', title: 'Assets', location: 'assets' },
     ],
   },
   {

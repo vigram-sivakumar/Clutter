@@ -1,4 +1,5 @@
 import { AppIcon } from '@shared/icon';
+import { CountBadge } from '@components/count-badge/CountBadge';
 import { Section } from '@app/layouts/sidebar/section/Section';
 import { Navigation } from '@app/layouts/sidebar/navigation/Navigation';
 import type { NavigationItem } from '@app/layouts/sidebar/navigation/NavigationItem';
@@ -14,6 +15,11 @@ interface NotesShortcutsProps {
    * Assets assets only (what each accepts is dropTarget.ts's DROP_ZONE_ACCEPTS).
    */
   dropFolderIds?: Partial<Record<'templates' | 'inbox' | 'assets', string>>;
+  /**
+   * How many items an entry's folder holds, shown as a CountBadge in the row's trailing slot — drawn only while the sidebar
+   * is hovered (Sidebar.css), like a folder row's. An entry with none (or a count of zero) shows no badge.
+   */
+  counts?: Partial<Record<NotesShortcutId, number>>;
 }
 
 // Notes' entries don't all declare `disabled` (only Tasks'/Tags' single
@@ -26,7 +32,7 @@ function dropFolderFor(id: NotesShortcutId, folders: NotesShortcutsProps['dropFo
   return id === 'templates' || id === 'inbox' || id === 'assets' ? folders?.[id] : undefined;
 }
 
-export function NotesShortcuts({ onShortcut, dropFolderIds }: NotesShortcutsProps) {
+export function NotesShortcuts({ onShortcut, dropFolderIds, counts }: NotesShortcutsProps) {
   return (
     <Section>
       {items.map((shortcut) => (
@@ -41,6 +47,11 @@ export function NotesShortcuts({ onShortcut, dropFolderIds }: NotesShortcutsProp
           data-drop-folder-id={dropFolderFor(shortcut.id, dropFolderIds)}
           data-drop-zone={dropFolderFor(shortcut.id, dropFolderIds) ? shortcut.id : undefined}
           onClick={() => onShortcut(shortcut.id)}
+          trailing={
+            counts?.[shortcut.id] === undefined ? undefined : (
+              <CountBadge size="small" count={counts[shortcut.id]} className="count-badge--on-sidebar-hover" />
+            )
+          }
         />
       ))}
     </Section>

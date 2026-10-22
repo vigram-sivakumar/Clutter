@@ -255,3 +255,15 @@ describe('Tag — the Show tag emojis setting does not apply to the sidebar', ()
     expect(document.querySelector('.tag__icon .emoji-icon')?.textContent).toBe('📦');
   });
 });
+
+describe('Tag — count badge', () => {
+  it('keeps its CountBadge, now marked to show only on sidebar hover, with the same count', () => {
+    render(<TagHarness />);
+
+    const badge = document.querySelector('.entry__meta .count-badge')!;
+    expect(badge.textContent).toBe('2');
+    expect(badge.classList.contains('count-badge--small')).toBe(true);
+    expect(badge.classList.contains('count-badge--on-sidebar-hover')).toBe(true);
+  });
+});
+

@@ -72,13 +72,13 @@ describe('ShowAssetsInFoldersSetting', () => {
 });
 
 describe('Settings — Assets page', () => {
-  it('is listed under Features after Daily notes and Tags, with its own icon', () => {
+  it('is listed under Features after Daily notes, Tags and Tasks, with its own icon', () => {
     render(<SettingsSidebar selectedId="preferences" onSelect={() => {}} />);
     const order = Array.from(document.querySelectorAll('.entry')).map(
       (el) => el.querySelector('.entry__content')?.textContent ?? el.textContent
     );
-    // The three section headers (General, Features, Editor) and the six pages, in order: Tasks is the last of Features, after Assets.
-    expect(order).toEqual(['General', 'Preferences', 'Features', 'Notes', 'Daily notes', 'Tags', 'Assets', 'Tasks', 'Editor', 'Layout']);
+    // The three section headers (General, Features, Editor) and the six pages, in order: Assets is the last of Features, after Tasks.
+    expect(order).toEqual(['General', 'Preferences', 'Features', 'Notes', 'Daily notes', 'Tags', 'Tasks', 'Assets', 'Editor', 'Layout']);
     const row = screen.getByText('Assets').closest('.entry')!;
     expect(row.querySelector('.entry__leading svg')).not.toBeNull();
   });

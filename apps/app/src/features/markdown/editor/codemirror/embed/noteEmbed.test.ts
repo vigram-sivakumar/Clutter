@@ -866,7 +866,9 @@ describe("a note embed's own extra content indent applies only when it's nested 
 
     const bareMatch = cssWithoutComments.match(/^\.cm-note-embed__content\s*\{([^}]*)\}/m);
     expect(bareMatch, 'bare .cm-note-embed__content rule not found').not.toBeNull();
-    expect(bareMatch![1]).toMatch(/padding-inline-start\s*:/);
+    // The inset is a plain `padding` (12px all round, none on top: the header above it supplies that gap).
+    expect(bareMatch![1]).toMatch(/(^|[\s;])padding\s*:\s*var\(--space-12\)/);
+    expect(bareMatch![1]).toMatch(/padding-top\s*:\s*0/);
 
     const match = cssWithoutComments.match(/\.cm-note-embed--nested\s*>\s*\.cm-note-embed__content\s*\{([^}]*)\}/);
     expect(match, 'scoped .cm-note-embed--nested > .cm-note-embed__content rule not found').not.toBeNull();

@@ -29,7 +29,7 @@ describe('TaskItemsSetting', () => {
 
     expect(screen.getByText('Show', { selector: '.settings-entry__title' })).toBeInTheDocument();
     expect(
-      screen.getByText('Choose how many tasks to show in each section before showing more.')
+      screen.getByText('Choose how many tasks to show in each section before showing more')
     ).toBeInTheDocument();
     expect(trigger()).toHaveClass('button--outline');
     expect(trigger()).toHaveTextContent('5 items');

@@ -1,0 +1,71 @@
+/* The corner dismiss button, as Settings' `.settings__close`. */
+.shortcuts-dialog__close {
+  position: absolute;
+  top: var(--space-12);
+  right: var(--space-12);
+}
+/* The title keeps clear of the corner button: the button's width plus a gap. */
+.shortcuts-dialog__heading {
+  padding-right: calc(var(--height-xs) + var(--space-8));
+}
+
+.shortcuts-dialog__group .settings-group__title {
+  color: var(--foreground-tertiary);
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label-small);
+  letter-spacing: var(--ls-label-small);
+}
+
+.dialog.shortcuts-dialog {
+  width: calc(100vw - 80px);
+  max-width: 580px;
+  height: 600px;
+}
+
+/* The card stays put; the page inside it scrolls, so the corner button does not. */
+.dialog.shortcuts-dialog .shortcuts-dialog__card {
+  height: 100%;
+  overflow: hidden;
+  /* The page carries the padding, so scrolled content runs to the card's top and bottom edges. */
+  padding: 0;
+}
+.shortcuts-dialog__page {
+  display: flex;
+  flex-direction: column;
+  /* As between a Settings page's header and its content. */
+  gap: var(--space-48);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* The page fills the card, so its scrollbar sits at the card's edge. */
+  padding: var(--space-16);
+  scrollbar-gutter: stable;
+}
+.shortcuts-dialog__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+/* The entries sit bare on the card: no group surface, no side padding (the divider follows). */
+.shortcuts-dialog__group .settings-group__entries {
+  background: transparent;
+}
+.shortcuts-dialog__group .settings-entry {
+  padding-inline: 0;
+}
+.shortcuts-dialog__group .settings-group__divider {
+  margin-inline: 0;
+}
+
+.shortcuts-dialog__keys {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+/* The keys are 24px high; the trailing slot's 36px minimum (sized for a Settings control) would stretch the row. */
+.shortcuts-dialog__group .settings-entry__trailing {
+  min-height: 0;
+}

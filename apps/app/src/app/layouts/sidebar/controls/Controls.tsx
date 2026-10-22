@@ -50,17 +50,24 @@ export function Controls({
   // again by every choice (Escape and outside clicks still restore focus to the chevron).
   const suppressReturnFocusRef = useRef(false);
 
-  const choose = (action: () => void) => (event: { stopPropagation(): void }) => {
-    event.stopPropagation();
-    suppressReturnFocusRef.current = true;
-    menu.hide();
-    action();
-  };
+  const choose =
+    (action: () => void) => (event: { stopPropagation(): void }) => {
+      event.stopPropagation();
+      suppressReturnFocusRef.current = true;
+      menu.hide();
+      action();
+    };
 
   return (
     <div className="controls" data-tauri-drag-region>
       <div className="create-controls">
-        <Button isIconOnly size="medium" variant="ghost" aria-label="New note" onClick={onNewNote}>
+        <Button
+          isIconOnly
+          size="medium"
+          variant="ghost"
+          aria-label="New note"
+          onClick={onNewNote}
+        >
           <AppIcon icon="plus" />
         </Button>
         <Button
@@ -89,30 +96,49 @@ export function Controls({
       >
         <Menu size="medium">
           <MenuGroupTitle>Create new</MenuGroupTitle>
-          <MenuItem leading={<AppIcon icon="note" />} onClick={choose(onNewNote)}>
+          <MenuItem
+            leading={<AppIcon icon="note" />}
+            onClick={choose(onNewNote)}
+          >
             Note
           </MenuItem>
           <MenuItem
-            leading={<AppIcon icon={getSystemLocationPresentation('daily-notes').icon} />}
+            leading={
+              <AppIcon
+                icon={getSystemLocationPresentation('daily-notes').icon}
+              />
+            }
             trailing="Today"
             onClick={choose(onOpenDailyNote)}
           >
             Daily note
           </MenuItem>
-          <MenuItem leading={<AppIcon icon="circleTick" />} onClick={choose(onNewTask)}>
+          <MenuItem
+            leading={<AppIcon icon="circleTick" />}
+            onClick={choose(onNewTask)}
+          >
             Task
           </MenuItem>
-          <MenuItem leading={<AppIcon icon="folder" />} onClick={choose(onNewFolder)}>
+          <MenuItem
+            leading={<AppIcon icon="folder" />}
+            onClick={choose(onNewFolder)}
+          >
             Folder
           </MenuItem>
           <MenuItem leading={<AppIcon icon="tag" />} onClick={choose(onNewTag)}>
             Tag
           </MenuItem>
           <div className="menu__divider" role="separator" />
-          <MenuItem leading={<AppIcon icon="template" />} onClick={choose(onNewTemplate)}>
+          <MenuItem
+            leading={<AppIcon icon="template" />}
+            onClick={choose(onNewTemplate)}
+          >
             Template
           </MenuItem>
-          <MenuItem leading={<AppIcon icon="upload" />} onClick={choose(onUpload)}>
+          <MenuItem
+            leading={<AppIcon icon="upload" />}
+            onClick={choose(onUpload)}
+          >
             Upload
           </MenuItem>
         </Menu>

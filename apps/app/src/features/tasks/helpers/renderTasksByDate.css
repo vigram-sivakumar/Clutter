@@ -1,14 +1,18 @@
 /* The Today section's title: an accent pill instead of plain header text. */
-.section-header[data-section='today'] .section-header__title {
+/* .section-header[data-section='today'] .section-header__title {
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
-  height: 18px;
+  height: 16px;
   padding-inline: 4px;
   border-radius: 4px;
-  background: var(--calendar-accent);
-  /* color: var(--calendar-accent); */
-  border: 1px solid var(--calendar-accent);
+  background: var(--surface-brand);
   color: var(--calendar-on-accent-foreground);
-  font-weight: var(--fw-semibold);
+
+  font-weight: var(--fw-medium);
+  font-size: var(--text-label-small);
+} */
+.section-header[data-section='overdue'] .section-header__title {
+  color: var(--danger-foreground);
+  font-weight: var(--fw-medium);
 }

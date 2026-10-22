@@ -13,3 +13,10 @@
   flex-shrink: 0;
   overflow: visible;
 }
+
+/* The line is DEFAULT_STROKE_WIDTH (1.2px) at every icon size and in every viewBox: `non-scaling-stroke` draws the stroke
+   in screen pixels, where otherwise it would scale with the icon (a 12px icon's line would be 0.9px, a 64px one's 4.8px).
+   Not applied when a caller passes its own `strokeWidth`, which then keeps scaling. */
+.app-icon--fixed-stroke svg * {
+  vector-effect: non-scaling-stroke;
+}

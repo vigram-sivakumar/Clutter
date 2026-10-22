@@ -72,8 +72,25 @@ describe('Footer space selector: title, caret, archive', () => {
   it('still opens the archive from the footer button', () => {
     const onOpenArchive = vi.fn();
     const { container } = render(<Footer vaultFolderName="v" onOpenArchive={onOpenArchive} />);
-    fireEvent.click(container.querySelector('.footer__actions button') as HTMLElement);
+    const buttons = container.querySelectorAll('.footer__actions button');
+    fireEvent.click(buttons[buttons.length - 1] as HTMLElement);
     expect(onOpenArchive).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens the help menu with the shortcut entries', () => {
+    render(<Footer vaultFolderName="v" onOpenArchive={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Help' }));
+    expect(screen.getByText('Keyboard shortcuts')).toBeTruthy();
+    expect(screen.getByText('Markdown shortcuts')).toBeTruthy();
+  });
+
+  it('opens the keyboard shortcuts dialog and closes it with the dismiss button', () => {
+    render(<Footer vaultFolderName="v" onOpenArchive={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Help' }));
+    fireEvent.click(screen.getByText('Keyboard shortcuts'));
+    expect(screen.getByText('Keyboard shortcuts')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByText('Keyboard shortcuts')).toBeNull();
   });
 });
 

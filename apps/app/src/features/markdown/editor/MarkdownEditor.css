@@ -1847,18 +1847,14 @@
 }
 
 .cm-editor .tok-tag {
-  /* font-size: 0.9em; */
-  font-weight: var(--fw-medium);
-
   color: var(--md-tag-foreground);
   background-color: var(--md-tag-surface);
   border-radius: var(--md-badge-radius);
   padding: var(--md-badge-padding);
   font-size: var(--text-label);
-  font-weight: inherit;
-
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
+  line-height: var(--lh-body-small);
 
   cursor: pointer;
 }

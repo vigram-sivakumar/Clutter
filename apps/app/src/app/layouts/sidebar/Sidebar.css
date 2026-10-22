@@ -23,3 +23,16 @@
   flex: 1;
   min-height: 0;
 }
+
+/* A count badge that only shows while the sidebar is hovered (or has keyboard focus inside), whichever panel is open and
+   whichever row the pointer is over. Keyboard focus is `:focus-visible`, not `:focus-within`: a click leaves the row
+   focused, and that must not keep the badges up after the pointer leaves. Opacity, not display: the badge keeps its space, so nothing shifts or truncates
+   differently as it appears, and it stays in the accessibility tree. Opt in with the class on a CountBadge. */
+.sidebar .count-badge--on-sidebar-hover {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.sidebar:hover .count-badge--on-sidebar-hover,
+.sidebar:has(:focus-visible) .count-badge--on-sidebar-hover {
+  opacity: 1;
+}

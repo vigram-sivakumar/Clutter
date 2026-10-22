@@ -1412,3 +1412,79 @@ describe('FolderTree: the Show assets in folders setting', () => {
     ]);
   });
 });
+
+describe('FolderTree: folder count badges', () => {
+  const rowOf = (title: string) => screen.getByText(title).closest('.entry') as HTMLElement;
+
+  function projectsTree() {
+    const projects = makeFolder('folder-1', `${ROOT}/Projects`, null);
+    const q1 = makeFolder('folder-2', `${ROOT}/Projects/Q1`, 'folder-1');
+    const empty = makeFolder('folder-3', `${ROOT}/Empty`, null);
+    const noteA = buildPersistedPage(`${ROOT}/Projects/A.md`, { id: 'note-a', parentId: 'folder-1' });
+    const noteB = buildPersistedPage(`${ROOT}/Projects/B.md`, { id: 'note-b', parentId: 'folder-1' });
+    const photo = makeResource({ id: 'res-1', name: 'photo.png', path: `${ROOT}/Projects/photo.png`, parentId: 'folder-1' });
+    return setup([noteA, noteB], [projects, q1, empty], [photo]);
+  }
+
+  it('shows the existing CountBadge in the folder row’s trailing slot: its subfolders and notes (assets are not counted)', () => {
+    const { query, workspace, membershipSelector } = projectsTree();
+    renderTree(query, membershipSelector, workspace);
+
+    const badge = rowOf('Projects').querySelector('.entry__meta .count-badge') as HTMLElement;
+    expect(badge).not.toBeNull();
+    expect(badge.textContent).toBe('3');
+    expect(badge).toHaveClass('count-badge--small');
+  });
+
+  it('marks the badge to be shown only while the sidebar is hovered (the rule itself is Sidebar.css)', () => {
+    const { query, workspace, membershipSelector } = projectsTree();
+    renderTree(query, membershipSelector, workspace);
+
+    expect(rowOf('Projects').querySelector('.count-badge')).toHaveClass('count-badge--on-sidebar-hover');
+  });
+
+  it('an empty folder shows no badge at all (the badge draws nothing for zero)', () => {
+    const { query, workspace, membershipSelector } = projectsTree();
+    renderTree(query, membershipSelector, workspace);
+
+    expect(rowOf('Empty').querySelector('.count-badge')).toBeNull();
+  });
+
+  it('counts the same subfolders and notes the row’s emptiness is decided by', () => {
+    const { query, workspace, membershipSelector } = projectsTree();
+    renderTree(query, membershipSelector, workspace);
+
+    const projects = rowOf('Projects');
+    const caret = projects.querySelector('.caret-slot') as HTMLButtonElement;
+    expect(caret.disabled).toBe(false);
+    expect(projects.querySelector('.count-badge')!.textContent).toBe('3');
+    expect(rowOf('Empty').querySelector('.caret-slot') as HTMLButtonElement).toHaveProperty('disabled', true);
+  });
+
+  it('a folder row still opens, expands and shows its “+” action as before', () => {
+    const { query, workspace, membershipSelector } = projectsTree();
+    const onFolderClick = vi.fn();
+    render(
+      <FolderTree
+        query={query}
+        membershipSelector={membershipSelector}
+        workspace={workspace}
+        parentId={null}
+        level={0}
+        onPageClick={vi.fn()}
+        onDraftPageClick={vi.fn()}
+        onFolderClick={onFolderClick}
+        onCreateNote={vi.fn()}
+        pendingNewFolder={null}
+        onCommitNewFolder={vi.fn()}
+        onCancelNewFolder={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Projects'));
+
+    expect(onFolderClick).toHaveBeenCalledTimes(1);
+    expect(rowOf('Projects').querySelector('.entry__actions')).not.toBeNull();
+  });
+});
+

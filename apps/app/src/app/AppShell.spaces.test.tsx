@@ -656,7 +656,6 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
-      await click('Create');
 
       expect(await screen.findByTestId('open-root')).toHaveTextContent(
         '/Users/me/Notes'
@@ -691,9 +690,24 @@ async function click(text: string) {
   await act(async () => screen.getByText(text).click());
 }
 
-// After "Select a folder" the dialog shows the picked folder's settings, still waiting on Open.
-function expectSpaceDetailsShown() {
-  expect(document.getElementById('space-details-name')).not.toBeNull();
+// The read-only Location field's value: `<parent>/<name>`.
+const locationValue = () =>
+  (document.getElementById('space-details-location') as HTMLInputElement).value;
+
+// Lets a started action (a picker choice, an open that fails) run to its end.
+async function settle() {
+  for (let i = 0; i < 8; i++) {
+    await act(async () => {
+      await Promise.resolve();
+    });
+  }
+}
+
+// After "Select a folder" the Welcome screen stays up while the folder opens (or after it fails to): an existing
+// folder has nothing to configure, so there is no settings step to go through.
+function expectWelcomeStillShown() {
+  expect(screen.getByText(WELCOME)).toBeInTheDocument();
+  expect(document.getElementById('space-details-name')).toBeNull();
 }
 
 async function typeName(name: string) {
@@ -719,7 +733,6 @@ describe('AppShell: Welcome dialog actions', () => {
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
-      await click('Create');
       await waitFor(() =>
         expect(bootstrap).toHaveBeenCalledWith(
           '/Users/me/Notes',
@@ -728,7 +741,7 @@ describe('AppShell: Welcome dialog actions', () => {
       );
 
       // Still opening: dialog up, nothing remembered yet, no "Opening Clutter…" frame.
-      expectSpaceDetailsShown();
+      expectWelcomeStillShown();
       expect(screen.queryByText(OPENING)).toBeNull();
       expect(SAVED()).toBeNull();
 
@@ -779,7 +792,6 @@ describe('AppShell: Welcome dialog actions', () => {
         await screen.findByText(WELCOME);
 
         await click('Select a folder');
-        await click('Create');
         await waitFor(() =>
           expect(bootstrap).toHaveBeenCalledWith(picked, expect.anything())
         );
@@ -808,27 +820,27 @@ describe('AppShell: Welcome dialog actions', () => {
         await screen.findByText(WELCOME);
 
         await click('Select a folder');
+        await settle();
 
-        expect(await screen.findByRole('alert')).toHaveTextContent('too broad');
+        // Refused outright: nothing is opened or saved and the Welcome screen stays. (It shows no message for a
+        // failure yet — that waits for the app-wide toast.)
         expect(bootstrap).not.toHaveBeenCalled();
         expect(SAVED()).toBeNull();
+        expectWelcomeStillShown();
       }
     );
 
-    it('a folder outside the home directory that cannot be accessed is reported as inaccessible, not as missing', async () => {
+    it('a folder outside the home directory that cannot be accessed is refused, opening nothing and saving nothing', async () => {
       tauri.openDialog.mockResolvedValue('/Volumes/Drive/Denied');
       render(<AppShell />);
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
-      await click('Create');
+      await settle();
 
-      expect(await screen.findByRole('alert')).toHaveTextContent(
-        'can’t open that folder'
-      );
-      expect(screen.getByRole('alert')).not.toHaveTextContent('doesn’t exist');
       expect(bootstrap).not.toHaveBeenCalled();
       expect(SAVED()).toBeNull();
+      expectWelcomeStillShown();
     });
 
     it('does not persist an outside-home folder that fails to open', async () => {
@@ -837,10 +849,13 @@ describe('AppShell: Welcome dialog actions', () => {
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
-      await click('Create');
+      await waitFor(() =>
+        expect(bootstrap).toHaveBeenCalledWith('/Volumes/Drive/Broken', expect.anything())
+      );
+      await settle();
 
-      expect(await screen.findByRole('alert')).toHaveTextContent('scan failed');
       expect(SAVED()).toBeNull();
+      expectWelcomeStillShown();
     });
 
     it('reopens a folder chosen outside the home directory after the app restarts', async () => {
@@ -848,7 +863,6 @@ describe('AppShell: Welcome dialog actions', () => {
       const first = render(<AppShell />);
       await screen.findByText(WELCOME);
       await click('Select a folder');
-      await click('Create');
       expect(await screen.findByTestId('open-root')).toHaveTextContent(
         '/Volumes/Drive/Vault'
       );
@@ -870,31 +884,30 @@ describe('AppShell: Welcome dialog actions', () => {
       expect(screen.queryByText(WELCOME)).toBeNull();
     });
 
-    it('keeps the dialog and says so when the folder is inaccessible', async () => {
+    it('keeps the dialog when the folder is inaccessible', async () => {
       tauri.openDialog.mockResolvedValue('/Users/me/Denied');
       render(<AppShell />);
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
-      await click('Create');
+      await settle();
 
-      expect(await screen.findByRole('alert')).toHaveTextContent(
-        'can’t open that folder'
-      );
       expect(bootstrap).not.toHaveBeenCalled();
-      expectSpaceDetailsShown();
+      expectWelcomeStillShown();
     });
 
-    it('keeps the dialog, shows the reason and leaves the registry untouched when opening fails', async () => {
+    it('keeps the dialog and leaves the registry untouched when opening fails', async () => {
       tauri.openDialog.mockResolvedValue('/Users/me/Broken');
       render(<AppShell />);
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
-      await click('Create');
+      await waitFor(() =>
+        expect(bootstrap).toHaveBeenCalledWith('/Users/me/Broken', expect.anything())
+      );
+      await settle();
 
-      expect(await screen.findByRole('alert')).toHaveTextContent('scan failed');
-      expectSpaceDetailsShown();
+      expectWelcomeStillShown();
       expect(SAVED()).toBeNull();
       expect(
         screen.queryByText('scan failed', {
@@ -912,16 +925,16 @@ describe('AppShell: Welcome dialog actions', () => {
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
-      await click('Create');
-      await screen.findByRole('alert');
+      await waitFor(() =>
+        expect(bootstrap).toHaveBeenCalledWith('/Users/me/Broken', expect.anything())
+      );
+      await settle();
 
       expect(SAVED()).toBe(before);
-      expectSpaceDetailsShown();
+      expectWelcomeStillShown();
       // Still the missing-folder state, not an error screen: choosing again works.
       tauri.openDialog.mockResolvedValue('/Users/me/Notes');
-      await click('Go back');
       await click('Select a folder');
-      await click('Create');
       expect(await screen.findByTestId('open-root')).toHaveTextContent(
         '/Users/me/Notes'
       );
@@ -929,24 +942,22 @@ describe('AppShell: Welcome dialog actions', () => {
   });
 
   describe('Create a new space', () => {
-    it('swaps WelcomeScreen for SpaceDetails and back inside the same, still-mounted overlay', async () => {
+    it('swaps WelcomeScreen for SpaceDetails and back, each in its own dialog, never more than one overlay at a time', async () => {
       render(<AppShell />);
       await screen.findByText(WELCOME);
       const overlay = document.querySelector('.overlay');
-      const content = document.querySelector('.overlay__content');
 
       await click('Create a new space');
       expect(await screen.findByText('Space name')).toBeInTheDocument();
       expect(screen.queryByText(WELCOME)).toBeNull();
-      expect(document.querySelector('.overlay')).toBe(overlay);
-      expect(document.querySelector('.overlay__content')).toBe(content);
+      // Each screen is its own (keyed) Dialog, so its appear animation plays on every swap.
+      expect(document.querySelector('.overlay')).not.toBe(overlay);
       expect(document.querySelectorAll('.overlay')).toHaveLength(1);
       // Location is under the user's own Documents folder.
-      expect(screen.getByText('Documents/')).toBeInTheDocument();
+      expect(locationValue()).toBe('Documents/');
 
       await click('Go back');
       expect(await screen.findByText(WELCOME)).toBeInTheDocument();
-      expect(document.querySelector('.overlay')).toBe(overlay);
       expect(document.querySelectorAll('.overlay')).toHaveLength(1);
     });
 
@@ -959,7 +970,7 @@ describe('AppShell: Welcome dialog actions', () => {
       await screen.findByText('Space name');
 
       await typeName('  Personal ');
-      expect(screen.getByText('Documents/Personal')).toBeInTheDocument();
+      expect(locationValue()).toBe('Documents/Personal');
       await click('Create');
 
       await waitFor(() =>
@@ -1020,10 +1031,11 @@ describe('AppShell: Welcome dialog actions', () => {
     });
 
     it('hands an uploaded image to the opened Space, which stores a Space-relative reference to its own copy', async () => {
-      tauri.openDialog.mockResolvedValueOnce('/Volumes/Drive/Vault');
       render(<AppShell />);
       await screen.findByText(WELCOME);
-      await click('Select a folder');
+      await click('Create a new space');
+      await screen.findByText('Space name');
+      await typeName('Vault');
 
       tauri.openDialog.mockResolvedValueOnce('/Users/me/Pictures/logo.png');
       await act(async () => screen.getByLabelText('Change avatar').click());
@@ -1032,34 +1044,39 @@ describe('AppShell: Welcome dialog actions', () => {
       await click('Create');
 
       expect(await screen.findByTestId('open-root')).toHaveTextContent(
-        '/Volumes/Drive/Vault'
+        '/Users/me/Documents/Vault'
       );
       expect(created.at(-1)!.applySpaceProfile).toHaveBeenCalledWith({
         avatar: { type: 'image', sourcePath: '/Users/me/Pictures/logo.png' },
       });
-      expect(profileFiles.get('/Volumes/Drive/Vault')?.avatar).toEqual({
+      expect(profileFiles.get('/Users/me/Documents/Vault')?.avatar).toEqual({
         type: 'image',
         src: 'Assets/logo.png',
       });
       expect(JSON.parse(SAVED()!)).toEqual({
-        paths: ['/Volumes/Drive/Vault'],
-        activePath: '/Volumes/Drive/Vault',
+        paths: ['/Users/me/Documents/Vault'],
+        activePath: '/Users/me/Documents/Vault',
       });
     });
 
     it('does not remember the avatar of a space that failed to open', async () => {
-      tauri.openDialog.mockResolvedValueOnce('/Users/me/Broken');
       render(<AppShell />);
       await screen.findByText(WELCOME);
-      await click('Select a folder');
+      await click('Create a new space');
+      await screen.findByText('Space name');
+      await typeName('Broken');
       await act(async () => screen.getByLabelText('Change avatar').click());
       await act(async () =>
         screen.getAllByLabelText('grinning face')[0]!.click()
       );
       await click('Create');
-      await screen.findByRole('alert');
+      await waitFor(() =>
+        expect(bootstrap).toHaveBeenCalledWith('/Users/me/Documents/Broken', expect.anything())
+      );
+      await settle();
 
       expect(SAVED()).toBeNull();
+      expect(profileFiles.get('/Users/me/Documents/Broken')?.avatar).toBeUndefined();
     });
 
     it.each(['', '   ', '..', '.', '../evil', 'a/b', '/etc', 'a:b'])(
@@ -1072,17 +1089,17 @@ describe('AppShell: Welcome dialog actions', () => {
 
         await typeName(name);
         await click('Create');
+        await settle();
 
-        expect(await screen.findByRole('alert')).toHaveTextContent(
-          'Enter a name'
-        );
+        // Refused: nothing is created or opened, and the screen stays for another name.
         expect(tauri.mkdir).not.toHaveBeenCalled();
         expect(bootstrap).not.toHaveBeenCalled();
         expect(SAVED()).toBeNull();
+        expect(screen.getByText('Space name')).toBeInTheDocument();
       }
     );
 
-    it('never adopts or overwrites an existing folder: says so and lets the user pick another name', async () => {
+    it('never adopts or overwrites an existing folder: stays put and lets the user pick another name', async () => {
       tauri.mkdir.mockRejectedValueOnce('File exists (os error 17)');
       render(<AppShell />);
       await screen.findByText(WELCOME);
@@ -1091,23 +1108,22 @@ describe('AppShell: Welcome dialog actions', () => {
 
       await typeName('Personal');
       await click('Create');
+      await settle();
 
-      expect(await screen.findByRole('alert')).toHaveTextContent(
-        'already exists'
-      );
+      expect(tauri.mkdir).toHaveBeenCalledTimes(1);
       expect(bootstrap).not.toHaveBeenCalled();
       expect(SAVED()).toBeNull();
+      expect(screen.getByText('Space name')).toBeInTheDocument();
 
-      // Editing the name clears the message; another name goes through.
+      // Another name goes through.
       await typeName('Work');
-      expect(screen.queryByRole('alert')).toBeNull();
       await click('Create');
       expect(await screen.findByTestId('open-root')).toHaveTextContent(
         '/Users/me/Documents/Work'
       );
     });
 
-    it('reports a directory-creation failure and keeps the dialog', async () => {
+    it('keeps the dialog when the directory cannot be created', async () => {
       tauri.mkdir.mockRejectedValueOnce('Permission denied (os error 13)');
       render(<AppShell />);
       await screen.findByText(WELCOME);
@@ -1116,10 +1132,9 @@ describe('AppShell: Welcome dialog actions', () => {
 
       await typeName('Personal');
       await click('Create');
+      await settle();
 
-      expect(await screen.findByRole('alert')).toHaveTextContent(
-        'doesn’t have permission'
-      );
+      expect(tauri.mkdir).toHaveBeenCalledTimes(1);
       expect(bootstrap).not.toHaveBeenCalled();
       expect(screen.getByText('Space name')).toBeInTheDocument();
       expect(SAVED()).toBeNull();
@@ -1139,10 +1154,9 @@ describe('AppShell: Welcome dialog actions', () => {
       await typeName('Personal');
 
       await click('Create');
-      const alert = await screen.findByRole('alert');
-      expect(alert).toHaveTextContent('The folder was created');
-      // …and it names the folder it was trying to open, and nothing wrong was made active.
-      expect(alert).toHaveTextContent('/Users/me/Documents/Personal');
+      await waitFor(() => expect(bootstrap).toHaveBeenCalledTimes(1));
+      await settle();
+      // The folder it tried to open is the one just created, and nothing wrong was made active.
       expect(bootstrap.mock.calls.map(([root]) => root)).toEqual([
         '/Users/me/Documents/Personal',
       ]);
@@ -1257,7 +1271,6 @@ describe('AppShell: the open vault disappears while the app is running', () => {
       tauri.openDialog.mockResolvedValue('/Users/me/Notes');
 
       await click('Select a folder');
-      await click('Create');
       await waitFor(() =>
         expect(bootstrap).toHaveBeenCalledWith(
           '/Users/me/Notes',
@@ -1265,7 +1278,7 @@ describe('AppShell: the open vault disappears while the app is running', () => {
         )
       );
       expect(JSON.parse(SAVED()!).activePath).toBe('/Users/me/A');
-      expectSpaceDetailsShown();
+      expectWelcomeStillShown();
 
       await act(async () => gate.resolve());
       expect(await screen.findByTestId('open-root')).toHaveTextContent(
@@ -1286,10 +1299,12 @@ describe('AppShell: the open vault disappears while the app is running', () => {
       tauri.openDialog.mockResolvedValue('/Users/me/Broken');
 
       await click('Select a folder');
-      await click('Create');
+      await waitFor(() =>
+        expect(bootstrap).toHaveBeenCalledWith('/Users/me/Broken', expect.anything())
+      );
+      await settle();
 
-      expect(await screen.findByRole('alert')).toHaveTextContent('scan failed');
-      expectSpaceDetailsShown();
+      expectWelcomeStillShown();
       expect(SAVED()).toBe(before);
     });
 
@@ -1973,10 +1988,10 @@ describe('AppShell: the sidebar "New space" picker', () => {
   });
 
   it('shows Go back and no × in the Space Settings reached from the Welcome screen', async () => {
-    tauri.openDialog.mockResolvedValueOnce('/Users/me/Notes');
     render(<AppShell />);
     await screen.findByText(WELCOME);
-    await click('Select a folder');
+    await click('Create a new space');
+    await screen.findByText('Space name');
 
     expect(screen.getByText('Go back')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();
@@ -2859,12 +2874,14 @@ describe('AppShell: switching Spaces', () => {
         )
       ).toBeInTheDocument();
       // Which space it is, and where Clutter last had it.
-      expect(document.querySelector('.missing-space__name')).toHaveTextContent(
-        'Missing'
-      );
-      expect(document.querySelector('.missing-space__path')).toHaveTextContent(
-        '/Missing'
-      );
+      expect(
+        document.querySelector('.missing-space__entry .settings-entry__title')
+      ).toHaveTextContent('Missing');
+      expect(
+        document.querySelector(
+          '.missing-space__entry .settings-entry__description'
+        )
+      ).toHaveTextContent('/Missing');
       expect(
         screen.getByRole('button', { name: 'Change location' })
       ).toBeInTheDocument();
@@ -2880,16 +2897,17 @@ describe('AppShell: switching Spaces', () => {
       );
     });
 
-    it('puts Change location on the left and Remove space (danger) on the right, like "Delete permanently?"', async () => {
+    it('puts Remove space (danger outline) on the left and Change location (primary) on the right', async () => {
       await chooseMissing();
       const change = screen.getByRole('button', { name: 'Change location' });
       const remove = screen.getByRole('button', { name: 'Remove space' });
 
       expect(
-        change.compareDocumentPosition(remove) &
+        remove.compareDocumentPosition(change) &
           Node.DOCUMENT_POSITION_FOLLOWING
       ).toBeTruthy();
-      expect(remove).toHaveClass('button--danger');
+      expect(remove).toHaveClass('button--outline-danger');
+      expect(change).toHaveClass('button--primary');
       expect(change).not.toHaveClass('button--danger');
     });
 

@@ -13,6 +13,11 @@ import './Overlay.css';
 
 const CENTERED_ANCHOR_PLACEHOLDER: RefObject<HTMLElement> = { current: null };
 
+// Pointer travel (screen px) between press and click above which the gesture was a window drag, not a click.
+const DRAG_MOVE_THRESHOLD_PX = 4;
+// How long a drag-region click waits for a second press before it counts as a single click.
+const DOUBLE_CLICK_WINDOW_MS = 350;
+
 function isInDragRegion(target: EventTarget): boolean {
   return target instanceof Element && target.closest('[data-tauri-drag-region]') !== null;
 }
@@ -35,7 +40,19 @@ export function Overlay(props: OverlayProps) {
 
   const isCentered = props.position === 'centered';
   const surfaceRef = useRef<HTMLDivElement>(null);
-  const pressStartedOnDragRegionRef = useRef(false);
+  const pressRef = useRef<{ screenX: number; screenY: number } | null>(null);
+  const dragRegionDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  const clearDragRegionDismissal = () => {
+    if (dragRegionDismissTimerRef.current !== null) {
+      clearTimeout(dragRegionDismissTimerRef.current);
+      dragRegionDismissTimerRef.current = null;
+    }
+  };
+  // A pending dismissal must not outlive the overlay (closed by Escape, a menu item, or unmount).
+  useEffect(() => clearDragRegionDismissal, [open]);
 
   const focusRestoreRef = isCentered
     ? returnFocusRef
@@ -105,22 +122,40 @@ export function Overlay(props: OverlayProps) {
             .filter(Boolean)
             .join(' ')}
           onPointerDown={(event) => {
-            pressStartedOnDragRegionRef.current = isInDragRegion(event.target);
+            // A second press inside the double-click window is the other half of a maximise/restore: cancel the
+            // dismissal the first click scheduled.
+            clearDragRegionDismissal();
+            pressRef.current = isInDragRegion(event.target)
+              ? { screenX: event.screenX, screenY: event.screenY }
+              : null;
           }}
           onClick={(event) => {
             event.stopPropagation();
-            // The drag strip lives inside the backdrop. A press that began on it is window chrome (drag, or a
-            // double-click to maximise/restore), never a click outside the overlay. The press is what counts, not
-            // the click's target: the native resize moves the window under the pointer mid-gesture, so the
-            // resulting click can land on the backdrop itself, or on the backdrop as the common ancestor.
-            const pressedOnDragRegion = pressStartedOnDragRegionRef.current;
-            pressStartedOnDragRegionRef.current = false;
-            if (pressedOnDragRegion || isInDragRegion(event.target)) {
+            // The press is what counts, not the click's target: the native window drag moves the window under the
+            // pointer mid-gesture, so the resulting click can land on the backdrop itself.
+            const press = pressRef.current;
+            pressRef.current = null;
+            if (!press && !isInDragRegion(event.target)) {
+              if (dismissible) {
+                onClose();
+              }
               return;
             }
-            if (dismissible) {
-              onClose();
+            // Drag region: a click is window chrome unless it is a plain, stationary single click. A drag moves the
+            // pointer in screen space (the window moves with it), so it is skipped here.
+            const moved =
+              press !== null &&
+              Math.hypot(event.screenX - press.screenX, event.screenY - press.screenY) > DRAG_MOVE_THRESHOLD_PX;
+            if (!dismissible || moved || event.detail >= 2) {
+              return;
             }
+            // The first click of a double-click is indistinguishable from a single click, so dismissal waits out the
+            // double-click window; a second press cancels it (see `onPointerDown`).
+            clearDragRegionDismissal();
+            dragRegionDismissTimerRef.current = setTimeout(() => {
+              dragRegionDismissTimerRef.current = null;
+              onCloseRef.current();
+            }, DOUBLE_CLICK_WINDOW_MS);
           }}
         >
           {dragRegion && <TauriDragStrip />}
