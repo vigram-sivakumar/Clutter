@@ -164,6 +164,7 @@ pub fn run() {
         })
         .on_menu_event(app_menu::handle_event)
         .manage(vault_watcher::VaultWatcherState::default())
+        .manage(app_menu::ZoomState::default())
         .invoke_handler(tauri::generate_handler![
             frontend_ready,
             frontend_failed,

@@ -30,12 +30,26 @@ const SHORTCUT_GROUPS: readonly { title: string; entries: readonly ShortcutEntry
       { title: 'Open Trash', keys: ['shift', 'command', { label: 'Delete' }] },
       { title: 'Go to Notes', keys: ['command', { label: '1' }] },
       { title: 'Go to Daily notes', keys: ['command', { label: '2' }] },
+      { title: 'Previous daily note', keys: ['control', 'command', 'arrowLeft'] },
+      { title: 'Next daily note', keys: ['control', 'command', 'arrowRight'] },
       { title: 'Go to Tasks', keys: ['command', { label: '3' }] },
       { title: 'Go to Tags', keys: ['command', { label: '4' }] },
     ],
   },
   { title: 'Create', entries: [{ title: 'New note', keys: ['command', { label: 'N' }] }, { title: 'Today’s daily note', keys: ['shift', 'command', { label: 'D' }] }, { title: 'New folder', keys: ['shift', 'command', { label: 'N' }] }, { title: 'New task', keys: ['shift', 'command', { label: 'T' }] }, { title: 'New tag', keys: ['option', 'command', { label: 'T' }] }, 'New template'] },
-  { title: 'Interface', entries: [{ title: 'Toggle sidebar', keys: ['command', { label: '\\' }] }, { title: 'Toggle full screen', keys: ['control', 'command', { label: 'F' }] }, { title: 'Toggle cover image', keys: ['shift', 'command', { label: '\\' }] }, { title: 'Close dialog / dismiss overlay', keys: [{ label: 'Esc' }] }, { title: 'Cancel', keys: [{ label: 'Esc' }] }] },
+  {
+    title: 'Edit',
+    entries: [
+      { title: 'Find in note', keys: ['command', { label: 'F' }] },
+      { title: 'Undo', keys: ['command', { label: 'Z' }] },
+      { title: 'Redo', keys: ['shift', 'command', { label: 'Z' }] },
+      { title: 'Move to', keys: ['shift', 'command', { label: 'M' }] },
+    ],
+  },
+  { title: 'Interface', entries: [{ title: 'Toggle sidebar', keys: ['command', { label: '\\' }] }, { title: 'Toggle full screen', keys: ['control', 'command', { label: 'F' }] }, { title: 'Toggle cover image', keys: ['shift', 'command', { label: '\\' }] }, { title: 'Toggle references', keys: ['option', 'command', { label: 'R' }] }, { title: 'Toggle property list', keys: ['option', 'command', { label: 'P' }] },
+      { title: 'Zoom in', keys: ['command', { label: '+' }] },
+      { title: 'Zoom out', keys: ['command', { label: '-' }] },
+      { title: 'Actual size', keys: ['command', { label: '0' }] }, { title: 'Close dialog / dismiss overlay', keys: [{ label: 'Esc' }] }, { title: 'Cancel', keys: [{ label: 'Esc' }] }] },
   { title: 'Application', entries: [{ title: 'Show keyboard shortcuts', keys: ['command', { label: '/' }] }, { title: 'Move to trash', keys: ['command', { label: 'Delete' }] }, { title: 'Quit Clutter', keys: ['command', { label: 'Q' }] }] },
 ];
 
