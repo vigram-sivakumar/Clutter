@@ -118,10 +118,10 @@ describe('Properties — the zero-property default', () => {
 
     expect(rows()).toEqual(['New property']);
     // The picker offers every system property (none listed yet) and the six types.
-    expect(menuItems()).toEqual(['Tags', 'Aliases', 'Created', 'Last edited', 'Text', 'Date', 'URL', 'Number', 'Boolean', 'Multi-select']);
-    // A fresh section has nothing to hide or delete yet.
-    expect(screen.queryByRole('menuitem', { name: 'Hide properties' })).toBeNull();
-    expect(screen.queryByRole('menuitem', { name: 'Delete all' })).toBeNull();
+    expect(menuItems()).toEqual(['Tags', 'Aliases', 'Created', 'Last edited', 'Text', 'Date', 'URL', 'Number', 'Boolean', 'Multi-select', 'Hide properties', 'Delete all']);
+    // A fresh section has nothing to hide or delete yet: both actions are listed, disabled.
+    expect(screen.getByRole('menuitem', { name: 'Hide properties' })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('menuitem', { name: 'Delete all' })).toHaveAttribute('aria-disabled', 'true');
 
     fireEvent.keyDown(screen.getByRole('menu', { name: 'Add properties' }), { key: 'Escape' });
 

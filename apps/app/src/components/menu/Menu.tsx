@@ -46,6 +46,7 @@ export function Menu({
   onArrowLeft,
   autoFocus = true,
   preferredActiveId,
+  className,
   ...props
 }: MenuProps) {
   const internalMenuRef = useRef<HTMLDivElement>(null);
@@ -70,7 +71,7 @@ export function Menu({
         {...props}
         ref={menuRef}
         role="menu"
-        className={['menu', `menu--${size}`].filter(Boolean).join(' ')}
+        className={['menu', `menu--${size}`, className].filter(Boolean).join(' ')}
         tabIndex={0}
         aria-activedescendant={keyboard.activeId}
         onKeyDown={keyboard.handleKeyDown}

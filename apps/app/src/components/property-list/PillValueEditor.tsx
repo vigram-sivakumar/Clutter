@@ -97,7 +97,7 @@ export function PillValueEditor({ value, parse, isTaken, onCommit, onCancel }: P
   return (
     <Input
       ref={inputRef}
-      className={['pill pill--editing', shakeClassName]
+      className={['pill pill--small pill--editing', shakeClassName]
         .filter(Boolean)
         .join(' ')}
       hasBackground={false}

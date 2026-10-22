@@ -151,7 +151,7 @@ Neutrals    charcoal / gray
 
   /* Calendar */
   --calendar-accent: #f32035;
-  --calendar-on-accent-foreground: rgba(255, 255, 255, 0.82);
+  --calendar-on-accent-foreground: white;
 
   /* Checkbox */
   --checkbox-accent: var(--surface-brand);
@@ -309,7 +309,7 @@ Neutrals    charcoal / gray
 
   /* Calendar */
   --calendar-accent: #f32035;
-  --calendar-on-accent-foreground: var(--foreground-inverse);
+  --calendar-on-accent-foreground: white;
 
   /* Checkbox */
   --checkbox-accent: var(--surface-brand);

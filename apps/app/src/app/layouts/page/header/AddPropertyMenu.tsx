@@ -6,6 +6,7 @@ import type { CustomPropertyType } from '@core/properties/Property.types';
 import type { PageSystemPropertyKey } from '@core/properties/systemProperties';
 import { AppIcon } from '@shared/icon';
 import type { iconRegistry } from '@shared/icon/iconRegistry';
+import './AddPropertyMenu.css';
 
 /** A system Property that exists but isn't shown on this page, as the menu lists it. */
 export interface AddableSystemProperty {
@@ -30,6 +31,8 @@ export interface AddPropertyMenuProps {
   onHideProperties?(): void;
   /** Starts removing every property from the note (the host confirms first). Omitted: no "Delete all" action. */
   onDeleteAll?(): void;
+  /** Shows Hide properties and Delete all but disabled — for a page with no properties yet, where neither has anything to act on. */
+  disableActions?: boolean;
 }
 
 /**
@@ -52,12 +55,18 @@ export function AddPropertyMenu({
   onAddCustomProperty,
   onHideProperties,
   onDeleteAll,
+  disableActions = false,
 }: AddPropertyMenuProps) {
-  const showSystem = Boolean(onAddSystemProperty) && systemProperties.length > 0;
+  const showSystem =
+    Boolean(onAddSystemProperty) && systemProperties.length > 0;
   const hasActions = Boolean(onHideProperties || onDeleteAll);
 
   return (
-    <Menu size="medium" aria-label="Add properties">
+    <Menu
+      size="medium"
+      aria-label="Add properties"
+      className="add-property-menu"
+    >
       <MenuGroupTitle>Type</MenuGroupTitle>
       {showSystem &&
         systemProperties.map((property) => (
@@ -88,6 +97,7 @@ export function AddPropertyMenu({
       {onHideProperties && (
         <MenuItem
           leading={<AppIcon icon="hide" />}
+          disabled={disableActions}
           onClick={(event) => {
             event.stopPropagation();
             onHideProperties();
@@ -100,6 +110,7 @@ export function AddPropertyMenu({
         <MenuItem
           variant="danger"
           leading={<AppIcon icon="trash" />}
+          disabled={disableActions}
           onClick={(event) => {
             event.stopPropagation();
             onDeleteAll();

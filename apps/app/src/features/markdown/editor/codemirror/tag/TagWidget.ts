@@ -18,6 +18,8 @@ import type { TagResolution } from './tagResolution';
  * whether a widget decoration exists, so a `null` render would silently
  * lose whole-token atomic deletion, not just the visual replacement.
  *
+ * A tag the host resolves with an `icon` shows that emoji instead of the `#` (`tok-tag-prefix--emoji`).
+ *
  * `tok-tag` is the class hook for styling; `status` is additionally
  * exposed as its own `data-` attribute, mirroring `WikiLinkWidget`'s
  * `data-wikilink-status` pattern.
@@ -45,6 +47,7 @@ export class TagWidget extends WidgetType {
       this.raw === other.raw &&
       this.resolution.status === other.resolution.status &&
       this.resolution.displayLabel === other.resolution.displayLabel &&
+      this.resolution.icon === other.resolution.icon &&
       this.extraClasses.length === other.extraClasses.length &&
       this.extraClasses.every((cls, i) => cls === other.extraClasses[i])
     );
@@ -65,9 +68,16 @@ export class TagWidget extends WidgetType {
     );
     span.dataset.tagStatus = this.resolution.status;
 
+    // The prefix is the `#`, or — for a tag with an assigned emoji the host chose to show — that emoji in its place (plain
+    // text, not an icon, and not dimmed). The aria-label above is unchanged: the emoji is decoration.
     const prefix = document.createElement('span');
     prefix.classList.add('tok-tag-prefix');
-    prefix.textContent = '#';
+    if (this.resolution.icon) {
+      prefix.classList.add('tok-tag-prefix--emoji');
+      prefix.textContent = this.resolution.icon;
+    } else {
+      prefix.textContent = '#';
+    }
     span.append(prefix, document.createTextNode(this.resolution.displayLabel));
 
     return span;

@@ -29,8 +29,22 @@ import { formatTagDisplayLabel } from '@core/vault/models/Tag';
  *   "not yet observed anywhere in the vault," not "needs to be created."
  */
 export type TagResolution =
-  | { readonly status: 'resolved'; readonly displayLabel: string; readonly activate: () => void }
-  | { readonly status: 'unresolved'; readonly displayLabel: string; readonly activate: () => void };
+  | {
+      readonly status: 'resolved';
+      readonly displayLabel: string;
+      /**
+       * The tag's assigned emoji, drawn in place of the `#` — only when the host decides it should be shown (the Show
+       * tag emojis setting, applied by `createTagResolver`). Absent: the usual `#`.
+       */
+      readonly icon?: string;
+      readonly activate: () => void;
+    }
+  | {
+      readonly status: 'unresolved';
+      readonly displayLabel: string;
+      readonly icon?: string;
+      readonly activate: () => void;
+    };
 
 /**
  * Injected by the feature/app layer — the editor never imports `Vault`,

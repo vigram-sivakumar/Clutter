@@ -269,6 +269,13 @@ export interface MarkdownEditorProps {
    */
   readonly resolveTag?: ResolveTag;
   /**
+   * Any value that changes (compared by identity) when what `resolveTag` returns for a tag changes without the note
+   * changing — a tag's emoji being changed in the sidebar, say. The editor rebuilds its inline decorations when it
+   * changes, so open tag references redraw at once; the text, selection, undo history and scroll are untouched. Absent:
+   * decorations only follow edits, as before. The host supplies it (it owns the tag model); the editor never reads it.
+   */
+  readonly tagResolutionRevision?: unknown;
+  /**
    * Supplies Tag autocomplete candidates for a given in-progress
    * `#query` — supplied entirely by the feature/app layer, same
    * injected-boundary shape as `getWikiLinkSuggestions` above. Only
@@ -391,12 +398,6 @@ export interface MarkdownEditorHandle {
    * default, which otherwise makes a bare `focus()` land there).
    */
   focusAtNewLineAtStart(): void;
-  /**
-   * Inserts a literal Markdown horizontal rule (`---` plus a newline) at the very start of the body — an
-   * ordinary undoable edit, reported through `onEdit` — unless the body already begins with a rule, so
-   * calling it twice never stacks two. The caret stays with the text it was in; focus is not touched.
-   */
-  insertSeparatorAtStart(): void;
   /**
    * Focuses the editor with the caret at the document position nearest the
    * given viewport point (clamped: below the last line is the end of the

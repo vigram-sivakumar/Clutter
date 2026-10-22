@@ -5,7 +5,8 @@ import { useFolderItemLimit } from '@shared/helpers/folderItemLimitPreference';
 import { collectionViewKeyForSidebarLevel } from '@core/application/collection/collectionViewKey';
 import { displayedOrderIds } from '@features/notes/sidebar/sidebarSort';
 import { forgetInLevelOrder, levelOrderContextFor } from '@features/notes/sidebar/sidebarOrderActions';
-import type { TaskGroupId } from '@features/tasks/helpers/groupTasks';
+import type { TaskExpansionKey } from '@features/tasks/helpers/groupTasks';
+import { useTaskItemLimit } from '@shared/helpers/taskItemLimitPreference';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import type { TaskDisplayConfig } from '@features/tasks/helpers/groupTasks';
 import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
@@ -107,7 +108,10 @@ export function Sidebar({
   // to the limit, so none is left showing everything (or part of it) under a limit that no longer says so.
   const folderItemLimit = useFolderItemLimit();
   useEffect(() => setExpandedFolders((prev) => (prev.length > 0 ? [] : prev)), [folderItemLimit]);
-  const [expandedTaskGroups, setExpandedTaskGroups] = useState<readonly TaskGroupId[]>([]);
+  const [expandedTaskGroups, setExpandedTaskGroups] = useState<readonly TaskExpansionKey[]>([]);
+  // Same as the folders above: a new Tasks "Show" limit applies to every list alike, so every one opened with "N more" goes back to it.
+  const taskItemLimit = useTaskItemLimit();
+  useEffect(() => setExpandedTaskGroups((prev) => (prev.length > 0 ? [] : prev)), [taskItemLimit]);
 
   // The creation dialogs are hosted here, not inside their panels, so the top controls' menu and
   // each panel's own "New" row open the very same dialog whichever sidebar tab is mounted.

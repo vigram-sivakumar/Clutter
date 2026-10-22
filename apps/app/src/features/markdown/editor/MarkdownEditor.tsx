@@ -88,9 +88,6 @@ import type {
   MarkdownEditorProps,
 } from './MarkdownEditor.types';
 
-/** A first line that is already a thematic break (`---`, `***`, `___`, spaced or longer). */
-const STARTS_WITH_RULE = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
-
 export type {
   MarkdownEditorHandle,
   MarkdownEditorProps,
@@ -129,6 +126,7 @@ export type { ResolveImageResource } from './codemirror/image/imageResourceResol
 export type { ResolveImageSrc, ImageSrcResolution } from './codemirror/image/imageSrcResolution';
 import { refreshInlinePresentation } from './codemirror/highlight/inlineLivePreviewRegion';
 import { subscribeDateFormatChoice } from '@shared/helpers/time/dateFormatPreference';
+import { subscribeShowTagEmojis } from '@shared/helpers/showTagEmojisPreference';
 import { subscribeSystemLocale } from '@shared/helpers/time/dateLocale';
 import './MarkdownEditor.css';
 // Shared embed/media CSS — genuinely used by more than one embed widget
@@ -269,6 +267,7 @@ export const MarkdownEditor = forwardRef<
     resolveImageSrc,
     pasteAssets,
     resolveTag,
+    tagResolutionRevision,
     getTagSuggestions,
     resolveDate,
     onSetCoverImage,
@@ -295,12 +294,25 @@ export const MarkdownEditor = forwardRef<
     };
     const unsubscribeFormat = subscribeDateFormatChoice(refresh);
     const unsubscribeLocale = subscribeSystemLocale(refresh);
+    // A tag's emoji follows the Show tag emojis setting (the tag resolver reads it as each tag is resolved).
+    const unsubscribeTagEmojis = subscribeShowTagEmojis(refresh);
 
     return () => {
       unsubscribeFormat();
       unsubscribeLocale();
+      unsubscribeTagEmojis();
     };
   }, []);
+  // What `resolveTag` returns can change while the note stays the same (a tag's emoji is changed elsewhere): the host
+  // signals it through `tagResolutionRevision`, and the inline decorations are rebuilt — never the editor itself.
+  const lastTagResolutionRevisionRef = useRef(tagResolutionRevision);
+  useEffect(() => {
+    if (Object.is(lastTagResolutionRevisionRef.current, tagResolutionRevision)) {
+      return;
+    }
+    lastTagResolutionRevisionRef.current = tagResolutionRevision;
+    viewRef.current?.dispatch({ effects: refreshInlinePresentation.of(null) });
+  }, [tagResolutionRevision]);
   /**
    * The mount effect's own cleanup, stored so the Tauri-dev-only HMR
    * handler below (`ENABLE_TAURI_DEV_EDITOR_HMR`) can tear down and
@@ -1469,19 +1481,6 @@ export const MarkdownEditor = forwardRef<
         scrollIntoView: true,
       });
       view.focus();
-    },
-    insertSeparatorAtStart() {
-      const view = viewRef.current;
-      if (!view || readOnly || STARTS_WITH_RULE.test(view.state.doc.line(1).text)) {
-        return;
-      }
-      const changes = view.state.changes({ from: 0, insert: '---\n' });
-      view.dispatch({
-        changes,
-        // Mapped to the right so a caret at the start stays with its text, below the new rule.
-        selection: view.state.selection.map(changes, 1),
-        userEvent: 'input',
-      });
     },
     focusAtPoint(clientX, clientY) {
       const view = viewRef.current;

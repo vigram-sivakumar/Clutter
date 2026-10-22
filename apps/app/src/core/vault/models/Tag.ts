@@ -161,3 +161,13 @@ function capitalizeFirst(word: string): string {
 
   return (upper.length === first.length ? upper : first) + word.slice(first.length);
 }
+
+const TAG_NAME_COLLATOR = new Intl.Collator(undefined, { sensitivity: 'base' });
+
+/**
+ * The one order tags are listed in (alphabetical, case-insensitive): the tag index's projection sorts by it, and anything
+ * that places a tag among that list (the sidebar showing a rename in progress) uses it too, so the two cannot disagree.
+ */
+export function compareTagNames(a: string, b: string): number {
+  return TAG_NAME_COLLATOR.compare(a, b);
+}

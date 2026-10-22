@@ -1,0 +1,14 @@
+/* The Today section's title: an accent pill instead of plain header text. */
+.section-header[data-section='today'] .section-header__title {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: 18px;
+  padding-inline: 4px;
+  border-radius: 4px;
+  background: var(--calendar-accent);
+  /* color: var(--calendar-accent); */
+  border: 1px solid var(--calendar-accent);
+  color: var(--calendar-on-accent-foreground);
+  font-weight: var(--fw-semibold);
+}

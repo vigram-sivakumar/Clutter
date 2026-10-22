@@ -2,6 +2,7 @@ import type { Vault } from '@core/vault/models/Vault';
 import { formatTagDisplayLabel } from '@core/vault/models/Tag';
 import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
 import type { ResolveTag } from '@features/markdown/editor/MarkdownEditor';
+import { readShowTagEmojis } from '@shared/helpers/showTagEmojisPreference';
 
 /**
  * Composes `NavigationRouter` (and, as of separator-normalized display,
@@ -45,6 +46,9 @@ export function createTagResolver(
     return {
       status: 'resolved',
       displayLabel: formatTagDisplayLabel(preferred?.name ?? name),
+      // The tag's assigned emoji, unless the Show tag emojis setting is off (read each time a tag is resolved, so
+      // the editor, rebuilding its decorations on a change, follows it).
+      ...(readShowTagEmojis() && preferred?.icon ? { icon: preferred.icon } : {}),
       activate: () => {
         if (requireExisting && !vault.getTagByName(name)) {
           return;

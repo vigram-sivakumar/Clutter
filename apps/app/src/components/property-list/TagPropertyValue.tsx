@@ -4,6 +4,7 @@ import type { KeyboardEvent } from 'react';
 import { MenuItem } from '@components/menu/MenuItem';
 import { formatTagDisplayLabel, normalizeTagName, serializeTagName } from '@core/vault/models/Tag';
 import { isValidTagName } from '@core/vault/ingest/tag/tagScanner';
+import { useShowTagEmojis } from '@shared/helpers/showTagEmojisPreference';
 import type { GetTagSuggestions } from '@features/markdown/editor/codemirror/tag/tagSuggestion';
 
 import type { PropertyEditability } from './PropertyList.types';
@@ -22,6 +23,8 @@ type TagPropertyValueProps = {
   getSuggestions?: GetTagSuggestions;
   /** Opens a tag's Tag Collection on pill click (see PropertyList.types). */
   onOpenTag?(name: string): void;
+  /** A tag's assigned emoji, shown in place of its `#` (see PropertyList.types). */
+  getTagIcon?(name: string): string | undefined;
   /** Read-only: makes each pill dismissable (see PropertyList.types). */
   onRemoveValue?(index: number, value: string): void;
 } & PropertyEditability<string[]>;
@@ -54,17 +57,27 @@ function hasTag(tags: readonly string[], name: string): boolean {
  * plus an inline input.
  */
 export function TagPropertyValue(props: TagPropertyValueProps) {
+  // The Show tag emojis setting: off, no pill gets an emoji (the lookup is simply not used), so each keeps its `#`. Read
+  // here, so a change in Settings reaches an open editor at once.
+  const showTagEmojis = useShowTagEmojis();
+  const getTagIcon = showTagEmojis ? props.getTagIcon : undefined;
+
   if (!props.editable) {
     return (
       <PropertyValueCell>
         <span className="pill-list">
           {props.value.map((tag, index) => (
-            <TagPill
+            <Pill
+              size="small"
               key={tag}
-              tag={tag}
-              onOpen={props.onOpenTag}
+              onNavigate={props.onOpenTag && (() => props.onOpenTag!(tag))}
+              label={`Open tag ${tag}`}
               onRemove={props.onRemoveValue && (() => props.onRemoveValue!(index, tag))}
-            />
+              removeLabel={`Remove tag ${tag}`}
+            >
+              {tagPrefix(getTagIcon?.(tag))}
+              {formatTagDisplayLabel(tag)}
+            </Pill>
           ))}
         </span>
       </PropertyValueCell>
@@ -77,53 +90,21 @@ export function TagPropertyValue(props: TagPropertyValueProps) {
       value={props.value}
       getSuggestions={props.getSuggestions}
       onOpenTag={props.onOpenTag}
+      getTagIcon={getTagIcon}
       onCommit={props.onCommit}
     />
   );
 }
 
-interface TagPillProps {
-  tag: string;
-  /** Click (or Enter/Space) on the pill opens the tag's Tag Collection. */
-  onOpen?(name: string): void;
-  /** Instead of `onOpen`: click (or Enter/Space) decides itself — edit the tag, or open it (see TagPropertyEditor). */
-  onActivate?(): void;
-  /** Accessible name of the pill-as-button, with `onActivate`. */
-  /** Shows the hover dismiss button, which removes the tag. */
-  activateLabel?: string;
-  onRemove?(): void;
-}
-
 /**
- * One tag as a pill — the editor's inline tag look (same tokens, a dimmed
- * `#` prefix, `formatTagDisplayLabel` for the label), on the shared Pill.
- * With `onOpen`, the pill is a button opening the tag's Tag Collection.
+ * What comes before a tag's name on its pill: the dimmed `#`, or — for a tag with an assigned emoji — that emoji in its
+ * place, as plain text at full strength (not an icon).
  */
-function TagPill({ tag, onOpen, onActivate, activateLabel, onRemove }: TagPillProps) {
-  const content = (
-    <>
-      <span className="pill__prefix">#</span>
-      {formatTagDisplayLabel(tag)}
-    </>
-  );
-
-  if (onActivate) {
-    return (
-      <Pill onEdit={onActivate} label={activateLabel} onRemove={onRemove} removeLabel={`Remove tag ${tag}`}>
-        {content}
-      </Pill>
-    );
-  }
-
-  return (
-    <Pill
-      onNavigate={onOpen && (() => onOpen(tag))}
-      label={`Open tag ${tag}`}
-      onRemove={onRemove}
-      removeLabel={`Remove tag ${tag}`}
-    >
-      {content}
-    </Pill>
+function tagPrefix(emoji: string | undefined) {
+  return emoji ? (
+    <span className="pill__prefix pill__prefix--emoji">{emoji}</span>
+  ) : (
+    <span className="pill__prefix">#</span>
   );
 }
 
@@ -141,10 +122,12 @@ function findSuggestions(
 ): string[] {
   const text = query.trim().replace(/^#/, '');
 
-  if (!getSuggestions || text === '') {
+  if (!getSuggestions) {
     return [];
   }
 
+  // Nothing typed lists every tag (the suggester treats an empty query as a match for all), so a focused empty
+  // field already offers them; typing then narrows the list.
   return getSuggestions(text)
     .map(serializeTagName)
     .filter((tag) => !hasTag(existing, tag));
@@ -160,6 +143,7 @@ interface TagPropertyEditorProps {
   value: readonly string[];
   getSuggestions?: GetTagSuggestions;
   onOpenTag?(name: string): void;
+  getTagIcon?(name: string): string | undefined;
   /** Fired with the whole new tag list after each add or remove. */
   onCommit(value: string[]): void;
 }
@@ -175,8 +159,8 @@ interface TagPropertyEditorProps {
  * - Backspace in an empty input removes the last pill;
  * - leaving the field adds a valid pending tag and discards an invalid one.
  *
- * While typing, existing tags matching the text (and not already present)
- * show in a popover under the value, as a menu: the `.menu` surface with
+ * While the field is focused, existing tags matching the text — every tag when nothing is typed — (and not already
+ * present) show in a popover under the value, as a menu: the `.menu` surface with
  * real MenuItem rows. `Menu` itself isn't used because it only handles
  * keys while it has focus, and here the input must keep it — so, as in
  * PickerList, the input drives useMenuKeyboard (the same hook `Menu`
@@ -190,6 +174,7 @@ function TagPropertyEditor({
   value,
   getSuggestions,
   onOpenTag,
+  getTagIcon,
   onCommit,
 }: TagPropertyEditorProps) {
   const editor = usePillListEditor();
@@ -282,6 +267,7 @@ function TagPropertyEditor({
       isSuggesting={isSuggesting}
       className={shakeClassName}
       menuLabel="Tag suggestions"
+      releaseFocusOnBlur
       onKeyDown={handleKeyDown}
       onBlur={handleBlur}
       pills={value.map((tag, index) =>
@@ -303,17 +289,21 @@ function TagPropertyEditor({
             onCancel={() => setEditingIndex(null)}
           />
         ) : (
-          <TagPill
+          <Pill
+            size="small"
             key={`${index}-${tag}`}
-            tag={tag}
             // While the field is being edited a click edits the tag, as an alias does; otherwise it
             // opens the tag's collection (and, with no way to open one, edits).
-            onActivate={() =>
+            onEdit={() =>
               editor.shouldEditPill() || !onOpenTag ? setEditingIndex(index) : onOpenTag(tag)
             }
-            activateLabel={editor.isEditing || !onOpenTag ? `Edit tag ${tag}` : `Open tag ${tag}`}
+            label={editor.isEditing || !onOpenTag ? `Edit tag ${tag}` : `Open tag ${tag}`}
             onRemove={() => removeTag(tag)}
-          />
+            removeLabel={`Remove tag ${tag}`}
+          >
+            {tagPrefix(getTagIcon?.(tag))}
+            {formatTagDisplayLabel(tag)}
+          </Pill>
         )
       )}
       suggestionRows={suggestions.map((tag) => {

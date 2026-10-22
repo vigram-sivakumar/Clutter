@@ -9,14 +9,21 @@
   padding: var(--space-12);
 
   box-shadow: var(--shadow-inset-default), var(--shadow-md);
-  width: 280px;
+  width: calc(280px - (var(--space-12) * 2));
 }
 
 .task-date-picker .calendar-toggle {
   display: none;
 }
 
+/* Same rule as a menu's divider (.menu__divider): inset from the picker's content edges, not edge to edge. */
+.task-date-picker__divider {
+  height: 1px;
+  margin: var(--space-8);
+  background: var(--border-default);
+}
+
 .task-date-picker__clear {
-  align-self: flex-end;
-  margin-top: var(--space-8);
+  /* Left-aligned, full width: the row fills the picker like a menu row. */
+  align-self: stretch;
 }

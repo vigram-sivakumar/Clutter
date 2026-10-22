@@ -6,6 +6,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 
 import { PropertyList } from './PropertyList';
 import { TagPropertyValue, parseTagInput } from './TagPropertyValue';
+import { writeShowTagEmojis } from '@shared/helpers/showTagEmojisPreference';
 
 // Overlay (the suggestion popover) positions itself with a ResizeObserver,
 // which jsdom lacks — same local stub as Overlay.test.tsx.
@@ -348,14 +349,33 @@ describe('TagPropertyValue — autocomplete', () => {
     expect(suggestionLabels()).toEqual(['#product design']);
   });
 
-  it('shows no menu for an empty query or when nothing matches', () => {
+  it('lists every tag when the focused field is empty (or only `#`), and narrows as text is typed', () => {
     render(<SuggestingTags initial={[]} />);
 
     act(() => getInput().focus());
-    type('#');
-    expect(suggestionLabels()).toEqual([]);
+    expect(suggestionLabels()).toEqual(['#design', '#product', '#product design', '#prototype', '#research']);
 
+    type('#');
+    expect(suggestionLabels()).toEqual(['#design', '#product', '#product design', '#prototype', '#research']);
+
+    type('#pro');
+    expect(suggestionLabels()).toEqual(['#product', '#product design', '#prototype']);
+  });
+
+  it('leaves out tags the property already holds, even with nothing typed', () => {
+    render(<SuggestingTags initial={['design', 'research']} />);
+
+    act(() => getInput().focus());
+
+    expect(suggestionLabels()).toEqual(['#product', '#product design', '#prototype']);
+  });
+
+  it('shows no menu when nothing matches', () => {
+    render(<SuggestingTags initial={[]} />);
+
+    act(() => getInput().focus());
     type('#zzz');
+
     expect(suggestionLabels()).toEqual([]);
   });
 
@@ -368,7 +388,8 @@ describe('TagPropertyValue — autocomplete', () => {
 
     expect(storedValue()).toEqual(['design', 'product-design']);
     expect(getInput().value).toBe('');
-    expect(suggestionLabels()).toEqual([]);
+    // The field is still focused and now empty: it offers the remaining tags again, minus the two it holds.
+    expect(suggestionLabels()).toEqual(['#product', '#prototype', '#research']);
   });
 
   it('Enter adds the highlighted suggestion; ArrowDown moves the highlight', () => {
@@ -459,7 +480,18 @@ describe('TagPropertyValue — autocomplete', () => {
     type('#pro');
     act(() => getInput().blur());
 
-    expect(suggestionLabels()).toEqual([]);
+    expect(getInput().getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('leaving an empty, focused field closes the list for good: focus is not handed back to reopen it', () => {
+    render(<SuggestingTags initial={[]} />);
+
+    act(() => getInput().focus());
+    expect(suggestionLabels().length).toBeGreaterThan(0);
+    act(() => getInput().blur());
+
+    expect(getInput().getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).not.toBe(getInput());
   });
 });
 
@@ -557,5 +589,148 @@ describe('PropertyList tag Property', () => {
     );
 
     expect(pillLabels()).toEqual(['#design']);
+  });
+});
+
+describe('TagPropertyValue — a tag with an assigned emoji', () => {
+  const ICONS: Record<string, string> = { design: '📦' };
+  const getTagIcon = (name: string) => ICONS[name];
+
+  function renderTags(props: { editable: boolean; onOpenTag?: (name: string) => void }) {
+    return render(
+      props.editable ? (
+        <TagPropertyValue name="Tags" value={['design', 'plain']} editable onCommit={vi.fn()} onOpenTag={props.onOpenTag} getTagIcon={getTagIcon} />
+      ) : (
+        <TagPropertyValue name="Tags" value={['design', 'plain']} editable={false} onOpenTag={props.onOpenTag} getTagIcon={getTagIcon} />
+      )
+    );
+  }
+
+  const pillOf = (text: string) =>
+    [...document.querySelectorAll<HTMLElement>('.pill')].find((pill) => pill.textContent!.includes(text))!;
+
+  it.each([true, false])('shows the emoji in place of the `#`, as plain text and not an icon (editable: %s)', (editable) => {
+    renderTags({ editable });
+    const pill = pillOf('design');
+    const prefix = pill.querySelector('.pill__label .pill__prefix')!;
+
+    expect(prefix.textContent).toBe('📦');
+    expect(prefix.classList.contains('pill__prefix--emoji')).toBe(true);
+    expect(pill.textContent).not.toContain('#');
+    expect(pill.querySelector('.pill__label .app-icon, .pill__label .emoji-icon, .pill__label svg')).toBeNull();
+    expect(pillLabels()[0]).toBe('📦design');
+  });
+
+  it.each([true, false])('keeps the `#` for a tag without an emoji (editable: %s)', (editable) => {
+    renderTags({ editable });
+    const prefix = pillOf('plain').querySelector('.pill__label .pill__prefix')!;
+
+    expect(prefix.textContent).toBe('#');
+    expect(prefix.classList.contains('pill__prefix--emoji')).toBe(false);
+  });
+
+  it('still opens the tag on click, with or without an emoji', () => {
+    const onOpenTag = vi.fn();
+    renderTags({ editable: false, onOpenTag });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open tag design' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open tag plain' }));
+
+    expect(onOpenTag.mock.calls.map((call) => call[0])).toEqual(['design', 'plain']);
+  });
+
+  it('still dismisses a tag with an emoji (read-only, onRemoveValue)', () => {
+    const onRemoveValue = vi.fn();
+    render(<TagPropertyValue name="Tags" value={['design']} editable={false} getTagIcon={getTagIcon} onRemoveValue={onRemoveValue} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove tag design' }));
+
+    expect(onRemoveValue).toHaveBeenCalledWith(0, 'design');
+  });
+
+  it('leaves the autocomplete rows alone: they keep the dimmed `#`', () => {
+    function Suggesting() {
+      const [value, setValue] = useState<string[]>([]);
+      return (
+        <TagPropertyValue name="Tags" value={value} editable onCommit={setValue} getTagIcon={getTagIcon} getSuggestions={() => ['design']} />
+      );
+    }
+    render(<Suggesting />);
+
+    act(() => getInput().focus());
+    fireEvent.change(getInput(), { target: { value: 'des' } });
+
+    const row = document.querySelector('.pill-list-editor__suggestions [role="menuitem"]')!;
+    expect(row.textContent).toBe('#design');
+  });
+});
+
+describe('TagPropertyValue — the Show tag emojis setting', () => {
+  const getTagIcon = (name: string) => (name === 'design' ? '📦' : undefined);
+  afterEach(() => localStorage.clear());
+
+  const pillOf = (text: string) =>
+    [...document.querySelectorAll<HTMLElement>('.pill')].find((pill) => pill.textContent!.includes(text))!;
+  const prefixOf = (text: string) => pillOf(text).querySelector('.pill__label .pill__prefix')!;
+  const tags = (editable: boolean) =>
+    editable ? (
+      <TagPropertyValue name="Tags" value={['design', 'plain']} editable onCommit={vi.fn()} getTagIcon={getTagIcon} />
+    ) : (
+      <TagPropertyValue name="Tags" value={['design', 'plain']} editable={false} getTagIcon={getTagIcon} />
+    );
+
+  it.each([true, false])('is on by default: the emoji replaces the `#` (editable: %s)', (editable) => {
+    render(tags(editable));
+
+    expect(prefixOf('design').textContent).toBe('📦');
+    expect(prefixOf('design').classList.contains('pill__prefix--emoji')).toBe(true);
+  });
+
+  it.each([true, false])('off: the tag keeps `# name`, with no emoji and no emoji styling or space (editable: %s)', (editable) => {
+    writeShowTagEmojis(false);
+    render(tags(editable));
+
+    expect(prefixOf('design').textContent).toBe('#');
+    expect(prefixOf('design').classList.contains('pill__prefix--emoji')).toBe(false);
+    expect(pillOf('design').textContent).not.toContain('📦');
+    expect(pillLabels()).toEqual(['#design', '#plain']);
+  });
+
+  it.each([true, false])('a tag without an emoji looks the same in both modes (editable: %s)', (editable) => {
+    const { unmount } = render(tags(editable));
+    const on = pillOf('plain').outerHTML;
+    unmount();
+
+    writeShowTagEmojis(false);
+    render(tags(editable));
+
+    expect(pillOf('plain').outerHTML).toBe(on);
+    expect(prefixOf('plain').textContent).toBe('#');
+  });
+
+  it.each([true, false])('changing the setting updates an open editor at once, both ways, without a re-mount (editable: %s)', (editable) => {
+    render(tags(editable));
+    expect(prefixOf('design').textContent).toBe('📦');
+
+    act(() => writeShowTagEmojis(false));
+    expect(prefixOf('design').textContent).toBe('#');
+
+    act(() => writeShowTagEmojis(true));
+    expect(prefixOf('design').textContent).toBe('📦');
+  });
+
+  it('hiding the emoji changes nothing else: the tag still opens and dismisses', () => {
+    writeShowTagEmojis(false);
+    const onOpenTag = vi.fn();
+    const onRemoveValue = vi.fn();
+    render(
+      <TagPropertyValue name="Tags" value={['design']} editable={false} getTagIcon={getTagIcon} onOpenTag={onOpenTag} onRemoveValue={onRemoveValue} />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open tag design' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove tag design' }));
+
+    expect(onOpenTag).toHaveBeenCalledWith('design');
+    expect(onRemoveValue).toHaveBeenCalledWith(0, 'design');
   });
 });

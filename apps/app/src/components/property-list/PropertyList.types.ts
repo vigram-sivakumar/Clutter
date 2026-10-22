@@ -102,6 +102,11 @@ type PropertyListItemByType =
        * Omitted: pills aren't clickable.
        */
       onOpenTag?(name: string): void;
+      /**
+       * A tag's assigned emoji (from the tag model): shown on its pill in place of the `#`. Omitted, or returning
+       * nothing for a tag: that pill keeps its `#`.
+       */
+      getTagIcon?(name: string): string | undefined;
     } & RemovableValues &
       PropertyEditability<string[]>)
   | ({

@@ -77,6 +77,7 @@ function ValuePill({
 }) {
   return (
     <Pill
+      size="small"
       onEdit={onEdit}
       label={`Edit ${value}`}
       onRemove={onRemove}

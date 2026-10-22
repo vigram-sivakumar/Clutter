@@ -6,6 +6,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { Tag } from './Tag';
+import { writeShowTagEmojis } from '@shared/helpers/showTagEmojisPreference';
 import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
 
 class ResizeObserverMock {
@@ -241,5 +242,16 @@ describe('Tag — "+" create-note action', () => {
 
     expect(onAddClick).toHaveBeenCalledTimes(1);
     expect(onClick).not.toHaveBeenCalled();
+  });
+});
+
+describe('Tag — the Show tag emojis setting does not apply to the sidebar', () => {
+  afterEach(() => localStorage.clear());
+
+  it('still shows the tag’s emoji when the setting is off', () => {
+    writeShowTagEmojis(false);
+    render(<TagHarness emoji="📦" />);
+
+    expect(document.querySelector('.tag__icon .emoji-icon')?.textContent).toBe('📦');
   });
 });

@@ -722,4 +722,16 @@ describe('renderCompactMarkdown', () => {
       }
     });
   });
+
+  describe('tag emojis (the Show tag emojis setting is for the editor, not these compact rows)', () => {
+    it('keeps the `#` and no emoji even when the resolver supplies an icon', () => {
+      const resolution: TagResolution = { status: 'resolved', displayLabel: 'design', icon: '📦', activate: () => {} };
+      const resolveTag: ResolveTag = vi.fn().mockReturnValue(resolution);
+
+      const { container } = render(<>{renderCompactMarkdown('#design', { resolveTag })}</>);
+
+      expect(container.querySelector('.compact-markdown-tag-prefix')).toHaveTextContent('#');
+      expect(container).not.toHaveTextContent('📦');
+    });
+  });
 });

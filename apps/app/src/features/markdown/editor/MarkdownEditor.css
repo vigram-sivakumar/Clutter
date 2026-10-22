@@ -838,8 +838,10 @@
   height: var(--md-marker-height);
   transform: translateY(-50%);
   background-color: var(--foreground-tertiary);
-  -webkit-mask: url('../../../shared/icon/svg/code.svg') center / var(--icon-md) var(--icon-md) no-repeat;
-  mask: url('../../../shared/icon/svg/code.svg') center / var(--icon-md) var(--icon-md) no-repeat;
+  -webkit-mask: url('../../../shared/icon/svg/code.svg') center / var(--icon-md)
+    var(--icon-md) no-repeat;
+  mask: url('../../../shared/icon/svg/code.svg') center / var(--icon-md)
+    var(--icon-md) no-repeat;
   pointer-events: none;
   user-select: none;
 }
@@ -855,7 +857,8 @@
   padding-inline-start: var(--space-12);
 }
 
-.cm-editor .cm-code-block-line--first.cm-code-block-line--editing-fence::before {
+.cm-editor
+  .cm-code-block-line--first.cm-code-block-line--editing-fence::before {
   display: none;
 }
 
@@ -1844,13 +1847,14 @@
 }
 
 .cm-editor .tok-tag {
-  font-size: 0.9em;
+  /* font-size: 0.9em; */
   font-weight: var(--fw-medium);
 
   color: var(--md-tag-foreground);
   background-color: var(--md-tag-surface);
   border-radius: var(--md-badge-radius);
   padding: var(--md-badge-padding);
+  font-size: var(--text-label);
   font-weight: inherit;
 
   box-decoration-break: clone;
@@ -1861,6 +1865,10 @@
 .cm-editor .tok-tag .tok-tag-prefix {
   opacity: var(--opacity-medium);
   padding-right: 2px;
+}
+/* A tag's assigned emoji in place of the `#`: not dimmed. */
+.cm-editor .tok-tag .tok-tag-prefix--emoji {
+  opacity: 1;
 }
 .tok-tag[data-tag-status='unresolved'] {
   opacity: var(--opacity-medium);

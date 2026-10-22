@@ -51,6 +51,15 @@ function makePage(type: 'note' | 'daily-note', overrides: Partial<Page['metadata
 }
 
 describe('buildPageProperties', () => {
+  it('hands the tag icon lookup to the Tags property, editable or not', () => {
+    const getTagIcon = (name: string) => (name === 'a' ? '📦' : undefined);
+
+    expect((buildPageProperties(makePage('note'), { getTagIcon })[0] as { getTagIcon?: unknown }).getTagIcon).toBe(getTagIcon);
+    expect(
+      (buildPageProperties(makePage('note'), { getTagIcon, onCommitTags: () => {} })[0] as { getTagIcon?: unknown }).getTagIcon
+    ).toBe(getTagIcon);
+  });
+
   it('exposes exactly Tags, Aliases, Created, Last edited, in order', () => {
     const items = buildPageProperties(makePage('note'));
     expect(items.map((i) => i.name)).toEqual(['Tags', 'Aliases', 'Created', 'Last edited']);

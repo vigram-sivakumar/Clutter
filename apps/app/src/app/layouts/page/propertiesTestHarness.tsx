@@ -175,8 +175,9 @@ export function PropertiesHarness({
                   drafts.add(type);
                   setIsStarting(false);
                 }}
-                onHideProperties={section.hasProperties ? hideSection : undefined}
-                onDeleteAll={section.hasProperties ? deleteAll : undefined}
+                onHideProperties={hideSection}
+                onDeleteAll={deleteAll}
+                disableActions={!section.hasProperties}
               />
             ) : undefined
           }

@@ -44,6 +44,11 @@ export interface TaskDisplayConfig {
 export const TASK_GROUP_IDS = ['today', 'overdue', 'upcoming', 'unscheduled'] as const;
 export type TaskGroupId = (typeof TASK_GROUP_IDS)[number];
 /**
+ * What a sidebar list's "N more" expansion is keyed by: a whole section (`overdue`), or — with Group by due date on — one
+ * date group inside it (`overdue:2026-08-01`). Each key expands on its own.
+ */
+export type TaskExpansionKey = TaskGroupId | `${TaskGroupId}:${string}`;
+/**
  * The groups the Options menu lets the user switch off — every group but Today, which always stays
  * visible. Anything else (a stale persisted `today`, a hand-edited file) is ignored on load, so Today
  * can never end up hidden with no way to bring it back.

@@ -2511,6 +2511,7 @@ export function PageHost({
               requireExisting: true,
             })
           : resolveTag)(name).activate(),
+      getTagIcon: (name) => vault.getTagByName(name)?.icon,
       aliases: {
         // The one write path for page metadata.
         onCommit: (aliases) =>
@@ -2566,23 +2567,13 @@ export function PageHost({
           }
 
           propertyDrafts.name(id, name);
-          const isFirstProperty = !sectionState.hasProperties;
           void application.pageOperations
             .addCustomProperty(target.id, name, emptyCustomProperty(draft.type))
-            .then(() => separateFirstProperty(isFirstProperty))
             .finally(() => propertyDrafts.remove(id));
         },
         onAbandon: propertyDrafts.remove,
       },
     });
-    // Once, after the note's FIRST property was actually written (never on opening the menu, never when
-    // it is cancelled or fails): a literal `---` rule at the top of the body, separating it from the
-    // properties. Later properties don't add one, and a user who deletes it keeps it deleted.
-    const separateFirstProperty = (isFirstProperty: boolean): void => {
-      if (isFirstProperty) {
-        editorRef.current?.insertSeparatorAtStart();
-      }
-    };
     // The Properties section — see derivePropertiesSectionState, the one place
     // its state (displayed, add button, title control) is derived.
     const sectionState = derivePropertiesSectionState({
@@ -2623,24 +2614,19 @@ export function PageHost({
         autoOpen={startingPropertyPageId === target.id}
         onDismiss={() => setStartingPropertyPageId(null)}
         onAddSystemProperty={(key) => {
-          const isFirstProperty = !sectionState.hasProperties;
           void application.pageOperations
             .addSystemProperty(target.id, key)
-            .then(() => separateFirstProperty(isFirstProperty))
             .finally(() => setStartingPropertyPageId(null));
         }}
         onAddCustomProperty={(type) => {
           propertyDrafts.add(type);
           setStartingPropertyPageId(null);
         }}
-        // Only when there is something to hide or delete: not while the first
-        // property is only being started.
-        onHideProperties={
-          sectionState.hasProperties ? hidePropertiesSection : undefined
-        }
-        onDeleteAll={
-          sectionState.hasProperties ? requestDeleteAllProperties : undefined
-        }
+        // Always listed, but disabled while there is nothing to hide or delete
+        // (the first property is only being started).
+        onHideProperties={hidePropertiesSection}
+        onDeleteAll={requestDeleteAllProperties}
+        disableActions={!sectionState.hasProperties}
       />
     ) : undefined;
     // The title's control (derivePropertiesSectionState): "Add a property" to
@@ -2877,6 +2863,8 @@ export function PageHost({
                 resolveImageSrc={resolveImageSrc}
                 pasteAssets={pasteAssets}
                 resolveTag={resolveTag}
+                // A new tag-definitions snapshot (an emoji changed) redraws the open tag references.
+                tagResolutionRevision={vault.tagMetadataSnapshot()}
                 getTagSuggestions={getTagSuggestions}
                 resolveDate={resolveDate}
                 onOpenImageOverlay={onOpenImageOverlay}
@@ -3186,6 +3174,7 @@ export function PageHost({
                 resolveImageSrc={resolveImageSrc}
                 pasteAssets={pasteAssets}
                 resolveTag={editorResolveTag}
+                tagResolutionRevision={vault.tagMetadataSnapshot()}
                 getTagSuggestions={getTagSuggestions}
                 resolveDate={editorResolveDate}
                 onOpenImageOverlay={editorOpenImageOverlay}

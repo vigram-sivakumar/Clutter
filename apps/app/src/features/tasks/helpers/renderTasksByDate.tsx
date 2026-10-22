@@ -1,4 +1,5 @@
 import { Fragment } from 'react';
+import './renderTasksByDate.css';
 
 // Components
 import { Task } from '../sidebar/Task';
@@ -17,14 +18,15 @@ import {
   DEFAULT_TASK_DISPLAY_CONFIG,
   type TaskDisplayConfig,
   type TaskGroupId,
+  type TaskExpansionKey,
 } from './groupTasks';
-import { formatTaskDueDate } from './formatTaskDueDate';
+import { formatTaskDueDate, formatTaskDueDateLong } from './formatTaskDueDate';
 import { formatTaskTitle } from './formatTaskTitle';
 import { isPast, isToday } from '@shared/helpers/time';
 import { EmptyEntry } from '@components/entry/EmptyEntry';
 import { ShowMoreEntry } from '@components/entry/ShowMoreEntry';
 
-/** A sidebar group shows this many tasks; the rest sit behind its "N more" row. */
+/** A sidebar list shows this many tasks unless the caller passes the user's own limit; the rest sit behind its "N more" row. */
 export const SIDEBAR_GROUP_TASK_LIMIT = 10;
 
 interface TaskRowCallbacks {
@@ -48,6 +50,12 @@ interface TaskRowResolvers {
   readonly resolveEmbed?: ResolvePageEmbed;
 }
 
+/** Row presentation switches, separate from the callbacks and resolvers a row is wired with. */
+interface TaskRowOptions {
+  /** Leaves the due-date label out of the row's trailing slot — for a row under a heading that already says the date. */
+  readonly hideDueDate?: boolean;
+}
+
 // A due date is never worth showing when it's today — whichever section a
 // row is in already conveys "today" by construction, so the label would
 // just repeat it. Any other date (including a completed task's past or
@@ -65,7 +73,8 @@ export function renderTaskRow(
     resolveWikiLink,
     resolveTag,
     resolveEmbed,
-  }: TaskRowCallbacks & TaskRowResolvers
+    hideDueDate = false,
+  }: TaskRowCallbacks & TaskRowResolvers & TaskRowOptions
 ) {
   const dueDate = task.dueDate;
   const isDueToday = dueDate != null && isToday(dueDate);
@@ -78,7 +87,7 @@ export function renderTaskRow(
       // share a React key. See TaskOccurrence's own positional-identity note.
       key={`${task.sourcePageId}:${task.startOffset ?? task.text}`}
       title={formatTaskTitle(task.text, dueDate)}
-      dueDate={dueDate && !isDueToday ? formatTaskDueDate(dueDate) : undefined}
+      dueDate={dueDate && !isDueToday && !hideDueDate ? formatTaskDueDate(dueDate) : undefined}
       isOverdue={isOverdue}
       date={dueDate}
       isChecked={task.completed}
@@ -99,7 +108,7 @@ export function renderTaskRow(
 /** Renders a flat list of task rows — shared by Today and Upcoming, whose content is otherwise identical (just a different source array). */
 function renderTaskList(
   tasks: readonly TaskOccurrence[],
-  callbacks: TaskRowCallbacks & TaskRowResolvers
+  callbacks: TaskRowCallbacks & TaskRowResolvers & TaskRowOptions
 ) {
   return (
     <Fragment>
@@ -233,9 +242,13 @@ interface RenderTasksByDateProps extends TaskRowCallbacks, TaskRowResolvers {
    */
   readonly displayConfig?: TaskDisplayConfig;
   /** Groups the user has expanded with their "N more" row — shown in full, with a "Show less" row to fold back. Session-only; the owner decides its lifetime. */
-  readonly expandedGroups?: readonly TaskGroupId[];
-  /** Called when a group's "N more" / "Show less" row is clicked. */
-  readonly onToggleGroup?: (id: TaskGroupId) => void;
+  readonly expandedGroups?: readonly TaskExpansionKey[];
+  /** Called when a list's "N more" / "Show less" row is clicked. */
+  readonly onToggleGroup?: (key: TaskExpansionKey) => void;
+  /** The "Group by due date" Tasks setting: each section lists one group per due date. Off (a flat list per section) by default. */
+  readonly groupTasksByDueDate?: boolean;
+  /** The Tasks "Show" setting: how many tasks each list (a section, or a date group) shows before its "N more" row. Infinity shows all. */
+  readonly itemLimit?: number;
 }
 
 export function renderTasksByDate({
@@ -254,6 +267,8 @@ export function renderTasksByDate({
   displayConfig = { ...DEFAULT_TASK_DISPLAY_CONFIG, hiddenGroups: [] },
   expandedGroups = [],
   onToggleGroup,
+  groupTasksByDueDate = false,
+  itemLimit = SIDEBAR_GROUP_TASK_LIMIT,
 }: RenderTasksByDateProps) {
   // Grouped once here — every Section needs this to know whether it's
   // empty (for default expansion) as well as what to render, and
@@ -267,20 +282,66 @@ export function renderTasksByDate({
   // one), so the Today section below always renders.
   const hidden = displayConfig.hiddenGroups ?? [];
 
-  // A group over the limit shows its first SIDEBAR_GROUP_TASK_LIMIT tasks, then a "N more" row
-  // that expands it in full.
-  const capped = (id: TaskGroupId, list: readonly TaskOccurrence[]) =>
-    expandedGroups.includes(id) ? list : list.slice(0, SIDEBAR_GROUP_TASK_LIMIT);
-  const moreRow = (id: TaskGroupId, list: readonly TaskOccurrence[]) => {
-    if (list.length <= SIDEBAR_GROUP_TASK_LIMIT) {
+  // A list over the limit shows its first `itemLimit` tasks, then a "N more" row that expands it in full. A list is a
+  // section, or — grouped by due date — one date group; each is keyed (and so expanded) on its own.
+  const capped = (key: TaskExpansionKey, list: readonly TaskOccurrence[]) =>
+    expandedGroups.includes(key) ? list : list.slice(0, itemLimit);
+  const moreRow = (key: TaskExpansionKey, list: readonly TaskOccurrence[]) => {
+    if (list.length <= itemLimit) {
       return null;
     }
     return (
       <ShowMoreEntry
-        hiddenCount={list.length - SIDEBAR_GROUP_TASK_LIMIT}
-        isExpanded={expandedGroups.includes(id)}
-        onToggle={() => onToggleGroup?.(id)}
+        hiddenCount={list.length - itemLimit}
+        isExpanded={expandedGroups.includes(key)}
+        onToggle={() => onToggleGroup?.(key)}
       />
+    );
+  };
+  const rowProps = {
+    onToggleComplete,
+    onOpenTask,
+    onChangeDueDate,
+    onDuplicateTask,
+    onDeleteTask,
+    onEditTask,
+    resolveWikiLink,
+    resolveTag,
+    resolveEmbed,
+  };
+  // A section's rows. Flat: the section's own tasks, capped as one list. Grouped by due date: one non-collapsible Section
+  // per date (the sidebar's shared grouping component), oldest first, headed by the date in the app's long label, each
+  // capped and expanded on its own; the heading says the date, so its rows leave out the trailing one. A section with
+  // nothing to group by stays flat: Today is one date (its title says so), Unscheduled has none.
+  const sectionBody = (id: TaskGroupId, list: readonly TaskOccurrence[]) => {
+    if (!groupTasksByDueDate || id === 'today' || id === 'unscheduled') {
+      return (
+        <>
+          {renderTaskList(capped(id, list), rowProps)}
+          {moreRow(id, list)}
+        </>
+      );
+    }
+    const byDate = new Map<string, TaskOccurrence[]>();
+    for (const task of list) {
+      const date = task.dueDate ?? '';
+      byDate.set(date, [...(byDate.get(date) ?? []), task]);
+    }
+    // Chronological, whatever order the section's own sort left same-date tasks in; a stable sort keeps each group's order.
+    const dates = [...byDate.keys()].sort((a, b) => a.localeCompare(b));
+    return (
+      <>
+        {dates.map((date) => {
+          const key: TaskExpansionKey = `${id}:${date}`;
+          const tasks = byDate.get(date)!;
+          return (
+            <Section key={key} hasHeader interaction="subtle" title={formatTaskDueDateLong(date)}>
+              {renderTaskList(capped(key, tasks), { ...rowProps, hideDueDate: true })}
+              {moreRow(key, tasks)}
+            </Section>
+          );
+        })}
+      </>
     );
   };
 
@@ -289,33 +350,15 @@ export function renderTasksByDate({
       <Section
         hasHeader
         title="Today"
-        isCollapsible
-        isTitleToggle
-        isExpanded={workspace.isSectionExpanded('tasks-today')}
-        onExpandedChange={(expanded) =>
-          workspace.setSectionExpanded('tasks-today', expanded)
-        }
+        // Not collapsible: Today is always open. The hook is for the accent-pill title style (renderTasksByDate.css).
+        data-section="today"
       >
         {/* Nothing due today — never scheduled, or all done with completed tasks hidden — says one line
-            either way. The section stays expanded so it can say it. */}
+            either way. */}
         {today.length === 0 ? (
           <EmptyEntry>You’re all clear for today</EmptyEntry>
         ) : (
-          <>
-            {renderTodayContent({
-            today: capped('today', today),
-            onToggleComplete,
-            onOpenTask,
-            onChangeDueDate,
-            onDuplicateTask,
-            onDeleteTask,
-            onEditTask,
-            resolveWikiLink,
-            resolveTag,
-            resolveEmbed,
-          })}
-            {moreRow('today', today)}
-          </>
+          sectionBody('today', today)
         )}
       </Section>
       {!hidden.includes('overdue') && overdue.length > 0 && (
@@ -330,19 +373,7 @@ export function renderTasksByDate({
             workspace.setSectionExpanded('tasks-overdue', expanded)
           }
         >
-          {renderOverdueContent({
-            overdue: capped('overdue', overdue),
-            onToggleComplete,
-            onOpenTask,
-            onChangeDueDate,
-            onDuplicateTask,
-            onDeleteTask,
-            onEditTask,
-            resolveWikiLink,
-            resolveTag,
-            resolveEmbed,
-          })}
-          {moreRow('overdue', overdue)}
+          {sectionBody('overdue', overdue)}
         </Section>
       )}
       {!hidden.includes('upcoming') && upcoming.length > 0 && (
@@ -357,19 +388,7 @@ export function renderTasksByDate({
             workspace.setSectionExpanded('tasks-upcoming', expanded)
           }
         >
-          {renderUpcomingContent({
-            upcoming: capped('upcoming', upcoming),
-            onToggleComplete,
-            onOpenTask,
-            onChangeDueDate,
-            onDuplicateTask,
-            onDeleteTask,
-            onEditTask,
-            resolveWikiLink,
-            resolveTag,
-            resolveEmbed,
-          })}
-          {moreRow('upcoming', upcoming)}
+          {sectionBody('upcoming', upcoming)}
         </Section>
       )}
       {!hidden.includes('unscheduled') && unscheduled.length > 0 && (
@@ -383,18 +402,7 @@ export function renderTasksByDate({
             workspace.setSectionExpanded('tasks-unscheduled', expanded)
           }
         >
-          {renderTaskList(capped('unscheduled', unscheduled), {
-            onToggleComplete,
-            onOpenTask,
-            onChangeDueDate,
-            onDuplicateTask,
-            onDeleteTask,
-            onEditTask,
-            resolveWikiLink,
-            resolveTag,
-            resolveEmbed,
-          })}
-          {moreRow('unscheduled', unscheduled)}
+          {sectionBody('unscheduled', unscheduled)}
         </Section>
       )}
     </Fragment>

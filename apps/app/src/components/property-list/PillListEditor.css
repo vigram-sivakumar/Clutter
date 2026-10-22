@@ -31,7 +31,10 @@
 
   transition: background-color 120ms ease;
 }
-.pill-list-editor:focus-within {
+/* The focused look is for typing: an input inside the editor has focus (the inline input, or a pill being edited
+   in place). A pill that only opens its tag takes focus when pressed but is not editing, so it no longer lights the
+   field up. */
+.pill-list-editor:has(:is(input, textarea):focus) {
   background: var(--surface-subtle);
   box-shadow: var(--shadow-inset-default);
 }
@@ -51,7 +54,7 @@
    room (the negative margin cancels the flex gap before it): it never
    wraps onto a blank line of its own, and the editor is only as tall as
    its pills. Still focusable — focusing the editor restores it above. */
-.pill-list-editor:not(:focus-within):has(.pill) .pill-list-editor__input {
+.pill-list-editor:not(:has(:is(input, textarea):focus)):has(.pill) .pill-list-editor__input {
   flex: 0 0 0;
   min-width: 0;
   width: 0;

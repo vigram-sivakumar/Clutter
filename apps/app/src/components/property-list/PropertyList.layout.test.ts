@@ -56,3 +56,15 @@ describe('pills', () => {
     expect(declarations(pillCss, '.pill-list')).toMatch(/max-width:\s*100%/);
   });
 });
+
+describe('a tag pill with an emoji', () => {
+  const emoji = declarations(read('Pill.css'), '.pill__prefix--emoji');
+
+  it('is not dimmed like the # is', () => {
+    expect(emoji).toMatch(/opacity:\s*1\s*;/);
+  });
+
+  it('gives the clipping label a line box tall enough for the glyph, so the emoji is not cropped', () => {
+    expect(emoji).toMatch(/line-height:\s*20px\s*;/);
+  });
+});

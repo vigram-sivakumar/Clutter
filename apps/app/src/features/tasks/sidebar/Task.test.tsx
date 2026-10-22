@@ -347,7 +347,7 @@ describe('Task — Change due date action', () => {
     openMenu(container);
     fireEvent.click(screen.getByText('Due date'));
 
-    expect(screen.getByRole('button', { name: 'Clear date' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Clear date' })).toHaveAttribute('aria-disabled', 'true');
   });
 });
 

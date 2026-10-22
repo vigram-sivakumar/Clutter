@@ -20,6 +20,7 @@ import { serializeTagName } from '@core/vault/models/Tag';
 import { buildTagsShortcutHandler } from '@features/tags/shortcuts/buildTagsShortcutHandler';
 import { TagsShortcuts } from '@features/tags/shortcuts/TagsShortcuts';
 import { renderTags } from '../helpers/renderTags';
+import { applyPendingTagRenames, type PendingTagRename } from '../helpers/pendingTagRename';
 import type { Vault } from '@core/vault/models';
 import type { TagExpansionStore } from '@core/application/tags/TagExpansionStore';
 import { useTagExpansionStore } from '@app/hooks/useTagExpansionStore';
@@ -82,7 +83,10 @@ export function Tags({
   // the view-layer subscription, same shape as useWorkspace/
   // useEffectivePageState.
   useTagExpansionStore(tagExpansionStore);
-  const tags = [...vault.tags()];
+  // Renames confirmed but not finished: the list is drawn with them applied (see applyPendingTagRenames), so the row shows
+  // its new name — and stays pinned, with its emoji — from the moment Enter is pressed until the Vault catches up.
+  const [pendingRenames, setPendingRenames] = useState<readonly PendingTagRename[]>([]);
+  const tags = applyPendingTagRenames([...vault.tags()], pendingRenames);
   const onShortcut = buildTagsShortcutHandler(navigation);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   // Single owner of "which row's rename session is active" — same
@@ -251,7 +255,14 @@ export function Tags({
             // already exited edit mode (canRename already said yes), so a
             // late rejection here has no stay-open/shake path — only the
             // synchronous canRename() check above can reject-and-stay-open.
-            void tagOperations.rename(oldName, newName).catch(() => {});
+            // Drawn as renamed right away; what the Vault says takes over once the rename settles, whatever the outcome
+            // (a failure simply shows the tag as it was, the existing behaviour).
+            const pending: PendingTagRename = { oldName, newName };
+            setPendingRenames((current) => [...current, pending]);
+            void tagOperations
+              .rename(oldName, newName)
+              .catch(() => {})
+              .finally(() => setPendingRenames((current) => current.filter((entry) => entry !== pending)));
           },
         },
       })}

@@ -11,7 +11,7 @@
   padding: var(--space-12);
 
   box-shadow: var(--shadow-inset-default), var(--shadow-md);
-  width: 280px;
+  width: calc(280px - (var(--space-12) * 2));
 }
 
 .daily-notes-calendar .calendar-toggle {

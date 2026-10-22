@@ -31,6 +31,8 @@ interface AddPropertyRowProps {
   /** The menu's "Hide Properties" and "Delete all" actions — see AddPropertyMenu. Each closes the menu first. */
   onHideProperties?(): void;
   onDeleteAll?(): void;
+  /** Those two actions are shown but disabled: the page has no properties yet. */
+  disableActions?: boolean;
 }
 
 /**
@@ -58,6 +60,7 @@ export function AddPropertyRow({
   onDismiss,
   onHideProperties,
   onDeleteAll,
+  disableActions,
 }: AddPropertyRowProps) {
   const [isOpen, setIsOpen] = useState(false);
   // After mount, so the menu's anchor (the row) exists.
@@ -112,6 +115,7 @@ export function AddPropertyRow({
             onDeleteAll();
           })
         }
+        disableActions={disableActions}
       />
     </Overlay>
   );

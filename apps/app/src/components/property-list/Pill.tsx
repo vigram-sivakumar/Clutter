@@ -22,7 +22,7 @@ type PillProps = {
   size?: 'default' | 'small';
   /** Accessible name of the pill-as-button; used only when it is clickable. */
   label?: string;
-  /** Adds a dismiss button, shown while the pill's editor has focus, which fires this. */
+  /** Adds a dismiss button, shown while the pill is hovered, which fires this. */
   onRemove?(): void;
   /** Accessible name of the dismiss button; used only with `onRemove`. */
   removeLabel?: string;
@@ -31,8 +31,8 @@ type PillProps = {
 /**
  * The one pill every list Property renders its values with (tags,
  * multi-select values such as aliases) — the pill shape, and the dismiss
- * button as its last in-flow item, shown only while the pill's editor has
- * focus. Owning both here is what keeps the dismiss button in the same
+ * button, a round badge on its top-right corner, shown while the pill is
+ * hovered. Owning both here is what keeps the dismiss button in the same
  * place on every pill; the geometry itself lives in
  * `.pill` / `.pill__remove` (Pill.css).
  *
@@ -51,39 +51,35 @@ export function Pill({
 }: PillProps) {
   const onActivate = onNavigate ?? onEdit;
 
-  function handleRemove(event: MouseEvent<HTMLButtonElement>) {
-    event.stopPropagation();
-    onRemove?.();
-  }
-
-  function handleActivate(event: MouseEvent<HTMLSpanElement>) {
-    event.stopPropagation();
-    onActivate?.();
-  }
-
-  function handleActivateKeyDown(event: KeyboardEvent<HTMLSpanElement>) {
-    if (
-      event.target !== event.currentTarget ||
-      (event.key !== 'Enter' && event.key !== ' ')
-    ) {
-      return;
-    }
-
-    event.preventDefault();
-    event.stopPropagation();
-    onActivate?.();
-  }
+  // Only an interactive pill is a button (a <span>, not a <button>: it contains the dismiss <button>, and buttons
+  // can't nest). An inert one carries no role, tab stop or handlers. Neither the click nor the key press reaches the
+  // editor's "click anywhere to type" handler.
+  const interactiveProps = onActivate && {
+    role: 'button',
+    tabIndex: 0,
+    'aria-label': label,
+    onClick(event: MouseEvent<HTMLSpanElement>) {
+      event.stopPropagation();
+      onActivate();
+    },
+    onKeyDown(event: KeyboardEvent<HTMLSpanElement>) {
+      // Enter/Space on the pill itself only: on the dismiss button inside it they belong to that button.
+      if (
+        event.target !== event.currentTarget ||
+        (event.key !== 'Enter' && event.key !== ' ')
+      ) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      onActivate();
+    },
+  };
 
   return (
     <span
       className={size === 'small' ? 'pill pill--small' : 'pill'}
-      // A <span>, not a <button>: it contains the dismiss <button>, and
-      // buttons can't nest.
-      role={onActivate ? 'button' : undefined}
-      tabIndex={onActivate ? 0 : undefined}
-      aria-label={onActivate ? label : undefined}
-      onClick={onActivate ? handleActivate : undefined}
-      onKeyDown={onActivate ? handleActivateKeyDown : undefined}
+      {...interactiveProps}
     >
       {/* The pill's text: the one part that truncates (Pill.css). */}
       <span className="pill__label">{children}</span>
@@ -95,10 +91,15 @@ export function Pill({
           interaction="subtle"
           size="small"
           aria-label={removeLabel}
+          // Pressing it never takes focus from the editor's input.
           onMouseDown={(event) => event.preventDefault()}
-          onClick={handleRemove}
+          onClick={(event) => {
+            // It is inside the pill: the click must not also activate the pill, or reach the editor.
+            event.stopPropagation();
+            onRemove();
+          }}
         >
-          <AppIcon icon="dismiss" />
+          <AppIcon icon="dismiss" size={12} />
         </Button>
       )}
     </span>

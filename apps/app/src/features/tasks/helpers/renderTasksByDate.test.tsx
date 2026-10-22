@@ -382,23 +382,29 @@ describe('renderTasksByDate', () => {
       expect(navigation.openTasksUnscheduled).not.toHaveBeenCalled();
     });
 
-    it('Today (empty, but expanded so it can say so): clicking collapses it, exposes aria-expanded, works from the keyboard, never navigates', () => {
+    it('Today is not collapsible: no caret, no aria-expanded, clicking or pressing Enter leaves it open and never navigates', () => {
       const workspace = new Workspace();
       const navigation = fakeNavigation();
-      const { getByText, rerender, ui } = renderAll(workspace, navigation);
+      const { getByText, queryByText, rerender, ui } = renderAll(workspace, navigation);
       const header = () => getByText('Today').closest('.section-header') as HTMLElement;
 
-      expect(header().getAttribute('aria-expanded')).toBe('true');
+      expect(header().getAttribute('aria-expanded')).toBeNull();
+      expect(header().querySelector('.section-header__caret')).toBeNull();
 
       fireEvent.click(getByText('Today'));
-      rerender(ui());
-      expect(header().getAttribute('aria-expanded')).toBe('false');
-
       fireEvent.keyDown(header(), { key: 'Enter' });
       rerender(ui());
-      expect(header().getAttribute('aria-expanded')).toBe('true');
 
+      expect(queryByText('You’re all clear for today')).not.toBeNull();
+      expect(workspace.isSectionExpanded('tasks-today')).toBe(true);
       expect(navigation.openAllTasks).not.toHaveBeenCalled();
+    });
+
+    it('marks the Today header for its pill style, and no other header', () => {
+      const { getByText } = renderAll(new Workspace(), fakeNavigation());
+
+      expect(getByText('Today').closest('.section-header')).toHaveAttribute('data-section', 'today');
+      expect(getByText('Overdue').closest('.section-header')).not.toHaveAttribute('data-section');
     });
   });
 

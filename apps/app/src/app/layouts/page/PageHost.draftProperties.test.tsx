@@ -180,9 +180,9 @@ describe('Properties on a draft', () => {
     expect(pageExists()).toBe(true);
     const page = application.vault.getPage(id)!;
     expect(page.path).toBe(`${ROOT}/Trip plan.md`);
-    // The file holds the content as persisted; the first property then puts a `---` rule above it in the editor (saved by autosave).
+    // The body is exactly what was persisted: the first property adds nothing to it.
     expect(page.source.markdown).toBe('Pack light');
-    expect(application.pageOperations.getSession(id)!.currentRevision.markdown).toBe('---\nPack light');
+    expect(application.pageOperations.getSession(id)!.currentRevision.markdown).toBe('Pack light');
     expect(readCustomProperties(page.metadata.unownedFrontmatter ?? []).map((property) => property.key)).toEqual(['owner']);
 
     // A second property goes through the saved page: same file, same id.
@@ -196,7 +196,7 @@ describe('Properties on a draft', () => {
   });
 });
 
-describe('The separator rule after the first property', () => {
+describe('The note body when properties are added', () => {
   const body = (application: Application, id: string) =>
     application.pageOperations.getSession(id)!.currentRevision.markdown;
 
@@ -211,29 +211,15 @@ describe('The separator rule after the first property', () => {
     expect(body(application, id)).toBe('Pack light');
   });
 
-  it('the first property inserts --- at the top; a second adds no other', async () => {
+  it('adding the first property, or a second, adds no rule (or anything else) to the body', async () => {
     const { application, id } = await renderDraft({ body: 'Pack light' });
     await openProperties();
     clickMenuItem('Tags');
     await flush();
-    expect(body(application, id)).toBe('---\nPack light');
+    expect(body(application, id)).toBe('Pack light');
 
     await application.pageOperations.addSystemProperty(id, 'aliases');
     await flush();
-    expect(body(application, id)).toBe('---\nPack light');
-  });
-
-  it('a deleted --- stays deleted when another property is added later', async () => {
-    const { application, id } = await renderDraft({ body: 'Pack light' });
-    await openProperties();
-    clickMenuItem('Tags');
-    await flush();
-
-    act(() => application.pageOperations.commitEdit(id, 'Pack light'));
-    await flush();
-    await application.pageOperations.addSystemProperty(id, 'aliases');
-    await flush();
-
     expect(body(application, id)).toBe('Pack light');
   });
 });

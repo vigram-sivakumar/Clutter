@@ -17,6 +17,13 @@
   box-shadow: var(--shadow-inset-default), var(--shadow-md);
 }
 
+/* A menu is a flex column, so in a height-limited one (max-height, or a fixed height) its children would shrink to fit
+   before it ever scrolls: an empty block like the 1px divider shrinks to nothing. They keep their own size and the
+   menu scrolls instead. */
+.menu > * {
+  flex-shrink: 0;
+}
+
 .menu--small {
   width: var(--menu-width-sm);
 }

@@ -13,8 +13,10 @@ import { TasksShortcuts } from '@features/tasks/shortcuts/TasksShortcuts';
 import { createTagResolver } from '@app/layouts/page/resolveTag';
 import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
 import { createPageEmbedResolver } from '@app/layouts/page/resolvePageEmbed';
+import { useGroupTasksByDueDate } from '@shared/helpers/groupTasksByDueDatePreference';
+import { useTaskItemLimit } from '@shared/helpers/taskItemLimitPreference';
 import { renderTasksByDate } from '../helpers/renderTasksByDate';
-import type { TaskDisplayConfig, TaskGroupId } from '../helpers/groupTasks';
+import type { TaskDisplayConfig, TaskExpansionKey } from '../helpers/groupTasks';
 
 interface TasksPanelProps {
   readonly vault: Vault;
@@ -34,8 +36,8 @@ interface TasksPanelProps {
   readonly tasksViewConfig: TaskDisplayConfig;
   readonly onTasksViewConfigChange: (next: TaskDisplayConfig) => void;
   /** Groups whose "N more" row was clicked — owned by Sidebar so it outlives this panel unmounting on a tab switch, and resets on restart. */
-  readonly expandedGroups: readonly TaskGroupId[];
-  readonly onToggleGroup: (id: TaskGroupId) => void;
+  readonly expandedGroups: readonly TaskExpansionKey[];
+  readonly onToggleGroup: (key: TaskExpansionKey) => void;
   /** See AppLayout's own doc comment on its `pendingReveal` state — set by onOpenTask below, consumed once by PageHost. */
   readonly onRequestReveal: (reveal: PendingEditorReveal) => void;
   /** Opens the sidebar-hosted New task dialog (see Sidebar.tsx). */
@@ -61,6 +63,8 @@ export function Tasks({
   onEditTask,
 }: TasksPanelProps) {
   const tasks = [...vault.tasks()];
+  const groupTasksByDueDate = useGroupTasksByDueDate();
+  const itemLimit = useTaskItemLimit();
   const onShortcut = buildTasksShortcutHandler(navigation);
 
   // Same composition PageHost.tsx/Sidebar.Notes.tsx/Sidebar.DailyNotes.tsx
@@ -148,6 +152,8 @@ export function Tasks({
         displayConfig: tasksViewConfig,
         expandedGroups,
         onToggleGroup,
+        groupTasksByDueDate,
+        itemLimit,
       })}
     </View>
   );

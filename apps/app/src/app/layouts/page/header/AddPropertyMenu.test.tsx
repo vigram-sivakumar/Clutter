@@ -106,6 +106,21 @@ describe('AddPropertyMenu — actions', () => {
     expect(itemLabels()).not.toContain('Delete all');
   });
 
+  it('shows Hide properties and Delete all disabled with disableActions, calling neither', () => {
+    const onHideProperties = vi.fn();
+    const onDeleteAll = vi.fn();
+    renderMenu({ onHideProperties, onDeleteAll, disableActions: true });
+
+    expect(itemLabels().slice(-2)).toEqual(['Hide properties', 'Delete all']);
+    for (const name of ['Hide properties', 'Delete all']) {
+      const item = screen.getByRole('menuitem', { name });
+      expect(item).toHaveAttribute('aria-disabled', 'true');
+      fireEvent.click(item);
+    }
+    expect(onHideProperties).not.toHaveBeenCalled();
+    expect(onDeleteAll).not.toHaveBeenCalled();
+  });
+
   it('puts the "Type" title and the list first, then a divider, then Hide properties and Delete all', () => {
     renderMenu({ onHideProperties: vi.fn(), onDeleteAll: vi.fn() });
 

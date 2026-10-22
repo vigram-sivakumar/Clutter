@@ -228,6 +228,8 @@ export function buildPageProperties(
   page: Pick<Page, 'metadata' | 'fileTimes'>,
   actions: {
     onOpenTag?(name: string): void;
+    /** A tag's assigned emoji, for its pill (see PropertyListItem's tag `getTagIcon`). */
+    getTagIcon?(name: string): string | undefined;
     aliases?: AliasPropertyActions;
     /**
      * Persists a custom property's rename (PageOperations
@@ -384,6 +386,7 @@ export function buildPageProperties(
             type: 'tag',
             value: tags,
             onOpenTag: actions.onOpenTag,
+            getTagIcon: actions.getTagIcon,
             getSuggestions: actions.getTagSuggestions,
             // Frontmatter `tags` only, never an inline #tag in the body: the
             // editor commits the whole new list (add or remove).
@@ -395,6 +398,7 @@ export function buildPageProperties(
             type: 'tag',
             value: tags,
             onOpenTag: actions.onOpenTag,
+            getTagIcon: actions.getTagIcon,
             editable: false,
           },
     aliases: aliasActions

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { MutableRefObject, RefObject } from 'react';
 
-import { Button } from '@components/button/Button';
+import { Entry } from '@components/entry/Entry';
 import { Overlay } from '@components/overlay/Overlay';
 import { AppIcon } from '@shared/icon';
 import { Calendar } from '@features/daily-notes/calendar/components/calendar/Calendar';
@@ -59,17 +59,15 @@ export function TaskDatePicker({
           onModeChange={setMode}
           onSelectedDateChange={onSelect}
         />
-        <Button
+        <div className="task-date-picker__divider" role="separator" />
+        <Entry
           className="task-date-picker__clear"
-          variant="ghost"
-          interaction="subtle"
-          size="small"
-          leading={<AppIcon icon="trash" />}
+          leading={<AppIcon icon="dismiss" />}
           disabled={date === undefined}
           onClick={onClear}
         >
           Clear date
-        </Button>
+        </Entry>
       </div>
     </Overlay>
   );

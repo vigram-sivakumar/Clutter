@@ -204,6 +204,22 @@ describe('AddPropertyRow — the menu actions', () => {
     expect(onAddCustomProperty).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['Hide properties', 'onHideProperties'],
+    ['Delete all', 'onDeleteAll'],
+  ] as const)('%s is shown but disabled with disableActions, and clicking it does nothing', (label, prop) => {
+    const handler = vi.fn();
+    render(<AddPropertyRow onAddCustomProperty={vi.fn()} disableActions {...{ [prop]: handler }} />);
+
+    start();
+    const item = screen.getByRole('menuitem', { name: label });
+    fireEvent.click(item);
+
+    expect(item).toHaveAttribute('aria-disabled', 'true');
+    expect(handler).not.toHaveBeenCalled();
+    expect(menu()).toBeInTheDocument();
+  });
+
   it('offers neither action unless the host supplies it', () => {
     setup();
 

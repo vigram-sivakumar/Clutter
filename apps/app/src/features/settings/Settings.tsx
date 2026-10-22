@@ -25,6 +25,7 @@ import {
 import type { SpaceSettingsSource } from './space-settings/SpaceSettingsSource';
 import { isAllowMovingAssetsSettingEnabled } from '@core/featureFlags';
 import { AllowMovingAssetsSetting } from './allow-moving-assets-setting/AllowMovingAssetsSetting';
+import { ShowTagEmojisSetting } from './show-tag-emojis-setting/ShowTagEmojisSetting';
 import { AutoDeleteUnusedTagsSetting } from './auto-delete-unused-tags-setting/AutoDeleteUnusedTagsSetting';
 import { AutoDeleteArchivedSetting } from './auto-delete-archived-setting/AutoDeleteArchivedSetting';
 import { ShowAssetsInFoldersSetting } from './assets-setting/ShowAssetsInFoldersSetting';
@@ -35,6 +36,8 @@ import { StartupSetting } from './startup-setting/StartupSetting';
 import { DateFormatSetting } from './date-format-setting/DateFormatSetting';
 import { WeekStartSetting } from './week-start-setting/WeekStartSetting';
 import { ThemeSetting } from './theme-setting/ThemeSetting';
+import { TaskItemsSetting } from './tasks-setting/TaskItemsSetting';
+import { GroupTasksByDueDateSetting } from './tasks-setting/GroupTasksByDueDateSetting';
 import { ShowDailyNoteEmojiSetting } from './daily-notes-setting/ShowDailyNoteEmojiSetting';
 import { ShowReferencesAutomaticallySetting } from './references-setting/ShowReferencesAutomaticallySetting';
 import { HeaderSeparatorSetting } from './header-separator-setting/HeaderSeparatorSetting';
@@ -44,6 +47,7 @@ const PAGE_TITLES: Record<FixedSettingsPageId, string> = {
   preferences: 'Preferences',
   notes: 'Notes',
   'daily-notes': 'Daily notes',
+  tasks: 'Tasks',
   tags: 'Tags',
   assets: 'Assets',
   layout: 'Layout',
@@ -139,10 +143,21 @@ export function Settings({ templates, noteLocation, spaceSettings, space, onClos
             />
           </>
         )}
-        {pageId === 'tags' && (
-          <SettingsGroup>
-            <AutoDeleteUnusedTagsSetting source={spaceSettings} />
+        {pageId === 'tasks' && (
+          <SettingsGroup title="Sidebar appearance">
+            <GroupTasksByDueDateSetting />
+            <TaskItemsSetting />
           </SettingsGroup>
+        )}
+        {pageId === 'tags' && (
+          <>
+            <SettingsGroup title="Tag display">
+              <ShowTagEmojisSetting />
+            </SettingsGroup>
+            <SettingsGroup>
+              <AutoDeleteUnusedTagsSetting source={spaceSettings} />
+            </SettingsGroup>
+          </>
         )}
         {pageId === 'assets' && (
           <SettingsGroup>

@@ -1,7 +1,5 @@
 import type { Page, Tag, TagMetadataEntry } from '../models';
-import { normalizeTagName, serializeTagName } from '../models/Tag';
-
-const COLLATOR = new Intl.Collator(undefined, { sensitivity: 'base' });
+import { compareTagNames, normalizeTagName, serializeTagName } from '../models/Tag';
 
 /**
  * The runtime tag index: derived, disposable, never persisted, always
@@ -129,7 +127,7 @@ export class TagIndex {
       }
     }
 
-    this.cached = tags.sort((a, b) => COLLATOR.compare(a.name, b.name));
+    this.cached = tags.sort((a, b) => compareTagNames(a.name, b.name));
 
     return this.cached;
   }

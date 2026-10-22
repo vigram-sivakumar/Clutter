@@ -55,18 +55,20 @@ describe('Settings — Tags page', () => {
     const rows = Array.from(document.querySelectorAll('.entry')).map(
       (el) => el.querySelector('.entry__content')?.textContent ?? el.textContent
     );
-    expect(rows.slice(rows.indexOf('Features'), rows.indexOf('Editor'))).toEqual(['Features', 'Notes', 'Daily notes', 'Tags', 'Assets']);
+    expect(rows.slice(rows.indexOf('Features'), rows.indexOf('Editor'))).toEqual(['Features', 'Notes', 'Daily notes', 'Tags', 'Assets', 'Tasks']);
     expect(screen.getByText('Tags').closest('.entry')!.querySelector('.entry__leading svg')).not.toBeNull();
   });
 
-  it('opens its own page with the one setting, titled and described as specified', () => {
+  it('opens its own page with the auto-delete setting, titled and described as specified', () => {
     openTagsPage(makeSpace().source);
 
     expect(screen.getByRole('heading', { name: 'Tags' })).toBeInTheDocument();
     expect(screen.getByText('Automatically delete unused tags')).toBeInTheDocument();
     expect(screen.getByText('Remove tags that are no longer used by any notes')).toBeInTheDocument();
-    expect(document.querySelectorAll('.settings-group')).toHaveLength(1);
-    expect(screen.getAllByRole('switch')).toHaveLength(1);
+    // Beside the Tag display group's Show tag emojis.
+    expect(document.querySelectorAll('.settings-group')).toHaveLength(2);
+    expect(screen.getAllByRole('switch')).toHaveLength(2);
+    expect(screen.getByRole('switch', { name: 'Show tag emojis' })).toBeInTheDocument();
   });
 
   it('is off by default, with or without a Space to read from', () => {

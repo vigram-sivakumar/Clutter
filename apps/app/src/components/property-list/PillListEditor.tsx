@@ -72,6 +72,12 @@ interface PillListEditorProps {
   pills: ReactNode;
   /** The suggestion menu's rows (MenuItem), inside its menu. */
   suggestionRows: ReactNode;
+  /**
+   * Leaving the field while the popover is open closes it WITHOUT handing focus back to the input (the overlay's
+   * usual restore). For an editor whose popover can be open on an empty field, where that restore would refocus the
+   * input and reopen the list at once, so the field could never be left.
+   */
+  releaseFocusOnBlur?: boolean;
 }
 
 /**
@@ -97,6 +103,7 @@ export function PillListEditor({
   onBlur,
   pills,
   suggestionRows,
+  releaseFocusOnBlur = false,
 }: PillListEditorProps) {
   const {
     inputRef,
@@ -109,6 +116,7 @@ export function PillListEditor({
     pressedWhileEditingRef,
     keyboard,
   } = editor;
+  const suppressReturnFocusRef = useRef(false);
 
   return (
     <div
@@ -149,6 +157,10 @@ export function PillListEditor({
         onFocus={() => setIsFocused(true)}
         onKeyDown={onKeyDown}
         onBlur={() => {
+          // Set just before the state change that closes the popover (see releaseFocusOnBlur).
+          if (releaseFocusOnBlur && isSuggesting) {
+            suppressReturnFocusRef.current = true;
+          }
           setIsFocused(false);
           onBlur();
         }}
@@ -173,6 +185,7 @@ export function PillListEditor({
         offset={12}
         size="fit-content"
         backdrop={false}
+        suppressReturnFocusRef={suppressReturnFocusRef}
       >
         <MenuContext.Provider value={keyboard}>
           <div

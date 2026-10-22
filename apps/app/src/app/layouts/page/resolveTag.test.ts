@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
+// @vitest-environment jsdom
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Vault } from '@core/vault/models/Vault';
 import { VaultProjectionBuilder } from '@core/vault/knowledge/VaultProjectionBuilder';
@@ -6,6 +7,9 @@ import { TagBuilder } from '@core/vault/knowledge/TagBuilder';
 import { KnowledgeGraph } from '@core/vault/models/graph/KnowledgeGraph';
 import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
 import type { Page } from '@core/vault/models/Page';
+
+import { normalizeTagName } from '@core/vault/models/Tag';
+import { writeShowTagEmojis } from '@shared/helpers/showTagEmojisPreference';
 
 import { createTagResolver } from './resolveTag';
 
@@ -170,5 +174,67 @@ describe('createTagResolver — tags in an archived note', () => {
     resolveTag('shared').activate();
 
     expect(openTag).toHaveBeenCalledWith('shared');
+  });
+});
+
+describe('createTagResolver — the tag’s emoji (Show tag emojis)', () => {
+  beforeEach(() => localStorage.clear());
+
+  function vaultWithIcon(): Vault {
+    const pages = [makePage('p', ['design', 'plain'])];
+    const metadata = new Map([[normalizeTagName('design'), { icon: '📦' }]]);
+    return new Vault(
+      '/vault',
+      pages,
+      [],
+      new TagBuilder().build(pages, metadata),
+      [],
+      [],
+      new KnowledgeGraph([]),
+      new VaultProjectionBuilder()
+    );
+  }
+
+  it('on (the default): a tag with an assigned emoji resolves with that emoji, whatever spelling it is written in', () => {
+    const resolveTag = createTagResolver(fakeNavigation(vi.fn()), vaultWithIcon());
+
+    expect(resolveTag('design').icon).toBe('📦');
+    expect(resolveTag('Design').icon).toBe('📦');
+  });
+
+  it('on: a tag with no assigned emoji, or not in the vault yet, has no icon key at all', () => {
+    const resolveTag = createTagResolver(fakeNavigation(vi.fn()), vaultWithIcon());
+
+    expect('icon' in resolveTag('plain')).toBe(false);
+    expect('icon' in resolveTag('brandNew')).toBe(false);
+  });
+
+  it('off: no tag resolves with an emoji, and nothing else about the resolution changes', () => {
+    const resolveTag = createTagResolver(fakeNavigation(vi.fn()), vaultWithIcon());
+    const on = resolveTag('design');
+
+    writeShowTagEmojis(false);
+    const off = resolveTag('design');
+
+    expect('icon' in off).toBe(false);
+    expect(off.status).toBe(on.status);
+    expect(off.displayLabel).toBe(on.displayLabel);
+  });
+
+  it('is read each time a tag is resolved, so a change applies to the very next resolution', () => {
+    const resolveTag = createTagResolver(fakeNavigation(vi.fn()), vaultWithIcon());
+
+    writeShowTagEmojis(false);
+    expect(resolveTag('design').icon).toBeUndefined();
+    writeShowTagEmojis(true);
+    expect(resolveTag('design').icon).toBe('📦');
+  });
+
+  it('never touches the tag model: the vault still holds the emoji while it is hidden', () => {
+    const vault = vaultWithIcon();
+    writeShowTagEmojis(false);
+    createTagResolver(fakeNavigation(vi.fn()), vault)('design');
+
+    expect(vault.getTagByName('design')?.icon).toBe('📦');
   });
 });
