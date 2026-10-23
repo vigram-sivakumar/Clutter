@@ -130,7 +130,7 @@ describe('durations and ordinals are one date', () => {
   });
 
   it('incomplete input offers nothing rather than a guess', () => {
-    for (const query of ['in', 'next', 'last', 'in 3 wee', '7da', '7m', 'next w', 'this week']) {
+    for (const query of ['in', 'in 3', 'in 3 wee', '7da', '7m', 'this week', 'next 3', 'next week x', 'nextt']) {
       expect(suggest(query), query).toEqual([]);
     }
   });

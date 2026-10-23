@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addMonthsClamped, addYearsClamped, daysInMonth, startOfMonthShifted, startOfYearShifted } from './calendarMath';
+import { addMonthsClamped, addYearsClamped, daysInMonth } from './calendarMath';
 import { addMonths } from './math';
 
 describe('daysInMonth', () => {
@@ -54,16 +54,5 @@ describe('addYearsClamped', () => {
     expect(addYearsClamped('2024-02-29', 1)).toBe('2025-02-28');
     expect(addYearsClamped('2024-02-29', -1)).toBe('2023-02-28');
     expect(addYearsClamped('2024-02-29', 4)).toBe('2028-02-29');
-  });
-});
-
-describe('startOfMonthShifted and startOfYearShifted', () => {
-  it('give the first day of the month or year, shifted', () => {
-    expect(startOfMonthShifted('2026-08-20', 1)).toBe('2026-09-01');
-    expect(startOfMonthShifted('2026-08-20', -1)).toBe('2026-07-01');
-    expect(startOfMonthShifted('2026-12-31', 1)).toBe('2027-01-01');
-    expect(startOfMonthShifted('2026-01-15', -1)).toBe('2025-12-01');
-    expect(startOfYearShifted('2026-08-20', 1)).toBe('2027-01-01');
-    expect(startOfYearShifted('2026-08-20', -1)).toBe('2025-01-01');
   });
 });

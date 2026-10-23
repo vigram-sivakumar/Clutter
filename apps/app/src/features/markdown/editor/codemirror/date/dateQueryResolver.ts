@@ -29,6 +29,9 @@ export interface DateQueryResult {
 /** Shared with `dateTrigger.ts` — no supported grammar form uses more than 3 space-separated tokens (`year month day`). */
 export const MAX_DATE_QUERY_TOKENS = 3;
 
+/** A date expression and a time in either order (`2 pm in 3 weeks`) is the longest query: two tokens more. */
+export const MAX_DATE_TIME_QUERY_TOKENS = 5;
+
 const MONTHS: readonly { readonly name: string }[] = [
   { name: 'january' },
   { name: 'february' },

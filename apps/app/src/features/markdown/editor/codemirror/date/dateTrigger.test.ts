@@ -40,9 +40,9 @@ describe('extractDateTriggerQuery', () => {
     expect(match).toEqual({ from: 0, query: '12 ' });
   });
 
-  it('terminates once a 4th space-separated token is typed — no supported grammar form is that long', () => {
-    const match = extractDateTriggerQuery(contextAt('@2027 jan 12 13', 15));
-    expect(match).toBeNull();
+  it('terminates once a 6th space-separated token is typed — no supported grammar form is that long', () => {
+    expect(extractDateTriggerQuery(contextAt('@2 pm in 3 weeks', 16))).not.toBeNull();
+    expect(extractDateTriggerQuery(contextAt('@2 pm in 3 weeks x', 18))).toBeNull();
   });
 
   it('does not match when a space follows @ directly', () => {

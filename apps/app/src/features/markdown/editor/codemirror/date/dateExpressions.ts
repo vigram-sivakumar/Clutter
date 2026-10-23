@@ -1,12 +1,7 @@
 import { formatAbsoluteDate } from '@shared/helpers/time/dateDisplay';
 import { isValidCalendarDate } from '@shared/helpers/time/helpers/isValidCalendarDate';
 import { toISODate } from '@shared/helpers/time/helpers/toISODate';
-import {
-  addMonthsClamped,
-  addYearsClamped,
-  startOfMonthShifted,
-  startOfYearShifted,
-} from '@shared/helpers/time/calendarMath';
+import { addMonthsClamped, addYearsClamped } from '@shared/helpers/time/calendarMath';
 import type { DateQueryResult } from './dateQueryResolver';
 
 /**
@@ -28,8 +23,8 @@ export interface DateExpressionContext {
  *   7d  7days  in 7days  in 7 days     today plus N calendar days (also w/week(s), month(s), y/year(s))
  *   in 3 weeks  in 2 months  in 1 year  today plus N, months and years clamped to the last day of a short month
  *   next week | last week              the first day of the next | previous calendar week (the week-start setting)
- *   next month | last month            the 1st of the next | previous month
- *   next year | last year              January 1 of the next | previous year
+ *   next month | last month            today's day of the month, one month on | back (the last day of a shorter month)
+ *   next year | last year              today's day and month, one year on | back (Feb 29 becomes Feb 28)
  *   next monday                        that weekday of the next calendar week
  *   last friday                        the most recent such weekday strictly before today
  *   fri  friday                        the next such weekday strictly after today
@@ -194,10 +189,10 @@ function resolveNextLast(direction: 'next' | 'last', word: string, ctx: DateExpr
     return resultFor(toISODate(addDays(ctx.startOfWeek(startOfDay(referenceDate)), 7 * sign)), referenceDate);
   }
   if (word === 'month') {
-    return resultFor(startOfMonthShifted(today, sign), referenceDate);
+    return resultFor(addMonthsClamped(today, sign), referenceDate);
   }
   if (word === 'year') {
-    return resultFor(startOfYearShifted(today, sign), referenceDate);
+    return resultFor(addYearsClamped(today, sign), referenceDate);
   }
 
   const weekday = parseWeekday(word);
@@ -263,4 +258,78 @@ export function resolveDateExpression(query: string, ctx: DateExpressionContext)
   }
 
   return null;
+}
+
+/** A suggestion for a partly typed `next …` / `last …`: the phrase to show, and the date it stands for. */
+export interface DateExpressionCandidate extends DateQueryResult {
+  /** `Next week`, `Last Friday`: what the row names, since the date alone would not tell two candidates apart. */
+  readonly phrase: string;
+}
+
+/** The most candidates a partly typed phrase offers: enough to choose from, never a list to scroll. */
+export const MAX_EXPRESSION_CANDIDATES = 6;
+
+const PERIODS: readonly string[] = ['week', 'month', 'year'];
+const capitalize = (word: string): string => word.charAt(0).toUpperCase() + word.slice(1);
+
+/**
+ * A prefix that begins both a calendar period and a weekday, where the period is the meaning offered: `mo` is the
+ * start of `month` far more often than of `Monday`, which has its own abbreviation, `mon`, to ask for it by.
+ */
+const PREFIXES_PREFERRING_THE_PERIOD: ReadonlySet<string> = new Set(['mo']);
+
+/**
+ * The expressions a partly typed `next <word>` / `last <word>` can still become, best first, each resolved by
+ * `resolveDateExpression` — the one place the dates are computed. `query` is the text after `@`. Nothing is offered
+ * until the second word has begun: `next`, `next `, `last` and anything shorter offer nothing.
+ *
+ *   next w  next we  last w    the periods that start with the word, then the weekdays that do (week, Wednesday)
+ *   next m  last m             month, Monday
+ *   next mo                    month only (`PREFIXES_PREFERRING_THE_PERIOD`)
+ *   next wed  last fri         that weekday only; `mon` is Monday, not month, as it is everywhere else
+ *
+ * Periods come before weekdays; weekdays are in the order of their nearness to today (after it for `next`, before it
+ * for `last`). Several phrases for one date offer the first only. Anything else (`next 3`, `in 3`, `next week x`)
+ * offers nothing.
+ */
+export function suggestDateExpressions(query: string, ctx: DateExpressionContext): readonly DateExpressionCandidate[] {
+  const tokens = query.trim().toLowerCase().split(' ');
+  if (tokens.length !== 2 || !tokens.every((token) => /^[a-z]+$/.test(token))) {
+    return [];
+  }
+  const [direction, word] = tokens as [string, string];
+  if (direction !== 'next' && direction !== 'last') {
+    return [];
+  }
+
+  const step = direction === 'next' ? 1 : -1;
+  const todayWeekday = ctx.referenceDate.getDay();
+  const weekdaysByNearness = Array.from({ length: 7 }, (_, i) => WEEKDAYS[(todayWeekday + step * (i + 1) + 14) % 7]!);
+
+  const named = parseWeekday(word);
+  const words =
+    named !== null
+      ? [WEEKDAYS[named]!]
+      : [
+          ...PERIODS.filter((period) => period.startsWith(word)),
+          ...(PREFIXES_PREFERRING_THE_PERIOD.has(word) ? [] : weekdaysByNearness.filter((name) => name.startsWith(word))),
+        ];
+
+  const seen = new Set<string>();
+  const candidates: DateExpressionCandidate[] = [];
+  for (const candidate of words) {
+    const result = resolveDateExpression(`${direction} ${candidate}`, ctx);
+    if (!result || seen.has(result.isoDate)) {
+      continue;
+    }
+    seen.add(result.isoDate);
+    candidates.push({
+      ...result,
+      phrase: `${capitalize(direction)} ${PERIODS.includes(candidate) ? candidate : capitalize(candidate)}`,
+    });
+    if (candidates.length === MAX_EXPRESSION_CANDIDATES) {
+      break;
+    }
+  }
+  return candidates;
 }

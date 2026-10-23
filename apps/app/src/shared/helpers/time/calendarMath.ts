@@ -32,15 +32,3 @@ export function addMonthsClamped(date: ISODate, months: number): ISODate {
 export function addYearsClamped(date: ISODate, years: number): ISODate {
   return addMonthsClamped(date, years * 12);
 }
-
-/** The first day of the month `months` months from `date`'s month (negative: earlier). */
-export function startOfMonthShifted(date: ISODate, months: number): ISODate {
-  const { year, month } = partsOf(date);
-  const index = year * 12 + (month - 1) + months;
-  return isoOf(Math.floor(index / 12), ((index % 12) + 12) % 12 + 1, 1);
-}
-
-/** January 1 of the year `years` years from `date`'s year (negative: earlier). */
-export function startOfYearShifted(date: ISODate, years: number): ISODate {
-  return isoOf(partsOf(date).year + years, 1, 1);
-}

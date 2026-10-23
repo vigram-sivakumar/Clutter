@@ -2,7 +2,7 @@ import type { CompletionContext } from '@codemirror/autocomplete';
 
 import type { AtTriggerMatch } from '../at/atTrigger';
 import { isValidDatePrecedingContext, scanDate } from '../../../../../core/vault/ingest/grammar/dateScanner';
-import { MAX_DATE_QUERY_TOKENS } from './dateQueryResolver';
+import { MAX_DATE_TIME_QUERY_TOKENS } from './dateQueryResolver';
 
 /**
  * Date's own trigger boundary — deliberately separate from, and does not
@@ -18,7 +18,7 @@ import { MAX_DATE_QUERY_TOKENS } from './dateQueryResolver';
  * Unlike WikiLink's `[[...]]`, `@` has no closing delimiter to bound a
  * multi-word query syntactically, so this does not try to validate
  * "still looks like a date" token-by-token here — it only bounds the
- * query to at most `MAX_DATE_QUERY_TOKENS` space-separated words (no
+ * query to at most `MAX_DATE_TIME_QUERY_TOKENS` space-separated words (no
  * supported grammar form is longer) and rejects a couple of clearly
  * non-date shapes (leading whitespace right after `@`, tabs/newlines).
  * The actual "is this still a valid/plausible date expression" judgment
@@ -85,7 +85,7 @@ export function extractDateTriggerQuery(context: CompletionContext): AtTriggerMa
   }
 
   const tokenCount = query === '' ? 0 : query.split(' ').length;
-  if (tokenCount > MAX_DATE_QUERY_TOKENS) {
+  if (tokenCount > MAX_DATE_TIME_QUERY_TOKENS) {
     return null;
   }
 

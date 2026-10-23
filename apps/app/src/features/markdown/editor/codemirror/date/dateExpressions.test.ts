@@ -14,6 +14,8 @@ function context(referenceDate: Date, weekStart: WeekStart = 'monday'): DateExpr
 const iso = (query: string, referenceDate: Date = THURSDAY, weekStart: WeekStart = 'monday') =>
   resolveDateExpression(query, context(referenceDate, weekStart))?.isoDate ?? null;
 
+const OCT_23 = new Date(2026, 9, 23);
+
 describe('days, weeks, months and years from today', () => {
   it('7d, 7days, in 7days and in 7 days all mean seven calendar days from today', () => {
     for (const query of ['7d', '7days', 'in 7days', 'in 7 days', '7D', 'In 7 Days']) {
@@ -94,17 +96,40 @@ describe('next and last week, month and year', () => {
     expect(iso('last week', new Date(2027, 0, 1), 'monday')).toBe('2026-12-21');
   });
 
-  it('next and last month are the first of that month', () => {
-    expect(iso('next month')).toBe('2026-09-01');
-    expect(iso('last month')).toBe('2026-07-01');
-    expect(iso('next month', new Date(2026, 11, 31))).toBe('2027-01-01');
-    expect(iso('last month', new Date(2026, 0, 15))).toBe('2025-12-01');
-    expect(iso('next month', new Date(2026, 0, 31))).toBe('2026-02-01');
+  it('next and last month keep today’s day of the month', () => {
+    expect(iso('next month')).toBe('2026-09-20');
+    expect(iso('last month')).toBe('2026-07-20');
+    expect(iso('next month', OCT_23)).toBe('2026-11-23');
+    expect(iso('last month', OCT_23)).toBe('2026-09-23');
+    expect(iso('next month', new Date(2026, 11, 31))).toBe('2027-01-31');
+    expect(iso('last month', new Date(2026, 0, 15))).toBe('2025-12-15');
   });
 
-  it('next and last year are January 1', () => {
-    expect(iso('next year')).toBe('2027-01-01');
-    expect(iso('last year')).toBe('2025-01-01');
+  it('next and last month clamp to the last day of a shorter month, in leap and common years', () => {
+    expect(iso('next month', new Date(2026, 0, 31))).toBe('2026-02-28');
+    expect(iso('next month', new Date(2028, 0, 31))).toBe('2028-02-29');
+    expect(iso('last month', new Date(2026, 2, 31))).toBe('2026-02-28');
+    expect(iso('last month', new Date(2028, 2, 31))).toBe('2028-02-29');
+    expect(iso('next month', new Date(2026, 2, 31))).toBe('2026-04-30');
+    expect(iso('last month', new Date(2026, 4, 31))).toBe('2026-04-30');
+    expect(iso('next month', new Date(2026, 7, 31))).toBe('2026-09-30');
+  });
+
+  it('next and last year keep today’s month and day', () => {
+    expect(iso('next year')).toBe('2027-08-20');
+    expect(iso('last year')).toBe('2025-08-20');
+    expect(iso('next year', OCT_23)).toBe('2027-10-23');
+    expect(iso('last year', OCT_23)).toBe('2025-10-23');
+  });
+
+  it('next and last year clamp February 29 in a common year, and keep it in a leap year', () => {
+    const leapDay = new Date(2028, 1, 29);
+    expect(iso('next year', leapDay)).toBe('2029-02-28');
+    expect(iso('last year', leapDay)).toBe('2027-02-28');
+    expect(iso('next year', new Date(2023, 1, 28))).toBe('2024-02-28');
+    expect(iso('next year', new Date(2027, 1, 28))).toBe('2028-02-28');
+    expect(iso('last year', new Date(2032, 1, 29))).toBe('2031-02-28');
+    expect(iso('next year', new Date(2024, 1, 29))).toBe('2025-02-28');
   });
 
   it('this week, this month and this year are not expressions', () => {

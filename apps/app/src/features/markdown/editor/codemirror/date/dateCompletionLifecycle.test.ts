@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
-import { acceptCompletion, completionStatus, currentCompletions, moveCompletionSelection } from '@codemirror/autocomplete';
+import { acceptCompletion, closeCompletion, completionStatus, currentCompletions, moveCompletionSelection } from '@codemirror/autocomplete';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { semanticCompletion } from '../completion';
@@ -313,6 +313,90 @@ describe('Date autocomplete — real CM6 accept/reopen lifecycle', () => {
       accept(view);
       expect(view.state.doc.toString()).toMatch(/^@\d{4}-\d{2}-\d{2} $/);
       view.destroy();
+    });
+  });
+
+  describe('a partly typed next / last', () => {
+    const phrases = (view: EditorView) =>
+      currentCompletions(view.state).map((c) => (c as unknown as { dateSuggestion: { phrase?: string } }).dateSuggestion.phrase);
+
+    it('13. the list follows every keystroke and nothing is inserted until one is accepted', async () => {
+      const view = mount();
+      await type(view, '@next');
+      expect(phrases(view)).toEqual([]);
+      await type(view, ' w');
+      expect(phrases(view)).toEqual(['Next week', 'Next Wednesday']);
+      expect(view.state.doc.toString()).toBe('@next w');
+      await type(view, 'ed');
+      expect(phrases(view)).toEqual(['Next Wednesday']);
+      expect(view.state.doc.toString()).toBe('@next wed');
+      view.destroy();
+    });
+
+    it('14. Enter takes the selected row, the arrow moves to the next, and either inserts a canonical date', async () => {
+      const first = mount();
+      await type(first, '@next w');
+      await settle();
+      accept(first);
+      expect(first.state.doc.toString()).toMatch(/^@\d{4}-\d{2}-\d{2} $/);
+      first.destroy();
+
+      const second = mount();
+      await type(second, '@next w');
+      await settle();
+      moveCompletionSelection(true)(second);
+      accept(second);
+      expect(second.state.doc.toString()).toMatch(/^@\d{4}-\d{2}-\d{2} $/);
+      expect(second.state.doc.toString()).not.toBe(first.state.doc.toString());
+      second.destroy();
+    });
+
+    it('15. Escape closes the list and leaves what was typed alone', async () => {
+      const view = mount();
+      await type(view, '@last w');
+      expect(phrases(view)).toEqual(['Last week', 'Last Wednesday']);
+      closeCompletion(view);
+      expect(completionStatus(view.state)).toBeNull();
+      expect(view.state.doc.toString()).toBe('@last w');
+      view.destroy();
+    });
+  });
+
+  describe('a date and a time, in either order', () => {
+    it('16. @next month 2pm and @2pm next month insert the same canonical @YYYY-MM-DDTHH:mm', async () => {
+      const first = mount();
+      await type(first, '@next month 2pm');
+      expect(labels(first)).toHaveLength(1);
+      await settle();
+      accept(first);
+
+      const second = mount();
+      await type(second, '@2pm next month');
+      await settle();
+      accept(second);
+
+      expect(first.state.doc.toString()).toMatch(/^@\d{4}-\d{2}-\d{2}T14:00 $/);
+      expect(second.state.doc.toString()).toBe(first.state.doc.toString());
+      expect(completionStatus(first.state)).toBeNull();
+      first.destroy();
+      second.destroy();
+    });
+
+    it('17. a plain number after the date is an hour; p turns it into the afternoon', async () => {
+      const view = mount();
+      await type(view, '@next month 2');
+      expect(labels(view)).toHaveLength(1);
+      await settle();
+      accept(view);
+      expect(view.state.doc.toString()).toMatch(/^@\d{4}-\d{2}-\d{2}T02:00 $/);
+      view.destroy();
+
+      const afternoon = mount();
+      await type(afternoon, '@next month 2p');
+      await settle();
+      accept(afternoon);
+      expect(afternoon.state.doc.toString()).toMatch(/^@\d{4}-\d{2}-\d{2}T14:00 $/);
+      afternoon.destroy();
     });
   });
 });
