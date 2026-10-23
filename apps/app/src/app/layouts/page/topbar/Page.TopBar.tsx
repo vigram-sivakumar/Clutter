@@ -23,7 +23,7 @@ export function PageTopBar({
   onNavigateForward,
 }: PageTopBarProps) {
   return (
-    <div className="topbar" data-tauri-drag-region>
+    <div className="topbar window-chrome" data-tauri-drag-region>
       <div className="topbar--leading" data-tauri-drag-region>
         <div className="history-controls">
           <Button

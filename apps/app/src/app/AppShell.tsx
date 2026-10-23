@@ -37,6 +37,7 @@ import {
 } from '../components/space-details/SpaceDetails';
 import { pickSpaceFolder } from './spaces/pickSpaceFolder';
 import { ActiveSpaceSettingsDialog } from './ActiveSpaceSettingsDialog';
+import { ShortcutsProvider, useShortcutHandler } from './shortcuts/ShortcutsProvider';
 import { useNativeSettingsMenu } from './useNativeSettingsMenu';
 import {
   SettingsDialogStateProvider,
@@ -137,7 +138,9 @@ async function discardApplication(application: Application): Promise<void> {
 export function AppShell() {
   return (
     <SettingsDialogStateProvider>
-      <AppShellContent />
+      <ShortcutsProvider>
+        <AppShellContent />
+      </ShortcutsProvider>
     </SettingsDialogStateProvider>
   );
 }
@@ -1072,6 +1075,10 @@ function AppShellContent() {
   // The native Clutter menu's "Settings…" (⌘,) opens this same dialog.
   const openSettings = useCallback(() => closeSettings?.(true), [closeSettings]);
   useNativeSettingsMenu(settingsAvailable, openSettings);
+  // ⌘, in the browser build (the desktop app's native Settings… item owns it there).
+  useShortcutHandler('open-settings', () => {
+    if (settingsAvailable) openSettings();
+  });
 
   const renderFrame = (): ReactNode => {
   if (error) {

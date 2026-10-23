@@ -5,6 +5,7 @@ import { Sidebar } from '../sidebar/Sidebar';
 import { PageHost } from '../page/PageHost';
 import { CoverSuppressedContext } from '../page/CoverSuppressedContext';
 import { SidebarToggle } from './sidebar-toggle/SidebarToggle';
+import './windowChrome.css';
 import { SidebarResizeHandle } from './sidebar-resize-handle/SidebarResizeHandle';
 import { useSidebarTransition } from './useSidebarTransition';
 import { useSidebarWidth, MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH } from './useSidebarWidth';
@@ -16,6 +17,8 @@ import { useSpaceSettingsMigration } from '@app/hooks/useSpaceSettingsMigration'
 import { useDateDisplayVersion } from '@app/hooks/useDateDisplayVersion';
 import { useMaxWidth, SIDEBAR_COLLAPSE_BREAKPOINT, COVER_HIDE_BREAKPOINT } from '@app/hooks/useMaxWidth';
 import { useSidebarVisibility, type NarrowSidebarOverride } from './useSidebarVisibility';
+import { useLayoutShortcuts } from './useLayoutShortcuts';
+import { useNativeGoMenu } from './useNativeGoMenu';
 import { useEffectivePageState } from '@app/hooks/useEffectivePageState';
 import { useWorkspace } from '@app/hooks/useWorkspace';
 import { TauriDragStrip } from '@components/tauri-drag-strip/TauriDragStrip';
@@ -129,6 +132,12 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
   // whenever the sidebar is (manually) open. Collapsing the sidebar lets it return.
   const isCoverSuppressed = useMaxWidth(COVER_HIDE_BREAKPOINT) || (isNarrow && isSidebarVisible);
   const sidebarTransition = useSidebarTransition(isSidebarVisible, sidebarSlotRef);
+  // History, the sidebar and its tabs, by keyboard (shortcuts.ts); Back / Forward also as the native Go menu.
+  useLayoutShortcuts({ navigation: application.navigation, workspace, isSidebarVisible, toggleSidebar });
+  useNativeGoMenu({
+    onBack: () => application.navigation.back(),
+    onForward: () => application.navigation.forward(),
+  });
 
   // The single "which resource overlay is open" state for the whole app —
   // AppLayout is the confirmed common ancestor of every overlay entry point

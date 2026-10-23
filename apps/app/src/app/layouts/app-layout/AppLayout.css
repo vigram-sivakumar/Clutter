@@ -67,6 +67,9 @@
   min-height: 0;
   padding: var(--space-8);
   padding-left: 0;
+  /* Places the page's top row (.topbar) in the window chrome band, so it holds still on screen under zoom with the
+     row itself (windowChrome.css). */
+  padding-top: calc(var(--space-8) * var(--window-chrome-zoom));
   position: relative;
   z-index: 2;
   background: var(--surface-secondary);
@@ -94,7 +97,9 @@
   transition-timing-function: var(--layout-transition-expand-easing);
 }
 .app-layout[data-sidebar-collapsed='true'] .app-layout__page {
-  padding-left: var(--space-8);
+  /* With the sidebar collapsed the page's left edge is the window's, where the traffic lights sit: its inset is part of
+     the window chrome band, so it holds still on screen under zoom (windowChrome.css). */
+  padding-left: calc(var(--space-8) * var(--window-chrome-zoom));
   transition-timing-function: var(--layout-transition-collapse-easing);
 }
 .app-layout[data-sidebar-collapsed='false'] .app-layout__page {

@@ -4,6 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { ShortcutsProvider } from '@app/shortcuts/ShortcutsProvider';
 import { Footer } from './Footer';
 import type { SpaceAvatarValue } from '@components/space-avatar/SpaceAvatar';
 
@@ -77,11 +78,42 @@ describe('Footer space selector: title, caret, archive', () => {
     expect(onOpenArchive).toHaveBeenCalledTimes(1);
   });
 
+  it('opens the shell’s one Keyboard shortcuts dialog when there is one, instead of a second of its own', async () => {
+    render(
+      <ShortcutsProvider>
+        <Footer vaultFolderName="v" onOpenArchive={vi.fn()} />
+      </ShortcutsProvider>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Help' }));
+    fireEvent.click(screen.getByText('Keyboard shortcuts'));
+    expect(await screen.findAllByRole('heading', { name: 'Keyboard shortcuts' })).toHaveLength(1);
+  });
+
+  it('Markdown guide opens its own dialog: the shell’s when there is one', async () => {
+    render(
+      <ShortcutsProvider>
+        <Footer vaultFolderName="v" onOpenArchive={vi.fn()} />
+      </ShortcutsProvider>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Help' }));
+    fireEvent.click(screen.getByText('Markdown guide'));
+    expect(await screen.findAllByText('Markdown guide', { selector: '.settings-sidebar *' })).toHaveLength(1);
+    expect(document.querySelectorAll('.settings-sidebar .sidebar__navigation')).toHaveLength(6);
+    expect(screen.queryByRole('heading', { name: 'Keyboard shortcuts' })).toBeNull();
+  });
+
+  it('Markdown guide opens a dialog of the footer’s own when there is no shell', async () => {
+    render(<Footer vaultFolderName="v" onOpenArchive={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Help' }));
+    fireEvent.click(screen.getByText('Markdown guide'));
+    expect(await screen.findAllByText('Markdown guide', { selector: '.settings-sidebar *' })).toHaveLength(1);
+  });
+
   it('opens the help menu with the shortcut entries', () => {
     render(<Footer vaultFolderName="v" onOpenArchive={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Help' }));
     expect(screen.getByText('Keyboard shortcuts')).toBeTruthy();
-    expect(screen.getByText('Markdown shortcuts')).toBeTruthy();
+    expect(screen.getByText('Markdown guide')).toBeTruthy();
   });
 
   it('opens the keyboard shortcuts dialog and closes it with the dismiss button', () => {

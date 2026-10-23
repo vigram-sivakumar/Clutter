@@ -12,7 +12,9 @@ import {
   SpaceAvatar,
   type SpaceAvatarValue,
 } from '@components/space-avatar/SpaceAvatar';
-import { KeyboardShortcutsDialog } from './KeyboardShortcutsDialog';
+import { KeyboardShortcutsDialog } from '@app/shortcuts/KeyboardShortcutsDialog';
+import { MarkdownShortcutsDialog } from '@app/shortcuts/MarkdownShortcutsDialog';
+import { useKeyboardShortcutsDialog, useMarkdownShortcutsDialog } from '@app/shortcuts/ShortcutsProvider';
 import { SpaceMenu, DEFAULT_SPACE_AVATAR } from './SpaceMenu';
 import { useSharedSettingsDialogState } from '@features/settings/SettingsDialogState';
 
@@ -63,7 +65,11 @@ export function Footer({
   const settingsDialog = useSharedSettingsDialogState();
   const selectorRef = useRef<HTMLDivElement>(null);
   const helpMenu = useOverlay<HTMLButtonElement>();
+  // The shell hosts one Keyboard shortcuts dialog (so the shortcut can open it too); without a shell, the footer hosts its own.
+  const hostedShortcutsDialog = useKeyboardShortcutsDialog();
+  const hostedMarkdownDialog = useMarkdownShortcutsDialog();
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [markdownShortcutsOpen, setMarkdownShortcutsOpen] = useState(false);
   const title = spaceName || vaultFolderName;
   // Each listed Space shows its own avatar; the open one falls back to its entry's when none is passed.
   const activeAvatar =
@@ -136,13 +142,21 @@ export function Footer({
               leading={<AppIcon icon="keyboard" />}
               onClick={() => {
                 helpMenu.hide();
-                setShortcutsOpen(true);
+                if (hostedShortcutsDialog) hostedShortcutsDialog.open();
+                else setShortcutsOpen(true);
               }}
             >
               Keyboard shortcuts
             </MenuItem>
-            <MenuItem leading={<AppIcon icon="option" />} onClick={helpMenu.hide}>
-              Markdown shortcuts
+            <MenuItem
+              leading={<AppIcon icon="option" />}
+              onClick={() => {
+                helpMenu.hide();
+                if (hostedMarkdownDialog) hostedMarkdownDialog.open();
+                else setMarkdownShortcutsOpen(true);
+              }}
+            >
+              Markdown guide
             </MenuItem>
           </Menu>
         </Overlay>
@@ -155,7 +169,12 @@ export function Footer({
           <AppIcon icon={getSystemLocationPresentation('archive').icon} />
         </Button>
       </div>
-      <KeyboardShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      {!hostedShortcutsDialog && (
+        <KeyboardShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      )}
+      {!hostedMarkdownDialog && (
+        <MarkdownShortcutsDialog open={markdownShortcutsOpen} onClose={() => setMarkdownShortcutsOpen(false)} />
+      )}
     </div>
   );
 }

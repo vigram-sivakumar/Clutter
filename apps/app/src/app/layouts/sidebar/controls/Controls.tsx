@@ -59,7 +59,7 @@ export function Controls({
     };
 
   return (
-    <div className="controls" data-tauri-drag-region>
+    <div className="controls window-chrome" data-tauri-drag-region>
       <div className="create-controls">
         <Button
           isIconOnly

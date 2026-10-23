@@ -21,7 +21,7 @@ interface SidebarToggleProps {
  */
 export function SidebarToggle({ isSidebarVisible, onToggleSidebarVisible }: SidebarToggleProps) {
   return (
-    <div className="sidebar-toggle" data-tauri-drag-region>
+    <div className="sidebar-toggle window-chrome" data-tauri-drag-region>
       <Button
         isIconOnly
         size="medium"

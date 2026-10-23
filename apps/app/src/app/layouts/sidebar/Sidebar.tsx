@@ -11,6 +11,7 @@ import type { VaultResource } from '@core/vault/models/VaultResource';
 import type { TaskDisplayConfig } from '@features/tasks/helpers/groupTasks';
 import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
 import { getActiveDailyNoteDate } from '@features/daily-notes/helpers/getActiveDailyNoteDate';
+import { shiftDailyNoteDate, todayAsDailyNoteDate } from '@features/daily-notes/helpers/shiftDailyNoteDate';
 import './Sidebar.css';
 import { Tabs, Tab } from '@components/tabs/Tabs';
 import { AppIcon } from '@shared/icon';
@@ -25,6 +26,7 @@ import { SearchPanel } from '@features/search/SearchPanel';
 import { Controls } from '@app/layouts/sidebar/controls/Controls';
 import { Footer } from './footer/Footer';
 import { useNativeFileMenu } from './useNativeFileMenu';
+import { useShortcutHandlers } from '@app/shortcuts/ShortcutsProvider';
 import { useNativeEditMenu } from './useNativeEditMenu';
 import { createLocationActions } from '@features/notes/helpers/createLocationActions';
 import { useSpaces } from '@app/spaces/SpacesContext';
@@ -280,6 +282,28 @@ export function Sidebar({
       .catch(() => {});
   const newFolder = () => setCreationDialog('folder');
   useNativeFileMenu({ onNewNote: newNote, onNewDailyNote: openDailyNote, onNewFolder: newFolder });
+  // The same create actions by keyboard (shortcuts.ts). In the desktop app the File menu owns ⌘N, ⇧⌘N and ⇧⌘D, so
+  // the dispatcher only handles those in the browser build; ⇧⌘T (New task) has no menu item and is always handled here.
+  // Previous / next daily note step from the open Daily Note, or from today when none is open.
+  const openDailyNoteBy = (days: number) =>
+    void pageOperations
+      .openAtPath(
+        DailyNotePath.absoluteFrom(
+          vault.root,
+          new Date(shiftDailyNoteDate(activeDailyNoteDate ?? todayAsDailyNoteDate(), days))
+        ),
+        { type: 'daily-note' }
+      )
+      .catch(() => {});
+  useShortcutHandlers({
+    'new-note': newNote,
+    'new-folder': newFolder,
+    'new-task': () => setCreationDialog('task'),
+    'new-daily-note': openDailyNote,
+    'new-tag': () => setCreationDialog('tag'),
+    'previous-daily-note': () => openDailyNoteBy(-1),
+    'next-daily-note': () => openDailyNoteBy(1),
+  });
   // The native Edit menu's "Copy Link to Current Page": the same "Copy path → As Markdown" action the page menus use,
   // on the open page. Enabled only while a page (note or daily note) is open.
   const openPage = workspace.activePageId ? vault.getPage(workspace.activePageId) : undefined;

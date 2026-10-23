@@ -1,7 +1,6 @@
 import { tripleClickLineSelection } from './tripleClickLineSelection';
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import {
-  defaultKeymap,
   history,
   historyField,
   historyKeymap,
@@ -31,6 +30,7 @@ import {
 import { cspNonceExtension } from './cspNonce';
 import { editorTheme } from './editorTheme';
 import { fencedCodeHoverMouseHandlers } from './fencedCode/fencedCodeHoverMouseHandlers';
+import { editorDefaultKeymap } from './editorDefaultKeymap';
 import { foldAwareArrowKeymap } from './fold/foldAwareArrowKeymap';
 import { foldAwareMoveLineKeymap } from './fold/foldAwareMoveLineKeymap';
 import { foldSemanticsKeymap } from './fold/foldSemanticsKeymap';
@@ -288,10 +288,10 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       // every CM6-internal indentation-aware command (Backspace's
       // whitespace-only-prefix deletion via `deleteCharBackward`, Enter's
       // `insertNewlineAndIndent` fallback, `markdownEnterKeymap.ts`'s own
-      // `exitEmptyIndentContinuation`, and `indentMore`/`indentLess`/
-      // `indentSelection` — the last three reachable directly via
-      // Cmd+]/Cmd+[/Cmd-Alt-\, unshadowed by `markdownIndentKeymap()`'s
-      // own Tab/Shift-Tab bindings) agrees with Clutter's own Tab/
+      // `exitEmptyIndentContinuation`, and `indentSelection`, reachable
+      // directly via Cmd-Alt-\, unshadowed by `markdownIndentKeymap()`'s
+      // own Tab/Shift-Tab bindings; Cmd+]/Cmd+[ are no longer bound here,
+      // they are Go forward / Go back: see `editorDefaultKeymap.ts`) agrees with Clutter's own Tab/
       // Shift-Tab step, confirmed by a full repository-wide audit that
       // every one of those call sites reads this facet and none hardcodes
       // a space count of its own. `markdownIndentKeymap()` itself never
@@ -442,7 +442,7 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
         ...(enableFolding ? foldSemanticsKeymap : []),
         ...(enableFolding ? foldAwareArrowKeymap : []),
         ...(enableFolding ? foldAwareMoveLineKeymap : []),
-        ...defaultKeymap,
+        ...editorDefaultKeymap,
       ]),
   ];
 

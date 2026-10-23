@@ -32,6 +32,7 @@ import {
   type RenumberEdit,
 } from '../list/orderedListRenumbering';
 import { findTaskMarkerAt, isTaskMarkerNode, taskMarkerOfListItem } from '../task/taskEngagement';
+import { insertTaskMarkerOnSpace } from '../task/taskMarkerCreation';
 
 /**
  * The one Markdown editing policy Clutter adds on top of CodeMirror:
@@ -1674,7 +1675,10 @@ export const insertSoftLineBreak: Command = (view) => {
  * that creates it, and returns `false` for every other Space press
  * (bullets, mid-content, manual digit edits, anything not shaped exactly
  * like marker-creation), falling through to CM6's ordinary default Space
- * handling unchanged. Anything using `markdownLanguageExtension()` for
+ * handling unchanged. `insertTaskMarkerOnSpace` (`../task/taskMarkerCreation.ts`)
+ * shares the entry, after it: a bare `[]` at the start of a line plus Space
+ * becomes an unchecked task (`- [ ] `), and it too declines for everything else.
+ * Anything using `markdownLanguageExtension()` for
  * real editing must wire this alongside it, or it gets no Markdown-aware
  * Enter/Backspace/Delete/Space at all.
  */
@@ -1698,7 +1702,7 @@ export function markdownEnterKeymap(): Extension {
           deleteAroundHardBreakForward(target) ||
           deleteCompleteListItemSelection(target),
       },
-      { key: 'Space', run: insertOrderedListMarkerSeparator },
+      { key: 'Space', run: (target) => insertOrderedListMarkerSeparator(target) || insertTaskMarkerOnSpace(target) },
     ])
   );
 }

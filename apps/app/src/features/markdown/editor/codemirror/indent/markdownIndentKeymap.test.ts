@@ -966,9 +966,11 @@ describe('markdownIndentKeymap', () => {
  * hardcoded number: `deleteCharBackward` (Backspace's whitespace-only-
  * prefix "remove one indentation level" behavior — the exact path the
  * product caught this audit missing on its first pass), and the three
- * CM6-native shortcuts (`Cmd+]`/`Cmd+[`/`Cmd-Alt-\`) that bypass
- * `markdownIndentKeymap()`'s own Tab/Shift-Tab bindings entirely, since
- * they're different physical keys.
+ * CM6-native indentation commands (`indentMore`/`indentLess`, once on `Cmd+]`/`Cmd+[`,
+ * and `indentSelection` on `Cmd-Alt-\`) that bypass `markdownIndentKeymap()`'s own
+ * Tab/Shift-Tab bindings entirely. `Cmd+]`/`Cmd+[` are no longer bound in the editor (they are
+ * Go forward / Go back; see `editorDefaultKeymap.ts`), so only `Cmd-Alt-\` still reaches them by keyboard;
+ * the commands are kept under test so any caller of them keeps agreeing with the 4-space unit.
  *
  * These tests build their own `EditorState` with `indentUnit.of(INDENT_UNIT_STRING)`
  * explicitly, rather than using `mountView()` above — `markdownLanguageExtension()`
@@ -1054,15 +1056,15 @@ describe('CM6 indentUnit synchronization (Option C migration)', () => {
     });
   });
 
-  describe('CM6-native shortcuts bypassing markdownIndentKeymap() entirely — confirmed reachable, now use the synced 4-space unit', () => {
-    it('Cmd+] (indentMore): inserts exactly one 4-space unit, verbatim from the facet', () => {
+  describe('CM6-native indentation commands bypassing markdownIndentKeymap() entirely — use the synced 4-space unit', () => {
+    it('indentMore (no longer on a key): inserts exactly one 4-space unit, verbatim from the facet', () => {
       const view = mountViewWithIndentUnit('Text', 0);
       const target = { state: view.state, dispatch: (tr: any) => view.update([tr]) };
       expect(indentMore(target as any)).toBe(true);
       expect(view.state.doc.toString()).toBe('    Text');
     });
 
-    it('Cmd+[ (indentLess): removes exactly one 4-space unit', () => {
+    it('indentLess (no longer on a key): removes exactly one 4-space unit', () => {
       const view = mountViewWithIndentUnit('    Text', 0);
       const target = { state: view.state, dispatch: (tr: any) => view.update([tr]) };
       expect(indentLess(target as any)).toBe(true);

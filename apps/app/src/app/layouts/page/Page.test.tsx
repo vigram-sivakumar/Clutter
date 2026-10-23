@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createRef } from 'react';
 import { Page, type PageFocusHandle } from './Page';
@@ -710,5 +710,109 @@ describe('Page — archived banner', () => {
 
     render(<Page title="Note" body={<div />} archived={archived} coverLayout="above" />);
     expect(banner()!.classList.contains('archived-banner--full-width')).toBe(true);
+  });
+});
+
+describe('Page — ⌃⌘C Toggle cover image', () => {
+  const press = (init: KeyboardEventInit = {}) =>
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        code: 'KeyC',
+        key: 'c',
+        metaKey: true,
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true,
+        ...init,
+      })
+    );
+
+  async function renderWithShortcuts(props: Partial<Parameters<typeof Page>[0]>) {
+    const { ShortcutsProvider } = await import('@app/shortcuts/ShortcutsProvider');
+    const onHideCoverImage = vi.fn();
+    const onShowCoverImage = vi.fn();
+    render(
+      <ShortcutsProvider>
+        <Page
+          title="Note"
+          body={<div />}
+          coverImage="cover.png"
+          onHideCoverImage={onHideCoverImage}
+          onShowCoverImage={onShowCoverImage}
+          {...props}
+        />
+      </ShortcutsProvider>
+    );
+    return { onHideCoverImage, onShowCoverImage };
+  }
+
+  beforeEach(() => void vi.spyOn(navigator, 'platform', 'get').mockReturnValue('MacIntel'));
+  afterEach(() => void vi.restoreAllMocks());
+
+  it('hides a visible cover with the cover’s own hide handler', async () => {
+    const { onHideCoverImage, onShowCoverImage } = await renderWithShortcuts({ coverHidden: false });
+    press();
+    expect(onHideCoverImage).toHaveBeenCalledOnce();
+    expect(onShowCoverImage).not.toHaveBeenCalled();
+  });
+
+  it('shows a hidden cover with the cover’s own show handler', async () => {
+    const { onHideCoverImage, onShowCoverImage } = await renderWithShortcuts({ coverHidden: true });
+    press();
+    expect(onShowCoverImage).toHaveBeenCalledOnce();
+    expect(onHideCoverImage).not.toHaveBeenCalled();
+  });
+
+  it('does nothing when the page has no cover', async () => {
+    const { onHideCoverImage, onShowCoverImage } = await renderWithShortcuts({ coverImage: undefined });
+    press();
+    expect(onHideCoverImage).not.toHaveBeenCalled();
+    expect(onShowCoverImage).not.toHaveBeenCalled();
+  });
+
+  it('does nothing when the cover is not editable (an archived note)', async () => {
+    const { onHideCoverImage, onShowCoverImage } = await renderWithShortcuts({ coverEditable: false });
+    press();
+    expect(onHideCoverImage).not.toHaveBeenCalled();
+    expect(onShowCoverImage).not.toHaveBeenCalled();
+  });
+
+  it('is not ⌘C (Copy), ⌃C or ⌥⌘C', async () => {
+    const { onHideCoverImage } = await renderWithShortcuts({});
+    press({ ctrlKey: false });
+    press({ metaKey: false });
+    press({ altKey: true });
+    expect(onHideCoverImage).not.toHaveBeenCalled();
+  });
+});
+
+describe('Page — the existing show / hide cover controls', () => {
+  // Opening the menus below lays out an overlay, which needs a ResizeObserver (jsdom has none).
+  class ResizeObserverMock {
+    observe = vi.fn();
+    unobserve = vi.fn();
+    disconnect = vi.fn();
+  }
+  beforeEach(() => void vi.stubGlobal('ResizeObserver', ResizeObserverMock));
+  afterEach(() => void vi.unstubAllGlobals());
+
+  it('the header’s More-actions “Show cover image” shows a hidden cover', () => {
+    const onShowCoverImage = vi.fn();
+    const onHideCoverImage = vi.fn();
+    render(
+      <Page title="Note" body={<div />} coverImage="cover.png" coverHidden onShowCoverImage={onShowCoverImage} onHideCoverImage={onHideCoverImage} />
+    );
+    fireEvent.click(document.querySelector('header [aria-label="More actions"]') as HTMLElement);
+    fireEvent.click(screen.getByText('Show cover image'));
+    expect(onShowCoverImage).toHaveBeenCalledOnce();
+    expect(onHideCoverImage).not.toHaveBeenCalled();
+  });
+
+  it('the cover’s own Hide menu item hides a visible cover', () => {
+    const onHideCoverImage = vi.fn();
+    render(<Page title="Note" body={<div />} coverImage="cover.png" onHideCoverImage={onHideCoverImage} />);
+    fireEvent.click(document.querySelector('.page__cover [aria-label="More actions"]') as HTMLElement);
+    fireEvent.click(screen.getByText('Hide'));
+    expect(onHideCoverImage).toHaveBeenCalledOnce();
   });
 });

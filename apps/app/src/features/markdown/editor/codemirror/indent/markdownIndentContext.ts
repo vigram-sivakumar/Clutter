@@ -23,9 +23,9 @@ import type { SyntaxNode } from '@lezer/common';
  *    `--md-indent` in the design token system).
  * 2. **Every CM6-internal indentation-aware command** — `deleteCharBackward`
  *    (Backspace's whitespace-only-prefix deletion), `insertNewlineAndIndent`
- *    (Enter's fallback), `indentMore`/`indentLess`/`indentSelection` (also
- *    reachable directly via Cmd+]/Cmd+[/Cmd-Alt-\\, unshadowed by
- *    Clutter's own Tab keymap), and `markdownEnterKeymap.ts`'s own
+ *    (Enter's fallback), `indentMore`/`indentLess`/`indentSelection` (the last
+ *    reachable directly via Cmd-Alt-\\, unshadowed by Clutter's own Tab
+ *    keymap; Cmd+]/Cmd+[ are Go forward / Go back, not bound here), and `markdownEnterKeymap.ts`'s own
  *    `exitEmptyIndentContinuation` — all read CM6's `indentUnit`/`tabSize`
  *    facets, never this constant directly. `createEditorView.ts`
  *    configures `indentUnit.of(INDENT_UNIT_STRING)` from this exact

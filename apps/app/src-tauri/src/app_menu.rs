@@ -26,12 +26,24 @@ pub const SETTINGS_ITEM_ID: &str = "app-settings";
 /// Event the frontend listens for to open its Settings dialog (see src/app/useNativeSettingsMenu.ts).
 pub const OPEN_SETTINGS_EVENT: &str = "menu:open-settings";
 
-/// File-menu items that run an existing app action: (item id, label, frontend event). The frontend listens for these
-/// exact event names (src/app/useNativeFileMenu.ts) and runs the same handlers as the sidebar's Create menu.
-pub const FILE_ACTIONS: [(&str, &str, &str); 3] = [
-    ("file-new-note", "New Note", "menu:new-note"),
-    ("file-new-daily-note", "Today’s Daily Note", "menu:new-daily-note"),
-    ("file-new-folder", "New Folder", "menu:new-folder"),
+/// File-menu items that run an existing app action: (item id, label, frontend event, accelerator). The frontend
+/// listens for these exact event names (src/app/layouts/sidebar/useNativeFileMenu.ts) and runs the same handlers as
+/// the sidebar's Create menu. The accelerators are the shortcuts the Keyboard shortcuts dialog lists
+/// (src/app/shortcuts/shortcuts.ts, `owner: 'native'`): the menu owns them on the desktop, so the page does not
+/// also handle them.
+pub const FILE_ACTIONS: [(&str, &str, &str, &str); 3] = [
+    ("file-new-note", "New Note", "menu:new-note", "CmdOrCtrl+N"),
+    ("file-new-daily-note", "Today’s Daily Note", "menu:new-daily-note", "CmdOrCtrl+Shift+D"),
+    ("file-new-folder", "New Folder", "menu:new-folder", "CmdOrCtrl+Shift+N"),
+];
+
+/// Go-menu items: (item id, label, frontend event, accelerator). History navigation, as in Safari's History menu.
+/// Menu items, so the system shows and owns the shortcut; the Markdown editor does not bind ⌘[ or ⌘] (they used to
+/// indent, see editorDefaultKeymap.ts), so they work with a note focused too. The frontend listens in
+/// src/app/layouts/app-layout/useNativeGoMenu.ts.
+pub const GO_ACTIONS: [(&str, &str, &str, &str); 2] = [
+    ("go-back", "Back", "menu:go-back", "CmdOrCtrl+["),
+    ("go-forward", "Forward", "menu:go-forward", "CmdOrCtrl+]"),
 ];
 
 /// Ids of the View menu's zoom items, matched in `handle_event`. Zoom is handled entirely here: it scales the whole
@@ -39,6 +51,9 @@ pub const FILE_ACTIONS: [(&str, &str, &str); 3] = [
 pub const ZOOM_ACTUAL_SIZE_ITEM_ID: &str = "view-actual-size";
 pub const ZOOM_IN_ITEM_ID: &str = "view-zoom-in";
 pub const ZOOM_OUT_ITEM_ID: &str = "view-zoom-out";
+
+/// Event the frontend listens for to learn the zoom factor (see src/app/nativeZoom.ts); the payload is the factor.
+pub const ZOOM_CHANGED_EVENT: &str = "zoom:changed";
 
 /// Label of the one window the zoom applies to (see tauri.conf.json).
 const MAIN_WINDOW_LABEL: &str = "main";
@@ -92,7 +107,14 @@ fn apply_zoom<R: Runtime>(app: &AppHandle<R>, action: ZoomAction) {
     let Ok(mut zoom) = state.0.lock() else { return };
     let next = next_zoom(*zoom, action);
     match window.set_zoom(next) {
-        Ok(()) => *zoom = next,
+        Ok(()) => {
+            *zoom = next;
+            // The native traffic lights do not scale with the zoom, so the frontend holds the window chrome beside
+            // them at a constant on-screen size from this factor (src/app/nativeZoom.ts).
+            if let Err(error) = app.emit(ZOOM_CHANGED_EVENT, next) {
+                log::error!("could not announce zoom {next}: {error}");
+            }
+        }
         Err(error) => log::error!("could not set zoom to {next}: {error}"),
     }
 }
@@ -145,7 +167,8 @@ fn build_app_submenu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>
 /// vault watcher, window label and document registry are all process-global).
 #[cfg(target_os = "macos")]
 fn build_file_submenu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
-    let [note, daily, folder] = FILE_ACTIONS.map(|(id, label, _)| MenuItem::with_id(app, id, label, true, None::<&str>));
+    let [note, daily, folder] =
+        FILE_ACTIONS.map(|(id, label, _, accelerator)| MenuItem::with_id(app, id, label, true, Some(accelerator)));
     Submenu::with_items(
         app,
         "File",
@@ -157,6 +180,29 @@ fn build_file_submenu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R
             &folder?,
         ],
     )
+}
+
+/// The Go menu: Back and Forward.
+#[cfg(target_os = "macos")]
+fn build_go_submenu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
+    let [back, forward] =
+        GO_ACTIONS.map(|(id, label, _, accelerator)| MenuItem::with_id(app, id, label, true, Some(accelerator)));
+    Submenu::with_items(app, "Go", true, &[&back?, &forward?])
+}
+
+/// Inserts the Go menu right after View (before Window), where macOS apps put navigation.
+#[cfg(target_os = "macos")]
+fn add_go_menu<R: Runtime>(app: &AppHandle<R>, menu: &Menu<R>) -> tauri::Result<()> {
+    let go = build_go_submenu(app)?;
+    let after_view = menu
+        .items()?
+        .iter()
+        .position(|item| item.as_submenu().is_some_and(|s| s.text().is_ok_and(|t| t == "View")))
+        .map(|index| index + 1);
+    match after_view {
+        Some(position) => menu.insert(&go, position),
+        None => menu.append(&go),
+    }
 }
 
 /// Adds "Copy Link to Current Page" directly below the native Copy item of the existing Edit submenu. Every other Edit
@@ -248,6 +294,7 @@ pub fn install<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     replace_submenu(&menu, "File", &build_file_submenu(app)?)?;
     add_copy_page_link(app, &menu)?;
     add_zoom_items(app, &menu)?;
+    add_go_menu(app, &menu)?;
     app.set_menu(menu)?;
     Ok(())
 }
@@ -279,7 +326,11 @@ fn event_for_item(id: &str) -> Option<&'static str> {
     if id == COPY_PAGE_LINK_ITEM_ID {
         return Some(COPY_PAGE_LINK_EVENT);
     }
-    FILE_ACTIONS.iter().find(|(item, _, _)| *item == id).map(|(_, _, event)| *event)
+    FILE_ACTIONS
+        .iter()
+        .chain(GO_ACTIONS.iter())
+        .find(|(item, _, _, _)| *item == id)
+        .map(|(_, _, event, _)| *event)
 }
 
 #[cfg(test)]
@@ -296,6 +347,28 @@ mod tests {
     }
 
     #[test]
+    fn go_items_forward_to_their_frontend_events() {
+        assert_eq!(event_for_item("go-back"), Some("menu:go-back"));
+        assert_eq!(event_for_item("go-forward"), Some("menu:go-forward"));
+    }
+
+    #[test]
+    fn accelerators_are_the_ones_the_shortcuts_dialog_lists() {
+        // src/app/shortcuts/shortcuts.ts is the other half of this: change one side and change the other.
+        let accelerators: Vec<_> = FILE_ACTIONS.iter().chain(GO_ACTIONS.iter()).map(|a| (a.0, a.3)).collect();
+        assert_eq!(
+            accelerators,
+            vec![
+                ("file-new-note", "CmdOrCtrl+N"),
+                ("file-new-daily-note", "CmdOrCtrl+Shift+D"),
+                ("file-new-folder", "CmdOrCtrl+Shift+N"),
+                ("go-back", "CmdOrCtrl+["),
+                ("go-forward", "CmdOrCtrl+]"),
+            ]
+        );
+    }
+
+    #[test]
     fn copy_page_link_forwards_to_its_frontend_event() {
         assert_eq!(event_for_item("edit-copy-page-link"), Some("menu:copy-page-link"));
     }
@@ -308,6 +381,12 @@ mod tests {
         assert_eq!(zoom_action_for_item(SETTINGS_ITEM_ID), None);
         // Zoom is handled natively, so it never forwards a frontend event.
         assert_eq!(event_for_item(ZOOM_IN_ITEM_ID), None);
+    }
+
+    #[test]
+    fn zoom_event_name_is_stable() {
+        // The frontend listens for this exact name; changing one side alone silently breaks the window-chrome sizing.
+        assert_eq!(ZOOM_CHANGED_EVENT, "zoom:changed");
     }
 
     #[test]
@@ -329,10 +408,12 @@ mod tests {
 
     #[test]
     fn file_action_ids_and_events_are_unique() {
-        for (i, a) in FILE_ACTIONS.iter().enumerate() {
-            for b in FILE_ACTIONS.iter().skip(i + 1) {
+        let all: Vec<_> = FILE_ACTIONS.iter().chain(GO_ACTIONS.iter()).collect();
+        for (i, a) in all.iter().enumerate() {
+            for b in all.iter().skip(i + 1) {
                 assert_ne!(a.0, b.0);
                 assert_ne!(a.2, b.2);
+                assert_ne!(a.3, b.3, "two menu items share an accelerator");
             }
         }
     }

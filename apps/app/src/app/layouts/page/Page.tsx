@@ -3,6 +3,7 @@ import { PageDivider, type DividerVariant } from './PageDivider';
 import { shouldShowHeaderSeparator, useHeaderSeparatorMode, useHeaderSeparatorStyle } from './headerSeparator';
 import type { PageHeaderControlsProps } from './header/PageHeaderControls';
 import type { CoverCredit } from '@core/vault/models/PageMetadata';
+import { useShortcutHandler } from '@app/shortcuts/ShortcutsProvider';
 import { useImperativeHandle, useRef, type MouseEvent, type ReactNode, type RefObject } from 'react';
 import type { EditableTextHandle } from '@components/editable-text/EditableText.types';
 import type { SystemIcon } from '@shared/icon';
@@ -340,6 +341,14 @@ export function Page({
   // always-on contentEditable, no autofocus needed).
   const shouldAutoFocusDescription =
     Boolean(showDescriptionEditor) && (description ?? '') === '';
+
+  // ⌃⌘C: the same hide / show handlers the cover's own "Hide" menu action and the More-actions "Show cover image"
+  // item run, on whichever of them the cover's saved state calls for. Only while there is a cover to hide or show,
+  // and only where those controls are offered (an archived note's cover is not editable).
+  useShortcutHandler('toggle-cover-image', () => {
+    if (!coverImage || !coverEditable) return;
+    (coverHidden ? onShowCoverImage : onHideCoverImage)?.();
+  });
 
   const cover = coverImage && (
     <PageCover
