@@ -89,8 +89,13 @@ function formatMonthDayYearLabel(month: number, day: number, year: number, refer
   return formatAbsoluteDate(isoDate, referenceDate);
 }
 
+/** A parsed time on the 24-hour clock. */
+export function to24Hour(time: { hour: number; meridiem: 'am' | 'pm' }): number {
+  return (time.hour % 12) + (time.meridiem === 'pm' ? 12 : 0);
+}
+
 function formatTimeLabel(hour: number, minute: number, meridiem: 'am' | 'pm'): string {
-  const hour24 = (hour % 12) + (meridiem === 'pm' ? 12 : 0);
+  const hour24 = to24Hour({ hour, meridiem });
   return `Today ${formatTimeDisplay(new Date(2000, 0, 1, hour24, minute))}`;
 }
 
@@ -137,7 +142,7 @@ function nextOccurrence(referenceDate: Date, month: number, day: number): Date |
 }
 
 /** `1`–`12`, optional `:mm`, optional `am`/`pm`/`a`/`p` suffix — matches every time example in the frozen UX. Hours outside 1–12 (bare `@23`, etc.) are intentionally out of scope: rule 3 only defines a bare number as time, it does not define a 24-hour grammar. */
-function parseTimeToken(token: string): { hour: number; minute: number; meridiem: 'am' | 'pm' } | null {
+export function parseTimeToken(token: string): { hour: number; minute: number; meridiem: 'am' | 'pm' } | null {
   const match = /^([1-9]|1[0-2])(?::([0-5][0-9]))?(am|pm|a|p)?$/i.exec(token);
   if (!match) {
     return null;

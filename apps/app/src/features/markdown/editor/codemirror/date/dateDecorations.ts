@@ -21,5 +21,5 @@ export function renderDate(
 
   const resolver = getResolver();
   const resolution = resolver?.(match.isoDate) ?? fallbackDateResolution();
-  return new DateWidget(match.isoDate, resolution, extraClasses);
+  return new DateWidget(match.isoDate, match.time, resolution, extraClasses);
 }

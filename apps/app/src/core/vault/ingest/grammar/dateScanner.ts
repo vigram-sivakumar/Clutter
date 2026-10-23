@@ -12,6 +12,11 @@
  * calendar-invalid date would make "malformed" indistinguishable from
  * "not a date at all," losing real information.
  *
+ * An optional local wall-clock time follows the date: `@2026-10-23T07:00` (`T`, then `HH:mm`, shape-only — `T25:99`
+ * still matches and is judged later, like a calendar-invalid date). A `T` that is not followed by a full `HH:mm`
+ * is not part of the date, so `@2026-10-23T7:00` and `@2026-10-23Tx` fail the boundary rule below and stay plain text,
+ * exactly as `@2026-10-23x` always has.
+ *
  * Independently mirrors (does not import) `TaskExtractor.ts`'s
  * `BARE_DATE_PATTERN` — same non-sharing precedent every other pair of
  * Vault-Ingest/editor-scanner regexes in this codebase already follows
@@ -19,11 +24,13 @@
  * lets `core/vault/` import from `features/markdown/editor/`.
  */
 
-const DATE_SHAPE_PATTERN = /^\d{4}-\d{2}-\d{2}/;
+const DATE_SHAPE_PATTERN = /^\d{4}-\d{2}-\d{2}(?:T(\d{2}:\d{2}))?/;
 
 export interface DateMatch {
   /** The matched date text, e.g. "2026-08-20" — shape-valid, not necessarily calendar-valid. */
   readonly isoDate: string;
+  /** The `HH:mm` after the date's `T`, when the reference carries a time — shape-valid, not necessarily a real time. */
+  readonly time?: string;
   /** Offset, relative to the scan start, one past the last matched date character. */
   readonly end: number;
 }
@@ -31,8 +38,8 @@ export interface DateMatch {
 /**
  * Scans for `@<date-shape>` starting exactly at `offset` in `text`.
  * `text[offset]` must be `@`; returns `null` if there is no `@` there, if
- * the following 10 characters don't match `\d{4}-\d{2}-\d{2}`, or if the
- * character immediately after that shape is itself alphanumeric (rejects
+ * the following characters don't match `\d{4}-\d{2}-\d{2}` (with its optional
+ * `T HH:mm`), or if the character immediately after that shape is itself alphanumeric (rejects
  * `@2026-08-20x` — a false continuation, not a valid date boundary).
  */
 export function scanDate(text: string, offset: number): DateMatch | null {
@@ -51,7 +58,9 @@ export function scanDate(text: string, offset: number): DateMatch | null {
     return null;
   }
 
-  return { isoDate: match[0], end };
+  const time = match[1];
+  const isoDate = match[0].slice(0, 10);
+  return time === undefined ? { isoDate, end } : { isoDate, time, end };
 }
 
 /**

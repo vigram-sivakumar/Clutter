@@ -38,7 +38,7 @@ export type InlineSpan =
   | { readonly kind: 'code'; readonly value: string }
   | { readonly kind: 'wikilink'; readonly path: string; readonly alias: string | null }
   | { readonly kind: 'tag'; readonly name: string }
-  | { readonly kind: 'date'; readonly isoDate: string }
+  | { readonly kind: 'date'; readonly isoDate: string; readonly time?: string }
   | { readonly kind: 'link'; readonly label: string }
   /**
    * `src` is the Image's own raw destination (as written, never resolved) — present only when the
@@ -113,7 +113,9 @@ export function readDate(node: SyntaxNode, text: string): InlineSpan {
   if (!match) {
     return { kind: 'text', value: text.slice(node.from, node.to) };
   }
-  return { kind: 'date', isoDate: match.isoDate };
+  return match.time === undefined
+    ? { kind: 'date', isoDate: match.isoDate }
+    : { kind: 'date', isoDate: match.isoDate, time: match.time };
 }
 
 /**

@@ -111,6 +111,27 @@ describe('renderCompactMarkdown', () => {
       expect(span).toHaveTextContent('@15 January 2020');
     });
 
+    it('renders a timed date with its time in the locale clock, after the date', () => {
+      const { container } = render(<>{renderCompactMarkdown('@2020-01-15T07:00')}</>);
+
+      const span = container.querySelector('.compact-markdown-date');
+      expect(span).toHaveAttribute('data-date-status', 'valid');
+      expect(span?.textContent).toMatch(/^@15 January 2020, 7:00\s?AM$|^@15 January 2020, 07:00$/i);
+    });
+
+    it('renders a timed date whose time is not a real time as its own raw text', () => {
+      const { container } = render(<>{renderCompactMarkdown('@2020-01-15T25:00')}</>);
+
+      const span = container.querySelector('.compact-markdown-date');
+      expect(span).toHaveAttribute('data-date-status', 'invalid');
+      expect(span).toHaveTextContent('@2020-01-15T25:00');
+    });
+
+    it('a time-less date renders exactly as before', () => {
+      const { container } = render(<>{renderCompactMarkdown('@2020-01-15T7:00')}</>);
+      expect(container.querySelector('.compact-markdown-date')).toBeNull();
+    });
+
     it('renders a shape-valid but calendar-invalid date as its own raw text', () => {
       const { container } = render(<>{renderCompactMarkdown('@2026-13-45')}</>);
 

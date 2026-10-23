@@ -4,3 +4,4 @@ export * from './dateDisplay';
 export * from './math';
 export * from './types';
 export * from './parseDateInput';
+export * from './calendarMath';

@@ -12,6 +12,7 @@ import type { TaskDisplayConfig } from '@features/tasks/helpers/groupTasks';
 import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
 import { getActiveDailyNoteDate } from '@features/daily-notes/helpers/getActiveDailyNoteDate';
 import { shiftDailyNoteDate, todayAsDailyNoteDate } from '@features/daily-notes/helpers/shiftDailyNoteDate';
+import { toDate } from '@shared/helpers/time/helpers/toDate';
 import './Sidebar.css';
 import { Tabs, Tab } from '@components/tabs/Tabs';
 import { AppIcon } from '@shared/icon';
@@ -210,7 +211,7 @@ export function Sidebar({
           onOpenDraft={(pageId) => pageOperations.open(pageId)}
           onOpenDate={(date) =>
             pageOperations.openAtPath(
-              DailyNotePath.absoluteFrom(vault.root, new Date(date)),
+              DailyNotePath.absoluteFrom(vault.root, toDate(date)),
               { type: 'daily-note' }
             )
           }
@@ -290,7 +291,7 @@ export function Sidebar({
       .openAtPath(
         DailyNotePath.absoluteFrom(
           vault.root,
-          new Date(shiftDailyNoteDate(activeDailyNoteDate ?? todayAsDailyNoteDate(), days))
+          toDate(shiftDailyNoteDate(activeDailyNoteDate ?? todayAsDailyNoteDate(), days))
         ),
         { type: 'daily-note' }
       )

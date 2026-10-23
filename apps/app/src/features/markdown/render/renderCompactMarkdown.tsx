@@ -1,7 +1,10 @@
 import { Fragment, type ReactNode } from 'react';
 
-import { formatDateDisplay } from '@shared/helpers/time/dateDisplay';
-import { isValidCalendarDate } from '@shared/helpers/time/helpers/isValidCalendarDate';
+import {
+  formatDateReferenceDisplay,
+  isValidDateReference,
+  serializeDateReference,
+} from '@shared/helpers/time/dateReference';
 
 import { classifyEmbedTargetExtension } from '../editor/codemirror/embed/embedTargetKind';
 import { PAGE_IDENTITY_ICON_BY_KIND } from '../editor/codemirror/mediaPresentation/pageIdentityIcons';
@@ -80,12 +83,13 @@ function strikeClass(base: string | undefined, struck: boolean): string | undefi
   return base ? `${base} ${STRIKE_CLASS}` : STRIKE_CLASS;
 }
 
-function renderDate(isoDate: string, key: number, struck: boolean): ReactNode {
+function renderDate(isoDate: string, time: string | undefined, key: number, struck: boolean): ReactNode {
   // Mirrors DateWidget.ts exactly: a shape-valid-but-calendar-invalid date
   // still renders, as its own raw text, rather than throwing or silently
   // reformatting something meaningless.
-  const valid = isValidCalendarDate(isoDate);
-  const label = valid ? formatDateDisplay(isoDate, 'long') : isoDate;
+  const reference = time === undefined ? { isoDate } : { isoDate, time };
+  const valid = isValidDateReference(reference);
+  const label = valid ? formatDateReferenceDisplay(reference) : serializeDateReference(reference);
 
   return (
     <span
@@ -316,7 +320,7 @@ function renderCompactSpan(span: CompactSpan, resolvers: CompactMarkdownResolver
     case 'tag':
       return renderTag(span.name, resolvers.resolveTag, key, struck);
     case 'date':
-      return renderDate(span.isoDate, key, struck);
+      return renderDate(span.isoDate, span.time, key, struck);
     case 'link':
       return renderLink(span.label, key, struck);
     case 'image':

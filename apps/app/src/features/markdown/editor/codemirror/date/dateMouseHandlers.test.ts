@@ -205,3 +205,35 @@ describe('handleDateClick — cursor elsewhere in an enclosing formatting constr
     expect(activate).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('a timed Date (@YYYY-MM-DDTHH:mm)', () => {
+  it('activates the daily note of its calendar date, ignoring the time', () => {
+    const resolve = vi.fn<ResolveDate>(() => ({ activate: () => {} }));
+    const view = mountViewWithoutDecorations('Meet @2026-10-23T07:00 ok');
+    const node = { from: 5, to: 22 };
+
+    getDateActivation(view, node, () => resolve)!();
+
+    expect(resolve).toHaveBeenCalledWith('2026-10-23');
+  });
+
+  it('a date-only Date still resolves exactly as before', () => {
+    const resolve = vi.fn<ResolveDate>(() => ({ activate: () => {} }));
+    const view = mountViewWithoutDecorations('Meet @2026-10-23 ok');
+
+    getDateActivation(view, { from: 5, to: 16 }, () => resolve)!();
+
+    expect(resolve).toHaveBeenCalledWith('2026-10-23');
+  });
+
+  it('is not interactive when the time is not a real time, or the date is not a real date', () => {
+    const resolve: ResolveDate = () => ({ activate: () => {} });
+    expect(getDateActivation(mountViewWithoutDecorations('@2026-10-23T25:00'), { from: 0, to: 17 }, () => resolve)).toBeNull();
+    expect(getDateActivation(mountViewWithoutDecorations('@2026-13-45T07:00'), { from: 0, to: 17 }, () => resolve)).toBeNull();
+  });
+
+  it('parses as one Date node in the editor, so the time is not left as stray text', () => {
+    const view = mountView('Meet @2026-10-23T07:00 ok');
+    expect(findAtRestDateAt(view.state, 8)).toEqual({ from: 5, to: 22 });
+  });
+});

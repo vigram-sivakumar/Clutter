@@ -1,9 +1,8 @@
 import { WidgetType } from '@codemirror/view';
 
-import { formatDateDisplay } from '@shared/helpers/time/dateDisplay';
+import { formatDateReferenceDisplay, isValidDateReference } from '@shared/helpers/time/dateReference';
 import { readDateFormatChoice } from '@shared/helpers/time/dateFormatPreference';
 import { getSystemLocale } from '@shared/helpers/time/dateLocale';
-import { isValidCalendarDate } from '@shared/helpers/time/helpers/isValidCalendarDate';
 
 import type { DateResolution } from './dateResolution';
 
@@ -11,7 +10,7 @@ import type { DateResolution } from './dateResolution';
  * The at-rest rendered form of a Date. Unlike `WikiLinkWidget`, the label
  * is computed purely from `isoDate` (no injected resolver involved — see
  * `dateResolution.ts`'s own comment for why) via `formatDateDisplay`'s
- * `'long'` style — the single shared rendered-date-label formatter every date
+ * `'long'` style (with the time after it, in the locale's clock, when the reference has one) — the single shared rendered-date-label formatter every date
  * surface uses (Daily Note titles use its `'heading'` style, the Tasks sidebar its
  * `'short'` one), so they stay in sync by construction instead of each keeping
  * its own copy of the relative-label-else-date logic.
@@ -39,6 +38,8 @@ import type { DateResolution } from './dateResolution';
 export class DateWidget extends WidgetType {
   constructor(
     readonly isoDate: string,
+    /** The reference's `HH:mm`, when it has one (`@2026-10-23T07:00`). */
+    readonly time: string | undefined,
     readonly resolution: DateResolution,
     readonly extraClasses: readonly string[] = []
   ) {
@@ -52,20 +53,30 @@ export class DateWidget extends WidgetType {
   private readonly formatKey = `${readDateFormatChoice()}|${getSystemLocale()}`;
 
   private get valid(): boolean {
-    return isValidCalendarDate(this.isoDate);
+    return isValidDateReference(this.reference);
+  }
+
+  private get reference() {
+    return this.time === undefined ? { isoDate: this.isoDate } : { isoDate: this.isoDate, time: this.time };
+  }
+
+  /** The stored text, for an invalid reference that is shown as written. */
+  private get raw(): string {
+    return this.time === undefined ? this.isoDate : `${this.isoDate}T${this.time}`;
   }
 
   private get label(): string {
     if (!this.valid) {
-      return this.isoDate;
+      return this.raw;
     }
 
-    return formatDateDisplay(this.isoDate, 'long');
+    return formatDateReferenceDisplay(this.reference);
   }
 
   override eq(other: DateWidget): boolean {
     return (
       this.isoDate === other.isoDate &&
+      this.time === other.time &&
       this.formatKey === other.formatKey &&
       this.extraClasses.length === other.extraClasses.length &&
       this.extraClasses.every((cls, i) => cls === other.extraClasses[i])

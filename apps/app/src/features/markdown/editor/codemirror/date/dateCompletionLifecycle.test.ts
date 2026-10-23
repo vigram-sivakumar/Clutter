@@ -2,11 +2,12 @@
 import { describe, expect, it } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
-import { acceptCompletion, completionStatus, currentCompletions } from '@codemirror/autocomplete';
+import { acceptCompletion, completionStatus, currentCompletions, moveCompletionSelection } from '@codemirror/autocomplete';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { semanticCompletion } from '../completion';
 import { pinDateFormat } from '@shared/testing/pinDateFormat';
+import { resolveDayOfMonth } from './dateExpressions';
 
 pinDateFormat('full');
 
@@ -95,11 +96,15 @@ describe('Date autocomplete — real CM6 accept/reopen lifecycle', () => {
   it('2. @12 → accept → Space → no popup', async () => {
     const view = mount();
     await type(view, '@12');
-    expect(labels(view)).toEqual(['Today 12:00 pm']);
+    // A bare 12 is the time (noon) and the 12th of the month: the time first, then the date.
+    expect(labels(view)).toHaveLength(2);
+    expect(labels(view)[0]).toBe('Today 12:00 pm');
+    expect(labels(view)[1]).toMatch(/^12 /);
 
     await settle();
     accept(view);
-    expect(view.state.doc.toString()).toMatch(/^@\d{4}-\d{2}-\d{2} $/);
+    // The time suggestion is accepted: today's date and the time are both stored.
+    expect(view.state.doc.toString()).toMatch(/^@\d{4}-\d{2}-\d{2}T12:00 $/);
     expect(completionStatus(view.state)).toBeNull();
 
     await type(view, ' ');
@@ -186,7 +191,8 @@ describe('Date autocomplete — real CM6 accept/reopen lifecycle', () => {
     await type(view, ' ');
 
     expect(completionStatus(view.state)).toBe('active');
-    expect(labels(view)).toEqual(['Today 12:00 pm']);
+    expect(labels(view)[0]).toBe('Today 12:00 pm');
+    expect(labels(view)).toHaveLength(2);
 
     view.destroy();
   });
@@ -256,5 +262,57 @@ describe('Date autocomplete — real CM6 accept/reopen lifecycle', () => {
     expect(completionStatus(view.state)).toBeNull();
 
     view.destroy();
+  });
+
+  describe('a bare number that reads as an hour and as a day of the month', () => {
+    const REAL_NOW = () => new Date();
+
+    it('9. @2 offers the time first, then the day of the month; the time inserts @YYYY-MM-DDTHH:mm', async () => {
+      const view = mount();
+      await type(view, '@2');
+      expect(labels(view)).toHaveLength(2);
+      expect(labels(view)[0]).toBe('Today 2:00 am');
+
+      await settle();
+      accept(view);
+      // Choosing the time stores it with today's date, in 24-hour local form.
+      expect(view.state.doc.toString()).toMatch(/^@\d{4}-\d{2}-\d{2}T02:00 $/);
+      view.destroy();
+    });
+
+    it('10. moving to the second suggestion and accepting inserts the date of that day of the month', async () => {
+      const view = mount();
+      await type(view, '@2');
+      await settle();
+      moveCompletionSelection(true)(view);
+      accept(view);
+      const day = resolveDayOfMonth(2, REAL_NOW())!;
+      expect(view.state.doc.toString()).toBe(`@${day.isoDate} `);
+      view.destroy();
+    });
+
+    it('11. @24 offers the date only', async () => {
+      const view = mount();
+      await type(view, '@24');
+      expect(labels(view)).toHaveLength(1);
+      await settle();
+      accept(view);
+      expect(view.state.doc.toString()).toBe(`@${resolveDayOfMonth(24, REAL_NOW())!.isoDate} `);
+      view.destroy();
+    });
+
+    it('12. @in 3 weeks resolves while typing, and offers nothing before the unit', async () => {
+      const view = mount();
+      await type(view, '@in 3');
+      expect(labels(view)).toEqual([]);
+      await type(view, ' week');
+      expect(labels(view)).toHaveLength(1);
+      await type(view, 's');
+      expect(labels(view)).toHaveLength(1);
+      await settle();
+      accept(view);
+      expect(view.state.doc.toString()).toMatch(/^@\d{4}-\d{2}-\d{2} $/);
+      view.destroy();
+    });
   });
 });

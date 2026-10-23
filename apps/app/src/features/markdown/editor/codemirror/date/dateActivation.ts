@@ -1,6 +1,6 @@
 import type { EditorView } from '@codemirror/view';
 
-import { isValidCalendarDate } from '@shared/helpers/time/helpers/isValidCalendarDate';
+import { isValidDateReference } from '@shared/helpers/time/dateReference';
 
 import type { DateNodeRange } from './dateEngagement';
 import { fallbackDateResolution, type ResolveDate } from './dateResolution';
@@ -39,7 +39,8 @@ export function getDateActivation(
 ): (() => void) | null {
   const raw = view.state.sliceDoc(node.from, node.to);
   const match = scanDate(raw, 0);
-  if (!match || !isValidCalendarDate(match.isoDate)) {
+  // Only the calendar date selects the daily note: the time (if any) is checked for validity, then ignored.
+  if (!match || !isValidDateReference(match)) {
     return null;
   }
 

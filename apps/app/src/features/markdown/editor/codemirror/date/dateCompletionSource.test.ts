@@ -137,4 +137,49 @@ describe('dateCompletionSource', () => {
     call(source, context);
     expect(context.state.doc.toString()).toBe(before);
   });
+
+  describe('a number that is an hour and a day of the month', () => {
+    const NOW = new Date();
+
+    it('offers two options, the time first and the date second, kept in that order by their boosts', () => {
+      const result = call(dateCompletionSource(), contextAt('@2', 2));
+      const options = result!.options as DateCompletion[];
+      expect(options).toHaveLength(2);
+      expect(options[0]!.dateSuggestion.time).toEqual({ hour24: 2, minute: 0 });
+      expect(options[1]!.dateSuggestion.time).toBeUndefined();
+      expect(options[0]!.boost!).toBeGreaterThan(options[1]!.boost!);
+      expect(result!.filter).toBe(false);
+    });
+
+    it('draws each with its own row: a clock for the time, a calendar for the date', () => {
+      const options = call(dateCompletionSource(), contextAt('@2', 2))!.options as DateCompletion[];
+      expect(options[0]!.row.trailing).toBeUndefined();
+      expect(options[1]!.row.trailing).toBeUndefined();
+      expect(options[0]!.row.iconSvg).not.toBe(options[1]!.row.iconSvg);
+    });
+
+    it('the time inserts @YYYY-MM-DDTHH:mm and the date inserts @YYYY-MM-DD, each with a trailing space', () => {
+      const result = call(dateCompletionSource(), contextAt('@2', 2));
+      const [timeOption, dateOption] = result!.options as DateCompletion[];
+      const apply = (option: DateCompletion) => {
+        const state = EditorState.create({ doc: '@2', selection: { anchor: 2 } });
+        const view = new EditorView({ state, parent: document.createElement('div') });
+        (option.apply as (view: EditorView, completion: unknown, from: number, to: number) => void)(view, option, result!.from, 2);
+        const text = view.state.doc.toString();
+        view.destroy();
+        return text;
+      };
+      expect(apply(timeOption!)).toBe(`@${timeOption!.dateSuggestion.isoDate}T02:00 `);
+      expect(apply(timeOption!)).toMatch(/^@\d{4}-\d{2}-\d{2}T02:00 $/);
+      expect(apply(dateOption!)).toBe(`@${dateOption!.dateSuggestion.isoDate} `);
+      expect(apply(dateOption!)).toMatch(/^@\d{4}-\d{2}-\d{2} $/);
+      expect(NOW).toBeInstanceOf(Date);
+    });
+
+    it('offers one option for a number past 12, and none for one that is not a day', () => {
+      expect(call(dateCompletionSource(), contextAt('@24', 3))!.options).toHaveLength(1);
+      expect(call(dateCompletionSource(), contextAt('@45', 3))).toBeNull();
+      expect(call(dateCompletionSource(), contextAt('@in 3', 5))).toBeNull();
+    });
+  });
 });

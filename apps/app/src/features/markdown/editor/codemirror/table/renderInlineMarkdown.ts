@@ -67,7 +67,7 @@ function renderSpan(span: InlineSpan): string {
     case 'tag':
       return `<span class="cm-table-cell-tag">#${escapeHtml(span.name)}</span>`;
     case 'date':
-      return escapeHtml(span.isoDate);
+      return escapeHtml(span.time === undefined ? span.isoDate : `${span.isoDate}T${span.time}`);
     case 'link':
       return escapeHtml(span.label);
     case 'image':

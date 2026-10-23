@@ -3,9 +3,10 @@ import type { CompletionResult, CompletionSource } from '@codemirror/autocomplet
 import { trailingSpaceChange } from '../completionPopup/trailingSpace';
 import { dateRow, type DateCompletion } from './dateCompletionRow';
 import { extractDateTriggerQuery } from './dateTrigger';
-import { getDateSuggestions, type DateSuggestion } from './dateSuggestion';
+import { serializeDateReference } from '@shared/helpers/time/dateReference';
+import { getDateSuggestions, suggestionReference, type DateSuggestion } from './dateSuggestion';
 
-function toCompletion(suggestion: DateSuggestion): DateCompletion {
+function toCompletion(suggestion: DateSuggestion, boost: number): DateCompletion {
   const completion: DateCompletion = {
     // CM6's own internal identifier for this option — deliberately left
     // as `suggestion.label`, not the reformatted display text
@@ -17,15 +18,13 @@ function toCompletion(suggestion: DateSuggestion): DateCompletion {
     label: suggestion.label,
     dateSuggestion: suggestion,
     row: dateRow(suggestion),
+    // The suggestions arrive best first (a time before the date); the popup keeps exactly that order.
+    boost,
     apply(view, _completion, from, to) {
-      // Always `@YYYY-MM-DD` — identical on a task line or in ordinary
-      // content. There is deliberately no task-context branching here:
-      // task-due-date semantics are assembled entirely downstream by
-      // TaskExtractor.ts reading the same bare-date syntax, never decided
-      // by the completion/insertion layer (per the explicit product
-      // decision — "task semantics are handled downstream by the task
-      // extraction layer").
-      const insert = `@${suggestion.isoDate}`;
+      // `@YYYY-MM-DD`, or `@YYYY-MM-DDTHH:mm` for a time suggestion — canonical whatever the display preferences,
+      // and identical on a task line or in ordinary content. There is deliberately no task-context branching here:
+      // task semantics are assembled entirely downstream by TaskExtractor.ts, never decided by the insertion layer.
+      const insert = `@${serializeDateReference(suggestionReference(suggestion))}`;
 
       // The space is part of this transaction (one undo), unless one already follows.
       const space = trailingSpaceChange(view.state, to);
@@ -64,7 +63,7 @@ export function dateCompletionSource(): CompletionSource {
 
     const result: CompletionResult = {
       from: trigger.from,
-      options: items.map(toCompletion),
+      options: items.map((item, index) => toCompletion(item, items.length - index)),
       // Suggestions are already filtered by getDateSuggestions's own
       // prefix match — see its doc comment for why a second, competing
       // fuzzy re-filter on top would be redundant.
