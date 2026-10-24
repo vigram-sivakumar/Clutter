@@ -43,7 +43,7 @@ interface PageSpec {
   readonly aliases?: string[];
 }
 
-function page(spec: PageSpec): Page {
+function page(spec: PageSpec & { createdAt?: string; modifiedAt?: string }): Page {
   const content = spec.body ?? '';
 
   return builder.build({
@@ -55,6 +55,9 @@ function page(spec: PageSpec): Page {
       frontmatterAnalysis: { aliases: (spec.aliases ?? []).map((value) => ({ value })) },
       content,
       analysis: analyzer.analyze(content),
+      ...((spec.createdAt || spec.modifiedAt) && {
+        fileTimes: { createdAt: spec.createdAt ?? null, modifiedAt: spec.modifiedAt ?? null },
+      }),
     },
   });
 }
@@ -744,5 +747,63 @@ describe('SearchService — alias highlights', () => {
 
     expect(result).toMatchObject({ matchedBy: 'alias', matchedAlias: 'This is another Name for the note' });
     expect(result!.aliasHighlights!.map((range) => result!.matchedAlias!.slice(range.from, range.to))).toEqual(['Name']);
+  });
+});
+
+describe('SearchService — recent', () => {
+  const day = (n: number) => `2026-10-${String(n).padStart(2, '0')}T10:00:00.000Z`;
+
+  it('lists notes, daily notes and templates by last modification, newest first, one entry per page', () => {
+    const { search } = setup(
+      [
+        page({ id: 'old', path: 'Old.md', createdAt: day(1), modifiedAt: day(2) }),
+        page({ id: 'daily', path: 'Daily Notes/2026/August/2026-08-24.md', createdAt: day(3), modifiedAt: day(20) }),
+        page({ id: 'tpl', path: 'Templates/Weekly.md', parentId: 'templates', createdAt: day(4), modifiedAt: day(15) }),
+        page({ id: 'edited', path: 'Edited.md', createdAt: day(5), modifiedAt: day(10) }),
+        page({ id: 'newest', path: 'Newest.md', createdAt: day(25) }),
+      ],
+      [folder('templates', 'Templates')]
+    );
+    const results = search.recent();
+
+    expect(results.map((result) => result.id)).toEqual(['newest', 'daily', 'tpl', 'edited', 'old']);
+    expect(results.map((result) => result.kind)).toEqual(['note', 'note', 'template', 'note', 'note']);
+    expect(results[1]).toMatchObject({ type: 'daily-note' });
+    expect(new Set(results.map((result) => result.id)).size).toBe(results.length);
+  });
+
+  it('puts a page with no file times after the dated ones, and leaves out archived and hidden pages', () => {
+    const { search } = setup(
+      [
+        page({ id: 'undated', path: 'Undated.md' }),
+        page({ id: 'dated', path: 'Dated.md', modifiedAt: day(1) }),
+        page({ id: 'archived', path: 'Archive/Gone.md', parentId: 'archive', modifiedAt: day(9) }),
+        page({ id: 'hidden', path: '.Secret.md', modifiedAt: day(9) }),
+      ],
+      [folder('archive', 'Archive')]
+    );
+
+    expect(search.recent().map((result) => result.id)).toEqual(['dated', 'undated']);
+  });
+
+  it('honours the limit, and reflects a later edit on the next call', () => {
+    const { search, vault } = setup([
+      page({ id: 'a', path: 'A.md', modifiedAt: day(1) }),
+      page({ id: 'b', path: 'B.md', modifiedAt: day(2) }),
+      page({ id: 'c', path: 'C.md', modifiedAt: day(3) }),
+    ]);
+
+    expect(search.recent(2).map((result) => result.id)).toEqual(['c', 'b']);
+
+    vault.replacePage(page({ id: 'a', path: 'A.md', modifiedAt: day(9) }));
+    expect(search.recent(2).map((result) => result.id)).toEqual(['a', 'c']);
+  });
+
+  it('lists an open draft that has a title or text first, and not a blank one', () => {
+    const { search, pageOperations } = setup([page({ id: 'a', path: 'A.md', modifiedAt: day(1) })]);
+
+    void pageOperations.openDraft({ folderId: null, type: 'note', title: 'Fresh idea' });
+
+    expect(search.recent().map((result) => result.title)).toEqual(['Fresh idea', 'A']);
   });
 });

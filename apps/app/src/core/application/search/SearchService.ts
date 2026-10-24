@@ -26,6 +26,9 @@ import { RankingJob, type ScanCandidate, type ScanHit } from './rankPages';
 /** How many results a search returns at first — and how many more each "show more" brings. */
 export const SEARCH_PAGE_SIZE = 50;
 
+/** How many recent notes the empty-query list holds (the overlay shows about eight rows at a time and scrolls the rest). */
+export const RECENT_LIMIT = 24;
+
 /** What a result opens: a note or daily note, a template (a note in the Templates folder), an asset file, or a folder. */
 export type SearchResultKind = 'note' | 'template' | 'asset' | 'folder';
 
@@ -142,6 +145,62 @@ export class SearchService {
     const ranking = new RankingJob(query, this.candidates(snapshot), wanted, now);
 
     return new SearchJob(ranking, query.tokens, (hit) => this.toResult(hit, query.tokens));
+  }
+
+  /**
+   * What to show before anything is typed: the notes, daily notes and templates last created or edited, newest first,
+   * one entry per page. Recency is the file's own modification time (else its creation time) — `fileTimes`, resolved
+   * by `resolveEffectivePageDates` (ADR-057), never an access time and never a date from frontmatter or a daily
+   * note's name. A page whose file reported neither sorts after every dated one (by title) rather than being given a
+   * made-up time. An open draft with a title or text is what the user is working on right now, so it leads. Same
+   * visibility as a search: archived and dot-prefixed pages are left out. Assets and folders have no dependable
+   * "last edited" and are not listed.
+   */
+  public recent(limit: number = RECENT_LIMIT): SearchResult[] {
+    const entries: { id: string; ms: number; title: string }[] = [];
+
+    for (const page of this.vault.pages()) {
+      if (this.isSearchable(page)) {
+        const dates = resolveEffectivePageDates(page);
+
+        entries.push({
+          id: page.id,
+          ms: Date.parse(dates.updatedAt ?? dates.createdAt ?? '') || 0,
+          title: this.factsFor(page).candidate.sortTitle,
+        });
+      }
+    }
+
+    for (const id of this.workspace.openPages) {
+      if (!this.vault.getPage(id) && this.isWorthListing(id)) {
+        entries.push({ id, ms: Number.POSITIVE_INFINITY, title: '' });
+      }
+    }
+
+    entries.sort((a, b) => (a.ms === b.ms ? a.title.localeCompare(b.title) || a.id.localeCompare(b.id) : b.ms - a.ms));
+
+    const results: SearchResult[] = [];
+
+    for (const entry of entries) {
+      const result = this.toResult({ id: entry.id, cls: 'title', score: 0, fuzzy: false, snippets: [], moreMatches: 0 }, []);
+
+      if (result) {
+        results.push(result);
+
+        if (results.length >= limit) {
+          break;
+        }
+      }
+    }
+
+    return results;
+  }
+
+  /** A draft worth listing: it has a title or some text (an untouched blank draft is not "recent"). */
+  private isWorthListing(id: string): boolean {
+    const candidate = this.draftCandidate(id);
+
+    return candidate !== undefined && ((this.pageOperations.getDraft(id)?.title ?? '').trim() !== '' || candidate.body.prefilter.trim() !== '');
   }
 
   /** The whole search in one go — the first `limit` results. For callers that can afford to wait. */

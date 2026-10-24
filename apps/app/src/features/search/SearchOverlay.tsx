@@ -2,13 +2,22 @@ import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, MouseEvent, RefObject } from 'react';
 
 import { Dialog } from '@components/dialog/Dialog';
-import { SearchEntry, type SearchEntryPill } from '@components/entry/SearchEntry';
+import {
+  SearchEntry,
+  type SearchEntryPill,
+} from '@components/entry/SearchEntry';
 import { Search } from '@components/search/Search';
+import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
 import { useMenuKeyboard } from '@components/menu/useMenuKeyboard';
 import { ShortcutKey } from '@components/shortcut-key/ShortcutKey';
 import { AppIcon, type SystemIcon } from '@shared/icon';
 import { getPageIcon } from '@core/presentation/getPageIcon';
-import { SEARCH_PAGE_SIZE, type SearchJob, type SearchResult, type SearchService } from '@core/application/search/SearchService';
+import {
+  SEARCH_PAGE_SIZE,
+  type SearchJob,
+  type SearchResult,
+  type SearchService,
+} from '@core/application/search/SearchService';
 import type { EffectivePageState } from '@core/application/page/EffectivePageState';
 import type { Snippet } from '@core/application/search/matchPage';
 import { matchShortcut } from '@app/shortcuts/shortcuts';
@@ -36,7 +45,10 @@ interface SearchOverlayProps {
    * Opens the result. `snippet` is the line to land on (the one clicked, or — for a body match opened with Enter —
    * the first); absent for a result that matched by title, alias or tag and was not asked for a line.
    */
-  readonly onSelect: (result: SearchResult, snippet: Snippet | undefined) => void;
+  readonly onSelect: (
+    result: SearchResult,
+    snippet: Snippet | undefined
+  ) => void;
   /** Where focus goes back to when the overlay closes (the owner sets `.current` to null to skip it, e.g. after opening a note). */
   readonly returnFocusRef: RefObject<HTMLElement>;
 }
@@ -45,7 +57,12 @@ interface SearchOverlayProps {
  * The Search overlay: a centered dialog with one input and the ranked results below it. It is mounted only while
  * open, so a closed overlay does no search work.
  */
-export function SearchOverlay({ open, onClose, returnFocusRef, ...contentProps }: SearchOverlayProps) {
+export function SearchOverlay({
+  open,
+  onClose,
+  returnFocusRef,
+  ...contentProps
+}: SearchOverlayProps) {
   return (
     <Dialog
       open={open}
@@ -70,7 +87,11 @@ function iconFor(result: SearchResult): SystemIcon {
   return getPageIcon(result.type ?? 'folder');
 }
 
-function kindLabel(result: SearchResult): string | undefined {
+function kindLabel(result: SearchResult, listsRecent: boolean): string | undefined {
+  if (listsRecent && result.type === 'daily-note') {
+    return 'Daily note';
+  }
+
   switch (result.kind) {
     case 'template':
       return 'Template';
@@ -84,8 +105,8 @@ function kindLabel(result: SearchResult): string | undefined {
 }
 
 /** The pills beside a title: what the result is when it is not a plain note, and the alias it was found by. */
-function pillsFor(result: SearchResult): SearchEntryPill[] {
-  const kind = kindLabel(result);
+function pillsFor(result: SearchResult, listsRecent: boolean): SearchEntryPill[] {
+  const kind = kindLabel(result, listsRecent);
   const pills: SearchEntryPill[] = kind ? [{ label: kind }] : [];
 
   if (result.matchedBy === 'alias' && result.matchedAlias) {
@@ -94,7 +115,10 @@ function pillsFor(result: SearchResult): SearchEntryPill[] {
 
     pills.push({
       label: `${name} ${result.matchedAlias}`,
-      matches: result.aliasHighlights?.map((range) => ({ from: range.from + offset, to: range.to + offset })),
+      matches: result.aliasHighlights?.map((range) => ({
+        from: range.from + offset,
+        to: range.to + offset,
+      })),
     });
   }
 
@@ -124,12 +148,20 @@ function badgesFor(result: SearchResult): string[] {
 function moreMatchesLabel(result: SearchResult): string | undefined {
   const count = Math.max(0, result.snippets.length - 1) + result.moreMatches;
 
-  return count === 0 ? undefined : count === 1 ? '1 more match' : `${count} more matches`;
+  return count === 0
+    ? undefined
+    : count === 1
+      ? '1 more match'
+      : `${count} more matches`;
 }
 
 /** A menu or dialog opened from inside the overlay's own tree (none today) must keep the focus it takes. */
 function isInsideAnotherOverlay(target: Node): boolean {
-  return target instanceof Element && target.closest('.overlay') !== null && target.closest('.search-overlay') === null;
+  return (
+    target instanceof Element &&
+    target.closest('.overlay') !== null &&
+    target.closest('.search-overlay') === null
+  );
 }
 
 function resultId(result: SearchResult): string {
@@ -138,7 +170,10 @@ function resultId(result: SearchResult): string {
 
 /** What Enter or a click opens: the clicked line, else (for a body or spread match) its first line, else just the note. */
 function landingFor(result: SearchResult, clicked: Snippet | undefined) {
-  const landsInBody = result.matchedBy === 'body' || result.matchedBy === 'mixed' || result.matchedBy === 'heading';
+  const landsInBody =
+    result.matchedBy === 'body' ||
+    result.matchedBy === 'mixed' ||
+    result.matchedBy === 'heading';
 
   return clicked ?? (landsInBody ? result.snippets[0] : undefined);
 }
@@ -166,7 +201,9 @@ function SearchOverlayContent({
   // The one search in progress. A new query (or a change in what a search reads) replaces it; the replaced job is
   // never stepped again, so what it found can never reach the screen after a newer search has begun.
   const jobRef = useRef<SearchJob | undefined>(undefined);
-  const sliceTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const sliceTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined
+  );
   const wantedRef = useRef(SEARCH_PAGE_SIZE);
   const lastQueryRef = useRef<string | undefined>(undefined);
   const enterQueuedRef = useRef(false);
@@ -182,7 +219,11 @@ function SearchOverlayContent({
 
     // Focus cannot leave the overlay: anything outside it that would take focus hands it straight back to the input.
     const keepFocusInside = (event: FocusEvent): void => {
-      if (event.target instanceof Node && !panelRef.current?.contains(event.target) && !isInsideAnotherOverlay(event.target)) {
+      if (
+        event.target instanceof Node &&
+        !panelRef.current?.contains(event.target) &&
+        !isInsideAnotherOverlay(event.target)
+      ) {
         inputRef.current?.focus();
       }
     };
@@ -196,10 +237,18 @@ function SearchOverlayContent({
   }, []);
 
   // Anything a search reads changed: search again once things settle. Subscribed only while the overlay is open.
-  useEffect(() => effectivePageState.subscribe(() => setRevision((current) => current + 1)), [effectivePageState]);
+  useEffect(
+    () =>
+      effectivePageState.subscribe(() => setRevision((current) => current + 1)),
+    [effectivePageState]
+  );
 
   /** Steps `job` in short slices between frames until it reports done, then runs `onDone`. Stops at once if replaced. */
-  function drive(job: SearchJob, onSlice: () => void, onDone: () => void): void {
+  function drive(
+    job: SearchJob,
+    onSlice: () => void,
+    onDone: () => void
+  ): void {
     const tick = (): void => {
       if (jobRef.current !== job) {
         return;
@@ -239,8 +288,8 @@ function SearchOverlayContent({
       jobRef.current = job;
 
       if (!job) {
-        // Nothing to look for: the empty list is the answer. Meanwhile prepare the pages for the first real query.
-        setResults([]);
+        // Nothing to look for: show what was last created or edited. Meanwhile prepare the pages for the first real query.
+        setResults(searchService.recent());
         setHasMore(false);
         setAnsweredQuery(trimmed);
 
@@ -323,7 +372,9 @@ function SearchOverlayContent({
 
   useEffect(() => {
     if (keyboard.activeId) {
-      document.getElementById(keyboard.activeId)?.scrollIntoView?.({ block: 'nearest' });
+      document
+        .getElementById(keyboard.activeId)
+        ?.scrollIntoView?.({ block: 'nearest' });
     }
   }, [keyboard.activeId]);
 
@@ -342,7 +393,9 @@ function SearchOverlayContent({
   function handlePanelKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
     if (event.key === 'Tab') {
       const focusable = Array.from(
-        panelRef.current?.querySelectorAll<HTMLElement>('input:not([disabled]), button:not([disabled])') ?? []
+        panelRef.current?.querySelectorAll<HTMLElement>(
+          'input:not([disabled]), button:not([disabled])'
+        ) ?? []
       );
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
@@ -385,7 +438,11 @@ function SearchOverlayContent({
       return;
     }
 
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Enter') {
+    if (
+      event.key === 'ArrowDown' ||
+      event.key === 'ArrowUp' ||
+      event.key === 'Enter'
+    ) {
       if (event.key !== 'Enter') {
         event.preventDefault();
       }
@@ -394,24 +451,36 @@ function SearchOverlayContent({
     }
   }
 
-  function select(result: SearchResult, event: MouseEvent<HTMLDivElement>): void {
+  function select(
+    result: SearchResult,
+    event: MouseEvent<HTMLDivElement>
+  ): void {
     if (isStale) {
       return;
     }
 
     // The row shows one excerpt; a click on it lands on that line.
-    const clicked = (event.target as HTMLElement).closest('.search-entry__excerpt') ? result.snippets[0] : undefined;
+    const clicked = (event.target as HTMLElement).closest(
+      '.search-entry__excerpt'
+    )
+      ? result.snippets[0]
+      : undefined;
 
     onSelect(result, landingFor(result, clicked));
   }
 
   return (
-    <div className="search-overlay__panel" role="search" ref={panelRef} onKeyDown={handlePanelKeyDown}>
+    <div
+      className="search-overlay__panel"
+      role="search"
+      ref={panelRef}
+      onKeyDown={handlePanelKeyDown}
+    >
       <Search
         ref={inputRef}
         className="search-overlay__input"
         value={query}
-        placeholder="Search notes"
+        placeholder="Search notes, templates, assets and folders"
         aria-label="Search notes"
         aria-activedescendant={keyboard.activeId}
         onChange={(event) => changeQuery(event.target.value)}
@@ -430,6 +499,8 @@ function SearchOverlayContent({
         aria-busy={isStale || isLoadingMore}
         data-stale={isStale || undefined}
       >
+        {trimmed === '' && results.length > 0 && <MenuGroupTitle>Recent</MenuGroupTitle>}
+
         {results.map((result) => (
           <SearchEntry
             key={`${result.kind}-${result.id}`}
@@ -439,9 +510,11 @@ function SearchOverlayContent({
             icon={iconFor(result)}
             emoji={result.icon}
             title={result.title}
-            pills={pillsFor(result)}
+            pills={pillsFor(result, trimmed === '')}
             badges={badgesFor(result)}
-            path={result.folders.length > 0 ? result.folders.join(' / ') : undefined}
+            path={
+              result.folders.length > 0 ? result.folders.join(' / ') : undefined
+            }
             titleMatches={result.titleHighlights}
             excerpt={result.snippets[0]?.text}
             excerptMatches={result.snippets[0]?.highlights}
@@ -466,7 +539,11 @@ function SearchOverlayContent({
           />
         )}
 
-        {trimmed === '' && <p className="search-overlay__status">Search notes, templates, assets and folders</p>}
+        {trimmed === '' && results.length === 0 && (
+          <p className="search-overlay__status">
+            Notes you create or edit show up here. Search notes, templates, assets and folders
+          </p>
+        )}
         {trimmed !== '' && !isStale && results.length === 0 && (
           <p className="search-overlay__status" role="status">
             No results for “{trimmed}”
@@ -475,10 +552,14 @@ function SearchOverlayContent({
       </div>
 
       {trimmed !== '' && results.length > 0 && (
-        <div className="search-overlay__footer" aria-hidden={isStale || undefined}>
+        <div
+          className="search-overlay__footer"
+          aria-hidden={isStale || undefined}
+        >
           <span>
             {results.length}
-            {hasMore ? '+' : ''} {results.length === 1 && !hasMore ? 'result' : 'results'}
+            {hasMore ? '+' : ''}{' '}
+            {results.length === 1 && !hasMore ? 'result' : 'results'}
           </span>
           <span className="search-overlay__hints">
             <span className="search-overlay__hint">

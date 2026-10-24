@@ -68,7 +68,7 @@ const TITLE_RESULT = result({ id: 'title', title: 'Roadmap', titleHighlights: [{
  */
 function fakeService(
   answer: (query: string) => SearchResult[],
-  options: { stepsToFinish?: number; hold?: boolean } = {}
+  options: { stepsToFinish?: number; hold?: boolean; recent?: () => SearchResult[] } = {}
 ) {
   const jobs: Array<{ query: string; release: () => void; step: ReturnType<typeof vi.fn> }> = [];
   const warmupStep = vi.fn(() => true);
@@ -113,7 +113,7 @@ function fakeService(
   });
 
   return {
-    service: { startSearch, startWarmup: vi.fn(() => ({ step: warmupStep })) },
+    service: { startSearch, startWarmup: vi.fn(() => ({ step: warmupStep })), recent: vi.fn(options.recent ?? (() => [])) },
     startSearch,
     warmupStep,
     jobs,
@@ -127,11 +127,12 @@ function setup(
     answer?: (query: string) => SearchResult[];
     stepsToFinish?: number;
     hold?: boolean;
+    recent?: () => SearchResult[];
   } = {}
 ) {
   const fake = fakeService(
     options.answer ?? ((query) => (query.trim() === '' ? [] : [TITLE_RESULT, BODY_RESULT])),
-    { stepsToFinish: options.stepsToFinish, hold: options.hold }
+    { stepsToFinish: options.stepsToFinish, hold: options.hold, recent: options.recent }
   );
   const listeners = new Set<() => void>();
   const effectivePageState = {
@@ -300,6 +301,73 @@ describe('SearchOverlay', () => {
     expect(screen.getByText('Plan').parentElement?.querySelector('.pill')?.textContent).toBe('Alias: Roadmap');
     expect(screen.getByText('Road').tagName).toBe('MARK');
     expect(screen.queryByText('Alias:')?.tagName).not.toBe('MARK');
+  });
+
+  describe('Recent', () => {
+    const RECENT = [
+      result({ id: 'd', title: 'Sun, 11 October', type: 'daily-note', folders: ['Daily Notes', '2026'] }),
+      result({ id: 't', title: 'Weekly review', kind: 'template', folders: ['Templates'] }),
+      result({ id: 'n', title: 'Meeting notes', folders: ['Work'] }),
+    ];
+
+    it('lists what was last created or edited when the query is empty, with a pill for daily notes and templates', () => {
+      setup({ recent: () => RECENT });
+
+      expect(screen.getByText('Recent')).toBeInTheDocument();
+      expect(screen.getAllByRole('menuitem').map((row) => row.querySelector('.search-entry__title')?.textContent)).toEqual([
+        'Sun, 11 October',
+        'Weekly review',
+        'Meeting notes',
+      ]);
+
+      const pillOf = (title: string) => screen.getByText(title).parentElement?.querySelector('.pill')?.textContent;
+
+      expect(pillOf('Sun, 11 October')).toBe('Daily note');
+      expect(pillOf('Weekly review')).toBe('Template');
+      expect(pillOf('Meeting notes')).toBeUndefined();
+    });
+
+    it('opens a recent item with Enter, with no snippet to land on', () => {
+      const { input, onSelect } = setup({ recent: () => RECENT });
+
+      fireEvent.keyDown(input()!, { key: 'Enter' });
+
+      expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 'd' }), undefined);
+    });
+
+    it('switches to search results when typing, and back to Recent when the query is cleared', () => {
+      const { input } = setup({ recent: () => RECENT });
+
+      type(input()!, 'roadmap');
+      settle();
+      expect(screen.queryByText('Recent')).not.toBeInTheDocument();
+      expect(screen.getByText('Roadmap')).toBeInTheDocument();
+
+      type(input()!, '   ');
+      settle();
+      expect(screen.getByText('Recent')).toBeInTheDocument();
+      expect(screen.queryByText('Roadmap')).not.toBeInTheDocument();
+    });
+
+    it('refreshes while open when a page is created or edited', () => {
+      let items = RECENT.slice(2);
+      const { notify } = setup({ recent: () => items });
+
+      expect(screen.queryByText('Weekly review')).not.toBeInTheDocument();
+
+      items = RECENT;
+      notify();
+      settle();
+
+      expect(screen.getByText('Weekly review')).toBeInTheDocument();
+    });
+
+    it('explains an empty Recent', () => {
+      setup({ recent: () => [] });
+
+      expect(screen.queryByText('Recent')).not.toBeInTheDocument();
+      expect(screen.getByText(/Notes you create or edit show up here/)).toBeInTheDocument();
+    });
   });
 
   it('shows a message when nothing matches', () => {
