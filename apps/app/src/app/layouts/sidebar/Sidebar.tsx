@@ -23,7 +23,6 @@ import { Notes } from '@features/notes/sidebar/Sidebar.Notes';
 import { DailyNotes } from '@features/daily-notes/sidebar/Sidebar.DailyNotes';
 import { Tasks } from '@features/tasks/sidebar/Sidebar.Tasks';
 import { Tags } from '@features/tags/sidebar/Sidebar.Tags';
-import { Templates } from '@features/templates/sidebar/Sidebar.Templates';
 import { Controls } from '@app/layouts/sidebar/controls/Controls';
 import { Footer } from './footer/Footer';
 import { useNativeFileMenu } from './useNativeFileMenu';
@@ -132,11 +131,6 @@ export function Sidebar({
     workspace.setActiveSidebarTab('notes');
     setSidebarNoteReveal(pageId);
   }
-
-  const newTemplate = () =>
-    void createTemplate(folderOperations, pageOperations).catch((error: unknown) =>
-      toast.fail('Couldn’t create the template', error)
-    );
 
   const tabs: Array<{
     // Typed as SidebarTab so a new tab can't be added here without also
@@ -277,22 +271,6 @@ export function Sidebar({
       ),
     },
     {
-      value: 'templates',
-      icon: getSystemLocationPresentation('templates').icon,
-      panel: (
-        <Templates
-          vault={vault}
-          navigation={navigation}
-          pageOperations={pageOperations}
-          folderOperations={folderOperations}
-          effectivePageState={effectivePageState}
-          membershipSelector={membershipSelector}
-          workspace={workspace}
-          onRequestNewTemplate={newTemplate}
-        />
-      ),
-    },
-    {
       value: 'search',
       icon: getSystemLocationPresentation('search').icon,
       panel: null,
@@ -351,7 +329,11 @@ export function Sidebar({
         onNewTask={() => setCreationDialog('task')}
         onNewFolder={newFolder}
         onNewTag={() => setCreationDialog('tag')}
-        onNewTemplate={newTemplate}
+        onNewTemplate={() =>
+          void createTemplate(folderOperations, pageOperations).catch((error: unknown) =>
+            toast.fail('Couldn’t create the template', error)
+          )
+        }
         onUpload={() =>
           void uploadAssets((source, destination) =>
             application.importAsset(source, destination)

@@ -19,7 +19,7 @@ import type { DailyNotesSidebarState } from '../daily-notes/DailyNotesSidebarSta
  * its tab values as `SidebarTab`, so a tab added there without being added
  * here fails to compile instead of silently never restoring.
  */
-export const SIDEBAR_TABS = ['notes', 'daily-notes', 'tasks', 'tags', 'templates'] as const;
+export const SIDEBAR_TABS = ['notes', 'daily-notes', 'tasks', 'tags'] as const;
 export type SidebarTab = (typeof SIDEBAR_TABS)[number];
 
 /**

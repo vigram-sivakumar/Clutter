@@ -47,7 +47,6 @@ describe('SidebarSetting', () => {
       'Daily notes',
       'Tasks',
       'Tags',
-      'Templates',
     ]);
     expect(items().some((i) => i.querySelector('.entry__leading'))).toBe(false);
   });
