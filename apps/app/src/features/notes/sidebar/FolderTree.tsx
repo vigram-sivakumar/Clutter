@@ -23,7 +23,7 @@ import { buildAssetMenuHandlers } from '../helpers/buildAssetMenuHandlers';
 import { testIds } from '@shared/testing/selectors';
 import { usePointerDrag } from '@shared/interaction';
 import { DragGhost } from '@components/drag-ghost/DragGhost';
-import { executeDrop, type DropActions } from './executeDrop';
+import { executeDrop, settleMove, type DropActions } from './executeDrop';
 import type { DropTarget } from './dropTarget';
 import { useDropTargetTracking } from './useDropTargetTracking';
 import { dragRevealStore } from './dragRevealStore';
@@ -269,7 +269,7 @@ export interface SidebarRowActions extends NoteRowActions {
    * Move list uses.
    */
   resourceMoveDestinations: PickerListItem[];
-  onMoveResource(resourceId: string, destinationFolderId: string | null): void;
+  onMoveResource(resourceId: string, destinationFolderId: string | null): void | Promise<void>;
   /**
    * Location-actions pipeline (`core/presentation/
    * getLocationPathRepresentations.ts`) — reveals the resource's real file
@@ -587,7 +587,7 @@ export function PageEntry({
       }
       onMove={
         rowActions && !entry.isDraft
-          ? (destinationFolderId) => rowActions.onMoveNote(entry.id, destinationFolderId)
+          ? (destinationFolderId) => settleMove(rowActions.onMoveNote(entry.id, destinationFolderId))
           : undefined
       }
       onCreateFolder={
@@ -664,7 +664,7 @@ function ResourceRow({
       moveDestinations={rowActions ? rowActions.resourceMoveDestinations : undefined}
       onMove={
         rowActions
-          ? (destinationFolderId) => rowActions.onMoveResource(resource.id, destinationFolderId)
+          ? (destinationFolderId) => settleMove(rowActions.onMoveResource(resource.id, destinationFolderId))
           : undefined
       }
       onCreateFolder={rowActions ? rowActions.createFolderInZone('assets') : undefined}
@@ -936,7 +936,7 @@ export function FolderTree({
               }
               onMove={
                 rowActions
-                  ? (destinationFolderId) => rowActions.onMoveFolder(folder.id, destinationFolderId)
+                  ? (destinationFolderId) => settleMove(rowActions.onMoveFolder(folder.id, destinationFolderId))
                   : undefined
               }
               onCreateFolder={rowActions ? rowActions.onCreateFolder : undefined}

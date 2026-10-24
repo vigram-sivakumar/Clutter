@@ -99,6 +99,13 @@ export function isWithinTokenBounds(
   x: number,
   y: number
 ): boolean {
+  // The token's actual rendered boxes first: one per visual line it occupies. A single box from its two endpoints
+  // is only right for a token on one line — see `renderedTokenRects`.
+  const rects = renderedTokenRects(view, node);
+  if (rects.length > 0) {
+    return rects.some((rect) => x >= rect.left - 1 && x <= rect.right + 1 && y >= rect.top && y <= rect.bottom);
+  }
+
   const startRect = view.coordsAtPos(node.from, 1);
   const endRect = view.coordsAtPos(node.to, -1);
   if (!startRect || !endRect) {
@@ -114,15 +121,92 @@ export function isWithinTokenBounds(
 }
 
 /**
+ * The boxes a token is really painted in — one per visual line it spans — read from the DOM it renders to, never
+ * derived from its two endpoint positions.
+ *
+ * Why not the endpoints: when text soft-wraps, a position that sits exactly at a wrap point has two visual places,
+ * and `coordsAtPos(node.from, 1)` returns the one at the END of the previous line (a zero-width box beside the
+ * space the line broke at), not where the token actually starts. A date reference that wraps to the next line then
+ * got a hit box running from the end of the line above to the end of the token — missing most of its own text and
+ * covering its neighbours — so a click on it was rejected as "not on the token", fell through to CM6's caret
+ * placement, and engaged the token's raw Markdown instead of activating it.
+ *
+ * Zero-width boxes (collapsed ranges and caret-like slivers at a boundary) are ignored; they are where the
+ * endpoint trick goes wrong. Returns `[]` when the layout cannot be measured (no `Range` geometry, as in jsdom, or
+ * nothing painted), and the caller falls back to the endpoints.
+ */
+export function renderedTokenRects(
+  view: EditorView,
+  node: TokenNodeRange
+): readonly { left: number; right: number; top: number; bottom: number }[] {
+  if (typeof document === 'undefined') {
+    return [];
+  }
+  const range = document.createRange();
+  if (typeof range.getClientRects !== 'function') {
+    return [];
+  }
+  try {
+    const start = view.domAtPos(node.from, 1);
+    const end = view.domAtPos(node.to, -1);
+    range.setStart(start.node, start.offset);
+    range.setEnd(end.node, end.offset);
+  } catch {
+    return [];
+  }
+  return Array.from(range.getClientRects()).filter((rect) => rect.width > 0.5 && rect.height > 0);
+}
+
+/**
+ * Where a ⌘-click puts the caret inside the token it landed on. Supplying one to `tokenMouseHandlers` turns the
+ * ⌘-click on that kind into "edit": the token's raw source is revealed (the caret inside it is what engages it, the
+ * same way arrowing into it does) and nothing is activated. Kinds that do not supply one are untouched by ⌘.
+ */
+export type TokenEditCaret = (view: EditorView, node: TokenNodeRange) => number;
+
+/** The press that edits instead of activating: ⌘ on macOS, Ctrl elsewhere — CM6's own "add a cursor" modifier. */
+export function isTokenEditPress(event: MouseEvent): boolean {
+  const mac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.platform || '');
+  return mac ? event.metaKey : event.ctrlKey;
+}
+
+/**
+ * The ⌘-click decision, with an explicit position like `handleTokenClick` (and for the same reason). When a token is
+ * at rest at `pos`, puts the caret at `caretFor(node)` — inside the token, so it reveals its source — and returns
+ * `true`; anything else returns `false` and the click is left to CM6 (a second cursor, ordinarily). A read-only view
+ * has nothing to edit, so it declines too and the ordinary activation applies.
+ */
+export function handleTokenEditClick(
+  view: EditorView,
+  pos: number,
+  isTokenNode: TokenNodePredicate,
+  caretFor: TokenEditCaret
+): boolean {
+  if (view.state.readOnly) {
+    return false;
+  }
+  const node = findAtRestTokenAt(view.state, pos, isTokenNode);
+  if (!node) {
+    return false;
+  }
+  const caret = Math.min(Math.max(caretFor(view, node), node.from), node.to);
+  view.dispatch({ selection: { anchor: caret }, userEvent: 'select.pointer', scrollIntoView: true });
+  view.focus();
+  return true;
+}
+
+/**
  * Mouse interaction, built on `EditorView.domEventHandlers` — the actual
  * CM6 mechanism for DOM-event-level interaction. Deliberately not the
  * keymap facet, which dispatches key bindings only and has no path to
  * mouse events at all. Shared by every semantic inline construct kind;
- * `isTokenNode`/`getActivation` are the only kind-specific inputs.
+ * `isTokenNode`/`getActivation` are the only kind-specific inputs, and `editCaret` (optional) opts the kind in to
+ * ⌘-click editing — see `TokenEditCaret`. A ⌘-click that is not on one of the kind's tokens is never intercepted.
  */
 export function tokenMouseHandlers(
   isTokenNode: TokenNodePredicate,
-  getActivation: GetTokenActivation
+  getActivation: GetTokenActivation,
+  editCaret?: TokenEditCaret
 ): Extension {
   return EditorView.domEventHandlers({
     mousedown(event, view) {
@@ -141,6 +225,11 @@ export function tokenMouseHandlers(
       const node = findAtRestTokenAt(view.state, pos, isTokenNode);
       if (node && !isWithinTokenBounds(view, node, event.clientX, event.clientY)) {
         return false;
+      }
+
+      if (editCaret && isTokenEditPress(event) && handleTokenEditClick(view, pos, isTokenNode, editCaret)) {
+        event.preventDefault();
+        return true;
       }
 
       const handled = handleTokenClick(view, pos, event.altKey, isTokenNode, getActivation);

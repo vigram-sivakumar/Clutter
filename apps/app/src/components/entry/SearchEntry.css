@@ -1,0 +1,82 @@
+/* Three levels in one row: the title, the muted location, a one-line excerpt. */
+.entry.search-entry {
+  padding-block: var(--space-6);
+  align-items: start;
+  height: fit-content;
+  flex-shrink: 0;
+}
+
+.search-entry__leading {
+  display: grid;
+  place-items: center;
+}
+
+.search-entry__icon {
+  grid-area: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--sidebar-icon-foreground);
+  pointer-events: none;
+}
+
+.search-entry__content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.search-entry__title-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.search-entry__title {
+  color: var(--foreground-primary);
+  min-width: 0;
+}
+
+/* Pills beside the title (Template, PDF, Alias: …) use the same small text as the row's other metadata. */
+.search-entry__title-row .pill.pill--small {
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label-small);
+}
+
+.search-entry__path,
+.search-entry__meta {
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label-small);
+  color: var(--foreground-tertiary);
+}
+
+.search-entry__meta {
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.search-entry__excerpt {
+  /* One line, cut off with an ellipsis at the row's right edge (the text is already windowed around the match). */
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  margin-top: var(--space-2);
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label-small);
+  color: var(--foreground-secondary);
+}
+
+/* The words that matched. The background reaches past the text on the left and right through shadows, which draw
+   outside the box: no padding, so the text does not move and neighbouring words keep their spacing. */
+.search-entry__match {
+  background: transparent;
+  color: var(--md-link-foreground);
+  font-weight: var(--fw-medium);
+  /* text-decoration: underline;
+  text-underline-offset: var(--md-underline-offset);
+  text-decoration-thickness: var(--md-underline-thickness);
+  text-decoration-color: var(--md-link-underline); */
+}

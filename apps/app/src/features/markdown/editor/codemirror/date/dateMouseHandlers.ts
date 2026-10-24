@@ -29,5 +29,6 @@ export function handleDateClick(
  * construct kind.
  */
 export function dateMouseHandlers(getResolver: () => ResolveDate | undefined): Extension {
-  return tokenMouseHandlers(isDateNode, (view, node) => getDateActivation(view, node, getResolver));
+  // ⌘-click reveals the raw `@…` and puts the caret at its end, where the date's own editing and completion take over.
+  return tokenMouseHandlers(isDateNode, (view, node) => getDateActivation(view, node, getResolver), (_view, node) => node.to);
 }

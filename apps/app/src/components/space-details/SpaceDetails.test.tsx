@@ -254,3 +254,45 @@ describe('SpaceDetails: an existing folder’s name', () => {
     );
   });
 });
+
+describe('SpaceDetails: Create with an unusable name', () => {
+  const NEW_DRAFT = {
+    parentPath: '/Users/me/Documents',
+    parentName: 'Documents',
+    name: '',
+  };
+  const nameCard = () => nameInput().closest('.settings-entry') as HTMLElement;
+
+  it('shakes the whole name card, keeps the focus in the name field and creates nothing', async () => {
+    const { onCreateFolder, onOpenSpace } = renderDetails(NEW_DRAFT);
+    expect(nameCard()).not.toHaveClass('space-details__name--shake');
+
+    await create();
+
+    expect(nameCard()).toHaveClass('space-details__name--shake');
+    expect(nameInput()).toHaveFocus();
+    expect(onCreateFolder).not.toHaveBeenCalled();
+    expect(onOpenSpace).not.toHaveBeenCalled();
+  });
+
+  it('stops shaking when the animation ends, and shakes again on the next click', async () => {
+    renderDetails(NEW_DRAFT);
+
+    await create();
+    // jsdom has no unprefixed `animationend`, so React listens for the prefixed one there.
+    fireEvent(nameCard(), new Event('webkitAnimationEnd', { bubbles: true }));
+    expect(nameCard()).not.toHaveClass('space-details__name--shake');
+
+    await create();
+    expect(nameCard()).toHaveClass('space-details__name--shake');
+  });
+
+  it('does not shake for a usable name', async () => {
+    renderDetails(NEW_DRAFT);
+    type('Fresh');
+
+    await create();
+
+    expect(nameCard()).not.toHaveClass('space-details__name--shake');
+  });
+});

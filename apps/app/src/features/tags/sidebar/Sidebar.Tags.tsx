@@ -33,6 +33,8 @@ import {
 import { Dialog } from '@components/dialog/Dialog';
 import { Confirmation } from '@components/confirmation/Confirmation';
 import { useConfirmationSurface } from '@components/confirmation/useConfirmationSurface';
+import { useToast } from '@components/toast/ToastProvider';
+import { reportTagBatch } from '@features/tags/helpers/tagBatchFeedback';
 
 interface TagsPanelProps {
   readonly vault: Vault;
@@ -78,6 +80,7 @@ export function Tags({
 }: TagsPanelProps) {
   // Delete is confirmed here — the same shared surface the tag page's Delete uses.
   const confirmation = useConfirmationSurface();
+  const toast = useToast();
   // Forces a re-render when a tag's expansion is toggled — the store is
   // the source of truth (and what actually persists), this hook is purely
   // the view-layer subscription, same shape as useWorkspace/
@@ -129,6 +132,8 @@ export function Tags({
     pageOperations,
     folderOperations,
     membershipSelector,
+    toast,
+    isOpenPage: (pageId) => workspace.activePageId === pageId,
     openMenuId: noteOpenMenuId,
     onOpenMenu: (id) => setNoteOpenMenuId(id),
     onCloseMenu: () => setNoteOpenMenuId(null),
@@ -169,7 +174,7 @@ export function Tags({
             await tagOperations.deleteUnusedTags();
           }}
           onRestyle={async (style) => {
-            await tagOperations.restyle(style);
+            reportTagBatch(toast, await tagOperations.restyle(style), 'restyle');
           }}
         />
       }
@@ -216,9 +221,9 @@ export function Tags({
                 void createTagCollectionDeleteHandler(
                   { tagOperations, navigation, workspace, collectionViewConfigStore, tagExpansionStore },
                   name
-                )().catch((error: unknown) => {
-                  console.warn('Delete tag failed', error);
-                }),
+                )()
+                  .then((result) => reportTagBatch(toast, result, 'delete'))
+                  .catch((error: unknown) => toast.fail('Couldn’t delete the tag', error)),
             }),
 
           editingId,

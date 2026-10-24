@@ -2,7 +2,7 @@ import type { CollectionViewConfigStore } from '@core/application/collection/Col
 import { collectionViewKeyForTag } from '@core/application/collection/collectionViewKey';
 import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
 import type { TagExpansionStore } from '@core/application/tags/TagExpansionStore';
-import type { TagOperations } from '@core/application/tags/TagOperations';
+import type { TagBatchResult, TagOperations } from '@core/application/tags/TagOperations';
 import { formatTagDisplayLabel, normalizeTagName } from '@core/vault/models/Tag';
 import type { Workspace } from '@core/workspace/Workspace';
 
@@ -41,12 +41,12 @@ export function createTagCollectionDeleteHandler(
     readonly tagExpansionStore: TagExpansionStore;
   },
   tagName: string
-): () => Promise<void> {
+): () => Promise<TagBatchResult> {
   return async () => {
     const result = await deps.tagOperations.deleteTag(tagName);
 
     if (!result.complete) {
-      return;
+      return result;
     }
 
     deps.collectionViewConfigStore.deleteKey(collectionViewKeyForTag(tagName));
@@ -61,5 +61,7 @@ export function createTagCollectionDeleteHandler(
     ) {
       deps.navigation.openWorkspace();
     }
+
+    return result;
   };
 }

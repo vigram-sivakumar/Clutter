@@ -742,7 +742,7 @@ export class TableWidget extends WidgetType {
           beginCellDragTracking(view, controller, this.tableFrom, { row: rowIndex, col: columnIndex });
         });
       } else {
-        wrapper.innerHTML = renderInlineMarkdown(cell.text);
+        wrapper.innerHTML = renderInlineMarkdown(cell.text, { styled: true });
         if (this.controller) {
           const controller = this.controller;
           // Listens on `element` (the <th>/<td> itself), not `wrapper` —

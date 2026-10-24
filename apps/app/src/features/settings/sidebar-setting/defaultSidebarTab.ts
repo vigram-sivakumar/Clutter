@@ -1,4 +1,5 @@
 import {
+  LEGACY_SEARCH_TAB,
   SIDEBAR_TABS,
   type SidebarTab,
 } from '@core/application/workspace/WorkspaceSessionStore';
@@ -15,6 +16,10 @@ export const DEFAULT_SIDEBAR_TAB: SidebarTab = 'notes';
 export function readDefaultSidebarTab(): SidebarTab {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
+    // Search used to be choosable here; it is an overlay now, so a saved choice of it opens Notes.
+    if (stored === LEGACY_SEARCH_TAB) {
+      return DEFAULT_SIDEBAR_TAB;
+    }
     return (SIDEBAR_TABS as readonly unknown[]).includes(stored)
       ? (stored as SidebarTab)
       : DEFAULT_SIDEBAR_TAB;

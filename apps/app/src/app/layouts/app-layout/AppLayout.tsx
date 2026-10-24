@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import './AppLayout.css';
 import { CreateTemplateProvider } from '@app/layouts/createTemplate/CreateTemplateProvider';
 import { Sidebar } from '../sidebar/Sidebar';
@@ -18,6 +18,7 @@ import { useDateDisplayVersion } from '@app/hooks/useDateDisplayVersion';
 import { useMaxWidth, SIDEBAR_COLLAPSE_BREAKPOINT, COVER_HIDE_BREAKPOINT } from '@app/hooks/useMaxWidth';
 import { useSidebarVisibility, type NarrowSidebarOverride } from './useSidebarVisibility';
 import { useLayoutShortcuts } from './useLayoutShortcuts';
+import { SearchOverlay } from '@features/search/SearchOverlay';
 import { useNativeGoMenu } from './useNativeGoMenu';
 import { useEffectivePageState } from '@app/hooks/useEffectivePageState';
 import { useWorkspace } from '@app/hooks/useWorkspace';
@@ -25,14 +26,17 @@ import { TauriDragStrip } from '@components/tauri-drag-strip/TauriDragStrip';
 import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
 import { buildMoveDestinationItems } from '@features/notes/helpers/buildMoveDestinationItems';
 import { createFolderInZone } from '@features/notes/helpers/createFolderInZone';
-import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
+import { copyWithFeedback } from '@shared/helpers/copyWithFeedback';
 import { downloadRemoteImage } from '@shared/helpers/downloadRemoteImage';
 import { downloadResource } from '@shared/helpers/downloadResource';
 import { openExternalUrl } from '@shared/helpers/openExternalUrl';
 import { createResourceLocationActions } from '@app/layouts/resourceLocationActions';
 import type { ResourceOverlayState } from '@app/layouts/resourceOverlay';
 import { ImageOverlay, type ImageOverlayImage } from '@features/markdown/editor/codemirror/image/ImageOverlay';
-import { Toast, type ToastMessage } from '@components/toast/Toast';
+import { useToast } from '@components/toast/ToastProvider';
+import { archiveResourceWithUndo } from '@features/notes/helpers/archiveWithUndo';
+import { reportMoveFailure } from '@features/notes/helpers/reportMoveFailure';
+import { saveToVaultFeedback } from '@features/notes/helpers/saveToVaultFeedback';
 import { Confirmation } from '@components/confirmation/Confirmation';
 import { Dialog } from '@components/dialog/Dialog';
 import { ROOT_DESTINATION_ID } from '@components/picker-list/PickerList.types';
@@ -93,6 +97,7 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarOverrideChange }: AppLayoutProps) {
+  const toast = useToast();
   // Single vault subscription for sibling Sidebar + PageHost re-renders.
   useVault(application.vault);
   // ADR-020, M3: EffectivePageState notifies on draft open/close/promotion
@@ -133,7 +138,19 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
   const isCoverSuppressed = useMaxWidth(COVER_HIDE_BREAKPOINT) || (isNarrow && isSidebarVisible);
   const sidebarTransition = useSidebarTransition(isSidebarVisible, sidebarSlotRef);
   // History, the sidebar and its tabs, by keyboard (shortcuts.ts); Back / Forward also as the native Go menu.
-  useLayoutShortcuts({ navigation: application.navigation, workspace, isSidebarVisible, toggleSidebar });
+  // Search (ADR-061) is an overlay owned here, beside the other layout-level overlays. The query is kept in a ref, not
+  // state: it must outlive the overlay closing, but typing must not re-render the whole layout. This layout is keyed
+  // by the Space's root (AppShell), so a Space switch starts with an empty query.
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const searchQueryRef = useRef('');
+  const searchReturnFocusRef = useRef<HTMLElement | null>(null);
+  const openSearch = () => {
+    if (!isSearchOpen) {
+      searchReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      setIsSearchOpen(true);
+    }
+  };
+  useLayoutShortcuts({ navigation: application.navigation, workspace, isSidebarVisible, toggleSidebar, openSearch });
   useNativeGoMenu({
     onBack: () => application.navigation.back(),
     onForward: () => application.navigation.forward(),
@@ -189,7 +206,7 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
   const [pendingReveal, setPendingReveal] = useState<PendingEditorReveal | null>(null);
 
   const { revealResourceInFinder, copyResourcePath, downloadResourceById } =
-    createResourceLocationActions(application.vault);
+    createResourceLocationActions(application.vault, toast);
 
   // An Asset moves only within Assets (ADR-049): the same Move picker, rooted at Assets.
   const resourceMoveDestinations = buildMoveDestinationItems(
@@ -283,7 +300,7 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
         return;
       }
 
-      console.error('Could not restore the file.', error);
+      toast.fail('Couldn’t restore this file', error);
     });
   }
 
@@ -291,7 +308,8 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
     const { kind, id } = request;
     // The vault root is the list's first row (a note or folder); an Asset's root row is the Assets folder itself.
     const destinationFolderId = destinationId === ROOT_DESTINATION_ID ? null : destinationId;
-    const done = (error: unknown) => console.error('Could not restore.', error);
+    const noun = kind === 'page' ? 'note' : kind === 'folder' ? 'folder' : 'file';
+    const done = (error: unknown) => toast.fail(`Couldn’t restore this ${noun}`, error);
 
     if (kind === 'page') {
       void application.pageOperations.restore(id, { destinationFolderId }).catch(done);
@@ -324,21 +342,18 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
 
     if (resource) {
       setResourceOverlay(null);
-      void application.resourceOperations.deleteResource(resource.id);
+      void application.resourceOperations
+        .deleteResource(resource.id)
+        .catch((error: unknown) => toast.fail('Couldn’t delete this file', error));
     }
   }
 
-  // Toast host for transient messages from page-level actions (PageHost's
-  // onShowToast). Save to vault does not report through it.
-  const [toast, setToast] = useState<ToastMessage | null>(null);
-  const dismissToast = useCallback(() => setToast(null), []);
   // An asset move that was refused, or that moved the file but left a reference pointing at the old place, is explained
   // wherever the menu was (the Assets page, the sidebar, the overlay).
   useEffect(
     () =>
       application.subscribeAssetMoveFeedback((feedback) =>
-        setToast({
-          id: Date.now(),
+        toast.show({
           tone: 'error',
           text:
             feedback.kind === 'refused'
@@ -346,11 +361,7 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
               : `Moved, but ${feedback.summary.failed.length} ${feedback.summary.failed.length === 1 ? 'reference' : 'references'} still point to the old location`,
         })
       ),
-    [application]
-  );
-  const showToast = useCallback(
-    (message: Omit<ToastMessage, 'id'>) => setToast({ id: Date.now(), ...message }),
-    []
+    [application, toast]
   );
 
   // A Space setting that could not be written to the Space's `.clutter/workspace.json` holds for this session but is
@@ -358,9 +369,9 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
   useEffect(
     () =>
       application.subscribeSettingsWriteError(() =>
-        showToast({ tone: 'error', text: 'Couldn’t save this setting. It will be lost when you quit.' })
+        toast.show({ tone: 'error', text: 'Couldn’t save this setting. It will be lost when you quit.' })
       ),
-    [application, showToast]
+    [application, toast]
   );
 
   // "Download" of a remote image: reported to Unsplash (when it is a photo picked from there) only once the file was written.
@@ -374,9 +385,21 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
 
   function startSaveToVault(url: string): void {
     setResourceOverlay(null);
-    application.saveRemoteImageToVault(url).catch((error: unknown) => {
-      console.error('Could not save the image to the vault.', error);
-    });
+    application
+      .saveRemoteImageToVault(url)
+      .then((result) => {
+        const feedback = saveToVaultFeedback(result);
+        if (feedback.tone === 'error') {
+          toast.fail(feedback.text);
+          return;
+        }
+        const saved = application.vault.getResourceByPath(result.assetPath);
+        toast.show({
+          text: feedback.text,
+          ...(saved && { action: { label: 'Open', onAction: () => openVaultResourceOverlay(saved) } }),
+        });
+      })
+      .catch((error: unknown) => toast.fail('Couldn’t save the image to Assets', error));
   }
 
   // "Set as cover image" from an asset's viewer: the asset's cover reference
@@ -407,7 +430,7 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
                 application.defaultCoverPosition
               ),
             });
-      void update.catch((error: unknown) => console.error('Could not set the cover image.', error));
+      void update.catch((error: unknown) => toast.fail('Couldn’t set the cover image', error));
     }
   }
 
@@ -420,7 +443,7 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
   const remoteImageActions: RemoteImageActions = {
     onSaveToVault: startSaveToVault,
     onOpenInBrowser: (url) => void openExternalUrl(url),
-    onCopyLink: (url) => void copyTextToClipboard(url),
+    onCopyLink: (url) => void copyWithFeedback(url, 'Link copied', toast),
     onDownload: downloadRemote,
   };
   const coverImageActions: ImageFileActions = {
@@ -487,6 +510,7 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
               tasksViewConfig={tasksViewConfig}
               onTasksViewConfigChange={updateTasksViewConfig}
               onRequestReveal={setPendingReveal}
+              onOpenSearch={openSearch}
             />
           }
         </aside>
@@ -511,7 +535,6 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
           onOpenResource={openVaultResourceOverlay}
           onOpenImageOverlay={openImageOverlay}
           onSetAssetAsCover={askForCoverNote}
-          onShowToast={showToast}
           onNeedsRestoreDestination={setRestoreRequest}
           tasksViewConfig={tasksViewConfig}
           onTasksViewConfigChange={updateTasksViewConfig}
@@ -525,6 +548,51 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
         </CoverAssetsProvider>
         </CoverSuppressedContext.Provider>
       </main>
+      <SearchOverlay
+        open={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        searchService={application.searchService}
+        effectivePageState={application.effectivePageState}
+        initialQuery={searchQueryRef.current}
+        onQueryChange={(query) => {
+          searchQueryRef.current = query;
+        }}
+        onSelect={(result, snippet) => {
+          // Opening a page hands focus to its editor: do not give it back to what had focus before the overlay.
+          searchReturnFocusRef.current = null;
+          setIsSearchOpen(false);
+
+          // An asset opens in its viewer and a folder in its collection; a note — a template included, which is
+          // only ever opened here, never applied — opens in the editor.
+          if (result.kind === 'asset') {
+            const resource = application.vault.getResource(result.id);
+
+            if (resource) {
+              openVaultResourceOverlay(resource);
+            }
+
+            return;
+          }
+
+          if (result.kind === 'folder') {
+            void application.folderOperations
+              .open(result.id)
+              .catch((error: unknown) => toast.fail('Couldn’t open the folder', error));
+
+            return;
+          }
+
+          void application.pageOperations
+            .open(result.id)
+            .then(() => {
+              if (snippet) {
+                setPendingReveal({ pageId: result.id, ranges: [snippet.range] });
+              }
+            })
+            .catch((error: unknown) => toast.fail('Couldn’t open the note', error));
+        }}
+        returnFocusRef={searchReturnFocusRef as RefObject<HTMLElement>}
+      />
       <SidebarToggle
         isSidebarVisible={isSidebarVisible}
         onToggleSidebarVisible={toggleSidebar}
@@ -534,7 +602,7 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
         onClose={closeResourceOverlay}
         onArchiveResource={(id) => {
           closeResourceOverlay();
-          void application.resourceOperations.archiveResource(id);
+          void archiveResourceWithUndo({ vault: application.vault, resourceOperations: application.resourceOperations, toast }, id);
         }}
         onRevealResourceInFinder={revealResourceInFinder}
         onCopyResourcePath={copyResourcePath}
@@ -550,7 +618,9 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
         onDeleteResource={askToDeleteResource}
         resourceMoveDestinations={resourceMoveDestinations}
         onMoveResource={(id, destinationFolderId) =>
-          void application.resourceOperations.moveResource(id, destinationFolderId).catch(() => undefined)
+          void application.resourceOperations
+            .moveResource(id, destinationFolderId)
+            .catch((error: unknown) => reportMoveFailure(toast, 'file', error))
         }
         onCreateFolder={createAssetFolder}
         remoteImageActions={
@@ -562,7 +632,6 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
           resourceOverlay?.kind === 'image' ? resourceOverlay.onSetCoverImage : undefined
         }
       />
-      <Toast toast={toast} onDismiss={dismissToast} />
       <RestoreDestinationPicker
         open={restoreRequest !== null}
         items={restoreRequest ? restoreDestinationItems(restoreRequest) : []}
@@ -614,7 +683,7 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
           resourceOverlay?.kind === 'pdf' && resourceOverlay.actionsEnabled
             ? (id) => {
                 closeResourceOverlay();
-                void application.resourceOperations.archiveResource(id);
+                void archiveResourceWithUndo({ vault: application.vault, resourceOperations: application.resourceOperations, toast }, id);
               }
             : undefined
         }
@@ -636,7 +705,9 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
         onMoveResource={
           resourceOverlay?.kind === 'pdf' && resourceOverlay.actionsEnabled
             ? (id, destinationFolderId) =>
-                void application.resourceOperations.moveResource(id, destinationFolderId).catch(() => undefined)
+                void application.resourceOperations
+            .moveResource(id, destinationFolderId)
+            .catch((error: unknown) => reportMoveFailure(toast, 'file', error))
             : undefined
         }
         onCreateFolder={

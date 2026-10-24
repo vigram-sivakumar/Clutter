@@ -33,6 +33,7 @@ import { planMovedAssetReferences, type MovedAssetReferenceDeps } from './asset/
 import { normalizeTagName } from '../vault/models/Tag';
 import { EffectivePageState } from './page/EffectivePageState';
 import { MembershipSelector } from './membership/MembershipSelector';
+import { SearchService } from './search/SearchService';
 import { FolderOperations } from './folder/FolderOperations';
 import { ResourceArchiveMetadataStore } from '../vault/persistence/ResourceArchiveMetadataStore';
 import { ResourceOperations } from './resource/ResourceOperations';
@@ -234,6 +235,7 @@ export class Application {
   public vaultSyncService!: VaultSyncService;
   public effectivePageState!: EffectivePageState;
   public membershipSelector!: MembershipSelector;
+  public searchService!: SearchService;
   private readonly fileSystem: VaultFileSystem;
   private readonly coverImageUrlResolver: CoverImageUrlResolver;
   private readonly selfWriteRegistry: SelfWriteRegistry;
@@ -742,6 +744,15 @@ export class Application {
       this.query,
       this.effectivePageState,
       () => this.allowMovingAssetsToFolders
+    );
+    // ADR-061: the read-only search projection. Holds no subscription (observers use effectivePageState.subscribe),
+    // so Application.close() has nothing to dispose for it.
+    this.searchService = new SearchService(
+      vault,
+      this.query,
+      this.workspace,
+      this.pageOperations,
+      this.membershipSelector
     );
     this.fileSystemWatcher = isTauri()
       ? new LocalFileSystemWatcher()

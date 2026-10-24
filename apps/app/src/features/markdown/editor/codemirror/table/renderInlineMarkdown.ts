@@ -26,15 +26,20 @@ import { fallbackWikiLinkResolution } from '../wikilink/wikiLinkResolution';
  * the same "no nested Markdown syntax leaks" property the compact
  * renderer now has, applied here for free rather than reintroducing a
  * flattened value this type no longer has a way to produce.
+ *
+ * `styled` adds the editor's own `tok-*` classes (`MarkdownEditor.css`) to
+ * bold/italic/strikethrough/highlight/code, so an inactive cell looks exactly
+ * like the same formatting in a paragraph from one set of rules. Left off for
+ * the clipboard's HTML, which must not carry editor classes.
  */
-export function renderInlineMarkdown(text: string): string {
+export function renderInlineMarkdown(text: string, options: { readonly styled?: boolean } = {}): string {
   const tree = sharedMarkdownParser.parse(text);
   const spans = tokenizeInline(tree.topNode, text);
-  return renderSpans(spans);
+  return renderSpans(spans, options.styled === true);
 }
 
-function renderSpans(spans: readonly InlineSpan[]): string {
-  return spans.map(renderSpan).join('');
+function renderSpans(spans: readonly InlineSpan[], styled: boolean): string {
+  return spans.map((span) => renderSpan(span, styled)).join('');
 }
 
 function escapeHtml(value: string): string {
@@ -46,20 +51,22 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
-function renderSpan(span: InlineSpan): string {
+function renderSpan(span: InlineSpan, styled: boolean): string {
+  const tok = (name: string): string => (styled ? ` class="${name}"` : '');
+  const tokWith = (name: string, own: string): string => `class="${styled ? `${name} ` : ''}${own}"`;
   switch (span.kind) {
     case 'text':
       return escapeHtml(span.value);
     case 'bold':
-      return `<strong>${renderSpans(span.children)}</strong>`;
+      return `<strong${tok('tok-strong')}>${renderSpans(span.children, styled)}</strong>`;
     case 'italic':
-      return `<em>${renderSpans(span.children)}</em>`;
+      return `<em${tok('tok-emphasis')}>${renderSpans(span.children, styled)}</em>`;
     case 'strikethrough':
-      return `<s>${renderSpans(span.children)}</s>`;
+      return `<s${tok('tok-strike')}>${renderSpans(span.children, styled)}</s>`;
     case 'highlight':
-      return `<mark class="cm-table-cell-highlight">${renderSpans(span.children)}</mark>`;
+      return `<mark ${tokWith('tok-highlight', 'cm-table-cell-highlight')}>${renderSpans(span.children, styled)}</mark>`;
     case 'code':
-      return `<code class="cm-table-cell-code">${escapeHtml(span.value)}</code>`;
+      return `<code ${tokWith('tok-code', 'cm-table-cell-code')}>${escapeHtml(span.value)}</code>`;
     case 'wikilink': {
       const resolution = fallbackWikiLinkResolution(span.path);
       return `<span class="cm-table-cell-wikilink">${escapeHtml(resolution.displayLabel)}</span>`;

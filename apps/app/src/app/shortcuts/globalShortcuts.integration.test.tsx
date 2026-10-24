@@ -55,7 +55,7 @@ const activeTab = () => document.querySelector('.tab--active')?.getAttribute('da
 const collapsed = () => document.querySelector('.app-layout')?.getAttribute('data-sidebar-collapsed');
 
 describe('global shortcuts, through the real layout', () => {
-  it('⌘1–⌘4 and ⌘K switch the same sidebar tabs the tab bar does', async () => {
+  it('⌘1–⌘4 switch the same sidebar tabs the tab bar does', async () => {
     render(
       <ShortcutsProvider>
         <AppLayout application={makeApplication()} />
@@ -69,8 +69,48 @@ describe('global shortcuts, through the real layout', () => {
     await waitFor(() => expect(activeTab()).toBe('sidebar.tab.notes'));
     press({ code: 'Digit2' });
     await waitFor(() => expect(activeTab()).toBe('sidebar.tab.daily-notes'));
+  });
+
+  it('⌘K opens the Search overlay and leaves the sidebar tab alone', async () => {
+    render(
+      <ShortcutsProvider>
+        <AppLayout application={makeApplication()} />
+      </ShortcutsProvider>
+    );
+    press({ code: 'Digit3' });
+    await waitFor(() => expect(activeTab()).toBe('sidebar.tab.tasks'));
+    expect(document.querySelector('.search-overlay')).toBeNull();
+
     press({ code: 'KeyK' });
-    await waitFor(() => expect(activeTab()).toBe('sidebar.tab.search'));
+    await waitFor(() => expect(document.querySelector('.search-overlay')).not.toBeNull());
+    expect(activeTab()).toBe('sidebar.tab.tasks');
+    expect(document.activeElement).toBe(document.querySelector('.search-overlay input'));
+  });
+
+  it('while the Search overlay is open, other global shortcuts do not act on the page behind it', async () => {
+    render(
+      <ShortcutsProvider>
+        <AppLayout application={makeApplication()} />
+      </ShortcutsProvider>
+    );
+    press({ code: 'Digit2' });
+    await waitFor(() => expect(activeTab()).toBe('sidebar.tab.daily-notes'));
+
+    press({ code: 'KeyK' });
+    await waitFor(() => expect(document.querySelector('.search-overlay')).not.toBeNull());
+
+    const field = document.activeElement as HTMLElement;
+    const keysInField = (init: KeyboardEventInit & { code: string }) =>
+      act(() => {
+        field.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, metaKey: true, ...init }));
+      });
+
+    keysInField({ code: 'Digit3' });
+    keysInField({ code: 'Digit4' });
+    keysInField({ code: 'Backslash' });
+
+    expect(activeTab()).toBe('sidebar.tab.daily-notes');
+    expect(collapsed()).toBe('false');
   });
 
   it('⌘\\ collapses and expands the sidebar, and a tab shortcut brings a collapsed one back', async () => {

@@ -87,3 +87,41 @@
 .space-details__back:hover .icon-badge {
   scale: 1;
 }
+/* The name card's "that name can't be used" feedback: the same quick shake as the rejected-text fields, a little
+   wider since it moves a whole card. Reduced motion swaps the movement for a brief dip in opacity. The animation's
+   end clears the state in SpaceDetails, so both need to run to completion. */
+@keyframes space-details-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-6px);
+  }
+  40% {
+    transform: translateX(6px);
+  }
+  60% {
+    transform: translateX(-4px);
+  }
+  80% {
+    transform: translateX(3px);
+  }
+}
+@keyframes space-details-flag {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+.space-details__name--shake {
+  animation: space-details-shake 320ms ease-in-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .space-details__name--shake {
+    animation: space-details-flag 320ms ease-in-out;
+  }
+}

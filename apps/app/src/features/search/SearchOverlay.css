@@ -1,0 +1,80 @@
+/* Dialog contributes no surface (see Dialog.css): the panel supplies its own, like every dialog body. */
+.overlay__content.search-overlay {
+  --search-overlay-width: 640px;
+  --search-overlay-list-height: min(480px, calc(100vh - 240px));
+
+  width: min(var(--search-overlay-width), calc(100vw - 2 * var(--space-16)));
+}
+
+.search-overlay__panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+
+  background: var(--surface-secondary);
+  border-radius: var(--radius-xxl);
+  box-shadow: var(--shadow-inset-default), var(--shadow-md);
+
+  padding: var(--space-12);
+}
+
+.search-overlay__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: var(--search-overlay-list-height);
+  overflow-y: auto;
+}
+
+.search-overlay__status {
+  margin: 0;
+  padding: var(--space-16) var(--space-8);
+  text-align: center;
+  font-size: var(--text-label);
+  line-height: var(--lh-label);
+  color: var(--foreground-tertiary);
+}
+
+/* The list answers an older query while the new one is being searched. Dimmed only if that takes a moment, so a quick
+   refresh does not flicker. */
+.search-overlay__list[data-stale] {
+  opacity: 0.55;
+  transition: opacity 120ms ease 150ms;
+}
+
+.entry.search-entry.search-overlay__more {
+  align-items: center;
+}
+
+.search-overlay__more .search-entry__title {
+  color: var(--foreground-secondary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .search-overlay__list[data-stale] {
+    transition: none;
+  }
+}
+
+.search-overlay__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  padding-inline: var(--space-8);
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label-small);
+  color: var(--foreground-tertiary);
+}
+
+.search-overlay__hints {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+}
+
+.search-overlay__hint {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+}

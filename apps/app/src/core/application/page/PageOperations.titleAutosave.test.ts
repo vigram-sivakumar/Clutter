@@ -306,3 +306,80 @@ describe('PageOperations.cancelTitleEdit() (Escape support)', () => {
     expect(vault.getPage(page.id)!.name).toBe('Renamed');
   });
 });
+
+describe('PageOperations.getLiveTitle() (unsaved title, for Search)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('is undefined when there is no unsaved title edit', () => {
+    const page = buildPage();
+    const { pageOperations } = setup(page);
+
+    expect(pageOperations.getLiveTitle(page.id)).toBeUndefined();
+  });
+
+  it('returns the typed title immediately, and tells Workspace observers', () => {
+    const page = buildPage();
+    const { pageOperations, workspace } = setup(page);
+    const listener = vi.fn();
+    workspace.subscribe(listener);
+
+    pageOperations.commitTitle(page.id, 'Typed');
+
+    expect(pageOperations.getLiveTitle(page.id)).toBe('Typed');
+    expect(listener).toHaveBeenCalled();
+  });
+
+  it('does not notify for an identical commit', () => {
+    const page = buildPage();
+    const { pageOperations, workspace } = setup(page);
+
+    pageOperations.commitTitle(page.id, 'Typed');
+
+    const listener = vi.fn();
+    workspace.subscribe(listener);
+    pageOperations.commitTitle(page.id, 'Typed');
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('is undefined again once the rename has been saved', async () => {
+    const page = buildPage();
+    const { vault, pageOperations } = setup(page);
+
+    pageOperations.commitTitle(page.id, 'Renamed');
+    await pageOperations.requestTitleSave(page.id);
+
+    expect(vault.getPage(page.id)!.name).toBe('Renamed');
+    expect(pageOperations.getLiveTitle(page.id)).toBeUndefined();
+  });
+
+  it('is undefined again, with a notification, after the edit is cancelled', () => {
+    const page = buildPage();
+    const { pageOperations, workspace } = setup(page);
+
+    pageOperations.commitTitle(page.id, 'Typed');
+
+    const listener = vi.fn();
+    workspace.subscribe(listener);
+    pageOperations.cancelTitleEdit(page.id);
+
+    expect(pageOperations.getLiveTitle(page.id)).toBeUndefined();
+    expect(listener).toHaveBeenCalled();
+  });
+
+  it('is undefined once the page is closed', () => {
+    const page = buildPage();
+    const { pageOperations } = setup(page);
+
+    pageOperations.commitTitle(page.id, 'Typed');
+    pageOperations.close(page.id);
+
+    expect(pageOperations.getLiveTitle(page.id)).toBeUndefined();
+  });
+});

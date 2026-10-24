@@ -1,6 +1,7 @@
 import type { Application } from '@core/application/Application';
 import type { Folder } from '@core/vault/models/Folder';
 import type { Page } from '@core/vault/models/Page';
+import type { CopyNotifier } from '@shared/helpers/copyWithFeedback';
 import { moveZoneFor } from '@core/presentation/resourceActions/moveZoneFor';
 import { buildMoveDestinationItems } from '@features/notes/helpers/buildMoveDestinationItems';
 import { createFolderInZone } from '@features/notes/helpers/createFolderInZone';
@@ -24,6 +25,13 @@ export interface ResourceMenuOps {
   deletePage(pageId: string): void;
   duplicatePage(pageId: string): void;
   restoreFolder(folderId: string): void;
+  archiveFolder(folderId: string): void;
+  deleteFolder(folderId: string): void;
+  /** A move that fails is reported by the host, which owns the toast. */
+  movePage(pageId: string, destinationFolderId: string | null): void;
+  moveFolder(folderId: string, destinationFolderId: string | null): void;
+  /** Confirms or reports Copy path. */
+  notifier?: CopyNotifier;
   /** Opens the Save as template dialog; absent where no host provides it. */
   createTemplate?(pageId: string): void;
 }
@@ -45,7 +53,7 @@ export function buildResourceMenuOptions(
 ): BuildTopBarActionsOptions {
   const { membershipSelector, folderOperations, pageOperations, vault } = application;
   const id = resource.id;
-  const base = { membershipSelector, vaultRoot: vault.root };
+  const base = { membershipSelector, vaultRoot: vault.root, notifier: ops.notifier };
 
   if (isPage(resource)) {
     // Move applies only to Notes (a Daily Note's menu never includes `move-to`); a Template is a note
@@ -64,7 +72,7 @@ export function buildResourceMenuOptions(
       // A delete is only ever reachable for an archived/Archive-descendant page, and always confirms.
       deleteConfirmationMessage: PAGE_DELETE_CONFIRMATION_MESSAGE,
       moveDestinations: canMove ? buildMoveDestinationItems(membershipSelector) : undefined,
-      onMove: canMove ? (destinationFolderId) => void pageOperations.move(id, destinationFolderId) : undefined,
+      onMove: canMove ? (destinationFolderId) => ops.movePage(id, destinationFolderId) : undefined,
       onCreateFolder: canMove ? (name) => folderOperations.create(name, null) : undefined,
     };
   }
@@ -75,9 +83,9 @@ export function buildResourceMenuOptions(
 
   return {
     ...base,
-    onArchive: () => void folderOperations.archive(id),
+    onArchive: () => ops.archiveFolder(id),
     onRestore: () => ops.restoreFolder(id),
-    onDelete: () => void folderOperations.delete(id),
+    onDelete: () => ops.deleteFolder(id),
     onToggleFavorite: () =>
       void folderOperations.updateMetadata(id, { favorite: !resource.metadata.favorite }),
     // Archiving a folder with contents confirms first; Delete always does.
@@ -87,7 +95,7 @@ export function buildResourceMenuOptions(
     })(),
     deleteConfirmationMessage: getFolderDeleteConfirmation(vault, id).message,
     moveDestinations: buildMoveDestinationItems(membershipSelector, id, moveZone),
-    onMove: (destinationFolderId) => void folderOperations.move(id, destinationFolderId).catch(() => undefined),
+    onMove: (destinationFolderId) => ops.moveFolder(id, destinationFolderId),
     onCreateFolder: createFolderInZone(folderOperations, membershipSelector, moveZone),
   };
 }

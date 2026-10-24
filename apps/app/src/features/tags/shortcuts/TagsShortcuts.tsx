@@ -9,6 +9,7 @@ import { Menu } from '@components/menu/Menu';
 import { MenuItem } from '@components/menu/MenuItem';
 import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
 import { useConfirmationSurface } from '@components/confirmation/useConfirmationSurface';
+import { useToast } from '@components/toast/ToastProvider';
 import type { TagStyle } from '@core/vault/models/Tag';
 
 import { tagsShortcuts, type TagsShortcutId } from './tagsShortcuts.config';
@@ -48,6 +49,7 @@ export function TagsShortcuts({
   // NavigationRouter — they are handled locally, the same shape
   // TasksShortcuts uses for 'create-task' (see tagsShortcuts.config.ts).
   const confirmation = useConfirmationSurface();
+  const toast = useToast();
   // Tidy up's one-time "restyle existing tags" menu. Choosing a style only
   // asks for confirmation — nothing is scanned until the user confirms, and
   // then TagOperations.restyle() does its one scan.
@@ -61,9 +63,7 @@ export function TagsShortcuts({
       confirmLabel: 'Restyle',
       confirmVariant: 'primary',
       onConfirm: () => {
-        void onRestyle(style).catch((error: unknown) => {
-          console.warn('Restyle tags failed', error);
-        });
+        void onRestyle(style).catch((error: unknown) => toast.fail('Couldn’t restyle the tags', error));
       },
     });
   };
@@ -81,9 +81,7 @@ export function TagsShortcuts({
       }`,
       confirmLabel: 'Remove',
       onConfirm: () => {
-        void onTidyUp().catch((error: unknown) => {
-          console.warn('Tidy up failed', error);
-        });
+        void onTidyUp().catch((error: unknown) => toast.fail('Couldn’t remove the unused tags', error));
       },
     });
   };

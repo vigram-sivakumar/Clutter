@@ -5,13 +5,20 @@ import type { Vault } from '@core/vault/models/Vault';
 import type { NoteRowActions } from '../sidebar/FolderTree';
 import { buildMoveDestinationItems } from './buildMoveDestinationItems';
 import { createFolderInZone } from './createFolderInZone';
+import type { ToastApi } from '@components/toast/ToastProvider';
+import { archivePageWithUndo } from './archiveWithUndo';
 import { createLocationActions } from './createLocationActions';
+import { reportMoveFailure } from './reportMoveFailure';
 
 export interface BuildNoteRowActionsDeps {
   readonly vault: Vault;
   readonly pageOperations: PageOperations;
   readonly folderOperations: FolderOperations;
   readonly membershipSelector: MembershipSelector;
+  /** Reports a failed archive, duplicate or move, offers Undo after an archive, and confirms Copy path. */
+  readonly toast: ToastApi;
+  /** Whether `pageId` is the note on screen: its ArchivedBanner already says it was archived, so no Undo toast. */
+  readonly isOpenPage?: (pageId: string) => boolean;
   /** Opens the Create template dialog (CreateTemplateProvider); absent outside it. */
   readonly onRequestCreateTemplate?: (pageId: string) => void;
 
@@ -48,6 +55,8 @@ export function buildNoteRowActions(deps: BuildNoteRowActionsDeps): NoteRowActio
     pageOperations,
     folderOperations,
     membershipSelector,
+    toast,
+    isOpenPage,
     onRequestCreateTemplate,
     openMenuId,
     onOpenMenu,
@@ -57,7 +66,7 @@ export function buildNoteRowActions(deps: BuildNoteRowActionsDeps): NoteRowActio
     onRenameEnd,
   } = deps;
 
-  const location = createLocationActions(vault.root);
+  const location = createLocationActions(vault.root, toast);
 
   return {
     openMenuId,
@@ -87,8 +96,12 @@ export function buildNoteRowActions(deps: BuildNoteRowActionsDeps): NoteRowActio
 
       void pageOperations.updateDraftTitle(pageId, value);
     },
-    onArchiveNote: (pageId) => void pageOperations.archive(pageId),
-    onDuplicateNote: (pageId) => void pageOperations.duplicate(pageId),
+    onArchiveNote: (pageId) =>
+      void archivePageWithUndo({ vault, pageOperations, toast }, pageId, { offerUndo: !isOpenPage?.(pageId) }),
+    onDuplicateNote: (pageId) =>
+      void pageOperations
+        .duplicate(pageId)
+        .catch((error: unknown) => toast.fail('Couldn’t duplicate this note', error)),
     onToggleFavoriteNote: (pageId, isFavorite) =>
       void pageOperations.updateMetadata(pageId, { favorite: !isFavorite }),
     onCreateTemplate: (pageId) => onRequestCreateTemplate?.(pageId),
@@ -99,8 +112,16 @@ export function buildNoteRowActions(deps: BuildNoteRowActionsDeps): NoteRowActio
     // nothing about Move is reimplemented for a second caller.
     noteMoveDestinations: buildMoveDestinationItems(membershipSelector),
     createFolderInZone: (zone) => createFolderInZone(folderOperations, membershipSelector, zone),
-    // Returns the promise (the picker ignores it) so a drag-and-drop can observe a rejection.
-    onMoveNote: (pageId, destinationFolderId) => pageOperations.move(pageId, destinationFolderId),
+    // Reports a failed move, then rethrows it, so a drag-and-drop still observes the rejection (and does not
+    // go on as if the item had moved). The picker ignores the promise (see settleMove).
+    onMoveNote: async (pageId, destinationFolderId) => {
+      try {
+        await pageOperations.move(pageId, destinationFolderId);
+      } catch (error) {
+        reportMoveFailure(toast, 'note', error);
+        throw error;
+      }
+    },
     // Same flow as the topbar's Move (PageHost.tsx): root-level creation
     // via the existing FolderOperations.create(), the same operation the
     // Notes sidebar's "+" button already uses.

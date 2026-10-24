@@ -575,7 +575,7 @@ describe('TasksCollectionBody', () => {
           container.querySelectorAll('.collection-entry__actions')
         ).toHaveLength(1);
         // The title lives in the body; the actions are the body's sibling in the main row — in neither the body nor the title.
-        expect(title.parentElement).toBe(body);
+        expect(title.closest('.collection-entry__body')).toBe(body);
         expect(actions.parentElement).toBe(main);
         expect(body.nextElementSibling).toBe(actions);
         expect(body.contains(actions)).toBe(false);

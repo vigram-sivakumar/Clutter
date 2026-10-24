@@ -29,5 +29,6 @@ export function handleTagClick(
  * construct kind.
  */
 export function tagMouseHandlers(getResolver: () => ResolveTag | undefined): Extension {
-  return tokenMouseHandlers(isTagNode, (view, node) => getTagActivation(view, node, getResolver));
+  // ⌘-click reveals the raw `#tag` and puts the caret at its end, where tag completion picks up.
+  return tokenMouseHandlers(isTagNode, (view, node) => getTagActivation(view, node, getResolver), (_view, node) => node.to);
 }

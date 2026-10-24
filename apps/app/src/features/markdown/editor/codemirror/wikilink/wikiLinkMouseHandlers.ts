@@ -29,7 +29,11 @@ export function handleWikiLinkClick(
  * construct kind (docs/editor-architecture-decisions.md §11).
  */
 export function wikiLinkMouseHandlers(getResolver: () => ResolveWikiLink | undefined): Extension {
-  return tokenMouseHandlers(isWikiLinkNode, (view, node) =>
-    getWikiLinkActivation(view, node, getResolver)
+  return tokenMouseHandlers(
+    isWikiLinkNode,
+    (view, node) => getWikiLinkActivation(view, node, getResolver),
+    // ⌘-click reveals the raw `[[…]]` and puts the caret just before the closing `]]` — the end of the target, or of
+    // the alias when there is one — where editing and completion pick up.
+    (view, node) => (view.state.sliceDoc(node.to - 2, node.to) === ']]' ? node.to - 2 : node.to)
   );
 }

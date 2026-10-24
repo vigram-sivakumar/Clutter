@@ -57,6 +57,8 @@ export function buildAssetItemMenu(
     remoteImage?: RemoteImageActions;
     /** Picks a note to set the image as cover of — what opening the remote image's overlay offers. */
     onSetRemoteAsCover?(url: string): void;
+    /** Moves a vault file; a move that fails is reported by whoever supplies this, which owns the toast. */
+    onMoveResource?(resourceId: string, destinationFolderId: string | null): void;
   },
   asset: Asset
 ): ResourceTopBarActionsProps | null {
@@ -74,7 +76,7 @@ export function buildAssetItemMenu(
     };
   }
 
-  const { membershipSelector, folderOperations, resourceOperations } = application;
+  const { membershipSelector, folderOperations } = application;
   const id = asset.resource.id;
 
   return {
@@ -85,7 +87,7 @@ export function buildAssetItemMenu(
     ),
     handlers: buildAssetMenuHandlers(actions, id),
     moveDestinations: buildMoveDestinationItems(membershipSelector, undefined, 'assets'),
-    onMove: (destinationFolderId) => void resourceOperations.moveResource(id, destinationFolderId).catch(() => undefined),
+    onMove: (destinationFolderId) => actions.onMoveResource?.(id, destinationFolderId),
     onCreateFolder: createFolderInZone(folderOperations, membershipSelector, 'assets'),
   };
 }

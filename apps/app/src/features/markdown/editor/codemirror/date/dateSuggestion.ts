@@ -137,8 +137,8 @@ function resolveWholeDates(text: string, context: DateExpressionContext): string
  * no date expression the date is today. Both orders mean the same thing.
  *
  * A time is `2pm`, `2:30`, `14:30`, `2 pm`, or — next to a date expression — a plain hour of the 24-hour clock
- * (`tomorrow 12`, `16 friday`; 0–23). An expression that is itself unfinished (`4pm next`, `next w 4pm`, `in 3 4`)
- * offers nothing.
+ * (`tomorrow 12`, `16 friday`; 0–23). A partly typed `next …` / `last …` next to the time offers its candidates with that time (`12 next w`); other
+ * unfinished expressions (`4pm next`, `in 3 4`) offer nothing.
  */
 function dateAndTimeSuggestions(query: string, context: DateExpressionContext): DateSuggestion[] {
   const tokens = query.split(' ');
@@ -146,24 +146,65 @@ function dateAndTimeSuggestions(query: string, context: DateExpressionContext): 
   const bare = tokens.length >= 2;
 
   // The time is the last word (or the last two: `4 pm`) or the first, and whatever is left is the date expression.
-  const splits: { time: ClockTime | null; date: string[] }[] = [
-    { time: parseClockToken(tokens[tokens.length - 1]!, bare), date: tokens.slice(0, -1) },
-    { time: spokenTime(tokens.slice(-2)), date: tokens.slice(0, -2) },
-    { time: parseClockToken(tokens[0]!, bare), date: tokens.slice(1) },
-    { time: spokenTime(tokens.slice(0, 2)), date: tokens.slice(2) },
+  const splits: { time: (allowBare: boolean) => ClockTime | null; date: string[] }[] = [
+    { time: (allowBare) => parseClockToken(tokens[tokens.length - 1]!, allowBare), date: tokens.slice(0, -1) },
+    { time: () => spokenTime(tokens.slice(-2)), date: tokens.slice(0, -2) },
+    { time: (allowBare) => parseClockToken(tokens[0]!, allowBare), date: tokens.slice(1) },
+    { time: () => spokenTime(tokens.slice(0, 2)), date: tokens.slice(2) },
   ];
 
-  for (const { time, date } of splits) {
+  for (const { time: readTime, date } of splits) {
+    const dateText = date.join(' ');
+    // A month-name date (`12 nov`, `nov 12`) owns its numbers: a bare number beside it is never an hour, so only an
+    // unambiguous time (`12pm`, `4 pm`, `14:30`) is read there.
+    const monthDate = resolveMonthNameDate(dateText, context.referenceDate);
+    const time = readTime(bare && monthDate === null);
     if (!time) {
       continue;
     }
-    const dateText = date.join(' ');
-    const dates = dateText === '' ? [toISODate(context.referenceDate)] : resolveWholeDates(dateText, context);
+    const dates = dateText === '' ? [toISODate(context.referenceDate)] : monthDate ? [monthDate] : resolveWholeDates(dateText, context);
     if (dates.length > 0) {
       return dates.map((isoDate) => ({ label: formatAbsoluteDate(isoDate, context.referenceDate), isoDate, time }));
     }
+    // A partly typed `next w` / `last fri` beside the time (`12 next w`, `next w 4pm`): its candidates, each with the time.
+    const partial = dateText === '' ? [] : suggestDateExpressions(dateText, context);
+    if (partial.length > 0) {
+      return partial.map(({ label, isoDate, phrase }) => ({ label, isoDate, phrase, time }));
+    }
   }
   return [];
+}
+
+/**
+ * A month-name date written as two words, either order (`12 nov`, `nov 12`, `March 3`), resolved by the older grammar
+ * (`resolveDateQuery`): the next occurrence, on or after today. A month word needs three letters, so `12 n` is nothing.
+ */
+function resolveMonthNameDate(text: string, referenceDate: Date): string | null {
+  const words = text.split(' ');
+  const [a, b] = words;
+  if (words.length !== 2 || !((/^[A-Za-z]+$/.test(a!) && /^\d{1,2}$/.test(b!)) || (/^\d{1,2}$/.test(a!) && /^[A-Za-z]+$/.test(b!)))) {
+    return null;
+  }
+  return resolveDateQuery(text, referenceDate)?.isoDate ?? null;
+}
+
+/**
+ * `12 nov 12`, `nov 12 12`: a month-name date followed (or, `12 12 nov`, preceded) by one more bare number. The number
+ * is never a time — without `am`/`pm` or a colon it is not one — so the date is offered alone.
+ */
+function monthDateWithExtraNumber(query: string, referenceDate: Date): string | null {
+  const tokens = query.split(' ');
+  if (tokens.length !== 3) {
+    return null;
+  }
+  const [a, b, c] = tokens as [string, string, string];
+  if (/^\d{1,2}$/.test(c)) {
+    return resolveMonthNameDate(`${a} ${b}`, referenceDate);
+  }
+  if (/^\d{1,2}$/.test(a)) {
+    return resolveMonthNameDate(`${b} ${c}`, referenceDate);
+  }
+  return null;
 }
 
 /** `4 pm` as two words, or null (also null for fewer than two words). */
@@ -231,6 +272,11 @@ export function getDateSuggestions(
   const dated = dateAndTimeSuggestions(trimmed, context);
   if (dated.length > 0) {
     return dated;
+  }
+
+  const extraNumber = monthDateWithExtraNumber(trimmed, referenceDate);
+  if (extraNumber) {
+    return [{ label: formatAbsoluteDate(extraNumber, referenceDate), isoDate: extraNumber }];
   }
 
   const partial = suggestDateExpressions(trimmed, context);

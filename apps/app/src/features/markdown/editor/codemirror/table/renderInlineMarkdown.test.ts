@@ -38,4 +38,29 @@ describe('renderInlineMarkdown', () => {
   it('composes multiple spans in document order', () => {
     expect(renderInlineMarkdown('a **b** c')).toBe('a <strong>b</strong> c');
   });
+
+  it('renders bold, italic and bold-italic', () => {
+    expect(renderInlineMarkdown('**b** *i* ***bi***')).toBe('<strong>b</strong> <em>i</em> <em><strong>bi</strong></em>');
+  });
+
+  it('renders highlight as <mark>', () => {
+    expect(renderInlineMarkdown('==hot==')).toBe('<mark class="cm-table-cell-highlight">hot</mark>');
+  });
+
+  it('renders mixed formatting and plain text in one cell, nesting valid combinations', () => {
+    expect(renderInlineMarkdown('plain **bold ==marked==** and `code` *it*')).toBe(
+      'plain <strong>bold <mark class="cm-table-cell-highlight">marked</mark></strong> and <code class="cm-table-cell-code">code</code> <em>it</em>'
+    );
+  });
+
+  it('does not format inside inline code', () => {
+    expect(renderInlineMarkdown('`**x**`')).toBe('<code class="cm-table-cell-code">**x**</code>');
+  });
+
+  it('adds the editor tok-* classes only when styled, so cells match paragraphs', () => {
+    expect(renderInlineMarkdown('**b** *i* ~~s~~ ==h== `c`', { styled: true })).toBe(
+      '<strong class="tok-strong">b</strong> <em class="tok-emphasis">i</em> <s class="tok-strike">s</s> <mark class="tok-highlight cm-table-cell-highlight">h</mark> <code class="tok-code cm-table-cell-code">c</code>'
+    );
+    expect(renderInlineMarkdown('**b**')).toBe('<strong>b</strong>');
+  });
 });

@@ -25,7 +25,12 @@ export function toFolderEntryProps(entry: CollectionEntryModel): CollectionEntry
     className: 'collection-entry--folder-card',
     leading: <AppIcon icon="folder" emoji={entry.emoji ?? undefined} />,
     title: entry.values.name,
-    description: hasCounts ? `${entry.subfolderCount ?? 0} Subfolders · ${entry.noteCount ?? 0} Notes` : undefined,
+    // Two spans, spaced by the card description's flex gap; the {' '} keeps the plain text readable.
+    description: hasCounts ? (
+      <>
+        <span>{entry.subfolderCount ?? 0} Subfolders</span> <span>{entry.noteCount ?? 0} Notes</span>
+      </>
+    ) : undefined,
     isSelected: entry.selected,
     onClick: entry.onClick,
   };

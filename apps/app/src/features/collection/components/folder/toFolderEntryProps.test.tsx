@@ -25,7 +25,7 @@ describe('toFolderEntryProps', () => {
     expect(card).toHaveClass('collection-entry', 'collection-entry--layout-cell', 'collection-entry--folder-card');
     expect(card.querySelector('.collection-entry__title')).toHaveTextContent('Projects');
     expect(card.querySelector('.collection-entry__leading svg')).not.toBeNull();
-    expect(card.querySelector('.collection-entry__description')).toHaveTextContent('2 Subfolders · 5 Notes');
+    expect(card.querySelector('.collection-entry__description')).toHaveTextContent('2 Subfolders 5 Notes');
     expect(card.querySelector('.collection-entry__trailing')).toBeNull();
   });
 
@@ -37,7 +37,7 @@ describe('toFolderEntryProps', () => {
 
   it('a count the entry lacks defaults to zero, but an entry with no counts at all shows just its name', () => {
     const { container, rerender } = draw(entry({ subfolderCount: undefined }));
-    expect(container.querySelector('.collection-entry__description')).toHaveTextContent('0 Subfolders · 5 Notes');
+    expect(container.querySelector('.collection-entry__description')).toHaveTextContent('0 Subfolders 5 Notes');
 
     rerender(<CollectionEntry {...toFolderEntryProps(entry({ subfolderCount: undefined, noteCount: undefined }))} />);
     expect(container.querySelector('.collection-entry__description')).toBeNull();

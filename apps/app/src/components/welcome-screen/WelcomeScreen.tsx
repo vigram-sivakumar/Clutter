@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useToast } from '../toast/ToastProvider';
 
 import { SettingsEntry } from '@features/settings/settings-entry/SettingsEntry';
 import { AppIcon } from '@shared/icon';
@@ -19,17 +20,21 @@ export function WelcomeScreen({
   onSelectFolder,
   onCreateSpace,
 }: WelcomeScreenProps) {
+  const toast = useToast();
   const [isPending, setIsPending] = useState(false);
 
-  // One action at a time. A failure is only logged for now; the screen stays so the user can try again or
-  // choose the other action. Surfacing it waits for the app-wide toast/banner.
+  // One action at a time. A refusal (the message the action returns) or a failure is shown as a toast; the
+  // screen stays so the user can try again or choose the other action.
   async function run(action: () => Promise<string | null>) {
     if (isPending) return;
     setIsPending(true);
     try {
-      await action();
+      const refusal = await action();
+      if (refusal) {
+        toast.fail(refusal);
+      }
     } catch (caught) {
-      console.error('Welcome screen action failed:', caught);
+      toast.fail('Couldn’t set up the space', caught);
     } finally {
       setIsPending(false);
     }

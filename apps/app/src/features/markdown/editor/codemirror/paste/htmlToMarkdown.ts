@@ -3,7 +3,7 @@
  *
  * The HTML is untrusted: it is parsed by `DOMParser` into an inert document (no script runs, nothing is
  * loaded) and only read — never inserted anywhere. Only constructs Clutter's Markdown already has are kept
- * (emphasis, links, headings, lists, quotes, code, rules, images); everything else contributes its text.
+ * (emphasis, links, headings, lists, quotes, code, rules, tables, images); everything else contributes its text.
  *
  * The result is an ordered list of pieces: Markdown text, and images exactly where they appeared, so the
  * caller can store the images it can recover and keep the original order.
@@ -154,6 +154,38 @@ function commitBuffer(context: Context, buffer: { text: string }): void {
   buffer.text = '';
 }
 
+/** Block content inside a table cell that a one-line GFM cell cannot hold: the table is then a layout table and is left to the plain block handling. */
+const TABLE_CELL_BLOCKS = 'table, ul, ol, dl, h1, h2, h3, h4, h5, h6, pre, blockquote, hr';
+
+/** A `<table>` as a GFM table (first row as the header), or null when it is a layout table that does not map to one. */
+function tableToMarkdown(table: Element, context: Context): string | null {
+  const rows = Array.from(table.querySelectorAll('tr'));
+
+  if (rows.length === 0 || table.querySelector(TABLE_CELL_BLOCKS) !== null) {
+    return null;
+  }
+
+  const grid = rows.map((row) =>
+    Array.from(row.children)
+      .filter((cell) => /^(?:TD|TH)$/i.test(cell.tagName))
+      .map((cell) => {
+        const buffer = { text: '' };
+        // Images in a cell can't split the table: they are set aside and emitted after it.
+        inline(cell, { pieces: [], blocks: [], deferred: context.deferred ?? [] }, buffer);
+        return buffer.text.replace(/\s+/g, ' ').trim().replace(/\|/g, '\\|');
+      })
+  );
+  const width = Math.max(0, ...grid.map((row) => row.length));
+
+  if (width === 0) {
+    return null;
+  }
+
+  const line = (cells: readonly string[]): string => `| ${Array.from({ length: width }, (_, index) => cells[index] ?? '').join(' | ')} |`;
+
+  return [line(grid[0]!), line(Array.from({ length: width }, () => '---')), ...grid.slice(1).map(line)].join('\n');
+}
+
 function listItems(list: Element, context: Context, depth: number): string {
   // `context` carries the `deferred` images of the whole list (see `block`).
   const ordered = list.tagName.toUpperCase() === 'OL';
@@ -213,6 +245,20 @@ function block(node: Node, context: Context, buffer: { text: string }): void {
       context.blocks.push(`${'#'.repeat(Number(heading[1]))} ${text}`);
     }
     return;
+  }
+
+  if (tag === 'TABLE') {
+    const deferred: HtmlPiece[] = [];
+    const text = tableToMarkdown(element, { pieces: [], blocks: [], deferred });
+
+    if (text !== null) {
+      context.blocks.push(text);
+      for (const image of deferred) {
+        flush(context);
+        context.pieces.push(image);
+      }
+      return;
+    }
   }
 
   switch (tag) {

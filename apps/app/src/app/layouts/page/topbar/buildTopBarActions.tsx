@@ -11,6 +11,7 @@ import {
   DELETE_ALL_ARCHIVED_CONFIRMATION,
 } from '@features/notes/topbar/archiveTopBarMenu.config';
 import { createLocationActions } from '@features/notes/helpers/createLocationActions';
+import type { CopyNotifier } from '@shared/helpers/copyWithFeedback';
 import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
 
 import { renderTopBarActions, topBarActionProps, type TopBarActionsOptions } from './topBarRegistry';
@@ -110,6 +111,8 @@ export interface BuildTopBarActionsOptions {
    * `vault` access is needed here.
    */
   vaultRoot: string;
+  /** Confirms or reports a Copy path; absent, a refused copy is only logged. */
+  notifier?: CopyNotifier;
   onArchive?: () => void;
   onRestore?: () => void;
   onDelete?: () => void;
@@ -228,7 +231,7 @@ function resolveTopBarMenu(
   // closures themselves. No Gate/PageOperations/FolderOperations
   // involvement, same reasoning as the sidebar's identical handlers
   // (Sidebar.Notes.tsx/Sidebar.DailyNotes.tsx).
-  const location = createLocationActions(options.vaultRoot);
+  const location = createLocationActions(options.vaultRoot, options.notifier);
   const onRevealInFinder = () => location.reveal(resource.path);
   const onCopyPath = (format: LocationPathFormat) =>
     location.copyPath(resource, isPage(resource) ? 'page' : 'folder', format);

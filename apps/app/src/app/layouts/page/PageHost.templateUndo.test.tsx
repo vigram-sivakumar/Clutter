@@ -37,6 +37,7 @@ import { DailyNoteService } from '@core/application/daily-notes/DailyNoteService
 import type { Page } from '@core/vault/models/Page';
 import { createTemplate } from '@features/notes/helpers/createTemplate';
 import { __clearAllCachedEditorHistoryForTests } from '@features/markdown/editor/codemirror/editorHistoryCache';
+import { ToastProvider } from '@components/toast/ToastProvider';
 
 /**
  * Applying a template is one undoable step: Cmd+Z reverses the body and every metadata change it introduced,
@@ -161,7 +162,11 @@ async function setup(
     await operations.open(noteId);
   }
 
-  render(<AppLayout application={application} />);
+  render(
+    <ToastProvider>
+      <AppLayout application={application} />
+    </ToastProvider>
+  );
   await flush();
 
   const view = () =>

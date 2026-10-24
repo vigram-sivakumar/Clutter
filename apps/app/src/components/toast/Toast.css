@@ -1,35 +1,77 @@
 .toast {
   position: fixed;
-  bottom: var(--space-16);
   left: 50%;
   transform: translateX(-50%);
-  z-index: var(--z-overlay);
-  max-width: min(480px, calc(100vw - var(--space-32, 32px)));
-  padding: var(--space-8) var(--space-12);
-  border-radius: var(--radius-md);
-  background: var(--surface-secondary);
-  box-shadow: var(--shadow-md);
-  font-size: var(--text-body-small);
-  color: var(--foreground-primary);
-}
+  bottom: 40px;
+  z-index: var(--z-toast);
 
-.toast--error {
-  color: var(--foreground-primary);
-}
-
-.toast:has(.toast__action) {
   display: flex;
   align-items: center;
-  gap: var(--space-12);
+  justify-content: center;
+  padding: var(--space-4) var(--space-12);
+  gap: var(--space-6);
+  background: var(--surface-secondary);
+  color: var(--foreground-primay);
+
+  font-size: var(--text-label);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-label);
+
+  border-radius: var(--radius-md);
+
+  box-shadow: var(--shadow-inset-thin-strong), var(--shadow-md);
+
+  animation: toast-enter var(--duration-interaction) var(--easing-interaction)
+    both;
+}
+.toast--with-action {
+  padding-right: var(--space-4);
+}
+.toast__actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+}
+.toast__actions .button {
+  color: var(--foreground-primary);
 }
 
-.toast__action {
-  flex-shrink: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  font-weight: var(--fw-medium);
-  color: var(--foreground-brand);
-  cursor: pointer;
+/* Leaving: slides down and fades out; no longer clickable, since it has been dismissed. */
+.toast--leaving {
+  animation: toast-exit var(--duration-interaction) var(--easing-interaction)
+    forwards;
+  pointer-events: none;
+}
+
+/* The centering translateX is part of every frame: the animation replaces the element's transform. */
+@keyframes toast-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(var(--space-8));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes toast-exit {
+  from {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(var(--space-8));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast,
+  .toast--leaving {
+    animation: none;
+  }
 }

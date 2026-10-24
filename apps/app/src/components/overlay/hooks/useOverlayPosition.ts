@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import type { RefObject } from 'react';
 
+import { COLLISION_PADDING } from '../collisionPadding';
 import type { OverlayAlignment, OverlayLayout, OverlaySide } from '../Overlay.types';
 
 interface UseOverlayPositionOptions {
@@ -20,9 +21,6 @@ const INITIAL_POSITION: OverlayLayout = {
   transformOrigin: 'top left',
   placement: 'bottom',
 };
-
-// Keep a small gap between the overlay and the viewport edges.
-const COLLISION_PADDING = 8;
 
 const OPPOSITE_SIDE: Record<OverlaySide, OverlaySide> = {
   top: 'bottom',

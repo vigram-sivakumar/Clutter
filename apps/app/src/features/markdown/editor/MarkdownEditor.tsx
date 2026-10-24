@@ -27,6 +27,7 @@ import { editorExitUp } from './codemirror/editorExitUp';
 import { unfoldToReveal } from './codemirror/fold/unfoldToReveal';
 import { TableActiveCellController } from './codemirror/table/tableActiveCellController';
 import { tableCellNavigation } from './codemirror/table/tableCellNavigation';
+import { formatShortcutsKeymap } from './codemirror/format/formatShortcutsKeymap';
 import { tableCellPaste } from './codemirror/table/tablePaste';
 import { attachTableOutsideClickHandling } from './codemirror/table/tableSelection';
 import { clearTableSelection } from './codemirror/table/tableSelectionClear';
@@ -81,7 +82,8 @@ import {
   type ImagePresentation,
   type MediaAlignment,
 } from './codemirror/mediaPresentation/mediaPresentationModel';
-import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
+import { copyWithFeedback } from '@shared/helpers/copyWithFeedback';
+import { useToast } from '@components/toast/ToastProvider';
 import { downloadTextFile } from '@shared/helpers/downloadTextFile';
 import type {
   MarkdownEditorHandle,
@@ -284,6 +286,7 @@ export const MarkdownEditor = forwardRef<
   },
   ref
 ) {
+  const toast = useToast();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
   // `@date` labels follow the Date format preference and the system language, which can change while a note is
@@ -1287,7 +1290,7 @@ export const MarkdownEditor = forwardRef<
     // URL, not the vault-relative text the Markdown itself carries) — see
     // OpenImageMenuParams.copyUrl's own doc comment. `undefined` for a
     // standard Markdown image, where `url` already is the right value.
-    void copyTextToClipboard(imageMenu.copyUrl ?? imageMenu.url);
+    void copyWithFeedback(imageMenu.copyUrl ?? imageMenu.url, 'Link copied', toast);
   };
 
   const handleSetCoverImage = () => {
@@ -1551,6 +1554,8 @@ export const MarkdownEditor = forwardRef<
     tableActiveCellController.setNestedExtensions([
       tableCellNavigation(() => viewRef.current!, tableActiveCellController),
       tableCellPaste(() => viewRef.current!, tableActiveCellController),
+      // The focused cell is its own nested view, so the root's Cmd/Ctrl-B/-I/-E never reach it.
+      formatShortcutsKeymap(),
     ]);
     tableActiveCellControllerRef.current = tableActiveCellController;
 

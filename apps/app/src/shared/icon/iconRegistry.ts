@@ -68,6 +68,7 @@ import Hash from './svg/hash.svg?react';
 import Heart from './svg/heart.svg?react';
 import Image from './svg/image.svg?react';
 import Info from './svg/info.svg?react';
+import KeyEnter from './svg/key-enter.svg?react';
 import KeyEsc from './svg/key-esc.svg?react';
 import Keyboard from './svg/keyboard.svg?react';
 import MagnifyingGlass from './svg/magnifying-glass.svg?react';
@@ -196,6 +197,7 @@ export const iconRegistry = {
   heart: Heart,
   image: Image,
   info: Info,
+  keyEnter: KeyEnter,
   keyEsc: KeyEsc,
   keyboard: Keyboard,
   layers: Layers,

@@ -4,6 +4,7 @@ import type { KeyboardEvent, MouseEvent } from 'react';
 import { Button } from '@components/button/Button';
 import { Input } from '@components/input/Input';
 import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
+import { useToast } from '@components/toast/ToastProvider';
 import {
   openExternalUrl,
   resolveNavigationUrl,
@@ -151,6 +152,7 @@ const COPIED_FEEDBACK_MS = 1500;
  * the click visibly did something (the `tick` icon).
  */
 function UrlActions({ url }: { url: string }) {
+  const toast = useToast();
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -181,7 +183,11 @@ function UrlActions({ url }: { url: string }) {
         aria-label={copied ? 'Copied' : 'Copy link'}
         title={copied ? 'Copied' : 'Copy link'}
         onClick={() => {
-          void copyTextToClipboard(url).then(() => setCopied(true));
+          // The button's own check icon is the confirmation; only a refusal needs saying.
+          void copyTextToClipboard(url).then(
+            () => setCopied(true),
+            (error: unknown) => toast.fail('Couldn’t copy to the clipboard', error)
+          );
         }}
       >
         <AppIcon icon={copied ? 'tick' : 'copy'} />

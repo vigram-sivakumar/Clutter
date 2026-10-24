@@ -23,6 +23,7 @@ import { formatDailyNoteTitle } from '@core/presentation/formatDailyNoteTitle';
 import { formatAbsoluteDate } from '@shared/helpers/time/dateDisplay';
 import type { Folder } from '@core/vault/models/Folder';
 import type { Page } from '@core/vault/models/Page';
+import { ToastProvider } from '@components/toast/ToastProvider';
 
 /**
  * A Daily Note in the Trash, through the real AppLayout composition: it keeps its Daily Note
@@ -127,7 +128,11 @@ describe('A Daily Note in the Trash keeps its title', () => {
   it('shows the same date title before trashing, while in the Trash, and after restoring — never editable', async () => {
     const { application, dailyNote } = makeApplication();
     await application.pageOperations.open(dailyNote.id);
-    render(<AppLayout application={application} />);
+    render(
+    <ToastProvider>
+      <AppLayout application={application} />
+    </ToastProvider>
+  );
     await flush();
 
     const activeTitle = titleRoot().textContent;
@@ -163,7 +168,11 @@ describe('A Daily Note shows the same title on every title surface', () => {
   it('page header shows the title, and a Daily Note has no breadcrumb — active and in the Trash', async () => {
     const { application, dailyNote } = makeApplication();
     await application.pageOperations.open(dailyNote.id);
-    render(<AppLayout application={application} />);
+    render(
+    <ToastProvider>
+      <AppLayout application={application} />
+    </ToastProvider>
+  );
     await flush();
 
     for (const trashed of [false, true]) {
@@ -183,7 +192,11 @@ describe('A Daily Note shows the same title on every title surface', () => {
     const { application, dailyNote } = makeApplication();
     await application.pageOperations.archive(dailyNote.id);
     application.navigation.openArchive();
-    render(<AppLayout application={application} />);
+    render(
+    <ToastProvider>
+      <AppLayout application={application} />
+    </ToastProvider>
+  );
     await flush();
 
     expect(within(main()).getByText(pageTitle)).toBeInTheDocument();
@@ -201,7 +214,11 @@ describe('Restoring a Daily Note whose day already has one', () => {
     const newer = buildPage(DAILY_PATH, 'daily-2', 'Written later.', monthFolder.id);
     application.vault.addPage(newer);
     fileSystem.seedFile(DAILY_PATH, new FrontmatterSerializer().serializeDocument(newer, 'Written later.'));
-    render(<AppLayout application={application} />);
+    render(
+    <ToastProvider>
+      <AppLayout application={application} />
+    </ToastProvider>
+  );
     await flush();
     return { ...context, newer };
   }

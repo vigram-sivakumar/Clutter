@@ -149,6 +149,7 @@ vi.mock('./layouts/app-layout/AppLayout', async () => {
 import { AppShell } from './AppShell';
 import { probeSpaceFolder } from '../core/vault/providers/probeSpaceFolder';
 import { VaultRootMissingError } from '../core/vault/providers/VaultRootMissingError';
+import { ToastProvider } from '@components/toast/ToastProvider';
 
 interface FakeApplication {
   vault: { root: string };
@@ -295,7 +296,11 @@ describe('AppShell: startup', () => {
   it('shows the opening screen until the first Space is ready', async () => {
     const gate = deferred<void>();
     gates.set('/web-dev-vault', gate);
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
 
     expect(await screen.findByText(OPENING)).toBeInTheDocument();
     expect(screen.queryByTestId('open-root')).toBeNull();
@@ -309,7 +314,11 @@ describe('AppShell: startup', () => {
 
   it('shows a full-screen error when the first Space fails to open', async () => {
     seed(['/Broken'], '/Broken');
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
     expect(await screen.findByText('scan failed')).toBeInTheDocument();
   });
 });
@@ -320,7 +329,11 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
   });
 
   it('with no configured Space, shows the Welcome dialog over the shell and opens nothing', async () => {
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
 
     expect(await screen.findByText('Let’s create a space')).toBeInTheDocument();
     // Presented through the Overlay/Dialog (portal on body), over the still-mounted startup surface.
@@ -337,7 +350,11 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
   });
 
   it('lets the window be dragged from the Welcome screen: a drag strip over the scrim, none on the dialog itself', async () => {
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
     await screen.findByText(WELCOME);
 
     // The dialog's backdrop is a full-screen layer over the frame's own strip, so it carries one.
@@ -359,7 +376,11 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
   it('fills the app frame behind the Welcome dialog with the animated gradient, not an Unsplash image', async () => {
     // WELCOME_BACKDROP in AppShell picks the gradient; the Unsplash image is kept for switching back.
     unsplash.search.mockResolvedValue([WELCOME_PHOTO]);
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
     await screen.findByText('Let’s create a space');
 
     const frame = document.querySelector('.startup-frame') as HTMLElement;
@@ -381,7 +402,11 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
 
   it('shows the same background when the configured folder is missing', async () => {
     seed(['/Missing'], '/Missing');
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
     await screen.findByText('Let’s create a space');
 
     expect(
@@ -395,7 +420,11 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
     seed(['/Users/me/Notes'], '/Users/me/Notes');
     const gate = deferred<void>();
     gates.set('/Users/me/Notes', gate);
-    const first = render(<AppShell />);
+    const first = render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
 
     await screen.findByText(OPENING);
     expect(
@@ -408,7 +437,11 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
     first.unmount();
 
     seed(['/Users/me/Broken'], '/Users/me/Broken');
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
     await screen.findByText('scan failed');
     expect(
       document.querySelector('.startup-frame')!.getAttribute('data-backdrop')
@@ -416,7 +449,11 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
   });
 
   it('keeps the dialog open on Escape and on a backdrop click', async () => {
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
     await screen.findByText('Let’s create a space');
 
     await act(async () => {
@@ -431,7 +468,11 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
 
   it('opens a configured Space normally, without ever showing the Welcome dialog', async () => {
     seed(['/Configured'], '/Configured');
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
 
     expect(await screen.findByTestId('open-root')).toHaveTextContent(
       '/Configured'
@@ -444,7 +485,11 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
     seed(['/Configured'], '/Configured');
     const gate = deferred<void>();
     gates.set('/Configured', gate);
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
 
     expect(await screen.findByText(OPENING)).toBeInTheDocument();
     expect(screen.queryByText('Let’s create a space')).toBeNull();
@@ -456,7 +501,11 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
   it('keeps the existing error and leaves the registry untouched when the configured Space is inaccessible', async () => {
     seed(['/Broken'], '/Broken');
     const before = window.localStorage.getItem('clutter.spaces.v1');
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
 
     expect(await screen.findByText('scan failed')).toBeInTheDocument();
     expect(screen.queryByText('Let’s create a space')).toBeNull();
@@ -466,7 +515,11 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
   it('shows the Welcome dialog, opens nothing and leaves the registry untouched when the configured folder is missing', async () => {
     seed(['/Missing'], '/Missing');
     const before = window.localStorage.getItem('clutter.spaces.v1');
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
 
     expect(await screen.findByText('Let’s create a space')).toBeInTheDocument();
     expect(document.querySelector('.startup-frame')).not.toBeNull();
@@ -484,7 +537,11 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
       throw new VaultRootMissingError(root);
     });
     const before = window.localStorage.getItem('clutter.spaces.v1');
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
 
     expect(await screen.findByText('Let’s create a space')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).toBeNull();
@@ -501,7 +558,11 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
       const gate = deferred<void>();
       gates.set('/Users/me/B', gate);
       const before = SAVED();
-      render(<AppShell />);
+      render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
 
       await waitFor(() =>
         expect(bootstrap).toHaveBeenCalledWith('/Users/me/B', expect.anything())
@@ -540,7 +601,11 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
         subtree: true,
         characterData: true,
       });
-      render(<AppShell />);
+      render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
 
       expect(await screen.findByTestId('open-root')).toHaveTextContent(
         '/Users/me/B'
@@ -554,7 +619,11 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
       probeOverrides.set('/Users/me/Gone', 'missing');
       probeOverrides.set('/Users/me/AlsoGone', 'missing');
       const before = SAVED();
-      render(<AppShell />);
+      render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
 
       expect(await screen.findByText(WELCOME)).toBeInTheDocument();
       expect(bootstrap).not.toHaveBeenCalled();
@@ -567,7 +636,11 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
         '/Users/me/Gone'
       );
       probeOverrides.set('/Users/me/Gone', 'missing');
-      render(<AppShell />);
+      render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
 
       expect(await screen.findByTestId('open-root')).toHaveTextContent(
         '/Users/me/Z'
@@ -577,7 +650,11 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
     it('wraps around to the start of the registry when the lost Space is last', async () => {
       seed(['/Users/me/A', '/Users/me/B', '/Users/me/Gone'], '/Users/me/Gone');
       probeOverrides.set('/Users/me/Gone', 'missing');
-      render(<AppShell />);
+      render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
 
       expect(await screen.findByTestId('open-root')).toHaveTextContent(
         '/Users/me/A'
@@ -596,7 +673,11 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
       );
       probeOverrides.set('/Users/me/Gone', 'missing');
       probeOverrides.set('/Users/me/AlsoGone', 'missing');
-      render(<AppShell />);
+      render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
 
       expect(await screen.findByTestId('open-root')).toHaveTextContent(
         '/Users/me/B'
@@ -617,7 +698,11 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
         '/Users/me/Gone'
       );
       probeOverrides.set('/Users/me/Gone', 'missing');
-      render(<AppShell />);
+      render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
 
       expect(await screen.findByTestId('open-root')).toHaveTextContent(
         '/Users/me/B'
@@ -638,7 +723,11 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
       seed(['/Users/me/Gone', '/Users/me/Broken'], '/Users/me/Gone');
       probeOverrides.set('/Users/me/Gone', 'missing');
       const before = SAVED();
-      render(<AppShell />);
+      render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
 
       expect(await screen.findByText(WELCOME)).toBeInTheDocument();
       expect(bootstrap).toHaveBeenCalledWith(
@@ -652,7 +741,11 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
     it('keeps the missing path when, with no fallback, the user explicitly opens another Space', async () => {
       seed(['/Missing'], '/Missing');
       tauri.openDialog.mockResolvedValue('/Users/me/Notes');
-      render(<AppShell />);
+      render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
@@ -673,7 +766,11 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
       throw new Error('Permission denied (os error 13)');
     });
     const before = window.localStorage.getItem('clutter.spaces.v1');
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
 
     expect(
       await screen.findByText('Permission denied (os error 13)')
@@ -729,7 +826,11 @@ describe('AppShell: Welcome dialog actions', () => {
       tauri.openDialog.mockResolvedValue('/Users/me/Notes');
       const gate = deferred<void>();
       gates.set('/Users/me/Notes', gate);
-      render(<AppShell />);
+      render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
@@ -763,7 +864,11 @@ describe('AppShell: Welcome dialog actions', () => {
 
     it('does nothing when the picker is cancelled', async () => {
       tauri.openDialog.mockResolvedValue(null);
-      render(<AppShell />);
+      render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
@@ -788,7 +893,11 @@ describe('AppShell: Welcome dialog actions', () => {
         tauri.openDialog.mockResolvedValue(picked);
         const gate = deferred<void>();
         gates.set(picked, gate);
-        render(<AppShell />);
+        render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
         await screen.findByText(WELCOME);
 
         await click('Select a folder');
@@ -816,7 +925,11 @@ describe('AppShell: Welcome dialog actions', () => {
       'refuses %s — too broad to scan and write into',
       async (_name, picked) => {
         tauri.openDialog.mockResolvedValue(picked);
-        render(<AppShell />);
+        render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
         await screen.findByText(WELCOME);
 
         await click('Select a folder');
@@ -832,7 +945,11 @@ describe('AppShell: Welcome dialog actions', () => {
 
     it('a folder outside the home directory that cannot be accessed is refused, opening nothing and saving nothing', async () => {
       tauri.openDialog.mockResolvedValue('/Volumes/Drive/Denied');
-      render(<AppShell />);
+      render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
@@ -845,7 +962,11 @@ describe('AppShell: Welcome dialog actions', () => {
 
     it('does not persist an outside-home folder that fails to open', async () => {
       tauri.openDialog.mockResolvedValue('/Volumes/Drive/Broken');
-      render(<AppShell />);
+      render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
@@ -860,7 +981,11 @@ describe('AppShell: Welcome dialog actions', () => {
 
     it('reopens a folder chosen outside the home directory after the app restarts', async () => {
       tauri.openDialog.mockResolvedValue('/Volumes/Drive/Vault');
-      const first = render(<AppShell />);
+      const first = render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
       await screen.findByText(WELCOME);
       await click('Select a folder');
       expect(await screen.findByTestId('open-root')).toHaveTextContent(
@@ -871,7 +996,11 @@ describe('AppShell: Welcome dialog actions', () => {
 
       // A fresh launch: no picker, no Welcome — the saved path is restored and opened as is.
       tauri.openDialog.mockReset();
-      render(<AppShell />);
+      render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
 
       expect(await screen.findByTestId('open-root')).toHaveTextContent(
         '/Volumes/Drive/Vault'
@@ -886,7 +1015,11 @@ describe('AppShell: Welcome dialog actions', () => {
 
     it('keeps the dialog when the folder is inaccessible', async () => {
       tauri.openDialog.mockResolvedValue('/Users/me/Denied');
-      render(<AppShell />);
+      render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
@@ -898,7 +1031,11 @@ describe('AppShell: Welcome dialog actions', () => {
 
     it('keeps the dialog and leaves the registry untouched when opening fails', async () => {
       tauri.openDialog.mockResolvedValue('/Users/me/Broken');
-      render(<AppShell />);
+      render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
@@ -921,7 +1058,11 @@ describe('AppShell: Welcome dialog actions', () => {
       probeOverrides.set('/Users/me/Gone', 'missing');
       tauri.openDialog.mockResolvedValue('/Users/me/Broken');
       const before = SAVED();
-      render(<AppShell />);
+      render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
       await screen.findByText(WELCOME);
 
       await click('Select a folder');
@@ -943,7 +1084,11 @@ describe('AppShell: Welcome dialog actions', () => {
 
   describe('Create a new space', () => {
     it('swaps WelcomeScreen for SpaceDetails and back, each in its own dialog, never more than one overlay at a time', async () => {
-      render(<AppShell />);
+      render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
       await screen.findByText(WELCOME);
       const overlay = document.querySelector('.overlay');
 
@@ -964,7 +1109,11 @@ describe('AppShell: Welcome dialog actions', () => {
     it('creates ~/Documents/<name> non-recursively, opens it, and persists only after it opened', async () => {
       const gate = deferred<void>();
       gates.set('/Users/me/Documents/Personal', gate);
-      render(<AppShell />);
+      render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
       await screen.findByText(WELCOME);
       await click('Create a new space');
       await screen.findByText('Space name');
@@ -1004,7 +1153,11 @@ describe('AppShell: Welcome dialog actions', () => {
     });
 
     it('remembers an emoji avatar chosen while creating the space, once the space has opened', async () => {
-      render(<AppShell />);
+      render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
       await screen.findByText(WELCOME);
       await click('Create a new space');
       await screen.findByText('Space name');
@@ -1031,7 +1184,11 @@ describe('AppShell: Welcome dialog actions', () => {
     });
 
     it('hands an uploaded image to the opened Space, which stores a Space-relative reference to its own copy', async () => {
-      render(<AppShell />);
+      render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
       await screen.findByText(WELCOME);
       await click('Create a new space');
       await screen.findByText('Space name');
@@ -1060,7 +1217,11 @@ describe('AppShell: Welcome dialog actions', () => {
     });
 
     it('does not remember the avatar of a space that failed to open', async () => {
-      render(<AppShell />);
+      render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
       await screen.findByText(WELCOME);
       await click('Create a new space');
       await screen.findByText('Space name');
@@ -1082,7 +1243,11 @@ describe('AppShell: Welcome dialog actions', () => {
     it.each(['', '   ', '..', '.', '../evil', 'a/b', '/etc', 'a:b'])(
       'rejects the name %j without creating anything',
       async (name) => {
-        render(<AppShell />);
+        render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
         await screen.findByText(WELCOME);
         await click('Create a new space');
         await screen.findByText('Space name');
@@ -1101,7 +1266,11 @@ describe('AppShell: Welcome dialog actions', () => {
 
     it('never adopts or overwrites an existing folder: stays put and lets the user pick another name', async () => {
       tauri.mkdir.mockRejectedValueOnce('File exists (os error 17)');
-      render(<AppShell />);
+      render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
       await screen.findByText(WELCOME);
       await click('Create a new space');
       await screen.findByText('Space name');
@@ -1125,7 +1294,11 @@ describe('AppShell: Welcome dialog actions', () => {
 
     it('keeps the dialog when the directory cannot be created', async () => {
       tauri.mkdir.mockRejectedValueOnce('Permission denied (os error 13)');
-      render(<AppShell />);
+      render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
       await screen.findByText(WELCOME);
       await click('Create a new space');
       await screen.findByText('Space name');
@@ -1147,7 +1320,11 @@ describe('AppShell: Welcome dialog actions', () => {
         if (failOpen) throw new Error('scan failed');
         return makeApp(root);
       });
-      render(<AppShell />);
+      render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
       await screen.findByText(WELCOME);
       await click('Create a new space');
       await screen.findByText('Space name');
@@ -1194,7 +1371,11 @@ describe('AppShell: the open vault disappears while the app is running', () => {
   async function openWithNoFallback() {
     seed(['/Users/me/A', '/Users/me/B'], '/Users/me/A');
     probeOverrides.set('/Users/me/B', 'missing');
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
     await screen.findByTestId('open-root');
     return created[0]!;
   }
@@ -1310,7 +1491,11 @@ describe('AppShell: the open vault disappears while the app is running', () => {
 
     it('can recreate the very same folder through "Create a new space" and reopen it', async () => {
       seed(['/Users/me/Documents/Personal'], '/Users/me/Documents/Personal');
-      render(<AppShell />);
+      render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
       const app = (await screen.findByTestId('open-root')) && created[0]!;
       await loseVault(app);
       await screen.findByText(WELCOME);
@@ -1333,7 +1518,11 @@ describe('AppShell: the open vault disappears while the app is running', () => {
   describe('with another valid Space', () => {
     async function openA(paths: string[]) {
       seed(paths, '/Users/me/A');
-      render(<AppShell />);
+      render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
       await screen.findByTestId('open-root');
       return created[0]!;
     }
@@ -1437,7 +1626,11 @@ describe('AppShell: the open vault disappears while the app is running', () => {
 
   it('checks the open vault when the window regains focus or becomes visible again', async () => {
     seed(['/Users/me/A'], '/Users/me/A');
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
     await screen.findByTestId('open-root');
     const app = created[0]!;
 
@@ -1519,7 +1712,11 @@ describe('AppShell: an open vault is lost and another registered vault takes ove
 
   async function openA(paths: string[]) {
     seed(paths, '/Users/me/A');
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
     await screen.findByTestId('open-root');
     return created[0]!;
   }
@@ -1682,7 +1879,11 @@ describe('AppShell: the space selector lists only spaces that are available', ()
     seed(['/Users/me/A', '/Users/me/Gone', '/Users/me/B'], '/Users/me/A');
     probeOverrides.set('/Users/me/Gone', 'missing');
     const before = SAVED();
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
     await screen.findByTestId('open-root');
 
     await waitFor(() =>
@@ -1708,7 +1909,11 @@ describe('AppShell: the space selector lists only spaces that are available', ()
 
   it('keeps a space that is merely inaccessible (permission/scope) in the list', async () => {
     seed(['/Users/me/A', '/Users/me/Denied'], '/Users/me/A');
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
     await screen.findByTestId('open-root');
 
     await waitFor(() =>
@@ -1718,7 +1923,11 @@ describe('AppShell: the space selector lists only spaces that are available', ()
 
   it('keeps a space listed, and saved, when its folder is deleted while the app runs and availability is re-checked', async () => {
     seed(['/Users/me/A', '/Users/me/B'], '/Users/me/A');
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
     await screen.findByTestId('open-root');
     await waitFor(() =>
       expect(listed()).toEqual(['/Users/me/A', '/Users/me/B'])
@@ -1740,7 +1949,11 @@ describe('AppShell: the space selector lists only spaces that are available', ()
 
   it('adds a valid space to the selector once it is opened', async () => {
     seed(['/Users/me/A'], '/Users/me/A');
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
     await screen.findByTestId('open-root');
     expect(listed()).toEqual(['/Users/me/A']);
 
@@ -1762,7 +1975,11 @@ describe('AppShell: the sidebar "New space" picker', () => {
     if (stored)
       window.localStorage.setItem('clutter.spaces.v1', JSON.stringify(stored));
     else seed(['/Users/me/A'], '/Users/me/A');
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
     await screen.findByTestId('open-root');
   }
 
@@ -1988,7 +2205,11 @@ describe('AppShell: the sidebar "New space" picker', () => {
   });
 
   it('shows Go back and no × in the Space Settings reached from the Welcome screen', async () => {
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
     await screen.findByText(WELCOME);
     await click('Create a new space');
     await screen.findByText('Space name');
@@ -2224,7 +2445,7 @@ describe('AppShell: the sidebar "New space" picker', () => {
 
     await click('Create');
 
-    expect(await screen.findByRole('status')).toHaveTextContent(
+    expect(await screen.findByRole('alert')).toHaveTextContent(
       'Permission denied (os error 13)'
     );
     expect(screen.getByTestId('open-root')).toHaveTextContent('/Users/me/A');
@@ -2238,7 +2459,7 @@ describe('AppShell: the sidebar "New space" picker', () => {
 
     await click('Create');
 
-    expect(await screen.findByRole('status')).toHaveTextContent(
+    expect(await screen.findByRole('alert')).toHaveTextContent(
       /Can’t open “\/Volumes\/Drive\/Denied”/
     );
     expect(nameInput()).not.toBeNull();
@@ -2602,7 +2823,11 @@ describe('AppShell: the sidebar "New space" picker', () => {
 
 describe('AppShell: web development runtime', () => {
   it('still opens the in-memory /web-dev-vault with no stored Space and no Welcome dialog', async () => {
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
 
     expect(await screen.findByTestId('open-root')).toHaveTextContent(
       '/web-dev-vault'
@@ -2614,7 +2839,11 @@ describe('AppShell: web development runtime', () => {
 describe('AppShell: the sidebar across a Space switch', () => {
   async function openFirst() {
     seed(['/web-dev-vault', '/Other'], '/web-dev-vault');
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
     await screen.findByText('/web-dev-vault');
     return created[0]!;
   }
@@ -2663,7 +2892,11 @@ describe('AppShell: the sidebar across a Space switch', () => {
   it('puts the previous Space back with the same sidebar when the switch fails after closing it', async () => {
     seed(['/web-dev-vault', '/Other'], '/web-dev-vault');
     openFails.add('/Other');
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
     await screen.findByText('/web-dev-vault');
     created[0]!.workspace.isSidebarVisible = false;
 
@@ -2679,7 +2912,11 @@ describe('AppShell: the sidebar across a Space switch', () => {
 describe('AppShell: switching Spaces', () => {
   it('keeps the current Space visible and open while the next one is prepared', async () => {
     seed(['/web-dev-vault', '/Other'], '/web-dev-vault');
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
     await screen.findByText('/web-dev-vault');
     const first = created[0]!;
     const gate = deferred<void>();
@@ -2706,7 +2943,11 @@ describe('AppShell: switching Spaces', () => {
 
   it('closes the old Application before the new one opens, then leaves only the new one running', async () => {
     seed(['/web-dev-vault', '/Other'], '/web-dev-vault');
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
     await screen.findByText('/web-dev-vault');
 
     await act(async () => screen.getByText('switch-other').click());
@@ -2728,7 +2969,11 @@ describe('AppShell: switching Spaces', () => {
   it('persists the new Space only after it opened, and restores it on the next launch', async () => {
     seed(['/web-dev-vault', '/Other'], '/web-dev-vault');
     const gate = deferred<void>();
-    const first = render(<AppShell />);
+    const first = render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
     await screen.findByText('/web-dev-vault');
     gates.set('/Other', gate);
 
@@ -2746,20 +2991,28 @@ describe('AppShell: switching Spaces', () => {
     );
     first.unmount();
 
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
     expect(await screen.findByTestId('open-root')).toHaveTextContent('/Other');
   });
 
   it('keeps the current Space and reports an error when the destination fails to initialize', async () => {
     seed(['/web-dev-vault', '/Broken'], '/web-dev-vault');
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
     await screen.findByText('/web-dev-vault');
     const first = created[0]!;
 
     await act(async () => screen.getByText('switch-broken').click());
 
     await waitFor(() =>
-      expect(screen.getByRole('status')).toHaveTextContent('scan failed')
+      expect(screen.getByRole('alert')).toHaveTextContent('scan failed')
     );
     expect(screen.getByTestId('open-root')).toHaveTextContent('/web-dev-vault');
     expect(screen.queryByText(OPENING)).toBeNull();
@@ -2772,14 +3025,18 @@ describe('AppShell: switching Spaces', () => {
 
   it('puts the previous Space back when the destination fails while opening, after the old one closed', async () => {
     seed(['/web-dev-vault', '/Other'], '/web-dev-vault');
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
     await screen.findByText('/web-dev-vault');
     openFails.add('/Other');
 
     await act(async () => screen.getByText('switch-other').click());
 
     await waitFor(() =>
-      expect(screen.getByRole('status')).toHaveTextContent('watcher failed')
+      expect(screen.getByRole('alert')).toHaveTextContent('watcher failed')
     );
     await waitFor(() =>
       expect(screen.getByTestId('open-root')).toHaveTextContent(
@@ -2795,7 +3052,11 @@ describe('AppShell: switching Spaces', () => {
 
   it('discards a prepared Space the user switched away from before it committed', async () => {
     seed(['/web-dev-vault', '/Other'], '/web-dev-vault');
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
     await screen.findByText('/web-dev-vault');
     const first = created[0]!;
     const gate = deferred<void>();
@@ -2822,7 +3083,11 @@ describe('AppShell: switching Spaces', () => {
 
   it('lets only the newest of two quick switches commit', async () => {
     seed(['/web-dev-vault', '/Other', '/Third'], '/web-dev-vault');
-    render(<AppShell />);
+    render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
     await screen.findByText('/web-dev-vault');
     const slow = deferred<void>();
     gates.set('/Other', slow);
@@ -2844,7 +3109,11 @@ describe('AppShell: switching Spaces', () => {
   });
 
   it('closes the open Application when the shell unmounts', async () => {
-    const view = render(<AppShell />);
+    const view = render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
     await screen.findByTestId('open-root');
     view.unmount();
     expect(created.every((app) => app.close.mock.calls.length >= 1)).toBe(true);
@@ -2853,7 +3122,11 @@ describe('AppShell: switching Spaces', () => {
   describe('a Space whose folder is missing', () => {
     async function chooseMissing() {
       seed(['/web-dev-vault', '/Missing', '/Third'], '/web-dev-vault');
-      render(<AppShell />);
+      render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
       await screen.findByText('/web-dev-vault');
       await act(async () => screen.getByText('switch-missing').click());
       await screen.findByText('Space not found');
@@ -2862,7 +3135,11 @@ describe('AppShell: switching Spaces', () => {
     it('opens a "Space not found" confirmation with Change location and Remove space, not an error toast, touching nothing', async () => {
       seed(['/web-dev-vault', '/Missing'], '/web-dev-vault');
       const before = SAVED();
-      render(<AppShell />);
+      render(
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
       await screen.findByText('/web-dev-vault');
 
       await act(async () => screen.getByText('switch-missing').click());
@@ -2888,7 +3165,7 @@ describe('AppShell: switching Spaces', () => {
       expect(
         screen.getByRole('button', { name: 'Remove space' })
       ).toBeInTheDocument();
-      expect(screen.queryByRole('status')).toBeNull();
+      expect(screen.queryByRole('alert')).toBeNull();
       expect(bootstrap).toHaveBeenCalledTimes(1);
       expect(created[0]!.close).not.toHaveBeenCalled();
       expect(SAVED()).toBe(before);
@@ -3003,7 +3280,7 @@ describe('AppShell: switching Spaces', () => {
         )
       );
       await waitFor(() =>
-        expect(screen.getByRole('status')).toBeInTheDocument()
+        expect(screen.getByRole('alert')).toBeInTheDocument()
       );
       expect(screen.getByTestId('open-root')).toHaveTextContent(
         '/web-dev-vault'

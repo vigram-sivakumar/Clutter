@@ -2,9 +2,10 @@
 
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { GRADIENT_GRAINY_PALETTES, GradientGrainy } from './GradientGrainy';
 
@@ -62,6 +63,7 @@ describe('GradientGrainy', () => {
       vi.spyOn(Math, 'random').mockReturnValue(
         index / GRADIENT_GRAINY_PALETTES.length + 0.001
       );
+      localStorage.clear();
       const { container } = render(<GradientGrainy />);
       seen.add(root(container).getAttribute('data-palette')!);
       cleanup();
@@ -167,7 +169,7 @@ describe('GradientGrainy iris palette', () => {
     const { container } = render(<GradientGrainy palette="iris" />);
 
     expect(root(container)).toHaveAttribute('data-palette', 'iris');
-    expect(root(container).style.getPropertyValue('--gg-bg')).toBe('#d6c8fb');
+    expect(root(container).style.getPropertyValue('--gg-bg')).toBe('#d9c8fb');
     const colours = [
       ...root(container).querySelectorAll<HTMLElement>(
         '.gradient-grainy__blob'
@@ -177,7 +179,7 @@ describe('GradientGrainy iris palette', () => {
   });
 
   it('stays lavender and indigo: every colour is blue-dominant and blue is never below violet’s red (no orange, no teal)', () => {
-    for (const hex of ['#d6c8fb', '#5b50ee', '#2b25ad', '#17107a']) {
+    for (const hex of ['#d9c8fb', '#5b50ee', '#2b25ad', '#17107a']) {
       const { r, g, b } = channels(hex);
       expect(b).toBeGreaterThan(r); // blue leads: not orange or warm
       expect(b).toBeGreaterThan(g); // blue leads green: not teal
@@ -191,7 +193,7 @@ describe('GradientGrainy iris palette', () => {
       return 0.2126 * r + 0.7152 * g + 0.0722 * b;
     };
     const [bg, periwinkle, indigo, deep] = [
-      '#d6c8fb',
+      '#d9c8fb',
       '#5b50ee',
       '#2b25ad',
       '#17107a',
@@ -203,19 +205,101 @@ describe('GradientGrainy iris palette', () => {
   });
 });
 
-describe('GradientGrainy nebula palette', () => {
-  it('is one of the palettes: a pale pink-white glow behind electric blue, orchid purple and deep indigo', () => {
-    expect(GRADIENT_GRAINY_PALETTES).toContain('nebula');
-    const { container } = render(<GradientGrainy palette="nebula" />);
+describe('GradientGrainy sky palette', () => {
+  it('is one of the palettes: a near-white blue glow behind a vivid blue core, a mid blue and a pale blue', () => {
+    expect(GRADIENT_GRAINY_PALETTES).toContain('sky');
+    const { container } = render(<GradientGrainy palette="sky" />);
 
-    expect(root(container)).toHaveAttribute('data-palette', 'nebula');
-    expect(root(container).style.getPropertyValue('--gg-bg')).toBe('#fbe6f3');
+    expect(root(container)).toHaveAttribute('data-palette', 'sky');
+    expect(root(container).style.getPropertyValue('--gg-bg')).toBe('#e8f3ff');
     const colours = [
       ...root(container).querySelectorAll<HTMLElement>(
         '.gradient-grainy__blob'
       ),
     ].map((blob) => blob.style.getPropertyValue('--gg-rgb'));
-    expect(colours).toEqual(['15 107 255', '162 89 217', '42 31 143']);
+    expect(colours).toEqual(['29 122 232', '95 168 245', '169 210 251']);
+  });
+});
+
+describe('GradientGrainy orchid palette', () => {
+  it('is one of the palettes: a warm white glow behind vivid purple, deep violet and orchid pink', () => {
+    expect(GRADIENT_GRAINY_PALETTES).toContain('orchid');
+    const { container } = render(<GradientGrainy palette="orchid" />);
+
+    expect(root(container)).toHaveAttribute('data-palette', 'orchid');
+    expect(root(container).style.getPropertyValue('--gg-bg')).toBe('#f2eef3');
+    const colours = [
+      ...root(container).querySelectorAll<HTMLElement>(
+        '.gradient-grainy__blob'
+      ),
+    ].map((blob) => blob.style.getPropertyValue('--gg-rgb'));
+    expect(colours).toEqual(['154 34 184', '78 23 166', '217 139 189']);
+  });
+});
+
+describe('GradientGrainy never repeats the last random palette', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('picks a different palette every time it is shown, across many mounts', () => {
+    let previous: string | null = null;
+    for (let i = 0; i < 200; i++) {
+      const { container } = render(<GradientGrainy />);
+      const name = root(container).getAttribute('data-palette')!;
+      expect(name).not.toBe(previous);
+      previous = name;
+      cleanup();
+    }
+  });
+
+  it('still reaches every palette when avoiding the last one', () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 200; i++) {
+      const { container } = render(<GradientGrainy />);
+      seen.add(root(container).getAttribute('data-palette')!);
+      cleanup();
+    }
+    expect([...seen].sort()).toEqual([...GRADIENT_GRAINY_PALETTES].sort());
+  });
+
+  it('remembers the palette that is shown, even when StrictMode picks twice', () => {
+    let previous: string | null = null;
+    for (let i = 0; i < 100; i++) {
+      const { container } = render(
+        <StrictMode>
+          <GradientGrainy />
+        </StrictMode>
+      );
+      const shown = root(container).getAttribute('data-palette')!;
+      expect(localStorage.getItem('clutter-gradient-grainy-last-palette')).toBe(
+        shown
+      );
+      expect(shown).not.toBe(previous);
+      previous = shown;
+      cleanup();
+    }
+  });
+
+  it('does not count a fixed palette as the last pick', () => {
+    localStorage.setItem('clutter-gradient-grainy-last-palette', 'peach');
+    render(<GradientGrainy palette="iris" />);
+    expect(localStorage.getItem('clutter-gradient-grainy-last-palette')).toBe(
+      'peach'
+    );
+  });
+
+  it('still picks when storage is unreadable or holds junk', () => {
+    localStorage.setItem('clutter-gradient-grainy-last-palette', 'nope');
+    const { container } = render(<GradientGrainy />);
+    expect(GRADIENT_GRAINY_PALETTES).toContain(
+      root(container).getAttribute('data-palette') as never
+    );
+    cleanup();
+
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    const again = render(<GradientGrainy />);
+    expect(root(again.container)).toHaveAttribute('data-palette');
   });
 });
 

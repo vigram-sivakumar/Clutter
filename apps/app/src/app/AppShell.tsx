@@ -11,7 +11,7 @@ import { readStartupBehavior } from '../features/settings/startup-setting/startu
 import { VaultRootMissingError } from '../core/vault/providers/VaultRootMissingError';
 import { normalizeAllTablesInMarkdown } from '../features/markdown/editor/codemirror/table/tableColumnNormalization';
 
-import { Toast } from '../components/toast/Toast';
+import { useToast } from '../components/toast/ToastProvider';
 import { probeSpaceFolder } from '../core/vault/providers/probeSpaceFolder';
 import {
   createSpaceFolder,
@@ -402,6 +402,8 @@ function AppShellContent() {
         await prepared.applySpaceProfile(pendingProfile?.change);
       } catch (profileError) {
         console.error('Saving the Space profile failed:', profileError);
+        // The Space itself opened; only its avatar or settings did not save.
+        spaces.notify('Couldn’t save the space settings');
       }
       refreshProfiles();
       // Only a Space that actually opened is remembered for the next launch.
@@ -1042,13 +1044,15 @@ function AppShellContent() {
     [application, profiles]
   );
 
-  const notice = spaces.notice && (
-    <Toast
-      toast={{ id: spaces.notice.id, text: spaces.notice.text, tone: 'error' }}
-      onDismiss={spaces.dismissNotice}
-      durationMs={8000}
-    />
-  );
+  // A refusal or failure from the Space registry is shown once, as an error toast, and then cleared.
+  const toast = useToast();
+  const { notice, dismissNotice } = spaces;
+  useEffect(() => {
+    if (notice) {
+      toast.show({ tone: 'error', text: notice.text });
+      dismissNotice();
+    }
+  }, [notice, dismissNotice, toast]);
 
   // A Space can't be shown, and no other has opened (yet): either none is configured, or the configured
   // one's folder is confirmed missing — and the search for another registered Space (see
@@ -1114,21 +1118,11 @@ function AppShellContent() {
     !application &&
     (recovering || (lostActiveSpace && recoveryDoneFor !== vaultPath))
   ) {
-    return (
-      <>
-        <StartupFrame>Opening Clutter…</StartupFrame>
-        {notice}
-      </>
-    );
+    return <StartupFrame>Opening Clutter…</StartupFrame>;
   }
 
   if (isLoading) {
-    return (
-      <>
-        <StartupFrame>Opening Clutter…</StartupFrame>
-        {notice}
-      </>
-    );
+    return <StartupFrame>Opening Clutter…</StartupFrame>;
   }
 
   if (!application) {
@@ -1150,7 +1144,6 @@ function AppShellContent() {
           <Dialog
             open
             onClose={() => setPendingSpace(null)}
-            dismissible={false}
             size="large"
             scrim="strong"
           >
@@ -1178,7 +1171,6 @@ function AppShellContent() {
           onRemove={removeMissingSpace}
           onClose={() => setMissingSpacePath(null)}
         />
-        {notice}
       </ActiveSpaceAvatarContext.Provider>
     </SpacesContext.Provider>
   );

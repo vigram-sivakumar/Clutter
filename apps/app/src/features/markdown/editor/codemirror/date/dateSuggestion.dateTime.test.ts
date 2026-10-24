@@ -158,13 +158,25 @@ describe('12-hour and 24-hour readings', () => {
   });
 });
 
+describe('a partly typed next / last beside a time offers its candidates with that time', () => {
+  it.each(['12 next w', '4pm next w', 'next w 4pm', 'next w 12'])('@%s', (query) => {
+    const suggestions = getDateSuggestions(query, FRIDAY);
+    expect(suggestions.map((s) => s.phrase)).toEqual(['Next week', 'Next Wednesday']);
+    expect(suggestions.every((s) => s.time !== undefined)).toBe(true);
+  });
+
+  it('keeps the typed time on every candidate, stored canonically', () => {
+    const times = getDateSuggestions('12 next w', FRIDAY).map((s) => serializeDateReference(suggestionReference(s)));
+    expect(times).toEqual(['2026-10-26T12:00', '2026-10-28T12:00']);
+    expect(stored('next w 4pm')).toBe('2026-10-26T16:00');
+  });
+});
+
 describe('an incomplete or invalid expression is not guessed at', () => {
   it.each([
     'next month 4:',
     'next month 4:3',
     '4pm next',
-    '4pm next w',
-    'next w 4pm',
     'in 3 4pm',
     '4pm 5pm',
     'tomorrow 24',

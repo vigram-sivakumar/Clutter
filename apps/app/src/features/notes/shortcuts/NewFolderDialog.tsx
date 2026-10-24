@@ -17,7 +17,7 @@ interface NewFolderDialogProps
  */
 export function NewFolderDialog({ open, onClose, ...content }: NewFolderDialogProps) {
   return (
-    <Dialog open={open} onClose={onClose} size="large" top={240} scrim="strong" dismissible={false}>
+    <Dialog open={open} onClose={onClose} size="large" top={240} scrim="strong">
       <NewFolderContent onClose={onClose} {...content} />
     </Dialog>
   );

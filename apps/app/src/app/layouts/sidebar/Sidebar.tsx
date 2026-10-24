@@ -23,7 +23,6 @@ import { Notes } from '@features/notes/sidebar/Sidebar.Notes';
 import { DailyNotes } from '@features/daily-notes/sidebar/Sidebar.DailyNotes';
 import { Tasks } from '@features/tasks/sidebar/Sidebar.Tasks';
 import { Tags } from '@features/tags/sidebar/Sidebar.Tags';
-import { SearchPanel } from '@features/search/SearchPanel';
 import { Controls } from '@app/layouts/sidebar/controls/Controls';
 import { Footer } from './footer/Footer';
 import { useNativeFileMenu } from './useNativeFileMenu';
@@ -41,7 +40,8 @@ import { NewFolderDialog } from '@features/notes/shortcuts/NewFolderDialog';
 import { createAndOpenFolder } from '@features/notes/helpers/createAndOpenFolder';
 import { createNote } from '@features/notes/helpers/createNote';
 import { createTemplate } from '@features/notes/helpers/createTemplate';
-import { uploadAssets } from '@features/notes/helpers/uploadAssets';
+import { reportUpload, uploadAssets } from '@features/notes/helpers/uploadAssets';
+import { useToast } from '@components/toast/ToastProvider';
 import { createTaskInDailyNote } from '@features/tasks/helpers/createTaskInDailyNote';
 import { testIds } from '@shared/testing/selectors';
 import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal';
@@ -60,6 +60,8 @@ interface SidebarProps {
   readonly onTasksViewConfigChange: (next: TaskDisplayConfig) => void;
   /** See AppLayout's own doc comment on its `pendingReveal` state — set here by Tasks' "Show in note" (and by PageHost's own Tag collection "Open note"), consumed by PageHost. */
   readonly onRequestReveal: (reveal: PendingEditorReveal) => void;
+  /** Search is an overlay owned by `AppLayout`: its tab opens that overlay instead of showing a panel. */
+  readonly onOpenSearch: () => void;
 }
 
 export function Sidebar({
@@ -68,7 +70,9 @@ export function Sidebar({
   tasksViewConfig,
   onTasksViewConfigChange,
   onRequestReveal,
+  onOpenSearch,
 }: SidebarProps) {
+  const toast = useToast();
   const {
     vault,
     query,
@@ -131,7 +135,8 @@ export function Sidebar({
   const tabs: Array<{
     // Typed as SidebarTab so a new tab can't be added here without also
     // being accepted as restorable by WorkspaceSessionStore (ADR-035).
-    value: SidebarTab;
+    // 'search' is the one exception: it is an action (it opens the overlay), never a tab the sidebar rests on.
+    value: SidebarTab | 'search';
     icon: SystemIcon;
     emoji?: string;
     panel: ReactNode;
@@ -268,7 +273,7 @@ export function Sidebar({
     {
       value: 'search',
       icon: getSystemLocationPresentation('search').icon,
-      panel: <SearchPanel />,
+      panel: null,
     },
   ];
 
@@ -309,7 +314,7 @@ export function Sidebar({
   // on the open page. Enabled only while a page (note or daily note) is open.
   const openPage = workspace.activePageId ? vault.getPage(workspace.activePageId) : undefined;
   useNativeEditMenu(openPage !== undefined, () =>
-    createLocationActions(vault.root).copyPath(openPage, 'page', 'as-markdown')
+    createLocationActions(vault.root, toast).copyPath(openPage, 'page', 'as-markdown')
   );
 
   return (
@@ -325,18 +330,23 @@ export function Sidebar({
         onNewFolder={newFolder}
         onNewTag={() => setCreationDialog('tag')}
         onNewTemplate={() =>
-          void createTemplate(folderOperations, pageOperations).catch(() => {})
+          void createTemplate(folderOperations, pageOperations).catch((error: unknown) =>
+            toast.fail('Couldn’t create the template', error)
+          )
         }
         onUpload={() =>
           void uploadAssets((source, destination) =>
             application.importAsset(source, destination)
-          ).catch(() => {})
+          )
+            .then((result) => reportUpload(toast, result))
+            .catch((error: unknown) => toast.fail('Couldn’t add the files', error))
         }
       />
       <div className="sidebar--tabs">
         <Tabs
           value={workspace.activeSidebarTab}
-          onValueChange={(tab) => workspace.setActiveSidebarTab(tab)}
+          // The Search tab is an action: it opens the overlay and leaves the sidebar on the tab it was showing.
+          onValueChange={(tab) => (tab === 'search' ? onOpenSearch() : workspace.setActiveSidebarTab(tab))}
         >
           {tabs.map((tab) => (
             <Tab key={tab.value} value={tab.value}>

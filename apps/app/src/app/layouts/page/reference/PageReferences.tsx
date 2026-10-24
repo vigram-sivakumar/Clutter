@@ -14,6 +14,8 @@ import type { Page } from '@core/vault/models/Page';
 import type { Vault } from '@core/vault/models/Vault';
 import type { ReferencesDisplayStore } from '@core/application/references/ReferencesDisplayStore';
 import { useReferencesDisplayStore } from '@app/hooks/useReferencesDisplayStore';
+import { useToast } from '@components/toast/ToastProvider';
+import { createTaskActions } from '@features/tasks/helpers/createTaskActions';
 import { useShowReferencesAutomatically } from '@shared/helpers/showReferencesAutomaticallyPreference';
 
 import { containsEmbed } from './extractReferenceLine';
@@ -92,6 +94,7 @@ export function PageReferences({
   resolveImageSrc,
 }: PageReferencesProps) {
   useReferencesDisplayStore(displayStore);
+  const taskActions = createTaskActions(taskOperations, useToast());
   const savedHidden = displayStore.getHidden(pageId);
   const showAutomatically = useShowReferencesAutomatically();
   const isExpanded = !displayStore.isCollapsed(pageId);
@@ -219,9 +222,7 @@ export function PageReferences({
                         // Positional, so two textually-identical task lines never share a key.
                         key={`${task.sourcePageId}:${task.startOffset ?? task.text}`}
                         isChecked={task.completed}
-                        onCheckedChange={() =>
-                          void taskOperations.toggleComplete(task)
-                        }
+                        onCheckedChange={() => taskActions.toggleComplete(task)}
                         // The task's text (the checkbox is the entry's own control), with completed styling when done —
                         // compact, like a note line, when it holds an embed (an embed's content is never rendered here).
                         preview={

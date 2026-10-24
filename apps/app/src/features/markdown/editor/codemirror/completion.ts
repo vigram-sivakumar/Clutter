@@ -4,6 +4,7 @@ import type { Extension } from '@codemirror/state';
 import { completionSectionLimit, limitCompletionSections } from './completionPopup/completionSectionLimit';
 import { completionScrollFade } from './completionPopup/completionScrollFade';
 import { renderCompletionRow } from './completionPopup/completionRow';
+import { completionTooltipSpaceExtension } from './completionPopup/completionTooltipSpace';
 import { completionPopupTheme } from './completionPopup/completionPopupTheme';
 import { dateCompletionSource } from './date/dateCompletionSource';
 import { embedCompletionSource } from './embed/embedCompletionSource';
@@ -69,6 +70,7 @@ export function semanticCompletion(
       closeOnBlur: false,
       addToOptions: [{ render: renderCompletionRow, position: 50 }],
     }),
+    completionTooltipSpaceExtension(),
     completionPopupTheme(),
     completionScrollFade(),
     completionSectionLimit(),

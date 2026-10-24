@@ -3,6 +3,7 @@ import type { Page } from '@core/vault/models/Page';
 import type { PageOperations } from '@core/application/page/PageOperations';
 import type { FolderOperations } from '@core/application/folder/FolderOperations';
 import type { EffectivePageState } from '@core/application/page/EffectivePageState';
+import { formatDailyNoteTitle } from '@core/presentation/formatDailyNoteTitle';
 import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
 import { VaultPath } from '@core/vault/ingest/VaultPath';
 import {
@@ -57,6 +58,7 @@ export function createWikiLinkResolver(
   {
     createMissing = true,
     openPage,
+    onCreateFailed,
   }: {
     readonly createMissing?: boolean;
     /**
@@ -64,6 +66,8 @@ export function createWikiLinkResolver(
      * `pageOperations.open`. Never called with a heading that is not in the note.
      */
     readonly openPage?: (pageId: string, heading?: string | null) => void;
+    /** Told when creating the note an unresolved link names failed — the caller owns how to say so. Default: logs it. */
+    readonly onCreateFailed?: (error: unknown) => void;
   } = {}
 ): ResolveWikiLink {
   function resolvedTo(page: Page, localAlias: string | null, fragment: string | null): WikiLinkResolution {
@@ -74,7 +78,10 @@ export function createWikiLinkResolver(
     // `Note › Heading` — the same shape a heading embed's header uses — unless
     // the link carries its own display text.
     const primaryAlias = page.analysis.aliases[0]?.value;
-    const noteLabel = primaryAlias ?? VaultPath.pageName(page.path);
+    // A Daily Note's filename is its ISO date; shown through the shared date formatter so it follows the
+    // Date format preference. Display only — the link target and stored Markdown keep the ISO name.
+    const fileLabel = VaultPath.pageName(page.path);
+    const noteLabel = primaryAlias ?? (page.type === 'daily-note' ? formatDailyNoteTitle(fileLabel) : fileLabel);
     const displayLabel = localAlias ?? (fragment === null ? noteLabel : `${noteLabel} › ${fragment.trim()}`);
     // The single shared source of truth for a resolved page's own
     // identity icon/emoji — the exact same computation
@@ -177,7 +184,9 @@ export function createWikiLinkResolver(
       // than inventing a second creation or navigation path.
       activate: createMissing
         ? () => {
-            void createReferencedPage(vault, folderOperations, pageOperations, pagePart);
+            void createReferencedPage(vault, folderOperations, pageOperations, pagePart).catch((error: unknown) =>
+              onCreateFailed ? onCreateFailed(error) : console.error('Creating the linked note failed', error)
+            );
           }
         : () => {},
     };
@@ -291,7 +300,8 @@ export async function createReferencedPage(
     return;
   }
 
-  void pageOperations.create({ folderId, title, activate });
+  // Awaited, so a failed create reaches whoever asked for it instead of being dropped.
+  await pageOperations.create({ folderId, title, activate });
 }
 
 /**

@@ -237,3 +237,61 @@ describe('a timed Date (@YYYY-MM-DDTHH:mm)', () => {
     expect(findAtRestDateAt(view.state, 8)).toEqual({ from: 5, to: 22 });
   });
 });
+
+describe('clicking a Date opens the daily note of its calendar date, whatever the time', () => {
+  it.each([
+    ['@2026-10-24', '2026-10-24'],
+    ['@2026-10-24T12:00', '2026-10-24'],
+    ['@2026-10-24T16:30', '2026-10-24'],
+    ['@2026-10-24T00:00', '2026-10-24'],
+  ])('a click on %s resolves %s', (reference, expected) => {
+    const resolve = vi.fn<ResolveDate>(() => ({ activate: vi.fn() }));
+    const view = mountView(`Text before ${reference}`, resolve);
+    resolve.mockClear();
+
+    const handled = handleDateClick(view, 'Text before '.length + 3, false, () => resolve);
+
+    expect(handled).toBe(true);
+    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(resolve).toHaveBeenCalledWith(expected);
+  });
+});
+
+describe('several Date references in one paragraph', () => {
+  const doc = 'A @2026-10-23T07:00 B @2027-01-01 C @2026-10-22T03:00 D @2026-10-24T12:00 E @2026-10-22T11:00 end';
+
+  it('each one activates its own calendar date, and only that one', () => {
+    const resolve = vi.fn<ResolveDate>(() => ({ activate: vi.fn() }));
+    const view = mountView(doc, resolve);
+    resolve.mockClear();
+    const expected = ['2026-10-23', '2027-01-01', '2026-10-22', '2026-10-24', '2026-10-22'];
+
+    const starts = [...doc.matchAll(/@\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?/g)].map((m) => m.index!);
+    starts.forEach((start, i) => {
+      resolve.mockClear();
+      expect(handleDateClick(view, start + 4, false, () => resolve)).toBe(true);
+      expect(resolve).toHaveBeenCalledTimes(1);
+      expect(resolve).toHaveBeenCalledWith(expected[i]);
+    });
+  });
+
+  it('a click in the text between two references activates neither', () => {
+    const resolve = vi.fn<ResolveDate>(() => ({ activate: vi.fn() }));
+    const view = mountView(doc, resolve);
+    resolve.mockClear();
+
+    expect(handleDateClick(view, doc.indexOf(' C '), false, () => resolve)).toBe(true); // end of the date before it, a real boundary
+    resolve.mockClear();
+    expect(handleDateClick(view, doc.indexOf('C') , false, () => resolve)).toBe(false);
+    expect(resolve).not.toHaveBeenCalled();
+  });
+
+  it('an invalid reference keeps its fallback: not handled, nothing activated', () => {
+    const resolve = vi.fn<ResolveDate>(() => ({ activate: vi.fn() }));
+    const view = mountView('x @2026-13-45T12:00 y', resolve);
+    resolve.mockClear();
+
+    expect(handleDateClick(view, 8, false, () => resolve)).toBe(false);
+    expect(resolve).not.toHaveBeenCalled();
+  });
+});

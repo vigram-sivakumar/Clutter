@@ -62,10 +62,10 @@ describe('CollectionEntry — slots', () => {
     expect(container.querySelector('.collection-entry__leading')).toBeNull();
   });
 
-  it('draws the body (title + description) only when there is a title or titleContent — an icon-only entry has none', () => {
+  it('draws the title only when there is a title or titleContent — an icon-only entry has none', () => {
     const { container, rerender } = render(<CollectionEntry title="" leading={<AppIcon icon="plus" />} />);
-    expect(container.querySelector('.collection-entry__body')).toBeNull();
-    expect(container.querySelector('.collection-entry__leading')).not.toBeNull();
+    expect(container.querySelector('.collection-entry__title')).toBeNull();
+    expect(container.querySelector('.collection-entry__heading > .collection-entry__leading')).not.toBeNull();
 
     // A name that is only a titleContent node (a task's markdown title, a rename editor) still draws.
     rerender(<CollectionEntry title="" titleContent={<span>Rich</span>} />);
@@ -105,7 +105,8 @@ describe('CollectionEntry — slots', () => {
 
     expect(actions.parentElement).toBe(main);
     expect(body.nextElementSibling).toBe(actions);
-    expect(title.nextElementSibling).toHaveClass('collection-entry__description');
+    expect(title.parentElement).toHaveClass('collection-entry__heading');
+    expect(title.parentElement!.nextElementSibling).toHaveClass('collection-entry__description');
     expect(body.contains(actions)).toBe(false);
     expect(title.contains(actions)).toBe(false);
   });

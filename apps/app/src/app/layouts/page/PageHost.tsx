@@ -53,6 +53,7 @@ import type { Asset } from '@core/vault/models/Asset';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
 import {
   deleteAllArchived,
+  deleteAllFailureMessage,
   hasArchivedItems,
 } from '@features/notes/helpers/deleteAllArchived';
 import { createNoteFromTemplate } from '@features/notes/helpers/createNoteFromTemplate';
@@ -72,7 +73,7 @@ import {
 import type { PageType } from '@core/vault/models/Page';
 import { CurrentNoteTemplateSuggestions } from '@app/layouts/page/CurrentNoteTemplateSuggestions';
 import { resolveDefaultTemplateId } from '@features/notes/helpers/resolveDefaultTemplateId';
-import { uploadAssets } from '@features/notes/helpers/uploadAssets';
+import { reportUpload, uploadAssets } from '@features/notes/helpers/uploadAssets';
 import { buildResourceMenuOptions, type ResourceMenuOps } from '@app/layouts/page/topbar/buildResourceMenuOptions';
 import { buildAssetItemMenu, buildCollectionItemMenu } from '@app/layouts/page/body/buildCollectionItemMenu';
 import type { CollectionItemMenuResolver } from '@app/layouts/page/body/useCollectionItemContextMenu';
@@ -116,7 +117,11 @@ import { emptyCustomProperty } from '@core/vault/ingest/frontmatter/customFrontm
 import { resolvePageMetadata } from '@core/vault/ingest/resolvePageMetadata';
 import type { PageMetadata } from '@core/vault/models/PageMetadata';
 import { Confirmation } from '@components/confirmation/Confirmation';
-import type { ToastMessage } from '@components/toast/Toast';
+import { useToast } from '@components/toast/ToastProvider';
+import { reportTagBatch } from '@features/tags/helpers/tagBatchFeedback';
+import { createTaskActions } from '@features/tasks/helpers/createTaskActions';
+import { createArchiveActions } from '@features/notes/helpers/archiveWithUndo';
+import { reportMoveFailure } from '@features/notes/helpers/reportMoveFailure';
 import { useConfirmationSurface } from '@components/confirmation/useConfirmationSurface';
 import { Dialog } from '@components/dialog/Dialog';
 import type { PropertiesControl } from './header/propertiesControl';
@@ -272,8 +277,6 @@ interface PageHostProps {
    * `AppLayout`, which hosts the note picker.
    */
   readonly onSetAssetAsCover: (reference: string) => void;
-  /** Shows a transient message (a toast) — owned by `AppLayout`, which hosts the toast. */
-  readonly onShowToast?: (toast: Omit<ToastMessage, 'id'>) => void;
   /** Asks the user where to restore something that has no recorded original location (`AppLayout` owns the picker). */
   readonly onNeedsRestoreDestination?: (
     request: RestoreDestinationRequest
@@ -365,7 +368,6 @@ export function PageHost({
   onOpenResource,
   onOpenImageOverlay,
   onSetAssetAsCover,
-  onShowToast,
   onNeedsRestoreDestination,
   tasksViewConfig,
   onTasksViewConfigChange,
@@ -375,6 +377,16 @@ export function PageHost({
   onRequestReveal,
   onRevealHandled,
 }: PageHostProps) {
+  const toast = useToast();
+  const taskActions = createTaskActions(application.taskOperations, toast);
+  // Archive with its feedback: a failure is reported and a success offers Undo (the existing restore).
+  const archiveActions = createArchiveActions({
+    vault: application.vault,
+    pageOperations: application.pageOperations,
+    folderOperations: application.folderOperations,
+    resourceOperations: application.resourceOperations,
+    toast,
+  });
   const requestCreateTemplate = useRequestCreateTemplate();
   const workspace = useWorkspace(application.workspace);
   const vault = application.vault;
@@ -598,6 +610,8 @@ export function PageHost({
     );
   };
 
+  // A link to a note that doesn't exist yet creates it when clicked (or accepted from autocomplete): say so when that fails.
+  const reportLinkedNoteFailure = (error: unknown): void => void toast.fail('Couldn’t create the note', error);
   // Composed once per render from the currently-attached Vault/PageOperations
   // — cheap, stateless glue (resolveWikiLink.ts), not worth memoizing.
   const resolveWikiLink = createWikiLinkResolver(
@@ -605,13 +619,15 @@ export function PageHost({
     application.pageOperations,
     application.folderOperations,
     application.effectivePageState,
-    { openPage: onOpenPage }
+    { openPage: onOpenPage, onCreateFailed: reportLinkedNoteFailure }
   );
   // Same per-render, stateless-glue composition as resolveWikiLink above.
   const getWikiLinkSuggestions = createWikiLinkSuggester(
     vault,
     application.pageOperations,
-    application.folderOperations
+    application.folderOperations,
+    undefined,
+    reportLinkedNoteFailure
   );
   // Same per-render, stateless-glue composition as resolveWikiLink above.
   // Resource embed autocomplete only, this milestone — no resolver for a
@@ -684,7 +700,7 @@ export function PageHost({
   // overlay wiring via resourceLocationActions.ts, rather than a second
   // inline copy of the same three functions.
   const { revealResourceInFinder, copyResourcePath, downloadResourceById } =
-    createResourceLocationActions(vault);
+    createResourceLocationActions(vault, toast);
   // MarkdownEditor's inline image options menu — Download, for both a
   // local Resource embed/image (resolves via the same resolveImageResource
   // boundary onImageClickRef already uses) and a genuinely external URL
@@ -875,7 +891,9 @@ export function PageHost({
     void uploadAssets(
       (source, destination) => application.importAsset(source, destination),
       destinationFolderPath
-    );
+    )
+      .then((result) => reportUpload(toast, result))
+      .catch((error: unknown) => toast.fail('Couldn’t add the files', error));
   };
 
   // Create folder: opens the one New folder dialog (the sidebar's), creating in the given parent.
@@ -963,7 +981,9 @@ export function PageHost({
       emptyMessage={ASSETS_COLLECTION.emptyMessage}
       emptyCreateIcon="upload"
       onRenameResource={(id, name) =>
-        void application.resourceOperations.renameResource(id, name)
+        void application.resourceOperations
+          .renameResource(id, name)
+          .catch((error: unknown) => toast.fail('Couldn’t rename this file', error))
       }
       // Right-click: an asset's More actions (the viewer's menu), and the folder cards' (the topbar's).
       assetMenu={(asset) =>
@@ -971,7 +991,11 @@ export function PageHost({
           application,
           {
             onArchiveResource: (id) =>
-              void application.resourceOperations.archiveResource(id),
+              void archiveActions.archiveResource(id),
+            onMoveResource: (id, destinationFolderId) =>
+              void application.resourceOperations
+                .moveResource(id, destinationFolderId)
+                .catch((error: unknown) => reportMoveFailure(toast, 'file', error)),
             onRevealResourceInFinder: revealResourceInFinder,
             onCopyResourcePath: copyResourcePath,
             onDownloadResource: downloadResourceById,
@@ -1012,11 +1036,8 @@ export function PageHost({
 
     void application.pageOperations
       .updateMetadata(activePageId, patch)
-      .catch(() =>
-        onShowToast?.({
-          tone: 'error',
-          text: 'Couldn’t update the note’s properties',
-        })
+      .catch((error: unknown) =>
+        toast.fail('Couldn’t update the note’s properties', error)
       );
   };
   const onRequestSave = (pageId: string): void => {
@@ -1130,29 +1151,34 @@ export function PageHost({
   // item's right-click menu (any listed note) run the very same code; `onArchive` etc. are the open
   // page's.
   const archivePage = (pageId: string): void => {
-    void application.pageOperations.archive(pageId);
+    // The open note stays on screen under its ArchivedBanner (which has its own Restore); any other, archived
+    // from a list's right-click menu, leaves the list — that one offers Undo.
+    void archiveActions.archivePage(pageId, { offerUndo: pageId !== activePageId });
   };
   const restorePage = (pageId: string): void => {
-    void application.pageOperations.restore(pageId).then((outcome) => {
-      if (outcome.status === 'needs-destination') {
-        onNeedsRestoreDestination?.({ kind: 'page', id: pageId });
-        return;
-      }
+    void application.pageOperations
+      .restore(pageId)
+      .then((outcome) => {
+        if (outcome.status === 'needs-destination') {
+          onNeedsRestoreDestination?.({ kind: 'page', id: pageId });
+          return;
+        }
 
-      if (outcome.status !== 'conflict') {
-        return;
-      }
+        if (outcome.status !== 'conflict') {
+          return;
+        }
 
-      const originalPath =
-        application.vault.getPage(pageId)?.metadata.originalPath;
-      const date = originalPath ? VaultPath.pageName(originalPath) : '';
-      setRestoreConflict({
-        pageId,
-        dayLabel: isValidCalendarDate(date)
-          ? formatAbsoluteDate(date)
-          : date,
-      });
-    });
+        const originalPath =
+          application.vault.getPage(pageId)?.metadata.originalPath;
+        const date = originalPath ? VaultPath.pageName(originalPath) : '';
+        setRestoreConflict({
+          pageId,
+          dayLabel: isValidCalendarDate(date)
+            ? formatAbsoluteDate(date)
+            : date,
+        });
+      })
+      .catch((error: unknown) => toast.fail('Couldn’t restore this note', error));
   };
   const onRestore = (): void => {
     if (activePageId) {
@@ -1172,8 +1198,7 @@ export function PageHost({
       .restore(pageId, { onConflict: choice })
       .then((outcome) => {
         if (outcome.status === 'restored' && outcome.movedToInbox) {
-          onShowToast?.({
-            tone: 'default',
+          toast.show({
             text: 'Restored to Inbox',
             action: {
               label: 'Open',
@@ -1181,7 +1206,8 @@ export function PageHost({
             },
           });
         }
-      });
+      })
+      .catch((error: unknown) => toast.fail('Couldn’t restore this note', error));
   };
 
   const deletePage = (pageId: string): void => {
@@ -1202,11 +1228,15 @@ export function PageHost({
     application.foldStateStore.clear(pageId);
     // ADR-052: same rationale, for the note's saved References display preferences.
     application.referencesDisplayStore.clear(pageId);
-    void application.pageOperations.delete(pageId);
+    void application.pageOperations
+      .delete(pageId)
+      .catch((error: unknown) => toast.fail('Couldn’t delete this note', error));
   };
 
   const duplicatePage = (pageId: string): void => {
-    void duplicateAndOpenPage(application.pageOperations, pageId);
+    void duplicateAndOpenPage(application.pageOperations, pageId).catch((error: unknown) =>
+      toast.fail('Couldn’t duplicate this note', error)
+    );
   };
 
   const restoreFolder = (folderId: string): void =>
@@ -1218,8 +1248,23 @@ export function PageHost({
           return;
         }
 
-        throw error;
+        toast.fail('Couldn’t restore this folder', error);
       });
+
+  const archiveFolder = (folderId: string): void =>
+    void archiveActions.archiveFolder(folderId, { offerUndo: folderId !== activeFolderId });
+  const deleteFolder = (folderId: string): void =>
+    void application.folderOperations
+      .delete(folderId)
+      .catch((error: unknown) => toast.fail('Couldn’t delete this folder', error));
+  const movePage = (pageId: string, destinationFolderId: string | null): void =>
+    void application.pageOperations
+      .move(pageId, destinationFolderId)
+      .catch((error: unknown) => reportMoveFailure(toast, 'note', error));
+  const moveFolder = (folderId: string, destinationFolderId: string | null): void =>
+    void application.folderOperations
+      .move(folderId, destinationFolderId)
+      .catch((error: unknown) => reportMoveFailure(toast, 'folder', error));
 
   // What the shared More actions menu runs for a resource other than the open one's own state (see
   // `buildResourceMenuOptions`): one set, used by the topbar below and by the Collection View's
@@ -1230,6 +1275,11 @@ export function PageHost({
     deletePage,
     duplicatePage,
     restoreFolder,
+    archiveFolder,
+    deleteFolder,
+    movePage,
+    moveFolder,
+    notifier: toast,
     createTemplate: requestCreateTemplate,
   };
   // A Collection View entry's right-click menu — its resource's topbar menu (see `buildCollectionItemMenu`).
@@ -1283,7 +1333,7 @@ export function PageHost({
         coverPositionSide: 50,
         ...layout,
       });
-    })();
+    })().catch((error: unknown) => toast.fail('Couldn’t set the cover image', error));
   };
 
   const onRemoveCoverImage = (): void => {
@@ -1440,7 +1490,7 @@ export function PageHost({
           ...newCoverPatch(relativePath),
           ...layout,
         });
-      })();
+      })().catch((error: unknown) => toast.fail('Couldn’t set the cover image', error));
     },
     onRemove: (noteId) => {
       void application.pageOperations.updateMetadata(noteId, {
@@ -1474,9 +1524,7 @@ export function PageHost({
       )
         // Counted only once the note exists; a failure is not a use (and is logged, as an unhandled rejection was).
         .then(() => application.templateUsageStore.recordUse(templatePageId))
-        .catch((error) =>
-          console.error('Creating a note from a template failed', error)
-        );
+        .catch((error: unknown) => toast.fail('Couldn’t create the note from the template', error));
     }
   };
 
@@ -1487,13 +1535,9 @@ export function PageHost({
     importFile: (file: { name: string; type: string }, bytes: Uint8Array) =>
       application.importPastedAsset(file.name, file.type, bytes),
     onFailed: (names: readonly string[]) =>
-      onShowToast?.({
-        tone: 'error',
-        text: `Couldn’t add ${names.length === 1 ? names[0] : `${names.length} pasted files`}`,
-      }),
+      toast.fail(`Couldn’t add ${names.length === 1 ? names[0] : `${names.length} pasted files`}`),
     onNotInserted: (stored: number) =>
-      onShowToast?.({
-        tone: 'default',
+      toast.show({
         text: `${stored === 1 ? 'Pasted file' : `${stored} pasted files`} saved to Assets, but not added to the note`,
       }),
   };
@@ -1567,9 +1611,7 @@ export function PageHost({
       // Counted only now that the application succeeded; a failure goes to the toast below and is not a use.
       .then(() => application.templateUsageStore.recordUse(templatePageId))
       // No focus call: the content is in the editor either way, and where the user types next is theirs to choose.
-      .catch(() =>
-        onShowToast?.({ tone: 'error', text: 'Couldn’t apply the template' })
-      );
+      .catch((error: unknown) => toast.fail('Couldn’t apply the template', error));
   };
 
 
@@ -1727,7 +1769,7 @@ export function PageHost({
           coverPositionAbove: 50,
           coverPositionSide: 50,
         });
-      })();
+      })().catch((error: unknown) => toast.fail('Couldn’t set the cover image', error));
     };
     // Folder-scoped counterpart to onSaveCoverPosition above.
     const onSaveFolderCoverPosition = (
@@ -1763,7 +1805,15 @@ export function PageHost({
       // The Archive page's page-level 'Delete all' — wired only for the Archive; every other
       // reserved folder keeps no top bar actions at all.
       ...(folderSystemLocationId === 'archive' && {
-        onDeleteAll: () => void deleteAllArchived(application, folder.id),
+        onDeleteAll: () =>
+          void deleteAllArchived(application, folder.id)
+            .then((result) => {
+              const message = deleteAllFailureMessage(result);
+              if (message) {
+                toast.fail(message, result.firstError);
+              }
+            })
+            .catch((error: unknown) => toast.fail('Couldn’t delete the items in Archive', error)),
         archiveIsEmpty: !hasArchivedItems(application, folder.id),
       }),
     });
@@ -1861,7 +1911,7 @@ export function PageHost({
       (collectionDefinition.kind === 'folder' ||
         collectionDefinition.kind === 'inbox' ||
         collectionDefinition.kind === 'templates')
-        ? { parentId: folder.id, actions: buildMoveDropActions(application) }
+        ? { parentId: folder.id, actions: buildMoveDropActions(application, toast) }
         : undefined;
 
     return (
@@ -2231,24 +2281,14 @@ export function PageHost({
           <TasksCollectionBody
             view={view === 'tasks-all' ? TASKS_TAB_VIEW[tasksTab] : view}
             tasks={[...vault.tasks()]}
-            onToggleComplete={(task) =>
-              void application.taskOperations.toggleComplete(task)
-            }
+            onToggleComplete={taskActions.toggleComplete}
             onOpenTask={(task) =>
               void application.pageOperations.open(task.sourcePageId)
             }
-            onChangeDueDate={(task, date) =>
-              void (date === null
-                ? application.taskOperations.clearDate(task)
-                : application.taskOperations.setDate(task, date))
-            }
+            onChangeDueDate={taskActions.changeDueDate}
             onEditTask={setEditingTask}
-            onDuplicateTask={(task) =>
-              void application.taskOperations.duplicate(task)
-            }
-            onDeleteTask={(task) =>
-              void application.taskOperations.delete(task)
-            }
+            onDuplicateTask={taskActions.duplicate}
+            onDeleteTask={taskActions.remove}
             displayConfig={tasksViewConfig}
             collectionView={collectionView}
             getSource={(task) => {
@@ -2399,7 +2439,9 @@ export function PageHost({
                       tagExpansionStore: application.tagExpansionStore,
                     },
                     view.tagName
-                  )(),
+                  )()
+                    .then((result) => reportTagBatch(toast, result, 'delete'))
+                    .catch((error: unknown) => toast.fail('Couldn’t delete the tag', error)),
               }}
               deleteConfirmationTitle={getTagDeleteConfirmationTitle(
                 view.tagName
@@ -2469,7 +2511,7 @@ export function PageHost({
             // The vault root's own collection: its folders and notes move like any other folder's.
             moveDrag={
               collectionDefinition.kind === 'workspace'
-                ? { parentId: null, actions: buildMoveDropActions(application) }
+                ? { parentId: null, actions: buildMoveDropActions(application, toast) }
                 : undefined
             }
             itemMenu={collectionItemMenu}
@@ -2874,7 +2916,7 @@ export function PageHost({
                 onDownloadPdfResource={downloadResourceById}
                 resolveImageResource={resolveImageResource}
                 onArchiveResource={(id) =>
-                  void application.resourceOperations.archiveResource(id)
+                  void archiveActions.archiveResource(id)
                 }
                 onRevealResourceInFinder={revealResourceInFinder}
                 onCopyResourcePath={copyResourcePath}
@@ -2969,7 +3011,7 @@ export function PageHost({
         application.pageOperations,
         application.folderOperations,
         application.effectivePageState,
-        { createMissing: false, openPage: onOpenPage }
+        { createMissing: false, openPage: onOpenPage, onCreateFailed: reportLinkedNoteFailure }
       )
     : resolveWikiLink;
   const editorResolveTag = isPageArchived
@@ -3193,7 +3235,7 @@ export function PageHost({
                   isPageArchived
                     ? undefined
                     : (id) =>
-                        void application.resourceOperations.archiveResource(id)
+                        void archiveActions.archiveResource(id)
                 }
                 onRevealResourceInFinder={
                   isPageArchived ? undefined : revealResourceInFinder

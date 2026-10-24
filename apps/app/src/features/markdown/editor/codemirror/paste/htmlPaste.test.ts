@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { history, undo, redo } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
+import { ensureSyntaxTree } from '@codemirror/language';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { GFM } from '@lezer/markdown';
@@ -118,6 +119,15 @@ describe('htmlToPieces', () => {
     expect(decodeDataImage('data:text/html;base64,AAAA')).toBeNull();
     expect(decodeDataImage('https://x.com/a.png')).toBeNull();
   });
+  it('converts a table to a GFM table, keeping inline formatting and escaping pipes', () => {
+    expect(
+      md('<p>Before</p><table><thead><tr><th>Query</th><th>Fields</th></tr></thead><tbody><tr><td><code>T</code></td><td>a | <strong>b</strong></td></tr><tr><td>x</td></tr></tbody></table><p>After</p>')
+    ).toEqual(['Before\n\n| Query | Fields |\n| --- | --- |\n| `T` | a \\| **b** |\n| x |  |\n\nAfter']);
+  });
+
+  it('leaves a layout table (block content in a cell) as plain blocks', () => {
+    expect(md('<table><tr><td><ul><li>a</li></ul></td></tr></table>')).toEqual(['- a']);
+  });
 });
 
 describe('pasting rich HTML', () => {
@@ -214,6 +224,36 @@ describe('pasting rich HTML', () => {
     await settle();
 
     expect(view.state.doc.toString().split('\n')).toHaveLength(3);
+  });
+  it('a longer rendered document keeps its tables as tables, with the surrounding content', async () => {
+    const { assets } = fakeAssets();
+    const view = mount('', assets);
+    const table = (rows: string) => `<table><thead><tr><th>Query</th><th>Search fields</th></tr></thead><tbody>${rows}</tbody></table>`;
+    const row = (a: string, b: string) => `<tr><td><code>${a}</code></td><td>${b}</td></tr>`;
+
+    paste(
+      view,
+      `<h2>1. Clarify query length</h2><p>Count <strong>non-whitespace</strong> characters.</p>${table(row('T', 'Titles only') + row('Tes', 'All fields'))}` +
+        `<ul><li>Words of 1–2 characters: no fuzzy matching.</li><li>Words of 3–5 characters: one edit.</li></ul>` +
+        `<p>Then rank:</p>${table(row('1', 'Exact title'))}<p>Done.</p>`,
+      'plain fallback that must not be used'
+    );
+    await settle();
+
+    const doc = view.state.doc.toString();
+    const tables: string[] = [];
+    ensureSyntaxTree(view.state, doc.length, 5000)!.iterate({
+      enter: (node) => {
+        if (node.name === 'Table') tables.push(doc.slice(node.from, node.to));
+      },
+    });
+
+    expect(tables).toEqual(['| Query | Search fields |\n| --- | --- |\n| `T` | Titles only |\n| `Tes` | All fields |', '| Query | Search fields |\n| --- | --- |\n| `1` | Exact title |']);
+    expect(doc).toContain('## 1. Clarify query length');
+    expect(doc).toContain('Count **non-whitespace** characters.');
+    expect(doc).toContain('- Words of 3–5 characters: one edit.');
+    expect(doc.endsWith('Done.')).toBe(true);
+    view.destroy();
   });
 });
 

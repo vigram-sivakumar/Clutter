@@ -52,6 +52,9 @@ import { getSystemLocationPresentation } from '@core/presentation/systemPresenta
 import { Dialog } from '@components/dialog/Dialog';
 import { Confirmation } from '@components/confirmation/Confirmation';
 import { useConfirmationSurface } from '@components/confirmation/useConfirmationSurface';
+import { useToast } from '@components/toast/ToastProvider';
+import { archiveFolderWithUndo, archiveResourceWithUndo } from '../helpers/archiveWithUndo';
+import { reportMoveFailure } from '../helpers/reportMoveFailure';
 import { downloadResource } from '@shared/helpers/downloadResource';
 import { createLocationActions } from '../helpers/createLocationActions';
 import { countFolderItems } from '../helpers/countFolderItems';
@@ -278,8 +281,9 @@ export function Notes({
   // window.confirm()-based helpers, which did not reliably render in the
   // Tauri desktop shell.
   const confirmation = useConfirmationSurface();
+  const toast = useToast();
 
-  const location = createLocationActions(vault.root);
+  const location = createLocationActions(vault.root, toast);
   const requestCreateTemplate = useRequestCreateTemplate();
 
   const rowActions: SidebarRowActions = {
@@ -289,6 +293,8 @@ export function Notes({
       pageOperations,
       folderOperations,
       membershipSelector,
+      toast,
+      isOpenPage: (pageId) => workspace.activePageId === pageId,
       openMenuId,
       onOpenMenu: (id) => setOpenMenuId(id),
       onCloseMenu: () => setOpenMenuId(null),
@@ -327,12 +333,17 @@ export function Notes({
           title: FOLDER_ARCHIVE_CONFIRMATION_TITLE,
           message,
           confirmLabel: FOLDER_ARCHIVE_CONFIRM_LABEL,
-          onConfirm: () => void folderOperations.archive(folderId),
+          onConfirm: () =>
+            void archiveFolderWithUndo({ vault, folderOperations, toast }, folderId, {
+              offerUndo: workspace.activeFolderId !== folderId,
+            }),
         });
         return;
       }
 
-      void folderOperations.archive(folderId);
+      void archiveFolderWithUndo({ vault, folderOperations, toast }, folderId, {
+        offerUndo: workspace.activeFolderId !== folderId,
+      });
     },
     // Same flow as the topbar's Move (PageHost.tsx): same
     // buildMoveDestinationItems helper (excludeFolderId keeps a folder out
@@ -346,7 +357,13 @@ export function Notes({
     // Returns the promise (the picker ignores it) so a drag-and-drop can observe a rejection.
     onMoveFolder: async (folderId, destinationFolderId) => {
       const from = vault.getFolder(folderId)?.parentId ?? null;
-      await folderOperations.move(folderId, destinationFolderId);
+      try {
+        await folderOperations.move(folderId, destinationFolderId);
+      } catch (error) {
+        // Reported here, then rethrown so a drop is rejected (the Move picker settles it).
+        reportMoveFailure(toast, 'folder', error);
+        throw error;
+      }
       // (Only reached when the move succeeded.)
       if (from !== destinationFolderId) {
         onItemLeftLevel?.(from, 'folder', folderId);
@@ -354,7 +371,12 @@ export function Notes({
     },
     onMoveNote: async (pageId, destinationFolderId) => {
       const from = vault.getPage(pageId)?.parentId ?? null;
-      await pageOperations.move(pageId, destinationFolderId);
+      try {
+        await pageOperations.move(pageId, destinationFolderId);
+      } catch (error) {
+        reportMoveFailure(toast, 'note', error);
+        throw error;
+      }
       if (from !== destinationFolderId) {
         onItemLeftLevel?.(from, 'note', pageId);
       }
@@ -368,18 +390,25 @@ export function Notes({
     // synchronous collision pre-check the way onNoteTitleCommit/
     // onFolderTitleCommit do.
     onResourceTitleCommit: (resourceId, value) => {
-      void resourceOperations.renameResource(resourceId, value);
+      void resourceOperations
+        .renameResource(resourceId, value)
+        .catch((error: unknown) => toast.fail('Couldn’t rename this file', error));
     },
     // Same no-confirmation shape as onArchiveNote above — a resource, like
     // a page, is always a single leaf with nothing nested inside it.
-    onArchiveResource: (resourceId) =>
-      void resourceOperations.archiveResource(resourceId),
+    onArchiveResource: (resourceId) => void archiveResourceWithUndo({ vault, resourceOperations, toast }, resourceId),
     // Same flow as Note/Folder's own Move (buildMoveDestinationItems +
     // *Operations.move), rooted at Assets: an Asset moves only within the
     // Assets hierarchy (ADR-049).
     resourceMoveDestinations: buildMoveDestinationItems(membershipSelector, undefined, 'assets'),
-    onMoveResource: (resourceId, destinationFolderId) =>
-      void resourceOperations.moveResource(resourceId, destinationFolderId),
+    onMoveResource: async (resourceId, destinationFolderId) => {
+      try {
+        await resourceOperations.moveResource(resourceId, destinationFolderId);
+      } catch (error) {
+        reportMoveFailure(toast, 'file', error);
+        throw error;
+      }
+    },
 
     // Location-actions pipeline — read-only OS/clipboard actions, so they
     // read straight from `vault` (getFolder/getResource + the

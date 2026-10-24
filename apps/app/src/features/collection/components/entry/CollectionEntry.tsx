@@ -25,7 +25,7 @@ export interface CollectionEntryProps extends Omit<
   title: string;
   /** Replaces the plain-text title (an inline rename editor, a task's compact-markdown title). */
   titleContent?: ReactNode;
-  description?: string;
+  description?: ReactNode;
   /**
    * Drawn right after the body (title + description), as its SIBLING in the entry's main row — never inside the body
    * or the title. The host supplies the `collection-entry__actions` element itself (Edit, a date picker…); see TaskTitleActions.
@@ -74,13 +74,17 @@ export const CollectionEntry = forwardRef<HTMLDivElement, CollectionEntryProps>(
           .join(' ')}
       >
         <div className="collection-entry__main">
-          {leading && (
-            <div className="collection-entry__leading">{leading}</div>
-          )}
-          {(titleContent || title) && (
+          {(leading || titleContent || title) && (
             <div className="collection-entry__body">
-              <div className="collection-entry__title">
-                {titleContent ?? title}
+              <div className="collection-entry__heading">
+                {leading && (
+                  <div className="collection-entry__leading">{leading}</div>
+                )}
+                {(titleContent || title) && (
+                  <div className="collection-entry__title">
+                    {titleContent ?? title}
+                  </div>
+                )}
               </div>
 
               {description && (

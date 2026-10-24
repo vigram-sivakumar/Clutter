@@ -11,6 +11,7 @@ import { isValidSpaceFolderName } from '@core/vault/ingest/spaceFolderName';
 import { VaultPath } from '@core/vault/ingest/VaultPath';
 import { SettingsEntry } from '@features/settings/settings-entry/SettingsEntry';
 import { Input } from '../input/Input';
+import { useToast } from '../toast/ToastProvider';
 import './SpaceDetails.css';
 import { AppIcon } from '@shared/icon';
 
@@ -119,11 +120,15 @@ export function SpaceDetails({
   hasTitle = true,
   isDismissible = true,
 }: SpaceDetailsProps) {
+  const toast = useToast();
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
   const avatarRef = useRef<HTMLDivElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isChanging, setIsChanging] = useState(false);
+  // Create on an unusable (empty) name: the name card shakes. Cleared by the animation's own end, so a
+  // later click can shake it again.
+  const [isShaking, setIsShaking] = useState(false);
   // Set once the folder exists, so a retry after a failed open opens it instead of trying to create it
   // again (which would rightly be refused). The folder is never deleted on a failed open.
   const [createdPath, setCreatedPath] = useState<string | null>(null);
@@ -152,7 +157,7 @@ export function SpaceDetails({
       await onChangeFolder();
       setCreatedPath(null);
     } catch (caught) {
-      console.error('Choosing a different folder failed:', caught);
+      toast.fail('Couldn’t change the folder', caught);
     } finally {
       setIsChanging(false);
     }
@@ -168,7 +173,7 @@ export function SpaceDetails({
   const avatarInitial = Array.from(folderName)[0]?.toUpperCase();
 
   // Create makes `<parent>/<trimmed name>` and then opens it as the space. An unusable name or a failure
-  // leaves the screen as it is (failures are only logged until the app-wide toast exists). Clicks while in
+  // leaves the screen as it is (a failure is reported with a toast; an unusable name shakes the name card). Clicks while in
   // flight are ignored.
   async function handleCreate() {
     if (isCreating) return;
@@ -177,6 +182,8 @@ export function SpaceDetails({
       (!isExisting || canRename) &&
       !isValidSpaceFolderName(draft.name)
     ) {
+      setIsShaking(true);
+      nameInputRef.current?.focus();
       return;
     }
     setIsCreating(true);
@@ -191,7 +198,8 @@ export function SpaceDetails({
       ) {
         const renamed = await onRenameFolder(draft.existingPath, folderName);
         if ('error' in renamed) {
-          console.error('Renaming the space failed:', renamed.error);
+          // The provider already logged why; its message is written for the user.
+          toast.fail(renamed.error);
           return;
         }
         path = renamed.path;
@@ -201,7 +209,7 @@ export function SpaceDetails({
           error: 'Something went wrong creating the space',
         };
         if ('error' in created) {
-          console.error('Creating the space failed:', created.error);
+          toast.fail(created.error);
           return;
         }
         path = created.path;
@@ -209,10 +217,10 @@ export function SpaceDetails({
       }
       const openError = await onOpenSpace(path, draft.avatar);
       if (openError !== null) {
-        console.error('Opening the space failed:', openError);
+        toast.fail(openError);
       }
     } catch (caught) {
-      console.error('Creating the space failed:', caught);
+      toast.fail('Couldn’t create the space', caught);
     } finally {
       setIsCreating(false);
     }
@@ -251,6 +259,8 @@ export function SpaceDetails({
 
       <div className="space-details__main">
         <SettingsEntry
+          className={isShaking ? 'space-details__name--shake' : undefined}
+          onAnimationEnd={() => setIsShaking(false)}
           description="Space name"
           labelFor="space-details-name"
           footer={

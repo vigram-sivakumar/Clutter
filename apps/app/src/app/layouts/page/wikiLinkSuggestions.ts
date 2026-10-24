@@ -32,11 +32,11 @@ import { canCreateReferencedPage, createReferencedPage } from './resolveWikiLink
  * page found by an alias carries it, so accepting inserts
  * `[[full/path|Alias]]` — the canonical path stays the target, the alias
  * is only the display text. No
- * fuzzy matching, no ranking beyond a fixed deterministic order — this
- * codebase has no existing search/fuzzy-match implementation to build on
- * (confirmed: `features/search/SearchPanel.tsx` is an unimplemented stub),
- * so inventing one here would be new, unreviewed matching infrastructure
- * for a single caller.
+ * fuzzy matching, no ranking beyond a fixed deterministic order. This is
+ * deliberately separate from the Search overlay's `SearchService`
+ * (`core/application/search`, ADR-061), which ranks across titles, aliases,
+ * tags and body text: autocomplete picks one page to link to, and stays the
+ * simplest title/alias match.
  */
 export function createWikiLinkSuggester(
   vault: Vault,
@@ -47,7 +47,9 @@ export function createWikiLinkSuggester(
    * offered: the popup lists what the user can see and edit, the same pages the pickers offer.
    * Default: the vault's own rule, `Vault.isPageEffectivelyArchived`.
    */
-  isArchived: (page: Page) => boolean = (page) => vault.isPageEffectivelyArchived(page)
+  isArchived: (page: Page) => boolean = (page) => vault.isPageEffectivelyArchived(page),
+  /** Told when creating the note an accepted "Create" suggestion names failed. Default: logs it. */
+  onCreateFailed?: (error: unknown) => void
 ): GetWikiLinkSuggestions {
   const livePages = () => Array.from(vault.pages()).filter((page) => !isArchived(page));
 
@@ -94,7 +96,9 @@ export function createWikiLinkSuggester(
         // Autocomplete acceptance is insertion-only — never navigates to
         // the newly created page (docs/editor-architecture-decisions.md's
         // "autocomplete acceptance is insertion-only" invariant).
-        void createReferencedPage(vault, folderOperations, pageOperations, path, false);
+        void createReferencedPage(vault, folderOperations, pageOperations, path, false).catch((error: unknown) =>
+          onCreateFailed ? onCreateFailed(error) : console.error('Creating the linked note failed', error)
+        );
       },
     };
 

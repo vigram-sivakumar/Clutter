@@ -5,6 +5,8 @@ import type { FolderOperations } from '@core/application/folder/FolderOperations
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import type { CollectionViewConfigStore } from '@core/application/collection/CollectionViewConfigStore';
 import type { Vault } from '@core/vault/models/Vault';
+import type { ToastApi } from '@components/toast/ToastProvider';
+import { reportMoveFailure } from './reportMoveFailure';
 
 /**
  * What a drop does, for a drag that began OUTSIDE the sidebar tree (a Collection View's card or note row): the
@@ -20,14 +22,20 @@ export function buildMoveDropActions(application: {
   readonly folderOperations: Pick<FolderOperations, 'move' | 'canMove'>;
   readonly membershipSelector: MembershipSelector;
   readonly collectionViewConfigStore: CollectionViewConfigStore;
-}): DropActions {
+}, toast: ToastApi): DropActions {
   const { vault, pageOperations, folderOperations, membershipSelector, collectionViewConfigStore: store } = application;
   const levelOrder = levelOrderContextFor(store, membershipSelector);
 
   return {
     onMoveNote: async (pageId, destinationFolderId) => {
       const from = vault.getPage(pageId)?.parentId ?? null;
-      await pageOperations.move(pageId, destinationFolderId);
+      try {
+        await pageOperations.move(pageId, destinationFolderId);
+      } catch (error) {
+        // Reported here, then rethrown so the drop is rejected and nothing after it runs.
+        reportMoveFailure(toast, 'note', error);
+        throw error;
+      }
       // (Only reached when the move succeeded.)
       if (from !== destinationFolderId) {
         forgetInLevelOrder(store, from, 'note', pageId);
@@ -35,7 +43,12 @@ export function buildMoveDropActions(application: {
     },
     onMoveFolder: async (folderId, destinationFolderId) => {
       const from = vault.getFolder(folderId)?.parentId ?? null;
-      await folderOperations.move(folderId, destinationFolderId);
+      try {
+        await folderOperations.move(folderId, destinationFolderId);
+      } catch (error) {
+        reportMoveFailure(toast, 'folder', error);
+        throw error;
+      }
       if (from !== destinationFolderId) {
         forgetInLevelOrder(store, from, 'folder', folderId);
       }

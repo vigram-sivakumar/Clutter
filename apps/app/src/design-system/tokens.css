@@ -136,6 +136,8 @@
 
   /* Z-index */
   --z-overlay: 1000;
+  /* Above every overlay (Overlay, ImageOverlay at +1, WelcomeBackground at +1): a toast must stay readable over them. */
+  --z-toast: calc(var(--z-overlay) + 2);
 
   /* Horizontal-rule mask shapes: the wavy rule (16x6 tile, 1.2px round-capped stroke) and the dotted rule (6x2 tile, one 2px dot).
      Painted with `mask-image` + `mask-repeat: repeat-x` over a `background-color`, so a rule's colour is a real token (a mask

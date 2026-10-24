@@ -20,6 +20,7 @@ import { FrontmatterSerializer } from '@core/vault/ingest/FrontmatterSerializer'
 import { UuidGenerator } from '@core/shared/identity/UuidGenerator';
 import { DailyNoteService } from '@core/application/daily-notes/DailyNoteService';
 import type { Page } from '@core/vault/models/Page';
+import { ToastProvider } from '@components/toast/ToastProvider';
 
 /**
  * Template usage through the real AppLayout -> PageHost: every successful use of a template is recorded once
@@ -153,7 +154,11 @@ async function flush(): Promise<void> {
 async function showNote(application: Application): Promise<void> {
   cleanup();
   await application.pageOperations.open('note-1');
-  render(<AppLayout application={application} />);
+  render(
+    <ToastProvider>
+      <AppLayout application={application} />
+    </ToastProvider>
+  );
   await flush();
 }
 
@@ -161,7 +166,11 @@ async function showNote(application: Application): Promise<void> {
 async function showFolder(application: Application): Promise<void> {
   cleanup();
   await application.folderOperations.open(PROJECTS);
-  render(<AppLayout application={application} />);
+  render(
+    <ToastProvider>
+      <AppLayout application={application} />
+    </ToastProvider>
+  );
   await flush();
 }
 

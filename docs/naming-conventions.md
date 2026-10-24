@@ -227,7 +227,7 @@ Section.Header.tsx
 Standalone feature components do not use dot notation even when rendered inside the sidebar:
 
 ```
-SearchPanel.tsx      ✓   not Sidebar.Search.tsx
+SearchOverlay.tsx    ✓   not Sidebar.Search.tsx
 ```
 
 Co-located type/context files for a component:
@@ -363,7 +363,7 @@ The filename should match the primary exported symbol.
 | ------------------------------ | ---------------------------------------------- | ------ |
 | `PageHost.tsx`                 | `PageHost`                                     | ✓      |
 | `MarkdownEditor.tsx`           | `MarkdownEditor`                               | ✓      |
-| `SearchPanel.tsx`              | `SearchPanel`                                  | ✓      |
+| `SearchOverlay.tsx`            | `SearchOverlay`                                | ✓      |
 | `buildTopBarActions.tsx`       | `buildTopBarActions`                           | ✓      |
 | `buildNotesShortcutHandler.ts` | `buildNotesShortcutHandler`                    | ✓      |
 | `TagColors.ts`                 | `TagColors`, `tagColorsFromPalette`            | ✓      |

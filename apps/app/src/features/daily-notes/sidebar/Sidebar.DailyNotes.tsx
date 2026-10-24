@@ -15,7 +15,9 @@ import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
 import { createPageEmbedResolver } from '@app/layouts/page/resolvePageEmbed';
 import { revealInFinder } from '@shared/helpers/revealInFinder';
 import { useRequestCreateTemplate } from '@app/layouts/createTemplate/CreateTemplateProvider';
-import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
+import { copyWithFeedback } from '@shared/helpers/copyWithFeedback';
+import { useToast } from '@components/toast/ToastProvider';
+import { archivePageWithUndo } from '@features/notes/helpers/archiveWithUndo';
 import {
   getLocationPathRepresentations,
   pickLocationPathRepresentation,
@@ -59,6 +61,7 @@ export function DailyNotes({
   onOpenDate,
 }: DailyNotesPanelProps) {
   const requestCreateTemplate = useRequestCreateTemplate();
+  const toast = useToast();
   // Single owner of "which row's overflow menu is open" — same pattern and
   // same reason as Sidebar.Notes.tsx's rowActions: shared across every row
   // in this tab so only one menu is ever open at a time.
@@ -81,7 +84,10 @@ export function DailyNotes({
     onOpenMenu: (id) => setOpenMenuId(id),
     onCloseMenu: () => setOpenMenuId(null),
 
-    onArchiveNote: (pageId) => void pageOperations.archive(pageId),
+    onArchiveNote: (pageId) =>
+      void archivePageWithUndo({ vault, pageOperations, toast }, pageId, {
+        offerUndo: workspace.activePageId !== pageId,
+      }),
     onChangeNoteIcon: (pageId, emoji) =>
       void pageOperations.updateMetadata(pageId, { icon: emoji }),
     onCreateTemplate: (pageId) => requestCreateTemplate?.(pageId),
@@ -109,7 +115,7 @@ export function DailyNotes({
       const value = pickLocationPathRepresentation(representations, format);
 
       if (value !== null) {
-        void copyTextToClipboard(value);
+        void copyWithFeedback(value, format === 'as-markdown' ? 'Link copied' : 'Path copied', toast);
       }
     },
   };

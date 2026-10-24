@@ -70,7 +70,7 @@ export function CollectionTableCell(props: CollectionTableCellProps) {
       return (
         <CollectionEntry
           layout="cell"
-          className={join('collection-table-cell', 'collection-table-cell--header', props.className)}
+          className={join('collection-table-cell', 'collection-table-cell--header', 'collection-entry--name-cell', props.className)}
           leading={props.leading ?? (props.icon || props.emoji ? <AppIcon icon={props.icon} emoji={props.emoji} /> : undefined)}
           title={props.title ?? ''}
           titleContent={props.titleContent}

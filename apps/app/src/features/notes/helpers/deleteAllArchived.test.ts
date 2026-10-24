@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { deleteAllArchived, hasArchivedItems } from './deleteAllArchived';
+import { deleteAllArchived, deleteAllFailureMessage, hasArchivedItems } from './deleteAllArchived';
 import type { DeleteAllArchivedDeps } from './deleteAllArchived';
 
 const TRASH = 'archive-folder';
@@ -43,21 +43,40 @@ describe('deleteAllArchived', () => {
   it('is a no-op for an already-empty Trash', async () => {
     const { deps, mocks } = setup();
 
-    await expect(deleteAllArchived(deps, TRASH)).resolves.toBeUndefined();
+    await expect(deleteAllArchived(deps, TRASH)).resolves.toEqual({ total: 0, failed: 0 });
 
     expect(mocks.resourceOperations.deleteResource).not.toHaveBeenCalled();
     expect(mocks.pageOperations.delete).not.toHaveBeenCalled();
     expect(mocks.folderOperations.delete).not.toHaveBeenCalled();
   });
 
-  it('attempts every item even when one fails, then rethrows the first failure', async () => {
+  it('attempts every item even when one fails, and reports the partial result', async () => {
     const { deps, mocks } = setup({ resources: ['r1'], pages: ['p1'], folders: ['f1'] });
-    mocks.pageOperations.delete.mockRejectedValueOnce(new Error('boom'));
+    const boom = new Error('boom');
+    mocks.pageOperations.delete.mockRejectedValueOnce(boom);
 
-    await expect(deleteAllArchived(deps, TRASH)).rejects.toThrow('boom');
+    const result = await deleteAllArchived(deps, TRASH);
+
+    expect(result).toEqual({ total: 3, failed: 1, firstError: boom });
 
     expect(mocks.resourceOperations.deleteResource).toHaveBeenCalledWith('r1');
     expect(mocks.folderOperations.delete).toHaveBeenCalledWith('f1');
+  });
+});
+
+describe('deleteAllFailureMessage', () => {
+  it('is null when everything was deleted', () => {
+    expect(deleteAllFailureMessage({ total: 3, failed: 0 })).toBeNull();
+    expect(deleteAllFailureMessage({ total: 0, failed: 0 })).toBeNull();
+  });
+
+  it('says how many were left on a partial failure, and does not claim everything failed', () => {
+    expect(deleteAllFailureMessage({ total: 5, failed: 2 })).toBe('Couldn’t delete 2 of 5 items');
+  });
+
+  it('names a total failure as such', () => {
+    expect(deleteAllFailureMessage({ total: 1, failed: 1 })).toBe('Couldn’t delete this item');
+    expect(deleteAllFailureMessage({ total: 4, failed: 4 })).toBe('Couldn’t delete these items');
   });
 });
 

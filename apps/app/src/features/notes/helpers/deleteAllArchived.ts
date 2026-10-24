@@ -22,17 +22,41 @@ export function hasArchivedItems(
   );
 }
 
+/** What a "Delete all" did: how many top-level items it tried, how many could not be deleted, and the first error. */
+export interface DeleteAllArchivedResult {
+  readonly total: number;
+  readonly failed: number;
+  readonly firstError?: unknown;
+}
+
+/**
+ * The user-facing message for a "Delete all" that did not finish, or `null` when everything was deleted.
+ * A partial failure says how many were left, not that the whole operation failed.
+ */
+export function deleteAllFailureMessage({ total, failed }: DeleteAllArchivedResult): string | null {
+  if (failed === 0) {
+    return null;
+  }
+
+  if (failed === total) {
+    return total === 1 ? 'Couldn’t delete this item' : 'Couldn’t delete these items';
+  }
+
+  return `Couldn’t delete ${failed} of ${total} items`;
+}
+
 /**
  * The Archive page's "Delete all": permanently deletes every archived file, note and folder, each
  * through its aggregate's own delete (so each runs the Persistence Gate's delete operation — no
  * second write path). Files go first: a folder's delete takes its contents with it, so deleting
  * files afterwards would find them already gone. Every item is attempted even if one fails; the
- * first failure is rethrown at the end. An empty Archive is a no-op.
+ * result says how many failed (and the first error), so the caller can report a partial failure
+ * honestly. An empty Archive is a no-op.
  */
 export async function deleteAllArchived(
   deps: DeleteAllArchivedDeps,
   archiveFolderId: string
-): Promise<void> {
+): Promise<DeleteAllArchivedResult> {
   const { membershipSelector, folderOperations, pageOperations, resourceOperations } = deps;
 
   const deletions: Array<() => Promise<void>> = [
@@ -47,21 +71,21 @@ export async function deleteAllArchived(
       .map((folder) => () => folderOperations.delete(folder.id)),
   ];
 
+  let failed = 0;
   let firstError: unknown;
-  let failed = false;
 
   for (const run of deletions) {
     try {
       await run();
     } catch (error) {
-      if (!failed) {
-        failed = true;
+      if (failed === 0) {
         firstError = error;
       }
+      failed += 1;
     }
   }
 
-  if (failed) {
-    throw firstError;
-  }
+  return failed === 0
+    ? { total: deletions.length, failed }
+    : { total: deletions.length, failed, firstError };
 }

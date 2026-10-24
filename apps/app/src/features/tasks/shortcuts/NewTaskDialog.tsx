@@ -32,7 +32,7 @@ export function NewTaskDialog(props: NewTaskDialogProps) {
   const { open, onClose } = props;
 
   return (
-    <Dialog open={open} onClose={onClose} size="large" top={240} scrim="strong" dismissible={false}>
+    <Dialog open={open} onClose={onClose} size="large" top={240} scrim="strong">
       <NewTaskContent
         onClose={onClose}
         onSubmit={props.editing ? props.onSaveTask : props.onCreateTask}

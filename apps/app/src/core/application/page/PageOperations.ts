@@ -1090,8 +1090,25 @@ export class PageOperations {
       return;
     }
 
+    const changed = titleState.currentValue !== titleState.savedValue;
     titleState.commit(titleState.savedValue);
     this.saveCoordinator.cancelTimers(this.titleChannelKey(pageId));
+
+    if (changed) {
+      this.workspace.refresh();
+    }
+  }
+
+  /**
+   * The page's title as the user has typed it but not yet saved — undefined when there is no unsaved edit (the
+   * Vault's own `Page.name` is then the title). Read-only: the title state stays owned by this class, and the
+   * value is the same one the title channel is about to persist through `rename()`. A change is announced through
+   * `Workspace.refresh()` (see commitTitle), so `EffectivePageState` observers re-read it.
+   */
+  public getLiveTitle(pageId: string): string | undefined {
+    const titleState = this.titleStates.get(pageId);
+
+    return titleState && titleState.isDirty ? titleState.currentValue : undefined;
   }
 
   /** The description channel's counterpart to cancelTitleEdit() — same contract. */
@@ -1355,7 +1372,15 @@ export class PageOperations {
       this.titleStates.get(pageId) ?? new FieldEditState(page.name);
 
     this.titleStates.set(pageId, titleState);
+
+    const changed = titleState.currentValue !== title;
     titleState.commit(title);
+
+    // Observers (EffectivePageState, and so Search) learn of an unsaved title now, not when its rename lands:
+    // the same Workspace notification updateDraftTitle() already uses for a draft's title.
+    if (changed) {
+      this.workspace.refresh();
+    }
 
     this.saveCoordinator.scheduleSave(
       this.titleChannelKey(pageId),

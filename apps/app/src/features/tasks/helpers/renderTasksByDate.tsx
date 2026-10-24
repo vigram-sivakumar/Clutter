@@ -28,7 +28,6 @@ import { formatTaskTitle } from './formatTaskTitle';
 import { isPast, isToday } from '@shared/helpers/time';
 import { EmptyEntry } from '@components/entry/EmptyEntry';
 import { ShowMoreEntry } from '@components/entry/ShowMoreEntry';
-import { AppIcon } from '@shared/icon';
 
 /** A sidebar list shows this many tasks unless the caller passes the user's own limit; the rest sit behind its "N more" row. */
 export const SIDEBAR_GROUP_TASK_LIMIT = 10;

@@ -1,5 +1,5 @@
 import { revealInFinder } from '@shared/helpers/revealInFinder';
-import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
+import { copyWithFeedback, type CopyNotifier } from '@shared/helpers/copyWithFeedback';
 import {
   getLocationPathRepresentations,
   pickLocationPathRepresentation,
@@ -13,7 +13,7 @@ import {
  * absolute path, then reveal it / pick the chosen representation and copy it. Never touches the
  * Gate or `Vault`; it only reads the entity it is handed and the vault's root.
  */
-export function createLocationActions(vaultRoot: string) {
+export function createLocationActions(vaultRoot: string, notifier?: CopyNotifier) {
   function reveal(entityPath: string | undefined): void {
     if (entityPath) {
       void revealInFinder(entityPath);
@@ -35,7 +35,7 @@ export function createLocationActions(vaultRoot: string) {
     );
 
     if (value !== null) {
-      void copyTextToClipboard(value);
+      void copyWithFeedback(value, format === 'as-markdown' ? 'Link copied' : 'Path copied', notifier);
     }
   }
 

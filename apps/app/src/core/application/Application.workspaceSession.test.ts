@@ -146,11 +146,21 @@ describe('Application.open — restore last session (ADR-035)', () => {
     const { application, fileSystem } = await boot([], session(null, 'tags'));
     expect(application.workspace.activeSidebarTab).toBe('tags');
 
-    await application.open({ sidebarTab: 'search' });
-    expect(application.workspace.activeSidebarTab).toBe('search');
+    await application.open({ sidebarTab: 'tasks' });
+    expect(application.workspace.activeSidebarTab).toBe('tasks');
 
     await application.close();
-    expect((await persistedSession(fileSystem)).workspaceSession.navigation.activeSidebarTab).toBe('search');
+    expect((await persistedSession(fileSystem)).workspaceSession.navigation.activeSidebarTab).toBe('tasks');
+  });
+
+  it('a session saved on the old Search tab opens on Notes', async () => {
+    const { application, fileSystem } = await boot([], session(null, 'search'));
+    await application.open();
+
+    expect(application.workspace.activeSidebarTab).toBe('notes');
+
+    await application.close();
+    expect((await persistedSession(fileSystem)).workspaceSession.navigation.activeSidebarTab).toBe('notes');
   });
 
   it('keeps the saved sidebar tab when no default tab is given', async () => {

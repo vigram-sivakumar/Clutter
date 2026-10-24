@@ -18,6 +18,15 @@ export interface DropActions {
   ): void;
 }
 
+/**
+ * For the Move picker, which has no use for the move's promise: a move that fails has already been reported
+ * by the handler (which rethrows only so a drop can tell), so the rejection is settled here instead of
+ * surfacing as unhandled.
+ */
+export function settleMove(move: void | Promise<void>): void {
+  void Promise.resolve(move).catch(() => undefined);
+}
+
 export type DropOutcome = 'moved' | 'reordered' | 'ignored' | 'rejected';
 
 /**

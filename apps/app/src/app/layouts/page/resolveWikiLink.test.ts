@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Vault } from '@core/vault/models/Vault';
 import { VaultProjectionBuilder } from '@core/vault/knowledge/VaultProjectionBuilder';
@@ -8,6 +8,9 @@ import type { Page } from '@core/vault/models/Page';
 import type { Folder } from '@core/vault/models/Folder';
 import type { CreatePageOptions, PageOperations } from '@core/application/page/PageOperations';
 import type { FolderOperations } from '@core/application/folder/FolderOperations';
+
+import { formatDateDisplay } from '@shared/helpers/time';
+import { writeDateFormatChoice } from '@shared/helpers/time/dateFormatPreference';
 
 import { createWikiLinkResolver } from './resolveWikiLink';
 
@@ -825,5 +828,65 @@ describe('activating a wiki link with a heading (openPage)', () => {
     resolve('Alpha#Decisions', null).activate();
 
     expect(open).toHaveBeenCalledWith('p1');
+  });
+});
+
+describe('createWikiLinkResolver — Daily Note display label follows the Date format', () => {
+  const dailyPath = '/vault/Daily Notes/2026/September/2026-09-30.md';
+  const target = 'Daily Notes/2026/September/2026-09-30';
+
+  function resolverFor(pages: Page[]) {
+    const vault = makeVault(pages);
+    return createWikiLinkResolver(vault, fakePageOperations(vault), fakeFolderOperations(vault));
+  }
+
+  beforeEach(() => {
+    const store = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => void store.set(key, value),
+      removeItem: (key: string) => void store.delete(key),
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it('shows the configured format, never the raw ISO name', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 9, 4, 12));
+    const resolve = resolverFor([makePage({ id: 'd1', path: dailyPath, name: '2026-09-30', type: 'daily-note' })]);
+
+    writeDateFormatChoice('dmy');
+    expect(resolve(target, null).displayLabel).toBe(formatDateDisplay('2026-09-30', 'heading', new Date(2026, 9, 4, 12), { format: 'dmy' }));
+    expect(resolve(target, null).displayLabel).not.toContain('2026-09-30');
+
+    writeDateFormatChoice('ymd');
+    expect(resolve(target, null).displayLabel).toBe(formatDateDisplay('2026-09-30', 'heading', new Date(2026, 9, 4, 12), { format: 'ymd' }));
+  });
+
+  it('changing the format changes only the label, not the target', () => {
+    const resolve = resolverFor([makePage({ id: 'd1', path: dailyPath, name: '2026-09-30', type: 'daily-note' })]);
+    writeDateFormatChoice('dmy');
+    const dmy = resolve(target, null);
+    writeDateFormatChoice('mdy');
+    const mdy = resolve(target, null);
+
+    expect(dmy.displayLabel).not.toBe(mdy.displayLabel);
+    expect(dmy.status === 'resolved' && mdy.status === 'resolved' && dmy.pageId === mdy.pageId).toBe(true);
+  });
+
+  it('keeps a local alias over the formatted date', () => {
+    const resolve = resolverFor([makePage({ id: 'd1', path: dailyPath, name: '2026-09-30', type: 'daily-note' })]);
+    writeDateFormatChoice('dmy');
+    expect(resolve(target, 'standup').displayLabel).toBe('standup');
+  });
+
+  it('leaves an ordinary note whose name looks like a date untouched', () => {
+    const resolve = resolverFor([makePage({ id: 'n1', path: '/vault/2026-09-30.md', name: '2026-09-30' })]);
+    writeDateFormatChoice('dmy');
+    expect(resolve('2026-09-30', null).displayLabel).toBe('2026-09-30');
   });
 });

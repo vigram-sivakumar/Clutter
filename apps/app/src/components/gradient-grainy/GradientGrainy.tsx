@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useCallback, useState, type CSSProperties } from 'react';
 import './GradientGrainy.css';
 
 interface Palette {
@@ -14,9 +14,10 @@ interface Palette {
  */
 const PALETTES = {
   peach: { bg: '#ffd9b8', blobs: ['#e5392f', '#ff8a1f', '#ffb347'] },
-  iris: { bg: '#d6c8fb', blobs: ['#5b50ee', '#2b25ad', '#17107a'] },
-  nebula: { bg: '#fbe6f3', blobs: ['#0f6bff', '#a259d9', '#2a1f8f'] },
+  iris: { bg: '#d9c8fb', blobs: ['#5b50ee', '#2b25ad', '#17107a'] },
   magenta: { bg: '#f9b5c4', blobs: ['#ff2d95', '#ff7aa8', '#ffc2a0'] },
+  sky: { bg: '#e8f3ff', blobs: ['#1d7ae8', '#5fa8f5', '#a9d2fb'] },
+  orchid: { bg: '#f2eef3', blobs: ['#9a22b8', '#4e17a6', '#d98bbd'] },
 } as const satisfies Record<string, Palette>;
 
 export type GradientGrainyPalette = keyof typeof PALETTES;
@@ -56,12 +57,36 @@ function randomBlobs(colours: Palette['blobs']): CSSProperties[] {
   })) as CSSProperties[];
 }
 
+/** App-global, the same raw localStorage convention as the other per-device preferences. */
+const LAST_PALETTE_KEY = 'clutter-gradient-grainy-last-palette';
+
+function readLastPalette(): GradientGrainyPalette | null {
+  try {
+    const stored = localStorage.getItem(LAST_PALETTE_KEY);
+    return GRADIENT_GRAINY_PALETTES.find((name) => name === stored) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function rememberPalette(name: GradientGrainyPalette): void {
+  try {
+    localStorage.setItem(LAST_PALETTE_KEY, name);
+  } catch {
+    // Best-effort: an unwritable store only means the next pick may repeat this one.
+  }
+}
+
+/** A random palette that is not the one shown last time (so launching twice never looks the same). Only reads. */
+function pickPalette(): GradientGrainyPalette {
+  const last = readLastPalette();
+  const candidates = GRADIENT_GRAINY_PALETTES.filter((name) => name !== last);
+  const pool = candidates.length > 0 ? candidates : GRADIENT_GRAINY_PALETTES;
+  return pool[Math.floor(Math.random() * pool.length)]!;
+}
+
 function randomLook(palette?: GradientGrainyPalette) {
-  const name =
-    palette ??
-    GRADIENT_GRAINY_PALETTES[
-      Math.floor(Math.random() * GRADIENT_GRAINY_PALETTES.length)
-    ]!;
+  const name = palette ?? pickPalette();
   const { bg, blobs } = PALETTES[name];
 
   return {
@@ -74,7 +99,7 @@ function randomLook(palette?: GradientGrainyPalette) {
 /**
  * A soft gradient with a fine film grain over it: three large colour blobs on a flat colour, each slowly
  * drifting, turning and stretching from one organic shape to another. Palette and blob positions are random per
- * mount (and then stay put while it is shown). A decorative background layer — it fills its nearest positioned
+ * mount (and then stay put while it is shown). With no `palette`, it picks at random but never the palette shown last time (remembered across launches). A decorative background layer — it fills its nearest positioned
  * ancestor, clips its own overflow, and never takes a click.
  *
  * Built to cost almost nothing to run: the blobs' softness is painted into their gradients (no blur filter), and
@@ -86,8 +111,18 @@ function randomLook(palette?: GradientGrainyPalette) {
 export function GradientGrainy({ palette, className }: GradientGrainyProps) {
   const [look] = useState(() => randomLook(palette));
 
+  // Remembers the palette that actually mounted (not merely one that was picked: StrictMode picks twice and
+  // keeps one). A ref callback rather than an effect; a fixed `palette` is the caller's choice and is left out.
+  const remember = useCallback(
+    (element: HTMLDivElement | null) => {
+      if (element && !palette) rememberPalette(look.name);
+    },
+    [palette, look.name]
+  );
+
   return (
     <div
+      ref={remember}
       className={['gradient-grainy', className].filter(Boolean).join(' ')}
       data-palette={look.name}
       style={look.style}

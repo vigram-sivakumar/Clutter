@@ -34,7 +34,7 @@ beforeEach(() => localStorage.clear());
 afterEach(cleanup);
 
 describe('SidebarSetting', () => {
-  it('defaults to "Last selected tab", listed first, then the five tabs in order, without icons', () => {
+  it('defaults to "Last selected tab", listed first, then the four tabs in order, without icons', () => {
     render(<SidebarSetting />);
     expect(trigger()).toHaveTextContent('Last selected tab');
     expect(readUseLastSidebarTab()).toBe(true);
@@ -47,7 +47,6 @@ describe('SidebarSetting', () => {
       'Daily notes',
       'Tasks',
       'Tags',
-      'Search',
     ]);
     expect(items().some((i) => i.querySelector('.entry__leading'))).toBe(false);
   });
@@ -73,7 +72,6 @@ describe('SidebarSetting', () => {
     ['Daily notes', 'daily-notes'],
     ['Tasks', 'tasks'],
     ['Tags', 'tags'],
-    ['Search', 'search'],
   ])(
     'choosing %s configures %s, persists it and closes the menu',
     (name, id) => {
@@ -112,6 +110,39 @@ describe('SidebarSetting', () => {
     expect(readDefaultSidebarTab()).toBe('tags');
     choose('Tags');
     expect(readLaunchSidebarTab()).toBe('tags');
+  });
+
+  it('does not offer Search — it is an overlay, not a tab to start on', () => {
+    render(<SidebarSetting />);
+    fireEvent.click(trigger());
+    expect(labels()).not.toContain('Search');
+  });
+
+  it('a saved choice of the old Search tab opens Notes, and the setting shows Notes', () => {
+    localStorage.setItem(KEY, 'search');
+    localStorage.setItem('clutter-use-last-sidebar-tab', 'false');
+
+    expect(readDefaultSidebarTab()).toBe('notes');
+    expect(readLaunchSidebarTab()).toBe('notes');
+
+    render(<SidebarSetting />);
+    expect(trigger()).toHaveTextContent('Notes');
+  });
+
+  it('a saved Search choice leaves "Last selected tab" as it was', () => {
+    localStorage.setItem(KEY, 'search');
+
+    expect(readUseLastSidebarTab()).toBe(true);
+    expect(readLaunchSidebarTab()).toBeUndefined();
+  });
+
+  it('every other saved tab is still honoured', () => {
+    localStorage.setItem('clutter-use-last-sidebar-tab', 'false');
+
+    for (const tab of ['notes', 'daily-notes', 'tasks', 'tags']) {
+      localStorage.setItem(KEY, tab);
+      expect(readLaunchSidebarTab()).toBe(tab);
+    }
   });
 
   it.each([null, '', 'bogus', 'Notes'])(

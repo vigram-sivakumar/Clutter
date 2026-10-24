@@ -70,14 +70,14 @@ describe('CollectionBody — List mode (viewMode="list")', () => {
   });
 
   it('shows subfolder/note counts on the folder card', () => {
-    const { getByText } = render(
+    render(
       <CollectionBody
         folders={[folderEntry({ subfolderCount: 2, noteCount: 5 })]}
         viewMode="list"
       />
     );
 
-    expect(getByText('2 Subfolders · 5 Notes')).toBeInTheDocument();
+    expect(document.body.querySelector('.collection-entry--folder-card .collection-entry__description')).toHaveTextContent('2 Subfolders 5 Notes');
   });
 
   it('renders an empty collection with no rows and no crash', () => {
@@ -389,7 +389,7 @@ describe('CollectionBody — Properties visibility', () => {
     );
 
     expect(getByText('My Folder')).toBeInTheDocument();
-    expect(getByText('1 Subfolders · 2 Notes')).toBeInTheDocument();
+    expect(document.body.querySelector('.collection-entry--folder-card .collection-entry__description')).toHaveTextContent('1 Subfolders 2 Notes');
   });
 
   it('Table mode: an unchecked column removes its header cell entirely, not just its row values', () => {

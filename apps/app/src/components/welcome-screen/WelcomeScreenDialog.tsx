@@ -8,6 +8,7 @@ import {
   type NewSpaceDraft,
 } from '../space-details/SpaceDetails';
 import { WelcomeScreen } from './WelcomeScreen';
+import { useToast } from '../toast/ToastProvider';
 
 interface WelcomeScreenDialogProps {
   /** Native picker. The chosen folder's settings draft, a message when it can't be used, or `null` when cancelled. */
@@ -34,6 +35,7 @@ export function WelcomeScreenDialog({
   onOpenSpace,
   resolveImageUrl,
 }: WelcomeScreenDialogProps) {
+  const toast = useToast();
   const [draft, setDraft] = useState<NewSpaceDraft | null>(null);
 
   async function startNewSpace(): Promise<string | null> {
@@ -43,7 +45,7 @@ export function WelcomeScreenDialog({
       return null;
     } catch (error) {
       console.error('Resolving the Documents folder failed:', error);
-      return "Couldn't find your Documents folder.";
+      return 'Couldn’t find your Documents folder';
     }
   }
 
@@ -60,7 +62,7 @@ export function WelcomeScreenDialog({
     const picked = await onSelectFolder();
     if (picked === null) return;
     if (typeof picked === 'string') {
-      console.error('The chosen folder can’t be used:', picked);
+      toast.fail(picked);
       return;
     }
     setDraft(picked);

@@ -135,6 +135,15 @@ describe('WorkspaceSessionStore — load()', () => {
     expect(store.restoredSession.collapsedSections).toEqual(['favorites']);
   });
 
+  it('a saved Search tab (Search is an overlay now) restores to Notes', async () => {
+    const store = await WorkspaceSessionStore.load(
+      fileWith({ ...FULL_SESSION, navigation: { activeSidebarTab: 'search', activeView: null } }),
+      ROOT
+    );
+
+    expect(store.restoredSession.activeSidebarTab).toBe('notes');
+  });
+
   it('an unknown sidebar tab is ignored', async () => {
     const store = await WorkspaceSessionStore.load(
       fileWith({ ...FULL_SESSION, navigation: { activeSidebarTab: 'calendar', activeView: null } }),

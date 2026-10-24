@@ -17,12 +17,16 @@ function setup(isSidebarVisible = true) {
   const navigation = { back: vi.fn(), forward: vi.fn() };
   const workspace = { setActiveSidebarTab: vi.fn() };
   const toggleSidebar = vi.fn();
+  const openSearch = vi.fn();
   render(
     <ShortcutsProvider>
-      <Layout navigation={navigation} workspace={workspace} isSidebarVisible={isSidebarVisible} toggleSidebar={toggleSidebar} />
+      <Layout navigation={navigation} workspace={workspace} isSidebarVisible={isSidebarVisible}
+        toggleSidebar={toggleSidebar}
+        openSearch={openSearch}
+      />
     </ShortcutsProvider>
   );
-  return { navigation, workspace, toggleSidebar };
+  return { navigation, workspace, toggleSidebar, openSearch };
 }
 
 const press = (init: KeyboardEventInit & { code: string }) =>
@@ -50,21 +54,34 @@ describe('useLayoutShortcuts', () => {
     expect(toggleSidebar).toHaveBeenCalledOnce();
   });
 
-  it('⌘1–⌘4 and ⌘K switch the sidebar tab and leave a visible sidebar alone', () => {
+  it('⌘1–⌘4 switch the sidebar tab and leave a visible sidebar alone', () => {
     const { workspace, toggleSidebar } = setup(true);
     press({ code: 'Digit1' });
     press({ code: 'Digit2' });
     press({ code: 'Digit3' });
     press({ code: 'Digit4' });
-    press({ code: 'KeyK' });
     expect(workspace.setActiveSidebarTab.mock.calls.map(([tab]) => tab)).toEqual([
       'notes',
       'daily-notes',
       'tasks',
       'tags',
-      'search',
     ]);
     expect(toggleSidebar).not.toHaveBeenCalled();
+  });
+
+  it('⌘K opens the Search overlay without switching tabs or showing the sidebar', () => {
+    const { workspace, toggleSidebar, openSearch } = setup(false);
+    press({ code: 'KeyK' });
+    expect(openSearch).toHaveBeenCalledOnce();
+    expect(workspace.setActiveSidebarTab).not.toHaveBeenCalled();
+    expect(toggleSidebar).not.toHaveBeenCalled();
+  });
+
+  it('Ctrl+K opens the Search overlay on Windows and Linux', () => {
+    vi.spyOn(navigator, 'platform', 'get').mockReturnValue('Win32');
+    const { openSearch } = setup();
+    press({ code: 'KeyK', metaKey: false, ctrlKey: true });
+    expect(openSearch).toHaveBeenCalledOnce();
   });
 
   it('shows a collapsed sidebar when a tab shortcut needs it', () => {

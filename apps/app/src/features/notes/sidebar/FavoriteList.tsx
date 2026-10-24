@@ -14,6 +14,7 @@ import type { SidebarRowActions } from './FolderTree';
 import type { Workspace } from '@core/workspace/Workspace';
 import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
 import type { ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbedResolution';
+import { settleMove } from './executeDrop';
 
 interface FavoriteListProps {
   items: FavoriteItem[];
@@ -124,7 +125,7 @@ export function FavoriteList({
           moveDestinations={rowActions ? rowActions.noteMoveDestinations : undefined}
           onMove={
             rowActions
-              ? (destinationFolderId) => rowActions.onMoveNote(item.id, destinationFolderId)
+              ? (destinationFolderId) => settleMove(rowActions.onMoveNote(item.id, destinationFolderId))
               : undefined
           }
           onCreateFolder={rowActions ? rowActions.onCreateFolder : undefined}
@@ -191,7 +192,7 @@ export function FavoriteList({
         }
         onMove={
           rowActions
-            ? (destinationFolderId) => rowActions.onMoveFolder(item.id, destinationFolderId)
+            ? (destinationFolderId) => settleMove(rowActions.onMoveFolder(item.id, destinationFolderId))
             : undefined
         }
         onCreateFolder={

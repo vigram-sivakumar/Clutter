@@ -13,6 +13,8 @@ import { TasksShortcuts } from '@features/tasks/shortcuts/TasksShortcuts';
 import { createTagResolver } from '@app/layouts/page/resolveTag';
 import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
 import { createPageEmbedResolver } from '@app/layouts/page/resolvePageEmbed';
+import { useToast } from '@components/toast/ToastProvider';
+import { createTaskActions } from '../helpers/createTaskActions';
 import { useGroupTasksByDueDate } from '@shared/helpers/groupTasksByDueDatePreference';
 import { useTaskItemLimit } from '@shared/helpers/taskItemLimitPreference';
 import { renderTasksByDate } from '../helpers/renderTasksByDate';
@@ -63,6 +65,7 @@ export function Tasks({
   onEditTask,
 }: TasksPanelProps) {
   const tasks = [...vault.tasks()];
+  const taskActions = createTaskActions(taskOperations, useToast());
   const groupTasksByDueDate = useGroupTasksByDueDate();
   const itemLimit = useTaskItemLimit();
   const onShortcut = buildTasksShortcutHandler(navigation);
@@ -80,7 +83,7 @@ export function Tasks({
   // the Gate's rebuild lands (via AppLayout's single useVault() subscription),
   // never to this call's return value.
   const onToggleComplete = (task: TaskOccurrence): void => {
-    void taskOperations.toggleComplete(task);
+    taskActions.toggleComplete(task);
   };
 
   // Clicking a task opens its source note — the same PageOperations.open()
@@ -110,19 +113,19 @@ export function Tasks({
   // task-line mutation, per ADR-031), never touching Vault/PageOperations
   // itself, and never moving the task to a different page.
   const onChangeDueDate = (task: TaskOccurrence, date: string | null): void => {
-    void (date === null ? taskOperations.clearDate(task) : taskOperations.setDate(task, date));
+    taskActions.changeDueDate(task, date);
   };
 
   // Same fire-and-forget shape as onToggleComplete — dispatches straight
   // to TaskOperations (the one owning facade for task-line mutation, per
   // ADR-031), never touching Vault/PageOperations itself.
   const onDeleteTask = (task: TaskOccurrence): void => {
-    void taskOperations.delete(task);
+    taskActions.remove(task);
   };
 
   // Same fire-and-forget, TaskOperations-only shape as onDeleteTask.
   const onDuplicateTask = (task: TaskOccurrence): void => {
-    void taskOperations.duplicate(task);
+    taskActions.duplicate(task);
   };
 
   return (

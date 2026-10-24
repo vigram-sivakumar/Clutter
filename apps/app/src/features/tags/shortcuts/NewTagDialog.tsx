@@ -9,7 +9,7 @@ interface NewTagDialogProps extends Pick<NewTagContentProps, 'validateName' | 'o
 /** The one New tag modal — opened from the Tags sidebar's New row. */
 export function NewTagDialog({ open, onClose, validateName, onSubmit }: NewTagDialogProps) {
   return (
-    <Dialog open={open} onClose={onClose} size="large" top={240} scrim="strong" dismissible={false}>
+    <Dialog open={open} onClose={onClose} size="large" top={240} scrim="strong">
       <NewTagContent onClose={onClose} validateName={validateName} onSubmit={onSubmit} />
     </Dialog>
   );

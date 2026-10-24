@@ -1,6 +1,7 @@
 import type { Vault } from '@core/vault/models/Vault';
 import { downloadResource } from '@shared/helpers/downloadResource';
 import { createLocationActions } from '@features/notes/helpers/createLocationActions';
+import type { CopyNotifier } from '@shared/helpers/copyWithFeedback';
 import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
 
 /**
@@ -9,8 +10,8 @@ import type { LocationPathFormat } from '@core/presentation/getLocationPathRepre
  * `PageHost`'s `MarkdownEditor`/Assets-row wiring. Reveal and Copy path themselves have one
  * implementation, in `createLocationActions`, for every resource kind.
  */
-export function createResourceLocationActions(vault: Vault) {
-  const location = createLocationActions(vault.root);
+export function createResourceLocationActions(vault: Vault, notifier?: CopyNotifier) {
+  const location = createLocationActions(vault.root, notifier);
 
   function revealResourceInFinder(resourceId: string): void {
     location.reveal(vault.getResource(resourceId)?.path);

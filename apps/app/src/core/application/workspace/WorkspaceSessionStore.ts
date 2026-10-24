@@ -19,8 +19,14 @@ import type { DailyNotesSidebarState } from '../daily-notes/DailyNotesSidebarSta
  * its tab values as `SidebarTab`, so a tab added there without being added
  * here fails to compile instead of silently never restoring.
  */
-export const SIDEBAR_TABS = ['notes', 'daily-notes', 'tasks', 'tags', 'search'] as const;
+export const SIDEBAR_TABS = ['notes', 'daily-notes', 'tasks', 'tags'] as const;
 export type SidebarTab = (typeof SIDEBAR_TABS)[number];
+
+/**
+ * Search was once a sidebar tab, so a saved session or a saved "default tab" can still name it. It is an overlay now
+ * (ADR-061), never a view the sidebar can rest on: whatever persisted `'search'` restores to Notes.
+ */
+export const LEGACY_SEARCH_TAB = 'search';
 
 /**
  * Exhaustive over `FilteredViewKind` (a `Record`, not an array) so a new
@@ -457,6 +463,10 @@ function parseBoolean(value: unknown): boolean | undefined {
 }
 
 function parseSidebarTab(value: unknown): SidebarTab | undefined {
+  if (value === LEGACY_SEARCH_TAB) {
+    return 'notes';
+  }
+
   return (SIDEBAR_TABS as readonly unknown[]).includes(value) ? (value as SidebarTab) : undefined;
 }
 
