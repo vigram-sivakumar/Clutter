@@ -95,6 +95,14 @@ describe('NotePageCanvas — the page: cover, then body, one canvas', () => {
     }
   });
 
+  it('sets the viewport inset only when given one', () => {
+    const { container, rerender } = render(<NotePageCanvas markdown="x" />);
+    expect((container.firstElementChild as HTMLElement).style.getPropertyValue('--note-page-canvas-inset')).toBe('');
+
+    rerender(<NotePageCanvas markdown="x" inset="0px" />);
+    expect((container.firstElementChild as HTMLElement).style.getPropertyValue('--note-page-canvas-inset')).toBe('0px');
+  });
+
   it('adds a className to the viewport', () => {
     const { container } = render(<NotePageCanvas markdown="x" className="note-page-canvas--headless" />);
 

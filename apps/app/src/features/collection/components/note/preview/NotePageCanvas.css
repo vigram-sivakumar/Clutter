@@ -2,7 +2,8 @@
  * The note's page canvas as a card/preview section: the page (cover + body)
  * is laid out at a fixed width and scaled to fit by ScaledCanvas; this is the
  * viewport it is seen through. No padding of its own beyond a 4px inline inset
- * (it lines the text up under the header's icon glyph): the card owns the
+ * (or the `--note-page-canvas-inset` a host sets; it lines the text up under
+ * the header's icon glyph by default): the card owns the
  * padding around and the gap between its header and this. Its size is whatever
  * the card (a fixed-ratio box) has left — never the document — so a short and a
  * very long note occupy identical boxes. Everything that leaves the box is clipped.
@@ -14,7 +15,7 @@
   flex: 1 1 0;
   min-height: 0;
   overflow: hidden;
-  padding-inline: var(--space-4);
+  padding-inline: var(--note-page-canvas-inset, var(--space-4));
 
   /* No background of its own: the card's surface shows through. */
   /* Header/preview divider hidden on purpose (try-out) — restore `border-top: 1px solid var(--border-default)` to bring it back. */

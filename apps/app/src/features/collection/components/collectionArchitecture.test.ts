@@ -249,6 +249,7 @@ describe('the generic collection components own only their own CSS', () => {
     'grid/CollectionGrid.css': 'collection-grid',
     'card/CollectionCard.css': 'collection-card',
     'card/CardTitleSection.css': 'card-title-section',
+    'card/CardDivider.css': 'card-divider',
     'entry/CollectionEntry.css': 'collection-entry',
     'entry/CollectionEntryProperties.css': 'collection-entry-properties',
     'list/CollectionDataList.css': 'collection-list',

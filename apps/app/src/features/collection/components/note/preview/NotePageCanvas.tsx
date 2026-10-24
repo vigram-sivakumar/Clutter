@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type CSSProperties } from 'react';
 import { CollectionImage } from '@features/collection/components/media/CollectionImage';
 import { ScaledCanvas } from '@features/collection/components/scale/ScaledCanvas';
 import type { CompactMarkdownResolvers } from '@features/markdown/render/renderCompactMarkdown';
@@ -18,6 +18,8 @@ export interface NotePageCanvasProps {
   resolvers?: CompactMarkdownResolvers;
   /** Extra class on the viewport (e.g. the headless inset). */
   className?: string;
+  /** The viewport's left and right inset, as a CSS length (default 4px). A host card passes its own so the page text lines up with the card's other sections. */
+  inset?: string;
 }
 
 /** Parsed and rendered only once ScaledCanvas mounts its children (near the viewport), so a long grid doesn't parse every note up front. */
@@ -42,9 +44,13 @@ export function NotePageCanvas({
   coverPositionAbove,
   resolvers,
   className,
+  inset,
 }: NotePageCanvasProps) {
   return (
-    <div className={['note-page-canvas', className].filter(Boolean).join(' ')}>
+    <div
+      className={['note-page-canvas', className].filter(Boolean).join(' ')}
+      style={inset === undefined ? undefined : ({ '--note-page-canvas-inset': inset } as CSSProperties)}
+    >
       <ScaledCanvas designWidth={NOTE_CANVAS_WIDTH}>
         <div className="note-page-canvas__page">
           {coverUrl && (
