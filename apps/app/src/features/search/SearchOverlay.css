@@ -24,6 +24,10 @@
   gap: var(--space-1);
   max-height: var(--search-overlay-list-height);
   overflow-y: auto;
+  /* The list runs out into the panel's right padding and gives the rows that width back as its own padding, so the
+     scrollbar sits in the padding area instead of over the rows (as in PickerCard). */
+  margin-right: calc(var(--space-12) * -1);
+  padding-right: var(--space-12);
 }
 
 .search-overlay__status {
