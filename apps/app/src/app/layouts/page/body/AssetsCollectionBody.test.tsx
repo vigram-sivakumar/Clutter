@@ -73,7 +73,7 @@ function renderAssets(
 const ITEM_SELECTOR: Record<CollectionLayout, string> = {
   list: '.collection-entry',
   table: '.collection-table-row',
-  card: '.collection-card--layout-overlay',
+  card: '.collection-card:not(.collection-card--empty)',
 };
 const LAYOUTS: CollectionLayout[] = ['list', 'table', 'card'];
 
@@ -321,19 +321,21 @@ describe('AssetsCollectionBody — which layout renders', () => {
     expect(container.querySelector('.collection-media .app-icon')).not.toBeNull();
   });
 
-  it('Card uses the generic grid of generic overlay cards — one per asset, no asset-specific card', () => {
+  it('Card uses the generic grid of generic cards — one per asset, no asset-specific card', () => {
     const { container } = renderAssets({ resources: resources(), viewMode: 'card' });
 
     const card = container.querySelector('.collection-grid > .collection-card');
     expect(card).not.toBeNull();
-    expect(card).toHaveClass('collection-card--layout-overlay');
+    expect(card).toHaveClass('collection-card');
+    // An asset card has a preview and a header, never page content.
+    expect(card!.querySelector('.collection-card__content')).toBeNull();
     expect(container.querySelector('.note-page-canvas')).toBeNull();
   });
 
   it('defaults to the collection\'s own default layout (Card, from its definition) when no layout is given', () => {
     const { container } = renderAssets({ resources: resources() });
 
-    expect(container.querySelector('.collection-card--layout-overlay')).not.toBeNull();
+    expect(container.querySelector('.collection-card:not(.collection-card--empty)')).not.toBeNull();
     expect(container.querySelector('.collection-list')).toBeNull();
   });
 });
@@ -423,7 +425,7 @@ describe('AssetsCollectionBody — Name property (the card title)', () => {
   it('hides each card title in Card layout when the Name property is off', () => {
     const { container } = renderAssets({ resources: [makeResource()], viewMode: 'card', visible: hidden });
 
-    expect(container.querySelector('.collection-card--layout-overlay')).not.toBeNull();
+    expect(container.querySelector('.collection-card:not(.collection-card--empty)')).not.toBeNull();
     expect(container.querySelector('.card-title-section')).toBeNull();
   });
 
@@ -441,7 +443,7 @@ describe('AssetsCollectionBody — Name property (the card title)', () => {
 
   it('F2 does not start a rename while the card title is hidden', () => {
     const { container } = renderAssets({ resources: [makeResource()], viewMode: 'card', visible: hidden });
-    const card = container.querySelector<HTMLElement>('.collection-card--layout-overlay')!;
+    const card = container.querySelector<HTMLElement>('.collection-card:not(.collection-card--empty)')!;
 
     card.focus();
     fireEvent.keyDown(card, { key: 'F2' });
@@ -454,11 +456,14 @@ describe('AssetsCollectionBody — metadata properties', () => {
   const withMetadata = makeResource({
     metadata: { size: 12_345, createdAt: '2020-01-02T03:04:05.000Z', modifiedAt: '2020-02-03T04:05:06.000Z' },
   });
-  const lines = (container: HTMLElement) =>
-    [...container.querySelectorAll('.card-title-section__metadata-item')].map(
-      (row) =>
-        `${row.querySelector('.card-title-section__metadata-label')?.textContent}: ${row.querySelector('.card-title-section__metadata-value')?.textContent}`
-    );
+  // The size is the line right under the title (its description, with no label); Created and Edited are one plain line
+  // each ("Created 2 Jan, 03:04"). Read back as "Label: value" so the assertions below stay about the facts.
+  const lines = (container: HTMLElement) => [
+    ...[...container.querySelectorAll('.card-title-section__description')].map((node) => `Size: ${node.textContent}`),
+    ...[...container.querySelectorAll('.card-title-section__metadata-item')].map((node) =>
+      node.textContent!.replace(/^(\w+) /, '$1: ')
+    ),
+  ];
 
   it('shows none of them on a card by default (a first-time user), though the title stays', () => {
     const { container } = renderAssets({ resources: [withMetadata], viewMode: 'card' });
@@ -603,8 +608,9 @@ describe('AssetsCollectionBody — the file-fact Properties govern List and Tabl
   it('the Card still lists the same facts as its own lines, from the same properties', () => {
     const { container } = renderAssets({ assets: [file()], viewMode: 'card', visible: on });
 
-    expect([...container.querySelectorAll('.card-title-section__metadata-label')].map((n) => n.textContent)).toEqual([
-      'Size',
+    // The size under the title, then Created and Edited — each one plain line, not a label span and a value span.
+    expect(container.querySelector('.card-title-section__description')).not.toBeNull();
+    expect([...container.querySelectorAll('.card-title-section__metadata-item')].map((n) => n.textContent!.split(' ')[0])).toEqual([
       'Created',
       'Edited',
     ]);
@@ -629,7 +635,7 @@ describe('AssetsCollectionBody — Create affordance', () => {
 
     const grid = container.querySelector('.collection-grid')!;
     expect(grid.lastElementChild).toHaveClass('collection-card--empty');
-    expect(grid.querySelectorAll('.collection-card--layout-overlay')).toHaveLength(2);
+    expect(grid.querySelectorAll('.collection-card:not(.collection-card--empty)')).toHaveLength(2);
 
     // The same empty card as every other collection's: a plain "+" (no custom icon), named for assistive tech.
     expect(grid.lastElementChild!.querySelector('.app-icon svg')).not.toBeNull();

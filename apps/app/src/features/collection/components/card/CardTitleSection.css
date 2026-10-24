@@ -2,19 +2,13 @@
  * A card's header text. 20px icon box + body-small medium title, label-small
  * tertiary description/metadata, 2px between lines, description and metadata
  * inset 2px to line up under the icon glyph (a 16px glyph centred in its 20px
- * box). No padding of its own: the card provides it. A host restyles it only
- * through the custom properties read below (documented in CardTitleSection.tsx).
+ * box). No padding of its own: the card provides it.
  */
 .card-title-section {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   min-width: 0;
-}
-
-/* titlePlacement="bottom": the title row last; the description and metadata keep their own order. */
-.card-title-section--title-bottom {
-  flex-direction: column-reverse;
 }
 
 .card-title-section__heading {
@@ -31,7 +25,7 @@
   justify-content: center;
   height: var(--height-xs);
   aspect-ratio: 1;
-  color: var(--card-title-leading-color, var(--foreground-secondary));
+  color: var(--foreground-secondary);
 }
 
 .card-title-section__title {
@@ -40,7 +34,7 @@
   line-height: var(--lh-body-small);
   letter-spacing: var(--ls-body-small);
   font-weight: var(--fw-medium);
-  color: var(--card-title-color, var(--foreground-primary));
+  color: var(--foreground-primary);
 
   overflow: hidden;
   text-overflow: ellipsis;
@@ -54,7 +48,7 @@
   font-size: var(--text-label-small);
   line-height: var(--lh-label-small);
   letter-spacing: var(--ls-label-small);
-  color: var(--card-description-color, var(--foreground-tertiary));
+  color: var(--foreground-tertiary);
 
   overflow: hidden;
   text-overflow: ellipsis;
@@ -82,28 +76,9 @@
 /* Each item truncates on its own. */
 .card-title-section__metadata-item {
   display: inline-flex;
-  gap: var(--space-4);
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.card-title-section__metadata-label {
-  flex: none;
-}
-.card-title-section__metadata-value {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--card-metadata-value-color, var(--foreground-secondary));
-}
-
-/* metadataAlign="spread": a label/value item runs the full width, label at the start, value at the end. */
-.card-title-section__metadata--spread .card-title-section__metadata-item {
-  width: 100%;
-  justify-content: space-between;
-}
-.card-title-section__metadata--spread .card-title-section__metadata-value {
-  text-align: right;
 }

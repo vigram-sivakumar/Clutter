@@ -13,7 +13,7 @@ import { AssetPreview } from './AssetPreview';
 /** The assets card grid: smaller cards than notes (assets are mostly pictures) — between 140px and 1/6 of the row wide. */
 export const ASSET_GRID: CollectionGridColumns = { min: 140, max: 6 };
 
-/** An asset card's fixed shape (width / height): about a square for the media above a one-line title. */
+/** An asset card's fixed shape (width / height): the preview over a short title section. */
 export const ASSET_CARD_ASPECT_RATIO = '4 / 5';
 
 /** What the mapper returns: card props, plus the `data-*` hooks the body's F2-to-rename handler looks up. */
@@ -41,12 +41,12 @@ export interface AssetCardOptions {
 }
 
 /**
- * An asset as a card: the preview filling the whole card, with the header laid
- * over its bottom edge (`layout="overlay"`) — the name last, under the file's
- * size and dates, one per line, label at the start and value at the end. A
- * vault file's card carries `data-resource-id` for the F2-to-rename handler.
- * The asset-specific part is this mapping; the card, the scrim and the header
- * layout are generic.
+ * An asset as a card: the preview as the card's media, filling everything the
+ * header leaves, and under it the title section — the name, the file's size on
+ * the line below it, then Created and Edited, each one plain line ("Created
+ * 2 Sept, 15:30"). There is no content or divider. A vault file's card carries
+ * `data-resource-id` for the F2-to-rename handler. The asset-specific part is
+ * this mapping; the card and the header layout are generic.
  */
 export function toAssetCardProps(
   asset: Asset,
@@ -54,22 +54,24 @@ export function toAssetCardProps(
 ): AssetCardProps {
   const showTitle = visible.includes('name');
   // The asset's property values: the vault file's own facts; a remote asset has none.
-  const metadata = assetCardMetadata(toAssetEntry(asset).values, visible);
+  const lines = assetCardMetadata(toAssetEntry(asset).values, visible);
+  const size = lines.find((line) => line.id === 'size')?.value;
+  const dates = lines.filter((line) => line.id !== 'size').map((line) => `${line.label} ${line.value}`);
 
   return {
-    layout: 'overlay',
     aspectRatio: ASSET_CARD_ASPECT_RATIO,
     media: <AssetPreview kind={asset.kind} url={url} />,
+    mediaHeight: '100%',
+    showContent: false,
     header:
-      showTitle || metadata.length > 0 ? (
+      showTitle || size !== undefined || dates.length > 0 ? (
         <CardTitleSection
           icon={showTitle ? getResourceIcon(asset.kind) : undefined}
           title={showTitle ? getResourceDisplayName(asset) : undefined}
           titleContent={showTitle ? titleContent : undefined}
-          metadata={metadata}
+          description={size}
+          metadata={dates}
           metadataLayout="vertical"
-          metadataAlign="spread"
-          titlePlacement="bottom"
         />
       ) : undefined,
     isSelected,

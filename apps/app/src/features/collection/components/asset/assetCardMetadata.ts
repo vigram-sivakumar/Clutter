@@ -6,8 +6,9 @@ import {
 
 import { formatPropertyValue, valueProperties } from '../../properties/formatProperty';
 
-/** One metadata line: what it is, and its value — the card sets them apart (label left, value right). */
+/** One metadata line: which property it is, what it is called, and its value. */
 export interface AssetMetadataItem {
+  readonly id: PropertyId;
   readonly label: string;
   readonly value: string;
 }
@@ -31,6 +32,6 @@ export function assetCardMetadata(values: PropertyValues, visible: readonly Prop
   return valueProperties(visible).flatMap((id) => {
     const value = formatPropertyValue(id, values);
 
-    return value ? [{ label: CARD_LINE_LABELS[id] ?? propertyLabel(id), value }] : [];
+    return value ? [{ id, label: CARD_LINE_LABELS[id] ?? propertyLabel(id), value }] : [];
   });
 }

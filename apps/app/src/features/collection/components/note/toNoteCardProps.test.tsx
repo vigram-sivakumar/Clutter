@@ -35,13 +35,35 @@ describe('toNoteCardProps', () => {
     const { container } = draw(entry({ updated: UPDATED_AT }));
     const card = container.firstElementChild as HTMLElement;
 
-    expect(card).toHaveClass('collection-card', 'collection-card--layout-stack');
+    expect(card).toHaveClass('collection-card');
     expect(card.style.aspectRatio).toBe(NOTE_CARD_ASPECT_RATIO);
-    expect([...card.children].map((c) => c.className)).toEqual([
+    // No cover, so no media: the card is just its main section, holding the header and then the page.
+    expect([...card.children].map((c) => c.className.split(' ')[0])).toEqual(['collection-card__main']);
+    expect([...card.firstElementChild!.children].map((c) => c.className)).toEqual([
       'collection-card__header',
       'collection-card__content',
     ]);
     expect(NOTE_GRID).toEqual({ min: 200, max: 5 });
+  });
+
+  describe('the divider', () => {
+    it('draws none by default', () => {
+      const { container } = draw(entry());
+
+      expect(container.querySelector('.card-divider')).toBeNull();
+    });
+
+    it('draws the requested look between the header and the page', () => {
+      const { container } = draw(entry(), { divider: 'wavy' });
+
+      const main = container.querySelector('.collection-card__main')!;
+      expect([...main.children].map((c) => c.className.split(' ')[0])).toEqual([
+        'collection-card__header',
+        'card-divider',
+        'collection-card__content',
+      ]);
+      expect(main.querySelector('.card-divider')).toHaveClass('card-divider--wavy');
+    });
   });
 
   it('renders title and metadata in the header, and the page as a separate region', () => {
@@ -131,20 +153,21 @@ describe('toNoteCardProps', () => {
   });
 
   describe('the cover', () => {
-    it('is INSIDE the page canvas, before the body, so it scales with the document', () => {
+    it("is the card's media, above the main section — not part of the page canvas", () => {
       const { container } = draw(entry({ markdown: 'body', cover: 'Assets/hero.png' }));
 
-      const page = container.querySelector('.note-page-canvas__page')!;
-      const img = page.querySelector('.note-page-canvas__cover img')!;
+      const card = container.firstElementChild!;
+      const img = card.querySelector('.collection-card__media img')!;
       expect(img.getAttribute('src')).toBe('app://vault/Assets/hero.png');
-      expect(page.querySelector('.note-page-canvas__cover')!.nextElementSibling).toHaveClass('note-page-canvas__body');
+      expect([...card.children].map((c) => c.className.split(' ')[0])).toEqual(['collection-card__media', 'collection-card__main']);
+      expect(container.querySelector('.note-page-canvas__cover')).toBeNull();
       expect(container.querySelector('.collection-card__header img')).toBeNull();
     });
 
     it('applies the saved above focal position to the crop', () => {
       const { container } = draw(entry({ markdown: '', cover: 'Assets/hero.png', coverPositionAbove: 20 }));
 
-      expect(container.querySelector<HTMLImageElement>('.note-page-canvas__cover img')!.style.objectPosition).toBe('50% 20%');
+      expect(container.querySelector<HTMLImageElement>('.collection-card__media img')!.style.objectPosition).toBe('50% 20%');
     });
 
     it('is omitted when hidden, absent or unresolvable — the card still has its canvas', () => {
@@ -155,7 +178,7 @@ describe('toNoteCardProps', () => {
         [entry({ cover: 'Assets/hero.png' }), { resolvers: { resolveCoverImage: () => null } }],
       ] as const) {
         const { container } = draw(model, options);
-        expect(container.querySelector('.note-page-canvas__cover')).toBeNull();
+        expect(container.querySelector('.collection-card__media')).toBeNull();
         expect(container.querySelector('.note-page-canvas')).not.toBeNull();
         cleanup();
       }

@@ -623,8 +623,8 @@ describe('KNOWN DEFECT — configure and rendering disagree about what a layout 
       'card',
       ['name', 'created']
     );
-    const labels = [...assetCard.container.querySelectorAll('.card-title-section__metadata-label')].map((n) => n.textContent);
-    expect(labels).toEqual(['Created']);
+    const lines = [...assetCard.container.querySelectorAll('.card-title-section__metadata-item')].map((n) => n.textContent!.split(' ')[0]);
+    expect(lines).toEqual(['Created']);
   });
 
   it('KNOWN DEFECT: the same property is spelled differently by Configure, the table header, the card and the note card', () => {
@@ -644,10 +644,10 @@ describe('KNOWN DEFECT — configure and rendering disagree about what a layout 
     expect(headers).not.toContain('File size');
     table.unmount();
 
-    // Asset card lines: "Size", "Created", "Edited".
+    // Asset card: the size is the unlabelled line under the title; the dates are "Created …", "Edited …".
     const card = renderAssets([asset('house.png', facts)], 'card', on);
-    expect([...card.container.querySelectorAll('.card-title-section__metadata-label')].map((n) => n.textContent)).toEqual([
-      'Size',
+    expect(card.container.querySelector('.card-title-section__description')?.textContent).toBe('12 KB');
+    expect([...card.container.querySelectorAll('.card-title-section__metadata-item')].map((n) => n.textContent!.split(' ')[0])).toEqual([
       'Created',
       'Edited',
     ]);
@@ -656,7 +656,6 @@ describe('KNOWN DEFECT — configure and rendering disagree about what a layout 
     // Note card: no label at all — "Edited <date>" as one string.
     const noteCard = render(<CollectionBody notes={[note('Plan', { updated: UPDATED_AT })]} viewMode="card" />);
     expect(noteCard.container.textContent).toContain(`Edited ${UPDATED_TEXT}`);
-    expect(noteCard.container.querySelector('.card-title-section__metadata-label')).toBeNull();
   });
 
   it('KNOWN DEFECT: Cover image is a Property in every layout Configure offers it in (now Card too), but a note card ignores it — the cover is always drawn', () => {
@@ -672,7 +671,7 @@ describe('KNOWN DEFECT — configure and rendering disagree about what a layout 
       />
     );
 
-    expect(container.querySelector('.note-page-canvas__cover')).toBeInTheDocument();
+    expect(container.querySelector('.collection-card__media .collection-image')).toBeInTheDocument();
   });
 });
 

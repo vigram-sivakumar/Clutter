@@ -240,17 +240,18 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
         <CollectionBody notes={[entry()]} viewMode="card" visible={visible} previewResolvers={resolvers} />
       ).container;
 
-    it('a card always shows the cover and the content, together on one page canvas', () => {
+    it('a card always shows the cover (as its media, above the title section) and the content (the page canvas)', () => {
       const container = renderCard();
 
-      expect(container.querySelector('.note-page-canvas__page .note-page-canvas__cover')).toBeInTheDocument();
+      expect(container.querySelector('.collection-card__media .collection-image')).toBeInTheDocument();
+      expect(container.querySelector('.note-page-canvas__cover')).toBeNull();
       expect(container.querySelector('.note-page-canvas h1')?.textContent).toBe('Heading');
     });
 
     it('ignores the Cover image / Content preview properties (no longer offered for cards), even from a saved view config', () => {
       const container = renderCard(noteVisible('cover'));
 
-      expect(container.querySelector('.note-page-canvas__cover')).toBeInTheDocument();
+      expect(container.querySelector('.collection-card__media .collection-image')).toBeInTheDocument();
       expect(container.querySelector('.note-page-canvas h1')?.textContent).toBe('Heading');
     });
 

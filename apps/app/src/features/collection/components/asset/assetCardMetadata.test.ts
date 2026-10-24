@@ -41,20 +41,20 @@ describe('assetCardMetadata', () => {
     );
 
     expect(line).toEqual([
-      { label: 'Size', value: '12 KB' },
-      { label: 'Created', value: '35 minutes ago' },
-      { label: 'Edited', value: '5 minutes ago' },
+      { id: 'size', label: 'Size', value: '12 KB' },
+      { id: 'created', label: 'Created', value: '35 minutes ago' },
+      { id: 'updated', label: 'Edited', value: '5 minutes ago' },
     ]);
   });
 
   it('leaves out a part the platform could not report', () => {
     expect(linesOf(resource({ size: 812, createdAt: null, modifiedAt: '2026-10-03T11:55:00.000Z' }))).toEqual(
       [
-        { label: 'Size', value: '812 B' },
-        { label: 'Edited', value: '5 minutes ago' },
+        { id: 'size', label: 'Size', value: '812 B' },
+        { id: 'updated', label: 'Edited', value: '5 minutes ago' },
       ]
     );
-    expect(linesOf(resource({ size: 2_000_000, createdAt: null, modifiedAt: null }))).toEqual([{ label: 'Size', value: '2 MB' }]);
+    expect(linesOf(resource({ size: 2_000_000, createdAt: null, modifiedAt: null }))).toEqual([{ id: 'size', label: 'Size', value: '2 MB' }]);
   });
 
   it('is empty when the resource has no metadata', () => {

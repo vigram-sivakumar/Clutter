@@ -240,7 +240,7 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     render(<AppLayout application={setup([image(), pdf()])} />);
     await flush();
 
-    expect(document.querySelectorAll('.collection-grid > .collection-card--layout-overlay')).toHaveLength(2);
+    expect(document.querySelectorAll('.collection-grid > .collection-card:not(.collection-card--empty)')).toHaveLength(2);
     expect(document.querySelector('.collection-list, .collection-table')).toBeNull();
   });
 
@@ -278,20 +278,20 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     expect(document.querySelectorAll('.collection-table__body > .collection-table-row--new-item')).toHaveLength(1);
   });
 
-  it('Card renders the generic grid with a generic overlay card per asset', async () => {
+  it('Card renders the generic grid with a generic card per asset', async () => {
     render(<AppLayout application={setup([image(), pdf()])} />);
     await flush();
     await pick('Card');
 
     const grid = document.querySelector('.collection-grid');
     expect(grid).not.toBeNull();
-    const cards = [...grid!.querySelectorAll('.collection-card--layout-overlay')];
+    const cards = [...grid!.querySelectorAll('.collection-card:not(.collection-card--empty)')];
     expect(cards).toHaveLength(2);
     for (const card of cards) {
       expect(card).toHaveClass('collection-card');
     }
-    // Not a note card, and none of the note-specific preview machinery.
-    expect(document.querySelector('.collection-card:not(.collection-card--layout-overlay):not(.collection-card--empty)')).toBeNull();
+    // Not a note card: no page content, so no content section and no note-specific preview machinery.
+    expect(grid!.querySelector('.collection-card__content:not(.collection-card--empty *)')).toBeNull();
     expect(document.querySelector('.note-page-canvas')).toBeNull();
   });
 
@@ -320,7 +320,7 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     await flush();
     await pick('Card');
 
-    fireEvent.click(document.querySelector('.collection-card--layout-overlay')!);
+    fireEvent.click(document.querySelector('.collection-card:not(.collection-card--empty)')!);
 
     await waitFor(() => expect(document.querySelector('.pdf-overlay .pdf-viewer')).not.toBeNull());
   });

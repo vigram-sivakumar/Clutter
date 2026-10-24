@@ -23,6 +23,7 @@ import { FOLDER_COLLECTION } from '@core/presentation/collection/collectionDefin
 import { resolveCollectionView } from '@core/presentation/collection/resolveCollectionView';
 import './CollectionBody.css';
 
+import { shouldShowHeaderSeparator, useHeaderSeparatorMode, useHeaderSeparatorStyle } from '../headerSeparator';
 import { CreateCard, createNewItem } from './collectionCreate';
 import { renderFolderGrid } from './collectionFolders';
 import { useCollectionMoveDrag, type CollectionMoveDrag } from './useCollectionMoveDrag';
@@ -249,6 +250,11 @@ export function CollectionBody({
 }: CollectionBodyProps) {
   const drag = useCollectionMoveDrag(moveDrag);
   const contextMenu = useCollectionItemContextMenu(itemMenu);
+  // The rule between a note card's title section and its page follows the header-separator setting. A card has no
+  // Properties section, so `automatic` never draws it; only `show` does, in the look chosen in Settings.
+  const separatorMode = useHeaderSeparatorMode();
+  const separatorStyle = useHeaderSeparatorStyle();
+  const cardDivider = shouldShowHeaderSeparator(separatorMode, false) ? separatorStyle : undefined;
   // Per-entry attributes from both behaviors, merged: the drag's pointer handlers and the context menu.
   const entryProps = (entry: CollectionEntryModel) => {
     const dragProps = drag.entryProps(entry);
@@ -301,6 +307,7 @@ export function CollectionBody({
             {...toNoteCardProps(entry, {
               visible,
               resolvers: previewResolvers,
+              divider: cardDivider,
             })}
             {...entryProps(entry)}
             // A note card is a card: its ghost keeps the card's own width. Only a table or list row, which can

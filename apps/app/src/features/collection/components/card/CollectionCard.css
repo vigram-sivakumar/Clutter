@@ -1,11 +1,12 @@
 /*
- * The card surface. The card owns all the padding and one gap between its
- * sections (stack); the sections have none of their own. Per CLAUDE.md, no
- * `margin` anywhere. It restyles its header only through the custom properties
- * CardTitleSection documents (layout="overlay").
+ * The card surface. Two top-level parts — the media and the main section. The
+ * main section owns all the padding and the one gap between its children (the
+ * header, the divider, the content); they have none of their own. Per CLAUDE.md,
+ * no `margin` anywhere.
  */
 .collection-card {
-  --collection-card-gap: var(--space-8);
+  /* The one value: the main section's padding on every side and the gap between its children. */
+  --collection-card-inset: var(--space-12);
 
   position: relative;
   display: flex;
@@ -13,8 +14,6 @@
   width: 100%;
   min-width: 0;
   overflow: hidden;
-  padding: var(--space-6);
-  gap: var(--collection-card-gap);
   background: var(--surface-subtle);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
@@ -37,12 +36,33 @@
   background: var(--surface-selected);
 }
 
-/* ---- slots ---- */
-.collection-card__header {
-  flex: none;
-  min-width: 0;
-}
+/* ---- media: flush with the card's top and sides (the card's radius clips it) ---- */
 .collection-card__media {
+  /* Shrinks (never grows) when the card is too short for it, so a full-height banner leaves the main section its room. */
+  flex: 0 1 auto;
+  height: var(--collection-card-media-height, 66px);
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* ---- main: the header, the divider and the content ---- */
+.collection-card__main {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  min-width: 0;
+  padding: var(--collection-card-inset);
+  gap: var(--collection-card-inset);
+}
+/* With content: it fills what the media leaves, and has no bottom padding, so the content runs to the card's bottom edge. */
+.collection-card__main--content {
+  flex: 1 1 0;
+  min-height: 0;
+  padding-bottom: 0;
+}
+
+.collection-card__header {
   flex: none;
   min-width: 0;
 }
@@ -55,48 +75,6 @@
   overflow: hidden;
 }
 
-/* ---- layout: overlay — media fills the card, the header sits over its bottom edge ---- */
-.collection-card--layout-overlay {
-  padding: 0;
-  gap: 0;
-  --card-title-color: rgb(255 255 255);
-  --card-title-leading-color: rgb(255 255 255);
-  --card-description-color: rgb(255 255 255 / 0.78);
-  --card-metadata-value-color: rgb(255 255 255);
-}
-.collection-card--layout-overlay > .collection-card__media {
-  position: absolute;
-  inset: 0;
-}
-/*
- * The header sits over the media's bottom edge on a dark scrim so its text stays readable on any
- * picture. The scrim and the text are deliberately fixed colours, not theme tokens: it sits over a
- * picture, so it is dark and the text light in both themes. The gradient is eased (alpha follows
- * 0.72 × (1 − smoothstep), sampled every 10%) so it has no visible edge at either end.
- */
-.collection-card--layout-overlay > .collection-card__header {
-  position: absolute;
-  inset-inline: 0;
-  bottom: 0;
-  z-index: 1;
-  padding: var(--space-32) var(--space-6) var(--space-6);
-  background: linear-gradient(
-    to top,
-    rgb(0 0 0 / 0.72) 0%,
-    rgb(0 0 0 / 0.7) 10%,
-    rgb(0 0 0 / 0.645) 20%,
-    rgb(0 0 0 / 0.564) 30%,
-    rgb(0 0 0 / 0.467) 40%,
-    rgb(0 0 0 / 0.36) 50%,
-    rgb(0 0 0 / 0.253) 60%,
-    rgb(0 0 0 / 0.156) 70%,
-    rgb(0 0 0 / 0.075) 80%,
-    rgb(0 0 0 / 0.02) 90%,
-    rgb(0 0 0 / 0) 100%
-  );
-  text-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
-}
-
 /* ---- empty: the quiet "add something" card, its content centred ---- */
 .collection-card--empty {
   background: var(--surface-action);
@@ -105,7 +83,11 @@
 .collection-card--empty:hover {
   background: var(--surface-subtle);
 }
-.collection-card--empty > .collection-card__content {
+.collection-card--empty > .collection-card__main {
+  flex: 1 1 0;
+  padding: 0;
+}
+.collection-card--empty .collection-card__content {
   align-items: center;
   justify-content: center;
   color: var(--foreground-tertiary);

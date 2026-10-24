@@ -5,15 +5,21 @@ import './CollectionCard.css';
 
 export interface CollectionCardProps
   extends Omit<HTMLAttributes<HTMLDivElement>, 'children' | 'title' | 'onClick'> {
-  /** The card's heading — normally a CardTitleSection, but the card does not know or care. */
-  header?: ReactNode;
-  /** `stack`: a banner between the header and the content. `overlay`: fills the whole card, behind the header. */
+  /** A banner across the very top of the card, edge to edge (an image, normally), cropped to its height. */
   media?: ReactNode;
-  /** The main content. In `stack` it fills whatever height the header and media leave. */
+  /** A section above the content, at real size — normally a CardTitleSection, but the card does not know or care. */
+  header?: ReactNode;
+  /** A rule between the header and the content — normally a CardDivider; drawn only when the card has both. */
+  divider?: ReactNode;
+  /** The main content. It fills whatever height the media and header leave, and runs to the card's bottom edge. */
   children?: ReactNode;
 
-  /** `stack` (default): header, media, content in order. `overlay`: media fills the card, the header sits over its bottom edge. */
-  layout?: 'stack' | 'overlay';
+  /** How tall the media is — a CSS length (`'100%'` for the whole card, leaving the header what it needs). Default 66px. */
+  mediaHeight?: string | number;
+  /** `false` hides the content, and with it the divider. Default true. */
+  showContent?: boolean;
+  /** `false` hides the divider even when one is given. Default true. */
+  showDivider?: boolean;
 
   /** The card's fixed shape: a width / height number, or a CSS ratio such as `'3 / 4'`. Omit and the card is as tall as its content. */
   aspectRatio?: number | string;
@@ -32,17 +38,25 @@ export interface CollectionCardProps
 
 /**
  * A bounded card surface — fill, border, radius, hover, selected, focus — with
- * three slots (header, media, children) it arranges but never looks
- * inside. What a card shows is the caller's content; what it does when
- * clicked is the caller's `onClick`, wired through the shared activation
- * behavior (nested controls keep their own clicks).
+ * two top-level parts, arranged in normal flow (nothing is positioned over
+ * anything else): the media, a banner flush with the card's top and sides; and
+ * the main section, which holds the header, the divider and the content. The
+ * main section pads itself on every side and spaces its children with one gap;
+ * when it holds content it drops its bottom padding, so the content runs to the
+ * card's edge. Every part is optional and the card never looks inside any of
+ * them. What a card shows is the caller's content; what it does when clicked is
+ * the caller's `onClick`, wired through the shared activation behavior (nested
+ * controls keep their own clicks).
  */
 export const CollectionCard = forwardRef<HTMLDivElement, CollectionCardProps>(function CollectionCard(
   {
-    header,
     media,
+    header,
+    divider,
     children,
-    layout = 'stack',
+    mediaHeight,
+    showContent = true,
+    showDivider = true,
     aspectRatio,
     isSelected = false,
     isEmpty = false,
@@ -55,8 +69,13 @@ export const CollectionCard = forwardRef<HTMLDivElement, CollectionCardProps>(fu
   },
   ref
 ) {
-  const cardStyle: CSSProperties | undefined =
-    aspectRatio === undefined ? style : { aspectRatio: String(aspectRatio), ...style };
+  const cardStyle: CSSProperties = {
+    ...(aspectRatio !== undefined && { aspectRatio: String(aspectRatio) }),
+    ...(mediaHeight !== undefined && { '--collection-card-media-height': mediaHeight }),
+    ...style,
+  } as CSSProperties;
+
+  const hasContent = showContent && Boolean(children);
 
   return (
     <div
@@ -65,7 +84,6 @@ export const CollectionCard = forwardRef<HTMLDivElement, CollectionCardProps>(fu
       ref={ref}
       className={[
         'collection-card',
-        `collection-card--layout-${layout}`,
         isSelected && 'collection-card--selected',
         isEmpty && 'collection-card--empty',
         className,
@@ -74,18 +92,13 @@ export const CollectionCard = forwardRef<HTMLDivElement, CollectionCardProps>(fu
         .join(' ')}
       style={cardStyle}
     >
-      {layout === 'overlay' ? (
-        <>
-          {media && <div className="collection-card__media">{media}</div>}
+      {media && <div className="collection-card__media">{media}</div>}
+      {(header || hasContent) && (
+        <div className={['collection-card__main', hasContent && 'collection-card__main--content'].filter(Boolean).join(' ')}>
           {header && <div className="collection-card__header">{header}</div>}
-          {children && <div className="collection-card__content">{children}</div>}
-        </>
-      ) : (
-        <>
-          {header && <div className="collection-card__header">{header}</div>}
-          {media && <div className="collection-card__media">{media}</div>}
-          {children && <div className="collection-card__content">{children}</div>}
-        </>
+          {header && hasContent && showDivider && divider}
+          {hasContent && <div className="collection-card__content">{children}</div>}
+        </div>
       )}
     </div>
   );

@@ -38,11 +38,11 @@ function renderCard(asset: Asset, options: Partial<AssetCardOptions> = {}) {
 const METADATA = { size: 12_345, createdAt: '2020-01-02T03:04:05.000Z', modifiedAt: '2020-02-03T04:05:06.000Z' };
 
 describe('toAssetCardProps', () => {
-  it('draws an overlay card of the asset shape, on the generic card — no asset-specific card component', () => {
+  it('draws a card of the asset shape, on the generic card — no asset-specific card component', () => {
     const { container } = renderCard(localAsset(image()), { url: 'app://house.png' });
     const card = container.firstElementChild!;
 
-    expect(card).toHaveClass('collection-card', 'collection-card--layout-overlay');
+    expect(card).toHaveClass('collection-card');
     expect((card as HTMLElement).style.aspectRatio).toBe(ASSET_CARD_ASPECT_RATIO);
     expect(ASSET_GRID).toEqual({ min: 140, max: 6 });
   });
@@ -114,13 +114,16 @@ describe('toAssetCardProps', () => {
     expect(container.querySelector('.note-page-canvas, .card-title-section__description')).toBeNull();
   });
 
-  it('puts the media first and the header (icon + name) over it', () => {
+  it('puts the media first (filling the card) and the header (icon + name) under it — no content, nothing laid over the media', () => {
     const { container } = renderCard(localAsset(image()), { url: 'x' });
 
-    const [first, second] = [...container.firstElementChild!.children];
+    const card = container.firstElementChild as HTMLElement;
+    const [first, second] = [...card.children];
     expect(first).toHaveClass('collection-card__media');
-    expect(second).toHaveClass('collection-card__header');
-    expect(second!.querySelector('.card-title-section--title-bottom')).not.toBeNull();
+    expect(card.style.getPropertyValue('--collection-card-media-height')).toBe('100%');
+    expect(second).toHaveClass('collection-card__main');
+    expect(second!.querySelector('.collection-card__header .card-title-section__title')).not.toBeNull();
+    expect(card.querySelector('.collection-card__content, .card-divider')).toBeNull();
   });
 
   it('with the name not visible, drops the title section and leaves the media', () => {
@@ -130,24 +133,29 @@ describe('toAssetCardProps', () => {
     expect(card.querySelector('.card-title-section')).toBeNull();
     expect([...card.children]).toHaveLength(1);
     expect(card.children[0]).toHaveClass('collection-card__media');
+    expect(card.querySelector('.collection-card__main')).toBeNull();
   });
 
-  it('stacks the size and dates from the resource metadata under the name, one per line, label apart from value', () => {
+  it('puts the size right under the name with no label, then Created and Edited, each one plain line', () => {
     const withMetadata = renderCard(localAsset(image({ metadata: METADATA })), { url: 'x' });
-    const line = withMetadata.container.querySelector('.card-title-section__metadata')!;
-    expect(line).toHaveClass('card-title-section__metadata--vertical', 'card-title-section__metadata--spread');
-    const rows = [...line.querySelectorAll('.card-title-section__metadata-item')];
-    expect(rows).toHaveLength(3);
-    expect(rows.map((row) => row.querySelector('.card-title-section__metadata-label')!.textContent)).toEqual([
-      'Size',
-      'Created',
-      'Edited',
+    const header = withMetadata.container.querySelector('.card-title-section')!;
+    expect([...header.children].map((c) => c.className.split(' ')[0])).toEqual([
+      'card-title-section__heading',
+      'card-title-section__description',
+      'card-title-section__metadata',
     ]);
-    expect(rows[0]!.querySelector('.card-title-section__metadata-value')).toHaveTextContent('12 KB');
+    expect(header.querySelector('.card-title-section__description')).toHaveTextContent('12 KB');
+    const line = header.querySelector('.card-title-section__metadata')!;
+    expect(line).toHaveClass('card-title-section__metadata--vertical');
+    const rows = [...line.querySelectorAll('.card-title-section__metadata-item')];
+    expect(rows.map((row) => row.textContent!.split(' ')[0])).toEqual(['Created', 'Edited']);
+    // One string per line — no label span apart from a value span.
+    expect(rows.every((row) => row.children.length === 0)).toBe(true);
     withMetadata.unmount();
 
     const without = renderCard(localAsset(image()), { url: 'x' });
     expect(without.container.querySelector('.card-title-section__metadata')).toBeNull();
+    expect(without.container.querySelector('.card-title-section__description')).toBeNull();
   });
 
   describe('a remote asset', () => {
@@ -196,8 +204,8 @@ describe('toAssetCardProps', () => {
     });
 
     const header = container.querySelector('.collection-card__header')!;
-    expect([...header.querySelectorAll('.card-title-section__metadata-label')].map((node) => node.textContent)).toEqual([
-      'Size',
+    expect(header.querySelector('.card-title-section__description')).toHaveTextContent('12 KB');
+    expect([...header.querySelectorAll('.card-title-section__metadata-item')].map((node) => node.textContent!.split(' ')[0])).toEqual([
       'Created',
       'Edited',
     ]);

@@ -13,61 +13,106 @@ afterEach(cleanup);
 const card = (container: HTMLElement) => container.firstElementChild as HTMLElement;
 
 describe('CollectionCard — slots', () => {
-  it('renders header, media and content in their own wrappers, and nothing for an absent slot', () => {
+  it('renders media beside one main section holding the header and the content, and nothing for an absent part', () => {
     const { container } = render(
-      <CollectionCard
-        header={<h3>head</h3>}
-        media={<img alt="" data-testid="media" />}
-      >
+      <CollectionCard header={<h3>head</h3>} media={<img alt="" data-testid="media" />}>
         <p>body</p>
       </CollectionCard>
     );
 
     const root = card(container);
-    expect(root.querySelector('.collection-card__header')).toHaveTextContent('head');
     expect(root.querySelector('.collection-card__media [data-testid="media"]')).not.toBeNull();
-    expect(root.querySelector('.collection-card__content')).toHaveTextContent('body');
+    expect(root.querySelector('.collection-card__main .collection-card__header')).toHaveTextContent('head');
+    expect(root.querySelector('.collection-card__main .collection-card__content')).toHaveTextContent('body');
 
     cleanup();
     const { container: bare } = render(<CollectionCard header="only" />);
     expect(bare.querySelector('.collection-card__media')).toBeNull();
     expect(bare.querySelector('.collection-card__content')).toBeNull();
+
+    cleanup();
+    const { container: mediaOnly } = render(<CollectionCard media="m" />);
+    expect(mediaOnly.querySelector('.collection-card__main')).toBeNull();
   });
 
   it('knows nothing about what a slot holds — any node goes in', () => {
     render(
-      <CollectionCard header="h" media={<canvas data-testid="c" />}>
+      <CollectionCard header="h" media={<canvas data-testid="c" />} divider={<hr data-testid="d" />}>
         <svg data-testid="s" />
       </CollectionCard>
     );
 
     expect(screen.getByTestId('c')).toBeInTheDocument();
+    expect(screen.getByTestId('d')).toBeInTheDocument();
     expect(screen.getByTestId('s')).toBeInTheDocument();
   });
 });
 
-describe('CollectionCard — layouts', () => {
+describe('CollectionCard — structure', () => {
   const order = (root: HTMLElement) =>
-    [...root.children].map((child) => child.className.replace('collection-card__', ''));
+    [...root.children].map((child) => child.className.replace(/collection-card__(\w+).*/, '$1'));
+  const mainOrder = (root: HTMLElement) =>
+    [...root.querySelector('.collection-card__main')!.children].map((child) => child.className.split(' ')[0]);
 
-  it('stack (the default): header, then media, then content', () => {
+  it('has two top-level parts, media then main — and the main holds header, divider, content in that order', () => {
     const { container } = render(
-      <CollectionCard header="h" media="m">
+      <CollectionCard header="h" media="m" divider={<hr className="rule" />}>
         c
       </CollectionCard>
     );
 
-    expect(card(container)).toHaveClass('collection-card--layout-stack');
-    expect(order(card(container))).toEqual(['header', 'media', 'content']);
+    expect(order(card(container))).toEqual(['media', 'main']);
+    expect(mainOrder(card(container))).toEqual(['collection-card__header', 'rule', 'collection-card__content']);
   });
 
-  it('overlay: media first (it fills the card), then the header over it', () => {
+  it('draws the divider only between a header and content: not with one of them missing', () => {
+    const divider = <hr data-testid="d" />;
+
+    const { container: noContent } = render(<CollectionCard header="h" divider={divider} />);
+    expect(noContent.querySelector('[data-testid="d"]')).toBeNull();
+    cleanup();
+    const { container: noHeader } = render(<CollectionCard divider={divider}>c</CollectionCard>);
+    expect(noHeader.querySelector('[data-testid="d"]')).toBeNull();
+  });
+
+  it('showContent={false} hides the content and with it the divider', () => {
     const { container } = render(
-      <CollectionCard layout="overlay" header="h" media="m" />
+      <CollectionCard header="h" divider={<hr data-testid="d" />} showContent={false}>
+        c
+      </CollectionCard>
     );
 
-    expect(card(container)).toHaveClass('collection-card--layout-overlay');
-    expect(order(card(container))).toEqual(['media', 'header']);
+    expect(container.querySelector('.collection-card__content')).toBeNull();
+    expect(container.querySelector('[data-testid="d"]')).toBeNull();
+    expect(container.querySelector('.collection-card__header')).not.toBeNull();
+    expect(container.querySelector('.collection-card__main--content')).toBeNull();
+  });
+
+  it('showDivider={false} hides only the divider', () => {
+    const { container } = render(
+      <CollectionCard header="h" divider={<hr data-testid="d" />} showDivider={false}>
+        c
+      </CollectionCard>
+    );
+
+    expect(container.querySelector('[data-testid="d"]')).toBeNull();
+    expect(container.querySelector('.collection-card__content')).toHaveTextContent('c');
+  });
+
+  it('marks the main section as holding content (it then has no bottom padding and fills the card)', () => {
+    const { container, rerender } = render(<CollectionCard header="h" />);
+    expect(container.querySelector('.collection-card__main')).not.toHaveClass('collection-card__main--content');
+
+    rerender(<CollectionCard header="h">c</CollectionCard>);
+    expect(container.querySelector('.collection-card__main')).toHaveClass('collection-card__main--content');
+  });
+
+  it('sets the media height only when given one', () => {
+    const { container, rerender } = render(<CollectionCard media="m" />);
+    expect(card(container).style.getPropertyValue('--collection-card-media-height')).toBe('');
+
+    rerender(<CollectionCard media="m" mediaHeight="100%" />);
+    expect(card(container).style.getPropertyValue('--collection-card-media-height')).toBe('100%');
   });
 
   it('is not empty by default; isEmpty marks the quiet "add something" card and keeps its content', () => {
@@ -79,10 +124,10 @@ describe('CollectionCard — layouts', () => {
     expect(container.querySelector('.collection-card__content')).toHaveTextContent('+');
   });
 
-  it('has no tone prop any more', () => {
+  it('has no layout or tone prop any more', () => {
     const { container } = render(<CollectionCard header="h" />);
 
-    expect(card(container).className).not.toMatch(/tone/);
+    expect(card(container).className).not.toMatch(/tone|layout/);
   });
 });
 
@@ -194,12 +239,17 @@ describe('CollectionCard.css', () => {
 
   it('centres the content of an empty card', () => {
     expect(css).toMatch(
-      /\.collection-card--empty > \.collection-card__content\s*\{[^}]*align-items:\s*center[^}]*justify-content:\s*center/
+      /\.collection-card--empty \.collection-card__content\s*\{[^}]*align-items:\s*center[^}]*justify-content:\s*center/
     );
   });
 
-  it('restyles its header only through custom properties', () => {
-    expect(css).toMatch(/--card-title-color/);
-    expect(css).not.toMatch(/card-title-section__/);
+  it('positions nothing over anything else: no absolute positioning, no scrim', () => {
+    expect(css).not.toMatch(/position:\s*absolute/);
+    expect(css).not.toMatch(/gradient/);
+  });
+
+  it('the main section carries the one padding and the one gap between its children', () => {
+    expect(css).toMatch(/\.collection-card__main\s*\{[^}]*padding:\s*var\(--collection-card-inset\)[^}]*gap:\s*var\(--collection-card-inset\)/);
+    expect(css).toMatch(/\.collection-card__main--content\s*\{[^}]*padding-bottom:\s*0/);
   });
 });

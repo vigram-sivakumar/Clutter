@@ -56,16 +56,14 @@ describe('CardTitleSection', () => {
     expect(screen.getByText('Q4 goals')).toHaveClass('card-title-section__description');
   });
 
-  it('renders each metadata entry as its own item; a label/value entry draws both parts', () => {
-    const { container } = render(
-      <CardTitleSection title="Plan" metadata={['Edited today', { label: 'Size', value: '4 MB' }]} />
-    );
+  it('renders each metadata entry as its own item, one plain string each', () => {
+    const { container } = render(<CardTitleSection title="Plan" metadata={['Edited today', 'Created 2 Sept']} />);
 
     const items = container.querySelectorAll('.card-title-section__metadata-item');
     expect(items).toHaveLength(2);
     expect(items[0]).toHaveTextContent('Edited today');
-    expect(items[1]!.querySelector('.card-title-section__metadata-label')).toHaveTextContent('Size');
-    expect(items[1]!.querySelector('.card-title-section__metadata-value')).toHaveTextContent('4 MB');
+    expect(items[1]).toHaveTextContent('Created 2 Sept');
+    expect([...items].every((item) => item.children.length === 0)).toBe(true);
   });
 
   it('lays metadata out horizontally by default and vertically on request', () => {
@@ -78,33 +76,6 @@ describe('CardTitleSection', () => {
     expect(container.querySelector('.card-title-section__metadata')).toHaveClass(
       'card-title-section__metadata--vertical'
     );
-  });
-
-  it('aligns label/value items inline by default, or spread across the full width', () => {
-    const items = [{ label: 'Size', value: '4 MB' }];
-    const { container, rerender } = render(<CardTitleSection title="Plan" metadata={items} metadataLayout="vertical" />);
-    expect(container.querySelector('.card-title-section__metadata')).not.toHaveClass(
-      'card-title-section__metadata--spread'
-    );
-
-    rerender(<CardTitleSection title="Plan" metadata={items} metadataLayout="vertical" metadataAlign="spread" />);
-    expect(container.querySelector('.card-title-section__metadata')).toHaveClass(
-      'card-title-section__metadata--spread'
-    );
-  });
-
-  it('puts the title row on top by default, or last with titlePlacement="bottom"', () => {
-    const { container, rerender } = render(<CardTitleSection title="Plan" description="d" metadata={['m']} />);
-    expect(root(container)).not.toHaveClass('card-title-section--title-bottom');
-
-    rerender(<CardTitleSection title="Plan" description="d" metadata={['m']} titlePlacement="bottom" />);
-    expect(root(container)).toHaveClass('card-title-section--title-bottom');
-    // the markup order is unchanged (reading order); only the visual order is reversed
-    expect([...root(container).children].map((c) => c.className.split(' ')[0])).toEqual([
-      'card-title-section__heading',
-      'card-title-section__description',
-      'card-title-section__metadata',
-    ]);
   });
 
   it('reserves metadata height: min lines show even with fewer items or none', () => {
