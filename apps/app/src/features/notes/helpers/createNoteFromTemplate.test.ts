@@ -1,4 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
+// @vitest-environment jsdom
+
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { PageOperations } from '@core/application/page/PageOperations';
 
@@ -130,5 +132,43 @@ describe('pickInheritedTemplateMetadata — tags, description, custom properties
     } as never);
 
     expect(Object.keys(patch)).toEqual(['icon']);
+  });
+});
+
+describe('pickInheritedTemplateMetadata — Apply template icon / cover image', () => {
+  afterEach(() => localStorage.clear());
+
+  const FULL = {
+    ...DEFAULTS,
+    icon: '📌',
+    cover: 'Assets/c.png',
+    coverCredit: { name: 'Alex', url: 'https://unsplash.com/@alex' },
+    description: 'D',
+    tags: ['t'],
+    unownedFrontmatter: ['Priority: High'],
+  };
+
+  it('reads the stored preferences: on by default, each off on its own', () => {
+    expect(pickInheritedTemplateMetadata(FULL)).toMatchObject({ icon: '📌', cover: 'Assets/c.png' });
+
+    localStorage.setItem('clutter-apply-template-icon', 'false');
+    const iconOff = pickInheritedTemplateMetadata(FULL);
+    expect(iconOff).not.toHaveProperty('icon');
+    expect(iconOff).toMatchObject({ cover: 'Assets/c.png', description: 'D', tags: ['t'] });
+
+    localStorage.clear();
+    localStorage.setItem('clutter-apply-template-cover', 'false');
+    const coverOff = pickInheritedTemplateMetadata(FULL);
+    expect(coverOff).toMatchObject({ icon: '📌', description: 'D', tags: ['t'], unownedFrontmatter: ['Priority: High'] });
+    for (const key of ['cover', 'coverCredit', 'coverHidden', 'coverLayout', 'coverPositionAbove', 'coverPositionSide']) {
+      expect(coverOff).not.toHaveProperty(key);
+    }
+  });
+
+  it('explicit options override the stored preferences', () => {
+    localStorage.setItem('clutter-apply-template-icon', 'false');
+
+    expect(pickInheritedTemplateMetadata(FULL, { applyIcon: true })).toHaveProperty('icon', '📌');
+    expect(pickInheritedTemplateMetadata(FULL, { applyCover: false })).not.toHaveProperty('cover');
   });
 });

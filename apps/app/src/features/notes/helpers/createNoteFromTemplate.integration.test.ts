@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+// @vitest-environment jsdom
+
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { PageOperations } from '@core/application/page/PageOperations';
 import { PagePathResolver } from '@core/application/page/PagePathResolver';
@@ -336,5 +338,72 @@ describe('createNoteFromTemplate — full inheritance rules', () => {
     expect(note!.metadata.description).toBeNull();
     expect(note!.metadata.tags ?? []).toEqual([]);
     expect(note!.metadata.unownedFrontmatter ?? []).toEqual([]);
+  });
+});
+
+describe('createNoteFromTemplate — Settings → Templates (Apply template icon / cover image)', () => {
+  afterEach(() => localStorage.clear());
+
+  const useWith = async (stored: Record<string, string>) => {
+    localStorage.clear();
+    for (const [key, value] of Object.entries(stored)) localStorage.setItem(key, value);
+    const env = setup(FULL_TEMPLATE);
+    await useTemplate(env);
+    return { env, note: env.created()[0]! };
+  };
+
+  const expectOtherFieldsInherited = (note: ReturnType<ReturnType<typeof setup>['created']>[number]) => {
+    expect(note.source.markdown).toBe('# Agenda\n\n- item');
+    expect(note.metadata.description).toBe('Template description');
+    expect(note.metadata.tags).toEqual(['tpl', 'meeting']);
+    expect(note.metadata.unownedFrontmatter).toEqual(['Priority: High', 'Attendees:', '  - Ann', '  - Bo', 'reviewed: true']);
+  };
+
+  it('both on by default: the new note gets the icon and the cover', async () => {
+    const { note } = await useWith({});
+
+    expect(note.metadata.icon).toBe('🧾');
+    expect(note.metadata.cover).toBe('Assets/cover.png');
+    expectOtherFieldsInherited(note);
+  });
+
+  it('icon off: no icon, but the cover, its presentation and every other field', async () => {
+    const { note } = await useWith({ 'clutter-apply-template-icon': 'false' });
+
+    expect(note.metadata.icon).toBeNull();
+    expect(note.metadata.cover).toBe('Assets/cover.png');
+    expect(note.metadata.coverLayout).toBe('above');
+    expectOtherFieldsInherited(note);
+  });
+
+  it('cover off: no cover (and none of its presentation or credit), but the icon and every other field', async () => {
+    const { note } = await useWith({ 'clutter-apply-template-cover': 'false' });
+
+    expect(note.metadata.cover).toBeNull();
+    expect(note.metadata.coverLayout).not.toBe('above');
+    expect(note.metadata.icon).toBe('🧾');
+    expectOtherFieldsInherited(note);
+  });
+
+  it('both off: neither, and the other fields still make the note', async () => {
+    const { env, note } = await useWith({
+      'clutter-apply-template-icon': 'false',
+      'clutter-apply-template-cover': 'false',
+    });
+
+    expect(note.metadata.icon).toBeNull();
+    expect(note.metadata.cover).toBeNull();
+    expectOtherFieldsInherited(note);
+    expect(env.vault.getPage('template-1')!.metadata.icon).toBe('🧾');
+  });
+
+  it('a template with only an icon and a cover, both off, leaves a plain draft', async () => {
+    localStorage.setItem('clutter-apply-template-icon', 'false');
+    localStorage.setItem('clutter-apply-template-cover', 'false');
+    const env = setup(VISUAL);
+
+    await useTemplate(env);
+
+    expect(env.created()).toHaveLength(0);
   });
 });

@@ -112,7 +112,8 @@ function missingPropertyLines(
  *
  *  - tags: the union (the note's own first);
  *  - icon and cover (with its presentation settings): only when the note has none — an existing icon or
- *    cover is never replaced; a daily note never takes the icon;
+ *    cover is never replaced; a daily note never takes the icon; neither is picked when its Settings → Templates
+ *    option is off (pickInheritedTemplateMetadata);
  *  - description: only when the note has none;
  *  - custom properties: the template's keys the note doesn't already have, appended after its own.
  *

@@ -78,7 +78,7 @@ describe('Settings — Assets page', () => {
       (el) => el.querySelector('.entry__content')?.textContent ?? el.textContent
     );
     // The three section headers (General, Features, Editor) and the six pages, in order: Assets is the last of Features, after Tasks.
-    expect(order).toEqual(['General', 'Preferences', 'Features', 'Notes', 'Daily notes', 'Tags', 'Tasks', 'Assets', 'Editor', 'Layout']);
+    expect(order).toEqual(['General', 'Preferences', 'Features', 'Notes', 'Daily notes', 'Tags', 'Tasks', 'Assets', 'Templates', 'Editor', 'Layout']);
     const row = screen.getByText('Assets').closest('.entry')!;
     expect(row.querySelector('.entry__leading svg')).not.toBeNull();
   });

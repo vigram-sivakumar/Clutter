@@ -99,7 +99,8 @@ async function flush(): Promise<void> {
 async function setup(
   frontmatter: Record<string, unknown>,
   templateCount = 1,
-  templateCover?: string
+  templateCover?: string,
+  templateIcon?: string
 ) {
   const note = buildNote(frontmatter);
   const vault = new Vault(
@@ -138,6 +139,11 @@ async function setup(
     if (templateCover) {
       await application.pageOperations.updateMetadata(templateDraft, {
         cover: templateCover,
+      });
+    }
+    if (templateIcon) {
+      await application.pageOperations.updateMetadata(templateDraft, {
+        icon: templateIcon,
       });
     }
     await application.pageOperations.requestSave(templateDraft);
@@ -460,5 +466,69 @@ describe('applying a template through the picker (+N more)', () => {
     expect(editorText()).toBe('# Agenda');
     // ...and the editor was not given focus by it.
     expect(content.contains(document.activeElement)).toBe(false);
+  });
+});
+
+describe('Settings → Templates: choosing a suggestion applies the icon and cover as set', () => {
+  const COVER = 'https://example.com/tpl.jpg';
+
+  afterEach(() => localStorage.clear());
+
+  const choose = async () => {
+    fireEvent.click(
+      screen
+        .getAllByRole('button')
+        .find((el) => el.closest('.template-suggestions__list'))!
+    );
+    await flush();
+  };
+
+  it.each([
+    ['both on (the default)', {}, '🧾', COVER],
+    ['icon off', { 'clutter-apply-template-icon': 'false' }, undefined, COVER],
+    ['cover off', { 'clutter-apply-template-cover': 'false' }, '🧾', undefined],
+    [
+      'both off',
+      {
+        'clutter-apply-template-icon': 'false',
+        'clutter-apply-template-cover': 'false',
+      },
+      undefined,
+      undefined,
+    ],
+  ])(
+    'with %s, a note with neither gets exactly that, and always the body',
+    async (_label, stored, icon, cover) => {
+      for (const [key, value] of Object.entries(stored)) {
+        localStorage.setItem(key, value);
+      }
+      const { application, noteId } = await setup({}, 1, COVER, '🧾');
+
+      await choose();
+
+      const metadata = application.vault.getPage(noteId)!.metadata;
+      expect(metadata.icon ?? undefined).toBe(icon);
+      expect(metadata.cover ?? undefined).toBe(cover);
+      expect(
+        application.pageOperations.getSession(noteId)!.currentRevision.markdown
+      ).toBe('# Agenda');
+    }
+  );
+
+  it('with both off, a note’s own icon and cover are left as they are', async () => {
+    localStorage.setItem('clutter-apply-template-icon', 'false');
+    localStorage.setItem('clutter-apply-template-cover', 'false');
+    const { application, noteId } = await setup(
+      { icon: '📌', cover: 'https://example.com/note.jpg' },
+      1,
+      COVER,
+      '🧾'
+    );
+
+    await choose();
+
+    const metadata = application.vault.getPage(noteId)!.metadata;
+    expect(metadata.icon).toBe('📌');
+    expect(metadata.cover).toBe('https://example.com/note.jpg');
   });
 });

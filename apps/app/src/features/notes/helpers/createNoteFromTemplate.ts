@@ -1,6 +1,17 @@
 import type { EditablePageMetadata, PageOperations } from '@core/application/page/PageOperations';
 import { evaluateTemplateMarker } from '@core/vault/ingest/frontmatter/templateMarker';
 import type { PageMetadata } from '@core/vault/models/PageMetadata';
+import { readApplyTemplateCover } from '@shared/helpers/applyTemplateCoverPreference';
+import { readApplyTemplateIcon } from '@shared/helpers/applyTemplateIconPreference';
+
+/**
+ * Which of a template's presentation properties are inherited (Settings → Templates). Each is on unless it is
+ * explicitly `false`; one being off never affects the other, or any other property.
+ */
+export interface TemplateApplyOptions {
+  readonly applyIcon?: boolean;
+  readonly applyCover?: boolean;
+}
 
 /**
  * What a new note inherits from its template's metadata, besides the body:
@@ -18,6 +29,10 @@ import type { PageMetadata } from '@core/vault/models/PageMetadata';
  * Only values that differ from a page's defaults are returned, so a template with none of these yields
  * an empty patch and the note stays a plain draft. The cover's presentation settings are meaningless
  * without a cover, so they are inherited only alongside one.
+ *
+ * The one place the global Apply template icon / Apply template cover image settings are enforced, for every way
+ * a template is applied (a new note from it, or applying it to an open note or Daily Note): each is read from the
+ * stored preference unless `options` says otherwise, and one that is off leaves its property out of the patch.
  */
 export function pickInheritedTemplateMetadata(
   template: Pick<
@@ -25,15 +40,17 @@ export function pickInheritedTemplateMetadata(
     'icon' | 'cover' | 'coverHidden' | 'coverLayout' | 'coverPositionAbove' | 'coverPositionSide'
   > &
     Partial<Pick<PageMetadata, 'coverCredit'>> &
-    Partial<Pick<PageMetadata, 'description' | 'tags' | 'unownedFrontmatter'>>
+    Partial<Pick<PageMetadata, 'description' | 'tags' | 'unownedFrontmatter'>>,
+  options: TemplateApplyOptions = {}
 ): Partial<EditablePageMetadata> {
+  const { applyIcon = readApplyTemplateIcon(), applyCover = readApplyTemplateCover() } = options;
   const patch: { -readonly [K in keyof EditablePageMetadata]?: EditablePageMetadata[K] } = {};
 
-  if (template.icon) {
+  if (applyIcon && template.icon) {
     patch.icon = template.icon;
   }
 
-  if (template.cover) {
+  if (applyCover && template.cover) {
     patch.cover = template.cover;
     // The credit describes the image, so it travels with it (ADR-054).
     if (template.coverCredit) {

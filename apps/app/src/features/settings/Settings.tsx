@@ -38,6 +38,8 @@ import { WeekStartSetting } from './week-start-setting/WeekStartSetting';
 import { ThemeSetting } from './theme-setting/ThemeSetting';
 import { TaskItemsSetting } from './tasks-setting/TaskItemsSetting';
 import { GroupTasksByDueDateSetting } from './tasks-setting/GroupTasksByDueDateSetting';
+import { ApplyTemplateIconSetting } from './templates-setting/ApplyTemplateIconSetting';
+import { ApplyTemplateCoverSetting } from './templates-setting/ApplyTemplateCoverSetting';
 import { ShowDailyNoteEmojiSetting } from './daily-notes-setting/ShowDailyNoteEmojiSetting';
 import { ShowReferencesAutomaticallySetting } from './references-setting/ShowReferencesAutomaticallySetting';
 import { HeaderSeparatorSetting } from './header-separator-setting/HeaderSeparatorSetting';
@@ -50,6 +52,7 @@ const PAGE_TITLES: Record<FixedSettingsPageId, string> = {
   tasks: 'Tasks',
   tags: 'Tags',
   assets: 'Assets',
+  templates: 'Templates',
   layout: 'Layout',
 };
 
@@ -164,6 +167,12 @@ export function Settings({ templates, noteLocation, spaceSettings, space, onClos
             <ShowAssetsInFoldersSetting />
             {/* Hidden for now (core/featureFlags.ts): the setting only, not what it controls. */}
             {isAllowMovingAssetsSettingEnabled() && <AllowMovingAssetsSetting source={spaceSettings} />}
+          </SettingsGroup>
+        )}
+        {pageId === 'templates' && (
+          <SettingsGroup title="Template suggestions">
+            <ApplyTemplateIconSetting />
+            <ApplyTemplateCoverSetting />
           </SettingsGroup>
         )}
         {pageId === 'layout' && (

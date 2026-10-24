@@ -55,7 +55,7 @@ describe('Settings — Tags page', () => {
     const rows = Array.from(document.querySelectorAll('.entry')).map(
       (el) => el.querySelector('.entry__content')?.textContent ?? el.textContent
     );
-    expect(rows.slice(rows.indexOf('Features'), rows.indexOf('Editor'))).toEqual(['Features', 'Notes', 'Daily notes', 'Tags', 'Tasks', 'Assets']);
+    expect(rows.slice(rows.indexOf('Features'), rows.indexOf('Editor'))).toEqual(['Features', 'Notes', 'Daily notes', 'Tags', 'Tasks', 'Assets', 'Templates']);
     expect(screen.getByText('Tags').closest('.entry')!.querySelector('.entry__leading svg')).not.toBeNull();
   });
 

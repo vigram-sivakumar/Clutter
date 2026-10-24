@@ -1,4 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
+// @vitest-environment jsdom
+
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { PageOperations } from '@core/application/page/PageOperations';
 import { PagePathResolver } from '@core/application/page/PagePathResolver';
@@ -309,6 +311,146 @@ describe('applyTemplateToNote — a daily note', () => {
     expect(onDisk).toContain('type: daily-note');
     expect(onDisk).toContain(`id: ${draftId}`);
     expect(env.vault.getPageByPath(path)!.id).toBe(draftId);
+  });
+});
+
+describe('applyTemplateToNote — Settings → Templates (Apply template icon / cover image)', () => {
+  // The settings are global: stored preferences, read where the template's metadata is picked.
+  afterEach(() => localStorage.clear());
+
+  const applyWith = (
+    env: Env,
+    id: string,
+    type: 'note' | 'daily-note',
+    options: { applyIcon?: boolean; applyCover?: boolean },
+    existing = env.vault.getPage(id)?.metadata ?? {}
+  ) => {
+    localStorage.clear();
+    if (options.applyIcon === false) localStorage.setItem('clutter-apply-template-icon', 'false');
+    if (options.applyCover === false) localStorage.setItem('clutter-apply-template-cover', 'false');
+
+    return applyTemplateToNote(
+      env.pageOperations,
+      id,
+      type,
+      existing,
+      env.template.source.markdown,
+      env.vault.getPage('template-1')!.metadata
+    );
+  };
+
+  /** Everything the template brings except its icon and cover. */
+  const expectOtherFieldsApplied = (env: Env, id: string) => {
+    const metadata = env.vault.getPage(id)!.metadata;
+
+    expect(metadata.description).toBe('Template description');
+    expect(metadata.tags).toEqual(['tpl', 'meeting']);
+    expect(metadata.unownedFrontmatter).toEqual(['Priority: High', 'Attendees:', '  - Ann', '  - Bo', 'reviewed: true']);
+    expect(bodyOf(env, id)).toBe('# Agenda\n\n- item');
+  };
+
+  it('with neither option given, applies the icon and the cover (the default)', async () => {
+    const env = setup(TEMPLATE);
+    await env.pageOperations.open('note-1');
+
+    await applyWith(env, 'note-1', 'note', {});
+
+    expect(env.vault.getPage('note-1')!.metadata.icon).toBe('🧾');
+    expect(env.vault.getPage('note-1')!.metadata.cover).toBe('Assets/cover.png');
+  });
+
+  it('with the icon off, leaves the note without an icon but still applies the cover and everything else', async () => {
+    const env = setup(TEMPLATE);
+    await env.pageOperations.open('note-1');
+
+    await applyWith(env, 'note-1', 'note', { applyIcon: false });
+
+    const metadata = env.vault.getPage('note-1')!.metadata;
+    expect(metadata.icon).toBeNull();
+    expect(metadata.cover).toBe('Assets/cover.png');
+    expect(metadata.coverLayout).toBe('above');
+    expectOtherFieldsApplied(env, 'note-1');
+  });
+
+  it('with the cover off, leaves the note without a cover but still applies the icon and everything else', async () => {
+    const env = setup(TEMPLATE);
+    await env.pageOperations.open('note-1');
+
+    await applyWith(env, 'note-1', 'note', { applyCover: false });
+
+    const metadata = env.vault.getPage('note-1')!.metadata;
+    expect(metadata.icon).toBe('🧾');
+    expect(metadata.cover).toBeNull();
+    expect(metadata.coverLayout).not.toBe('above');
+    expectOtherFieldsApplied(env, 'note-1');
+  });
+
+  it('with both off, applies neither but still applies every other field', async () => {
+    const env = setup(TEMPLATE);
+    await env.pageOperations.open('note-1');
+
+    await applyWith(env, 'note-1', 'note', { applyIcon: false, applyCover: false });
+
+    const metadata = env.vault.getPage('note-1')!.metadata;
+    expect(metadata.icon).toBeNull();
+    expect(metadata.cover).toBeNull();
+    expectOtherFieldsApplied(env, 'note-1');
+  });
+
+  it('with both off, keeps the note’s own icon and cover exactly as they were', async () => {
+    const env = setup(TEMPLATE, { icon: '📌', cover: 'Assets/own.png', coverLayout: 'side' });
+    await env.pageOperations.open('note-1');
+
+    await applyWith(env, 'note-1', 'note', { applyIcon: false, applyCover: false });
+
+    const metadata = env.vault.getPage('note-1')!.metadata;
+    expect(metadata.icon).toBe('📌');
+    expect(metadata.cover).toBe('Assets/own.png');
+    expect(metadata.coverLayout).toBe('side');
+    expectOtherFieldsApplied(env, 'note-1');
+  });
+
+  it('a draft note respects the options the same way', async () => {
+    const env = setup(TEMPLATE, null);
+    const draftId = await env.pageOperations.openDraft({ folderId: null });
+
+    await applyWith(env, draftId, 'note', { applyIcon: false, applyCover: false }, { tags: env.pageOperations.getDraft(draftId)?.tags });
+
+    const metadata = env.vault.getPage(draftId)!.metadata;
+    expect(metadata.icon).toBeNull();
+    expect(metadata.cover).toBeNull();
+    expectOtherFieldsApplied(env, draftId);
+  });
+
+  it('a daily note respects the cover option, and (as always) never takes the icon', async () => {
+    const coverOff = setup(TEMPLATE, null);
+    const path = DailyNotePath.absoluteFrom(`${ROOT}/Daily Notes`, new Date(2026, 9, 10));
+    const offId = await coverOff.pageOperations.openAtPath(path, { type: 'daily-note' });
+
+    await applyWith(coverOff, offId, 'daily-note', { applyCover: false }, { tags: coverOff.pageOperations.getDraft(offId)?.tags });
+
+    expect(coverOff.vault.getPage(offId)!.metadata.cover).toBeNull();
+    expect(coverOff.vault.getPage(offId)!.metadata.icon).toBeNull();
+    expectOtherFieldsApplied(coverOff, offId);
+
+    const coverOn = setup(TEMPLATE, null);
+    const onId = await coverOn.pageOperations.openAtPath(path, { type: 'daily-note' });
+
+    await applyWith(coverOn, onId, 'daily-note', { applyIcon: true }, { tags: coverOn.pageOperations.getDraft(onId)?.tags });
+
+    expect(coverOn.vault.getPage(onId)!.metadata.cover).toBe('Assets/cover.png');
+    expect(coverOn.vault.getPage(onId)!.metadata.icon).toBeNull();
+  });
+
+  it('never changes the template itself', async () => {
+    const env = setup(TEMPLATE);
+    await env.pageOperations.open('note-1');
+    const before = env.vault.getPage('template-1')!.metadata;
+
+    await applyWith(env, 'note-1', 'note', { applyIcon: false, applyCover: false });
+
+    expect(env.vault.getPage('template-1')!.metadata).toEqual(before);
+    expect(await env.fileSystem.readFile(env.template.path)).toContain('kind: template');
   });
 });
 

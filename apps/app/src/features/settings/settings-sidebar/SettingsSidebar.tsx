@@ -10,7 +10,7 @@ import { Entry } from '@components/entry/Entry';
 import { AppIcon, type SystemIcon } from '@shared/icon';
 import './SettingsSidebar.css';
 
-export type FixedSettingsPageId = 'preferences' | 'notes' | 'daily-notes' | 'tasks' | 'tags' | 'assets' | 'layout';
+export type FixedSettingsPageId = 'preferences' | 'notes' | 'daily-notes' | 'tasks' | 'tags' | 'assets' | 'templates' | 'layout';
 /** A Space's own page, identified by its path. */
 export type SpaceSettingsPageId = `space:${string}`;
 export type SettingsPageId = FixedSettingsPageId | SpaceSettingsPageId;
@@ -42,6 +42,7 @@ const SECTIONS: { title: string; entries: SettingsSidebarEntry[] }[] = [
       { id: 'tags', title: 'Tags', location: 'tags' },
       { id: 'tasks', title: 'Tasks', location: 'tasks' },
       { id: 'assets', title: 'Assets', location: 'assets' },
+      { id: 'templates', title: 'Templates', location: 'templates' },
     ],
   },
   {
