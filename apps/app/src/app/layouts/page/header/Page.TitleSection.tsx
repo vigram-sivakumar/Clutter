@@ -1,4 +1,5 @@
 import type { PropertiesControl } from './propertiesControl';
+import type { CoverApplyResult } from './PageHeaderMoreActionsMenu';
 import type { CoverCredit } from '@core/vault/models/PageMetadata';
 import type { HTMLAttributes, ReactNode } from 'react';
 import { PageHeaderControls, type PageHeaderControlsProps } from './PageHeaderControls';
@@ -39,8 +40,8 @@ interface PageTitleSectionProps extends Omit<
   hasCoverImage?: boolean;
   /** Whether an existing cover is currently suppressed from view — see PageHeaderControls' own doc comment. */
   coverHidden?: boolean;
-  onSetCoverImage?: (url: string, credit?: CoverCredit | null) => void;
-  onSetCoverImageFromUpload?: (sourcePath: string) => void;
+  onSetCoverImage?: (url: string, credit?: CoverCredit | null) => CoverApplyResult;
+  onSetCoverImageFromUpload?: (sourcePath: string) => CoverApplyResult;
   onRemoveCoverImage?: () => void;
   /** Reveals an existing hidden cover in place — see PageHeaderControls' own doc comment. */
   onShowCoverImage?: () => void;

@@ -1,4 +1,5 @@
 import type { PropertiesControl } from './header/propertiesControl';
+import type { CoverApplyResult } from './header/PageHeaderMoreActionsMenu';
 import { PageDivider, type DividerVariant } from './PageDivider';
 import { shouldShowHeaderSeparator, useHeaderSeparatorMode, useHeaderSeparatorStyle } from './headerSeparator';
 import type { PageHeaderControlsProps } from './header/PageHeaderControls';
@@ -90,8 +91,8 @@ type PageProps = {
   /** Forwarded to PageTitleSection's own More-actions menu — see PageHeaderControls' doc comments. Presence gates the Emoji/Cover image menu items (undefined omits the corresponding item entirely, e.g. an archived page gets none). */
   onSelectEmoji?(emoji: string): void;
   onRemoveEmoji?(): void;
-  onSetCoverImage?(url: string, credit?: CoverCredit | null): void;
-  onSetCoverImageFromUpload?(sourcePath: string): void;
+  onSetCoverImage?(url: string, credit?: CoverCredit | null): CoverApplyResult;
+  onSetCoverImageFromUpload?(sourcePath: string): CoverApplyResult;
   /**
    * Slot rendered in the document flow directly below the title/description
    * header and directly above `body` — the page's Properties. Owns no

@@ -10,6 +10,12 @@ import { AppIcon } from '@shared/icon';
 import type { PropertiesControl } from './propertiesControl';
 import './PageHeaderMoreActionsMenu.css';
 
+/**
+ * What applying a picked cover reports: nothing (applied synchronously), or a promise that settles once it is
+ * applied. A promise that rejects, or resolves `false`, means it was not applied — the picker then stays open.
+ */
+export type CoverApplyResult = void | boolean | Promise<void | boolean>;
+
 export interface PageHeaderMoreActionsMenuProps {
   /** Controlled open state (with `onOpenChange`); omitted, the menu keeps its own. */
   open?: boolean;
@@ -38,8 +44,8 @@ export interface PageHeaderMoreActionsMenuProps {
    */
   coverHidden?: boolean;
   /** Presence (alongside `!hasCoverImage`) gates the "Cover image" item, same convention as onSelectEmoji above. */
-  onSetCoverImage?: (url: string, credit?: CoverCredit | null) => void;
-  onSetCoverImageFromUpload?: (sourcePath: string) => void;
+  onSetCoverImage?: (url: string, credit?: CoverCredit | null) => CoverApplyResult;
+  onSetCoverImageFromUpload?: (sourcePath: string) => CoverApplyResult;
   onRemoveCoverImage?: () => void;
   /**
    * Presence (alongside `hasCoverImage && coverHidden`) gates the "Show
@@ -168,6 +174,41 @@ export function PageHeaderMoreActionsMenu({
   // blur -> hide" rule then (correctly, by its own logic) treats as an
   // abandoned edit.
   const suppressReturnFocusRef = useRef(false);
+  // A cover pick still being applied: the picker stays open until it is, and a second pick meanwhile is ignored,
+  // so one image is never applied twice.
+  const applyingCoverRef = useRef(false);
+  const applyCover = (apply: () => CoverApplyResult): void => {
+    if (applyingCoverRef.current) {
+      return;
+    }
+
+    const result = apply();
+
+    if (!(result instanceof Promise)) {
+      // `false`: nothing was applied (no page to apply it to) — never closed as if it had worked.
+      if (result !== false) {
+        setOpen(false);
+      }
+      return;
+    }
+
+    applyingCoverRef.current = true;
+    result
+      .then(
+        (applied) => {
+          // `false` is a failure the handler has already reported (a toast): never closed as if it had worked.
+          if (applied !== false) {
+            setOpen(false);
+          }
+        },
+        () => {
+          // Not applied: the picker stays open so the user can try again.
+        }
+      )
+      .finally(() => {
+        applyingCoverRef.current = false;
+      });
+  };
 
   // Every fresh open must start on the root view — this component itself
   // never unmounts between opens (only its Overlay does), so `view` would
@@ -328,25 +369,13 @@ export function PageHeaderMoreActionsMenu({
         {view === 'cover' && onSetCoverImage && (
           <div className="page-header-more-actions-menu__cover">
             <ImagePicker
-              onLinkSubmit={(url) => {
-                setOpen(false);
-                onSetCoverImage(url);
-              }}
-              onUploadSubmit={(sourcePath) => {
-                setOpen(false);
-                onSetCoverImageFromUpload?.(sourcePath);
-              }}
-              onAssetSelect={(cover) => {
-                setOpen(false);
-                onSetCoverImage(cover);
-              }}
-              onUnsplashSelect={(url, credit) => {
-                // Deliberately does not close the menu — same Unsplash
-                // browse-and-preview reasoning as ResourceTopBarActions'
-                // own onUnsplashSelect (ImagePicker.tsx's own doc
-                // comment).
-                onSetCoverImage(url, credit);
-              }}
+              // Every source closes the menu, but only once the cover has actually been applied (applyCover).
+              // Unlike the page cover's own picker, which stays open on an Unsplash pick so the user can keep
+              // browsing, this menu is a one-shot way to give a page its first cover.
+              onLinkSubmit={(url) => applyCover(() => onSetCoverImage(url))}
+              onUploadSubmit={(sourcePath) => applyCover(() => onSetCoverImageFromUpload?.(sourcePath))}
+              onAssetSelect={(cover) => applyCover(() => onSetCoverImage(cover))}
+              onUnsplashSelect={(url, credit) => applyCover(() => onSetCoverImage(url, credit))}
             />
           </div>
         )}

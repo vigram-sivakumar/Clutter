@@ -1296,16 +1296,18 @@ export function PageHost({
   const coverLayoutFor = (noteId: string) =>
     initialCoverLayoutPatch(vault.getPage(noteId)?.metadata, application.defaultCoverPosition);
 
-  const onSetCoverImage = (url: string, credit?: CoverCredit | null): void => {
+  // Returns the write, so a caller that waits (the title section's cover picker closes only once the cover is
+  // applied) can; the others ignore it, as before.
+  const onSetCoverImage = (url: string, credit?: CoverCredit | null): Promise<void> | false => {
     if (!activePageId) {
-      return;
+      return false;
     }
 
     // Both saved positions reset to centered alongside a new image, same
     // reasoning as onRemoveCoverImage's coverHidden reset below — a
     // position belongs to the image it was framed against, never carries
     // over to a replacement the user hasn't positioned yet.
-    void application.pageOperations.updateMetadata(activePageId, {
+    return application.pageOperations.updateMetadata(activePageId, {
       cover: url,
       // The credit belongs to the image (ADR-054): the picker's own, else one
       // already recorded for this exact URL, else cleared — never left stale.
@@ -1316,15 +1318,16 @@ export function PageHost({
     });
   };
 
-  const onSetCoverImageFromUpload = (sourcePath: string): void => {
+  // Resolves `true` once the cover is applied, `false` when it failed (already reported by the toast).
+  const onSetCoverImageFromUpload = (sourcePath: string): Promise<boolean> | false => {
     if (!activePageId) {
-      return;
+      return false;
     }
 
     // Read before the import: by the time it finishes, nothing about the note's own cover has changed.
     const layout = coverLayoutFor(activePageId);
 
-    void (async () => {
+    return (async () => {
       const relativePath = await application.importCoverAsset(sourcePath);
       await application.pageOperations.updateMetadata(activePageId, {
         cover: relativePath,
@@ -1333,7 +1336,11 @@ export function PageHost({
         coverPositionSide: 50,
         ...layout,
       });
-    })().catch((error: unknown) => toast.fail('Couldn’t set the cover image', error));
+      return true;
+    })().catch((error: unknown) => {
+      toast.fail('Couldn’t set the cover image', error);
+      return false;
+    });
   };
 
   const onRemoveCoverImage = (): void => {
@@ -1753,15 +1760,15 @@ export function PageHost({
     // More-actions "Cover image" picker (PageHeaderMoreActionsMenu, via
     // <Page>) needs the exact same set/upload calls buildTopBarActions'
     // own cover-image menu item already uses, not a second copy.
-    const onSetFolderCoverImage = (url: string, credit?: CoverCredit | null): void =>
-      void application.folderOperations.updateMetadata(folder.id, {
+    const onSetFolderCoverImage = (url: string, credit?: CoverCredit | null): Promise<void> =>
+      application.folderOperations.updateMetadata(folder.id, {
         cover: url,
         coverCredit: credit ?? application.findCoverCredit(url),
         coverPositionAbove: 50,
         coverPositionSide: 50,
       });
-    const onSetFolderCoverImageFromUpload = (sourcePath: string): void => {
-      void (async () => {
+    const onSetFolderCoverImageFromUpload = (sourcePath: string): Promise<boolean> =>
+      (async () => {
         const relativePath = await application.importCoverAsset(sourcePath);
         await application.folderOperations.updateMetadata(folder.id, {
           cover: relativePath,
@@ -1769,8 +1776,11 @@ export function PageHost({
           coverPositionAbove: 50,
           coverPositionSide: 50,
         });
-      })().catch((error: unknown) => toast.fail('Couldn’t set the cover image', error));
-    };
+        return true;
+      })().catch((error: unknown) => {
+        toast.fail('Couldn’t set the cover image', error);
+        return false;
+      });
     // Folder-scoped counterpart to onSaveCoverPosition above.
     const onSaveFolderCoverPosition = (
       layout: 'side' | 'above',
