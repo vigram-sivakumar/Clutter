@@ -479,6 +479,9 @@ function SearchOverlayContent({
       <Search
         ref={inputRef}
         className="search-overlay__input"
+        hasBackground={false}
+        hasBorder={false}
+        clearButton="round"
         value={query}
         placeholder="Search notes, templates, assets and folders"
         aria-label="Search notes"
