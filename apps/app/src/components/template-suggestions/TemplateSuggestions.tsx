@@ -16,8 +16,9 @@ export interface TemplateSuggestionsProp {
    */
   onOverflowClick: (anchor: HTMLElement) => void;
   /**
-   * Called when "+ New template" is clicked. That entry takes the place of the templates only while there
-   * are none, so the row stays useful before the first template exists; it is never shown alongside templates.
+   * Called when "+ New template" is clicked. It is shown while there are no templates, and alongside the
+   * templates whenever they all fit without a "+N more" entry (and so does the new-template entry);
+   * once the row overflows, the picker behind "+N more" carries the New template row instead.
    */
   onNewTemplate?: () => void;
 }
@@ -40,6 +41,7 @@ export function TemplateSuggestions({
   const listRef = useRef<HTMLDivElement>(null);
   const measuredWidthRef = useRef<number | null>(null);
   const [visibleCount, setVisibleCount] = useState<number | null>(null);
+  const [newTemplateFits, setNewTemplateFits] = useState(false);
   // What the row looks like for measuring purposes: a new array with the same entries is not a change.
   const signature = templates
     .map(
@@ -72,7 +74,20 @@ export function TemplateSuggestions({
         .querySelector<HTMLElement>('[data-suggestion="overflow"]')
         ?.getBoundingClientRect().width ?? 0;
 
+    const newTemplateWidth =
+      list
+        .querySelector<HTMLElement>('[data-suggestion="new-template"]')
+        ?.getBoundingClientRect().width ?? 0;
+    const templatesWidth =
+      widths.reduce((sum, width) => sum + width, 0) +
+      gap * Math.max(widths.length - 1, 0);
+
     measuredWidthRef.current = available;
+    setNewTemplateFits(
+      newTemplateWidth > 0 &&
+        templatesWidth + (widths.length > 0 ? gap : 0) + newTemplateWidth <=
+          available
+    );
     setVisibleCount(
       computeVisibleTemplateCount(widths, () => overflowWidth, available, gap)
     );
@@ -123,6 +138,13 @@ export function TemplateSuggestions({
   const hidden = templates.length - shown.length;
   // While measuring, the overflow entry stands in at its widest (every template counted as hidden).
   const overflowCount = visibleCount === null ? templates.length : hidden;
+  // While measuring it is rendered so its width can be read; afterwards only with no templates, or when
+  // every template and this entry fit the row together (so there is no "+N more").
+  const showNewTemplate =
+    onNewTemplate !== undefined &&
+    (templates.length === 0 ||
+      visibleCount === null ||
+      (hidden === 0 && newTemplateFits));
 
   return (
     // The anchor spans the document and is pinned to its bottom; .template-suggestions takes the editor's
@@ -142,7 +164,7 @@ export function TemplateSuggestions({
               <span className="truncate">{template.values.name}</span>
             </Entry>
           ))}
-          {templates.length === 0 && onNewTemplate && (
+          {showNewTemplate && (
             <Entry
               className="template-suggestions__item template-suggestions__item--overflow"
               data-suggestion="new-template"

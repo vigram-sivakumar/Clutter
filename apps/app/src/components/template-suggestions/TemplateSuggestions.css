@@ -57,7 +57,7 @@
   padding-inline: 12px;
 }
 
-.template-suggestions__list:has([data-suggestion='new-template']) {
+.template-suggestions__list:has([data-suggestion='new-template']:only-child) {
   margin-left: 0;
 }
 

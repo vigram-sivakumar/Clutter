@@ -52,7 +52,7 @@ describe('TemplateSuggestions', () => {
     expect(NO_OVERFLOW_CLICK).not.toHaveBeenCalled();
   });
 
-  it('with templates, never shows "+ New template"', () => {
+  it('with templates in an unmeasurable (zero-width) row, does not show "+ New template"', () => {
     render(
       <TemplateSuggestions
         templates={[template('a', 'Meeting')]}
@@ -216,6 +216,58 @@ describe('TemplateSuggestions — overflow', () => {
       ['A', 'B', 'C', 'D', 'E'].every((name) => screen.queryByText(name))
     ).toBe(true);
     expect(screen.queryByText(/more$/)).toBeNull();
+  });
+
+  it('adds "+ New template" after the templates when they and it all fit', () => {
+    const onNewTemplate = vi.fn();
+    // 5 templates + new template = 6 × 100 + 5 × 10 = 650.
+    availableWidth = 650;
+
+    render(
+      <TemplateSuggestions
+        templates={five}
+        onSelect={vi.fn()}
+        onOverflowClick={vi.fn()}
+        onNewTemplate={onNewTemplate}
+      />
+    );
+
+    expect(screen.queryByText(/more$/)).toBeNull();
+    fireEvent.click(screen.getByText('+ New template'));
+    expect(onNewTemplate).toHaveBeenCalledTimes(1);
+  });
+
+  it('omits "+ New template" when the templates fit but it would not', () => {
+    availableWidth = 5 * 100 + 4 * 10;
+
+    render(
+      <TemplateSuggestions
+        templates={five}
+        onSelect={vi.fn()}
+        onOverflowClick={vi.fn()}
+        onNewTemplate={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByText('E')).toBeTruthy();
+    expect(screen.queryByText(/more$/)).toBeNull();
+    expect(screen.queryByText('+ New template')).toBeNull();
+  });
+
+  it('omits "+ New template" while "+N more" is shown', () => {
+    availableWidth = 450;
+
+    render(
+      <TemplateSuggestions
+        templates={five}
+        onSelect={vi.fn()}
+        onOverflowClick={vi.fn()}
+        onNewTemplate={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('+2 more')).toBeTruthy();
+    expect(screen.queryByText('+ New template')).toBeNull();
   });
 
   it('shows the templates that fit plus "+N more" counting the hidden ones, with room kept for it', () => {
