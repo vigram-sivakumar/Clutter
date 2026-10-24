@@ -17,9 +17,9 @@ export const NOTE_CARD_ASPECT_RATIO = '3 / 4';
 
 export interface NoteCardOptions {
   /**
-   * The visible properties (from the resolved view). A note card draws the Description and the
-   * Last edited date; every other property it simply does not draw (see the characterization
-   * tests — known gaps, not decisions).
+   * The visible properties (from the resolved view). A note card draws the Description, the
+   * Created date and the Last edited date; every other property it simply does not draw (see the
+   * characterization tests — known gaps, not decisions).
    */
   readonly visible: readonly PropertyId[];
   /** Resolves the cover and the Markdown's links/embeds for the page canvas. */
@@ -40,7 +40,13 @@ export function toNoteCardProps(
   entry: CollectionEntryModel,
   { visible, resolvers, divider }: NoteCardOptions
 ): CollectionCardProps {
+  const created = formatPropertyValue('created', entry.values);
   const edited = formatPropertyValue('updated', entry.values);
+  // Each date is one plain line, drawn only when its property is on and the note has the value.
+  const dates = [
+    visible.includes('created') && created ? `Created ${created}` : undefined,
+    visible.includes('updated') && edited ? `Edited ${edited}` : undefined,
+  ].filter((line): line is string => line !== undefined);
   const coverUrl = resolveNoteCoverUrl(entry.values.cover, false, resolvers);
 
   return {
@@ -51,7 +57,7 @@ export function toNoteCardProps(
         emoji={entry.emoji ?? undefined}
         title={entry.values.name}
         description={visible.includes('description') ? entry.values.description : undefined}
-        metadata={visible.includes('updated') && edited ? [`Edited ${edited}`] : undefined}
+        metadata={dates}
         metadataLayout="vertical"
       />
     ),

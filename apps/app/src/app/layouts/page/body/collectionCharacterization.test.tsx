@@ -602,20 +602,32 @@ describe('KNOWN DEFECT — configure and rendering disagree about what a layout 
     expect(order).toEqual(['Late', 'Early']);
   });
 
-  it('KNOWN DEFECT: Configure offers Created on a note Card (the same list in every layout) but the note card never draws it, while an asset card does', () => {
+  it('Configure offers Created on a note Card and the note card draws it, like an asset card', () => {
     const configure = renderMenu({ viewMode: 'card' });
     expect(readPropertiesSubmenu(configure.getByText)).toContain('Created');
     cleanup();
 
-    const { container, queryByText } = render(
+    const { container } = render(
       <CollectionBody
         notes={[note('Plan', { created: CREATED_AT, updated: UPDATED_AT })]}
         viewMode="card"
         visible={noteVisible()}
       />
     );
-    expect(queryByText(CREATED_TEXT)).not.toBeInTheDocument(); // created is on, yet not drawn
-    expect(container.textContent).toContain(`Edited ${UPDATED_TEXT}`); // only the edited date is
+    // Created above Edited, each one plain line.
+    expect(container.textContent).toContain(`Created ${CREATED_TEXT}`);
+    expect(container.textContent).toContain(`Edited ${UPDATED_TEXT}`);
+    cleanup();
+
+    const off = render(
+      <CollectionBody
+        notes={[note('Plan', { created: CREATED_AT, updated: UPDATED_AT })]}
+        viewMode="card"
+        visible={noteVisible().filter((id) => id !== 'created')}
+      />
+    );
+    expect(off.container.textContent).not.toContain(CREATED_TEXT);
+    expect(off.container.textContent).toContain(`Edited ${UPDATED_TEXT}`);
     cleanup();
 
     const assetCard = renderAssets(

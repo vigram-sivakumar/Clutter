@@ -20,6 +20,8 @@ const entry = (fixture: EntryFixture = {}): CollectionEntryModel =>
 // An entry's dates are ISO instants; the text a card shows is the formatter's.
 const UPDATED_AT = '2026-08-12T14:20:00.000Z';
 const UPDATED_TEXT = formatEntryTimestamp(UPDATED_AT)!;
+const CREATED_AT = '2026-08-10T09:03:00.000Z';
+const CREATED_TEXT = formatEntryTimestamp(CREATED_AT)!;
 const VISIBLE_ALL: PropertyId[] = ['name', 'description', 'cover', 'created', 'updated'];
 const resolvers: NotePreviewResolvers = {
   resolveCoverImage: (cover) => (cover.startsWith('Assets/') ? `app://vault/${cover}` : cover),
@@ -103,13 +105,50 @@ describe('toNoteCardProps', () => {
     expect(container.textContent).not.toMatch(/No description/);
   });
 
-  it('the Description / Last edited properties turn their lines off', () => {
-    const { container } = draw(entry({ description: 'About', updated: UPDATED_AT }), {
-      visible: ['name', 'cover', 'created'],
+  it('the Description / Created / Last edited properties turn their lines off', () => {
+    const { container } = draw(entry({ description: 'About', created: CREATED_AT, updated: UPDATED_AT }), {
+      visible: ['name', 'cover'],
     });
 
     expect(container.querySelector('.card-title-section__description')).toBeNull();
     expect(container.querySelector('.card-title-section__metadata')).toBeNull();
+  });
+
+  describe('the dates', () => {
+    const lines = (container: HTMLElement) =>
+      [...container.querySelectorAll('.card-title-section__metadata-item')].map((n) => n.textContent);
+
+    it('shows Created above Edited, each one plain line, when both properties are on', () => {
+      const { container } = draw(entry({ created: CREATED_AT, updated: UPDATED_AT }));
+
+      expect(lines(container)).toEqual([`Created ${CREATED_TEXT}`, `Edited ${UPDATED_TEXT}`]);
+      expect([...container.querySelectorAll('.card-title-section__metadata-item')].every((n) => n.children.length === 0)).toBe(true);
+    });
+
+    it('each property turns only its own line off', () => {
+      const entryWithDates = entry({ created: CREATED_AT, updated: UPDATED_AT });
+
+      expect(lines(draw(entryWithDates, { visible: ['name', 'created'] }).container)).toEqual([`Created ${CREATED_TEXT}`]);
+      cleanup();
+      expect(lines(draw(entryWithDates, { visible: ['name', 'updated'] }).container)).toEqual([`Edited ${UPDATED_TEXT}`]);
+    });
+
+    it('leaves a line out when the note has no such date', () => {
+      expect(lines(draw(entry({ updated: UPDATED_AT })).container)).toEqual([`Edited ${UPDATED_TEXT}`]);
+      cleanup();
+      expect(lines(draw(entry({ created: CREATED_AT })).container)).toEqual([`Created ${CREATED_TEXT}`]);
+    });
+
+    it('draws the description, then the dates, in one shared style', () => {
+      const { container } = draw(entry({ description: 'About', created: CREATED_AT, updated: UPDATED_AT }));
+
+      const header = container.querySelector('.card-title-section')!;
+      expect([...header.children].map((c) => c.className.split(' ')[0])).toEqual([
+        'card-title-section__heading',
+        'card-title-section__description',
+        'card-title-section__metadata',
+      ]);
+    });
   });
 
   it('omits the metadata row entirely when there is nothing to show', () => {
