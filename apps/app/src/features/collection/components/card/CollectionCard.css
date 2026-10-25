@@ -6,7 +6,7 @@
  */
 .collection-card {
   /* The one value: the main section's padding on every side and the gap between its children. */
-  --collection-card-inset: var(--space-12);
+  --collection-card-inset: var(--space-8);
 
   position: relative;
   display: flex;
@@ -25,7 +25,11 @@
   cursor: pointer;
 }
 .collection-card:is(:hover, [data-context-menu-open='true']) {
-  background: color-mix(in srgb, var(--surface-subtle) 99%, rgb(var(--state-base)) 1%);
+  background: color-mix(
+    in srgb,
+    var(--surface-subtle) 99%,
+    rgb(var(--state-base)) 1%
+  );
 }
 .collection-card:focus-visible {
   outline: 2px solid var(--border-focus);
@@ -40,7 +44,7 @@
 .collection-card__media {
   /* Shrinks (never grows) when the card is too short for it, so a full-height banner leaves the main section its room. */
   flex: 0 1 auto;
-  height: var(--collection-card-media-height, 66px);
+  height: var(--collection-card-media-height, 56px);
   min-height: 0;
   min-width: 0;
   overflow: hidden;
@@ -73,6 +77,29 @@
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+}
+
+/* ---- selection: the checkbox over the card's top-right, out of flow (so nothing shifts), above the media; shown on hover or focus (`:focus-within`, so Tab can reach it without it vanishing mid-move), while checked, and in selection mode (some item is checked) on every card ---- */
+.collection-card__selection {
+  position: absolute;
+  top: var(--space-8);
+  right: var(--space-8);
+  z-index: 1;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.collection-card:is(:hover, :focus-within, [data-context-menu-open='true']) > .collection-card__selection,
+.collection-card--checked > .collection-card__selection,
+.collection-card--selecting > .collection-card__selection {
+  display: flex;
+}
+/* A checked card: the selection border, 2px — drawn as an inset outline (over the media too, which an inset shadow would sit under), so the card's size never changes. */
+.collection-card--checked,
+.collection-card--checked:is(:hover, [data-context-menu-open='true']) {
+  border-color: var(--border-active);
+  outline: 2px solid var(--border-active);
+  outline-offset: -2px;
 }
 
 /* ---- empty: the quiet "add something" card, its content centred ---- */

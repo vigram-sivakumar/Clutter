@@ -5,6 +5,8 @@ import type { CollectionLayout } from '@core/properties/collectionViewConfig';
 import { ARCHIVE_COLLECTION } from '@core/presentation/collection/collectionDefinitions';
 import { resolveCollectionView } from '@core/presentation/collection/resolveCollectionView';
 import type { CollectionEntryModel, CollectionEntryValues } from '@features/collection/page/CollectionEntryModel';
+import { useMarqueeSelection } from '@features/collection/selection/useMarqueeSelection';
+import { useCollectionSelection } from '@features/collection/selection/useCollectionSelection';
 import { CollectionDataList, type CollectionDataListItem } from '@features/collection/components/list/CollectionDataList';
 import {
   CollectionDataTable,
@@ -112,18 +114,22 @@ export function ArchiveCollectionBody({
     }),
   ];
   const sorted = sortEntries(rows, sort);
+  // Which rows are checked (never saved; see `useCollectionSelection`).
+  const selection = useCollectionSelection(rows.map((row) => row.id));
+  const marquee = useMarqueeSelection(selection);
+  const selectionOf = (row: ArchiveRow) => selection.selectionFor(row.id, String(row.values.name));
 
   return (
-    <PageBody className="collection__content">
+    <PageBody className="collection__content" ref={marquee.ref}>
       {rows.length === 0 ? (
         <CollectionEmptyState message={emptyMessage} />
       ) : viewMode === 'table' ? (
         <CollectionDataTable
           columns={buildPropertyTableColumns(visible)}
-          rows={sorted.map((row) => row.tableRow)}
+          rows={sorted.map((row) => ({ ...row.tableRow, selection: selectionOf(row) }))}
         />
       ) : (
-        <CollectionDataList items={sorted.map((row) => row.listItem)} />
+        <CollectionDataList items={sorted.map((row) => ({ ...row.listItem, selection: selectionOf(row) }))} />
       )}
       {/* Trailing breathing room below the last row — see
           .collection__bottom-spacer's own comment in

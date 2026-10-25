@@ -1,4 +1,4 @@
-import type { VaultEntry, VaultFileStat, VaultFileSystem } from './VaultFileSystem';
+import type { MoveFileOptions, VaultEntry, VaultFileStat, VaultFileSystem } from './VaultFileSystem';
 import type { SelfWriteRegistry } from './SelfWriteRegistry';
 
 /**
@@ -55,14 +55,14 @@ export class SelfWriteAwareFileSystem implements VaultFileSystem {
     return this.inner.deleteFile(path, options);
   }
 
-  async moveFile(sourcePath: string, destinationPath: string): Promise<void> {
+  async moveFile(sourcePath: string, destinationPath: string, options?: MoveFileOptions): Promise<void> {
     const relativeFrom = this.toRelativePath(sourcePath);
     const relativeTo = this.toRelativePath(destinationPath);
 
     this.registry.markPendingMove(relativeFrom, relativeTo);
 
     try {
-      await this.inner.moveFile(sourcePath, destinationPath);
+      await this.inner.moveFile(sourcePath, destinationPath, options);
     } catch (error) {
       this.registry.consumePendingMove(relativeFrom, relativeTo);
       throw error;

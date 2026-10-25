@@ -1,5 +1,6 @@
 import { forwardRef, type CSSProperties, type HTMLAttributes, type MouseEvent, type ReactNode } from 'react';
 import { buildActivationProps } from '@shared/interaction';
+import { CollectionSelectionCheckbox, selectionCaptureProps, withSelectionToggle, type CollectionItemSelection } from '../entry/CollectionSelectionCheckbox';
 import '../collectionTokens.css';
 import './CollectionCard.css';
 
@@ -32,6 +33,12 @@ export interface CollectionCardProps
    */
   isEmpty?: boolean;
 
+  /**
+   * Makes the card selectable: a checkbox over its top-right corner while it is hovered or focused, and for as long
+   * as it is checked — or, in selection mode, always. Positioned over the card, so it takes no room and moves nothing. Absent, the card has no checkbox.
+   */
+  selection?: CollectionItemSelection;
+
   /** Opens the card. Without it the card is inert: no role, not focusable, no key handling. */
   onClick?: (event: MouseEvent<HTMLDivElement>) => void;
 }
@@ -60,6 +67,7 @@ export const CollectionCard = forwardRef<HTMLDivElement, CollectionCardProps>(fu
     aspectRatio,
     isSelected = false,
     isEmpty = false,
+    selection,
     onClick,
     className,
     style,
@@ -80,12 +88,16 @@ export const CollectionCard = forwardRef<HTMLDivElement, CollectionCardProps>(fu
   return (
     <div
       {...props}
-      {...buildActivationProps<HTMLDivElement>({ onActivate: onClick, role, tabIndex })}
+      {...buildActivationProps<HTMLDivElement>({ onActivate: withSelectionToggle(selection, onClick), role, tabIndex })}
+      {...selectionCaptureProps(selection, onClick !== undefined)}
       ref={ref}
+      data-selection-id={selection?.id}
       className={[
         'collection-card',
         isSelected && 'collection-card--selected',
         isEmpty && 'collection-card--empty',
+        selection?.checked && 'collection-card--checked',
+        selection?.active && 'collection-card--selecting',
         className,
       ]
         .filter(Boolean)
@@ -98,6 +110,11 @@ export const CollectionCard = forwardRef<HTMLDivElement, CollectionCardProps>(fu
           {header && <div className="collection-card__header">{header}</div>}
           {header && hasContent && showDivider && divider}
           {hasContent && <div className="collection-card__content">{children}</div>}
+        </div>
+      )}
+      {selection && (
+        <div className="collection-card__selection">
+          <CollectionSelectionCheckbox selection={selection} />
         </div>
       )}
     </div>

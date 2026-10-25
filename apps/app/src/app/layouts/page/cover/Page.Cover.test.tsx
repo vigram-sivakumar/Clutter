@@ -544,6 +544,16 @@ describe('PageCover — Reposition drag', () => {
     expect(screen.queryByText('Save position')).not.toBeInTheDocument();
   });
 
+  it('Escape that ends repositioning is consumed (preventDefault), so anything else answering Escape — a collection’s selection — leaves it alone', () => {
+    renderRepositionableCover({ onSetLayout: vi.fn(), layout: 'above', coverPositionAbove: 50, onSavePosition: vi.fn() });
+    enterRepositioning();
+
+    // `fireEvent` returns false when a handler called preventDefault.
+    expect(fireEvent.keyDown(document, { key: 'Escape' })).toBe(false);
+    // Not repositioning any more: the next Escape is nobody's here, and is left unconsumed.
+    expect(fireEvent.keyDown(document, { key: 'Escape' })).toBe(true);
+  });
+
   it('replaces the "More actions" trigger with a Cancel repositioning button while repositioning is active', () => {
     renderRepositionableCover({ onSetLayout: vi.fn(), layout: 'above', coverPositionAbove: 50 });
     expect(screen.getByRole('button', { name: 'More actions' })).toBeInTheDocument();

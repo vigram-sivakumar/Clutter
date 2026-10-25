@@ -5,13 +5,13 @@ import type { VaultResource } from '@core/vault/models/VaultResource';
 import type { PropertyId } from '@core/properties/collectionProperties';
 import { localAsset } from '@core/vault/testing/localAsset';
 
-import { assetCardMetadata } from './assetCardMetadata';
-import { toAssetEntry } from './toAssetEntry';
+import { toAssetEntry } from '../components/asset/toAssetEntry';
+import { cardMetadataLines } from './cardMetadata';
 
 // Every plain-value property an asset card can draw, visible — what the card shows unless narrowed.
 const ALL: PropertyId[] = ['name', 'size', 'created', 'updated'];
 /** The card's lines for a resource, from the values its adapter produces. */
-const linesOf = (r: VaultResource, visible: PropertyId[] = ALL) => assetCardMetadata(toAssetEntry(localAsset(r)).values, visible);
+const linesOf = (r: VaultResource, visible: PropertyId[] = ALL) => cardMetadataLines(toAssetEntry(localAsset(r)).values, visible);
 
 const NOW = new Date('2026-10-03T12:00:00.000Z');
 
@@ -30,7 +30,7 @@ const resource = (metadata?: VaultResource['metadata']): VaultResource => ({
   ...(metadata && { metadata }),
 });
 
-describe('assetCardMetadata', () => {
+describe('cardMetadataLines', () => {
   it('is size, Created and Edited, in that order, one item each', () => {
     const line = linesOf(
       resource({
@@ -70,5 +70,24 @@ describe('assetCardMetadata', () => {
     expect(labels(['name', 'size', 'updated'])).toEqual(['Size', 'Edited']);
     expect(labels(['name', 'size', 'created'])).toEqual(['Size', 'Created']);
     expect(labels(['name'])).toEqual([]);
+  });
+
+  it('serves a note the same way: Created then Edited, from its own values — and never a size it has none of', () => {
+    const lines = cardMetadataLines(
+      { name: 'Plan', created: '2026-10-03T11:25:00.000Z', updated: '2026-10-03T11:55:00.000Z' },
+      ['name', 'description', 'cover', 'created', 'updated', 'size']
+    );
+
+    expect(lines).toEqual([
+      { id: 'created', label: 'Created', value: '35 minutes ago' },
+      { id: 'updated', label: 'Edited', value: '5 minutes ago' },
+    ]);
+  });
+
+  it('a property the view hides is not a line', () => {
+    const values = { name: 'Plan', created: '2026-10-03T11:25:00.000Z', updated: '2026-10-03T11:55:00.000Z' };
+
+    expect(cardMetadataLines(values, ['name', 'updated']).map((line) => line.id)).toEqual(['updated']);
+    expect(cardMetadataLines(values, ['name'])).toEqual([]);
   });
 });

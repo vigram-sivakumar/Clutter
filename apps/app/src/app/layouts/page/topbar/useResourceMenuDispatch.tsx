@@ -18,6 +18,7 @@ export type ResourceMenuDispatchProps = Pick<
   ResourceTopBarActionsProps,
   | 'handlers'
   | 'archiveConfirmationMessage'
+  | 'archiveConfirmationTitle'
   | 'deleteConfirmationMessage'
   | 'deleteConfirmationTitle'
   | 'deleteAllConfirmation'
@@ -36,6 +37,7 @@ export type ResourceMenuDispatchProps = Pick<
 export function useResourceMenuDispatch({
   handlers,
   archiveConfirmationMessage,
+  archiveConfirmationTitle,
   deleteConfirmationMessage,
   deleteConfirmationTitle,
   deleteAllConfirmation,
@@ -70,7 +72,7 @@ export function useResourceMenuDispatch({
 
       if (id === 'archive' && archiveConfirmationMessage !== undefined) {
         confirmation.request({
-          title: FOLDER_ARCHIVE_CONFIRMATION_TITLE,
+          title: archiveConfirmationTitle ?? FOLDER_ARCHIVE_CONFIRMATION_TITLE,
           message: archiveConfirmationMessage,
           confirmLabel: FOLDER_ARCHIVE_CONFIRM_LABEL,
           onConfirm: () => handlers?.['archive']?.(),

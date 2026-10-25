@@ -1,8 +1,8 @@
-import type { ReactNode } from 'react';
+import { forwardRef, type HTMLAttributes, type ReactNode } from 'react';
 
 import './Page.Body.css';
 
-interface PageBodyProps {
+interface PageBodyProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children' | 'className'> {
   children: ReactNode;
   className?: string;
 }
@@ -18,10 +18,13 @@ interface PageBodyProps {
  * This component intentionally does not implement editing behavior.
  * Editable experiences should be composed by higher-level components.
  */
-export function PageBody({ children, className }: PageBodyProps) {
+export const PageBody = forwardRef<HTMLDivElement, PageBodyProps>(function PageBody(
+  { children, className, ...props },
+  ref
+) {
   return (
-    <div className={['page-content', className].filter(Boolean).join(' ')}>
+    <div {...props} ref={ref} className={['page-content', className].filter(Boolean).join(' ')}>
       {children}
     </div>
   );
-}
+});

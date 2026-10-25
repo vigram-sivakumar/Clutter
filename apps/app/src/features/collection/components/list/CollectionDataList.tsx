@@ -4,6 +4,7 @@ import { CollectionMedia, type CollectionMediaProps } from '../media/CollectionM
 import { CollectionEntry } from '../entry/CollectionEntry';
 import { CollectionEntryProperties } from '../entry/CollectionEntryProperties';
 import type { CollectionEntryAttributes } from '../entry/collectionEntryAttributes';
+import type { CollectionItemSelection } from '../entry/CollectionSelectionCheckbox';
 import './CollectionDataList.css';
 
 /** One item of a collection list, described by data only. */
@@ -34,6 +35,9 @@ export interface CollectionDataListItem {
   readonly media?: CollectionMediaProps;
 
   readonly isSelected?: boolean;
+
+  /** Makes the item selectable: a checkbox takes whatever leads the row (its icon, an asset's thumbnail) on hover, and stays while checked. */
+  readonly selection?: CollectionItemSelection;
 
   /** Opens the item (click / Enter / Space). */
   readonly onClick?: () => void;
@@ -70,12 +74,13 @@ export function CollectionDataList({ items, newItem, className, ...props }: Coll
           key={item.id}
           layout="list"
           leading={item.leading ?? (item.icon || item.emoji ? <AppIcon icon={item.icon} emoji={item.emoji} /> : undefined)}
+          selection={item.selection}
           title={item.title}
           titleContent={item.titleContent}
           description={item.description}
           actions={item.actions}
           trailing={trailingOf(item)}
-          isSelected={item.isSelected}
+          isSelected={item.isSelected || item.selection?.checked}
           onClick={item.onClick ? () => item.onClick?.() : undefined}
         />
       ))}

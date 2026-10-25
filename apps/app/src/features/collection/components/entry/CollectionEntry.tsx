@@ -5,6 +5,7 @@ import {
   type ReactNode,
 } from 'react';
 import { buildActivationProps } from '@shared/interaction';
+import { CollectionSelectionCheckbox, selectionCaptureProps, withSelectionToggle, type CollectionItemSelection } from './CollectionSelectionCheckbox';
 import './CollectionEntry.css';
 
 /**
@@ -22,6 +23,12 @@ export interface CollectionEntryProps extends Omit<
 > {
   layout?: 'list' | 'cell';
   leading?: ReactNode;
+  /**
+   * Makes the entry selectable: a checkbox takes the leading slot's place while the entry is hovered or focused (a
+   * list row, a folder card) or its table row is (a name cell), and stays while it is checked — or, in selection mode, always — the same box, so
+   * nothing shifts. Absent, the entry has no checkbox. Needs a `leading` to take the place of.
+   */
+  selection?: CollectionItemSelection;
   title: string;
   /** Replaces the plain-text title (an inline rename editor, a task's compact-markdown title). */
   titleContent?: ReactNode;
@@ -41,6 +48,7 @@ export const CollectionEntry = forwardRef<HTMLDivElement, CollectionEntryProps>(
     {
       layout = 'list',
       leading,
+      selection,
       title,
       titleContent,
       description,
@@ -59,15 +67,19 @@ export const CollectionEntry = forwardRef<HTMLDivElement, CollectionEntryProps>(
       <div
         {...props}
         {...buildActivationProps<HTMLDivElement>({
-          onActivate: onClick,
+          onActivate: withSelectionToggle(selection, onClick),
           role,
           tabIndex,
         })}
+        {...selectionCaptureProps(selection, onClick !== undefined)}
         ref={ref}
+        data-selection-id={selection?.id}
         className={[
           'collection-entry',
           `collection-entry--layout-${layout}`,
           isSelected && 'collection-entry--selected',
+          selection?.checked && 'collection-entry--checked',
+          selection?.active && 'collection-entry--selecting',
           className,
         ]
           .filter(Boolean)
@@ -78,7 +90,20 @@ export const CollectionEntry = forwardRef<HTMLDivElement, CollectionEntryProps>(
             <div className="collection-entry__body">
               <div className="collection-entry__heading">
                 {leading && (
-                  <div className="collection-entry__leading">{leading}</div>
+                  <div className={['collection-entry__leading', selection && 'collection-entry__leading--swap'].filter(Boolean).join(' ')}>
+                    {selection ? (
+                      <>
+                        <span className="collection-entry__leading-rest">
+                          {leading}
+                        </span>
+                        <span className="collection-entry__leading-hover">
+                          <CollectionSelectionCheckbox selection={selection} />
+                        </span>
+                      </>
+                    ) : (
+                      leading
+                    )}
+                  </div>
                 )}
                 {(titleContent || title) && (
                   <div className="collection-entry__title">

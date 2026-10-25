@@ -248,10 +248,10 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
       expect(container.querySelector('.note-page-canvas h1')?.textContent).toBe('Heading');
     });
 
-    it('ignores the Cover image / Content preview properties (no longer offered for cards), even from a saved view config', () => {
+    it('hides the cover when the Cover image property is off; the canvas is unaffected', () => {
       const container = renderCard(noteVisible('cover'));
 
-      expect(container.querySelector('.collection-card__media .collection-image')).toBeInTheDocument();
+      expect(container.querySelector('.collection-card__media')).toBeNull();
       expect(container.querySelector('.note-page-canvas h1')?.textContent).toBe('Heading');
     });
 

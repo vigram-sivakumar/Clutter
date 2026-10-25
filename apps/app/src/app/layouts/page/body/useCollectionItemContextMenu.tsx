@@ -4,6 +4,7 @@ import type { CollectionEntryModel } from '@features/collection/page/CollectionE
 
 import type { ResourceTopBarActionsProps } from '../topbar/ResourceTopBarActions';
 import { ResourceContextMenu, type ContextMenuPoint } from './ResourceContextMenu';
+import type { CollectionSelectionMenu } from './useCollectionSelectionMenu';
 
 /**
  * Resolves a Collection View entry to its More actions menu (the topbar's, for that entry's resource),
@@ -45,7 +46,9 @@ function pointFor(event: ReactMouseEvent<HTMLElement>): ContextMenuPoint {
  * `useCollectionMoveDrag`: per-entry props to spread, plus one `overlay` to render once.
  */
 export function useCollectionItemContextMenu<T extends CollectionMenuItem = CollectionEntryModel>(
-  resolve: CollectionItemMenuResolver<T> | undefined
+  resolve: CollectionItemMenuResolver<T> | undefined,
+  /** The body's selection menu: in selection mode a right-click opens it instead of this entry's own menu. */
+  selectionMenu?: CollectionSelectionMenu
 ): {
   entryProps(entry: T): CollectionContextMenuEntryProps | undefined;
   overlay: ReactNode;
@@ -75,6 +78,9 @@ export function useCollectionItemContextMenu<T extends CollectionMenuItem = Coll
           // Always Clutter's menu or none — never the WebView's native one.
           event.preventDefault();
           event.stopPropagation();
+          if (selectionMenu?.handle(entry.id, pointFor(event))) {
+            return;
+          }
           openFor(entry, pointFor(event));
         },
         'data-context-entry': entry.id,

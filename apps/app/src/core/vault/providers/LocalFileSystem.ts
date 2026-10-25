@@ -11,7 +11,14 @@ import {
   writeFile,
   readFile as readBinary,
 } from '@tauri-apps/plugin-fs';
-import type { VaultEntry, VaultFileStat, VaultFileSystem } from './VaultFileSystem';
+import { invoke } from '@tauri-apps/api/core';
+import {
+  DestinationExistsError,
+  type MoveFileOptions,
+  type VaultEntry,
+  type VaultFileStat,
+  type VaultFileSystem,
+} from './VaultFileSystem';
 import { resolveLocalDuplicatePath } from './localDuplicateNaming';
 import { isNotFoundError } from './probeSpaceFolder';
 import { VaultRootMissingError } from './VaultRootMissingError';
@@ -95,8 +102,24 @@ export class LocalVaultProvider implements VaultFileSystem {
     await remove(this.resolvePath(path), { recursive: options?.recursive ?? false });
   }
 
-  async moveFile(sourcePath: string, destinationPath: string): Promise<void> {
+  async moveFile(sourcePath: string, destinationPath: string, options?: MoveFileOptions): Promise<void> {
     this.assertWritable();
+
+    if (options?.noClobber) {
+      // Claimed in the operating system, not checked here: see `move_no_clobber.rs`.
+      try {
+        await invoke('move_file_no_clobber', {
+          from: this.resolvePath(sourcePath),
+          to: this.resolvePath(destinationPath),
+        });
+      } catch (error) {
+        throw typeof error === 'string' && error.startsWith('EEXIST')
+          ? new DestinationExistsError(this.resolvePath(destinationPath))
+          : error;
+      }
+      return;
+    }
+
     await rename(
       this.resolvePath(sourcePath),
       this.resolvePath(destinationPath)

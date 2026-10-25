@@ -5,7 +5,11 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { useEffect, type ReactNode } from 'react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { isTauri } from '@tauri-apps/api/core';
 import type { Application } from '@core/application/Application';
+import { LocalVaultProvider } from '@core/vault/providers/LocalFileSystem';
+import { flushWorkspaceStateWrites } from '@core/vault/initialize/workspaceStateFile';
+import { InMemoryVaultFileSystem } from '@core/vault/testing/InMemoryVaultFileSystem';
 import {
   SettingsDialogStateProvider,
   useSharedSettingsDialogState,
@@ -14,6 +18,10 @@ import {
 import { spacePageId } from '@features/settings/settings-sidebar/SettingsSidebar';
 import { ActiveSpaceSettingsDialog } from './ActiveSpaceSettingsDialog';
 import { SpacesContext, type SpacesApi } from './spaces/SpacesContext';
+
+// The desktop runtime and its per-Space file system: "Reset settings to defaults" reaches every other Space through them.
+vi.mock('@tauri-apps/api/core', () => ({ isTauri: vi.fn(() => false), invoke: vi.fn() }));
+vi.mock('@core/vault/providers/LocalFileSystem', () => ({ LocalVaultProvider: vi.fn() }));
 
 class ResizeObserverMock {
   observe = vi.fn();
@@ -48,6 +56,7 @@ function fakeApplication() {
     defaultCoverPosition: 'side',
     autoDeleteArchived: false,
     resolveCoverImageForDisplay: (src: string) => src,
+    resetSpaceSettings: vi.fn(async () => {}),
   };
   const application = new Proxy(target, {
     get(object, key) {
@@ -57,7 +66,7 @@ function fakeApplication() {
     },
   }) as unknown as Application;
 
-  return { application, close: () => (closed = true), reads };
+  return { application, close: () => (closed = true), reads, resetSpaceSettings: target.resetSpaceSettings };
 }
 
 function spacesApi(activePath: string, names: Record<string, string>): SpacesApi {
@@ -270,5 +279,90 @@ describe('ActiveSpaceSettingsDialog: the persistent Settings shell', () => {
 
       expect(nameField()).toHaveValue('Other');
     });
+  });
+});
+
+describe('ActiveSpaceSettingsDialog: Reset settings to defaults reaches every Space', () => {
+  const FILE = '.clutter/workspace.json';
+  const withSettings = (id: string) =>
+    JSON.stringify({
+      space: { version: 1, id, defaultCoverPosition: 'above', autoDeleteArchived: true },
+      preferredNoteTemplates: ['t-a'],
+      collectionViewConfig: { 'view:notes': { layout: 'card' } },
+    });
+  const read = async (fileSystem: InMemoryVaultFileSystem, root: string) => JSON.parse(await fileSystem.readFile(`${root}/${FILE}`));
+
+  function otherSpaces() {
+    const files: Record<string, InMemoryVaultFileSystem> = {
+      '/s/Other': new InMemoryVaultFileSystem({ [`/s/Other/${FILE}`]: withSettings('other') }),
+      '/s/Third': new InMemoryVaultFileSystem({ [`/s/Third/${FILE}`]: withSettings('third') }),
+    };
+    // A plain function, not an arrow: the code under test calls it with `new`.
+    vi.mocked(LocalVaultProvider).mockImplementation(function (path: string) {
+      return files[path];
+    } as never);
+    return files;
+  }
+
+  const openPreferences = () =>
+    fireEvent.click(within(document.querySelector('.settings-sidebar') as HTMLElement).getByText('Preferences'));
+  const reset = () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Reset…' }));
+    fireEvent.click(within(document.querySelector('.confirmation') as HTMLElement).getByRole('button', { name: 'Reset settings' }));
+  };
+
+  /** The Reset button is disabled while a reset runs and enabled again once every step has finished. */
+  const finished = async () => {
+    expect(screen.getByRole('button', { name: 'Reset…' })).toBeDisabled();
+    await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Reset…' })).toBeEnabled());
+  };
+
+  afterEach(() => {
+    vi.mocked(isTauri).mockReturnValue(false);
+    vi.mocked(LocalVaultProvider).mockReset();
+  });
+
+  it('on the desktop: the open Space through its Application, every other Space through its own folder, never the open one twice', async () => {
+    vi.mocked(isTauri).mockReturnValue(true);
+    const files = otherSpaces();
+    const live = fakeApplication();
+    const spaces = spacesApi('/s/Alpha', { '/s/Alpha': 'Alpha', '/s/Other': 'Other', '/s/Third': 'Third' });
+    render(<Page spaces={spaces} application={live.application} />);
+    openPreferences();
+
+    reset();
+    await finished();
+
+    expect(live.resetSpaceSettings).toHaveBeenCalledOnce();
+    await flushWorkspaceStateWrites();
+    for (const [root, id] of [['/s/Other', 'other'], ['/s/Third', 'third']] as const) {
+      const file = await read(files[root]!, root);
+      expect(file.space, root).toEqual({ version: 1, id });
+      expect(file, root).not.toHaveProperty('preferredNoteTemplates');
+      expect(file.collectionViewConfig, root).toEqual({ 'view:notes': { layout: 'card' } });
+    }
+    // The open Space has an Application: its folder is never opened a second way.
+    expect(vi.mocked(LocalVaultProvider).mock.calls.map(([path]) => path).sort()).toEqual(['/s/Other', '/s/Third']);
+  });
+
+  it('on the web, where there is one fixed Space: only its Application, and no folder is opened', async () => {
+    const live = fakeApplication();
+    const spaces = spacesApi('/s/Alpha', { '/s/Alpha': 'Alpha', '/s/Other': 'Other' });
+    render(<Page spaces={spaces} application={live.application} />);
+    openPreferences();
+
+    reset();
+    await finished();
+
+    expect(live.resetSpaceSettings).toHaveBeenCalledOnce();
+    expect(LocalVaultProvider).not.toHaveBeenCalled();
+  });
+
+  it('is not offered to run while there is no Application behind the dialog', () => {
+    const spaces = spacesApi('/s/Alpha', { '/s/Alpha': 'Alpha' });
+    render(<Page spaces={spaces} application={null} busy />);
+    openPreferences();
+
+    expect(screen.getByRole('button', { name: 'Reset…' })).toBeDisabled();
   });
 });

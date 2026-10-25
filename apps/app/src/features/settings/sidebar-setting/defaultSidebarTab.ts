@@ -66,3 +66,16 @@ export function writeUseLastSidebarTab(useLast: boolean): void {
 export function readLaunchSidebarTab(): SidebarTab | undefined {
   return readUseLastSidebarTab() ? undefined : readDefaultSidebarTab();
 }
+
+/**
+ * Back to the defaults for the whole Startup tab choice: removes both the saved default tab (Notes) and the saved
+ * "use the last tab" choice (on), so a missing value is the default again for each.
+ */
+export function resetDefaultSidebarTab(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(USE_LAST_STORAGE_KEY);
+  } catch {
+    // Best-effort, like the writes above.
+  }
+}

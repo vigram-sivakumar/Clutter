@@ -102,7 +102,7 @@ describe('Properties and Sort by cannot disagree', () => {
 describe('the layouts consume the resolved visible properties, never a property list of their own', () => {
   it('no layout mapper lists the registry\'s plain-value properties by hand', () => {
     // (The asset adapter, `toAssetEntry`, names the properties whose ties break by Name — collection policy, not a layout.)
-    const mappers = PRODUCTION.filter((file) => /features\/collection\/components\/(note|asset|folder)\/(to(Note|Asset|Folder)(List|Table|Card)|assetCardMetadata)/.test(file.rel));
+    const mappers = PRODUCTION.filter((file) => /features\/collection\/components\/(note|asset|folder)\/(to(Note|Asset|Folder)(List|Table|Card))/.test(file.rel));
     const offenders = mappers.filter((file) => /['"]created['"][\s\S]{0,60}['"]updated['"]/.test(file.text)).map((file) => file.rel);
 
     expect(offenders).toEqual([]);

@@ -53,7 +53,12 @@ export function buildResourceMenuOptions(
 ): BuildTopBarActionsOptions {
   const { membershipSelector, folderOperations, pageOperations, vault } = application;
   const id = resource.id;
-  const base = { membershipSelector, vaultRoot: vault.root, notifier: ops.notifier };
+  // Read live, by id, when asked — the resource object captured here is a snapshot of the moment the menu was built.
+  const isArchivedNow = (): boolean => {
+    const live = isPage(resource) ? vault.getPage(id) : vault.getFolder(id);
+    return live !== undefined && membershipSelector.isEntityEffectivelyArchived(live);
+  };
+  const base = { membershipSelector, vaultRoot: vault.root, notifier: ops.notifier, isArchivedNow };
 
   if (isPage(resource)) {
     // Move applies only to Notes (a Daily Note's menu never includes `move-to`); a Template is a note

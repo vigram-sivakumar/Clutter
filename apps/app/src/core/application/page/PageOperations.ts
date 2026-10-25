@@ -2177,7 +2177,27 @@ export class PageOperations {
    * at its new Archive/ location — the same id-keyed reactivity that
    * already makes rename-driven path changes transparent to the open view.
    */
-  public async archive(pageId: string): Promise<void> {
+  public archive(pageId: string): Promise<void> {
+    // A second request for a page whose archive is still running is the same request: it joins that one
+    // instead of starting another that could only fail ("already archived"). Once it has settled, a later
+    // request is judged by the page's state as usual.
+    const running = this.archivesInFlight.get(pageId);
+
+    if (running) {
+      return running;
+    }
+
+    const request = this.archiveOnce(pageId).finally(() => {
+      this.archivesInFlight.delete(pageId);
+    });
+    this.archivesInFlight.set(pageId, request);
+
+    return request;
+  }
+
+  private readonly archivesInFlight = new Map<string, Promise<void>>();
+
+  private async archiveOnce(pageId: string): Promise<void> {
     // Never archive over unsaved changes: the archive writes the page's last SAVED content, and once
     // archived every further save is rejected, so an edit still sitting in a debounce window would be lost.
     await this.flushPagesBeforeArchive([pageId]);

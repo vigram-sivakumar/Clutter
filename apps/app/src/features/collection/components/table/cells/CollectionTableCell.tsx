@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { AppIcon, type SystemIcon } from '@shared/icon';
 import { CollectionMedia, type CollectionMediaProps } from '../../media/CollectionMedia';
 import { CollectionEntry } from '../../entry/CollectionEntry';
+import type { CollectionItemSelection } from '../../entry/CollectionSelectionCheckbox';
 import { CollectionEntryProperties } from '../../entry/CollectionEntryProperties';
 import './CollectionTableCell.css';
 
@@ -21,6 +22,8 @@ export interface CollectionTableHeaderCellValue {
   readonly actions?: ReactNode;
   /** Shown, muted, when `description` is empty. Absent, an empty description draws nothing. */
   readonly descriptionPlaceholder?: string;
+  /** Makes the row selectable: a checkbox takes whatever leads the row (its icon, an asset's thumbnail) while the row is hovered, and stays while checked. */
+  readonly selection?: CollectionItemSelection;
   readonly className?: string;
 }
 
@@ -72,6 +75,7 @@ export function CollectionTableCell(props: CollectionTableCellProps) {
           layout="cell"
           className={join('collection-table-cell', 'collection-table-cell--header', 'collection-entry--name-cell', props.className)}
           leading={props.leading ?? (props.icon || props.emoji ? <AppIcon icon={props.icon} emoji={props.emoji} /> : undefined)}
+          selection={props.selection}
           title={props.title ?? ''}
           titleContent={props.titleContent}
           description={props.description || props.descriptionPlaceholder}

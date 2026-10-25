@@ -32,3 +32,17 @@ export function discardLegacyAutoDeleteArchived(): void {
     // Nothing to do: an unwritable store cannot hold the value either.
   }
 }
+
+/**
+ * Removes both old app-wide values. "Reset settings to defaults" calls it, because a Space that no longer has a cover
+ * position of its own would otherwise be seeded from the old value again the next time it opens
+ * (`migrateLegacyAppSettings`), quietly undoing the reset.
+ */
+export function clearLegacyAppSettings(): void {
+  try {
+    localStorage.removeItem(LEGACY_COVER_POSITION_KEY);
+    localStorage.removeItem(LEGACY_AUTO_DELETE_ARCHIVED_KEY);
+  } catch {
+    // Nothing to do: an unwritable store cannot hold the values either.
+  }
+}

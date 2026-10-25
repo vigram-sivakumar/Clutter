@@ -64,6 +64,11 @@ export interface ResourceActionContext {
   readonly executable?: readonly string[];
   /** Tasks only: the current value shown at the right of the Due date row. */
   readonly valueLabel?: string;
+  /**
+   * Selection menu only: how much of the collection is selected — none, some (fewer than every eligible item) or all.
+   * Names the Select all icon: an empty circle, a circle with a minus, or the filled, ticked one.
+   */
+  readonly selectionState?: 'none' | 'some' | 'all';
   /** Folders only: the Move hierarchy the folder already sits in (see `moveZoneFor`). */
   readonly moveZone?: MoveZone;
   /** Assets only: which kind of file this is. */

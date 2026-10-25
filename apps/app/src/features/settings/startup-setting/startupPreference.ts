@@ -26,3 +26,12 @@ export function writeStartupBehavior(behavior: StartupBehavior): void {
     // Best-effort: an unwritable store only means the choice doesn't outlive this session.
   }
 }
+
+/** Back to the default (Today's note): removes the saved choice, so a missing value is the default again. */
+export function resetStartupBehavior(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Best-effort, like the write above.
+  }
+}

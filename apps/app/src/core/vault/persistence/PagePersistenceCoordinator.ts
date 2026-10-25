@@ -5,7 +5,8 @@ import type { Folder } from '../models/Folder';
 import type { FolderMetadata } from '../models/FolderMetadata';
 import type { VaultResource } from '../models/VaultResource';
 import { Vault } from '../models/Vault';
-import type { VaultFileSystem } from '../providers/VaultFileSystem';
+import { DestinationExistsError, type VaultFileSystem } from '../providers/VaultFileSystem';
+import { InFlightPaths } from '../providers/InFlightPaths';
 import { FrontmatterSerializer } from '../ingest/FrontmatterSerializer';
 import { FrontmatterParser } from '../ingest/FrontmatterParser';
 import { PageRebuilder } from '../ingest/PageRebuilder';
@@ -267,7 +268,11 @@ export class PagePersistenceCoordinator {
     private readonly resourceArchiveStore: ResourceArchiveMetadataStore = new ResourceArchiveMetadataStore(
       fileSystem,
       vault.root
-    )
+    ),
+    // The paths an archive is changing while it runs. VaultSyncService holds the same instance (the Composition
+    // Root hands both one), so it waits on these instead of reading a half-finished move as an external change.
+    // Defaulted like the store above, so every existing construction site keeps compiling.
+    private readonly inFlight: InFlightPaths = new InFlightPaths()
   ) {
     this.pageBuilder = new PageBuilder(vault.root);
   }
@@ -921,6 +926,54 @@ export class PagePersistenceCoordinator {
    * throwing "source not found" and getting permanently stuck — the same
    * failure shape identified for Folder Archive, closed here the same way.
    */
+  /**
+   * Archive destinations an in-flight archive has chosen but not yet committed (lower-cased, as the index compares
+   * paths). The Vault index only learns of a destination at the END of an archive, after several awaits, so two
+   * archives of same-named items running at once would each see it free; this set is what the second one consults.
+   * Added in the same synchronous step that chooses the name, so no other archive can slip between choosing and
+   * claiming.
+   */
+  private readonly claimedArchiveDestinations = new Set<string>();
+
+  /**
+   * Runs one archive against a destination it alone has claimed: chooses it by the shared collision-free rule
+   * (counting both the Vault index and every destination other archives have claimed), claims it, marks the source
+   * and destination in flight for Sync, and calls `attempt`, which must perform the move with `noClobber`. If the
+   * filesystem reports something already at the destination — a file the Vault does not track, or one an external
+   * process just created — nothing was moved or overwritten, so that name is set aside and the next is chosen.
+   * The claim and the in-flight mark are released when the attempt ends, success or failure.
+   */
+  private async withArchiveDestination<D extends { path: string }, T>(
+    sourcePath: string,
+    resolve: (isClaimed: (path: string) => boolean) => D,
+    attempt: (destination: D) => Promise<T>
+  ): Promise<T> {
+    const refused = new Set<string>();
+    const MAX_ATTEMPTS = 50;
+
+    for (let tried = 1; ; tried += 1) {
+      const destination = resolve(
+        (path) => this.claimedArchiveDestinations.has(path.toLowerCase()) || refused.has(path.toLowerCase())
+      );
+      const key = destination.path.toLowerCase();
+      this.claimedArchiveDestinations.add(key);
+      const endInFlight = this.inFlight.begin([sourcePath, destination.path]);
+
+      try {
+        return await attempt(destination);
+      } catch (error) {
+        if (error instanceof DestinationExistsError && tried < MAX_ATTEMPTS) {
+          refused.add(key);
+          continue;
+        }
+        throw error;
+      } finally {
+        this.claimedArchiveDestinations.delete(key);
+        endInFlight();
+      }
+    }
+  }
+
   private async runArchive(current: Page): Promise<PersistenceResult> {
     // Itself archived, or inside an archived folder: either way it is already in the Archive's care.
     if (this.vault.isPageEffectivelyArchived(current)) {
@@ -930,62 +983,67 @@ export class PagePersistenceCoordinator {
     await this.ensureReservedFolderForOperation('archive');
 
     const archivePatch = this.computeArchiveMetadataPatch(current.path, current.parentId);
-    const destination = this.moveService.resolveArchiveDestination(current);
 
-    // Same collision guard MoveService.movePage() applies for every other
-    // structural change (rule: never silently overwrite another tracked
-    // page's file) — checked before any write, since this method calls
-    // fileSystem.moveFile() directly rather than movePage().
-    const occupant = this.vault.getPageByPathCaseInsensitive(destination.path);
+    return this.withArchiveDestination(
+      current.path,
+      (isClaimed) => this.moveService.resolveArchiveDestination(current, isClaimed),
+      async (destination) => {
+        // Same collision guard MoveService.movePage() applies for every other
+        // structural change (rule: never silently overwrite another tracked
+        // page's file) — checked before any write.
+        const occupant = this.vault.getPageByPathCaseInsensitive(destination.path);
 
-    if (occupant && occupant.id !== current.id) {
-      throw new Error(`Path already in use by another page: ${destination.path}`);
-    }
+        if (occupant && occupant.id !== current.id) {
+          throw new Error(`Path already in use by another page: ${destination.path}`);
+        }
 
-    const page: Page = {
-      ...current,
-      path: destination.path,
-      parentId: destination.parentId,
-      metadata: {
-        ...current.metadata,
-        ...archivePatch,
-      },
-    };
+        const page: Page = {
+          ...current,
+          path: destination.path,
+          parentId: destination.parentId,
+          metadata: {
+            ...current.metadata,
+            ...archivePatch,
+          },
+        };
 
-    if (current.path !== page.path) {
-      const candidateAlreadyMoved =
-        !(await this.fileSystem.exists(current.path)) &&
-        (await this.fileSystem.exists(page.path));
+        if (current.path !== page.path) {
+          const candidateAlreadyMoved =
+            !(await this.fileSystem.exists(current.path)) &&
+            (await this.fileSystem.exists(page.path));
 
-      // Bare path existence is not proof this is our own prior partial
-      // attempt — an untracked orphan, a stale Vault path, or an external
-      // race could produce the same shape. Only a matching persisted id
-      // proves it; anything else falls through to the normal move, which
-      // fails loudly on a genuine unexpected collision instead of
-      // silently overwriting it.
-      const alreadyMoved =
-        candidateAlreadyMoved &&
-        (await this.destinationMatchesArchivedPage(page.path, current.id));
+          // Bare path existence is not proof this is our own prior
+          // partial attempt — an untracked orphan, a stale Vault path, or an external
+          // race could produce the same shape. Only a matching persisted id
+          // proves it; anything else falls through to the normal move,
+          // which refuses to replace anything at the destination (noClobber).
+          const alreadyMoved =
+            candidateAlreadyMoved &&
+            (await this.destinationMatchesArchivedPage(page.path, current.id));
 
-      if (!alreadyMoved) {
-        await this.fileSystem.moveFile(current.path, page.path);
+          if (!alreadyMoved) {
+            // No-clobber, in the filesystem: the destination was chosen from the Vault index and the claims
+            // above, but only the filesystem knows whether a file is really there.
+            await this.fileSystem.moveFile(current.path, page.path, { noClobber: true });
+          }
+        }
+
+        const document = this.serializer.serializeDocument(page, current.source.markdown);
+
+        await this.fileSystem.writeFile(page.path, document);
+
+        const parsed = this.parser.parse(document);
+        const rebuilt = this.rebuilder.rebuild(
+          page,
+          parsed,
+          await readPageFileTimes(this.fileSystem, page.path)
+        );
+
+        this.vault.replacePage(rebuilt);
+
+        return { status: 'saved', page: rebuilt } as const;
       }
-    }
-
-    const document = this.serializer.serializeDocument(page, current.source.markdown);
-
-    await this.fileSystem.writeFile(page.path, document);
-
-    const parsed = this.parser.parse(document);
-    const rebuilt = this.rebuilder.rebuild(
-      page,
-      parsed,
-      await readPageFileTimes(this.fileSystem, page.path)
     );
-
-    this.vault.replacePage(rebuilt);
-
-    return { status: 'saved', page: rebuilt };
   }
 
   /**
@@ -1060,45 +1118,50 @@ export class PagePersistenceCoordinator {
     await this.ensureReservedFolderForOperation('archive');
 
     const archivePatch = this.computeArchiveMetadataPatch(folder.path, folder.parentId);
-    const destination = new FolderPathResolver(this.vault).resolveArchiveDestination(folderId);
 
-    const finalFolder: Folder = {
-      ...folder,
-      name: VaultPath.filename(destination.path),
-      path: destination.path,
-      parentId: destination.parentId,
-      metadata: { ...folder.metadata, ...archivePatch },
-    };
+    return this.withArchiveDestination(
+      folder.path,
+      (isClaimed) => new FolderPathResolver(this.vault).resolveArchiveDestination(folderId, isClaimed),
+      async (destination) => {
+        const finalFolder: Folder = {
+          ...folder,
+          name: VaultPath.filename(destination.path),
+          path: destination.path,
+          parentId: destination.parentId,
+          metadata: { ...folder.metadata, ...archivePatch },
+        };
 
-    const candidateAlreadyMoved =
-      folder.path !== destination.path &&
-      !(await this.fileSystem.exists(folder.path)) &&
-      (await this.fileSystem.exists(destination.path));
+        const candidateAlreadyMoved =
+          folder.path !== destination.path &&
+          !(await this.fileSystem.exists(folder.path)) &&
+          (await this.fileSystem.exists(destination.path));
 
-    // A directory being present proves nothing about its contents — never
-    // treat bare directory existence as proof this is our own prior
-    // partial move. Only a matching persisted `.folder.md` id proves it.
-    // No `.folder.md` (or one with no id, or a different id) means
-    // identity cannot be established; fall through to the normal move,
-    // which fails loudly on a genuine unexpected collision instead of
-    // silently annexing someone else's directory. Deliberately no
-    // empty-directory or other heuristic fallback.
-    const alreadyMoved =
-      candidateAlreadyMoved &&
-      (await this.destinationMatchesArchivedFolder(destination.path, folderId));
+        // A directory being present proves nothing about its contents — never
+        // treat bare directory existence as proof this is our own prior
+        // partial move. Only a matching persisted `.folder.md` id proves it.
+        // No `.folder.md` (or one with no id, or a different id) means
+        // identity cannot be established; fall through to the normal move,
+        // which refuses to replace anything at the destination (noClobber)
+        // instead of silently annexing someone else's directory. Deliberately
+        // no empty-directory or other heuristic fallback.
+        const alreadyMoved =
+          candidateAlreadyMoved &&
+          (await this.destinationMatchesArchivedFolder(destination.path, folderId));
 
-    if (!alreadyMoved) {
-      await this.fileSystem.moveFile(folder.path, destination.path);
-    }
+        if (!alreadyMoved) {
+          await this.fileSystem.moveFile(folder.path, destination.path, { noClobber: true });
+        }
 
-    await this.fileSystem.writeFile(
-      `${finalFolder.path}/.folder.md`,
-      this.serializer.serializeFolderDocument(finalFolder)
+        await this.fileSystem.writeFile(
+          `${finalFolder.path}/.folder.md`,
+          this.serializer.serializeFolderDocument(finalFolder)
+        );
+
+        this.vault.archiveFolder(folderId, destination.path, destination.parentId, archivePatch);
+
+        return { status: 'folder-archived', folder: this.vault.getFolder(folderId)! } as const;
+      }
     );
-
-    this.vault.archiveFolder(folderId, destination.path, destination.parentId, archivePatch);
-
-    return { status: 'folder-archived', folder: this.vault.getFolder(folderId)! };
   }
 
   /**
@@ -1453,28 +1516,33 @@ export class PagePersistenceCoordinator {
 
     await this.ensureReservedFolderForOperation('archive');
 
-    const destination = this.moveService.resolveResourceArchiveDestination(resource);
     const originalPath = resource.path;
 
-    if (destination.path !== resource.path) {
-      this.assertResourceDestinationAvailable(destination.path, resource.id);
-      await this.fileSystem.moveFile(resource.path, destination.path);
-    }
+    return this.withArchiveDestination(
+      resource.path,
+      (isClaimed) => this.moveService.resolveResourceArchiveDestination(resource, isClaimed),
+      async (destination) => {
+        if (destination.path !== resource.path) {
+          this.assertResourceDestinationAvailable(destination.path, resource.id);
+          await this.fileSystem.moveFile(resource.path, destination.path, { noClobber: true });
+        }
 
-    await this.resourceArchiveStore.record(destination.path, originalPath, new Date().toISOString());
+        await this.resourceArchiveStore.record(destination.path, originalPath, new Date().toISOString());
 
-    try {
-      this.vault.updateResourcePath(resourceId, destination.path, destination.parentId);
-    } catch (error) {
-      return {
-        status: 'abandoned',
-        reason: `Vault rejected the archived resource after a successful move: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      };
-    }
+        try {
+          this.vault.updateResourcePath(resourceId, destination.path, destination.parentId);
+        } catch (error) {
+          return {
+            status: 'abandoned',
+            reason: `Vault rejected the archived resource after a successful move: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          } as PersistenceResult;
+        }
 
-    return { status: 'resource-archived', resource: this.vault.getResource(resourceId)! };
+        return { status: 'resource-archived', resource: this.vault.getResource(resourceId)! } as PersistenceResult;
+      }
+    );
   }
 
   /**

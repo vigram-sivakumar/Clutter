@@ -69,6 +69,22 @@ export function useTheme() {
 }
 
 /** Test seam: drops the cached preference so the next read comes from storage again. */
+/**
+ * Back to the default, System: removes the saved choice, applies the system's theme and tells every subscriber (the
+ * Settings control, anything showing the theme). Not tied to a mounted component, so "Reset settings to defaults" can
+ * call it from outside React.
+ */
+export function resetThemePreference(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Best-effort, like every preference: an unwritable store only means the default doesn't outlive this session.
+  }
+  current = 'system';
+  applyTheme(resolveTheme('system'));
+  listeners.forEach((listener) => listener());
+}
+
 export function resetThemeStoreForTests() {
   current = null;
 }

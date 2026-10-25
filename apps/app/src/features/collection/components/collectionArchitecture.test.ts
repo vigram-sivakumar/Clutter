@@ -69,7 +69,7 @@ describe('the generic collection components are domain-free', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('only reach outside themselves for shared primitives (@shared/icon, @shared/interaction) and React — plus the design-system Button, in the empty states only', () => {
+  it('only reach outside themselves for shared primitives (@shared/icon, @shared/interaction) and React — plus the design-system Button (empty states only) and Checkbox (the selection checkbox, entry/ only)', () => {
     const outside = GENERIC.flatMap((file) =>
       importsOf(file.text)
         .filter((spec) => !spec.startsWith('.') && spec !== 'react')
@@ -78,8 +78,11 @@ describe('the generic collection components are domain-free', () => {
 
     // The one exception: an empty state's call to action is the design system's own Button, which is
     // as domain-free as the icon primitive — no other generic component takes it.
+    // The Checkbox is the same kind of primitive; the entry draws it as the selection checkbox.
+    // (`entry/CollectionSelectionCheckbox` is the one place; the card and the entry both use it.)
     const allowed = ({ file, spec }: { file: string; spec: string }) =>
-      /^@shared\/(icon|interaction)$/.test(spec) || (file.startsWith('empty/') && spec === '@components/button/Button');
+      /^@shared\/(icon|interaction)$/.test(spec) || (file.startsWith('empty/') && spec === '@components/button/Button') ||
+      (/^entry\//.test(file) && spec === '@components/checkbox/Checkbox');
 
     expect(outside.filter((entry) => !allowed(entry))).toEqual([]);
   });

@@ -268,6 +268,33 @@ const OPEN_IN_NOTE: ResourceActionDefinition = {
   icon: 'note',
 };
 
+/**
+ * The selection menu's own actions (a Collection View with several items checked): they act on the selection,
+ * not on one resource, so they belong to no kind. First in the menu, in the identity group.
+ */
+const SELECT_ALL: ResourceActionDefinition = {
+  id: 'select-all',
+  group: 'identity',
+  order: 10,
+  // One item that toggles: with everything selected it reads Deselect all.
+  label: (context) => (context.selectionState === 'all' ? 'Deselect all' : 'Select all'),
+  icon: (context) =>
+    context.selectionState === 'all' ? 'checkboxChecked' : context.selectionState === 'some' ? 'checkboxIndeterminate' : 'checkboxUnchecked',
+};
+
+/**
+ * The actions a selection menu can offer, from the same definitions the single-resource menus use — so wording,
+ * icon, group and order are theirs. Move to, Favorite, Move to trash and Delete are offered only when every selected
+ * item supports them (see `buildSelectionActionMenu`).
+ */
+export const SELECTION_ACTIONS: readonly ResourceActionDefinition[] = [
+  SELECT_ALL,
+  MOVE_TO,
+  TOGGLE_FAVORITE,
+  ARCHIVE,
+  DELETE,
+];
+
 export const RESOURCE_ACTIONS: Readonly<Record<ResourceKind, readonly ResourceActionDefinition[]>> = {
   note: [
     RENAME,

@@ -1,4 +1,10 @@
-import type { VaultEntry, VaultFileStat, VaultFileSystem } from '../providers/VaultFileSystem';
+import {
+  DestinationExistsError,
+  type MoveFileOptions,
+  type VaultEntry,
+  type VaultFileStat,
+  type VaultFileSystem,
+} from '../providers/VaultFileSystem';
 import { resolveLocalDuplicatePath } from '../providers/localDuplicateNaming';
 import { VaultPath } from '../ingest/VaultPath';
 
@@ -223,7 +229,15 @@ export class InMemoryVaultFileSystem implements VaultFileSystem {
    * silently out of sync with what Vault.moveFolder() computes for the
    * same operation.
    */
-  async moveFile(sourcePath: string, destinationPath: string): Promise<void> {
+  async moveFile(sourcePath: string, destinationPath: string, options?: MoveFileOptions): Promise<void> {
+    if (
+      options?.noClobber &&
+      (this.files.has(sourcePath) || this.directories.has(sourcePath)) &&
+      (this.files.has(destinationPath) || this.directories.has(destinationPath))
+    ) {
+      throw new DestinationExistsError(destinationPath);
+    }
+
     if (this.files.has(sourcePath)) {
       const contents = this.files.get(sourcePath)!;
       this.files.delete(sourcePath);

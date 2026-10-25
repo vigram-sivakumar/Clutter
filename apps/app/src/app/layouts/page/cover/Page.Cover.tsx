@@ -251,6 +251,8 @@ export function PageCover({
     }
     function handleKeyDown(event: KeyboardEvent): void {
       if (event.key === 'Escape') {
+        // Consumed: anything else that answers Escape (a collection's selection) leaves this one to repositioning.
+        event.preventDefault();
         cancelRepositioning();
       }
     }

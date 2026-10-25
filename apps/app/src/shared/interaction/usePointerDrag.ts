@@ -321,6 +321,14 @@ function applyDragSelectionGuard(): () => void {
   };
 }
 
+/**
+ * The same guard for a gesture that is not an item drag (a marquee selection): takes it for as long as the gesture
+ * lasts, leaving a text selection that existed before the press alone, and returns the release.
+ */
+export function lockDragSelection(): () => void {
+  return acquireDragSelectionLock(snapshotSelection());
+}
+
 function acquireDragSelectionLock(selectionBeforePress: SelectionSnapshot | null): () => void {
   if (guardHolders === 0) {
     guardBaseline = selectionBeforePress;
@@ -348,7 +356,7 @@ function acquireDragSelectionLock(selectionBeforePress: SelectionSnapshot | null
  * The browser fires a `click` right after the release that ended a drag. Swallow that one, in the capture
  * phase before anything reacts to it, and give up on the next tick in case no click comes.
  */
-function swallowNextClick(): void {
+export function swallowNextClick(): void {
   const handler = (event: Event) => {
     event.stopPropagation();
     event.preventDefault();

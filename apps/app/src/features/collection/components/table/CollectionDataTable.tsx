@@ -3,6 +3,7 @@ import type { CollectionEntryAttributes } from '../entry/collectionEntryAttribut
 import { CollectionTableCell, type CollectionTableCellProps } from './cells/CollectionTableCell';
 import { AppIcon } from '@shared/icon';
 import { CollectionEntry } from '../entry/CollectionEntry';
+import { selectionCaptureProps, withSelectionToggle, type CollectionItemSelection } from '../entry/CollectionSelectionCheckbox';
 import { CollectionTable } from './CollectionTable';
 import { CollectionTableRow } from './CollectionTableRow';
 import {
@@ -21,6 +22,8 @@ export interface CollectionDataTableRow {
   /** Keyed by column id. A column with no entry draws an empty cell, so the grid stays aligned. */
   readonly cells: Readonly<Record<string, CollectionTableCellValue>>;
   readonly isSelected?: boolean;
+  /** Makes the row selectable (see `CollectionTableHeaderCellValue.selection`): the checkbox is drawn in the name cell, and a checked row is highlighted whole. */
+  readonly selection?: CollectionItemSelection;
   /** Opens the row (click / Enter / Space). */
   readonly onClick?: () => void;
   /** Extra `data-*` / ARIA attributes for the row. */
@@ -66,15 +69,18 @@ export function CollectionDataTable({ columns, rows, newItem, ...props }: Collec
         <CollectionTableRow
           {...row.props}
           key={row.id}
-          isSelected={row.isSelected}
-          onClick={row.onClick ? () => row.onClick?.() : undefined}
+          className={row.selection?.active ? 'collection-table-row--selecting' : undefined}
+          {...selectionCaptureProps(row.selection, row.onClick !== undefined)}
+          data-selection-id={row.selection?.id}
+          isSelected={row.isSelected || row.selection?.checked}
+          onClick={withSelectionToggle(row.selection, row.onClick ? () => row.onClick?.() : undefined)}
         >
           {columns.map((column) => {
             const value = row.cells[column.id];
             return value ? (
               <CollectionTableCell
                 key={column.id}
-                {...value}
+                {...(value.variant === 'header' && row.selection ? { ...value, selection: row.selection } : value)}
                 className={join(column.cellClassName, value.className)}
               />
             ) : (

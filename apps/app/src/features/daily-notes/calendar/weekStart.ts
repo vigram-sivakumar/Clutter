@@ -63,6 +63,16 @@ export function writeWeekStart(weekStart: WeekStart): void {
   listeners.forEach((listener) => listener());
 }
 
+/** Back to the default (Monday): removes the saved choice and notifies, so open calendars follow. */
+export function resetWeekStart(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Best-effort, like `writeWeekStart`.
+  }
+  listeners.forEach((listener) => listener());
+}
+
 function subscribe(listener: () => void) {
   listeners.add(listener);
   return () => listeners.delete(listener);

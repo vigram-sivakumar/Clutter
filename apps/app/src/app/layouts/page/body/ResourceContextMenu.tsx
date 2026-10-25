@@ -17,6 +17,11 @@ export interface ResourceContextMenuProps {
   menu: ResourceTopBarActionsProps;
   /** Where the menu opens: the pointer's viewport position. */
   point: ContextMenuPoint;
+  /**
+   * Run this action as if it had been chosen in the menu, without showing the menu (a keyboard shortcut for one of its
+   * actions): the same dispatch, so a confirmation or the Move picker appears exactly as from the menu.
+   */
+  immediate?: string;
   /** The menu, and anything its selection opened (Move picker, Confirmation), is finished with. */
   onDone(): void;
 }
@@ -30,13 +35,28 @@ export interface ResourceContextMenuProps {
  * Stays mounted until the menu AND whatever it opened have closed: choosing Move or a confirmed
  * action closes the menu while the picker/dialog (anchored to the same point) is still showing.
  */
-export function ResourceContextMenu({ menu, point, onDone }: ResourceContextMenuProps) {
+export function ResourceContextMenu({ menu, point, immediate, onDone }: ResourceContextMenuProps) {
   const anchorRef = useRef<HTMLSpanElement>(null);
   const suppressReturnFocusRef = useRef(false);
-  const [menuOpen, setMenuOpen] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(immediate === undefined);
+  const [started, setStarted] = useState(immediate === undefined);
   const dispatch = useResourceMenuDispatch(menu);
 
-  const idle = !menuOpen && !dispatch.moveTrigger.open && dispatch.confirmation.pending === null;
+  // An immediate action runs once, on mount; until it has, the component is not idle.
+  // (Once only: a development double-mount of the effect must never run the action twice.)
+  const ranImmediateRef = useRef(false);
+  useEffect(() => {
+    if (immediate !== undefined && !ranImmediateRef.current) {
+      ranImmediateRef.current = true;
+      dispatch.select(immediate);
+    }
+    if (immediate !== undefined) {
+      setStarted(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const idle = started && !menuOpen && !dispatch.moveTrigger.open && dispatch.confirmation.pending === null;
   useEffect(() => {
     if (idle) {
       onDone();

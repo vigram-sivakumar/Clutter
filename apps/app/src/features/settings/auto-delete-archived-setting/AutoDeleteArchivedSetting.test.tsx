@@ -109,7 +109,8 @@ describe('Settings — Preferences page', () => {
       title: group.querySelector('.settings-group__title')?.textContent,
       entries: Array.from(group.querySelectorAll('.settings-entry__title')).map((el) => el.textContent),
     }));
-    expect(groups.map((group) => group.title)).toEqual(['Appearance', 'Startup', 'Calendar', 'Data & storage']);
+    // The Reset section closes the page, after every group of settings.
+    expect(groups.map((group) => group.title)).toEqual(['Appearance', 'Startup', 'Calendar', 'Data & storage', 'Reset']);
     expect(groups[3]?.entries).toEqual(['Automatically delete archived items']);
   });
 });

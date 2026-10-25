@@ -1,7 +1,7 @@
-/* The list's container: a flush column of rows. */
+/* The list's container: a column of rows with a 1px gap between them (a gap, never a margin — see CLAUDE.md). */
 .collection-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-0);
+  gap: 1px;
   padding-block-start: 4px;
 }

@@ -3,6 +3,7 @@ import type { CoverCredit } from '@core/vault/models/PageMetadata';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
 import { CollectionGrid } from '@features/collection/components/grid/CollectionGrid';
 import { CollectionCard } from '@features/collection/components/card/CollectionCard';
+import type { CollectionItemSelection } from '@features/collection/components/entry/CollectionSelectionCheckbox';
 import { CollectionDataList } from '@features/collection/components/list/CollectionDataList';
 import { CollectionDataTable } from '@features/collection/components/table/CollectionDataTable';
 import { toNoteListItem } from '@features/collection/components/note/toNoteListItem';
@@ -13,6 +14,8 @@ import {
   toNoteCardProps,
 } from '@features/collection/components/note/toNoteCardProps';
 import type { NotePreviewResolvers } from '@features/collection/components/note/notePreviewResolvers';
+import { useMarqueeSelection } from '@features/collection/selection/useMarqueeSelection';
+import { useCollectionSelection } from '@features/collection/selection/useCollectionSelection';
 import { buildPropertyTableColumns } from '@features/collection/properties/tableColumns';
 import { CollectionEmptyState } from '@features/collection/components/empty/CollectionEmptyState';
 import { CoverPickerOverlay } from '@app/layouts/page/cover/CoverPickerOverlay';
@@ -28,6 +31,7 @@ import { CreateCard, createNewItem } from './collectionCreate';
 import { renderFolderGrid } from './collectionFolders';
 import { useCollectionMoveDrag, type CollectionMoveDrag } from './useCollectionMoveDrag';
 import { useCollectionItemContextMenu, type CollectionItemMenuResolver } from './useCollectionItemContextMenu';
+import { useCollectionSelectionMenu } from './useCollectionSelectionMenu';
 import { PageBody } from './Page.Body';
 
 /**
@@ -139,6 +143,8 @@ export interface CollectionBodyProps {
 }
 
 interface RenderNoteListOptions {
+  /** Each note row's selection checkbox (see `useCollectionSelection`). */
+  selectionFor?: (entry: CollectionEntryModel) => CollectionItemSelection;
   /** Extra attributes per note row — the drag handlers and markers (see `useCollectionMoveDrag`) and the context menu. */
   dragProps?: (entry: CollectionEntryModel) => object | undefined;
   /**
@@ -170,7 +176,7 @@ interface RenderNoteListOptions {
 function renderNoteList(
   entries: readonly CollectionEntryModel[],
   visible: readonly PropertyId[] = DEFAULT_VIEW.visible,
-  { coverFor, onCreate, resolvers, dragProps }: RenderNoteListOptions = {}
+  { coverFor, onCreate, resolvers, dragProps, selectionFor }: RenderNoteListOptions = {}
 ) {
   return (
     <CollectionDataList
@@ -181,7 +187,8 @@ function renderNoteList(
           resolvers,
         });
         const drag = dragProps?.(entry);
-        return drag ? { ...item, props: { ...item.props, ...drag } } : item;
+        const selection = selectionFor?.(entry);
+        return drag ? { ...item, selection, props: { ...item.props, ...drag } } : { ...item, selection };
       })}
       newItem={createNewItem(onCreate)}
     />
@@ -189,6 +196,8 @@ function renderNoteList(
 }
 
 interface RenderNoteTableOptions {
+  /** Each note row's selection checkbox (see `useCollectionSelection`). */
+  selectionFor?: (entry: CollectionEntryModel) => CollectionItemSelection;
   /** Extra attributes per note row — the drag handlers and markers (see `useCollectionMoveDrag`) and the context menu. */
   dragProps?: (entry: CollectionEntryModel) => object | undefined;
   /** The Cover image column's per-note cell — present only when the host can change covers (see `NoteCoverActions`). */
@@ -212,7 +221,7 @@ interface RenderNoteTableOptions {
 function renderNoteTable(
   entries: readonly CollectionEntryModel[],
   visible: readonly PropertyId[] = DEFAULT_VIEW.visible,
-  { coverFor, onCreate, resolvers, dragProps }: RenderNoteTableOptions = {}
+  { coverFor, onCreate, resolvers, dragProps, selectionFor }: RenderNoteTableOptions = {}
 ) {
   return (
     <CollectionDataTable
@@ -224,7 +233,8 @@ function renderNoteTable(
           resolvers,
         });
         const drag = dragProps?.(entry);
-        return drag ? { ...row, props: { ...row.props, ...drag } } : row;
+        const selection = selectionFor?.(entry);
+        return drag ? { ...row, selection, props: { ...row.props, ...drag } } : { ...row, selection };
       })}
       newItem={createNewItem(onCreate)}
     />
@@ -249,7 +259,15 @@ export function CollectionBody({
   itemMenu,
 }: CollectionBodyProps) {
   const drag = useCollectionMoveDrag(moveDrag);
-  const contextMenu = useCollectionItemContextMenu(itemMenu);
+  // Which folders and notes are checked (never saved; see `useCollectionSelection`), and the menu a right-click
+  // opens while any is: composed from each checked item's own menu.
+  const selection = useCollectionSelection([...folders, ...notes].map((entry) => entry.id));
+  const marquee = useMarqueeSelection(selection);
+  const selectionMenu = useCollectionSelectionMenu(selection, (id) => {
+    const entry = [...folders, ...notes].find((candidate) => candidate.id === id);
+    return entry && itemMenu ? itemMenu(entry) : null;
+  });
+  const contextMenu = useCollectionItemContextMenu(itemMenu, selectionMenu);
   // The rule between a note card's title section and its page follows the header-separator setting. A card has no
   // Properties section, so `automatic` never draws it; only `show` does, in the look chosen in Settings.
   const separatorMode = useHeaderSeparatorMode();
@@ -263,6 +281,7 @@ export function CollectionBody({
   };
   const sortedFolders = foldersInGivenOrder ? [...folders] : sortEntries(folders, sort, NOTE_SORT_OPTIONS);
   const sortedNotes = sortEntries(notes, sort, NOTE_SORT_OPTIONS);
+  const selectionFor = (entry: CollectionEntryModel) => selection.selectionFor(entry.id, entry.values.name);
 
   // The note whose cover picker is open, and the thumbnail it opens beside
   // (the picker is a popover anchored to the clicked cell, so the element
@@ -299,6 +318,7 @@ export function CollectionBody({
       coverFor,
       resolvers: previewResolvers,
       dragProps: entryProps,
+      selectionFor,
     }) : viewMode === 'card' ? (
       <CollectionGrid columns={NOTE_GRID}>
         {sortedNotes.map((entry) => (
@@ -309,6 +329,7 @@ export function CollectionBody({
               resolvers: previewResolvers,
               divider: cardDivider,
             })}
+            selection={selectionFor(entry)}
             {...entryProps(entry)}
             // A note card is a card: its ghost keeps the card's own width. Only a table or list row, which can
             // span the page, is drawn compact (that marker is what `useCollectionMoveDrag` sets for every note).
@@ -322,6 +343,7 @@ export function CollectionBody({
       coverFor,
       resolvers: previewResolvers,
       dragProps: entryProps,
+      selectionFor,
     });
 
   // A collection with nothing in it at all — no folders and no notes (in the sections it draws) —
@@ -331,13 +353,13 @@ export function CollectionBody({
   const createAction = onCreate && emptyCreateLabel ? { label: emptyCreateLabel, onClick: onCreate } : undefined;
 
   return (
-    <PageBody className="collection__content">
+    <PageBody className="collection__content" ref={marquee.ref}>
       {isEmpty ? (
         <CollectionEmptyState message={emptyMessage} action={createAction} />
       ) : (
         <>
           {/* The folders' Create card is likewise only for adding to folders that are there. */}
-          {sortedFolders.length > 0 && renderFolderGrid(sortedFolders, onCreateFolder, entryProps)}
+          {sortedFolders.length > 0 && renderFolderGrid(sortedFolders, onCreateFolder, entryProps, selectionFor)}
           {showNotes && noteSection}
         </>
       )}
@@ -357,6 +379,7 @@ export function CollectionBody({
       <div className="collection__bottom-spacer" aria-hidden="true" />
       {drag.overlay}
       {contextMenu.overlay}
+      {selectionMenu.overlay}
     </PageBody>
   );
 }

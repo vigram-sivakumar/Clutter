@@ -1,4 +1,5 @@
 import type { SystemIcon } from '@shared/icon';
+import { isMacPlatform } from '@shared/interaction/platform';
 
 /**
  * Clutter's global keyboard shortcuts: the one list the dispatcher (ShortcutsProvider) matches key presses against
@@ -155,7 +156,8 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
     title: 'Application',
     shortcuts: [
       // Each open dialog, popover and menu dismisses itself on Escape (components/overlay/hooks/useEscape.ts); this
-      // row documents that, and the dispatcher never touches Escape.
+      // row documents that, and the dispatcher never touches Escape. With none of them open, Escape also clears a
+      // collection's selection (features/collection/selection/useCollectionSelection.ts).
       { id: 'cancel', label: 'Cancel', binding: null, owner: 'app', display: [{ label: 'Esc' }] },
       // Not ⌘/: the Markdown editor's default keymap binds it to toggle a comment, so it would never reach the page
       // while a note is focused.
@@ -203,9 +205,7 @@ export function shortcutKeys(shortcut: ShortcutDefinition): readonly ShortcutKey
   ];
 }
 
-export function isMacPlatform(): boolean {
-  return typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent);
-}
+export { isMacPlatform };
 
 const CHARACTER_FOR_CODE: Record<string, string> = {
   BracketLeft: '[',

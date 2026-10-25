@@ -37,6 +37,12 @@
   color: var(--foreground-primary);
 }
 
+/* The checked and indeterminate checkbox icons (a selection menu's Select all) read in the checkbox's own accent, as
+ * the checked `Checkbox` does; the unchecked one keeps the row's color, as the unchecked `Checkbox` does. */
+.menu__item :is([data-icon='checkboxChecked'], [data-icon='checkboxIndeterminate']) {
+  color: var(--checkbox-accent);
+}
+
 /* A menu row's highlight must be driven exclusively by the shared roving
  * `activeId` (`forceHover` -> `.entry-force-hover`) — never by native
  * `:hover` on its own. `Entry.css`'s own rule paints the same background

@@ -34,6 +34,17 @@ const OVERFLOW_SIDE: OverlaySide = 'bottom';
 const OVERFLOW_ALIGNMENT: OverlayAlignment = 'end';
 
 export interface ResourceTopBarActionsProps {
+  /**
+   * The resource this menu acts on, when it is one note, folder or file. A selection's menu uses it to run an
+   * action once per resource however many selected entries lead to it.
+   */
+  resourceId?: string;
+  /**
+   * Whether the resource is archived (or inside an archived folder) RIGHT NOW — read when called, not when the
+   * menu was built. A selection's menu asks before archiving each item, so a stale selection (an item archived
+   * since) is skipped rather than failing with "already archived".
+   */
+  isArchived?: () => boolean;
   menu: readonly TopBarMenuItemConfig[];
   handlers?: Partial<Record<string, () => void>>;
   /**
@@ -45,6 +56,8 @@ export interface ResourceTopBarActionsProps {
    * directly via handlers.archive.
    */
   archiveConfirmationMessage?: string;
+  /** Overrides the Archive confirmation's title (default is the folder wording) — the selection menu's, for several items. */
+  archiveConfirmationTitle?: string;
   /**
    * Same shape as archiveConfirmationMessage, for 'delete'. Unlike
    * archiveConfirmationMessage, this is now always supplied by every

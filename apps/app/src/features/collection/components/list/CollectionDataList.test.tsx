@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -142,5 +144,14 @@ describe('CollectionDataList', () => {
 
     expect(container.firstElementChild).toHaveClass('collection-list', 'mine');
     expect(container.firstElementChild).toHaveAttribute('data-x', '1');
+  });
+});
+
+describe('CollectionDataList — spacing', () => {
+  it('separates the rows by a 1px gap, set on the container and never as a margin on a row (CSS contract)', () => {
+    const css = readFileSync(resolve(__dirname, 'CollectionDataList.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+
+    expect(css).toMatch(/\.collection-list\s*\{[^}]*display: flex;[^}]*flex-direction: column;[^}]*gap: 1px;/);
+    expect(css).not.toMatch(/margin/);
   });
 });

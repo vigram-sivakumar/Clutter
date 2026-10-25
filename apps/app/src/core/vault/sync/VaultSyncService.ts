@@ -4,6 +4,7 @@ import type { Folder } from '../models/Folder';
 import type { VaultFileSystemWatcher } from '../providers/VaultFileSystemWatcher';
 import type { VaultFileChange } from '../providers/VaultFileSystemWatcher';
 import type { VaultFileSystem } from '../providers/VaultFileSystem';
+import { InFlightPaths } from '../providers/InFlightPaths';
 import { PageBuilder } from '../ingest/PageBuilder';
 import { PageRebuilder } from '../ingest/PageRebuilder';
 import { FolderBuilder } from '../ingest/FolderBuilder';
@@ -57,7 +58,10 @@ export class VaultSyncService {
     // Optional so every existing construction site (tests) is unaffected;
     // real boot supplies it so an external edit to `.clutter/tags.json`
     // reloads the tag definitions (see reloadTagMetadata).
-    private readonly tagMetadataStore?: TagMetadataStore
+    private readonly tagMetadataStore?: TagMetadataStore,
+    // The paths the Persistence Gate is changing right now (an archive between its move and its Vault commit).
+    // Shared with the Gate by the Composition Root; defaulted so every existing construction site is unchanged.
+    private readonly inFlight: InFlightPaths = new InFlightPaths()
   ) {
     this.vault = vault;
     this.fileSystem = fileSystem;
@@ -167,8 +171,10 @@ export class VaultSyncService {
         break;
 
       case 'moved':
-        this.dispatch(this.resolvePath(change.fromPath), async () =>
-          this.handleMoved(change.fromPath, change.toPath)
+        this.dispatch(
+          this.resolvePath(change.fromPath),
+          async () => this.handleMoved(change.fromPath, change.toPath),
+          [this.resolvePath(change.fromPath), this.resolvePath(change.toPath)]
         );
         break;
     }
@@ -209,10 +215,26 @@ export class VaultSyncService {
     }
   }
 
-  private dispatch(absolutePath: string, operation: () => Promise<void>): void {
+  /**
+   * `involvedPaths` (default: just `absolutePath`) are the paths the event concerns. If the Persistence Gate is in
+   * the middle of changing any of them, the event WAITS — it is never dropped — and is interpreted afterwards, from
+   * what is then on disk and in the Vault (every handler re-derives its answer from both). Interpreting it while
+   * the Gate's move is half done would read the Vault's still-old path as an external delete or move, and remove
+   * or relocate a page the Gate is about to commit.
+   */
+  private dispatch(
+    absolutePath: string,
+    operation: () => Promise<void>,
+    involvedPaths: readonly string[] = [absolutePath]
+  ): void {
     const key = this.resolveKey(absolutePath);
 
-    void this.coordinator.runExclusive(key, operation).catch((error: unknown) => {
+    const settled = async () => {
+      await this.inFlight.whenSettled(involvedPaths);
+      await operation();
+    };
+
+    void this.coordinator.runExclusive(key, settled).catch((error: unknown) => {
       console.error('VaultSyncService: failed to handle filesystem change', error);
     });
   }
@@ -293,6 +315,10 @@ export class VaultSyncService {
     if (isClutterInternalPath(this.vault.root, absolutePath)) {
       return;
     }
+
+    // Reached from several places (a fallback inside handleMoved, a known-path reconcile), after the dispatch
+    // above already waited: a Gate operation may have started since. Never read a path mid-move.
+    await this.inFlight.whenSettled([absolutePath]);
 
     // The vault root is directory-shaped by definition — unlike an
     // ordinary folder (see the trackedFolder branch below), there is no
@@ -1038,7 +1064,8 @@ export class VaultSyncService {
       // changed event for either path would use.
       if (
         this.isDestinationTrackedByOther(absoluteTo, folder.id) ||
-        !(await this.isDirectoryOnDisk(absoluteTo))
+        !(await this.isDirectoryOnDisk(absoluteTo)) ||
+        !(await this.destinationIsNotAnotherFolder(absoluteTo, folder.id))
       ) {
         await this.reconcilePath(absoluteFrom);
         await this.reconcilePath(absoluteTo);
@@ -1138,7 +1165,8 @@ export class VaultSyncService {
     if (
       this.isDestinationTrackedByOther(absoluteTo, page.id) ||
       !this.isPageFilePath(absoluteTo) ||
-      !(await this.fileSystem.exists(absoluteTo))
+      !(await this.fileSystem.exists(absoluteTo)) ||
+      !(await this.destinationIsNotAnotherPage(absoluteTo, page.id))
     ) {
       await this.reconcilePath(absoluteFrom);
       await this.reconcilePath(absoluteTo);
@@ -1179,6 +1207,38 @@ export class VaultSyncService {
     }
 
     this.convergeOpenSession(reconciled.id, reconciled.source.markdown);
+  }
+
+  /**
+   * Identity check before a reported move is applied to a page. The watcher can pair one file's disappearance with
+   * a DIFFERENT file's appearance (several renames at once, no correlation id), so a path that exists and is not
+   * tracked by anyone is still not proof it is this page's new home. If the file there carries another id in its
+   * frontmatter, it is some other page's: refuse, and let the caller reconcile both ends from disk instead of
+   * handing this page that file's path. A file with no readable id cannot be shown to be someone else's, so the
+   * move stands, as it always has.
+   */
+  private async destinationIsNotAnotherPage(absoluteTo: string, ownId: string): Promise<boolean> {
+    try {
+      const id = this.frontmatterParser.parse(await this.fileSystem.readFile(absoluteTo)).frontmatter.id;
+      return id === undefined || id === null || id === '' || id === ownId;
+    } catch {
+      return true;
+    }
+  }
+
+  /** The folder counterpart of `destinationIsNotAnotherPage`, read from the destination's `.folder.md`. */
+  private async destinationIsNotAnotherFolder(absoluteTo: string, ownId: string): Promise<boolean> {
+    const metadataPath = `${absoluteTo}/.folder.md`;
+
+    try {
+      if (!(await this.fileSystem.exists(metadataPath))) {
+        return true;
+      }
+      const id = this.frontmatterParser.parse(await this.fileSystem.readFile(metadataPath)).frontmatter.id;
+      return id === undefined || id === null || id === '' || id === ownId;
+    } catch {
+      return true;
+    }
   }
 
   /**

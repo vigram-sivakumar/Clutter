@@ -4,12 +4,15 @@ import './Checkbox.css';
 export interface CheckboxProps {
   isChecked?: boolean;
   disabled?: boolean;
+  /** The checkbox's accessible name, for one with no visible label beside it. */
+  ariaLabel?: string;
   onCheckedChange?: (checked: boolean) => void;
 }
 
 export function Checkbox({
   isChecked = false,
   disabled = false,
+  ariaLabel,
   onCheckedChange,
 }: CheckboxProps) {
   const className = [
@@ -25,6 +28,7 @@ export function Checkbox({
       type="button"
       role="checkbox"
       aria-checked={isChecked}
+      aria-label={ariaLabel}
       disabled={disabled}
       className={className}
       onClick={() => onCheckedChange?.(!isChecked)}

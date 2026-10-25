@@ -24,6 +24,40 @@ const CONTEXTS = Object.keys(STORAGE_KEYS) as PreferredTemplatesContext[];
 type IdsByContext = Record<PreferredTemplatesContext, readonly string[]>;
 
 /**
+ * What "Reset settings to defaults" writes: every key this store owns taken out of the file. `undefined` drops a key when
+ * the file is written (the merge sets it, `JSON.stringify` omits it), and an absent key is exactly what loads as "no
+ * preferred templates, no default daily note template".
+ */
+const REMOVE_ALL_KEYS: Record<string, undefined> = {
+  [STORAGE_KEYS.dailyNotes]: undefined,
+  [STORAGE_KEYS.notes]: undefined,
+  defaultDailyNoteTemplate: undefined,
+};
+
+/**
+ * Takes the preferred templates and the default daily note template out of the file of a Space that is NOT open, for
+ * "Reset settings to defaults" (the open Space resets through its own store, `reset`). Reads first and writes only when a
+ * key is there to take out; a missing or unparseable file is left exactly as it is (never rewritten from an empty base).
+ * Resolves `true` when it changed the file; a file that cannot be read rejects.
+ */
+export async function clearPreferredTemplates(fileSystem: VaultFileSystem, rootPath: string): Promise<boolean> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(await readWorkspaceStateFileText(fileSystem, rootPath));
+  } catch (error) {
+    if (error instanceof SyntaxError) return false;
+    throw error;
+  }
+
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return false;
+  const record = parsed as Record<string, unknown>;
+  if (!Object.keys(REMOVE_ALL_KEYS).some((key) => record[key] !== undefined)) return false;
+
+  await mergeAndWriteWorkspaceStateFile(fileSystem, rootPath, REMOVE_ALL_KEYS);
+  return true;
+}
+
+/**
  * The templates the user chose as preferred, in the order they chose them, persisted through the
  * `preferredTemplates` top-level key of `.clutter/workspace.json` — a sibling of `TemplateUsageStore`'s
  * `templateUsage` and the other keys that file holds (ADR-033/052's sibling-store shape): one reader, one
@@ -187,6 +221,32 @@ export class PreferredTemplatesStore implements Observable {
   }
 
   /** Arrow properties, so the same function identities can be handed straight to a UI subscription. */
+  /**
+   * Empties both preferred lists and clears the default daily note template — the defaults — and takes their keys out of
+   * the file. In memory at once, so the settings follow; a failed write puts everything back as it was and rejects. With
+   * nothing set it changes nothing and writes nothing.
+   */
+  async reset(): Promise<void> {
+    const previousIds = this.ids;
+    const previousDefault = this.defaultDailyNoteTemplateId;
+    if (CONTEXTS.every((context) => previousIds[context].length === 0) && previousDefault === undefined) {
+      return;
+    }
+
+    this.ids = { dailyNotes: [], notes: [] };
+    this.defaultDailyNoteTemplateId = undefined;
+    this.listeners.forEach((listener) => listener());
+
+    try {
+      await mergeAndWriteWorkspaceStateFile(this.fileSystem, this.rootPath, REMOVE_ALL_KEYS);
+    } catch (error) {
+      this.ids = previousIds;
+      this.defaultDailyNoteTemplateId = previousDefault;
+      this.listeners.forEach((listener) => listener());
+      throw error;
+    }
+  }
+
   subscribe = (listener: ChangeListener): (() => void) => {
     this.listeners.add(listener);
 

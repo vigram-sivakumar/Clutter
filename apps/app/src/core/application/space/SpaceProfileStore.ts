@@ -98,6 +98,53 @@ export function parseSpaceProfile(contents: string): SpaceProfile | null {
 }
 
 /**
+ * The profile with every setting taken out, leaving what a Space IS rather than how it is configured: its identity
+ * and its avatar. What "Reset settings to defaults" writes back — never the id or the avatar.
+ */
+function withoutSettings(profile: SpaceProfile): SpaceProfile {
+  const {
+    defaultNoteFolderId: _defaultNoteFolderId,
+    defaultCoverPosition: _defaultCoverPosition,
+    autoDeleteArchived: _autoDeleteArchived,
+    autoDeleteUnusedTags: _autoDeleteUnusedTags,
+    allowMovingAssetsToFolders: _allowMovingAssetsToFolders,
+    ...rest
+  } = profile;
+  return rest;
+}
+
+function hasSettings(profile: SpaceProfile): boolean {
+  return (
+    profile.defaultNoteFolderId !== undefined ||
+    profile.defaultCoverPosition !== undefined ||
+    profile.autoDeleteArchived !== undefined ||
+    profile.autoDeleteUnusedTags !== undefined ||
+    profile.allowMovingAssetsToFolders !== undefined
+  );
+}
+
+/**
+ * Takes every setting out of the profile of a Space that is NOT open, directly in its file — for "Reset settings to
+ * defaults", which covers every Space, not just the open one (the open Space resets through its own store,
+ * `resetSettings`, which is the one writer of its `space` key while it is open). Reads first and writes only when
+ * there is something to take out: a Space with no profile, or with no settings in it, is never written, and a
+ * folder with no `.clutter` never gets one. A file that cannot be read rejects, so the caller can say which Space
+ * was not reset. Resolves `true` when it changed the file.
+ */
+export async function clearSpaceProfileSettings(
+  fileSystem: VaultFileSystem,
+  rootPath: string
+): Promise<boolean> {
+  const profile = parseSpaceProfile(await readWorkspaceStateFileText(fileSystem, rootPath));
+  if (!profile || !hasSettings(profile)) return false;
+
+  await mergeAndWriteWorkspaceStateFile(fileSystem, rootPath, {
+    [SPACE_KEY]: { version: CURRENT_VERSION, ...withoutSettings(profile) },
+  });
+  return true;
+}
+
+/**
  * Reads a Space's profile without opening it — what "Select a folder" uses to recognize a Space. Strictly
  * read-only: it never creates `.clutter`, never writes, and never throws (an unreadable folder is "no profile").
  */
@@ -227,6 +274,25 @@ export class SpaceProfileStore {
 
     const { allowMovingAssetsToFolders: _previous, ...rest } = this.current ?? { id: new UuidGenerator().generate() };
     return this.persistSetting(enabled ? { ...rest, allowMovingAssetsToFolders: true } : rest);
+  }
+
+  /**
+   * Puts every setting of this Space back to its default — cover position, default note location, automatic cleanups
+   * and moving assets — by taking each out of the profile (absent is the default for all of them). The identity and
+   * the avatar stay. In memory at once, so the UI follows; a failed file write puts the settings back as they were and
+   * rejects, so memory and file never disagree. A Space with no settings changes nothing and writes nothing.
+   */
+  async resetSettings(): Promise<void> {
+    const previous = this.current;
+    if (!previous || !hasSettings(previous)) return;
+
+    try {
+      await this.write(withoutSettings(previous));
+    } catch (error) {
+      this.current = previous;
+      this.listeners.forEach((listener) => listener());
+      throw error;
+    }
   }
 
   /** Called whenever the profile changes. Returns the unsubscribe. */

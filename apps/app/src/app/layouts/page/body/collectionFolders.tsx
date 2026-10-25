@@ -3,6 +3,7 @@ import { AppIcon } from '@shared/icon';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
 import { CollectionGrid } from '@features/collection/components/grid/CollectionGrid';
 import { CollectionEntry } from '@features/collection/components/entry/CollectionEntry';
+import type { CollectionItemSelection } from '@features/collection/components/entry/CollectionSelectionCheckbox';
 import { FOLDER_GRID, toFolderEntryProps } from '@features/collection/components/folder/toFolderEntryProps';
 
 /**
@@ -15,12 +16,19 @@ export function renderFolderGrid(
   entries: readonly CollectionEntryModel[],
   onCreateFolder?: () => void,
   /** Extra props per card (the Collection View's drag handlers and markers); absent, none. */
-  dragProps?: (entry: CollectionEntryModel) => object | undefined
+  dragProps?: (entry: CollectionEntryModel) => object | undefined,
+  /** Each folder card's selection checkbox; absent, the cards have none. */
+  selectionFor?: (entry: CollectionEntryModel) => CollectionItemSelection
 ) {
   return (
     <CollectionGrid {...FOLDER_GRID}>
       {entries.map((entry) => (
-        <CollectionEntry key={entry.id} {...toFolderEntryProps(entry)} {...dragProps?.(entry)} />
+        <CollectionEntry
+          key={entry.id}
+          {...toFolderEntryProps(entry)}
+          selection={selectionFor?.(entry)}
+          {...dragProps?.(entry)}
+        />
       ))}
       {onCreateFolder && (
         <CollectionEntry

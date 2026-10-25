@@ -243,8 +243,8 @@ describe('CollectionCard.css', () => {
     );
   });
 
-  it('positions nothing over anything else: no absolute positioning, no scrim', () => {
-    expect(css).not.toMatch(/position:\s*absolute/);
+  it('positions nothing over anything else but the hover corner: no other absolute positioning, no scrim', () => {
+    expect(css.replace(/\.collection-card__selection\s*\{[^}]*\}/, '')).not.toMatch(/position:\s*absolute/);
     expect(css).not.toMatch(/gradient/);
   });
 

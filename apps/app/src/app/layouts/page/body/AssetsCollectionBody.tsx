@@ -5,8 +5,11 @@ import { CreateCard, createNewItem } from './collectionCreate';
 import { renderFolderGrid } from './collectionFolders';
 import { NOTE_SORT_OPTIONS } from './CollectionBody';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
+import { useMarqueeSelection } from '@features/collection/selection/useMarqueeSelection';
+import { useCollectionSelection } from '@features/collection/selection/useCollectionSelection';
 import { PageBody } from './Page.Body';
 import { useCollectionItemContextMenu, type CollectionItemMenuResolver } from './useCollectionItemContextMenu';
+import { useCollectionSelectionMenu } from './useCollectionSelectionMenu';
 import { CollectionEmptyState } from '@features/collection/components/empty/CollectionEmptyState';
 import { EditableText } from '@components/editable-text/EditableText';
 import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
@@ -122,9 +125,22 @@ export function AssetsCollectionBody({
   assetMenu,
   folderMenu,
 }: AssetsCollectionBodyProps) {
-  const assetContextMenu = useCollectionItemContextMenu<Asset>(assetMenu);
-  const folderContextMenu = useCollectionItemContextMenu(folderMenu);
+  // Which folders and assets are checked (never saved; see `useCollectionSelection`), and the menu a right-click
+  // opens while any is: composed from each checked item's own menu.
+  const selection = useCollectionSelection([...folders.map((entry) => entry.id), ...unsorted.map((asset) => asset.id)]);
+  const marquee = useMarqueeSelection(selection);
+  const selectionMenu = useCollectionSelectionMenu(selection, (id) => {
+    const folder = folders.find((entry) => entry.id === id);
+    if (folder) {
+      return folderMenu ? folderMenu(folder) : null;
+    }
+    const asset = unsorted.find((candidate) => candidate.id === id);
+    return asset && assetMenu ? assetMenu(asset) : null;
+  });
+  const assetContextMenu = useCollectionItemContextMenu<Asset>(assetMenu, selectionMenu);
+  const folderContextMenu = useCollectionItemContextMenu(folderMenu, selectionMenu);
   const sortedFolders = sort ? sortEntries(folders, sort, NOTE_SORT_OPTIONS) : folders;
+  const selectionForAsset = (asset: Asset) => selection.selectionFor(asset.id, getResourceDisplayName(asset));
   const [editingId, setEditingId] = useState<string | null>(null);
   // A hidden card title leaves nothing to edit in place, so F2 renames nothing then.
   const titleHidden = viewMode === 'card' && !visible.includes('name');
@@ -180,6 +196,7 @@ export function AssetsCollectionBody({
               onClick: clickFor(asset),
               titleContent: titleContentFor(asset),
             })}
+            selection={selectionForAsset(asset)}
             {...assetContextMenu.entryProps(asset)}
           />
         ))}
@@ -193,12 +210,15 @@ export function AssetsCollectionBody({
         columns={buildPropertyTableColumns(visible, { headers: { size: 'Size' } })}
         rows={assets.map((asset) =>
           withMenuProps(
-            toAssetTableRow(asset, {
-              url: urlFor(asset),
-              visible,
-              onClick: clickFor(asset),
-              titleContent: titleContentFor(asset),
-            }),
+            {
+              ...toAssetTableRow(asset, {
+                url: urlFor(asset),
+                visible,
+                onClick: clickFor(asset),
+                titleContent: titleContentFor(asset),
+              }),
+              selection: selectionForAsset(asset),
+            },
             assetContextMenu.entryProps(asset)
           )
         )}
@@ -211,12 +231,15 @@ export function AssetsCollectionBody({
       <CollectionDataList
         items={assets.map((asset) =>
           withMenuProps(
-            toAssetListItem(asset, {
-              url: urlFor(asset),
-              visible,
-              onClick: clickFor(asset),
-              titleContent: titleContentFor(asset),
-            }),
+            {
+              ...toAssetListItem(asset, {
+                url: urlFor(asset),
+                visible,
+                onClick: clickFor(asset),
+                titleContent: titleContentFor(asset),
+              }),
+              selection: selectionForAsset(asset),
+            },
             assetContextMenu.entryProps(asset)
           )
         )}
@@ -227,18 +250,24 @@ export function AssetsCollectionBody({
   }
 
   return (
-    <PageBody className="collection__content">
+    <PageBody className="collection__content" ref={marquee.ref}>
       {assets.length === 0 && folders.length === 0 ? (
         <CollectionEmptyState message={emptyMessage} action={onCreate && emptyCreateLabel ? { label: emptyCreateLabel, onClick: onCreate, icon: emptyCreateIcon } : undefined} />
       ) : (
         <>
-          {folders.length > 0 && renderFolderGrid(sortedFolders, onCreateFolder, folderContextMenu.entryProps)}
+          {folders.length > 0 && renderFolderGrid(
+            sortedFolders,
+            onCreateFolder,
+            folderContextMenu.entryProps,
+            (entry) => selection.selectionFor(entry.id, entry.values.name)
+          )}
           {assets.length > 0 && layout}
         </>
       )}
       {/* Trailing breathing room below the last item — same spacer CollectionBody ends with. */}
       {assetContextMenu.overlay}
       {folderContextMenu.overlay}
+      {selectionMenu.overlay}
       <div className="collection__bottom-spacer" aria-hidden="true" />
     </PageBody>
   );

@@ -520,6 +520,23 @@ describe('PageOperations.archive()', () => {
     expect(vault.getPage(page.id)!.metadata.status).toBe('archived');
   });
 
+  it('joins a second request for a page whose archive is still running, rather than starting one that could only fail', async () => {
+    const page = buildActivePage();
+    const { vault, fileSystem, pageOperations } = setup(page);
+
+    const first = pageOperations.archive(page.id);
+    const second = pageOperations.archive(page.id);
+
+    // The same request: both resolve with no "already archived" failure, and the page was moved once.
+    expect(second).toBe(first);
+    await expect(Promise.all([first, second])).resolves.toEqual([undefined, undefined]);
+    expect(fileSystem.hasFileSync(archivePathFor(page))).toBe(true);
+    expect(vault.getPage(page.id)!.metadata.status).toBe('archived');
+
+    // Once settled, a later request is judged by the page's state as before.
+    await expect(pageOperations.archive(page.id)).rejects.toThrow(/already archived/);
+  });
+
   // Lazy system-folder lifecycle: Archive is no longer eagerly created at
   // startup, so a missing Archive folder is an ordinary state, not a
   // precondition failure — archiving recreates it (via

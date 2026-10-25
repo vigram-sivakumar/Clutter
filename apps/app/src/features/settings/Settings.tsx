@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useSharedSettingsDialogState } from './SettingsDialogState';
 import './Settings.css';
 import {
@@ -44,6 +44,8 @@ import { ShowDailyNoteEmojiSetting } from './daily-notes-setting/ShowDailyNoteEm
 import { ShowReferencesAutomaticallySetting } from './references-setting/ShowReferencesAutomaticallySetting';
 import { HeaderSeparatorSetting } from './header-separator-setting/HeaderSeparatorSetting';
 import { HeaderSeparatorStyleSetting } from './header-separator-style-setting/HeaderSeparatorStyleSetting';
+import { ResetSettings } from './reset-settings/ResetSettings';
+import type { ResetSettingsOutcome } from './reset-settings/resetSettingsToDefaults';
 
 const PAGE_TITLES: Record<FixedSettingsPageId, string> = {
   preferences: 'Preferences',
@@ -67,13 +69,20 @@ interface SettingsProps {
   space?: SettingsSpace;
   /** Closes the dialog the settings are shown in, for a setting that navigates away (e.g. opening a template). */
   onClose?: () => void;
+  /**
+   * Resets every setting to its default, in every Space (`resetSettingsToDefaults`). Without it, the Reset section
+   * resets the app-wide preferences only.
+   */
+  onResetSettings?: () => Promise<ResetSettingsOutcome>;
 }
 
-export function Settings({ templates, noteLocation, spaceSettings, space, onClose }: SettingsProps = {}) {
+export function Settings({ templates, noteLocation, spaceSettings, space, onClose, onResetSettings }: SettingsProps = {}) {
   const shared = useSharedSettingsDialogState();
   const [localPageId, setLocalPageId] = useState<SettingsPageId>(DEFAULT_SETTINGS_PAGE);
   const pageId = shared?.pageId ?? localPageId;
   const setPageId = shared?.setPageId ?? setLocalPageId;
+  // Bumped after a reset: a control that keeps its own copy of its value (the Startup ones) re-reads it on remount.
+  const [resetVersion, setResetVersion] = useState(0);
 
   const selectedSpace = isSpacePageId(pageId)
     ? space?.spaces?.find((item) => spacePageId(item.path) === pageId)
@@ -116,21 +125,28 @@ export function Settings({ templates, noteLocation, spaceSettings, space, onClos
         )}
         {pageId === 'preferences' && (
           <>
-            <SettingsGroup title="Appearance">
-              <ThemeSetting />
-              <CoverPositionSetting source={spaceSettings} />
-            </SettingsGroup>
-            <SettingsGroup title="Startup">
-              <StartupSetting />
-              <SidebarSetting />
-            </SettingsGroup>
-            <SettingsGroup title="Calendar">
-              <WeekStartSetting />
-              <DateFormatSetting />
-            </SettingsGroup>
-            <SettingsGroup title="Data & storage">
-              <AutoDeleteArchivedSetting source={spaceSettings} />
-            </SettingsGroup>
+            <Fragment key={resetVersion}>
+              <SettingsGroup title="Appearance">
+                <ThemeSetting />
+                <CoverPositionSetting source={spaceSettings} />
+              </SettingsGroup>
+              <SettingsGroup title="Startup">
+                <StartupSetting />
+                <SidebarSetting />
+              </SettingsGroup>
+              <SettingsGroup title="Calendar">
+                <WeekStartSetting />
+                <DateFormatSetting />
+              </SettingsGroup>
+              <SettingsGroup title="Data & storage">
+                <AutoDeleteArchivedSetting source={spaceSettings} />
+              </SettingsGroup>
+            </Fragment>
+            <ResetSettings
+              onReset={onResetSettings}
+              busy={space?.busy}
+              onResetComplete={() => setResetVersion((version) => version + 1)}
+            />
           </>
         )}
         {pageId === 'notes' && (

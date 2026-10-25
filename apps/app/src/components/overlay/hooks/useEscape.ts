@@ -16,6 +16,16 @@ interface UseEscapeOptions {
  */
 const openOverlayIds: symbol[] = [];
 
+/**
+ * Whether any overlay (dialog, popover, menu) is open right now — that is, whether the next Escape belongs to one of them.
+ * Meant for something else that also answers Escape and must stand aside for an open overlay: read it when the key goes
+ * DOWN (a capture-phase listener, before any overlay handles it), because the overlay that closes on this very key leaves
+ * the list as soon as it has, and a listener that looks afterwards would find it already gone.
+ */
+export function hasOpenOverlay(): boolean {
+  return openOverlayIds.length > 0;
+}
+
 export function useEscape({ open, onClose }: UseEscapeOptions) {
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;

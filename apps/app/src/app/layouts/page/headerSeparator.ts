@@ -41,6 +41,20 @@ export function writeHeaderSeparatorMode(mode: HeaderSeparatorMode): void {
   listeners.forEach((listener) => listener());
 }
 
+/**
+ * Back to the defaults for both choices — Automatic and Line: removes the saved mode and the saved style, then notifies,
+ * so every mounted page follows. Used by "Reset settings to defaults".
+ */
+export function resetHeaderSeparator(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STYLE_STORAGE_KEY);
+  } catch {
+    // Best-effort, like the writes above.
+  }
+  listeners.forEach((listener) => listener());
+}
+
 function subscribe(listener: () => void) {
   listeners.add(listener);
   return () => listeners.delete(listener);

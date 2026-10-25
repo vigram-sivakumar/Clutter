@@ -215,6 +215,8 @@ describe('toNoteCardProps', () => {
         [entry({}), {}],
         [entry({}), {}],
         [entry({ cover: 'Assets/hero.png' }), { resolvers: { resolveCoverImage: () => null } }],
+        // The Cover image property turned off in the view.
+        [entry({ cover: 'Assets/hero.png' }), { visible: ['name'] as PropertyId[] }],
       ] as const) {
         const { container } = draw(model, options);
         expect(container.querySelector('.collection-card__media')).toBeNull();

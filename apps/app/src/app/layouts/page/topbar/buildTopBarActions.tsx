@@ -159,6 +159,11 @@ export interface BuildTopBarActionsOptions {
   referencesCount?: number;
   /** The `toggle-references` item's handler — flips the note's saved Hide/Show choice. Pages only. */
   onToggleReferences?: () => void;
+  /**
+   * Whether `resource` is archived (or inside an archived folder) right now, read live from the vault — set by
+   * `buildResourceMenuOptions`, carried onto the right-click menu as `isArchived` (see ResourceTopBarActionsProps).
+   */
+  isArchivedNow?: () => boolean;
 }
 
 /**
@@ -288,7 +293,9 @@ export function buildResourceContextMenu(
 ): ResourceTopBarActionsProps | null {
   const { resourceType, actionOptions } = resolveTopBarMenu(resource, options, 'context');
   const props = topBarActionProps(resourceType, actionOptions);
-  return props && props.menu.length > 0 ? props : null;
+  return props && props.menu.length > 0
+    ? { ...props, resourceId: resource.id, isArchived: options.isArchivedNow }
+    : null;
 }
 
 /**

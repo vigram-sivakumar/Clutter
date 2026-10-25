@@ -4,6 +4,7 @@ use std::time::Duration;
 use tauri::{AppHandle, Manager, RunEvent, Url, WebviewWindow};
 
 mod app_menu;
+mod move_no_clobber;
 mod parse_cache;
 mod space_folder;
 mod startup_notice;
@@ -169,6 +170,7 @@ pub fn run() {
             frontend_ready,
             frontend_failed,
             app_menu::set_copy_page_link_enabled,
+            move_no_clobber::move_file_no_clobber,
             parse_cache::parse_cache_read,
             parse_cache::parse_cache_write,
             parse_cache::parse_cache_remove,

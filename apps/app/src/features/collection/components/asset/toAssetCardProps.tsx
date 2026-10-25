@@ -5,13 +5,13 @@ import type { Asset } from '@core/vault/models/Asset';
 import { CardTitleSection } from '@features/collection/components/card/CardTitleSection';
 import type { CollectionCardProps } from '@features/collection/components/card/CollectionCard';
 import type { CollectionGridColumns } from '@features/collection/components/grid/CollectionGrid';
+import { cardMetadataLines } from '../../properties/cardMetadata';
 import type { ReactNode } from 'react';
-import { assetCardMetadata } from './assetCardMetadata';
 import { toAssetEntry } from './toAssetEntry';
 import { AssetPreview } from './AssetPreview';
 
 /** The assets card grid: smaller cards than notes (assets are mostly pictures) — between 140px and 1/6 of the row wide. */
-export const ASSET_GRID: CollectionGridColumns = { min: 140, max: 6 };
+export const ASSET_GRID: CollectionGridColumns = { min: 180, max: 6 };
 
 /** An asset card's fixed shape (width / height): the preview over a short title section. */
 export const ASSET_CARD_ASPECT_RATIO = '4 / 5';
@@ -54,9 +54,11 @@ export function toAssetCardProps(
 ): AssetCardProps {
   const showTitle = visible.includes('name');
   // The asset's property values: the vault file's own facts; a remote asset has none.
-  const lines = assetCardMetadata(toAssetEntry(asset).values, visible);
+  const lines = cardMetadataLines(toAssetEntry(asset).values, visible);
   const size = lines.find((line) => line.id === 'size')?.value;
-  const dates = lines.filter((line) => line.id !== 'size').map((line) => `${line.label} ${line.value}`);
+  const dates = lines
+    .filter((line) => line.id !== 'size')
+    .map((line) => `${line.label} ${line.value}`);
 
   return {
     aspectRatio: ASSET_CARD_ASPECT_RATIO,
@@ -76,6 +78,7 @@ export function toAssetCardProps(
       ) : undefined,
     isSelected,
     onClick: onClick ? () => onClick(asset) : undefined,
-    'data-resource-id': asset.source === 'local' ? asset.resource.id : undefined,
+    'data-resource-id':
+      asset.source === 'local' ? asset.resource.id : undefined,
   };
 }

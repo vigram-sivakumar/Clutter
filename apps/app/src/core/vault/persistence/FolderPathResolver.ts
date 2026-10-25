@@ -69,7 +69,11 @@ export class FolderPathResolver {
    * `Vault.moveFolder`'s cascade (invoked by archiveFolder()) relocates the
    * whole subtree under it with internal structure intact.
    */
-  resolveArchiveDestination(folderId: string): { path: string; parentId: string } {
+  resolveArchiveDestination(
+    folderId: string,
+    /** Destinations an archive in flight has claimed but the Vault index does not show yet (see MoveService.resolveArchiveDestination). */
+    isClaimed: (path: string) => boolean = () => false
+  ): { path: string; parentId: string } {
     const folder = this.vault.getFolder(folderId);
 
     if (!folder) {
@@ -85,10 +89,9 @@ export class FolderPathResolver {
     const candidateName = resolveArchiveCollisionFreeName(
       folder.name,
       (candidate) => {
-        const occupant = this.vault.getFolderByPathCaseInsensitive(
-          `${archiveFolder.path}/${candidate}`
-        );
-        return occupant !== undefined && occupant.id !== folderId;
+        const candidatePath = `${archiveFolder.path}/${candidate}`;
+        const occupant = this.vault.getFolderByPathCaseInsensitive(candidatePath);
+        return (occupant !== undefined && occupant.id !== folderId) || isClaimed(candidatePath);
       },
       new Date()
     );

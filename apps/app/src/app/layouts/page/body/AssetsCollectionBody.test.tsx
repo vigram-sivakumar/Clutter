@@ -138,7 +138,8 @@ describe.each(LAYOUTS)('AssetsCollectionBody — %s layout', (viewMode) => {
     // The list's leading slot and the table's name cell are both the entry's.
     expect(item(0).querySelector('.collection-entry__leading .collection-media img')).not.toBeNull();
     expect(item(1).querySelector('.collection-entry__leading .collection-media .asset-pdf-preview')).not.toBeNull();
-    expect(item(0).querySelector('.collection-entry__leading svg')).toBeNull();
+    // (the checkbox that swaps in on hover is in the leading box too — only the resting node is the preview)
+    expect(item(0).querySelector('.collection-entry__leading-rest svg')).toBeNull();
   });
 
   it('clicking an image invokes onOpenResource with the resource — the existing image overlay', () => {

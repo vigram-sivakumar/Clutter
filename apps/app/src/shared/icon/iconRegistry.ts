@@ -32,6 +32,7 @@ import CaretRightDouble from './svg/caret-right-double.svg?react';
 import CaretRight from './svg/caret-right.svg?react';
 import CaretUp from './svg/caret-up.svg?react';
 import CheckboxChecked from './svg/checkbox-checked.svg?react';
+import CheckboxIndeterminate from './svg/checkbox-indeterminate.svg?react';
 import CheckboxUnchecked from './svg/checkbox-unchecked.svg?react';
 import Cherry from './svg/cherry.svg?react';
 import ChevronDown from './svg/chevron-down.svg?react';
@@ -163,6 +164,7 @@ export const iconRegistry = {
   caretRight: CaretRight,
   caretUp: CaretUp,
   checkboxChecked: CheckboxChecked,
+  checkboxIndeterminate: CheckboxIndeterminate,
   checkboxUnchecked: CheckboxUnchecked,
   cherry: Cherry,
   chevronDown: ChevronDown,

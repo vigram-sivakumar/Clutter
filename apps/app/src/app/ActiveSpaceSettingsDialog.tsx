@@ -1,9 +1,14 @@
+import { useMemo } from 'react';
+import { isTauri } from '@tauri-apps/api/core';
 import type { Application } from '@core/application/Application';
 import { VaultPath } from '@core/vault/ingest/VaultPath';
+import { LocalVaultProvider } from '@core/vault/providers/LocalFileSystem';
+import { resetSettingsToDefaults } from '@features/settings/reset-settings/resetSettingsToDefaults';
 import { SettingsDialog } from '@app/layouts/sidebar/footer/SettingsDialog';
 import { useSettingsSources } from '@app/layouts/sidebar/useSettingsSources';
 import { useSpaces } from './spaces/SpacesContext';
 import { describeRenameRefusal } from './spaces/renameActiveSpace';
+import { normalizeSpacePath } from './spaces/spaceRegistry';
 
 interface ActiveSpaceSettingsDialogProps {
   /** The open Space's Application, or `null` while the old one is closed and the next is not open yet. */
@@ -25,6 +30,25 @@ export function ActiveSpaceSettingsDialog({ application, busy = false }: ActiveS
   const spaces = useSpaces();
   const sources = useSettingsSources(application);
   const activePath = spaces?.activePath ?? '';
+
+  // "Reset settings to defaults" covers every Space: the open one through its Application, every other registered
+  // Space through its own folder (only where there is a local filesystem — the web runtime has the one fixed Space).
+  const registeredPaths = spaces?.spaces.map((space) => space.path);
+  const onResetSettings = useMemo(() => {
+    if (!application) return undefined;
+    const open = normalizeSpacePath(activePath);
+    const inactiveSpacePaths = isTauri()
+      ? (registeredPaths ?? []).filter((path) => normalizeSpacePath(path) !== open)
+      : [];
+    return () =>
+      resetSettingsToDefaults({
+        application,
+        activePath,
+        inactiveSpacePaths,
+        fileSystemFor: (path) => new LocalVaultProvider(path),
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [application, activePath, registeredPaths?.join('\n')]);
 
   return (
     <SettingsDialog
@@ -57,6 +81,7 @@ export function ActiveSpaceSettingsDialog({ application, busy = false }: ActiveS
       resolveImageUrl={
         spaces?.resolveAvatarImageUrl ?? (application ? (src) => application.resolveCoverImageForDisplay(src) : undefined)
       }
+      onResetSettings={onResetSettings}
       {...sources}
     />
   );

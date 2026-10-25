@@ -670,7 +670,7 @@ describe('KNOWN DEFECT — configure and rendering disagree about what a layout 
     expect(noteCard.container.textContent).toContain(`Edited ${UPDATED_TEXT}`);
   });
 
-  it('KNOWN DEFECT: Cover image is a Property in every layout Configure offers it in (now Card too), but a note card ignores it — the cover is always drawn', () => {
+  it('Cover image is a Property in every layout Configure offers it in, Card too: a note card draws no cover when it is off', () => {
     const entry = note('Plan', { markdown: '# H', cover: 'Assets/hero.png' });
     const resolvers = { resolveCoverImage: (c: string) => `app://vault/${c}` };
 
@@ -683,7 +683,7 @@ describe('KNOWN DEFECT — configure and rendering disagree about what a layout 
       />
     );
 
-    expect(container.querySelector('.collection-card__media .collection-image')).toBeInTheDocument();
+    expect(container.querySelector('.collection-card__media')).toBeNull();
   });
 });
 

@@ -1,0 +1,13 @@
+/*
+ * The marquee-selection rectangle: a plain element in `document.body`, positioned by the hook. Translucent brand fill and a
+ * brand border (the same tokens as a selected card's border and the selection highlight), above the collection's
+ * content and below menus and dialogs (`--z-overlay`), and never a pointer target. Per CLAUDE.md, no `margin`.
+ */
+.collection-marquee {
+  position: fixed;
+  z-index: calc(var(--z-overlay) - 1);
+  box-sizing: border-box;
+  border: 1px solid var(--border-active);
+  background: var(--state-selected-accent);
+  pointer-events: none;
+}

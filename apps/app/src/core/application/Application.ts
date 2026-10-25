@@ -87,6 +87,7 @@ import { saveRemoteImage, type SaveToVaultResult } from './asset/saveRemoteImage
 import { importRemoteAsset } from '../vault/asset/importRemoteAsset';
 import { fetchRemoteAsset } from '../vault/providers/fetchRemoteAsset';
 import { SelfWriteRegistry } from '../vault/providers/SelfWriteRegistry';
+import { InFlightPaths } from '../vault/providers/InFlightPaths';
 import { SelfWriteAwareFileSystem } from '../vault/providers/SelfWriteAwareFileSystem';
 import { SelfWriteAwareWatcher } from '../vault/providers/SelfWriteAwareWatcher';
 import { attachDevTools } from '@devtools/index';
@@ -621,6 +622,9 @@ export class Application {
     // through the same per-page queue.
     const frontmatterSerializer = new FrontmatterSerializer();
     this.resourceArchiveStore = new ResourceArchiveMetadataStore(this.fileSystem, vault.root);
+    // The Gate registers the paths an archive is changing; Sync (below) waits on the same instance, so a watcher
+    // event for a half-finished move is never read as an external change. One instance, wired here only.
+    const inFlightPaths = new InFlightPaths();
     const persistenceCoordinator = new PagePersistenceCoordinator(
       this.fileSystem,
       vault,
@@ -628,7 +632,8 @@ export class Application {
       new FrontmatterParser(),
       new PageRebuilder(),
       moveService,
-      this.resourceArchiveStore
+      this.resourceArchiveStore,
+      inFlightPaths
     );
     // The resource-scoped counterpart to PageOperations/FolderOperations —
     // needs only the Gate itself (rename-resource/archive-resource/
@@ -784,7 +789,8 @@ export class Application {
       this.documentRegistry,
       frontmatterSerializer,
       new UuidGenerator(),
-      this.tagMetadataStore
+      this.tagMetadataStore,
+      inFlightPaths
     );
 
     // Recovers from an external deletion (Sync's handleDeleted, or any
@@ -1111,6 +1117,25 @@ export class Application {
 
     if (enabled) {
       this.scheduleUnusedTagCleanup();
+    }
+  }
+
+  /**
+   * Puts THIS Space's own settings back to their defaults: the profile's settings (cover position, default note
+   * location, the automatic cleanups, moving assets — never its identity or avatar) and its preferred templates. Each
+   * store applies the change in memory at once and writes its own key; nothing here touches content, view or layout
+   * state, or any other Space ("Reset settings to defaults" reaches those through their files). Both stores are always
+   * attempted; if either could not write, it has already put itself back as it was and the first failure is thrown.
+   */
+  public async resetSpaceSettings(): Promise<void> {
+    const results = await Promise.allSettled([
+      this.spaceProfileStore.resetSettings(),
+      this.preferredTemplatesStore.reset(),
+    ]);
+
+    const failed = results.find((result): result is PromiseRejectedResult => result.status === 'rejected');
+    if (failed) {
+      throw failed.reason;
     }
   }
 

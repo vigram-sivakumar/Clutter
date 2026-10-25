@@ -410,7 +410,8 @@ describe('ArchiveCollectionBody: opening rows, and no inline actions', () => {
 
       expect(screen.queryByLabelText('Restore'), viewMode).toBeNull();
       expect(screen.queryByLabelText('Delete permanently'), viewMode).toBeNull();
-      expect(container.querySelector('.entry__actions, button'), viewMode).toBeNull();
+      // (the selection checkbox is the one control a row has, and it is not an action)
+      expect(container.querySelector('.entry__actions, button:not(.checkbox)'), viewMode).toBeNull();
       cleanup();
     }
   });

@@ -5,7 +5,7 @@ import { CollectionImage } from '@features/collection/components/media/Collectio
 import type { CollectionGridColumns } from '@features/collection/components/grid/CollectionGrid';
 import type { CollectionEntryModel } from '../../page/CollectionEntryModel';
 import type { PropertyId } from '@core/properties/collectionProperties';
-import { formatPropertyValue } from '../../properties/formatProperty';
+import { cardMetadataLines } from '../../properties/cardMetadata';
 import { resolveNoteCoverUrl, type NotePreviewResolvers } from './notePreviewResolvers';
 import { NotePageCanvas } from './preview/NotePageCanvas';
 
@@ -17,7 +17,7 @@ export const NOTE_CARD_ASPECT_RATIO = '3 / 4';
 
 export interface NoteCardOptions {
   /**
-   * The visible properties (from the resolved view). A note card draws the Description, the
+   * The visible properties (from the resolved view). A note card draws the Cover image, the Description, the
    * Created date and the Last edited date; every other property it simply does not draw (see the
    * characterization tests — known gaps, not decisions).
    */
@@ -40,14 +40,10 @@ export function toNoteCardProps(
   entry: CollectionEntryModel,
   { visible, resolvers, divider }: NoteCardOptions
 ): CollectionCardProps {
-  const created = formatPropertyValue('created', entry.values);
-  const edited = formatPropertyValue('updated', entry.values);
-  // Each date is one plain line, drawn only when its property is on and the note has the value.
-  const dates = [
-    visible.includes('created') && created ? `Created ${created}` : undefined,
-    visible.includes('updated') && edited ? `Edited ${edited}` : undefined,
-  ].filter((line): line is string => line !== undefined);
-  const coverUrl = resolveNoteCoverUrl(entry.values.cover, false, resolvers);
+  // Every visible plain-value property the note has a value for (Created, Edited), each one plain line.
+  const dates = cardMetadataLines(entry.values, visible).map((line) => `${line.label} ${line.value}`);
+  // The cover is a property like any other: turned off in the view, the card draws no cover.
+  const coverUrl = visible.includes('cover') ? resolveNoteCoverUrl(entry.values.cover, false, resolvers) : null;
 
   return {
     media: coverUrl ? <CollectionImage src={coverUrl} positionY={entry.coverPositionAbove} /> : undefined,

@@ -7,3 +7,24 @@
 .note-cover-image__credited {
   display: contents;
 }
+
+/*
+ * An EMPTY cover (the plus) is drawn only while its table or list row is hovered, holds focus (so Tab can reach
+ * it without it vanishing) or has its context menu open, and never in selection mode. `opacity`, not `display`, so the column keeps its width
+ * and nothing shifts when it appears. A note that has a cover always shows it.
+ */
+.collection-media:has(.note-cover-image__empty) {
+  opacity: 0;
+}
+:is(.collection-table-row, .collection-entry--layout-list):not(.collection-table-row--selecting, .collection-entry--selecting):is(
+    :hover,
+    :focus-within,
+    [data-context-menu-open='true']
+  )
+  .collection-media:has(.note-cover-image__empty) {
+  opacity: 1;
+}
+/* In selection mode (some item is checked) the empty cover is never offered — a click on a row selects it, and the cover is not changed from there. */
+:is(.collection-table-row--selecting, .collection-entry--selecting) .collection-media:has(.note-cover-image__empty) {
+  pointer-events: none;
+}

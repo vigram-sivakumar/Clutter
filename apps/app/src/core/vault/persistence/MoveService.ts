@@ -35,7 +35,15 @@ export class MoveService {
    * suffix — never an id, never a counter alone — so Restore (which reads
    * `originalPath`, never this filename) is completely unaffected.
    */
-  resolveArchiveDestination(current: Page): {
+  /**
+   * `isClaimed` names destinations the Vault index does not know about yet — one another archive in flight has
+   * chosen but not yet committed, or one already refused by the filesystem. A name is taken if either the index or
+   * `isClaimed` says so; both go through the same collision-free naming rule.
+   */
+  resolveArchiveDestination(
+    current: Page,
+    isClaimed: (path: string) => boolean = () => false
+  ): {
     path: string;
     parentId: string;
   } {
@@ -55,10 +63,9 @@ export class MoveService {
     const candidateName = resolveArchiveCollisionFreeName(
       baseName,
       (candidate) => {
-        const occupant = this.vault.getPageByPathCaseInsensitive(
-          `${archiveFolder.path}/${candidate}.md`
-        );
-        return occupant !== undefined && occupant.id !== current.id;
+        const candidatePath = `${archiveFolder.path}/${candidate}.md`;
+        const occupant = this.vault.getPageByPathCaseInsensitive(candidatePath);
+        return (occupant !== undefined && occupant.id !== current.id) || isClaimed(candidatePath);
       },
       new Date()
     );
@@ -247,7 +254,10 @@ export class MoveService {
    * VaultPath.stemName rather than VaultPath.pageName's `.md`-specific
    * stripping.
    */
-  resolveResourceArchiveDestination(resource: VaultResource): {
+  resolveResourceArchiveDestination(
+    resource: VaultResource,
+    isClaimed: (path: string) => boolean = () => false
+  ): {
     path: string;
     parentId: string;
   } {
@@ -263,10 +273,9 @@ export class MoveService {
     const candidateName = resolveArchiveCollisionFreeName(
       baseName,
       (candidate) => {
-        const occupant = this.vault.getResourceByPathCaseInsensitive(
-          `${archiveFolder.path}/${candidate}${extension}`
-        );
-        return occupant !== undefined && occupant.id !== resource.id;
+        const candidatePath = `${archiveFolder.path}/${candidate}${extension}`;
+        const occupant = this.vault.getResourceByPathCaseInsensitive(candidatePath);
+        return (occupant !== undefined && occupant.id !== resource.id) || isClaimed(candidatePath);
       },
       new Date()
     );

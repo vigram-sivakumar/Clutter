@@ -29,6 +29,28 @@ export interface VaultFileStat {
   modifiedAt: Date | null;
 }
 
+/**
+ * Thrown by `moveFile(…, { noClobber: true })` when something already exists at the destination: the move did not
+ * happen and nothing was overwritten. Callers that chose the destination themselves (an archive) choose another and retry.
+ */
+export class DestinationExistsError extends Error {
+  readonly code = 'EEXIST';
+
+  constructor(readonly destinationPath: string) {
+    super(`Destination already exists: ${destinationPath}`);
+    this.name = 'DestinationExistsError';
+  }
+}
+
+export interface MoveFileOptions {
+  /**
+   * Refuse to replace anything at the destination — atomically, in the filesystem itself, not by a prior
+   * `exists()` check that another move could slip past. Throws `DestinationExistsError` instead. Absent, a move
+   * replaces what is at the destination, as a plain rename does.
+   */
+  readonly noClobber?: boolean;
+}
+
 export interface VaultFileSystem {
   exists(path: string): Promise<boolean>;
   createDirectory(path: string): Promise<void>;
@@ -48,7 +70,7 @@ export interface VaultFileSystem {
    * and business rules before invoking it.
    */
   deleteFile(path: string, options?: { recursive?: boolean }): Promise<void>;
-  moveFile(sourcePath: string, destinationPath: string): Promise<void>;
+  moveFile(sourcePath: string, destinationPath: string, options?: MoveFileOptions): Promise<void>;
 
   /**
    * Copies a file from an absolute source path to an absolute destination
