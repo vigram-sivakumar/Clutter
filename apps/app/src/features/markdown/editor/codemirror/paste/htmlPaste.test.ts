@@ -103,6 +103,46 @@ describe('htmlToPieces', () => {
     expect(md('<p>2 * 3 _x_</p><p>- not a list</p>')).toEqual(['2 \\* 3 \\_x\\_\n\n\\- not a list']);
   });
 
+  describe('WikiLink brackets are preserved', () => {
+    it('keeps a WikiLink in an ordinary paragraph', () => {
+      expect(md('<p>[[Page]]</p>')).toEqual(['[[Page]]']);
+    });
+
+    it('keeps WikiLinks in an ordered list — the reported corruption case', () => {
+      expect(md('<ol><li>[[Inline styles]]</li><li>[[Lists]]</li></ol>')).toEqual(['1. [[Inline styles]]\n2. [[Lists]]']);
+    });
+
+    it('keeps a WikiLink in an unordered list', () => {
+      expect(md('<ul><li>[[Page]]</li></ul>')).toEqual(['- [[Page]]']);
+    });
+
+    it('keeps a WikiLink alias', () => {
+      expect(md('<p>[[Page|Alias]]</p>')).toEqual(['[[Page|Alias]]']);
+    });
+
+    it('still escapes an unpaired or malformed bracket', () => {
+      expect(md('<p>a [b</p>')).toEqual(['a \\[b']);
+      expect(md('<p>a ]b</p>')).toEqual(['a \\]b']);
+      expect(md('<p>[[no close</p>')).toEqual(['\\[\\[no close']);
+    });
+
+    it('still escapes WikiLink-shaped text inside a real link label, so the outer link is not corrupted', () => {
+      expect(md('<p><a href="https://x.com">See [[here]]</a></p>')).toEqual(['[See \\[\\[here\\]\\]](https://x.com)']);
+    });
+
+    it('leaves WikiLink-shaped text inside code untouched and inert (a code span, not a live WikiLink)', () => {
+      expect(md('<p><code>[[Page]]</code></p>')).toEqual(["`[[Page]]`"]);
+    });
+
+    it('keeps a WikiLink inside a table cell', () => {
+      expect(md('<table><tr><td>[[Page]]</td><td>plain</td></tr></table>')).toEqual(['| [[Page]] | plain |\n| --- | --- |']);
+    });
+
+    it('still preserves a WikiLink nested inside bold/italic composition', () => {
+      expect(md('<p><strong>[[Page]]</strong></p>')).toEqual(['**[[Page]]**']);
+    });
+  });
+
   it('survives malformed HTML', () => {
     expect(() => htmlToPieces('<p><b>unclosed <i>mess</p></div><<>')).not.toThrow();
     expect(htmlToPieces('')).toEqual([]);
@@ -141,6 +181,17 @@ describe('pasting rich HTML', () => {
     expect(event.defaultPrevented).toBe(true);
     expect(view.state.doc.toString()).toBe('Hi a **b**');
     expect(importFile).not.toHaveBeenCalled();
+  });
+
+  it('pastes WikiLinks from rich HTML without corrupting their brackets — the reported corruption, through the real paste event', async () => {
+    const { assets } = fakeAssets();
+    const view = mount('', assets);
+
+    const event = paste(view, '<ol><li>[[Inline styles]]</li><li>[[Lists]]</li></ol>', 'plain fallback that must not be used');
+    await settle();
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(view.state.doc.toString()).toBe('1. [[Inline styles]]\n2. [[Lists]]');
   });
 
   it('text and an embedded image: the image is stored and embedded in order', async () => {

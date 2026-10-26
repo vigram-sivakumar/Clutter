@@ -9,6 +9,8 @@
  * caller can store the images it can recover and keep the original order.
  */
 
+import { scanWikiLink } from '../../../../../core/vault/ingest/grammar/wikiLinkScanner';
+
 export type HtmlPiece =
   | { readonly kind: 'markdown'; readonly text: string }
   | { readonly kind: 'image'; readonly src: string; readonly alt: string };
@@ -34,8 +36,46 @@ export function hasRichHtml(html: string): boolean {
   return parse(html)?.body.querySelector(SEMANTIC_SELECTOR) != null;
 }
 
-function escapeText(text: string): string {
-  return text.replace(/[\\*_`[\]<]/g, '\\$&');
+const ESCAPE_CHARS = /[\\*_`[\]<]/g;
+
+function escapeRun(text: string): string {
+  return text.replace(ESCAPE_CHARS, '\\$&');
+}
+
+/**
+ * Escapes `text` for Markdown, except a well-formed `[[...]]` pair — Clutter's own WikiLink syntax, recognized
+ * with the same scanner the editor's grammar uses (`scanWikiLink`, `core/vault/ingest/grammar/wikiLinkScanner.ts`)
+ * rather than a second, regex-based notion of "what a WikiLink looks like" — which is kept exactly as written so
+ * it keeps working as a WikiLink after paste, the same as if it had been typed directly into the editor. An
+ * unpaired or malformed `[`/`]` is still escaped, same as before.
+ *
+ * `allowWikiLink: false` (used for an `<a>` element's own label text, see `inline()`) restores plain,
+ * no-exception escaping: an unescaped `[[`/`]]` pair inside a link's label would corrupt the enclosing
+ * `[label](url)` syntax instead of becoming a WikiLink.
+ */
+function escapeText(text: string, allowWikiLink = true): string {
+  if (!allowWikiLink || !text.includes('[[')) {
+    return escapeRun(text);
+  }
+
+  let out = '';
+  let plainStart = 0;
+  let i = 0;
+
+  while (i < text.length) {
+    if (text[i] === '[' && text[i + 1] === '[') {
+      const match = scanWikiLink(text, i);
+      if (match) {
+        out += escapeRun(text.slice(plainStart, i)) + text.slice(i, match.end);
+        i = match.end;
+        plainStart = i;
+        continue;
+      }
+    }
+    i += 1;
+  }
+
+  return out + escapeRun(text.slice(plainStart));
 }
 
 /** A line that would start a block when it is only text: its first character is escaped. */
@@ -62,10 +102,14 @@ function flush(context: Context): void {
   context.blocks = [];
 }
 
-/** Inline content of `node` as one Markdown string; images found on the way are emitted as their own pieces (the text so far is flushed first). */
-function inline(node: Node, context: Context, buffer: { text: string }): void {
+/**
+ * Inline content of `node` as one Markdown string; images found on the way are emitted as their own pieces (the
+ * text so far is flushed first). `allowWikiLink` is false only inside a real HTML link's own label (see the `A`
+ * case below) — everywhere else a `[[...]]` pair in plain text is preserved as Clutter's own WikiLink syntax.
+ */
+function inline(node: Node, context: Context, buffer: { text: string }, allowWikiLink = true): void {
   if (node.nodeType === Node.TEXT_NODE) {
-    buffer.text += escapeText((node.textContent ?? '').replace(/\s+/g, ' '));
+    buffer.text += escapeText((node.textContent ?? '').replace(/\s+/g, ' '), allowWikiLink);
     return;
   }
 
@@ -101,7 +145,7 @@ function inline(node: Node, context: Context, buffer: { text: string }): void {
   const wrap = (mark: string): void => {
     const inner = { text: '' };
     for (const child of Array.from(element.childNodes)) {
-      inline(child, context, inner);
+      inline(child, context, inner, allowWikiLink);
     }
     const body = inner.text.trim();
     // Marks must hug the text; whitespace stays outside them.
@@ -128,14 +172,16 @@ function inline(node: Node, context: Context, buffer: { text: string }): void {
       const href = element.getAttribute('href') ?? '';
       const inner = { text: '' };
       for (const child of Array.from(element.childNodes)) {
-        inline(child, context, inner);
+        // A WikiLink-shaped pair in a link's own label stays fully escaped (`allowWikiLink: false`): left
+        // unescaped it would close/reopen the enclosing `[...]` link syntax instead of becoming a WikiLink.
+        inline(child, context, inner, false);
       }
       buffer.text += SAFE_LINK.test(href.trim()) && inner.text.trim() !== '' ? `[${inner.text.trim()}](${href.trim().replace(/[()\s]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')}`)})` : inner.text;
       return;
     }
     default:
       for (const child of Array.from(element.childNodes)) {
-        inline(child, context, buffer);
+        inline(child, context, buffer, allowWikiLink);
       }
   }
 }
