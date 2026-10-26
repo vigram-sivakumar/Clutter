@@ -1,7 +1,12 @@
 import type { LinkOccurrence } from '@core/vault/models/occurrences/LinkOccurrence';
 import { PageIndex } from './PageIndex';
+import { resolveNonPageLinkTarget, type NonPageLinkTargetSource } from './nonPageLinkTarget';
 
-export type LinkResolutionStatus = 'resolved' | 'missing' | 'ambiguous';
+/**
+ * `non-page`: the link names a folder or an asset file, not a note. The editor resolves it, so it is
+ * not `missing` — but it has no page to point at, so the graph draws no edge for it.
+ */
+export type LinkResolutionStatus = 'resolved' | 'missing' | 'ambiguous' | 'non-page';
 
 export interface ResolvedLink {
   readonly sourcePageId: string;
@@ -19,7 +24,10 @@ export interface ResolvedLink {
 export class LinkResolver {
   resolve(
     links: Iterable<LinkOccurrence>,
-    pageIndex: PageIndex
+    pageIndex: PageIndex,
+    // Where a link's folder / asset target is looked up, once no note matches. Left out, every such
+    // link is `missing`, as before — which is what an embed's resolution passes.
+    nonPageTargets?: NonPageLinkTargetSource
   ): readonly ResolvedLink[] {
     // TODO(v2): Extend resolution to support relative paths and additional
     // Markdown link formats.
@@ -53,6 +61,18 @@ export class LinkResolver {
       // page in a folder is unresolved in the editor, and so it is here.
       const candidates = pageIndex.findByAlias(link.target);
       const aliased = candidates[0];
+
+      // `[[Projects/]]`, `[[Assets/hero.png]]` and a bare `[[Projects]]` that no note or alias claims:
+      // a folder or an asset, which the editor resolves — never reported as missing here.
+      if (
+        candidates.length === 0 &&
+        !link.heading &&
+        !link.blockReference &&
+        nonPageTargets &&
+        resolveNonPageLinkTarget(nonPageTargets, link.target)
+      ) {
+        return { ...base, status: 'non-page' as const };
+      }
 
       if (aliased && candidates.length === 1) {
         return this.resolveResolvedPage(link, base, aliased.id, pageIndex);

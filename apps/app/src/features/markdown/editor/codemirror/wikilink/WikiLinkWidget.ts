@@ -1,8 +1,15 @@
 import { WidgetType } from '@codemirror/view';
 
-import { PAGE_IDENTITY_ICON_BY_KIND } from '../mediaPresentation/pageIdentityIcons';
+import { systemIconSvg, type SystemIcon } from '@shared/icon';
+
+import { PAGE_IDENTITY_ICON_BY_KIND, type PageIdentityIconKind } from '../mediaPresentation/pageIdentityIcons';
 
 import type { WikiLinkResolution } from './wikiLinkResolution';
+
+/** What a resolved link points at, for comparing two resolutions: a note's id, or a folder's / asset's own. */
+function resolvedTargetId(resolution: Extract<WikiLinkResolution, { status: 'resolved' }>): string {
+  return resolution.pageId ?? `${resolution.targetKind}:${resolution.targetId}`;
+}
 
 /**
  * The at-rest rendered form of a WikiLink. `tok-wikilink` is the class hook
@@ -55,7 +62,7 @@ export class WikiLinkWidget extends WidgetType {
       this.resolution.displayLabel === other.resolution.displayLabel &&
       (this.resolution.status !== 'resolved' ||
         other.resolution.status !== 'resolved' ||
-        (this.resolution.pageId === other.resolution.pageId &&
+        (resolvedTargetId(this.resolution) === resolvedTargetId(other.resolution) &&
           this.resolution.icon === other.resolution.icon && this.resolution.emoji === other.resolution.emoji)) &&
       this.extraClasses.length === other.extraClasses.length &&
       this.extraClasses.every((cls, i) => cls === other.extraClasses[i])
@@ -110,13 +117,15 @@ export class WikiLinkWidget extends WidgetType {
     iconWrap.classList.add('tok-wikilink__icon-wrap');
     const emoji = this.resolution.status === 'resolved' ? this.resolution.emoji : null;
     const icon = this.resolution.status === 'resolved' ? this.resolution.icon : 'note';
+    // A link to a folder or an asset names its icon in the shared registry; a note's is one of the page identity icons.
+    const isNonPage = this.resolution.status === 'resolved' && this.resolution.pageId === undefined;
     if (emoji) {
       const emojiSpan = document.createElement('span');
       emojiSpan.classList.add('tok-wikilink__emoji');
       emojiSpan.textContent = emoji;
       iconWrap.append(emojiSpan);
     } else {
-      iconWrap.innerHTML = PAGE_IDENTITY_ICON_BY_KIND[icon];
+      iconWrap.innerHTML = isNonPage ? systemIconSvg(icon as SystemIcon) : PAGE_IDENTITY_ICON_BY_KIND[icon as PageIdentityIconKind];
       iconWrap.querySelector('svg')?.classList.add('tok-wikilink__icon');
     }
 

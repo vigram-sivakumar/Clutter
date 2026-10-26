@@ -64,11 +64,19 @@ export class VaultBuilder {
     const tasks = this.taskBuilder.build(pages);
     const embeds = this.embedBuilder.build(pages);
 
+    const foldersByPath = new Map(folders.map((folder) => [folder.path, folder]));
+    const resourcesByPath = new Map(resources.map((resource) => [resource.path, resource]));
+
     const knowledgeGraph = this.knowledgeGraphBuilder.build(
       pages,
       pages.flatMap((page) => page.analysis.links),
       pages.flatMap((page) => page.analysis.embeds),
-      scanResult.rootPath
+      scanResult.rootPath,
+      {
+        root: scanResult.rootPath,
+        getFolderByPath: (path) => foldersByPath.get(path),
+        getResourceByPath: (path) => resourcesByPath.get(path),
+      }
     );
 
     // Construct the immutable in-memory Vault model.

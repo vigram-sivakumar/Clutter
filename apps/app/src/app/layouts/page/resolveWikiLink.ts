@@ -1,10 +1,25 @@
 import type { Vault } from '@core/vault/models/Vault';
 import type { Page } from '@core/vault/models/Page';
+import type { Folder } from '@core/vault/models/Folder';
+import type { VaultResource } from '@core/vault/models/VaultResource';
 import type { PageOperations } from '@core/application/page/PageOperations';
 import type { FolderOperations } from '@core/application/folder/FolderOperations';
 import type { EffectivePageState } from '@core/application/page/EffectivePageState';
 import { formatDailyNoteTitle } from '@core/presentation/formatDailyNoteTitle';
+import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
+import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
+import { getResourceIcon } from '@core/presentation/getResourceIcon';
+import { getSystemLocationIconForFolder } from '@core/presentation/systemPresentation';
 import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
+import { classifySupportedResourceFile } from '@core/vault/ingest/SupportedResourceKind';
+import { ASSETS_DIRECTORY_NAME } from '@core/vault/initialize/ensureAssetsDirectory';
+import { RESERVED_FOLDER_NAMES } from '@core/vault/initialize/ReservedResources';
+import {
+  folderLinkPath,
+  isFolderLinkSyntax,
+  resolveNonPageLinkTarget,
+  type NonPageLinkTarget,
+} from '@core/vault/knowledge/nonPageLinkTarget';
 import { VaultPath } from '@core/vault/ingest/VaultPath';
 import {
   extractHeadingOccurrences,
@@ -58,6 +73,9 @@ export function createWikiLinkResolver(
   {
     createMissing = true,
     openPage,
+    openFolder,
+    openResource,
+    membershipSelector,
     onCreateFailed,
   }: {
     readonly createMissing?: boolean;
@@ -66,6 +84,22 @@ export function createWikiLinkResolver(
      * `pageOperations.open`. Never called with a heading that is not in the note.
      */
     readonly openPage?: (pageId: string, heading?: string | null) => void;
+    /**
+     * Opens a resolved folder link's folder — the host's own folder navigation (which, for one, sends the
+     * physical Assets folder to the Assets collection). Default: `folderOperations.open`.
+     */
+    readonly openFolder?: (folderId: string) => void;
+    /**
+     * Opens a resolved asset link's file in the host's existing image / PDF preview; `archived` for a file
+     * in the Archive, which is shown without its actions. Default: nothing opens (a host with no preview).
+     */
+    readonly openResource?: (resource: VaultResource, options?: { readonly archived?: boolean }) => void;
+    /**
+     * Lets a folder link show a reserved folder's own icon (Inbox, Archive, Templates, Daily Notes, Assets) —
+     * read through the same `getSystemLocationIconForFolder` the Move picker uses. Without it every folder
+     * link shows the generic folder icon.
+     */
+    readonly membershipSelector?: MembershipSelector;
     /** Told when creating the note an unresolved link names failed — the caller owns how to say so. Default: logs it. */
     readonly onCreateFailed?: (error: unknown) => void;
   } = {}
@@ -116,6 +150,46 @@ export function createWikiLinkResolver(
     };
   }
 
+  /** A link that names a folder or an asset file: resolved, but with no note behind it. */
+  function resolvedToNonPage(target: NonPageLinkTarget, localAlias: string | null): WikiLinkResolution {
+    if (target.kind === 'folder') {
+      const folder: Folder = target.folder;
+      // A reserved folder keeps its system-location icon; any other folder shows its own emoji if it has one,
+      // else the generic folder icon — the Move picker's rule.
+      const systemIcon = membershipSelector && getSystemLocationIconForFolder(folder, membershipSelector);
+
+      return {
+        status: 'resolved',
+        targetKind: 'folder',
+        targetId: folder.id,
+        displayLabel: localAlias ?? folder.name,
+        activate: () => {
+          if (openFolder) {
+            openFolder(folder.id);
+            return;
+          }
+
+          void folderOperations.open(folder.id).catch((error: unknown) => console.error('Opening the linked folder failed', error));
+        },
+        icon: systemIcon || 'folder',
+        emoji: systemIcon ? null : folder.metadata.icon || null,
+      };
+    }
+
+    const resource = target.resource;
+
+    return {
+      status: 'resolved',
+      targetKind: resource.kind,
+      targetId: resource.id,
+      displayLabel: localAlias ?? getResourceDisplayName(resource),
+      // The existing preview, never a second one; a file in the Archive opens without its actions.
+      activate: () => openResource?.(resource, vault.isResourceEffectivelyArchived(resource) ? { archived: true } : undefined),
+      icon: getResourceIcon(resource.kind),
+      emoji: null,
+    };
+  }
+
   /**
    * Whether `fragment` (the text after `#`) names something in `page`: `^id` a block reference, anything
    * else a heading — the shared matching rules (`BlockReferenceExtractor`, `findFirstHeadingOccurrence`,
@@ -138,6 +212,20 @@ export function createWikiLinkResolver(
     // `Note#Heading` / `Note#^block-id`: the note is looked up by its note part alone — the fragment is
     // never part of a file path (the same split a heading embed makes).
     const { pagePart, fragment } = splitTargetFragment(path);
+
+    // `[[Projects/]]`: a trailing slash names a folder, explicitly — a note of the same name is never
+    // consulted, and an unknown folder is just unresolved (a link never creates a folder).
+    if (isFolderLinkSyntax(pagePart)) {
+      const target = fragment === null ? resolveNonPageLinkTarget(vault, pagePart) : undefined;
+
+      return (
+        (target && resolvedToNonPage(target, localAlias)) || {
+          status: 'unresolved',
+          displayLabel: localAlias ?? VaultPath.pageName(folderLinkPath(pagePart)),
+          activate: () => {},
+        }
+      );
+    }
 
     // WikiLink targets are canonically vault-relative, no extension
     // (docs/editor-architecture-decisions.md, "Path normalization");
@@ -166,6 +254,14 @@ export function createWikiLinkResolver(
       // filename rule as every other status (never the raw vault-relative
       // path — VaultPath.pageName strips both directory and extension).
       return { status: 'ambiguous', displayLabel: localAlias ?? VaultPath.pageName(pagePart), activate: () => {} };
+    }
+
+    // No note and no alias claims it: it may name a folder (`[[Projects]]`) or an asset file
+    // (`[[Assets/hero.png]]`). Tried only now, so a note — or an alias — always wins a shared name.
+    // A `#fragment` only means something inside a note, so a link with one never matches these.
+    const nonPage = fragment === null ? resolveNonPageLinkTarget(vault, pagePart) : undefined;
+    if (nonPage) {
+      return resolvedToNonPage(nonPage, localAlias);
     }
 
     return {
@@ -256,8 +352,21 @@ export function findPagesByAlias(vault: Vault, alias: string): Page[] {
  * Daily Notes folder: that tree holds only the Daily Notes the calendar makes, so a link — typed,
  * accepted from autocomplete, or clicked while unresolved — never creates a regular note (or the
  * year / month folders to hold it) there. Linking to a Daily Note that already exists is unaffected.
+ * Nor for a path that names a folder or an asset file, or one of the reserved top-level folders.
  */
 export function canCreateReferencedPage(vault: Vault, path: string): boolean {
+  // Never a note for what is not a note: a folder link (`Projects/`), an asset file name (`hero.png`),
+  // or the name of one of Clutter's own top-level folders (`Inbox`, `Assets`, …) — a note there would
+  // take the name from the folder the link means.
+  if (isFolderLinkSyntax(path) || classifySupportedResourceFile(VaultPath.filename(path)) !== null) {
+    return false;
+  }
+
+  const name = path.trim();
+  if (!name.includes('/') && (RESERVED_FOLDER_NAMES.has(name) || name === ASSETS_DIRECTORY_NAME)) {
+    return false;
+  }
+
   return !DailyNotePath.isWithinRoot(vault.root, `${vault.root}/${path}.md`);
 }
 

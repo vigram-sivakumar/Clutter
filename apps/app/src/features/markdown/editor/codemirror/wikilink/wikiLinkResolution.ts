@@ -1,3 +1,5 @@
+import type { SystemIcon } from '@shared/icon';
+
 /**
  * The injected WikiLink resolution contract — concrete and WikiLink-
  * specific, not a generic semantic-token descriptor. That generalization
@@ -39,6 +41,28 @@ export type WikiLinkResolution =
       readonly displayLabel: string;
       readonly activate: () => void;
       readonly icon: 'note' | 'calendarNote' | 'calendarDot' | 'template';
+      readonly emoji: string | null;
+    }
+  /**
+   * A link that names a folder (`[[Projects/]]`) or an asset file (`[[Assets/hero.png]]`) rather than a
+   * note. Resolved like a note — same status, so it is styled and activated the same way — but it has no
+   * page: `targetId` is the folder's or the asset's own id, and `activate` opens it through the host's
+   * existing folder navigation / image-and-PDF preview.
+   */
+  | {
+      readonly status: 'resolved';
+      /** Absent: this link names no note (so code reading a note's `pageId` off any resolution stays valid). */
+      readonly pageId?: undefined;
+      readonly targetKind: 'folder' | 'image' | 'pdf';
+      readonly targetId: string;
+      readonly displayLabel: string;
+      readonly activate: () => void;
+      /**
+       * The target's icon, by registry name: a folder's own (a reserved folder's system-location icon, else
+       * the generic folder), an image's or a PDF's — drawn by the host through the one shared icon registry.
+       */
+      readonly icon: SystemIcon;
+      /** A folder's own emoji, shown in place of `icon` (never for a reserved folder or an asset). */
       readonly emoji: string | null;
     }
   | { readonly status: 'unresolved'; readonly displayLabel: string; readonly activate: () => void }

@@ -2,12 +2,21 @@ import type { Vault } from '@core/vault/models/Vault';
 import type { Page } from '@core/vault/models/Page';
 import type { PageOperations } from '@core/application/page/PageOperations';
 import type { FolderOperations } from '@core/application/folder/FolderOperations';
+import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
+import type { Folder } from '@core/vault/models/Folder';
+import type { VaultResource } from '@core/vault/models/VaultResource';
+import { isDailyNotesCollectionPagesEnabled } from '@core/featureFlags';
+import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
+import { getSystemLocationIconForFolder } from '@core/presentation/systemPresentation';
+import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
 import { VaultPath } from '@core/vault/ingest/VaultPath';
 import { dailyNoteSearchText } from '@core/presentation/dailyNoteSearchText';
 import { isValidCalendarDate } from '@shared/helpers/time/helpers/isValidCalendarDate';
 import { matchesSearchText } from '@shared/helpers/matchesSearchText';
 import type {
   GetWikiLinkSuggestions,
+  WikiLinkAssetSuggestion,
+  WikiLinkFolderSuggestion,
   WikiLinkPageSuggestion,
   WikiLinkSuggestion,
 } from '@features/markdown/editor/MarkdownEditor';
@@ -37,6 +46,13 @@ import { canCreateReferencedPage, createReferencedPage } from './resolveWikiLink
  * (`core/application/search`, ADR-061), which ranks across titles, aliases,
  * tags and body text: autocomplete picks one page to link to, and stays the
  * simplest title/alias match.
+ *
+ * Folders and asset files are offered alongside the notes (their own popup sections) when a
+ * `membershipSelector` is given — the same source of "what is visible" the pickers and the Assets
+ * collection use, so an archived or hidden folder or file is never offered. A folder is matched by its
+ * name, an asset by its file name (extension included); a query with a `/` in it is matched against the
+ * whole path instead, so `Projects/` and `Assets/he` narrow by location. This is separate from the embed
+ * suggester (`embedSuggestions.ts`), which is not touched.
  */
 export function createWikiLinkSuggester(
   vault: Vault,
@@ -49,9 +65,15 @@ export function createWikiLinkSuggester(
    */
   isArchived: (page: Page) => boolean = (page) => vault.isPageEffectivelyArchived(page),
   /** Told when creating the note an accepted "Create" suggestion names failed. Default: logs it. */
-  onCreateFailed?: (error: unknown) => void
+  onCreateFailed?: (error: unknown) => void,
+  /** Without it, only notes (and Create) are offered, as before. */
+  membershipSelector?: MembershipSelector,
+  /** A loadable URL for an asset's file (its absolute path), for the popup's thumbnail — the embed popup's own. */
+  resolveResourceUrl?: (path: string) => string
 ): GetWikiLinkSuggestions {
   const livePages = () => Array.from(vault.pages()).filter((page) => !isArchived(page));
+  const nonPageSuggestions = (normalizedQuery: string) =>
+    membershipSelector ? findNonPageSuggestions(vault, membershipSelector, normalizedQuery, resolveResourceUrl) : [];
 
   return (query) => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -70,12 +92,18 @@ export function createWikiLinkSuggester(
     // investigation). No Create option here: an empty path has nothing to
     // create yet.
     if (!normalizedQuery) {
-      return sortSuggestions(livePages().map((page) => toPageSuggestion(vault, page)));
+      return [
+        ...sortSuggestions(livePages().map((page) => toPageSuggestion(vault, page))),
+        ...nonPageSuggestions(normalizedQuery),
+      ];
     }
 
     const matches = findPageMatches(livePages(), normalizedQuery, (page) => page.type === 'daily-note')
       .map(({ page, alias }) => toPageSuggestion(vault, page, alias));
-    const sortedMatches = sortSuggestions(matches);
+    const sortedMatches: WikiLinkSuggestion[] = [
+      ...sortSuggestions(matches),
+      ...nonPageSuggestions(normalizedQuery),
+    ];
 
     if (sortedMatches.length > 0) {
       return sortedMatches;
@@ -104,6 +132,73 @@ export function createWikiLinkSuggester(
 
     return [suggestion];
   };
+}
+
+/**
+ * The folders and asset files a query matches, each as the link that names it: a folder with its
+ * trailing slash (`Projects/`, so it is never read as a note of the same name), an asset by its
+ * vault-relative path with its extension (`Assets/hero.png`). Folders first, then assets, each in
+ * natural path order. Everything is listed for an empty query.
+ */
+function findNonPageSuggestions(
+  vault: Vault,
+  membershipSelector: MembershipSelector,
+  normalizedQuery: string,
+  resolveResourceUrl?: (path: string) => string
+): (WikiLinkFolderSuggestion | WikiLinkAssetSuggestion)[] {
+  // A query with a `/` is a location (`Projects/`, `Assets/he`): match the whole path. Otherwise match
+  // the name only, so `inbox` doesn't list every file under Inbox/.
+  const byPath = normalizedQuery.includes('/');
+  const matches = (name: string, linkedPath: string): boolean =>
+    !normalizedQuery || (byPath ? linkedPath : name).toLowerCase().includes(normalizedQuery);
+  const naturalByPath = (a: { readonly path: string }, b: { readonly path: string }) =>
+    a.path.localeCompare(b.path, undefined, { numeric: true, sensitivity: 'base' });
+
+  const folders = Array.from(vault.folders())
+    .filter(
+      (folder: Folder) =>
+        membershipSelector.isVisibleFolder(folder) &&
+        !membershipSelector.isEntityEffectivelyArchived(folder) &&
+        // The Daily Notes year / month folders have no page of their own to open (unless that is enabled).
+        (isDailyNotesCollectionPagesEnabled() || DailyNotePath.folderLevel(vault.root, folder.path) === null)
+    )
+    .map((folder): WikiLinkFolderSuggestion => {
+      const relative = VaultPath.relativeTo(folder.path, vault.root);
+      // A reserved folder's own icon, from the one shared presentation table; any other folder its own emoji.
+      const systemIcon = getSystemLocationIconForFolder(folder, membershipSelector);
+      const identity = systemIcon ? { icon: systemIcon } : folder.metadata.icon ? { emoji: folder.metadata.icon } : {};
+
+      return {
+        kind: 'folder',
+        path: `${relative}/`,
+        title: folder.name,
+        breadcrumb: VaultPath.parentDirectory(relative) || null,
+        ...identity,
+      };
+    })
+    // Matched on the path as linked (`Projects/`), so `Projects/` itself lists the folder.
+    .filter((suggestion) => matches(suggestion.title, suggestion.path))
+    .sort(naturalByPath);
+
+  const assets = membershipSelector
+    .getAllVisibleResources()
+    .map((resource: VaultResource): WikiLinkAssetSuggestion => {
+      const relative = VaultPath.relativeTo(resource.path, vault.root);
+
+      return {
+        kind: 'asset',
+        path: relative,
+        title: getResourceDisplayName(resource),
+        breadcrumb: VaultPath.parentDirectory(relative) || null,
+        assetKind: resource.kind,
+        ...(resolveResourceUrl && { previewUrl: resolveResourceUrl(resource.path) }),
+      };
+    })
+    // The file name with its extension, so `hero.p` finds `hero.png`.
+    .filter((suggestion) => matches(VaultPath.filename(suggestion.path), suggestion.path))
+    .sort(naturalByPath);
+
+  return [...folders, ...assets];
 }
 
 /**

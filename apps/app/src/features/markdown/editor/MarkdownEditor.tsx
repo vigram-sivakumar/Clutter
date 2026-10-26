@@ -105,6 +105,8 @@ export type {
   GetWikiLinkSuggestions,
   WikiLinkSuggestion,
   WikiLinkPageSuggestion,
+  WikiLinkFolderSuggestion,
+  WikiLinkAssetSuggestion,
   WikiLinkCreateSuggestion,
 } from './codemirror/wikilink/wikiLinkSuggestion';
 export type {

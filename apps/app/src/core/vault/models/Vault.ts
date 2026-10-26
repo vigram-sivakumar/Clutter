@@ -626,7 +626,7 @@ export class Vault {
       return;
     }
 
-    const lazy = this.projectionBuilder.buildLazy(this.activePages(), this.root);
+    const lazy = this.projectionBuilder.buildLazy(this.activePages(), this.root, this);
 
     this._embeds = lazy.embeds;
     this._knowledgeGraph = lazy.knowledgeGraph;

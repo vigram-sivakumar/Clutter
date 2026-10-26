@@ -1,6 +1,7 @@
 import { LinkResolver } from './LinkResolver';
 import type { ResolvedLink } from './LinkResolver';
 import { PageIndex } from './PageIndex';
+import type { NonPageLinkTargetSource } from './nonPageLinkTarget';
 import { KnowledgeGraph } from '../models';
 import type { Page } from '../models/';
 import type { EmbedOccurrence, LinkOccurrence } from '../models';
@@ -26,7 +27,10 @@ export class KnowledgeGraphBuilder {
     links: Iterable<LinkOccurrence>,
     embeds: Iterable<EmbedOccurrence> = [],
     // The vault's root path, so a vault-relative target ("Projects/Alpha") resolves to its page.
-    root?: string
+    root?: string,
+    // Where a `[[link]]`'s folder / asset target is looked up (see LinkResolver). Links only: an embed's
+    // resolution is unchanged.
+    nonPageTargets?: NonPageLinkTargetSource
   ): KnowledgeGraph {
     const pageList = Array.from(pages);
     const pageIndex = new PageIndex(pageList, root);
@@ -35,7 +39,7 @@ export class KnowledgeGraphBuilder {
     // TODO(Arc 4): Build unresolved links and additional relationship types
     // from the resolved link set.
     const edges = [
-      ...this.buildEdges(this.linkResolver.resolve(links, pageIndex), 'link'),
+      ...this.buildEdges(this.linkResolver.resolve(links, pageIndex, nonPageTargets), 'link'),
       ...this.buildEdges(this.linkResolver.resolve(embeds, pageIndex), 'embed'),
     ];
     return new KnowledgeGraph(edges);

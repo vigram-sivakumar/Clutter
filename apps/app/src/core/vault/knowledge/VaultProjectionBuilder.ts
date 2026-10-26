@@ -7,6 +7,7 @@ import { TagBuilder } from './TagBuilder';
 import { TaskBuilder } from './TaskBuilder';
 import { EmbedBuilder } from './EmbedBuilder';
 import { KnowledgeGraphBuilder } from './KnowledgeGraphBuilder';
+import type { NonPageLinkTargetSource } from './nonPageLinkTarget';
 
 export interface EagerVaultProjections {
   readonly tags: readonly Tag[];
@@ -58,7 +59,11 @@ export class VaultProjectionBuilder {
     return this.taskBuilder.build(Array.from(pages));
   }
 
-  buildLazy(pages: Iterable<Page>, root?: string): LazyVaultProjections {
+  buildLazy(
+    pages: Iterable<Page>,
+    root?: string,
+    nonPageTargets?: NonPageLinkTargetSource
+  ): LazyVaultProjections {
     const pageList = Array.from(pages);
 
     return {
@@ -67,7 +72,8 @@ export class VaultProjectionBuilder {
         pageList,
         pageList.flatMap((page) => page.analysis.links),
         pageList.flatMap((page) => page.analysis.embeds),
-        root
+        root,
+        nonPageTargets
       ),
     };
   }

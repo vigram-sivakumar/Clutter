@@ -623,7 +623,15 @@ export function PageHost({
     application.pageOperations,
     application.folderOperations,
     application.effectivePageState,
-    { openPage: onOpenPage, onCreateFailed: reportLinkedNoteFailure }
+    {
+      openPage: onOpenPage,
+      // A folder link opens through this host's own folder navigation (declared further down), an asset
+      // link in the shared image / PDF preview — nothing new to open them with.
+      openFolder: (folderId) => onOpenFolder(folderId),
+      openResource: (resource, options) => onOpenResource(resource, options),
+      membershipSelector: application.membershipSelector,
+      onCreateFailed: reportLinkedNoteFailure,
+    }
   );
   // Same per-render, stateless-glue composition as resolveWikiLink above.
   const getWikiLinkSuggestions = createWikiLinkSuggester(
@@ -631,7 +639,9 @@ export function PageHost({
     application.pageOperations,
     application.folderOperations,
     undefined,
-    reportLinkedNoteFailure
+    reportLinkedNoteFailure,
+    application.membershipSelector,
+    (path) => application.resolveResourceImageUrl(path)
   );
   // Same per-render, stateless-glue composition as resolveWikiLink above.
   // Resource embed autocomplete only, this milestone — no resolver for a
@@ -3049,7 +3059,14 @@ export function PageHost({
         application.pageOperations,
         application.folderOperations,
         application.effectivePageState,
-        { createMissing: false, openPage: onOpenPage, onCreateFailed: reportLinkedNoteFailure }
+        {
+          createMissing: false,
+          openPage: onOpenPage,
+          openFolder: (folderId) => onOpenFolder(folderId),
+          openResource: (resource, options) => onOpenResource(resource, options),
+          membershipSelector: application.membershipSelector,
+          onCreateFailed: reportLinkedNoteFailure,
+        }
       )
     : resolveWikiLink;
   const editorResolveTag = isPageArchived

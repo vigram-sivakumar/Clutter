@@ -468,3 +468,48 @@ describe('wikiLinkCompletionSource — a page found by an alias', () => {
     expect(view.state.doc.toString()).toBe('x [[Design/User Experience Guidelines|my label]] y');
   });
 });
+
+describe('wikiLinkCompletionSource — folder and asset suggestions', () => {
+  function accept(doc: string, pos: number, suggestion: ReturnType<GetWikiLinkSuggestions>[number]): string {
+    const view = mountView(doc);
+    const source = wikiLinkCompletionSource(() => () => [suggestion]);
+    const result = call(source, contextAt(view, pos));
+    const option = result?.options[0];
+
+    if (typeof option?.apply === 'function') {
+      option.apply(view, option, result?.from ?? 0, pos);
+    }
+
+    return view.state.doc.toString();
+  }
+
+  it('accepting a folder inserts the link with its trailing slash — `[[Projects/]]`, never the bare name', () => {
+    expect(accept('x [[Proj', 8, { kind: 'folder', path: 'Projects/', title: 'Projects', breadcrumb: null })).toBe(
+      'x [[Projects/]] '
+    );
+  });
+
+  it('accepting an asset inserts its extension-included vault path', () => {
+    expect(
+      accept('x [[her', 7, { kind: 'asset', path: 'Assets/hero.png', title: 'hero', breadcrumb: 'Assets', assetKind: 'image' })
+    ).toBe('x [[Assets/hero.png]] ');
+  });
+
+  it('inside an already-closed link, accepting replaces only the reference and keeps the display text', () => {
+    expect(accept('[[Pro|Work]]', 5, { kind: 'folder', path: 'Projects/', title: 'Projects', breadcrumb: null })).toBe(
+      '[[Projects/|Work]] '
+    );
+  });
+
+  it('labels the row by its title, and never calls create()', () => {
+    const view = mountView('[[he');
+    const result = call(
+      wikiLinkCompletionSource(() => () => [
+        { kind: 'asset', path: 'Assets/hero.png', title: 'hero', breadcrumb: 'Assets', assetKind: 'image' },
+      ]),
+      contextAt(view, 4)
+    );
+
+    expect(result?.options[0]?.label).toBe('hero');
+  });
+});

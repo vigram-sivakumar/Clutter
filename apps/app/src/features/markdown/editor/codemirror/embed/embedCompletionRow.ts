@@ -1,6 +1,4 @@
-import { renderPdfThumbnail } from '@features/pdf/pdfThumbnail';
-
-import { COMPLETION_ICONS } from '../completionPopup/completionIcons';
+import { assetCompletionRow } from '../completionPopup/assetCompletionRow';
 import type { RowCompletion } from '../completionPopup/completionRow';
 import { COMPLETION_SECTIONS } from '../completionPopup/completionSections';
 import { wikiLinkRow } from '../wikilink/wikiLinkCompletionRow';
@@ -15,9 +13,6 @@ export interface EmbedCompletion extends RowCompletion {
   readonly suggestion: EmbedSuggestion;
 }
 
-/** The thumbnail is a square this many CSS pixels wide: an asset row's height less its padding. */
-const THUMBNAIL_SIZE = 36;
-
 /**
  * A note or Daily Note reads exactly as it does after `[[` — `wikiLinkRow`, the note picker's own
  * rules — under Notes or Daily notes, so the popup tells a note from an asset by section.
@@ -27,20 +22,17 @@ export function embedPageRow(suggestion: EmbedPageSuggestion): Pick<EmbedComplet
 }
 
 /**
- * How a resource suggestion reads in the popup — an asset row, as in the note picker: the file's
- * name over its folder, an image showing its own picture and a PDF its first page (the icon until
- * that is drawn, or when there is no URL to draw from), under an Images or PDFs section.
+ * How a resource suggestion reads in the popup — the shared asset row (`assetCompletionRow`, also what
+ * `[[` uses), under the Images or PDFs section that comes first in this popup.
  */
 export function embedResourceRow(suggestion: EmbedResourceSuggestion): Pick<EmbedCompletion, 'row' | 'section'> {
-  const { previewUrl } = suggestion;
-  const isPdf = suggestion.resourceKind === 'pdf';
-  return {
-    row: {
-      iconSvg: isPdf ? COMPLETION_ICONS.pdf : COMPLETION_ICONS.image,
-      thumbnail: previewUrl ? (isPdf ? renderPdfThumbnail(previewUrl, THUMBNAIL_SIZE) : previewUrl) : undefined,
+  return assetCompletionRow(
+    {
+      assetKind: suggestion.resourceKind,
       title: suggestion.title,
-      path: suggestion.breadcrumb,
+      breadcrumb: suggestion.breadcrumb,
+      previewUrl: suggestion.previewUrl,
     },
-    section: isPdf ? COMPLETION_SECTIONS.pdfs : COMPLETION_SECTIONS.images,
-  };
+    { images: COMPLETION_SECTIONS.images, pdfs: COMPLETION_SECTIONS.pdfs }
+  );
 }
