@@ -18,6 +18,31 @@ import { isDailyNotesFolderOrDescendant, type ReservedFolderId } from '../../vau
 import { VaultPath } from '../../vault/ingest/VaultPath';
 import { resolveFolderPathOrRoot } from '../../vault/persistence/resolveFolderPathOrRoot';
 import { evaluateTemplateMarker } from '../../vault/ingest/frontmatter/templateMarker';
+import {
+  NO_REFERENCE_REWRITE,
+  findReferencingPageIds,
+  isRepresentableLinkTarget,
+  pageLinkTarget,
+  type ReferenceRewriteSummary,
+} from '../page/pageReferenceRewrite';
+
+/**
+ * One page or folder inside a moving/renaming folder's own subtree, captured before the operation runs:
+ * its id (stable across the move) and its WikiLink-relevant path as it was before — the pair
+ * `rewriteReferencesAfterFolderMove` needs to compute that one target's old->new mapping entry once the
+ * operation has actually resolved the folder's (and so every descendant's) real new path.
+ */
+interface FolderMoveReferenceEntry {
+  readonly kind: 'page' | 'folder';
+  readonly id: string;
+  readonly oldPath: string;
+}
+
+/** What `captureReferenceRewriteBaseline` found before a folder move/rename actually ran. */
+interface FolderMoveReferenceBaseline {
+  readonly entries: readonly FolderMoveReferenceEntry[];
+  readonly referencingPageIds: readonly string[];
+}
 
 /**
  * The folder-name channel's own debounce/ceiling — mirrors
@@ -57,6 +82,14 @@ export const FOLDER_NAME_AUTOSAVE_CEILING_MS = 60000;
 export class FolderOperations {
   /** Told when a move out of Assets was refused, or moved the files but could not update everything that points at them. */
   public assetMoveFeedback?: (feedback: AssetMoveFeedback) => void;
+
+  /**
+   * Told when a move or rename's WikiLink reference rewrite (move()/rename()'s own `pages` result, or
+   * rename()'s return value — see rewriteReferencesAfterFolderMove()) could not update every reference
+   * to something inside the moved/renamed subtree. The move/rename itself is never undone by this —
+   * same "report, don't roll back" contract as PageOperations.rename()'s equivalent summary.
+   */
+  public pageReferenceFeedback?: (summary: ReferenceRewriteSummary) => void;
 
   /**
    * Per-folder name edit/save state — the folder-name channel's
@@ -133,7 +166,20 @@ export class FolderOperations {
      * move or any other reversible operation). The folder counterpart of `PageOperations`' hook of the same
      * name: supplied by the Composition Root, decides nothing here.
      */
-    private readonly onPagesPermanentlyDeleted: (pageIds: readonly string[]) => void = () => {}
+    private readonly onPagesPermanentlyDeleted: (pageIds: readonly string[]) => void = () => {},
+    /**
+     * `PageOperations.rewriteReferences()`, supplied by the Composition Root for the same reason
+     * `prepareNavigation`/`flushPagesBeforeArchive` are: every page write — including the content
+     * rewrite a moved/renamed folder's references need — goes through `PageOperations`, never through
+     * this facade touching a page's body directly. `FolderOperations` only ever decides *which*
+     * old->new targets are safe to rewrite and *who* references them (captureReferenceRewriteBaseline(),
+     * below) — both decisions it alone has the folder-subtree knowledge to make — then hands that
+     * already-decided mapping to this hook to actually execute and save.
+     */
+    private readonly rewriteReferences: (
+      referencingPageIds: readonly string[],
+      mapping: ReadonlyMap<string, string>
+    ) => Promise<ReferenceRewriteSummary> = async () => NO_REFERENCE_REWRITE
   ) {}
 
   /**
@@ -439,6 +485,115 @@ export class FolderOperations {
     return occupant && occupant.id !== folder.id ? occupant : undefined;
   }
 
+  /** `folderId`'s own WikiLink folder-link target (`Projects/`), or a page's ordinary target (`Projects/Roadmap`). */
+  private referenceTarget(kind: 'page' | 'folder', path: string): string {
+    const target = pageLinkTarget(path, this.vault.root);
+    return kind === 'folder' ? `${target}/` : target;
+  }
+
+  /**
+   * Everything move()/rename() need captured BEFORE the operation actually runs: every id whose
+   * WikiLink-relevant path is about to change — the folder itself (its own folder-link target), every
+   * folder nested inside it (ditto), and every descendant page (its ordinary link/embed target) — paired
+   * with that path as it is right now, plus which pages anywhere in the vault currently reference any of
+   * those old targets. Captured now because after the move the old text no longer resolves to anything,
+   * and the old path is the one thing that identifies which links were meant for what moved — the exact
+   * same reasoning as PageOperations.rename()'s single-target capture, extended to a whole subtree.
+   *
+   * `undefined` only for an unknown folderId — move()/rename() already have their own existence handling
+   * for that (the Gate's 'abandoned' status), so this never needs to explain why.
+   */
+  private captureReferenceRewriteBaseline(folderId: string): FolderMoveReferenceBaseline | undefined {
+    const folder = this.vault.getFolder(folderId);
+
+    if (!folder) {
+      return undefined;
+    }
+
+    const { folders, pages } = this.vault.getDescendantFoldersAndPages(folderId);
+
+    const entries: FolderMoveReferenceEntry[] = [
+      { kind: 'folder', id: folderId, oldPath: folder.path },
+      ...folders.map((descendant) => ({ kind: 'folder' as const, id: descendant.id, oldPath: descendant.path })),
+      ...pages.map((page) => ({ kind: 'page' as const, id: page.id, oldPath: page.path })),
+    ];
+
+    const oldTargets = new Set(entries.map((entry) => this.referenceTarget(entry.kind, entry.oldPath)));
+
+    return {
+      entries,
+      referencingPageIds: findReferencingPageIds(
+        this.vault.pages(),
+        (id) => this.documentRegistry.get(id)?.currentRevision.markdown,
+        oldTargets
+      ),
+    };
+  }
+
+  /**
+   * The second half of move()/rename(): once the operation has succeeded (so every entry in `baseline`
+   * has its real, final new path, including any collision auto-suffix the Gate's own resolution chose),
+   * builds the old->new target mapping for the whole subtree and hands it to `rewriteReferences` (the
+   * Composition-Root-injected `PageOperations.rewriteReferences()`) to actually rewrite and save —
+   * `PageOperations.rewriteReferencesAfterRename()`'s single-target shape, batched over every target this
+   * one operation moved at once, so a page referencing several of them is rewritten, and saved, once.
+   *
+   * Three checks drop a target from the mapping — never the whole operation, and never the whole batch
+   * for one referencing page — mirroring rewriteReferencesAfterRename()'s own per-target safeguards:
+   * - the entry is gone by the time this runs (nothing left to point at);
+   * - it didn't actually move (same reasoning as a no-op rename: nothing to rewrite);
+   * - something else now occupies its old path (the old text may mean that, not this — "old-path-reoccupied");
+   * - its new path has no spelling `[[...]]`/`![[...]]` can carry ("unsupported-title").
+   */
+  private async rewriteReferencesAfterFolderMove(baseline: FolderMoveReferenceBaseline): Promise<ReferenceRewriteSummary> {
+    if (baseline.referencingPageIds.length === 0) {
+      return NO_REFERENCE_REWRITE;
+    }
+
+    const mapping = new Map<string, string>();
+
+    for (const entry of baseline.entries) {
+      const current = entry.kind === 'folder' ? this.vault.getFolder(entry.id) : this.vault.getPage(entry.id);
+
+      if (!current) {
+        continue;
+      }
+
+      const from = this.referenceTarget(entry.kind, entry.oldPath);
+      const to = this.referenceTarget(entry.kind, current.path);
+
+      if (from === to) {
+        continue;
+      }
+
+      // Someone else now sits at the old path: the old text may mean that, not this.
+      const reoccupant =
+        entry.kind === 'folder' ? this.vault.getFolderByPath(entry.oldPath) : this.vault.getPageByPath(entry.oldPath);
+
+      if (reoccupant && reoccupant.id !== entry.id) {
+        continue;
+      }
+
+      if (!isRepresentableLinkTarget(to)) {
+        continue;
+      }
+
+      mapping.set(from, to);
+    }
+
+    if (mapping.size === 0) {
+      return NO_REFERENCE_REWRITE;
+    }
+
+    const summary = await this.rewriteReferences(baseline.referencingPageIds, mapping);
+
+    if (!summary.complete) {
+      this.pageReferenceFeedback?.(summary);
+    }
+
+    return summary;
+  }
+
   /**
    * Renames a folder in place — same parent only. Backed by the Gate's
    * unified 'move-folder' kind (ADR-024 §4's target shape): supplies the
@@ -457,7 +612,7 @@ export class FolderOperations {
    * from this call as a save failure (nameState.markSaveFailed()), so a
    * collision now simply becomes one more reason this can throw.
    */
-  public async rename(folderId: string, name: string): Promise<void> {
+  public async rename(folderId: string, name: string): Promise<ReferenceRewriteSummary | undefined> {
     this.assertEditable(folderId);
     const folder = this.vault.getFolder(folderId);
 
@@ -469,6 +624,9 @@ export class FolderOperations {
       }
     }
 
+    // Captured before the rename changes it — see captureReferenceRewriteBaseline()'s doc comment.
+    const baseline = this.captureReferenceRewriteBaseline(folderId);
+
     const result = await this.coordinator.enqueue(folderId, {
       kind: 'move-folder',
       destinationFolderId: folder?.parentId ?? null,
@@ -478,6 +636,12 @@ export class FolderOperations {
     if (result.status !== 'folder-renamed' && result.status !== 'abandoned') {
       throw new Error(`Failed to rename folder ${folderId}: ${result.status}`);
     }
+
+    if (result.status !== 'folder-renamed') {
+      return undefined;
+    }
+
+    return baseline ? this.rewriteReferencesAfterFolderMove(baseline) : NO_REFERENCE_REWRITE;
   }
 
   /**
@@ -498,6 +662,13 @@ export class FolderOperations {
       this.vault.getFolder(folderId)?.parentId ?? null,
       'templates'
     );
+
+    // Captured before the move changes it — see captureReferenceRewriteBaseline()'s doc comment. Its
+    // result is reported through pageReferenceFeedback, not this method's return value: that value's
+    // shape (AssetMoveReferenceSummary | undefined) is the asset-reference-update contract already
+    // relied on where it's read today, and WikiLink references are an unrelated kind of reference this
+    // method just happens to also now carry across the same move.
+    const baseline = this.captureReferenceRewriteBaseline(folderId);
     let result;
 
     try {
@@ -527,6 +698,10 @@ export class FolderOperations {
       // Set only for an asset folder taken out of Assets: what happened to the references to the files in it.
       if (result.referenceUpdate && !result.referenceUpdate.complete) {
         this.assetMoveFeedback?.({ kind: 'incomplete', summary: result.referenceUpdate });
+      }
+
+      if (baseline) {
+        await this.rewriteReferencesAfterFolderMove(baseline);
       }
 
       return result.referenceUpdate;

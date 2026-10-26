@@ -676,7 +676,12 @@ export class Application {
       (pageIds) => this.pageOperations.flushPagesBeforeArchive(pageIds),
       // A permanently deleted template's preference goes with it; the closure decides nothing, the store
       // ignores pages that were never preferred.
-      (pageIds) => this.preferredTemplatesStore.removeAll(pageIds)
+      (pageIds) => this.preferredTemplatesStore.removeAll(pageIds),
+      // PageOperations.rewriteReferences() — same forward-reference-via-`this` shape as the two closures
+      // above, for the same construction-order reason: a folder move/rename's page-content rewrite is a
+      // page write, and every page write goes through PageOperations, never through FolderOperations
+      // touching a page's body directly.
+      (referencingPageIds, mapping) => this.pageOperations.rewriteReferences(referencingPageIds, mapping)
     );
     this.folderOperations.assetMoveFeedback = relayAssetMoveFeedback;
     this.pageOperations = new PageOperations(

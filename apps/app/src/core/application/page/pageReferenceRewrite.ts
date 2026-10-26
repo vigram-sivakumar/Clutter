@@ -1,6 +1,7 @@
 import { EmbedExtractor } from '../../vault/ingest/extractors/EmbedExtractor';
 import { LinkExtractor } from '../../vault/ingest/extractors/LinkExtractor';
 import { VaultPath } from '../../vault/ingest/VaultPath';
+import type { Page } from '../../vault/models/Page';
 
 const linkExtractor = new LinkExtractor();
 const embedExtractor = new EmbedExtractor();
@@ -69,19 +70,33 @@ export function referencesTarget(markdown: string, target: string): boolean {
   return findReferenceSpans(markdown).some((span) => span.target === target);
 }
 
+/** Whether `markdown` holds at least one link or embed whose target is one of `targets` — `referencesTarget`'s batch form. */
+export function referencesAnyTarget(markdown: string, targets: ReadonlySet<string>): boolean {
+  return findReferenceSpans(markdown).some((span) => targets.has(span.target));
+}
+
 /**
- * Points every link and embed whose target is exactly `from` at `to`. Only the target segment of each
- * reference is replaced, so an alias, `#heading`, `^block` and everything outside the reference are kept
- * byte for byte. Returns `markdown` itself when nothing matched.
+ * Points every link and embed whose target is a key of `mapping` at that key's value, in one pass over
+ * `markdown` — `rewriteReferenceTargets`'s batch form, for when several targets changed in the same
+ * operation (a moved folder's own folder-link target plus every descendant page/folder inside it), so a
+ * note referencing several of them is rewritten — and so saved — once, not once per target. Only the
+ * target segment of each matching reference is replaced, so an alias, `#heading`, `^block` and everything
+ * outside the reference are kept byte for byte. Returns `markdown` itself when nothing matched.
  */
-export function rewriteReferenceTargets(markdown: string, from: string, to: string): string {
+export function rewriteReferenceTargetMap(markdown: string, mapping: ReadonlyMap<string, string>): string {
+  if (mapping.size === 0) {
+    return markdown;
+  }
+
   const spans = findReferenceSpans(markdown)
-    .filter((span) => span.target === from)
+    .filter((span) => mapping.has(span.target))
     .sort((a, b) => b.start - a.start);
 
   let next = markdown;
 
   for (const span of spans) {
+    const from = span.target;
+    const to = mapping.get(from)!;
     // Only whitespace can precede the target inside the brackets, so its first occurrence after the opener is it.
     const targetStart = next.indexOf(from, span.start + span.openerLength);
 
@@ -93,6 +108,50 @@ export function rewriteReferenceTargets(markdown: string, from: string, to: stri
   }
 
   return next;
+}
+
+/**
+ * Points every link and embed whose target is exactly `from` at `to` — the single-target case of
+ * `rewriteReferenceTargetMap`, kept as its own named entry point since every existing caller names one
+ * old/new pair, not a map.
+ */
+export function rewriteReferenceTargets(markdown: string, from: string, to: string): string {
+  return rewriteReferenceTargetMap(markdown, new Map([[from, to]]));
+}
+
+/**
+ * Ids of the pages (archived and Templates included — this is maintenance, like a tag rename) whose
+ * current text links to or embeds any of `targets` — the shared scan behind
+ * `PageOperations.rename()`/`.move()` (one target: the moved page's own) and
+ * `FolderOperations.move()`/`.rename()` (one target per affected folder-link and descendant page) alike,
+ * so the "who references what moved" rule has exactly one implementation. Cheap checks first: a page's
+ * text is only parsed when its saved analysis already names one of the targets, or when
+ * `getUnsavedMarkdown` returns an open editor's text the saved analysis cannot answer for.
+ */
+export function findReferencingPageIds(
+  pages: Iterable<Page>,
+  getUnsavedMarkdown: (pageId: string) => string | undefined,
+  targets: ReadonlySet<string>
+): string[] {
+  if (targets.size === 0) {
+    return [];
+  }
+
+  return Array.from(pages)
+    .filter((candidate) => {
+      const saved = candidate.analysis.links.some((link) => targets.has(link.target))
+        || candidate.analysis.embeds.some((embed) => targets.has(embed.target));
+
+      if (saved) {
+        return true;
+      }
+
+      const unsaved = getUnsavedMarkdown(candidate.id);
+
+      return unsaved !== undefined && unsaved !== candidate.source.markdown && referencesAnyTarget(unsaved, targets);
+    })
+    .sort((a, b) => a.path.localeCompare(b.path))
+    .map((candidate) => candidate.id);
 }
 
 /** The one heading whose text changed between two saves: its index in the ATX-heading list, and its old and new text. */

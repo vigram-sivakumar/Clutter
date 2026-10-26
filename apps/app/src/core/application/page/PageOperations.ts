@@ -23,12 +23,13 @@ import { PageIndex } from '../../vault/knowledge/PageIndex';
 import {
   NO_REFERENCE_REWRITE,
   detectHeadingRename,
+  findReferencingPageIds,
   isRepresentableHeadingFragment,
   isRepresentableLinkTarget,
   pageLinkTarget,
   referencesHeading,
-  referencesTarget,
   rewriteHeadingReferences,
+  rewriteReferenceTargetMap,
   rewriteReferenceTargets,
   type HeadingRename,
   type ReferenceRewriteSkipReason,
@@ -2616,8 +2617,23 @@ export class PageOperations {
   public async move(
     pageId: string,
     destinationFolderId: string | null
-  ): Promise<void> {
+  ): Promise<ReferenceRewriteSummary> {
     this.assertFolderAcceptsContent(destinationFolderId);
+    const page = this.vault.getPage(pageId);
+
+    // Found before the move: afterwards the old text no longer resolves to anything, and the
+    // old path is the one thing that identifies which links were meant for this note — same
+    // reasoning as rename()'s identical capture, just ahead of the Gate's 'move' kind instead
+    // of its 'rename' kind.
+    const oldPath = page?.path;
+    const referencingPageIds = page
+      ? findReferencingPageIds(
+          this.vault.pages(),
+          (id) => this.documentRegistry.get(id)?.currentRevision.markdown,
+          new Set([pageLinkTarget(page.path, this.vault.root)])
+        )
+      : [];
+
     const result = await this.coordinator.enqueue(pageId, {
       kind: 'move',
       destinationFolderId,
@@ -2628,6 +2644,13 @@ export class PageOperations {
     }
 
     await this.syncTemplateMarker(pageId);
+
+    if (!oldPath || referencingPageIds.length === 0 || result.status !== 'saved') {
+      return NO_REFERENCE_REWRITE;
+    }
+
+    // The path the Gate actually chose — it may have auto-suffixed the destination.
+    return this.rewriteReferencesAfterRename(oldPath, result.page.path, referencingPageIds);
   }
 
   /**
@@ -2687,7 +2710,13 @@ export class PageOperations {
     // Found before the rename: afterwards the old text no longer resolves to anything, and the
     // old path is the one thing that identifies which links were meant for this note.
     const oldPath = page?.path;
-    const referencingPageIds = page ? this.findReferencingPageIds(page) : [];
+    const referencingPageIds = page
+      ? findReferencingPageIds(
+          this.vault.pages(),
+          (id) => this.documentRegistry.get(id)?.currentRevision.markdown,
+          new Set([pageLinkTarget(page.path, this.vault.root)])
+        )
+      : [];
 
     const result = await this.coordinator.enqueue(pageId, {
       kind: 'rename',
@@ -2704,34 +2733,6 @@ export class PageOperations {
 
     // The path the Gate actually chose — it may have auto-suffixed the requested title.
     return this.rewriteReferencesAfterRename(oldPath, result.page.path, referencingPageIds);
-  }
-
-  /**
-   * Ids of the notes (archived and Templates included — this is maintenance, like a tag rename) whose
-   * current text links to or embeds `page` by its path. A link means this note exactly when its target
-   * is the note's canonical path: resolution tries the literal path first, so that string is the note's
-   * identity, and an alias-resolved or same-titled-elsewhere link has a different target. Cheap checks
-   * first; a note's text is only parsed when its saved analysis names the target, or when an open
-   * editor holds text the saved analysis cannot answer for.
-   */
-  private findReferencingPageIds(page: Page): string[] {
-    const target = pageLinkTarget(page.path, this.vault.root);
-
-    return Array.from(this.vault.pages())
-      .filter((candidate) => {
-        const saved = candidate.analysis.links.some((link) => link.target === target)
-          || candidate.analysis.embeds.some((embed) => embed.target === target);
-
-        if (saved) {
-          return true;
-        }
-
-        const unsaved = this.documentRegistry.get(candidate.id)?.currentRevision.markdown;
-
-        return unsaved !== undefined && unsaved !== candidate.source.markdown && referencesTarget(unsaved, target);
-      })
-      .sort((a, b) => a.path.localeCompare(b.path))
-      .map((candidate) => candidate.id);
   }
 
   /**
@@ -2812,6 +2813,85 @@ export class PageOperations {
     if (!complete) {
       console.warn(
         `PageOperations: references to "${from}" were not all updated to "${to}" — ` +
+          `${failed.length} failed, ${skipped.length} skipped (${[...new Set(skipped.map((s) => s.reason))].join(', ') || 'none'}).`
+      );
+    }
+
+    return { rewrittenPageIds, skipped, failed, complete };
+  }
+
+  /**
+   * The batched counterpart to rewriteReferencesAfterRename(), for when more than one target changed in
+   * a single operation — a moved/renamed folder's own folder-link target plus every descendant page's and
+   * descendant folder's, all at once. Same per-page mechanics (current session text so unsaved edits
+   * survive, the disk-change guard, one mutateBody + at most one requestSave, one failure never stopping
+   * the rest, a summary instead of a throw), but one rewrite-and-save per referencing page covers every
+   * target in `mapping` it happens to reference, rather than one save per moved target.
+   *
+   * Which old->new pairs belong in `mapping` — and whether a given pair is still safe to rewrite (a
+   * representable new target, an old path nobody has reoccupied since) — is the caller's judgment, made
+   * with whatever it alone knows about what moved; this method only executes an already-decided,
+   * already-filtered mapping against an already-found list of referencing pages. `FolderOperations.move()`/
+   * `.rename()` are its only callers today (via the Composition Root's injected closure, the same
+   * constructor-injected-hook shape `prepareNavigation`/`flushPagesBeforeArchive` already use) — the one
+   * aggregate-over extension of rewriteReferencesAfterRename()'s single-target shape, not a second
+   * implementation of "find references, rewrite, save."
+   */
+  public async rewriteReferences(
+    referencingPageIds: readonly string[],
+    mapping: ReadonlyMap<string, string>
+  ): Promise<ReferenceRewriteSummary> {
+    if (mapping.size === 0 || referencingPageIds.length === 0) {
+      return NO_REFERENCE_REWRITE;
+    }
+
+    const rewrittenPageIds: string[] = [];
+    const skipped: { pageId: string; path: string; reason: ReferenceRewriteSkipReason }[] = [];
+    const failed: { pageId: string; path: string; message: string }[] = [];
+    const transform = (markdown: string): string => rewriteReferenceTargetMap(markdown, mapping);
+
+    for (const sourceId of referencingPageIds) {
+      const source = this.vault.getPage(sourceId);
+
+      if (!source) {
+        continue;
+      }
+
+      try {
+        if (!(await this.matchesDisk(source))) {
+          skipped.push({ pageId: sourceId, path: source.path, reason: 'changed-on-disk' });
+          continue;
+        }
+
+        const session = this.documentRegistry.get(sourceId);
+        const current = session?.currentRevision.markdown ?? source.source.markdown;
+
+        // Nothing to write when none of this page's references are in the (already-filtered) mapping.
+        if (transform(current) === current) {
+          continue;
+        }
+
+        await this.mutateBody(sourceId, transform, { allowArchived: true });
+
+        if (session && !this.vault.isPageEffectivelyArchived(source)) {
+          await this.requestSave(sourceId);
+        }
+
+        rewrittenPageIds.push(sourceId);
+      } catch (error) {
+        failed.push({
+          pageId: sourceId,
+          path: source.path,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    const complete = failed.length === 0 && skipped.length === 0;
+
+    if (!complete) {
+      console.warn(
+        `PageOperations: a batch of ${mapping.size} moved reference target(s) was not fully carried into every page that pointed at them — ` +
           `${failed.length} failed, ${skipped.length} skipped (${[...new Set(skipped.map((s) => s.reason))].join(', ') || 'none'}).`
       );
     }
