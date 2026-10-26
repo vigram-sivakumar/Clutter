@@ -171,7 +171,7 @@ describe('TasksCollectionBody', () => {
     fireEvent.click(getByRole('button', { name: '20 August' }));
     expect(onOpenTask).not.toHaveBeenCalled();
 
-    fireEvent.click(getByText('Clear date'));
+    fireEvent.click(getByText('Clear'));
     expect(onChangeDueDate).toHaveBeenLastCalledWith(target, null);
 
     fireEvent.click(getByRole('button', { name: '20 August' }));
@@ -674,7 +674,7 @@ describe('TasksCollectionBody', () => {
       );
 
       fireEvent.click(calendar(container)!);
-      fireEvent.click(getByText('Clear date'));
+      fireEvent.click(getByText('Clear'));
 
       expect(onChangeDueDate).toHaveBeenCalledWith(target, null);
       vi.unstubAllGlobals();

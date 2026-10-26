@@ -12,7 +12,7 @@ import { formatTaskTitle } from './formatTaskTitle';
  */
 export function taskPropertyValues(task: TaskOccurrence, sourceLabel?: string): PropertyValues {
   return {
-    name: formatTaskTitle(task.text, task.dueDate),
+    name: formatTaskTitle(task.text, task.dueDate, task.dueTime),
     ...(task.dueDate !== undefined && { dueDate: task.dueDate }),
     ...(sourceLabel !== undefined && { source: sourceLabel }),
   };

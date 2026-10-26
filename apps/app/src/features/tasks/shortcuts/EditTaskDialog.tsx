@@ -21,7 +21,7 @@ export function EditTaskDialog({
     <NewTaskDialog
       open
       onClose={onClose}
-      editing={{ title: formatTaskTitle(task.text, task.dueDate), dueDate: task.dueDate }}
+      editing={{ title: formatTaskTitle(task.text, task.dueDate, task.dueTime), dueDate: task.dueDate }}
       onSaveTask={(title, dueDate) => taskOperations.update(task, { title, dueDate })}
     />
   );

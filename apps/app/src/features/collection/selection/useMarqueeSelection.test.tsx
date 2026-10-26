@@ -144,20 +144,18 @@ describe.each(Object.keys(LAYOUTS))('marquee selection in %s', (layout) => {
     expect(container.querySelectorAll('.collection-entry--selecting, .collection-card--selecting').length).toBeGreaterThan(0);
   });
 
-  it('replaces the selection that was there, and keeps it for a press that never becomes a drag', () => {
+  it('replaces the selection that was there', () => {
     const { root } = draw();
     fireEvent.click(box('d'));
-
-    down(root);
-    move(302, 7); // under the threshold
-    up();
-    expect(checked()).toEqual(['d']);
 
     down(root);
     move(100, 60);
     up();
     expect(checked()).toEqual(['a', 'b']);
   });
+
+  // A press that never becomes a drag is a click on empty space, and it leaves selection mode: see
+  // useMarqueeSelection.click.test.tsx.
 
   it('adds to the selection with Ctrl on Windows and Linux, and Cmd on macOS', async () => {
     setPlatform('Win32');

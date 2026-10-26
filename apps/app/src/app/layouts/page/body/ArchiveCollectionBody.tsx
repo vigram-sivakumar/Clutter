@@ -22,6 +22,8 @@ import { toAssetTableRow } from '@features/collection/components/asset/toAssetTa
 import { buildPropertyTableColumns } from '@features/collection/properties/tableColumns';
 
 import { PageBody } from './Page.Body';
+import { useCollectionItemContextMenu, type CollectionItemMenuResolver } from './useCollectionItemContextMenu';
+import { useCollectionSelectionMenu } from './useCollectionSelectionMenu';
 
 export interface ArchiveCollectionBodyProps {
   folders?: readonly CollectionEntryModel[];
@@ -44,6 +46,19 @@ export interface ArchiveCollectionBodyProps {
   resolveResourceUrl?: (path: string) => string;
   /** Opens an archived file (its viewer, where its Restore / Delete live). */
   onOpenResource?(resource: VaultResource): void;
+  /**
+   * Right-click menu for an archived folder or note: its own menu (Restore, Delete permanently — what the
+   * definitions allow an archived item), resolved from the entry that was clicked. Its presence is the capability
+   * gate, as in every other collection; absent, entries have no menu.
+   */
+  itemMenu?: CollectionItemMenuResolver;
+  /** Right-click menu for an archived file (Restore, Delete permanently). Same capability gate. */
+  resourceMenu?: CollectionItemMenuResolver<VaultResource>;
+}
+
+/** An item or row with the context menu's attributes merged into its own `props`. */
+function withMenuProps<T extends { props?: object }>(item: T, menuProps: object | undefined): T {
+  return menuProps ? { ...item, props: { ...item.props, ...menuProps } } : item;
 }
 
 /** What the body shows when the page does not say: the Archive's resolved defaults, read from its definition. */
@@ -67,8 +82,8 @@ interface ArchiveRow {
  * the one sort engine (never grouped folders → notes → files). Each kind enters through its domain
  * mapper; the generic components only place what they are given. Type (Note, Folder, Image,
  * PDF) and Archived are ordinary properties the Archive's definition offers, so List and Table draw
- * them from the same `visible` set as any other. A file's archive date is the one the app recorded when it archived it. Rows carry no inline actions: a folder or note is restored or deleted from its own page, a file
- * from its viewer.
+ * them from the same `visible` set as any other. A file's archive date is the one the app recorded when it archived it. Rows carry no inline actions; what can be done to an archived item is in its right-click menu (and
+ * its own page or viewer): Restore and Delete permanently, for one item or the whole selection.
  */
 export function ArchiveCollectionBody({
   folders = [],
@@ -81,19 +96,36 @@ export function ArchiveCollectionBody({
   archivedAtByPath,
   resolveResourceUrl,
   onOpenResource,
+  itemMenu,
+  resourceMenu,
 }: ArchiveCollectionBodyProps) {
+  // Which rows are checked (never saved; see `useCollectionSelection`), and the menu a right-click opens while any is:
+  // composed from each checked item's own menu — a note's, a folder's or a file's.
+  const selection = useCollectionSelection([...folders, ...notes].map((entry) => entry.id).concat(resources.map((resource) => resource.id)));
+  const menuFor = (id: string) => {
+    const entry = [...folders, ...notes].find((candidate) => candidate.id === id);
+    if (entry) {
+      return itemMenu ? itemMenu(entry) : null;
+    }
+    const resource = resources.find((candidate) => candidate.id === id);
+    return resource && resourceMenu ? resourceMenu(resource) : null;
+  };
+  const selectionMenu = useCollectionSelectionMenu(selection, menuFor);
+  const entryContextMenu = useCollectionItemContextMenu(itemMenu, selectionMenu);
+  const resourceContextMenu = useCollectionItemContextMenu<VaultResource>(resourceMenu, selectionMenu);
+
   const rows: ArchiveRow[] = [
     ...folders.map((entry) => ({
       id: entry.id,
       values: entry.values,
-      listItem: toFolderListItem(entry, { visible }),
-      tableRow: toFolderTableRow(entry, { visible }),
+      listItem: withMenuProps(toFolderListItem(entry, { visible }), entryContextMenu.entryProps(entry)),
+      tableRow: withMenuProps(toFolderTableRow(entry, { visible }), entryContextMenu.entryProps(entry)),
     })),
     ...notes.map((entry) => ({
       id: entry.id,
       values: entry.values,
-      listItem: toNoteListItem(entry, { visible }),
-      tableRow: toNoteTableRow(entry, { visible }),
+      listItem: withMenuProps(toNoteListItem(entry, { visible }), entryContextMenu.entryProps(entry)),
+      tableRow: withMenuProps(toNoteTableRow(entry, { visible }), entryContextMenu.entryProps(entry)),
     })),
     ...resources.map((resource) => {
       const asset = assetOfResource(resource);
@@ -108,14 +140,12 @@ export function ArchiveCollectionBody({
       return {
         id: resource.id,
         values: toAssetEntry(asset, archivedAt).values,
-        listItem: toAssetListItem(asset, options),
-        tableRow: toAssetTableRow(asset, options),
+        listItem: withMenuProps(toAssetListItem(asset, options), resourceContextMenu.entryProps(resource)),
+        tableRow: withMenuProps(toAssetTableRow(asset, options), resourceContextMenu.entryProps(resource)),
       };
     }),
   ];
   const sorted = sortEntries(rows, sort);
-  // Which rows are checked (never saved; see `useCollectionSelection`).
-  const selection = useCollectionSelection(rows.map((row) => row.id));
   const marquee = useMarqueeSelection(selection);
   const selectionOf = (row: ArchiveRow) => selection.selectionFor(row.id, String(row.values.name));
 
@@ -136,6 +166,9 @@ export function ArchiveCollectionBody({
           CollectionBody.css for why it's a real flex child rather
           than padding on .collection__content. */}
       <div className="collection__bottom-spacer" aria-hidden="true" />
+      {entryContextMenu.overlay}
+      {resourceContextMenu.overlay}
+      {selectionMenu.overlay}
     </PageBody>
   );
 }

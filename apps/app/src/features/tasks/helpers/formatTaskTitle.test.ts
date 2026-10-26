@@ -79,6 +79,15 @@ describe('formatTaskTitle', () => {
     );
   });
 
+  it('hides a timed due date only when dueTime also matches, leaving a same-date-different-time mention raw', () => {
+    expect(
+      formatTaskTitle('Call @2026-10-23T07:00', '2026-10-23', '07:00')
+    ).toBe('Call');
+    expect(
+      formatTaskTitle('Call @2026-10-23T07:00', '2026-10-23', '09:00')
+    ).toBe('Call @2026-10-23T07:00');
+  });
+
   it('returns independently correct results across consecutive calls with different texts/dates — guards against a hoisted, stateful RegExp leaking lastIndex between calls', () => {
     const first = formatTaskTitle(
       'Review @2026-08-20 and compare with @2026-08-22',

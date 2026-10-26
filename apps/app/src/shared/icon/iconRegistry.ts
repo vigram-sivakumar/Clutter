@@ -115,6 +115,7 @@ import SquareExpand from './svg/square-expand.svg?react';
 import SquareFill from './svg/square-fill.svg?react';
 import SquareFit from './svg/square-fit.svg?react';
 import SquiggleLine from './svg/squiggle-line.svg?react';
+import Swirl from './svg/swirl.svg?react';
 import Tabs from './svg/tabs.svg?react';
 import TabsFlat from './svg/tabs-flat.svg?react';
 import Table from './svg/table.svg?react';
@@ -245,6 +246,7 @@ export const iconRegistry = {
   squareFill: SquareFill,
   squareFit: SquareFit,
   squiggleLine: SquiggleLine,
+  swirl: Swirl,
   tabs: Tabs,
   tabsFlat: TabsFlat,
   table: Table,

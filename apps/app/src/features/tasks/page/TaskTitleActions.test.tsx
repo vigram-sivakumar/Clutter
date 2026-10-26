@@ -85,11 +85,11 @@ describe('TaskTitleActions — what closing the due-date picker leaves behind', 
     expect(button).not.toHaveFocus();
   });
 
-  it('open with the pointer → Clear date: it is cleared, the picker closes, and focus is NOT left on the button', () => {
+  it('open with the pointer → Clear: it is cleared, the picker closes, and focus is NOT left on the button', () => {
     const { button, onChangeDueDate } = renderActions();
 
     pointerOpen(button);
-    fireEvent.click(screen.getByText('Clear date'));
+    fireEvent.click(screen.getByText('Clear'));
 
     expect(onChangeDueDate).toHaveBeenCalledWith(null);
     expect(button).not.toHaveFocus();
@@ -130,7 +130,7 @@ describe('a pointer press never takes focus (so nothing can pin the actions reve
       () => fireEvent.keyDown(document, { key: 'Escape' }),
       () => fireEvent.click(document.querySelector('.overlay__backdrop')!),
       () => fireEvent.click(screen.getByText('15')),
-      () => fireEvent.click(screen.getByText('Clear date')),
+      () => fireEvent.click(screen.getByText('Clear')),
     ]) {
       const { button } = renderActions();
 

@@ -43,6 +43,7 @@ export class PageAnalysisMapper {
       text: task.text,
       completed: task.completed,
       dueDate: task.dueDate,
+      dueTime: task.dueTime,
       completedAt: task.completedAt,
       rawText: task.rawText,
       startOffset: task.startOffset,

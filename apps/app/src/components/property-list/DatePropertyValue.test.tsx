@@ -48,13 +48,13 @@ function getDay(day: number): HTMLElement {
 }
 
 function calendarMonthYear(): string {
-  const month = document.querySelector('.property-date-picker .calendar-month')?.textContent;
-  const year = document.querySelector('.property-date-picker .calendar-year')?.textContent;
+  const month = document.querySelector('.date-picker .calendar-month')?.textContent;
+  const year = document.querySelector('.date-picker .calendar-year')?.textContent;
   return `${month} ${year}`;
 }
 
 function selectedDay(): string | null {
-  return document.querySelector('.property-date-picker .calendar-cell--selected')?.textContent ?? null;
+  return document.querySelector('.date-picker .calendar-cell--selected')?.textContent ?? null;
 }
 
 function type(text: string) {
@@ -62,7 +62,7 @@ function type(text: string) {
 }
 
 function isCalendarOpen(): boolean {
-  return document.querySelector('.property-date-picker') !== null;
+  return document.querySelector('.date-picker') !== null;
 }
 
 /** Holds the value in state the way a real adapter would, so a commit flows back into the field. */
@@ -629,7 +629,7 @@ describe('DatePropertyValue — calendar dismissal', () => {
     render(<StatefulDate initial="2025-09-15" />);
 
     act(() => getField().focus());
-    const notCancelled = fireEvent.mouseDown(document.querySelector('.property-date-picker')!);
+    const notCancelled = fireEvent.mouseDown(document.querySelector('.date-picker')!);
 
     expect(notCancelled).toBe(false);
     expect(isCalendarOpen()).toBe(true);

@@ -32,6 +32,10 @@ export interface TaskOccurrence extends Occurrence {
   // page a task lives in, including a Daily Note, never supplies one
   // (ADR-044).
   readonly dueDate?: string;
+  // The optional `THH:MM` time of day carried by the same due-date token
+  // (`@YYYY-MM-DDTHH:MM`, or legacy `@due:YYYY-MM-DDTHH:MM`) — see
+  // TaskExtractor.splitDueDate. Never present without dueDate.
+  readonly dueTime?: string;
   readonly completedAt?: string;
 
   // TODO: @priority, @repeat, @estimate, @reminder — add a field here (and

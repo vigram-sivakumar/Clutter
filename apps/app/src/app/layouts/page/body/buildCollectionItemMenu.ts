@@ -1,7 +1,10 @@
 import type { Application } from '@core/application/Application';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
 
-import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
+import { buildMenuFromDefinitions, buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
+import { RESOURCE_ACTIONS } from '@core/presentation/resourceActions/resourceActionDefinitions';
+import type { VaultResource } from '@core/vault/models/VaultResource';
+import { PAGE_DELETE_CONFIRMATION_MESSAGE } from '@features/notes/helpers/folderActionConfirmation';
 import type { Asset } from '@core/vault/models/Asset';
 import {
   buildImageAssetMenu,
@@ -89,5 +92,57 @@ export function buildAssetItemMenu(
     moveDestinations: buildMoveDestinationItems(membershipSelector, undefined, 'assets'),
     onMove: (destinationFolderId) => actions.onMoveResource?.(id, destinationFolderId),
     onCreateFolder: createFolderInZone(folderOperations, membershipSelector, 'assets'),
+  };
+}
+
+/** What the Trash's right-click menu can do for an archived file: the operations a file's viewer already has for it. */
+export interface ArchivedResourceMenuActions {
+  /** Returns the file to where it was (the host reports a failure, or asks where it should go). */
+  onRestoreResource(resourceId: string): void;
+  /** Deletes the file for good — the menu's confirmation has already been answered. */
+  onDeleteResource(resourceId: string): void;
+}
+
+/**
+ * The right-click menu for one file in the Trash: Restore and Delete permanently, from the same canonical asset
+ * actions the file's viewer uses (so wording, icons and grouping are theirs) — and nothing else, since everything
+ * else an asset can do (rename, move, download, reveal…) is for a file that is not archived. Restore is offered
+ * only for a file that sits directly in the Archive (it has a recorded original place); one inside an archived
+ * folder can only be deleted, as in the viewer. Delete asks the shared confirmation before it runs.
+ */
+export function buildArchivedResourceItemMenu(
+  application: Application,
+  actions: ArchivedResourceMenuActions,
+  resource: VaultResource
+): ResourceTopBarActionsProps | null {
+  const { vault } = application;
+  const archiveFolder = vault.getReservedFolder('archive');
+  const canRestore = archiveFolder !== undefined && resource.parentId === archiveFolder.id;
+  const offered = ['restore', 'delete'];
+  const menu = buildMenuFromDefinitions(
+    RESOURCE_ACTIONS.asset.filter((definition) => offered.includes(definition.id)),
+    {
+      assetKind: resource.kind === 'pdf' ? 'pdf' : 'image',
+      status: canRestore ? 'archived' : 'active',
+      isEffectivelyArchived: true,
+      isDeletable: true,
+    },
+    'context',
+    'asset'
+  );
+
+  return {
+    menu,
+    handlers: {
+      restore: () => actions.onRestoreResource(resource.id),
+      delete: () => actions.onDeleteResource(resource.id),
+    },
+    deleteConfirmationMessage: PAGE_DELETE_CONFIRMATION_MESSAGE,
+    resourceId: resource.id,
+    // Read live: a file restored or deleted since the selection was made is no longer in the trash.
+    isArchived: () => {
+      const live = vault.getResource(resource.id);
+      return live !== undefined && vault.isResourceEffectivelyArchived(live);
+    },
   };
 }

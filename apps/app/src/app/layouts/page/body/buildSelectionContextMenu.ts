@@ -71,6 +71,8 @@ export function buildSelectionContextMenu(
       // Once per resource (several entries can lead to the same one), and never for one that has been archived since
       // the selection was made — its own archive would only fail.
       archive: () => runForEach(archivable(items), (item) => item?.handlers?.['archive']?.()),
+      // Restore returns each item that is still in the trash to where it was; one that has been restored since is skipped.
+      restore: () => runForEach(restorable(items), (item) => item?.handlers?.['restore']?.()),
       delete: () => runForEach(items, (item) => item?.handlers?.['delete']?.()),
     },
     // The existing Delete confirmation (title, copy, button), told how many items it is about. A lone item keeps its own.
@@ -86,6 +88,24 @@ export function buildSelectionContextMenu(
     moveDestinations: destinations,
     onMove: destinations ? (destinationFolderId) => items.forEach((item) => item?.onMove?.(destinationFolderId)) : undefined,
   };
+}
+
+/** The items a restore should run for: one per resource, skipping any that is no longer archived at this moment. */
+function restorable<T extends ResourceTopBarActionsProps | null>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+
+  return items.filter((item) => {
+    if (item?.isArchived && !item.isArchived()) {
+      return false;
+    }
+    if (item?.resourceId !== undefined) {
+      if (seen.has(item.resourceId)) {
+        return false;
+      }
+      seen.add(item.resourceId);
+    }
+    return true;
+  });
 }
 
 /** The items an archive should run for: one per resource, skipping any already archived at this moment. */

@@ -23,7 +23,7 @@ import {
   type TaskGroupId,
   type TaskExpansionKey,
 } from './groupTasks';
-import { formatTaskDueDate, formatTaskDueDateLong } from './formatTaskDueDate';
+import { formatTaskDueDate, formatTaskDueDateLong, formatTaskDueTime } from './formatTaskDueDate';
 import { formatTaskTitle } from './formatTaskTitle';
 import { isPast, isToday } from '@shared/helpers/time';
 import { EmptyEntry } from '@components/entry/EmptyEntry';
@@ -64,6 +64,13 @@ interface TaskRowOptions {
 // just repeat it. Any other date (including a completed task's past or
 // future due date, when Show completed surfaces it in Everything else) is
 // shown normally.
+//
+// Time follows the same "don't repeat what the context already says"
+// rule, one level down: whenever the date itself is suppressed — today's
+// section, or a date-grouped section's per-date heading (`hideDueDate`) —
+// only the time shows (nothing at all for a date-only task). Otherwise
+// (an ungrouped, non-today row) a timed task shows both, joined the same
+// way `formatDateTimeDisplay` joins a date and a time elsewhere.
 export function renderTaskRow(
   task: TaskOccurrence,
   {
@@ -82,6 +89,15 @@ export function renderTaskRow(
   const dueDate = task.dueDate;
   const isDueToday = dueDate != null && isToday(dueDate);
   const isOverdue = !task.completed && dueDate != null && isPast(dueDate);
+  const dueTimeLabel = task.dueTime ? formatTaskDueTime(task.dueTime) : undefined;
+  const showFullDate = dueDate != null && !isDueToday && !hideDueDate;
+  const dueDateLabel = dueDate == null
+    ? undefined
+    : showFullDate
+      ? dueTimeLabel
+        ? `${formatTaskDueDate(dueDate)}, ${dueTimeLabel}`
+        : formatTaskDueDate(dueDate)
+      : dueTimeLabel;
 
   return (
     <Task
@@ -89,12 +105,8 @@ export function renderTaskRow(
       // just made by Duplicate, or the same line in two notes) must never
       // share a React key. See TaskOccurrence's own positional-identity note.
       key={`${task.sourcePageId}:${task.startOffset ?? task.text}`}
-      title={formatTaskTitle(task.text, dueDate)}
-      dueDate={
-        dueDate && !isDueToday && !hideDueDate
-          ? formatTaskDueDate(dueDate)
-          : undefined
-      }
+      title={formatTaskTitle(task.text, dueDate, task.dueTime)}
+      dueDate={dueDateLabel}
       isOverdue={isOverdue}
       date={dueDate}
       isChecked={task.completed}

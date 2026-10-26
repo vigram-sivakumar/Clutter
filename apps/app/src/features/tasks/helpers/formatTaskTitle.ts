@@ -33,16 +33,23 @@ import { BARE_DATE_PATTERN } from '@core/vault/ingest/extractors/TaskExtractor';
  * from `@due:` instead (already stripped from `text` at extraction) or no
  * bare date matches it at all, `text` is returned unchanged.
  */
-export function formatTaskTitle(text: string, dueDate: string | undefined): string {
+export function formatTaskTitle(
+  text: string,
+  dueDate: string | undefined,
+  dueTime?: string
+): string {
   if (dueDate === undefined) {
     return text;
   }
 
+  // BARE_DATE_PATTERN's capture includes any trailing `THH:MM`, so the value it must match against is the
+  // same combined token `dueDate`/`dueTime` were split from, not `dueDate` alone.
+  const dueValue = dueTime === undefined ? dueDate : `${dueDate}T${dueTime}`;
   const pattern = new RegExp(BARE_DATE_PATTERN.source, 'g');
   let match: RegExpExecArray | null;
 
   while ((match = pattern.exec(text))) {
-    if (match[2] === dueDate) {
+    if (match[2] === dueValue) {
       const matchStart = match.index;
       const matchEnd = matchStart + match[0].length;
       // Hidden entirely — leading whitespace and the raw token both drop,

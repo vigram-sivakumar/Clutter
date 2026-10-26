@@ -320,7 +320,7 @@ describe('Task — Change due date action', () => {
     expect(document.querySelector('.calendar')).toBeNull();
   });
 
-  it('"Clear date" calls onChangeDueDate with null and closes the overlay', () => {
+  it('"Clear" calls onChangeDueDate with null and closes the overlay', () => {
     const onChangeDueDate = vi.fn();
     const { container } = render(
       <Task
@@ -333,13 +333,13 @@ describe('Task — Change due date action', () => {
 
     openMenu(container);
     fireEvent.click(screen.getByText('Due date'));
-    fireEvent.click(screen.getByRole('button', { name: 'Clear date' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
 
     expect(onChangeDueDate).toHaveBeenCalledWith(null);
     expect(document.querySelector('.calendar')).toBeNull();
   });
 
-  it('disables "Clear date" when the task has no date yet', () => {
+  it('disables "Clear" when the task has no date yet', () => {
     const { container } = render(
       <Task title="Finish table work" isChecked={false} onChangeDueDate={vi.fn()} />
     );
@@ -347,7 +347,9 @@ describe('Task — Change due date action', () => {
     openMenu(container);
     fireEvent.click(screen.getByText('Due date'));
 
-    expect(screen.getByRole('button', { name: 'Clear date' })).toHaveAttribute('aria-disabled', 'true');
+    // The Clear row is an Entry (a div), not a native <button>: it signals disabled via aria-disabled, not the
+    // disabled attribute toBeDisabled() checks for.
+    expect(screen.getByRole('button', { name: 'Clear' })).toHaveAttribute('aria-disabled', 'true');
   });
 });
 

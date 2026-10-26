@@ -1,13 +1,9 @@
 import { useCallback, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 
-import { Button } from '@components/button/Button';
 import { Input } from '@components/input/Input';
-import { Overlay } from '@components/overlay/Overlay';
-import { AppIcon } from '@shared/icon';
+import { DatePickerOverlay } from '@components/date-picker/DatePicker';
 import { parseDateInput } from '@shared/helpers/time/parseDateInput';
-import { Calendar } from '@features/daily-notes/calendar/components/calendar/Calendar';
-import type { CalendarMode } from '@features/daily-notes/calendar/models/CalendarMode';
 
 import type { PropertyEditability } from './PropertyList.types';
 import { PropertyValueCell } from './PropertyValueCell';
@@ -63,7 +59,7 @@ interface DatePropertyEditorProps {
  *   typing — deleting characters routinely passes through valid dates
  *   ("15 Sep 20" is 2020), which must never be saved.
  *   Enter or blur commits the draft if it is a valid date.
- * - the Calendar (same Calendar + Overlay pairing TaskDatePicker uses):
+ * - the Calendar (the shared DatePicker, same as TaskDatePicker):
  *   a pick commits and drops the draft, so the input shows the formatted
  *   value; its "Clear" action commits null, emptying the value while the
  *   Calendar stays open.
@@ -84,7 +80,6 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
     anchorRef.current = node?.parentElement ?? null;
   }, []);
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<CalendarMode>('month');
   const [draft, setDraft] = useState<string | null>(null);
   // The last valid date typed in the current draft — what the Calendar
   // shows while typing. Never committed on its own; dropped with the draft.
@@ -229,37 +224,19 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
         calendar is kept from taking focus, so the input stays focused (and
         typeable) while the user browses months or picks a day.
       */}
-      <Overlay
+      <DatePickerOverlay
         open={open}
         onClose={close}
         anchorRef={anchorRef}
         returnFocusRef={fieldRef}
-        side="bottom"
-        alignment="start"
         backdrop={false}
         suppressReturnFocusRef={suppressReturnFocusRef}
-      >
-        <div className="property-date-picker" onMouseDown={(event) => event.preventDefault()}>
-          <Calendar
-            mode={mode}
-            selectedDate={calendarDate}
-            onModeChange={setMode}
-            onSelectedDateChange={handleSelect}
-          />
-          {/* Same footer action as TaskDatePicker's, labelled "Clear" with a dismiss icon — it empties the value, nothing is deleted. */}
-          <Button
-            className="property-date-picker__clear"
-            variant="ghost"
-            interaction="subtle"
-            size="small"
-            leading={<AppIcon icon="dismiss" />}
-            disabled={value === null}
-            onClick={handleClear}
-          >
-            Clear
-          </Button>
-        </div>
-      </Overlay>
+        selectedDate={calendarDate}
+        onSelectedDateChange={handleSelect}
+        onClear={handleClear}
+        clearDisabled={value === null}
+        keepFocusOnPress
+      />
     </>
   );
 }

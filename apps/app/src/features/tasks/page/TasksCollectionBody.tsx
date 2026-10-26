@@ -176,7 +176,7 @@ export function TasksCollectionBody({
 
   const titleOf = ({ task }: TaskEntry) => (
     <span className={`task-title ${task.completed ? 'is-completed' : ''}`}>
-      {renderCompactMarkdown(formatTaskTitle(task.text, task.dueDate), {
+      {renderCompactMarkdown(formatTaskTitle(task.text, task.dueDate, task.dueTime), {
         resolveWikiLink,
         resolveTag,
         resolveEmbed,

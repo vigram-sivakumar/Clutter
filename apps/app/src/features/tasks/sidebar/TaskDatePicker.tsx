@@ -1,12 +1,6 @@
-import { useState } from 'react';
 import type { MutableRefObject, RefObject } from 'react';
 
-import { Entry } from '@components/entry/Entry';
-import { Overlay } from '@components/overlay/Overlay';
-import { AppIcon } from '@shared/icon';
-import { Calendar } from '@features/daily-notes/calendar/components/calendar/Calendar';
-import type { CalendarMode } from '@features/daily-notes/calendar/models/CalendarMode';
-import './TaskDatePicker.css';
+import { DatePickerOverlay } from '@components/date-picker/DatePicker';
 
 export interface TaskDatePickerProps {
   anchorRef: RefObject<HTMLElement>;
@@ -25,12 +19,9 @@ export interface TaskDatePickerProps {
 }
 
 /**
- * A task row's date picker: the same Calendar grid Daily Notes' own nav
- * control uses (Calendar.tsx), anchored/positioned/dismissed via the same
- * Overlay + useOverlay convention — not a second date-picker implementation
- * — plus a "Clear date" action Daily Notes has no use for (a Daily Note's
- * date is never optional) but a task's is, since Calendar itself has no
- * clear affordance.
+ * A task row's date picker: the shared DatePicker, anchored below its trigger. A task's date is optional, so it
+ * offers Clear (a Daily Note's date is never optional, which is why Daily Notes' own calendar has none), disabled
+ * while the task has no date.
  */
 export function TaskDatePicker({
   anchorRef,
@@ -41,34 +32,16 @@ export function TaskDatePicker({
   onClear,
   suppressReturnFocusRef,
 }: TaskDatePickerProps) {
-  const [mode, setMode] = useState<CalendarMode>('month');
-
   return (
-    <Overlay
+    <DatePickerOverlay
       open={open}
       onClose={onClose}
       anchorRef={anchorRef}
       suppressReturnFocusRef={suppressReturnFocusRef}
-      side="bottom"
-      alignment="start"
-    >
-      <div className="task-date-picker">
-        <Calendar
-          mode={mode}
-          selectedDate={date}
-          onModeChange={setMode}
-          onSelectedDateChange={onSelect}
-        />
-        <div className="task-date-picker__divider" role="separator" />
-        <Entry
-          className="task-date-picker__clear"
-          leading={<AppIcon icon="dismiss" />}
-          disabled={date === undefined}
-          onClick={onClear}
-        >
-          Clear date
-        </Entry>
-      </div>
-    </Overlay>
+      selectedDate={date}
+      onSelectedDateChange={onSelect}
+      onClear={onClear}
+      clearDisabled={date === undefined}
+    />
   );
 }

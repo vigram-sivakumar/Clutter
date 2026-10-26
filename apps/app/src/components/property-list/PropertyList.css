@@ -114,34 +114,6 @@
   padding-inline: 0;
 }
 
-/* Same surface and layout as TaskDatePicker's Calendar overlay. */
-.property-date-picker {
-  display: flex;
-  flex-direction: column;
-  width: 280px;
-  padding: var(--space-12);
-  border-radius: var(--radius-xxl);
-  background: var(--surface-secondary);
-  box-shadow: var(--shadow-inset-default), var(--shadow-md);
-}
-.property-date-picker .calendar-toggle {
-  display: none;
-}
-
-.property-date-picker__clear {
-  align-self: flex-end;
-  margin-top: var(--space-8);
-}
-
-/* A disabled <button> gets no mousedown/click at all (only pointerdown),
-   so the picker's own mousedown handler — which keeps focus in the date
-   input — never runs, and the click blurs the input and closes the
-   calendar. Letting the click fall through to the picker surface keeps
-   a click on the disabled Clear as inert as a click on the padding. */
-.property-date-picker__clear:disabled {
-  pointer-events: none;
-}
-
 /* URL values use the Markdown link tokens — the same color and underline
    as the editor's `.tok-link`/`.tok-link-title` split (MarkdownEditor.css):
    color on the link, underline on its own inner title element. */

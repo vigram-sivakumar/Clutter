@@ -40,6 +40,12 @@ const intersects = (a: Box, b: Box) => a.left < b.right && a.right > b.left && a
  * while the pointer rests near the edge or beyond it — grows it correctly. Tracking is document-wide, so the
  * pointer may leave the collection and be released anywhere; release, Escape (which restores the selection the
  * press found), pointer cancel, window blur and unmount all end it and remove the rectangle and every listener.
+ *
+ * The same press is also how a click on empty space leaves selection mode: released without having become a drag (the
+ * movement threshold above is the one line between the two), a plain press — no modifier held — clears the selection while
+ * the mode is on, the way Escape does. What counts as empty space is what counts as a marquee start: not an item, a control, a
+ * field or a handle, and nothing outside the collection (the page header, an open menu or dialog, the editor), so a click
+ * on any of those leaves the selection alone. Cancelling a press (pointer cancel, blur, Escape mid-drag) never clears.
  */
 export function useMarqueeSelection(selection: CollectionSelection): {
   ref(element: HTMLElement | null): void;
@@ -91,6 +97,9 @@ export function useMarqueeSelection(selection: CollectionSelection): {
     };
     const pointer = { x: start.x, y: start.y };
     const additive = isMultiSelectToggleClick(event);
+    // A press with any modifier held is something else (the additive marquee, a Ctrl-click that opens the context menu on
+    // a Mac): only a plain one can be the click that leaves selection mode.
+    const plain = !(event.shiftKey || event.altKey || event.ctrlKey || event.metaKey);
     const before = [...selectionRef.current.selectedIds];
 
     let dragging = false;
@@ -203,6 +212,11 @@ export function useMarqueeSelection(selection: CollectionSelection): {
       if (didDrag) {
         // The click the release fires must not open anything.
         swallowNextClick();
+      } else if (plain && selectionRef.current.active) {
+        // A press on empty space that never became a drag is a click on empty space: it leaves selection mode, exactly as
+        // Escape does (`useCollectionSelection`). Only a release does it, never the press — so a drag that has begun, even one
+        // that ends where it started, is a marquee and keeps what it selected.
+        selectionRef.current.clear();
       }
     }
 

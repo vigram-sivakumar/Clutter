@@ -88,3 +88,16 @@ describe('buildSelectionActionMenu — Delete', () => {
     expect(items.map((item) => item.id)).not.toContain('delete');
   });
 });
+
+describe('buildSelectionActionMenu — Restore (the Trash)', () => {
+  it('offers only Restore and Delete permanently beside Select all when that is all the items support, each in its own group', () => {
+    const items = buildSelectionActionMenu({ count: 3, total: 5, supported: new Set(['restore', 'delete']), allFavorite: false });
+
+    expect(items.map((item) => [item.id, item.label])).toEqual([
+      ['select-all', 'Select all'],
+      ['restore', 'Restore'],
+      ['delete', 'Delete permanently'],
+    ]);
+    expect(items.map((item) => item.separatorBefore === true)).toEqual([false, true, true]);
+  });
+});

@@ -162,7 +162,8 @@ describe('buildSelectionContextMenu — Delete', () => {
     const log: string[] = [];
     const props = buildSelectionContextMenu([trashed(log, 'a'), trashed(log, 'b')], ops());
 
-    expect(ids(props)).toEqual(['select-all', 'delete']);
+    // Restore (the trash's own recovery) and Delete are offered; Move to trash is not, and neither is Move to.
+    expect(ids(props)).toEqual(['select-all', 'restore', 'delete']);
   });
 
   it('asks the existing confirmation, naming the count, and deletes every selected item only on confirm', () => {
@@ -232,3 +233,29 @@ describe('buildSelectionContextMenu — archiving a selection safely', () => {
   });
 });
 
+
+describe('buildSelectionContextMenu — Restore (the Trash)', () => {
+  const trashed = (log: string[], name: string, over: Partial<ResourceTopBarActionsProps> = {}) =>
+    itemMenu('note', log, name, { status: 'archived', isDeletable: true }, { deleteConfirmationMessage: 'You can’t undo this action', ...over });
+
+  it('offers Restore only when every item offers it itself, and never Move to, favorites or Move to trash', () => {
+    const log: string[] = [];
+
+    expect(ids(buildSelectionContextMenu([trashed(log, 'a'), trashed(log, 'b')], ops()))).toEqual(['select-all', 'restore', 'delete']);
+    // A file inside an archived folder can only be deleted: it takes Restore away for the whole selection.
+    const nested = itemMenu('asset', log, 'deep', { status: 'active', isEffectivelyArchived: true, isDeletable: true }, { deleteConfirmationMessage: 'x' });
+    expect(ids(buildSelectionContextMenu([trashed(log, 'a'), nested], ops()))).toEqual(['select-all', 'delete']);
+  });
+
+  it('restores each selected item once, skipping any that is no longer archived', () => {
+    const log: string[] = [];
+    const first = trashed(log, 'first', { resourceId: 'a', isArchived: () => true });
+    const duplicate = trashed(log, 'duplicate', { resourceId: 'a', isArchived: () => true });
+    const already = trashed(log, 'already', { resourceId: 'b', isArchived: () => false });
+    const props = buildSelectionContextMenu([first, duplicate, already], ops());
+
+    props.handlers!['restore']!();
+
+    expect(log).toEqual(['restore:first']);
+  });
+});

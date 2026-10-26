@@ -330,6 +330,38 @@ describe('groupTasks', () => {
 
       expect(groups.today).toEqual([alpha, zebra]);
     });
+
+    it('sorts Today chronologically by time, timed tasks first, then time-less tasks', () => {
+      const noon = task({ text: 'Lunch', dueDate: '2026-08-04', dueTime: '12:00' });
+      const morning = task({ text: 'Standup', dueDate: '2026-08-04', dueTime: '09:00' });
+      const noTime = task({ text: 'Someday today', dueDate: '2026-08-04' });
+
+      const groups = groupTasks([noon, noTime, morning], SHOWN);
+
+      expect(groups.today).toEqual([morning, noon, noTime]);
+    });
+
+    it('sorts Overdue/Upcoming by date first, then by time within the same date, timed tasks before time-less ones', () => {
+      const jul28Noon = task({ text: 'Fix bug', dueDate: '2026-07-28', dueTime: '12:00' });
+      const jul28Morning = task({ text: 'Zzz last alphabetically', dueDate: '2026-07-28', dueTime: '08:00' });
+      const jul28NoTime = task({ text: 'No time at all', dueDate: '2026-07-28' });
+      const jul29 = task({ text: 'Submit invoice', dueDate: '2026-07-29', dueTime: '06:00' });
+
+      const groups = groupTasks([jul28Noon, jul29, jul28Morning, jul28NoTime], SHOWN);
+
+      // Date dominates (jul29's early 06:00 still sorts after every jul28 task), then time ascending,
+      // with the time-less jul28 task last among its date's peers.
+      expect(groups.overdue).toEqual([jul28Morning, jul28Noon, jul28NoTime, jul29]);
+    });
+
+    it('breaks an identical date+time tie by preserving the tasks\' existing relative order, then falling back to title', () => {
+      const first = task({ text: 'Same title', dueDate: '2026-08-04', dueTime: '09:00' });
+      const second = task({ text: 'Same title', dueDate: '2026-08-04', dueTime: '09:00' });
+
+      const groups = groupTasks([first, second], SHOWN);
+
+      expect(groups.today).toEqual([first, second]);
+    });
   });
 });
 

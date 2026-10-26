@@ -103,20 +103,40 @@ function hasScheduledDueDate(task: TaskOccurrence): boolean {
 // (guaranteed since ES2019) is what preserves existing relative order for
 // identical titles — no explicit tie-break needed here.
 function byTitle(a: TaskOccurrence, b: TaskOccurrence): number {
-  return formatTaskTitle(a.text, a.dueDate).localeCompare(
-    formatTaskTitle(b.text, b.dueDate),
+  return formatTaskTitle(a.text, a.dueDate, a.dueTime).localeCompare(
+    formatTaskTitle(b.text, b.dueDate, b.dueTime),
     undefined,
     { sensitivity: 'base' }
   );
 }
 
-// Due date ascending, falling through to byTitle for tasks sharing the
-// same date — the Group → Due date → Title hierarchy every dated section
-// (Today, Overdue, Upcoming's scheduled tasks) sorts by.
-function byDueDateThenTitle(a: TaskOccurrence, b: TaskOccurrence): number {
-  const dueDateComparison = a.dueDate!.localeCompare(b.dueDate!);
+// Time ascending, a timed task always before a time-less one on the same
+// date (the explicit boolean check below, not a string-sort trick — never
+// invented by treating a missing time as midnight), falling through to
+// byTitle for a further tie. Never invents a time for an undated task:
+// this only ever compares tasks that already share a due date
+// (byDueDateThenTitle's tie-break, and Today's own sort, where every
+// member shares today's date by construction).
+function byTimeThenTitle(a: TaskOccurrence, b: TaskOccurrence): number {
+  const aHasTime = a.dueTime !== undefined;
+  const bHasTime = b.dueTime !== undefined;
 
-  return dueDateComparison !== 0 ? dueDateComparison : byTitle(a, b);
+  if (aHasTime !== bHasTime) {
+    return aHasTime ? -1 : 1;
+  }
+
+  const timeComparison = aHasTime && bHasTime ? a.dueTime.localeCompare(b.dueTime) : 0;
+
+  return timeComparison !== 0 ? timeComparison : byTitle(a, b);
+}
+
+// Due date ascending, then time (byTimeThenTitle, which also carries the
+// title tie-break) — the Group → Due date → Time → Title hierarchy every
+// dated section (Overdue, Upcoming's scheduled tasks) sorts by.
+function byDueDateThenTitle(a: TaskOccurrence, b: TaskOccurrence): number {
+  const dateComparison = a.dueDate!.localeCompare(b.dueDate!);
+
+  return dateComparison !== 0 ? dateComparison : byTimeThenTitle(a, b);
 }
 
 /**
@@ -150,13 +170,16 @@ function sortCompletedLast(tasks: readonly TaskOccurrence[]): readonly TaskOccur
  * lands in `today`, unchanged.
  *
  * Within each of those three groups, ordering follows Group → Due date →
- * Title: Today sorts alphabetically by title (every member shares today's
- * date, so date comparison is always a tie); Overdue and Upcoming's
- * scheduled tasks sort chronologically by `dueDate` ascending, falling
- * through to the same alphabetical, case-insensitive title compare
- * whenever two tasks share a date (`byDueDateThenTitle`/`byTitle`).
- * Upcoming's unscheduled tail keeps its own existing (unsorted) relative
- * order, unchanged by this.
+ * Time → Title: Today sorts by time then title (every member shares
+ * today's date, so date comparison is always a tie; a timed task always
+ * sorts before a time-less one, then chronologically among the timed ones
+ * — see `byTimeThenTitle`); Overdue and
+ * Upcoming's scheduled tasks sort chronologically by `dueDate` ascending,
+ * then by time, falling through to the same alphabetical, case-insensitive
+ * title compare whenever two tasks share a date and time
+ * (`byDueDateThenTitle`/`byTimeThenTitle`/`byTitle`). Upcoming's
+ * unscheduled tail keeps its own existing (unsorted) relative order,
+ * unchanged by this.
  *
  * `config.autoSortCompleted` then decides ordering within Today/Upcoming
  * on top of that: false leaves it untouched; true moves every completed
@@ -172,7 +195,7 @@ export function groupTasks(
 ): TaskGroups {
   const eligible = config.showCompleted ? tasks : tasks.filter((task) => !task.completed);
 
-  const today = eligible.filter(isDueToday).sort(byTitle);
+  const today = eligible.filter(isDueToday).sort(byTimeThenTitle);
 
   const remaining = eligible.filter((task) => !isDueToday(task));
 

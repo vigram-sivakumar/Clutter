@@ -150,7 +150,7 @@ const dateFor = (title: string) =>
 // Scoped to the picker: the sidebar's own calendar has day buttons too.
 const pickDay = (day: string) =>
   fireEvent.click(
-    [...document.querySelectorAll('.task-date-picker button')].find(
+    [...document.querySelectorAll('.date-picker button')].find(
       (button) => button.textContent === day
     )!
   );

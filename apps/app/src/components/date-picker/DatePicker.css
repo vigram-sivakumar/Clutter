@@ -1,0 +1,41 @@
+.date-picker {
+  display: flex;
+  flex-direction: column;
+  width: 280px;
+  padding: var(--space-12);
+  border-radius: var(--radius-xxl);
+  background: var(--surface-secondary);
+  box-shadow: var(--shadow-inset-default), var(--shadow-md);
+  gap: var(--space-1);
+}
+
+.date-picker .calendar-toggle {
+  display: none;
+}
+
+/* Same rule as a menu's divider (.menu__divider): inset from the picker's content edges, not edge to edge. */
+.date-picker__divider {
+  height: 1px;
+  margin-inline: var(--space-8);
+  background: var(--border-default);
+}
+
+/* Clear on the left, any other actions pushed to the right — and Clear stays left when it is the only action. */
+.date-picker__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.date-picker__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-left: auto;
+}
+
+/* Entry defaults to a full-width, list-row-height item; Clear sits inline in the footer instead. */
+/* .date-picker__clear {
+  width: auto;
+  height: var(--height-sm);
+} */

@@ -152,7 +152,7 @@ const ARCHIVE: ResourceActionDefinition = {
   availability: (context) => (isArchivedContext(context) ? 'hidden' : persistedOnly(context)),
 };
 
-const RESTORE: ResourceActionDefinition = {
+export const RESTORE: ResourceActionDefinition = {
   id: 'restore',
   group: 'lifecycle',
   order: 10,
@@ -284,7 +284,7 @@ const SELECT_ALL: ResourceActionDefinition = {
 
 /**
  * The actions a selection menu can offer, from the same definitions the single-resource menus use — so wording,
- * icon, group and order are theirs. Move to, Favorite, Move to trash and Delete are offered only when every selected
+ * icon, group and order are theirs. Move to, Favorite, Move to trash, Restore and Delete are offered only when every selected
  * item supports them (see `buildSelectionActionMenu`).
  */
 export const SELECTION_ACTIONS: readonly ResourceActionDefinition[] = [
@@ -292,6 +292,7 @@ export const SELECTION_ACTIONS: readonly ResourceActionDefinition[] = [
   MOVE_TO,
   TOGGLE_FAVORITE,
   ARCHIVE,
+  RESTORE,
   DELETE,
 ];
 

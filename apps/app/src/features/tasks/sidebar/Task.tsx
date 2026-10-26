@@ -23,9 +23,11 @@ interface TaskProps extends Omit<EntryProps, 'children'> {
 
   /**
    * The task's raw ISO `YYYY-MM-DD` date, distinct from `dueDate` (a
-   * pre-formatted display string, e.g. "20 Aug", and undefined when the
-   * date is today — see renderTaskRow) — needed as-is so the Change due
-   * date calendar can pre-select the currently assigned date.
+   * pre-formatted display string, e.g. "20 Aug" or "20 Aug, 2:30 PM" —
+   * the date half drops when it's today or already shown by a date-grouped
+   * heading, leaving only the time, if any; see renderTaskRow) — needed
+   * as-is so the Change due date calendar can pre-select the currently
+   * assigned date.
    */
   date?: string;
 

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DateFormatChoice } from '@shared/helpers/time/dateFormatPreference';
-import { formatTaskDueDate, formatTaskDueDateLong } from './formatTaskDueDate';
+import { setSystemLocaleOverride } from '@shared/helpers/time/dateLocale';
+import { formatTaskDueDate, formatTaskDueDateLong, formatTaskDueTime } from './formatTaskDueDate';
 
 // Which Date format the formatter reads for the test in hand. The long label is about how a date is written in a
 // specific format, so each test says which one; none leans on the global default.
@@ -87,5 +88,28 @@ describe('formatTaskDueDateLong', () => {
 
     expect(formatTaskDueDateLong('2026-08-20')).toBe('20 Aug');
     expect(formatTaskDueDateLong('2027-09-02')).toMatch(/^2 Sep(t)? 2027$/);
+  });
+});
+
+describe('formatTaskDueTime', () => {
+  afterEach(() => {
+    setSystemLocaleOverride(null);
+  });
+
+  it("renders a time of day in the locale's own clock (24-hour, en-GB)", () => {
+    setSystemLocaleOverride('en-GB');
+    expect(formatTaskDueTime('07:00')).toBe('07:00');
+    expect(formatTaskDueTime('21:05')).toBe('21:05');
+  });
+
+  it("renders a time of day in the locale's own clock (12-hour, en-US)", () => {
+    setSystemLocaleOverride('en-US');
+    expect(formatTaskDueTime('07:00')).toBe('7:00 AM');
+    expect(formatTaskDueTime('21:05')).toBe('9:05 PM');
+  });
+
+  it('midnight renders correctly, not as an empty/falsy hour', () => {
+    setSystemLocaleOverride('en-GB');
+    expect(formatTaskDueTime('00:00')).toBe('00:00');
   });
 });

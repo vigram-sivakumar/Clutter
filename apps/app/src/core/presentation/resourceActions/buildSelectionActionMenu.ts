@@ -5,7 +5,7 @@ import { SELECTION_ACTIONS } from './resourceActionDefinitions';
 import type { ResourceActionSurface } from './resourceActionSurfaces';
 
 /** The selection menu's actions that act on the items themselves: each is offered only when every selected item supports it. */
-export const SELECTION_ITEM_ACTION_IDS: readonly string[] = ['move-to', 'toggle-favorite', 'archive', 'delete'];
+export const SELECTION_ITEM_ACTION_IDS: readonly string[] = ['move-to', 'toggle-favorite', 'archive', 'restore', 'delete'];
 
 export interface SelectionMenuFacts {
   /** How many items are selected — the menu's title. */
@@ -21,7 +21,7 @@ export interface SelectionMenuFacts {
 /**
  * The menu for a Collection View selection, built by the same builder as every resource's menu (ADR-048) from
  * the shared definitions: Select all first, then — only those every selected item supports —
- * Move to, Add to / Remove from favorites, Move to trash and Delete, with the dividers the global groups give. The
+ * Move to, Add to / Remove from favorites, Move to trash, Restore and Delete, with the dividers the global groups give. The
  * first item carries the selection count as its group title ("3 selected").
  */
 export function buildSelectionActionMenu(

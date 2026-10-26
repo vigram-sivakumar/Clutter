@@ -4,6 +4,11 @@ export interface ScannedTask {
   readonly text: string;
   readonly completed: boolean;
   readonly dueDate?: string;
+  // The optional `THH:MM` time-of-day carried by the same due-date token
+  // (`@YYYY-MM-DDTHH:MM`, or `@due:YYYY-MM-DDTHH:MM`) — never present
+  // without `dueDate`. Shape-matched only, same zero-calendar-validation
+  // posture as `dueDate` itself.
+  readonly dueTime?: string;
   readonly completedAt?: string;
   // The exact, unmodified source line this task was extracted from —
   // fulfils Occurrence.rawText's long-reserved "populate during analysis"
@@ -69,8 +74,32 @@ export const METADATA_TOKEN_PATTERN = /@([a-zA-Z]+):(\S+)/g;
  * still gets captured as `dueDate` here, exactly as `@due:` already
  * captures its value with zero validation today. Not a new leniency this
  * change introduces — a pre-existing property of this extractor.
+ *
+ * Captures an optional trailing `THH:MM` time-of-day as part of the same
+ * token (`@2026-10-23T07:00`) — `splitDueDate` below is what separates it
+ * back into `dueDate`/`dueTime`. Capturing it here (rather than a second,
+ * separate time pattern) keeps the "first bare date wins" and
+ * find/replace logic in this file and `TaskOperations.ts` working on one
+ * indivisible token, exactly as before.
  */
-export const BARE_DATE_PATTERN = /(^|\s)@(\d{4}-\d{2}-\d{2})(?![A-Za-z0-9])/;
+export const BARE_DATE_PATTERN = /(^|\s)@(\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2})?)(?![A-Za-z0-9])/;
+
+/** Splits a raw due-date capture (`BARE_DATE_PATTERN`'s group 2, or a raw `@due:` value) into its date and
+ * optional time parts. A value that isn't shaped as `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM` is returned as `dueDate`
+ * verbatim with no time — the same zero-validation leniency `@due:` already had for any other malformed value. */
+export function splitDueDate(raw: string | undefined): { dueDate?: string; dueTime?: string } {
+  if (raw === undefined) {
+    return {};
+  }
+
+  const match = /^(\d{4}-\d{2}-\d{2})(?:T(\d{2}:\d{2}))?$/.exec(raw);
+
+  if (!match) {
+    return { dueDate: raw };
+  }
+
+  return { dueDate: match[1], dueTime: match[2] };
+}
 
 export class TaskExtractor {
   extract(content: string): readonly ScannedTask[] {
@@ -127,12 +156,14 @@ export class TaskExtractor {
     // want to keep seeing/clicking, not hidden machine metadata; stripping
     // it would also risk leaving a malformed sentence behind when a
     // second, non-due date remains in the same text.
-    const dueDate = metadata.due ?? BARE_DATE_PATTERN.exec(text)?.[2];
+    const rawDue = metadata.due ?? BARE_DATE_PATTERN.exec(text)?.[2];
+    const { dueDate, dueTime } = splitDueDate(rawDue);
 
     return {
       completed: completedMarker.toLowerCase() === 'x',
       text,
       dueDate,
+      dueTime,
       completedAt: metadata.completed,
       rawText: line,
       startOffset: offset,

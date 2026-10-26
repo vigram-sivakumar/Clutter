@@ -75,7 +75,11 @@ import { CurrentNoteTemplateSuggestions } from '@app/layouts/page/CurrentNoteTem
 import { resolveDefaultTemplateId } from '@features/notes/helpers/resolveDefaultTemplateId';
 import { reportUpload, uploadAssets } from '@features/notes/helpers/uploadAssets';
 import { buildResourceMenuOptions, type ResourceMenuOps } from '@app/layouts/page/topbar/buildResourceMenuOptions';
-import { buildAssetItemMenu, buildCollectionItemMenu } from '@app/layouts/page/body/buildCollectionItemMenu';
+import {
+  buildArchivedResourceItemMenu,
+  buildAssetItemMenu,
+  buildCollectionItemMenu,
+} from '@app/layouts/page/body/buildCollectionItemMenu';
 import type { CollectionItemMenuResolver } from '@app/layouts/page/body/useCollectionItemContextMenu';
 import { buildMoveDestinationItems } from '@features/notes/helpers/buildMoveDestinationItems';
 import { Breadcrumbs } from '@app/layouts/page/breadcrumb/Breadcrumbs';
@@ -1285,6 +1289,28 @@ export function PageHost({
   // A Collection View entry's right-click menu — its resource's topbar menu (see `buildCollectionItemMenu`).
   const collectionItemMenu: CollectionItemMenuResolver = (entry) =>
     buildCollectionItemMenu(application, resourceMenuOps, entry);
+  // A file in the Trash: its right-click menu's Restore and Delete permanently — the same operations, and the same
+  // failure reports, as the file's viewer (AppLayout): a Restore with no recorded place asks where it should go.
+  const archivedResourceMenu: CollectionItemMenuResolver<VaultResource> = (resource) =>
+    buildArchivedResourceItemMenu(
+      application,
+      {
+        onRestoreResource: (resourceId) =>
+          void application.resourceOperations.restoreResource(resourceId).catch((error: unknown) => {
+            if (error instanceof RestoreNeedsDestinationError) {
+              onNeedsRestoreDestination?.({ kind: 'asset', id: resourceId });
+              return;
+            }
+
+            toast.fail('Couldn’t restore this file', error);
+          }),
+        onDeleteResource: (resourceId) =>
+          void application.resourceOperations
+            .deleteResource(resourceId)
+            .catch((error: unknown) => toast.fail('Couldn’t delete this file', error)),
+      },
+      resource
+    );
 
   // Shared by both the persisted-page and draft render branches below —
   // PageOperations.updateMetadata() already handles both cases itself
@@ -2085,6 +2111,8 @@ export function PageHost({
                   application.resolveResourceImageUrl(path)
                 }
                 onOpenResource={openArchivedResourceOverlay}
+                itemMenu={collectionItemMenu}
+                resourceMenu={archivedResourceMenu}
               />
             ) : (
               <CollectionBody

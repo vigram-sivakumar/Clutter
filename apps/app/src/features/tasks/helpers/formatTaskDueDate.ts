@@ -1,4 +1,4 @@
-import { formatDateDisplay } from '@shared/helpers/time';
+import { formatDateDisplay, formatTimeDisplay } from '@shared/helpers/time';
 import type { ISODate } from '@shared/helpers/time/types';
 
 /**
@@ -17,4 +17,15 @@ export function formatTaskDueDate(dueDate: ISODate): string {
  */
 export function formatTaskDueDateLong(dueDate: ISODate): string {
   return formatDateDisplay(dueDate, 'long');
+}
+
+/**
+ * Renders a task's `dueTime` (`HH:MM`) via the shared `formatTimeDisplay` — the same locale time-of-day
+ * formatter and `new Date(2000, 0, 1, hour, minute)` construction `dateQueryResolver.ts`'s `formatTimeLabel`
+ * already uses for an arbitrary time of day with no real calendar date attached.
+ */
+export function formatTaskDueTime(dueTime: string): string {
+  const [hours, minutes] = dueTime.split(':').map(Number);
+
+  return formatTimeDisplay(new Date(2000, 0, 1, hours, minutes));
 }
