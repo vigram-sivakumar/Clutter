@@ -32,7 +32,7 @@
   min-width: 0;
   font-size: var(--text-body-small);
   line-height: var(--lh-body-small);
-  letter-spacing: var(--ls-body-small);
+  letter-spacing: var(--ls-body);
   font-weight: var(--fw-medium);
   color: var(--foreground-primary);
 

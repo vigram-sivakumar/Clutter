@@ -11,7 +11,7 @@
   padding: var(--space-4) var(--space-12);
   gap: var(--space-6);
   background: var(--surface-secondary);
-  color: var(--foreground-primay);
+  color: var(--foreground-primary);
 
   font-size: var(--text-label);
   font-weight: var(--fw-medium);

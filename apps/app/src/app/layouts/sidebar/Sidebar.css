@@ -11,9 +11,7 @@
 
   height: 100%;
 
-  /* The top padding places the sidebar's top row (.controls) in the window chrome band, so it holds still on screen
-     under zoom with the row itself (app-layout/windowChrome.css). */
-  padding-top: calc(var(--space-16) * var(--window-chrome-zoom));
+  padding-top: var(--space-16);
   padding-bottom: var(--space-12);
 }
 .sidebar--tabs {

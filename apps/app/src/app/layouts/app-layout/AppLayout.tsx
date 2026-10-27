@@ -5,7 +5,6 @@ import { Sidebar } from '../sidebar/Sidebar';
 import { PageHost } from '../page/PageHost';
 import { CoverSuppressedContext } from '../page/CoverSuppressedContext';
 import { SidebarToggle } from './sidebar-toggle/SidebarToggle';
-import './windowChrome.css';
 import { SidebarResizeHandle } from './sidebar-resize-handle/SidebarResizeHandle';
 import { useSidebarTransition } from './useSidebarTransition';
 import { useSidebarWidth, MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH } from './useSidebarWidth';

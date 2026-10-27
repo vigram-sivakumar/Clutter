@@ -11,10 +11,10 @@ const stripComments = (css: string): string => css.replace(/\/\*[\s\S]*?\*\//g, 
 
 describe('window drag regions', () => {
   it('keeps the topbar, the sidebar controls and the sidebar toggle as drag regions', () => {
-    expect(src('app/layouts/page/topbar/Page.TopBar.tsx')).toMatch(/className="topbar window-chrome" data-tauri-drag-region/);
-    expect(src('app/layouts/sidebar/controls/Controls.tsx')).toMatch(/className="controls window-chrome" data-tauri-drag-region/);
+    expect(src('app/layouts/page/topbar/Page.TopBar.tsx')).toMatch(/className="topbar" data-tauri-drag-region/);
+    expect(src('app/layouts/sidebar/controls/Controls.tsx')).toMatch(/className="controls" data-tauri-drag-region/);
     expect(src('app/layouts/app-layout/sidebar-toggle/SidebarToggle.tsx')).toMatch(
-      /className="sidebar-toggle window-chrome" data-tauri-drag-region/
+      /className="sidebar-toggle" data-tauri-drag-region/
     );
   });
 
