@@ -29,6 +29,7 @@ import { GradientGrainy } from '../components/gradient-grainy/GradientGrainy';
 import { scheduleAfterFirstPaint } from './scheduleAfterFirstPaint';
 import { createWindowCloseHandler, QUIT_MENU_EVENT, type UnsavedCloseChoice } from './windowCloseHandler';
 import { UnsavedCloseDialog } from './UnsavedCloseDialog';
+import type { UnsavedAction } from './unsavedCloseCopy';
 import { WelcomeScreenDialog } from '../components/welcome-screen/WelcomeScreenDialog';
 import { Dialog } from '../components/dialog/Dialog';
 import {
@@ -269,16 +270,19 @@ function AppShellContent() {
   //
   // When pages still hold unsaved changes after that flush, the user is asked first (the dialog below). The
   // pending answer lives in a ref so the one-time handler registration can reach it.
-  const [unsavedClose, setUnsavedClose] = useState<{ readonly count: number } | null>(null);
+  const [unsavedClose, setUnsavedClose] = useState<{ readonly count: number; readonly action: UnsavedAction } | null>(null);
   const unsavedCloseAnswerRef = useRef<((choice: UnsavedCloseChoice) => void) | null>(null);
-  const confirmUnsavedClose = useCallback(
-    (count: number) =>
+  const confirmUnsaved = useCallback(
+    (count: number, action: UnsavedAction) =>
       new Promise<UnsavedCloseChoice>((resolve) => {
+        // One question at a time: a second request while one is showing answers the first as "cancel".
+        unsavedCloseAnswerRef.current?.('cancel');
         unsavedCloseAnswerRef.current = resolve;
-        setUnsavedClose({ count });
+        setUnsavedClose({ count, action });
       }),
     []
   );
+  const confirmUnsavedClose = useCallback((count: number) => confirmUnsaved(count, 'close'), [confirmUnsaved]);
   const answerUnsavedClose = useCallback((choice: UnsavedCloseChoice) => {
     const answer = unsavedCloseAnswerRef.current;
     unsavedCloseAnswerRef.current = null;
@@ -797,6 +801,10 @@ function AppShellContent() {
     pendingProfileRef.current = { path, change };
     // A folder the dialog renamed replaces its old registry entry in place (an unregistered one is just added).
     const replaces = renamedFromRef.current ?? undefined;
+    if (!(await confirmLeavingOpenSpace())) {
+      pendingProfileRef.current = null;
+      return null;
+    }
     if (await spaces.switchSpace(path, replaces)) {
       renamedFromRef.current = null;
       setPendingSpace(null);
@@ -832,6 +840,17 @@ function AppShellContent() {
     setMissingSpacePath(null);
   }
 
+  // Leaving the open Space closes its Application, which disposes every open note, so a note whose save failed would
+  // be lost. Before any switch that does so: one flush, then, if anything is still unsaved, ask. `false` keeps the
+  // Space open exactly as it was and aborts the switch.
+  async function confirmLeavingOpenSpace(): Promise<boolean> {
+    const open = applicationRef.current;
+    if (!open) return true;
+    const unsaved = await open.checkUnsavedBeforeClose();
+    if (unsaved === 0) return true;
+    return (await confirmUnsaved(unsaved, 'switch')) === 'close';
+  }
+
   // "Remove space" from Settings. A Space that isn't open is just forgotten. The open one is switched away from
   // first (the registry forgets it once its replacement has opened); if nothing else can open, the Application
   // is closed — flushing its pending writes — before the entry is forgotten, and Welcome takes over. The folder
@@ -841,15 +860,18 @@ function AppShellContent() {
       spaces.removeSpace(path);
       return;
     }
-    void spaces.removeActiveSpace(async () => {
-      const open = applicationRef.current;
-      if (open) {
-        await open.close();
-        applicationRef.current = null;
-        openedPathRef.current = null;
-        setApplication(null);
-      }
-    });
+    void (async () => {
+      if (!(await confirmLeavingOpenSpace())) return;
+      await spaces.removeActiveSpace(async () => {
+        const open = applicationRef.current;
+        if (open) {
+          await open.close();
+          applicationRef.current = null;
+          openedPathRef.current = null;
+          setApplication(null);
+        }
+      });
+    })();
   }
 
   // Renames the open Space's folder (the whole sequence is `renameActiveSpaceFolder`'s). The Application it closes is
@@ -1012,6 +1034,7 @@ function AppShellContent() {
       setMissingSpacePath(normalizeSpacePath(path));
       return;
     }
+    if (!(await confirmLeavingOpenSpace())) return;
     void spaces.switchSpace(path);
   }
 
@@ -1213,7 +1236,11 @@ function AppShellContent() {
   return (
     <SpacesContext.Provider value={spacesApi}>
       {renderFrame()}
-      <UnsavedCloseDialog unsavedCount={unsavedClose?.count ?? null} onAnswer={answerUnsavedClose} />
+      <UnsavedCloseDialog
+        unsavedCount={unsavedClose?.count ?? null}
+        action={unsavedClose?.action ?? 'close'}
+        onAnswer={answerUnsavedClose}
+      />
       {settingsAvailable && (
         <ActiveSpaceSettingsDialog application={application} busy={application === null || renameInFlight} />
       )}

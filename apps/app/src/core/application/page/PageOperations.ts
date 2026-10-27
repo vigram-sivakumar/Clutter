@@ -216,6 +216,9 @@ export interface EditOptions {
   readonly allowArchived?: boolean;
 }
 
+/** What the save-failure UI shows for a page. See PageOperations.saveFailureStatus(). */
+export type SaveFailureStatus = 'retrying' | 'retry-scheduled' | 'needs-action';
+
 /**
  * Owns the entire lifecycle of a page as a single capability surface —
  * open, close, save, archive, restore, create, delete, move, rename, and
@@ -1039,6 +1042,7 @@ export class PageOperations {
     this.clearDraft(pageId);
     this.disposeTitleState(pageId);
     this.disposeDescriptionState(pageId);
+    this.refreshSaveFailures();
   }
 
   /**
@@ -1284,6 +1288,7 @@ export class PageOperations {
       if (this.inFlightSaves.get(pageId) === promise) {
         this.inFlightSaves.delete(pageId);
       }
+      this.refreshSaveFailures();
     });
 
     this.inFlightSaves.set(pageId, promise);
@@ -1345,9 +1350,145 @@ export class PageOperations {
         if (session.isDirty) {
           this.saveCoordinator.scheduleRetry(pageId, () => {
             void this.requestSave(pageId);
+            this.refreshSaveFailures();
           });
         }
         return;
+      }
+    }
+  }
+
+  // ---- Save-failure status (what the UI shows, and what a manual retry acts on) ----
+
+  /** Pages whose save has failed and not yet been confirmed saved, with the status the UI should show. */
+  private readonly failureStreaks = new Set<string>();
+  private failureSnapshot = '';
+  private readonly failureListeners = new Set<() => void>();
+
+  /**
+   * The save-failure status of one page, or null when it has none.
+   * - 'retrying': a retry is running right now.
+   * - 'retry-scheduled': the last save failed and an automatic retry is armed.
+   * - 'needs-action': the last save failed and no retry is armed (the automatic ones are used up, or the failure was
+   *   not one that retries): nothing will save it until the user retries or edits.
+   * A save that succeeded clears it; a failed one keeps it for as long as the changes remain unsaved.
+   */
+  public saveFailureStatus(pageId: string): SaveFailureStatus | null {
+    if (!this.failureStreaks.has(pageId)) {
+      return null;
+    }
+
+    const channels = this.channelStates(pageId);
+
+    if (channels.some(({ state }) => state === DocumentState.Saving)) {
+      return 'retrying';
+    }
+
+    if (channels.some(({ key }) => this.saveCoordinator.hasPendingRetry(key))) {
+      return 'retry-scheduled';
+    }
+
+    return 'needs-action';
+  }
+
+  /** Every page currently in a save-failure streak, in a stable order. */
+  public failedSavePageIds(): readonly string[] {
+    return [...this.failureStreaks].sort();
+  }
+
+  /** Calls `listener` whenever a page enters, changes or leaves a save-failure status. Returns the unsubscribe. */
+  public subscribeSaveFailures(listener: () => void): () => void {
+    this.failureListeners.add(listener);
+
+    return () => {
+      this.failureListeners.delete(listener);
+    };
+  }
+
+  /** A stable string that changes exactly when any page's save-failure status does (for useSyncExternalStore). */
+  public saveFailureSnapshot(): string {
+    return this.failureSnapshot;
+  }
+
+  /**
+   * Retries a failed save now, by hand. It is the same request every automatic trigger makes (requestSave /
+   * requestTitleSave / requestDescriptionSave), so it goes through the Persistence Gate, reads the newest revision,
+   * and shares the one in-flight save per page: pressing it while a retry is already running joins that save instead
+   * of starting a second. It does not refill the automatic retry budget.
+   */
+  public async retrySave(pageId: string): Promise<void> {
+    for (const { key } of this.channelStates(pageId)) {
+      this.saveCoordinator.cancelPendingRetry(key);
+    }
+
+    await Promise.all([
+      this.requestSave(pageId),
+      this.requestTitleSave(pageId),
+      this.requestDescriptionSave(pageId),
+    ]);
+    this.refreshSaveFailures();
+  }
+
+  /** The save channels a page has open (body always when a session exists; title and description when edited). */
+  private channelStates(pageId: string): { key: string; state: DocumentState; unsaved: boolean }[] {
+    const channels: { key: string; state: DocumentState; unsaved: boolean }[] = [];
+    const session = this.documentRegistry.get(pageId);
+
+    if (session && session.state !== DocumentState.Disposed) {
+      channels.push({ key: pageId, state: session.state, unsaved: session.isDirty || session.state === DocumentState.SaveError });
+    }
+
+    const title = this.titleStates.get(pageId);
+    if (title) {
+      channels.push({ key: this.titleChannelKey(pageId), state: title.state, unsaved: title.isDirty || title.state === DocumentState.SaveError });
+    }
+
+    const description = this.descriptionStates.get(pageId);
+    if (description) {
+      channels.push({
+        key: this.descriptionChannelKey(pageId),
+        state: description.state,
+        unsaved: description.isDirty || description.state === DocumentState.SaveError,
+      });
+    }
+
+    return channels;
+  }
+
+  /**
+   * Re-derives the failure streaks and tells subscribers if anything the UI shows changed. A page enters a streak the
+   * moment any of its channels is in SaveError, and leaves it only when none of its channels has unsaved changes
+   * (so the notice does not flicker off while a retry is in flight).
+   */
+  private refreshSaveFailures(): void {
+    const candidates = new Set<string>(this.failureStreaks);
+
+    for (const session of this.documentRegistry.getAll()) {
+      candidates.add(session.id);
+    }
+    for (const pageId of this.titleStates.keys()) {
+      candidates.add(pageId);
+    }
+    for (const pageId of this.descriptionStates.keys()) {
+      candidates.add(pageId);
+    }
+
+    for (const pageId of candidates) {
+      const channels = this.channelStates(pageId);
+
+      if (channels.some(({ state }) => state === DocumentState.SaveError)) {
+        this.failureStreaks.add(pageId);
+      } else if (!channels.some(({ unsaved }) => unsaved)) {
+        this.failureStreaks.delete(pageId);
+      }
+    }
+
+    const snapshot = JSON.stringify(this.failedSavePageIds().map((pageId) => [pageId, this.saveFailureStatus(pageId)]));
+
+    if (snapshot !== this.failureSnapshot) {
+      this.failureSnapshot = snapshot;
+      for (const listener of [...this.failureListeners]) {
+        listener();
       }
     }
   }
@@ -1459,6 +1600,7 @@ export class PageOperations {
       if (this.inFlightSaves.get(key) === promise) {
         this.inFlightSaves.delete(key);
       }
+      this.refreshSaveFailures();
     });
 
     this.inFlightSaves.set(key, promise);
@@ -1505,6 +1647,10 @@ export class PageOperations {
         // not clobber a newer, still-in-flight or already-succeeded one.
         if (this.saveCoordinator.failChannelSave(key, value)) {
           titleState.markSaveFailed();
+          // Same bounded backoff as the body (SaveCoordinator.scheduleRetry), through the same request path.
+          this.saveCoordinator.scheduleRetry(key, () => {
+            void this.requestTitleSave(pageId);
+          });
         }
         return;
       }
@@ -1568,6 +1714,7 @@ export class PageOperations {
       if (this.inFlightSaves.get(key) === promise) {
         this.inFlightSaves.delete(key);
       }
+      this.refreshSaveFailures();
     });
 
     this.inFlightSaves.set(key, promise);
@@ -1614,6 +1761,9 @@ export class PageOperations {
         // Mirrors runRequestTitleSave()'s T11a/T11b split.
         if (this.saveCoordinator.failChannelSave(key, value)) {
           descriptionState.markSaveFailed();
+          this.saveCoordinator.scheduleRetry(key, () => {
+            void this.requestDescriptionSave(pageId);
+          });
         }
         return;
       }
@@ -1797,6 +1947,7 @@ export class PageOperations {
       this.saveCoordinator.completeSave(session, revision);
     } catch (error) {
       this.saveCoordinator.failSave(session, revision);
+      this.refreshSaveFailures();
       throw error;
     }
   }
@@ -3151,6 +3302,7 @@ export class PageOperations {
     this.disposeTitleState(pageId);
     this.pendingHeadingBaselines.delete(pageId);
     this.disposeDescriptionState(pageId);
+    this.refreshSaveFailures();
 
     // Checked again when the delete runs (not only above): a restore queued ahead of it must win.
     await this.coordinator.enqueue(pageId, {

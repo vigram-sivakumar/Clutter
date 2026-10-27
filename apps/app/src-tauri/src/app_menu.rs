@@ -341,14 +341,12 @@ pub fn handle_event<R: Runtime>(app: &AppHandle<R>, event: MenuEvent) {
     }
 }
 
-/// Asks the page to close. If the page cannot take the request (the window is not showing: startup has not finished
-/// or has failed, so there is no editor and nothing unsaved) the app exits directly, so Quit never goes dead.
+/// Asks the page to close. The page can take the request once startup has completed (the window was revealed by the
+/// frontend's ready report), however the window is now: minimised or hidden windows still have a running page with
+/// notes to protect. Only before that point (startup unfinished or failed: no editor, nothing unsaved) does the app
+/// exit directly, so Quit never goes dead.
 fn request_quit<R: Runtime>(app: &AppHandle<R>) {
-    let page_is_showing = app
-        .get_webview_window(MAIN_WINDOW_LABEL)
-        .is_some_and(|window| window.is_visible().unwrap_or(false));
-
-    if page_is_showing && app.emit(QUIT_REQUESTED_EVENT, ()).is_ok() {
+    if crate::window_revealed() && app.emit(QUIT_REQUESTED_EVENT, ()).is_ok() {
         return;
     }
     app.exit(0);

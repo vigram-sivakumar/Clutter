@@ -1,6 +1,26 @@
 .save-failure-notice {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
   margin-right: var(--space-6);
   font: var(--text-label-small);
   color: var(--danger-foreground);
   white-space: nowrap;
+}
+
+/* A plain text button: it inherits the notice's colour and font, underlined so it reads as an action. */
+.save-failure-notice__retry {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.save-failure-notice__retry:disabled {
+  cursor: default;
+  text-decoration: none;
+  opacity: 0.6;
 }

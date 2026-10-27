@@ -21,8 +21,8 @@ import { resolvePageIdentityIcon } from '@app/layouts/page/resolvePageIdentityIc
 import { useActivePage } from '@app/hooks/useActivePage';
 import { useReferencesDisplayStore } from '@app/hooks/useReferencesDisplayStore';
 import { useDocumentSession } from '@app/hooks/useDocumentSession';
-import { useSaveFailure } from '@app/layouts/page/useSaveFailure';
-import { SaveFailureNotice } from '@app/layouts/page/topbar/SaveFailureNotice';
+import { useSaveFailures } from '@app/layouts/page/useSaveFailures';
+import { SaveFailureElsewhereNotice, SaveFailureNotice } from '@app/layouts/page/topbar/SaveFailureNotice';
 import { useWorkspace } from '@app/hooks/useWorkspace';
 import {
   buildBreadcrumbs,
@@ -831,8 +831,25 @@ export function PageHost({
   // React observes DocumentSession changes through this hook.
   // The session remains the single source of editable document state.
   const session = useDocumentSession(rawSession);
-  // A failed save is shown persistently in the top bar (below) and announced once by a toast.
-  const saveFailing = useSaveFailure(session);
+  // A failed save is shown persistently in the top bar (below) and announced once by a toast. The open note's own
+  // failure gets the full notice with Retry; a failure in some other note gets a pointer to it, so it can be found.
+  const saveFailures = useSaveFailures(application.pageOperations);
+  const failedSaveStatus = activePageId ? saveFailures.statusOf(activePageId) : null;
+  const otherFailedIds = saveFailures.failedIds.filter((id) => id !== activePageId);
+  const noteLabel = (id: string): string =>
+    vault.getPage(id)?.name || application.pageOperations.getDraft(id)?.title || 'an untitled note';
+  const saveFailureNotice =
+    failedSaveStatus !== null && activePageId ? (
+      <SaveFailureNotice
+        status={failedSaveStatus}
+        onRetry={() => void application.pageOperations.retrySave(activePageId)}
+      />
+    ) : otherFailedIds.length > 0 ? (
+      <SaveFailureElsewhereNotice
+        label={otherFailedIds.length === 1 ? `“${noteLabel(otherFailedIds[0]!)}”` : `${otherFailedIds.length} other notes`}
+        onOpen={() => void application.pageOperations.open(otherFailedIds[0]!)}
+      />
+    ) : null;
 
   // Narrowed to `null` unless this request actually targets the page this
   // render is showing — `pageOperations.open` (called by Sidebar.Tasks'
@@ -2023,7 +2040,12 @@ export function PageHost({
               : undefined
           }
           breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
-          actions={topBar.actions}
+          actions={
+            <>
+              {saveFailureNotice}
+              {topBar.actions}
+            </>
+          }
           archived={
             isFolderArchived
               ? {
@@ -2884,7 +2906,7 @@ export function PageHost({
             {application.membershipSelector.isInTemplatesFolder(
               draft.folderId
             ) && <Pill size="small">Editing template</Pill>}
-            {saveFailing && <SaveFailureNotice />}
+            {saveFailureNotice}
             {draftTopBar.actions}
           </>
         }
@@ -3178,7 +3200,7 @@ export function PageHost({
             {application.membershipSelector.isInTemplatesFolder(
               page.parentId
             ) && <Pill size="small">Editing template</Pill>}
-            {saveFailing && <SaveFailureNotice />}
+            {saveFailureNotice}
             {topBar.actions}
           </>
         }

@@ -159,6 +159,8 @@ interface FakeApplication {
   verifyRoot: ReturnType<typeof vi.fn>;
   open: ReturnType<typeof vi.fn>;
   close: ReturnType<typeof vi.fn>;
+  /** How many notes still hold unsaved changes after a flush (the guard before leaving the Space). */
+  checkUnsavedBeforeClose: ReturnType<typeof vi.fn>;
   persistParsedNoteCache: ReturnType<typeof vi.fn>;
   applySpaceProfile: ReturnType<typeof vi.fn>;
   workspace: {
@@ -208,6 +210,7 @@ function makeApp(root: string): FakeApplication {
     close: vi.fn(async () => {
       events.push(`close:${root}`);
     }),
+    checkUnsavedBeforeClose: vi.fn(async () => 0),
     persistParsedNoteCache: vi.fn(async () => {}),
     // The Space's own sidebar state: each Space starts from its saved session (here: open).
     workspace: {
@@ -2910,6 +2913,69 @@ describe('AppShell: the sidebar across a Space switch', () => {
 });
 
 describe('AppShell: switching Spaces', () => {
+  describe('with unsaved notes in the open Space', () => {
+    it('asks first, and keeps the Space open, untouched, when the user keeps editing', async () => {
+      seed(['/web-dev-vault', '/Other'], '/web-dev-vault');
+      render(
+        <ToastProvider>
+          <AppShell />
+        </ToastProvider>
+      );
+      await screen.findByText('/web-dev-vault');
+      const first = created[0]!;
+      first.checkUnsavedBeforeClose.mockResolvedValue(2);
+
+      await act(async () => screen.getByText('switch-other').click());
+
+      expect(await screen.findByText('Switch spaces without saving?')).toBeInTheDocument();
+      expect(screen.getByText(/2 notes have changes that haven’t been saved/)).toBeInTheDocument();
+      expect(bootstrap).not.toHaveBeenCalledWith('/Other', expect.anything());
+
+      await act(async () => screen.getByRole('button', { name: 'Keep editing' }).click());
+
+      expect(screen.queryByText('Switch spaces without saving?')).toBeNull();
+      expect(first.close).not.toHaveBeenCalled();
+      expect(screen.getByTestId('open-root')).toHaveTextContent('/web-dev-vault');
+      expect(bootstrap).not.toHaveBeenCalledWith('/Other', expect.anything());
+    });
+
+    it('switches, and closes the old Space, only after the user chooses to lose the changes', async () => {
+      seed(['/web-dev-vault', '/Other'], '/web-dev-vault');
+      render(
+        <ToastProvider>
+          <AppShell />
+        </ToastProvider>
+      );
+      await screen.findByText('/web-dev-vault');
+      const first = created[0]!;
+      first.checkUnsavedBeforeClose.mockResolvedValue(1);
+
+      await act(async () => screen.getByText('switch-other').click());
+      await screen.findByText('Switch spaces without saving?');
+      expect(first.close).not.toHaveBeenCalled();
+
+      await act(async () => screen.getByRole('button', { name: 'Switch and lose changes' }).click());
+
+      await waitFor(() => expect(screen.getByTestId('open-root')).toHaveTextContent('/Other'));
+      expect(first.close).toHaveBeenCalledOnce();
+    });
+
+    it('does not ask when nothing is unsaved', async () => {
+      seed(['/web-dev-vault', '/Other'], '/web-dev-vault');
+      render(
+        <ToastProvider>
+          <AppShell />
+        </ToastProvider>
+      );
+      await screen.findByText('/web-dev-vault');
+
+      await act(async () => screen.getByText('switch-other').click());
+
+      await waitFor(() => expect(screen.getByTestId('open-root')).toHaveTextContent('/Other'));
+      expect(screen.queryByText('Switch spaces without saving?')).toBeNull();
+    });
+  });
+
   it('keeps the current Space visible and open while the next one is prepared', async () => {
     seed(['/web-dev-vault', '/Other'], '/web-dev-vault');
     render(

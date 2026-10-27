@@ -18,6 +18,12 @@ mod vault_watcher;
 /// not a failure: a blank or broken webview is never revealed.
 static WINDOW_REVEALED: AtomicBool = AtomicBool::new(false);
 
+/// Whether the frontend has reported ready and the window was shown: from then on the page is running, so it can take
+/// requests such as Quit (see app_menu::request_quit).
+pub(crate) fn window_revealed() -> bool {
+    WINDOW_REVEALED.load(Ordering::SeqCst)
+}
+
 /// Which startup attempt is current. Bumped on every Retry, so a watchdog or a
 /// failure report that belongs to an earlier attempt can tell it is stale.
 static STARTUP_ATTEMPT: AtomicU64 = AtomicU64::new(1);

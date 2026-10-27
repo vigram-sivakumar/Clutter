@@ -37,8 +37,8 @@ export const AUTOSAVE_CEILING_MS = 30000;
 /**
  * Delays before each automatic retry of a failed save: exponential backoff (2s, 4s, 8s, 16s, 30s), and at most
  * this many attempts per failure streak. After the last one the session simply stays in SaveError — still dirty,
- * still shown as unsaved — until the user edits again (which starts a fresh streak), navigates away, or closes.
- * A save that keeps failing is never retried forever.
+ * still shown as unsaved — until the user retries by hand, a later edit's own autosave attempt succeeds, or the page closes.
+ * A save that keeps failing is never retried forever, and editing does not refill the budget (only a successful save does).
  */
 export const SAVE_RETRY_DELAYS_MS: readonly number[] = [2000, 4000, 8000, 16000, 30000];
 
@@ -145,9 +145,11 @@ export class SaveCoordinator {
     const debounceMs = options?.debounceMs ?? AUTOSAVE_DEBOUNCE_MS;
     const ceilingMs = options?.ceilingMs ?? AUTOSAVE_CEILING_MS;
 
-    // A new edit supersedes any pending retry (the debounce armed below saves the newest revision) and starts a
-    // fresh retry budget: it is evidence the user is still here, and it is a different revision.
-    this.resetRetries(key);
+    // A new edit supersedes any pending retry timer (the debounce armed below saves the newest revision, so a
+    // retry of the older one would only race it) but does NOT refill the retry budget. Only a successful save
+    // does. Otherwise a persistent failure plus a steady trickle of edits would earn five fresh retries per edit,
+    // forever. The edit's own autosave attempt is unaffected: that is ordinary autosave cadence, not a retry.
+    this.cancelPendingRetry(key);
 
     const existingDebounce = this.debounceTimers.get(key);
     if (existingDebounce !== undefined) {
@@ -226,7 +228,8 @@ export class SaveCoordinator {
    * an older revision than the newest edit. Replaces any retry already pending for the key.
    *
    * Returns false, arming nothing, once SAVE_RETRY_DELAYS_MS is exhausted for this failure streak.
-   * The streak resets on a successful save, on any new edit (scheduleSave) and on cancelTimers().
+   * The streak resets on a successful save and on cancelTimers(); a new edit (scheduleSave) only cancels the
+   * pending timer. It does not refill the budget.
    */
   public scheduleRetry(key: string, onFire: () => void): boolean {
     const attempt = this.retryAttempts.get(key) ?? 0;
@@ -251,6 +254,25 @@ export class SaveCoordinator {
     );
 
     return true;
+  }
+
+  /** Whether a retry timer is armed for the channel right now (an automatic retry is scheduled). */
+  public hasPendingRetry(key: string): boolean {
+    return this.retryTimers.has(key);
+  }
+
+  /** Whether this failure streak has used every automatic retry: only the user (or a later edit's autosave) can save now. */
+  public retriesExhausted(key: string): boolean {
+    return (this.retryAttempts.get(key) ?? 0) >= SAVE_RETRY_DELAYS_MS.length && !this.retryTimers.has(key);
+  }
+
+  /** Clears only the pending retry timer, keeping the attempt count. */
+  public cancelPendingRetry(key: string): void {
+    const pending = this.retryTimers.get(key);
+    if (pending !== undefined) {
+      clearTimeout(pending);
+      this.retryTimers.delete(key);
+    }
   }
 
   /** Clears a channel's pending retry and its attempt count. Safe for a key with neither (no-op). */
@@ -426,6 +448,8 @@ export class SaveCoordinator {
     }
 
     this.activeSaves.delete(channelKey);
+    // A confirmed save ends the channel's failure streak (see scheduleRetry()).
+    this.resetRetries(channelKey);
 
     return true;
   }

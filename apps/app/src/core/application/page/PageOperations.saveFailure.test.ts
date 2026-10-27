@@ -203,12 +203,29 @@ class FlakyFileSystem implements VaultFileSystem {
   deleteFile(path: string) {
     return this.inner.deleteFile(path);
   }
-  moveFile(sourcePath: string, destinationPath: string) {
+  async moveFile(sourcePath: string, destinationPath: string) {
+    if (this.failing) {
+      throw new Error('disk full');
+    }
     return this.inner.moveFile(sourcePath, destinationPath);
   }
   copyFile(sourceAbsolutePath: string, destinationAbsolutePath: string) {
     return this.inner.copyFile(sourceAbsolutePath, destinationAbsolutePath);
   }
+}
+
+function buildSecondPage(): Page {
+  return new PageBuilder().build({
+    parentId: null,
+    page: {
+      path: `${ROOT}/Other.md`,
+      directoryPath: ROOT,
+      frontmatter: { id: 'page-2' },
+      frontmatterAnalysis: { aliases: [] },
+      content: 'Other body',
+      analysis: { headings: [], blockReferences: [], tasks: [], tags: [], links: [], embeds: [] },
+    },
+  });
 }
 
 async function openWithFailingDisk() {
@@ -217,8 +234,11 @@ async function openWithFailingDisk() {
   inner.seedFile(page.path, new FrontmatterSerializer().serializeDocument(page, page.source.markdown));
   const fileSystem = new FlakyFileSystem(inner);
   const parts = setup(page, fileSystem);
+  const second = buildSecondPage();
+  parts.vault.addPage(second);
+  inner.seedFile(second.path, new FrontmatterSerializer().serializeDocument(second, second.source.markdown));
   await parts.pageOperations.open(page.id);
-  return { ...parts, page, fileSystem, session: parts.documentRegistry.get(page.id)! };
+  return { ...parts, page, second, fileSystem, session: parts.documentRegistry.get(page.id)! };
 }
 
 describe('PageOperations: a failed save is kept, retried on a bounded backoff, and never silent', () => {
@@ -400,5 +420,166 @@ describe('PageOperations: a failed save is kept, retried on a bounded backoff, a
 
     expect(session.state).toBe(DocumentState.SaveError);
     expect(scheduleRetry).not.toHaveBeenCalled();
+  });
+
+  describe('status, manual retry, and what survives navigation', () => {
+    it('reports no failure until a save fails, then a scheduled retry, and tells subscribers', async () => {
+      const { page, fileSystem, pageOperations } = await openWithFailingDisk();
+      const listener = vi.fn();
+      pageOperations.subscribeSaveFailures(listener);
+      expect(pageOperations.saveFailureStatus(page.id)).toBeNull();
+
+      fileSystem.failing = true;
+      pageOperations.commitEdit(page.id, 'Edited body');
+      await pageOperations.requestSave(page.id);
+
+      expect(pageOperations.saveFailureStatus(page.id)).toBe('retry-scheduled');
+      expect(pageOperations.failedSavePageIds()).toEqual([page.id]);
+      expect(listener).toHaveBeenCalled();
+    });
+
+    it('says a retry is running while it runs, and needs-action once the automatic retries are used up', async () => {
+      const { page, fileSystem, pageOperations } = await openWithFailingDisk();
+      fileSystem.failing = true;
+      pageOperations.commitEdit(page.id, 'Edited body');
+      await pageOperations.requestSave(page.id);
+
+      const release = fileSystem.hold();
+      await vi.advanceTimersByTimeAsync(SAVE_RETRY_DELAYS_MS[0]!);
+      expect(pageOperations.saveFailureStatus(page.id)).toBe('retrying');
+      release();
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+
+      expect(pageOperations.saveFailureStatus(page.id)).toBe('needs-action');
+    });
+
+    it('a manual retry goes through the normal save, and the failure clears only once the save is confirmed', async () => {
+      const { page, fileSystem, pageOperations, session } = await openWithFailingDisk();
+      fileSystem.failing = true;
+      pageOperations.commitEdit(page.id, 'Edited body');
+      await pageOperations.requestSave(page.id);
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+      expect(pageOperations.saveFailureStatus(page.id)).toBe('needs-action');
+
+      // Still failing: the retry fails, the failure stays, nothing is claimed saved.
+      await pageOperations.retrySave(page.id);
+      expect(pageOperations.saveFailureStatus(page.id)).toBe('needs-action');
+      expect(session.isDirty).toBe(true);
+
+      fileSystem.failing = false;
+      await pageOperations.retrySave(page.id);
+
+      expect(pageOperations.saveFailureStatus(page.id)).toBeNull();
+      expect(pageOperations.failedSavePageIds()).toEqual([]);
+      expect(session.isDirty).toBe(false);
+      expect(fileSystem.written).toHaveLength(1);
+      expect(fileSystem.written[0]).toContain('Edited body');
+    });
+
+    it('pressing Retry while a save is in flight joins it: never two writes at once', async () => {
+      const { page, fileSystem, pageOperations } = await openWithFailingDisk();
+      fileSystem.failing = true;
+      pageOperations.commitEdit(page.id, 'Edited body');
+      await pageOperations.requestSave(page.id);
+
+      fileSystem.failing = false;
+      const release = fileSystem.hold();
+      const first = pageOperations.retrySave(page.id);
+      const second = pageOperations.retrySave(page.id);
+      release();
+      await Promise.all([first, second]);
+
+      expect(fileSystem.maxInFlight).toBe(1);
+      expect(fileSystem.written).toHaveLength(1);
+      expect(pageOperations.saveFailureStatus(page.id)).toBeNull();
+    });
+
+    it('editing does not refill the retry budget: a persistent failure ends in needs-action, not an endless loop', async () => {
+      const { page, fileSystem, pageOperations } = await openWithFailingDisk();
+      fileSystem.failing = true;
+
+      // Every edit gets its own autosave attempt (the 2s debounce); the retries on top of them come out of one budget.
+      for (let edit = 0; edit < 8; edit += 1) {
+        pageOperations.commitEdit(page.id, `edit ${edit}`);
+        await vi.advanceTimersByTimeAsync(2000);
+      }
+      expect(pageOperations.saveFailureStatus(page.id)).toBe('needs-action');
+
+      const attempts = fileSystem.attempts.length;
+      pageOperations.commitEdit(page.id, 'one more edit');
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+
+      // Only that edit's own autosave attempt: no fresh retries were earned.
+      expect(fileSystem.attempts.length - attempts).toBeLessThanOrEqual(2);
+      expect(pageOperations.saveFailureStatus(page.id)).toBe('needs-action');
+    });
+
+    it('a note whose save failed keeps its unsaved revision, and stays listed, after the user opens another note', async () => {
+      const { page, second, fileSystem, pageOperations, documentRegistry } = await openWithFailingDisk();
+      fileSystem.failing = true;
+      pageOperations.commitEdit(page.id, 'Edited body');
+      await pageOperations.requestSave(page.id);
+
+      await pageOperations.open(second.id);
+
+      const kept = documentRegistry.get(page.id)!;
+      expect(kept.isDirty).toBe(true);
+      expect(kept.currentRevision.markdown).toBe('Edited body');
+      expect(kept.state).not.toBe(DocumentState.Disposed);
+      expect(pageOperations.failedSavePageIds()).toEqual([page.id]);
+      expect(pageOperations.unsavedPageCount()).toBe(1);
+
+      // Coming back to it reuses that session, edit intact.
+      await pageOperations.open(page.id);
+      expect(documentRegistry.get(page.id)).toBe(kept);
+      expect(documentRegistry.get(page.id)!.currentRevision.markdown).toBe('Edited body');
+    });
+
+    it('a failed title save is no longer silent: it is a failure, retried, counted as unsaved, and clears when saved', async () => {
+      const { page, fileSystem, pageOperations } = await openWithFailingDisk();
+      fileSystem.failing = true;
+
+      pageOperations.commitTitle(page.id, 'A new title');
+      await pageOperations.requestTitleSave(page.id);
+
+      expect(pageOperations.saveFailureStatus(page.id)).toBe('retry-scheduled');
+      expect(pageOperations.unsavedPageCount()).toBe(1);
+
+      fileSystem.failing = false;
+      await vi.advanceTimersByTimeAsync(SAVE_RETRY_DELAYS_MS[0]!);
+
+      expect(pageOperations.saveFailureStatus(page.id)).toBeNull();
+      expect(pageOperations.unsavedPageCount()).toBe(0);
+    });
+
+    it('a failed description save is surfaced and retried the same way', async () => {
+      const { page, fileSystem, pageOperations } = await openWithFailingDisk();
+      fileSystem.failing = true;
+
+      pageOperations.commitDescription(page.id, 'A description');
+      await pageOperations.requestDescriptionSave(page.id);
+
+      expect(pageOperations.saveFailureStatus(page.id)).toBe('retry-scheduled');
+      expect(pageOperations.unsavedPageCount()).toBe(1);
+
+      fileSystem.failing = false;
+      await pageOperations.retrySave(page.id);
+
+      expect(pageOperations.saveFailureStatus(page.id)).toBeNull();
+    });
+
+    it('closing a failed page removes it from the failures and cancels its retry', async () => {
+      const { page, fileSystem, pageOperations } = await openWithFailingDisk();
+      fileSystem.failing = true;
+      pageOperations.commitEdit(page.id, 'Edited body');
+      await pageOperations.requestSave(page.id);
+      const listener = vi.fn();
+      pageOperations.subscribeSaveFailures(listener);
+
+      pageOperations.close(page.id);
+
+      expect(pageOperations.failedSavePageIds()).toEqual([]);
+      expect(listener).toHaveBeenCalled();
+    });
   });
 });

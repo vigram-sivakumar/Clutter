@@ -90,20 +90,48 @@ describe('SaveCoordinator: bounded retry scheduling', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('a new edit (scheduleSave) supersedes a pending retry and restarts the schedule', () => {
+  it('a new edit cancels the pending retry timer but does not refill the retry budget', () => {
     const coordinator = new SaveCoordinator();
     const retry = vi.fn();
-    coordinator.scheduleRetry('page', retry);
-    coordinator.scheduleRetry('page', retry);
+    for (let step = 0; step < SAVE_RETRY_DELAYS_MS.length - 1; step += 1) {
+      coordinator.scheduleRetry('page', retry); // all but the last step used; the last one pending
+    }
+    expect(coordinator.hasPendingRetry('page')).toBe(true);
 
-    coordinator.scheduleSave('page', vi.fn());
+    coordinator.scheduleSave('page', vi.fn()); // an edit
+    expect(coordinator.hasPendingRetry('page')).toBe(false);
     vi.advanceTimersByTime(60_000);
     expect(retry).not.toHaveBeenCalled();
 
-    coordinator.cancelTimers('page');
-    coordinator.scheduleRetry('page', retry);
-    vi.advanceTimersByTime(SAVE_RETRY_DELAYS_MS[0]!);
-    expect(retry).toHaveBeenCalledTimes(1);
+    // One step of budget is left (the edit did not restore the others), and then none.
+    expect(coordinator.scheduleRetry('page', retry)).toBe(true);
+    expect(coordinator.scheduleRetry('page', retry)).toBe(false);
+  });
+
+  it('reports a scheduled retry, and exhaustion only once every step is used and none is pending', () => {
+    const coordinator = new SaveCoordinator();
+    expect(coordinator.retriesExhausted('page')).toBe(false);
+
+    for (const delay of SAVE_RETRY_DELAYS_MS) {
+      coordinator.scheduleRetry('page', vi.fn());
+      expect(coordinator.hasPendingRetry('page')).toBe(true);
+      expect(coordinator.retriesExhausted('page')).toBe(false);
+      vi.advanceTimersByTime(delay);
+    }
+
+    expect(coordinator.hasPendingRetry('page')).toBe(false);
+    expect(coordinator.retriesExhausted('page')).toBe(true);
+  });
+
+  it('a confirmed save on a non-session channel (title, description) resets its schedule', () => {
+    const coordinator = new SaveCoordinator();
+    coordinator.beginChannelSave('page:title', 'x');
+    coordinator.scheduleRetry('page:title', vi.fn());
+
+    expect(coordinator.completeChannelSave('page:title', 'x')).toBe(true);
+
+    expect(coordinator.hasPendingRetry('page:title')).toBe(false);
+    expect(coordinator.retriesExhausted('page:title')).toBe(false);
   });
 
   it('a successful save resets the schedule', () => {
