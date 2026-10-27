@@ -147,4 +147,124 @@ describe('createWindowCloseHandler', () => {
     expect(close).toHaveBeenCalledTimes(2);
     expect(destroyWindow).toHaveBeenCalledOnce();
   });
+
+  describe('with unsaved changes', () => {
+    function application(unsaved: number) {
+      return {
+        close: vi.fn(async () => {}),
+        checkUnsavedBeforeClose: vi.fn(async () => unsaved),
+      };
+    }
+
+    it('closes without asking when nothing is unsaved', async () => {
+      const app = application(0);
+      const confirmUnsavedClose = vi.fn(async () => 'close' as const);
+      const destroyWindow = vi.fn(async () => {});
+      const handler = createWindowCloseHandler({
+        getBootstrap: () => null,
+        getApplication: () => app,
+        destroyWindow,
+        confirmUnsavedClose,
+      });
+
+      await handler(event());
+
+      expect(confirmUnsavedClose).not.toHaveBeenCalled();
+      expect(app.close).toHaveBeenCalledOnce();
+      expect(destroyWindow).toHaveBeenCalledOnce();
+    });
+
+    it('offers the user a choice, and closes nothing until they answer', async () => {
+      const app = application(2);
+      let answer!: (choice: 'close' | 'cancel') => void;
+      const confirmUnsavedClose = vi.fn(
+        () => new Promise<'close' | 'cancel'>((resolve) => (answer = resolve))
+      );
+      const destroyWindow = vi.fn(async () => {});
+      const handler = createWindowCloseHandler({
+        getBootstrap: () => null,
+        getApplication: () => app,
+        destroyWindow,
+        confirmUnsavedClose,
+      });
+
+      const closing = handler(event());
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(confirmUnsavedClose).toHaveBeenCalledWith(2);
+      expect(app.close).not.toHaveBeenCalled();
+      expect(destroyWindow).not.toHaveBeenCalled();
+
+      answer('close');
+      await closing;
+
+      expect(app.close).toHaveBeenCalledOnce();
+      expect(destroyWindow).toHaveBeenCalledOnce();
+    });
+
+    it('cancelling keeps the window and the application open, untouched, and asks again next time', async () => {
+      const app = application(1);
+      const confirmUnsavedClose = vi
+        .fn<(count: number) => Promise<'close' | 'cancel'>>()
+        .mockResolvedValueOnce('cancel')
+        .mockResolvedValueOnce('close');
+      const destroyWindow = vi.fn(async () => {});
+      const handler = createWindowCloseHandler({
+        getBootstrap: () => null,
+        getApplication: () => app,
+        destroyWindow,
+        confirmUnsavedClose,
+      });
+
+      await handler(event());
+
+      expect(app.close).not.toHaveBeenCalled(); // nothing disposed: the open documents keep their content
+      expect(destroyWindow).not.toHaveBeenCalled();
+
+      await handler(event());
+
+      expect(confirmUnsavedClose).toHaveBeenCalledTimes(2);
+      expect(app.close).toHaveBeenCalledOnce();
+      expect(destroyWindow).toHaveBeenCalledOnce();
+    });
+
+    it('a flush that did not save everything cannot close the app silently, even with no dialog available', async () => {
+      const app = application(1); // the flush ran and failed: one page is still unsaved
+      const destroyWindow = vi.fn(async () => {});
+      const handler = createWindowCloseHandler({
+        getBootstrap: () => null,
+        getApplication: () => app,
+        destroyWindow,
+      });
+
+      await handler(event());
+
+      expect(app.checkUnsavedBeforeClose).toHaveBeenCalledOnce();
+      expect(app.close).not.toHaveBeenCalled();
+      expect(destroyWindow).not.toHaveBeenCalled();
+    });
+
+    it('repeated close requests while the dialog is open (close button, ⌘Q) share one dialog', async () => {
+      const app = application(1);
+      let answer!: (choice: 'close' | 'cancel') => void;
+      const confirmUnsavedClose = vi.fn(
+        () => new Promise<'close' | 'cancel'>((resolve) => (answer = resolve))
+      );
+      const handler = createWindowCloseHandler({
+        getBootstrap: () => null,
+        getApplication: () => app,
+        destroyWindow: async () => {},
+        confirmUnsavedClose,
+      });
+
+      const requests = [handler(event()), handler(event()), handler(event())];
+      await vi.advanceTimersByTimeAsync(0);
+      answer('cancel');
+      await Promise.all(requests);
+
+      expect(confirmUnsavedClose).toHaveBeenCalledOnce();
+      expect(app.checkUnsavedBeforeClose).toHaveBeenCalledOnce();
+    });
+  });
 });
+

@@ -1901,6 +1901,28 @@ export class Application {
     return { ok: false, reason };
   }
 
+  /**
+   * Before the window closes: tries one bounded flush, then reports how many open pages still hold changes that are
+   * not safely saved. Never claims anything was saved because a flush was attempted: it counts what is *still*
+   * unsaved afterwards (a failed or timed-out flush leaves the page dirty, see PageOperations.flushAll()). The
+   * caller decides whether to ask the user; this closes nothing and discards nothing.
+   *
+   * An Application sealed for a folder rename was verified clean by quiesceForRename(), so it reports 0. A lost
+   * root cannot be flushed to, but its unsaved pages are still counted: closing would discard them.
+   */
+  public async checkUnsavedBeforeClose(): Promise<number> {
+    if (this.closed || this.writeAdmission === 'sealed') {
+      return 0;
+    }
+
+    if (!this.rootLost) {
+      await this.pageOperations.flushAll(SHUTDOWN_FLUSH_TIMEOUT_MS);
+      await this.folderOperations.flushAll(SHUTDOWN_FLUSH_TIMEOUT_MS);
+    }
+
+    return this.pageOperations.unsavedPageCount();
+  }
+
   public async close(): Promise<void> {
     if (this.closed) {
       return;

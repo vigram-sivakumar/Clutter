@@ -1334,10 +1334,49 @@ export class PageOperations {
         // rejectSaveRequest() needs to handle.
         if (session.state !== DocumentState.SaveError) {
           this.saveCoordinator.rejectSaveRequest(session);
+          return;
+        }
+
+        // T11b: the Gate failed, the revision stays dirty and the session shows as unsaved. Try again on a bounded
+        // backoff (SaveCoordinator.scheduleRetry) rather than waiting for the next keystroke. The retry goes
+        // through requestSave() again, which reads the *current* revision and shares one in-flight save per page,
+        // so it can neither write a stale revision nor race a save another trigger already started. A validation
+        // failure (T11a above) is not retried: nothing about it improves with time.
+        if (session.isDirty) {
+          this.saveCoordinator.scheduleRetry(pageId, () => {
+            void this.requestSave(pageId);
+          });
         }
         return;
       }
     }
+  }
+
+  /**
+   * How many open pages hold changes that are not safely saved: a body, title or description that is dirty, in
+   * SaveError, or still saving. Read-only; used before the window closes to decide whether the user must be asked
+   * (Application.checkUnsavedBeforeClose()).
+   */
+  public unsavedPageCount(): number {
+    const ids = new Set<string>();
+
+    for (const session of this.documentRegistry.getAll()) {
+      if (session.state !== DocumentState.Disposed && (session.isDirty || session.state === DocumentState.SaveError)) {
+        ids.add(session.id);
+      }
+    }
+    for (const [pageId, titleState] of this.titleStates) {
+      if (titleState.isDirty || titleState.state === DocumentState.SaveError) {
+        ids.add(pageId);
+      }
+    }
+    for (const [pageId, descriptionState] of this.descriptionStates) {
+      if (descriptionState.isDirty || descriptionState.state === DocumentState.SaveError) {
+        ids.add(pageId);
+      }
+    }
+
+    return ids.size;
   }
 
   /** The title channel's SaveCoordinator key — distinct from `pageId` so it can never collide with the body channel's timers/stale-guard entries for the same page. */

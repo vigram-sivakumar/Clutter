@@ -4,8 +4,11 @@
 //! The rest of the bar (Edit, View, Window, Help) stays exactly what Tauri's default menu provides until each is
 //! designed separately, so `install` starts from that default and swaps out only the submenus Clutter owns.
 //!
-//! Hide, Hide Others, Show All, Services, About and Quit are predefined native items, so the system supplies their
-//! behaviour and shortcuts. Only Settings… is custom: it asks the frontend to open the existing Settings dialog.
+//! Hide, Hide Others, Show All, Services and About are predefined native items, so the system supplies their
+//! behaviour and shortcuts. Settings… and Quit are custom: Settings… asks the frontend to open the existing Settings
+//! dialog, and Quit asks the frontend to close the window the same way the close button does, so unsaved changes are
+//! never discarded without the user being asked. (Quitting from the Dock menu or at logout still ends the process
+//! directly: tao installs no applicationShouldTerminate hook that could defer it.)
 
 use tauri::menu::{
     AboutMetadata, Menu, MenuEvent, MenuItem, MenuItemKind, PredefinedMenuItem, Submenu,
@@ -19,6 +22,14 @@ pub const COPY_PAGE_LINK_ITEM_ID: &str = "edit-copy-page-link";
 
 /// Event the frontend listens for to copy the open page's link (see src/app/layouts/sidebar/useNativeEditMenu.ts).
 pub const COPY_PAGE_LINK_EVENT: &str = "menu:copy-page-link";
+
+/// Id of the Quit item, matched in `handle_event`. Quit is custom (not the predefined native item) because the native
+/// one ends the process immediately: the page could never ask about unsaved changes first.
+pub const QUIT_ITEM_ID: &str = "app-quit";
+
+/// Event the frontend listens for to run its close flow (flush, then the unsaved-changes dialog if needed, then
+/// destroy the window, which ends the app). See src/app/windowCloseHandler.ts.
+pub const QUIT_REQUESTED_EVENT: &str = "menu:quit";
 
 /// Id of the Settings… item, matched in `handle_event`.
 pub const SETTINGS_ITEM_ID: &str = "app-settings";
@@ -142,6 +153,14 @@ fn build_app_submenu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>
         Some("CmdOrCtrl+,"),
     )?;
 
+    let quit = MenuItem::with_id(
+        app,
+        QUIT_ITEM_ID,
+        format!("Quit {name}"),
+        true,
+        Some("CmdOrCtrl+Q"),
+    )?;
+
     Submenu::with_items(
         app,
         &name,
@@ -157,7 +176,7 @@ fn build_app_submenu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>
             &PredefinedMenuItem::hide_others(app, None)?,
             &PredefinedMenuItem::show_all(app, None)?,
             &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::quit(app, Some(&format!("Quit {name}")))?,
+            &quit,
         ],
     )
 }
@@ -307,6 +326,10 @@ pub fn install<R: Runtime>(_app: &AppHandle<R>) -> tauri::Result<()> {
 
 /// Routes a menu click. Settings… only notifies the frontend, which owns the dialog and decides whether it can open.
 pub fn handle_event<R: Runtime>(app: &AppHandle<R>, event: MenuEvent) {
+    if event.id().as_ref() == QUIT_ITEM_ID {
+        request_quit(app);
+        return;
+    }
     if let Some(action) = zoom_action_for_item(event.id().as_ref()) {
         apply_zoom(app, action);
         return;
@@ -316,6 +339,19 @@ pub fn handle_event<R: Runtime>(app: &AppHandle<R>, event: MenuEvent) {
             log::error!("could not forward menu item {}: {error}", event.id().as_ref());
         }
     }
+}
+
+/// Asks the page to close. If the page cannot take the request (the window is not showing: startup has not finished
+/// or has failed, so there is no editor and nothing unsaved) the app exits directly, so Quit never goes dead.
+fn request_quit<R: Runtime>(app: &AppHandle<R>) {
+    let page_is_showing = app
+        .get_webview_window(MAIN_WINDOW_LABEL)
+        .is_some_and(|window| window.is_visible().unwrap_or(false));
+
+    if page_is_showing && app.emit(QUIT_REQUESTED_EVENT, ()).is_ok() {
+        return;
+    }
+    app.exit(0);
 }
 
 /// The frontend event a custom menu item forwards to, or None for items the system handles itself.
@@ -336,6 +372,14 @@ fn event_for_item(id: &str) -> Option<&'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn quit_is_a_custom_item_the_generic_forwarder_does_not_claim() {
+        // handle_event routes it to request_quit() before event_for_item() is consulted.
+        assert_eq!(QUIT_ITEM_ID, "app-quit");
+        assert_eq!(event_for_item(QUIT_ITEM_ID), None);
+        assert_eq!(QUIT_REQUESTED_EVENT, "menu:quit");
+    }
 
     #[test]
     fn file_items_forward_to_their_frontend_events() {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
 import { isTauri } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { listen } from '@tauri-apps/api/event';
 
 import {
   Application,
@@ -26,7 +27,8 @@ import { StartupFrame } from './StartupFrame';
 import { WelcomeBackground } from './WelcomeBackground';
 import { GradientGrainy } from '../components/gradient-grainy/GradientGrainy';
 import { scheduleAfterFirstPaint } from './scheduleAfterFirstPaint';
-import { createWindowCloseHandler } from './windowCloseHandler';
+import { createWindowCloseHandler, QUIT_MENU_EVENT, type UnsavedCloseChoice } from './windowCloseHandler';
+import { UnsavedCloseDialog } from './UnsavedCloseDialog';
 import { WelcomeScreenDialog } from '../components/welcome-screen/WelcomeScreenDialog';
 import { Dialog } from '../components/dialog/Dialog';
 import {
@@ -264,15 +266,46 @@ function AppShellContent() {
   // close() at the right moment. There is no native window to intercept in
   // the web runtime (a browser tab close can't be gated the same way, and the
   // in-memory web vault has nothing durable to protect on close anyway).
+  //
+  // When pages still hold unsaved changes after that flush, the user is asked first (the dialog below). The
+  // pending answer lives in a ref so the one-time handler registration can reach it.
+  const [unsavedClose, setUnsavedClose] = useState<{ readonly count: number } | null>(null);
+  const unsavedCloseAnswerRef = useRef<((choice: UnsavedCloseChoice) => void) | null>(null);
+  const confirmUnsavedClose = useCallback(
+    (count: number) =>
+      new Promise<UnsavedCloseChoice>((resolve) => {
+        unsavedCloseAnswerRef.current = resolve;
+        setUnsavedClose({ count });
+      }),
+    []
+  );
+  const answerUnsavedClose = useCallback((choice: UnsavedCloseChoice) => {
+    const answer = unsavedCloseAnswerRef.current;
+    unsavedCloseAnswerRef.current = null;
+    setUnsavedClose(null);
+    answer?.(choice);
+  }, []);
+
   useEffect(() => {
     if (!isTauri()) return;
     let disposed = false;
     let unlisten: (() => void) | null = null;
+    let unlistenQuit: (() => void) | null = null;
     const handler = createWindowCloseHandler({
       getBootstrap: () => bootstrapRef.current,
       getApplication: () => applicationRef.current,
       destroyWindow: () => getCurrentWindow().destroy(),
+      confirmUnsavedClose,
     });
+    // ⌘Q (the native Quit item, app_menu.rs) asks for exactly the same close as the window's close button: the
+    // same flush, the same unsaved-changes dialog, the same single in-flight close. The native predefined Quit
+    // would end the process before the page could be asked anything.
+    listen(QUIT_MENU_EVENT, () => void handler({ preventDefault() {} }))
+      .then((unlistenFn) => {
+        if (disposed) unlistenFn();
+        else unlistenQuit = unlistenFn;
+      })
+      .catch((error) => console.error('Could not listen for the Quit menu item', error));
     getCurrentWindow()
       .onCloseRequested(handler)
       .then((unlistenFn) => {
@@ -297,6 +330,7 @@ function AppShellContent() {
     return () => {
       disposed = true;
       unlisten?.();
+      unlistenQuit?.();
     };
   }, []);
 
@@ -1179,6 +1213,7 @@ function AppShellContent() {
   return (
     <SpacesContext.Provider value={spacesApi}>
       {renderFrame()}
+      <UnsavedCloseDialog unsavedCount={unsavedClose?.count ?? null} onAnswer={answerUnsavedClose} />
       {settingsAvailable && (
         <ActiveSpaceSettingsDialog application={application} busy={application === null || renameInFlight} />
       )}

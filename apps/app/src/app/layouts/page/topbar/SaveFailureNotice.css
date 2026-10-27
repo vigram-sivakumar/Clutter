@@ -1,0 +1,6 @@
+.save-failure-notice {
+  margin-right: var(--space-6);
+  font: var(--text-label-small);
+  color: var(--danger-foreground);
+  white-space: nowrap;
+}

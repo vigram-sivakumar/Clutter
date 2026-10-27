@@ -35,6 +35,14 @@ export const AUTOSAVE_DEBOUNCE_MS = 2000;
 export const AUTOSAVE_CEILING_MS = 30000;
 
 /**
+ * Delays before each automatic retry of a failed save: exponential backoff (2s, 4s, 8s, 16s, 30s), and at most
+ * this many attempts per failure streak. After the last one the session simply stays in SaveError — still dirty,
+ * still shown as unsaved — until the user edits again (which starts a fresh streak), navigates away, or closes.
+ * A save that keeps failing is never retried forever.
+ */
+export const SAVE_RETRY_DELAYS_MS: readonly number[] = [2000, 4000, 8000, 16000, 30000];
+
+/**
  * Coordinates persistence for committed document revisions — and, more
  * generally, for any *channel* of persistable content belonging to a
  * document (autosave-execution-model.md §9's "Rename" row anticipated this:
@@ -100,6 +108,13 @@ export class SaveCoordinator {
   private readonly ceilingTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   /**
+   * Pending retry timer and failed-attempt count per channel key. At most one timer per key; both are removed
+   * together by resetRetries(), which every path that ends a failure streak goes through.
+   */
+  private readonly retryTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private readonly retryAttempts = new Map<string, number>();
+
+  /**
    * Arms/resets a channel's autosave timers in response to a real
    * (non-no-op) commit — the mechanical half of autosave scheduling
    * (autosave-execution-model.md §5), generalized from "per session" to
@@ -130,6 +145,10 @@ export class SaveCoordinator {
     const debounceMs = options?.debounceMs ?? AUTOSAVE_DEBOUNCE_MS;
     const ceilingMs = options?.ceilingMs ?? AUTOSAVE_CEILING_MS;
 
+    // A new edit supersedes any pending retry (the debounce armed below saves the newest revision) and starts a
+    // fresh retry budget: it is evidence the user is still here, and it is a different revision.
+    this.resetRetries(key);
+
     const existingDebounce = this.debounceTimers.get(key);
     if (existingDebounce !== undefined) {
       clearTimeout(existingDebounce);
@@ -157,6 +176,8 @@ export class SaveCoordinator {
    * cancellation. Safe to call for a key with no armed timers (no-op).
    */
   public cancelTimers(key: string): void {
+    this.resetRetries(key);
+
     const debounce = this.debounceTimers.get(key);
     if (debounce !== undefined) {
       clearTimeout(debounce);
@@ -191,6 +212,55 @@ export class SaveCoordinator {
       clearTimeout(handle);
     }
     this.ceilingTimers.clear();
+
+    for (const handle of this.retryTimers.values()) {
+      clearTimeout(handle);
+    }
+    this.retryTimers.clear();
+    this.retryAttempts.clear();
+  }
+
+  /**
+   * Arms the next bounded-backoff retry for a channel whose save just failed. `onFire` re-requests the save; it
+   * must read the *current* revision when it runs (PageOperations.requestSave() does), so a retry can never write
+   * an older revision than the newest edit. Replaces any retry already pending for the key.
+   *
+   * Returns false, arming nothing, once SAVE_RETRY_DELAYS_MS is exhausted for this failure streak.
+   * The streak resets on a successful save, on any new edit (scheduleSave) and on cancelTimers().
+   */
+  public scheduleRetry(key: string, onFire: () => void): boolean {
+    const attempt = this.retryAttempts.get(key) ?? 0;
+    const delay = SAVE_RETRY_DELAYS_MS[attempt];
+
+    if (delay === undefined) {
+      return false;
+    }
+
+    const pending = this.retryTimers.get(key);
+    if (pending !== undefined) {
+      clearTimeout(pending);
+    }
+
+    this.retryAttempts.set(key, attempt + 1);
+    this.retryTimers.set(
+      key,
+      setTimeout(() => {
+        this.retryTimers.delete(key);
+        onFire();
+      }, delay)
+    );
+
+    return true;
+  }
+
+  /** Clears a channel's pending retry and its attempt count. Safe for a key with neither (no-op). */
+  public resetRetries(key: string): void {
+    const pending = this.retryTimers.get(key);
+    if (pending !== undefined) {
+      clearTimeout(pending);
+      this.retryTimers.delete(key);
+    }
+    this.retryAttempts.delete(key);
   }
 
   /**
@@ -286,6 +356,8 @@ export class SaveCoordinator {
     }
     // Mark the session as saved with this revision.
     session.markSaved(revision);
+    // A successful save ends any failure streak: the next failure starts a fresh retry schedule.
+    this.resetRetries(session.id);
     // Remove from active saves.
     this.activeSaves.delete(session.id);
 

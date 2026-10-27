@@ -21,6 +21,8 @@ import { resolvePageIdentityIcon } from '@app/layouts/page/resolvePageIdentityIc
 import { useActivePage } from '@app/hooks/useActivePage';
 import { useReferencesDisplayStore } from '@app/hooks/useReferencesDisplayStore';
 import { useDocumentSession } from '@app/hooks/useDocumentSession';
+import { useSaveFailure } from '@app/layouts/page/useSaveFailure';
+import { SaveFailureNotice } from '@app/layouts/page/topbar/SaveFailureNotice';
 import { useWorkspace } from '@app/hooks/useWorkspace';
 import {
   buildBreadcrumbs,
@@ -829,6 +831,8 @@ export function PageHost({
   // React observes DocumentSession changes through this hook.
   // The session remains the single source of editable document state.
   const session = useDocumentSession(rawSession);
+  // A failed save is shown persistently in the top bar (below) and announced once by a toast.
+  const saveFailing = useSaveFailure(session);
 
   // Narrowed to `null` unless this request actually targets the page this
   // render is showing — `pageOperations.open` (called by Sidebar.Tasks'
@@ -2880,6 +2884,7 @@ export function PageHost({
             {application.membershipSelector.isInTemplatesFolder(
               draft.folderId
             ) && <Pill size="small">Editing template</Pill>}
+            {saveFailing && <SaveFailureNotice />}
             {draftTopBar.actions}
           </>
         }
@@ -3173,6 +3178,7 @@ export function PageHost({
             {application.membershipSelector.isInTemplatesFolder(
               page.parentId
             ) && <Pill size="small">Editing template</Pill>}
+            {saveFailing && <SaveFailureNotice />}
             {topBar.actions}
           </>
         }
