@@ -23,6 +23,11 @@ import { VaultBuilder } from '../vault/ingest';
 import { VaultScanner } from '../vault/ingest';
 import { ParsedNoteCache, type ParsedNoteCacheBackend } from '../vault/persistence/parsedNoteCache';
 import { TauriParsedNoteCacheBackend } from '../vault/providers/TauriParsedNoteCacheBackend';
+import { fingerprint } from '../recovery/fingerprint';
+import { RecoveryJournal } from '../recovery/RecoveryJournal';
+import type { RecoveryStorage } from '../recovery/RecoveryStorage';
+import { TauriRecoveryStorage } from '../recovery/TauriRecoveryStorage';
+import { RecoveryOperations } from './recovery/RecoveryOperations';
 import { Workspace } from '../workspace/Workspace';
 import { Vault } from '../vault/models/Vault';
 import { VaultQuery } from '../vault/queries/VaultQuery';
@@ -222,6 +227,17 @@ export class Application {
   public readonly spaceProfileStore: SpaceProfileStore;
   private readonly tagMetadataStore: TagMetadataStore;
   public pageOperations!: PageOperations;
+  /**
+   * Unsaved-work recovery (ADR-062): null when no recovery location is available (the web runtime unless one is
+   * injected, and many tests). Records live outside the vault and never replace it.
+   */
+  public recoveryOperations: RecoveryOperations | null = null;
+  /**
+   * Recovery storage for the web runtime, which has no application data directory. Null (no recovery) until the host
+   * installs one (AppShell installs a browser-storage one for the development web app); tests leave it null.
+   */
+  public static webRecoveryStorage: RecoveryStorage | null = null;
+  private recoveryJournal: RecoveryJournal | null = null;
   public folderOperations!: FolderOperations;
   public resourceOperations!: ResourceOperations;
   /**
@@ -287,6 +303,11 @@ export class Application {
        * entirely (every file is parsed, nothing is read or written).
        */
       parsedNoteCacheBackend?: ParsedNoteCacheBackend | null;
+      /**
+       * Where recovery snapshots of unsaved work are kept (ADR-062). Omitted: the application data directory under
+       * Tauri and none in the web runtime. `null` disables recovery.
+       */
+      recoveryStorage?: RecoveryStorage | null;
     } = {}
   ): Promise<Application> {
     // Shared between the write side (SelfWriteAwareFileSystem) and the read
@@ -490,6 +511,14 @@ export class Application {
     const pageCreator = new PageCreator(new UuidGenerator(), new PageFactory());
 
     application.attachVault(vault, pageCreator, dailyNotes, rawFileSystem, normalizeMarkdownForSave);
+    application.attachRecovery(
+      options.recoveryStorage !== undefined
+        ? options.recoveryStorage
+        : runningInTauri
+          ? new TauriRecoveryStorage()
+          : Application.webRecoveryStorage,
+      rootPath
+    );
 
     // ADR-035 §7 step 5: restore the persisted sidebar chrome into its
     // runtime owners before anything renders. Pure in-memory setter calls;
@@ -577,6 +606,29 @@ export class Application {
     this.dailyNotesSidebarState = new DailyNotesSidebarState();
     this.documentRegistry = new DocumentRegistry();
     this.saveCoordinator = new SaveCoordinator();
+  }
+
+  /**
+   * Sets up unsaved-work recovery for this vault (ADR-062). Records are keyed by the Space's stable id when it has one,
+   * so renaming the folder does not orphan them; the key a Space had before it got an id is also read.
+   */
+  public attachRecovery(storage: RecoveryStorage | null, rootPath: string): void {
+    if (storage === null) {
+      return;
+    }
+
+    const rootKey = `root-${fingerprint(rootPath)}`;
+    const profileId = this.spaceProfileStore.profile?.id;
+    const journal = new RecoveryJournal({
+      storage,
+      vaultKey: profileId ? `space-${profileId}` : rootKey,
+      readKeys: profileId ? [rootKey] : [],
+      source: this.pageOperations,
+      onWriteError: (error) => console.error('Recovery: could not write a snapshot of unsaved work.', error),
+    });
+
+    this.recoveryJournal = journal;
+    this.recoveryOperations = new RecoveryOperations(journal, this.vault, this.pageOperations);
   }
 
   /**
@@ -891,6 +943,11 @@ export class Application {
     if (options.sidebarTab) this.workspace.setActiveSidebarTab(options.sidebarTab);
 
     await this.restoreLastSessionOrFallback(options.startup ?? 'last-opened-note');
+
+    // Unsaved work an earlier session left behind is looked for before this session starts writing its own records
+    // (they are separate files, so neither can overwrite the other). Never throws; it only reads.
+    this.recoveryJournal?.start();
+    void this.recoveryOperations?.discover();
 
     this.workspaceSessionStore.attach({
       workspace: this.workspace,
@@ -1799,6 +1856,8 @@ export class Application {
     this.workspaceSessionStore.dispose();
     this.saveCoordinator.cancelAllTimers();
     this.vaultSyncService.dispose();
+    // The vault is gone, so nothing can be saved to it: what is unsaved is exactly what recovery is for.
+    void this.recoveryJournal?.flush();
 
     for (const listener of [...this.rootLostListeners]) {
       listener();
@@ -1949,6 +2008,11 @@ export class Application {
       // before quitting must reach `.clutter/workspace.json`, which nothing else holds the process open for.
       await flushWorkspaceStateWrites();
     }
+    // Whatever is still unsaved after that flush (a failed save, or a close the user chose to go through with) is
+    // written to recovery before the sessions are disposed. A note saved by the flush has its record removed.
+    // Independent of the vault: it works when the vault is lost or sealed too.
+    await this.recoveryJournal?.flush().catch(() => undefined);
+    this.recoveryJournal?.dispose();
     this.workspaceSessionStore.dispose();
     await this.fileSystemWatcher.stop();
     this.vaultSyncService.dispose();

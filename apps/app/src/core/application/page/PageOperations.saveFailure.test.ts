@@ -4,6 +4,10 @@ import { PagePersistenceCoordinator } from '../../vault/persistence/PagePersiste
 import { Workspace } from '../../workspace/Workspace';
 import { DocumentRegistry } from '../../engine/DocumentRegistry';
 import { SaveCoordinator, SAVE_RETRY_DELAYS_MS } from '../../engine/SaveCoordinator';
+import { RECOVERY_DEBOUNCE_MS, RecoveryJournal } from '../../recovery/RecoveryJournal';
+import { MemoryRecoveryStorage } from '../../recovery/RecoveryStorage';
+import { parseRecord, recordFileName } from '../../recovery/RecoveryRecord';
+import { fingerprint } from '../../recovery/fingerprint';
 import { DocumentState } from '../../engine/DocumentState';
 import { Vault } from '../../vault/models/Vault';
 import { VaultProjectionBuilder } from '../../vault/knowledge/VaultProjectionBuilder';
@@ -581,5 +585,167 @@ describe('PageOperations: a failed save is kept, retried on a bounded backoff, a
       expect(pageOperations.failedSavePageIds()).toEqual([]);
       expect(listener).toHaveBeenCalled();
     });
+  });
+});
+
+describe('recovery: what is recoverable, and the journal over the real PageOperations', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  async function withJournal() {
+    const parts = await openWithFailingDisk();
+    const storage = new MemoryRecoveryStorage();
+    const journal = new RecoveryJournal({ storage, vaultKey: 'space-1', source: parts.pageOperations, session: 'aaaaaaaa' });
+    journal.start();
+    const record = (pageId: string) => {
+      const text = storage.files.get(`space-1/${recordFileName(pageId, 'aaaaaaaa')}`);
+      return text === undefined ? null : parseRecord(text);
+    };
+    return { ...parts, storage, journal, record };
+  }
+
+  it('reports nothing for a clean page, and each unsaved field for a dirty one, from where it actually lives', async () => {
+    const { page, pageOperations, fileSystem } = await openWithFailingDisk();
+    fileSystem.failing = true;
+    expect(pageOperations.recoverableState(page.id)).toBeNull();
+
+    pageOperations.commitEdit(page.id, 'Edited body');
+    pageOperations.commitTitle(page.id, 'Edited title');
+    pageOperations.commitDescription(page.id, 'Edited description');
+
+    const state = pageOperations.recoverableState(page.id)!;
+    expect(state.kind).toBe('page');
+    expect(state.body?.markdown).toBe('Edited body');
+    expect(state.title).toBe('Edited title');
+    expect(state.description).toBe('Edited description');
+    expect(state.vault).toMatchObject({ body: 'Original body', title: page.name });
+    expect(pageOperations.unsavedPageIds()).toEqual([page.id]);
+  });
+
+  it('reports only the fields that are unsaved', async () => {
+    const { page, pageOperations } = await openWithFailingDisk();
+
+    pageOperations.commitTitle(page.id, 'Only the title');
+
+    const state = pageOperations.recoverableState(page.id)!;
+    expect(state.body).toBeNull();
+    expect(state.description).toBeNull();
+    expect(state.title).toBe('Only the title');
+  });
+
+  it('a draft that has no vault file yet is recoverable, with what it needs to become a note', async () => {
+    const { pageOperations } = await openWithFailingDisk();
+    const draftId = await pageOperations.openDraft({ folderId: null, title: undefined });
+
+    pageOperations.commitEdit(draftId, '# A brand new idea\n\nwith a body');
+
+    const state = pageOperations.recoverableState(draftId)!;
+    expect(state.kind).toBe('draft');
+    expect(state.pagePath).toBeNull();
+    expect(state.vault).toBeNull();
+    expect(state.body?.markdown).toContain('A brand new idea');
+    expect(state.draft).toMatchObject({ folderId: null, type: 'note' });
+    expect(state.label).toBe('A brand new idea');
+  });
+
+  it('keeps several dirty notes apart', async () => {
+    const { page, second, pageOperations } = await openWithFailingDisk();
+    await pageOperations.open(second.id);
+
+    pageOperations.commitEdit(page.id, 'first edit');
+    pageOperations.commitEdit(second.id, 'second edit');
+
+    expect([...pageOperations.unsavedPageIds()].sort()).toEqual([page.id, second.id].sort());
+    expect(pageOperations.recoverableState(page.id)!.body!.markdown).toBe('first edit');
+    expect(pageOperations.recoverableState(second.id)!.body!.markdown).toBe('second edit');
+  });
+
+  it('after a failed save and more edits, the recoverable state is the newest content', async () => {
+    const { page, pageOperations, fileSystem } = await openWithFailingDisk();
+    fileSystem.failing = true;
+    pageOperations.commitEdit(page.id, 'before the failure');
+    await pageOperations.requestSave(page.id);
+
+    pageOperations.commitEdit(page.id, 'after the failure');
+
+    expect(pageOperations.recoverableState(page.id)!.body!.markdown).toBe('after the failure');
+  });
+
+  it('notifies subscribers of edits, save results and closing', async () => {
+    const { page, pageOperations, fileSystem } = await openWithFailingDisk();
+    const seen: (string | undefined)[] = [];
+    pageOperations.subscribeUnsaved((id) => seen.push(id));
+    fileSystem.failing = true;
+
+    pageOperations.commitEdit(page.id, 'edit');
+    await pageOperations.requestSave(page.id);
+    pageOperations.close(page.id);
+
+    expect(seen.length).toBeGreaterThanOrEqual(3);
+    expect(new Set(seen)).toEqual(new Set([page.id]));
+  });
+
+  it('a failed vault save does not stop the snapshot, and the record keeps the newest edit', async () => {
+    const { page, pageOperations, fileSystem, record } = await withJournal();
+    fileSystem.failing = true;
+
+    pageOperations.commitEdit(page.id, 'edit one');
+    await pageOperations.requestSave(page.id); // the vault save fails
+    await vi.advanceTimersByTimeAsync(RECOVERY_DEBOUNCE_MS + 10);
+    expect(pageOperations.saveFailureStatus(page.id)).not.toBeNull();
+    expect(record(page.id)!.body!.markdown).toBe('edit one');
+    pageOperations.commitEdit(page.id, 'edit two');
+    await vi.advanceTimersByTimeAsync(RECOVERY_DEBOUNCE_MS + 10);
+
+    expect(record(page.id)!.body!.markdown).toBe('edit two');
+    expect(record(page.id)!.base.body).toBe(fingerprint('Original body'));
+    expect(pageOperations.recoverableState(page.id)).not.toBeNull(); // the failed save did not mark it saved
+  });
+
+  it('a confirmed save removes the record, and only that note’s', async () => {
+    const { page, second, pageOperations, fileSystem, record } = await withJournal();
+    await pageOperations.open(second.id);
+    fileSystem.failing = true;
+    pageOperations.commitEdit(page.id, 'first edit');
+    pageOperations.commitEdit(second.id, 'second edit');
+    await vi.advanceTimersByTimeAsync(RECOVERY_DEBOUNCE_MS + 10);
+    expect(record(page.id)).not.toBeNull();
+    expect(record(second.id)).not.toBeNull();
+
+    fileSystem.failing = false;
+    await pageOperations.retrySave(page.id);
+    await vi.advanceTimersByTimeAsync(RECOVERY_DEBOUNCE_MS + 10);
+
+    expect(record(page.id)).toBeNull();
+    expect(record(second.id)!.body!.markdown).toBe('second edit');
+  });
+
+  it('saving an older revision while a newer one is waiting leaves the newer one protected', async () => {
+    const { page, pageOperations, fileSystem, record, session } = await withJournal();
+    const releaseFirst = fileSystem.hold();
+
+    pageOperations.commitEdit(page.id, 'revision one');
+    const saving = pageOperations.requestSave(page.id); // the write for revision one starts, held
+    await vi.advanceTimersByTimeAsync(10);
+    pageOperations.commitEdit(page.id, 'revision two'); // typed while revision one is being saved
+    const releaseSecond = fileSystem.hold(); // the follow-up save of revision two will be held too
+    releaseFirst();
+    await vi.advanceTimersByTimeAsync(RECOVERY_DEBOUNCE_MS + 10);
+
+    // Revision one is saved; revision two is not, and its record must exist now.
+    expect(fileSystem.written).toHaveLength(1);
+    expect(session.isDirty).toBe(true);
+    expect(record(page.id)!.body).toMatchObject({ markdown: 'revision two' });
+
+    releaseSecond();
+    await saving;
+    await vi.advanceTimersByTimeAsync(RECOVERY_DEBOUNCE_MS + 10);
+
+    expect(session.isDirty).toBe(false);
+    expect(record(page.id)).toBeNull();
   });
 });

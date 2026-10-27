@@ -24,3 +24,8 @@
   text-decoration: none;
   opacity: 0.6;
 }
+
+/* Recovered work is not an error: same layout, quieter colour. */
+.recovery-notice {
+  color: var(--foreground-secondary);
+}

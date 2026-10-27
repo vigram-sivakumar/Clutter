@@ -2,6 +2,7 @@ import type { DocumentSession } from '../../engine/DocumentSession';
 import { DocumentRegistry } from '../../engine/DocumentRegistry';
 import { SaveCoordinator } from '../../engine/SaveCoordinator';
 import { DocumentState } from '../../engine/DocumentState';
+import type { RecoverableState } from '../../recovery/RecoveryJournal';
 import { DocumentTransaction } from '../../engine/DocumentTransaction';
 import { FieldEditState } from '../../engine/FieldEditState';
 import { Vault } from '../../vault/models/Vault';
@@ -1043,6 +1044,7 @@ export class PageOperations {
     this.disposeTitleState(pageId);
     this.disposeDescriptionState(pageId);
     this.refreshSaveFailures();
+    this.emitUnsaved(pageId);
   }
 
   /**
@@ -1242,6 +1244,7 @@ export class PageOperations {
     this.saveCoordinator.scheduleSave(session.id, () => {
       void this.requestSave(pageId);
     });
+    this.emitUnsaved(pageId);
   }
 
   /**
@@ -1289,6 +1292,7 @@ export class PageOperations {
         this.inFlightSaves.delete(pageId);
       }
       this.refreshSaveFailures();
+      this.emitUnsaved(pageId);
     });
 
     this.inFlightSaves.set(pageId, promise);
@@ -1493,31 +1497,95 @@ export class PageOperations {
     }
   }
 
+  // ---- Recovery (what the RecoveryJournal snapshots) ----
+
+  private readonly unsavedListeners = new Set<(pageId?: string) => void>();
+
+  /**
+   * Calls `listener` whenever a page's unsaved work may have changed: an edit, a save completing or failing, a page
+   * closing. The journal re-reads the state itself, so the notification carries no content.
+   */
+  public subscribeUnsaved(listener: (pageId?: string) => void): () => void {
+    this.unsavedListeners.add(listener);
+
+    return () => {
+      this.unsavedListeners.delete(listener);
+    };
+  }
+
+  private emitUnsaved(pageId?: string): void {
+    for (const listener of [...this.unsavedListeners]) {
+      listener(pageId);
+    }
+  }
+
+  /** Ids of every page or draft with unsaved work (body, title or description). */
+  public unsavedPageIds(): readonly string[] {
+    const ids = new Set<string>();
+
+    for (const session of this.documentRegistry.getAll()) ids.add(session.id);
+    for (const pageId of this.titleStates.keys()) ids.add(pageId);
+    for (const pageId of this.descriptionStates.keys()) ids.add(pageId);
+
+    return [...ids].filter((pageId) => this.channelStates(pageId).some(({ unsaved }) => unsaved));
+  }
+
+  /**
+   * Everything a recovery snapshot needs for one page or draft, read from where each value actually lives:
+   * the body from its DocumentSession, a title or description from its FieldEditState (only when that field has an
+   * unsaved change), a draft's folder/type/tags from its descriptor, and the vault's own copy from the Vault. Null
+   * when the page has nothing unsaved.
+   */
+  public recoverableState(pageId: string): RecoverableState | null {
+    const page = this.vault.getPage(pageId);
+    const draft = page ? undefined : this.draftFor(pageId);
+
+    if (!page && !draft) {
+      return null;
+    }
+
+    const session = this.documentRegistry.get(pageId);
+    const bodyDirty = session !== undefined && session.state !== DocumentState.Disposed && session.isDirty;
+    const titleState = this.titleStates.get(pageId);
+    const descriptionState = this.descriptionStates.get(pageId);
+    const titleDirty = titleState !== undefined && titleState.isDirty;
+    const descriptionDirty = descriptionState !== undefined && descriptionState.isDirty;
+
+    if (!bodyDirty && !titleDirty && !descriptionDirty) {
+      return null;
+    }
+
+    const markdown = bodyDirty ? session.currentRevision.markdown : null;
+    const firstLine = (markdown ?? '').split('\n').find((line) => line.trim() !== '')?.replace(/^#+\s*/, '').trim() ?? '';
+
+    return {
+      pageId,
+      kind: page ? 'page' : 'draft',
+      label: page ? page.name : draft?.title || firstLine || 'Untitled note',
+      pagePath: page ? page.path : null,
+      body: bodyDirty ? { markdown: markdown ?? '', revision: session.revisionNumber } : null,
+      title: titleDirty ? titleState.currentValue : null,
+      description: descriptionDirty ? descriptionState.currentValue : null,
+      vault: page ? { body: page.source.markdown, title: page.name, description: page.metadata.description ?? '' } : null,
+      draft: draft
+        ? {
+            folderId: draft.folderId,
+            type: draft.type,
+            ...(draft.title !== undefined && { title: draft.title }),
+            ...(draft.tags !== undefined && { tags: draft.tags }),
+            ...(draft.deterministicPath !== undefined && { deterministicPath: draft.deterministicPath }),
+          }
+        : null,
+    };
+  }
+
   /**
    * How many open pages hold changes that are not safely saved: a body, title or description that is dirty, in
    * SaveError, or still saving. Read-only; used before the window closes to decide whether the user must be asked
    * (Application.checkUnsavedBeforeClose()).
    */
   public unsavedPageCount(): number {
-    const ids = new Set<string>();
-
-    for (const session of this.documentRegistry.getAll()) {
-      if (session.state !== DocumentState.Disposed && (session.isDirty || session.state === DocumentState.SaveError)) {
-        ids.add(session.id);
-      }
-    }
-    for (const [pageId, titleState] of this.titleStates) {
-      if (titleState.isDirty || titleState.state === DocumentState.SaveError) {
-        ids.add(pageId);
-      }
-    }
-    for (const [pageId, descriptionState] of this.descriptionStates) {
-      if (descriptionState.isDirty || descriptionState.state === DocumentState.SaveError) {
-        ids.add(pageId);
-      }
-    }
-
-    return ids.size;
+    return this.unsavedPageIds().length;
   }
 
   /** The title channel's SaveCoordinator key — distinct from `pageId` so it can never collide with the body channel's timers/stale-guard entries for the same page. */
@@ -1573,6 +1641,7 @@ export class PageOperations {
         ceilingMs: TITLE_AUTOSAVE_CEILING_MS,
       }
     );
+    this.emitUnsaved(pageId);
   }
 
   /**
@@ -1601,6 +1670,7 @@ export class PageOperations {
         this.inFlightSaves.delete(key);
       }
       this.refreshSaveFailures();
+      this.emitUnsaved(pageId);
     });
 
     this.inFlightSaves.set(key, promise);
@@ -1694,6 +1764,7 @@ export class PageOperations {
     this.saveCoordinator.scheduleSave(this.descriptionChannelKey(pageId), () => {
       void this.requestDescriptionSave(pageId);
     });
+    this.emitUnsaved(pageId);
   }
 
   /**
@@ -1715,6 +1786,7 @@ export class PageOperations {
         this.inFlightSaves.delete(key);
       }
       this.refreshSaveFailures();
+      this.emitUnsaved(pageId);
     });
 
     this.inFlightSaves.set(key, promise);
@@ -1948,6 +2020,7 @@ export class PageOperations {
     } catch (error) {
       this.saveCoordinator.failSave(session, revision);
       this.refreshSaveFailures();
+      this.emitUnsaved(pageId);
       throw error;
     }
   }
@@ -3303,6 +3376,7 @@ export class PageOperations {
     this.pendingHeadingBaselines.delete(pageId);
     this.disposeDescriptionState(pageId);
     this.refreshSaveFailures();
+    this.emitUnsaved(pageId);
 
     // Checked again when the delete runs (not only above): a restore queued ahead of it must win.
     await this.coordinator.enqueue(pageId, {

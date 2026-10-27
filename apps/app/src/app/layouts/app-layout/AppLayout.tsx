@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
+import { AppStatusProvider } from './status/AppStatus';
 import './AppLayout.css';
 import { CreateTemplateProvider } from '@app/layouts/createTemplate/CreateTemplateProvider';
 import { Sidebar } from '../sidebar/Sidebar';
@@ -487,6 +488,7 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
   }
 
   return (
+    <AppStatusProvider application={application}>
     <CreateTemplateProvider application={application}>
     <div
       className="app-layout"
@@ -717,5 +719,6 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
       />
     </div>
     </CreateTemplateProvider>
+    </AppStatusProvider>
   );
 }

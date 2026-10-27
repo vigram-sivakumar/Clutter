@@ -1,0 +1,64 @@
+.recovery-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  background: var(--surface-secondary);
+  border-radius: var(--radius-xxl);
+  padding: var(--space-16);
+  box-shadow: var(--shadow-inset-default), var(--shadow-md);
+  max-height: 70vh;
+}
+
+.recovery-dialog__header {
+  font-size: var(--text-body-small);
+  font-weight: var(--fw-medium);
+  color: var(--foreground-primary);
+}
+
+.recovery-dialog__intro,
+.recovery-dialog__meta {
+  font-size: var(--text-body-small);
+  color: var(--foreground-secondary);
+}
+
+.recovery-dialog__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+}
+
+.recovery-dialog__item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-12);
+  border-radius: var(--radius-lg);
+  background: var(--surface-subtle);
+}
+
+.recovery-dialog__title {
+  font-size: var(--text-body-small);
+  font-weight: var(--fw-medium);
+  color: var(--foreground-primary);
+}
+
+.recovery-dialog__reason {
+  font-size: var(--text-body-small);
+  color: var(--foreground-secondary);
+}
+
+.recovery-dialog__error {
+  font-size: var(--text-body-small);
+  color: var(--danger-foreground);
+}
+
+.recovery-dialog__actions,
+.recovery-dialog__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-8);
+}

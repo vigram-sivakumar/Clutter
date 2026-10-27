@@ -48,3 +48,20 @@ export function SaveFailureElsewhereNotice({ label, onOpen }: SaveFailureElsewhe
     </span>
   );
 }
+
+interface RecoveryNoticeProps {
+  readonly count: number;
+  readonly onReview: () => void;
+}
+
+/** Shown while unsaved work from an earlier session is waiting for the user's decision. */
+export function RecoveryNotice({ count, onReview }: RecoveryNoticeProps) {
+  return (
+    <span className="save-failure-notice recovery-notice" role="status" data-testid="recovery-notice">
+      {count === 1 ? '1 note has' : `${count} notes have`} unsaved changes from last time
+      <button type="button" className="save-failure-notice__retry" onClick={onReview}>
+        Review
+      </button>
+    </span>
+  );
+}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
 import { isTauri } from '@tauri-apps/api/core';
+import { BrowserRecoveryStorage } from '../core/recovery/RecoveryStorage';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
 
@@ -108,6 +109,12 @@ function resolveSpaceAvatarImage(path: string): string | null {
  * What fills the app frame behind the first-run Welcome dialog: the animated grainy gradient, or the Unsplash
  * artwork (`WelcomeBackground`, kept intact). One word to switch back.
  */
+// The web runtime has no application data directory: it keeps recovery snapshots in the browser's own storage, which
+// lets the unsaved-work recovery flow be exercised in a plain browser. (The desktop app uses the data directory.)
+if (typeof localStorage !== 'undefined') {
+  Application.webRecoveryStorage = new BrowserRecoveryStorage();
+}
+
 const WELCOME_BACKDROP: 'gradient' | 'image' = 'gradient';
 
 const TOO_BROAD_MESSAGE =

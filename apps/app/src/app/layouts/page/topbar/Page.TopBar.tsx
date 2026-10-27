@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import './Page.TopBar.css';
 import { Button } from '@components/button/Button';
 import { AppIcon } from '@shared/icon';
+import { useAppStatus } from '../../app-layout/status/AppStatus';
 
 interface PageTopBarProps {
   breadcrumbs?: ReactNode;
@@ -22,6 +23,8 @@ export function PageTopBar({
   onNavigateBack,
   onNavigateForward,
 }: PageTopBarProps) {
+  const status = useAppStatus();
+
   return (
     <div className="topbar" data-tauri-drag-region>
       <div className="topbar--leading" data-tauri-drag-region>
@@ -48,7 +51,10 @@ export function PageTopBar({
         {breadcrumbs}
       </div>
       {menu && <div className="topbar--menu">{menu}</div>}
-      <div className="topbar--trailing">{actions}</div>
+      <div className="topbar--trailing">
+        {status}
+        {actions}
+      </div>
     </div>
   );
 }
