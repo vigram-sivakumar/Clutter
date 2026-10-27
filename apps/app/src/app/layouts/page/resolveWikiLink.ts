@@ -76,6 +76,7 @@ export function createWikiLinkResolver(
     openFolder,
     openResource,
     membershipSelector,
+    resolveResourceUrl,
     onCreateFailed,
   }: {
     readonly createMissing?: boolean;
@@ -100,6 +101,8 @@ export function createWikiLinkResolver(
      * link shows the generic folder icon.
      */
     readonly membershipSelector?: MembershipSelector;
+    /** A loadable URL for an image file (its absolute path), so an image link shows its picture instead of the image icon. */
+    readonly resolveResourceUrl?: (path: string) => string;
     /** Told when creating the note an unresolved link names failed — the caller owns how to say so. Default: logs it. */
     readonly onCreateFailed?: (error: unknown) => void;
   } = {}
@@ -187,6 +190,8 @@ export function createWikiLinkResolver(
       activate: () => openResource?.(resource, vault.isResourceEffectivelyArchived(resource) ? { archived: true } : undefined),
       icon: getResourceIcon(resource.kind),
       emoji: null,
+      // Only an image shows its own picture; a PDF keeps its icon.
+      ...(resource.kind === 'image' && resolveResourceUrl && { previewUrl: resolveResourceUrl(resource.path) }),
     };
   }
 

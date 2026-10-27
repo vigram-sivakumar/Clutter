@@ -630,6 +630,7 @@ export function PageHost({
       openFolder: (folderId) => onOpenFolder(folderId),
       openResource: (resource, options) => onOpenResource(resource, options),
       membershipSelector: application.membershipSelector,
+      resolveResourceUrl: (path) => application.resolveResourceImageUrl(path),
       onCreateFailed: reportLinkedNoteFailure,
     }
   );
@@ -3065,6 +3066,7 @@ export function PageHost({
           openFolder: (folderId) => onOpenFolder(folderId),
           openResource: (resource, options) => onOpenResource(resource, options),
           membershipSelector: application.membershipSelector,
+          resolveResourceUrl: (path) => application.resolveResourceImageUrl(path),
           onCreateFailed: reportLinkedNoteFailure,
         }
       )

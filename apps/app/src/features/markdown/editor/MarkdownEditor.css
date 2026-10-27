@@ -1795,6 +1795,14 @@
   color: var(--md-wiki-icon-foreground);
 }
 
+.tok-wikilink__thumbnail {
+  width: var(--icon-md);
+  height: var(--icon-md);
+  object-fit: cover;
+  border-radius: 3px;
+  text-decoration-color: transparent !important;
+}
+
 .tok-wikilink__title {
   min-width: 0;
   text-decoration: underline;

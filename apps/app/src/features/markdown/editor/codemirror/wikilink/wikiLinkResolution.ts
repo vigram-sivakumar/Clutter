@@ -42,6 +42,7 @@ export type WikiLinkResolution =
       readonly activate: () => void;
       readonly icon: 'note' | 'calendarNote' | 'calendarDot' | 'template';
       readonly emoji: string | null;
+      readonly previewUrl?: undefined;
     }
   /**
    * A link that names a folder (`[[Projects/]]`) or an asset file (`[[Assets/hero.png]]`) rather than a
@@ -64,6 +65,8 @@ export type WikiLinkResolution =
       readonly icon: SystemIcon;
       /** A folder's own emoji, shown in place of `icon` (never for a reserved folder or an asset). */
       readonly emoji: string | null;
+      /** An image link's loadable picture URL, drawn in place of `icon` (never for a folder or a PDF). */
+      readonly previewUrl?: string;
     }
   | { readonly status: 'unresolved'; readonly displayLabel: string; readonly activate: () => void }
   | { readonly status: 'ambiguous'; readonly displayLabel: string; readonly activate: () => void };

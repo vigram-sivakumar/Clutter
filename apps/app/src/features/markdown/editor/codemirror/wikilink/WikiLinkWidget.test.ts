@@ -48,6 +48,25 @@ describe('WikiLinkWidget — links to folders and assets', () => {
     expect(new WikiLinkWidget('a.pdf', null, asset('pdf')).toDOM().querySelector('.tok-wikilink__icon-wrap')?.innerHTML).toBe(asDom(systemIconSvg('pdf')));
   });
 
+  it('draws an image link as its picture, falling back to the image icon if the file fails to load', () => {
+    const image: WikiLinkResolution = {
+      status: 'resolved',
+      targetKind: 'image',
+      targetId: 'r1',
+      displayLabel: 'x',
+      activate: () => {},
+      icon: 'image',
+      emoji: null,
+      previewUrl: 'asset://hero.png',
+    };
+    const dom = new WikiLinkWidget('a.png', null, image).toDOM();
+    const img = dom.querySelector<HTMLImageElement>('.tok-wikilink__icon-wrap img.tok-wikilink__thumbnail');
+
+    expect(img?.getAttribute('src')).toBe('asset://hero.png');
+    img?.dispatchEvent(new Event('error'));
+    expect(dom.querySelector('.tok-wikilink__icon-wrap')?.innerHTML).toBe(asDom(systemIconSvg('image')));
+  });
+
   it('a note link is drawn exactly as before', () => {
     const note: WikiLinkResolution = { status: 'resolved', pageId: 'p', displayLabel: 'Plan', activate: () => {}, icon: 'note', emoji: null };
 

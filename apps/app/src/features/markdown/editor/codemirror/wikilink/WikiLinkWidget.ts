@@ -63,7 +63,8 @@ export class WikiLinkWidget extends WidgetType {
       (this.resolution.status !== 'resolved' ||
         other.resolution.status !== 'resolved' ||
         (resolvedTargetId(this.resolution) === resolvedTargetId(other.resolution) &&
-          this.resolution.icon === other.resolution.icon && this.resolution.emoji === other.resolution.emoji)) &&
+          this.resolution.icon === other.resolution.icon && this.resolution.emoji === other.resolution.emoji &&
+          this.resolution.previewUrl === other.resolution.previewUrl)) &&
       this.extraClasses.length === other.extraClasses.length &&
       this.extraClasses.every((cls, i) => cls === other.extraClasses[i])
     );
@@ -119,13 +120,27 @@ export class WikiLinkWidget extends WidgetType {
     const icon = this.resolution.status === 'resolved' ? this.resolution.icon : 'note';
     // A link to a folder or an asset names its icon in the shared registry; a note's is one of the page identity icons.
     const isNonPage = this.resolution.status === 'resolved' && this.resolution.pageId === undefined;
-    if (emoji) {
+    const previewUrl = this.resolution.status === 'resolved' ? this.resolution.previewUrl : undefined;
+    const iconMarkup = isNonPage ? systemIconSvg(icon as SystemIcon) : PAGE_IDENTITY_ICON_BY_KIND[icon as PageIdentityIconKind];
+    if (previewUrl) {
+      // An image link shows its own picture; the icon stands in if the file fails to load.
+      const img = document.createElement('img');
+      img.classList.add('tok-wikilink__thumbnail');
+      img.alt = '';
+      img.draggable = false;
+      img.addEventListener('error', () => {
+        iconWrap.innerHTML = iconMarkup;
+        iconWrap.querySelector('svg')?.classList.add('tok-wikilink__icon');
+      });
+      img.src = previewUrl;
+      iconWrap.append(img);
+    } else if (emoji) {
       const emojiSpan = document.createElement('span');
       emojiSpan.classList.add('tok-wikilink__emoji');
       emojiSpan.textContent = emoji;
       iconWrap.append(emojiSpan);
     } else {
-      iconWrap.innerHTML = isNonPage ? systemIconSvg(icon as SystemIcon) : PAGE_IDENTITY_ICON_BY_KIND[icon as PageIdentityIconKind];
+      iconWrap.innerHTML = iconMarkup;
       iconWrap.querySelector('svg')?.classList.add('tok-wikilink__icon');
     }
 
