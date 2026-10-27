@@ -1,5 +1,5 @@
 import { assetCompletionRow } from '../completionPopup/assetCompletionRow';
-import type { RowCompletion } from '../completionPopup/completionRow';
+import { GROUPED_LAYOUT, applyListLayout, type CompletionListLayout, type RowCompletion } from '../completionPopup/completionRow';
 import { COMPLETION_SECTIONS } from '../completionPopup/completionSections';
 import { wikiLinkRow } from '../wikilink/wikiLinkCompletionRow';
 import type {
@@ -17,16 +17,22 @@ export interface EmbedCompletion extends RowCompletion {
  * A note or Daily Note reads exactly as it does after `[[` — `wikiLinkRow`, the note picker's own
  * rules — under Notes or Daily notes, so the popup tells a note from an asset by section.
  */
-export function embedPageRow(suggestion: EmbedPageSuggestion): Pick<EmbedCompletion, 'row' | 'section'> {
-  return wikiLinkRow(suggestion);
+export function embedPageRow(
+  suggestion: EmbedPageSuggestion,
+  layout: CompletionListLayout = GROUPED_LAYOUT
+): Pick<EmbedCompletion, 'row' | 'section' | 'limitKey'> {
+  return wikiLinkRow(suggestion, layout);
 }
 
 /**
  * How a resource suggestion reads in the popup — the shared asset row (`assetCompletionRow`, also what
  * `[[` uses), under the Images or PDFs section that comes first in this popup.
  */
-export function embedResourceRow(suggestion: EmbedResourceSuggestion): Pick<EmbedCompletion, 'row' | 'section'> {
-  return assetCompletionRow(
+export function embedResourceRow(
+  suggestion: EmbedResourceSuggestion,
+  layout: CompletionListLayout = GROUPED_LAYOUT
+): Pick<EmbedCompletion, 'row' | 'section' | 'limitKey'> {
+  return applyListLayout(assetCompletionRow(
     {
       assetKind: suggestion.resourceKind,
       title: suggestion.title,
@@ -34,5 +40,5 @@ export function embedResourceRow(suggestion: EmbedResourceSuggestion): Pick<Embe
       previewUrl: suggestion.previewUrl,
     },
     { images: COMPLETION_SECTIONS.images, pdfs: COMPLETION_SECTIONS.pdfs }
-  );
+  ), layout);
 }

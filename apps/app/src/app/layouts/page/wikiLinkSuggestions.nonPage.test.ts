@@ -109,7 +109,8 @@ function setup(pages: Page[], folders: Folder[], resources: VaultResource[], res
     undefined,
     undefined,
     selector,
-    resolveUrl
+    resolveUrl,
+    'My Space'
   );
 
   return { vault, suggest };
@@ -126,19 +127,33 @@ describe('createWikiLinkSuggester — folders and assets', () => {
       [resource('Assets/hero.png'), resource('Assets/plan.pdf', 'pdf'), resource('Archive/old.png')]
     );
 
-  it('an empty query lists notes, then folders, then assets', () => {
+  it('an empty query lists only notes — no folders (reserved or not), images or PDFs', () => {
     const { suggest } = fixture();
 
-    expect(summarize(suggest(''))).toEqual([
-      'page:Plan',
-      'page:Projects',
-      'folder:Archive/',
-      'folder:Assets/',
-      'folder:Inbox/',
-      'folder:Projects/',
-      'asset:Assets/hero.png',
-      'asset:Assets/plan.pdf',
-    ]);
+    expect(summarize(suggest(''))).toEqual(expect.arrayContaining(['page:Plan', 'page:Projects']));
+    expect(suggest('').every((suggestion) => suggestion.kind === 'page')).toBe(true);
+  });
+
+  it('a typed query searches every target type at once, in one list ordered by match quality', () => {
+    const { suggest } = fixture();
+
+    // The same name in four kinds: all are found, each exactly once.
+    expect(summarize(suggest('plan')).sort()).toEqual(['asset:Assets/plan.pdf', 'page:Plan']);
+    expect(summarize(suggest('projects')).sort()).toEqual(['folder:Projects/', 'page:Projects']);
+    expect(summarize(suggest('hero'))).toEqual(['asset:Assets/hero.png']);
+  });
+
+  it('orders by how well each target matches, not by what kind it is', () => {
+    const { suggest } = setup(
+      [page('Hero journey notes'), page('Hero')],
+      [folder('Heroes')],
+      [resource('Assets/hero.png')]
+    );
+
+    // The exact title ("Hero") leads whatever the kinds of the rest; every kind is found, in one list.
+    const order = summarize(suggest('hero'));
+    expect(order[0]).toBe('page:Hero');
+    expect([...order].sort()).toEqual(['asset:Assets/hero.png', 'folder:Heroes/', 'page:Hero', 'page:Hero journey notes']);
   });
 
   it('spells a folder with its trailing slash, so it is never read as the note of the same name', () => {
@@ -190,7 +205,7 @@ describe('createWikiLinkSuggester — folders and assets', () => {
 
   it('never offers an archived folder or file, a dot-hidden folder, or anything archived inside Archive/', () => {
     const { suggest } = fixture();
-    const all = summarize(suggest(''));
+    const all = summarize(suggest('o'));
 
     expect(all).not.toContain('folder:Archive/Old/');
     expect(all).not.toContain('asset:Archive/old.png');
@@ -221,6 +236,15 @@ describe('createWikiLinkSuggester — folders and assets', () => {
     );
 
     expect(summarize(suggest(''))).toEqual(['page:Plan']);
+    expect(summarize(suggest('plan'))).toEqual(['page:Plan']);
+    expect(summarize(suggest('projects'))).toEqual(['create:projects']);
+  });
+
+  it('a reserved folder shows the Space name as its path; an ordinary folder shows its parent', () => {
+    const { suggest } = setup([], [folder('Inbox'), folder('Projects')], []);
+
+    expect(suggest('Inbox/')).toEqual([expect.objectContaining({ title: 'Inbox', icon: 'tray', breadcrumb: 'My Space' })]);
+    expect(suggest('Projects/')).toEqual([expect.objectContaining({ title: 'Projects', breadcrumb: null })]);
   });
 
   it('a note still wins its own slot: notes are listed first and keep their own shape', () => {
@@ -232,7 +256,9 @@ describe('createWikiLinkSuggester — folders and assets', () => {
   it('an ordinary folder carries its own emoji; a reserved folder never does', () => {
     const emojiFolder = (path: string, icon: string): Folder => ({ ...folder(path), metadata: { ...folderMetadata, icon } });
     const { suggest } = setup([], [emojiFolder('Projects', '🚀'), emojiFolder('Inbox', '📥'), folder('Plain')], []);
-    const byTitle = Object.fromEntries(suggest('').map((suggestion) => [(suggestion as { title: string }).title, suggestion]));
+    const byTitle = Object.fromEntries(
+      ['Projects', 'Inbox', 'Plain'].flatMap((name) => suggest(`${name}/`)).map((suggestion) => [(suggestion as { title: string }).title, suggestion])
+    );
 
     expect(byTitle.Projects).toMatchObject({ emoji: '🚀' });
     expect(byTitle.Inbox).toMatchObject({ icon: 'tray' });
@@ -247,7 +273,8 @@ describe('createWikiLinkSuggester — folders and assets', () => {
       []
     );
     const icons = Object.fromEntries(
-      suggest('')
+      ['Inbox', 'Archive', 'Templates', 'Daily Notes', 'Assets', 'Projects']
+        .flatMap((name) => suggest(`${name}/`))
         .filter((suggestion) => suggestion.kind === 'folder')
         .map((suggestion) => [suggestion.title, (suggestion as { icon?: string }).icon])
     );

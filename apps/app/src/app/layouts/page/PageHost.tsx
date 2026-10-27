@@ -105,6 +105,7 @@ import { createTagResolver } from '@app/layouts/page/resolveTag';
 import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
 import { openPageAtHeading } from '@app/layouts/page/headingReveal';
 import { createWikiLinkSuggester } from '@app/layouts/page/wikiLinkSuggestions';
+import { spaceName } from '@app/spaces/spaceRegistry';
 import { createEmbedSuggester } from '@app/layouts/page/embedSuggestions';
 import { createHeadingSuggester } from '@app/layouts/page/headingSuggestions';
 import { createEmbedImageResolver } from '@app/layouts/page/resolveEmbedImage';
@@ -642,7 +643,8 @@ export function PageHost({
     undefined,
     reportLinkedNoteFailure,
     application.membershipSelector,
-    (path) => application.resolveResourceImageUrl(path)
+    (path) => application.resolveResourceImageUrl(path),
+    spaceName(vault.root)
   );
   // Same per-render, stateless-glue composition as resolveWikiLink above.
   // Resource embed autocomplete only, this milestone — no resolver for a

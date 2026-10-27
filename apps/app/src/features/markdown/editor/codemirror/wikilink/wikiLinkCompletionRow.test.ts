@@ -106,3 +106,44 @@ describe('wikiLinkRow — folders and assets', () => {
     expect(new Set(ranks).size).toBe(5);
   });
 });
+
+describe('wikiLinkRow — list layout (grouped / path)', () => {
+  const mixed: WikiLinkSuggestion[] = [
+    page(),
+    { kind: 'folder', path: 'Inbox/', title: 'Inbox', breadcrumb: 'My Space', icon: 'tray' },
+    { kind: 'asset', path: 'a.png', title: 'a', breadcrumb: 'Assets', assetKind: 'image', previewUrl: 'app:///a.png' },
+    { kind: 'asset', path: 'a.pdf', title: 'a', breadcrumb: 'Assets', assetKind: 'pdf', previewUrl: 'blob:none' },
+  ];
+
+  it('is grouped, with paths, unless told otherwise — the layout embed autocomplete keeps', () => {
+    expect(mixed.every((suggestion) => wikiLinkRow(suggestion).section !== undefined)).toBe(true);
+    expect(wikiLinkRow(page()).row.path).toBe('Projects');
+  });
+
+  it('puts every row in no section when ungrouped — one continuous list, same rows otherwise', () => {
+    for (const suggestion of mixed) {
+      const ungrouped = wikiLinkRow(suggestion, { grouped: false, showPath: true });
+
+      expect(ungrouped.section).toBeUndefined();
+      expect(ungrouped.row).toEqual(wikiLinkRow(suggestion).row);
+    }
+  });
+
+  it('keeps the icon, the reserved-folder icon and the media thumbnails when ungrouped', async () => {
+    const { systemIconSvg } = await import('@shared/icon');
+    const layout = { grouped: false, showPath: true };
+
+    expect(wikiLinkRow(mixed[1]!, layout).row).toMatchObject({ iconSvg: systemIconSvg('tray'), path: 'My Space' });
+    expect(wikiLinkRow(mixed[2]!, layout).row.thumbnail).toBe('app:///a.png');
+    expect(wikiLinkRow(mixed[3]!, layout).row.thumbnail).toBeInstanceOf(Promise);
+  });
+
+  it('hides the path of every kind when showPath is off, leaving the icon and title', () => {
+    for (const suggestion of mixed) {
+      const { row } = wikiLinkRow(suggestion, { grouped: false, showPath: false });
+
+      expect(row.path).toBeNull();
+      expect(row.title).toBeTruthy();
+    }
+  });
+});

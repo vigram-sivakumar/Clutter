@@ -8,9 +8,11 @@ import { dailyNoteSearchText } from '@core/presentation/dailyNoteSearchText';
 import { matchesSearchText } from '@shared/helpers/matchesSearchText';
 import type {
   EmbedResourceSuggestion,
+  EmbedTargetSuggestion,
   GetEmbedSuggestions,
 } from '@features/markdown/editor/MarkdownEditor';
-import { sortPageSuggestions, toPageSuggestion } from './wikiLinkSuggestions';
+import { lastEditedMs, toPageSuggestion } from './wikiLinkSuggestions';
+import { rankByMatchQuality, sortByLastEdited, type RankEntry } from './suggestionRanking';
 
 /**
  * Composes `Vault` + `MembershipSelector` into the editor's injected
@@ -54,32 +56,51 @@ export function createEmbedSuggester(
 
   return (query) => {
     const normalizedQuery = query.trim().toLowerCase();
+    const allResources = () => membershipSelector.getAllVisibleResources();
+    const modifiedMs = (resource: VaultResource) => Date.parse(resource.metadata?.modifiedAt ?? '') || 0;
 
-    // Deterministic, simple order — same reasoning/comparator convention
-    // createWikiLinkSuggester's own `byTitle` already establishes, sorted
-    // by full path here (folder-qualified) rather than by title alone, so
-    // resources sharing a filename group predictably by folder.
-    const byPath = (a: EmbedResourceSuggestion, b: EmbedResourceSuggestion) =>
-      a.path.localeCompare(b.path, undefined, { numeric: true, sensitivity: 'base' });
+    // Empty query: a freshly typed `![[` — the assets (images and PDFs), since embedding media is its main use,
+    // most recently modified first; one with no usable time goes after every dated one, alphabetically by path.
+    // Notes are not listed until something is typed.
+    if (!normalizedQuery) {
+      return sortByLastEdited(allResources(), modifiedMs, (resource) => relativePath(vault, resource)).map((resource) =>
+        toResourceSuggestion(vault, resource, resolveResourceUrl)
+      );
+    }
 
-    const pages = sortPageSuggestions(
-      embeddablePages()
-        .filter((page) => !normalizedQuery || matchesPage(vault, page, normalizedQuery))
-        .map((page) => toPageSuggestion(vault, page))
-        .map(({ alias: _alias, ...suggestion }) => suggestion)
-    );
-    const notes = pages.filter((page) => !page.dailyNote);
-    const dailyNotes = pages.filter((page) => page.dailyNote);
+    // Typed: the same targets and the same match rule as ever (a note or an asset whose vault-relative path holds
+    // the query, a Daily Note also by its date text) — in one list, ordered by match quality, not by kind.
+    const byPath = query.includes('/');
+    const entries: RankEntry<EmbedTargetSuggestion>[] = [
+      ...embeddablePages()
+        .filter((page) => matchesPage(vault, page, normalizedQuery))
+        .map((page): RankEntry<EmbedTargetSuggestion> => {
+          const { alias: _alias, ...suggestion } = toPageSuggestion(vault, page);
+          const name = VaultPath.pageName(page.path);
 
-    // Empty query: a freshly typed `![[` — show everything embeddable rather than nothing, same
-    // "open immediately" rule createWikiLinkSuggester already applies for a freshly typed `[[`.
-    const resources = membershipSelector
-      .getAllVisibleResources()
-      .filter((resource) => !normalizedQuery || matchesQuery(vault, resource, normalizedQuery))
-      .map((resource) => toResourceSuggestion(vault, resource, resolveResourceUrl))
-      .sort(byPath);
+          return {
+            key: `page:${suggestion.path}`,
+            suggestion,
+            title: byPath ? suggestion.path : page.type === 'daily-note' ? dailyNoteSearchText(name) : name,
+            updatedMs: lastEditedMs(page),
+          };
+        }),
+      ...allResources()
+        .filter((resource) => matchesQuery(vault, resource, normalizedQuery))
+        .map((resource): RankEntry<EmbedTargetSuggestion> => {
+          const suggestion = toResourceSuggestion(vault, resource, resolveResourceUrl);
 
-    return [...resources, ...notes, ...dailyNotes];
+          return {
+            key: `resource:${suggestion.path}`,
+            suggestion,
+            title: byPath ? suggestion.path : VaultPath.filename(suggestion.path),
+            updatedMs: modifiedMs(resource),
+          };
+        }),
+    ];
+
+    // Everything here already matched by path; the ranking only orders it (a match it cannot place goes last).
+    return rankByMatchQuality(query, entries, true).map(({ suggestion }) => suggestion);
   };
 }
 

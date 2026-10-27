@@ -65,3 +65,15 @@ describe('embedPageRow', () => {
     expect(new Set(sections.map(rank)).size).toBe(4);
   });
 });
+
+describe('embed rows keep their grouped, path-showing layout', () => {
+  it('a note keeps its section and its path; an asset keeps its section and path', () => {
+    const note = embedPageRow({ kind: 'page', path: 'Projects/Roadmap', title: 'Roadmap', breadcrumb: 'Projects' });
+    const image = embedResourceRow(resource());
+
+    expect(note.section?.name).toBe('Notes');
+    expect(note.row.path).toBe('Projects');
+    expect(image.section?.name).toBe('Images');
+    expect(image.row.path).toBe('Images');
+  });
+});

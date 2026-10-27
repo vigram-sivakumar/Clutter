@@ -13,6 +13,9 @@ import { VaultPath } from '@core/vault/ingest/VaultPath';
 import { dailyNoteSearchText } from '@core/presentation/dailyNoteSearchText';
 import { isValidCalendarDate } from '@shared/helpers/time/helpers/isValidCalendarDate';
 import { matchesSearchText } from '@shared/helpers/matchesSearchText';
+import { resolveEffectivePageDates } from '@core/vault/models/effectivePageDates';
+import { foldString } from '@core/application/search/foldText';
+import { parseQuery, tokenMatches } from '@core/application/search/matchPage';
 import type {
   GetWikiLinkSuggestions,
   WikiLinkAssetSuggestion,
@@ -21,6 +24,7 @@ import type {
   WikiLinkSuggestion,
 } from '@features/markdown/editor/MarkdownEditor';
 
+import { rankByMatchQuality, sortByLastEdited, type RankEntry } from './suggestionRanking';
 import { canCreateReferencedPage, createReferencedPage } from './resolveWikiLink';
 
 /**
@@ -69,50 +73,40 @@ export function createWikiLinkSuggester(
   /** Without it, only notes (and Create) are offered, as before. */
   membershipSelector?: MembershipSelector,
   /** A loadable URL for an asset's file (its absolute path), for the popup's thumbnail — the embed popup's own. */
-  resolveResourceUrl?: (path: string) => string
+  resolveResourceUrl?: (path: string) => string,
+  /** The Space's name: a reserved folder lives at the Space's top level, so it is shown as "in" it. */
+  spaceName?: string
 ): GetWikiLinkSuggestions {
   const livePages = () => Array.from(vault.pages()).filter((page) => !isArchived(page));
-  const nonPageSuggestions = (normalizedQuery: string) =>
-    membershipSelector ? findNonPageSuggestions(vault, membershipSelector, normalizedQuery, resolveResourceUrl) : [];
 
   return (query) => {
-    const normalizedQuery = query.trim().toLowerCase();
+    const trimmed = query.trim();
 
-    // Deterministic, simple order: natural/alphanumeric by title, the
-    // same comparator convention VaultQuery.ts's compareByName already
-    // establishes for every other listing in this codebase — not a
-    // relevance ranking, just a stable, predictable order.
-    const sortSuggestions = sortPageSuggestions;
-
-    // Empty query: a freshly typed `[[` (closeBrackets already produces
-    // the closed, empty `[[]]` node before any character is typed) — show
-    // every page rather than nothing, so autocomplete opens immediately
-    // instead of waiting for the first typed character
-    // (docs/editor-architecture-decisions.md's WikiLink autocomplete
-    // investigation). No Create option here: an empty path has nothing to
-    // create yet.
-    if (!normalizedQuery) {
-      return [
-        ...sortSuggestions(livePages().map((page) => toPageSuggestion(vault, page))),
-        ...nonPageSuggestions(normalizedQuery),
-      ];
+    // Empty query: a freshly typed `[[` (closeBrackets already produces the closed, empty `[[]]` node before
+    // any character is typed) — show the notes, Daily Notes and templates (all pages) most recently edited
+    // first, rather than nothing, so autocomplete opens immediately. No folders or assets, and no Create option:
+    // an empty path has nothing to create yet.
+    if (!trimmed) {
+      return sortByLastEdited(livePages(), lastEditedMs, (page) => page.name).map((page) => toPageSuggestion(vault, page));
     }
 
-    const matches = findPageMatches(livePages(), normalizedQuery, (page) => page.type === 'daily-note')
-      .map(({ page, alias }) => toPageSuggestion(vault, page, alias));
-    const sortedMatches: WikiLinkSuggestion[] = [
-      ...sortSuggestions(matches),
-      ...nonPageSuggestions(normalizedQuery),
-    ];
+    const ranked = rankTargets(
+      vault,
+      trimmed,
+      livePages(),
+      membershipSelector,
+      resolveResourceUrl,
+      spaceName
+    );
 
-    if (sortedMatches.length > 0) {
-      return sortedMatches;
+    if (ranked.length > 0) {
+      return ranked;
     }
 
     // Mirrors PickerList's own rule exactly (PickerList.tsx's
     // `showCreate`): a Create option is offered only when the search
     // produces zero matches, never alongside real results.
-    const path = query.trim();
+    const path = trimmed;
     // Nothing to offer for a path a link may not create (inside the Daily Notes folder).
     if (!canCreateReferencedPage(vault, path)) {
       return [];
@@ -134,71 +128,132 @@ export function createWikiLinkSuggester(
   };
 }
 
-/**
- * The folders and asset files a query matches, each as the link that names it: a folder with its
- * trailing slash (`Projects/`, so it is never read as a note of the same name), an asset by its
- * vault-relative path with its extension (`Assets/hero.png`). Folders first, then assets, each in
- * natural path order. Everything is listed for an empty query.
- */
-function findNonPageSuggestions(
-  vault: Vault,
-  membershipSelector: MembershipSelector,
-  normalizedQuery: string,
-  resolveResourceUrl?: (path: string) => string
-): (WikiLinkFolderSuggestion | WikiLinkAssetSuggestion)[] {
-  // A query with a `/` is a location (`Projects/`, `Assets/he`): match the whole path. Otherwise match
-  // the name only, so `inbox` doesn't list every file under Inbox/.
-  const byPath = normalizedQuery.includes('/');
-  const matches = (name: string, linkedPath: string): boolean =>
-    !normalizedQuery || (byPath ? linkedPath : name).toLowerCase().includes(normalizedQuery);
-  const naturalByPath = (a: { readonly path: string }, b: { readonly path: string }) =>
-    a.path.localeCompare(b.path, undefined, { numeric: true, sensitivity: 'base' });
+/** When a page was last edited (epoch ms) — the file's own time (ADR-057), else its creation; 0 when unknown. */
+export function lastEditedMs(page: Page): number {
+  const dates = resolveEffectivePageDates(page);
 
-  const folders = Array.from(vault.folders())
-    .filter(
-      (folder: Folder) =>
+  return Date.parse(dates.updatedAt ?? dates.createdAt ?? '') || 0;
+}
+
+/**
+ * Every target a typed query can name — notes, Daily Notes and templates (pages), folders (reserved ones
+ * included) and asset files — as ONE list ordered by match quality, by the search overlay's own ranking
+ * (`rankPages`, with `parseQuery` and its relevance rules). Titles and aliases are what is matched; there is no
+ * body to look in. A query with a `/` in it is matched against the whole path as linked (`Projects/`,
+ * `Assets/he`) instead of the name, so it narrows by location.
+ */
+function rankTargets(
+  vault: Vault,
+  rawQuery: string,
+  pages: readonly Page[],
+  membershipSelector: MembershipSelector | undefined,
+  resolveResourceUrl: ((path: string) => string) | undefined,
+  spaceName: string | undefined
+): WikiLinkSuggestion[] {
+  const byPath = rawQuery.includes('/');
+  const pageByTarget = new Map<string, Page>();
+  const entries: RankEntry<WikiLinkSuggestion>[] = [];
+  const add = (suggestion: WikiLinkSuggestion, name: string, aliases: readonly string[], updatedMs: number): void => {
+    entries.push({
+      key: `${suggestion.kind}:${suggestion.path}`,
+      suggestion,
+      title: byPath ? suggestion.path : name,
+      aliases,
+      updatedMs,
+    });
+  };
+
+  for (const page of pages) {
+    const suggestion = toPageSuggestion(vault, page);
+    const name = VaultPath.pageName(page.path);
+    pageByTarget.set(`page:${suggestion.path}`, page);
+    add(
+      suggestion,
+      page.type === 'daily-note' ? dailyNoteSearchText(name) : name,
+      page.analysis.aliases.map((alias) => alias.value),
+      lastEditedMs(page)
+    );
+  }
+
+  if (membershipSelector) {
+    for (const folder of vault.folders()) {
+      if (
         membershipSelector.isVisibleFolder(folder) &&
         !membershipSelector.isEntityEffectivelyArchived(folder) &&
         // The Daily Notes year / month folders have no page of their own to open (unless that is enabled).
         (isDailyNotesCollectionPagesEnabled() || DailyNotePath.folderLevel(vault.root, folder.path) === null)
-    )
-    .map((folder): WikiLinkFolderSuggestion => {
-      const relative = VaultPath.relativeTo(folder.path, vault.root);
-      // A reserved folder's own icon, from the one shared presentation table; any other folder its own emoji.
-      const systemIcon = getSystemLocationIconForFolder(folder, membershipSelector);
-      const identity = systemIcon ? { icon: systemIcon } : folder.metadata.icon ? { emoji: folder.metadata.icon } : {};
+      ) {
+        add(toFolderSuggestion(vault, folder, membershipSelector, spaceName), folder.name, [], 0);
+      }
+    }
 
-      return {
-        kind: 'folder',
-        path: `${relative}/`,
-        title: folder.name,
-        breadcrumb: VaultPath.parentDirectory(relative) || null,
-        ...identity,
-      };
-    })
-    // Matched on the path as linked (`Projects/`), so `Projects/` itself lists the folder.
-    .filter((suggestion) => matches(suggestion.title, suggestion.path))
-    .sort(naturalByPath);
+    for (const resource of membershipSelector.getAllVisibleResources()) {
+      const suggestion = toAssetSuggestion(vault, resource, resolveResourceUrl);
+      // The file name with its extension, so `hero.p` finds `hero.png`.
+      add(suggestion, VaultPath.filename(suggestion.path), [], Date.parse(resource.metadata?.modifiedAt ?? '') || 0);
+    }
+  }
 
-  const assets = membershipSelector
-    .getAllVisibleResources()
-    .map((resource: VaultResource): WikiLinkAssetSuggestion => {
-      const relative = VaultPath.relativeTo(resource.path, vault.root);
+  const tokens = parseQuery(rawQuery)?.tokens ?? [];
 
-      return {
-        kind: 'asset',
-        path: relative,
-        title: getResourceDisplayName(resource),
-        breadcrumb: VaultPath.parentDirectory(relative) || null,
-        assetKind: resource.kind,
-        ...(resolveResourceUrl && { previewUrl: resolveResourceUrl(resource.path) }),
-      };
-    })
-    // The file name with its extension, so `hero.p` finds `hero.png`.
-    .filter((suggestion) => matches(VaultPath.filename(suggestion.path), suggestion.path))
-    .sort(naturalByPath);
+  return rankByMatchQuality(rawQuery, entries).map(({ suggestion, matchedBy }) => {
+    // A page found by an alias carries it, so accepting inserts `[[full/path|Alias]]`.
+    if (matchedBy === 'alias' && suggestion.kind === 'page') {
+      const page = pageByTarget.get(`page:${suggestion.path}`);
+      const alias = page && matchedAlias(page, tokens);
 
-  return [...folders, ...assets];
+      return alias ? { ...suggestion, alias } : suggestion;
+    }
+
+    return suggestion;
+  });
+}
+
+/** The alias a query found a page by: one holding every word, an exact one first; else the first declared. */
+function matchedAlias(page: Page, tokens: readonly string[]): string | undefined {
+  const aliases = page.analysis.aliases.map((alias) => alias.value);
+  const holdsAll = (alias: string) => tokens.every((token) => tokenMatches(foldString(alias), token));
+
+  return (
+    aliases.find((alias) => foldString(alias) === tokens.join(' ')) ?? aliases.find(holdsAll) ?? aliases[0]
+  );
+}
+
+/** A folder as the link that names it: its trailing slash (`Projects/`) keeps it from being read as a note of the same name. */
+function toFolderSuggestion(
+  vault: Vault,
+  folder: Folder,
+  membershipSelector: MembershipSelector,
+  spaceName: string | undefined
+): WikiLinkFolderSuggestion {
+  const relative = VaultPath.relativeTo(folder.path, vault.root);
+  // A reserved folder's own icon, from the one shared presentation table; any other folder its own emoji.
+  const systemIcon = getSystemLocationIconForFolder(folder, membershipSelector);
+  const identity = systemIcon ? { icon: systemIcon } : folder.metadata.icon ? { emoji: folder.metadata.icon } : {};
+  // A reserved folder sits at the Space's top level: its path is the Space's name.
+  const breadcrumb = membershipSelector.isSystemFolder(folder)
+    ? [spaceName, VaultPath.parentDirectory(relative)].filter(Boolean).join('/') || null
+    : VaultPath.parentDirectory(relative) || null;
+
+  return { kind: 'folder', path: `${relative}/`, title: folder.name, breadcrumb, ...identity };
+}
+
+/** An asset by its vault-relative path with its extension (`Assets/hero.png`). */
+function toAssetSuggestion(
+  vault: Vault,
+  resource: VaultResource,
+  resolveResourceUrl: ((path: string) => string) | undefined
+): WikiLinkAssetSuggestion {
+  const relative = VaultPath.relativeTo(resource.path, vault.root);
+
+  return {
+    kind: 'asset',
+    path: relative,
+    title: getResourceDisplayName(resource),
+    breadcrumb: VaultPath.parentDirectory(relative) || null,
+    assetKind: resource.kind,
+    ...(resolveResourceUrl && { previewUrl: resolveResourceUrl(resource.path) }),
+  };
 }
 
 /**

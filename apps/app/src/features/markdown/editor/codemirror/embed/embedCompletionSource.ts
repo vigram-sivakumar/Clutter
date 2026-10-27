@@ -1,4 +1,4 @@
-import type { CompletionResult, CompletionSource } from '@codemirror/autocomplete';
+import type { CompletionResult, CompletionSection, CompletionSource } from '@codemirror/autocomplete';
 import type { EditorState } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 
@@ -6,6 +6,8 @@ import { findEmbedAt } from './embedEngagement';
 import { embedPageRow, embedResourceRow, type EmbedCompletion } from './embedCompletionRow';
 import { serializeEmbed } from './embedSerialize';
 import { lastUnescapedSlashOffset, splitAtFirstUnescapedPipe } from '../../../../../core/vault/ingest/grammar/wikiLinkScanner';
+import { mixedGroupSections } from '../completionPopup/mixedGroups';
+import { layoutFor, type CompletionListConfig, type CompletionListLayout } from '../completionPopup/completionRow';
 import { headingCompletionResult, type GetHeadingSuggestions } from '../completionPopup/headingCompletion';
 import { DEFAULT_IMAGE_UI_STATE, setImageUiState } from '../image/imageUiState';
 import type { EmbedTargetSuggestion, GetEmbedSuggestions } from './embedSuggestion';
@@ -98,12 +100,16 @@ function applyEmbedInsert(insert: string, view: EditorView, from: number, to: nu
 
 function toCompletion(
   suggestion: EmbedTargetSuggestion,
-  insertText: (path: string) => string
+  insertText: (path: string) => string,
+  layout: CompletionListLayout,
+  /** The group this row falls in when a mixed result is split in two (`mixedGroupSections`). */
+  group: CompletionSection | undefined
 ): EmbedCompletion {
   const completion: EmbedCompletion = {
     label: suggestion.title,
     suggestion,
-    ...(suggestion.kind === 'page' ? embedPageRow(suggestion) : embedResourceRow(suggestion)),
+    ...(suggestion.kind === 'page' ? embedPageRow(suggestion, layout) : embedResourceRow(suggestion, layout)),
+    ...(group && { section: group, limitKey: undefined }),
     apply(view, _completion, from, to) {
       applyEmbedInsert(insertText(suggestion.path), view, from, to);
     },
@@ -150,17 +156,25 @@ function buildResult(
   to: number,
   query: string,
   suggestions: GetEmbedSuggestions,
-  insertText: (path: string) => string
+  insertText: (path: string) => string,
+  config: CompletionListConfig
 ): CompletionResult | null {
   const items = suggestions(query);
   if (items.length === 0) {
     return null;
   }
 
+  // A result holding both notes and files is split in two groups, exactly as `[[` does (`mixedGroups.ts`).
+  const groups =
+    config.grouped || config.splitMixed === false
+      ? items.map(() => undefined)
+      : mixedGroupSections(items.map((suggestion) => (suggestion.kind === 'resource' ? 'assets' : 'notes')));
+
   return {
     from,
     to,
-    options: items.map((suggestion) => toCompletion(suggestion, insertText)),
+    // Paths only once something is typed, one continuous list unless the config groups (`layoutFor`).
+    options: items.map((suggestion, index) => toCompletion(suggestion, insertText, layoutFor(query, config), groups[index])),
     // Suggestions are already filtered by the app-layer suggester's own
     // substring match — same reasoning wikiLinkCompletionSource.ts's
     // buildResult already documents: CM6's own fuzzy re-filter/re-rank on
@@ -197,7 +211,9 @@ function buildResult(
  */
 export function embedCompletionSource(
   getSuggestions: () => GetEmbedSuggestions | undefined,
-  getHeadingSuggestions: () => GetHeadingSuggestions | undefined = () => undefined
+  getHeadingSuggestions: () => GetHeadingSuggestions | undefined = () => undefined,
+  /** How the popup is laid out. Default: one continuous list, paths only once something is typed. */
+  config: CompletionListConfig = {}
 ): CompletionSource {
   return (context) => {
     const suggestions = getSuggestions();
@@ -235,7 +251,7 @@ export function embedCompletionSource(
       const visibleFrom = slashOffset === null ? zone.from : zone.from + slashOffset + 1;
       const query = splitAtFirstUnescapedPipe(context.state.sliceDoc(visibleFrom, zone.to)).reference;
 
-      return buildResult(zone.from, zone.to, query, suggestions, (path) => path);
+      return buildResult(zone.from, zone.to, query, suggestions, (path) => path, config);
     }
 
     // `embedReferenceZoneAt` returning `null` covers two cases the
@@ -264,6 +280,6 @@ export function embedCompletionSource(
       return headingResult;
     }
 
-    return buildResult(match.from, context.pos, query, suggestions, (path) => serializeEmbed(path));
+    return buildResult(match.from, context.pos, query, suggestions, (path) => serializeEmbed(path), config);
   };
 }

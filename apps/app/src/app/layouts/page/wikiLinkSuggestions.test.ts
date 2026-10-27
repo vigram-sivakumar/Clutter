@@ -252,7 +252,9 @@ describe('createWikiLinkSuggester', () => {
       fakeFolderOperations()
     );
 
+    // Ordered by match quality: a title that starts with the query outranks an alias match.
     expect(suggest('UX')).toEqual([
+      { kind: 'page', path: 'UX Research', title: 'UX Research', breadcrumb: null },
       {
         kind: 'page',
         path: 'Design/User Experience Guidelines',
@@ -261,7 +263,6 @@ describe('createWikiLinkSuggester', () => {
         // The exact alias, not the first one that merely contains the query.
         alias: 'UX',
       },
-      { kind: 'page', path: 'UX Research', title: 'UX Research', breadcrumb: null },
     ]);
   });
 
@@ -492,7 +493,46 @@ describe('createWikiLinkSuggester — Daily Notes are found by their date', () =
   });
 });
 
-describe('createWikiLinkSuggester — Daily Notes are ordered by date, newest first', () => {
+describe('createWikiLinkSuggester — empty query: recent notes, daily notes and templates', () => {
+  const timed = (id: string, name: string, modifiedAt: string | null, extra: Partial<Page> = {}) =>
+    makePage({
+      id,
+      path: `/vault/${name}.md`,
+      name,
+      ...(modifiedAt && { fileTimes: { createdAt: '2020-01-01T00:00:00.000Z', modifiedAt } }),
+      ...extra,
+    });
+  const titles = (suggestions: ReturnType<ReturnType<typeof createWikiLinkSuggester>>) =>
+    suggestions.map((s) => (s.kind === 'page' ? s.title : ''));
+
+  it('lists every page kind in ONE list, last edited first — a note, a Daily Note and a template mixed', () => {
+    const vault = makeVault([
+      timed('a', 'Old note', '2026-01-01T00:00:00.000Z'),
+      timed('t', 'Meeting template', '2026-10-01T00:00:00.000Z', { path: '/vault/Templates/Meeting template.md' }),
+      timed('d', '2026-05-05', '2026-05-05T00:00:00.000Z', {
+        type: 'daily-note',
+        path: '/vault/Daily Notes/2026/May/2026-05-05.md',
+      }),
+      timed('n', 'New note', '2026-12-01T00:00:00.000Z'),
+    ]);
+    const suggest = createWikiLinkSuggester(vault, fakePageOperations(), fakeFolderOperations());
+
+    expect(titles(suggest(''))).toEqual(['New note', 'Meeting template', '2026-05-05', 'Old note']);
+  });
+
+  it('puts a page with no file time after every dated one, by title', () => {
+    const vault = makeVault([
+      timed('b', 'Beta', null),
+      timed('a', 'Alpha', null),
+      timed('c', 'Dated', '2026-01-01T00:00:00.000Z'),
+    ]);
+    const suggest = createWikiLinkSuggester(vault, fakePageOperations(), fakeFolderOperations());
+
+    expect(titles(suggest(''))).toEqual(['Dated', 'Alpha', 'Beta']);
+  });
+});
+
+describe('createWikiLinkSuggester — typed Daily Notes', () => {
   const daily = (iso: string) =>
     makePage({
       id: `d-${iso}`,
@@ -500,31 +540,15 @@ describe('createWikiLinkSuggester — Daily Notes are ordered by date, newest fi
       name: iso,
       type: 'daily-note',
     });
-  const titles = (suggestions: ReturnType<ReturnType<typeof createWikiLinkSuggester>>) =>
-    suggestions.map((s) => (s.kind === 'page' ? s.title : ''));
 
-  // Formatted labels ("Fri, 25 Sep", "Fri, 23 Oct", "Thu, 02 Jan") sort wrongly alphabetically.
-  const dates = ['2025-09-25', '2026-10-23', '2026-01-02', '2025-12-31', '2026-09-25', '2026-10-04'];
-  const newestFirst = ['2026-10-23', '2026-10-04', '2026-09-25', '2026-01-02', '2025-12-31', '2025-09-25'];
-
-  it('orders an empty query across month and year boundaries', () => {
+  it('finds every Daily Note of a year, each once', () => {
+    const dates = ['2025-09-25', '2026-10-23', '2026-01-02', '2026-10-04'];
     const suggest = createWikiLinkSuggester(makeVault(dates.map(daily)), fakePageOperations(), fakeFolderOperations());
-    expect(titles(suggest(''))).toEqual(newestFirst);
-  });
 
-  it('orders a filtered query the same way', () => {
-    const suggest = createWikiLinkSuggester(makeVault(dates.map(daily)), fakePageOperations(), fakeFolderOperations());
-    expect(titles(suggest('2026'))).toEqual(['2026-10-23', '2026-10-04', '2026-09-25', '2026-01-02']);
-  });
+    const found = suggest('2026').map((s) => (s.kind === 'page' ? s.title : ''));
 
-  it('leaves notes ordered by title', () => {
-    const vault = makeVault([
-      makePage({ id: 'b', path: '/vault/Beta.md', name: 'Beta' }),
-      daily('2026-01-02'),
-      makePage({ id: 'a', path: '/vault/Alpha.md', name: 'Alpha' }),
-      daily('2026-10-23'),
-    ]);
-    const suggest = createWikiLinkSuggester(vault, fakePageOperations(), fakeFolderOperations());
-    expect(titles(suggest(''))).toEqual(['Alpha', 'Beta', '2026-10-23', '2026-01-02']);
+    // The exact matches lead; a one-digit-off year is only a lower-ranked "close match" after them.
+    expect(found.slice(0, 3).sort()).toEqual(['2026-01-02', '2026-10-04', '2026-10-23']);
+    expect(new Set(found).size).toBe(found.length);
   });
 });

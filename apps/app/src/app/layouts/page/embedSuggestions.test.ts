@@ -268,14 +268,10 @@ describe('createEmbedSuggester — notes and Daily Notes alongside assets', () =
     createEmbedSuggester(makeVault(resources, pages), fakeMembershipSelector(resources), undefined, isArchived)(query);
   const paths = (query: string, isArchived?: (page: Page) => boolean) => suggest(query, isArchived).map((s) => s.path);
 
-  it('a freshly typed ![[ offers images and PDFs, then notes, then Daily Notes (newest first)', () => {
+  it('a freshly typed ![[ offers only images and PDFs — no notes, Daily Notes or folders', () => {
     expect(suggest('').map((s) => [s.kind, s.path])).toEqual([
       ['resource', 'hero.png'],
       ['resource', 'Projects/plan.pdf'],
-      ['page', 'My Project Notes'],
-      ['page', 'Projects/Roadmap'],
-      ['page', '2026-08-24'],
-      ['page', '2026-07-02'],
     ]);
   });
 
@@ -316,5 +312,41 @@ describe('createEmbedSuggester — notes and Daily Notes alongside assets', () =
 
   it('marks a Daily Note so the popup lists it under Daily notes', () => {
     expect(suggest('2026-07')[0]).toMatchObject({ kind: 'page', dailyNote: true, path: '2026-07-02' });
+  });
+});
+
+describe('createEmbedSuggester — last-edited order of a bare ![[', () => {
+  const dated = (id: string, name: string, modifiedAt?: string): VaultResource => ({
+    ...makeResource(id, `${ROOT}/${name}`),
+    ...(modifiedAt && { metadata: { modifiedAt } }),
+  } as VaultResource);
+
+  it('lists assets most recently modified first; undated ones after every dated one, alphabetically', () => {
+    const resources = [
+      dated('1', 'zeta.png'),
+      dated('2', 'old.png', '2026-01-01T00:00:00.000Z'),
+      dated('3', 'alpha.png'),
+      dated('4', 'new.png', '2026-09-01T00:00:00.000Z'),
+    ];
+    const suggest = createEmbedSuggester(makeVault(resources, [makePage('Note.md')]), fakeMembershipSelector(resources));
+
+    expect(suggest('').map((s) => s.path)).toEqual(['new.png', 'old.png', 'alpha.png', 'zeta.png']);
+  });
+});
+
+describe('createEmbedSuggester — typed query: one list ordered by match quality', () => {
+  const resources = [
+    makeResource('r1', `${ROOT}/Assets/roadmap-draft.png`),
+    makeResource('r2', `${ROOT}/roadmap.pdf`, 'pdf'),
+  ];
+  const pages = [makePage('Roadmap.md'), makePage('Q3 roadmap review.md')];
+  const suggest = createEmbedSuggester(makeVault(resources, pages), fakeMembershipSelector(resources));
+
+  it('puts the best match first whatever its kind, and offers no folders', () => {
+    const found = suggest('roadmap');
+
+    expect(found[0]).toMatchObject({ kind: 'page', path: 'Roadmap' });
+    expect(found.map((s) => s.kind).sort()).toEqual(['page', 'page', 'resource', 'resource']);
+    expect(found.every((s) => s.kind === 'page' || s.kind === 'resource')).toBe(true);
   });
 });

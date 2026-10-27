@@ -8,6 +8,7 @@ import { EditorView } from '@codemirror/view';
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { embedCompletionSource } from './embedCompletionSource';
 import { wikiLinkCompletionSource } from '../wikilink/wikiLinkCompletionSource';
+import type { CompletionListConfig } from '../completionPopup/completionRow';
 import type { GetEmbedSuggestions } from './embedSuggestion';
 import type { GetHeadingSuggestions } from '../completionPopup/headingCompletion';
 import type { GetWikiLinkSuggestions } from '../wikilink/wikiLinkSuggestion';
@@ -580,5 +581,34 @@ describe('embedCompletionSource — every embed moves the cursor to a fresh line
 
     expect(view.state.doc.toString()).not.toContain('\n');
     expect(view.state.doc.toString()).toMatch(/^x \[\[Page\]\]/);
+  });
+});
+
+describe('embedCompletionSource — list layout (the same one as `[[`)', () => {
+  const suggestions: GetEmbedSuggestions = () => [
+    { kind: 'page', path: 'Projects/Plan', title: 'Plan', breadcrumb: 'Projects' },
+    { kind: 'resource', path: 'Assets/plan.png', title: 'plan', breadcrumb: 'Assets', resourceKind: 'image', previewUrl: 'app:///plan.png' },
+    { kind: 'resource', path: 'Assets/plan.pdf', title: 'plan', breadcrumb: 'Assets', resourceKind: 'pdf' },
+  ];
+  const optionsFor = (doc: string, config?: CompletionListConfig) => {
+    const view = mountView(doc);
+    const result = call(embedCompletionSource(() => suggestions, () => undefined, config), contextAt(view, doc.length));
+
+    return (result?.options ?? []) as unknown as { section?: { name: string }; row: { path?: string | null; thumbnail?: unknown } }[];
+  };
+
+  it('splits a result holding both notes and assets into the same two groups `[[` uses', () => {
+    expect(optionsFor('x ![[pl').map((option) => option.section?.name)).toEqual(['Notes and folders', 'Assets', 'Assets']);
+  });
+
+  it('is one plain list when it can be kept so, and when full grouping is on lists its own sections', () => {
+    expect(optionsFor('x ![[pl', { splitMixed: false }).every((option) => option.section === undefined)).toBe(true);
+    expect(optionsFor('x ![[pl', { grouped: true }).map((option) => option.section?.name)).toEqual(['Notes', 'Images', 'PDFs']);
+  });
+
+  it('shows paths for a typed query and hides them for a bare ![[; media previews are kept', () => {
+    expect(optionsFor('x ![[pl').map((option) => option.row.path)).toEqual(['Projects', 'Assets', 'Assets']);
+    expect(optionsFor('x ![[').map((option) => option.row.path)).toEqual([null, null, null]);
+    expect(optionsFor('x ![[pl')[1]?.row.thumbnail).toBe('app:///plan.png');
   });
 });

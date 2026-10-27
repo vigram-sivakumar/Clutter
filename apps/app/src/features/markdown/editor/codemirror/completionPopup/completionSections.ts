@@ -21,4 +21,7 @@ export const COMPLETION_SECTIONS = {
   linkFolders: section('Folders', 4),
   linkImages: section('Images', 5),
   linkPdfs: section('PDFs', 6),
+  /** The two groups of a mixed `[[` result: notes and folders, then files. Not used by `![[`. */
+  linkNotesAndFolders: section('Notes and folders', 2),
+  linkAssets: section('Assets', 7),
 } as const;

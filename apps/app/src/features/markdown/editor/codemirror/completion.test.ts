@@ -21,7 +21,7 @@ afterEach(() => {
   view = null;
 });
 
-async function openCompletionAt(doc: string): Promise<HTMLElement | null> {
+async function openCompletionAt(doc: string, groupWikiLinks = false): Promise<HTMLElement | null> {
   const parent = document.createElement('div');
   document.body.appendChild(parent);
   view = new EditorView({
@@ -32,7 +32,10 @@ async function openCompletionAt(doc: string): Promise<HTMLElement | null> {
         markdownLanguageExtension(),
         semanticCompletion(
           () => getWikiLinkSuggestions,
-          () => getTagSuggestions
+          () => getTagSuggestions,
+          undefined,
+          undefined,
+          groupWikiLinks ? { grouped: true } : {}
         ),
       ],
     }),
@@ -56,8 +59,14 @@ describe('semanticCompletion — one popup, one row shape', () => {
     expect(tag?.querySelectorAll('.completion-row')).toHaveLength(1);
   });
 
-  it('lists a [[ suggestion under its Notes section title', async () => {
+  it('lists [[ suggestions as one continuous list, with no section title, by default', async () => {
     const tooltip = await openCompletionAt('x [[Gui');
+    expect(tooltip?.querySelector('.completion-section__title')).toBeNull();
+    expect(tooltip?.querySelectorAll('.completion-row')).toHaveLength(1);
+  });
+
+  it('lists a [[ suggestion under its Notes section title when grouping is on', async () => {
+    const tooltip = await openCompletionAt('x [[Gui', true);
     expect(tooltip?.querySelector('.completion-section__title')?.textContent).toBe('Notes');
   });
 

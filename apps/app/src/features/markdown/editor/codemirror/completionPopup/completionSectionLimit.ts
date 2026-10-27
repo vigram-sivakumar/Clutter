@@ -93,7 +93,8 @@ export function completionSectionLimit() {
   return [expandedSections, keepPlaceAfterRefresh, holdEnterWhileRefreshing];
 }
 
-const sectionName = (option: Completion) => (option as RowCompletion).section?.name;
+/** What an option is capped with: its section, or the shared key of an ungrouped list. */
+const sectionName = (option: Completion) => (option as RowCompletion).section?.name ?? (option as RowCompletion).limitKey;
 
 /**
  * Caps each section of `result` at `COMPLETION_SECTION_LIMIT` rows and ends it with a "Show N
@@ -144,6 +145,7 @@ function toggleOption(sibling: RowCompletion, name: string, open: boolean, hidde
   return {
     label,
     section: sibling.section,
+    limitKey: sibling.limitKey,
     row: { iconSvg: COMPLETION_ICONS.moreHorizontal, title: label, muted: true },
     apply(view: EditorView) {
       refreshing.set(view, { section: name, before: currentCompletions(view.state) });

@@ -4,7 +4,14 @@ import { systemIconSvg } from '@shared/icon';
 
 import { assetCompletionRow } from '../completionPopup/assetCompletionRow';
 import { COMPLETION_ICONS } from '../completionPopup/completionIcons';
-import type { CompletionRowSpec, RowCompletion } from '../completionPopup/completionRow';
+import {
+  GROUPED_LAYOUT,
+  applyListLayout,
+  type CompletionListLayout,
+  type CompletionRowSpec,
+  type RowCompletion,
+} from '../completionPopup/completionRow';
+import type { TargetFamily } from '../completionPopup/mixedGroups';
 import { COMPLETION_SECTIONS } from '../completionPopup/completionSections';
 import type { WikiLinkSuggestion } from './wikiLinkSuggestion';
 
@@ -26,7 +33,14 @@ export interface WikiLinkCompletion extends RowCompletion {
  * under Folders and an asset under Images or PDFs, each with its own icon, so a folder, a note and
  * a file that share a name are told apart by section as well as by icon.
  */
-export function wikiLinkRow(suggestion: WikiLinkSuggestion): Pick<WikiLinkCompletion, 'row' | 'section'> {
+export function wikiLinkRow(
+  suggestion: WikiLinkSuggestion,
+  layout: CompletionListLayout = GROUPED_LAYOUT
+): Pick<WikiLinkCompletion, 'row' | 'section' | 'limitKey'> {
+  return applyListLayout(sectionedWikiLinkRow(suggestion), layout);
+}
+
+function sectionedWikiLinkRow(suggestion: WikiLinkSuggestion): Pick<WikiLinkCompletion, 'row' | 'section' | 'limitKey'> {
 
   if (suggestion.kind === 'create') {
     const slash = suggestion.path.lastIndexOf('/');
@@ -78,4 +92,13 @@ export function wikiLinkRow(suggestion: WikiLinkSuggestion): Pick<WikiLinkComple
     path: suggestion.breadcrumb,
   };
   return { row, section: COMPLETION_SECTIONS.notes };
+}
+
+/** Which family a `[[` suggestion belongs to, for the two-group split of a mixed result (`mixedGroups.ts`). */
+export function wikiLinkFamily(suggestion: WikiLinkSuggestion): TargetFamily | undefined {
+  if (suggestion.kind === 'create') {
+    return undefined;
+  }
+
+  return suggestion.kind === 'asset' ? 'assets' : 'notes';
 }

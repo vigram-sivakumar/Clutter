@@ -6,6 +6,7 @@ import { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { wikiLinkCompletionSource } from './wikiLinkCompletionSource';
+import type { CompletionListConfig } from '../completionPopup/completionRow';
 import type { GetWikiLinkSuggestions } from './wikiLinkSuggestion';
 
 function mountView(doc: string): EditorView {
@@ -511,5 +512,59 @@ describe('wikiLinkCompletionSource — folder and asset suggestions', () => {
     );
 
     expect(result?.options[0]?.label).toBe('hero');
+  });
+});
+
+describe('wikiLinkCompletionSource — list layout', () => {
+  const suggestions: GetWikiLinkSuggestions = () => [
+    { kind: 'page', path: 'Projects/Alpha', title: 'Alpha', breadcrumb: 'Projects' },
+    { kind: 'folder', path: 'Inbox/', title: 'Inbox', breadcrumb: 'My Space', icon: 'tray' },
+    { kind: 'asset', path: 'Assets/a.png', title: 'a', breadcrumb: 'Assets', assetKind: 'image' },
+  ];
+  const optionsFor = (doc: string, config: CompletionListConfig = {}) => {
+    const view = mountView(doc);
+    const source = wikiLinkCompletionSource(() => suggestions, () => undefined, config);
+
+    return (call(source, contextAt(view, doc.length))?.options ?? []) as unknown as {
+      section?: unknown;
+      row: { path?: string | null };
+    }[];
+  };
+
+  it('with full grouping off, a bare [[ list (notes only) has no section', () => {
+    const onlyPages: GetWikiLinkSuggestions = () => [{ kind: 'page', path: 'A', title: 'A', breadcrumb: null }];
+    const view = mountView('x [[');
+
+    expect(call(wikiLinkCompletionSource(() => onlyPages), contextAt(view, 4))?.options[0]).not.toHaveProperty('section');
+  });
+
+  it('lists the options under their sections when grouping is switched on', () => {
+    expect(optionsFor('x [[Al', { grouped: true }).every((option) => option.section !== undefined)).toBe(true);
+  });
+
+  it('can be kept as one continuous list even for a mixed result — no sections at all', () => {
+    expect(optionsFor('x [[Al', { splitMixed: false }).every((option) => option.section === undefined)).toBe(true);
+  });
+
+  it('splits an ungrouped result that holds both notes and files into two groups: Notes and folders, then Assets', () => {
+    const names = optionsFor('x [[Al').map((option) => (option.section as { name: string } | undefined)?.name);
+
+    expect(names).toEqual(['Notes and folders', 'Notes and folders', 'Assets']);
+  });
+
+  it('leaves a result of only notes (or only files) as one plain list', () => {
+    const onlyNotes: GetWikiLinkSuggestions = () => [
+      { kind: 'page', path: 'A', title: 'A', breadcrumb: null },
+      { kind: 'folder', path: 'F/', title: 'F', breadcrumb: null },
+    ];
+    const view = mountView('x [[A');
+    const options = call(wikiLinkCompletionSource(() => onlyNotes), contextAt(view, 5))?.options ?? [];
+
+    expect(options.map((option) => (option as { section?: unknown }).section)).toEqual([undefined, undefined]);
+  });
+
+  it('shows paths for a typed query and hides them for a bare [[', () => {
+    expect(optionsFor('x [[Al').map((option) => option.row.path)).toEqual(['Projects', 'My Space', 'Assets']);
+    expect(optionsFor('x [[').map((option) => option.row.path)).toEqual([null, null, null]);
   });
 });

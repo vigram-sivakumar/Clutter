@@ -3,7 +3,7 @@ import type { Extension } from '@codemirror/state';
 
 import { completionSectionLimit, limitCompletionSections } from './completionPopup/completionSectionLimit';
 import { completionScrollFade } from './completionPopup/completionScrollFade';
-import { renderCompletionRow } from './completionPopup/completionRow';
+import { renderCompletionRow, type CompletionListConfig } from './completionPopup/completionRow';
 import { completionTooltipSpaceExtension } from './completionPopup/completionTooltipSpace';
 import { completionPopupTheme } from './completionPopup/completionPopupTheme';
 import { dateCompletionSource } from './date/dateCompletionSource';
@@ -44,7 +44,11 @@ export function semanticCompletion(
   getTagSuggestions: () => GetTagSuggestions | undefined = () => undefined,
   getEmbedSuggestions: () => GetEmbedSuggestions | undefined = () => undefined,
   getHeadingSuggestions: () =>
-    GetHeadingSuggestions | undefined = () => undefined
+    GetHeadingSuggestions | undefined = () => undefined,
+  /** How the `[[` popup is laid out. Default: one continuous list, paths only once something is typed. */
+  wikiLinkListConfig: CompletionListConfig = {},
+  /** How the `![[` popup is laid out — the same shape, the same defaults. */
+  embedListConfig: CompletionListConfig = {}
 ): Extension {
   return [
     autocompletion({
@@ -60,8 +64,8 @@ export function semanticCompletion(
         // through one shared completion (completionPopup/headingCompletion.ts).
         // The lists that can grow long (`[[` notes, `![[` assets, `#` tags) are capped with "Show N
         // more"; headings and dates have no sections and are short.
-        limitCompletionSections(embedCompletionSource(getEmbedSuggestions, getHeadingSuggestions)),
-        limitCompletionSections(wikiLinkCompletionSource(getWikiLinkSuggestions, getHeadingSuggestions)),
+        limitCompletionSections(embedCompletionSource(getEmbedSuggestions, getHeadingSuggestions, embedListConfig)),
+        limitCompletionSections(wikiLinkCompletionSource(getWikiLinkSuggestions, getHeadingSuggestions, wikiLinkListConfig)),
         dateCompletionSource(),
         limitCompletionSections(tagCompletionSource(getTagSuggestions)),
       ],

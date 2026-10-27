@@ -1,11 +1,13 @@
-import type { CompletionResult, CompletionSource } from '@codemirror/autocomplete';
+import type { CompletionResult, CompletionSection, CompletionSource } from '@codemirror/autocomplete';
 import type { EditorState } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 
 import { headingCompletionResult, type GetHeadingSuggestions } from '../completionPopup/headingCompletion';
 import { trailingSpaceChange } from '../completionPopup/trailingSpace';
 import { findWikiLinkAt } from './wikiLinkEngagement';
-import { wikiLinkRow, type WikiLinkCompletion } from './wikiLinkCompletionRow';
+import { layoutFor, type CompletionListConfig, type CompletionListLayout } from '../completionPopup/completionRow';
+import { mixedGroupSections } from '../completionPopup/mixedGroups';
+import { wikiLinkFamily, wikiLinkRow, type WikiLinkCompletion } from './wikiLinkCompletionRow';
 import { serializeWikiLink } from './wikiLinkSerialize';
 import { lastUnescapedSlashOffset, splitAtFirstUnescapedPipe } from '../../../../../core/vault/ingest/grammar/wikiLinkScanner';
 import type { GetWikiLinkSuggestions, WikiLinkSuggestion } from './wikiLinkSuggestion';
@@ -62,7 +64,13 @@ function applyWikiLinkInsert(view: EditorView, insert: string, from: number, to:
   });
 }
 
-function toCompletion(suggestion: WikiLinkSuggestion, insertText: InsertText): WikiLinkCompletion {
+function toCompletion(
+  suggestion: WikiLinkSuggestion,
+  insertText: InsertText,
+  layout: CompletionListLayout,
+  /** The group this row falls in when a mixed result is split in two (`mixedGroupSections`). */
+  group: CompletionSection | undefined
+): WikiLinkCompletion {
   const alias = suggestion.kind === 'page' ? (suggestion.alias ?? null) : null;
   const completion: WikiLinkCompletion = {
     label:
@@ -72,7 +80,8 @@ function toCompletion(suggestion: WikiLinkSuggestion, insertText: InsertText): W
           ? `${suggestion.title} (${alias})`
           : suggestion.title,
     suggestion,
-    ...wikiLinkRow(suggestion),
+    ...wikiLinkRow(suggestion, layout),
+    ...(group && { section: group, limitKey: undefined }),
     apply(view, _completion, from, to) {
       applyWikiLinkInsert(view, insertText(suggestion.path, alias), from, to);
 
@@ -121,17 +130,24 @@ function buildResult(
   to: number,
   query: string,
   suggestions: GetWikiLinkSuggestions,
-  insertText: InsertText
+  insertText: InsertText,
+  config: CompletionListConfig
 ): CompletionResult | null {
   const items = suggestions(query);
   if (items.length === 0) {
     return null;
   }
+  const groups =
+    config.grouped || config.splitMixed === false
+      ? items.map(() => undefined)
+      : mixedGroupSections(items.map(wikiLinkFamily));
 
   return {
     from,
     to,
-    options: items.map((suggestion) => toCompletion(suggestion, insertText)),
+    // The location line helps tell similar targets apart once something is typed; the list a bare `[[`
+    // opens is just icons and titles (`layoutFor`).
+    options: items.map((suggestion, index) => toCompletion(suggestion, insertText, layoutFor(query, config), groups[index])),
     // Suggestions are already filtered by wikiLinkSuggestions.ts's own
     // substring match — CM6's own fuzzy re-filter/re-rank on top would
     // be a second, competing matching algorithm over the same list.
@@ -178,7 +194,9 @@ function buildResult(
  */
 export function wikiLinkCompletionSource(
   getSuggestions: () => GetWikiLinkSuggestions | undefined,
-  getHeadingSuggestions: () => GetHeadingSuggestions | undefined = () => undefined
+  getHeadingSuggestions: () => GetHeadingSuggestions | undefined = () => undefined,
+  /** How the popup is laid out. Default: one continuous list, paths only once something is typed. */
+  config: CompletionListConfig = {}
 ): CompletionSource {
   return (context) => {
     const suggestions = getSuggestions();
@@ -238,8 +256,8 @@ export function wikiLinkCompletionSource(
       const hasDisplayText = zone.to < findWikiLinkAt(context.state, zone.from)!.to - 2;
 
       return buildResult(zone.from, zone.to, query, suggestions, (path, alias) =>
-        alias !== null && !hasDisplayText ? serializeWikiLink(path, alias).slice(2, -2) : path
-      );
+        alias !== null && !hasDisplayText ? serializeWikiLink(path, alias).slice(2, -2) : path,
+      config);
     }
 
     // `referenceZoneAt` returning `null` covers two different cases the
@@ -283,7 +301,7 @@ export function wikiLinkCompletionSource(
     }
 
     return buildResult(match.from, context.pos, query, suggestions, (path, alias) =>
-      serializeWikiLink(path, alias)
-    );
+      serializeWikiLink(path, alias),
+    config);
   };
 }

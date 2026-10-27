@@ -38,6 +38,10 @@ interface Suggestions {
   embed?: EmbedTargetSuggestion[];
   tags?: string[];
   headings?: HeadingSuggestion[];
+  /** List `[[` rows under sections (off by default, as in the editor). */
+  grouped?: boolean;
+  /** List `![[` rows under sections. */
+  groupedEmbed?: boolean;
 }
 
 const views: EditorView[] = [];
@@ -62,7 +66,9 @@ function mount(doc: string, suggestions: Suggestions): EditorView {
           () => () => suggestions.wiki ?? [],
           () => () => suggestions.tags ?? [],
           () => () => suggestions.embed ?? [],
-          () => () => suggestions.headings ?? []
+          () => () => suggestions.headings ?? [],
+          suggestions.grouped ? { grouped: true } : {},
+          suggestions.groupedEmbed ? { grouped: true } : {}
         ),
       ],
     }),
@@ -144,8 +150,20 @@ describe('"Show N more" in the [[ popup', () => {
     expect(view.state.doc.toString()).toBe('See [[');
   });
 
-  it('caps each section on its own, each with its own toggle', async () => {
+  it('caps an ungrouped mixed list as ONE list: five rows, then a single "Show N more" that expands on click', async () => {
     const view = await open('See [[', { wiki: [...notes(12), ...dailyNotes(15)] });
+
+    expect(rows(view)).toHaveLength(COMPLETION_SECTION_LIMIT + 1);
+    expect(rows(view).filter(isToggle)).toEqual(['Show 22 more']);
+    expect(view.dom.querySelector('.completion-section__title')).toBeNull();
+
+    await click(view, 'Show 22 more');
+    expect(rows(view)).toHaveLength(27 + 1);
+    expect(rows(view).filter(isToggle)).toEqual(['Show less']);
+  });
+
+  it('caps each section on its own, each with its own toggle', async () => {
+    const view = await open('See [[', { wiki: [...notes(12), ...dailyNotes(15)], grouped: true });
 
     expect(rows(view).filter(isToggle)).toEqual(['Show 7 more', 'Show 10 more']);
 
@@ -205,19 +223,23 @@ describe('"Show N more" in the ![[ popup', () => {
     expect(view.state.doc.toString()).toBe('![[');
   });
 
-  it('caps notes, Daily notes and images each on their own, over the one combined result', async () => {
+  it('caps the Notes and folders and Assets groups each on their own, over the one combined result', async () => {
     const view = await open('![[', { embed: [...images(9), ...dailyNotes(7), ...notes(8)] });
 
-    // Sections come in rank order whatever order the source listed them in.
-    // Media first (images), then notes, then Daily notes.
-    expect(rows(view).filter(isToggle)).toEqual(['Show 4 more', 'Show 3 more', 'Show 2 more']);
-    expect(rows(view)).toHaveLength(3 * (COMPLETION_SECTION_LIMIT + 1));
-    expect(rows(view).slice(0, COMPLETION_SECTION_LIMIT)).toEqual(images(5).map((n) => n.title));
+    // A result holding both kinds is two groups: notes first, then assets, whatever order the source listed.
+    expect(rows(view).filter(isToggle)).toEqual(['Show 10 more', 'Show 4 more']);
+    expect(rows(view)).toHaveLength(2 * (COMPLETION_SECTION_LIMIT + 1));
 
-    // Expanding one section leaves the others capped.
-    await click(view, 'Show 4 more');
-    expect(rows(view).filter(isToggle)).toEqual(['Show less', 'Show 3 more', 'Show 2 more']);
-    expect(rows(view)).toHaveLength(9 + 1 + 2 * (COMPLETION_SECTION_LIMIT + 1));
+    // Expanding one group leaves the other capped.
+    await click(view, 'Show 10 more');
+    expect(rows(view).filter(isToggle)).toEqual(['Show less', 'Show 4 more']);
+  });
+
+  it('with full grouping on, caps notes, Daily notes and images each on their own', async () => {
+    const view = await open('![[', { embed: [...images(9), ...dailyNotes(7), ...notes(8)], groupedEmbed: true });
+
+    expect(rows(view).filter(isToggle)).toEqual(['Show 4 more', 'Show 3 more', 'Show 2 more']);
+    expect(rows(view).slice(0, COMPLETION_SECTION_LIMIT)).toEqual(images(5).map((n) => n.title));
   });
 });
 
