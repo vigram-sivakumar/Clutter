@@ -30,8 +30,8 @@ export class VaultEntryDuplicator {
    * top-level destination name is a provider decision (ADR-029) — nested
    * paths inside a brand-new folder can never collide with anything, so
    * copying them is a plain structural walk using the existing
-   * createDirectory/readDirectory/readFile/writeFile primitives, exactly
-   * as before ADR-029. Never manufactures a `.folder.md` the original
+   * createDirectory/readDirectory/copyFile primitives (files are copied as
+   * bytes, never read as text). Never manufactures a `.folder.md` the original
    * didn't have — the copy is structural only, whatever exists on disk.
    */
   async duplicateDirectory(sourcePath: string): Promise<string> {
@@ -66,8 +66,10 @@ export class VaultEntryDuplicator {
         await this.fileSystem.createDirectory(to);
         await this.copyContents(from, to);
       } else {
-        const contents = await this.fileSystem.readFile(from);
-        await this.fileSystem.writeFile(to, contents);
+        // Bytes, never text: `readFile`/`writeFile` decode and encode UTF-8, which silently replaces every invalid
+        // byte, so an image or a PDF would come out damaged. `copyFile` is the same primitive a single-file
+        // duplicate already uses, and it copies exactly what is on disk, whatever kind of file it is.
+        await this.fileSystem.copyFile(from, to);
       }
     }
   }
