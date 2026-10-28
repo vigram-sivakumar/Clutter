@@ -163,3 +163,46 @@
   box-shadow: inset 0 0 0 1px
     color-mix(in srgb, var(--danger-foreground) 70%, transparent);
 }
+
+/* Link form (isLink): shape and underline only, so it composes with any variant's colour. Doubled class beats the
+   size, padding, variant and hover rules above regardless of order. Fills and outlines are dropped, so primary and
+   danger (light text meant for a coloured fill) switch to a readable foreground. */
+.button.button--link {
+  height: auto;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-weight: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--link-underline);
+  text-decoration-thickness: var(--md-underline-thickness);
+  text-underline-offset: var(--md-underline-offset);
+}
+.button.button--link.button--primary {
+  color: var(--md-link-foreground);
+  text-decoration-color: var(--md-link-underline);
+}
+.button.button--link.button--danger,
+.button.button--link.button--outline-danger {
+  color: var(--danger-foreground);
+  text-decoration-color: color-mix(
+    in srgb,
+    var(--danger-foreground) 50%,
+    transparent
+  );
+}
+.button.button--link:not(:disabled):hover {
+  background: transparent;
+  box-shadow: none;
+  color: var(--foreground-primary);
+}
+.button.button--link.button--primary:not(:disabled):hover {
+  color: var(--md-link-foreground);
+  filter: brightness(1.15);
+}
+.button.button--link.button--danger:not(:disabled):hover,
+.button.button--link.button--outline-danger:not(:disabled):hover {
+  color: var(--danger-foreground);
+  filter: brightness(1.15);
+}

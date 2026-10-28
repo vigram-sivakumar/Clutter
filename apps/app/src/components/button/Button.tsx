@@ -18,6 +18,8 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
   isActive?: boolean;
   isIconOnly?: boolean;
+  /** Render as an inline text link: no fill, border or padding, underlined. Keeps the variant's colour family. */
+  isLink?: boolean;
 
   leading?: ReactNode;
   trailing?: ReactNode;
@@ -35,6 +37,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       isActive = false,
       disabled = false,
       isIconOnly = false,
+      isLink = false,
       leading,
       trailing,
       className,
@@ -63,6 +66,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       isActive && 'button--active',
       disabled && 'button--disabled',
       isIconOnly && 'button--icon',
+      isLink && 'button--link',
       hasLeadingOnly && 'button--has-leading',
       hasTrailingOnly && 'button--has-trailing',
       hasNoIcon && 'button--no-icon',
