@@ -71,15 +71,16 @@ describe('TauriRecoveryStorage (against a mocked fs plugin: no real disk, no rea
     );
   });
 
-  it('lists only record files, reads them, and treats a missing directory or file as empty', async () => {
+  it('lists record files and interrupted-write temp files, reads them, and treats a missing directory or file as empty', async () => {
     const storage = new TauriRecoveryStorage();
     expect(await storage.list('space-1')).toEqual([]);
     expect(await storage.read('space-1', 'a.aaaaaaaa.json')).toBeNull();
 
     await storage.writeAtomic('space-1', 'a.aaaaaaaa.json', 'one');
-    fsState.files.set(`${ROOT}/space-1/leftover.json.tmp`, 'partial');
+    fsState.files.set(`${ROOT}/space-1/a.aaaaaaaa.json.tmp`, 'interrupted');
+    fsState.files.set(`${ROOT}/space-1/notes.txt`, 'not a record');
 
-    expect(await storage.list('space-1')).toEqual(['a.aaaaaaaa.json']);
+    expect((await storage.list('space-1')).sort()).toEqual(['a.aaaaaaaa.json', 'a.aaaaaaaa.json.tmp']);
     expect(await storage.read('space-1', 'a.aaaaaaaa.json')).toBe('one');
   });
 

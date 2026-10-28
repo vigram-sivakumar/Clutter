@@ -22,7 +22,7 @@ export class TauriRecoveryStorage implements RecoveryStorage {
   async list(dir: string): Promise<string[]> {
     try {
       const entries = await readDir(`${await this.root()}/${dir}`);
-      return entries.filter((entry) => entry.isFile && entry.name.endsWith('.json')).map((entry) => entry.name);
+      return entries.filter((entry) => entry.isFile && (entry.name.endsWith('.json') || entry.name.endsWith('.json.tmp'))).map((entry) => entry.name);
     } catch (error) {
       if (isNotFoundError(error)) return [];
       throw error;

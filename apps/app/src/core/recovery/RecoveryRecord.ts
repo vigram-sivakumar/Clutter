@@ -28,6 +28,12 @@ export interface RecoveryRecord {
   readonly pageId: string;
   readonly kind: RecoveryKind;
   readonly capturedAt: string;
+  /**
+   * Counts the snapshots one session wrote for this note: 1, 2, 3... It is the ordering of two records of the same note
+   * and session (a committed file and an interrupted `.tmp` one), which clocks and file times cannot give reliably. Absent
+   * only in a record written before this field existed.
+   */
+  readonly sequence?: number;
   /** A name to show the user: the note's title, or what a draft starts with. */
   readonly label: string;
   /** The note's path when it was captured, for display only (the id is what identifies it). */
@@ -80,6 +86,7 @@ export function parseRecord(text: string): RecoveryRecord | null {
     record.pageId.length > 0 &&
     (record.kind === 'page' || record.kind === 'draft') &&
     isString(record.capturedAt) &&
+    (record.sequence === undefined || (typeof record.sequence === 'number' && Number.isInteger(record.sequence) && record.sequence >= 1)) &&
     isString(record.label) &&
     isNullableString(record.pagePath) &&
     isNullableString(record.title) &&
@@ -115,9 +122,31 @@ export function recordFileName(pageId: string, session: string): string {
   return `${safe}.${session}.json`;
 }
 
-/** The session tag a record file name carries, or null for a name this module did not write. */
+/** The session tag a record file name carries (committed `.json` or interrupted `.json.tmp`), or null for another name. */
 export function sessionOfFileName(name: string): string | null {
-  return /\.([0-9a-f]{8})\.json$/.exec(name)?.[1] ?? null;
+  return /\.([0-9a-f]{8})\.json(?:\.tmp)?$/.exec(name)?.[1] ?? null;
+}
+
+/** Whether a file name is an interrupted write of a record (never the committed record itself). */
+export function isTempRecordName(name: string): boolean {
+  return name.endsWith('.json.tmp');
+}
+
+/** The committed record's name for a file name that may be its temporary one. */
+export function committedNameOf(name: string): string {
+  return isTempRecordName(name) ? name.slice(0, -'.tmp'.length) : name;
+}
+
+/**
+ * Which of two records of the same note and session is newer, by the writer's own counter and never by file time:
+ * positive when `a` is newer, negative when `b` is, 0 when they are the same snapshot. Without a counter on both (an
+ * older record) it falls back to the editor revision, then the capture time.
+ */
+export function compareFreshness(a: RecoveryRecord, b: RecoveryRecord): number {
+  if (a.sequence !== undefined && b.sequence !== undefined) return a.sequence - b.sequence;
+  const revision = (a.body?.revision ?? -1) - (b.body?.revision ?? -1);
+  if (revision !== 0) return revision;
+  return a.capturedAt < b.capturedAt ? -1 : a.capturedAt > b.capturedAt ? 1 : 0;
 }
 
 function hashName(text: string): string {

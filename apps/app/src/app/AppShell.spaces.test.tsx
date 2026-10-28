@@ -161,6 +161,7 @@ interface FakeApplication {
   close: ReturnType<typeof vi.fn>;
   /** How many notes still hold unsaved changes after a flush (the guard before leaving the Space). */
   checkUnsavedBeforeClose: ReturnType<typeof vi.fn>;
+  snapshotUnsavedWork: ReturnType<typeof vi.fn>;
   persistParsedNoteCache: ReturnType<typeof vi.fn>;
   applySpaceProfile: ReturnType<typeof vi.fn>;
   workspace: {
@@ -211,6 +212,7 @@ function makeApp(root: string): FakeApplication {
       events.push(`close:${root}`);
     }),
     checkUnsavedBeforeClose: vi.fn(async () => 0),
+    snapshotUnsavedWork: vi.fn(async () => true),
     persistParsedNoteCache: vi.fn(async () => {}),
     // The Space's own sidebar state: each Space starts from its saved session (here: open).
     workspace: {
@@ -2927,13 +2929,16 @@ describe('AppShell: switching Spaces', () => {
 
       await act(async () => screen.getByText('switch-other').click());
 
-      expect(await screen.findByText('Switch spaces without saving?')).toBeInTheDocument();
-      expect(screen.getByText(/2 notes have changes that haven’t been saved/)).toBeInTheDocument();
+      expect(await screen.findByText('Switch spaces?')).toBeInTheDocument();
+      expect(screen.getByText(/2 notes have changes that haven’t been saved to this space/)).toBeInTheDocument();
+      expect(screen.getByText(/keeps a recovery copy of them/)).toBeInTheDocument();
+      expect(screen.queryByText(/lost/)).toBeNull();
+      expect(first.snapshotUnsavedWork).toHaveBeenCalledOnce();
       expect(bootstrap).not.toHaveBeenCalledWith('/Other', expect.anything());
 
       await act(async () => screen.getByRole('button', { name: 'Keep editing' }).click());
 
-      expect(screen.queryByText('Switch spaces without saving?')).toBeNull();
+      expect(screen.queryByText('Switch spaces?')).toBeNull();
       expect(first.close).not.toHaveBeenCalled();
       expect(screen.getByTestId('open-root')).toHaveTextContent('/web-dev-vault');
       expect(bootstrap).not.toHaveBeenCalledWith('/Other', expect.anything());
@@ -2951,13 +2956,32 @@ describe('AppShell: switching Spaces', () => {
       first.checkUnsavedBeforeClose.mockResolvedValue(1);
 
       await act(async () => screen.getByText('switch-other').click());
-      await screen.findByText('Switch spaces without saving?');
+      await screen.findByText('Switch spaces?');
       expect(first.close).not.toHaveBeenCalled();
 
-      await act(async () => screen.getByRole('button', { name: 'Switch and lose changes' }).click());
+      await act(async () => screen.getByRole('button', { name: 'Switch anyway' }).click());
 
       await waitFor(() => expect(screen.getByTestId('open-root')).toHaveTextContent('/Other'));
       expect(first.close).toHaveBeenCalledOnce();
+    });
+
+    it('only promises a recovery copy when one was confirmed, and otherwise says the changes will be lost', async () => {
+      seed(['/web-dev-vault', '/Other'], '/web-dev-vault');
+      render(
+        <ToastProvider>
+          <AppShell />
+        </ToastProvider>
+      );
+      await screen.findByText('/web-dev-vault');
+      const first = created[0]!;
+      first.checkUnsavedBeforeClose.mockResolvedValue(1);
+      first.snapshotUnsavedWork.mockResolvedValue(false);
+
+      await act(async () => screen.getByText('switch-other').click());
+
+      expect(await screen.findByText('Switch spaces without saving?')).toBeInTheDocument();
+      expect(screen.getByText(/they’ll be lost/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Switch and lose changes' })).toBeInTheDocument();
     });
 
     it('does not ask when nothing is unsaved', async () => {
@@ -2972,7 +2996,7 @@ describe('AppShell: switching Spaces', () => {
       await act(async () => screen.getByText('switch-other').click());
 
       await waitFor(() => expect(screen.getByTestId('open-root')).toHaveTextContent('/Other'));
-      expect(screen.queryByText('Switch spaces without saving?')).toBeNull();
+      expect(screen.queryByText('Switch spaces?')).toBeNull();
     });
   });
 

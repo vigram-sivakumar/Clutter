@@ -36,6 +36,8 @@ function actionLabel(candidate: RecoveryCandidate): string {
  */
 export function RecoveryDialog({ open, candidates, onRestore, onDiscard, onClose }: RecoveryDialogProps) {
   const [busyKey, setBusyKey] = useState<string | null>(null);
+  // The record whose Discard is waiting for confirmation: a recovery copy may be the only copy of the edits.
+  const [confirmingKey, setConfirmingKey] = useState<string | null>(null);
   const [failed, setFailed] = useState<ReadonlySet<string>>(new Set());
 
   async function run(key: string, action: (key: string) => Promise<void>) {
@@ -77,24 +79,44 @@ export function RecoveryDialog({ open, candidates, onRestore, onDiscard, onClose
                   Couldn’t restore this. The recovery copy was kept
                 </div>
               )}
-              <div className="recovery-dialog__actions">
-                <Button
-                  size="small"
-                  variant="primary"
-                  disabled={busyKey !== null}
-                  onClick={() => void run(candidate.key, onRestore)}
-                >
-                  {actionLabel(candidate)}
-                </Button>
-                <Button
-                  size="small"
-                  variant="outline"
-                  disabled={busyKey !== null}
-                  onClick={() => void run(candidate.key, onDiscard)}
-                >
-                  Discard
-                </Button>
-              </div>
+              {confirmingKey === candidate.key ? (
+                <>
+                  <div className="recovery-dialog__reason" role="alert">
+                    Permanently remove the recovery copy of “{candidate.record.label}”? These unsaved changes can’t be
+                    restored afterwards
+                  </div>
+                  <div className="recovery-dialog__actions">
+                    <Button size="small" variant="outline" onClick={() => setConfirmingKey(null)}>
+                      Cancel
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="danger"
+                      disabled={busyKey !== null}
+                      onClick={() => {
+                        setConfirmingKey(null);
+                        void run(candidate.key, onDiscard);
+                      }}
+                    >
+                      Remove recovery copy
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <div className="recovery-dialog__actions">
+                  <Button
+                    size="small"
+                    variant="primary"
+                    disabled={busyKey !== null}
+                    onClick={() => void run(candidate.key, onRestore)}
+                  >
+                    {actionLabel(candidate)}
+                  </Button>
+                  <Button size="small" variant="outline" disabled={busyKey !== null} onClick={() => setConfirmingKey(candidate.key)}>
+                    Discard
+                  </Button>
+                </div>
+              )}
             </li>
           ))}
         </ul>

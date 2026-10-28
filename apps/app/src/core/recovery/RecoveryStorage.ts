@@ -6,7 +6,7 @@
  * the real one), so a crash during a snapshot never destroys the previous valid record.
  */
 export interface RecoveryStorage {
-  /** The record file names in `dir`, or [] when it does not exist. */
+  /** The record file names in `dir` (committed `.json` and interrupted `.json.tmp`), or [] when it does not exist. */
   list(dir: string): Promise<string[]>;
   /** The file's text, or null when it does not exist. */
   read(dir: string, name: string): Promise<string | null>;

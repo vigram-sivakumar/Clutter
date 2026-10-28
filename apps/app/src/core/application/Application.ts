@@ -1969,6 +1969,15 @@ export class Application {
    * An Application sealed for a folder rename was verified clean by quiesceForRename(), so it reports 0. A lost
    * root cannot be flushed to, but its unsaved pages are still counted: closing would discard them.
    */
+  /**
+   * Takes a recovery snapshot of every note with unsaved work now, and resolves true only if all of them are on disk.
+   * False also when this Application has no recovery location. Lets a prompt say truthfully whether a recovery copy
+   * exists (switching Spaces keeps it; there is no promise to make when there is none).
+   */
+  public async snapshotUnsavedWork(): Promise<boolean> {
+    return (await this.recoveryJournal?.protectAll()) ?? false;
+  }
+
   public async checkUnsavedBeforeClose(): Promise<number> {
     if (this.closed || this.writeAdmission === 'sealed') {
       return 0;

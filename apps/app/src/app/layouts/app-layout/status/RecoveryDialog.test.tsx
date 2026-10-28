@@ -62,9 +62,35 @@ describe('RecoveryDialog', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Restore' })[1]!);
     await waitFor(() => expect(onRestore).toHaveBeenCalledWith('b'));
     fireEvent.click(screen.getAllByRole('button', { name: 'Discard' })[0]!);
+    fireEvent.click(screen.getByRole('button', { name: 'Remove recovery copy' }));
     await waitFor(() => expect(onDiscard).toHaveBeenCalledWith('a'));
     expect(onRestore).toHaveBeenCalledTimes(1);
     expect(onDiscard).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks before discarding, names the note, and cancelling keeps the record untouched', async () => {
+    const onDiscard = vi.fn(async () => {});
+    render(
+      <RecoveryDialog
+        open
+        candidates={[candidate({ key: 'a' })]}
+        onRestore={vi.fn(async () => {})}
+        onDiscard={onDiscard}
+        onClose={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+
+    expect(onDiscard).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent(/Permanently remove the recovery copy of “Launch plan”/);
+    expect(screen.getByRole('alert')).toHaveTextContent(/can’t be restored afterwards/);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Restore' })).toBeInTheDocument();
+    expect(onDiscard).not.toHaveBeenCalled();
   });
 
   it('explains a conflict and offers only a new note, never an overwrite', () => {

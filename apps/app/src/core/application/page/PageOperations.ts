@@ -419,6 +419,10 @@ export class PageOperations {
     const activePageId = this.workspace.activePageId;
 
     if (activePageId) {
+      // Leaving a page with unsaved work: its recovery snapshot is taken now (in the background), so leaving it and
+      // then crashing before the next quiet period does not lose it. Cheap and a no-op when nothing is unsaved.
+      this.emitUnsaved(activePageId, true);
+
       const bodySave = this.requestSave(activePageId);
       // Navigation-away is a "nothing dirty may survive this moment"
       // boundary for the whole page, not just its body — an uncommitted,
@@ -1499,13 +1503,13 @@ export class PageOperations {
 
   // ---- Recovery (what the RecoveryJournal snapshots) ----
 
-  private readonly unsavedListeners = new Set<(pageId?: string) => void>();
+  private readonly unsavedListeners = new Set<(pageId?: string, urgent?: boolean) => void>();
 
   /**
    * Calls `listener` whenever a page's unsaved work may have changed: an edit, a save completing or failing, a page
    * closing. The journal re-reads the state itself, so the notification carries no content.
    */
-  public subscribeUnsaved(listener: (pageId?: string) => void): () => void {
+  public subscribeUnsaved(listener: (pageId?: string, urgent?: boolean) => void): () => void {
     this.unsavedListeners.add(listener);
 
     return () => {
@@ -1513,9 +1517,10 @@ export class PageOperations {
     };
   }
 
-  private emitUnsaved(pageId?: string): void {
+  /** `urgent`: the user is leaving this page, so a snapshot of its unsaved work should be taken now, not after the quiet period. */
+  private emitUnsaved(pageId?: string, urgent = false): void {
     for (const listener of [...this.unsavedListeners]) {
-      listener(pageId);
+      listener(pageId, urgent);
     }
   }
 
