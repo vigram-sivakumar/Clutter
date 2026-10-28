@@ -50,6 +50,22 @@ export interface ResourceArchiveMetadataEntry {
  * an existing pattern.
  */
 export class ResourceArchiveMetadataStore {
+  /**
+   * Every read and every read-modify-write runs through this one chain, one at a time. Without it two overlapping
+   * operations read the same starting state and the later write replaces the earlier one, losing a record (an
+   * archive racing a restore could resurrect or drop one): a lost *logical* update that no atomic file write can
+   * prevent. Same shape as `TagMetadataStore`'s queue. In-process only: another Clutter process is not serialised
+   * by it.
+   */
+  private queue: Promise<unknown> = Promise.resolve();
+
+  private enqueue<T>(operation: () => Promise<T>): Promise<T> {
+    const run = this.queue.then(operation);
+    // A failed operation must not wedge the queue for the next caller (its own caller still sees the failure).
+    this.queue = run.catch(() => {});
+    return run;
+  }
+
   constructor(
     private readonly fileSystem: VaultFileSystem,
     private readonly rootPath: string
@@ -63,7 +79,7 @@ export class ResourceArchiveMetadataStore {
    * file).
    */
   async read(): Promise<ReadonlyMap<string, ResourceArchiveMetadataEntry>> {
-    return this.readEntries();
+    return this.enqueue(() => this.readEntries());
   }
 
   /**
@@ -79,11 +95,13 @@ export class ResourceArchiveMetadataStore {
     originalPath: string,
     archivedAt: string = new Date().toISOString()
   ): Promise<void> {
-    const entries = await this.readEntries();
+    return this.enqueue(async () => {
+      const entries = await this.readEntries();
 
-    entries.set(archivedPath, { originalPath, archivedAt });
+      entries.set(archivedPath, { originalPath, archivedAt });
 
-    await this.writeEntries(entries);
+      await this.writeEntries(entries);
+    });
   }
 
   /**
@@ -98,17 +116,19 @@ export class ResourceArchiveMetadataStore {
     previousArchivedPath: string,
     nextArchivedPath: string
   ): Promise<void> {
-    const entries = await this.readEntries();
-    const entry = entries.get(previousArchivedPath);
+    return this.enqueue(async () => {
+      const entries = await this.readEntries();
+      const entry = entries.get(previousArchivedPath);
 
-    if (!entry) {
-      return;
-    }
+      if (!entry) {
+        return;
+      }
 
-    entries.delete(previousArchivedPath);
-    entries.set(nextArchivedPath, entry);
+      entries.delete(previousArchivedPath);
+      entries.set(nextArchivedPath, entry);
 
-    await this.writeEntries(entries);
+      await this.writeEntries(entries);
+    });
   }
 
   /**
@@ -119,15 +139,17 @@ export class ResourceArchiveMetadataStore {
    * tolerance.
    */
   async remove(archivedPath: string): Promise<void> {
-    const entries = await this.readEntries();
+    return this.enqueue(async () => {
+      const entries = await this.readEntries();
 
-    if (!entries.has(archivedPath)) {
-      return;
-    }
+      if (!entries.has(archivedPath)) {
+        return;
+      }
 
-    entries.delete(archivedPath);
+      entries.delete(archivedPath);
 
-    await this.writeEntries(entries);
+      await this.writeEntries(entries);
+    });
   }
 
   private get path(): string {
