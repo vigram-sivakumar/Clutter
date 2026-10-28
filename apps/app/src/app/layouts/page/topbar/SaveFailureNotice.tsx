@@ -25,7 +25,13 @@ export function SaveFailureNotice({ status, onRetry }: SaveFailureNoticeProps) {
       data-status={status}
     >
       Couldn’t save changes
-      <Button size="small" variant="outline-danger" disabled={status === 'retrying'} onClick={onRetry}>
+      <Button
+        size="small"
+        variant="outline-danger"
+        isLink
+        disabled={status === 'retrying'}
+        onClick={onRetry}
+      >
         Retry
       </Button>
     </span>
@@ -45,7 +51,7 @@ export function RecoveryNotice({ onReview }: RecoveryNoticeProps) {
       data-testid="recovery-notice"
     >
       This note has unsaved changes from last time
-      <Button size="small" variant="outline" onClick={onReview}>
+      <Button size="small" variant="outline" isLink onClick={onReview}>
         Review
       </Button>
     </span>
