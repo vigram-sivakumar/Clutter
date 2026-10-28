@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { SaveFailureStatus } from '@core/application/page/PageOperations';
 import { useSaveFailures, type SaveFailureSource } from './useSaveFailures';
-import { SaveFailureElsewhereNotice, SaveFailureNotice } from './topbar/SaveFailureNotice';
+import { SaveFailureNotice } from './topbar/SaveFailureNotice';
 
 const fail = vi.fn();
 vi.mock('@components/toast/ToastProvider', () => ({
@@ -42,13 +42,11 @@ class FakeSource implements SaveFailureSource {
 
 const onRetry = vi.fn();
 
-/** The shape PageHost uses: the open note's own notice, or a pointer to another failing note. */
+/** The shape PageHost uses: the open note's own notice; other notes' failures are not the top bar's business. */
 function TopBarProbe({ source, activeId }: { source: FakeSource; activeId: string }) {
   const failures = useSaveFailures(source);
   const status = failures.statusOf(activeId);
-  const others = failures.failedIds.filter((id) => id !== activeId);
   if (status) return <SaveFailureNotice status={status} onRetry={onRetry} />;
-  if (others.length > 0) return <SaveFailureElsewhereNotice label={`“${others[0]}”`} onOpen={onRetry} />;
   return <span>no notice</span>;
 }
 
@@ -59,25 +57,24 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('the save-failure notice', () => {
-  it('shows nothing until a save fails, then says whether Clutter will try again', () => {
+  it('shows nothing until a save fails, then one plain message with Retry', () => {
     const source = new FakeSource();
     render(<TopBarProbe source={source} activeId="a" />);
     expect(screen.getByText('no notice')).toBeInTheDocument();
 
     source.set('a', 'retry-scheduled');
 
-    expect(screen.getByTestId('save-failure-notice')).toHaveTextContent('Couldn’t save changes. Will try again');
+    expect(screen.getByTestId('save-failure-notice')).toHaveTextContent(/^Couldn’t save changes\s*Retry$/);
     expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled();
   });
 
-  it('is truthful once the automatic retries are used up: it says Clutter is not trying again', () => {
+  it('keeps the same message once the automatic retries are used up', () => {
     const source = new FakeSource();
     render(<TopBarProbe source={source} activeId="a" />);
 
     source.set('a', 'needs-action');
 
-    expect(screen.getByTestId('save-failure-notice')).toHaveTextContent('Couldn’t save changes. Not trying again');
-    expect(screen.getByTestId('save-failure-notice')).not.toHaveTextContent('Will try again');
+    expect(screen.getByTestId('save-failure-notice')).toHaveTextContent(/^Couldn’t save changes\s*Retry$/);
     expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled();
   });
 
@@ -87,7 +84,7 @@ describe('the save-failure notice', () => {
 
     source.set('a', 'retrying');
 
-    expect(screen.getByTestId('save-failure-notice')).toHaveTextContent('Trying again…');
+    expect(screen.getByTestId('save-failure-notice')).toHaveTextContent(/^Couldn’t save changes\s*Retry$/);
     expect(screen.getByRole('button', { name: 'Retry' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(onRetry).not.toHaveBeenCalled();
@@ -115,42 +112,31 @@ describe('the save-failure notice', () => {
     expect(screen.queryByTestId('save-failure-notice')).toBeNull();
     expect(screen.getByText('no notice')).toBeInTheDocument();
   });
-
-  it('points at another note whose save failed, with a way to open it', () => {
-    const source = new FakeSource();
-    render(<TopBarProbe source={source} activeId="a" />);
-
-    source.set('b', 'needs-action');
-
-    expect(screen.getByTestId('save-failure-elsewhere-notice')).toHaveTextContent('Couldn’t save changes in “b”');
-    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
-    expect(onRetry).toHaveBeenCalledOnce();
-  });
 });
 
 describe('the save-failure toast', () => {
-  it('fires once per failure streak, however many retries fail', () => {
+  it('is never raised: the top bar notice is the only signal, through every retry and every failing note', () => {
     const source = new FakeSource();
     render(<TopBarProbe source={source} activeId="a" />);
 
     source.set('a', 'retry-scheduled');
     source.set('a', 'retrying');
-    source.set('a', 'retry-scheduled');
     source.set('a', 'needs-action');
+    source.set('a', null);
+    source.set('a', 'retry-scheduled');
+    source.set('b', 'needs-action');
 
-    expect(fail).toHaveBeenCalledTimes(1);
+    expect(fail).not.toHaveBeenCalled();
   });
 
-  it('fires again for a new failure after a confirmed save, and once for failures in several notes at the same time', () => {
-    const source = new FakeSource();
-    render(<TopBarProbe source={source} activeId="a" />);
-    source.set('a', 'retry-scheduled');
-    source.set('a', null);
+  it('shows the same text in every internal state', () => {
+    const texts = (['retrying', 'retry-scheduled', 'needs-action'] as const).map((status) => {
+      const view = render(<SaveFailureNotice status={status} onRetry={onRetry} />);
+      const text = view.getByTestId('save-failure-notice').textContent;
+      view.unmount();
+      return text;
+    });
 
-    source.set('a', 'retry-scheduled');
-    expect(fail).toHaveBeenCalledTimes(2);
-
-    source.set('b', 'needs-action');
-    expect(fail).toHaveBeenCalledTimes(3);
+    expect(new Set(texts).size).toBe(1);
   });
 });

@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
+import { renderToStaticMarkup } from 'react-dom/server';
+import type { ReactNode } from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -9,8 +11,11 @@ import type { SaveFailureStatus } from '@core/application/page/PageOperations';
 import { AppStatusProvider, useAppStatus } from './AppStatus';
 
 const fail = vi.fn();
+const show = vi.fn(() => 7);
+const dismiss = vi.fn();
+const toastApi = { fail, show, dismiss };
 vi.mock('@components/toast/ToastProvider', () => ({
-  useToast: () => ({ fail, show: vi.fn(), dismiss: vi.fn() }),
+  useToast: () => toastApi,
 }));
 
 class ResizeObserverMock {
@@ -93,8 +98,19 @@ function TopBar() {
   return <div data-testid="topbar">{useAppStatus()}</div>;
 }
 
-beforeEach(() => fail.mockClear());
+beforeEach(() => {
+  fail.mockClear();
+  show.mockClear();
+  dismiss.mockClear();
+});
 afterEach(cleanup);
+
+/** The text of the nth toast.show call, rendered. */
+function toastHtml(call: number): string {
+  const [input] = show.mock.calls[call] as unknown as [{ text: ReactNode }];
+  return renderToStaticMarkup(<>{input.text}</>);
+}
+const toastText = (call: number) => toastHtml(call).replace(/<[^>]+>/g, '');
 
 describe('application-wide status', () => {
   it('shows the open note’s failure with Retry, and the same state on every kind of view', () => {
@@ -106,18 +122,13 @@ describe('application-wide status', () => {
     );
 
     fake.setFailure('a', 'needs-action');
-    expect(screen.getByTestId('save-failure-notice')).toHaveTextContent('Couldn’t save changes. Not trying again');
+    expect(screen.getByTestId('save-failure-notice')).toHaveTextContent(/^Couldn’t save changes\s*Retry$/);
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(fake.pageOperations.retrySave).toHaveBeenCalledWith('a');
-
-    // A collection, tag or favorites view has no active page: the failing note is still shown, with a way back.
-    fake.navigate(null);
-    expect(screen.getByTestId('save-failure-elsewhere-notice')).toHaveTextContent('Couldn’t save changes in “Note a”');
-    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
-    expect(fake.pageOperations.open).toHaveBeenCalledWith('a');
+    expect(show).not.toHaveBeenCalled();
   });
 
-  it('points at a failing note from a different note, and names how many when there are several', () => {
+  it('a note that fails while another is open raises a persistent danger toast with Open', () => {
     const fake = fakeApplication();
     render(
       <AppStatusProvider application={fake.application}>
@@ -126,13 +137,69 @@ describe('application-wide status', () => {
     );
 
     fake.setFailure('b', 'retry-scheduled');
-    expect(screen.getByTestId('save-failure-elsewhere-notice')).toHaveTextContent('“Note b”');
 
-    fake.setFailure('c', 'retry-scheduled');
-    expect(screen.getByTestId('save-failure-elsewhere-notice')).toHaveTextContent('2 other notes');
+    expect(show).toHaveBeenCalledWith(expect.objectContaining({ tone: 'danger', persistent: true }));
+    expect(toastText(0)).toBe('Couldn’t save changes in “Note b”');
+    expect(toastHtml(0)).toContain('“<span class="toast__name" title="Note b">Note b</span>”');
+    expect(toastHtml(0)).not.toContain('<strong');
+    expect(screen.getByTestId('topbar')).toBeEmptyDOMElement();
+    const [input] = show.mock.calls[0] as unknown as [{ action: { onAction: () => void } }];
+    input.action.onAction();
+    expect(fake.pageOperations.open).toHaveBeenCalledWith('b');
   });
 
-  it('raises one toast per failure streak and shows no success state', () => {
+  it('names how many when several notes fail, and shows nothing in the top bar for them', () => {
+    const fake = fakeApplication();
+    render(
+      <AppStatusProvider application={fake.application}>
+        <TopBar />
+      </AppStatusProvider>
+    );
+
+    fake.setFailure('b', 'retry-scheduled');
+    fake.setFailure('c', 'retry-scheduled');
+
+    expect(toastText(show.mock.calls.length - 1)).toBe('Couldn’t save changes in 2 other notes');
+  });
+
+  it('switching notes does not dismiss the toast, even to the failing note; saving does', () => {
+    const fake = fakeApplication();
+    render(
+      <AppStatusProvider application={fake.application}>
+        <TopBar />
+      </AppStatusProvider>
+    );
+    fake.setFailure('b', 'needs-action');
+    expect(show).toHaveBeenCalledOnce();
+
+    fake.navigate('b');
+    expect(screen.getByTestId('save-failure-notice')).toBeInTheDocument();
+    fake.navigate(null);
+    fake.navigate('a');
+
+    expect(dismiss).not.toHaveBeenCalled();
+    expect(show).toHaveBeenCalledOnce();
+
+    fake.setFailure('b', null);
+    expect(dismiss).toHaveBeenCalledWith(7);
+  });
+
+  it('a failure in the open note is the top bar’s alone: no toast, until the user leaves that note', () => {
+    const fake = fakeApplication();
+    render(
+      <AppStatusProvider application={fake.application}>
+        <TopBar />
+      </AppStatusProvider>
+    );
+
+    fake.setFailure('a', 'needs-action');
+    expect(show).not.toHaveBeenCalled();
+
+    fake.navigate('b');
+    expect(toastText(0)).toBe('Couldn’t save changes in “Note a”');
+  });
+
+  it('raises no toast for a failure, and shows no success state', () => {
     const fake = fakeApplication();
     render(
       <AppStatusProvider application={fake.application}>
@@ -143,7 +210,7 @@ describe('application-wide status', () => {
     fake.setFailure('a', 'retry-scheduled');
     fake.setFailure('a', 'retrying');
     fake.setFailure('a', 'needs-action');
-    expect(fail).toHaveBeenCalledTimes(1);
+    expect(fail).not.toHaveBeenCalled();
 
     fake.setFailure('a', null);
     expect(screen.getByTestId('topbar')).toBeEmptyDOMElement();
@@ -154,32 +221,67 @@ describe('recovered work', () => {
   const recovered = (key: string, outcome = 'recoverable') => ({
     key,
     entry: { dir: 'd', name: key, record: {} },
-    record: { label: `Note ${key}`, capturedAt: '2026-10-27T09:00:00.000Z' },
+    record: { pageId: key, label: `Note ${key}`, capturedAt: '2026-10-27T09:00:00.000Z' },
     outcome,
     changes: ['body'],
     reasons: [],
   });
 
-  it('is offered once when found, and stays reachable from the top bar after "Decide later"', () => {
+  it('is offered once when found; for another note it is a persistent toast, reachable again after the dialog is closed', () => {
     const fake = fakeApplication();
     render(
       <AppStatusProvider application={fake.application}>
         <TopBar />
       </AppStatusProvider>
     );
-    expect(screen.queryByTestId('recovery-notice')).toBeNull();
+    expect(show).not.toHaveBeenCalled();
 
     fake.setCandidates([recovered('x'), recovered('y')]);
 
     expect(screen.getByRole('dialog', { name: 'Unsaved changes found' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Decide later' }));
+    fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByRole('dialog', { name: 'Unsaved changes found' })).toBeNull();
-    expect(screen.getByTestId('recovery-notice')).toHaveTextContent('2 notes have unsaved changes from last time');
+    expect(screen.queryByTestId('recovery-notice')).toBeNull();
+    expect(show).toHaveBeenLastCalledWith(expect.objectContaining({ persistent: true }));
+    expect(toastText(show.mock.calls.length - 1)).toBe('Unsaved changes found in 2 other notes');
 
-    // Another view: still there. Review brings the dialog back.
+    // Another view: the toast is not dismissed; its Review action brings the dialog back.
     fake.navigate(null);
-    fireEvent.click(screen.getByRole('button', { name: 'Review' }));
+    expect(dismiss).not.toHaveBeenCalled();
+    const [input] = show.mock.calls.at(-1) as unknown as [{ action: { onAction: () => void } }];
+    act(() => input.action.onAction());
     expect(screen.getByRole('dialog', { name: 'Unsaved changes found' })).toBeInTheDocument();
+  });
+
+  it('recovered work for the open note is the top bar’s alone; a single other note is named in quotes', () => {
+    const fake = fakeApplication();
+    render(
+      <AppStatusProvider application={fake.application}>
+        <TopBar />
+      </AppStatusProvider>
+    );
+
+    fake.setCandidates([recovered('a')]);
+    expect(screen.getByTestId('recovery-notice')).toHaveTextContent('This note has unsaved changes from last time');
+    expect(show).not.toHaveBeenCalled();
+
+    fake.setCandidates([recovered('x')]);
+    expect(screen.queryByTestId('recovery-notice')).toBeNull();
+    expect(toastHtml(show.mock.calls.length - 1)).toContain('Unsaved changes found in “<span class="toast__name" title="Note x">Note x</span>”');
+  });
+
+  it('the toast goes away when the recovered work is restored or discarded', () => {
+    const fake = fakeApplication();
+    render(
+      <AppStatusProvider application={fake.application}>
+        <TopBar />
+      </AppStatusProvider>
+    );
+    fake.setCandidates([recovered('x')]);
+
+    fake.setCandidates([]);
+
+    expect(dismiss).toHaveBeenCalledWith(7);
   });
 
   it('restoring calls the recovery operation for that record', async () => {
@@ -205,7 +307,7 @@ describe('recovered work', () => {
     );
 
     fake.setFailure('a', 'retry-scheduled');
-    fake.setCandidates([recovered('x')]);
+    fake.setCandidates([recovered('a')]);
 
     expect(screen.getByTestId('save-failure-notice')).toBeInTheDocument();
     expect(screen.getByTestId('recovery-notice')).toBeInTheDocument();

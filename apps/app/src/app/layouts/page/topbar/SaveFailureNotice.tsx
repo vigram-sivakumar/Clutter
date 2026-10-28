@@ -1,11 +1,6 @@
 import type { SaveFailureStatus } from '@core/application/page/PageOperations';
 import './SaveFailureNotice.css';
-
-const STATUS_TEXT: Record<SaveFailureStatus, string> = {
-  retrying: 'Couldn’t save changes. Trying again…',
-  'retry-scheduled': 'Couldn’t save changes. Will try again',
-  'needs-action': 'Couldn’t save changes. Not trying again',
-};
+import { Button } from '../../../../components/button/Button';
 
 interface SaveFailureNoticeProps {
   readonly status: SaveFailureStatus;
@@ -16,52 +11,43 @@ interface SaveFailureNoticeProps {
 /**
  * The persistent "this note has unsaved changes" signal, shown in the top bar for as long as the open note's last save
  * failed and the changes are still only in memory. It is not a toast: a toast disappears, the unsaved changes do not.
- * It says what is true: whether Clutter is retrying now, will retry on its own, or has stopped and needs the user.
- * Retry is guarded while a retry is already running, so it cannot start an overlapping save. It clears itself when a
+ * It always says the same thing: the changes are not saved, and Retry is there. Whether Clutter is waiting, retrying or
+ * has used up its automatic retries is internal (`status` only drives the button and `data-status`). Retry is disabled
+ * while a retry is already running, so it cannot start an overlapping save. It clears itself when a
  * save is confirmed.
  */
 export function SaveFailureNotice({ status, onRetry }: SaveFailureNoticeProps) {
   return (
-    <span className="save-failure-notice" role="status" data-testid="save-failure-notice" data-status={status}>
-      {STATUS_TEXT[status]}
-      <button type="button" className="save-failure-notice__retry" disabled={status === 'retrying'} onClick={onRetry}>
+    <span
+      className="save-failure-notice"
+      role="status"
+      data-testid="save-failure-notice"
+      data-status={status}
+    >
+      Couldn’t save changes
+      <Button size="small" variant="outline-danger" disabled={status === 'retrying'} onClick={onRetry}>
         Retry
-      </button>
-    </span>
-  );
-}
-
-interface SaveFailureElsewhereNoticeProps {
-  /** What to call the notes that failed: a note's title, or "2 other notes". */
-  readonly label: string;
-  readonly onOpen: () => void;
-}
-
-/** Shown when the open note is fine but another note's save failed, so the user can find and return to it. */
-export function SaveFailureElsewhereNotice({ label, onOpen }: SaveFailureElsewhereNoticeProps) {
-  return (
-    <span className="save-failure-notice" role="status" data-testid="save-failure-elsewhere-notice">
-      Couldn’t save changes in {label}
-      <button type="button" className="save-failure-notice__retry" onClick={onOpen}>
-        Open
-      </button>
+      </Button>
     </span>
   );
 }
 
 interface RecoveryNoticeProps {
-  readonly count: number;
   readonly onReview: () => void;
 }
 
-/** Shown while unsaved work from an earlier session is waiting for the user's decision. */
-export function RecoveryNotice({ count, onReview }: RecoveryNoticeProps) {
+/** Shown in the top bar of the open note while unsaved work from an earlier session for that note awaits a decision. */
+export function RecoveryNotice({ onReview }: RecoveryNoticeProps) {
   return (
-    <span className="save-failure-notice recovery-notice" role="status" data-testid="recovery-notice">
-      {count === 1 ? '1 note has' : `${count} notes have`} unsaved changes from last time
-      <button type="button" className="save-failure-notice__retry" onClick={onReview}>
+    <span
+      className="save-failure-notice recovery-notice"
+      role="status"
+      data-testid="recovery-notice"
+    >
+      This note has unsaved changes from last time
+      <Button size="small" variant="outline" onClick={onReview}>
         Review
-      </button>
+      </Button>
     </span>
   );
 }

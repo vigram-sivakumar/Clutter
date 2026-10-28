@@ -28,14 +28,13 @@ describe('UnsavedCloseDialog', () => {
     expect(screen.queryByText('Close without saving?')).toBeNull();
   });
 
-  it('says plainly that the changes were not saved and will be lost, and offers a way back', () => {
+  it('says how many notes have unsaved changes, and offers a way back', () => {
     render(<UnsavedCloseDialog unsavedCount={1} onAnswer={vi.fn()} />);
 
     expect(screen.getByText('Close without saving?')).toBeInTheDocument();
-    expect(screen.getByText(/One note has changes that haven’t been saved/)).toBeInTheDocument();
-    expect(screen.getByText(/they’ll be lost/)).toBeInTheDocument();
+    expect(screen.getByText('You have unsaved changes')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Keep editing' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Close and lose changes' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Close anyway' })).toBeInTheDocument();
   });
 
   it('answers cancel for the safe button and close only for the destructive one', () => {
@@ -45,22 +44,24 @@ describe('UnsavedCloseDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
     expect(onAnswer).toHaveBeenLastCalledWith('cancel');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Close and lose changes' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close anyway' }));
     expect(onAnswer).toHaveBeenLastCalledWith('close');
   });
 
-  it('when leaving a Space with a recovery copy kept, does not say the changes are lost', () => {
-    render(<UnsavedCloseDialog unsavedCount={1} action="switch" recoveryKept onAnswer={vi.fn()} />);
-
+  it('leaving a Space says the same thing every time', () => {
+    const { rerender } = render(<UnsavedCloseDialog unsavedCount={2} action="switch" onAnswer={vi.fn()} />);
     expect(screen.getByText('Switch spaces?')).toBeInTheDocument();
-    expect(screen.getByText(/haven’t been saved to this space/)).toBeInTheDocument();
-    expect(screen.getByText(/keeps a recovery copy of it/)).toBeInTheDocument();
-    expect(screen.queryByText(/lost/)).toBeNull();
+    expect(screen.getByText('You have 2 notes with unsaved changes')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Switch anyway' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Keep editing' })).toBeInTheDocument();
+
+    rerender(<UnsavedCloseDialog unsavedCount={2} action="switch" onAnswer={vi.fn()} />);
+    expect(screen.getByText('Switch spaces?')).toBeInTheDocument();
+    expect(screen.getByText('You have 2 notes with unsaved changes')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Switch anyway' })).toBeInTheDocument();
   });
 
   it('counts notes', () => {
-    expect(unsavedCloseCopy(3).description).toContain('3 notes have changes');
+    expect(unsavedCloseCopy(3).description).toBe('You have 3 notes with unsaved changes');
   });
 });

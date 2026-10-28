@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 
 import { Button } from '../button/Button';
 import { RoundIconButton } from '../button/RoundIconButton';
@@ -25,6 +25,9 @@ export interface ConfirmationProps {
   alternateLabel?: string;
   alternateVariant?: 'danger' | 'primary';
   onAlternate?: () => void;
+
+  /** An optional slot below the description, above the actions (a list, an entry, a preview). Absent: nothing renders. */
+  children?: ReactNode;
 }
 
 export function Confirmation({
@@ -38,6 +41,7 @@ export function Confirmation({
   alternateLabel,
   alternateVariant = 'danger',
   onAlternate,
+  children,
 }: ConfirmationProps) {
   const cancelRef = useRef<HTMLButtonElement>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
@@ -69,6 +73,7 @@ export function Confirmation({
         <div className="confirmation__header">{title}</div>
 
         {description && <div className="confirmation__body">{description}</div>}
+        {children}
       </div>
       <div className="confirmation__actions">
         {hasAlternate ? (

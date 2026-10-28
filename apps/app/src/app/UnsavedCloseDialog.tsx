@@ -8,8 +8,6 @@ interface UnsavedCloseDialogProps {
   readonly unsavedCount: number | null;
   /** What the user was doing, which words the question: closing Clutter, or switching to another space. */
   readonly action?: UnsavedAction;
-  /** True when a recovery copy of the unsaved work is confirmed on disk (see `unsavedCloseCopy`). */
-  readonly recoveryKept?: boolean;
   readonly onAnswer: (choice: UnsavedCloseChoice) => void;
 }
 
@@ -18,11 +16,22 @@ interface UnsavedCloseDialogProps {
  * changes after the flush. Dismissing it any way other than the destructive button is "cancel": the user goes back
  * to their notes and nothing has been discarded.
  */
-export function UnsavedCloseDialog({ unsavedCount, action = 'close', recoveryKept = false, onAnswer }: UnsavedCloseDialogProps) {
-  const copy = unsavedCount === null ? null : unsavedCloseCopy(unsavedCount, action, recoveryKept);
+export function UnsavedCloseDialog({
+  unsavedCount,
+  action = 'close',
+  onAnswer,
+}: UnsavedCloseDialogProps) {
+  const copy =
+    unsavedCount === null
+      ? null
+      : unsavedCloseCopy(unsavedCount, action);
 
   return (
-    <Dialog open={copy !== null} onClose={() => onAnswer('cancel')} size="medium">
+    <Dialog
+      open={copy !== null}
+      onClose={() => onAnswer('cancel')}
+      size="medium"
+    >
       {copy && (
         <Confirmation
           title={copy.title}

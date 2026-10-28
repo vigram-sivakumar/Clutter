@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FocusEvent } from 'react';
+import { useEffect, useRef, useState, type FocusEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@components/button/Button';
 import './Toast.css';
@@ -6,12 +6,20 @@ import './Toast.css';
 export interface ToastMessage {
   /** Changes per toast, so a new toast restarts the dismiss timer even when its text repeats. */
   readonly id: number;
-  readonly text: string;
-  readonly tone: 'default' | 'error';
+  /**
+   * Plain text, or text with a name in it. Put a name in typographic double quotes (“ ”), the same in every toast, as
+   * everywhere else in Clutter, never straight ones and never bold. When the name can be long, set it in a
+   * `<span className="toast__name">` between the quotes so it is cut with an ellipsis and the quotes stay.
+   */
+  readonly text: ReactNode;
+  /** `danger` is an error in the danger colour; it is announced as an alert like `error`. */
+  readonly tone: 'default' | 'error' | 'danger';
   /** An optional follow-up the toast offers ("Open", "Undo"); pressing it also dismisses the toast. */
   readonly action?: { readonly label: string; readonly onAction: () => void };
   /** Overrides the default duration for this toast. */
   readonly durationMs?: number;
+  /** Stays until it is dismissed by the caller (`ToastApi.dismiss`) or its action is pressed; never times out. */
+  readonly persistent?: boolean;
 }
 
 interface ToastProps {
@@ -24,8 +32,12 @@ interface ToastProps {
 const SIMPLE_DURATION_MS = 4000;
 const LONG_DURATION_MS = 8000;
 
-export function defaultToastDuration(toast: Pick<ToastMessage, 'tone' | 'action'>): number {
-  return toast.tone === 'error' || toast.action ? LONG_DURATION_MS : SIMPLE_DURATION_MS;
+export function defaultToastDuration(
+  toast: Pick<ToastMessage, 'tone' | 'action'>
+): number {
+  return toast.tone === 'error' || toast.tone === 'danger' || toast.action
+    ? LONG_DURATION_MS
+    : SIMPLE_DURATION_MS;
 }
 
 /** Longest an exit animation is waited for before the toast is removed anyway (the token is 120ms). */
@@ -50,7 +62,10 @@ export function Toast({ toast, onDismiss, durationMs }: ToastProps) {
   const paused = hovered || focused;
   const visible = toast ?? last;
   const leaving = toast === null && last !== null;
-  const duration = durationMs ?? toast?.durationMs ?? (toast ? defaultToastDuration(toast) : SIMPLE_DURATION_MS);
+  const duration =
+    durationMs ??
+    toast?.durationMs ??
+    (toast ? defaultToastDuration(toast) : SIMPLE_DURATION_MS);
 
   useEffect(() => {
     if (toast) {
@@ -65,12 +80,12 @@ export function Toast({ toast, onDismiss, durationMs }: ToastProps) {
   }, [id]);
 
   useEffect(() => {
-    if (id === undefined || paused) {
+    if (id === undefined || paused || toast?.persistent) {
       return;
     }
     const timer = window.setTimeout(onDismiss, duration);
     return () => window.clearTimeout(timer);
-  }, [id, paused, duration, onDismiss]);
+  }, [id, paused, duration, onDismiss, toast?.persistent]);
 
   // Leaving: wait for the exit animation to end, then remove the toast. With no animation running there is
   // nothing to wait for.
@@ -79,7 +94,9 @@ export function Toast({ toast, onDismiss, durationMs }: ToastProps) {
       return;
     }
     const node = ref.current;
-    const animation = node ? window.getComputedStyle(node).animationName : 'none';
+    const animation = node
+      ? window.getComputedStyle(node).animationName
+      : 'none';
     if (!node || !animation || animation === 'none') {
       setLast(null);
       return;
@@ -102,7 +119,7 @@ export function Toast({ toast, onDismiss, durationMs }: ToastProps) {
   }
 
   const { action } = visible;
-  const isError = visible.tone === 'error';
+  const isError = visible.tone === 'error' || visible.tone === 'danger';
 
   // Portaled to <body>, like Overlay, so it sits above overlays and dialogs instead of losing the DOM-order
   // tiebreak to a later-mounted one.
@@ -126,9 +143,11 @@ export function Toast({ toast, onDismiss, durationMs }: ToastProps) {
       {action && (
         <div className="toast__actions">
           <Button
+            size="small"
             onClick={() => {
               action.onAction();
-              onDismiss();
+              // A persistent toast is dismissed by its owner, when what it reports is resolved, never by its action.
+              if (!visible.persistent) onDismiss();
             }}
           >
             {action.label}

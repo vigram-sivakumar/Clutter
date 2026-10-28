@@ -3,6 +3,8 @@
   left: 50%;
   transform: translateX(-50%);
   bottom: 40px;
+  /* Never wider than this, or than the window; a long name inside is truncated (see `.toast__name`). */
+  max-width: min(480px, calc(100vw - 32px));
   z-index: var(--z-toast);
 
   display: flex;
@@ -10,6 +12,8 @@
   justify-content: center;
   padding: var(--space-4) var(--space-12);
   gap: var(--space-6);
+  min-height: var(--space-32);
+
   background: var(--surface-secondary);
   color: var(--foreground-primary);
 
@@ -23,6 +27,28 @@
 
   animation: toast-enter var(--duration-interaction) var(--easing-interaction)
     both;
+}
+/* The message never wraps: if it is too long for the toast it is cut with an ellipsis. */
+.toast__message {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+/* A name inside the quotes is truncated with an ellipsis when it is long; the words and quotes around it never are. */
+.toast__name {
+  display: inline-block;
+  max-width: 16em;
+  overflow: hidden;
+  vertical-align: bottom;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.toast--danger {
+  color: var(--danger-foreground);
+}
+.toast--danger .toast__actions .button {
+  color: var(--danger-foreground);
 }
 .toast--with-action {
   padding-right: var(--space-4);

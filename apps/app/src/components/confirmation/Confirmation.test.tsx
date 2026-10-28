@@ -22,6 +22,25 @@ describe('Confirmation', () => {
     expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();
   });
 
+  it('renders a slot below the description and above the actions, and nothing without one', () => {
+    const { container, rerender } = render(
+      <Confirmation title="Delete?" description="Sure?" confirmLabel="Delete" onConfirm={vi.fn()} onCancel={vi.fn()} />
+    );
+    expect(container.querySelector('[data-testid="slot"]')).toBeNull();
+
+    rerender(
+      <Confirmation title="Delete?" description="Sure?" confirmLabel="Delete" onConfirm={vi.fn()} onCancel={vi.fn()}>
+        <div data-testid="slot">Extra</div>
+      </Confirmation>
+    );
+
+    const slot = screen.getByTestId('slot');
+    const body = container.querySelector('.confirmation__body')!;
+    const actions = container.querySelector('.confirmation__actions')!;
+    expect(body.compareDocumentPosition(slot) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(slot.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   describe('with an alternate action', () => {
     function setup() {
       const handlers = { onConfirm: vi.fn(), onAlternate: vi.fn(), onCancel: vi.fn() };

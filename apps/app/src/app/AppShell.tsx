@@ -277,15 +277,15 @@ function AppShellContent() {
   //
   // When pages still hold unsaved changes after that flush, the user is asked first (the dialog below). The
   // pending answer lives in a ref so the one-time handler registration can reach it.
-  const [unsavedClose, setUnsavedClose] = useState<{ readonly count: number; readonly action: UnsavedAction; readonly recoveryKept: boolean } | null>(null);
+  const [unsavedClose, setUnsavedClose] = useState<{ readonly count: number; readonly action: UnsavedAction } | null>(null);
   const unsavedCloseAnswerRef = useRef<((choice: UnsavedCloseChoice) => void) | null>(null);
   const confirmUnsaved = useCallback(
-    (count: number, action: UnsavedAction, recoveryKept = false) =>
+    (count: number, action: UnsavedAction) =>
       new Promise<UnsavedCloseChoice>((resolve) => {
         // One question at a time: a second request while one is showing answers the first as "cancel".
         unsavedCloseAnswerRef.current?.('cancel');
         unsavedCloseAnswerRef.current = resolve;
-        setUnsavedClose({ count, action, recoveryKept });
+        setUnsavedClose({ count, action });
       }),
     []
   );
@@ -865,10 +865,10 @@ function AppShellContent() {
     if (!open) return true;
     const unsaved = await open.checkUnsavedBeforeClose();
     if (unsaved === 0) return true;
-    // Switching keeps a recovery copy of the unsaved work, so the dialog may say so, but only once that copy is
-    // confirmed on disk (the copy is taken now, not left to the quiet-period timer).
-    const recoveryKept = await open.snapshotUnsavedWork();
-    return (await confirmUnsaved(unsaved, 'switch', recoveryKept)) === 'close';
+    // Switching keeps a recovery copy of the unsaved work: it is taken now, not left to the quiet-period timer, so a
+    // crash or quit while the prompt is open cannot lose it. The prompt does not depend on whether the copy was written.
+    await open.snapshotUnsavedWork();
+    return (await confirmUnsaved(unsaved, 'switch')) === 'close';
   }
 
   // "Remove space" from Settings. A Space that isn't open is just forgotten. The open one is switched away from
@@ -1259,7 +1259,6 @@ function AppShellContent() {
       <UnsavedCloseDialog
         unsavedCount={unsavedClose?.count ?? null}
         action={unsavedClose?.action ?? 'close'}
-        recoveryKept={unsavedClose?.recoveryKept ?? false}
         onAnswer={answerUnsavedClose}
       />
       {settingsAvailable && (

@@ -2930,9 +2930,7 @@ describe('AppShell: switching Spaces', () => {
       await act(async () => screen.getByText('switch-other').click());
 
       expect(await screen.findByText('Switch spaces?')).toBeInTheDocument();
-      expect(screen.getByText(/2 notes have changes that haven’t been saved to this space/)).toBeInTheDocument();
-      expect(screen.getByText(/keeps a recovery copy of them/)).toBeInTheDocument();
-      expect(screen.queryByText(/lost/)).toBeNull();
+      expect(screen.getByText('You have 2 notes with unsaved changes')).toBeInTheDocument();
       expect(first.snapshotUnsavedWork).toHaveBeenCalledOnce();
       expect(bootstrap).not.toHaveBeenCalledWith('/Other', expect.anything());
 
@@ -2965,7 +2963,7 @@ describe('AppShell: switching Spaces', () => {
       expect(first.close).toHaveBeenCalledOnce();
     });
 
-    it('only promises a recovery copy when one was confirmed, and otherwise says the changes will be lost', async () => {
+    it('says the same thing when no recovery copy was confirmed', async () => {
       seed(['/web-dev-vault', '/Other'], '/web-dev-vault');
       render(
         <ToastProvider>
@@ -2979,9 +2977,9 @@ describe('AppShell: switching Spaces', () => {
 
       await act(async () => screen.getByText('switch-other').click());
 
-      expect(await screen.findByText('Switch spaces without saving?')).toBeInTheDocument();
-      expect(screen.getByText(/they’ll be lost/)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Switch and lose changes' })).toBeInTheDocument();
+      expect(await screen.findByText('Switch spaces?')).toBeInTheDocument();
+      expect(screen.getByText('You have unsaved changes')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Switch anyway' })).toBeInTheDocument();
     });
 
     it('does not ask when nothing is unsaved', async () => {

@@ -2,12 +2,15 @@ import { createContext, useCallback, useContext, useMemo, useRef, useState, type
 import { Toast, type ToastMessage } from './Toast';
 
 export interface ToastInput {
-  readonly text: string;
-  /** Default `default`. An `error` is announced as an alert and outranks everything else. */
+  /** Plain text, or text with a name in typographic double quotes (see `ToastMessage.text`). */
+  readonly text: ToastMessage['text'];
+  /** Default `default`. An `error` or `danger` is announced as an alert and outranks everything else. */
   readonly tone?: ToastMessage['tone'];
   /** An offered follow-up ("Undo", "Open"). A toast with one is not replaced by a routine confirmation. */
   readonly action?: ToastMessage['action'];
   readonly durationMs?: number;
+  /** Never dismisses itself: it stays until `dismiss(id)` or its action. For a state that lasts until it is fixed. */
+  readonly persistent?: boolean;
 }
 
 export interface ToastApi {
@@ -27,7 +30,7 @@ export interface ToastApi {
  * A toast replaces the current one unless it ranks lower.
  */
 function rank(input: Pick<ToastInput, 'tone' | 'action'>): number {
-  if (input.tone === 'error') {
+  if (input.tone === 'error' || input.tone === 'danger') {
     return 2;
   }
   return input.action ? 1 : 0;
@@ -77,6 +80,7 @@ export function ToastProvider({ children }: { readonly children: ReactNode }) {
       tone: input.tone ?? 'default',
       ...(input.action ? { action: input.action } : {}),
       ...(input.durationMs !== undefined ? { durationMs: input.durationMs } : {}),
+      ...(input.persistent ? { persistent: true } : {}),
     });
     return id;
   }, []);

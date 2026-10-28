@@ -9,7 +9,7 @@
 }
 
 /* A plain text button: it inherits the notice's colour and font, underlined so it reads as an action. */
-.save-failure-notice__retry {
+/* .save-failure-notice__retry {
   padding: 0;
   border: 0;
   background: none;
@@ -23,7 +23,7 @@
   cursor: default;
   text-decoration: none;
   opacity: 0.6;
-}
+} */
 
 /* Recovered work is not an error: same layout, quieter colour. */
 .recovery-notice {
