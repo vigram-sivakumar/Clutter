@@ -269,6 +269,7 @@ fn write_result(outcome: ReplaceOutcome) -> WriteResultDto {
                 .iter()
                 .map(|note| match note {
                     MetadataNote::BirthTimeSubsecondPrecisionLost => "birthTimeSubsecondPrecisionLost",
+                    MetadataNote::StorageCompressionNotCarried => "storageCompressionNotCarried",
                 })
                 .collect(),
             leftovers: paths(&leftovers),
@@ -1226,6 +1227,22 @@ mod tests {
         assert!(!note.exists());
 
         assert_eq!(write(&main, "from main").unwrap()["status"], "committed");
+    }
+
+    #[test]
+    fn a_compressed_originals_note_reaches_the_interface_by_name() {
+        let outcome = ReplaceOutcome::Committed {
+            replaced: Replaced::Existing,
+            durability: Durability::Confirmed,
+            confirmed_by_inspection: false,
+            metadata_notes: vec![MetadataNote::StorageCompressionNotCarried],
+            leftovers: vec![],
+        };
+
+        assert_eq!(
+            serde_json::to_value(write_result(outcome)).unwrap()["metadataNotes"],
+            json!(["storageCompressionNotCarried"])
+        );
     }
 
     #[test]

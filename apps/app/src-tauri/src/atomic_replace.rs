@@ -227,6 +227,7 @@ extern "C" {
     fn flock(fd: c_int, operation: c_int) -> c_int;
     fn access(path: *const c_char, mode: c_int) -> c_int;
     fn fcopyfile(from: c_int, to: c_int, state: *mut c_void, flags: u32) -> c_int;
+    fn fchflags(fd: c_int, flags: c_uint) -> c_int;
     fn fsetattrlist(
         fd: c_int,
         list: *mut c_void,
@@ -256,6 +257,10 @@ const LOCK_NB: c_int = 0x04;
 const W_OK: c_int = 2;
 const O_NOFOLLOW: i32 = 0x0100;
 const COPYFILE_METADATA: u32 = 0b111; // ACL | STAT | XATTR (copyfile.h)
+/// `UF_COMPRESSED` (sys/stat.h): the file's bytes are stored transparently compressed (APFS decmpfs). It describes how the
+/// data is stored, not metadata anyone set: `fcopyfile` never carries it and it cannot be set directly, so it is the one
+/// flag the metadata verification does not compare (and reports, see `MetadataNote::StorageCompressionNotCarried`).
+const UF_COMPRESSED: c_uint = 0x20;
 const RENAME_EXCL: c_uint = 0x4;
 const ATTR_BIT_MAP_COUNT: u16 = 5;
 const ATTR_CMN_CRTIME: u32 = 0x0000_0200;
@@ -398,6 +403,10 @@ pub enum MetadataNote {
     /// The volume stores birth times with less than sub-second precision (observed on exFAT): the birth time was
     /// restored to the whole second. The original's value was read from the same volume.
     BirthTimeSubsecondPrecisionLost,
+    /// The original is transparently compressed (`UF_COMPRESSED`); the replacement holds the same text uncompressed. The
+    /// flag describes how the bytes are stored, not metadata anyone set, and the system's own metadata copy does not
+    /// carry it, so it is the one flag the verification does not compare. Reported, never dropped silently.
+    StorageCompressionNotCarried,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1228,6 +1237,24 @@ pub(crate) fn read_xattrs(file: &File) -> io::Result<BTreeMap<Vec<u8>, Vec<u8>>>
     Ok(attributes)
 }
 
+/// `fcopyfile(COPYFILE_STAT)` does not carry every flag: `UF_COMPRESSED` (a storage state, never carried and not
+/// settable) and `UF_TRACKED` (a tracking hint the system keeps on a file) are left behind. The first is a different
+/// thing and is handled by the verification; every other flag the original has and the copy lacks is set on the
+/// replacement here, so a flag the system put on a file is preserved, not silently dropped. A flag that cannot be set is
+/// a genuine failure to preserve metadata and refuses the write, before the original is touched.
+fn carry_uncopied_flags(original: &File, temporary: &File) -> io::Result<()> {
+    let wanted = original.metadata()?.st_flags() & !UF_COMPRESSED;
+    let have = temporary.metadata()?.st_flags();
+    let missing = wanted & !have;
+    if missing == 0 {
+        return Ok(());
+    }
+
+    cvt(unsafe { fchflags(temporary.as_raw_fd(), have | missing) }).map_err(|error| {
+        io::Error::new(error.kind(), format!("cannot carry the file flags {missing:#x} to the replacement: {error}"))
+    })
+}
+
 /// The temporary file must carry everything the original carries. Extra attributes the system adds to the new
 /// file are tolerated; a missing or different one is not.
 fn verify_metadata(original: &File, temporary: &File) -> Result<Vec<MetadataNote>, String> {
@@ -1245,10 +1272,19 @@ fn verify_metadata(original: &File, temporary: &File) -> Result<Vec<MetadataNote
     if (a.uid(), a.gid()) != (b.uid(), b.gid()) {
         return Err("the owner could not be preserved".into());
     }
-    if a.st_flags() != b.st_flags() {
-        return Err("the file flags were not preserved".into());
-    }
     let mut notes = Vec::new();
+    // Every flag is compared except UF_COMPRESSED, which is storage state (see its definition); that difference is
+    // reported instead of failing the write.
+    if a.st_flags() & !UF_COMPRESSED != b.st_flags() & !UF_COMPRESSED {
+        return Err(format!(
+            "the file flags were not preserved (original {:#x}, replacement {:#x})",
+            a.st_flags(),
+            b.st_flags()
+        ));
+    }
+    if a.st_flags() & UF_COMPRESSED != b.st_flags() & UF_COMPRESSED {
+        notes.push(MetadataNote::StorageCompressionNotCarried);
+    }
     match compare_birth_times(
         (a.st_birthtime(), a.st_birthtime_nsec()),
         (b.st_birthtime(), b.st_birthtime_nsec()),
@@ -1577,6 +1613,7 @@ impl Operation<'_> {
                         fcopyfile(source, destination, std::ptr::null_mut(), COPYFILE_METADATA)
                     })
                 })
+                .and_then(|_| carry_uncopied_flags(&existing.file, temporary))
                 .map_err(|error| metadata_failure("cannot copy the file's metadata", error))?;
             self.faults
                 .enter(Step::SetBirthTime)
@@ -2695,6 +2732,111 @@ mod tests {
 
         assert_committed(&outcome);
         assert_eq!(fs::read(&note).unwrap(), b"repair");
+    }
+
+    // ---- 5a. flags that the operating system owns (UF_COMPRESSED, UF_TRACKED) -----------------------------------
+
+    const UF_COMPRESSED_FLAG: u32 = 0x20;
+    const UF_TRACKED_FLAG: u32 = 0x40;
+
+    /// A real transparently compressed file (APFS decmpfs), made the way installers and `ditto` make them.
+    fn transparently_compressed(path: &Path, directory: &Path) {
+        let plain = directory.join("plain-source");
+        put(&plain, "a note line that compresses well\n".repeat(900).as_bytes());
+        assert!(Command::new("ditto")
+            .arg("--hfsCompression")
+            .arg(&plain)
+            .arg(path)
+            .status()
+            .unwrap()
+            .success());
+        fs::remove_file(plain).unwrap();
+        assert!(
+            fs::metadata(path).unwrap().st_flags() & UF_COMPRESSED_FLAG != 0,
+            "the test volume must be able to compress a file transparently for this test"
+        );
+    }
+
+    #[test]
+    fn a_transparently_compressed_note_is_replaced_and_the_difference_is_reported_not_refused() {
+        // The system's own fcopyfile does not carry UF_COMPRESSED (it describes how the bytes are stored, not metadata a
+        // user set), so the old exact comparison refused every save of such a note with "the file flags were not
+        // preserved". The note is not changed by the fix: only that storage bit is exempt, and it is reported.
+        let scratch = Scratch::new("compressed");
+        let note = scratch.path("note.md");
+        transparently_compressed(&note, &scratch.0);
+        let before = fs::metadata(&note).unwrap();
+
+        let outcome = replace(&ReplaceRequest::replace(&note, b"the new text"));
+
+        match &outcome {
+            ReplaceOutcome::Committed { metadata_notes, .. } => {
+                assert_eq!(metadata_notes, &vec![MetadataNote::StorageCompressionNotCarried]);
+            }
+            other => panic!("expected Committed, got {other:?}"),
+        }
+        let after = fs::metadata(&note).unwrap();
+        assert_eq!(fs::read(&note).unwrap(), b"the new text");
+        assert_eq!(after.st_flags() & !UF_COMPRESSED_FLAG, before.st_flags() & !UF_COMPRESSED_FLAG);
+        assert_eq!(after.mode() & 0o7777, before.mode() & 0o7777);
+        assert!(temps(&scratch.0).is_empty());
+    }
+
+    #[test]
+    fn a_flag_the_metadata_copy_did_not_carry_is_set_on_the_replacement_so_it_is_preserved() {
+        // UF_TRACKED is not carried by fcopyfile either, but unlike compression it can be set: dropping it silently would
+        // lose a flag the system put on the file, so the writer carries it explicitly and the verification still
+        // compares it.
+        let scratch = Scratch::new("tracked");
+        let note = scratch.path("note.md");
+        put(&note, b"old");
+        assert!(Command::new("chflags").arg("0100").arg(&note).status().unwrap().success()); // UF_TRACKED
+        assert_eq!(fs::metadata(&note).unwrap().st_flags() & UF_TRACKED_FLAG, UF_TRACKED_FLAG);
+
+        let outcome = replace(&ReplaceRequest::replace(&note, b"new"));
+
+        assert_committed(&outcome);
+        assert_eq!(fs::read(&note).unwrap(), b"new");
+        assert_eq!(fs::metadata(&note).unwrap().st_flags() & UF_TRACKED_FLAG, UF_TRACKED_FLAG);
+        assert!(temps(&scratch.0).is_empty());
+    }
+
+    #[test]
+    fn the_verification_still_refuses_any_other_flag_difference_and_only_exempts_compression() {
+        let scratch = Scratch::new("verify-flags");
+        let (original, replacement) = (scratch.path("original"), scratch.path("replacement"));
+        put(&original, b"a");
+        put(&replacement, b"b");
+        assert!(Command::new("chflags").arg("nodump").arg(&original).status().unwrap().success());
+        let (a, b) = (File::open(&original).unwrap(), File::open(&replacement).unwrap());
+
+        // A user-settable flag the replacement lacks is a real failure.
+        let error = verify_metadata(&a, &b).unwrap_err();
+        assert!(error.contains("the file flags were not preserved"), "{error}");
+
+        // Once it carries the flag too, the pair is accepted: nothing else differs.
+        assert!(Command::new("chflags").arg("nodump").arg(&replacement).status().unwrap().success());
+        let b = File::open(&replacement).unwrap();
+        assert!(verify_metadata(&a, &b).is_ok() || verify_metadata(&a, &b).unwrap_err().contains("birth time"));
+    }
+
+    #[test]
+    fn a_refused_metadata_check_leaves_the_original_text_identity_and_flags_untouched() {
+        // The check runs on the temporary file, before the original is replaced: a refusal changes nothing.
+        let scratch = Scratch::new("refused-check");
+        let note = scratch.path("note.md");
+        put(&note, b"old");
+        assert!(Command::new("chflags").arg("nodump").arg(&note).status().unwrap().success());
+        let before = fs::metadata(&note).unwrap();
+        let faults = Faults::none().fail(Step::VerifyMetadata, 5);
+
+        let outcome = replace_with(&ReplaceRequest::replace(&note, b"new"), &faults);
+
+        assert_eq!(not_committed_reason(&outcome).0, NotCommittedReason::MetadataPreservationFailed);
+        let after = fs::metadata(&note).unwrap();
+        assert_eq!(fs::read(&note).unwrap(), b"old");
+        assert_eq!((after.ino(), after.st_flags()), (before.ino(), before.st_flags()));
+        assert!(temps(&scratch.0).is_empty());
     }
 
     // ---- 5b. volume and directory policy ------------------------------------------------------------------
