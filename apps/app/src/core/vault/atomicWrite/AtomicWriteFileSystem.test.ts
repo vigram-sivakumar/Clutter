@@ -196,6 +196,35 @@ describe('AtomicWriteFileSystem: a write in doubt is inspected before any later 
   });
 });
 
+describe('AtomicWriteFileSystem: a half-configured provider never writes', () => {
+  it('fails every write, with the configuration error, when the writer is proven absent, and never reaches the writer', async () => {
+    const disk = new InMemoryVaultFileSystem({ [NOTE]: 'old' });
+    const writer = new InMemoryAtomicVaultWriter(disk);
+    const missing = new Error('the native writer is not available');
+    const fileSystem = new AtomicWriteFileSystem(disk, writer, undefined, undefined, async () => {
+      throw missing;
+    });
+
+    await expect(fileSystem.writeFile(NOTE, 'new', 'replace')).rejects.toBe(missing);
+    await expect(fileSystem.writeFile(NOTE, 'new', 'upsert')).rejects.toBe(missing);
+
+    expect(writer.calls).toEqual([]);
+    expect(await disk.readFile(NOTE)).toBe('old');
+  });
+
+  it('checks once, before the first write, and then writes normally', async () => {
+    const disk = new InMemoryVaultFileSystem({ [NOTE]: 'old' });
+    const ready = vi.fn(async () => undefined);
+    const fileSystem = new AtomicWriteFileSystem(disk, new InMemoryAtomicVaultWriter(disk), undefined, undefined, ready);
+
+    await fileSystem.writeFile(NOTE, 'one', 'replace');
+    await fileSystem.writeFile(NOTE, 'two', 'replace');
+
+    expect(ready).toHaveBeenCalledTimes(1);
+    expect(await disk.readFile(NOTE)).toBe('two');
+  });
+});
+
 describe('AtomicWriteFileSystem: reads and moves are the inner provider’s', () => {
   it('delegates reads, moves and deletes unchanged', async () => {
     const { fileSystem, disk } = setup({ '/v/a.md': 'a' });

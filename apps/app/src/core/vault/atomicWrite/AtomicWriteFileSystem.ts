@@ -48,8 +48,16 @@ export class AtomicWriteFileSystem implements VaultFileSystem {
      * Throws when the provider must not write (a lost root, a folder rename in progress: `LocalVaultProvider.seal`).
      * The native writer knows nothing of that, so the seal is honoured here, before anything reaches it.
      */
-    private readonly assertWritable?: () => void
+    private readonly assertWritable?: () => void,
+    /**
+     * Proves the writer is really there before the first write ever reaches it (a build that asks for atomic saves
+     * without the native commands). Run once; a failure is remembered and fails every write, so a half-configured
+     * provider can never write, whichever path constructed it.
+     */
+    private readonly ready?: () => Promise<void>
   ) {}
+
+  private verified: Promise<void> | null = null;
 
   exists(path: string) {
     return this.inner.exists(path);
@@ -109,6 +117,7 @@ export class AtomicWriteFileSystem implements VaultFileSystem {
   }
 
   private async write(attempt: WriteAttempt): Promise<void> {
+    if (this.ready) await (this.verified ??= this.ready());
     await this.settleEarlierDoubt(attempt);
     await this.record(attempt, await this.writer.write(attempt));
   }

@@ -65,7 +65,9 @@ export function createAtomicWriteStack(options: {
   const durability = new DurabilityTracker(writer, { onChange: options.onDurabilityChange });
 
   return {
-    fileSystem: new AtomicWriteFileSystem(options.inner, writer, durability, options.assertWritable),
+    fileSystem: new AtomicWriteFileSystem(options.inner, writer, durability, options.assertWritable, () =>
+      assertAtomicCommandsRegistered(invoke, options.vaultRoot)
+    ),
     durability,
   };
 }
