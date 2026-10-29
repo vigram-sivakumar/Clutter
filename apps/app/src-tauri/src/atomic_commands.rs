@@ -1201,6 +1201,33 @@ mod tests {
         assert_eq!(fs::read_to_string(&note).unwrap(), "from main");
     }
 
+    /// Tauri's own permission layer, with the app's real context (the real capability file and generated ACL) rather
+    /// than the empty mock one: a window the capability does not name is refused before the command body runs.
+    #[test]
+    fn tauris_acl_refuses_a_window_the_capability_does_not_name_before_the_command_runs() {
+        let world = World::new("ipc-acl");
+        let app = mock_builder()
+            .plugin(tauri_plugin_fs::init())
+            .invoke_handler(tauri::generate_handler![atomic_write_file, atomic_inspect_write, atomic_confirm_durability])
+            .build(crate::app_context())
+            .expect("the app builds with its real context");
+        app.fs_scope().allow_directory(&world.vault, true).unwrap();
+        let main = tauri::WebviewWindowBuilder::new(&app, "main", Default::default()).build().unwrap();
+        let other = tauri::WebviewWindowBuilder::new(&app, "other", Default::default()).build().unwrap();
+        let note = world.vault.join("note.md");
+        let write = |window: &tauri::WebviewWindow<tauri::test::MockRuntime>, contents: &str| {
+            invoke(window, "atomic_write_file", json!({ "request": {
+                "vaultRoot": world.vault, "path": note, "contents": contents, "intent": { "kind": "upsert" } } }))
+        };
+
+        let denied = write(&other, "from another window").unwrap_err();
+        // The ACL's refusal, not the command's own `unauthorizedWindow` error: the command body never ran.
+        assert!(denied.as_str().is_some_and(|message| message.contains("not allowed")), "{denied}");
+        assert!(!note.exists());
+
+        assert_eq!(write(&main, "from main").unwrap()["status"], "committed");
+    }
+
     #[test]
     fn an_unregistered_command_name_is_rejected_by_the_ipc_layer() {
         let world = World::new("ipc-unknown");

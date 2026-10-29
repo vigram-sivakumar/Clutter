@@ -168,6 +168,12 @@ fn offer_recovery(app: &AppHandle, attempt: u64, reason: &str) {
     }
 }
 
+/// The app's real context (config, assets, and the generated permission tables). One call site: the macro embeds
+/// symbols, so a second expansion in this crate does not link. Tests that need the real ACL use this too.
+pub(crate) fn app_context<R: tauri::Runtime>() -> tauri::Context<R> {
+    tauri::generate_context!()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -234,7 +240,7 @@ pub fn run() {
             spawn_startup_watchdog(app.handle().clone(), STARTUP_ATTEMPT.load(Ordering::SeqCst));
             Ok(())
         })
-        .build(tauri::generate_context!())
+        .build(app_context())
         .expect("error while building tauri application")
         .run(|_app, event| {
             // An alert owned by the system outlives the app unless cancelled.
