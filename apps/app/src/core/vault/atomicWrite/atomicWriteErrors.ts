@@ -94,3 +94,35 @@ export function isRetryableSaveFailure(error: unknown): boolean {
 export function isWriteConflict(error: unknown): boolean {
   return error instanceof AtomicNotCommittedError && (error.reason === 'staleExpected' || error.reason === 'destinationExists');
 }
+
+/**
+ * Why a write was refused, as a category the UI can word (the UI never sees the atomic writer's own error classes; it
+ * learns about failures through `PageOperations`). `unknown` is anything that is not one of the writer's typed
+ * refusals: its own text is never safe to show.
+ */
+export type WriteRefusal = 'disk-full' | 'no-permission' | 'name-taken' | 'unsupported-location' | 'unavailable' | 'unknown';
+
+export function classifyWriteRefusal(error: unknown): WriteRefusal {
+  if (!(error instanceof AtomicNotCommittedError)) return 'unknown';
+
+  switch (error.reason) {
+    case 'insufficientSpace':
+      return 'disk-full';
+    case 'permissionDenied':
+    case 'readOnlyTarget':
+      return 'no-permission';
+    case 'destinationExists':
+    case 'destinationAppeared':
+      return 'name-taken';
+    case 'unsupportedFilesystem':
+    case 'unsupportedOperation':
+      return 'unsupported-location';
+    case 'outOfScope':
+    case 'invalidTarget':
+    case 'unsupportedSymlink':
+    case 'notARegularFile':
+      return 'unavailable';
+    default:
+      return 'unknown';
+  }
+}

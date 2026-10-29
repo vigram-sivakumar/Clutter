@@ -1,4 +1,4 @@
-import { classifySaveFailure, isRetryableSaveFailure, type SaveFailureKind } from '../../vault/atomicWrite/atomicWriteErrors';
+import { classifySaveFailure, classifyWriteRefusal, isRetryableSaveFailure, type SaveFailureKind, type WriteRefusal } from '../../vault/atomicWrite/atomicWriteErrors';
 import type { DocumentSession } from '../../engine/DocumentSession';
 import { DocumentRegistry } from '../../engine/DocumentRegistry';
 import { SaveCoordinator } from '../../engine/SaveCoordinator';
@@ -222,7 +222,9 @@ export interface EditOptions {
 
 /** What the save-failure UI shows for a page. See PageOperations.saveFailureStatus(). */
 export type SaveFailureStatus = 'retrying' | 'retry-scheduled' | 'needs-action';
-export type { SaveFailureKind };
+export type { SaveFailureKind, WriteRefusal };
+// The UI classifies a failure through here, never from the atomic writer's own classes (the contract test enforces it).
+export { classifySaveFailure, classifyWriteRefusal };
 
 /**
  * Owns the entire lifecycle of a page as a single capability surface —

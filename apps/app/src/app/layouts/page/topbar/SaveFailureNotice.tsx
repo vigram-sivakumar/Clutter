@@ -1,6 +1,7 @@
 import type { SaveFailureKind, SaveFailureStatus } from '@core/application/page/PageOperations';
 import './SaveFailureNotice.css';
 import { Button } from '../../../../components/button/Button';
+import { UNSUPPORTED_LOCATION_MESSAGE } from '@app/saveFailureMessages';
 
 interface SaveFailureNoticeProps {
   readonly status: SaveFailureStatus;
@@ -13,6 +14,14 @@ interface SaveFailureNoticeProps {
    * a repeat would overwrite what is on disk now.
    */
   readonly onSaveAsNewNote?: () => void;
+  /** A copy is being made right now: Save as new note cannot be started again until it ends. */
+  readonly copyPending?: boolean;
+  /**
+   * Why the last Save as new note failed, shown with the notice for as long as the note is still unsaved. The note's
+   * own failure stays exactly as it was: a failed copy changes nothing about the note, so the notice does not go, and
+   * a transient toast is not the only place the user is told.
+   */
+  readonly copyFailure?: string | null;
 }
 
 /**
@@ -23,14 +32,14 @@ interface SaveFailureNoticeProps {
  * while a retry is already running, so it cannot start an overlapping save. It clears itself when a
  * save is confirmed.
  */
-export function SaveFailureNotice({ status, kind = 'failed', onRetry, onSaveAsNewNote }: SaveFailureNoticeProps) {
+export function SaveFailureNotice({ status, kind = 'failed', onRetry, onSaveAsNewNote, copyPending = false, copyFailure = null }: SaveFailureNoticeProps) {
   // What the user is told, and the one safe thing they can do about it, depends on why the save failed (ADR-063).
   // Retry means "write again", so it is withheld wherever writing again would be wrong or pointless.
   const message = {
     failed: 'Couldn’t save changes',
     'changed-on-disk': 'This note changed on disk',
     unverified: 'Couldn’t verify the save',
-    'unsupported-location': 'Can’t save safely to this location',
+    'unsupported-location': UNSUPPORTED_LOCATION_MESSAGE,
   }[kind];
   const canRetry = kind === 'failed' || kind === 'unverified';
   const canSaveAsNewNote = kind === 'changed-on-disk' && onSaveAsNewNote !== undefined;
@@ -56,9 +65,14 @@ export function SaveFailureNotice({ status, kind = 'failed', onRetry, onSaveAsNe
         </Button>
       )}
       {canSaveAsNewNote && (
-        <Button size="small" variant="outline-danger" isLink onClick={onSaveAsNewNote}>
+        <Button size="small" variant="outline-danger" isLink disabled={copyPending} onClick={onSaveAsNewNote}>
           Save as new note
         </Button>
+      )}
+      {canSaveAsNewNote && copyFailure !== null && (
+        <span className="save-failure-notice__detail" data-testid="save-failure-copy-error">
+          {copyFailure}
+        </span>
       )}
     </span>
   );

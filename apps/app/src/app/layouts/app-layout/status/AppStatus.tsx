@@ -4,6 +4,7 @@ import { useWorkspace } from '@app/hooks/useWorkspace';
 import { useSaveFailures } from '@app/layouts/page/useSaveFailures';
 import { useToast } from '@components/toast/ToastProvider';
 import { SaveFailureNotice, RecoveryNotice } from '@app/layouts/page/topbar/SaveFailureNotice';
+import { copyFailureMessage } from '@app/saveFailureMessages';
 import { RecoveryDialog } from './RecoveryDialog';
 import { useRecovery } from './useRecovery';
 
@@ -26,6 +27,40 @@ export function AppStatusProvider({ application, children }: { application: Appl
   const candidates = useRecovery(recoveryOperations);
   const [reviewOpen, setReviewOpen] = useState(false);
   const offeredRef = useRef(false);
+
+  // The last "Save as new note" per note: whether a copy is being made, and why the last one failed. It belongs to the
+  // note it was started for, so another note (or another Space) never shows it, and it goes when that note's failure
+  // is resolved, never merely because the user clicked an action.
+  const [copies, setCopies] = useState<Readonly<Record<string, { pending: boolean; failure: string | null }>>>({});
+  const failedKeyForCopies = failures.failedIds.join('\n');
+
+  useEffect(() => {
+    setCopies((previous) => {
+      const stale = Object.keys(previous).filter((id) => !failures.failedIds.includes(id));
+      if (stale.length === 0) return previous;
+      const next = { ...previous };
+      for (const id of stale) delete next[id];
+
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `failedKeyForCopies` stands for `failures.failedIds`
+  }, [failedKeyForCopies]);
+
+  function saveAsNewNote(pageId: string): void {
+    setCopies((previous) => ({ ...previous, [pageId]: { pending: true, failure: null } }));
+    pageOperations.saveUnsavedAsNewNote(pageId).then(
+      () => {
+        // Made: the original follows the disk and leaves its failure, which clears this with it.
+        setCopies((previous) => ({ ...previous, [pageId]: { pending: false, failure: null } }));
+      },
+      (error: unknown) => {
+        // Nothing about the note changed (full disk, name taken, ...): its notice stays, its text stays, and the notice
+        // says why the copy could not be made.
+        console.error('Saving the unsaved changes as a new note failed:', error);
+        setCopies((previous) => ({ ...previous, [pageId]: { pending: false, failure: copyFailureMessage(error) } }));
+      }
+    );
+  }
 
   // Recovered work is offered once, when it is first found at startup; afterwards the notice below reopens it.
   useEffect(() => {
@@ -142,13 +177,9 @@ export function AppStatusProvider({ application, children }: { application: Appl
           status={activeStatus}
           kind={failures.kindOf(activePageId) ?? 'failed'}
           onRetry={() => void pageOperations.retrySave(activePageId)}
-          onSaveAsNewNote={() =>
-            // Nothing about the note changes if the copy cannot be made (full disk, name taken): the notice stays, the
-            // text stays, and the user is told.
-            void pageOperations.saveUnsavedAsNewNote(activePageId).catch(() => {
-              toast.show({ tone: 'danger', text: 'Couldn’t save as a new note' });
-            })
-          }
+          onSaveAsNewNote={() => saveAsNewNote(activePageId)}
+          copyPending={copies[activePageId]?.pending ?? false}
+          copyFailure={copies[activePageId]?.failure ?? null}
         />
       ) : null}
       {candidates.some((candidate) => candidate.record.pageId === activePageId) && (

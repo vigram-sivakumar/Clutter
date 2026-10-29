@@ -7,7 +7,8 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Application } from '@core/application/Application';
-import type { SaveFailureStatus } from '@core/application/page/PageOperations';
+import type { SaveFailureKind, SaveFailureStatus } from '@core/application/page/PageOperations';
+import { AtomicNotCommittedError } from '@core/vault/atomicWrite/atomicWriteErrors';
 import { AppStatusProvider, useAppStatus } from './AppStatus';
 
 const fail = vi.fn();
@@ -29,6 +30,7 @@ afterAll(() => vi.unstubAllGlobals());
 /** A stand-in Application with just what the status provider reads. */
 function fakeApplication() {
   const failures = new Map<string, SaveFailureStatus>();
+  const kinds = new Map<string, SaveFailureKind>();
   const failureListeners = new Set<() => void>();
   const workspaceListeners = new Set<() => void>();
   const recoveryListeners = new Set<() => void>();
@@ -49,6 +51,8 @@ function fakeApplication() {
     },
     failedSavePageIds: () => [...failures.keys()].sort(),
     saveFailureStatus: (id: string) => failures.get(id) ?? null,
+    saveFailureKind: (id: string) => (failures.has(id) ? (kinds.get(id) ?? 'failed') : null),
+    saveUnsavedAsNewNote: vi.fn(async (_id: string): Promise<string | null> => 'copy'),
     retrySave: vi.fn(async () => {}),
     open: vi.fn(async () => {}),
     getDraft: () => undefined,
@@ -76,9 +80,14 @@ function fakeApplication() {
     application,
     pageOperations,
     recoveryOperations,
-    setFailure: (id: string, status: SaveFailureStatus | null) => {
-      if (status === null) failures.delete(id);
-      else failures.set(id, status);
+    setFailure: (id: string, status: SaveFailureStatus | null, kind?: SaveFailureKind) => {
+      if (status === null) {
+        failures.delete(id);
+        kinds.delete(id);
+      } else {
+        failures.set(id, status);
+        if (kind) kinds.set(id, kind);
+      }
       act(() => failureListeners.forEach((listener) => listener()));
     },
     navigate: (id: string | null) => {
@@ -311,5 +320,135 @@ describe('recovered work', () => {
 
     expect(screen.getByTestId('save-failure-notice')).toBeInTheDocument();
     expect(screen.getByTestId('recovery-notice')).toBeInTheDocument();
+  });
+});
+
+describe('Save as new note: the persistent notice carries the outcome (ADR-063; "Choose the surface" in writing-principles)', () => {
+  const notice = () => screen.getByTestId('save-failure-notice');
+  const copyError = () => screen.queryByTestId('save-failure-copy-error');
+  const clickSaveAsNewNote = async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Save as new note' }));
+    await act(async () => {});
+  };
+  function setup() {
+    const fake = fakeApplication();
+    render(
+      <AppStatusProvider application={fake.application}>
+        <TopBar />
+      </AppStatusProvider>
+    );
+    fake.setFailure('a', 'needs-action', 'changed-on-disk');
+
+    return fake;
+  }
+
+  it('a failed copy keeps the note’s notice, says why inside it, and raises no toast', async () => {
+    const fake = setup();
+    fake.pageOperations.saveUnsavedAsNewNote.mockRejectedValueOnce(new AtomicNotCommittedError('insufficientSpace', 'no room'));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await clickSaveAsNewNote();
+
+    expect(notice()).toHaveAttribute('data-kind', 'changed-on-disk');
+    expect(notice()).toHaveTextContent('This note changed on disk');
+    expect(copyError()).toHaveTextContent('Couldn’t save a copy: the disk is full');
+    expect(screen.getByRole('button', { name: 'Save as new note' })).toBeEnabled();
+    expect(show).not.toHaveBeenCalled();
+    expect(fail).not.toHaveBeenCalled();
+  });
+
+  it('keeps the precise safe reason, and never shows an unclassified error’s own text', async () => {
+    const fake = setup();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    fake.pageOperations.saveUnsavedAsNewNote.mockRejectedValueOnce(new AtomicNotCommittedError('destinationExists', 'exists'));
+    await clickSaveAsNewNote();
+    expect(copyError()).toHaveTextContent('Couldn’t save a copy: a note with that name already exists');
+
+    fake.pageOperations.saveUnsavedAsNewNote.mockRejectedValueOnce(new Error('EACCES: /Users/me/secret/path'));
+    await clickSaveAsNewNote();
+    expect(copyError()).toHaveTextContent(/^Couldn’t save a copy$/);
+    expect(notice()).not.toHaveTextContent('secret');
+  });
+
+  it('the notice is there while the copy runs, the button cannot start a second copy, and a new attempt clears the old reason', async () => {
+    const fake = setup();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    fake.pageOperations.saveUnsavedAsNewNote.mockRejectedValueOnce(new AtomicNotCommittedError('insufficientSpace', 'no room'));
+    await clickSaveAsNewNote();
+    expect(copyError()).not.toBeNull();
+
+    let finish!: (id: string | null) => void;
+    fake.pageOperations.saveUnsavedAsNewNote.mockImplementationOnce(() => new Promise<string | null>((resolve) => (finish = resolve)));
+    await clickSaveAsNewNote();
+
+    expect(notice()).toHaveTextContent('This note changed on disk');
+    expect(copyError()).toBeNull();
+    expect(screen.getByRole('button', { name: 'Save as new note' })).toBeDisabled();
+    expect(fake.pageOperations.saveUnsavedAsNewNote).toHaveBeenCalledTimes(2);
+
+    await act(async () => finish('copy'));
+    expect(notice()).toBeInTheDocument(); // the note leaves its failure only when its own state says so
+  });
+
+  it('success: no failure message and no toast; the notice goes when the note’s failure is resolved, not before', async () => {
+    const fake = setup();
+
+    await clickSaveAsNewNote();
+    expect(copyError()).toBeNull();
+    expect(show).not.toHaveBeenCalled();
+    expect(notice()).toBeInTheDocument();
+
+    fake.setFailure('a', null);
+    expect(screen.queryByTestId('save-failure-notice')).toBeNull();
+  });
+
+  it('belongs to its note: another note never shows it, and it returns with the note until the failure is resolved', async () => {
+    const fake = setup();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    fake.pageOperations.saveUnsavedAsNewNote.mockRejectedValueOnce(new AtomicNotCommittedError('insufficientSpace', 'no room'));
+    await clickSaveAsNewNote();
+    expect(copyError()).not.toBeNull();
+
+    fake.setFailure('b', 'needs-action', 'changed-on-disk');
+    fake.navigate('b');
+    expect(copyError()).toBeNull();
+
+    fake.navigate('a');
+    expect(copyError()).toHaveTextContent('Couldn’t save a copy: the disk is full');
+
+    fake.setFailure('a', null);
+    fake.setFailure('a', 'needs-action', 'changed-on-disk');
+    expect(copyError()).toBeNull(); // a new failure of the note starts without the old attempt’s reason
+  });
+
+  it('offers neither Retry nor Save as new note for an unsupported location: it is not a transient error', () => {
+    const fake = fakeApplication();
+    render(
+      <AppStatusProvider application={fake.application}>
+        <TopBar />
+      </AppStatusProvider>
+    );
+    fake.setFailure('a', 'needs-action', 'unsupported-location');
+
+    expect(notice()).toHaveTextContent('Can’t save safely to this location');
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Save as new note' })).toBeNull();
+  });
+
+  it('a failed Retry on an ordinary failure leaves the notice in place', async () => {
+    const fake = fakeApplication();
+    render(
+      <AppStatusProvider application={fake.application}>
+        <TopBar />
+      </AppStatusProvider>
+    );
+    fake.setFailure('a', 'needs-action');
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await act(async () => {});
+    fake.setFailure('a', 'needs-action'); // the retry failed again: the same streak continues
+
+    expect(notice()).toHaveTextContent('Couldn’t save changes');
+    expect(show).not.toHaveBeenCalled();
   });
 });
