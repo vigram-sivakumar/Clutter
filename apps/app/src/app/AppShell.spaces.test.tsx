@@ -20,6 +20,8 @@ const tauri = vi.hoisted(() => ({
   invoke: vi.fn(),
   openDialog: vi.fn(),
   mkdir: vi.fn(),
+  /** The backend's `create_space_folder` (it makes the folder and grants it): called with the trimmed name. */
+  createFolder: vi.fn(),
 }));
 /** The `space` profile each folder carries in its own `.clutter/workspace.json` (read-only to the shell). */
 type TestAvatar =
@@ -42,7 +44,10 @@ const probeOverrides = vi.hoisted(() => new Map<string, string>());
 vi.mock('@tauri-apps/api/core', () => ({
   isTauri: () => tauri.isTauri,
   convertFileSrc: (path: string) => `asset://localhost${path}`,
-  invoke: (...args: unknown[]) => tauri.invoke(...args),
+  invoke: (...args: unknown[]) =>
+    args[0] === 'create_space_folder'
+      ? tauri.createFolder((args[1] as { name: string }).name)
+      : tauri.invoke(...args),
 }));
 vi.mock('@tauri-apps/api/path', () => ({
   documentDir: async () => '/Users/me/Documents/',
@@ -272,7 +277,10 @@ beforeEach(() => {
   tauri.invoke.mockReset();
   tauri.openDialog.mockReset();
   tauri.mkdir.mockReset();
-  tauri.mkdir.mockResolvedValue(undefined);
+  tauri.createFolder.mockReset();
+  tauri.createFolder.mockImplementation(
+    async (name: string) => `/Users/me/Documents/${name}`
+  );
   probeOverrides.clear();
   profileFiles.clear();
   created = [];
@@ -531,7 +539,7 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
     expect(screen.queryByRole('alert')).toBeNull();
     // A missing folder must never be re-created by bootstrap or anything else on the way.
     expect(bootstrap).not.toHaveBeenCalled();
-    expect(tauri.mkdir).not.toHaveBeenCalled();
+    expect(tauri.createFolder).not.toHaveBeenCalled();
     expect(window.localStorage.getItem('clutter.spaces.v1')).toBe(before);
   });
 
@@ -588,7 +596,7 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
         '/Users/me/Gone',
         expect.anything()
       );
-      expect(tauri.mkdir).not.toHaveBeenCalled();
+      expect(tauri.createFolder).not.toHaveBeenCalled();
     });
 
     it('never flashes the Welcome dialog while a replacement is found and opened', async () => {
@@ -860,7 +868,7 @@ describe('AppShell: Welcome dialog actions', () => {
         paths: ['/Users/me/Notes'],
         activePath: '/Users/me/Notes',
       });
-      expect(tauri.mkdir).not.toHaveBeenCalled();
+      expect(tauri.createFolder).not.toHaveBeenCalled();
       // Asked for a recursive scope grant, so the folder's contents are readable.
       expect(tauri.openDialog).toHaveBeenCalledWith(
         expect.objectContaining({ directory: true, recursive: true })
@@ -1133,10 +1141,8 @@ describe('AppShell: Welcome dialog actions', () => {
           expect.anything()
         )
       );
-      expect(tauri.mkdir).toHaveBeenCalledTimes(1);
-      expect(tauri.mkdir).toHaveBeenCalledWith('/Users/me/Documents/Personal', {
-        recursive: false,
-      });
+      expect(tauri.createFolder).toHaveBeenCalledTimes(1);
+      expect(tauri.createFolder).toHaveBeenCalledWith('Personal');
       // The created path reaches the opening flow unchanged — never the home folder or Documents.
       expect(bootstrap.mock.calls.map(([root]) => root)).toEqual([
         '/Users/me/Documents/Personal',
@@ -1262,7 +1268,7 @@ describe('AppShell: Welcome dialog actions', () => {
         await settle();
 
         // Refused: nothing is created or opened, and the screen stays for another name.
-        expect(tauri.mkdir).not.toHaveBeenCalled();
+        expect(tauri.createFolder).not.toHaveBeenCalled();
         expect(bootstrap).not.toHaveBeenCalled();
         expect(SAVED()).toBeNull();
         expect(screen.getByText('Space name')).toBeInTheDocument();
@@ -1270,7 +1276,7 @@ describe('AppShell: Welcome dialog actions', () => {
     );
 
     it('never adopts or overwrites an existing folder: stays put and lets the user pick another name', async () => {
-      tauri.mkdir.mockRejectedValueOnce('File exists (os error 17)');
+      tauri.createFolder.mockRejectedValueOnce('File exists (os error 17)');
       render(
     <ToastProvider>
       <AppShell />
@@ -1284,7 +1290,7 @@ describe('AppShell: Welcome dialog actions', () => {
       await click('Create');
       await settle();
 
-      expect(tauri.mkdir).toHaveBeenCalledTimes(1);
+      expect(tauri.createFolder).toHaveBeenCalledTimes(1);
       expect(bootstrap).not.toHaveBeenCalled();
       expect(SAVED()).toBeNull();
       expect(screen.getByText('Space name')).toBeInTheDocument();
@@ -1298,7 +1304,7 @@ describe('AppShell: Welcome dialog actions', () => {
     });
 
     it('keeps the dialog when the directory cannot be created', async () => {
-      tauri.mkdir.mockRejectedValueOnce('Permission denied (os error 13)');
+      tauri.createFolder.mockRejectedValueOnce('Permission denied (os error 13)');
       render(
     <ToastProvider>
       <AppShell />
@@ -1312,7 +1318,7 @@ describe('AppShell: Welcome dialog actions', () => {
       await click('Create');
       await settle();
 
-      expect(tauri.mkdir).toHaveBeenCalledTimes(1);
+      expect(tauri.createFolder).toHaveBeenCalledTimes(1);
       expect(bootstrap).not.toHaveBeenCalled();
       expect(screen.getByText('Space name')).toBeInTheDocument();
       expect(SAVED()).toBeNull();
@@ -1342,7 +1348,7 @@ describe('AppShell: Welcome dialog actions', () => {
       expect(bootstrap.mock.calls.map(([root]) => root)).toEqual([
         '/Users/me/Documents/Personal',
       ]);
-      expect(tauri.mkdir).toHaveBeenCalledTimes(1);
+      expect(tauri.createFolder).toHaveBeenCalledTimes(1);
       expect(SAVED()).toBeNull();
       expect(screen.getByText('Space name')).toBeInTheDocument();
 
@@ -1352,7 +1358,7 @@ describe('AppShell: Welcome dialog actions', () => {
       expect(await screen.findByTestId('open-root')).toHaveTextContent(
         '/Users/me/Documents/Personal'
       );
-      expect(tauri.mkdir).toHaveBeenCalledTimes(1);
+      expect(tauri.createFolder).toHaveBeenCalledTimes(1);
       expect(JSON.parse(SAVED()!).activePath).toBe(
         '/Users/me/Documents/Personal'
       );
@@ -1445,7 +1451,7 @@ describe('AppShell: the open vault disappears while the app is running', () => {
         activePath: '/Users/me/A',
       });
       expect(bootstrap.mock.calls.length).toBe(bootstraps);
-      expect(tauri.mkdir).not.toHaveBeenCalled();
+      expect(tauri.createFolder).not.toHaveBeenCalled();
     });
 
     it('lets the user open another vault afterwards, persisting only once it has opened', async () => {
@@ -1513,7 +1519,7 @@ describe('AppShell: the open vault disappears while the app is running', () => {
       expect(await screen.findByTestId('open-root')).toHaveTextContent(
         '/Users/me/Documents/Personal'
       );
-      expect(tauri.mkdir).toHaveBeenCalledTimes(1);
+      expect(tauri.createFolder).toHaveBeenCalledTimes(1);
       expect(JSON.parse(SAVED()!).paths).toEqual([
         '/Users/me/Documents/Personal',
       ]);
@@ -1563,7 +1569,7 @@ describe('AppShell: the open vault disappears while the app is running', () => {
       expect(
         bootstrap.mock.calls.filter(([root]) => root === '/Users/me/A')
       ).toHaveLength(1); // only the original open
-      expect(tauri.mkdir).not.toHaveBeenCalled();
+      expect(tauri.createFolder).not.toHaveBeenCalled();
       await waitFor(() =>
         expect(
           Array.from(
@@ -1741,7 +1747,7 @@ describe('AppShell: an open vault is lost and another registered vault takes ove
     expect(
       bootstrap.mock.calls.filter(([root]) => root === '/Users/me/A')
     ).toHaveLength(1);
-    expect(tauri.mkdir).not.toHaveBeenCalled();
+    expect(tauri.createFolder).not.toHaveBeenCalled();
     expect(JSON.parse(SAVED()!)).toEqual({
       paths: ['/Users/me/A', '/Users/me/B'],
       activePath: '/Users/me/B',
@@ -1837,7 +1843,7 @@ describe('AppShell: an open vault is lost and another registered vault takes ove
     expect(await screen.findByText(WELCOME)).toBeInTheDocument();
     expect(welcome.shown).toBe(true);
     expect(SAVED()).toBe(before);
-    expect(tauri.mkdir).not.toHaveBeenCalled();
+    expect(tauri.createFolder).not.toHaveBeenCalled();
     welcome.stop();
   });
 
@@ -1909,7 +1915,7 @@ describe('AppShell: the space selector lists only spaces that are available', ()
     expect(JSON.parse(SAVED()!).activePath).toBe('/Users/me/A');
     // Nothing was activated or created to get there.
     expect(bootstrap).toHaveBeenCalledTimes(1);
-    expect(tauri.mkdir).not.toHaveBeenCalled();
+    expect(tauri.createFolder).not.toHaveBeenCalled();
   });
 
   it('keeps a space that is merely inaccessible (permission/scope) in the list', async () => {
@@ -2035,7 +2041,7 @@ describe('AppShell: the sidebar "New space" picker', () => {
     expect(
       screen.getAllByTestId('space-selector')[0]!.querySelectorAll('li')
     ).toHaveLength(1);
-    expect(tauri.mkdir).not.toHaveBeenCalled();
+    expect(tauri.createFolder).not.toHaveBeenCalled();
   });
 
   it('prefills the folder name and shows the default (initial) avatar when none is saved', async () => {
@@ -3309,7 +3315,7 @@ describe('AppShell: switching Spaces', () => {
         paths: ['/web-dev-vault', '/Third'],
         activePath: '/web-dev-vault',
       });
-      expect(tauri.mkdir).not.toHaveBeenCalled();
+      expect(tauri.createFolder).not.toHaveBeenCalled();
       expect(bootstrap).toHaveBeenCalledTimes(1);
       expect(screen.getByTestId('open-root')).toHaveTextContent(
         '/web-dev-vault'

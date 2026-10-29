@@ -1,12 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mkdir = vi.fn();
 const invoke = vi.fn();
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: (...args: unknown[]) => invoke(...args),
-}));
-vi.mock('@tauri-apps/plugin-fs', () => ({
-  mkdir: (...args: unknown[]) => mkdir(...args),
 }));
 vi.mock('@tauri-apps/api/path', () => ({
   documentDir: async () => '/Users/someone-else/Documents/',
@@ -16,14 +12,13 @@ vi.mock('@tauri-apps/api/path', () => ({
 import {
   createSpaceFolder,
   isTooBroadForSpace,
+  ensureSpaceAccess,
   renameSpaceFolder,
   resolveSpaceParent,
 } from './spaceFolders';
 
 beforeEach(() => {
   invoke.mockReset();
-  mkdir.mockReset();
-  mkdir.mockResolvedValue(undefined);
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 
@@ -69,15 +64,16 @@ describe('isTooBroadForSpace', () => {
 });
 
 describe('createSpaceFolder', () => {
-  it('creates a direct child of Documents, trimmed, without creating parents', async () => {
+  it('asks the backend to create the trimmed name, and uses the path it answers with', async () => {
+    invoke.mockResolvedValue('/Users/someone-else/Documents/Personal');
+
     expect(await createSpaceFolder('  Personal ')).toEqual({
       path: '/Users/someone-else/Documents/Personal',
     });
-    expect(mkdir).toHaveBeenCalledTimes(1);
-    expect(mkdir).toHaveBeenCalledWith(
-      '/Users/someone-else/Documents/Personal',
-      { recursive: false }
-    );
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(invoke).toHaveBeenCalledWith('create_space_folder', {
+      name: 'Personal',
+    });
   });
 
   it.each([
@@ -97,11 +93,11 @@ describe('createSpaceFolder', () => {
     expect(await createSpaceFolder(name)).toEqual({
       error: expect.stringContaining('Enter a name'),
     });
-    expect(mkdir).not.toHaveBeenCalled();
+    expect(invoke).not.toHaveBeenCalled();
   });
 
   it('reports a taken name instead of adopting or overwriting it', async () => {
-    mkdir.mockRejectedValue('File exists (os error 17)');
+    invoke.mockRejectedValue('File exists (os error 17)');
     expect(await createSpaceFolder('Personal')).toEqual({
       error: expect.stringContaining('already exists'),
     });
@@ -113,10 +109,30 @@ describe('createSpaceFolder', () => {
     ['No such file or directory (os error 2)', 'could not be found'],
     ['Disk quota exceeded (os error 122)', "Couldn’t create the folder"],
   ])('describes the failure %j', async (reason, expected) => {
-    mkdir.mockRejectedValue(reason);
+    invoke.mockRejectedValue(reason);
     expect(await createSpaceFolder('Personal')).toEqual({
       error: expect.stringContaining(expected),
     });
+  });
+});
+
+describe('ensureSpaceAccess', () => {
+  it('asks the backend to restore the access of the opened Space', async () => {
+    invoke.mockResolvedValue(true);
+
+    await ensureSpaceAccess('/Users/someone-else/Documents/Notes');
+
+    expect(invoke).toHaveBeenCalledWith('ensure_space_access', {
+      path: '/Users/someone-else/Documents/Notes',
+    });
+  });
+
+  it('never throws: a Space that cannot be granted opens exactly as it did', async () => {
+    invoke.mockRejectedValue('denied');
+
+    await expect(
+      ensureSpaceAccess('/Users/someone-else/Documents/Notes')
+    ).resolves.toBeUndefined();
   });
 });
 

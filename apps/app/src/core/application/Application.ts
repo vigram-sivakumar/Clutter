@@ -75,6 +75,7 @@ import type { VaultFileSystem } from '../vault/providers/VaultFileSystem';
 import type { CoverImageUrlResolver } from '../vault/providers/CoverImageUrlResolver';
 import { localCoverImageUrlResolver } from '../vault/providers/LocalCoverImageUrlResolver';
 import { registerVaultAssetScope } from '../vault/providers/registerVaultAssetScope';
+import { ensureSpaceAccessIfDesktop } from '../vault/providers/ensureSpaceAccessIfDesktop';
 import { importCoverAsset } from '../vault/importCoverAsset';
 import { classifySupportedResourceFile } from '../vault/ingest/SupportedResourceKind';
 import { isClutterInternalPath } from '../vault/initialize/ReservedResources';
@@ -935,6 +936,7 @@ export class Application {
    * restored.
    */
   public async open(options: { startup?: StartupBehavior; sidebarTab?: SidebarTab } = {}): Promise<void> {
+    await ensureSpaceAccessIfDesktop(this.rootPath);
     await registerVaultAssetScope(this.rootPath);
     await this.fileSystemWatcher.start(this.rootPath);
 

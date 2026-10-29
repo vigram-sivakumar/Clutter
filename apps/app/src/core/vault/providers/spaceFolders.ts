@@ -1,6 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
 import { documentDir, homeDir } from '@tauri-apps/api/path';
-import { mkdir } from '@tauri-apps/plugin-fs';
 
 import { VaultPath } from '../ingest/VaultPath';
 import { isValidSpaceFolderName } from '../ingest/spaceFolderName';
@@ -75,9 +74,13 @@ function describeFolderFailure(
  * Explicitly creates `<Documents>/<name>` for a new Space — the only place a Space folder is
  * created, and only ever from the user's Create action (opening a vault never creates its root).
  *
- * The name is validated and the result must be a direct child of Documents. The folder is made
- * non-recursively, so `mkdir` itself refuses (rather than adopts or overwrites) a name that is
- * already taken, with no check-then-create race; Documents is never created as a side effect.
+ * The backend does it: it validates the name again, makes the folder non-recursively (so a name that
+ * is already taken is refused rather than adopted or overwritten, with no check-then-create race;
+ * Documents is never created as a side effect) and grants exactly that folder to the filesystem scope
+ * the native commands check, the same grant the folder picker makes, which the persisted-scope plugin
+ * restores after a restart. Creating and granting are one operation, so a Space is never left created
+ * but unusable (a created folder with no grant could not be renamed, moved into, or written by the
+ * native commands).
  */
 export async function createSpaceFolder(
   name: string
@@ -87,17 +90,29 @@ export async function createSpaceFolder(
   }
 
   const parent = await resolveSpaceParent();
-  const path = `${parent.path}/${name.trim()}`;
-  if (VaultPath.parentDirectory(path) !== parent.path) {
-    return { error: 'Enter a name without slashes or colons' };
-  }
 
   try {
-    await mkdir(path, { recursive: false });
+    const path = await invoke<string>('create_space_folder', {
+      name: name.trim(),
+    });
     return { path };
   } catch (error) {
     console.error('Creating the space folder failed:', error);
     return { error: describeFolderFailure(error, parent.name, 'create') };
+  }
+}
+
+/**
+ * Gives a Space that was created before `create_space_folder` existed its runtime filesystem grant, when it is
+ * opened. Those Spaces were made with a plain `mkdir`, so only the fs plugin's static scope reached them. The
+ * backend grants nothing but a marked direct child of Documents (a Space picked in the folder dialog already has its
+ * grant, restored at launch), and never throws here: a Space that cannot be granted opens exactly as it did.
+ */
+export async function ensureSpaceAccess(path: string): Promise<void> {
+  try {
+    await invoke<boolean>('ensure_space_access', { path });
+  } catch (error) {
+    console.error('Restoring access to the space folder failed:', error);
   }
 }
 

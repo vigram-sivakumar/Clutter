@@ -180,6 +180,8 @@ pub fn run() {
             parse_cache::parse_cache_read,
             parse_cache::parse_cache_write,
             parse_cache::parse_cache_remove,
+            space_folder::create_space_folder,
+            space_folder::ensure_space_access,
             space_folder::rename_space_folder,
             vault_asset_scope::allow_vault_asset_scope,
             vault_watcher::start_vault_watcher,
