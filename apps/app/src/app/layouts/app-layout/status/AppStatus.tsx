@@ -142,7 +142,13 @@ export function AppStatusProvider({ application, children }: { application: Appl
           status={activeStatus}
           kind={failures.kindOf(activePageId) ?? 'failed'}
           onRetry={() => void pageOperations.retrySave(activePageId)}
-          onSaveAsNewNote={() => void pageOperations.saveUnsavedAsNewNote(activePageId)}
+          onSaveAsNewNote={() =>
+            // Nothing about the note changes if the copy cannot be made (full disk, name taken): the notice stays, the
+            // text stays, and the user is told.
+            void pageOperations.saveUnsavedAsNewNote(activePageId).catch(() => {
+              toast.show({ tone: 'danger', text: 'Couldn’t save as a new note' });
+            })
+          }
         />
       ) : null}
       {candidates.some((candidate) => candidate.record.pageId === activePageId) && (

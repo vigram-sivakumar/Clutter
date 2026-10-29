@@ -11,7 +11,7 @@ import { KnowledgeGraph } from '../models/graph/KnowledgeGraph';
 import { InMemoryAtomicVaultWriter } from '../testing/InMemoryAtomicVaultWriter';
 import { InMemoryVaultFileSystem } from '../testing/InMemoryVaultFileSystem';
 import { persistSyncedPageDocument } from './persistSyncedPageDocument';
-import { fingerprint } from '../../shared/identity/textFingerprint';
+import { contentIdentity } from '../../shared/identity/textFingerprint';
 
 const ROOT = '/vault';
 const PATH = `${ROOT}/Note.md`;
@@ -38,7 +38,7 @@ async function setup(options: { atomic: boolean; identity?: boolean }) {
       content: 'body as scanned',
       analysis: { headings: [], blockReferences: [], tasks: [], tags: [], links: [], embeds: [] },
       ...(times && { fileTimes: times }),
-      ...(options.identity && { sourceFingerprint: fingerprint(scannedText) }),
+      ...(options.identity && { sourceFingerprint: contentIdentity(scannedText) }),
     },
   });
   const vault = new Vault(ROOT, [page], [], [], [], [], new KnowledgeGraph([]), new VaultProjectionBuilder());
@@ -136,7 +136,7 @@ describe('persistSyncedPageDocument under the atomic provider: a repair never ov
       const repaired = await persistSyncedPageDocument(deps, page, 'body as scanned');
 
       expect(stale).toEqual([]);
-      expect(repaired?.sourceFingerprint).toBe(fingerprint(await disk.readFile(PATH)));
+      expect(repaired?.sourceFingerprint).toBe(contentIdentity(await disk.readFile(PATH)));
       expect(vault.getPage(page.id)?.sourceFingerprint).toBe(repaired?.sourceFingerprint);
     });
 

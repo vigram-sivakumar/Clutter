@@ -1,4 +1,4 @@
-import { fingerprint } from '../../shared/identity/textFingerprint';
+import { contentIdentity } from '../../shared/identity/textFingerprint';
 import { persistSyncedFolderDocument } from './persistSyncedFolderDocument';
 import type { Vault } from '../models/Vault';
 import type { Page } from '../models/Page';
@@ -524,7 +524,7 @@ export class VaultSyncService {
     const fileTimes = await readPageFileTimes(this.fileSystem, absolutePath);
 
     if (existingPage) {
-      const rebuiltPage = this.pageRebuilder.rebuild(existingPage, parsedMarkdown, fileTimes, fingerprint(fileContent));
+      const rebuiltPage = this.pageRebuilder.rebuild(existingPage, parsedMarkdown, fileTimes, contentIdentity(fileContent));
 
       this.vault.replacePage(rebuiltPage);
       this.convergeOpenSession(rebuiltPage.id, rebuiltPage.source.markdown);
@@ -553,7 +553,7 @@ export class VaultSyncService {
           content: parsedMarkdown.body,
           analysis: parsedMarkdown.analysis,
           ...(fileTimes && { fileTimes }),
-          sourceFingerprint: fingerprint(fileContent),
+          sourceFingerprint: contentIdentity(fileContent),
         },
       });
 

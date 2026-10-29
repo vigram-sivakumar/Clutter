@@ -148,7 +148,7 @@ function setup(page: Page, fileSystem?: VaultFileSystem) {
 import { AtomicWriteFileSystem } from '../../vault/atomicWrite/AtomicWriteFileSystem';
 import { DurabilityTracker } from '../../vault/atomicWrite/DurabilityTracker';
 import { InMemoryAtomicVaultWriter } from '../../vault/testing/InMemoryAtomicVaultWriter';
-import { fingerprint } from '../../shared/identity/textFingerprint';
+import { contentIdentity } from '../../shared/identity/textFingerprint';
 import { DocumentTransaction } from '../../engine/DocumentTransaction';
 import type { InspectionResult } from '../../vault/atomicWrite/AtomicWriteContract';
 
@@ -162,7 +162,7 @@ async function openOnAtomicProvider() {
   const seeded = buildPage();
   const seededText = new FrontmatterSerializer().serializeDocument(seeded, seeded.source.markdown);
   // As a scan would have built it: carrying the identity of the text on disk.
-  const page = { ...seeded, sourceFingerprint: fingerprint(seededText) };
+  const page = { ...seeded, sourceFingerprint: contentIdentity(seededText) };
   const disk = new InMemoryVaultFileSystem();
   disk.seedFile(page.path, seededText);
   const writer = new InMemoryAtomicVaultWriter(disk);
@@ -360,7 +360,7 @@ describe('an edit saved through the atomic provider', () => {
     /** What Sync does when it sees the edit: the Vault page follows the disk. The open, dirty session does not. */
     function syncSeesIt(parts: Awaited<ReturnType<typeof openOnAtomicProvider>>, text: string) {
       const parsed = new FrontmatterParser().parse(text);
-      parts.vault.replacePage(new PageRebuilder().rebuild(parts.vault.getPage(parts.page.id)!, parsed, undefined, fingerprint(text)));
+      parts.vault.replacePage(new PageRebuilder().rebuild(parts.vault.getPage(parts.page.id)!, parsed, undefined, contentIdentity(text)));
     }
 
     it('external edit, autosave, more typing, autosave, Retry and a close-time flush: the disk keeps the external version throughout', async () => {
@@ -428,6 +428,124 @@ describe('an edit saved through the atomic provider', () => {
       await parts.pageOperations.requestSave(parts.page.id);
       expect(await parts.disk.readFile(parts.page.path)).toContain('continuing from the external version');
       expect(parts.pageOperations.saveFailureKind(parts.page.id)).toBeNull();
+    });
+
+    it('Clutter’s own metadata edit while the editor is dirty is not a conflict, keeps the unsaved text, and later saves still work', async () => {
+      const parts = await openOnAtomicProvider();
+      parts.pageOperations.commitEdit(parts.page.id, 'unsaved words');
+
+      await parts.pageOperations.updateMetadata(parts.page.id, { description: 'a new description' });
+
+      expect(await parts.disk.readFile(parts.page.path)).toContain('a new description');
+      expect(parts.session.currentRevision.markdown).toBe('unsaved words'); // not overwritten, not lost
+      expect(parts.session.isDirty).toBe(true);
+      expect(parts.pageOperations.saveFailureKind(parts.page.id)).toBeNull();
+
+      await parts.pageOperations.requestSave(parts.page.id);
+
+      expect(parts.pageOperations.saveFailureKind(parts.page.id)).toBeNull();
+      const onDisk = await parts.disk.readFile(parts.page.path);
+      expect(onDisk).toContain('unsaved words');
+      expect(onDisk).toContain('a new description');
+    });
+
+    it('a metadata edit does not overwrite an edit made elsewhere either', async () => {
+      const parts = await openOnAtomicProvider();
+      const text = await externalEdit(parts);
+      syncSeesIt(parts, text);
+
+      await expect(parts.pageOperations.updateMetadata(parts.page.id, { description: 'mine' })).rejects.toBeDefined();
+
+      expect(await parts.disk.readFile(parts.page.path)).toBe(text);
+    });
+
+    it('a rename while the editor is dirty keeps the session in step, so the next body save is not a false conflict', async () => {
+      const parts = await openOnAtomicProvider();
+      parts.pageOperations.commitEdit(parts.page.id, 'unsaved words');
+
+      await parts.pageOperations.rename(parts.page.id, 'Renamed');
+      await parts.pageOperations.requestSave(parts.page.id);
+
+      expect(parts.pageOperations.saveFailureKind(parts.page.id)).toBeNull();
+      expect(await parts.disk.readFile(parts.vault.getPage(parts.page.id)!.path)).toContain('unsaved words');
+    });
+
+    it('typing during an in-flight save: the base becomes the text that was written, not the newer text, and the follow-up save is no conflict', async () => {
+      const parts = await openOnAtomicProvider();
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => (release = resolve));
+      const write = parts.writer.write.bind(parts.writer);
+      const seenAtEachWrite: { base: string | undefined; onDisk: string }[] = [];
+      vi.spyOn(parts.writer, 'write').mockImplementation(async (attempt) => {
+        seenAtEachWrite.push({ base: parts.session.diskFingerprint, onDisk: contentIdentity(await parts.disk.readFile(attempt.path)) });
+        if (seenAtEachWrite.length === 1) await held;
+
+        return write(attempt);
+      });
+
+      parts.pageOperations.commitEdit(parts.page.id, 'first revision');
+      const inFlight = parts.pageOperations.requestSave(parts.page.id);
+      await vi.advanceTimersByTimeAsync(10);
+      parts.pageOperations.commitEdit(parts.page.id, 'second revision, typed while saving');
+      release();
+      await inFlight; // the facade also saves the newer revision before it settles
+      await vi.advanceTimersByTimeAsync(RECOVERY_DEBOUNCE_MS + 50);
+
+      // Two writes. When the second began, the session's base was the text the FIRST write installed (it equals what
+      // was on disk then), not the newer editor text: so the second was not a conflict.
+      expect(seenAtEachWrite).toHaveLength(2);
+      expect(seenAtEachWrite[1]!.base).toBe(seenAtEachWrite[1]!.onDisk);
+      expect(parts.pageOperations.saveFailureKind(parts.page.id)).toBeNull();
+      const finalText = await parts.disk.readFile(parts.page.path);
+      expect(finalText).toContain('second revision, typed while saving');
+      expect(parts.session.diskFingerprint).toBe(contentIdentity(finalText));
+      expect(parts.session.isDirty).toBe(false);
+    });
+
+    describe('Save as new note when the copy cannot be made', () => {
+      it.each([
+        ['the disk is full', 'insufficientSpace'],
+        ['the name is taken', 'destinationExists'],
+        ['the write is refused', 'readOnlyTarget'],
+      ] as const)('%s: the original session, the unsaved text and the recovery record are all left intact, and the error reaches the caller', async (_name, reason) => {
+        const parts = await openOnAtomicProvider();
+        parts.pageOperations.setExternalReconciler(async (path) => syncSeesIt(parts, await parts.disk.readFile(path)));
+        parts.pageOperations.commitEdit(parts.page.id, 'my unsaved words');
+        const text = await externalEdit(parts);
+        await vi.advanceTimersByTimeAsync(RECOVERY_DEBOUNCE_MS + 50);
+        await parts.pageOperations.requestSave(parts.page.id);
+        const pagesBefore = [...parts.vault.pages()].length;
+        const write = parts.writer.write.bind(parts.writer);
+        vi.spyOn(parts.writer, 'write').mockImplementation(async (attempt) =>
+          attempt.intent.kind === 'create'
+            ? { status: 'notCommitted', reason, detail: 'injected', leftovers: [] }
+            : write(attempt)
+        );
+
+        await expect(parts.pageOperations.saveUnsavedAsNewNote(parts.page.id)).rejects.toBeDefined();
+
+        expect(parts.session.isDirty).toBe(true);
+        expect(parts.session.currentRevision.markdown).toBe('my unsaved words');
+        expect(parts.pageOperations.saveFailureKind(parts.page.id)).toBe('changed-on-disk');
+        expect(parts.recordExists()).toBe(true);
+        expect(await parts.disk.readFile(parts.page.path)).toBe(text);
+        expect([...parts.vault.pages()].length).toBe(pagesBefore);
+      });
+
+      it('the copy is a new page with its own id, written create-only, so it can never replace an existing note', async () => {
+        const parts = await openOnAtomicProvider();
+        parts.pageOperations.setExternalReconciler(async (path) => syncSeesIt(parts, await parts.disk.readFile(path)));
+        parts.pageOperations.commitEdit(parts.page.id, 'my unsaved words');
+        await externalEdit(parts);
+        await parts.pageOperations.requestSave(parts.page.id);
+
+        const copyId = await parts.pageOperations.saveUnsavedAsNewNote(parts.page.id);
+
+        expect(copyId).not.toBe(parts.page.id);
+        const copyPath = parts.vault.getPage(copyId!)!.path;
+        expect(copyPath).not.toBe(parts.page.path);
+        expect(parts.writer.calls).toContain(`write:create:${copyPath}`);
+      });
     });
 
     it('a note nobody else touched keeps saving, edit after edit', async () => {

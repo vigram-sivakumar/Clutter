@@ -1,5 +1,5 @@
 import { AtomicExternalChangeError, isWriteConflict } from '../atomicWrite/atomicWriteErrors';
-import { fingerprint } from '../../shared/identity/textFingerprint';
+import { contentIdentity } from '../../shared/identity/textFingerprint';
 import type { Page } from '../models/Page';
 import type { PageMetadata } from '../models/PageMetadata';
 import type { PageFrontmatter } from '../ingest/frontmatter/PageFrontmatter';
@@ -603,7 +603,7 @@ export class PagePersistenceCoordinator {
       page: {
         ...scannedPage,
         ...(fileTimes && { fileTimes }),
-        sourceFingerprint: fingerprint(operation.content),
+        sourceFingerprint: contentIdentity(operation.content),
       },
     });
 
@@ -1050,7 +1050,7 @@ export class PagePersistenceCoordinator {
           page,
           parsed,
           await readPageFileTimes(this.fileSystem, page.path),
-          fingerprint(document)
+          contentIdentity(document)
         );
 
         this.vault.replacePage(rebuilt);
@@ -1842,7 +1842,7 @@ export class PagePersistenceCoordinator {
     const current = await this.fileSystem.readFile(page.path);
     const expected = expectedDiskFingerprint ?? page.sourceFingerprint;
 
-    if (expected !== undefined && fingerprint(current) !== expected) {
+    if (expected !== undefined && contentIdentity(current) !== expected) {
       throw new AtomicExternalChangeError(page.path);
     }
 
@@ -1876,7 +1876,7 @@ export class PagePersistenceCoordinator {
       page,
       parsed,
       await readPageFileTimes(this.fileSystem, page.path),
-      fingerprint(document)
+      contentIdentity(document)
     );
 
     try {

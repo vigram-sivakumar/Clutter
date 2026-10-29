@@ -27,3 +27,14 @@ function cyrb53(text: string, seed: number): string {
 
   return value.toString(16).padStart(14, '0');
 }
+
+/**
+ * The identity of a file's text as Sync and the Gate use it to recognise "the version I started from" (ADR-063): the
+ * 106-bit fingerprint plus the text's length in UTF-16 units and in UTF-8 bytes. Still not a security hash (nothing
+ * defends against someone crafting a collision), but an accidental match now needs the same two independent 53-bit
+ * hashes and both lengths, and it is never the only protection: the replacement itself is conditional on the exact
+ * bytes read (`replaceIf`).
+ */
+export function contentIdentity(text: string): string {
+  return `${fingerprint(text)}:${text.length}:${new TextEncoder().encode(text).length}`;
+}

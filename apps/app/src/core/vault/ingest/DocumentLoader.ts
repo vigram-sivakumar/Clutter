@@ -1,5 +1,5 @@
 import { FrontmatterParser } from './FrontmatterParser';
-import { fingerprint } from '../../shared/identity/textFingerprint';
+import { contentIdentity } from '../../shared/identity/textFingerprint';
 import type { VaultFileSystem } from '../providers';
 import type { ScannedPage } from './VaultScanResult';
 import type { ParseMemo } from './ParseMemo';
@@ -32,7 +32,7 @@ export class DocumentLoader {
       frontmatterAnalysis: parsedMarkdown.frontmatterAnalysis,
       content: parsedMarkdown.body,
       analysis: parsedMarkdown.analysis,
-      sourceFingerprint: fingerprint(content),
+      sourceFingerprint: contentIdentity(content),
     };
   }
   /**

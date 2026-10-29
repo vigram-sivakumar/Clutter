@@ -14,6 +14,8 @@ import {
   PagePersistenceCoordinator,
   RestoreConflictError,
   RestoreNeedsDestinationError,
+  type PersistenceOperation,
+  type PersistenceResult,
 } from '../../vault/persistence/PagePersistenceCoordinator';
 import { resolveFolderPathOrRoot } from '../../vault/persistence/resolveFolderPathOrRoot';
 import { PagePathResolver } from './PagePathResolver';
@@ -1205,7 +1207,7 @@ export class PageOperations {
       return;
     }
 
-    const result = await this.coordinator.enqueue(pageId, {
+    const result = await this.enqueueGate(pageId, {
       kind: 'save',
       content: transform(page!.source.markdown),
     });
@@ -1439,6 +1441,33 @@ export class PageOperations {
     await this.adoptDiskVersion(pageId);
 
     return copyId;
+  }
+
+  /**
+   * Every Gate operation on a page goes through here (ADR-063). Two jobs, both about the session's `diskFingerprint`,
+   * the version of the note on disk it started from:
+   * - a guarded `save` that carries no expectation of its own (a metadata patch) is held to the session's base, so it
+   *   cannot overwrite an edit made elsewhere any more than a body save can;
+   * - when Clutter itself rewrites the file (a metadata save, a rename, an archive) and the session was in step with
+   *   the Vault when it asked, the session follows to the text just written. Without that, the next body save would
+   *   see Clutter's own write as someone else's and report a false conflict. A session that had already diverged (a
+   *   dirty one whose note Sync saw change) keeps its old base, so the real conflict stays.
+   */
+  private async enqueueGate(pageId: string, operation: PersistenceOperation): Promise<PersistenceResult> {
+    const session = this.documentRegistry.get(pageId);
+    const inStepWithVault = session !== undefined && session.diskFingerprint === this.vault.getPage(pageId)?.sourceFingerprint;
+    const guarded =
+      operation.kind === 'save' && operation.expectedDiskFingerprint === undefined && session?.diskFingerprint !== undefined
+        ? { ...operation, expectedDiskFingerprint: session.diskFingerprint }
+        : operation;
+
+    const result = await this.coordinator.enqueue(pageId, guarded);
+
+    if (result.status === 'saved' && session && (inStepWithVault || guarded.kind === 'save')) {
+      session.diskFingerprint = result.page.sourceFingerprint ?? session.diskFingerprint;
+    }
+
+    return result;
   }
 
   /** Brings Sync's view of one path up to date from disk. Set by the Composition Root once Sync exists. */
@@ -2091,7 +2120,7 @@ export class PageOperations {
 
     try {
       if (page) {
-        const result = await this.coordinator.enqueue(pageId, {
+        const result = await this.enqueueGate(pageId, {
           kind: 'save',
           content: durableContent,
           // What this session believes is on disk: a save refuses to replace anything else (ADR-063).
@@ -2179,7 +2208,7 @@ export class PageOperations {
         );
       }
 
-      const result = await this.coordinator.enqueue(pageId, {
+      const result = await this.enqueueGate(pageId, {
         kind: 'save',
         content: page.source.markdown,
         metadata: this.withEditedKeysCanonicalized(page, patch),
@@ -2502,7 +2531,7 @@ export class PageOperations {
       return;
     }
 
-    const result = await this.coordinator.enqueue(pageId, {
+    const result = await this.enqueueGate(pageId, {
       kind: 'save',
       content: page.source.markdown,
       metadata: {
@@ -2564,7 +2593,7 @@ export class PageOperations {
     // archived every further save is rejected, so an edit still sitting in a debounce window would be lost.
     await this.flushPagesBeforeArchive([pageId]);
 
-    const result = await this.coordinator.enqueue(pageId, { kind: 'archive' });
+    const result = await this.enqueueGate(pageId, { kind: 'archive' });
 
     if (result.status === 'abandoned') {
       throw new Error(`Page not found: ${pageId}`);
@@ -2658,7 +2687,7 @@ export class PageOperations {
     conflict?: 'inbox',
     destinationFolderId?: string | null
   ): Promise<void> {
-    const result = await this.coordinator.enqueue(pageId, {
+    const result = await this.enqueueGate(pageId, {
       kind: 'restore',
       conflict,
       ...(destinationFolderId !== undefined && { destinationFolderId }),
@@ -2855,7 +2884,7 @@ export class PageOperations {
         : undefined
     );
 
-    const result = await this.coordinator.enqueue(id, {
+    const result = await this.enqueueGate(id, {
       kind: 'create',
       path: destination.path,
       parentId: destination.parentId,
@@ -2995,7 +3024,7 @@ export class PageOperations {
         )
       : [];
 
-    const result = await this.coordinator.enqueue(pageId, {
+    const result = await this.enqueueGate(pageId, {
       kind: 'move',
       destinationFolderId,
     });
@@ -3079,7 +3108,7 @@ export class PageOperations {
         )
       : [];
 
-    const result = await this.coordinator.enqueue(pageId, {
+    const result = await this.enqueueGate(pageId, {
       kind: 'rename',
       title,
     });
@@ -3477,7 +3506,7 @@ export class PageOperations {
     this.emitUnsaved(pageId);
 
     // Checked again when the delete runs (not only above): a restore queued ahead of it must win.
-    await this.coordinator.enqueue(pageId, {
+    await this.enqueueGate(pageId, {
       kind: 'delete',
       ...(!options.allowActive && { requireArchived: true }),
     });

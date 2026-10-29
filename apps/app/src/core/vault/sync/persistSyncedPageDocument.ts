@@ -5,7 +5,7 @@ import { FrontmatterSerializer } from '../ingest/FrontmatterSerializer';
 import { FrontmatterParser } from '../ingest/FrontmatterParser';
 import { PageRebuilder } from '../ingest/PageRebuilder';
 import { readPageFileTimes } from '../ingest/readResourceMetadata';
-import { fingerprint } from '../../shared/identity/textFingerprint';
+import { contentIdentity } from '../../shared/identity/textFingerprint';
 import { AtomicNotCommittedError, isWriteConflict } from '../atomicWrite/atomicWriteErrors';
 
 export interface PersistSyncedPageDocumentDeps {
@@ -70,7 +70,7 @@ export async function persistSyncedPageDocument(
     page,
     parsed,
     await readPageFileTimes(deps.fileSystem, page.path),
-    fingerprint(document)
+    contentIdentity(document)
   );
 
   deps.vault.replacePage(rebuilt);
@@ -84,7 +84,7 @@ export async function persistSyncedPageDocument(
  */
 async function changedSinceInspected(fileSystem: VaultFileSystem, page: Page, currentText: string): Promise<boolean> {
   if (page.sourceFingerprint !== undefined) {
-    return fingerprint(currentText) !== page.sourceFingerprint;
+    return contentIdentity(currentText) !== page.sourceFingerprint;
   }
   const inspected = page.fileTimes?.modifiedAt;
   if (!inspected) return false;
