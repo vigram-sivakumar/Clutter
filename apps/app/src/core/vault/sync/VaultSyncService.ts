@@ -840,7 +840,8 @@ export class VaultSyncService {
 
       await this.fileSystem.writeFile(
         folderMetadataPath,
-        this.frontmatterSerializer.serializeFolderDocument(folder)
+        this.frontmatterSerializer.serializeFolderDocument(folder),
+        'replace'
       );
     }
 

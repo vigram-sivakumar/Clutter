@@ -128,5 +128,5 @@ async function mergeAndWrite(
   }
 
   const path = `${rootPath}/${WORKSPACE_STATE_RELATIVE_PATH}`;
-  await fileSystem.writeFile(path, JSON.stringify({ ...current, ...patch }, null, 2));
+  await fileSystem.writeFile(path, JSON.stringify({ ...current, ...patch }, null, 2), 'upsert');
 }

@@ -573,7 +573,7 @@ export class PagePersistenceCoordinator {
       return this.writeParseRebuildReplace(target, body);
     }
 
-    await this.fileSystem.writeFile(operation.path, operation.content);
+    await this.fileSystem.writeFile(operation.path, operation.content, 'create');
 
     // Reuses the same parse pipeline VaultScanner/DocumentLoader use during
     // scan — ParsedMarkdown's fields are structurally identical to
@@ -635,7 +635,8 @@ export class PagePersistenceCoordinator {
     await this.fileSystem.createDirectory(operation.path);
     await this.fileSystem.writeFile(
       `${operation.path}/.folder.md`,
-      operation.content
+      operation.content,
+      'create'
     );
 
     // Reuses the same parse pipeline VaultScanner/DocumentLoader use during
@@ -1030,7 +1031,7 @@ export class PagePersistenceCoordinator {
 
         const document = this.serializer.serializeDocument(page, current.source.markdown);
 
-        await this.fileSystem.writeFile(page.path, document);
+        await this.fileSystem.writeFile(page.path, document, 'replace');
 
         const parsed = this.parser.parse(document);
         const rebuilt = this.rebuilder.rebuild(
@@ -1154,7 +1155,8 @@ export class PagePersistenceCoordinator {
 
         await this.fileSystem.writeFile(
           `${finalFolder.path}/.folder.md`,
-          this.serializer.serializeFolderDocument(finalFolder)
+          this.serializer.serializeFolderDocument(finalFolder),
+          'upsert'
         );
 
         this.vault.archiveFolder(folderId, destination.path, destination.parentId, archivePatch);
@@ -1292,7 +1294,8 @@ export class PagePersistenceCoordinator {
 
     await this.fileSystem.writeFile(
       `${finalFolder.path}/.folder.md`,
-      this.serializer.serializeFolderDocument(finalFolder)
+      this.serializer.serializeFolderDocument(finalFolder),
+      'upsert'
     );
 
     this.vault.restoreFolder(folderId, destination.path, destination.parentId, restorePatch);
@@ -1327,7 +1330,8 @@ export class PagePersistenceCoordinator {
 
     await this.fileSystem.writeFile(
       `${finalFolder.path}/.folder.md`,
-      this.serializer.serializeFolderDocument(finalFolder)
+      this.serializer.serializeFolderDocument(finalFolder),
+      'upsert'
     );
 
     this.vault.updateFolderMetadata(folderId, metadata);
@@ -1814,7 +1818,7 @@ export class PagePersistenceCoordinator {
   ): Promise<PersistenceResult> {
     const document = this.serializer.serializeDocument(page, markdown);
 
-    await this.fileSystem.writeFile(page.path, document);
+    await this.fileSystem.writeFile(page.path, document, 'replace');
 
     const parsed = this.parser.parse(document);
     const rebuilt = this.rebuilder.rebuild(

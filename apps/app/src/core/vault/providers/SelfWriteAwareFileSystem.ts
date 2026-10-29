@@ -1,4 +1,4 @@
-import type { MoveFileOptions, VaultEntry, VaultFileStat, VaultFileSystem } from './VaultFileSystem';
+import type { MoveFileOptions, VaultEntry, VaultFileStat, VaultFileSystem, VaultWriteIntent } from './VaultFileSystem';
 import type { SelfWriteRegistry } from './SelfWriteRegistry';
 
 /**
@@ -15,6 +15,10 @@ import type { SelfWriteRegistry } from './SelfWriteRegistry';
  * form the filesystem watcher's events use.
  */
 export class SelfWriteAwareFileSystem implements VaultFileSystem {
+  get writesAreAtomic(): boolean | undefined {
+    return this.inner.writesAreAtomic;
+  }
+
   constructor(
     private readonly inner: VaultFileSystem,
     private readonly registry: SelfWriteRegistry,
@@ -37,13 +41,13 @@ export class SelfWriteAwareFileSystem implements VaultFileSystem {
     return this.inner.readFile(path);
   }
 
-  async writeFile(path: string, contents: string): Promise<void> {
+  async writeFile(path: string, contents: string, intent?: VaultWriteIntent): Promise<void> {
     const relativePath = this.toRelativePath(path);
 
     this.registry.markPending(relativePath);
 
     try {
-      await this.inner.writeFile(path, contents);
+      await this.inner.writeFile(path, contents, intent);
     } catch (error) {
       // The write never reached disk, so there is no echo to suppress.
       this.registry.consumePending(relativePath);

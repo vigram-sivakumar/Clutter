@@ -51,12 +51,32 @@ export interface MoveFileOptions {
   readonly noClobber?: boolean;
 }
 
+/**
+ * What a caller means by a text write (ADR-063, decision 11). It travels with the request and is never inferred from an
+ * `exists()` check, so it survives a failure and a retry.
+ *
+ * - `'create'`: a new file; anything already there refuses the write.
+ * - `'replace'`: an existing file; a missing one refuses the write (a save never re-creates a deleted note).
+ * - `'upsert'`: replace or create, last writer wins. For application state and `.folder.md`, never for user notes.
+ * - `{ replaceIf }`: an existing file, only while it still holds exactly that text.
+ *
+ * A provider that cannot tell these apart (the in-memory test double, the browser provider, the plugin's in-place
+ * write) ignores the intent and behaves as it always did.
+ */
+export type VaultWriteIntent = 'create' | 'replace' | 'upsert' | { readonly replaceIf: string };
+
 export interface VaultFileSystem {
+  /**
+   * True when `writeFile` itself replaces a file whole (a reader, or a crash, sees the old file or the new one,
+   * never a truncated one), so callers need not stage a temporary file of their own (`writeFileAtomic`).
+   */
+  readonly writesAreAtomic?: boolean;
+
   exists(path: string): Promise<boolean>;
   createDirectory(path: string): Promise<void>;
   readDirectory(path: string): Promise<VaultEntry[]>;
   readFile(path: string): Promise<string>;
-  writeFile(path: string, contents: string): Promise<void>;
+  writeFile(path: string, contents: string, intent?: VaultWriteIntent): Promise<void>;
 
   /**
    * Deletes a file, or a directory, from the filesystem. Deleting a

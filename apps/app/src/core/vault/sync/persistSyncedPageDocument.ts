@@ -27,7 +27,7 @@ export async function persistSyncedPageDocument(
 ): Promise<Page> {
   const document = deps.serializer.serializeDocument(page, markdown);
 
-  await deps.fileSystem.writeFile(page.path, document);
+  await deps.fileSystem.writeFile(page.path, document, 'replace');
 
   const parsed = deps.parser.parse(document);
   const rebuilt = deps.rebuilder.rebuild(page, parsed, await readPageFileTimes(deps.fileSystem, page.path));

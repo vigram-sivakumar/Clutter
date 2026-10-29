@@ -77,7 +77,8 @@ export async function reconcileFolderArchiveMetadata(
 
   await deps.fileSystem.writeFile(
     `${reconciledFolder.path}/.folder.md`,
-    deps.serializer.serializeFolderDocument(reconciledFolder)
+    deps.serializer.serializeFolderDocument(reconciledFolder),
+    'upsert'
   );
 
   deps.vault.correctFolderArchiveMetadata(

@@ -20,10 +20,17 @@ export async function writeFileAtomic(
   path: string,
   contents: string
 ): Promise<void> {
+  if (fileSystem.writesAreAtomic) {
+    // The provider replaces a file whole itself (ADR-063): staging a sibling temp file would only add a second file
+    // that a crash can leave behind, and a `create` for a name an earlier crash already took.
+    await fileSystem.writeFile(path, contents, 'upsert');
+    return;
+  }
+
   const tempPath = `${path}.tmp`;
 
   try {
-    await fileSystem.writeFile(tempPath, contents);
+    await fileSystem.writeFile(tempPath, contents, 'upsert');
     await fileSystem.moveFile(tempPath, path);
   } catch (error) {
     try {

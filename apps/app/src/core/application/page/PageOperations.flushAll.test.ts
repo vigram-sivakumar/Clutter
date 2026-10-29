@@ -216,7 +216,7 @@ describe('PageOperations.flushAll', () => {
     await pageOperations.flushAll(1000);
 
     expect(writeSpy).toHaveBeenCalledTimes(1);
-    expect(writeSpy).toHaveBeenCalledWith(`${ROOT}/A.md`, expect.any(String));
+    expect(writeSpy).toHaveBeenCalledWith(`${ROOT}/A.md`, expect.any(String), 'replace');
     expect(documentRegistry.get('page-a')!.isDirty).toBe(false);
     expect(documentRegistry.get('page-b')!.isDirty).toBe(false);
   });

@@ -176,7 +176,8 @@ export class ResourceArchiveMetadataStore {
 
     await this.fileSystem.writeFile(
       this.path,
-      JSON.stringify({ resources: Object.fromEntries(entries) }, null, 2)
+      JSON.stringify({ resources: Object.fromEntries(entries) }, null, 2),
+      'upsert'
     );
   }
 }

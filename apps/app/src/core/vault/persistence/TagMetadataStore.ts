@@ -134,7 +134,7 @@ export class TagMetadataStore {
     const copyPath = `${this.path}.corrupt-${this.now()}`;
 
     try {
-      await this.fileSystem.writeFile(copyPath, text);
+      await this.fileSystem.writeFile(copyPath, text, 'create');
       this.lastQuarantinedText = text;
       console.warn(
         `TagMetadataStore: .clutter/tags.json is ${reason}. Opened with no tag definitions; the original was kept at ${copyPath}.`

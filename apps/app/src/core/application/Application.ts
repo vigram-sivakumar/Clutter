@@ -472,7 +472,8 @@ export class Application {
 
       await fileSystem.writeFile(
         folderMetadataPath,
-        folderFrontmatterSerializer.serializeFolderDocument(folder)
+        folderFrontmatterSerializer.serializeFolderDocument(folder),
+        'replace'
       );
     }
 
