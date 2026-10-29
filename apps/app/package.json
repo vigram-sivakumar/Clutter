@@ -12,7 +12,9 @@
     "tauri": "tauri",
     "desktop": "tauri dev",
     "preview": "vite preview",
-    "test": "vitest"
+    "test": "vitest",
+    "build:appstore": "scripts/build-app-store.sh",
+    "verify:appstore": "scripts/verify-app-store-bundle.sh"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
