@@ -1,6 +1,10 @@
-//! How Clutter keeps access to the user's real folders when it runs inside the macOS App Sandbox (the Mac App
-//! Store build). Outside a sandbox nothing here is active: every command reports `sandboxed: false` and the Space
-//! commands behave exactly as before.
+//! How Clutter keeps access to the user's real folders. Every packaged Clutter is sandboxed (the entitlements are in
+//! `tauri.conf.json`), whether it was built locally or comes from the Mac App Store, and behaves identically; nothing
+//! here depends on a distribution flag. What does depend on a fact about the *process* is the operating-system part
+//! (bookmarks, Documents authorization): it is active when the process really is sandboxed (`APP_SANDBOX_CONTAINER_ID`
+//! is set), which is every packaged app and a development run started with `npm run dev:sandbox`. An unsandboxed
+//! development run (`npm run tauri dev`) has the user's whole home available, so it needs neither; the per-folder scope
+//! grant below is the same in both.
 //!
 //! Inside the sandbox three facts shape the design (verified in a sandbox-enabled build, ADR-063):
 //!
@@ -232,7 +236,9 @@ impl SpaceAccess {
         self.state.lock().unwrap().active.contains(&key(path))
     }
 
-    /// Forgets a folder (a Space that was removed from Clutter).
+    /// Forgets a folder (a Space that was removed from Clutter). Not called yet: dropping a bookmark when a Space is
+    /// removed or renamed is the pending "stale grants" item in the release checklist.
+    #[allow(dead_code)]
     pub fn forget(&self, path: &Path) -> Result<(), String> {
         let mut state = self.state.lock().unwrap();
         state.active.remove(&key(path));
@@ -460,15 +466,15 @@ pub fn grant_static_scope<R: tauri::Runtime>(app: &tauri::AppHandle<R>, folder: 
     Ok(())
 }
 
-/// Grants an authorized folder to everything that checks a scope: the runtime fs and asset scopes, and, inside the App
-/// Sandbox (where `$HOME/**` is the container, so no static entry reaches the real folder), its static scope too.
+/// Grants an authorized folder to everything that checks a scope: the runtime fs and asset scopes, and its static
+/// scope (so its dot entries are reachable). The same for every authorized folder, sandboxed or not: inside the sandbox
+/// `$HOME/**` is the container, so no other entry reaches a real folder, and outside it a folder picked outside `$HOME`
+/// needs the same entry.
 fn allow(app: &AppHandle, folder: &Path) {
     let _ = app.fs_scope().allow_directory(folder, true);
     let _ = app.asset_protocol_scope().allow_directory(folder, true);
-    if is_sandboxed() {
-        if let Err(error) = grant_static_scope(app, folder) {
-            log::error!("Could not make the dot entries of {} reachable: {error}", folder.display());
-        }
+    if let Err(error) = grant_static_scope(app, folder) {
+        log::error!("Could not make the dot entries of {} reachable: {error}", folder.display());
     }
 }
 
@@ -511,16 +517,18 @@ pub async fn restore_space_access(app: AppHandle) -> Result<Vec<RestoredAccess>,
     .map_err(|error| error.to_string())
 }
 
-/// Saves access to a folder the user has just picked, so it can be reopened after a restart. Refused for a folder the
-/// picker did not grant (it is not in the fs scope), and a no-op outside the sandbox.
+/// Records a folder the user has just picked as authorized. Refused for a folder the picker did not grant (it is not
+/// in the fs scope). Inside the sandbox it also saves a bookmark so the folder opens again after a restart and answers
+/// `true`; outside it the folder only gets its scope grant (nothing to bookmark) and the answer is `false`.
 #[tauri::command]
 pub async fn remember_space_access(app: AppHandle, path: String) -> Result<bool, String> {
-    if !is_sandboxed() {
-        return Ok(false);
-    }
     let folder = PathBuf::from(&path);
     if !app.fs_scope().is_allowed(&folder) {
         return Err(format!("forbidden path: {path}"));
+    }
+    if !is_sandboxed() {
+        allow(&app, &folder);
+        return Ok(false);
     }
     let handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {

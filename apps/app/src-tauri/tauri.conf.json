@@ -7,7 +7,7 @@
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1421",
     "beforeDevCommand": "npm run dev:tauri",
-    "beforeBuildCommand": "npm run build"
+    "beforeBuildCommand": "npm run check:atomic && npm run build"
   },
   "app": {
     "windows": [
@@ -59,6 +59,11 @@
     ],
     "android": {
       "debugApplicationIdSuffix": ".debug"
+    },
+    "category": "Productivity",
+    "macOS": {
+      "entitlements": "Entitlements.plist",
+      "signingIdentity": "-"
     }
   }
 }

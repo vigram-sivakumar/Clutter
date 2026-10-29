@@ -9,6 +9,12 @@
   "scripts": {
     "dev": "npm run dev --workspace=apps/app",
     "dev:web": "npm run dev:web --workspace=apps/app",
+    "tauri": "npm run tauri --workspace=apps/app --",
+    "desktop": "npm run desktop --workspace=apps/app",
+    "dev:sandbox": "npm run dev:sandbox --workspace=apps/app",
+    "build:appstore": "npm run build:appstore --workspace=apps/app",
+    "build:share": "npm run build:share --workspace=apps/app",
+    "verify:bundle": "npm run verify:bundle --workspace=apps/app --",
     "test": "npm test --workspace=apps/app",
     "test:run": "npm test --workspace=apps/app -- --run",
     "automation:build": "npm run build:app --workspace=packages/automation",

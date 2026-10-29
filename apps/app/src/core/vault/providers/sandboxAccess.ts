@@ -1,10 +1,12 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 
 /**
- * Access to the user's real folders inside the macOS App Sandbox (the Mac App Store build). The native side
- * (src-tauri/src/space_access.rs) owns the bookmarks; this is the one place the frontend talks to it. Outside the
- * sandbox every call here is a no-op or reports `sandboxed: false`, so ordinary and development builds behave exactly
- * as they did.
+ * Access to the user's real folders inside the macOS App Sandbox. Every packaged Clutter is sandboxed (the entitlements
+ * are in `tauri.conf.json`), whether built locally or from the Mac App Store, and behaves the same; none of this depends
+ * on a distribution flag. The native side (src-tauri/src/space_access.rs) owns the bookmarks, and this is the one place
+ * the frontend talks to it. When the process is not sandboxed (a plain `npm run tauri dev`) the calls here are no-ops
+ * or report `sandboxed: false`, because the whole home folder is available; `npm run dev:sandbox` runs development
+ * sandboxed to exercise the real thing.
  *
  * Inside the sandbox `$HOME` and `Documents` resolve to the app's container, so the *real* Documents folder has to be
  * named by its real path and authorized by the user once; and a folder the user picks is only reachable until the

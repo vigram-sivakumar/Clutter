@@ -59,14 +59,33 @@ fn only_the_main_window_is_granted_the_commands() {
     assert!(!CAPABILITY.contains("\"remote\""), "no remote origin may be given application commands");
 }
 
-/// The App Store build adds no static capability: the user's real folders are reached through one runtime capability
-/// per authorized folder (`space_access::grant_static_scope`), never through a broad path in a file. No capability
-/// other than `default` exists, and the ordinary config lists only that one.
+/// No build adds a broad static capability: the user's real folders are reached through one runtime capability per
+/// authorized folder (`space_access::grant_static_scope`), never through a broad path in a file. No capability other
+/// than `default` exists, and the config lists only that one.
 #[test]
-fn there_is_no_broad_static_scope_for_the_app_store_build() {
+fn there_is_no_broad_static_scope_in_any_build() {
     assert!(include_str!("../tauri.conf.json").contains("\"capabilities\": [\"default\"]"));
-    assert!(!include_str!("../appstore/tauri.appstore.conf.json").contains("capabilities"));
     assert!(!CAPABILITY.contains("/Users"), "no absolute user path in the default capability");
     assert!(!CAPABILITY.contains("/Volumes"));
     assert!(!std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/capabilities/app-store.json")).exists());
+}
+
+/// One sandbox entitlement set for every packaged build: the local build and the App Store build are the same app with
+/// the same sandboxed filesystem behavior; only signing and the identifiers Apple adds differ.
+#[test]
+fn every_packaged_build_is_sandboxed_with_the_same_entitlements() {
+    let config = include_str!("../tauri.conf.json");
+    let entitlements = include_str!("../Entitlements.plist");
+    assert!(config.contains("\"entitlements\": \"Entitlements.plist\""));
+    for required in [
+        "com.apple.security.app-sandbox",
+        "com.apple.security.files.user-selected.read-write",
+        "com.apple.security.files.bookmarks.app-scope",
+        "com.apple.security.network.client",
+    ] {
+        assert!(entitlements.contains(required), "{required}");
+    }
+    for forbidden in ["temporary-exception", "files.all", "network.server", "get-task-allow"] {
+        assert!(!entitlements.contains(forbidden), "{forbidden}");
+    }
 }

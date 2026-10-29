@@ -14,7 +14,10 @@
     "preview": "vite preview",
     "test": "vitest",
     "build:appstore": "scripts/build-app-store.sh",
-    "verify:appstore": "scripts/verify-app-store-bundle.sh"
+    "build:share": "scripts/build-share.sh",
+    "verify:bundle": "scripts/verify-bundle.sh",
+    "check:atomic": "scripts/check-atomic-default.sh",
+    "dev:sandbox": "scripts/dev-sandboxed.sh"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

@@ -23,8 +23,8 @@ export const featureFlags = {
   allowMovingAssetsSetting: false,
   /**
    * Atomic vault saves (ADR-063): every text write into a vault replaces the file whole through the native writer
-   * instead of the fs plugin's truncating in-place write. **On, in development and in the Mac App Store build alike:
-   * it is the only saving system.** There is no build switch to turn it off and no fallback when an atomic save fails
+   * instead of the fs plugin's truncating in-place write. **On in every build, development and packaged
+   * alike: it is the only saving system.** There is no build switch to turn it off and no fallback when an atomic save fails
    * (the failure is reported and the text kept); the plugin writer is still in the repository, unused, until the
    * removal criteria in the ADR are met. It needs the native commands, which the default `atomic-writes` Cargo feature
    * registers; a build without them refuses to open a Space. The value is held here only so a test can exercise the

@@ -1,3 +1,0 @@
-{
-  "bundle": { "macOS": { "entitlements": "appstore/Entitlements.plist" } }
-}
