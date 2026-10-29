@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { documentDir, homeDir } from '@tauri-apps/api/path';
 
 import { VaultPath } from '../ingest/VaultPath';
+import { DOCUMENTS_ACCESS_NEEDED, requestDocumentsAccess, sandboxInfo } from './sandboxAccess';
 import { isValidSpaceFolderName } from '../ingest/spaceFolderName';
 
 /** The folder new Spaces are created in, resolved from the current user's real home — never hardcoded. */
@@ -20,7 +21,9 @@ function withoutTrailingSlashes(path: string): string {
 
 /** `~/Documents` for whoever is running the app. */
 export async function resolveSpaceParent(): Promise<SpaceParent> {
-  const path = withoutTrailingSlashes(await documentDir());
+  // Inside the App Sandbox the platform's Documents is the app's container; the user's is named by its real path.
+  const info = await sandboxInfo();
+  const path = withoutTrailingSlashes(info?.sandboxed ? info.documents : await documentDir());
   return { path, name: VaultPath.filename(path) || path };
 }
 
@@ -32,7 +35,9 @@ export async function resolveSpaceParent(): Promise<SpaceParent> {
  */
 export async function isTooBroadForSpace(path: string): Promise<boolean> {
   const candidate = withoutTrailingSlashes(path);
-  const home = withoutTrailingSlashes(await homeDir());
+  // Inside the App Sandbox `homeDir()` is the container: the home to protect is the user's real one.
+  const info = await sandboxInfo();
+  const home = withoutTrailingSlashes(info?.sandboxed && info.realHome ? info.realHome : await homeDir());
   return (
     candidate === '/' ||
     candidate === home ||
@@ -91,15 +96,31 @@ export async function createSpaceFolder(
 
   const parent = await resolveSpaceParent();
 
+  const create = () => invoke<string>('create_space_folder', { name: name.trim() });
   try {
-    const path = await invoke<string>('create_space_folder', {
-      name: name.trim(),
-    });
-    return { path };
+    try {
+      return { path: await create() };
+    } catch (error) {
+      if (!isDocumentsAccessNeeded(error)) throw error;
+      // Inside the App Sandbox the user authorizes Documents once, here, at the first Create. Nothing has been
+      // created yet; cancelling leaves it that way (not even a folder in the app's own container).
+      const granted = await requestDocumentsAccess();
+      if (granted === 'cancelled') return { error: DOCUMENTS_PERMISSION_MESSAGE };
+      if (granted === 'wrongFolder') return { error: DOCUMENTS_WRONG_FOLDER_MESSAGE };
+      return { path: await create() };
+    }
   } catch (error) {
     console.error('Creating the space folder failed:', error);
     return { error: describeFolderFailure(error, parent.name, 'create') };
   }
+}
+
+const DOCUMENTS_PERMISSION_MESSAGE = 'Clutter needs your permission to create spaces in Documents';
+const DOCUMENTS_WRONG_FOLDER_MESSAGE = 'Choose the Documents folder to let Clutter create spaces there';
+
+function isDocumentsAccessNeeded(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes(DOCUMENTS_ACCESS_NEEDED);
 }
 
 /**

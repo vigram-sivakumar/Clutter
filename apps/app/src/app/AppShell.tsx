@@ -22,6 +22,7 @@ import {
   isTooBroadForSpace,
   resolveSpaceParent,
 } from '../core/vault/providers/spaceFolders';
+import { rememberSpaceAccess, restoreSpaceAccess } from '../core/vault/providers/sandboxAccess';
 
 import { AppLayout } from './layouts/app-layout/AppLayout';
 import { useFrontendReady } from './frontendReady';
@@ -121,6 +122,8 @@ const WELCOME_BACKDROP: 'gradient' | 'image' = 'gradient';
 const TOO_BROAD_MESSAGE =
   'That folder is too broad to be a space (your home folder or the disk root). Choose a more specific folder';
 
+const KEEP_ACCESS_FAILED_MESSAGE = 'Clutter couldn’t keep access to that folder for next time. Choose it again';
+
 const LINKED_FOLDER_MESSAGE =
   'That folder is reached through a link, so Clutter would not see changes made outside the app. Choose the folder itself';
 
@@ -136,8 +139,32 @@ async function acceptPickedSpace(path: string): Promise<string | null> {
   if (await isTooBroadForSpace(path)) return TOO_BROAD_MESSAGE;
   // The watcher reports resolved paths, so a Space reached through a link would never see outside changes.
   if (await isReachedThroughLink(path)) return LINKED_FOLDER_MESSAGE;
+  // App Sandbox: the pick only authorizes the folder for this run. Save the access now, or refuse the folder rather
+  // than accept a Space that works today and cannot be opened after the next launch.
+  try {
+    await rememberSpaceAccess(path);
+  } catch (error) {
+    console.error('Saving access to the picked folder failed:', error);
+    return KEEP_ACCESS_FAILED_MESSAGE;
+  }
 
   return null;
+}
+
+/** `true` once the saved folder access has been restored (immediately outside Tauri). */
+function useSpaceAccessRestored(): boolean {
+  const [restored, setRestored] = useState(!isTauri());
+  useEffect(() => {
+    if (restored) return;
+    let cancelled = false;
+    void restoreSpaceAccess().then(() => {
+      if (!cancelled) setRestored(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [restored]);
+  return restored;
 }
 
 /** Closes an Application that never became (or no longer is) the open one; a failed close is only logged. */
@@ -154,6 +181,11 @@ async function discardApplication(application: Application): Promise<void> {
  * closes and another opens, so Settings stays open across a rename (and across a switch from inside it).
  */
 export function AppShell() {
+  // App Sandbox: access the user authorized in an earlier run is started before any Space is probed or opened. A
+  // no-op, answered at once, outside the sandbox.
+  const accessRestored = useSpaceAccessRestored();
+  if (!accessRestored) return null;
+
   return (
     <SettingsDialogStateProvider>
       <ShortcutsProvider>

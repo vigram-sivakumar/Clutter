@@ -1,9 +1,11 @@
 import { isTauri } from '@tauri-apps/api/core';
 import { readDir, stat } from '@tauri-apps/plugin-fs';
 
+import { needsFolderReselected } from './sandboxAccess';
+
 /**
- * What a Space folder is right now. `missing` is only ever a *confirmed* absence (the OS reported
- * "no such file or directory"); a scope refusal, a permission error, a file where the folder should
+ * What a Space folder is right now. `missing` is a *confirmed* absence (the OS reported
+ * "no such file or directory"), or, in the App Sandbox only, a folder whose saved access could not be restored; a scope refusal, a permission error, a file where the folder should
  * be, or an unreadable folder are all `unavailable` — a different problem that must not be mistaken
  * for a deleted or moved folder.
  */
@@ -27,6 +29,12 @@ export function isNotFoundError(error: unknown): boolean {
 export async function probeSpaceFolder(path: string): Promise<SpaceFolderStatus> {
   if (!isTauri()) {
     return 'available';
+  }
+
+  // App Sandbox only: the folder exists but the access the user gave for it could not be restored. It is presented
+  // as the Space whose folder has to be selected again, never opened from a different place.
+  if (needsFolderReselected(path)) {
+    return 'missing';
   }
 
   try {

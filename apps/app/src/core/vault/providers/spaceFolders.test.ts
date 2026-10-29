@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const invoke = vi.fn();
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: (...args: unknown[]) => invoke(...args),
+  isTauri: () => true,
 }));
 vi.mock('@tauri-apps/api/path', () => ({
   documentDir: async () => '/Users/someone-else/Documents/',
@@ -262,5 +263,69 @@ describe('isReachedThroughLink', () => {
 
     invoke.mockResolvedValue(undefined);
     expect(await isReachedThroughLink('/Users/me/Notes')).toBe(false);
+  });
+});
+
+describe('in the App Sandbox', () => {
+  const SANDBOX = { sandboxed: true, realHome: '/Users/real', documents: '/Users/real/Documents' };
+
+  beforeEach(async () => {
+    const { resetSandboxAccessForTests } = await import('./sandboxAccess');
+    resetSandboxAccessForTests();
+  });
+
+  function answer(commands: Record<string, (args: unknown) => unknown>) {
+    invoke.mockImplementation(async (command: string, args: unknown) => {
+      const handler = commands[command];
+      if (!handler) throw new Error(`unexpected command ${command}`);
+      return handler(args);
+    });
+  }
+
+  it("names the user's real Documents and home, not the container's", async () => {
+    answer({ sandbox_info: () => SANDBOX });
+    expect(await resolveSpaceParent()).toEqual({ path: '/Users/real/Documents', name: 'Documents' });
+    expect(await isTooBroadForSpace('/Users/real')).toBe(true);
+    expect(await isTooBroadForSpace('/Users/real/Documents')).toBe(false);
+  });
+
+  it('asks once for Documents at the first Create, then creates the folder', async () => {
+    let authorized = false;
+    answer({
+      sandbox_info: () => SANDBOX,
+      create_space_folder: () => {
+        if (!authorized) throw 'documentsAccessNeeded';
+        return '/Users/real/Documents/Personal';
+      },
+      request_documents_access: () => {
+        authorized = true;
+        return 'granted';
+      },
+    });
+
+    expect(await createSpaceFolder('Personal')).toEqual({ path: '/Users/real/Documents/Personal' });
+    expect(invoke.mock.calls.filter(([command]) => command === 'request_documents_access')).toHaveLength(1);
+
+    // Later creations need no prompt.
+    invoke.mockClear();
+    await createSpaceFolder('Work');
+    expect(invoke.mock.calls.filter(([command]) => command === 'request_documents_access')).toHaveLength(0);
+  });
+
+  it.each([
+    ['cancelled', 'Clutter needs your permission to create spaces in Documents'],
+    ['wrongFolder', 'Choose the Documents folder to let Clutter create spaces there'],
+  ])('creates nothing when the authorization ends as %s', async (result, message) => {
+    answer({
+      sandbox_info: () => SANDBOX,
+      create_space_folder: () => {
+        throw 'documentsAccessNeeded';
+      },
+      request_documents_access: () => result,
+    });
+
+    expect(await createSpaceFolder('Personal')).toEqual({ error: message });
+    // The folder was asked for once, before the prompt, and never again.
+    expect(invoke.mock.calls.filter(([command]) => command === 'create_space_folder')).toHaveLength(1);
   });
 });
