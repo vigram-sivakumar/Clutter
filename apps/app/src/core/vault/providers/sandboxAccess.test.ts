@@ -60,6 +60,14 @@ describe('restoreSpaceAccess', () => {
     await expect(restoreSpaceAccess()).resolves.toEqual([]);
   });
 
+  it('also covers a Space that lives inside a folder whose access could not be restored', async () => {
+    invoke.mockResolvedValue([{ path: '/Users/me/Documents', status: 'needsReselect' }]);
+    await restoreSpaceAccess();
+    expect(needsFolderReselected('/Users/me/Documents/Personal')).toBe(true);
+    expect(needsFolderReselected('/Users/me/Documents-old/Personal')).toBe(false);
+    expect(needsFolderReselected('/Users/me/Desktop/Personal')).toBe(false);
+  });
+
   it('does nothing in the web runtime', async () => {
     isTauri.mockReturnValue(false);
     expect(await restoreSpaceAccess()).toEqual([]);

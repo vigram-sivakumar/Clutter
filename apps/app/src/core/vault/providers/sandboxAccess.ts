@@ -70,9 +70,16 @@ export async function restoreSpaceAccess(): Promise<readonly RestoredAccess[]> {
   }
 }
 
-/** Whether this Space's saved access could not be restored, so the user has to select its folder again. */
+/**
+ * Whether this Space's saved access could not be restored, so the user has to select its folder again: its own saved
+ * access, or that of a folder it lives in (a Space inside Documents when Documents' access could not be restored).
+ */
 export function needsFolderReselected(path: string): boolean {
-  return needsReselect.has(withoutTrailingSlashes(path));
+  const candidate = withoutTrailingSlashes(path);
+  for (const folder of needsReselect) {
+    if (candidate === folder || candidate.startsWith(`${folder}/`)) return true;
+  }
+  return false;
 }
 
 /**

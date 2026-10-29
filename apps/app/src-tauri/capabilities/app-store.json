@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "app-store",
+  "description": "Mac App Store build only (enabled by appstore/tauri.appstore.conf.json): inside the App Sandbox $HOME is the app's container, so the user's real folders have to be named in the static fs scope, which, unlike a scope granted at runtime, shows dot entries such as .clutter and .folder.md. The operating system still decides what is reachable: only a folder the user authorized is.",
+  "windows": ["main"],
+  "permissions": [
+    {
+      "identifier": "fs:scope",
+      "allow": ["/Users/**", "/Volumes/**"]
+    }
+  ]
+}

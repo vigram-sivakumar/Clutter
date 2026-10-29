@@ -58,3 +58,19 @@ fn only_the_main_window_is_granted_the_commands() {
     assert!(CAPABILITY.contains("\"windows\": [\"main\"]"));
     assert!(!CAPABILITY.contains("\"remote\""), "no remote origin may be given application commands");
 }
+
+const APP_STORE_CAPABILITY: &str = include_str!("../capabilities/app-store.json");
+const APP_STORE_OVERLAY: &str = include_str!("../appstore/tauri.appstore.conf.json");
+
+/// The App Store capability only widens the static fs scope (and only for the main window); it grants no command.
+/// Ordinary builds never load it: `tauri.conf.json` lists only `default`, and the overlay that adds `app-store` is
+/// passed only to the App Store build.
+#[test]
+fn the_app_store_capability_adds_only_an_fs_scope_for_the_main_window_and_is_not_in_the_ordinary_config() {
+    assert!(APP_STORE_CAPABILITY.contains("\"windows\": [\"main\"]"));
+    assert_eq!(APP_STORE_CAPABILITY.matches("\"identifier\"").count(), 2, "the capability's own id and fs:scope only");
+    assert!(APP_STORE_CAPABILITY.contains("\"identifier\": \"fs:scope\""));
+    assert!(!APP_STORE_CAPABILITY.contains("allow-"), "no command may be granted here");
+    assert!(include_str!("../tauri.conf.json").contains("\"capabilities\": [\"default\"]"));
+    assert!(APP_STORE_OVERLAY.contains("\"default\", \"app-store\""));
+}
