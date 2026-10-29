@@ -48,6 +48,17 @@ export function decideAfterUncertain(
       return { action: 'visible-durability-unconfirmed' };
 
     case 'holdsOther':
+      // Without the previous content the destination cannot be recognised as "unchanged", but the writer's own
+      // temporary file still sitting under its temporary name proves the rename never happened: this write was
+      // simply not committed, and whatever is at the destination was there regardless. Without that evidence the
+      // something else may be a third party's change to a file we may have replaced: do not write.
+      if (inspection.temps.some((temp) => temp.state === 'holdsAttempted')) {
+        return {
+          action: 'retry',
+          request: { ...attempt, intent: retryIntent(attempt.intent, previous) },
+          keepRecoveryRecord: true,
+        };
+      }
       return { action: 'conflict', keepRecoveryRecord: true };
 
     case 'holdsPrevious':

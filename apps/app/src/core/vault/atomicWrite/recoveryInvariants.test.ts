@@ -46,6 +46,20 @@ describe('after an uncertain write: inspect first, then decide', () => {
     }
   });
 
+  it('the writer’s own temporary file still holding the attempted content proves the rename never happened', () => {
+    const withTemp: InspectionResult = {
+      status: 'inspected',
+      target: 'holdsOther',
+      temps: [{ path: '/v/.clutter-tmp.1', state: 'holdsAttempted' }],
+    };
+    const withoutTemp: InspectionResult = { status: 'inspected', target: 'holdsOther', temps: [{ path: '/v/.clutter-tmp.1', state: 'absent' }] };
+
+    expect(decideAfterUncertain(attempt(writeIntent.replace), null, withTemp)).toMatchObject({ action: 'retry', request: { intent: { kind: 'replace' } } });
+    expect(decideAfterUncertain(attempt(writeIntent.create), null, withTemp)).toMatchObject({ action: 'retry', request: { intent: { kind: 'create' } } });
+    // The temporary file gone and the destination different: it may have been installed and then changed.
+    expect(decideAfterUncertain(attempt(writeIntent.replace), null, withoutTemp)).toEqual({ action: 'conflict', keepRecoveryRecord: true });
+  });
+
   it('a missing destination is handled explicitly: a replace never silently re-creates it', () => {
     expect(decideAfterUncertain(attempt(writeIntent.replace), 'previous', inspected('missing'))).toEqual({ action: 'target-missing', keepRecoveryRecord: true });
     expect(decideAfterUncertain(attempt(writeIntent.replaceIfContent('previous')), 'previous', inspected('missing'))).toEqual({ action: 'target-missing', keepRecoveryRecord: true });
