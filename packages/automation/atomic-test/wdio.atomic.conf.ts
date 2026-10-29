@@ -20,6 +20,8 @@ if (!/^\/(private\/)?tmp\/clutter-atomictest-/.test(fakeHome)) {
 export const config: WebdriverIO.Config = {
   runner: 'local',
   specs: [path.join(__dirname, process.env.CLUTTER_ATOMIC_SPEC ?? 'specs/*.spec.ts')],
+  // The build-matrix spec needs the expectation of its cell: only run-matrix.sh runs it.
+  exclude: process.env.CLUTTER_ATOMIC_SPEC ? [] : [path.join(__dirname, 'specs/build-matrix.spec.ts')],
   maxInstances: 1,
   services: [
     ['@wdio/tauri-service', { driverProvider: 'embedded', env: { TAURI_AUTOMATION: '1', HOME: fakeHome } }],
