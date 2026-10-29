@@ -27,7 +27,7 @@ export class PageRebuilder {
    * replaces whatever the previous page held — a stale value is never carried
    * over; omit it (or pass `undefined`) when the file could not be stat'd.
    */
-  rebuild(page: Page, parsedMarkdown: ParsedMarkdown, fileTimes?: PageFileTimes): Page {
+  rebuild(page: Page, parsedMarkdown: ParsedMarkdown, fileTimes?: PageFileTimes, sourceFingerprint?: string): Page {
     const { frontmatter, frontmatterAnalysis, body, analysis } = parsedMarkdown;
 
     return {
@@ -85,6 +85,8 @@ export class PageRebuilder {
         }),
       },
       ...(fileTimes && { fileTimes }),
+      // Like `fileTimes`, replaced and never carried over: a stale identity would let a repair overwrite newer text.
+      ...(sourceFingerprint && { sourceFingerprint }),
       source: {
         markdown: body,
       },

@@ -60,6 +60,7 @@ export class PageBuilder {
 
       metadata,
       ...(page.fileTimes && { fileTimes: page.fileTimes }),
+      ...(page.sourceFingerprint && { sourceFingerprint: page.sourceFingerprint }),
       source: {
         markdown: page.content,
       },

@@ -63,6 +63,13 @@ export interface Page {
    */
   readonly fileTimes?: PageFileTimes;
   /**
+   * `fingerprint(text)` of the exact file text this page was built from (scan, Sync reconcile, or the Gate's own
+   * write). Never written to frontmatter. It is the page's content identity for Sync repairs (ADR-063): a repair is
+   * derived from this page, so it may replace the file only if the file still holds the text this identifies. Absent
+   * when the page was not built from file text.
+   */
+  readonly sourceFingerprint?: string;
+  /**
    * The latest durable Markdown known by the Vault.
    *
    * While a page is open, the DocumentSession may contain newer uncommitted

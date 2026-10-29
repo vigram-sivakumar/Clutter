@@ -10,12 +10,15 @@ import {
   evaluateArchiveMetadataRepair,
 } from './ArchiveMetadataReconciler';
 import { persistSyncedPageDocument } from './persistSyncedPageDocument';
+import { persistSyncedFolderDocument } from './persistSyncedFolderDocument';
 
 export interface ReconcileArchiveMetadataDeps {
   readonly vault: Vault;
   readonly fileSystem: VaultFileSystem;
   readonly serializer: FrontmatterSerializer;
   readonly parser: FrontmatterParser;
+  /** A repair was refused as stale (ADR-063): the caller reconciles the path from disk. */
+  readonly onStale?: (path: string) => void;
   readonly rebuilder: PageRebuilder;
 }
 
@@ -65,7 +68,7 @@ export async function reconcilePageArchiveMetadata(
  * already share). Returns null when no repair was required.
  */
 export async function reconcileFolderArchiveMetadata(
-  deps: Pick<ReconcileArchiveMetadataDeps, 'vault' | 'fileSystem' | 'serializer'>,
+  deps: Pick<ReconcileArchiveMetadataDeps, 'vault' | 'fileSystem' | 'serializer' | 'onStale'>,
   candidateFolder: Folder
 ): Promise<Folder | null> {
   const correction = evaluateArchiveMetadataRepair(candidateFolder, deps.vault.root);
@@ -76,11 +79,16 @@ export async function reconcileFolderArchiveMetadata(
 
   const reconciledFolder = applyArchiveMetadataCorrection(candidateFolder, correction);
 
-  await deps.fileSystem.writeFile(
-    `${reconciledFolder.path}/.folder.md`,
-    deps.serializer.serializeFolderDocument(reconciledFolder),
-    'upsert'
-  );
+  const written = await persistSyncedFolderDocument(deps, reconciledFolder, {
+    mayCreate: true,
+    repairs: ['status', 'archivedAt', 'originalPath', 'originalParentId'],
+  });
+
+  if (!written) {
+    // Refused as stale (the file changed since it was inspected): nothing was written, so the correction is not
+    // committed to the Vault either; Sync reconciles the folder from disk.
+    return null;
+  }
 
   deps.vault.correctFolderArchiveMetadata(
     reconciledFolder.id,

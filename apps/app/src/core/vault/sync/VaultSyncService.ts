@@ -1,3 +1,5 @@
+import { fingerprint } from '../../shared/identity/textFingerprint';
+import { persistSyncedFolderDocument } from './persistSyncedFolderDocument';
 import type { Vault } from '../models/Vault';
 import type { Page } from '../models/Page';
 import type { Folder } from '../models/Folder';
@@ -32,6 +34,10 @@ import {
 } from './reconcileArchiveMetadata';
 import { reconcilePageTemplateMarker } from './reconcileTemplateMetadata';
 import { persistSyncedPageDocument } from './persistSyncedPageDocument';
+
+/** A refused repair reconciles its path at most this many times within this window. */
+const STALE_RECONCILE_LIMIT = 3;
+const STALE_RECONCILE_WINDOW_MS = 30_000;
 
 export class VaultSyncService {
   private readonly unsubscribe: () => void;
@@ -82,6 +88,39 @@ export class VaultSyncService {
 
   public dispose(): void {
     this.unsubscribe();
+  }
+
+  /** The collaborators of a Sync repair write, with the reaction to a repair that was refused as stale. */
+  private repairDeps() {
+    return {
+      vault: this.vault,
+      fileSystem: this.fileSystem,
+      serializer: this.frontmatterSerializer,
+      parser: this.frontmatterParser,
+      rebuilder: this.pageRebuilder,
+      onStale: (path: string) => this.reconcileAfterStaleRepair(path),
+    };
+  }
+
+  /** Paths reconciled after a refused repair, with when: a repair that keeps being refused must not loop. */
+  private readonly staleReconciles = new Map<string, number[]>();
+
+  /**
+   * A repair was refused because the file changed since Sync inspected it. The external edit's own event may already
+   * have been handled, so Sync does not wait for another: it reconciles that path from disk now, on the page's own lane
+   * (a dirty editor session converges exactly as for any external edit). Bounded per path, so a file that changes
+   * faster than it can be repaired is left to the watcher instead of being retried for ever.
+   */
+  private reconcileAfterStaleRepair(path: string): void {
+    const now = Date.now();
+    const recent = (this.staleReconciles.get(path) ?? []).filter((at) => now - at < STALE_RECONCILE_WINDOW_MS);
+    if (recent.length >= STALE_RECONCILE_LIMIT) {
+      this.staleReconciles.set(path, recent);
+      console.warn(`Sync: ${path} keeps changing under its repair; leaving it to the watcher.`);
+      return;
+    }
+    this.staleReconciles.set(path, [...recent, now]);
+    this.dispatch(path, () => this.reconcilePath(path));
   }
 
   /**
@@ -485,7 +524,7 @@ export class VaultSyncService {
     const fileTimes = await readPageFileTimes(this.fileSystem, absolutePath);
 
     if (existingPage) {
-      const rebuiltPage = this.pageRebuilder.rebuild(existingPage, parsedMarkdown, fileTimes);
+      const rebuiltPage = this.pageRebuilder.rebuild(existingPage, parsedMarkdown, fileTimes, fingerprint(fileContent));
 
       this.vault.replacePage(rebuiltPage);
       this.convergeOpenSession(rebuiltPage.id, rebuiltPage.source.markdown);
@@ -514,6 +553,7 @@ export class VaultSyncService {
           content: parsedMarkdown.body,
           analysis: parsedMarkdown.analysis,
           ...(fileTimes && { fileTimes }),
+          sourceFingerprint: fingerprint(fileContent),
         },
       });
 
@@ -537,13 +577,7 @@ export class VaultSyncService {
 
     if (resolved.wasReassigned) {
       await persistSyncedPageDocument(
-        {
-          vault: this.vault,
-          fileSystem: this.fileSystem,
-          serializer: this.frontmatterSerializer,
-          parser: this.frontmatterParser,
-          rebuilder: this.pageRebuilder,
-        },
+        this.repairDeps(),
         page,
         parsedMarkdown.body,
         fileContent
@@ -766,7 +800,12 @@ export class VaultSyncService {
           body: scannedPage.content,
           analysis: scannedPage.analysis,
         };
-        const rebuiltPage = this.pageRebuilder.rebuild(existingPage, parsedMarkdown, scannedPage.fileTimes);
+        const rebuiltPage = this.pageRebuilder.rebuild(
+          existingPage,
+          parsedMarkdown,
+          scannedPage.fileTimes,
+          scannedPage.sourceFingerprint
+        );
 
         this.vault.replacePage(rebuiltPage);
         this.convergeOpenSession(rebuiltPage.id, rebuiltPage.source.markdown);
@@ -813,13 +852,7 @@ export class VaultSyncService {
       }
 
       await persistSyncedPageDocument(
-        {
-          vault: this.vault,
-          fileSystem: this.fileSystem,
-          serializer: this.frontmatterSerializer,
-          parser: this.frontmatterParser,
-          rebuilder: this.pageRebuilder,
-        },
+        this.repairDeps(),
         page,
         page.source.markdown
       );
@@ -839,11 +872,7 @@ export class VaultSyncService {
         continue;
       }
 
-      await this.fileSystem.writeFile(
-        folderMetadataPath,
-        this.frontmatterSerializer.serializeFolderDocument(folder),
-        'replace'
-      );
+      await persistSyncedFolderDocument(this.repairDeps(), folder);
     }
 
     // Removal half of the diff: anything Vault still tracks under this
@@ -1185,13 +1214,7 @@ export class VaultSyncService {
       parentId: resolvedParentId,
     };
 
-    const reconcileDeps = {
-      vault: this.vault,
-      fileSystem: this.fileSystem,
-      serializer: this.frontmatterSerializer,
-      parser: this.frontmatterParser,
-      rebuilder: this.pageRebuilder,
-    };
+    const reconcileDeps = this.repairDeps();
     const archiveReconciled = await reconcilePageArchiveMetadata(reconcileDeps, candidatePage);
     // ADR-041: the template marker follows the destination path, evaluated
     // on whatever the archive step produced so each repair is one commit
@@ -1276,13 +1299,7 @@ export class VaultSyncService {
     }
 
     const rebuiltPage = await reconcilePageArchiveMetadata(
-      {
-        vault: this.vault,
-        fileSystem: this.fileSystem,
-        serializer: this.frontmatterSerializer,
-        parser: this.frontmatterParser,
-        rebuilder: this.pageRebuilder,
-      },
+      this.repairDeps(),
       page
     );
 
@@ -1302,13 +1319,7 @@ export class VaultSyncService {
     }
 
     const rebuiltPage = await reconcilePageTemplateMarker(
-      {
-        vault: this.vault,
-        fileSystem: this.fileSystem,
-        serializer: this.frontmatterSerializer,
-        parser: this.frontmatterParser,
-        rebuilder: this.pageRebuilder,
-      },
+      this.repairDeps(),
       page
     );
 

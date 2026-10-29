@@ -1,3 +1,4 @@
+import { fingerprint } from '../../shared/identity/textFingerprint';
 import type { Page } from '../models/Page';
 import type { PageMetadata } from '../models/PageMetadata';
 import type { PageFrontmatter } from '../ingest/frontmatter/PageFrontmatter';
@@ -1037,7 +1038,8 @@ export class PagePersistenceCoordinator {
         const rebuilt = this.rebuilder.rebuild(
           page,
           parsed,
-          await readPageFileTimes(this.fileSystem, page.path)
+          await readPageFileTimes(this.fileSystem, page.path),
+          fingerprint(document)
         );
 
         this.vault.replacePage(rebuilt);
@@ -1824,7 +1826,8 @@ export class PagePersistenceCoordinator {
     const rebuilt = this.rebuilder.rebuild(
       page,
       parsed,
-      await readPageFileTimes(this.fileSystem, page.path)
+      await readPageFileTimes(this.fileSystem, page.path),
+      fingerprint(document)
     );
 
     try {

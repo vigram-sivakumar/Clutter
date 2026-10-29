@@ -26,6 +26,7 @@ import { TauriParsedNoteCacheBackend } from '../vault/providers/TauriParsedNoteC
 import { fingerprint } from '../recovery/fingerprint';
 import { RecoveryJournal } from '../recovery/RecoveryJournal';
 import { isAtomicWritesEnabled } from '../featureFlags';
+import { persistSyncedFolderDocument } from '../vault/sync/persistSyncedFolderDocument';
 import { assertAtomicCommandsRegistered, createAtomicWriteStack } from '../vault/atomicWrite/createAtomicWriteStack';
 import type { DurabilityTracker } from '../vault/atomicWrite/DurabilityTracker';
 import type { RecoveryStorage } from '../recovery/RecoveryStorage';
@@ -454,6 +455,9 @@ export class Application {
     const tagMetadata = await tagMetadataStore.load();
 
     const builder = new VaultBuilder(new UuidGenerator());
+    // Paths whose startup repair was refused because the file changed after the scan (ADR-063). Sync reconciles each
+    // from disk as soon as it exists, instead of waiting for an event that may already have come and gone.
+    const startupStalePaths: string[] = [];
     const { vault, reassignedPagePaths, reassignedFolderPaths } = builder.build(
       scanResult,
       tagMetadata
@@ -477,6 +481,7 @@ export class Application {
           serializer: new FrontmatterSerializer(),
           parser: new FrontmatterParser(),
           rebuilder: new PageRebuilder(),
+          onStale: (stalePath) => startupStalePaths.push(stalePath),
         },
         page,
         page.source.markdown
@@ -496,10 +501,13 @@ export class Application {
         continue;
       }
 
-      await fileSystem.writeFile(
-        folderMetadataPath,
-        folderFrontmatterSerializer.serializeFolderDocument(folder),
-        'replace'
+      await persistSyncedFolderDocument(
+        {
+          fileSystem,
+          serializer: folderFrontmatterSerializer,
+          onStale: (stalePath) => startupStalePaths.push(stalePath),
+        },
+        folder
       );
     }
 
@@ -509,6 +517,7 @@ export class Application {
       serializer: new FrontmatterSerializer(),
       parser: new FrontmatterParser(),
       rebuilder: new PageRebuilder(),
+      onStale: (stalePath: string) => startupStalePaths.push(stalePath),
     };
     await reconcileVaultArchiveMetadata(reconcileDeps);
     // ADR-041: same startup pass for the template marker (moves made while the app was closed).
@@ -541,6 +550,11 @@ export class Application {
     const pageCreator = new PageCreator(new UuidGenerator(), new PageFactory());
 
     application.attachVault(vault, pageCreator, dailyNotes, rawFileSystem, normalizeMarkdownForSave);
+    for (const stalePath of startupStalePaths) {
+      void application.vaultSyncService.reconcileKnownPath(stalePath).catch((error: unknown) => {
+        console.error(`Sync: reconciling ${stalePath} after a refused startup repair failed`, error);
+      });
+    }
     application.attachRecovery(
       options.recoveryStorage !== undefined
         ? options.recoveryStorage

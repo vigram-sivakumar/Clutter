@@ -35,6 +35,8 @@ export interface ScannedPage {
   readonly analysis: ScannedPageAnalysis;
   /** The file's birth/modification times, read once by the scan or Sync (ADR-057); absent when it could not be stat'd. */
   readonly fileTimes?: PageFileTimes;
+  /** `fingerprint` of the file text the page was parsed from (see `Page.sourceFingerprint`). */
+  readonly sourceFingerprint?: string;
 }
 
 export interface ScannedResourceFile {
