@@ -41,7 +41,8 @@ export async function reconcilePageArchiveMetadata(
   return persistSyncedPageDocument(
     deps,
     reconciledPage,
-    parsedMarkdown.body
+    parsedMarkdown.body,
+    fileContent
   );
 }
 

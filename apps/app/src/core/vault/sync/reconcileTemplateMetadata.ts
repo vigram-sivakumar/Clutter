@@ -56,7 +56,7 @@ export async function reconcilePageTemplateMarker(
     metadata: { ...page.metadata, unownedFrontmatter: lines },
   };
 
-  return persistSyncedPageDocument(deps, reconciledPage, parsedMarkdown.body);
+  return persistSyncedPageDocument(deps, reconciledPage, parsedMarkdown.body, fileContent);
 }
 
 /**

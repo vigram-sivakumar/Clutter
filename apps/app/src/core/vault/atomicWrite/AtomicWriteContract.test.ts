@@ -47,7 +47,7 @@ describe('the atomic writer contract is separate from the production writer', ()
     expect(tauri.invoke).not.toHaveBeenCalled();
   });
 
-  it('only the Composition Root, the save-failure classifier and the workspace-state merge and the short-lived vault opener import the atomic writer: only its own folder, the test double and those four may', () => {
+  it('only the Composition Root, the save-failure classifier and the workspace-state merge, the Sync repair writer and the short-lived vault opener import the atomic writer: only its own folder, the test double and those five may', () => {
     const root = path.resolve(__dirname, '../../..'); // apps/app/src
     const offenders: string[] = [];
     const visit = (directory: string): void => {
@@ -59,8 +59,8 @@ describe('the atomic writer contract is separate from the production writer', ()
           const inAtomicFolder = full.includes(`${path.sep}atomicWrite${path.sep}`);
           const isDouble = full.endsWith(`${path.sep}InMemoryAtomicVaultWriter.ts`);
           // Application.ts builds the stack (off by default, one switch for every writer); PageOperations only asks
-          // whether a failed save is worth retrying; workspaceStateFile only recognises a write conflict.
-          const isAllowedConsumer = ['application/Application.ts', 'application/page/PageOperations.ts', 'vault/initialize/workspaceStateFile.ts', 'vault/providers/openVaultFileSystem.ts'].some((name) =>
+          // whether a failed save is worth retrying; workspaceStateFile and persistSyncedPageDocument only recognise a write conflict.
+          const isAllowedConsumer = ['application/Application.ts', 'application/page/PageOperations.ts', 'vault/initialize/workspaceStateFile.ts', 'vault/providers/openVaultFileSystem.ts', 'vault/sync/persistSyncedPageDocument.ts'].some((name) =>
             full.endsWith(`${path.sep}core${path.sep}${name.replace('/', path.sep)}`)
           );
           if (!inAtomicFolder && !isDouble && !isAllowedConsumer && /atomicWrite\//.test(fs.readFileSync(full, 'utf8'))) offenders.push(full);

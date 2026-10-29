@@ -545,7 +545,8 @@ export class VaultSyncService {
           rebuilder: this.pageRebuilder,
         },
         page,
-        parsedMarkdown.body
+        parsedMarkdown.body,
+        fileContent
       );
     }
 
