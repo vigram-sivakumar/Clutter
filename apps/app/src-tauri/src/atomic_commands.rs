@@ -342,6 +342,57 @@ fn inspect_result(outcome: Inspection) -> InspectResultDto {
 // Authorization
 // ---------------------------------------------------------------------------------------------------------
 
+/// What the commands need to know about the filesystem scope: whether a path is allowed, and whether it is explicitly
+/// forbidden. Any `Fn(&Path) -> bool` is a scope that forbids nothing (the unit tests' stand-in); the application's
+/// is `RuntimeScope`.
+pub(crate) trait ScopeView {
+    fn allows(&self, path: &Path) -> bool;
+    fn forbids(&self, _path: &Path) -> bool {
+        false
+    }
+}
+
+impl<F: Fn(&Path) -> bool> ScopeView for F {
+    fn allows(&self, path: &Path) -> bool {
+        self(path)
+    }
+}
+
+/// The app's runtime fs scope (`app.fs_scope()`), with its forbidden patterns honoured the way Clutter configures the
+/// plugin: dotfiles are matched like any other file.
+pub(crate) struct RuntimeScope(pub(crate) tauri::fs::Scope);
+
+impl ScopeView for RuntimeScope {
+    fn allows(&self, path: &Path) -> bool {
+        self.0.is_allowed(path)
+    }
+
+    fn forbids(&self, path: &Path) -> bool {
+        // Resolved like the scope resolves a path: symlinks followed, and a file that does not exist yet judged by
+        // its resolved parent, so a forbidden name cannot be reached by creating it.
+        let resolved = std::fs::canonicalize(path).or_else(|_| {
+            match (path.parent().map(std::fs::canonicalize), path.file_name()) {
+                (Some(Ok(parent)), Some(name)) => Ok(parent.join(name)),
+                _ => Err(std::io::Error::from(std::io::ErrorKind::NotFound)),
+            }
+        });
+        let Ok(resolved) = resolved else {
+            // Unresolvable: refuse rather than guess.
+            return true;
+        };
+        let options = glob::MatchOptions {
+            case_sensitive: true,
+            require_literal_separator: true,
+            require_literal_leading_dot: false,
+        };
+
+        self.0
+            .forbidden_patterns()
+            .iter()
+            .any(|pattern| pattern.matches_path_with(&resolved, options))
+    }
+}
+
 /// Whether `path` is inside the approved scope, given the already-approved canonical vault `root`.
 ///
 /// The runtime fs scope hides dotfiles from its `**` patterns (Tauri's default on unix: `requireLiteralLeadingDot`),
@@ -352,8 +403,12 @@ fn inspect_result(outcome: Inspection) -> InspectResultDto {
 /// under it with no `..` in it. That grants nothing the recursive grant of the root did not: the plugin, configured as
 /// Clutter configures it, matches exactly these paths, and the writer separately refuses any path whose resolved
 /// parent is not inside the root (rule 4).
-fn in_scope(scope_allows: &dyn Fn(&Path) -> bool, root: &Path, path: &Path) -> bool {
-    if scope_allows(path) {
+fn in_scope(scope: &dyn ScopeView, root: &Path, path: &Path) -> bool {
+    // A forbidden path stays forbidden: forbidden patterns take precedence over allowed ones, in the vault as anywhere.
+    if scope.forbids(path) {
+        return false;
+    }
+    if scope.allows(path) {
         return true;
     }
     if path.components().any(|part| matches!(part, std::path::Component::ParentDir)) {
@@ -370,7 +425,7 @@ fn in_scope(scope_allows: &dyn Fn(&Path) -> bool, root: &Path, path: &Path) -> b
 /// Applies rules 1 to 3 of the module documentation and returns the canonical vault root. Rule 4 (the canonical
 /// parent lies inside that root) is enforced by the writer through `scope_root`, for every command alike.
 pub(crate) fn authorize(
-    scope_allows: &dyn Fn(&Path) -> bool,
+    scope: &dyn ScopeView,
     vault_root: &str,
     target: &str,
 ) -> Result<PathBuf, AtomicCommandError> {
@@ -385,7 +440,7 @@ pub(crate) fn authorize(
     if !root.is_dir() {
         return Err(refuse("invalidVaultRoot", "the vault root is not a directory"));
     }
-    if !scope_allows(&root) {
+    if !scope.allows(&root) {
         return Err(refuse(
             "outOfScope",
             "the vault root is not inside the approved filesystem scope",
@@ -404,7 +459,7 @@ pub(crate) fn authorize(
     if target.is_empty() || !Path::new(target).is_absolute() {
         return Err(refuse("invalidPath", "the target must be an absolute path"));
     }
-    if !in_scope(scope_allows, &root, Path::new(target)) {
+    if !in_scope(scope, &root, Path::new(target)) {
         return Err(refuse(
             "outOfScope",
             "the target is not inside the approved filesystem scope",
@@ -419,10 +474,10 @@ pub(crate) fn authorize(
 // ---------------------------------------------------------------------------------------------------------
 
 pub(crate) fn write_blocking(
-    scope_allows: &dyn Fn(&Path) -> bool,
+    scope: &dyn ScopeView,
     request: &WriteRequest,
 ) -> Result<WriteResultDto, AtomicCommandError> {
-    let root = authorize(scope_allows, &request.vault_root, &request.path)?;
+    let root = authorize(scope, &request.vault_root, &request.path)?;
     let intent = match &request.intent {
         IntentArg::Create => Intent::Create,
         IntentArg::Replace => Intent::Replace,
@@ -441,10 +496,10 @@ pub(crate) fn write_blocking(
 }
 
 pub(crate) fn confirm_blocking(
-    scope_allows: &dyn Fn(&Path) -> bool,
+    scope: &dyn ScopeView,
     request: &ConfirmRequest,
 ) -> Result<ConfirmResultDto, AtomicCommandError> {
-    let root = authorize(scope_allows, &request.vault_root, &request.path)?;
+    let root = authorize(scope, &request.vault_root, &request.path)?;
     let outcome = confirm_durability(&DurabilityRequest {
         scope_root: Some(&root),
         ..DurabilityRequest::new(Path::new(&request.path), request.expected.as_bytes())
@@ -454,15 +509,15 @@ pub(crate) fn confirm_blocking(
 }
 
 pub(crate) fn inspect_blocking(
-    scope_allows: &dyn Fn(&Path) -> bool,
+    scope: &dyn ScopeView,
     request: &InspectArgs,
 ) -> Result<InspectResultDto, AtomicCommandError> {
-    let root = authorize(scope_allows, &request.vault_root, &request.path)?;
+    let root = authorize(scope, &request.vault_root, &request.path)?;
     let temp_paths: Vec<PathBuf> = request.temp_paths.iter().map(PathBuf::from).collect();
     // The listed temporary files get the same treatment as the target: absolute and inside the scope (the writer
     // additionally accepts only its own temporary files in the target's directory).
     for temp in &temp_paths {
-        if !temp.is_absolute() || !in_scope(scope_allows, &root, temp) {
+        if !temp.is_absolute() || !in_scope(scope, &root, temp) {
             return Err(refuse(
                 "outOfScope",
                 "a listed temporary file is not inside the approved filesystem scope",
@@ -499,8 +554,8 @@ pub async fn atomic_write_file<R: Runtime>(
     request: WriteRequest,
 ) -> Result<WriteResultDto, AtomicCommandError> {
     require_authorized_caller(webview.label())?;
-    let scope = app.fs_scope();
-    tauri::async_runtime::spawn_blocking(move || write_blocking(&|path| scope.is_allowed(path), &request))
+    let scope = RuntimeScope(app.fs_scope());
+    tauri::async_runtime::spawn_blocking(move || write_blocking(&scope, &request))
         .await
         .map_err(internal)?
 }
@@ -513,8 +568,8 @@ pub async fn atomic_inspect_write<R: Runtime>(
     request: InspectArgs,
 ) -> Result<InspectResultDto, AtomicCommandError> {
     require_authorized_caller(webview.label())?;
-    let scope = app.fs_scope();
-    tauri::async_runtime::spawn_blocking(move || inspect_blocking(&|path| scope.is_allowed(path), &request))
+    let scope = RuntimeScope(app.fs_scope());
+    tauri::async_runtime::spawn_blocking(move || inspect_blocking(&scope, &request))
         .await
         .map_err(internal)?
 }
@@ -527,8 +582,8 @@ pub async fn atomic_confirm_durability<R: Runtime>(
     request: ConfirmRequest,
 ) -> Result<ConfirmResultDto, AtomicCommandError> {
     require_authorized_caller(webview.label())?;
-    let scope = app.fs_scope();
-    tauri::async_runtime::spawn_blocking(move || confirm_blocking(&|path| scope.is_allowed(path), &request))
+    let scope = RuntimeScope(app.fs_scope());
+    tauri::async_runtime::spawn_blocking(move || confirm_blocking(&scope, &request))
         .await
         .map_err(internal)?
 }
@@ -1076,6 +1131,49 @@ mod tests {
             "vaultRoot": world.vault, "path": world.vault.join(".folder.md"), "attempted": "x", "previous": null,
             "tempPaths": [world.outside.join(".clutter-tmp.00002602.0000000c.18e2be2f3755a5f8")] } }));
         assert!(elsewhere.is_err());
+    }
+
+    #[test]
+    fn the_dotfile_exception_never_overrides_an_explicit_prohibition_or_escapes_the_vault() {
+        let world = World::new("ipc-forbidden");
+        let (app, window) = app_with_scope(&[&world.vault]);
+        fs::create_dir_all(world.vault.join("private/.inner")).unwrap();
+        fs::write(world.vault.join(".secret.md"), "keep").unwrap();
+        fs::write(world.vault.join("private/.inner/a.md"), "keep").unwrap();
+        app.fs_scope().forbid_file(world.vault.join(".secret.md")).unwrap();
+        app.fs_scope().forbid_directory(world.vault.join("private"), true).unwrap();
+        symlink(&world.outside, world.vault.join("link")).unwrap();
+        symlink(world.outside.join("secret.md"), world.vault.join(".dot-link")).unwrap();
+
+        let write = |path: PathBuf| {
+            invoke(&window, "atomic_write_file", json!({ "request": {
+                "vaultRoot": world.vault, "path": path, "contents": "OVERWRITTEN", "intent": { "kind": "upsert" } } }))
+        };
+        let refused = |result: Result<Value, Value>| match result {
+            Err(error) => error["code"] == "outOfScope",
+            Ok(value) => value["status"] == "notCommitted",
+        };
+
+        // An explicitly forbidden file inside an approved vault stays forbidden, though it is a dotfile.
+        assert!(refused(write(world.vault.join(".secret.md"))));
+        // An explicitly forbidden subdirectory stays forbidden, for its dotfiles and its nested dot-directories too.
+        assert!(refused(write(world.vault.join("private/.new"))));
+        assert!(refused(write(world.vault.join("private/.inner/a.md"))));
+        assert!(refused(write(world.vault.join("private/plain.md"))));
+        assert_eq!(fs::read_to_string(world.vault.join(".secret.md")).unwrap(), "keep");
+        assert_eq!(fs::read_to_string(world.vault.join("private/.inner/a.md")).unwrap(), "keep");
+        // A symlinked directory, or a symlinked dotfile, cannot reach outside the canonical vault root.
+        assert!(refused(write(world.vault.join("link/.hidden"))));
+        assert!(refused(write(world.vault.join("link/secret.md"))));
+        assert!(refused(write(world.vault.join(".dot-link"))));
+        // Path substitution: `..` and a sibling whose name merely starts like the vault's.
+        assert!(refused(write(world.vault.join("sub/../../outside/.hidden"))));
+        assert!(refused(write(PathBuf::from(format!("{}-sibling/.hidden", world.vault.display())))));
+        assert_eq!(fs::read_to_string(world.outside.join("secret.md")).unwrap(), "outside secret");
+        assert!(!world.outside.join(".hidden").exists());
+
+        // And an ordinary dotfile in the same vault is still fine.
+        assert_eq!(write(world.vault.join(".folder.md")).unwrap()["status"], "committed");
     }
 
     #[test]

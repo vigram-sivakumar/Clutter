@@ -44,6 +44,10 @@ sha2 = "0.10"
 tauri-plugin-wdio-webdriver = { version = "1", optional = true }
 tauri-plugin-opener = "2"
 
+# Only for the atomic-writes feature: matching a path against the runtime scope's forbidden patterns (src/atomic_commands.rs).
+# Already in the graph through tauri.
+glob = { version = "0.3", optional = true }
+
 # The startup-recovery alert (src/startup_notice.rs) holds its own
 # CFUserNotification handle so it can be cancelled. Already in the graph via
 # rfd; features limited to what is used.
@@ -58,5 +62,5 @@ tauri = { version = "2.11.3", features = ["test"] }
 [features]
 # ADR-063: the atomic vault writer and its three commands. Off by default and used by nothing in the app yet, so an
 # ordinary build does not even compile them in; building or testing them needs `--features atomic-writes`.
-atomic-writes = []
+atomic-writes = ["dep:glob"]
 automation = ["dep:tauri-plugin-wdio-webdriver"]
