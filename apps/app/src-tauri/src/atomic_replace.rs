@@ -1262,7 +1262,7 @@ fn verify_metadata(original: &File, temporary: &File) -> Result<Vec<MetadataNote
     let found =
         read_xattrs(temporary).map_err(|e| format!("cannot read extended attributes: {e}"))?;
     for (name, value) in &wanted {
-        if found.get(name) != Some(value) {
+        if !attribute_preserved(name, value, found.get(name)) {
             return Err(format!(
                 "extended attribute {} was not preserved",
                 String::from_utf8_lossy(name)
@@ -1270,6 +1270,22 @@ fn verify_metadata(original: &File, temporary: &File) -> Result<Vec<MetadataNote
         }
     }
     Ok(notes)
+}
+
+/// Attributes the operating system itself stamps on every file a sandboxed process creates, with a value that is
+/// unique to that creation (a quarantine entry carries a timestamp, so the temporary file can never hold the
+/// original's value). They are not user metadata and a process cannot set them, so they cannot be "preserved"; the
+/// protection is that the replacement still carries one. A missing attribute is still refused, so a write can never
+/// strip them.
+const SYSTEM_STAMPED_ATTRIBUTES: &[&[u8]] = &[b"com.apple.quarantine", b"com.apple.provenance"];
+
+/// Whether the temporary file's attribute `name` satisfies the original's. Every attribute must be present with the
+/// original's exact value, except the system-stamped ones above, which must only be present.
+fn attribute_preserved(name: &[u8], wanted: &[u8], found: Option<&Vec<u8>>) -> bool {
+    match found {
+        None => false,
+        Some(found) => found.as_slice() == wanted || SYSTEM_STAMPED_ATTRIBUTES.contains(&name),
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1812,6 +1828,24 @@ impl Operation<'_> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn system_stamped_attributes_may_differ_but_never_disappear_and_everything_else_is_exact() {
+        let quarantine: &[u8] = b"com.apple.quarantine";
+        let old = b"0086;6ae31aff;app;".to_vec();
+        let stamped_again = b"0086;6ae31b1c;app;".to_vec();
+
+        // The OS stamped the replacement afresh: accepted.
+        assert!(attribute_preserved(quarantine, &old, Some(&stamped_again)));
+        assert!(attribute_preserved(b"com.apple.provenance", b"a", Some(&b"b".to_vec())));
+        // A replacement that lost the attribute is refused: a write can never strip it.
+        assert!(!attribute_preserved(quarantine, &old, None));
+        // Any other attribute, user metadata included, must be preserved exactly.
+        assert!(attribute_preserved(b"user.tag", b"x", Some(&b"x".to_vec())));
+        assert!(!attribute_preserved(b"user.tag", b"x", Some(&b"y".to_vec())));
+        assert!(!attribute_preserved(b"user.tag", b"x", None));
+        assert!(!attribute_preserved(b"com.apple.FinderInfo", b"x", Some(&b"y".to_vec())));
+    }
+
     use super::*;
     use std::process::Command;
     use std::time::Duration;
