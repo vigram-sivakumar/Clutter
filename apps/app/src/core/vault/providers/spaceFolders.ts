@@ -103,6 +103,23 @@ export async function createSpaceFolder(
 }
 
 /**
+ * Whether `path` is reached through a symbolic link (its real path differs from it). A Space like that is refused when
+ * it is added: the filesystem watcher reports resolved paths, so such a Space would silently never see a change made
+ * outside the app. Anything that cannot be resolved is not refused here (opening reports its own problem).
+ */
+export async function isReachedThroughLink(path: string): Promise<boolean> {
+  try {
+    const resolved = await invoke<string>('canonical_space_path', { path });
+    if (typeof resolved !== 'string') return false;
+    const normalize = (value: string) => withoutTrailingSlashes(value).normalize('NFC').toLowerCase();
+
+    return normalize(resolved) !== normalize(path);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Gives a Space that was created before `create_space_folder` existed its runtime filesystem grant, when it is
  * opened. Those Spaces were made with a plain `mkdir`, so only the fs plugin's static scope reached them. The
  * backend grants nothing but a marked direct child of Documents (a Space picked in the folder dialog already has its

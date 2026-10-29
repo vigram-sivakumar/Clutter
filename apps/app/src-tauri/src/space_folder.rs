@@ -176,6 +176,20 @@ pub fn ensure_space_access_in(
     Ok(true)
 }
 
+/// The real path of `path` with every link resolved, or an error if it does not exist. Lets the interface refuse a
+/// Space that is reached through a symbolic link: the filesystem watcher reports resolved paths, so a Space opened
+/// through a link would receive no change events at all (ADR-063, Stage 2b real-app finding).
+#[tauri::command]
+pub async fn canonical_space_path(path: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        fs::canonicalize(&path)
+            .map(|resolved| resolved.to_string_lossy().into_owned())
+            .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
 /// Creates a new Space's folder in the user's Documents and grants it (see [`create_space_in`]). The only place a
 /// Space folder is created.
 #[tauri::command]
@@ -504,5 +518,21 @@ mod tests {
 
         assert_eq!(error, "denied");
         fs::remove_dir_all(documents).unwrap();
+    }
+
+    #[test]
+    fn a_path_through_a_symlink_resolves_to_the_real_folder() {
+        let root = scratch("canonical");
+        let real = root.join("Real");
+        fs::create_dir_all(&real).unwrap();
+        std::os::unix::fs::symlink(&real, root.join("Link")).unwrap();
+
+        let through_link = tauri::async_runtime::block_on(canonical_space_path(root.join("Link").to_string_lossy().into_owned())).unwrap();
+        let direct = tauri::async_runtime::block_on(canonical_space_path(real.to_string_lossy().into_owned())).unwrap();
+
+        assert_eq!(through_link, direct);
+        assert_ne!(through_link, root.join("Link").to_string_lossy());
+        assert!(tauri::async_runtime::block_on(canonical_space_path(root.join("Missing").to_string_lossy().into_owned())).is_err());
+        fs::remove_dir_all(root).unwrap();
     }
 }

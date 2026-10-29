@@ -193,6 +193,7 @@ pub fn run() {
             parse_cache::parse_cache_read,
             parse_cache::parse_cache_write,
             parse_cache::parse_cache_remove,
+            space_folder::canonical_space_path,
             space_folder::create_space_folder,
             space_folder::ensure_space_access,
             space_folder::rename_space_folder,

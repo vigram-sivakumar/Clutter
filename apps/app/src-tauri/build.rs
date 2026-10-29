@@ -13,6 +13,7 @@ const APP_COMMANDS: &[&str] = &[
     "parse_cache_read",
     "parse_cache_write",
     "parse_cache_remove",
+    "canonical_space_path",
     "create_space_folder",
     "ensure_space_access",
     "rename_space_folder",

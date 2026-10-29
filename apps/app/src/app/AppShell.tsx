@@ -18,6 +18,7 @@ import { probeSpaceFolder } from '../core/vault/providers/probeSpaceFolder';
 import {
   createSpaceFolder,
   renameSpaceFolder,
+  isReachedThroughLink,
   isTooBroadForSpace,
   resolveSpaceParent,
 } from '../core/vault/providers/spaceFolders';
@@ -120,6 +121,9 @@ const WELCOME_BACKDROP: 'gradient' | 'image' = 'gradient';
 const TOO_BROAD_MESSAGE =
   'That folder is too broad to be a space (your home folder or the disk root). Choose a more specific folder';
 
+const LINKED_FOLDER_MESSAGE =
+  'That folder is reached through a link, so Clutter would not see changes made outside the app. Choose the folder itself';
+
 /** Why an error rejected an open. The fs plugin rejects with plain strings, not `Error`s. */
 function failureReason(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -129,7 +133,11 @@ function failureReason(error: unknown): string {
 
 /** A picked folder is accepted unless it is too broad to scan and write into (see `isTooBroadForSpace`). */
 async function acceptPickedSpace(path: string): Promise<string | null> {
-  return (await isTooBroadForSpace(path)) ? TOO_BROAD_MESSAGE : null;
+  if (await isTooBroadForSpace(path)) return TOO_BROAD_MESSAGE;
+  // The watcher reports resolved paths, so a Space reached through a link would never see outside changes.
+  if (await isReachedThroughLink(path)) return LINKED_FOLDER_MESSAGE;
+
+  return null;
 }
 
 /** Closes an Application that never became (or no longer is) the open one; a failed close is only logged. */

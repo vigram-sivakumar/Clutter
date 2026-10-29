@@ -25,6 +25,7 @@
     "allow-parse-cache-read",
     "allow-parse-cache-write",
     "allow-parse-cache-remove",
+    "allow-canonical-space-path",
     "allow-create-space-folder",
     "allow-ensure-space-access",
     "allow-rename-space-folder",

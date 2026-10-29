@@ -13,6 +13,7 @@ import {
   createSpaceFolder,
   isTooBroadForSpace,
   ensureSpaceAccess,
+  isReachedThroughLink,
   renameSpaceFolder,
   resolveSpaceParent,
 } from './spaceFolders';
@@ -234,5 +235,32 @@ describe('renameSpaceFolder', () => {
     expect(await renameSpaceFolder('/Volumes/Drive/notes', 'Journal')).toEqual({
       error: 'Couldn’t rename the folder: Read-only file system (os error 30)',
     });
+  });
+});
+
+describe('isReachedThroughLink', () => {
+  it('is true when the real path differs from the one given (a link in the way)', async () => {
+    invoke.mockResolvedValue('/private/tmp/Notes');
+
+    expect(await isReachedThroughLink('/tmp/Notes')).toBe(true);
+    expect(invoke).toHaveBeenCalledWith('canonical_space_path', { path: '/tmp/Notes' });
+  });
+
+  it.each([
+    ['the same path', '/Users/me/Notes', '/Users/me/Notes'],
+    ['a trailing slash', '/Users/me/Notes/', '/Users/me/Notes'],
+    ['only letter case differing, on a case-insensitive volume', '/Users/me/notes', '/Users/me/Notes'],
+  ])('is false for %s', async (_name, given, resolved) => {
+    invoke.mockResolvedValue(resolved);
+
+    expect(await isReachedThroughLink(given)).toBe(false);
+  });
+
+  it('is false when the path cannot be resolved or the answer is not a path: opening reports its own problem', async () => {
+    invoke.mockRejectedValue('No such file or directory (os error 2)');
+    expect(await isReachedThroughLink('/Users/me/Missing')).toBe(false);
+
+    invoke.mockResolvedValue(undefined);
+    expect(await isReachedThroughLink('/Users/me/Notes')).toBe(false);
   });
 });
