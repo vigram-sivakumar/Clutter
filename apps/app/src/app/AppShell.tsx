@@ -55,7 +55,7 @@ import {
   normalizeSpacePath,
   spaceName,
 } from './spaces/spaceRegistry';
-import { LocalVaultProvider } from '../core/vault/providers/LocalFileSystem';
+import { openVaultFileSystem } from '../core/vault/providers/openVaultFileSystem';
 import { migrateRenamedRootState } from '../core/application/space/migrateRenamedRootState';
 import { readSpaceIdFrom } from './spaces/readSpaceId';
 import { renameActiveSpaceFolder, type RenameOutcome } from './spaces/renameActiveSpace';
@@ -76,7 +76,7 @@ import { MissingSpaceDialog } from '@components/missing-space-dialog/MissingSpac
 /** A Space's own profile, read without opening it (read-only, never throws). The web runtime has none. */
 async function readProfileAt(path: string): Promise<SpaceProfile | null> {
   return isTauri()
-    ? readSpaceProfile(new LocalVaultProvider(path), path)
+    ? readSpaceProfile(openVaultFileSystem(path), path)
     : null;
 }
 
@@ -173,8 +173,8 @@ function AppShellContent() {
     pick: isTauri() ? pickSpaceFolder : undefined,
     accept: isTauri() ? acceptPickedSpace : undefined,
     // Identity of the folder at a path, to settle an unfinished rename before anything opens.
-    readSpaceId: (path) => (isTauri() ? readSpaceIdFrom(new LocalVaultProvider(path), path) : Promise.resolve(null)),
-    migrateState: (oldRoot, newRoot) => migrateRenamedRootState(new LocalVaultProvider(newRoot), oldRoot, newRoot),
+    readSpaceId: (path) => (isTauri() ? readSpaceIdFrom(openVaultFileSystem(path), path) : Promise.resolve(null)),
+    migrateState: (oldRoot, newRoot) => migrateRenamedRootState(openVaultFileSystem(newRoot), oldRoot, newRoot),
   });
   // `null`: no Space configured (desktop first run). Nothing is bootstrapped.
   const vaultPath = spaces.registry.activePath;
@@ -938,10 +938,10 @@ function AppShellContent() {
           hasPendingRename: () => spaces.registry.pendingRename !== undefined,
         },
         renameFolder: renameSpaceFolder,
-        readSpaceId: (path) => readSpaceIdFrom(new LocalVaultProvider(path), path),
+        readSpaceId: (path) => readSpaceIdFrom(openVaultFileSystem(path), path),
         destinationExists: async (path) => (await probeSpaceFolder(path)) === 'available',
         migrateState: (oldRoot, newRoot) =>
-          migrateRenamedRootState(new LocalVaultProvider(newRoot), oldRoot, newRoot),
+          migrateRenamedRootState(openVaultFileSystem(newRoot), oldRoot, newRoot),
         reopenActive: () => setReopenNonce((nonce) => nonce + 1),
         recoverFromLost: (lostPath) => {
           setMissingRoot(lostPath);
@@ -981,11 +981,11 @@ function AppShellContent() {
           activePath: () => spaces.registry.activePath,
           isRegistered: (candidate) => spaces.registry.paths.includes(normalizeSpacePath(candidate)),
           probe: probeSpaceFolder,
-          readSpaceId: (candidate) => readSpaceIdFrom(new LocalVaultProvider(candidate), candidate),
+          readSpaceId: (candidate) => readSpaceIdFrom(openVaultFileSystem(candidate), candidate),
           destinationExists: async (candidate) => (await probeSpaceFolder(candidate)) === 'available',
           renameFolder: renameSpaceFolder,
           migrateState: (oldRoot, newRoot) =>
-            migrateRenamedRootState(new LocalVaultProvider(newRoot), oldRoot, newRoot),
+            migrateRenamedRootState(openVaultFileSystem(newRoot), oldRoot, newRoot),
           renameEntry: (from, to) => {
             const saved = spaces.renameInactiveSpace(from, to);
             // This Space's Settings page is keyed by its path: follow it in the same step as the registry.

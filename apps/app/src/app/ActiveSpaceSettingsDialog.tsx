@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { isTauri } from '@tauri-apps/api/core';
 import type { Application } from '@core/application/Application';
 import { VaultPath } from '@core/vault/ingest/VaultPath';
-import { LocalVaultProvider } from '@core/vault/providers/LocalFileSystem';
+import { openVaultFileSystem } from '@core/vault/providers/openVaultFileSystem';
 import { resetSettingsToDefaults } from '@features/settings/reset-settings/resetSettingsToDefaults';
 import { SettingsDialog } from '@app/layouts/sidebar/footer/SettingsDialog';
 import { useSettingsSources } from '@app/layouts/sidebar/useSettingsSources';
@@ -45,7 +45,7 @@ export function ActiveSpaceSettingsDialog({ application, busy = false }: ActiveS
         application,
         activePath,
         inactiveSpacePaths,
-        fileSystemFor: (path) => new LocalVaultProvider(path),
+        fileSystemFor: (path) => openVaultFileSystem(path),
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [application, activePath, registeredPaths?.join('\n')]);

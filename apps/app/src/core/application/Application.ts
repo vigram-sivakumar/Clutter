@@ -1,4 +1,4 @@
-import { isTauri } from '@tauri-apps/api/core';
+import { invoke, isTauri } from '@tauri-apps/api/core';
 import { isFolderConfirmedMissing, probeSpaceFolder } from '../vault/providers/probeSpaceFolder';
 import { VaultRootMissingError } from '../vault/providers/VaultRootMissingError';
 import { isArchiveRetentionElapsed } from './archive/archiveRetention';
@@ -26,7 +26,7 @@ import { TauriParsedNoteCacheBackend } from '../vault/providers/TauriParsedNoteC
 import { fingerprint } from '../recovery/fingerprint';
 import { RecoveryJournal } from '../recovery/RecoveryJournal';
 import { isAtomicWritesEnabled } from '../featureFlags';
-import { createAtomicWriteStack } from '../vault/atomicWrite/createAtomicWriteStack';
+import { assertAtomicCommandsRegistered, createAtomicWriteStack } from '../vault/atomicWrite/createAtomicWriteStack';
 import type { DurabilityTracker } from '../vault/atomicWrite/DurabilityTracker';
 import type { RecoveryStorage } from '../recovery/RecoveryStorage';
 import { TauriRecoveryStorage } from '../recovery/TauriRecoveryStorage';
@@ -354,6 +354,10 @@ export class Application {
     // native writer. It is one switch for all of them (the Gate, Sync's repairs, the state files), never a subset;
     // `rawFileSystem` stays the plain provider (seal, Duplicate's raw copy). Off by default.
     let applicationInBootstrap: Application | null = null;
+    if (runningInTauri && isAtomicWritesEnabled()) {
+      // Never a silent fallback: a build that asks for atomic saves without the native writer cannot open a Space.
+      await assertAtomicCommandsRegistered(invoke, rootPath);
+    }
     const atomicWrites =
       runningInTauri && isAtomicWritesEnabled() && rawFileSystem instanceof LocalVaultProvider
         ? createAtomicWriteStack({
