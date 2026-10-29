@@ -5,6 +5,7 @@ import {
 } from './ReservedResources';
 import type { VaultFileSystem } from '../providers/VaultFileSystem';
 import { VaultRootMissingError } from '../providers/VaultRootMissingError';
+import { isWriteConflict } from '../atomicWrite/atomicWriteErrors';
 
 /**
  * Reads `.clutter/workspace.json`'s raw text, tolerant of a missing file
@@ -116,17 +117,62 @@ async function mergeAndWrite(
 ): Promise<void> {
   await ensureClutterDirectory(fileSystem, rootPath);
 
-  const raw = await readWorkspaceStateFileText(fileSystem, rootPath);
-  let current: Record<string, unknown> = {};
-  try {
-    const parsed = JSON.parse(raw);
-    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-      current = parsed as Record<string, unknown>;
-    }
-  } catch {
-    // Fall through with an empty base — see doc comment above.
-  }
-
   const path = `${rootPath}/${WORKSPACE_STATE_RELATIVE_PATH}`;
-  await fileSystem.writeFile(path, JSON.stringify({ ...current, ...patch }, null, 2), 'upsert');
+
+  // An atomic provider (ADR-063, decision 14) never turns an unreadable file into "just this patch": the raw text is
+  // copied aside first, and the write only replaces the file while it still holds the text that was read. If another
+  // writer got in between, the merge is redone once from what is there now. Any other provider is exactly as before.
+  const guarded = fileSystem.writesAreAtomic === true;
+
+  for (let attempt = 0; ; attempt += 1) {
+    const existed = guarded ? await fileSystem.exists(path) : true;
+    const raw = await readWorkspaceStateFileText(fileSystem, rootPath);
+    let current: Record<string, unknown> = {};
+    let readable = true;
+    try {
+      const parsed = JSON.parse(raw);
+      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+        current = parsed as Record<string, unknown>;
+      } else {
+        readable = false;
+      }
+    } catch {
+      readable = false;
+      // Fall through with an empty base — see doc comment above.
+    }
+
+    if (guarded && existed && !readable) {
+      await quarantineUnreadableWorkspaceState(fileSystem, path, raw);
+    }
+
+    const next = JSON.stringify({ ...current, ...patch }, null, 2);
+    if (!guarded) {
+      await fileSystem.writeFile(path, next, 'upsert');
+      return;
+    }
+
+    try {
+      await fileSystem.writeFile(path, next, existed ? { replaceIf: raw } : 'create');
+      return;
+    } catch (error) {
+      if (!isWriteConflict(error) || attempt >= 1) throw error;
+    }
+  }
+}
+
+/**
+ * Keeps the bytes of a `workspace.json` that does not parse as an object, as `workspace.json.corrupt-<time>`, before
+ * anything replaces it. If the copy cannot be made nothing is written (the error propagates): the settings are not
+ * saved this time, and the unreadable original is still there.
+ */
+async function quarantineUnreadableWorkspaceState(fileSystem: VaultFileSystem, path: string, raw: string): Promise<void> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      await fileSystem.writeFile(`${path}.corrupt-${Date.now()}${attempt === 0 ? '' : `-${attempt}`}`, raw, 'create');
+      console.warn(`.clutter/workspace.json could not be read as settings; a copy was kept before it was replaced.`);
+      return;
+    } catch (error) {
+      if (!isWriteConflict(error) || attempt >= 4) throw error;
+    }
+  }
 }

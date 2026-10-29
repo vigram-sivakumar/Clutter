@@ -60,3 +60,12 @@ export function isRetryableSaveFailure(error: unknown): boolean {
 
   return true;
 }
+
+/**
+ * Whether a write was refused because the file is not what the caller read: it changed (`staleExpected`) or appeared
+ * (`destinationExists`) in between. A read-modify-write caller re-reads once and redoes its merge; it never retries
+ * the same write over the top.
+ */
+export function isWriteConflict(error: unknown): boolean {
+  return error instanceof AtomicNotCommittedError && (error.reason === 'staleExpected' || error.reason === 'destinationExists');
+}
