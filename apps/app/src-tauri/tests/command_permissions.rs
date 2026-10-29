@@ -59,18 +59,14 @@ fn only_the_main_window_is_granted_the_commands() {
     assert!(!CAPABILITY.contains("\"remote\""), "no remote origin may be given application commands");
 }
 
-const APP_STORE_CAPABILITY: &str = include_str!("../capabilities/app-store.json");
-const APP_STORE_OVERLAY: &str = include_str!("../appstore/tauri.appstore.conf.json");
-
-/// The App Store capability only widens the static fs scope (and only for the main window); it grants no command.
-/// Ordinary builds never load it: `tauri.conf.json` lists only `default`, and the overlay that adds `app-store` is
-/// passed only to the App Store build.
+/// The App Store build adds no static capability: the user's real folders are reached through one runtime capability
+/// per authorized folder (`space_access::grant_static_scope`), never through a broad path in a file. No capability
+/// other than `default` exists, and the ordinary config lists only that one.
 #[test]
-fn the_app_store_capability_adds_only_an_fs_scope_for_the_main_window_and_is_not_in_the_ordinary_config() {
-    assert!(APP_STORE_CAPABILITY.contains("\"windows\": [\"main\"]"));
-    assert_eq!(APP_STORE_CAPABILITY.matches("\"identifier\"").count(), 2, "the capability's own id and fs:scope only");
-    assert!(APP_STORE_CAPABILITY.contains("\"identifier\": \"fs:scope\""));
-    assert!(!APP_STORE_CAPABILITY.contains("allow-"), "no command may be granted here");
+fn there_is_no_broad_static_scope_for_the_app_store_build() {
     assert!(include_str!("../tauri.conf.json").contains("\"capabilities\": [\"default\"]"));
-    assert!(APP_STORE_OVERLAY.contains("\"default\", \"app-store\""));
+    assert!(!include_str!("../appstore/tauri.appstore.conf.json").contains("capabilities"));
+    assert!(!CAPABILITY.contains("/Users"), "no absolute user path in the default capability");
+    assert!(!CAPABILITY.contains("/Volumes"));
+    assert!(!std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/capabilities/app-store.json")).exists());
 }

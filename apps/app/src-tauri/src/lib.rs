@@ -224,6 +224,7 @@ pub fn run() {
         .setup(|app| {
             // Which folders the user authorized in the App Sandbox (empty state outside it); see space_access.rs.
             app.manage(space_access::build_state(app.handle()));
+            app.manage(space_access::SpaceScopeGrants::default());
             // Automation/testing only — never reachable in an ordinary build:
             // the crate itself doesn't exist in the dependency graph unless
             // Cargo's `automation` feature is explicitly enabled (see

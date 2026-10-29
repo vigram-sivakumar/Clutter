@@ -21,6 +21,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use serde::Serialize;
+use sha2::Digest;
 
 const STORE_FILE: &str = "space-access.json";
 const STORE_VERSION: u64 = 1;
@@ -415,9 +416,60 @@ pub fn documents_writable(app: &AppHandle) -> bool {
     }
 }
 
+/// The folders whose static fs scope has been added in this run (one capability each, never added twice).
+#[derive(Default)]
+pub struct SpaceScopeGrants(Mutex<BTreeSet<String>>);
+
+/// `*`, `?` and `[` mean something in a scope pattern; a folder named with them must match only itself.
+fn escape_glob(path: &str) -> String {
+    path.chars()
+        .map(|c| match c {
+            '*' | '?' | '[' => format!("[{c}]"),
+            other => other.to_string(),
+        })
+        .collect()
+}
+
+/// Lets the fs plugin see **dot entries** (`.clutter`, `.folder.md`) inside `folder`, and nothing outside it.
+///
+/// The plugin matches a scope granted at runtime with the default options, which hide dot entries whatever
+/// `requireLiteralLeadingDot` says; only entries that come from a *capability* honor that setting. So an authorized
+/// folder is also added as a capability of its own — `fs:scope` for exactly that folder and its contents, for the main
+/// window — the same kind of entry `$HOME/**` is, but for one authorized folder at a time. A capability cannot be
+/// removed once added; it lasts for the run, and the folder had to be authorized (picked, restored from a bookmark,
+/// or Documents) to get here. Added once per folder.
+pub fn grant_static_scope<R: tauri::Runtime>(app: &tauri::AppHandle<R>, folder: &Path) -> Result<(), String> {
+    let grants = app.state::<SpaceScopeGrants>();
+    let mut granted = grants.0.lock().unwrap();
+    let folder_key = key(folder);
+    if granted.contains(&folder_key) {
+        return Ok(());
+    }
+    let digest = sha2::Sha256::digest(folder_key.as_bytes());
+    let identifier: String = digest.iter().take(8).map(|byte| format!("{byte:02x}")).collect();
+    let escaped = escape_glob(&folder_key);
+    let capability = serde_json::json!({
+        "identifier": format!("space-{identifier}"),
+        "description": "An authorized folder: its dot entries are reachable (see space_access::grant_static_scope).",
+        "windows": ["main"],
+        "permissions": [{ "identifier": "fs:scope", "allow": [{ "path": escaped }, { "path": format!("{escaped}/**") }] }],
+    })
+    .to_string();
+    app.add_capability(capability).map_err(|error| error.to_string())?;
+    granted.insert(folder_key);
+    Ok(())
+}
+
+/// Grants an authorized folder to everything that checks a scope: the runtime fs and asset scopes, and, inside the App
+/// Sandbox (where `$HOME/**` is the container, so no static entry reaches the real folder), its static scope too.
 fn allow(app: &AppHandle, folder: &Path) {
     let _ = app.fs_scope().allow_directory(folder, true);
     let _ = app.asset_protocol_scope().allow_directory(folder, true);
+    if is_sandboxed() {
+        if let Err(error) = grant_static_scope(app, folder) {
+            log::error!("Could not make the dot entries of {} reachable: {error}", folder.display());
+        }
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -474,7 +526,9 @@ pub async fn remember_space_access(app: AppHandle, path: String) -> Result<bool,
     tauri::async_runtime::spawn_blocking(move || {
         let state = handle.state::<SpaceAccessState>();
         let access = state.0.as_ref().ok_or_else(|| "access is not available".to_string())?;
-        access.remember(&folder).map(|()| true)
+        access.remember(&folder)?;
+        allow(&handle, &folder);
+        Ok(true)
     })
     .await
     .map_err(|error| error.to_string())?
@@ -697,5 +751,101 @@ mod tests {
         assert_eq!(from_hex(&to_hex(&bytes)), Some(bytes));
         assert_eq!(from_hex("abc"), None);
         assert_eq!(from_hex("gg"), None);
+    }
+
+    // ---- the static fs scope of an authorized folder, through the real permission tables ----------------------
+
+    type Mock = tauri::App<tauri::test::MockRuntime>;
+
+    fn app_with_grants() -> (Mock, tauri::WebviewWindow<tauri::test::MockRuntime>) {
+        let app = tauri::test::mock_builder().plugin(tauri_plugin_fs::init()).build(crate::app_context()).unwrap();
+        app.manage(SpaceScopeGrants::default());
+        let window = tauri::WebviewWindowBuilder::new(&app, "main", Default::default()).build().unwrap();
+        (app, window)
+    }
+
+    /// `Ok(exists)` or the plugin's refusal, through the plugin's own command and its scope checks.
+    fn exists(window: &tauri::WebviewWindow<tauri::test::MockRuntime>, path: &Path) -> Result<bool, String> {
+        use tauri::ipc::{CallbackFn, InvokeBody};
+        use tauri::test::{get_ipc_response, INVOKE_KEY};
+        use tauri::webview::InvokeRequest;
+        get_ipc_response(
+            window,
+            InvokeRequest {
+                cmd: "plugin:fs|exists".into(),
+                callback: CallbackFn(0),
+                error: CallbackFn(1),
+                url: "tauri://localhost".parse().unwrap(),
+                body: InvokeBody::Json(serde_json::json!({ "path": path })),
+                headers: Default::default(),
+                invoke_key: INVOKE_KEY.to_string(),
+            },
+        )
+        .map(|body| body.deserialize::<bool>().unwrap())
+        .map_err(|error| error.as_str().unwrap_or("refused").to_string())
+    }
+
+    fn is_forbidden(result: Result<bool, String>) -> bool {
+        matches!(result, Err(message) if message.contains("forbidden path"))
+    }
+
+    #[test]
+    fn a_runtime_grant_alone_hides_dot_entries_and_the_static_grant_shows_them_for_that_folder_only() {
+        let (app, window) = app_with_grants();
+        let root = scratch("static-scope");
+        let space = root.join("Space");
+        let sibling = root.join("Space-sibling");
+        for folder in [&space, &sibling] {
+            fs::create_dir_all(folder.join(".clutter")).unwrap();
+            fs::create_dir_all(folder.join("sub")).unwrap();
+            fs::write(folder.join(".clutter/workspace.json"), "{}").unwrap();
+            fs::write(folder.join(".folder.md"), "x").unwrap();
+            fs::write(folder.join("sub/.folder.md"), "x").unwrap();
+            fs::write(folder.join("note.md"), "x").unwrap();
+        }
+        app.fs_scope().allow_directory(&space, true).unwrap();
+        app.fs_scope().allow_directory(&sibling, true).unwrap();
+
+        // The reason for the static grant: a runtime grant hides every dot entry.
+        assert_eq!(exists(&window, &space.join("note.md")), Ok(true));
+        assert!(is_forbidden(exists(&window, &space.join(".clutter/workspace.json"))));
+        assert!(is_forbidden(exists(&window, &space.join(".folder.md"))));
+
+        grant_static_scope(app.handle(), &space).unwrap();
+        grant_static_scope(app.handle(), &space).unwrap(); // once per folder, never twice
+
+        assert_eq!(exists(&window, &space.join(".clutter/workspace.json")), Ok(true));
+        assert_eq!(exists(&window, &space.join(".folder.md")), Ok(true));
+        assert_eq!(exists(&window, &space.join("sub/.folder.md")), Ok(true));
+        // Nothing else was opened up: the neighbouring folder (also granted at runtime) still hides its dot entries,
+        // and nothing outside any authorized folder became reachable.
+        assert!(is_forbidden(exists(&window, &sibling.join(".clutter/workspace.json"))));
+        assert!(is_forbidden(exists(&window, &sibling.join(".folder.md"))));
+        assert!(is_forbidden(exists(&window, &root.join("elsewhere.md"))));
+        assert!(is_forbidden(exists(&window, &root.join(".hidden"))));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_folder_named_with_pattern_characters_grants_only_itself() {
+        let (app, window) = app_with_grants();
+        let root = scratch("glob-name");
+        let odd = root.join("a[1]*?");
+        let lookalike = root.join("a1x");
+        for folder in [&odd, &lookalike] {
+            fs::create_dir_all(folder.join(".clutter")).unwrap();
+            fs::write(folder.join(".clutter/workspace.json"), "{}").unwrap();
+        }
+        grant_static_scope(app.handle(), &odd).unwrap();
+
+        assert_eq!(exists(&window, &odd.join(".clutter/workspace.json")), Ok(true));
+        assert!(is_forbidden(exists(&window, &lookalike.join(".clutter/workspace.json"))));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn the_glob_escape_wraps_exactly_the_pattern_characters() {
+        assert_eq!(escape_glob("/a/b c/d"), "/a/b c/d");
+        assert_eq!(escape_glob("/a[1]*?"), "/a[[]1][*][?]");
     }
 }

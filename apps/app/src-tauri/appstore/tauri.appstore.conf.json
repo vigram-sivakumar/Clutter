@@ -1,4 +1,3 @@
 {
-  "app": { "security": { "capabilities": ["default", "app-store"] } },
   "bundle": { "macOS": { "entitlements": "appstore/Entitlements.plist" } }
 }
