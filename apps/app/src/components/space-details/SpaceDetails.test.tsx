@@ -51,6 +51,8 @@ function renderDetails(
   options: {
     rename?: (path: string, name: string) => Promise<CreateFolderResult>;
     open?: () => Promise<string | null>;
+    create?: (name: string) => Promise<CreateFolderResult>;
+    changeFolder?: () => Promise<string | void>;
     withRename?: boolean;
   } = {}
 ): Harness {
@@ -62,9 +64,10 @@ function renderDetails(
   );
   const onOpenSpace = vi.fn(options.open ?? (async () => null));
   const onCreateFolder = vi.fn(
-    async (name: string): Promise<CreateFolderResult> => ({
-      path: `/Users/me/Documents/${name}`,
-    })
+    options.create ??
+      (async (name: string): Promise<CreateFolderResult> => ({
+        path: `/Users/me/Documents/${name}`,
+      }))
   );
 
   function Host() {
@@ -88,6 +91,7 @@ function renderDetails(
               }
         }
         onOpenSpace={onOpenSpace}
+        onChangeFolder={options.changeFolder}
       />
     );
   }
@@ -294,5 +298,77 @@ describe('SpaceDetails: Create with an unusable name', () => {
     await create();
 
     expect(nameCard()).not.toHaveClass('space-details__name--shake');
+  });
+});
+
+describe('SpaceDetails: a refused choice or Create is shown inline, in the dialog', () => {
+  const alert = () => screen.queryByRole('alert');
+  const NEW = { parentPath: '/Users/me/Documents', parentName: 'Documents', name: 'Personal' };
+  const changeButton = () => screen.getByRole('button', { name: 'Change location' });
+
+  it('a refused folder from Change location is shown next to the choice; the dialog stays, the draft is unchanged', async () => {
+    const changeFolder = vi.fn(async () => 'That folder is too broad to be a space (your home folder or the disk root). Choose a more specific folder');
+    renderDetails(draftForExistingFolder(EXISTING), { changeFolder });
+
+    await act(async () => changeButton().click());
+
+    expect(alert()).toHaveTextContent('too broad to be a space');
+    expect(nameInput()).toHaveValue('notes');
+    expect(changeButton()).toBeEnabled(); // another folder can be chosen
+  });
+
+  it('the message goes when the user changes the name, and when they choose again', async () => {
+    let refuse = true;
+    renderDetails(draftForExistingFolder(EXISTING), {
+      changeFolder: async () => (refuse ? 'That folder is reached through a link, so Clutter would not see changes made outside the app. Choose the folder itself' : undefined),
+    });
+    await act(async () => changeButton().click());
+    expect(alert()).not.toBeNull();
+
+    type('Renamed');
+    expect(alert()).toBeNull();
+
+    await act(async () => changeButton().click());
+    expect(alert()).not.toBeNull();
+    refuse = false;
+    await act(async () => changeButton().click());
+    expect(alert()).toBeNull();
+  });
+
+  it('Create that cannot make the folder says why inline, creates and opens nothing, and a retry that works clears it', async () => {
+    let allowed = false;
+    const { onOpenSpace, onCreateFolder } = renderDetails(NEW, {
+      create: async (name) => (allowed ? { path: `/Users/me/Documents/${name}` } : { error: 'Clutter needs your permission to create spaces in Documents' }),
+    });
+
+    await create();
+    expect(alert()).toHaveTextContent('Clutter needs your permission to create spaces in Documents');
+    expect(onOpenSpace).not.toHaveBeenCalled();
+    expect(nameInput()).toHaveValue('Personal');
+
+    allowed = true;
+    await create();
+    expect(onCreateFolder).toHaveBeenCalledTimes(2);
+    expect(alert()).toBeNull();
+    expect(onOpenSpace).toHaveBeenCalledTimes(1);
+  });
+
+  it('a refused rename and a refused open are inline too', async () => {
+    renderDetails(draftForExistingFolder(EXISTING), { rename: async () => ({ error: 'A folder with that name already exists. Choose another name' }) });
+    type('Taken');
+    await create();
+    expect(alert()).toHaveTextContent('already exists');
+    cleanup();
+
+    renderDetails(NEW, { open: async () => 'Can’t save safely to this location' });
+    await create();
+    expect(alert()).toHaveTextContent('Can’t save safely to this location');
+  });
+
+  it('shows nothing when nothing was refused', async () => {
+    renderDetails(NEW);
+    expect(alert()).toBeNull();
+    await create();
+    expect(alert()).toBeNull();
   });
 });

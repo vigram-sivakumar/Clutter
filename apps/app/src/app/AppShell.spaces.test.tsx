@@ -155,6 +155,7 @@ import { AppShell } from './AppShell';
 import { probeSpaceFolder } from '../core/vault/providers/probeSpaceFolder';
 import { VaultRootMissingError } from '../core/vault/providers/VaultRootMissingError';
 import { ToastProvider } from '@components/toast/ToastProvider';
+import { AtomicNotCommittedError } from '../core/vault/atomicWrite/atomicWriteErrors';
 
 interface FakeApplication {
   vault: { root: string };
@@ -196,6 +197,8 @@ let events: string[] = [];
 /** Roots whose bootstrap waits on a gate the test releases. */
 let gates: Map<string, Deferred<void>>;
 let openFails: Set<string>;
+// A Space's own profile write that fails, by root: the error it fails with.
+let profileWriteFails: Map<string, unknown>;
 
 function makeApp(root: string): FakeApplication {
   const lostListeners = new Set<() => void>();
@@ -229,6 +232,7 @@ function makeApp(root: string): FakeApplication {
     },
     // Stands in for the Space writing its own profile: identity always, then the avatar change.
     applySpaceProfile: vi.fn(async (change?: { avatar?: unknown }) => {
+      if (profileWriteFails.has(root)) throw profileWriteFails.get(root);
       const current = profileFiles.get(root) ?? { id: `id-of-${root}` };
       const avatar = change?.avatar as
         | { type: 'emoji'; emoji: string }
@@ -287,6 +291,7 @@ beforeEach(() => {
   events = [];
   gates = new Map();
   openFails = new Set();
+  profileWriteFails = new Map();
   window.localStorage.clear();
   bootstrap.mockImplementation(async (root: string) => {
     events.push(`bootstrap:${root}`);
@@ -955,6 +960,26 @@ describe('AppShell: Welcome dialog actions', () => {
         expectWelcomeStillShown();
       }
     );
+
+    it('a refused folder is explained inline on the Welcome screen, once, and the user can choose another', async () => {
+      tauri.openDialog.mockResolvedValue('/Users/me');
+      render(
+        <ToastProvider>
+          <AppShell />
+        </ToastProvider>
+      );
+      await screen.findByText(WELCOME);
+
+      await click('Select a folder');
+      await settle();
+
+      const messages = await screen.findAllByText(/too broad to be a space/);
+      expect(messages).toHaveLength(1); // not also a toast
+      expect(messages[0]).toHaveAttribute('role', 'alert');
+      expect(messages[0]!.closest('.welcome-screen')).not.toBeNull();
+      expectWelcomeStillShown();
+      expect(screen.getByText('Select a folder')).toBeInTheDocument();
+    });
 
     it('a folder outside the home directory that cannot be accessed is refused, opening nothing and saving nothing', async () => {
       tauri.openDialog.mockResolvedValue('/Volumes/Drive/Denied');
@@ -2512,6 +2537,22 @@ describe('AppShell: the sidebar "New space" picker', () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
     });
 
+    it('a refused folder chosen with Change location is explained inline in the dialog, once: it stays open, the draft is unchanged, and no notice repeats it', async () => {
+      await openA();
+      await pickFolder('/Users/me/Projects/notes');
+      expect(nameInput()).toHaveValue('notes');
+
+      tauri.openDialog.mockResolvedValueOnce('/Users');
+      await act(async () => changeButton().click());
+
+      const messages = await screen.findAllByText(/too broad to be a space/);
+      expect(messages).toHaveLength(1); // one account of it: a toast as well would make two
+      expect(messages[0]).toHaveAttribute('role', 'alert');
+      expect(messages[0]!.closest('.space-details')).not.toBeNull();
+      expect(nameInput()).toHaveValue('notes');
+      expect(changeButton()).toBeEnabled(); // another folder can be chosen
+    });
+
     it('offers the picked folder’s name, editable, with the location read-only and Change and the avatar kept', async () => {
       await openA();
       await pickFolder('/Users/me/Projects/notes');
@@ -3322,6 +3363,22 @@ describe('AppShell: switching Spaces', () => {
       );
     });
 
+    it('Change location with a refused folder keeps the dialog open and explains inline, once', async () => {
+      tauri.isTauri = true;
+      await chooseMissing();
+      const bootstraps = bootstrap.mock.calls.length;
+      tauri.openDialog.mockResolvedValueOnce('/Users');
+
+      await click('Change location');
+
+      const messages = await screen.findAllByText(/too broad to be a space/);
+      expect(messages).toHaveLength(1);
+      expect(messages[0]).toHaveAttribute('role', 'alert');
+      expect(messages[0]!.closest('.missing-space')).not.toBeNull();
+      expect(screen.getByText('Space not found')).toBeInTheDocument(); // still open: another folder can be chosen
+      expect(bootstrap.mock.calls.length).toBe(bootstraps);
+    });
+
     it('Change location: opens the chosen folder straight away — no settings dialog — replacing the entry in place', async () => {
       tauri.isTauri = true;
       await chooseMissing();
@@ -3418,5 +3475,44 @@ describe('AppShell: switching Spaces', () => {
       );
       expect(screen.queryByText('Space not found')).toBeNull();
     });
+  });
+});
+
+// "One cause, one actionable explanation" (docs/writing-principles.md, "Choose the surface"): the failed write of a
+// Space's own profile when it opens.
+describe('AppShell: a Space profile that cannot be written when it opens', () => {
+  async function openWithProfileFailure(error: unknown) {
+    profileWriteFails.set('/Users/me/A', error);
+    seed(['/Users/me/A'], '/Users/me/A');
+    render(
+      <ToastProvider>
+        <AppShell />
+      </ToastProvider>
+    );
+    await screen.findByTestId('open-root');
+    await settle();
+  }
+
+  it('an unsupported location is not announced as a settings failure: the note-save notice explains it, once, when it matters', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    await openWithProfileFailure(new AtomicNotCommittedError('unsupportedFilesystem', 'exfat'));
+
+    expect(screen.getByTestId('open-root')).toHaveTextContent('/Users/me/A'); // the Space opened
+    expect(screen.queryByText('Couldn’t save the space settings')).toBeNull();
+    expect(screen.queryByText('Can’t save safely to this location')).toBeNull(); // and no second account of it either
+  });
+
+  it('an independent settings failure is still announced', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    await openWithProfileFailure(new AtomicNotCommittedError('insufficientSpace', 'no room'));
+
+    expect(await screen.findByText('Couldn’t save the space settings')).toBeInTheDocument();
+  });
+
+  it('an unclassified failure is still announced', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    await openWithProfileFailure(new Error('boom'));
+
+    expect(await screen.findByText('Couldn’t save the space settings')).toBeInTheDocument();
   });
 });

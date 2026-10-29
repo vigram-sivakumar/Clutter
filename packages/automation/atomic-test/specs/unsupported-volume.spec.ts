@@ -51,6 +51,10 @@ for (const [format, label] of [['ExFAT', 'exfat'], ['MS-DOS', 'fat32'], ['HFS+J'
       expect(fs.readFileSync(`${root}/Welcome.md`, 'utf8')).toBe(ORIGINAL); // untouched
       expect(temporaryFiles(root)).toEqual([]);
       expect(text).toContain('Can’t save safely to this location');
+      // One cause, one explanation: the Space's automatic settings write failed for the same reason, and is not announced
+      // as a separate "couldn’t save the space settings" (docs/writing-principles.md, "Choose the surface").
+      expect(text).not.toContain('Couldn’t save the space settings');
+      expect(text.split('Can’t save safely to this location').length - 1).toBe(1);
     });
   });
 }

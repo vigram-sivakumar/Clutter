@@ -102,11 +102,12 @@ export interface SpaceRegistryState {
   dismissNotice(): void;
   /**
    * "New space": shows the folder picker and vets the choice. Resolves the chosen folder's normalized path,
-   * or `null` when the picker was cancelled or the folder refused (a refusal is shown as a notice).
+   * or `null` when the picker was cancelled or the folder refused. A refusal is shown as a notice, unless the caller
+   * passes `onRefusal`: a dialog the user is choosing the folder in shows it inline instead, never both.
    * Changes nothing — the folder is only a candidate until the caller confirms it with `switchSpace`.
    * Absent where there is no picker.
    */
-  chooseSpace?: () => Promise<string | null>;
+  chooseSpace?: (onRefusal?: (message: string) => void) => Promise<string | null>;
   /**
    * Registers `path` if new and makes it active (the caller's open follows). With `replaces`, the entry of
    * that registered path (a Space the user is re-pointing) takes `path` in its place instead. Resolves whether
@@ -472,12 +473,14 @@ export function useSpaceRegistry(deps: SpaceRegistryDeps): SpaceRegistryState {
     return saveSpaceRegistry(storageRef.current, next);
   }, []);
 
-  const chooseSpace = useCallback(async (): Promise<string | null> => {
+  const chooseSpace = useCallback(async (onRefusal?: (message: string) => void): Promise<string | null> => {
     const picked = await pick?.();
     if (!picked) return null;
     const refusal = await accept?.(picked);
     if (refusal) {
-      say(refusal);
+      // A caller with a place of its own for the message (a dialog the user is choosing the folder in) shows it there,
+      // next to the choice it is about; otherwise it is the registry's notice. Never both.
+      (onRefusal ?? say)(refusal);
       return null;
     }
     return normalizeSpacePath(picked);

@@ -70,3 +70,11 @@
     animation: none;
   }
 }
+
+/* Why the last choice was refused: inline under the two actions, until the user tries again. */
+.welcome-screen__error {
+  color: var(--danger-foreground-on-surface);
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label-small);
+  letter-spacing: var(--ls-label-small);
+}

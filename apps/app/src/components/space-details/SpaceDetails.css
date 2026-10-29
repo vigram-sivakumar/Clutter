@@ -125,3 +125,11 @@
     animation: space-details-flag 320ms ease-in-out;
   }
 }
+
+/* Why the last folder choice or Create was refused: inline, next to what it is about. */
+.space-details__error {
+  color: var(--danger-foreground-on-surface);
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label-small);
+  letter-spacing: var(--ls-label-small);
+}

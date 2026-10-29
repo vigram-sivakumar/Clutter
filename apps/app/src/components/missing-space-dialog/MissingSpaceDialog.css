@@ -34,3 +34,11 @@
 .missing-space__entry .space-details__avatar-picker:hover {
   opacity: 1;
 }
+
+/* Why the folder the user just chose was refused: inline in the dialog, which stays open. */
+.missing-space__error {
+  color: var(--danger-foreground-on-surface);
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label-small);
+  letter-spacing: var(--ls-label-small);
+}

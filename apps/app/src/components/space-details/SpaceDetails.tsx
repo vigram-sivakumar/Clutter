@@ -91,9 +91,11 @@ interface SpaceDetailsProps {
   onClose?: () => void;
   /**
    * Lets the user choose a different folder: the caller shows the picker and replaces `draft` with the
-   * chosen folder's (its name and location). The Change button renders only when this is provided.
+   * chosen folder's (its name and location). The Change button renders only when this is provided. A message it
+   * resolves with is a refusal of the folder the user just chose: it is shown here, inline, and the dialog stays so the
+   * user can choose another (a toast would be the wrong place: it is about this choice, and it vanishes).
    */
-  onChangeFolder?: () => Promise<void>;
+  onChangeFolder?: () => Promise<string | void>;
   /** Shows the Change button (needs `onChangeFolder`). Defaults to true. */
   hasChangeFolder?: boolean;
   /** Shows the Go back button (needs `onBack`). Defaults to true. */
@@ -126,6 +128,8 @@ export function SpaceDetails({
   const nameInputRef = useRef<HTMLInputElement>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isChanging, setIsChanging] = useState(false);
+  // Why the last choice or Create was refused, shown inline until the user changes the input or tries again.
+  const [actionError, setActionError] = useState<string | null>(null);
   // Create on an unusable (empty) name: the name card shakes. Cleared by the animation's own end, so a
   // later click can shake it again.
   const [isShaking, setIsShaking] = useState(false);
@@ -137,6 +141,7 @@ export function SpaceDetails({
   // the target.
   function handleNameChange(name: string) {
     setCreatedPath(null);
+    setActionError(null);
     onNameChange(name);
   }
 
@@ -153,8 +158,13 @@ export function SpaceDetails({
   async function handleChangeFolder() {
     if (!onChangeFolder || isChanging) return;
     setIsChanging(true);
+    setActionError(null);
     try {
-      await onChangeFolder();
+      const refusal = await onChangeFolder();
+      if (typeof refusal === 'string') {
+        setActionError(refusal);
+        return;
+      }
       setCreatedPath(null);
     } catch (caught) {
       toast.fail('Couldn’t change the folder', caught);
@@ -177,6 +187,7 @@ export function SpaceDetails({
   // flight are ignored.
   async function handleCreate() {
     if (isCreating) return;
+    setActionError(null);
     if (
       createdPath === null &&
       (!isExisting || canRename) &&
@@ -198,8 +209,9 @@ export function SpaceDetails({
       ) {
         const renamed = await onRenameFolder(draft.existingPath, folderName);
         if ('error' in renamed) {
-          // The provider already logged why; its message is written for the user.
-          toast.fail(renamed.error);
+          // The provider already logged why; its message is written for the user. It is about the name the user typed,
+          // so it is shown with it.
+          setActionError(renamed.error);
           return;
         }
         path = renamed.path;
@@ -209,7 +221,7 @@ export function SpaceDetails({
           error: 'Something went wrong creating the space',
         };
         if ('error' in created) {
-          toast.fail(created.error);
+          setActionError(created.error);
           return;
         }
         path = created.path;
@@ -217,7 +229,7 @@ export function SpaceDetails({
       }
       const openError = await onOpenSpace(path, draft.avatar);
       if (openError !== null) {
-        toast.fail(openError);
+        setActionError(openError);
       }
     } catch (caught) {
       toast.fail('Couldn’t create the space', caught);
@@ -355,6 +367,11 @@ export function SpaceDetails({
             />
           }
         />
+        {actionError !== null && (
+          <span className="space-details__error" role="alert">
+            {actionError}
+          </span>
+        )}
         <Button
           className="space-details__button"
           variant="primary"

@@ -8,7 +8,6 @@ import {
   type NewSpaceDraft,
 } from '../space-details/SpaceDetails';
 import { WelcomeScreen } from './WelcomeScreen';
-import { useToast } from '../toast/ToastProvider';
 
 interface WelcomeScreenDialogProps {
   /** Native picker. The chosen folder's settings draft, a message when it can't be used, or `null` when cancelled. */
@@ -35,7 +34,6 @@ export function WelcomeScreenDialog({
   onOpenSpace,
   resolveImageUrl,
 }: WelcomeScreenDialogProps) {
-  const toast = useToast();
   const [draft, setDraft] = useState<NewSpaceDraft | null>(null);
 
   async function startNewSpace(): Promise<string | null> {
@@ -58,13 +56,11 @@ export function WelcomeScreenDialog({
 
   // "Change" in the settings: the same picker as "Select a folder", but the chosen folder's draft replaces
   // this one instead of opening it — the user confirms with Create.
-  async function changeFolder(): Promise<void> {
+  // A refused folder is returned to the settings dialog, which shows it inline next to the choice (and stays open).
+  async function changeFolder(): Promise<string | void> {
     const picked = await onSelectFolder();
     if (picked === null) return;
-    if (typeof picked === 'string') {
-      toast.fail(picked);
-      return;
-    }
+    if (typeof picked === 'string') return picked;
     setDraft(picked);
   }
 

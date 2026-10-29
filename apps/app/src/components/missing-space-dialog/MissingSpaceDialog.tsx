@@ -19,6 +19,8 @@ interface MissingSpaceDialogProps {
   name: string;
   /** Pick a folder for the space (the native picker; nothing is edited inline). */
   onChangeLocation: () => void;
+  /** Why the folder the user just chose was refused, shown inline: the dialog stays so they can choose another. */
+  error?: string | null;
   /** Forget the space in Clutter. The folder and its files are never touched. */
   onRemove: () => void;
   onClose: () => void;
@@ -34,6 +36,7 @@ export function MissingSpaceDialog({
   path,
   name,
   onChangeLocation,
+  error = null,
   onRemove,
   onClose,
 }: MissingSpaceDialogProps) {
@@ -71,6 +74,11 @@ export function MissingSpaceDialog({
             Clutter can’t find this space at its saved location. It may have
             been moved, renamed, or deleted
           </div>
+          {error !== null && (
+            <span className="missing-space__error" role="alert">
+              {error}
+            </span>
+          )}
         </div>
 
         <div className="confirmation__actions missing-space__footer">

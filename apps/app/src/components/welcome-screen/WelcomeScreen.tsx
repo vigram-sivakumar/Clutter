@@ -22,16 +22,20 @@ export function WelcomeScreen({
 }: WelcomeScreenProps) {
   const toast = useToast();
   const [isPending, setIsPending] = useState(false);
+  // Why the last choice was refused, inline under the actions until the user tries again.
+  const [refusal, setRefusal] = useState<string | null>(null);
 
-  // One action at a time. A refusal (the message the action returns) or a failure is shown as a toast; the
-  // screen stays so the user can try again or choose the other action.
+  // One action at a time. A refusal (the message the action returns) is about the user's choice, so it is shown here,
+  // inline, and the screen stays so the user can choose another folder or the other action. An unexpected failure is
+  // a toast.
   async function run(action: () => Promise<string | null>) {
     if (isPending) return;
     setIsPending(true);
+    setRefusal(null);
     try {
-      const refusal = await action();
-      if (refusal) {
-        toast.fail(refusal);
+      const message = await action();
+      if (message) {
+        setRefusal(message);
       }
     } catch (caught) {
       toast.fail('Couldn’t set up the space', caught);
@@ -71,6 +75,11 @@ export function WelcomeScreen({
           }
           onClick={() => void run(onCreateSpace)}
         />
+        {refusal !== null && (
+          <span className="welcome-screen__error" role="alert">
+            {refusal}
+          </span>
+        )}
       </div>
     </div>
   );

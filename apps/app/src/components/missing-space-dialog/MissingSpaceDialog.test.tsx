@@ -171,4 +171,19 @@ describe('MissingSpaceDialog', () => {
     renderDialog({ open: false });
     expect(screen.queryByText('Space not found')).toBeNull();
   });
+
+  it('shows why the folder the user just chose was refused, inline, and stays open so another can be chosen', () => {
+    const handlers = renderDialog({ error: 'That folder is reached through a link, so Clutter would not see changes made outside the app. Choose the folder itself' });
+
+    expect(screen.getByRole('alert')).toHaveTextContent('reached through a link');
+    fireEvent.click(screen.getByRole('button', { name: 'Change location' }));
+    expect(handlers.onChangeLocation).toHaveBeenCalledTimes(1);
+    expect(handlers.onClose).not.toHaveBeenCalled();
+  });
+
+  it('shows no message when nothing was refused', () => {
+    renderDialog();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
 });
+

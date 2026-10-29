@@ -23,6 +23,7 @@ import {
   resolveSpaceParent,
 } from '../core/vault/providers/spaceFolders';
 import { rememberSpaceAccess, restoreSpaceAccess } from '../core/vault/providers/sandboxAccess';
+import { announcesProfileFailure, describeSpaceProfileFailure, SPACE_SETTINGS_FAILED_MESSAGE } from './saveFailureMessages';
 
 import { AppLayout } from './layouts/app-layout/AppLayout';
 import { useFrontendReady } from './frontendReady';
@@ -223,6 +224,8 @@ function AppShellContent() {
   const [pendingSpace, setPendingSpace] = useState<NewSpaceDraft | null>(null);
   // Choosing a Space whose folder is missing opens the "Space not found" dialog for it, not a toast.
   const [missingSpacePath, setMissingSpacePath] = useState<string | null>(null);
+  // Why the folder chosen for that Space was refused, shown in its dialog.
+  const [missingSpaceError, setMissingSpaceError] = useState<string | null>(null);
   // The sidebar's temporary toggle while the window is narrow. Kept here, above the layout that is rebuilt for
   // every Space, so switching Spaces never changes whether the sidebar is shown.
   const [narrowSidebarOverride, setNarrowSidebarOverride] =
@@ -497,8 +500,15 @@ function AppShellContent() {
         await prepared.applySpaceProfile(pendingProfile?.change);
       } catch (profileError) {
         console.error('Saving the Space profile failed:', profileError);
-        // The Space itself opened; only its avatar or settings did not save.
-        spaces.notify('Couldn’t save the space settings');
+        // The Space itself opened; only its avatar or settings did not save. If the cause is the unsupported location,
+        // an automatic write (an identity for a Space that has none) is not announced: that restriction is explained,
+        // once, by the note-save notice when it matters, and "couldn’t save the space settings" first would be a second,
+        // misleading account of it. A change the user asked for is always announced, and any other cause is an
+        // independent failure and is always announced.
+        const failure = describeSpaceProfileFailure(profileError);
+        if (announcesProfileFailure(failure, pendingProfile?.change?.avatar !== undefined)) {
+          spaces.notify(failure.text);
+        }
       }
       refreshProfiles();
       // Only a Space that actually opened is remembered for the next launch.
@@ -811,6 +821,19 @@ function AppShellContent() {
     setPendingSpace(await draftFromFolder(path));
   }
 
+  // The same, from the Change button inside the open settings dialog: a refused folder is the dialog's to show, inline
+  // next to the choice, and the dialog stays open so the user can choose another. No registry notice, so the same
+  // refusal is never announced twice.
+  async function changeFolderInDialog(): Promise<string | void> {
+    const outcome: { refusal: string | null } = { refusal: null };
+    const path = await spaces.chooseSpace?.((message) => {
+      outcome.refusal = message;
+    });
+    if (outcome.refusal !== null) return outcome.refusal;
+    if (path === null || path === undefined) return;
+    setPendingSpace(await draftFromFolder(path));
+  }
+
   // The dialog's Create with a changed name: the folder is renamed in place first, and the dialog continues on
   // the renamed folder (its draft, and the avatar prefill, follow it). Nothing is registered or opened here;
   // a failed rename changes nothing at all.
@@ -852,7 +875,8 @@ function AppShellContent() {
         return null;
       } catch (profileError) {
         console.error('Saving the Space profile failed:', profileError);
-        return 'Couldn’t save the space settings';
+        // Shown inline by the dialog the user is confirming: the precise cause when it is the unsupported location.
+        return describeSpaceProfileFailure(profileError).text;
       }
     }
     pendingProfileRef.current = { path, change };
@@ -895,6 +919,7 @@ function AppShellContent() {
   function removeMissingSpace() {
     if (missingSpacePath !== null) spaces.removeSpace(missingSpacePath);
     setMissingSpacePath(null);
+    setMissingSpaceError(null);
   }
 
   // Leaving the open Space closes its Application, which disposes every open note, so a note whose save failed would
@@ -1055,7 +1080,7 @@ function AppShellContent() {
   // ever written — that is the Application's job — so another Space's avatar is not offered here.
   async function changeActiveSpaceAvatar(avatar: SpaceAvatarChoice | undefined): Promise<{ error?: string }> {
     const open = applicationRef.current;
-    if (!open) return { error: 'Couldn’t save the space settings' };
+    if (!open) return { error: SPACE_SETTINGS_FAILED_MESSAGE };
     try {
       await open.applySpaceProfile({
         avatar: avatar === undefined ? null : avatar.type === 'emoji' ? { type: 'emoji', emoji: avatar.emoji } : { type: 'image', sourcePath: avatar.src },
@@ -1064,7 +1089,7 @@ function AppShellContent() {
       return {};
     } catch (caught) {
       console.error('Saving the Space avatar failed:', caught);
-      return { error: 'Couldn’t save the space settings' };
+      return { error: describeSpaceProfileFailure(caught).text };
     }
   }
 
@@ -1075,10 +1100,26 @@ function AppShellContent() {
   // part of opening it; nothing is matched to the missing space automatically.
   // Also the action behind "Change location" on a missing Space's Settings page, which names the Space itself
   // (`fromSettings`) instead of reading the dialog's.
+  //
+  // From the "Space not found" dialog, that dialog stays open while the user chooses; a refused folder is shown in it,
+  // inline, and it stays so they can choose another. From a Settings page there is no place for the message on the page
+  // yet, so a refusal there is still the registry's notice (a known deviation, see writing-principles).
   async function changeMissingSpaceLocation(fromSettings?: string) {
     const missing = fromSettings ?? missingSpacePath;
+    const outcome: { refusal: string | null } = { refusal: null };
+    setMissingSpaceError(null);
+    const path = await spaces.chooseSpace?.(
+      fromSettings === undefined
+        ? (message) => {
+            outcome.refusal = message;
+          }
+        : undefined
+    );
+    if (outcome.refusal !== null) {
+      setMissingSpaceError(outcome.refusal);
+      return;
+    }
     setMissingSpacePath(null);
-    const path = await spaces.chooseSpace?.();
     if (path === null || path === undefined || missing === null) return;
     pendingProfileRef.current = null;
     const opened = await spaces.switchSpace(path, missing);
@@ -1091,6 +1132,7 @@ function AppShellContent() {
   // other refusal (unreadable, outside the allowed location) still explains itself through the usual notice.
   async function switchOrExplainMissing(path: string) {
     if ((await probeSpaceFolder(normalizeSpacePath(path))) === 'missing') {
+      setMissingSpaceError(null);
       setMissingSpacePath(normalizeSpacePath(path));
       return;
     }
@@ -1275,7 +1317,7 @@ function AppShellContent() {
               }
               onOpenSpace={confirmPendingSpace}
               onClose={() => setPendingSpace(null)}
-              onChangeFolder={chooseSpaceForSettings}
+              onChangeFolder={changeFolderInDialog}
               resolveImageUrl={resolveSpaceAvatarImage}
             />
           </Dialog>
@@ -1285,8 +1327,12 @@ function AppShellContent() {
           path={missingSpacePath ?? ''}
           name={spaceName(missingSpacePath ?? '')}
           onChangeLocation={() => void changeMissingSpaceLocation(undefined)}
+          error={missingSpaceError}
           onRemove={removeMissingSpace}
-          onClose={() => setMissingSpacePath(null)}
+          onClose={() => {
+            setMissingSpacePath(null);
+            setMissingSpaceError(null);
+          }}
         />
       </ActiveSpaceAvatarContext.Provider>
     </SpacesContext.Provider>
