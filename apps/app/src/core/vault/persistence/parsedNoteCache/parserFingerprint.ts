@@ -10,7 +10,8 @@
  * 3 = the parser records the physical order of the frontmatter's entries (`frontmatter.entryOrder`, ADR-036), and a
  * quoted key (`"Project: Name": x`) is read as the name it denotes;
  * 4 = `created` / `modified` are no longer parsed into the frontmatter (their keys alone declare Created / Last edited,
- * ADR-058). The golden-corpus test
+ * ADR-058);
+ * 5 = parsed tasks carry `dueTime` (commit b104c0aa), so a cache entry written before it lacks the field. The golden-corpus test
  * (`parserGolden.test.ts`) fails if the output changes without a bump.
  *
  * The dependency versions — the resolved versions of the packages the
@@ -19,7 +20,7 @@
  * version number did not change; that is managed by lockfile-controlled
  * installs, the golden-corpus test and `PARSER_VERSION`.
  */
-export const PARSER_VERSION = 4;
+export const PARSER_VERSION = 5;
 
 declare const __PARSE_DEPENDENCY_VERSIONS__: Record<string, string> | undefined;
 

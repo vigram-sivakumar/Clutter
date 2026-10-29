@@ -409,3 +409,22 @@ describe('parser version 2 (coverCredit, ADR-054): an entry that predates it can
     expect(page!.frontmatter.coverCredit).toBeUndefined();
   });
 });
+
+describe('parser version 5 (task dueTime): a cache written by version 4 is never served', () => {
+  const TASK_PATH = `${ROOT}/A/tasks.md`;
+  const files = { [TASK_PATH]: '- [ ] call @due:2026-08-20\n' };
+  const version4Fingerprint = PARSER_FINGERPRINT.replace(/^parser-\d+/, 'parser-4');
+
+  it('discards the old cache on load and parses the note fresh', async () => {
+    const backend = new InMemoryParsedNoteCacheBackend();
+    const writer = await ParsedNoteCache.load(backend, ROOT, version4Fingerprint);
+    await scan(files, writer);
+    await writer.persist();
+
+    const cache = await loadWith(backend);
+    expect(cache.report().loadStatus).toBe('discarded');
+    expect(cache.report().loadReason).toMatch(/fingerprint/);
+    await scan(files, cache);
+    expect(cache.report().hits).toBe(0);
+  });
+});
