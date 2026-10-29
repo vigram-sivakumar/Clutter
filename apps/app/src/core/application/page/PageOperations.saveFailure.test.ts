@@ -29,6 +29,11 @@ import { DailyNoteService } from '../daily-notes/DailyNoteService';
 import type { Page } from '../../vault/models/Page';
 import type { Folder } from '../../vault/models/Folder';
 import type { VaultFileSystem } from '../../vault/providers/VaultFileSystem';
+import {
+  AtomicExternalChangeError,
+  AtomicNotCommittedError,
+  AtomicUncertainError,
+} from '../../vault/atomicWrite/atomicWriteErrors';
 
 const ROOT = '/vault';
 const ARCHIVE_FOLDER_ID = 'folder-archive';
@@ -160,6 +165,8 @@ async function archiveDirectly(
  */
 class FlakyFileSystem implements VaultFileSystem {
   public failing = false;
+  /** What a failing write throws; a plain error by default. */
+  public failWith: unknown = new Error('disk full');
   public attempts: { at: number }[] = [];
   public written: string[] = [];
   public inFlight = 0;
@@ -183,7 +190,7 @@ class FlakyFileSystem implements VaultFileSystem {
     try {
       await this.gate;
       if (this.failing) {
-        throw new Error('disk full');
+        throw this.failWith;
       }
       await this.inner.writeFile(path, contents);
       this.written.push(contents);
@@ -264,6 +271,44 @@ describe('PageOperations: a failed save is kept, retried on a bounded backoff, a
     expect(session.isDirty).toBe(true);
     expect(session.currentRevision.markdown).toBe('Edited body');
     expect(pageOperations.unsavedPageCount()).toBe(1);
+  });
+
+  it.each([
+    ['a failure that can change (no space left)', new AtomicNotCommittedError('insufficientSpace', 'full'), 'retry-scheduled'],
+    ['an ordinary error from another provider', new Error('disk full'), 'retry-scheduled'],
+    ['a permanent refusal (read-only file)', new AtomicNotCommittedError('readOnlyTarget', 'read-only'), 'needs-action'],
+    ['a save whose outcome is in doubt', new AtomicUncertainError('maybe', ['/vault/.clutter-tmp.1']), 'needs-action'],
+    ['a file that changed on disk behind the save', new AtomicExternalChangeError('/vault/Note.md'), 'needs-action'],
+  ])('%s: puts the failure on the backoff only when retrying can change it', async (_name, failure, status) => {
+    const { page, fileSystem, pageOperations, session } = await openWithFailingDisk();
+    fileSystem.failing = true;
+    fileSystem.failWith = failure;
+    pageOperations.commitEdit(page.id, 'Edited body');
+    await pageOperations.requestSave(page.id);
+
+    expect(session.state).toBe(DocumentState.SaveError);
+    expect(session.isDirty).toBe(true);
+    expect(pageOperations.saveFailureStatus(page.id)).toBe(status);
+    expect(pageOperations.unsavedPageCount()).toBe(1);
+  });
+
+  it('a failure that is not retried is still saved by the user’s manual Retry once the cause is gone', async () => {
+    const { page, fileSystem, pageOperations, session } = await openWithFailingDisk();
+    fileSystem.failing = true;
+    fileSystem.failWith = new AtomicNotCommittedError('permissionDenied', 'locked');
+    pageOperations.commitEdit(page.id, 'Edited body');
+    await pageOperations.requestSave(page.id);
+    expect(pageOperations.saveFailureStatus(page.id)).toBe('retry-scheduled');
+
+    fileSystem.failWith = new AtomicNotCommittedError('readOnlyTarget', 'read-only');
+    await pageOperations.retrySave(page.id);
+    expect(pageOperations.saveFailureStatus(page.id)).toBe('needs-action');
+
+    fileSystem.failing = false;
+    await pageOperations.retrySave(page.id);
+
+    expect(session.state).toBe(DocumentState.Clean);
+    expect(pageOperations.saveFailureStatus(page.id)).toBeNull();
   });
 
   it('retries automatically, and a successful retry clears the failure and the unsaved count', async () => {

@@ -1,3 +1,4 @@
+import { isRetryableSaveFailure } from '../../vault/atomicWrite/atomicWriteErrors';
 import type { DocumentSession } from '../../engine/DocumentSession';
 import { DocumentRegistry } from '../../engine/DocumentRegistry';
 import { SaveCoordinator } from '../../engine/SaveCoordinator';
@@ -1327,7 +1328,7 @@ export class PageOperations {
       try {
         await this.save(pageId, session.currentRevision.markdown);
         await this.reconcileHeadingRename(pageId, headingsBefore);
-      } catch {
+      } catch (error) {
         // Two distinct failure shapes reach here (§1.3a's T11a vs T11b),
         // and only one of them still needs handling at this point:
         //
@@ -1355,7 +1356,10 @@ export class PageOperations {
         // through requestSave() again, which reads the *current* revision and shares one in-flight save per page,
         // so it can neither write a stale revision nor race a save another trigger already started. A validation
         // failure (T11a above) is not retried: nothing about it improves with time.
-        if (session.isDirty) {
+        // A failure that retrying cannot change (a read-only file, a changed-on-disk file, a save whose outcome is
+        // in doubt and is inspected on the next explicit save) is not put on the backoff: it waits as
+        // 'needs-action' for the user, with the text still dirty and its recovery record kept (ADR-063).
+        if (session.isDirty && isRetryableSaveFailure(error)) {
           this.saveCoordinator.scheduleRetry(pageId, () => {
             void this.requestSave(pageId);
             this.refreshSaveFailures();
@@ -1713,7 +1717,7 @@ export class PageOperations {
         if (this.saveCoordinator.completeChannelSave(key, value)) {
           titleState.markSaved(value);
         }
-      } catch {
+      } catch (error) {
         // Mirrors runRequestSave()'s T11a/T11b split: rename() can throw
         // either before enqueueing (page not found — a title-channel
         // entry for a since-deleted page) or after a Gate failure. Either
@@ -1722,10 +1726,13 @@ export class PageOperations {
         // not clobber a newer, still-in-flight or already-succeeded one.
         if (this.saveCoordinator.failChannelSave(key, value)) {
           titleState.markSaveFailed();
-          // Same bounded backoff as the body (SaveCoordinator.scheduleRetry), through the same request path.
-          this.saveCoordinator.scheduleRetry(key, () => {
-            void this.requestTitleSave(pageId);
-          });
+          // Same bounded backoff as the body (SaveCoordinator.scheduleRetry), through the same request path, and
+          // only for a failure that retrying can change.
+          if (isRetryableSaveFailure(error)) {
+            this.saveCoordinator.scheduleRetry(key, () => {
+              void this.requestTitleSave(pageId);
+            });
+          }
         }
         return;
       }
@@ -1834,13 +1841,15 @@ export class PageOperations {
         if (this.saveCoordinator.completeChannelSave(key, value)) {
           descriptionState.markSaved(value);
         }
-      } catch {
+      } catch (error) {
         // Mirrors runRequestTitleSave()'s T11a/T11b split.
         if (this.saveCoordinator.failChannelSave(key, value)) {
           descriptionState.markSaveFailed();
-          this.saveCoordinator.scheduleRetry(key, () => {
-            void this.requestDescriptionSave(pageId);
-          });
+          if (isRetryableSaveFailure(error)) {
+            this.saveCoordinator.scheduleRetry(key, () => {
+              void this.requestDescriptionSave(pageId);
+            });
+          }
         }
         return;
       }
