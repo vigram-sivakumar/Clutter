@@ -28,7 +28,6 @@ import { announcesProfileFailure, describeSpaceProfileFailure, SPACE_SETTINGS_FA
 import { AppLayout } from './layouts/app-layout/AppLayout';
 import { useFrontendReady } from './frontendReady';
 import { StartupFrame } from './StartupFrame';
-import { WelcomeBackground } from './WelcomeBackground';
 import { GradientGrainy } from '../components/gradient-grainy/GradientGrainy';
 import { scheduleAfterFirstPaint } from './scheduleAfterFirstPaint';
 import { createWindowCloseHandler, QUIT_MENU_EVENT, type UnsavedCloseChoice } from './windowCloseHandler';
@@ -110,17 +109,11 @@ function resolveSpaceAvatarImage(path: string): string | null {
   }
 }
 
-/**
- * What fills the app frame behind the first-run Welcome dialog: the animated grainy gradient, or the Unsplash
- * artwork (`WelcomeBackground`, kept intact). One word to switch back.
- */
 // The web runtime has no application data directory: it keeps recovery snapshots in the browser's own storage, which
 // lets the unsaved-work recovery flow be exercised in a plain browser. (The desktop app uses the data directory.)
 if (typeof localStorage !== 'undefined') {
   Application.webRecoveryStorage = new BrowserRecoveryStorage();
 }
-
-const WELCOME_BACKDROP: 'gradient' | 'image' = 'gradient';
 
 const TOO_BROAD_MESSAGE =
   'That folder is too broad to be a space (your home folder or the disk root). Choose a more specific folder';
@@ -1285,11 +1278,8 @@ function AppShellContent() {
   if (showWelcome) {
     return (
       <>
-        {WELCOME_BACKDROP === 'gradient' ? (
-          <StartupFrame backdrop={<GradientGrainy />}>{null}</StartupFrame>
-        ) : (
-          <WelcomeBackground />
-        )}
+        {/* The first-run Welcome frame is the animated grainy gradient; no photo is fetched or shown here. */}
+        <StartupFrame backdrop={<GradientGrainy />}>{null}</StartupFrame>
         <WelcomeScreenDialog
           onSelectFolder={selectFolderFromWelcome}
           onResolveSpaceParent={resolveSpaceParent}

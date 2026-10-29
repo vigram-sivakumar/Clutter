@@ -73,24 +73,12 @@ vi.mock('../core/vault/providers/probeSpaceFolder', () => ({
     return path.includes('Missing') ? 'missing' : 'available';
   }),
 }));
-// The Welcome background searches Unsplash; tests never reach the network (it just stays the plain surface).
-const unsplash = vi.hoisted(() => ({ search: vi.fn() }));
+// The Welcome screen must never reach Unsplash: the mocked API only lets a test assert it was not called.
+const unsplash = vi.hoisted(() => ({ search: vi.fn(), track: vi.fn() }));
 vi.mock('../core/integrations/unsplash/UnsplashApi', () => ({
   searchPhotos: (...args: unknown[]) => unsplash.search(...args),
-  trackPhotoDownload: async () => false,
+  trackPhotoDownload: (...args: unknown[]) => unsplash.track(...args),
 }));
-/** What the mocked Unsplash search finds for the Welcome background. */
-const WELCOME_PHOTO = {
-  id: 'welcome',
-  urls: {
-    small: 'https://images.unsplash.com/welcome-small',
-    regular: 'https://images.unsplash.com/welcome',
-  },
-  user: { name: 'Ada Lovelace', links: { html: 'https://unsplash.com/@ada' } },
-  links: {
-    downloadLocation: 'https://api.unsplash.com/photos/welcome/download',
-  },
-};
 vi.mock('./frontendReady', () => ({ useFrontendReady: vi.fn() }));
 vi.mock('./scheduleAfterFirstPaint', () => ({
   scheduleAfterFirstPaint: () => () => {},
@@ -278,6 +266,7 @@ vi.stubGlobal(
 beforeEach(() => {
   tauri.isTauri = false;
   unsplash.search.mockReset().mockResolvedValue([]);
+  unsplash.track.mockReset().mockResolvedValue(false);
   tauri.invoke.mockReset();
   tauri.openDialog.mockReset();
   tauri.mkdir.mockReset();
@@ -391,9 +380,7 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
     ).toBeNull();
   });
 
-  it('fills the app frame behind the Welcome dialog with the animated gradient, not an Unsplash image', async () => {
-    // WELCOME_BACKDROP in AppShell picks the gradient; the Unsplash image is kept for switching back.
-    unsplash.search.mockResolvedValue([WELCOME_PHOTO]);
+  it('fills the app frame behind the Welcome dialog with the animated gradient, and never searches or tracks Unsplash', async () => {
     render(
     <ToastProvider>
       <AppShell />
@@ -406,6 +393,7 @@ describe('AppShell: desktop startup without a hardcoded Space', () => {
     expect(frame.getAttribute('data-backdrop')).toBeNull();
     expect(frame.style.backgroundImage).toBe('');
     expect(unsplash.search).not.toHaveBeenCalled();
+    expect(unsplash.track).not.toHaveBeenCalled();
     expect(screen.queryByRole('link', { name: /Unsplash/ })).toBeNull();
     // The dialog is portalled to <body>, outside (and above) the frame; the frame holds no workspace.
     expect(frame.contains(screen.getByText('Let’s create a space'))).toBe(

@@ -26,11 +26,3 @@
   color: var(--foreground-secondary);
   user-select: text;
 }
-
-/* With a background image: covers the whole frame, centred, and follows the window as it resizes. Left
-   undimmed here — the Welcome dialog's own overlay backdrop provides the scrim. */
-.startup-frame[data-backdrop='image'] {
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: cover;
-}
