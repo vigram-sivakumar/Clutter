@@ -342,6 +342,31 @@ fn inspect_result(outcome: Inspection) -> InspectResultDto {
 // Authorization
 // ---------------------------------------------------------------------------------------------------------
 
+/// Whether `path` is inside the approved scope, given the already-approved canonical vault `root`.
+///
+/// The runtime fs scope hides dotfiles from its `**` patterns (Tauri's default on unix: `requireLiteralLeadingDot`),
+/// and Clutter's `requireLiteralLeadingDot: false` configures only the fs *plugin's own* commands, not
+/// `app.fs_scope()`. A vault's own files `.folder.md`, `.clutter/*.json` and the writer's `.clutter-tmp.*` files are
+/// all dotfiles, so asking the scope about them alone refuses every one of them even though the Space was granted
+/// recursively. A path therefore also counts as in scope when the root is (checked by the caller) and the path lies
+/// under it with no `..` in it. That grants nothing the recursive grant of the root did not: the plugin, configured as
+/// Clutter configures it, matches exactly these paths, and the writer separately refuses any path whose resolved
+/// parent is not inside the root (rule 4).
+fn in_scope(scope_allows: &dyn Fn(&Path) -> bool, root: &Path, path: &Path) -> bool {
+    if scope_allows(path) {
+        return true;
+    }
+    if path.components().any(|part| matches!(part, std::path::Component::ParentDir)) {
+        return false;
+    }
+    // The root is canonical; a path spelt through a symlinked prefix (`/tmp` for `/private/tmp`) is compared the same way.
+    let anchored = match path.parent().map(std::fs::canonicalize) {
+        Some(Ok(parent)) => path.file_name().map(|name| parent.join(name)),
+        _ => None,
+    };
+    anchored.as_deref().unwrap_or(path).starts_with(root)
+}
+
 /// Applies rules 1 to 3 of the module documentation and returns the canonical vault root. Rule 4 (the canonical
 /// parent lies inside that root) is enforced by the writer through `scope_root`, for every command alike.
 pub(crate) fn authorize(
@@ -379,7 +404,7 @@ pub(crate) fn authorize(
     if target.is_empty() || !Path::new(target).is_absolute() {
         return Err(refuse("invalidPath", "the target must be an absolute path"));
     }
-    if !scope_allows(Path::new(target)) {
+    if !in_scope(scope_allows, &root, Path::new(target)) {
         return Err(refuse(
             "outOfScope",
             "the target is not inside the approved filesystem scope",
@@ -437,7 +462,7 @@ pub(crate) fn inspect_blocking(
     // The listed temporary files get the same treatment as the target: absolute and inside the scope (the writer
     // additionally accepts only its own temporary files in the target's directory).
     for temp in &temp_paths {
-        if !temp.is_absolute() || !scope_allows(temp) {
+        if !temp.is_absolute() || !in_scope(scope_allows, &root, temp) {
             return Err(refuse(
                 "outOfScope",
                 "a listed temporary file is not inside the approved filesystem scope",
@@ -1013,6 +1038,44 @@ mod tests {
             "intent": { "kind": "create" }, "supportedFilesystems": ["exfat"] } }));
         assert!(widened.is_err());
         assert!(!world.vault.join("n.md").exists());
+    }
+
+    #[test]
+    fn a_vaults_dotfiles_are_in_scope_when_the_vault_is_granted_but_nothing_outside_it_is() {
+        // The real runtime scope hides dotfiles from its `**` patterns; `.folder.md`, `.clutter/*.json` and the
+        // writer's `.clutter-tmp.*` files are all dotfiles. Measured in the real app: without this they were all
+        // refused although the Space was granted recursively.
+        let world = World::new("ipc-dotfiles");
+        let (_app, window) = app_with_scope(&[&world.vault]); // `plain` is not granted
+        let write = |root: &Path, path: &Path| {
+            invoke(&window, "atomic_write_file", json!({ "request": {
+                "vaultRoot": root, "path": path, "contents": "x", "intent": { "kind": "upsert" } } }))
+        };
+
+        fs::create_dir_all(world.plain.join(".clutter")).unwrap();
+        for file in [world.vault.join(".folder.md"), world.vault.join(".clutter/workspace.json")] {
+            assert_eq!(write(&world.vault, &file).unwrap()["status"], "committed", "{}", file.display());
+        }
+        // Still contained: outside the vault, in an ungranted folder, or reached through `..`.
+        let refused = |result: Result<Value, Value>| match result {
+            Err(error) => error["code"] == "outOfScope" || error["code"] == "invalidVaultRoot",
+            Ok(value) => value["status"] == "notCommitted",
+        };
+        assert!(refused(write(&world.vault, &world.plain.join(".folder.md"))));
+        assert!(refused(write(&world.vault, &world.vault.join("../outside/.hidden"))));
+        assert!(refused(write(&world.plain, &world.plain.join(".clutter/x.json"))));
+        assert!(!world.plain.join(".folder.md").exists());
+
+        // Inspecting accepts the writer's own temporary-file names inside the vault and nothing elsewhere.
+        let temp = world.vault.join(".clutter-tmp.00002602.0000000c.18e2be2f3755a5f8");
+        let inspected = invoke(&window, "atomic_inspect_write", json!({ "request": {
+            "vaultRoot": world.vault, "path": world.vault.join(".folder.md"), "attempted": "x", "previous": null,
+            "tempPaths": [temp] } })).unwrap();
+        assert_eq!(inspected["status"], "inspected", "{inspected}");
+        let elsewhere = invoke(&window, "atomic_inspect_write", json!({ "request": {
+            "vaultRoot": world.vault, "path": world.vault.join(".folder.md"), "attempted": "x", "previous": null,
+            "tempPaths": [world.outside.join(".clutter-tmp.00002602.0000000c.18e2be2f3755a5f8")] } }));
+        assert!(elsewhere.is_err());
     }
 
     #[test]

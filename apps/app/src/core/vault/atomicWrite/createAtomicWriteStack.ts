@@ -41,6 +41,25 @@ export async function assertAtomicCommandsRegistered(
   }
 }
 
+/**
+ * What must be true before the first atomic write to a vault, from whichever path constructed the provider: the
+ * native commands exist, and the Space has its runtime filesystem grant (a Space created before Create made the
+ * grant itself, or opened before anything restored it, would otherwise be refused as out of scope while the plugin
+ * writer, which the static `$HOME/**` capability covers, would have worked). The grant is narrow and best effort:
+ * `ensure_space_access` only ever grants a marked direct child of Documents and answers `false` for anything else.
+ */
+export async function prepareVaultForAtomicWrites(
+  call: (command: string, args: Record<string, unknown>) => Promise<unknown>,
+  vaultRoot: string
+): Promise<void> {
+  await assertAtomicCommandsRegistered(call, vaultRoot);
+  try {
+    await call('ensure_space_access', { path: vaultRoot });
+  } catch (error) {
+    console.error('Restoring access to the space folder failed:', error);
+  }
+}
+
 export interface AtomicWriteStack {
   /** The provider every vault writer is to use: text writes replace the file whole. */
   readonly fileSystem: AtomicWriteFileSystem;
@@ -66,7 +85,7 @@ export function createAtomicWriteStack(options: {
 
   return {
     fileSystem: new AtomicWriteFileSystem(options.inner, writer, durability, options.assertWritable, () =>
-      assertAtomicCommandsRegistered(invoke, options.vaultRoot)
+      prepareVaultForAtomicWrites(invoke, options.vaultRoot)
     ),
     durability,
   };

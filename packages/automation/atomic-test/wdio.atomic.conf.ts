@@ -4,6 +4,7 @@
  */
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import AutomationSessionBootstrap from '../bootstrap/session';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const binary = process.env.CLUTTER_ATOMIC_TEST_BINARY ?? '';
@@ -22,6 +23,8 @@ export const config: WebdriverIO.Config = {
   maxInstances: 1,
   services: [
     ['@wdio/tauri-service', { driverProvider: 'embedded', env: { TAURI_AUTOMATION: '1', HOME: fakeHome } }],
+    // Without it every element command pays a ~10-20 s focus-check tax (see AUTOMATION.md, Performance).
+    [AutomationSessionBootstrap, {}],
   ],
   capabilities: [{ browserName: 'tauri', 'tauri:options': { application: binary } }],
   logLevel: 'warn',

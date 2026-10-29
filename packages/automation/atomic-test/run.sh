@@ -7,6 +7,11 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 export CLUTTER_ATOMIC_TEST_BINARY="$SCRATCH/clutter-atomictest"
 export CLUTTER_FAKE_HOME="/tmp/clutter-atomictest-home-$$"
 [ -n "${2:-}" ] && export CLUTTER_ATOMIC_SPEC="$2"
+# The isolated binary's WebKit storage (localStorage, so the Space registry) outlives a run and lives under the real
+# home, keyed by the executable name. Wipe exactly that, and nothing else, so each run starts with no Spaces.
+for store in "$HOME/Library/WebKit/clutter-atomictest" "$HOME/Library/Caches/clutter-atomictest"; do
+  case "$store" in */clutter-atomictest) rm -rf "$store" ;; *) echo "refusing to remove $store" >&2; exit 1 ;; esac
+done
 rm -rf "$CLUTTER_FAKE_HOME"
 mkdir -p "$CLUTTER_FAKE_HOME/Documents"
 python3 -m http.server 15421 --directory "$SCRATCH/dist" >/dev/null 2>&1 &
