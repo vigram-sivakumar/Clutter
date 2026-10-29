@@ -16,8 +16,18 @@ export interface PersistSyncedFolderDocumentDeps {
 export interface PersistSyncedFolderDocumentOptions {
   /** The `.folder.md` may not exist yet and may then be created (a folder with a path-derived id has none). */
   readonly mayCreate?: boolean;
-  /** The metadata fields the repair itself changes: they are not expected to match the file. */
-  readonly repairs?: readonly (keyof FolderMetadata)[];
+  /**
+   * The folder as Sync inspected it, before the repair (default: `folder` itself, for a repair that changes only the
+   * id). The file must still hold exactly this metadata, **including the fields the repair is about to replace**: a
+   * repair computed from an old value must not overwrite a newer one.
+   */
+  readonly inspected?: Folder;
+  /**
+   * For a repair that replaces the id: whether the id the file holds *now* still needs repairing (the duplicate is
+   * still a duplicate). A file whose id another application changed meanwhile is not overwritten. Without it the file
+   * must still hold the folder's own id (or none: a path-derived id has no `id` key).
+   */
+  readonly idStillNeedsRepair?: (onDiskId: string | undefined) => boolean;
 }
 
 const folderBuilder = new FolderBuilder();
@@ -54,7 +64,7 @@ export async function persistSyncedFolderDocument(
     }
 
     const current = await deps.fileSystem.readFile(path);
-    if (!stillMatches(folder, current, options.repairs ?? [])) {
+    if (!stillMatches(options.inspected ?? folder, folder.id, current, options.idStillNeedsRepair)) {
       return stale(deps, folder, 'its .folder.md changed after it was inspected');
     }
     await deps.fileSystem.writeFile(path, document, { replaceIf: current });
@@ -68,16 +78,28 @@ export async function persistSyncedFolderDocument(
   }
 }
 
-/** The metadata the file holds equals the folder's, apart from the fields the repair changes (and the id). */
-function stillMatches(folder: Folder, currentText: string, repairs: readonly (keyof FolderMetadata)[]): boolean {
+/**
+ * The file still holds what Sync inspected: every metadata field equal (the ones the repair will replace included),
+ * and an id that is either still in need of the repair or still the folder's own.
+ */
+function stillMatches(
+  inspected: Folder,
+  repairedId: string,
+  currentText: string,
+  idStillNeedsRepair: ((onDiskId: string | undefined) => boolean) | undefined
+): boolean {
   const onDisk = folderBuilder.build({
-    parentId: folder.parentId,
-    directory: { path: folder.path, parentPath: null, frontmatter: parser.parse(currentText).frontmatter },
-  }).metadata;
+    parentId: inspected.parentId,
+    directory: { path: inspected.path, parentPath: null, frontmatter: parser.parse(currentText).frontmatter },
+  });
+  const onDiskId = parser.parse(currentText).frontmatter.id;
 
-  return (Object.keys(folder.metadata) as (keyof FolderMetadata)[])
-    .filter((key) => !repairs.includes(key))
-    .every((key) => JSON.stringify(folder.metadata[key] ?? null) === JSON.stringify(onDisk[key] ?? null));
+  const idOk = idStillNeedsRepair ? idStillNeedsRepair(onDiskId) : onDiskId === undefined || onDiskId === repairedId;
+  if (!idOk) return false;
+
+  return (Object.keys(inspected.metadata) as (keyof FolderMetadata)[]).every(
+    (key) => JSON.stringify(inspected.metadata[key] ?? null) === JSON.stringify(onDisk.metadata[key] ?? null)
+  );
 }
 
 function stale(deps: PersistSyncedFolderDocumentDeps, folder: Folder, why: string): false {

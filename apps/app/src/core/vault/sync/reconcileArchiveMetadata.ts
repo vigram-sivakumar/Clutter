@@ -81,7 +81,8 @@ export async function reconcileFolderArchiveMetadata(
 
   const written = await persistSyncedFolderDocument(deps, reconciledFolder, {
     mayCreate: true,
-    repairs: ['status', 'archivedAt', 'originalPath', 'originalParentId'],
+    // The file must still hold the metadata the correction was computed from, not merely the unrelated fields.
+    inspected: candidateFolder,
   });
 
   if (!written) {

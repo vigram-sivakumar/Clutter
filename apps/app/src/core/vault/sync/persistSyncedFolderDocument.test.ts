@@ -51,7 +51,7 @@ describe('persistSyncedFolderDocument under the atomic provider', () => {
   it('repairs a .folder.md whose other metadata still matches, replacing it only while it holds the text it read', async () => {
     const { disk, writer, deps, stale } = setup({ [PATH]: onDisk() });
 
-    expect(await persistSyncedFolderDocument(deps, folder)).toBe(true);
+    expect(await persistSyncedFolderDocument(deps, folder, { idStillNeedsRepair: (id) => id === 'folder-old-id' })).toBe(true);
 
     expect(await disk.readFile(PATH)).toContain('folder-new-id');
     expect(writer.calls).toContain(`write:replaceIfContent:${PATH}`);
@@ -70,14 +70,54 @@ describe('persistSyncedFolderDocument under the atomic provider', () => {
     warn.mockRestore();
   });
 
-  it('ignores the fields the repair itself changes (archive metadata)', async () => {
-    const archived: Folder = { ...folder, metadata: { ...folder.metadata, status: 'archived', archivedAt: '2026-10-28T00:00:00.000Z' } };
-    const { disk, deps } = setup({ [PATH]: onDisk() });
+  it('an archive correction is made from the metadata it inspected: if another app changed a field it is about to replace, nothing is overwritten', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const inspected: Folder = { ...folder, metadata: { ...folder.metadata, status: 'archived', archivedAt: '2026-01-01T00:00:00.000Z' } };
+    const corrected: Folder = { ...inspected, metadata: { ...inspected.metadata, archivedAt: '2026-10-28T00:00:00.000Z' } };
 
-    const written = await persistSyncedFolderDocument(deps, archived, { repairs: ['status', 'archivedAt', 'originalPath', 'originalParentId'] });
+    // Unchanged since inspection: repaired.
+    const unchanged = setup({ [PATH]: onDisk({ status: 'archived', archivedAt: '2026-01-01T00:00:00.000Z' }, 'folder-new-id') });
+    expect(await persistSyncedFolderDocument(unchanged.deps, corrected, { inspected })).toBe(true);
+    expect(await unchanged.disk.readFile(PATH)).toContain('2026-10-28');
 
-    expect(written).toBe(true);
-    expect(await disk.readFile(PATH)).toContain('archived');
+    // Another app changed the very field the correction replaces: refused, theirs kept.
+    const changed = setup({ [PATH]: onDisk({ status: 'archived', archivedAt: '2026-05-05T00:00:00.000Z' }, 'folder-new-id') });
+    expect(await persistSyncedFolderDocument(changed.deps, corrected, { inspected })).toBe(false);
+    expect(await changed.disk.readFile(PATH)).toContain('2026-05-05');
+    expect(changed.stale).toEqual(['/vault/Projects']);
+
+    // Another app unarchived it entirely.
+    const unarchived = setup({ [PATH]: onDisk({ status: 'active' }, 'folder-new-id') });
+    expect(await persistSyncedFolderDocument(unarchived.deps, corrected, { inspected })).toBe(false);
+    expect(await unarchived.disk.readFile(PATH)).toContain('active');
+    warn.mockRestore();
+  });
+
+  it('a duplicate-id repair is not applied to an id another app changed meanwhile', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const keepsOtherFolder = (id: string | undefined) => id === 'folder-dup'; // some other folder holds `folder-dup`
+    const needsRepair = (id: string | undefined) => id !== undefined && id !== folder.id && keepsOtherFolder(id);
+
+    const stillDuplicate = setup({ [PATH]: onDisk({}, 'folder-dup') });
+    expect(await persistSyncedFolderDocument(stillDuplicate.deps, folder, { idStillNeedsRepair: needsRepair })).toBe(true);
+    expect(await stillDuplicate.disk.readFile(PATH)).toContain('folder-new-id');
+
+    // The id was changed to something else (unique) by another app: theirs stays.
+    const changedElsewhere = setup({ [PATH]: onDisk({}, 'folder-chosen-elsewhere') });
+    expect(await persistSyncedFolderDocument(changedElsewhere.deps, folder, { idStillNeedsRepair: needsRepair })).toBe(false);
+    expect(await changedElsewhere.disk.readFile(PATH)).toContain('folder-chosen-elsewhere');
+    expect(changedElsewhere.stale).toEqual(['/vault/Projects']);
+    warn.mockRestore();
+  });
+
+  it('without an id repair, a file whose id someone else changed is not overwritten either', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { disk, deps } = setup({ [PATH]: onDisk({}, 'someone-elses-id') });
+
+    expect(await persistSyncedFolderDocument(deps, folder)).toBe(false);
+
+    expect(await disk.readFile(PATH)).toContain('someone-elses-id');
+    warn.mockRestore();
   });
 
   it('refuses an edit that lands between its read and its write', async () => {
@@ -90,7 +130,7 @@ describe('persistSyncedFolderDocument under the atomic provider', () => {
       return write(attempt);
     });
 
-    expect(await persistSyncedFolderDocument(deps, folder)).toBe(false);
+    expect(await persistSyncedFolderDocument(deps, folder, { idStillNeedsRepair: (id) => id === 'folder-old-id' })).toBe(false);
 
     expect(await disk.readFile(PATH)).toContain('landed in the gap');
     expect(stale).toEqual(['/vault/Projects']);

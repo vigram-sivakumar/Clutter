@@ -507,7 +507,11 @@ export class Application {
           serializer: folderFrontmatterSerializer,
           onStale: (stalePath) => startupStalePaths.push(stalePath),
         },
-        folder
+        folder,
+        {
+          // Still a duplicate: some other folder holds the id the file holds now.
+          idStillNeedsRepair: (onDiskId) => onDiskId !== undefined && onDiskId !== folder.id && vault.getFolder(onDiskId) !== undefined,
+        }
       );
     }
 

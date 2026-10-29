@@ -872,7 +872,10 @@ export class VaultSyncService {
         continue;
       }
 
-      await persistSyncedFolderDocument(this.repairDeps(), folder);
+      await persistSyncedFolderDocument(this.repairDeps(), folder, {
+        // Still a duplicate: some other folder holds the id the file holds now.
+        idStillNeedsRepair: (onDiskId) => onDiskId !== undefined && onDiskId !== folder.id && this.vault.getFolder(onDiskId) !== undefined,
+      });
     }
 
     // Removal half of the diff: anything Vault still tracks under this
