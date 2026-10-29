@@ -149,7 +149,7 @@ export interface InspectQuery {
 }
 
 /** A request refused before anything was touched (not an outcome: nothing was attempted). */
-export type AtomicWriteRefusalCode = 'invalidVaultRoot' | 'invalidPath' | 'outOfScope';
+export type AtomicWriteRefusalCode = 'invalidVaultRoot' | 'invalidPath' | 'outOfScope' | 'unauthorizedWindow';
 
 export class AtomicWriteRefusedError extends Error {
   constructor(

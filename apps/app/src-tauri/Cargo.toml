@@ -50,5 +50,13 @@ tauri-plugin-opener = "2"
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2-core-foundation = { version = "0.3", default-features = false, features = ["std", "CFBase", "CFDate", "CFDictionary", "CFString", "CFUserNotification"] }
 
+# Test-only: Tauri's mock runtime, so the atomic-write commands are exercised through the real IPC dispatch and the
+# real fs-plugin scope (src/atomic_commands.rs). Adds no crate to the graph.
+[dev-dependencies]
+tauri = { version = "2.11.3", features = ["test"] }
+
 [features]
+# ADR-063: the atomic vault writer and its three commands. Off by default and used by nothing in the app yet, so an
+# ordinary build does not even compile them in; building or testing them needs `--features atomic-writes`.
+atomic-writes = []
 automation = ["dep:tauri-plugin-wdio-webdriver"]

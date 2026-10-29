@@ -1,0 +1,14 @@
+{
+  "$schema": "../../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "ClutterNativeVerify",
+  "version": "0.0.0",
+  "identifier": "com.clutter.nativeverify",
+  "build": { "frontendDist": "./dist" },
+  "app": {
+    "windows": [{ "label": "main", "title": "native verify", "width": 480, "height": 300 }],
+    "security": { "csp": null },
+    "withGlobalTauri": false
+  },
+  "plugins": { "fs": { "requireLiteralLeadingDot": false } },
+  "bundle": { "active": false, "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.icns"] }
+}

@@ -1,0 +1,19 @@
+# Stage 2b-ii: an isolated, real Tauri application that drives the registered atomic-write commands from a real
+# WebView. It compiles the production sources (`atomic_replace.rs`, `atomic_commands.rs`) unchanged through
+# `#[path]`; it is not part of the Clutter app and changes nothing about how Clutter saves.
+[package]
+name = "native-verify"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[build-dependencies]
+tauri-build = { version = "2.6.3", features = [] }
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+tauri = { version = "2.11.3" }
+tauri-plugin-fs = "2"

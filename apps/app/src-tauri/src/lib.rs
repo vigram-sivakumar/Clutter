@@ -4,6 +4,13 @@ use std::time::Duration;
 use tauri::{AppHandle, Manager, RunEvent, Url, WebviewWindow};
 
 mod app_menu;
+// The experimental atomic writer and its commands (ADR-063). Compiled in only with the off-by-default
+// `atomic-writes` feature, and then callable only from the `main` window (checked in the commands themselves).
+// Called by nothing: saves still go through the fs plugin's `writeTextFile`.
+#[cfg(all(target_os = "macos", feature = "atomic-writes"))]
+mod atomic_replace;
+#[cfg(all(target_os = "macos", feature = "atomic-writes"))]
+mod atomic_commands;
 mod move_no_clobber;
 mod parse_cache;
 mod space_folder;
@@ -176,6 +183,12 @@ pub fn run() {
             frontend_ready,
             frontend_failed,
             app_menu::set_copy_page_link_enabled,
+            #[cfg(all(target_os = "macos", feature = "atomic-writes"))]
+            atomic_commands::atomic_write_file,
+            #[cfg(all(target_os = "macos", feature = "atomic-writes"))]
+            atomic_commands::atomic_inspect_write,
+            #[cfg(all(target_os = "macos", feature = "atomic-writes"))]
+            atomic_commands::atomic_confirm_durability,
             move_no_clobber::move_file_no_clobber,
             parse_cache::parse_cache_read,
             parse_cache::parse_cache_write,

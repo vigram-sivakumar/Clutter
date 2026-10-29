@@ -1,0 +1,23 @@
+<!doctype html><meta charset="utf-8"><title>native verify</title>
+<body style="font:13px system-ui;padding:12px">
+<div id="s">starting</div>
+<script>
+// Runs inside the real WebView. It executes whatever the Rust scenario runner asks for through the real IPC bridge
+// and hands back the raw response (or rejection): no interpretation here.
+const invoke = (c, a) => window.__TAURI_INTERNALS__.invoke(c, a);
+const label = window.__TAURI_INTERNALS__.metadata.currentWindow.label;
+document.getElementById('s').textContent = 'window ' + label;
+async function run(call) {
+  try { return { id: call.id, ok: true, value: await invoke(call.command, call.args) }; }
+  catch (error) { return { id: call.id, ok: false, value: error }; }
+}
+(async () => {
+  for (;;) {
+    const calls = await invoke('vf_poll', { label });
+    if (!calls.length) { await new Promise((r) => setTimeout(r, 5)); continue; }
+    // Calls handed over together run together, so concurrent IPC is real.
+    const replies = await Promise.all(calls.map(run));
+    for (const r of replies) await invoke('vf_reply', { id: r.id, ok: r.ok, value: r.value === undefined ? null : r.value });
+  }
+})();
+</script>

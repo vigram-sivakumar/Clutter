@@ -42,7 +42,7 @@ const REASONS: ReadonlySet<string> = new Set<NotCommittedReason>([
   'targetMissing',
   'io',
 ]);
-const REFUSAL_CODES: ReadonlySet<string> = new Set<AtomicWriteRefusalCode>(['invalidVaultRoot', 'invalidPath', 'outOfScope']);
+const REFUSAL_CODES: ReadonlySet<string> = new Set<AtomicWriteRefusalCode>(['invalidVaultRoot', 'invalidPath', 'outOfScope', 'unauthorizedWindow']);
 const TARGETS: ReadonlySet<string> = new Set<InspectedTarget>(['holdsAttempted', 'holdsPrevious', 'missing', 'holdsOther']);
 
 type Json = Record<string, unknown>;
