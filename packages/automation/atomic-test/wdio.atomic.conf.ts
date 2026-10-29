@@ -28,7 +28,7 @@ export const config: WebdriverIO.Config = {
   ],
   capabilities: [{ browserName: 'tauri', 'tauri:options': { application: binary } }],
   logLevel: 'warn',
-  bail: 1,
+  bail: 0,
   waitforTimeout: 10000,
   connectionRetryTimeout: 90000,
   connectionRetryCount: 3,

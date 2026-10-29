@@ -5,7 +5,7 @@ set -euo pipefail
 SCRATCH="${1:?usage: run.sh <scratch-dir> [spec-glob]}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 export CLUTTER_ATOMIC_TEST_BINARY="$SCRATCH/clutter-atomictest"
-export CLUTTER_FAKE_HOME="/tmp/clutter-atomictest-home-$$"
+export CLUTTER_FAKE_HOME="/private/tmp/clutter-atomictest-home-$$"
 [ -n "${2:-}" ] && export CLUTTER_ATOMIC_SPEC="$2"
 # The isolated binary's WebKit storage (localStorage, so the Space registry) outlives a run and lives under the real
 # home, keyed by the executable name. Wipe exactly that, and nothing else, so each run starts with no Spaces.
@@ -26,4 +26,13 @@ cleanup() {
 }
 trap cleanup EXIT
 sleep 1
-cd "$HERE/.." && npx wdio run atomic-test/wdio.atomic.conf.ts
+cd "$HERE/.."
+# The crash specs kill the app on purpose, so wdio cannot close that session and exits non-zero even when every
+# test passed. The verdict is therefore read from the specs' own results: no failed test, and at least one passed.
+LOG="$(mktemp)"
+npx wdio run atomic-test/wdio.atomic.conf.ts 2>&1 | tee "$LOG" || true
+FAILED=$(grep -c "✖" "$LOG" || true)
+PASSED=$(grep -c "✓" "$LOG" || true)
+rm -f "$LOG"
+echo "atomic-test: $PASSED passed, $FAILED failed"
+[ "$FAILED" -eq 0 ] && [ "$PASSED" -gt 0 ]
