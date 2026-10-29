@@ -1,4 +1,4 @@
-import { isRetryableSaveFailure } from '../../vault/atomicWrite/atomicWriteErrors';
+import { classifySaveFailure, isRetryableSaveFailure, type SaveFailureKind } from '../../vault/atomicWrite/atomicWriteErrors';
 import type { DocumentSession } from '../../engine/DocumentSession';
 import { DocumentRegistry } from '../../engine/DocumentRegistry';
 import { SaveCoordinator } from '../../engine/SaveCoordinator';
@@ -220,6 +220,7 @@ export interface EditOptions {
 
 /** What the save-failure UI shows for a page. See PageOperations.saveFailureStatus(). */
 export type SaveFailureStatus = 'retrying' | 'retry-scheduled' | 'needs-action';
+export type { SaveFailureKind };
 
 /**
  * Owns the entire lifecycle of a page as a single capability surface —
@@ -1356,6 +1357,7 @@ export class PageOperations {
         // through requestSave() again, which reads the *current* revision and shares one in-flight save per page,
         // so it can neither write a stale revision nor race a save another trigger already started. A validation
         // failure (T11a above) is not retried: nothing about it improves with time.
+        this.failureKinds.set(pageId, classifySaveFailure(error));
         // A failure that retrying cannot change (a read-only file, a changed-on-disk file, a save whose outcome is
         // in doubt and is inspected on the next explicit save) is not put on the backoff: it waits as
         // 'needs-action' for the user, with the text still dirty and its recovery record kept (ADR-063).
@@ -1374,6 +1376,8 @@ export class PageOperations {
 
   /** Pages whose save has failed and not yet been confirmed saved, with the status the UI should show. */
   private readonly failureStreaks = new Set<string>();
+  /** Why each failed page failed, so the notice can say something truer than "try again" (ADR-063). */
+  private readonly failureKinds = new Map<string, SaveFailureKind>();
   private failureSnapshot = '';
   private readonly failureListeners = new Set<() => void>();
 
@@ -1401,6 +1405,31 @@ export class PageOperations {
     }
 
     return 'needs-action';
+  }
+
+  /** Why the page's last save failed (`failed` unless something more specific is known), or null when it has no failure. */
+  public saveFailureKind(pageId: string): SaveFailureKind | null {
+    return this.failureStreaks.has(pageId) ? (this.failureKinds.get(pageId) ?? 'failed') : null;
+  }
+
+  /**
+   * Keeps the user's unsaved text of a note whose save cannot be retried safely (the file changed on disk) as a new
+   * note beside it, and opens that note. Nothing is overwritten: the original note and its unsaved state are left as
+   * they are. Returns the new note's id, or null when the note has no session to copy.
+   */
+  public async saveUnsavedAsNewNote(pageId: string): Promise<string | null> {
+    const session = this.documentRegistry.get(pageId);
+    const page = this.vault.getPage(pageId);
+
+    if (!session || !page) {
+      return null;
+    }
+
+    return this.create({
+      folderId: page.parentId,
+      title: `${page.name} (my changes)`,
+      body: session.currentRevision.markdown,
+    });
   }
 
   /** Every page currently in a save-failure streak, in a stable order. */
@@ -1492,10 +1521,13 @@ export class PageOperations {
         this.failureStreaks.add(pageId);
       } else if (!channels.some(({ unsaved }) => unsaved)) {
         this.failureStreaks.delete(pageId);
+        this.failureKinds.delete(pageId);
       }
     }
 
-    const snapshot = JSON.stringify(this.failedSavePageIds().map((pageId) => [pageId, this.saveFailureStatus(pageId)]));
+    const snapshot = JSON.stringify(
+      this.failedSavePageIds().map((pageId) => [pageId, this.saveFailureStatus(pageId), this.saveFailureKind(pageId)])
+    );
 
     if (snapshot !== this.failureSnapshot) {
       this.failureSnapshot = snapshot;
@@ -1726,6 +1758,7 @@ export class PageOperations {
         // not clobber a newer, still-in-flight or already-succeeded one.
         if (this.saveCoordinator.failChannelSave(key, value)) {
           titleState.markSaveFailed();
+          this.failureKinds.set(pageId, classifySaveFailure(error));
           // Same bounded backoff as the body (SaveCoordinator.scheduleRetry), through the same request path, and
           // only for a failure that retrying can change.
           if (isRetryableSaveFailure(error)) {
@@ -1845,6 +1878,7 @@ export class PageOperations {
         // Mirrors runRequestTitleSave()'s T11a/T11b split.
         if (this.saveCoordinator.failChannelSave(key, value)) {
           descriptionState.markSaveFailed();
+          this.failureKinds.set(pageId, classifySaveFailure(error));
           if (isRetryableSaveFailure(error)) {
             this.saveCoordinator.scheduleRetry(key, () => {
               void this.requestDescriptionSave(pageId);

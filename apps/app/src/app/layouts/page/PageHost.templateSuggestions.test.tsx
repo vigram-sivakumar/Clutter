@@ -222,11 +222,11 @@ describe('TemplateSuggestions visibility follows the body, not the metadata', ()
 });
 
 describe('with no templates', () => {
-  it('an empty note still shows the suggestions, with "+ New template"', async () => {
+  it('an empty note still shows the suggestions, with "New template"', async () => {
     await setup({}, 0);
 
     expect(suggestionsShown()).toBe(true);
-    expect(screen.getByText('+ New template')).toBeInTheDocument();
+    expect(screen.getByText('New template')).toBeInTheDocument();
   });
 
   it('a note with content shows neither', async () => {
@@ -236,13 +236,13 @@ describe('with no templates', () => {
     await flush();
 
     expect(suggestionsShown()).toBe(false);
-    expect(screen.queryByText('+ New template')).toBeNull();
+    expect(screen.queryByText('New template')).toBeNull();
   });
 
-  it('"+ New template" opens a draft in Templates and keeps the persisted empty note', async () => {
+  it('"New template" opens a draft in Templates and keeps the persisted empty note', async () => {
     const { application, noteId } = await setup({ cover: 'https://example.com/c.jpg' }, 0);
 
-    fireEvent.click(screen.getByText('+ New template'));
+    fireEvent.click(screen.getByText('New template'));
     await flush();
 
     const templatesFolder = application.vault.getReservedFolder('templates')!;
@@ -257,7 +257,7 @@ describe('with no templates', () => {
   it('a template created from there shows up in the suggestions on an empty note', async () => {
     const { application, noteId } = await setup({}, 0);
 
-    fireEvent.click(screen.getByText('+ New template'));
+    fireEvent.click(screen.getByText('New template'));
     await flush();
     const draft = application.workspace.activePageId!;
     await application.pageOperations.mutateBody(draft, () => '# Agenda');
@@ -265,7 +265,7 @@ describe('with no templates', () => {
     await application.pageOperations.open(noteId);
     await flush();
 
-    expect(screen.queryByText('+ New template')).toBeNull();
+    expect(screen.queryByText('New template')).toBeNull();
     expect(document.querySelectorAll('.template-suggestions__item').length).toBeGreaterThan(0);
   });
 

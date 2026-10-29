@@ -8,7 +8,7 @@ export interface CurrentNoteTemplateSuggestionsProps {
   templates: readonly CollectionEntryModel[];
   /** Applies the template page `templateId` to the current note — never creates one. */
   onApply: (templateId: string) => void;
-  /** The picker's leading "New template" row, and the "+ New template" entry shown when there are no templates. */
+  /** The picker's leading "New template" row, and the "New template" entry shown when there are no templates. */
   onCreateTemplate: () => void;
 }
 

@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import type { SaveFailureStatus } from '@core/application/page/PageOperations';
+import type { SaveFailureKind, SaveFailureStatus } from '@core/application/page/PageOperations';
 
 /** The part of PageOperations this hook reads. */
 export interface SaveFailureSource {
@@ -7,11 +7,15 @@ export interface SaveFailureSource {
   subscribeSaveFailures(listener: () => void): () => void;
   failedSavePageIds(): readonly string[];
   saveFailureStatus(pageId: string): SaveFailureStatus | null;
+  /** Optional so existing sources and test doubles are unaffected; absent reads as `failed`. */
+  saveFailureKind?(pageId: string): SaveFailureKind | null;
 }
 
 export interface SaveFailures {
   /** The failure status of one page, or null when its last save did not fail (or it has been saved since). */
   readonly statusOf: (pageId: string) => SaveFailureStatus | null;
+  /** Why the page's last save failed, or null when it has no failure. */
+  readonly kindOf: (pageId: string) => SaveFailureKind | null;
   /** Every page with an unresolved save failure, whether or not it is the one on screen. */
   readonly failedIds: readonly string[];
 }
@@ -27,5 +31,9 @@ export function useSaveFailures(source: SaveFailureSource): SaveFailures {
   useSyncExternalStore(source.subscribeSaveFailures.bind(source), () => source.saveFailureSnapshot());
   const failedIds = source.failedSavePageIds();
 
-  return { statusOf: (pageId) => source.saveFailureStatus(pageId), failedIds };
+  return {
+    statusOf: (pageId) => source.saveFailureStatus(pageId),
+    kindOf: (pageId) => source.saveFailureKind?.(pageId) ?? (source.saveFailureStatus(pageId) === null ? null : 'failed'),
+    failedIds,
+  };
 }

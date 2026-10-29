@@ -138,7 +138,12 @@ export function AppStatusProvider({ application, children }: { application: Appl
   const status = (
     <>
       {activeStatus !== null && activePageId ? (
-        <SaveFailureNotice status={activeStatus} onRetry={() => void pageOperations.retrySave(activePageId)} />
+        <SaveFailureNotice
+          status={activeStatus}
+          kind={failures.kindOf(activePageId) ?? 'failed'}
+          onRetry={() => void pageOperations.retrySave(activePageId)}
+          onSaveAsNewNote={() => void pageOperations.saveUnsavedAsNewNote(activePageId)}
+        />
       ) : null}
       {candidates.some((candidate) => candidate.record.pageId === activePageId) && (
         <RecoveryNotice onReview={() => setReviewOpen(true)} />

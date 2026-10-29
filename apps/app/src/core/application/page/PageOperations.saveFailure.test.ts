@@ -292,6 +292,45 @@ describe('PageOperations: a failed save is kept, retried on a bounded backoff, a
     expect(pageOperations.unsavedPageCount()).toBe(1);
   });
 
+  it.each([
+    ['an ordinary error', new Error('disk full'), 'failed'],
+    ['no room', new AtomicNotCommittedError('insufficientSpace', 'full'), 'failed'],
+    ['a save in doubt', new AtomicUncertainError('maybe', []), 'unverified'],
+    ['a file changed behind the save', new AtomicExternalChangeError('/vault/Note.md'), 'changed-on-disk'],
+    ['an unsupported volume', new AtomicNotCommittedError('unsupportedFilesystem', 'exFAT'), 'unsupported-location'],
+  ] as const)('%s is reported with its own kind, and the kind goes away with the failure', async (_name, failure, kind) => {
+    const { page, fileSystem, pageOperations } = await openWithFailingDisk();
+    fileSystem.failing = true;
+    fileSystem.failWith = failure;
+    expect(pageOperations.saveFailureKind(page.id)).toBeNull();
+
+    pageOperations.commitEdit(page.id, 'Edited body');
+    await pageOperations.requestSave(page.id);
+    expect(pageOperations.saveFailureKind(page.id)).toBe(kind);
+
+    fileSystem.failing = false;
+    await pageOperations.retrySave(page.id);
+    expect(pageOperations.saveFailureKind(page.id)).toBeNull();
+  });
+
+  it('keeps the unsaved text as a new note beside the original, overwriting nothing', async () => {
+    const { page, fileSystem, pageOperations, vault, inner } = await openWithFailingDisk();
+    fileSystem.failing = true;
+    fileSystem.failWith = new AtomicExternalChangeError('/vault/Note.md');
+    pageOperations.commitEdit(page.id, 'My unsaved words');
+    await pageOperations.requestSave(page.id);
+    const before = await inner.readFile(page.path);
+
+    fileSystem.failing = false;
+    const copyId = await pageOperations.saveUnsavedAsNewNote(page.id);
+
+    const copy = copyId === null ? undefined : vault.getPage(copyId);
+    expect(copy?.name).toBe('Note (my changes)');
+    expect(copy?.source.markdown).toBe('My unsaved words');
+    expect(await inner.readFile(page.path)).toBe(before); // the original file is untouched
+    expect(vault.getPage(page.id)).toBeDefined();
+  });
+
   it('a failure that is not retried is still saved by the user’s manual Retry once the cause is gone', async () => {
     const { page, fileSystem, pageOperations, session } = await openWithFailingDisk();
     fileSystem.failing = true;

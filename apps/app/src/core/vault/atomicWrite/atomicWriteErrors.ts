@@ -50,6 +50,25 @@ export class AtomicExternalChangeError extends Error {
 }
 
 /**
+ * What the user needs to be told about a failed save, which is not always "try again":
+ * - `failed`: nothing was written and trying again can help (no room, a locked file, anything unclassified);
+ * - `changed-on-disk`: the file holds something this app did not write, so a repeat would overwrite it;
+ * - `unverified`: the save may or may not have landed; the next attempt checks before it writes;
+ * - `unsupported-location`: this location cannot be saved to safely, and trying again will not change that.
+ */
+export type SaveFailureKind = 'failed' | 'changed-on-disk' | 'unverified' | 'unsupported-location';
+
+export function classifySaveFailure(error: unknown): SaveFailureKind {
+  if (error instanceof AtomicExternalChangeError) return 'changed-on-disk';
+  if (error instanceof AtomicUncertainError) return 'unverified';
+  if (error instanceof AtomicNotCommittedError && (error.reason === 'unsupportedFilesystem' || error.reason === 'unsupportedOperation')) {
+    return 'unsupported-location';
+  }
+
+  return 'failed';
+}
+
+/**
  * Whether the bounded automatic retry should run for a failed save. Only an atomic failure that can change is
  * retried; an uncertain or externally-changed one is not (the inspection runs on the next explicit save), and an
  * error from any other provider is retried exactly as before.
