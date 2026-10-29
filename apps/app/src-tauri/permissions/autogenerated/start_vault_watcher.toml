@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-start-vault-watcher"
+description = "Enables the start_vault_watcher command without any pre-configured scope."
+commands.allow = ["start_vault_watcher"]
+
+[[permission]]
+identifier = "deny-start-vault-watcher"
+description = "Denies the start_vault_watcher command without any pre-configured scope."
+commands.deny = ["start_vault_watcher"]

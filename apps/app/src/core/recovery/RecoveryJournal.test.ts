@@ -9,7 +9,7 @@ import {
   type RecoverySource,
 } from './RecoveryJournal';
 import { MemoryRecoveryStorage, type RecoveryStorage } from './RecoveryStorage';
-import { parseRecord, recordFileName, serializeRecord, type RecoveryRecord } from './RecoveryRecord';
+import { newSessionId, parseRecord, recordFileName, serializeRecord, sessionOfFileName, type RecoveryRecord } from './RecoveryRecord';
 
 const KEY = 'space-1';
 const SESSION = 'aaaaaaaa';
@@ -266,6 +266,30 @@ describe('RecoveryJournal: cleanup', () => {
   });
 });
 
+describe('RecoveryJournal: snapshotNow reports the outcome of its own write', () => {
+  it('is false when the newest state could not be written, even though an older snapshot of the note exists', async () => {
+    const { storage, source, journal } = setup();
+    source.set({ pageId: 'a', body: { markdown: 'first', revision: 1 } });
+    await expect(journal.snapshotNow('a')).resolves.toBe(true);
+
+    source.set({ pageId: 'a', body: { markdown: 'restored text', revision: 2 } });
+    storage.failWrites = new Error('disk full');
+
+    await expect(journal.snapshotNow('a')).resolves.toBe(false);
+    expect(recordOf(storage, 'a')?.body?.markdown).toBe('first');
+
+    storage.failWrites = null;
+    await expect(journal.snapshotNow('a')).resolves.toBe(true);
+    expect(recordOf(storage, 'a')?.body?.markdown).toBe('restored text');
+  });
+
+  it('is true for a note with nothing unsaved', async () => {
+    const { journal } = setup();
+
+    await expect(journal.snapshotNow('nothing-here')).resolves.toBe(true);
+  });
+});
+
 describe('RecoveryJournal: failures', () => {
   it('a failed write keeps the previous record, reports the error, and retries a bounded number of times', async () => {
     const { storage, source, onWriteError } = setup();
@@ -388,7 +412,7 @@ describe('RecoveryJournal: interrupted snapshots (.json.tmp)', () => {
     return raw === undefined ? undefined : parseRecord(raw)?.body?.markdown;
   };
 
-  it('a newer valid .tmp beside an older committed record is the candidate, promoted, and the .tmp removed', async () => {
+  it('a newer valid .tmp beside an older committed record is the candidate, offered where it is, and nothing is deleted', async () => {
     const { storage, journal } = setup();
     storage.files.set(committed('a'), serializeRecord(record('a', 1, 'older')));
     storage.files.set(temp('a'), serializeRecord(record('a', 2, 'newer')));
@@ -397,11 +421,12 @@ describe('RecoveryJournal: interrupted snapshots (.json.tmp)', () => {
 
     expect(entries).toHaveLength(1);
     expect(entries[0]!.record.body?.markdown).toBe('newer');
-    expect(text(storage, committed('a'))).toBe('newer');
-    expect(storage.files.has(temp('a'))).toBe(false);
+    expect(entries[0]!.name).toBe(recordFileName('a', OLD) + '.tmp');
+    expect(text(storage, temp('a'))).toBe('newer');
+    expect(text(storage, committed('a'))).toBe('older');
   });
 
-  it('an older .tmp never overrides a newer committed record, and is removed as superseded', async () => {
+  it('an older .tmp never overrides a newer committed record; it is not deleted by discovery, only with the candidate', async () => {
     const { storage, journal } = setup();
     storage.files.set(committed('a'), serializeRecord(record('a', 5, 'newer')));
     storage.files.set(temp('a'), serializeRecord(record('a', 4, 'older')));
@@ -410,7 +435,10 @@ describe('RecoveryJournal: interrupted snapshots (.json.tmp)', () => {
 
     expect(entries.map((entry) => entry.record.body?.markdown)).toEqual(['newer']);
     expect(text(storage, committed('a'))).toBe('newer');
-    expect(storage.files.has(temp('a'))).toBe(false);
+    expect(storage.files.has(temp('a'))).toBe(true);
+
+    await journal.removeEntry(entries[0]!);
+    expect(storage.files.size).toBe(0);
   });
 
   it('freshness is the writer’s sequence, not the capture time: a later clock on an older snapshot does not win', async () => {
@@ -423,7 +451,7 @@ describe('RecoveryJournal: interrupted snapshots (.json.tmp)', () => {
     expect(entries.map((entry) => entry.record.body?.markdown)).toEqual(['newer']);
   });
 
-  it('a malformed .tmp beside a valid committed record is not offered and is cleaned up; the committed record survives', async () => {
+  it('a malformed .tmp beside a valid committed record is not offered, counted as unreadable, and left alone: it may be a write still in progress', async () => {
     const { storage, journal } = setup();
     storage.files.set(committed('a'), serializeRecord(record('a', 1, 'good')));
     storage.files.set(temp('a'), '{"format":"clutter-recov');
@@ -433,7 +461,7 @@ describe('RecoveryJournal: interrupted snapshots (.json.tmp)', () => {
     expect(entries.map((entry) => entry.record.body?.markdown)).toEqual(['good']);
     expect(unreadable).toBe(1);
     expect(text(storage, committed('a'))).toBe('good');
-    expect(storage.files.has(temp('a'))).toBe(false);
+    expect(storage.files.get(temp('a'))).toBe('{"format":"clutter-recov');
   });
 
   it('a valid .tmp whose identity does not match its file name or vault is never offered and never deleted', async () => {
@@ -464,15 +492,15 @@ describe('RecoveryJournal: interrupted snapshots (.json.tmp)', () => {
     ]);
   });
 
-  it('interruption during the first snapshot: only a valid .tmp exists, so it is recovered and promoted', async () => {
+  it('interruption during the first snapshot: only a valid .tmp exists, so it is recovered from where it is', async () => {
     const { storage, journal } = setup();
     storage.files.set(temp('a'), serializeRecord(record('a', 1, 'first')));
 
     const { entries } = await journal.discover();
 
     expect(entries.map((entry) => entry.record.body?.markdown)).toEqual(['first']);
-    expect(text(storage, committed('a'))).toBe('first');
-    expect(storage.files.has(temp('a'))).toBe(false);
+    expect(text(storage, temp('a'))).toBe('first');
+    expect(storage.files.has(committed('a'))).toBe(false);
   });
 
   it('interruption mid-write of the first snapshot: a truncated lone .tmp is not offered and is left in place', async () => {
@@ -497,42 +525,89 @@ describe('RecoveryJournal: interrupted snapshots (.json.tmp)', () => {
     expect(text(storage, committed('a'))).toBe('previous');
   });
 
-  it('never deletes the only valid copy: when promotion fails the .tmp and the older committed record both stay', async () => {
+  it('resolving the candidate removes the .tmp and the older committed record it superseded, and nothing before that', async () => {
     const { storage, journal } = setup();
     storage.files.set(committed('a'), serializeRecord(record('a', 1, 'older')));
     storage.files.set(temp('a'), serializeRecord(record('a', 2, 'newer')));
-    storage.failWrites = new Error('disk full');
-
     const { entries } = await journal.discover();
+    expect(storage.files.size).toBe(2);
 
-    expect(entries).toHaveLength(1);
-    expect(entries[0]!.record.body?.markdown).toBe('newer');
-    expect(storage.files.has(temp('a'))).toBe(true);
-    expect(storage.files.has(committed('a'))).toBe(true);
-
-    // Discarding that candidate removes both files, so the user's explicit choice leaves nothing behind.
-    storage.failWrites = null;
     await journal.removeEntry(entries[0]!);
+
     expect(storage.files.size).toBe(0);
   });
 
-  it('repeated discovery is stable: no duplicate candidates, no loss, nothing left to clean the second time', async () => {
+  it('a failed removal while resolving keeps the older committed record, never the other way round', async () => {
+    const { storage, journal } = setup();
+    storage.files.set(committed('a'), serializeRecord(record('a', 1, 'older')));
+    storage.files.set(temp('a'), serializeRecord(record('a', 2, 'newer')));
+    const { entries } = await journal.discover();
+    vi.spyOn(storage, 'remove').mockRejectedValueOnce(new Error('i/o error'));
+
+    await expect(journal.removeEntry(entries[0]!)).rejects.toThrow();
+
+    // The newest copy is what was being removed and it is still there; the older one is untouched.
+    expect(storage.files.size).toBe(2);
+  });
+
+  it('repeated and concurrent discovery is stable: no duplicate candidates, no loss, and nothing deleted but provable garbage', async () => {
     const { storage, journal } = setup();
     storage.files.set(committed('a'), serializeRecord(record('a', 1, 'older')));
     storage.files.set(temp('a'), serializeRecord(record('a', 2, 'newer')));
     storage.files.set(temp('b'), serializeRecord(record('b', 1, 'only b')));
 
-    const first = await journal.discover();
-    const second = await journal.discover();
-    const third = await journal.discover();
+    const results = [await journal.discover(), ...(await Promise.all([journal.discover(), journal.discover(), journal.discover()]))];
 
-    for (const result of [first, second, third]) {
+    for (const result of results) {
       expect(result.entries.map((entry) => `${entry.record.pageId}:${entry.record.body?.markdown}`).sort()).toEqual([
         'a:newer',
         'b:only b',
       ]);
     }
-    expect([...storage.files.keys()].sort()).toEqual([committed('a'), committed('b')].sort());
+    expect([...storage.files.keys()].sort()).toEqual([committed('a'), temp('a'), temp('b')].sort());
+  });
+
+  it('discovery overlapping a snapshot write: a half-written .tmp is left alone, and once the write completes the next discovery offers it', async () => {
+    const { storage, journal } = setup();
+    storage.files.set(committed('a'), serializeRecord(record('a', 1, 'committed')));
+    const complete = serializeRecord(record('a', 2, 'the finished write'));
+    storage.files.set(temp('a'), complete.slice(0, complete.length / 2)); // the writer is part-way through
+
+    const during = await journal.discover();
+    expect(during.entries.map((entry) => entry.record.body?.markdown)).toEqual(['committed']);
+    expect(storage.files.get(temp('a'))).toBe(complete.slice(0, complete.length / 2)); // not deleted, not touched
+
+    storage.files.set(temp('a'), complete); // the write finishes (then the writer would rename it)
+    const after = await journal.discover();
+
+    expect(after.entries.map((entry) => entry.record.body?.markdown)).toEqual(['the finished write']);
+    expect(text(storage, committed('a'))).toBe('committed');
+  });
+
+  it('discovery is read-only in every shape: it never writes, renames or deletes', async () => {
+    const { storage, journal } = setup();
+    const shapes: Record<string, string> = {
+      [committed('a')]: serializeRecord(record('a', 3, 'committed')),
+      [temp('a')]: serializeRecord(record('a', 2, 'older tmp')),
+      [committed('b')]: serializeRecord(record('b', 1, 'older')),
+      [temp('b')]: serializeRecord(record('b', 2, 'newer tmp')),
+      [temp('c')]: '{"truncated',
+      [committed('d')]: '{"format":"clutter-recov',
+      [temp('d')]: serializeRecord(record('d', 1, 'valid tmp beside garbage committed')),
+      [temp('e')]: serializeRecord(record('e', 1, 'lone tmp')),
+      [committed('f')]: serializeRecord(record('f', 1, 'same')),
+      [temp('f')]: serializeRecord(record('f', 1, 'same')),
+    };
+    for (const [key, value] of Object.entries(shapes)) storage.files.set(key, value);
+    const writes = vi.spyOn(storage, 'writeAtomic');
+    const removes = vi.spyOn(storage, 'remove');
+
+    await journal.discover();
+    await journal.discover();
+
+    expect(writes).not.toHaveBeenCalled();
+    expect(removes).not.toHaveBeenCalled();
+    expect(Object.fromEntries(storage.files)).toEqual(shapes);
   });
 
   it('the same note from two different sessions stays two candidates (they hold different work)', async () => {
@@ -545,15 +620,150 @@ describe('RecoveryJournal: interrupted snapshots (.json.tmp)', () => {
     expect(entries.map((entry) => entry.record.body?.markdown).sort()).toEqual(['from old session', 'from other session']);
   });
 
-  it('this session’s own files, including its own .tmp, are never discovered or touched', async () => {
-    const { storage, journal } = setup();
-    storage.files.set(temp('a', SESSION), serializeRecord(record('a', 1, 'mine')));
+  it('this session’s own records, including its own .tmp, are never discovered or touched', async () => {
+    const { storage, source, journal } = setup();
+    source.set({ pageId: 'a', body: { markdown: 'mine', revision: 1 } });
+    await journal.flush();
+    const ownName = `${KEY}/${recordFileName('a', journal.session)}`;
+    storage.files.set(`${ownName}.tmp`, serializeRecord(record('a', 9, 'mine, mid-write')));
 
     const { entries } = await journal.discover();
 
     expect(entries).toEqual([]);
-    expect(storage.files.has(temp('a', SESSION))).toBe(true);
+    expect(storage.files.has(ownName)).toBe(true);
+    expect(storage.files.has(`${ownName}.tmp`)).toBe(true);
   });
+
+  it('discovery never writes, renames or promotes anything: the only copy of the newest snapshot is never opened for writing', async () => {
+    const { storage, journal } = setup();
+    const writes = vi.spyOn(storage, 'writeAtomic');
+    const removes = vi.spyOn(storage, 'remove');
+    storage.files.set(temp('a'), serializeRecord(record('a', 1, 'only copy')));
+    storage.files.set(temp('b'), serializeRecord(record('b', 2, 'newer')));
+    storage.files.set(committed('b'), serializeRecord(record('b', 1, 'older')));
+
+    await journal.discover();
+
+    expect(writes).not.toHaveBeenCalled();
+    expect(removes).not.toHaveBeenCalled();
+  });
+
+
+  it('a .tmp that cannot be read is not deleted, and does not displace the committed record', async () => {
+    const { storage, journal } = setup();
+    storage.files.set(committed('a'), serializeRecord(record('a', 1, 'good')));
+    storage.files.set(temp('a'), serializeRecord(record('a', 2, 'maybe newer')));
+    const read = storage.read.bind(storage);
+    vi.spyOn(storage, 'read').mockImplementation(async (dir, name) => {
+      if (name === `${recordFileName('a', OLD)}.tmp`) throw new Error('i/o error');
+      return read(dir, name);
+    });
+
+    const { entries, unreadable } = await journal.discover();
+
+    expect(entries.map((entry) => entry.record.body?.markdown)).toEqual(['good']);
+    expect(unreadable).toBe(1);
+    expect(storage.files.has(temp('a'))).toBe(true);
+  });
+
+  it('a committed file that cannot be read is never touched; the .tmp is offered in place', async () => {
+    const { storage, journal } = setup();
+    const olderText = serializeRecord(record('a', 1, 'maybe valid'));
+    storage.files.set(committed('a'), olderText);
+    storage.files.set(temp('a'), serializeRecord(record('a', 2, 'newer')));
+    const read = storage.read.bind(storage);
+    vi.spyOn(storage, 'read').mockImplementation(async (dir, name) => {
+      if (name === recordFileName('a', OLD)) throw new Error('i/o error');
+      return read(dir, name);
+    });
+
+    const { entries } = await journal.discover();
+
+    expect(entries.map((entry) => entry.record.body?.markdown)).toEqual(['newer']);
+    expect(storage.files.get(committed('a'))).toBe(olderText);
+    expect(storage.files.has(temp('a'))).toBe(true);
+  });
+
+  it('a valid record of another note sitting at the committed name is never touched', async () => {
+    const { storage, journal } = setup();
+    const foreignText = serializeRecord(record('other-note', 9, 'someone else’s work'));
+    storage.files.set(committed('a'), foreignText);
+    storage.files.set(temp('a'), serializeRecord(record('a', 1, 'mine')));
+
+    const { entries } = await journal.discover();
+
+    expect(entries.map((entry) => entry.record.body?.markdown)).toEqual(['mine']);
+    expect(storage.files.get(committed('a'))).toBe(foreignText);
+  });
+
+  it('a malformed committed file beside a valid .tmp is not a record: the .tmp is offered and the garbage goes with it when resolved', async () => {
+    const { storage, journal } = setup();
+    storage.files.set(committed('a'), '{"format":"clutter-recov');
+    storage.files.set(temp('a'), serializeRecord(record('a', 1, 'valid')));
+
+    const { entries } = await journal.discover();
+
+    expect(entries.map((entry) => entry.record.body?.markdown)).toEqual(['valid']);
+    expect(storage.files.has(temp('a'))).toBe(true);
+    await journal.removeEntry(entries[0]!);
+    expect(storage.files.size).toBe(0);
+  });
+
+  it('records written before `sequence` existed are ordered by editor revision, then capture time, deterministically', async () => {
+    const { storage, journal } = setup();
+    const legacy = (revision: number, markdown: string, capturedAt = '2026-10-27T10:00:00.000Z') => {
+      const { sequence: _omit, ...rest } = record('a', 1, markdown, { capturedAt });
+      return JSON.stringify({ ...rest, body: { markdown, revision } });
+    };
+    storage.files.set(committed('a'), legacy(3, 'older'));
+    storage.files.set(temp('a'), legacy(4, 'newer'));
+
+    const { entries } = await journal.discover();
+
+    expect(entries.map((entry) => entry.record.body?.markdown)).toEqual(['newer']);
+  });
+
+  it('two legacy records at the same position with different content are both kept and both offered', async () => {
+    const { storage, journal } = setup();
+    const legacy = (markdown: string) => {
+      const { sequence: _omit, ...rest } = record('a', 1, markdown);
+      return JSON.stringify({ ...rest, body: { markdown, revision: 3 } });
+    };
+    storage.files.set(committed('a'), legacy('one'));
+    storage.files.set(temp('a'), legacy('two'));
+
+    const { entries } = await journal.discover();
+
+    expect(entries.map((entry) => entry.record.body?.markdown).sort()).toEqual(['one', 'two']);
+    expect(storage.files.has(temp('a'))).toBe(true);
+    expect(storage.files.has(committed('a'))).toBe(true);
+  });
+
+  it('a record with a malformed sequence is not a record: never offered, never used to delete a valid one', async () => {
+    const { storage, journal } = setup();
+    storage.files.set(committed('a'), serializeRecord(record('a', 5, 'good')));
+    for (const bad of [0, -1, 1.5, '3', null]) {
+      storage.files.set(temp('a'), JSON.stringify({ ...record('a', 9, 'bad'), sequence: bad }));
+      const { entries } = await journal.discover();
+      expect(entries.map((entry) => entry.record.body?.markdown)).toEqual(['good']);
+      expect(text(storage, committed('a'))).toBe('good');
+    }
+  });
+
+  it('a .tmp that is byte-identical to the committed record is offered once, kept by discovery, and removed with the candidate', async () => {
+    const { storage, journal } = setup();
+    const same = serializeRecord(record('a', 3, 'same'));
+    storage.files.set(committed('a'), same);
+    storage.files.set(temp('a'), same);
+
+    const { entries } = await journal.discover();
+
+    expect(entries).toHaveLength(1);
+    expect(storage.files.size).toBe(2);
+    await journal.removeEntry(entries[0]!);
+    expect(storage.files.size).toBe(0);
+  });
+
 });
 
 describe('RecoveryJournal: ordering and timing', () => {
@@ -601,5 +811,177 @@ describe('RecoveryJournal: ordering and timing', () => {
   it('the recovery window is short and bounded: quiet period 1s, max wait 2s', () => {
     expect(RECOVERY_DEBOUNCE_MS).toBe(1000);
     expect(RECOVERY_MAX_WAIT_MS).toBe(2000);
+  });
+});
+
+describe('RecoveryJournal: session identifiers', () => {
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+  const tag = (n: number) => `${String(n).padStart(8, '0')}-0000-4000-8000-000000000000`;
+  const rec = (pageId: string, markdown: string): RecoveryRecord => ({
+    format: 'clutter-recovery',
+    version: 1,
+    vaultKey: KEY,
+    pageId,
+    kind: 'page',
+    capturedAt: '2026-10-27T10:00:00.000Z',
+    sequence: 1,
+    label: pageId,
+    pagePath: null,
+    body: { markdown, revision: 1 },
+    title: null,
+    description: null,
+    base: { body: 'f1-x', title: pageId, description: '' },
+    draft: null,
+  });
+
+  it('a new session is tagged with a random UUID, and two sessions never share one', () => {
+    const make = () => new RecoveryJournal({ storage: new MemoryRecoveryStorage(), vaultKey: KEY, source: new FakeSource() });
+
+    const tags = new Set([make().session, make().session, make().session, newSessionId()]);
+
+    expect(tags.size).toBe(4);
+    for (const value of tags) expect(value).toMatch(UUID);
+  });
+
+  it('reads both tag formats from a file name, whatever dots and dashes the note id contains', () => {
+    const uuid = '3f2504e0-4f89-41d3-9a0c-0305e82c3301';
+
+    expect(sessionOfFileName('a.aaaaaaaa.json')).toBe('aaaaaaaa');
+    expect(sessionOfFileName('a.aaaaaaaa.json.tmp')).toBe('aaaaaaaa');
+    expect(sessionOfFileName(`a.${uuid}.json`)).toBe(uuid);
+    expect(sessionOfFileName(`a.${uuid}.json.tmp`)).toBe(uuid);
+    expect(sessionOfFileName(`my.note-1.${uuid}.json`)).toBe(uuid);
+    expect(sessionOfFileName(`my.note-1.aaaaaaaa.json`)).toBe('aaaaaaaa');
+    expect(sessionOfFileName(`${uuid}.bbbbbbbb.json`)).toBe('bbbbbbbb'); // a note id shaped like a UUID is not a tag
+    expect(sessionOfFileName('a.json')).toBeNull();
+    expect(sessionOfFileName('a.ZZZZZZZZ.json')).toBeNull();
+    expect(recordFileName('a', uuid)).toBe(`a.${uuid}.json`);
+  });
+
+  it('records from the legacy 8-digit sessions are still discovered, alongside UUID ones, and nothing is renamed or removed', async () => {
+    const storage = new MemoryRecoveryStorage();
+    const journal = new RecoveryJournal({ storage, vaultKey: KEY, source: new FakeSource() });
+    const legacy = `${KEY}/${recordFileName('a', 'bbbbbbbb')}`;
+    const modern = `${KEY}/${recordFileName('a', newSessionId())}`;
+    storage.files.set(legacy, serializeRecord(rec('a', 'legacy')));
+    storage.files.set(modern, serializeRecord(rec('a', 'modern')));
+
+    const { entries } = await journal.discover();
+
+    expect(entries.map((entry) => entry.record.body?.markdown).sort()).toEqual(['legacy', 'modern']);
+    expect([...storage.files.keys()].sort()).toEqual([legacy, modern].sort());
+  });
+
+  it('a session tag already on disk is never reused: the other session’s record is not overwritten', async () => {
+    const storage = new MemoryRecoveryStorage();
+    const source = new FakeSource();
+    let drawn = 0;
+    const journal = new RecoveryJournal({
+      storage,
+      vaultKey: KEY,
+      source,
+      session: tag(1),
+      newSession: () => tag(100 + drawn++),
+      now: () => new Date('2026-10-28T10:00:00.000Z'),
+    });
+    journal.start();
+    const theirs = `${KEY}/${recordFileName('a', tag(1))}`;
+    storage.files.set(theirs, serializeRecord(rec('a', 'another session’s work')));
+
+    source.set({ pageId: 'a', body: { markdown: 'mine', revision: 1 } });
+    await journal.flush();
+
+    expect(journal.session).not.toBe(tag(1));
+    expect(parseRecord(storage.files.get(theirs)!)?.body?.markdown).toBe('another session’s work');
+    expect(parseRecord(storage.files.get(`${KEY}/${recordFileName('a', journal.session)}`)!)?.body?.markdown).toBe('mine');
+
+    // And that other session's record is a candidate, not mistaken for this session's own.
+    const { entries } = await journal.discover();
+    expect(entries.map((entry) => entry.record.body?.markdown)).toEqual(['another session’s work']);
+  });
+
+  it('when every tag drawn is taken, nothing is written rather than overwriting someone else’s record', async () => {
+    const storage = new MemoryRecoveryStorage();
+    const source = new FakeSource();
+    const onWriteError = vi.fn();
+    const journal = new RecoveryJournal({ storage, vaultKey: KEY, source, session: tag(1), newSession: () => tag(1), onWriteError, retryMs: 1, maxRetries: 0 });
+    journal.start();
+    const theirs = `${KEY}/${recordFileName('a', tag(1))}`;
+    storage.files.set(theirs, serializeRecord(rec('a', 'theirs')));
+
+    source.set({ pageId: 'a', body: { markdown: 'mine', revision: 1 } });
+    await journal.flush();
+
+    expect(onWriteError).toHaveBeenCalled();
+    expect(parseRecord(storage.files.get(theirs)!)?.body?.markdown).toBe('theirs');
+    expect(storage.files.size).toBe(1);
+  });
+});
+
+describe('RecoveryJournal: cleanup after a successful save', () => {
+  it('a failed removal of the own record is retried, so it is not left behind', async () => {
+    const { storage, source } = setup();
+    source.set({ pageId: 'a', body: { markdown: 'unsaved', revision: 1 } });
+    await vi.advanceTimersByTimeAsync(RECOVERY_DEBOUNCE_MS);
+    expect(recordOf(storage, 'a')).not.toBeNull();
+    const remove = vi.spyOn(storage, 'remove').mockRejectedValueOnce(new Error('i/o error'));
+
+    source.clean('a'); // the vault save succeeded
+    await vi.advanceTimersByTimeAsync(RECOVERY_DEBOUNCE_MS);
+    expect(remove).toHaveBeenCalledTimes(1);
+    expect(recordOf(storage, 'a')).not.toBeNull(); // the failed removal left it, and left it owned
+
+    await vi.advanceTimersByTimeAsync(RECOVERY_RETRY_MS);
+
+    expect(recordOf(storage, 'a')).toBeNull();
+  });
+});
+
+describe('RecoveryJournal: the session tag is stable through a session', () => {
+  it('ten snapshots of one note, plus other notes and a failed write with retries, never change the tag or multiply the records', async () => {
+    const { storage, source, journal } = setup();
+    const tag = journal.session;
+    const names = () => [...storage.files.keys()].sort();
+
+    for (let revision = 1; revision <= 10; revision += 1) {
+      source.set({ pageId: 'a', body: { markdown: `revision ${revision}`, revision } });
+      await vi.advanceTimersByTimeAsync(RECOVERY_DEBOUNCE_MS);
+      expect(journal.session).toBe(tag);
+      expect(names()).toEqual([`${KEY}/${recordFileName('a', tag)}`]); // one file, rewritten, not ten
+    }
+    expect(recordOf(storage, 'a')?.body?.markdown).toBe('revision 10');
+    expect(recordOf(storage, 'a')?.sequence).toBe(10);
+
+    source.set({ pageId: 'b', body: { markdown: 'other note', revision: 1 } });
+    await vi.advanceTimersByTimeAsync(RECOVERY_DEBOUNCE_MS);
+    storage.failWrites = new Error('disk full');
+    source.set({ pageId: 'a', body: { markdown: 'revision 11', revision: 11 } });
+    await vi.advanceTimersByTimeAsync(RECOVERY_DEBOUNCE_MS + RECOVERY_RETRY_MS * 3);
+    storage.failWrites = null;
+    await journal.flush();
+
+    expect(journal.session).toBe(tag);
+    expect(names()).toEqual([`${KEY}/${recordFileName('a', tag)}`, `${KEY}/${recordFileName('b', tag)}`].sort());
+  });
+
+  it('a later session sees the first as exactly one candidate per note, however many snapshots it took; a collision cannot overwrite it', async () => {
+    const storage = new MemoryRecoveryStorage();
+    const source = new FakeSource();
+    const first = new RecoveryJournal({ storage, vaultKey: KEY, source });
+    first.start();
+    for (let revision = 1; revision <= 12; revision += 1) {
+      source.set({ pageId: 'a', body: { markdown: `revision ${revision}`, revision } });
+      await first.snapshotNow('a');
+    }
+    first.dispose();
+
+    // The next session happens to draw the first session's tag.
+    let drawn = 0;
+    const second = new RecoveryJournal({ storage, vaultKey: KEY, source: new FakeSource(), session: first.session, newSession: () => `${String(++drawn).padStart(8, '0')}-0000-4000-8000-000000000000` });
+    const { entries } = await second.discover();
+
+    expect(entries.map((entry) => entry.record.body?.markdown)).toEqual(['revision 12']);
+    expect(second.session).not.toBe(first.session);
+    expect(storage.files.size).toBe(1);
   });
 });

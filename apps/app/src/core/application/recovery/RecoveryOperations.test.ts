@@ -1,10 +1,10 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PageBuilder } from '../../vault/ingest/PageBuilder';
 import type { Page } from '../../vault/models/Page';
 import type { Vault } from '../../vault/models/Vault';
 import { fingerprint } from '../../recovery/fingerprint';
-import { RecoveryJournal, type RecoveryEntry } from '../../recovery/RecoveryJournal';
-import { recordFileName, type RecoveryRecord } from '../../recovery/RecoveryRecord';
+import { RECOVERY_DEBOUNCE_MS, RecoveryJournal, type RecoverableState, type RecoveryEntry } from '../../recovery/RecoveryJournal';
+import { parseRecord, recordFileName, type RecoveryRecord } from '../../recovery/RecoveryRecord';
 import { MemoryRecoveryStorage } from '../../recovery/RecoveryStorage';
 import type { PageOperations } from '../page/PageOperations';
 import { RecoveryOperations, classifyRecord } from './RecoveryOperations';
@@ -100,7 +100,10 @@ function setup(options: { pages?: Page[]; archived?: boolean } = {}) {
     isPageEffectivelyArchived: () => options.archived === true,
   } as unknown as Vault;
   const calls: string[] = [];
+  // Page ids that have unsaved work of their own (typed since, or restored from another record).
+  const unsaved = new Set<string>();
   const pageOperations = {
+    recoverableState: vi.fn((id: string) => (unsaved.has(id) ? ({} as never) : null)),
     open: vi.fn(async (id: string) => void calls.push(`open:${id}`)),
     commitEdit: vi.fn((id: string, text: string) => void calls.push(`body:${id}:${text}`)),
     commitTitle: vi.fn((id: string, text: string) => void calls.push(`title:${id}:${text}`)),
@@ -114,7 +117,7 @@ function setup(options: { pages?: Page[]; archived?: boolean } = {}) {
   const put = (record: RecoveryRecord, session = 'bbbbbbbb') =>
     storage.files.set(`space-1/${recordFileName(record.pageId, session)}`, JSON.stringify(record));
 
-  return { storage, journal, operations, pageOperations, calls, put, state };
+  return { storage, journal, operations, pageOperations, calls, put, state, pages, unsaved };
 }
 
 describe('RecoveryOperations: discovery', () => {
@@ -178,6 +181,98 @@ describe('RecoveryOperations: discovery', () => {
     await operations.discover();
 
     expect(operations.candidates).toHaveLength(2);
+  });
+});
+
+describe('RecoveryOperations: restore re-checks the note as it is now', () => {
+  it('a note edited in the vault between discovery and Restore is saved as a new note, never overwritten', async () => {
+    const { operations, put, pages, calls, pageOperations, journal } = setup({ pages: [pageWith('saved text')] });
+    put(recordFor());
+    await operations.discover();
+    expect(operations.candidates[0]!.outcome).toBe('recoverable');
+    pages.set('page-1', pageWith('edited elsewhere after startup'));
+    vi.spyOn(journal, 'snapshotNow').mockResolvedValue(true);
+
+    await operations.restore(operations.candidates[0]!.key);
+
+    expect(pageOperations.commitEdit).not.toHaveBeenCalled();
+    expect(calls).toEqual(['create:Note (recovered):folder-1']);
+  });
+
+  it('a note with unsaved work of its own (typed since startup) is not overwritten in the editor: the record becomes a new note', async () => {
+    const { operations, put, unsaved, calls, pageOperations } = setup({ pages: [pageWith('saved text')] });
+    put(recordFor());
+    await operations.discover();
+    unsaved.add('page-1');
+
+    await operations.restore(operations.candidates[0]!.key);
+
+    expect(pageOperations.commitEdit).not.toHaveBeenCalled();
+    expect(calls).toEqual(['create:Note (recovered):folder-1']);
+    expect(operations.candidates).toEqual([]);
+  });
+
+  it('two records of the same note: restoring the first into the editor makes the second a new note, so neither is lost', async () => {
+    const { operations, put, journal, unsaved, calls, pageOperations, storage } = setup({ pages: [pageWith('saved text')] });
+    put(recordFor({ body: { markdown: 'first crash text', revision: 4 } }), 'bbbbbbbb');
+    put(recordFor({ body: { markdown: 'second crash text', revision: 9 } }), 'cccccccc');
+    await operations.discover();
+    expect(operations.candidates.map((candidate) => candidate.outcome)).toEqual(['recoverable', 'recoverable']);
+    // Restoring puts the text in the editor; the page then has unsaved work until autosave saves it.
+    vi.spyOn(journal, 'snapshotNow').mockImplementation(async (id) => (unsaved.add(id), true));
+    const [first, second] = operations.candidates;
+
+    await operations.restore(first!.key);
+    await operations.restore(second!.key);
+
+    expect(pageOperations.commitEdit).toHaveBeenCalledTimes(1);
+    expect(pageOperations.commitEdit).toHaveBeenCalledWith('page-1', first!.record.body!.markdown);
+    expect(calls.filter((call) => call.startsWith('create:'))).toEqual(['create:Note (recovered):folder-1']);
+    expect(pageOperations.create.mock.calls[0]![0].body).toBe(second!.record.body!.markdown);
+    // The second became a new note; the first was restored into the editor. (This stand-in journal reports the note
+    // clean, so the first record is already released here; the lifecycle tests below check when records go.)
+    expect(storage.files.size).toBe(0);
+  });
+
+  it('restoring one of two records never removes the other until it is resolved', async () => {
+    const { operations, put, journal, storage } = setup({ pages: [pageWith('saved text')] });
+    put(recordFor({ body: { markdown: 'first', revision: 4 } }), 'bbbbbbbb');
+    put(recordFor({ body: { markdown: 'second', revision: 9 } }), 'cccccccc');
+    await operations.discover();
+    vi.spyOn(journal, 'snapshotNow').mockResolvedValue(true);
+
+    await operations.restore(operations.candidates[0]!.key);
+
+    expect(storage.files.size).toBe(1);
+    expect(operations.candidates).toHaveLength(1);
+  });
+
+  it('a record whose text the vault already holds by Restore time is just removed, with nothing written', async () => {
+    const { operations, put, pages, pageOperations, storage } = setup({ pages: [pageWith('saved text')] });
+    put(recordFor());
+    await operations.discover();
+    pages.set('page-1', pageWith('unsaved text'));
+
+    await operations.restore(operations.candidates[0]!.key);
+
+    expect(pageOperations.commitEdit).not.toHaveBeenCalled();
+    expect(pageOperations.create).not.toHaveBeenCalled();
+    expect(storage.files.size).toBe(0);
+  });
+
+  it('a failed new-note save keeps the record, and a retry can still succeed', async () => {
+    const { operations, put, pageOperations, storage } = setup({ pages: [pageWith('changed in the vault')] });
+    put(recordFor());
+    await operations.discover();
+    pageOperations.create.mockRejectedValueOnce(new Error('disk full')).mockRejectedValueOnce(new Error('disk full'));
+    const key = operations.candidates[0]!.key;
+
+    await expect(operations.restore(key)).rejects.toThrow();
+    expect(storage.files.size).toBe(1);
+    expect(operations.candidates).toHaveLength(1);
+
+    await operations.restore(key);
+    expect(storage.files.size).toBe(0);
   });
 });
 
@@ -260,3 +355,250 @@ describe('RecoveryOperations: restore, discard', () => {
 });
 
 export type { RecoveryEntry };
+
+/**
+ * The whole hand-off from the original record to this session's protecting record to the vault save, with the real
+ * journal and a page-operations stand-in whose editor state the journal reads. Every boundary is checked on disk.
+ * Policy: the original is kept until the note has nothing unsaved (the vault save succeeded), and removed together with
+ * this session's own record; at every boundary at least one valid record holds the content.
+ */
+describe('RecoveryOperations: the original record through restoration', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  const ORIGINAL = recordFileName('page-1', 'bbbbbbbb');
+  const OWN = recordFileName('page-1', 'aaaaaaaa');
+
+  function lifecycle(options: { storage?: MemoryRecoveryStorage; session?: string; seed?: boolean } = {}) {
+    const storage = options.storage ?? new MemoryRecoveryStorage();
+    const editor = new Map<string, RecoverableState>();
+    const listeners = new Set<(id?: string, urgent?: boolean) => void>();
+    const emit = (id: string) => listeners.forEach((listener) => listener(id));
+    const pages = new Map([['page-1', pageWith('saved text')]]);
+    const state = (id: string, markdown: string): RecoverableState => ({ kind: 'page', pageId: id, label: 'Note', pagePath: '/vault/Note.md', body: { markdown, revision: (editor.get(id)?.body?.revision ?? 0) + 1 }, title: null, description: null, vault: { body: 'saved text', title: 'Note', description: '' }, draft: null });
+    const pageOperations = {
+      recoverableState: (id: string) => editor.get(id) ?? null,
+      unsavedPageIds: () => [...editor.keys()],
+      subscribeUnsaved: (listener: (id?: string, urgent?: boolean) => void) => (listeners.add(listener), () => void listeners.delete(listener)),
+      open: vi.fn(async () => {}),
+      commitEdit: vi.fn((id: string, markdown: string) => {
+        editor.set(id, state(id, markdown));
+        emit(id);
+      }),
+      commitTitle: vi.fn(),
+      commitDescription: vi.fn(),
+      create: vi.fn(async () => 'new-id'),
+    };
+    const journal = new RecoveryJournal({ storage, vaultKey: 'space-1', session: options.session ?? 'aaaaaaaa', source: pageOperations as never, now: () => new Date('2026-10-28T10:00:00.000Z') });
+    journal.start();
+    const vault = { getPage: (id: string) => pages.get(id), isPageEffectivelyArchived: () => false } as unknown as Vault;
+    const operations = new RecoveryOperations(journal, vault, pageOperations as unknown as PageOperations);
+    if (options.seed !== false) {
+      storage.files.set(`space-1/${ORIGINAL}`, JSON.stringify(recordFor({ body: { markdown: 'recovered text', revision: 5 } })));
+    }
+    const recordsHolding = (text: string) =>
+      [...storage.files.entries()].filter(([, raw]) => parseRecord(raw)?.body?.markdown === text).map(([key]) => key.replace('space-1/', '')).sort();
+    /** The vault save succeeded: the note has nothing unsaved any more. */
+    const saved = () => {
+      editor.delete('page-1');
+      emit('page-1');
+    };
+
+    return { storage, editor, pages, pageOperations, journal, operations, recordsHolding, emit, saved };
+  }
+
+  it('crash before the protecting snapshot completes: the original is intact and nothing else exists', async () => {
+    const t = lifecycle();
+    await t.operations.discover();
+    const spy = vi.spyOn(t.journal, 'snapshotNow');
+    spy.mockImplementationOnce(async () => {
+      // The text is in the editor; nothing is written or removed yet. A crash here leaves exactly this.
+      expect(t.recordsHolding('recovered text')).toEqual([ORIGINAL]);
+      expect([...t.storage.files.keys()]).toEqual([`space-1/${ORIGINAL}`]);
+      return true;
+    });
+
+    await t.operations.restore(t.operations.candidates[0]!.key);
+
+    expect(spy).toHaveBeenCalledOnce();
+  });
+
+  it('a failed write of the protecting snapshot keeps the original, tells the user, and Retry completes the same restore (no duplicate note)', async () => {
+    const t = lifecycle();
+    await t.operations.discover();
+    const key = t.operations.candidates[0]!.key;
+    t.storage.failWrites = new Error('disk full');
+
+    await expect(t.operations.restore(key)).rejects.toThrow(/recovery copy was kept/);
+
+    expect(t.recordsHolding('recovered text')).toEqual([ORIGINAL]);
+    expect(t.operations.candidates).toHaveLength(1);
+
+    t.storage.failWrites = null;
+    await t.operations.restore(key);
+
+    expect(t.pageOperations.create).not.toHaveBeenCalled();
+    expect(t.pageOperations.commitEdit).toHaveBeenCalledTimes(1);
+    expect(t.recordsHolding('recovered text')).toEqual([ORIGINAL, OWN].sort());
+    expect(t.operations.candidates).toEqual([]);
+  });
+
+  it('crash after the protecting snapshot, before the vault save: the original AND the protecting record both hold the content', async () => {
+    const t = lifecycle();
+    await t.operations.discover();
+
+    await t.operations.restore(t.operations.candidates[0]!.key);
+    await vi.advanceTimersByTimeAsync(RECOVERY_DEBOUNCE_MS * 5); // the vault save has not happened
+
+    expect(t.recordsHolding('recovered text')).toEqual([ORIGINAL, OWN].sort());
+  });
+
+  it('failed vault save followed by Retry: nothing is removed until the save finally succeeds, then both go', async () => {
+    const t = lifecycle();
+    await t.operations.discover();
+    await t.operations.restore(t.operations.candidates[0]!.key);
+
+    await vi.advanceTimersByTimeAsync(RECOVERY_DEBOUNCE_MS * 20); // saves keep failing; the editor stays unsaved
+    expect(t.recordsHolding('recovered text')).toEqual([ORIGINAL, OWN].sort());
+
+    t.saved(); // Retry succeeded
+    await vi.advanceTimersByTimeAsync(RECOVERY_DEBOUNCE_MS);
+
+    expect(t.storage.files.size).toBe(0);
+  });
+
+  it('a newer edit arriving during restoration is protected in this session’s record; the original keeps the older revision', async () => {
+    const t = lifecycle();
+    await t.operations.discover();
+    await t.operations.restore(t.operations.candidates[0]!.key);
+
+    t.pageOperations.commitEdit('page-1', 'recovered text, plus a newer edit');
+    await vi.advanceTimersByTimeAsync(RECOVERY_DEBOUNCE_MS);
+
+    expect(t.recordsHolding('recovered text, plus a newer edit')).toEqual([OWN]);
+    expect(t.recordsHolding('recovered text')).toEqual([ORIGINAL]);
+    // Saving the newer revision is a save of the restored content too: both records go.
+    t.saved();
+    await vi.advanceTimersByTimeAsync(RECOVERY_DEBOUNCE_MS);
+    expect(t.storage.files.size).toBe(0);
+  });
+
+  it('a successful vault save followed by a failed cleanup: the records are kept, the cleanup is retried, and nothing is resurrected', async () => {
+    const t = lifecycle();
+    await t.operations.discover();
+    await t.operations.restore(t.operations.candidates[0]!.key);
+    const remove = vi.spyOn(t.storage, 'remove');
+    remove.mockRejectedValueOnce(new Error('i/o error')); // the first removal fails
+
+    t.saved();
+    await vi.advanceTimersByTimeAsync(RECOVERY_DEBOUNCE_MS);
+    expect(t.storage.files.size).toBeGreaterThan(0); // nothing was lost by the failure
+
+    await vi.advanceTimersByTimeAsync(RECOVERY_DEBOUNCE_MS * 10); // the journal retries
+
+    expect(t.storage.files.size).toBe(0);
+  });
+
+  it('a failure removing only the original is retried on its own, after this session’s record is already gone', async () => {
+    const t = lifecycle();
+    await t.operations.discover();
+    await t.operations.restore(t.operations.candidates[0]!.key);
+    const real = t.storage.remove.bind(t.storage);
+    let failures = 0;
+    vi.spyOn(t.storage, 'remove').mockImplementation(async (dir, name) => {
+      if (name === ORIGINAL && failures++ === 0) throw new Error('i/o error');
+      return real(dir, name);
+    });
+
+    t.saved();
+    await vi.advanceTimersByTimeAsync(RECOVERY_DEBOUNCE_MS);
+    expect(t.recordsHolding('recovered text')).toEqual([ORIGINAL]);
+
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    expect(t.storage.files.size).toBe(0);
+  });
+
+  it('a restart after the process ended before the vault save offers the content once, not twice, and resolving removes both files', async () => {
+    const t = lifecycle();
+    await t.operations.discover();
+    await t.operations.restore(t.operations.candidates[0]!.key);
+    expect(t.storage.files.size).toBe(2);
+
+    // New session over the same recovery folder.
+    const next = lifecycle({ storage: t.storage, session: 'cccccccc', seed: false });
+    await next.operations.discover();
+
+    expect(next.operations.candidates).toHaveLength(1);
+    expect(next.operations.candidates[0]!.duplicates).toHaveLength(1);
+
+    await next.operations.discard(next.operations.candidates[0]!.key);
+    expect(t.storage.files.size).toBe(0);
+  });
+
+  it('a restart after a newer edit leaves two candidates: distinct revisions are never merged', async () => {
+    const t = lifecycle();
+    await t.operations.discover();
+    await t.operations.restore(t.operations.candidates[0]!.key);
+    t.pageOperations.commitEdit('page-1', 'recovered text, plus a newer edit');
+    await vi.advanceTimersByTimeAsync(RECOVERY_DEBOUNCE_MS);
+
+    const next = lifecycle({ storage: t.storage, session: 'cccccccc', seed: false });
+    await next.operations.discover();
+
+    expect(next.operations.candidates.map((candidate) => candidate.record.body?.markdown).sort()).toEqual([
+      'recovered text',
+      'recovered text, plus a newer edit',
+    ]);
+  });
+
+  it('terminated mid-hand-off, with the protecting snapshot written and the original still there: nothing is lost', async () => {
+    const t = lifecycle();
+    await t.operations.discover();
+    vi.spyOn(t.journal, 'adopt').mockRejectedValueOnce(new Error('killed'));
+
+    await expect(t.operations.restore(t.operations.candidates[0]!.key)).rejects.toThrow();
+
+    expect(t.recordsHolding('recovered text')).toEqual([ORIGINAL, OWN].sort());
+  });
+});
+
+describe('RecoveryOperations: identical records are offered once, distinct revisions never merged', () => {
+  const same = (over: Partial<RecoveryRecord> = {}) => recordFor({ body: { markdown: 'same text', revision: 5 }, ...over });
+
+  it('two sessions’ records with identical recovered content are one candidate, with nothing deleted at discovery', async () => {
+    const { operations, put, storage } = setup({ pages: [pageWith('saved text')] });
+    put(same({ capturedAt: '2026-10-27T09:00:00.000Z' }), 'bbbbbbbb');
+    put(same({ capturedAt: '2026-10-27T10:00:00.000Z' }), 'cccccccc');
+
+    await operations.discover();
+
+    expect(operations.candidates).toHaveLength(1);
+    expect(operations.candidates[0]!.record.capturedAt).toBe('2026-10-27T10:00:00.000Z');
+    expect(operations.candidates[0]!.duplicates).toHaveLength(1);
+    expect(storage.files.size).toBe(2);
+
+    await operations.discard(operations.candidates[0]!.key);
+    expect(storage.files.size).toBe(0);
+  });
+
+  it('records of the same note with different recovered text stay separate candidates', async () => {
+    const { operations, put } = setup({ pages: [pageWith('saved text')] });
+    put(same(), 'bbbbbbbb');
+    put(same({ body: { markdown: 'a different revision', revision: 9 } }), 'cccccccc');
+
+    await operations.discover();
+
+    expect(operations.candidates).toHaveLength(2);
+  });
+
+  it('the same text in two different notes is never merged', async () => {
+    const { operations, put } = setup({ pages: [pageWith('saved text'), pageWith('saved text', 'page-2', 'Other')] });
+    put(same(), 'bbbbbbbb');
+    put(same({ pageId: 'page-2', label: 'Other', pagePath: '/vault/Other.md' }), 'cccccccc');
+
+    await operations.discover();
+
+    expect(operations.candidates).toHaveLength(2);
+  });
+});

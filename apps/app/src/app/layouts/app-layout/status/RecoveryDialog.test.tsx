@@ -20,6 +20,7 @@ afterEach(cleanup);
 function candidate(overrides: Partial<RecoveryCandidate> & { key: string }): RecoveryCandidate {
   return {
     entry: { dir: 'd', name: overrides.key, record: {} as never },
+    duplicates: [],
     record: { label: 'Launch plan', capturedAt: '2026-10-27T09:00:00.000Z' } as never,
     outcome: 'recoverable',
     changes: ['body'],

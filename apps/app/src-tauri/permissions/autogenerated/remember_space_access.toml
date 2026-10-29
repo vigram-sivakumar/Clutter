@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-remember-space-access"
+description = "Enables the remember_space_access command without any pre-configured scope."
+commands.allow = ["remember_space_access"]
+
+[[permission]]
+identifier = "deny-remember-space-access"
+description = "Denies the remember_space_access command without any pre-configured scope."
+commands.deny = ["remember_space_access"]

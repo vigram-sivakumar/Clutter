@@ -20,6 +20,12 @@ export interface RecoveryCandidate {
   /** Identifies this record file (a note can have more than one, from different sessions). */
   readonly key: string;
   readonly entry: RecoveryEntry;
+  /**
+   * Other records of the same note holding exactly the same recovered content (and classified the same way), for
+   * instance the original and the protecting copy a crash during a Restore leaves behind. Offered once; resolved
+   * together. Records whose content differs are never here: they are separate candidates.
+   */
+  readonly duplicates: readonly RecoveryEntry[];
   readonly record: RecoveryRecord;
   readonly outcome: RecoveryOutcome;
   /** What the record holds. */
@@ -89,6 +95,35 @@ export function classifyRecord(record: RecoveryRecord, page: Page | null, archiv
   return { outcome: 'recoverable', changes, reasons: [] };
 }
 
+/** What a record would put back: the same note, kind and recovered text, title and description. */
+function contentKey(record: RecoveryRecord): string {
+  return JSON.stringify([record.pageId, record.kind, record.body?.markdown ?? null, record.title, record.description]);
+}
+
+/**
+ * Offers records with identical recovered content once. Only records of the same note, with the same recovered text,
+ * title and description AND the same classification are merged, and the newest is kept as the candidate with the rest
+ * attached to it, so nothing is deleted at discovery: the others go when the kept one is resolved. A record whose content
+ * differs in any way (a different revision) stays its own candidate.
+ */
+function mergeIdentical(candidates: readonly RecoveryCandidate[]): RecoveryCandidate[] {
+  const groups = new Map<string, RecoveryCandidate[]>();
+
+  for (const candidate of candidates) {
+    const key = `${contentKey(candidate.record)}|${candidate.outcome}|${candidate.changes.join(',')}`;
+    groups.set(key, [...(groups.get(key) ?? []), candidate]);
+  }
+
+  const merged: RecoveryCandidate[] = [];
+  for (const group of groups.values()) {
+    const newest = group.reduce((best, next) => (next.record.capturedAt > best.record.capturedAt ? next : best));
+    merged.push({ ...newest, duplicates: [...newest.duplicates, ...group.filter((other) => other !== newest).map((other) => other.entry)] });
+  }
+
+  // A group appears where its first record was found, so the order records were found in is kept.
+  return merged;
+}
+
 /**
  * Finds the unsaved work an earlier session left behind and lets the user put it back, save it as a new note, or
  * throw it away. Nothing here ever writes over a note in the vault: a recovered edit re-enters the editor as an
@@ -152,12 +187,14 @@ export class RecoveryOperations {
         candidates.push({
           key: `${entry.dir}/${entry.name}`,
           entry,
+          duplicates: [],
           record: entry.record,
           outcome: result.outcome,
           changes: result.changes,
           reasons: result.reasons,
         });
       }
+      candidates.splice(0, candidates.length, ...mergeIdentical(candidates));
     } catch (error) {
       console.error('Recovery: could not look for unsaved work from an earlier session.', error);
     }
@@ -167,8 +204,8 @@ export class RecoveryOperations {
   }
 
   /**
-   * Puts a recovered edit back. For a note unchanged in the vault it goes into the open editor as an unsaved edit; for
-   * anything else it becomes a new note. The record is removed only once this session's own record protects the
+   * Puts a recovered edit back. For a note unchanged in the vault, with no unsaved work of its own, it goes into the open
+   * editor as an unsaved edit; for anything else it becomes a new note. The record is removed only once this session's own record protects the
    * restored content (or the new note is saved), so an interruption here loses nothing.
    */
   public async restore(key: string): Promise<void> {
@@ -185,16 +222,46 @@ export class RecoveryOperations {
     const { record } = candidate;
     const pageId = record.pageId;
 
-    await this.pageOperations.open(pageId);
-    if (record.body) this.pageOperations.commitEdit(pageId, record.body.markdown);
-    if (record.title !== null) this.pageOperations.commitTitle(pageId, record.title);
-    if (record.description !== null) this.pageOperations.commitDescription(pageId, record.description);
+    // The record was classified when it was found, possibly long before the user pressed Restore. Decide again against
+    // the note as it is now: putting the text into the editor replaces whatever the editor holds, so it is only safe
+    // when the vault still has what the snapshot started from AND the note has no unsaved work of its own (typed since,
+    // or just restored from another record of the same note). Otherwise the text is kept as a new note, never lost and
+    // never written over anything.
+    const page = this.vault.getPage(pageId) ?? null;
+    const now = classifyRecord(record, page, page !== null && this.vault.isPageEffectivelyArchived(page));
 
+    if (now.outcome === 'already-saved') {
+      await this.removeAll(candidate);
+      this.drop(key);
+      return;
+    }
+    // The editor may already hold exactly this record's text: a Restore that failed to protect it (and was kept) leaves
+    // it there, and pressing Retry must finish that restore, not turn it into a second, duplicate note.
+    const unsaved = this.pageOperations.recoverableState(pageId);
+    const alreadyHolds =
+      unsaved !== null &&
+      (record.body ? unsaved.body?.markdown === record.body.markdown : true) &&
+      (record.title !== null ? unsaved.title === record.title : true) &&
+      (record.description !== null ? unsaved.description === record.description : true);
+
+    if (now.outcome !== 'recoverable' || (unsaved !== null && !alreadyHolds)) {
+      return this.restoreAsNewNote(key);
+    }
+
+    if (!alreadyHolds) {
+      await this.pageOperations.open(pageId);
+      if (record.body) this.pageOperations.commitEdit(pageId, record.body.markdown);
+      if (record.title !== null) this.pageOperations.commitTitle(pageId, record.title);
+      if (record.description !== null) this.pageOperations.commitDescription(pageId, record.description);
+    }
     if (!(await this.journal.snapshotNow(pageId))) {
       throw new Error('Couldn’t protect the restored changes, so the recovery copy was kept');
     }
 
-    await this.journal.removeEntry(candidate.entry);
+    // The original is not removed here. It is handed to the journal, which keeps it until the note has nothing unsaved
+    // (the vault save succeeded) and removes it together with this session's own record, retrying a failed removal.
+    // Until then both exist; if the process ends first, discovery offers them once, not twice.
+    await this.journal.adopt(pageId, [candidate.entry, ...candidate.duplicates]);
     this.drop(key);
   }
 
@@ -224,7 +291,7 @@ export class RecoveryOperations {
       await this.pageOperations.create({ ...options, folderId: null });
     }
 
-    await this.journal.removeEntry(candidate.entry);
+    await this.removeAll(candidate);
     this.drop(key);
   }
 
@@ -236,8 +303,14 @@ export class RecoveryOperations {
       return;
     }
 
-    await this.journal.removeEntry(candidate.entry);
+    await this.removeAll(candidate);
     this.drop(key);
+  }
+
+  /** The candidate's own record(s) and every identical duplicate, so none is offered again. */
+  private async removeAll(candidate: RecoveryCandidate): Promise<void> {
+    await this.journal.removeEntry(candidate.entry);
+    for (const duplicate of candidate.duplicates) await this.journal.removeEntry(duplicate);
   }
 
   private find(key: string): RecoveryCandidate | undefined {

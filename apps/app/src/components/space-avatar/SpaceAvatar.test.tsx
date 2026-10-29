@@ -63,6 +63,18 @@ describe('SpaceAvatar: image', () => {
     );
   });
 
+  it.each([
+    ['Assets/Avatar.png', true],
+    ['Assets/Avatar.PNG', true],
+    ['https://example.com/a.png?size=2', true],
+    ['Assets/Avatar.jpg', false],
+    ['Assets/png', false],
+  ])('%s: the border is dropped only for a PNG', (src, borderless) => {
+    const { container } = renderAvatar({ avatar: { type: 'image', src } });
+    const image = container.querySelector('img.space__avatar') as HTMLElement;
+    expect(image.classList.contains('space__avatar--borderless')).toBe(borderless);
+  });
+
   it('uses a remote URL as-is when no resolver is given', () => {
     const { container } = renderAvatar({
       avatar: { type: 'image', src: 'https://example.com/a.png' },

@@ -34,7 +34,7 @@ const NO_OVERFLOW_CLICK = vi.fn();
 afterEach(cleanup);
 
 describe('TemplateSuggestions', () => {
-  it('with no templates, shows "+ New template" (and the title) and calls onNewTemplate', () => {
+  it('with no templates, shows "New template" (and the title) and calls onNewTemplate', () => {
     const onNewTemplate = vi.fn();
     render(
       <TemplateSuggestions
@@ -46,13 +46,13 @@ describe('TemplateSuggestions', () => {
     );
 
     expect(screen.getByText('Start with template')).toBeTruthy();
-    fireEvent.click(screen.getByText('+ New template'));
+    fireEvent.click(screen.getByText('New template'));
 
     expect(onNewTemplate).toHaveBeenCalledTimes(1);
     expect(NO_OVERFLOW_CLICK).not.toHaveBeenCalled();
   });
 
-  it('with templates in an unmeasurable (zero-width) row, does not show "+ New template"', () => {
+  it('with templates in an unmeasurable (zero-width) row, does not show "New template"', () => {
     render(
       <TemplateSuggestions
         templates={[template('a', 'Meeting')]}
@@ -62,7 +62,7 @@ describe('TemplateSuggestions', () => {
       />
     );
 
-    expect(screen.queryByText('+ New template')).toBeNull();
+    expect(screen.queryByText('New template')).toBeNull();
   });
 
   it('renders one entry per template with its title', () => {
@@ -218,7 +218,7 @@ describe('TemplateSuggestions — overflow', () => {
     expect(screen.queryByText(/more$/)).toBeNull();
   });
 
-  it('adds "+ New template" after the templates when they and it all fit', () => {
+  it('adds "New template" after the templates when they and it all fit', () => {
     const onNewTemplate = vi.fn();
     // 5 templates + new template = 6 × 100 + 5 × 10 = 650.
     availableWidth = 650;
@@ -233,11 +233,11 @@ describe('TemplateSuggestions — overflow', () => {
     );
 
     expect(screen.queryByText(/more$/)).toBeNull();
-    fireEvent.click(screen.getByText('+ New template'));
+    fireEvent.click(screen.getByText('New template'));
     expect(onNewTemplate).toHaveBeenCalledTimes(1);
   });
 
-  it('omits "+ New template" when the templates fit but it would not', () => {
+  it('omits "New template" when the templates fit but it would not', () => {
     availableWidth = 5 * 100 + 4 * 10;
 
     render(
@@ -251,10 +251,10 @@ describe('TemplateSuggestions — overflow', () => {
 
     expect(screen.queryByText('E')).toBeTruthy();
     expect(screen.queryByText(/more$/)).toBeNull();
-    expect(screen.queryByText('+ New template')).toBeNull();
+    expect(screen.queryByText('New template')).toBeNull();
   });
 
-  it('omits "+ New template" while "+N more" is shown', () => {
+  it('omits "New template" while "+N more" is shown', () => {
     availableWidth = 450;
 
     render(
@@ -267,7 +267,7 @@ describe('TemplateSuggestions — overflow', () => {
     );
 
     expect(screen.getByText('+2 more')).toBeTruthy();
-    expect(screen.queryByText('+ New template')).toBeNull();
+    expect(screen.queryByText('New template')).toBeNull();
   });
 
   it('shows the templates that fit plus "+N more" counting the hidden ones, with room kept for it', () => {

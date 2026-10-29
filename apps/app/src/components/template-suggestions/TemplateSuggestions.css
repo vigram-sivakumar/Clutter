@@ -57,6 +57,11 @@
   padding-inline: 12px;
 }
 
+/* "New template" keeps Entry's own left padding (the shared overflow 12px applies to its right side only). */
+.template-suggestions__list [data-suggestion='new-template'] {
+  padding-left: var(--space-6);
+}
+
 .template-suggestions__list:has([data-suggestion='new-template']:only-child) {
   margin-left: 0;
 }

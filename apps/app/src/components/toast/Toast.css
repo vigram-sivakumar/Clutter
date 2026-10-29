@@ -11,11 +11,11 @@
   align-items: center;
   justify-content: center;
   padding: var(--space-4) var(--space-12);
-  gap: var(--space-6);
+  gap: var(--space-12);
   min-height: var(--space-32);
 
   background: var(--surface-secondary);
-  color: var(--foreground-primary);
+  color: var(--foreground-secondary);
 
   font-size: var(--text-label);
   font-weight: var(--fw-medium);
@@ -50,9 +50,6 @@
 .toast--danger .toast__actions .button {
   color: var(--danger-foreground);
 }
-.toast--with-action {
-  padding-right: var(--space-4);
-}
 .toast__actions {
   display: flex;
   align-items: center;
@@ -60,7 +57,7 @@
   gap: var(--space-4);
 }
 .toast__actions .button {
-  color: var(--foreground-primary);
+  color: var(--foreground-secondary);
 }
 
 /* Leaving: slides down and fades out; no longer clickable, since it has been dismissed. */

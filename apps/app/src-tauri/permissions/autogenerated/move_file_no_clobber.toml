@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-move-file-no-clobber"
+description = "Enables the move_file_no_clobber command without any pre-configured scope."
+commands.allow = ["move_file_no_clobber"]
+
+[[permission]]
+identifier = "deny-move-file-no-clobber"
+description = "Denies the move_file_no_clobber command without any pre-configured scope."
+commands.deny = ["move_file_no_clobber"]

@@ -32,7 +32,11 @@ describe('UnsavedCloseDialog', () => {
     render(<UnsavedCloseDialog unsavedCount={1} onAnswer={vi.fn()} />);
 
     expect(screen.getByText('Close without saving?')).toBeInTheDocument();
-    expect(screen.getByText('You have unsaved changes')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'You have unsaved changes that won’t be saved to your vault. A recovery copy may be available when Clutter opens again, but it might not include your latest edits'
+      )
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Keep editing' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Close anyway' })).toBeInTheDocument();
   });
@@ -62,6 +66,19 @@ describe('UnsavedCloseDialog', () => {
   });
 
   it('counts notes', () => {
-    expect(unsavedCloseCopy(3).description).toBe('You have 3 notes with unsaved changes');
+    expect(unsavedCloseCopy(3, 'switch').description).toBe('You have 3 notes with unsaved changes');
+    expect(unsavedCloseCopy(3).description).toBe(
+      'You have 3 notes with unsaved changes that won’t be saved to your vault. Recovery copies may be available when Clutter opens again, but they might not include your latest edits'
+    );
+  });
+
+  it('closing never promises recovery, never says the copy is already saved, and never says the changes are lost', () => {
+    for (const count of [1, 4]) {
+      const { description } = unsavedCloseCopy(count);
+      expect(description).toMatch(/may be available/);
+      expect(description).toMatch(/might not include your latest edits/);
+      expect(description).toMatch(/won’t be saved to your vault/);
+      expect(description).not.toMatch(/will be (recovered|restored)|are saved|is saved|lost|guarantee/i);
+    }
   });
 });

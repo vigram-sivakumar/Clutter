@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-canonical-space-path"
+description = "Enables the canonical_space_path command without any pre-configured scope."
+commands.allow = ["canonical_space_path"]
+
+[[permission]]
+identifier = "deny-canonical-space-path"
+description = "Denies the canonical_space_path command without any pre-configured scope."
+commands.deny = ["canonical_space_path"]

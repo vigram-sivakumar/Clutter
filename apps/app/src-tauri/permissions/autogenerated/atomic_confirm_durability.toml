@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-atomic-confirm-durability"
+description = "Enables the atomic_confirm_durability command without any pre-configured scope."
+commands.allow = ["atomic_confirm_durability"]
+
+[[permission]]
+identifier = "deny-atomic-confirm-durability"
+description = "Denies the atomic_confirm_durability command without any pre-configured scope."
+commands.deny = ["atomic_confirm_durability"]

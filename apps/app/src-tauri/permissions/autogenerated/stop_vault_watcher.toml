@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-stop-vault-watcher"
+description = "Enables the stop_vault_watcher command without any pre-configured scope."
+commands.allow = ["stop_vault_watcher"]
+
+[[permission]]
+identifier = "deny-stop-vault-watcher"
+description = "Denies the stop_vault_watcher command without any pre-configured scope."
+commands.deny = ["stop_vault_watcher"]

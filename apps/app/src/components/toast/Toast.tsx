@@ -144,6 +144,7 @@ export function Toast({ toast, onDismiss, durationMs }: ToastProps) {
         <div className="toast__actions">
           <Button
             size="small"
+            isLink
             onClick={() => {
               action.onAction();
               // A persistent toast is dismissed by its owner, when what it reports is resolved, never by its action.

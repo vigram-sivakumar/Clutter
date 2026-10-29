@@ -63,13 +63,13 @@ describe('crash recovery, end to end on a real Application', () => {
     expect(session?.body?.markdown).toBe('typed before the crash'); // an unsaved edit in the editor
     expect(await second.fileSystem.readFile(`${ROOT}/A.md`)).toBe(NOTE('saved text')); // still not written
     expect(second.application.recoveryOperations!.candidates).toEqual([]);
-    expect(storage.files.size).toBe(1); // the old record is replaced by this session's own, not lost
+    expect(storage.files.size).toBe(2); // the original is KEPT until the vault save; this session's own record protects the edit
 
     await second.application.pageOperations.requestSave('page-a'); // the normal save lifecycle
     await vi.advanceTimersByTimeAsync(RECOVERY_DEBOUNCE_MS + 10);
 
     expect(await second.fileSystem.readFile(`${ROOT}/A.md`)).toContain('typed before the crash');
-    expect(storage.files.size).toBe(0); // confirmed saved: the record is gone
+    expect(storage.files.size).toBe(0); // confirmed saved: both records are gone
   });
 
   it('never overwrites a note that changed in the vault: the recovered text can only become a new note', async () => {

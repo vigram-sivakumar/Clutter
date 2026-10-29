@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-atomic-inspect-write"
+description = "Enables the atomic_inspect_write command without any pre-configured scope."
+commands.allow = ["atomic_inspect_write"]
+
+[[permission]]
+identifier = "deny-atomic-inspect-write"
+description = "Denies the atomic_inspect_write command without any pre-configured scope."
+commands.deny = ["atomic_inspect_write"]

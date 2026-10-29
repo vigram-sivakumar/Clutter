@@ -45,14 +45,17 @@ function Initial({ folderName }: { folderName: string }) {
   return <div className="space__initial">{firstLetter(folderName)}</div>;
 }
 
-function Image({ url, folderName }: { url: string; folderName: string }) {
+/** A PNG can carry its own transparent edge and shape, which the avatar's inset border would outline: it gets none. */
+const isPng = (src: string) => /\.png$/i.test(src.split(/[?#]/)[0] ?? '');
+
+function Image({ url, folderName, bordered }: { url: string; folderName: string; bordered: boolean }) {
   const [failed, setFailed] = useState(false);
 
   if (failed) {
     return <Initial folderName={folderName} />;
   }
 
-  return <img className="space__avatar" src={url} alt="" onError={() => setFailed(true)} />;
+  return <img className={bordered ? 'space__avatar' : 'space__avatar space__avatar--borderless'} src={url} alt="" onError={() => setFailed(true)} />;
 }
 
 function Avatar({ avatar, folderName, resolveImageUrl = identity }: SpaceAvatarProps) {
@@ -63,7 +66,7 @@ function Avatar({ avatar, folderName, resolveImageUrl = identity }: SpaceAvatarP
       const url = resolveImageUrl(avatar.src);
       // Keyed on the URL so a new image gets a fresh load attempt after an earlier failure.
       return url ? (
-        <Image key={url} url={url} folderName={folderName} />
+        <Image key={url} url={url} folderName={folderName} bordered={!isPng(avatar.src)} />
       ) : (
         <Initial folderName={folderName} />
       );

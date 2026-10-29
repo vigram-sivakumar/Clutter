@@ -16,7 +16,7 @@ export interface TemplateSuggestionsProp {
    */
   onOverflowClick: (anchor: HTMLElement) => void;
   /**
-   * Called when "+ New template" is clicked. It is shown while there are no templates, and alongside the
+   * Called when "New template" is clicked. It is shown while there are no templates, and alongside the
    * templates whenever they all fit without a "+N more" entry (and so does the new-template entry);
    * once the row overflows, the picker behind "+N more" carries the New template row instead.
    */
@@ -169,8 +169,9 @@ export function TemplateSuggestions({
               className="template-suggestions__item template-suggestions__item--overflow"
               data-suggestion="new-template"
               onClick={onNewTemplate}
+              leading={<AppIcon icon="plus" />}
             >
-              + New template
+              New template
             </Entry>
           )}
           {overflowCount > 0 && (

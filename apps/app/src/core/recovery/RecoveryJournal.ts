@@ -6,6 +6,7 @@ import {
   compareFreshness,
   isTempRecordName,
   parseRecord,
+  newSessionId,
   recordFileName,
   serializeRecord,
   sessionOfFileName,
@@ -51,6 +52,19 @@ export interface RecoveryEntry {
   readonly siblings?: readonly string[];
 }
 
+/** What reading one recovery file turned up (see `RecoveryJournal.discover`). */
+type ReadFile =
+  | { readonly kind: 'record'; readonly record: RecoveryRecord; readonly text: string }
+  | { readonly kind: 'missing' }
+  /** It read fine but is not a record (it does not parse, or fails the schema). */
+  | { readonly kind: 'malformed' }
+  /** It could not be read at all, which says nothing about what it holds. */
+  | { readonly kind: 'error' }
+  /** A valid record, but of another note, session or vault than its name says. */
+  | { readonly kind: 'foreign' };
+
+const MISSING: ReadFile = { kind: 'missing' };
+
 export interface RecoveryJournalOptions {
   readonly storage: RecoveryStorage;
   /** The directory records are written to. */
@@ -66,8 +80,10 @@ export interface RecoveryJournalOptions {
   readonly retryMs?: number;
   readonly maxRetries?: number;
   readonly now?: () => Date;
-  /** This session's tag (8 hex digits). Random by default; a test can fix it. */
+  /** This session's tag. A random UUID by default; a test can fix it. */
   readonly session?: string;
+  /** Makes a new tag when the one in use is found on disk already (default: a random UUID). For tests. */
+  readonly newSession?: () => string;
   readonly onWriteError?: (error: unknown, pageId: string) => void;
   /**
    * True while a saved revision of the note is installed on disk but not yet confirmed durable (ADR-063, decision 13).
@@ -110,16 +126,19 @@ export class RecoveryJournal {
   private readonly now: () => Date;
 
   private readonly owned = new Set<string>();
+  /** Records of earlier sessions handed over by a Restore: kept until the note has nothing unsaved (see `adopt`). */
+  private readonly adopted = new Map<string, RecoveryEntry[]>();
   private readonly lastWritten = new Map<string, string>();
   private readonly debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly maxWaitTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly retryTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly retries = new Map<string, number>();
   private readonly sequences = new Map<string, number>();
-  private readonly queues = new Map<string, Promise<void>>();
+  private readonly queues = new Map<string, Promise<unknown>>();
   private unsubscribe: (() => void) | null = null;
   private disposed = false;
-  public readonly session: string;
+  private sessionTag: string;
+  private sessionChecked: Promise<void> | null = null;
 
   constructor(private readonly options: RecoveryJournalOptions) {
     this.storage = options.storage;
@@ -128,8 +147,40 @@ export class RecoveryJournal {
     this.retryMs = options.retryMs ?? RECOVERY_RETRY_MS;
     this.maxRetries = options.maxRetries ?? RECOVERY_MAX_RETRIES;
     this.now = options.now ?? (() => new Date());
-    this.session =
-      options.session ?? Array.from({ length: 8 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+    this.sessionTag = options.session ?? (options.newSession ?? newSessionId)();
+  }
+
+  /** This session's tag; every file this journal writes carries it. */
+  public get session(): string {
+    return this.sessionTag;
+  }
+
+  /**
+   * Makes sure no file in this vault's recovery directory already carries this session's tag before anything is
+   * written or discovered. A random UUID makes a clash unrealistic; this makes it impossible to overwrite another
+   * session's recovery data silently even so: on a clash a new tag is drawn (up to a bounded number of times).
+   */
+  private ensureFreshSession(): Promise<void> {
+    this.sessionChecked ??= (async () => {
+      const make = this.options.newSession ?? newSessionId;
+
+      for (let attempt = 0; attempt < 8; attempt += 1) {
+        let names: string[];
+
+        try {
+          names = await this.storage.list(this.options.vaultKey);
+        } catch {
+          return; // Cannot look; the write that follows reports its own failure.
+        }
+        if (!names.some((name) => sessionOfFileName(name) === this.sessionTag)) return;
+        this.sessionTag = make();
+      }
+
+      // Every tag drawn was taken: writing now could overwrite another session's record, so nothing is written.
+      throw new Error('Recovery: no unused session tag could be found, so no snapshot is written');
+    })();
+
+    return this.sessionChecked;
   }
 
   /** Starts following the source. Anything already unsaved is scheduled. */
@@ -159,7 +210,7 @@ export class RecoveryJournal {
    * Application closes, so the latest state is on disk before the sessions are disposed.
    */
   public async flush(): Promise<void> {
-    const ids = new Set<string>([...this.options.source.unsavedPageIds(), ...this.owned]);
+    const ids = new Set<string>([...this.options.source.unsavedPageIds(), ...this.owned, ...this.adopted.keys()]);
 
     for (const handle of [...this.debounceTimers.values(), ...this.maxWaitTimers.values()]) clearTimeout(handle);
     this.debounceTimers.clear();
@@ -173,17 +224,24 @@ export class RecoveryJournal {
    *
    * A session writes a snapshot to `<note>.<session>.json.tmp` and renames it over `<note>.<session>.json`. A kill
    * between the two leaves a complete newer record only in the `.tmp` file, so both are read and checked the same way
-   * (the record's schema, that its note and session match the file name, and that it belongs to this vault directory):
+   * (the record's schema, that its note and session match the file name, and that it belongs to this vault directory),
+   * and the two are compared by the writer's own sequence (`compareFreshness`), never by file time.
    *
-   * - the committed record and the `.tmp` record of one note and session are compared by the writer's own sequence
-   *   (`compareFreshness`), never by file time, and the newer valid one is the candidate;
-   * - a newer valid `.tmp` record is promoted: rewritten atomically as the committed record, and only then is the `.tmp`
-   *   removed, so no step leaves the newest valid copy without a committed home;
-   * - an older or equal `.tmp` record, or a malformed one beside a valid committed record, is removed (superseded or
-   *   garbage); a malformed `.tmp` with no committed record, or one whose identity does not match, is left alone and
-   *   never offered.
+   * Discovery is read-only: it never writes, renames or deletes anything. A valid `.tmp` record is a candidate where
+   * it is, so there is no destination to race for, and an incomplete or unreadable file is ignored, not removed: a
+   * `.tmp` that does not parse might be a write still in progress, and one that cannot be read says nothing about what
+   * it holds.
+   *
+   * - a valid `.tmp` newer than the committed record is the candidate. The older committed record (or a malformed
+   *   one) is resolved together with it by the user's Restore or Discard, never before;
+   * - a `.tmp` older than, or identical to, a valid committed record is not offered; it is attached to the committed
+   *   candidate so it goes when that candidate is resolved. A `.tmp` that could not be read, or belongs to another
+   *   note, is never attached, offered or deleted, and neither is a committed file that could not be read or holds
+   *   another note's record;
+   * - a malformed lone `.tmp`, or one malformed beside a valid committed record, is counted as unreadable and left.
    */
   public async discover(): Promise<{ entries: RecoveryEntry[]; unreadable: number }> {
+    await this.ensureFreshSession().catch(() => undefined);
     const entries: RecoveryEntry[] = [];
     let unreadable = 0;
 
@@ -197,45 +255,29 @@ export class RecoveryJournal {
         continue;
       }
 
-      const committedNames = new Set(names.filter((name) => !isTempRecordName(name)).map(committedNameOf));
-      const groups = new Set([...names.map(committedNameOf)]);
+      const hasCommitted = new Set(names.filter((name) => !isTempRecordName(name)));
+      const groups = new Set(names.map(committedNameOf));
 
       for (const committedName of groups) {
         if (sessionOfFileName(committedName) === this.session) continue;
         const tempName = `${committedName}.tmp`;
-        const hasTemp = names.includes(tempName);
 
-        const committed = committedNames.has(committedName) ? await this.readValid(dir, committedName, committedName) : 'missing';
-        const temp = hasTemp ? await this.readValid(dir, tempName, committedName) : 'missing';
+        const committed = hasCommitted.has(committedName)
+          ? await this.readValid(dir, committedName, committedName)
+          : MISSING;
+        const temp = names.includes(tempName) ? await this.readValid(dir, tempName, committedName) : MISSING;
 
-        if (committed === 'unreadable') unreadable += 1;
-        if (temp === 'unreadable' || temp === 'foreign') unreadable += 1;
+        for (const file of [committed, temp]) {
+          if (file.kind === 'malformed' || file.kind === 'error' || file.kind === 'foreign') unreadable += 1;
+        }
 
-        const committedRecord = typeof committed === 'object' ? committed : null;
-        const tempRecord = typeof temp === 'object' ? temp : null;
-
-        if (tempRecord && (!committedRecord || compareFreshness(tempRecord, committedRecord) > 0)) {
-          // The interrupted write is the newest valid copy: make it the committed record, then drop the temp file.
-          try {
-            await this.storage.writeAtomic(dir, committedName, serializeRecord(tempRecord));
-            await this.storage.remove(dir, tempName).catch(() => undefined);
-            entries.push({ dir, name: committedName, record: tempRecord });
-          } catch {
-            // Could not promote: still offer it, from where it is, and keep every file.
-            entries.push({
-              dir,
-              name: tempName,
-              record: tempRecord,
-              ...(committedRecord || committed === 'unreadable' ? { siblings: [committedName] } : {}),
-            });
-          }
+        if (temp.kind === 'record') {
+          entries.push(...(await this.settleInterrupted(dir, committedName, tempName, committed, temp)));
           continue;
         }
 
-        if (committedRecord) {
-          entries.push({ dir, name: committedName, record: committedRecord });
-          // The temp file is superseded (older or equal) or garbage beside a valid committed record: safe to remove.
-          if (hasTemp && temp !== 'foreign') await this.storage.remove(dir, tempName).catch(() => undefined);
+        if (committed.kind === 'record') {
+          entries.push({ dir, name: committedName, record: committed.record });
         }
       }
     }
@@ -243,19 +285,77 @@ export class RecoveryJournal {
     return { entries, unreadable };
   }
 
-  /** Reads one file and validates it as the record of the note and session `expectedName` names, in this vault. */
-  private async readValid(dir: string, name: string, expectedName: string): Promise<RecoveryRecord | 'missing' | 'unreadable' | 'foreign'> {
-    try {
-      const text = await this.storage.read(dir, name);
-      if (text === null) return 'missing';
-      const record = parseRecord(text);
-      if (!record) return 'unreadable';
-      const session = sessionOfFileName(expectedName);
-      if (record.vaultKey !== dir || session === null || recordFileName(record.pageId, session) !== expectedName) return 'foreign';
-      return record;
-    } catch {
-      return 'unreadable';
+  /** The valid interrupted record of one note and session against what is committed beside it (see `discover`). */
+  private async settleInterrupted(
+    dir: string,
+    committedName: string,
+    tempName: string,
+    committed: ReadFile,
+    temp: Extract<ReadFile, { kind: 'record' }>
+  ): Promise<RecoveryEntry[]> {
+    const offerTemp = (siblings: readonly string[]): RecoveryEntry => ({
+      dir,
+      name: tempName,
+      record: temp.record,
+      ...(siblings.length > 0 ? { siblings } : {}),
+    });
+
+    if (committed.kind === 'record') {
+      const order = compareFreshness(temp.record, committed.record);
+      const offerCommitted: RecoveryEntry = { dir, name: committedName, record: committed.record };
+
+      if (order < 0 || (order === 0 && temp.text === committed.text)) {
+        // Provably superseded (or the very same snapshot): the committed record is the candidate. The temp file is
+        // not deleted here; it is removed with the candidate, when the user resolves it.
+        return [{ ...offerCommitted, siblings: [tempName] }];
+      }
+      if (order === 0) {
+        // The same position, different content (only possible for records written before `sequence` existed):
+        // neither is provably newer, so neither is touched and both are offered, each resolved on its own.
+        return [offerCommitted, offerTemp([])];
+      }
+
+      // The temp record is newer: it is the candidate, and the older committed record is resolved together with it.
+      return [offerTemp([committedName])];
     }
+
+    // A malformed committed file was never a record, so it goes with the candidate; a committed name that could not be
+    // read, or holds another note's record, is left strictly alone.
+    return [offerTemp(committed.kind === 'malformed' ? [committedName] : [])];
+  }
+
+  /** Reads one file and validates it as the record of the note and session `expectedName` names, in this vault. */
+  private async readValid(dir: string, name: string, expectedName: string): Promise<ReadFile> {
+    let text: string | null;
+
+    try {
+      text = await this.storage.read(dir, name);
+    } catch {
+      return { kind: 'error' };
+    }
+
+    if (text === null) return MISSING;
+    const record = parseRecord(text);
+    if (!record) return { kind: 'malformed' };
+    const session = sessionOfFileName(expectedName);
+    if (record.vaultKey !== dir || session === null || recordFileName(record.pageId, session) !== expectedName) {
+      return { kind: 'foreign' };
+    }
+
+    return { kind: 'record', record, text };
+  }
+
+  /**
+   * Takes over responsibility for records an earlier session left for `pageId`, after a Restore put their content in the
+   * editor and this session's own record already protects it. They are kept, not removed, until the note has nothing
+   * unsaved (the vault save succeeded): the original stays the second copy through the window in which the new record
+   * is the only other one. They are removed together with this session's own record, by the same rule, and a failed
+   * removal is retried with it. If the process ends first, both survive and discovery offers them once (identical
+   * content) or as the distinct revisions they are.
+   */
+  public async adopt(pageId: string, entries: readonly RecoveryEntry[]): Promise<void> {
+    this.adopted.set(pageId, [...(this.adopted.get(pageId) ?? []), ...entries]);
+    await this.reconcile(pageId);
   }
 
   /** Removes one record file exactly (an explicit discard, a restore that has been re-protected, or an obsolete record). */
@@ -279,17 +379,40 @@ export class RecoveryJournal {
    * work is on disk (or it has none); false when the write failed.
    */
   public async snapshotNow(pageId: string): Promise<boolean> {
-    await this.reconcile(pageId);
-    const state = this.options.source.recoverableState(pageId);
-
-    return state === null || this.lastWritten.has(pageId);
+    // The outcome of this very write, never "an earlier snapshot exists": a failed write of the newest state must not
+    // be reported as protected just because an older snapshot of the note is on disk.
+    return this.reconcile(pageId);
   }
 
   /** Removes this session's own record for a note. */
   private async removeOwn(pageId: string): Promise<void> {
+    await this.storage.remove(this.options.vaultKey, recordFileName(pageId, this.session));
+    // Forgotten only once the file is really gone: a failed removal leaves the note owned, so the retry that follows
+    // a failure removes it, instead of leaving a stale record behind with nothing left to clean it up.
     this.owned.delete(pageId);
     this.lastWritten.delete(pageId);
-    await this.storage.remove(this.options.vaultKey, recordFileName(pageId, this.session));
+  }
+
+  /** Removes the records a Restore handed over once the note is clean; a failed removal keeps that record and throws. */
+  private async removeAdopted(pageId: string): Promise<void> {
+    const entries = this.adopted.get(pageId);
+    if (!entries) return;
+
+    const failed: RecoveryEntry[] = [];
+    let firstError: unknown = null;
+
+    for (const entry of entries) {
+      try {
+        await this.removeEntry(entry);
+      } catch (error) {
+        failed.push(entry);
+        firstError ??= error;
+      }
+    }
+
+    if (failed.length === 0) this.adopted.delete(pageId);
+    else this.adopted.set(pageId, failed);
+    if (firstError !== null) throw firstError;
   }
 
   // ---- scheduling ----
@@ -335,7 +458,7 @@ export class RecoveryJournal {
   // ---- writing ----
 
   /** Runs after every earlier reconcile of the same note, so writes for one note never overlap or reorder. */
-  private reconcile(pageId: string): Promise<void> {
+  private reconcile(pageId: string): Promise<boolean> {
     const previous = this.queues.get(pageId) ?? Promise.resolve();
     const next = previous.then(() => this.reconcileNow(pageId));
     const tail = next.catch(() => undefined);
@@ -346,9 +469,9 @@ export class RecoveryJournal {
     return next;
   }
 
-  private async reconcileNow(pageId: string): Promise<void> {
+  /** True when the note's unsaved state is on disk (or it has none); false when writing it failed. */
+  private async reconcileNow(pageId: string): Promise<boolean> {
     const state = this.options.source.recoverableState(pageId);
-    const name = recordFileName(pageId, this.session);
 
     try {
       if (state === null) {
@@ -360,16 +483,19 @@ export class RecoveryJournal {
         if (this.owned.has(pageId)) {
           await this.removeOwn(pageId);
         }
+        await this.removeAdopted(pageId);
         this.retries.delete(pageId);
-        return;
+        return true;
       }
 
+      await this.ensureFreshSession();
+      const name = recordFileName(pageId, this.session);
       const sequence = (this.sequences.get(pageId) ?? 0) + 1;
       const record = this.buildRecord(state, sequence);
       const unchangedKey = serializeRecord({ ...record, capturedAt: '', sequence: 0 });
 
       if (this.lastWritten.get(pageId) === unchangedKey) {
-        return;
+        return true;
       }
 
       await this.storage.writeAtomic(this.options.vaultKey, name, serializeRecord(record));
@@ -377,9 +503,13 @@ export class RecoveryJournal {
       this.owned.add(pageId);
       this.lastWritten.set(pageId, unchangedKey);
       this.retries.delete(pageId);
+
+      return true;
     } catch (error) {
       this.options.onWriteError?.(error, pageId);
       this.retryLater(pageId);
+
+      return false;
     }
   }
 

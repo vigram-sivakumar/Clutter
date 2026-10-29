@@ -7,6 +7,9 @@
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-inset-thin-strong);
 }
+.space__avatar--borderless {
+  box-shadow: none;
+}
 .space__initial {
   display: flex;
   align-items: center;

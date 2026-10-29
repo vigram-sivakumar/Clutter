@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-rename-space-folder"
+description = "Enables the rename_space_folder command without any pre-configured scope."
+commands.allow = ["rename_space_folder"]
+
+[[permission]]
+identifier = "deny-rename-space-folder"
+description = "Denies the rename_space_folder command without any pre-configured scope."
+commands.deny = ["rename_space_folder"]

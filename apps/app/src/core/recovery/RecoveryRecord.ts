@@ -122,9 +122,39 @@ export function recordFileName(pageId: string, session: string): string {
   return `${safe}.${session}.json`;
 }
 
-/** The session tag a record file name carries (committed `.json` or interrupted `.json.tmp`), or null for another name. */
+/**
+ * A session tag for a new session: a random UUID (122 random bits), so two sessions cannot realistically collide. Tags
+ * from before this (8 hex digits) are still read everywhere; nothing is renamed or migrated.
+ */
+export function newSessionId(): string {
+  const crypto = globalThis.crypto;
+
+  if (typeof crypto?.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  const bytes = new Uint8Array(16);
+  if (typeof crypto?.getRandomValues === 'function') {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let index = 0; index < bytes.length; index += 1) bytes[index] = Math.floor(Math.random() * 256);
+  }
+  bytes[6] = (bytes[6]! & 0x0f) | 0x40;
+  bytes[8] = (bytes[8]! & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+const SESSION_TAG = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9a-f]{8}';
+const SESSION_IN_NAME = new RegExp(`\\.(${SESSION_TAG})\\.json(?:\\.tmp)?$`);
+
+/**
+ * The session tag a record file name carries (committed `.json` or interrupted `.json.tmp`), or null for another name.
+ * Both formats: a UUID (current) and 8 hex digits (records written before UUID tags). The tag is the last dotted part
+ * before `.json`, so a note id containing dots or dashes cannot be mistaken for one.
+ */
 export function sessionOfFileName(name: string): string | null {
-  return /\.([0-9a-f]{8})\.json(?:\.tmp)?$/.exec(name)?.[1] ?? null;
+  return SESSION_IN_NAME.exec(name)?.[1] ?? null;
 }
 
 /** Whether a file name is an interrupted write of a record (never the committed record itself). */
