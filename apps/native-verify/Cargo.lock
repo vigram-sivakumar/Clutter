@@ -1838,6 +1838,7 @@ dependencies = [
 name = "native-verify"
 version = "0.0.0"
 dependencies = [
+ "glob",
  "serde",
  "serde_json",
  "tauri",

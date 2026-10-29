@@ -668,7 +668,29 @@ fn another_window(run: &mut Run, app: &tauri::AppHandle) {
     }
 }
 
+/// Crash-loop mode (`VF_HAMMER=<directory>`): replace one large file again and again through the real WebView and IPC,
+/// each generation a different uniform byte, until a parent process kills this one with SIGKILL (see
+/// `crash-loop.sh`). Never returns; whatever the kill interrupts, the file must afterwards be one whole generation.
+fn hammer(app: tauri::AppHandle, bridge: Arc<Bridge>, directory: PathBuf) {
+    let root = directory.clone();
+    fs::create_dir_all(root.join(".clutter")).unwrap();
+    app.fs_scope().allow_directory(&root, true).unwrap();
+    let note = root.join("note.md");
+    for generation in 0u64.. {
+        let contents = char::from(b'A' + (generation % 26) as u8).to_string().repeat(1_000_000);
+        let intent = if note.exists() { json!({ "kind": "replace" }) } else { json!({ "kind": "create" }) };
+        let _ = bridge.call(
+            "main",
+            "atomic_write_file",
+            json!({ "request": { "vaultRoot": root, "path": note, "contents": contents, "intent": intent } }),
+        );
+    }
+}
+
 fn run_all(app: tauri::AppHandle, bridge: Arc<Bridge>) {
+    if let Ok(directory) = std::env::var("VF_HAMMER") {
+        return hammer(app, bridge, PathBuf::from(directory));
+    }
     let home = std::env::var("HOME").unwrap();
     let base = fs::canonicalize(&home).unwrap().join(format!("clutter-native-verify-{}", std::process::id()));
     fs::create_dir_all(&base).unwrap();

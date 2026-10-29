@@ -17,3 +17,5 @@ serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 tauri = { version = "2.11.3" }
 tauri-plugin-fs = "2"
+# atomic_commands.rs matches the scope's forbidden patterns with it.
+glob = "0.3"
