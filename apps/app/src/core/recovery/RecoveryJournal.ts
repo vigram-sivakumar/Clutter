@@ -69,6 +69,12 @@ export interface RecoveryJournalOptions {
   /** This session's tag (8 hex digits). Random by default; a test can fix it. */
   readonly session?: string;
   readonly onWriteError?: (error: unknown, pageId: string) => void;
+  /**
+   * True while a saved revision of the note is installed on disk but not yet confirmed durable (ADR-063, decision 13).
+   * A note that is clean is normally released; while this holds, its record is kept, because a power loss could still
+   * take the saved file back. Call `recheck(pageId)` when it stops holding.
+   */
+  readonly holdRecord?: (pageId: string) => boolean;
 }
 
 export const RECOVERY_DEBOUNCE_MS = 1000;
@@ -130,6 +136,11 @@ export class RecoveryJournal {
   public start(): void {
     this.unsubscribe = this.options.source.subscribeUnsaved((pageId, urgent) => this.schedule(pageId, urgent));
     this.schedule();
+  }
+
+  /** Looks at a note again now, e.g. once `holdRecord` stopped holding, so its record can be released. */
+  public recheck(pageId: string): void {
+    this.schedule(pageId, true);
   }
 
   /** Stops following and cancels pending timers. Records are left exactly as they are. */
@@ -341,6 +352,10 @@ export class RecoveryJournal {
 
     try {
       if (state === null) {
+        // The note is clean, but its last save is not yet confirmed durable: the record stays until it is.
+        if (this.options.holdRecord?.(pageId)) {
+          return true;
+        }
         // Nothing unsaved right now. Only a record this session wrote is ours to remove.
         if (this.owned.has(pageId)) {
           await this.removeOwn(pageId);
