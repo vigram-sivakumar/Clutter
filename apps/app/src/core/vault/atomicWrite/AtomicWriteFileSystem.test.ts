@@ -225,6 +225,34 @@ describe('AtomicWriteFileSystem: a half-configured provider never writes', () =>
   });
 });
 
+describe('AtomicWriteFileSystem: the plugin writer is never a fallback (ADR-063)', () => {
+  it('no text write, whatever its outcome, ever reaches the inner provider’s own writeFile', async () => {
+    // The provider's inner (plugin-writer stand-in) is a different object from the writer's own disk, so a spy on it
+    // sees only a delegation by the provider, never the test double's internal write.
+    const inner = new InMemoryVaultFileSystem({ [NOTE]: 'old' });
+    const writer = new InMemoryAtomicVaultWriter(new InMemoryVaultFileSystem({ [NOTE]: 'old' }));
+    const fileSystem = new AtomicWriteFileSystem(inner, writer, new DurabilityTracker(writer, { delaysMs: [] }));
+    const pluginWrite = vi.spyOn(inner, 'writeFile');
+
+    // Committed, then every way an atomic write can fail, then an absent writer.
+    await fileSystem.writeFile(NOTE, 'one', 'replace');
+    writer.inject({ kind: 'not-committed', reason: 'insufficientSpace' });
+    await fileSystem.writeFile(NOTE, 'two', 'replace').catch(() => undefined);
+    writer.inject({ kind: 'not-committed', reason: 'readOnlyTarget' });
+    await fileSystem.writeFile(NOTE, 'three', 'upsert').catch(() => undefined);
+    writer.inject({ kind: 'uncertain', takesEffect: false });
+    await fileSystem.writeFile(NOTE, 'four', 'replace').catch(() => undefined);
+    await fileSystem.writeFile('/v/created.md', 'five', 'create').catch(() => undefined);
+    const misconfigured = new AtomicWriteFileSystem(inner, writer, undefined, undefined, async () => {
+      throw new Error('the native writer is not available');
+    });
+    await misconfigured.writeFile(NOTE, 'six', 'replace').catch(() => undefined);
+
+    expect(writer.calls.length).toBeGreaterThan(0); // the atomic writer really was the one used
+    expect(pluginWrite).not.toHaveBeenCalled();
+  });
+});
+
 describe('AtomicWriteFileSystem: reads and moves are the inner provider’s', () => {
   it('delegates reads, moves and deletes unchanged', async () => {
     const { fileSystem, disk } = setup({ '/v/a.md': 'a' });

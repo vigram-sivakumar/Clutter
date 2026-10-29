@@ -5,17 +5,17 @@ import { DurabilityTracker } from './DurabilityTracker';
 import { NativeAtomicVaultWriter } from './NativeAtomicVaultWriter';
 
 /**
- * The frontend asked for atomic writes but the native commands are not there (the app was built without the
- * `atomic-writes` Cargo feature). Saving must not quietly fall back to the truncating plugin write while Clutter
- * believes it is using the safe one, so opening the Space fails with this instead.
+ * The native atomic commands are not there (the app was built without the default `atomic-writes` Cargo feature).
+ * Saving must not quietly fall back to the truncating plugin write while Clutter believes it is using the safe one, so
+ * opening the Space fails with this instead.
  */
 export class AtomicWritesMisconfiguredError extends Error {
   readonly name = 'AtomicWritesMisconfiguredError';
 
   constructor(detail: string) {
     super(
-      `Atomic saves are switched on in this build of the interface, but the native writer is not available (${detail}). ` +
-        'Build the app with the atomic-writes feature, or switch atomic saves off.'
+      `Clutter saves with the atomic writer only, but the native writer is not available in this build (${detail}). ` +
+        'Build the app with the default atomic-writes feature.'
     );
   }
 }

@@ -1,20 +1,20 @@
 #!/bin/bash
-# Builds and runs the four cells of the frontend-flag x Rust-feature matrix as real builds (ADR-063), in the isolated
-# harness. <scratch-dir> receives one directory per cell and the shared cargo targets.
+# Builds and runs the two cells of the native-writer matrix as real builds (ADR-063), in the isolated harness: atomic
+# saves are the only saving system, so the cells are "the native writer is compiled in" (saves replace the file whole)
+# and "it is not" (the app refuses to open a Space; nothing is written, and there is no fallback to the plugin writer).
+# <scratch-dir> receives one directory per cell and the shared cargo targets.
 set -euo pipefail
 SCRATCH="${1:?usage: run-matrix.sh <scratch-dir>}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 export CARGO_TARGET_ROOT="$SCRATCH"
 STATUS=0
-#            frontend rust   expect         native
-for CELL in "false false old            absent" \
-            "true  true  atomic         present" \
-            "true  false misconfigured  absent" \
-            "false true  old            present"; do
+#            native  expect         native commands
+for CELL in "true    atomic         present" \
+            "false   misconfigured  absent"; do
   set -- $CELL
-  DIR="$SCRATCH/cell-frontend-$1-rust-$2"
-  "$HERE/build-isolated-app.sh" "$DIR" "$1" "$2" | tail -1
-  echo "== cell: frontend atomic=$1, rust atomic=$2 -> expect $3"
-  CLUTTER_MATRIX_EXPECT="$3" CLUTTER_MATRIX_NATIVE="$4" "$HERE/run.sh" "$DIR" 'specs/build-matrix.spec.ts' || STATUS=1
+  DIR="$SCRATCH/cell-native-$1"
+  "$HERE/build-isolated-app.sh" "$DIR" "$1" | tail -1
+  echo "== cell: native writer=$1 -> expect $2"
+  CLUTTER_MATRIX_EXPECT="$2" CLUTTER_MATRIX_NATIVE="$3" "$HERE/run.sh" "$DIR" 'specs/build-matrix.spec.ts' || STATUS=1
 done
 exit $STATUS

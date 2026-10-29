@@ -7,7 +7,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 
 import { isTauri } from '@tauri-apps/api/core';
 import type { Application } from '@core/application/Application';
-import { LocalVaultProvider } from '@core/vault/providers/LocalFileSystem';
+import { openVaultFileSystem } from '@core/vault/providers/openVaultFileSystem';
 import { flushWorkspaceStateWrites } from '@core/vault/initialize/workspaceStateFile';
 import { InMemoryVaultFileSystem } from '@core/vault/testing/InMemoryVaultFileSystem';
 import {
@@ -21,7 +21,8 @@ import { SpacesContext, type SpacesApi } from './spaces/SpacesContext';
 
 // The desktop runtime and its per-Space file system: "Reset settings to defaults" reaches every other Space through them.
 vi.mock('@tauri-apps/api/core', () => ({ isTauri: vi.fn(() => false), invoke: vi.fn() }));
-vi.mock('@core/vault/providers/LocalFileSystem', () => ({ LocalVaultProvider: vi.fn() }));
+// The filesystem a Space's own folder is reached through (atomic saves, ADR-063): the test stands in at this seam.
+vi.mock('@core/vault/providers/openVaultFileSystem', () => ({ openVaultFileSystem: vi.fn() }));
 
 class ResizeObserverMock {
   observe = vi.fn();
@@ -297,10 +298,7 @@ describe('ActiveSpaceSettingsDialog: Reset settings to defaults reaches every Sp
       '/s/Other': new InMemoryVaultFileSystem({ [`/s/Other/${FILE}`]: withSettings('other') }),
       '/s/Third': new InMemoryVaultFileSystem({ [`/s/Third/${FILE}`]: withSettings('third') }),
     };
-    // A plain function, not an arrow: the code under test calls it with `new`.
-    vi.mocked(LocalVaultProvider).mockImplementation(function (path: string) {
-      return files[path];
-    } as never);
+    vi.mocked(openVaultFileSystem).mockImplementation(((path: string) => files[path]) as never);
     return files;
   }
 
@@ -319,7 +317,7 @@ describe('ActiveSpaceSettingsDialog: Reset settings to defaults reaches every Sp
 
   afterEach(() => {
     vi.mocked(isTauri).mockReturnValue(false);
-    vi.mocked(LocalVaultProvider).mockReset();
+    vi.mocked(openVaultFileSystem).mockReset();
   });
 
   it('on the desktop: the open Space through its Application, every other Space through its own folder, never the open one twice', async () => {
@@ -342,7 +340,7 @@ describe('ActiveSpaceSettingsDialog: Reset settings to defaults reaches every Sp
       expect(file.collectionViewConfig, root).toEqual({ 'view:notes': { layout: 'card' } });
     }
     // The open Space has an Application: its folder is never opened a second way.
-    expect(vi.mocked(LocalVaultProvider).mock.calls.map(([path]) => path).sort()).toEqual(['/s/Other', '/s/Third']);
+    expect(vi.mocked(openVaultFileSystem).mock.calls.map(([path]) => path).sort()).toEqual(['/s/Other', '/s/Third']);
   });
 
   it('on the web, where there is one fixed Space: only its Application, and no folder is opened', async () => {
@@ -355,7 +353,7 @@ describe('ActiveSpaceSettingsDialog: Reset settings to defaults reaches every Sp
     await finished();
 
     expect(live.resetSpaceSettings).toHaveBeenCalledOnce();
-    expect(LocalVaultProvider).not.toHaveBeenCalled();
+    expect(openVaultFileSystem).not.toHaveBeenCalled();
   });
 
   it('is not offered to run while there is no Application behind the dialog', () => {

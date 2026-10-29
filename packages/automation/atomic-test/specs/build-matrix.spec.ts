@@ -3,12 +3,11 @@ import { testIds } from '../../../../apps/app/src/shared/testing/selectors';
 import { assertIsolatedProfile } from '../isolation';
 import { HOME, openFirstNote, registerSpace, temporaryFiles, typeAtEnd } from './helpers';
 
-// One cell of the build matrix (frontend atomic switch x Rust atomic feature). The runner sets CLUTTER_MATRIX_EXPECT:
-//   old           the plugin writer saves in place (same inode); atomic commands are absent or unused
+// One cell of the build matrix (is the native writer compiled in?). The runner sets CLUTTER_MATRIX_EXPECT:
 //   atomic        saves replace the file whole (new inode)
-//   misconfigured the frontend asks for atomic saves but the native writer is absent: opening the Space fails loudly
-//                 and nothing is written, never a silent fallback to the plugin writer
-const EXPECT = process.env.CLUTTER_MATRIX_EXPECT as 'old' | 'atomic' | 'misconfigured';
+//   misconfigured the native writer is absent: opening the Space fails loudly and nothing is written, never a silent
+//                 fallback to the plugin writer
+const EXPECT = process.env.CLUTTER_MATRIX_EXPECT as 'atomic' | 'misconfigured';
 const NATIVE = process.env.CLUTTER_MATRIX_NATIVE as 'present' | 'absent'; // whether the commands exist in this binary
 const ROOT = `${HOME}/Documents/MatrixVault`;
 const NOTE = `${ROOT}/Welcome.md`;
@@ -40,7 +39,7 @@ describe(`build matrix cell: expect ${EXPECT}, native commands ${NATIVE}`, () =>
       await browser.pause(8000);
       const text = (await browser.execute(() => document.body.innerText)) as string;
       console.log('MATRIX-MISCONFIGURED ' + JSON.stringify(text.slice(0, 400)));
-      expect(text).toMatch(/Atomic saves are switched on|native writer is not available/i);
+      expect(text).toMatch(/native writer is not available/i);
       expect(fs.readFileSync(NOTE, 'utf8')).toBe(ORIGINAL);
       expect(fs.statSync(NOTE).ino).toBe(before.ino);
       expect(await $$('.cm-content').length).toBe(0); // no editor was opened on a Space that cannot be saved safely
@@ -56,7 +55,6 @@ describe(`build matrix cell: expect ${EXPECT}, native commands ${NATIVE}`, () =>
     expect(fs.readFileSync(NOTE, 'utf8')).toContain('Original body');
     expect(fs.readFileSync(NOTE, 'utf8')).toContain('id: note-welcome');
     expect(temporaryFiles(ROOT)).toEqual([]);
-    if (EXPECT === 'atomic') expect(after.ino).not.toBe(before.ino); // replaced whole
-    else expect(after.ino).toBe(before.ino); // the plugin writes in place
+    expect(after.ino).not.toBe(before.ino); // replaced whole
   });
 });

@@ -72,11 +72,15 @@ describe('the atomic writer contract is separate from the production writer', ()
     expect(offenders).toEqual([]);
   });
 
-  it('atomic saves are off unless the build asks for them, and the production provider is still the plugin writer', async () => {
+  it('atomic saves are on: they are the only saving system, with no build switch that turns them off', async () => {
     const { featureFlags, isAtomicWritesEnabled } = await import('../../featureFlags');
+    const flags = fs.readFileSync(path.resolve(__dirname, '../../featureFlags.ts'), 'utf8');
 
-    expect(featureFlags.atomicWrites).toBe(false);
-    expect(isAtomicWritesEnabled()).toBe(false);
+    expect(featureFlags.atomicWrites).toBe(true);
+    expect(isAtomicWritesEnabled()).toBe(true);
+    // No environment variable can switch the writer back (the plugin writer is kept, unused, until the ADR's removal
+    // criteria are met).
+    expect(flags).not.toMatch(/VITE_ATOMIC_WRITES/);
   });
 
   it('LocalFileSystem.ts does not mention the native atomic commands', () => {

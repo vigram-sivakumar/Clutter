@@ -60,7 +60,10 @@ objc2-core-foundation = { version = "0.3", default-features = false, features = 
 tauri = { version = "2.11.3", features = ["test"] }
 
 [features]
-# ADR-063: the atomic vault writer and its three commands. Off by default and used by nothing in the app yet, so an
-# ordinary build does not even compile them in; building or testing them needs `--features atomic-writes`.
+# ADR-063: the atomic vault writer and its three commands. On by default: it is the only way Clutter saves, in
+# development and in the Mac App Store build alike, with no fallback to the plugin's truncating write. The interface
+# refuses to open a Space if these commands are missing, so a build made with `--no-default-features` cannot save
+# quietly with the old writer; it cannot save at all.
+default = ["atomic-writes"]
 atomic-writes = ["dep:glob"]
 automation = ["dep:tauri-plugin-wdio-webdriver"]
