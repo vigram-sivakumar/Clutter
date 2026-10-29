@@ -7,6 +7,11 @@ const ROOT = `${HOME}/Documents/AtomicVault`;
 const NOTE = `${ROOT}/Welcome.md`;
 
 describe('an edit autosaves through the atomic writer in the real app', () => {
+  // Specs share one WebKit store within a run: leave the registry as it was found.
+  after(async () => {
+    await browser.execute(() => localStorage.removeItem('clutter.spaces.v1'));
+  });
+
   it('writes complete Markdown with the frontmatter intact, by replacement, leaving no temporary file', async () => {
     await browser.pause(3000);
     await assertIsolatedProfile({ fakeHome: HOME, approvedRoot: `${HOME}/Documents` });
