@@ -1,3 +1,4 @@
+import { AtomicExternalChangeError, isWriteConflict } from '../atomicWrite/atomicWriteErrors';
 import { fingerprint } from '../../shared/identity/textFingerprint';
 import type { Page } from '../models/Page';
 import type { PageMetadata } from '../models/PageMetadata';
@@ -49,6 +50,12 @@ export type PersistenceOperation =
       // helper again (ARCHITECTURE_RULES.md rule 12; implementation-rules
       // §6 "merge instead of expand").
       readonly metadata?: Partial<PageMetadata>;
+      /**
+       * `fingerprint` of the file text the saver believes is on disk (the open session's base). With a provider that
+       * replaces files whole, the save refuses (`AtomicExternalChangeError`) unless the file still holds that text.
+       * Absent: the Vault's own belief (`page.sourceFingerprint`) is used.
+       */
+      readonly expectedDiskFingerprint?: string;
     }
   | {
       readonly kind: 'create';
@@ -408,7 +415,7 @@ export class PagePersistenceCoordinator {
         const target = operation.metadata
           ? { ...current, metadata: { ...current.metadata, ...operation.metadata } }
           : current;
-        return this.writeParseRebuildReplace(target, operation.content);
+        return this.writeParseRebuildReplace(target, operation.content, operation.expectedDiskFingerprint);
       }
       case 'archive':
         return this.runArchive(current);
@@ -593,7 +600,11 @@ export class PagePersistenceCoordinator {
     const fileTimes = await readPageFileTimes(this.fileSystem, operation.path);
     const built = this.pageBuilder.build({
       parentId: operation.parentId,
-      page: { ...scannedPage, ...(fileTimes && { fileTimes }) },
+      page: {
+        ...scannedPage,
+        ...(fileTimes && { fileTimes }),
+        sourceFingerprint: fingerprint(operation.content),
+      },
     });
 
     try {
@@ -1808,6 +1819,43 @@ export class PagePersistenceCoordinator {
   }
 
   /**
+   * Replaces the page's file with `document`. With a provider that replaces files whole (ADR-063) this is a
+   * **conditional** replacement: the file is read, and must still be the version the saver believes it is editing
+   * (`expectedDiskFingerprint`, else the Vault's own `page.sourceFingerprint`), and is then replaced only while it
+   * still holds exactly the text just read. Otherwise nothing is written and `AtomicExternalChangeError` says the
+   * note changed on disk. That is what stops an autosave of a stale editor from silently destroying an edit made in
+   * another application, and because the expectation is the session's base and not the Vault's latest, it keeps
+   * refusing every later save of the same session until the conflict is resolved. Any other provider writes as before.
+   */
+  private async replaceFileGuarded(page: Page, document: string, expectedDiskFingerprint?: string): Promise<void> {
+    if (!this.fileSystem.writesAreAtomic) {
+      await this.fileSystem.writeFile(page.path, document, 'replace');
+      return;
+    }
+
+    // A missing file is left to the writer: a replace never re-creates it (`targetMissing`).
+    if (!(await this.fileSystem.exists(page.path))) {
+      await this.fileSystem.writeFile(page.path, document, 'replace');
+      return;
+    }
+
+    const current = await this.fileSystem.readFile(page.path);
+    const expected = expectedDiskFingerprint ?? page.sourceFingerprint;
+
+    if (expected !== undefined && fingerprint(current) !== expected) {
+      throw new AtomicExternalChangeError(page.path);
+    }
+
+    try {
+      await this.fileSystem.writeFile(page.path, document, { replaceIf: current });
+    } catch (error) {
+      // Changed between the read above and the rename: the same conflict, found by the writer.
+      if (isWriteConflict(error)) throw new AtomicExternalChangeError(page.path);
+      throw error;
+    }
+  }
+
+  /**
    * Shared by every kind above: serialize the given Page/markdown pair,
    * write it to disk, re-parse what was written, and rebuild the Vault's
    * Page from that. Sync's own metadata-repair write path shares this same
@@ -1816,11 +1864,12 @@ export class PagePersistenceCoordinator {
    */
   private async writeParseRebuildReplace(
     page: Page,
-    markdown: string
+    markdown: string,
+    expectedDiskFingerprint?: string
   ): Promise<PersistenceResult> {
     const document = this.serializer.serializeDocument(page, markdown);
 
-    await this.fileSystem.writeFile(page.path, document, 'replace');
+    await this.replaceFileGuarded(page, document, expectedDiskFingerprint);
 
     const parsed = this.parser.parse(document);
     const rebuilt = this.rebuilder.rebuild(

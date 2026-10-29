@@ -51,6 +51,15 @@ export class DocumentSession {
   private _state = DocumentState.Loading;
 
   /**
+   * `fingerprint` of the file text this session's saved revision corresponds to: the version of the note on disk that
+   * the editor believes it is editing (ADR-063). It moves only when the session is brought in line with the disk, by
+   * a successful save or by an external revision applied to a clean session; never while the session is dirty. A save
+   * is allowed to replace the file only while the file still holds this version, so an edit made elsewhere in the
+   * meantime is a conflict, and stays one for every later save until it is resolved. Undefined when unknown.
+   */
+  public diskFingerprint: string | undefined;
+
+  /**
    * Subscribed listeners for change notifications.
    */
   private listeners: Set<() => void> = new Set();

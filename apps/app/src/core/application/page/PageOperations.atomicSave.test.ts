@@ -148,6 +148,8 @@ function setup(page: Page, fileSystem?: VaultFileSystem) {
 import { AtomicWriteFileSystem } from '../../vault/atomicWrite/AtomicWriteFileSystem';
 import { DurabilityTracker } from '../../vault/atomicWrite/DurabilityTracker';
 import { InMemoryAtomicVaultWriter } from '../../vault/testing/InMemoryAtomicVaultWriter';
+import { fingerprint } from '../../shared/identity/textFingerprint';
+import { DocumentTransaction } from '../../engine/DocumentTransaction';
 import type { InspectionResult } from '../../vault/atomicWrite/AtomicWriteContract';
 
 /**
@@ -157,9 +159,12 @@ import type { InspectionResult } from '../../vault/atomicWrite/AtomicWriteContra
  * must see.
  */
 async function openOnAtomicProvider() {
-  const page = buildPage();
+  const seeded = buildPage();
+  const seededText = new FrontmatterSerializer().serializeDocument(seeded, seeded.source.markdown);
+  // As a scan would have built it: carrying the identity of the text on disk.
+  const page = { ...seeded, sourceFingerprint: fingerprint(seededText) };
   const disk = new InMemoryVaultFileSystem();
-  disk.seedFile(page.path, new FrontmatterSerializer().serializeDocument(page, page.source.markdown));
+  disk.seedFile(page.path, seededText);
   const writer = new InMemoryAtomicVaultWriter(disk);
   const changes: string[] = [];
   let recheck: (path: string) => void = () => undefined;
@@ -212,7 +217,7 @@ describe('an edit saved through the atomic provider', () => {
     expect(parts.session.state).toBe(DocumentState.Clean);
     expect(parts.pageOperations.saveFailureStatus(parts.page.id)).toBeNull();
     expect(parts.recordExists()).toBe(false);
-    expect(parts.writer.calls.some((call) => call.startsWith('write:replace:'))).toBe(true);
+    expect(parts.writer.calls.some((call) => call.startsWith('write:replaceIfContent:'))).toBe(true); // conditional on what was read
   });
 
   it('a save installed with a flush gap is a success, never rewritten, and keeps its record until the flush is confirmed', async () => {
@@ -340,5 +345,116 @@ describe('an edit saved through the atomic provider', () => {
     expect(parts.session.isDirty).toBe(true);
     expect(parts.pageOperations.saveFailureStatus(parts.page.id)).toBe('needs-action');
     expect(parts.recordExists()).toBe(true);
+  });
+
+  describe('an edit made in another application is never silently overwritten by the editor (ADR-063)', () => {
+    const external = 'FRONTMATTER-KEPT\nExternal edit made in another application';
+
+    async function externalEdit(parts: Awaited<ReturnType<typeof openOnAtomicProvider>>) {
+      const text = `---\nid: ${parts.page.id}\n---\n${external}`;
+      await parts.disk.writeFile(parts.page.path, text);
+
+      return text;
+    }
+
+    /** What Sync does when it sees the edit: the Vault page follows the disk. The open, dirty session does not. */
+    function syncSeesIt(parts: Awaited<ReturnType<typeof openOnAtomicProvider>>, text: string) {
+      const parsed = new FrontmatterParser().parse(text);
+      parts.vault.replacePage(new PageRebuilder().rebuild(parts.vault.getPage(parts.page.id)!, parsed, undefined, fingerprint(text)));
+    }
+
+    it('external edit, autosave, more typing, autosave, Retry and a close-time flush: the disk keeps the external version throughout', async () => {
+      const parts = await openOnAtomicProvider();
+      parts.pageOperations.commitEdit(parts.page.id, 'my unsaved words');
+      const text = await externalEdit(parts);
+      syncSeesIt(parts, text); // the strongest case: the Vault already follows the disk
+
+      await parts.pageOperations.requestSave(parts.page.id);
+      expect(await parts.disk.readFile(parts.page.path)).toBe(text);
+      expect(parts.pageOperations.saveFailureKind(parts.page.id)).toBe('changed-on-disk');
+      expect(parts.pageOperations.saveFailureStatus(parts.page.id)).toBe('needs-action'); // no backoff retries
+      expect(parts.session.isDirty).toBe(true);
+
+      parts.pageOperations.commitEdit(parts.page.id, 'my unsaved words and a lot more');
+      await vi.advanceTimersByTimeAsync(RECOVERY_DEBOUNCE_MS + 2_500); // the autosave runs again
+      await parts.pageOperations.requestSave(parts.page.id);
+      await parts.pageOperations.retrySave(parts.page.id);
+      await parts.pageOperations.flushAll(1_000);
+
+      expect(await parts.disk.readFile(parts.page.path)).toBe(text); // never bypassed
+      expect(parts.session.isDirty).toBe(true);
+      expect(parts.session.currentRevision.markdown).toBe('my unsaved words and a lot more');
+      expect(parts.recordExists()).toBe(true); // and the work stays protected
+      expect(parts.writer.calls.filter((call) => call.startsWith('write:'))).toHaveLength(0);
+    });
+
+    it('the conflict survives navigating away and back, because the session keeps its base', async () => {
+      const parts = await openOnAtomicProvider();
+      parts.pageOperations.commitEdit(parts.page.id, 'my unsaved words');
+      const text = await externalEdit(parts);
+      await parts.pageOperations.requestSave(parts.page.id);
+
+      await parts.pageOperations.open(parts.page.id); // opening again must not re-base the session on the disk
+      parts.pageOperations.commitEdit(parts.page.id, 'my unsaved words, again');
+      await parts.pageOperations.requestSave(parts.page.id);
+
+      expect(await parts.disk.readFile(parts.page.path)).toBe(text);
+      expect(parts.pageOperations.saveFailureKind(parts.page.id)).toBe('changed-on-disk');
+    });
+
+    it('Save as new note keeps the unsaved text in a new note, leaves the external version on disk, and ends the conflict', async () => {
+      const parts = await openOnAtomicProvider();
+      parts.pageOperations.setExternalReconciler(async (path) => {
+        syncSeesIt(parts, await parts.disk.readFile(path));
+      });
+      parts.pageOperations.commitEdit(parts.page.id, 'my unsaved words');
+      const text = await externalEdit(parts);
+      await parts.pageOperations.requestSave(parts.page.id);
+      parts.pageOperations.commitEdit(parts.page.id, 'my unsaved words and more');
+      await parts.pageOperations.requestSave(parts.page.id);
+
+      const copyId = await parts.pageOperations.saveUnsavedAsNewNote(parts.page.id);
+
+      expect(copyId).not.toBeNull();
+      expect(parts.vault.getPage(copyId!)?.source.markdown).toBe('my unsaved words and more');
+      expect(await parts.disk.readFile(parts.page.path)).toBe(text); // the external version is untouched
+      expect(parts.session.isDirty).toBe(false); // the original now follows the disk
+      expect(parts.session.currentRevision.markdown).toBe(external);
+      expect(parts.pageOperations.saveFailureKind(parts.page.id)).toBeNull();
+      expect(parts.pageOperations.saveFailureStatus(parts.page.id)).toBeNull();
+
+      // And editing the original afterwards saves normally on top of the version it now follows.
+      parts.pageOperations.commitEdit(parts.page.id, 'continuing from the external version');
+      await parts.pageOperations.requestSave(parts.page.id);
+      expect(await parts.disk.readFile(parts.page.path)).toContain('continuing from the external version');
+      expect(parts.pageOperations.saveFailureKind(parts.page.id)).toBeNull();
+    });
+
+    it('a note nobody else touched keeps saving, edit after edit', async () => {
+      const parts = await openOnAtomicProvider();
+
+      for (const text of ['one', 'two', 'three']) {
+        parts.pageOperations.commitEdit(parts.page.id, text);
+        await parts.pageOperations.requestSave(parts.page.id);
+      }
+
+      expect(await parts.disk.readFile(parts.page.path)).toContain('three');
+      expect(parts.pageOperations.saveFailureKind(parts.page.id)).toBeNull();
+    });
+
+    it('an external edit that Sync applied to a CLEAN session moves the session’s base, so the next save is not a false conflict', async () => {
+      const parts = await openOnAtomicProvider();
+      const text = await externalEdit(parts);
+      syncSeesIt(parts, text);
+      // What VaultSyncService.convergeOpenSession does for a clean session.
+      parts.session.markSaved(parts.session.commit(new DocumentTransaction(external)));
+      parts.session.diskFingerprint = parts.vault.getPage(parts.page.id)!.sourceFingerprint;
+
+      parts.pageOperations.commitEdit(parts.page.id, 'typing on top of the external version');
+      await parts.pageOperations.requestSave(parts.page.id);
+
+      expect(await parts.disk.readFile(parts.page.path)).toContain('typing on top of the external version');
+      expect(parts.pageOperations.saveFailureKind(parts.page.id)).toBeNull();
+    });
   });
 });

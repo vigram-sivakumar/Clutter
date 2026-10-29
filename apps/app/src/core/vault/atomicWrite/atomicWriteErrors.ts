@@ -41,11 +41,16 @@ export class AtomicUncertainError extends Error {
   }
 }
 
+/**
+ * The file holds something this app did not write: after a write in doubt, or (the common case) because another
+ * application edited the note after the editor opened or last saved it. Nothing was overwritten; the unsaved text stays
+ * in the editor and in crash recovery.
+ */
 export class AtomicExternalChangeError extends Error {
   readonly name = 'AtomicExternalChangeError';
 
   constructor(readonly path: string) {
-    super(`The file changed on disk while a save was in doubt, so nothing was written: ${path}`);
+    super(`The file changed on disk, so nothing was written: ${path}`);
   }
 }
 
@@ -60,6 +65,7 @@ export type SaveFailureKind = 'failed' | 'changed-on-disk' | 'unverified' | 'uns
 
 export function classifySaveFailure(error: unknown): SaveFailureKind {
   if (error instanceof AtomicExternalChangeError) return 'changed-on-disk';
+  if (error instanceof AtomicNotCommittedError && error.reason === 'staleExpected') return 'changed-on-disk';
   if (error instanceof AtomicUncertainError) return 'unverified';
   if (error instanceof AtomicNotCommittedError && (error.reason === 'unsupportedFilesystem' || error.reason === 'unsupportedOperation')) {
     return 'unsupported-location';

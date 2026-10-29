@@ -910,6 +910,8 @@ export class Application {
       inFlightPaths
     );
 
+    this.pageOperations.setExternalReconciler((absolutePath) => this.vaultSyncService.reconcileKnownPath(absolutePath));
+
     // Recovers from an external deletion (Sync's handleDeleted, or any
     // other Vault mutation) removing the page/folder Workspace currently
     // has active — e.g. deleting the open Archive folder, or any other

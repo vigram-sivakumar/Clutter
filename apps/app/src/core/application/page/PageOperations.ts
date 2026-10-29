@@ -591,7 +591,10 @@ export class PageOperations {
     this.flushActivePage();
 
     if (page) {
-      this.documentRegistry.open(page.id, page.source.markdown);
+      const opened = this.documentRegistry.open(page.id, page.source.markdown);
+      // The version of the note on disk this session starts from (kept if the session already exists: it moves only
+      // when the session is brought in line with the disk).
+      opened.diskFingerprint ??= page.sourceFingerprint;
     }
 
     // Re-activating a draft (a sidebar row, a collection card, a history replay) is bound by the same rule
@@ -1425,11 +1428,52 @@ export class PageOperations {
       return null;
     }
 
-    return this.create({
+    const copyId = await this.create({
       folderId: page.parentId,
       title: `${page.name} (my changes)`,
       body: session.currentRevision.markdown,
+      activate: false,
     });
+    // The user's text is safe in the copy: now the original follows the disk, which resolves the conflict. The file
+    // on disk is never written by any of this.
+    await this.adoptDiskVersion(pageId);
+
+    return copyId;
+  }
+
+  /** Brings Sync's view of one path up to date from disk. Set by the Composition Root once Sync exists. */
+  private externalReconciler: ((absolutePath: string) => Promise<void>) | null = null;
+
+  public setExternalReconciler(reconcile: (absolutePath: string) => Promise<void>): void {
+    this.externalReconciler = reconcile;
+  }
+
+  /**
+   * Ends an editor-versus-disk conflict in the disk's favour: the session takes the text that is on disk now (the
+   * unsaved text must already be somewhere safe) and becomes clean, with that text as its base. Writes nothing.
+   */
+  private async adoptDiskVersion(pageId: string): Promise<void> {
+    const session = this.documentRegistry.get(pageId);
+    const known = this.vault.getPage(pageId);
+
+    if (!session || !known) {
+      return;
+    }
+
+    await this.externalReconciler?.(known.path);
+    const page = this.vault.getPage(pageId);
+
+    if (!page) {
+      return;
+    }
+
+    for (const { key } of this.channelStates(pageId)) {
+      this.saveCoordinator.cancelPendingRetry(key);
+    }
+    session.markSaved(session.commit(new DocumentTransaction(page.source.markdown)));
+    session.diskFingerprint = page.sourceFingerprint;
+    this.refreshSaveFailures();
+    this.emitUnsaved(pageId);
   }
 
   /** Every page currently in a save-failure streak, in a stable order. */
@@ -2050,18 +2094,24 @@ export class PageOperations {
         const result = await this.coordinator.enqueue(pageId, {
           kind: 'save',
           content: durableContent,
+          // What this session believes is on disk: a save refuses to replace anything else (ADR-063).
+          ...(session.diskFingerprint !== undefined && { expectedDiskFingerprint: session.diskFingerprint }),
         });
 
         if (result.status === 'abandoned') {
           this.saveCoordinator.failSave(session, revision);
           return;
         }
+
+        // Written: the session now corresponds to the text just installed.
+        if (result.status === 'saved') session.diskFingerprint = result.page.sourceFingerprint ?? session.diskFingerprint;
       } else {
         if (!draftDescriptor) {
           throw new Error(`Page not found: ${pageId}`);
         }
 
-        await this.persistDraft(pageId, draftDescriptor, durableContent);
+        const created = await this.persistDraft(pageId, draftDescriptor, durableContent);
+        session.diskFingerprint = created.sourceFingerprint;
       }
 
       this.saveCoordinator.completeSave(session, revision);
@@ -2728,7 +2778,7 @@ export class PageOperations {
       // something else happens to open a session for it. Skipped entirely
       // when `activate: false` — the page is persisted but never becomes
       // the active view, so neither step is needed.
-      this.documentRegistry.open(page.id, page.source.markdown);
+      this.documentRegistry.open(page.id, page.source.markdown).diskFingerprint ??= page.sourceFingerprint;
       this.flushActivePage();
       this.workspace.openPage(id);
     }
