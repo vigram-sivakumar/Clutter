@@ -72,6 +72,22 @@ fn is_os_metadata_file(path: &Path) -> bool {
     path.file_name().map_or(false, |name| name == ".DS_Store")
 }
 
+/// The atomic writer's hidden temporary files (ADR-063): `.clutter-tmp.<pid>.<n>.<nanos>`, created next to a note,
+/// filled, then renamed over it. They are never vault content, and their half of the rename must not reach rename
+/// pairing: the "path vanished" half of `temp -> note.md` would otherwise be paired with the note's "path appeared"
+/// half and reported as a move from a file Clutter has never heard of, or be paired with an unrelated rename. The
+/// note's own half still arrives (as a plain create/change of `note.md`), which Sync re-derives from disk.
+fn is_atomic_temp_file(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .map_or(false, |name| name.starts_with(".clutter-tmp."))
+}
+
+/// Paths the watcher never reports: OS bookkeeping and the atomic writer's temporary files.
+fn is_ignored_path(path: &Path) -> bool {
+    is_os_metadata_file(path) || is_atomic_temp_file(path)
+}
+
 fn classify_event_kind(kind: &EventKind) -> EventClassification {
     match kind {
         EventKind::Create(_) => EventClassification::Direct("created"),
@@ -257,12 +273,12 @@ pub fn start_vault_watcher(
 
             match classify_event_kind(&event.kind) {
                 EventClassification::Direct(change_type) => {
-                    for path in event.paths.into_iter().filter(|p| !is_os_metadata_file(p)) {
+                    for path in event.paths.into_iter().filter(|p| !is_ignored_path(p)) {
                         emit_change(&app_handle, &root_path_for_event, &path, change_type);
                     }
                 }
                 EventClassification::Rename => {
-                    for path in event.paths.into_iter().filter(|p| !is_os_metadata_file(p)) {
+                    for path in event.paths.into_iter().filter(|p| !is_ignored_path(p)) {
                         handle_name_event(
                             path,
                             &root_path_for_event,
@@ -422,6 +438,57 @@ mod tests {
         assert!(is_os_metadata_file(Path::new("/vault/.DS_Store")));
         assert!(!is_os_metadata_file(Path::new("/vault/Notes/.folder.md")));
         assert!(!is_os_metadata_file(Path::new("/vault/Notes/DS_Store.md")));
+    }
+
+    #[test]
+    fn the_atomic_writers_temporary_files_are_ignored_but_a_note_with_a_similar_name_is_not() {
+        assert!(is_ignored_path(Path::new("/vault/Notes/.clutter-tmp.00002602.0000000c.18e2be2f3755a5f8")));
+        assert!(is_ignored_path(Path::new("/vault/.clutter-tmp.1.1.1")));
+        assert!(!is_ignored_path(Path::new("/vault/Notes/clutter-tmp.md")));
+        assert!(!is_ignored_path(Path::new("/vault/Notes/.clutter-tmp-notes.md")));
+        assert!(!is_ignored_path(Path::new("/vault/.clutter/tags.json")));
+        assert!(is_ignored_path(Path::new("/vault/.DS_Store")));
+    }
+
+    #[test]
+    fn an_atomic_replace_is_a_plain_create_of_the_note_not_a_move_from_its_temporary_file() {
+        // What macOS reports for `rename(.clutter-tmp.x, note.md)` (measured): a name event for the temporary path,
+        // which no longer exists, and name events for the note, which does. With the temporary half dropped before
+        // pairing, the note's half has nothing to pair with.
+        let events = [
+            (PathBuf::from("/vault/.clutter-tmp.1.1.2"), false),
+            (PathBuf::from("/vault/note.md"), true),
+        ];
+        let mut pairing = RenamePairing::default();
+        let mut decisions = Vec::new();
+
+        for (path, exists) in events.into_iter().filter(|(path, _)| !is_ignored_path(path)) {
+            decisions.push(pairing.on_name_event(path, exists).0);
+        }
+
+        assert_eq!(decisions, vec![RenameDecision::Created { path: PathBuf::from("/vault/note.md") }]);
+    }
+
+    #[test]
+    fn a_temporary_file_never_pairs_with_an_unrelated_rename() {
+        let mut pairing = RenamePairing::default();
+        // A real rename is in flight: its "from" half is pending.
+        pairing.on_name_event(PathBuf::from("/vault/old-name.md"), false);
+
+        // The atomic replace of another note must not consume that pending half.
+        for (path, exists) in [
+            (PathBuf::from("/vault/.clutter-tmp.1.1.2"), false),
+            (PathBuf::from("/vault/other.md"), true),
+        ]
+        .into_iter()
+        .filter(|(path, _)| !is_ignored_path(path))
+        {
+            // `other.md` is still reported (as the destination of the pending rename is indistinguishable without a
+            // cookie, which is the documented limitation); what matters is that the temporary half is gone.
+            let _ = pairing.on_name_event(path, exists);
+        }
+
+        assert!(pairing.pending.is_empty() || pairing.pending.keys().all(|path| !is_atomic_temp_file(path)));
     }
 
     #[test]
