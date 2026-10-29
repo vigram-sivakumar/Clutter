@@ -78,6 +78,7 @@ export function ActiveSpaceSettingsDialog({ application, busy = false }: ActiveS
         })
       }
       onChangeActiveSpaceAvatar={spaces?.onChangeActiveSpaceAvatar}
+      onChangeInactiveSpaceAvatar={spaces?.onChangeInactiveSpaceAvatar}
       resolveImageUrl={
         spaces?.resolveAvatarImageUrl ?? (application ? (src) => application.resolveCoverImageForDisplay(src) : undefined)
       }

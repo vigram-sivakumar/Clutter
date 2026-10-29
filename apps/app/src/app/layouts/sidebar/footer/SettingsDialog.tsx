@@ -21,6 +21,7 @@ interface SettingsDialogProps {
   onRenameActiveSpace?(newName: string): Promise<{ error?: string }>;
   onRenameInactiveSpace?(path: string, newName: string): Promise<{ error?: string }>;
   onChangeActiveSpaceAvatar?: SettingsSpace['onChangeActiveSpaceAvatar'];
+  onChangeInactiveSpaceAvatar?: SettingsSpace['onChangeInactiveSpaceAvatar'];
   /** The Space is changing under the dialog: no Application to read, and its own controls are disabled. */
   busy?: boolean;
   templates?: TemplatesSource;
@@ -48,6 +49,7 @@ export function SettingsDialog({
   onRenameActiveSpace,
   onRenameInactiveSpace,
   onChangeActiveSpaceAvatar,
+  onChangeInactiveSpaceAvatar,
   busy,
   templates,
   noteLocation,
@@ -80,6 +82,7 @@ export function SettingsDialog({
           onRenameActiveSpace,
           onRenameInactiveSpace,
           onChangeActiveSpaceAvatar,
+          onChangeInactiveSpaceAvatar,
           busy,
           spaces: (spaces ?? [{ path: activeSpacePath ?? '', name: title }]).map((space) => {
             const active = space.path === activeSpacePath || spaces === undefined;

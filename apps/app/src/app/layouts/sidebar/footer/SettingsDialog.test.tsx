@@ -31,13 +31,14 @@ interface Props {
   vaultFolderName?: string;
   spaceName?: string;
   avatar?: SpaceAvatarValue;
-  spaces?: { path: string; name: string }[];
+  spaces?: { path: string; name: string; avatar?: { type: 'emoji'; emoji: string } }[];
   activeSpacePath?: string;
   onSwitchSpace?: (path: string) => void;
   onRemoveSpace?: (path: string) => void;
   onRenameActiveSpace?: (newName: string) => Promise<{ error?: string }>;
   onRenameInactiveSpace?: (path: string, newName: string) => Promise<{ error?: string }>;
   onChangeActiveSpaceAvatar?: (avatar: { type: 'emoji'; emoji: string } | { type: 'image'; src: string } | undefined) => Promise<{ error?: string }>;
+  onChangeInactiveSpaceAvatar?: (path: string, avatar: { type: 'emoji'; emoji: string } | { type: 'image'; src: string } | undefined) => Promise<{ error?: string }>;
   templates?: TemplatesSource;
 }
 
@@ -309,7 +310,7 @@ describe('Settings dialog: renaming from a Space page', () => {
     expect(document.querySelector('.space-page__avatar')).toHaveTextContent('🍒');
   });
 
-  it('only the open Space’s avatar can be changed from its page, and Remove follows whether it has one', async () => {
+  it('without a way to change another Space’s avatar, only the open Space’s page offers it, and Remove follows whether it has one', async () => {
     const change = vi.fn(async (_avatar: unknown) => ({}));
     renderHarness({
       vaultFolderName: 'Alpha',
@@ -333,5 +334,56 @@ describe('Settings dialog: renaming from a Space page', () => {
 
     fireEvent.click(within(sidebar()).getByText('Beta'));
     expect(screen.queryByRole('button', { name: 'Change avatar' })).toBeNull();
+  });
+
+  function openBetaPage(props: Props) {
+    renderHarness({
+      vaultFolderName: 'Alpha',
+      avatar: { type: 'emoji', emoji: '🌿' },
+      spaces: [
+        { path: '/s/Alpha', name: 'Alpha', avatar: { type: 'emoji', emoji: '🌿' } },
+        { path: '/s/Beta', name: 'Beta', avatar: { type: 'emoji', emoji: '🍒' } },
+      ],
+      activeSpacePath: '/s/Alpha',
+      ...props,
+    });
+    fireEvent.click(document.querySelector('.space-selector') as HTMLElement);
+    fireEvent.click(screen.getByText('Settings'));
+    fireEvent.click(within(document.querySelector('.settings-sidebar') as HTMLElement).getByText('Beta'));
+  }
+
+  it('another Space’s avatar is changed through the inactive handler, for THAT Space, and never the open Space’s', async () => {
+    const active = vi.fn(async (_avatar: unknown) => ({}));
+    const inactive = vi.fn(async (_path: string, _avatar: unknown) => ({}));
+    openBetaPage({ onChangeActiveSpaceAvatar: active, onChangeInactiveSpaceAvatar: inactive });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Change avatar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove avatar' }));
+
+    await waitFor(() => expect(inactive).toHaveBeenCalledExactlyOnceWith('/s/Beta', undefined));
+    expect(active).not.toHaveBeenCalled();
+  });
+
+  it('the open Space still changes through the active handler when an inactive one exists', async () => {
+    const active = vi.fn(async (_avatar: unknown) => ({}));
+    const inactive = vi.fn(async (_path: string, _avatar: unknown) => ({}));
+    openBetaPage({ onChangeActiveSpaceAvatar: active, onChangeInactiveSpaceAvatar: inactive });
+    fireEvent.click(within(document.querySelector('.settings-sidebar') as HTMLElement).getByText('Alpha'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Change avatar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove avatar' }));
+
+    await waitFor(() => expect(active).toHaveBeenCalledExactlyOnceWith(undefined));
+    expect(inactive).not.toHaveBeenCalled();
+  });
+
+  it('a refused change of another Space’s avatar is shown on its page', async () => {
+    const inactive = vi.fn(async (_path: string, _avatar: unknown) => ({ error: 'Couldn’t save the space settings' }));
+    openBetaPage({ onChangeInactiveSpaceAvatar: inactive });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Change avatar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove avatar' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Couldn’t save the space settings');
   });
 });

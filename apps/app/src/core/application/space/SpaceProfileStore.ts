@@ -2,6 +2,7 @@ import {
   mergeAndWriteWorkspaceStateFile,
   readWorkspaceStateFileText,
 } from '../../vault/initialize/workspaceStateFile';
+import { importAsset } from '../../vault/asset/importAsset';
 import type { VaultFileSystem } from '../../vault/providers/VaultFileSystem';
 import { UuidGenerator } from '../../shared/identity/UuidGenerator';
 
@@ -142,6 +143,90 @@ export async function clearSpaceProfileSettings(
     [SPACE_KEY]: { version: CURRENT_VERSION, ...withoutSettings(profile) },
   });
   return true;
+}
+
+/** What `setSpaceProfileAvatar` is asked to make the avatar: an emoji, an image file outside the Space, or none. */
+export type SpaceAvatarChange =
+  | { readonly type: 'emoji'; readonly emoji: string }
+  | { readonly type: 'image'; readonly sourcePath: string }
+  | null;
+
+/** The Space's `space` key was written by a newer Clutter: this version does not understand it, so it does not rewrite it. */
+export class SpaceProfileNotUnderstoodError extends Error {
+  constructor() {
+    super('The space profile was written by a newer version of Clutter');
+    this.name = 'SpaceProfileNotUnderstoodError';
+  }
+}
+
+function writtenByNewerVersion(contents: string): boolean {
+  try {
+    const file: unknown = JSON.parse(contents);
+    if (typeof file !== 'object' || file === null || Array.isArray(file)) return false;
+    const raw = (file as Record<string, unknown>)[SPACE_KEY];
+    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return false;
+    const { version } = raw as { version?: unknown };
+    return typeof version === 'number' && version > CURRENT_VERSION;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Sets, or with `null` removes, the avatar of a Space that is NOT open, directly in its own file — the inactive
+ * counterpart of `SpaceProfileStore.setAvatar` (ADR-064). While a Space is open its store is the one writer of its
+ * `space` key; this is the one writer while it is closed, and the caller (`changeInactiveSpaceAvatar`) holds the
+ * lifecycle guard so the Space cannot open in between. It never touches another Space: every path it writes is
+ * under `rootPath`, and the reference it stores is the one it just created, never a value from the caller.
+ *
+ *   image → copy into this Space's `Assets/` (collision-free name, existing assets untouched)
+ *         → read the profile as it is NOW → write it with the new reference (identity first, if the Space had none)
+ *   a failed write after the copy deletes the file this call created, and nothing else; an earlier avatar's asset is
+ *   never deleted (it may be used by notes).
+ *
+ * Rejects, with the profile file unchanged, when the image cannot be stored, the profile cannot be read as an object
+ * or was written by a newer version, or the write fails. Resolves the profile it wrote.
+ */
+export async function setSpaceProfileAvatar(
+  fileSystem: VaultFileSystem,
+  rootPath: string,
+  change: SpaceAvatarChange
+): Promise<SpaceProfile> {
+  if (change?.type === 'emoji' && change.emoji === '') throw new Error('An avatar emoji cannot be empty');
+  if (change?.type === 'image' && change.sourcePath === '') throw new Error('An avatar image needs a file');
+
+  let createdAsset: string | undefined;
+  let avatar: SpaceProfileAvatar | undefined;
+
+  if (change?.type === 'emoji') {
+    avatar = change;
+  } else if (change?.type === 'image') {
+    const reference = await importAsset(fileSystem, rootPath, change.sourcePath);
+    createdAsset = `${rootPath}/${reference}`;
+    avatar = { type: 'image', src: reference };
+  }
+
+  try {
+    // Read after the copy, immediately before the write: the profile this builds on is as fresh as it can be.
+    const contents = await readWorkspaceStateFileText(fileSystem, rootPath);
+    if (writtenByNewerVersion(contents)) throw new SpaceProfileNotUnderstoodError();
+
+    const { avatar: _previous, ...rest } = parseSpaceProfile(contents) ?? { id: new UuidGenerator().generate() };
+    const next: SpaceProfile = avatar ? { ...rest, avatar } : rest;
+
+    await mergeAndWriteWorkspaceStateFile(fileSystem, rootPath, {
+      [SPACE_KEY]: { version: CURRENT_VERSION, ...next },
+    });
+
+    return next;
+  } catch (error) {
+    if (createdAsset !== undefined) {
+      await fileSystem.deleteFile(createdAsset).catch((cleanupError: unknown) => {
+        console.warn(`Could not remove the avatar image ${createdAsset} after a failed save.`, cleanupError);
+      });
+    }
+    throw error;
+  }
 }
 
 /**

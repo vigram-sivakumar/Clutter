@@ -112,7 +112,13 @@ export function Settings({ templates, noteLocation, spaceSettings, space, onClos
                 ? () => space.onChangeMissingSpaceLocation!(selectedSpace.path)
                 : undefined
             }
-            onChangeAvatar={selectedSpace.active ? space?.onChangeActiveSpaceAvatar : undefined}
+            // Every Space's avatar can be changed from here, like its name: the open one through its Application,
+            // another one directly in its own profile.
+            onChangeAvatar={
+              selectedSpace.active
+                ? space?.onChangeActiveSpaceAvatar
+                : space?.onChangeInactiveSpaceAvatar && ((avatar) => space.onChangeInactiveSpaceAvatar!(selectedSpace.path, avatar))
+            }
             onRemove={
               space?.onRemoveSpace &&
               (() => {

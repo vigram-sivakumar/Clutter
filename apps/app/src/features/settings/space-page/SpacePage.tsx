@@ -40,7 +40,7 @@ interface SpacePageProps {
   hasAvatar?: boolean;
   /**
    * Changes the Space's avatar (`undefined` removes it): an emoji, or an image given by the absolute path of the file the
-   * user chose. Resolves `{}` once saved or `{ error }`. Present only where the avatar can be changed (the open Space);
+   * user chose. Resolves `{}` once saved or `{ error }`. Present only where the avatar can be changed;
    * absent, the avatar is just shown. All the saving is the caller's.
    */
   onChangeAvatar?: (

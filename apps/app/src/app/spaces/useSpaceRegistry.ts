@@ -322,13 +322,15 @@ export function useSpaceRegistry(deps: SpaceRegistryDeps): SpaceRegistryState {
     [probe, say]
   );
 
-  // While a removal or a rename holds the lifecycle guard, no other Space operation may start.
+  // While a removal, a rename or a profile change holds the lifecycle guard, no other Space operation may start.
   const refuseWhileBusy = useCallback((): boolean => {
     if (lifecycle.active === null) return false;
     say(
       lifecycle.active === 'renaming'
         ? 'A space is being renamed. Try again in a moment'
-        : 'A space is being removed. Try again in a moment'
+        : lifecycle.active === 'editing-profile'
+          ? 'A space is being updated. Try again in a moment'
+          : 'A space is being removed. Try again in a moment'
     );
     return true;
   }, [lifecycle, say]);

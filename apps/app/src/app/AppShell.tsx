@@ -63,8 +63,10 @@ import { migrateRenamedRootState } from '../core/application/space/migrateRename
 import { readSpaceIdFrom } from './spaces/readSpaceId';
 import { renameActiveSpaceFolder, type RenameOutcome } from './spaces/renameActiveSpace';
 import { renameInactiveSpaceFolder, type InactiveRenameOutcome } from './spaces/renameInactiveSpace';
+import { changeInactiveSpaceAvatar, describeInactiveAvatarRefusal } from './spaces/changeInactiveSpaceAvatar';
 import {
   readSpaceProfile,
+  setSpaceProfileAvatar,
   type SpaceProfile,
 } from '../core/application/space/SpaceProfileStore';
 import { ActiveSpaceAvatarContext } from '../components/space-avatar/ActiveSpaceAvatarContext';
@@ -1076,8 +1078,9 @@ function AppShellContent() {
   }
 
   // The open Space's avatar, changed from its Settings page: the same profile write the Space details dialog makes for
-  // the open Space (`applySpaceProfile`; an image is copied into the Space's `Assets/`). Only the open Space's profile is
-  // ever written — that is the Application's job — so another Space's avatar is not offered here.
+  // the open Space (`applySpaceProfile`; an image is copied into the Space's `Assets/`). While a Space is open its
+  // Application is the one writer of its profile; another Space's avatar goes through
+  // `changeInactiveSpaceAvatarFromSettings` below (ADR-064).
   async function changeActiveSpaceAvatar(avatar: SpaceAvatarChoice | undefined): Promise<{ error?: string }> {
     const open = applicationRef.current;
     if (!open) return { error: SPACE_SETTINGS_FAILED_MESSAGE };
@@ -1091,6 +1094,31 @@ function AppShellContent() {
       console.error('Saving the Space avatar failed:', caught);
       return { error: describeSpaceProfileFailure(caught).text };
     }
+  }
+
+  // Another Space's avatar, changed from its Settings page (ADR-064). The open Space is never involved; this holds the
+  // Space lifecycle guard, so the Space cannot open, be renamed or be removed while its profile is written, and the
+  // profile is re-read from disk only once the write has succeeded — a failed one is reported, never shown as saved.
+  async function changeInactiveSpaceAvatarFromSettings(
+    path: string,
+    avatar: SpaceAvatarChoice | undefined
+  ): Promise<{ error?: string }> {
+    const outcome = await changeInactiveSpaceAvatar(
+      {
+        guard: spaces.lifecycle,
+        activePath: () => spaces.registry.activePath,
+        isRegistered: (candidate) => spaces.registry.paths.includes(normalizeSpacePath(candidate)),
+        probe: probeSpaceFolder,
+        applyAvatar: (target, change) => setSpaceProfileAvatar(openVaultFileSystem(target), target, change),
+      },
+      path,
+      avatar === undefined ? null : avatar.type === 'emoji' ? { type: 'emoji', emoji: avatar.emoji } : { type: 'image', sourcePath: avatar.src }
+    );
+    if (outcome.status === 'changed') {
+      refreshProfiles();
+      return {};
+    }
+    return { error: outcome.status === 'refused' ? describeInactiveAvatarRefusal(outcome.reason) : outcome.message };
   }
 
   // "Change location": the same picker and checks as "New space". The folder that is chosen replaces the
@@ -1166,6 +1194,7 @@ function AppShellContent() {
       onRenameActiveSpace: isTauri() ? renameActiveSpace : undefined,
       onRenameInactiveSpace: isTauri() ? renameInactiveSpace : undefined,
       onChangeActiveSpaceAvatar: changeActiveSpaceAvatar,
+      onChangeInactiveSpaceAvatar: isTauri() ? changeInactiveSpaceAvatarFromSettings : undefined,
       onSwitchSpace: (path) => {
         pendingProfileRef.current = null;
         void switchOrExplainMissing(path);

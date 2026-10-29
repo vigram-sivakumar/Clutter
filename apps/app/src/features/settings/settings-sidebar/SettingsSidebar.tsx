@@ -91,10 +91,14 @@ export interface SettingsSpace {
    */
   /**
    * Changes the OPEN Space's avatar (`undefined` removes it): an emoji, or an image given by the absolute path of the file
-   * the user chose. Resolves `{}` once saved or `{ error }`. A Space's profile is only ever written while it is open, so
-   * another Space's avatar can't be changed from here. Absent: the avatar is not clickable.
+   * the user chose. Resolves `{}` once saved or `{ error }`. Absent: the avatar is not clickable.
    */
   readonly onChangeActiveSpaceAvatar?: (
+    avatar: { type: 'emoji'; emoji: string } | { type: 'image'; src: string } | undefined
+  ) => Promise<{ error?: string }>;
+  /** The same as `onChangeActiveSpaceAvatar`, for a Space that is NOT open, named by its path (ADR-064). */
+  readonly onChangeInactiveSpaceAvatar?: (
+    path: string,
     avatar: { type: 'emoji'; emoji: string } | { type: 'image'; src: string } | undefined
   ) => Promise<{ error?: string }>;
   readonly onRenameInactiveSpace?: (path: string, newName: string) => Promise<{ error?: string }>;
