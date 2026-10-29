@@ -194,7 +194,12 @@ pub async fn canonical_space_path(path: String) -> Result<String, String> {
 /// Space folder is created.
 #[tauri::command]
 pub async fn create_space_folder(app: AppHandle, name: String) -> Result<String, String> {
-    let documents = app.path().document_dir().map_err(|error| error.to_string())?;
+    let documents = crate::space_access::documents_dir(&app)?;
+    // Inside the App Sandbox the user has to authorize Documents first. Nothing is created without it — not even a
+    // folder in the app's own container — so the frontend asks, then calls this again.
+    if !crate::space_access::documents_writable(&app) {
+        return Err("documentsAccessNeeded".into());
+    }
     let scope = app.fs_scope();
     let folder = tauri::async_runtime::spawn_blocking(move || {
         create_space_in(&documents, &name, &|folder| {
@@ -211,7 +216,7 @@ pub async fn create_space_folder(app: AppHandle, name: String) -> Result<String,
 /// Grants an already-created Space its runtime access when it is opened (see [`ensure_space_access_in`]).
 #[tauri::command]
 pub async fn ensure_space_access(app: AppHandle, path: String) -> Result<bool, String> {
-    let documents = app.path().document_dir().map_err(|error| error.to_string())?;
+    let documents = crate::space_access::documents_dir(&app)?;
     let scope = app.fs_scope();
     tauri::async_runtime::spawn_blocking(move || {
         ensure_space_access_in(

@@ -13,6 +13,7 @@ mod atomic_replace;
 mod atomic_commands;
 mod move_no_clobber;
 mod parse_cache;
+mod space_access;
 mod space_folder;
 mod startup_notice;
 mod vault_asset_scope;
@@ -200,6 +201,11 @@ pub fn run() {
             parse_cache::parse_cache_write,
             parse_cache::parse_cache_remove,
             space_folder::canonical_space_path,
+            space_access::sandbox_info,
+            space_access::restore_space_access,
+            space_access::remember_space_access,
+            space_access::documents_access,
+            space_access::request_documents_access,
             space_folder::create_space_folder,
             space_folder::ensure_space_access,
             space_folder::rename_space_folder,
@@ -216,6 +222,8 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
+            // Which folders the user authorized in the App Sandbox (empty state outside it); see space_access.rs.
+            app.manage(space_access::build_state(app.handle()));
             // Automation/testing only — never reachable in an ordinary build:
             // the crate itself doesn't exist in the dependency graph unless
             // Cargo's `automation` feature is explicitly enabled (see
