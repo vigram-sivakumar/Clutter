@@ -18,6 +18,7 @@ import {
   type VaultEntry,
   type VaultFileStat,
   type VaultFileSystem,
+  type VaultWriteIntent,
 } from './VaultFileSystem';
 import { resolveLocalDuplicatePath } from './localDuplicateNaming';
 import { isNotFoundError } from './probeSpaceFolder';
@@ -39,7 +40,8 @@ export class LocalVaultProvider implements VaultFileSystem {
     this.sealed = true;
   }
 
-  private assertWritable(): void {
+  /** Throws when the provider has been sealed (a lost root, a folder rename in progress): no write may land. */
+  assertWritable(): void {
     if (this.sealed) {
       throw new VaultRootMissingError(this.rootPath);
     }
@@ -92,7 +94,8 @@ export class LocalVaultProvider implements VaultFileSystem {
     return readTextFile(path);
   }
 
-  async writeFile(path: string, contents: string): Promise<void> {
+  // The plugin's in-place write cannot honour an intent; the atomic provider (ADR-063) is the one that does.
+  async writeFile(path: string, contents: string, _intent?: VaultWriteIntent): Promise<void> {
     this.assertWritable();
     await writeTextFile(path, contents);
   }

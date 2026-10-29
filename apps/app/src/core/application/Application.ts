@@ -25,6 +25,9 @@ import { ParsedNoteCache, type ParsedNoteCacheBackend } from '../vault/persisten
 import { TauriParsedNoteCacheBackend } from '../vault/providers/TauriParsedNoteCacheBackend';
 import { fingerprint } from '../recovery/fingerprint';
 import { RecoveryJournal } from '../recovery/RecoveryJournal';
+import { isAtomicWritesEnabled } from '../featureFlags';
+import { createAtomicWriteStack } from '../vault/atomicWrite/createAtomicWriteStack';
+import type { DurabilityTracker } from '../vault/atomicWrite/DurabilityTracker';
 import type { RecoveryStorage } from '../recovery/RecoveryStorage';
 import { TauriRecoveryStorage } from '../recovery/TauriRecoveryStorage';
 import { RecoveryOperations } from './recovery/RecoveryOperations';
@@ -32,6 +35,9 @@ import { Workspace } from '../workspace/Workspace';
 import { Vault } from '../vault/models/Vault';
 import { VaultQuery } from '../vault/queries/VaultQuery';
 import { PageOperations, SHUTDOWN_FLUSH_TIMEOUT_MS } from './page/PageOperations';
+
+/** How long shutdown waits for the one confirmation attempt of saved-but-not-yet-durable revisions. */
+const SHUTDOWN_DURABILITY_TIMEOUT_MS = 3_000;
 import { TagExtractor } from '../vault/ingest/extractors/TagExtractor';
 import type { AssetMoveFeedback, AssetMovePolicy } from '../vault/persistence/AssetMovePolicy';
 import { planMovedAssetReferences, type MovedAssetReferenceDeps } from './asset/rewriteMovedAssetReferences';
@@ -239,6 +245,8 @@ export class Application {
    */
   public static webRecoveryStorage: RecoveryStorage | null = null;
   private recoveryJournal: RecoveryJournal | null = null;
+  /** Follows saved revisions that are installed but not yet confirmed durable. Null unless atomic writes are on. */
+  private durabilityTracker: DurabilityTracker | null = null;
   public folderOperations!: FolderOperations;
   public resourceOperations!: ResourceOperations;
   /**
@@ -342,8 +350,22 @@ export class Application {
       throw new VaultRootMissingError(rootPath);
     }
 
+    // ADR-063: with atomic writes enabled, the provider every vault writer shares replaces a file whole through the
+    // native writer. It is one switch for all of them (the Gate, Sync's repairs, the state files), never a subset;
+    // `rawFileSystem` stays the plain provider (seal, Duplicate's raw copy). Off by default.
+    let applicationInBootstrap: Application | null = null;
+    const atomicWrites =
+      runningInTauri && isAtomicWritesEnabled() && rawFileSystem instanceof LocalVaultProvider
+        ? createAtomicWriteStack({
+            inner: rawFileSystem,
+            vaultRoot: rootPath,
+            assertWritable: () => rawFileSystem.assertWritable(),
+            onDurabilityChange: (path) => applicationInBootstrap?.durabilityChanged(path),
+          })
+        : null;
+
     const fileSystem = new SelfWriteAwareFileSystem(
-      rawFileSystem,
+      atomicWrites?.fileSystem ?? rawFileSystem,
       selfWriteRegistry,
       rootPath
     );
@@ -506,6 +528,8 @@ export class Application {
       preferredTemplatesStore
     );
 
+    applicationInBootstrap = application;
+    application.durabilityTracker = atomicWrites?.durability ?? null;
     application.rootPath = rootPath;
     application.sealFileSystem =
       rawFileSystem instanceof LocalVaultProvider ? () => rawFileSystem.seal() : null;
@@ -610,6 +634,12 @@ export class Application {
     this.saveCoordinator = new SaveCoordinator();
   }
 
+  /** A path gained or lost a not-yet-durable revision: let crash recovery look at that note again. */
+  public durabilityChanged(path: string): void {
+    const page = this.vault.getPageByPath(path);
+    if (page) this.recoveryJournal?.recheck(page.id);
+  }
+
   /**
    * Sets up unsaved-work recovery for this vault (ADR-062). Records are keyed by the Space's stable id when it has one,
    * so renaming the folder does not orphan them; the key a Space had before it got an id is also read.
@@ -627,6 +657,12 @@ export class Application {
       readKeys: profileId ? [rootKey] : [],
       source: this.pageOperations,
       onWriteError: (error) => console.error('Recovery: could not write a snapshot of unsaved work.', error),
+      // A saved note whose last revision is not yet confirmed durable keeps its record (ADR-063, decision 13).
+      holdRecord: (pageId) => {
+        const path = this.vault.getPage(pageId)?.path;
+
+        return path !== undefined && (this.durabilityTracker?.hasPending(path) ?? false);
+      },
     });
 
     this.recoveryJournal = journal;
@@ -2023,7 +2059,14 @@ export class Application {
     // Whatever is still unsaved after that flush (a failed save, or a close the user chose to go through with) is
     // written to recovery before the sessions are disposed. A note saved by the flush has its record removed.
     // Independent of the vault: it works when the vault is lost or sealed too.
+    // One bounded attempt to confirm saved revisions that are installed but not yet durable, so their records can go;
+    // what is still pending afterwards is left, and the next launch classifies it (the text is on disk).
+    await Promise.race([
+      this.durabilityTracker?.settleOnce().catch(() => undefined),
+      new Promise((resolve) => setTimeout(resolve, SHUTDOWN_DURABILITY_TIMEOUT_MS)),
+    ]);
     await this.recoveryJournal?.flush().catch(() => undefined);
+    this.durabilityTracker?.dispose();
     this.recoveryJournal?.dispose();
     this.workspaceSessionStore.dispose();
     await this.fileSystemWatcher.stop();

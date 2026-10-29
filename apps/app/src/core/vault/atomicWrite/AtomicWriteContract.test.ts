@@ -40,14 +40,14 @@ describe('the atomic writer contract is separate from the production writer', ()
     plugin.writeTextFile.mockClear();
     tauri.invoke.mockClear();
 
-    const result = await new LocalVaultProvider('/vault').writeFile('/vault/note.md', 'text');
+    const result = await new LocalVaultProvider('/vault').writeFile('/vault/note.md', 'text', 'replace');
 
     expect(result).toBeUndefined(); // a Promise<void>: no outcome, no guarantee
     expect(plugin.writeTextFile).toHaveBeenCalledWith('/vault/note.md', 'text');
     expect(tauri.invoke).not.toHaveBeenCalled();
   });
 
-  it('nothing in the application imports the atomic writer: only its own folder and the test double may', () => {
+  it('only the Composition Root and the save-failure classifier import the atomic writer: only its own folder, the test double and those two may', () => {
     const root = path.resolve(__dirname, '../../..'); // apps/app/src
     const offenders: string[] = [];
     const visit = (directory: string): void => {
@@ -58,13 +58,25 @@ describe('the atomic writer contract is separate from the production writer', ()
         } else if (/\.(ts|tsx)$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name)) {
           const inAtomicFolder = full.includes(`${path.sep}atomicWrite${path.sep}`);
           const isDouble = full.endsWith(`${path.sep}InMemoryAtomicVaultWriter.ts`);
-          if (!inAtomicFolder && !isDouble && /atomicWrite\//.test(fs.readFileSync(full, 'utf8'))) offenders.push(full);
+          // Application.ts builds the stack (off by default, one switch for every writer); PageOperations only asks
+          // whether a failed save is worth retrying.
+          const isAllowedConsumer = ['application/Application.ts', 'application/page/PageOperations.ts'].some((name) =>
+            full.endsWith(`${path.sep}core${path.sep}${name.replace('/', path.sep)}`)
+          );
+          if (!inAtomicFolder && !isDouble && !isAllowedConsumer && /atomicWrite\//.test(fs.readFileSync(full, 'utf8'))) offenders.push(full);
         }
       }
     };
     visit(root);
 
     expect(offenders).toEqual([]);
+  });
+
+  it('atomic saves are off unless the build asks for them, and the production provider is still the plugin writer', async () => {
+    const { featureFlags, isAtomicWritesEnabled } = await import('../../featureFlags');
+
+    expect(featureFlags.atomicWrites).toBe(false);
+    expect(isAtomicWritesEnabled()).toBe(false);
   });
 
   it('LocalFileSystem.ts does not mention the native atomic commands', () => {

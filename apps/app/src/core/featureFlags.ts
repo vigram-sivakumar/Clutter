@@ -21,10 +21,22 @@ export const featureFlags = {
    * the Move picker, updating references) is not, and works for any Space whose saved setting is on.
    */
   allowMovingAssetsSetting: false,
+  /**
+   * Atomic vault saves (ADR-063): every text write into a vault replaces the file whole through the native writer
+   * instead of the fs plugin's truncating in-place write. Off by default and in every ordinary build; it needs the
+   * `atomic-writes` Cargo feature in the same build (which registers the native commands), and it switches all
+   * writers (the Persistence Gate, Sync's repairs, the state files) at once. Set at build time with
+   * `VITE_ATOMIC_WRITES=true`; for disposable vaults only until the rollout in the ADR is complete.
+   */
+  atomicWrites: import.meta.env.VITE_ATOMIC_WRITES === 'true',
 };
 
 export function isDailyNotesCollectionPagesEnabled(): boolean {
   return featureFlags.dailyNotesCollectionPages;
+}
+
+export function isAtomicWritesEnabled(): boolean {
+  return featureFlags.atomicWrites;
 }
 
 export function isAllowMovingAssetsSettingEnabled(): boolean {

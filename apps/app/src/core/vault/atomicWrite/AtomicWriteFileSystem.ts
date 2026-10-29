@@ -43,7 +43,12 @@ export class AtomicWriteFileSystem implements VaultFileSystem {
   constructor(
     private readonly inner: VaultFileSystem,
     private readonly writer: AtomicVaultWriter,
-    private readonly durability?: DurabilityTracker
+    private readonly durability?: DurabilityTracker,
+    /**
+     * Throws when the provider must not write (a lost root, a folder rename in progress: `LocalVaultProvider.seal`).
+     * The native writer knows nothing of that, so the seal is honoured here, before anything reaches it.
+     */
+    private readonly assertWritable?: () => void
   ) {}
 
   exists(path: string) {
@@ -86,6 +91,11 @@ export class AtomicWriteFileSystem implements VaultFileSystem {
   }
 
   writeFile(path: string, contents: string, intent?: VaultWriteIntent): Promise<void> {
+    try {
+      this.assertWritable?.();
+    } catch (error) {
+      return Promise.reject(error);
+    }
     if (intent === undefined) {
       return Promise.reject(new TypeError(`A vault write must state its intent (create, replace, upsert or replaceIf): ${path}`));
     }
