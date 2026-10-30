@@ -15,6 +15,7 @@ function flattenText(spans: readonly CompactSpan[]): string {
         case 'italic':
         case 'strikethrough':
         case 'highlight':
+        case 'underline':
           return flattenText(span.children);
         case 'wikilink':
           return span.path;
@@ -34,6 +35,14 @@ function flattenText(spans: readonly CompactSpan[]): string {
 }
 
 describe('tokenizeCompactMarkdown', () => {
+  it('tokenizes <u>…</u> as an underline span with the tags dropped', () => {
+    expect(tokenizeCompactMarkdown('a <u>b</u> c')).toEqual([
+      { kind: 'text', value: 'a ' },
+      { kind: 'underline', children: [{ kind: 'text', value: 'b' }] },
+      { kind: 'text', value: ' c' },
+    ]);
+  });
+
   it('returns a single text span for plain text', () => {
     expect(tokenizeCompactMarkdown('Ship the release notes')).toEqual([
       { kind: 'text', value: 'Ship the release notes' },

@@ -82,6 +82,7 @@ function press(view: EditorView, p: Press): KeyboardEvent {
 const PRESSES: Record<string, Press> = {
   bold: { key: 'b', code: 'KeyB', meta: true },
   italic: { key: 'i', code: 'KeyI', meta: true },
+  underline: { key: 'u', code: 'KeyU', meta: true },
   'inline-code': { key: 'e', code: 'KeyE', meta: true },
   indent: { key: 'Tab', code: 'Tab', keyCode: 9 },
   outdent: { key: 'Tab', code: 'Tab', keyCode: 9, shift: true },
@@ -135,6 +136,14 @@ const BEHAVIOR: Record<string, () => void> = {
     const view = mount('word', 0, 4);
     press(view, PRESSES.italic!);
     expect(view.state.doc.toString()).toBe('*word*');
+  },
+  underline: () => {
+    // On the real editor, which also installs historyKeymap, where Mod-u is `undoSelection`: underline must win.
+    const view = mount('word', 0, 4);
+    press(view, PRESSES.underline!);
+    expect(view.state.doc.toString()).toBe('<u>word</u>');
+    press(view, PRESSES.underline!);
+    expect(view.state.doc.toString()).toBe('word');
   },
   'inline-code': () => {
     const view = mount('word', 0, 4);

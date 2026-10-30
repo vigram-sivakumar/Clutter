@@ -65,6 +65,8 @@ function renderSpan(span: InlineSpan, styled: boolean): string {
       return `<s${tok('tok-strike')}>${renderSpans(span.children, styled)}</s>`;
     case 'highlight':
       return `<mark ${tokWith('tok-highlight', 'cm-table-cell-highlight')}>${renderSpans(span.children, styled)}</mark>`;
+    case 'underline':
+      return `<u${tok('tok-underline')}>${renderSpans(span.children, styled)}</u>`;
     case 'code':
       return `<code ${tokWith('tok-code', 'cm-table-cell-code')}>${escapeHtml(span.value)}</code>`;
     case 'wikilink': {

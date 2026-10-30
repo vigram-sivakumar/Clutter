@@ -21,6 +21,7 @@ export const MARKDOWN_SHORTCUT_GROUPS: readonly ShortcutRowGroup[] = [
     rows: [
       { id: 'bold', label: 'Bold', keys: [command, key('B')] },
       { id: 'italic', label: 'Italic', keys: [command, key('I')] },
+      { id: 'underline', label: 'Underline', description: 'Paragraphs and headings. Wraps the selection in <u></u>', keys: [command, key('U')] },
       { id: 'inline-code', label: 'Inline code', description: 'Wraps the selection', keys: [command, key('E')] },
       { id: 'inline-code-typed', label: 'Inline code', description: 'Type backticks around text', trigger: '`text`' },
       { id: 'highlight', label: 'Highlight', trigger: '==text==' },

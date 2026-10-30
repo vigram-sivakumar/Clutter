@@ -258,6 +258,19 @@
   text-decoration: line-through;
 }
 
+.cm-editor .tok-underline {
+  text-decoration-line: underline;
+  text-decoration-thickness: var(--md-underline-thickness);
+  text-underline-offset: var(--md-underline-offset);
+}
+
+/* Underline and strikethrough on one element (a struck, underlined run composes both onto its own element, never
+ * through an ancestor — see STRIKETHROUGH_PROTECTED_NODE_NAMES): one `text-decoration-line` list, not two rules
+ * fighting over the same property. */
+.cm-editor .tok-underline.tok-strike {
+  text-decoration-line: underline line-through;
+}
+
 .cm-editor .tok-highlight {
   background: var(--md-highlight-surface);
   box-shadow: var(--md-highlight-shadow-inline);

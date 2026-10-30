@@ -1,6 +1,8 @@
 import { EditorSelection } from '@codemirror/state';
-import type { Extension, StateCommand } from '@codemirror/state';
+import { Prec, type Extension, type StateCommand } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
+
+import { toggleUnderline } from './toggleUnderline';
 
 /**
  * Cmd/Ctrl-B/-I/-E — wraps the selection in the corresponding Markdown
@@ -52,9 +54,16 @@ export function toggleWrap(marker: string): StateCommand {
 }
 
 export function formatShortcutsKeymap(): Extension {
-  return keymap.of([
-    { key: 'Mod-b', run: toggleWrap('**') },
-    { key: 'Mod-i', run: toggleWrap('*') },
-    { key: 'Mod-e', run: toggleWrap('`') },
-  ]);
+  return [
+    keymap.of([
+      { key: 'Mod-b', run: toggleWrap('**') },
+      { key: 'Mod-i', run: toggleWrap('*') },
+      { key: 'Mod-e', run: toggleWrap('`') },
+    ]),
+    // Cmd/Ctrl-U is also `historyKeymap`'s `undoSelection` ("soft undo" of the last selection change), which
+    // `createEditorView` installs. Underline is the conventional meaning of the key, so it takes it explicitly
+    // (high precedence) rather than depending on which keymap happens to be listed first; `undoSelection` stays
+    // reachable as a command, just not on this key. Cmd/Ctrl-Shift-U (`redoSelection`) is untouched.
+    Prec.high(keymap.of([{ key: 'Mod-u', run: toggleUnderline }])),
+  ];
 }

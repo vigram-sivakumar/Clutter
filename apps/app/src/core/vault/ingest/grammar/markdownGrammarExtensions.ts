@@ -5,6 +5,7 @@ import { dateSyntax } from './dateSyntax';
 import { embedSyntax } from './embedSyntax';
 import { emojiListSyntax } from './emojiListSyntax';
 import { highlightSyntax } from './highlightSyntax';
+import { underlineSyntax } from './underlineSyntax';
 import { imageSpacedDestinationSyntax } from './imageSyntax';
 import { doubleHorizontalRuleSyntax } from './doubleHorizontalRuleSyntax';
 import { dottedHorizontalRuleSyntax } from './dottedHorizontalRuleSyntax';
@@ -79,6 +80,7 @@ export const markdownGrammarExtensions: MarkdownExtension = [
   dateSyntax,
   taskCompletionMetadataSyntax,
   highlightSyntax,
+  underlineSyntax,
   wavyHorizontalRuleSyntax,
   doubleHorizontalRuleSyntax,
   dottedHorizontalRuleSyntax,
