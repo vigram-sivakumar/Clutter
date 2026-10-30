@@ -13,9 +13,24 @@ const WARM_STEP_TIMEOUT_MS = 15_000;
 
 const retained = new Map<string, HTMLImageElement>();
 
-/** Resolves when the image is decoded; an engine without `decode()` just lets the load run. Never rejects. */
-function decoded(image: HTMLImageElement): Promise<void> {
-  return typeof image.decode === 'function' ? image.decode().catch(() => undefined) : Promise.resolve();
+/** Drops `image`'s entry — but only while it is still the one held for `url`, so a newer entry is never lost. */
+function evictIfStillHeld(url: string, image: HTMLImageElement): void {
+  if (retained.get(url) === image) {
+    retained.delete(url);
+  }
+}
+
+/**
+ * Resolves when the image is decoded (an engine without `decode()` just lets the load run). Never rejects. A load or
+ * decode that fails releases its entry, so a network blip or a bad response is not held forever: the next ask for
+ * that address starts a fresh load instead of reusing a broken image.
+ */
+function decoded(url: string, image: HTMLImageElement): Promise<void> {
+  image.onerror = () => evictIfStillHeld(url, image);
+
+  return typeof image.decode === 'function'
+    ? image.decode().catch(() => evictIfStillHeld(url, image))
+    : Promise.resolve();
 }
 
 /**
@@ -33,7 +48,7 @@ export function preloadCoverImage(url: string | null | undefined, priority: 'hig
   if (existing) {
     retained.delete(url);
     retained.set(url, existing);
-    return decoded(existing);
+    return decoded(url, existing);
   }
 
   const image = new Image();
@@ -52,7 +67,17 @@ export function preloadCoverImage(url: string | null | undefined, priority: 'hig
     retained.delete(oldest);
   }
 
-  return decoded(image);
+  return decoded(url, image);
+}
+
+/**
+ * Lets go of `url` — a cover that was removed, or failed to load. Anything else showing the same address simply loads
+ * it again, from the HTTP cache or the network, when it next needs it.
+ */
+export function releaseCoverImage(url: string | null | undefined): void {
+  if (url) {
+    retained.delete(url);
+  }
 }
 
 /** Whether `url` is held right now — for tests. */

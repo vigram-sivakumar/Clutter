@@ -12,7 +12,7 @@ import { Overlay } from '@components/overlay/Overlay';
 import { Menu } from '@components/menu/Menu';
 import { MenuItem } from '@components/menu/MenuItem';
 import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
-import { preloadCoverImage } from '@shared/helpers/coverImagePreloader';
+import { preloadCoverImage, releaseCoverImage } from '@shared/helpers/coverImagePreloader';
 import { ImagePicker } from './image-picker/ImagePicker';
 import './Page.Cover.css';
 import { AppIcon } from '@shared/icon';
@@ -504,6 +504,8 @@ export function PageCover({
   // .../>}` unmount in Page.tsx.
   function handleRemove(): void {
     setOpen(false);
+    // The cover is going away: stop holding its image (another note using the same address just loads it again).
+    releaseCoverImage(src);
     onRemove?.();
   }
 
@@ -774,6 +776,7 @@ export function PageCover({
             return;
           }
           failedSrcRef.current = src;
+          releaseCoverImage(src);
           onRemove?.();
         }}
         onPointerDown={repositioning ? handleImagePointerDown : undefined}

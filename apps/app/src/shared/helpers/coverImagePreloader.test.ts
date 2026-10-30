@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { clearRetainedCoverImages, isCoverImageRetained, preloadCoverImage, warmCoverImages } from './coverImagePreloader';
+import { clearRetainedCoverImages, isCoverImageRetained, preloadCoverImage, releaseCoverImage, warmCoverImages } from './coverImagePreloader';
 
 /** An `Image` that records what it was asked to load and when its decode finishes. */
 class FakeImage {
@@ -9,6 +9,7 @@ class FakeImage {
   src = '';
   decoding = '';
   attributes: Record<string, string> = {};
+  onerror: (() => void) | null = null;
   decodeCalls = 0;
   private resolveDecode: (() => void) | null = null;
   constructor() {
@@ -90,6 +91,69 @@ describe('preloadCoverImage', () => {
     expect(isCoverImageRetained('u0')).toBe(true);
     expect(isCoverImageRetained('u1')).toBe(false);
     expect(isCoverImageRetained('u24')).toBe(true);
+  });
+});
+
+describe('a failed or released cover is not held', () => {
+  it('a failed decode releases its entry, so the next ask loads it afresh instead of reusing a broken image', async () => {
+    const failing = vi.spyOn(FakeImage.prototype, 'decode').mockRejectedValueOnce(new Error('network blip'));
+
+    await preloadCoverImage('flaky');
+    expect(isCoverImageRetained('flaky')).toBe(false);
+
+    failing.mockRestore();
+    void preloadCoverImage('flaky');
+    expect(FakeImage.created).toHaveLength(2);
+    expect(isCoverImageRetained('flaky')).toBe(true);
+  });
+
+  it('a load error event releases the entry too', () => {
+    void preloadCoverImage('broken');
+    FakeImage.created[0]!.onerror?.();
+
+    expect(isCoverImageRetained('broken')).toBe(false);
+  });
+
+  it('a late failure of an old image never drops a newer entry for the same address', async () => {
+    const first = vi.spyOn(FakeImage.prototype, 'decode');
+    void preloadCoverImage('same');
+    const old = FakeImage.created[0]!;
+    releaseCoverImage('same');
+    void preloadCoverImage('same');
+    const newer = FakeImage.created[1]!;
+
+    old.onerror?.();
+
+    expect(isCoverImageRetained('same')).toBe(true);
+    expect(newer).not.toBe(old);
+    first.mockRestore();
+  });
+
+  it('release lets go of a removed cover, and asking again loads it normally', () => {
+    void preloadCoverImage('removed');
+    releaseCoverImage('removed');
+    expect(isCoverImageRetained('removed')).toBe(false);
+
+    void preloadCoverImage('removed');
+    expect(FakeImage.created).toHaveLength(2);
+  });
+
+  it('releasing something never held, or nothing, is harmless', () => {
+    expect(() => {
+      releaseCoverImage('never');
+      releaseCoverImage(undefined);
+      releaseCoverImage(null);
+    }).not.toThrow();
+  });
+
+  it('an evicted cover can be loaded again normally', () => {
+    for (let i = 0; i < 25; i++) void preloadCoverImage(`u${i}`);
+    expect(isCoverImageRetained('u0')).toBe(false);
+
+    void preloadCoverImage('u0');
+
+    expect(isCoverImageRetained('u0')).toBe(true);
+    expect(FakeImage.created.filter((i) => i.src === 'u0')).toHaveLength(2);
   });
 });
 

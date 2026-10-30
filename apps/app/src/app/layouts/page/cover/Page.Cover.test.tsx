@@ -154,6 +154,15 @@ describe('PageCover — the cover on screen is held ready', () => {
 
     expect(isCoverImageRetained('https://images.unsplash.com/a?w=4800')).toBe(true);
   });
+
+  it('lets go of the image when the cover is removed from the menu', () => {
+    render(<PageCover src="https://images.unsplash.com/a?w=4800" onRemove={vi.fn()} onHide={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+
+    fireEvent.click(screen.getByText('Remove'));
+
+    expect(isCoverImageRetained('https://images.unsplash.com/a?w=4800')).toBe(false);
+  });
 });
 
 describe('PageCover — right-click on the cover image', () => {
