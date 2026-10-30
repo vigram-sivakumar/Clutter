@@ -23,6 +23,7 @@ import {
   switchEditorMode,
   type BuildEditorExtensionsOptions,
 } from './codemirror/buildEditorExtensions';
+import { caretBottomClearanceExtension } from './codemirror/caretBottomClearance';
 import { editorExitUp } from './codemirror/editorExitUp';
 import { unfoldToReveal } from './codemirror/fold/unfoldToReveal';
 import { TableActiveCellController } from './codemirror/table/tableActiveCellController';
@@ -1644,6 +1645,8 @@ export const MarkdownEditor = forwardRef<
       // the title is a caret movement: the exit-up keymap exists only while editable.
       extensions: buildSwitchableEditorExtensions(extensionOptions, readOnly, [
         editorExitUp(() => onExitUpRef.current),
+        // Main page editor only (embeds, references and table cells never install it).
+        caretBottomClearanceExtension(),
       ]),
       onDocChange: (nextMarkdown) => onEditRef.current?.(nextMarkdown),
       canEdit: () => canEditRef.current?.() ?? true,

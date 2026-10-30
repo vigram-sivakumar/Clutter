@@ -1,5 +1,8 @@
 :root {
   --border-radius: var(--radius-md);
+  /* Height of the fade over the bottom of .page__content (.page__document::before). The note editor reads
+     it (caretBottomClearance.ts) so the caret scrolls clear of the fade. */
+  --page-bottom-fade-height: 48px;
 }
 
 .page {
@@ -101,7 +104,7 @@
   right: var(--sidebar-padding-inline);
   bottom: 1px;
 
-  height: 48px;
+  height: var(--page-bottom-fade-height);
   pointer-events: none;
   background: linear-gradient(to bottom, transparent, var(--surface-primary));
   z-index: 2;
