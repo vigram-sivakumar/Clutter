@@ -1796,7 +1796,9 @@
  * property) is gone with it: this box is no longer inside a flex container,
  * only a flex container itself for centering its own glyph. */
 .tok-wikilink__icon-wrap {
-  position: relative;
+  /* No `position: relative`: nothing inside is positioned against this box, and in WKWebView a relatively
+   * positioned icon left its old paint behind when text before the link was deleted, while the DOM geometry
+   * was already correct. */
   display: inline-flex;
   align-items: center;
   justify-content: center;

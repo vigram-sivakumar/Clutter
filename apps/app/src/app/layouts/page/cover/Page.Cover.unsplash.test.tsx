@@ -66,7 +66,7 @@ describe('PageCover — choosing an Unsplash photo end to end (picker → cover 
     const tiles = container.ownerDocument.querySelectorAll<HTMLElement>('.image-picker-unsplash__item');
     fireEvent.click(tiles[1]!); // first photo (tile 0 is Shuffle)
 
-    expect(onSetCoverImage).toHaveBeenLastCalledWith('https://images.unsplash.com/a?ixid=a&w=4800', {
+    expect(onSetCoverImage).toHaveBeenLastCalledWith('https://images.unsplash.com/a?ixid=a&w=3200', {
       name: 'Alex Doe',
       url: 'https://unsplash.com/@a',
       downloadLocation: 'https://api.unsplash.com/photos/a/download?ixid=a',
@@ -76,7 +76,7 @@ describe('PageCover — choosing an Unsplash photo end to end (picker → cover 
 
     fireEvent.click(tiles[2]!); // a different photo replaces it
 
-    expect(onSetCoverImage).toHaveBeenLastCalledWith('https://images.unsplash.com/b?ixid=b&w=4800', {
+    expect(onSetCoverImage).toHaveBeenLastCalledWith('https://images.unsplash.com/b?ixid=b&w=3200', {
       name: 'Bea Roe',
       url: 'https://unsplash.com/@b',
       downloadLocation: 'https://api.unsplash.com/photos/b/download?ixid=b',

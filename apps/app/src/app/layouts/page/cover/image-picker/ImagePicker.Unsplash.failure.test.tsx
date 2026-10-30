@@ -57,7 +57,7 @@ describe.each([
 
     fireEvent.click(container.querySelector('img')!.closest('button')!);
 
-    expect(onSelect).toHaveBeenCalledWith('https://images.unsplash.com/p1?ixid=x&w=4800', {
+    expect(onSelect).toHaveBeenCalledWith('https://images.unsplash.com/p1?ixid=x&w=3200', {
       name: 'Alex Doe',
       url: 'https://unsplash.com/@alex',
       downloadLocation: 'https://api.unsplash.com/photos/p1/download?ixid=x',

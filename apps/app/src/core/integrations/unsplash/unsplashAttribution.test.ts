@@ -108,12 +108,24 @@ describe('unsplashCoverUrl', () => {
   const REGULAR =
     'https://images.unsplash.com/photo-1560506287-e7dab1f13a0d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3wxMDMwMzI4fDB8MXxhbGx8fHx8fHx8fHwxNzkzMzY0NTU1fA&ixlib=rb-4.1.0&q=80&w=1080';
 
-  it('raises only the width, keeping the host, path, ixid and every other parameter as the API returned them', () => {
-    expect(unsplashCoverUrl(REGULAR)).toBe(REGULAR.replace('w=1080', 'w=4800'));
+  it('raises only the width, keeping the host, path, ixid and every other parameter as they were', () => {
+    expect(unsplashCoverUrl(REGULAR)).toBe(REGULAR.replace('w=1080', 'w=3200'));
   });
 
-  it('adds the width when the address has none', () => {
-    expect(unsplashCoverUrl('https://images.unsplash.com/photo-1?ixid=abc')).toBe('https://images.unsplash.com/photo-1?ixid=abc&w=4800');
+  it('works on an address pasted from images.unsplash.com, not only on one the API returned', () => {
+    expect(unsplashCoverUrl('https://images.unsplash.com/photo-1?w=400&q=80')).toBe('https://images.unsplash.com/photo-1?w=3200&q=80');
+  });
+
+  it('never lowers a width that is already as large or larger', () => {
+    const large = REGULAR.replace('w=1080', 'w=4800');
+    expect(unsplashCoverUrl(large)).toBe(large);
+    const exact = REGULAR.replace('w=1080', 'w=3200');
+    expect(unsplashCoverUrl(exact)).toBe(exact);
+  });
+
+  it('leaves an address with no width alone: it is already the original size', () => {
+    expect(unsplashCoverUrl('https://images.unsplash.com/photo-1?ixid=abc')).toBe('https://images.unsplash.com/photo-1?ixid=abc');
+    expect(unsplashCoverUrl('https://images.unsplash.com/photo-1?w=abc')).toBe('https://images.unsplash.com/photo-1?w=abc');
   });
 
   it('leaves an address that is not an Unsplash image alone', () => {

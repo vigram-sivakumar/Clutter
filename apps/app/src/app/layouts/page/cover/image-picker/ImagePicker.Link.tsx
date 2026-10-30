@@ -102,7 +102,8 @@ export function ImagePickerLink({ onSubmit }: ImagePickerLinkProps) {
       }
       pendingProbeRef.current = null;
       setStatus('idle');
-      onSubmit(url);
+      // A pasted Unsplash image address is saved at the cover width; any other address as it was pasted.
+      onSubmit(unsplashCoverUrl(url));
     };
     probe.onerror = () => {
       if (pendingProbeRef.current !== probe) {

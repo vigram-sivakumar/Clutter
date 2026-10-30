@@ -16,24 +16,32 @@ const UNSPLASH_IMAGE_HOSTS: ReadonlySet<string> = new Set([
 
 /**
  * The width a saved cover is requested at. A cover is drawn large — a tall side strip or the full content width, at up
- * to 2× pixel density — so the API's `regular` size (`w=1080`) is stretched and looks soft; 4800 keeps it sharp. The cost
- * depends on the photo (`q=80` is unchanged): about 650 KB for a simple one, over 5 MB for a detailed portrait (capped by
- * the photo's own width, 4000 there).
+ * to 2× pixel density — so the API's `regular` size (`w=1080`) is stretched and looks soft. 3200 covers a 3:2 photo
+ * filling the side strip at 2× (about 2950 px) and keeps the download moderate; the cost depends on the photo
+ * (`q=80` is unchanged): about 300 KB for a simple one, several times that for a detailed one. A larger value (4800
+ * was tried) is sharper on big windows and costs about twice as much — change it here.
  */
-export const UNSPLASH_COVER_WIDTH = 4800;
+export const UNSPLASH_COVER_WIDTH = 3200;
 
 /**
- * The picture address to save as a cover for a photo whose API `urls.regular` is `regularUrl`: the same URL with only
- * its width raised. Unsplash's images are served by imgix and the API documents `w` (with `q`, `fit`, …) as a
- * parameter to adjust on the URLs it returns; the host, path, `ixid` and every other parameter are kept as returned.
- * Anything that is not an Unsplash image address is returned unchanged.
+ * The picture address to save as a cover for an Unsplash image address (the `urls.regular` the API returned, or one
+ * pasted from `images.unsplash.com`): the same URL with only its width raised to `UNSPLASH_COVER_WIDTH`. Unsplash's
+ * images are served by imgix and the API documents `w` (with `q`, `fit`, …) as a parameter to adjust; the host, path,
+ * `ixid` and every other parameter are kept as they were. An address that already asks for that width or more, one
+ * with no `w` at all (already the original size), and anything that is not an Unsplash image address is returned
+ * unchanged — a size someone chose is never reduced.
  */
-export function unsplashCoverUrl(regularUrl: string): string {
-  if (!isUnsplashImageUrl(regularUrl)) {
-    return regularUrl;
+export function unsplashCoverUrl(imageUrl: string): string {
+  if (!isUnsplashImageUrl(imageUrl)) {
+    return imageUrl;
   }
 
-  const url = new URL(regularUrl);
+  const url = new URL(imageUrl);
+  const requested = Number(url.searchParams.get('w'));
+
+  if (!url.searchParams.has('w') || !Number.isFinite(requested) || requested >= UNSPLASH_COVER_WIDTH) {
+    return imageUrl;
+  }
 
   url.searchParams.set('w', String(UNSPLASH_COVER_WIDTH));
 

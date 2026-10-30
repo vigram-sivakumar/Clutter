@@ -23,7 +23,7 @@ export const SEPARATOR = {
   /** Inside a Table / FencedCode, and between contiguous blockquote paragraphs. */
   none: 0,
   /** Above and below a document-level horizontal rule (every rule variant, labeled or not). */
-  horizontalRule: 12,
+  horizontalRule: 24,
   /** Owed above a heading's first line, by level (Setext 1/2 share h1/h2). */
   heading: { h1: 36, h2: 30, h3: 24, h4: 18, h5: 18, h6: 18 },
 } as const;
