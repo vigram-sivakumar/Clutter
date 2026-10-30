@@ -4,7 +4,7 @@ import { noteCoverAttributionLabel } from './noteCoverAttributionLabel';
 import type { CollectionDataListItem } from '@features/collection/components/list/CollectionDataList';
 
 import type { CollectionEntryModel } from '../../page/CollectionEntryModel';
-import type { PropertyId } from '@core/properties/collectionProperties';
+import { PROPERTY_IDS, type PropertyId } from '@core/properties/collectionProperties';
 
 import { formatPropertyValue, valueProperties } from '../../properties/formatProperty';
 import { toNoteCoverImage } from './toNoteCoverImage';
@@ -17,7 +17,7 @@ export interface NoteListItemOptions {
   /** The visible properties (from the resolved view) — a property that isn't visible is omitted, never a blanked-out but still-fetched value. */
   readonly visible: readonly PropertyId[];
   /**
-   * The note's cover thumbnail at the row's trailing end — the same one the
+   * The note's cover thumbnail in the row's trailing run, at its canonical place — the same one the
    * table's Cover image column shows. `url` is the cover resolved to a loadable
    * URL (null: no visible cover → a plus to add one); `onClick` is what the
    * thumbnail does when clicked (open the cover picker for this note). Absent,
@@ -41,9 +41,13 @@ export function toNoteListItem(
   // Every visible plain-value property, in canonical order, that this note actually has.
   const tagContent = toNoteTagContent(entry, resolvers);
   // Source is drawn as the Task Collection's source link (a trailing node), not as a plain metadata value.
-  const metadata = valueProperties(tagContent ? visible.filter((id) => id !== 'source') : visible)
-    .map((id) => formatPropertyValue(id, entry.values))
-    .filter((value): value is string => Boolean(value));
+  const valued = valueProperties(tagContent ? visible.filter((id) => id !== 'source') : visible)
+    .map((id) => ({ id, value: formatPropertyValue(id, entry.values) }))
+    .filter((entryValue): entryValue is { id: PropertyId; value: string } => Boolean(entryValue.value));
+  const metadata = valued.map(({ value }) => value);
+  // The cover thumbnail takes its canonical place among the values, like every other property.
+  const coverRank = PROPERTY_IDS.indexOf('cover');
+  const mediaIndex = valued.filter(({ id }) => PROPERTY_IDS.indexOf(id) < coverRank).length;
 
   return {
     id: entry.id,
@@ -54,6 +58,7 @@ export function toNoteListItem(
     ...(tagContent && { leading: tagContent.leading, titleContent: tagContent.titleContent }),
     description: visible.includes('description') ? entry.values.description : undefined,
     metadata,
+    mediaIndex,
     ...(tagContent?.source && visible.includes('source') && { trailing: tagContent.source }),
     media: cover && {
       children: toNoteCoverImage(cover.url, entry.coverPositionAbove, noteCoverAttributionLabel(entry)),

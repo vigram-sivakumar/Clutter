@@ -31,8 +31,10 @@ export interface CollectionDataListItem {
   /** A custom node after the metadata values in the entry's trailing slot (a link to somewhere, say), in its own `CollectionEntryProperties`. */
   readonly trailing?: ReactNode;
 
-  /** A thumbnail at the entry's trailing end, in the shared media frame. */
+  /** A thumbnail in the entry's trailing run, in the shared media frame. */
   readonly media?: CollectionMediaProps;
+  /** How many `metadata` values come before the thumbnail; absent, the thumbnail follows them all. */
+  readonly mediaIndex?: number;
 
   readonly isSelected?: boolean;
 
@@ -97,7 +99,7 @@ export function CollectionDataList({ items, newItem, className, ...props }: Coll
   );
 }
 
-/** An item's trailing run — its metadata values, then any custom node, then the thumbnail — or nothing at all. */
+/** An item's trailing run — its metadata values and thumbnail (at `mediaIndex`), then any custom node — or nothing at all. */
 function trailingOf(item: CollectionDataListItem): ReactNode {
   const hasMetadata = item.metadata !== undefined && item.metadata.length > 0;
 
@@ -105,19 +107,25 @@ function trailingOf(item: CollectionDataListItem): ReactNode {
     return undefined;
   }
 
+  const values = item.metadata ?? [];
+  const mediaAt = Math.min(item.mediaIndex ?? values.length, values.length);
+  const media = item.media && (
+    <CollectionEntryProperties key="media">
+      <CollectionMedia onClick={item.media.onClick} label={item.media.label}>
+        {item.media.children}
+      </CollectionMedia>
+    </CollectionEntryProperties>
+  );
+  const valueNodes = values.map((value, index) => (
+    <CollectionEntryProperties key={`${index}:${value}`}>{value}</CollectionEntryProperties>
+  ));
+
   return (
     <>
-      {item.metadata?.map((value, index) => (
-        <CollectionEntryProperties key={`${index}:${value}`}>{value}</CollectionEntryProperties>
-      ))}
+      {valueNodes.slice(0, mediaAt)}
+      {media}
+      {valueNodes.slice(mediaAt)}
       {item.trailing && <CollectionEntryProperties>{item.trailing}</CollectionEntryProperties>}
-      {item.media && (
-        <CollectionEntryProperties>
-          <CollectionMedia onClick={item.media.onClick} label={item.media.label}>
-            {item.media.children}
-          </CollectionMedia>
-        </CollectionEntryProperties>
-      )}
     </>
   );
 }
