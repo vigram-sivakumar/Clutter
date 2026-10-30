@@ -66,7 +66,7 @@ const CONTINUATION_ONLY = /^(?:[ \t]*>[ \t]?)*[ \t]*$/;
  * so the backslash is hidden then — and only then: leave the line empty and the backslash is shown again,
  * because it really is a literal one.
  */
-function isPendingBreak(state: EditorState, lineFrom: number, lineTo: number): boolean {
+export function isPendingBreak(state: EditorState, lineFrom: number, lineTo: number): boolean {
   const { selection, doc } = state;
   const line = doc.lineAt(lineTo);
   if (line.number >= doc.lines || selection.ranges.length !== 1 || !selection.main.empty) {
@@ -93,6 +93,20 @@ function isPendingBreak(state: EditorState, lineFrom: number, lineTo: number): b
     }
   }
   return false;
+}
+
+/**
+ * The number of the line whose trailing backslash is a pending break right now (see {@link isPendingBreak}),
+ * or null. Selection-dependent, unlike the document-derived spacing around it, so a spacing field that
+ * uses it must also recompute when this changes.
+ */
+export function pendingBreakLineNumber(state: EditorState): number | null {
+  const caretLine = state.doc.lineAt(state.selection.main.head);
+  if (caretLine.number <= 1) {
+    return null;
+  }
+  const prev = state.doc.line(caretLine.number - 1);
+  return isPendingBreak(state, prev.from, prev.to) ? prev.number : null;
 }
 
 function buildDecorations(view: EditorView): DecorationSet {

@@ -8,6 +8,7 @@ import {
   resolveLineIndentContext,
 } from '../indent/markdownIndentContext';
 import { taskMarkerOfListItem } from '../task/taskEngagement';
+import { isPendingBreak } from './hardBreakMarkerDecoration';
 
 /**
  * The one source of truth for every separator height (px) — the vertical gap between two blocks.
@@ -365,6 +366,12 @@ function continuesAcrossHardBreak(
   const line = state.doc.lineAt(pos);
   if (prevLine.from === line.from) {
     return false;
+  }
+  // Right after Shift+Enter the new line is still empty, so the parser ends the paragraph at the backslash
+  // and finds no `HardBreak` yet; the break is already the user's intent (the marker is hidden the same way),
+  // so the line must not start with a paragraph gap that the first typed character would then remove.
+  if (line.number === prevLine.number + 1 && isPendingBreak(state, prevLine.from, prevLine.to)) {
+    return true;
   }
   const paragraph = paragraphEndingLine(state, prevLine);
   const next = paragraphEndingLine(state, line);

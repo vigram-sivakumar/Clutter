@@ -6,6 +6,7 @@ import type { SyntaxNode } from '@lezer/common';
 import { resolveExistingAttributeLineRange } from '../table/tableColumnWidthMetadata';
 import { findAllTables, findTableStartingAt } from '../table/tableGeometry';
 import { BLOCK_SPACING_PARTICIPANTS } from './blockSpacingParticipants';
+import { pendingBreakLineNumber } from './hardBreakMarkerDecoration';
 import { lineProbePos, resolveBoundaryHeight, SEPARATOR, type SeparatorHeight } from './separatorScope';
 
 /**
@@ -323,7 +324,8 @@ const blockSeparatorField = StateField.define<DecorationSet>({
     return Decoration.set(buildSeparators(state), true);
   },
   update(value, tr) {
-    if (tr.docChanged) {
+    // The spacing after a pending hard break (right after Shift+Enter) follows the caret, not just the text.
+    if (tr.docChanged || (tr.selection && pendingBreakLineNumber(tr.startState) !== pendingBreakLineNumber(tr.state))) {
       return Decoration.set(buildSeparators(tr.state), true);
     }
     return value;
