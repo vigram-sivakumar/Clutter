@@ -2,7 +2,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { CoverAttribution } from '@components/cover-attribution/CoverAttribution';
 import { coverAttributionFor } from '@core/integrations/unsplash/unsplashAttribution';
 import type { CoverCredit } from '@core/vault/models/PageMetadata';
-import type { PointerEvent as ReactPointerEvent } from 'react';
+import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
+import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
+import { ResourceContextMenu, type ContextMenuPoint } from '../body/ResourceContextMenu';
+import type { ResourceTopBarActionsProps } from '../topbar/ResourceTopBarActions';
 import { Button } from '@components/button/Button';
 import { TauriDragStrip } from '@components/tauri-drag-strip/TauriDragStrip';
 import { Overlay } from '@components/overlay/Overlay';
@@ -211,6 +214,9 @@ export function PageCover({
   // whenever it's null, which is what makes "ends without Save Position"
   // a no-op on persisted metadata for free, with no separate revert step.
   const [repositioning, setRepositioning] = useState(false);
+  // The image's right-click menu (Copy, Copy image address), open at the pointer.
+  const [imageMenu, setImageMenu] = useState<{ menu: ResourceTopBarActionsProps; point: ContextMenuPoint; seq: number } | null>(null);
+  const imageMenuSeqRef = useRef(0);
   const [dragPreview, setDragPreview] = useState<number | null>(null);
   // Snapshot taken on pointerdown, read on every subsequent pointermove
   // until pointerup — the pointer's own coordinate at drag-start, the
@@ -433,6 +439,30 @@ export function PageCover({
 
   function handleImagePointerUp(): void {
     dragStartRef.current = null;
+  }
+
+  /**
+   * Right-click on the cover image: Clutter's own menu (the shared `ResourceContextMenu`, built from the canonical
+   * `cover-image` actions) instead of the WebView's. Always one or the other — never the native menu — and only on
+   * the image itself; while repositioning, the image is a drag handle and opens no menu. With neither copy operation
+   * supplied there is nothing to list, so nothing opens.
+   */
+  function handleImageContextMenu(event: ReactMouseEvent<HTMLImageElement>): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (repositioning || (!onCopyImage && !onCopyImageAddress)) {
+      return;
+    }
+    const executable = [...(onCopyImage ? ['copy-image'] : []), ...(onCopyImageAddress ? ['copy-image-address'] : [])];
+    imageMenuSeqRef.current += 1;
+    setImageMenu({
+      menu: {
+        menu: buildResourceActionMenu('cover-image', { executable }, 'context'),
+        handlers: { 'copy-image': onCopyImage, 'copy-image-address': onCopyImageAddress },
+      },
+      point: { x: event.clientX, y: event.clientY },
+      seq: imageMenuSeqRef.current,
+    });
   }
 
   function handleEnterRepositioning(event: { stopPropagation(): void }): void {
@@ -743,7 +773,17 @@ export function PageCover({
         onPointerDown={repositioning ? handleImagePointerDown : undefined}
         onPointerMove={repositioning ? handleImagePointerMove : undefined}
         onPointerUp={repositioning ? handleImagePointerUp : undefined}
+        onContextMenu={handleImageContextMenu}
       />
+      {imageMenu && (
+        <ResourceContextMenu
+          // A right-click on the image again (or elsewhere) starts a fresh menu.
+          key={imageMenu.seq}
+          menu={imageMenu.menu}
+          point={imageMenu.point}
+          onDone={() => setImageMenu(null)}
+        />
+      )}
       {attribution && (
         <CoverAttribution attribution={attribution} className="page-cover__attribution" />
       )}

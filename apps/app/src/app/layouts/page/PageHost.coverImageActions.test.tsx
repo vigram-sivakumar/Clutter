@@ -366,6 +366,113 @@ describe('PageHost: cover image — Copy image address and Copy image', () => {
   });
 });
 
+describe('PageHost: right-click on the cover image', () => {
+  const PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+
+  class FakeClipboardItem {
+    constructor(readonly items: Record<string, Promise<Blob> | Blob>) {}
+  }
+
+  let writeText: ReturnType<typeof vi.fn>;
+  let write: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    writeText = vi.fn(async () => {});
+    write = vi.fn(async (items: FakeClipboardItem[]) => {
+      for (const item of items) await Promise.all(Object.values(item.items));
+    });
+    vi.stubGlobal('ClipboardItem', FakeClipboardItem);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText, write }, configurable: true });
+    fetchRemoteAsset.mockReset();
+  });
+
+  async function renderCover(cover: string): Promise<HTMLImageElement> {
+    const page = buildNoteWithCover(cover);
+    const application = makeApplication([page], /^https?:\/\//.test(cover) ? [] : [vaultImage(cover)]);
+    await application.pageOperations.open(page.id);
+    render(
+      <ToastProvider>
+        <AppLayout application={application} />
+      </ToastProvider>
+    );
+    await flush();
+    const image = document.querySelector<HTMLImageElement>('.page-cover__image');
+    expect(image).not.toBeNull();
+    return image!;
+  }
+
+  it('shows Clutter’s menu — Copy and Copy image address — and suppresses the native one', async () => {
+    const image = await renderCover('https://example.com/photos/mountain.png');
+
+    expect(fireEvent.contextMenu(image, { clientX: 30, clientY: 50 })).toBe(false);
+
+    expect(screen.getAllByRole('menuitem').map((el) => el.textContent)).toEqual(['Copy', 'Copy image address']);
+  });
+
+  it('Copy on a remote cover writes image data — not text — to the clipboard, then says so', async () => {
+    fetchRemoteAsset.mockResolvedValue({ bytes: PNG, contentType: 'image/png' });
+    const image = await renderCover('https://example.com/photos/mountain.png');
+    fireEvent.contextMenu(image);
+
+    fireEvent.click(screen.getByText('Copy'));
+
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+    const [items] = write.mock.calls[0] as [FakeClipboardItem[]];
+    expect(Object.keys(items[0]!.items)).toEqual(['image/png']);
+    expect(writeText).not.toHaveBeenCalled();
+    expect(await screen.findByText('Image copied')).toBeInTheDocument();
+  });
+
+  it('Copy on a vault cover reads the file and copies it as an image', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, arrayBuffer: async () => PNG.buffer.slice(0) })));
+    const image = await renderCover('Assets/mountain.png');
+    fireEvent.contextMenu(image);
+
+    fireEvent.click(screen.getByText('Copy'));
+
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText('Image copied')).toBeInTheDocument();
+  });
+
+  it('Copy image address copies a remote URL exactly, query parameters included', async () => {
+    const url = 'https://images.unsplash.com/photo-a?crop=entropy&ixid=abc%3D&q=80&w=4800';
+    const image = await renderCover(url);
+    fireEvent.contextMenu(image);
+
+    fireEvent.click(screen.getByText('Copy image address'));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(url));
+  });
+
+  it('Copy image address copies a vault cover’s vault-relative path, not a file:// URL', async () => {
+    const image = await renderCover('Assets/photos/mountain.png');
+    fireEvent.contextMenu(image);
+
+    fireEvent.click(screen.getByText('Copy image address'));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('Assets/photos/mountain.png'));
+  });
+
+  it('a failed copy shows an error toast and no success', async () => {
+    fetchRemoteAsset.mockRejectedValue(new Error('Could not download (404).'));
+    const image = await renderCover('https://example.com/photos/gone.png');
+    fireEvent.contextMenu(image);
+
+    fireEvent.click(screen.getByText('Copy'));
+
+    expect(await screen.findByText('Couldn’t copy the image')).toBeInTheDocument();
+    expect(screen.queryByText('Image copied')).not.toBeInTheDocument();
+  });
+
+  it('a right-click elsewhere in the page does not open the cover menu', async () => {
+    await renderCover('https://example.com/photos/mountain.png');
+
+    fireEvent.contextMenu(document.body);
+
+    expect(screen.queryByText('Copy image address')).not.toBeInTheDocument();
+  });
+});
+
 describe('PageHost: an image embedded in the note — Save to vault', () => {
   async function openImageMenu(application: Application, page: Page): Promise<void> {
     await application.pageOperations.open(page.id);

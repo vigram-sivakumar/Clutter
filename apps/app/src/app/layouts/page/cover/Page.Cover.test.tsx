@@ -145,6 +145,106 @@ describe('PageCover — More actions menu', () => {
   });
 });
 
+describe('PageCover — right-click on the cover image', () => {
+  function renderPlain(overrides: Partial<Parameters<typeof PageCover>[0]> = {}) {
+    const onCopyImage = vi.fn();
+    const onCopyImageAddress = vi.fn();
+    const utils = render(
+      <PageCover
+        src="cover.png"
+        onRemove={vi.fn()}
+        onHide={vi.fn()}
+        onSetCoverImage={vi.fn()}
+        onSetCoverImageFromUpload={vi.fn()}
+        onCopyImage={onCopyImage}
+        onCopyImageAddress={onCopyImageAddress}
+        {...overrides}
+      />
+    );
+    const image = utils.container.querySelector<HTMLImageElement>('.page-cover__image')!;
+    return { ...utils, image, onCopyImage, onCopyImageAddress };
+  }
+
+  it.each(['side', 'above'] as const)('suppresses the native menu and shows Copy and Copy image address — %s layout', (layout) => {
+    const { image } = renderPlain({ layout });
+
+    // fireEvent returns false when the event's default (the WebView's own menu) was prevented.
+    expect(fireEvent.contextMenu(image, { clientX: 40, clientY: 60 })).toBe(false);
+
+    const labels = screen.getAllByRole('menuitem').map((el) => el.textContent);
+    expect(labels).toEqual(['Copy', 'Copy image address']);
+  });
+
+  it('Copy runs the copy-image operation and closes the menu', () => {
+    const { image, onCopyImage, onCopyImageAddress } = renderPlain();
+    fireEvent.contextMenu(image);
+
+    fireEvent.click(screen.getByText('Copy'));
+
+    expect(onCopyImage).toHaveBeenCalledTimes(1);
+    expect(onCopyImageAddress).not.toHaveBeenCalled();
+    expect(screen.queryByText('Copy image address')).not.toBeInTheDocument();
+  });
+
+  it('Copy image address runs the copy-address operation and closes the menu', () => {
+    const { image, onCopyImage, onCopyImageAddress } = renderPlain();
+    fireEvent.contextMenu(image);
+
+    fireEvent.click(screen.getByText('Copy image address'));
+
+    expect(onCopyImageAddress).toHaveBeenCalledTimes(1);
+    expect(onCopyImage).not.toHaveBeenCalled();
+    expect(screen.queryByText('Copy')).not.toBeInTheDocument();
+  });
+
+  it('lists only the operation the page supplied — a control is never live without a handler', () => {
+    const { image } = renderPlain({ onCopyImage: undefined });
+    fireEvent.contextMenu(image);
+
+    expect(screen.getAllByRole('menuitem').map((el) => el.textContent)).toEqual(['Copy image address']);
+  });
+
+  it('with neither operation there is nothing to list: the native menu is still suppressed and none opens', () => {
+    const { image } = renderPlain({ onCopyImage: undefined, onCopyImageAddress: undefined });
+
+    expect(fireEvent.contextMenu(image)).toBe(false);
+
+    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument();
+  });
+
+  it('opens no menu while repositioning, when the image is a drag handle', () => {
+    const { image } = renderPlain({ onSetLayout: vi.fn(), onSavePosition: vi.fn() });
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    fireEvent.click(screen.getByText('Reposition'));
+
+    fireEvent.contextMenu(image);
+
+    expect(screen.queryByText('Copy image address')).not.toBeInTheDocument();
+  });
+
+  it('is only the image: a right-click elsewhere on the cover is left to the existing handlers', () => {
+    const { container } = renderPlain();
+    const cover = container.querySelector('aside')!;
+
+    // Not prevented by the cover (the document's own policy decides, as for the rest of the window), and no menu.
+    expect(fireEvent.contextMenu(cover)).toBe(true);
+    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument();
+  });
+
+  it('leaves the three-dot menu exactly as it was', () => {
+    renderPlain();
+
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+
+    expect(screen.getAllByText(/Change cover image|Copy image address|Hide|Remove/).map((el) => el.textContent)).toEqual([
+      'Change cover image',
+      'Copy image address',
+      'Hide',
+      'Remove',
+    ]);
+  });
+});
+
 describe('PageCover — Copy image and Copy image address', () => {
   it('lists neither without the callbacks, leaving the menu as it was', () => {
     renderCover();

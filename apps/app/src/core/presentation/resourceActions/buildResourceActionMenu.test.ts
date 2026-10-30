@@ -698,3 +698,21 @@ describe('danger variant', () => {
     expect(items.filter((item) => item.variant).map((item) => item.id)).toEqual(['archive']);
   });
 });
+
+describe('cover-image kind: the right-click menu of a page cover', () => {
+  const menu = (executable: string[]) => buildResourceActionMenu('cover-image', { executable }, 'context');
+
+  it('lists Copy and Copy image address, in that order and one group, when both are executable', () => {
+    const items = menu(['copy-image', 'copy-image-address']);
+
+    expect(items.map((item) => item.label)).toEqual(['Copy', 'Copy image address']);
+    expect(ids(items)).toEqual(['copy-image', 'copy-image-address']);
+    expect(dividedIds(items)).toEqual([]);
+  });
+
+  it('lists only what the page can execute', () => {
+    expect(ids(menu(['copy-image-address']))).toEqual(['copy-image-address']);
+    expect(ids(menu(['copy-image']))).toEqual(['copy-image']);
+    expect(ids(menu([]))).toEqual([]);
+  });
+});

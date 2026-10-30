@@ -349,6 +349,27 @@ export const RESOURCE_ACTIONS: Readonly<Record<ResourceKind, readonly ResourceAc
   // global order, no task-specific grouping.
   // A tag's matching line is a reference to a line in a source note, not a note: its one action is Show in note.
   'tag-line': [{ ...OPEN_IN_NOTE, order: 10 }],
+  // The right-click menu of a page's cover image: what the WebView's own image menu offers, and nothing else —
+  // Copy (the image itself) and Copy image address (its URL or vault path). Each is listed only when the page
+  // supplied its operation (`executable`), so a control is never live without a handler.
+  'cover-image': [
+    {
+      id: 'copy-image',
+      group: 'identity',
+      order: 10,
+      label: 'Copy',
+      icon: 'copy',
+      availability: whenExecutable('copy-image'),
+    },
+    {
+      id: 'copy-image-address',
+      group: 'identity',
+      order: 20,
+      label: 'Copy image address',
+      icon: 'link',
+      availability: whenExecutable('copy-image-address'),
+    },
+  ],
   task: [
     {
       id: 'edit',

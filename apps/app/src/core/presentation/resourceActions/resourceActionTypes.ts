@@ -22,7 +22,7 @@ export const RESOURCE_ACTION_GROUPS = [
 
 export type ResourceActionGroup = (typeof RESOURCE_ACTION_GROUPS)[number];
 
-export type ResourceKind = 'note' | 'daily-note' | 'folder' | 'asset' | 'tag' | 'task' | 'tag-line';
+export type ResourceKind = 'note' | 'daily-note' | 'folder' | 'asset' | 'tag' | 'task' | 'tag-line' | 'cover-image';
 
 /**
  * What an action is right now, for one resource:
