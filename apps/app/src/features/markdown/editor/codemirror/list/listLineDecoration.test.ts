@@ -459,4 +459,57 @@ describe('listLineDecoration', () => {
       expect(indentPx(rows[1]!)).toBe(indentPx(rows[0]!));
     });
   });
+
+  /**
+   * A continuation line (what Shift+Enter writes: `\` + newline + spaces) has its leading spaces drawn as
+   * indent tokens on top of the reserved gutter, so only those spaces are pulled back by `text-indent`
+   * (`--list-line-consumed-px`); pulling back the whole gutter left its text left of the item's text.
+   */
+  describe('continuation lines align to the item content column', () => {
+    function consumedPx(line: HTMLElement): number | null {
+      const raw = line.style.getPropertyValue('--list-line-consumed-px').trim();
+      return raw ? parseFloat(raw.replace(/px$/, '')) : null;
+    }
+
+    it('the marker line never sets the consumed width, so it keeps pulling back the whole gutter', () => {
+      const rows = lines(mountView('- one\n  two'));
+      expect(consumedPx(rows[0]!)).toBeNull();
+    });
+
+    it('a bullet continuation consumes exactly its own marker-column spaces', () => {
+      const rows = lines(mountView('- one\n  two'));
+      expect(consumedPx(rows[1]!)).toBeGreaterThan(0);
+      // Fewer pixels than the whole gutter: the marker's own footprint is wider than two spaces.
+      expect(consumedPx(rows[1]!)).toBeLessThan(indentPx(rows[1]!));
+    });
+
+    it('an ordered continuation consumes its own (three) spaces', () => {
+      const rows = lines(mountView('1. one\n   two'));
+      expect(consumedPx(rows[1]!)).toBeGreaterThan(consumedPx(lines(mountView('- one\n  two'))[1]!)!);
+    });
+
+    it('the empty continuation line right after Shift+Enter is decorated the same way while the caret is on it, so the caret does not jump when typing starts', () => {
+      const view = mountView('- one\\\n  ');
+      view.dispatch({ selection: { anchor: view.state.doc.length } });
+      const typed = consumedPx(lines(mountView('- one\\\n  x'))[1]!);
+
+      expect(hasListLine(lines(view)[1]!)).toBe(true);
+      expect(consumedPx(lines(view)[1]!)).toBe(typed);
+
+      view.dispatch({ selection: { anchor: 0 } });
+      expect(hasListLine(lines(view)[1]!)).toBe(false);
+    });
+
+    it('extra indentation beyond the marker column is kept, not consumed', () => {
+      const exact = consumedPx(lines(mountView('- one\n  two'))[1]!);
+      const deeper = consumedPx(lines(mountView('- one\n      two'))[1]!);
+      expect(deeper).toBe(exact);
+    });
+
+    it('a nested item\'s continuation consumes up to its own marker column', () => {
+      const rows = lines(mountView('- top\n  - nested\n    more'));
+      expect(consumedPx(rows[2]!)).toBeGreaterThan(0);
+      expect(consumedPx(rows[1]!)).toBeNull();
+    });
+  });
 });

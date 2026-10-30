@@ -492,9 +492,12 @@
  * fallback: only lines carrying the class ever set the custom property,
  * so this is defensive, not load-bearing.
  */
+/* A later document line of an item (a Shift+Enter continuation) carries `--list-line-consumed-px`: its own
+ * leading spaces are drawn as indent tokens in the marker column, so only those are pulled back, which lands
+ * its text on the item's content column. The marker line does not set it and keeps the whole gutter. */
 .cm-editor .cm-list-line {
   padding-left: var(--list-indent-px, 0px);
-  text-indent: calc(-1 * var(--list-indent-px, 0px));
+  text-indent: calc(-1 * var(--list-line-consumed-px, var(--list-indent-px, 0px)));
 }
 
 .cm-editor .cm-quote-line::before {

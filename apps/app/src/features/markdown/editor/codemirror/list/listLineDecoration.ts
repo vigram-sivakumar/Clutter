@@ -11,6 +11,7 @@ import {
 import type { SyntaxNode } from '@lezer/common';
 
 import { getLeadingWhitespaceWidthPx } from '../../../../../design-system/markdownIndent';
+import { isPendingBreak, pendingBreakLineNumber } from '../highlight/hardBreakMarkerDecoration';
 import { taskMarkerOfListItem } from '../task/taskEngagement';
 import {
   classifyMarkerText,
@@ -272,10 +273,35 @@ function ownListItemIndentPx(
   return leadingPx + markerFootprintPx;
 }
 
-function listLineMark(indentPx: number): Decoration {
-  return Decoration.line({
-    attributes: { class: 'cm-list-line', style: `--list-indent-px: ${indentPx}px` },
-  });
+/**
+ * `consumedPx` is set only on a later document line of an item (never its marker line): the width of the
+ * leading whitespace that already stands in for the item's marker column. Those spaces are drawn as real
+ * indent tokens on top of the reserved gutter, so the first row's negative `text-indent` must cancel exactly
+ * them (not the whole gutter) for its text to start at the item's content column, where wrapped rows start.
+ */
+function listLineMark(indentPx: number, consumedPx?: number): Decoration {
+  const style =
+    consumedPx === undefined
+      ? `--list-indent-px: ${indentPx}px`
+      : `--list-indent-px: ${indentPx}px; --list-line-consumed-px: ${consumedPx}px`;
+  return Decoration.line({ attributes: { class: 'cm-list-line', style } });
+}
+
+/** The width of the part of a continuation line's leading whitespace that sits in the item's marker column, or undefined for the marker line itself. */
+function continuationConsumedPx(state: EditorState, item: SyntaxNode, line: Line): number | undefined {
+  const marker = item.firstChild;
+  if (!marker || marker.name !== 'ListMark') {
+    return undefined;
+  }
+  const markerLine = state.doc.lineAt(marker.from);
+  if (line.from === markerLine.from) {
+    return undefined;
+  }
+  const separator = separatorRangeAfter(state, marker);
+  if (!separator) {
+    return undefined;
+  }
+  return getLeadingWhitespaceWidthPx(line.text.slice(0, separator.to - markerLine.from));
 }
 
 function buildListLineDecorations(view: EditorView): DecorationSet {
@@ -290,11 +316,19 @@ function buildListLineDecorations(view: EditorView): DecorationSet {
         seenLines.add(line.from);
 
         const probePos = line.from + firstNonWhitespaceOffset(line.text);
-        const item = nearestListItem(view.state, probePos);
+        let item = nearestListItem(view.state, probePos);
+        if (!item && line.number > 1) {
+          // Right after Shift+Enter the new line is empty, so the parser has already ended the item at the
+          // backslash; it still belongs to the item above (the break is hidden, the caret is on this line).
+          const prev = view.state.doc.line(line.number - 1);
+          if (isPendingBreak(view.state, prev.from, prev.to)) {
+            item = nearestListItem(view.state, prev.from + firstNonWhitespaceOffset(prev.text));
+          }
+        }
         if (item && lineOwnsListIndent(view.state, item, line)) {
           const indentPx = ownListItemIndentPx(view, item, view.state);
           if (indentPx > 0) {
-            builder.add(line.from, line.from, listLineMark(indentPx));
+            builder.add(line.from, line.from, listLineMark(indentPx, continuationConsumedPx(view.state, item, line)));
           }
         }
       }
@@ -320,7 +354,10 @@ export function listLineDecoration(): Extension {
       }
 
       update(update: ViewUpdate) {
-        if (update.docChanged || update.viewportChanged) {
+        // The line after a pending hard break is decorated only while the caret is on it.
+        const pendingChanged =
+          update.selectionSet && pendingBreakLineNumber(update.startState) !== pendingBreakLineNumber(update.state);
+        if (update.docChanged || update.viewportChanged || pendingChanged) {
           this.decorations = buildListLineDecorations(update.view);
         }
       }
