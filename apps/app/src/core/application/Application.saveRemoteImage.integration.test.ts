@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { featureFlags } from '../featureFlags';
 
 const appFetchMock = vi.fn();
 
@@ -52,8 +53,12 @@ const files = () => ({
 
 describe('Application.saveRemoteImageToVault — real vault', () => {
   beforeEach(() => {
+    featureFlags.remoteAssetsInCatalog = true;
     appFetchMock.mockReset();
     appFetchMock.mockImplementation(async () => image());
+  });
+  afterEach(() => {
+    featureFlags.remoteAssetsInCatalog = false;
   });
 
   it('saves once, registers the file in the Vault, and rewrites covers + body images; links and hidden covers stay', async () => {
