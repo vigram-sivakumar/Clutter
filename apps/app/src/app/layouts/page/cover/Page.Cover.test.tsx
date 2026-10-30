@@ -217,6 +217,14 @@ describe('PageCover — right-click on the cover image', () => {
     expect(screen.queryByText('Copy')).not.toBeInTheDocument();
   });
 
+  it('opens nothing for a cover that is a vault file, and still suppresses the native menu', () => {
+    const { image } = renderPlain({ isLocalImage: true });
+
+    expect(fireEvent.contextMenu(image)).toBe(false);
+
+    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument();
+  });
+
   it('lists only the operation the page supplied — a control is never live without a handler', () => {
     const { image } = renderPlain({ onCopyImage: undefined });
     fireEvent.contextMenu(image);

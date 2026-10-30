@@ -407,6 +407,8 @@ export function PageHost({
       onDownloadCoverImage: () => coverImageActions.download(reference),
       onCopyCoverImage: () => coverImageActions.copyImage(reference),
       onCopyCoverImageAddress: () => coverImageActions.copyAddress(reference),
+      // A cover from the vault's Assets has no right-click menu (the cover is a local file, not an address to copy).
+      coverImageIsLocal: !isRemoteImageReference(reference),
       onSaveCoverImageToVault:
         isRemoteImageReference(reference)
           ? () => coverImageActions.saveToVault(reference)

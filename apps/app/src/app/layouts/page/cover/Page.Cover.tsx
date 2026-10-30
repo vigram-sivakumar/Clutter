@@ -138,6 +138,8 @@ type PageCoverProps = {
   onCopyImage?: () => void;
   /** Copies the cover's address as stored — its URL, or its vault-relative path ("Copy image address"). */
   onCopyImageAddress?: () => void;
+  /** The cover is a file in the vault's Assets: right-clicking its image opens nothing (and shows no native menu). */
+  isLocalImage?: boolean;
 };
 
 type MenuView = 'menu' | 'picker';
@@ -177,6 +179,7 @@ export function PageCover({
   onDownload,
   onCopyImage,
   onCopyImageAddress,
+  isLocalImage = false,
 }: PageCoverProps) {
   const [open, setOpen] = useState(false);
   const attribution = coverAttributionFor(src, coverCredit);
@@ -450,13 +453,14 @@ export function PageCover({
   /**
    * Right-click on the cover image: Clutter's own menu (the shared `ResourceContextMenu`, built from the canonical
    * `cover-image` actions) instead of the WebView's. Always one or the other — never the native menu — and only on
-   * the image itself; while repositioning, the image is a drag handle and opens no menu. With neither copy operation
-   * supplied there is nothing to list, so nothing opens.
+   * the image itself; while repositioning, the image is a drag handle and opens no menu, and a cover that is a vault
+   * file (`isLocalImage`) opens none either. With neither copy operation supplied there is nothing to list, so nothing
+   * opens.
    */
   function handleImageContextMenu(event: ReactMouseEvent<HTMLImageElement>): void {
     event.preventDefault();
     event.stopPropagation();
-    if (repositioning || (!onCopyImage && !onCopyImageAddress)) {
+    if (isLocalImage || repositioning || (!onCopyImage && !onCopyImageAddress)) {
       return;
     }
     const executable = [...(onCopyImage ? ['copy-image'] : []), ...(onCopyImageAddress ? ['copy-image-address'] : [])];

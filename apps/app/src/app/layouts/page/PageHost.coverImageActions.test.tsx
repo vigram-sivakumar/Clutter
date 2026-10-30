@@ -423,15 +423,14 @@ describe('PageHost: right-click on the cover image', () => {
     expect(await screen.findByText('Image copied')).toBeInTheDocument();
   });
 
-  it('Copy on a vault cover reads the file and copies it as an image', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, arrayBuffer: async () => PNG.buffer.slice(0) })));
+  it('a cover that is a vault file has no right-click menu: nothing opens and the native menu stays suppressed', async () => {
     const image = await renderCover('Assets/mountain.png');
-    fireEvent.contextMenu(image);
 
-    fireEvent.click(screen.getByText('Copy'));
+    expect(fireEvent.contextMenu(image)).toBe(false);
 
-    await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
-    expect(await screen.findByText('Image copied')).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument();
+    expect(write).not.toHaveBeenCalled();
+    expect(writeText).not.toHaveBeenCalled();
   });
 
   it('Copy image address copies a remote URL exactly, query parameters included', async () => {
@@ -442,15 +441,6 @@ describe('PageHost: right-click on the cover image', () => {
     fireEvent.click(screen.getByText('Copy image address'));
 
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(url));
-  });
-
-  it('Copy image address copies a vault cover’s vault-relative path, not a file:// URL', async () => {
-    const image = await renderCover('Assets/photos/mountain.png');
-    fireEvent.contextMenu(image);
-
-    fireEvent.click(screen.getByText('Copy image address'));
-
-    await waitFor(() => expect(writeText).toHaveBeenCalledWith('Assets/photos/mountain.png'));
   });
 
   it('a failed copy shows an error toast and no success', async () => {

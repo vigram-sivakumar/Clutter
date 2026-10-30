@@ -141,6 +141,8 @@ type PageProps = {
   onCopyCoverImage?(): void;
   /** Forwarded to PageCover's "Copy image address" menu item. */
   onCopyCoverImageAddress?(): void;
+  /** The cover is a file in the vault (not a URL): PageCover gives its image no right-click menu. */
+  coverImageIsLocal?: boolean;
   /** Forwarded to PageTitleSection's More-actions "Show cover image" item — reveals an existing hidden cover without opening the picker. */
   onShowCoverImage?(): void;
   /**
@@ -294,6 +296,7 @@ export function Page({
   onDownloadCoverImage,
   onCopyCoverImage,
   onCopyCoverImageAddress,
+  coverImageIsLocal,
   onShowCoverImage,
   coverLayout = 'side',
   onSetCoverLayout,
@@ -371,6 +374,7 @@ export function Page({
       onDownload={onDownloadCoverImage}
       onCopyImage={onCopyCoverImage}
       onCopyImageAddress={onCopyCoverImageAddress}
+      isLocalImage={coverImageIsLocal}
       onSetCoverImage={onSetCoverImage}
       onSetCoverImageFromUpload={onSetCoverImageFromUpload}
       layout={coverLayout}
