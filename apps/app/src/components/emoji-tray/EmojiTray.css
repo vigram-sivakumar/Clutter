@@ -3,6 +3,8 @@
   flex-direction: column;
   gap: var(--space-8);
 
+  --emoji-tray-columns: 8;
+
   width: fit-content;
   padding-block: var(--space-12);
   border-radius: var(--radius-xl);
@@ -18,21 +20,20 @@
   padding-inline: var(--space-12);
 }
 
+/* The same columns as the emoji grid below, and each button at the start of its column like the emoji are, so each
+ * category (and the skin-tone button) sits exactly under a grid column instead of packing to the left at its own width. */
 .emoji-tray__categories {
-  display: flex;
-  gap: var(--space-2);
-  padding-inline: var(--space-12);
-}
-.emoji-tray__categories {
-  display: flex;
-  gap: var(--space-2);
+  display: grid;
+  grid-template-columns: repeat(var(--emoji-tray-columns), 1fr);
+  justify-items: start;
+  gap: 2px;
   padding-inline: var(--space-12);
 }
 
 .emoji-tray__grid {
   display: grid;
   align-content: start;
-  grid-template-columns: repeat(8, 1fr);
+  grid-template-columns: repeat(var(--emoji-tray-columns), 1fr);
   gap: 2px;
 
   height: calc((var(--height-md) * 8) + (var(--space-8) * 2));
