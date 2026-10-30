@@ -44,9 +44,9 @@ export function CoverPickerOverlay({
             onClose();
             onRemove();
           }}
-          onLinkSubmit={(url) => {
+          onLinkSubmit={(url, credit) => {
             onClose();
-            onSetCoverImage(url);
+            onSetCoverImage(url, credit);
           }}
           onUploadSubmit={(sourcePath) => {
             onClose();

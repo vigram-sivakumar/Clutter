@@ -1,6 +1,9 @@
 import { useRef, useState } from 'react';
 import { Input } from '@components/input/Input';
 import { Button } from '@components/button/Button';
+import type { CoverCredit } from '@core/vault/models/PageMetadata';
+import { getPhoto, trackPhotoDownload } from '@core/integrations/unsplash/UnsplashApi';
+import { parseUnsplashPhotoId } from '@core/integrations/unsplash/unsplashAttribution';
 import { parseWebUrl } from '@shared/helpers/parseWebUrl';
 import './ImagePicker.Link.css';
 
@@ -9,9 +12,11 @@ interface ImagePickerLinkProps {
    * Called only once the URL has been confirmed to actually load as an
    * image — the caller's own "commit + close the picker" behavior
    * (ResourceTopBarActions.tsx's onLinkSubmit) is unchanged and doesn't
-   * need to know any of this happened first.
+   * need to know any of this happened first. `credit` is set only for an Unsplash photo-page link, which is looked
+   * up through the Unsplash API (never scraped) so the cover carries its photographer, as a pick from the Unsplash
+   * tab does (ADR-054).
    */
-  onSubmit: (url: string) => void;
+  onSubmit: (url: string, credit?: CoverCredit) => void;
 }
 
 type Status = 'idle' | 'checking' | 'error';
@@ -29,6 +34,38 @@ export function ImagePickerLink({ onSubmit }: ImagePickerLinkProps) {
   // stale probe's eventual onload/onerror compares itself against this
   // ref and discards its own result instead of acting on it.
   const pendingProbeRef = useRef<HTMLImageElement | null>(null);
+
+  // The same token as the image probe: an older lookup that resolves after a newer submit is discarded.
+  const pendingLookupRef = useRef<string | null>(null);
+
+  const submitUnsplashPhoto = async (photoId: string) => {
+    pendingLookupRef.current = photoId;
+    try {
+      const photo = await getPhoto(photoId);
+      if (pendingLookupRef.current !== photoId) {
+        return;
+      }
+      pendingLookupRef.current = null;
+      setStatus('idle');
+      onSubmit(photo.urls.regular, {
+        name: photo.user.name,
+        url: photo.user.links.html,
+        downloadLocation: photo.links.downloadLocation,
+      });
+      void trackPhotoDownload(photo.links.downloadLocation);
+    } catch (error) {
+      if (pendingLookupRef.current !== photoId) {
+        return;
+      }
+      pendingLookupRef.current = null;
+      setStatus('error');
+      setErrorMessage(
+        error instanceof Error && error.message === 'Unsplash is not configured.'
+          ? 'Unsplash links can’t be added right now. Use an image address instead'
+          : 'Couldn’t find this photo on Unsplash. Check the link and try again'
+      );
+    }
+  };
 
   const handleSubmit = () => {
     if (status === 'checking') {
@@ -49,6 +86,12 @@ export function ImagePickerLink({ onSubmit }: ImagePickerLinkProps) {
 
     setStatus('checking');
     setErrorMessage(null);
+
+    const photoId = parseUnsplashPhotoId(url);
+    if (photoId) {
+      void submitUnsplashPhoto(photoId);
+      return;
+    }
 
     const probe = new Image();
     pendingProbeRef.current = probe;

@@ -650,9 +650,14 @@ export function PageCover({
                 setView('menu');
                 handleRemove();
               }}
-              onLinkSubmit={(url) => {
+              onLinkSubmit={(url, credit) => {
                 setOpen(false);
-                onSetCoverImage(url);
+                // Only an Unsplash photo link carries a credit; any other link is set exactly as before.
+                if (credit) {
+                  onSetCoverImage(url, credit);
+                } else {
+                  onSetCoverImage(url);
+                }
               }}
               onUploadSubmit={(sourcePath) => {
                 setOpen(false);

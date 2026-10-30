@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { searchPhotos, trackPhotoDownload } from './UnsplashApi';
+import { getPhoto, searchPhotos, trackPhotoDownload } from './UnsplashApi';
 
 const sampleRawPhoto = {
   id: 'photo-1',
@@ -271,5 +271,35 @@ describe('UnsplashApi orientation', () => {
     for (const [url] of fetchMock.mock.calls) {
       expect((url as URL).searchParams.get('orientation')).toBe('portrait');
     }
+  });
+
+  it('getPhoto() fetches /photos/:id with the access key and maps the photographer and download location', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => sampleRawPhoto });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const photo = await getPhoto('Dwu85P9SOIk');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.objectContaining({ href: 'https://api.unsplash.com/photos/Dwu85P9SOIk' }),
+      { headers: unsplashHeaders }
+    );
+    expect(photo.user).toEqual({ name: 'Alex', links: { html: 'https://unsplash.com/@alex' } });
+    expect(photo.urls.regular).toBe('https://images.unsplash.com/regular.jpg');
+    expect(photo.links.downloadLocation).toBe('https://api.unsplash.com/photos/photo-1/download?ixid=abc');
+  });
+
+  it('getPhoto() rejects when Unsplash does not know the photo', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getPhoto('Dwu85P9SOIk')).rejects.toThrow('Unsplash request failed (404).');
+  });
+
+  it('getPhoto() rejects without a configured access key, and never sends a request', async () => {
+    vi.stubEnv('VITE_UNSPLASH_ACCESS_KEY', '');
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(getPhoto('Dwu85P9SOIk')).rejects.toThrow('Unsplash is not configured.');
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

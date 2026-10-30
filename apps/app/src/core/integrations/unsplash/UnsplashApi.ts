@@ -110,6 +110,18 @@ async function unsplashFetch(url: URL): Promise<Response> {
   });
 }
 
+/**
+ * One photo by its API id (`GET /photos/:id`) — what a pasted photo-page link resolves to, so the cover gets the
+ * same picture URL, photographer and download location a pick from the search results does.
+ */
+export async function getPhoto(id: string): Promise<UnsplashPhoto> {
+  const response = await unsplashFetch(new URL(`${UNSPLASH_API_URL}/photos/${encodeURIComponent(id)}`));
+
+  throwIfNotOk(response);
+
+  return mapPhoto((await response.json()) as RawUnsplashPhoto);
+}
+
 export async function searchPhotos(
   query: string,
   page = 1,

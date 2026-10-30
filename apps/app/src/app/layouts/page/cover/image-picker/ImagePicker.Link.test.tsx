@@ -4,6 +4,12 @@ import { cleanup, render, fireEvent, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ImagePickerLink } from './ImagePicker.Link';
 
+const { getPhotoMock, trackMock } = vi.hoisted(() => ({ getPhotoMock: vi.fn(), trackMock: vi.fn() }));
+vi.mock('@core/integrations/unsplash/UnsplashApi', () => ({
+  getPhoto: getPhotoMock,
+  trackPhotoDownload: trackMock,
+}));
+
 let created: HTMLImageElement[] = [];
 const OriginalImage = window.Image;
 
@@ -142,5 +148,70 @@ describe('ImagePickerLink — pending/duplicate-submission UX', () => {
 
     const button = screen.getByText('Add').closest('button')!;
     expect(button.disabled).toBe(false);
+  });
+});
+
+describe('ImagePickerLink — Unsplash photo page links (resolved through the API)', () => {
+  const PAGE = 'https://unsplash.com/photos/a-person-on-a-beach-Dwu85P9SOIk';
+  const photo = {
+    id: 'Dwu85P9SOIk',
+    urls: { small: 'https://images.unsplash.com/s.jpg', regular: 'https://images.unsplash.com/r.jpg?w=1080' },
+    user: { name: 'Alex Doe', links: { html: 'https://unsplash.com/@alex' } },
+    links: { downloadLocation: 'https://api.unsplash.com/photos/Dwu85P9SOIk/download?ixid=abc' },
+  };
+
+  beforeEach(() => {
+    getPhotoMock.mockReset();
+    trackMock.mockReset();
+  });
+
+  it('sets the API picture as the cover with the photographer, reports the download, and probes no image', async () => {
+    getPhotoMock.mockResolvedValue(photo);
+    const onSubmit = vi.fn();
+    render(<ImagePickerLink onSubmit={onSubmit} />);
+
+    fillAndSubmit(PAGE);
+
+    await vi.waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(getPhotoMock).toHaveBeenCalledWith('Dwu85P9SOIk');
+    expect(onSubmit).toHaveBeenCalledWith('https://images.unsplash.com/r.jpg?w=1080', {
+      name: 'Alex Doe',
+      url: 'https://unsplash.com/@alex',
+      downloadLocation: photo.links.downloadLocation,
+    });
+    expect(trackMock).toHaveBeenCalledWith(photo.links.downloadLocation);
+    expect(created).toHaveLength(0);
+  });
+
+  it('shows an error and sets nothing when Unsplash does not know the photo', async () => {
+    getPhotoMock.mockRejectedValue(new Error('Unsplash request failed (404).'));
+    const onSubmit = vi.fn();
+    render(<ImagePickerLink onSubmit={onSubmit} />);
+
+    fillAndSubmit(PAGE);
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/couldn.t find this photo on unsplash/i);
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(trackMock).not.toHaveBeenCalled();
+  });
+
+  it('says so, instead of failing silently, when Unsplash is not configured', async () => {
+    getPhotoMock.mockRejectedValue(new Error('Unsplash is not configured.'));
+    render(<ImagePickerLink onSubmit={vi.fn()} />);
+
+    fillAndSubmit(PAGE);
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/can.t be added right now/i);
+  });
+
+  it('leaves a plain image address, including an Unsplash CDN one, on the ordinary image check', () => {
+    const onSubmit = vi.fn();
+    render(<ImagePickerLink onSubmit={onSubmit} />);
+
+    fillAndSubmit('https://images.unsplash.com/photo-1560506287-e7dab1f13a0d?q=80&w=2938');
+    fireEvent.load(created[0]!);
+
+    expect(getPhotoMock).not.toHaveBeenCalled();
+    expect(onSubmit).toHaveBeenCalledWith('https://images.unsplash.com/photo-1560506287-e7dab1f13a0d?q=80&w=2938');
   });
 });

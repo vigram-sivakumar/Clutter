@@ -12,7 +12,8 @@ import { Button } from '@components/button/Button';
 interface ImagePickerProps {
   /** When given, the header shows a Remove button that clears the cover. */
   onRemove?: () => void;
-  onLinkSubmit: (url: string) => void;
+  /** `credit` is set when the pasted address was an Unsplash photo page, resolved through the API. */
+  onLinkSubmit: (url: string, credit?: CoverCredit) => void;
   onUploadSubmit: (filePath: string) => void;
   /**
    * Separate from onLinkSubmit even though both ultimately set the same

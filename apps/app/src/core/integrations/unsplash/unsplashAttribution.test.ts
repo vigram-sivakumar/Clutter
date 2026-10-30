@@ -4,6 +4,7 @@ import {
   UNSPLASH_HOME_URL,
   coverAttributionFor,
   isUnsplashImageUrl,
+  parseUnsplashPhotoId,
   withUnsplashReferral,
 } from './unsplashAttribution';
 
@@ -68,5 +69,36 @@ describe('coverAttributionFor', () => {
     expect(coverAttributionFor('Assets/cover.png', null)).toBeNull();
     expect(coverAttributionFor('https://example.com/c.png', null)).toBeNull();
     expect(coverAttributionFor(null, credit)).toBeNull();
+  });
+});
+
+describe('parseUnsplashPhotoId', () => {
+  it('reads the id from a photo page link, with or without the title words', () => {
+    expect(parseUnsplashPhotoId('https://unsplash.com/photos/a-person-on-a-beach-Dwu85P9SOIk')).toBe('Dwu85P9SOIk');
+    expect(parseUnsplashPhotoId('https://unsplash.com/photos/Dwu85P9SOIk')).toBe('Dwu85P9SOIk');
+    expect(parseUnsplashPhotoId('https://www.unsplash.com/photos/Dwu85P9SOIk?utm_source=x#top')).toBe('Dwu85P9SOIk');
+  });
+
+  it('cuts the id by length, so an id that contains hyphens or underscores is kept whole', () => {
+    expect(parseUnsplashPhotoId('https://unsplash.com/photos/some-title-a-b_c-d-eFg')).toBe('a-b_c-d-eFg');
+    expect(parseUnsplashPhotoId('https://unsplash.com/photos/title--abcdefghij')).toBe('-abcdefghij');
+    expect(parseUnsplashPhotoId('https://unsplash.com/photos/a-b_c-d-eFg')).toBe('a-b_c-d-eFg');
+  });
+
+  it('is null for an image address: its photo-<number>-<hash> name is not an API id', () => {
+    expect(parseUnsplashPhotoId('https://images.unsplash.com/photo-1560506287-e7dab1f13a0d?q=80&w=2938')).toBeNull();
+    expect(parseUnsplashPhotoId('https://unsplash.com/photos/photo-1560506287-e7dab1f13a0d')).toBeNull();
+  });
+
+  it('is null for anything that is not a photo page', () => {
+    expect(parseUnsplashPhotoId('https://unsplash.com/@alex')).toBeNull();
+    expect(parseUnsplashPhotoId('https://unsplash.com/s/photos/beach')).toBeNull();
+    expect(parseUnsplashPhotoId('https://unsplash.com/photos/')).toBeNull();
+    expect(parseUnsplashPhotoId('https://unsplash.com/photos/short')).toBeNull();
+    expect(parseUnsplashPhotoId('https://unsplash.com/photos/not-an-idxxxxxxxxxx')).toBeNull();
+    expect(parseUnsplashPhotoId('http://unsplash.com/photos/Dwu85P9SOIk')).toBeNull();
+    expect(parseUnsplashPhotoId('https://example.com/photos/Dwu85P9SOIk')).toBeNull();
+    expect(parseUnsplashPhotoId('https://evilunsplash.com/photos/Dwu85P9SOIk')).toBeNull();
+    expect(parseUnsplashPhotoId('not a url')).toBeNull();
   });
 });

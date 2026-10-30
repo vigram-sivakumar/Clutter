@@ -42,6 +42,45 @@ export function isUnsplashImageUrl(reference: string | null | undefined): boolea
   }
 }
 
+const UNSPLASH_PAGE_HOSTS: ReadonlySet<string> = new Set(['unsplash.com', 'www.unsplash.com']);
+const PHOTO_ID_LENGTH = 11;
+const PHOTO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
+
+/**
+ * The API photo id of an Unsplash photo *page* link (`unsplash.com/photos/<title-words>-<id>` or
+ * `unsplash.com/photos/<id>`), or null for anything else — an `images.unsplash.com` address included: its
+ * `photo-<number>-<hash>` name is a CDN file name, not an id the API knows (it answers 404), so a bare image
+ * address cannot be traced back to its photographer. The id is the last 11 characters, which may themselves
+ * contain `-`, so the slug is cut by length, not at the last hyphen.
+ */
+export function parseUnsplashPhotoId(link: string): string | null {
+  let url: URL;
+
+  try {
+    url = new URL(link.trim());
+  } catch {
+    return null;
+  }
+
+  if (url.protocol !== 'https:' || !UNSPLASH_PAGE_HOSTS.has(url.hostname)) {
+    return null;
+  }
+
+  const [section, slug] = url.pathname.split('/').filter(Boolean);
+
+  if (section !== 'photos' || !slug) {
+    return null;
+  }
+
+  if (slug.length === PHOTO_ID_LENGTH) {
+    return PHOTO_ID_PATTERN.test(slug) ? slug : null;
+  }
+
+  const id = slug.slice(-PHOTO_ID_LENGTH);
+
+  return slug[slug.length - PHOTO_ID_LENGTH - 1] === '-' && PHOTO_ID_PATTERN.test(id) ? id : null;
+}
+
 /** What to show for a cover: the full credit, Unsplash alone (legacy cover), or nothing. */
 export type CoverAttribution =
   | { readonly kind: 'credit'; readonly name: string; readonly profileUrl: string }

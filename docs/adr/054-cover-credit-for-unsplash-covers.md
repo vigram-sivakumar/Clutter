@@ -38,7 +38,8 @@ The credit describes *the image in `cover`*. Every operation that sets `cover` s
 | Operation | `coverCredit` |
 |---|---|
 | Pick an Unsplash photo | `{ name: user.name, url: user.links.html }` |
-| Pick a link, an upload, or a vault asset | cleared (`null`) |
+| Paste an Unsplash *photo page* link (`unsplash.com/photos/<title>-<id>`) in the Link tab | looked up once through the API (`GET /photos/:id`, no scraping) and treated as a pick: `urls.regular` becomes the cover, with `{ name, url, downloadLocation }`, and the download is reported. A lookup that fails sets nothing and says so |
+| Pick any other link (an image address, including an `images.unsplash.com` one), an upload, or a vault asset | cleared (`null`) — an image address cannot be traced to its photographer: its `photo-<number>-<hash>` name is a CDN file name the API answers 404 for, and the file carries no credit metadata |
 | Pick an existing *remote Unsplash* asset (Assets tab, "set as cover") | the credit of a page/folder already holding that exact URL, else cleared |
 | Remove the cover | cleared |
 | Hide the cover | kept (a hidden cover is shown as none; re-showing it must still be credited) |

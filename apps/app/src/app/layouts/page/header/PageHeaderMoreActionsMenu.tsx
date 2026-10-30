@@ -372,7 +372,7 @@ export function PageHeaderMoreActionsMenu({
               // Every source closes the menu, but only once the cover has actually been applied (applyCover).
               // Unlike the page cover's own picker, which stays open on an Unsplash pick so the user can keep
               // browsing, this menu is a one-shot way to give a page its first cover.
-              onLinkSubmit={(url) => applyCover(() => onSetCoverImage(url))}
+              onLinkSubmit={(url, credit) => applyCover(() => onSetCoverImage(url, credit))}
               onUploadSubmit={(sourcePath) => applyCover(() => onSetCoverImageFromUpload?.(sourcePath))}
               onAssetSelect={(cover) => applyCover(() => onSetCoverImage(cover))}
               onUnsplashSelect={(url, credit) => applyCover(() => onSetCoverImage(url, credit))}
