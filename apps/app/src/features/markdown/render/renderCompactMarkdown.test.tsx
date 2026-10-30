@@ -26,17 +26,6 @@ describe('renderCompactMarkdown', () => {
     expect(strong).toHaveTextContent('Ship it');
   });
 
-  it('renders <u>…</u> as an underlined <u> element, without the tags as text', () => {
-    const { container } = render(<>{renderCompactMarkdown('This is <u>underlined</u> text')}</>);
-    expect(container.querySelector('u')).toHaveTextContent('underlined');
-    expect(container).toHaveTextContent('This is underlined text');
-  });
-
-  it('keeps bold inside an underline', () => {
-    const { container } = render(<>{renderCompactMarkdown('<u>a **b** c</u>')}</>);
-    expect(container.querySelector('u strong')).toHaveTextContent('b');
-  });
-
   it('renders italic text as an <em> element', () => {
     const { container } = render(<>{renderCompactMarkdown('*Ship it*')}</>);
     const em = container.querySelector('em');

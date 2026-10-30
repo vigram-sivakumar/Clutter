@@ -309,12 +309,6 @@ function renderCompactSpan(span: CompactSpan, resolvers: CompactMarkdownResolver
           {renderCompactSpans(span.children, resolvers)}
         </mark>
       );
-    case 'underline':
-      return (
-        <u key={key} className={strikeClass(undefined, struck)}>
-          {renderCompactSpans(span.children, resolvers)}
-        </u>
-      );
     case 'code':
       return (
         <code key={key} className={strikeClass('compact-markdown-code', struck)}>

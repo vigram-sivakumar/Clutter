@@ -28,7 +28,7 @@ import { scanWikiLink } from '../../../core/vault/ingest/grammar/wikiLinkScanner
  * nothing to recurse into by construction, unlike the other four.
  */
 export interface StyledSpan {
-  readonly kind: 'bold' | 'italic' | 'strikethrough' | 'highlight' | 'underline';
+  readonly kind: 'bold' | 'italic' | 'strikethrough' | 'highlight';
   readonly children: readonly InlineSpan[];
 }
 
@@ -68,7 +68,6 @@ export const STYLED_CONTAINER_NODES: Readonly<Record<string, { kind: StyledSpan[
   StrongEmphasis: { kind: 'bold', markName: 'EmphasisMark' },
   Strikethrough: { kind: 'strikethrough', markName: 'StrikethroughMark' },
   Highlight: { kind: 'highlight', markName: 'HighlightMark' },
-  Underline: { kind: 'underline', markName: 'UnderlineMark' },
 };
 
 export function markedInnerText(node: SyntaxNode, text: string, markName: string): string {
@@ -257,7 +256,6 @@ const STRUCTURAL_MARKER_NODE_NAMES: ReadonlySet<string> = new Set([
   'EmphasisMark',
   'StrikethroughMark',
   'HighlightMark',
-  'UnderlineMark',
 ]);
 
 /**

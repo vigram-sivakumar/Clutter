@@ -248,7 +248,6 @@ const STRIKETHROUGH_PROTECTED_NODE_NAMES: ReadonlySet<string> = new Set([
   'Emphasis',
   'StrongEmphasis',
   'Highlight',
-  'Underline',
 ]);
 
 /**
@@ -518,7 +517,6 @@ const INLINE_CONTENT_CLASS_BY_NODE_NAME: ReadonlyMap<string, string> = new Map([
   ['StrongEmphasis', 'tok-strong'],
   ['Strikethrough', 'tok-strike'],
   ['Highlight', 'tok-highlight'],
-  ['Underline', 'tok-underline'],
   ['InlineCode', 'tok-code'],
   ['Link', 'tok-link'],
   ['Autolink', 'tok-link'],
@@ -713,10 +711,6 @@ const MARKER_CONSTRUCTS: ReadonlyMap<
   [
     'Highlight',
     { markNodeName: 'HighlightMark', markerClass: 'cm-highlight-marker' },
-  ],
-  [
-    'Underline',
-    { markNodeName: 'UnderlineMark', markerClass: 'cm-underline-marker' },
   ],
   ['InlineCode', { markNodeName: 'CodeMark', markerClass: 'cm-code-marker' }],
   ['Link', { markNodeName: 'LinkMark', markerClass: 'cm-link-marker' }],
@@ -1081,14 +1075,6 @@ export function createInlineLivePreviewParticipants(
         'HighlightMark',
         'tok-highlight',
         'cm-highlight-marker'
-      ),
-    ],
-    [
-      'Underline',
-      delimitedInlineRenderer(
-        'UnderlineMark',
-        'tok-underline',
-        'cm-underline-marker'
       ),
     ],
     [
