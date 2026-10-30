@@ -174,7 +174,7 @@ describe('ImagePickerLink — Unsplash photo page links (resolved through the AP
 
     await vi.waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     expect(getPhotoMock).toHaveBeenCalledWith('Dwu85P9SOIk');
-    expect(onSubmit).toHaveBeenCalledWith('https://images.unsplash.com/r.jpg?w=3200', {
+    expect(onSubmit).toHaveBeenCalledWith('https://images.unsplash.com/r.jpg?w=4800', {
       name: 'Alex Doe',
       url: 'https://unsplash.com/@alex',
       downloadLocation: photo.links.downloadLocation,
@@ -213,16 +213,16 @@ describe('ImagePickerLink — Unsplash photo page links (resolved through the AP
     fireEvent.load(created[0]!);
 
     expect(getPhotoMock).not.toHaveBeenCalled();
-    expect(onSubmit).toHaveBeenCalledWith('https://images.unsplash.com/photo-1560506287-e7dab1f13a0d?q=80&w=3200');
+    expect(onSubmit).toHaveBeenCalledWith('https://images.unsplash.com/photo-1560506287-e7dab1f13a0d?q=80&w=4800');
   });
 
   it('keeps a pasted Unsplash address that already asks for a larger width', () => {
     const onSubmit = vi.fn();
     render(<ImagePickerLink onSubmit={onSubmit} />);
 
-    fillAndSubmit('https://images.unsplash.com/photo-1?q=80&w=4800');
+    fillAndSubmit('https://images.unsplash.com/photo-1?q=80&w=6000');
     fireEvent.load(created[0]!);
 
-    expect(onSubmit).toHaveBeenCalledWith('https://images.unsplash.com/photo-1?q=80&w=4800');
+    expect(onSubmit).toHaveBeenCalledWith('https://images.unsplash.com/photo-1?q=80&w=6000');
   });
 });

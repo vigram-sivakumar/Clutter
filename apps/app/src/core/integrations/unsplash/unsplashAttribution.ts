@@ -16,12 +16,11 @@ const UNSPLASH_IMAGE_HOSTS: ReadonlySet<string> = new Set([
 
 /**
  * The width a saved cover is requested at. A cover is drawn large — a tall side strip or the full content width, at up
- * to 2× pixel density — so the API's `regular` size (`w=1080`) is stretched and looks soft. 3200 covers a 3:2 photo
- * filling the side strip at 2× (about 2950 px) and keeps the download moderate; the cost depends on the photo
- * (`q=80` is unchanged): about 300 KB for a simple one, several times that for a detailed one. A larger value (4800
- * was tried) is sharper on big windows and costs about twice as much — change it here.
+ * to 2× pixel density — so the API's `regular` size (`w=1080`) is stretched and looks soft. 4800 stays sharp on big
+ * windows; the cost depends on the photo (`q=80` is unchanged): about 650 KB for a simple one, over 5 MB for a detailed
+ * one (capped by the photo's own width). 3200 was tried and is about half the download — change it here.
  */
-export const UNSPLASH_COVER_WIDTH = 3200;
+export const UNSPLASH_COVER_WIDTH = 4800;
 
 /**
  * The picture address to save as a cover for an Unsplash image address (the `urls.regular` the API returned, or one

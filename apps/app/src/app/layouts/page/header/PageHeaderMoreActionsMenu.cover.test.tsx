@@ -95,7 +95,7 @@ describe('PageHeaderMoreActionsMenu — the cover picker closes once the cover i
     await settle();
 
     expect(onSetCoverImage).toHaveBeenCalledTimes(1);
-    expect(onSetCoverImage).toHaveBeenCalledWith('https://images.unsplash.com/photo-1?ixid=abc&w=3200', CREDIT);
+    expect(onSetCoverImage).toHaveBeenCalledWith('https://images.unsplash.com/photo-1?ixid=abc&w=4800', CREDIT);
     expect(pickerOpen()).toBe(false);
     expect(screen.getByRole('button', { name: 'More actions' })).toHaveAttribute('aria-expanded', 'false');
   });
