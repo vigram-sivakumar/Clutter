@@ -7,6 +7,7 @@ import type { VaultQuery } from '../../vault/queries/VaultQuery';
 import type { EffectivePage, EffectivePageState } from '../page/EffectivePageState';
 import { ASSETS_DIRECTORY_NAME } from '../../vault/initialize/ensureAssetsDirectory';
 import { moveZoneOfPath, type MovePickerZone, type MoveZone } from '../../vault/initialize/ReservedResources';
+import { isRemoteAssetsInCatalogEnabled } from '../../featureFlags';
 import { AssetCatalogBuilder } from './AssetCatalogBuilder';
 
 /**
@@ -517,7 +518,7 @@ export class MembershipSelector {
    * it exists. Derived on every call from Vault; nothing is stored.
    */
   public getAllAssets(): Asset[] {
-    return this.assetCatalogBuilder.build({
+    const assets = this.assetCatalogBuilder.build({
       root: this.vault.root,
       resources: this.getAllVisibleResources(),
       pages: this.getAllVisiblePages(),
@@ -525,6 +526,11 @@ export class MembershipSelector {
         (folder) => this.isVisibleFolder(folder) && !this.isEffectivelyArchived(folder.id)
       ),
     });
+
+    // URL assets are built but not listed while the flag is off.
+    return isRemoteAssetsInCatalogEnabled()
+      ? assets
+      : assets.filter((asset) => asset.source === 'local');
   }
 
   /**

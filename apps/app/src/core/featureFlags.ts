@@ -22,6 +22,13 @@ export const featureFlags = {
    */
   allowMovingAssetsSetting: false,
   /**
+   * URL (remote) assets anywhere the Assets catalog is read — the Assets collection pages and the cover picker's Asset
+   * tab. Off: `MembershipSelector.getAllAssets` returns vault files only. Only the listing is behind this flag —
+   * `AssetCatalogBuilder` still knows how to build remote assets, and the remote-asset rows, card previews, menu and
+   * image overlay are untouched, so turning it on restores everything with nothing else to wire.
+   */
+  remoteAssetsInCatalog: false,
+  /**
    * Atomic vault saves (ADR-063): every text write into a vault replaces the file whole through the native writer
    * instead of the fs plugin's truncating in-place write. **On in every build, development and packaged
    * alike: it is the only saving system.** There is no build switch to turn it off and no fallback when an atomic save fails
@@ -43,4 +50,8 @@ export function isAtomicWritesEnabled(): boolean {
 
 export function isAllowMovingAssetsSettingEnabled(): boolean {
   return featureFlags.allowMovingAssetsSetting;
+}
+
+export function isRemoteAssetsInCatalogEnabled(): boolean {
+  return featureFlags.remoteAssetsInCatalog;
 }

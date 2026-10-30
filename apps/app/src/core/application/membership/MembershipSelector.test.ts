@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { featureFlags } from '../../featureFlags';
 import { MembershipSelector } from './MembershipSelector';
 import { EffectivePageState } from '../page/EffectivePageState';
 import { PageOperations } from '../page/PageOperations';
@@ -1063,6 +1064,14 @@ describe('MembershipSelector.getArchivedResources', () => {
 });
 
 describe('MembershipSelector.getAllAssets (ADR-039)', () => {
+  // These cases cover the URL assets the catalog builds; the flag that hides them from the listing is tested below.
+  beforeEach(() => {
+    featureFlags.remoteAssetsInCatalog = true;
+  });
+  afterEach(() => {
+    featureFlags.remoteAssetsInCatalog = false;
+  });
+
   const remote = 'https://example.com/mountain.jpg';
   const pageWith = (overrides: Partial<Page>): Page =>
     makePage({ id: 'page-1', name: 'Trip', ...overrides });
@@ -1082,6 +1091,15 @@ describe('MembershipSelector.getAllAssets (ADR-039)', () => {
       [`remote:${remote}`, 'remote'],
     ]);
     expect(assets[0]!.references.map((reference) => reference.usage)).toEqual(['embed', 'cover']);
+  });
+
+  it('lists only the vault files while remoteAssetsInCatalog is off', () => {
+    featureFlags.remoteAssetsInCatalog = false;
+    const hero = makeResource({ id: 'hero', name: 'hero.jpg', path: `${ROOT}/Assets/hero.jpg` });
+    const trip = pageWith({ source: { markdown: `![](Assets/hero.jpg)\n\n![](${remote})` } });
+    const { membershipSelector } = setup([], [trip], [hero]);
+
+    expect(membershipSelector.getAllAssets().map((asset) => asset.id)).toEqual(['hero']);
   });
 
   it('keeps listing a local file nothing references', () => {
