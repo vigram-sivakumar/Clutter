@@ -14,6 +14,32 @@ const UNSPLASH_IMAGE_HOSTS: ReadonlySet<string> = new Set([
   'plus.unsplash.com',
 ]);
 
+/**
+ * The width a saved cover is requested at. A cover is drawn large — a tall side strip or the full content width, at up
+ * to 2× pixel density — so the API's `regular` size (`w=1080`) is stretched and looks soft; 4800 keeps it sharp. The cost
+ * depends on the photo (`q=80` is unchanged): about 650 KB for a simple one, over 5 MB for a detailed portrait (capped by
+ * the photo's own width, 4000 there).
+ */
+export const UNSPLASH_COVER_WIDTH = 4800;
+
+/**
+ * The picture address to save as a cover for a photo whose API `urls.regular` is `regularUrl`: the same URL with only
+ * its width raised. Unsplash's images are served by imgix and the API documents `w` (with `q`, `fit`, …) as a
+ * parameter to adjust on the URLs it returns; the host, path, `ixid` and every other parameter are kept as returned.
+ * Anything that is not an Unsplash image address is returned unchanged.
+ */
+export function unsplashCoverUrl(regularUrl: string): string {
+  if (!isUnsplashImageUrl(regularUrl)) {
+    return regularUrl;
+  }
+
+  const url = new URL(regularUrl);
+
+  url.searchParams.set('w', String(UNSPLASH_COVER_WIDTH));
+
+  return url.toString();
+}
+
 /** Adds the required `utm_source` / `utm_medium` to an Unsplash link, keeping everything else. */
 export function withUnsplashReferral(link: string): string {
   const url = new URL(link);

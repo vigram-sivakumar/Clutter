@@ -3,7 +3,7 @@ import { Input } from '@components/input/Input';
 import { Button } from '@components/button/Button';
 import type { CoverCredit } from '@core/vault/models/PageMetadata';
 import { getPhoto, trackPhotoDownload } from '@core/integrations/unsplash/UnsplashApi';
-import { parseUnsplashPhotoId } from '@core/integrations/unsplash/unsplashAttribution';
+import { parseUnsplashPhotoId, unsplashCoverUrl } from '@core/integrations/unsplash/unsplashAttribution';
 import { parseWebUrl } from '@shared/helpers/parseWebUrl';
 import './ImagePicker.Link.css';
 
@@ -47,7 +47,7 @@ export function ImagePickerLink({ onSubmit }: ImagePickerLinkProps) {
       }
       pendingLookupRef.current = null;
       setStatus('idle');
-      onSubmit(photo.urls.regular, {
+      onSubmit(unsplashCoverUrl(photo.urls.regular), {
         name: photo.user.name,
         url: photo.user.links.html,
         downloadLocation: photo.links.downloadLocation,

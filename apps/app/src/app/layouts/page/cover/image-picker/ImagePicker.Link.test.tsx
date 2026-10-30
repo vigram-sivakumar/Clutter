@@ -174,7 +174,7 @@ describe('ImagePickerLink — Unsplash photo page links (resolved through the AP
 
     await vi.waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     expect(getPhotoMock).toHaveBeenCalledWith('Dwu85P9SOIk');
-    expect(onSubmit).toHaveBeenCalledWith('https://images.unsplash.com/r.jpg?w=1080', {
+    expect(onSubmit).toHaveBeenCalledWith('https://images.unsplash.com/r.jpg?w=4800', {
       name: 'Alex Doe',
       url: 'https://unsplash.com/@alex',
       downloadLocation: photo.links.downloadLocation,

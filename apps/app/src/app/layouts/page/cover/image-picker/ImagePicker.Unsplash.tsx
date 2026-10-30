@@ -8,6 +8,7 @@ import {
   type UnsplashOrientation,
 } from '@core/integrations/unsplash/UnsplashApi';
 import type { UnsplashPhoto } from '@core/integrations/unsplash/UnsplashPhoto';
+import { unsplashCoverUrl } from '@core/integrations/unsplash/unsplashAttribution';
 import { openExternalUrl } from '@shared/helpers/openExternalUrl';
 import { AppIcon } from '@shared/icon';
 import './ImagePicker.Unsplash.css';
@@ -103,7 +104,7 @@ export function ImagePickerUnsplash({ onSelect, orientation }: ImagePickerUnspla
   };
 
   const handleSelect = (photo: UnsplashPhoto) => {
-    onSelect(photo.urls.regular, {
+    onSelect(unsplashCoverUrl(photo.urls.regular), {
       name: photo.user.name,
       url: photo.user.links.html,
       downloadLocation: photo.links.downloadLocation,

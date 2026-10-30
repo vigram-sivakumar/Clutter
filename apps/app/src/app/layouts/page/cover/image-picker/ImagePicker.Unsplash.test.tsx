@@ -59,7 +59,7 @@ describe('ImagePickerUnsplash', () => {
     );
   });
 
-  it('selecting a photo sets the regular URL unchanged and tracks download_location', async () => {
+  it('selecting a photo sets its URL at the cover width, otherwise as returned, and tracks download_location', async () => {
     const onSelect = vi.fn();
     const { container } = render(<ImagePickerUnsplash onSelect={onSelect} />);
     await waitFor(() => expect(container.querySelector('img')).not.toBeNull());
@@ -67,7 +67,7 @@ describe('ImagePickerUnsplash', () => {
     expect(trackPhotoDownload).not.toHaveBeenCalled();
     fireEvent.click(container.querySelector('img')!.closest('button')!);
 
-    expect(onSelect).toHaveBeenCalledWith(photo.urls.regular, {
+    expect(onSelect).toHaveBeenCalledWith('https://images.unsplash.com/photo-1?ixid=abc&w=4800', {
       name: 'Alex Doe',
       url: 'https://unsplash.com/@alex',
       downloadLocation: 'https://api.unsplash.com/photos/p1/download?ixid=abc',
