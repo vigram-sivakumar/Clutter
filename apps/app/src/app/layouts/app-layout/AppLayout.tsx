@@ -26,8 +26,10 @@ import { TauriDragStrip } from '@components/tauri-drag-strip/TauriDragStrip';
 import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
 import { buildMoveDestinationItems } from '@features/notes/helpers/buildMoveDestinationItems';
 import { createFolderInZone } from '@features/notes/helpers/createFolderInZone';
+import { copyImageWithFeedback } from '@shared/helpers/copyImageToClipboard';
 import { copyWithFeedback } from '@shared/helpers/copyWithFeedback';
 import { downloadRemoteImage } from '@shared/helpers/downloadRemoteImage';
+import { loadCoverImageBytes } from '../coverImageBytes';
 import { downloadResource } from '@shared/helpers/downloadResource';
 import { openExternalUrl } from '@shared/helpers/openExternalUrl';
 import { createResourceLocationActions } from '@app/layouts/resourceLocationActions';
@@ -449,6 +451,17 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
   const coverImageActions: ImageFileActions = {
     remoteImage: remoteImageActions,
     saveToVault: startSaveToVault,
+    copyImage: (reference) =>
+      void copyImageWithFeedback(
+        () =>
+          loadCoverImageBytes(reference, {
+            root: application.vault.root,
+            loadableUrl: (path) => application.resolveResourceImageUrl(path),
+          }),
+        'Image copied',
+        toast
+      ),
+    copyAddress: (reference) => void copyWithFeedback(reference, 'Image address copied', toast),
     download: (reference) => {
       if (isRemoteImageReference(reference)) {
         downloadRemote(reference);

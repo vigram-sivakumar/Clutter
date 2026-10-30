@@ -13,6 +13,10 @@ export interface ImageFileActions {
   readonly saveToVault: (url: string) => void;
   /** Saves the image file anywhere the user picks. */
   readonly download: (reference: string) => void;
+  /** Puts the image itself (not its address) on the clipboard, and says whether it worked. */
+  readonly copyImage: (reference: string) => void;
+  /** Copies the image's address as stored — an http(s) URL, or the vault-relative path — and says so. */
+  readonly copyAddress: (reference: string) => void;
   /** The image overlay's remote-image menu actions — the Assets collection's right-click menu runs the same ones. */
   readonly remoteImage?: RemoteImageActions;
 }

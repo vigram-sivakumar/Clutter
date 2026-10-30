@@ -18,7 +18,7 @@ describe('ImageFileActionsContext', () => {
   });
 
   it('hands the provided actions to a consumer', () => {
-    const actions = { saveToVault: vi.fn(), download: vi.fn() };
+    const actions = { saveToVault: vi.fn(), download: vi.fn(), copyImage: vi.fn(), copyAddress: vi.fn() };
     const wrapper = ({ children }: { children: ReactNode }) => (
       <ImageFileActionsProvider value={actions}>{children}</ImageFileActionsProvider>
     );

@@ -145,6 +145,75 @@ describe('PageCover — More actions menu', () => {
   });
 });
 
+describe('PageCover — Copy image and Copy image address', () => {
+  it('lists neither without the callbacks, leaving the menu as it was', () => {
+    renderCover();
+
+    expect(screen.queryByText('Copy image')).not.toBeInTheDocument();
+    expect(screen.queryByText('Copy image address')).not.toBeInTheDocument();
+  });
+
+  it('places them after Reposition and before Download, Hide and Remove, in the same group as Download', () => {
+    renderCover({
+      onSaveToVault: vi.fn(),
+      onDownload: vi.fn(),
+      onCopyImage: vi.fn(),
+      onCopyImageAddress: vi.fn(),
+      onSetLayout: vi.fn(),
+      onSavePosition: vi.fn(),
+    });
+
+    const items = Array.from(document.querySelectorAll('.menu > *')).map((el) =>
+      el.getAttribute('role') === 'separator' ? '---' : (el.textContent ?? '')
+    );
+    expect(items).toEqual([
+      'Change cover image',
+      'Save to vault',
+      '---',
+      'Position',
+      'Right',
+      'Top',
+      'Reposition',
+      '---',
+      'Copy image',
+      'Copy image address',
+      'Download',
+      '---',
+      'Hide',
+      'Remove',
+    ]);
+  });
+
+  it('Copy image runs its callback and closes the menu', () => {
+    const onCopyImage = vi.fn();
+    renderCover({ onCopyImage });
+
+    fireEvent.click(screen.getByText('Copy image'));
+
+    expect(onCopyImage).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Copy image')).not.toBeInTheDocument();
+  });
+
+  it('Copy image address runs its callback and closes the menu', () => {
+    const onCopyImageAddress = vi.fn();
+    renderCover({ onCopyImageAddress });
+
+    fireEvent.click(screen.getByText('Copy image address'));
+
+    expect(onCopyImageAddress).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Copy image address')).not.toBeInTheDocument();
+  });
+
+  it('leaves Download, Hide and Remove working beside them', () => {
+    const onDownload = vi.fn();
+    renderCover({ onDownload, onCopyImage: vi.fn(), onCopyImageAddress: vi.fn() });
+
+    fireEvent.click(screen.getByText('Download'));
+
+    expect(onDownload).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('PageCover — file actions (Save to vault, Download)', () => {
   it('lists neither without the callbacks, leaving the menu as it was', () => {
     renderCover();

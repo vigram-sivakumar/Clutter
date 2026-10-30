@@ -130,6 +130,10 @@ type PageCoverProps = {
   editable?: boolean;
   /** Saves the cover image file anywhere the user picks ("Download"). */
   onDownload?: () => void;
+  /** Puts the cover image itself on the clipboard ("Copy image"). */
+  onCopyImage?: () => void;
+  /** Copies the cover's address as stored — its URL, or its vault-relative path ("Copy image address"). */
+  onCopyImageAddress?: () => void;
 };
 
 type MenuView = 'menu' | 'picker';
@@ -167,6 +171,8 @@ export function PageCover({
   onSaveToVault,
   editable = true,
   onDownload,
+  onCopyImage,
+  onCopyImageAddress,
 }: PageCoverProps) {
   const [open, setOpen] = useState(false);
   const attribution = coverAttributionFor(src, coverCredit);
@@ -601,22 +607,48 @@ export function PageCover({
                 )}
               </>
             )}
-            {onDownload && (
+            {(onCopyImage || onCopyImageAddress || onDownload) && (
               <>
                 <div className="menu__divider" role="separator" />
-                <MenuItem
-                  leading={<AppIcon icon="download" />}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setOpen(false);
-                    onDownload();
-                  }}
-                >
-                  Download
-                </MenuItem>
+                {onCopyImage && (
+                  <MenuItem
+                    leading={<AppIcon icon="copy" />}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setOpen(false);
+                      onCopyImage();
+                    }}
+                  >
+                    Copy image
+                  </MenuItem>
+                )}
+                {onCopyImageAddress && (
+                  <MenuItem
+                    leading={<AppIcon icon="link" />}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setOpen(false);
+                      onCopyImageAddress();
+                    }}
+                  >
+                    Copy image address
+                  </MenuItem>
+                )}
+                {onDownload && (
+                  <MenuItem
+                    leading={<AppIcon icon="download" />}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setOpen(false);
+                      onDownload();
+                    }}
+                  >
+                    Download
+                  </MenuItem>
+                )}
               </>
             )}
-            {(onSaveToVault || onSetLayout || onDownload) && (
+            {(onSaveToVault || onSetLayout || onCopyImage || onCopyImageAddress || onDownload) && (
               <div className="menu__divider" role="separator" />
             )}
             <MenuItem

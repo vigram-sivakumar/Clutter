@@ -405,6 +405,8 @@ export function PageHost({
     }
     return {
       onDownloadCoverImage: () => coverImageActions.download(reference),
+      onCopyCoverImage: () => coverImageActions.copyImage(reference),
+      onCopyCoverImageAddress: () => coverImageActions.copyAddress(reference),
       onSaveCoverImageToVault:
         isRemoteImageReference(reference)
           ? () => coverImageActions.saveToVault(reference)

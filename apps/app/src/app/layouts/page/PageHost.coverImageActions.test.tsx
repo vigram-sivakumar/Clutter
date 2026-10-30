@@ -5,6 +5,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppLayout } from '../app-layout/AppLayout';
+import { ToastProvider } from '@components/toast/ToastProvider';
 import { Application } from '@core/application/Application';
 import { Vault } from '@core/vault/models/Vault';
 import { VaultProjectionBuilder } from '@core/vault/knowledge/VaultProjectionBuilder';
@@ -19,9 +20,10 @@ import { DailyNoteService } from '@core/application/daily-notes/DailyNoteService
 import type { Page } from '@core/vault/models/Page';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 
-const { downloadRemoteImage, downloadResource } = vi.hoisted(() => ({
+const { downloadRemoteImage, downloadResource, fetchRemoteAsset } = vi.hoisted(() => ({
   downloadRemoteImage: vi.fn(async () => {}),
   downloadResource: vi.fn(async () => {}),
+  fetchRemoteAsset: vi.fn(),
 }));
 
 // A vault path becomes a loadable URL through Tauri's convertFileSrc, which jsdom has no runtime for.
@@ -31,6 +33,7 @@ vi.mock('@tauri-apps/api/core', async (importOriginal) => ({
 }));
 vi.mock('@shared/helpers/downloadRemoteImage', () => ({ downloadRemoteImage }));
 vi.mock('@shared/helpers/downloadResource', () => ({ downloadResource }));
+vi.mock('@core/vault/providers/fetchRemoteAsset', () => ({ fetchRemoteAsset }));
 
 /**
  * The cover menu's file actions, end to end through the real AppLayout composition (PageHost ->
@@ -142,7 +145,11 @@ async function openCoverMenu(
   const application = makeApplication([page], isUrl ? [] : [vaultImage(cover)]);
   await application.pageOperations.open(page.id);
 
-  render(<AppLayout application={application} />);
+  render(
+    <ToastProvider>
+      <AppLayout application={application} />
+    </ToastProvider>
+  );
   await flush();
 
   const trigger = document.querySelector<HTMLButtonElement>('.page__cover__menu');
@@ -249,6 +256,113 @@ describe('PageHost: cover image file actions', () => {
 
     expect(downloadResource).toHaveBeenCalledWith('/vault/Assets/photos/mountain.png', 'mountain.png');
     expect(downloadRemoteImage).not.toHaveBeenCalled();
+  });
+});
+
+describe('PageHost: cover image — Copy image address and Copy image', () => {
+  const PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+
+  class FakeClipboardItem {
+    constructor(readonly items: Record<string, Promise<Blob> | Blob>) {}
+  }
+
+  let writeText: ReturnType<typeof vi.fn>;
+  let write: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    writeText = vi.fn(async () => {});
+    write = vi.fn(async (items: FakeClipboardItem[]) => {
+      for (const item of items) await Promise.all(Object.values(item.items));
+    });
+    vi.stubGlobal('ClipboardItem', FakeClipboardItem);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText, write }, configurable: true });
+    fetchRemoteAsset.mockReset();
+  });
+
+  it('both are offered, after Position and before Download', async () => {
+    await openCoverMenu('https://example.com/photos/mountain.png');
+
+    const labels = screen.getAllByText(/^(Copy image|Copy image address|Download)$/).map((el) => el.textContent);
+    expect(labels).toEqual(['Copy image', 'Copy image address', 'Download']);
+  });
+
+  it('Copy image address on a remote cover copies its URL exactly, query parameters included', async () => {
+    const url = 'https://images.unsplash.com/photo-a?crop=entropy&ixid=abc%3D&q=80&w=4800';
+    await openCoverMenu(url);
+
+    fireEvent.click(screen.getByText('Copy image address'));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(url));
+    expect(await screen.findByText('Image address copied')).toBeInTheDocument();
+  });
+
+  it('Copy image address on a vault cover copies its vault-relative path — not a file:// URL or an absolute path', async () => {
+    await openCoverMenu('Assets/photos/mountain.png');
+
+    fireEvent.click(screen.getByText('Copy image address'));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('Assets/photos/mountain.png'));
+    expect(writeText).toHaveBeenCalledTimes(1);
+  });
+
+  it('Copy image on a remote cover fetches it and puts image/png data — not text — on the clipboard', async () => {
+    const url = 'https://example.com/photos/mountain.png';
+    fetchRemoteAsset.mockResolvedValue({ bytes: PNG, contentType: 'image/png' });
+    await openCoverMenu(url);
+
+    fireEvent.click(screen.getByText('Copy image'));
+
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+    expect(fetchRemoteAsset).toHaveBeenCalledWith(url);
+    const [items] = write.mock.calls[0] as [FakeClipboardItem[]];
+    expect(Object.keys(items[0]!.items)).toEqual(['image/png']);
+    expect(writeText).not.toHaveBeenCalled();
+    expect(await screen.findByText('Image copied')).toBeInTheDocument();
+  });
+
+  it('Copy image on a vault cover reads the vault file and copies it as an image', async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, arrayBuffer: async () => PNG.buffer.slice(0) }));
+    vi.stubGlobal('fetch', fetchMock);
+    await openCoverMenu('Assets/mountain.png');
+
+    fireEvent.click(screen.getByText('Copy image'));
+
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledWith('asset://localhost/vault/Assets/mountain.png');
+    expect(await screen.findByText('Image copied')).toBeInTheDocument();
+  });
+
+  it('a failed download shows an error toast, never a success, and leaves the cover as it was', async () => {
+    fetchRemoteAsset.mockRejectedValue(new Error('Could not download (404).'));
+    const application = await openCoverMenu('https://example.com/photos/gone.png');
+
+    fireEvent.click(screen.getByText('Copy image'));
+
+    expect(await screen.findByText('Couldn’t copy the image')).toBeInTheDocument();
+    expect(screen.queryByText('Image copied')).not.toBeInTheDocument();
+    expect(write.mock.calls.length).toBeLessThanOrEqual(1);
+    expect(application.vault.getPage('page-1')?.metadata.cover).toBe('https://example.com/photos/gone.png');
+  });
+
+  it('an image the clipboard cannot take (SVG) is reported as such', async () => {
+    fetchRemoteAsset.mockResolvedValue({ bytes: new TextEncoder().encode('<svg></svg>'), contentType: 'image/svg+xml' });
+    await openCoverMenu('https://example.com/logo.svg');
+
+    fireEvent.click(screen.getByText('Copy image'));
+
+    expect(await screen.findByText('This kind of image can’t be copied.')).toBeInTheDocument();
+    expect(screen.queryByText('Image copied')).not.toBeInTheDocument();
+  });
+
+  it('a refused clipboard write is reported, with no success', async () => {
+    fetchRemoteAsset.mockResolvedValue({ bytes: PNG, contentType: 'image/png' });
+    write.mockRejectedValueOnce(new Error('NotAllowedError'));
+    await openCoverMenu('https://example.com/photos/mountain.png');
+
+    fireEvent.click(screen.getByText('Copy image'));
+
+    expect(await screen.findByText('Couldn’t copy the image')).toBeInTheDocument();
+    expect(screen.queryByText('Image copied')).not.toBeInTheDocument();
   });
 });
 

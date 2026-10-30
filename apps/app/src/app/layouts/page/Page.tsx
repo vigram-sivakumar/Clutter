@@ -137,6 +137,10 @@ type PageProps = {
   onSaveCoverImageToVault?(): void;
   /** Forwarded to PageCover's "Download" menu item. */
   onDownloadCoverImage?(): void;
+  /** Forwarded to PageCover's "Copy image" menu item. */
+  onCopyCoverImage?(): void;
+  /** Forwarded to PageCover's "Copy image address" menu item. */
+  onCopyCoverImageAddress?(): void;
   /** Forwarded to PageTitleSection's More-actions "Show cover image" item — reveals an existing hidden cover without opening the picker. */
   onShowCoverImage?(): void;
   /**
@@ -288,6 +292,8 @@ export function Page({
   onHideCoverImage,
   onSaveCoverImageToVault,
   onDownloadCoverImage,
+  onCopyCoverImage,
+  onCopyCoverImageAddress,
   onShowCoverImage,
   coverLayout = 'side',
   onSetCoverLayout,
@@ -363,6 +369,8 @@ export function Page({
       onHide={onHideCoverImage}
       onSaveToVault={onSaveCoverImageToVault}
       onDownload={onDownloadCoverImage}
+      onCopyImage={onCopyCoverImage}
+      onCopyImageAddress={onCopyCoverImageAddress}
       onSetCoverImage={onSetCoverImage}
       onSetCoverImageFromUpload={onSetCoverImageFromUpload}
       layout={coverLayout}
