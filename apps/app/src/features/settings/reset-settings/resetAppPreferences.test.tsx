@@ -50,6 +50,11 @@ import {
   readShowReferencesAutomatically,
   writeShowReferencesAutomatically,
 } from '@shared/helpers/showReferencesAutomaticallyPreference';
+import {
+  DEFAULT_MARKDOWN_ITALIC_FONT,
+  readMarkdownItalicFont,
+  writeMarkdownItalicFont,
+} from '@shared/helpers/markdownItalicFontPreference';
 import { DEFAULT_SHOW_TAG_EMOJIS, readShowTagEmojis, writeShowTagEmojis } from '@shared/helpers/showTagEmojisPreference';
 import {
   DEFAULT_TASK_ITEM_LIMIT_CHOICE,
@@ -108,6 +113,7 @@ function customizeEveryPreference() {
   writeShowReferencesAutomatically(false);
   writeHeaderSeparatorMode('hide');
   writeHeaderSeparatorStyle('wavy');
+  writeMarkdownItalicFont(true);
 }
 
 /** What is NOT a setting — interface layout and remembered picks — and must survive a settings reset. */
@@ -145,6 +151,7 @@ describe('resetAppPreferences', () => {
     expect(readShowReferencesAutomatically()).toBe(DEFAULT_SHOW_REFERENCES_AUTOMATICALLY);
     expect(readHeaderSeparatorMode()).toBe(DEFAULT_HEADER_SEPARATOR_MODE);
     expect(readHeaderSeparatorStyle()).toBe(DEFAULT_HEADER_SEPARATOR_STYLE);
+    expect(readMarkdownItalicFont()).toBe(DEFAULT_MARKDOWN_ITALIC_FONT);
   });
 
   it('removes the saved values rather than writing the defaults — a missing value is the default', () => {

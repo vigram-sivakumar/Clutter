@@ -8,6 +8,7 @@ import { isTauri } from '@tauri-apps/api/core';
 import { App } from './App';
 import { installResizeDiagnostics } from './devResizeDiagnostics';
 import { installNativeContextMenuPolicy } from './suppressNativeContextMenu';
+import { installMarkdownItalicFontSync } from '@shared/helpers/markdownItalicFontPreference';
 
 import '../design-system/tokens.css';
 import '../design-system/theme.css';
@@ -23,6 +24,9 @@ import '../design-system/styles/utilities.css';
 // CSS that needs to differ between the desktop app and the browser build
 // (e.g. Page.TopBar.css's native-traffic-light clearance) reads this.
 document.documentElement.dataset.runtime = isTauri() ? 'tauri' : 'web';
+
+// Reflects the Markdown italic font setting on the root element, now and on every change (tokens.css reads it).
+installMarkdownItalicFontSync();
 
 // Production draws its own context menus: no native WebView menu (Reload, Inspect Element…) anywhere.
 // Development keeps the native one, for Inspect Element.

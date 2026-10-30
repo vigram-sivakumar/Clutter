@@ -42,6 +42,17 @@ describe('SettingsSidebar', () => {
     expect(onSelect).toHaveBeenCalledWith('layout');
   });
 
+  it('lists Markdown after Layout under Editor, and reports it by id', () => {
+    const onSelect = vi.fn();
+    render(<SettingsSidebar selectedId="preferences" onSelect={onSelect} />);
+
+    expect(
+      row('Layout').compareDocumentPosition(row('Markdown')) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    fireEvent.click(screen.getByText('Markdown'));
+    expect(onSelect).toHaveBeenCalledWith('markdown');
+  });
+
   it('draws the layout icon for Layout', () => {
     render(<SettingsSidebar selectedId="preferences" onSelect={() => {}} />);
 

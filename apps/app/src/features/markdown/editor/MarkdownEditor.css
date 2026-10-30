@@ -212,7 +212,35 @@
  * selector needed, `font-style` and `font-weight` apply independently.
  */
 .cm-editor .tok-emphasis {
+  font-family: var(--font-italic);
+  font-size: calc(1em * var(--font-italic-scale));
+  -webkit-font-smoothing: var(--font-italic-smoothing);
+  font-weight: var(--font-italic-weight);
+  /* The scaled glyphs must not make the line taller: `line-height` inherits as a number (1.5), so it would scale with
+     the font and grow every line that holds italics. Zero adds nothing to the line box; the line keeps its own height. */
+  line-height: 0;
   font-style: italic;
+}
+
+/* Italics inside bold text or a heading keep that weight; the italic weight would otherwise lighten them. */
+.cm-editor .tok-strong .tok-emphasis,
+.cm-editor .tok-heading1 .tok-emphasis,
+.cm-editor .tok-heading2 .tok-emphasis,
+.cm-editor .tok-heading3 .tok-emphasis,
+.cm-editor .tok-heading4 .tok-emphasis,
+.cm-editor .tok-heading5 .tok-emphasis,
+.cm-editor .tok-heading6 .tok-emphasis {
+  font-weight: inherit;
+}
+
+/* Emphasis inside emphasis is already scaled by its parent; scaling again would compound. */
+.cm-editor .tok-emphasis .tok-emphasis {
+  font-size: 1em;
+}
+
+/* Inline code inside emphasis is not italic text: keep it the size it has everywhere else. */
+.cm-editor .tok-emphasis .tok-code {
+  font-size: calc(0.85em / var(--font-italic-scale));
 }
 
 .cm-editor .tok-strong {

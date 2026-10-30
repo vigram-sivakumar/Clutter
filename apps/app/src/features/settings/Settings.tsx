@@ -44,6 +44,7 @@ import { ShowDailyNoteEmojiSetting } from './daily-notes-setting/ShowDailyNoteEm
 import { ShowReferencesAutomaticallySetting } from './references-setting/ShowReferencesAutomaticallySetting';
 import { HeaderSeparatorSetting } from './header-separator-setting/HeaderSeparatorSetting';
 import { HeaderSeparatorStyleSetting } from './header-separator-style-setting/HeaderSeparatorStyleSetting';
+import { MarkdownItalicFontSetting } from './markdown-setting/MarkdownItalicFontSetting';
 import { ResetSettings } from './reset-settings/ResetSettings';
 import type { ResetSettingsOutcome } from './reset-settings/resetSettingsToDefaults';
 
@@ -56,6 +57,7 @@ const PAGE_TITLES: Record<FixedSettingsPageId, string> = {
   assets: 'Assets',
   templates: 'Templates',
   layout: 'Layout',
+  markdown: 'Markdown',
 };
 
 interface SettingsProps {
@@ -207,6 +209,11 @@ export function Settings({ templates, noteLocation, spaceSettings, space, onClos
               <ShowReferencesAutomaticallySetting />
             </SettingsGroup>
           </>
+        )}
+        {pageId === 'markdown' && (
+          <SettingsGroup title="Markdown">
+            <MarkdownItalicFontSetting />
+          </SettingsGroup>
         )}
         {pageId === 'daily-notes' && (
           <>

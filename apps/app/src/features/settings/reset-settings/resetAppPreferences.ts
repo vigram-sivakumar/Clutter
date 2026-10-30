@@ -12,6 +12,7 @@ import {
   DEFAULT_SHOW_REFERENCES_AUTOMATICALLY,
   writeShowReferencesAutomatically,
 } from '@shared/helpers/showReferencesAutomaticallyPreference';
+import { DEFAULT_MARKDOWN_ITALIC_FONT, writeMarkdownItalicFont } from '@shared/helpers/markdownItalicFontPreference';
 import { DEFAULT_SHOW_TAG_EMOJIS, writeShowTagEmojis } from '@shared/helpers/showTagEmojisPreference';
 import { DEFAULT_TASK_ITEM_LIMIT_CHOICE, writeTaskItemLimitChoice } from '@shared/helpers/taskItemLimitPreference';
 import { DEFAULT_DATE_FORMAT_CHOICE, writeDateFormatChoice } from '@shared/helpers/time/dateFormatPreference';
@@ -52,6 +53,8 @@ export function resetAppPreferences(): void {
   // Notes
   writeShowReferencesAutomatically(DEFAULT_SHOW_REFERENCES_AUTOMATICALLY);
   resetHeaderSeparator();
+  // Editor
+  writeMarkdownItalicFont(DEFAULT_MARKDOWN_ITALIC_FONT);
   // The old app-wide values a Space with no setting of its own would be seeded from again.
   clearLegacyAppSettings();
 }

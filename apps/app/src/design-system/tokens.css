@@ -148,9 +148,22 @@
   /* Typography */
 
   --font-sans:
-    ui-sans-serif, -apple-system, 'system-ui', 'Segoe UI Variable Display',
-    'Segoe UI', Helvetica, 'Apple Color Emoji', 'Noto Sans Arabic',
-    'Noto Sans Hebrew', Arial, sans-serif, 'Segoe UI Emoji', 'Segoe UI Symbol';
+    'Inter', ui-sans-serif, -apple-system, 'system-ui', 'Segoe UI', Helvetica,
+    Arial, sans-serif;
+
+  /* Bundled (font.css) but not applied anywhere yet. */
+  --font-hanken:
+    'Hanken Grotesk', ui-sans-serif, -apple-system, 'system-ui', 'Segoe UI',
+    Helvetica, Arial, sans-serif;
+
+  /* Markdown italic text (editor and note preview). Swap the family here to change italics only. */
+  --font-italic: 'EB Garamond', var(--font-sans);
+  /* Size of Markdown italic text relative to the text around it (editor and note preview), so the italic face looks balanced. */
+  --font-italic-scale: 1.2;
+  /* Default (subpixel) smoothing keeps italics from looking thin; the rest of the app is antialiased (base.css). */
+  --font-italic-smoothing: antialiased;
+  /* Weight of Markdown italic text; italics inside bold text or a heading keep that weight instead. */
+  --font-italic-weight: var(--fw-medium);
 
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
@@ -219,4 +232,13 @@
 
   /* App shell — docked sidebar rail (spacer, panel, topbar column must match) */
   --app-sidebar-width: 280px;
+}
+
+/* Markdown italic font setting off (markdownItalicFontPreference.ts): italics keep `font-style: italic` but fall back to
+   the normal family at the normal size. These two tokens are read only by the editor's and the note preview's italic rules. */
+:root[data-markdown-italic-font='off'] {
+  --font-italic: var(--font-sans);
+  --font-italic-scale: 1;
+  --font-italic-weight: var(--fw-regular);
+  --font-italic-smoothing: antialiased;
 }

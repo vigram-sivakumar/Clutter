@@ -346,7 +346,26 @@
   font-weight: 700;
 }
 .note-page-canvas em {
+  font-family: var(--font-italic);
+  font-size: calc(1em * var(--font-italic-scale));
+  -webkit-font-smoothing: var(--font-italic-smoothing);
+  font-weight: var(--font-italic-weight);
+  /* Keeps the scaled glyphs from making the line taller (see the editor's .tok-emphasis). */
+  line-height: 0;
   font-style: italic;
+}
+/* Italics inside bold text or a heading keep that weight; the italic weight would otherwise lighten them. */
+.note-page-canvas strong em,
+.note-page-canvas .markdown-blocks__heading em {
+  font-weight: inherit;
+}
+/* Emphasis inside emphasis is already scaled by its parent; scaling again would compound. */
+.note-page-canvas em em {
+  font-size: 1em;
+}
+/* Inline code inside emphasis is not italic text: keep it the size it has everywhere else. */
+.note-page-canvas em .compact-markdown-code {
+  font-size: calc(0.9em / var(--font-italic-scale));
 }
 .note-page-canvas s,
 .note-page-canvas .compact-markdown-struck {

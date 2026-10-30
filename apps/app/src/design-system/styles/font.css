@@ -1,1 +1,40 @@
-@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk&display=swap');
+/*
+ * Bundled font families. Files live in src/assets/fonts/ (with their OFL
+ * licences) and are resolved by Vite, so they load offline in dev and in the
+ * packaged app. Variable fonts: one file covers the whole weight range.
+ */
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('../../assets/fonts/inter/Inter-Variable.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('../../assets/fonts/inter/Inter-Variable-Italic.woff2')
+    format('woff2');
+}
+
+@font-face {
+  font-family: 'Hanken Grotesk';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('../../assets/fonts/hanken-grotesk/HankenGrotesk-Variable.woff2')
+    format('woff2');
+}
+
+@font-face {
+  font-family: 'EB Garamond';
+  font-style: italic;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('../../assets/fonts/eb-garamond/EBGaramond-Variable-Italic.woff2')
+    format('woff2');
+}
