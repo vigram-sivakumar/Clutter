@@ -30,6 +30,7 @@ import { copyImageWithFeedback } from '@shared/helpers/copyImageToClipboard';
 import { copyWithFeedback } from '@shared/helpers/copyWithFeedback';
 import { downloadRemoteImage } from '@shared/helpers/downloadRemoteImage';
 import { loadCoverImageBytes } from '../coverImageBytes';
+import { useCoverImageWarmup } from '../coverWarmup';
 import { downloadResource } from '@shared/helpers/downloadResource';
 import { openExternalUrl } from '@shared/helpers/openExternalUrl';
 import { createResourceLocationActions } from '@app/layouts/resourceLocationActions';
@@ -107,6 +108,7 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
   // (drafts are deliberately outside Vault, ADR-017). Sidebar is the only
   // consumer today; PageHost doesn't read this projection.
   useEffectivePageState(application.effectivePageState);
+  useCoverImageWarmup(application);
   // Every date label follows the Date format preference and the system language: render again when either changes.
   useDateDisplayVersion();
   // The two settings that used to be app-wide and are now saved per Space: seed this Space from the old values, once.

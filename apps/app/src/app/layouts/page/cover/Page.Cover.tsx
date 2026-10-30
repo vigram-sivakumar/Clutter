@@ -12,6 +12,7 @@ import { Overlay } from '@components/overlay/Overlay';
 import { Menu } from '@components/menu/Menu';
 import { MenuItem } from '@components/menu/MenuItem';
 import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
+import { preloadCoverImage } from '@shared/helpers/coverImagePreloader';
 import { ImagePicker } from './image-picker/ImagePicker';
 import './Page.Cover.css';
 import { AppIcon } from '@shared/icon';
@@ -213,6 +214,11 @@ export function PageCover({
   // `effectivePosition` below falls back to the durable saved value
   // whenever it's null, which is what makes "ends without Save Position"
   // a no-op on persisted metadata for free, with no separate revert step.
+  // The cover on screen is held loaded and decoded, so coming back to this note (or a cover that is reused) shows it
+  // at once — whatever the engine does with its own cache in between.
+  useEffect(() => {
+    void preloadCoverImage(src);
+  }, [src]);
   const [repositioning, setRepositioning] = useState(false);
   // The image's right-click menu (Copy, Copy image address), open at the pointer.
   const [imageMenu, setImageMenu] = useState<{ menu: ResourceTopBarActionsProps; point: ContextMenuPoint; seq: number } | null>(null);
