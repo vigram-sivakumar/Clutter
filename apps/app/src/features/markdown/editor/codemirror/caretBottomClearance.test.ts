@@ -6,12 +6,21 @@ import { caretBottomClearance, caretBottomClearanceExtension } from './caretBott
 
 const views: EditorView[] = [];
 
-function makeView(extensions: EditorStateConfig) {
+function makeView(config: EditorStateConfig) {
   const parent = document.createElement('div');
   document.body.appendChild(parent);
-  const view = new EditorView({ state: EditorState.create(extensions), parent });
+  const view = new EditorView({ state: EditorState.create(config), parent });
   views.push(view);
   return view;
+}
+
+function rootWith(vars: Record<string, string>): HTMLElement {
+  const root = document.createElement('div');
+  for (const [name, value] of Object.entries(vars)) {
+    root.style.setProperty(name, value);
+  }
+  document.body.appendChild(root);
+  return root;
 }
 
 afterEach(() => {
@@ -23,38 +32,35 @@ afterEach(() => {
 });
 
 describe('caretBottomClearance', () => {
-  it('is the fade height plus 2.5 lines when both are measurable', () => {
-    const view = makeView({ doc: 'a' });
-    view.dom.style.setProperty('--page-bottom-fade-height', '48px');
-    view.contentDOM.style.lineHeight = '24px';
-    expect(caretBottomClearance(view)).toBe(48 + 2.5 * 24);
+  it('is the fade height plus 2.5 editor lines', () => {
+    const root = rootWith({ '--page-bottom-fade-height': '48px', '--cm-content': '16px', '--lh-cm-content': '1.5' });
+    expect(caretBottomClearance(root)).toBe(48 + 2.5 * 24);
   });
 
-  it('follows a different line height', () => {
-    const view = makeView({ doc: 'a' });
-    view.dom.style.setProperty('--page-bottom-fade-height', '48px');
-    view.contentDOM.style.lineHeight = '20px';
-    expect(caretBottomClearance(view)).toBe(48 + 2.5 * 20);
+  it('follows the editor font size and line height', () => {
+    const root = rootWith({ '--page-bottom-fade-height': '48px', '--cm-content': '20px', '--lh-cm-content': '1.4' });
+    expect(caretBottomClearance(root)).toBe(48 + 2.5 * 28);
   });
 
-  it('falls back to defaults when nothing can be measured', () => {
-    const view = makeView({ doc: 'a' });
-    expect(caretBottomClearance(view)).toBeGreaterThan(48);
+  it('falls back to the default fade and line when the tokens are missing', () => {
+    expect(caretBottomClearance(rootWith({}))).toBe(48 + 2.5 * 24);
   });
 });
 
 describe('caretBottomClearanceExtension', () => {
-  it('is registered as a bottom-only scroll margin', () => {
-    const view = makeView({ doc: 'a', extensions: [caretBottomClearanceExtension()] });
-    view.dom.style.setProperty('--page-bottom-fade-height', '48px');
-    view.contentDOM.style.lineHeight = '24px';
-    const sources = view.state.facet(EditorView.scrollMargins);
-    expect(sources).toHaveLength(1);
-    expect(sources[0]!(view)).toEqual({ bottom: 108 });
+  it('raises the cursor scroll margin vertically and keeps CM6 default horizontally', () => {
+    const root = rootWith({ '--page-bottom-fade-height': '48px', '--cm-content': '16px', '--lh-cm-content': '1.5' });
+    const view = makeView({ doc: 'a', extensions: [caretBottomClearanceExtension(root)] });
+    expect(view.state.facet(EditorView.cursorScrollMargin)).toEqual({ x: 5, y: 108 });
   });
 
-  it('is absent from a view that does not install it', () => {
-    const view = makeView({ doc: 'a' });
+  it('does not use scrollMargins, which would park autocomplete popups off-screen near the end of the note', () => {
+    const view = makeView({ doc: 'a', extensions: [caretBottomClearanceExtension(rootWith({}))] });
     expect(view.state.facet(EditorView.scrollMargins)).toHaveLength(0);
+  });
+
+  it('leaves a view that does not install it at the default margin', () => {
+    const view = makeView({ doc: 'a' });
+    expect(view.state.facet(EditorView.cursorScrollMargin)).toEqual({ x: 5, y: 5 });
   });
 });
