@@ -51,11 +51,10 @@ describe('NewFolderContent', () => {
     expect(create).toBeEnabled();
     expect(screen.getByRole('alert')).toHaveTextContent('already exists');
     expect(screen.getByRole('alert')).toHaveTextContent('Folder name already exists');
-    expect(screen.getByPlaceholderText('New folder')).not.toHaveClass('editable-text--shake');
+    // The error shows with a shake, like any rejected input.
+    expect(screen.getByPlaceholderText('New folder')).toHaveClass('editable-text--shake');
     fireEvent.click(create);
     expect(onSubmit).not.toHaveBeenCalled();
-    // Refused, so the name field shakes like any other rejected input.
-    expect(screen.getByPlaceholderText('New folder')).toHaveClass('editable-text--shake');
   });
 
   it('a name the save refuses shows its error and shakes the name field', async () => {

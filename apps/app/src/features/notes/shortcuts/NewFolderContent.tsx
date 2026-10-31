@@ -93,6 +93,14 @@ export function NewFolderContent({
   const isDuplicate = trimmed !== '' && !canCreate(trimmed);
   const canSubmit = trimmed !== '' && !isDuplicate && !isSubmitting;
 
+  // The error appears as the name becomes a duplicate: the field shakes with it, like any rejected input.
+  useEffect(() => {
+    if (isDuplicate) {
+      shake();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `shake` is recreated each render; only the appearance matters
+  }, [isDuplicate]);
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
 
