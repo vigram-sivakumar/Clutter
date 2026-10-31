@@ -36,6 +36,15 @@ import { DailyNoteService } from '@core/application/daily-notes/DailyNoteService
 import type { Folder } from '@core/vault/models/Folder';
 import type { Page } from '@core/vault/models/Page';
 import type { VaultResource } from '@core/vault/models/VaultResource';
+import { stubReducedMotion } from '@components/drag-ghost/dragVisuals.testSupport';
+
+// The ghost's own animation (an ease of its fill, dragVisuals.ts) queues frames; these tests count frames to prove the
+// auto-scroller holds none while idle, so they run with reduced motion, which queues none.
+let restoreMotion: () => void;
+beforeEach(() => {
+  restoreMotion = stubReducedMotion(true);
+});
+afterEach(() => restoreMotion());
 
 const ROOT = '/vault';
 
