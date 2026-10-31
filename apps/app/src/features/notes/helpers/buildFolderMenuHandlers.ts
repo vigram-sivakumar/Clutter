@@ -1,6 +1,6 @@
 import type { ResourceActionHandlers } from '@core/presentation/resourceActions/resourceActionTypes';
 import { SORT_MENU_ID_PREFIX } from '@core/presentation/resourceActions/folderSortAction';
-import { DEFAULT_SIDEBAR_SORT, defaultSidebarSortDirection, isSidebarSortKey, type SidebarSort } from '@core/properties/sidebarSort';
+import { isSidebarSortKey, pickSidebarSort, type SidebarSort } from '@core/properties/sidebarSort';
 import type { SidebarRowActions } from '../sidebar/FolderTree';
 
 /**
@@ -51,14 +51,7 @@ export function applyFolderSortSelection(
   const key = id.slice(SORT_MENU_ID_PREFIX.length);
 
   if (isSidebarSortKey(key)) {
-    const active = current ?? DEFAULT_SIDEBAR_SORT;
-    onChange?.(
-      folderId,
-      // Manual has no direction to flip.
-      active.key === key && key !== 'manual'
-        ? { key, direction: active.direction === 'down' ? 'up' : 'down' }
-        : { key, direction: defaultSidebarSortDirection(key) }
-    );
+    onChange?.(folderId, pickSidebarSort(current, key));
   }
 
   return true;

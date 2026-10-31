@@ -43,6 +43,19 @@ export function defaultSidebarSortDirection(key: SidebarSortKey): SortDirection 
   return key === 'created' ? 'up' : 'down';
 }
 
+/**
+ * The sort that picking `key` gives a level whose current sort is `current`: re-picking the active key flips its
+ * direction, another key starts in its own default direction. Manual has no direction to flip. The one rule
+ * behind every "Sort by" menu of a folder's order — the sidebar's and the folder's collection page's.
+ */
+export function pickSidebarSort(current: SidebarSort | undefined, key: SidebarSortKey): SidebarSort {
+  const active = current ?? DEFAULT_SIDEBAR_SORT;
+
+  return active.key === key && key !== 'manual'
+    ? { key, direction: active.direction === 'down' ? 'up' : 'down' }
+    : { key, direction: defaultSidebarSortDirection(key) };
+}
+
 /** What a folder without a chosen sort shows as active. */
 export const DEFAULT_SIDEBAR_SORT: SidebarSort = { key: 'name', direction: 'down' };
 

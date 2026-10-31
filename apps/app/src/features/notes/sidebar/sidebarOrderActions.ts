@@ -34,6 +34,29 @@ export function levelOrderContextFor(store: CollectionViewConfigStore, membershi
 }
 
 /**
+ * Sets a level's sort — the one write behind every Sort by (the sidebar's and the folder's collection page's).
+ * Choosing Manual restores the arrangement the user saved; only a level with none yet starts from what is drawn
+ * now, so nothing visibly jumps. Leaving Manual never touches the saved order, so Manual → Name → Manual brings
+ * it back.
+ */
+export function setLevelSort(
+  store: CollectionViewConfigStore,
+  membershipSelector: MembershipSelector,
+  parentId: string | null,
+  sort: SidebarSort
+): void {
+  const key = collectionViewKeyForSidebarLevel(parentId);
+  const stored = store.get(key);
+
+  store.update(key, {
+    sidebarSort: sort,
+    ...(sort.key === 'manual' && {
+      sidebarOrder: stored?.sidebarOrder ?? displayedOrderIds(membershipSelector, parentId, stored?.sidebarSort, stored?.sidebarOrder),
+    }),
+  });
+}
+
+/**
  * A positional drop: puts `item` before/after `anchor` among `parentId`'s children and makes that level
  * Manual. The new order starts from what the level draws right now — its sort applied, or its saved manual
  * order — with the item placed, and is written together with the mode, so the level never flickers back to its

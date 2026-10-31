@@ -72,6 +72,9 @@ import {
 } from '@features/notes/helpers/templateSuggestions';
 import type { PageType } from '@core/vault/models/Page';
 import { CurrentNoteTemplateSuggestions } from '@app/layouts/page/CurrentNoteTemplateSuggestions';
+import { levelEntries } from '@features/notes/sidebar/sidebarSort';
+import { setLevelSort } from '@features/notes/sidebar/sidebarOrderActions';
+import { DEFAULT_SIDEBAR_SORT } from '@core/properties/sidebarSort';
 import { resolveDefaultTemplateId } from '@features/notes/helpers/resolveDefaultTemplateId';
 import { reportUpload, uploadAssets } from '@features/notes/helpers/uploadAssets';
 import { buildResourceMenuOptions, type ResourceMenuOps } from '@app/layouts/page/topbar/buildResourceMenuOptions';
@@ -515,10 +518,37 @@ export function PageHost({
     setCollectionViewConfig(readCollectionViewConfig());
   }
 
+  // The store is the source of truth: a change made elsewhere to this collection's entry — the sidebar's Sort by
+  // for the same folder — is read again here, so the page reflects it without being reopened.
+  const readCollectionViewConfigRef = useRef(readCollectionViewConfig);
+  readCollectionViewConfigRef.current = readCollectionViewConfig;
+  useEffect(
+    () =>
+      application.collectionViewConfigStore.subscribe(() =>
+        setCollectionViewConfig(readCollectionViewConfigRef.current())
+      ),
+    [application.collectionViewConfigStore]
+  );
+
   const collectionView = resolveCollectionView(
     collectionDefinition,
     collectionViewConfig
   );
+  // An ordinary folder's page orders its folders and notes by the folder's one sort — the very sort and manual
+  // order its sidebar level uses (ADR-066) — not by a sort of its own. Every other collection keeps its own.
+  const levelFolderId =
+    collectionDefinition.kind === 'folder' && activeView?.type === 'folder' ? activeView.id : undefined;
+  const levelSort =
+    levelFolderId !== undefined ? (collectionViewConfig.sidebarSort ?? DEFAULT_SIDEBAR_SORT) : undefined;
+  const levelEntryIds =
+    levelFolderId !== undefined
+      ? levelEntries(
+          application.membershipSelector,
+          levelFolderId,
+          collectionViewConfig.sidebarSort,
+          collectionViewConfig.sidebarOrder
+        ).map((entry) => (entry.kind === 'folder' ? entry.folder.id : entry.entry.id))
+      : undefined;
 
   // The Archive lists its files with the date each was archived, read from the archive record. Only
   // that collection reads it; the read is re-done when the set of archived files changes.
@@ -594,6 +624,14 @@ export function PageHost({
         onLayoutChange: setCollectionLayout,
         onPropertyChange: setCollectionProperty,
         onSortChange: setCollectionSort,
+        levelSort:
+          levelFolderId !== undefined && levelSort
+            ? {
+                sort: levelSort,
+                onChange: (next) =>
+                  setLevelSort(application.collectionViewConfigStore, application.membershipSelector, levelFolderId, next),
+              }
+            : undefined,
         toggles,
       }}
       onAdd={onAdd}
@@ -2157,6 +2195,7 @@ export function PageHost({
                     : []
                 }
                 foldersInGivenOrder={foldersOrder !== undefined}
+                entryOrder={levelEntryIds}
                 showNotes={showsNotes(collectionDefinition.behavior)}
                 notes={model.notes}
                 viewMode={collectionView.layout}

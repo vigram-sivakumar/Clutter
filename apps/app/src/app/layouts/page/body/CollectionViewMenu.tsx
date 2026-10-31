@@ -8,6 +8,7 @@ import { AppIcon } from '@shared/icon';
 import type { SystemIcon } from '@shared/icon';
 import { propertyLabel, type PropertyId } from '@core/properties/collectionProperties';
 import type { CollectionSort } from '@core/properties/collectionSort';
+import { SIDEBAR_SORT_OPTIONS, pickSidebarSort, type SidebarSort } from '@core/properties/sidebarSort';
 import type { CollectionLayout } from '@core/properties/collectionViewConfig';
 import type { ResolvedCollectionView } from '@core/presentation/collection/resolveCollectionView';
 
@@ -22,6 +23,11 @@ export interface CollectionViewMenuProps {
   /** The user turned a (non-locked) property on or off. */
   onPropertyChange: (id: PropertyId, visible: boolean) => void;
   onSortChange: (next: CollectionSort) => void;
+  /**
+   * A folder's own order, shared with the notes sidebar: when present, Sort by lists the sidebar's choices
+   * (`SIDEBAR_SORT_OPTIONS`, Manual included) and reads/writes this instead of `view.sort`.
+   */
+  levelSort?: { readonly sort: SidebarSort; readonly onChange: (next: SidebarSort) => void };
   /**
    * Extra on/off preferences a collection offers beyond Layout / Properties / Sort by — drawn as
    * their own tick rows after Sort by (All Tasks' Show completed / Auto-sort completed). Absent or
@@ -88,7 +94,7 @@ type ConfigureMenuView = 'root' | 'properties';
  *
  * The trigger icon is `settings` (svg/settings.svg).
  */
-export function CollectionViewMenu({ view, onLayoutChange, onPropertyChange, onSortChange, toggles }: CollectionViewMenuProps) {
+export function CollectionViewMenu({ view, onLayoutChange, onPropertyChange, onSortChange, levelSort, toggles }: CollectionViewMenuProps) {
   const { sort } = view;
   const [open, setOpen] = useState(false);
   const [panel, setPanel] = useState<ConfigureMenuView>('root');
@@ -160,13 +166,38 @@ export function CollectionViewMenu({ view, onLayoutChange, onPropertyChange, onS
                   </MenuItem>
                 </>
               )}
-              {view.sortable.length > 0 && (
+              {(levelSort || view.sortable.length > 0) && (
                 <>
                   <div className="menu__divider" role="separator" />
                   <MenuGroupTitle>Sort by</MenuGroupTitle>
                 </>
               )}
-              {view.sortable.map((key) => {
+              {levelSort &&
+                SIDEBAR_SORT_OPTIONS.map(({ key, label }) => {
+                  const isActive = levelSort.sort.key === key;
+
+                  return (
+                    <MenuItem
+                      key={key}
+                      leading={isActive ? <AppIcon icon="tick" /> : <span className="app-icon" />}
+                      trailing={
+                        isActive && key !== 'manual' ? (
+                          <AppIcon
+                            icon={levelSort.sort.direction === 'down' ? 'arrowDown' : 'arrowUp'}
+                            className="menu__item-indicator"
+                          />
+                        ) : undefined
+                      }
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        levelSort.onChange(pickSidebarSort(levelSort.sort, key));
+                      }}
+                    >
+                      {label}
+                    </MenuItem>
+                  );
+                })}
+              {!levelSort && view.sortable.map((key) => {
                 const isActive = sort.property === key;
 
                 return (

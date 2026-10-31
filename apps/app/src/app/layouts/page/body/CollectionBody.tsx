@@ -118,6 +118,11 @@ export interface CollectionBodyProps {
    */
   foldersInGivenOrder?: boolean;
   /**
+   * Draws folders and notes in the order of these ids, ignoring `sort` — a folder's own order, shared with the
+   * notes sidebar. Entries it does not name follow, in the order given. Each kind keeps its relative order from it.
+   */
+  entryOrder?: readonly string[];
+  /**
    * Resolution for Card mode's read-only NotePageCanvas (WikiLink/Tag/
    * embed/image/cover) — composed in PageHost from the editor's own
    * resolver factories. Only consulted when `viewMode === 'card'`.
@@ -241,6 +246,14 @@ function renderNoteTable(
   );
 }
 
+/** `entries` in the order `ids` name them; any not named follow, in the order given. */
+function followOrder(entries: readonly CollectionEntryModel[], ids: readonly string[]): CollectionEntryModel[] {
+  const rank = new Map(ids.map((id, index) => [id, index]));
+  const named = entries.filter((entry) => rank.has(entry.id)).sort((a, b) => rank.get(a.id)! - rank.get(b.id)!);
+
+  return [...named, ...entries.filter((entry) => !rank.has(entry.id))];
+}
+
 export function CollectionBody({
   folders = [],
   notes = [],
@@ -253,6 +266,7 @@ export function CollectionBody({
   emptyMessage,
   showNotes = true,
   foldersInGivenOrder = false,
+  entryOrder,
   previewResolvers,
   noteCover,
   moveDrag,
@@ -278,8 +292,12 @@ export function CollectionBody({
     const menuProps = contextMenu.entryProps(entry);
     return dragProps || menuProps ? { ...dragProps, ...menuProps } : undefined;
   };
-  const sortedFolders = foldersInGivenOrder ? [...folders] : sortEntries(folders, sort, NOTE_SORT_OPTIONS);
-  const sortedNotes = sortEntries(notes, sort, NOTE_SORT_OPTIONS);
+  const sortedFolders = entryOrder
+    ? followOrder(folders, entryOrder)
+    : foldersInGivenOrder
+      ? [...folders]
+      : sortEntries(folders, sort, NOTE_SORT_OPTIONS);
+  const sortedNotes = entryOrder ? followOrder(notes, entryOrder) : sortEntries(notes, sort, NOTE_SORT_OPTIONS);
   const selectionFor = (entry: CollectionEntryModel) => selection.selectionFor(entry.id, entry.values.name);
 
   // The note whose cover picker is open, and the thumbnail it opens beside

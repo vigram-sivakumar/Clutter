@@ -3,8 +3,7 @@ import { useWorkspace } from '@app/hooks/useWorkspace';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useFolderItemLimit } from '@shared/helpers/folderItemLimitPreference';
 import { collectionViewKeyForSidebarLevel } from '@core/application/collection/collectionViewKey';
-import { displayedOrderIds } from '@features/notes/sidebar/sidebarSort';
-import { forgetInLevelOrder, levelOrderContextFor } from '@features/notes/sidebar/sidebarOrderActions';
+import { forgetInLevelOrder, levelOrderContextFor, setLevelSort } from '@features/notes/sidebar/sidebarOrderActions';
 import type { TaskExpansionKey } from '@features/tasks/helpers/groupTasks';
 import { useTaskItemLimit } from '@shared/helpers/taskItemLimitPreference';
 import type { VaultResource } from '@core/vault/models/VaultResource';
@@ -173,17 +172,7 @@ export function Sidebar({
             forgetInLevelOrder(application.collectionViewConfigStore, parentId, kind, id)
           }
           onFolderSortChange={(folderId, sort) => {
-            const stored = application.collectionViewConfigStore.get(collectionViewKeyForSidebarLevel(folderId));
-            application.collectionViewConfigStore.update(collectionViewKeyForSidebarLevel(folderId), {
-              sidebarSort: sort,
-              // Choosing Manual restores the arrangement the user saved. Only a level with none yet starts from
-              // what is drawn now, so nothing visibly jumps. (Leaving Manual never touches the saved order.)
-              ...(sort.key === 'manual' && {
-                sidebarOrder:
-                  stored?.sidebarOrder ??
-                  displayedOrderIds(membershipSelector, folderId, stored?.sidebarSort, stored?.sidebarOrder),
-              }),
-            });
+            setLevelSort(application.collectionViewConfigStore, membershipSelector, folderId, sort);
             // The store is the source of truth; this just re-renders the tree to read it again.
             setSortRevision((revision) => revision + 1);
           }}
