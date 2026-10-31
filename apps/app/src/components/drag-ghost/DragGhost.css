@@ -65,9 +65,11 @@
 /* The ghost is a picture of the dragged element, not a second card: whatever borders, outlines or inset shadows
    the original draws (a folder card's frame, a table row's rules) are not carried over. Colours go transparent
    rather than the borders being removed, so the clone keeps its exact size and layout. The ghost's own
-   elevation (above) is unaffected: it is on `.drag-ghost` itself, not on the clone. */
-.drag-ghost > *,
-.drag-ghost > * * {
+   elevation (above) is unaffected: it is on `.drag-ghost` itself, not on the clone. A ghost flying BACK onto its
+   original (`--returning`) keeps them: it is landing on a card that has them, and would otherwise be the one item
+   without its border until it arrived. */
+.drag-ghost:not(.drag-ghost--returning) > *,
+.drag-ghost:not(.drag-ghost--returning) > * * {
   border-color: transparent !important;
   outline: none !important;
   box-shadow: none !important;
