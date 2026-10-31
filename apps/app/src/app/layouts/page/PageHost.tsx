@@ -2023,7 +2023,12 @@ export function PageHost({
         ? {
             parentId: folder.id,
             actions: buildMoveDropActions(application, toast),
-            reorder: collectionDefinition.kind === 'folder' && levelSort?.key === 'manual' && collectionView.layout !== 'card',
+            // Only a folder in Manual order offers positions; a card grid's run before/after along its row, a list's above/below.
+            reorder: (collectionDefinition.kind === 'folder' && levelSort?.key === 'manual'
+              ? collectionView.layout === 'card'
+                ? 'grid'
+                : 'list'
+              : undefined) as 'list' | 'grid' | undefined,
           }
         : undefined;
 

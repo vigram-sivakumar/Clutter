@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { usePointerDrag } from '@shared/interaction';
-import { createDragVisuals, type DragVisuals, type DragVisualsHandle } from '@components/drag-ghost/dragVisuals';
+import { createDragVisuals, type DragVisuals } from '@components/drag-ghost/dragVisuals';
 import { draggedItems, type DragItem, type DropTarget } from '@features/notes/sidebar/dropTarget';
 import { useDropTargetTracking } from '@features/notes/sidebar/useDropTargetTracking';
 import { executeDrop, type DropActions } from '@features/notes/sidebar/executeDrop';
@@ -18,11 +18,12 @@ export interface CollectionMoveDrag {
   /** The same move handlers and rule checks the Move picker and the sidebar's drops use. */
   readonly actions: DropActions;
   /**
-   * The folder is in Manual order and its notes are drawn as a one-column list (List, Table): a note row's edges
-   * are then positions in that order, for a drag from the folder itself — which is how items are reordered here.
-   * Folder cards are only ever places to move INTO.
+   * The folder is in Manual order: its notes' edges are then positions in that order, for a drag from the folder
+   * itself — which is how items are reordered here. `list` for a List or Table (above / below a row), `grid` for the
+   * Card layout (before / after a card along its row of the grid). The same ordering, validation and write either
+   * way. Folder cards are only ever places to move INTO.
    */
-  readonly reorder?: boolean;
+  readonly reorder?: 'list' | 'grid';
 }
 
 /** What an entry carries so any drag, from any surface, can find it as a destination. */
@@ -33,7 +34,7 @@ export interface CollectionDragEntryProps {
   /** A card is only ever a folder to move INTO; there is no manual order here (see DragRow.insideOnly). */
   readonly 'data-drag-inside-only': 'true';
   /** A note row of a Manual folder: its edges are positions in the folder's order (see `CollectionMoveDrag.reorder`). */
-  readonly 'data-drag-reorder'?: 'true';
+  readonly 'data-drag-reorder'?: 'true' | 'grid';
   /** A note row (table or list) can span the page, so its ghost is compact; a folder card keeps its own size. */
   readonly 'data-drag-ghost-size'?: 'compact';
   readonly onPointerDown: (event: ReactPointerEvent<HTMLElement>) => void;
@@ -103,13 +104,12 @@ export function useCollectionMoveDrag(
   storeRef.current ??= createDropTargetStore();
   const store = storeRef.current;
 
-  // How the drag LOOKS is the shared drag-visual system's (`@components/drag-ghost/dragVisuals`) — the same for a
-  // card, a list row or a table row, one item or several, a move or a reorder. This hook only tells it when a drag
-  // begins and how it ended; it never draws, hides or animates anything itself.
+  // How the drag LOOKS is the shared drag-visual system's (`@components/drag-ghost/dragVisuals`): one ghost, the same for
+  // a card, a list row or a table row, one item or several, a move or a reorder, drawn when the drag begins and gone the
+  // moment it ends. This hook only tells it when a drag begins and ends; it never draws or hides anything itself.
   const visualsRef = useRef<DragVisuals>();
   visualsRef.current ??= createDragVisuals();
   const visuals = visualsRef.current;
-  const handleRef = useRef<DragVisualsHandle | null>(null);
 
   const { drag, press } = usePointerDrag<DragItem>({
     // A card can be dragged out of the page, onto the sidebar.
@@ -118,31 +118,21 @@ export function useCollectionMoveDrag(
       // Consumed once: the move is for the target the user was last SHOWN, never a recalculation.
       const shown = lastShownTargetRef.current;
       lastShownTargetRef.current = null;
-      // This drag's handle: if another drag has begun by the time the drop settles, it does nothing.
-      const handle = handleRef.current;
-      handle?.release();
-      void executeDrop(item, shown, configRef.current?.actions).then((outcome) => {
-        // A drop that did something leaves everything to the collection's update; any other ending flies it all back.
-        if (outcome === 'moved' || outcome === 'reordered') {
-          handle?.commit();
-        } else {
-          handle?.cancel();
-        }
-      });
+      visuals.dispose(); // however the drop turns out, the ghost is gone at once
+      void executeDrop(item, shown, configRef.current?.actions);
     },
     onCancel: () => {
       lastShownTargetRef.current = null;
-      handleRef.current?.cancel();
+      visuals.dispose();
     },
   });
 
   // The drag has really begun (the pointer-drag threshold is crossed): before its first paint, while every item is
   // still where it was. Every drag starts from nothing — `start` ends whatever an earlier one left on screen.
   useLayoutEffect(() => {
-    if (!drag) {
-      return;
+    if (drag) {
+      visuals.start(drag.session, elementsOf(drag.payload));
     }
-    handleRef.current = visuals.start(drag.session, elementsOf(drag.payload));
   }, [drag?.session]);
 
   useEffect(() => () => visuals.dispose(), []);
@@ -163,7 +153,7 @@ export function useCollectionMoveDrag(
         'data-drag-id': entry.id,
         'data-drag-parent': config.parentId ?? '',
         'data-drag-inside-only': 'true',
-        'data-drag-reorder': entry.type === 'note' && config.reorder ? 'true' : undefined,
+        'data-drag-reorder': entry.type === 'note' && config.reorder ? (config.reorder === 'grid' ? 'grid' : 'true') : undefined,
         'data-drag-ghost-size': entry.type === 'note' ? 'compact' : undefined,
         onPointerDown: (event) => press(event, dragItemFor(entry, config.parentId, selected)),
       };

@@ -7,3 +7,9 @@
   width: 100%;
   min-width: 0;
 }
+.collection-entry--folder-card {
+  padding-left: 8px;
+}
+.collection-entry--folder-card .collection-entry__description {
+  padding-left: var(--space-24);
+}

@@ -21,15 +21,6 @@ import { UuidGenerator } from '@core/shared/identity/UuidGenerator';
 import { DailyNoteService } from '@core/application/daily-notes/DailyNoteService';
 import { CollectionViewConfigStore } from '@core/application/collection/CollectionViewConfigStore';
 import { collectionViewKeyForFolder } from '@core/application/collection/collectionViewKey';
-import { stubReducedMotion } from '@components/drag-ghost/dragVisuals.testSupport';
-// A drag's ghost eases onto the cursor and flies back when cancelled (dragVisuals.ts); these tests are about where
-// it ends up, so they run with reduced motion, which places it there at once.
-let restoreMotion: () => void;
-beforeEach(() => {
-  restoreMotion = stubReducedMotion(true);
-});
-afterEach(() => restoreMotion());
-
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn().mockResolvedValue(undefined),

@@ -70,7 +70,7 @@ Three different things, which the [API Guidelines](https://help.unsplash.com/en/
 
 - **Committing a photo as a cover** (picker): sets the cover, then fires one best-effort `GET links.download_location`.
 - **Download and Save to vault** are the same user-requested download (the latter into Assets): both report through `Application.reportUnsplashDownload(url)`, once the file has actually been written (Download: not on cancel; Save: after the copy exists, not on failure), using the `download_location` recorded in `coverCredit`. The location is read *before* a save, because the save repoints the cover at the local file.
-- The request is exact-URL, authenticated, host-restricted to `api.unsplash.com`, asynchronous and never rejecting; a failure never affects the cover or the saved file. Nothing is tracked on browse, render or restart.
+- The request is asynchronous and never rejecting; a failure never affects the cover or the saved file. It is authenticated by Clutter's proxy, which holds the Access Key (ADR-065): the app accepts only a `download_location` on `api.unsplash.com`, takes its photo id and `ixid`, and asks the proxy for that one download. Nothing is tracked on browse, render or restart.
 - **Limitation:** a photo with no recorded location (a cover saved before this ADR, or an Unsplash URL pasted into a note) can still be downloaded or saved — Clutter just has nothing it can report. Re-picking the photo from Unsplash records it.
 
 ## Alternatives Considered

@@ -50,7 +50,7 @@ export function buildPropertyTableColumns(
     {
       id: 'name',
       label: headers.name ?? propertyLabel('name'),
-      width: 'minmax(400px, 1fr)',
+      width: 'minmax(280px, 1fr)',
       className: 'collection-table__header-cell--name',
     },
   ];

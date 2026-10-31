@@ -1,0 +1,5 @@
+# Copy to .dev.vars for `npm run dev` (that file is git-ignored). The value below is a placeholder, not a key.
+UNSPLASH_ACCESS_KEY=replace-with-your-access-key
+# For local development only: also let the dev servers read the replies. `.dev.vars` overrides the value in
+# wrangler.toml for `wrangler dev`; the deployed Worker keeps the packaged-app origins only.
+ALLOWED_ORIGINS=tauri://localhost,http://localhost:1421,http://localhost:5173

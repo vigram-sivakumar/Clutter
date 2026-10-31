@@ -7,7 +7,7 @@ const css = readFileSync(resolve(process.cwd(), 'src/components/drag-ghost/DragG
 
 describe('DragGhost.css — no borders on the picture', () => {
   it('clears border colours, outlines and shadows on everything inside the ghost, keeping layout', () => {
-    const rule = css.match(/\.drag-ghost:not\(\.drag-ghost--returning\) > \*,\s*\.drag-ghost:not\(\.drag-ghost--returning\) > \* \* \{([^}]*)\}/)?.[1] ?? '';
+    const rule = css.match(/\.drag-ghost > \*,\s*\.drag-ghost > \* \* \{([^}]*)\}/)?.[1] ?? '';
     expect(rule).toMatch(/border-color:\s*transparent\s*!important/);
     expect(rule).toMatch(/outline:\s*none\s*!important/);
     expect(rule).toMatch(/box-shadow:\s*none\s*!important/);

@@ -4,7 +4,7 @@ import './DropFeedback.css';
 /** What to draw: nothing, a highlight over a whole row ("into this"), or a line at a boundary ("between"). */
 export type DropFeedbackShape =
   | { readonly kind: 'inside'; readonly rect: { top: number; left: number; width: number; height: number } }
-  | { readonly kind: 'insert'; readonly line: { y: number; left: number; width: number } };
+  | { readonly kind: 'insert'; readonly line: { y: number; left: number; width: number; height?: number } };
 
 /**
  * The one drop-target indicator of a drag, as a single fixed, non-interactive overlay positioned from
@@ -15,11 +15,19 @@ export function DropFeedback({ shape }: { readonly shape: DropFeedbackShape }) {
   const style =
     shape.kind === 'inside'
       ? { top: shape.rect.top, left: shape.rect.left, width: shape.rect.width, height: shape.rect.height }
-      : { top: shape.line.y, left: shape.line.left, width: shape.line.width };
+      : shape.line.height !== undefined
+        ? { top: shape.line.y, left: shape.line.left, height: shape.line.height } // between two cards of a grid: vertical
+        : { top: shape.line.y, left: shape.line.left, width: shape.line.width };
 
   return createPortal(
     <div
-      className={shape.kind === 'inside' ? 'drop-feedback drop-feedback--inside' : 'drop-feedback drop-feedback--insert'}
+      className={
+        shape.kind === 'inside'
+          ? 'drop-feedback drop-feedback--inside'
+          : shape.line.height !== undefined
+            ? 'drop-feedback drop-feedback--insert drop-feedback--insert-vertical'
+            : 'drop-feedback drop-feedback--insert'
+      }
       data-drop-feedback={shape.kind}
       aria-hidden="true"
       style={style}

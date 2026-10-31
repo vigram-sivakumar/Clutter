@@ -4,6 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { DEFAULT_UNSPLASH_PROXY_URL } from '@core/integrations/unsplash/UnsplashApi';
 import { ImagePickerUnsplash } from './ImagePicker.Unsplash';
 
 vi.mock('@shared/helpers/openExternalUrl', () => ({ openExternalUrl: vi.fn() }));
@@ -20,7 +21,6 @@ const unhandled: unknown[] = [];
 const onUnhandled = (reason: unknown) => unhandled.push(reason);
 
 beforeEach(() => {
-  vi.stubEnv('VITE_UNSPLASH_ACCESS_KEY', 'test-access-key');
   vi.spyOn(console, 'warn').mockImplementation(() => {});
   process.on('unhandledRejection', onUnhandled);
 });
@@ -46,8 +46,8 @@ function stubNetwork(trackingResponse: () => Promise<unknown>) {
 
 describe.each([
   ['the network is down', () => Promise.reject(new TypeError('Failed to fetch'))],
-  ['Unsplash answers 503', () => Promise.resolve({ ok: false, status: 503 })],
-  ['Unsplash answers 401', () => Promise.resolve({ ok: false, status: 401 })],
+  ['the proxy answers 503', () => Promise.resolve({ ok: false, status: 503 })],
+  ['the proxy answers 429', () => Promise.resolve({ ok: false, status: 429 })],
 ])('picking a photo when %s', (_label, trackingResponse) => {
   it('still sets the cover immediately, sends exactly one tracking request, and raises no unhandled rejection', async () => {
     const fetchMock = stubNetwork(trackingResponse);
@@ -66,10 +66,9 @@ describe.each([
     await waitFor(() => {
       const tracking = fetchMock.mock.calls.filter(([url]) => String(url.href).includes('/download'));
       expect(tracking).toHaveLength(1);
-      expect(tracking[0]![0].href).toBe('https://api.unsplash.com/photos/p1/download?ixid=x');
-      expect(tracking[0]![1]).toEqual({
-        headers: { Authorization: 'Client-ID test-access-key', 'Accept-Version': 'v1' },
-      });
+      // Reported through the proxy, which holds the key: a plain GET with no credentials from the app.
+      expect(tracking[0]![0].href).toBe(`${DEFAULT_UNSPLASH_PROXY_URL}/photos/p1/download?ixid=x`);
+      expect(tracking[0]![1]).toBeUndefined();
     });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(unhandled).toEqual([]);

@@ -95,7 +95,7 @@ This is the one checklist for the sandbox and atomic-saves work; ADR-063 points 
 | What | Command | Result | Notes |
 | --- | --- | --- | --- |
 | Type check | `cd apps/app && npx tsc --noEmit -p .` | Clean | |
-| TypeScript tests | `cd apps/app && npx vitest run` | **13 failed**, 16,257 passed (16,270; 9 of 874 files fail) | Exactly the 13 known failures below, on a run with nothing else competing. An earlier run during two heavy builds showed two extra timing failures (`editorExitUp`, `FolderTree.drag`) and 28 files missing; a clean rerun showed neither |
+| TypeScript tests | `cd apps/app && npx vitest run` | **13 failed**, 16,257 passed (16,270; 9 of 874 files fail) | The 13 known failures below (the list has since gained a fourteenth, noted there), on a run with nothing else competing. An earlier run during two heavy builds showed two extra timing failures (`editorExitUp`, `FolderTree.drag`) and 28 files missing; a clean rerun showed neither |
 | Rust tests | `cd apps/app/src-tauri && cargo test` | 157 passed (3 ignored) + 4 permission tests, 0 failed | The atomic writer is a default feature, so these include its tests |
 | Debug build without the native writer | `cargo build --no-default-features` | Builds | Allowed on purpose (the app then refuses to open a Space). A **release** build without it fails in `build.rs`; so does a release build with an incomplete `Entitlements.plist` (both tried) |
 | Packaged build | `npm run tauri build` (scratch target dir) | Produced `Clutter.app` and `Clutter_0.1.0_aarch64.dmg`, ad-hoc signed; `verify:bundle --local` passed; the app launched and created its sandbox container | **Run before** `build.rs` guards and the `check:atomic` build step were added. Those guards ran in the later release builds of the sandbox test bundle (same `tauri build`, `--bundles app`). `npm run tauri build` itself, with its DMG step and the new first step, was **not re-run on HEAD** |
@@ -130,20 +130,24 @@ What was **not** re-run since the sandbox work changed the code: the non-sandbox
 | 13 | Archive and move through the UI in the sandbox | **Not tested** | Yes | Rename and delete were exercised through fs-plugin calls, not the UI |
 | 14 | Sandbox crash recovery, editor-versus-disk conflict, watcher on the final code | **Not re-run** | Yes | Passed once on an early sandbox build; see above |
 | 15 | Non-sandboxed real-app suite on HEAD | **Not re-run** since `ceedad75` | Yes | Only the matrix and the volume spec have run since |
-| 16 | The 13 known TypeScript test failures | Known, unchanged | Resolve before submission | Listed below. None comes from this work; `parserGolden` (a real cache risk) was fixed by bumping `PARSER_VERSION` to 5 |
+| 16 | The 14 known TypeScript test failures | Known, unchanged | Resolve before submission | Listed below (13 at the 2026-10-29 baseline above; the fourteenth, in the editor separator test, was found on 2026-10-30). None comes from this work; `parserGolden` (a real cache risk) was fixed by bumping `PARSER_VERSION` to 5 |
 | 17 | Intel Macs | **Not tested** | Only if Intel is a target | The `fstatfs$INODE64` path is unexercised, and the local build is aarch64 only |
 | 18 | Power-loss durability | Not tested | Accepted limitation | The writer requests `F_FULLFSYNC`; it is not proven on every device (ADR-063) |
 | 19 | Generated `src-tauri/permissions/` is untracked | Housekeeping | No | Every build regenerates it (it was deleted once and came back with the newer commands), so it probably belongs in `.gitignore`; not decided |
 | 20 | Legacy writer removal | Waiting | After release | Criteria in ADR-063 and above |
+| 21 | Unsplash proxy Worker (ADR-065): deployed, configured, live search | Worker deployed; live search and photo details answered `200` (2026-10-30). The hardened configuration (preview URLs off, packaged-app origins only) is in `wrangler.toml` but **not yet deployed** | Yes, until redeployed and re-checked | Worker: 99 tests, typecheck and `wrangler deploy --dry-run` pass. Missing: redeploy, then the live checks in `workers/unsplash-proxy/README.md` ("Before a public release", step 3). The download route has only unit tests (calling it records a real download) |
+| 22 | Unsplash Production approval and API quota | **Not confirmed** | **Yes** | Not recorded anywhere in this repository. A Demo application has a low hourly limit shared by every user through the one Worker. Confirm the tier and the limit in the Unsplash developer dashboard, and apply for Production approval if needed, before a public release |
+| 23 | Old Unsplash Access Key rotated; no key in builds | **Not confirmed** | **Yes** | A fresh production build and the source contain no key (checked 2026-10-30), but builds made before the proxy (including the existing `Clutter.app` and `.dmg`) may embed the old one, and the packaged bundle could not be searched reliably (its assets are compressed). Regenerate the key in the Unsplash dashboard, set the new value with `wrangler secret put UNSPLASH_ACCESS_KEY`, and rebuild |
 
-### The 13 known TypeScript failures
+### The 14 known TypeScript failures
 
-All 13 also fail on a clean export of the commit they were first triaged against, so none comes from the atomic or sandbox work, and none from the uncommitted UI work. They are a test-versus-UI disagreement that needs a product decision on which side is stale:
+All 14 also fail on a clean export of the commit they were first triaged against, so none comes from the atomic or sandbox work, and none from the uncommitted UI work. They are a test-versus-UI disagreement that needs a product decision on which side is stale:
 
 - **"Clear" button, 4**: `DatePicker` (2) and `DatePropertyValue` (2) expect a Clear button the components do not render.
 - **Tasks, 6**: `GroupTasksByDueDateSetting` (2: expects the toggle off by default), `TaskItemsSetting` (1), `renderTasksByDate` (1: `data-section` on a non-Today header), `TasksShortcuts` (2: no `textbox` found).
 - **Asset grid minimum, 2**: `AssetsCollectionBody` and `toAssetCardProps` expect 140px, the code uses 180px.
 - **New space picker, 1**: `AppShell.spaces` expects Escape and a backdrop click not to dismiss it.
+- **Horizontal-rule separator height, 1**: `blockSeparatorDecoration` ("is 12px") expects 12, the code gives 24. Found on 2026-10-30 and confirmed to fail identically on a clean checkout of HEAD, so it is not from the Unsplash or cover-image work either.
 
 ### Working tree
 

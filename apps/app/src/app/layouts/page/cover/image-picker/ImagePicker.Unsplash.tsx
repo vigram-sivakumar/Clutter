@@ -11,6 +11,7 @@ import type { UnsplashPhoto } from '@core/integrations/unsplash/UnsplashPhoto';
 import { unsplashCoverUrl } from '@core/integrations/unsplash/unsplashAttribution';
 import { openExternalUrl } from '@shared/helpers/openExternalUrl';
 import { AppIcon } from '@shared/icon';
+import { unsplashFailureMessage } from './unsplashFailureMessage';
 import './ImagePicker.Unsplash.css';
 
 interface ImagePickerUnsplashProps {
@@ -30,14 +31,6 @@ function photographerProfileUrl(profileUrl: string): string {
   url.searchParams.set('utm_medium', 'referral');
 
   return url.toString();
-}
-
-function unsplashErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return 'Unable to load Unsplash images';
 }
 
 export function ImagePickerUnsplash({ onSelect, orientation }: ImagePickerUnsplashProps) {
@@ -74,7 +67,7 @@ export function ImagePickerUnsplash({ onSelect, orientation }: ImagePickerUnspla
       } catch (loadError) {
         if (!cancelled) {
           setPhotos([]);
-          setError(unsplashErrorMessage(loadError));
+          setError(unsplashFailureMessage(loadError, 'search'));
         }
       } finally {
         if (!cancelled) {

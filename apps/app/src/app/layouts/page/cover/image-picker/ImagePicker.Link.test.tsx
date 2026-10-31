@@ -2,6 +2,7 @@
 
 import { cleanup, render, fireEvent, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { UnsplashRequestError } from '@core/integrations/unsplash/UnsplashRequestError';
 import { ImagePickerLink } from './ImagePicker.Link';
 
 const { getPhotoMock, trackMock } = vi.hoisted(() => ({ getPhotoMock: vi.fn(), trackMock: vi.fn() }));
@@ -184,7 +185,7 @@ describe('ImagePickerLink — Unsplash photo page links (resolved through the AP
   });
 
   it('shows an error and sets nothing when Unsplash does not know the photo', async () => {
-    getPhotoMock.mockRejectedValue(new Error('Unsplash request failed (404).'));
+    getPhotoMock.mockRejectedValue(new UnsplashRequestError('not-found', 'Unsplash request failed (404).', 404));
     const onSubmit = vi.fn();
     render(<ImagePickerLink onSubmit={onSubmit} />);
 
@@ -196,7 +197,7 @@ describe('ImagePickerLink — Unsplash photo page links (resolved through the AP
   });
 
   it('says so, instead of failing silently, when Unsplash is not configured', async () => {
-    getPhotoMock.mockRejectedValue(new Error('Unsplash is not configured.'));
+    getPhotoMock.mockRejectedValue(new UnsplashRequestError('not-configured', 'Unsplash is not configured.'));
     render(<ImagePickerLink onSubmit={vi.fn()} />);
 
     fillAndSubmit(PAGE);

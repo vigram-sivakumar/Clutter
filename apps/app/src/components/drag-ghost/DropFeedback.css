@@ -21,3 +21,9 @@
   background: var(--border-focus);
 }
 
+/* "Between cards" of a grid: the same line, turned — same thickness, radius and colour — centred on the gap. */
+.drop-feedback--insert-vertical {
+  width: 2px;
+  transform: translateX(-1px);
+}
+

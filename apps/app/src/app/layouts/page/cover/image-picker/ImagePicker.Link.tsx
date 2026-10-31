@@ -5,6 +5,7 @@ import type { CoverCredit } from '@core/vault/models/PageMetadata';
 import { getPhoto, trackPhotoDownload } from '@core/integrations/unsplash/UnsplashApi';
 import { parseUnsplashPhotoId, unsplashCoverUrl } from '@core/integrations/unsplash/unsplashAttribution';
 import { parseWebUrl } from '@shared/helpers/parseWebUrl';
+import { unsplashFailureMessage } from './unsplashFailureMessage';
 import './ImagePicker.Link.css';
 
 interface ImagePickerLinkProps {
@@ -59,11 +60,7 @@ export function ImagePickerLink({ onSubmit }: ImagePickerLinkProps) {
       }
       pendingLookupRef.current = null;
       setStatus('error');
-      setErrorMessage(
-        error instanceof Error && error.message === 'Unsplash is not configured.'
-          ? 'Unsplash links can’t be added right now. Use an image address instead'
-          : 'Couldn’t find this photo on Unsplash. Check the link and try again'
-      );
+      setErrorMessage(unsplashFailureMessage(error, 'link'));
     }
   };
 

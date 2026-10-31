@@ -128,7 +128,8 @@ const checkedNames = () =>
     .getAllByRole('checkbox', { hidden: true })
     .filter((box) => (box as HTMLInputElement).checked || box.getAttribute('aria-checked') === 'true')
     .map((box) => box.getAttribute('aria-label'));
-const ghostBadge = () => document.querySelector('.drag-ghost-count')?.textContent ?? null;
+/** How many items the ghost shows as tiles (none for a single-item drag). */
+const ghostBadge = () => (document.querySelectorAll('.drag-ghost--piece').length || null);
 
 describe('dragging several checked items from a Collection View', () => {
   // Projects: folders Alpha (with Inner), Beta; notes N1, N2, N3.   Gamma: a root folder.
@@ -164,11 +165,11 @@ describe('dragging several checked items from a Collection View', () => {
     expect(move.mock.calls.map(([id]) => id).sort()).toEqual([ids.N1, ids.N2].sort());
   });
 
-  it('a count badge shows on the ghost, the checked items stay in place and checked, and nothing is cleared at the start', async () => {
+  it('the ghost shows a piece for each item, the checked items stay in place and checked, and nothing is cleared at the start', async () => {
     select('N1', 'N2', 'Beta');
     await drag(card(ids.N1!), centre(card(ids.Alpha!)), { release: false });
 
-    expect(ghostBadge()).toBe('3');
+    expect(ghostBadge()).toBe(3);
     expect(checkedNames()).toEqual(['Select Beta', 'Select N1', 'Select N2']);
     // Several items: every original stays visible (only clones move — see dragVisuals.ts).
     expect(document.querySelectorAll('[data-drag-source="true"]')).toHaveLength(0);

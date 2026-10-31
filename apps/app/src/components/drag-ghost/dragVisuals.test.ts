@@ -1,29 +1,21 @@
 // @vitest-environment jsdom
 
+import '@testing-library/jest-dom/vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PointerDragSession } from '@shared/interaction';
 
-import { DRAG_SOURCE_ATTRIBUTE, DRAG_VISUAL_POLICY, createDragVisuals, type DragVisuals } from './dragVisuals';
-import { installFrameClock, stubReducedMotion } from './dragVisuals.testSupport';
+import { DRAG_SOURCE_ATTRIBUTE, SNAPSHOT, createDragVisuals, type DragVisuals } from './dragVisuals';
 
-let clock: ReturnType<typeof installFrameClock>;
-let restoreMotion: () => void;
 let visuals: DragVisuals;
-
 beforeEach(() => {
-  clock = installFrameClock();
-  restoreMotion = stubReducedMotion(false);
   visuals = createDragVisuals();
 });
 afterEach(() => {
   visuals.dispose();
-  restoreMotion();
-  clock.uninstall();
-  vi.useRealTimers();
+  vi.restoreAllMocks();
   document.body.replaceChildren();
 });
 
@@ -35,8 +27,8 @@ interface Rect {
 }
 
 /** A rendered item: a bordered, rounded "card" with an id, a role, a focusable button and drag markers inside. */
-function item(name: string, rect: Rect): HTMLElement & { moveTo(next: Rect): void } {
-  const element = document.createElement('div') as unknown as HTMLElement & { moveTo(next: Rect): void };
+function item(name: string, rect: Rect): HTMLElement {
+  const element = document.createElement('div');
   element.id = `item-${name}`;
   element.setAttribute('role', 'button');
   element.setAttribute('tabindex', '0');
@@ -45,14 +37,12 @@ function item(name: string, rect: Rect): HTMLElement & { moveTo(next: Rect): voi
   element.dataset.dragInsideOnly = 'true';
   element.style.border = '1px solid red';
   element.innerHTML = `<button id="inner-${name}">Open ${name}</button><span>${name}</span>`;
-  let current = rect;
-  element.getBoundingClientRect = () => ({ ...current, right: current.left + current.width, bottom: current.top + current.height, x: current.left, y: current.top, toJSON: () => ({}) }) as DOMRect;
-  element.moveTo = (next) => void (current = next);
+  element.getBoundingClientRect = () => ({ ...rect, right: rect.left + rect.width, bottom: rect.top + rect.height, x: rect.left, y: rect.top, toJSON: () => ({}) }) as DOMRect;
   document.body.append(element);
   return element;
 }
 
-function makeSession(source: HTMLElement, pointer = { x: 500, y: 400 }) {
+function makeSession(source: HTMLElement, pointer = { x: 500, y: 400 }, extra: Partial<PointerDragSession> = {}) {
   const listeners = new Set<() => void>();
   const session = {
     source,
@@ -64,6 +54,7 @@ function makeSession(source: HTMLElement, pointer = { x: 500, y: 400 }) {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
+    ...extra,
   } as PointerDragSession;
   const move = (x: number, y: number) => {
     (session.pointer as { x: number; y: number }).x = x;
@@ -74,473 +65,302 @@ function makeSession(source: HTMLElement, pointer = { x: 500, y: 400 }) {
 }
 
 const overlay = () => document.querySelector<HTMLElement>('.drag-visuals');
-const clones = () => [...document.querySelectorAll<HTMLElement>('.drag-visuals .drag-ghost')];
+const ghosts = () => [...document.querySelectorAll<HTMLElement>('.drag-visuals .drag-ghost:not(.drag-ghost--piece)')];
+const pieces = () => [...document.querySelectorAll<HTMLElement>('.drag-snapshot .drag-ghost--piece')];
+const snapshot = () => document.querySelector<HTMLElement>('.drag-snapshot');
 const boxOf = (element: HTMLElement) => {
   const m = /translate3d\((-?[\d.]+)px, (-?[\d.]+)px/.exec(element.style.transform)!;
   return { x: Number(m[1]), y: Number(m[2]), width: parseFloat(element.style.width), height: parseFloat(element.style.height) };
 };
-const centreOf = (element: HTMLElement) => {
-  const b = boxOf(element);
-  return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
-};
-const advance = (ms: number) => clock.step(ms);
-const FULL = 1500;
 
 const A = { left: 100, top: 100, width: 300, height: 40 };
 const B = { left: 100, top: 200, width: 300, height: 40 };
 const C = { left: 100, top: 300, width: 300, height: 40 };
 
-describe('one drag-visual system: starting', () => {
-  it('a single item: its original is hidden — kept in the DOM, with no inline style touched — and restored exactly', () => {
+describe('a single item', () => {
+  it('draws one ghost — a harmless clone — and hides the original, which stays in the DOM and keeps its inline style', () => {
     const a = item('a', A);
-    a.setAttribute(DRAG_SOURCE_ATTRIBUTE, 'previous'); // whatever it held is what comes back
     const before = a.getAttribute('style');
-    const handle = visuals.start(makeSession(a).session);
-
-    expect(a).toHaveAttribute(DRAG_SOURCE_ATTRIBUTE, 'true');
-    expect(a.isConnected).toBe(true);
-    expect(a.getAttribute('style')).toBe(before);
-    expect(clones()).toHaveLength(1);
-
-    handle.cancel();
-    advance(FULL);
-    expect(a.getAttribute(DRAG_SOURCE_ATTRIBUTE)).toBe('previous');
-    expect(a.getAttribute('style')).toBe(before);
-
-    const other = item('b', B);
-    const dropped = visuals.start(makeSession(other).session);
-    expect(other).toHaveAttribute(DRAG_SOURCE_ATTRIBUTE, 'true');
-    dropped.commit();
-    advance(FULL);
-    expect(other.hasAttribute(DRAG_SOURCE_ATTRIBUTE)).toBe(false);
-  });
-
-  it('several items: EVERY original stays visible and untouched throughout — only clones move — and a clone of each is drawn in one overlay', () => {
-    const [a, b, c] = [item('a', A), item('b', B), item('c', C)] as const;
-    const before = [a, b, c].map((el) => el.outerHTML);
-    const { session } = makeSession(a, { x: 700, y: 500 });
-    const handle = visuals.start(session, [b, c]);
-
-    const untouched = () => {
-      for (const el of [a, b, c]) {
-        expect(el.hasAttribute(DRAG_SOURCE_ATTRIBUTE)).toBe(false);
-        expect(el.isConnected).toBe(true);
-      }
-      expect([a, b, c].map((el) => el.outerHTML)).toEqual(before); // no attribute, style, class or opacity of any kind
-    };
-
-    untouched(); // at the start
-    expect(document.querySelectorAll('.drag-visuals')).toHaveLength(1);
-    expect(clones()).toHaveLength(3);
-    expect(document.querySelector('.drag-ghost-count')?.textContent).toBe('3');
-    advance(80);
-    untouched(); // mid-flight
-    advance(FULL);
-    untouched(); // converged
-    handle.release();
-    untouched(); // held
-    handle.cancel();
-    advance(DRAG_VISUAL_POLICY.returnMs / 2);
-    untouched(); // flying back
-    advance(FULL);
-    untouched(); // restored
-    expect(overlay()).toBeNull();
-  });
-
-  it('a single item is the same system: one clone, no count', () => {
-    const a = item('a', A);
 
     visuals.start(makeSession(a).session);
 
-    expect(clones()).toHaveLength(1);
-    expect(document.querySelector('.drag-ghost-count')).toBeNull();
+    expect(ghosts()).toHaveLength(1);
+    expect(document.querySelectorAll('.drag-visuals')).toHaveLength(1);
     expect(a).toHaveAttribute(DRAG_SOURCE_ATTRIBUTE, 'true');
+    expect(a.isConnected).toBe(true);
+    expect(a.getAttribute('style')).toBe(before);
   });
 
-  it('the clones are harmless pictures: inert, hidden from assistive tech, no ids, nothing focusable, no drag markers, out of the pointer\'s way', () => {
-    const [a, b] = [item('a', A), item('b', B)] as const;
-    visuals.start(makeSession(a).session, [b]);
+  it('the ghost is inert and hidden from assistive tech, with no ids, nothing focusable and no drag markers', () => {
+    const a = item('a', A);
+    visuals.start(makeSession(a).session);
 
-    const layer = overlay()!;
-    expect(layer).toHaveAttribute('inert');
-    expect(layer).toHaveAttribute('aria-hidden', 'true');
-    for (const clone of clones()) {
-      expect(clone).toHaveAttribute('inert');
-      expect(clone).toHaveAttribute('aria-hidden', 'true');
-      expect(clone.querySelectorAll('[id]')).toHaveLength(0);
-      expect(clone.querySelectorAll('[tabindex], [role]')).toHaveLength(0);
-      expect([...clone.querySelectorAll('*'), clone].some((el) => [...el.attributes].some((attr) => attr.name.startsWith('data-drag')))).toBe(false);
-    }
-    expect(document.querySelectorAll('[id="item-a"]')).toHaveLength(1); // no duplicated id
+    expect(overlay()).toHaveAttribute('inert');
+    expect(overlay()).toHaveAttribute('aria-hidden', 'true');
+    const ghost = ghosts()[0]!;
+    expect(ghost).toHaveAttribute('inert');
+    expect(ghost.querySelectorAll('[id], [tabindex], [role]')).toHaveLength(0);
+    expect([...ghost.querySelectorAll('*')].some((el) => [...el.attributes].some((attr) => attr.name.startsWith('data-drag')))).toBe(false);
+    expect(document.querySelectorAll('[id="item-a"]')).toHaveLength(1);
   });
 
-  it('the lead starts exactly on its original and eases onto the cursor; the others converge on the lead, wherever it is', () => {
-    const [a, b] = [item('a', A), item('b', B)] as const;
+  it('follows the pointer directly: centred on it at once, and exactly on every move', () => {
+    const a = item('a', A);
     const { session, move } = makeSession(a, { x: 700, y: 500 });
-    visuals.start(session, [b]);
-    const [lead, other] = clones() as [HTMLElement, HTMLElement];
+    visuals.start(session);
 
-    expect(boxOf(lead)).toMatchObject({ x: 100, y: 100, width: 300 }); // no jump
-    expect(centreOf(other)).toEqual({ x: 250, y: 220 }); // the other has not moved either
-
-    advance(FULL);
-    expect(centreOf(lead)).toEqual({ x: 700, y: 500 });
-    expect(centreOf(other)).toEqual({ x: 700, y: 500 });
-    expect(other.style.opacity).toBe(''); // arrived fully opaque (it faded IN on the way)
-
-    move(300, 650); // the pointer keeps going: the ghost is exact at once, the others follow on the next frame
-    expect(centreOf(lead)).toEqual({ x: 300, y: 650 });
-    advance(32);
-    expect(centreOf(other)).toEqual({ x: 300, y: 650 });
+    expect(boxOf(ghosts()[0]!)).toEqual({ x: 700 - 150, y: 500 - 20, width: 300, height: 40 });
+    move(40, 60);
+    expect(boxOf(ghosts()[0]!)).toEqual({ x: 40 - 150, y: 60 - 20, width: 300, height: 40 });
   });
 
-  it('never reads a layout while the pointer moves', () => {
-    const [a, b] = [item('a', A), item('b', B)] as const;
+  it('has no animation of any kind: no frame, no timer, no opacity, no transition', () => {
+    const raf = vi.spyOn(window, 'requestAnimationFrame');
+    const timers = vi.spyOn(window, 'setTimeout');
+    const a = item('a', A);
     const { session, move } = makeSession(a);
-    visuals.start(session, [b]);
-    advance(FULL);
-    const reads = vi.spyOn(b, 'getBoundingClientRect');
 
-    for (let i = 0; i < 20; i += 1) move(100 + i, 100 + i);
-    advance(64);
+    visuals.start(session);
+    move(10, 10);
+    visuals.dispose();
 
-    expect(reads).not.toHaveBeenCalled(); // (the lead's own live rect is read for its size — not the others')
+    expect(raf).not.toHaveBeenCalled();
+    expect(timers).not.toHaveBeenCalled();
   });
 
-  it('an item that is not mounted (virtualised, or gone) is simply not drawn', () => {
-    const [a, b] = [item('a', A), item('b', B)] as const;
-    b.remove();
+  it('restores exactly what the original held, and the ghost is gone at once', () => {
+    const a = item('a', A);
+    a.setAttribute(DRAG_SOURCE_ATTRIBUTE, 'previous');
+    visuals.start(makeSession(a).session);
 
-    visuals.start(makeSession(a).session, [b]);
+    visuals.dispose();
 
-    expect(clones()).toHaveLength(1);
-    expect(document.querySelector('.drag-ghost-count')).toBeNull();
+    expect(overlay()).toBeNull();
+    expect(a.getAttribute(DRAG_SOURCE_ATTRIBUTE)).toBe('previous');
+  });
+
+  it('a column-pinned row (the sidebar) keeps its own column while the pointer is over its container', () => {
+    const a = item('a', { left: 12, top: 100, width: 236, height: 28 });
+    const container = document.createElement('div');
+    container.style.overflowY = 'auto';
+    container.getBoundingClientRect = () => ({ left: 0, right: 260, top: 0, bottom: 800, width: 260, height: 800, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+    container.append(a);
+    document.body.append(container);
+    a.setAttribute('data-drag-ghost-follow', 'outside-container');
+    const { session, move } = makeSession(a, { x: 100, y: 300 });
+    visuals.start(session);
+
+    expect(ghosts()[0]!.style.left).toBe('12px');
+    move(400, 300); // out over the page: centred on the cursor
+    expect(ghosts()[0]!.style.left).toBe('0px');
   });
 });
 
-/** A clone's background fill, in percent (the custom property the stylesheet mixes into the surface colour). */
-const fillOf = (element: HTMLElement) => parseFloat(element.style.getPropertyValue('--drag-ghost-fill-opacity'));
-const noOpacityAnywhere = () =>
-  [...document.querySelectorAll<HTMLElement>('.drag-visuals .drag-ghost, .drag-visuals .drag-ghost *')].every((el) => el.style.opacity === '');
+describe('several items — a snapshot of the collection as it is', () => {
+  const at = (el: HTMLElement) => ({ left: parseFloat(el.style.left), top: parseFloat(el.style.top), width: parseFloat(el.style.width), height: parseFloat(el.style.height) });
 
-describe('the background fill — the only thing that fades', () => {
-  it('eases from 100% down to the token\'s 50% while the clone travels to the cursor, and stays there', () => {
-    const [a, b] = [item('a', A), item('b', B)] as const;
-    visuals.start(makeSession(a, { x: 700, y: 500 }).session, [b]);
-    const [lead, other] = clones() as [HTMLElement, HTMLElement];
+  it('draws ONE layer holding a clone of each selected item — at its own measured place and size — and leaves EVERY original untouched', () => {
+    const [a, b, c] = [item('a', A), item('b', B), item('c', C)] as const;
+    const before = [a, b, c].map((el) => el.outerHTML);
 
-    expect(fillOf(lead)).toBe(100);
-    expect(fillOf(other)).toBe(100);
+    visuals.start(makeSession(a, { x: 700, y: 500 }).session, [b, c]);
 
-    advance(160);
-    for (const clone of [lead, other]) {
-      expect(fillOf(clone)).toBeLessThan(100);
-      expect(fillOf(clone)).toBeGreaterThan(50);
+    expect(snapshot()).not.toBeNull();
+    expect(ghosts()).toHaveLength(0); // no single-item ghost, no separate grid
+    expect(pieces()).toHaveLength(3);
+    expect(pieces().map((p) => at(p))).toEqual([
+      { left: 0, top: 0, width: 300, height: 40 },
+      { left: 0, top: 100, width: 300, height: 40 },
+      { left: 0, top: 200, width: 300, height: 40 },
+    ]); // exactly the originals' own sizes and distances from one another
+    expect([a, b, c].map((el) => el.outerHTML)).toEqual(before); // visible, unmarked, unstyled — throughout
+    visuals.dispose();
+    expect([a, b, c].map((el) => el.outerHTML)).toEqual(before);
+  });
+
+  it('keeps the relative positions of a card grid — columns, gaps and rows — without computing any layout', () => {
+    // Four "cards" in a 2-column grid: 220 × 300 with a 16px gap, starting at (400, 120).
+    const cards = [
+      item('c0', { left: 400, top: 120, width: 220, height: 300 }),
+      item('c1', { left: 636, top: 120, width: 220, height: 300 }),
+      item('c2', { left: 400, top: 436, width: 220, height: 300 }),
+      item('c3', { left: 636, top: 436, width: 220, height: 300 }),
+    ];
+
+    visuals.start(makeSession(cards[1]!, { x: 700, y: 200 }).session, [cards[0]!, cards[2]!, cards[3]!]);
+
+    const byName = new Map(pieces().map((piece, index) => [index, at(piece)]));
+    const rects = [...byName.values()];
+    expect(rects).toEqual(
+      expect.arrayContaining([
+        { left: 0, top: 0, width: 220, height: 300 },
+        { left: 236, top: 0, width: 220, height: 300 },
+        { left: 0, top: 316, width: 220, height: 300 },
+        { left: 236, top: 316, width: 220, height: 300 },
+      ])
+    );
+    expect(parseFloat(snapshot()!.style.width)).toBe(456);
+    expect(parseFloat(snapshot()!.style.height)).toBe(616);
+  });
+
+  it('unselected neighbours are simply absent (lifted out), so a non-contiguous selection keeps its gaps', () => {
+    const [a, c] = [item('a', A), item('c', C)] as const; // b, between them, is not selected
+
+    visuals.start(makeSession(a).session, [c]);
+
+    expect(pieces().map((p) => at(p).top)).toEqual([0, 200]);
+    expect(parseFloat(snapshot()!.style.height)).toBe(240);
+  });
+
+  it('mirrors a list or table row: its own full width and height, and a grid row\'s columns as the page resolved them', () => {
+    const rowA = item('ra', { left: 0, top: 100, width: 1400, height: 36 });
+    const rowB = item('rb', { left: 0, top: 136, width: 1400, height: 36 });
+    const real = window.getComputedStyle;
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((element: Element, pseudo?: string | null) => {
+      const style = real(element, pseudo);
+      if (element === rowA || element === rowB) {
+        return { ...style, display: 'grid', gridTemplateColumns: '420px 300px 200px 480px' } as unknown as CSSStyleDeclaration;
+      }
+      return style;
+    });
+
+    visuals.start(makeSession(rowA).session, [rowB]);
+
+    expect(pieces().map((p) => at(p))).toEqual([
+      { left: 0, top: 0, width: 1400, height: 36 },
+      { left: 0, top: 36, width: 1400, height: 36 },
+    ]);
+    for (const piece of pieces()) {
+      const clone = piece.firstElementChild as HTMLElement;
+      expect(clone.style.display).toBe('grid');
+      expect(clone.style.gridTemplateColumns).toBe('420px 300px 200px 480px');
     }
-    expect(Math.hypot(centreOf(other).x - 250, centreOf(other).y - 220)).toBeGreaterThan(1); // moving at the same time
-
-    advance(FULL);
-    expect(fillOf(lead)).toBe(50);
-    expect(fillOf(other)).toBe(50);
   });
 
-  it('takes its target from the `--drag-ghost-background-opacity` token', () => {
-    document.documentElement.style.setProperty('--drag-ghost-background-opacity', '30%');
-    try {
-      const a = item('a', A);
-      visuals.start(makeSession(a, { x: 700, y: 500 }).session);
-      advance(FULL);
+  it('draws only the first few rows — the rows ending at the lead\'s own when it is further down', () => {
+    const rows = Array.from({ length: 6 }, (_, i) => item(`r${i}`, { left: 0, top: i * 60, width: 300, height: 40 }));
 
-      expect(fillOf(clones()[0]!)).toBe(30);
-    } finally {
-      document.documentElement.style.removeProperty('--drag-ghost-background-opacity');
+    visuals.start(makeSession(rows[0]!).session, rows.slice(1));
+    expect(pieces()).toHaveLength(SNAPSHOT.maxRows);
+    visuals.dispose();
+
+    visuals.start(makeSession(rows[5]!).session, rows.slice(0, 5));
+    expect(pieces()).toHaveLength(SNAPSHOT.maxRows);
+    expect(pieces().some((p) => p.textContent === 'Open r5r5')).toBe(true);
+  });
+
+  it('is lifted out in place: it starts exactly over the originals and then moves with the pointer as one unit', () => {
+    const [a, b] = [item('a', { left: 400, top: 120, width: 220, height: 300 }), item('b', { left: 636, top: 120, width: 220, height: 300 })] as const;
+    const { session, move } = makeSession(a, { x: 450, y: 200 }); // grabbed 50, 80 into the first card
+    visuals.start(session, [b]);
+    const ghost = snapshot()!;
+
+    expect(boxOf(ghost)).toEqual({ x: 400, y: 120, width: 456, height: 300 }); // over the originals: no jump
+
+    move(750, 260);
+    expect(boxOf(ghost)).toEqual({ x: 700, y: 180, width: 456, height: 300 }); // the same grip, wherever the pointer goes
+    move(0, 0);
+    expect(boxOf(ghost)).toMatchObject({ x: -50, y: -80 });
+  });
+
+  it('is not clipped by the source container: it lives in the body-level overlay', () => {
+    const container = document.createElement('div');
+    container.style.overflow = 'hidden';
+    document.body.append(container);
+    const [a, b] = [item('a', A), item('b', B)] as const;
+    container.append(a, b);
+
+    visuals.start(makeSession(a).session, [b]);
+
+    expect(snapshot()!.closest('.drag-visuals')!.parentElement).toBe(document.body);
+    expect(container.contains(snapshot())).toBe(false);
+  });
+
+  it('the pieces are harmless pictures: inert, no ids, nothing focusable, no drag markers', () => {
+    const [a, b] = [item('a', A), item('b', B)] as const;
+    visuals.start(makeSession(a).session, [b]);
+
+    for (const piece of pieces()) {
+      expect(piece).toHaveAttribute('inert');
+      expect(piece.querySelectorAll('[id], [tabindex], [role]')).toHaveLength(0);
+      expect([...piece.querySelectorAll('*')].some((el) => [...el.attributes].some((attr) => attr.name.startsWith('data-drag')))).toBe(false);
     }
+    expect(document.querySelectorAll('[id="item-a"]')).toHaveLength(1);
   });
 
-  it('never fades the ghost or its contents: no opacity is set on a clone or anything inside it, in any phase', () => {
-    const [a, b] = [item('a', A), item('b', B)] as const;
-    const handle = visuals.start(makeSession(a, { x: 700, y: 500 }).session, [b]);
-    expect(noOpacityAnywhere()).toBe(true); // born opaque
-    advance(70);
-    expect(noOpacityAnywhere()).toBe(true); // travelling
-    advance(FULL);
-    handle.cancel();
-    advance(DRAG_VISUAL_POLICY.returnMs / 2);
-    expect(noOpacityAnywhere()).toBe(true); // returning
-    advance(FULL);
-    expect(overlay()).toBeNull();
-  });
+  it('an item that is not mounted (virtualised, or gone) is simply not drawn — and one left alone is a single-item drag', () => {
+    const [a, b, c] = [item('a', A), item('b', B), item('c', C)] as const;
+    b.remove();
+    visuals.start(makeSession(a).session, [b, c]);
+    expect(pieces()).toHaveLength(2);
+    visuals.dispose();
 
-  it('the stylesheet mixes the fill into the theme\'s own surface colour — no separate light and dark colours', () => {
-    const css = readFileSync(join(__dirname, 'DragGhost.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-    const rule = css.match(/\.drag-ghost \{([^}]*)\}/)![1]!;
-
-    expect(rule).toMatch(/color-mix\(\s*in srgb,\s*var\(--surface-tertiary\) var\(--drag-ghost-fill-opacity, var\(--drag-ghost-background-opacity\)\),\s*transparent\s*\)/);
-    expect(css).not.toMatch(/drag-ghost[^{]*\{[^}]*\bopacity:/); // the ghost itself is never made translucent
-    expect(css).not.toMatch(/@keyframes drag-ghost-(lift|land)/); // and nothing fades it in or out
-  });
-
-  it('cancel: the fill and the position return together, from where they are now — never reset first — and the clone stays until it has arrived', () => {
-    const [a, b] = [item('a', A), item('b', B)] as const;
-    const handle = visuals.start(makeSession(a, { x: 700, y: 500 }).session, [b]);
-    advance(70); // mid-flight: part-way in both
-    const [lead, other] = clones() as [HTMLElement, HTMLElement];
-    const before = { fill: fillOf(other), x: centreOf(other).x, y: centreOf(other).y };
-    expect(before.fill).toBeLessThan(100);
-
-    handle.cancel();
-    advance(16);
-    expect(Math.abs(fillOf(other) - before.fill)).toBeLessThan(15); // continues from the current fill…
-    expect(Math.abs(centreOf(other).x - before.x)).toBeLessThan(40); // …and the current place
-    expect(Math.abs(centreOf(other).y - before.y)).toBeLessThan(40);
-
-    advance(DRAG_VISUAL_POLICY.returnMs / 2);
-    expect(fillOf(other)).toBeGreaterThan(before.fill); // rising back towards 100% as it travels back
-    expect(overlay()).not.toBeNull(); // nothing is removed early
-    advance(DRAG_VISUAL_POLICY.returnMs / 2 + 40);
-    expect(overlay()).toBeNull();
-    expect(lead.isConnected).toBe(false);
-  });
-
-  it('a fully settled ghost returns from 50% back up to 100%, and is removed only on arrival', () => {
-    const a = item('a', A);
-    const handle = visuals.start(makeSession(a, { x: 700, y: 500 }).session);
-    advance(FULL);
-    expect(fillOf(clones()[0]!)).toBe(50);
-
-    handle.cancel();
-    advance(DRAG_VISUAL_POLICY.returnMs * 0.5);
-    const mid = fillOf(clones()[0]!);
-    expect(mid).toBeGreaterThan(50);
-    expect(mid).toBeLessThan(100);
-    expect(a).toHaveAttribute(DRAG_SOURCE_ATTRIBUTE, 'true'); // the original is shown only when the clone is gone
-
-    advance(DRAG_VISUAL_POLICY.returnMs);
-    expect(overlay()).toBeNull();
-    expect(a.hasAttribute(DRAG_SOURCE_ATTRIBUTE)).toBe(false);
-  });
-
-  it('cancelling an animation already in progress, then another drag at once, leaves no stale fill or clone', () => {
-    const [a, b] = [item('a', A), item('b', B)] as const;
-    const first = visuals.start(makeSession(a, { x: 700, y: 500 }).session, [b]);
-    advance(40);
-    first.cancel();
-    advance(40);
-
-    const second = visuals.start(makeSession(b).session, [a]);
-    expect(document.querySelectorAll('.drag-visuals')).toHaveLength(1);
-    expect(clones().every((clone) => fillOf(clone) === 100)).toBe(true); // a fresh start, from nothing
-
-    second.dispose();
-    advance(FULL);
-    expect(overlay()).toBeNull();
-    expect(clock.pending()).toBe(0);
-  });
-
-  it('with reduced motion the fill is at its final value at once, and a cancel ends at once', () => {
-    restoreMotion();
-    restoreMotion = stubReducedMotion(true);
-    const [a, b] = [item('a', A), item('b', B)] as const;
-    const handle = visuals.start(makeSession(a, { x: 700, y: 500 }).session, [b]);
-
-    expect(fillOf(clones()[0]!)).toBe(50);
-    handle.cancel();
-    expect(overlay()).toBeNull();
+    c.remove();
+    visuals.start(makeSession(a).session, [b, c]);
+    expect(snapshot()).toBeNull();
+    expect(ghosts()).toHaveLength(1);
+    expect(a).toHaveAttribute(DRAG_SOURCE_ATTRIBUTE, 'true');
   });
 });
 
 describe('ending a drag', () => {
-  it('cancel: every clone flies back to where its original is NOW — even if the layout moved — then the originals are restored', () => {
-    const [a, b] = [item('a', A), item('b', B)] as const;
-    const { session, move, listening } = makeSession(a, { x: 700, y: 500 });
-    const handle = visuals.start(session, [b]);
-    advance(FULL);
-    move(900, 120);
-    advance(32);
-
-    handle.cancel();
-    expect(listening()).toBe(0); // no longer follows the pointer
-    b.moveTo({ left: 100, top: 400, width: 300, height: 40 }); // the collection re-laid-out while it flew
-    advance(DRAG_VISUAL_POLICY.returnMs / 2);
-    const [lead, other] = clones() as [HTMLElement, HTMLElement];
-    expect(centreOf(other).y).toBeGreaterThan(220); // on its way…
-    expect(centreOf(other).y).toBeLessThan(500);
-
-    advance(FULL);
-    expect(overlay()).toBeNull(); // clones gone
-    expect(a.hasAttribute(DRAG_SOURCE_ATTRIBUTE)).toBe(false);
-    expect(b.hasAttribute(DRAG_SOURCE_ATTRIBUTE)).toBe(false);
-    expect(lead.isConnected).toBe(false);
-    expect(clock.pending()).toBe(0);
-  });
-
-  it('cancel from mid-flight returns from where the clones had got to', () => {
-    const [a, b] = [item('a', A), item('b', B)] as const;
-    visuals.start(makeSession(a, { x: 700, y: 500 }).session, [b]).cancel();
-    advance(48);
-
-    expect(overlay()).not.toBeNull();
-    advance(FULL);
-    expect(overlay()).toBeNull();
-  });
-
-  it('commit: nothing flies back, fades or changes — the clones stay where the cursor left them until the collection has updated, then go with the hiding', () => {
+  it('the ghost is gone at once and nothing is left: no overlay, no pointer subscription, no hiding', () => {
     const a = item('a', A);
-    const { session } = makeSession(a, { x: 700, y: 500 });
-    const handle = visuals.start(session);
-    advance(FULL);
-    handle.release();
-    const where = centreOf(clones()[0]!);
-    const fillBefore = fillOf(clones()[0]!);
-
-    handle.commit();
-    advance(16);
-    expect(overlay()).not.toBeNull(); // not before the render: neither a duplicate nor a gap
-    expect(a).toHaveAttribute(DRAG_SOURCE_ATTRIBUTE, 'true');
-    expect(centreOf(clones()[0]!)).toEqual(where); // in place — no flight back
-    expect(fillOf(clones()[0]!)).toBe(fillBefore); // no animation of any kind
-    expect(clones()[0]!.style.opacity).toBe('');
-
-    advance(FULL);
-    expect(overlay()).toBeNull();
-    expect(a.hasAttribute(DRAG_SOURCE_ATTRIBUTE)).toBe(false);
-    expect(clock.pending()).toBe(0);
-  });
-
-  it('commit of several items: the originals stay as they were, only the clones go', () => {
-    const [a, b] = [item('a', A), item('b', B)] as const;
-    const before = [a, b].map((el) => el.outerHTML);
-    const handle = visuals.start(makeSession(a, { x: 700, y: 500 }).session, [b]);
-    advance(FULL);
-
-    handle.commit();
-    advance(16);
-    expect([a, b].map((el) => el.outerHTML)).toEqual(before);
-    advance(FULL);
-
-    expect(overlay()).toBeNull();
-    expect([a, b].map((el) => el.outerHTML)).toEqual(before);
-  });
-
-  it('release holds the clones where they are while the drop is decided', () => {
-    const a = item('a', A);
-    const { session, move } = makeSession(a, { x: 700, y: 500 });
-    const handle = visuals.start(session);
-    advance(FULL);
-
-    handle.release();
-    move(10, 10);
-
-    expect(centreOf(clones()[0]!)).toEqual({ x: 700, y: 500 });
-  });
-
-  it('is idempotent: any number of cancels, commits, disposes — in any order — leave one clean result', () => {
-    const [a, b] = [item('a', A), item('b', B)] as const;
-    const handle = visuals.start(makeSession(a).session, [b]);
-
-    handle.cancel();
-    handle.cancel();
-    handle.commit();
-    handle.release();
-    handle.dispose();
-    handle.dispose();
-    visuals.dispose();
-    advance(FULL);
-
-    expect(overlay()).toBeNull();
-    expect(a.hasAttribute(DRAG_SOURCE_ATTRIBUTE)).toBe(false);
-    expect(b.hasAttribute(DRAG_SOURCE_ATTRIBUTE)).toBe(false);
-    expect(clock.pending()).toBe(0);
-  });
-
-  it('a new drag ends the last one at once — even one still flying back — and the old handle can no longer touch anything', () => {
-    const [a, b] = [item('a', A), item('b', B)] as const;
-    const first = visuals.start(makeSession(a, { x: 700, y: 500 }).session, [b]);
-    advance(FULL);
-    first.cancel();
-    advance(40);
-
-    const second = visuals.start(makeSession(b).session);
-    expect(document.querySelectorAll('.drag-visuals')).toHaveLength(1); // the first drag's clones are gone
-    expect(clones()).toHaveLength(1);
-    expect(b).toHaveAttribute(DRAG_SOURCE_ATTRIBUTE, 'true'); // a single item: hidden
-
-    first.cancel(); // stale
-    first.commit();
-    first.dispose();
-    advance(FULL);
-    expect(document.querySelectorAll('.drag-visuals')).toHaveLength(1);
-    expect(b).toHaveAttribute(DRAG_SOURCE_ATTRIBUTE, 'true');
-
-    second.dispose();
-    expect(overlay()).toBeNull();
-  });
-
-  it('disposing (the page going away) removes everything, with no frame left queued', () => {
-    const [a, b] = [item('a', A), item('b', B)] as const;
-    const { session, listening } = makeSession(a, { x: 700, y: 500 });
-    visuals.start(session, [b]);
-    advance(48);
+    const { session, listening } = makeSession(a);
+    visuals.start(session);
+    expect(listening()).toBe(1);
 
     visuals.dispose();
 
     expect(overlay()).toBeNull();
-    expect(a.hasAttribute(DRAG_SOURCE_ATTRIBUTE)).toBe(false);
     expect(listening()).toBe(0);
-    expect(clock.pending()).toBe(0);
-  });
-});
-
-describe('where no animation frames run (a window that is not painted)', () => {
-  beforeEach(() => {
-    clock.uninstall();
-    vi.useFakeTimers();
-    window.requestAnimationFrame = (() => 1) as typeof window.requestAnimationFrame; // frames are accepted and never run
-    window.cancelAnimationFrame = (() => undefined) as typeof window.cancelAnimationFrame;
+    expect(a.hasAttribute(DRAG_SOURCE_ATTRIBUTE)).toBe(false);
   });
 
-  it('cancel still ends: the clones go and the originals come back', () => {
+  it('is idempotent', () => {
     const a = item('a', A);
-    visuals.start(makeSession(a).session).cancel();
-    expect(a).toHaveAttribute(DRAG_SOURCE_ATTRIBUTE, 'true');
+    visuals.start(makeSession(a).session);
 
-    vi.advanceTimersByTime(DRAG_VISUAL_POLICY.returnMs + DRAG_VISUAL_POLICY.safetyMs + 10);
+    visuals.dispose();
+    visuals.dispose();
+    visuals.dispose();
 
     expect(overlay()).toBeNull();
     expect(a.hasAttribute(DRAG_SOURCE_ATTRIBUTE)).toBe(false);
   });
 
-  it('commit still ends', () => {
-    const a = item('a', A);
-    visuals.start(makeSession(a).session).commit();
-
-    vi.advanceTimersByTime(DRAG_VISUAL_POLICY.safetyMs + 10);
-
-    expect(overlay()).toBeNull();
-    expect(a.hasAttribute(DRAG_SOURCE_ATTRIBUTE)).toBe(false);
-  });
-});
-
-describe('reduced motion', () => {
-  beforeEach(() => {
-    restoreMotion();
-    restoreMotion = stubReducedMotion(true);
-  });
-
-  it('keeps every original visible, puts the ghost on the cursor, draws no convergence, and ends at once', () => {
+  it('a new drag ends the last one first: there is only ever one overlay, and the old original is back', () => {
     const [a, b] = [item('a', A), item('b', B)] as const;
-    const { session } = makeSession(a, { x: 700, y: 500 });
-    const handle = visuals.start(session, [b]);
+    visuals.start(makeSession(a).session);
 
-    expect(clones()).toHaveLength(1); // only the ghost
-    expect(a.hasAttribute(DRAG_SOURCE_ATTRIBUTE)).toBe(false); // several items: the originals stay visible
-    expect(b.hasAttribute(DRAG_SOURCE_ATTRIBUTE)).toBe(false);
-    expect(centreOf(clones()[0]!)).toEqual({ x: 700, y: 500 }); // on the cursor at once
-    expect(document.querySelector('.drag-ghost-count')?.textContent).toBe('2');
+    visuals.start(makeSession(b).session);
 
-    handle.cancel();
-    expect(overlay()).toBeNull();
+    expect(document.querySelectorAll('.drag-visuals')).toHaveLength(1);
     expect(a.hasAttribute(DRAG_SOURCE_ATTRIBUTE)).toBe(false);
-    expect(b.hasAttribute(DRAG_SOURCE_ATTRIBUTE)).toBe(false);
+    expect(b).toHaveAttribute(DRAG_SOURCE_ATTRIBUTE, 'true');
+  });
+});
+
+describe('the stylesheet', () => {
+  const css = readFileSync(join(__dirname, 'DragGhost.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+
+  it('animates nothing: no keyframes, no transition, no animation, no opacity on the ghost', () => {
+    expect(css).not.toMatch(/@keyframes/);
+    expect(css).not.toMatch(/\banimation\s*:/);
+    expect(css).not.toMatch(/\btransition\s*:/);
+    expect(css).not.toMatch(/(?<![-\w])opacity\s*:/);
+  });
+
+  it('keeps the theme-aware fill: the surface colour mixed with the fill token', () => {
+    expect(css).toMatch(/color-mix\(\s*in srgb,\s*var\(--surface-tertiary\) var\(--drag-ghost-background-opacity\),\s*transparent\s*\)/);
+  });
+
+  it('the snapshot layer has no fill or shadow of its own — only the lifted items do', () => {
+    const rule = css.match(/\.drag-snapshot \{([^}]*)\}/)![1]!;
+    expect(rule).not.toMatch(/background|box-shadow/);
+  });
+
+  it('hides a dragged original with `visibility`, which takes its border, shadow and pseudo-elements with it', () => {
+    expect(css).toMatch(/\[data-drag-source='true'\]\s*\{\s*visibility:\s*hidden;/);
   });
 });

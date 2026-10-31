@@ -1,13 +1,11 @@
 // @vitest-environment jsdom
 
 // The shared drag visuals (components/drag-ghost/dragVisuals.ts) as a Collection View uses them — in every layout,
-// for one item and for several, through the real Application and page. Nothing is mocked but the browser's layout
-// and the animation clock (a manual one, so a flight can be inspected at any moment).
+// for one item and for several, through the real Application and page. Nothing is mocked but the browser's layout.
 import '@testing-library/jest-dom/vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { installFrameClock, stubReducedMotion } from '@components/drag-ghost/dragVisuals.testSupport';
 import { AppLayout } from '../app-layout/AppLayout';
 import { Application } from '@core/application/Application';
 import { Vault } from '@core/vault/models/Vault';
@@ -119,33 +117,26 @@ async function drag(source: HTMLElement, target: { x: number; y: number }, optio
 
 
 
+
 const checkbox = (name: string) => screen.getByRole('checkbox', { name: `Select ${name}`, hidden: true });
 const select = (...names: string[]) => names.forEach((name) => fireEvent.click(checkbox(name)));
 
-let clock: ReturnType<typeof installFrameClock>;
-let restoreMotion: (() => void) | undefined;
-beforeEach(() => {
-  clock = installFrameClock();
-});
-afterEach(() => {
-  restoreMotion?.();
-  restoreMotion = undefined;
-  clock.uninstall();
-});
-
-const FULL = 1500;
-const advance = (ms: number) => act(() => clock.step(ms));
 const movePointer = (x: number, y: number) => act(() => void fireEvent.pointerMove(document, { pointerId: 1, clientX: x, clientY: y }));
 const release = (x = 0, y = 0) => act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: x, clientY: y }));
 const escape = () => act(() => void fireEvent.keyDown(document, { key: 'Escape' }));
 
 const overlay = () => document.querySelector<HTMLElement>('.drag-visuals');
-const clones = () => [...document.querySelectorAll<HTMLElement>('.drag-visuals .drag-ghost')];
-const badge = () => document.querySelector('.drag-ghost-count')?.textContent ?? null;
+const ghosts = () => [...document.querySelectorAll<HTMLElement>('.drag-visuals .drag-ghost:not(.drag-ghost--piece)')];
+const pieces = () => [...document.querySelectorAll<HTMLElement>('.drag-snapshot .drag-ghost--piece')];
+const snapshot = () => document.querySelector<HTMLElement>('.drag-snapshot');
 const hidden = () => [...document.querySelectorAll<HTMLElement>('[data-drag-source="true"]')];
-const centreOf = (el: HTMLElement) => {
+const boxOf = (el: HTMLElement) => {
   const m = /translate3d\((-?[\d.]+)px, (-?[\d.]+)px/.exec(el.style.transform)!;
-  return { x: Number(m[1]) + parseFloat(el.style.width) / 2, y: Number(m[2]) + parseFloat(el.style.height) / 2 };
+  return { x: Number(m[1]), y: Number(m[2]), width: parseFloat(el.style.width), height: parseFloat(el.style.height) };
+};
+const centreOf = (el: HTMLElement) => {
+  const b = boxOf(el);
+  return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
 };
 /** The page's own entries (never the sidebar's rows, never a clone). */
 const entries = () => [...document.querySelectorAll<HTMLElement>('[data-drag-inside-only="true"]')];
@@ -166,299 +157,320 @@ describe.each(['list', 'table', 'card'] as const)('the shared drag visuals in th
   beforeEach(() => setUp(layout));
 
   describe('one item', () => {
-    it('hides the original while its clone is dragged, and restores it if the drag is cancelled', async () => {
+    it('draws one ghost, hides the original (kept in the DOM) and follows the pointer directly', async () => {
       await drag(card(ids.N2!), { x: 820, y: 650 }, { release: false });
 
+      expect(ghosts()).toHaveLength(1);
+      expect(pieces()).toHaveLength(0);
       expect(hidden()).toEqual([card(ids.N2!)]);
-      expect(clones()).toHaveLength(1);
-      expect(badge()).toBeNull();
-      expect(card(ids.N2!).isConnected).toBe(true); // hidden, never removed
+      expect(card(ids.N2!).isConnected).toBe(true);
+      expect(centreOf(ghosts()[0]!)).toEqual({ x: 820, y: 650 }); // on the cursor at once
 
-      escape();
-      advance(FULL);
-
-      expect(overlay()).toBeNull();
-      expect(entries().every(looksUntouched)).toBe(true);
-      release();
-    });
-
-    it('a successful drop leaves the clone to go with the collection\'s update, and does not fly it back', async () => {
-      await drag(card(ids.N2!), centre(card(ids.Alpha!)), { release: false });
-      advance(FULL);
-
-      release(centre(card(ids.Alpha!)).x, centre(card(ids.Alpha!)).y);
-      await settle();
-      expect(parentOf('N2')).toBe(ids.Alpha);
-      advance(FULL);
-
-      expect(overlay()).toBeNull();
-      expect(hidden()).toHaveLength(0);
-    });
-
-    it('the ghost starts on the original, then sits centred on the cursor and follows it', async () => {
-      const original = card(ids.N3!).getBoundingClientRect();
-      await drag(card(ids.N3!), { x: 820, y: 650 }, { release: false });
-      const [ghost] = clones() as [HTMLElement];
-      expect(Math.round(centreOf(ghost).x)).toBe(Math.round(original.left + original.width / 2)); // no jump
-
-      advance(FULL);
-      expect(centreOf(ghost)).toEqual({ x: 820, y: 650 });
       movePointer(300, 500);
-      expect(centreOf(ghost)).toEqual({ x: 300, y: 500 });
-      release();
-      advance(FULL);
-    });
-  });
-
-  describe('several items', () => {
-    it('keeps EVERY original visible and untouched, from the first frame to the end — contiguous or not', async () => {
-      select('N1', 'N2', 'N4');
-      await drag(card(ids.N2!), { x: 820, y: 650 }, { release: false });
-
-      expect(entries().every(looksUntouched)).toBe(true);
-      expect(clones()).toHaveLength(3);
-      expect(badge()).toBe('3');
-      advance(FULL);
-      expect(entries().every(looksUntouched)).toBe(true);
-
-      escape();
-      advance(110);
-      expect(entries().every(looksUntouched)).toBe(true);
-      advance(FULL);
-      expect(entries().every(looksUntouched)).toBe(true);
-      expect(overlay()).toBeNull();
-      expect(document.querySelectorAll('[role="checkbox"][aria-checked="true"], input[type="checkbox"]:checked').length).toBeGreaterThan(0); // still selected
+      expect(centreOf(ghosts()[0]!)).toEqual({ x: 300, y: 500 }); // and exactly, on every move
       release();
     });
 
-    it('the other clones converge on the ghost, which is on the cursor — and follow it when it moves', async () => {
-      select('N1', 'N2', 'N3');
-      await drag(card(ids.N1!), { x: 450, y: 300 }, { release: false });
-      advance(80);
-      movePointer(900, 120);
-      advance(FULL);
-
-      const [lead, ...others] = clones();
-      expect(centreOf(lead!)).toEqual({ x: 900, y: 120 });
-      for (const other of others) expect(centreOf(other)).toEqual({ x: 900, y: 120 });
-      release();
-      advance(FULL);
-    });
-
-    it('only the background fill fades: 100% → 50% on the way out, back to 100% on the way back — never the clone or its contents', async () => {
-      const fill = (el: HTMLElement) => parseFloat(el.style.getPropertyValue('--drag-ghost-fill-opacity'));
-      const noOpacity = () => [...document.querySelectorAll<HTMLElement>('.drag-visuals .drag-ghost, .drag-visuals .drag-ghost *')].every((el) => el.style.opacity === '');
-      select('N1', 'N2', 'N3');
-      await drag(card(ids.N1!), { x: 820, y: 650 }, { release: false });
-      const [lead, other] = clones() as [HTMLElement, HTMLElement];
-      expect(fill(other)).toBe(100);
-      advance(70);
-      expect(fill(other)).toBeLessThan(100);
-      expect(fill(other)).toBeGreaterThan(50);
-      advance(FULL);
-      expect(fill(other)).toBe(50);
-      expect(fill(lead)).toBe(50);
-      expect(noOpacity()).toBe(true);
-
-      escape();
-      advance(100);
-      expect(fill(other)).toBeGreaterThan(50); // rising back…
-      expect(fill(other)).toBeLessThan(100);
-      expect(noOpacity()).toBe(true);
-      expect(overlay()).not.toBeNull(); // …and nothing removed before it has arrived
-      advance(FULL);
-      expect(overlay()).toBeNull();
-      release();
-    });
-
-    it('a successful drop leaves the clones where they are — no return, no fade — until the update has rendered', async () => {
-      select('N1', 'N2');
-      await drag(card(ids.N1!), centre(card(ids.Alpha!)), { release: false });
-      advance(FULL);
-      const lead = clones()[0]!;
-      const where = centreOf(lead);
-
-      release(centre(card(ids.Alpha!)).x, centre(card(ids.Alpha!)).y);
-      await settle();
-      advance(16);
-
-      if (lead.isConnected) {
-        expect(centreOf(lead)).toEqual(where);
-        expect(lead.style.opacity).toBe('');
-        expect(parseFloat(lead.style.getPropertyValue('--drag-ghost-fill-opacity'))).toBe(50);
-      }
-      advance(FULL);
-      expect(overlay()).toBeNull();
-    });
-
-    it('Escape flies the clones back, then removes them; nothing moved', async () => {
-      select('N1', 'N2', 'N3');
-      await drag(card(ids.N1!), { x: 450, y: 300 }, { release: false });
-      advance(FULL);
-
-      escape();
-      expect(overlay()).not.toBeNull(); // on its way back
-      advance(FULL);
-
-      expect(overlay()).toBeNull();
-      release();
-      await settle();
-      expect(['N1', 'N2', 'N3'].map(parentOf)).toEqual([ids.Projects, ids.Projects, ids.Projects]);
-    });
-
-    it('a release over an invalid destination, and a refused drop, fly the clones back too', async () => {
-      select('N1', 'N2');
-      await drag(card(ids.N1!), { x: 900, y: 700 });
-      await settle();
-      expect(overlay()).not.toBeNull();
-      advance(FULL);
-      expect(overlay()).toBeNull();
-
-      vi.spyOn(application.pageOperations, 'move').mockRejectedValue(new Error('no'));
-      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-      await drag(card(ids.N1!), centre(card(ids.Alpha!)));
-      await settle();
-      expect(overlay()).not.toBeNull();
-      advance(FULL);
-      expect(overlay()).toBeNull();
-      expect(parentOf('N2')).toBe(ids.Projects);
-      warn.mockRestore();
-    });
-
-    it('a successful move does not fly them back: the clones stay where the cursor left them until the update has rendered', async () => {
-      select('N1', 'N2');
-      await drag(card(ids.N1!), centre(card(ids.Alpha!)), { release: false });
-      advance(FULL);
-      const [lead] = clones();
-      const where = centreOf(lead!);
-
-      release(centre(card(ids.Alpha!)).x, centre(card(ids.Alpha!)).y);
-      await settle();
-
-      expect(parentOf('N1')).toBe(ids.Alpha);
-      expect(parentOf('N2')).toBe(ids.Alpha);
-      if (lead!.isConnected) expect(centreOf(lead!)).toEqual(where); // held, not sent back
-      advance(FULL);
-      expect(overlay()).toBeNull();
-    });
-
-    it('an unchecked item is dragged alone: a single-item drag with its own original hidden', async () => {
-      select('N1', 'N2');
-      await drag(card(ids.N4!), centre(card(ids.Alpha!)), { release: false });
-
-      expect(clones()).toHaveLength(1);
-      expect(hidden()).toEqual([card(ids.N4!)]);
-      release();
-      advance(FULL);
-    });
-  });
-
-  describe('every way a drag ends, repeatedly, leaves nothing behind', () => {
     it.each([
       ['Escape', async () => escape()],
       ['a pointer cancel', async () => act(() => void fireEvent.pointerCancel(document, { pointerId: 1 }))],
       ['losing the window', async () => act(() => void fireEvent.blur(window))],
       ['a release over empty space', async () => release(900, 700)],
-    ] as const)('%s — with the next drag starting before the last has finished flying back', async (_name, end) => {
-      select('N1', 'N2', 'N4');
-      for (let round = 0; round < 3; round += 1) {
-        await drag(card(ids.N1!), { x: 800 + round, y: 600 }, { release: false });
-        advance(40);
-        await end();
-        await settle();
-        advance(30);
-        // Always exactly one overlay, never two.
-        expect(document.querySelectorAll('.drag-visuals').length).toBeLessThanOrEqual(1);
-      }
+    ] as const)('%s ends it at once: the ghost is gone and the original is back', async (_name, end) => {
+      await drag(card(ids.N2!), { x: 820, y: 650 }, { release: false });
+
+      await end();
+
+      expect(overlay()).toBeNull();
+      expect(entries().every(looksUntouched)).toBe(true);
       release();
+    });
+
+    it('a successful drop ends it at once and the move happens', async () => {
+      await drag(card(ids.N2!), centre(card(ids.Alpha!)));
       await settle();
-      advance(FULL);
 
+      expect(parentOf('N2')).toBe(ids.Alpha);
       expect(overlay()).toBeNull();
-      expect(entries().every(looksUntouched)).toBe(true);
-      expect(clock.pending()).toBe(0);
+      expect(hidden()).toHaveLength(0);
+    });
+  });
+
+  describe('several items', () => {
+    it('draws ONE snapshot — a piece for each selected item at its own place and size — and keeps EVERY original visible and untouched throughout', async () => {
+      select('N1', 'N2', 'N4');
+      const before = entries().map((el) => el.outerHTML);
+      await drag(card(ids.N2!), { x: 820, y: 650 }, { release: false });
+
+      expect(snapshot()).not.toBeNull();
+      expect(ghosts()).toHaveLength(0);
+      expect(pieces()).toHaveLength(3);
+      expect(entries().map((el) => el.outerHTML)).toEqual(before); // nothing hidden, restyled or marked
+
+      const box = boxOf(snapshot()!);
+      movePointer(300, 500);
+      const moved = boxOf(snapshot()!);
+      expect({ dx: moved.x - box.x, dy: moved.y - box.y }).toEqual({ dx: 300 - 820, dy: 500 - 650 }); // one unit, following directly
+      expect(entries().map((el) => el.outerHTML)).toEqual(before);
+
+      escape();
+      expect(overlay()).toBeNull();
+      expect(entries().map((el) => el.outerHTML)).toEqual(before);
+      release();
     });
 
-    it('several successful moves in a row', async () => {
-      for (const [from, to] of [[['N1', 'N2'], 'Alpha'], [['N3'], 'Beta']] as const) {
-        select(...from);
-        await drag(card(ids[from[0]]!), centre(card(ids[to]!)));
-        await settle();
-        advance(FULL);
-      }
-
-      expect(parentOf('N1')).toBe(ids.Alpha);
-      expect(parentOf('N3')).toBe(ids.Beta);
-      expect(overlay()).toBeNull();
-      expect(entries().every(looksUntouched)).toBe(true);
-    });
-
-    it('the page going away mid-drag', async () => {
+    it('mirrors the originals: each piece has its original\'s size and its distance from the others', async () => {
       select('N1', 'N2', 'N3');
-      await drag(card(ids.N1!), { x: 800, y: 600 }, { release: false });
-      advance(60);
+      const rects = ['N1', 'N2', 'N3'].map((name) => card(ids[name]!).getBoundingClientRect());
+      await drag(card(ids.N1!), { x: 820, y: 650 }, { release: false });
 
-      cleanup();
-      advance(FULL);
+      const origin = { x: Math.min(...rects.map((r) => r.left)), y: Math.min(...rects.map((r) => r.top)) };
+      const drawn = pieces().map((p) => ({ left: parseFloat(p.style.left), top: parseFloat(p.style.top), width: parseFloat(p.style.width), height: parseFloat(p.style.height) }));
+      expect(drawn).toEqual(rects.map((r) => ({ left: r.left - origin.x, top: r.top - origin.y, width: r.width, height: r.height })));
+      release();
+    });
+
+    it.each([
+      ['Escape', async () => escape()],
+      ['a pointer cancel', async () => act(() => void fireEvent.pointerCancel(document, { pointerId: 1 }))],
+      ['losing the window', async () => act(() => void fireEvent.blur(window))],
+      ['a release over empty space', async () => release(900, 700)],
+    ] as const)('%s ends it at once, and nothing moved', async (_name, end) => {
+      select('N1', 'N2');
+      await drag(card(ids.N1!), { x: 820, y: 650 }, { release: false });
+
+      await end();
+      await settle();
 
       expect(overlay()).toBeNull();
-      expect(clock.pending()).toBe(0);
+      expect(entries().every(looksUntouched)).toBe(true);
+      expect(['N1', 'N2'].map(parentOf)).toEqual([ids.Projects, ids.Projects]);
+      release();
+    });
+
+    it('a refused drop ends it at once and leaves the items where they were', async () => {
+      vi.spyOn(application.pageOperations, 'move').mockRejectedValue(new Error('no'));
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      select('N1', 'N2');
+
+      await drag(card(ids.N1!), centre(card(ids.Alpha!)));
+      await settle();
+
+      expect(overlay()).toBeNull();
+      expect(parentOf('N2')).toBe(ids.Projects);
+      warn.mockRestore();
+    });
+
+    it('a successful move ends it at once and moves every selected item', async () => {
+      select('N1', 'N2');
+
+      await drag(card(ids.N1!), centre(card(ids.Alpha!)));
+      await settle();
+
+      expect(overlay()).toBeNull();
+      expect(parentOf('N1')).toBe(ids.Alpha);
+      expect(parentOf('N2')).toBe(ids.Alpha);
+    });
+
+    it('an unchecked item is dragged alone: a single-item ghost with its own original hidden', async () => {
+      select('N1', 'N2');
+      await drag(card(ids.N4!), centre(card(ids.Alpha!)), { release: false });
+
+      expect(pieces()).toHaveLength(0);
+      expect(hidden()).toEqual([card(ids.N4!)]);
+      release();
     });
   });
 
-  it('with reduced motion: originals untouched, the ghost on the cursor at once, no convergence, an instant end', async () => {
-    restoreMotion = stubReducedMotion(true);
-    select('N1', 'N2', 'N3');
-    await drag(card(ids.N1!), { x: 820, y: 650 }, { release: false });
-
-    expect(clones()).toHaveLength(1);
-    expect(centreOf(clones()[0]!)).toEqual({ x: 820, y: 650 });
-    expect(entries().every(looksUntouched)).toBe(true);
-    escape();
-    expect(overlay()).toBeNull();
-    release();
-  });
-});
-
-describe('where no animation frames run', () => {
-  beforeEach(() => setUp('list'));
-
-  it('a cancelled and a committed drag still end, on their safety timers', async () => {
-    // Frames are accepted and never run (a window that is not painted); only the real timers can end anything.
-    clock.uninstall();
-    window.requestAnimationFrame = (() => 1) as typeof window.requestAnimationFrame;
-    window.cancelAnimationFrame = (() => undefined) as typeof window.cancelAnimationFrame;
-    const wait = (ms: number) => act(async () => void (await new Promise((resolve) => setTimeout(resolve, ms))));
-    try {
-      select('N1', 'N2');
-      await drag(card(ids.N1!), { x: 900, y: 700 }); // invalid: a cancel
-      await wait(1200);
+  it('repeated drags — every way of ending — leave nothing behind, and always at most one overlay', async () => {
+    select('N1', 'N2', 'N4');
+    for (const end of [escape, () => release(900, 700), () => act(() => void fireEvent.pointerCancel(document, { pointerId: 1 }))]) {
+      await drag(card(ids.N1!), { x: 800, y: 600 }, { release: false });
+      expect(document.querySelectorAll('.drag-visuals')).toHaveLength(1);
+      end();
+      await settle();
       expect(overlay()).toBeNull();
-      expect(entries().every(looksUntouched)).toBe(true);
-
-      await drag(card(ids.N1!), centre(card(ids.Alpha!))); // a move: a commit
-      await wait(500);
-      expect(overlay()).toBeNull();
-      expect(entries().every(looksUntouched)).toBe(true);
-    } finally {
-      clock = installFrameClock();
     }
+    release();
+    expect(entries().every(looksUntouched)).toBe(true);
+  });
+
+  it('the page going away mid-drag leaves no ghost behind', async () => {
+    select('N1', 'N2', 'N3');
+    await drag(card(ids.N1!), { x: 800, y: 600 }, { release: false });
+
+    cleanup();
+
+    expect(overlay()).toBeNull();
   });
 });
 
 describe('reordering', () => {
   beforeEach(() => setUp('list'));
 
-  it('several items reorder together and the clones go with the update; none fly back', async () => {
+  it('several items reorder together, with one grid ghost that is gone at once on the drop', async () => {
     select('N3', 'N4');
-
-    await drag(card(ids.N3!), { x: 500, y: card(ids.N1!).getBoundingClientRect().top + 2 });
+    await drag(card(ids.N3!), { x: 500, y: card(ids.N1!).getBoundingClientRect().top + 2 }, { release: false });
+    expect(pieces()).toHaveLength(2);
+    release(500, card(ids.N1!).getBoundingClientRect().top + 2);
     await settle();
-    advance(FULL);
 
     const notes = (application.collectionViewConfigStore.get(`folder:${ids.Projects}`)?.sidebarOrder ?? []).filter((id) => id.startsWith('n:'));
     expect(notes).toEqual(['N3', 'N4', 'N1', 'N2'].map((name) => `n:${ids[name]}`));
     expect(overlay()).toBeNull();
     expect(entries().every(looksUntouched)).toBe(true);
+  });
+
+  it('a single item reorders too', async () => {
+    await drag(card(ids.N4!), { x: 500, y: card(ids.N1!).getBoundingClientRect().top + 2 });
+    await settle();
+
+    const notes = (application.collectionViewConfigStore.get(`folder:${ids.Projects}`)?.sidebarOrder ?? []).filter((id) => id.startsWith('n:'));
+    expect(notes).toEqual(['N4', 'N1', 'N2', 'N3'].map((name) => `n:${ids[name]}`));
+    expect(overlay()).toBeNull();
+  });
+});
+
+describe('reordering in the card layout — the same ordering, validation and write as list and table, along a grid\'s rows', () => {
+  // Four note cards in a 2-column grid with a 16px gap (220 × 300 each); the folder cards keep the harness's own boxes.
+  const GRID = (index: number) => ({ left: 400 + (index % 2) * 236, top: 100 + Math.floor(index / 2) * 316, width: 220, height: 300 });
+  const indicator = () => document.querySelector<HTMLElement>('[data-drop-feedback="insert"]');
+  const storedNotes = () => (application.collectionViewConfigStore.get(`folder:${ids.Projects}`)?.sidebarOrder ?? []).filter((id) => id.startsWith('n:')).map((id) => Object.keys(ids).find((name) => ids[name] === id.slice(2)));
+  /** The page's note cards (and list rows) in the order they are drawn. */
+  const drawn = () => [...document.querySelectorAll<HTMLElement>('[data-drag-inside-only="true"][data-drag-kind="note"]')].map((el) => Object.keys(ids).find((name) => ids[name] === el.dataset.dragId));
+
+  beforeEach(async () => {
+    await setUp('card');
+    const spy = vi.spyOn(Element.prototype, 'getBoundingClientRect');
+    const base = spy.getMockImplementation()!;
+    spy.mockImplementation(function (this: Element) {
+      const el = this as HTMLElement;
+      if (el.dataset?.dragReorder === 'grid') {
+        const index = [...document.querySelectorAll('[data-drag-reorder="grid"]')].indexOf(el);
+        const r = GRID(index);
+        return { ...r, right: r.left + r.width, bottom: r.top + r.height, x: r.left, y: r.top, toJSON: () => ({}) } as DOMRect;
+      }
+      return base.call(this);
+    });
+  });
+
+  it('every note card is a reorder position in a Manual folder; folder cards stay places to move into', () => {
+    expect(document.querySelectorAll('[data-drag-reorder="grid"]')).toHaveLength(4);
+    expect(card(ids.Alpha!)).not.toHaveAttribute('data-drag-reorder');
+    expect(card(ids.Beta!)).not.toHaveAttribute('data-drag-reorder');
+  });
+
+  it('shows a vertical line — the list\'s own indicator, turned — centred in the gap before a card, as tall as the card, and not over any card', async () => {
+    await drag(card(ids.N3!), { x: 410, y: 250 }, { release: false }); // the left half of N1
+
+    const line = indicator()!;
+    expect(line).toHaveClass('drop-feedback--insert');
+    expect(line).toHaveClass('drop-feedback--insert-vertical');
+    expect(line.style.left).toBe(`${400 - 8}px`); // half the grid's 16px gap before N1's left edge
+    expect(line.style.top).toBe('100px');
+    expect(line.style.height).toBe('300px');
+    release();
+  });
+
+  it('follows the pointer across a grid: after a card in its row, and in the gap between two cards', async () => {
+    await drag(card(ids.N4!), { x: 560, y: 250 }, { release: false }); // the right half of N1
+    expect(indicator()!.style.left).toBe(`${620 + 8}px`);
+
+    movePointer(628, 250); // in the gap between N1 and N2: it belongs to the nearest card, so the line holds the gap
+    expect(indicator()!.style.left).toBe(`${620 + 8}px`);
+
+    movePointer(800, 250); // the right half of N2: the end of the row
+    expect(indicator()!.style.left).toBe(`${856 + 8}px`);
+
+    movePointer(410, 560); // the second row
+    expect(indicator()!.style.top).toBe('416px');
+    release();
+  });
+
+  it('removes the line at once: on Escape, a pointer cancel, a release, and when the pointer leaves any valid position', async () => {
+    await drag(card(ids.N3!), { x: 410, y: 250 }, { release: false });
+    expect(indicator()).not.toBeNull();
+
+    movePointer(1100, 700); // empty space, well beyond any gap: no valid position
+    expect(indicator()).toBeNull();
+    movePointer(410, 250);
+    expect(indicator()).not.toBeNull();
+    escape();
+    expect(indicator()).toBeNull();
+    release();
+    await settle();
+    expect(storedNotes()).toEqual(['N1', 'N2', 'N3', 'N4']); // unchanged
+  });
+
+  it.each([
+    ['before the first card', 'N4', { x: 410, y: 250 }, ['N4', 'N1', 'N2', 'N3']],
+    ['in the middle (before a later card)', 'N1', { x: 410, y: 560 }, ['N2', 'N1', 'N3', 'N4']],
+    ['after a card (the middle of the order)', 'N1', { x: 800, y: 250 }, ['N2', 'N1', 'N3', 'N4']],
+    ['after the last card', 'N1', { x: 800, y: 560 }, ['N2', 'N3', 'N4', 'N1']],
+    ['before a card that was after it', 'N2', { x: 410, y: 560 }, ['N1', 'N2', 'N3', 'N4']],
+  ] as const)('dragging a card %s reorders it, and nothing is moved into a folder', async (_name, from, at, expected) => {
+    const move = vi.spyOn(application.pageOperations, 'move');
+
+    await drag(card(ids[from]!), at);
+    await settle();
+
+    expect(storedNotes()).toEqual(expected);
+    expect(move).not.toHaveBeenCalled();
+    expect(parentOf(from)).toBe(ids.Projects);
+    expect(indicator()).toBeNull();
+    expect(overlay()).toBeNull();
+  });
+
+  it('a card dropped on a folder card is still moved into it — and the order is left alone', async () => {
+    await drag(card(ids.N2!), centre(card(ids.Alpha!)));
+    await settle();
+
+    expect(parentOf('N2')).toBe(ids.Alpha);
+    expect(storedNotes()).toEqual(['N1', 'N3', 'N4']); // (only the sidebar's own forgetting of a moved-out item)
+  });
+
+  it('reorders a selected group together — contiguous or not — keeping its relative order, and the line marks the group\'s one position', async () => {
+    select('N1', 'N3');
+    await drag(card(ids.N3!), { x: 800, y: 560 }, { release: false }); // after N4
+    expect(document.querySelectorAll('[data-drop-feedback="insert"]')).toHaveLength(1);
+    expect(snapshot()).not.toBeNull(); // the group is one snapshot of the grid
+    release(800, 560);
+    await settle();
+
+    expect(storedNotes()).toEqual(['N2', 'N4', 'N1', 'N3']);
+  });
+
+  it('a contiguous group moves up in front of an unselected card', async () => {
+    select('N3', 'N4');
+    await drag(card(ids.N4!), { x: 410, y: 250 });
+    await settle();
+
+    expect(storedNotes()).toEqual(['N3', 'N4', 'N1', 'N2']);
+  });
+
+  it('is not offered in an automatic sort: no reorder attributes, no line, nothing written', async () => {
+    application.collectionViewConfigStore.update(`folder:${ids.Projects}`, { sidebarSort: { key: 'name', direction: 'down' } });
+    await show('Projects');
+    const before = JSON.stringify(application.collectionViewConfigStore.get(`folder:${ids.Projects}`));
+
+    expect(document.querySelectorAll('[data-drag-reorder]')).toHaveLength(0);
+    await drag(card(ids.N3!), { x: 410, y: 250 }, { release: false });
+    expect(indicator()).toBeNull();
+    release();
+    await settle();
+
+    expect(JSON.stringify(application.collectionViewConfigStore.get(`folder:${ids.Projects}`))).toBe(before);
+  });
+
+  it('the new order persists and the list and table show it too — one order for every layout', async () => {
+    await drag(card(ids.N4!), { x: 410, y: 250 });
+    await settle();
+    expect(drawn()).toEqual(['N4', 'N1', 'N2', 'N3']);
+
+    for (const layout of ['list', 'table'] as const) {
+      application.collectionViewConfigStore.update(`folder:${ids.Projects}`, { layout });
+      await show('Projects');
+      expect(drawn()).toEqual(['N4', 'N1', 'N2', 'N3']);
+    }
   });
 });

@@ -1,7 +1,5 @@
 :root {
-  /* How opaque the ghost's BACKGROUND is once it is on the cursor (it starts at 100% on the original's place and eases
-     to this, and back when cancelled — dragVisuals.ts drives `--drag-ghost-fill-opacity`). Only the fill: the row's
-     text and icons stay fully solid. */
+  /* How opaque the ghost's BACKGROUND is. Only the fill: the row's text and icons stay fully solid. */
   --drag-ghost-background-opacity: 50%;
 }
 
@@ -35,7 +33,7 @@
 
   background: color-mix(
     in srgb,
-    var(--surface-tertiary) var(--drag-ghost-fill-opacity, var(--drag-ghost-background-opacity)),
+    var(--surface-tertiary) var(--drag-ghost-background-opacity),
     transparent
   );
   box-shadow: var(--shadow-md);
@@ -57,11 +55,9 @@
 /* The ghost is a picture of the dragged element, not a second card: whatever borders, outlines or inset shadows
    the original draws (a folder card's frame, a table row's rules) are not carried over. Colours go transparent
    rather than the borders being removed, so the clone keeps its exact size and layout. The ghost's own
-   elevation (above) is unaffected: it is on `.drag-ghost` itself, not on the clone. A ghost flying BACK onto its
-   original (`--returning`) keeps them: it is landing on a card that has them, and would otherwise be the one item
-   without its border until it arrived. */
-.drag-ghost:not(.drag-ghost--returning) > *,
-.drag-ghost:not(.drag-ghost--returning) > * * {
+   elevation (above) is unaffected: it is on `.drag-ghost` itself, not on the clone. */
+.drag-ghost > *,
+.drag-ghost > * * {
   border-color: transparent !important;
   outline: none !important;
   box-shadow: none !important;
@@ -73,32 +69,23 @@
   background-color: transparent !important;
 }
 
-/* How many items a multi-item drag carries: a small badge beside the cursor (positioned from JS, DragGhost.tsx). */
-.drag-ghost-count {
+/* A multi-item ghost: a snapshot of the collection as it is — one layer holding a clone of each selected item at its
+   own measured place and size (dragVisuals.ts), each drawn as the single ghost is. The layer itself has no fill: only
+   the lifted items do. */
+.drag-snapshot {
   position: fixed;
   top: 0;
   left: 0;
   z-index: var(--z-overlay);
-
-  min-width: 20px;
-  height: 20px;
-  padding-inline: var(--space-4);
   box-sizing: border-box;
-  border-radius: 10px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  background: var(--danger-surface);
-  color: var(--danger-foreground-on-surface);
-  font-size: var(--text-label-small);
-  font-weight: var(--fw-medium);
-  line-height: 1;
-
+  overflow: hidden;
   pointer-events: none;
   user-select: none;
   will-change: transform;
+}
+.drag-ghost--piece {
+  position: absolute;
+  will-change: auto;
 }
 
 /* The selection checkbox belongs to the original, not to its picture. Hidden, not removed, so the clone keeps its

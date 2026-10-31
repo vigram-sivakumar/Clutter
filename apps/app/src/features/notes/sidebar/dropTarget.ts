@@ -121,11 +121,13 @@ export interface DragRow extends Omit<DragItem, 'kind'> {
    */
   readonly insideOnly: boolean;
   /**
-   * A Collection View note row of a folder that is in Manual order (`data-drag-reorder`): it still is not part of
-   * a sibling list like the tree's rows, but its edges are positions in its own folder's order for a drag that
-   * comes from that same folder — the only reordering a Collection View offers.
+   * A Collection View note row or card of a folder that is in Manual order (`data-drag-reorder`): it still is not
+   * part of a sibling list like the tree's rows, but its edges are positions in its own folder's order for a drag that
+   * comes from that same folder — the only reordering a Collection View offers. The axis is the one the layout runs
+   * along: `vertical` for a list or table (a position is above or below a row), `horizontal` for a card grid (before
+   * or after a card, in its row of the grid).
    */
-  readonly reorder?: boolean;
+  readonly reorder?: 'vertical' | 'horizontal';
 }
 
 export type DropTarget =
@@ -145,8 +147,11 @@ export type DropTarget =
       /** The row the position is relative to — a note or a folder: they share one sibling sequence. */
       readonly rowId: string;
       readonly rowKind: 'folder' | 'note';
-      /** The boundary line, in viewport coordinates. */
-      readonly line: { y: number; left: number; width: number };
+      /**
+       * The boundary line, in viewport coordinates: horizontal across `width` at `y`; or, with a `height`, vertical at
+       * `left` from `y` down `height` (between two cards of a grid).
+       */
+      readonly line: { y: number; left: number; width: number; height?: number };
     };
 
 export function sameDropTarget(a: DropTarget | null, b: DropTarget | null): boolean {
@@ -171,7 +176,8 @@ export function sameDropTarget(a: DropTarget | null, b: DropTarget | null): bool
       a.rowKind === b.rowKind &&
       a.line.y === b.line.y &&
       a.line.left === b.line.left &&
-      a.line.width === b.line.width
+      a.line.width === b.line.width &&
+      a.line.height === b.line.height
     );
   }
   return false;
@@ -194,7 +200,7 @@ export function collectDragRows(root: ParentNode = document): DragRow[] {
     level: levelOf(element),
     tailHidden: element.dataset.dragTailHidden === 'true',
     insideOnly: element.dataset.dragInsideOnly === 'true',
-    reorder: element.dataset.dragReorder === 'true',
+    reorder: element.dataset.dragReorder === 'grid' ? 'horizontal' : element.dataset.dragReorder === 'true' ? 'vertical' : undefined,
   }));
 }
 
@@ -275,6 +281,53 @@ function neighbourAcross(row: DragRow, region: 'before' | 'after'): HTMLElement 
   }
 
   return candidate;
+}
+
+/** How far from a card the pointer may be, across a grid's gap, and still mean a position beside it. */
+const GRID_GAP_REACH_PX = 48;
+
+/**
+ * Over no row at all: the reorderable card whose row of the grid the pointer is in, if it is within the reach of a gap
+ * (so the line does not vanish between two cards). Only a grid (`horizontal`) has such gaps.
+ */
+function nearestInGridRow(rows: readonly DragRow[], pointer: { x: number; y: number }, parentId: string | null): DragRow | undefined {
+  let best: { row: DragRow; distance: number } | undefined;
+
+  for (const candidate of rows) {
+    if (candidate.reorder !== 'horizontal' || !candidate.insideOnly || candidate.parentId !== parentId) {
+      continue;
+    }
+    const rect = candidate.element.getBoundingClientRect();
+    if (pointer.y < rect.top || pointer.y >= rect.bottom) {
+      continue;
+    }
+    const distance = pointer.x < rect.left ? rect.left - pointer.x : pointer.x > rect.right ? pointer.x - rect.right : 0;
+    if (distance <= GRID_GAP_REACH_PX && (!best || distance < best.distance)) {
+      best = { row: candidate, distance };
+    }
+  }
+
+  return best?.row;
+}
+
+/** The gap a grid leaves between two neighbouring cards in `row`'s row of it — measured, never assumed; 0 when there is none to measure. */
+function gridGapOf(rows: readonly DragRow[], row: DragRow): number {
+  const rect = row.element.getBoundingClientRect();
+  let gap = Number.POSITIVE_INFINITY;
+
+  for (const other of rows) {
+    if (other === row || other.reorder !== 'horizontal' || other.parentId !== row.parentId) {
+      continue;
+    }
+    const otherRect = other.element.getBoundingClientRect();
+    if (otherRect.top >= rect.bottom || otherRect.bottom <= rect.top) {
+      continue; // not in the same row of the grid
+    }
+    const between = otherRect.left >= rect.right ? otherRect.left - rect.right : rect.left >= otherRect.right ? rect.left - otherRect.right : Number.POSITIVE_INFINITY;
+    gap = Math.min(gap, between);
+  }
+
+  return Number.isFinite(gap) ? gap : 0;
 }
 
 export function resolveDropTarget({ pointer, dragged, rows: allRows, destinations, canMoveFolderInto, canMoveNoteInto, canReorderLevel }: ResolveDropTargetInput): DropTarget | null {
@@ -404,19 +457,37 @@ export function resolveDropTarget({ pointer, dragged, rows: allRows, destination
 
   const row = allRows.find((candidate) => contains(candidate.element));
 
-  // A Collection View note row in a Manual folder: its halves are the positions before and after it in that
-  // folder's order — for a drag from the same folder only (so a note row is still no destination for anything else).
-  if (row && row.insideOnly && row.reorder && row.kind === 'note') {
-    if (draggedKeys.has(rowKey(row)) || row.parentId !== dragged.parentId || !canJoin(row.parentId)) {
+  // A Collection View note row or card in a Manual folder: its halves are the positions before and after it in that
+  // folder's order — for a drag from the same folder only (so a note is still no destination for anything else).
+  // Along a grid's row the gaps between cards belong to the nearest card, so the line follows the pointer across them.
+  const reorderRow =
+    row && row.insideOnly && row.reorder && row.kind === 'note' ? row : row ? undefined : nearestInGridRow(allRows, pointer, dragged.parentId);
+  if (reorderRow) {
+    if (draggedKeys.has(rowKey(reorderRow)) || reorderRow.parentId !== dragged.parentId || !canJoin(reorderRow.parentId)) {
       return null;
     }
-    const rect = row.element.getBoundingClientRect();
+    const rect = reorderRow.element.getBoundingClientRect();
+
+    if (reorderRow.reorder === 'horizontal') {
+      const edge = pointer.x < rect.left + rect.width / 2 ? 'before' : 'after';
+      // Centred in the gap to the neighbouring card (the gap the grid itself has), so the line never overlaps a card.
+      const gap = gridGapOf(allRows, reorderRow);
+      return {
+        kind: 'insert',
+        parentId: reorderRow.parentId,
+        edge,
+        rowId: reorderRow.id,
+        rowKind: 'note',
+        line: { y: rect.top, left: edge === 'before' ? rect.left - gap / 2 : rect.right + gap / 2, width: 0, height: rect.height },
+      };
+    }
+
     const edge = resolveDropRegion(rect, pointer.y, false) === 'before' ? 'before' : 'after';
     return {
       kind: 'insert',
-      parentId: row.parentId,
+      parentId: reorderRow.parentId,
       edge,
-      rowId: row.id,
+      rowId: reorderRow.id,
       rowKind: 'note',
       line: { y: edge === 'before' ? rect.top : rect.bottom, left: rect.left, width: rect.width },
     };
