@@ -50,8 +50,24 @@ describe('NewFolderContent', () => {
 
     expect(create).toBeEnabled();
     expect(screen.getByRole('alert')).toHaveTextContent('already exists');
+    expect(screen.getByRole('alert')).toHaveTextContent('Folder name already exists');
+    expect(screen.getByPlaceholderText('New folder')).not.toHaveClass('editable-text--shake');
     fireEvent.click(create);
     expect(onSubmit).not.toHaveBeenCalled();
+    // Refused, so the name field shakes like any other rejected input.
+    expect(screen.getByPlaceholderText('New folder')).toHaveClass('editable-text--shake');
+  });
+
+  it('a name the save refuses shows its error and shakes the name field', async () => {
+    const onSubmit = vi.fn().mockRejectedValue(new Error('A folder name can’t contain /'));
+    render(<NewFolderContent onClose={vi.fn()} canCreate={() => true} onSubmit={onSubmit} />);
+    const field = screen.getByPlaceholderText('New folder');
+    fireEvent.change(field, { target: { value: 'a/b' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('can’t contain'));
+    expect(field).toHaveClass('editable-text--shake');
   });
 
   it.each(['', '   '])('Create with the name %j submits nothing, shakes the name input itself, and keeps the dialog open', (typed) => {

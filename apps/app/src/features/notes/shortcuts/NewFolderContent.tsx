@@ -30,7 +30,7 @@ export const NEW_FOLDER_LABELS: NewFolderContentLabels = {
   title: 'New folder',
   nameLabel: 'Folder name',
   namePlaceholder: getFolderTitlePlaceholder(),
-  duplicateMessage: (name) => `A folder named “${name}” already exists`,
+  duplicateMessage: () => 'Folder name already exists',
   submitLabel: 'Create',
   failureMessage: 'Failed to create folder',
 };
@@ -77,7 +77,7 @@ export function NewFolderContent({
   const emojiPicker = useOverlay<HTMLButtonElement>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   // The name field's reject shake (EditableText's, via useRejectShake), played when Create is
-  // pressed with no name. Input puts its className on its wrapper, so the class goes on the native
+  // pressed with an invalid name: empty, a duplicate, or one the save refuses. Input puts its className on its wrapper, so the class goes on the native
   // field itself through the ref.
   const nameFieldRef = useRef<HTMLInputElement>(null);
   const { shakeClassName, shake } = useRejectShake();
@@ -96,7 +96,7 @@ export function NewFolderContent({
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
 
-    if (trimmed === '') {
+    if (trimmed === '' || isDuplicate) {
       shake();
       nameFieldRef.current?.focus();
       return;
@@ -114,6 +114,8 @@ export function NewFolderContent({
       onClose();
     } catch (error) {
       setIsSubmitting(false);
+      shake();
+      nameFieldRef.current?.focus();
       setSubmitError(error instanceof Error ? error.message : labels.failureMessage);
     }
   };
