@@ -60,11 +60,15 @@ class FakeDisk {
         if (!bytes) throw new Error(`No such file: ${String(args.path)}`);
         return Array.from(bytes);
       }
-      case 'plugin:fs|copy_file': {
-        // The Rust side copies the file's bytes without interpreting them.
-        const bytes = this.files.get(args.fromPath as string);
-        if (!bytes) throw new Error(`No such file: ${String(args.fromPath)}`);
-        this.files.set(args.toPath as string, Uint8Array.from(bytes));
+      case 'copy_file_no_clobber': {
+        // The Rust side copies the file's bytes without interpreting them, and refuses an existing destination.
+        // (The plugin's own `copy_file` is deliberately not handled: it replaces, and nothing may reach it.)
+        const bytes = this.files.get(args.from as string);
+        if (!bytes) throw new Error(`No such file: ${String(args.from)}`);
+        if (this.files.has(args.to as string) || this.directories.has(args.to as string)) {
+          throw `EEXIST: destination already exists: ${String(args.to)}`;
+        }
+        this.files.set(args.to as string, Uint8Array.from(bytes));
         return undefined;
       }
       case 'plugin:fs|write_text_file': {
@@ -129,10 +133,11 @@ describe('VaultEntryDuplicator.duplicateDirectory with binary files', () => {
     expect(bytes(disk.files.get(`${destination}/Raw/shot.png`))).toEqual(bytes(PNG));
   });
 
-  it('no file goes through the text primitives any more: each is copied with the byte-level copy', async () => {
+  it('no file goes through the text primitives any more: each is copied with the byte-level, never-replacing copy', async () => {
     await new VaultEntryDuplicator(new LocalVaultProvider('/vault')).duplicateDirectory('/vault/Photos');
 
-    expect(disk.log.filter((command) => command === 'plugin:fs|copy_file')).toHaveLength(3);
+    expect(disk.log.filter((command) => command === 'copy_file_no_clobber')).toHaveLength(3);
+    expect(disk.log).not.toContain('plugin:fs|copy_file');
     expect(disk.log).not.toContain('plugin:fs|read_text_file');
     expect(disk.log).not.toContain('plugin:fs|write_text_file');
   });

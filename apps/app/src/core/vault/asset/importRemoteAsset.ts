@@ -3,7 +3,7 @@ import { classifySupportedResourceFile } from '../ingest/SupportedResourceKind';
 import { ASSETS_DIRECTORY_NAME } from '../initialize/ensureAssetsDirectory';
 import type { VaultFileSystem } from '../providers/VaultFileSystem';
 import { sanitizeAssetDisplayName } from './assetDisplayName';
-import { resolveAssetDestination } from './importAsset';
+import { writeToFreeAssetName } from './importAsset';
 
 /** What fetching a remote asset yields: its bytes, and the server's declared content type when it gave one. */
 export interface FetchedRemoteAsset {
@@ -215,13 +215,13 @@ export async function importRemoteAsset(
     }
   }
 
-  const { destinationAbsolutePath, reference } = await resolveAssetDestination(
+  const { reference, destinationAbsolutePath } = await writeToFreeAssetName(
     fileSystem,
     vaultRoot,
-    `${stem}${extension}`
+    `${stem}${extension}`,
+    undefined,
+    (destination) => fileSystem.writeBinaryFile!(destination, bytes)
   );
-
-  await fileSystem.writeBinaryFile(destinationAbsolutePath, bytes);
 
   return { reference, absolutePath: destinationAbsolutePath, reused: false };
 }

@@ -154,8 +154,27 @@ export class InMemoryVaultFileSystem implements VaultFileSystem {
     };
   }
 
-  /** Writes bytes as a (latin1-decoded) file, so a test can read back that it exists and what was written. */
+  /**
+   * Whether anything — a file or a folder — is at `path`, ignoring case like the real volume does (`Photo.png` and
+   * `photo.png` are one name on APFS).
+   */
+  private occupied(path: string): boolean {
+    return (
+      this.findCaseInsensitiveMatch(path, this.files.keys()) !== undefined ||
+      this.findCaseInsensitiveMatch(path, this.directories) !== undefined
+    );
+  }
+
+  /**
+   * Writes bytes as a (latin1-decoded) file, so a test can read back that it exists and what was written. Mirrors
+   * `LocalVaultProvider.writeBinaryFile`: it never replaces, so something already at the path throws
+   * `DestinationExistsError` and keeps its contents.
+   */
   async writeBinaryFile(path: string, bytes: Uint8Array): Promise<void> {
+    if (this.occupied(path)) {
+      throw new DestinationExistsError(path);
+    }
+
     await this.writeFile(path, new TextDecoder('latin1').decode(bytes));
   }
 
@@ -279,6 +298,11 @@ export class InMemoryVaultFileSystem implements VaultFileSystem {
       throw new Error(
         `InMemoryVaultFileSystem: source file not found: ${sourceAbsolutePath}`
       );
+    }
+
+    // Mirrors `LocalVaultProvider.copyFile`: never replaces, and the source is left as it was.
+    if (this.occupied(destinationAbsolutePath)) {
+      throw new DestinationExistsError(destinationAbsolutePath);
     }
 
     this.files.set(destinationAbsolutePath, contents);

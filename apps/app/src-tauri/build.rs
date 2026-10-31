@@ -10,6 +10,8 @@ const APP_COMMANDS: &[&str] = &[
     "atomic_inspect_write",
     "atomic_confirm_durability",
     "move_file_no_clobber",
+    "copy_file_no_clobber",
+    "write_file_no_clobber",
     "parse_cache_read",
     "parse_cache_write",
     "parse_cache_remove",

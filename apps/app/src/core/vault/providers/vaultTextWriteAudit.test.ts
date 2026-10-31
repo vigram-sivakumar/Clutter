@@ -34,12 +34,11 @@ describe('vault text writes have one door', () => {
     expect(importersOf('writeTextFile')).toEqual(['core/recovery/TauriRecoveryStorage.ts', 'core/vault/providers/LocalFileSystem.ts']);
   });
 
-  it('binary writeFile is imported only by the vault provider (assets) and by the two downloads to a user-chosen place', () => {
-    expect(importersOf('writeFile')).toEqual([
-      'core/vault/providers/LocalFileSystem.ts',
-      'shared/helpers/downloadRemoteImage.ts',
-      'shared/helpers/downloadTextFile.ts',
-    ]);
+  it('the plugin\'s binary writeFile and copyFile, which replace what is at the destination, are imported only by the downloads to a place the user chose in the Save dialog', () => {
+    // Never by the vault provider: assets, pasted files and duplicates go through the native no-clobber commands
+    // (`write_file_no_clobber`, `copy_file_no_clobber`), which refuse an existing destination.
+    expect(importersOf('writeFile')).toEqual(['shared/helpers/downloadRemoteImage.ts', 'shared/helpers/downloadTextFile.ts']);
+    expect(importersOf('copyFile')).toEqual(['shared/helpers/downloadResource.ts']);
   });
 
   it('the plain vault provider is constructed only by the Composition Root and the one factory for short-lived jobs', () => {

@@ -22,6 +22,8 @@
     "allow-atomic-inspect-write",
     "allow-atomic-confirm-durability",
     "allow-move-file-no-clobber",
+    "allow-copy-file-no-clobber",
+    "allow-write-file-no-clobber",
     "allow-parse-cache-read",
     "allow-parse-cache-write",
     "allow-parse-cache-remove",

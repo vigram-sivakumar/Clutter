@@ -31,6 +31,9 @@ tauri-plugin-dialog = "2"
 tauri-plugin-persisted-scope = "2"
 tauri-plugin-http = "2"
 notify = "6"
+# Decodes the `path` header of `write_file_no_clobber` (src/new_file_no_clobber.rs), exactly as the fs plugin does for its
+# own `write_file`. Already in the graph through tauri and the fs plugin.
+percent-encoding = "2"
 # Opaque per-space cache id for the parsed-note cache (src/parse_cache.rs); already in the graph via tauri.
 sha2 = "0.10"
 

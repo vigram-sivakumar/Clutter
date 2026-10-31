@@ -6,14 +6,13 @@ import {
   writeTextFile,
   remove,
   rename,
-  copyFile,
   stat,
-  writeFile,
   readFile as readBinary,
 } from '@tauri-apps/plugin-fs';
 import { invoke } from '@tauri-apps/api/core';
 import {
   DestinationExistsError,
+  MAX_DESTINATION_ATTEMPTS,
   type MoveFileOptions,
   type VaultEntry,
   type VaultFileStat,
@@ -23,6 +22,11 @@ import {
 import { resolveLocalDuplicatePath } from './localDuplicateNaming';
 import { isNotFoundError } from './probeSpaceFolder';
 import { VaultRootMissingError } from './VaultRootMissingError';
+
+/** The native no-clobber commands answer `EEXIST: …` when the destination exists (`move_no_clobber.rs`, `new_file_no_clobber.rs`). */
+function destinationExistsOr(error: unknown, destinationPath: string): unknown {
+  return typeof error === 'string' && error.startsWith('EEXIST') ? new DestinationExistsError(destinationPath) : error;
+}
 
 export class LocalVaultProvider implements VaultFileSystem {
   private sealed = false;
@@ -116,9 +120,7 @@ export class LocalVaultProvider implements VaultFileSystem {
           to: this.resolvePath(destinationPath),
         });
       } catch (error) {
-        throw typeof error === 'string' && error.startsWith('EEXIST')
-          ? new DestinationExistsError(this.resolvePath(destinationPath))
-          : error;
+        throw destinationExistsOr(error, this.resolvePath(destinationPath));
       }
       return;
     }
@@ -138,17 +140,29 @@ export class LocalVaultProvider implements VaultFileSystem {
     return readBinary(this.resolvePath(path));
   }
 
+  /** Never replaces: staged beside the destination and claimed in the operating system (`new_file_no_clobber.rs`). */
   async writeBinaryFile(path: string, bytes: Uint8Array): Promise<void> {
     this.assertWritable();
-    await writeFile(this.resolvePath(path), bytes);
+    const destination = this.resolvePath(path);
+    try {
+      // The raw bytes are the request body and the path travels in a header, the way the fs plugin's own write does.
+      await invoke('write_file_no_clobber', bytes, { headers: { path: encodeURIComponent(destination) } });
+    } catch (error) {
+      throw destinationExistsOr(error, destination);
+    }
   }
 
+  /** Never replaces: staged beside the destination and claimed in the operating system (`new_file_no_clobber.rs`). */
   async copyFile(
     sourceAbsolutePath: string,
     destinationAbsolutePath: string
   ): Promise<void> {
     this.assertWritable();
-    await copyFile(sourceAbsolutePath, destinationAbsolutePath);
+    try {
+      await invoke('copy_file_no_clobber', { from: sourceAbsolutePath, to: destinationAbsolutePath });
+    } catch (error) {
+      throw destinationExistsOr(error, destinationAbsolutePath);
+    }
   }
 
   /**
@@ -162,15 +176,26 @@ export class LocalVaultProvider implements VaultFileSystem {
     // Checked first: the file branch below copies without any other guard, so a sealed provider would still write.
     this.assertWritable();
     const resolvedSource = this.resolvePath(sourcePath);
-    const destinationPath = await resolveLocalDuplicatePath(this, resolvedSource, kind);
 
     if (kind === 'directory') {
+      const destinationPath = await resolveLocalDuplicatePath(this, resolvedSource, kind);
       await this.assertRootExists();
       await mkdir(destinationPath, { recursive: true });
-    } else {
-      await copyFile(resolvedSource, destinationPath);
+      return destinationPath;
     }
 
-    return destinationPath;
+    // The name was free when it was chosen; a file that appears before the copy lands is never replaced. The copy is
+    // refused instead and the next free name is tried.
+    for (let attempt = 1; ; attempt += 1) {
+      const destinationPath = await resolveLocalDuplicatePath(this, resolvedSource, kind);
+      try {
+        await this.copyFile(resolvedSource, destinationPath);
+        return destinationPath;
+      } catch (error) {
+        if (!(error instanceof DestinationExistsError) || attempt >= MAX_DESTINATION_ATTEMPTS) {
+          throw error;
+        }
+      }
+    }
   }
 }

@@ -30,8 +30,10 @@ export interface VaultFileStat {
 }
 
 /**
- * Thrown by `moveFile(…, { noClobber: true })` when something already exists at the destination: the move did not
- * happen and nothing was overwritten. Callers that chose the destination themselves (an archive) choose another and retry.
+ * Thrown when something already exists at the destination of an operation that must never replace it:
+ * `moveFile(…, { noClobber: true })`, `copyFile` and `writeBinaryFile`. The operation did not happen, nothing was
+ * overwritten, and a copy's source is untouched. Callers that chose the destination themselves (an archive, an
+ * imported asset, a duplicate) choose another and retry, at most `MAX_DESTINATION_ATTEMPTS` times.
  */
 export class DestinationExistsError extends Error {
   readonly code = 'EEXIST';
@@ -41,6 +43,9 @@ export class DestinationExistsError extends Error {
     this.name = 'DestinationExistsError';
   }
 }
+
+/** How many destinations a caller that chose its own name tries before giving up on a name that keeps being taken. */
+export const MAX_DESTINATION_ATTEMPTS = 8;
 
 export interface MoveFileOptions {
   /**
@@ -97,6 +102,12 @@ export interface VaultFileSystem {
    * path. Used for importing external files into the vault (e.g. cover
    * images). The source path is never vault-relative — it comes from a
    * native file picker outside the vault root.
+   *
+   * Never replaces: if anything exists at the destination — including a file
+   * that appeared after the caller chose the name — it throws
+   * `DestinationExistsError`, and neither the destination nor the source is
+   * touched. A local provider enforces this in the operating system, not with
+   * an `exists()` check.
    */
   copyFile(sourceAbsolutePath: string, destinationAbsolutePath: string): Promise<void>;
 
@@ -136,7 +147,9 @@ export interface VaultFileSystem {
    * today, a remote image saved into the vault's Assets folder. Optional, like
    * `stat`/`duplicate`: only providers that can write binary data provide it.
    * A low-level primitive; callers (`importRemoteAsset`) own the naming and
-   * the decision to write.
+   * the decision to write. Like `copyFile` it never replaces: an existing
+   * destination throws `DestinationExistsError` and keeps its contents, and the
+   * destination never holds a partial write.
    */
   writeBinaryFile?(path: string, bytes: Uint8Array): Promise<void>;
 

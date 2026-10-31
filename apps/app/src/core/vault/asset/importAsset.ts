@@ -2,7 +2,7 @@ import { resolveCollisionFreeName } from '../../shared/naming/resolveCollisionFr
 import { VaultPath } from '../ingest/VaultPath';
 import { classifySupportedResourceFile } from '../ingest/SupportedResourceKind';
 import { ASSETS_DIRECTORY_NAME, ensureAssetsDirectory } from '../initialize/ensureAssetsDirectory';
-import type { VaultFileSystem } from '../providers/VaultFileSystem';
+import { DestinationExistsError, MAX_DESTINATION_ATTEMPTS, type VaultFileSystem } from '../providers/VaultFileSystem';
 
 /**
  * Copies an external file into `{vaultRoot}/Assets/` and returns the
@@ -24,16 +24,44 @@ export async function importAsset(
   /** The absolute folder the file goes into — a folder inside `Assets/`. Absent: `Assets/` itself. */
   destinationFolderPath?: string
 ): Promise<string> {
-  const { destinationAbsolutePath, reference } = await resolveAssetDestination(
+  const { reference } = await writeToFreeAssetName(
     fileSystem,
     vaultRoot,
     VaultPath.filename(sourceAbsolutePath),
-    destinationFolderPath
+    destinationFolderPath,
+    (destinationAbsolutePath) => fileSystem.copyFile(sourceAbsolutePath, destinationAbsolutePath)
   );
 
-  await fileSystem.copyFile(sourceAbsolutePath, destinationAbsolutePath);
-
   return reference;
+}
+
+/**
+ * Chooses a free asset name and writes there with `write`, which must never replace (`copyFile` and
+ * `writeBinaryFile` refuse an existing destination with `DestinationExistsError`). The name is only free when it is
+ * chosen: if another process takes it before the write lands, the write is refused, nothing is replaced, and the next
+ * free name is chosen from a fresh listing. A name that keeps being taken (something `readDirectory` cannot see, such
+ * as a folder of that name) ends in the refusal itself after `MAX_DESTINATION_ATTEMPTS` tries, never in a replacement.
+ * Returns where the file went, as `resolveAssetDestination` names it.
+ */
+export async function writeToFreeAssetName(
+  fileSystem: VaultFileSystem,
+  vaultRoot: string,
+  fileName: string,
+  destinationFolderPath: string | undefined,
+  write: (destinationAbsolutePath: string) => Promise<void>
+): Promise<{ readonly destinationAbsolutePath: string; readonly reference: string }> {
+  for (let attempt = 1; ; attempt += 1) {
+    const destination = await resolveAssetDestination(fileSystem, vaultRoot, fileName, destinationFolderPath);
+
+    try {
+      await write(destination.destinationAbsolutePath);
+      return destination;
+    } catch (error) {
+      if (!(error instanceof DestinationExistsError) || attempt >= MAX_DESTINATION_ATTEMPTS) {
+        throw error;
+      }
+    }
+  }
 }
 
 /**
@@ -129,9 +157,9 @@ export async function importAssetBytes(
     throw new Error(`The pasted file was empty: ${fileName}`);
   }
 
-  const { destinationAbsolutePath, reference } = await resolveAssetDestination(fileSystem, vaultRoot, fileName);
-
-  await fileSystem.writeBinaryFile(destinationAbsolutePath, bytes);
+  const { reference } = await writeToFreeAssetName(fileSystem, vaultRoot, fileName, undefined, (destinationAbsolutePath) =>
+    fileSystem.writeBinaryFile!(destinationAbsolutePath, bytes)
+  );
 
   return reference;
 }

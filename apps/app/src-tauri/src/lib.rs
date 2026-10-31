@@ -12,6 +12,7 @@ mod atomic_replace;
 #[cfg(all(target_os = "macos", feature = "atomic-writes"))]
 mod atomic_commands;
 mod move_no_clobber;
+mod new_file_no_clobber;
 mod parse_cache;
 mod space_access;
 mod space_folder;
@@ -197,6 +198,8 @@ pub fn run() {
             #[cfg(all(target_os = "macos", feature = "atomic-writes"))]
             atomic_commands::atomic_confirm_durability,
             move_no_clobber::move_file_no_clobber,
+            new_file_no_clobber::copy_file_no_clobber,
+            new_file_no_clobber::write_file_no_clobber,
             parse_cache::parse_cache_read,
             parse_cache::parse_cache_write,
             parse_cache::parse_cache_remove,

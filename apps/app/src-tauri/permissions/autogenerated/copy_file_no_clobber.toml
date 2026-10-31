@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-copy-file-no-clobber"
+description = "Enables the copy_file_no_clobber command without any pre-configured scope."
+commands.allow = ["copy_file_no_clobber"]
+
+[[permission]]
+identifier = "deny-copy-file-no-clobber"
+description = "Denies the copy_file_no_clobber command without any pre-configured scope."
+commands.deny = ["copy_file_no_clobber"]
