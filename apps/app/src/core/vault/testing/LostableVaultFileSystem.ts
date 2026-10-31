@@ -1,3 +1,4 @@
+import type { CreateDirectoryOptions } from '../providers/VaultFileSystem';
 import { VaultRootMissingError } from '../providers/VaultRootMissingError';
 import { InMemoryVaultFileSystem } from './InMemoryVaultFileSystem';
 
@@ -29,9 +30,9 @@ export class LostableVaultFileSystem extends InMemoryVaultFileSystem {
     }
   }
 
-  override async createDirectory(path: string): Promise<void> {
+  override async createDirectory(path: string, options?: CreateDirectoryOptions): Promise<void> {
     this.assertVaultPresent();
-    await super.createDirectory(path);
+    await super.createDirectory(path, options);
     this.landed.createDirectory++;
   }
 

@@ -17,6 +17,12 @@ export function isNotFoundError(error: unknown): boolean {
   return /No such file or directory|\(os error 2\)|os error 3\b/i.test(message);
 }
 
+/** Rust's `std::io::ErrorKind::AlreadyExists`, as the fs plugin serializes it (`EEXIST`, errno 17). */
+export function isAlreadyExistsError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /File exists|already exists|\(os error 17\)|EEXIST/i.test(message);
+}
+
 /**
  * Whether `path` is an existing, readable directory the app may open as a Space.
  * Read-only: nothing is created or written (unlike `Application.bootstrap`, which

@@ -11,6 +11,7 @@ import {
 } from '@tauri-apps/plugin-fs';
 import { invoke } from '@tauri-apps/api/core';
 import {
+  type CreateDirectoryOptions,
   DestinationExistsError,
   MAX_DESTINATION_ATTEMPTS,
   type MoveFileOptions,
@@ -20,7 +21,7 @@ import {
   type VaultWriteIntent,
 } from './VaultFileSystem';
 import { resolveLocalDuplicatePath } from './localDuplicateNaming';
-import { isNotFoundError } from './probeSpaceFolder';
+import { isAlreadyExistsError, isNotFoundError } from './probeSpaceFolder';
 import { VaultRootMissingError } from './VaultRootMissingError';
 
 /** The native no-clobber commands answer `EEXIST: …` when the destination exists (`move_no_clobber.rs`, `new_file_no_clobber.rs`). */
@@ -80,9 +81,21 @@ export class LocalVaultProvider implements VaultFileSystem {
     }
   }
 
-  async createDirectory(path: string): Promise<void> {
+  async createDirectory(path: string, options?: CreateDirectoryOptions): Promise<void> {
     await this.assertRootExists();
-    await mkdir(this.resolvePath(path), { recursive: true });
+    const destination = this.resolvePath(path);
+
+    if (options?.exclusive) {
+      // `mkdir(2)` without `-p` fails if the name exists and is decided in the operating system.
+      try {
+        await mkdir(destination, { recursive: false });
+      } catch (error) {
+        throw isAlreadyExistsError(error) ? new DestinationExistsError(destination) : error;
+      }
+      return;
+    }
+
+    await mkdir(destination, { recursive: true });
   }
 
   async readDirectory(_path: string): Promise<VaultEntry[]> {
@@ -178,10 +191,19 @@ export class LocalVaultProvider implements VaultFileSystem {
     const resolvedSource = this.resolvePath(sourcePath);
 
     if (kind === 'directory') {
-      const destinationPath = await resolveLocalDuplicatePath(this, resolvedSource, kind);
-      await this.assertRootExists();
-      await mkdir(destinationPath, { recursive: true });
-      return destinationPath;
+      // Created exclusively, so a folder that appears at the chosen name first is never entered or merged into:
+      // the next free name is tried instead.
+      for (let attempt = 1; ; attempt += 1) {
+        const destinationPath = await resolveLocalDuplicatePath(this, resolvedSource, kind);
+        try {
+          await this.createDirectory(destinationPath, { exclusive: true });
+          return destinationPath;
+        } catch (error) {
+          if (!(error instanceof DestinationExistsError) || attempt >= MAX_DESTINATION_ATTEMPTS) {
+            throw error;
+          }
+        }
+      }
     }
 
     // The name was free when it was chosen; a file that appears before the copy lands is never replaced. The copy is

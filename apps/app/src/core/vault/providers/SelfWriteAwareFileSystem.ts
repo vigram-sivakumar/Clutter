@@ -1,4 +1,4 @@
-import type { MoveFileOptions, VaultEntry, VaultFileStat, VaultFileSystem, VaultWriteIntent } from './VaultFileSystem';
+import type { CreateDirectoryOptions, MoveFileOptions, VaultEntry, VaultFileStat, VaultFileSystem, VaultWriteIntent } from './VaultFileSystem';
 import type { SelfWriteRegistry } from './SelfWriteRegistry';
 
 /**
@@ -29,8 +29,8 @@ export class SelfWriteAwareFileSystem implements VaultFileSystem {
     return this.inner.exists(path);
   }
 
-  createDirectory(path: string): Promise<void> {
-    return this.inner.createDirectory(path);
+  createDirectory(path: string, options?: CreateDirectoryOptions): Promise<void> {
+    return this.inner.createDirectory(path, options);
   }
 
   readDirectory(path: string): Promise<VaultEntry[]> {

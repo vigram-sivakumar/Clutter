@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { VaultEntryDuplicator } from './VaultEntryDuplicator';
 import { InMemoryVaultFileSystem } from '../testing/InMemoryVaultFileSystem';
-import type { VaultFileSystem } from '../providers/VaultFileSystem';
+import { DestinationExistsError, type VaultFileSystem } from '../providers/VaultFileSystem';
 
 const ROOT = '/vault';
 
@@ -138,5 +138,52 @@ describe('VaultEntryDuplicator.duplicateDirectory', () => {
 
     const third = await duplicator.duplicateDirectory(second);
     expect(third).toBe(`${ROOT}/Project copy 3`);
+  });
+
+  it('on the in-memory provider too, an existing destination folder is skipped, never merged into, and its contents are untouched', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    await fileSystem.createDirectory(`${ROOT}/Project`);
+    fileSystem.seedFile(`${ROOT}/Project/a.md`, 'A');
+    await fileSystem.createDirectory(`${ROOT}/Project copy`);
+    fileSystem.seedFile(`${ROOT}/Project copy/a.md`, 'THEIRS');
+
+    const destination = await new VaultEntryDuplicator(fileSystem).duplicateDirectory(`${ROOT}/Project`);
+
+    expect(destination).toBe(`${ROOT}/Project copy 2`);
+    expect(fileSystem.getFileSync(`${ROOT}/Project copy/a.md`)).toBe('THEIRS');
+    expect(fileSystem.getFileSync(`${ROOT}/Project copy 2/a.md`)).toBe('A');
+  });
+
+  it('removes what a failed copy created on the in-memory provider and keeps what it did not', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    await fileSystem.createDirectory(`${ROOT}/Project`);
+    await fileSystem.createDirectory(`${ROOT}/Project/Sub`);
+    fileSystem.seedFile(`${ROOT}/Project/a.md`, 'A');
+    fileSystem.seedFile(`${ROOT}/Project/Sub/b.md`, 'B');
+    const copyFile = fileSystem.copyFile.bind(fileSystem);
+    let copies = 0;
+    fileSystem.copyFile = async (from, to) => {
+      copies += 1;
+      if (copies === 2) throw new Error('disk full');
+      await copyFile(from, to);
+    };
+
+    await expect(new VaultEntryDuplicator(fileSystem).duplicateDirectory(`${ROOT}/Project`)).rejects.toThrow('disk full');
+
+    expect(await fileSystem.exists(`${ROOT}/Project copy`)).toBe(false);
+    expect(fileSystem.getFileSync(`${ROOT}/Project/a.md`)).toBe('A');
+    expect(fileSystem.getFileSync(`${ROOT}/Project/Sub/b.md`)).toBe('B');
+  });
+
+  it('exclusive directory creation refuses a name that is a folder or a file, and a missing parent', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    await fileSystem.createDirectory(`${ROOT}/Folder`);
+    fileSystem.seedFile(`${ROOT}/file.md`, 'x');
+
+    await expect(fileSystem.createDirectory(`${ROOT}/Folder`, { exclusive: true })).rejects.toBeInstanceOf(DestinationExistsError);
+    await expect(fileSystem.createDirectory(`${ROOT}/file.md`, { exclusive: true })).rejects.toBeInstanceOf(DestinationExistsError);
+    await expect(fileSystem.createDirectory(`${ROOT}/missing/child`, { exclusive: true })).rejects.toThrow('parent directory not found');
+    await fileSystem.createDirectory(`${ROOT}/Folder/New`, { exclusive: true });
+    expect(await fileSystem.exists(`${ROOT}/Folder/New`)).toBe(true);
   });
 });

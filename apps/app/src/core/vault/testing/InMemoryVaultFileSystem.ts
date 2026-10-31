@@ -1,4 +1,5 @@
 import {
+  type CreateDirectoryOptions,
   DestinationExistsError,
   type MoveFileOptions,
   type VaultEntry,
@@ -46,7 +47,21 @@ export class InMemoryVaultFileSystem implements VaultFileSystem {
    * two independent directories, which is exactly the divergence this
    * fake filesystem exists to reproduce, not paper over.
    */
-  async createDirectory(path: string): Promise<void> {
+  async createDirectory(path: string, options?: CreateDirectoryOptions): Promise<void> {
+    if (options?.exclusive) {
+      // Mirrors `LocalVaultProvider`'s exclusive creation: anything at the name (a folder or a file, in either
+      // case) refuses, and a missing parent is an error rather than being created.
+      if (this.occupied(path)) {
+        throw new DestinationExistsError(path);
+      }
+      const parent = path.slice(0, path.lastIndexOf('/'));
+      if (parent && !this.findCaseInsensitiveMatch(parent, this.directories)) {
+        throw new Error(`InMemoryVaultFileSystem: parent directory not found: ${parent}`);
+      }
+      this.directories.add(path);
+      return;
+    }
+
     const segments = path.split('/');
 
     for (let i = 1; i <= segments.length; i++) {
@@ -318,7 +333,7 @@ export class InMemoryVaultFileSystem implements VaultFileSystem {
     const destinationPath = await resolveLocalDuplicatePath(this, sourcePath, kind);
 
     if (kind === 'directory') {
-      await this.createDirectory(destinationPath);
+      await this.createDirectory(destinationPath, { exclusive: true });
     } else {
       const contents = await this.readFile(sourcePath);
       await this.writeFile(destinationPath, contents);

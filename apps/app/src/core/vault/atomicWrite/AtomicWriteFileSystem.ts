@@ -1,4 +1,5 @@
 import type {
+  CreateDirectoryOptions,
   MoveFileOptions,
   VaultEntry,
   VaultFileStat,
@@ -62,8 +63,8 @@ export class AtomicWriteFileSystem implements VaultFileSystem {
   exists(path: string) {
     return this.inner.exists(path);
   }
-  createDirectory(path: string) {
-    return this.inner.createDirectory(path);
+  createDirectory(path: string, options?: CreateDirectoryOptions) {
+    return this.inner.createDirectory(path, options);
   }
   readDirectory(path: string): Promise<VaultEntry[]> {
     return this.inner.readDirectory(path);

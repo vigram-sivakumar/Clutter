@@ -47,6 +47,17 @@ export class DestinationExistsError extends Error {
 /** How many destinations a caller that chose its own name tries before giving up on a name that keeps being taken. */
 export const MAX_DESTINATION_ATTEMPTS = 8;
 
+export interface CreateDirectoryOptions {
+  /**
+   * Create exactly this one directory, and only if nothing is at that name — decided by the filesystem when it is
+   * created, not by a prior `exists()` check that another process could slip past. Anything already there (a folder,
+   * a file, a link) throws `DestinationExistsError` and is left untouched; a missing parent is an error, never
+   * created. Absent, creation is idempotent and makes missing parents too (`mkdir -p`), so an existing folder is
+   * quietly accepted. Duplicate uses the exclusive form so a copy can never merge into a folder that is already there.
+   */
+  readonly exclusive?: boolean;
+}
+
 export interface MoveFileOptions {
   /**
    * Refuse to replace anything at the destination — atomically, in the filesystem itself, not by a prior
@@ -78,7 +89,7 @@ export interface VaultFileSystem {
   readonly writesAreAtomic?: boolean;
 
   exists(path: string): Promise<boolean>;
-  createDirectory(path: string): Promise<void>;
+  createDirectory(path: string, options?: CreateDirectoryOptions): Promise<void>;
   readDirectory(path: string): Promise<VaultEntry[]>;
   readFile(path: string): Promise<string>;
   writeFile(path: string, contents: string, intent?: VaultWriteIntent): Promise<void>;
