@@ -21,8 +21,3 @@
   background: var(--border-focus);
 }
 
-/* The original of an in-progress drag from a Collection View: invisible but still laid out, like the sidebar's
-   `.entry--drag-source`; its ghost carries the visible copy. */
-[data-drag-source='true'] {
-  opacity: 0;
-}

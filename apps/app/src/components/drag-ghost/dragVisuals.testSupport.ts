@@ -2,19 +2,20 @@ import { vi } from 'vitest';
 
 /**
  * A manual animation-frame clock: `requestAnimationFrame` callbacks queue until a test advances time, so a flight
- * can be inspected at any moment of its course.
+ * can be inspected at any moment of its course. `performance.now` follows it.
  */
 export function installFrameClock(): { step(ms: number): void; now(): number; pending(): number; uninstall(): void } {
   let time = 0;
   let nextId = 1;
   const queue = new Map<number, (now: number) => void>();
+  const original = { raf: window.requestAnimationFrame, caf: window.cancelAnimationFrame };
 
-  vi.stubGlobal('requestAnimationFrame', (callback: (now: number) => void) => {
+  window.requestAnimationFrame = ((callback: (now: number) => void) => {
     const id = nextId++;
     queue.set(id, callback);
     return id;
-  });
-  vi.stubGlobal('cancelAnimationFrame', (id: number) => void queue.delete(id));
+  }) as typeof window.requestAnimationFrame;
+  window.cancelAnimationFrame = ((id: number) => void queue.delete(id)) as typeof window.cancelAnimationFrame;
   const nowSpy = vi.spyOn(performance, 'now').mockImplementation(() => time);
 
   return {
@@ -32,13 +33,16 @@ export function installFrameClock(): { step(ms: number): void; now(): number; pe
     pending: () => queue.size,
     uninstall: () => {
       nowSpy.mockRestore();
-      vi.unstubAllGlobals();
+      window.requestAnimationFrame = original.raf;
+      window.cancelAnimationFrame = original.caf;
     },
   };
 }
 
-export function stubReducedMotion(reduced: boolean): void {
-  vi.stubGlobal('matchMedia', (query: string) => ({
+/** Makes `prefers-reduced-motion` match (or not); returns the function that puts the original back. */
+export function stubReducedMotion(reduced: boolean): () => void {
+  const original = window.matchMedia;
+  window.matchMedia = ((query: string) => ({
     matches: reduced && query.includes('prefers-reduced-motion'),
     media: query,
     addEventListener: () => undefined,
@@ -47,5 +51,9 @@ export function stubReducedMotion(reduced: boolean): void {
     removeListener: () => undefined,
     onchange: null,
     dispatchEvent: () => false,
-  }));
+  })) as typeof window.matchMedia;
+
+  return () => {
+    window.matchMedia = original;
+  };
 }

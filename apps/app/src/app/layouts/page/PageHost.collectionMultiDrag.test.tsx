@@ -170,8 +170,8 @@ describe('dragging several checked items from a Collection View', () => {
 
     expect(ghostBadge()).toBe('3');
     expect(checkedNames()).toEqual(['Select Beta', 'Select N1', 'Select N2']);
-    // Only the pressed item's original is hidden (its ghost is the visible copy); the others converge onto it.
-    expect(document.querySelectorAll('[data-drag-source="true"]')).toHaveLength(1);
+    // Several items: every original stays visible (only clones move — see dragVisuals.ts).
+    expect(document.querySelectorAll('[data-drag-source="true"]')).toHaveLength(0);
     expect(feedback()).toHaveLength(1);
 
     act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: 400, clientY: 120 }));

@@ -30,6 +30,23 @@
   }
 }
 
+/* The one overlay every drag's clones live in (dragVisuals.ts): above the app, never in layout, never in the way
+   of the pointer. */
+.drag-visuals {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  pointer-events: none;
+  overflow: visible;
+}
+
+/* The originals of a drag are hidden for its length — kept in the DOM and in layout, with their borders, shadows,
+   outlines and pseudo-elements, which `visibility` removes with them (an `opacity` or a transform can leave a faint
+   edge behind). The marker is set and removed by the shared drag-visual system, never styled inline. */
+[data-drag-source='true'] {
+  visibility: hidden;
+}
+
 /* A fixed, non-interactive layer above the app. Position and size are set from JS (DragGhost.tsx). */
 .drag-ghost {
   position: fixed;

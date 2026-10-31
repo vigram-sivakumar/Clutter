@@ -1,12 +1,11 @@
-import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
-import { usePointerDrag, type ActiveDrag } from '@shared/interaction';
-import { DragGhost } from '@components/drag-ghost/DragGhost';
+import { useEffect, useLayoutEffect, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { usePointerDrag } from '@shared/interaction';
+import { createDragVisuals, type DragVisuals, type DragVisualsHandle } from '@components/drag-ghost/dragVisuals';
 import { draggedItems, type DragItem, type DropTarget } from '@features/notes/sidebar/dropTarget';
 import { useDropTargetTracking } from '@features/notes/sidebar/useDropTargetTracking';
 import { executeDrop, type DropActions } from '@features/notes/sidebar/executeDrop';
 import { createDropTargetStore, DropFeedbackHost, type DropTargetStore } from '@features/notes/sidebar/dropTargetStore';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
-import { startConvergence, type Convergence } from './dragConvergence';
 
 /**
  * What lets a Collection View's notes and folders be dragged into folders. Its presence is the capability
@@ -35,11 +34,25 @@ export interface CollectionDragEntryProps {
   readonly 'data-drag-inside-only': 'true';
   /** A note row of a Manual folder: its edges are positions in the folder's order (see `CollectionMoveDrag.reorder`). */
   readonly 'data-drag-reorder'?: 'true';
-  /** Set on the entry being dragged: it stays in place but is invisible while its ghost follows the pointer. */
-  readonly 'data-drag-source'?: 'true';
   /** A note row (table or list) can span the page, so its ghost is compact; a folder card keeps its own size. */
   readonly 'data-drag-ghost-size'?: 'compact';
   readonly onPointerDown: (event: ReactPointerEvent<HTMLElement>) => void;
+}
+
+/**
+ * The rendered elements of everything a drag carries other than the item the pointer took hold of — found by the
+ * drag attributes every entry carries, whatever its layout. An item that is not mounted is simply not among them.
+ */
+function elementsOf(payload: DragItem): HTMLElement[] {
+  const byId = new Map<string, HTMLElement>();
+  document.querySelectorAll<HTMLElement>('[data-drag-inside-only="true"][data-drag-id]').forEach((element) => {
+    byId.set(`${element.dataset.dragKind}:${element.dataset.dragId}`, element);
+  });
+
+  return draggedItems(payload)
+    .filter((item) => !(item.kind === payload.kind && item.id === payload.id))
+    .map((item) => byId.get(`${item.kind}:${item.id}`))
+    .filter((element): element is HTMLElement => element !== undefined);
 }
 
 /**
@@ -90,33 +103,13 @@ export function useCollectionMoveDrag(
   storeRef.current ??= createDropTargetStore();
   const store = storeRef.current;
 
-  // The flight of the other checked items to the pressed one, for a drag of several (`dragConvergence.ts`). Started
-  // when the drag really begins, settled by how it ends: a drop that did something leaves them to the collection's
-  // update; Escape, a release with no valid drop and a refused drop all fly them back.
-  const convergenceRef = useRef<Convergence | null>(null);
-  // The ghost of a drag of several items AFTER the pointer has gone up or Escape was pressed: held where the cursor
-  // left it while the drop is decided ('holding'), then — only if it was cancelled — flown back onto the original,
-  // which stays hidden until it lands ('returning'). A drop that did something has no return: the ghost goes, and
-  // the collection's update decides where everything is.
-  const [after, setAfter] = useState<{ drag: ActiveDrag<DragItem>; phase: 'holding' | 'returning' } | null>(null);
-  const lastDragRef = useRef<ActiveDrag<DragItem> | null>(null);
-  const cancelDrag = (convergence: Convergence | null): void => {
-    convergence?.revert();
-    const last = lastDragRef.current;
-    if (convergence && convergence === convergenceRef.current && last?.payload.items) {
-      setAfter({ drag: last, phase: 'returning' });
-    }
-  };
-  const settle = (convergence: Convergence | null, outcome: 'moved' | 'reordered' | 'ignored' | 'rejected'): void => {
-    if (convergence !== convergenceRef.current) {
-      convergence?.dispose(); // a newer drag has taken over
-    } else if (outcome === 'moved' || outcome === 'reordered') {
-      convergence?.commit();
-      setAfter(null);
-    } else {
-      cancelDrag(convergence);
-    }
-  };
+  // How the drag LOOKS is the shared drag-visual system's (`@components/drag-ghost/dragVisuals`) — the same for a
+  // card, a list row or a table row, one item or several, a move or a reorder. This hook only tells it when a drag
+  // begins and how it ended; it never draws, hides or animates anything itself.
+  const visualsRef = useRef<DragVisuals>();
+  visualsRef.current ??= createDragVisuals();
+  const visuals = visualsRef.current;
+  const handleRef = useRef<DragVisualsHandle | null>(null);
 
   const { drag, press } = usePointerDrag<DragItem>({
     // A card can be dragged out of the page, onto the sidebar.
@@ -125,46 +118,34 @@ export function useCollectionMoveDrag(
       // Consumed once: the move is for the target the user was last SHOWN, never a recalculation.
       const shown = lastShownTargetRef.current;
       lastShownTargetRef.current = null;
-      const convergence = convergenceRef.current;
-      if (convergence && lastDragRef.current?.payload.items) {
-        setAfter({ drag: lastDragRef.current, phase: 'holding' }); // in the same update that removes the drag's own ghost
-      }
-      void executeDrop(item, shown, configRef.current?.actions).then((outcome) => settle(convergence, outcome));
+      // This drag's handle: if another drag has begun by the time the drop settles, it does nothing.
+      const handle = handleRef.current;
+      handle?.release();
+      void executeDrop(item, shown, configRef.current?.actions).then((outcome) => {
+        // A drop that did something leaves everything to the collection's update; any other ending flies it all back.
+        if (outcome === 'moved' || outcome === 'reordered') {
+          handle?.commit();
+        } else {
+          handle?.cancel();
+        }
+      });
     },
     onCancel: () => {
       lastShownTargetRef.current = null;
-      cancelDrag(convergenceRef.current);
+      handleRef.current?.cancel();
     },
   });
 
-  // Before the first paint of the drag, while every item is still where it was.
+  // The drag has really begun (the pointer-drag threshold is crossed): before its first paint, while every item is
+  // still where it was. Every drag starts from nothing — `start` ends whatever an earlier one left on screen.
   useLayoutEffect(() => {
-    const payload = drag?.payload;
-    if (!drag || !payload) {
+    if (!drag) {
       return;
     }
-    // EVERY drag starts from nothing — a single-item one too: what an earlier multi-item drag left in these refs
-    // would otherwise be taken for this drag's own (a stale ghost flying back from the old cursor).
-    lastDragRef.current = drag;
-    setAfter(null); // no previous drag's ghost still held or flying back
-    convergenceRef.current?.dispose(); // never let one drag's animation linger into the next
-    convergenceRef.current = null;
-    if (!payload.items) {
-      return;
-    }
-    const byId = new Map<string, HTMLElement>();
-    document.querySelectorAll<HTMLElement>('[data-drag-inside-only="true"][data-drag-id]').forEach((element) => {
-      byId.set(`${element.dataset.dragKind}:${element.dataset.dragId}`, element);
-    });
-    const others = draggedItems(payload)
-      .filter((item) => !(item.kind === payload.kind && item.id === payload.id))
-      .map((item) => byId.get(`${item.kind}:${item.id}`))
-      .filter((element): element is HTMLElement => element !== undefined);
-    // The destination is the ghost (the drag's own, drawn in this same render), not the card that was pressed.
-    convergenceRef.current = startConvergence(others, drag.session, document.querySelector('.drag-ghost'));
+    handleRef.current = visuals.start(drag.session, elementsOf(drag.payload));
   }, [drag?.session]);
 
-  useEffect(() => () => convergenceRef.current?.dispose(), []);
+  useEffect(() => () => visuals.dispose(), []);
 
   useDropTargetTracking(drag, store, lastShownTargetRef, () => ({
     canMoveFolderInto: configRef.current?.actions.canMoveFolderInto,
@@ -184,23 +165,10 @@ export function useCollectionMoveDrag(
         'data-drag-inside-only': 'true',
         'data-drag-reorder': entry.type === 'note' && config.reorder ? 'true' : undefined,
         'data-drag-ghost-size': entry.type === 'note' ? 'compact' : undefined,
-        // (Still hidden while a cancelled drag's ghost is flying back to it.)
-        'data-drag-source':
-          (drag ?? after?.drag)?.payload.kind === entry.type && (drag ?? after?.drag)?.payload.id === entry.id ? 'true' : undefined,
         onPointerDown: (event) => press(event, dragItemFor(entry, config.parentId, selected)),
       };
     },
-    overlay: drag ? (
-      <>
-        <DragGhost session={drag.session} count={drag.payload.items?.length} settle={drag.payload.items !== undefined} />
-        <DropFeedbackHost store={store} />
-      </>
-    ) : after ? (
-      after.phase === 'returning' ? (
-        <DragGhost key="return" session={after.drag.session} returning={{ onDone: () => setAfter(null) }} />
-      ) : (
-        <DragGhost key="hold" session={after.drag.session} count={after.drag.payload.items?.length} />
-      )
-    ) : null,
+    // (The ghosts are the visual system's, in its own overlay; only the drop indicator is drawn here.)
+    overlay: drag ? <DropFeedbackHost store={store} /> : null,
   };
 }

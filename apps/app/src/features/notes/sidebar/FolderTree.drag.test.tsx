@@ -39,6 +39,15 @@ import { DailyNoteService } from '@core/application/daily-notes/DailyNoteService
 import type { Folder } from '@core/vault/models/Folder';
 import type { Page } from '@core/vault/models/Page';
 import type { VaultResource } from '@core/vault/models/VaultResource';
+import { stubReducedMotion } from '@components/drag-ghost/dragVisuals.testSupport';
+// A drag's ghost eases onto the cursor and flies back when cancelled (dragVisuals.ts); these tests are about where
+// it ends up, so they run with reduced motion, which places it there at once.
+let restoreMotion: () => void;
+beforeEach(() => {
+  restoreMotion = stubReducedMotion(true);
+});
+afterEach(() => restoreMotion());
+
 
 const ROOT = '/vault';
 
@@ -328,7 +337,7 @@ describe('FolderTree drag: ghost', () => {
     expect(g).toHaveAttribute('aria-hidden', 'true');
     expect(g).toHaveAttribute('inert');
     expect(g.querySelector('[role], [tabindex], [id]')).toBeNull();
-    expect(g.parentElement).toBe(document.body);
+    expect(g.closest('.drag-visuals')!.parentElement).toBe(document.body);
   });
 
   it('is centred under the cursor on both axes, wherever the row is and however the pointer moves', () => {

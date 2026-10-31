@@ -5,6 +5,15 @@ import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { usePointerDrag } from '@shared/interaction';
 import { DragGhost } from './DragGhost';
+import { stubReducedMotion } from './dragVisuals.testSupport';
+// A drag's ghost eases onto the cursor and flies back when cancelled (dragVisuals.ts); these tests are about where
+// it ends up, so they run with reduced motion, which places it there at once.
+let restoreMotion: () => void;
+beforeEach(() => {
+  restoreMotion = stubReducedMotion(true);
+});
+afterEach(() => restoreMotion());
+
 
 // A row in a 260px-wide scrolling container (x 0–260, y 100–500): the sidebar's shape.
 const CONTAINER = { left: 0, right: 260, top: 100, bottom: 500 };
@@ -130,7 +139,7 @@ describe('allowDragOutsideContainer', () => {
     const { getByTestId } = render(<Harness allow />);
     start(getByTestId);
     move(700, 300);
-    expect(ghost()!.parentElement).toBe(document.body);
+    expect(ghost()!.closest('.drag-visuals')!.parentElement).toBe(document.body); // the shared overlay, in the body
     expect(ghost()).toHaveAttribute('aria-hidden', 'true');
     expect(ghost()).toHaveAttribute('inert');
   });
