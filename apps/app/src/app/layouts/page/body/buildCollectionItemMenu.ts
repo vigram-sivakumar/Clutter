@@ -12,6 +12,7 @@ import {
   type RemoteImageActions,
 } from '@features/markdown/editor/codemirror/image/ImageOverlayMoreActions';
 import { buildAssetMenuHandlers, type AssetMenuActions } from '@features/notes/helpers/buildAssetMenuHandlers';
+import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
 import { buildMoveDestinationItems } from '@features/notes/helpers/buildMoveDestinationItems';
 import { createFolderInZone } from '@features/notes/helpers/createFolderInZone';
 import { buildTagLineMenu } from '@features/tags/helpers/buildTagLineMenu';
@@ -50,8 +51,8 @@ export function buildCollectionItemMenu(
  * handlers as the asset's viewer. A vault file gets the file menu (`buildAssetMenuHandlers`, the same
  * Assets-rooted Move picker as the sidebar row); a remote image gets exactly the image overlay's remote
  * menu (`buildImageAssetMenu` + `buildRemoteImageMenuHandlers`), acting on that asset's URL — with Set as
- * cover image enabled, as in the overlay opened from this collection. Rename has no home in either, as in
- * the viewers. `null` when there is nothing to run it with (a remote asset without its actions, a remote PDF).
+ * cover image enabled, as in the overlay opened from this collection. A vault file's menu also has Rename (the shared
+ * name dialog, name only); a remote image has none, as in its overlay. `null` when there is nothing to run it with (a remote asset without its actions, a remote PDF).
  */
 export function buildAssetItemMenu(
   application: Application,
@@ -62,6 +63,8 @@ export function buildAssetItemMenu(
     onSetRemoteAsCover?(url: string): void;
     /** Moves a vault file; a move that fails is reported by whoever supplies this, which owns the toast. */
     onMoveResource?(resourceId: string, destinationFolderId: string | null): void;
+    /** Renames a vault file (`ResourceOperations.renameResource`); a rejection is shown in the Rename dialog. */
+    onRenameResource?(resourceId: string, name: string): Promise<void>;
   },
   asset: Asset
 ): ResourceTopBarActionsProps | null {
@@ -86,8 +89,18 @@ export function buildAssetItemMenu(
     menu: buildResourceActionMenu(
       'asset',
       { assetKind: asset.kind, status: 'active', isEffectivelyArchived: false, isDeletable: false },
-      'overlay'
+      'assets-collection'
     ),
+    // A file has a name and nothing else the dialog could edit — no description, no emoji.
+    rename: actions.onRenameResource
+      ? {
+          noun: 'file',
+          name: getResourceDisplayName(asset),
+          withDescription: false,
+          withIcon: false,
+          onSubmit: (name) => (name === getResourceDisplayName(asset) ? Promise.resolve() : actions.onRenameResource!(id, name)),
+        }
+      : undefined,
     handlers: buildAssetMenuHandlers(actions, id),
     moveDestinations: buildMoveDestinationItems(membershipSelector, undefined, 'assets'),
     onMove: (destinationFolderId) => actions.onMoveResource?.(id, destinationFolderId),

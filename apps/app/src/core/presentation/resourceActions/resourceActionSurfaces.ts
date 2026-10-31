@@ -5,7 +5,7 @@ import type { ResourceActionContext, ResourceKind } from './resourceActionTypes'
  * presentation decisions, not second implementations: an omitted action is still one definition
  * and one handler elsewhere (ADR-048). Every omission here states why.
  */
-export type ResourceActionSurface = 'sidebar' | 'favorites' | 'topbar' | 'overlay' | 'context';
+export type ResourceActionSurface = 'sidebar' | 'favorites' | 'topbar' | 'overlay' | 'context' | 'assets-collection';
 
 export interface ResourceActionSurfaceProfile {
   /** Action ids this surface never shows. */
@@ -45,6 +45,18 @@ const TOPBAR_PROFILE: ResourceActionSurfaceProfile = {
   unavailable: 'disable',
 };
 
+const OVERLAY_PROFILE: ResourceActionSurfaceProfile = {
+  // The image overlay, PDF embed and PDF viewer: an asset's More actions with no place to rename
+  // it in.
+  omit: ['rename'],
+  // This surface IS where an archived file is opened (from the Archive), so its Restore and Delete
+  // belong here — unlike the sidebar, which never lists an archived resource.
+  omitWhen: () => [],
+  // A listed-but-unavailable action stays visible and disabled (Set as cover image on a remote
+  // image does nothing yet; a live control must never be a silent no-op).
+  unavailable: 'disable',
+};
+
 export const RESOURCE_ACTION_SURFACES: Readonly<
   Record<ResourceActionSurface, ResourceActionSurfaceProfile>
 > = {
@@ -53,22 +65,16 @@ export const RESOURCE_ACTION_SURFACES: Readonly<
   // future action can never reach one and not the other. (Sort by never reaches either unless the
   // caller supplies a sort — a Favorites row lists no children, so it supplies none.)
   favorites: SIDEBAR_PROFILE,
-  overlay: {
-    // The image overlay, PDF embed and PDF viewer: an asset's More actions with no place to rename
-    // it in.
-    omit: ['rename'],
-    // This surface IS where an archived file is opened (from the Archive), so its Restore and Delete
-    // belong here — unlike the sidebar, which never lists an archived resource.
-    omitWhen: () => [],
-    // A listed-but-unavailable action stays visible and disabled (Set as cover image on a remote
-    // image does nothing yet; a live control must never be a silent no-op).
-    unavailable: 'disable',
-  },
+  overlay: OVERLAY_PROFILE,
   topbar: TOPBAR_PROFILE,
   // A right-click menu on a Collection View item (a card, list row or table row) is the topbar's menu
   // for that item — the same actions, order, groups and disabled states — so it is the topbar profile,
-  // not a second list. Its one difference: Hide/Show references is a display preference of the OPEN
-  // note's page (like the sidebar, which omits it for the same reason), so it is not offered for an
-  // item the user has not opened.
-  context: { ...TOPBAR_PROFILE, omit: [...TOPBAR_PROFILE.omit, 'toggle-references'] },
+  // not a second list. Two differences: Hide/Show references is a display preference of the OPEN note's page
+  // (like the sidebar, which omits it for the same reason), so it is not offered for an item the user has not
+  // opened; and Rename and Change icon ARE offered — the topbar leaves them out only because the open page's
+  // title is editable inline and its header has the icon control, which an item in a collection has not.
+  context: { ...TOPBAR_PROFILE, omit: ['sort-by', 'toggle-pin', 'toggle-references'] },
+  // A vault file's right-click menu in an Assets collection: the viewer's actions (the overlay profile) plus Rename,
+  // which the viewer leaves out only because it has no place to rename the file in — a collection item does.
+  'assets-collection': { ...OVERLAY_PROFILE, omit: [] },
 };

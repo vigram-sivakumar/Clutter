@@ -4,7 +4,7 @@ import { NewFolderContent, type NewFolderContentProps } from './NewFolderContent
 interface NewFolderDialogProps
   extends Pick<
     NewFolderContentProps,
-    'canCreate' | 'onSubmit' | 'labels' | 'initialName' | 'initialDescription' | 'withIcon' | 'withCancel'
+    'canCreate' | 'onSubmit' | 'labels' | 'initialName' | 'initialDescription' | 'initialIcon' | 'withDescription' | 'withIcon' | 'withCancel'
   > {
   readonly open: boolean;
   readonly onClose: () => void;

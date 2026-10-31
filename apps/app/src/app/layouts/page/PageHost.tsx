@@ -1056,6 +1056,7 @@ export function PageHost({
               void application.resourceOperations
                 .moveResource(id, destinationFolderId)
                 .catch((error: unknown) => reportMoveFailure(toast, 'file', error)),
+            onRenameResource: (id, name) => application.resourceOperations.renameResource(id, name),
             onRevealResourceInFinder: revealResourceInFinder,
             onCopyResourcePath: copyResourcePath,
             onDownloadResource: downloadResourceById,
@@ -1341,6 +1342,7 @@ export function PageHost({
     moveFolder,
     notifier: toast,
     createTemplate: requestCreateTemplate,
+    fail: (title, error) => toast.fail(title, error),
   };
   // A Collection View entry's right-click menu — its resource's topbar menu (see `buildCollectionItemMenu`).
   const collectionItemMenu: CollectionItemMenuResolver = (entry) =>

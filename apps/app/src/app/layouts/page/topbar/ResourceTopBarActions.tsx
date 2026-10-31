@@ -33,7 +33,37 @@ export type TopBarMenuItemConfig = OverflowMenuItemConfig;
 const OVERFLOW_SIDE: OverlaySide = 'bottom';
 const OVERFLOW_ALIGNMENT: OverlayAlignment = 'end';
 
+/**
+ * What Rename opens: the shared name (+ description + emoji) dialog, in rename mode. Present only for a resource
+ * whose menu has a `rename` item; each field is shown only where the resource supports it.
+ */
+export interface ResourceRenameConfig {
+  /** What is being renamed — the dialog's wording ("Rename folder"). */
+  readonly noun: 'folder' | 'note' | 'file';
+  readonly name: string;
+  readonly description?: string;
+  /** The current emoji. */
+  readonly icon?: string;
+  readonly withDescription: boolean;
+  readonly withIcon: boolean;
+  /** A cheap synchronous duplicate check, where the domain has one; the operation itself still validates. */
+  canRename?(name: string): boolean;
+  /** Saves through the resource's own operations; a rejection is shown in the dialog. */
+  onSubmit(name: string, icon: string | undefined, description: string | undefined): Promise<void>;
+}
+
+/** What Change icon opens: the shared emoji picker, for a resource whose menu has a `change-icon` item. */
+export interface ResourceChangeIconConfig {
+  readonly hasIcon: boolean;
+  onSelect(emoji: string): void;
+  onRemove(): void;
+}
+
 export interface ResourceTopBarActionsProps {
+  /** The Rename dialog's content (see `ResourceRenameConfig`). */
+  rename?: ResourceRenameConfig;
+  /** The Change icon picker's actions (see `ResourceChangeIconConfig`). */
+  changeIcon?: ResourceChangeIconConfig;
   /**
    * The resource this menu acts on, when it is one note, folder or file. A selection's menu uses it to run an
    * action once per resource however many selected entries lead to it.

@@ -56,7 +56,13 @@ export function ResourceContextMenu({ menu, point, immediate, onDone }: Resource
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const idle = started && !menuOpen && !dispatch.moveTrigger.open && dispatch.confirmation.pending === null;
+  const idle =
+    started &&
+    !menuOpen &&
+    !dispatch.moveTrigger.open &&
+    dispatch.confirmation.pending === null &&
+    !dispatch.renameOpen &&
+    !dispatch.iconOpen;
   useEffect(() => {
     if (idle) {
       onDone();
@@ -95,6 +101,8 @@ export function ResourceContextMenu({ menu, point, immediate, onDone }: Resource
         moveDestinations={menu.moveDestinations}
         onMove={menu.onMove}
         onCreateFolder={menu.onCreateFolder}
+        rename={menu.rename}
+        changeIcon={menu.changeIcon}
         side="bottom"
         alignment="start"
       />

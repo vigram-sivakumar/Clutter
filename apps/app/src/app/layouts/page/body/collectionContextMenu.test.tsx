@@ -267,9 +267,6 @@ describe('the context menu is the topbar menu for the same resource', () => {
   const note = { id: 'n', type: 'note', path: 'a.md', parentId: null, metadata: { favorite: false } } as never;
   const folder = { id: 'f', path: 'f', parentId: null, metadata: { favorite: true } } as never;
 
-  const asSummary = (menu: readonly { id: string; label: string; icon?: string; separatorBefore?: boolean }[]) =>
-    menu.map(({ id, label, icon, separatorBefore }) => ({ id, label, icon, separatorBefore }));
-
   it.each([
     ['note', note, { status: 'active' as const, isFavorite: false }],
     ['folder', folder, { status: 'active' as const, isFavorite: true }],
@@ -277,7 +274,11 @@ describe('the context menu is the topbar menu for the same resource', () => {
     const contextMenu = buildResourceContextMenu(resource, options(kind))!;
     const topbar = buildResourceActionMenu(kind, context, 'topbar').filter((item) => item.id !== 'toggle-references');
 
-    expect(asSummary(contextMenu.menu)).toEqual(asSummary(topbar));
+    // Everything the topbar offers, in its order — plus Rename and Change icon, which the topbar leaves to the open page's
+    // inline title and header icon control, and a collection item has neither.
+    const without = contextMenu.menu.filter((item) => item.id !== 'rename' && item.id !== 'change-icon');
+    expect(without.map((item) => item.id)).toEqual(topbar.map((item) => item.id));
+    expect(contextMenu.menu.map((item) => item.id).slice(0, 2)).toEqual(['rename', 'change-icon']);
   });
 
   it('binds the same handlers the topbar does, and drops only Hide/Show references', () => {

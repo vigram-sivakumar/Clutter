@@ -164,6 +164,10 @@ export interface BuildTopBarActionsOptions {
    * `buildResourceMenuOptions`, carried onto the right-click menu as `isArchived` (see ResourceTopBarActionsProps).
    */
   isArchivedNow?: () => boolean;
+  /** What the menu's Rename opens (the right-click menu only; the topbar's title is edited inline). */
+  rename?: ResourceTopBarActionsProps['rename'];
+  /** What the menu's Change icon opens (the right-click menu only; the open page has an icon control in its header). */
+  changeIcon?: ResourceTopBarActionsProps['changeIcon'];
 }
 
 /**
@@ -293,8 +297,17 @@ export function buildResourceContextMenu(
 ): ResourceTopBarActionsProps | null {
   const { resourceType, actionOptions } = resolveTopBarMenu(resource, options, 'context');
   const props = topBarActionProps(resourceType, actionOptions);
+  const offers = (id: string) => props?.menu.some((item) => item.id === id && !item.disabled) === true;
+
   return props && props.menu.length > 0
-    ? { ...props, resourceId: resource.id, isArchived: options.isArchivedNow }
+    ? {
+        ...props,
+        resourceId: resource.id,
+        isArchived: options.isArchivedNow,
+        // Only for an item the menu really offers: never a dialog with no menu entry to open it.
+        rename: offers('rename') ? options.rename : undefined,
+        changeIcon: offers('change-icon') ? options.changeIcon : undefined,
+      }
     : null;
 }
 

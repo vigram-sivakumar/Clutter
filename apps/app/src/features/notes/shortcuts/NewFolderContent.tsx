@@ -35,6 +35,20 @@ export const NEW_FOLDER_LABELS: NewFolderContentLabels = {
   failureMessage: 'Failed to create folder',
 };
 
+/** The wording of the same dialog in rename mode: "Rename folder" with Save, for whatever is being renamed. */
+export function renameLabels(noun: 'folder' | 'note' | 'file'): NewFolderContentLabels {
+  const Noun = noun.charAt(0).toUpperCase() + noun.slice(1);
+
+  return {
+    title: `Rename ${noun}`,
+    nameLabel: `${Noun} name`,
+    namePlaceholder: noun === 'folder' ? getFolderTitlePlaceholder() : `${Noun} name`,
+    duplicateMessage: () => `${Noun} name already exists`,
+    submitLabel: 'Save',
+    failureMessage: `Failed to rename ${noun}`,
+  };
+}
+
 export interface NewFolderContentProps {
   onClose(): void;
   /** Wording; absent = the New folder modal's own. */
@@ -42,6 +56,10 @@ export interface NewFolderContentProps {
   /** Prefilled values — the user edits them before submitting. */
   initialName?: string;
   initialDescription?: string;
+  /** The emoji already set (rename mode); the picker starts on it. Absent: none. */
+  initialIcon?: string;
+  /** Whether the dialog has a Description field. Default true; a file has none. */
+  withDescription?: boolean;
   /** Whether the footer offers the emoji picker (a folder has an icon here; a template does not). Default true. */
   withIcon?: boolean;
   /** Shows a Cancel button beside the submit button. Default false (the header's close button is the folder modal's only dismiss). */
@@ -68,12 +86,14 @@ export function NewFolderContent({
   labels = NEW_FOLDER_LABELS,
   initialName = '',
   initialDescription = '',
+  initialIcon,
+  withDescription = true,
   withIcon = true,
   withCancel = false,
 }: NewFolderContentProps) {
   const [name, setName] = useState(initialName);
   const [description, setDescription] = useState(initialDescription);
-  const [icon, setIcon] = useState<string | undefined>(undefined);
+  const [icon, setIcon] = useState<string | undefined>(initialIcon);
   const emojiPicker = useOverlay<HTMLButtonElement>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   // The name field's reject shake (EditableText's, via useRejectShake), played when Create is
@@ -118,7 +138,7 @@ export function NewFolderContent({
     setSubmitError(undefined);
 
     try {
-      await onSubmit(trimmed, icon, description.trim() === '' ? undefined : description.trim());
+      await onSubmit(trimmed, icon, withDescription && description.trim() !== '' ? description.trim() : undefined);
       onClose();
     } catch (error) {
       setIsSubmitting(false);
@@ -157,13 +177,15 @@ export function NewFolderContent({
         )}
       </div>
 
-      <Input
-        multiline
-        value={description}
-        placeholder="Description"
-        aria-label="Description"
-        onChange={(event) => setDescription(event.target.value)}
-      />
+      {withDescription && (
+        <Input
+          multiline
+          value={description}
+          placeholder="Description"
+          aria-label="Description"
+          onChange={(event) => setDescription(event.target.value)}
+        />
+      )}
 
       {submitError && (
         <span className="new-folder__error" role="alert">
