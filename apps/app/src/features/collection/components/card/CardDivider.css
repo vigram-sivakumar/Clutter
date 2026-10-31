@@ -1,35 +1,10 @@
 /*
  * A rule across a card, as wide as the space it is given — the card's main section pads and spaces it, so it has no
- * spacing of its own (per CLAUDE.md, no margin). The wavy and dotted rules are the
- * editor's own shapes (--hr-wavy-mask, --hr-dotted-mask), painted the way
- * PageDivider paints them: a mask over a background colour.
+ * spacing of its own (per CLAUDE.md, no margin).
  */
 .card-divider {
   flex: none;
   height: 1px;
   min-width: 0;
   background: var(--border-default);
-}
-
-.card-divider--wavy,
-.card-divider--dotted {
-  -webkit-mask-repeat: repeat-x;
-  mask-repeat: repeat-x;
-  -webkit-mask-position: left center;
-  mask-position: left center;
-}
-.card-divider--wavy {
-  height: 6px;
-  -webkit-mask-image: var(--hr-wavy-mask);
-  mask-image: var(--hr-wavy-mask);
-  -webkit-mask-size: 16px 6px;
-  mask-size: 16px 6px;
-}
-.card-divider--dotted {
-  height: 2px;
-  background: var(--border-stronger);
-  -webkit-mask-image: var(--hr-dotted-mask);
-  mask-image: var(--hr-dotted-mask);
-  -webkit-mask-size: 6px 2px;
-  mask-size: 6px 2px;
 }

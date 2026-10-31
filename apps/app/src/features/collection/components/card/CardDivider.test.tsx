@@ -11,20 +11,12 @@ import { CardDivider } from './CardDivider';
 afterEach(cleanup);
 
 describe('CardDivider', () => {
-  it('is a separator, solid by default', () => {
+  it('is a separator', () => {
     const { container } = render(<CardDivider />);
 
     const rule = container.firstElementChild!;
     expect(rule).toHaveAttribute('role', 'separator');
-    expect(rule).toHaveClass('card-divider', 'card-divider--solid');
-    expect(rule).toHaveAttribute('data-variant', 'solid');
-  });
-
-  it.each(['solid', 'wavy', 'dotted'] as const)('draws the %s look', (variant) => {
-    const { container } = render(<CardDivider variant={variant} />);
-
-    expect(container.firstElementChild).toHaveClass(`card-divider--${variant}`);
-    expect(container.firstElementChild).toHaveAttribute('data-variant', variant);
+    expect(rule).toHaveClass('card-divider');
   });
 
   it('has no spacing of its own — never margin or padding (the card spaces it), per CLAUDE.md', () => {

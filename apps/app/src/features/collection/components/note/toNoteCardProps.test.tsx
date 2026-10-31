@@ -55,8 +55,8 @@ describe('toNoteCardProps', () => {
       expect(container.querySelector('.card-divider')).toBeNull();
     });
 
-    it('draws the requested look between the header and the page', () => {
-      const { container } = draw(entry(), { divider: 'wavy' });
+    it('draws the rule between the header and the page', () => {
+      const { container } = draw(entry(), { divider: true });
 
       const main = container.querySelector('.collection-card__main')!;
       expect([...main.children].map((c) => c.className.split(' ')[0])).toEqual([
@@ -64,7 +64,7 @@ describe('toNoteCardProps', () => {
         'card-divider',
         'collection-card__content',
       ]);
-      expect(main.querySelector('.card-divider')).toHaveClass('card-divider--wavy');
+      expect(main.querySelector('.card-divider')).toHaveClass('card-divider');
     });
   });
 

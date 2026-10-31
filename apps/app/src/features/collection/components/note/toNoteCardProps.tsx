@@ -1,4 +1,4 @@
-import { CardDivider, type CardDividerVariant } from '@features/collection/components/card/CardDivider';
+import { CardDivider } from '@features/collection/components/card/CardDivider';
 import { CardTitleSection } from '@features/collection/components/card/CardTitleSection';
 import type { CollectionCardProps } from '@features/collection/components/card/CollectionCard';
 import { CollectionImage } from '@features/collection/components/media/CollectionImage';
@@ -24,8 +24,8 @@ export interface NoteCardOptions {
   readonly visible: readonly PropertyId[];
   /** Resolves the cover and the Markdown's links/embeds for the page canvas. */
   readonly resolvers?: NotePreviewResolvers;
-  /** The look of the rule between the header and the page — absent draws none. The page decides whether to show it (the header-separator setting); the mapper only draws it. */
-  readonly divider?: CardDividerVariant;
+  /** Draws a rule between the header and the page. The page decides whether to show it (the header-separator setting); the mapper only draws it. */
+  readonly divider?: boolean;
 }
 
 /**
@@ -57,7 +57,7 @@ export function toNoteCardProps(
         metadataLayout="vertical"
       />
     ),
-    divider: divider ? <CardDivider variant={divider} /> : undefined,
+    divider: divider ? <CardDivider /> : undefined,
     // The card's main section pads the page, so the canvas has no inset of its own.
     children: <NotePageCanvas markdown={entry.markdown} resolvers={resolvers} inset="0px" />,
     aspectRatio: NOTE_CARD_ASPECT_RATIO,
