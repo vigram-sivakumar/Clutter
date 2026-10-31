@@ -3,6 +3,33 @@
   --drag-ghost-background-opacity: 50%;
 }
 
+/* The ghost lifts off the original (and, cancelled, settles back onto it): its fill and elevation grow in and out
+   while it travels, so it is never a different-looking object from the item it was. */
+@keyframes drag-ghost-lift {
+  from {
+    background: transparent;
+    box-shadow: none;
+  }
+}
+@keyframes drag-ghost-land {
+  to {
+    background: transparent;
+    box-shadow: none;
+  }
+}
+.drag-ghost--entering {
+  animation: drag-ghost-lift 160ms ease-out;
+}
+.drag-ghost--returning {
+  animation: drag-ghost-land 220ms ease-in forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .drag-ghost--entering,
+  .drag-ghost--returning {
+    animation: none;
+  }
+}
+
 /* A fixed, non-interactive layer above the app. Position and size are set from JS (DragGhost.tsx). */
 .drag-ghost {
   position: fixed;

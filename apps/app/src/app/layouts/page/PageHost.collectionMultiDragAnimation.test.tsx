@@ -273,6 +273,94 @@ describe.each(['list', 'table', 'card'] as const)('the convergence in the %s lay
     expect(isClean(ids.N3!)).toBe(true);
   });
 
+  describe('the pressed item itself', () => {
+    const ghost = () => document.querySelector<HTMLElement>('.drag-ghost');
+    const ghostBox = () => {
+      const m = /translate3d\((-?[\d.]+)px, (-?[\d.]+)px/.exec(ghost()!.style.transform)!;
+      return { x: Number(m[1]), y: Number(m[2]), width: parseFloat(ghost()!.style.width), height: parseFloat(ghost()!.style.height) };
+    };
+
+    it('does not jump when the drag begins: its ghost starts on the original and settles onto the cursor', async () => {
+      select('N1', 'N2');
+      const original = card(ids.N1!).getBoundingClientRect();
+      await drag(card(ids.N1!), { x: 820, y: 650 }, { release: false });
+
+      expect(ghostBox()).toMatchObject({ x: original.left, y: original.top, width: original.width }); // on the original
+      advance(FULL);
+      const settled = ghostBox();
+      expect({ x: settled.x + settled.width / 2, y: settled.y + settled.height / 2 }).toEqual({ x: 820, y: 650 }); // on the cursor
+      release();
+      advance(FULL);
+    });
+
+    it('tracks the cursor from the first frame, and exactly once settled', async () => {
+      select('N1', 'N2');
+      await drag(card(ids.N1!), { x: 500, y: 300 }, { release: false });
+      advance(64);
+      movePointer(900, 120);
+      advance(FULL);
+      movePointer(300, 500);
+
+      const box = ghostBox();
+      expect({ x: box.x + box.width / 2, y: box.y + box.height / 2 }).toEqual({ x: 300, y: 500 });
+      release();
+      advance(FULL);
+    });
+
+    it('Escape flies the ghost back onto the original, which stays hidden until it lands', async () => {
+      select('N1', 'N2');
+      await drag(card(ids.N1!), { x: 820, y: 650 }, { release: false });
+      advance(FULL);
+
+      act(() => void fireEvent.keyDown(document, { key: 'Escape' }));
+      expect(ghost()).not.toBeNull(); // still there, on its way back
+      expect(card(ids.N1!)).toHaveAttribute('data-drag-source', 'true');
+      advance(110);
+      expect(ghost()).not.toBeNull();
+
+      advance(FULL);
+      expect(ghost()).toBeNull();
+      expect(card(ids.N1!)).not.toHaveAttribute('data-drag-source');
+      release();
+    });
+
+    it('a release over an invalid destination flies it back too', async () => {
+      select('N1', 'N2');
+      await drag(card(ids.N1!), { x: 900, y: 700 }, { release: false });
+      advance(FULL);
+
+      release(900, 700);
+      await settle();
+      expect(ghost()).not.toBeNull(); // returning
+      expect(card(ids.N1!)).toHaveAttribute('data-drag-source', 'true');
+      advance(FULL);
+
+      expect(ghost()).toBeNull();
+      expect(card(ids.N1!)).not.toHaveAttribute('data-drag-source');
+    });
+
+    it('a successful drop does not fly it back: the ghost is simply gone', async () => {
+      select('N1', 'N2');
+      await drag(card(ids.N1!), centre(card(ids.Alpha!)), { release: false });
+      advance(FULL);
+
+      release(centre(card(ids.Alpha!)).x, centre(card(ids.Alpha!)).y);
+      await settle();
+
+      expect(parentOf('N1')).toBe(ids.Alpha);
+      expect(ghost()).toBeNull();
+    });
+
+    it('a single item still lands centred on the cursor at once', async () => {
+      select('N1');
+      await drag(card(ids.N1!), { x: 820, y: 650 }, { release: false });
+
+      const box = ghostBox();
+      expect({ x: box.x + box.width / 2, y: box.y + box.height / 2 }).toEqual({ x: 820, y: 650 });
+      release();
+    });
+  });
+
   it('a single item drags as before: nothing animates', async () => {
     select('N1');
     await drag(card(ids.N1!), centre(card(ids.Alpha!)), { release: false });

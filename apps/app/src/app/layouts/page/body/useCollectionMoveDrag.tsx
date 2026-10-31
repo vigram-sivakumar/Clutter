@@ -1,5 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
-import { usePointerDrag } from '@shared/interaction';
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { usePointerDrag, type ActiveDrag } from '@shared/interaction';
 import { DragGhost } from '@components/drag-ghost/DragGhost';
 import { draggedItems, type DragItem, type DropTarget } from '@features/notes/sidebar/dropTarget';
 import { useDropTargetTracking } from '@features/notes/sidebar/useDropTargetTracking';
@@ -94,13 +94,27 @@ export function useCollectionMoveDrag(
   // when the drag really begins, settled by how it ends: a drop that did something leaves them to the collection's
   // update; Escape, a release with no valid drop and a refused drop all fly them back.
   const convergenceRef = useRef<Convergence | null>(null);
+  // The ghost of a drag of several items AFTER the pointer has gone up or Escape was pressed: held where the cursor
+  // left it while the drop is decided ('holding'), then — only if it was cancelled — flown back onto the original,
+  // which stays hidden until it lands ('returning'). A drop that did something has no return: the ghost goes, and
+  // the collection's update decides where everything is.
+  const [after, setAfter] = useState<{ drag: ActiveDrag<DragItem>; phase: 'holding' | 'returning' } | null>(null);
+  const lastDragRef = useRef<ActiveDrag<DragItem> | null>(null);
+  const cancelDrag = (convergence: Convergence | null): void => {
+    convergence?.revert();
+    const last = lastDragRef.current;
+    if (convergence && last?.payload.items) {
+      setAfter({ drag: last, phase: 'returning' });
+    }
+  };
   const settle = (convergence: Convergence | null, outcome: 'moved' | 'reordered' | 'ignored' | 'rejected'): void => {
     if (convergence !== convergenceRef.current) {
       convergence?.dispose(); // a newer drag has taken over
     } else if (outcome === 'moved' || outcome === 'reordered') {
       convergence?.commit();
+      setAfter(null);
     } else {
-      convergence?.revert();
+      cancelDrag(convergence);
     }
   };
 
@@ -112,11 +126,14 @@ export function useCollectionMoveDrag(
       const shown = lastShownTargetRef.current;
       lastShownTargetRef.current = null;
       const convergence = convergenceRef.current;
+      if (convergence && lastDragRef.current?.payload.items) {
+        setAfter({ drag: lastDragRef.current, phase: 'holding' }); // in the same update that removes the drag's own ghost
+      }
       void executeDrop(item, shown, configRef.current?.actions).then((outcome) => settle(convergence, outcome));
     },
     onCancel: () => {
       lastShownTargetRef.current = null;
-      convergenceRef.current?.revert();
+      cancelDrag(convergenceRef.current);
     },
   });
 
@@ -126,6 +143,8 @@ export function useCollectionMoveDrag(
     if (!drag || !payload?.items) {
       return;
     }
+    lastDragRef.current = drag;
+    setAfter(null); // nor a previous drag's ghost still held or flying back
     convergenceRef.current?.dispose(); // never let one drag's animation linger into the next
     const byId = new Map<string, HTMLElement>();
     document.querySelectorAll<HTMLElement>('[data-drag-inside-only="true"][data-drag-id]').forEach((element) => {
@@ -159,15 +178,23 @@ export function useCollectionMoveDrag(
         'data-drag-inside-only': 'true',
         'data-drag-reorder': entry.type === 'note' && config.reorder ? 'true' : undefined,
         'data-drag-ghost-size': entry.type === 'note' ? 'compact' : undefined,
-        'data-drag-source': drag?.payload.kind === entry.type && drag.payload.id === entry.id ? 'true' : undefined,
+        // (Still hidden while a cancelled drag's ghost is flying back to it.)
+        'data-drag-source':
+          (drag ?? after?.drag)?.payload.kind === entry.type && (drag ?? after?.drag)?.payload.id === entry.id ? 'true' : undefined,
         onPointerDown: (event) => press(event, dragItemFor(entry, config.parentId, selected)),
       };
     },
     overlay: drag ? (
       <>
-        <DragGhost session={drag.session} count={drag.payload.items?.length} />
+        <DragGhost session={drag.session} count={drag.payload.items?.length} settle={drag.payload.items !== undefined} />
         <DropFeedbackHost store={store} />
       </>
+    ) : after ? (
+      after.phase === 'returning' ? (
+        <DragGhost key="return" session={after.drag.session} returning={{ onDone: () => setAfter(null) }} />
+      ) : (
+        <DragGhost key="hold" session={after.drag.session} count={after.drag.payload.items?.length} />
+      )
     ) : null,
   };
 }

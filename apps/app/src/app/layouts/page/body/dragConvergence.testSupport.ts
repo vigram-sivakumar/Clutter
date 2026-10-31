@@ -15,6 +15,7 @@ export function installFrameClock(): { step(ms: number): void; now(): number; pe
     return id;
   });
   vi.stubGlobal('cancelAnimationFrame', (id: number) => void queue.delete(id));
+  const nowSpy = vi.spyOn(performance, 'now').mockImplementation(() => time);
 
   return {
     /** Advances the clock by `ms`, running the frames that were queued (and any they queue in turn, a frame at a time). */
@@ -29,7 +30,10 @@ export function installFrameClock(): { step(ms: number): void; now(): number; pe
     },
     now: () => time,
     pending: () => queue.size,
-    uninstall: () => vi.unstubAllGlobals(),
+    uninstall: () => {
+      nowSpy.mockRestore();
+      vi.unstubAllGlobals();
+    },
   };
 }
 
