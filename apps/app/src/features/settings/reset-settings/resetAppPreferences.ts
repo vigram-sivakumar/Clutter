@@ -12,6 +12,10 @@ import {
   DEFAULT_SHOW_REFERENCES_AUTOMATICALLY,
   writeShowReferencesAutomatically,
 } from '@shared/helpers/showReferencesAutomaticallyPreference';
+import {
+  DEFAULT_SHOW_TEMPLATE_SUGGESTIONS,
+  writeShowTemplateSuggestions,
+} from '@shared/helpers/showTemplateSuggestionsPreference';
 import { DEFAULT_MARKDOWN_ITALIC_FONT, writeMarkdownItalicFont } from '@shared/helpers/markdownItalicFontPreference';
 import { DEFAULT_SHOW_TAG_EMOJIS, writeShowTagEmojis } from '@shared/helpers/showTagEmojisPreference';
 import { DEFAULT_TASK_ITEM_LIMIT_CHOICE, writeTaskItemLimitChoice } from '@shared/helpers/taskItemLimitPreference';
@@ -52,6 +56,7 @@ export function resetAppPreferences(): void {
   writeApplyTemplateCover(DEFAULT_APPLY_TEMPLATE_COVER);
   // Notes
   writeShowReferencesAutomatically(DEFAULT_SHOW_REFERENCES_AUTOMATICALLY);
+  writeShowTemplateSuggestions(DEFAULT_SHOW_TEMPLATE_SUGGESTIONS);
   resetHeaderSeparator();
   // Editor
   writeMarkdownItalicFont(DEFAULT_MARKDOWN_ITALIC_FONT);

@@ -215,6 +215,7 @@ import {
 import { clearCachedEditorSession } from '@features/markdown/editor/codemirror/editorHistoryCache';
 import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal';
 import { useShowReferencesAutomatically } from '@shared/helpers/showReferencesAutomaticallyPreference';
+import { useShowTemplateSuggestions } from '@shared/helpers/showTemplateSuggestionsPreference';
 import { PropertyList } from '@components/property-list/PropertyList';
 import { buildPageProperties } from './buildPageProperties';
 import { initialCoverLayoutPatch, newCoverPatch } from '@core/application/page/coverPatch';
@@ -842,6 +843,7 @@ export function PageHost({
     [vault, knowledgeGraph, activePageId]
   );
   const showReferencesAutomatically = useShowReferencesAutomatically();
+  const showTemplateSuggestions = useShowTemplateSuggestions();
   const referencesHidden = !isReferencesDisplayed(savedReferencesHidden, {
     enabled: showReferencesAutomatically,
     count: referencesCount,
@@ -1760,6 +1762,7 @@ export function PageHost({
   // order, as From template (rankTemplates), applied to THIS note (applyTemplateToNote) instead of making a new one.
   const buildTemplateSuggestions = (note: TemplateTargetNote): ReactNode => {
     if (
+      !showTemplateSuggestions ||
       !shouldSuggestTemplates({
         type: note.type,
         markdown: note.markdown,

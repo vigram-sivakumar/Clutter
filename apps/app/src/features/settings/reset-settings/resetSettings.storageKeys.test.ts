@@ -31,6 +31,7 @@ const RESET_KEYS = [
   'clutter-apply-template-icon',
   'clutter-apply-template-cover',
   'clutter-show-references-automatically',
+  'clutter-show-template-suggestions',
   'clutter-header-separator',
   'clutter-header-separator-style',
   'clutter-markdown-italic-font',

@@ -51,6 +51,11 @@ import {
   writeShowReferencesAutomatically,
 } from '@shared/helpers/showReferencesAutomaticallyPreference';
 import {
+  DEFAULT_SHOW_TEMPLATE_SUGGESTIONS,
+  readShowTemplateSuggestions,
+  writeShowTemplateSuggestions,
+} from '@shared/helpers/showTemplateSuggestionsPreference';
+import {
   DEFAULT_MARKDOWN_ITALIC_FONT,
   readMarkdownItalicFont,
   writeMarkdownItalicFont,
@@ -111,6 +116,7 @@ function customizeEveryPreference() {
   writeApplyTemplateIcon(false);
   writeApplyTemplateCover(false);
   writeShowReferencesAutomatically(false);
+  writeShowTemplateSuggestions(false);
   writeHeaderSeparatorMode('hide');
   writeHeaderSeparatorStyle('wavy');
   writeMarkdownItalicFont(true);
@@ -149,6 +155,7 @@ describe('resetAppPreferences', () => {
     expect(readApplyTemplateIcon()).toBe(DEFAULT_APPLY_TEMPLATE_ICON);
     expect(readApplyTemplateCover()).toBe(DEFAULT_APPLY_TEMPLATE_COVER);
     expect(readShowReferencesAutomatically()).toBe(DEFAULT_SHOW_REFERENCES_AUTOMATICALLY);
+    expect(readShowTemplateSuggestions()).toBe(DEFAULT_SHOW_TEMPLATE_SUGGESTIONS);
     expect(readHeaderSeparatorMode()).toBe(DEFAULT_HEADER_SEPARATOR_MODE);
     expect(readHeaderSeparatorStyle()).toBe(DEFAULT_HEADER_SEPARATOR_STYLE);
     expect(readMarkdownItalicFont()).toBe(DEFAULT_MARKDOWN_ITALIC_FONT);

@@ -31,6 +31,7 @@ import { PageFactory } from '@core/application/page/PageFactory';
 import { PageBuilder } from '@core/vault/ingest/PageBuilder';
 import { UuidGenerator } from '@core/shared/identity/UuidGenerator';
 import { DailyNoteService } from '@core/application/daily-notes/DailyNoteService';
+import { writeShowTemplateSuggestions } from '@shared/helpers/showTemplateSuggestionsPreference';
 import { createTemplate } from '@features/notes/helpers/createTemplate';
 import type { Page } from '@core/vault/models/Page';
 
@@ -227,6 +228,20 @@ describe('with no templates', () => {
 
     expect(suggestionsShown()).toBe(true);
     expect(screen.getByText('New template')).toBeInTheDocument();
+  });
+
+  it('the Show template suggestions setting hides them at once and brings them back at once', async () => {
+    await setup({}, 0);
+    expect(suggestionsShown()).toBe(true);
+
+    act(() => writeShowTemplateSuggestions(false));
+    await flush();
+    expect(suggestionsShown()).toBe(false);
+    expect(screen.queryByText('New template')).toBeNull();
+
+    act(() => writeShowTemplateSuggestions(true));
+    await flush();
+    expect(suggestionsShown()).toBe(true);
   });
 
   it('a note with content shows neither', async () => {

@@ -42,6 +42,7 @@ import { ApplyTemplateIconSetting } from './templates-setting/ApplyTemplateIconS
 import { ApplyTemplateCoverSetting } from './templates-setting/ApplyTemplateCoverSetting';
 import { ShowDailyNoteEmojiSetting } from './daily-notes-setting/ShowDailyNoteEmojiSetting';
 import { ShowReferencesAutomaticallySetting } from './references-setting/ShowReferencesAutomaticallySetting';
+import { ShowTemplateSuggestionsSetting } from './templates-setting/ShowTemplateSuggestionsSetting';
 import { HeaderSeparatorSetting } from './header-separator-setting/HeaderSeparatorSetting';
 import { HeaderSeparatorStyleSetting } from './header-separator-style-setting/HeaderSeparatorStyleSetting';
 import { MarkdownItalicFontSetting } from './markdown-setting/MarkdownItalicFontSetting';
@@ -207,6 +208,7 @@ export function Settings({ templates, noteLocation, spaceSettings, space, onClos
             </SettingsGroup>
             <SettingsGroup>
               <ShowReferencesAutomaticallySetting />
+              <ShowTemplateSuggestionsSetting />
             </SettingsGroup>
           </>
         )}
