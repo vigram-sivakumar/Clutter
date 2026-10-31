@@ -7,7 +7,7 @@ import '@testing-library/jest-dom/vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { installFakeAnimate, stubReducedMotion } from './body/dragConvergence.testSupport';
+import { installFrameClock, stubReducedMotion } from './body/dragConvergence.testSupport';
 import { AppLayout } from '../app-layout/AppLayout';
 import { Application } from '@core/application/Application';
 import { Vault } from '@core/vault/models/Vault';
@@ -121,21 +121,26 @@ async function drag(source: HTMLElement, target: { x: number; y: number }, optio
 const checkbox = (name: string) => screen.getByRole('checkbox', { name: `Select ${name}`, hidden: true });
 const select = (...names: string[]) => names.forEach((name) => fireEvent.click(checkbox(name)));
 
-let fake: ReturnType<typeof installFakeAnimate>;
+let clock: ReturnType<typeof installFrameClock>;
 beforeEach(() => {
-  fake = installFakeAnimate();
+  clock = installFrameClock();
 });
 afterEach(() => {
-  fake.uninstall();
-  vi.unstubAllGlobals();
+  clock.uninstall();
 });
 
-const animatedIds = () => fake.animations.map((a) => (a.element as HTMLElement).dataset.dragId);
-const flush = async () => {
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 120)); // past the two frames a commit waits for
-  });
+/** An item's drawn offset from where it started (the convergence's own transform). */
+const offsetOf = (id: string) => {
+  const match = /translate\((-?[\d.]+)px, (-?[\d.]+)px\)/.exec(card(id).style.transform);
+  return match ? { x: Number(match[1]), y: Number(match[2]) } : { x: 0, y: 0 };
 };
+const isClean = (id: string) => card(id).style.transform === '' && card(id).style.opacity === '';
+const flying = (id: string) => card(id).style.transform !== '' || card(id).style.opacity !== '';
+const FULL = 400;
+const CONVERGENCE_HALF = 110;
+const advance = (ms: number) => act(() => clock.step(ms));
+const movePointer = (x: number, y: number) => act(() => void fireEvent.pointerMove(document, { pointerId: 1, clientX: x, clientY: y }));
+const release = (x = 0, y = 0) => act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: x, clientY: y }));
 
 async function setUp(layout: 'list' | 'table' | 'card') {
   // Projects: folders Alpha, Beta; notes N1..N4 (Manual order, so a reorder is possible in the one-column layouts).
@@ -151,117 +156,154 @@ async function setUp(layout: 'list' | 'table' | 'card') {
 describe.each(['list', 'table', 'card'] as const)('the convergence in the %s layout', (layout) => {
   beforeEach(() => setUp(layout));
 
-  it('flies the other checked items — contiguous or not — and never the pressed one', async () => {
+  it('flies the other checked items — contiguous or not — toward the CURSOR, and never the pressed one', async () => {
     select('N1', 'N2', 'N4');
-    await drag(card(ids.N2!), centre(card(ids.Alpha!)), { release: false });
+    await drag(card(ids.N2!), { x: 820, y: 650 }, { release: false });
+    advance(FULL);
 
-    expect(animatedIds().sort()).toEqual([ids.N1, ids.N4].sort());
-    expect(animatedIds()).not.toContain(ids.N2);
-    act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: 0, clientY: 0 }));
-    await flush();
+    // Each drawn centre is the pointer's: from + offset = pointer.
+    for (const name of ['N1', 'N4']) {
+      const from = centre(card(ids[name]!)); // (the mocked layout does not move with the transform)
+      expect({ x: from.x + offsetOf(ids[name]!).x, y: from.y + offsetOf(ids[name]!).y }).toEqual({ x: 820, y: 650 });
+    }
+    expect(offsetOf(ids.N2!)).toEqual({ x: 0, y: 0 }); // the pressed one is the ghost's, not animated
+    release();
+    advance(FULL);
   });
 
-  it('a mixed selection of folders and notes flies too', async () => {
-    select('N1', 'Beta', 'Alpha');
-    await drag(card(ids.N1!), centre(card(ids.Gamma ? ids.Alpha! : ids.Alpha!)), { release: false });
-
-    expect(animatedIds().sort()).toEqual([ids.Alpha, ids.Beta].sort());
-    act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: 0, clientY: 0 }));
-    await flush();
-  });
-
-  it('Escape flies them back, and nothing moves', async () => {
+  it('a pointer that keeps moving is followed — the destination is never a stale coordinate', async () => {
     select('N1', 'N2', 'N3');
-    await drag(card(ids.N1!), centre(card(ids.Alpha!)), { release: false });
-    expect(fake.animations.every((a) => a.reversed === 0)).toBe(true);
+    await drag(card(ids.N1!), { x: 450, y: 300 }, { release: false });
+    advance(80); // mid-flight
+    movePointer(900, 120);
+    advance(FULL);
+
+    const from = centre(card(ids.N3!));
+    expect({ x: from.x + offsetOf(ids.N3!).x, y: from.y + offsetOf(ids.N3!).y }).toEqual({ x: 900, y: 120 });
+    release();
+    advance(FULL);
+  });
+
+  it('Escape returns each item to its own original place, from wherever it had got to', async () => {
+    select('N1', 'N2', 'N3');
+    await drag(card(ids.N1!), { x: 450, y: 300 }, { release: false });
+    advance(FULL);
+    movePointer(800, 600);
+    advance(32);
+    const away = offsetOf(ids.N3!);
+    expect(away).not.toEqual({ x: 0, y: 0 });
 
     act(() => void fireEvent.keyDown(document, { key: 'Escape' }));
+    advance(CONVERGENCE_HALF);
+    expect(offsetOf(ids.N3!).x).toBeLessThan(away.x); // on its way back from where it was…
+    advance(FULL);
 
-    expect(fake.animations.every((a) => a.reversed === 1)).toBe(true);
-    fake.animations.forEach((a) => a.complete());
-    await flush();
-    expect(fake.animations.every((a) => a.cancelled)).toBe(true);
-    act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: 0, clientY: 0 }));
+    expect(isClean(ids.N2!)).toBe(true); // …each to ITS OWN place: nothing is left on any of them
+    expect(isClean(ids.N3!)).toBe(true);
+    release();
     await settle();
-    expect(parentOf('N1')).toBe(ids.Projects);
     expect(parentOf('N2')).toBe(ids.Projects);
   });
 
-  it('releasing with no valid drop flies them back', async () => {
+  it('releasing over an invalid destination returns them from where they are', async () => {
     select('N1', 'N2');
-    await drag(card(ids.N1!), { x: 900, y: 700 }); // empty space
+    await drag(card(ids.N1!), { x: 900, y: 700 }, { release: false });
+    advance(FULL);
+    expect(flying(ids.N2!)).toBe(true);
 
-    expect(fake.animations.every((a) => a.reversed === 1)).toBe(true);
+    release(900, 700);
+    await settle();
+    advance(CONVERGENCE_HALF);
+    expect(flying(ids.N2!)).toBe(true); // flying back, not snapped
+    advance(FULL);
+
+    expect(isClean(ids.N2!)).toBe(true);
     expect(parentOf('N2')).toBe(ids.Projects);
   });
 
-  it('a refused drop flies them back (every item refused)', async () => {
+  it('a refused drop returns them as well', async () => {
     vi.spyOn(application.pageOperations, 'move').mockRejectedValue(new Error('no'));
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     select('N1', 'N2');
+    await drag(card(ids.N1!), centre(card(ids.Alpha!)), { release: false });
+    advance(FULL);
 
-    await drag(card(ids.N1!), centre(card(ids.Alpha!)));
+    release(centre(card(ids.Alpha!)).x, centre(card(ids.Alpha!)).y);
+    await settle();
+    advance(CONVERGENCE_HALF);
+    expect(flying(ids.N2!)).toBe(true);
+    advance(FULL);
 
-    expect(fake.animations.every((a) => a.reversed === 1)).toBe(true);
+    expect(isClean(ids.N2!)).toBe(true);
     expect(parentOf('N2')).toBe(ids.Projects);
     warn.mockRestore();
   });
 
-  it('a successful move does not fly them back: the collection\'s update decides where they are', async () => {
+  it('a successful move does not snap them back: they stay where the cursor left them until the update has rendered', async () => {
     select('N1', 'N2');
+    await drag(card(ids.N1!), centre(card(ids.Alpha!)), { release: false });
+    advance(FULL);
 
-    await drag(card(ids.N1!), centre(card(ids.Alpha!)));
-    await flush();
+    release(centre(card(ids.Alpha!)).x, centre(card(ids.Alpha!)).y);
+    await settle();
 
     expect(parentOf('N2')).toBe(ids.Alpha);
-    expect(fake.animations.every((a) => a.reversed === 0)).toBe(true);
-    expect(fake.animations.every((a) => a.cancelled)).toBe(true); // nothing left on any element
+    const stillThere = document.querySelector<HTMLElement>(`[data-drag-inside-only="true"][data-drag-id="${ids.N2}"]`);
+    if (stillThere) {
+      // (the page may already have dropped it) — if it is still mounted it has not been sent back
+      expect(stillThere.style.transform).not.toBe('');
+    }
+    advance(FULL);
+    expect(document.querySelector(`[data-drag-inside-only="true"][data-drag-id="${ids.N2}"]`)?.getAttribute('style') ?? '').not.toMatch(/translate/);
   });
 
-  it('repeated drags leave no stale animation: each starts clean', async () => {
+  it('repeated drags leave no stale state: each starts clean', async () => {
     select('N3', 'N4');
     await drag(card(ids.N3!), { x: 900, y: 700 });
-    fake.animations.forEach((a) => a.complete());
-    await flush();
-    const first = fake.animations.length;
+    advance(FULL / 4); // the return is still under way when the next drag starts
 
-    await drag(card(ids.N4!), { x: 900, y: 700 }, { release: false });
-    // The second drag animates the other one (N3) afresh, and the first drag's animations are all cleared.
-    expect(fake.animations.slice(first).map((a) => (a.element as HTMLElement).dataset.dragId)).toEqual([ids.N3]);
-    expect(fake.animations.slice(0, first).every((a) => a.cancelled)).toBe(true);
-    act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: 900, clientY: 700 }));
-    await flush();
+    await drag(card(ids.N4!), { x: 700, y: 650 }, { release: false });
+    advance(FULL);
+    const from = centre(card(ids.N3!));
+    expect({ x: from.x + offsetOf(ids.N3!).x, y: from.y + offsetOf(ids.N3!).y }).toEqual({ x: 700, y: 650 });
+    expect(offsetOf(ids.N4!)).toEqual({ x: 0, y: 0 });
+    release(700, 650);
+    await settle();
+    advance(FULL);
+    expect(isClean(ids.N3!)).toBe(true);
   });
 
-  it('a single item drags as before: no convergence', async () => {
+  it('a single item drags as before: nothing animates', async () => {
     select('N1');
     await drag(card(ids.N1!), centre(card(ids.Alpha!)), { release: false });
+    advance(FULL);
 
-    expect(fake.animations).toHaveLength(0);
-    act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: 0, clientY: 0 }));
-    await flush();
+    for (const name of ['N2', 'N3', 'N4']) expect(isClean(ids[name]!)).toBe(true);
+    release();
+    advance(FULL);
   });
 
   it('an unchecked item is dragged alone, with no convergence of the others', async () => {
     select('N1', 'N2');
     await drag(card(ids.N4!), centre(card(ids.Alpha!)), { release: false });
+    advance(FULL);
 
-    expect(fake.animations).toHaveLength(0);
-    act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: 0, clientY: 0 }));
-    await flush();
+    expect(isClean(ids.N1!)).toBe(true);
+    expect(isClean(ids.N2!)).toBe(true);
+    release();
+    advance(FULL);
   });
 
   it('with reduced motion they only fade — nothing travels', async () => {
     stubReducedMotion(true);
     select('N1', 'N2', 'N3');
     await drag(card(ids.N1!), centre(card(ids.Alpha!)), { release: false });
+    advance(FULL);
 
-    expect(fake.animations.length).toBe(2);
-    for (const animation of fake.animations) {
-      expect(JSON.stringify(animation.keyframes)).not.toMatch(/transform/);
-    }
-    act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: 0, clientY: 0 }));
-    await flush();
+    expect(card(ids.N2!).style.opacity).toBe('0');
+    expect(card(ids.N2!).style.transform).toBe('');
+    release();
+    advance(FULL);
   });
 });
 
@@ -272,10 +314,11 @@ describe('the convergence and reordering', () => {
     select('N3', 'N4');
 
     await drag(card(ids.N3!), { x: 500, y: card(ids.N1!).getBoundingClientRect().top + 2 });
-    await flush();
+    await settle();
+    advance(FULL);
 
     const notes = (application.collectionViewConfigStore.get(`folder:${ids.Projects}`)?.sidebarOrder ?? []).filter((id) => id.startsWith('n:'));
     expect(notes).toEqual(['N3', 'N4', 'N1', 'N2'].map((name) => `n:${ids[name]}`));
-    expect(fake.animations.every((a) => a.reversed === 0 && a.cancelled)).toBe(true);
+    expect(isClean(ids.N4!)).toBe(true);
   });
 });

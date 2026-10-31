@@ -1,53 +1,35 @@
 import { vi } from 'vitest';
 
-/** A stand-in for `Element.animate` (jsdom has none) that records every animation and lets a test finish it. */
-export interface FakeAnimation {
-  readonly element: Element;
-  readonly keyframes: Keyframe[];
-  readonly options: KeyframeAnimationOptions;
-  reversed: number;
-  cancelled: boolean;
-  finished: Promise<unknown>;
-  reverse(): void;
-  cancel(): void;
-  /** Plays the animation to its end (whichever way it is going). */
-  complete(): void;
-}
+/**
+ * A manual animation-frame clock: `requestAnimationFrame` callbacks queue until a test advances time, so a flight
+ * can be inspected at any moment of its course.
+ */
+export function installFrameClock(): { step(ms: number): void; now(): number; pending(): number; uninstall(): void } {
+  let time = 0;
+  let nextId = 1;
+  const queue = new Map<number, (now: number) => void>();
 
-export function installFakeAnimate(): { animations: FakeAnimation[]; uninstall(): void } {
-  const animations: FakeAnimation[] = [];
-  const original = Element.prototype.animate;
-
-  Element.prototype.animate = function (this: Element, keyframes: Keyframe[], options: KeyframeAnimationOptions) {
-    let resolve!: (value?: unknown) => void;
-    const animation: FakeAnimation = {
-      element: this,
-      keyframes,
-      options,
-      reversed: 0,
-      cancelled: false,
-      finished: new Promise((r) => (resolve = r)),
-      reverse() {
-        animation.reversed += 1;
-        animation.finished = new Promise((r) => (resolve = r));
-      },
-      cancel() {
-        animation.cancelled = true;
-        resolve();
-      },
-      complete() {
-        resolve();
-      },
-    };
-    animations.push(animation);
-    return animation as unknown as Animation;
-  } as typeof Element.prototype.animate;
+  vi.stubGlobal('requestAnimationFrame', (callback: (now: number) => void) => {
+    const id = nextId++;
+    queue.set(id, callback);
+    return id;
+  });
+  vi.stubGlobal('cancelAnimationFrame', (id: number) => void queue.delete(id));
 
   return {
-    animations,
-    uninstall() {
-      Element.prototype.animate = original;
+    /** Advances the clock by `ms`, running the frames that were queued (and any they queue in turn, a frame at a time). */
+    step(ms) {
+      const frames = Math.max(1, Math.round(ms / 16));
+      for (let i = 0; i < frames; i += 1) {
+        time += ms / frames;
+        const due = [...queue.entries()];
+        queue.clear();
+        due.forEach(([, callback]) => callback(time));
+      }
     },
+    now: () => time,
+    pending: () => queue.size,
+    uninstall: () => vi.unstubAllGlobals(),
   };
 }
 

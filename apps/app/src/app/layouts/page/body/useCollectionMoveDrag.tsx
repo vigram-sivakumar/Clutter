@@ -135,7 +135,8 @@ export function useCollectionMoveDrag(
       .filter((item) => !(item.kind === payload.kind && item.id === payload.id))
       .map((item) => byId.get(`${item.kind}:${item.id}`))
       .filter((element): element is HTMLElement => element !== undefined);
-    convergenceRef.current = startConvergence(drag.session.source, others);
+    // The destination is the ghost (the drag's own, drawn in this same render), not the card that was pressed.
+    convergenceRef.current = startConvergence(others, drag.session, document.querySelector('.drag-ghost'));
   }, [drag?.session]);
 
   useEffect(() => () => convergenceRef.current?.dispose(), []);
