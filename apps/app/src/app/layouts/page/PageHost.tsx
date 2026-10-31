@@ -226,7 +226,6 @@ import {
   useImageFileActions,
 } from './ImageFileActionsContext';
 import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
-import { markCoverNavigation } from '@shared/helpers/coverTiming';
 
 /** The open note a template is applied to: what `shouldSuggestTemplates` reads, and what the merge must not overwrite. */
 interface TemplateTargetNote {
@@ -774,8 +773,6 @@ export function PageHost({
   };
 
   const activePageId = workspace.activePageId;
-  // Opt-in cover timing (coverTiming.ts): later stages are measured from the moment the page is selected.
-  markCoverNavigation(activePageId);
   const activeFolderId = workspace.activeFolderId;
   const page = useActivePage(vault, activePageId);
   // ADR-052: the open note's saved References choices. References are hidden unless the user chose

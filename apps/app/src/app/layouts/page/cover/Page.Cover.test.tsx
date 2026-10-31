@@ -4,7 +4,6 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { clearRetainedCoverImages, isCoverImageRetained } from '@shared/helpers/coverImagePreloader';
 import { PageCover } from './Page.Cover';
 
 class ResizeObserverMock {
@@ -143,25 +142,6 @@ describe('PageCover — More actions menu', () => {
 
     expect(screen.getByText('Change cover image')).toBeInTheDocument();
     expect(document.querySelector('.image-picker')).not.toBeInTheDocument();
-  });
-});
-
-describe('PageCover — the cover on screen is held ready', () => {
-  afterEach(() => clearRetainedCoverImages());
-
-  it('keeps its image loaded and decoded, so coming back to the note shows it at once', () => {
-    render(<PageCover src="https://images.unsplash.com/a?w=4800" onRemove={vi.fn()} onHide={vi.fn()} />);
-
-    expect(isCoverImageRetained('https://images.unsplash.com/a?w=4800')).toBe(true);
-  });
-
-  it('lets go of the image when the cover is removed from the menu', () => {
-    render(<PageCover src="https://images.unsplash.com/a?w=4800" onRemove={vi.fn()} onHide={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
-
-    fireEvent.click(screen.getByText('Remove'));
-
-    expect(isCoverImageRetained('https://images.unsplash.com/a?w=4800')).toBe(false);
   });
 });
 

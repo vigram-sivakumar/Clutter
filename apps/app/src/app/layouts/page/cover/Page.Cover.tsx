@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { CoverAttribution } from '@components/cover-attribution/CoverAttribution';
 import { coverAttributionFor } from '@core/integrations/unsplash/unsplashAttribution';
 import type { CoverCredit } from '@core/vault/models/PageMetadata';
@@ -12,8 +12,6 @@ import { Overlay } from '@components/overlay/Overlay';
 import { Menu } from '@components/menu/Menu';
 import { MenuItem } from '@components/menu/MenuItem';
 import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
-import { isCoverImageRetained, preloadCoverImage, releaseCoverImage } from '@shared/helpers/coverImagePreloader';
-import { traceCoverImage } from '@shared/helpers/coverTiming';
 import { ImagePicker } from './image-picker/ImagePicker';
 import './Page.Cover.css';
 import { AppIcon } from '@shared/icon';
@@ -218,21 +216,6 @@ export function PageCover({
   // `effectivePosition` below falls back to the durable saved value
   // whenever it's null, which is what makes "ends without Save Position"
   // a no-op on persisted metadata for free, with no separate revert step.
-  // The cover on screen is held loaded and decoded, so coming back to this note (or a cover that is reused) shows it
-  // at once — whatever the engine does with its own cache in between.
-  useEffect(() => {
-    void preloadCoverImage(src);
-  }, [src]);
-  // Opt-in timing of this image's stages (`coverTiming.ts`): was it already held when it mounted, when did it load,
-  // decode and paint. Read at commit, before the effect above holds it.
-  const traceImage = useCallback(
-    (img: HTMLImageElement | null) => {
-      if (img && src) {
-        traceCoverImage(img, { src, retained: isCoverImageRetained(src) });
-      }
-    },
-    [src]
-  );
   const [repositioning, setRepositioning] = useState(false);
   // The image's right-click menu (Copy, Copy image address), open at the pointer.
   const [imageMenu, setImageMenu] = useState<{ menu: ResourceTopBarActionsProps; point: ContextMenuPoint; seq: number } | null>(null);
@@ -519,8 +502,6 @@ export function PageCover({
   // .../>}` unmount in Page.tsx.
   function handleRemove(): void {
     setOpen(false);
-    // The cover is going away: stop holding its image (another note using the same address just loads it again).
-    releaseCoverImage(src);
     onRemove?.();
   }
 
@@ -763,7 +744,6 @@ export function PageCover({
         )}
       </Overlay>
       <img
-        ref={traceImage}
         src={src}
         className="page-cover__image"
         alt=""
@@ -792,7 +772,6 @@ export function PageCover({
             return;
           }
           failedSrcRef.current = src;
-          releaseCoverImage(src);
           onRemove?.();
         }}
         onPointerDown={repositioning ? handleImagePointerDown : undefined}
