@@ -133,7 +133,7 @@ afterEach(() => {
   clock.uninstall();
 });
 
-const FULL = 600;
+const FULL = 1500;
 const advance = (ms: number) => act(() => clock.step(ms));
 const movePointer = (x: number, y: number) => act(() => void fireEvent.pointerMove(document, { pointerId: 1, clientX: x, clientY: y }));
 const release = (x = 0, y = 0) => act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: x, clientY: y }));
@@ -432,7 +432,7 @@ describe('where no animation frames run', () => {
     try {
       select('N1', 'N2');
       await drag(card(ids.N1!), { x: 900, y: 700 }); // invalid: a cancel
-      await wait(700);
+      await wait(1200);
       expect(overlay()).toBeNull();
       expect(entries().every(looksUntouched)).toBe(true);
 

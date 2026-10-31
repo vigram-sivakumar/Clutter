@@ -50,12 +50,12 @@ export const DRAG_VISUAL_POLICY = {
   /** Whose originals are hidden while their clones are dragged: a single item's only; several items' all stay visible. */
   hideOriginals: 'single-item-drags',
   /** The ghost starts on the original and eases onto the cursor over this long (so nothing jumps when a drag begins). */
-  settleMs: 160,
+  settleMs: 450,
   /** A cancelled drag's clones fly back over this long. */
-  returnMs: 220,
+  returnMs: 600,
   /** The other items' flight to the ghost: each starts a little after the one before, for at most `maxStaggered`. */
-  convergenceMs: 220,
-  staggerMs: 16,
+  convergenceMs: 600,
+  staggerMs: 40,
   maxStaggered: 8,
   /** The ghost's background fill, as a percentage of the surface colour, when it is on the original's place… */
   fillStartPercent: 100,

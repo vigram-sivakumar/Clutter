@@ -84,7 +84,7 @@ const centreOf = (element: HTMLElement) => {
   return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
 };
 const advance = (ms: number) => clock.step(ms);
-const FULL = 600;
+const FULL = 1500;
 
 const A = { left: 100, top: 100, width: 300, height: 40 };
 const B = { left: 100, top: 200, width: 300, height: 40 };
@@ -232,7 +232,7 @@ describe('the background fill — the only thing that fades', () => {
     expect(fillOf(lead)).toBe(100);
     expect(fillOf(other)).toBe(100);
 
-    advance(64);
+    advance(160);
     for (const clone of [lead, other]) {
       expect(fillOf(clone)).toBeLessThan(100);
       expect(fillOf(clone)).toBeGreaterThan(50);
