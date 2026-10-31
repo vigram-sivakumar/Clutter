@@ -42,7 +42,7 @@ use tauri_plugin_fs::FsExt;
 use crate::atomic_replace::{
     confirm_durability, inspect, replace, DurabilityGap, DurabilityOutcome, DurabilityRequest,
     Durability, InspectRequest, Inspection, Intent, MetadataNote, NotCommittedReason, ReplaceOutcome,
-    ReplaceRequest, Replaced, TargetState, TempState, SUPPORTED_FILESYSTEMS,
+    ReplaceRequest, Replaced, TargetState, TempState, volume_type, VolumeProbeError, SUPPORTED_FILESYSTEMS,
 };
 
 // ---------------------------------------------------------------------------------------------------------
@@ -585,6 +585,59 @@ pub async fn atomic_confirm_durability<R: Runtime>(
     require_authorized_caller(webview.label())?;
     let scope = RuntimeScope(app.fs_scope());
     tauri::async_runtime::spawn_blocking(move || confirm_blocking(&scope, &request))
+        .await
+        .map_err(internal)?
+}
+
+/// Whether a folder the user is choosing as a Space can be saved to safely, answered before anything is written.
+/// `supported` or `unsupported` carry the volume's type as the system names it; a folder that cannot be judged is
+/// refused (`invalidPath`, `outOfScope`, `volumeUnreadable`) and the caller must treat that as not safe.
+#[derive(Debug, Serialize, PartialEq, Eq)]
+#[serde(tag = "status", rename_all = "camelCase")]
+pub enum SpaceFilesystemDto {
+    Supported { filesystem: String },
+    Unsupported { filesystem: String },
+}
+
+/// Classifies the volume `path` is on against the same supported list the atomic writer enforces at every save
+/// ([`SUPPORTED_FILESYSTEMS`], read by `atomic_replace::volume_type`). The folder must be an existing directory
+/// inside the approved filesystem scope (the folder picker has just granted it); nothing is created or written.
+pub(crate) fn check_space_filesystem_blocking(
+    scope: &dyn ScopeView,
+    path: &str,
+    volume_of: &dyn Fn(&Path) -> Result<String, VolumeProbeError>,
+) -> Result<SpaceFilesystemDto, AtomicCommandError> {
+    if path.is_empty() || !Path::new(path).is_absolute() {
+        return Err(refuse("invalidPath", "the folder must be an absolute path"));
+    }
+    let folder = std::fs::canonicalize(path)
+        .map_err(|error| refuse("invalidPath", format!("the folder cannot be resolved: {error}")))?;
+    if !folder.is_dir() {
+        return Err(refuse("invalidPath", "the path is not a folder"));
+    }
+    if scope.forbids(&folder) || !scope.allows(&folder) {
+        return Err(refuse("outOfScope", "the folder is not inside the approved filesystem scope"));
+    }
+    let filesystem = volume_of(&folder).map_err(|error| {
+        let (VolumeProbeError::Open(error) | VolumeProbeError::Stat(error)) = error;
+        refuse("volumeUnreadable", format!("the folder's volume type cannot be read: {error}"))
+    })?;
+    if SUPPORTED_FILESYSTEMS.contains(&filesystem.as_str()) {
+        Ok(SpaceFilesystemDto::Supported { filesystem })
+    } else {
+        Ok(SpaceFilesystemDto::Unsupported { filesystem })
+    }
+}
+
+#[tauri::command]
+pub async fn check_space_filesystem<R: Runtime>(
+    app: AppHandle<R>,
+    webview: Webview<R>,
+    path: String,
+) -> Result<SpaceFilesystemDto, AtomicCommandError> {
+    require_authorized_caller(webview.label())?;
+    let scope = RuntimeScope(app.fs_scope());
+    tauri::async_runtime::spawn_blocking(move || check_space_filesystem_blocking(&scope, &path, &volume_type))
         .await
         .map_err(internal)?
 }
@@ -1250,5 +1303,85 @@ mod tests {
         let world = World::new("ipc-unknown");
         let (_app, window) = app_with_scope(&[&world.vault]);
         assert!(invoke(&window, "atomic_truncate_file", json!({ "request": {} })).is_err());
+    }
+
+    // ---- the Space picker's early filesystem check ---------------------------------------------------------
+
+    fn volume(name: &'static str) -> impl Fn(&Path) -> Result<String, VolumeProbeError> {
+        move |_: &Path| Ok(name.to_string())
+    }
+
+    #[test]
+    fn a_folder_on_apfs_is_supported_and_one_on_any_other_volume_is_not() {
+        let world = World::new("fs-classify");
+        let path = world.vault.display().to_string();
+
+        for (name, expected) in [("apfs", true), ("exfat", false), ("msdos", false), ("hfs", false), ("smbfs", false), ("nfs", false), ("", false), ("APFS", false)] {
+            let result = check_space_filesystem_blocking(&world.allows(), &path, &volume(name)).unwrap();
+            let expected = if expected {
+                SpaceFilesystemDto::Supported { filesystem: name.into() }
+            } else {
+                SpaceFilesystemDto::Unsupported { filesystem: name.into() }
+            };
+            assert_eq!(result, expected, "{name}");
+        }
+        // Nothing was created or written by classifying.
+        assert_eq!(fs::read_dir(&world.vault).unwrap().count(), 1, "only the vault's own .clutter folder");
+    }
+
+    #[test]
+    fn a_folder_that_cannot_be_judged_is_refused_never_called_supported() {
+        let world = World::new("fs-refuse");
+        let allows = world.allows();
+        let unreadable = |_: &Path| Err(VolumeProbeError::Stat(std::io::Error::from_raw_os_error(5)));
+        let unopenable = |_: &Path| Err(VolumeProbeError::Open(std::io::Error::from_raw_os_error(13)));
+
+        assert_eq!(code(check_space_filesystem_blocking(&allows, &world.vault.display().to_string(), &unreadable)), "volumeUnreadable");
+        assert_eq!(code(check_space_filesystem_blocking(&allows, &world.vault.display().to_string(), &unopenable)), "volumeUnreadable");
+        assert_eq!(code(check_space_filesystem_blocking(&allows, "", &volume("apfs"))), "invalidPath");
+        assert_eq!(code(check_space_filesystem_blocking(&allows, "vault", &volume("apfs"))), "invalidPath");
+        assert_eq!(code(check_space_filesystem_blocking(&allows, &world.base.join("nope").display().to_string(), &volume("apfs"))), "invalidPath");
+        let file = world.vault.join("note.md");
+        fs::write(&file, "x").unwrap();
+        assert_eq!(code(check_space_filesystem_blocking(&allows, &file.display().to_string(), &volume("apfs"))), "invalidPath");
+        // A folder the user never granted is not classified (and its volume is not disclosed).
+        assert_eq!(code(check_space_filesystem_blocking(&allows, &world.outside.display().to_string(), &volume("apfs"))), "outOfScope");
+    }
+
+    #[test]
+    fn the_real_volume_check_agrees_with_what_the_writer_enforces() {
+        // Ask the real `fstatfs` about a folder, then confirm the writer accepts exactly what the check calls
+        // supported: one rule, one list. (The scratch folder is on this machine's data volume.)
+        let world = World::new("fs-real");
+        let verdict = check_space_filesystem_blocking(&world.allows(), &world.vault.display().to_string(), &volume_type).unwrap();
+        let note = world.vault.join("note.md");
+        let _ = write_blocking(&world.allows(), &write_request(&world.vault, &note, "x", IntentArg::Create));
+
+        match verdict {
+            SpaceFilesystemDto::Supported { filesystem } => {
+                assert_eq!(filesystem, "apfs");
+                assert!(note.exists(), "the writer accepted the volume the check called supported");
+            }
+            SpaceFilesystemDto::Unsupported { .. } => assert!(!note.exists()),
+        }
+    }
+
+    #[test]
+    fn through_the_real_command_boundary_the_check_answers_for_a_granted_folder_and_refuses_anything_else() {
+        let world = World::new("ipc-fs");
+        let app = mock_builder()
+            .plugin(tauri_plugin_fs::init())
+            .invoke_handler(tauri::generate_handler![check_space_filesystem])
+            .build(mock_context(noop_assets()))
+            .expect("the mock app builds");
+        app.fs_scope().allow_directory(&world.vault, true).unwrap();
+        let main = tauri::WebviewWindowBuilder::new(&app, "main", Default::default()).build().unwrap();
+        let other = tauri::WebviewWindowBuilder::new(&app, "other", Default::default()).build().unwrap();
+
+        let answer = invoke(&main, "check_space_filesystem", json!({ "path": world.vault })).unwrap();
+        assert!(answer["status"] == "supported" || answer["status"] == "unsupported", "{answer}");
+        assert!(answer["filesystem"].is_string());
+        assert_eq!(invoke(&main, "check_space_filesystem", json!({ "path": world.outside })).unwrap_err()["code"], "outOfScope");
+        assert_eq!(invoke(&other, "check_space_filesystem", json!({ "path": world.vault })).unwrap_err()["code"], "unauthorizedWindow");
     }
 }

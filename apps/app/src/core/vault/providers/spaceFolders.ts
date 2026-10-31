@@ -141,6 +141,65 @@ export async function isReachedThroughLink(path: string): Promise<boolean> {
 }
 
 /**
+ * Whether Clutter can save safely to the volume a folder is on. Atomic saves are supported on APFS only
+ * (ADR-063), and the native writer refuses every other volume at the first save; this asks the same question, with
+ * the same list, before the folder becomes a Space, so the user is told when choosing, not when the first edit is
+ * refused.
+ *
+ * - `supported`: APFS.
+ * - `unsupported`: any other volume. `filesystem` is the system's name for it (`exfat`, `msdos`, `hfs`, `smbfs`…).
+ * - `unknown`: the check itself failed (an unreadable folder, a build without the native writer, an answer that is
+ *   not one of the two above). A folder that cannot be judged is never treated as supported.
+ */
+export type SpaceFilesystemSupport =
+  | { readonly status: 'supported'; readonly filesystem: string }
+  | { readonly status: 'unsupported'; readonly filesystem: string }
+  | { readonly status: 'unknown' };
+
+/** Classifies the volume of `path` through the native writer's own volume check. Never throws. */
+export async function checkSpaceFilesystem(path: string): Promise<SpaceFilesystemSupport> {
+  try {
+    const answer = await invoke<unknown>('check_space_filesystem', { path });
+    if (typeof answer === 'object' && answer !== null) {
+      const { status, filesystem } = answer as { status?: unknown; filesystem?: unknown };
+      if ((status === 'supported' || status === 'unsupported') && typeof filesystem === 'string') {
+        return { status, filesystem };
+      }
+    }
+  } catch (error) {
+    console.error('Checking the space folder’s volume failed:', error);
+  }
+
+  return { status: 'unknown' };
+}
+
+/** What the user knows a volume type as, as a phrase that follows "on": the system's own name when there is no better one. */
+export function describeFilesystem(filesystem: string): string {
+  switch (filesystem) {
+    case 'exfat':
+      return 'an exFAT drive';
+    case 'msdos':
+      return 'a FAT drive';
+    case 'hfs':
+      return 'a Mac OS Extended (HFS+) drive';
+    case 'ntfs':
+      return 'an NTFS drive';
+    case 'smbfs':
+      return 'a network share (SMB)';
+    case 'nfs':
+      return 'a network share (NFS)';
+    case 'afpfs':
+      return 'a network share (AFP)';
+    case 'webdav':
+      return 'a network share (WebDAV)';
+    case '':
+      return 'a drive in an unrecognized format';
+    default:
+      return `a drive formatted as ${filesystem}`;
+  }
+}
+
+/**
  * Gives a Space that was created before `create_space_folder` existed its runtime filesystem grant, when it is
  * opened. Those Spaces were made with a plain `mkdir`, so only the fs plugin's static scope reached them. The
  * backend grants nothing but a marked direct child of Documents (a Space picked in the folder dialog already has its

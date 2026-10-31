@@ -864,6 +864,29 @@ fn resolve_target(request: &ReplaceRequest<'_>) -> Result<(PathBuf, PathBuf), Re
         .map_err(|(reason, detail)| not_committed(reason, detail, Vec::new()))
 }
 
+/// Why a directory's volume type could not be read.
+pub(crate) enum VolumeProbeError {
+    /// The directory could not be opened.
+    Open(io::Error),
+    /// The volume's type could not be read from the open directory.
+    Stat(io::Error),
+}
+
+/// The filesystem type name (`apfs`, `exfat`, `msdos`, `hfs`, ...) of the volume `directory` is on, as `fstatfs`
+/// reports it. The one place a volume's type is read: the save path ([`check_volume_at`]) and the Space picker's
+/// early check (`atomic_commands::check_space_filesystem`) both ask here, against the same [`SUPPORTED_FILESYSTEMS`].
+pub(crate) fn volume_type(directory: &Path) -> Result<String, VolumeProbeError> {
+    let directory = File::open(directory).map_err(VolumeProbeError::Open)?;
+    let mut info: Statfs = unsafe { std::mem::zeroed() };
+    cvt(unsafe { fstatfs(directory.as_raw_fd(), &mut info) }).map_err(VolumeProbeError::Stat)?;
+    let length = info
+        .f_fstypename
+        .iter()
+        .position(|byte| *byte == 0)
+        .unwrap_or(info.f_fstypename.len());
+    Ok(String::from_utf8_lossy(&info.f_fstypename[..length]).to_string())
+}
+
 /// The destination directory's filesystem must be on the supported list. Nothing has been created yet.
 fn check_volume_at(
     faults: &Faults,
@@ -873,25 +896,16 @@ fn check_volume_at(
     if let Err(error) = faults.enter(Step::CheckVolume) {
         return Err((reason_for(&error), format!("cannot check the volume: {error}")));
     }
-    let directory = File::open(parent).map_err(|error| {
-        (
+    let name = volume_type(parent).map_err(|error| match error {
+        VolumeProbeError::Open(error) => (
             reason_for(&error),
             format!("cannot open the destination directory: {error}"),
-        )
-    })?;
-    let mut info: Statfs = unsafe { std::mem::zeroed() };
-    if let Err(error) = cvt(unsafe { fstatfs(directory.as_raw_fd(), &mut info) }) {
-        return Err((
+        ),
+        VolumeProbeError::Stat(error) => (
             reason_for(&error),
             format!("cannot read the volume's type: {error}"),
-        ));
-    }
-    let length = info
-        .f_fstypename
-        .iter()
-        .position(|byte| *byte == 0)
-        .unwrap_or(info.f_fstypename.len());
-    let name = String::from_utf8_lossy(&info.f_fstypename[..length]).to_string();
+        ),
+    })?;
     if supported.iter().any(|candidate| *candidate == name) {
         Ok(())
     } else {

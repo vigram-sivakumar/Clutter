@@ -16,7 +16,9 @@ import { normalizeAllTablesInMarkdown } from '../features/markdown/editor/codemi
 import { useToast } from '../components/toast/ToastProvider';
 import { probeSpaceFolder } from '../core/vault/providers/probeSpaceFolder';
 import {
+  checkSpaceFilesystem,
   createSpaceFolder,
+  describeFilesystem,
   renameSpaceFolder,
   isReachedThroughLink,
   isTooBroadForSpace,
@@ -120,6 +122,14 @@ if (typeof localStorage !== 'undefined') {
 const TOO_BROAD_MESSAGE =
   'That folder is too broad to be a space (your home folder or the disk root). Choose a more specific folder';
 
+/** A folder on a volume Clutter cannot save to safely is refused when it is chosen (APFS only, ADR-063), never opened. */
+function unsupportedFilesystemMessage(filesystem: string): string {
+  return `That folder is on ${describeFilesystem(filesystem)}, and Clutter can only save safely to APFS drives. Choose a folder on your Mac’s own drive or on an APFS drive`;
+}
+
+const FILESYSTEM_UNCHECKED_MESSAGE =
+  'Clutter couldn’t check whether it can save safely to that folder, so it wasn’t added. Try again, or choose another folder';
+
 const KEEP_ACCESS_FAILED_MESSAGE = 'Clutter couldn’t keep access to that folder for next time. Choose it again';
 
 const LINKED_FOLDER_MESSAGE =
@@ -132,11 +142,20 @@ function failureReason(error: unknown): string {
   return 'Failed to open vault';
 }
 
-/** A picked folder is accepted unless it is too broad to scan and write into (see `isTooBroadForSpace`). */
+/**
+ * A picked folder is accepted unless it is too broad to scan and write into (see `isTooBroadForSpace`), reached
+ * through a link, on a volume Clutter cannot save to safely, or its access cannot be kept for the next launch.
+ */
 async function acceptPickedSpace(path: string): Promise<string | null> {
   if (await isTooBroadForSpace(path)) return TOO_BROAD_MESSAGE;
   // The watcher reports resolved paths, so a Space reached through a link would never see outside changes.
   if (await isReachedThroughLink(path)) return LINKED_FOLDER_MESSAGE;
+  // Saves are atomic and supported on APFS only. Say so now, before the user starts working in a Space whose first
+  // save would be refused. A folder whose volume cannot be checked is refused too, never assumed to be fine; and this
+  // comes before the access below is saved, so a refused folder leaves no remembered access behind.
+  const support = await checkSpaceFilesystem(path);
+  if (support.status === 'unsupported') return unsupportedFilesystemMessage(support.filesystem);
+  if (support.status === 'unknown') return FILESYSTEM_UNCHECKED_MESSAGE;
   // App Sandbox: the pick only authorizes the folder for this run. Save the access now, or refuse the folder rather
   // than accept a Space that works today and cannot be opened after the next launch.
   try {

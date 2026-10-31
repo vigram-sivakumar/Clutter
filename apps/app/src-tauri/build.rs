@@ -9,6 +9,7 @@ const APP_COMMANDS: &[&str] = &[
     "atomic_write_file",
     "atomic_inspect_write",
     "atomic_confirm_durability",
+    "check_space_filesystem",
     "move_file_no_clobber",
     "copy_file_no_clobber",
     "write_file_no_clobber",

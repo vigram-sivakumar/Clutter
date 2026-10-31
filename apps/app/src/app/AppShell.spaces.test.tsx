@@ -22,6 +22,8 @@ const tauri = vi.hoisted(() => ({
   mkdir: vi.fn(),
   /** The backend's `create_space_folder` (it makes the folder and grants it): called with the trimmed name. */
   createFolder: vi.fn(),
+  /** The backend's `check_space_filesystem`: answers for the picked folder's path (APFS unless a test says otherwise). */
+  checkFilesystem: vi.fn(),
 }));
 /** The `space` profile each folder carries in its own `.clutter/workspace.json` (read-only to the shell). */
 type TestAvatar =
@@ -47,7 +49,9 @@ vi.mock('@tauri-apps/api/core', () => ({
   invoke: (...args: unknown[]) =>
     args[0] === 'create_space_folder'
       ? tauri.createFolder((args[1] as { name: string }).name)
-      : tauri.invoke(...args),
+      : args[0] === 'check_space_filesystem'
+        ? tauri.checkFilesystem((args[1] as { path: string }).path)
+        : tauri.invoke(...args),
 }));
 vi.mock('@tauri-apps/api/path', () => ({
   documentDir: async () => '/Users/me/Documents/',
@@ -270,6 +274,8 @@ beforeEach(() => {
   tauri.invoke.mockReset();
   tauri.openDialog.mockReset();
   tauri.mkdir.mockReset();
+  tauri.checkFilesystem.mockReset();
+  tauri.checkFilesystem.mockResolvedValue({ status: 'supported', filesystem: 'apfs' });
   tauri.createFolder.mockReset();
   tauri.createFolder.mockImplementation(
     async (name: string) => `/Users/me/Documents/${name}`
@@ -967,6 +973,101 @@ describe('AppShell: Welcome dialog actions', () => {
       expect(messages[0]!.closest('.welcome-screen')).not.toBeNull();
       expectWelcomeStillShown();
       expect(screen.getByText('Select a folder')).toBeInTheDocument();
+    });
+
+    describe('the volume the folder is on', () => {
+      it('a folder on APFS is checked by its path and opened as before', async () => {
+        const picked = '/Users/me/Notes';
+        tauri.openDialog.mockResolvedValue(picked);
+        render(
+          <ToastProvider>
+            <AppShell />
+          </ToastProvider>
+        );
+        await screen.findByText(WELCOME);
+
+        await click('Select a folder');
+        await waitFor(() => expect(bootstrap).toHaveBeenCalledWith(picked, expect.anything()));
+
+        expect(tauri.checkFilesystem).toHaveBeenCalledWith(picked);
+      });
+
+      it.each([
+        ['exfat', /on an exFAT drive, and Clutter can only save safely to APFS drives/],
+        ['msdos', /on a FAT drive/],
+        ['hfs', /on a Mac OS Extended \(HFS\+\) drive/],
+        ['smbfs', /on a network share \(SMB\)/],
+        ['somethingnew', /on a drive formatted as somethingnew/],
+      ])(
+        'a folder on a %s volume is refused when it is chosen: explained inline on the Welcome screen, nothing opened, saved or remembered',
+        async (filesystem, message) => {
+          tauri.openDialog.mockResolvedValue('/Volumes/Stick/Notes');
+          tauri.checkFilesystem.mockResolvedValue({ status: 'unsupported', filesystem });
+          render(
+            <ToastProvider>
+              <AppShell />
+            </ToastProvider>
+          );
+          await screen.findByText(WELCOME);
+
+          await click('Select a folder');
+          await settle();
+
+          const messages = await screen.findAllByText(message);
+          expect(messages).toHaveLength(1); // not also a toast
+          expect(messages[0]).toHaveAttribute('role', 'alert');
+          expect(messages[0]!.closest('.welcome-screen')).not.toBeNull();
+          expect(bootstrap).not.toHaveBeenCalled();
+          expect(SAVED()).toBeNull();
+          // No access is kept for a folder that was refused.
+          expect(tauri.invoke).not.toHaveBeenCalledWith('remember_space_access', expect.anything());
+          expectWelcomeStillShown();
+          expect(screen.getByText('Select a folder')).toBeInTheDocument();
+        }
+      );
+
+      it.each([
+        ['the check fails', () => tauri.checkFilesystem.mockRejectedValue('the folder\u2019s volume type cannot be read: Input/output error (os error 5)')],
+        ['the check gives no answer', () => tauri.checkFilesystem.mockResolvedValue(undefined)],
+        ['the check gives an answer that is not understood', () => tauri.checkFilesystem.mockResolvedValue({ status: 'maybe' })],
+      ])('a folder that cannot be classified is refused, never assumed to be safe, when %s', async (_name, arrange) => {
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        tauri.openDialog.mockResolvedValue('/Volumes/Stick/Notes');
+        arrange();
+        render(
+          <ToastProvider>
+            <AppShell />
+          </ToastProvider>
+        );
+        await screen.findByText(WELCOME);
+
+        await click('Select a folder');
+        await settle();
+
+        const messages = await screen.findAllByText(/couldn’t check whether it can save safely to that folder/);
+        expect(messages).toHaveLength(1);
+        expect(messages[0]).toHaveAttribute('role', 'alert');
+        expect(bootstrap).not.toHaveBeenCalled();
+        expect(SAVED()).toBeNull();
+        expect(tauri.invoke).not.toHaveBeenCalledWith('remember_space_access', expect.anything());
+        expectWelcomeStillShown();
+      });
+
+      it('the other refusals still come first: a too-broad folder is never classified', async () => {
+        tauri.openDialog.mockResolvedValue('/Users/me');
+        render(
+          <ToastProvider>
+            <AppShell />
+          </ToastProvider>
+        );
+        await screen.findByText(WELCOME);
+
+        await click('Select a folder');
+        await settle();
+
+        await screen.findAllByText(/too broad to be a space/);
+        expect(tauri.checkFilesystem).not.toHaveBeenCalled();
+      });
     });
 
     it('a folder outside the home directory that cannot be accessed is refused, opening nothing and saving nothing', async () => {
@@ -2539,6 +2640,24 @@ describe('AppShell: the sidebar "New space" picker', () => {
       expect(messages[0]!.closest('.space-details')).not.toBeNull();
       expect(nameInput()).toHaveValue('notes');
       expect(changeButton()).toBeEnabled(); // another folder can be chosen
+    });
+
+    it('a folder on an unsupported volume chosen with Change location is explained inline in the dialog, once, and the draft is unchanged', async () => {
+      await openA();
+      await pickFolder('/Users/me/Projects/notes');
+      expect(nameInput()).toHaveValue('notes');
+
+      tauri.checkFilesystem.mockResolvedValueOnce({ status: 'unsupported', filesystem: 'exfat' });
+      tauri.openDialog.mockResolvedValueOnce('/Volumes/Stick/other');
+      await act(async () => changeButton().click());
+
+      const messages = await screen.findAllByText(/on an exFAT drive/);
+      expect(messages).toHaveLength(1);
+      expect(messages[0]).toHaveAttribute('role', 'alert');
+      expect(messages[0]!.closest('.space-details')).not.toBeNull();
+      expect(nameInput()).toHaveValue('notes');
+      expect(changeButton()).toBeEnabled();
+      expect(tauri.invoke).not.toHaveBeenCalledWith('remember_space_access', { path: '/Volumes/Stick/other' });
     });
 
     it('offers the picked folder’s name, editable, with the location read-only and Change and the avatar kept', async () => {

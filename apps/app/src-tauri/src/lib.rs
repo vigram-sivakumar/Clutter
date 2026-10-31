@@ -197,6 +197,8 @@ pub fn run() {
             atomic_commands::atomic_inspect_write,
             #[cfg(all(target_os = "macos", feature = "atomic-writes"))]
             atomic_commands::atomic_confirm_durability,
+            #[cfg(all(target_os = "macos", feature = "atomic-writes"))]
+            atomic_commands::check_space_filesystem,
             move_no_clobber::move_file_no_clobber,
             new_file_no_clobber::copy_file_no_clobber,
             new_file_no_clobber::write_file_no_clobber,

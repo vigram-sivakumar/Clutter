@@ -15,6 +15,8 @@ import {
   isTooBroadForSpace,
   ensureSpaceAccess,
   isReachedThroughLink,
+  checkSpaceFilesystem,
+  describeFilesystem,
   renameSpaceFolder,
   resolveSpaceParent,
 } from './spaceFolders';
@@ -263,6 +265,47 @@ describe('isReachedThroughLink', () => {
 
     invoke.mockResolvedValue(undefined);
     expect(await isReachedThroughLink('/Users/me/Notes')).toBe(false);
+  });
+});
+
+describe('checkSpaceFilesystem', () => {
+  it('asks the native writer\'s own volume check about the folder', async () => {
+    invoke.mockResolvedValue({ status: 'supported', filesystem: 'apfs' });
+
+    expect(await checkSpaceFilesystem('/Users/me/Notes')).toEqual({ status: 'supported', filesystem: 'apfs' });
+    expect(invoke).toHaveBeenCalledWith('check_space_filesystem', { path: '/Users/me/Notes' });
+  });
+
+  it('reports a volume that is not supported, with the system\'s name for it', async () => {
+    invoke.mockResolvedValue({ status: 'unsupported', filesystem: 'exfat' });
+
+    expect(await checkSpaceFilesystem('/Volumes/Stick/Notes')).toEqual({ status: 'unsupported', filesystem: 'exfat' });
+  });
+
+  it.each([
+    ['the command fails', () => invoke.mockRejectedValue({ code: 'volumeUnreadable', detail: 'Input/output error' })],
+    ['the command is not there', () => invoke.mockRejectedValue('Command check_space_filesystem not found')],
+    ['there is no answer', () => invoke.mockResolvedValue(undefined)],
+    ['the answer is not an object', () => invoke.mockResolvedValue('supported')],
+    ['the status is not one it knows', () => invoke.mockResolvedValue({ status: 'maybe', filesystem: 'apfs' })],
+    ['the volume is missing from the answer', () => invoke.mockResolvedValue({ status: 'supported' })],
+  ])('is unknown, never supported, when %s — and never throws', async (_name, arrange) => {
+    arrange();
+
+    expect(await checkSpaceFilesystem('/Volumes/Stick/Notes')).toEqual({ status: 'unknown' });
+  });
+});
+
+describe('describeFilesystem', () => {
+  it.each([
+    ['exfat', 'an exFAT drive'],
+    ['msdos', 'a FAT drive'],
+    ['hfs', 'a Mac OS Extended (HFS+) drive'],
+    ['smbfs', 'a network share (SMB)'],
+    ['', 'a drive in an unrecognized format'],
+    ['zfs', 'a drive formatted as zfs'],
+  ])('names %j as %j', (filesystem, expected) => {
+    expect(describeFilesystem(filesystem)).toBe(expected);
   });
 });
 

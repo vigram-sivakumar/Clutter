@@ -21,6 +21,7 @@
     "allow-atomic-write-file",
     "allow-atomic-inspect-write",
     "allow-atomic-confirm-durability",
+    "allow-check-space-filesystem",
     "allow-move-file-no-clobber",
     "allow-copy-file-no-clobber",
     "allow-write-file-no-clobber",
