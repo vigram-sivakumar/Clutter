@@ -879,7 +879,7 @@ export class PagePersistenceCoordinator {
         : undefined;
 
     if (destination.path !== folder.path) {
-      await this.fileSystem.moveFile(folder.path, destination.path);
+      await this.fileSystem.moveFile(folder.path, destination.path, { noClobber: true });
       this.vault.moveFolder(folderId, destination.path, destination.parentId);
     }
 
@@ -1302,7 +1302,7 @@ export class PagePersistenceCoordinator {
       (await this.destinationMatchesArchivedFolder(destination.path, folderId));
 
     if (!alreadyMoved) {
-      await this.fileSystem.moveFile(folder.path, destination.path);
+      await this.fileSystem.moveFile(folder.path, destination.path, { noClobber: true });
     }
 
     await this.fileSystem.writeFile(
@@ -1475,7 +1475,7 @@ export class PagePersistenceCoordinator {
 
     if (destination.path !== resource.path) {
       this.assertResourceDestinationAvailable(destination.path, resource.id);
-      await this.fileSystem.moveFile(resource.path, destination.path);
+      await this.fileSystem.moveFile(resource.path, destination.path, { noClobber: true });
     }
 
     if (this.isInsideArchive(previousPath) && destination.path !== previousPath) {
@@ -1617,7 +1617,7 @@ export class PagePersistenceCoordinator {
 
     if (destination.path !== resource.path) {
       this.assertResourceDestinationAvailable(destination.path, resource.id);
-      await this.fileSystem.moveFile(resource.path, destination.path);
+      await this.fileSystem.moveFile(resource.path, destination.path, { noClobber: true });
     }
 
     await this.resourceArchiveStore.remove(resource.path);
@@ -1735,7 +1735,7 @@ export class PagePersistenceCoordinator {
 
     if (destination.path !== resource.path) {
       this.assertResourceDestinationAvailable(destination.path, resource.id);
-      await this.fileSystem.moveFile(resource.path, destination.path);
+      await this.fileSystem.moveFile(resource.path, destination.path, { noClobber: true });
     }
 
     try {

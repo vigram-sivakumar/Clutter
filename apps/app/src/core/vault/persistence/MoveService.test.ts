@@ -774,3 +774,47 @@ describe('MoveService.resolveMoveDestination — movement zones (ADR-049)', () =
     expect(moveService.resolveMoveDestination(note, null).parentId).toBeNull();
   });
 });
+
+describe('MoveService.movePage — never replaces a file the vault does not know about', () => {
+  it('refuses a move onto a file that exists on disk but is not in the vault, and changes nothing', async () => {
+    const page = buildPage(`${ROOT}/Note.md`);
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const vault = makeVault([page], [folder]);
+    // Added outside Clutter after the last scan, so the vault index cannot know about it.
+    const fileSystem = new InMemoryVaultFileSystem({ [`${ROOT}/Note.md`]: 'mine', [`${ROOT}/Projects/Note.md`]: 'theirs' });
+    fileSystem.createDirectory(`${ROOT}/Projects`);
+    const moveService = new MoveService(vault, fileSystem);
+
+    await expect(moveService.movePage(page, { ...page, path: `${ROOT}/Projects/Note.md`, parentId: 'folder-1' })).rejects.toThrow(
+      /already exists/
+    );
+
+    expect(await fileSystem.readFile(`${ROOT}/Projects/Note.md`)).toBe('theirs');
+    expect(await fileSystem.readFile(`${ROOT}/Note.md`)).toBe('mine');
+    expect(vault.getPage(page.id)?.path).toBe(`${ROOT}/Note.md`);
+  });
+
+  it('refuses a rename onto a file the vault does not know about', async () => {
+    const page = buildPage(`${ROOT}/Note.md`);
+    const vault = makeVault([page], []);
+    const fileSystem = new InMemoryVaultFileSystem({ [`${ROOT}/Note.md`]: 'mine', [`${ROOT}/Other.md`]: 'theirs' });
+    const moveService = new MoveService(vault, fileSystem);
+
+    await expect(moveService.movePage(page, { ...page, path: `${ROOT}/Other.md` })).rejects.toThrow(/already exists/);
+
+    expect(await fileSystem.readFile(`${ROOT}/Other.md`)).toBe('theirs');
+    expect(await fileSystem.readFile(`${ROOT}/Note.md`)).toBe('mine');
+  });
+
+  it('still moves a page to a free name', async () => {
+    const page = buildPage(`${ROOT}/Note.md`);
+    const vault = makeVault([page], []);
+    const fileSystem = new InMemoryVaultFileSystem({ [`${ROOT}/Note.md`]: 'mine' });
+    const moveService = new MoveService(vault, fileSystem);
+
+    await moveService.movePage(page, { ...page, path: `${ROOT}/Renamed.md` });
+
+    expect(await fileSystem.readFile(`${ROOT}/Renamed.md`)).toBe('mine');
+    expect(await fileSystem.exists(`${ROOT}/Note.md`)).toBe(false);
+  });
+});

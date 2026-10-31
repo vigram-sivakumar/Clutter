@@ -17,6 +17,28 @@ fn path_exists(path: &Path) -> bool {
     fs::symlink_metadata(path).is_ok()
 }
 
+/// Whether `to` is `from` under another spelling of the same name in the same folder (the same file or folder on disk).
+#[cfg(unix)]
+fn is_case_only_rename(from: &Path, to: &Path) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    let (Some(from_name), Some(to_name)) = (from.file_name(), to.file_name()) else { return false };
+    if from.parent() != to.parent() || from_name == to_name {
+        return false;
+    }
+    if from_name.to_string_lossy().to_lowercase() != to_name.to_string_lossy().to_lowercase() {
+        return false;
+    }
+    match (fs::symlink_metadata(from), fs::symlink_metadata(to)) {
+        (Ok(a), Ok(b)) => a.dev() == b.dev() && a.ino() == b.ino(),
+        _ => false,
+    }
+}
+
+#[cfg(not(unix))]
+fn is_case_only_rename(_from: &Path, _to: &Path) -> bool {
+    false
+}
+
 /// Moves `from` to `to` without ever replacing something already at `to`.
 ///
 /// A plain `rename` silently replaces its target, and checking first leaves a window for another move to claim
@@ -26,6 +48,13 @@ fn path_exists(path: &Path) -> bool {
 /// (an empty directory would otherwise be replaced by `rename`).
 pub fn move_no_clobber(from: &Path, to: &Path) -> Result<(), String> {
     let metadata = fs::symlink_metadata(from).map_err(|error| error.to_string())?;
+
+    // A rename that only changes the case of the name, on a volume that ignores case, finds "something" at the
+    // destination: the source itself. There is nothing to protect, and refusing it would make such a rename
+    // impossible, so it is a plain rename.
+    if is_case_only_rename(from, to) {
+        return fs::rename(from, to).map_err(|error| error.to_string());
+    }
 
     if metadata.is_dir() {
         if path_exists(to) {
@@ -83,6 +112,44 @@ mod tests {
         ));
         fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[test]
+    fn a_folder_is_never_moved_onto_an_existing_file_or_folder() {
+        let root = scratch("folder-collision");
+        fs::create_dir(root.join("a")).unwrap();
+        fs::write(root.join("a/note.md"), "A").unwrap();
+        fs::create_dir(root.join("b")).unwrap();
+        fs::write(root.join("c"), "C").unwrap();
+
+        assert!(move_no_clobber(&root.join("a"), &root.join("b")).unwrap_err().starts_with("EEXIST"));
+        assert!(move_no_clobber(&root.join("a"), &root.join("c")).unwrap_err().starts_with("EEXIST"));
+        assert_eq!(fs::read_to_string(root.join("a/note.md")).unwrap(), "A");
+        assert_eq!(fs::read_to_string(root.join("c")).unwrap(), "C");
+    }
+
+    #[test]
+    fn a_case_only_rename_still_works_and_loses_nothing() {
+        let root = scratch("case-only");
+        fs::write(root.join("note.md"), "N").unwrap();
+        // On a case-sensitive volume the second name is simply free; on APFS it is the same file. Either way it works.
+        move_no_clobber(&root.join("note.md"), &root.join("Note.md")).unwrap();
+
+        let names: Vec<String> = fs::read_dir(&root).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().into_owned()).collect();
+        assert_eq!(names, vec!["Note.md".to_string()]);
+        assert_eq!(fs::read_to_string(root.join("Note.md")).unwrap(), "N");
+    }
+
+    #[test]
+    fn two_different_files_whose_names_differ_only_in_case_are_still_protected() {
+        let root = scratch("case-two-files");
+        fs::write(root.join("a.md"), "A").unwrap();
+        fs::write(root.join("A.md"), "other").unwrap();
+        // On a case-insensitive volume the second write replaced the first (one file); only test the protection when
+        // both really exist.
+        if fs::read_dir(&root).unwrap().count() == 2 {
+            assert!(move_no_clobber(&root.join("a.md"), &root.join("A.md")).unwrap_err().starts_with("EEXIST"));
+        }
     }
 
     #[test]

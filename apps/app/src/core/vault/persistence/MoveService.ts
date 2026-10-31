@@ -368,7 +368,7 @@ export class MoveService {
         await this.fileSystem.createDirectory(destinationDirectory);
       }
 
-      await this.fileSystem.moveFile(current.path, updated.path);
+      await this.fileSystem.moveFile(current.path, updated.path, { noClobber: true });
     }
 
     this.vault.updatePagePath(updated.id, updated.path, updated.parentId);
