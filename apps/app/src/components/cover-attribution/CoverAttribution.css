@@ -1,5 +1,6 @@
 /* One line, never wrapping. Room is given up in a fixed order (see below): the
-   photographer's name, then the Unsplash link (both ellipsis). */
+   Unsplash link first, down to a few characters, then the photographer's name
+   (both ellipsis). The "on" between them never shrinks. */
 .cover-attribution {
   display: flex;
   align-items: baseline;
@@ -14,21 +15,25 @@
   pointer-events: auto;
 }
 
-/* Under pressure (a narrow cover) the name gives way first, down to a few
-   characters, then the Unsplash link; the "on" between them stays visible. */
 .cover-attribution__text {
   flex: 0 0 auto;
 }
 
+/* The name takes the room it needs and is the last to give any up. It has no minimum width of its own: a minimum
+   is a floor on the box, not on the text, so even a one-letter name ("T") would be given a box that wide, leaving a
+   gap before "on". The link's floor below, plus the cover's own minimum width, already keep a few characters of
+   any name visible. */
 .cover-attribution__name {
-  flex: 0 5 auto;
-  min-width: 5ch;
+  flex: 0 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+/* Under pressure (a narrow cover) the link shrinks first — its shrink factor dwarfs the name's — but never below
+   a few characters, and only while the line does not fit. */
 .cover-attribution__unsplash {
-  flex: 0 1 auto;
+  flex: 0 20 auto;
   min-width: 5ch;
   overflow: hidden;
   text-overflow: ellipsis;
