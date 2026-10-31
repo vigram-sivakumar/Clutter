@@ -8,7 +8,6 @@ import type { PropertyId } from '@core/properties/collectionProperties';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import { folderEntry, noteEntry, type EntryFixture } from '@features/collection/testing/collectionEntry';
 import { formatEntryTimestamp } from '@features/collection/properties/formatProperty';
-import { archiveVisible } from '@features/collection/testing/visibleProperties';
 
 import { ArchiveCollectionBody } from './ArchiveCollectionBody';
 
@@ -114,6 +113,10 @@ describe('ArchiveCollectionBody: ONE unified collection drawn by the generic Lis
   });
 });
 
+// Type is off until turned on, so the tests about it start from the Archive's properties with Type on.
+const withType = (...hidden: PropertyId[]): PropertyId[] =>
+  (['name', 'type', 'archived'] as PropertyId[]).filter((id) => !hidden.includes(id));
+
 describe('ArchiveCollectionBody: Type is an ordinary property, drawn from the same `visible` set in List and Table', () => {
   const metadataOf = (container: HTMLElement, title: string) =>
     [...container.querySelectorAll('.collection-entry')]
@@ -123,7 +126,7 @@ describe('ArchiveCollectionBody: Type is an ordinary property, drawn from the sa
   const typeCells = (container: HTMLElement) => [...container.querySelectorAll('.collection-table-row__type')].map((c) => c.textContent).sort();
 
   it('List shows the Type as the first metadata string of every row: Folder, Note, Image, PDF', () => {
-    const { container } = renderArchive({ ...EVERYTHING, viewMode: 'list' });
+    const { container } = renderArchive({ ...EVERYTHING, viewMode: 'list', visible: withType() });
 
     expect(metadataOf(container, 'Old Project')).toBe('Folder');
     expect(metadataOf(container, 'Old Note')).toBe('Note');
@@ -132,14 +135,14 @@ describe('ArchiveCollectionBody: Type is an ordinary property, drawn from the sa
   });
 
   it('Table has Name, Type, then Archived — the property labels, in registry order', () => {
-    const { container } = renderArchive({ ...EVERYTHING, viewMode: 'table' });
+    const { container } = renderArchive({ ...EVERYTHING, viewMode: 'table', visible: withType() });
 
     expect(headers(container)).toEqual(['Name', 'Type', 'Archived date']);
     expect(typeCells(container)).toEqual(['Folder', 'Image', 'Note', 'PDF']);
   });
 
   it('hiding Type removes it from the Table AND the List', () => {
-    const visible = archiveVisible('type');
+    const visible = withType('type');
     const table = renderArchive({ ...EVERYTHING, viewMode: 'table', visible });
 
     expect(headers(table.container)).toEqual(['Name', 'Archived date']);
@@ -160,7 +163,7 @@ describe('ArchiveCollectionBody: Type is an ordinary property, drawn from the sa
   });
 
   it('List and Table show the same properties in the same order, for any visible set', () => {
-    for (const visible of [archiveVisible(), archiveVisible('type'), archiveVisible('archived'), archiveVisible('type', 'archived')]) {
+    for (const visible of [withType(), withType('type'), withType('archived'), withType('type', 'archived')]) {
       const table = renderArchive({ ...EVERYTHING, viewMode: 'table', visible });
       const tableValues = [...table.container.querySelectorAll('.collection-table-row')]
         .find((row) => row.querySelector('.collection-entry__title')?.textContent === 'Old Note')!
@@ -229,7 +232,7 @@ describe('ArchiveCollectionBody: Description is a property of archived notes, in
 
   it('is drawn under the note\'s title when visible, in both layouts', () => {
     for (const viewMode of ['list', 'table'] as const) {
-      const { container } = renderArchive({ notes: [noteWithDescription], viewMode, visible: archiveVisible().concat('description') });
+      const { container } = renderArchive({ notes: [noteWithDescription], viewMode, visible: withType().concat('description') });
 
       expect(container.querySelector('.collection-entry__description')?.textContent, viewMode).toBe('About this note');
       cleanup();
@@ -325,7 +328,7 @@ describe('ArchiveCollectionBody: a file\'s archive date comes from the archive r
 
 describe('ArchiveCollectionBody: properties and sort come from the resolved view', () => {
   it('Table: a property that is not visible is not a column', () => {
-    const visible: PropertyId[] = archiveVisible('archived');
+    const visible: PropertyId[] = withType('archived');
     const { container } = renderArchive({ ...EVERYTHING, viewMode: 'table', visible });
 
     expect(container.querySelector('.collection-table__header-cell--archived')).toBeNull();

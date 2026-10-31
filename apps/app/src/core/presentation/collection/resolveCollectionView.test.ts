@@ -50,7 +50,7 @@ describe('resolveCollectionView — order and membership', () => {
     const view = resolveCollectionView(ASSETS_COLLECTION, { propertyOverrides: { archived: true, description: true, cover: true } });
 
     expect(view.available).toEqual(['name', 'size', 'created', 'updated']);
-    expect(view.visible).toEqual(['name']);
+    expect(view.visible).toEqual([]);
   });
 
   it('Sort by is the sortable subset of the available properties — the same list, filtered', () => {
@@ -66,24 +66,39 @@ describe('resolveCollectionView — defaults and overrides', () => {
   it('with no config: the definition\'s default layout, visible set and sort', () => {
     const notes = resolveCollectionView(FOLDER_COLLECTION);
     expect(notes.layout).toBe('table');
-    expect(notes.visible).toEqual(['name', 'description', 'cover', 'created', 'updated']);
+    expect(notes.visible).toEqual(['name', 'description', 'cover', 'updated']);
     expect(notes.sort).toEqual({ property: 'name', direction: 'down' });
 
     const assets = resolveCollectionView(ASSETS_COLLECTION);
     expect(assets.layout).toBe('card');
-    expect(assets.visible).toEqual(['name']);
+    expect(assets.visible).toEqual([]);
+  });
+
+  it('each layout has its own default: notes List/Table/Card, assets List/Table/Card', () => {
+    expect(resolveCollectionView(FOLDER_COLLECTION, { layout: 'list' }).visible).toEqual(['name']);
+    expect(resolveCollectionView(FOLDER_COLLECTION, { layout: 'card' }).visible).toEqual(['name', 'cover', 'updated']);
+    expect(resolveCollectionView(ASSETS_COLLECTION, { layout: 'list' }).visible).toEqual(['name']);
+    expect(resolveCollectionView(ASSETS_COLLECTION, { layout: 'table' }).visible).toEqual(['name', 'size']);
+    expect(resolveCollectionView(ARCHIVE_COLLECTION).visible).toEqual(['name', 'archived']);
   });
 
   it('`false` hides a default-visible property and `true` shows a default-hidden one', () => {
     expect(resolveCollectionView(FOLDER_COLLECTION, { propertyOverrides: { cover: false } }).visible).toEqual([
       'name',
       'description',
+      'updated',
+    ]);
+    expect(resolveCollectionView(FOLDER_COLLECTION, { propertyOverrides: { created: true } }).visible).toEqual([
+      'name',
+      'description',
+      'cover',
       'created',
       'updated',
     ]);
-    expect(resolveCollectionView(ASSETS_COLLECTION, { layout: 'table', propertyOverrides: { size: true } }).visible).toEqual([
+    expect(resolveCollectionView(ASSETS_COLLECTION, { layout: 'table', propertyOverrides: { created: true } }).visible).toEqual([
       'name',
       'size',
+      'created',
     ]);
   });
 
@@ -151,7 +166,7 @@ describe('resolveCollectionView — required properties', () => {
     for (const layout of ['list', 'table'] as const) {
       const view = resolveCollectionView(ASSETS_COLLECTION, { layout, propertyOverrides: { name: false } });
       expect(view.locked, layout).toEqual(['name']);
-      expect(view.visible, layout).toEqual(['name']);
+      expect(view.visible, layout).toEqual(layout === 'table' ? ['name', 'size'] : ['name']);
     }
   });
 
@@ -174,7 +189,9 @@ describe('setPropertyVisibility — what a toggle writes', () => {
   it('records an override only when the choice differs from the default', () => {
     expect(setPropertyVisibility(FOLDER_COLLECTION, 'table', undefined, 'cover', false)).toEqual({ cover: false });
     expect(setPropertyVisibility(FOLDER_COLLECTION, 'table', undefined, 'cover', true)).toBeUndefined();
-    expect(setPropertyVisibility(ASSETS_COLLECTION, 'table', undefined, 'size', true)).toEqual({ size: true });
+    expect(setPropertyVisibility(ASSETS_COLLECTION, 'table', undefined, 'size', true)).toBeUndefined();
+    expect(setPropertyVisibility(ASSETS_COLLECTION, 'table', undefined, 'created', true)).toEqual({ created: true });
+    expect(setPropertyVisibility(ASSETS_COLLECTION, 'list', undefined, 'size', true)).toEqual({ size: true });
   });
 
   it('returning a property to its default REMOVES its override (no opinion), keeping the others', () => {
@@ -188,8 +205,9 @@ describe('setPropertyVisibility — what a toggle writes', () => {
     expect(setPropertyVisibility(FOLDER_COLLECTION, 'card', { cover: false }, 'name', false)).toEqual({ cover: false });
   });
 
-  it('the Asset card can hide Name; the Asset table cannot', () => {
-    expect(setPropertyVisibility(ASSETS_COLLECTION, 'card', undefined, 'name', false)).toEqual({ name: false });
+  it('the Asset card can show Name (it starts hidden); the Asset table cannot hide it', () => {
+    expect(setPropertyVisibility(ASSETS_COLLECTION, 'card', undefined, 'name', true)).toEqual({ name: true });
+    expect(setPropertyVisibility(ASSETS_COLLECTION, 'card', undefined, 'name', false)).toBeUndefined();
     expect(setPropertyVisibility(ASSETS_COLLECTION, 'table', undefined, 'name', false)).toBeUndefined();
   });
 
@@ -201,26 +219,30 @@ describe('setPropertyVisibility — what a toggle writes', () => {
 describe('legacy snapshot → overrides', () => {
   const SNAPSHOT_ALL_TRUE = { description: true, created: true, updated: true, archived: true, cover: true, preview: true, title: true, size: true } as const;
 
+  // Created is offered by the note collections but off by default; a snapshot that had it on is a real choice.
+  const NOTE_DEFAULTS = { ...SNAPSHOT_ALL_TRUE, created: false } as const;
+
   it('a snapshot that is only defaults produces no override at all', () => {
-    expect(migrateLegacyProperties(FOLDER_COLLECTION, SNAPSHOT_ALL_TRUE)).toBeUndefined();
+    expect(migrateLegacyProperties(FOLDER_COLLECTION, NOTE_DEFAULTS)).toBeUndefined();
+    expect(migrateLegacyProperties(FOLDER_COLLECTION, SNAPSHOT_ALL_TRUE)).toEqual({ created: true });
     // The Archive does not offer Created or Last edited, so an old snapshot's choices about them are ignored.
     // It offers Description off by default, so a snapshot that had it on is a real choice and is kept.
     expect(migrateLegacyProperties(ARCHIVE_COLLECTION, SNAPSHOT_ALL_TRUE)).toEqual({ description: true });
   });
 
   it('keeps what the user hid: only differences from the collection\'s default become overrides', () => {
-    expect(migrateLegacyProperties(FOLDER_COLLECTION, { ...SNAPSHOT_ALL_TRUE, cover: false, created: false })).toEqual({
+    expect(migrateLegacyProperties(FOLDER_COLLECTION, { ...NOTE_DEFAULTS, cover: false, updated: false })).toEqual({
       cover: false,
-      created: false,
+      updated: false,
     });
   });
 
   it('ignores properties the collection does not offer (the snapshot always held all eight)', () => {
-    expect(migrateLegacyProperties(FOLDER_COLLECTION, { ...SNAPSHOT_ALL_TRUE, size: false, archived: false })).toBeUndefined();
+    expect(migrateLegacyProperties(FOLDER_COLLECTION, { ...NOTE_DEFAULTS, size: false, archived: false })).toBeUndefined();
   });
 
   it('drops `preview`', () => {
-    expect(migrateLegacyProperties(FOLDER_COLLECTION, { ...SNAPSHOT_ALL_TRUE, preview: false })).toBeUndefined();
+    expect(migrateLegacyProperties(FOLDER_COLLECTION, { ...NOTE_DEFAULTS, preview: false })).toBeUndefined();
   });
 
   it('assets: size / created / updated are default-OFF, so a snapshot of "on" is a choice and "off" is not', () => {
@@ -244,7 +266,7 @@ describe('legacy snapshot → overrides', () => {
   });
 
   it('keys absent from an older entry are simply not overrides', () => {
-    expect(migrateLegacyProperties(FOLDER_COLLECTION, { description: true, created: true, updated: false })).toEqual({ updated: false });
+    expect(migrateLegacyProperties(FOLDER_COLLECTION, { description: true, created: true, updated: false })).toEqual({ created: true, updated: false });
     expect(migrateLegacyProperties(FOLDER_COLLECTION, undefined)).toBeUndefined();
   });
 });
@@ -260,7 +282,7 @@ describe('toCollectionViewConfig — a stored entry as plain intent', () => {
       toCollectionViewConfig(FOLDER_COLLECTION, {
         layout: 'card',
         sort: { property: 'created', direction: 'up' },
-        legacyProperties: { description: true, created: true, updated: false },
+        legacyProperties: { description: true, created: false, updated: false },
       })
     ).toEqual({ layout: 'card', sort: { property: 'created', direction: 'up' }, propertyOverrides: { updated: false } });
   });

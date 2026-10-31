@@ -9,6 +9,7 @@ import {
   CollectionBody,
   NOTE_SORT_OPTIONS,
 } from './CollectionBody';
+import type { PropertyId } from '@core/properties/collectionProperties';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
 import { folderEntry, noteEntry } from '@features/collection/testing/collectionEntry';
 import { formatEntryTimestamp } from '@features/collection/properties/formatProperty';
@@ -88,6 +89,9 @@ describe('CollectionBody — List mode (viewMode="list")', () => {
   });
 });
 
+/** Every note property on, Created included (it is offered but off by default). */
+const WITH_CREATED: PropertyId[] = ['name', 'description', 'cover', 'created', 'updated'];
+
 describe('CollectionBody — Table mode (the default)', () => {
   it('defaults to Table when viewMode is omitted', () => {
     const { container } = render(<CollectionBody notes={[noteEntry()]} />);
@@ -111,7 +115,7 @@ describe('CollectionBody — Table mode (the default)', () => {
 
   it('draws every note\'s name and dates with the generic header and date cells', () => {
     const { container } = render(
-      <CollectionBody notes={[noteEntry({ created: CREATED_AT, updated: UPDATED_AT })]} viewMode="table" />
+      <CollectionBody notes={[noteEntry({ created: CREATED_AT, updated: UPDATED_AT })]} viewMode="table" visible={WITH_CREATED} />
     );
 
     const row = container.querySelector('.collection-table-row')!;
@@ -150,6 +154,7 @@ describe('CollectionBody — Table mode (the default)', () => {
       <CollectionBody
         notes={[noteEntry({ created: CREATED_AT, updated: UPDATED_AT })]}
         viewMode="table"
+        visible={WITH_CREATED}
       />
     );
 
@@ -329,7 +334,7 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
 });
 
 describe('CollectionBody — Properties visibility', () => {
-  it('defaults to showing created/updated, with no "No description" fallback for an empty description', () => {
+  it('defaults to showing the last edit but not the created date, with no "No description" fallback for an empty description', () => {
     const { getByText, queryByText } = render(
       <CollectionBody
         notes={[noteEntry({ created: CREATED_AT, updated: UPDATED_AT })]}
@@ -338,7 +343,7 @@ describe('CollectionBody — Properties visibility', () => {
     );
 
     expect(queryByText('No description')).not.toBeInTheDocument();
-    expect(getByText(CREATED_TEXT)).toBeInTheDocument();
+    expect(queryByText(CREATED_TEXT)).not.toBeInTheDocument();
     expect(getByText(UPDATED_TEXT)).toBeInTheDocument();
   });
 

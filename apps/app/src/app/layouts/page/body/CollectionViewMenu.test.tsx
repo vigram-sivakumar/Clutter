@@ -280,9 +280,9 @@ describe('CollectionViewMenu — required properties are shown ticked and locked
     fireEvent.click(getByText('Name'));
     expect(onPropertyChange).not.toHaveBeenCalled();
 
-    fireEvent.click(getByText('Created'));
-    expect(onPropertyChange).toHaveBeenCalledWith('created', false);
-    expect(getByText('Created').closest('[role="menuitem"]')).not.toHaveAttribute('aria-disabled');
+    fireEvent.click(getByText('Last edited'));
+    expect(onPropertyChange).toHaveBeenCalledWith('updated', false);
+    expect(getByText('Last edited').closest('[role="menuitem"]')).not.toHaveAttribute('aria-disabled');
   });
 
   it('a persisted `name: false` does not un-tick a required Name', () => {
@@ -296,8 +296,9 @@ describe('CollectionViewMenu — required properties are shown ticked and locked
     const card = renderMenu({ definition: ASSETS_COLLECTION, layout: 'card' });
     openPropertiesSubmenu(card.getByText);
     expect(nameRow(card.getByText)).not.toHaveAttribute('aria-disabled');
+    // The Asset card starts with its name hidden, so the first click shows it.
     fireEvent.click(card.getByText('Name'));
-    expect(card.onPropertyChange).toHaveBeenCalledWith('name', false);
+    expect(card.onPropertyChange).toHaveBeenCalledWith('name', true);
     cleanup();
 
     for (const layout of ['list', 'table'] as const) {
@@ -308,8 +309,8 @@ describe('CollectionViewMenu — required properties are shown ticked and locked
     }
   });
 
-  it('an asset card whose name is hidden shows Name un-ticked', () => {
-    const { getByText } = renderMenu({ definition: ASSETS_COLLECTION, layout: 'card', propertyOverrides: { name: false } });
+  it('an asset card shows Name un-ticked by default, and ticked once it is turned on', () => {
+    const { getByText } = renderMenu({ definition: ASSETS_COLLECTION, layout: 'card' });
     openPropertiesSubmenu(getByText);
 
     expect(nameRow(getByText).querySelector('.entry__leading svg')).not.toBeInTheDocument();

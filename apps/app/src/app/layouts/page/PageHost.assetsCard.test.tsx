@@ -265,13 +265,14 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     expect(document.body.textContent).toMatch(/Sort by/);
   });
 
-  it('Table renders the generic table with just Name — the file-fact Properties add Size, Created, Last edited (the preview leads the name)', async () => {
+  it('Table renders the generic table with Name and Size — the file-fact Properties add Created and Last edited (the preview leads the name)', async () => {
     render(<AppLayout application={setup([image(), pdf()])} />);
     await flush();
     await pick('Table');
 
     expect([...document.querySelectorAll('.collection-table__header-cell')].map((c) => c.textContent)).toEqual([
       'Name',
+      'Size',
     ]);
     // Two assets, then the collection's trailing Create row.
     expect(document.querySelectorAll('.collection-table__body > .collection-table-row:not(.collection-table-row--new-item)')).toHaveLength(2);

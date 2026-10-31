@@ -24,6 +24,7 @@ import {
   collectionDefinitionForFolder,
 } from './collectionDefinitions';
 import { foldersOrderOf, showsFolders, showsNotes } from './collectionBehaviors';
+import { defaultVisibleFor } from './resolveCollectionView';
 
 describe('every CollectionDefinition holds the same invariants', () => {
   it.each(ALL_COLLECTION_DEFINITIONS.map((definition) => [definition.kind + (definition.behavior ? `/${definition.behavior}` : ''), definition] as const))(
@@ -70,21 +71,25 @@ describe('membership — which global properties each collection offers (order i
   it('every note-shaped collection offers the note properties', () => {
     for (const definition of [FOLDER_COLLECTION, INBOX_COLLECTION, TEMPLATES_COLLECTION, WORKSPACE_COLLECTION, FAVORITES_COLLECTION, DAILY_NOTES_ROOT_COLLECTION, DAILY_NOTES_YEAR_COLLECTION, DAILY_NOTES_MONTH_COLLECTION]) {
       expect([...definition.properties].sort(), definition.kind).toEqual([...NOTE].sort());
-      expect([...definition.defaultVisible].sort(), definition.kind).toEqual([...NOTE].sort());
+      expect([...definition.defaultVisible].sort(), definition.kind).toEqual(['cover', 'description', 'name', 'updated']);
+      expect(definition.defaultVisibleByLayout?.list, definition.kind).toEqual(['name']);
+      expect(definition.defaultVisibleByLayout?.card, definition.kind).toEqual(['name', 'cover', 'updated']);
     }
   });
 
-  it('the Archive offers only Name, Type, Description and the date it was archived (Archived) — no Cover image, File size, Created or Last edited — and shows all but Description by default', () => {
+  it('the Archive offers only Name, Type, Description and the date it was archived (Archived) — no Cover image, File size, Created or Last edited — and shows Name and Archived by default (Type and Description are opt-in)', () => {
     expect([...ARCHIVE_COLLECTION.properties].sort()).toEqual(['archived', 'description', 'name', 'type']);
-    expect([...ARCHIVE_COLLECTION.defaultVisible].sort()).toEqual(['archived', 'name', 'type']);
+    expect([...ARCHIVE_COLLECTION.defaultVisible].sort()).toEqual(['archived', 'name']);
     for (const absent of ['cover', 'size', 'created', 'updated'] as const) {
       expect(ARCHIVE_COLLECTION.properties).not.toContain(absent);
     }
   });
 
-  it('assets offer Name, File size, Created and Last edited — and start showing only the name', () => {
+  it('assets offer Name, File size, Created and Last edited — and start as: Card nothing at all, List the name, Table the name and the file size', () => {
     expect([...ASSETS_COLLECTION.properties].sort()).toEqual(['created', 'name', 'size', 'updated']);
-    expect(ASSETS_COLLECTION.defaultVisible).toEqual(['name']);
+    expect(defaultVisibleFor(ASSETS_COLLECTION, 'card')).toEqual([]);
+    expect(defaultVisibleFor(ASSETS_COLLECTION, 'list')).toEqual(['name']);
+    expect(defaultVisibleFor(ASSETS_COLLECTION, 'table')).toEqual(['name', 'size']);
   });
 
   it('no note collection offers File size, and no asset collection offers Description, Cover image or Archived', () => {
@@ -100,6 +105,8 @@ describe('the Tasks collection', () => {
     expect(TAG_COLLECTION.properties).toContain('source');
     expect(TAG_COLLECTION.defaultVisible).toContain('source');
     expect(TAG_COLLECTION.defaultVisibleByLayout?.list).toEqual(['name']);
+    // The Card keeps every note property too, as before (it does not take the notes' Name/Cover/Last edited card).
+    expect([...defaultVisibleFor(TAG_COLLECTION, 'card')].sort()).toEqual(['cover', 'created', 'description', 'name', 'source', 'updated']);
   });
 
   it('offers a task\'s own properties — Name, Due date and Source — all on by default; no created/edited time', () => {

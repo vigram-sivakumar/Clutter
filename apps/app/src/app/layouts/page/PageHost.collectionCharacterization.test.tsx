@@ -345,14 +345,14 @@ describe('CURRENT BEHAVIOR — saved Configure state, resolved through the real 
   it('a saved property override hides that property\'s column — and only that one', async () => {
     await renderFolderSavedAs(PROJECTS, { layout: 'table', propertyOverrides: { cover: false } });
 
-    expect(tableHeaders()).toEqual(['Name', 'Created', 'Last edited']);
+    expect(tableHeaders()).toEqual(['Name', 'Last edited']);
   });
 
   it('with nothing saved, a note collection shows every default property it offers', async () => {
     await renderFolder(PROJECTS);
 
     // (Cover image is a column only when the host can change covers — a note collection can.)
-    expect(tableHeaders()).toEqual(['Name', 'Cover image', 'Created', 'Last edited']);
+    expect(tableHeaders()).toEqual(['Name', 'Cover image', 'Last edited']);
   });
 
   it('an entry saved before the property registry (the full snapshot) is converted: what the user had hidden stays hidden', async () => {
@@ -379,14 +379,14 @@ describe('CURRENT BEHAVIOR — saved Configure state, resolved through the real 
     });
 
     // The snapshot hid the archive date: a real choice. Its other choices (Created, Last edited, File size) are ignored — the Archive no longer offers them.
-    expect(tableHeaders()).toEqual(['Name', 'Type']);
+    expect(tableHeaders()).toEqual(['Name']);
   });
 
   it('the Archive shows its Archived column by default', async () => {
     await renderFolder(ARCHIVE);
 
-    // Name, then its visible properties in registry order — Type is one of them.
-    expect(tableHeaders()).toEqual(['Name', 'Type', 'Archived date']);
+    // Name, then its visible properties in registry order — Type is available but off until turned on.
+    expect(tableHeaders()).toEqual(['Name', 'Archived date']);
   });
 
   it('a saved `name: false` cannot hide the Name column — Name is required in a table', async () => {

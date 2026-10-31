@@ -315,16 +315,19 @@ describe('CURRENT BEHAVIOR — what a Properties toggle reports and persists (ch
     const { getByText, onPropertyChange } = renderMenu({ viewMode: 'table' });
 
     readPropertiesSubmenu(getByText);
-    fireEvent.click(getByText('Created'));
+    fireEvent.click(getByText('Last edited'));
 
     expect(onPropertyChange).toHaveBeenCalledTimes(1);
-    expect(onPropertyChange).toHaveBeenCalledWith('created', false);
+    expect(onPropertyChange).toHaveBeenCalledWith('updated', false);
   });
 
-  it('the first-time defaults: notes show name, description, cover, created, last edited; the Archive name, type and archived date; assets only the name', () => {
-    expect(resolveCollectionView(FOLDER_COLLECTION).visible).toEqual(['name', 'description', 'cover', 'created', 'updated']);
-    expect(resolveCollectionView(ARCHIVE_COLLECTION).visible).toEqual(['name', 'type', 'archived']);
-    expect(resolveCollectionView(ASSETS_COLLECTION).visible).toEqual(['name']);
+  it('the first-time defaults: notes show name, description, cover, last edited (Card: name, cover, last edited; List: name); the Archive name and archived date; assets nothing on a card, name and size in the Table', () => {
+    expect(resolveCollectionView(FOLDER_COLLECTION).visible).toEqual(['name', 'description', 'cover', 'updated']);
+    expect(resolveCollectionView(FOLDER_COLLECTION, { layout: 'card' }).visible).toEqual(['name', 'cover', 'updated']);
+    expect(resolveCollectionView(FOLDER_COLLECTION, { layout: 'list' }).visible).toEqual(['name']);
+    expect(resolveCollectionView(ARCHIVE_COLLECTION).visible).toEqual(['name', 'archived']);
+    expect(resolveCollectionView(ASSETS_COLLECTION).visible).toEqual([]);
+    expect(resolveCollectionView(ASSETS_COLLECTION, { layout: 'table' }).visible).toEqual(['name', 'size']);
   });
 });
 
@@ -611,7 +614,7 @@ describe('KNOWN DEFECT — configure and rendering disagree about what a layout 
       <CollectionBody
         notes={[note('Plan', { created: CREATED_AT, updated: UPDATED_AT })]}
         viewMode="card"
-        visible={noteVisible()}
+        visible={[...noteVisible(), 'created']}
       />
     );
     // Created above Edited, each one plain line.
@@ -623,7 +626,7 @@ describe('KNOWN DEFECT — configure and rendering disagree about what a layout 
       <CollectionBody
         notes={[note('Plan', { created: CREATED_AT, updated: UPDATED_AT })]}
         viewMode="card"
-        visible={noteVisible().filter((id) => id !== 'created')}
+        visible={noteVisible()}
       />
     );
     expect(off.container.textContent).not.toContain(CREATED_TEXT);

@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import { CollectionViewConfigStore } from './CollectionViewConfigStore';
 import { InMemoryVaultFileSystem } from '../../vault/testing/InMemoryVaultFileSystem';
-import { ARCHIVE_COLLECTION, FOLDER_COLLECTION } from '../../presentation/collection/collectionDefinitions';
+import {
+  ARCHIVE_COLLECTION,
+  FOLDER_COLLECTION as PRODUCT_FOLDER_COLLECTION,
+  type CollectionDefinition,
+} from '../../presentation/collection/collectionDefinitions';
 import {
   propertyOverridesFor,
   propertyOverridesPatch,
@@ -12,6 +16,16 @@ import {
 } from '../../presentation/collection/resolveCollectionView';
 import type { CollectionLayout } from '../../properties/collectionViewConfig';
 import type { PropertyId } from '../../properties/collectionProperties';
+
+/**
+ * These tests are about each view keeping its own choices, not about what the product shows first, so they run
+ * against a fixed definition (every note property on, the List just the name) rather than today's defaults.
+ */
+const FOLDER_COLLECTION: CollectionDefinition = {
+  ...PRODUCT_FOLDER_COLLECTION,
+  defaultVisible: ['name', 'description', 'cover', 'created', 'updated'],
+  defaultVisibleByLayout: { list: ['name'] },
+};
 
 /**
  * Every view mode keeps its OWN visible-property selection against the one shared registry: nothing a

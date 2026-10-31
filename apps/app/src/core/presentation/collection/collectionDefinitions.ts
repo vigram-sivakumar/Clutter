@@ -95,13 +95,14 @@ export const DEFAULT_REQUIRED: Readonly<Record<CollectionLayout, readonly Proper
 const ALL_LAYOUTS: readonly CollectionLayout[] = ['list', 'table', 'card'];
 const DEFAULT_SORT: CollectionSort = { property: 'name', direction: 'down' };
 
-/** What every note-shaped collection offers, all of it on by default. */
+/** What every note-shaped collection offers. Created is offered but off by default (the date shown is the last edit). */
 const NOTE_PROPERTIES: readonly PropertyId[] = ['name', 'description', 'cover', 'created', 'updated'];
 
 const NOTE_COLLECTION = {
   properties: NOTE_PROPERTIES,
-  defaultVisible: NOTE_PROPERTIES,
-  defaultVisibleByLayout: { list: ['name'] },
+  // The Table; the List is just the Title and the Card Name, Cover and Last edited.
+  defaultVisible: ['name', 'description', 'cover', 'updated'],
+  defaultVisibleByLayout: { list: ['name'], card: ['name', 'cover', 'updated'] },
   layouts: ALL_LAYOUTS,
   defaultLayout: 'table',
   defaultSort: DEFAULT_SORT,
@@ -145,7 +146,7 @@ export const ARCHIVE_COLLECTION: CollectionDefinition = {
   kind: 'archive',
   emptyMessage: 'Deleted items will appear here',
   properties: ['name', 'type', 'description', 'archived'],
-  defaultVisible: ['name', 'type', 'archived'],
+  defaultVisible: ['name', 'archived'],
   defaultVisibleByLayout: { list: ['name'] },
   layouts: ['list', 'table'],
   defaultLayout: 'table',
@@ -196,20 +197,23 @@ export const TAG_COLLECTION: CollectionDefinition = {
   ...NOTE_COLLECTION,
   properties: TAG_PROPERTIES,
   defaultVisible: TAG_PROPERTIES,
+  defaultVisibleByLayout: { list: ['name'] },
   kind: 'tag',
   emptyMessage: 'Notes you tag will appear here',
   actions: { create: true },
 };
 
 /**
- * Assets open as cards showing only their media and name; their file facts are opt-in. The
- * Asset card is the one layout where the name can be hidden — everywhere else it is required.
+ * Assets open as cards showing only their media — not even the name; the Table adds the file size, the List is the
+ * Title. Other file facts are opt-in. The Asset card is the one layout where the name can be hidden — everywhere else
+ * it is required.
  */
 export const ASSETS_COLLECTION: CollectionDefinition = {
   kind: 'assets',
   emptyMessage: 'Images and PDFs from your notes will appear here',
   properties: ['name', 'size', 'created', 'updated'],
   defaultVisible: ['name'],
+  defaultVisibleByLayout: { table: ['name', 'size'], card: [] },
   layouts: ALL_LAYOUTS,
   defaultLayout: 'card',
   defaultSort: DEFAULT_SORT,

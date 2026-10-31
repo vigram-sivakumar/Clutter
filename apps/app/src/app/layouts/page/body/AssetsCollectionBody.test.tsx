@@ -59,6 +59,8 @@ function renderAssets(
     <AssetsCollectionBody
       onRenameResource={vi.fn()}
       resolveResourceUrl={resolveResourceUrl}
+      // The card starts with nothing at all, so a test that is about the items themselves shows their names.
+      visible={['name']}
       {...rest}
       assets={assets ?? resources.map((resource) => localAsset(resource))}
       onOpenAsset={
@@ -440,6 +442,13 @@ describe('AssetsCollectionBody — Name property (the card title)', () => {
       expect(container.textContent).toContain('house');
       unmount();
     }
+  });
+
+  it('starts with nothing on a card — not even the name — when the page says nothing about it', () => {
+    const { container } = renderAssets({ resources: [makeResource()], viewMode: 'card', visible: undefined });
+
+    expect(container.querySelector('.collection-card:not(.collection-card--empty)')).not.toBeNull();
+    expect(container.querySelector('.card-title-section')).toBeNull();
   });
 
   it('F2 does not start a rename while the card title is hidden', () => {
