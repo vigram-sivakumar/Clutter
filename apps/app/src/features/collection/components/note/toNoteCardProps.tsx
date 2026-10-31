@@ -1,3 +1,4 @@
+import { showsDescriptionSnippet } from './toNoteTagContent';
 import { CardDivider } from '@features/collection/components/card/CardDivider';
 import { CardTitleSection } from '@features/collection/components/card/CardTitleSection';
 import type { CollectionCardProps } from '@features/collection/components/card/CollectionCard';
@@ -52,7 +53,7 @@ export function toNoteCardProps(
         icon="note"
         emoji={entry.emoji ?? undefined}
         title={entry.values.name}
-        description={visible.includes('description') ? entry.values.description : undefined}
+        description={showsDescriptionSnippet(entry, visible) ? entry.values.description : undefined}
         metadata={dates}
         metadataLayout="vertical"
       />

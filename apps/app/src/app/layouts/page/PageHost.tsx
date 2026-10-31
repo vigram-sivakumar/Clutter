@@ -2498,6 +2498,15 @@ export function PageHost({
     // payload's own kind name vs. the presentation table's key).
     const filteredViewSystemLocationId: SystemLocationId =
       view.kind === 'tag' ? 'tags' : view.kind;
+    // A tag's own emoji (Tag.icon, set from the New tag dialog or the
+    // sidebar's Change icon — the same field the sidebar's tag row shows),
+    // read once so the title and the breadcrumb can never disagree. Read
+    // from the Vault on every render, so a changed emoji shows in both at
+    // once. Workspace/Favorites have none.
+    const tagEmoji =
+      view.kind === 'tag'
+        ? (vault.getTagByName(view.tagName)?.icon ?? undefined)
+        : undefined;
     // What each filtered view can create comes from its CollectionDefinition: Workspace (the
     // vault's own root listing) a note and a folder, a Tag's notes a note, Favorites nothing —
     // Favorites is a filter, not a container, with no existing "create a note in this view" call to
@@ -2539,7 +2548,8 @@ export function PageHost({
           <Breadcrumbs
             items={buildSystemLocationBreadcrumbs(
               filteredViewSystemLocationId,
-              titleProps.title
+              titleProps.title,
+              tagEmoji
             )}
           />
         }
@@ -2580,15 +2590,10 @@ export function PageHost({
             ? buildFromTemplate(null)
             : undefined,
         })}
-        // A tag's own emoji (Tag.icon, set from the New tag dialog or the
-        // sidebar's Change icon) shows in the title the same way an
-        // ordinary folder's metadata.icon does; the generic icon below is
-        // what shows when it has none (and always for Workspace/Favorites).
-        emoji={
-          view.kind === 'tag'
-            ? (vault.getTagByName(view.tagName)?.icon ?? undefined)
-            : undefined
-        }
+        // A tag's own emoji shows in the title the same way an ordinary
+        // folder's metadata.icon does; the generic icon below is what shows
+        // when it has none (and always for Workspace/Favorites).
+        emoji={tagEmoji}
         icon={
           getSystemLocationPresentation(
             filteredViewSystemLocationId,

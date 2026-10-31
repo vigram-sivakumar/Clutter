@@ -8,7 +8,7 @@ import { PROPERTY_IDS, type PropertyId } from '@core/properties/collectionProper
 
 import { formatPropertyValue, valueProperties } from '../../properties/formatProperty';
 import { toNoteCoverImage } from './toNoteCoverImage';
-import { toNoteTagContent } from './toNoteTagContent';
+import { showsDescriptionSnippet, toNoteTagContent } from './toNoteTagContent';
 import type { CompactMarkdownResolvers } from '@features/markdown/render/renderCompactMarkdown';
 
 export interface NoteListItemOptions {
@@ -56,7 +56,7 @@ export function toNoteListItem(
     title: entry.values.name,
     // Tag collection: a matching-content entry's Name is the line (see `toNoteTagContent`).
     ...(tagContent && { leading: tagContent.leading, titleContent: tagContent.titleContent }),
-    description: visible.includes('description') ? entry.values.description : undefined,
+    description: showsDescriptionSnippet(entry, visible) ? entry.values.description : undefined,
     metadata,
     mediaIndex,
     ...(tagContent?.source && visible.includes('source') && { trailing: tagContent.source }),

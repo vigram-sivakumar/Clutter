@@ -10,7 +10,7 @@ import type { CollectionEntryModel } from '../../page/CollectionEntryModel';
 import type { PropertyId } from '@core/properties/collectionProperties';
 import { propertyValueCells } from '../../properties/tableColumns';
 import { toNoteCoverImage } from './toNoteCoverImage';
-import { toNoteTagContent } from './toNoteTagContent';
+import { showsDescriptionSnippet, toNoteTagContent } from './toNoteTagContent';
 import type { CompactMarkdownResolvers } from '@features/markdown/render/renderCompactMarkdown';
 
 /**
@@ -50,7 +50,7 @@ export function toNoteTableRow(
   entry: CollectionEntryModel,
   { visible, cover, resolvers }: NoteTableRowOptions
 ): CollectionDataTableRow {
-  const showDescription = visible.includes('description');
+  const showDescription = showsDescriptionSnippet(entry, visible);
   const tagContent = toNoteTagContent(entry, resolvers);
   const cells: Record<string, CollectionTableCellValue> = {
     name: {

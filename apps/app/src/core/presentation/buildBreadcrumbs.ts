@@ -116,11 +116,15 @@ function ancestorBreadcrumbs(
  * Folder (Assets, Tasks views, Workspace, Favorites, a Tag's notes): a
  * single current-page crumb with the location's canonical icon. The title
  * defaults to the location's label; a page whose header title differs
- * (an individual tag) passes its own.
+ * (an individual tag) passes its own. `emoji` is that page's own custom
+ * emoji (an individual tag's Tag.icon), shown in place of the location
+ * icon the same way a folder crumb's metadata.icon is; the location icon
+ * stays as the fallback when there is none.
  */
 export function buildSystemLocationBreadcrumbs(
   id: SystemLocationId,
-  title?: string
+  title?: string,
+  emoji?: string
 ): Breadcrumb[] {
   const presentation = getSystemLocationPresentation(id);
 
@@ -129,6 +133,7 @@ export function buildSystemLocationBreadcrumbs(
       id,
       title: title ?? presentation.label,
       icon: presentation.collectionIcon ?? presentation.icon,
+      ...(emoji && { emoji }),
       ...(id === 'workspace' && { isSpaceRoot: true }),
     },
   ];

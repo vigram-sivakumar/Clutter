@@ -711,4 +711,18 @@ describe('buildSystemLocationBreadcrumbs', () => {
     expect(crumbs[0]!.title).toBe('#work');
     expect(crumbs[0]!.icon).toBe(getSystemLocationPresentation('tags').icon);
   });
+
+  it("carries a page's own emoji when given one, keeping the location icon as its fallback", () => {
+    const crumbs = buildSystemLocationBreadcrumbs('tags', 'work', '🎨');
+    const presentation = getSystemLocationPresentation('tags');
+
+    expect(crumbs[0]!.emoji).toBe('🎨');
+    expect(crumbs[0]!.icon).toBe(presentation.collectionIcon ?? presentation.icon);
+  });
+
+  it.each([undefined, ''])('leaves the emoji unset when given %j', (emoji) => {
+    const crumbs = buildSystemLocationBreadcrumbs('tags', 'work', emoji);
+
+    expect(crumbs[0]).not.toHaveProperty('emoji');
+  });
 });

@@ -21,6 +21,16 @@ export interface NoteTagContent {
 }
 
 /**
+ * Whether a note entry draws its description as the snippet beneath its title (when the Description property is on).
+ * A note does. A matching-content entry in a Tag collection does not: it stands for one LINE of a note — that line is
+ * its title — so the note's description would sit under it as if it described the line. (A Tag collection lists only
+ * notes and their lines; it has no folders or files, and a folder's or file's own list item never draws a description.)
+ */
+export function showsDescriptionSnippet(entry: CollectionEntryModel, visible: readonly string[]): boolean {
+  return visible.includes('description') && entry.tagLine === undefined;
+}
+
+/**
  * A Tag collection matching-content entry's Name cell: the one Markdown line it stands for (`getTagLineContexts`, the
  * same lines the Tags sidebar lists as separate rows) with the sidebar's content icon (`TAG_CONTEXT_ICON`), rendered
  * through the same `renderCompactMarkdown`. An entry that is the note itself (frontmatter-only membership, a draft —

@@ -19,6 +19,7 @@ import { UuidGenerator } from '@core/shared/identity/UuidGenerator';
 import { DailyNoteService } from '@core/application/daily-notes/DailyNoteService';
 import type { Page } from '@core/vault/models/Page';
 import type { TagMetadataEntry } from '@core/vault/models/Tag';
+import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
 
 /**
  * The Tag collection page's title: it shows the tag's emoji and edits it through the page header's
@@ -116,6 +117,10 @@ async function renderTagPage(definitions: Record<string, TagMetadataEntry>) {
 }
 
 const titleEmoji = () => document.querySelector('.page-header-controls__emoji .emoji-icon')?.textContent ?? null;
+// The current-page breadcrumb (the top bar's trail) — its icon slot shows the tag's emoji or the Tags icon.
+const crumb = () => document.querySelector('.breadcrumb-item--current');
+const crumbEmoji = () => crumb()?.querySelector('.emoji-icon')?.textContent ?? null;
+const crumbSystemIcon = () => crumb()?.querySelector('[data-icon]')?.getAttribute('data-icon') ?? null;
 // The title section's More actions (Emoji/Cover/…) — a tag page also has the top bar's, which holds Delete.
 const moreActions = () =>
   document.querySelector<HTMLButtonElement>('.page-header-controls button[aria-label="More actions"]');
@@ -197,3 +202,45 @@ describe('Tag collection page — title emoji', () => {
     expect(titleEmoji()).toBeNull();
   });
 });
+
+describe('Tag collection page — breadcrumb emoji', () => {
+  it("shows the tag's emoji in the breadcrumb, matching the title", async () => {
+    await renderTagPage({ design: { name: 'design', icon: '🎨' } });
+
+    expect(crumb()).not.toBeNull();
+    expect(crumbEmoji()).toBe('🎨');
+    expect(crumbEmoji()).toBe(titleEmoji());
+    expect(crumb()?.textContent).toContain('design');
+  });
+
+  it('updates the breadcrumb at once when the emoji changes, and falls back to the Tags icon when it is removed', async () => {
+    await renderTagPage({ design: { name: 'design', icon: '🎨' } });
+
+    fireEvent.click(document.querySelector('.page-header-controls__emoji')!);
+    await flush();
+    await pickEmoji('rocket');
+
+    expect(crumbEmoji()).toBe('🚀');
+
+    fireEvent.click(document.querySelector('.page-header-controls__emoji')!);
+    await flush();
+    const remove = [...document.querySelectorAll<HTMLButtonElement>('.emoji-tray button')].find((button) =>
+      /remove|delete|trash/i.test(button.getAttribute('aria-label') ?? button.title ?? '')
+    );
+    fireEvent.click(remove!);
+    await flush();
+
+    const tags = getSystemLocationPresentation('tags');
+    expect(crumbEmoji()).toBeNull();
+    expect(crumbSystemIcon()).toBe(tags.collectionIcon ?? tags.icon);
+  });
+
+  it('a tag with no emoji keeps the existing Tags icon in the breadcrumb', async () => {
+    await renderTagPage({});
+    const tags = getSystemLocationPresentation('tags');
+
+    expect(crumbEmoji()).toBeNull();
+    expect(crumbSystemIcon()).toBe(tags.collectionIcon ?? tags.icon);
+  });
+});
+
