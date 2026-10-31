@@ -2,7 +2,8 @@ import type { MembershipSelector } from '@core/application/membership/Membership
 import { collectionViewKeyForSidebarLevel } from '@core/application/collection/collectionViewKey';
 import type { CollectionViewConfigStore } from '@core/application/collection/CollectionViewConfigStore';
 import { sidebarOrderId, type SidebarSort } from '@core/properties/sidebarSort';
-import { displayedOrderIds, placeInOrder } from './sidebarSort';
+import { displayedOrderIds, placeInOrder, placeManyInOrder } from './sidebarSort';
+import { draggedItems, type DragItem } from './dropTarget';
 
 /**
  * Everything that writes a sidebar level's order, in one place — so a drop has the same effect whichever
@@ -64,11 +65,21 @@ export function setLevelSort(
  */
 export function placeSiblingInLevel(
   context: LevelOrderContext,
-  item: { readonly kind: 'folder' | 'note' | 'asset'; readonly id: string },
+  item: { readonly kind: 'folder' | 'note' | 'asset'; readonly id: string; readonly items?: readonly DragItem[] },
   parentId: string | null,
   anchor: { readonly kind: 'folder' | 'note'; readonly id: string },
   edge: 'before' | 'after'
 ): void {
+  // Several items (a Collection View's selection) go in together, keeping the order they already have.
+  if (item.items) {
+    const moved = draggedItems(item as DragItem)
+      .filter((dragged) => dragged.kind !== 'asset')
+      .map((dragged) => sidebarOrderId(dragged.kind as 'folder' | 'note', dragged.id));
+    const drawnNow = displayedOrderIds(context.membershipSelector, parentId, context.getSort(parentId), context.getOrder(parentId));
+    context.setOrder(parentId, placeManyInOrder(drawnNow, moved, sidebarOrderId(anchor.kind, anchor.id), edge));
+    return;
+  }
+
   // An asset is never placed among the manual order (a drop only ever moves it).
   if (item.kind === 'asset') {
     return;

@@ -22,3 +22,7 @@ Every other collection (Inbox, Templates, Daily Notes, Archive, Assets, Tasks, F
 
 - A folder page's former property sort (Description, Cover image, …) is no longer offered for that folder. A saved one is ignored and, after the folder's next sort change, remains in the file unread.
 - The page's Created time / Last edited follow the sidebar's rules: a folder has no dates, so under those two folders sort after dated notes, by name.
+
+## Addendum: reordering from the page (2026-10-31)
+
+ADR-055's "no manual ordering outside the sidebar" is lifted for one case: **a folder in Manual order, shown as a List or Table** offers positions before and after each of its note rows to a drag that began in that folder. A drag of several checked items (`DragItem.items`) places them together at the position (`placeManyInOrder`: they keep the relative order they already have, the anchor is found once they are out, everything else keeps its order) through the same write a sidebar drop uses (`placeSiblingInLevel` → `setOrder`). Several items are only ever reordered in place and only in a Manual level — a position in another folder, or in a level sorted by anything else, is not offered and is refused again at the drop; they are never moved and placed in one go. A single item keeps the sidebar's rule (a position is offered in a level sorted any way). Folder cards (and the Card layout) remain places to move INTO only. A failed move inside a multi-item drop is skipped silently, with no toast.

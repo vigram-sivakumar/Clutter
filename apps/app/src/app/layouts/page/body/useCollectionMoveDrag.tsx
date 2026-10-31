@@ -1,11 +1,12 @@
-import { useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { usePointerDrag } from '@shared/interaction';
 import { DragGhost } from '@components/drag-ghost/DragGhost';
-import type { DragItem, DropTarget } from '@features/notes/sidebar/dropTarget';
+import { draggedItems, type DragItem, type DropTarget } from '@features/notes/sidebar/dropTarget';
 import { useDropTargetTracking } from '@features/notes/sidebar/useDropTargetTracking';
 import { executeDrop, type DropActions } from '@features/notes/sidebar/executeDrop';
 import { createDropTargetStore, DropFeedbackHost, type DropTargetStore } from '@features/notes/sidebar/dropTargetStore';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
+import { startConvergence, type Convergence } from './dragConvergence';
 
 /**
  * What lets a Collection View's notes and folders be dragged into folders. Its presence is the capability
@@ -17,6 +18,12 @@ export interface CollectionMoveDrag {
   readonly parentId: string | null;
   /** The same move handlers and rule checks the Move picker and the sidebar's drops use. */
   readonly actions: DropActions;
+  /**
+   * The folder is in Manual order and its notes are drawn as a one-column list (List, Table): a note row's edges
+   * are then positions in that order, for a drag from the folder itself — which is how items are reordered here.
+   * Folder cards are only ever places to move INTO.
+   */
+  readonly reorder?: boolean;
 }
 
 /** What an entry carries so any drag, from any surface, can find it as a destination. */
@@ -26,6 +33,8 @@ export interface CollectionDragEntryProps {
   readonly 'data-drag-parent': string;
   /** A card is only ever a folder to move INTO; there is no manual order here (see DragRow.insideOnly). */
   readonly 'data-drag-inside-only': 'true';
+  /** A note row of a Manual folder: its edges are positions in the folder's order (see `CollectionMoveDrag.reorder`). */
+  readonly 'data-drag-reorder'?: 'true';
   /** Set on the entry being dragged: it stays in place but is invisible while its ghost follows the pointer. */
   readonly 'data-drag-source'?: 'true';
   /** A note row (table or list) can span the page, so its ghost is compact; a folder card keeps its own size. */
@@ -81,6 +90,20 @@ export function useCollectionMoveDrag(
   storeRef.current ??= createDropTargetStore();
   const store = storeRef.current;
 
+  // The flight of the other checked items to the pressed one, for a drag of several (`dragConvergence.ts`). Started
+  // when the drag really begins, settled by how it ends: a drop that did something leaves them to the collection's
+  // update; Escape, a release with no valid drop and a refused drop all fly them back.
+  const convergenceRef = useRef<Convergence | null>(null);
+  const settle = (convergence: Convergence | null, outcome: 'moved' | 'reordered' | 'ignored' | 'rejected'): void => {
+    if (convergence !== convergenceRef.current) {
+      convergence?.dispose(); // a newer drag has taken over
+    } else if (outcome === 'moved' || outcome === 'reordered') {
+      convergence?.commit();
+    } else {
+      convergence?.revert();
+    }
+  };
+
   const { drag, press } = usePointerDrag<DragItem>({
     // A card can be dragged out of the page, onto the sidebar.
     allowDragOutsideContainer: true,
@@ -88,16 +111,39 @@ export function useCollectionMoveDrag(
       // Consumed once: the move is for the target the user was last SHOWN, never a recalculation.
       const shown = lastShownTargetRef.current;
       lastShownTargetRef.current = null;
-      void executeDrop(item, shown, configRef.current?.actions);
+      const convergence = convergenceRef.current;
+      void executeDrop(item, shown, configRef.current?.actions).then((outcome) => settle(convergence, outcome));
     },
     onCancel: () => {
       lastShownTargetRef.current = null;
+      convergenceRef.current?.revert();
     },
   });
+
+  // Before the first paint of the drag, while every item is still where it was.
+  useLayoutEffect(() => {
+    const payload = drag?.payload;
+    if (!drag || !payload?.items) {
+      return;
+    }
+    convergenceRef.current?.dispose(); // never let one drag's animation linger into the next
+    const byId = new Map<string, HTMLElement>();
+    document.querySelectorAll<HTMLElement>('[data-drag-inside-only="true"][data-drag-id]').forEach((element) => {
+      byId.set(`${element.dataset.dragKind}:${element.dataset.dragId}`, element);
+    });
+    const others = draggedItems(payload)
+      .filter((item) => !(item.kind === payload.kind && item.id === payload.id))
+      .map((item) => byId.get(`${item.kind}:${item.id}`))
+      .filter((element): element is HTMLElement => element !== undefined);
+    convergenceRef.current = startConvergence(drag.session.source, others);
+  }, [drag?.session]);
+
+  useEffect(() => () => convergenceRef.current?.dispose(), []);
 
   useDropTargetTracking(drag, store, lastShownTargetRef, () => ({
     canMoveFolderInto: configRef.current?.actions.canMoveFolderInto,
     canMoveNoteInto: configRef.current?.actions.canMoveNoteInto,
+    canReorderLevel: configRef.current?.actions.canReorderLevel,
   }));
 
   return {
@@ -110,11 +156,9 @@ export function useCollectionMoveDrag(
         'data-drag-id': entry.id,
         'data-drag-parent': config.parentId ?? '',
         'data-drag-inside-only': 'true',
+        'data-drag-reorder': entry.type === 'note' && config.reorder ? 'true' : undefined,
         'data-drag-ghost-size': entry.type === 'note' ? 'compact' : undefined,
-        // Several items dragged together stay where they are (and selected): only a single item's original is
-        // hidden, since its ghost is the visible copy.
-        'data-drag-source':
-          !drag?.payload.items && drag?.payload.kind === entry.type && drag.payload.id === entry.id ? 'true' : undefined,
+        'data-drag-source': drag?.payload.kind === entry.type && drag.payload.id === entry.id ? 'true' : undefined,
         onPointerDown: (event) => press(event, dragItemFor(entry, config.parentId, selected)),
       };
     },

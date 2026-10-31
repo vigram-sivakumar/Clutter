@@ -59,6 +59,7 @@ export function buildMoveDropActions(application: {
     },
     canMoveFolderInto: (folderId, destinationFolderId) => folderOperations.canMove(folderId, destinationFolderId),
     canMoveNoteInto: (pageId, destinationFolderId) => pageOperations.canMove(pageId, destinationFolderId),
+    canReorderLevel: (parentId) => levelOrder.getSort(parentId)?.key === 'manual',
     placeSibling: (item, parentId, anchor, edge) => placeSiblingInLevel(levelOrder, item, parentId, anchor, edge),
   };
 }

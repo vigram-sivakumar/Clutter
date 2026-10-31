@@ -120,6 +120,32 @@ export function displayedOrderIds(
   return levelEntries(membershipSelector, parentId, sort, order).map(levelEntryOrderId);
 }
 
+/**
+ * `order` with every one of `movedIds` taken out and put, TOGETHER, just before/after `anchorId` — the several-item
+ * twin of `placeInOrder`. The moved items keep the relative order they have in `order` (not the order they were
+ * named in), the anchor's position is found among what is LEFT once they are out (so the result is right whichever
+ * side of the anchor they came from), and everything not moved keeps its relative order. Unchanged if the anchor
+ * is missing or is itself one of the moved items. A moved id `order` does not hold (stale) follows the others.
+ */
+export function placeManyInOrder(
+  order: readonly string[],
+  movedIds: readonly string[],
+  anchorId: string,
+  edge: 'before' | 'after'
+): string[] {
+  const moved = new Set(movedIds);
+
+  if (moved.has(anchorId) || !order.includes(anchorId)) {
+    return [...order];
+  }
+
+  const together = [...order.filter((id) => moved.has(id)), ...movedIds.filter((id) => !order.includes(id))];
+  const rest = order.filter((id) => !moved.has(id));
+  const at = rest.indexOf(anchorId) + (edge === 'after' ? 1 : 0);
+
+  return [...rest.slice(0, at), ...together, ...rest.slice(at)];
+}
+
 /** `order` with `movedId` taken out and put just before/after `anchorId`. Unchanged if the anchor is missing or is the item itself. */
 export function placeInOrder(
   order: readonly string[],

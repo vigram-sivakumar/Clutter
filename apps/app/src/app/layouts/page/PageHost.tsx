@@ -2020,7 +2020,11 @@ export function PageHost({
       (collectionDefinition.kind === 'folder' ||
         collectionDefinition.kind === 'inbox' ||
         collectionDefinition.kind === 'templates')
-        ? { parentId: folder.id, actions: buildMoveDropActions(application, toast) }
+        ? {
+            parentId: folder.id,
+            actions: buildMoveDropActions(application, toast),
+            reorder: collectionDefinition.kind === 'folder' && levelSort?.key === 'manual' && collectionView.layout !== 'card',
+          }
         : undefined;
 
     return (

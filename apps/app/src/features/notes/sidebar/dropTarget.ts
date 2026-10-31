@@ -120,6 +120,12 @@ export interface DragRow extends Omit<DragItem, 'kind'> {
    * card), never a place in a sibling list — there is no manual order there. See `data-drag-inside-only`.
    */
   readonly insideOnly: boolean;
+  /**
+   * A Collection View note row of a folder that is in Manual order (`data-drag-reorder`): it still is not part of
+   * a sibling list like the tree's rows, but its edges are positions in its own folder's order for a drag that
+   * comes from that same folder — the only reordering a Collection View offers.
+   */
+  readonly reorder?: boolean;
 }
 
 export type DropTarget =
@@ -188,6 +194,7 @@ export function collectDragRows(root: ParentNode = document): DragRow[] {
     level: levelOf(element),
     tailHidden: element.dataset.dragTailHidden === 'true',
     insideOnly: element.dataset.dragInsideOnly === 'true',
+    reorder: element.dataset.dragReorder === 'true',
   }));
 }
 
@@ -227,6 +234,11 @@ export interface ResolveDropTargetInput {
   readonly canMoveFolderInto?: (folderId: string, destinationFolderId: string | null) => boolean;
   /** The note-move rules (PageOperations.canMove), asked the same way. Absent: a note is offered every folder. */
   readonly canMoveNoteInto?: (pageId: string, destinationFolderId: string | null) => boolean;
+  /**
+   * Whether `parentId`'s children may be put in a new order by a drag of SEVERAL items — only a level in Manual
+   * order. Absent: no. A single item keeps the sidebar's own rule (a position is offered in a level sorted any way).
+   */
+  readonly canReorderLevel?: (parentId: string | null) => boolean;
 }
 
 /** The first rendered element after `row` that is not part of its subtree — the row's visual end. */
@@ -265,10 +277,11 @@ function neighbourAcross(row: DragRow, region: 'before' | 'after'): HTMLElement 
   return candidate;
 }
 
-export function resolveDropTarget({ pointer, dragged, rows: allRows, destinations, canMoveFolderInto, canMoveNoteInto }: ResolveDropTargetInput): DropTarget | null {
+export function resolveDropTarget({ pointer, dragged, rows: allRows, destinations, canMoveFolderInto, canMoveNoteInto, canReorderLevel }: ResolveDropTargetInput): DropTarget | null {
   // Sibling-list logic (neighbours, subtrees) only ever concerns the tree's own rows.
   const rows = allRows.filter((row) => !row.insideOnly);
   const draggedKey = rowKey(dragged);
+  const draggedKeys = new Set(draggedItems(dragged).map(rowKey));
   const contains = (element: HTMLElement) => {
     const rect = element.getBoundingClientRect();
     return pointer.x >= rect.left && pointer.x <= rect.right && pointer.y >= rect.top && pointer.y < rect.bottom;
@@ -308,6 +321,10 @@ export function resolveDropTarget({ pointer, dragged, rows: allRows, destination
     if (dragged.kind === 'note' && destination === null) {
       return false;
     }
+    // Several items are only ever REordered, in place, and only in a Manual level — never moved and placed in one go.
+    if (dragged.items) {
+      return destination === dragged.parentId && (canReorderLevel?.(destination) ?? false);
+    }
     if (destination === dragged.parentId) {
       return true; // reordering where it already is
     }
@@ -323,7 +340,7 @@ export function resolveDropTarget({ pointer, dragged, rows: allRows, destination
    * hidden rows: neither is drawn.
    */
   const insertTarget = (candidate: DragRow, edge: 'before' | 'after'): DropTarget | null => {
-    if (rowKey(candidate) === draggedKey || !canJoin(candidate.parentId)) {
+    if (draggedKeys.has(rowKey(candidate)) || !canJoin(candidate.parentId)) {
       return null;
     }
     if (edge === 'after' && candidate.tailHidden) {
@@ -386,6 +403,24 @@ export function resolveDropTarget({ pointer, dragged, rows: allRows, destination
   };
 
   const row = allRows.find((candidate) => contains(candidate.element));
+
+  // A Collection View note row in a Manual folder: its halves are the positions before and after it in that
+  // folder's order — for a drag from the same folder only (so a note row is still no destination for anything else).
+  if (row && row.insideOnly && row.reorder && row.kind === 'note') {
+    if (draggedKeys.has(rowKey(row)) || row.parentId !== dragged.parentId || !canJoin(row.parentId)) {
+      return null;
+    }
+    const rect = row.element.getBoundingClientRect();
+    const edge = resolveDropRegion(rect, pointer.y, false) === 'before' ? 'before' : 'after';
+    return {
+      kind: 'insert',
+      parentId: row.parentId,
+      edge,
+      rowId: row.id,
+      rowKind: 'note',
+      line: { y: edge === 'before' ? rect.top : rect.bottom, left: rect.left, width: rect.width },
+    };
+  }
 
   // A Collection View card: moving INTO a folder is the only thing it offers, to a drag from ANY surface —
   // there is no manual order there. (What a drop target offers belongs to the target, never to the drag's origin.)

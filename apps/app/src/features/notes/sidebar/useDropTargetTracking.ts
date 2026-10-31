@@ -29,6 +29,7 @@ function showMoreCapKeyAt(pointer: { x: number; y: number }): string | null {
 export interface DropTargetOracles {
   readonly canMoveFolderInto?: (folderId: string, destinationFolderId: string | null) => boolean;
   readonly canMoveNoteInto?: (pageId: string, destinationFolderId: string | null) => boolean;
+  readonly canReorderLevel?: (parentId: string | null) => boolean;
 }
 
 /**
@@ -89,12 +90,13 @@ export function useDropTargetTracking(
       watchShowMore();
       // A drag of several items is offered a destination only where every item of it can go (see wholeDragOracles).
       const whole = wholeDragOracles(draggedItems(dragged), oraclesRef.current());
-      const { canMoveFolderInto, canMoveNoteInto } = oraclesRef.current();
+      const { canMoveFolderInto, canMoveNoteInto, canReorderLevel } = oraclesRef.current();
       const next = resolveDropTarget({
         pointer: session.pointer,
         dragged,
         rows: collectDragRows(),
         destinations: collectDropDestinations(),
+        canReorderLevel,
         canMoveFolderInto: dragged.items ? whole.canMoveFolderInto : (folderId, destinationId) => canMoveFolderInto?.(folderId, destinationId) ?? false,
         canMoveNoteInto: dragged.items
           ? whole.canMoveNoteInto

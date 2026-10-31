@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { executeDrop, type DropActions } from './executeDrop';
 import { wholeDragOracles, type DragItem, type DropTarget } from './dropTarget';
+import { placeManyInOrder } from './sidebarSort';
 
 const note = (id: string, parentId: string | null = 'src'): DragItem => ({ kind: 'note', id, parentId });
 const folder = (id: string, parentId: string | null = 'src'): DragItem => ({ kind: 'folder', id, parentId });
@@ -132,15 +133,45 @@ describe('executeDrop — several items dragged together', () => {
     expect(spies.onMoveFolder).toHaveBeenCalledOnce();
   });
 
-  it('several items are never placed among siblings (a Collection View has no manual order)', async () => {
-    const placeSibling = vi.fn();
-    const { spies, actions: a } = actions({ placeSibling });
-    const insert: DropTarget = { kind: 'insert', parentId: 'dest', edge: 'before', rowId: 'x', rowKind: 'note', line: { y: 0, left: 0, width: 1 } };
+  describe('reordering several items', () => {
+    const insert = (parentId: string | null = 'src'): DropTarget => ({
+      kind: 'insert',
+      parentId,
+      edge: 'before',
+      rowId: 'x',
+      rowKind: 'note',
+      line: { y: 0, left: 0, width: 1 },
+    });
 
-    expect(await executeDrop(dragOf(note('n1'), note('n2')), insert, a)).toBe('ignored');
+    it('places them together at the position, in a Manual level, without moving anything', async () => {
+      const placeSibling = vi.fn();
+      const { spies, actions: a } = actions({ placeSibling, canReorderLevel: () => true });
+      const drag = dragOf(note('n1'), note('n2'));
 
-    expect(placeSibling).not.toHaveBeenCalled();
-    expect(spies.onMoveNote).not.toHaveBeenCalled();
+      expect(await executeDrop(drag, insert(), a)).toBe('reordered');
+
+      expect(placeSibling).toHaveBeenCalledExactlyOnceWith(drag, 'src', { kind: 'note', id: 'x' }, 'before');
+      expect(spies.onMoveNote).not.toHaveBeenCalled();
+    });
+
+    it('is refused in a level that is not Manual — nothing is written', async () => {
+      const placeSibling = vi.fn();
+      const { actions: a } = actions({ placeSibling, canReorderLevel: () => false });
+
+      expect(await executeDrop(dragOf(note('n1'), note('n2')), insert(), a)).toBe('rejected');
+
+      expect(placeSibling).not.toHaveBeenCalled();
+    });
+
+    it('is refused for a position in another folder (several items are never moved and placed in one go)', async () => {
+      const placeSibling = vi.fn();
+      const { spies, actions: a } = actions({ placeSibling, canReorderLevel: () => true });
+
+      expect(await executeDrop(dragOf(note('n1'), note('n2')), insert('elsewhere'), a)).toBe('rejected');
+
+      expect(placeSibling).not.toHaveBeenCalled();
+      expect(spies.onMoveNote).not.toHaveBeenCalled();
+    });
   });
 
   it('a single item (no `items`) is exactly the existing single drop — reported, not silent', async () => {
@@ -180,5 +211,48 @@ describe('wholeDragOracles — what the hover offers agrees with what the drop d
     expect(wholeDragOracles([folder('a')], rules({ a: ['d'] })).canMoveFolderInto('a', 'd')).toBe(false);
     expect(wholeDragOracles([folder('a')], {}).canMoveFolderInto('a', 'd')).toBe(false); // never guessed
     expect(wholeDragOracles([note('n')], {}).canMoveNoteInto('n', 'd')).toBe(true);
+  });
+});
+
+describe('placeManyInOrder — the insertion index, with the moved items out of their old places', () => {
+  const ORDER = ['a', 'b', 'c', 'd', 'e', 'f'];
+
+  it('moves contiguous items up, together and in their own order', () => {
+    expect(placeManyInOrder(ORDER, ['d', 'e'], 'b', 'before')).toEqual(['a', 'd', 'e', 'b', 'c', 'f']);
+  });
+
+  it('moves contiguous items down: the anchor is found among what is left, not by its old index', () => {
+    expect(placeManyInOrder(ORDER, ['b', 'c'], 'e', 'after')).toEqual(['a', 'd', 'e', 'b', 'c', 'f']);
+    expect(placeManyInOrder(ORDER, ['b', 'c'], 'e', 'before')).toEqual(['a', 'd', 'b', 'c', 'e', 'f']);
+  });
+
+  it('gathers non-contiguous items into one block without separating or reversing them', () => {
+    expect(placeManyInOrder(ORDER, ['a', 'c', 'e'], 'f', 'after')).toEqual(['b', 'd', 'f', 'a', 'c', 'e']);
+    expect(placeManyInOrder(ORDER, ['a', 'c', 'e'], 'd', 'before')).toEqual(['b', 'a', 'c', 'e', 'd', 'f']);
+  });
+
+  it('keeps the order the items already have, whatever order they were named in', () => {
+    expect(placeManyInOrder(ORDER, ['e', 'b'], 'a', 'before')).toEqual(['b', 'e', 'a', 'c', 'd', 'f']);
+  });
+
+  it('keeps everything not moved in its relative order, at the very start and the very end', () => {
+    expect(placeManyInOrder(ORDER, ['c', 'd'], 'a', 'before')).toEqual(['c', 'd', 'a', 'b', 'e', 'f']);
+    expect(placeManyInOrder(ORDER, ['c', 'd'], 'f', 'after')).toEqual(['a', 'b', 'e', 'f', 'c', 'd']);
+  });
+
+  it('is unchanged for an anchor that is missing or is itself moved', () => {
+    expect(placeManyInOrder(ORDER, ['b', 'c'], 'zzz', 'before')).toEqual(ORDER);
+    expect(placeManyInOrder(ORDER, ['b', 'c'], 'c', 'after')).toEqual(ORDER);
+  });
+
+  it('never loses or duplicates an id', () => {
+    const result = placeManyInOrder(ORDER, ['b', 'e', 'stale'], 'd', 'after');
+    expect([...result].sort()).toEqual([...ORDER, 'stale'].sort());
+    expect(new Set(result).size).toBe(result.length);
+  });
+
+  it('does not mutate its input', () => {
+    const frozen = Object.freeze([...ORDER]);
+    expect(() => placeManyInOrder(frozen, ['b'], 'e', 'after')).not.toThrow();
   });
 });

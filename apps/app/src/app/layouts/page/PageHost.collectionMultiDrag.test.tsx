@@ -170,8 +170,8 @@ describe('dragging several checked items from a Collection View', () => {
 
     expect(ghostBadge()).toBe('3');
     expect(checkedNames()).toEqual(['Select Beta', 'Select N1', 'Select N2']);
-    // Several items dragged together are all still shown (only a single item's original is hidden).
-    expect(document.querySelectorAll('[data-drag-source="true"]')).toHaveLength(0);
+    // Only the pressed item's original is hidden (its ghost is the visible copy); the others converge onto it.
+    expect(document.querySelectorAll('[data-drag-source="true"]')).toHaveLength(1);
     expect(feedback()).toHaveLength(1);
 
     act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: 400, clientY: 120 }));
@@ -339,5 +339,141 @@ describe('several checked items and Inbox', () => {
 
     expect(application.vault.getPage(ids.N1!)!.path).toBe(`${ROOT}/Templates/N1.md`);
     expect(application.vault.getFolder(ids.Pack!)!.path).toBe(`${ROOT}/Templates/Pack`);
+  });
+});
+
+describe('reordering several checked items in a Manual folder', () => {
+  const orderKey = () => `folder:${ids.Projects}`;
+  const stored = () => application.collectionViewConfigStore.get(orderKey());
+  const names = (list: string[]) => list.map((id) => Object.keys(ids).find((name) => ids[name] === id) ?? id);
+  /** The note rows of the page, top to bottom. */
+  const pageOrder = () => names([...document.querySelectorAll<HTMLElement>('[data-drag-inside-only="true"]')].map((el) => el.dataset.dragId!));
+  /** The sidebar's rows under Projects, top to bottom. */
+  const sidebarOrder = () => names([...document.querySelectorAll<HTMLElement>('.entry[data-drag-id]')].map((el) => el.dataset.dragId!).filter((id) => [ids.N1, ids.N2, ids.N3, ids.N4].includes(id)));
+  const storedOrder = () => (stored()?.sidebarOrder ?? []).map((id) => names([id.slice(2)])[0]);
+  /** The top quarter of a page row (a position before it) or its bottom quarter (after it). */
+  const before = (id: string) => ({ x: 500, y: card(id).getBoundingClientRect().top + 2 });
+  const after = (id: string) => ({ x: 500, y: card(id).getBoundingClientRect().bottom - 2 });
+
+  async function setUp(sort: 'manual' | 'name' = 'manual') {
+    await build([['Projects', null], ['Gamma', null]], [['N1', 'Projects'], ['N2', 'Projects'], ['N3', 'Projects'], ['N4', 'Projects']]);
+    application.collectionViewConfigStore.update(orderKey(), {
+      layout: 'list',
+      sidebarSort: { key: sort, direction: 'down' },
+      sidebarOrder: ['N1', 'N2', 'N3', 'N4'].map((name) => `n:${ids[name]}`),
+    });
+    await show('Projects');
+  }
+
+  it('reorders contiguous selected items before an unselected one, together and in their order', async () => {
+    await setUp();
+    select('N3', 'N4');
+
+    await drag(card(ids.N3!), before(ids.N1!));
+
+    expect(storedOrder()).toEqual(['N3', 'N4', 'N1', 'N2']);
+    expect(pageOrder()).toEqual(['N3', 'N4', 'N1', 'N2']);
+    expect(sidebarOrder()).toEqual(['N3', 'N4', 'N1', 'N2']);
+  });
+
+  it('reorders non-contiguous selected items after an unselected one, keeping their relative order', async () => {
+    await setUp();
+    select('N1', 'N3');
+
+    await drag(card(ids.N1!), after(ids.N4!));
+
+    expect(storedOrder()).toEqual(['N2', 'N4', 'N1', 'N3']);
+    expect(pageOrder()).toEqual(['N2', 'N4', 'N1', 'N3']);
+    expect(sidebarOrder()).toEqual(['N2', 'N4', 'N1', 'N3']);
+  });
+
+  it('the order the items were checked in does not matter, nor does which one the drag starts on', async () => {
+    await setUp();
+    select('N3', 'N1'); // checked N3 first
+
+    await drag(card(ids.N3!), before(ids.N2!)); // and dragged by the later one
+
+    expect(storedOrder()).toEqual(['N1', 'N3', 'N2', 'N4']);
+  });
+
+  it('shows the position line before release, and nothing is written until the drop', async () => {
+    await setUp();
+    const before0 = JSON.stringify(stored());
+    select('N1', 'N2');
+
+    await drag(card(ids.N1!), after(ids.N4!), { release: false });
+
+    expect(feedback().map((f) => f.dataset.dropFeedback)).toEqual(['insert']);
+    expect(JSON.stringify(stored())).toBe(before0);
+    act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: 500, clientY: 0 }));
+    await settle();
+  });
+
+  it('the position beside a selected item is not offered', async () => {
+    await setUp();
+    select('N1', 'N2');
+
+    await drag(card(ids.N1!), before(ids.N2!), { release: false });
+
+    expect(feedback()).toHaveLength(0);
+    act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: 500, clientY: 0 }));
+    await settle();
+  });
+
+  it('a single item reorders too (the same position, one item)', async () => {
+    await setUp();
+
+    await drag(card(ids.N4!), before(ids.N1!));
+
+    expect(storedOrder()).toEqual(['N4', 'N1', 'N2', 'N3']);
+  });
+
+  it('writes only the order — notes and folders are not touched', async () => {
+    await setUp();
+    const move = vi.spyOn(application.pageOperations, 'move');
+    select('N3', 'N4');
+
+    await drag(card(ids.N3!), before(ids.N1!));
+
+    expect(move).not.toHaveBeenCalled();
+    expect(parentOf('N3')).toBe(ids.Projects);
+  });
+
+  it('is not offered when the folder is sorted by name: no position line, nothing written', async () => {
+    await setUp('name');
+    const before0 = JSON.stringify(stored());
+    select('N3', 'N4');
+
+    expect(card(ids.N1!)).not.toHaveAttribute('data-drag-reorder');
+    await drag(card(ids.N3!), before(ids.N1!), { release: false });
+    expect(feedback()).toHaveLength(0);
+    act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: 500, clientY: 0 }));
+    await settle();
+
+    expect(JSON.stringify(stored())).toBe(before0);
+  });
+
+  it('several items dragged to a sidebar position in a folder that is not Manual are refused as well', async () => {
+    await setUp('name');
+    select('N3', 'N4');
+    const edge = row(ids.N1!)?.getBoundingClientRect().top + 1;
+
+    await drag(card(ids.N3!), { x: 60, y: edge }, { release: false });
+    expect(feedback()).toHaveLength(0);
+    act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: 60, clientY: edge }));
+    await settle();
+
+    expect(stored()?.sidebarSort).toEqual({ key: 'name', direction: 'down' });
+  });
+
+  it('a drop on a sidebar folder still moves the whole selection (moving is unchanged)', async () => {
+    await setUp();
+    select('N1', 'N2');
+
+    await drag(card(ids.N1!), centre(row(ids.Gamma!)));
+
+    expect(parentOf('N1')).toBe(ids.Gamma);
+    expect(parentOf('N2')).toBe(ids.Gamma);
+    expect(parentOf('N3')).toBe(ids.Projects);
   });
 });

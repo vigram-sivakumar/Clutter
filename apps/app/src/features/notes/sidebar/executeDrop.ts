@@ -15,6 +15,8 @@ export interface DropActions {
   /** The note-move rules (PageOperations.canMove), re-asked at release. Absent: PageOperations.move's own validation decides. */
   canMoveNoteInto?(pageId: string, destinationFolderId: string | null): boolean;
   /** Writes the item's place among `parentId`'s children (the sidebar's manual order) — presentation state, never a move. */
+  /** Whether `parentId`'s children may be reordered by a drag of several items: only a level in Manual order. */
+  canReorderLevel?(parentId: string | null): boolean;
   placeSibling?(
     item: DragItem,
     parentId: string | null,
@@ -88,9 +90,19 @@ export async function executeDrop(
       return 'moved';
     }
 
-    // Several items are only ever dropped INTO a folder (a Collection View has no manual order).
+    // Several items are only ever REordered, in place, in a level in Manual order — checked again here, since the
+    // line that was drawn is not trusted. They are never moved and placed in one go.
     if (item.items) {
-      return 'ignored';
+      if (
+        !actions.placeSibling ||
+        target.parentId === null && items.some((dragged) => dragged.kind === 'note') ||
+        items.some((dragged) => dragged.kind === 'asset' || dragged.parentId !== target.parentId) ||
+        !actions.canReorderLevel?.(target.parentId)
+      ) {
+        throw new Error('The selected items cannot be reordered here');
+      }
+      actions.placeSibling(item, target.parentId, { kind: target.rowKind, id: target.rowId }, target.edge);
+      return 'reordered';
     }
 
     // A note always belongs to a folder: it is never placed in the root list.
