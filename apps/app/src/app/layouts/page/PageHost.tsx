@@ -123,6 +123,7 @@ import { resolvePageMetadata } from '@core/vault/ingest/resolvePageMetadata';
 import type { PageMetadata } from '@core/vault/models/PageMetadata';
 import { Confirmation } from '@components/confirmation/Confirmation';
 import { useToast } from '@components/toast/ToastProvider';
+import { waitForImage } from '@shared/helpers/waitForImage';
 import { reportTagBatch } from '@features/tags/helpers/tagBatchFeedback';
 import { createTaskActions } from '@features/tasks/helpers/createTaskActions';
 import { createArchiveActions } from '@features/notes/helpers/archiveWithUndo';
@@ -1346,18 +1347,35 @@ export function PageHost({
       return false;
     }
 
-    // Both saved positions reset to centered alongside a new image, same
-    // reasoning as onRemoveCoverImage's coverHidden reset below — a
-    // position belongs to the image it was framed against, never carries
-    // over to a replacement the user hasn't positioned yet.
-    return application.pageOperations.updateMetadata(activePageId, {
-      cover: url,
-      // The credit belongs to the image (ADR-054): the picker's own, else one
-      // already recorded for this exact URL, else cleared — never left stale.
-      coverCredit: credit ?? application.findCoverCredit(url),
-      coverPositionAbove: 50,
-      coverPositionSide: 50,
-      ...coverLayoutFor(activePageId),
+    const noteId = activePageId;
+    const apply = (): Promise<void> =>
+      // Both saved positions reset to centered alongside a new image, same
+      // reasoning as onRemoveCoverImage's coverHidden reset below — a
+      // position belongs to the image it was framed against, never carries
+      // over to a replacement the user hasn't positioned yet.
+      application.pageOperations.updateMetadata(noteId, {
+        cover: url,
+        // The credit belongs to the image (ADR-054): the picker's own, else one
+        // already recorded for this exact URL, else cleared — never left stale.
+        coverCredit: credit ?? application.findCoverCredit(url),
+        coverPositionAbove: 50,
+        coverPositionSide: 50,
+        ...coverLayoutFor(noteId),
+      });
+
+    // Applied only once the picture has loaded: a first cover then appears whole (picture and credit together, not
+    // the credit ahead of a blank), a replacement keeps the old cover and its credit until the new one is ready, and
+    // a picture that cannot load leaves the note as it was instead of ending up with no cover.
+    const displayUrl = application.resolveCoverImageForDisplay(url);
+    if (!displayUrl) {
+      return apply();
+    }
+    return waitForImage(displayUrl).then((loaded) => {
+      if (!loaded) {
+        toast.fail('Couldn’t set the cover image', new Error('The image could not be loaded.'));
+        return;
+      }
+      return apply();
     });
   };
 
