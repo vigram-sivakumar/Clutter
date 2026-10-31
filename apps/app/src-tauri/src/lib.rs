@@ -11,6 +11,7 @@ mod app_menu;
 mod atomic_replace;
 #[cfg(all(target_os = "macos", feature = "atomic-writes"))]
 mod atomic_commands;
+mod export_file;
 mod fs_authorization;
 mod move_no_clobber;
 mod new_file_no_clobber;
@@ -200,6 +201,9 @@ pub fn run() {
             atomic_commands::atomic_confirm_durability,
             #[cfg(all(target_os = "macos", feature = "atomic-writes"))]
             atomic_commands::check_space_filesystem,
+            export_file::export_pick_destination,
+            export_file::export_copy_file,
+            export_file::export_write_file,
             move_no_clobber::move_file_no_clobber,
             new_file_no_clobber::copy_file_no_clobber,
             new_file_no_clobber::write_file_no_clobber,
@@ -232,6 +236,8 @@ pub fn run() {
             // Which folders the user authorized in the App Sandbox (empty state outside it); see space_access.rs.
             app.manage(space_access::build_state(app.handle()));
             app.manage(space_access::SpaceScopeGrants::default());
+            // The destinations the user has chosen in a Save panel and not yet written to; see export_file.rs.
+            app.manage(export_file::ExportTickets::default());
             // Automation/testing only — never reachable in an ordinary build:
             // the crate itself doesn't exist in the dependency graph unless
             // Cargo's `automation` feature is explicitly enabled (see

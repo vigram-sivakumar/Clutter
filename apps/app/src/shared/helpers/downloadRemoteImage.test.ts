@@ -2,31 +2,30 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 const isTauriMock = vi.fn();
 const saveMock = vi.fn();
-const writeFileMock = vi.fn();
 const fetchMock = vi.fn();
 
+// The native Save panel (`export_pick_destination`) answers with a single-use ticket, or null when cancelled; the
+// other two export commands receive that ticket and never a destination path.
+const TICKET = 7;
+const invokeMock = vi.fn();
 vi.mock('@tauri-apps/api/core', () => ({
   isTauri: () => isTauriMock(),
+  invoke: (command: string, args?: unknown, options?: unknown) =>
+    command === 'export_pick_destination' ? saveMock(args) : invokeMock(command, args, options),
 }));
 
-vi.mock('@tauri-apps/plugin-dialog', () => ({
-  save: (options?: unknown) => saveMock(options),
-}));
 
 // In the desktop app the download goes through the HTTP plugin (see appFetch).
 vi.mock('@tauri-apps/plugin-http', () => ({
   fetch: (url: string) => fetchMock(url),
 }));
 
-vi.mock('@tauri-apps/plugin-fs', () => ({
-  writeFile: (path: string, bytes: Uint8Array) => writeFileMock(path, bytes),
-}));
 
 describe('downloadRemoteImage', () => {
   beforeEach(() => {
     isTauriMock.mockReset();
     saveMock.mockReset();
-    writeFileMock.mockReset();
+    invokeMock.mockReset();
     fetchMock.mockReset();
     vi.stubGlobal('fetch', fetchMock);
   });
@@ -38,7 +37,7 @@ describe('downloadRemoteImage', () => {
 
     await downloadRemoteImage('https://example.com/photos/mountain.jpg');
 
-    expect(saveMock).toHaveBeenCalledWith({ defaultPath: 'mountain.jpg' });
+    expect(saveMock).toHaveBeenCalledWith({ defaultName: 'mountain.jpg' });
   });
 
   it('cancelling the dialog (null) performs no fetch or write', async () => {
@@ -49,12 +48,12 @@ describe('downloadRemoteImage', () => {
     await downloadRemoteImage('https://example.com/photos/mountain.jpg');
 
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(writeFileMock).not.toHaveBeenCalled();
+    expect(invokeMock).not.toHaveBeenCalled();
   });
 
   it('confirming a destination fetches the URL and writes its bytes there', async () => {
     isTauriMock.mockReturnValue(true);
-    saveMock.mockResolvedValue('/Users/me/Downloads/mountain.jpg');
+    saveMock.mockResolvedValue(TICKET);
     const bytes = new Uint8Array([1, 2, 3]);
     fetchMock.mockResolvedValue({ arrayBuffer: () => Promise.resolve(bytes.buffer) });
     const { downloadRemoteImage } = await import('./downloadRemoteImage');
@@ -62,9 +61,10 @@ describe('downloadRemoteImage', () => {
     await downloadRemoteImage('https://example.com/photos/mountain.jpg');
 
     expect(fetchMock).toHaveBeenCalledWith('https://example.com/photos/mountain.jpg');
-    expect(writeFileMock).toHaveBeenCalledWith(
-      '/Users/me/Downloads/mountain.jpg',
-      new Uint8Array([1, 2, 3])
+    expect(invokeMock).toHaveBeenCalledWith(
+      'export_write_file',
+      new Uint8Array([1, 2, 3]),
+      { headers: { ticket: String(TICKET) } }
     );
   });
 

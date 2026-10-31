@@ -183,4 +183,69 @@ mod tests {
         assert!(authorize_entry("relative.md", &allowed, &nothing_forbidden).is_err());
         assert!(authorize_entry(&format!("{}/../x.md", vault.0.display()), &allowed, &nothing_forbidden).is_err());
     }
+
+    // ---- what the webview may ask the fs plugin to do (the real capability, the real permission check) -------
+
+    use tauri::ipc::{CallbackFn, InvokeBody};
+    use tauri::test::{get_ipc_response, INVOKE_KEY};
+    use tauri::webview::InvokeRequest;
+
+    /// The plugin's answer for `command` sent by the `main` window, through the real ACL of `capabilities/default.json`.
+    fn plugin_fs_answer(window: &tauri::WebviewWindow<tauri::test::MockRuntime>, command: &str, args: serde_json::Value) -> Result<serde_json::Value, serde_json::Value> {
+        get_ipc_response(
+            window,
+            InvokeRequest {
+                cmd: format!("plugin:fs|{command}"),
+                callback: CallbackFn(0),
+                error: CallbackFn(1),
+                url: "tauri://localhost".parse().unwrap(),
+                body: InvokeBody::Json(args),
+                headers: Default::default(),
+                invoke_key: INVOKE_KEY.to_string(),
+            },
+        )
+        .map(|body| body.deserialize().unwrap())
+    }
+
+    fn is_acl_refusal(answer: &Result<serde_json::Value, serde_json::Value>) -> bool {
+        matches!(answer, Err(error) if error.as_str().is_some_and(|text| text.contains("not allowed")))
+    }
+
+    /// The file-writing and file-opening commands of the fs plugin that the webview must not hold. `open` is here
+    /// because the plugin lets it open for writing and truncating (`create`, `truncate`, `write`) on the strength of
+    /// its read permission alone.
+    const DENIED_FS_COMMANDS: &[&str] = &["write_file", "copy_file", "create", "truncate", "ftruncate", "write", "open", "watch", "unwatch", "read", "seek"];
+
+    /// What Clutter's own code uses of the plugin (`LocalFileSystem`, `TauriRecoveryStorage`, `probeSpaceFolder`,
+    /// `coverImageBytes`), checked against the source by `pluginFsCapabilityAudit.test.ts`.
+    const GRANTED_FS_COMMANDS: &[&str] = &["read_dir", "read_file", "read_text_file", "exists", "stat", "mkdir", "rename", "remove", "write_text_file"];
+
+    #[test]
+    fn the_webview_cannot_overwrite_truncate_or_open_for_writing_through_the_fs_plugin() {
+        let app = tauri::test::mock_builder().plugin(tauri_plugin_fs::init()).build(crate::app_context()).unwrap();
+        let window = tauri::WebviewWindowBuilder::new(&app, "main", Default::default()).build().unwrap();
+        let victim = Scratch::new("acl-victim");
+        fs::write(victim.path("note.md"), b"my note").unwrap();
+        fs::write(victim.path("photo.png"), b"my photo").unwrap();
+        let args = serde_json::json!({ "path": victim.path("photo.png"), "from": victim.path("note.md"), "to": victim.path("photo.png"), "options": { "write": true, "truncate": true, "create": true } });
+
+        for command in DENIED_FS_COMMANDS {
+            let answer = plugin_fs_answer(&window, command, args.clone());
+            assert!(is_acl_refusal(&answer), "plugin:fs|{command} must not be callable by the webview: {answer:?}");
+        }
+        assert_eq!(fs::read(victim.path("photo.png")).unwrap(), b"my photo");
+        assert_eq!(fs::read(victim.path("note.md")).unwrap(), b"my note");
+    }
+
+    #[test]
+    fn the_webview_can_still_use_every_fs_plugin_command_clutter_itself_needs() {
+        let app = tauri::test::mock_builder().plugin(tauri_plugin_fs::init()).build(crate::app_context()).unwrap();
+        let window = tauri::WebviewWindowBuilder::new(&app, "main", Default::default()).build().unwrap();
+
+        for command in GRANTED_FS_COMMANDS {
+            // Whatever the plugin says about these arguments, it is not the permission system refusing the command.
+            let answer = plugin_fs_answer(&window, command, serde_json::json!({}));
+            assert!(!is_acl_refusal(&answer), "plugin:fs|{command} is needed and must stay granted: {answer:?}");
+        }
+    }
 }

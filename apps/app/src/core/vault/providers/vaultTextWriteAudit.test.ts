@@ -29,16 +29,18 @@ function importersOf(primitive: string): string[] {
     .sort();
 }
 
-describe('vault text writes have one door', () => {
+describe('vault text writes have one door', { timeout: 30_000 }, () => {
   it('writeTextFile is imported only by the vault provider and by recovery storage (app data, outside every vault)', () => {
     expect(importersOf('writeTextFile')).toEqual(['core/recovery/TauriRecoveryStorage.ts', 'core/vault/providers/LocalFileSystem.ts']);
   });
 
-  it('the plugin\'s binary writeFile and copyFile, which replace what is at the destination, are imported only by the downloads to a place the user chose in the Save dialog', () => {
-    // Never by the vault provider: assets, pasted files and duplicates go through the native no-clobber commands
-    // (`write_file_no_clobber`, `copy_file_no_clobber`), which refuse an existing destination.
-    expect(importersOf('writeFile')).toEqual(['shared/helpers/downloadRemoteImage.ts', 'shared/helpers/downloadTextFile.ts']);
-    expect(importersOf('copyFile')).toEqual(['shared/helpers/downloadResource.ts']);
+  it('the plugin\'s binary writeFile and copyFile, which replace what is at the destination, are imported by nobody', () => {
+    // Assets, pasted files and duplicates go through the native no-clobber commands (`write_file_no_clobber`,
+    // `copy_file_no_clobber`); the downloads to a place the user chose go through the native export commands
+    // (`export_pick_destination`, `export_copy_file`, `export_write_file`). The commands are not even granted
+    // (`pluginFsCapabilityAudit.test.ts`).
+    expect(importersOf('writeFile')).toEqual([]);
+    expect(importersOf('copyFile')).toEqual([]);
   });
 
   it('the plain vault provider is constructed only by the Composition Root and the one factory for short-lived jobs', () => {

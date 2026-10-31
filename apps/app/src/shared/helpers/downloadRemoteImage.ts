@@ -1,6 +1,5 @@
 import { isTauri } from '@tauri-apps/api/core';
-import { save } from '@tauri-apps/plugin-dialog';
-import { writeFile } from '@tauri-apps/plugin-fs';
+import { exportWriteBytes, pickExportDestination } from './nativeExport';
 import { appFetch } from './appFetch';
 
 /**
@@ -23,7 +22,7 @@ function suggestedFileNameFromUrl(url: string): string {
  * Exports a copy of an externally-hosted image (no local `VaultResource`
  * behind it — see `imageResourceResolution.ts`) to a user-chosen
  * destination via the native Save dialog — the fetch-based counterpart to
- * `downloadResource.ts`'s local `copy_file`, needed because there's no
+ * `downloadResource.ts`'s local copy, needed because there's no
  * source file on disk to copy from. No-op in the web runtime, mirroring
  * `downloadResource.ts`'s own `isTauri()` guard. Resolves true only when the
  * file was written (false: web runtime or the dialog was cancelled), so a caller can
@@ -34,14 +33,14 @@ export async function downloadRemoteImage(url: string): Promise<boolean> {
     return false;
   }
 
-  const destination = await save({ defaultPath: suggestedFileNameFromUrl(url) });
+  const destination = await pickExportDestination(suggestedFileNameFromUrl(url));
   if (!destination) {
     return false;
   }
 
   const response = await appFetch(url);
   const bytes = new Uint8Array(await response.arrayBuffer());
-  await writeFile(destination, bytes);
+  await exportWriteBytes(destination, bytes);
 
   return true;
 }

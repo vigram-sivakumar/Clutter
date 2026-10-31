@@ -2,25 +2,24 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 const isTauriMock = vi.fn();
 const saveMock = vi.fn();
-const writeFileMock = vi.fn();
 
+// The native Save panel (`export_pick_destination`) answers with a single-use ticket, or null when cancelled; the
+// other two export commands receive that ticket and never a destination path.
+const TICKET = 7;
+const invokeMock = vi.fn();
 vi.mock('@tauri-apps/api/core', () => ({
   isTauri: () => isTauriMock(),
+  invoke: (command: string, args?: unknown, options?: unknown) =>
+    command === 'export_pick_destination' ? saveMock(args) : invokeMock(command, args, options),
 }));
 
-vi.mock('@tauri-apps/plugin-dialog', () => ({
-  save: (options?: unknown) => saveMock(options),
-}));
 
-vi.mock('@tauri-apps/plugin-fs', () => ({
-  writeFile: (path: string, bytes: Uint8Array) => writeFileMock(path, bytes),
-}));
 
 describe('downloadTextFile', () => {
   beforeEach(() => {
     isTauriMock.mockReset();
     saveMock.mockReset();
-    writeFileMock.mockReset();
+    invokeMock.mockReset();
   });
 
   it('opens the native Save dialog defaulted to the given filename', async () => {
@@ -30,12 +29,12 @@ describe('downloadTextFile', () => {
 
     await downloadTextFile(() => 'const a = 1;', 'code.js');
 
-    expect(saveMock).toHaveBeenCalledWith({ defaultPath: 'code.js' });
+    expect(saveMock).toHaveBeenCalledWith({ defaultName: 'code.js' });
   });
 
   it('does not call getContent before the dialog resolves', async () => {
     isTauriMock.mockReturnValue(true);
-    let resolveSave!: (value: string | null) => void;
+    let resolveSave!: (value: number | null) => void;
     saveMock.mockReturnValue(new Promise((resolve) => (resolveSave = resolve)));
     const getContent = vi.fn(() => 'const a = 1;');
     const { downloadTextFile } = await import('./downloadTextFile');
@@ -43,7 +42,7 @@ describe('downloadTextFile', () => {
     const pending = downloadTextFile(getContent, 'code.js');
     expect(getContent).not.toHaveBeenCalled();
 
-    resolveSave('/Users/me/Downloads/code.js');
+    resolveSave(TICKET);
     await pending;
 
     expect(getContent).toHaveBeenCalledTimes(1);
@@ -58,19 +57,21 @@ describe('downloadTextFile', () => {
     await downloadTextFile(getContent, 'code.js');
 
     expect(getContent).not.toHaveBeenCalled();
-    expect(writeFileMock).not.toHaveBeenCalled();
+    expect(invokeMock).not.toHaveBeenCalled();
   });
 
   it('confirming a destination writes the UTF-8-encoded content there', async () => {
     isTauriMock.mockReturnValue(true);
-    saveMock.mockResolvedValue('/Users/me/Downloads/code.js');
+    saveMock.mockResolvedValue(TICKET);
     const { downloadTextFile } = await import('./downloadTextFile');
 
     await downloadTextFile(() => 'const a = 1;', 'code.js');
 
-    expect(writeFileMock).toHaveBeenCalledWith(
-      '/Users/me/Downloads/code.js',
-      new TextEncoder().encode('const a = 1;')
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    expect(invokeMock).toHaveBeenCalledWith(
+      'export_write_file',
+      new TextEncoder().encode('const a = 1;'),
+      { headers: { ticket: String(TICKET) } }
     );
   });
 

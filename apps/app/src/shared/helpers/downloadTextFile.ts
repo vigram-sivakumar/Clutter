@@ -1,6 +1,5 @@
 import { isTauri } from '@tauri-apps/api/core';
-import { save } from '@tauri-apps/plugin-dialog';
-import { writeFile } from '@tauri-apps/plugin-fs';
+import { exportWriteBytes, pickExportDestination } from './nativeExport';
 
 /**
  * Exports in-memory text content (no source file, no URL — see
@@ -22,11 +21,9 @@ import { writeFile } from '@tauri-apps/plugin-fs';
  * `getContent()` only after `save()` resolves means the file actually
  * written always reflects the document at save time, not at click time.
  *
- * `writeFile` (binary), not `writeTextFile`, reuses the exact permission
- * (`fs:allow-write-file`) `downloadRemoteImage.ts` already has granted in
- * `src-tauri/capabilities/default.json` — introducing `writeTextFile`
- * would need a new capability grant for no real benefit over encoding the
- * string once here. No-op in the web runtime, mirroring both siblings'
+ * The content is encoded once here and written by the native export
+ * command (`nativeExport.ts`), which writes to the place the Save panel
+ * returned and nowhere else. No-op in the web runtime, mirroring both siblings'
  * own `isTauri()` guard — there is no web-runtime download fallback
  * anywhere in this app today.
  */
@@ -38,10 +35,10 @@ export async function downloadTextFile(
     return;
   }
 
-  const destination = await save({ defaultPath: defaultFileName });
+  const destination = await pickExportDestination(defaultFileName);
   if (!destination) {
     return;
   }
 
-  await writeFile(destination, new TextEncoder().encode(getContent()));
+  await exportWriteBytes(destination, new TextEncoder().encode(getContent()));
 }
