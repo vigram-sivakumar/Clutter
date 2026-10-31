@@ -9,8 +9,10 @@
  *    original, in either case;
  *  - every dragged item is drawn as a temporary clone in ONE overlay owned here: the lead (the item the pointer took
  *    hold of) is the ghost that follows the pointer; the others converge on it and fade out; a count says how many;
- *  - cancelled, the clones fly back to where their originals are NOW (the layout may have changed meanwhile) and
- *    the originals are restored; dropped, the clones and the hiding go together, once the collection has updated.
+ *  - everything fades: a clone is born at `opacity: 0` and fades in as it travels (together, not one then the other);
+ *    cancelled, the clones fly back to where their originals are NOW (the layout may have changed meanwhile) from
+ *    their current place and opacity, fading to 0 on the way, and the originals are restored; dropped, the clones
+ *    simply fade out in place while the collection updates, and the hiding ends with them.
  *
  * Changing how dragging looks — not hiding the originals, a miniature grid instead of a count, a different
  * animation — is a change to this file and `DRAG_VISUAL_POLICY`, and affects every drag.
@@ -52,8 +54,10 @@ export const DRAG_VISUAL_POLICY = {
   convergenceMs: 220,
   staggerMs: 16,
   maxStaggered: 8,
-  /** Where in its flight an item starts to fade (it is gone when it arrives). */
-  fadeStartsAt: 0.55,
+  /** A dropped drag's clones fade out in place over this long (never flying back), while the collection updates. */
+  commitFadeMs: 90,
+  /** An original that was hidden is shown again this far through its clone's flight back, while the clone is still fading (no pop). */
+  restoreAtReturnProgress: 0.7,
   /** Where the count rides, from the cursor. */
   countOffsetPx: 14,
   /** However an animation ends — or never does (a window that is not painted runs no frames) — everything is gone by then. */
@@ -96,8 +100,6 @@ function prefersReducedMotion(): boolean {
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 /** Smooth acceleration and deceleration, no overshoot. */
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
-const fadeAt = (progress: number) =>
-  progress <= DRAG_VISUAL_POLICY.fadeStartsAt ? 1 : 1 - (progress - DRAG_VISUAL_POLICY.fadeStartsAt) / (1 - DRAG_VISUAL_POLICY.fadeStartsAt);
 
 interface Box {
   x: number;
@@ -188,7 +190,8 @@ export function createDragVisuals(): DragVisuals {
         delay: index === 0 || reduced ? 0 : Math.min(index - 1, policy.maxStaggered) * policy.staggerMs,
         hadAttribute: source.getAttribute(DRAG_SOURCE_ATTRIBUTE),
         box: { ...origin },
-        opacity: 1,
+        // Born invisible: every clone fades in as it moves.
+        opacity: 0,
       };
     });
     const leadItem = items[0]!;
@@ -216,6 +219,9 @@ export function createDragVisuals(): DragVisuals {
     let returnStartedAt: number | null = null;
     let returnFrom: Box[] = [];
     let returnFromOpacity: number[] = [];
+    let commitStartedAt: number | null = null;
+    let commitFromOpacity: number[] = [];
+    let restored = false;
     let unsubscribe: (() => void) | null = session.subscribe(() => render());
 
     /** Where the lead ghost would sit under the pointer now: centred on it, or kept in its column (a pinned sidebar row). */
@@ -247,7 +253,7 @@ export function createDragVisuals(): DragVisuals {
 
     /** Draws everything for `now`. Called on every pointer move (so the ghost never lags) and, while something is animating, every frame. */
     function render(now: number = performance.now()) {
-      if (phase === 'finished' || phase === 'holding' || phase === 'committing') {
+      if (phase === 'finished' || phase === 'holding') {
         return;
       }
       const { pointer } = session;
@@ -259,7 +265,11 @@ export function createDragVisuals(): DragVisuals {
         const target = leadTarget();
         // The lead eases from the original's place onto the pointer (the pointer itself is followed from the first frame).
         const share = reduced || !target.free ? 1 : ease(clamp01(elapsed / policy.settleMs));
-        animating ||= share < 1;
+        // The ghost fades in over a VISIBLE original (several items); a single item's original is hidden the moment its
+        // clone appears, so the clone is already opaque (swapping one for the other would dip to nothing) and its
+        // frame — fill and shadow — fades in instead (the `--entering` animation).
+        const leadOpacity = reduced || hidden.length > 0 ? 1 : ease(clamp01(elapsed / policy.settleMs));
+        animating ||= share < 1 || leadOpacity < 1;
         place(
           leadItem,
           {
@@ -268,7 +278,7 @@ export function createDragVisuals(): DragVisuals {
             width: leadItem.origin.width + (target.box.width - leadItem.origin.width) * share,
             height: target.box.height,
           },
-          1,
+          leadOpacity,
           target.free
         );
         leadItem.element.classList.toggle('drag-ghost--entering', share < 1);
@@ -289,7 +299,8 @@ export function createDragVisuals(): DragVisuals {
                 width: item.origin.width,
                 height: item.origin.height,
               },
-              fadeAt(progress)
+              // Fading in together with the movement — never one after the other.
+              progress
             );
           }
         }
@@ -312,9 +323,29 @@ export function createDragVisuals(): DragVisuals {
               width: from.width + (to.width - from.width) * progress,
               height: from.height + (to.height - from.height) * progress,
             },
-            returnFromOpacity[index]! + (1 - returnFromOpacity[index]!) * progress,
+            // From the opacity it has now, down to nothing.
+            returnFromOpacity[index]! * (1 - progress),
             true
           );
+        });
+        if (count) {
+          count.style.opacity = String(1 - progress);
+        }
+        if (progress >= policy.restoreAtReturnProgress) {
+          restoreOriginals(); // while the clone is still fading, so the original never pops in
+        }
+        if (progress >= 1) {
+          finish();
+          return;
+        }
+        animating = true;
+      } else if (phase === 'committing') {
+        // A drop that did something: no flight back. The clones fade out where they are while the collection updates.
+        commitStartedAt ??= now;
+        const progress = ease(clamp01((now - commitStartedAt) / policy.commitFadeMs));
+        drawn.forEach((item, index) => {
+          item.opacity = commitFromOpacity[index]! * (1 - progress);
+          item.element.style.opacity = item.opacity === 1 ? '' : String(item.opacity);
         });
         if (count) {
           count.style.opacity = String(1 - progress);
@@ -343,6 +374,21 @@ export function createDragVisuals(): DragVisuals {
       }
     }
 
+    /** Back to exactly what each hidden original had: the marker is only ever the hiding, never a style of its own. */
+    function restoreOriginals() {
+      if (restored) {
+        return;
+      }
+      restored = true;
+      for (const item of hidden) {
+        if (item.hadAttribute === null) {
+          item.source.removeAttribute(DRAG_SOURCE_ATTRIBUTE);
+        } else {
+          item.source.setAttribute(DRAG_SOURCE_ATTRIBUTE, item.hadAttribute);
+        }
+      }
+    }
+
     /** The one way out. Idempotent. */
     function finish() {
       if (phase === 'finished') {
@@ -353,14 +399,7 @@ export function createDragVisuals(): DragVisuals {
       timers.forEach(clearTimeout);
       timers.clear();
       overlay.remove(); // every clone and the count with it
-      for (const item of hidden) {
-        // Back to exactly what the original had: the marker is only ever the hiding, never a style of its own.
-        if (item.hadAttribute === null) {
-          item.source.removeAttribute(DRAG_SOURCE_ATTRIBUTE);
-        } else {
-          item.source.setAttribute(DRAG_SOURCE_ATTRIBUTE, item.hadAttribute);
-        }
-      }
+      restoreOriginals();
       items.length = 0;
       if (finishCurrent === finish) {
         finishCurrent = null;
@@ -385,9 +424,15 @@ export function createDragVisuals(): DragVisuals {
         }
         phase = 'committing';
         stopFollowing();
-        // The clones stay, the originals stay hidden, until the collection has rendered its update — then both go
-        // together, so neither a duplicate nor a gap shows. (Not on frames alone: a window that is not painted has none.)
-        afterNextRender(finish);
+        commitFromOpacity = drawn.map((item) => item.opacity);
+        // The clones fade out where the cursor left them, the originals stay hidden until they are gone: the collection
+        // has rendered its update by then, so neither a duplicate nor a gap shows. (Not on frames alone: a window that
+        // is not painted has none.)
+        if (reduced) {
+          afterNextRender(finish);
+        } else {
+          render();
+        }
         timers.add(setTimeout(finish, policy.safetyMs));
       },
 

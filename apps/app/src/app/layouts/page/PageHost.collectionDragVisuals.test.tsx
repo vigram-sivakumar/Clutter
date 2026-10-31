@@ -245,6 +245,46 @@ describe.each(['list', 'table', 'card'] as const)('the shared drag visuals in th
       advance(FULL);
     });
 
+    it('the clones fade in as they travel, and out as they return (or as a drop completes) — never abruptly', async () => {
+      select('N1', 'N2', 'N3');
+      await drag(card(ids.N1!), { x: 820, y: 650 }, { release: false });
+      const [lead, other] = clones() as [HTMLElement, HTMLElement];
+      expect(other.style.opacity).toBe('0'); // born invisible
+      advance(70);
+      expect(Number(other.style.opacity)).toBeGreaterThan(0);
+      expect(Number(other.style.opacity)).toBeLessThan(1); // fading in while it moves
+      advance(FULL);
+      expect(other.style.opacity).toBe('');
+
+      escape();
+      advance(100);
+      expect(Number(other.style.opacity)).toBeLessThan(1); // fading out as it returns…
+      expect(Number(lead.style.opacity)).toBeLessThan(1);
+      expect(overlay()).not.toBeNull();
+      advance(FULL);
+      expect(overlay()).toBeNull(); // …and removed only once gone
+      release();
+    });
+
+    it('a successful drop fades the clones out in place — no flight back', async () => {
+      select('N1', 'N2');
+      await drag(card(ids.N1!), centre(card(ids.Alpha!)), { release: false });
+      advance(FULL);
+      const lead = clones()[0]!;
+      const where = centreOf(lead);
+
+      release(centre(card(ids.Alpha!)).x, centre(card(ids.Alpha!)).y);
+      await settle();
+      advance(30);
+
+      if (lead.isConnected) {
+        expect(centreOf(lead)).toEqual(where);
+        expect(Number(lead.style.opacity || 1)).toBeLessThan(1);
+      }
+      advance(FULL);
+      expect(overlay()).toBeNull();
+    });
+
     it('Escape flies the clones back, then removes them; nothing moved', async () => {
       select('N1', 'N2', 'N3');
       await drag(card(ids.N1!), { x: 450, y: 300 }, { release: false });

@@ -184,7 +184,7 @@ describe('one drag-visual system: starting', () => {
     advance(FULL);
     expect(centreOf(lead)).toEqual({ x: 700, y: 500 });
     expect(centreOf(other)).toEqual({ x: 700, y: 500 });
-    expect(other.style.opacity).toBe('0');
+    expect(other.style.opacity).toBe(''); // arrived fully opaque (it faded IN on the way)
 
     move(300, 650); // the pointer keeps going: the ghost is exact at once, the others follow on the next frame
     expect(centreOf(lead)).toEqual({ x: 300, y: 650 });
@@ -213,6 +213,119 @@ describe('one drag-visual system: starting', () => {
 
     expect(clones()).toHaveLength(1);
     expect(document.querySelector('.drag-ghost-count')).toBeNull();
+  });
+});
+
+describe('fading', () => {
+  it('every clone is born at opacity 0 and fades in WHILE it moves — the ghost over a visible original too', () => {
+    const [a, b] = [item('a', A), item('b', B)] as const;
+    visuals.start(makeSession(a, { x: 700, y: 500 }).session, [b]);
+    const [lead, other] = clones() as [HTMLElement, HTMLElement];
+
+    expect(lead.style.opacity).toBe('0');
+    expect(other.style.opacity).toBe('0');
+
+    advance(64);
+    const moved = Math.hypot(centreOf(other).x - 250, centreOf(other).y - 220);
+    const mid = { lead: Number(lead.style.opacity), other: Number(other.style.opacity) };
+    expect(mid.lead).toBeGreaterThan(0);
+    expect(mid.lead).toBeLessThan(1);
+    expect(mid.other).toBeGreaterThan(0);
+    expect(mid.other).toBeLessThan(1);
+    expect(moved).toBeGreaterThan(1); // moving at the same time
+
+    advance(FULL);
+    expect(lead.style.opacity).toBe('');
+    expect(other.style.opacity).toBe('');
+  });
+
+  it('a single item\'s clone is opaque at once — its original is hidden, so a fade would dip to nothing — and its frame fades in', () => {
+    const a = item('a', A);
+    visuals.start(makeSession(a).session);
+
+    expect(clones()[0]!.style.opacity).toBe('');
+    expect(clones()[0]).toHaveClass('drag-ghost--entering');
+  });
+
+  it('cancel: each clone flies back from its CURRENT place and opacity, fading to 0 on the way — never reset first', () => {
+    const [a, b] = [item('a', A), item('b', B)] as const;
+        const handle = visuals.start(makeSession(a, { x: 700, y: 500 }).session, [b]);
+    advance(70); // mid-flight: partly moved, partly faded in
+    const [lead, other] = clones() as [HTMLElement, HTMLElement];
+    const before = { x: centreOf(other).x, y: centreOf(other).y, opacity: Number(other.style.opacity), lead: Number(lead.style.opacity) };
+
+    handle.cancel();
+    advance(16);
+    // The first frame back continues from where it was: no jump to the start, none to full opacity.
+    expect(Math.abs(centreOf(other).x - before.x)).toBeLessThan(40);
+    expect(Math.abs(centreOf(other).y - before.y)).toBeLessThan(40);
+    expect(Number(other.style.opacity)).toBeLessThanOrEqual(before.opacity + 0.01);
+    expect(Number(lead.style.opacity)).toBeLessThanOrEqual(before.lead + 0.01);
+
+    advance(DRAG_VISUAL_POLICY.returnMs / 2);
+    expect(Number(other.style.opacity)).toBeLessThan(before.opacity);
+    advance(FULL);
+    expect(overlay()).toBeNull();
+  });
+
+  it('cancel fades a fully-shown ghost from 1 to 0 as it returns, and removes it only when gone', () => {
+    const [a, b] = [item('a', A), item('b', B)] as const;
+    const handle = visuals.start(makeSession(a, { x: 700, y: 500 }).session, [b]);
+    advance(FULL);
+
+    handle.cancel();
+    advance(DRAG_VISUAL_POLICY.returnMs * 0.6);
+    const lead = clones()[0]!;
+    expect(Number(lead.style.opacity)).toBeGreaterThan(0);
+    expect(Number(lead.style.opacity)).toBeLessThan(1);
+
+    advance(FULL);
+    expect(overlay()).toBeNull();
+  });
+
+  it('a hidden original is shown again while its clone is still fading, so it never pops in', () => {
+    const a = item('a', A);
+    const handle = visuals.start(makeSession(a, { x: 700, y: 500 }).session);
+    advance(FULL);
+
+    handle.cancel();
+    advance(DRAG_VISUAL_POLICY.returnMs * 0.5);
+    expect(a).toHaveAttribute(DRAG_SOURCE_ATTRIBUTE, 'true'); // not yet
+    advance(DRAG_VISUAL_POLICY.returnMs * 0.35);
+    expect(a.hasAttribute(DRAG_SOURCE_ATTRIBUTE)).toBe(false); // back, with the clone still on its way out
+    expect(overlay()).not.toBeNull();
+    expect(Number(clones()[0]!.style.opacity)).toBeGreaterThan(0);
+
+    advance(FULL);
+    expect(overlay()).toBeNull();
+  });
+
+  it('cancelling an animation already in progress, then another drag at once, leaves no stale opacity or clone', () => {
+    const [a, b] = [item('a', A), item('b', B)] as const;
+    const first = visuals.start(makeSession(a, { x: 700, y: 500 }).session, [b]);
+    advance(40);
+    first.cancel();
+    advance(40);
+
+    const second = visuals.start(makeSession(b).session, [a]);
+    expect(document.querySelectorAll('.drag-visuals')).toHaveLength(1);
+    expect(clones().every((clone) => clone.style.opacity === '0')).toBe(true); // a fresh start, from nothing
+
+    second.dispose();
+    advance(FULL);
+    expect(overlay()).toBeNull();
+    expect(clock.pending()).toBe(0);
+  });
+
+  it('with reduced motion nothing is faded: the ghost is opaque at once and a cancel ends at once', () => {
+    restoreMotion();
+    restoreMotion = stubReducedMotion(true);
+    const [a, b] = [item('a', A), item('b', B)] as const;
+    const handle = visuals.start(makeSession(a, { x: 700, y: 500 }).session, [b]);
+
+    expect(clones()[0]!.style.opacity).toBe('');
+    handle.cancel();
+    expect(overlay()).toBeNull();
   });
 });
 
@@ -251,23 +364,43 @@ describe('ending a drag', () => {
     expect(overlay()).toBeNull();
   });
 
-  it('commit: nothing flies back — the clones and the hiding stay until the collection has updated, then go together', () => {
-    const [a, b] = [item('a', A), item('b', B)] as const;
+  it('commit: nothing flies back — the clones fade out where the cursor left them, then go with the hiding', () => {
+    const a = item('a', A);
     const { session } = makeSession(a, { x: 700, y: 500 });
-    const handle = visuals.start(session, [b]);
+    const handle = visuals.start(session);
     advance(FULL);
     handle.release();
+    const where = centreOf(clones()[0]!);
 
     handle.commit();
-    advance(16);
-    expect(overlay()).not.toBeNull(); // not before the render: neither a duplicate nor a gap
-    expect(a.hasAttribute(DRAG_SOURCE_ATTRIBUTE)).toBe(false); // the originals were never hidden
-    expect(centreOf(clones()[0]!)).toEqual({ x: 700, y: 500 }); // exactly where the cursor left it
+    advance(32);
+    expect(overlay()).not.toBeNull(); // not before the collection has rendered: neither a duplicate nor a gap
+    expect(a).toHaveAttribute(DRAG_SOURCE_ATTRIBUTE, 'true');
+    expect(centreOf(clones()[0]!)).toEqual(where); // in place — no flight back
+    const fading = Number(clones()[0]!.style.opacity);
+    expect(fading).toBeLessThan(1);
+    expect(fading).toBeGreaterThan(0);
 
-    advance(48);
+    advance(FULL);
     expect(overlay()).toBeNull();
     expect(a.hasAttribute(DRAG_SOURCE_ATTRIBUTE)).toBe(false);
-    expect(b.hasAttribute(DRAG_SOURCE_ATTRIBUTE)).toBe(false);
+    expect(clock.pending()).toBe(0);
+  });
+
+  it('commit of several items: the originals stay as they were, only the clones fade out', () => {
+    const [a, b] = [item('a', A), item('b', B)] as const;
+    const before = [a, b].map((el) => el.outerHTML);
+    const handle = visuals.start(makeSession(a, { x: 700, y: 500 }).session, [b]);
+    advance(FULL);
+
+    handle.commit();
+    advance(32);
+    expect([a, b].map((el) => el.outerHTML)).toEqual(before);
+    expect(clones().every((clone) => Number(clone.style.opacity || 1) < 1)).toBe(true);
+    advance(FULL);
+
+    expect(overlay()).toBeNull();
+    expect([a, b].map((el) => el.outerHTML)).toEqual(before);
   });
 
   it('release holds the clones where they are while the drop is decided', () => {
