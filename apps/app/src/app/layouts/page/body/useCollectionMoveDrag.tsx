@@ -103,7 +103,7 @@ export function useCollectionMoveDrag(
   const cancelDrag = (convergence: Convergence | null): void => {
     convergence?.revert();
     const last = lastDragRef.current;
-    if (convergence && last?.payload.items) {
+    if (convergence && convergence === convergenceRef.current && last?.payload.items) {
       setAfter({ drag: last, phase: 'returning' });
     }
   };
@@ -140,12 +140,18 @@ export function useCollectionMoveDrag(
   // Before the first paint of the drag, while every item is still where it was.
   useLayoutEffect(() => {
     const payload = drag?.payload;
-    if (!drag || !payload?.items) {
+    if (!drag || !payload) {
       return;
     }
+    // EVERY drag starts from nothing — a single-item one too: what an earlier multi-item drag left in these refs
+    // would otherwise be taken for this drag's own (a stale ghost flying back from the old cursor).
     lastDragRef.current = drag;
-    setAfter(null); // nor a previous drag's ghost still held or flying back
+    setAfter(null); // no previous drag's ghost still held or flying back
     convergenceRef.current?.dispose(); // never let one drag's animation linger into the next
+    convergenceRef.current = null;
+    if (!payload.items) {
+      return;
+    }
     const byId = new Map<string, HTMLElement>();
     document.querySelectorAll<HTMLElement>('[data-drag-inside-only="true"][data-drag-id]').forEach((element) => {
       byId.set(`${element.dataset.dragKind}:${element.dataset.dragId}`, element);

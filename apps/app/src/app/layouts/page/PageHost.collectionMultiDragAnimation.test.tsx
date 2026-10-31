@@ -395,6 +395,115 @@ describe.each(['list', 'table', 'card'] as const)('the convergence in the %s lay
   });
 });
 
+describe('no artifact survives a drag, however it ends', () => {
+  beforeEach(() => setUp('list'));
+
+  const ghosts = () => document.querySelectorAll('.drag-ghost, .drag-ghost-count').length;
+  const hiddenOriginals = () => document.querySelectorAll('[data-drag-source="true"]').length;
+  const styledItems = () =>
+    [...document.querySelectorAll<HTMLElement>('[data-drag-inside-only="true"]')].filter((el) => el.style.transform !== '' || el.style.opacity !== '').length;
+  /** Everything a drag may have put on the page, and every frame or timer it may still have pending. */
+  const expectPristine = () => {
+    expect(ghosts()).toBe(0);
+    expect(hiddenOriginals()).toBe(0);
+    expect(styledItems()).toBe(0);
+    expect(clock.pending()).toBe(0);
+  };
+
+  it('a single-item drag cancelled after a multi-item drag shows no stale ghost of the earlier one', async () => {
+    select('N1', 'N2');
+    await drag(card(ids.N1!), { x: 900, y: 700 });
+    await settle();
+    advance(FULL * 2); // the first drag has fully ended
+    expectPristine();
+
+    // A single item (not checked) is now dragged and cancelled.
+    await drag(card(ids.N4!), { x: 900, y: 700 }, { release: false });
+    act(() => void fireEvent.keyDown(document, { key: 'Escape' }));
+    // At once — not after a while: a stale ghost would be flying back from the earlier drag's cursor.
+    expect(ghosts()).toBe(0);
+    expect(hiddenOriginals()).toBe(0);
+    advance(FULL);
+
+    expectPristine();
+  });
+
+  it('a single-item drag released with no drop, after a multi-item drag, leaves nothing either', async () => {
+    select('N1', 'N2');
+    await drag(card(ids.N1!), { x: 900, y: 700 });
+    await settle();
+    advance(FULL * 2);
+
+    await drag(card(ids.N4!), { x: 900, y: 700 });
+    await settle();
+    expect(ghosts()).toBe(0);
+    expect(hiddenOriginals()).toBe(0);
+    advance(FULL);
+
+    expectPristine();
+  });
+
+  it.each([
+    ['Escape', async () => act(() => void fireEvent.keyDown(document, { key: 'Escape' }))],
+    ['a pointer cancel', async () => act(() => void fireEvent.pointerCancel(document, { pointerId: 1 }))],
+    ['losing the window', async () => act(() => void fireEvent.blur(window))],
+    ['a release over empty space', async () => release(900, 700)],
+  ] as const)('%s leaves nothing behind, even when the next drag starts at once', async (_name, end) => {
+    select('N1', 'N2', 'N4');
+    for (let round = 0; round < 3; round += 1) {
+      await drag(card(ids.N1!), { x: 800 + round, y: 600 }, { release: false });
+      advance(40); // before the convergence has finished
+      await end();
+      await settle();
+      advance(30); // …and the next drag starts while this one is still flying back
+    }
+    advance(FULL * 2);
+
+    release();
+    await settle();
+    advance(FULL * 2);
+    expectPristine();
+  });
+
+  it('several successful moves in a row leave nothing behind', async () => {
+    for (const [from, to] of [[['N1', 'N2'], 'Alpha'], [['N3'], 'Beta']] as const) {
+      select(...from);
+      await drag(card(ids[from[0]]!), centre(card(ids[to]!)));
+      await settle();
+      advance(FULL * 2);
+    }
+    expect(parentOf('N1')).toBe(ids.Alpha);
+    expect(parentOf('N3')).toBe(ids.Beta);
+    expectPristine();
+  });
+
+  it('unmounting the page in the middle of a drag leaves no ghost, style or frame behind', async () => {
+    select('N1', 'N2', 'N3');
+    await drag(card(ids.N1!), { x: 800, y: 600 }, { release: false });
+    advance(60);
+
+    cleanup();
+    advance(FULL);
+
+    expect(document.querySelectorAll('.drag-ghost, .drag-ghost-count').length).toBe(0);
+    expect(clock.pending()).toBe(0);
+  });
+
+  it('a hidden window (no animation frames) still gets cleaned up by the safety timers', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    select('N3', 'N4');
+    await drag(card(ids.N3!), card(ids.N1!).getBoundingClientRect() && { x: 500, y: card(ids.N1!).getBoundingClientRect().top + 2 }, { release: false });
+    advance(FULL);
+    release(500, card(ids.N1!).getBoundingClientRect().top + 2);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000); // no frame is ever run
+    });
+
+    expect(styledItems()).toBe(0);
+    vi.useRealTimers();
+  });
+});
+
 describe('the convergence and reordering', () => {
   beforeEach(() => setUp('list'));
 

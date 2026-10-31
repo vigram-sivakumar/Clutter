@@ -21,6 +21,9 @@ export const CONVERGENCE_DURATION_MS = 220;
 export const CONVERGENCE_STAGGER_MS = 16;
 /** …for at most this many items, so a large selection still settles quickly. */
 export const CONVERGENCE_MAX_STAGGERED = 8;
+/** However an animation ends — or never does (a window that is not painted runs no frames) — the styles are gone by then. */
+export const CONVERGENCE_SAFETY_MS = 300;
+const SAFETY_MS = CONVERGENCE_SAFETY_MS;
 /** Where in its flight an item starts to fade (it is gone when it arrives). */
 const FADE_STARTS_AT = 0.55;
 
@@ -110,6 +113,7 @@ export function startConvergence(others: readonly HTMLElement[], follow: Converg
 
   let mode: 'following' | 'returning' | 'holding' | 'done' = 'following';
   let frameId: number | null = null;
+  const timers = new Set<ReturnType<typeof setTimeout>>();
   let unsubscribe: (() => void) | null = null;
   let startedAt: number | null = null;
   let returnStartedAt: number | null = null;
@@ -182,6 +186,8 @@ export function startConvergence(others: readonly HTMLElement[], follow: Converg
       return;
     }
     mode = 'done';
+    timers.forEach(clearTimeout);
+    timers.clear();
     stopFollowing();
     if (frameId !== null) {
       cancelAnimationFrame(frameId);
@@ -207,6 +213,8 @@ export function startConvergence(others: readonly HTMLElement[], follow: Converg
         frameId = null;
       }
       afterNextRender(finish);
+      // A window that is not being painted runs no frames: the styles must not wait for one.
+      timers.add(setTimeout(finish, SAFETY_MS));
     },
 
     revert() {
@@ -216,6 +224,7 @@ export function startConvergence(others: readonly HTMLElement[], follow: Converg
       // Each item returns from where it is NOW (what was last drawn), to its own original place.
       returnFrom = flyers.map((flyer) => ({ x: flyer.x, y: flyer.y, opacity: flyer.opacity }));
       mode = 'returning';
+      timers.add(setTimeout(finish, CONVERGENCE_DURATION_MS + SAFETY_MS));
       stopFollowing();
       if (frameId !== null) {
         cancelAnimationFrame(frameId);

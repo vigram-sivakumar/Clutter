@@ -198,6 +198,8 @@ export function DragGhost({ session, count, settle = false, returning }: DragGho
     if (blend) {
       frameId = requestAnimationFrame(tick);
     }
+    // A flight back must end even where no frames run (a window that is not being painted).
+    const safety = returning ? setTimeout(() => returning.onDone(), DRAG_GHOST_RETURN_MS + 300) : null;
     const unsubscribe = session.subscribe(onPointer);
     window.addEventListener('resize', onPointer);
 
@@ -206,6 +208,9 @@ export function DragGhost({ session, count, settle = false, returning }: DragGho
       window.removeEventListener('resize', onPointer);
       if (frameId !== null) {
         cancelAnimationFrame(frameId);
+      }
+      if (safety !== null) {
+        clearTimeout(safety);
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `returning`'s callback is read once, at mount
