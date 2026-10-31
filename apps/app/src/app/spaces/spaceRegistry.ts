@@ -36,7 +36,7 @@ export interface SpaceListEntry {
 
 export type SpaceRegistryStorage = Pick<Storage, 'getItem' | 'setItem'>;
 
-const STORAGE_KEY = 'clutter.spaces.v1';
+export const STORAGE_KEY = 'clutter.spaces.v1';
 
 /** Strips trailing separators so one folder is never registered twice under two spellings. */
 export function normalizeSpacePath(path: string): string {

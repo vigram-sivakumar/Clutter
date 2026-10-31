@@ -17,6 +17,7 @@ const APP_COMMANDS: &[&str] = &[
     "sandbox_info",
     "restore_space_access",
     "remember_space_access",
+    "forget_space_access",
     "documents_access",
     "request_documents_access",
     "create_space_folder",

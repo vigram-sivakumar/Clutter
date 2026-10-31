@@ -236,9 +236,8 @@ impl SpaceAccess {
         self.state.lock().unwrap().active.contains(&key(path))
     }
 
-    /// Forgets a folder (a Space that was removed from Clutter). Not called yet: dropping a bookmark when a Space is
-    /// removed or renamed is the pending "stale grants" item in the release checklist.
-    #[allow(dead_code)]
+    /// Forgets a folder (a Space that was removed from Clutter). A folder with no saved bookmark (a Space inside an
+    /// authorized folder such as Documents) is a no-op, so this never touches the parent's access.
     pub fn forget(&self, path: &Path) -> Result<(), String> {
         let mut state = self.state.lock().unwrap();
         state.active.remove(&key(path));
@@ -246,6 +245,27 @@ impl SpaceAccess {
             return self.persist(&state.saved);
         }
         Ok(())
+    }
+
+    /// Carries a saved bookmark from `old` to `new` after the folder was renamed. Does nothing (`Ok(false)`) when
+    /// `old` has no bookmark of its own, which is the case for a Space inside Documents. The new bookmark is made
+    /// first, so a failure leaves the old registry entry exactly as it was and the caller can undo the rename.
+    pub fn rekey(&self, old: &Path, new: &Path) -> Result<bool, String> {
+        let mut state = self.state.lock().unwrap();
+        if !state.saved.contains_key(&key(old)) {
+            return Ok(false);
+        }
+        let data = self.os.create(new)?;
+        let previous = state.saved.clone();
+        state.saved.remove(&key(old));
+        state.saved.insert(key(new), data);
+        if let Err(error) = self.persist(&state.saved) {
+            state.saved = previous;
+            return Err(error);
+        }
+        state.active.remove(&key(old));
+        state.active.insert(key(new));
+        Ok(true)
     }
 }
 
@@ -542,6 +562,23 @@ pub async fn remember_space_access(app: AppHandle, path: String) -> Result<bool,
     .map_err(|error| error.to_string())?
 }
 
+/// Drops the saved access of a Space that was removed from Clutter, so it is not restored at every launch for a folder
+/// Clutter no longer uses. Only the exact folder's own bookmark is dropped; a Space inside Documents has none, and
+/// Documents' bookmark is never touched on its behalf. A no-op outside the sandbox. Nothing on disk is touched.
+#[tauri::command]
+pub async fn forget_space_access(app: AppHandle, path: String) -> Result<(), String> {
+    let handle = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = handle.state::<SpaceAccessState>();
+        match state.0.as_ref() {
+            Some(access) => access.forget(Path::new(&path)),
+            None => Ok(()),
+        }
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
 /// `"notSandboxed"`, `"granted"` or `"needed"`: whether the user has authorized the Documents folder.
 #[tauri::command]
 pub fn documents_access(app: AppHandle) -> &'static str {
@@ -750,6 +787,61 @@ mod tests {
         access.forget(Path::new("/Users/me/Documents")).unwrap();
 
         assert!(registry(&dir, &fake).restore().is_empty());
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn a_renamed_folders_bookmark_moves_to_the_new_path_and_survives_a_restart() {
+        let dir = scratch("rekey");
+        let fake = Arc::new(Fake::default());
+        let access = registry(&dir, &fake);
+        access.remember(Path::new("/Volumes/Work/Old")).unwrap();
+
+        assert_eq!(access.rekey(Path::new("/Volumes/Work/Old"), Path::new("/Volumes/Work/New")), Ok(true));
+        assert!(access.is_active(Path::new("/Volumes/Work/New")));
+        assert!(!access.is_active(Path::new("/Volumes/Work/Old")));
+
+        let report = registry(&dir, &fake).restore();
+        assert_eq!(report, vec![RestoredAccess { path: "/Volumes/Work/New".into(), status: RestoreStatus::Restored }]);
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn renaming_a_folder_with_no_bookmark_of_its_own_changes_nothing() {
+        let dir = scratch("rekey-none");
+        let fake = Arc::new(Fake::default());
+        let access = registry(&dir, &fake);
+        access.remember(Path::new("/Users/me/Documents")).unwrap();
+
+        assert_eq!(access.rekey(Path::new("/Users/me/Documents/Old"), Path::new("/Users/me/Documents/New")), Ok(false));
+        assert_eq!(registry(&dir, &fake).restore().len(), 1);
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn a_failed_rekey_leaves_the_old_bookmark_in_place() {
+        let dir = scratch("rekey-fails");
+        let fake = Arc::new(Fake::default());
+        let access = registry(&dir, &fake);
+        access.remember(Path::new("/Volumes/Work/Old")).unwrap();
+        fake.gone.lock().unwrap().insert("/Volumes/Work/New".into());
+
+        assert!(access.rekey(Path::new("/Volumes/Work/Old"), Path::new("/Volumes/Work/New")).is_err());
+        assert!(access.is_active(Path::new("/Volumes/Work/Old")));
+        assert_eq!(registry(&dir, &fake).restore()[0].path, "/Volumes/Work/Old");
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn forgetting_a_space_never_drops_the_parent_folders_bookmark() {
+        let dir = scratch("forget-child");
+        let fake = Arc::new(Fake::default());
+        let access = registry(&dir, &fake);
+        access.remember(Path::new("/Users/me/Documents")).unwrap();
+
+        access.forget(Path::new("/Users/me/Documents/Notes")).unwrap();
+        assert!(access.is_active(Path::new("/Users/me/Documents")));
+        assert_eq!(registry(&dir, &fake).restore().len(), 1);
         fs::remove_dir_all(dir).unwrap();
     }
 

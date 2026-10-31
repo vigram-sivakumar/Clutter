@@ -204,6 +204,7 @@ pub fn run() {
             space_access::sandbox_info,
             space_access::restore_space_access,
             space_access::remember_space_access,
+            space_access::forget_space_access,
             space_access::documents_access,
             space_access::request_documents_access,
             space_folder::create_space_folder,

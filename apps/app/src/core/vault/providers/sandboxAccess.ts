@@ -95,6 +95,15 @@ export async function rememberSpaceAccess(path: string): Promise<void> {
   needsReselect = new Set([...needsReselect].filter((entry) => entry !== withoutTrailingSlashes(path)));
 }
 
+/**
+ * Drops the saved access of a Space that was removed from Clutter (inside the sandbox; a no-op elsewhere). Only that
+ * folder's own bookmark goes; nothing on disk is touched.
+ */
+export async function forgetSpaceAccess(path: string): Promise<void> {
+  if (!isTauri()) return;
+  await invoke('forget_space_access', { path });
+}
+
 /** Asks the user, once, to authorize the real Documents folder. Creates nothing. */
 export async function requestDocumentsAccess(): Promise<DocumentsAccessResult> {
   const result = await invoke<DocumentsAccessResult>('request_documents_access');

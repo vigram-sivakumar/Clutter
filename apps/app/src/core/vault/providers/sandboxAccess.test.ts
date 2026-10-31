@@ -8,6 +8,7 @@ vi.mock('@tauri-apps/api/core', () => ({
 }));
 
 import {
+  forgetSpaceAccess,
   needsFolderReselected,
   rememberSpaceAccess,
   requestDocumentsAccess,
@@ -97,5 +98,18 @@ describe('requestDocumentsAccess', () => {
   it('passes the native answer through', async () => {
     invoke.mockResolvedValue('cancelled');
     expect(await requestDocumentsAccess()).toBe('cancelled');
+  });
+});
+
+describe('forgetSpaceAccess', () => {
+  it('asks the native side to drop that folder, and does nothing in the web runtime', async () => {
+    invoke.mockResolvedValue(undefined);
+    await forgetSpaceAccess('/Volumes/Work/Notes');
+    expect(invoke).toHaveBeenCalledWith('forget_space_access', { path: '/Volumes/Work/Notes' });
+
+    invoke.mockClear();
+    isTauri.mockReturnValue(false);
+    await forgetSpaceAccess('/Volumes/Work/Notes');
+    expect(invoke).not.toHaveBeenCalled();
   });
 });

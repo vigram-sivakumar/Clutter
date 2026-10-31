@@ -105,6 +105,14 @@ pub fn rename_space_folder(
             return Err(error.to_string());
         }
         let _ = app.asset_protocol_scope().allow_directory(&new, true);
+        // A picked folder's saved access is keyed by its path: carry it to the new name, or the Space would need
+        // selecting again after the next launch. If that cannot be done the rename is undone, never half applied.
+        if let Some(access) = app.state::<crate::space_access::SpaceAccessState>().0.as_ref() {
+            if let Err(error) = access.rekey(&old, &new) {
+                let _ = fs::rename(&new, &old);
+                return Err(error);
+            }
+        }
     }
     Ok(new.to_string_lossy().into_owned())
 }

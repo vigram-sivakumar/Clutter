@@ -29,6 +29,7 @@
     "allow-sandbox-info",
     "allow-restore-space-access",
     "allow-remember-space-access",
+    "allow-forget-space-access",
     "allow-documents-access",
     "allow-request-documents-access",
     "allow-create-space-folder",

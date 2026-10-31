@@ -22,7 +22,7 @@ import {
   isTooBroadForSpace,
   resolveSpaceParent,
 } from '../core/vault/providers/spaceFolders';
-import { rememberSpaceAccess, restoreSpaceAccess } from '../core/vault/providers/sandboxAccess';
+import { forgetSpaceAccess, rememberSpaceAccess, restoreSpaceAccess } from '../core/vault/providers/sandboxAccess';
 import { announcesProfileFailure, describeSpaceProfileFailure, SPACE_SETTINGS_FAILED_MESSAGE } from './saveFailureMessages';
 
 import { AppLayout } from './layouts/app-layout/AppLayout';
@@ -53,10 +53,12 @@ import { spacePageId } from '../features/settings/settings-sidebar/SettingsSideb
 import { SpacesContext, type SpacesApi } from './spaces/SpacesContext';
 import { localCoverImageUrlResolver } from '../core/vault/providers/LocalCoverImageUrlResolver';
 import {
+  defaultSpaceStorage,
   listSpaces,
   normalizeSpacePath,
   spaceName,
 } from './spaces/spaceRegistry';
+import { forgetRemovedSpaceAccess } from './spaces/forgetRemovedSpaceAccess';
 import { openVaultFileSystem } from '../core/vault/providers/openVaultFileSystem';
 import { migrateRenamedRootState } from '../core/application/space/migrateRenamedRootState';
 import { readSpaceIdFrom } from './spaces/readSpaceId';
@@ -203,7 +205,13 @@ function AppShellContent() {
 
   // Which Spaces exist and which is wanted (ADR-056). A change of `vaultPath` starts the switch
   // described at the effect below; there is exactly one open Application at a time.
+  // A removed Space also has its saved folder access dropped (App Sandbox bookmark); the web runtime has none.
+  const registryStorage = useMemo(
+    () => (isTauri() ? forgetRemovedSpaceAccess(defaultSpaceStorage(), forgetSpaceAccess) : undefined),
+    []
+  );
   const spaces = useSpaceRegistry({
+    storage: registryStorage,
     defaultPath: defaultVaultPath,
     probe: probeSpaceFolder,
     pick: isTauri() ? pickSpaceFolder : undefined,
