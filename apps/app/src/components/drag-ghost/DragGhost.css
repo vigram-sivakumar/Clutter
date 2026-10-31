@@ -78,7 +78,9 @@
   left: 0;
   z-index: var(--z-overlay);
   box-sizing: border-box;
-  overflow: hidden;
+  /* Visible, not hidden: the count badge sits on the layer's corner, half outside it. The pieces are clipped by
+     themselves (`.drag-ghost` clips its own clone) and lie inside the layer's box by construction. */
+  overflow: visible;
   pointer-events: none;
   user-select: none;
   will-change: transform;
@@ -88,10 +90,51 @@
   will-change: auto;
 }
 
+/* How many items the drag carries in all. The rows drawn are only the first few of them (`SNAPSHOT.maxRows`), so
+   this is what says the whole selection is moving. On the layer's top-left corner, where the grip is. */
+.drag-snapshot__count {
+  position: absolute;
+  top: calc(-1 * var(--space-8));
+  left: calc(-1 * var(--space-8));
+  z-index: 1;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: var(--height-xs);
+  height: var(--height-xs);
+  padding: 0 var(--space-6);
+
+  border-radius: var(--radius-xl);
+  background: var(--surface-brand);
+  color: var(--foreground-brand);
+  box-shadow: var(--shadow-md);
+
+  font-size: var(--text-caption);
+  line-height: var(--lh-caption);
+  font-weight: var(--fw-medium);
+  font-variant-numeric: tabular-nums;
+
+  pointer-events: none;
+  user-select: none;
+}
+
 /* The selection checkbox belongs to the original, not to its picture. Hidden, not removed, so the clone keeps its
    exact layout. */
 .drag-ghost .collection-card__selection,
 .drag-ghost .collection-entry__selection-checkbox {
+  visibility: hidden;
+}
+
+/* While any item is checked, every row swaps its leading icon (or emoji, or thumbnail) for the checkbox
+   (CollectionEntry.css). The picture of a row is the row at rest: with the checkbox hidden above, leaving the swap
+   as the page has it would draw an empty gap where the icon belongs. The extra selectors out-rank every state that
+   hides the icon on the page. */
+.drag-ghost .collection-entry .collection-entry__leading--swap .collection-entry__leading-rest {
+  visibility: visible;
+}
+.drag-ghost .collection-entry .collection-entry__leading--swap .collection-entry__leading-hover {
   visibility: hidden;
 }
 

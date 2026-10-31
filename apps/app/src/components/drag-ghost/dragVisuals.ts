@@ -10,9 +10,10 @@
  *    pseudo-elements and all);
  *  - several items are a SNAPSHOT of the collection as it is: a clone of each selected item at its own measured
  *    place and size, relative to one another exactly as on the page — cards in their columns and gaps, list rows,
- *    table rows with their columns — as if lifted straight out of it, the first few rows of it. No layout is
- *    computed here: only measured positions are copied, so every layout is mirrored by the same code. The
- *    originals all stay as they are — visible, selected — throughout.
+ *    table rows with their columns — as if lifted straight out of it, the first few rows of it, with a badge
+ *    stating how many items the drag carries in all. No layout is computed here: only measured positions are
+ *    copied, so every layout is mirrored by the same code. The originals all stay as they are — visible,
+ *    selected — throughout.
  *
  * Changing how dragging looks is a change to this file and `DRAG_VISUAL_POLICY`, and affects every drag.
  *
@@ -47,8 +48,18 @@ export const DRAG_VISUAL_POLICY = {
 
 /** What a multi-item snapshot shows of the collection. */
 export const SNAPSHOT = {
-  /** Only the first this-many rows of the selected items are drawn (rows as the page lays them out: same top). */
-  maxRows: 3,
+  /**
+   * Only the first this-many rows of the selected items are drawn (rows as the page lays them out: same top), so a
+   * list or table selection of up to ten items is drawn in full.
+   */
+  maxRows: 10,
+  /**
+   * A ceiling on how many items are cloned, whatever the rows hold (a card grid has several items to a row), so a
+   * selection of hundreds costs the same few dozen clones as a selection of thirty. Beyond either bound the ghost is a
+   * sample, not the selection: the snapshot's COUNT badge (`.drag-snapshot__count`) always states how many items the
+   * drag really carries, so what is drawn is never mistaken for all of it.
+   */
+  maxItems: 24,
   /** Items whose tops differ by less than this are in one row. */
   rowTolerancePx: 8,
 } as const;
@@ -76,17 +87,58 @@ export interface DragVisuals {
   /**
    * A drag has begun (the pointer-drag threshold is crossed): draw its ghost and, for a single item, hide the original.
    * `others` are the other items of a multi-item drag (those that are mounted — one that is not is simply not drawn).
-   * Ends any drag before it.
+   * `count` is how many items the drag carries in all (mounted or not); a multi-item ghost states it. Ends any drag
+   * before it.
    */
-  start(session: PointerDragSession, others?: readonly HTMLElement[]): void;
+  start(session: PointerDragSession, others?: readonly HTMLElement[], count?: number): void;
   /** Ends the drag's visuals now: the ghost is gone and the original is back. Safe to call any number of times. */
   dispose(): void;
 }
 
 /**
+ * A subgrid axis does not resolve to tracks: `getComputedStyle(row).gridTemplateColumns` of a table row is the keyword
+ * (`subgrid [] [] []`), never pixel widths — those belong to the ancestor grid the row takes them from.
+ */
+function isSubgrid(template: string): boolean {
+  return /^subgrid(\s|$)/.test(template.trim());
+}
+
+/**
+ * A clone of a subgrid row, detached from the grid it took its columns from: a subgrid with no parent grid computes
+ * to `none`, so the clone's cells would each fall into their own row of ONE column, one on top of the other. Each cell
+ * is instead laid at the place and size the page gave its original — measured, not inferred. A child that has no box
+ * (`display: contents`) is left alone; a clone that no longer matches its source child for child is left as it is.
+ */
+function pinChildren(source: HTMLElement, clone: HTMLElement, rect: DOMRect): void {
+  const originals = Array.from(source.children);
+  const copies = Array.from(clone.children);
+  if (originals.length === 0 || originals.length !== copies.length) {
+    return;
+  }
+
+  clone.style.display = 'block';
+  clone.style.position = 'relative';
+  originals.forEach((original, index) => {
+    const box = original.getBoundingClientRect();
+    if (box.width === 0 && box.height === 0) {
+      return;
+    }
+    const cell = copies[index] as HTMLElement;
+    cell.style.position = 'absolute';
+    cell.style.left = `${box.left - rect.left}px`;
+    cell.style.top = `${box.top - rect.top}px`;
+    cell.style.width = `${box.width}px`;
+    cell.style.height = `${box.height}px`;
+    cell.style.margin = '0';
+    cell.style.boxSizing = 'border-box';
+  });
+}
+
+/**
  * A clone of `source` for the snapshot: exactly its measured size, at its measured place, harmless (see
- * `prepareClone`). A grid or subgrid item (a table row) gets its columns as the page resolved them — read here,
- * once — since the clone has no parent grid to take them from. Nothing is inferred about the layout.
+ * `prepareClone`). A grid item gets its columns as the page resolved them — read here, once — since the clone has no
+ * parent grid to take them from; a subgrid item (a table row) has no columns of its own to read, so its cells are
+ * pinned where they were measured (`pinChildren`). Nothing is inferred about the layout.
  */
 function pieceOf(source: HTMLElement, clone: HTMLElement, rect: DOMRect, origin: { x: number; y: number }): HTMLDivElement {
   const piece = document.createElement('div');
@@ -100,9 +152,13 @@ function pieceOf(source: HTMLElement, clone: HTMLElement, rect: DOMRect, origin:
 
   const computed = getComputedStyle(source);
   if (computed.display === 'grid' || computed.display === 'inline-grid') {
-    clone.style.display = 'grid';
-    if (computed.gridTemplateColumns && computed.gridTemplateColumns !== 'none') {
-      clone.style.gridTemplateColumns = computed.gridTemplateColumns;
+    if (isSubgrid(computed.gridTemplateColumns)) {
+      pinChildren(source, clone, rect);
+    } else {
+      clone.style.display = 'grid';
+      if (computed.gridTemplateColumns && computed.gridTemplateColumns !== 'none') {
+        clone.style.gridTemplateColumns = computed.gridTemplateColumns;
+      }
     }
   }
   clone.style.width = '100%';
@@ -113,7 +169,7 @@ function pieceOf(source: HTMLElement, clone: HTMLElement, rect: DOMRect, origin:
   return piece;
 }
 
-/** The sources to draw in a snapshot: the first `SNAPSHOT.maxRows` rows of them (the rows ending at the lead's, if it is further down). */
+/** The sources to draw in a snapshot: the first `SNAPSHOT.maxRows` rows of them (the rows ending at the lead's, if it is further down), at most `SNAPSHOT.maxItems`. */
 function firstRows(measured: readonly { source: HTMLElement; rect: DOMRect }[], lead: HTMLElement) {
   const sorted = [...measured].sort((a, b) => a.rect.top - b.rect.top || a.rect.left - b.rect.left);
   const rowOf = new Map<HTMLElement, number>();
@@ -130,16 +186,26 @@ function firstRows(measured: readonly { source: HTMLElement; rect: DOMRect }[], 
   // The first rows — or, if the lead sits further down, the rows ending with its own (it is always drawn).
   const first = leadRow >= SNAPSHOT.maxRows ? leadRow - SNAPSHOT.maxRows + 1 : 0;
 
-  return sorted.filter((entry) => {
+  const inRows = sorted.filter((entry) => {
     const index = rowOf.get(entry.source)!;
     return index >= first && index < first + SNAPSHOT.maxRows;
   });
+  if (inRows.length <= SNAPSHOT.maxItems) {
+    return inRows;
+  }
+
+  // Too many items for the rows alone: the first of them — and the lead, which is always drawn, in the last place if it fell outside.
+  const kept = inRows.slice(0, SNAPSHOT.maxItems);
+  if (!kept.some((entry) => entry.source === lead)) {
+    kept[kept.length - 1] = inRows.find((entry) => entry.source === lead)!;
+  }
+  return kept;
 }
 
 export function createDragVisuals(): DragVisuals {
   let finishCurrent: (() => void) | null = null;
 
-  function start(session: PointerDragSession, others: readonly HTMLElement[] = []): void {
+  function start(session: PointerDragSession, others: readonly HTMLElement[] = [], count?: number): void {
     finishCurrent?.(); // a new drag ends what the last one left
 
     const lead = session.source;
@@ -180,6 +246,11 @@ export function createDragVisuals(): DragVisuals {
       for (const { source, rect } of measured) {
         ghost.append(pieceOf(source, prepareClone(source === lead ? session.snapshot : (source.cloneNode(true) as HTMLElement)), rect, origin));
       }
+      // The rows above are a sample (`SNAPSHOT.maxRows`); the badge is the whole drag's size.
+      const badge = document.createElement('div');
+      badge.className = 'drag-snapshot__count';
+      badge.textContent = String(Math.max(count ?? 0, sources.length));
+      ghost.append(badge);
     } else {
       ghost.append(prepareClone(session.snapshot));
     }

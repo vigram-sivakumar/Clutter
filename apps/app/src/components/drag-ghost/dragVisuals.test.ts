@@ -237,16 +237,107 @@ describe('several items — a snapshot of the collection as it is', () => {
     }
   });
 
-  it('draws only the first few rows — the rows ending at the lead\'s own when it is further down', () => {
-    const rows = Array.from({ length: 6 }, (_, i) => item(`r${i}`, { left: 0, top: i * 60, width: 300, height: 40 }));
+  it('draws every selected item of a selection of up to ten rows — not an arbitrary three', () => {
+    const rows = Array.from({ length: 10 }, (_, i) => item(`r${i}`, { left: 0, top: i * 40, width: 300, height: 36 }));
 
-    visuals.start(makeSession(rows[0]!).session, rows.slice(1));
+    visuals.start(makeSession(rows[4]!).session, rows.filter((_, i) => i !== 4), 10);
+
+    expect(SNAPSHOT.maxRows).toBeGreaterThanOrEqual(10);
+    expect(pieces()).toHaveLength(10);
+    expect(pieces().map((p) => at(p).top)).toEqual(rows.map((_, i) => i * 40));
+  });
+
+  it('draws only the first rows of a large selection — the rows ending at the lead\'s own when it is further down', () => {
+    const count = SNAPSHOT.maxRows + 5;
+    const rows = Array.from({ length: count }, (_, i) => item(`r${i}`, { left: 0, top: i * 40, width: 300, height: 36 }));
+
+    visuals.start(makeSession(rows[0]!).session, rows.slice(1), count);
     expect(pieces()).toHaveLength(SNAPSHOT.maxRows);
     visuals.dispose();
 
-    visuals.start(makeSession(rows[5]!).session, rows.slice(0, 5));
+    visuals.start(makeSession(rows[count - 1]!).session, rows.slice(0, count - 1), count);
     expect(pieces()).toHaveLength(SNAPSHOT.maxRows);
-    expect(pieces().some((p) => p.textContent === 'Open r5r5')).toBe(true);
+    expect(pieces().some((p) => p.textContent === `Open r${count - 1}r${count - 1}`)).toBe(true);
+  });
+
+  it('never clones more than `maxItems`, whatever the rows hold, and always draws the lead', () => {
+    // A card grid: five items to a row, so the rows bound alone would allow 5 × maxRows clones.
+    const perRow = 5;
+    const count = perRow * SNAPSHOT.maxRows;
+    const cards = Array.from({ length: count }, (_, i) =>
+      item(`c${i}`, { left: (i % perRow) * 120, top: Math.floor(i / perRow) * 100, width: 100, height: 90 })
+    );
+    const lead = cards[count - 1]!; // the very last card: it would be cut off by a plain "first N"
+
+    visuals.start(makeSession(lead).session, cards.slice(0, count - 1), count);
+
+    expect(pieces()).toHaveLength(SNAPSHOT.maxItems);
+    expect(pieces().some((p) => p.textContent === `Open c${count - 1}c${count - 1}`)).toBe(true);
+  });
+
+  it('states how many items the drag carries in all — the rows drawn are only a sample of a large one', () => {
+    const rows = Array.from({ length: 40 }, (_, i) => item(`r${i}`, { left: 0, top: i * 40, width: 300, height: 36 }));
+    const badge = () => document.querySelector('.drag-snapshot .drag-snapshot__count');
+
+    visuals.start(makeSession(rows[0]!).session, rows.slice(1), 400); // 400 carried, 40 of them mounted
+    expect(pieces().length).toBeLessThan(40);
+    expect(badge()).toHaveTextContent('400');
+    visuals.dispose();
+
+    visuals.start(makeSession(rows[0]!).session, rows.slice(1, 4)); // no count given: the items that are drawn
+    expect(badge()).toHaveTextContent('4');
+  });
+
+  it('draws no badge for a single item, and the badge is not an item (no drag markers, not among the pieces)', () => {
+    const [a, b] = [item('a', A), item('b', B)] as const;
+
+    visuals.start(makeSession(a).session);
+    expect(document.querySelector('.drag-snapshot__count')).toBeNull();
+    visuals.dispose();
+
+    visuals.start(makeSession(a).session, [b], 2);
+    expect(pieces()).toHaveLength(2);
+    expect(pieces().some((p) => p.querySelector('.drag-snapshot__count'))).toBe(false);
+    expect(document.querySelector('.drag-snapshot')!.lastElementChild).toHaveClass('drag-snapshot__count');
+  });
+
+  it('keeps a table row\'s columns: a SUBGRID row has no tracks to copy, so each cell is pinned where the page measured it', () => {
+    const cell = (rect: Rect) => rect;
+    const rows = [100, 136].map((top, index) => {
+      const row = item(`t${index}`, { left: 0, top, width: 900, height: 32 });
+      const cells = [cell({ left: 0, top, width: 600, height: 32 }), cell({ left: 600, top, width: 200, height: 32 }), cell({ left: 800, top, width: 100, height: 32 })];
+      row.replaceChildren(
+        ...cells.map((rect, i) => {
+          const el = document.createElement('div');
+          el.textContent = `cell-${index}-${i}`;
+          el.getBoundingClientRect = () => ({ ...rect, right: rect.left + rect.width, bottom: rect.top + rect.height, x: rect.left, y: rect.top, toJSON: () => ({}) }) as DOMRect;
+          return el;
+        })
+      );
+      return row;
+    });
+    const real = window.getComputedStyle;
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((element: Element, pseudo?: string | null) => {
+      const style = real(element, pseudo);
+      // What a browser really reports for `grid-template-columns: subgrid`: the keyword, never pixel tracks.
+      return rows.includes(element as HTMLElement)
+        ? ({ ...style, display: 'grid', gridTemplateColumns: 'subgrid [] [] []' } as unknown as CSSStyleDeclaration)
+        : style;
+    });
+
+    visuals.start(makeSession(rows[0]!).session, [rows[1]!], 2);
+
+    for (const piece of pieces()) {
+      const clone = piece.firstElementChild as HTMLElement;
+      expect(clone.style.gridTemplateColumns).toBe(''); // the unusable `subgrid …` string is not copied
+      expect(clone.style.display).toBe('block');
+      expect([...clone.children].map((c) => at(c as HTMLElement))).toEqual([
+        { left: 0, top: 0, width: 600, height: 32 },
+        { left: 600, top: 0, width: 200, height: 32 },
+        { left: 800, top: 0, width: 100, height: 32 },
+      ]);
+      expect([...clone.children].every((c) => (c as HTMLElement).style.position === 'absolute')).toBe(true);
+    }
   });
 
   it('is lifted out in place: it starts exactly over the originals and then moves with the pointer as one unit', () => {
@@ -358,6 +449,21 @@ describe('the stylesheet', () => {
   it('the snapshot layer has no fill or shadow of its own — only the lifted items do', () => {
     const rule = css.match(/\.drag-snapshot \{([^}]*)\}/)![1]!;
     expect(rule).not.toMatch(/background|box-shadow/);
+  });
+
+  it('does not clip the snapshot layer, so the count badge on its corner is seen', () => {
+    const rule = css.match(/\.drag-snapshot \{([^}]*)\}/)![1]!;
+    expect(rule).toMatch(/overflow:\s*visible/);
+    expect(css).toMatch(/\.drag-snapshot__count \{[^}]*position:\s*absolute/);
+  });
+
+  it('shows a row\'s leading icon in the picture while the checkbox that replaces it on the page is hidden', () => {
+    expect(css).toMatch(
+      /\.drag-ghost \.collection-entry \.collection-entry__leading--swap \.collection-entry__leading-rest \{\s*visibility:\s*visible;/
+    );
+    expect(css).toMatch(
+      /\.drag-ghost \.collection-entry \.collection-entry__leading--swap \.collection-entry__leading-hover \{\s*visibility:\s*hidden;/
+    );
   });
 
   it('hides a dragged original with `visibility`, which takes its border, shadow and pseudo-elements with it', () => {

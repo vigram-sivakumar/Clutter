@@ -131,7 +131,7 @@ export function useCollectionMoveDrag(
   // still where it was. Every drag starts from nothing — `start` ends whatever an earlier one left on screen.
   useLayoutEffect(() => {
     if (drag) {
-      visuals.start(drag.session, elementsOf(drag.payload));
+      visuals.start(drag.session, elementsOf(drag.payload), draggedItems(drag.payload).length);
     }
   }, [drag?.session]);
 
