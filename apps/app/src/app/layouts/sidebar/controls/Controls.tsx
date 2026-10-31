@@ -108,10 +108,9 @@ export function Controls({
                 icon={getSystemLocationPresentation('daily-notes').icon}
               />
             }
-            trailing="Today"
             onClick={choose(onOpenDailyNote)}
           >
-            Daily note
+            Today’s daily note
           </MenuItem>
           <MenuItem
             leading={<AppIcon icon="circleTick" />}

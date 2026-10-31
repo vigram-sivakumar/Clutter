@@ -107,14 +107,13 @@ describe('Controls creation launcher', () => {
       .getAllByRole('menuitem')
       // The calendar-today icon draws the current day number as text — not part of the label.
       .map((item) => item.textContent?.replace(/^\d+/, ''));
-    // Daily Note carries its muted trailing metadata ("Today") in the same row.
-    expect(items).toEqual(['Note', 'Daily noteToday', 'Task', 'Folder', 'Tag', 'Template', 'Upload']);
+    expect(items).toEqual(['Note', 'Today’s daily note', 'Task', 'Folder', 'Tag', 'Template', 'Upload']);
     expect(screen.getByRole('separator')).toBeInTheDocument();
   });
 
   it.each([
     ['Note', 'onNewNote'],
-    ['Daily note', 'onOpenDailyNote'],
+    ['Today’s daily note', 'onOpenDailyNote'],
     ['Task', 'onNewTask'],
     ['Folder', 'onNewFolder'],
     ['Tag', 'onNewTag'],
@@ -128,13 +127,5 @@ describe('Controls creation launcher', () => {
 
     expect(handlers[handlerName]).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
-  });
-
-  it('shows "Today" as muted trailing metadata on Daily Note, using the shared entry meta slot', () => {
-    renderControls();
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
-
-    const row = screen.getByRole('menuitem', { name: /^Daily note/ });
-    expect(row.querySelector('.entry__meta')).toHaveTextContent('Today');
   });
 });
