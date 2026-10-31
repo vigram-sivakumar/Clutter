@@ -38,11 +38,16 @@ function prepareSnapshot(snapshot: HTMLElement): HTMLElement {
   return snapshot;
 }
 
+/** How far the count badge sits from the cursor, right and down. */
+const DRAG_COUNT_OFFSET_PX = 14;
+
 /** The compact ghost width, for a source that opts in with `data-drag-ghost-size="compact"`. */
 export const DRAG_GHOST_WIDTH_PX = 256;
 
 interface DragGhostProps {
   readonly session: PointerDragSession;
+  /** How many items the drag carries, shown as a badge on the ghost — only when it carries more than one. */
+  readonly count?: number;
 }
 
 /**
@@ -60,8 +65,9 @@ interface DragGhostProps {
  * - It is never interactive (`pointer-events: none`, `inert`, `aria-hidden`) and out of layout
  *   (`position: fixed`), so it can neither intercept the pointer nor move anything.
  */
-export function DragGhost({ session }: DragGhostProps) {
+export function DragGhost({ session, count }: DragGhostProps) {
   const ghostRef = useRef<HTMLDivElement>(null);
+  const countRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
     const ghost = ghostRef.current;
@@ -78,6 +84,10 @@ export function DragGhost({ session }: DragGhostProps) {
 
     const place = () => {
       const { source, pointer, grabOffsetY } = session;
+      // The count rides beside the cursor itself, wherever the ghost is.
+      if (countRef.current) {
+        countRef.current.style.transform = `translate3d(${pointer.x + DRAG_COUNT_OFFSET_PX}px, ${pointer.y + DRAG_COUNT_OFFSET_PX}px, 0)`;
+      }
       const rect = source.isConnected ? source.getBoundingClientRect() : null;
       const bounds = container?.isConnected ? container.getBoundingClientRect() : null;
       const insideContainer = bounds !== null && pointer.x >= bounds.left && pointer.x <= bounds.right;
@@ -113,7 +123,18 @@ export function DragGhost({ session }: DragGhostProps) {
       unsubscribe();
       window.removeEventListener('resize', place);
     };
-  }, [session]);
+  }, [session, count]);
 
-  return createPortal(<div ref={ghostRef} className="drag-ghost" aria-hidden="true" />, document.body);
+  return (
+    <>
+      {createPortal(<div ref={ghostRef} className="drag-ghost" aria-hidden="true" />, document.body)}
+      {count !== undefined && count > 1 &&
+        createPortal(
+          <div ref={countRef} className="drag-ghost-count" aria-hidden="true">
+            {count}
+          </div>,
+          document.body
+        )}
+    </>
+  );
 }

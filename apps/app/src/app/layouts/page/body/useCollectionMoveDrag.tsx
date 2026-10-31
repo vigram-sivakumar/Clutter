@@ -34,6 +34,29 @@ export interface CollectionDragEntryProps {
 }
 
 /**
+ * What pressing `entry` drags. An entry that is checked takes every checked entry with it — itself first, the
+ * others in the selection's order; an entry that is not checked is dragged alone, whatever else is selected.
+ * A single checked entry is an ordinary single drag.
+ */
+function dragItemFor(entry: CollectionEntryModel, parentId: string | null, selected: readonly CollectionEntryModel[]): DragItem {
+  const single: DragItem = { kind: entry.type as 'folder' | 'note', id: entry.id, parentId };
+  const draggable = selected.filter((candidate) => (candidate.type === 'folder' || candidate.type === 'note') && candidate.tagLine === undefined);
+
+  if (draggable.length < 2 || !draggable.some((candidate) => candidate.id === entry.id)) {
+    return single;
+  }
+
+  const items: DragItem[] = [
+    single,
+    ...draggable
+      .filter((candidate) => candidate.id !== entry.id)
+      .map((candidate): DragItem => ({ kind: candidate.type as 'folder' | 'note', id: candidate.id, parentId })),
+  ];
+
+  return { ...single, items };
+}
+
+/**
  * Drag from a Collection View. It is the sidebar tree's own drag, started somewhere else: the same lifecycle
  * (`usePointerDrag`: threshold, ghost, Escape, click and text-selection suppression), the same tracking
  * (`useDropTargetTracking`: destinations and positions in the sidebar, folder cards in the page, Templates and
@@ -41,7 +64,11 @@ export interface CollectionDragEntryProps {
  * at the drop). Nothing here, and nothing downstream, reads where the drag began except the item's own
  * identity and parent — so every destination behaves identically for a drag from either surface.
  */
-export function useCollectionMoveDrag(config: CollectionMoveDrag | undefined): {
+export function useCollectionMoveDrag(
+  config: CollectionMoveDrag | undefined,
+  /** The checked entries, in the selection's order. A drag that starts on one of them carries all of them. */
+  selected: readonly CollectionEntryModel[] = []
+): {
   /** Props for one entry's element, or `undefined` when the collection offers no drag (or for an entry that is neither a note nor a folder). */
   entryProps(entry: CollectionEntryModel): CollectionDragEntryProps | undefined;
   /** The ghost and the one drop indicator while a drag is on; render once, anywhere. */
@@ -84,13 +111,16 @@ export function useCollectionMoveDrag(config: CollectionMoveDrag | undefined): {
         'data-drag-parent': config.parentId ?? '',
         'data-drag-inside-only': 'true',
         'data-drag-ghost-size': entry.type === 'note' ? 'compact' : undefined,
-        'data-drag-source': drag?.payload.kind === entry.type && drag.payload.id === entry.id ? 'true' : undefined,
-        onPointerDown: (event) => press(event, { kind: entry.type, id: entry.id, parentId: config.parentId }),
+        // Several items dragged together stay where they are (and selected): only a single item's original is
+        // hidden, since its ghost is the visible copy.
+        'data-drag-source':
+          !drag?.payload.items && drag?.payload.kind === entry.type && drag.payload.id === entry.id ? 'true' : undefined,
+        onPointerDown: (event) => press(event, dragItemFor(entry, config.parentId, selected)),
       };
     },
     overlay: drag ? (
       <>
-        <DragGhost session={drag.session} />
+        <DragGhost session={drag.session} count={drag.payload.items?.length} />
         <DropFeedbackHost store={store} />
       </>
     ) : null,

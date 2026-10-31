@@ -27,13 +27,15 @@ export function buildMoveDropActions(application: {
   const levelOrder = levelOrderContextFor(store, membershipSelector);
 
   return {
-    onMoveNote: async (pageId, destinationFolderId) => {
+    onMoveNote: async (pageId, destinationFolderId, options) => {
       const from = vault.getPage(pageId)?.parentId ?? null;
       try {
         await pageOperations.move(pageId, destinationFolderId);
       } catch (error) {
         // Reported here, then rethrown so the drop is rejected and nothing after it runs.
-        reportMoveFailure(toast, 'note', error);
+        if (!options?.silent) {
+          reportMoveFailure(toast, 'note', error);
+        }
         throw error;
       }
       // (Only reached when the move succeeded.)
@@ -41,12 +43,14 @@ export function buildMoveDropActions(application: {
         forgetInLevelOrder(store, from, 'note', pageId);
       }
     },
-    onMoveFolder: async (folderId, destinationFolderId) => {
+    onMoveFolder: async (folderId, destinationFolderId, options) => {
       const from = vault.getFolder(folderId)?.parentId ?? null;
       try {
         await folderOperations.move(folderId, destinationFolderId);
       } catch (error) {
-        reportMoveFailure(toast, 'folder', error);
+        if (!options?.silent) {
+          reportMoveFailure(toast, 'folder', error);
+        }
         throw error;
       }
       if (from !== destinationFolderId) {

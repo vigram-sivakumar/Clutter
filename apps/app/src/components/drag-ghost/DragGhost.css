@@ -1,6 +1,6 @@
 :root {
   /* How opaque the ghost's BACKGROUND is. Only the fill: the row's text and icons stay fully solid. */
-  --drag-ghost-background-opacity: 5%;
+  --drag-ghost-background-opacity: 50%;
 }
 
 /* A fixed, non-interactive layer above the app. Position and size are set from JS (DragGhost.tsx). */
@@ -16,7 +16,7 @@
 
   background: color-mix(
     in srgb,
-    white var(--drag-ghost-background-opacity),
+    var(--surface-tertiary) var(--drag-ghost-background-opacity),
     transparent
   );
   box-shadow: var(--shadow-md);
@@ -50,6 +50,41 @@
    folder card's fill, a selected row's tint — would show as a second, differently shaped layer inside it. */
 .drag-ghost > * {
   background-color: transparent !important;
+}
+
+/* How many items a multi-item drag carries: a small badge beside the cursor (positioned from JS, DragGhost.tsx). */
+.drag-ghost-count {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: var(--z-overlay);
+
+  min-width: 20px;
+  height: 20px;
+  padding-inline: var(--space-4);
+  box-sizing: border-box;
+  border-radius: 10px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: var(--danger-surface);
+  color: var(--danger-foreground-on-surface);
+  font-size: var(--text-label-small);
+  font-weight: var(--fw-medium);
+  line-height: 1;
+
+  pointer-events: none;
+  user-select: none;
+  will-change: transform;
+}
+
+/* The selection checkbox belongs to the original, not to its picture. Hidden, not removed, so the clone keeps its
+   exact layout. */
+.drag-ghost .collection-card__selection,
+.drag-ghost .collection-entry__selection-checkbox {
+  visibility: hidden;
 }
 
 /* A table row draws its divider as a 1px `::after` (a background, not a border), so the rule above never reaches it:

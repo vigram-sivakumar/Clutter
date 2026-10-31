@@ -61,6 +61,50 @@ export interface DragItem {
   readonly id: string;
   /** `null` = the vault root. */
   readonly parentId: string | null;
+  /**
+   * Set when the drag carries several items (a Collection View's checked selection): all of them, in the
+   * selection's order, THIS item first — it is the one the pointer took hold of. Absent for a single-item drag,
+   * which is every drag from the sidebar.
+   */
+  readonly items?: readonly DragItem[];
+}
+
+/** Everything a drag carries: its `items`, or just the item itself. */
+export function draggedItems(item: DragItem): readonly DragItem[] {
+  return item.items ?? [item];
+}
+
+/**
+ * The move-rule checks of ONE item, widened to everything the drag carries — so a destination is offered only
+ * where the whole drop can happen, and the rules themselves stay where they live (`FolderOperations.canMove`,
+ * `PageOperations.canMove`), asked once per item and never restated:
+ *  - every folder must be accepted (itself, a descendant — of the destination or of another dragged folder
+ *    — an archived or reserved place, a name already taken there);
+ *  - notes are moved one by one, so a note the destination refuses is only skipped: the destination stays valid
+ *    while at least one item of the drag can move.
+ * For a single item this is exactly the item's own check.
+ */
+export function wholeDragOracles(
+  items: readonly DragItem[],
+  oracles: {
+    readonly canMoveFolderInto?: (folderId: string, destinationFolderId: string | null) => boolean | undefined;
+    readonly canMoveNoteInto?: (pageId: string, destinationFolderId: string | null) => boolean | undefined;
+  }
+): {
+  canMoveFolderInto: (folderId: string, destinationFolderId: string | null) => boolean;
+  canMoveNoteInto: (pageId: string, destinationFolderId: string | null) => boolean;
+} {
+  const folderOk = (item: DragItem, destination: string | null) => oracles.canMoveFolderInto?.(item.id, destination) ?? false;
+  const noteOk = (item: DragItem, destination: string | null) => oracles.canMoveNoteInto?.(item.id, destination) ?? true;
+
+  const allowed = (destination: string | null): boolean => {
+    const folders = items.filter((item) => item.kind === 'folder');
+    const notes = items.filter((item) => item.kind === 'note');
+
+    return folders.every((item) => folderOk(item, destination)) && (folders.length > 0 || notes.some((item) => noteOk(item, destination)));
+  };
+
+  return { canMoveFolderInto: (_id, destination) => allowed(destination), canMoveNoteInto: (_id, destination) => allowed(destination) };
 }
 
 /** A rendered, drag-aware row. */
@@ -235,7 +279,7 @@ export function resolveDropTarget({ pointer, dragged, rows: allRows, destination
   const destination = destinations?.find((candidate) => contains(candidate.element));
   if (destination) {
     const accepted =
-      DROP_ZONE_ACCEPTS[destination.zone].includes(dragged.kind) &&
+      draggedItems(dragged).every((item) => DROP_ZONE_ACCEPTS[destination.zone].includes(item.kind)) &&
       destination.folderId !== dragged.parentId &&
       (dragged.kind === 'folder'
         ? (canMoveFolderInto?.(dragged.id, destination.folderId) ?? false)

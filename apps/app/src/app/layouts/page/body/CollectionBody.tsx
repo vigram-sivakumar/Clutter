@@ -272,10 +272,14 @@ export function CollectionBody({
   moveDrag,
   itemMenu,
 }: CollectionBodyProps) {
-  const drag = useCollectionMoveDrag(moveDrag);
   // Which folders and notes are checked (never saved; see `useCollectionSelection`), and the menu a right-click
   // opens while any is: composed from each checked item's own menu.
   const selection = useCollectionSelection([...folders, ...notes].map((entry) => entry.id));
+  // A drag that starts on a checked entry carries every checked one.
+  const drag = useCollectionMoveDrag(
+    moveDrag,
+    [...folders, ...notes].filter((entry) => selection.isChecked(entry.id))
+  );
   const marquee = useMarqueeSelection(selection);
   const selectionMenu = useCollectionSelectionMenu(selection, (id) => {
     const entry = [...folders, ...notes].find((candidate) => candidate.id === id);

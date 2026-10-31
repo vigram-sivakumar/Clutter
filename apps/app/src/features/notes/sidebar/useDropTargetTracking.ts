@@ -1,6 +1,14 @@
 import { useEffect, useRef, useSyncExternalStore, type MutableRefObject } from 'react';
 import { createDragAutoScroller, findScrollContainer, type ActiveDrag } from '@shared/interaction';
-import { collectDragRows, collectDropDestinations, resolveDropTarget, type DragItem, type DropTarget } from './dropTarget';
+import {
+  collectDragRows,
+  collectDropDestinations,
+  draggedItems,
+  resolveDropTarget,
+  wholeDragOracles,
+  type DragItem,
+  type DropTarget,
+} from './dropTarget';
 import type { DropTargetStore } from './dropTargetStore';
 import { dragRevealStore } from './dragRevealStore';
 
@@ -60,7 +68,7 @@ export function useDropTargetTracking(
     }
     const { session, payload } = drag;
     const parent = session.source.dataset.dragParent;
-    const dragged: DragItem = { kind: payload.kind, id: payload.id, parentId: parent ? parent : null };
+    const dragged: DragItem = { kind: payload.kind, id: payload.id, parentId: parent ? parent : null, items: payload.items };
 
     // Resting on a collapsed "N more" row reveals its hidden items for the rest of the drag.
     let hoveredCap: string | null = null;
@@ -79,14 +87,18 @@ export function useDropTargetTracking(
 
     const update = () => {
       watchShowMore();
+      // A drag of several items is offered a destination only where every item of it can go (see wholeDragOracles).
+      const whole = wholeDragOracles(draggedItems(dragged), oraclesRef.current());
       const { canMoveFolderInto, canMoveNoteInto } = oraclesRef.current();
       const next = resolveDropTarget({
         pointer: session.pointer,
         dragged,
         rows: collectDragRows(),
         destinations: collectDropDestinations(),
-        canMoveFolderInto: (folderId, destinationId) => canMoveFolderInto?.(folderId, destinationId) ?? false,
-        canMoveNoteInto: canMoveNoteInto && ((pageId, destinationId) => canMoveNoteInto(pageId, destinationId) ?? false),
+        canMoveFolderInto: dragged.items ? whole.canMoveFolderInto : (folderId, destinationId) => canMoveFolderInto?.(folderId, destinationId) ?? false,
+        canMoveNoteInto: dragged.items
+          ? whole.canMoveNoteInto
+          : canMoveNoteInto && ((pageId, destinationId) => canMoveNoteInto(pageId, destinationId) ?? false),
       });
       lastShownTargetRef.current = next;
       store.set(next);

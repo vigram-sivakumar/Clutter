@@ -1,9 +1,14 @@
-import { DROP_ZONE_ACCEPTS, type DragItem, type DropTarget } from './dropTarget';
+import { DROP_ZONE_ACCEPTS, draggedItems, type DragItem, type DropTarget } from './dropTarget';
+
+/** `silent`: a failed move is not reported (a drop of several items skips what cannot move and says nothing). */
+export interface MoveOptions {
+  readonly silent?: boolean;
+}
 
 /** The slice of the row actions a drop uses: the Move picker's own handlers, plus the move-rule check. */
 export interface DropActions {
-  onMoveNote(pageId: string, destinationFolderId: string | null): void | Promise<void>;
-  onMoveFolder(folderId: string, destinationFolderId: string | null): void | Promise<void>;
+  onMoveNote(pageId: string, destinationFolderId: string | null, options?: MoveOptions): void | Promise<void>;
+  onMoveFolder(folderId: string, destinationFolderId: string | null, options?: MoveOptions): void | Promise<void>;
   /** An asset (a file row): the Move picker's own handler for it — only ever called for the Assets destination. */
   onMoveResource?(resourceId: string, destinationFolderId: string | null): void | Promise<void>;
   canMoveFolderInto?(folderId: string, destinationFolderId: string | null): boolean;
@@ -56,22 +61,36 @@ export async function executeDrop(
   }
 
   try {
+    const items = draggedItems(item);
+
     // Eligibility is decided again here, from the rule itself — the target that was drawn is not trusted
-    // to have been valid. A special destination takes only what it accepts, and an asset goes nowhere else.
-    if (target.kind === 'inside' && target.zone && !DROP_ZONE_ACCEPTS[target.zone].includes(item.kind)) {
-      throw new Error(`The ${target.zone} destination does not accept a ${item.kind}`);
+    // to have been valid. A special destination takes only what it accepts — of a drag of several items, ALL
+    // of them, or nothing moves — and an asset goes nowhere else.
+    if (target.kind === 'inside' && target.zone) {
+      const refused = items.find((dragged) => !DROP_ZONE_ACCEPTS[target.zone!].includes(dragged.kind));
+      if (refused) {
+        throw new Error(`The ${target.zone} destination does not accept a ${refused.kind}`);
+      }
     }
     if (item.kind === 'asset' && !(target.kind === 'inside' && target.zone === 'assets')) {
       throw new Error('An asset can only be dropped onto Assets');
     }
 
     if (target.kind === 'inside') {
+      if (item.items) {
+        return await moveManyInto(items, target.folderId, actions);
+      }
       // Dropping an item where it already is would change nothing.
       if (item.parentId === target.folderId) {
         return 'ignored';
       }
       await moveInto(item, target.folderId, actions);
       return 'moved';
+    }
+
+    // Several items are only ever dropped INTO a folder (a Collection View has no manual order).
+    if (item.items) {
+      return 'ignored';
     }
 
     // A note always belongs to a folder: it is never placed in the root list.
@@ -91,13 +110,54 @@ export async function executeDrop(
   }
 }
 
+/**
+ * A drop of several items INTO a folder. Items already there are skipped (a no-op, not a failure). Every
+ * dragged folder is checked against the move rules first, as a whole — one the rules refuse (itself, a
+ * descendant of itself or of another dragged folder, …) rejects the entire drop before anything moves.
+ * Then each item moves on its own, through the same move as a single drop: one that cannot move (a note
+ * the destination refuses, a name already taken, a failed move) is skipped silently and the rest carry on;
+ * nothing already moved is undone, and no item is processed twice.
+ */
+async function moveManyInto(items: readonly DragItem[], destinationFolderId: string | null, actions: DropActions): Promise<DropOutcome> {
+  const seen = new Set<string>();
+  const movable = items.filter((item) => {
+    const key = `${item.kind}:${item.id}`;
+    if (seen.has(key) || item.parentId === destinationFolderId) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+
+  if (movable.length === 0) {
+    return 'ignored';
+  }
+
+  const refused = movable.find((item) => item.kind === 'folder' && !actions.canMoveFolderInto?.(item.id, destinationFolderId));
+  if (refused) {
+    throw new Error(`The move rules do not allow ${refused.id} into ${destinationFolderId ?? 'the vault root'}`);
+  }
+
+  let moved = 0;
+  for (const item of movable) {
+    try {
+      await moveInto(item, destinationFolderId, actions, { silent: true });
+      moved += 1;
+    } catch {
+      // Skipped: nothing is reported and the others still move.
+    }
+  }
+
+  return moved > 0 ? 'moved' : 'rejected';
+}
+
 /** The existing Move for the item. A folder only after the move rules are asked again; a "no" throws, so nothing after it runs. */
-async function moveInto(item: DragItem, destinationFolderId: string | null, actions: DropActions): Promise<void> {
+async function moveInto(item: DragItem, destinationFolderId: string | null, actions: DropActions, options?: MoveOptions): Promise<void> {
   if (item.kind === 'folder') {
     if (!actions.canMoveFolderInto?.(item.id, destinationFolderId)) {
       throw new Error(`The move rules do not allow ${item.id} into ${destinationFolderId ?? 'the vault root'}`);
     }
-    await actions.onMoveFolder(item.id, destinationFolderId);
+    await (options ? actions.onMoveFolder(item.id, destinationFolderId, options) : actions.onMoveFolder(item.id, destinationFolderId));
   } else if (item.kind === 'asset') {
     if (!actions.onMoveResource) {
       throw new Error('Assets cannot be moved from here');
@@ -107,6 +167,6 @@ async function moveInto(item: DragItem, destinationFolderId: string | null, acti
     if (actions.canMoveNoteInto && !actions.canMoveNoteInto(item.id, destinationFolderId)) {
       throw new Error(`The move rules do not allow ${item.id} into ${destinationFolderId ?? 'the vault root'}`);
     }
-    await actions.onMoveNote(item.id, destinationFolderId);
+    await (options ? actions.onMoveNote(item.id, destinationFolderId, options) : actions.onMoveNote(item.id, destinationFolderId));
   }
 }
