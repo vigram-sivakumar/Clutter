@@ -167,6 +167,7 @@ export function Overlay(props: OverlayProps) {
         className="overlay__surface"
         style={{
           top: overlayLayout.top,
+          bottom: overlayLayout.bottom,
           left: overlayLayout.left,
         }}
       >

@@ -118,7 +118,8 @@ export function useOverlayPosition({
         : anchorRect.bottom - overlayRect.height;
     const alignmentKeyword = isCenterAligned ? 'center' : isStartAligned ? 'start' : 'end';
 
-    let top = 0;
+    let top: number | undefined = 0;
+    let bottom: number | undefined;
     let left = 0;
     let transformOrigin = 'top left';
 
@@ -135,7 +136,11 @@ export function useOverlayPosition({
         break;
 
       case 'top':
-        top = anchorRect.top - overlayRect.height - offset;
+        // Placed from the bottom edge (below), not `top - height`: the surface's height can change
+        // between measurements (a list filtering as you type), and a `top` computed from the old height
+        // leaves the surface floating off the anchor until the next measurement.
+        top = undefined;
+        bottom = viewportHeight - anchorRect.top + offset;
         left = alignedLeft;
 
         transformOrigin = {
@@ -178,8 +183,16 @@ export function useOverlayPosition({
       viewportHeight - overlayRect.height - COLLISION_PADDING
     );
 
+    const maxBottom = Math.max(
+      COLLISION_PADDING,
+      viewportHeight - overlayRect.height - COLLISION_PADDING
+    );
+
     const nextPosition: OverlayLayout = {
-      top: clamp(top, COLLISION_PADDING, maxTop),
+      // The same window-edge clamp as `top`, mirrored: at least COLLISION_PADDING from the bottom edge, and
+      // low enough that the surface's top stays COLLISION_PADDING inside the viewport.
+      top: top === undefined ? undefined : clamp(top, COLLISION_PADDING, maxTop),
+      bottom: bottom === undefined ? undefined : clamp(bottom, COLLISION_PADDING, maxBottom),
       left: clamp(left, COLLISION_PADDING, maxLeft),
       transformOrigin,
       placement: resolvedSide,
@@ -188,6 +201,7 @@ export function useOverlayPosition({
     setPosition((currentPosition) => {
       const positionHasChanged =
         currentPosition.top !== nextPosition.top ||
+        currentPosition.bottom !== nextPosition.bottom ||
         currentPosition.left !== nextPosition.left ||
         currentPosition.transformOrigin !== nextPosition.transformOrigin ||
         currentPosition.placement !== nextPosition.placement;

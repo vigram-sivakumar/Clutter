@@ -17,7 +17,13 @@ export type OverlayBackdrop = false | 'transparent' | 'tinted';
 export type OverlayScrim = 'default' | 'strong';
 
 export interface OverlayLayout {
-  top: number;
+  /** Distance from the viewport's top edge. Unset for a `top`-side overlay, which is placed by `bottom`. */
+  top?: number;
+  /**
+   * Distance from the viewport's bottom edge, for a `top`-side overlay: its bottom edge stays at the anchor
+   * whatever its content's height does, with no re-measure needed to follow a resize.
+   */
+  bottom?: number;
   left: number;
   transformOrigin: string;
   placement: OverlayPlacement;

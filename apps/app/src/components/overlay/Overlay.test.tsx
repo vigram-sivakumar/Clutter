@@ -518,7 +518,7 @@ describe('Overlay', () => {
     ) as HTMLDivElement;
 
     await waitFor(() => {
-      expect(surface.style.top).toBe('154px');
+      expect(surface.style.bottom).toBe('46px');
       expect(surface.style.left).toBe('100px');
     });
 
@@ -589,7 +589,7 @@ describe('Overlay', () => {
     ) as HTMLDivElement;
 
     await waitFor(() => {
-      expect(surface.style.top).toBe('154px');
+      expect(surface.style.bottom).toBe('46px');
       expect(surface.style.left).toBe('60px');
     });
 
