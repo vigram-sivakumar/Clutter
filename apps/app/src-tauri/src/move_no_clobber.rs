@@ -2,8 +2,10 @@ use std::fs;
 use std::io::ErrorKind;
 use std::path::Path;
 
-use tauri::AppHandle;
+use tauri::{AppHandle, Runtime};
 use tauri_plugin_fs::FsExt;
+
+use crate::fs_authorization::authorize_entry;
 
 /// The prefix of the error a refused move returns; the frontend (`LocalFileSystem.moveFile`) turns it into a
 /// `DestinationExistsError`.
@@ -83,17 +85,16 @@ pub fn move_no_clobber(from: &Path, to: &Path) -> Result<(), String> {
     }
 }
 
-/// `moveFile(from, to, { noClobber: true })` for the local filesystem. Both paths must already be inside the fs
-/// scope — the same access the plugin-fs `rename` it replaces is held to — so the webview gains no reach.
+/// `moveFile(from, to, { noClobber: true })` for the local filesystem. Both paths must be inside the fs scope (see
+/// `fs_authorization`: resolved first, so a link inside a granted folder cannot carry the destination out of it, and a
+/// link at either path is the entry moved, never followed), and the resolved paths are the ones moved.
 #[tauri::command]
-pub fn move_file_no_clobber(app: AppHandle, from: String, to: String) -> Result<(), String> {
+pub fn move_file_no_clobber<R: Runtime>(app: AppHandle<R>, from: String, to: String) -> Result<(), String> {
     let scope = app.fs_scope();
-    for path in [&from, &to] {
-        if !scope.is_allowed(Path::new(path)) {
-            return Err(format!("forbidden path: {path}"));
-        }
-    }
-    move_no_clobber(Path::new(&from), Path::new(&to))
+    let (allowed, forbidden) = (|path: &Path| scope.is_allowed(path), |path: &Path| scope.is_forbidden(path));
+    let from = authorize_entry(&from, &allowed, &forbidden)?;
+    let to = authorize_entry(&to, &allowed, &forbidden)?;
+    move_no_clobber(&from, &to)
 }
 
 #[cfg(test)]
@@ -222,5 +223,126 @@ mod tests {
         let error = move_no_clobber(&root.join("nope.md"), &root.join("b.md")).unwrap_err();
 
         assert!(!error.starts_with("EEXIST"), "{error}");
+    }
+
+    // ---- the command boundary (mock runtime, real IPC dispatch, real fs-plugin scope) ----------------------
+
+    use serde_json::{json, Value};
+    use tauri::ipc::{CallbackFn, InvokeBody};
+    use tauri::test::{get_ipc_response, mock_builder, mock_context, noop_assets, INVOKE_KEY};
+    use tauri::webview::InvokeRequest;
+
+    struct Boundary {
+        root: PathBuf,
+        vault: PathBuf,
+        outside: PathBuf,
+        _app: tauri::App<tauri::test::MockRuntime>,
+        window: tauri::WebviewWindow<tauri::test::MockRuntime>,
+    }
+
+    impl Boundary {
+        fn new(label: &str) -> Self {
+            let root = fs::canonicalize(scratch(label)).unwrap();
+            let (vault, outside) = (root.join("vault"), root.join("outside"));
+            fs::create_dir_all(&vault).unwrap();
+            fs::create_dir_all(&outside).unwrap();
+            let app = mock_builder()
+                .plugin(tauri_plugin_fs::init())
+                .invoke_handler(tauri::generate_handler![move_file_no_clobber])
+                .build(mock_context(noop_assets()))
+                .unwrap();
+            app.fs_scope().allow_directory(&vault, true).unwrap();
+            let window = tauri::WebviewWindowBuilder::new(&app, "main", Default::default()).build().unwrap();
+            Boundary { root, vault, outside, _app: app, window }
+        }
+
+        fn moves(&self, from: &Path, to: &Path) -> Result<Value, Value> {
+            get_ipc_response(
+                &self.window,
+                InvokeRequest {
+                    cmd: "move_file_no_clobber".into(),
+                    callback: CallbackFn(0),
+                    error: CallbackFn(1),
+                    url: "tauri://localhost".parse().unwrap(),
+                    body: InvokeBody::Json(json!({ "from": from, "to": to })),
+                    headers: Default::default(),
+                    invoke_key: INVOKE_KEY.to_string(),
+                },
+            )
+            .map(|body| body.deserialize::<Value>().unwrap())
+        }
+    }
+
+    impl Drop for Boundary {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.root);
+        }
+    }
+
+    fn is_forbidden(result: Result<Value, Value>) -> bool {
+        matches!(result, Err(error) if error.as_str().is_some_and(|message| message.contains("forbidden path")))
+    }
+
+    #[test]
+    fn through_the_command_a_move_inside_a_granted_folder_works_and_a_collision_is_still_refused() {
+        let b = Boundary::new("cmd-ok");
+        fs::create_dir_all(b.vault.join("Folder")).unwrap();
+        fs::write(b.vault.join("a.md"), "A").unwrap();
+        fs::write(b.vault.join("taken.md"), "T").unwrap();
+        fs::write(b.vault.join("Folder/.folder.md"), "folder note").unwrap();
+
+        assert!(b.moves(&b.vault.join("a.md"), &b.vault.join("b.md")).is_ok());
+        assert_eq!(fs::read_to_string(b.vault.join("b.md")).unwrap(), "A");
+        let refused = b.moves(&b.vault.join("b.md"), &b.vault.join("taken.md"));
+        assert!(refused.unwrap_err().as_str().unwrap().starts_with("EEXIST"));
+        assert_eq!(fs::read_to_string(b.vault.join("taken.md")).unwrap(), "T");
+        // A folder with a hidden note in it moves whole (the runtime scope hides dot entries from `**`).
+        assert!(b.moves(&b.vault.join("Folder"), &b.vault.join("Renamed")).is_ok());
+        assert_eq!(fs::read_to_string(b.vault.join("Renamed/.folder.md")).unwrap(), "folder note");
+        // A hidden file itself is moved when its folder is granted.
+        assert!(b.moves(&b.vault.join("Renamed/.folder.md"), &b.vault.join("Renamed/.moved.md")).is_ok());
+    }
+
+    #[test]
+    fn through_the_command_nothing_leaves_or_enters_the_granted_folder_by_any_route() {
+        let b = Boundary::new("cmd-escape");
+        fs::write(b.vault.join("a.md"), "A").unwrap();
+        fs::write(b.outside.join("theirs.md"), "THEIRS").unwrap();
+        std::os::unix::fs::symlink(&b.outside, b.vault.join("exit")).unwrap();
+        let dotdot = PathBuf::from(format!("{}/../outside/Planted.md", b.vault.display()));
+
+        // Out of the folder: directly, with `..`, and through a link inside it (the case a plain scope check misses).
+        assert!(is_forbidden(b.moves(&b.vault.join("a.md"), &b.outside.join("Planted.md"))));
+        assert!(is_forbidden(b.moves(&b.vault.join("a.md"), &dotdot)));
+        assert!(is_forbidden(b.moves(&b.vault.join("a.md"), &b.vault.join("exit/Planted.md"))));
+        // Into the folder from outside, directly and through the link.
+        assert!(is_forbidden(b.moves(&b.outside.join("theirs.md"), &b.vault.join("Taken.md"))));
+        assert!(is_forbidden(b.moves(&b.vault.join("exit/theirs.md"), &b.vault.join("Taken.md"))));
+        // A relative path is nothing.
+        assert!(is_forbidden(b.moves(Path::new("a.md"), Path::new("b.md"))));
+
+        assert_eq!(fs::read_to_string(b.vault.join("a.md")).unwrap(), "A");
+        assert_eq!(fs::read_to_string(b.outside.join("theirs.md")).unwrap(), "THEIRS");
+        assert_eq!(fs::read_dir(&b.outside).unwrap().count(), 1, "nothing was planted outside");
+        assert!(!b.vault.join("Taken.md").exists());
+    }
+
+    #[test]
+    fn through_the_command_a_link_is_moved_as_a_link_and_one_pointing_outside_is_refused() {
+        let b = Boundary::new("cmd-link-entry");
+        fs::write(b.outside.join("target.md"), "TARGET").unwrap();
+        fs::write(b.vault.join("inner.md"), "INNER").unwrap();
+        std::os::unix::fs::symlink(b.outside.join("target.md"), b.vault.join("pointer.md")).unwrap();
+        std::os::unix::fs::symlink(b.vault.join("inner.md"), b.vault.join("alias.md")).unwrap();
+
+        // A link to a file outside the grant is not Clutter's to move (the scope sees where it points).
+        assert!(is_forbidden(b.moves(&b.vault.join("pointer.md"), &b.vault.join("renamed-pointer.md"))));
+        assert!(fs::symlink_metadata(b.vault.join("pointer.md")).is_ok());
+        // A link to a file inside the grant moves as a link: the file it points at stays where it is.
+        assert!(b.moves(&b.vault.join("alias.md"), &b.vault.join("alias-moved.md")).is_ok());
+        assert!(fs::symlink_metadata(b.vault.join("alias-moved.md")).unwrap().file_type().is_symlink());
+        assert_eq!(fs::read_to_string(b.vault.join("inner.md")).unwrap(), "INNER");
+        assert_eq!(fs::read_to_string(b.outside.join("target.md")).unwrap(), "TARGET");
+        assert_eq!(fs::read_dir(&b.outside).unwrap().count(), 1);
     }
 }

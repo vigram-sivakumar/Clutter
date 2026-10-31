@@ -28,12 +28,13 @@
 
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
-use std::path::{Component, Path, PathBuf};
+use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use tauri::{AppHandle, Runtime};
 use tauri_plugin_fs::FsExt;
 
+use crate::fs_authorization::authorize;
 use crate::move_no_clobber::move_no_clobber;
 
 /// The shared prefix of every hidden temporary file Clutter stages (the watcher ignores names that start with it).
@@ -89,66 +90,6 @@ pub fn write_no_clobber(to: &Path, bytes: &[u8]) -> Result<(), String> {
 }
 
 // ---------------------------------------------------------------------------------------------------------
-// Scope
-// ---------------------------------------------------------------------------------------------------------
-
-fn has_hidden_component(path: &Path) -> bool {
-    path.components().any(|part| matches!(part, Component::Normal(name) if name.to_string_lossy().starts_with('.')))
-}
-
-/// `path` with `.`-leading components renamed so a scope that hides dot entries from its wildcards no longer does.
-fn without_leading_dots(path: &Path) -> PathBuf {
-    path.components()
-        .map(|part| match part {
-            Component::Normal(name) if name.to_string_lossy().starts_with('.') => format!("_{}", name.to_string_lossy()).into(),
-            other => PathBuf::from(other.as_os_str()),
-        })
-        .collect()
-}
-
-/// The path to authorize and use: absolute, no `..`, symlinks resolved once (the file itself when it exists, else its
-/// folder with the name appended). `None` when it cannot be resolved.
-fn resolved(path: &str) -> Option<PathBuf> {
-    let path = Path::new(path);
-    if !path.is_absolute() || path.components().any(|part| matches!(part, Component::ParentDir)) {
-        return None;
-    }
-    if let Ok(real) = fs::canonicalize(path) {
-        return Some(real);
-    }
-    Some(fs::canonicalize(path.parent()?).ok()?.join(path.file_name()?))
-}
-
-/// Whether the scope grants `path`. A forbidden path is never granted. A hidden entry is granted when the same entry
-/// without its leading dots would be (the nearest granted folder above it decides, so a folder granted without
-/// recursion does not reach into hidden subfolders either).
-fn granted(path: &Path, is_allowed: &dyn Fn(&Path) -> bool, is_forbidden: &dyn Fn(&Path) -> bool) -> bool {
-    if is_forbidden(path) {
-        return false;
-    }
-    if is_allowed(path) {
-        return true;
-    }
-    if !has_hidden_component(path) {
-        return false;
-    }
-    for ancestor in path.ancestors().skip(1) {
-        if is_allowed(ancestor) {
-            let rest = path.strip_prefix(ancestor).unwrap_or(path);
-            return is_allowed(&ancestor.join(without_leading_dots(rest)));
-        }
-    }
-    false
-}
-
-fn authorize(path: &str, is_allowed: &dyn Fn(&Path) -> bool, is_forbidden: &dyn Fn(&Path) -> bool) -> Result<PathBuf, String> {
-    match resolved(path) {
-        Some(real) if granted(&real, is_allowed, is_forbidden) => Ok(real),
-        _ => Err(format!("forbidden path: {path}")),
-    }
-}
-
-// ---------------------------------------------------------------------------------------------------------
 // Commands
 // ---------------------------------------------------------------------------------------------------------
 
@@ -194,6 +135,7 @@ pub async fn write_file_no_clobber<R: Runtime>(app: AppHandle<R>, request: tauri
 mod tests {
     use super::*;
     use std::os::unix::fs::symlink;
+    use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use serde_json::{json, Value};
@@ -352,51 +294,6 @@ mod tests {
         assert_eq!(dir.names(), vec!["same.png"]);
     }
 
-    // ---- scope ---------------------------------------------------------------------------------------
-
-    fn in_dir<'a>(dir: &'a Path) -> impl Fn(&Path) -> bool + 'a {
-        move |path: &Path| path.starts_with(dir) && !has_hidden_wildcard_match(path, dir)
-    }
-
-    /// A stand-in for a scope that hides dot entries from its `**` wildcard, like the runtime scope does.
-    fn has_hidden_wildcard_match(path: &Path, dir: &Path) -> bool {
-        path.strip_prefix(dir).map(|rest| rest.components().any(|part| part.as_os_str().to_string_lossy().starts_with('.'))).unwrap_or(false)
-    }
-
-    #[test]
-    fn dot_entries_inside_a_granted_folder_are_granted_and_nothing_outside_it_is() {
-        let granted_dir = Scratch::new("scope-dots");
-        let other = Scratch::new("scope-other");
-        let allowed = in_dir(&granted_dir.0);
-        let nothing_forbidden = |_: &Path| false;
-
-        assert!(granted(&granted_dir.path("photo.png"), &allowed, &nothing_forbidden));
-        assert!(granted(&granted_dir.path(".folder.md"), &allowed, &nothing_forbidden));
-        assert!(granted(&granted_dir.path("sub/.hidden/x.md"), &allowed, &nothing_forbidden));
-        assert!(!granted(&other.path(".folder.md"), &allowed, &nothing_forbidden));
-        assert!(!granted(&other.path("photo.png"), &allowed, &nothing_forbidden));
-        // A forbidden path stays forbidden, hidden or not.
-        let forbids = |path: &Path| path.ends_with(".folder.md");
-        assert!(!granted(&granted_dir.path(".folder.md"), &allowed, &forbids));
-    }
-
-    #[test]
-    fn a_relative_path_a_parent_reference_and_a_symlinked_parent_are_refused() {
-        let vault = Scratch::new("scope-escape-vault");
-        let outside = Scratch::new("scope-escape-outside");
-        fs::write(outside.path("secret.md"), b"secret").unwrap();
-        symlink(&outside.0, vault.path("link")).unwrap();
-        let allowed = in_dir(&vault.0);
-        let nothing_forbidden = |_: &Path| false;
-
-        assert!(authorize("photo.png", &allowed, &nothing_forbidden).is_err());
-        assert!(authorize(&format!("{}/../{}/x.png", vault.0.display(), outside.0.file_name().unwrap().to_string_lossy()), &allowed, &nothing_forbidden).is_err());
-        // The link's real folder is outside the grant, so a path through it is refused (the scope sees the real path).
-        assert!(authorize(&vault.path("link/new.png").to_string_lossy(), &allowed, &nothing_forbidden).is_err());
-        assert!(authorize(&vault.path("link/secret.md").to_string_lossy(), &allowed, &nothing_forbidden).is_err());
-        assert!(authorize(&vault.path("fine.png").to_string_lossy(), &allowed, &nothing_forbidden).is_ok());
-    }
-
     // ---- the real command boundary (mock runtime, real IPC dispatch, real fs-plugin scope) -------------
 
     type MockApp = tauri::App<tauri::test::MockRuntime>;
@@ -499,5 +396,149 @@ mod tests {
 
         assert!(copied.is_ok(), "{copied:?}");
         assert_eq!(fs::read(vault.path("Source copy/.folder.md")).unwrap(), b"folder note");
+    }
+
+    // ---- authorization audit: what a caller can reach through these two commands ------------------------
+
+    fn refused_as_forbidden(result: Result<Value, Value>) -> bool {
+        matches!(result, Err(error) if error.as_str().is_some_and(|message| message.contains("forbidden path")))
+    }
+
+    #[test]
+    fn a_source_reached_through_a_link_to_an_ungranted_file_is_never_read_and_never_leaks_into_the_vault() {
+        let vault = Scratch::new("audit-link-vault");
+        let outside = Scratch::new("audit-link-outside");
+        fs::write(outside.path("secret.txt"), b"TOP SECRET CONTENT").unwrap();
+        // A link INSIDE the granted folder to a file outside it: the path looks granted, the real file is not.
+        symlink(outside.path("secret.txt"), vault.path("innocent.png")).unwrap();
+        let (_app, window) = app_with_scope(&[&vault.0]);
+
+        let result = invoke(&window, "copy_file_no_clobber", InvokeBody::Json(json!({ "from": vault.path("innocent.png"), "to": vault.path("Copy.png") })), None);
+
+        assert!(refused_as_forbidden(result.clone()), "{result:?}");
+        assert!(!result.unwrap_err().as_str().unwrap().contains("TOP SECRET"), "an error never carries file content");
+        assert!(!vault.path("Copy.png").exists(), "nothing was copied");
+        assert_eq!(fs::read(outside.path("secret.txt")).unwrap(), b"TOP SECRET CONTENT");
+    }
+
+    #[test]
+    fn a_destination_reached_through_a_link_out_of_the_vault_plants_nothing_outside_it() {
+        let vault = Scratch::new("audit-dest-link-vault");
+        let outside = Scratch::new("audit-dest-link-outside");
+        fs::write(vault.path("source.png"), b"source").unwrap();
+        symlink(&outside.0, vault.path("exit")).unwrap();
+        let (_app, window) = app_with_scope(&[&vault.0]);
+
+        let copy = invoke(&window, "copy_file_no_clobber", InvokeBody::Json(json!({ "from": vault.path("source.png"), "to": vault.path("exit/Planted.png") })), None);
+        let write = invoke(&window, "write_file_no_clobber", InvokeBody::Raw(b"x".to_vec()), Some(&vault.path("exit/Planted.png")));
+
+        assert!(refused_as_forbidden(copy));
+        assert!(refused_as_forbidden(write));
+        assert!(outside.names().is_empty());
+    }
+
+    #[test]
+    fn a_parent_reference_encoded_in_the_path_header_is_refused() {
+        let vault = Scratch::new("audit-dotdot-vault");
+        let outside = Scratch::new("audit-dotdot-outside");
+        let (_app, window) = app_with_scope(&[&vault.0]);
+        let sneaky = PathBuf::from(format!("{}/../{}/Planted.png", vault.0.display(), outside.0.file_name().unwrap().to_string_lossy()));
+
+        let result = invoke(&window, "write_file_no_clobber", InvokeBody::Raw(b"x".to_vec()), Some(&sneaky));
+
+        assert!(refused_as_forbidden(result));
+        assert!(outside.names().is_empty());
+    }
+
+    #[test]
+    fn a_path_that_cannot_exist_is_refused_rather_than_trusted() {
+        let vault = Scratch::new("audit-nul");
+        fs::write(vault.path("source.png"), b"s").unwrap();
+        let (_app, window) = app_with_scope(&[&vault.0]);
+        let with_nul = format!("{}/bad\u{0}name.png", vault.0.display());
+
+        let result = invoke(&window, "copy_file_no_clobber", InvokeBody::Json(json!({ "from": vault.path("source.png"), "to": with_nul })), None);
+
+        assert!(result.is_err());
+        assert_eq!(vault.names(), vec!["source.png"]);
+    }
+
+    #[test]
+    fn a_folder_the_scope_forbids_is_refused_for_source_and_destination_even_though_it_was_granted_first() {
+        // The only way an authorization is ever withdrawn from the runtime scope is `forbid`: it beats an allow.
+        let vault = Scratch::new("audit-forbid-vault");
+        fs::create_dir(vault.path("Closed")).unwrap();
+        fs::write(vault.path("Closed/inside.png"), b"inside").unwrap();
+        fs::write(vault.path("open.png"), b"open").unwrap();
+        let (app, window) = app_with_scope(&[&vault.0]);
+        app.fs_scope().forbid_directory(vault.path("Closed"), true).unwrap();
+
+        let into = invoke(&window, "copy_file_no_clobber", InvokeBody::Json(json!({ "from": vault.path("open.png"), "to": vault.path("Closed/New.png") })), None);
+        let out_of = invoke(&window, "copy_file_no_clobber", InvokeBody::Json(json!({ "from": vault.path("Closed/inside.png"), "to": vault.path("Out.png") })), None);
+        let written = invoke(&window, "write_file_no_clobber", InvokeBody::Raw(b"x".to_vec()), Some(&vault.path("Closed/Bytes.png")));
+        let allowed = invoke(&window, "copy_file_no_clobber", InvokeBody::Json(json!({ "from": vault.path("open.png"), "to": vault.path("Fine.png") })), None);
+
+        assert!(refused_as_forbidden(into) && refused_as_forbidden(out_of) && refused_as_forbidden(written));
+        assert!(allowed.is_ok());
+        assert_eq!(vault.path("Closed").read_dir().unwrap().count(), 1, "nothing was added to or taken from the closed folder");
+        assert!(!vault.path("Out.png").exists());
+    }
+
+    #[test]
+    fn nothing_is_authorized_when_no_folder_has_been_granted() {
+        let vault = Scratch::new("audit-nogrant");
+        fs::write(vault.path("source.png"), b"s").unwrap();
+        let (_app, window) = app_with_scope(&[]);
+
+        let copy = invoke(&window, "copy_file_no_clobber", InvokeBody::Json(json!({ "from": vault.path("source.png"), "to": vault.path("Copy.png") })), None);
+        let write = invoke(&window, "write_file_no_clobber", InvokeBody::Raw(b"x".to_vec()), Some(&vault.path("New.png")));
+
+        assert!(refused_as_forbidden(copy) && refused_as_forbidden(write));
+        assert_eq!(vault.names(), vec!["source.png"]);
+    }
+
+    #[test]
+    fn a_source_that_is_a_folder_or_missing_copies_nothing_and_an_error_never_includes_content() {
+        let vault = Scratch::new("audit-source-kind");
+        fs::create_dir(vault.path("Folder")).unwrap();
+        fs::write(vault.path("Folder/a.txt"), b"FOLDER CONTENT").unwrap();
+        let (_app, window) = app_with_scope(&[&vault.0]);
+
+        for from in ["Folder", "missing.png"] {
+            let result = invoke(&window, "copy_file_no_clobber", InvokeBody::Json(json!({ "from": vault.path(from), "to": vault.path("Copy.png") })), None);
+            let message = result.unwrap_err().to_string();
+            assert!(!message.contains("FOLDER CONTENT"), "{message}");
+        }
+        assert!(!vault.path("Copy.png").exists());
+        assert_eq!(vault.names(), vec!["Folder"]);
+    }
+
+    #[test]
+    fn copying_a_file_onto_itself_is_refused_and_leaves_it_whole() {
+        let vault = Scratch::new("audit-self");
+        fs::write(vault.path("note.png"), b"original").unwrap();
+        let (_app, window) = app_with_scope(&[&vault.0]);
+
+        let result = invoke(&window, "copy_file_no_clobber", InvokeBody::Json(json!({ "from": vault.path("note.png"), "to": vault.path("note.png") })), None);
+
+        assert!(result.unwrap_err().as_str().unwrap().starts_with("EEXIST"));
+        assert_eq!(fs::read(vault.path("note.png")).unwrap(), b"original");
+        assert_eq!(vault.names(), vec!["note.png"]);
+    }
+
+    #[test]
+    fn a_dangling_link_at_the_destination_is_refused_and_its_target_is_never_created() {
+        let vault = Scratch::new("audit-dangling-vault");
+        let outside = Scratch::new("audit-dangling-outside");
+        symlink(outside.path("not-yet.png"), vault.path("trap.png")).unwrap();
+        let (_app, window) = app_with_scope(&[&vault.0]);
+
+        let result = invoke(&window, "write_file_no_clobber", InvokeBody::Raw(b"x".to_vec()), Some(&vault.path("trap.png")));
+
+        // Refused either way: the scope resolves a link to where it points (outside), or the name is simply taken.
+        let message = result.unwrap_err().as_str().unwrap().to_string();
+        assert!(message.starts_with("EEXIST") || message.contains("forbidden path"), "{message}");
+        assert!(!outside.path("not-yet.png").exists(), "the write did not follow the link");
+        assert!(fs::symlink_metadata(vault.path("trap.png")).unwrap().file_type().is_symlink());
     }
 }

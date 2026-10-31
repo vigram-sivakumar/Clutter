@@ -11,6 +11,7 @@ mod app_menu;
 mod atomic_replace;
 #[cfg(all(target_os = "macos", feature = "atomic-writes"))]
 mod atomic_commands;
+mod fs_authorization;
 mod move_no_clobber;
 mod new_file_no_clobber;
 mod parse_cache;
