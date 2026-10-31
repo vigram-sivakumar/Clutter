@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -216,91 +218,109 @@ describe('one drag-visual system: starting', () => {
   });
 });
 
-describe('fading', () => {
-  it('every clone is born at opacity 0 and fades in WHILE it moves — the ghost over a visible original too', () => {
+/** A clone's background fill, in percent (the custom property the stylesheet mixes into the surface colour). */
+const fillOf = (element: HTMLElement) => parseFloat(element.style.getPropertyValue('--drag-ghost-fill-opacity'));
+const noOpacityAnywhere = () =>
+  [...document.querySelectorAll<HTMLElement>('.drag-visuals .drag-ghost, .drag-visuals .drag-ghost *')].every((el) => el.style.opacity === '');
+
+describe('the background fill — the only thing that fades', () => {
+  it('eases from 100% down to the token\'s 50% while the clone travels to the cursor, and stays there', () => {
     const [a, b] = [item('a', A), item('b', B)] as const;
     visuals.start(makeSession(a, { x: 700, y: 500 }).session, [b]);
     const [lead, other] = clones() as [HTMLElement, HTMLElement];
 
-    expect(lead.style.opacity).toBe('0');
-    expect(other.style.opacity).toBe('0');
+    expect(fillOf(lead)).toBe(100);
+    expect(fillOf(other)).toBe(100);
 
     advance(64);
-    const moved = Math.hypot(centreOf(other).x - 250, centreOf(other).y - 220);
-    const mid = { lead: Number(lead.style.opacity), other: Number(other.style.opacity) };
-    expect(mid.lead).toBeGreaterThan(0);
-    expect(mid.lead).toBeLessThan(1);
-    expect(mid.other).toBeGreaterThan(0);
-    expect(mid.other).toBeLessThan(1);
-    expect(moved).toBeGreaterThan(1); // moving at the same time
+    for (const clone of [lead, other]) {
+      expect(fillOf(clone)).toBeLessThan(100);
+      expect(fillOf(clone)).toBeGreaterThan(50);
+    }
+    expect(Math.hypot(centreOf(other).x - 250, centreOf(other).y - 220)).toBeGreaterThan(1); // moving at the same time
 
     advance(FULL);
-    expect(lead.style.opacity).toBe('');
-    expect(other.style.opacity).toBe('');
+    expect(fillOf(lead)).toBe(50);
+    expect(fillOf(other)).toBe(50);
   });
 
-  it('a single item\'s clone is opaque at once — its original is hidden, so a fade would dip to nothing — and its frame fades in', () => {
-    const a = item('a', A);
-    visuals.start(makeSession(a).session);
+  it('takes its target from the `--drag-ghost-background-opacity` token', () => {
+    document.documentElement.style.setProperty('--drag-ghost-background-opacity', '30%');
+    try {
+      const a = item('a', A);
+      visuals.start(makeSession(a, { x: 700, y: 500 }).session);
+      advance(FULL);
 
-    expect(clones()[0]!.style.opacity).toBe('');
-    expect(clones()[0]).toHaveClass('drag-ghost--entering');
+      expect(fillOf(clones()[0]!)).toBe(30);
+    } finally {
+      document.documentElement.style.removeProperty('--drag-ghost-background-opacity');
+    }
   });
 
-  it('cancel: each clone flies back from its CURRENT place and opacity, fading to 0 on the way — never reset first', () => {
+  it('never fades the ghost or its contents: no opacity is set on a clone or anything inside it, in any phase', () => {
     const [a, b] = [item('a', A), item('b', B)] as const;
-        const handle = visuals.start(makeSession(a, { x: 700, y: 500 }).session, [b]);
-    advance(70); // mid-flight: partly moved, partly faded in
+    const handle = visuals.start(makeSession(a, { x: 700, y: 500 }).session, [b]);
+    expect(noOpacityAnywhere()).toBe(true); // born opaque
+    advance(70);
+    expect(noOpacityAnywhere()).toBe(true); // travelling
+    advance(FULL);
+    handle.cancel();
+    advance(DRAG_VISUAL_POLICY.returnMs / 2);
+    expect(noOpacityAnywhere()).toBe(true); // returning
+    advance(FULL);
+    expect(overlay()).toBeNull();
+  });
+
+  it('the stylesheet mixes the fill into the theme\'s own surface colour — no separate light and dark colours', () => {
+    const css = readFileSync(join(__dirname, 'DragGhost.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const rule = css.match(/\.drag-ghost \{([^}]*)\}/)![1]!;
+
+    expect(rule).toMatch(/color-mix\(\s*in srgb,\s*var\(--surface-tertiary\) var\(--drag-ghost-fill-opacity, var\(--drag-ghost-background-opacity\)\),\s*transparent\s*\)/);
+    expect(css).not.toMatch(/drag-ghost[^{]*\{[^}]*\bopacity:/); // the ghost itself is never made translucent
+    expect(css).not.toMatch(/@keyframes drag-ghost-(lift|land)/); // and nothing fades it in or out
+  });
+
+  it('cancel: the fill and the position return together, from where they are now — never reset first — and the clone stays until it has arrived', () => {
+    const [a, b] = [item('a', A), item('b', B)] as const;
+    const handle = visuals.start(makeSession(a, { x: 700, y: 500 }).session, [b]);
+    advance(70); // mid-flight: part-way in both
     const [lead, other] = clones() as [HTMLElement, HTMLElement];
-    const before = { x: centreOf(other).x, y: centreOf(other).y, opacity: Number(other.style.opacity), lead: Number(lead.style.opacity) };
+    const before = { fill: fillOf(other), x: centreOf(other).x, y: centreOf(other).y };
+    expect(before.fill).toBeLessThan(100);
 
     handle.cancel();
     advance(16);
-    // The first frame back continues from where it was: no jump to the start, none to full opacity.
-    expect(Math.abs(centreOf(other).x - before.x)).toBeLessThan(40);
+    expect(Math.abs(fillOf(other) - before.fill)).toBeLessThan(15); // continues from the current fill…
+    expect(Math.abs(centreOf(other).x - before.x)).toBeLessThan(40); // …and the current place
     expect(Math.abs(centreOf(other).y - before.y)).toBeLessThan(40);
-    expect(Number(other.style.opacity)).toBeLessThanOrEqual(before.opacity + 0.01);
-    expect(Number(lead.style.opacity)).toBeLessThanOrEqual(before.lead + 0.01);
 
     advance(DRAG_VISUAL_POLICY.returnMs / 2);
-    expect(Number(other.style.opacity)).toBeLessThan(before.opacity);
-    advance(FULL);
+    expect(fillOf(other)).toBeGreaterThan(before.fill); // rising back towards 100% as it travels back
+    expect(overlay()).not.toBeNull(); // nothing is removed early
+    advance(DRAG_VISUAL_POLICY.returnMs / 2 + 40);
     expect(overlay()).toBeNull();
+    expect(lead.isConnected).toBe(false);
   });
 
-  it('cancel fades a fully-shown ghost from 1 to 0 as it returns, and removes it only when gone', () => {
-    const [a, b] = [item('a', A), item('b', B)] as const;
-    const handle = visuals.start(makeSession(a, { x: 700, y: 500 }).session, [b]);
-    advance(FULL);
-
-    handle.cancel();
-    advance(DRAG_VISUAL_POLICY.returnMs * 0.6);
-    const lead = clones()[0]!;
-    expect(Number(lead.style.opacity)).toBeGreaterThan(0);
-    expect(Number(lead.style.opacity)).toBeLessThan(1);
-
-    advance(FULL);
-    expect(overlay()).toBeNull();
-  });
-
-  it('a hidden original is shown again while its clone is still fading, so it never pops in', () => {
+  it('a fully settled ghost returns from 50% back up to 100%, and is removed only on arrival', () => {
     const a = item('a', A);
     const handle = visuals.start(makeSession(a, { x: 700, y: 500 }).session);
     advance(FULL);
+    expect(fillOf(clones()[0]!)).toBe(50);
 
     handle.cancel();
     advance(DRAG_VISUAL_POLICY.returnMs * 0.5);
-    expect(a).toHaveAttribute(DRAG_SOURCE_ATTRIBUTE, 'true'); // not yet
-    advance(DRAG_VISUAL_POLICY.returnMs * 0.35);
-    expect(a.hasAttribute(DRAG_SOURCE_ATTRIBUTE)).toBe(false); // back, with the clone still on its way out
-    expect(overlay()).not.toBeNull();
-    expect(Number(clones()[0]!.style.opacity)).toBeGreaterThan(0);
+    const mid = fillOf(clones()[0]!);
+    expect(mid).toBeGreaterThan(50);
+    expect(mid).toBeLessThan(100);
+    expect(a).toHaveAttribute(DRAG_SOURCE_ATTRIBUTE, 'true'); // the original is shown only when the clone is gone
 
-    advance(FULL);
+    advance(DRAG_VISUAL_POLICY.returnMs);
     expect(overlay()).toBeNull();
+    expect(a.hasAttribute(DRAG_SOURCE_ATTRIBUTE)).toBe(false);
   });
 
-  it('cancelling an animation already in progress, then another drag at once, leaves no stale opacity or clone', () => {
+  it('cancelling an animation already in progress, then another drag at once, leaves no stale fill or clone', () => {
     const [a, b] = [item('a', A), item('b', B)] as const;
     const first = visuals.start(makeSession(a, { x: 700, y: 500 }).session, [b]);
     advance(40);
@@ -309,7 +329,7 @@ describe('fading', () => {
 
     const second = visuals.start(makeSession(b).session, [a]);
     expect(document.querySelectorAll('.drag-visuals')).toHaveLength(1);
-    expect(clones().every((clone) => clone.style.opacity === '0')).toBe(true); // a fresh start, from nothing
+    expect(clones().every((clone) => fillOf(clone) === 100)).toBe(true); // a fresh start, from nothing
 
     second.dispose();
     advance(FULL);
@@ -317,13 +337,13 @@ describe('fading', () => {
     expect(clock.pending()).toBe(0);
   });
 
-  it('with reduced motion nothing is faded: the ghost is opaque at once and a cancel ends at once', () => {
+  it('with reduced motion the fill is at its final value at once, and a cancel ends at once', () => {
     restoreMotion();
     restoreMotion = stubReducedMotion(true);
     const [a, b] = [item('a', A), item('b', B)] as const;
     const handle = visuals.start(makeSession(a, { x: 700, y: 500 }).session, [b]);
 
-    expect(clones()[0]!.style.opacity).toBe('');
+    expect(fillOf(clones()[0]!)).toBe(50);
     handle.cancel();
     expect(overlay()).toBeNull();
   });
@@ -364,22 +384,22 @@ describe('ending a drag', () => {
     expect(overlay()).toBeNull();
   });
 
-  it('commit: nothing flies back — the clones fade out where the cursor left them, then go with the hiding', () => {
+  it('commit: nothing flies back, fades or changes — the clones stay where the cursor left them until the collection has updated, then go with the hiding', () => {
     const a = item('a', A);
     const { session } = makeSession(a, { x: 700, y: 500 });
     const handle = visuals.start(session);
     advance(FULL);
     handle.release();
     const where = centreOf(clones()[0]!);
+    const fillBefore = fillOf(clones()[0]!);
 
     handle.commit();
-    advance(32);
-    expect(overlay()).not.toBeNull(); // not before the collection has rendered: neither a duplicate nor a gap
+    advance(16);
+    expect(overlay()).not.toBeNull(); // not before the render: neither a duplicate nor a gap
     expect(a).toHaveAttribute(DRAG_SOURCE_ATTRIBUTE, 'true');
     expect(centreOf(clones()[0]!)).toEqual(where); // in place — no flight back
-    const fading = Number(clones()[0]!.style.opacity);
-    expect(fading).toBeLessThan(1);
-    expect(fading).toBeGreaterThan(0);
+    expect(fillOf(clones()[0]!)).toBe(fillBefore); // no animation of any kind
+    expect(clones()[0]!.style.opacity).toBe('');
 
     advance(FULL);
     expect(overlay()).toBeNull();
@@ -387,16 +407,15 @@ describe('ending a drag', () => {
     expect(clock.pending()).toBe(0);
   });
 
-  it('commit of several items: the originals stay as they were, only the clones fade out', () => {
+  it('commit of several items: the originals stay as they were, only the clones go', () => {
     const [a, b] = [item('a', A), item('b', B)] as const;
     const before = [a, b].map((el) => el.outerHTML);
     const handle = visuals.start(makeSession(a, { x: 700, y: 500 }).session, [b]);
     advance(FULL);
 
     handle.commit();
-    advance(32);
+    advance(16);
     expect([a, b].map((el) => el.outerHTML)).toEqual(before);
-    expect(clones().every((clone) => Number(clone.style.opacity || 1) < 1)).toBe(true);
     advance(FULL);
 
     expect(overlay()).toBeNull();

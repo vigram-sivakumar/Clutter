@@ -8,11 +8,14 @@
  *    `DRAG_VISUAL_POLICY.hideOriginals`, here and nowhere else). Nothing is ever transformed or restyled inline on an
  *    original, in either case;
  *  - every dragged item is drawn as a temporary clone in ONE overlay owned here: the lead (the item the pointer took
- *    hold of) is the ghost that follows the pointer; the others converge on it and fade out; a count says how many;
- *  - everything fades: a clone is born at `opacity: 0` and fades in as it travels (together, not one then the other);
- *    cancelled, the clones fly back to where their originals are NOW (the layout may have changed meanwhile) from
- *    their current place and opacity, fading to 0 on the way, and the originals are restored; dropped, the clones
- *    simply fade out in place while the collection updates, and the hiding ends with them.
+ *    hold of) is the ghost that follows the pointer; the others converge on it; a count says how many;
+ *  - only a clone's BACKGROUND fill changes in opacity — 100% on the original's place down to the token's value
+ *    (`--drag-ghost-background-opacity`) as it travels to the cursor, and back up to 100% as it returns; the clone
+ *    itself and its contents (text, icons, borders) are never made translucent, never faded in or out, and the
+ *    surface colour stays the theme's (`--surface-tertiary`, see DragGhost.css);
+ *  - cancelled, the clones fly back to where their originals are NOW (the layout may have changed meanwhile) from
+ *    their current place and fill, and are removed only when they have arrived, and the originals are restored;
+ *    dropped, the clones stay where the cursor left them until the collection has updated, then go with the hiding.
  *
  * Changing how dragging looks — not hiding the originals, a miniature grid instead of a count, a different
  * animation — is a change to this file and `DRAG_VISUAL_POLICY`, and affects every drag.
@@ -54,10 +57,10 @@ export const DRAG_VISUAL_POLICY = {
   convergenceMs: 220,
   staggerMs: 16,
   maxStaggered: 8,
-  /** A dropped drag's clones fade out in place over this long (never flying back), while the collection updates. */
-  commitFadeMs: 90,
-  /** An original that was hidden is shown again this far through its clone's flight back, while the clone is still fading (no pop). */
-  restoreAtReturnProgress: 0.7,
+  /** The ghost's background fill, as a percentage of the surface colour, when it is on the original's place… */
+  fillStartPercent: 100,
+  /** …and what it eases to if the CSS token cannot be read. The token is `--drag-ghost-background-opacity`. */
+  fillEndFallbackPercent: 50,
   /** Where the count rides, from the cursor. */
   countOffsetPx: 14,
   /** However an animation ends — or never does (a window that is not painted runs no frames) — everything is gone by then. */
@@ -93,6 +96,13 @@ export function prepareClone(clone: HTMLElement): HTMLElement {
   return clone;
 }
 
+/** `--drag-ghost-background-opacity` in percent — the one place the fill's target is set (DragGhost.css). */
+function readFillTarget(): number {
+  const style = getComputedStyle(document.documentElement);
+  const value = typeof style?.getPropertyValue === 'function' ? parseFloat(style.getPropertyValue('--drag-ghost-background-opacity')) : NaN;
+  return Number.isFinite(value) ? value : DRAG_VISUAL_POLICY.fillEndFallbackPercent;
+}
+
 function prefersReducedMotion(): boolean {
   return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
@@ -119,7 +129,8 @@ interface Item {
   readonly hadAttribute: string | null;
   /** What is drawn now. */
   box: Box;
-  opacity: number;
+  /** The background fill's opacity now, in percent. */
+  fill: number;
 }
 
 export interface DragVisualsHandle {
@@ -170,6 +181,10 @@ export function createDragVisuals(): DragVisuals {
     overlay.setAttribute('inert', '');
     overlay.setAttribute('aria-hidden', 'true');
 
+    // The fill eases from `fillStartPercent` to the CSS token's value (read once); with reduced motion it is there at once.
+    const fillEnd = readFillTarget();
+    const fillAt = (share: number) => policy.fillStartPercent + (fillEnd - policy.fillStartPercent) * share;
+
     const compactWidth = (source: HTMLElement) => (session.allowDragOutsideContainer && source.getAttribute(DRAG_GHOST_SIZE_ATTRIBUTE) === 'compact' ? DRAG_GHOST_WIDTH_PX : undefined);
 
     // All the reads, once, before anything is written.
@@ -190,8 +205,7 @@ export function createDragVisuals(): DragVisuals {
         delay: index === 0 || reduced ? 0 : Math.min(index - 1, policy.maxStaggered) * policy.staggerMs,
         hadAttribute: source.getAttribute(DRAG_SOURCE_ATTRIBUTE),
         box: { ...origin },
-        // Born invisible: every clone fades in as it moves.
-        opacity: 0,
+        fill: policy.fillStartPercent,
       };
     });
     const leadItem = items[0]!;
@@ -218,9 +232,7 @@ export function createDragVisuals(): DragVisuals {
     let startedAt: number | null = null;
     let returnStartedAt: number | null = null;
     let returnFrom: Box[] = [];
-    let returnFromOpacity: number[] = [];
-    let commitStartedAt: number | null = null;
-    let commitFromOpacity: number[] = [];
+    let returnFromFill: number[] = [];
     let restored = false;
     let unsubscribe: (() => void) | null = session.subscribe(() => render());
 
@@ -239,13 +251,14 @@ export function createDragVisuals(): DragVisuals {
         : { box: { x: rect?.left ?? leadItem.origin.x, y: pointer.y - grabOffsetY, width: rect?.width ?? width, height }, free };
     }
 
-    function place(item: Item, box: Box, opacity: number, free = true) {
+    function place(item: Item, box: Box, fill: number, free = true) {
       item.box = box;
-      item.opacity = opacity;
+      item.fill = fill;
       const style = item.element.style;
       style.width = `${box.width}px`;
       style.height = `${box.height}px`;
-      style.opacity = opacity === 1 ? '' : String(opacity);
+      // Only the background's alpha moves: a custom property the stylesheet mixes into `--surface-tertiary`.
+      style.setProperty('--drag-ghost-fill-opacity', `${fill}%`);
       // A column-pinned lead keeps its own `left` and moves vertically only; everything else is placed by transform.
       style.left = free ? '0px' : `${box.x}px`;
       style.transform = free ? `translate3d(${box.x}px, ${box.y}px, 0)` : `translate3d(0, ${box.y}px, 0)`;
@@ -265,11 +278,9 @@ export function createDragVisuals(): DragVisuals {
         const target = leadTarget();
         // The lead eases from the original's place onto the pointer (the pointer itself is followed from the first frame).
         const share = reduced || !target.free ? 1 : ease(clamp01(elapsed / policy.settleMs));
-        // The ghost fades in over a VISIBLE original (several items); a single item's original is hidden the moment its
-        // clone appears, so the clone is already opaque (swapping one for the other would dip to nothing) and its
-        // frame — fill and shadow — fades in instead (the `--entering` animation).
-        const leadOpacity = reduced || hidden.length > 0 ? 1 : ease(clamp01(elapsed / policy.settleMs));
-        animating ||= share < 1 || leadOpacity < 1;
+        // The background fill eases from its start value to the token's, in step with the settle onto the pointer.
+        const fillShare = reduced ? 1 : ease(clamp01(elapsed / policy.settleMs));
+        animating ||= share < 1 || fillShare < 1;
         place(
           leadItem,
           {
@@ -278,12 +289,11 @@ export function createDragVisuals(): DragVisuals {
             width: leadItem.origin.width + (target.box.width - leadItem.origin.width) * share,
             height: target.box.height,
           },
-          leadOpacity,
+          fillAt(fillShare),
           target.free
         );
-        leadItem.element.classList.toggle('drag-ghost--entering', share < 1);
 
-        // The others converge on the lead's DRAWN centre — wherever it is on its way to the pointer — and fade out.
+        // The others converge on the lead's DRAWN centre — wherever it is on its way to the pointer.
         const centre = { x: leadItem.box.x + leadItem.box.width / 2, y: leadItem.box.y + leadItem.box.height / 2 };
         if (!reduced) {
           for (const item of items.slice(1)) {
@@ -299,8 +309,8 @@ export function createDragVisuals(): DragVisuals {
                 width: item.origin.width,
                 height: item.origin.height,
               },
-              // Fading in together with the movement — never one after the other.
-              progress
+              // The fill eases in step with the flight.
+              fillAt(progress)
             );
           }
         }
@@ -323,33 +333,11 @@ export function createDragVisuals(): DragVisuals {
               width: from.width + (to.width - from.width) * progress,
               height: from.height + (to.height - from.height) * progress,
             },
-            // From the opacity it has now, down to nothing.
-            returnFromOpacity[index]! * (1 - progress),
+            // From the fill it has now back to the start value, together with the position.
+            returnFromFill[index]! + (policy.fillStartPercent - returnFromFill[index]!) * progress,
             true
           );
         });
-        if (count) {
-          count.style.opacity = String(1 - progress);
-        }
-        if (progress >= policy.restoreAtReturnProgress) {
-          restoreOriginals(); // while the clone is still fading, so the original never pops in
-        }
-        if (progress >= 1) {
-          finish();
-          return;
-        }
-        animating = true;
-      } else if (phase === 'committing') {
-        // A drop that did something: no flight back. The clones fade out where they are while the collection updates.
-        commitStartedAt ??= now;
-        const progress = ease(clamp01((now - commitStartedAt) / policy.commitFadeMs));
-        drawn.forEach((item, index) => {
-          item.opacity = commitFromOpacity[index]! * (1 - progress);
-          item.element.style.opacity = item.opacity === 1 ? '' : String(item.opacity);
-        });
-        if (count) {
-          count.style.opacity = String(1 - progress);
-        }
         if (progress >= 1) {
           finish();
           return;
@@ -424,15 +412,10 @@ export function createDragVisuals(): DragVisuals {
         }
         phase = 'committing';
         stopFollowing();
-        commitFromOpacity = drawn.map((item) => item.opacity);
-        // The clones fade out where the cursor left them, the originals stay hidden until they are gone: the collection
-        // has rendered its update by then, so neither a duplicate nor a gap shows. (Not on frames alone: a window that
-        // is not painted has none.)
-        if (reduced) {
-          afterNextRender(finish);
-        } else {
-          render();
-        }
+        // The clones stay where the cursor left them (no flight back, no fade) and the originals stay hidden until the
+        // collection has rendered its update — then both go together, so neither a duplicate nor a gap shows. (Not on
+        // frames alone: a window that is not painted has none.)
+        afterNextRender(finish);
         timers.add(setTimeout(finish, policy.safetyMs));
       },
 
@@ -441,7 +424,7 @@ export function createDragVisuals(): DragVisuals {
           return;
         }
         returnFrom = drawn.map((item) => ({ ...item.box }));
-        returnFromOpacity = drawn.map((item) => item.opacity);
+        returnFromFill = drawn.map((item) => item.fill);
         phase = 'returning';
         stopFollowing();
         if (reduced) {

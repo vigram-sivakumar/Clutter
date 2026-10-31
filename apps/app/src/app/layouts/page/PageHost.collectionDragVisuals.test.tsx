@@ -245,28 +245,33 @@ describe.each(['list', 'table', 'card'] as const)('the shared drag visuals in th
       advance(FULL);
     });
 
-    it('the clones fade in as they travel, and out as they return (or as a drop completes) — never abruptly', async () => {
+    it('only the background fill fades: 100% → 50% on the way out, back to 100% on the way back — never the clone or its contents', async () => {
+      const fill = (el: HTMLElement) => parseFloat(el.style.getPropertyValue('--drag-ghost-fill-opacity'));
+      const noOpacity = () => [...document.querySelectorAll<HTMLElement>('.drag-visuals .drag-ghost, .drag-visuals .drag-ghost *')].every((el) => el.style.opacity === '');
       select('N1', 'N2', 'N3');
       await drag(card(ids.N1!), { x: 820, y: 650 }, { release: false });
       const [lead, other] = clones() as [HTMLElement, HTMLElement];
-      expect(other.style.opacity).toBe('0'); // born invisible
+      expect(fill(other)).toBe(100);
       advance(70);
-      expect(Number(other.style.opacity)).toBeGreaterThan(0);
-      expect(Number(other.style.opacity)).toBeLessThan(1); // fading in while it moves
+      expect(fill(other)).toBeLessThan(100);
+      expect(fill(other)).toBeGreaterThan(50);
       advance(FULL);
-      expect(other.style.opacity).toBe('');
+      expect(fill(other)).toBe(50);
+      expect(fill(lead)).toBe(50);
+      expect(noOpacity()).toBe(true);
 
       escape();
       advance(100);
-      expect(Number(other.style.opacity)).toBeLessThan(1); // fading out as it returns…
-      expect(Number(lead.style.opacity)).toBeLessThan(1);
-      expect(overlay()).not.toBeNull();
+      expect(fill(other)).toBeGreaterThan(50); // rising back…
+      expect(fill(other)).toBeLessThan(100);
+      expect(noOpacity()).toBe(true);
+      expect(overlay()).not.toBeNull(); // …and nothing removed before it has arrived
       advance(FULL);
-      expect(overlay()).toBeNull(); // …and removed only once gone
+      expect(overlay()).toBeNull();
       release();
     });
 
-    it('a successful drop fades the clones out in place — no flight back', async () => {
+    it('a successful drop leaves the clones where they are — no return, no fade — until the update has rendered', async () => {
       select('N1', 'N2');
       await drag(card(ids.N1!), centre(card(ids.Alpha!)), { release: false });
       advance(FULL);
@@ -275,11 +280,12 @@ describe.each(['list', 'table', 'card'] as const)('the shared drag visuals in th
 
       release(centre(card(ids.Alpha!)).x, centre(card(ids.Alpha!)).y);
       await settle();
-      advance(30);
+      advance(16);
 
       if (lead.isConnected) {
         expect(centreOf(lead)).toEqual(where);
-        expect(Number(lead.style.opacity || 1)).toBeLessThan(1);
+        expect(lead.style.opacity).toBe('');
+        expect(parseFloat(lead.style.getPropertyValue('--drag-ghost-fill-opacity'))).toBe(50);
       }
       advance(FULL);
       expect(overlay()).toBeNull();

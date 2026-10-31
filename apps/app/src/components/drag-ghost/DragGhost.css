@@ -1,33 +1,8 @@
 :root {
-  /* How opaque the ghost's BACKGROUND is. Only the fill: the row's text and icons stay fully solid. */
+  /* How opaque the ghost's BACKGROUND is once it is on the cursor (it starts at 100% on the original's place and eases
+     to this, and back when cancelled — dragVisuals.ts drives `--drag-ghost-fill-opacity`). Only the fill: the row's
+     text and icons stay fully solid. */
   --drag-ghost-background-opacity: 50%;
-}
-
-/* The ghost lifts off the original (and, cancelled, settles back onto it): its fill and elevation grow in and out
-   while it travels, so it is never a different-looking object from the item it was. */
-@keyframes drag-ghost-lift {
-  from {
-    background: transparent;
-    box-shadow: none;
-  }
-}
-@keyframes drag-ghost-land {
-  to {
-    background: transparent;
-    box-shadow: none;
-  }
-}
-.drag-ghost--entering {
-  animation: drag-ghost-lift 160ms ease-out;
-}
-.drag-ghost--returning {
-  animation: drag-ghost-land 220ms ease-in forwards;
-}
-@media (prefers-reduced-motion: reduce) {
-  .drag-ghost--entering,
-  .drag-ghost--returning {
-    animation: none;
-  }
 }
 
 /* The one overlay every drag's clones live in (dragVisuals.ts): above the app, never in layout, never in the way
@@ -60,7 +35,7 @@
 
   background: color-mix(
     in srgb,
-    var(--surface-tertiary) var(--drag-ghost-background-opacity),
+    var(--surface-tertiary) var(--drag-ghost-fill-opacity, var(--drag-ghost-background-opacity)),
     transparent
   );
   box-shadow: var(--shadow-md);
