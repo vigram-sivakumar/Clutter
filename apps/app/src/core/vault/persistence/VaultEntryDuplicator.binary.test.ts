@@ -44,7 +44,7 @@ class FakeDisk {
         return this.files.has(args.path as string) || this.directories.has(args.path as string);
       case 'plugin:fs|stat':
         return { isFile: false, isDirectory: true, isSymlink: false, size: 0, mtime: null, atime: null, birthtime: null, readonly: false };
-      case 'plugin:fs|mkdir':
+      case 'create_directory':
         this.directories.add(args.path as string);
         return undefined;
       case 'plugin:fs|read_dir': {

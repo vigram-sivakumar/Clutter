@@ -1,9 +1,7 @@
 import {
   exists,
-  mkdir,
   readDir,
   readTextFile,
-  remove,
   rename,
   stat,
   readFile as readBinary,
@@ -85,16 +83,17 @@ export class LocalVaultProvider implements VaultFileSystem {
     const destination = this.resolvePath(path);
 
     if (options?.exclusive) {
-      // `mkdir(2)` without `-p` fails if the name exists and is decided in the operating system.
+      // `mkdir(2)` without `-p` fails if the name exists and is decided in the operating system, in the native
+      // command, which also refuses a path that leaves the Space through a link (`vault_entries.rs`).
       try {
-        await mkdir(destination, { recursive: false });
+        await invoke('create_directory', { path: destination, recursive: false });
       } catch (error) {
         throw isAlreadyExistsError(error) ? new DestinationExistsError(destination) : error;
       }
       return;
     }
 
-    await mkdir(destination, { recursive: true });
+    await invoke('create_directory', { path: destination, recursive: true });
   }
 
   async readDirectory(_path: string): Promise<VaultEntry[]> {
@@ -120,7 +119,7 @@ export class LocalVaultProvider implements VaultFileSystem {
 
   async deleteFile(path: string, options?: { recursive?: boolean }): Promise<void> {
     this.assertWritable();
-    await remove(this.resolvePath(path), { recursive: options?.recursive ?? false });
+    await invoke('delete_path', { path: this.resolvePath(path), recursive: options?.recursive ?? false });
   }
 
   async moveFile(sourcePath: string, destinationPath: string, options?: MoveFileOptions): Promise<void> {

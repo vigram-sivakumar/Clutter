@@ -88,6 +88,39 @@ pub(crate) fn resolved_entry(path: &str) -> Option<PathBuf> {
     Some(fs::canonicalize(path.parent()?).ok()?.join(path.file_name()?))
 }
 
+/// Like [`resolved`], for a path that does not exist yet and whose parents may not either (a recursive `mkdir`): the
+/// deepest existing ancestor is resolved, links followed, and the names that do not exist yet are appended. A component
+/// that is a link which cannot be resolved (a dangling link) is refused: what it would create is unknowable.
+pub(crate) fn resolved_deep(path: &str) -> Option<PathBuf> {
+    let path = Path::new(path);
+    if !path.is_absolute() || path.components().any(|part| matches!(part, Component::ParentDir)) {
+        return None;
+    }
+    let mut missing = Vec::new();
+    let mut current = path;
+    loop {
+        match fs::canonicalize(current) {
+            Ok(mut real) => {
+                real.extend(missing.iter().rev());
+                return Some(real);
+            }
+            Err(_) if fs::symlink_metadata(current).is_ok() => return None,
+            Err(_) => {
+                missing.push(current.file_name()?);
+                current = current.parent()?;
+            }
+        }
+    }
+}
+
+/// [`authorize`] for a folder that is about to be created, with any missing parents.
+pub(crate) fn authorize_deep(path: &str, is_allowed: &dyn Fn(&Path) -> bool, is_forbidden: &dyn Fn(&Path) -> bool) -> Result<PathBuf, String> {
+    match resolved_deep(path) {
+        Some(real) if granted(&real, is_allowed, is_forbidden) => Ok(real),
+        _ => Err(format!("forbidden path: {path}")),
+    }
+}
+
 /// [`authorize`] for an entry that is moved: judged by its real folder and its own name.
 pub(crate) fn authorize_entry(path: &str, is_allowed: &dyn Fn(&Path) -> bool, is_forbidden: &dyn Fn(&Path) -> bool) -> Result<PathBuf, String> {
     match resolved_entry(path) {
@@ -166,6 +199,27 @@ mod tests {
 
 
     #[test]
+    fn a_folder_to_create_is_judged_by_its_deepest_existing_ancestor_so_a_link_parent_cannot_lead_out() {
+        let vault = Scratch::new("deep-vault");
+        let outside = Scratch::new("deep-outside");
+        symlink(&outside.0, vault.path("exit")).unwrap();
+        symlink(outside.path("not-there"), vault.path("dangling")).unwrap();
+        fs::create_dir_all(vault.path("real")).unwrap();
+        let allowed = in_dir(&vault.0);
+        let nothing_forbidden = |_: &Path| false;
+
+        // Nothing exists below `real`: the names are appended to the resolved ancestor.
+        assert_eq!(authorize_deep(&vault.path("real/a/b/c").to_string_lossy(), &allowed, &nothing_forbidden).unwrap(), vault.path("real/a/b/c"));
+        // A link to the outside, however deep the new folder is below it, is judged by where it really goes.
+        assert!(authorize_deep(&vault.path("exit/made").to_string_lossy(), &allowed, &nothing_forbidden).is_err());
+        assert!(authorize_deep(&vault.path("exit/made/deeper").to_string_lossy(), &allowed, &nothing_forbidden).is_err());
+        assert!(authorize_deep(&vault.path("dangling/made").to_string_lossy(), &allowed, &nothing_forbidden).is_err());
+        assert!(authorize_deep(&format!("{}/../x", vault.0.display()), &allowed, &nothing_forbidden).is_err());
+        assert!(authorize_deep("relative/x", &allowed, &nothing_forbidden).is_err());
+        assert!(authorize_deep(&outside.path("made").to_string_lossy(), &allowed, &nothing_forbidden).is_err());
+    }
+
+    #[test]
     fn an_entry_that_is_a_link_is_judged_by_its_own_name_not_by_where_it_points() {
         let vault = Scratch::new("entry-link");
         let outside = Scratch::new("entry-link-outside");
@@ -215,11 +269,11 @@ mod tests {
     /// The file-writing and file-opening commands of the fs plugin that the webview must not hold. `open` is here
     /// because the plugin lets it open for writing and truncating (`create`, `truncate`, `write`) on the strength of
     /// its read permission alone.
-    const DENIED_FS_COMMANDS: &[&str] = &["write_file", "write_text_file", "copy_file", "create", "truncate", "ftruncate", "write", "open", "watch", "unwatch", "read", "seek"];
+    const DENIED_FS_COMMANDS: &[&str] = &["write_file", "write_text_file", "mkdir", "remove", "copy_file", "create", "truncate", "ftruncate", "write", "open", "watch", "unwatch", "read", "seek"];
 
     /// What Clutter's own code uses of the plugin (`LocalFileSystem`, `TauriRecoveryStorage`, `probeSpaceFolder`,
     /// `coverImageBytes`), checked against the source by `pluginFsCapabilityAudit.test.ts`.
-    const GRANTED_FS_COMMANDS: &[&str] = &["read_dir", "read_file", "read_text_file", "exists", "stat", "mkdir", "rename", "remove"];
+    const GRANTED_FS_COMMANDS: &[&str] = &["read_dir", "read_file", "read_text_file", "exists", "stat", "rename"];
 
     #[test]
     fn the_webview_cannot_overwrite_truncate_or_open_for_writing_through_the_fs_plugin() {

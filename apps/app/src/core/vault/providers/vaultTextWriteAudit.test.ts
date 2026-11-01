@@ -45,6 +45,13 @@ describe('vault text writes have one door', { timeout: 30_000 }, () => {
     expect(importersOf('copyFile')).toEqual([]);
   });
 
+  it('the plugin\'s mkdir and remove are imported by nobody: folders and deletions go through the native, link-safe commands', () => {
+    // `create_directory` and `delete_path` (`vault_entries.rs`) judge the resolved path, so a directory link inside a
+    // Space cannot carry either one out of it. The plugin's versions judged the path as written, and are not granted.
+    expect(importersOf('mkdir')).toEqual([]);
+    expect(importersOf('remove')).toEqual([]);
+  });
+
   it('the plain vault provider is constructed only by the Composition Root and the one factory for short-lived jobs', () => {
     const constructors = sourceFiles(SRC)
       .filter((file) => /new LocalVaultProvider\(/.test(readFileSync(file, 'utf8')))

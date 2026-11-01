@@ -19,6 +19,7 @@ mod parse_cache;
 mod recovery_store;
 mod space_access;
 mod space_folder;
+mod vault_entries;
 mod startup_notice;
 mod vault_asset_scope;
 mod vault_watcher;
@@ -213,6 +214,8 @@ pub fn run() {
             parse_cache::parse_cache_remove,
             recovery_store::recovery_write,
             recovery_store::recovery_remove,
+            vault_entries::create_directory,
+            vault_entries::delete_path,
             space_folder::canonical_space_path,
             space_access::sandbox_info,
             space_access::restore_space_access,

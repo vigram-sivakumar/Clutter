@@ -16,9 +16,10 @@ import { describe, expect, it } from 'vitest';
  * cannot appear without its permission being a conscious decision, and a permission cannot linger unused.
  *
  * What is still granted and can still overwrite a path in scope: `rename` (the legacy inner vault writer's replace,
- * `TagMetadataStore`'s replace) and `remove`, `mkdir`. (`write_text_file` is gone: recovery records are written by the
- * native `recovery_write`.) They share the static scope
- * `$HOME/**` with every Space, so they cannot be separated from Space files by a permission; that is recorded in
+ * `TagMetadataStore`'s replace). (`write_text_file` is gone: recovery records are written by the native
+ * `recovery_write`. `mkdir` and `remove` are gone: folders and deletions go through the native `create_directory` and
+ * `delete_path`, which resolve links before judging a path.) `rename` shares the static scope
+ * `$HOME/**` with every Space, so it cannot be separated from Space files by a permission; that is recorded in
  * `docs/building-and-distribution.md` rather than claimed away.
  */
 const SRC = join(__dirname, '..', '..', '..');

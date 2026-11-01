@@ -10,6 +10,21 @@ function parentOf(path: string): string {
   return path.slice(0, path.lastIndexOf('/')) || '/';
 }
 
+// The native `create_directory` command (vault_entries.rs) with the same two behaviours: `recursive` creates every
+// missing ancestor (like `mkdir -p`), and without it the parent must exist.
+vi.mock('@tauri-apps/api/core', () => ({
+  isTauri: () => false,
+  invoke: vi.fn(async (command: string, args: { path: string; recursive?: boolean }) => {
+    if (command !== 'create_directory') throw new Error(`unexpected command ${command}`);
+    if (args.recursive) {
+      for (let dir = args.path; dir !== '/' && dir !== ''; dir = parentOf(dir)) disk.dirs.add(dir);
+    } else if (disk.dirs.has(parentOf(args.path))) {
+      disk.dirs.add(args.path);
+    } else {
+      throw NOT_FOUND;
+    }
+  }),
+}));
 vi.mock('@tauri-apps/plugin-fs', () => ({
   stat: vi.fn(async (path: string) => {
     if (disk.dirs.has(path)) return { isDirectory: true, size: 0, birthtime: null, mtime: null };
@@ -17,15 +32,6 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
     throw NOT_FOUND;
   }),
   exists: vi.fn(async (path: string) => disk.dirs.has(path) || disk.files.has(path)),
-  mkdir: vi.fn(async (path: string, options?: { recursive?: boolean }) => {
-    if (options?.recursive) {
-      for (let dir = path; dir !== '/' && dir !== ''; dir = parentOf(dir)) disk.dirs.add(dir);
-    } else if (disk.dirs.has(parentOf(path))) {
-      disk.dirs.add(path);
-    } else {
-      throw NOT_FOUND;
-    }
-  }),
   writeTextFile: vi.fn(async (path: string, contents: string) => {
     if (!disk.dirs.has(parentOf(path))) throw NOT_FOUND;
     disk.files.set(path, contents);
@@ -110,7 +116,7 @@ describe('LocalVaultProvider: a vault root that has gone is never recreated', ()
     const { stat } = await import('@tauri-apps/plugin-fs');
     vi.mocked(stat).mockRejectedValueOnce('PERMISSION_DENIED');
     disk.dirs.add(ROOT);
-    // The guard steps aside and the mkdir itself runs (and would report its own error).
+    // The guard steps aside and the native create_directory itself runs (and would report its own error).
     await expect(provider().createDirectory(`${ROOT}/Notes`)).resolves.toBeUndefined();
     expect(disk.dirs.has(`${ROOT}/Notes`)).toBe(true);
   });

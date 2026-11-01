@@ -21,6 +21,8 @@ const APP_COMMANDS: &[&str] = &[
     "parse_cache_remove",
     "recovery_write",
     "recovery_remove",
+    "create_directory",
+    "delete_path",
     "canonical_space_path",
     "sandbox_info",
     "restore_space_access",

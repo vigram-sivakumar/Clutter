@@ -27,12 +27,12 @@ const ROOT = '/vault';
 const mutations: [string, (fs: LocalVaultProvider) => Promise<unknown>, keyof typeof plugin | 'invoke'][] = [
   ['writeFile', (fs) => fs.writeFile(`${ROOT}/a.md`, 'x'), 'writeTextFile'],
   ['writeBinaryFile', (fs) => fs.writeBinaryFile(`${ROOT}/a.png`, new Uint8Array()), 'invoke'],
-  ['deleteFile', (fs) => fs.deleteFile(`${ROOT}/a.md`), 'remove'],
+  ['deleteFile', (fs) => fs.deleteFile(`${ROOT}/a.md`), 'invoke'],
   ['moveFile', (fs) => fs.moveFile(`${ROOT}/a.md`, `${ROOT}/b.md`), 'rename'],
   ['copyFile', (fs) => fs.copyFile('/tmp/a.png', `${ROOT}/a.png`), 'invoke'],
-  ['createDirectory', (fs) => fs.createDirectory(`${ROOT}/Assets`), 'mkdir'],
+  ['createDirectory', (fs) => fs.createDirectory(`${ROOT}/Assets`), 'invoke'],
   ['duplicate (a file)', (fs) => fs.duplicate(`${ROOT}/a.md`, 'file'), 'invoke'],
-  ['duplicate (a folder)', (fs) => fs.duplicate(`${ROOT}/Folder`, 'directory'), 'mkdir'],
+  ['duplicate (a folder)', (fs) => fs.duplicate(`${ROOT}/Folder`, 'directory'), 'invoke'],
 ];
 
 describe('LocalVaultProvider.seal: nothing is written once sealed', () => {

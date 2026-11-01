@@ -5,7 +5,7 @@
  *
  * Runs the real path end to end: `VaultEntryDuplicator` -> the production `LocalVaultProvider` -> the real
  * `@tauri-apps/plugin-fs` JavaScript -> a fake IPC that behaves like the Rust side. The fake disk models what matters
- * here: `mkdir` without `recursive` fails on an existing name (`File exists (os error 17)`), `remove` without
+ * here: `create_directory` without `recursive` fails on an existing name (`File exists (os error 17)`), `delete_path` without
  * `recursive` refuses a folder that is not empty, `copy_file_no_clobber` answers `EEXIST` for a taken name. A hook lets a
  * test make another process act at an exact moment, which is how a collision that no `exists` check could see is made.
  */
@@ -34,16 +34,16 @@ class FakeDisk {
   private hasChildren = (dir: string) => [...this.files.keys(), ...this.directories].some((path) => path.startsWith(`${dir}/`));
 
   invoke = async (command: string, args: Record<string, unknown>, options?: { headers?: Record<string, string> }): Promise<unknown> => {
-    this.log.push(`${command} ${String(args.path ?? args.to ?? '')}`.trim());
+    this.log.push(`${command}${args.recursive ? ' (recursive)' : ''} ${String(args.path ?? args.to ?? '')}`.trim());
     this.before(command, args);
     switch (command) {
       case 'plugin:fs|exists':
         return this.taken(args.path as string);
       case 'plugin:fs|stat':
         return { isFile: false, isDirectory: true, isSymlink: false, size: 0, mtime: null, atime: null, birthtime: null, readonly: false };
-      case 'plugin:fs|mkdir': {
+      case 'create_directory': {
         const path = args.path as string;
-        const recursive = (args.options as { recursive?: boolean } | undefined)?.recursive ?? false;
+        const recursive = (args.recursive as boolean | undefined) ?? false;
         if (recursive) {
           this.directories.add(path);
           return undefined;
@@ -52,7 +52,7 @@ class FakeDisk {
         this.directories.add(path);
         return undefined;
       }
-      case 'plugin:fs|remove': {
+      case 'delete_path': {
         const path = args.path as string;
         if (this.files.delete(path)) return undefined;
         if (this.directories.has(path)) {
@@ -131,7 +131,7 @@ describe('duplicating a folder when the destination folder already exists', () =
     let planted = false;
     disk.before = (command, args) => {
       // After the free name was chosen (`exists` said no) and just before the folder is made.
-      if (command === 'plugin:fs|mkdir' && args.path === '/vault/Notes copy' && !planted) {
+      if (command === 'create_directory' && args.path === '/vault/Notes copy' && !planted) {
         planted = true;
         disk.directories.add('/vault/Notes copy');
         disk.files.set('/vault/Notes copy/theirs.md', text('theirs'));
@@ -149,7 +149,7 @@ describe('duplicating a folder when the destination folder already exists', () =
   it('a name that keeps being taken is given up on after a bounded number of tries, creating and changing nothing', async () => {
     let counter = 0;
     disk.before = (command, args) => {
-      if (command === 'plugin:fs|mkdir' && String(args.path).startsWith('/vault/Notes copy')) {
+      if (command === 'create_directory' && String(args.path).startsWith('/vault/Notes copy')) {
         disk.directories.add(String(args.path));
         counter += 1;
       }
@@ -177,7 +177,7 @@ describe('duplicating a folder when the destination folder already exists', () =
     const mkdirs: unknown[] = [];
     const original = disk.invoke;
     disk.invoke = async (command, args, options) => {
-      if (command === 'plugin:fs|mkdir') mkdirs.push((args.options as { recursive?: boolean } | undefined)?.recursive);
+      if (command === 'create_directory') mkdirs.push(args.recursive as boolean | undefined);
       return original(command, args, options);
     };
     (window as unknown as { __TAURI_INTERNALS__: unknown }).__TAURI_INTERNALS__ = { invoke: disk.invoke };
@@ -212,7 +212,7 @@ describe('duplicating a folder while a destination file or folder appears', () =
 
   it('a nested folder that appears at a destination path is never merged into; the copy stops, removes its own work and keeps the intruder\'s folder and files', async () => {
     disk.before = (command, args) => {
-      if (command === 'plugin:fs|mkdir' && args.path === '/vault/Notes copy/Sub') {
+      if (command === 'create_directory' && args.path === '/vault/Notes copy/Sub') {
         disk.directories.add('/vault/Notes copy/Sub');
         disk.files.set('/vault/Notes copy/Sub/theirs.md', text('theirs'));
       }
@@ -260,7 +260,9 @@ describe('duplicating a folder that fails part way', () => {
 
     await expect(duplicator().duplicateDirectory('/vault/Notes')).rejects.toBeDefined();
 
-    const removed = disk.log.filter((entry) => entry.startsWith('plugin:fs|remove')).map((entry) => entry.replace('plugin:fs|remove ', ''));
+    const deletions = disk.log.filter((entry) => entry.startsWith('delete_path'));
+    expect(deletions.some((entry) => entry.includes('(recursive)'))).toBe(false);
+    const removed = deletions.map((entry) => entry.replace('delete_path ', ''));
     expect(removed.length).toBeGreaterThan(0);
     expect(removed.every((path) => path.startsWith('/vault/Notes copy'))).toBe(true);
     expect(removed.some((path) => path.startsWith('/vault/Notes/') || path === '/vault/Notes')).toBe(false);
