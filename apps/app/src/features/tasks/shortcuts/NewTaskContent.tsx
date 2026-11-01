@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AppIcon } from '@shared/icon';
 import { Input } from '@components/input/Input';
 import { Button } from '@components/button/Button';
@@ -32,6 +32,11 @@ export interface NewTaskContentProps {
    * directly, ARCHITECTURE_RULES rule 6).
    */
   onSubmit(title: string, dueDate: string | undefined): Promise<void>;
+  /**
+   * Whether the modal holds something the user entered (a title, a due date, or a change to the task being edited), so
+   * the host can keep Escape and a click outside from throwing it away. `false` again when this unmounts.
+   */
+  onDirtyChange?(dirty: boolean): void;
 }
 
 /**
@@ -43,7 +48,7 @@ export interface NewTaskContentProps {
  * the next open already produces on its own; nothing needs to be reset or
  * lifted to the caller.
  */
-export function NewTaskContent({ onClose, onSubmit, editing }: NewTaskContentProps) {
+export function NewTaskContent({ onClose, onSubmit, editing, onDirtyChange }: NewTaskContentProps) {
   const isEditing = editing !== undefined;
   const [title, setTitle] = useState(editing?.title ?? '');
   const [dueDate, setDueDate] = useState<ISODate | undefined>(editing?.dueDate as ISODate | undefined);
@@ -58,6 +63,13 @@ export function NewTaskContent({ onClose, onSubmit, editing }: NewTaskContentPro
   const [error, setError] = useState<string | undefined>(undefined);
 
   const trimmedTitle = title.trim();
+
+  // Something the user entered: a title or due date on a new task, or a change to the task being edited.
+  const isDirty = trimmedTitle !== (editing?.title ?? '').trim() || dueDate !== (editing?.dueDate as ISODate | undefined);
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+    return () => onDirtyChange?.(false);
+  }, [isDirty, onDirtyChange]);
 
   const handleSubmit = async () => {
     if (trimmedTitle === '' || isSubmitting) {

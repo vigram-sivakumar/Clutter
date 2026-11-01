@@ -152,7 +152,7 @@ The Space rename message was fixed (`447eda42`) and rename inside Documents was 
 
 **Known and accepted.** Renaming a picked folder outside Documents is refused by macOS and the user is told to rename it in Finder. An entry that is a link pointing outside its Space can't be unlinked or moved from inside Clutter (it fails closed); not changed.
 
-**Release work that remains (unchanged by this milestone).** Temporary-file recovery design; the 17 known Vitest failures; cloud-provider compatibility; Apple credential and distribution preparation (rows 1–5 and 25–29); Unsplash approval and key rotation; stale "experimental" comments about the atomic writer in `lib.rs` and the `atomic_*` command docs.
+**Release work that remains (unchanged by this milestone).** Temporary-file recovery design; cloud-provider compatibility (the 17 known Vitest failures were resolved on 2026-11-01: see row 16); Apple credential and distribution preparation (rows 1–5 and 25–29); Unsplash approval and key rotation; stale "experimental" comments about the atomic writer in `lib.rs` and the `atomic_*` command docs.
 
 ### Packaged sandbox run (2026-11-01, HEAD `683c8a2e`): the first level-3 evidence since the 22-check run
 
@@ -265,7 +265,7 @@ What was **not** re-run since the sandbox work changed the code: the non-sandbox
 | 13 | Archive and move through the UI in the sandbox | **Not tested** | Yes | Rename and delete were exercised through fs-plugin calls, not the UI |
 | 14 | Sandbox crash recovery, editor-versus-disk conflict, watcher on the final code | **Crash recovery (through the native `recovery_write`) and the watcher: passed in the packaged sandbox on `683c8a2e` (see the section above). Editor-versus-disk conflict: not re-run** | Yes, for the conflict flow | The conflict spec still needs adapting to a Space in the real Documents |
 | 15 | Non-sandboxed real-app suite on HEAD | **Not re-run** since `ceedad75` | Yes | Only the matrix and the volume spec have run since |
-| 16 | Known TypeScript test failures | **17 stable failures on 2026-10-31** (the 14 below plus `CollectionBody` ×2 table width 280px vs 400px, `collectionContextMenu` ×1 NaN). Last confirmed full run: HEAD `45bdae00`. See "Test baseline" below for the later partial run | Resolve before submission | Being triaged one by one (test vs. product intent). Separately, 6 source-scan guard tests (`unsplashNoKeyInApp`, `vaultTextWriteAudit`, `writeIntentCoverage`) time out at the default 5 s when run alongside builds; they pass alone |
+| 16 | Known TypeScript test failures | **Resolved on 2026-11-01: the full suite is green (908 files, 16,865 tests, 0 failed).** Earlier status: **17 stable failures on 2026-10-31** (the 14 below plus `CollectionBody` ×2 table width 280px vs 400px, `collectionContextMenu` ×1 NaN). Last confirmed full run: HEAD `45bdae00`. See "Test baseline" below for the later partial run | Resolve before submission | Being triaged one by one (test vs. product intent). Separately, 6 source-scan guard tests (`unsplashNoKeyInApp`, `vaultTextWriteAudit`, `writeIntentCoverage`) time out at the default 5 s when run alongside builds; they pass alone |
 | 17 | Intel Macs | **Not tested** | Only if Intel is a target | The `fstatfs$INODE64` path is unexercised, and the local build is aarch64 only |
 | 18 | Power-loss durability | Not tested | Accepted limitation | The writer requests `F_FULLFSYNC`; it is not proven on every device (ADR-063) |
 | 19 | Generated `src-tauri/permissions/` is untracked | Housekeeping | No | Every build regenerates it (it was deleted once and came back with the newer commands), so it probably belongs in `.gitignore`; not decided |
@@ -301,6 +301,9 @@ None of this can be settled by unit tests; each needs `npm run dev:sandbox` or t
 - All Apple-credential work (rows 1 to 5 and 25 to 29) remains not started or not tested; none of it was touched.
 
 ### The 14 known TypeScript failures
+
+**Resolved on 2026-11-01** (`6ae06ebb` and the dismissal commit after it). Fourteen tests had gone stale while the UI moved on deliberately and were brought in line with what ships; no behavior changed. The last three asked for a safeguard the code no longer had, so it was restored: Escape and a click outside no longer close the pending New space dialog, nor a New task or Edit task dialog that holds something the user entered (an empty one still dismisses freely; the × always closes). **Still unconfirmed against a design:** the asset grid minimum (180px) and the Name column minimum (280px). Each came in a single-line change inside a larger commit, and no document records the intended value, so they are pinned as shipped, not as verified. The section below is the record of what was found.
+
 
 (Row 16's 17 are these 14 plus `CollectionBody` ×2 and `collectionContextMenu` ×1. The five reproduced at clean HEAD on 2026-11-01 are the picker test below, the `AssetsCollectionBody` asset-grid test, and those three.)
 

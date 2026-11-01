@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Dialog } from '@components/dialog/Dialog';
 import { NewTaskContent, type EditingTask } from './NewTaskContent';
 
@@ -30,11 +31,15 @@ type NewTaskDialogProps = NewTaskModeProps | EditTaskModeProps;
  */
 export function NewTaskDialog(props: NewTaskDialogProps) {
   const { open, onClose } = props;
+  // Once something is typed or picked, Escape and a click outside no longer close the modal (the × and Cancel-style
+  // actions still do), so a title is not lost to a stray key or click. An empty modal dismisses freely.
+  const [isDirty, setIsDirty] = useState(false);
 
   return (
-    <Dialog open={open} onClose={onClose} size="large" top={240} scrim="strong">
+    <Dialog open={open} onClose={onClose} dismissible={!isDirty} size="large" top={240} scrim="strong">
       <NewTaskContent
         onClose={onClose}
+        onDirtyChange={setIsDirty}
         onSubmit={props.editing ? props.onSaveTask : props.onCreateTask}
         editing={props.editing}
       />

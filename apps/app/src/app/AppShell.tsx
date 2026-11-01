@@ -1397,6 +1397,9 @@ function AppShellContent() {
           <Dialog
             open
             onClose={() => setPendingSpace(null)}
+            // The chosen folder and the settings made for it are not thrown away by Escape or a click outside:
+            // only the × (or Go back) closes it.
+            dismissible={false}
             size="large"
             scrim="strong"
           >

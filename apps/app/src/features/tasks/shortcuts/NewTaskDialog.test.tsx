@@ -62,6 +62,87 @@ describe('NewTaskDialog — New task (unchanged)', () => {
   });
 });
 
+/** The dialog open until it closes itself, so a dismissal shows as the dialog going away. */
+function NewHost() {
+  const [open, setOpen] = useState(true);
+  return open ? <NewTaskDialog open onClose={() => setOpen(false)} onCreateTask={vi.fn().mockResolvedValue(undefined)} /> : null;
+}
+
+const pressEscape = () => fireEvent.keyDown(document, { key: 'Escape' });
+const clickBackdrop = () => fireEvent.click(document.querySelector('.overlay__backdrop')!);
+const typeTitle = (value: string) => fireEvent.change(screen.getByRole('textbox'), { target: { value } });
+
+describe('NewTaskDialog — dismissal', () => {
+  it('an empty New task dismisses on Escape and on a click outside', () => {
+    render(<NewHost />);
+    pressEscape();
+    expect(screen.queryByRole('textbox')).toBeNull();
+
+    cleanup();
+    render(<NewHost />);
+    clickBackdrop();
+    expect(screen.queryByRole('textbox')).toBeNull();
+  });
+
+  it('a typed title survives Escape and a click outside; only the × closes it', () => {
+    render(<NewHost />);
+    typeTitle('Buy milk');
+
+    pressEscape();
+    clickBackdrop();
+    expect(screen.getByRole('textbox')).toHaveValue('Buy milk');
+
+    fireEvent.click(screen.getByLabelText('Close'));
+    expect(screen.queryByRole('textbox')).toBeNull();
+  });
+
+  it('a change to the due date alone also protects the draft', () => {
+    render(<EditHost onSaveTask={vi.fn().mockResolvedValue(undefined)} dueDate="2026-10-12" />);
+    pressEscape();
+    expect(screen.queryByRole('textbox')).toBeNull();
+
+    cleanup();
+    render(<EditHost onSaveTask={vi.fn().mockResolvedValue(undefined)} dueDate="2026-10-12" />);
+    fireEvent.click(screen.getByText(/12 Oct|Oct 12|12\/10/));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+
+    pressEscape();
+    expect(screen.getByRole('textbox')).toBeInTheDocument();
+  });
+
+  it('emptying the title again makes it dismissible again', () => {
+    render(<NewHost />);
+    typeTitle('Buy milk');
+    typeTitle('   ');
+
+    pressEscape();
+    expect(screen.queryByRole('textbox')).toBeNull();
+  });
+
+  it('closing and reopening starts unprotected: a fresh empty dialog dismisses', () => {
+    const { rerender } = render(<NewTaskDialog open onClose={() => {}} onCreateTask={vi.fn()} />);
+    typeTitle('Buy milk');
+    rerender(<NewTaskDialog open={false} onClose={() => {}} onCreateTask={vi.fn()} />);
+    rerender(<NewHost />);
+
+    pressEscape();
+    expect(screen.queryByRole('textbox')).toBeNull();
+  });
+
+  it('an untouched Edit task dismisses freely; a changed one is protected', () => {
+    render(<EditHost onSaveTask={vi.fn().mockResolvedValue(undefined)} />);
+    pressEscape();
+    expect(screen.queryByRole('textbox')).toBeNull();
+
+    cleanup();
+    render(<EditHost onSaveTask={vi.fn().mockResolvedValue(undefined)} />);
+    typeTitle('Collect the bill and the receipt');
+    pressEscape();
+    clickBackdrop();
+    expect(screen.getByRole('textbox')).toHaveValue('Collect the bill and the receipt');
+  });
+});
+
 describe('NewTaskDialog — Edit task', () => {
   it('opens prepopulated with the task, titled "Edit task" with a "Save changes" action', () => {
     render(<EditHost onSaveTask={vi.fn().mockResolvedValue(undefined)} dueDate="2026-10-12" />);
