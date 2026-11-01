@@ -24,6 +24,7 @@ vi.stubGlobal(
 import {
   SpaceDetails,
   draftForExistingFolder,
+  type CreateFolderOutcome,
   type CreateFolderResult,
   type NewSpaceDraft,
 } from './SpaceDetails';
@@ -51,7 +52,7 @@ function renderDetails(
   options: {
     rename?: (path: string, name: string) => Promise<CreateFolderResult>;
     open?: () => Promise<string | null>;
-    create?: (name: string) => Promise<CreateFolderResult>;
+    create?: (name: string) => Promise<CreateFolderOutcome>;
     changeFolder?: () => Promise<string | void>;
     withRename?: boolean;
   } = {}
@@ -335,8 +336,24 @@ describe('SpaceDetails: a refused choice or Create is shown inline, in the dialo
     expect(alert()).toBeNull();
   });
 
+  it('an outcome that is already handled (the panel cancelled, or another folder opened) shows nothing and opens nothing more; the next Create works', async () => {
+    let cancel = true;
+    const { onOpenSpace } = renderDetails(NEW, {
+      create: async (name) => (cancel ? { handled: true } : { path: `/Users/me/Documents/${name}` }),
+    });
+
+    await create();
+    expect(alert()).toBeNull();
+    expect(onOpenSpace).not.toHaveBeenCalled();
+    expect(nameInput()).toHaveValue('Personal');
+
+    cancel = false;
+    await create();
+    expect(onOpenSpace).toHaveBeenCalledWith('/Users/me/Documents/Personal', undefined);
+  });
+
   it.each([
-    'Clutter needs access to Documents to create this Space',
+    'Unable to create folder. Allow access in Settings → Privacy & Security → Files and Folders and try again',
     'Unable to create folder. Try again',
   ])('shows %j under the Location card, outside it', async (message) => {
     renderDetails(NEW, { create: async () => ({ error: message }) });

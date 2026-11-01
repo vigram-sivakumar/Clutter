@@ -388,7 +388,7 @@ describe('in the App Sandbox', () => {
       },
       request_documents_access: () => {
         authorized = true;
-        return 'granted';
+        return { status: 'granted' };
       },
     });
 
@@ -402,9 +402,12 @@ describe('in the App Sandbox', () => {
   });
 
   it.each([
-    ['cancelled', 'Clutter needs access to Documents to create this Space'],
-    ['wrongFolder', 'Clutter needs access to Documents to create this Space'],
-  ])('creates nothing when the authorization ends as %s', async (result, message) => {
+    ['cancelled', { status: 'cancelled' }, { cancelled: true }],
+    // Another folder (a subfolder of Documents included) is the user's own choice: handed back to be opened, not
+    // rejected, and nothing is created in it.
+    ['another folder', { status: 'otherFolder', path: '/Users/real/Documents/Notes' }, { openFolder: '/Users/real/Documents/Notes' }],
+    ['a folder elsewhere', { status: 'otherFolder', path: '/Volumes/Drive/notes' }, { openFolder: '/Volumes/Drive/notes' }],
+  ])('creates nothing when the authorization ends as %s', async (_name, result, outcome) => {
     answer({
       sandbox_info: () => SANDBOX,
       create_space_folder: () => {
@@ -413,7 +416,7 @@ describe('in the App Sandbox', () => {
       request_documents_access: () => result,
     });
 
-    expect(await createSpaceFolder('Personal')).toEqual({ error: message });
+    expect(await createSpaceFolder('Personal')).toEqual(outcome);
     // The folder was asked for once, before the prompt, and never again.
     expect(invoke.mock.calls.filter(([command]) => command === 'create_space_folder')).toHaveLength(1);
   });

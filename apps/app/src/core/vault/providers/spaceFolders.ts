@@ -15,6 +15,15 @@ export interface SpaceParent {
 export type CreateSpaceFolderResult =
   { readonly path: string } | { readonly error: string };
 
+/**
+ * A create can also end without a new folder, and neither is a failure: the user closed the Documents panel
+ * (`cancelled`), or chose a different folder in it (`openFolder`, its path), which is theirs to open as a Space.
+ */
+export type CreateSpaceFolderOutcome =
+  | CreateSpaceFolderResult
+  | { readonly cancelled: true }
+  | { readonly openFolder: string };
+
 function withoutTrailingSlashes(path: string): string {
   return path.length > 1 ? path.replace(/\/+$/, '') : path;
 }
@@ -107,7 +116,7 @@ function describeFolderFailure(
  */
 export async function createSpaceFolder(
   name: string
-): Promise<CreateSpaceFolderResult> {
+): Promise<CreateSpaceFolderOutcome> {
   if (!isValidSpaceFolderName(name)) {
     return { error: 'Enter a name without slashes or colons' };
   }
@@ -123,7 +132,10 @@ export async function createSpaceFolder(
       // Inside the App Sandbox the user authorizes Documents once, here, at the first Create. Nothing has been
       // created yet; cancelling leaves it that way (not even a folder in the app's own container).
       const granted = await requestDocumentsAccess();
-      if (granted !== 'granted') return { error: DOCUMENTS_ACCESS_REQUIRED_MESSAGE };
+      // Cancelling is the user's choice, not a failure: nothing is shown and nothing is created. Another folder is
+      // the user's choice too: it is handed back to be opened as a Space, and nothing is created in it.
+      if (granted.status === 'cancelled') return { cancelled: true };
+      if (granted.status === 'otherFolder') return { openFolder: granted.path };
       return { path: await create() };
     }
   } catch (error) {
@@ -132,12 +144,6 @@ export async function createSpaceFolder(
     return { error: describeFolderFailure(error, parent.name, 'create', sandboxed) };
   }
 }
-
-/**
- * What cancelling the Documents panel, or choosing another folder in it, is reported as (one message for both: either
- * way Documents is still not authorized). SpaceDetails shows it with the Location card; Create asks again.
- */
-export const DOCUMENTS_ACCESS_REQUIRED_MESSAGE = 'Clutter needs access to Documents to create this Space';
 
 function isDocumentsAccessNeeded(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);

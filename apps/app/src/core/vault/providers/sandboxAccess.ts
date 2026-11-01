@@ -25,7 +25,13 @@ export interface RestoredAccess {
   readonly status: 'restored' | 'refreshed' | 'needsReselect';
 }
 
-export type DocumentsAccessResult = 'granted' | 'cancelled' | 'wrongFolder';
+/**
+ * What the Documents panel ended as: Documents authorized, cancelled, or another folder chosen (its path; to be opened
+ * as a Space, not used as the parent of a new one).
+ */
+export type DocumentsAccessResult =
+  | { readonly status: 'granted' | 'cancelled' }
+  | { readonly status: 'otherFolder'; readonly path: string };
 
 /** The native commands report this when the Documents folder has not been authorized yet. */
 export const DOCUMENTS_ACCESS_NEEDED = 'documentsAccessNeeded';
@@ -104,7 +110,7 @@ export async function forgetSpaceAccess(path: string): Promise<void> {
   await invoke('forget_space_access', { path });
 }
 
-/** Asks the user, once, to authorize the real Documents folder. Creates nothing. */
+/** Asks the user, once, to authorize the real Documents folder (or to choose another folder). Creates nothing. */
 export async function requestDocumentsAccess(): Promise<DocumentsAccessResult> {
   const result = await invoke<DocumentsAccessResult>('request_documents_access');
   return result;

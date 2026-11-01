@@ -12,7 +12,6 @@ import { VaultPath } from '@core/vault/ingest/VaultPath';
 import {
   CREATE_REFUSED_MESSAGE,
   CREATE_REFUSED_SANDBOXED_MESSAGE,
-  DOCUMENTS_ACCESS_REQUIRED_MESSAGE,
   FOLDER_EXISTS_MESSAGE,
   RENAME_REFUSED_MESSAGE,
 } from '@core/vault/providers/spaceFolders';
@@ -69,6 +68,12 @@ export function draftForExistingFolder(path: string): NewSpaceDraft {
 /** The outcome of creating the folder: its path, or a message to show. */
 export type CreateFolderResult = { path: string } | { error: string };
 
+/**
+ * Creating can also end with nothing left to do here (`handled`): the user cancelled the Documents panel, or chose
+ * another folder, which the caller already opened as a Space. Nothing is shown and nothing is created.
+ */
+export type CreateFolderOutcome = CreateFolderResult | { handled: true };
+
 interface SpaceDetailsProps {
   draft: NewSpaceDraft;
   onNameChange: (name: string) => void;
@@ -83,7 +88,7 @@ interface SpaceDetailsProps {
    */
   onRenameFolder?: (path: string, name: string) => Promise<CreateFolderResult>;
   /** Creates `<parent>/<name>` — explicitly, on the user's Create. Never overwrites an existing folder. */
-  onCreateFolder?: (name: string) => Promise<CreateFolderResult>;
+  onCreateFolder?: (name: string) => Promise<CreateFolderOutcome>;
   /**
    * Opens the folder as the space, with the avatar chosen for it (none: `undefined`): `null` on success,
    * otherwise a message to show.
@@ -227,6 +232,7 @@ export function SpaceDetails({
         const created = (await onCreateFolder?.(folderName)) ?? {
           error: 'Something went wrong creating the space',
         };
+        if ('handled' in created) return;
         if ('error' in created) {
           setActionError(created.error);
           return;
@@ -255,8 +261,7 @@ export function SpaceDetails({
   // A create macOS refuses for permission is about where the Space would go, so it is shown with the Location card.
   const locationError =
     actionError === CREATE_REFUSED_MESSAGE ||
-    actionError === CREATE_REFUSED_SANDBOXED_MESSAGE ||
-    actionError === DOCUMENTS_ACCESS_REQUIRED_MESSAGE
+    actionError === CREATE_REFUSED_SANDBOXED_MESSAGE
       ? actionError
       : null;
   const formError =

@@ -56,6 +56,12 @@ glob = { version = "0.3", optional = true }
 # rfd; features limited to what is used.
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2-core-foundation = { version = "0.3", default-features = false, features = ["std", "CFBase", "CFDate", "CFDictionary", "CFString", "CFUserNotification"] }
+# The Documents authorization panel (src/space_access.rs) is an NSOpenPanel opened directly so its button can say
+# "Allow": the dialog plugin has no setting for the button's label. Already in the graph via rfd; features limited to
+# what is used.
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSOpenPanel", "NSPanel", "NSResponder", "NSSavePanel", "NSWindow"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSObject", "NSString", "NSURL"] }
 
 # Test-only: Tauri's mock runtime, so the atomic-write commands are exercised through the real IPC dispatch and the
 # real fs-plugin scope (src/atomic_commands.rs). Adds no crate to the graph.

@@ -4,7 +4,7 @@ import type { SpaceAvatarChoice } from '@components/space-avatar/SpaceAvatar';
 import { Dialog } from '@components/dialog/Dialog';
 import {
   SpaceDetails,
-  type CreateFolderResult,
+  type CreateFolderOutcome,
   type NewSpaceDraft,
 } from '../space-details/SpaceDetails';
 import { WelcomeScreen } from './WelcomeScreen';
@@ -14,7 +14,7 @@ interface WelcomeScreenDialogProps {
   onSelectFolder: () => Promise<NewSpaceDraft | string | null>;
   /** Where new spaces are created (the user's Documents folder). */
   onResolveSpaceParent: () => Promise<{ path: string; name: string }>;
-  onCreateFolder: (name: string) => Promise<CreateFolderResult>;
+  onCreateFolder: (name: string) => Promise<CreateFolderOutcome>;
   /** Open a folder as the space. A message when it failed; `null` when opened. */
   onOpenSpace: (path: string, avatar?: SpaceAvatarChoice) => Promise<string | null>;
   /** Turns an uploaded avatar image's path into a loadable URL for the preview. */

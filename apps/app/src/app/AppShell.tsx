@@ -41,6 +41,7 @@ import { Dialog } from '../components/dialog/Dialog';
 import {
   SpaceDetails,
   draftForExistingFolder,
+  type CreateFolderOutcome,
   type CreateFolderResult,
   type NewSpaceDraft,
 } from '../components/space-details/SpaceDetails';
@@ -817,12 +818,36 @@ function AppShellContent() {
   > {
     const picked = await pickSpaceFolder();
     if (picked === null) return null;
-    // Any other folder the user can pick is fine. Access to one outside the static `$HOME/**` scope comes
-    // from the picker's own grant, which the persisted-scope plugin saves for the next launch.
+    return draftFromPickedFolder(picked);
+  }
+
+  // A folder the user picked to be a Space: the same checks and the same saved access for every way of picking one.
+  // Any folder is fine. Access to one outside the static `$HOME/**` scope comes from the picker's own grant, which the
+  // persisted-scope plugin saves for the next launch. Not opened yet: the caller opens it on the user's confirm.
+  async function draftFromPickedFolder(
+    picked: string
+  ): Promise<NewSpaceDraft | string> {
     const refusal = await acceptPickedSpace(picked);
     if (refusal !== null) return refusal;
-    // Not opened yet: the dialog shows the space's settings first, and opens it on the user's confirm.
     return draftFromFolder(picked);
+  }
+
+  // The Welcome dialog's Create. When Documents access is asked for, the user may choose another folder in the panel:
+  // that choice is respected. The folder is opened as a Space exactly as "Select a folder" would (the same checks, saved
+  // access and open), nothing is created in it, and the name typed in the form is not used.
+  async function createFolderOrOpenChosen(
+    name: string
+  ): Promise<CreateFolderOutcome> {
+    const outcome = await createSpaceFolder(name);
+    if ('cancelled' in outcome) return { handled: true };
+    if (!('openFolder' in outcome)) return outcome;
+    const draft = await draftFromPickedFolder(outcome.openFolder);
+    if (typeof draft === 'string') return { error: draft };
+    const error = await openSpaceFromWelcome(
+      draft.existingPath ?? draft.parentPath,
+      draft.avatar
+    );
+    return error === null ? { handled: true } : { error };
   }
 
   // The settings draft for an existing folder: its name, and the avatar the folder itself carries (a
@@ -1333,7 +1358,7 @@ function AppShellContent() {
         <WelcomeScreenDialog
           onSelectFolder={selectFolderFromWelcome}
           onResolveSpaceParent={resolveSpaceParent}
-          onCreateFolder={createSpaceFolder}
+          onCreateFolder={createFolderOrOpenChosen}
           onOpenSpace={openSpaceFromWelcome}
           resolveImageUrl={resolveSpaceAvatarImage}
         />

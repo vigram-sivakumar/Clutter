@@ -1422,6 +1422,65 @@ describe('AppShell: Welcome dialog actions', () => {
       );
     });
 
+    describe('the Documents panel: Create, then a choice in the system folder panel', () => {
+      /** The first Create in the sandbox: the backend says Documents is not authorized, and the panel answers `result`. */
+      async function createAnswering(result: unknown) {
+        tauri.createFolder.mockRejectedValueOnce('documentsAccessNeeded');
+        tauri.invoke.mockImplementation(async (command: string) => (command === 'request_documents_access' ? result : undefined));
+        render(
+          <ToastProvider>
+            <AppShell />
+          </ToastProvider>
+        );
+        await screen.findByText(WELCOME);
+        await click('Create a new space');
+        await screen.findByText('Space name');
+        await typeName('Typed name');
+        await click('Create');
+        await settle();
+      }
+
+      it.each([
+        ['another folder', '/Users/me/Notes'],
+        ['a subfolder of Documents', '/Users/me/Documents/Notes'],
+        ['a folder on another drive', '/Volumes/Drive/notes'],
+      ])('%s is opened as the Space itself: checked and remembered like Select a folder, nothing created, the typed name unused', async (_name, chosen) => {
+        await createAnswering({ status: 'otherFolder', path: chosen });
+
+        await waitFor(() => expect(bootstrap).toHaveBeenCalledWith(chosen, expect.anything()));
+        expect(bootstrap.mock.calls.map(([root]) => root)).toEqual([chosen]);
+        expect(tauri.checkFilesystem).toHaveBeenCalledWith(chosen);
+        expect(tauri.invoke).toHaveBeenCalledWith('remember_space_access', { path: chosen });
+        // The backend was asked to create the typed name once, before the panel, and never again.
+        expect(tauri.createFolder).toHaveBeenCalledTimes(1);
+        expect(JSON.parse(SAVED()!).activePath).toBe(chosen);
+        expect(JSON.parse(SAVED()!).paths).toEqual([chosen]);
+      });
+
+      it('a chosen folder that Clutter cannot save to is refused by the usual Open Space check, not by a Documents message', async () => {
+        tauri.checkFilesystem.mockResolvedValue({ status: 'unsupported', filesystem: 'exfat' });
+        await createAnswering({ status: 'otherFolder', path: '/Volumes/Stick/Notes' });
+
+        expect(await screen.findByText(/on an exFAT drive, and Clutter can only save safely to APFS drives/)).toHaveAttribute('role', 'alert');
+        expect(screen.queryByText(/access to Documents/)).toBeNull();
+        expect(bootstrap).not.toHaveBeenCalled();
+        expect(SAVED()).toBeNull();
+        expect(tauri.invoke).not.toHaveBeenCalledWith('remember_space_access', expect.anything());
+        expect(screen.getByText('Space name')).toBeInTheDocument();
+      });
+
+      it('cancelling the panel opens nothing, creates nothing and shows nothing; the Create screen stays', async () => {
+        await createAnswering({ status: 'cancelled' });
+
+        expect(bootstrap).not.toHaveBeenCalled();
+        expect(SAVED()).toBeNull();
+        expect(tauri.createFolder).toHaveBeenCalledTimes(1);
+        expect(screen.queryByRole('alert')).toBeNull();
+        expect(tauri.invoke).not.toHaveBeenCalledWith('remember_space_access', expect.anything());
+        expect(screen.getByText('Space name')).toBeInTheDocument();
+      });
+    });
+
     it('keeps the dialog when the directory cannot be created', async () => {
       tauri.createFolder.mockRejectedValueOnce('Permission denied (os error 13)');
       render(

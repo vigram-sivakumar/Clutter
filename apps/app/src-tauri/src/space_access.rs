@@ -401,6 +401,7 @@ pub mod macos {
 // ---------------------------------------------------------------------------------------------------------
 
 use tauri::{AppHandle, Manager};
+#[cfg(not(target_os = "macos"))]
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_fs::FsExt;
 
@@ -615,39 +616,191 @@ pub fn documents_access(app: AppHandle) -> &'static str {
     }
 }
 
-/// Asks the user, once, to authorize the real Documents folder: the system folder picker opened on Documents, where
-/// choosing it grants access. Cancelling, or choosing any other folder, changes nothing and creates nothing.
-/// Returns `"granted"`, `"cancelled"` or `"wrongFolder"`.
+/// What the panel's button says for a folder: "Allow" for Documents itself (the authorization this panel exists for),
+/// "Open" for any other folder, which is simply opened as a Space. `target` is what the button would choose now: the
+/// selected folder, or else the folder being shown.
+fn prompt_for(target: Option<PathBuf>, documents: &Path) -> &'static str {
+    if classify_pick(target, documents) == Pick::Documents { "Allow" } else { "Open" }
+}
+
+#[cfg(target_os = "macos")]
+mod panel {
+    //! The Documents panel's button label follows the folder it would choose. An `NSOpenPanel` has one label, set
+    //! with `setPrompt`, so a delegate updates it whenever the selection or the shown folder changes.
+
+    use std::path::PathBuf;
+
+    use objc2::rc::Retained;
+    use objc2::runtime::{AnyObject, ProtocolObject};
+    use objc2::{define_class, msg_send, DefinedClass, MainThreadMarker, MainThreadOnly};
+    use objc2_app_kit::{NSOpenPanel, NSOpenSavePanelDelegate};
+    use objc2_foundation::{NSObject, NSObjectProtocol, NSString, NSURL};
+
+    use super::prompt_for;
+
+    pub struct Ivars {
+        documents: PathBuf,
+    }
+
+    define_class!(
+        #[unsafe(super(NSObject))]
+        #[thread_kind = MainThreadOnly]
+        #[name = "ClutterDocumentsPanelDelegate"]
+        #[ivars = Ivars]
+        pub struct PromptDelegate;
+
+        unsafe impl NSObjectProtocol for PromptDelegate {}
+
+        unsafe impl NSOpenSavePanelDelegate for PromptDelegate {
+            #[unsafe(method(panelSelectionDidChange:))]
+            unsafe fn panel_selection_did_change(&self, sender: Option<&AnyObject>) {
+                if let Some(panel) = sender.and_then(|sender| sender.downcast_ref::<NSOpenPanel>()) {
+                    self.refresh(panel);
+                }
+            }
+
+            #[unsafe(method(panel:didChangeToDirectoryURL:))]
+            unsafe fn panel_did_change_to_directory(&self, sender: &AnyObject, _url: Option<&NSURL>) {
+                if let Some(panel) = sender.downcast_ref::<NSOpenPanel>() {
+                    self.refresh(panel);
+                }
+            }
+        }
+    );
+
+    impl PromptDelegate {
+        pub fn new(mtm: MainThreadMarker, documents: PathBuf) -> Retained<Self> {
+            let this = Self::alloc(mtm).set_ivars(Ivars { documents });
+            unsafe { msg_send![super(this), init] }
+        }
+
+        pub fn as_delegate(&self) -> &ProtocolObject<dyn NSOpenSavePanelDelegate> {
+            ProtocolObject::from_ref(self)
+        }
+
+        /// The folder the panel's button would choose right now: the selected one, or else the folder being shown.
+        fn target(panel: &NSOpenPanel) -> Option<PathBuf> {
+            let url = panel.URLs().firstObject().or_else(|| panel.directoryURL())?;
+            url.path().map(|path| PathBuf::from(path.to_string()))
+        }
+
+        pub fn refresh(&self, panel: &NSOpenPanel) {
+            let label = prompt_for(Self::target(panel), &self.ivars().documents);
+            panel.setPrompt(Some(&NSString::from_str(label)));
+        }
+    }
+}
+
+/// The system folder panel, opened on `directory`, whose button says "Allow" while it points at Documents and "Open" for
+/// any other folder (the one thing the dialog plugin cannot set). `None` when the user cancels. An `NSOpenPanel` must be
+/// run on the main thread, so it is run there and this thread waits for the answer. Choosing a folder in it is what
+/// makes the system grant the process access to that folder, exactly as with the plugin's panel; nothing else about the
+/// grant changes.
+#[cfg(target_os = "macos")]
+fn pick_documents_folder(handle: &AppHandle, directory: &Path) -> Option<PathBuf> {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::{NSModalResponseOK, NSOpenPanel};
+    use objc2_foundation::{NSString, NSURL};
+
+    let (sender, receiver) = std::sync::mpsc::channel();
+    let directory = directory.to_path_buf();
+    let scheduled = handle.run_on_main_thread(move || {
+        let picked = MainThreadMarker::new().and_then(|main| {
+            let panel = NSOpenPanel::openPanel(main);
+            panel.setCanChooseFiles(false);
+            panel.setCanChooseDirectories(true);
+            panel.setAllowsMultipleSelection(false);
+            panel.setCanCreateDirectories(false);
+            panel.setDirectoryURL(Some(&NSURL::fileURLWithPath_isDirectory(&NSString::from_str(&directory.to_string_lossy()), true)));
+            // The panel holds its delegate weakly: this binding keeps it alive for the whole modal session.
+            let delegate = panel::PromptDelegate::new(main, directory.clone());
+            unsafe { panel.setDelegate(Some(delegate.as_delegate())) };
+            delegate.refresh(&panel);
+            if panel.runModal() != NSModalResponseOK {
+                return None;
+            }
+            panel.URL().and_then(|url| url.path()).map(|path| PathBuf::from(path.to_string()))
+        });
+        let _ = sender.send(picked);
+    });
+    if scheduled.is_err() {
+        return None;
+    }
+    receiver.recv().ok().flatten()
+}
+
+/// Other platforms have no sandbox to authorize anything for (`request_documents_access` returns before this), so the
+/// plugin's panel is only here to keep the code building.
+#[cfg(not(target_os = "macos"))]
+fn pick_documents_folder(handle: &AppHandle, directory: &Path) -> Option<PathBuf> {
+    handle.dialog().file().set_directory(directory).blocking_pick_folder().and_then(|picked| picked.into_path().ok())
+}
+
+/// What the user did in the panel opened by `request_documents_access`.
+#[derive(Debug, PartialEq, Eq)]
+enum Pick {
+    Cancelled,
+    /// Exactly the real Documents folder: the one place a new, named Space is created.
+    Documents,
+    /// Any other folder, a folder inside Documents included: the user's own choice of folder, to be opened as a Space.
+    Other(PathBuf),
+}
+
+/// Whether the picked folder is the real Documents folder itself, by canonical path (never by name, so a folder that
+/// is merely called "Documents", or one inside it, is another folder).
+fn classify_pick(picked: Option<PathBuf>, documents: &Path) -> Pick {
+    let Some(picked) = picked else { return Pick::Cancelled };
+    let same = match (fs::canonicalize(&picked), fs::canonicalize(documents)) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => key(&picked) == key(documents),
+    };
+    if same { Pick::Documents } else { Pick::Other(picked) }
+}
+
+/// The answer to `request_documents_access`: `granted` (Documents was chosen and is now authorized), `cancelled`, or
+/// `otherFolder` with its `path` (the user chose a different folder; it is authorized for this run like any folder the
+/// picker returns, and Documents is not).
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DocumentsAccess {
+    pub status: &'static str,
+    pub path: Option<String>,
+}
+
+impl DocumentsAccess {
+    fn status(status: &'static str) -> Self {
+        Self { status, path: None }
+    }
+}
+
+/// Asks the user, once, to authorize the real Documents folder: the system folder panel opened on Documents, where
+/// choosing it grants access (and is remembered, so later Spaces there need no panel). Cancelling changes nothing. Any
+/// other folder is the user's own choice: it gets the scope grant the dialog plugin's picker gives a picked folder (the
+/// same one `remember_space_access` requires), is reported back with its path to be opened as a Space, and leaves
+/// Documents unauthorized and unbookmarked. Nothing is created here.
 #[tauri::command]
-pub async fn request_documents_access(app: AppHandle) -> Result<&'static str, String> {
+pub async fn request_documents_access(app: AppHandle) -> Result<DocumentsAccess, String> {
     if !is_sandboxed() {
-        return Ok("granted");
+        return Ok(DocumentsAccess::status("granted"));
     }
     let documents = documents_dir(&app)?;
     let handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let picked = handle
-            .dialog()
-            .file()
-            .set_directory(&documents)
-            // On macOS the dialog plugin shows this as the panel's message (its text above the file list). It has no
-            // setting for the button's label, which stays "Open".
-            .set_title("Allow Clutter to access Documents. Select Documents to create Spaces there")
-            .blocking_pick_folder();
-        let Some(picked) = picked else { return Ok("cancelled") };
-        let picked = picked.into_path().map_err(|error| error.to_string())?;
-        let same = match (fs::canonicalize(&picked), fs::canonicalize(&documents)) {
-            (Ok(a), Ok(b)) => a == b,
-            _ => key(&picked) == key(&documents),
-        };
-        if !same {
-            return Ok("wrongFolder");
+        match classify_pick(pick_documents_folder(&handle, &documents), &documents) {
+            Pick::Cancelled => Ok(DocumentsAccess::status("cancelled")),
+            Pick::Other(folder) => {
+                let _ = handle.fs_scope().allow_directory(&folder, true);
+                let _ = handle.asset_protocol_scope().allow_directory(&folder, true);
+                Ok(DocumentsAccess { status: "otherFolder", path: Some(folder.to_string_lossy().into_owned()) })
+            }
+            Pick::Documents => {
+                let state = handle.state::<SpaceAccessState>();
+                let access = state.0.as_ref().ok_or_else(|| "access is not available".to_string())?;
+                access.remember(&documents)?;
+                allow(&handle, &documents);
+                Ok(DocumentsAccess::status("granted"))
+            }
         }
-        let state = handle.state::<SpaceAccessState>();
-        let access = state.0.as_ref().ok_or_else(|| "access is not available".to_string())?;
-        access.remember(&documents)?;
-        allow(&handle, &documents);
-        Ok("granted")
     })
     .await
     .map_err(|error| error.to_string())?
@@ -973,5 +1126,43 @@ mod tests {
     fn the_glob_escape_wraps_exactly_the_pattern_characters() {
         assert_eq!(escape_glob("/a/b c/d"), "/a/b c/d");
         assert_eq!(escape_glob("/a[1]*?"), "/a[[]1][*][?]");
+    }
+
+    #[test]
+    fn a_pick_is_documents_only_when_it_is_the_exact_folder() {
+        let base = std::env::temp_dir().join(format!("clutter-pick-{}-{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        let documents = base.join("Documents");
+        let inside = documents.join("Notes");
+        let elsewhere = base.join("Elsewhere");
+        let named_alike = base.join("Other").join("Documents");
+        for folder in [&inside, &elsewhere, &named_alike] {
+            fs::create_dir_all(folder).unwrap();
+        }
+        let linked = base.join("alias");
+        std::os::unix::fs::symlink(&documents, &linked).unwrap();
+
+        assert_eq!(classify_pick(None, &documents), Pick::Cancelled);
+        assert_eq!(classify_pick(Some(documents.clone()), &documents), Pick::Documents);
+        assert_eq!(classify_pick(Some(linked), &documents), Pick::Documents, "canonical, not textual");
+        assert_eq!(classify_pick(Some(inside.clone()), &documents), Pick::Other(inside), "a subfolder is another folder");
+        assert_eq!(classify_pick(Some(elsewhere.clone()), &documents), Pick::Other(elsewhere));
+        assert_eq!(classify_pick(Some(named_alike.clone()), &documents), Pick::Other(named_alike), "a name is not a path");
+
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn the_panel_button_says_allow_for_documents_and_open_for_any_other_folder() {
+        let base = std::env::temp_dir().join(format!("clutter-prompt-{}-{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        let documents = base.join("Documents");
+        let inside = documents.join("Notes");
+        fs::create_dir_all(&inside).unwrap();
+
+        assert_eq!(prompt_for(Some(documents.clone()), &documents), "Allow");
+        assert_eq!(prompt_for(Some(inside), &documents), "Open", "a subfolder is another folder");
+        assert_eq!(prompt_for(Some(base.clone()), &documents), "Open");
+        assert_eq!(prompt_for(None, &documents), "Open", "nothing to choose yet");
+
+        let _ = fs::remove_dir_all(&base);
     }
 }
