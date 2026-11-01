@@ -1,15 +1,17 @@
+import { invoke } from '@tauri-apps/api/core';
 import { appDataDir } from '@tauri-apps/api/path';
-import { exists, mkdir, readDir, readTextFile, remove, rename, writeTextFile } from '@tauri-apps/plugin-fs';
+import { readDir, readTextFile } from '@tauri-apps/plugin-fs';
 import { isNotFoundError } from '../vault/providers/probeSpaceFolder';
 import type { RecoveryStorage } from './RecoveryStorage';
 
 /**
  * Recovery records in the application data directory (`<appData>/recovery/<vaultKey>/<note>.json`), outside every
- * vault: on macOS `~/Library/Application Support/<bundle identifier>/recovery`. Reached through the same fs plugin and
- * scope (`$HOME/**`) the rest of the app already uses; no new native code or capability.
+ * vault: on macOS `~/Library/Application Support/<bundle identifier>/recovery`. Reads go through the fs plugin; every
+ * write and removal goes through `recovery_write` / `recovery_remove` (`recovery_store.rs`), which take a vault key and
+ * a record name and never a path, so the webview holds no command that can overwrite a file outside this folder.
  *
  * A write goes to `<note>.json.tmp` and is renamed over the real file, so a crash mid-write leaves the previous
- * record intact. (Same-directory rename is atomic; this does not claim power-loss durability, see ADR-062.)
+ * record intact. (Same-directory rename is atomic and the temporary file is synced first; see ADR-062.)
  */
 export class TauriRecoveryStorage implements RecoveryStorage {
   private base: Promise<string> | null = null;
@@ -39,25 +41,10 @@ export class TauriRecoveryStorage implements RecoveryStorage {
   }
 
   async writeAtomic(dir: string, name: string, text: string): Promise<void> {
-    const folder = `${await this.root()}/${dir}`;
-    const path = `${folder}/${name}`;
-    const temp = `${path}.tmp`;
-
-    await mkdir(folder, { recursive: true });
-    await writeTextFile(temp, text);
-    try {
-      await rename(temp, path);
-    } catch (error) {
-      await remove(temp).catch(() => undefined);
-      throw error;
-    }
+    await invoke('recovery_write', { key: dir, name, text });
   }
 
   async remove(dir: string, name: string): Promise<void> {
-    const path = `${await this.root()}/${dir}/${name}`;
-
-    if (await exists(path)) {
-      await remove(path);
-    }
+    await invoke('recovery_remove', { key: dir, name });
   }
 }

@@ -30,8 +30,10 @@ function importersOf(primitive: string): string[] {
 }
 
 describe('vault text writes have one door', { timeout: 30_000 }, () => {
-  it('writeTextFile is imported only by the vault provider and by recovery storage (app data, outside every vault)', () => {
-    expect(importersOf('writeTextFile')).toEqual(['core/recovery/TauriRecoveryStorage.ts', 'core/vault/providers/LocalFileSystem.ts']);
+  it('the plugin\'s writeTextFile, which truncates in place, is imported by nobody and is not granted', () => {
+    // Vault text goes through the atomic provider; recovery records through the native `recovery_write`
+    // (`recovery_store.rs`), which takes a key and a name and never a path.
+    expect(importersOf('writeTextFile')).toEqual([]);
   });
 
   it('the plugin\'s binary writeFile and copyFile, which replace what is at the destination, are imported by nobody', () => {

@@ -101,8 +101,8 @@ describe('LocalVaultProvider: a vault root that has gone is never recreated', ()
     expect(disk.dirs.size).toBe(0);
   });
 
-  it('fails a file write into the missing root instead of creating it', async () => {
-    await expect(provider().writeFile(`${ROOT}/Note.md`, 'x')).rejects.toBe(NOT_FOUND);
+  it('refuses a file write into the missing root instead of creating it (the plain provider no longer writes at all)', async () => {
+    await expect(provider().writeFile(`${ROOT}/Note.md`, 'x')).rejects.toThrow(/needs the atomic writer/);
     expect(disk.dirs.size).toBe(0);
   });
 
@@ -130,9 +130,11 @@ describe('LocalVaultProvider: creation inside an existing vault is unchanged', (
     expect(disk.dirs.has(`${ROOT}/Notes/Deep`)).toBe(true);
   });
 
-  it('still persists workspace state', async () => {
-    await mergeAndWriteWorkspaceStateFile(new LocalVaultProvider(ROOT), ROOT, { a: 1 });
-    expect(JSON.parse(disk.files.get(`${ROOT}/.clutter/workspace.json`)!)).toEqual({ a: 1 });
+  it('no longer persists workspace state through the plain provider: that is the atomic writer\'s job, and the plain one refuses loudly', async () => {
+    // Production state writes go through the atomic provider (`openVaultFileSystem`, `Application.bootstrap`), covered
+    // by the atomic-writer tests. The plain provider used to write through the fs plugin's truncating `write_text_file`.
+    await expect(mergeAndWriteWorkspaceStateFile(new LocalVaultProvider(ROOT), ROOT, { a: 1 })).rejects.toThrow(/needs the atomic writer/);
+    expect(disk.files.has(`${ROOT}/.clutter/workspace.json`)).toBe(false);
   });
 });
 

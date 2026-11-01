@@ -19,6 +19,8 @@ const APP_COMMANDS: &[&str] = &[
     "parse_cache_read",
     "parse_cache_write",
     "parse_cache_remove",
+    "recovery_write",
+    "recovery_remove",
     "canonical_space_path",
     "sandbox_info",
     "restore_space_access",

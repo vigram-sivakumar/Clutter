@@ -15,8 +15,9 @@ import { describe, expect, it } from 'vitest';
  * panel (`export_file.rs`). This test ties the capability to the source in both directions, so a new plugin call
  * cannot appear without its permission being a conscious decision, and a permission cannot linger unused.
  *
- * What is still granted and can still overwrite a path in scope: `write_text_file` and `rename` (recovery storage,
- * the legacy inner vault writer, `TagMetadataStore`'s replace) and `remove`, `mkdir`. They share the static scope
+ * What is still granted and can still overwrite a path in scope: `rename` (the legacy inner vault writer's replace,
+ * `TagMetadataStore`'s replace) and `remove`, `mkdir`. (`write_text_file` is gone: recovery records are written by the
+ * native `recovery_write`.) They share the static scope
  * `$HOME/**` with every Space, so they cannot be separated from Space files by a permission; that is recorded in
  * `docs/building-and-distribution.md` rather than claimed away.
  */

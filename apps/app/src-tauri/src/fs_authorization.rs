@@ -189,6 +189,7 @@ mod tests {
     use tauri::ipc::{CallbackFn, InvokeBody};
     use tauri::test::{get_ipc_response, INVOKE_KEY};
     use tauri::webview::InvokeRequest;
+    use tauri_plugin_fs::FsExt;
 
     /// The plugin's answer for `command` sent by the `main` window, through the real ACL of `capabilities/default.json`.
     fn plugin_fs_answer(window: &tauri::WebviewWindow<tauri::test::MockRuntime>, command: &str, args: serde_json::Value) -> Result<serde_json::Value, serde_json::Value> {
@@ -214,11 +215,11 @@ mod tests {
     /// The file-writing and file-opening commands of the fs plugin that the webview must not hold. `open` is here
     /// because the plugin lets it open for writing and truncating (`create`, `truncate`, `write`) on the strength of
     /// its read permission alone.
-    const DENIED_FS_COMMANDS: &[&str] = &["write_file", "copy_file", "create", "truncate", "ftruncate", "write", "open", "watch", "unwatch", "read", "seek"];
+    const DENIED_FS_COMMANDS: &[&str] = &["write_file", "write_text_file", "copy_file", "create", "truncate", "ftruncate", "write", "open", "watch", "unwatch", "read", "seek"];
 
     /// What Clutter's own code uses of the plugin (`LocalFileSystem`, `TauriRecoveryStorage`, `probeSpaceFolder`,
     /// `coverImageBytes`), checked against the source by `pluginFsCapabilityAudit.test.ts`.
-    const GRANTED_FS_COMMANDS: &[&str] = &["read_dir", "read_file", "read_text_file", "exists", "stat", "mkdir", "rename", "remove", "write_text_file"];
+    const GRANTED_FS_COMMANDS: &[&str] = &["read_dir", "read_file", "read_text_file", "exists", "stat", "mkdir", "rename", "remove"];
 
     #[test]
     fn the_webview_cannot_overwrite_truncate_or_open_for_writing_through_the_fs_plugin() {
@@ -235,6 +236,42 @@ mod tests {
         }
         assert_eq!(fs::read(victim.path("photo.png")).unwrap(), b"my photo");
         assert_eq!(fs::read(victim.path("note.md")).unwrap(), b"my note");
+    }
+
+    /// `writeTextFile(path, text)` exactly as `@tauri-apps/plugin-fs` sends it: the path in a header, the bytes as the body.
+    fn plugin_write_text_file(window: &tauri::WebviewWindow<tauri::test::MockRuntime>, path: &Path, text: &str) -> Result<serde_json::Value, serde_json::Value> {
+        let mut headers = tauri::http::HeaderMap::new();
+        headers.insert("path", path.to_string_lossy().replace('/', "%2F").parse().unwrap());
+        get_ipc_response(
+            window,
+            InvokeRequest {
+                cmd: "plugin:fs|write_text_file".into(),
+                callback: CallbackFn(0),
+                error: CallbackFn(1),
+                url: "tauri://localhost".parse().unwrap(),
+                body: InvokeBody::Raw(text.as_bytes().to_vec()),
+                headers,
+                invoke_key: INVOKE_KEY.to_string(),
+            },
+        )
+        .map(|body| body.deserialize().unwrap())
+    }
+
+    #[test]
+    fn the_webview_cannot_overwrite_or_empty_an_existing_note_with_write_text_file() {
+        let app = tauri::test::mock_builder().plugin(tauri_plugin_fs::init()).build(crate::app_context()).unwrap();
+        let window = tauri::WebviewWindowBuilder::new(&app, "main", Default::default()).build().unwrap();
+        let space = Scratch::new("acl-note");
+        fs::write(space.path("note.md"), b"my note").unwrap();
+        // The Space is inside the runtime scope, as a real one is: the command is refused by the permission, not by scope.
+        app.fs_scope().allow_directory(&space.0, true).unwrap();
+
+        for text in ["overwritten by script", ""] {
+            let answer = plugin_write_text_file(&window, &space.path("note.md"), text);
+            assert!(is_acl_refusal(&answer), "plugin:fs|write_text_file must not be callable by the webview: {answer:?}");
+        }
+
+        assert_eq!(fs::read(space.path("note.md")).unwrap(), b"my note");
     }
 
     #[test]

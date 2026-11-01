@@ -16,6 +16,7 @@ mod fs_authorization;
 mod move_no_clobber;
 mod new_file_no_clobber;
 mod parse_cache;
+mod recovery_store;
 mod space_access;
 mod space_folder;
 mod startup_notice;
@@ -210,6 +211,8 @@ pub fn run() {
             parse_cache::parse_cache_read,
             parse_cache::parse_cache_write,
             parse_cache::parse_cache_remove,
+            recovery_store::recovery_write,
+            recovery_store::recovery_remove,
             space_folder::canonical_space_path,
             space_access::sandbox_info,
             space_access::restore_space_access,

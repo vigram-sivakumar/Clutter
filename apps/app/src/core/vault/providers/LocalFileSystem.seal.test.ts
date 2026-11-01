@@ -58,10 +58,8 @@ describe('LocalVaultProvider.seal: nothing is written once sealed', () => {
   it('writes normally before it is sealed', async () => {
     const provider = new LocalVaultProvider(ROOT);
 
-    await provider.writeFile(`${ROOT}/a.md`, 'x');
     await provider.copyFile('/tmp/a.png', `${ROOT}/a.png`);
 
-    expect(plugin.writeTextFile).toHaveBeenCalled();
     expect(core.invoke).toHaveBeenCalledWith('copy_file_no_clobber', { from: '/tmp/a.png', to: `${ROOT}/a.png` });
   });
 });

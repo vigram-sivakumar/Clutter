@@ -3,7 +3,6 @@ import {
   mkdir,
   readDir,
   readTextFile,
-  writeTextFile,
   remove,
   rename,
   stat,
@@ -111,10 +110,12 @@ export class LocalVaultProvider implements VaultFileSystem {
     return readTextFile(path);
   }
 
-  // The plugin's in-place write cannot honour an intent; the atomic provider (ADR-063) is the one that does.
-  async writeFile(path: string, contents: string, _intent?: VaultWriteIntent): Promise<void> {
+  // Never written through the fs plugin: its `write_text_file` truncates in place and is no longer granted to the
+  // webview. Vault text is written by the atomic provider (ADR-063), which wraps this one; a plain provider that is
+  // asked to save fails loudly instead of falling back to a weaker writer.
+  async writeFile(path: string, _contents: string, _intent?: VaultWriteIntent): Promise<void> {
     this.assertWritable();
-    await writeTextFile(path, contents);
+    throw new Error(`The plain vault provider does not write files; saving ${path} needs the atomic writer`);
   }
 
   async deleteFile(path: string, options?: { recursive?: boolean }): Promise<void> {

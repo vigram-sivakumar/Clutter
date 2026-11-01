@@ -36,14 +36,13 @@ describe('the atomic writer contract is separate from the production writer', ()
     expect(asWriter).toBe(provider);
   });
 
-  it('a production save still goes through the fs plugin’s writeTextFile and never reaches an atomic command', async () => {
+  it('the plain provider never writes through the fs plugin, and never reaches an atomic command: a save through it fails loudly', async () => {
     plugin.writeTextFile.mockClear();
     tauri.invoke.mockClear();
 
-    const result = await new LocalVaultProvider('/vault').writeFile('/vault/note.md', 'text', 'replace');
+    await expect(new LocalVaultProvider('/vault').writeFile('/vault/note.md', 'text', 'replace')).rejects.toThrow(/needs the atomic writer/);
 
-    expect(result).toBeUndefined(); // a Promise<void>: no outcome, no guarantee
-    expect(plugin.writeTextFile).toHaveBeenCalledWith('/vault/note.md', 'text');
+    expect(plugin.writeTextFile).not.toHaveBeenCalled();
     expect(tauri.invoke).not.toHaveBeenCalled();
   });
 
