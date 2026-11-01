@@ -89,3 +89,32 @@ fn every_packaged_build_is_sandboxed_with_the_same_entitlements() {
         assert!(!entitlements.contains(forbidden), "{forbidden}");
     }
 }
+
+/// What script may run in the webview is a security boundary: the webview can call the native commands, so a script
+/// injection bug would reach the user's notes. The packaged policy lets scripts come from the app itself only
+/// (`script-src 'self'`; Tauri adds the hashes of the page's own inline scripts at build time), with no `eval` and no
+/// inline script. The development server needs both (Vite's React refresh injects an inline preamble), so that is
+/// confined to `devCsp`, which only a development run uses. `style-src` keeps `'unsafe-inline'` on purpose: the editor
+/// and the components set inline styles at runtime, which a hash or nonce cannot cover.
+#[test]
+fn the_packaged_policy_allows_no_eval_and_no_inline_script_and_only_development_may() {
+    let config: serde_json::Value = serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+    let security = &config["app"]["security"];
+    let csp = security["csp"].as_object().expect("the packaged policy is a directive map");
+    let dev = security["devCsp"].as_object().expect("development has its own policy, so the packaged one can be strict");
+    let text = |directives: &serde_json::Map<String, serde_json::Value>, name: &str| directives.get(name).and_then(|v| v.as_str()).unwrap_or("").to_string();
+
+    for (name, value) in csp {
+        let value = value.as_str().unwrap();
+        assert!(!value.contains("'unsafe-eval'"), "{name} allows eval in the packaged app");
+        assert!(!value.contains("localhost:5173") && !value.contains("localhost:1421"), "{name} names the dev server in the packaged app");
+        if name != "style-src" {
+            assert!(!value.contains("'unsafe-inline'"), "{name} allows inline code in the packaged app");
+        }
+    }
+    assert_eq!(text(csp, "script-src"), "'self'", "scripts come from the app only");
+    assert_eq!(text(csp, "object-src"), "'none'");
+    assert_eq!(text(csp, "base-uri"), "'self'");
+    // The development policy is where the permissive keywords live, and the only place.
+    assert!(text(dev, "default-src").contains("'unsafe-eval'"));
+}
