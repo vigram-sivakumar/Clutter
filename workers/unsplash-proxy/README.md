@@ -124,8 +124,11 @@ one a single client can spend the whole Unsplash quota.
 cp .dev.vars.example .dev.vars   # then put a key in .dev.vars; the file is git-ignored
 npm run dev                      # http://localhost:8787
 ```
-To try it from the app, run the web dev server with `VITE_UNSPLASH_PROXY_URL=http://localhost:8787` (the packaged and
-`tauri dev` app's security policy only allows the deployed origin).
+To use it from `tauri dev` (origin `http://localhost:1421`) or the web dev server (`http://localhost:5173`), create the
+git-ignored file `apps/app/.env.development.local` containing `VITE_UNSPLASH_PROXY_URL=http://localhost:8787`, then restart
+the app's dev server (Vite reads it at start). `tauri.conf.json`'s `devCsp` allows `http://localhost:8787`; the packaged
+app's `csp` allows only the deployed origin. Without that file, a dev build calls the deployed Worker, which rejects the
+dev origins, and the picker shows "temporarily unreachable". Keep the Worker running (`npm run dev`) while you use the picker.
 
 The deployed Worker does not allow the dev servers' origins. `.dev.vars.example` sets `ALLOWED_ORIGINS` to include
 `http://localhost:1421` and `http://localhost:5173`; `.dev.vars` overrides the value in `wrangler.toml` for `wrangler dev`

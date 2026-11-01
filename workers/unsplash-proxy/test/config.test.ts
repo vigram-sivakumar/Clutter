@@ -26,3 +26,19 @@ describe('wrangler.toml', () => {
     expect(setting('simple')).toContain('limit = 60');
   });
 });
+
+describe('.dev.vars.example (local development only)', () => {
+  const example = readFileSync('.dev.vars.example', 'utf8');
+  const exampleValue = (name: string): string | undefined => new RegExp(`^${name}=(.*)$`, 'm').exec(example)?.[1]?.trim();
+
+  it('lets the tauri dev origin and the packaged origin read replies from a local Worker', () => {
+    const origins = (exampleValue('ALLOWED_ORIGINS') ?? '').split(',');
+
+    expect(origins).toContain('http://localhost:1421');
+    expect(origins).toContain('tauri://localhost');
+  });
+
+  it('holds a placeholder, not a key', () => {
+    expect(exampleValue('UNSPLASH_ACCESS_KEY')).toBe('replace-with-your-access-key');
+  });
+});
