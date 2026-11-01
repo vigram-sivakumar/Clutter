@@ -1,4 +1,5 @@
 import type { HTMLAttributes, MouseEvent, ReactNode } from 'react';
+import { AppIcon } from '@shared/icon';
 import { NESTED_INTERACTIVE_SELECTOR } from '@shared/interaction';
 import './SettingsEntry.css';
 
@@ -21,6 +22,11 @@ export interface SettingsEntryProps extends HTMLAttributes<HTMLDivElement> {
   descriptionAdornment?: ReactNode;
   trailing?: ReactNode;
   footer?: ReactNode;
+  /**
+   * Why the value entered in this entry is refused, shown under the card, outside it. Present, the card and the message
+   * are wrapped together; absent, the markup is unchanged.
+   */
+  error?: string;
   /**
    * Makes the whole entry clickable (mouse only: no role, tabIndex or key handling). A click that lands on
    * a nested control — a link in the text, a control in the footer or trailing slot — belongs to that
@@ -62,6 +68,7 @@ export function SettingsEntry({
   descriptionAdornment,
   trailing,
   footer,
+  error,
   onClick,
   className,
   ...props
@@ -83,7 +90,7 @@ export function SettingsEntry({
     </TextElement>
   );
 
-  return (
+  const card = (
     <div
       {...props}
       className={[
@@ -120,6 +127,17 @@ export function SettingsEntry({
         {footer && <div className="settings-entry__footer">{footer}</div>}
       </div>
       {trailing && <div className="settings-entry__trailing">{trailing}</div>}
+    </div>
+  );
+
+  if (!error) return card;
+  return (
+    <div className="settings-entry-field">
+      {card}
+      <span className="settings-entry__error" role="alert">
+        <AppIcon icon="exclamation" size={16} slotSize={16} />
+        {error}
+      </span>
     </div>
   );
 }

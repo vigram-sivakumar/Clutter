@@ -96,3 +96,24 @@
   align-items: center;
   gap: var(--space-6);
 }
+
+/* A card with its error: the message sits under the card, outside it. */
+.settings-entry-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.settings-entry__error {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: var(--space-6);
+  color: var(--danger-foreground);
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label);
+  letter-spacing: var(--ls-label-small);
+}
+/* The icon keeps its size when the message wraps. */
+.settings-entry__error .app-icon {
+  flex-shrink: 0;
+}

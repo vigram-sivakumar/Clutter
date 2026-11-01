@@ -183,8 +183,8 @@ describe('SpaceDetails: an existing folder’s name', () => {
 
   it('opens nothing when the rename fails: a taken name, a permission refusal, anything', async () => {
     for (const error of [
-      'A folder with that name already exists. Choose another name',
-      'Couldn’t rename this Space. macOS doesn’t allow Clutter to rename this folder',
+      'Folder already exists',
+      'Unable to rename. Rename it in Finder instead',
     ]) {
       const { onRenameFolder, onOpenSpace } = renderDetails(
         draftForExistingFolder(EXISTING),
@@ -354,7 +354,7 @@ describe('SpaceDetails: a refused choice or Create is shown inline, in the dialo
   });
 
   it('a refused rename and a refused open are inline too', async () => {
-    renderDetails(draftForExistingFolder(EXISTING), { rename: async () => ({ error: 'A folder with that name already exists. Choose another name' }) });
+    renderDetails(draftForExistingFolder(EXISTING), { rename: async () => ({ error: 'Folder already exists' }) });
     type('Taken');
     await create();
     expect(alert()).toHaveTextContent('already exists');

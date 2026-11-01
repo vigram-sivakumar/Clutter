@@ -45,14 +45,30 @@ export async function isTooBroadForSpace(path: string): Promise<boolean> {
   );
 }
 
+/** What a taken folder name is reported as: SpaceDetails shows it with the name field, not with the other failures. */
+export const FOLDER_EXISTS_MESSAGE = 'Folder already exists';
+
+/** What a rename macOS refuses for permission is reported as: SpaceDetails shows it with the name field, like a taken name. */
+export const RENAME_REFUSED_MESSAGE = 'Unable to rename. Rename it in Finder instead';
+
+/**
+ * What a create macOS refuses for permission is reported as: SpaceDetails shows it with the Location card (the folder
+ * is where the Space would go). Sandboxed, pressing Create again asks for Documents access again; unsandboxed, macOS
+ * asks only once, so the user has to allow it in System Settings.
+ */
+export const CREATE_REFUSED_SANDBOXED_MESSAGE = 'Unable to create folder. Try again';
+export const CREATE_REFUSED_MESSAGE =
+  'Unable to create folder. Allow access in Settings → Privacy & Security → Files and Folders and try again';
+
 function describeFolderFailure(
   error: unknown,
   parentName: string,
-  action: 'create' | 'rename'
+  action: 'create' | 'rename',
+  sandboxed = false
 ): string {
   const message = error instanceof Error ? error.message : String(error);
   if (/File exists|already exists|\(os error 17\)/i.test(message)) {
-    return 'A folder with that name already exists. Choose another name';
+    return FOLDER_EXISTS_MESSAGE;
   }
   if (/forbidden path/i.test(message)) {
     return action === 'create'
@@ -66,10 +82,8 @@ function describeFolderFailure(
   ) {
     // macOS withholds the right to rename a picked folder outside Documents from a sandboxed app, and no Settings
     // switch grants it, so a rename refusal points at Finder rather than at Privacy & Security.
-    if (action === 'rename') {
-      return 'Couldn’t rename this Space. macOS doesn’t allow Clutter to rename this folder. You can rename it in Finder, then select the renamed folder in Clutter';
-    }
-    return `Clutter doesn’t have permission to create a folder in ${parentName}. Check System Settings → Privacy & Security → Files and Folders`;
+    if (action === 'rename') return RENAME_REFUSED_MESSAGE;
+    return sandboxed ? CREATE_REFUSED_SANDBOXED_MESSAGE : CREATE_REFUSED_MESSAGE;
   }
   if (/No such file or directory|\(os error 2\)/i.test(message)) {
     return action === 'create'
@@ -115,7 +129,8 @@ export async function createSpaceFolder(
     }
   } catch (error) {
     console.error('Creating the space folder failed:', error);
-    return { error: describeFolderFailure(error, parent.name, 'create') };
+    const sandboxed = (await sandboxInfo())?.sandboxed ?? false;
+    return { error: describeFolderFailure(error, parent.name, 'create', sandboxed) };
   }
 }
 

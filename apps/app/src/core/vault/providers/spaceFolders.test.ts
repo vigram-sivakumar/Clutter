@@ -108,7 +108,7 @@ describe('createSpaceFolder', () => {
   });
 
   it.each([
-    ['Permission denied (os error 13)', "doesn’t have permission"],
+    ['Permission denied (os error 13)', 'Allow access in Settings → Privacy & Security → Files and Folders and try again'],
     ['forbidden path: /Users/someone-else/Documents/Personal', "isn’t allowed"],
     ['No such file or directory (os error 2)', 'could not be found'],
     ['Disk quota exceeded (os error 122)', "Couldn’t create the folder"],
@@ -116,6 +116,32 @@ describe('createSpaceFolder', () => {
     invoke.mockRejectedValue(reason);
     expect(await createSpaceFolder('Personal')).toEqual({
       error: expect.stringContaining(expected),
+    });
+  });
+});
+
+describe('createSpaceFolder: a create macOS refuses for permission', () => {
+  // `sandboxInfo` caches its answer for the process, so it is reset between builds.
+  async function createAs(sandboxed: boolean, reason: string) {
+    const { resetSandboxAccessForTests } = await import('./sandboxAccess');
+    resetSandboxAccessForTests();
+    invoke.mockImplementation(async (command: string) => {
+      if (command === 'sandbox_info') return { sandboxed, realHome: null, documents: '/Users/someone-else/Documents' };
+      throw reason;
+    });
+    return createSpaceFolder('Personal');
+  }
+
+  it.each(['Permission denied (os error 13)', 'Operation not permitted (os error 1)'])(
+    'tells a sandboxed user to try again (%s): pressing Create asks for Documents again',
+    async (reason) => {
+      expect(await createAs(true, reason)).toEqual({ error: 'Unable to create folder. Try again' });
+    }
+  );
+
+  it('tells an unsandboxed user to allow access in Settings: macOS asks only once', async () => {
+    expect(await createAs(false, 'Permission denied (os error 13)')).toEqual({
+      error: 'Unable to create folder. Allow access in Settings → Privacy & Security → Files and Folders and try again',
     });
   });
 });
@@ -199,7 +225,7 @@ describe('renameSpaceFolder', () => {
     invoke.mockRejectedValue('File exists (os error 17)');
 
     expect(await renameSpaceFolder('/Volumes/Drive/notes', 'Taken')).toEqual({
-      error: 'A folder with that name already exists. Choose another name',
+      error: 'Folder already exists',
     });
   });
 
@@ -210,7 +236,7 @@ describe('renameSpaceFolder', () => {
 
     expect(result).toEqual({
       error: expect.stringContaining(
-        'Couldn’t rename this Space. macOS doesn’t allow Clutter to rename this folder'
+        'Unable to rename. Rename it in Finder instead'
       ),
     });
     expect('path' in result).toBe(false);
@@ -223,7 +249,7 @@ describe('renameSpaceFolder', () => {
 
       expect(await renameSpaceFolder('/Volumes/Drive/notes', 'Journal')).toEqual({
         error:
-          'Couldn’t rename this Space. macOS doesn’t allow Clutter to rename this folder. You can rename it in Finder, then select the renamed folder in Clutter',
+          'Unable to rename. Rename it in Finder instead',
       });
     }
   );

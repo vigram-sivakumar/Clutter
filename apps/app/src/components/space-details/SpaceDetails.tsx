@@ -9,6 +9,12 @@ import {
 import { SpaceAvatarPicker } from '@components/space-avatar-picker/SpaceAvatarPicker';
 import { isValidSpaceFolderName } from '@core/vault/ingest/spaceFolderName';
 import { VaultPath } from '@core/vault/ingest/VaultPath';
+import {
+  CREATE_REFUSED_MESSAGE,
+  CREATE_REFUSED_SANDBOXED_MESSAGE,
+  FOLDER_EXISTS_MESSAGE,
+  RENAME_REFUSED_MESSAGE,
+} from '@core/vault/providers/spaceFolders';
 import { SettingsEntry } from '@features/settings/settings-entry/SettingsEntry';
 import { Input } from '../input/Input';
 import { useToast } from '../toast/ToastProvider';
@@ -238,6 +244,22 @@ export function SpaceDetails({
     }
   }
 
+  // A taken name, or a rename macOS refuses, is about the name field, so it is shown under it; every other refusal stays
+  // above Create.
+  const nameError =
+    actionError === FOLDER_EXISTS_MESSAGE ||
+    actionError === RENAME_REFUSED_MESSAGE
+      ? actionError
+      : null;
+  // A create macOS refuses for permission is about where the Space would go, so it is shown with the Location card.
+  const locationError =
+    actionError === CREATE_REFUSED_MESSAGE ||
+    actionError === CREATE_REFUSED_SANDBOXED_MESSAGE
+      ? actionError
+      : null;
+  const formError =
+    nameError === null && locationError === null ? actionError : null;
+
   const showGoBack = hasGoBack && onBack !== undefined;
   const showClose = isDismissible && onClose !== undefined;
 
@@ -275,6 +297,7 @@ export function SpaceDetails({
           onAnimationEnd={() => setIsShaking(false)}
           description="Space name"
           labelFor="space-details-name"
+          error={nameError ?? undefined}
           footer={
             <Input
               id="space-details-name"
@@ -285,7 +308,8 @@ export function SpaceDetails({
               value={draft.name}
               readOnly={nameReadOnly}
               aria-invalid={
-                !nameReadOnly && !isValidSpaceFolderName(draft.name)
+                nameError !== null ||
+                (!nameReadOnly && !isValidSpaceFolderName(draft.name))
               }
               onChange={(event) => handleNameChange(event.target.value)}
             />
@@ -342,6 +366,7 @@ export function SpaceDetails({
         <SettingsEntry
           description="Location"
           labelFor="space-details-location"
+          error={locationError ?? undefined}
           trailing={
             hasChangeFolder &&
             onChangeFolder && (
@@ -367,9 +392,9 @@ export function SpaceDetails({
             />
           }
         />
-        {actionError !== null && (
+        {formError !== null && (
           <span className="space-details__error" role="alert">
-            {actionError}
+            {formError}
           </span>
         )}
         <Button
