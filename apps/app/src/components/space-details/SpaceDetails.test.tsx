@@ -184,7 +184,7 @@ describe('SpaceDetails: an existing folder’s name', () => {
   it('opens nothing when the rename fails: a taken name, a permission refusal, anything', async () => {
     for (const error of [
       'A folder with that name already exists. Choose another name',
-      'Clutter doesn’t have permission to rename a folder in Drive',
+      'Couldn’t rename this Space. macOS doesn’t allow Clutter to rename this folder',
     ]) {
       const { onRenameFolder, onOpenSpace } = renderDetails(
         draftForExistingFolder(EXISTING),

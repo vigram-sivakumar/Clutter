@@ -64,8 +64,12 @@ function describeFolderFailure(
       message
     )
   ) {
-    const what = action === 'create' ? 'create a folder' : 'rename a folder';
-    return `Clutter doesn’t have permission to ${what} in ${parentName}. Check System Settings → Privacy & Security → Files and Folders`;
+    // macOS withholds the right to rename a picked folder outside Documents from a sandboxed app, and no Settings
+    // switch grants it, so a rename refusal points at Finder rather than at Privacy & Security.
+    if (action === 'rename') {
+      return 'Couldn’t rename this Space. macOS doesn’t allow Clutter to rename this folder. You can rename it in Finder, then select the renamed folder in Clutter';
+    }
+    return `Clutter doesn’t have permission to create a folder in ${parentName}. Check System Settings → Privacy & Security → Files and Folders`;
   }
   if (/No such file or directory|\(os error 2\)/i.test(message)) {
     return action === 'create'

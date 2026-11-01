@@ -210,10 +210,30 @@ describe('renameSpaceFolder', () => {
 
     expect(result).toEqual({
       error: expect.stringContaining(
-        'doesn’t have permission to rename a folder in Drive'
+        'Couldn’t rename this Space. macOS doesn’t allow Clutter to rename this folder'
       ),
     });
     expect('path' in result).toBe(false);
+  });
+
+  it.each(['Permission denied (os error 13)', 'Operation not permitted (os error 1)'])(
+    'points a refused rename (%s) at Finder, not at System Settings',
+    async (reason) => {
+      invoke.mockRejectedValue(reason);
+
+      expect(await renameSpaceFolder('/Volumes/Drive/notes', 'Journal')).toEqual({
+        error:
+          'Couldn’t rename this Space. macOS doesn’t allow Clutter to rename this folder. You can rename it in Finder, then select the renamed folder in Clutter',
+      });
+    }
+  );
+
+  it('keeps its own message for a rename failure that is not a permission refusal', async () => {
+    invoke.mockRejectedValue('Disk quota exceeded (os error 122)');
+
+    expect(await renameSpaceFolder('/Volumes/Drive/notes', 'Journal')).toEqual({
+      error: 'Couldn’t rename the folder: Disk quota exceeded (os error 122)',
+    });
   });
 
   it('reports a folder with no grant as one Clutter is not allowed to rename', async () => {
