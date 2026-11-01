@@ -114,7 +114,7 @@ Confirmed by running them: `tsc --noEmit` clean; `cargo test` 162 passed / 3 ign
 | Quit and relaunch | **Passed.** No panel; Documents restored and the picked Space reopened by itself; a new edit saved to the picked Space after the relaunch |
 | Remove a picked Space | **Passed.** Confirmation dialog; the saved Space list emptied (Welcome), its bookmark dropped (only Documents remained), the folder and its note untouched |
 | After removing and relaunching | **Passed.** Welcome shown; the OS denied the removed folder for read, delete and the volume check (`Operation not permitted`), even though a saved scope entry let `delete_path` past its own check: the sandbox is the boundary |
-| Rename a picked Space | **Refused by the OS, handled safely.** Renaming a picked folder under `/Users/Shared` fails (`Operation not permitted`: the sandbox grants the folder, not its parent). Nothing changed and the Space reopened as it was. The message shown, "Clutter doesn't have permission to rename a folder in Shared. Check System Settings → Privacy & Security → Files and Folders", is **misleading** (no setting allows it). Renaming a Space inside Documents was **not tested** |
+| Rename a picked Space | **Refused by the OS, handled safely; message fixed in `447eda42`.** Renaming a picked folder under `/Users/Shared` fails (`Operation not permitted`: the sandbox grants the folder, not its parent). Nothing changed and the Space reopened as it was. The message then shown pointed at System Settings, which was misleading (no setting allows it); it now reads "Couldn’t rename this Space. macOS doesn’t allow Clutter to rename this folder. You can rename it in Finder, then select the renamed folder in Clutter" (level 2: unit tests for both OS refusal wordings; not re-run in the packaged app). Renaming a Space inside Documents: see the closing section below |
 | Non-APFS refusal when choosing a folder | **Passed** for exFAT and HFS+: each refused with its own name ("That folder is on an exFAT drive…", "…on a Mac OS Extended (HFS+) drive…"); nothing written to the volume, no Space registered, no bookmark saved |
 | Import through the real UI (Assets, Upload) | **Passed** for a real PNG and a real PDF: copied byte-identical into the Space's `Assets`, no temp files |
 | Images and PDFs in notes, packaged CSP | **Passed.** `![[Assets/pic.png]]` and `![[Assets/doc.pdf]]` rendered (image 320×200; the PDF through pdf.js's worker as a canvas, "doc 1 / 1"); also a 1×1 PNG, an empty PDF page and an externally copied file. No invalid-embed card |
@@ -134,6 +134,25 @@ Confirmed by running them: `tsc --noEmit` clean; `cargo test` 162 passed / 3 ign
 - The Space's own folder in `~/Documents` was never targeted with a destructive call beyond `delete_path` on the disposable Space itself.
 
 Leftovers: the test harness (untracked); the two test identities' containers (`com.clutter.sandboxtest`, with its October recovery records, and `com.clutter.sandboxfresh`, created in this run); the two test bundles in the scratch folder.
+
+### Sandbox acceptance milestone: closed for the workflows tested (2026-11-01)
+
+The Space rename message was fixed (`447eda42`) and rename inside Documents was verified, so the filesystem-and-sandbox acceptance work stops here. No further permission-system or architecture change is planned from it.
+
+**Rename message (`447eda42`).** Only a rename the OS refuses for permission (`Permission denied` or `Operation not permitted`) now says "Couldn’t rename this Space. macOS doesn’t allow Clutter to rename this folder. You can rename it in Finder, then select the renamed folder in Clutter". Create, forbidden-path, name-taken, not-found and other failures keep their messages. Rename stays available, and the Rust rollback is unchanged. Evidence: level 2 (`spaceFolders.test.ts` covers both refusal wordings, the absence of System Settings text, and an unrelated failure keeping its own message; `SpaceDetails.test.tsx` updated; `tsc` clean).
+
+**Rename inside Documents: passed in the packaged sandbox (level 3).** Test identity `com.clutter.sandboxtest`, bundle built from `683c8a2e` (it predates `447eda42`; `rename_space_folder` is unchanged since). Using only disposable folders made by the app's own `create_space_folder` in the real `~/Documents` (`ClutterSbxRenameA`, `ClutterSbxRenameTaken`), the native `rename_space_folder` command, the one the settings dialog calls:
+- `ClutterSbxRenameA` renamed to `ClutterSbxRenameA2` in place; the old name gone and the note inside intact.
+- A second and third rename of the renamed Space also succeeded, which shows its grant moved with it (the command authorizes by scope).
+- Renaming onto an existing name was refused (`File exists (os error 17)`) and both folders were left as they were.
+- The three disposable folders were removed afterwards; no real Space, recovery record or profile was touched.
+- Not driven through the rename dialog by clicking, so the dialog wiring is level 2 only. A rename followed by a relaunch in the sandbox was not tested.
+
+**Milestone status.** Complete for the workflows tested in the runs above (Documents authorization, create, open, atomic saves, relaunch, a picked Space outside Documents with its bookmark, remove, import and embeds, the webview-bypass and Space-root refusals, the tightened CSP, and rename inside Documents). Still **not tested**: open-time refusal of a registered Space on a drive that later became non-APFS; an APFS disk image as a Space; a second same-name picker upload; Reveal in Finder, Change icon, Save as template; rename followed by a relaunch; Intel; File Provider and other cloud-provider folders; distribution signing, provisioning and notarization (ad-hoc signing proves none of them).
+
+**Known and accepted.** Renaming a picked folder outside Documents is refused by macOS and the user is told to rename it in Finder. An entry that is a link pointing outside its Space can't be unlinked or moved from inside Clutter (it fails closed); not changed.
+
+**Release work that remains (unchanged by this milestone).** Temporary-file recovery design; the 17 known Vitest failures; cloud-provider compatibility; Apple credential and distribution preparation (rows 1–5 and 25–29); Unsplash approval and key rotation; stale "experimental" comments about the atomic writer in `lib.rs` and the `atomic_*` command docs.
 
 ### Packaged sandbox run (2026-11-01, HEAD `683c8a2e`): the first level-3 evidence since the 22-check run
 
