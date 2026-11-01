@@ -173,6 +173,49 @@ export async function checkSpaceFilesystem(path: string): Promise<SpaceFilesyste
   return { status: 'unknown' };
 }
 
+/**
+ * An existing Space was refused when it was opened, because Clutter cannot show that its folder can be saved to
+ * safely: the volume is not APFS (`unsupported`), or the volume could not be classified at all (`unchecked`).
+ * The Space is not opened in any reduced mode: nothing in Clutter reliably disables every mutation path, so a
+ * "read-only" Space would be a claim the code cannot back. The Space stays registered and untouched.
+ */
+export class SpaceFilesystemRefusedError extends Error {
+  readonly name = 'SpaceFilesystemRefusedError';
+
+  constructor(
+    readonly kind: 'unsupported' | 'unchecked',
+    message: string
+  ) {
+    super(message);
+  }
+}
+
+/** The message for an already-registered Space whose folder is on a volume Clutter cannot save to safely. */
+export function unsupportedOpenedSpaceMessage(filesystem: string): string {
+  return `This space’s folder is on ${describeFilesystem(filesystem)}, and Clutter can only save safely to APFS drives, so it wasn’t opened. Move the folder to your Mac’s own drive or an APFS drive, then choose it again`;
+}
+
+/** The message for an already-registered Space whose folder's volume could not be classified. */
+export const UNCHECKED_OPENED_SPACE_MESSAGE =
+  'Clutter couldn’t check whether it can save safely to this space’s folder, so it wasn’t opened. Make sure its drive is connected, or choose the folder again';
+
+/**
+ * Classifies the volume of a Space that is being opened or restored (not only when it is first chosen: the drive
+ * behind a saved path can be swapped, reformatted or remounted since). Resolves only for APFS; otherwise throws a
+ * `SpaceFilesystemRefusedError`. A classification that fails is a refusal, never a pass.
+ *
+ * The caller decides what a *confirmed missing* folder means (it has its own recovery flow) and must not call this
+ * for one: a missing folder cannot be classified and would be misreported here as unchecked.
+ */
+export async function assertSpaceFilesystemSupported(path: string): Promise<void> {
+  const support = await checkSpaceFilesystem(path);
+  if (support.status === 'supported') return;
+  if (support.status === 'unsupported') {
+    throw new SpaceFilesystemRefusedError('unsupported', unsupportedOpenedSpaceMessage(support.filesystem));
+  }
+  throw new SpaceFilesystemRefusedError('unchecked', UNCHECKED_OPENED_SPACE_MESSAGE);
+}
+
 /** What the user knows a volume type as, as a phrase that follows "on": the system's own name when there is no better one. */
 export function describeFilesystem(filesystem: string): string {
   switch (filesystem) {

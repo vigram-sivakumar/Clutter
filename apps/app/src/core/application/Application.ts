@@ -1,6 +1,7 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { isFolderConfirmedMissing, probeSpaceFolder } from '../vault/providers/probeSpaceFolder';
 import { VaultRootMissingError } from '../vault/providers/VaultRootMissingError';
+import { assertSpaceFilesystemSupported } from '../vault/providers/spaceFolders';
 import { isArchiveRetentionElapsed } from './archive/archiveRetention';
 import {
   collectAssetReferences,
@@ -358,6 +359,15 @@ export class Application {
     if (runningInTauri && isAtomicWritesEnabled()) {
       // Never a silent fallback: a build that asks for atomic saves without the native writer cannot open a Space.
       await assertAtomicCommandsRegistered(invoke, rootPath);
+    }
+    if (runningInTauri) {
+      // Every open of an existing Space classifies its volume afresh: the saved path may now be a different drive
+      // (swapped, reformatted, remounted), and the pick-time check cannot know. A Space whose volume is not APFS, or
+      // cannot be classified, is refused here, before anything is built, scanned or written (never opened read-only:
+      // no mutation path is reliably disabled). The grant comes first because the check, like every native file
+      // command, answers only for folders inside the runtime filesystem scope; `open()` repeats it harmlessly.
+      await ensureSpaceAccessIfDesktop(rootPath);
+      await assertSpaceFilesystemSupported(rootPath);
     }
     const atomicWrites =
       runningInTauri && isAtomicWritesEnabled() && rawFileSystem instanceof LocalVaultProvider

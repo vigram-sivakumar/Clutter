@@ -23,6 +23,7 @@ import {
   isReachedThroughLink,
   isTooBroadForSpace,
   resolveSpaceParent,
+  SpaceFilesystemRefusedError,
 } from '../core/vault/providers/spaceFolders';
 import { forgetSpaceAccess, rememberSpaceAccess, restoreSpaceAccess } from '../core/vault/providers/sandboxAccess';
 import { announcesProfileFailure, describeSpaceProfileFailure, SPACE_SETTINGS_FAILED_MESSAGE } from './saveFailureMessages';
@@ -280,7 +281,14 @@ function AppShellContent() {
   // The Space path whose folder `bootstrap` found missing (it was there when startup probed it, or the
   // probe was skipped). Like `spaces.activeSpaceMissing` it shows the Welcome dialog and leaves the
   // registry untouched; it only counts while that path is still the active one.
-  const [missingRoot, setMissingRoot] = useState<string | null>(null);
+  const [missingRoot, setMissingRootState] = useState<string | null>(null);
+  // The same value, readable synchronously: a replacement search starts in the same tick that reports the loss, before
+  // any render has shown it, and the Welcome open it makes must put back what was reported, not a stale `null`.
+  const missingRootRef = useRef<string | null>(null);
+  const setMissingRoot = useCallback((path: string | null) => {
+    missingRootRef.current = path;
+    setMissingRootState(path);
+  }, []);
   // A Space chosen in the Welcome dialog is being opened. The dialog stays up (never the "Opening
   // Clutter…" frame) until it has opened; on failure the registry is put back and the reason goes
   // to the dialog instead of the full-screen error.
@@ -596,6 +604,21 @@ function AppShellContent() {
           return;
         }
 
+        if (
+          loadError instanceof SpaceFilesystemRefusedError &&
+          applicationRef.current === null
+        ) {
+          // No Space is showing and the one that should open cannot be saved to safely (not APFS, or its volume
+          // could not be classified). A full-screen error would be a dead end, so it is handled like a Space that
+          // is not there: another registered Space is tried, else the Welcome dialog takes over. The registry is
+          // left as stored, and the reason is said once, as the same error toast a failed switch uses.
+          spaces.abortPendingRemoval();
+          setMissingRoot(openPath);
+          spaces.notify(loadError.message);
+          void recoverRef.current(openPath);
+          return;
+        }
+
         const reason = failureReason(loadError);
         // A failed switch returns the registry to the Space that is still showing. Only a failure
         // with no Space left open (the first open, or a failed return to the previous one) becomes
@@ -770,7 +793,7 @@ function AppShellContent() {
       onboardingRef.current = {
         path,
         settle: resolve,
-        restoreMissingRoot: missingRoot,
+        restoreMissingRoot: missingRootRef.current,
       };
       setOnboardingPending(true);
       setMissingRoot(null);

@@ -148,6 +148,11 @@ import { probeSpaceFolder } from '../core/vault/providers/probeSpaceFolder';
 import { VaultRootMissingError } from '../core/vault/providers/VaultRootMissingError';
 import { ToastProvider } from '@components/toast/ToastProvider';
 import { AtomicNotCommittedError } from '../core/vault/atomicWrite/atomicWriteErrors';
+import {
+  SpaceFilesystemRefusedError,
+  UNCHECKED_OPENED_SPACE_MESSAGE,
+  unsupportedOpenedSpaceMessage,
+} from '../core/vault/providers/spaceFolders';
 
 interface FakeApplication {
   vault: { root: string };
@@ -3621,5 +3626,157 @@ describe('AppShell: a Space profile that cannot be written when it opens', () =>
     await openWithProfileFailure(new Error('boom'));
 
     expect(await screen.findByText('Couldn’t save the space settings')).toBeInTheDocument();
+  });
+});
+
+describe('AppShell: a Space whose filesystem Application.bootstrap refuses', () => {
+  const EXFAT = unsupportedOpenedSpaceMessage('exfat');
+  const REGISTRY = () =>
+    JSON.parse(SAVED()!) as { paths: string[]; activePath: string };
+
+  /** Roots whose bootstrap is refused, by the error it refuses with (the check itself is Application’s, tested there). */
+  let refused: Map<string, Error>;
+  beforeEach(() => {
+    tauri.isTauri = true;
+    refused = new Map();
+    const defaultBootstrap = bootstrap.getMockImplementation()!;
+    bootstrap.mockImplementation(async (root: string, ...rest: unknown[]) => {
+      const refusal = refused.get(root);
+      if (refusal) {
+        events.push(`bootstrap:${root}`);
+        throw refusal;
+      }
+      return defaultBootstrap(root, ...rest);
+    });
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+  const refuseExfat = (root: string) =>
+    refused.set(root, new SpaceFilesystemRefusedError('unsupported', EXFAT));
+
+  function renderShell() {
+    render(
+      <ToastProvider>
+        <AppShell />
+      </ToastProvider>
+    );
+  }
+
+  describe('at startup, with no Space open', () => {
+    it('says why, then opens the next registered Space that is supported, leaving the registry’s paths as stored', async () => {
+      seed(['/Users/me/Usb', '/Users/me/B'], '/Users/me/Usb');
+      refuseExfat('/Users/me/Usb');
+
+      renderShell();
+
+      expect(await screen.findByTestId('open-root')).toHaveTextContent('/Users/me/B');
+      expect(screen.getByRole('alert')).toHaveTextContent(EXFAT);
+      // No dead-end full-screen error, and the refused Space never became an open workspace.
+      expect(screen.queryByText(EXFAT, { selector: '.startup-frame *' })).toBeNull();
+      expect(created.map((app) => app.vault.root)).toEqual(['/Users/me/B']);
+      expect(REGISTRY().paths).toEqual(['/Users/me/Usb', '/Users/me/B']);
+      expect(REGISTRY().activePath).toBe('/Users/me/B');
+    });
+
+    it('shows the Welcome dialog, with the reason and the registry untouched, when no other Space is supported', async () => {
+      seed(['/Users/me/Usb', '/Users/me/Nas'], '/Users/me/Usb');
+      refuseExfat('/Users/me/Usb');
+      refused.set(
+        '/Users/me/Nas',
+        new SpaceFilesystemRefusedError('unchecked', UNCHECKED_OPENED_SPACE_MESSAGE)
+      );
+      const before = SAVED();
+
+      renderShell();
+
+      expect(await screen.findByText(WELCOME)).toBeInTheDocument();
+      expect(screen.getByRole('alert')).toHaveTextContent(EXFAT);
+      expect(screen.queryByTestId('open-root')).toBeNull();
+      expect(created).toHaveLength(0);
+      // Each refused Space was tried once, not again and again.
+      expect(events.filter((e) => e === 'bootstrap:/Users/me/Usb')).toHaveLength(1);
+      expect(events.filter((e) => e === 'bootstrap:/Users/me/Nas')).toHaveLength(1);
+      expect(SAVED()).toBe(before);
+    });
+
+    it('treats a Space whose volume could not be classified the same way, with its own reason', async () => {
+      seed(['/Users/me/Nas', '/Users/me/B'], '/Users/me/Nas');
+      refused.set(
+        '/Users/me/Nas',
+        new SpaceFilesystemRefusedError('unchecked', UNCHECKED_OPENED_SPACE_MESSAGE)
+      );
+
+      renderShell();
+
+      expect(await screen.findByTestId('open-root')).toHaveTextContent('/Users/me/B');
+      expect(screen.getByRole('alert')).toHaveTextContent(UNCHECKED_OPENED_SPACE_MESSAGE);
+    });
+
+    it('a missing folder keeps its own flow: no unsupported-filesystem message', async () => {
+      seed(['/Users/me/Gone', '/Users/me/B'], '/Users/me/Gone');
+      refused.set('/Users/me/Gone', new VaultRootMissingError('/Users/me/Gone'));
+
+      renderShell();
+
+      expect(await screen.findByTestId('open-root')).toHaveTextContent('/Users/me/B');
+      expect(screen.queryByRole('alert')).toBeNull();
+      expect(screen.queryByText(/can only save safely to APFS/)).toBeNull();
+    });
+  });
+
+  describe('when switching from an open Space', () => {
+    async function openFirst() {
+      seed(['/web-dev-vault', '/Other'], '/web-dev-vault');
+      renderShell();
+      await screen.findByText('/web-dev-vault');
+    }
+
+    it('keeps the open supported Space open and usable, and reports the reason', async () => {
+      await openFirst();
+      const first = created[0]!;
+      refuseExfat('/Other');
+
+      await act(async () => screen.getByText('switch-other').click());
+
+      await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(EXFAT));
+      expect(screen.getByTestId('open-root')).toHaveTextContent('/web-dev-vault');
+      expect(first.close).not.toHaveBeenCalled();
+      expect(screen.queryByText(OPENING)).toBeNull();
+      expect(screen.queryByText(WELCOME)).toBeNull();
+      expect(created.map((app) => app.vault.root)).toEqual(['/web-dev-vault']);
+      expect(REGISTRY().activePath).toBe('/web-dev-vault');
+      expect(REGISTRY().paths).toEqual(['/web-dev-vault', '/Other']);
+    });
+
+    it('still switches to a Space that is supported afterwards', async () => {
+      await openFirst();
+      refuseExfat('/Other');
+      await act(async () => screen.getByText('switch-other').click());
+      await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+
+      refused.delete('/Other');
+      await act(async () => screen.getByText('switch-other').click());
+
+      await waitFor(() =>
+        expect(screen.getByTestId('open-root')).toHaveTextContent('/Other')
+      );
+    });
+
+    it('reclassifies a registered Space whose drive changed: refused now, though it opened before', async () => {
+      await openFirst();
+      await act(async () => screen.getByText('switch-other').click());
+      await waitFor(() =>
+        expect(screen.getByTestId('open-root')).toHaveTextContent('/Other')
+      );
+      await act(async () => screen.getByText('switch-first').click());
+      await waitFor(() =>
+        expect(screen.getByTestId('open-root')).toHaveTextContent('/web-dev-vault')
+      );
+
+      refuseExfat('/Other'); // the same saved path, a different volume behind it
+      await act(async () => screen.getByText('switch-other').click());
+
+      await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(EXFAT));
+      expect(screen.getByTestId('open-root')).toHaveTextContent('/web-dev-vault');
+    });
   });
 });
