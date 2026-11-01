@@ -12,7 +12,6 @@
     "fs:allow-read-text-file",
     "fs:allow-exists",
     "fs:allow-stat",
-    "fs:allow-rename",
     "allow-frontend-ready",
     "allow-frontend-failed",
     "allow-set-copy-page-link-enabled",

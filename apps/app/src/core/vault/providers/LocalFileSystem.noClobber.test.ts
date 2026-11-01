@@ -36,14 +36,21 @@ describe('LocalVaultProvider.moveFile — noClobber', () => {
     );
   });
 
-  it('an ordinary move is still a plain rename', async () => {
+  it('an ordinary move never replaces either: it claims the destination natively too, and the plugin\'s replacing rename is never used', async () => {
     plugin.rename.mockClear();
     tauri.invoke.mockClear();
+    tauri.invoke.mockResolvedValueOnce(undefined);
 
     await new LocalVaultProvider(ROOT).moveFile(`${ROOT}/a.md`, `${ROOT}/b.md`);
 
-    expect(plugin.rename).toHaveBeenCalledWith(`${ROOT}/a.md`, `${ROOT}/b.md`);
-    expect(tauri.invoke).not.toHaveBeenCalled();
+    expect(tauri.invoke).toHaveBeenCalledWith('move_file_no_clobber', { from: `${ROOT}/a.md`, to: `${ROOT}/b.md` });
+    expect(plugin.rename).not.toHaveBeenCalled();
+  });
+
+  it('a move onto an existing file fails with DestinationExistsError and so replaces nothing', async () => {
+    tauri.invoke.mockRejectedValueOnce('EEXIST: destination already exists: /vault/b.md');
+
+    await expect(new LocalVaultProvider(ROOT).moveFile(`${ROOT}/a.md`, `${ROOT}/b.md`)).rejects.toBeInstanceOf(DestinationExistsError);
   });
 
   it('is refused once the provider is sealed', async () => {

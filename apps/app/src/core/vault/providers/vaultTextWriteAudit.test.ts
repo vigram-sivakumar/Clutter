@@ -52,6 +52,12 @@ describe('vault text writes have one door', { timeout: 30_000 }, () => {
     expect(importersOf('remove')).toEqual([]);
   });
 
+  it('the plugin\'s rename, which replaces its destination, is imported by nobody', () => {
+    // Moves go through `move_file_no_clobber`. With every plugin command that writes, replaces or deletes gone, the
+    // webview holds only the fs plugin's read commands (`pluginFsCapabilityAudit.test.ts`).
+    expect(importersOf('rename')).toEqual([]);
+  });
+
   it('the plain vault provider is constructed only by the Composition Root and the one factory for short-lived jobs', () => {
     const constructors = sourceFiles(SRC)
       .filter((file) => /new LocalVaultProvider\(/.test(readFileSync(file, 'utf8')))

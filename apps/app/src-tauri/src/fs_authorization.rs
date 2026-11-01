@@ -269,11 +269,11 @@ mod tests {
     /// The file-writing and file-opening commands of the fs plugin that the webview must not hold. `open` is here
     /// because the plugin lets it open for writing and truncating (`create`, `truncate`, `write`) on the strength of
     /// its read permission alone.
-    const DENIED_FS_COMMANDS: &[&str] = &["write_file", "write_text_file", "mkdir", "remove", "copy_file", "create", "truncate", "ftruncate", "write", "open", "watch", "unwatch", "read", "seek"];
+    const DENIED_FS_COMMANDS: &[&str] = &["write_file", "write_text_file", "mkdir", "remove", "rename", "copy_file", "create", "truncate", "ftruncate", "write", "open", "watch", "unwatch", "read", "seek"];
 
     /// What Clutter's own code uses of the plugin (`LocalFileSystem`, `TauriRecoveryStorage`, `probeSpaceFolder`,
     /// `coverImageBytes`), checked against the source by `pluginFsCapabilityAudit.test.ts`.
-    const GRANTED_FS_COMMANDS: &[&str] = &["read_dir", "read_file", "read_text_file", "exists", "stat", "rename"];
+    const GRANTED_FS_COMMANDS: &[&str] = &["read_dir", "read_file", "read_text_file", "exists", "stat"];
 
     #[test]
     fn the_webview_cannot_overwrite_truncate_or_open_for_writing_through_the_fs_plugin() {
@@ -326,6 +326,34 @@ mod tests {
         }
 
         assert_eq!(fs::read(space.path("note.md")).unwrap(), b"my note");
+    }
+
+    #[test]
+    fn the_webview_cannot_replace_move_out_or_delete_an_existing_note_through_the_fs_plugin() {
+        let app = tauri::test::mock_builder().plugin(tauri_plugin_fs::init()).build(crate::app_context()).unwrap();
+        let window = tauri::WebviewWindowBuilder::new(&app, "main", Default::default()).build().unwrap();
+        let space = Scratch::new("acl-note-ops");
+        let outside = Scratch::new("acl-note-ops-outside");
+        fs::write(space.path("note.md"), b"my note").unwrap();
+        fs::write(space.path("other.md"), b"other note").unwrap();
+        symlink(&outside.0, space.path("exit")).unwrap();
+        // The Space is inside the runtime scope, as a real one is: each call is refused by the permission, not by scope.
+        app.fs_scope().allow_directory(&space.0, true).unwrap();
+
+        let attempts = [
+            ("rename", serde_json::json!({ "oldPath": space.path("other.md"), "newPath": space.path("note.md") })),
+            ("rename", serde_json::json!({ "oldPath": space.path("note.md"), "newPath": space.path("exit/moved-out.md") })),
+            ("remove", serde_json::json!({ "path": space.path("note.md") })),
+            ("mkdir", serde_json::json!({ "path": space.path("exit/made"), "options": { "recursive": true } })),
+        ];
+        for (command, args) in attempts {
+            let answer = plugin_fs_answer(&window, command, args);
+            assert!(is_acl_refusal(&answer), "plugin:fs|{command} must not be callable by the webview: {answer:?}");
+        }
+
+        assert_eq!(fs::read(space.path("note.md")).unwrap(), b"my note");
+        assert_eq!(fs::read(space.path("other.md")).unwrap(), b"other note");
+        assert!(!outside.path("moved-out.md").exists() && !outside.path("made").exists());
     }
 
     #[test]

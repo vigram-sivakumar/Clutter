@@ -2,7 +2,6 @@ import {
   exists,
   readDir,
   readTextFile,
-  rename,
   stat,
   readFile as readBinary,
 } from '@tauri-apps/plugin-fs';
@@ -122,26 +121,24 @@ export class LocalVaultProvider implements VaultFileSystem {
     await invoke('delete_path', { path: this.resolvePath(path), recursive: options?.recursive ?? false });
   }
 
-  async moveFile(sourcePath: string, destinationPath: string, options?: MoveFileOptions): Promise<void> {
+  /**
+   * Every move claims its destination in the native layer (`move_file_no_clobber`, which also judges the resolved
+   * paths): this provider has no replacing move, because the fs plugin's `rename` replaces whatever is at the
+   * destination and is no longer granted to the webview. `noClobber` is therefore the only behavior; a caller that
+   * once relied on replacing gets a `DestinationExistsError` instead of a lost file.
+   */
+  async moveFile(sourcePath: string, destinationPath: string, _options?: MoveFileOptions): Promise<void> {
     this.assertWritable();
 
-    if (options?.noClobber) {
-      // Claimed in the operating system, not checked here: see `move_no_clobber.rs`.
-      try {
-        await invoke('move_file_no_clobber', {
-          from: this.resolvePath(sourcePath),
-          to: this.resolvePath(destinationPath),
-        });
-      } catch (error) {
-        throw destinationExistsOr(error, this.resolvePath(destinationPath));
-      }
-      return;
+    // Claimed in the operating system, not checked here: see `move_no_clobber.rs`.
+    try {
+      await invoke('move_file_no_clobber', {
+        from: this.resolvePath(sourcePath),
+        to: this.resolvePath(destinationPath),
+      });
+    } catch (error) {
+      throw destinationExistsOr(error, this.resolvePath(destinationPath));
     }
-
-    await rename(
-      this.resolvePath(sourcePath),
-      this.resolvePath(destinationPath)
-    );
   }
 
   async stat(path: string): Promise<VaultFileStat> {

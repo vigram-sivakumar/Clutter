@@ -15,12 +15,11 @@ import { describe, expect, it } from 'vitest';
  * panel (`export_file.rs`). This test ties the capability to the source in both directions, so a new plugin call
  * cannot appear without its permission being a conscious decision, and a permission cannot linger unused.
  *
- * What is still granted and can still overwrite a path in scope: `rename` (the legacy inner vault writer's replace,
- * `TagMetadataStore`'s replace). (`write_text_file` is gone: recovery records are written by the native
- * `recovery_write`. `mkdir` and `remove` are gone: folders and deletions go through the native `create_directory` and
- * `delete_path`, which resolve links before judging a path.) `rename` shares the static scope
- * `$HOME/**` with every Space, so it cannot be separated from Space files by a permission; that is recorded in
- * `docs/building-and-distribution.md` rather than claimed away.
+ * What is granted is read-only: `read_dir`, `read_file`, `read_text_file`, `exists`, `stat`. `write_text_file` (recovery
+ * records now go through the native `recovery_write`), `mkdir` and `remove` (folders and deletions go through the
+ * native `create_directory` and `delete_path`, which resolve links before judging a path) and `rename` (moves go
+ * through `move_file_no_clobber`) are gone. The webview can still call the native commands, which are judged by
+ * `fs_authorization`; that is recorded in `docs/building-and-distribution.md`.
  */
 const SRC = join(__dirname, '..', '..', '..');
 const CAPABILITY = JSON.parse(readFileSync(join(SRC, '..', 'src-tauri', 'capabilities', 'default.json'), 'utf8')) as {
@@ -84,6 +83,16 @@ describe('the fs plugin permissions are exactly what Clutter uses', { timeout: 3
       expect(granted, broad).not.toContain(broad);
     }
     expect(granted.some((permission) => /write-recursive|-all$|recursive$/.test(permission))).toBe(false);
+  });
+
+  it('grants only the plugin\'s read commands: nothing that writes, replaces, moves or deletes', () => {
+    expect(grantedFsPermissions().filter((permission) => permission !== 'fs:scope')).toEqual([
+      'fs:allow-exists',
+      'fs:allow-read-dir',
+      'fs:allow-read-file',
+      'fs:allow-read-text-file',
+      'fs:allow-stat',
+    ]);
   });
 
   it('keeps the scope the broad sets used to bring, as one explicit entry', () => {
