@@ -446,6 +446,29 @@ pub fn documents_writable(app: &AppHandle) -> bool {
 #[derive(Default)]
 pub struct SpaceScopeGrants(Mutex<BTreeSet<String>>);
 
+/// Every folder this run has authorized or opened as a Space (and Documents, when it is authorized). `delete_path` never
+/// removes one of these, or a folder that contains one: removing a Space from Clutter forgets it, it never deletes the
+/// user's folder. Filled where a Space is authorized (`allow`) and where one is opened (`allow_vault_asset_scope`, which
+/// every opened Space passes through, including one made by `create_space_folder` or renamed in place). It holds both
+/// the path as given and its real path.
+#[derive(Default)]
+pub struct ProtectedFolders(Mutex<BTreeSet<PathBuf>>);
+
+pub fn protect_folder<R: tauri::Runtime>(app: &tauri::AppHandle<R>, folder: &Path) {
+    if let Some(state) = app.try_state::<ProtectedFolders>() {
+        let mut folders = state.0.lock().unwrap();
+        if let Ok(real) = std::fs::canonicalize(folder) {
+            folders.insert(real);
+        }
+        folders.insert(folder.to_path_buf());
+    }
+}
+
+/// Whether `path` is a protected folder or contains one.
+pub fn contains_protected_folder<R: tauri::Runtime>(app: &tauri::AppHandle<R>, path: &Path) -> bool {
+    app.try_state::<ProtectedFolders>().is_some_and(|state| state.0.lock().unwrap().iter().any(|folder| folder.starts_with(path)))
+}
+
 /// `*`, `?` and `[` mean something in a scope pattern; a folder named with them must match only itself.
 fn escape_glob(path: &str) -> String {
     path.chars()
@@ -491,6 +514,7 @@ pub fn grant_static_scope<R: tauri::Runtime>(app: &tauri::AppHandle<R>, folder: 
 /// `$HOME/**` is the container, so no other entry reaches a real folder, and outside it a folder picked outside `$HOME`
 /// needs the same entry.
 fn allow(app: &AppHandle, folder: &Path) {
+    protect_folder(app, folder);
     let _ = app.fs_scope().allow_directory(folder, true);
     let _ = app.asset_protocol_scope().allow_directory(folder, true);
     if let Err(error) = grant_static_scope(app, folder) {

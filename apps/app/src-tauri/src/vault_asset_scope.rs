@@ -34,6 +34,8 @@ pub fn allow_vault_asset_scope<R: Runtime>(app: AppHandle<R>, vault_root: String
     let fs_scope = app.fs_scope();
     let path = authorize_asset_root(&vault_root, &|folder| fs_scope.is_allowed(folder))?;
 
+    // Every opened Space passes through here: its folder is never one `delete_path` may remove.
+    crate::space_access::protect_folder(&app, &path);
     app.asset_protocol_scope()
         .allow_directory(&path, true)
         .map_err(|error| error.to_string())

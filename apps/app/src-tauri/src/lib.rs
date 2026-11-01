@@ -242,6 +242,7 @@ pub fn run() {
             // Which folders the user authorized in the App Sandbox (empty state outside it); see space_access.rs.
             app.manage(space_access::build_state(app.handle()));
             app.manage(space_access::SpaceScopeGrants::default());
+            app.manage(space_access::ProtectedFolders::default());
             // The destinations the user has chosen in a Save panel and not yet written to; see export_file.rs.
             app.manage(export_file::ExportTickets::default());
             // Automation/testing only — never reachable in an ordinary build:
