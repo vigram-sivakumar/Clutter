@@ -335,14 +335,29 @@ describe('SpaceDetails: a refused choice or Create is shown inline, in the dialo
     expect(alert()).toBeNull();
   });
 
+  it.each([
+    'Clutter needs access to Documents to create this Space',
+    'Unable to create folder. Try again',
+  ])('shows %j under the Location card, outside it', async (message) => {
+    renderDetails(NEW, { create: async () => ({ error: message }) });
+
+    await create();
+
+    const error = alert() as HTMLElement;
+    const field = error.parentElement as HTMLElement;
+    expect(field).toHaveClass('settings-entry-field');
+    expect(field.firstElementChild).toHaveTextContent('Location');
+    expect(field.firstElementChild).not.toContainElement(error);
+  });
+
   it('Create that cannot make the folder says why inline, creates and opens nothing, and a retry that works clears it', async () => {
     let allowed = false;
     const { onOpenSpace, onCreateFolder } = renderDetails(NEW, {
-      create: async (name) => (allowed ? { path: `/Users/me/Documents/${name}` } : { error: 'Clutter needs your permission to create spaces in Documents' }),
+      create: async (name) => (allowed ? { path: `/Users/me/Documents/${name}` } : { error: 'Clutter needs access to Documents to create this Space' }),
     });
 
     await create();
-    expect(alert()).toHaveTextContent('Clutter needs your permission to create spaces in Documents');
+    expect(alert()).toHaveTextContent('Clutter needs access to Documents to create this Space');
     expect(onOpenSpace).not.toHaveBeenCalled();
     expect(nameInput()).toHaveValue('Personal');
 

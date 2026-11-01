@@ -630,7 +630,9 @@ pub async fn request_documents_access(app: AppHandle) -> Result<&'static str, St
             .dialog()
             .file()
             .set_directory(&documents)
-            .set_title("Allow Clutter to create Spaces in Documents")
+            // On macOS the dialog plugin shows this as the panel's message (its text above the file list). It has no
+            // setting for the button's label, which stays "Open".
+            .set_title("Allow Clutter to access Documents. Select Documents to create Spaces there")
             .blocking_pick_folder();
         let Some(picked) = picked else { return Ok("cancelled") };
         let picked = picked.into_path().map_err(|error| error.to_string())?;

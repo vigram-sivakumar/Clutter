@@ -402,8 +402,8 @@ describe('in the App Sandbox', () => {
   });
 
   it.each([
-    ['cancelled', 'Clutter needs your permission to create spaces in Documents'],
-    ['wrongFolder', 'Choose the Documents folder to let Clutter create spaces there'],
+    ['cancelled', 'Clutter needs access to Documents to create this Space'],
+    ['wrongFolder', 'Clutter needs access to Documents to create this Space'],
   ])('creates nothing when the authorization ends as %s', async (result, message) => {
     answer({
       sandbox_info: () => SANDBOX,

@@ -12,6 +12,7 @@ import { VaultPath } from '@core/vault/ingest/VaultPath';
 import {
   CREATE_REFUSED_MESSAGE,
   CREATE_REFUSED_SANDBOXED_MESSAGE,
+  DOCUMENTS_ACCESS_REQUIRED_MESSAGE,
   FOLDER_EXISTS_MESSAGE,
   RENAME_REFUSED_MESSAGE,
 } from '@core/vault/providers/spaceFolders';
@@ -254,7 +255,8 @@ export function SpaceDetails({
   // A create macOS refuses for permission is about where the Space would go, so it is shown with the Location card.
   const locationError =
     actionError === CREATE_REFUSED_MESSAGE ||
-    actionError === CREATE_REFUSED_SANDBOXED_MESSAGE
+    actionError === CREATE_REFUSED_SANDBOXED_MESSAGE ||
+    actionError === DOCUMENTS_ACCESS_REQUIRED_MESSAGE
       ? actionError
       : null;
   const formError =

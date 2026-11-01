@@ -123,8 +123,7 @@ export async function createSpaceFolder(
       // Inside the App Sandbox the user authorizes Documents once, here, at the first Create. Nothing has been
       // created yet; cancelling leaves it that way (not even a folder in the app's own container).
       const granted = await requestDocumentsAccess();
-      if (granted === 'cancelled') return { error: DOCUMENTS_PERMISSION_MESSAGE };
-      if (granted === 'wrongFolder') return { error: DOCUMENTS_WRONG_FOLDER_MESSAGE };
+      if (granted !== 'granted') return { error: DOCUMENTS_ACCESS_REQUIRED_MESSAGE };
       return { path: await create() };
     }
   } catch (error) {
@@ -134,8 +133,11 @@ export async function createSpaceFolder(
   }
 }
 
-const DOCUMENTS_PERMISSION_MESSAGE = 'Clutter needs your permission to create spaces in Documents';
-const DOCUMENTS_WRONG_FOLDER_MESSAGE = 'Choose the Documents folder to let Clutter create spaces there';
+/**
+ * What cancelling the Documents panel, or choosing another folder in it, is reported as (one message for both: either
+ * way Documents is still not authorized). SpaceDetails shows it with the Location card; Create asks again.
+ */
+export const DOCUMENTS_ACCESS_REQUIRED_MESSAGE = 'Clutter needs access to Documents to create this Space';
 
 function isDocumentsAccessNeeded(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
