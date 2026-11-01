@@ -425,7 +425,7 @@ describe('CollectionBody — Properties visibility', () => {
     // Name + only the one visible optional column (Last edited, a date: sized by its content) — Last
     // opened/Created contribute no track at all, so the remaining
     // columns reflow rather than leaving reserved empty space.
-    expect(table.style.gridTemplateColumns).toBe('minmax(400px, 1fr) max-content');
+    expect(table.style.gridTemplateColumns).toBe('minmax(280px, 1fr) max-content');
   });
 
   it('Table mode: all columns hidden leaves only the Name column', () => {
@@ -440,7 +440,7 @@ describe('CollectionBody — Properties visibility', () => {
     const table = container.querySelector('.collection-table') as HTMLElement;
     const header = container.querySelector('.collection-table__header') as HTMLElement;
 
-    expect(table.style.gridTemplateColumns).toBe('minmax(400px, 1fr)');
+    expect(table.style.gridTemplateColumns).toBe('minmax(280px, 1fr)');
     expect(header.querySelectorAll('.collection-table__header-cell')).toHaveLength(1);
   });
 });

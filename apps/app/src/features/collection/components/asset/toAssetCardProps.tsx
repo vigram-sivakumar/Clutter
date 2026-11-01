@@ -10,7 +10,7 @@ import type { ReactNode } from 'react';
 import { toAssetEntry } from './toAssetEntry';
 import { AssetPreview } from './AssetPreview';
 
-/** The assets card grid: smaller cards than notes (assets are mostly pictures) — between 140px and 1/6 of the row wide. */
+/** The assets card grid: smaller cards than notes (assets are mostly pictures) — between 180px and 1/6 of the row wide. */
 export const ASSET_GRID: CollectionGridColumns = { min: 180, max: 6 };
 
 /** An asset card's fixed shape (width / height): the preview over a short title section. */

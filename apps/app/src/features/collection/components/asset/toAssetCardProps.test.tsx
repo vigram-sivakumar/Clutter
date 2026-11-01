@@ -44,7 +44,7 @@ describe('toAssetCardProps', () => {
 
     expect(card).toHaveClass('collection-card');
     expect((card as HTMLElement).style.aspectRatio).toBe(ASSET_CARD_ASPECT_RATIO);
-    expect(ASSET_GRID).toEqual({ min: 140, max: 6 });
+    expect(ASSET_GRID).toEqual({ min: 180, max: 6 });
   });
 
   it('shows the asset name (extension-free) and no kind/type label — the header is just the icon and name', () => {

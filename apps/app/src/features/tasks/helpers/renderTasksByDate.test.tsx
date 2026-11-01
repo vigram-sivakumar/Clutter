@@ -400,11 +400,12 @@ describe('renderTasksByDate', () => {
       expect(navigation.openAllTasks).not.toHaveBeenCalled();
     });
 
-    it('marks the Today header for its pill style, and no other header', () => {
+    it('marks the Today and Overdue headers (Overdue is styled; the Today pill style is switched off), and no other header', () => {
       const { getByText } = renderAll(new Workspace(), fakeNavigation());
 
       expect(getByText('Today').closest('.section-header')).toHaveAttribute('data-section', 'today');
-      expect(getByText('Overdue').closest('.section-header')).not.toHaveAttribute('data-section');
+      expect(getByText('Overdue').closest('.section-header')).toHaveAttribute('data-section', 'overdue');
+      expect(getByText('Upcoming').closest('.section-header')).not.toHaveAttribute('data-section');
     });
   });
 

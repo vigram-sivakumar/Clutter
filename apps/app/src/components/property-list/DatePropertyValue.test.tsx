@@ -601,8 +601,8 @@ describe('DatePropertyValue — Clear', () => {
     fireEvent.click(getField());
 
     const clear = screen.getByRole('button', { name: 'Clear' });
-    expect(clear.classList.contains('button--has-leading')).toBe(true);
-    expect(clear.querySelector('svg')).not.toBeNull();
+    // Clear is an Entry (a role="button" row): its icon sits in the leading slot.
+    expect(clear.querySelector('.entry__leading svg')).not.toBeNull();
   });
 
   it('also discards a typed draft', () => {
@@ -620,7 +620,7 @@ describe('DatePropertyValue — Clear', () => {
 
     fireEvent.click(getField());
 
-    expect((screen.getByRole('button', { name: 'Clear' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Clear' }).getAttribute('aria-disabled')).toBe('true');
   });
 });
 

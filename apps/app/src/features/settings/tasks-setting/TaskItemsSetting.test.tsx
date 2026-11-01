@@ -88,13 +88,14 @@ describe('Settings → Features → Tasks', () => {
     expect(readTaskItemLimitChoice()).toBe(15);
 
     const grouping = screen.getByRole('switch', { name: 'Group by due date' });
+    // Grouping is on by default, so the first click turns it off.
     fireEvent.click(grouping);
-    expect(readGroupTasksByDueDate()).toBe(true);
+    expect(readGroupTasksByDueDate()).toBe(false);
     expect(readTaskItemLimitChoice()).toBe(15);
     expect(trigger()).toHaveTextContent('15 items');
 
     fireEvent.click(grouping);
-    expect(readGroupTasksByDueDate()).toBe(false);
+    expect(readGroupTasksByDueDate()).toBe(true);
     expect(readTaskItemLimitChoice()).toBe(15);
     expect(trigger()).toHaveTextContent('15 items');
   });

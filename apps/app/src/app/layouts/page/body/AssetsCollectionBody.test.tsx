@@ -628,11 +628,11 @@ describe('AssetsCollectionBody — the file-fact Properties govern List and Tabl
 });
 
 describe('AssetsCollectionBody — Card grid', () => {
-  it('uses the asset grid — up to 6 columns, at least 140px each — and the 4:5 card shape, set through the generic grid and card props', () => {
+  it('uses the asset grid — up to 6 columns, at least 180px each — and the 4:5 card shape, set through the generic grid and card props', () => {
     const { container } = renderAssets({ resources: [makeResource()], viewMode: 'card' });
 
     const grid = container.querySelector<HTMLElement>('.collection-grid')!;
-    expect(grid.style.getPropertyValue('--collection-grid-min')).toBe('140px');
+    expect(grid.style.getPropertyValue('--collection-grid-min')).toBe('180px');
     expect(grid.style.getPropertyValue('--collection-grid-max')).toBe('6');
     expect(container.querySelector<HTMLElement>('.collection-card')!.style.aspectRatio).toBe('4 / 5');
   });

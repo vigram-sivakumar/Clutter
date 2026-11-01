@@ -49,7 +49,7 @@ describe('DatePicker', () => {
     );
 
     const footer = document.querySelector('.date-picker__footer')!;
-    const buttons = [...footer.querySelectorAll('button')].map((b) => b.textContent);
+    const buttons = [...footer.querySelectorAll('button, [role="button"]')].map((b) => b.textContent);
     expect(buttons).toEqual(['Clear', 'Time']);
     expect(footer.querySelector('.date-picker__actions')?.textContent).toBe('Time');
   });
@@ -71,7 +71,7 @@ describe('DatePicker', () => {
     expect(onClear).toHaveBeenCalledTimes(1);
 
     rerender(<DatePicker selectedDate={undefined} onSelectedDateChange={vi.fn()} onClear={onClear} clearDisabled />);
-    expect((screen.getByRole('button', { name: 'Clear' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Clear' }).getAttribute('aria-disabled')).toBe('true');
   });
 
   it('only stops a press from taking focus when keepFocusOnPress is set', () => {

@@ -642,11 +642,11 @@ describe('blockSeparatorDecoration — general', () => {
 describe('blockSeparatorDecoration — horizontal rules', () => {
   const rule = SEPARATOR.horizontalRule;
 
-  it('is 12px', () => {
-    expect(rule).toBe(12);
+  it('is 24px', () => {
+    expect(rule).toBe(24);
   });
 
-  it('gives the separators above and below a rule the horizontal-rule height (12px), and the rest the normal height', () => {
+  it('gives the separators above and below a rule the horizontal-rule height (24px), and the rest the normal height', () => {
     const view = mountView('Paragraph A\n\n---\n\nParagraph B\nLine two');
     // A→blank, blank→rule, rule→blank, blank→B, B→line two
     expect(separatorHeights(view)).toEqual([SEPARATOR.normal, rule, rule, SEPARATOR.normal, SEPARATOR.normal]);

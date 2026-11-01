@@ -13,7 +13,7 @@ import { formatPropertyValue, valueProperties } from './formatProperty';
 /**
  * A collection table's columns, from the visible properties — one builder for notes and assets
  * alike, because a column is a property drawn as a table column: the Name column always (the row
- * anchor, `minmax(400px, 1fr)`), then — in canonical property order — the Cover image column when
+ * anchor, `minmax(280px, 1fr)`), then — in canonical property order — the Cover image column when
  * it is visible AND the host can change covers (`110px`), then every plain value property that
  * is visible (`140px`, or content-sized for a date — see `valueColumnWidth`). A property that is not visible reserves no grid space at all.
  *

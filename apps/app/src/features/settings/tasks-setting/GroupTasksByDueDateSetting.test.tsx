@@ -21,31 +21,33 @@ afterEach(() => {
 const toggle = () => screen.getByRole('switch', { name: 'Group by due date' });
 
 describe('GroupTasksByDueDateSetting', () => {
-  it('is labelled and described as specified, and off by default', () => {
+  it('is labelled and described as specified, and on by default', () => {
     render(<GroupTasksByDueDateSetting />);
 
     expect(screen.getByText('Group by due date', { selector: '.settings-entry__title' })).toBeInTheDocument();
     expect(screen.getByText('Group tasks by their due date')).toBeInTheDocument();
-    expect(toggle()).not.toBeChecked();
+    expect(toggle()).toBeChecked();
   });
 
-  it('turning it on saves it, and the toggle reflects it; turning it off clears it', () => {
+  it('turning it off saves it, and the toggle reflects it; turning it on again clears it', () => {
     render(<GroupTasksByDueDateSetting />);
-
-    fireEvent.click(toggle());
-    expect(readGroupTasksByDueDate()).toBe(true);
-    expect(toggle()).toBeChecked();
 
     fireEvent.click(toggle());
     expect(readGroupTasksByDueDate()).toBe(false);
+    expect(localStorage.getItem('clutter-group-tasks-by-due-date')).toBe('false');
     expect(toggle()).not.toBeChecked();
+
+    fireEvent.click(toggle());
+    expect(readGroupTasksByDueDate()).toBe(true);
+    expect(localStorage.getItem('clutter-group-tasks-by-due-date')).toBeNull();
+    expect(toggle()).toBeChecked();
   });
 
   it('shows the saved choice when it is opened again', () => {
-    localStorage.setItem('clutter-group-tasks-by-due-date', 'true');
+    localStorage.setItem('clutter-group-tasks-by-due-date', 'false');
     render(<GroupTasksByDueDateSetting />);
 
-    expect(toggle()).toBeChecked();
+    expect(toggle()).not.toBeChecked();
   });
 });
 

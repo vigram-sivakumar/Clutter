@@ -326,7 +326,10 @@ describe('positioning near the window edge', () => {
 
     const surface = document.querySelector<HTMLElement>('.overlay__surface')!;
     expect(parseFloat(surface.style.left) + 200).toBeLessThanOrEqual(window.innerWidth);
-    expect(parseFloat(surface.style.top) + 300).toBeLessThanOrEqual(window.innerHeight);
+    // A menu placed above its anchor is positioned from its bottom edge (`bottom`), otherwise from its top.
+    const top = surface.style.top !== '' ? parseFloat(surface.style.top) : window.innerHeight - parseFloat(surface.style.bottom) - 300;
+    expect(top).toBeGreaterThanOrEqual(0);
+    expect(top + 300).toBeLessThanOrEqual(window.innerHeight);
     spy.mockRestore();
   });
 });
