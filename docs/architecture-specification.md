@@ -415,6 +415,9 @@ Own the entire lifecycle of a page as a single capability surface: the one file 
     getDraft(pageId: string): DraftInfo | undefined;   // { folderId, type, title? } — undefined for a real page or an unknown id
     close(pageId: string): void;
     create(options: CreatePageOptions): Promise<string>;   // eager, immediate-persist — returns new pageId
+    createFromSource(source: ShippedPageSource): Promise<CreateFromSourceOutcome>;
+      // ADR-067 — the one narrow, system-triggered verbatim create (first-run welcome content). Enqueues exactly one
+      // Gate 'create' with source.content unchanged; the page's id is the frontmatter id in source.content.
     save(pageId: string, markdown: string): Promise<void>;
     archive(pageId: string): Promise<void>;
     restore(pageId: string, options?: { onConflict?: 'inbox' | 'replace' }): Promise<RestoreOutcome>;
@@ -453,6 +456,14 @@ Own the entire lifecycle of a page as a single capability surface: the one file 
 
 [ADR-031](./adr/031-app-initiated-body-mutation-routing.md): `mutateBody()` is the one canonical, sanctioned entry point for **every** app-initiated body mutation — task completion/reopening, formatting commands, template insertion, bulk transforms, AI-assisted edits, and any future capability with the same shape. Page-not-found and archived-page checks run first, before either branch below, mirroring `save()`'s own check ordering and message text exactly — archived status is a `Vault`-domain fact, checked regardless of whether a session happens to be open. Dispatch then proceeds on whether a `DocumentSession` is currently open for `pageId`: if `documentRegistry.get(pageId)` returns a session, `transform` is applied to `session.currentRevision.markdown` and the result is committed via **`this.commitEdit(pageId, result)`** — never `session.commit()` directly. `commitEdit()` both commits the transaction and arms the existing `SaveCoordinator` autosave timer; calling `session.commit()` directly would commit the mutation but schedule no persistence for it, silently stranding it until an unrelated trigger happened to save the session later. `Vault`/the Gate are not touched by this branch — persistence follows the session's own existing save lifecycle (autosave or explicit save) from that point on, exactly as a keystroke-originated `commitEdit()` call already does. If no session is open, `transform` is applied to `vault.getPage(pageId).source.markdown` and the result is enqueued through the Gate's existing `'save'` kind directly (`PageOperations.save()` itself cannot be reused here — it requires an open session) — the same pattern this replaces at its one current call site (`TaskOperations.mutate()`). No feature facade (`TaskOperations`, or any future body-mutating facade) may read `Vault`/`DocumentRegistry`/`DocumentSession` directly to perform a body mutation — all such mutations go through this method.
 
+[ADR-067](./adr/067-first-run-welcome-content-is-installed-once-into-the-first-space.md): `createFromSource()` (here and on `FolderOperations`, §7) is the one narrow, singular, system-triggered, fixed-target workflow `ARCHITECTURE_RULES.md` rule 1's amendment allows to enqueue directly through the Gate — it is not a general-purpose creator, and it is not a bypass of the Gate. Its input, `ShippedPageSource`, is an opaque branded value that only the welcome-content folder (`core/application/welcome-content/`) can mint (enforced by `ShippedSource.test.ts`); its outcome is:
+
+```ts
+type CreateFromSourceOutcome =
+  | { status: 'created'; id: string }
+  | { status: 'skipped'; reason: 'id-exists' | 'path-exists' | 'parent-unknown' };
+```
+
 `rename()` is implemented (post-delete-navigation/rename consistency milestone), backed by the Gate's `'rename'` kind — same-parent path change only, mirroring `FolderOperations.rename()`'s shape exactly (ADR-024's interim `'rename-folder'` kind). Destination resolution lives in `MoveService.resolveRenameDestination` (Persistence Gate layer), not `PagePathResolver` (application layer) — the Gate must never depend upward on the application layer (rule 7), and every other page-destination resolver it already uses (`resolveArchiveDestination`, `resolveRestoreDestination`, `resolveMoveDestination`) lives in `MoveService` for the same reason.
 
 ### Internal collaborators
@@ -468,6 +479,7 @@ Constructed once at the Composition Root. No internal state of its own beyond it
 - `delete()`/`close()` have no existence check of their own ([ADR-017](./adr/017-draft-page-lifecycle.md) §5/§7): `delete()` enqueues `{kind:'delete'}` unconditionally, relying on the Gate's own abandon-if-missing guard, so a delete for a draft that was never persisted resolves harmlessly instead of racing an in-flight, not-yet-executed `create` for the same id.
 - `delete()` and `close()` on the same page never race — `delete()` closes the session (via `DocumentRegistry`) before enqueuing the disk delete, so no save can complete against a page mid-deletion.
 - No method here ever calls `VaultFileSystem` directly.
+- [ADR-067](./adr/067-first-run-welcome-content-is-installed-once-into-the-first-space.md): `createFromSource()` writes `source.content` exactly as given (no `PageCreator`), enqueues exactly one Gate `create`, and refuses — returning `skipped`, never throwing, never enqueuing — when the id (read from the content's frontmatter) already resolves in the `Vault`, the path already resolves in the `Vault`, or `parentId` is not a live, non-archived `Vault` folder. The reads and the `enqueue` call share one synchronous turn (Vault mutation is synchronous), and the write runs under a queue slot that is never a page id (`shippedSourceQueueKey`), so the Gate's existing-id branch (a `create` for an id the `Vault` holds is dispatched as a save, §5) can never be taken, whatever changes after the checks; the write itself is create-only, so a file that appeared at the path meanwhile refuses it and is left unchanged. It never opens a draft or `DocumentSession`, never touches `Workspace`, and is not reachable from a UI control.
 - [ADR-036](./adr/036-frontmatter-properties-aliases-and-custom-keys.md): `renameCustomProperty()` changes only the renamed key's text in this page's preserved frontmatter — its value lines and every other line stay byte-identical, and no other page is read or written. It rejects, with no write, an empty name, a canonical system key in any letter case (`OWNED_FRONTMATTER_KEYS`), a name the frontmatter reader can't read back as a key, or another key on the same page **ignoring letter case** (`Priority` and `priority` cannot coexist; a property may change only its own case) — the same `validateCustomPropertyName` rule the Properties UI checks for feedback, and the one rule `addCustomProperty()` uses. Aliases are never unique-checked anywhere. `removeCustomPropertyItem()` likewise changes only that one list item's text (a block-list line, or the flow list rewritten from its remaining items as written), and writes nothing when the item at `index` no longer has `value`. `setCustomPropertyList()`, `setCustomPropertyValue()` and `addCustomProperty()` follow the same shape (ADR-036 amendment): only that property's own lines change (an added property is appended after every existing line), every other line is byte-identical, no other page is read or written, and all five custom-property methods share one private `saveCustomFrontmatter` — the archived/unknown-page guard, then one Gate `'save'` with a metadata patch. A value is written only if it reads back as the declared type; an emptied number, date or url keeps its type as a `# type` comment on the key line (`due: # date`), an emptied list is `key: []`, and an emptied text value is `key:`, so clearing a value never changes a property's type. Removing a list's last item empties the list; it does not remove the property. The Properties model (ADR-036, final amendment): a system property (`tags`, `aliases`, `created`, `modified`) is displayed when its canonical key is listed in `properties.visible` — system keys only, matched ignoring letter case, rendered in the one canonical order — and listing or unlisting it never touches its value; a custom property is displayed because its frontmatter key exists and has no visibility of its own; the section is hidden only by an explicit `properties.show: false` (`show: true` is never written). All of it is kept as preserved raw lines under the reserved raw key `properties` (not an owned key, so the flat parser is unchanged), read and written only by `propertyVisibility.ts`, and every write to the block ends in `normalizePropertiesConfig`, which migrates an older block (a legacy `show: true`, `visible: []`, or custom entries in `visible`). With nothing to show the note is in the never-configured state — no `properties:` block. The operations are `addSystemProperty()`, `removeSystemProperty()` (unlists only), `setPropertiesSectionHidden()`, `deleteCustomProperty()` and `deleteAllProperties()`, each one Gate save built from the pure functions in `propertyLines.ts`; removing or deleting the last thing to show resets the listing in the same save. A `url` value is stored as an absolute `http(s)` URL — the one form the reader infers as `url` — and the URL editor and the write share that rule (ADR-036, "one URL rule").
 - [ADR-031](./adr/031-app-initiated-body-mutation-routing.md): `mutateBody()` never writes to `Vault`/the Gate when a `DocumentSession` is open for `pageId` — a `DocumentSession`, while open, is the exclusive owner of that page's current content, and every app-initiated body mutation must resolve through it rather than around it.
 
@@ -497,6 +509,57 @@ await pageOperations.save(draftId, '# My new note');   // first save persists it
 
 ---
 
+## 6a. Application Layer — `WelcomeContentService`
+
+### Responsibilities
+Install the bundled first-run welcome content into the first Space, once, and finish an interrupted install ([ADR-067](./adr/067-first-run-welcome-content-is-installed-once-into-the-first-space.md)). It owns the workflow only — order, the per-Space ledger, resume, the outcome the failure toast is chosen from — and no capability: every page and folder write is made by `PageOperations.createFromSource` / `FolderOperations.createFromSource` / `FolderOperations.ensureReservedFolder`, each of which enqueues through the Gate. It enqueues nothing itself.
+
+### Public API
+
+```ts
++ class WelcomeContentService {
+    install(): Promise<WelcomeInstallResult>;          // first-run install; starts only in an empty Vault with no ledger
+    resumeIfNeeded(): Promise<WelcomeInstallResult | null>;   // null when the Space has no interrupted install
+    verifyInstall(): Promise<WelcomeVerification | null>;     // null when there is no finished install to check
+    markShown(): Promise<void>;                               // the Space is now visible: the ledger's `shown` becomes true
+  }
+
+type WelcomeInstallResult =
+  | { status: 'installed' }
+  | { status: 'skipped'; reason: 'not-empty' | 'already-started' }
+  | { status: 'failed'; retry: 'scheduled' | 'none' | 'unknown' };
+
+type WelcomeVerification =
+  | { ok: true; checked: number }
+  | { ok: false; checked: number; missing: readonly string[] };
+```
+
+### Internal collaborators
+`PageOperations`, `FolderOperations`, `VaultSyncService.reconcileKnownPath` ([ADR-040](./adr/040-caller-triggered-reconciliation-for-app-created-files.md), for the image), `VaultFileSystem` (exclusive directory creation, the create-only image write and the ledger), the bundled manifest (`welcomeContentManifest.ts`, the one module that owns the glob), and the ledger (`WelcomeInstallLedger.ts`, the `welcomeInstall` key of `.clutter/workspace.json`, written through `mergeAndWriteWorkspaceStateFile`).
+
+### Lifecycle
+Constructed once by the Composition Root in `attachVault()`, after `PageOperations`, `FolderOperations` and `Sync`. Called by `AppShell` through `prepareWelcomeSpace` (`app/spaces`) **before** a Space chosen or created in the Welcome dialog is handed to the UI or remembered: the Application is open (the running Gate and Sync make the writes) but not shown, and the Welcome dialog stays up with Create disabled. The gate decides from the application-level first-run record (install only for a Space Clutter created through Create; record a skip for an existing folder), resumes an interrupted install from the Space's ledger, and opens the Space only when the install is complete and `verifyInstall` confirms every manifest entry (27 for the shipped content). A failure closes the gate: the Application is discarded, the registry is put back, the dialog shows the reason and its Create/open is the retry. A Space opened outside the Welcome dialog (startup restore, recovery, switching) never installs; it only resumes an interrupted install in the background (`resumeInterruptedWelcomeContent`).
+
+### Invariants
+- Every write is create-only: the Gate's create-only `create`/`create-folder`, exclusive directory creation, the never-replacing binary write. No replace code path exists. Nothing is ever overwritten, and an entry whose destination exists ends there (a refusal classified by type — `AtomicNotCommittedError.reason === 'destinationExists'` or a facade `skipped` — never by message or an `exists()` check).
+- An entry is started at most once. The ledger's `completed` counter and `inFlight` flag mean a resume never writes an entry that is finished. For a Space the user has seen (`shown` true or absent) it also never writes the entry that was in flight at an interruption: it cannot tell never-written from deleted-since, and resolves that toward not writing, so a file the user deleted is never recreated (at most one note can then be missing). For a Space that has never been shown (`shown: false`, which only the first-run gate leaves) nobody can have deleted anything, so that entry is attempted again with the same create-only write. `markShown` sets `shown` when the gate opens the Space.
+- A resume never continues against different bundled content (`plan`, a digest of every path and byte, must match) and never exceeds three attempts in total, the first install included.
+- A retry is reported as `scheduled` only after the ledger recording it was written; a failed ledger write is `unknown`.
+- `verifyInstall` checks every manifest entry (directories exist, `Templates` is the Vault's reserved folder, marker folders and notes are in the Vault under their shipped ids, the image has exactly its shipped bytes). A failed check is recorded as an abandoned install and never hidden.
+- A `create`/`create-folder` the Gate abandons after writing (the Vault refused the entry, usually because Sync registered the same path first) is reported as `WrittenButNotRegisteredError`, with the path, the kind and the Gate's own reason, distinct from a write that failed.
+- Folder entries are created only after an exclusive directory create succeeded for that path, so a `.folder.md` is only ever written into a directory this install created. A marker's text is loaded **before** that directory exists, so nothing yields between the exclusive create and the Gate write that would let the OS watcher have Sync register the folder first. `Templates/` is made only by `ensureReservedFolder` ([ADR-030](./adr/030-lazy-reserved-resource-materialization.md)).
+
+### Concurrency model
+Sequential and awaited, one entry at a time; two calls to the service never overlap. Gate writes inherit the Gate's own per-slot serialization.
+
+### Ownership
+Owns the install workflow and its ledger. Must never own page or folder persistence (the Gate), the decision of whether a page or folder may be created (the facades), or the first-run record (`app/spaces`).
+
+### Testing strategy
+Against the real Gate, `Vault` and Sync over the production write stack with the in-memory atomic writer (create-only enforced), installing the actual shipped files: byte-identical content and ids, every guarantee of the recovery contract, every crash point, the notice mapping, and the source contracts (`ShippedSource.test.ts`, `welcomeContentTriggers.contract.test.ts`).
+
+---
+
 ## 7. Application Layer — `FolderOperations`
 
 ### Responsibilities
@@ -508,6 +571,8 @@ The same lifecycle ownership as `PageOperations`, scoped to folders.
 + class FolderOperations {
     open(folderId: string): Promise<void>;
     create(name: string, parentId: string | null): Promise<string>;
+    createFromSource(source: ShippedFolderSource): Promise<CreateFromSourceOutcome>;
+      // ADR-067 — enqueues exactly one Gate 'create-folder' with source.content as the folder's .folder.md, unchanged
     move(folderId: string, destinationFolderId: string): Promise<void>;
     rename(folderId: string, name: string): Promise<void>;
     delete(folderId: string): Promise<void>;
@@ -517,6 +582,8 @@ The same lifecycle ownership as `PageOperations`, scoped to folders.
 ```
 
 `delete()` (ADR-024) is implemented, mirroring `PageOperations`'s equivalent one aggregate over. Folders have no `duplicate()` — unlike Notes, a Folder is never duplicable (product decision); `PageOperations.duplicate()` and the shared `VaultEntryDuplicator`/`VaultFileSystem.duplicate()` provider primitive remain Note-only consumers of ADR-028/ADR-029's duplicate mechanism. `archive()` (ADR-026) is implemented as of the folder-archive milestone: relocates the folder's entire subtree as a single directory move into the vault's reserved `Archive/` folder, mirroring `PageOperations.archive()`'s metadata-patch shape (`status`/`archivedAt`/`originalPath`/`originalParentId`) but reusing `Vault.moveFolder()`'s cascade instead of flattening, since a folder is a container, not a leaf (ADR-026 §2). Only the archived folder's own metadata changes; descendant folders/pages keep their own `status` untouched but are archived because they now sit inside `Archive/` — archived state is physical location, not `status` (ADR-026, final Archive-state amendment); `MembershipSelector.isEffectivelyArchived()` delegates to the Vault's path predicate. `restore()` is specified by ADR-026 but **not yet implemented** — its Gate kind, `Vault.restoreFolder()`, and `FolderPathResolver.resolveRestoreDestination` do not exist yet (ADR-026's implementation-sequencing amendment defers it to a follow-up milestone, mirroring how `move()` itself was deferred by ADR-024 until its own prerequisite UI existed).
+
+[ADR-067](./adr/067-first-run-welcome-content-is-installed-once-into-the-first-space.md): `createFromSource()` follows §6's `createFromSource()` invariants for folders: `source.content` is written unchanged as the `.folder.md`, exactly one Gate `create-folder` is enqueued under a queue slot that is never a folder id, and it refuses (`skipped`) when the id already resolves in the `Vault` or `parentId` is not a live, non-archived `Vault` folder. `ShippedFolderSource` is only minted after the caller created the folder's directory exclusively, because the Gate's `create-folder` itself creates the directory non-exclusively and would otherwise add a `.folder.md` to a directory that was already there. `ensureReservedFolder('templates')` is unchanged and remains the only way `Templates/` is created.
 
 `create()`'s `parentId` is nullable (null means the vault root), matching `Folder.parentId`'s own type (§3) and `PageOperations.create()`'s equivalent `folderId: string | null` (§6) — a folder facade that couldn't create at the root would be unable to express a state the domain model already allows. This was corrected here after implementation (see the `architecture-migration` branch's folder-creation work) found the original text disagreed with the domain model; a documentation correction, not a design change — no alternative was considered or rejected.
 
@@ -749,7 +816,7 @@ Construct every subsystem in the correct order and wire dependencies. Own nothin
 Field names `pageOperations`/`folderOperations` (not `pages`/`folders`) — matches the implementation, which used these names throughout and predates this spec's `pages`/`folders` wording. Corrected here rather than renaming shipped, working code with no functional reason to change (see the Architecture v1.0 audit).
 
 ### Lifecycle
-`bootstrap(rootPath)` — constructs Platform + Vault Ingest; runs the initial scan and build; calls `attachVault(vault)` internally, now that a real `Vault` exists. It performs no Daily-Notes-specific work at all ([ADR-019](./adr/019-retire-boot-time-daily-note-scaffolding.md) retires the boot-time directory scaffolding ADR-014/ADR-017 disclosed as temporary — Daily Note folder materialization now happens entirely at persist time, see §6's `PageOperations.persistDraft`/`DailyNoteService.ensureFolderChain`); `attachVault()` still runs inside `bootstrap()` regardless, since `open()` needs `pageOperations` constructed before its resolve-or-draft call can run. `attachVault(vault)` — constructs `PageOperations`, `FolderOperations`, `NavigationRouter`, `Sync`. Kept as its own callable method (matching a named, testable construction seam) even though `bootstrap()` is its only caller today. `open()` starts the watcher and resolves today's note — the real page if the scan found one, otherwise an unpersisted draft at its deterministic path, computed at call time rather than read from a bootstrap-time field ([ADR-019](./adr/019-retire-boot-time-daily-note-scaffolding.md)). `close()` stops the watcher and tears down subscriptions.
+`bootstrap(rootPath)` — constructs Platform + Vault Ingest; runs the initial scan and build; calls `attachVault(vault)` internally, now that a real `Vault` exists. It performs no Daily-Notes-specific work at all ([ADR-019](./adr/019-retire-boot-time-daily-note-scaffolding.md) retires the boot-time directory scaffolding ADR-014/ADR-017 disclosed as temporary — Daily Note folder materialization now happens entirely at persist time, see §6's `PageOperations.persistDraft`/`DailyNoteService.ensureFolderChain`); `attachVault()` still runs inside `bootstrap()` regardless, since `open()` needs `pageOperations` constructed before its resolve-or-draft call can run. `attachVault(vault)` — constructs `PageOperations`, `FolderOperations`, `NavigationRouter`, `Sync`, and `WelcomeContentService` ([ADR-067](./adr/067-first-run-welcome-content-is-installed-once-into-the-first-space.md), §6a). Kept as its own callable method (matching a named, testable construction seam) even though `bootstrap()` is its only caller today. `open()` starts the watcher and resolves today's note — the real page if the scan found one, otherwise an unpersisted draft at its deterministic path, computed at call time rather than read from a bootstrap-time field ([ADR-019](./adr/019-retire-boot-time-daily-note-scaffolding.md)). `close()` stops the watcher and tears down subscriptions.
 
 ### Invariants
 - This is the only file in the codebase that imports `LocalFileSystem`/`LocalFileSystemWatcher` concretely — everything else imports the interface types.

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Clutter has no analytics, advertising, tracking or crash-reporting code, and contacts no tracking domain. -->
+  <key>NSPrivacyTracking</key>
+  <false/>
+  <key>NSPrivacyTrackingDomains</key>
+  <array/>
+  <!--
+    Nothing is declared as collected: notes and settings stay on the device, and the only data Clutter sends to a
+    service it operates is the Unsplash cover search (search terms) to its proxy, whose source neither logs nor stores
+    it. Whether that, or Unsplash's own handling of it, must be declared is the owner's call (docs/privacy-and-app-store.md).
+  -->
+  <key>NSPrivacyCollectedDataTypes</key>
+  <array/>
+  <key>NSPrivacyAccessedAPITypes</key>
+  <array>
+    <!--
+      File timestamps (stat, fstat, lstat): the modification and creation times of notes and assets are read to detect
+      outside changes and to show a note's Created and Modified properties. Nothing leaves the device.
+      3B52.1  files or folders the user granted access to (Spaces chosen or created through the system panel)
+      C617.1  files inside the app's own container (recovery records, the parsed-note cache)
+      DDA9.1  displayed to the person using the device (the Created and Modified properties)
+    -->
+    <dict>
+      <key>NSPrivacyAccessedAPIType</key>
+      <string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+      <key>NSPrivacyAccessedAPITypeReasons</key>
+      <array>
+        <string>3B52.1</string>
+        <string>C617.1</string>
+        <string>DDA9.1</string>
+      </array>
+    </dict>
+  </array>
+</dict>
+</plist>

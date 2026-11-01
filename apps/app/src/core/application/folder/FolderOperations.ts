@@ -3,6 +3,11 @@ import {
   type AssetMoveFeedback,
   type AssetMoveReferenceSummary,
 } from '../../vault/persistence/AssetMovePolicy';
+import type {
+  CreateFromSourceOutcome,
+  ShippedFolderSource,
+} from '../welcome-content/ShippedSource';
+import { shippedSourceQueueKey, WrittenButNotRegisteredError } from '../welcome-content/ShippedSource';
 import { Vault } from '../../vault/models/Vault';
 import { Workspace } from '../../workspace/Workspace';
 import { PagePersistenceCoordinator } from '../../vault/persistence/PagePersistenceCoordinator';
@@ -260,6 +265,42 @@ export class FolderOperations {
     }
 
     return result.folder.id;
+  }
+
+  /**
+   * ADR-067: the folder counterpart of `PageOperations.createFromSource` — enqueues exactly one Gate
+   * `create-folder` with `source.content` as the folder's `.folder.md`, unchanged. The input is an opaque
+   * `ShippedFolderSource`, minted only after the caller created the folder's directory exclusively, which is what
+   * keeps this from ever adding a marker to a directory that was already there (the Gate's `create-folder` itself
+   * creates the directory non-exclusively and would). Reserved folders (Templates) are not made here: they keep
+   * `ensureReservedFolder`, the only way ADR-030 allows.
+   *
+   * Refuses, writing nothing, when the id is already a folder or the parent is not a live Vault folder (the Gate
+   * never validates `parentId`). The checks and the `enqueue` call share one synchronous turn, Vault mutation is
+   * synchronous, and the write runs under a queue slot that is never a folder id (`shippedSourceQueueKey`).
+   */
+  public async createFromSource(source: ShippedFolderSource): Promise<CreateFromSourceOutcome> {
+    if (this.vault.getFolder(source.id)) return { status: 'skipped', reason: 'id-exists' };
+    if (
+      source.parentId !== null &&
+      (!this.vault.getFolder(source.parentId) || this.vault.isFolderEffectivelyArchived(source.parentId))
+    ) {
+      return { status: 'skipped', reason: 'parent-unknown' };
+    }
+
+    const path = source.path;
+    const result = await this.coordinator.enqueue(shippedSourceQueueKey(source), {
+      kind: 'create-folder',
+      path,
+      parentId: source.parentId,
+      content: source.content,
+    });
+
+    // For `create-folder`, `abandoned` only ever means the marker was written and the Vault then refused the folder (ADR-067).
+    if (result.status === 'abandoned') throw new WrittenButNotRegisteredError(path, 'folder', result.reason);
+    if (result.status !== 'folder-created') throw new Error(`Failed to create folder at ${path}: ${result.status}`);
+
+    return { status: 'created', id: result.folder.id };
   }
 
   /**

@@ -407,9 +407,12 @@ export function SpaceDetails({
         <Button
           className="space-details__button"
           variant="primary"
+          // While the space is being created and its welcome notes installed, the dialog stays and Create waits: no
+          // second Create can start (handleCreate also ignores a click in flight).
+          disabled={isCreating}
           onClick={() => void handleCreate()}
         >
-          Create
+          {isCreating ? 'Creating…' : 'Create'}
         </Button>
       </div>
     </div>

@@ -166,6 +166,8 @@ interface FakeApplication {
   checkUnsavedBeforeClose: ReturnType<typeof vi.fn>;
   snapshotUnsavedWork: ReturnType<typeof vi.fn>;
   persistParsedNoteCache: ReturnType<typeof vi.fn>;
+  /** The first-run welcome content (ADR-067). */
+  welcomeContentService: Record<'install' | 'resumeIfNeeded' | 'verifyInstall' | 'markShown', ReturnType<typeof vi.fn>>;
   applySpaceProfile: ReturnType<typeof vi.fn>;
   workspace: {
     isSidebarVisible: boolean;
@@ -219,6 +221,13 @@ function makeApp(root: string): FakeApplication {
     checkUnsavedBeforeClose: vi.fn(async () => 0),
     snapshotUnsavedWork: vi.fn(async () => true),
     persistParsedNoteCache: vi.fn(async () => {}),
+    // The first-run welcome content (ADR-067): nothing to install or resume unless a test says so.
+    welcomeContentService: {
+      install: vi.fn(async () => ({ status: 'skipped', reason: 'not-empty' })),
+      resumeIfNeeded: vi.fn(async () => null),
+      verifyInstall: vi.fn(async () => null),
+      markShown: vi.fn(async () => {}),
+    },
     // The Space's own sidebar state: each Space starts from its saved session (here: open).
     workspace: {
       isSidebarVisible: true,
@@ -1280,6 +1289,102 @@ describe('AppShell: Welcome dialog actions', () => {
       expect(JSON.parse(SAVED()!).paths).toEqual([
         '/Users/me/Documents/Personal',
       ]);
+    });
+
+    describe('first-run welcome content (ADR-067): the space is not shown until it is installed and verified', () => {
+      async function startCreate(name: string) {
+        render(
+          <ToastProvider>
+            <AppShell />
+          </ToastProvider>
+        );
+        await screen.findByText(WELCOME);
+        await click('Create a new space');
+        await screen.findByText('Space name');
+        await typeName(name);
+        await click('Create');
+      }
+
+      it('keeps the Welcome dialog up with Create disabled while the content installs, then opens and remembers the space', async () => {
+        const install = deferred<{ status: 'installed' }>();
+        bootstrap.mockImplementation(async (root: string) => {
+          const app = makeApp(root);
+          app.welcomeContentService.install = vi.fn(() => install.promise);
+          app.welcomeContentService.verifyInstall = vi.fn(async () => ({ ok: true, checked: 27 }));
+
+          return app;
+        });
+
+        await startCreate('Personal');
+        await waitFor(() => expect(created[0]?.welcomeContentService.install).toHaveBeenCalledTimes(1));
+
+        // Installing: nothing of the space is visible or remembered, and Create cannot be pressed again.
+        expect(screen.queryByTestId('open-root')).toBeNull();
+        expect(SAVED()).toBeNull();
+        expect(screen.getByText('Space name')).toBeInTheDocument();
+        const create = screen.getByRole('button', { name: 'Creating…' });
+        expect(create).toBeDisabled();
+        await click('Creating…');
+        expect(created[0]?.welcomeContentService.install).toHaveBeenCalledTimes(1);
+        expect(tauri.createFolder).toHaveBeenCalledTimes(1);
+
+        await act(async () => install.resolve({ status: 'installed' }));
+
+        expect(await screen.findByTestId('open-root')).toHaveTextContent('/Users/me/Documents/Personal');
+        expect(JSON.parse(SAVED()!).activePath).toBe('/Users/me/Documents/Personal');
+        expect(created[0]?.welcomeContentService.markShown).toHaveBeenCalledTimes(1);
+      });
+
+      it('a failed install never opens or remembers the space, shows why in the dialog, and Create retries the same folder', async () => {
+        let attempt = 0;
+        bootstrap.mockImplementation(async (root: string) => {
+          const app = makeApp(root);
+          attempt += 1;
+          if (attempt === 1) {
+            app.welcomeContentService.install = vi.fn(async () => ({ status: 'failed', retry: 'scheduled' }));
+          } else {
+            // The retry: the folder already holds the first attempt's content, so a fresh install refuses and the ledger resumes.
+            app.welcomeContentService.resumeIfNeeded = vi.fn(async () => ({ status: 'installed' }));
+            app.welcomeContentService.verifyInstall = vi.fn(async () => ({ ok: true, checked: 27 }));
+          }
+
+          return app;
+        });
+
+        await startCreate('Personal');
+
+        expect(
+          await screen.findByText('Couldn’t finish adding the welcome notes. Try again to continue where it stopped')
+        ).toBeInTheDocument();
+        expect(screen.queryByTestId('open-root')).toBeNull();
+        expect(SAVED()).toBeNull();
+        // The partly populated space's Application was discarded, never shown.
+        expect(created[0]?.close).toHaveBeenCalled();
+        expect(screen.getByText('Space name')).toBeInTheDocument();
+
+        await click('Create');
+
+        expect(await screen.findByTestId('open-root')).toHaveTextContent('/Users/me/Documents/Personal');
+        // The same folder: no second create, no second space.
+        expect(tauri.createFolder).toHaveBeenCalledTimes(1);
+        expect(JSON.parse(SAVED()!).paths).toEqual(['/Users/me/Documents/Personal']);
+        expect(JSON.parse(localStorage.getItem('clutter.welcomeContent')!).state).toBe('done');
+      });
+
+      it('selecting an existing folder skips the install, records the skip, and opens it', async () => {
+        render(
+          <ToastProvider>
+            <AppShell />
+          </ToastProvider>
+        );
+        await screen.findByText(WELCOME);
+        tauri.openDialog.mockResolvedValue('/Users/me/Existing');
+        await click('Select a folder');
+
+        expect(await screen.findByTestId('open-root')).toHaveTextContent('/Users/me/Existing');
+        expect(created[0]?.welcomeContentService.install).not.toHaveBeenCalled();
+        expect(JSON.parse(localStorage.getItem('clutter.welcomeContent')!).state).toBe('skipped-existing-folder');
+      });
     });
 
     it('remembers an emoji avatar chosen while creating the space, once the space has opened', async () => {

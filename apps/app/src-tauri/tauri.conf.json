@@ -72,7 +72,10 @@
     "category": "Productivity",
     "macOS": {
       "entitlements": "Entitlements.plist",
-      "signingIdentity": "-"
+      "signingIdentity": "-",
+      "files": {
+        "Resources/PrivacyInfo.xcprivacy": "PrivacyInfo.xcprivacy"
+      }
     }
   }
 }

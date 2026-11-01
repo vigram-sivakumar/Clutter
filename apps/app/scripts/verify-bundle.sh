@@ -68,6 +68,16 @@ else
 fi
 
 codesign --verify --deep --strict "$APP" 2>/dev/null && pass "code signature is valid" || fail "code signature does not verify"
+PRIVACY="$APP/Contents/Resources/PrivacyInfo.xcprivacy"
+if [ -f "$PRIVACY" ]; then
+  plutil -lint "$PRIVACY" >/dev/null 2>&1 && pass "privacy manifest is a valid property list" || fail "PrivacyInfo.xcprivacy is not a valid property list"
+  # The executable reads file timestamps (stat), a required-reason API: its category must be declared.
+  grep -q "NSPrivacyAccessedAPICategoryFileTimestamp" "$PRIVACY" && pass "privacy manifest declares the file timestamp API" || fail "privacy manifest does not declare NSPrivacyAccessedAPICategoryFileTimestamp"
+  grep -q "NSPrivacyTracking" "$PRIVACY" && pass "privacy manifest states the tracking answer" || fail "privacy manifest lacks NSPrivacyTracking"
+else
+  fail "no Contents/Resources/PrivacyInfo.xcprivacy (App Store validation requires a privacy manifest)"
+fi
+
 SIGNATURE=$(codesign -dvv "$APP" 2>&1)
 IDENTIFIER=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP/Contents/Info.plist" 2>/dev/null)
 ADHOC=false

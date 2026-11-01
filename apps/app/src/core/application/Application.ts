@@ -91,6 +91,8 @@ import { findCoverCredit } from './page/coverCredit';
 import { isUnsplashImageUrl } from '../integrations/unsplash/unsplashAttribution';
 import { trackPhotoDownload } from '../integrations/unsplash/UnsplashApi';
 import { importAsset, importAssetBytes, pastedAssetFileName } from '../vault/asset/importAsset';
+import { WelcomeContentService } from './welcome-content/WelcomeContentService';
+import { bundledWelcomeManifest } from './welcome-content/welcomeContentManifest';
 import type { Page } from '../vault/models/Page';
 import type { Folder } from '../vault/models/Folder';
 import type { VaultResource } from '../vault/models/VaultResource';
@@ -236,6 +238,11 @@ export class Application {
   public readonly spaceProfileStore: SpaceProfileStore;
   private readonly tagMetadataStore: TagMetadataStore;
   public pageOperations!: PageOperations;
+  /**
+   * ADR-067: installs the bundled welcome content into the first Space, and finishes an interrupted install. Owns the
+   * workflow only; every page and folder write goes through the two `createFromSource` facade methods.
+   */
+  public welcomeContentService!: WelcomeContentService;
   /**
    * Unsaved-work recovery (ADR-062): null when no recovery location is available (the web runtime unless one is
    * injected, and many tests). Records live outside the vault and never replace it.
@@ -921,6 +928,16 @@ export class Application {
     );
 
     this.pageOperations.setExternalReconciler((absolutePath) => this.vaultSyncService.reconcileKnownPath(absolutePath));
+
+    this.welcomeContentService = new WelcomeContentService({
+      vault,
+      fileSystem: this.fileSystem,
+      rootPath: vault.root,
+      pageOperations: this.pageOperations,
+      folderOperations: this.folderOperations,
+      reconcileKnownPath: (absolutePath) => this.vaultSyncService.reconcileKnownPath(absolutePath),
+      manifest: bundledWelcomeManifest(),
+    });
 
     // Recovers from an external deletion (Sync's handleDeleted, or any
     // other Vault mutation) removing the page/folder Workspace currently

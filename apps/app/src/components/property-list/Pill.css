@@ -63,6 +63,7 @@
 .pill__prefix--emoji {
   opacity: 1;
   line-height: 20px;
+  font-size: var(--text-label-small);
 }
 
 /* A clickable pill (Pill sets role="button" only then) is a button, not

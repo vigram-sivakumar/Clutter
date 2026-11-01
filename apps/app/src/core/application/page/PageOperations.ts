@@ -1,4 +1,9 @@
 import { classifySaveFailure, classifyWriteRefusal, isRetryableSaveFailure, type SaveFailureKind, type WriteRefusal } from '../../vault/atomicWrite/atomicWriteErrors';
+import type {
+  CreateFromSourceOutcome,
+  ShippedPageSource,
+} from '../welcome-content/ShippedSource';
+import { shippedSourceQueueKey, WrittenButNotRegisteredError } from '../welcome-content/ShippedSource';
 import type { DocumentSession } from '../../engine/DocumentSession';
 import { DocumentRegistry } from '../../engine/DocumentRegistry';
 import { SaveCoordinator } from '../../engine/SaveCoordinator';
@@ -2815,6 +2820,47 @@ export class PageOperations {
     }
 
     return id;
+  }
+
+  /**
+   * ADR-067: the one narrow, system-triggered verbatim create — the first-run welcome content. Enqueues exactly one
+   * Gate `create` with `source.content` unchanged; the page keeps the frontmatter id the manifest read from it. Not
+   * a second general-purpose creator (ARCHITECTURE_RULES.md rule 1's amendment): the input is an opaque
+   * `ShippedPageSource` that only the welcome-content folder can mint, it opens no draft or session, and it never
+   * navigates.
+   *
+   * It refuses, writing nothing, in the three cases the ADR-067 spike found the Gate would otherwise mishandle:
+   * the id is already a page (a Gate `create` for an existing id is dispatched as a *save*, §5), the path is
+   * already a page, or the parent is not a live Vault folder (the Gate never validates `parentId`). All three
+   * reads and the `enqueue` call happen in one synchronous turn, and Vault mutation is synchronous, so nothing can
+   * change the Vault between the checks and the call. What remains between the call and the queued write is made
+   * harmless by construction rather than by checking again: the write runs under a queue slot that is never a page
+   * id (`shippedSourceQueueKey`), so the Gate's existing-id branch can never turn it into a save, and the write
+   * itself is create-only, so a file that appeared at the path meanwhile refuses it (the error propagates).
+   */
+  public async createFromSource(source: ShippedPageSource): Promise<CreateFromSourceOutcome> {
+    if (this.vault.getPage(source.id)) return { status: 'skipped', reason: 'id-exists' };
+    if (this.vault.getPageByPath(source.path)) return { status: 'skipped', reason: 'path-exists' };
+    if (
+      source.parentId === null ||
+      !this.vault.getFolder(source.parentId) ||
+      this.vault.isFolderEffectivelyArchived(source.parentId)
+    ) {
+      return { status: 'skipped', reason: 'parent-unknown' };
+    }
+
+    const result = await this.coordinator.enqueue(shippedSourceQueueKey(source), {
+      kind: 'create',
+      path: source.path,
+      parentId: source.parentId,
+      content: source.content,
+    });
+
+    // For `create`, `abandoned` only ever means the file was written and the Vault then refused it (ADR-067).
+    if (result.status === 'abandoned') throw new WrittenButNotRegisteredError(source.path, 'page', result.reason);
+    if (result.status !== 'saved') throw new Error(`Failed to create ${source.path}: ${result.status}`);
+
+    return { status: 'created', id: result.page.id };
   }
 
   /**

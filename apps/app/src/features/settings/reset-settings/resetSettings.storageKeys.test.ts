@@ -40,13 +40,17 @@ const RESET_KEYS = [
   'clutter-auto-delete-archived',
 ] as const;
 
-/** Not settings: interface layout, remembered picks and the Space registry. A settings reset leaves them. */
+/**
+ * Not settings: interface layout, remembered picks, the Space registry and the welcome content first-run record
+ * (ADR-067). A settings reset leaves them; wiping the record would let the welcome content install a second time.
+ */
 const KEPT_KEYS = [
   'clutter-sidebar-width',
   'clutter-cover-picker-source',
   'clutter-emoji-skin-tone',
   'clutter-gradient-grainy-last-palette',
   'clutter.spaces.v1',
+  'clutter.welcomeContent',
 ] as const;
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
