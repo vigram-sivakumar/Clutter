@@ -214,6 +214,7 @@ describe('Restoring a Daily Note whose day already has one', () => {
     const newer = buildPage(DAILY_PATH, 'daily-2', 'Written later.', monthFolder.id);
     application.vault.addPage(newer);
     fileSystem.seedFile(DAILY_PATH, new FrontmatterSerializer().serializeDocument(newer, 'Written later.'));
+    application.workspace.setActiveSidebarTab('daily-notes');
     render(
     <ToastProvider>
       <AppLayout application={application} />

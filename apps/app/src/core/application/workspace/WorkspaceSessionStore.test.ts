@@ -281,7 +281,7 @@ describe('WorkspaceSessionStore — seed()', () => {
 
     store.seed(workspace, dailyNotes, () => true);
 
-    expect(workspace.activeSidebarTab).toBe('daily-notes');
+    expect(workspace.activeSidebarTab).toBe('notes');
     expect(workspace.isSidebarVisible).toBe(true);
     expect(dailyNotes.earlierExpanded).toBe(false);
   });

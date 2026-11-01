@@ -129,7 +129,7 @@ export class Workspace implements Observable {
    * as activePageId/activeFolderId, just for the sidebar's own tab strip
    * rather than the main content pane.
    */
-  private _activeSidebarTab = 'daily-notes';
+  private _activeSidebarTab = 'notes';
 
   /**
    * Whether the sidebar panel is currently shown (ADR-021). Unblocks

@@ -2,10 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { Workspace } from './Workspace';
 
 describe('Workspace.activeSidebarTab (ADR-021, M2)', () => {
-  it('defaults to daily-notes', () => {
+  it('defaults to notes', () => {
     const workspace = new Workspace();
 
-    expect(workspace.activeSidebarTab).toBe('daily-notes');
+    expect(workspace.activeSidebarTab).toBe('notes');
   });
 
   it('setActiveSidebarTab switches the active tab and notifies subscribers', () => {
@@ -13,9 +13,9 @@ describe('Workspace.activeSidebarTab (ADR-021, M2)', () => {
     const listener = vi.fn();
     workspace.subscribe(listener);
 
-    workspace.setActiveSidebarTab('notes');
+    workspace.setActiveSidebarTab('daily-notes');
 
-    expect(workspace.activeSidebarTab).toBe('notes');
+    expect(workspace.activeSidebarTab).toBe('daily-notes');
     expect(listener).toHaveBeenCalledTimes(1);
   });
 
