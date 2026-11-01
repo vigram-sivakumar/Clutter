@@ -110,3 +110,10 @@ export function sanitizeSearch(raw: unknown): { results: ProxiedPhoto[] } | null
 
   return { results };
 }
+
+/** The Editorial feed answers with a bare array of photos; it is returned in the same `{ results }` shape as a search. */
+export function sanitizeEditorial(raw: unknown): { results: ProxiedPhoto[] } | null {
+  if (!Array.isArray(raw)) return null;
+
+  return sanitizeSearch({ results: raw });
+}

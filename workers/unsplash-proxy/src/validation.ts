@@ -20,6 +20,7 @@ const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
 
 export type Route =
   | { readonly kind: 'health' }
+  | { readonly kind: 'editorial'; readonly page: number }
   | { readonly kind: 'search'; readonly query: string; readonly page: number; readonly orientation: Orientation }
   | { readonly kind: 'photo'; readonly id: string }
   | { readonly kind: 'download'; readonly id: string; readonly ixid: string | null };
@@ -61,6 +62,10 @@ export function parseRequest(method: string, url: URL): Parsed {
     return parseSearch(url.searchParams);
   }
 
+  if (path === '/photos') {
+    return parseEditorial(url.searchParams);
+  }
+
   const photo = /^\/photos\/([^/]+)$/.exec(path);
 
   if (photo) {
@@ -79,6 +84,26 @@ export function parseRequest(method: string, url: URL): Parsed {
   }
 
   return refuse(404, 'not_found');
+}
+
+/** Parses the optional `page`: 1 to MAX_PAGE, digits only, at most one value. */
+function parsePage(rawPage: string | undefined | 'duplicate'): { page: number } | { error: string } {
+  if (rawPage === 'duplicate') return { error: 'duplicate_parameter' };
+  if (rawPage === undefined) return { page: 1 };
+  if (!/^\d{1,3}$/.test(rawPage)) return { error: 'invalid_page' };
+
+  const page = Number(rawPage);
+
+  return page < 1 || page > MAX_PAGE ? { error: 'invalid_page' } : { page };
+}
+
+/** The Editorial feed (Unsplash `GET /photos`): a page number only. It has no orientation or query filter. */
+function parseEditorial(params: URLSearchParams): Parsed {
+  if (!onlyAllowed(params, ['page'])) return refuse(400, 'unknown_parameter');
+
+  const parsed = parsePage(single(params, 'page'));
+
+  return 'error' in parsed ? refuse(400, parsed.error) : { ok: true, route: { kind: 'editorial', page: parsed.page } };
 }
 
 function parseSearch(params: URLSearchParams): Parsed {

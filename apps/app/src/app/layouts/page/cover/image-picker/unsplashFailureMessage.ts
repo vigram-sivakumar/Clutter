@@ -12,18 +12,24 @@ export type UnsplashFailureContext = 'search' | 'link';
  * The raw error is never returned. What a developer needs (the kind and the HTTP status) goes to the console;
  * nothing else does: not the address, the search words or the photo, which can carry what the user typed.
  */
-export function unsplashFailureMessage(error: unknown, context: UnsplashFailureContext): string {
+export function unsplashFailureMessage(
+  error: unknown,
+  context: UnsplashFailureContext
+): string {
   const kind = error instanceof UnsplashRequestError ? error.kind : 'failed';
 
-  console.warn('Unsplash request failed.', { kind, status: error instanceof UnsplashRequestError ? error.status : undefined });
+  console.warn('Unsplash request failed.', {
+    kind,
+    status: error instanceof UnsplashRequestError ? error.status : undefined,
+  });
 
   switch (kind) {
     case 'rate-limited':
       return 'Unsplash request limit reached. Wait a few minutes, then try again';
     case 'unreachable':
-      return 'Unsplash is temporarily unreachable. Check your connection and try again';
+      return 'Couldn’t load Unsplash images. Try again';
     case 'unavailable':
-      return 'Unsplash is temporarily unavailable. Try again in a few minutes';
+      return 'Couldn’t load Unsplash images. Try again in a few minutes';
     case 'not-configured':
       return context === 'link'
         ? 'Unsplash links can’t be added right now. Use an image address instead'
@@ -33,6 +39,8 @@ export function unsplashFailureMessage(error: unknown, context: UnsplashFailureC
         ? 'Couldn’t find this photo on Unsplash. Check the link and try again'
         : 'Couldn’t load Unsplash images. Try again';
     default:
-      return context === 'link' ? 'Couldn’t add this photo from Unsplash. Try again' : 'Couldn’t load Unsplash images. Try again';
+      return context === 'link'
+        ? 'Couldn’t add this photo from Unsplash. Try again'
+        : 'Couldn’t load Unsplash images. Try again';
   }
 }

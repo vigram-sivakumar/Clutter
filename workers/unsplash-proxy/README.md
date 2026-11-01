@@ -24,6 +24,7 @@ limit changes by accident.
 
 | Request | Calls Unsplash | Returns |
 | --- | --- | --- |
+| `GET /photos?page=` | `GET /photos` (the Editorial feed; page size fixed at 30) | `{ "results": [photo, …] }` |
 | `GET /search/photos?query=&page=&orientation=` | `GET /search/photos` (page size fixed at 30) | `{ "results": [photo, …] }` |
 | `GET /photos/:id` | `GET /photos/:id` | one `photo` |
 | `GET /photos/:id/download[?ixid=]` | `GET /photos/:id/download` (the "trigger a download" call) | `{ "ok": true }` |
@@ -33,6 +34,7 @@ A `photo` is `{ id, urls: { small, regular }, user: { name, links: { html } }, l
 Unsplash's own field names. Attribution is preserved exactly as Unsplash sent it; the app adds the referral parameters
 when it displays a credit and reports the download through `/photos/:id/download`.
 
+- `/photos` takes only `page` (1 to 50, default 1); the Editorial feed has no orientation or query filter, so those are refused.
 - `query`: 1 to 100 characters, no control characters. `page`: 1 to 50 (default 1). `orientation`: `landscape`,
   `portrait` or `squarish` (default `portrait`). Anything else, unknown or repeated parameters, other paths and other
   methods are refused before Unsplash is called.

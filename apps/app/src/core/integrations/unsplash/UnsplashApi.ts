@@ -19,47 +19,8 @@ const DOWNLOAD_PATH = /^\/photos\/([A-Za-z0-9_-]+)\/download$/;
 /** The photo shape asked for: what the surface showing it crops to best. */
 export type UnsplashOrientation = 'landscape' | 'portrait' | 'squarish';
 const DEFAULT_ORIENTATION: UnsplashOrientation = 'portrait';
-/** Upper bound for shuffle-with-search — avoids unbounded page requests. */
-export const UNSPLASH_SHUFFLE_MAX_PAGE = 10;
-
-const DEFAULT_SEARCH_QUERIES = [
-  'classical architecture',
-  'old european architecture',
-  'ornate architecture',
-  'classical sculpture',
-  'library interior',
-  'vintage library',
-  'antique books',
-  'vintage flowers',
-  'gradient background',
-  'dark academia',
-  'old newspaper',
-  'classical still life',
-  'fine art painting',
-  'art museum interior',
-  'art wallpaper',
-  'antique interior',
-  'vintage european street',
-  'historic european town',
-  'antique clock',
-  'vintage ceramics',
-  'antique pottery',
-  'gradient',
-] as const;
-
-let lastDefaultPickIndex = -1;
-
-function pickDefaultSearchQuery(): string {
-  let index = Math.floor(Math.random() * DEFAULT_SEARCH_QUERIES.length);
-
-  if (DEFAULT_SEARCH_QUERIES.length > 1 && index === lastDefaultPickIndex) {
-    index = (index + 1) % DEFAULT_SEARCH_QUERIES.length;
-  }
-
-  lastDefaultPickIndex = index;
-
-  return DEFAULT_SEARCH_QUERIES[index] ?? DEFAULT_SEARCH_QUERIES[0];
-}
+/** Upper bound for Shuffle (a random page of the Editorial feed or of a search) — avoids unbounded page requests. */
+export const UNSPLASH_SHUFFLE_MAX_PAGE = 25;
 
 interface RawUnsplashPhoto {
   id: string;
@@ -162,22 +123,8 @@ export async function getPhoto(id: string): Promise<UnsplashPhoto> {
   return mapPhoto((await readJson(response)) as RawUnsplashPhoto);
 }
 
-export async function searchPhotos(
-  query: string,
-  page = 1,
-  orientation: UnsplashOrientation = DEFAULT_ORIENTATION
-): Promise<UnsplashPhoto[]> {
-  const trimmed = query.trim() || pickDefaultSearchQuery();
-
-  const url = new URL(`${getProxyBaseUrl()}/search/photos`);
-
-  // The page size is the proxy's to fix; the app does not send one.
-  url.searchParams.set('query', trimmed);
-  url.searchParams.set('page', String(page));
-  url.searchParams.set('orientation', orientation);
-
-  const response = await proxyFetch(url);
-
+/** Reads a `{ results }` list from the proxy: the shape of both a search and the Editorial feed. */
+async function readPhotoList(response: Response): Promise<UnsplashPhoto[]> {
   throwIfNotOk(response);
 
   const payload = (await readJson(response)) as { results?: RawUnsplashPhoto[] } | null;
@@ -187,6 +134,33 @@ export async function searchPhotos(
   }
 
   return payload.results.map(mapPhoto);
+}
+
+/**
+ * A page of Unsplash's Editorial feed (`GET /photos`): what the picker shows before the user searches. The feed has
+ * no orientation filter, and the page size is the proxy's to fix.
+ */
+export async function listEditorialPhotos(page = 1): Promise<UnsplashPhoto[]> {
+  const url = new URL(`${getProxyBaseUrl()}/photos`);
+
+  url.searchParams.set('page', String(page));
+
+  return readPhotoList(await proxyFetch(url));
+}
+
+export async function searchPhotos(
+  query: string,
+  page = 1,
+  orientation: UnsplashOrientation = DEFAULT_ORIENTATION
+): Promise<UnsplashPhoto[]> {
+  const url = new URL(`${getProxyBaseUrl()}/search/photos`);
+
+  // The page size is the proxy's to fix; the app does not send one.
+  url.searchParams.set('query', query.trim());
+  url.searchParams.set('page', String(page));
+  url.searchParams.set('orientation', orientation);
+
+  return readPhotoList(await proxyFetch(url));
 }
 
 /**

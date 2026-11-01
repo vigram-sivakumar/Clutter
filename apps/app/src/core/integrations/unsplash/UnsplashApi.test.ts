@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { DEFAULT_UNSPLASH_PROXY_URL, getPhoto, searchPhotos, trackPhotoDownload } from './UnsplashApi';
+import { DEFAULT_UNSPLASH_PROXY_URL, getPhoto, listEditorialPhotos, searchPhotos, trackPhotoDownload } from './UnsplashApi';
 import { UnsplashRequestError } from './UnsplashRequestError';
 
 const PROXY = DEFAULT_UNSPLASH_PROXY_URL;
@@ -35,20 +35,16 @@ afterEach(() => {
 });
 
 describe('UnsplashApi: search through the proxy', () => {
-  it('searchPhotos() with an empty query picks a random default search term', async () => {
-    vi.spyOn(Math, 'random').mockReturnValue(0);
-
+  it('listEditorialPhotos() asks the proxy for the Editorial feed: page 1, no query, no orientation, no page size', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ results: [sampleRawPhoto] }),
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const photos = await searchPhotos('');
+    const photos = await listEditorialPhotos();
 
-    expect(requests(fetchMock)[0]!.url.href).toBe(
-      `${PROXY}/search/photos?query=classical+architecture&page=1&orientation=portrait`,
-    );
+    expect(requests(fetchMock)[0]!.url.href).toBe(`${PROXY}/photos?page=1`);
     expect(photos).toEqual([
       {
         id: 'photo-1',
@@ -66,30 +62,32 @@ describe('UnsplashApi: search through the proxy', () => {
         },
       },
     ]);
-
-    await searchPhotos('');
-
-    expect(requests(fetchMock)[1]!.url.href).toBe(
-      `${PROXY}/search/photos?query=old+european+architecture&page=1&orientation=portrait`,
-    );
   });
 
-  it('searchPhotos() with whitespace only uses a default search term', async () => {
-    vi.spyOn(Math, 'random').mockReturnValue(0.99);
-
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ results: [] }),
-    });
+  it('listEditorialPhotos() accepts a page, for Shuffle', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ results: [] }) });
     vi.stubGlobal('fetch', fetchMock);
 
-    await searchPhotos('   ');
+    await listEditorialPhotos(7);
 
-    // Math.random mocked to 0.99 selects the last entry in
-    // DEFAULT_SEARCH_QUERIES (UnsplashApi.ts) — currently 'gradient'.
-    expect(requests(fetchMock)[0]!.url.href).toBe(
-      `${PROXY}/search/photos?query=gradient&page=1&orientation=portrait`,
-    );
+    expect(requests(fetchMock)[0]!.url.href).toBe(`${PROXY}/photos?page=7`);
+  });
+
+  it('listEditorialPhotos() fails like a search: a non-OK answer and an unexpected body', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 429, json: async () => ({}) }));
+    await expect(listEditorialPhotos()).rejects.toMatchObject({ kind: 'rate-limited' });
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ nope: true }) }));
+    await expect(listEditorialPhotos()).rejects.toBeInstanceOf(UnsplashRequestError);
+  });
+
+  it('searchPhotos() sends the trimmed query as given: no default term is ever substituted', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ results: [] }) });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await searchPhotos('  books  ');
+
+    expect(requests(fetchMock)[0]!.url.href).toBe(`${PROXY}/search/photos?query=books&page=1&orientation=portrait`);
   });
 
   it('searchPhotos() accepts a page for shuffling manual search results', async () => {

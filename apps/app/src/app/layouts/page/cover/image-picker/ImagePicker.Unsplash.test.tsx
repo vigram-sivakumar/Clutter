@@ -4,11 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { ImagePickerUnsplash } from './ImagePicker.Unsplash';
-import { searchPhotos, trackPhotoDownload } from '@core/integrations/unsplash/UnsplashApi';
+import { listEditorialPhotos, searchPhotos, trackPhotoDownload } from '@core/integrations/unsplash/UnsplashApi';
 import { openExternalUrl } from '@shared/helpers/openExternalUrl';
 
 vi.mock('@core/integrations/unsplash/UnsplashApi', () => ({
   UNSPLASH_SHUFFLE_MAX_PAGE: 10,
+  listEditorialPhotos: vi.fn(),
   searchPhotos: vi.fn(),
   trackPhotoDownload: vi.fn().mockResolvedValue(undefined),
 }));
@@ -30,6 +31,7 @@ const photo = {
 
 describe('ImagePickerUnsplash', () => {
   beforeEach(() => {
+    vi.mocked(listEditorialPhotos).mockResolvedValue([photo, { ...photo, id: 'p2' }]);
     vi.mocked(searchPhotos).mockResolvedValue([photo, { ...photo, id: 'p2' }]);
   });
   afterEach(() => {
@@ -75,7 +77,7 @@ describe('ImagePickerUnsplash', () => {
     expect(trackPhotoDownload).toHaveBeenCalledWith(photo.links.downloadLocation);
   });
 
-  it('does not track while browsing: opening, searching and shuffling only search', async () => {
+  it('does not track while browsing: opening, searching and shuffling only browse', async () => {
     const { container } = render(<ImagePickerUnsplash onSelect={vi.fn()} />);
     await waitFor(() => expect(container.querySelector('img')).not.toBeNull());
 
@@ -97,8 +99,87 @@ describe('ImagePickerUnsplash', () => {
   });
 });
 
+describe('ImagePickerUnsplash default feed', () => {
+  beforeEach(() => {
+    vi.mocked(listEditorialPhotos).mockResolvedValue([photo]);
+    vi.mocked(searchPhotos).mockResolvedValue([{ ...photo, id: 'found' }]);
+  });
+  afterEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+  });
+
+  it('opens on the Editorial feed, page 1, and does not search', async () => {
+    const { container } = render(<ImagePickerUnsplash onSelect={vi.fn()} />);
+    await waitFor(() => expect(container.querySelector('img')).not.toBeNull());
+
+    expect(listEditorialPhotos).toHaveBeenCalledTimes(1);
+    expect(listEditorialPhotos).toHaveBeenCalledWith(1);
+    expect(searchPhotos).not.toHaveBeenCalled();
+  });
+
+  it('searches when text is typed, and returns to the Editorial feed when the search is cleared', async () => {
+    const { container } = render(<ImagePickerUnsplash onSelect={vi.fn()} />);
+    await waitFor(() => expect(container.querySelector('img')).not.toBeNull());
+    const input = screen.getByPlaceholderText('Search Unsplash');
+
+    fireEvent.change(input, { target: { value: 'books' } });
+    await waitFor(() => expect(searchPhotos).toHaveBeenCalledWith('books', 1, undefined));
+    expect(listEditorialPhotos).toHaveBeenCalledTimes(1);
+
+    fireEvent.change(input, { target: { value: '' } });
+    await waitFor(() => expect(listEditorialPhotos).toHaveBeenCalledTimes(2));
+    expect(listEditorialPhotos).toHaveBeenLastCalledWith(1);
+  });
+
+  it('treats a blank search as the Editorial feed', async () => {
+    const { container } = render(<ImagePickerUnsplash onSelect={vi.fn()} />);
+    await waitFor(() => expect(container.querySelector('img')).not.toBeNull());
+
+    fireEvent.change(screen.getByPlaceholderText('Search Unsplash'), { target: { value: '   ' } });
+    await waitFor(() => expect(listEditorialPhotos).toHaveBeenCalledTimes(2));
+    expect(searchPhotos).not.toHaveBeenCalled();
+  });
+
+  it('Shuffle loads another random Editorial page (1 to 10) and not a search', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.55);
+    const { container } = render(<ImagePickerUnsplash onSelect={vi.fn()} />);
+    await waitFor(() => expect(container.querySelector('img')).not.toBeNull());
+
+    fireEvent.click(screen.getByLabelText('Shuffle'));
+
+    await waitFor(() => expect(listEditorialPhotos).toHaveBeenLastCalledWith(6));
+    expect(searchPhotos).not.toHaveBeenCalled();
+    vi.mocked(Math.random).mockRestore();
+  });
+
+  it('Shuffle on a search loads a random page of that search', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.25);
+    const { container } = render(<ImagePickerUnsplash onSelect={vi.fn()} />);
+    await waitFor(() => expect(container.querySelector('img')).not.toBeNull());
+    fireEvent.change(screen.getByPlaceholderText('Search Unsplash'), { target: { value: 'books' } });
+    fireEvent.click(await screen.findByLabelText('Shuffle'));
+
+    await waitFor(() => expect(searchPhotos).toHaveBeenLastCalledWith('books', 3, undefined));
+    vi.mocked(Math.random).mockRestore();
+  });
+
+  it('shows the error, and then the empty state, as before', async () => {
+    vi.mocked(listEditorialPhotos).mockRejectedValueOnce(new Error('boom'));
+    render(<ImagePickerUnsplash onSelect={vi.fn()} />);
+    await waitFor(() => expect(screen.queryByText('Loading images…')).toBeNull());
+    expect(screen.queryByLabelText('Shuffle')).toBeNull();
+
+    cleanup();
+    vi.mocked(listEditorialPhotos).mockResolvedValueOnce([]);
+    render(<ImagePickerUnsplash onSelect={vi.fn()} />);
+    expect(await screen.findByText('No images found')).toBeTruthy();
+  });
+});
+
 describe('ImagePickerUnsplash orientation', () => {
   beforeEach(() => {
+    vi.mocked(listEditorialPhotos).mockResolvedValue([photo]);
     vi.mocked(searchPhotos).mockResolvedValue([photo]);
   });
   afterEach(() => {
@@ -106,26 +187,44 @@ describe('ImagePickerUnsplash orientation', () => {
     vi.clearAllMocks();
   });
 
+  async function searchFor(text: string) {
+    await waitFor(() => expect(listEditorialPhotos).toHaveBeenCalled());
+    fireEvent.change(screen.getByPlaceholderText('Search Unsplash'), { target: { value: text } });
+    await waitFor(() => expect(searchPhotos).toHaveBeenCalled());
+  }
+
   it.each(['landscape', 'portrait', 'squarish'] as const)('searches for %s photos when asked to', async (orientation) => {
     render(<ImagePickerUnsplash onSelect={vi.fn()} orientation={orientation} />);
+    await searchFor('books');
 
-    await waitFor(() => expect(searchPhotos).toHaveBeenCalled());
     expect(vi.mocked(searchPhotos).mock.calls.every(([, , shape]) => shape === orientation)).toBe(true);
   });
 
   it('leaves the shape to the API’s default (portrait) when not given one', async () => {
     render(<ImagePickerUnsplash onSelect={vi.fn()} />);
+    await searchFor('books');
 
-    await waitFor(() => expect(searchPhotos).toHaveBeenCalled());
     expect(vi.mocked(searchPhotos).mock.calls.every(([, , shape]) => shape === undefined)).toBe(true);
   });
 
   it('searches again, for the new shape, when the orientation changes', async () => {
     const { rerender } = render(<ImagePickerUnsplash onSelect={vi.fn()} orientation="portrait" />);
-    await waitFor(() => expect(searchPhotos).toHaveBeenCalledTimes(1));
+    await searchFor('books');
+    const calls = vi.mocked(searchPhotos).mock.calls.length;
 
     rerender(<ImagePickerUnsplash onSelect={vi.fn()} orientation="landscape" />);
 
-    await waitFor(() => expect(searchPhotos).toHaveBeenLastCalledWith(expect.any(String), expect.any(Number), 'landscape'));
+    await waitFor(() => expect(searchPhotos).toHaveBeenCalledTimes(calls + 1));
+    expect(searchPhotos).toHaveBeenLastCalledWith('books', expect.any(Number), 'landscape');
+  });
+
+  it('does not reload the Editorial feed when the orientation changes: the feed has no shape', async () => {
+    const { rerender } = render(<ImagePickerUnsplash onSelect={vi.fn()} orientation="portrait" />);
+    await waitFor(() => expect(listEditorialPhotos).toHaveBeenCalledTimes(1));
+
+    rerender(<ImagePickerUnsplash onSelect={vi.fn()} orientation="landscape" />);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(listEditorialPhotos).toHaveBeenCalledTimes(1);
   });
 });

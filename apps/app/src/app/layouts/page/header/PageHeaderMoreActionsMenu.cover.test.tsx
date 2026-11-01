@@ -4,7 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { searchPhotos } from '@core/integrations/unsplash/UnsplashApi';
+import { listEditorialPhotos } from '@core/integrations/unsplash/UnsplashApi';
 import { CoverAssetsProvider } from '../cover/image-picker/CoverAssetsContext';
 import { PageHeaderMoreActionsMenu } from './PageHeaderMoreActionsMenu';
 import type { PageHeaderMoreActionsMenuProps } from './PageHeaderMoreActionsMenu';
@@ -12,6 +12,7 @@ import type { PageHeaderMoreActionsMenuProps } from './PageHeaderMoreActionsMenu
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn().mockResolvedValue('/tmp/photo.png') }));
 vi.mock('@core/integrations/unsplash/UnsplashApi', () => ({
   UNSPLASH_SHUFFLE_MAX_PAGE: 10,
+  listEditorialPhotos: vi.fn(),
   searchPhotos: vi.fn(),
   trackPhotoDownload: vi.fn().mockResolvedValue(undefined),
 }));
@@ -40,7 +41,7 @@ afterAll(() => {
 });
 beforeEach(() => {
   localStorage.clear();
-  vi.mocked(searchPhotos).mockResolvedValue([photo]);
+  vi.mocked(listEditorialPhotos).mockResolvedValue([photo]);
 });
 afterEach(() => {
   cleanup();

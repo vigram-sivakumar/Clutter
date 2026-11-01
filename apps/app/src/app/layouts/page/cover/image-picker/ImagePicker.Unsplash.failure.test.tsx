@@ -35,7 +35,8 @@ afterEach(() => {
 
 function stubNetwork(trackingResponse: () => Promise<unknown>) {
   const fetchMock = vi.fn((input: URL, _init?: RequestInit) => {
-    if (String(input.href).includes('/search/photos')) {
+    // The picker opens on the Editorial feed (`/photos?page=`) and searches (`/search/photos`) once text is typed.
+    if (input.pathname === '/search/photos' || input.pathname === '/photos') {
       return Promise.resolve({ ok: true, json: async () => ({ results: [raw] }) });
     }
     return trackingResponse();

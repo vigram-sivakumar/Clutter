@@ -1,11 +1,12 @@
-import { sanitizePhoto, sanitizeSearch } from './sanitize';
+import { sanitizeEditorial, sanitizePhoto, sanitizeSearch } from './sanitize';
 import { PER_PAGE, parseRequest, type Route } from './validation';
 
 /**
  * Clutter's Unsplash proxy. The Unsplash Access Key lives here, as the `UNSPLASH_ACCESS_KEY` secret binding, and
- * nowhere in the app. The proxy offers exactly the three Unsplash operations Clutter uses, each built from validated
+ * nowhere in the app. The proxy offers exactly the four Unsplash operations Clutter uses, each built from validated
  * input only:
  *
+ *   GET /photos?page=                              -> Unsplash GET /photos          (the Editorial feed; per_page fixed)
  *   GET /search/photos?query=&page=&orientation=   -> Unsplash GET /search/photos   (per_page fixed)
  *   GET /photos/:id                                -> Unsplash GET /photos/:id
  *   GET /photos/:id/download[?ixid=]               -> Unsplash GET /photos/:id/download (the "trigger a download" call)
@@ -75,6 +76,14 @@ const failure = (status: number, error: string, request: Request, env: Env, extr
 
 function upstreamUrl(route: Exclude<Route, { kind: 'health' }>): URL {
   switch (route.kind) {
+    case 'editorial': {
+      const url = new URL(`${UPSTREAM}/photos`);
+
+      url.searchParams.set('page', String(route.page));
+      url.searchParams.set('per_page', String(PER_PAGE));
+
+      return url;
+    }
     case 'search': {
       const url = new URL(`${UPSTREAM}/search/photos`);
 
@@ -275,7 +284,12 @@ export async function handle(request: Request, env: Env, fetcher: Fetcher = fetc
     return failure(502, 'upstream_error', request, env);
   }
 
-  const body = route.kind === 'search' ? sanitizeSearch(payload) : sanitizePhoto(payload);
+  const body =
+    route.kind === 'editorial'
+      ? sanitizeEditorial(payload)
+      : route.kind === 'search'
+        ? sanitizeSearch(payload)
+        : sanitizePhoto(payload);
 
   if (body === null) {
     log('upstream_unexpected_shape', { route: route.kind });

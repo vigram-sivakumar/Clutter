@@ -4,11 +4,12 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { searchPhotos, trackPhotoDownload } from '@core/integrations/unsplash/UnsplashApi';
+import { listEditorialPhotos, searchPhotos, trackPhotoDownload } from '@core/integrations/unsplash/UnsplashApi';
 import { PageCover } from './Page.Cover';
 
 vi.mock('@core/integrations/unsplash/UnsplashApi', () => ({
   UNSPLASH_SHUFFLE_MAX_PAGE: 10,
+  listEditorialPhotos: vi.fn(),
   searchPhotos: vi.fn(),
   trackPhotoDownload: vi.fn().mockResolvedValue(true),
 }));
@@ -42,6 +43,7 @@ beforeAll(() => {
 afterAll(() => vi.unstubAllGlobals());
 beforeEach(() => {
   localStorage.setItem('clutter-cover-picker-source', 'unsplash');
+  vi.mocked(listEditorialPhotos).mockResolvedValue([photo('a', 'Alex Doe'), photo('b', 'Bea Roe')]);
   vi.mocked(searchPhotos).mockResolvedValue([photo('a', 'Alex Doe'), photo('b', 'Bea Roe')]);
 });
 afterEach(() => {
@@ -90,6 +92,7 @@ describe('PageCover — choosing an Unsplash photo end to end (picker → cover 
     const { rerender } = render(<PageCover src={src} coverCredit={{ name: 'Alex Doe', url: 'https://unsplash.com/@a' }} />);
     rerender(<PageCover src={src} coverCredit={{ name: 'Alex Doe', url: 'https://unsplash.com/@a' }} />);
 
+    expect(listEditorialPhotos).not.toHaveBeenCalled();
     expect(searchPhotos).not.toHaveBeenCalled();
     expect(trackPhotoDownload).not.toHaveBeenCalled();
   });
@@ -99,7 +102,7 @@ describe('PageCover — the Unsplash search follows the cover’s layout', () =>
   it.each([
     ['above', 'landscape'],
     ['side', 'portrait'],
-  ] as const)('a cover in the %s layout searches for %s photos', async (layout, orientation) => {
+  ] as const)('a cover in the %s layout searches for %s photos once the user searches', async (layout, orientation) => {
     const { container } = render(
       <PageCover src="https://example.com/old.png" layout={layout} onSetCoverImage={vi.fn()} />
     );
@@ -107,7 +110,11 @@ describe('PageCover — the Unsplash search follows the cover’s layout', () =>
     fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
     fireEvent.click(screen.getByText('Change cover image'));
     await waitFor(() => expect(container.ownerDocument.querySelectorAll('.image-picker-unsplash__image')).toHaveLength(2));
+    // Opening shows the Editorial feed, which has no shape; a search follows the layout.
+    expect(searchPhotos).not.toHaveBeenCalled();
 
-    expect(searchPhotos).toHaveBeenCalledWith(expect.any(String), expect.any(Number), orientation);
+    fireEvent.change(screen.getByPlaceholderText('Search Unsplash'), { target: { value: 'books' } });
+
+    await waitFor(() => expect(searchPhotos).toHaveBeenCalledWith('books', expect.any(Number), orientation));
   });
 });

@@ -2,6 +2,7 @@ import { useEffect, useState, type MouseEvent } from 'react';
 import type { CoverCredit } from '@core/vault/models/PageMetadata';
 import { Input } from '@components/input/Input';
 import {
+  listEditorialPhotos,
   searchPhotos,
   trackPhotoDownload,
   UNSPLASH_SHUFFLE_MAX_PAGE,
@@ -45,6 +46,9 @@ export function ImagePickerUnsplash({ onSelect, orientation }: ImagePickerUnspla
     setSearchPage(1);
   }, [query]);
 
+  // The Editorial feed ignores the cover's shape, so a shape change only reloads a search.
+  const searchOrientation = query.trim() ? orientation : undefined;
+
   useEffect(() => {
     let cancelled = false;
     const trimmedQuery = query.trim();
@@ -55,11 +59,10 @@ export function ImagePickerUnsplash({ onSelect, orientation }: ImagePickerUnspla
       setError(null);
 
       try {
-        const page = trimmedQuery
-          ? searchPage
-          : Math.floor(Math.random() * UNSPLASH_SHUFFLE_MAX_PAGE) + 1;
-
-        const results = await searchPhotos(query, page, orientation);
+        // No search text: Unsplash's Editorial feed (it has no orientation filter, so none is sent).
+        const results = trimmedQuery
+          ? await searchPhotos(query, searchPage, searchOrientation)
+          : await listEditorialPhotos(searchPage);
 
         if (!cancelled) {
           setPhotos(results);
@@ -84,15 +87,10 @@ export function ImagePickerUnsplash({ onSelect, orientation }: ImagePickerUnspla
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [query, shuffleKey, searchPage, orientation]);
+  }, [query, shuffleKey, searchPage, searchOrientation]);
 
   const handleShuffle = () => {
-    if (query.trim() !== '') {
-      setSearchPage(
-        Math.floor(Math.random() * UNSPLASH_SHUFFLE_MAX_PAGE) + 1,
-      );
-    }
-
+    setSearchPage(Math.floor(Math.random() * UNSPLASH_SHUFFLE_MAX_PAGE) + 1);
     setShuffleKey((key) => key + 1);
   };
 

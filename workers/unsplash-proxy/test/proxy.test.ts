@@ -97,6 +97,51 @@ describe('GET /search/photos', () => {
   });
 });
 
+describe('GET /photos (the Editorial feed)', () => {
+  const editorialReply = () => json([rawPhoto(), rawPhoto({ id: 'MMMMMMMMMMM', links: { download_location: 'https://api.unsplash.com/photos/MMMMMMMMMMM/download?ixid=a' } })]);
+
+  it('asks Unsplash for exactly the validated page of the Editorial feed, with the key only in the Authorization header', async () => {
+    const { response, calls } = await call('/photos?page=4', { reply: editorialReply });
+
+    expect(response.status).toBe(200);
+    expect(calls).toHaveLength(1);
+    const { url, init } = calls[0]!;
+    expect(url.origin).toBe('https://api.unsplash.com');
+    expect(url.pathname).toBe('/photos');
+    expect(Object.fromEntries(url.searchParams)).toEqual({ page: '4', per_page: '30' });
+    expect(url.toString()).not.toContain(SECRET);
+    expect(new Headers(init.headers).get('Authorization')).toBe(`Client-ID ${SECRET}`);
+  });
+
+  it('defaults to page 1 and fixes the page size itself', async () => {
+    const { calls } = await call('/photos', { reply: editorialReply });
+
+    expect(Object.fromEntries(calls[0]!.url.searchParams)).toEqual({ page: '1', per_page: '30' });
+  });
+
+  it('returns the same { results } shape as a search, trimmed to the fields Clutter uses', async () => {
+    const { response } = await call('/photos', { reply: editorialReply });
+    const body = (await response.json()) as { results: { id: string; urls: object }[] };
+
+    expect(body.results.map((photo) => photo.id)).toEqual(['LBI7cgq3pbM', 'MMMMMMMMMMM']);
+    expect(Object.keys(body.results[0]!.urls).sort()).toEqual(['regular', 'small']);
+  });
+
+  it('drops a photo it cannot vouch for, like a search does', async () => {
+    const reply = () => json([rawPhoto({ urls: { small: 'https://evil.example/x.jpg', regular: 'https://images.unsplash.com/ok' } }), rawPhoto({ id: 'MMMMMMMMMMM', links: { download_location: 'https://api.unsplash.com/photos/MMMMMMMMMMM/download?ixid=a' } })]);
+    const { response } = await call('/photos', { reply });
+
+    expect(((await response.json()) as { results: { id: string }[] }).results.map((photo) => photo.id)).toEqual(['MMMMMMMMMMM']);
+  });
+
+  it('answers 502 when Unsplash does not answer with a list', async () => {
+    const { response } = await call('/photos', { reply: () => json({ results: [] }) });
+
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ error: 'upstream_error' });
+  });
+});
+
 describe('GET /photos/:id', () => {
   it('returns the one photo, trimmed, from Unsplash’s /photos/:id', async () => {
     const { response, calls } = await call('/photos/LBI7cgq3pbM', { reply: () => json(rawPhoto()) });
@@ -162,7 +207,16 @@ describe('invalid requests never reach Unsplash', () => {
     ['download with a duplicate ixid', '/photos/LBI7cgq3pbM/download?ixid=a&ixid=b', 400, 'duplicate_parameter'],
     ['an unknown path', '/admin', 404, 'not_found'],
     ['the root', '/', 404, 'not_found'],
-    ['photos without an id', '/photos', 404, 'not_found'],
+    ['photos with a trailing slash and no id', '/photos/', 404, 'not_found'],
+    ['editorial page zero', '/photos?page=0', 400, 'invalid_page'],
+    ['editorial page above the limit', '/photos?page=51', 400, 'invalid_page'],
+    ['editorial page not a number', '/photos?page=abc', 400, 'invalid_page'],
+    ['editorial duplicate page', '/photos?page=1&page=2', 400, 'duplicate_parameter'],
+    ['editorial client-chosen page size', '/photos?per_page=1000', 400, 'unknown_parameter'],
+    ['editorial order', '/photos?order_by=popular', 400, 'unknown_parameter'],
+    ['editorial orientation (the feed has none)', '/photos?orientation=portrait', 400, 'unknown_parameter'],
+    ['editorial query', '/photos?query=a', 400, 'unknown_parameter'],
+    ['editorial client-supplied key', '/photos?client_id=abc', 400, 'unknown_parameter'],
     ['extra path segments', '/search/photos/extra', 404, 'not_found'],
     ['a trailing slash', '/search/photos/', 404, 'not_found'],
     ['another Unsplash operation', '/users/alex', 404, 'not_found'],
