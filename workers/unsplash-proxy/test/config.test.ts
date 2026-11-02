@@ -10,11 +10,18 @@ describe('wrangler.toml', () => {
     expect(setting('preview_urls')).toBe('false');
   });
 
-  it('allows exactly the origins the packaged app runs from, and no dev-server origin', () => {
+  it('allows exactly the origins the packaged app and the app’s dev servers run from, and nothing else', () => {
     const origins = (setting('ALLOWED_ORIGINS') ?? '').replace(/"/g, '').split(',').map((origin) => origin.trim());
 
-    expect(origins).toEqual(['tauri://localhost', 'http://tauri.localhost', 'https://tauri.localhost']);
-    expect(origins.filter((origin) => /localhost:\d+/.test(origin))).toEqual([]);
+    expect(origins).toEqual([
+      'tauri://localhost',
+      'http://tauri.localhost',
+      'https://tauri.localhost',
+      'http://localhost:1421', // tauri dev
+      'http://localhost:1422', // dev:sandbox
+      'http://localhost:5173', // the web dev server
+    ]);
+    expect(origins).not.toContain('*');
   });
 
   it('holds no key: the Access Key is a secret binding, not a variable', () => {

@@ -8,13 +8,13 @@ workers_dev = true
 # `workers_dev`. They would serve this same Worker, with its secret, under extra hostnames; nothing needs them.
 preview_urls = false
 
-# Non-secret configuration. Browsers send an Origin header; only these origins get CORS headers: the origins the
-# packaged app runs from. tauri://localhost is the macOS app, http(s)://tauri.localhost the Windows/Linux app.
-# The dev-server origins are NOT here. For local development add them in `.dev.vars` (see README.md, "Local
-# development"), which overrides this value for `wrangler dev` only and is never deployed.
+# Non-secret configuration. Browsers send an Origin header; only these origins get CORS headers. The packaged app:
+# tauri://localhost is the macOS app, http(s)://tauri.localhost the Windows/Linux app. The dev servers the app runs
+# from, so every dev flow reaches this deployed Worker with nothing to start locally: localhost:1421 is `tauri dev`,
+# localhost:1422 is `dev:sandbox` (DEV_SANDBOX_PORT changes it) and localhost:5173 is the plain web dev server.
 # CORS is not authentication: it only tells browsers which pages may read a reply. The Worker answers any client.
 [vars]
-ALLOWED_ORIGINS = "tauri://localhost,http://tauri.localhost,https://tauri.localhost"
+ALLOWED_ORIGINS = "tauri://localhost,http://tauri.localhost,https://tauri.localhost,http://localhost:1421,http://localhost:1422,http://localhost:5173"
 
 # Per-client abuse control (Workers Rate Limiting binding): at most 60 requests per 60 seconds per client IP.
 # Enforced at the edge before Unsplash is called, so one client cannot spend the shared Unsplash quota.

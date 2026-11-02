@@ -3,23 +3,36 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_UNSPLASH_PROXY_URL } from './UnsplashApi';
 
-// `tauri dev` runs the app from http://localhost:1421, an origin the deployed Worker refuses on purpose, so development
-// reaches a local `wrangler dev` Worker (http://localhost:8787) instead. That address must be allowed by the dev security
-// policy only: the packaged app's policy and the default address stay on the deployed Worker.
+// Every build reaches the one deployed Worker: `tauri dev` (http://localhost:1421), `dev:sandbox` (1422), the web dev
+// server (5173) and the packaged app. Nothing local is started, so no `localhost:8787` address is allowed anywhere, and the
+// dev origins the Worker is told to allow are the ones the app really runs from.
 const config = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../../src-tauri/tauri.conf.json'), 'utf8')) as {
   build: { devUrl: string };
   app: { security: { csp: Record<string, string>; devCsp: Record<string, string> } };
 };
+const workerToml = fs.readFileSync(path.resolve(__dirname, '../../../../../../workers/unsplash-proxy/wrangler.toml'), 'utf8');
+const workerAllowedOrigins = () =>
+  (/^ALLOWED_ORIGINS\s*=\s*"([^"]*)"/m.exec(workerToml)?.[1] ?? '').split(',').map((origin) => origin.trim());
 const connectSrc = (policy: Record<string, string>) => (policy['connect-src'] ?? '').split(/\s+/);
-const LOCAL_WORKER = 'http://localhost:8787';
 
 describe('Unsplash proxy in development', () => {
-  it('tauri dev runs from the origin the local Worker is told to allow', () => {
+  it('tauri dev runs from an origin the deployed Worker allows', () => {
     expect(config.build.devUrl).toBe('http://localhost:1421');
+    expect(workerAllowedOrigins()).toContain(config.build.devUrl);
   });
 
-  it('the dev security policy allows the local Worker and the deployed one', () => {
-    expect(connectSrc(config.app.security.devCsp)).toEqual(expect.arrayContaining([LOCAL_WORKER, DEFAULT_UNSPLASH_PROXY_URL]));
+  it('dev:sandbox and the web dev server default to origins the deployed Worker allows', () => {
+    const sandbox = fs.readFileSync(path.resolve(__dirname, '../../../../scripts/dev-sandboxed.sh'), 'utf8');
+
+    expect(/DEV_SANDBOX_PORT:-(\d+)/.exec(sandbox)?.[1]).toBe('1422');
+    expect(workerAllowedOrigins()).toEqual(expect.arrayContaining(['http://localhost:1422', 'http://localhost:5173']));
+  });
+
+  it('the dev security policy allows the deployed Worker and no local Worker address', () => {
+    const sources = connectSrc(config.app.security.devCsp);
+
+    expect(sources).toContain(DEFAULT_UNSPLASH_PROXY_URL);
+    expect(sources.filter((source) => source.includes(':8787'))).toEqual([]);
   });
 
   it('the packaged app policy allows only the deployed Worker, no localhost address', () => {

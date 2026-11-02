@@ -13,7 +13,7 @@ It is deployed **separately** from the app and is not part of the app's npm work
 | App setting | `VITE_UNSPLASH_PROXY_URL`. Unset, the app uses the URL above (`DEFAULT_UNSPLASH_PROXY_URL` in `UnsplashApi.ts`); set and empty, Unsplash is off; otherwise an `https` origin with no path |
 | App security policy | the Worker's origin in `connect-src` in `apps/app/src-tauri/tauri.conf.json`; change it together with the URL |
 | Access Key | the Worker secret `UNSPLASH_ACCESS_KEY` **only**. Never a `VITE_*` variable, never in the app, this repository or a chat |
-| Allowed browser origins | `tauri://localhost` (macOS app), `http://tauri.localhost` and `https://tauri.localhost` (Windows/Linux app). No dev-server origin |
+| Allowed browser origins | `tauri://localhost` (macOS app), `http://tauri.localhost` and `https://tauri.localhost` (Windows/Linux app), and the app's dev servers: `http://localhost:1421` (`tauri dev`), `http://localhost:1422` (`dev:sandbox`), `http://localhost:5173` (web dev server) |
 | Preview URLs | off (`preview_urls = false` in `wrangler.toml`) |
 | Rate limit | 60 requests per 60 seconds per client IP |
 
@@ -122,19 +122,20 @@ one a single client can spend the whole Unsplash quota.
 
 ## Local development
 
+**The app needs nothing local.** `tauri dev`, `dev:sandbox`, the web dev server and every packaged build call the
+deployed Worker above, whose `ALLOWED_ORIGINS` includes their origins. Do not set `VITE_UNSPLASH_PROXY_URL` for
+ordinary work: with it unset the app uses `DEFAULT_UNSPLASH_PROXY_URL`. (A `apps/app/.env.development.local` that
+pointed it at `http://localhost:8787` is what made the picker fail with "unreachable" whenever no local Worker was
+running; `tauri.conf.json`'s `devCsp` no longer allows that address either.)
+
+Only to work on the Worker itself:
+
 ```bash
 cp .dev.vars.example .dev.vars   # then put a key in .dev.vars; the file is git-ignored
 npm run dev                      # http://localhost:8787
 ```
-To use it from `tauri dev` (origin `http://localhost:1421`) or the web dev server (`http://localhost:5173`), create the
-git-ignored file `apps/app/.env.development.local` containing `VITE_UNSPLASH_PROXY_URL=http://localhost:8787`, then restart
-the app's dev server (Vite reads it at start). `tauri.conf.json`'s `devCsp` allows `http://localhost:8787`; the packaged
-app's `csp` allows only the deployed origin. Without that file, a dev build calls the deployed Worker, which rejects the
-dev origins, and the picker shows "temporarily unreachable". Keep the Worker running (`npm run dev`) while you use the picker.
-
-The deployed Worker does not allow the dev servers' origins. `.dev.vars.example` sets `ALLOWED_ORIGINS` to include
-`http://localhost:1421` and `http://localhost:5173`; `.dev.vars` overrides the value in `wrangler.toml` for `wrangler dev`
-only (checked with Wrangler 4.156) and is never deployed. Keep the dev origins out of `wrangler.toml`.
+To point the app at it, add `http://localhost:8787` to `devCsp`'s `connect-src` and set `VITE_UNSPLASH_PROXY_URL=http://localhost:8787`
+in a git-ignored `apps/app/.env.development.local`, then restart the dev server. Revert both when done.
 
 ## Before a public release
 

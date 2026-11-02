@@ -30,3 +30,7 @@ Clutter called `api.unsplash.com` directly with an Access Key read from `VITE_UN
 - **Pass Unsplash's JSON through unchanged**: rejected; it would forward fields Clutter does not use and trust upstream content for the attribution and download links. Re-validating keeps a compromised or unexpected response from reaching the app.
 - **A generic `/proxy?url=` forwarder**: rejected; an open forwarder is an abuse target. Only the three operations, with their parameters, exist.
 - **Rewrite `download_location` to the proxy's address**: rejected; it is persisted in notes (ADR-054), and the proxy's address may change.
+
+## Update (2026-11-02): the dev servers' origins are allowed on the deployed Worker
+
+The deployed Worker now also answers `http://localhost:1421` (`tauri dev`), `http://localhost:1422` (`dev:sandbox`) and `http://localhost:5173` (the web dev server), so every dev flow uses the one hosted Worker with no local `wrangler dev`. This replaces the earlier rule that dev origins stay out of `wrangler.toml`: the local Worker had to be started by hand, and a missing one surfaced as an `unreachable` picker. The cost is small: CORS is not authentication (the Worker already answers any non-browser client), the rate limit and the key handling are unchanged, and a page on one of those localhost ports can read photo replies, which carry nothing private. `test/config.test.ts` pins the exact origin list.
