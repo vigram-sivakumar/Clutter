@@ -34,4 +34,4 @@ Hover over a row or column and a small handle shows up. Click it for a menu that
 
 >Select a few cells by dragging across them, then copy, cut or clear them all at once
 .--- That’s it ---.
-↪ Next up, [[Welcome to Clutter/Markdown essentials/Custom separators]]
+↪ Next up, [[Welcome to Clutter/Custom separators]]

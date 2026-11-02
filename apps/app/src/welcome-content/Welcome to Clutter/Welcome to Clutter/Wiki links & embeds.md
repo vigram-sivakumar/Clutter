@@ -24,4 +24,4 @@ Add `!` in front of a link and the thing shows up right inside your note, not ju
 
 >Rename a note, or even a heading, and every link pointing to it updates on its own. Nothing breaks
 .--- That’s it ---.
-↪ Next up, [[Welcome to Clutter/Markdown essentials/Web links]]
+↪ Next up, [[Welcome to Clutter/Web links]]

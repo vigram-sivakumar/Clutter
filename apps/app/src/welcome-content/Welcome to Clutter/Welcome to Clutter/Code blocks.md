@@ -26,4 +26,4 @@ Each block has a copy button for grabbing the code in one click, and a menu that
 
 >Need just a bit of code inside a sentence? That’s inline code, wrap it in single backticks or press `⌘ E`
 .--- That’s it ---.
-↪ Next up, [[Welcome to Clutter/Markdown essentials/Tables]]
+↪ Next up, [[Welcome to Clutter/Tables]]

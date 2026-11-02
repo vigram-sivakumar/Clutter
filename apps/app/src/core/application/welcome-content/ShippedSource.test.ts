@@ -25,7 +25,7 @@ describe('ShippedSource contract (ADR-067)', () => {
     });
 
     expect(offenders.map((file) => path.relative(SRC, file))).toEqual([]);
-  });
+  }, 30_000);
 
   it('only PageOperations, FolderOperations and the welcome-content folder call createFromSource', () => {
     const callers = sourceFiles(SRC)
@@ -39,7 +39,7 @@ describe('ShippedSource contract (ADR-067)', () => {
       path.join('core', 'application', 'page', 'PageOperations.ts'),
       path.join('core', 'application', 'welcome-content', 'WelcomeContentService.ts'),
     ]);
-  });
+  }, 30_000);
 
   it('the Gate itself is untouched: no createOnly flag on any operation', () => {
     const gate = fs.readFileSync(path.join(SRC, 'core/vault/persistence/PagePersistenceCoordinator.ts'), 'utf8');

@@ -1,5 +1,8 @@
 import type { Application } from '../../core/application/Application';
+import { WELCOME_GUIDE_FOLDER, WELCOME_GUIDE_ORDER } from '../../core/application/welcome-content/welcomeContentManifest';
 import type { WelcomeInstallResult } from '../../core/application/welcome-content/WelcomeContentService';
+import { collectionViewKeyForFolder } from '../../core/application/collection/collectionViewKey';
+import { defaultSidebarSortDirection, sidebarOrderId } from '../../core/properties/sidebarSort';
 import type { SpaceRegistryStorage } from './spaceRegistry';
 import {
   decideWelcomeContent,
@@ -42,7 +45,7 @@ export type WelcomeGateOutcome =
  * Never throws.
  */
 export async function prepareWelcomeSpace(
-  application: Pick<Application, 'welcomeContentService'>,
+  application: Pick<Application, 'welcomeContentService' | 'vault' | 'collectionViewConfigStore'>,
   input: { readonly storage: SpaceRegistryStorage | null; readonly createdByWelcome: boolean }
 ): Promise<WelcomeGateOutcome> {
   const { storage } = input;
@@ -76,6 +79,7 @@ export async function prepareWelcomeSpace(
     const verification = await service.verifyInstall();
     if (verification !== null && !verification.ok) return { open: false, message: WELCOME_GATE_UNVERIFIED_MESSAGE };
     if (verification !== null) writeWelcomeContentRecord(storage, 'done');
+    if (decision === 'install' && verification?.ok) seedWelcomeGuideOrder(application);
     // From here the user can see (and delete from) this Space, so an interrupted write is never attempted again.
     await service.markShown();
 
@@ -105,5 +109,52 @@ export async function resumeInterruptedWelcomeContent(
     console.error('The welcome content step failed:', error);
 
     return null;
+  }
+}
+
+/**
+ * A Space the Welcome dialog just created has opened on today's note. Move it to the shipped "Welcome to Clutter"
+ * folder's collection view instead, without recording a history entry (the first view is not somewhere to go back
+ * to). A navigation only, no write; a folder the install did not leave there (or any failure) keeps today's note.
+ * Never throws.
+ */
+export async function openWelcomeFolder(
+  application: Pick<Application, 'vault' | 'folderOperations'>,
+  rootPath: string
+): Promise<void> {
+  try {
+    const folder = application.vault.getFolderByPath(`${rootPath}/${WELCOME_GUIDE_FOLDER}`);
+    if (folder) await application.folderOperations.open(folder.id, { recordHistory: false });
+  } catch (error) {
+    console.error('Opening the welcome folder failed:', error);
+  }
+}
+
+/**
+ * Gives the shipped guide folder its manual order (ADR-055/066: the one sort its sidebar level and its collection page
+ * share), so Get started is first. Presentation state in `.clutter/workspace.json` through the config store, not a
+ * Gate write. Never overrides a sort or order the folder already has, and a note that is not there is left out (the
+ * order then follows by name). Never throws.
+ */
+function seedWelcomeGuideOrder(application: Pick<Application, 'vault' | 'collectionViewConfigStore'>): void {
+  try {
+    const { vault, collectionViewConfigStore } = application;
+    const folder = vault.getFolderByPath(`${vault.root}/${WELCOME_GUIDE_FOLDER}`);
+    if (!folder) return;
+
+    const key = collectionViewKeyForFolder(folder.id);
+    const existing = collectionViewConfigStore.get(key);
+    if (existing?.sidebarSort !== undefined || existing?.sidebarOrder !== undefined) return;
+
+    const order: string[] = [];
+    for (const name of WELCOME_GUIDE_ORDER) {
+      const page = vault.getPageByPath(`${vault.root}/${WELCOME_GUIDE_FOLDER}/${name}.md`);
+      if (page) order.push(sidebarOrderId('note', page.id));
+    }
+    if (order.length === 0) return;
+
+    collectionViewConfigStore.update(key, { sidebarSort: { key: 'manual', direction: defaultSidebarSortDirection('manual') }, sidebarOrder: order });
+  } catch (error) {
+    console.error('Ordering the welcome folder failed:', error);
   }
 }

@@ -21,4 +21,4 @@ Wrap a word in a few symbols and Clutter styles it as you type. The symbols hide
 
 >One exception: whatever sits inside `**backticks**` stays exactly as you typed it. Handy when you want the symbols to show
 .--- That’s it ---.
-↪ Next up, [[Welcome to Clutter/Markdown essentials/Lists]] 
+↪ Next up, [[Welcome to Clutter/Lists]] 

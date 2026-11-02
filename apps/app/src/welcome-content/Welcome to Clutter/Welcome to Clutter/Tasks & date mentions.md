@@ -26,4 +26,4 @@ Pick the suggestion and it becomes a date chip. Click it to open that day’s da
 
 >Behind the scenes a date is saved as plain text, like `@2026-10-30`, so your notes still read well in any other Markdown app
 .--- That’s it ---.
-↪ Next up, [[Welcome to Clutter/Markdown essentials/Tags]]
+↪ Next up, [[Welcome to Clutter/Tags]]

@@ -38,7 +38,7 @@ function fakeApplication(
   return { application: { welcomeContentService: { install, resumeIfNeeded, verifyInstall, markShown } } as never, install, resumeIfNeeded, verifyInstall, markShown };
 }
 
-const ok: WelcomeVerification = { ok: true, checked: 27 };
+const ok: WelcomeVerification = { ok: true, checked: 25 };
 
 describe('welcome content first-run record (ADR-067)', () => {
   it('reads no record, a record, an unreadable record and unavailable storage', () => {
@@ -129,7 +129,7 @@ describe('prepareWelcomeSpace: what must be true before a Welcome Space is shown
 
   it('an install that finished but is not all there as shipped keeps the Space closed', async () => {
     const storage = memoryStorage();
-    const { application } = fakeApplication({ status: 'installed' }, null, { ok: false, checked: 27, missing: ['Templates/Idea.md'] });
+    const { application } = fakeApplication({ status: 'installed' }, null, { ok: false, checked: 25, missing: ['Templates/Idea.md'] });
 
     expect(await prepareWelcomeSpace(application, { storage, createdByWelcome: true })).toEqual({ open: false, message: WELCOME_GATE_UNVERIFIED_MESSAGE });
     expect(readWelcomeContentRef(storage)).toBe('started');

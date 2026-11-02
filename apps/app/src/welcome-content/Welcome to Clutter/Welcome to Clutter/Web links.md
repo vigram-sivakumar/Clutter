@@ -19,4 +19,4 @@ Paste an address and Clutter asks how you’d like it
 
 >Want an address to stay plain text? Wrap it in backticks, like `unsplash.com`
 .--- That’s it ---.
-↪ Next up, [[Welcome to Clutter/Markdown essentials/Quote blocks]]
+↪ Next up, [[Welcome to Clutter/Quote blocks]]

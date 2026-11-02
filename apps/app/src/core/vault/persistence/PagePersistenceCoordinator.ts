@@ -665,6 +665,22 @@ export class PagePersistenceCoordinator {
       directory: scannedDirectory,
     });
 
+    // Sync can register this very path before the Gate does: the OS watcher reports the new directory within about
+    // 10 ms, and the marker write above takes about as long, so Sync may read the directory before `.folder.md` is
+    // in it and register it under a derived (path-as-id) identity. That is not a conflict, it is the echo of this
+    // create (ADR-067). Sync already tolerates the opposite order (it skips a folder the Gate registered first); the
+    // Gate now tolerates this one, and only this one.
+    const registeredFirst = this.vault.getFolderByPath(operation.path);
+    if (registeredFirst && this.isEchoOfThisCreate(registeredFirst, built)) {
+      // Same identity: nothing to do. A derived identity: replaced by the persisted one just written, in the same
+      // synchronous turn, so no reader sees both or neither.
+      if (registeredFirst.id === built.id) {
+        return { status: 'folder-created', folder: registeredFirst };
+      }
+
+      this.vault.removeFolder(registeredFirst.id);
+    }
+
     try {
       this.vault.addFolder(built);
     } catch (error) {
@@ -677,6 +693,24 @@ export class PagePersistenceCoordinator {
     }
 
     return { status: 'folder-created', folder: built };
+  }
+
+  /**
+   * Whether a folder the Vault already holds at the exact path of a `create-folder` is only the early registration of
+   * that same create, and not another folder. All of these must hold, so every genuine conflict is still refused:
+   * it is the same folder (same id), or it has only a derived identity (its id is its path, which the identity
+   * resolver documents as transitional, so it has no persisted identity of its own to lose), sits under the same
+   * parent, and has nothing registered under it (a fresh directory, not a folder with content). A folder with its own
+   * persisted id, a different parent, any content, or a case-variant path is never adopted. The create-only marker
+   * write that precedes this already refused a directory that had a `.folder.md` of its own.
+   */
+  private isEchoOfThisCreate(registered: Folder, created: Folder): boolean {
+    if (registered.id === created.id) return true;
+    if (registered.id !== registered.path || registered.parentId !== created.parentId) return false;
+
+    const { folders, pages, resources } = this.vault.getDescendantFoldersAndPages(registered.id);
+
+    return folders.length === 0 && pages.length === 0 && resources.length === 0;
   }
 
   /**

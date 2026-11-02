@@ -9,6 +9,7 @@ import type { ResourceTopBarActionsProps } from '../topbar/ResourceTopBarActions
 import { Button } from '@components/button/Button';
 import { TauriDragStrip } from '@components/tauri-drag-strip/TauriDragStrip';
 import { Overlay } from '@components/overlay/Overlay';
+import { useToast } from '@components/toast/ToastProvider';
 import { Menu } from '@components/menu/Menu';
 import { MenuItem } from '@components/menu/MenuItem';
 import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
@@ -191,9 +192,26 @@ export function PageCover({
   const [view, setView] = useState<MenuView>('menu');
   const triggerRef = useRef<HTMLButtonElement>(null);
   const suppressReturnFocusRef = useRef(false);
-  // The last src whose load failed — guards onRemove so one broken cover
-  // is removed once, and a later (different) src is judged on its own.
-  const failedSrcRef = useRef<string | null>(null);
+  // A cover whose image cannot be loaded (no network, a dead link, a deleted file) is never removed: that would edit
+  // the note because of something that may pass. It is hidden, a persistent toast says so and offers the way out, and a
+  // load that later succeeds puts it back. `count` grows with every failed attempt so a retry that fails again shows the
+  // toast again; `attempt` is the retry itself (it remounts the `<img>`, which asks for the image again).
+  const toast = useToast();
+  const [loadFailure, setLoadFailure] = useState<{ readonly count: number } | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const [judgedSrc, setJudgedSrc] = useState(src);
+  // A different cover is judged on its own. Render-phase reset, like `view` and `previousLayout` below: an effect
+  // would paint one frame of the old failure.
+  if (src !== judgedSrc) {
+    setJudgedSrc(src);
+    setLoadFailure(null);
+  }
+  // The latest actions, read by the toast's buttons and the `online` listener (which outlive a render).
+  const failureActionsRef = useRef<{ retry: () => void; change: () => void; remove: () => void }>({
+    retry: () => {},
+    change: () => {},
+    remove: () => {},
+  });
 
   // Every fresh open must start on the menu view — this component doesn't
   // unmount between opens (only its Overlay does), so `view` would
@@ -202,10 +220,17 @@ export function PageCover({
   // PageHeaderMoreActionsMenu's own identical reset (see its doc comment
   // for why an effect-based reset would flash the stale view for a frame).
   const [wasOpen, setWasOpen] = useState(open);
+  // Set by the failed-cover toast's Change: this open starts on the picker, not the menu (cleared when it closes).
+  const [openOnPicker, setOpenOnPicker] = useState(false);
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (open && view !== 'menu') {
-      setView('menu');
+    if (open) {
+      const startView: MenuView = openOnPicker ? 'picker' : 'menu';
+      if (view !== startView) {
+        setView(startView);
+      }
+    } else if (openOnPicker) {
+      setOpenOnPicker(false);
     }
   }
 
@@ -336,6 +361,67 @@ export function PageCover({
     transitioningRef.current = false;
     syncNaturalWidth();
   }
+
+  // Everything from here to the early return below is hooks and the handlers they read: they run on every render, a
+  // src-less one included.
+  function retryLoad(): void {
+    setAttempt((current) => current + 1);
+  }
+
+  function changeCoverAfterFailure(): void {
+    setOpenOnPicker(true);
+    setView('picker');
+    setOpen(true);
+  }
+
+  failureActionsRef.current = { retry: retryLoad, change: changeCoverAfterFailure, remove: handleRemove };
+
+  const canEditAfterFailure = editable;
+  const canChangeAfterFailure = editable && Boolean(onSetCoverImage);
+
+  // The toast for a failed cover. Persistent: only this effect's cleanup (a load that succeeds, a different cover, the
+  // note closing) dismisses it, never a timeout and never one of its buttons. A remote cover can be retried; a local
+  // one is a file that is missing, so Retry would change nothing: it offers Change instead. Remove is the user's own
+  // choice and is the only thing here that deletes the cover. A cover that cannot be edited (an archived note) gets
+  // only what is safe.
+  useEffect(() => {
+    if (loadFailure === null) {
+      return;
+    }
+    const remote = !isLocalImage;
+    const offline = remote && typeof navigator !== 'undefined' && navigator.onLine === false;
+    const text = offline ? 'You are offline. Unable to load cover image' : 'Unable to load cover image';
+    const retry = { label: 'Retry', onAction: () => failureActionsRef.current.retry() };
+    const change = { label: 'Change', onAction: () => failureActionsRef.current.change() };
+    const remove = { label: 'Remove', onAction: () => failureActionsRef.current.remove() };
+    const primary = remote ? retry : canChangeAfterFailure ? change : canEditAfterFailure ? remove : undefined;
+    const secondary = primary && primary !== remove && canEditAfterFailure ? remove : undefined;
+    const id = toast.show({
+      text,
+      persistent: true,
+      ...(primary ? { action: primary } : {}),
+      ...(secondary ? { secondaryAction: secondary } : {}),
+    });
+
+    return () => {
+      if (id !== null) {
+        toast.dismiss(id);
+      }
+    };
+  }, [loadFailure, isLocalImage, canChangeAfterFailure, canEditAfterFailure, toast]);
+
+  // The network coming back loads a failed remote cover again by itself. Listening only while one has failed; nothing
+  // else watches the connection.
+  const hasFailedRemoteCover = loadFailure !== null && !isLocalImage;
+  useEffect(() => {
+    if (!hasFailedRemoteCover) {
+      return;
+    }
+    const onOnline = () => failureActionsRef.current.retry();
+    window.addEventListener('online', onOnline);
+
+    return () => window.removeEventListener('online', onOnline);
+  }, [hasFailedRemoteCover]);
 
   if (!src) {
     return null;
@@ -511,6 +597,7 @@ export function PageCover({
       className="page__cover"
       onTransitionEnd={handleCoverTransitionEnd}
       data-hidden={hidden || undefined}
+      data-load-failed={loadFailure !== null || undefined}
       data-emoji-overlap={hasEmoji || undefined}
       data-repositioning={repositioning || undefined}
     >
@@ -744,11 +831,15 @@ export function PageCover({
         )}
       </Overlay>
       <img
+        // A retry is a new element: the browser asks for the image again.
+        key={attempt}
         src={src}
         className="page-cover__image"
         alt=""
         draggable={false}
         style={{
+          // Hidden, not removed: it keeps loading, and its box keeps the cover's place, so a load that succeeds shows it.
+          visibility: loadFailure !== null ? 'hidden' : undefined,
           objectPosition:
             layout === 'above'
               ? `50% ${effectivePosition}%`
@@ -764,16 +855,8 @@ export function PageCover({
               : 'ew-resize'
             : undefined,
         }}
-        onError={() => {
-          // An invalid cover is deleted outright rather than left as a
-          // broken image: onRemove clears `cover` from the persisted
-          // metadata, which unmounts this component.
-          if (failedSrcRef.current === src) {
-            return;
-          }
-          failedSrcRef.current = src;
-          onRemove?.();
-        }}
+        onError={() => setLoadFailure((current) => ({ count: (current?.count ?? 0) + 1 }))}
+        onLoad={() => setLoadFailure(null)}
         onPointerDown={repositioning ? handleImagePointerDown : undefined}
         onPointerMove={repositioning ? handleImagePointerMove : undefined}
         onPointerUp={repositioning ? handleImagePointerUp : undefined}

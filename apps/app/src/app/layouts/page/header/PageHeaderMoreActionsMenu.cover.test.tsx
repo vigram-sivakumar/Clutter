@@ -11,7 +11,7 @@ import type { PageHeaderMoreActionsMenuProps } from './PageHeaderMoreActionsMenu
 
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn().mockResolvedValue('/tmp/photo.png') }));
 vi.mock('@core/integrations/unsplash/UnsplashApi', () => ({
-  UNSPLASH_SHUFFLE_MAX_PAGE: 10,
+  UNSPLASH_SHUFFLE_MAX_PAGE: 11,
   listEditorialPhotos: vi.fn(),
   searchPhotos: vi.fn(),
   trackPhotoDownload: vi.fn().mockResolvedValue(undefined),

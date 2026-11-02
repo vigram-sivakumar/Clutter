@@ -20,7 +20,7 @@ const DOWNLOAD_PATH = /^\/photos\/([A-Za-z0-9_-]+)\/download$/;
 export type UnsplashOrientation = 'landscape' | 'portrait' | 'squarish';
 const DEFAULT_ORIENTATION: UnsplashOrientation = 'portrait';
 /** Upper bound for Shuffle (a random page of the Editorial feed or of a search) — avoids unbounded page requests. */
-export const UNSPLASH_SHUFFLE_MAX_PAGE = 25;
+export const UNSPLASH_SHUFFLE_MAX_PAGE = 11;
 
 interface RawUnsplashPhoto {
   id: string;

@@ -8,7 +8,7 @@ import { listEditorialPhotos, searchPhotos, trackPhotoDownload } from '@core/int
 import { PageCover } from './Page.Cover';
 
 vi.mock('@core/integrations/unsplash/UnsplashApi', () => ({
-  UNSPLASH_SHUFFLE_MAX_PAGE: 10,
+  UNSPLASH_SHUFFLE_MAX_PAGE: 11,
   listEditorialPhotos: vi.fn(),
   searchPhotos: vi.fn(),
   trackPhotoDownload: vi.fn().mockResolvedValue(true),

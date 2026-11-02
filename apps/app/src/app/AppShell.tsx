@@ -17,6 +17,7 @@ import { useToast } from '../components/toast/ToastProvider';
 import { welcomeInstallNotice } from '../core/application/welcome-content/welcomeInstallNotice';
 import {
   WelcomeInstallIncompleteError,
+  openWelcomeFolder,
   prepareWelcomeSpace,
   resumeInterruptedWelcomeContent,
 } from './spaces/runWelcomeContent';
@@ -540,6 +541,7 @@ function AppShellContent() {
           createdByWelcome: createdByWelcomeRef.current === openPath,
         });
         if (!gate.open) throw new WelcomeInstallIncompleteError(gate.message);
+        if (createdByWelcomeRef.current === openPath) await openWelcomeFolder(prepared, openPath);
       }
 
       openedPathRef.current = openPath;

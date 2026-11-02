@@ -8,6 +8,8 @@ export interface ToastInput {
   readonly tone?: ToastMessage['tone'];
   /** An offered follow-up ("Undo", "Open"). A toast with one is not replaced by a routine confirmation. */
   readonly action?: ToastMessage['action'];
+  /** A second follow-up beside `action` ("Retry" and "Remove"). */
+  readonly secondaryAction?: ToastMessage['secondaryAction'];
   readonly durationMs?: number;
   /** Never dismisses itself: it stays until `dismiss(id)` or its action. For a state that lasts until it is fixed. */
   readonly persistent?: boolean;
@@ -79,6 +81,7 @@ export function ToastProvider({ children }: { readonly children: ReactNode }) {
       text: input.text,
       tone: input.tone ?? 'default',
       ...(input.action ? { action: input.action } : {}),
+      ...(input.action && input.secondaryAction ? { secondaryAction: input.secondaryAction } : {}),
       ...(input.durationMs !== undefined ? { durationMs: input.durationMs } : {}),
       ...(input.persistent ? { persistent: true } : {}),
     });

@@ -3,6 +3,11 @@ import { createPortal } from 'react-dom';
 import { Button } from '@components/button/Button';
 import './Toast.css';
 
+export interface ToastAction {
+  readonly label: string;
+  readonly onAction: () => void;
+}
+
 export interface ToastMessage {
   /** Changes per toast, so a new toast restarts the dismiss timer even when its text repeats. */
   readonly id: number;
@@ -15,7 +20,12 @@ export interface ToastMessage {
   /** `danger` is an error in the danger colour; it is announced as an alert like `error`. */
   readonly tone: 'default' | 'error' | 'danger';
   /** An optional follow-up the toast offers ("Open", "Undo"); pressing it also dismisses the toast. */
-  readonly action?: { readonly label: string; readonly onAction: () => void };
+  readonly action?: ToastAction;
+  /**
+   * A second follow-up beside `action` ("Retry" and "Remove"). Offered only together with `action`, behaves the same
+   * way (a persistent toast is dismissed by its owner, never by an action).
+   */
+  readonly secondaryAction?: ToastAction;
   /** Overrides the default duration for this toast. */
   readonly durationMs?: number;
   /** Stays until it is dismissed by the caller (`ToastApi.dismiss`) or its action is pressed; never times out. */
@@ -142,17 +152,22 @@ export function Toast({ toast, onDismiss, durationMs }: ToastProps) {
       <div className="toast__message">{visible.text}</div>
       {action && (
         <div className="toast__actions">
-          <Button
-            size="small"
-            isLink
-            onClick={() => {
-              action.onAction();
-              // A persistent toast is dismissed by its owner, when what it reports is resolved, never by its action.
-              if (!visible.persistent) onDismiss();
-            }}
-          >
-            {action.label}
-          </Button>
+          {[action, visible.secondaryAction].map((offered) =>
+            offered ? (
+              <Button
+                key={offered.label}
+                size="small"
+                isLink
+                onClick={() => {
+                  offered.onAction();
+                  // A persistent toast is dismissed by its owner, when what it reports is resolved, never by its action.
+                  if (!visible.persistent) onDismiss();
+                }}
+              >
+                {offered.label}
+              </Button>
+            ) : null
+          )}
         </div>
       )}
     </div>,

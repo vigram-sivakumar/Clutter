@@ -22,6 +22,9 @@ interface ImagePickerUnsplashProps {
 }
 
 const SEARCH_DEBOUNCE_MS = 300;
+
+/** A random page, 1 to UNSPLASH_SHUFFLE_MAX_PAGE: what the Editorial feed opens on, and what Shuffle picks. */
+const randomPage = () => Math.floor(Math.random() * UNSPLASH_SHUFFLE_MAX_PAGE) + 1;
 const UNSPLASH_ATTRIBUTION_URL =
   'https://unsplash.com?utm_source=clutter&utm_medium=referral';
 
@@ -37,14 +40,16 @@ function photographerProfileUrl(profileUrl: string): string {
 export function ImagePickerUnsplash({ onSelect, orientation }: ImagePickerUnsplashProps) {
   const [query, setQuery] = useState('');
   const [shuffleKey, setShuffleKey] = useState(0);
-  const [searchPage, setSearchPage] = useState(1);
+  const [searchPage, setSearchPage] = useState(randomPage);
   const [photos, setPhotos] = useState<UnsplashPhoto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setSearchPage(1);
-  }, [query]);
+  // A search starts at its first page; with no search text the Editorial feed opens on a random page.
+  const handleQueryChange = (value: string) => {
+    setQuery(value);
+    setSearchPage(value.trim() ? 1 : randomPage());
+  };
 
   // The Editorial feed ignores the cover's shape, so a shape change only reloads a search.
   const searchOrientation = query.trim() ? orientation : undefined;
@@ -90,7 +95,7 @@ export function ImagePickerUnsplash({ onSelect, orientation }: ImagePickerUnspla
   }, [query, shuffleKey, searchPage, searchOrientation]);
 
   const handleShuffle = () => {
-    setSearchPage(Math.floor(Math.random() * UNSPLASH_SHUFFLE_MAX_PAGE) + 1);
+    setSearchPage(randomPage());
     setShuffleKey((key) => key + 1);
   };
 
@@ -121,7 +126,7 @@ export function ImagePickerUnsplash({ onSelect, orientation }: ImagePickerUnspla
           type="search"
           placeholder="Search Unsplash"
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => handleQueryChange(event.target.value)}
         />
       </div>
 

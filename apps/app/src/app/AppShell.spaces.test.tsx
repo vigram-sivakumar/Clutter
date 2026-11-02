@@ -1310,7 +1310,7 @@ describe('AppShell: Welcome dialog actions', () => {
         bootstrap.mockImplementation(async (root: string) => {
           const app = makeApp(root);
           app.welcomeContentService.install = vi.fn(() => install.promise);
-          app.welcomeContentService.verifyInstall = vi.fn(async () => ({ ok: true, checked: 27 }));
+          app.welcomeContentService.verifyInstall = vi.fn(async () => ({ ok: true, checked: 25 }));
 
           return app;
         });
@@ -1345,7 +1345,7 @@ describe('AppShell: Welcome dialog actions', () => {
           } else {
             // The retry: the folder already holds the first attempt's content, so a fresh install refuses and the ledger resumes.
             app.welcomeContentService.resumeIfNeeded = vi.fn(async () => ({ status: 'installed' }));
-            app.welcomeContentService.verifyInstall = vi.fn(async () => ({ ok: true, checked: 27 }));
+            app.welcomeContentService.verifyInstall = vi.fn(async () => ({ ok: true, checked: 25 }));
           }
 
           return app;

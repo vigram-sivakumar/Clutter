@@ -196,4 +196,68 @@ describe('Toast', () => {
       expect(onAction).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('a second action', () => {
+    const two = (persistent: boolean, onDismiss = vi.fn()) => {
+      const first = vi.fn();
+      const second = vi.fn();
+      render(
+        <Toast
+          toast={{
+            id: 1,
+            text: 'Unable to load cover image',
+            tone: 'default',
+            action: { label: 'Retry', onAction: first },
+            secondaryAction: { label: 'Remove', onAction: second },
+            ...(persistent ? { persistent: true } : {}),
+          }}
+          onDismiss={onDismiss}
+        />
+      );
+
+      return { first, second, onDismiss };
+    };
+
+    it('shows both buttons, in order, and each runs its own action', () => {
+      const { first, second } = two(false);
+
+      expect(screen.getAllByRole('button').map((button) => button.textContent)).toEqual(['Retry', 'Remove']);
+      fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+
+      expect(second).toHaveBeenCalledTimes(1);
+      expect(first).toHaveBeenCalledTimes(1);
+    });
+
+    it('a persistent toast is dismissed by neither button and never times out', () => {
+      const { first, second, onDismiss } = two(true);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+      act(() => void vi.advanceTimersByTime(120_000));
+
+      expect(first).toHaveBeenCalledTimes(1);
+      expect(second).toHaveBeenCalledTimes(1);
+      expect(onDismiss).not.toHaveBeenCalled();
+    });
+
+    it('a non-persistent toast is dismissed by either button', () => {
+      const { onDismiss } = two(false);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+
+      expect(onDismiss).toHaveBeenCalledTimes(1);
+    });
+
+    it('is not shown without a first action', () => {
+      render(
+        <Toast
+          toast={{ id: 1, text: 'x', tone: 'default', secondaryAction: { label: 'Remove', onAction: vi.fn() } }}
+          onDismiss={vi.fn()}
+        />
+      );
+
+      expect(screen.queryByRole('button')).toBeNull();
+    });
+  });
 });

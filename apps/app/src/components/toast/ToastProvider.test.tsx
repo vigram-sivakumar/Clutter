@@ -133,4 +133,31 @@ describe('ToastProvider', () => {
     expect(outside?.show({ text: 'Hello' })).toBeNull();
     expect(() => outside?.dismiss(1)).not.toThrow();
   });
+
+  it('passes a second action through, only alongside a first one, and keeps a persistent toast until its owner dismisses it', () => {
+    mount();
+    const retry = vi.fn();
+    const remove = vi.fn();
+    let id: number | null = null;
+    act(() => {
+      id = api.show({
+        text: 'Unable to load cover image',
+        persistent: true,
+        action: { label: 'Retry', onAction: retry },
+        secondaryAction: { label: 'Remove', onAction: remove },
+      });
+    });
+
+    act(() => void vi.advanceTimersByTime(120_000));
+    expect(screen.getByRole('status').textContent).toContain('Unable to load cover image');
+    expect(screen.getAllByRole('button').map((button) => button.textContent)).toEqual(['Retry', 'Remove']);
+
+    act(() => api.dismiss(id!));
+    expect(screen.queryByRole('status')).toBeNull();
+
+    act(() => {
+      api.show({ text: 'No first action', secondaryAction: { label: 'Remove', onAction: remove } });
+    });
+    expect(screen.queryByRole('button')).toBeNull();
+  });
 });

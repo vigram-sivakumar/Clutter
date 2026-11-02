@@ -91,7 +91,7 @@ import { findCoverCredit } from './page/coverCredit';
 import { isUnsplashImageUrl } from '../integrations/unsplash/unsplashAttribution';
 import { trackPhotoDownload } from '../integrations/unsplash/UnsplashApi';
 import { importAsset, importAssetBytes, pastedAssetFileName } from '../vault/asset/importAsset';
-import { WelcomeContentService } from './welcome-content/WelcomeContentService';
+import { WelcomeContentService, type WelcomeContentServiceDeps } from './welcome-content/WelcomeContentService';
 import { bundledWelcomeManifest } from './welcome-content/welcomeContentManifest';
 import type { Page } from '../vault/models/Page';
 import type { Folder } from '../vault/models/Folder';
@@ -929,15 +929,7 @@ export class Application {
 
     this.pageOperations.setExternalReconciler((absolutePath) => this.vaultSyncService.reconcileKnownPath(absolutePath));
 
-    this.welcomeContentService = new WelcomeContentService({
-      vault,
-      fileSystem: this.fileSystem,
-      rootPath: vault.root,
-      pageOperations: this.pageOperations,
-      folderOperations: this.folderOperations,
-      reconcileKnownPath: (absolutePath) => this.vaultSyncService.reconcileKnownPath(absolutePath),
-      manifest: bundledWelcomeManifest(),
-    });
+    this.welcomeContentService = this.createWelcomeContentService();
 
     // Recovers from an external deletion (Sync's handleDeleted, or any
     // other Vault mutation) removing the page/folder Workspace currently
@@ -1108,6 +1100,22 @@ export class Application {
 
     await this.pageOperations.openAtPath(todayNotePath, {
       type: 'daily-note',
+    });
+  }
+
+  /**
+   * The welcome content installer, wired like the one `attachVault` builds (the same Gate facades and Sync reconcile). `overrides` replace single collaborators; tests use it to supply their own manifest.
+   */
+  public createWelcomeContentService(overrides: Partial<WelcomeContentServiceDeps> = {}): WelcomeContentService {
+    return new WelcomeContentService({
+      vault: this.vault,
+      fileSystem: this.fileSystem,
+      rootPath: this.vault.root,
+      pageOperations: this.pageOperations,
+      folderOperations: this.folderOperations,
+      reconcileKnownPath: (absolutePath) => this.vaultSyncService.reconcileKnownPath(absolutePath),
+      manifest: bundledWelcomeManifest(),
+      ...overrides,
     });
   }
 

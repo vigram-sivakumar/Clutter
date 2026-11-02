@@ -23,7 +23,7 @@ const { searchMock, getPhotoMock } = vi.hoisted(() => ({
   getPhotoMock: vi.fn(),
 }));
 vi.mock('@core/integrations/unsplash/UnsplashApi', () => ({
-  UNSPLASH_SHUFFLE_MAX_PAGE: 10,
+  UNSPLASH_SHUFFLE_MAX_PAGE: 11,
   // The picker opens on the Editorial feed and searches once text is typed; both fail the same way here.
   listEditorialPhotos: searchMock,
   searchPhotos: searchMock,

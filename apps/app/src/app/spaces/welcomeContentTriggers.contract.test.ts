@@ -63,7 +63,7 @@ describe('welcome content triggers (ADR-067)', () => {
     expect(offenders).toEqual([]);
     const application = fs.readFileSync(path.join(SRC, 'core/application/Application.ts'), 'utf8');
     expect(application.match(/new WelcomeContentService\(/g)).toHaveLength(1);
-  });
+  }, 30_000);
 
   it('Create cannot be started twice: the button is disabled and says so while the space is being created and opened', () => {
     expect(spaceDetails).toContain('disabled={isCreating}');

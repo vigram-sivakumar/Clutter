@@ -252,3 +252,9 @@
 .page__cover[data-repositioning] > .tauri-drag-strip {
   pointer-events: none;
 }
+
+/* A cover whose image could not be loaded keeps its place (the image is only hidden) over a quiet surface, so the page
+   does not jump, the menu stays reachable, and the toast explains. The note's cover is untouched. */
+.page__cover[data-load-failed] {
+  background: var(--surface-secondary);
+}

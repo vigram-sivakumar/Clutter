@@ -8,7 +8,7 @@ import { listEditorialPhotos, searchPhotos, trackPhotoDownload } from '@core/int
 import { openExternalUrl } from '@shared/helpers/openExternalUrl';
 
 vi.mock('@core/integrations/unsplash/UnsplashApi', () => ({
-  UNSPLASH_SHUFFLE_MAX_PAGE: 10,
+  UNSPLASH_SHUFFLE_MAX_PAGE: 11,
   listEditorialPhotos: vi.fn(),
   searchPhotos: vi.fn(),
   trackPhotoDownload: vi.fn().mockResolvedValue(undefined),
@@ -109,13 +109,15 @@ describe('ImagePickerUnsplash default feed', () => {
     vi.clearAllMocks();
   });
 
-  it('opens on the Editorial feed, page 1, and does not search', async () => {
+  it('opens on a random page of the Editorial feed (1 to 11), and does not search', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
     const { container } = render(<ImagePickerUnsplash onSelect={vi.fn()} />);
     await waitFor(() => expect(container.querySelector('img')).not.toBeNull());
 
     expect(listEditorialPhotos).toHaveBeenCalledTimes(1);
-    expect(listEditorialPhotos).toHaveBeenCalledWith(1);
+    expect(listEditorialPhotos).toHaveBeenCalledWith(6);
     expect(searchPhotos).not.toHaveBeenCalled();
+    vi.mocked(Math.random).mockRestore();
   });
 
   it('searches when text is typed, and returns to the Editorial feed when the search is cleared', async () => {
@@ -129,7 +131,7 @@ describe('ImagePickerUnsplash default feed', () => {
 
     fireEvent.change(input, { target: { value: '' } });
     await waitFor(() => expect(listEditorialPhotos).toHaveBeenCalledTimes(2));
-    expect(listEditorialPhotos).toHaveBeenLastCalledWith(1);
+    expect(listEditorialPhotos).toHaveBeenLastCalledWith(expect.any(Number));
   });
 
   it('treats a blank search as the Editorial feed', async () => {
@@ -148,7 +150,7 @@ describe('ImagePickerUnsplash default feed', () => {
 
     fireEvent.click(screen.getByLabelText('Shuffle'));
 
-    await waitFor(() => expect(listEditorialPhotos).toHaveBeenLastCalledWith(6));
+    await waitFor(() => expect(listEditorialPhotos).toHaveBeenLastCalledWith(7));
     expect(searchPhotos).not.toHaveBeenCalled();
     vi.mocked(Math.random).mockRestore();
   });

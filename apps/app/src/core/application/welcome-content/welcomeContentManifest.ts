@@ -26,8 +26,34 @@ const imageFiles = import.meta.glob(
   { query: '?url', import: 'default' }
 );
 
+/**
+ * Files in the shipped folder that are deliberately never installed, by path relative to the shipped Space root. They
+ * stay in the repository untouched; the installer and the manifest simply do not know about them. `Get started
+ * copy.md` is a Finder duplicate of `Get started.md` with the same frontmatter id (two notes cannot share an id, so
+ * the copy could never be registered, and it would fail the install's verification).
+ */
+export const EXCLUDED_FROM_INSTALL: readonly string[] = ['Welcome to Clutter/Get started copy.md'];
+
 /** The reserved folder (ADR-030) the shipped content puts notes in. It is made only by `ensureReservedFolder`. */
 export const WELCOME_TEMPLATES_FOLDER = 'Templates';
+
+/** The shipped folder a first-run Space opens on (its collection view), at the Space root. */
+export const WELCOME_GUIDE_FOLDER = 'Welcome to Clutter';
+
+/** The guide folder's notes in the order a new Space shows them (file names without `.md`). Get started comes first. */
+export const WELCOME_GUIDE_ORDER: readonly string[] = [
+  'Get started',
+  'Inline styles',
+  'Lists',
+  'Tasks & date mentions',
+  'Tags',
+  'Wiki links & embeds',
+  'Web links',
+  'Quote blocks',
+  'Code blocks',
+  'Tables',
+  'Custom separators',
+];
 
 export type WelcomeEntry =
   | {
@@ -55,13 +81,14 @@ export interface ManifestFile {
 
 const FOLDER_MARKER = '.folder.md';
 
-/** Pure: builds the ordered manifest from files. Exported for tests; the bundled content goes through it too. */
+/** Pure: builds the ordered manifest from files (minus `EXCLUDED_FROM_INSTALL`). Exported for tests; the bundled content goes through it too. */
 export function buildWelcomeManifest(files: readonly ManifestFile[]): WelcomeManifest {
   const directories = new Set<string>();
   const markers = new Map<string, () => Promise<string>>();
   const content: WelcomeEntry[] = [];
 
   for (const file of files) {
+    if (EXCLUDED_FROM_INSTALL.includes(file.path)) continue;
     const segments = file.path.split('/');
     for (let depth = 1; depth < segments.length; depth += 1) {
       directories.add(segments.slice(0, depth).join('/'));

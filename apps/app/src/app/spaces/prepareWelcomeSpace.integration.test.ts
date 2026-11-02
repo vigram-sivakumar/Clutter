@@ -4,7 +4,8 @@ import { Application } from '../../core/application/Application';
 import { DailyNoteService } from '../../core/application/daily-notes/DailyNoteService';
 import { PageCreator } from '../../core/application/page/PageCreator';
 import { PageFactory } from '../../core/application/page/PageFactory';
-import { WelcomeContentService } from '../../core/application/welcome-content/WelcomeContentService';
+import { collectionViewKeyForFolder } from '../../core/application/collection/collectionViewKey';
+import { WELCOME_GUIDE_ORDER } from '../../core/application/welcome-content/welcomeContentManifest';
 import { readWelcomeInstallLedger } from '../../core/application/welcome-content/WelcomeInstallLedger';
 import {
   makeWelcomeRig,
@@ -28,6 +29,7 @@ import type { InMemoryVaultFileSystem } from '../../core/vault/testing/InMemoryV
 import {
   WELCOME_GATE_ABANDONED_MESSAGE,
   WELCOME_GATE_RETRY_MESSAGE,
+  openWelcomeFolder,
   prepareWelcomeSpace,
 } from './runWelcomeContent';
 import { readWelcomeContentRecord } from './welcomeContentRecord';
@@ -75,12 +77,10 @@ async function reopen(rig: WelcomeRig): Promise<Application> {
 }
 
 /** Makes `application`'s installer fail once at each path ending in one of `endings`. */
-function failOnce(application: Application, rig: WelcomeRig, endings: readonly string[], error: unknown = noSpace): void {
+function failOnce(application: Application, _rig: WelcomeRig, endings: readonly string[], error: unknown = noSpace): void {
   const left = new Set(endings);
-  application.welcomeContentService = new WelcomeContentService({
-    vault: application.vault,
-    fileSystem: rig.fileSystem,
-    rootPath: SPACE_ROOT,
+  application.welcomeContentService = application.createWelcomeContentService({
+    manifest: nodeShippedManifest(),
     pageOperations: {
       createFromSource: (source) => {
         const hit = [...left].find((ending) => source.path.endsWith(ending));
@@ -93,37 +93,25 @@ function failOnce(application: Application, rig: WelcomeRig, endings: readonly s
         return application.pageOperations.createFromSource(source);
       },
     },
-    folderOperations: application.folderOperations,
-    reconcileKnownPath: (path) => application.vaultSyncService.reconcileKnownPath(path),
-    manifest: nodeShippedManifest(),
   });
 }
 
 /** Replaces the installer's bundled manifest with the shipped files read from disk (the app's image fetch is not available here). */
-function useShippedManifest(application: Application, rig: WelcomeRig): void {
-  application.welcomeContentService = new WelcomeContentService({
-    vault: application.vault,
-    fileSystem: rig.fileSystem,
-    rootPath: SPACE_ROOT,
-    pageOperations: application.pageOperations,
-    folderOperations: application.folderOperations,
-    reconcileKnownPath: (path) => application.vaultSyncService.reconcileKnownPath(path),
-    manifest: nodeShippedManifest(),
-  });
+function useShippedManifest(application: Application, _rig: WelcomeRig): void {
+  application.welcomeContentService = application.createWelcomeContentService({ manifest: nodeShippedManifest() });
 }
 
-const everythingIsThere = async (rig: WelcomeRig, application: Application) => {
+const everythingIsThere = async (_rig: WelcomeRig, application: Application) => {
   for (const { rel, abs: source } of NOTES) {
     expect(application.vault.getPageByPath(abs(rel))?.id, rel).toBe(idOf(fs.readFileSync(source, 'utf8')));
   }
-  for (const rel of ['Welcome to Clutter', 'Welcome to Clutter/Markdown essentials']) {
+  for (const rel of ['Welcome to Clutter']) {
     expect(application.vault.getFolderByPath(abs(rel))?.id, rel).toBe(idOf(fs.readFileSync(`${SHIPPED_SOURCE_ROOT}/${rel}/.folder.md`, 'utf8')));
   }
-  expect(rig.disk.hasFileSync(abs('Assets/Typewritter.jpg'))).toBe(true);
 };
 
 describe('the first-run gate: nothing is shown until the install is complete and verified', () => {
-  it('Create: installs everything, verifies all 27 entries, records `done`, marks the Space shown, then opens', async () => {
+  it('Create: installs everything, verifies all 24 entries, records `done`, marks the Space shown, then opens', async () => {
     const rig = await makeWelcomeRig(atomicStack);
     useShippedManifest(rig.application, rig);
     const storage = memoryStorage();
@@ -132,8 +120,46 @@ describe('the first-run gate: nothing is shown until the install is complete and
 
     expect(outcome).toEqual({ open: true });
     expect(readWelcomeContentRecord(storage)).toBe('done');
-    expect(await readWelcomeInstallLedger(rig.fileSystem, SPACE_ROOT)).toMatchObject({ state: 'complete', outcome: 'installed', completed: 27, total: 27, shown: true });
+    expect(await readWelcomeInstallLedger(rig.fileSystem, SPACE_ROOT)).toMatchObject({ state: 'complete', outcome: 'installed', completed: 24, total: 24, shown: true });
     await everythingIsThere(rig, rig.application);
+  });
+
+  it('Create: the guide folder gets a manual order with Get started first, and a later retry never overwrites a chosen order', async () => {
+    const rig = await makeWelcomeRig(atomicStack);
+    useShippedManifest(rig.application, rig);
+    const storage = memoryStorage();
+
+    await prepareWelcomeSpace(rig.application, { storage, createdByWelcome: true });
+
+    const folder = rig.application.vault.getFolderByPath(abs('Welcome to Clutter'))!;
+    const key = collectionViewKeyForFolder(folder.id);
+    const config = rig.application.collectionViewConfigStore.get(key);
+    const expected = WELCOME_GUIDE_ORDER.map((name) => `n:${rig.application.vault.getPageByPath(abs(`Welcome to Clutter/${name}.md`))!.id}`);
+
+    expect(config?.sidebarSort?.key).toBe('manual');
+    expect(config?.sidebarOrder).toEqual(expected);
+    expect(expected).toHaveLength(11);
+
+    rig.application.collectionViewConfigStore.update(key, { sidebarOrder: ['n:other'] });
+    await prepareWelcomeSpace(rig.application, { storage, createdByWelcome: true });
+
+    expect(rig.application.collectionViewConfigStore.get(key)?.sidebarOrder).toEqual(['n:other']);
+  });
+
+  it('openWelcomeFolder opens the guide folder without a history entry, and does nothing when it is not there', async () => {
+    const rig = await makeWelcomeRig(atomicStack);
+    useShippedManifest(rig.application, rig);
+    await prepareWelcomeSpace(rig.application, { storage: memoryStorage(), createdByWelcome: true });
+    const folder = rig.application.vault.getFolderByPath(abs('Welcome to Clutter'))!;
+
+    await openWelcomeFolder(rig.application, SPACE_ROOT);
+
+    expect(rig.application.workspace.activeView).toEqual({ type: 'folder', id: folder.id });
+    expect(rig.application.workspace.canNavigateBack).toBe(false);
+
+    const empty = await makeWelcomeRig(atomicStack);
+    await openWelcomeFolder(empty.application, SPACE_ROOT);
+    expect(empty.application.workspace.activeView).not.toMatchObject({ type: 'folder' });
   });
 
   it('a failure stops the gate: the Space is not opened, the record stays `started`, and the ledger holds the unfinished install', async () => {
@@ -148,7 +174,7 @@ describe('the first-run gate: nothing is shown until the install is complete and
     expect(await readWelcomeInstallLedger(rig.fileSystem, SPACE_ROOT)).toMatchObject({ state: 'installing', inFlight: true, shown: false });
   });
 
-  it('the retry resumes from the ledger on a fresh Application, completes all 27 entries, and only then opens', async () => {
+  it('the retry resumes from the ledger on a fresh Application, completes all 24 entries, and only then opens', async () => {
     const rig = await makeWelcomeRig(atomicStack);
     failOnce(rig.application, rig, ['Templates/Idea.md']);
     const storage = memoryStorage();
@@ -206,7 +232,7 @@ describe('the first-run gate: nothing is shown until the install is complete and
     expect(fourth).toEqual({ open: true });
   });
 
-  it('the watcher race inside the Gate closes the gate, and the retry opens with both folders under their shipped ids', async () => {
+  it('Sync registering the folder first, inside the Gate write, no longer closes the gate: the Space opens with both folders under their shipped ids', async () => {
     let beforeMarker: (() => Promise<void>) | null = null;
     const rig = await makeWelcomeRig((disk) => {
       const stack = atomicStack(disk);
@@ -223,15 +249,21 @@ describe('the first-run gate: nothing is shown until the install is complete and
     beforeMarker = () => rig.application.vaultSyncService.reconcileKnownPath(abs('Welcome to Clutter'));
     const storage = memoryStorage();
 
-    const first = await prepareWelcomeSpace(rig.application, { storage, createdByWelcome: true });
+    const outcome = await prepareWelcomeSpace(rig.application, { storage, createdByWelcome: true });
     beforeMarker = null;
+
+    expect(outcome).toEqual({ open: true });
+    expect(readWelcomeContentRecord(storage)).toBe('done');
+    await everythingIsThere(rig, rig.application);
+    // The Space reopens correctly: a fresh scan finds the same folders and notes, none twice, and the content verifies.
     const reopened = await reopen(rig);
     useShippedManifest(reopened, rig);
-    const retry = await prepareWelcomeSpace(reopened, { storage, createdByWelcome: true });
-
-    expect(first).toEqual({ open: false, message: WELCOME_GATE_RETRY_MESSAGE });
-    expect(retry).toEqual({ open: true });
     await everythingIsThere(rig, reopened);
+    expect(await reopened.welcomeContentService.verifyInstall()).toEqual({ ok: true, checked: 24 });
+    const ids = [...reopened.vault.pages()].map((page) => page.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    const paths = [...reopened.vault.folders()].map((folder) => folder.path);
+    expect(new Set(paths).size).toBe(paths.length);
   });
 
   it('a ledger that could not be created leaves the Space untouched, and the retry installs from the start', async () => {
@@ -240,16 +272,10 @@ describe('the first-run gate: nothing is shown until the install is complete and
     const flaky = Object.create(rig.fileSystem) as VaultFileSystem;
     flaky.writeFile = (path, contents, intent) =>
       path.endsWith('workspace.json') ? Promise.reject(new Error('disk full')) : rig.fileSystem.writeFile(path, contents, intent);
-    const broken = new WelcomeContentService({
-      vault: rig.vault,
+    rig.application.welcomeContentService = rig.application.createWelcomeContentService({
       fileSystem: flaky,
-      rootPath: SPACE_ROOT,
-      pageOperations: rig.application.pageOperations,
-      folderOperations: rig.application.folderOperations,
-      reconcileKnownPath: (path) => rig.application.vaultSyncService.reconcileKnownPath(path),
       manifest: nodeShippedManifest(),
     });
-    rig.application.welcomeContentService = broken;
 
     const first = await prepareWelcomeSpace(rig.application, { storage, createdByWelcome: true });
     expect(first.open).toBe(false);

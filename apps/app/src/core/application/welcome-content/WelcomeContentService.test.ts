@@ -11,6 +11,7 @@ import { MAX_INSTALL_ATTEMPTS, readWelcomeInstallLedger, writeWelcomeInstallLedg
 import type { WelcomeManifest } from './welcomeContentManifest';
 import { welcomeInstallNotice } from './welcomeInstallNotice';
 import {
+  emitWatcherEvent,
   makeWelcomeRig,
   nodeShippedManifest,
   shippedFiles,
@@ -48,16 +49,8 @@ const SHIPPED_NOTES = shippedFiles().filter(({ rel }) => rel.endsWith('.md') && 
 const TOTAL_ENTRIES = nodeShippedManifest().entries.length;
 
 function serviceFor(rig: WelcomeRig, overrides: Partial<WelcomeContentServiceDeps> = {}): WelcomeContentService {
-  return new WelcomeContentService({
-    vault: rig.vault,
-    fileSystem: rig.fileSystem,
-    rootPath: SPACE_ROOT,
-    pageOperations: rig.application.pageOperations,
-    folderOperations: rig.application.folderOperations,
-    reconcileKnownPath: (path) => rig.application.vaultSyncService.reconcileKnownPath(path),
-    manifest: nodeShippedManifest(),
-    ...overrides,
-  });
+  // Built by the Application, so it is wired exactly as in the app (Gate facades, Sync reconcile, in-flight hold).
+  return rig.application.createWelcomeContentService({ manifest: nodeShippedManifest(), ...overrides });
 }
 
 /** Pages whose create throws `error` the first `times` times a path ending in one of `endings` is created. */
@@ -107,12 +100,13 @@ describe('WelcomeContentService.install', () => {
 
       expect(rig.vault.getPage(id)?.path, rel).toBe(abs(rel));
     }
-    expect(Buffer.compare(Buffer.from(await rig.disk.readBinaryFile(abs('Assets/Typewritter.jpg'))), fs.readFileSync(`${SHIPPED_SOURCE_ROOT}/Assets/Typewritter.jpg`))).toBe(0);
+    // No image ships: `Assets/` is not created by the install.
+    expect(rig.disk.hasFileSync(abs('Assets/Typewritter.jpg'))).toBe(false);
+    expect(await rig.fileSystem.exists(abs('Assets'))).toBe(false);
+    expect(await rig.fileSystem.exists(abs('Welcome to Clutter/Get started copy.md'))).toBe(false);
     expect(rig.disk.hasFileSync(abs('Templates/.folder.md'))).toBe(false);
     expect(rig.vault.getReservedFolder('templates')).toBeDefined();
-    expect(rig.vault.getFolderByPath(abs('Welcome to Clutter/Markdown essentials'))?.parentId).toBe(
-      rig.vault.getFolderByPath(abs('Welcome to Clutter'))?.id
-    );
+    expect(rig.vault.getFolderByPath(abs('Welcome to Clutter'))?.id).toBe(idOf(fs.readFileSync(`${SHIPPED_SOURCE_ROOT}/Welcome to Clutter/.folder.md`, 'utf8')));
     expect(await ledgerOf(rig)).toMatchObject({ state: 'complete', outcome: 'installed', completed: TOTAL_ENTRIES, total: TOTAL_ENTRIES, attempts: 1, inFlight: false });
   });
 
@@ -190,18 +184,24 @@ describe('WelcomeContentService.install', () => {
     expect(await rig.disk.readFile(abs('Welcome to Clutter/keep.md'))).toBe('user note');
     expect(rig.disk.hasFileSync(abs('Welcome to Clutter/.folder.md'))).toBe(false);
     expect(rig.disk.hasFileSync(abs('Welcome to Clutter/Get started.md'))).toBe(false);
-    expect(rig.disk.hasFileSync(abs('Welcome to Clutter/Markdown essentials/Lists.md'))).toBe(false);
+    expect(rig.disk.hasFileSync(abs('Welcome to Clutter/Lists.md'))).toBe(false);
     expect(rig.disk.hasFileSync(abs('Templates/Idea.md'))).toBe(true);
   });
 
-  it('an existing image is never replaced', async () => {
-    const rig = await makeRig();
-    await rig.disk.createDirectory(abs('Assets'));
-    await rig.disk.writeBinaryFile(abs('Assets/Typewritter.jpg'), Uint8Array.of(1, 2, 3));
+  it('an image entry is written byte for byte and verified; an existing image is never replaced (synthetic manifest, since none ships)', async () => {
+    const bytes = Uint8Array.of(0xff, 0xd8, 0xff, 0x80, 0x00, 0x7f);
+    const withImage = () => nodeShippedManifest(undefined, [{ path: 'Assets/pic.jpg', loadBytes: async () => bytes }]);
 
-    expect(await serviceFor(rig).install()).toEqual({ status: 'installed' });
+    const fresh = await makeRig();
+    expect(await serviceFor(fresh, { manifest: withImage() }).install()).toEqual({ status: 'installed' });
+    expect([...(await fresh.disk.readBinaryFile(abs('Assets/pic.jpg')))]).toEqual([...bytes]);
+    expect(await serviceFor(fresh, { manifest: withImage() }).verifyInstall()).toEqual({ ok: true, checked: TOTAL_ENTRIES + 2 });
 
-    expect([...(await rig.disk.readBinaryFile(abs('Assets/Typewritter.jpg')))]).toEqual([1, 2, 3]);
+    const taken = await makeRig();
+    await taken.disk.createDirectory(abs('Assets'));
+    await taken.disk.writeBinaryFile(abs('Assets/pic.jpg'), Uint8Array.of(1, 2, 3));
+    expect(await serviceFor(taken, { manifest: withImage() }).install()).toEqual({ status: 'installed' });
+    expect([...(await taken.disk.readBinaryFile(abs('Assets/pic.jpg')))]).toEqual([1, 2, 3]);
   });
 });
 
@@ -307,7 +307,7 @@ describe('recovery: G2 to G6', () => {
     await serviceFor(rig).resumeIfNeeded();
 
     expect(rig.disk.hasFileSync(abs('Welcome to Clutter/.folder.md'))).toBe(false);
-    expect(rig.disk.hasFileSync(abs('Welcome to Clutter/Markdown essentials/Lists.md'))).toBe(false);
+    expect(rig.disk.hasFileSync(abs('Welcome to Clutter/Lists.md'))).toBe(false);
     expect(rig.vault.getFolderByPath(abs('Welcome to Clutter'))).toBeUndefined();
   });
 
@@ -411,45 +411,34 @@ describe('verifyInstall: the first-run gate opens only a complete Space', () => 
     expect(await serviceFor(rig).verifyInstall()).toBeNull();
   });
 
-  it('confirms all 27 entries after a complete install: 4 directories, 22 notes, both markers, the image', async () => {
+  it('confirms all 24 entries after a complete install: 2 directories, 22 notes, the marker', async () => {
     const rig = await makeRig();
     await serviceFor(rig).install();
 
-    expect(await serviceFor(rig).verifyInstall()).toEqual({ ok: true, checked: 27 });
-    expect(TOTAL_ENTRIES).toBe(27);
+    expect(await serviceFor(rig).verifyInstall()).toEqual({ ok: true, checked: 24 });
+    expect(TOTAL_ENTRIES).toBe(24);
   });
 
   it('reports what is missing, and records the install as abandoned (nothing a resume could write) instead of hiding it', async () => {
     const rig = await makeRig();
     await serviceFor(rig).install();
-    const lists = SHIPPED_NOTES.find(({ rel }) => rel.endsWith('Markdown essentials/Lists.md'))!;
+    const lists = SHIPPED_NOTES.find(({ rel }) => rel.endsWith('Welcome to Clutter/Lists.md'))!;
     await userDeletesPage(rig, idOf(fs.readFileSync(lists.abs, 'utf8')));
     vi.spyOn(console, 'error').mockImplementation(() => {});
 
     const result = await serviceFor(rig).verifyInstall();
 
-    expect(result).toEqual({ ok: false, checked: 27, missing: ['Welcome to Clutter/Markdown essentials/Lists.md'] });
+    expect(result).toEqual({ ok: false, checked: 24, missing: ['Welcome to Clutter/Lists.md'] });
     expect(await ledgerOf(rig)).toMatchObject({ state: 'complete', outcome: 'abandoned' });
   });
 
-  it('fails a marker folder the Vault holds under a different id than its .folder.md carries (the watcher race)', async () => {
-    let beforeMarker: (() => Promise<void>) | null = null;
-    const rig = await makeWelcomeRig((disk) => {
-      const stack = atomicStack(disk);
-      const hooked = Object.create(stack.fileSystem) as VaultFileSystem;
-      hooked.writeFile = async (path, contents, intent) => {
-        if (path === abs('Welcome to Clutter/.folder.md')) await beforeMarker?.();
-
-        return stack.fileSystem.writeFile(path, contents, intent);
-      };
-
-      return { fileSystem: hooked, writer: stack.writer };
-    });
-    beforeMarker = () => rig.application.vaultSyncService.reconcileKnownPath(abs('Welcome to Clutter'));
+  it('fails a marker folder the Vault holds under a different id than its .folder.md carries', async () => {
+    const rig = await makeRig();
     await serviceFor(rig).install();
-    beforeMarker = null;
-    // The retry of an unshown Space finishes the install against this same (stale) Vault.
-    await serviceFor(rig).resumeIfNeeded();
+    // The Vault comes to hold the folder under a derived (path-as-id) identity instead of the shipped one.
+    const welcome = rig.vault.getFolderByPath(abs('Welcome to Clutter'))!;
+    rig.vault.removeFolder(welcome.id);
+    rig.vault.addFolder({ ...welcome, id: welcome.path });
 
     const result = await serviceFor(rig).verifyInstall();
 
@@ -566,13 +555,12 @@ describe('Sync watcher interleaving (the first real-app failure)', () => {
 
     expect(result).toEqual({ status: 'installed' });
     expect(await ledgerOf(rig)).toMatchObject({ state: 'complete', outcome: 'installed', completed: TOTAL_ENTRIES, total: TOTAL_ENTRIES });
-    // Both folders keep the ids their shipped .folder.md files carry, and both markers are on disk as shipped.
-    for (const rel of ['Welcome to Clutter', 'Welcome to Clutter/Markdown essentials']) {
+    // The folder keeps the id its shipped .folder.md carries, and the marker is on disk as shipped.
+    for (const rel of ['Welcome to Clutter']) {
       expect(rig.vault.getFolderByPath(abs(rel))?.id, rel).toBe(markerId(rel));
       expect(Buffer.compare(Buffer.from(await rig.disk.readFile(abs(`${rel}/.folder.md`)), 'utf8'), fs.readFileSync(`${SHIPPED_SOURCE_ROOT}/${rel}/.folder.md`)), rel).toBe(0);
     }
-    // All 27 entries: 4 directories, 22 notes (each a Vault page with its shipped id, in its folder) and the image.
-    expect(rig.vault.getFolderByPath(abs('Assets'))).toBeDefined();
+    // All 24 entries: 2 directories and 22 notes (each a Vault page with its shipped id, in its folder).
     expect(rig.vault.getReservedFolder('templates')).toBeDefined();
     for (const { rel, abs: source } of SHIPPED_NOTES) {
       const page = rig.vault.getPageByPath(abs(rel));
@@ -580,11 +568,10 @@ describe('Sync watcher interleaving (the first real-app failure)', () => {
       expect(page?.id, rel).toBe(idOf(fs.readFileSync(source, 'utf8')));
       expect(page?.parentId, rel).toBe(rig.vault.getFolderByPath(abs(rel.slice(0, rel.lastIndexOf('/'))))?.id);
     }
-    expect(rig.disk.hasFileSync(abs('Assets/Typewritter.jpg'))).toBe(true);
     expect(writesOutsideClutterThatAreNotCreateOnly(rig)).toEqual([]);
   });
 
-  it('RESIDUAL RACE (documented, not fixed here): Sync reacting during the Gate write still beats the folder into the Vault, and is reported as its own cause', async () => {
+  it('REGRESSION (the real-app failure): Sync reacting INSIDE the Gate write, between the directory and the marker, no longer fails the install', async () => {
     // The watcher's reaction lands exactly between the marker's directory and the marker's write, inside the Gate.
     let beforeMarker: (() => Promise<void>) | null = null;
     const rig = await makeWelcomeRig((disk) => {
@@ -598,24 +585,63 @@ describe('Sync watcher interleaving (the first real-app failure)', () => {
 
       return { fileSystem: hooked, writer: stack.writer };
     });
-    beforeMarker = () => rig.application.vaultSyncService.reconcileKnownPath(abs('Welcome to Clutter'));
+    // What the OS watcher does: Sync is told about the new directory, through the watcher's own entry point, and
+    // registers it from the directory as it is (no marker yet).
+    beforeMarker = async () => {
+      emitWatcherEvent(rig.application, { type: 'created', path: 'Welcome to Clutter', isDirectory: true });
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      expect(rig.vault.getFolderByPath(abs('Welcome to Clutter'))?.id).toBe(abs('Welcome to Clutter'));
+    };
     const errors: unknown[][] = [];
     vi.spyOn(console, 'error').mockImplementation((...args) => void errors.push(args));
 
     const result = await serviceFor(rig).install();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+
+    expect(errors.map((call) => call[1]).filter((value) => value instanceof Error && value.name === 'WrittenButNotRegisteredError')).toEqual([]);
+    expect(result).toEqual({ status: 'installed' });
+    // No duplicate registration: one folder per path, one page per id, and the marker's id in the Vault.
+    const folderPaths = [...rig.vault.folders()].map((f) => f.path);
+    expect(new Set(folderPaths).size).toBe(folderPaths.length);
+    const pageIds = [...rig.vault.pages()].map((p) => p.id);
+    expect(new Set(pageIds).size).toBe(pageIds.length);
+    for (const rel of ['Welcome to Clutter']) {
+      expect(rig.vault.getFolderByPath(abs(rel))?.id, rel).toBe(markerId(rel));
+    }
+    expect(await serviceFor(rig).verifyInstall()).toEqual({ ok: true, checked: TOTAL_ENTRIES });
+  });
+
+  it('a GENUINE conflict is still refused, and reported as its own cause with the path and the Gate reason', async () => {
+    const rig = await makeRig();
+    const errors: unknown[][] = [];
+    vi.spyOn(console, 'error').mockImplementation((...args) => void errors.push(args));
+    // Between the installer's exclusive create and the Gate, a DIFFERENT folder with its own persisted id is
+    // registered at that exact path. That is not an echo of this create, so the Gate must refuse it.
+    const watched = Object.create(rig.fileSystem) as VaultFileSystem;
+    watched.createDirectory = async (path, options) => {
+      await rig.fileSystem.createDirectory(path, options);
+      if (options?.exclusive && path === abs('Welcome to Clutter')) {
+        rig.vault.addFolder({
+          id: 'someone-elses-folder',
+          name: 'Welcome to Clutter',
+          path,
+          parentId: null,
+          metadata: rig.vault.getReservedFolder('templates')!.metadata,
+        });
+      }
+    };
+
+    const result = await serviceFor(rig, { fileSystem: watched }).install();
 
     expect(result).toEqual({ status: 'failed', retry: 'scheduled' });
     const reported = errors.map((call) => call[1]).find((value) => value instanceof Error && value.name === 'WrittenButNotRegisteredError') as
       | (Error & { path: string; sourceKind: string; gateReason: string })
       | undefined;
-    // The cause, the path and the Gate's own words are all kept.
     expect(reported?.path).toBe(abs('Welcome to Clutter'));
     expect(reported?.sourceKind).toBe('folder');
     expect(reported?.gateReason).toMatch(/Folder path already in use/);
-    expect(reported?.message).toMatch(/written/i);
-    // The marker really is on disk as shipped; the Vault holds the folder under a path-derived id for this session.
-    expect(rig.disk.hasFileSync(abs('Welcome to Clutter/.folder.md'))).toBe(true);
-    expect(rig.vault.getFolderByPath(abs('Welcome to Clutter'))?.id).not.toBe(markerId('Welcome to Clutter'));
+    expect(rig.vault.getFolder('someone-elses-folder')).toBeDefined();
+    expect(await ledgerOf(rig)).toMatchObject({ state: 'installing', inFlight: true, completed: 12, total: 24 });
   });
 });
 

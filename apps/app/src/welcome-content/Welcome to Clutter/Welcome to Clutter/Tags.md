@@ -24,4 +24,4 @@ Tags can have letters, numbers, `-` and `_`, but no spaces. Use `#weekly-review`
 
 >A `#` on its own, a number like `#2026`, or one inside `inline code` stays plain text. So your headings and issue numbers are safe
 .--- That’s it ---.
-↪ Next up, [[Welcome to Clutter/Markdown essentials/Wiki links & embeds]]
+↪ Next up, [[Welcome to Clutter/Wiki links & embeds]]
