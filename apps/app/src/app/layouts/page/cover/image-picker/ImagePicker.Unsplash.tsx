@@ -1,13 +1,17 @@
-import { useEffect, useState, type MouseEvent } from 'react';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import type { CoverCredit } from '@core/vault/models/PageMetadata';
 import { Input } from '@components/input/Input';
 import {
-  listEditorialPhotos,
   searchPhotos,
   trackPhotoDownload,
   UNSPLASH_SHUFFLE_MAX_PAGE,
   type UnsplashOrientation,
 } from '@core/integrations/unsplash/UnsplashApi';
+import {
+  loadEditorialPhotos,
+  readEditorialCache,
+  refreshEditorialPhotos,
+} from '@core/integrations/unsplash/editorialCache';
 import type { UnsplashPhoto } from '@core/integrations/unsplash/UnsplashPhoto';
 import { unsplashCoverUrl } from '@core/integrations/unsplash/unsplashAttribution';
 import { openExternalUrl } from '@shared/helpers/openExternalUrl';
@@ -41,8 +45,10 @@ export function ImagePickerUnsplash({ onSelect, orientation }: ImagePickerUnspla
   const [query, setQuery] = useState('');
   const [shuffleKey, setShuffleKey] = useState(0);
   const [searchPage, setSearchPage] = useState(randomPage);
-  const [photos, setPhotos] = useState<UnsplashPhoto[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Opens straight onto the saved Editorial photos when there are some; nothing is requested for them.
+  const [initialPhotos] = useState(readEditorialCache);
+  const [photos, setPhotos] = useState<UnsplashPhoto[]>(initialPhotos ?? []);
+  const [isLoading, setIsLoading] = useState(initialPhotos === null);
   const [error, setError] = useState<string | null>(null);
 
   // A search starts at its first page; with no search text the Editorial feed opens on a random page.
@@ -50,6 +56,9 @@ export function ImagePickerUnsplash({ onSelect, orientation }: ImagePickerUnspla
     setQuery(value);
     setSearchPage(value.trim() ? 1 : randomPage());
   };
+
+  // Set by Shuffle on the Editorial feed: the one thing that fetches it again. Cleared once that fetch has settled.
+  const refreshEditorial = useRef(false);
 
   // The Editorial feed ignores the cover's shape, so a shape change only reloads a search.
   const searchOrientation = query.trim() ? orientation : undefined;
@@ -60,6 +69,18 @@ export function ImagePickerUnsplash({ onSelect, orientation }: ImagePickerUnspla
     const delay = trimmedQuery ? SEARCH_DEBOUNCE_MS : 0;
 
     const loadPhotos = async () => {
+      const refreshing = !trimmedQuery && refreshEditorial.current;
+      const cached = trimmedQuery || refreshing ? null : readEditorialCache();
+
+      if (cached) {
+        // No search text and photos already saved: show them, with no request.
+        setPhotos(cached);
+        setError(null);
+        setIsLoading(false);
+
+        return;
+      }
+
       setIsLoading(true);
       setError(null);
 
@@ -67,7 +88,9 @@ export function ImagePickerUnsplash({ onSelect, orientation }: ImagePickerUnspla
         // No search text: Unsplash's Editorial feed (it has no orientation filter, so none is sent).
         const results = trimmedQuery
           ? await searchPhotos(query, searchPage, searchOrientation)
-          : await listEditorialPhotos(searchPage);
+          : refreshing
+            ? await refreshEditorialPhotos(searchPage)
+            : await loadEditorialPhotos(searchPage);
 
         if (!cancelled) {
           setPhotos(results);
@@ -80,6 +103,10 @@ export function ImagePickerUnsplash({ onSelect, orientation }: ImagePickerUnspla
       } finally {
         if (!cancelled) {
           setIsLoading(false);
+
+          if (refreshing) {
+            refreshEditorial.current = false;
+          }
         }
       }
     };
@@ -95,6 +122,7 @@ export function ImagePickerUnsplash({ onSelect, orientation }: ImagePickerUnspla
   }, [query, shuffleKey, searchPage, searchOrientation]);
 
   const handleShuffle = () => {
+    refreshEditorial.current = query.trim() === '';
     setSearchPage(randomPage());
     setShuffleKey((key) => key + 1);
   };

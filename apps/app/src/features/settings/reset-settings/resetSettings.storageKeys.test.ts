@@ -41,12 +41,13 @@ const RESET_KEYS = [
 ] as const;
 
 /**
- * Not settings: interface layout, remembered picks, the Space registry and the welcome content first-run record
+ * Not settings: interface layout, remembered picks, the saved Unsplash Editorial photos, the Space registry and the welcome content first-run record
  * (ADR-067). A settings reset leaves them; wiping the record would let the welcome content install a second time.
  */
 const KEPT_KEYS = [
   'clutter-sidebar-width',
   'clutter-cover-picker-source',
+  'clutter-unsplash-editorial',
   'clutter-emoji-skin-tone',
   'clutter-gradient-grainy-last-palette',
   'clutter.spaces.v1',

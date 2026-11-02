@@ -50,6 +50,7 @@ const SEARCH_COPY: Record<UnsplashFailureKind, string> = {
 beforeEach(() => {
   vi.spyOn(console, 'warn').mockImplementation(() => {});
 });
+beforeEach(() => localStorage.clear());
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();

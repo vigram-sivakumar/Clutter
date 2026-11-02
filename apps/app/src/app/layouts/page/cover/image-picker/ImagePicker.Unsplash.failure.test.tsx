@@ -24,6 +24,7 @@ beforeEach(() => {
   vi.spyOn(console, 'warn').mockImplementation(() => {});
   process.on('unhandledRejection', onUnhandled);
 });
+beforeEach(() => localStorage.clear());
 afterEach(() => {
   cleanup();
   process.off('unhandledRejection', onUnhandled);

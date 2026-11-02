@@ -29,6 +29,9 @@ const photo = {
   },
 };
 
+// The Editorial photos are saved in localStorage: every test starts without them, as a first-ever opening.
+beforeEach(() => localStorage.clear());
+
 describe('ImagePickerUnsplash', () => {
   beforeEach(() => {
     vi.mocked(listEditorialPhotos).mockResolvedValue([photo, { ...photo, id: 'p2' }]);
@@ -130,8 +133,9 @@ describe('ImagePickerUnsplash default feed', () => {
     expect(listEditorialPhotos).toHaveBeenCalledTimes(1);
 
     fireEvent.change(input, { target: { value: '' } });
-    await waitFor(() => expect(listEditorialPhotos).toHaveBeenCalledTimes(2));
-    expect(listEditorialPhotos).toHaveBeenLastCalledWith(expect.any(Number));
+    // Back to the saved Editorial photos: no new request.
+    await waitFor(() => expect(screen.getAllByText('Alex Doe').length).toBeGreaterThan(0));
+    expect(listEditorialPhotos).toHaveBeenCalledTimes(1);
   });
 
   it('treats a blank search as the Editorial feed', async () => {
@@ -139,7 +143,8 @@ describe('ImagePickerUnsplash default feed', () => {
     await waitFor(() => expect(container.querySelector('img')).not.toBeNull());
 
     fireEvent.change(screen.getByPlaceholderText('Search Unsplash'), { target: { value: '   ' } });
-    await waitFor(() => expect(listEditorialPhotos).toHaveBeenCalledTimes(2));
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(listEditorialPhotos).toHaveBeenCalledTimes(1);
     expect(searchPhotos).not.toHaveBeenCalled();
   });
 
@@ -176,6 +181,174 @@ describe('ImagePickerUnsplash default feed', () => {
     vi.mocked(listEditorialPhotos).mockResolvedValueOnce([]);
     render(<ImagePickerUnsplash onSelect={vi.fn()} />);
     expect(await screen.findByText('No images found')).toBeTruthy();
+  });
+});
+
+const photosNamed = (...ids: string[]) => ids.map((id) => ({ ...photo, id, links: { downloadLocation: `https://api.unsplash.com/photos/${id}/download?ixid=abc` } }));
+const shownIds = (container: HTMLElement) => [...container.querySelectorAll('.image-picker-unsplash__card .image-picker-unsplash__image')].length;
+
+describe('ImagePickerUnsplash saved Editorial photos', () => {
+  beforeEach(() => {
+    vi.mocked(listEditorialPhotos).mockResolvedValue(photosNamed('a', 'b', 'c'));
+    vi.mocked(searchPhotos).mockResolvedValue(photosNamed('found'));
+  });
+  afterEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+  });
+
+  async function open() {
+    const view = render(<ImagePickerUnsplash onSelect={vi.fn()} />);
+    await waitFor(() => expect(view.container.querySelector('img')).not.toBeNull());
+
+    return view;
+  }
+
+  it('acceptance: ten openings across different notes make no Editorial request after the first', async () => {
+    for (let opening = 0; opening < 10; opening += 1) {
+      const { container, unmount } = await open();
+      expect(shownIds(container)).toBe(3);
+      unmount();
+    }
+
+    expect(listEditorialPhotos).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the saved photos at once on a later opening, with no loading state and no request', async () => {
+    await (await open()).unmount();
+    vi.clearAllMocks();
+
+    const { container } = render(<ImagePickerUnsplash onSelect={vi.fn()} />);
+
+    expect(screen.queryByText('Loading images…')).toBeNull();
+    expect(shownIds(container)).toBe(3);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(listEditorialPhotos).not.toHaveBeenCalled();
+  });
+
+  it('keeps the saved photos across a restart (a fresh load of the app reads them back from storage)', async () => {
+    await (await open()).unmount();
+    expect(JSON.parse(localStorage.getItem('clutter-unsplash-editorial')!)).toHaveLength(3);
+
+    vi.resetModules();
+    const fresh = await import('@core/integrations/unsplash/editorialCache');
+
+    expect(fresh.readEditorialCache()?.map((saved) => saved.id)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('Shuffle is the only thing that fetches again, and replaces the saved photos when it succeeds', async () => {
+    await (await open()).unmount();
+    vi.mocked(listEditorialPhotos).mockResolvedValue(photosNamed('x', 'y'));
+    const { container } = await open();
+    expect(listEditorialPhotos).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByLabelText('Shuffle'));
+
+    await waitFor(() => expect(shownIds(container)).toBe(2));
+    expect(listEditorialPhotos).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(localStorage.getItem('clutter-unsplash-editorial')!).map((saved: { id: string }) => saved.id)).toEqual(['x', 'y']);
+
+    cleanup();
+    const reopened = await open();
+    expect(shownIds(reopened.container)).toBe(2);
+    expect(listEditorialPhotos).toHaveBeenCalledTimes(2);
+  });
+
+  it('a failed Shuffle leaves the saved photos in place, and the next opening shows them', async () => {
+    await (await open()).unmount();
+    vi.mocked(listEditorialPhotos).mockRejectedValueOnce(new Error('offline'));
+    const { container } = await open();
+
+    fireEvent.click(screen.getByLabelText('Shuffle'));
+
+    await waitFor(() => expect(container.querySelector('.image-picker-unsplash__state')).not.toBeNull());
+    expect(JSON.parse(localStorage.getItem('clutter-unsplash-editorial')!)).toHaveLength(3);
+
+    cleanup();
+    const reopened = await open();
+    expect(shownIds(reopened.container)).toBe(3);
+    expect(listEditorialPhotos).toHaveBeenCalledTimes(2);
+  });
+
+  it('a search does not touch the saved photos, and clearing it shows them again without a request', async () => {
+    const { container } = await open();
+    const input = screen.getByPlaceholderText('Search Unsplash');
+
+    fireEvent.change(input, { target: { value: 'books' } });
+    await waitFor(() => expect(searchPhotos).toHaveBeenCalledWith('books', 1, undefined));
+    await waitFor(() => expect(shownIds(container)).toBe(1));
+    expect(JSON.parse(localStorage.getItem('clutter-unsplash-editorial')!)).toHaveLength(3);
+
+    fireEvent.change(input, { target: { value: '' } });
+
+    await waitFor(() => expect(shownIds(container)).toBe(3));
+    expect(listEditorialPhotos).toHaveBeenCalledTimes(1);
+  });
+
+  it('Shuffle during a search shuffles the search, not the saved photos', async () => {
+    const { container } = await open();
+    fireEvent.change(screen.getByPlaceholderText('Search Unsplash'), { target: { value: 'books' } });
+    await waitFor(() => expect(shownIds(container)).toBe(1));
+    fireEvent.click(screen.getByLabelText('Shuffle'));
+    await waitFor(() => expect(searchPhotos).toHaveBeenCalledTimes(2));
+
+    fireEvent.change(screen.getByPlaceholderText('Search Unsplash'), { target: { value: '' } });
+
+    await waitFor(() => expect(shownIds(container)).toBe(3));
+    expect(listEditorialPhotos).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['not JSON', 'not json{'],
+    ['not a list', '{"a":1}'],
+    ['an empty list', '[]'],
+    ['photos missing fields', '[{"id":"p"}]'],
+    ['an image from another host', JSON.stringify([{ ...photo, urls: { small: 'https://evil.example/x.jpg', regular: photo.urls.regular } }])],
+    ['a profile link that is not https', JSON.stringify([{ ...photo, user: { name: 'A', links: { html: 'javascript:alert(1)' } } }])],
+  ])('treats %s in storage as no cache: it fetches once and saves a good copy', async (_label, stored) => {
+    localStorage.setItem('clutter-unsplash-editorial', stored);
+
+    const { container } = await open();
+
+    expect(shownIds(container)).toBe(3);
+    expect(listEditorialPhotos).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(localStorage.getItem('clutter-unsplash-editorial')!)).toHaveLength(3);
+  });
+
+  it('pickers opening together share one request', async () => {
+    const first = render(<ImagePickerUnsplash onSelect={vi.fn()} />);
+    const second = render(<ImagePickerUnsplash onSelect={vi.fn()} />);
+
+    await waitFor(() => expect(first.container.querySelector('img')).not.toBeNull());
+    await waitFor(() => expect(second.container.querySelector('img')).not.toBeNull());
+    expect(listEditorialPhotos).toHaveBeenCalledTimes(1);
+  });
+
+  it('offline: the first opening shows the error and saves nothing, and the saved photos show once they exist', async () => {
+    vi.mocked(listEditorialPhotos).mockRejectedValueOnce(new Error('offline'));
+    const first = render(<ImagePickerUnsplash onSelect={vi.fn()} />);
+    await waitFor(() => expect(first.container.querySelector('.image-picker-unsplash__state')).not.toBeNull());
+    expect(localStorage.getItem('clutter-unsplash-editorial')).toBeNull();
+    first.unmount();
+
+    const second = await open();
+    expect(shownIds(second.container)).toBe(3);
+    second.unmount();
+
+    vi.mocked(listEditorialPhotos).mockRejectedValue(new Error('offline'));
+    const third = render(<ImagePickerUnsplash onSelect={vi.fn()} />);
+    expect(shownIds(third.container)).toBe(3);
+  });
+
+  it('selecting a saved photo still credits and tracks it', async () => {
+    const onSelect = vi.fn();
+    await (await open()).unmount();
+    const { container } = render(<ImagePickerUnsplash onSelect={onSelect} />);
+
+    fireEvent.click(container.querySelector('img')!.closest('button')!);
+
+    expect(onSelect).toHaveBeenCalledWith(expect.stringContaining('w=4800'), expect.objectContaining({ name: 'Alex Doe' }));
+    expect(trackPhotoDownload).toHaveBeenCalledWith('https://api.unsplash.com/photos/a/download?ixid=abc');
   });
 });
 
