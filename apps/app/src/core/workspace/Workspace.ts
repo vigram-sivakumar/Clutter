@@ -105,21 +105,21 @@ export class Workspace implements Observable {
   private readonly openPageIds: string[] = [];
 
   /**
-   * Folders currently collapsed in tree views.
+   * Folders currently expanded in tree views.
    *
-   * Folders are expanded by default; only explicitly collapsed ids are stored.
+   * Folders are collapsed by default; only explicitly expanded ids are stored.
    * This is UI navigation state, not vault data.
    */
-  private readonly collapsedFolderIds = new Set<string>();
+  private readonly expandedFolderIds = new Set<string>();
 
   /**
    * Sidebar section headers (Favorites, Folders, ...) currently collapsed.
    *
-   * A deliberately separate set from collapsedFolderIds (ADR-021), not a
+   * A deliberately separate set from expandedFolderIds (ADR-021), not a
    * generic "collapsed ids" structure — sections and folders are different
    * node kinds, and merging them risks an id collision (e.g. a folder
-   * literally named "favorites") for no benefit. Same shape and default
-   * (expanded unless explicitly collapsed) as collapsedFolderIds.
+   * literally named "favorites") for no benefit. Opposite default to
+   * expandedFolderIds: sections are expanded unless explicitly collapsed.
    */
   private readonly collapsedSectionIds = new Set<string>();
 
@@ -456,10 +456,10 @@ export class Workspace implements Observable {
    * Toggles the expanded state of a folder in tree views.
    */
   public toggleFolderExpanded(folderId: string): void {
-    if (this.collapsedFolderIds.has(folderId)) {
-      this.collapsedFolderIds.delete(folderId);
+    if (this.expandedFolderIds.has(folderId)) {
+      this.expandedFolderIds.delete(folderId);
     } else {
-      this.collapsedFolderIds.add(folderId);
+      this.expandedFolderIds.add(folderId);
     }
 
     this.notify();
@@ -469,7 +469,7 @@ export class Workspace implements Observable {
    * Returns whether a folder is expanded in tree views.
    */
   public isFolderExpanded(folderId: string): boolean {
-    return !this.collapsedFolderIds.has(folderId);
+    return this.expandedFolderIds.has(folderId);
   }
 
   /**
@@ -482,26 +482,26 @@ export class Workspace implements Observable {
    */
   public setFolderExpanded(folderId: string, expanded: boolean): void {
     if (expanded) {
-      this.collapsedFolderIds.delete(folderId);
+      this.expandedFolderIds.add(folderId);
     } else {
-      this.collapsedFolderIds.add(folderId);
+      this.expandedFolderIds.delete(folderId);
     }
 
     this.notify();
   }
 
   /**
-   * Every folder id currently collapsed, as a read-only copy — for an
+   * Every folder id currently expanded, as a read-only copy — for an
    * observer that needs the whole set (WorkspaceSessionStore's snapshot,
    * ADR-035) rather than one isFolderExpanded() lookup at a time.
    */
-  public get collapsedFolders(): readonly string[] {
-    return [...this.collapsedFolderIds];
+  public get expandedFolders(): readonly string[] {
+    return [...this.expandedFolderIds];
   }
 
   /**
    * Every sidebar section id currently collapsed — same read-only-copy
-   * shape and reasoning as collapsedFolders above.
+   * shape and reasoning as expandedFolders above.
    */
   public get collapsedSections(): readonly string[] {
     return [...this.collapsedSectionIds];

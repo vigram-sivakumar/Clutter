@@ -12,7 +12,7 @@ const OTHER_STATE = {
   collectionViewConfig: { 'view:notes': { layout: 'card', sort: { property: 'name', direction: 'up' } } },
   tasksViewConfig: { showCompleted: false, selectedTab: 'today' },
   tagExpansion: ['work'],
-  workspaceSession: { version: 1, sidebar: { visible: false, collapsedSections: [], notes: { collapsedFolderIds: ['f1'] } } },
+  workspaceSession: { version: 1, sidebar: { visible: false, collapsedSections: [], notes: { expandedFolderIds: ['f1'] } } },
   foldState: { page1: ['h1'] },
 };
 

@@ -88,6 +88,8 @@ function setup(folders: Folder[], pages: Page[] = [], resources: VaultResource[]
   const query = new VaultQuery(vault);
   const fileSystem = new InMemoryVaultFileSystem();
   const workspace = new Workspace();
+  // These tests were written when folders started expanded; keep that starting point.
+  for (const folder of folders) workspace.setFolderExpanded(folder.id, true);
   const documentRegistry = new DocumentRegistry();
   const saveCoordinator = new SaveCoordinator();
   const coordinator = new PagePersistenceCoordinator(

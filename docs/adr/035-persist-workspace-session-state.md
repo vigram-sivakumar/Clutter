@@ -34,7 +34,7 @@ The state this ADR concerns has no persistence owner:
 | Active sidebar tab | `Workspace._activeSidebarTab` (default `'daily-notes'`) |
 | Active view | `Workspace._activeView` (`ActiveView` union) |
 | Sidebar visibility | `Workspace._isSidebarVisible` |
-| Notes folder collapse | `Workspace.collapsedFolderIds` (stores *collapsed* ids; default expanded) |
+| Notes folder expansion | `Workspace.expandedFolderIds` (stores *expanded* ids; default collapsed — see the amendment at the end) |
 | Sidebar section collapse | `Workspace.collapsedSectionIds` (`'favorites'`, `'folders'`) |
 | Daily Notes Earlier / Upcoming expanded | Component-local `useState` in `DailyNotesList.tsx` — resets on every sidebar-tab switch, since the panel unmounts |
 
@@ -63,7 +63,7 @@ Three adjacent issues surfaced and are recorded below as implementation requirem
 **Sidebar**
 - `visible` — sidebar visibility
 - `collapsedSections` — `Workspace.collapsedSectionIds`
-- `notes.collapsedFolderIds` — `Workspace.collapsedFolderIds`
+- `notes.expandedFolderIds` — `Workspace.expandedFolderIds`
 - `dailyNotes.earlierExpanded`, `dailyNotes.upcomingExpanded`
 
 **Daily Notes runtime owner — deliberately *not* `Workspace`.** Earlier/Upcoming are Daily Notes sidebar UI state that now needs persistence, not workspace navigation state. **Invariant: a persistence requirement never by itself makes `Workspace` the runtime owner of unrelated UI state** — `Workspace` is not a catch-all UI-state container. These two flags therefore get their own small runtime owner, `DailyNotesSidebarState` (`core/application/daily-notes/DailyNotesSidebarState.ts`): an in-memory, zero-dependency `Observable` holding exactly `earlierExpanded`/`upcomingExpanded` (both default `false`), with exact-value setters and `subscribe()`, constructed by the Composition Root and exposed as `application.dailyNotesSidebarState`. It lives in `core` (not `features/`) only because `WorkspaceSessionStore` must be able to observe it without a `core → features` import (dependencies point downward). `DailyNotesList.tsx`'s two `useState`s are replaced by reads/writes against it, which also makes the flags survive sidebar-tab switches. `DailyNotesList`'s `scrollToDate` auto-expand writes through the same setters and is persisted like any other expansion change (the same way `setFolderExpanded` on reveal already behaves). `WorkspaceSessionStore` persists the complete session snapshot across both runtime owners; ownership of the *runtime* state and ownership of its *persistence* are separate concerns.
@@ -95,7 +95,7 @@ One new top-level key in `.clutter/workspace.json`, alongside the existing ones:
   "sidebar": {
     "visible": true,
     "collapsedSections": ["favorites"],
-    "notes":      { "collapsedFolderIds": ["<folderId>"] },
+    "notes":      { "expandedFolderIds": ["<folderId>"] },
     "dailyNotes": { "earlierExpanded": false, "upcomingExpanded": true }
   }
 }
@@ -122,7 +122,7 @@ One new top-level key in `.clutter/workspace.json`, alongside the existing ones:
 | `activeView.type === 'folder'` whose id is not a current `Vault` folder | Discard; use the existing fallback. |
 | `activeView.type === 'filtered-view'` with an unknown `kind`, or `kind: 'tag'` whose tag no longer exists | Discard; use the existing fallback. |
 | Draft page as the active view | **Never persisted.** A draft (ADR-017) has no `Vault` entry and does not survive restart; when the active view is a draft, the persisted `activeView` is written as `null` (nothing to restore → fallback), never the draft's id. |
-| `collapsedFolderIds` containing ids not in the current `Vault` | Ignored at seed time (only ids present in the booted `Vault` are applied to `Workspace`); since every write snapshots `Workspace`, unknown ids are pruned from disk on the next write. |
+| `expandedFolderIds` containing ids not in the current `Vault` | Ignored at seed time (only ids present in the booted `Vault` are applied to `Workspace`); since every write snapshots `Workspace`, unknown ids are pruned from disk on the next write. |
 | `collapsedSections` containing unknown ids | Harmless (no entity to resolve); kept if strings, dropped if not. |
 | Malformed `visible` / `earlierExpanded` / `upcomingExpanded` | That field's default (`true` / `false` / `false`). |
 
@@ -136,7 +136,7 @@ Application.bootstrap()
   4. construct Application, attachVault()                 (unchanged)
   5. seed Workspace chrome from the snapshot:
        activeSidebarTab, sidebar visibility, collapsedSections,
-       collapsedFolderIds (filtered to ids present in Vault),
+       expandedFolderIds (filtered to ids present in Vault),
        DailyNotesSidebarState earlier/upcoming
      — pure in-memory setter calls; no persistence subscription yet
 Application.open()
@@ -217,3 +217,7 @@ Implemented in four commits after approval: write queue + tag-rename fix (`b69cb
 - **Writes are change-only and the snapshot is taken at write time**, so a draft promoted by `close()`'s page flush is persisted as restorable even though promotion fires no `Workspace` notification.
 
 Verification: unit tests for the write queue (shown to fail without it), `TagExpansionStore.renameTag`/`TagOperations.rename`, `DailyNotesSidebarState`, `NavigationRouter.restore`, `WorkspaceSessionStore` (load/validation/migration, seeding, debounced persistence, flush, round trip), and `Application` boot-restore-close integration. In the web runtime (in-memory vault, so no cross-reload persistence by design) Earlier expansion was confirmed to survive a sidebar-tab switch. Cross-restart behavior in the Tauri desktop app is covered by the integration tests but was not exercised against a real vault.
+
+## Amendment: folders start collapsed
+
+Notes folders now start collapsed instead of expanded. `Workspace` stores the folders the user has *expanded* (`expandedFolderIds`, with `expandedFolders` replacing `collapsedFolders`), and the persisted key `sidebar.notes.collapsedFolderIds` is now `sidebar.notes.expandedFolderIds`. The schema version is unchanged: a session saved under the old key simply has no expanded folders, so every folder opens collapsed once, and the next write stores the new key. Sidebar sections keep their expanded-by-default behavior (`collapsedSections` is unchanged).

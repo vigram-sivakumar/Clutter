@@ -58,6 +58,8 @@ async function build(folders: Array<[string, string | null]>, notes: Array<[stri
 
 async function show(folderName: string) {
   cleanup();
+  // These tests were written when folders started expanded; keep that starting point.
+  for (const folder of application.vault.folders()) application.workspace.setFolderExpanded(folder.id, true);
   render(<AppLayout application={application} />);
   fireEvent.click(screen.getByTestId('sidebar.tab.notes'));
   await act(async () => {

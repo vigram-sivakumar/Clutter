@@ -36,7 +36,7 @@ const FULL_SESSION = {
   sidebar: {
     visible: false,
     collapsedSections: ['favorites'],
-    notes: { collapsedFolderIds: ['f1', 'f2'] },
+    notes: { expandedFolderIds: ['f1', 'f2'] },
     dailyNotes: { earlierExpanded: true, upcomingExpanded: false },
   },
 };
@@ -59,7 +59,7 @@ describe('WorkspaceSessionStore — load()', () => {
     expect(store.restoredSession).toEqual({
       activeView: null,
       collapsedSections: [],
-      collapsedFolderIds: [],
+      expandedFolderIds: [],
     });
     expect(warn).not.toHaveBeenCalled();
   });
@@ -72,7 +72,7 @@ describe('WorkspaceSessionStore — load()', () => {
       activeView: { type: 'page', id: 'p1' },
       sidebarVisible: false,
       collapsedSections: ['favorites'],
-      collapsedFolderIds: ['f1', 'f2'],
+      expandedFolderIds: ['f1', 'f2'],
       dailyNotesEarlierExpanded: true,
       dailyNotesUpcomingExpanded: false,
     });
@@ -90,7 +90,7 @@ describe('WorkspaceSessionStore — load()', () => {
   it('a non-object workspaceSession restores nothing', async () => {
     const store = await WorkspaceSessionStore.load(fileWith(['nope']), ROOT);
 
-    expect(store.restoredSession.collapsedFolderIds).toEqual([]);
+    expect(store.restoredSession.expandedFolderIds).toEqual([]);
     expect(warn).toHaveBeenCalled();
   });
 
@@ -121,7 +121,7 @@ describe('WorkspaceSessionStore — load()', () => {
     expect(store.restoredSession.activeSidebarTab).toBeUndefined();
     expect(store.restoredSession.sidebarVisible).toBeUndefined();
     expect(store.restoredSession.activeView).toEqual({ type: 'page', id: 'p1' });
-    expect(store.restoredSession.collapsedFolderIds).toEqual(['f1', 'f2']);
+    expect(store.restoredSession.expandedFolderIds).toEqual(['f1', 'f2']);
     expect(store.restoredSession.dailyNotesEarlierExpanded).toBe(true);
   });
 
@@ -157,12 +157,12 @@ describe('WorkspaceSessionStore — load()', () => {
     const store = await WorkspaceSessionStore.load(
       fileWith({
         ...FULL_SESSION,
-        sidebar: { ...FULL_SESSION.sidebar, notes: { collapsedFolderIds: ['f1', 7, null, 'f2'] } },
+        sidebar: { ...FULL_SESSION.sidebar, notes: { expandedFolderIds: ['f1', 7, null, 'f2'] } },
       }),
       ROOT
     );
 
-    expect(store.restoredSession.collapsedFolderIds).toEqual(['f1', 'f2']);
+    expect(store.restoredSession.expandedFolderIds).toEqual(['f1', 'f2']);
   });
 
   it.each([
@@ -258,20 +258,20 @@ describe('WorkspaceSessionStore — seed()', () => {
     expect(workspace.activeSidebarTab).toBe('notes');
     expect(workspace.isSidebarVisible).toBe(false);
     expect(workspace.isSectionExpanded('favorites')).toBe(false);
-    expect(workspace.isFolderExpanded('f1')).toBe(false);
-    expect(workspace.isFolderExpanded('f2')).toBe(false);
+    expect(workspace.isFolderExpanded('f1')).toBe(true);
+    expect(workspace.isFolderExpanded('f2')).toBe(true);
     expect(dailyNotes.earlierExpanded).toBe(true);
     expect(dailyNotes.upcomingExpanded).toBe(false);
     expect(workspace.activeView).toBeNull();
   });
 
-  it('skips collapsed folder ids that no longer exist in the Vault', async () => {
+  it('skips expanded folder ids that no longer exist in the Vault', async () => {
     const store = await WorkspaceSessionStore.load(fileWith(FULL_SESSION), ROOT);
     const workspace = new Workspace();
 
     store.seed(workspace, new DailyNotesSidebarState(), (id) => id === 'f1');
 
-    expect(workspace.collapsedFolders).toEqual(['f1']);
+    expect(workspace.expandedFolders).toEqual(['f1']);
   });
 
   it('leaves runtime defaults alone for fields that were absent or malformed', async () => {
@@ -310,7 +310,7 @@ describe('WorkspaceSessionStore — attach()/persistence', () => {
 
     store.attach(session);
     session.workspace.setActiveSidebarTab('tasks');
-    session.workspace.setFolderExpanded('f9', false);
+    session.workspace.setFolderExpanded('f9', true);
     session.workspace.openFolder('f9');
     session.dailyNotesSidebarState.setUpcomingExpanded(true);
     expect(writeFile).not.toHaveBeenCalled();
@@ -324,7 +324,7 @@ describe('WorkspaceSessionStore — attach()/persistence', () => {
       sidebar: {
         visible: true,
         collapsedSections: [],
-        notes: { collapsedFolderIds: ['f9'] },
+        notes: { expandedFolderIds: ['f9'] },
         dailyNotes: { earlierExpanded: false, upcomingExpanded: true },
       },
     });
@@ -433,7 +433,7 @@ describe('WorkspaceSessionStore — attach()/persistence', () => {
       activeView: { type: 'filtered-view', view: { kind: 'tag', tagName: 'design' } },
       sidebarVisible: false,
       collapsedSections: ['folders'],
-      collapsedFolderIds: [],
+      expandedFolderIds: [],
       dailyNotesEarlierExpanded: true,
       dailyNotesUpcomingExpanded: false,
     });

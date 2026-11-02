@@ -39,7 +39,7 @@ describe('Workspace.activeSidebarTab (ADR-021, M2)', () => {
 
     expect(workspace.activeSidebarTab).toBe('tags');
     expect(workspace.activePageId).toBe('page-1');
-    expect(workspace.isFolderExpanded('folder-1')).toBe(false);
+    expect(workspace.isFolderExpanded('folder-1')).toBe(true);
   });
 });
 
@@ -64,13 +64,13 @@ describe('Workspace.collapsedSectionIds / section expansion (ADR-021, M3)', () =
     expect(listener).toHaveBeenCalledTimes(2);
   });
 
-  it('is a separate namespace from collapsedFolderIds — a folder id and a section id never collide', () => {
+  it('is a separate namespace from expandedFolderIds — a folder id and a section id never collide', () => {
     const workspace = new Workspace();
 
     // "favorites" as a folder id, distinct from "favorites" as a section id.
     workspace.toggleFolderExpanded('favorites');
 
-    expect(workspace.isFolderExpanded('favorites')).toBe(false);
+    expect(workspace.isFolderExpanded('favorites')).toBe(true);
     expect(workspace.isSectionExpanded('favorites')).toBe(true);
   });
 
@@ -109,6 +109,18 @@ describe('Workspace.collapsedSectionIds / section expansion (ADR-021, M3)', () =
   });
 });
 
+describe('Workspace folder expansion default', () => {
+  it('a folder is collapsed until it is expanded', () => {
+    const workspace = new Workspace();
+
+    expect(workspace.isFolderExpanded('folder-1')).toBe(false);
+
+    workspace.toggleFolderExpanded('folder-1');
+
+    expect(workspace.isFolderExpanded('folder-1')).toBe(true);
+  });
+});
+
 describe('Workspace.setFolderExpanded ("Reveal in Clutter")', () => {
   it('lands on the exact requested state, unlike toggleFolderExpanded\'s blind negation', () => {
     const workspace = new Workspace();
@@ -122,6 +134,7 @@ describe('Workspace.setFolderExpanded ("Reveal in Clutter")', () => {
 
   it('expanding an already-expanded folder is a deliberate landing on true, not a no-op toggle', () => {
     const workspace = new Workspace();
+    workspace.setFolderExpanded('folder-1', true);
 
     expect(workspace.isFolderExpanded('folder-1')).toBe(true);
 
@@ -452,18 +465,18 @@ describe('Workspace.setSidebarVisible (ADR-035)', () => {
   });
 });
 
-describe('Workspace.collapsedFolders / collapsedSections (ADR-035)', () => {
-  it('lists exactly the collapsed ids, as a copy that cannot mutate Workspace', () => {
+describe('Workspace.expandedFolders / collapsedSections (ADR-035)', () => {
+  it('lists exactly the expanded ids, as a copy that cannot mutate Workspace', () => {
     const workspace = new Workspace();
-    workspace.setFolderExpanded('f1', false);
-    workspace.setFolderExpanded('f2', false);
+    workspace.setFolderExpanded('f1', true);
     workspace.setFolderExpanded('f2', true);
+    workspace.setFolderExpanded('f2', false);
     workspace.setSectionExpanded('favorites', false);
 
-    expect(workspace.collapsedFolders).toEqual(['f1']);
+    expect(workspace.expandedFolders).toEqual(['f1']);
     expect(workspace.collapsedSections).toEqual(['favorites']);
 
-    (workspace.collapsedFolders as string[]).push('f3');
-    expect(workspace.isFolderExpanded('f3')).toBe(true);
+    (workspace.expandedFolders as string[]).push('f3');
+    expect(workspace.isFolderExpanded('f3')).toBe(false);
   });
 });

@@ -39,7 +39,7 @@ describe('remapRenamedRootState: one handler per store, against that store’s o
         sidebar: {
           visible: true,
           collapsedSections: ['notes'],
-          notes: { collapsedFolderIds: [derived('Projects'), STABLE] },
+          notes: { expandedFolderIds: [derived('Projects'), STABLE] },
           dailyNotes: { earlierExpanded: false, upcomingExpanded: true },
         },
       },
@@ -51,7 +51,7 @@ describe('remapRenamedRootState: one handler per store, against that store’s o
       sidebar: {
         visible: true,
         collapsedSections: ['notes'],
-        notes: { collapsedFolderIds: [moved('Projects'), STABLE] },
+        notes: { expandedFolderIds: [moved('Projects'), STABLE] },
         dailyNotes: { earlierExpanded: false, upcomingExpanded: true },
       },
     });
@@ -59,7 +59,7 @@ describe('remapRenamedRootState: one handler per store, against that store’s o
 
   it('WorkspaceSessionStore: a stable id, or a filtered view, is left exactly as it is', () => {
     expect(
-      patch({ workspaceSession: { navigation: { activeView: { type: 'folder', id: STABLE } }, sidebar: { notes: { collapsedFolderIds: [STABLE] } } } })
+      patch({ workspaceSession: { navigation: { activeView: { type: 'folder', id: STABLE } }, sidebar: { notes: { expandedFolderIds: [STABLE] } } } })
     ).toEqual({});
     expect(patch({ workspaceSession: { navigation: { activeView: { type: 'filtered-view', view: { kind: 'tasks' } } } } })).toEqual({});
   });

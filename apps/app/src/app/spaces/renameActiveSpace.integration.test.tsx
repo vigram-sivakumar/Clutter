@@ -45,7 +45,7 @@ function seedDisk(): Disk {
       workspaceSession: {
         version: 1,
         navigation: { activeSidebarTab: 'notes', activeView: { type: 'page', id: `${OLD}/Projects/plan.md` } },
-        sidebar: { visible: true, collapsedSections: [], notes: { collapsedFolderIds: [`${OLD}/Archive`] }, dailyNotes: { earlierExpanded: false, upcomingExpanded: false } },
+        sidebar: { visible: true, collapsedSections: [], notes: { expandedFolderIds: [`${OLD}/Archive`] }, dailyNotes: { earlierExpanded: false, upcomingExpanded: false } },
       },
       foldState: { [`${OLD}/Projects/plan.md`]: [1, 4], [STABLE_PAGE]: [2, 3] },
     }),
@@ -143,7 +143,7 @@ describe('renaming the open Space, end to end', () => {
     expect(state.space).toMatchObject({ id: ID, avatar: { type: 'emoji', emoji: '🌿' }, defaultNoteFolderId: `${NEW}/Projects` });
     // Saved UI state follows the renamed ids; a stable id is untouched.
     expect(state.workspaceSession.navigation.activeView).toEqual({ type: 'page', id: `${NEW}/Projects/plan.md` });
-    expect(state.workspaceSession.sidebar.notes.collapsedFolderIds).toEqual([`${NEW}/Archive`]);
+    expect(state.workspaceSession.sidebar.notes.expandedFolderIds).toEqual([`${NEW}/Archive`]);
     expect(state.foldState).toEqual({ [`${NEW}/Projects/plan.md`]: [1, 4], [STABLE_PAGE]: [2, 3] });
     expect(calls.reopenActive).not.toHaveBeenCalled(); // the registry's new path is what opens it
     expect(view.result.current.lifecycle.active).toBeNull();

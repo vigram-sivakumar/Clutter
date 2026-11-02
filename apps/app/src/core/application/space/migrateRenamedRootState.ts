@@ -63,9 +63,9 @@ const handlers: Record<string, (value: unknown, remap: Remap) => unknown> = {
     }
     const sidebar = value.sidebar;
     if (isRecord(sidebar) && isRecord(sidebar.notes)) {
-      const collapsed = remapIdList(sidebar.notes.collapsedFolderIds, remap);
-      if (collapsed !== sidebar.notes.collapsedFolderIds) {
-        next = { ...next, sidebar: { ...sidebar, notes: { ...sidebar.notes, collapsedFolderIds: collapsed } } };
+      const collapsed = remapIdList(sidebar.notes.expandedFolderIds, remap);
+      if (collapsed !== sidebar.notes.expandedFolderIds) {
+        next = { ...next, sidebar: { ...sidebar, notes: { ...sidebar.notes, expandedFolderIds: collapsed } } };
       }
     }
     return next;

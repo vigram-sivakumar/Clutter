@@ -57,7 +57,7 @@ export interface WorkspaceSessionSnapshot {
   readonly activeView: ActiveView | null;
   readonly sidebarVisible?: boolean;
   readonly collapsedSections: readonly string[];
-  readonly collapsedFolderIds: readonly string[];
+  readonly expandedFolderIds: readonly string[];
   readonly dailyNotesEarlierExpanded?: boolean;
   readonly dailyNotesUpcomingExpanded?: boolean;
 }
@@ -65,7 +65,7 @@ export interface WorkspaceSessionSnapshot {
 const EMPTY_SNAPSHOT: WorkspaceSessionSnapshot = {
   activeView: null,
   collapsedSections: [],
-  collapsedFolderIds: [],
+  expandedFolderIds: [],
 };
 
 /** What `attach()` observes and snapshots — the session's runtime owners. */
@@ -171,9 +171,9 @@ export class WorkspaceSessionStore {
       workspace.setSectionExpanded(sectionId, false);
     }
 
-    for (const folderId of session.collapsedFolderIds) {
+    for (const folderId of session.expandedFolderIds) {
       if (folderExists(folderId)) {
-        workspace.setFolderExpanded(folderId, false);
+        workspace.setFolderExpanded(folderId, true);
       }
     }
 
@@ -295,7 +295,7 @@ interface PersistedWorkspaceSessionV1 {
   readonly sidebar: {
     readonly visible: boolean;
     readonly collapsedSections: readonly string[];
-    readonly notes: { readonly collapsedFolderIds: readonly string[] };
+    readonly notes: { readonly expandedFolderIds: readonly string[] };
     readonly dailyNotes: {
       readonly earlierExpanded: boolean;
       readonly upcomingExpanded: boolean;
@@ -316,7 +316,7 @@ function serializeSession(owners: WorkspaceSessionOwners): PersistedWorkspaceSes
     sidebar: {
       visible: workspace.isSidebarVisible,
       collapsedSections: workspace.collapsedSections,
-      notes: { collapsedFolderIds: workspace.collapsedFolders },
+      notes: { expandedFolderIds: workspace.expandedFolders },
       dailyNotes: {
         earlierExpanded: dailyNotesSidebarState.earlierExpanded,
         upcomingExpanded: dailyNotesSidebarState.upcomingExpanded,
@@ -401,8 +401,8 @@ function parseCurrentVersion(raw: Record<string, unknown>): WorkspaceSessionSnap
     sidebarVisible: parseField(sidebar?.visible, 'sidebar.visible', parseBoolean),
     collapsedSections:
       parseField(sidebar?.collapsedSections, 'sidebar.collapsedSections', parseStringArray) ?? [],
-    collapsedFolderIds:
-      parseField(notes?.collapsedFolderIds, 'sidebar.notes.collapsedFolderIds', parseStringArray) ?? [],
+    expandedFolderIds:
+      parseField(notes?.expandedFolderIds, 'sidebar.notes.expandedFolderIds', parseStringArray) ?? [],
     dailyNotesEarlierExpanded: parseField(
       dailyNotes?.earlierExpanded,
       'sidebar.dailyNotes.earlierExpanded',

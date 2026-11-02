@@ -27,9 +27,8 @@ export function FolderLeading({
 }: FolderLeadingProps) {
   // An empty folder has nothing to expand into, so its caret must always
   // read as collapsed — regardless of whatever expand/collapse state
-  // happens to be stored for its id (e.g. a brand-new folder defaults to
-  // "expanded" per Workspace.isFolderExpanded, even though it has never
-  // actually been toggled). This only changes which way the icon points;
+  // happens to be stored for its id (e.g. a folder expanded while it had
+  // children and since emptied). This only changes which way the icon points;
   // onExpandToggle/disabled below are unaffected.
   const visualIsExpanded = isEmpty ? false : isExpanded;
 

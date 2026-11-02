@@ -55,7 +55,7 @@ function seed(): Disk {
       workspaceSession: {
         version: 1,
         navigation: { activeSidebarTab: 'notes', activeView: { type: 'page', id: `${OTHER}/plan.md` } },
-        sidebar: { visible: true, collapsedSections: [], notes: { collapsedFolderIds: [] }, dailyNotes: { earlierExpanded: false, upcomingExpanded: false } },
+        sidebar: { visible: true, collapsedSections: [], notes: { expandedFolderIds: [] }, dailyNotes: { earlierExpanded: false, upcomingExpanded: false } },
       },
       foldState: { [`${OTHER}/plan.md`]: [1, 2], [STABLE_PAGE]: [3, 4] },
       preferredTemplates: [`${OTHER}/Templates/t.md`],

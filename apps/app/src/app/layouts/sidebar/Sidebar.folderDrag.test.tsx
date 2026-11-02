@@ -66,6 +66,8 @@ async function build(tree: Array<[name: string, parent: string | null]>, notes: 
     application.collectionViewConfigStore.update('sidebar:root', { sidebarSort: { key: 'manual', direction: 'down' } });
   }
   prepare?.();
+  // These tests were written when folders started expanded; keep that starting point.
+  for (const folder of application.vault.folders()) application.workspace.setFolderExpanded(folder.id, true);
   render(<AppLayout application={application} />);
   fireEvent.click(screen.getByTestId('sidebar.tab.notes'));
 }
@@ -427,6 +429,7 @@ describe('mixed notes and folders in one manual sequence', () => {
     const vault = application.vault;
     application = new Application(vault, fileSystem, new SelfWriteRegistry(), undefined, undefined, loaded);
     application.attachVault(vault, new PageCreator(new UuidGenerator(), new PageFactory()), new DailyNoteService());
+    for (const folder of application.vault.folders()) application.workspace.setFolderExpanded(folder.id, true);
     render(<AppLayout application={application} />);
     fireEvent.click(screen.getByTestId('sidebar.tab.notes'));
 
@@ -627,6 +630,7 @@ async function restart() {
   const vault = application.vault;
   application = new Application(vault, fileSystem, new SelfWriteRegistry(), undefined, undefined, loaded);
   application.attachVault(vault, new PageCreator(new UuidGenerator(), new PageFactory()), new DailyNoteService());
+  for (const folder of application.vault.folders()) application.workspace.setFolderExpanded(folder.id, true);
   render(<AppLayout application={application} />);
   fireEvent.click(screen.getByTestId('sidebar.tab.notes'));
 }
