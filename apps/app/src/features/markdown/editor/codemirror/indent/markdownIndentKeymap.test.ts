@@ -1121,3 +1121,182 @@ describe('CM6 indentUnit synchronization (Option C migration)', () => {
     });
   });
 });
+
+/**
+ * Source-local Tab/Shift-Tab contract (decision of 2026-08-29, reaffirmed): Tab adds one 4-space unit to every
+ * touched line, Shift-Tab removes one, with no list-aware nesting. These cases pin that contract across every
+ * list flavour, continuation lines, code, multiline selections, round trips, Enter, Backspace and selection.
+ */
+describe('source-local Tab/Shift-Tab contract', () => {
+  function mountWithUnit(doc: string, ranges: Array<[number, number]>): EditorView {
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const state = EditorState.create({
+      doc,
+      selection: EditorSelection.create(ranges.map(([from, to]) => EditorSelection.range(from, to))),
+      extensions: [markdownLanguageExtension(), indentUnit.of(INDENT_UNIT_STRING)],
+    });
+    const view = new EditorView({ state, parent });
+    mountedViews.push(view);
+    return view;
+  }
+
+  const UNIT = '    ';
+  const docOf = (view: EditorView) => view.state.doc.toString();
+  const at = (doc: string, needle: string): [number, number] => [doc.indexOf(needle), doc.indexOf(needle)];
+
+  describe.each([
+    ['bullet', '- item'],
+    ['numbered', '1. item'],
+    ['task', '- [ ] item'],
+    ['checked task', '- [x] item'],
+  ])('%s list item', (_name, line) => {
+    it('Tab adds exactly one unit and Shift-Tab restores the original bytes', () => {
+      const view = mountWithUnit(line, [at(line, 'item')]);
+      tab(view);
+      expect(docOf(view)).toBe(UNIT + line);
+      shiftTab(view);
+      expect(docOf(view)).toBe(line);
+    });
+
+    it('Shift-Tab at the root is a no-op: no negative indentation, document unchanged', () => {
+      const view = mountWithUnit(line, [at(line, 'item')]);
+      shiftTab(view);
+      expect(docOf(view)).toBe(line);
+    });
+
+    it('the caret stays on the same character through Tab and back', () => {
+      const view = mountWithUnit(line, [at(line, 'item')]);
+      const before = view.state.selection.main.head - view.state.doc.lineAt(0).from;
+      tab(view);
+      expect(view.state.selection.main.head).toBe(before + UNIT.length);
+      shiftTab(view);
+      expect(view.state.selection.main.head).toBe(before);
+    });
+  });
+
+  describe('multiline list items and paragraphs inside them', () => {
+    it.each([
+      ['bullet', '- one\n    two\n- three'],
+      ['numbered', '1. one\n    two\n2. three'],
+      ['task', '- [ ] one\n    two\n- [ ] three'],
+    ])('%s: Tab on a continuation line changes only that line, and Shift-Tab reverses it', (_n, doc) => {
+      const view = mountWithUnit(doc, [at(doc, 'two')]);
+      tab(view);
+      const lines = docOf(view).split('\n');
+      expect(lines[0]).toBe(doc.split('\n')[0]);
+      expect(lines[1]).toBe(UNIT + doc.split('\n')[1]);
+      expect(lines[2]).toBe(doc.split('\n')[2]);
+      shiftTab(view);
+      expect(docOf(view)).toBe(doc);
+    });
+
+    it('a second paragraph after a blank line is indented on its own, never its item', () => {
+      const doc = '- [ ] one\n\n    second';
+      const view = mountWithUnit(doc, [at(doc, 'second')]);
+      tab(view);
+      expect(docOf(view)).toBe('- [ ] one\n\n        second');
+      shiftTab(view);
+      expect(docOf(view)).toBe(doc);
+    });
+  });
+
+  describe('nested and mixed lists', () => {
+    const doc = '- a\n    1. b\n        - [ ] c\n- d';
+
+    it('Tab on one nested item moves only that line by one unit; the others are byte-identical', () => {
+      const view = mountWithUnit(doc, [at(doc, 'b')]);
+      tab(view);
+      expect(docOf(view).split('\n')).toEqual(['- a', '        1. b', '        - [ ] c', '- d']);
+    });
+
+    it('Shift-Tab on one nested item moves only that line by one unit', () => {
+      const view = mountWithUnit(doc, [at(doc, '[ ] c')]);
+      shiftTab(view);
+      expect(docOf(view).split('\n')).toEqual(['- a', '    1. b', '    - [ ] c', '- d']);
+    });
+  });
+
+  describe('multiline selections', () => {
+    const doc = '- a\n    1. b\n        - [ ] c\nplain\n> quote';
+
+    it('Tab indents every selected line by one unit and keeps the selection on the same text', () => {
+      const view = mountWithUnit(doc, [[doc.indexOf('a'), doc.indexOf('plain') + 2]]);
+      const anchorText = doc.slice(view.state.selection.main.from, view.state.selection.main.to);
+      tab(view);
+      const { from, to } = view.state.selection.main;
+      expect(docOf(view).split('\n').slice(0, 4)).toEqual(
+        ['- a', '    1. b', '        - [ ] c', 'plain'].map((l) => UNIT + l)
+      );
+      expect(docOf(view).split('\n')[4]).toBe('> quote');
+      expect(docOf(view).slice(from, to)).toBe(anchorText.replace(/\n/g, '\n' + UNIT).replace(/^/, ''));
+    });
+
+    it('Tab then Shift-Tab over the selection restores the document byte for byte', () => {
+      const view = mountWithUnit(doc, [[0, doc.length]]);
+      tab(view);
+      shiftTab(view);
+      expect(docOf(view)).toBe(doc);
+    });
+
+    it('relative nesting is preserved: every line moves by the same unit', () => {
+      const view = mountWithUnit(doc, [[0, doc.length]]);
+      const lead = (d: string) => d.split('\n').map((l) => l.length - l.trimStart().length);
+      const before = lead(doc);
+      tab(view);
+      expect(lead(docOf(view))).toEqual(before.map((n) => n + UNIT.length));
+    });
+  });
+
+  describe('code blocks', () => {
+    it('Tab inserts one unit on a fenced code line and Shift-Tab removes it', () => {
+      const doc = '```\nconst x = 1;\n```';
+      const view = mountWithUnit(doc, [at(doc, 'const')]);
+      tab(view);
+      expect(docOf(view)).toBe('```\n    const x = 1;\n```');
+      shiftTab(view);
+      expect(docOf(view)).toBe(doc);
+    });
+
+    it('code inside a list item is indented like any other line', () => {
+      const doc = '- item\n\n    ```\n    code\n    ```';
+      const view = mountWithUnit(doc, [at(doc, 'code\n')]);
+      tab(view);
+      expect(docOf(view).split('\n')[3]).toBe('        code');
+    });
+  });
+
+  describe('Enter and Backspace around indentation', () => {
+    it('Enter at the end of a Tabbed task item continues at the same indentation', () => {
+      const doc = '- [ ] item';
+      const view = mountWithUnit(doc, [[doc.length, doc.length]]);
+      tab(view);
+      pressEnter(view);
+      const lines = docOf(view).split('\n');
+      expect(lines[0]).toBe(UNIT + doc);
+      expect(lines[1]?.startsWith(UNIT + '- [ ]')).toBe(true);
+    });
+
+    it.each([['- item'], ['1. item'], ['- [ ] item']])(
+      'Backspace right before the marker of a Tabbed "%s" removes exactly one unit',
+      (line) => {
+        const view = mountWithUnit(line, [[0, 0]]);
+        tab(view);
+        view.dispatch({ selection: { anchor: UNIT.length } });
+        const target = { state: view.state, dispatch: (tr: any) => view.update([tr]) };
+        expect(deleteCharBackward(target as unknown as EditorView)).toBe(true);
+        expect(docOf(view)).toBe(line);
+      }
+    );
+  });
+
+  describe('existing documents are never rewritten by selection or caret movement', () => {
+    it('a Tab on one line leaves odd/tab indentation on every other line byte-identical', () => {
+      const doc = '   odd\n\ttabbed\n- list\n  - two';
+      const view = mountWithUnit(doc, [at(doc, 'list')]);
+      tab(view);
+      const lines = docOf(view).split('\n');
+      expect([lines[0], lines[1], lines[3]]).toEqual(['   odd', '\ttabbed', '  - two']);
+    });
+  });
+});

@@ -274,10 +274,10 @@ function ownListItemIndentPx(
 }
 
 /**
- * `consumedPx` is set only on a later document line of an item (never its marker line): the width of the
- * leading whitespace that already stands in for the item's marker column. Those spaces are drawn as real
- * indent tokens on top of the reserved gutter, so the first row's negative `text-indent` must cancel exactly
- * them (not the whole gutter) for its text to start at the item's content column, where wrapped rows start.
+ * `consumedPx` is set only on a later document line of an item (never its marker line): the width of that line's
+ * own leading whitespace. Those spaces are drawn as real indent tokens on top of the reserved gutter, so the first
+ * row's negative `text-indent` must cancel exactly them (not the whole gutter) for its text to start at the item's
+ * content column, where wrapped rows start.
  */
 function listLineMark(indentPx: number, consumedPx?: number): Decoration {
   const style =
@@ -287,7 +287,12 @@ function listLineMark(indentPx: number, consumedPx?: number): Decoration {
   return Decoration.line({ attributes: { class: 'cm-list-line', style } });
 }
 
-/** The width of the part of a continuation line's leading whitespace that sits in the item's marker column, or undefined for the marker line itself. */
+/**
+ * The width of a continuation line's whole leading whitespace, or undefined for the marker line itself. Every one of
+ * those spaces is drawn as an indent token, so the first row's text-indent must cancel all of them for its text to
+ * start at the item's content column, where the wrapped rows start. Capping it at the marker column left any extra
+ * indentation (Tab writes four spaces, a bullet marker column is two) visible as a first-row-only offset.
+ */
 function continuationConsumedPx(state: EditorState, item: SyntaxNode, line: Line): number | undefined {
   const marker = item.firstChild;
   if (!marker || marker.name !== 'ListMark') {
@@ -297,11 +302,7 @@ function continuationConsumedPx(state: EditorState, item: SyntaxNode, line: Line
   if (line.from === markerLine.from) {
     return undefined;
   }
-  const separator = separatorRangeAfter(state, marker);
-  if (!separator) {
-    return undefined;
-  }
-  return getLeadingWhitespaceWidthPx(line.text.slice(0, separator.to - markerLine.from));
+  return getLeadingWhitespaceWidthPx(line.text);
 }
 
 function buildListLineDecorations(view: EditorView): DecorationSet {

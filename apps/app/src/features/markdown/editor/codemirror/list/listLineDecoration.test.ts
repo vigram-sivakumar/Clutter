@@ -6,6 +6,7 @@ import { EditorView } from '@codemirror/view';
 
 import { blockquoteLineDecoration } from '../highlight/blockquoteLineDecoration';
 import { markdownLanguageExtension } from '../markdownLanguage';
+import { getLeadingWhitespaceWidthPx } from '../../../../../design-system/markdownIndent';
 import { listLineDecoration } from './listLineDecoration';
 import { listMarkerDecoration } from './listMarkerDecoration';
 import {
@@ -500,10 +501,33 @@ describe('listLineDecoration', () => {
       expect(hasListLine(lines(view)[1]!)).toBe(false);
     });
 
-    it('extra indentation beyond the marker column is kept, not consumed', () => {
-      const exact = consumedPx(lines(mountView('- one\n  two'))[1]!);
-      const deeper = consumedPx(lines(mountView('- one\n      two'))[1]!);
-      expect(deeper).toBe(exact);
+    it('a continuation consumes its whole leading whitespace, so its first row starts at the content column (consumed equals the indent tokens drawn)', () => {
+      const cases: Array<[string, string]> = [
+        ['bullet, marker-column indent', '- one\n  two'],
+        ['bullet, four-space indent', '- one\n    two'],
+        ['bullet, deeper indent', '- one\n        two'],
+        ['ordered, four-space indent', '1. one\n    two'],
+        ['task, four-space indent', '- [ ] one\n    two'],
+        ['task, eight-space indent', '- [x] one\n        two'],
+      ];
+      for (const [label, doc] of cases) {
+        const rows = lines(mountView(doc));
+        const leading = getLeadingWhitespaceWidthPx(doc.split('\n')[1]!);
+        // first-row text start = padding-left - consumed + indent tokens = padding-left, the wrapped-row start.
+        expect(consumedPx(rows[1]!), label).toBe(leading);
+        expect(indentPx(rows[1]!), label).toBe(indentPx(rows[0]!));
+      }
+    });
+
+    it('a task item\'s four-space continuation (Tab/Enter indent) is no longer pulled back by only the marker column', () => {
+      const rows = lines(mountView('- [ ] one\n    two'));
+      const markerColumnOnly = getLeadingWhitespaceWidthPx('  ');
+      expect(consumedPx(rows[1]!)).toBeGreaterThan(markerColumnOnly);
+    });
+
+    it('a second paragraph after a blank line aligns the same way', () => {
+      const rows = lines(mountView('- [ ] one\n\n    second paragraph'));
+      expect(consumedPx(rows[2]!)).toBe(getLeadingWhitespaceWidthPx('    '));
     });
 
     it('a nested item\'s continuation consumes up to its own marker column', () => {
