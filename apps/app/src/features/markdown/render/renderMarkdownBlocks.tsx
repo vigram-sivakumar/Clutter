@@ -171,7 +171,8 @@ function renderCode(node: SyntaxNode, ctx: BlockContext, key: number): ReactNode
   const lines: string[] = [];
   for (let child = node.firstChild; child; child = child.nextSibling) {
     if (child.name === 'CodeText') {
-      lines.push(ctx.text.slice(child.from, child.to));
+      // A fenced block has one CodeText; an indented one has one per line, each carrying its own trailing newline.
+      lines.push(ctx.text.slice(child.from, child.to).replace(/\n$/, ''));
     }
   }
   const code = lines.join('\n').replace(/\n$/, '');
@@ -329,6 +330,7 @@ function renderBlock(node: SyntaxNode, ctx: BlockContext, key: number): ReactNod
         </blockquote>
       );
     case 'FencedCode':
+    case 'CodeBlock': // indented code (CommonMark): the same block, minus a fence
       return renderCode(node, ctx, key);
     case 'Table':
       return renderTable(node, ctx, key);

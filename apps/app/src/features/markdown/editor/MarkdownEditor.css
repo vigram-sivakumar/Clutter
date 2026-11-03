@@ -613,6 +613,14 @@
 }
 
 /*
+ * Indented code (`CodeBlock`, `indentedCodeLineDecoration.ts`): monospace only. No card, background or controls, as an
+ * indented block has no fence to anchor them to; the leading indentation is the ordinary indent widgets.
+ */
+.cm-editor .cm-indented-code-line {
+  font-family: var(--font-mono);
+}
+
+/*
  * Fenced code — wrapper-free architecture (2026-09-16 migration; see
  * `docs/editor-architecture-decisions.md`'s Architecture-B investigation
  * and migration entries). `fencedCodeBlockWrapper.ts`/`EditorView.blockWrappers`

@@ -1212,3 +1212,30 @@ Both are app-wide localStorage preferences with a change notification (the Show 
 
 **Tests.** `markdownDeepBulletEnter.test.ts` was rewritten around the full Enter chain (the old tests called the removed function directly): real nested items still go through the Markdown continuation, lazy lookalikes (bullet and ordered, end of line and mid-line, every Tab depth) take the generic newline at the physical indentation.
 
+## Indented code is standard CommonMark again; the `IndentedCode` removal is reverted (2026-11-03)
+
+**Supersedes** the 2026-08-28 editor-indentation-ceiling decision to remove `IndentedCode` from the shared grammar (`{ remove: ['IndentedCode'] }`), made so Tab-indented text never became code. Clutter now reads indentation the way other Markdown tools do.
+
+**Decision (Locked).**
+1. Four or more leading columns at the start of a block are an indented code block (`CodeBlock`/`CodeText`). `this is here⏎⏎        - a bullet` is a paragraph and a code block, not a list. Lists nest by the standard rule (a marker under the parent item's content column plus four is a nested item), and an indented line directly after a paragraph is that paragraph's lazy continuation. The grammar is checked against the bare `@lezer/markdown` CommonMark parser over a corpus (`indentedCode.standardMarkdown.test.tsx`).
+2. **Tab and Shift+Tab are unchanged**: four spaces, source-local, five-level cap. Only the *parse* of the edited line differs where the standard says so. Tab on a list's **first** item (nothing above to nest under) leaves an indented code line, since `    - a` at the start of a block is code in CommonMark; Tab on a later item still nests it. This is the one incompatibility with the earlier "Tab always keeps a list item a list item" behavior, accepted rather than special-cased.
+3. **Enter and Backspace on indented code** use CodeMirror's generic newline-and-indent and character delete (`isListContinuationLine` now treats a `CodeBlock` line as source-indented text, outside blockquotes): Enter keeps the line's indentation, Backspace removes one four-space unit, never a list marker's width.
+4. **Presentation.** Code lines get `cm-indented-code-line` (monospace only, `indentedCodeLineDecoration.ts`; no card, language label or copy button: there is no fence to anchor them). `CodeBlock` joins `Table` and `FencedCode` in the "no interior spacing" set, so there is no spacer between its lines. The read-only renderer renders `CodeBlock` as `<pre><code>` (it used to return nothing for it), and strips the per-line trailing newline `CodeText` carries.
+5. **Compatibility.** Existing notes keep their text byte for byte; what changes is the reading of a line indented 4+ columns after a blank line (or at the start of a document): code instead of a paragraph, heading, quote or bullet, so tags, tasks and links inside it are no longer extracted. `PARSER_VERSION` is 6, which invalidates every persisted parsed-note cache. The bundled welcome notes are unaffected (their one tab-nested bullet sits directly under a bullet).
+
+**Verified.** Jsdom tests through `createEditorView` + `buildEditorExtensions` with real key events, the renderer against the editor's parse, and the grammar against bare CommonMark; the affected older tests were rewritten to the standard outcomes (the old `IndentedCode removal` suite was replaced). Not run in the native Tauri app.
+
+## Rich HTML paste: marker-looking text in a list item stays text (2026-11-03)
+
+**Problem.** `htmlToMarkdown.ts`'s `listItems` built each line as `${marker} ${task}${text}` from the item's raw inline text, and only paragraphs had their leading marker escaped (`commitBuffer` → `escapeBlockStart`). Text such as `- Buy groceries`, `1. Buy groceries`, `- [ ] Buy groceries`, `# Heading` or `> Quote` directly in an `<li>` therefore became `- - Buy groceries` and so on: a nested list (or heading, or quote) on the same line. Text the HTML marks as `<code>` was never affected (the converter backticks it); the bug needed marker-looking text outside a `<code>` element.
+
+**Decision.**
+1. `listItems` passes the item's text through `escapeBlockStart`, so a leading marker is literal text: `- \- Buy groceries`, `- 1\. Buy groceries`, `- \- \[ \] Buy groceries`, `- \# Heading`, `- \> Blockquote`. Only the start of the item text is escaped; the same characters later in it are untouched. Nested `<ul>`/`<ol>` elements are still real nested items.
+2. `escapeBlockStart` escapes an ordered marker at its **delimiter** (`1\.`, `2\)`), not before the digits. `\1.` is not a Markdown escape (a backslash is only an escape before ASCII punctuation), so it left the text a paragraph with a visible backslash; this also fixes ordinary pasted paragraphs that begin `1. `.
+
+**Verified.** `htmlPasteEscaping.test.tsx` checks the Markdown and the Clutter grammar's parse (one flat item, an `Escape` node on exactly the escaped character, no nested list, heading or quote) for plain-text and `<code>` representations, paragraphs, real nested lists and existing rich-paste behavior.
+
+**Follow-ups, not part of this change.**
+- A newline inside an inline `<code>` in a list item is collapsed to a space (`- Parent⏎  - |Child` pastes as `- Parent - |Child`): `listItems` collapses all whitespace in the item text, including inside the code span.
+- Clutter's editor and read-only renderer do not process Markdown backslash escapes at all: `\*`, `\[`, `\-` and `1\.` all show their backslash there, although they parse correctly as escapes. The converter has always escaped `*`, `_`, `[`, `]` and `<` this way, so this affects every pasted escaped character, not only the new ones.
+

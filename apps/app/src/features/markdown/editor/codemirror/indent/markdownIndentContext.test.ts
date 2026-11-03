@@ -10,6 +10,14 @@ function stateFor(doc: string): EditorState {
   return EditorState.create({ doc, extensions: [markdownLanguageExtension()] });
 }
 
+function topLevelNodeNamesOf(doc: string): string[] {
+  const names: string[] = [];
+  for (let node = syntaxTree(stateFor(doc)).topNode.firstChild; node; node = node.nextSibling) {
+    names.push(node.name);
+  }
+  return names;
+}
+
 function topLevelNodeNameAt(doc: string): string {
   const state = stateFor(doc);
   const first = syntaxTree(state).topNode.firstChild;
@@ -19,21 +27,37 @@ function topLevelNodeNameAt(doc: string): string {
   return first.name;
 }
 
-describe('IndentedCode removal — parser stays Paragraph/Heading/Blockquote/List at 4, 6, 8, 10 leading spaces', () => {
-  it.each([4, 6, 8, 10])('paragraph stays Paragraph at %i spaces', (spaces) => {
+/**
+ * Indented code is standard CommonMark: four or more leading columns at the start of a block are a code block.
+ * (An earlier grammar removed the `IndentedCode` parser so deep indentation never became code; that is reverted.)
+ */
+describe('IndentedCode — standard CommonMark at 4+ leading columns', () => {
+  it.each([4, 6, 8, 10])('text at the start of a document is an indented code block at %i spaces', (spaces) => {
+    expect(topLevelNodeNameAt(`${' '.repeat(spaces)}paragraph text`)).toBe('CodeBlock');
+    expect(topLevelNodeNameAt(`${' '.repeat(spaces)}# Heading`)).toBe('CodeBlock');
+    expect(topLevelNodeNameAt(`${' '.repeat(spaces)}> quoted`)).toBe('CodeBlock');
+    expect(topLevelNodeNameAt(`${' '.repeat(spaces)}- item`)).toBe('CodeBlock');
+  });
+
+  it.each([0, 1, 2, 3])('up to three spaces is still an ordinary block (%i spaces)', (spaces) => {
     expect(topLevelNodeNameAt(`${' '.repeat(spaces)}paragraph text`)).toBe('Paragraph');
-  });
-
-  it.each([4, 6, 8, 10])('ATX heading stays ATXHeading1 at %i spaces', (spaces) => {
     expect(topLevelNodeNameAt(`${' '.repeat(spaces)}# Heading`)).toBe('ATXHeading1');
-  });
-
-  it.each([4, 6, 8, 10])('blockquote stays Blockquote at %i spaces', (spaces) => {
     expect(topLevelNodeNameAt(`${' '.repeat(spaces)}> quoted`)).toBe('Blockquote');
+    expect(topLevelNodeNameAt(`${' '.repeat(spaces)}- item`)).toBe('BulletList');
   });
 
-  it.each([4, 6, 8, 10])('lone bullet list stays BulletList at %i spaces', (spaces) => {
-    expect(topLevelNodeNameAt(`${' '.repeat(spaces)}- item`)).toBe('BulletList');
+  it('a hyphen inside an indented code block stays code, not a bullet', () => {
+    expect(topLevelNodeNamesOf('this is here\n\n        - this is a bullet')).toEqual(['Paragraph', 'CodeBlock']);
+  });
+
+  it('an indented line directly after a paragraph is that paragraph\'s lazy continuation, not code', () => {
+    expect(topLevelNodeNamesOf('this is here\n        - this is a bullet')).toEqual(['Paragraph']);
+  });
+
+  it('a properly indented nested list is a nested list, not code', () => {
+    expect(topLevelNodeNamesOf('- a\n    - b\n        - c')).toEqual(['BulletList']);
+    expect(topLevelNodeNamesOf('1. a\n   1. b')).toEqual(['OrderedList']);
+    expect(topLevelNodeNamesOf('- [ ] a\n    - [x] b')).toEqual(['BulletList']);
   });
 
   it('fenced code remains unaffected', () => {

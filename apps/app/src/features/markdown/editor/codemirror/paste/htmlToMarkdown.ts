@@ -78,9 +78,15 @@ function escapeText(text: string, allowWikiLink = true): string {
   return out + escapeRun(text.slice(plainStart));
 }
 
-/** A line that would start a block when it is only text: its first character is escaped. */
+/**
+ * A line that would start a block when it is only text is kept as text. A `#`, `>`, `+` or `-` marker has its own
+ * character escaped. An ordered marker has its *delimiter* escaped (`1\.`): a backslash in front of the digits is
+ * not an escape (`\1.` shows the backslash), only a backslash before ASCII punctuation is.
+ */
 function escapeBlockStart(line: string): string {
-  return line.replace(/^(\s*)([#>+-]|\d+[.)])(?=\s|$)/, (_all, space: string, marker: string) => `${space}\\${marker}`);
+  return line.replace(/^(\s*)(?:([#>+-])|(\d+)([.)]))(?=\s|$)/, (_all, space: string, mark: string | undefined, digits: string | undefined, delimiter: string | undefined) =>
+    mark !== undefined ? `${space}\\${mark}` : `${space}${digits}\\${delimiter}`
+  );
 }
 
 interface Context {
@@ -257,7 +263,9 @@ function listItems(list: Element, context: Context, depth: number): string {
       }
     }
 
-    const text = own.text.replace(/\s+/g, ' ').trim();
+    // The item's text follows a list marker, so marker-looking text at its start (`- x`, `1. x`, `# x`, `> x`) would
+    // open a nested list, heading or quote on the same line. It is the item's literal text: escape it, as a paragraph's is.
+    const text = escapeBlockStart(own.text.replace(/\s+/g, ' ').trim());
     lines.push(`${'    '.repeat(depth)}${marker} ${task}${text}`.trimEnd(), ...nested);
   }
 

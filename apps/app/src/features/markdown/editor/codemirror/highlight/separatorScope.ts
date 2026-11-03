@@ -49,7 +49,7 @@ const GROUPING_NODE_NAMES = new Set([
 /**
  * Node names whose own interior gets zero spacing from this system —
  * the construct's own rendering owns its internals completely. Both
- * `Table` and `FencedCode` are safe to include uniformly here: unlike an
+ * `Table`, `FencedCode` and `CodeBlock` (indented code) are safe to include uniformly here: unlike an
  * earlier padding-class-based version of this system, block *widgets*
  * never touch a `.cm-line`'s own CSS properties, so there is no
  * collision with `FencedCode`'s existing `--first`/`--last` card-inset
@@ -58,7 +58,7 @@ const GROUPING_NODE_NAMES = new Set([
  * collision was the reason an earlier version had to special-case
  * `FencedCode`'s entry boundary; no such special-casing is needed here.
  */
-const ATOMIC_NODE_NAMES = new Set(['Table', 'FencedCode']);
+const ATOMIC_NODE_NAMES = new Set(['Table', 'FencedCode', 'CodeBlock']);
 
 /**
  * The separator height owed *above* a heading's own first physical line,

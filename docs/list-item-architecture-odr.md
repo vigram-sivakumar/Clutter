@@ -4449,6 +4449,8 @@ not a new, independent defect.**
 
 ### 17.4 Is `IndentedCode` removal causal? — IMPLEMENTED + VERIFIED (yes, for Hazard 1's specific trigger condition)
 
+> **Superseded 2026-11-03:** the `IndentedCode` removal this section analyses was reverted; indented code is standard CommonMark again (see `editor-architecture-decisions.md`). The analysis below is the original record.
+
 Directly tested by re-running Hazard 1's reproduction through a second,
 "baseline" parser config — `markdownGrammarExtensions` with the
 `{ remove: ['IndentedCode'] }` entry left out — everything else

@@ -113,9 +113,7 @@ const LIST_MARKER_LINE = /^(?:[-+*]|\d{1,9}[.)])(?:[ \t].*)?$/;
  * all. This is CommonMark's own universal "4 columns past the container
  * = code/lazy-continuation territory" rule — the same boundary that
  * governs indented code blocks and list-item content columns throughout
- * the spec, independent of this grammar's own separate, unrelated
- * removal of the `IndentedCode` *block parser* elsewhere in
- * `markdownGrammarExtensions.ts`. Reaching that depth would require
+ * the spec. Reaching that depth would require
  * patching/forking `@lezer/markdown`'s own block-parsing loop — exactly
  * the "second parser" this codebase's architecture forbids — so it is
  * out of scope by design, not by oversight: `Paragraph\n    1. `/

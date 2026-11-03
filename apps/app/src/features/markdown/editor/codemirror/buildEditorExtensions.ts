@@ -17,6 +17,7 @@ import { blockquoteMarkerDecoration } from './highlight/blockquoteMarkerDecorati
 import { blockSeparatorDecoration } from './highlight/blockSeparatorDecoration';
 import { fencedCodeBackgroundLayer } from './highlight/fencedCodeBackgroundLayer';
 import { fencedCodeBlockLineDecoration } from './highlight/fencedCodeBlockLineDecoration';
+import { indentedCodeLineDecoration } from './highlight/indentedCodeLineDecoration';
 import { fencedCodeActionsButtonDecoration } from './highlight/fencedCodeActionsButtonDecoration';
 import { fencedCodeCopyButtonDecoration } from './highlight/fencedCodeCopyButtonDecoration';
 import type { OnOpenFencedCodeMenu } from './fencedCode/FencedCodeActionsButtonWidget';
@@ -326,6 +327,7 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
     headingMarkerDecoration(),
     fencedCodeBackgroundLayer(),
     fencedCodeBlockLineDecoration(),
+    indentedCodeLineDecoration(),
     fencedCodeMarkerDecoration(),
     fencedCodeLanguageLabelDecoration(),
     fencedCodeCopyButtonDecoration(),

@@ -1,5 +1,5 @@
 {
- "parserVersion": 5,
+ "parserVersion": 6,
  "samples": {
   "empty": {
    "frontmatter": {},

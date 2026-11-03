@@ -208,8 +208,13 @@ describe('emoji list — Backspace', () => {
 
 describe('emoji list — Tab and Shift+Tab (the existing source-local contract)', () => {
   it('Tab adds one four-space unit and keeps the caret on its content', () => {
+    const { state } = run(markdownIndentMore, parse('🍊 first\n🍒 Ite|m'));
+    expect(render(state)).toBe('🍊 first\n    🍒 Ite|m');
+  });
+
+  it('Tab on the first item, with nothing to nest under, does nothing', () => {
     const { state } = run(markdownIndentMore, parse('🍒 Ite|m'));
-    expect(render(state)).toBe('    🍒 Ite|m');
+    expect(render(state)).toBe('🍒 Ite|m');
   });
 
   it('Shift+Tab removes one four-space unit', () => {
@@ -222,15 +227,16 @@ describe('emoji list — Tab and Shift+Tab (the existing source-local contract)'
     expect(render(state)).toBe('🍒 Ite|m');
   });
 
-  it('indents every line of a multi-line selection and keeps the selection', () => {
+  it('indents every selected line below the first item and keeps the selection', () => {
     const { state } = run(markdownIndentMore, parse('🍒 [A\n🍊 B\n🍌 C]'));
-    expect(state.doc.toString()).toBe('    🍒 A\n    🍊 B\n    🍌 C');
+    expect(state.doc.toString()).toBe('🍒 A\n    🍊 B\n    🍌 C');
     expect(state.sliceDoc(state.selection.main.from, state.selection.main.to)).toBe('A\n    🍊 B\n    🍌 C');
   });
 
   it('a mixed selection of bullet, ordered and emoji lines gets the same unit on each', () => {
     const { state } = run(markdownIndentMore, parse('[- a\n1. b\n🍒 c]'));
-    expect(state.doc.toString()).toBe('    - a\n    1. b\n    🍒 c');
+    // The first item has nothing to nest under; the ordered and emoji items below it each take one unit.
+    expect(state.doc.toString()).toBe('- a\n    1. b\n    🍒 c');
   });
 });
 

@@ -865,8 +865,8 @@ function isSpuriousTailRenumber(
  * (`insertNewlineContinueMarkup`, `deleteMarkupBackward`) model them from the *parent marker's width* (2 under
  * `- `, 3 under `1. `, 6 under a nested bullet). So on these lines Enter and Backspace skip those commands and
  * the generic newline-and-indent / character-deletion take over, which copy and remove the line's own
- * indentation. Marker lines, blockquote lines and fenced code are never continuation lines: the Markdown
- * commands still own them.
+ * indentation. A line of an indented code block counts too (it is source-indented text, even inside a list item).
+ * Marker lines, blockquote lines and fenced code are never continuation lines: the Markdown commands still own them.
  */
 function isListContinuationLine(state: EditorState, pos: number): boolean {
   const line = state.doc.lineAt(pos);
@@ -875,15 +875,24 @@ function isListContinuationLine(state: EditorState, pos: number): boolean {
   }
   const side = pos === line.from ? 1 : -1;
   let item: SyntaxNode | null = null;
+  let indentedCode = false;
   for (let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, side); node; node = node.parent) {
     // A quote prefix is the Markdown commands' to continue, and fenced code is not list text: never ours,
     // however deep the list item sits inside them.
-    if (node.name === 'Blockquote' || node.name === 'FencedCode' || node.name === 'CodeBlock') {
+    if (node.name === 'Blockquote' || node.name === 'FencedCode') {
       return false;
+    }
+    // An indented code block is source-indented text too: its own indentation is what Enter must keep and
+    // Backspace must remove, never a list marker's width (inside a list item, the native command would use it).
+    if (node.name === 'CodeBlock') {
+      indentedCode = true;
     }
     if (node.name === 'ListItem' && item === null) {
       item = node;
     }
+  }
+  if (indentedCode) {
+    return true;
   }
   const marker = item && listItemMarker(item);
   return marker !== null && marker !== undefined && state.doc.lineAt(marker.from).from !== line.from;

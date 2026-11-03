@@ -105,11 +105,19 @@ describe('fencedCodeFenceAutoClose — core behavior', () => {
   });
 
   it('a plain-indented opening fence keeps that same indentation on the closing line', () => {
+    const view = mountView('   ``', 5);
+    const handled = typeBacktick(view, 5);
+
+    expect(handled).toBe(true);
+    expect(view.state.doc.toString()).toBe('   ```\n```');
+  });
+
+  it('four or more spaces is an indented code block, not a fence, so no closing fence is added', () => {
     const view = mountView('    ``', 6);
     const handled = typeBacktick(view, 6);
 
-    expect(handled).toBe(true);
-    expect(view.state.doc.toString()).toBe('    ```\n```');
+    expect(handled).toBe(false);
+    expect(view.state.doc.toString()).toBe('    ``');
   });
 });
 

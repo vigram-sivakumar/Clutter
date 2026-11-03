@@ -74,13 +74,19 @@ describe('[] + Space makes an unchecked task', () => {
   });
 
   it('keeps the indentation as typed', () => {
-    const view = mount('    []|');
+    const view = mount('  []|');
     space(view);
-    expect(doc(view)).toBe('    - [ ] ');
-    expect(head(view)).toBe(10);
-    const tab = mount('\t[]|');
+    expect(doc(view)).toBe('  - [ ] ');
+    expect(head(view)).toBe(8);
+  });
+
+  it('does nothing inside an indented code block (four or more spaces, or a tab, after a blank line)', () => {
+    const view = mount('Intro\n\n    []|');
+    space(view);
+    expect(doc(view)).toBe('Intro\n\n    []');
+    const tab = mount('Intro\n\n\t[]|');
     space(tab);
-    expect(doc(tab)).toBe('\t- [ ] ');
+    expect(doc(tab)).toBe('Intro\n\n\t[]');
   });
 
   it('works on a later line, and under an item as a nested task', () => {

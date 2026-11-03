@@ -3,7 +3,6 @@ import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
 import { EditorSelection, EditorState, type Transaction } from '@codemirror/state';
 import { describe, expect, it } from 'vitest';
 
-import { markdownIndentMore } from '../indent/markdownIndentKeymap';
 import { resolveLineIndentContext } from '../indent/markdownIndentContext';
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { markdownEnterCommand } from './markdownEnterKeymap';
@@ -148,16 +147,15 @@ describe('Enter on a bullet-looking lazy-continuation line is CodeMirror\'s gene
 
   describe('multiple depths — the actual Tab sequence that produced the original screenshot', () => {
     /**
-     * Start from a normally-nested fixture and apply real Tab presses until the parser stops recognizing the line as
-     * its own ListItem, then verify Enter at every depth along the way.
+     * Start from a normally-nested fixture and indent the last line by four spaces per step, as typing would (Tab
+     * itself no longer pushes an item past the item above it), until the parser stops recognizing the line as its
+     * own ListItem, then verify Enter at every depth along the way.
      */
     function tabTimes(state: EditorState, times: number): EditorState {
       let s = state;
       for (let i = 0; i < times; i++) {
-        const lineStart = s.doc.toString().lastIndexOf('Bullet 5');
-        s = s.update({ selection: EditorSelection.cursor(lineStart) }).state;
-        const target = { state: s, dispatch: (tr: Transaction) => (s = tr.state) };
-        markdownIndentMore(target);
+        const lineFrom = s.doc.lineAt(s.doc.toString().lastIndexOf('Bullet 5')).from;
+        s = s.update({ changes: { from: lineFrom, insert: '    ' } }).state;
       }
       ensureSyntaxTree(s, s.doc.length, 5000);
       return s;
