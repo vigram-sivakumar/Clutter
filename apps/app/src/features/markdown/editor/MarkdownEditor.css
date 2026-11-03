@@ -1018,25 +1018,12 @@
 }
 
 /*
- * Shared marker class — `emojiListMarkDecoration.ts`'s `Decoration.mark`
- * carries this alongside its own construct-specific class
- * (`cm-emoji-list-marker` below); `listMarkerDecoration.ts`'s ordered
- * marker (`cm-ordered-list-marker`, below) carries it too, as anticipated
- * here before ordered rendering existed. Task-checklist marker rendering
- * remains unimplemented (out of scope) — a future slice may extend this
+ * Shared marker class — `listMarkerDecoration.ts`'s emoji marker
+ * (`cm-emoji-list-marker`, below) and ordered marker (`cm-ordered-list-marker`,
+ * below) carry it alongside their own construct-specific class. Task-checklist
+ * marker rendering remains unimplemented here — a future slice may extend this
  * shared class rather than introduce a new one, per this file's own
  * "extend before adding" convention.
- *
- * **Marker-color unification (out of scope for the still-dormant
- * `emojiListMarkDecoration.ts`, not touched by that change): this rule no
- * longer declares its own `color`** — it now composes the shared
- * `.cm-marker` rule above instead (see `listMarkerDecoration.ts`'s ordered
- * marker, which was updated to carry `cm-marker` alongside `cm-list-marker`
- * for exactly this). `emojiListMarkDecoration.ts`'s own `Decoration.mark`
- * was deliberately left unchanged (still `cm-list-marker cm-emoji-list-
- * marker`, no `cm-marker`) per this task's scope boundary — whoever wires
- * that construct into the active extension list should add `cm-marker` to
- * its class at the same time, or its marker will render uncolored.
  *
  * `listMarkerDecoration.ts`'s bullet marker (`cm-bullet-list-marker`,
  * below) does not carry this class — it carries the universal `cm-marker`
@@ -1048,9 +1035,9 @@
  * one rule keeps its own explicit `color: var(--md-marker-foreground)`
  * declaration rather than composing this class).
  *
- * Color: composed from the shared `.cm-marker` rule above —
- * `listMarkerDecoration.ts`'s ordered-marker decoration now carries
- * `cm-marker` alongside this class, so no `color` is declared here.
+ * Color: composed from the shared `.cm-marker` rule above — every marker
+ * decoration carries `cm-marker` alongside this class, so no `color` is
+ * declared here.
  */
 .cm-editor .cm-list-marker {
   display: inline-flex;
@@ -1059,16 +1046,28 @@
 }
 
 /*
- * The emoji list marker (emojiListMarkDecoration.ts) — not a widget
- * standing in for hidden syntax; the emoji itself is always the rendered
- * text, so this class only ever wraps it (`Decoration.mark`, no
- * replacement).
+ * The emoji list marker (`listMarkerDecoration.ts`) — real, visible
+ * `Decoration.mark` text, never replaced: the emoji itself is the rendered
+ * marker. The mark wraps the emoji *and* its separator inside one fixed box
+ * of `--md-list-marker-width` (the bullet marker's own width token), so every
+ * emoji, whatever its width, starts the item's text at the same column.
+ * `listMarkerWidth.ts` reads the same token for the hanging indent, so wrapped
+ * rows land on this box's right edge, the content column. No `font-size`/
+ * `height`/`aspect-ratio` override: the emoji renders at the line's own size
+ * and metrics, so the marker never changes the line's height or baseline.
+ *
+ * `white-space: pre`: `.cm-content` is `pre-wrap`, and a colour emoji plus its
+ * separator space is wider than this box's content area (width minus
+ * `padding-left`), so the space would wrap *inside* the inline-block and make it
+ * two lines tall, dropping the item's text to the lower line, away from the
+ * emoji. Bullet markers never hit this (`- ` is narrow); an emoji must not wrap.
  */
 .cm-editor .cm-emoji-list-marker {
-  height: var(--marker-size);
-  aspect-ratio: 1;
-  font-size: var(--text-label);
-  text-decoration: none;
+  display: inline-block;
+  width: var(--md-list-marker-width);
+  white-space: pre;
+  text-indent: 0;
+  padding-left: var(--space-2);
 }
 
 /*
@@ -1361,6 +1360,7 @@
 .cm-editor .cm-bullet-list-marker--dot::before {
   font-weight: 900;
   bottom: 2px;
+  left: 2px;
 }
 
 .cm-editor .cm-bullet-list-marker--plus::before {
@@ -1369,6 +1369,24 @@
 
 .cm-editor .cm-bullet-list-marker--dash::before {
   bottom: 2px;
+  left: 2px;
+}
+
+/*
+ * Preserve bullet style off (`data-markdown-bullet-style="dot"` on the root,
+ * `preserveBulletStylePreference.ts`): `-` and `+` paint the same dot `*`
+ * always paints — the `--dot` rule above, same weight and offsets — instead of
+ * themselves. Presentation only: the real, transparent marker text is untouched,
+ * so the source keeps its `-`/`+`, and the box, padding and hanging-indent
+ * geometry are unchanged (the `::before` is absolutely positioned inside the
+ * same marker box).
+ */
+:root[data-markdown-bullet-style='dot'] .cm-editor .cm-bullet-list-marker--dash::before,
+:root[data-markdown-bullet-style='dot'] .cm-editor .cm-bullet-list-marker--plus::before {
+  content: '•';
+  font-weight: 900;
+  bottom: 2px;
+  left: 2px;
 }
 
 /*

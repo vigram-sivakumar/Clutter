@@ -199,6 +199,27 @@ export function getBulletMarkerFootprintPx(view: EditorView): number {
 }
 
 /**
+ * `.cm-emoji-list-marker`'s own trailing margin, read from a probe carrying
+ * the identical class list `listMarkerDecoration.ts` renders. Not cached —
+ * see `getBulletMarkerTrailingGapPx()`'s own doc comment for why.
+ */
+function getEmojiMarkerTrailingGapPx(view: EditorView): number {
+  return readMarginPx(view, 'span', 'cm-marker cm-list-marker cm-emoji-list-marker', 'marginInlineEnd');
+}
+
+/**
+ * An emoji marker's complete real footprint — the fixed
+ * `--md-list-marker-width` box (`.cm-emoji-list-marker`'s `width`, the same
+ * token the bullet marker uses) plus its own trailing margin. Fixed, not
+ * measured: every emoji grapheme (variation selector, skin tone, ZWJ
+ * sequence) occupies the same column, so the text start never depends on
+ * which emoji an item uses.
+ */
+export function getEmojiMarkerFootprintPx(view: EditorView): number {
+  return getFixedListMarkerWidthPx() + getEmojiMarkerTrailingGapPx(view);
+}
+
+/**
  * The task checkbox's complete real footprint — fixed box width plus its
  * own (negative) trailing margin. Uniform regardless of the concealed
  * marker's bullet/ordered kind or digit count — see this module's own

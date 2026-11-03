@@ -190,9 +190,45 @@
   /* Vertically centered on the item's first line. */
   top: calc((1lh - 5px) / 2);
 }
+/*
+ * Preserve bullet style (`preserveBulletStylePreference.ts`): while it is on (no `data-markdown-bullet-style="dot"` on
+ * the root), a `-` or `+` item shows its own marker instead of the dot, as in the editor; `*` keeps the dot, and the
+ * setting being off keeps the dot for all three. `data-bullet-marker` is the source marker, set by `renderMarkdownBlocks`.
+ */
+:root:not([data-markdown-bullet-style='dot'])
+  .note-page-canvas
+  ul.markdown-blocks__list:not(.markdown-blocks__list--emoji)
+  > .markdown-blocks__list-item:not(.markdown-blocks__list-item--task)[data-bullet-marker='-']::before,
+:root:not([data-markdown-bullet-style='dot'])
+  .note-page-canvas
+  ul.markdown-blocks__list:not(.markdown-blocks__list--emoji)
+  > .markdown-blocks__list-item:not(.markdown-blocks__list-item--task)[data-bullet-marker='+']::before {
+  content: attr(data-bullet-marker);
+  width: calc(var(--space-12) * 2);
+  height: auto;
+  border-radius: 0;
+  background: none;
+  text-align: center;
+  top: 0;
+  inset-inline-start: calc(-2 * var(--space-12));
+  color: var(--md-marker-foreground, currentColor);
+}
+/*
+ * Emoji lists keep the shared list gutter (the list's own `padding-inline-start`); the item's emoji is its marker, drawn
+ * centered in that gutter like a bullet's dot, and wrapped lines align with the text, not under the emoji.
+ */
 .note-page-canvas .markdown-blocks__list--emoji {
   list-style: none;
-  padding-inline-start: 0;
+}
+.note-page-canvas .markdown-blocks__list--emoji > .markdown-blocks__list-item {
+  position: relative;
+}
+.note-page-canvas .markdown-blocks__emoji-marker {
+  position: absolute;
+  top: 0;
+  inset-inline-start: calc(-1 * var(--space-24));
+  width: var(--space-24);
+  text-align: center;
 }
 /*
  * Adjacent lists (of any marker or kind — bullet, ordered, task) read as one: `-`, `*` and `+` (and task items,

@@ -14,12 +14,14 @@ import { getLeadingWhitespaceWidthPx } from '../../../../../design-system/markdo
 import { isPendingBreak, pendingBreakLineNumber } from '../highlight/hardBreakMarkerDecoration';
 import { taskMarkerOfListItem } from '../task/taskEngagement';
 import {
-  classifyMarkerText,
+  classifyMarkerNode,
   isListItemNode,
+  listItemMarker,
   separatorRangeAfter,
 } from './listMarkerDecoration';
 import {
   getBulletMarkerFootprintPx,
+  getEmojiMarkerFootprintPx,
   getOrderedMarkerFootprintPx,
   getTaskMarkerFootprintPx,
   getTaskSeparatorWidthPx,
@@ -146,8 +148,8 @@ function nearestListItem(state: EditorState, probePos: number): SyntaxNode | nul
  *   line interrupted it), which is what real editors do not decorate.
  */
 function lineOwnsListIndent(state: EditorState, item: SyntaxNode, line: Line): boolean {
-  const marker = item.firstChild;
-  if (!marker || marker.name !== 'ListMark') {
+  const marker = listItemMarker(item);
+  if (!marker) {
     return false;
   }
 
@@ -227,13 +229,12 @@ function ownListItemIndentPx(
   item: SyntaxNode,
   state: EditorState
 ): number {
-  const marker = item.firstChild;
-  if (!marker || marker.name !== 'ListMark') {
+  const marker = listItemMarker(item);
+  if (!marker) {
     return 0;
   }
 
-  const raw = state.sliceDoc(marker.from, marker.to);
-  const kind = classifyMarkerText(raw);
+  const kind = classifyMarkerNode(marker, state);
   if (!kind) {
     return 0;
   }
@@ -265,10 +266,13 @@ function ownListItemIndentPx(
     );
   }
 
+  const markerText = state.sliceDoc(marker.from, separator.to);
   const markerFootprintPx =
     kind === 'ordered'
-      ? getOrderedMarkerFootprintPx(view, state.sliceDoc(marker.from, separator.to))
-      : getBulletMarkerFootprintPx(view);
+      ? getOrderedMarkerFootprintPx(view, markerText)
+      : kind === 'emoji'
+        ? getEmojiMarkerFootprintPx(view)
+        : getBulletMarkerFootprintPx(view);
 
   return leadingPx + markerFootprintPx;
 }
@@ -294,8 +298,8 @@ function listLineMark(indentPx: number, consumedPx?: number): Decoration {
  * indentation (Tab writes four spaces, a bullet marker column is two) visible as a first-row-only offset.
  */
 function continuationConsumedPx(state: EditorState, item: SyntaxNode, line: Line): number | undefined {
-  const marker = item.firstChild;
-  if (!marker || marker.name !== 'ListMark') {
+  const marker = listItemMarker(item);
+  if (!marker) {
     return undefined;
   }
   const markerLine = state.doc.lineAt(marker.from);

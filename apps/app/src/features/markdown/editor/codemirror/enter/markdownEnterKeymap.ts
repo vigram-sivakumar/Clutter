@@ -23,7 +23,8 @@ import {
 } from '../highlight/hardBreakMarkerDecoration';
 import { resolveLineIndentContext } from '../indent/markdownIndentContext';
 import { computeListItemFold } from '../fold/listItemFoldService';
-import { classifyMarkerText, firstSameLineListMark } from '../list/listMarkerDecoration';
+import { emojiMarkerSize } from '../../../../../core/vault/ingest/grammar/emojiListSyntax';
+import { classifyMarkerText, firstSameLineListMark, listItemMarker } from '../list/listMarkerDecoration';
 import { insertOrderedListMarkerSeparator } from '../list/orderedListMarkerCreation';
 import {
   isRiskyRenumberRewrite,
@@ -1128,6 +1129,43 @@ function isSpuriousTailRenumber(
   return mainEditIsMarkerless;
 }
 
+/** A list marker (bullet, ordered or emoji) at the start of `text`, i.e. a marker line rather than a continuation line. */
+function startsWithListMarker(text: string): boolean {
+  return /^(?:[-+*]|\d{1,9}[.)])(?:[ \t]|$)/.test(text) || emojiMarkerSize(text) > 0;
+}
+
+/**
+ * CM6's `insertNewlineContinueMarkup` rebuilds a list item's continuation line from the item's own
+ * marker width (`- ` is 2, `1. ` is 3), so Enter at the end of a continuation paragraph indented
+ * further than that (Clutter's four-space unit) loses the extra indentation — and drops it
+ * entirely under a task item. Where its output at the cursor is nothing but a line break plus
+ * indentation on a non-marker line, the new line gets the current line's own leading indentation
+ * instead whenever that is deeper. Marker lines, exits from an empty item and every other shape
+ * CM6 produces (a fresh marker, a deletion) are returned unchanged.
+ */
+function inheritContinuationIndent(
+  state: EditorState,
+  pos: number,
+  fromA: number,
+  toA: number,
+  insertedText: string
+): string {
+  if (fromA > pos || toA < pos) {
+    return insertedText;
+  }
+  const match = /^(\r?\n)((?:[ \t]*>[ \t]?)*)([ \t]*)$/.exec(insertedText);
+  if (!match) {
+    return insertedText;
+  }
+  const line = state.doc.lineAt(pos);
+  const lead = /^((?:[ \t]*>[ \t]?)*)([ \t]*)/.exec(line.text)!;
+  const ownIndent = lead[2]!;
+  if (ownIndent.length <= match[3]!.length || startsWithListMarker(line.text.slice(lead[0].length))) {
+    return insertedText;
+  }
+  return match[1]! + match[2]! + ownIndent;
+}
+
 const continueMarkupPreservingStructure: StateCommand = ({ state, dispatch }) => {
   let captured: Transaction | null = null;
   const handled = continueMarkup({
@@ -1146,9 +1184,15 @@ const continueMarkupPreservingStructure: StateCommand = ({ state, dispatch }) =>
 
   const kept: { from: number; to: number; insert: string }[] = [];
   let declinedAny = false;
+  let adjustedBy = 0;
 
   transaction.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
-    const insertedText = inserted.toString();
+    let insertedText = inserted.toString();
+    const inherited = inheritContinuationIndent(state, originalPos, fromA, toA, insertedText);
+    if (inherited !== insertedText) {
+      adjustedBy += inherited.length - insertedText.length;
+      insertedText = inherited;
+    }
     const isDigitRunRewrite = toA !== originalPos && BARE_DIGIT_RUN.test(insertedText) && BARE_DIGIT_RUN.test(state.doc.sliceString(fromA, toA));
     if (suppressTailRenumber && isDigitRunRewrite) {
       declinedAny = true;
@@ -1161,7 +1205,7 @@ const continueMarkupPreservingStructure: StateCommand = ({ state, dispatch }) =>
     kept.push({ from: fromA, to: toA, insert: insertedText });
   }, true);
 
-  if (!declinedAny) {
+  if (!declinedAny && adjustedBy === 0) {
     dispatch(transaction);
     return true;
   }
@@ -1169,7 +1213,92 @@ const continueMarkupPreservingStructure: StateCommand = ({ state, dispatch }) =>
   dispatch(
     state.update({
       changes: kept,
-      selection: EditorSelection.cursor(transaction.state.selection.main.head),
+      selection: EditorSelection.cursor(transaction.state.selection.main.head + adjustedBy),
+      scrollIntoView: true,
+      userEvent: 'input',
+    })
+  );
+  return true;
+};
+
+/**
+ * Enter inside an emoji list item (`🍒 Item`) — CM6's own
+ * `insertNewlineContinueMarkup` only knows `BulletList`/`OrderedList`
+ * parents, so this is the one emoji-specific Enter rule; everything else
+ * (nested bullets, continuation paragraphs, blockquotes) still goes through
+ * the commands below.
+ *
+ * Fires only on the item's own marker line, with the cursor past the
+ * marker (a cursor in front of the emoji is plain text, left to Enter's
+ * default):
+ *
+ * - **Empty item** (nothing after the marker and its separator): the marker
+ *   and its indentation are removed and the line becomes a plain empty
+ *   paragraph — only a blockquote prefix survives. The same "empty item
+ *   exits" rule bullets and ordered items follow, so a second Enter never
+ *   makes another emoji item.
+ * - **Otherwise**: a new item is inserted at the cursor carrying the *same*
+ *   emoji, separator and leading indentation, so the text after the cursor
+ *   moves into it. At content-start this leaves an empty item above the
+ *   moved text, the same shape bullets produce. The cursor lands right
+ *   after the new item's separator.
+ *
+ * Only source text is rewritten: no list structure is tracked, and the new
+ * item's nesting is whatever its indentation parses to, exactly like Tab.
+ */
+const continueEmojiListItem: StateCommand = ({ state, dispatch }) => {
+  const { selection } = state;
+  if (selection.ranges.length !== 1) {
+    return false;
+  }
+  const { from, to } = selection.main;
+  const line = state.doc.lineAt(from);
+  if (to > line.to) {
+    return false;
+  }
+
+  let item: SyntaxNode | null = null;
+  for (let node: SyntaxNode | null = syntaxTree(state).resolveInner(from, -1); node; node = node.parent) {
+    if (node.name === 'ListItem') {
+      item = node;
+      break;
+    }
+  }
+  const marker = item && listItemMarker(item);
+  if (!item || !marker || marker.name !== 'EmojiListMark' || state.doc.lineAt(marker.from).from !== line.from) {
+    return false;
+  }
+
+  if (from <= marker.from) {
+    return false;
+  }
+
+  const separatorEnd = marker.to + /^[ \t]*/.exec(line.text.slice(marker.to - line.from))![0].length;
+  const beforeMarker = line.text.slice(0, marker.from - line.from);
+
+  if (from >= marker.to && !/\S/.test(state.sliceDoc(marker.to, line.to))) {
+    const quote = /^(?:[ \t]*>[ \t]?)*/.exec(beforeMarker)![0];
+    dispatch(
+      state.update({
+        changes: { from: line.from, to: line.to, insert: quote },
+        selection: EditorSelection.cursor(line.from + quote.length),
+        scrollIntoView: true,
+        userEvent: 'input',
+      })
+    );
+    return true;
+  }
+
+  // Only `>` survives from what precedes the marker: any other list marker on the same line
+  // (`- 🍎 Text`) would otherwise be copied and start a second nested item.
+  const prefix = beforeMarker.replace(/[^>\s]/g, ' ');
+  const insert = state.lineBreak + prefix + state.sliceDoc(marker.from, marker.to) + (state.sliceDoc(marker.to, separatorEnd) || ' ');
+  // Never split inside the marker's own separator: a cursor there behaves as content-start.
+  const at = Math.max(from, separatorEnd);
+  dispatch(
+    state.update({
+      changes: { from: at, to: Math.max(to, at), insert },
+      selection: EditorSelection.cursor(at + insert.length),
       scrollIntoView: true,
       userEvent: 'input',
     })
@@ -1186,6 +1315,7 @@ const continueMarkupPreservingStructure: StateCommand = ({ state, dispatch }) =>
 export const markdownEnterCommand: StateCommand = (target) =>
   exitEmptyBlockquoteContinuation(target) ||
   exitLazyContinuationBulletLookalike(target) ||
+  continueEmojiListItem(target) ||
   preserveListMarkerOnContentStartSplit(target) ||
   preserveTaskContentOnContentStartSplit(target) ||
   continueFirstSameLineListLevel(target) ||
@@ -1211,8 +1341,7 @@ function listMarkAt(state: EditorState, markerFrom: number): SyntaxNode | null {
     node = node.parent
   ) {
     if (node.name === 'ListItem') {
-      const marker = node.firstChild;
-      return marker && marker.name === 'ListMark' ? marker : null;
+      return listItemMarker(node);
     }
   }
   return null;
@@ -1341,7 +1470,10 @@ export const deleteBulletMarkerSeparator: StateCommand = ({ state, dispatch }) =
   const marker = listMarkAt(state, context.markerFrom);
   const listItem = marker?.parent;
   const listParentName = listItem?.parent?.name;
-  if (!marker || (listParentName !== 'BulletList' && listParentName !== 'OrderedList')) {
+  if (
+    !marker ||
+    (listParentName !== 'BulletList' && listParentName !== 'OrderedList' && listParentName !== 'EmojiList')
+  ) {
     return false;
   }
 
@@ -1619,7 +1751,15 @@ function softBreakInsert(state: EditorState): { from: number; to: number; insert
   const prefix = CONTINUATION_PREFIX.exec(line.text.slice(0, Math.max(0, from - line.from)));
   const quoteAndIndent = prefix?.[1] ?? '';
   // Only a marker the cursor is past counts as this line's marker.
-  const markerWidth = prefix?.[2] ? prefix[2].length + (prefix[3]?.length ?? 0) : 0;
+  let markerWidth = prefix?.[2] ? prefix[2].length + (prefix[3]?.length ?? 0) : 0;
+  if (!prefix?.[2]) {
+    // An emoji marker (not a `CONTINUATION_PREFIX` alternative: its pattern lives with the grammar) counts the same way.
+    const afterIndent = line.text.slice(quoteAndIndent.length, Math.max(0, from - line.from));
+    const size = emojiMarkerSize(afterIndent);
+    if (size > 0 && size < afterIndent.length) {
+      markerWidth = size + /^[ \t]*/.exec(afterIndent.slice(size))![0].length;
+    }
+  }
 
   return {
     from,
@@ -1651,6 +1791,31 @@ export const insertSoftLineBreak: Command = (view) => {
     userEvent: 'input',
   });
   return true;
+};
+
+/**
+ * CM6's `deleteMarkupBackward` treats a caret in a list item's continuation line as sitting in the item's own
+ * markup and rewrites the leading whitespace down to the item's *marker width* (4 spaces become 2 under `- `, 3 under
+ * `1. `, 6 under a nested bullet) instead of removing one indentation unit — so the first Backspace seems to do
+ * nothing useful and the line only lands on a four-space step by accident. Backspace in a line's leading whitespace
+ * is source-local in Clutter: when everything before the caret is whitespace and the line is not itself a list
+ * marker line, this declines, so the chain falls through to `deleteCharBackward`, which (with Clutter's `indentUnit`)
+ * removes exactly one four-space unit. Everything else — marker lines, quote prefixes, a caret after text — still
+ * reaches `deleteMarkupBackward` unchanged.
+ */
+const deleteMarkupBackwardOutsideIndent: StateCommand = (target) => {
+  const { state } = target;
+  const { selection } = state;
+  if (selection.ranges.length === 1 && selection.main.empty) {
+    const pos = selection.main.head;
+    const line = state.doc.lineAt(pos);
+    const before = line.text.slice(0, pos - line.from);
+    const after = line.text.slice(pos - line.from);
+    if (before.length > 0 && /^[ \t]+$/.test(before) && !startsWithListMarker(after)) {
+      return false;
+    }
+  }
+  return deleteMarkupBackward(target);
 };
 
 /**
@@ -1694,7 +1859,7 @@ export function markdownEnterKeymap(): Extension {
           deleteBulletMarkerSeparator(target) ||
           deleteTaskMarker(target) ||
           deleteCompleteListItemSelection(target) ||
-          deleteMarkupBackward(target),
+          deleteMarkupBackwardOutsideIndent(target),
       },
       {
         key: 'Delete',

@@ -46,6 +46,8 @@ import { ShowTemplateSuggestionsSetting } from './templates-setting/ShowTemplate
 import { HeaderSeparatorSetting } from './header-separator-setting/HeaderSeparatorSetting';
 import { HeaderSeparatorStyleSetting } from './header-separator-style-setting/HeaderSeparatorStyleSetting';
 import { MarkdownItalicFontSetting } from './markdown-setting/MarkdownItalicFontSetting';
+import { PreserveBulletStyleSetting } from './markdown-setting/PreserveBulletStyleSetting';
+import { EnableEmojiListsSetting } from './markdown-setting/EnableEmojiListsSetting';
 import { ResetSettings } from './reset-settings/ResetSettings';
 import type { ResetSettingsOutcome } from './reset-settings/resetSettingsToDefaults';
 
@@ -215,6 +217,8 @@ export function Settings({ templates, noteLocation, spaceSettings, space, onClos
         {pageId === 'markdown' && (
           <SettingsGroup title="Markdown">
             <MarkdownItalicFontSetting />
+            <PreserveBulletStyleSetting />
+            <EnableEmojiListsSetting />
           </SettingsGroup>
         )}
         {pageId === 'daily-notes' && (

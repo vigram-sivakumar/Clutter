@@ -155,6 +155,31 @@ const ORDERED_MARKER_PATTERN = /^\d{1,9}[.)]$/;
 export type ListMarkerKind = 'bullet' | 'ordered';
 
 /**
+ * Every kind of marker a `ListItem` can carry: the two `classifyMarkerText`
+ * kinds plus `emoji`, whose node (`EmojiListMark`, `emojiListSyntax.ts`) is
+ * classified by node name — an emoji is never a `ListMark`'s text.
+ */
+export type ListItemMarkerKind = ListMarkerKind | 'emoji';
+
+/**
+ * A `ListItem`'s own marker node: `ListMark` (bullet/ordered/task) or
+ * `EmojiListMark`. The one place that decides which node names count, so
+ * hanging indent, Backspace and indentation context reuse it instead of
+ * each testing `name === 'ListMark'` and silently skipping emoji items.
+ */
+export function listItemMarker(item: SyntaxNode): SyntaxNode | null {
+  const marker = item.firstChild;
+  return marker && (marker.name === 'ListMark' || marker.name === 'EmojiListMark') ? marker : null;
+}
+
+/** The kind of an already-found marker node, or null for unrecognized `ListMark` text. */
+export function classifyMarkerNode(marker: SyntaxNode, state: EditorState): ListItemMarkerKind | null {
+  return marker.name === 'EmojiListMark'
+    ? 'emoji'
+    : classifyMarkerText(state.sliceDoc(marker.from, marker.to));
+}
+
+/**
  * Exported so `markdownEnterKeymap.ts`'s marker-kind guards (content-start
  * split preservation, Backspace) classify a `ListMark`'s raw text via the
  * identical rule this file's own rendering uses, rather than keeping a
@@ -251,20 +276,19 @@ export function separatorRangeAfter(
 interface ListMarkRange {
   readonly from: number;
   readonly to: number;
-  readonly kind: ListMarkerKind;
+  readonly kind: ListItemMarkerKind;
 }
 
 function getListMarkRange(
   node: SyntaxNode,
   state: EditorState
 ): ListMarkRange | null {
-  const marker = node.firstChild;
-  if (!marker || marker.name !== 'ListMark') {
+  const marker = listItemMarker(node);
+  if (!marker) {
     return null;
   }
 
-  const raw = state.sliceDoc(marker.from, marker.to);
-  const kind = classifyMarkerText(raw);
+  const kind = classifyMarkerNode(marker, state);
   if (!kind || hasTaskChild(node)) {
     return null;
   }
@@ -454,6 +478,19 @@ const MARKER_MARK_ORDERED = Decoration.mark({
 });
 
 /**
+ * The emoji marker's `Decoration.mark` — real, visible text like the
+ * ordered marker, wrapping the emoji *and* its separator so
+ * `.cm-emoji-list-marker`'s box (`min-width` floor, grows for a wider
+ * emoji sequence) reserves the marker column. Replaces the standalone
+ * `emojiListMarkDecoration.ts` plugin: a second plugin would keep its own
+ * `seenLines`, so a same-line mixed chain (`- 🍎 Text`) would render two
+ * markers — exactly the failure the shared pass below exists to prevent.
+ */
+const MARKER_MARK_EMOJI = Decoration.mark({
+  class: 'cm-marker cm-list-marker cm-emoji-list-marker',
+});
+
+/**
  * Same-line repeat-marker suppression (2026-08-29) — `- - - - hey` is a
  * genuinely valid, CommonMark-correct parse (each `- ` after the first is
  * an empty list item whose own content is *another* list, all on one
@@ -528,10 +565,12 @@ function buildDecorations(view: EditorView): DecorationSet {
       const mark =
         kind === 'ordered'
           ? MARKER_MARK_ORDERED.range(from, to)
-          : bulletMarkerMark(view.state.sliceDoc(from, from + 1)).range(
-              from,
-              to
-            );
+          : kind === 'emoji'
+            ? MARKER_MARK_EMOJI.range(from, to)
+            : bulletMarkerMark(view.state.sliceDoc(from, from + 1)).range(
+                from,
+                to
+              );
 
       // Empty item (nothing else on this physical line after the marker
       // and its separator) — see `ListMarkerCaretAnchorWidget`'s own doc

@@ -2,6 +2,8 @@ import { syntaxTree } from '@codemirror/language';
 import type { EditorState, Line } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
+import { listItemMarker } from '../list/listMarkerDecoration';
+
 /**
  * **The single canonical indentation-unit value for the entire Markdown
  * editor** (2026-08-30, Option C migration — docs/list-item-architecture-odr.md
@@ -153,10 +155,10 @@ export function isIndentedPastColumn(line: Line, ownerColumn: number): boolean {
  * never to `list`. This keeps the milestone scoped to single-line list
  * items, matching "start with plain bullet lists" — multi-paragraph
  * items are a later phase's question, not silently guessed at here.
- * `EmojiListMark`-led items are excluded the same way
- * `listMarkerDecoration.ts` always excluded them (only `ListMark` — the
- * common node for bullet/ordered/task, since a task's checkbox is a
- * second, later child, not the marker itself — resolves to `list`).
+ * An `EmojiListMark`-led item resolves to `list` exactly like a
+ * `ListMark`-led one (`listItemMarker`, shared with the marker and
+ * hanging-indent code); a task's checkbox is a second, later child, not
+ * the marker itself, so it never changes the answer.
  *
  * A `FencedCode`/`CodeBlock` ancestor is checked *before* `ListItem`/
  * `Blockquote`, so a fence's own content line inside a list item resolves
@@ -183,12 +185,8 @@ export function resolveLineIndentContext(state: EditorState, line: Line): LineIn
       return { kind: 'code' };
     }
     if (node.name === 'ListItem') {
-      const marker = node.firstChild;
-      if (
-        marker &&
-        marker.name === 'ListMark' &&
-        state.doc.lineAt(marker.from).from === line.from
-      ) {
+      const marker = listItemMarker(node);
+      if (marker && state.doc.lineAt(marker.from).from === line.from) {
         return { kind: 'list', markerFrom: marker.from };
       }
       break;

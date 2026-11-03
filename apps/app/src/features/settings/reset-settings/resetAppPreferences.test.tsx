@@ -79,6 +79,16 @@ import {
   writeUseLastSidebarTab,
 } from '../sidebar-setting/defaultSidebarTab';
 import { DEFAULT_STARTUP_BEHAVIOR, readStartupBehavior, writeStartupBehavior } from '../startup-setting/startupPreference';
+import {
+  DEFAULT_ENABLE_EMOJI_LISTS,
+  readEnableEmojiLists,
+  writeEnableEmojiLists,
+} from '@shared/helpers/enableEmojiListsPreference';
+import {
+  DEFAULT_PRESERVE_BULLET_STYLE,
+  readPreserveBulletStyle,
+  writePreserveBulletStyle,
+} from '@shared/helpers/preserveBulletStylePreference';
 import { resetAppPreferences } from './resetAppPreferences';
 
 let systemDark = false;
@@ -120,6 +130,8 @@ function customizeEveryPreference() {
   writeHeaderSeparatorMode('hide');
   writeHeaderSeparatorStyle('wavy');
   writeMarkdownItalicFont(true);
+  writePreserveBulletStyle(false);
+  writeEnableEmojiLists(false);
 }
 
 /** What is NOT a setting — interface layout and remembered picks — and must survive a settings reset. */
@@ -159,6 +171,8 @@ describe('resetAppPreferences', () => {
     expect(readHeaderSeparatorMode()).toBe(DEFAULT_HEADER_SEPARATOR_MODE);
     expect(readHeaderSeparatorStyle()).toBe(DEFAULT_HEADER_SEPARATOR_STYLE);
     expect(readMarkdownItalicFont()).toBe(DEFAULT_MARKDOWN_ITALIC_FONT);
+    expect(readPreserveBulletStyle()).toBe(DEFAULT_PRESERVE_BULLET_STYLE);
+    expect(readEnableEmojiLists()).toBe(DEFAULT_ENABLE_EMOJI_LISTS);
   });
 
   it('removes the saved values rather than writing the defaults — a missing value is the default', () => {

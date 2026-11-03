@@ -243,6 +243,11 @@ function renderList(node: SyntaxNode, ctx: BlockContext, key: number): ReactNode
     if (item.name !== 'ListItem') {
       continue;
     }
+    // The source marker of a `-`/`+`/`*` item, for the *Preserve bullet style* setting (NotePageCanvas.css picks the glyph).
+    const bulletMark = node.name === 'BulletList' ? item.getChild('ListMark') : null;
+    const bulletMarker = bulletMark ? ctx.text.slice(bulletMark.from, bulletMark.to) : undefined;
+    // An emoji item's marker is real, user-chosen content: it is drawn in the item's gutter (NotePageCanvas.css).
+    const emojiMark = node.name === 'EmojiList' ? item.getChild('EmojiListMark') : null;
     if (ordered && start === undefined) {
       const mark = item.getChild('ListMark');
       const parsed = mark ? parseInt(ctx.text.slice(mark.from, mark.to), 10) : NaN;
@@ -251,8 +256,12 @@ function renderList(node: SyntaxNode, ctx: BlockContext, key: number): ReactNode
     items.push(
       <li
         key={items.length}
+        data-bullet-marker={bulletMarker}
         className={`markdown-blocks__list-item${item.getChild('Task') ? ' markdown-blocks__list-item--task' : ''}`}
       >
+        {emojiMark ? (
+          <span className="markdown-blocks__emoji-marker">{ctx.text.slice(emojiMark.from, emojiMark.to)}</span>
+        ) : null}
         {renderBlockChildren(item, ctx)}
       </li>
     );

@@ -264,9 +264,12 @@ describe('markdownEnterCommand', () => {
     });
 
     it('removes one unit from the indentation left by a list continuation line', () => {
+      // The first press now keeps the continuation line's own four spaces (it used to fall back to the
+      // item's two-column marker width). This fixture installs no `indentUnit`, so CM6's default unit
+      // of two applies to the second press; in the editor the unit is four and it lands on column 0.
       expect(pressEnterTimes('- Parent\n    continuation|', 2)).toEqual([
+        '- Parent\n    continuation\n    |',
         '- Parent\n    continuation\n  |',
-        '- Parent\n    continuation\n|',
       ]);
     });
   });

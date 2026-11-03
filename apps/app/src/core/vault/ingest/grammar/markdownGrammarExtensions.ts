@@ -57,7 +57,8 @@ import { wikiLinkSyntax } from './wikiLinkSyntax';
  * unavoidable interop cost of the file format itself, not something this
  * configuration choice could avoid by being implemented differently.
  */
-export const markdownGrammarExtensions: MarkdownExtension = [
+function buildMarkdownGrammarExtensions(emojiLists: boolean): MarkdownExtension {
+  return [
   Autolink,
   // Extends Autolink's own family: recognizes a scheme-less, www.-less
   // bare domain (example.com, example.co.uk/path) as the same URL node
@@ -83,7 +84,26 @@ export const markdownGrammarExtensions: MarkdownExtension = [
   doubleHorizontalRuleSyntax,
   dottedHorizontalRuleSyntax,
   labeledHorizontalRuleSyntax,
-  emojiListSyntax,
+  ...(emojiLists ? [emojiListSyntax] : []),
   listMarkerParagraphInterrupt,
   { remove: ['IndentedCode'] },
-];
+  ];
+}
+
+/**
+ * The grammar with emoji lists on — the default, and the one every persisted/ingest consumer (`tagParser`, the
+ * parsed-note cache) uses, since what is stored must not depend on a per-device preference.
+ */
+export const markdownGrammarExtensions: MarkdownExtension = buildMarkdownGrammarExtensions(true);
+
+/**
+ * The same grammar without `emojiListSyntax`: an emoji-led line is then an ordinary `Paragraph`, with no
+ * `EmojiList`/`EmojiListMark` nodes. Used by the editor and the read-only renderer while the *Enable emoji lists*
+ * setting is off; everything else about the grammar is identical.
+ */
+export const markdownGrammarExtensionsWithoutEmojiLists: MarkdownExtension = buildMarkdownGrammarExtensions(false);
+
+/** The grammar for the *Enable emoji lists* setting's current value. */
+export function markdownGrammarFor(emojiLists: boolean): MarkdownExtension {
+  return emojiLists ? markdownGrammarExtensions : markdownGrammarExtensionsWithoutEmojiLists;
+}
