@@ -1,5 +1,4 @@
 import { deleteCharBackward } from '@codemirror/commands';
-import { deleteMarkupBackward } from '@codemirror/lang-markdown';
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
 import { EditorSelection, EditorState, type Transaction } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
@@ -10,7 +9,7 @@ import { markdownLanguageExtension } from '../markdownLanguage';
 import {
   deleteBulletMarkerSeparator,
   deleteCompleteListItemSelection,
-  deleteTaskMarker,
+  deleteMarkupBackwardOnMarkerLines,
   markdownEnterCommand,
 } from './markdownEnterKeymap';
 
@@ -119,11 +118,9 @@ function pressBackspace(state: EditorState): { state: EditorState; handledBy: st
   let handledBy: string;
   if (deleteBulletMarkerSeparator(target)) {
     handledBy = 'deleteBulletMarkerSeparator';
-  } else if (deleteTaskMarker(target)) {
-    handledBy = 'deleteTaskMarker';
   } else if (deleteCompleteListItemSelection(target)) {
     handledBy = 'deleteCompleteListItemSelection';
-  } else if (deleteMarkupBackward(target)) {
+  } else if (deleteMarkupBackwardOnMarkerLines(target)) {
     handledBy = 'deleteMarkupBackward';
   } else if (deleteCharBackward(asView(target))) {
     handledBy = 'deleteCharBackward';
@@ -278,37 +275,35 @@ describe('Backspace at a task checkbox boundary', () => {
     expect(rendered).toBe('-|[ ] Task');
   });
 
-  it('immediately after TaskMarker atomically removes the whole checkbox+separator: "- [ ]| Task" -> "- |Task"', () => {
+  it('immediately after "]" is CodeMirror\'s plain character delete: "- [ ]| Task" -> "- [ | Task"', () => {
     const { rendered, handledBy, state } = backspace('- [ ]| Task');
-    expect(handledBy).toBe('deleteTaskMarker');
-    expect(rendered).toBe('- |Task');
+    expect(handledBy).toBe('deleteCharBackward');
+    expect(rendered).toBe('- [ | Task');
     expect(taskShapeAt(state, 0)).toBe('no-task');
   });
 
-  it('inside "[ ]" (between "[" and the state char): "- [| ] Task" -> "- |Task"', () => {
-    const { rendered, handledBy, state } = backspace('- [| ] Task');
-    expect(handledBy).toBe('deleteTaskMarker');
-    expect(rendered).toBe('- |Task');
-    expect(taskShapeAt(state, 0)).toBe('no-task');
+  it('inside "[ ]" (between "[" and the state char): plain character delete', () => {
+    const { rendered, handledBy } = backspace('- [| ] Task');
+    expect(handledBy).toBe('deleteCharBackward');
+    expect(rendered).toBe('- | ] Task');
   });
 
-  it('inside "[x]" (between the state char and "]"): "- [x|] Task" -> "- |Task"', () => {
-    const { rendered, handledBy, state } = backspace('- [x|] Task');
-    expect(handledBy).toBe('deleteTaskMarker');
-    expect(rendered).toBe('- |Task');
-    expect(taskShapeAt(state, 0)).toBe('no-task');
+  it('inside "[x]" (between the state char and "]"): plain character delete', () => {
+    const { rendered, handledBy } = backspace('- [x|] Task');
+    expect(handledBy).toBe('deleteCharBackward');
+    expect(rendered).toBe('- [|] Task');
   });
 
-  it('before "]": "- [ |] Task" -> "- |Task"', () => {
+  it('before "]": plain character delete', () => {
     const { rendered, handledBy } = backspace('- [ |] Task');
-    expect(handledBy).toBe('deleteTaskMarker');
-    expect(rendered).toBe('- |Task');
+    expect(handledBy).toBe('deleteCharBackward');
+    expect(rendered).toBe('- [|] Task');
   });
 
-  it('after "]" on a checked task: "- [x]| Task" -> "- |Task" (checked state discarded along with the whole checkbox, not carried onto plain text)', () => {
+  it('after "]" on a checked task: plain character delete, the rest of the line untouched', () => {
     const { rendered, handledBy, state } = backspace('- [x]| Task');
-    expect(handledBy).toBe('deleteTaskMarker');
-    expect(rendered).toBe('- |Task');
+    expect(handledBy).toBe('deleteCharBackward');
+    expect(rendered).toBe('- [x| Task');
     expect(taskShapeAt(state, 0)).toBe('no-task');
   });
 
@@ -324,19 +319,24 @@ describe('Backspace at a task checkbox boundary', () => {
     expect(rendered).toBe('- [ ] T|sk');
   });
 
-  it('task inside a nested list: same checkbox-atomic rule applies at any depth', () => {
-    const { rendered, handledBy, state } = backspace('- Parent\n  - [x]| Child');
-    expect(handledBy).toBe('deleteTaskMarker');
-    expect(rendered).toBe('- Parent\n  - |Child');
-    expect(taskShapeAt(state, state.doc.line(2).from)).toBe('no-task');
+  it('task inside a nested list: plain character delete at any depth', () => {
+    const { rendered, handledBy } = backspace('- Parent\n  - [x]| Child');
+    expect(handledBy).toBe('deleteCharBackward');
+    expect(rendered).toBe('- Parent\n  - [x| Child');
   });
 
-  it('ordered task item: checkbox removal never touches numbering', () => {
+  it('ordered task item: plain character delete never touches numbering or the sibling checkboxes', () => {
     const { rendered, handledBy, state } = backspace('1. [ ] A\n2. [x]| B\n3. [ ] C');
-    expect(handledBy).toBe('deleteTaskMarker');
-    expect(rendered).toBe('1. [ ] A\n2. |B\n3. [ ] C');
+    expect(handledBy).toBe('deleteCharBackward');
+    expect(rendered).toBe('1. [ ] A\n2. [x| B\n3. [ ] C');
     expect(taskShapeAt(state, 0)).toEqual({ checked: false, raw: '[ ]' });
     expect(taskShapeAt(state, state.doc.line(3).from)).toEqual({ checked: false, raw: '[ ]' });
+  });
+
+  it('content start "- [ ] |Task" removes only the separator: "- [ ]|Task"', () => {
+    const { rendered, handledBy } = backspace('- [ ] |Task');
+    expect(handledBy).toBe('deleteCharBackward');
+    expect(rendered).toBe('- [ ]|Task');
   });
 });
 
@@ -420,9 +420,9 @@ describe('Task structural state', () => {
     expect(rendered).toBe('1. [ ] A\n2. [ ]_\n3. [ ] |B\n4. [ ] C');
   });
 
-  it('nested task structure survives a checkbox-boundary Backspace one level down', () => {
+  it('nested task structure survives a Backspace at the checkbox one level down', () => {
     const { rendered, state } = backspace('- [ ] Parent\n  - [x]| Child');
-    expect(rendered).toBe('- [ ] Parent\n  - |Child');
+    expect(rendered).toBe('- [ ] Parent\n  - [x| Child');
     expect(taskShapeAt(state, 0)).toEqual({ checked: false, raw: '[ ]' });
   });
 
@@ -441,12 +441,14 @@ describe('Task structural state', () => {
   it('undo/redo atomicity: one Backspace gesture is one transaction', () => {
     let dispatchCount = 0;
     const state = parse('- [x]| Task');
-    deleteTaskMarker({
-      state,
-      dispatch: () => {
-        dispatchCount++;
-      },
-    });
+    deleteCharBackward(
+      asView({
+        state,
+        dispatch: () => {
+          dispatchCount++;
+        },
+      })
+    );
     expect(dispatchCount).toBe(1);
   });
 });

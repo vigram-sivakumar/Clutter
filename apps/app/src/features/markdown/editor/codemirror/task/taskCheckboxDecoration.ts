@@ -9,6 +9,7 @@ import {
   type ViewUpdate,
 } from '@codemirror/view';
 
+import { isTokenEngaged } from '../semanticToken/tokenEngagement';
 import { isTaskMarkerChecked, taskMarkerOfListItem } from './taskEngagement';
 import { TaskCheckboxWidget } from './TaskCheckboxWidget';
 
@@ -37,14 +38,17 @@ import { TaskCheckboxWidget } from './TaskCheckboxWidget';
  * (`inlineLivePreviewRegion.ts`/`wikiLinkLivePreview.ts`) — reused here,
  * not reinvented.
  *
- * **Why this construct has no reveal/conceal (engaged) state at all**,
- * unlike Tag/Date/WikiLink: explicit product decision (task
- * visual-rendering slice) — "do not invent an engaged/focused/reveal
- * Markdown mode," the checkbox must "remain visually rendered even when
- * the caret moves across it." So `buildDecorations` below never consults
- * `isTokenEngaged`/selection at all — every `TaskMarker`, everywhere,
- * always renders as the widget, exactly like WikiLink's own always-atomic
- * at-rest widget, never like Tag/Date's reveal-on-engage branch.
+ * **Reveal on engagement, the same query Tag/Date/WikiLink use.** Product
+ * decision (reverses the earlier "no engaged/reveal state" one): the raw
+ * source — `- [ ] ` / `1. [x] ` — shows only while the *selection touches the
+ * marker itself* (`isTokenEngaged` over the marker + separator + `TaskMarker`
+ * range, boundaries included), never merely because the caret is somewhere on
+ * the line: with the caret in the item's text the checkbox stays a widget.
+ * Engaged, this adds no widget, no concealment and no atomic range, only a
+ * `cm-marker` mark so the revealed syntax is tinted like every other marker;
+ * the caret then moves through the raw characters one at a time. No new
+ * engagement mechanism: `isTokenEngaged` is the existing generic query (never
+ * engaged in a read-only view, so note embeds keep their checkbox).
  *
  * **Also conceals the outer `ListMark` + its own separator**
  * (`- `/`* `/`+ `/`1. `) for a task item — not merely leaving it
@@ -90,6 +94,11 @@ function buildDecorations(view: EditorView): { decorations: DecorationSet; atomi
         }
 
         const marker = node.node.firstChild!; // ListMark — validated by taskMarkerOfListItem
+        if (isTokenEngaged(view.state, { from: marker.from, to: taskMarker.to })) {
+          // The selection touches the marker: show the raw `- [ ]` (see this file's doc comment).
+          ranges.push(Decoration.mark({ class: 'cm-marker' }).range(marker.from, taskMarker.to));
+          return;
+        }
         if (taskMarker.from > marker.to) {
           // Conceal the outer marker + its own separator (e.g. "- ",
           // "1. ") — never crosses into a nested-line construct since
@@ -132,7 +141,7 @@ export function taskCheckboxDecoration(): Extension {
       }
 
       update(update: ViewUpdate) {
-        if (update.docChanged || update.viewportChanged) {
+        if (update.docChanged || update.viewportChanged || update.selectionSet) {
           ({ decorations: this.decorations, atomic: this.atomic } = buildDecorations(update.view));
         }
       }

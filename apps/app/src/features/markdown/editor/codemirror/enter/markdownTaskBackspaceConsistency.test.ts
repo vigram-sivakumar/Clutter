@@ -1,5 +1,4 @@
 import { deleteCharBackward } from '@codemirror/commands';
-import { deleteMarkupBackward } from '@codemirror/lang-markdown';
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
 import { EditorSelection, EditorState, type Transaction } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
@@ -9,7 +8,7 @@ import { markdownLanguageExtension } from '../markdownLanguage';
 import {
   deleteBulletMarkerSeparator,
   deleteCompleteListItemSelection,
-  deleteTaskMarker,
+  deleteMarkupBackwardOnMarkerLines,
   markdownEnterCommand,
 } from './markdownEnterKeymap';
 
@@ -22,8 +21,8 @@ import {
  * while plain bullet/ordered items (intercepted first by
  * `deleteBulletMarkerSeparator`, a deliberate, narrower, already-locked
  * product decision) take two-to-three presses to reach the same place.
- * `deleteTaskMarker` now intercepts this position too, removing only the
- * checkbox (one extra structural level, exactly matching the granularity
+ * (That interception, `deleteTaskMarker`, is gone: task content start is now CodeMirror's plain character delete.)
+ * * checkbox (one extra structural level, exactly matching the granularity
  * `deleteBulletMarkerSeparator` already established) and leaving the
  * outer bullet/ordered marker for the *unmodified* existing cascade to
  * finish — so task Backspace now takes exactly one more press than the
@@ -56,7 +55,6 @@ function asView(target: { state: EditorState; dispatch: (tr: Transaction) => voi
 
 type Handler =
   | 'deleteBulletMarkerSeparator'
-  | 'deleteTaskMarker'
   | 'deleteCompleteListItemSelection'
   | 'deleteMarkupBackward'
   | 'deleteCharBackward'
@@ -69,11 +67,9 @@ function pressBackspaceWithHandler(state: EditorState): { state: EditorState; ha
   let handledBy: Handler;
   if (deleteBulletMarkerSeparator(target)) {
     handledBy = 'deleteBulletMarkerSeparator';
-  } else if (deleteTaskMarker(target)) {
-    handledBy = 'deleteTaskMarker';
   } else if (deleteCompleteListItemSelection(target)) {
     handledBy = 'deleteCompleteListItemSelection';
-  } else if (deleteMarkupBackward(target)) {
+  } else if (deleteMarkupBackwardOnMarkerLines(target)) {
     handledBy = 'deleteMarkupBackward';
   } else if (deleteCharBackward(asView(target))) {
     handledBy = 'deleteCharBackward';
@@ -117,28 +113,34 @@ describe('Backspace content-start consistency: bullet vs. ordered vs. task', () 
     expect(cascade('1. |Task')).toEqual(['1. |Task', '1.|Task', '1|Task', '|Task']);
   });
 
-  it('unchecked task: "- [ ] |Task" reaches bare content in exactly 3 presses — one more than bullet, for the one extra structural level (the checkbox) — then follows the identical, unmodified bullet cascade', () => {
-    expect(cascade('- [ ] |Task')).toEqual(['- [ ] |Task', '- |Task', '-|Task', '|Task']);
+  it('unchecked task: "- [ ] |Task" is CodeMirror\'s plain character delete — one press removes the separator only', () => {
+    const { state, handledBy } = pressBackspaceWithHandler(parse('- [ ] |Task'));
+    expect(handledBy).toBe('deleteCharBackward');
+    expect(render(state)).toBe('- [ ]|Task');
   });
 
-  it('checked task: "- [x] |Task" reaches bare content in exactly 3 presses, identically to unchecked — the checked state is discarded along with the whole checkbox, never carried onto the surviving bullet', () => {
-    expect(cascade('- [x] |Task')).toEqual(['- [x] |Task', '- |Task', '-|Task', '|Task']);
+  it('checked task: "- [x] |Task" behaves identically — separator only, the box state is untouched', () => {
+    const { state, handledBy } = pressBackspaceWithHandler(parse('- [x] |Task'));
+    expect(handledBy).toBe('deleteCharBackward');
+    expect(render(state)).toBe('- [x]|Task');
   });
 
-  it('ordered task: "1. [ ] |Task" reaches bare content in exactly 4 presses — one more than plain ordered — then follows the identical, unmodified ordered cascade', () => {
-    expect(cascade('1. [ ] |Task')).toEqual(['1. [ ] |Task', '1. |Task', '1.|Task', '1|Task', '|Task']);
+  it('ordered task: "1. [ ] |Task" removes the separator only, never touching the number', () => {
+    const { state, handledBy } = pressBackspaceWithHandler(parse('1. [ ] |Task'));
+    expect(handledBy).toBe('deleteCharBackward');
+    expect(render(state)).toBe('1. [ ]|Task');
   });
 
-  it('no intermediate state, for any construct, is ever a malformed checkbox fragment ("[", "]", "[]", "[ ", " ]")', () => {
-    for (const source of ['- |Task', '1. |Task', '- [ ] |Task', '- [x] |Task', '1. [ ] |Task']) {
+  it('no intermediate state of a bullet or ordered item is ever a malformed checkbox fragment (tasks are plain text editing now, so they are excluded)', () => {
+    for (const source of ['- |Task', '1. |Task']) {
       for (const step of cascade(source)) {
         expect(step).not.toMatch(MALFORMED_FRAGMENT);
       }
     }
   });
 
-  it('the final state for every construct is identical bare content with the caret at absolute start', () => {
-    for (const source of ['- |Task', '1. |Task', '- [ ] |Task', '- [x] |Task', '1. [ ] |Task']) {
+  it('bullet and ordered cascades still end on bare content with the caret at absolute start', () => {
+    for (const source of ['- |Task', '1. |Task']) {
       const steps = cascade(source);
       expect(steps[steps.length - 1]).toBe('|Task');
     }
@@ -236,10 +238,9 @@ describe('Empty task item after a sibling: Backspace now matches Enter (2026-08-
     expect(handledBy).toBe('deleteBulletMarkerSeparator');
   });
 
-  it('the already-fixed content-start cascade (non-empty tasks) is unaffected by this fix', () => {
-    expect(cascade('- [ ] |Task')).toEqual(['- [ ] |Task', '- |Task', '-|Task', '|Task']);
-    expect(cascade('- [x] |Task')).toEqual(['- [x] |Task', '- |Task', '-|Task', '|Task']);
-    expect(cascade('1. [ ] |Task')).toEqual(['1. [ ] |Task', '1. |Task', '1.|Task', '1|Task', '|Task']);
+  it('a non-empty task at content start is plain character deletion, one press at a time', () => {
+    expect(cascade('- [ ] |Task', 3)).toEqual(['- [ ] |Task', '- [ ]|Task', '- [ |Task', '- [|Task']);
+    expect(cascade('1. [ ] |Task', 1)).toEqual(['1. [ ] |Task', '1. [ ]|Task']);
   });
 });
 

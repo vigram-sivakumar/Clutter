@@ -173,7 +173,8 @@ const BEHAVIOR: Record<string, () => void> = {
     expect(view.state.doc.toString()).toBe('abc\\\n');
   },
   'remove-marker': () => {
-    // At the start of a non-empty item: the list is undone. An empty item loses its marker. A task loses its checkbox.
+    // At the start of a non-empty item: the list is undone. An empty item loses its marker. A task's text start is
+    // CodeMirror's plain character delete: only the separator goes.
     const item = mount('- a', 2);
     press(item, PRESSES['remove-marker']!);
     expect(item.state.doc.toString()).toBe('-a');
@@ -182,7 +183,7 @@ const BEHAVIOR: Record<string, () => void> = {
     expect(empty.state.doc.toString()).toBe('');
     const task = mount('- [ ] t', 6);
     press(task, PRESSES['remove-marker']!);
-    expect(task.state.doc.toString()).toBe('- t');
+    expect(task.state.doc.toString()).toBe('- [ ]t');
   },
   'move-line-up': () => {
     const view = mount('a\nb');

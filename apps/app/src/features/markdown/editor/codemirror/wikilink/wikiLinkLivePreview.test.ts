@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import { CompletionContext, type CompletionResult, type CompletionSource } from '@codemirror/autocomplete';
-import { EditorState, type Extension } from '@codemirror/state';
+import { EditorSelection, EditorState, type Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import { createInlineLivePreviewParticipants } from '../highlight/inlineLivePreviewParticipants';
@@ -719,6 +719,8 @@ describe('wikiLinkLivePreview', () => {
       document.body.appendChild(parent);
       const state = EditorState.create({
         doc: '- [x] Track my bag [[Page]]',
+        // In the task's text, touching neither the checkbox marker nor the WikiLink (both reveal their raw source on touch).
+        selection: EditorSelection.cursor('- [x] Tra'.length),
         extensions: [
           markdownLanguageExtension(),
           taskCheckboxDecoration(),

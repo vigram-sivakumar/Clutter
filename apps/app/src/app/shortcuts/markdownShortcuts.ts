@@ -38,7 +38,7 @@ export const MARKDOWN_SHORTCUT_GROUPS: readonly ShortcutRowGroup[] = [
       { id: 'continue', label: 'Continue list or quote', keys: [key('Enter')] },
       { id: 'exit', label: 'Exit list or quote', description: 'On an empty item', keys: [key('Enter')] },
       { id: 'line-break', label: 'Insert line break', keys: [shift, key('Enter')] },
-      { id: 'remove-marker', label: 'Remove list marker or checkbox', description: 'At the start of an item', keys: [key('Delete')] },
+      { id: 'remove-marker', label: 'Remove list marker', description: 'At the start of an item', keys: [key('Delete')] },
     ],
   },
   {
