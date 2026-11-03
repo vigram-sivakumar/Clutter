@@ -130,13 +130,64 @@ describe('taskCompletedContentDecoration', () => {
     }
   });
 
-  it('genuinely nested (indented) content under a completed task keeps the completed-task styling, but a following unindented sibling does not', () => {
+  it('indented continuation content under a completed task keeps its normal styling; only the task\'s own line is marked', () => {
     const view = mountView('- [x] Done\n    Nested continuation\nSibling paragraph');
     const lines = Array.from(view.dom.querySelectorAll<HTMLElement>('.cm-line'));
     expect(lines).toHaveLength(3);
     expect(lines[0]!.querySelector(`.${TASK_COMPLETED_CLASS}`)).not.toBeNull();
-    expect(lines[1]!.querySelector(`.${TASK_COMPLETED_CLASS}`)).not.toBeNull();
+    expect(lines[1]!.querySelector(`.${TASK_COMPLETED_CLASS}`)).toBeNull();
     expect(lines[2]!.querySelector(`.${TASK_COMPLETED_CLASS}`)).toBeNull();
+  });
+});
+
+/**
+ * Ownership: `cm-task-completed` covers only the task's own marker-line text, never continuation content of
+ * the same list item. Asserted on the generated DOM, line by line.
+ */
+describe('taskCompletedContentDecoration — continuation ownership', () => {
+  function rows(doc: string): HTMLElement[] {
+    return Array.from(mountView(doc).dom.querySelectorAll<HTMLElement>('.cm-line'));
+  }
+  const marked = (row: HTMLElement) => row.querySelector(`.${TASK_COMPLETED_CLASS}`) !== null;
+
+  it('a completed task with no continuation content is marked', () => {
+    expect(rows('- [x] Done').map(marked)).toEqual([true]);
+  });
+
+  it('one continuation paragraph is not marked', () => {
+    expect(rows('- [x] Done\n\n    Second paragraph').map(marked)).toEqual([true, false, false]);
+    expect(rows('- [x] Done\n    Second paragraph').map(marked)).toEqual([true, false]);
+  });
+
+  it('several continuation paragraphs and rows are not marked', () => {
+    const doc = '- [x] Done\n    row two\n    row three\n\n    para two\n\n    para three';
+    const r = rows(doc);
+    expect(marked(r[0]!)).toBe(true);
+    expect(r.slice(1).map(marked).every((m) => !m)).toBe(true);
+  });
+
+  it('links and mentions on continuation lines are not marked; the task line itself still is', () => {
+    const doc = '- [x] Done @Pratik\n    Hi @Harsh see https://example.com/x and [[Note]]\n    more https://example.com';
+    const r = rows(doc);
+    expect(marked(r[0]!)).toBe(true);
+    expect(r.slice(1).map(marked)).toEqual([false, false]);
+  });
+
+  it('an incomplete task with continuation paragraphs marks nothing', () => {
+    expect(rows('- [ ] Open\n    row\n\n    para').map(marked)).toEqual([false, false, false, false]);
+  });
+
+  it('nested completed tasks mark only their own lines, and a parent\'s continuation stays unmarked', () => {
+    const doc = '- [x] Parent\n    parent continuation\n    - [x] Child\n        child continuation\n    - [ ] Open child';
+    expect(rows(doc).map(marked)).toEqual([true, false, true, false, false]);
+  });
+
+  it('a completed task under an incomplete parent is marked alone', () => {
+    expect(rows('- [ ] Parent\n    - [x] Child\n    - [ ] Other').map(marked)).toEqual([false, true, false]);
+  });
+
+  it('among several tasks, only the completed one is marked', () => {
+    expect(rows('- [ ] a\n- [x] b\n    b continuation\n- [ ] c').map(marked)).toEqual([false, true, false, false]);
   });
 });
 

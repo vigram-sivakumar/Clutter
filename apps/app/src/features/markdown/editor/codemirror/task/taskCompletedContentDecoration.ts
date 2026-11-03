@@ -10,7 +10,6 @@ import {
 } from '@codemirror/view';
 
 import { isTaskMarkerChecked, TASK_COMPLETED_CLASS, taskMarkerOfListItem } from './taskEngagement';
-import { computeListItemFold } from '../fold/listItemFoldService';
 
 /**
  * Gives a completed task's rendered *content* (everything after the
@@ -69,35 +68,13 @@ function buildDecorations(view: EditorView): DecorationSet {
           return;
         }
 
-        // **Never trust `task.to` directly** — the same lazy-continuation
-        // boundary problem `listItemFoldService.ts` already found and
-        // fixed for folding applies here identically: a `Task`/`ListItem`
-        // node's raw `.to` can silently absorb a completely unrelated,
-        // zero-indent sibling block (a following paragraph, an embed, a
-        // heading) typed with no blank line before it, since CommonMark's
-        // lazy-continuation rule treats that line as more content of the
-        // *same* node regardless of its own indentation. Using `task.to`
-        // unconditionally here reproduced exactly that bug: the completed-
-        // task mark's range extended past the task's own line and wrapped
-        // whatever unrelated content happened to fall inside it, which
-        // CM6 then rendered as a nested `<span class="cm-task-completed">`
-        // around it — including a note-embed widget's own DOM, dimming it
-        // via `.cm-task-completed span`'s plain CSS inheritance even
-        // though the embed is not, structurally, part of the task at all.
-        //
-        // `computeListItemFold` re-derives the item's genuine boundary via
-        // the same physical-line indentation scan folding already
-        // established (real nested content — a continuation paragraph, a
-        // nested list — is indented past the marker's own column; an
-        // unrelated sibling block is not), using the raw node's `.to` only
-        // as an upper bound. It returns `null` when there is no genuine
-        // *further* descendant past the marker's own line (e.g. `- [x]
-        // Task` with nothing indented beneath it) — that's not "nothing to
-        // decorate," just "nothing beyond this line," so the marker's own
-        // line end is the floor either way.
-        const markerLine = view.state.doc.lineAt(node.from);
-        const corrected = computeListItemFold(view.state, markerLine);
-        const to = corrected ? corrected.to : markerLine.to;
+        // **Only the task's own marker line.** The mark used to extend over the whole item as
+        // `computeListItemFold` reported it, so every indented continuation line (a second paragraph,
+        // links, mentions, Shift+Enter rows) was struck through and dimmed along with the task text.
+        // Continuation content belongs to the item but is not the task's own text, so the range ends
+        // at the marker line's end. Never `task.to` either: CommonMark lazy continuation inflates a
+        // `Task`/`ListItem` node's raw `.to` over unrelated zero-indent blocks that follow it.
+        const to = view.state.doc.lineAt(node.from).to;
         if (taskMarker.to >= to) {
           // An empty task (`- [x]`, nothing after the marker, no genuine
           // nested content either) has no content range to decorate.
