@@ -146,27 +146,28 @@ describe('markdownEnterCommand', () => {
   });
 
   describe('empty blockquote continuation removes one quote level', () => {
-    it('leaves a normal empty line below a single-level quote', () => {
+    it('leaves a blank line, then a normal line, below a single-level quote', () => {
+      // The blank line is what ends the quote: text typed straight after `> Text` would be a lazy continuation of it.
       expect(pressEnterTimes('> Text|', 2)).toEqual([
         '> Text\n> |',
-        '> Text\n|',
+        '> Text\n\n|',
       ]);
     });
 
     it('unwinds a nested quote one level per press', () => {
       expect(pressEnterTimes('>> Text|', 3)).toEqual([
         '>> Text\n>> |',
-        '>> Text\n>|',
-        '>> Text\n|',
+        '>> Text\n>\n>|',
+        '>> Text\n>\n|',
       ]);
     });
 
     it('unwinds a triple-nested quote one level per press', () => {
       expect(pressEnterTimes('>>> Text|', 4)).toEqual([
         '>>> Text\n>>> |',
-        '>>> Text\n>>|',
-        '>>> Text\n>|',
-        '>>> Text\n|',
+        '>>> Text\n>>\n>>|',
+        '>>> Text\n>>\n>|',
+        '>>> Text\n>>\n|',
       ]);
     });
   });
@@ -176,7 +177,7 @@ describe('markdownEnterCommand', () => {
       expect(pressEnterTimes('> - Text|', 3)).toEqual([
         '> - Text\n> - |',
         '> - Text\n> |',
-        '> - Text\n|',
+        '> - Text\n\n|',
       ]);
     });
 
@@ -184,7 +185,7 @@ describe('markdownEnterCommand', () => {
       expect(pressEnterTimes('> 1. Text|', 3)).toEqual([
         '> 1. Text\n> 2. |',
         '> 1. Text\n> |',
-        '> 1. Text\n|',
+        '> 1. Text\n\n|',
       ]);
     });
 
@@ -192,8 +193,8 @@ describe('markdownEnterCommand', () => {
       expect(pressEnterTimes('>> - Text|', 4)).toEqual([
         '>> - Text\n>> - |',
         '>> - Text\n>> |',
-        '>> - Text\n>|',
-        '>> - Text\n|',
+        '>> - Text\n>\n>|',
+        '>> - Text\n>\n|',
       ]);
     });
   });

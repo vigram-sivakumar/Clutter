@@ -145,41 +145,55 @@ function hasAncestor(state: EditorState, pos: number, name: string): boolean {
 
 /**
  * Empty blockquote continuation (`> Text` / `> |`, `>> Text` / `>> |`,
- * `> - Text` / `> |`): drop one quote level.
+ * `> - Text` / `> |`): drop one quote level in one press, and leave the source
+ * so the quote really ends there.
  *
- * Delegates to `deleteMarkupBackward`, which handles the common shapes in a
- * single call. It declines in one measured case — a quote-only line directly
- * below a *quoted list* item (`> - Text` / `> |`), where its context
- * resolves to the list on the line above and neither of its branches
- * applies — so we then remove the innermost `>` level ourselves. That
- * fallback deletes exactly what the delegate would have: from the last `>`
- * on this line to the cursor, one level, never the whole prefix.
+ * Markdown only ends a quoted paragraph at a blank line: text on the line
+ * straight after `> Text` is a *lazy continuation* of that quote (confirmed:
+ * `> Text⏎this i` is one blockquote in the editor and the read-only renderer
+ * alike). So when the line above has content, the empty quoted line becomes
+ * the blank separator and the caret moves to a fresh line after it
+ * (`> Text⏎|` becomes `> Text⏎⏎|`); for a nested level the separator is a
+ * blank line at the *outer* level (`>> Text⏎>> |` becomes `>> Text⏎>⏎>|`), which
+ * ends the inner quote and leaves the caret in the outer one.
+ * When the line above is already blank or quote-only (`> Text⏎>⏎> |`) the
+ * paragraph is already closed, so dropping the innermost `>` level is enough.
  */
-const exitEmptyBlockquoteContinuation: StateCommand = (target) => {
-  const context = emptyContinuationAt(target.state);
+const exitEmptyBlockquoteContinuation: StateCommand = ({ state, dispatch }) => {
+  const context = emptyContinuationAt(state);
   if (
     !context ||
     !QUOTE_MARKUP_ONLY.test(context.before) ||
-    !hasAncestor(target.state, context.pos, 'Blockquote')
+    !hasAncestor(state, context.pos, 'Blockquote')
   ) {
     return false;
   }
 
-  if (deleteMarkupBackward(target)) {
+  const lastMark = context.before.lastIndexOf('>');
+  const previous = context.lineFrom > 0 ? state.doc.lineAt(context.lineFrom - 1) : null;
+  const previousClosesParagraph = !previous || !/\S/.test(previous.text.replace(/^[ \t>]*/, ''));
+
+  if (previousClosesParagraph) {
+    const from = context.lineFrom + lastMark;
+    dispatch(
+      state.update({
+        changes: { from, to: context.pos },
+        selection: EditorSelection.cursor(from),
+        scrollIntoView: true,
+        userEvent: 'delete',
+      })
+    );
     return true;
   }
 
-  const from = context.lineFrom + context.before.lastIndexOf('>');
-  if (from >= context.pos) {
-    return false;
-  }
-
-  target.dispatch(
-    target.state.update({
-      changes: { from, to: context.pos },
-      selection: EditorSelection.cursor(from),
+  const outer = context.before.slice(0, lastMark);
+  const insert = outer.trimEnd() + state.lineBreak + outer;
+  dispatch(
+    state.update({
+      changes: { from: context.lineFrom, to: context.pos, insert },
+      selection: EditorSelection.cursor(context.lineFrom + insert.length),
       scrollIntoView: true,
-      userEvent: 'delete',
+      userEvent: 'input',
     })
   );
   return true;
@@ -224,113 +238,6 @@ const exitEmptyIndentContinuation: StateCommand = (target) => {
       selection: EditorSelection.cursor(context.lineFrom + insert.length),
       scrollIntoView: true,
       userEvent: 'delete',
-    })
-  );
-  return true;
-};
-
-/**
- * A physical line's own leading whitespace, followed by a bullet or
- * ordered marker and its separator — the raw *shape* CM6's own
- * `getContext` has declined to recognize as this line's own marker (see
- * the guard below). Never used to decide list *structure*; only to detect
- * this one fallback case.
- *
- * Ordered markers included (2026-08-29, ordered-list extension): the root
- * cause below (a line indented 4+ columns past the nearest open block's
- * own content column becomes lazy-continuation text) is a generic
- * CommonMark indentation rule, not specific to which marker character the
- * line happens to start with — confirmed by the same reasoning already
- * established for bullets, re-applied here rather than re-derived.
- */
-const LIST_MARKER_LOOKALIKE = /^([ \t]*)(?:[-+*][ \t]+|\d{1,9}[.)][ \t]+)/;
-
-/**
- * Fallback for Enter on a physical line that *looks* like a bullet item
- * but that CM6's own `getContext` doesn't recognize as one — verified
- * (see the investigation this command's commit reports) to be a genuine
- * CommonMark parser consequence, not a bug: a line indented 4+ columns
- * past the nearest currently-open block's own content column becomes
- * that block's lazy-continuation text, regardless of whether the line's
- * own characters happen to start with a bullet marker. `getContext`'s
- * ancestor walk then finds only the *shallower* real `ListItem` (if any)
- * enclosing that paragraph, and `continueMarkup` reconstructs the new
- * line at that shallower item's own indentation — discarding the deeper
- * physical line's own position entirely.
- *
- * This command intercepts exactly that one shape, before `continueMarkup`
- * runs, and inserts a newline plus the *physical line's own* leading
- * whitespace — nothing else. No marker is repeated: this line was never
- * a real `ListItem` in the parser's eyes, and inventing one here would be
- * Clutter deciding list structure the parser itself doesn't recognize,
- * exactly what this architecture forbids elsewhere (Tab/Shift-Tab,
- * Backspace). The result is a plain, unindented-relative-to-itself
- * continuation line — matching what pressing Enter inside any ordinary
- * indented paragraph text does elsewhere in this editor.
- *
- * Guard, all five required to fire:
- * 1. Single collapsed cursor (mirrors `emptyContinuationAt`'s own guard).
- * 2. Markdown active at the cursor.
- * 3. Cursor is at the exact end of the current physical line (`pos ===
- *    line.to`) — narrows this to precisely the case every product
- *    example and test describes; a cursor sitting earlier on the line
- *    (e.g. inside its own leading whitespace, before the lookalike
- *    prefix even starts) never triggers this fallback and instead
- *    reaches whatever already handles a mid-line Enter today.
- * 4. The physical line's text matches `LIST_MARKER_LOOKALIKE` — leading
- *    whitespace, then one of `-`/`+`/`*` or an ordered marker (`\d{1,9}[.)]`),
- *    then real separator whitespace.
- * 5. `resolveLineIndentContext` classifies *this exact line* as
- *    `'paragraph'` — never `'list'` (a real, recognized `ListItem`'s own
- *    line — case A/B, untouched, `continueMarkup` already does the right
- *    thing), `'code'` (a fenced code line that merely contains this text
- *    as content — must never be treated as markup), `'heading'`, or
- *    `'unhandled'` (blockquotes — `>` never matches `LIST_MARKER_LOOKALIKE`
- *    anyway — and blank lines).
- *
- * Every other case returns `false` and reaches `continueMarkup` exactly
- * as before.
- */
-export const exitLazyContinuationBulletLookalike: StateCommand = ({ state, dispatch }) => {
-  const { selection } = state;
-  if (selection.ranges.length !== 1 || !selection.main.empty) {
-    return false;
-  }
-
-  const pos = selection.main.head;
-  if (
-    !markdownLanguage.isActiveAt(state, pos, -1) &&
-    !markdownLanguage.isActiveAt(state, pos, 1)
-  ) {
-    return false;
-  }
-
-  const line = state.doc.lineAt(pos);
-  if (pos !== line.to) {
-    return false;
-  }
-
-  const match = LIST_MARKER_LOOKALIKE.exec(line.text);
-  if (!match) {
-    return false;
-  }
-
-  if (resolveLineIndentContext(state, line).kind !== 'paragraph') {
-    return false;
-  }
-
-  const indent = match[1] ?? '';
-  let from = pos;
-  while (from > line.from && /[ \t]/.test(line.text.charAt(from - line.from - 1))) {
-    from--;
-  }
-
-  dispatch(
-    state.update({
-      changes: { from, to: pos, insert: state.lineBreak + indent },
-      selection: EditorSelection.cursor(from + state.lineBreak.length + indent.length),
-      scrollIntoView: true,
-      userEvent: 'input',
     })
   );
   return true;
@@ -1127,7 +1034,6 @@ const continueEmojiListItem: StateCommand = ({ state, dispatch }) => {
  */
 export const markdownEnterCommand: StateCommand = (target) =>
   exitEmptyBlockquoteContinuation(target) ||
-  exitLazyContinuationBulletLookalike(target) ||
   continueEmojiListItem(target) ||
   preserveListMarkerOnContentStartSplit(target) ||
   preserveTaskContentOnContentStartSplit(target) ||

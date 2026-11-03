@@ -502,7 +502,19 @@
   );
 }
 
-.cm-editor .cm-quote-line::before {
+/*
+ * The bar also continues through the spacer between two quote lines. Between two paragraphs of one quote
+ * (a new empty quoted line after text, a blank quoted line, a list inside a quote) `blockSeparatorDecoration.ts`
+ * puts a 6px block widget between the two `.cm-line` elements as its own sibling in `.cm-content`, so without
+ * this the bar reads as broken there. `quote line + separator + quote line` can only be one quote: two separate
+ * quotes always have a plain, undecorated line between them (a blank line), so this never joins them.
+ */
+.cm-editor .cm-quote-line + .cm-block-separator:has(+ .cm-quote-line) {
+  position: relative;
+}
+
+.cm-editor .cm-quote-line::before,
+.cm-editor .cm-quote-line + .cm-block-separator:has(+ .cm-quote-line)::before {
   content: '';
   position: absolute;
   inset-inline-start: var(--space-0);
@@ -581,6 +593,21 @@
 }
 
 .cm-editor .cm-quote-line:has(+ .cm-quote-line)::before {
+  border-end-start-radius: 0;
+  border-end-end-radius: 0;
+}
+
+/* The spacer's own segment is a straight section of the bar, and the lines either side of it join it flat. */
+.cm-editor .cm-quote-line + .cm-block-separator:has(+ .cm-quote-line)::before {
+  border-radius: 0;
+}
+
+.cm-editor .cm-quote-line + .cm-block-separator + .cm-quote-line::before {
+  border-start-start-radius: 0;
+  border-start-end-radius: 0;
+}
+
+.cm-editor .cm-quote-line:has(+ .cm-block-separator + .cm-quote-line)::before {
   border-end-start-radius: 0;
   border-end-end-radius: 0;
 }

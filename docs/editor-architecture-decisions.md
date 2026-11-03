@@ -1183,3 +1183,32 @@ Both are app-wide localStorage preferences with a change notification (the Show 
 - **Preserve bullet style** is presentation only. Off sets `data-markdown-bullet-style="dot"` on the root; CSS then paints the existing dot glyph for `-` and `+` too (`*` always paints it). In read-only previews each item carries `data-bullet-marker`, and CSS shows `-` / `+` as written while the setting is on. The source is never touched.
 - **Enable emoji lists** changes *parsing*: `markdownGrammarFor(false)` leaves out `emojiListSyntax`, so no `EmojiList` node exists in the editor (`markdownLanguageExtension`) or the read-only renderer (`sharedMarkdownParser`). An open editor is rebuilt through the existing remount path on change (document, selection, history, folds and scroll carry over), because most decorations only rebuild on document changes. The vault's own ingest (`tagParser`, the parsed-note cache) always uses the default grammar, since what it stores must not depend on a per-device preference.
 
+## One-press blockquote exit leaves a blank line in the source (2026-11-03)
+
+**Problem.** `exitEmptyBlockquoteContinuation` removed the `>` from an empty quoted line and nothing else, leaving `> Text⏎|`. Markdown ends a quoted paragraph only at a blank line, so the first typed character became a *lazy continuation* of the quote (`> Text⏎this i` parses as one blockquote in the editor and the read-only renderer alike). The exit held only while the line stayed empty. The cause was the source the handler left behind, not the caret, a decoration or a transaction filter.
+
+**Decision (Locked).** The handler no longer delegates to `deleteMarkupBackward`; it makes one explicit edit:
+- If the line above has content, the empty quoted line becomes the blank separator and the caret moves to a fresh line after it: `> Text⏎> |` becomes `> Text⏎⏎|`. For a nested level the separator is a blank line at the outer level (`>> Text⏎>> |` becomes `>> Text⏎>⏎>|`), which ends the inner quote and leaves the caret in the outer one.
+- If the line above is blank or quote-only (`> Text⏎>⏎> |`), the paragraph is already closed and the innermost `>` level is simply dropped. An empty quote (`> |`) just loses its marker.
+- A quoted list exits the same way once its empty item is gone (`> - Text⏎> |` becomes `> - Text⏎⏎|`).
+
+**Versus native.** `insertNewlineContinueMarkup` reaches the same end state (`> Text⏎⏎|`) in three presses (first Enter: empty quoted line; second: a second empty quoted paragraph; third: its "two aligned empty quoted lines" rule). The custom exit keeps one fewer press with an identical result, pinned by a test that compares the two.
+
+**Verified.** `markdownBlockquoteExit.fullStack.test.tsx` runs the whole interaction through `createEditorView` + `buildEditorExtensions` with real keydown events: exit, typing, further Enters, reopening on the saved text, and the read-only render, for plain, multi-paragraph, nested, list, numbered, task and empty quotes. jsdom only; not run in the native app. **Limitation:** Backspace right after the exit deletes the blank line (as in native), which puts typed text back into the quote by design.
+
+## The quote bar is continuous through the spacer between two paragraphs of one quote (2026-11-03)
+
+**Problem.** A new empty quoted line (`> |` after text), a blank quoted line, or a list inside a quote showed its own short bar with a gap above it. The bar is drawn per line (`.cm-quote-line::before`), and between two paragraphs of one quote `blockSeparatorDecoration.ts` places a 6px block widget (`.cm-block-separator`) between the two `.cm-line` elements. The widget draws nothing, so the bar broke there, and the adjacent-line rounding rules (which assume the lines are direct siblings) rounded both ends. Same-paragraph lines have no widget, which is why they already joined.
+
+**Decision.** CSS only, no JavaScript or decoration change. `.cm-quote-line + .cm-block-separator:has(+ .cm-quote-line)` draws the same bar through the spacer (it shares the line bar's rule, so the geometry is declared once), squared off, and the quote lines on either side square their joined ends. It can only match inside one quote: two separate quotes always have a plain undecorated line between them (`Q S L S Q`), and an exited quote's blank line carries no quote class.
+
+**Verified.** The real DOM sequences for plain, empty-continuation, paragraph, nested, list and separate-quote cases (`blockquoteBarContinuity.test.ts`), and the rendered result in headless Chrome against the real rules: the committed CSS reproduces the reported gap, the new rules join the bar, and separate quotes stay separate. Not run in the native Tauri/WKWebView app.
+
+## Lazy bullet-lookalike handler removed; CodeMirror's generic newline handles it (2026-11-03)
+
+**Removed.** `exitLazyContinuationBulletLookalike` and `LIST_MARKER_LOOKALIKE` (`enter/markdownEnterKeymap.ts`), and its slot in `markdownEnterCommand`. It existed for a bullet- or number-looking line indented 4+ columns past its parent's content column (`* Parent` / `        - Child|`): the parser makes that lazy-continuation text of the parent's paragraph, and CodeMirror's Markdown continuation then rebuilt the new line at the parent marker's width, discarding the line's own indentation.
+
+**What handles it now.** No Clutter handler. Such a line is a continuation line of its parent item (`isListContinuationLine`, see "List continuation lines: Enter and Backspace leave them to CodeMirror's generic commands"), so Enter skips `insertNewlineContinueMarkup` and CodeMirror's own `insertNewlineAndIndent` copies the line's indentation: `* Parent⏎        - Child⏎        |`, no marker invented. The visible result is identical to the old handler, with one fewer special case. Native `insertNewlineContinueMarkup` alone would indent such a line by the parent marker's width (2 columns); it is deliberately not given these lines, for the same reason as every other continuation line.
+
+**Tests.** `markdownDeepBulletEnter.test.ts` was rewritten around the full Enter chain (the old tests called the removed function directly): real nested items still go through the Markdown continuation, lazy lookalikes (bullet and ordered, end of line and mid-line, every Tab depth) take the generic newline at the physical indentation.
+

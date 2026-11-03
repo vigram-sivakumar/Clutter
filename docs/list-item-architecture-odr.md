@@ -2729,6 +2729,8 @@ in a case where it wasn't testable before.
 
 ### 13.7 Enter: `exitLazyContinuationBulletLookalike` extended to ordered lookalikes
 
+> **Superseded 2026-11-03:** `exitLazyContinuationBulletLookalike` was removed. Those lines are now ordinary list continuation lines, handled by CodeMirror's generic `insertNewlineAndIndent` with the same visible result (see `editor-architecture-decisions.md`). The text below is the original record.
+
 `LIST_MARKER_LOOKALIKE` (renamed from `BULLET_LOOKALIKE`) now matches
 `[-+*][ \t]+` **or** `\d{1,9}[.)][ \t]+`. Verified live and by automated
 test: `"1. Parent\n        1. Child|"` (8-space indent — confirmed by a

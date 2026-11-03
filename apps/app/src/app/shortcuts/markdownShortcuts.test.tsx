@@ -165,7 +165,8 @@ const BEHAVIOR: Record<string, () => void> = {
     expect(list.state.doc.toString()).toBe('- a\n');
     const quote = mount('> q\n> ');
     press(quote, PRESSES.exit!);
-    expect(quote.state.doc.toString()).toBe('> q\n');
+    // The quote ends in the source: a blank line separates it from what follows.
+    expect(quote.state.doc.toString()).toBe('> q\n\n');
   },
   'line-break': () => {
     const view = mount('abc');
