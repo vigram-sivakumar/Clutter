@@ -1,6 +1,6 @@
 {
   "name": "@clutter/app",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "Clutter 2.0 - Core editor implementation with segmented architecture",
@@ -17,6 +17,7 @@
     "build:share": "scripts/build-share.sh",
     "verify:bundle": "scripts/verify-bundle.sh",
     "check:atomic": "scripts/check-atomic-default.sh",
+    "check:version": "scripts/check-version-sync.sh",
     "dev:sandbox": "scripts/dev-sandboxed.sh"
   },
   "dependencies": {

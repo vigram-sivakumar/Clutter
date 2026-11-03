@@ -497,7 +497,9 @@
  * its text on the item's content column. The marker line does not set it and keeps the whole gutter. */
 .cm-editor .cm-list-line {
   padding-left: var(--list-indent-px, 0px);
-  text-indent: calc(-1 * var(--list-line-consumed-px, var(--list-indent-px, 0px)));
+  text-indent: calc(
+    -1 * var(--list-line-consumed-px, var(--list-indent-px, 0px))
+  );
 }
 
 .cm-editor .cm-quote-line::before {
@@ -1248,6 +1250,7 @@
 .cm-editor .cm-task-completed,
 .cm-editor .cm-task-completed span {
   color: var(--foreground-placeholder);
+  text-decoration-color: var(--foreground-placeholder);
 }
 
 /* use the below if you want code block accent color */
