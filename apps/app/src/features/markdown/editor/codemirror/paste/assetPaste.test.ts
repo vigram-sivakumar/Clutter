@@ -6,7 +6,8 @@ import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { pasteAssets, type PasteAssets } from './assetPaste';
+import type { PasteAssets } from './assetPaste';
+import { pasteRouting } from './pasteRouting';
 
 function file(name: string, type: string, content: string): File {
   const bytes = new TextEncoder().encode(content);
@@ -25,7 +26,7 @@ function mount(doc: string, assets: PasteAssets | undefined, cursor = doc.length
     state: EditorState.create({
       doc,
       selection: { anchor: cursor },
-      extensions: [pasteAssets(() => assets), history()],
+      extensions: [pasteRouting(() => assets), history()],
     }),
     parent,
   });
@@ -190,7 +191,7 @@ describe('everything else is left to the default paste', () => {
     const { assets, importFile } = fakeAssets();
     const parent = document.body.appendChild(document.createElement('div'));
     const readOnly = new EditorView({
-      state: EditorState.create({ doc: '', extensions: [pasteAssets(() => assets), EditorState.readOnly.of(true)] }),
+      state: EditorState.create({ doc: '', extensions: [pasteRouting(() => assets), EditorState.readOnly.of(true)] }),
       parent,
     });
 
@@ -213,7 +214,7 @@ describe('leaving the note mid-import', () => {
     await settle();
     expect(view.state.doc.toString()).toBe('ab');
     expect(onNotInserted).toHaveBeenCalledOnce();
-    expect(onNotInserted).toHaveBeenCalledWith(2);
+    expect(onNotInserted).toHaveBeenCalledWith(2, 'closed');
   });
 });
 
@@ -226,7 +227,7 @@ describe('inside a table row', () => {
       state: EditorState.create({
         doc,
         selection: { anchor: doc.length - 2 },
-        extensions: [markdown({ extensions: GFM }), pasteAssets(() => assets)],
+        extensions: [markdown({ extensions: GFM }), pasteRouting(() => assets)],
       }),
       parent,
     });

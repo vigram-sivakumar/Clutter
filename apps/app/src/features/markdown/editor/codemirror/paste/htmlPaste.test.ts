@@ -7,8 +7,8 @@ import { EditorView } from '@codemirror/view';
 import { GFM } from '@lezer/markdown';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { tableCreatePaste } from '../table/tableCreatePaste';
-import { pasteAssets, type PasteAssets } from './assetPaste';
+import type { PasteAssets } from './assetPaste';
+import { pasteRouting } from './pasteRouting';
 import { decodeDataImage, hasRichHtml, htmlToPieces } from './htmlToMarkdown';
 
 // 1x1 transparent PNG, and a different one (so "same bytes" and "different bytes" are both real).
@@ -21,7 +21,7 @@ function mount(doc: string, assets: PasteAssets | undefined, cursor = doc.length
     state: EditorState.create({
       doc,
       selection: { anchor: cursor },
-      extensions: [markdown({ extensions: GFM }), tableCreatePaste(), pasteAssets(() => assets), history()],
+      extensions: [markdown({ extensions: GFM }), pasteRouting(() => assets), history()],
     }),
     parent,
   });
@@ -264,7 +264,7 @@ describe('pasting rich HTML', () => {
     await settle();
 
     expect(view.state.doc.toString()).toBe('ab');
-    expect(onNotInserted).toHaveBeenCalledWith(1);
+    expect(onNotInserted).toHaveBeenCalledWith(1, 'closed');
   });
 
   it('keeps a table row on one line', async () => {

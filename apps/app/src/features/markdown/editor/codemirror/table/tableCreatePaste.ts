@@ -1,9 +1,8 @@
-import type { EditorState, Extension } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
+import type { EditorState } from '@codemirror/state';
+import type { EditorView } from '@codemirror/view';
 
 import { findAllTables, padCellContent } from './tableGeometry';
-import { readClipboardTable } from './tablePaste';
-import { tableSelectionField } from './tableSelection';
+import { escapeTableCellText, type ClipboardTable } from './tablePaste';
 
 /**
  * Paste of tabular clipboard data *outside* any existing table — creates a
@@ -66,11 +65,6 @@ function buildRowText(cells: readonly string[]): string {
   return '|' + cells.map((cell) => padCellContent(cell, 0) + '|').join('');
 }
 
-/** A literal `|` in plain (non-Markdown) pasted content would otherwise be read as a structural column delimiter, corrupting the very table being created — escaped to `\|`, GFM's own standard escape, before it's ever written into Markdown source. Never applied to `'internal'`-source content, which is already Clutter's own previously-serialized Markdown (see `ClipboardTable`'s own doc comment in `tablePaste.ts`) — escaping it again would corrupt an already-correct `\|` into `\\|`. */
-function escapeTableCellText(cell: string): string {
-  return cell.replace(/\|/g, '\\|');
-}
-
 /**
  * The full Markdown source for a brand-new table from `grid` — header row,
  * one generated `---` alignment row, then every remaining row as body
@@ -127,32 +121,27 @@ function tableAdjacencySeparators(state: EditorState, from: number, to: number):
   return { leading, trailing };
 }
 
-export function tableCreatePaste(): Extension {
-  return EditorView.domEventHandlers({
-    paste(event, view) {
-      const selection = view.state.field(tableSelectionField, false) ?? null;
-      if (selection && selection.kind === 'range') {
-        // Milestone 5's own `tablePaste()` territory — a `range` selection
-        // means "paste into this existing table's selected rectangle," not
-        // "create a new table here."
-        return false;
-      }
-
-      const table = readClipboardTable(event);
-      if (!table) {
-        return false;
-      }
-
-      const markdown = buildTableMarkdown(table.grid, table.source !== 'internal');
-      const { from, to } = view.state.selection.main;
-      const { leading, trailing } = tableAdjacencySeparators(view.state, from, to);
-      const insert = leading + markdown + trailing;
-      view.dispatch({
-        changes: { from, to, insert },
-        selection: { anchor: from + leading.length + markdown.length },
-        scrollIntoView: true,
-      });
-      return true;
-    },
+/**
+ * Strategy: create a new table from `table` at the root selection, in one transaction. Chosen by `classifyPaste`
+ * (`pasteClassification.ts`) — never inside code, a list item or a blockquote, never with a `range` selection active —
+ * and run by `pasteRouting.ts`.
+ */
+export function createTableFromClipboard(view: EditorView, table: ClipboardTable): void {
+  const { from, to } = view.state.selection.main;
+  const markdown = buildTableMarkdown(table.grid, table.source !== 'internal');
+  const adjacent = tableAdjacencySeparators(view.state, from, to);
+  // The table gets its own block: text on the caret's line before it, or after it, goes to a blank-line-separated
+  // block (text after a table's last row would become one of its rows).
+  const textBefore = view.state.sliceDoc(view.state.doc.lineAt(from).from, from).trim() !== '';
+  const lineTo = view.state.doc.lineAt(to);
+  const textAfter = view.state.sliceDoc(to, lineTo.to).trim() !== '';
+  const nextLineFilled = !textAfter && lineTo.number < view.state.doc.lines && view.state.doc.line(lineTo.number + 1).text.trim() !== '';
+  const leading = textBefore ? '\n\n' : adjacent.leading;
+  const trailing = textAfter ? '\n\n' : nextLineFilled ? '\n' : adjacent.trailing;
+  const insert = leading + markdown + trailing;
+  view.dispatch({
+    changes: { from, to, insert },
+    selection: { anchor: from + leading.length + markdown.length },
+    scrollIntoView: true,
   });
 }

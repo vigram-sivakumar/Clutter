@@ -247,7 +247,7 @@ function ownListItemIndentPx(
   const markerLine = state.doc.lineAt(marker.from);
   const leadingPx = getLeadingWhitespaceWidthPx(markerLine.text);
 
-  const taskMarker = taskMarkerOfListItem(item);
+  const taskMarker = taskMarkerOfListItem(item, state);
   if (taskMarker) {
     // The real, unconcealed separator between TaskMarker's own "]" and
     // the item's real content (`taskCheckboxDecoration.ts` conceals only

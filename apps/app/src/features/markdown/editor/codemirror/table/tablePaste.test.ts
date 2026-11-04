@@ -9,7 +9,7 @@ import * as fixtures from './tableClipboardFixtures';
 import { TableActiveCellController } from './tableActiveCellController';
 import { findAllTables, getNavigableRows, getRowCellBounds, endOfCellContent, startOfCellContent } from './tableGeometry';
 import { CLUTTER_TABLE_RANGE_MIME } from './tableRangeClipboard';
-import { tableCellPaste, tablePaste } from './tablePaste';
+import { cellPasteRouting, pasteRouting } from '../paste/pasteRouting';
 import { tableRectangularNormalization } from './tableRectangularNormalization';
 import { tableRootSelectionSnap } from './tableRootSelectionSnap';
 import { tableSelectionChanged, tableSelectionField, type TableSelection } from './tableSelection';
@@ -80,7 +80,7 @@ function mountRootView(doc: string, controller: TableActiveCellController): Edit
         markdownLanguageExtension(),
         tableSelectionField,
         tableSelectionDeletionHistory(),
-        tablePaste(),
+        pasteRouting(() => undefined),
         history(),
         tableRootSelectionSnap(),
         tableRectangularNormalization(),
@@ -89,7 +89,7 @@ function mountRootView(doc: string, controller: TableActiveCellController): Edit
     parent: document.body.appendChild(document.createElement('div')),
   });
   mountedViews.push(view);
-  controller.setNestedExtensions([tableCellPaste(() => view, controller)]);
+  controller.setNestedExtensions([cellPasteRouting(() => view, controller, () => undefined)]);
   return view;
 }
 

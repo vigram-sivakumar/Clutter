@@ -1,4 +1,4 @@
-import type { ChangeSpec, EditorState, Extension } from '@codemirror/state';
+import type { ChangeSpec, EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import { splitPipeRowCells } from './tableAlignment';
@@ -14,7 +14,7 @@ import {
   type TableInfo,
 } from './tableGeometry';
 import { CLUTTER_TABLE_RANGE_MIME } from './tableRangeClipboard';
-import { tableSelectionChanged, tableSelectionField, type TableSelection } from './tableSelection';
+import { tableSelectionChanged, type TableSelection } from './tableSelection';
 
 /**
  * Paste into an existing table — active-cell target (no `TableSelection`)
@@ -41,25 +41,20 @@ import { tableSelectionChanged, tableSelectionField, type TableSelection } from 
  * with real pasted content. This is what keeps this module from having to
  * duplicate that filter's own padding logic for the common case.
  *
- * **Pipe-escaping is out of scope, matching an existing, pre-existing gap.**
- * `TableActiveCellController.forwardToRoot` already writes typed cell
- * content back into the document verbatim, with no escaping of a literal
- * `|` a user might type — this module writes pasted content into a cell
- * gap exactly the same, verbatim way. Already-escaped `\|` in copied
- * Markdown content round-trips correctly (nothing here touches it), but a
- * genuinely new, unescaped `|` arriving via external TSV/HTML paste has the
- * same known limitation ordinary typing already has, not a regression this
- * feature introduces.
+ * **Pipes.** Plain content (HTML, tab-separated text) is written with literal `|` escaped (`escapeTableCellText`); Clutter's
+ * own clipboard is already escaped and is written as is. Text pasted into a single cell (no grid) is escaped by the
+ * cell editor's own `clipboardInputFilter` (`MarkdownEditor.tsx`) with the same function. Typing a `|` in a cell is a
+ * separate, pre-existing gap and is not covered here.
  */
 
-interface PasteTarget {
+export interface PasteTarget {
   readonly tableFrom: number;
   readonly row: number;
   readonly col: number;
 }
 
 /** Whether the active nested cell (if any) is the paste target — mutually exclusive with a `range` `TableSelection`, which always takes priority when present. */
-function resolveActiveCellTarget(view: EditorView, controller: TableActiveCellController): PasteTarget | null {
+export function resolveActiveCellTarget(view: EditorView, controller: TableActiveCellController): PasteTarget | null {
   const anchor = controller.activeAnchor;
   if (!anchor) {
     return null;
@@ -208,8 +203,7 @@ export interface ClipboardTable {
  * serialize into a brand-new table's Markdown source), not how the
  * clipboard itself is read.
  */
-export function readClipboardTable(event: ClipboardEvent): ClipboardTable | null {
-  const data = event.clipboardData;
+export function readClipboardTable(data: DataTransfer | null): ClipboardTable | null {
   if (!data) {
     return null;
   }
@@ -257,8 +251,20 @@ export function readClipboardTable(event: ClipboardEvent): ClipboardTable | null
   return null;
 }
 
-function readClipboardGrid(event: ClipboardEvent): string[][] | null {
-  return readClipboardTable(event)?.grid ?? null;
+/**
+ * A literal `|` in plain (non-Markdown) content would be read as a column delimiter, so it is escaped to `\|` (GFM's own
+ * escape) before it is written into table source. A pipe that already has an odd number of backslashes before it is
+ * already escaped and is left alone (no `\\|`); with an even number (`\\|`: a literal backslash, then a pipe) it is not,
+ * and gets its own. Used for every plain-text write into a table: a new table, a pasted grid, and text pasted into a cell.
+ * Never applied to `'internal'` content, which is already Clutter's own serialized Markdown.
+ */
+export function escapeTableCellText(text: string): string {
+  return text.replace(/(\\*)\|/g, (_match, backslashes: string) => (backslashes.length % 2 === 1 ? `${backslashes}|` : `${backslashes}\\|`));
+}
+
+/** The pasted grid as it is written into existing cells: plain content (HTML, text) has its pipes escaped, Clutter's own is already escaped. */
+function cellGrid(table: ClipboardTable): string[][] {
+  return table.source === 'internal' ? table.grid : table.grid.map((row) => row.map(escapeTableCellText));
 }
 
 interface PasteBuildResult {
@@ -443,86 +449,24 @@ function pasteGridIntoTable(
 }
 
 /**
- * `EditorView.domEventHandlers({paste})` on the ROOT view — handles only
- * the `range`-`TableSelection` target. **Deliberately root-only, and
- * deliberately never also checks for an active cell here**, unlike an
- * earlier version of this module: confirmed directly against the installed
- * `@codemirror/view` source (`handleEvent`/`runHandlers` in `domobserver.js`,
- * `handlers.paste` in `domtooltip`-adjacent `paste`/clipboard handling) that
- * when a cell is actively being edited, the native `paste` event's real
- * `target` is the *nested* `EditorView`'s own `contentDOM` — a structurally
- * separate view with its own `handleEvent` listener on that same DOM node.
- * CM6's own unconditional base `handlers.paste` (every `EditorView` has one,
- * regardless of extensions) always calls `event.preventDefault()` the
- * moment it sees `event.clipboardData` at all, *before* the event finishes
- * bubbling — and root's own `runHandlers` loop bails out the instant it
- * sees `event.defaultPrevented`, *before trying any handler, including this
- * one*. So a root-only registration can never fire for an active-cell
- * paste in the real app, even though it bubbles there structurally — this
- * was verified live (not assumed) against a running instance of this
- * editor. `tableCellPaste()` below is the nested-view-side counterpart that
- * actually reaches the active-cell case, the same "reach root imperatively
- * via a `getRootView` closure, because keymaps/DOM listeners don't merge
- * across separate `EditorView` instances" shape `tableCellNavigation()`
- * already established for the identical class of problem.
- *
- * A `range` `TableSelection` never coexists with an active cell (mutually
- * exclusive per `tableSelectionField`'s own semantics), and no nested view
- * is mounted/focused while one is active — root's own `contentDOM` is the
- * paste event's genuine, direct target there, so this handler needs no
- * nested counterpart for that case.
+ * Strategy: paste `table` into the cells selected by the `range` `TableSelection` of the root view (the grid starts at
+ * the selection's top-left cell). Chosen by `classifyPaste` (`pasteClassification.ts`) and run by `pasteRouting.ts`.
+ * No controller/deactivation is involved: an active cell never coexists with a range selection.
  */
-export function tablePaste(): Extension {
-  return EditorView.domEventHandlers({
-    paste(event, view) {
-      const selection = view.state.field(tableSelectionField, false) ?? null;
-      if (!selection || selection.kind !== 'range') {
-        return false;
-      }
-
-      const grid = readClipboardGrid(event);
-      if (!grid) {
-        return false;
-      }
-
-      const target: PasteTarget = {
-        tableFrom: selection.tableFrom,
-        row: Math.min(selection.anchor.row, selection.head.row),
-        col: Math.min(selection.anchor.col, selection.head.col),
-      };
-
-      // No controller/deactivation involved — see this function's own top
-      // doc comment for why an active cell can never be the context here.
-      return pasteGridIntoTable(view, null, target, grid, false);
-    },
-  });
+export function pasteIntoSelectedRange(view: EditorView, selection: TableSelection & { readonly kind: 'range' }, table: ClipboardTable): boolean {
+  const target: PasteTarget = {
+    tableFrom: selection.tableFrom,
+    row: Math.min(selection.anchor.row, selection.head.row),
+    col: Math.min(selection.anchor.col, selection.head.col),
+  };
+  return pasteGridIntoTable(view, null, target, cellGrid(table), false);
 }
 
 /**
- * The active-cell counterpart — installed on the NESTED cell editor's own
- * extensions (`TableActiveCellController.setNestedExtensions`, alongside
- * `tableCellNavigation()`), not root's, per this module's own `tablePaste()`
- * doc comment. Reaches back into the root document/controller exactly the
- * way `tableCellNavigation()` already does: a `getRootView` closure plus
- * the same controller instance, both supplied by `MarkdownEditor.tsx` at
- * construction — never a DOM/event-based hookup, since a nested view's own
- * `domEventHandlers` config is entirely separate from root's.
+ * Strategy: paste `table` starting at the active cell (the nested cell editor's counterpart of the above — the
+ * native paste event's target is the nested view, so `pasteRouting.ts` reaches the root and the controller through
+ * the same `getRootView` closure `tableCellNavigation()` uses).
  */
-export function tableCellPaste(getRootView: () => EditorView, controller: TableActiveCellController): Extension {
-  return EditorView.domEventHandlers({
-    paste(event) {
-      const rootView = getRootView();
-      const target = resolveActiveCellTarget(rootView, controller);
-      if (!target) {
-        return false;
-      }
-
-      const grid = readClipboardGrid(event);
-      if (!grid) {
-        return false;
-      }
-
-      return pasteGridIntoTable(rootView, controller, target, grid, true);
-    },
-  });
+export function pasteIntoActiveCell(rootView: EditorView, controller: TableActiveCellController, target: PasteTarget, table: ClipboardTable): boolean {
+  return pasteGridIntoTable(rootView, controller, target, cellGrid(table), true);
 }

@@ -702,8 +702,8 @@ describe('markdownEnterCommand', () => {
       expect(pressEnterTimes('- - - - Text|', 1)).toEqual(['- - - - Text\n- |']);
     });
 
-    it('same-line ordered chain: "1. 1. 1. Text" continues at the first level, marker copied verbatim', () => {
-      expect(pressEnterTimes('1. 1. 1. Text|', 1)).toEqual(['1. 1. 1. Text\n1. |']);
+    it('same-line ordered chain: "1. 1. 1. Text" continues at the first level, numbered like any ordered item', () => {
+      expect(pressEnterTimes('1. 1. 1. Text|', 1)).toEqual(['1. 1. 1. Text\n2. |']);
     });
 
     it('mixed-kind same-line chain: "- 1. - Text" continues at the first (bullet) level', () => {
@@ -711,7 +711,7 @@ describe('markdownEnterCommand', () => {
     });
 
     it('mixed-kind same-line chain starting ordered: "1. - Text" continues at the first (ordered) level', () => {
-      expect(pressEnterTimes('1. - Text|', 1)).toEqual(['1. - Text\n1. |']);
+      expect(pressEnterTimes('1. - Text|', 1)).toEqual(['1. - Text\n2. |']);
     });
 
     it('genuine multi-line nesting (different physical lines) is unaffected — continues at the deepest, real level', () => {

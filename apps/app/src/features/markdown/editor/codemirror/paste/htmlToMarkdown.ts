@@ -16,7 +16,7 @@ export type HtmlPiece =
   | { readonly kind: 'image'; readonly src: string; readonly alt: string };
 
 /** Tags that mean the HTML carries structure worth converting. Plain wrappers (`div`/`span`, as editors and terminals put on the clipboard) do not. */
-const SEMANTIC_SELECTOR = 'strong, b, em, i, del, s, strike, a[href], h1, h2, h3, h4, h5, h6, ul, ol, blockquote, pre, hr, img';
+const SEMANTIC_SELECTOR = 'strong, b, em, i, del, s, strike, a[href], h1, h2, h3, h4, h5, h6, ul, ol, blockquote, pre, hr, img, table';
 
 const SKIPPED = new Set(['HEAD', 'STYLE', 'SCRIPT', 'META', 'LINK', 'TITLE', 'TEMPLATE', 'NOSCRIPT', 'IFRAME', 'OBJECT', 'EMBED', 'SVG', 'CANVAS', 'VIDEO', 'AUDIO']);
 const BLOCKS = new Set(['P', 'DIV', 'SECTION', 'ARTICLE', 'HEADER', 'FOOTER', 'MAIN', 'ASIDE', 'FIGURE', 'FIGCAPTION', 'TABLE', 'THEAD', 'TBODY', 'TFOOT', 'TR', 'TD', 'TH', 'DL', 'DT', 'DD', 'ADDRESS', 'DETAILS', 'SUMMARY']);
@@ -238,6 +238,33 @@ function tableToMarkdown(table: Element, context: Context): string | null {
   return [line(grid[0]!), line(Array.from({ length: width }, () => '---')), ...grid.slice(1).map(line)].join('\n');
 }
 
+/** The code a `<pre>` holds, without trailing blank lines, or null when it is empty. */
+function preCode(pre: Element): string | null {
+  const code = (pre.textContent ?? '').replace(/\n+$/, '');
+  return code.trim() === '' ? null : code;
+}
+
+/** A backtick fence one longer than any run of backticks in `code`, and at least three. */
+const fenceFor = (code: string): string => '`'.repeat(Math.max(3, ...(code.match(/`+/g) ?? []).map((run) => run.length + 1)));
+
+const CODE_LANGUAGE_CLASS = /(?:^|\s)(?:language|lang)-([A-Za-z0-9_+#.-]+)/;
+
+/** The language a `<pre>` names, from a `language-js` / `lang-js` class on it or on its `<code>`; '' when it names none. */
+function preLanguage(pre: Element): string {
+  for (const element of [pre.querySelector(':scope > code'), pre]) {
+    const match = CODE_LANGUAGE_CLASS.exec(element?.getAttribute('class') ?? '');
+
+    if (match) {
+      return match[1]!;
+    }
+  }
+
+  return '';
+}
+
+/** One piece of a list item's content, in order: a paragraph of inline Markdown, or finished lines (a nested list, or a fenced code block). */
+type ItemPart = { readonly kind: 'text'; readonly text: string } | { readonly kind: 'lines'; readonly lines: string };
+
 function listItems(list: Element, context: Context, depth: number): string {
   // `context` carries the `deferred` images of the whole list (see `block`).
   const ordered = list.tagName.toUpperCase() === 'OL';
@@ -252,21 +279,87 @@ function listItems(list: Element, context: Context, depth: number): string {
     const marker = ordered ? `${index++}.` : '-';
     const checkbox = item.querySelector(':scope > input[type="checkbox"]');
     const task = checkbox ? (checkbox.hasAttribute('checked') ? '[x] ' : '[ ] ') : '';
-    const own = { text: '' };
-    const nested: string[] = [];
+    const parts: ItemPart[] = [];
+    let own = { text: '' };
+    // Content that continues the item on later lines is indented to its content column (`- ` is 2, `10. ` is 4).
+    const continuation = `${'    '.repeat(depth)}${' '.repeat(marker.length + 1)}`;
 
-    for (const child of Array.from(item.childNodes)) {
-      if (child.nodeType === Node.ELEMENT_NODE && /^(?:UL|OL)$/i.test((child as Element).tagName)) {
-        nested.push(listItems(child as Element, context, depth + 1));
+    // Ends the paragraph being collected. Its text follows a list marker (or sits on a line of its own under the
+    // item), so marker-looking text at its start (`- x`, `1. x`, `# x`, `> x`) would open a nested list, heading or
+    // quote there. It is the paragraph's literal text: escape it, as any paragraph's is.
+    const endText = (): void => {
+      const text = escapeBlockStart(own.text.replace(/\s+/g, ' ').trim());
+
+      if (text !== '') {
+        parts.push({ kind: 'text', text });
+      }
+
+      own = { text: '' };
+    };
+
+    // A `<p>`/`<div>` is a paragraph of its own, and a nested list ends the paragraph before it. Everything else
+    // (text, emphasis, links, code, `<br>`, images) is inline content of the paragraph being collected.
+    const visit = (child: Node): void => {
+      if (child.nodeType === Node.ELEMENT_NODE) {
+        const element = child as Element;
+        const tag = element.tagName.toUpperCase();
+
+        if (tag === 'UL' || tag === 'OL') {
+          endText();
+          parts.push({ kind: 'lines', lines: listItems(element, context, depth + 1) });
+          return;
+        }
+
+        // A code block stays a fenced block inside the item, right where it is among the paragraphs and lists.
+        if (tag === 'PRE') {
+          endText();
+          const code = preCode(element);
+
+          if (code !== null) {
+            const fence = fenceFor(code);
+            const language = preLanguage(element);
+            const fenced = [`${fence}${language}`, ...code.split('\n'), fence];
+            parts.push({ kind: 'lines', lines: fenced.map((line) => (line === '' ? line : `${continuation}${line}`)).join('\n') });
+          }
+
+          return;
+        }
+
+        if (tag === 'P' || tag === 'DIV') {
+          endText();
+
+          if (element.querySelector(BLOCK_DESCENDANT) === null) {
+            inline(element, context, own);
+          } else {
+            Array.from(element.childNodes).forEach(visit);
+          }
+
+          endText();
+          return;
+        }
+      }
+
+      inline(child, context, own);
+    };
+
+    Array.from(item.childNodes).forEach(visit);
+    endText();
+
+    // The first paragraph shares the marker's line. Each later paragraph follows a blank line and is indented to the
+    // item's content column, which is what keeps it inside the item.
+    const [first, ...rest] = parts;
+    const head = first?.kind === 'text' ? first.text : '';
+    const tail = first?.kind === 'text' ? rest : parts;
+
+    lines.push(`${'    '.repeat(depth)}${marker} ${task}${head}`.trimEnd());
+
+    for (const part of tail) {
+      if (part.kind === 'text') {
+        lines.push('', `${continuation}${part.text}`);
       } else {
-        inline(child, context, own);
+        lines.push(part.lines);
       }
     }
-
-    // The item's text follows a list marker, so marker-looking text at its start (`- x`, `1. x`, `# x`, `> x`) would
-    // open a nested list, heading or quote on the same line. It is the item's literal text: escape it, as a paragraph's is.
-    const text = escapeBlockStart(own.text.replace(/\s+/g, ' ').trim());
-    lines.push(`${'    '.repeat(depth)}${marker} ${task}${text}`.trimEnd(), ...nested);
   }
 
   return lines.join('\n');
@@ -331,10 +424,10 @@ function block(node: Node, context: Context, buffer: { text: string }): void {
       return;
     }
     case 'PRE': {
-      const code = (element.textContent ?? '').replace(/\n+$/, '');
-      if (code.trim() !== '') {
-        const fence = '`'.repeat(Math.max(3, ...(code.match(/`+/g) ?? []).map((run) => run.length + 1)));
-        context.blocks.push(`${fence}\n${code}\n${fence}`);
+      const code = preCode(element);
+      if (code !== null) {
+        const fence = fenceFor(code);
+        context.blocks.push(`${fence}${preLanguage(element)}\n${code}\n${fence}`);
       }
       return;
     }

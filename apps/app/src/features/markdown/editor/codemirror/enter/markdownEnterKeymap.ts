@@ -3,7 +3,7 @@ import {
   insertNewlineContinueMarkupCommand,
   markdownLanguage,
 } from '@codemirror/lang-markdown';
-import { insertNewlineAndIndent } from '@codemirror/commands';
+import { deleteCharBackward, insertNewlineAndIndent } from '@codemirror/commands';
 import { getIndentUnit, indentString, syntaxTree } from '@codemirror/language';
 import type { SyntaxNode } from '@lezer/common';
 import {
@@ -244,6 +244,42 @@ const exitEmptyIndentContinuation: StateCommand = (target) => {
 };
 
 /**
+ * The marker text for the item that follows an ordered item (`4.` -> `5.`) and the edits that shift the later
+ * siblings, shared by every Enter command that continues an ordered list itself. Falls back to the unchanged marker,
+ * with no sibling edits, when the marker is not `<digits><. or )>` or when growing the number (`9.` -> `10.`) could
+ * break nested content.
+ */
+function nextOrderedMarker(
+  state: EditorState,
+  listItem: SyntaxNode,
+  markerText: string,
+  markerFrom: number,
+  contentStart: number
+): { insertMarkerText: string; tailShiftEdits: RenumberEdit[] } {
+  const digitMatch = /^(\d+)([.)])$/.exec(markerText);
+  if (!digitMatch) {
+    return { insertMarkerText: markerText, tailShiftEdits: [] };
+  }
+  const digits = digitMatch[1]!;
+  const newDigits = String(Number(digits) + 1);
+  const widthDelta = newDigits.length - digits.length;
+  const oldContentColumn = countColumn(
+    state.sliceDoc(state.doc.lineAt(markerFrom).from, contentStart),
+    state.tabSize
+  );
+  const growthSafe =
+    nestedContentSurvivesGrowth(state, listItem, oldContentColumn, widthDelta) ||
+    !isRiskyRenumberRewrite(state, markerFrom, markerFrom + digits.length, newDigits.length);
+  if (!growthSafe) {
+    return { insertMarkerText: markerText, tailShiftEdits: [] };
+  }
+  return {
+    insertMarkerText: newDigits + digitMatch[2]!,
+    tailShiftEdits: renumberSequentialTail(state, listItem, 1),
+  };
+}
+
+/**
  * Continues the *first* same-line marker, not the deepest, at end-of-line
  * on a CommonMark same-line-collapsed chain (`- - - - Text`, `1. 1. 1.
  * Text`, or a chain mixing both kinds, e.g. `- 1. - Text`).
@@ -279,15 +315,12 @@ const exitEmptyIndentContinuation: StateCommand = (target) => {
  *    of this command attempting to replicate it for a rare case.
  * 3. `firstSameLineListMark` finds a real same-line-collapsed marker.
  *
- * When all three hold, this is a pure *insertion* at the cursor — no
- * deletion — of a newline, the first marker's own real leading
- * indentation, and a byte-for-byte copy of its own marker+separator text
- * (whatever the marker's own characters and separator width actually are —
- * this command never assumes bullet-shaped or single-space, it copies
- * whatever `firstSameLineListMark` found verbatim). The original line is
- * never modified. Every other case (mid-line Enter, no same-line collapse,
- * genuine multi-line nesting, single-level lists) returns `false` and
- * reaches `continueMarkup` exactly as before.
+ * When all three hold, this is a pure *insertion* at the cursor of a newline, the first marker's own real leading
+ * indentation, and that marker plus its separator. An ordered first marker is numbered like any ordered item
+ * (`4. - [ ] x` -> `5. `, later siblings shifted) via `nextOrderedMarker`, so bullet and ordered chains continue the
+ * same way; a bullet marker is copied as is. The original line is never modified. Every other case (mid-line Enter,
+ * no same-line collapse, genuine multi-line nesting, single-level lists) returns `false` and reaches `continueMarkup`
+ * exactly as before.
  */
 const continueFirstSameLineListLevel: StateCommand = ({ state, dispatch }) => {
   const { selection } = state;
@@ -306,13 +339,25 @@ const continueFirstSameLineListLevel: StateCommand = ({ state, dispatch }) => {
     return false;
   }
 
+  const marker = listMarkAt(state, first.from);
+  const listItem = marker?.parent;
+  if (!marker || !listItem) {
+    return false;
+  }
+
   const indent = state.sliceDoc(line.from, first.from);
-  const markerAndSeparator = state.sliceDoc(first.from, first.to);
-  const insert = state.lineBreak + indent + markerAndSeparator;
+  const markerText = state.sliceDoc(marker.from, marker.to);
+  const separator = state.sliceDoc(marker.to, first.to);
+  const { insertMarkerText, tailShiftEdits } =
+    classifyMarkerText(markerText) === 'ordered'
+      ? nextOrderedMarker(state, listItem, markerText, marker.from, first.to)
+      : { insertMarkerText: markerText, tailShiftEdits: [] as RenumberEdit[] };
+  const insert = state.lineBreak + indent + insertMarkerText + separator;
+  const changes = [{ from: pos, to: pos, insert }, ...tailShiftEdits].sort((a, b) => a.from - b.from);
 
   dispatch(
     state.update({
-      changes: { from: pos, to: pos, insert },
+      changes,
       selection: EditorSelection.cursor(pos + insert.length),
       scrollIntoView: true,
       userEvent: 'input',
@@ -630,7 +675,7 @@ const preserveTaskContentOnContentStartSplit: StateCommand = ({ state, dispatch 
     return false;
   }
 
-  const taskMarker = taskMarkerOfListItem(listItem);
+  const taskMarker = taskMarkerOfListItem(listItem, state);
   if (!taskMarker) {
     return false;
   }
@@ -653,28 +698,10 @@ const preserveTaskContentOnContentStartSplit: StateCommand = ({ state, dispatch 
   const indent = state.sliceDoc(line.from, marker.from);
   const markerSeparator = state.sliceDoc(marker.to, taskMarker.from);
 
-  let insertMarkerText = markerText;
-  let tailShiftEdits: RenumberEdit[] = [];
-
-  if (markerKind === 'ordered') {
-    const digitMatch = /^(\d+)([.)])$/.exec(markerText);
-    if (digitMatch) {
-      const digits = digitMatch[1]!;
-      const delimiter = digitMatch[2]!;
-      const newDigits = String(Number(digits) + 1);
-      const digitFrom = marker.from;
-      const digitTo = marker.from + digits.length;
-      const widthDelta = newDigits.length - digits.length;
-      const oldContentColumn = countColumn(state.sliceDoc(line.from, contentStart), state.tabSize);
-      const growthSafe =
-        nestedContentSurvivesGrowth(state, listItem, oldContentColumn, widthDelta) ||
-        !isRiskyRenumberRewrite(state, digitFrom, digitTo, newDigits.length);
-      if (growthSafe) {
-        insertMarkerText = newDigits + delimiter;
-        tailShiftEdits = renumberSequentialTail(state, listItem, 1);
-      }
-    }
-  }
+  const { insertMarkerText, tailShiftEdits } =
+    markerKind === 'ordered'
+      ? nextOrderedMarker(state, listItem, markerText, marker.from, contentStart)
+      : { insertMarkerText: markerText, tailShiftEdits: [] as RenumberEdit[] };
 
   const insert = state.lineBreak + indent + insertMarkerText + markerSeparator + '[ ] ';
   const changes = [{ from: contentStart, to: contentStart, insert }, ...tailShiftEdits].sort(
@@ -1218,7 +1245,7 @@ export const deleteBulletMarkerSeparator: StateCommand = ({ state, dispatch }) =
   // identical structural facts `preserveTaskContentOnContentStartSplit`
   // already uses, not a second definition of "is
   // this task empty."
-  const taskMarker = listItem ? taskMarkerOfListItem(listItem) : null;
+  const taskMarker = listItem ? taskMarkerOfListItem(listItem, state) : null;
   const isEmptyTask =
     taskMarker !== null && !/\S/.test(state.sliceDoc(taskContentBoundaryAfter(state, taskMarker), line.to));
   const boundary = !content || isEmptyTask ? line.to : content.from;
@@ -1530,12 +1557,29 @@ export const insertSoftLineBreak: Command = (view) => {
 function isInsideTaskMarkerOrContent(state: EditorState, pos: number): boolean {
   for (let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, -1); node; node = node.parent) {
     if (node.name === 'ListItem') {
-      const taskMarker = taskMarkerOfListItem(node);
+      const taskMarker = taskMarkerOfListItem(node, state);
       return taskMarker !== null && pos > taskMarker.from && state.doc.lineAt(taskMarker.from).from === state.doc.lineAt(pos).from;
     }
   }
   return false;
 }
+
+/**
+ * Backspace after the first marker of a same-line chain (`4. - [ ] x`, `- - x`) is an ordinary one-character delete.
+ * Everything past the first marker's separator is literal text there, so neither CodeMirror's `deleteMarkupBackward`
+ * nor `deleteBulletMarkerSeparator` may treat the inner `- ` or `- [ ] ` as a marker to remove whole. The cursor at
+ * the first separator's end (`4. |- [ ]`) is the outer item's own content start and stays with those commands.
+ */
+const deleteCharInSameLineChain: Command = (target) => {
+  const { state } = target;
+  const { selection } = state;
+  if (selection.ranges.length !== 1 || !selection.main.empty) {
+    return false;
+  }
+  const pos = selection.main.head;
+  const first = firstSameLineListMark(state, pos);
+  return first !== null && pos > first.to && deleteCharBackward(target);
+};
 
 /**
  * Backspace's Markdown-aware step. On a list continuation line (`isListContinuationLine`), or inside a task's own
@@ -1594,6 +1638,7 @@ export function markdownEnterKeymap(): Extension {
         key: 'Backspace',
         run: (target) =>
           deleteAroundHardBreakBackward(target) ||
+          deleteCharInSameLineChain(target) ||
           deleteBulletMarkerSeparator(target) ||
           deleteCompleteListItemSelection(target) ||
           deleteMarkupBackwardOnMarkerLines(target),

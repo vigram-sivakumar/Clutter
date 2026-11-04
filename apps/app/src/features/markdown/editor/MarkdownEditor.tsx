@@ -29,7 +29,8 @@ import { unfoldToReveal } from './codemirror/fold/unfoldToReveal';
 import { TableActiveCellController } from './codemirror/table/tableActiveCellController';
 import { tableCellNavigation } from './codemirror/table/tableCellNavigation';
 import { formatShortcutsKeymap } from './codemirror/format/formatShortcutsKeymap';
-import { tableCellPaste } from './codemirror/table/tablePaste';
+import { escapeTableCellText } from './codemirror/table/tablePaste';
+import { cellPasteRouting } from './codemirror/paste/pasteRouting';
 import { attachTableOutsideClickHandling } from './codemirror/table/tableSelection';
 import { clearTableSelection } from './codemirror/table/tableSelectionClear';
 import { duplicateSelectedRow, insertRowAboveSelection, insertRowBelowSelection } from './codemirror/table/tableRowInsertion';
@@ -1565,7 +1566,10 @@ export const MarkdownEditor = forwardRef<
     const tableActiveCellController = new TableActiveCellController();
     tableActiveCellController.setNestedExtensions([
       tableCellNavigation(() => viewRef.current!, tableActiveCellController),
-      tableCellPaste(() => viewRef.current!, tableActiveCellController),
+      // The cell editor's one paste handler: a grid fills the table from this cell, files are reported as not added, an empty clipboard changes nothing.
+      cellPasteRouting(() => viewRef.current!, tableActiveCellController, () => (readOnlyRef.current ? undefined : pasteAssetsRef.current)),
+      // Text pasted into one cell is written into the table source as it is, where a literal `|` would split the cell.
+      EditorView.clipboardInputFilter.of(escapeTableCellText),
       // The focused cell is its own nested view, so the root's Cmd/Ctrl-B/-I/-E never reach it.
       formatShortcutsKeymap(),
     ]);

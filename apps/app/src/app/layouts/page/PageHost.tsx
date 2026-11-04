@@ -1646,9 +1646,15 @@ export function PageHost({
       application.importPastedAsset(file.name, file.type, bytes),
     onFailed: (names: readonly string[]) =>
       toast.fail(`Couldn’t add ${names.length === 1 ? names[0] : `${names.length} pasted files`}`),
-    onNotInserted: (stored: number) =>
+    onSkipped: (names: readonly string[], reason: 'unsupported' | 'target') => {
+      const what = names.length === 1 ? names[0] : `${names.length} pasted files`;
       toast.show({
-        text: `${stored === 1 ? 'Pasted file' : `${stored} pasted files`} saved to Assets, but not added to the note`,
+        text: reason === 'unsupported' ? 'Unsupported file type. Only images and PDFs are supported' : `${what} not added. Files can’t be pasted here`,
+      });
+    },
+    onNotInserted: (stored: number, reason: 'closed' | 'readOnly') =>
+      toast.show({
+        text: `${stored === 1 ? 'Pasted file' : `${stored} pasted files`} saved to Assets, but not added to the note${reason === 'readOnly' ? ' because it’s read-only' : ''}`,
       }),
   };
 

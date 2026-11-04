@@ -139,7 +139,7 @@ function enclosingListItemIsTask(state: EditorState, pos: number): boolean {
   let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, 1);
   for (; node; node = node.parent) {
     if (node.name === 'ListItem') {
-      return taskMarkerOfListItem(node) !== null;
+      return taskMarkerOfListItem(node, state) !== null;
     }
   }
   return false;

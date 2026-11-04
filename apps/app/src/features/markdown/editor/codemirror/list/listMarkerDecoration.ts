@@ -279,9 +279,15 @@ interface ListMarkRange {
   readonly kind: ListItemMarkerKind;
 }
 
+/**
+ * `includeTasks` is for `firstSameLineListMark` only. A task item is normally left out here because the checkbox
+ * widget owns its marker (`taskCheckboxDecoration.ts`), but for "which marker is first on this line" a task's
+ * marker still counts: `* - [ ] Text` has two markers on one line, the second being a task's.
+ */
 function getListMarkRange(
   node: SyntaxNode,
-  state: EditorState
+  state: EditorState,
+  includeTasks = false
 ): ListMarkRange | null {
   const marker = listItemMarker(node);
   if (!marker) {
@@ -289,7 +295,7 @@ function getListMarkRange(
   }
 
   const kind = classifyMarkerNode(marker, state);
-  if (!kind || hasTaskChild(node)) {
+  if (!kind || (!includeTasks && hasTaskChild(node))) {
     return null;
   }
 
@@ -344,7 +350,7 @@ export function firstSameLineListMark(
     if (!isListItemNode(node.name)) {
       continue;
     }
-    const range = getListMarkRange(node, state);
+    const range = getListMarkRange(node, state, true);
     if (range && state.doc.lineAt(range.from).from === line.from) {
       sameLine.push(range);
     }

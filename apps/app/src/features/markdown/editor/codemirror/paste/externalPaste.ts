@@ -1,6 +1,8 @@
 import type { Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
+import { pasteContextAt } from './pasteContext';
+
 /**
  * Compact formatting for text pasted from outside Clutter.
  *
@@ -29,11 +31,43 @@ export function recordInternalClipboardText(text: string): void {
   lastInternalClipboardText = normalizeNewlines(text);
 }
 
-const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})/;
+const FENCE_OPEN = /^( *)(`{3,}|~{3,})/;
 const LIST_ITEM = /^\s*(?:[-*+]|\d+[.)])(?:[ \t]|$)/;
 /** A task marker whose brackets an exporter backslash-escaped (`- \\[ \\] Task`), which Markdown reads as literal text, not a task. */
 const TASK_ESCAPED = /^(\s*(?:[-*+]|\d+[.)])[ \t]+)\\\[([ xX])\\\](?=[ \t]|$)/;
 const TASK_GAP = /^(\s*(?:[-*+]|\d+[.)])[ \t]+\[[ xX]\])[ \t]{2,}(?=\S)/;
+
+interface Fence {
+  readonly char: string;
+  readonly length: number;
+  /** The most the closing fence may be indented: 3 columns past the opening one's container. */
+  readonly closeIndent: number;
+}
+
+/**
+ * The code fence `line` opens, or null. A fence is indented 0–3 spaces. With `indentedFences`, one indented further is
+ * also a fence when it comes right after a list item or another indented line: that is where HTML conversion puts a
+ * `<pre>` inside a list item, indented to the item's content column. Without it (plain text) four spaces make indented
+ * code and the backticks are its text, as Markdown says.
+ */
+function openingFence(line: string, previous: string | null, indentedFences: boolean): Fence | null {
+  const match = FENCE_OPEN.exec(line);
+
+  if (!match) {
+    return null;
+  }
+
+  const indent = match[1]!.length;
+
+  if (indent > 3 && !(indentedFences && previous !== null && (LIST_ITEM.test(previous) || previous.startsWith(' ')))) {
+    return null;
+  }
+
+  return { char: match[2]![0]!, length: match[2]!.length, closeIndent: indent > 3 ? indent + 3 : 3 };
+}
+
+const closesFence = (fence: Fence, line: string): boolean =>
+  new RegExp(`^ {0,${fence.closeIndent}}${fence.char}{${fence.length},}[ \\t]*$`).test(line);
 /** A line that starts a block of its own (so it can follow a list or quote line without becoming part of it). */
 const BLOCK_START =
   /^(?:\s*(?:[-*+]|\d+[.)])(?:[ \t]|$)|\s*>|\s{0,3}#{1,6}(?:[ \t]|$)|\s{0,3}(?:`{3,}|~{3,})|\s{0,3}(?:\*{3,}|_{3,}|-{3,})\s*$)/;
@@ -46,10 +80,16 @@ const INDENTED = /^(?: {4}|\t)/;
  * the Markdown means: a plain line right after a list item or quote line would become its lazy continuation, a
  * line right after a table row would become a table row, a table straight after a paragraph is no longer a
  * table, `---` / `===` right after a paragraph would turn it into a heading, and a blank line inside indented
- * code is part of the code.
+ * code is part of the code. With `html`, also what merges independent blocks (see inside).
  */
-function blankSeparates(prev: string, next: string): boolean {
+function blankSeparates(prev: string, next: string, html = false): boolean {
   if (TABLE_ROW.test(prev) !== TABLE_ROW.test(next)) {
+    return true;
+  }
+
+  // From HTML a blank line is a real block boundary, and removing it merges two independent blocks into one: two tables or
+  // two quotes. (Two plain paragraphs are compacted like any pasted text: they become one paragraph with a line break.)
+  if (html && (TABLE_ROW.test(prev) || (/^\s*>/.test(prev) && /^\s*>/.test(next)))) {
     return true;
   }
 
@@ -113,10 +153,10 @@ function reindentListRun(run: readonly string[]): string[] {
 }
 
 /** Applies `reindentListRun` to every run of list item lines outside fenced code; every other line is kept. */
-function reindentLists(lines: readonly string[]): string[] {
+function reindentLists(lines: readonly string[], indentedFences: boolean): string[] {
   const out: string[] = [];
   let run: string[] = [];
-  let fence: { readonly char: string; readonly length: number } | null = null;
+  let fence: Fence | null = null;
 
   const endRun = (): void => {
     out.push(...reindentListRun(run));
@@ -127,7 +167,7 @@ function reindentLists(lines: readonly string[]): string[] {
     if (fence) {
       out.push(line);
 
-      if (new RegExp(`^ {0,3}${fence.char}{${fence.length},}[ \\t]*$`).test(line)) {
+      if (closesFence(fence, line)) {
         fence = null;
       }
 
@@ -140,18 +180,41 @@ function reindentLists(lines: readonly string[]): string[] {
     }
 
     endRun();
+
+    // The last line with content decides whether an indented fence is inside a list item.
+    const open = openingFence(line, out.findLast((previous) => previous.trim() !== '') ?? null, indentedFences);
     out.push(line);
 
-    const open = FENCE_OPEN.exec(line);
-
     if (open) {
-      fence = { char: open[1]![0]!, length: open[1]!.length };
+      fence = open;
     }
   }
 
   endRun();
 
   return out;
+}
+
+export interface NormalizeExternalPasteOptions {
+  /**
+   * Where the Markdown came from (default `text`). `html` is Markdown Clutter's own HTML conversion produced: every blank
+   * line in it separates two blocks on purpose (two paragraphs, two quotes, two tables stay two), a task marker is never
+   * an escaped export artifact, and a fence may be indented into a list item. `text` is any other pasted text, compacted
+   * as described below. The two flags below default from it and can still be set on their own.
+   */
+  readonly origin?: 'text' | 'html';
+  /**
+   * Turn a backslash-escaped task marker right after a list marker back into a task (default `true`). Right for
+   * Markdown text an exporter wrote; wrong for Markdown Clutter's own HTML conversion produced, where the escape
+   * is deliberate (`<li>[ ] x</li>` is the literal text `[ ] x`, not a task).
+   */
+  readonly restoreEscapedTasks?: boolean;
+  /**
+   * Recognise a code fence indented 4+ columns when it follows a list item or other indented line (default `false`).
+   * For Markdown Clutter's own HTML conversion produced, which indents a `<pre>` in a list item to the item's content
+   * column. Plain text keeps Markdown's rule: four spaces of indentation make indented code, not a fence.
+   */
+  readonly indentedFences?: boolean;
 }
 
 /**
@@ -169,10 +232,13 @@ function reindentLists(lines: readonly string[]): string[] {
  * Line-based, with no Markdown parsing: the rules only need to know fences, list/quote/table/heading line
  * starts, and blank lines.
  */
-export function normalizeExternalPaste(input: string): string {
+export function normalizeExternalPaste(input: string, options: NormalizeExternalPasteOptions = {}): string {
+  const html = options.origin === 'html';
+  const restoreEscapedTasks = options.restoreEscapedTasks ?? !html;
+  const indentedFences = options.indentedFences ?? html;
   const lines = normalizeNewlines(input).split('\n');
   const out: string[] = [];
-  let fence: { readonly char: string; readonly length: number } | null = null;
+  let fence: Fence | null = null;
   let blanks = 0;
   let previous: string | null = null;
 
@@ -181,9 +247,7 @@ export function normalizeExternalPaste(input: string): string {
       out.push(line);
       previous = line;
 
-      if (
-        new RegExp(`^ {0,3}${fence.char}{${fence.length},}[ \\t]*$`).test(line)
-      ) {
+      if (closesFence(fence, line)) {
         fence = null;
       }
 
@@ -195,25 +259,25 @@ export function normalizeExternalPaste(input: string): string {
       continue;
     }
 
-    const compact = line
-      .replace(TASK_ESCAPED, (_all, head: string, mark: string) => `${head}[${mark}]`)
-      .replace(TASK_GAP, '$1 ');
+    const compact = (restoreEscapedTasks ? line.replace(TASK_ESCAPED, (_all, head: string, mark: string) => `${head}[${mark}]`) : line).replace(
+      TASK_GAP,
+      '$1 '
+    );
 
     if (
       blanks > 0 &&
-      (previous === null || blanks > 1 || blankSeparates(previous, compact))
+      (previous === null || blanks > 1 || blankSeparates(previous, compact, html))
     ) {
       out.push('');
     }
 
     blanks = 0;
     out.push(compact);
+    const open = openingFence(line, previous, indentedFences);
     previous = compact;
 
-    const open = FENCE_OPEN.exec(line);
-
     if (open) {
-      fence = { char: open[1]![0]!, length: open[1]!.length };
+      fence = open;
     }
   }
 
@@ -225,7 +289,7 @@ export function normalizeExternalPaste(input: string): string {
     out.push('');
   }
 
-  return reindentLists(out).join('\n');
+  return reindentLists(out, indentedFences).join('\n');
 }
 
 /**
@@ -238,10 +302,20 @@ export function externalPasteNormalization(): Extension {
       recordInternalClipboardText(text);
       return text;
     }),
-    EditorView.clipboardInputFilter.of((text) =>
-      normalizeNewlines(text) === lastInternalClipboardText
+    EditorView.clipboardInputFilter.of((text, state) =>
+      // Inside code the pasted text is literal: its blank lines, indentation and line breaks are kept as they are.
+      pasteContextAt(state, state.selection.main.from) === 'code' || normalizeNewlines(text) === lastInternalClipboardText
         ? text
         : normalizeExternalPaste(text)
     ),
   ];
+}
+
+/**
+ * Whether pasted Markdown is made of blocks — several (a blank line between them), or one that starts with block syntax (a
+ * heading, list, quote, fence, rule or table row) — as opposed to inline text that belongs inside the paragraph it lands in.
+ */
+export function isBlockMarkdown(markdown: string): boolean {
+  const trimmed = markdown.trim();
+  return /\n[ \t]*\n/.test(trimmed) || BLOCK_START.test(trimmed) || TABLE_ROW.test(trimmed);
 }

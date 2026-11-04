@@ -7,7 +7,7 @@ import { EditorView } from '@codemirror/view';
 import { markdownLanguageExtension } from '../markdownLanguage';
 import * as fixtures from './tableClipboardFixtures';
 import { tableActivationNormalization } from './tableActivationNormalization';
-import { tableCreatePaste } from './tableCreatePaste';
+import { pasteRouting } from '../paste/pasteRouting';
 import { findAllTables, getNavigableRows, getRowCellBounds, endOfCellContent, startOfCellContent } from './tableGeometry';
 import { CLUTTER_TABLE_RANGE_MIME } from './tableRangeClipboard';
 import { tableRectangularNormalization } from './tableRectangularNormalization';
@@ -68,7 +68,7 @@ function mountRootView(doc: string, cursor: number): EditorView {
         markdownLanguageExtension(),
         tableSelectionField,
         tableSelectionDeletionHistory(),
-        tableCreatePaste(),
+        pasteRouting(() => undefined),
         history(),
         tableRootSelectionSnap(),
         tableActivationNormalization(),
