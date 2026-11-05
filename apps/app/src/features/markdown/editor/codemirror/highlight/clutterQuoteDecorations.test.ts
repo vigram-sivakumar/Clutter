@@ -134,3 +134,45 @@ describe('Clutter native quotes — indentation', () => {
     );
   });
 });
+
+describe('quote bar ends are driven by each line\'s own attribute (data-quote-join)', () => {
+  const joins = (view: EditorView) => quoteLines(view).map((line) => line.getAttribute('data-quote-join'));
+
+  it('a lone quote line joins nothing, so both ends of its bar are rounded', () => {
+    expect(joins(mount('" alone'))).toEqual([null]);
+    expect(joins(mount('> alone'))).toEqual([null]);
+  });
+
+  it('marks which neighbours a bar runs into, for native and standard quotes alike', () => {
+    expect(joins(mount('" a\n" b\n" c'))).toEqual(['next', 'prev next', 'prev']);
+    expect(joins(mount('> a\n> b\n> c'))).toEqual(['next', 'prev next', 'prev']);
+  });
+
+  it('joins through the spacer between paragraphs of one quote, and not across a plain line', () => {
+    expect(joins(mount('" a\n" \n" b'))).toEqual(['next', 'prev next', 'prev']);
+    expect(joins(mount('" a\n\n" b'))).toEqual([null, null]);
+  });
+
+  it('leaving the quote changes the previous quote line\'s own attribute at once (the bar re-rounds without any other trigger)', () => {
+    const view = mount('" This is here|'.replace('|', ''));
+    view.dispatch({ selection: { anchor: view.state.doc.length } });
+    const enter = () => view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true, cancelable: true }));
+
+    enter();
+    expect(joins(view)).toEqual(['next', 'prev']);
+    const firstLine = lines(view)[0] as HTMLElement;
+
+    enter(); // an empty quote line exits the quote
+    expect(view.state.doc.toString()).toBe('" This is here\n');
+    expect(quoteLines(view)).toHaveLength(1);
+    expect(lines(view)[0]).toBe(firstLine);
+    expect(firstLine.hasAttribute('data-quote-join')).toBe(false);
+  });
+
+  it('re-squares the previous line when a quote line is added below it', () => {
+    const view = mount('" a');
+    expect(joins(view)).toEqual([null]);
+    view.dispatch({ changes: { from: view.state.doc.length, insert: '\n" b' } });
+    expect(joins(view)).toEqual(['next', 'prev']);
+  });
+});

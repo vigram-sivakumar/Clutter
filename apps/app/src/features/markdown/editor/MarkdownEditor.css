@@ -587,12 +587,18 @@
   color: inherit;
 }
 
-.cm-editor .cm-quote-line + .cm-quote-line::before {
+/*
+ * A bar that runs into the previous or next quote line is square at that end. Driven by `data-quote-join` on the line
+ * itself (`blockquoteLineDecoration.ts`), not by a sibling selector such as `:has(+ .cm-quote-line)`: when the next
+ * line stops being a quote line this line's own attribute changes and the end rounds at once, whereas WebKit does not
+ * reliably restyle a line because only its sibling changed.
+ */
+.cm-editor .cm-quote-line[data-quote-join~='prev']::before {
   border-start-start-radius: 0;
   border-start-end-radius: 0;
 }
 
-.cm-editor .cm-quote-line:has(+ .cm-quote-line)::before {
+.cm-editor .cm-quote-line[data-quote-join~='next']::before {
   border-end-start-radius: 0;
   border-end-end-radius: 0;
 }
@@ -600,16 +606,6 @@
 /* The spacer's own segment is a straight section of the bar, and the lines either side of it join it flat. */
 .cm-editor .cm-quote-line + .cm-block-separator:has(+ .cm-quote-line)::before {
   border-radius: 0;
-}
-
-.cm-editor .cm-quote-line + .cm-block-separator + .cm-quote-line::before {
-  border-start-start-radius: 0;
-  border-start-end-radius: 0;
-}
-
-.cm-editor .cm-quote-line:has(+ .cm-block-separator + .cm-quote-line)::before {
-  border-end-start-radius: 0;
-  border-end-end-radius: 0;
 }
 
 /*

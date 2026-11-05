@@ -98,15 +98,16 @@ describe('quote bar: the CSS (MarkdownEditor.css)', () => {
   it('squares the joined ends so the bar reads as one straight piece', () => {
     expect(css).toContain(`${SPACER}::before {\n  border-radius: 0;\n}`);
     expect(css).toContain(
-      '.cm-editor .cm-quote-line + .cm-block-separator + .cm-quote-line::before {\n  border-start-start-radius: 0;\n  border-start-end-radius: 0;\n}'
+      ".cm-editor .cm-quote-line[data-quote-join~='prev']::before {\n  border-start-start-radius: 0;\n  border-start-end-radius: 0;\n}"
     );
     expect(css).toContain(
-      '.cm-editor .cm-quote-line:has(+ .cm-block-separator + .cm-quote-line)::before {\n  border-end-start-radius: 0;\n  border-end-end-radius: 0;\n}'
+      ".cm-editor .cm-quote-line[data-quote-join~='next']::before {\n  border-end-start-radius: 0;\n  border-end-end-radius: 0;\n}"
     );
   });
 
-  it('keeps the existing adjacent-line rules and rounded ends for a lone line', () => {
-    expect(css).toContain('.cm-editor .cm-quote-line + .cm-quote-line::before {');
-    expect(css).toContain('.cm-editor .cm-quote-line:has(+ .cm-quote-line)::before {');
+  it('squares a line\'s own ends from its own attribute, never from a sibling selector (WebKit restyles a line only when it changes itself)', () => {
+    expect(css).not.toContain('.cm-quote-line:has(+');
+    expect(css).not.toMatch(/\.cm-quote-line \+ \.cm-quote-line::before/);
+    expect(css).not.toMatch(/\.cm-quote-line \+ \.cm-block-separator \+ \.cm-quote-line::before/);
   });
 });

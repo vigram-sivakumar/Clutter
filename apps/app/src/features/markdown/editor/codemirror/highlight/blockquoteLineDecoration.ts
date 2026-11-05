@@ -86,14 +86,28 @@ import { isQuoteNodeName } from '@core/vault/ingest/grammar/quoteNodes';
  * parser has already made that call, so this decoration only ever reads
  * it, never re-derives CommonMark's own blank-line-termination rule.
  */
-function quoteLineMark(depth: number): Decoration {
+function quoteLineMark(depth: number, joinsPrevious: boolean, joinsNext: boolean): Decoration {
+  const join = [joinsPrevious ? 'prev' : '', joinsNext ? 'next' : ''].filter(Boolean).join(' ');
   return Decoration.line({
-    attributes: { class: 'cm-quote-line', style: `--quote-depth: ${depth}` },
+    attributes: {
+      class: 'cm-quote-line',
+      style: `--quote-depth: ${depth}`,
+      // Which neighbours the bar runs into (`prev`, `next`, or both). The CSS squares those ends from this attribute
+      // on the line itself, never from a sibling selector: when a neighbour stops being a quote line (Enter on an
+      // empty quote line), this line's own DOM is what changes, so the bar re-rounds at once. A `:has(+ …)` rule
+      // would need the browser to restyle this line because a *sibling* changed, which WebKit does not do reliably.
+      ...(join ? { 'data-quote-join': join } : {}),
+    },
   });
 }
 
 function firstNonWhitespaceOffset(text: string): number {
   return text.length - text.trimStart().length;
+}
+
+/** Whether a physical line belongs to a quote (the same probe the decoration itself uses). */
+function isQuoteLine(state: EditorState, line: { from: number; text: string }): boolean {
+  return nearestBlockquote(state, line.from + firstNonWhitespaceOffset(line.text)) !== null;
 }
 
 function nearestBlockquote(
@@ -187,7 +201,11 @@ function buildBlockquoteLineDecorations(view: EditorView): DecorationSet {
           builder.add(
             line.from,
             line.from,
-            quoteLineMark(quoteDepth(blockquote, line.from, line.to))
+            quoteLineMark(
+              quoteDepth(blockquote, line.from, line.to),
+              line.number > 1 && isQuoteLine(view.state, view.state.doc.line(line.number - 1)),
+              line.number < view.state.doc.lines && isQuoteLine(view.state, view.state.doc.line(line.number + 1))
+            )
           );
         }
       }
