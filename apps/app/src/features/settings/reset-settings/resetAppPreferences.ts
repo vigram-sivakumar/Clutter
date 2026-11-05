@@ -19,6 +19,10 @@ import {
 import { DEFAULT_MARKDOWN_ITALIC_FONT, writeMarkdownItalicFont } from '@shared/helpers/markdownItalicFontPreference';
 import { DEFAULT_PRESERVE_BULLET_STYLE, writePreserveBulletStyle } from '@shared/helpers/preserveBulletStylePreference';
 import { DEFAULT_ENABLE_EMOJI_LISTS, writeEnableEmojiLists } from '@shared/helpers/enableEmojiListsPreference';
+import {
+  DEFAULT_PREFER_CLUTTER_QUOTE_SYNTAX,
+  writePreferClutterQuoteSyntax,
+} from '@shared/helpers/preferClutterQuoteSyntaxPreference';
 import { DEFAULT_SHOW_TAG_EMOJIS, writeShowTagEmojis } from '@shared/helpers/showTagEmojisPreference';
 import { DEFAULT_TASK_ITEM_LIMIT_CHOICE, writeTaskItemLimitChoice } from '@shared/helpers/taskItemLimitPreference';
 import { DEFAULT_DATE_FORMAT_CHOICE, writeDateFormatChoice } from '@shared/helpers/time/dateFormatPreference';
@@ -64,6 +68,7 @@ export function resetAppPreferences(): void {
   writeMarkdownItalicFont(DEFAULT_MARKDOWN_ITALIC_FONT);
   writePreserveBulletStyle(DEFAULT_PRESERVE_BULLET_STYLE);
   writeEnableEmojiLists(DEFAULT_ENABLE_EMOJI_LISTS);
+  writePreferClutterQuoteSyntax(DEFAULT_PREFER_CLUTTER_QUOTE_SYNTAX);
   // The old app-wide values a Space with no setting of its own would be seeded from again.
   clearLegacyAppSettings();
 }

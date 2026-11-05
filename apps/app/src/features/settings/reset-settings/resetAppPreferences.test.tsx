@@ -85,6 +85,11 @@ import {
   writeEnableEmojiLists,
 } from '@shared/helpers/enableEmojiListsPreference';
 import {
+  DEFAULT_PREFER_CLUTTER_QUOTE_SYNTAX,
+  readPreferClutterQuoteSyntax,
+  writePreferClutterQuoteSyntax,
+} from '@shared/helpers/preferClutterQuoteSyntaxPreference';
+import {
   DEFAULT_PRESERVE_BULLET_STYLE,
   readPreserveBulletStyle,
   writePreserveBulletStyle,
@@ -132,6 +137,7 @@ function customizeEveryPreference() {
   writeMarkdownItalicFont(true);
   writePreserveBulletStyle(false);
   writeEnableEmojiLists(false);
+  writePreferClutterQuoteSyntax(true);
 }
 
 /** What is NOT a setting — interface layout and remembered picks — and must survive a settings reset. */
@@ -173,6 +179,7 @@ describe('resetAppPreferences', () => {
     expect(readMarkdownItalicFont()).toBe(DEFAULT_MARKDOWN_ITALIC_FONT);
     expect(readPreserveBulletStyle()).toBe(DEFAULT_PRESERVE_BULLET_STYLE);
     expect(readEnableEmojiLists()).toBe(DEFAULT_ENABLE_EMOJI_LISTS);
+    expect(readPreferClutterQuoteSyntax()).toBe(DEFAULT_PREFER_CLUTTER_QUOTE_SYNTAX);
   });
 
   it('removes the saved values rather than writing the defaults — a missing value is the default', () => {

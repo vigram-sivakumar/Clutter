@@ -37,6 +37,7 @@ const RESET_KEYS = [
   'clutter-markdown-italic-font',
   'clutter-preserve-bullet-style',
   'clutter-enable-emoji-lists',
+  'clutter-prefer-clutter-quote-syntax',
   // Legacy: read only to seed a Space once; left in place they would undo a reset.
   'clutter-default-cover-position',
   'clutter-auto-delete-archived',
