@@ -74,11 +74,11 @@ describe('quote bar: the DOM sequence the rules read', () => {
   });
 
   it('separate quotes always have a plain line between them, so quote-separator-quote never joins two quotes', () => {
-    expect(sequence('> a\n\n> b')).toBe('QSLSQ');
+    expect(sequence('> a\n\n> b')).toBe('QLSQ');
   });
 
   it('after exiting a quote the blank line carries no quote class', () => {
-    expect(sequence('> a\n\n')).toBe('QSLSL');
+    expect(sequence('> a\n\n')).toBe('QLSL');
   });
 });
 

@@ -1,0 +1,19 @@
+/*
+ * The blank line that ends a blockquote (`collapsedQuoteExitDecoration.ts`).
+ * It stays in the document and stays a real `.cm-line`; only its box is
+ * collapsed, so the gap after the quote is the one separator the spacing
+ * system owes between the quote and the next block, not that plus a line.
+ *
+ * Same technique as `.cm-table-col-widths-hidden-line`. Never `margin`, per
+ * this codebase's permanent CM6 rule (`CLAUDE.md`). The line is not atomic and
+ * has no widget, so the caret can still land on it; it is just not visible
+ * there.
+ */
+.cm-editor .cm-line.cm-collapsed-quote-exit {
+  height: 0;
+  min-height: 0;
+  line-height: 0;
+  padding-block: 0;
+  border: 0;
+  overflow: hidden;
+}
