@@ -136,7 +136,7 @@ type PageCoverProps = {
   onDownload?: () => void;
   /** Puts the cover image itself on the clipboard ("Copy image"). */
   onCopyImage?: () => void;
-  /** Copies the cover's address as stored — its URL, or its vault-relative path ("Copy image address"). */
+  /** Copies the cover's URL ("Copy image address"). Listed only for an image from a URL, never for a file in the vault's Assets. */
   onCopyImageAddress?: () => void;
   /** The cover is a file in the vault's Assets: right-clicking its image opens nothing (and shows no native menu). */
   isLocalImage?: boolean;
@@ -181,6 +181,9 @@ export function PageCover({
   onCopyImageAddress,
   isLocalImage = false,
 }: PageCoverProps) {
+  // An address only means something for an image from a URL. A file in the vault's Assets has no address to copy, so the
+  // "⋮" menu lists no "Copy image address" for it (as its right-click menu already opens nothing).
+  const copyImageAddress = isLocalImage ? undefined : onCopyImageAddress;
   const [open, setOpen] = useState(false);
   const attribution = coverAttributionFor(src, coverCredit);
   // 'menu' (Change cover image/Hide/Remove) vs 'picker' (the existing
@@ -728,7 +731,7 @@ export function PageCover({
                 )}
               </>
             )}
-            {(onCopyImage || onCopyImageAddress || onDownload) && (
+            {(onCopyImage || copyImageAddress || onDownload) && (
               <>
                 <div className="menu__divider" role="separator" />
                 {onCopyImage && (
@@ -743,13 +746,13 @@ export function PageCover({
                     Copy image
                   </MenuItem>
                 )}
-                {onCopyImageAddress && (
+                {copyImageAddress && (
                   <MenuItem
                     leading={<AppIcon icon="link" />}
                     onClick={(event) => {
                       event.stopPropagation();
                       setOpen(false);
-                      onCopyImageAddress();
+                      copyImageAddress();
                     }}
                   >
                     Copy image address
@@ -769,7 +772,7 @@ export function PageCover({
                 )}
               </>
             )}
-            {(onSaveToVault || onSetLayout || onCopyImage || onCopyImageAddress || onDownload) && (
+            {(onSaveToVault || onSetLayout || onCopyImage || copyImageAddress || onDownload) && (
               <div className="menu__divider" role="separator" />
             )}
             <MenuItem
