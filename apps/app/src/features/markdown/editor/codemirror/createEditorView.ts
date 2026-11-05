@@ -1,4 +1,5 @@
 import { tripleClickLineSelection } from './tripleClickLineSelection';
+import { singleQuoteMarkerInput } from './closeBracketsQuoteMarker';
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import {
   history,
@@ -349,6 +350,10 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       // skip on the trailing `]]` cancel out), and wikiLinkAutocomplete's
       // own `[[`-trigger detection is unaffected since it reads the text
       // immediately before the cursor, which still reads `[[` either way.
+      // A typed `"` with nothing selected is Clutter's quote marker: one character, never the `""` pair. It must
+      // come first; with a selection it declines, so `closeBrackets()` still wraps the selection in `"…"`. See
+      // `closeBracketsQuoteMarker.ts`.
+      singleQuoteMarkerInput(),
       closeBrackets(),
       // codeFolding() is the fold state/commands; foldToggleDecoration()
       // (codemirror/fold/foldToggleDecoration.ts) is Clutter's own inline,

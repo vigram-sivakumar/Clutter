@@ -24,6 +24,7 @@ import {
 import { resolveLineIndentContext } from '../indent/markdownIndentContext';
 import { computeListItemFold } from '../fold/listItemFoldService';
 import { emojiMarkerSize } from '../../../../../core/vault/ingest/grammar/emojiListSyntax';
+import { isQuoteNodeName } from '../../../../../core/vault/ingest/grammar/quoteNodes';
 import { classifyMarkerText, firstSameLineListMark, listItemMarker } from '../list/listMarkerDecoration';
 import { insertOrderedListMarkerSeparator } from '../list/orderedListMarkerCreation';
 import {
@@ -194,6 +195,160 @@ const exitEmptyBlockquoteContinuation: StateCommand = ({ state, dispatch }) => {
       selection: EditorSelection.cursor(context.lineFrom + insert.length),
       scrollIntoView: true,
       userEvent: 'input',
+    })
+  );
+  return true;
+};
+
+/** One quote marker at the start of a line: a standard `>` (with its optional space) or Clutter's `" `. */
+const QUOTE_TOKEN = /([ \t]*)(>[ \t]?|" )/y;
+
+interface QuoteToken {
+  readonly kind: '>' | '"';
+  /** Offset in the line where the token starts, its own leading whitespace included. */
+  readonly at: number;
+  /** Offset of the marker character itself. */
+  readonly mark: number;
+  /** Offset just past the marker and its space. */
+  readonly end: number;
+}
+
+/** The run of quote markers that opens a line (`" `, `" " `, `> " `, ...), and the offset where the line's own text starts. */
+function quotePrefixOf(text: string): { readonly tokens: readonly QuoteToken[]; readonly end: number } {
+  const tokens: QuoteToken[] = [];
+  let at = 0;
+  for (;;) {
+    QUOTE_TOKEN.lastIndex = at;
+    const match = QUOTE_TOKEN.exec(text);
+    if (!match) {
+      return { tokens, end: at };
+    }
+    const mark = at + (match[1]?.length ?? 0);
+    tokens.push({ kind: text[mark] === '"' ? '"' : '>', at, mark, end: at + match[0].length });
+    at += match[0].length;
+  }
+}
+
+/**
+ * Enter inside a Clutter-native quote (`" text`). CodeMirror's own Markdown Enter reads quote context with a
+ * `>`-only pattern, so it never sees these; this is the native counterpart of what it (and
+ * `exitEmptyBlockquoteContinuation`) do for `>`:
+ *
+ * - On an empty quote line (`" |`, `" " |`, `> " |`) it drops the innermost marker and nothing else. Every native
+ *   quote line carries its own marker and an unmarked line is never a lazy continuation, so leaving a quote needs
+ *   no blank line: `" a⏎" |` becomes `" a⏎|`, and what is typed next is a plain paragraph.
+ * - Anywhere else on a quote line it starts a new line with the same markers (`" a|bc` becomes `" a⏎" |bc`),
+ *   which at the very start of the text leaves an empty quote line above it, as `>` does. A cursor inside the
+ *   markers (including at the very start of the line) just pushes the line down.
+ *
+ * Declines (returning false) for several cursors, a selection across lines, a selection that starts inside the
+ * markers, fenced code, and a line whose text starts a list item: those stay with the commands that own them, which
+ * do not know about `" ` quotes, so a list inside a native quote does not auto-continue (a known limitation).
+ */
+const continueClutterQuote: StateCommand = ({ state, dispatch }) => {
+  const { selection } = state;
+  if (selection.ranges.length !== 1) {
+    return false;
+  }
+  const { from, to } = selection.main;
+  const line = state.doc.lineAt(from);
+  if (to > line.to) {
+    return false;
+  }
+  const prefix = quotePrefixOf(line.text);
+  if (!prefix.tokens.some((token) => token.kind === '"')) {
+    return false;
+  }
+  const contentFrom = line.from + prefix.end;
+  if (!hasAncestor(state, contentFrom, 'ClutterQuote') || hasAncestor(state, contentFrom, 'FencedCode')) {
+    return false;
+  }
+  for (let node: SyntaxNode | null = syntaxTree(state).resolveInner(contentFrom, 1); node; node = node.parent) {
+    if (node.name === 'ListItem' && node.from >= line.from) {
+      return false;
+    }
+  }
+
+  const rest = line.text.slice(prefix.end);
+  const atEnd = from === to && from === line.to;
+
+  if (atEnd && !/\S/.test(rest)) {
+    const last = prefix.tokens[prefix.tokens.length - 1] as QuoteToken;
+    const keep = line.from + last.at;
+    dispatch(
+      state.update({
+        changes: { from: keep, to: line.to },
+        selection: EditorSelection.cursor(keep),
+        scrollIntoView: true,
+        userEvent: 'delete',
+      })
+    );
+    return true;
+  }
+
+  if (from < contentFrom) {
+    if (from !== to) {
+      return false;
+    }
+    dispatch(
+      state.update({
+        changes: { from: line.from, insert: state.lineBreak },
+        selection: EditorSelection.cursor(from + state.lineBreak.length),
+        scrollIntoView: true,
+        userEvent: 'input',
+      })
+    );
+    return true;
+  }
+
+  const insert = state.lineBreak + line.text.slice(0, prefix.end);
+  dispatch(
+    state.update({
+      changes: { from, to, insert },
+      selection: EditorSelection.cursor(from + insert.length),
+      scrollIntoView: true,
+      userEvent: 'input',
+    })
+  );
+  return true;
+};
+
+/**
+ * Backspace right after a Clutter-native quote marker removes that marker and its space in one press — the native
+ * counterpart of `deleteMarkupBackward`'s `>` handling (`> |abc` becomes `|abc`, `>> |` becomes `>|`):
+ * `" |abc` becomes `|abc` (the line leaves the quote), `" " |abc` becomes `" |abc`, and an empty `" |` line
+ * becomes an empty line. Without it the plain character delete would take only the space and leave a stray `"`.
+ *
+ * Only when the *innermost* marker is a `"` and the cursor is past its quotation mark, at most at the text start;
+ * a `>` marker stays with CodeMirror. The markers' text is never rewritten, only removed, so undo restores it.
+ */
+export const deleteClutterQuoteMarker: StateCommand = ({ state, dispatch }) => {
+  const { selection } = state;
+  if (selection.ranges.length !== 1 || !selection.main.empty) {
+    return false;
+  }
+  const pos = selection.main.head;
+  const line = state.doc.lineAt(pos);
+  const prefix = quotePrefixOf(line.text);
+  const last = prefix.tokens[prefix.tokens.length - 1];
+  if (!last || last.kind !== '"') {
+    return false;
+  }
+  const column = pos - line.from;
+  if (column <= last.mark || column > prefix.end) {
+    return false;
+  }
+  if (!hasAncestor(state, line.from + prefix.end, 'ClutterQuote') || hasAncestor(state, line.from + prefix.end, 'FencedCode')) {
+    return false;
+  }
+
+  const from = line.from + last.at;
+  dispatch(
+    state.update({
+      changes: { from, to: line.from + last.end },
+      selection: EditorSelection.cursor(from),
+      scrollIntoView: true,
+      userEvent: 'delete.backward',
     })
   );
   return true;
@@ -906,7 +1061,7 @@ function isListContinuationLine(state: EditorState, pos: number): boolean {
   for (let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, side); node; node = node.parent) {
     // A quote prefix is the Markdown commands' to continue, and fenced code is not list text: never ours,
     // however deep the list item sits inside them.
-    if (node.name === 'Blockquote' || node.name === 'FencedCode') {
+    if (isQuoteNodeName(node.name) || node.name === 'FencedCode') {
       return false;
     }
     // An indented code block is source-indented text too: its own indentation is what Enter must keep and
@@ -1070,6 +1225,7 @@ const continueEmojiListItem: StateCommand = ({ state, dispatch }) => {
  */
 export const markdownEnterCommand: StateCommand = (target) =>
   exitEmptyBlockquoteContinuation(target) ||
+  continueClutterQuote(target) ||
   continueEmojiListItem(target) ||
   preserveListMarkerOnContentStartSplit(target) ||
   preserveTaskContentOnContentStartSplit(target) ||
@@ -1460,8 +1616,8 @@ export const deleteCompleteListItemSelection: StateCommand = ({ state, dispatch 
 /** Ancestors inside which a `\` + newline is not a hard break (or the position is not paragraph text). */
 const NO_SOFT_BREAK_ANCESTORS = new Set(['FencedCode', 'CodeBlock', 'Table', 'InlineCode', 'HTMLBlock']);
 
-/** A line's leading quote markers and indentation, then an optional list marker (with its trailing spaces). */
-const CONTINUATION_PREFIX = /^((?:[ \t]*>[ \t]?)*[ \t]*)(?:([-*+]|\d{1,9}[.)])([ \t]+))?/;
+/** A line's leading quote markers (`>` or `" `) and indentation, then an optional list marker (with its trailing spaces). */
+const CONTINUATION_PREFIX = /^((?:[ \t]*(?:>[ \t]?|" ))*[ \t]*)(?:([-*+]|\d{1,9}[.)])([ \t]+))?/;
 
 /**
  * What a Shift+Enter inserts at `[from, to)`, or null when the position is not ordinary paragraph text
@@ -1641,6 +1797,7 @@ export function markdownEnterKeymap(): Extension {
           deleteCharInSameLineChain(target) ||
           deleteBulletMarkerSeparator(target) ||
           deleteCompleteListItemSelection(target) ||
+          deleteClutterQuoteMarker(target) ||
           deleteMarkupBackwardOnMarkerLines(target),
       },
       {

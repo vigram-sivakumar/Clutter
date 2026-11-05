@@ -24,6 +24,20 @@ function clutterQuoteBlock(cx: BlockContext, line: Line): boolean | null {
   return null;
 }
 
+/**
+ * `@lezer/markdown` internals this grammar leans on, absent from its public typings but read by its own code (the
+ * built-in `>` quote does exactly this): the composite being continued sits at `stack[line.depth]`, and its `end` must
+ * be pushed to the end of every line it matches. Without that, a continuation line with nothing after the marker (an
+ * empty `" ` line) would fall outside the quote node. `clutterQuoteSyntax.test.ts` fails loudly if either moves.
+ */
+interface ContinuedComposite {
+  end: number;
+}
+function continuedComposite(cx: BlockContext, line: Line): ContinuedComposite | undefined {
+  const { stack } = cx as unknown as { readonly stack: readonly ContinuedComposite[] };
+  return stack[(line as Line & { readonly depth: number }).depth];
+}
+
 /** Whether a later line still belongs to the quote: it carries its own `" ` marker. */
 function clutterQuoteComposite(cx: BlockContext, line: Line): boolean {
   if (!isClutterQuoteMarker(line)) {
@@ -32,6 +46,10 @@ function clutterQuoteComposite(cx: BlockContext, line: Line): boolean {
   const from = cx.lineStart + line.pos;
   line.markers.push(cx.elt('QuoteMark', from, from + 1));
   line.moveBase(line.pos + 2);
+  const quote = continuedComposite(cx, line);
+  if (quote) {
+    quote.end = cx.lineStart + line.text.length;
+  }
   return true;
 }
 

@@ -83,6 +83,29 @@ describe('clutterQuoteSyntax — multiple lines', () => {
   });
 });
 
+describe('clutterQuoteSyntax — the quote node covers every line it matches', () => {
+  it('an empty `" ` line is inside the quote, so a caret at its end has the quote as an ancestor', () => {
+    const text = '" abc\n" ';
+    expect(slice(text, 'ClutterQuote')).toEqual([text]);
+    const inside = parse(text).resolveInner(text.length, -1);
+    let found = false;
+    for (let node: typeof inside | null = inside; node; node = node.parent) {
+      found ||= node.name === 'ClutterQuote';
+    }
+    expect(found).toBe(true);
+  });
+
+  it('a nested empty line is inside both quotes', () => {
+    const text = '" " abc\n" " ';
+    expect(slice(text, 'ClutterQuote')).toEqual([text, text.slice(2)]);
+  });
+
+  it('the standard `>` equivalent covers the empty line the same way', () => {
+    const text = '> abc\n> ';
+    expect(slice(text, 'Blockquote')).toEqual([text]);
+  });
+});
+
 describe('clutterQuoteSyntax — leaving a quote needs no blank line', () => {
   it('an unmarked line after a quote is a plain paragraph, not a lazy continuation', () => {
     expect(blocks('" a\nplain')).toEqual(['ClutterQuote', 'Paragraph']);
