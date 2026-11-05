@@ -18,8 +18,6 @@ interface RecoveryDialogProps {
   readonly onClose: () => void;
 }
 
-const DISCARD_WARNING = 'Permanently remove this recovery copy? These unsaved changes can’t be restored afterwards';
-
 /**
  * What the card says: when the snapshot was captured, in the app's date format. The per-outcome explanations (a
  * conflict, a missing note, a draft) are deliberately not shown; only a failed attempt is, so a restore that did not
@@ -38,8 +36,6 @@ function describeCandidate(candidate: RecoveryCandidate, failedBefore: boolean):
  */
 export function RecoveryDialog({ open, candidates, onRestore, onDiscard, onClose }: RecoveryDialogProps) {
   const [busyKey, setBusyKey] = useState<string | null>(null);
-  // The record whose Discard is waiting for confirmation: a recovery copy may be the only copy of the edits.
-  const [confirmingKey, setConfirmingKey] = useState<string | null>(null);
   const [failed, setFailed] = useState<ReadonlySet<string>>(new Set());
 
   async function run(key: string, action: (key: string) => Promise<void>) {
@@ -64,7 +60,6 @@ export function RecoveryDialog({ open, candidates, onRestore, onDiscard, onClose
   const shownIndex = foundIndex >= 0 ? foundIndex : Math.min(lastIndexRef.current, Math.max(0, candidates.length - 1));
   lastIndexRef.current = shownIndex;
   const current = candidates[shownIndex];
-  const confirming = current !== undefined && confirmingKey === current.key;
 
   return (
     <Dialog open={open && candidates.length > 0} onClose={onClose} size="large">
@@ -79,8 +74,8 @@ export function RecoveryDialog({ open, candidates, onRestore, onDiscard, onClose
             <SettingsEntry
               title={current.record.label}
               titleClassName="recovery-dialog__title"
-              description={confirming ? DISCARD_WARNING : describeCandidate(current, failed.has(current.key))}
-              role={confirming || failed.has(current.key) ? 'alert' : undefined}
+              description={describeCandidate(current, failed.has(current.key))}
+              role={failed.has(current.key) ? 'alert' : undefined}
               data-outcome={current.outcome}
             />
           </SettingsGroup>
@@ -114,38 +109,22 @@ export function RecoveryDialog({ open, candidates, onRestore, onDiscard, onClose
                 </Button>
               </div>
             )}
-            {confirming ? (
-              <>
-                <Button size="large" variant="outline" onClick={() => setConfirmingKey(null)}>
-                  Cancel
-                </Button>
-                <Button
-                  size="large"
-                  variant="danger"
-                  disabled={busyKey !== null}
-                  onClick={() => {
-                    setConfirmingKey(null);
-                    void run(current.key, onDiscard);
-                  }}
-                >
-                  Remove recovery copy
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button size="large" variant="outline-danger" disabled={busyKey !== null} onClick={() => setConfirmingKey(current.key)}>
-                  Discard
-                </Button>
-                <Button
-                  size="large"
-                  variant="primary"
-                  disabled={busyKey !== null}
-                  onClick={() => void run(current.key, onRestore)}
-                >
-                  Restore
-                </Button>
-              </>
-            )}
+            <Button
+              size="large"
+              variant="outline-danger"
+              disabled={busyKey !== null}
+              onClick={() => void run(current.key, onDiscard)}
+            >
+              Discard
+            </Button>
+            <Button
+              size="large"
+              variant="primary"
+              disabled={busyKey !== null}
+              onClick={() => void run(current.key, onRestore)}
+            >
+              Restore
+            </Button>
           </div>
         )}
       </div>
