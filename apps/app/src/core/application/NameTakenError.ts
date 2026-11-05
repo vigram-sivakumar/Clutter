@@ -10,7 +10,7 @@ export class NameTakenError extends Error {
   constructor(
     message: string,
     /** The name that was refused, as the user typed it (trimmed). */
-    readonly name: string
+    readonly refusedName: string
   ) {
     super(message);
     this.name = 'NameTakenError';

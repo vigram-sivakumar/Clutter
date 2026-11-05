@@ -19,6 +19,8 @@ import type { CollectionViewConfigStore } from '@core/application/collection/Col
 import type { TagExpansionStore } from '@core/application/tags/TagExpansionStore';
 import type { Page } from '@core/vault/models/Page';
 
+import { ToastProvider } from '@components/toast/ToastProvider';
+import { resetNameTakenToast } from '@components/toast/showNameTaken';
 import { Tags } from './Sidebar.Tags';
 
 // The overflow menu's Overlay positioning effect needs this in jsdom —
@@ -222,6 +224,56 @@ describe('Sidebar Tags — rename commit rejection wiring', () => {
     fireEvent.keyDown(field, { key: 'Enter' });
 
     expect(screen.queryByRole('textbox')).toBeNull();
+  });
+
+  describe('saying why a rename was refused', () => {
+    const toastTexts = () => Array.from(document.querySelectorAll('.toast__message')).map((el) => el.textContent);
+
+    function renderTags() {
+      resetNameTakenToast();
+      const canRename = (_oldName: string, newName: string) => newName.trim() !== 'Marketing' && !newName.includes(':') && newName.trim() !== '';
+      render(
+        <ToastProvider>
+          <Tags
+            vault={makeVault([makePage('p1', ['Product-design'])])}
+            navigation={fakeNavigation()}
+            tagOperations={fakeTagOperations(vi.fn(() => Promise.resolve()), canRename)}
+            {...extraPanelProps()}
+          />
+        </ToastProvider>
+      );
+      return startRenaming();
+    }
+
+    it('a name another tag already has: the field shakes and a toast says the name is already taken, once', () => {
+      const field = renderTags();
+      field.textContent = 'Marketing';
+      fireEvent.input(field);
+      fireEvent.keyDown(field, { key: 'Enter' });
+      fireEvent.blur(field);
+
+      expect(field.dataset.shake).toBe('true');
+      expect(toastTexts()).toEqual(['The name “Marketing” is already taken']);
+    });
+
+    it('a malformed or empty name only shakes: it is refused, but not "taken"', () => {
+      const field = renderTags();
+      field.textContent = 'Personal: project';
+      fireEvent.input(field);
+      fireEvent.keyDown(field, { key: 'Enter' });
+
+      expect(field.dataset.shake).toBe('true');
+      expect(toastTexts()).toEqual([]);
+    });
+
+    it('a free name renames with no toast', () => {
+      const field = renderTags();
+      field.textContent = 'Brand new';
+      fireEvent.input(field);
+      fireEvent.keyDown(field, { key: 'Enter' });
+
+      expect(toastTexts()).toEqual([]);
+    });
   });
 
   it('a duplicate-identity value (canRename() rejects it) does not call rename() — stays in edit mode, nothing persisted', () => {

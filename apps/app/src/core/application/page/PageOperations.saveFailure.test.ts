@@ -27,6 +27,7 @@ import { FolderPathResolver } from '../../vault/persistence/FolderPathResolver';
 import { FolderCreator } from '../folder/FolderCreator';
 import { DailyNoteService } from '../daily-notes/DailyNoteService';
 import type { Page } from '../../vault/models/Page';
+import { NameTakenError } from '../NameTakenError';
 import type { Folder } from '../../vault/models/Folder';
 import type { VaultFileSystem } from '../../vault/providers/VaultFileSystem';
 import {
@@ -638,6 +639,68 @@ describe('PageOperations: a failed save is kept, retried on a bounded backoff, a
 
       expect(pageOperations.saveFailureStatus(page.id)).toBeNull();
       expect(pageOperations.unsavedPageCount()).toBe(0);
+    });
+
+    it('a title another note already has is refused, not a failed save: no failure state, nothing unsaved, nothing written', async () => {
+      const { page, second, vault, fileSystem, pageOperations } = await openWithFailingDisk();
+      const writesBefore = fileSystem.attempts.length;
+
+      pageOperations.commitTitle(page.id, second.name);
+      await pageOperations.requestTitleSave(page.id);
+
+      expect(pageOperations.saveFailureStatus(page.id)).toBeNull();
+      expect(pageOperations.saveFailureKind(page.id)).toBeNull();
+      expect(pageOperations.failedSavePageIds()).toEqual([]);
+      expect(vault.getPage(page.id)!.path).toBe(`${ROOT}/Note.md`);
+      expect(fileSystem.attempts.length).toBe(writesBefore);
+    });
+
+    it('a refused title is not retried', async () => {
+      const { page, second, fileSystem, pageOperations } = await openWithFailingDisk();
+
+      pageOperations.commitTitle(page.id, second.name);
+      await pageOperations.requestTitleSave(page.id);
+      const writesAfterRefusal = fileSystem.attempts.length;
+      await vi.advanceTimersByTimeAsync(SAVE_RETRY_DELAYS_MS[SAVE_RETRY_DELAYS_MS.length - 1]! * 2);
+
+      expect(fileSystem.attempts.length).toBe(writesAfterRefusal);
+      expect(pageOperations.saveFailureStatus(page.id)).toBeNull();
+    });
+
+    it('after a refused title, a title nobody has saves normally', async () => {
+      const { page, second, vault, pageOperations } = await openWithFailingDisk();
+
+      pageOperations.commitTitle(page.id, second.name);
+      await pageOperations.requestTitleSave(page.id);
+      pageOperations.commitTitle(page.id, 'Something new');
+      await pageOperations.requestTitleSave(page.id);
+
+      expect(vault.getPage(page.id)!.path).toBe(`${ROOT}/Something new.md`);
+      expect(pageOperations.saveFailureStatus(page.id)).toBeNull();
+      expect(pageOperations.unsavedPageCount()).toBe(0);
+    });
+
+    it('a refused title leaves a genuine write failure on the next title as a failure', async () => {
+      const { page, second, fileSystem, pageOperations } = await openWithFailingDisk();
+
+      pageOperations.commitTitle(page.id, second.name);
+      await pageOperations.requestTitleSave(page.id);
+      fileSystem.failing = true;
+      pageOperations.commitTitle(page.id, 'Something new');
+      await pageOperations.requestTitleSave(page.id);
+
+      expect(pageOperations.saveFailureStatus(page.id)).toBe('retry-scheduled');
+      expect(pageOperations.failedSavePageIds()).toEqual([page.id]);
+    });
+
+    it('rename() refuses a taken title with a NameTakenError that names it, and the same message as before', async () => {
+      const { page, second, pageOperations } = await openWithFailingDisk();
+
+      const refusal = await pageOperations.rename(page.id, `  ${second.name}  `).catch((error: unknown) => error);
+
+      expect(refusal).toBeInstanceOf(NameTakenError);
+      expect((refusal as NameTakenError).refusedName).toBe(second.name);
+      expect((refusal as Error).message).toBe(`A note named "${second.name}" already exists in this folder.`);
     });
 
     it('a failed description save is surfaced and retried the same way', async () => {
