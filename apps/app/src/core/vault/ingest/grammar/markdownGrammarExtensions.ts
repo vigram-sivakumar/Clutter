@@ -1,6 +1,7 @@
 import { Autolink, Strikethrough, Table, TaskList, type MarkdownExtension } from '@lezer/markdown';
 
 import { bareDomainSyntax } from './bareDomainSyntax';
+import { clutterQuoteSyntax } from './clutterQuoteSyntax';
 import { dateSyntax } from './dateSyntax';
 import { embedSyntax } from './embedSyntax';
 import { emojiListSyntax } from './emojiListSyntax';
@@ -61,6 +62,7 @@ function buildMarkdownGrammarExtensions(emojiLists: boolean): MarkdownExtension 
   doubleHorizontalRuleSyntax,
   dottedHorizontalRuleSyntax,
   labeledHorizontalRuleSyntax,
+  clutterQuoteSyntax,
   ...(emojiLists ? [emojiListSyntax] : []),
   listMarkerParagraphInterrupt,
   ];
