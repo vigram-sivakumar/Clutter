@@ -283,10 +283,8 @@ describe('blockSeparatorDecoration — blockquotes', () => {
     // Only 3 elements, not 5 — the two contiguous-paragraph boundaries
     // between the quote lines emit no `.cm-block-separator` at all (0px
     // means no widget, same as the Table/FencedCode atomic case), so
-    // they simply don't appear here rather than showing up as `0`. The
-    // blank line that ends the quote is collapsed and skipped, so the quote
-    // is followed by one 12px gap to `Below`, not a gap on each side of it.
-    expect(separatorHeights(view)).toEqual([SEPARATOR.normal, SEPARATOR.normal]);
+    // they simply don't appear here rather than showing up as `0`.
+    expect(separatorHeights(view)).toEqual([SEPARATOR.normal, SEPARATOR.normal, SEPARATOR.normal]);
     view.destroy();
   });
 
@@ -679,8 +677,7 @@ describe('blockSeparatorDecoration — horizontal rules', () => {
     heading.destroy();
 
     const quote = mountView('> a\n> b\n\n---');
-    // The 0px quote-internal boundary emits no element, and the collapsed blank line that ends the quote is skipped, so the quote meets the rule at the rule's own edge height.
-    expect(separatorHeights(quote)).toEqual([rule]);
+    expect(separatorHeights(quote)).toEqual([SEPARATOR.normal, rule]); // the 0px quote-internal boundary emits no element
     quote.destroy();
   });
 

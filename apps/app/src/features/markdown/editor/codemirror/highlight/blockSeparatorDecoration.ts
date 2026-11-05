@@ -7,7 +7,7 @@ import { resolveExistingAttributeLineRange } from '../table/tableColumnWidthMeta
 import { findAllTables, findTableStartingAt } from '../table/tableGeometry';
 import { BLOCK_SPACING_PARTICIPANTS } from './blockSpacingParticipants';
 import { pendingBreakLineNumber } from './hardBreakMarkerDecoration';
-import { collapsedQuoteExitLineNumbers, lineProbePos, resolveBoundaryHeight, SEPARATOR, type SeparatorHeight } from './separatorScope';
+import { lineProbePos, resolveBoundaryHeight, SEPARATOR, type SeparatorHeight } from './separatorScope';
 
 /**
  * One shared, empty, fixed-height block widget for every separator this
@@ -199,13 +199,7 @@ function hiddenTableColumnWidthsLineNumbers(state: EditorState): ReadonlySet<num
 
 function buildLineBoundarySeparators(state: EditorState): Range<Decoration>[] {
   const ranges: Range<Decoration>[] = [];
-  // Lines whose own box is collapsed to nothing (a table's concealed attribute
-  // line, the blank line that ends a blockquote) — skipped below so spacing is
-  // resolved between the visible neighbours, as if the line weren't there.
-  const hiddenLineNumbers = new Set([
-    ...hiddenTableColumnWidthsLineNumbers(state),
-    ...collapsedQuoteExitLineNumbers(state),
-  ]);
+  const hiddenLineNumbers = hiddenTableColumnWidthsLineNumbers(state);
 
   // A table at the very start of the document has no preceding line for
   // the loop below to ever compare against (it starts at n=2) — normally
