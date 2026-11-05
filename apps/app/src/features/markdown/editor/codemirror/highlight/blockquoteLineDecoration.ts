@@ -13,6 +13,7 @@ import {
   type ViewUpdate,
 } from '@codemirror/view';
 import type { SyntaxNode } from '@lezer/common';
+import { isQuoteNodeName } from '@core/vault/ingest/grammar/quoteNodes';
 
 /**
  * Visual left-border rule marking every physical line that belongs to a
@@ -101,7 +102,7 @@ function nearestBlockquote(
 ): SyntaxNode | null {
   let node: SyntaxNode | null = syntaxTree(state).resolveInner(probePos, 1);
   for (; node; node = node.parent) {
-    if (node.name === 'Blockquote') {
+    if (isQuoteNodeName(node.name)) {
       return node;
     }
   }
@@ -145,7 +146,7 @@ function quoteDepth(
   let depth = 0;
   let node: SyntaxNode | null = outerNode;
 
-  while (node && node.name === 'Blockquote') {
+  while (node && isQuoteNodeName(node.name)) {
     depth++;
 
     let next: SyntaxNode | null = null;
@@ -155,7 +156,7 @@ function quoteDepth(
       child = child.nextSibling
     ) {
       if (
-        child.name === 'Blockquote' &&
+        isQuoteNodeName(child.name) &&
         child.from >= lineFrom &&
         child.from < lineTo
       ) {

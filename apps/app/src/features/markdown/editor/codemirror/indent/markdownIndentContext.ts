@@ -3,6 +3,7 @@ import type { EditorState, Line } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
 import { listItemMarker } from '../list/listMarkerDecoration';
+import { isQuoteNodeName } from '@core/vault/ingest/grammar/quoteNodes';
 
 /**
  * **The single canonical indentation-unit value for the entire Markdown
@@ -191,7 +192,7 @@ export function resolveLineIndentContext(state: EditorState, line: Line): LineIn
       }
       break;
     }
-    if (node.name === 'Blockquote') {
+    if (isQuoteNodeName(node.name)) {
       return { kind: 'unhandled' };
     }
   }

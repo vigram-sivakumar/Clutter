@@ -2,6 +2,7 @@ import { syntaxTree } from '@codemirror/language';
 import type { EditorState } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
+import { isQuoteNodeName, QUOTE_NODE_NAMES } from '@core/vault/ingest/grammar/quoteNodes';
 import {
   firstNonWhitespaceOffset,
   isIndentedPastColumn,
@@ -43,7 +44,7 @@ export type SeparatorHeight =
 const GROUPING_NODE_NAMES = new Set([
   'BulletList',
   'OrderedList',
-  'Blockquote',
+  ...QUOTE_NODE_NAMES,
 ]);
 
 /**
@@ -164,8 +165,10 @@ function isOwnMarkerLine(
   ancestorNode: SyntaxNode
 ): boolean {
   const line = state.doc.lineAt(pos);
-  if (ancestorNode.name === 'Blockquote') {
-    return line.text.trimStart().startsWith('>');
+  if (isQuoteNodeName(ancestorNode.name)) {
+    // Either marker: a quote line may carry its own `>` or `" ` (and a nested quote can be the other kind).
+    const text = line.text.trimStart();
+    return text.startsWith('>') || text.startsWith('" ');
   }
   return resolveLineIndentContext(state, line).kind === 'list';
 }
@@ -283,7 +286,7 @@ function lineEnclosingParagraph(
     ) {
       return null;
     }
-    if (node.name === 'Blockquote') {
+    if (isQuoteNodeName(node.name)) {
       return paragraph;
     }
   }
@@ -720,7 +723,7 @@ export function resolveBoundaryHeight(
       }
       if (isGenuinelyGrouped(state, prevPos, pos, node)) {
         if (
-          node.name === 'Blockquote' &&
+          isQuoteNodeName(node.name) &&
           isContiguousBlockquoteParagraph(state, prevPos, pos)
         ) {
           return SEPARATOR.none;

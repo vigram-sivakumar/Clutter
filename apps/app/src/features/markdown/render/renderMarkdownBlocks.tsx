@@ -324,6 +324,7 @@ function renderBlock(node: SyntaxNode, ctx: BlockContext, key: number): ReactNod
       );
     }
     case 'Blockquote':
+    case 'ClutterQuote':
       return (
         <blockquote key={key} className="markdown-blocks__quote">
           {renderBlockChildren(node, ctx)}
