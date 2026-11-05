@@ -14,6 +14,7 @@ import { orderedListStructuralNormalization } from './list/orderedListStructural
 import { formatShortcutsKeymap } from './format/formatShortcutsKeymap';
 import { blockquoteLineDecoration } from './highlight/blockquoteLineDecoration';
 import { collapsedQuoteExitDecoration } from './highlight/collapsedQuoteExitDecoration';
+import { collapsedQuoteExitSelectionSnap } from './highlight/collapsedQuoteExitSelectionSnap';
 import { blockquoteMarkerDecoration } from './highlight/blockquoteMarkerDecoration';
 import { blockSeparatorDecoration } from './highlight/blockSeparatorDecoration';
 import { fencedCodeBackgroundLayer } from './highlight/fencedCodeBackgroundLayer';
@@ -325,6 +326,7 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
     hardBreakMarkerDecoration(),
     blockquoteLineDecoration(),
     collapsedQuoteExitDecoration(),
+    collapsedQuoteExitSelectionSnap(),
     headingMarkerDecoration(),
     fencedCodeBackgroundLayer(),
     fencedCodeBlockLineDecoration(),
