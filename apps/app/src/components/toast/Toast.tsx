@@ -38,16 +38,12 @@ interface ToastProps {
   readonly durationMs?: number;
 }
 
-/** A plain confirmation is read at a glance; an error or an offered action needs time to read and reach. */
+/** A toast is read at a glance; only an offered action needs extra time to reach. */
 const SIMPLE_DURATION_MS = 4000;
 const LONG_DURATION_MS = 8000;
 
-export function defaultToastDuration(
-  toast: Pick<ToastMessage, 'tone' | 'action'>
-): number {
-  return toast.tone === 'error' || toast.tone === 'danger' || toast.action
-    ? LONG_DURATION_MS
-    : SIMPLE_DURATION_MS;
+export function defaultToastDuration(toast: Pick<ToastMessage, 'action'>): number {
+  return toast.action ? LONG_DURATION_MS : SIMPLE_DURATION_MS;
 }
 
 /** Longest an exit animation is waited for before the toast is removed anyway (the token is 120ms). */

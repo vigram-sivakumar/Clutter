@@ -105,6 +105,9 @@ function fakeTagOperations(
     updateMetadata: vi.fn(() => Promise.resolve()),
     rename,
     canRename,
+    // A refused, non-empty name that has no character outside the grammar is a duplicate in these stubs.
+    isNameTaken: (oldName: string, newName: string) =>
+      newName.trim() !== '' && !newName.includes(':') && !canRename(oldName, newName),
     countUnusedTags: () => 0,
     deleteUnusedTags: vi.fn(() => Promise.resolve(0)),
   } as unknown as TagOperations;
@@ -352,6 +355,7 @@ describe('Sidebar Tags — invalid-character rename, real TagOperations (no mock
         if (!trimmed) return false;
         return /^[A-Za-z0-9_-]+$/.test(trimmed.replace(/\s+/g, '-'));
       },
+      isNameTaken: () => false,
       rename: vi.fn(() => Promise.resolve()),
     } as unknown as TagOperations;
 
@@ -378,6 +382,7 @@ describe('Sidebar Tags — invalid-character rename, real TagOperations (no mock
         if (!trimmed) return false;
         return /^[A-Za-z0-9_-]+$/.test(trimmed.replace(/\s+/g, '-'));
       },
+      isNameTaken: () => false,
       rename: vi.fn(() => Promise.resolve()),
     } as unknown as TagOperations;
 

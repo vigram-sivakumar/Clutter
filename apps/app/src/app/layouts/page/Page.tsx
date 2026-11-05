@@ -216,7 +216,7 @@ type PageProps = {
    * ADR-024) — both discrete-commit consumers. A persisted Note supplies
    * onTitleEdit/onTitleFlush instead (below), not this.
    */
-  onTitleCommit?(title: string): void;
+  onTitleCommit?(title: string): void | boolean;
   /** See PageTitle.onEdit — the continuous-commit entry point for a channel-backed title (persisted Note, folder). */
   onTitleEdit?(title: string): void;
   /** See PageTitle.onFlush — the non-escaped-blur-flush entry point for a channel-backed title. */

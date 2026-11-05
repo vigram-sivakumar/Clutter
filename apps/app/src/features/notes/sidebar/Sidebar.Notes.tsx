@@ -53,6 +53,7 @@ import { Dialog } from '@components/dialog/Dialog';
 import { Confirmation } from '@components/confirmation/Confirmation';
 import { useConfirmationSurface } from '@components/confirmation/useConfirmationSurface';
 import { useToast } from '@components/toast/ToastProvider';
+import { showNameTaken } from '@components/toast/showNameTaken';
 import { archiveFolderWithUndo, archiveResourceWithUndo } from '../helpers/archiveWithUndo';
 import { reportMoveFailure } from '../helpers/reportMoveFailure';
 import { downloadResource } from '@shared/helpers/downloadResource';
@@ -304,8 +305,13 @@ export function Notes({
     }),
 
     // Same synchronous pre-check role as onNoteTitleCommit above.
-    onFolderTitleCommit: (folderId, value) =>
-      folderOperations.canRename(folderId, value) ? undefined : false,
+    onFolderTitleCommit: (folderId, value) => {
+      if (folderOperations.canRename(folderId, value)) {
+        return undefined;
+      }
+      showNameTaken(toast, value);
+      return false;
+    },
     onFolderTitleEdit: (folderId, value) =>
       folderOperations.commitName(folderId, value),
     onFolderTitleFlush: (folderId) =>

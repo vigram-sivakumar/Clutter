@@ -55,10 +55,15 @@ export function getCollectionPageTitleProps(
 export function createTagCollectionRenameHandler(
   tagOperations: TagOperations,
   navigation: NavigationRouter,
-  currentTagName: string
+  currentTagName: string,
+  /** Told the name when it is refused only because another tag already has it (not for an empty or malformed one). */
+  onNameTaken?: (name: string) => void
 ): (value: string) => void | boolean {
   return (value) => {
     if (!tagOperations.canRename(currentTagName, value)) {
+      if (tagOperations.isNameTaken(currentTagName, value)) {
+        onNameTaken?.(value.trim());
+      }
       return false;
     }
 

@@ -15,9 +15,10 @@ function fakeNavigation(openTag: (name: string) => void): NavigationRouter {
 function fakeTagOperations(
   rename: (oldName: string, newName: string) => Promise<void>,
   canRename: (oldName: string, newName: string) => boolean = (_oldName, newName) =>
-    newName.trim() !== ''
+    newName.trim() !== '',
+  isNameTaken: (oldName: string, newName: string) => boolean = () => false
 ): TagOperations {
-  return { rename, canRename } as unknown as TagOperations;
+  return { rename, canRename, isNameTaken } as unknown as TagOperations;
 }
 
 describe('getCollectionPageTitleProps', () => {
@@ -198,5 +199,42 @@ describe('createTagCollectionRenameHandler', () => {
     expect(canRename).toHaveBeenCalledWith('Product-design', 'Personal: project');
     expect(result).toBe(false);
     expect(rename).not.toHaveBeenCalled();
+  });
+});
+
+describe('createTagCollectionRenameHandler — saying why a name was refused', () => {
+  const refuse = (canRename: boolean, taken: boolean) => {
+    const onNameTaken = vi.fn();
+    const handler = createTagCollectionRenameHandler(
+      fakeTagOperations(vi.fn(() => Promise.resolve()), () => canRename, () => taken),
+      fakeNavigation(vi.fn()),
+      'Product-design',
+      onNameTaken
+    );
+    return { handler, onNameTaken };
+  };
+
+  it('tells the caller the trimmed name when another tag already has it, and still returns false', () => {
+    const { handler, onNameTaken } = refuse(false, true);
+
+    expect(handler('  Marketing  ')).toBe(false);
+    expect(onNameTaken).toHaveBeenCalledTimes(1);
+    expect(onNameTaken).toHaveBeenCalledWith('Marketing');
+  });
+
+  it('says nothing for an empty or malformed name: it is refused, but not "taken"', () => {
+    const { handler, onNameTaken } = refuse(false, false);
+
+    expect(handler('Personal: project')).toBe(false);
+    expect(handler('   ')).toBe(false);
+    expect(onNameTaken).not.toHaveBeenCalled();
+  });
+
+  it('says nothing for an accepted name', () => {
+    const { handler, onNameTaken } = refuse(true, false);
+
+    handler('Fresh');
+
+    expect(onNameTaken).not.toHaveBeenCalled();
   });
 });

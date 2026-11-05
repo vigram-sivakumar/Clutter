@@ -126,6 +126,7 @@ import { resolvePageMetadata } from '@core/vault/ingest/resolvePageMetadata';
 import type { PageMetadata } from '@core/vault/models/PageMetadata';
 import { Confirmation } from '@components/confirmation/Confirmation';
 import { useToast } from '@components/toast/ToastProvider';
+import { showNameTaken } from '@components/toast/showNameTaken';
 import { waitForImage } from '@shared/helpers/waitForImage';
 import { reportTagBatch } from '@features/tags/helpers/tagBatchFeedback';
 import { createTaskActions } from '@features/tasks/helpers/createTaskActions';
@@ -1566,6 +1567,24 @@ export function PageHost({
   const onCancelPageTitle = (pageId: string): void => {
     application.pageOperations.cancelTitleEdit(pageId);
   };
+  // The synchronous duplicate check for a note's or draft's title, run when the user commits it (Enter, or a blur that
+  // changed it). A name another note already has is refused here, before any save is attempted: returning `false`
+  // makes the title field shake and stay open on Enter, or revert on blur, and the toast says why. The title channel
+  // would otherwise refuse the same name later as a save failure.
+  const onCommitPageTitle = (pageId: string, title: string): boolean => {
+    if (application.pageOperations.canRename(pageId, title)) {
+      return true;
+    }
+    showNameTaken(toast, title);
+    return false;
+  };
+  const onCommitFolderName = (folderId: string, name: string): boolean => {
+    if (application.folderOperations.canRename(folderId, name)) {
+      return true;
+    }
+    showNameTaken(toast, name);
+    return false;
+  };
 
   const onEditFolderName = (folderId: string, name: string): void => {
     application.folderOperations.commitName(folderId, name);
@@ -2065,6 +2084,9 @@ export function PageHost({
           onTitleCancel={
             isRenameable ? () => onCancelFolderName(folder.id) : undefined
           }
+          onTitleCommit={
+            isRenameable ? (name) => onCommitFolderName(folder.id, name) : undefined
+          }
           descriptionKey={folder.id}
           // Same reserved-vs-ordinary gate as showMoreActions/emoji/cover
           // below — a reserved folder has no "Description" entry point at
@@ -2492,7 +2514,8 @@ export function PageHost({
         ? createTagCollectionRenameHandler(
             application.tagOperations,
             application.navigation,
-            view.tagName
+            view.tagName,
+            (name) => showNameTaken(toast, name)
           )
         : undefined;
     // Page-header-controls configuration: every filtered view that reaches
@@ -2997,11 +3020,15 @@ export function PageHost({
         appliesHeaderSeparator
         onTitleCommit={
           isPageTitleEditable(draft.type)
-            ? (title) =>
+            ? (title) => {
+                if (!onCommitPageTitle(activePageId, title)) {
+                  return false;
+                }
                 void application.pageOperations.updateDraftTitle(
                   activePageId,
                   title
-                )
+                );
+              }
             : undefined
         }
         bodyOverlay={buildTemplateSuggestions({
@@ -3210,6 +3237,9 @@ export function PageHost({
         }
         onTitleCancel={
           isRenameable ? () => onCancelPageTitle(page.id) : undefined
+        }
+        onTitleCommit={
+          isRenameable ? (title) => onCommitPageTitle(page.id, title) : undefined
         }
         // A Note and a Daily Note both offer "Add a description"/"Description"
         // (the header More menu offers it for both) — unlike title, description editability has no note-vs-daily-
