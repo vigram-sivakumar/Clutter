@@ -24,7 +24,7 @@ import {
 import { resolveLineIndentContext } from '../indent/markdownIndentContext';
 import { computeListItemFold } from '../fold/listItemFoldService';
 import { emojiMarkerSize } from '../../../../../core/vault/ingest/grammar/emojiListSyntax';
-import { isQuoteNodeName } from '../../../../../core/vault/ingest/grammar/quoteNodes';
+import { isQuoteNodeName, quotePrefixOf, type QuoteToken } from '../../../../../core/vault/ingest/grammar/quoteNodes';
 import { classifyMarkerText, firstSameLineListMark, listItemMarker } from '../list/listMarkerDecoration';
 import { insertOrderedListMarkerSeparator } from '../list/orderedListMarkerCreation';
 import {
@@ -199,35 +199,6 @@ const exitEmptyBlockquoteContinuation: StateCommand = ({ state, dispatch }) => {
   );
   return true;
 };
-
-/** One quote marker at the start of a line: a standard `>` (with its optional space) or Clutter's `" `. */
-const QUOTE_TOKEN = /([ \t]*)(>[ \t]?|" )/y;
-
-interface QuoteToken {
-  readonly kind: '>' | '"';
-  /** Offset in the line where the token starts, its own leading whitespace included. */
-  readonly at: number;
-  /** Offset of the marker character itself. */
-  readonly mark: number;
-  /** Offset just past the marker and its space. */
-  readonly end: number;
-}
-
-/** The run of quote markers that opens a line (`" `, `" " `, `> " `, ...), and the offset where the line's own text starts. */
-function quotePrefixOf(text: string): { readonly tokens: readonly QuoteToken[]; readonly end: number } {
-  const tokens: QuoteToken[] = [];
-  let at = 0;
-  for (;;) {
-    QUOTE_TOKEN.lastIndex = at;
-    const match = QUOTE_TOKEN.exec(text);
-    if (!match) {
-      return { tokens, end: at };
-    }
-    const mark = at + (match[1]?.length ?? 0);
-    tokens.push({ kind: text[mark] === '"' ? '"' : '>', at, mark, end: at + match[0].length });
-    at += match[0].length;
-  }
-}
 
 /**
  * Enter inside a Clutter-native quote (`" text`). CodeMirror's own Markdown Enter reads quote context with a
