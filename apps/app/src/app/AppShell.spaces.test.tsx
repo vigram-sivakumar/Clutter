@@ -1007,11 +1007,11 @@ describe('AppShell: Welcome dialog actions', () => {
       });
 
       it.each([
-        ['exfat', /Choose a folder on your Mac’s own drive/],
-        ['msdos', /Choose a folder on your Mac’s own drive/],
-        ['hfs', /Choose a folder on your Mac’s own drive/],
-        ['smbfs', /Choose a folder on your Mac’s own drive/],
-        ['somethingnew', /Choose a folder on your Mac’s own drive/],
+        ['exfat', /Choose a local folder/],
+        ['msdos', /Choose a local folder/],
+        ['hfs', /Choose a local folder/],
+        ['smbfs', /Choose a local folder/],
+        ['somethingnew', /Choose a local folder/],
       ])(
         'a folder on a %s volume is refused when it is chosen: explained inline on the Welcome screen, nothing opened, saved or remembered',
         async (filesystem, message) => {
@@ -1566,7 +1566,7 @@ describe('AppShell: Welcome dialog actions', () => {
         tauri.checkFilesystem.mockResolvedValue({ status: 'unsupported', filesystem: 'exfat' });
         await createAnswering({ status: 'otherFolder', path: '/Volumes/Stick/Notes' });
 
-        expect(await screen.findByText(/Choose a folder on your Mac’s own drive/)).toHaveAttribute('role', 'alert');
+        expect(await screen.findByText(/Choose a local folder/)).toHaveAttribute('role', 'alert');
         expect(screen.queryByText(/access to Documents/)).toBeNull();
         expect(bootstrap).not.toHaveBeenCalled();
         expect(SAVED()).toBeNull();
@@ -2820,7 +2820,7 @@ describe('AppShell: the sidebar "New space" picker', () => {
       tauri.openDialog.mockResolvedValueOnce('/Volumes/Stick/other');
       await act(async () => changeButton().click());
 
-      const messages = await screen.findAllByText(/Choose a folder on your Mac’s own drive/);
+      const messages = await screen.findAllByText(/Choose a local folder/);
       expect(messages).toHaveLength(1);
       expect(messages[0]).toHaveAttribute('role', 'alert');
       expect(messages[0]!.closest('.space-details')).not.toBeNull();
@@ -3883,7 +3883,7 @@ describe('AppShell: a Space whose filesystem Application.bootstrap refuses', () 
 
       expect(await screen.findByTestId('open-root')).toHaveTextContent('/Users/me/B');
       expect(screen.queryByRole('alert')).toBeNull();
-      expect(screen.queryByText(/on your Mac’s own drive/)).toBeNull();
+      expect(screen.queryByText(/local folder/)).toBeNull();
     });
   });
 
