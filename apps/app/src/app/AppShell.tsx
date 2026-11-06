@@ -130,7 +130,7 @@ if (typeof localStorage !== 'undefined') {
 const TOO_BROAD_MESSAGE = 'Choose a more specific folder';
 
 /** A folder on a volume Clutter cannot save to safely is refused when it is chosen (APFS only, ADR-063), never opened. */
-const UNSUPPORTED_FILESYSTEM_MESSAGE = 'Choose a local folder';
+const UNSUPPORTED_FILESYSTEM_MESSAGE = 'Choose a folder on an APFS drive';
 
 const FILESYSTEM_UNCHECKED_MESSAGE = 'Couldn’t open your space';
 

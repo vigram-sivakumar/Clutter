@@ -220,7 +220,7 @@ export class SpaceFilesystemRefusedError extends Error {
 /** The message for an already-registered Space whose folder is on a volume Clutter cannot save to safely. */
 export function unsupportedOpenedSpaceMessage(path: string): string {
   const name = path.replace(/\/+$/, '').split('/').pop() || path;
-  return `Couldn’t open “${name}”. Move it to a local folder`;
+  return `Couldn’t open “${name}”: not on an APFS drive`;
 }
 
 /** The message for an already-registered Space whose folder's volume could not be classified. */

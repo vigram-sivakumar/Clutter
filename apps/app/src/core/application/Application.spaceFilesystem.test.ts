@@ -91,7 +91,7 @@ describe('Application.bootstrap: the Space’s filesystem is classified on every
 
     expect(error).toBeInstanceOf(SpaceFilesystemRefusedError);
     expect((error as SpaceFilesystemRefusedError).kind).toBe('unsupported');
-    expect((error as Error).message).toMatch(/Couldn’t open “.+”\. Move it to a local folder/);
+    expect((error as Error).message).toMatch(/Couldn’t open “.+”: not on an APFS drive/);
     expectNothingWrittenOrScanned();
   });
 
