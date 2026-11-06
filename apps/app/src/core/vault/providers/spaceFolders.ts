@@ -218,13 +218,13 @@ export class SpaceFilesystemRefusedError extends Error {
 }
 
 /** The message for an already-registered Space whose folder is on a volume Clutter cannot save to safely. */
-export function unsupportedOpenedSpaceMessage(filesystem: string): string {
-  return `This space’s folder is on ${describeFilesystem(filesystem)}, and Clutter can only save safely to APFS drives, so it wasn’t opened. Move the folder to your Mac’s own drive or an APFS drive, then choose it again`;
+export function unsupportedOpenedSpaceMessage(path: string): string {
+  const name = path.replace(/\/+$/, '').split('/').pop() || path;
+  return `Couldn’t open “${name}”. Move it to your Mac’s own drive`;
 }
 
 /** The message for an already-registered Space whose folder's volume could not be classified. */
-export const UNCHECKED_OPENED_SPACE_MESSAGE =
-  'Clutter couldn’t check whether it can save safely to this space’s folder, so it wasn’t opened. Make sure its drive is connected, or choose the folder again';
+export const UNCHECKED_OPENED_SPACE_MESSAGE = 'Couldn’t open your space';
 
 /**
  * Classifies the volume of a Space that is being opened or restored (not only when it is first chosen: the drive
@@ -238,7 +238,7 @@ export async function assertSpaceFilesystemSupported(path: string): Promise<void
   const support = await checkSpaceFilesystem(path);
   if (support.status === 'supported') return;
   if (support.status === 'unsupported') {
-    throw new SpaceFilesystemRefusedError('unsupported', unsupportedOpenedSpaceMessage(support.filesystem));
+    throw new SpaceFilesystemRefusedError('unsupported', unsupportedOpenedSpaceMessage(path));
   }
   throw new SpaceFilesystemRefusedError('unchecked', UNCHECKED_OPENED_SPACE_MESSAGE);
 }

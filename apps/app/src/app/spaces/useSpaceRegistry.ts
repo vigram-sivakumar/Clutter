@@ -156,8 +156,10 @@ export interface SpaceRegistryState {
   openFailed(reason: string): boolean;
 }
 
+/** Names the Space by its folder's name only: a full path does not fit in a toast. */
 function unavailableMessage(path: string): string {
-  return `Can’t open “${path}”. The folder is missing, unreadable, or outside the allowed location`;
+  const name = path.replace(/\/+$/, '').split('/').pop() || path;
+  return `Couldn’t open “${name}”`;
 }
 
 export function useSpaceRegistry(deps: SpaceRegistryDeps): SpaceRegistryState {
@@ -326,11 +328,7 @@ export function useSpaceRegistry(deps: SpaceRegistryDeps): SpaceRegistryState {
   const refuseWhileBusy = useCallback((): boolean => {
     if (lifecycle.active === null) return false;
     say(
-      lifecycle.active === 'renaming'
-        ? 'A space is being renamed. Try again in a moment'
-        : lifecycle.active === 'editing-profile'
-          ? 'A space is being updated. Try again in a moment'
-          : 'A space is being removed. Try again in a moment'
+'Try again in a moment'
     );
     return true;
   }, [lifecycle, say]);
@@ -350,7 +348,7 @@ export function useSpaceRegistry(deps: SpaceRegistryDeps): SpaceRegistryState {
       if (remembered === lastOpened) return;
       lastOpenedRef.current = remembered;
       if (!saveSpaceRegistry(storageRef.current, remembered)) {
-        say('Clutter couldn’t save that change, so the space may come back next launch');
+        say('Unable to save');
       }
     },
     [say, refuseWhileBusy]
@@ -389,7 +387,7 @@ export function useSpaceRegistry(deps: SpaceRegistryDeps): SpaceRegistryState {
           await closeApplication();
         } catch (caught) {
           console.error('Closing the space before removing it failed:', caught);
-          say('Clutter couldn’t save this space’s pending changes, so it was not removed');
+          say('Unable to save');
           return 'failed';
         }
         const remaining = withoutActiveSpace(registryRef.current, null);
@@ -397,7 +395,7 @@ export function useSpaceRegistry(deps: SpaceRegistryDeps): SpaceRegistryState {
         lastOpenedRef.current = remaining;
         setRegistry(remaining);
         if (!saveSpaceRegistry(storageRef.current, remaining)) {
-          say('The space was removed, but Clutter couldn’t save that, so it may come back next launch');
+          say('Unable to save');
         }
         return 'closed';
       } finally {
@@ -441,7 +439,7 @@ export function useSpaceRegistry(deps: SpaceRegistryDeps): SpaceRegistryState {
       setRegistry(next);
       const saved = saveSpaceRegistry(storageRef.current, next);
       if (!saved) {
-        say('The space was renamed, but Clutter couldn’t save that. It will finish the next time Clutter starts');
+        say('Unable to save');
       }
       return saved;
     },
@@ -459,7 +457,7 @@ export function useSpaceRegistry(deps: SpaceRegistryDeps): SpaceRegistryState {
       const remembered = withRenamedInactiveSpace(lastOpened, from, to);
       lastOpenedRef.current = remembered;
       if (!saveSpaceRegistry(storageRef.current, remembered)) {
-        say('The space was renamed, but Clutter couldn’t save that. It may show its old name after the next start');
+        say('Unable to save');
         return false;
       }
       return true;
@@ -504,7 +502,7 @@ export function useSpaceRegistry(deps: SpaceRegistryDeps): SpaceRegistryState {
     lastOpenedRef.current = opened;
     pendingSelectionRef.current = null;
     if (!saveSpaceRegistry(storageRef.current, opened)) {
-      say('This space is open, but Clutter couldn’t save it, so it won’t be reopened next launch');
+      say('Unable to save');
     }
   }, [say]);
 

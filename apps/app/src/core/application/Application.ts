@@ -740,7 +740,7 @@ export class Application {
         planMovedAssetReferences(
           this.movedAssetReferenceDeps(),
           steps,
-          steps.length === 1 ? `“${steps[0]!.resource.name}”` : `These ${steps.length} files`
+          steps.length === 1 ? `“${steps[0]!.resource.name}”` : `${steps.length} files`
         ),
     };
     const moveService = new MoveService(vault, this.fileSystem, assetMovePolicy);

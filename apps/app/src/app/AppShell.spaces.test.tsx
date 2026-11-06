@@ -981,7 +981,7 @@ describe('AppShell: Welcome dialog actions', () => {
       await click('Select a folder');
       await settle();
 
-      const messages = await screen.findAllByText(/too broad to be a space/);
+      const messages = await screen.findAllByText(/Choose a more specific folder/);
       expect(messages).toHaveLength(1); // not also a toast
       expect(messages[0]).toHaveAttribute('role', 'alert');
       expect(messages[0]!.closest('.welcome-screen')).not.toBeNull();
@@ -1007,11 +1007,11 @@ describe('AppShell: Welcome dialog actions', () => {
       });
 
       it.each([
-        ['exfat', /on an exFAT drive, and Clutter can only save safely to APFS drives/],
-        ['msdos', /on a FAT drive/],
-        ['hfs', /on a Mac OS Extended \(HFS\+\) drive/],
-        ['smbfs', /on a network share \(SMB\)/],
-        ['somethingnew', /on a drive formatted as somethingnew/],
+        ['exfat', /Choose a folder on your Mac’s own drive/],
+        ['msdos', /Choose a folder on your Mac’s own drive/],
+        ['hfs', /Choose a folder on your Mac’s own drive/],
+        ['smbfs', /Choose a folder on your Mac’s own drive/],
+        ['somethingnew', /Choose a folder on your Mac’s own drive/],
       ])(
         'a folder on a %s volume is refused when it is chosen: explained inline on the Welcome screen, nothing opened, saved or remembered',
         async (filesystem, message) => {
@@ -1058,7 +1058,7 @@ describe('AppShell: Welcome dialog actions', () => {
         await click('Select a folder');
         await settle();
 
-        const messages = await screen.findAllByText(/couldn’t check whether it can save safely to that folder/);
+        const messages = await screen.findAllByText(/Couldn’t open your space/);
         expect(messages).toHaveLength(1);
         expect(messages[0]).toHaveAttribute('role', 'alert');
         expect(bootstrap).not.toHaveBeenCalled();
@@ -1079,7 +1079,7 @@ describe('AppShell: Welcome dialog actions', () => {
         await click('Select a folder');
         await settle();
 
-        await screen.findAllByText(/too broad to be a space/);
+        await screen.findAllByText(/Choose a more specific folder/);
         expect(tauri.checkFilesystem).not.toHaveBeenCalled();
       });
     });
@@ -1354,7 +1354,7 @@ describe('AppShell: Welcome dialog actions', () => {
         await startCreate('Personal');
 
         expect(
-          await screen.findByText('Couldn’t finish adding the welcome notes. Try again to continue where it stopped')
+          await screen.findByText('Couldn’t add the welcome notes')
         ).toBeInTheDocument();
         expect(screen.queryByTestId('open-root')).toBeNull();
         expect(SAVED()).toBeNull();
@@ -1566,7 +1566,7 @@ describe('AppShell: Welcome dialog actions', () => {
         tauri.checkFilesystem.mockResolvedValue({ status: 'unsupported', filesystem: 'exfat' });
         await createAnswering({ status: 'otherFolder', path: '/Volumes/Stick/Notes' });
 
-        expect(await screen.findByText(/on an exFAT drive, and Clutter can only save safely to APFS drives/)).toHaveAttribute('role', 'alert');
+        expect(await screen.findByText(/Choose a folder on your Mac’s own drive/)).toHaveAttribute('role', 'alert');
         expect(screen.queryByText(/access to Documents/)).toBeNull();
         expect(bootstrap).not.toHaveBeenCalled();
         expect(SAVED()).toBeNull();
@@ -2300,7 +2300,7 @@ describe('AppShell: the sidebar "New space" picker', () => {
       await pickFolder(picked);
 
       expect(
-        await screen.findByText(/too broad to be a space/)
+        await screen.findByText(/Choose a more specific folder/)
       ).toBeInTheDocument();
       expect(nameInput()).toBeNull();
       expect(bootstrap.mock.calls.length).toBe(bootstraps);
@@ -2754,7 +2754,7 @@ describe('AppShell: the sidebar "New space" picker', () => {
     await click('Create');
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      /Can’t open “\/Volumes\/Drive\/Denied”/
+      /Couldn’t open “Denied”/
     );
     expect(nameInput()).not.toBeNull();
     expect(SAVED()).toBe(before);
@@ -2803,7 +2803,7 @@ describe('AppShell: the sidebar "New space" picker', () => {
       tauri.openDialog.mockResolvedValueOnce('/Users');
       await act(async () => changeButton().click());
 
-      const messages = await screen.findAllByText(/too broad to be a space/);
+      const messages = await screen.findAllByText(/Choose a more specific folder/);
       expect(messages).toHaveLength(1); // one account of it: a toast as well would make two
       expect(messages[0]).toHaveAttribute('role', 'alert');
       expect(messages[0]!.closest('.space-details')).not.toBeNull();
@@ -2820,7 +2820,7 @@ describe('AppShell: the sidebar "New space" picker', () => {
       tauri.openDialog.mockResolvedValueOnce('/Volumes/Stick/other');
       await act(async () => changeButton().click());
 
-      const messages = await screen.findAllByText(/on an exFAT drive/);
+      const messages = await screen.findAllByText(/Choose a folder on your Mac’s own drive/);
       expect(messages).toHaveLength(1);
       expect(messages[0]).toHaveAttribute('role', 'alert');
       expect(messages[0]!.closest('.space-details')).not.toBeNull();
@@ -3647,7 +3647,7 @@ describe('AppShell: switching Spaces', () => {
 
       await click('Change location');
 
-      const messages = await screen.findAllByText(/too broad to be a space/);
+      const messages = await screen.findAllByText(/Choose a more specific folder/);
       expect(messages).toHaveLength(1);
       expect(messages[0]).toHaveAttribute('role', 'alert');
       expect(messages[0]!.closest('.missing-space')).not.toBeNull();
@@ -3883,7 +3883,7 @@ describe('AppShell: a Space whose filesystem Application.bootstrap refuses', () 
 
       expect(await screen.findByTestId('open-root')).toHaveTextContent('/Users/me/B');
       expect(screen.queryByRole('alert')).toBeNull();
-      expect(screen.queryByText(/can only save safely to APFS/)).toBeNull();
+      expect(screen.queryByText(/on your Mac’s own drive/)).toBeNull();
     });
   });
 

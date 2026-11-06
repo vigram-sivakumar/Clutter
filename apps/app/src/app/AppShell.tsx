@@ -25,7 +25,6 @@ import { probeSpaceFolder } from '../core/vault/providers/probeSpaceFolder';
 import {
   checkSpaceFilesystem,
   createSpaceFolder,
-  describeFilesystem,
   renameSpaceFolder,
   isReachedThroughLink,
   isTooBroadForSpace,
@@ -128,21 +127,16 @@ if (typeof localStorage !== 'undefined') {
   Application.webRecoveryStorage = new BrowserRecoveryStorage();
 }
 
-const TOO_BROAD_MESSAGE =
-  'That folder is too broad to be a space (your home folder or the disk root). Choose a more specific folder';
+const TOO_BROAD_MESSAGE = 'Choose a more specific folder';
 
 /** A folder on a volume Clutter cannot save to safely is refused when it is chosen (APFS only, ADR-063), never opened. */
-function unsupportedFilesystemMessage(filesystem: string): string {
-  return `That folder is on ${describeFilesystem(filesystem)}, and Clutter can only save safely to APFS drives. Choose a folder on your Mac’s own drive or on an APFS drive`;
-}
+const UNSUPPORTED_FILESYSTEM_MESSAGE = 'Choose a folder on your Mac’s own drive';
 
-const FILESYSTEM_UNCHECKED_MESSAGE =
-  'Clutter couldn’t check whether it can save safely to that folder, so it wasn’t added. Try again, or choose another folder';
+const FILESYSTEM_UNCHECKED_MESSAGE = 'Couldn’t open your space';
 
 const KEEP_ACCESS_FAILED_MESSAGE = 'Clutter couldn’t keep access to that folder for next time. Choose it again';
 
-const LINKED_FOLDER_MESSAGE =
-  'That folder is reached through a link, so Clutter would not see changes made outside the app. Choose the folder itself';
+const LINKED_FOLDER_MESSAGE = 'Folder links aren’t supported';
 
 /** Why an error rejected an open. The fs plugin rejects with plain strings, not `Error`s. */
 function failureReason(error: unknown): string {
@@ -163,7 +157,7 @@ async function acceptPickedSpace(path: string): Promise<string | null> {
   // save would be refused. A folder whose volume cannot be checked is refused too, never assumed to be fine; and this
   // comes before the access below is saved, so a refused folder leaves no remembered access behind.
   const support = await checkSpaceFilesystem(path);
-  if (support.status === 'unsupported') return unsupportedFilesystemMessage(support.filesystem);
+  if (support.status === 'unsupported') return UNSUPPORTED_FILESYSTEM_MESSAGE;
   if (support.status === 'unknown') return FILESYSTEM_UNCHECKED_MESSAGE;
   // App Sandbox: the pick only authorizes the folder for this run. Save the access now, or refuse the folder rather
   // than accept a Space that works today and cannot be opened after the next launch.
@@ -826,7 +820,7 @@ function AppShellContent() {
     const status = await probeSpaceFolder(path);
     if (status === 'missing') return 'That folder doesn’t exist';
     if (status !== 'available') {
-      return 'Clutter can’t open that folder. It may not be a folder, or access was denied';
+      return 'Couldn’t open that folder';
     }
     pendingProfileRef.current = {
       path,
@@ -1141,7 +1135,7 @@ function AppShellContent() {
     } else if (outcome.status === 'recovery') {
       spaces.notify(`Couldn’t finish renaming the space: ${outcome.message}`);
     } else if (outcome.status === 'renamed' && outcome.warnings.includes('state-not-migrated')) {
-      spaces.notify('The space was renamed, but some of its saved view settings couldn’t be carried over');
+      spaces.notify('Renamed, but some settings didn’t carry over');
     }
 
     return outcome;
@@ -1183,7 +1177,7 @@ function AppShellContent() {
     if (outcome.status === 'unconfirmed') {
       spaces.notify(outcome.message);
     } else if (outcome.status === 'renamed' && outcome.warnings.includes('state-not-migrated')) {
-      spaces.notify('The space was renamed, but some of its saved view settings couldn’t be carried over');
+      spaces.notify('Renamed, but some settings didn’t carry over');
     }
 
     return outcome;

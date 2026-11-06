@@ -91,7 +91,7 @@ describe('Application.bootstrap: the Space’s filesystem is classified on every
 
     expect(error).toBeInstanceOf(SpaceFilesystemRefusedError);
     expect((error as SpaceFilesystemRefusedError).kind).toBe('unsupported');
-    expect((error as Error).message).toMatch(/can only save safely to APFS/);
+    expect((error as Error).message).toMatch(/Couldn’t open “.+”\. Move it to your Mac’s own drive/);
     expectNothingWrittenOrScanned();
   });
 

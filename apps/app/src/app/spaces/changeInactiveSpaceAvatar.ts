@@ -31,7 +31,7 @@ export function describeInactiveAvatarRefusal(reason: InactiveAvatarRefusal): st
     case 'busy':
       return 'Another space operation is in progress. Try again in a moment';
     case 'unavailable':
-      return 'Clutter can’t reach this space’s folder, so its avatar can’t be changed right now';
+      return 'Unable to change the space avatar';
     case 'no-space':
     case 'not-inactive':
       return 'The avatar was not changed';

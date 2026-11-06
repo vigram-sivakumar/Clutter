@@ -365,7 +365,7 @@ describe('with the setting on: an asset that is used', () => {
     expect(await fileSystem.exists(`${ROOT}/Assets/logo.png`)).toBe(true);
     expect(await fileSystem.exists(`${ROOT}/Docs/logo.png`)).toBe(false);
     expect(await text(`${ROOT}/a.md`)).toBe(before);
-    expect(feedback).toEqual([{ kind: 'refused', message: expect.stringContaining('Nothing was moved') }]);
+    expect(feedback).toEqual([{ kind: 'refused', message: expect.stringContaining('Unable to move') }]);
   });
 
   it('refuses when a note that uses it was changed outside Clutter, and never overwrites it', async () => {

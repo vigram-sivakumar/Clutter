@@ -11,11 +11,11 @@ import {
 } from './welcomeContentRecord';
 
 /** The dialog's message when the install stopped and a retry will continue it from the ledger. */
-export const WELCOME_GATE_RETRY_MESSAGE = 'Couldn’t finish adding the welcome notes. Try again to continue where it stopped';
+export const WELCOME_GATE_RETRY_MESSAGE = 'Couldn’t add the welcome notes';
 /** The dialog's message when the ledger records that no retry will happen: the next try opens the space as it is. */
-export const WELCOME_GATE_ABANDONED_MESSAGE = 'Couldn’t add all the welcome notes. Try again to open the space without them';
+export const WELCOME_GATE_ABANDONED_MESSAGE = 'Couldn’t add the welcome notes';
 /** The dialog's message when the install finished but the content is not all there as shipped. */
-export const WELCOME_GATE_UNVERIFIED_MESSAGE = 'Couldn’t confirm the welcome notes were all added. Try again to open the space without them';
+export const WELCOME_GATE_UNVERIFIED_MESSAGE = 'Couldn’t add the welcome notes';
 
 /** Thrown by the open sequence when the gate closes, so the Welcome dialog shows `message` and the Space stays unopened. */
 export class WelcomeInstallIncompleteError extends Error {
