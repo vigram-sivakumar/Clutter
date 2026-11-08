@@ -12,8 +12,10 @@ import { taskCompletionMetadataDecoration } from './taskCompletionMetadataDecora
 function mountView(doc: string): EditorView {
   const parent = document.createElement('div');
   document.body.appendChild(parent);
+  // The caret starts at the document end, as `createEditorView` opens a note (position 0 would touch the first marker).
   const state = EditorState.create({
     doc,
+    selection: EditorSelection.cursor(doc.length),
     extensions: [markdownLanguageExtension(), taskCheckboxDecoration(), taskCompletionMetadataDecoration()],
   });
   return new EditorView({ state, parent });

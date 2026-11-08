@@ -11,12 +11,13 @@ afterEach(() => {
 });
 
 describe('TasksTabs', () => {
-  it('shows All tasks, Today, Upcoming and Unscheduled, with the given tab selected', () => {
+  it('shows All tasks, Today, Overdue, Upcoming and Unscheduled, with the given tab selected', () => {
     const { container } = render(<TasksTabs value="today" onValueChange={vi.fn()} />);
 
     expect([...container.querySelectorAll('.tab')].map((tab) => tab.textContent)).toEqual([
       'All tasks',
       'Today',
+      'Overdue',
       'Upcoming',
       'Unscheduled',
     ]);
@@ -39,6 +40,7 @@ describe('TasksTabs', () => {
     expect(TASKS_TAB_VIEW).toEqual({
       all: 'tasks-all',
       today: 'tasks-today',
+      overdue: 'tasks-overdue',
       upcoming: 'tasks-upcoming',
       unscheduled: 'tasks-unscheduled',
     });
@@ -52,11 +54,12 @@ describe('TasksTabs', () => {
 
   it('resolveTasksTab keeps a known persisted tab and falls back to All tasks for anything else', () => {
     expect(resolveTasksTab('today')).toBe('today');
+    expect(resolveTasksTab('overdue')).toBe('overdue');
     expect(resolveTasksTab('upcoming')).toBe('upcoming');
     expect(resolveTasksTab('unscheduled')).toBe('unscheduled');
     expect(resolveTasksTab('all')).toBe('all');
     expect(resolveTasksTab(undefined)).toBe('all');
-    expect(resolveTasksTab('overdue')).toBe('all');
+    expect(resolveTasksTab('done')).toBe('all');
     expect(resolveTasksTab('')).toBe('all');
   });
 });

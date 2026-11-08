@@ -73,7 +73,7 @@ describe('ToastProvider', () => {
     mount();
     act(() => void api.fail('Couldn’t save the image'));
     act(() => {
-      vi.advanceTimersByTime(8000);
+      vi.advanceTimersByTime(4000);
     });
     expect(screen.queryByRole('alert')).toBeNull();
 

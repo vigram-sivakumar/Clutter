@@ -51,7 +51,7 @@ describe('reconcilePendingRename', () => {
     }).outcome;
 
     expect(result.registry).toEqual(cleared);
-    expect(result.notice).toMatch(/different space already exists/);
+    expect(result.notice).toMatch(/Couldn’t rename/);
   });
 
   it('old path is the Space and the destination is an empty folder a crash left: keeps the old path, clears the record, no alarm', async () => {
@@ -72,7 +72,7 @@ describe('reconcilePendingRename', () => {
     // A matching id does not make them the same folder (a copy carries the same id), so the old path is held back too.
     expect(result).toMatchObject({ registry, changed: false, blockedActivePath: OLD });
     expect(result.registry.pendingRename).toBeDefined();
-    expect(result.notice).toMatch(/Neither was opened or changed/);
+    expect(result.notice).toMatch(/Couldn’t rename/);
     expect(migrateState).not.toHaveBeenCalled();
   });
 
@@ -124,7 +124,7 @@ describe('reconcilePendingRename', () => {
 
     expect(result).toMatchObject({ registry, changed: false, blockedActivePath: OLD });
     expect(result.registry.paths).toContain(OLD);
-    expect(result.notice).toMatch(/couldn’t find/);
+    expect(result.notice).toMatch(/Couldn’t rename/);
   });
 
   it.each([
@@ -137,7 +137,7 @@ describe('reconcilePendingRename', () => {
     expect(result.changed).toBe(false);
     expect(result.registry.pendingRename).toBeDefined();
     expect(result.blockedActivePath).toBeNull();
-    expect(result.notice).toMatch(/well enough/);
+    expect(result.notice).toMatch(/Couldn’t rename/);
   });
 
   it('an unavailable destination does not excuse an old path that was read and is not the recorded Space', async () => {
@@ -216,7 +216,7 @@ describe('reconcilePendingRename', () => {
 
       expect(result).toMatchObject({ registry, changed: false, blockedActivePath: OLD });
       expect(result.registry.pendingRename).toBeDefined();
-      expect(result.notice).toMatch(/try again next time/);
+      expect(result.notice).toMatch(/Couldn’t rename/);
     });
 
     it('also migrates when a recreated old path is a different Space and the destination is the one', async () => {

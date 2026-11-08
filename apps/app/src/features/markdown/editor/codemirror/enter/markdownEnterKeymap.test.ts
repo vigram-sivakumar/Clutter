@@ -146,27 +146,28 @@ describe('markdownEnterCommand', () => {
   });
 
   describe('empty blockquote continuation removes one quote level', () => {
-    it('leaves a normal empty line below a single-level quote', () => {
+    it('leaves a blank line, then a normal line, below a single-level quote', () => {
+      // The blank line is what ends the quote: text typed straight after `> Text` would be a lazy continuation of it.
       expect(pressEnterTimes('> Text|', 2)).toEqual([
         '> Text\n> |',
-        '> Text\n|',
+        '> Text\n\n|',
       ]);
     });
 
     it('unwinds a nested quote one level per press', () => {
       expect(pressEnterTimes('>> Text|', 3)).toEqual([
         '>> Text\n>> |',
-        '>> Text\n>|',
-        '>> Text\n|',
+        '>> Text\n>\n>|',
+        '>> Text\n>\n|',
       ]);
     });
 
     it('unwinds a triple-nested quote one level per press', () => {
       expect(pressEnterTimes('>>> Text|', 4)).toEqual([
         '>>> Text\n>>> |',
-        '>>> Text\n>>|',
-        '>>> Text\n>|',
-        '>>> Text\n|',
+        '>>> Text\n>>\n>>|',
+        '>>> Text\n>>\n>|',
+        '>>> Text\n>>\n|',
       ]);
     });
   });
@@ -176,7 +177,7 @@ describe('markdownEnterCommand', () => {
       expect(pressEnterTimes('> - Text|', 3)).toEqual([
         '> - Text\n> - |',
         '> - Text\n> |',
-        '> - Text\n|',
+        '> - Text\n\n|',
       ]);
     });
 
@@ -184,7 +185,7 @@ describe('markdownEnterCommand', () => {
       expect(pressEnterTimes('> 1. Text|', 3)).toEqual([
         '> 1. Text\n> 2. |',
         '> 1. Text\n> |',
-        '> 1. Text\n|',
+        '> 1. Text\n\n|',
       ]);
     });
 
@@ -192,8 +193,8 @@ describe('markdownEnterCommand', () => {
       expect(pressEnterTimes('>> - Text|', 4)).toEqual([
         '>> - Text\n>> - |',
         '>> - Text\n>> |',
-        '>> - Text\n>|',
-        '>> - Text\n|',
+        '>> - Text\n>\n>|',
+        '>> - Text\n>\n|',
       ]);
     });
   });
@@ -264,9 +265,12 @@ describe('markdownEnterCommand', () => {
     });
 
     it('removes one unit from the indentation left by a list continuation line', () => {
+      // The first press now keeps the continuation line's own four spaces (it used to fall back to the
+      // item's two-column marker width). This fixture installs no `indentUnit`, so CM6's default unit
+      // of two applies to the second press; in the editor the unit is four and it lands on column 0.
       expect(pressEnterTimes('- Parent\n    continuation|', 2)).toEqual([
+        '- Parent\n    continuation\n    |',
         '- Parent\n    continuation\n  |',
-        '- Parent\n    continuation\n|',
       ]);
     });
   });
@@ -698,8 +702,8 @@ describe('markdownEnterCommand', () => {
       expect(pressEnterTimes('- - - - Text|', 1)).toEqual(['- - - - Text\n- |']);
     });
 
-    it('same-line ordered chain: "1. 1. 1. Text" continues at the first level, marker copied verbatim', () => {
-      expect(pressEnterTimes('1. 1. 1. Text|', 1)).toEqual(['1. 1. 1. Text\n1. |']);
+    it('same-line ordered chain: "1. 1. 1. Text" continues at the first level, numbered like any ordered item', () => {
+      expect(pressEnterTimes('1. 1. 1. Text|', 1)).toEqual(['1. 1. 1. Text\n2. |']);
     });
 
     it('mixed-kind same-line chain: "- 1. - Text" continues at the first (bullet) level', () => {
@@ -707,7 +711,7 @@ describe('markdownEnterCommand', () => {
     });
 
     it('mixed-kind same-line chain starting ordered: "1. - Text" continues at the first (ordered) level', () => {
-      expect(pressEnterTimes('1. - Text|', 1)).toEqual(['1. - Text\n1. |']);
+      expect(pressEnterTimes('1. - Text|', 1)).toEqual(['1. - Text\n2. |']);
     });
 
     it('genuine multi-line nesting (different physical lines) is unaffected — continues at the deepest, real level', () => {

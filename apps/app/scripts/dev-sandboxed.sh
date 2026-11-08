@@ -9,7 +9,8 @@
 #
 #   DEV_SANDBOX_PORT   the Vite port (default 1422; `tauri dev` uses 1421)
 #
-# The sandboxed app keeps its data in ~/Library/Containers/<bundle id>/, apart from the unsandboxed dev app's.
+# The sandboxed app keeps its data in ~/Library/Containers/com.vigram.clutter.dev/, apart from the unsandboxed dev app's
+# and from the packaged app's (com.vigram.clutter).
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 APP_DIR="$HERE/.."
@@ -24,13 +25,17 @@ for _ in $(seq 1 40); do curl -sf "http://localhost:$PORT" >/dev/null && break; 
 curl -sf "http://localhost:$PORT" >/dev/null || { echo "The Vite dev server did not start on port $PORT (see /tmp/clutter-dev-sandboxed-vite.log)." >&2; exit 1; }
 
 # A debug build loads the config's devUrl; point it at this port. The default features include the atomic writer.
-CONFIG="{\"build\":{\"devUrl\":\"http://localhost:$PORT\"}}"
+# It also takes the development identifier (src-tauri/tauri.dev.conf.json), so this sandboxed run has its own container
+# and never shares the packaged app's (com.vigram.clutter).
+IDENTIFIER=$(python3 -c "import json; print(json.load(open('src-tauri/tauri.dev.conf.json'))['identifier'])")
+[ "$IDENTIFIER" = "com.vigram.clutter.dev" ] || { echo "src-tauri/tauri.dev.conf.json must set the identifier com.vigram.clutter.dev, not '$IDENTIFIER'." >&2; exit 1; }
+CONFIG="{\"identifier\":\"$IDENTIFIER\",\"build\":{\"devUrl\":\"http://localhost:$PORT\"}}"
 ( cd src-tauri && CARGO_TARGET_DIR="$TARGET" TAURI_CONFIG="$CONFIG" cargo build )
 BINARY="$TARGET/debug/app"
 
 # The system only sandboxes an executable that lives in an app bundle (it needs the bundle identifier to find the
-# container; a bare binary is killed at launch), so wrap the dev binary in a minimal bundle with the app's identifier.
-IDENTIFIER=$(python3 -c "import json; print(json.load(open('src-tauri/tauri.conf.json'))['identifier'])")
+# container; a bare binary is killed at launch), so wrap the dev binary in a minimal bundle with the same identifier the
+# binary was built with.
 BUNDLE="$TARGET/debug/Clutter-dev-sandboxed.app"
 rm -rf "$BUNDLE"
 mkdir -p "$BUNDLE/Contents/MacOS"

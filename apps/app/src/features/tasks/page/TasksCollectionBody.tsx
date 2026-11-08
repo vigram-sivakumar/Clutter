@@ -203,7 +203,7 @@ export function TasksCollectionBody({
   // none of them opens the row's note.
   const dueDateOf = ({ task }: TaskEntry) =>
     task.dueDate !== undefined && (
-      <TaskDueDateButton date={task.dueDate} onChange={(date) => onChangeDueDate(task, date)} />
+      <TaskDueDateButton date={task.dueDate} time={task.dueTime} onChange={(date) => onChangeDueDate(task, date)} />
     );
   const sourceOf = ({ task, source }: TaskEntry) =>
     source && (

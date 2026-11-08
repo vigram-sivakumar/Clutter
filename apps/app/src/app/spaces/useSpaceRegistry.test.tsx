@@ -100,7 +100,7 @@ describe('useSpaceRegistry', () => {
 
     expect(accepted).toBe(false);
     expect(result.current.registry).toEqual({ paths: ['/Default'], activePath: '/Default' });
-    expect(result.current.notice?.text).toContain('/Gone');
+    expect(result.current.notice?.text).toBe('Couldn’t open “Gone”');
   });
 
   it('returns to the previous Space when the confirmed one fails to open', async () => {
@@ -274,7 +274,7 @@ describe('useSpaceRegistry', () => {
 
     act(() => view.result.current.confirmOpened());
 
-    expect(view.result.current.notice?.text).toContain("won’t be reopened");
+    expect(view.result.current.notice?.text).toBe('Unable to save');
     expect(view.result.current.registry.activePath).toBe('/Default');
   });
 
@@ -592,7 +592,7 @@ describe('useSpaceRegistry', () => {
       expect(outcome).toBe('failed');
       expect(result.current.registry).toEqual(stored);
       expect(JSON.parse(storage.value!)).toEqual(stored);
-      expect(result.current.notice?.text).toMatch(/was not removed/);
+      expect(result.current.notice?.text).toBe('Unable to save');
     });
 
     it('a repeated request while one is in progress does nothing', async () => {
@@ -636,7 +636,7 @@ describe('useSpaceRegistry', () => {
       await act(async () => void (await view.result.current.removeActiveSpace(async () => {})));
 
       expect(view.result.current.registry.activePath).toBeNull();
-      expect(view.result.current.notice?.text).toMatch(/couldn’t save that/);
+      expect(view.result.current.notice?.text).toBe('Unable to save');
     });
 
     it('does nothing when no Space is active', async () => {
@@ -750,7 +750,7 @@ describe('useSpaceRegistry', () => {
       expect(storage.value).toBe(before); // still holds the record and the old path: next launch finishes it
       expect(JSON.parse(storage.value!).pendingRename).toEqual(pending);
       expect(result.current.registry.activePath).toBe('/A2');
-      expect(result.current.notice?.text).toMatch(/finish the next time/);
+      expect(result.current.notice?.text).toBe('Unable to save');
       // A failed open of the new path cannot send the registry back to the old one.
       act(() => void result.current.openFailed('boom'));
       expect(result.current.registry.activePath).toBe('/A2');
@@ -880,7 +880,7 @@ describe('useSpaceRegistry', () => {
       expect(switched).toBe(false);
       expect(selected).toBe(false);
       expect(result.current.registry).toEqual(stored);
-      expect(result.current.notice?.text).toMatch(/being renamed/);
+      expect(result.current.notice?.text).toBe('Try again in a moment');
 
       release();
       await act(async () => void (await result.current.switchSpace('/B')));
@@ -943,7 +943,7 @@ describe('useSpaceRegistry', () => {
       expect(result.current.registry).toEqual(stored);
       expect(JSON.parse(storage.value!)).toEqual(stored);
       expect(migrateState).not.toHaveBeenCalled();
-      expect(result.current.notice?.text).toMatch(/Neither was opened or changed/);
+      expect(result.current.notice?.text).toMatch(/Couldn’t rename/);
     });
 
     it('retries the migration, then persists the new path and clears the record together, before it is ready', async () => {
@@ -977,7 +977,7 @@ describe('useSpaceRegistry', () => {
       expect(result.current.activeSpaceMissing).toBe(true);
       expect(result.current.registry).toEqual(stored);
       expect(JSON.parse(storage.value!)).toEqual(stored);
-      expect(result.current.notice?.text).toMatch(/try again next time/);
+      expect(result.current.notice?.text).toMatch(/Couldn’t rename/);
     });
 
     it('a failed migration is retried on the next launch and then completes', async () => {
@@ -1192,7 +1192,7 @@ describe('useSpaceRegistry', () => {
 
       expect(moved).toBe(false);
       expect(view.result.current.registry.paths).toContain('/Bee');
-      expect(view.result.current.notice?.text).toMatch(/couldn’t save/);
+      expect(view.result.current.notice?.text).toBe('Unable to save');
     });
   });
 });

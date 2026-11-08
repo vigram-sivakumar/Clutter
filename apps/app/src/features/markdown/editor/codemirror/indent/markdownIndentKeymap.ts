@@ -1,14 +1,18 @@
 import {
+  EditorState,
   Prec,
   type ChangeSpec,
   type Extension,
   type Line,
   type StateCommand,
 } from '@codemirror/state';
+import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
 import { keymap } from '@codemirror/view';
+import type { SyntaxNode } from '@lezer/common';
 
 import { planOrderedListNormalization } from '../list/orderedListTabNormalization';
-import { INDENT_STEP_SPACES } from './markdownIndentContext';
+import { markdownLanguageExtension } from '../markdownLanguage';
+import { INDENT_STEP_SPACES, resolveLineIndentContext } from './markdownIndentContext';
 
 /**
  * Markdown-aware Tab/Shift-Tab.
@@ -85,6 +89,86 @@ function lineIndentChange(line: Line, direction: 1 | -1): ChangeSpec | null {
   return { from: line.from, to: leadingEnd, insert: ' '.repeat(target) };
 }
 
+const NESTABLE_LIST_NAMES: ReadonlySet<string> = new Set(['BulletList', 'OrderedList', 'EmojiList']);
+
+/** Whether a list item has an item to nest under: an earlier item in its list, or a list directly before its list. */
+function hasItemToNestUnder(state: EditorState, markerFrom: number): boolean {
+  let item: SyntaxNode | null = syntaxTree(state).resolveInner(markerFrom, 1);
+  while (item && item.name !== 'ListItem') {
+    item = item.parent;
+  }
+  if (!item) {
+    return true;
+  }
+  if (item.prevSibling) {
+    return true;
+  }
+  const before = item.parent?.prevSibling;
+  return !!before && NESTABLE_LIST_NAMES.has(before.name);
+}
+
+/**
+ * Drops the Tab edit of a list line that would leave it no longer a list item *and* has nothing to nest under:
+ * the first item of a list, or one already a level below the item above it. Four more spaces do not nest such an
+ * item; by CommonMark the result is an indented code block (a list's first item at four columns) or lazy text of the
+ * item above, so the line is left alone and a bullet never turns into code. Judged on a provisional copy with *all*
+ * the selected lines' edits applied and reparsed (the way `planOrderedListNormalization` checks), so a block that
+ * moves together stays together: a first item is skipped while the items below it still nest, and an item under a
+ * selected parent that does move is kept. Repeats until nothing more is dropped.
+ *
+ * A line that does have an item to nest under is never dropped unless it becomes code: a very wide ordered marker
+ * (`99999.`) can need several presses to reach its parent's content column, and the presses in between must still
+ * go through (see the wide-marker tests). Only marker lines of real list items (bullet, ordered, task, emoji) are
+ * ever considered; every other line is indented as before.
+ */
+function dropEditsThatEndAListItem(state: EditorState, edits: ChangeSpec[]): ChangeSpec[] {
+  let kept = edits as { from: number; to: number; insert: string }[];
+  const nestable = new Map<number, boolean>();
+  for (const edit of kept) {
+    const context = resolveLineIndentContext(state, state.doc.lineAt(edit.from));
+    if (context.kind === 'list') {
+      nestable.set(edit.from, hasItemToNestUnder(state, context.markerFrom));
+    }
+  }
+  if (nestable.size === 0) {
+    return edits;
+  }
+
+  for (;;) {
+    const changeSet = state.changes(kept);
+    // Grammar only, like `planOrderedListNormalization`'s own provisional state: the real state's transaction
+    // filters must not run on a document that is only ever read.
+    const provisional = EditorState.create({
+      doc: changeSet.apply(state.doc),
+      extensions: [markdownLanguageExtension()],
+    });
+    ensureSyntaxTree(provisional, provisional.doc.length, 5000);
+    const stopsBeingAListItem = (edit: { from: number }) =>
+      nestable.has(edit.from) &&
+      resolveLineIndentContext(provisional, provisional.doc.lineAt(changeSet.mapPos(edit.from, -1))).kind !== 'list';
+    // The first item (in document order) with nothing to nest under goes first, and everything is judged again
+    // without it: with `- A` and `- B` selected, both read as code together, but once A is left alone B nests under
+    // it and stays a list item. One at a time, so a parent is settled before the children that moved with it.
+    const stuck = kept.filter((edit) => stopsBeingAListItem(edit) && !nestable.get(edit.from));
+    const first = stuck.length ? Math.min(...stuck.map((edit) => edit.from)) : -1;
+    let next = kept.filter((edit) => edit.from !== first);
+    if (next.length === kept.length) {
+      // Only items that do have something above them remain: they are dropped only if the edit makes them code.
+      next = kept.filter(
+        (edit) =>
+          !(
+            stopsBeingAListItem(edit) &&
+            resolveLineIndentContext(provisional, provisional.doc.lineAt(changeSet.mapPos(edit.from, -1))).kind === 'code'
+          )
+      );
+    }
+    if (next.length === kept.length) {
+      return kept;
+    }
+    kept = next;
+  }
+}
+
 /**
  * Shared implementation for both directions. Walks every physical line
  * touched by every selection range (deduplicated, so an empty/collapsed
@@ -117,7 +201,9 @@ function markdownIndentDirection(direction: 1 | -1): StateCommand {
       }
     }
 
-    if (changes.length) {
+    const edits = direction === 1 ? dropEditsThatEndAListItem(state, changes) : changes;
+
+    if (edits.length) {
       // Phase C/D (docs/list-item-architecture-odr.md §16.8, §20):
       // `planOrderedListNormalization` never influences the whitespace
       // change above — it only ever *reads* it (as opaque `{from,to,
@@ -126,11 +212,11 @@ function markdownIndentDirection(direction: 1 | -1): StateCommand {
       // own `OrderedList` membership genuinely changed, and — only then —
       // plans the digit-run rewrites needed to keep both the list it left
       // and the list it joined internally consistent. Composed into the
-      // *same* `changes` array so the whitespace edit and any numbering
+      // *same* `edits` array so the whitespace edit and any numbering
       // fix-up dispatch as one transaction, one undo step, exactly like
       // every other list-editing fix in this codebase.
-      const normalizeEdits = planOrderedListNormalization(state, changes);
-      const allChanges = normalizeEdits.length ? [...changes, ...normalizeEdits] : changes;
+      const normalizeEdits = planOrderedListNormalization(state, edits);
+      const allChanges = normalizeEdits.length ? [...edits, ...normalizeEdits] : edits;
       const changeSet = state.changes(allChanges);
       dispatch(
         state.update({

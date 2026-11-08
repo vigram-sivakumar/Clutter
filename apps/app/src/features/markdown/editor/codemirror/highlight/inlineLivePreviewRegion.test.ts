@@ -941,11 +941,11 @@ describe('inlineLivePreviewRegion', () => {
         expect(view.dom.querySelector('.tok-link')?.textContent).toBe('https://google.com');
       });
 
-      it('a non-http URL (www.one.autodesk.com) follows the same fallback', () => {
-        const view = mountView('before [](www.one.autodesk.com) after');
+      it('a non-http URL (www.one.example.com) follows the same fallback', () => {
+        const view = mountView('before [](www.one.example.com) after');
 
-        expect(visibleText(view)).toBe('before www.one.autodesk.com after');
-        expect(view.dom.querySelector('.tok-link')?.textContent).toBe('www.one.autodesk.com');
+        expect(visibleText(view)).toBe('before www.one.example.com after');
+        expect(view.dom.querySelector('.tok-link')?.textContent).toBe('www.one.example.com');
       });
 
       it('reveals the full raw [](url) source when engaged', () => {

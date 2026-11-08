@@ -114,6 +114,11 @@ describe('the Tasks collection', () => {
     expect([...TASKS_COLLECTION.defaultVisible].sort()).toEqual(['dueDate', 'name', 'source']);
     expect(TASKS_COLLECTION.defaultSort).toEqual({ property: 'name', direction: 'down' });
   });
+
+  it('the Tasks List starts as just Name and Due date; the Table shows all three', () => {
+    expect([...defaultVisibleFor(TASKS_COLLECTION, 'list')]).toEqual(['name', 'dueDate']);
+    expect([...defaultVisibleFor(TASKS_COLLECTION, 'table')].sort()).toEqual(['dueDate', 'name', 'source']);
+  });
 });
 
 describe('layouts and defaults', () => {

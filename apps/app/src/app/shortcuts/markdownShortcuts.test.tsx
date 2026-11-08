@@ -165,7 +165,8 @@ const BEHAVIOR: Record<string, () => void> = {
     expect(list.state.doc.toString()).toBe('- a\n');
     const quote = mount('> q\n> ');
     press(quote, PRESSES.exit!);
-    expect(quote.state.doc.toString()).toBe('> q\n');
+    // The quote ends in the source: a blank line separates it from what follows.
+    expect(quote.state.doc.toString()).toBe('> q\n\n');
   },
   'line-break': () => {
     const view = mount('abc');
@@ -173,7 +174,8 @@ const BEHAVIOR: Record<string, () => void> = {
     expect(view.state.doc.toString()).toBe('abc\\\n');
   },
   'remove-marker': () => {
-    // At the start of a non-empty item: the list is undone. An empty item loses its marker. A task loses its checkbox.
+    // At the start of a non-empty item: the list is undone. An empty item loses its marker. A task's text start is
+    // CodeMirror's plain character delete: only the separator goes.
     const item = mount('- a', 2);
     press(item, PRESSES['remove-marker']!);
     expect(item.state.doc.toString()).toBe('-a');
@@ -182,7 +184,7 @@ const BEHAVIOR: Record<string, () => void> = {
     expect(empty.state.doc.toString()).toBe('');
     const task = mount('- [ ] t', 6);
     press(task, PRESSES['remove-marker']!);
-    expect(task.state.doc.toString()).toBe('- t');
+    expect(task.state.doc.toString()).toBe('- [ ]t');
   },
   'move-line-up': () => {
     const view = mount('a\nb');
@@ -279,6 +281,7 @@ const SYNTAX: Record<string, { readonly source: string; readonly node: string }>
   'inline-code-typed': { source: '`text`', node: 'InlineCode' },
   highlight: { source: '==text==', node: 'Highlight' },
   strikethrough: { source: '~~text~~', node: 'Strikethrough' },
+  quote: { source: '" text', node: 'ClutterQuote' },
   'task-list': { source: '- [ ] t', node: 'TaskMarker' },
   'wiki-link': { source: '[[Page]]', node: 'WikiLink' },
   'wiki-link-alias': { source: '[[Page|alias]]', node: 'WikiLink' },
@@ -314,6 +317,12 @@ describe('the Markdown guide dialog’s typing triggers', () => {
     // The row shows the text that is typed (the example's text part may differ: "Title" and "alias" are placeholders).
     expect(row.trigger).toBeTruthy();
     expect(await nodesOf(source)).toContain(node);
+  });
+
+  it('a quote starts with either > or " and a space', async () => {
+    expect(await nodesOf('> text')).toContain('Blockquote');
+    expect(await nodesOf('" text')).toContain('ClutterQuote');
+    expect(await nodesOf('"Hello" she said')).not.toContain('ClutterQuote');
   });
 
   it('a divider straight under a paragraph is a heading, which is why the row says to leave a blank line', async () => {

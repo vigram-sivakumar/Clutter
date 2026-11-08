@@ -10,7 +10,7 @@
   <!-- Saves that access as a bookmark so a chosen folder (and Documents) opens again after a restart. -->
   <key>com.apple.security.files.bookmarks.app-scope</key>
   <true/>
-  <!-- Unsplash covers, link previews. -->
+  <!-- Unsplash cover search, and remote images and files the user asks for. -->
   <key>com.apple.security.network.client</key>
   <true/>
 </dict>

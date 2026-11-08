@@ -186,7 +186,9 @@ describe('Tags sidebar — New tag', () => {
     const t = setup();
     t.open();
 
-    expect(t.createButton()).toBeDisabled();
+    expect(t.createButton()).toBeEnabled();
+    fireEvent.click(t.createButton());
+    expect(t.nameField()).toHaveClass('editable-text--shake');
     fireEvent.submit(t.nameField().closest('form')!);
 
     expect(t.declare).not.toHaveBeenCalled();
@@ -198,7 +200,9 @@ describe('Tags sidebar — New tag', () => {
     t.open();
     t.type('    ');
 
-    expect(t.createButton()).toBeDisabled();
+    expect(t.createButton()).toBeEnabled();
+    fireEvent.click(t.createButton());
+    expect(t.nameField()).toHaveClass('editable-text--shake');
     expect(screen.queryByRole('alert')).toBeNull();
     fireEvent.submit(t.nameField().closest('form')!);
 
@@ -211,11 +215,15 @@ describe('Tags sidebar — New tag', () => {
 
     t.type('1984');
     expect(screen.getByRole('alert')).toHaveTextContent(/letters, numbers, hyphens/i);
-    expect(t.createButton()).toBeDisabled();
+    expect(t.createButton()).toBeEnabled();
+    fireEvent.click(t.createButton());
+    expect(t.nameField()).toHaveClass('editable-text--shake');
 
     t.type('a/b');
     expect(screen.getByRole('alert')).toBeInTheDocument();
-    expect(t.createButton()).toBeDisabled();
+    expect(t.createButton()).toBeEnabled();
+    fireEvent.click(t.createButton());
+    expect(t.nameField()).toHaveClass('editable-text--shake');
     expect(await t.definitions()).toEqual({});
   });
 
@@ -248,7 +256,9 @@ describe('Tags sidebar — New tag', () => {
     for (const attempt of ['design', 'Design', 'DESIGN', ' design_ ']) {
       t.type(attempt);
       expect(screen.getByRole('alert')).toHaveTextContent('A tag named “design” already exists');
-      expect(t.createButton()).toBeDisabled();
+      expect(t.createButton()).toBeEnabled();
+    fireEvent.click(t.createButton());
+    expect(t.nameField()).toHaveClass('editable-text--shake');
     }
 
     fireEvent.submit(t.nameField().closest('form')!);
@@ -267,7 +277,9 @@ describe('Tags sidebar — New tag', () => {
     t.type('Research');
 
     expect(screen.getByRole('alert')).toHaveTextContent('already exists');
-    expect(t.createButton()).toBeDisabled();
+    expect(t.createButton()).toBeEnabled();
+    fireEvent.click(t.createButton());
+    expect(t.nameField()).toHaveClass('editable-text--shake');
   });
 
   it('the emoji is optional: a tag created without one has none', async () => {

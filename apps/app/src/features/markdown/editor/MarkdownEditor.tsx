@@ -29,7 +29,8 @@ import { unfoldToReveal } from './codemirror/fold/unfoldToReveal';
 import { TableActiveCellController } from './codemirror/table/tableActiveCellController';
 import { tableCellNavigation } from './codemirror/table/tableCellNavigation';
 import { formatShortcutsKeymap } from './codemirror/format/formatShortcutsKeymap';
-import { tableCellPaste } from './codemirror/table/tablePaste';
+import { escapeTableCellText } from './codemirror/table/tablePaste';
+import { cellPasteRouting } from './codemirror/paste/pasteRouting';
 import { attachTableOutsideClickHandling } from './codemirror/table/tableSelection';
 import { clearTableSelection } from './codemirror/table/tableSelectionClear';
 import { duplicateSelectedRow, insertRowAboveSelection, insertRowBelowSelection } from './codemirror/table/tableRowInsertion';
@@ -131,6 +132,7 @@ export type { ResolveImageResource } from './codemirror/image/imageResourceResol
 export type { ResolveImageSrc, ImageSrcResolution } from './codemirror/image/imageSrcResolution';
 import { refreshInlinePresentation } from './codemirror/highlight/inlineLivePreviewRegion';
 import { subscribeDateFormatChoice } from '@shared/helpers/time/dateFormatPreference';
+import { subscribeEnableEmojiLists } from '@shared/helpers/enableEmojiListsPreference';
 import { subscribeShowTagEmojis } from '@shared/helpers/showTagEmojisPreference';
 import { subscribeSystemLocale } from '@shared/helpers/time/dateLocale';
 import './MarkdownEditor.css';
@@ -343,6 +345,7 @@ export const MarkdownEditor = forwardRef<
   // The CURRENT mode, kept in a ref so everything captured at mount (the menu getters) reads the live value,
   // and the options the extension factory was built from, kept so a mode switch can rebuild the mode-dependent
   // groups on the live view.
+  const grammarRemountRef = useRef<{ doc: string; anchor: number; head: number } | null>(null);
   const readOnlyRef = useRef(readOnly);
   readOnlyRef.current = readOnly;
   const appliedReadOnlyRef = useRef(readOnly);
@@ -1545,6 +1548,13 @@ export const MarkdownEditor = forwardRef<
 
     const cachedSession = getCachedEditorSession(pageId);
 
+    // A remount for the *Enable emoji lists* setting continues from the live view, not from this closure's props
+    // (the first render's): the document, mode and selection it had when the setting changed.
+    const resume = grammarRemountRef.current;
+    grammarRemountRef.current = null;
+    const startDoc = resume?.doc ?? markdown;
+    const startReadOnly = resume ? readOnlyRef.current : readOnly;
+
     // Constructed before `createEditorView()` (below) so
     // `getTableActiveCellController`'s getter can already return it —
     // `tableCellNavigation`'s own root-view getter (`() => viewRef.current!`)
@@ -1556,7 +1566,10 @@ export const MarkdownEditor = forwardRef<
     const tableActiveCellController = new TableActiveCellController();
     tableActiveCellController.setNestedExtensions([
       tableCellNavigation(() => viewRef.current!, tableActiveCellController),
-      tableCellPaste(() => viewRef.current!, tableActiveCellController),
+      // The cell editor's one paste handler: a grid fills the table from this cell, files are reported as not added, an empty clipboard changes nothing.
+      cellPasteRouting(() => viewRef.current!, tableActiveCellController, () => (readOnlyRef.current ? undefined : pasteAssetsRef.current)),
+      // Text pasted into one cell is written into the table source as it is, where a literal `|` would split the cell.
+      EditorView.clipboardInputFilter.of(escapeTableCellText),
       // The focused cell is its own nested view, so the root's Cmd/Ctrl-B/-I/-E never reach it.
       formatShortcutsKeymap(),
     ]);
@@ -1601,10 +1614,10 @@ export const MarkdownEditor = forwardRef<
       hostPageId: pageId,
     };
     extensionOptionsRef.current = extensionOptions;
-    appliedReadOnlyRef.current = readOnly;
+    appliedReadOnlyRef.current = startReadOnly;
 
     const view = createEditorView({
-      doc: markdown,
+      doc: startDoc,
       parent: container,
       // Per-document CM6 undo/redo history + scroll preservation
       // (docs/editor-architecture-decisions.md's entries of that name):
@@ -1626,7 +1639,7 @@ export const MarkdownEditor = forwardRef<
       restoreFoldJSON: foldStateStore?.get(pageId),
       // Read-only keeps folding: folding never changes the document, and a note's folded sections must
       // stay expandable.
-      readOnly,
+      readOnly: startReadOnly,
       enableFolding: true,
       // The full rendering/interaction extension list is built by the one
       // shared factory (`buildEditorExtensions.ts`) a note embed's own
@@ -1643,7 +1656,7 @@ export const MarkdownEditor = forwardRef<
       // Mode-dependent groups live in compartments (buildSwitchableEditorExtensions), so archiving or restoring
       // an open page re-configures THIS view instead of replacing it. Arrowing out of the top of the body into
       // the title is a caret movement: the exit-up keymap exists only while editable.
-      extensions: buildSwitchableEditorExtensions(extensionOptions, readOnly, [
+      extensions: buildSwitchableEditorExtensions(extensionOptions, startReadOnly, [
         editorExitUp(() => onExitUpRef.current),
         // Main page editor only (embeds, references and table cells never install it).
         caretBottomClearanceExtension(),
@@ -1654,6 +1667,12 @@ export const MarkdownEditor = forwardRef<
       onBlur: () => onFlushRef.current?.(),
     });
     viewRef.current = view;
+    if (resume) {
+      const length = view.state.doc.length;
+      view.dispatch({
+        selection: EditorSelection.single(Math.min(resume.anchor, length), Math.min(resume.head, length)),
+      });
+    }
 
     // One listener for this root editor's own lifetime — attached here
     // (alongside `view` itself), not inside `TableWidget.toDOM()` or
@@ -1681,7 +1700,7 @@ export const MarkdownEditor = forwardRef<
     // internal gate already covered it.
     scrollAncestorRef.current = findScrollableAncestor(container);
     const cachedSessionMatchesDoc =
-      cachedSession !== undefined && docTextMatches(cachedSession.history, markdown);
+      cachedSession !== undefined && docTextMatches(cachedSession.history, startDoc);
     if (scrollAncestorRef.current && cachedSession?.domScrollTop !== undefined && cachedSessionMatchesDoc) {
       scrollAncestorRef.current.scrollTop = cachedSession.domScrollTop;
       lastKnownScrollTopRef.current = cachedSession.domScrollTop;
@@ -1834,6 +1853,23 @@ export const MarkdownEditor = forwardRef<
     // once by JSX and only ever updated via a separate effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     return () => activeEditorCleanupRef.current?.();
+  }, []);
+
+  // The *Enable emoji lists* setting changes what the parser produces, and most decorations rebuild only when the
+  // document changes, so the open editor is rebuilt through the same path as the HMR remount above: the document,
+  // undo history, folds, scroll and selection carry over, and nothing is written to the note.
+  useEffect(() => {
+    return subscribeEnableEmojiLists(() => {
+      const view = viewRef.current;
+      if (!view) {
+        return;
+      }
+      const { anchor, head } = view.state.selection.main;
+      grammarRemountRef.current = { doc: view.state.doc.toString(), anchor, head };
+      activeEditorCleanupRef.current?.();
+      activeEditorCleanupRef.current = mountEditor() ?? null;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Archiving or restoring an open page flips `readOnly` WITHOUT remounting: the live view is re-configured

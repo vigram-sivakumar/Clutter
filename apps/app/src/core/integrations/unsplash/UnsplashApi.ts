@@ -7,7 +7,7 @@ import type { UnsplashPhoto } from './UnsplashPhoto';
  * The address is public and not secret; `VITE_UNSPLASH_PROXY_URL` overrides it (an empty value turns Unsplash off). If
  * it is changed, the app's `connect-src` in `src-tauri/tauri.conf.json` must allow the new origin too.
  */
-export const DEFAULT_UNSPLASH_PROXY_URL = 'https://clutter-unsplash-proxy.vigram-work.workers.dev';
+export const DEFAULT_UNSPLASH_PROXY_URL = 'https://clutter-unsplash-proxy.vigram-sivakumar.workers.dev';
 
 /**
  * Where Unsplash itself lives. Only used to recognise the `download_location` the API returned (which is stored with a

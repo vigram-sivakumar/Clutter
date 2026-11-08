@@ -74,10 +74,15 @@ describe('computeIndentedParagraphFold', () => {
     expect(computeIndentedParagraphFold(state, state.doc.line(1))).toBeNull();
   });
 
-  it('a deeply-indented parent (itself not at column 0) can still own an even-deeper child', () => {
-    const state = stateFor('    Parent at 4\n        Child at 8');
+  it('an indented parent (itself not at column 0) can still own an even-deeper child', () => {
+    const state = stateFor('   Parent at 3\n        Child at 8');
     const parentLine = state.doc.line(1);
     const childLine = state.doc.line(2);
     expect(computeIndentedParagraphFold(state, parentLine)).toEqual({ from: parentLine.to, to: childLine.to });
+  });
+
+  it('lines of an indented code block (4+ columns at the start of a block) are not paragraphs, so nothing folds', () => {
+    const state = stateFor('    Parent at 4\n        Child at 8');
+    expect(computeIndentedParagraphFold(state, state.doc.line(1))).toBeNull();
   });
 });

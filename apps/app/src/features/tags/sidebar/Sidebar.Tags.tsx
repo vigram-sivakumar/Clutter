@@ -34,6 +34,7 @@ import { Dialog } from '@components/dialog/Dialog';
 import { Confirmation } from '@components/confirmation/Confirmation';
 import { useConfirmationSurface } from '@components/confirmation/useConfirmationSurface';
 import { useToast } from '@components/toast/ToastProvider';
+import { showNameTaken } from '@components/toast/showNameTaken';
 import { reportTagBatch } from '@features/tags/helpers/tagBatchFeedback';
 
 interface TagsPanelProps {
@@ -247,6 +248,10 @@ export function Tags({
           // than this callback reimplementing any of it.
           onCommitRename: (oldName, value) => {
             if (!tagOperations.canRename(oldName, value)) {
+              // An empty or malformed name just shakes; only a name another tag already has is announced.
+              if (tagOperations.isNameTaken(oldName, value)) {
+                showNameTaken(toast, value);
+              }
               return false;
             }
 

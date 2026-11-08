@@ -3,6 +3,7 @@ import { CollectionImage } from '@features/collection/components/media/Collectio
 import { ScaledCanvas } from '@features/collection/components/scale/ScaledCanvas';
 import type { CompactMarkdownResolvers } from '@features/markdown/render/renderCompactMarkdown';
 import { renderMarkdownBlocks } from '@features/markdown/render/renderMarkdownBlocks';
+import { useEnableEmojiLists } from '@shared/helpers/enableEmojiListsPreference';
 import './NotePageCanvas.css';
 
 /** The width, in the document's own pixels, a note's page is laid out at before it is scaled to fit. */
@@ -24,7 +25,10 @@ export interface NotePageCanvasProps {
 
 /** Parsed and rendered only once ScaledCanvas mounts its children (near the viewport), so a long grid doesn't parse every note up front. */
 function NotePageBody({ markdown, resolvers }: { markdown: string; resolvers?: CompactMarkdownResolvers }) {
-  const blocks = useMemo(() => renderMarkdownBlocks(markdown, resolvers), [markdown, resolvers]);
+  // The parse depends on the Enable emoji lists setting (`sharedMarkdownParser`), so the blocks follow it.
+  const emojiLists = useEnableEmojiLists();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const blocks = useMemo(() => renderMarkdownBlocks(markdown, resolvers), [markdown, resolvers, emojiLists]);
 
   return <div className="note-page-canvas__body">{blocks}</div>;
 }

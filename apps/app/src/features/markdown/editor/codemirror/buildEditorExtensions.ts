@@ -17,6 +17,7 @@ import { blockquoteMarkerDecoration } from './highlight/blockquoteMarkerDecorati
 import { blockSeparatorDecoration } from './highlight/blockSeparatorDecoration';
 import { fencedCodeBackgroundLayer } from './highlight/fencedCodeBackgroundLayer';
 import { fencedCodeBlockLineDecoration } from './highlight/fencedCodeBlockLineDecoration';
+import { indentedCodeLineDecoration } from './highlight/indentedCodeLineDecoration';
 import { fencedCodeActionsButtonDecoration } from './highlight/fencedCodeActionsButtonDecoration';
 import { fencedCodeCopyButtonDecoration } from './highlight/fencedCodeCopyButtonDecoration';
 import type { OnOpenFencedCodeMenu } from './fencedCode/FencedCodeActionsButtonWidget';
@@ -68,16 +69,15 @@ import type { OnOpenNoteEmbedMenu, FoldStatePersistence } from './embed/NoteEmbe
 import { tableActiveCellReconciliation, type TableActiveCellController } from './table/tableActiveCellController';
 import { tableActivationNormalization } from './table/tableActivationNormalization';
 import { tableBoundaryNavigation } from './table/tableBoundaryNavigation';
-import { tableCreatePaste } from './table/tableCreatePaste';
 import { tableDeletionSelectionField, tableWholeDeletionKeymap } from './table/tableDeletionSelection';
 import type { OnTableHandleMenuChange } from './table/tableHandleMenuSync';
 import { tableHandleMenuSync } from './table/tableHandleMenuSync';
 import { tableRangeSelectionKeyboard } from './table/tableRangeSelectionKeyboard';
 import { tableRangeClipboard } from './table/tableRangeClipboard';
 import { tableRangeSelectionTyping } from './table/tableRangeSelectionTyping';
-import { tablePaste } from './table/tablePaste';
 import { externalPasteNormalization } from './paste/externalPaste';
-import { pasteAssets, type PasteAssets } from './paste/assetPaste';
+import type { PasteAssets } from './paste/assetPaste';
+import { pasteRouting } from './paste/pasteRouting';
 import { tableRectangularNormalization } from './table/tableRectangularNormalization';
 import { tableRootSelectionSnap } from './table/tableRootSelectionSnap';
 import { tableSelectionField } from './table/tableSelection';
@@ -326,6 +326,7 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
     headingMarkerDecoration(),
     fencedCodeBackgroundLayer(),
     fencedCodeBlockLineDecoration(),
+    indentedCodeLineDecoration(),
     fencedCodeMarkerDecoration(),
     fencedCodeLanguageLabelDecoration(),
     fencedCodeCopyButtonDecoration(),
@@ -381,15 +382,6 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
           // own `if (this.controller)` gate) — this extension doesn't
           // consume the controller value itself, only the grouping.
           tableRangeClipboard(),
-          // Paste into an existing table, `range`-`TableSelection` target
-          // only — grouped here for the identical reason
-          // `tableRangeClipboard()` above is: a `range` selection can only
-          // exist when `tableActiveCellController` does. The active-cell
-          // paste target is handled separately, on the nested cell editor's
-          // own extensions (`MarkdownEditor.tsx`'s `setNestedExtensions`
-          // call) — see `tablePaste()`'s own doc comment for why root-only
-          // registration can't reach that case.
-          tablePaste(),
         ]
       : []),
   ];
@@ -436,18 +428,9 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
     // deliberately a separate filter from `tableActivationNormalization()`
     // above, not an extension of it.
     tableRectangularNormalization(),
-    // Paste of tabular clipboard data *outside* any existing table —
-    // creates a brand-new one. Declines instantly whenever a `range`
-    // `TableSelection` is active (Milestone 5's `tablePaste()` territory)
-    // and needs no `tableActiveCellController` at all, so — unlike
-    // `tablePaste()` just above — it isn't grouped under that conditional.
-    // Relies entirely on `tableActivationNormalization()`'s own terminal-
-    // table trailing-newline guarantee and `tableRootSelectionSnap()`
-    // (both already unconditional here) for caret safety — see
-    // `tableCreatePaste()`'s own doc comment.
-    tableCreatePaste(),
-    // Pasted image/PDF files are stored as assets and embedded; any other paste is untouched (declines).
-    ...(getPasteAssets ? [pasteAssets(getPasteAssets)] : []),
+    // The one paste handler: classifies each paste once and runs exactly one strategy (table range, table creation, files, rich HTML) or leaves it to CodeMirror's own paste.
+    // (A selected table range, a new table, files and rich HTML all go through it; the table rows it creates rely on `tableActivationNormalization()`'s terminal-table newline and `tableRootSelectionSnap()` for caret safety.)
+    pasteRouting(getPasteAssets ?? (() => undefined)),
     // Text from outside Clutter is pasted compactly; text Clutter copied or cut is pasted as it was.
     externalPasteNormalization(),
     // Listed before `tableWholeDeletionKeymap()` — both are `Prec.highest`;

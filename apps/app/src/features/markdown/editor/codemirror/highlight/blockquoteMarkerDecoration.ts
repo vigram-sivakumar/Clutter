@@ -16,6 +16,7 @@ import type { SyntaxNode } from '@lezer/common';
 
 import type { TokenNodeRange } from '../semanticToken/tokenEngagement';
 import { isPhysicalLineEngaged } from './liveMarkDecoration';
+import { isQuoteNodeName } from '@core/vault/ingest/grammar/quoteNodes';
 
 /**
  * `>` marker rendering — deliberately NOT built on the shared
@@ -56,8 +57,7 @@ import { isPhysicalLineEngaged } from './liveMarkDecoration';
  * continuation; see that function's own callers elsewhere for the full
  * trace). Reused here, not re-derived.
  */
-const isBlockquoteNode = (nodeName: string): boolean =>
-  nodeName === 'Blockquote';
+const isBlockquoteNode = isQuoteNodeName;
 
 function markerRanges(node: SyntaxNode, state: EditorState): TokenNodeRange[] {
   const ranges: TokenNodeRange[] = [];
@@ -84,7 +84,7 @@ function markerRanges(node: SyntaxNode, state: EditorState): TokenNodeRange[] {
       continue;
     }
 
-    if (child.name === 'Blockquote') {
+    if (isQuoteNodeName(child.name)) {
       // A nested quote is a separate construct, handled by its own pass.
       continue;
     }
@@ -183,7 +183,7 @@ function buildDecorations(view: EditorView): DecorationSet {
         node;
         node = node.parent
       ) {
-        if (node.name === 'Blockquote') {
+        if (isQuoteNodeName(node.name)) {
           owned = true;
           break;
         }

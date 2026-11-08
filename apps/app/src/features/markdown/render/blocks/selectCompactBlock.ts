@@ -64,7 +64,7 @@ const HEADING_NODE_NAMES: ReadonlySet<string> = new Set([
   'SetextHeading2',
 ]);
 
-const LEAF_BLOCK_NODE_NAMES: ReadonlySet<string> = new Set(['Paragraph', 'Blockquote', ...HEADING_NODE_NAMES]);
+const LEAF_BLOCK_NODE_NAMES: ReadonlySet<string> = new Set(['Paragraph', 'Blockquote', 'ClutterQuote', ...HEADING_NODE_NAMES]);
 
 const LIST_LIKE_NODE_NAMES: ReadonlySet<string> = new Set(['BulletList', 'OrderedList', 'EmojiList']);
 

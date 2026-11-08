@@ -31,7 +31,7 @@ interface PageTitleProps {
    * PageOperations.rename() is still what physically persists a title
    * either way, only how often it's called differs.
    */
-  onCommit?(value: string): void;
+  onCommit?(value: string): void | boolean;
 
   /**
    * Continuous-commit counterpart to onCommit, for a persisted Note's

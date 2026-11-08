@@ -312,6 +312,31 @@ describe('PageCover — Copy image and Copy image address', () => {
     expect(screen.queryByText('Copy image address')).not.toBeInTheDocument();
   });
 
+  it('does not list Copy image address for an image stored in the vault, keeping Copy image and Download', () => {
+    renderCover({ isLocalImage: true, onCopyImage: vi.fn(), onCopyImageAddress: vi.fn(), onDownload: vi.fn() });
+
+    expect(screen.queryByText('Copy image address')).not.toBeInTheDocument();
+    expect(screen.getByText('Copy image')).toBeInTheDocument();
+    expect(screen.getByText('Download')).toBeInTheDocument();
+  });
+
+  it('leaves no empty group or stray divider when a vault image has only the address operation', () => {
+    renderCover({ isLocalImage: true, onCopyImageAddress: vi.fn() });
+
+    expect(screen.queryByText('Copy image address')).not.toBeInTheDocument();
+    const items = Array.from(document.querySelectorAll('.menu > *')).map((el) =>
+      el.getAttribute('role') === 'separator' ? '---' : (el.textContent ?? '')
+    );
+    expect(items).not.toContain('---,---');
+    expect(items.join('|')).not.toMatch(/---\|---/);
+  });
+
+  it('still lists Copy image address for an image from a URL', () => {
+    renderCover({ isLocalImage: false, onCopyImageAddress: vi.fn() });
+
+    expect(screen.getByText('Copy image address')).toBeInTheDocument();
+  });
+
   it('leaves Download, Hide and Remove working beside them', () => {
     const onDownload = vi.fn();
     renderCover({ onDownload, onCopyImage: vi.fn(), onCopyImageAddress: vi.fn() });

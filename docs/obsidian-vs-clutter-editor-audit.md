@@ -63,7 +63,7 @@ Stock CM6, with an unusually restrained extension list: `drawSelection`, `Editor
 | `listMarkerDecoration.ts` | `replace({widget})`, `atomicRanges` | dormant |
 | `listLineDecoration.ts` / `listIndentWhitespaceDecoration.ts` | `line` / `replace` | dormant |
 | `tableDecoration.ts` | `line`, `mark`, `Prec.lowest` | dormant |
-| `emojiListMarkDecoration.ts` | `mark` | dormant |
+| `emojiListMarkDecoration.ts` | `mark` | dormant *(retired 2026-11-03: merged into `listMarkerDecoration.ts`)* |
 
 Four `WidgetType` subclasses exist: `WikiLinkWidget`, `TagWidget`, `DateWidget`, `TaskCheckboxWidget`. All four implement `eq()` (content-based, correct for reuse) and `ignoreEvent()` (letting `mousedown` through to `domEventHandlers`). Three of four set `role` + `aria-label`. **PROVEN.**
 

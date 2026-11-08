@@ -1,5 +1,7 @@
 # Privacy and the App Store: audit and privacy manifest
 
+> **Newer, fuller audit: [privacy-audit-2026-11-06.md](./privacy-audit-2026-11-06.md).** It supersedes this document's position on "nothing collected": it recommends declaring Search History, adds the Unsplash and Cloudflare assessment, and lists the in-app privacy link requirement. This document remains the record of the first audit and the privacy manifest.
+
 Written 2026-11-01 against `main` at `3ac6fb07` plus the uncommitted manifest work described here. Everything below is read from the code, the configuration or the built binary. **Verified** means it was observed that way; **assumption** means it was not. No App Store validation has been run (there is no Apple account on this machine), so nothing here claims that an upload passes.
 
 ## What Clutter stores
@@ -19,7 +21,7 @@ All verified from the code.
 
 | Traffic | Destination | What is sent | Evidence |
 | --- | --- | --- | --- |
-| Cover image search and pick | Clutter's own Cloudflare Worker, `clutter-unsplash-proxy.vigram-work.workers.dev`, which forwards to `api.unsplash.com` with a server-side key | The search text the user typed (or a built-in default term), page, orientation; or a photo id; or a download-tracking call | `UnsplashApi.ts`: plain GETs, no credentials, no key in the app |
+| Cover image search and pick | Clutter's own Cloudflare Worker, `clutter-unsplash-proxy.vigram-sivakumar.workers.dev`, which forwards to `api.unsplash.com` with a server-side key | The search text the user typed (or a built-in default term), page, orientation; or a photo id; or a download-tracking call | `UnsplashApi.ts`: plain GETs, no credentials, no key in the app |
 | Cover and card images | `images.unsplash.com`, loaded directly by the WebView | An ordinary image request (so Unsplash's CDN sees the device's IP address) | CSP `img-src … https:` |
 | Remote image or file download | Whatever address the user pastes or drops | A GET, started by the user | `fetchRemoteAsset.ts` and `downloadRemoteImage.ts`, through Tauri's HTTP plugin |
 | Links the user clicks | The default browser | The URL | `tauri-plugin-opener` |
@@ -78,6 +80,8 @@ Evidence is the imported symbols of the **production** executable (a release bui
 **Conclusion:** answering `false` ("only encryption provided by the operating system, or exempt uses") cannot be established with confidence, because the app carries its own standard TLS implementation. This is a regulatory classification, not a code question, so it needs a decision before the key is set.
 
 ## Decisions for the owner
+
+> **Decisions 1 and 2 are resolved** (2026-11-06; see [privacy-release.md](./privacy-release.md)): Search History and Product Interaction are declared, and the `fstatfs` call was removed rather than declared ([ADR-069](./adr/069-volume-type-is-read-without-a-disk-space-api.md)). Decision 3 (encryption) is still open.
 
 1. **Search terms and `NSPrivacyCollectedDataTypes`.** The manifest declares nothing collected. That matches the Worker's source (nothing retained) and Apple's meaning of "collected" (kept beyond serving the request). If you would rather be conservative, or Unsplash's retention counts, declare *Search History* (not linked to the user, not used for tracking, purpose: app functionality). The answers in App Store Connect's nutrition label must match whichever you choose.
 2. **`fstatfs` and the disk-space category.** Clutter calls `fstatfs` only to read the volume's filesystem type before an atomic save (`atomic_replace.rs`). None of Apple's disk-space reasons describes that. Options: (a) change the probe to a call outside the disk-space list; this touches the atomic writer's safety check, so it is a deliberate change; (b) declare the nearest reason anyway, which would not be accurate; (c) leave it undeclared and see what Apple's validation reports. This audit has not changed the atomic writer.

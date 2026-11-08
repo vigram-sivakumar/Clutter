@@ -713,14 +713,14 @@ describe('Page — archived banner', () => {
   });
 });
 
-describe('Page — ⌃⌘C Toggle cover image', () => {
+describe('Page — ⇧⌘C Toggle cover image', () => {
   const press = (init: KeyboardEventInit = {}) =>
     window.dispatchEvent(
       new KeyboardEvent('keydown', {
         code: 'KeyC',
         key: 'c',
         metaKey: true,
-        ctrlKey: true,
+        shiftKey: true,
         bubbles: true,
         cancelable: true,
         ...init,
@@ -777,11 +777,12 @@ describe('Page — ⌃⌘C Toggle cover image', () => {
     expect(onShowCoverImage).not.toHaveBeenCalled();
   });
 
-  it('is not ⌘C (Copy), ⌃C or ⌥⌘C', async () => {
+  it('is not ⌘C (Copy), ⇧C, ⌥⌘C or ⌃⌘C', async () => {
     const { onHideCoverImage } = await renderWithShortcuts({});
-    press({ ctrlKey: false });
+    press({ shiftKey: false });
     press({ metaKey: false });
     press({ altKey: true });
+    press({ ctrlKey: true });
     expect(onHideCoverImage).not.toHaveBeenCalled();
   });
 });

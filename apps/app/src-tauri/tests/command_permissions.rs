@@ -90,6 +90,35 @@ fn every_packaged_build_is_sandboxed_with_the_same_entitlements() {
     }
 }
 
+/// The configuration carries the production identity and nothing of the development one: the bundle identifier names
+/// the sandbox container and the app's saved data, and Apple registers it. The build number is its own value, apart
+/// from the marketing version, so each App Store upload can raise it without a new version (`bundleVersion`).
+#[test]
+fn the_configuration_carries_the_production_identity() {
+    let config = include_str!("../tauri.conf.json");
+    assert!(config.contains("\"identifier\": \"com.vigram.clutter\""));
+    assert!(!config.contains("com.clutter.dev"));
+    assert!(config.contains("\"productName\": \"Clutter\""));
+    assert!(config.contains("\"category\": \"Productivity\""));
+    assert!(config.contains("\"bundleVersion\": \"1\""));
+    assert!(config.contains("\"minimumSystemVersion\": \"13.3\""));
+    assert!(config.contains("\"copyright\": \"© 2026 Vigram Sivakumar\""));
+    assert!(config.contains("\"version\": \"../package.json\""), "the marketing version has one source: apps/app/package.json");
+}
+
+/// Development runs have their own identity, so they can never share the packaged app's container, saved folder access
+/// or app data. The override file carries the identifier and nothing else (so it cannot quietly change the sandbox,
+/// permissions or window settings of a development run), and it is applied only by `scripts/tauri.sh` for `tauri dev`
+/// and by `scripts/dev-sandboxed.sh`; the packaged configuration never names it.
+#[test]
+fn development_runs_use_their_own_identifier_and_nothing_else_differs() {
+    let dev: serde_json::Value = serde_json::from_str(include_str!("../tauri.dev.conf.json")).unwrap();
+    let object = dev.as_object().unwrap();
+    assert_eq!(object.get("identifier").and_then(|v| v.as_str()), Some("com.vigram.clutter.dev"));
+    assert!(object.keys().all(|key| key == "identifier" || key == "$schema"), "the development override sets only the identifier");
+    assert!(!include_str!("../tauri.conf.json").contains("com.vigram.clutter.dev"));
+}
+
 /// What script may run in the webview is a security boundary: the webview can call the native commands, so a script
 /// injection bug would reach the user's notes. The packaged policy lets scripts come from the app itself only
 /// (`script-src 'self'`; Tauri adds the hashes of the page's own inline scripts at build time), with no `eval` and no

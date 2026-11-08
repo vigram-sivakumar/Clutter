@@ -14,6 +14,8 @@ import { PageRebuilder } from '../../vault/ingest/PageRebuilder';
 import { InMemoryVaultFileSystem } from '../../vault/testing/InMemoryVaultFileSystem';
 import { DocumentRegistry } from '../../engine/DocumentRegistry';
 import { SaveCoordinator } from '../../engine/SaveCoordinator';
+import { DocumentState } from '../../engine/DocumentState';
+import { NameTakenError } from '../NameTakenError';
 import type { Folder } from '../../vault/models/Folder';
 import type { Page } from '../../vault/models/Page';
 import type { IdGenerator } from '../../shared/identity/IdGenerator';
@@ -604,6 +606,43 @@ describe('FolderOperations.rename() (ADR-024, unified move-folder kind)', () => 
     );
 
     expect(vault.getFolder('folder-1')!.path).toBe(`${ROOT}/Projects`);
+  });
+
+  it('rejects with a NameTakenError that names the refused name', async () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const sibling = makeFolder('folder-2', `${ROOT}/Existing`);
+    const { fileSystem, folderOperations } = setup([folder, sibling]);
+    await fileSystem.createDirectory(folder.path);
+    await fileSystem.createDirectory(sibling.path);
+
+    const refusal = await folderOperations.rename('folder-1', '  Existing ').catch((error: unknown) => error);
+
+    expect(refusal).toBeInstanceOf(NameTakenError);
+    expect((refusal as NameTakenError).refusedName).toBe('Existing');
+    expect((refusal as Error).message).toBe('A folder named "Existing" already exists here.');
+  });
+
+  it('a name channel refused for a taken name is not a failed save, and a free name still saves afterwards', async () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const sibling = makeFolder('folder-2', `${ROOT}/Existing`);
+    const { vault, fileSystem, folderOperations } = setup([folder, sibling]);
+    await fileSystem.createDirectory(folder.path);
+    await fileSystem.createDirectory(sibling.path);
+    // The channel's own state, which the save-failure notice reads from: nothing public exposes it for a folder.
+    const stateOf = () =>
+      (folderOperations as unknown as { nameStates: Map<string, { state: DocumentState }> }).nameStates.get('folder-1')!.state;
+
+    folderOperations.commitName('folder-1', 'Existing');
+    await folderOperations.requestNameSave('folder-1');
+
+    expect(stateOf()).toBe(DocumentState.Clean);
+    expect(vault.getFolder('folder-1')!.path).toBe(`${ROOT}/Projects`);
+
+    folderOperations.commitName('folder-1', 'Fresh');
+    await folderOperations.requestNameSave('folder-1');
+
+    expect(vault.getFolder('folder-1')!.path).toBe(`${ROOT}/Fresh`);
+    expect(stateOf()).toBe(DocumentState.Clean);
   });
 
   it('does not reject a rename that collides only with itself (a no-op name)', async () => {

@@ -66,7 +66,7 @@ export function describeRenameRefusal(reason: RenameRefusal): string {
     case 'busy':
       return 'Another space operation is in progress. Try again in a moment';
     case 'no-identity':
-      return 'Clutter couldn’t confirm this space’s identity, so it can’t be renamed right now';
+      return 'Unable to rename the space';
     case 'unsaved':
       return 'Clutter couldn’t save your latest changes, so the space was not renamed';
     case 'registry-unwritable':

@@ -102,3 +102,14 @@
 .image-picker-unsplash__attribution a {
   color: var(--foreground-secondary);
 }
+
+/* A thumbnail that did not load: a quiet tile in the image's place, never a broken-image icon. */
+.image-picker-unsplash__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: var(--surface-subtle);
+  color: var(--foreground-tertiary);
+}

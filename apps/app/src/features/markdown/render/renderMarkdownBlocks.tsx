@@ -171,7 +171,8 @@ function renderCode(node: SyntaxNode, ctx: BlockContext, key: number): ReactNode
   const lines: string[] = [];
   for (let child = node.firstChild; child; child = child.nextSibling) {
     if (child.name === 'CodeText') {
-      lines.push(ctx.text.slice(child.from, child.to));
+      // A fenced block has one CodeText; an indented one has one per line, each carrying its own trailing newline.
+      lines.push(ctx.text.slice(child.from, child.to).replace(/\n$/, ''));
     }
   }
   const code = lines.join('\n').replace(/\n$/, '');
@@ -243,6 +244,11 @@ function renderList(node: SyntaxNode, ctx: BlockContext, key: number): ReactNode
     if (item.name !== 'ListItem') {
       continue;
     }
+    // The source marker of a `-`/`+`/`*` item, for the *Preserve bullet style* setting (NotePageCanvas.css picks the glyph).
+    const bulletMark = node.name === 'BulletList' ? item.getChild('ListMark') : null;
+    const bulletMarker = bulletMark ? ctx.text.slice(bulletMark.from, bulletMark.to) : undefined;
+    // An emoji item's marker is real, user-chosen content: it is drawn in the item's gutter (NotePageCanvas.css).
+    const emojiMark = node.name === 'EmojiList' ? item.getChild('EmojiListMark') : null;
     if (ordered && start === undefined) {
       const mark = item.getChild('ListMark');
       const parsed = mark ? parseInt(ctx.text.slice(mark.from, mark.to), 10) : NaN;
@@ -251,8 +257,12 @@ function renderList(node: SyntaxNode, ctx: BlockContext, key: number): ReactNode
     items.push(
       <li
         key={items.length}
+        data-bullet-marker={bulletMarker}
         className={`markdown-blocks__list-item${item.getChild('Task') ? ' markdown-blocks__list-item--task' : ''}`}
       >
+        {emojiMark ? (
+          <span className="markdown-blocks__emoji-marker">{ctx.text.slice(emojiMark.from, emojiMark.to)}</span>
+        ) : null}
         {renderBlockChildren(item, ctx)}
       </li>
     );
@@ -314,12 +324,14 @@ function renderBlock(node: SyntaxNode, ctx: BlockContext, key: number): ReactNod
       );
     }
     case 'Blockquote':
+    case 'ClutterQuote':
       return (
         <blockquote key={key} className="markdown-blocks__quote">
           {renderBlockChildren(node, ctx)}
         </blockquote>
       );
     case 'FencedCode':
+    case 'CodeBlock': // indented code (CommonMark): the same block, minus a fence
       return renderCode(node, ctx, key);
     case 'Table':
       return renderTable(node, ctx, key);

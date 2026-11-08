@@ -3,6 +3,9 @@ import { UnsplashRequestError } from '@core/integrations/unsplash/UnsplashReques
 /** Where the failure happened: what the user was doing decides what a "not found" or a "not configured" means to them. */
 export type UnsplashFailureContext = 'search' | 'link';
 
+/** The pasted-link picker's one message for a failed add. */
+const LINK_FAILURE = 'Couldn’t add this image. Try again later';
+
 /**
  * The words for a failed Unsplash request, shared by the search picker and the pasted-link picker so the two never
  * word one failure differently. Chosen by the error's `kind`, never by its message text; an error that is not an
@@ -23,6 +26,12 @@ export function unsplashFailureMessage(
     status: error instanceof UnsplashRequestError ? error.status : undefined,
   });
 
+  // The link picker takes any web address, so every failure but "not available at all" is one message about this
+  // image, never naming Unsplash and never telling the causes apart.
+  if (context === 'link' && kind !== 'not-configured') {
+    return LINK_FAILURE;
+  }
+
   switch (kind) {
     case 'rate-limited':
       return 'Unsplash request limit reached. Wait a few minutes, then try again';
@@ -34,13 +43,7 @@ export function unsplashFailureMessage(
       return context === 'link'
         ? 'Unsplash links can’t be added right now. Use an image address instead'
         : 'Unsplash isn’t available right now';
-    case 'not-found':
-      return context === 'link'
-        ? 'Couldn’t find this photo on Unsplash. Check the link and try again'
-        : 'Couldn’t load Unsplash images. Try again';
     default:
-      return context === 'link'
-        ? 'Couldn’t add this photo from Unsplash. Try again'
-        : 'Couldn’t load Unsplash images. Try again';
+      return 'Couldn’t load Unsplash images. Try again';
   }
 }

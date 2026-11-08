@@ -72,6 +72,20 @@ function pressRedo(view: EditorView): boolean {
   return redo({ state: view.state, dispatch: (tr) => view.update([tr]) });
 }
 
+/**
+ * Tab nests an item under the item before it, so a list's first item (nothing to nest under) is left alone. Fixtures
+ * that exercise Tab itself therefore put an item above the line under test.
+ */
+const SIBLING = '- sibling\n';
+/** A chain of items at every depth down to the five-level ceiling, so a line below it can be Tabbed level by level. */
+const CHAIN = '- a\n    - b\n        - c\n            - d\n                - e\n';
+
+function mountBelowSibling(doc: string, cursor: number): EditorView {
+  return mountView(SIBLING + doc, SIBLING.length + cursor);
+}
+
+const lastLine = (view: EditorView): string => view.state.doc.toString().split('\n').pop()!;
+
 /** Names of every `ListItem`'s immediate `BulletList`/`OrderedList` parent, in document order — a cheap way to assert sibling-vs-nested shape without hand-walking the tree in every test. */
 function listNestingDepths(view: EditorView): number[] {
   const depths: number[] = [];
@@ -163,22 +177,28 @@ describe('markdownIndentKeymap', () => {
       ['task unchecked', '- [ ] item'],
       ['task checked', '- [x] item'],
     ])('%s: Tab progression 0,4,8,12,16,20, then plateaus at the 5-level ceiling', (_label, doc) => {
-      const view = mountView(doc, 0);
+      // Below a chain of the same kind of item at every depth, so each Tab still has an item to nest under.
+      const chain =
+        ['a', 'b', 'c', 'd', 'e'].map((text, level) => ' '.repeat(4 * level) + doc.replace('item', text)).join('\n') + '\n';
+      const view = mountView(chain + doc, chain.length);
       const markerText = doc; // marker text is a fixed suffix on every line
-      const seen: string[] = [view.state.doc.toString()];
+      // An ordered item that becomes a sibling continues the numbering (2., 3., …): compare the structure, not the digits.
+      const structure = (line: string) => line.replace(/^(\s*)\d+\./, '$1N.');
+      const seen: string[] = [structure(lastLine(view))];
       for (let i = 0; i < 7; i++) {
         expect(tab(view)).toBe(true);
-        seen.push(view.state.doc.toString());
+        seen.push(structure(lastLine(view)));
       }
+      const expected = structure(markerText);
       expect(seen).toEqual([
-        markerText,
-        `    ${markerText}`,
-        `        ${markerText}`,
-        `            ${markerText}`,
-        `                ${markerText}`,
-        `                    ${markerText}`, // 20 spaces = 5 levels, the ceiling
-        `                    ${markerText}`, // plateau
-        `                    ${markerText}`, // plateau
+        expected,
+        `    ${expected}`,
+        `        ${expected}`,
+        `            ${expected}`,
+        `                ${expected}`,
+        `                    ${expected}`, // 20 spaces = 5 levels, the ceiling
+        `                    ${expected}`, // plateau
+        `                    ${expected}`, // plateau
       ]);
     });
 
@@ -215,13 +235,11 @@ describe('markdownIndentKeymap', () => {
       ]);
     });
 
-    it('a deeply indented PRECEDING item never influences the CURRENT item\'s own Tab amount', () => {
-      const doc = '        - Item 1\n- Item 2';
+    it('a deeply indented PRECEDING line never influences the CURRENT item\'s own Tab amount', () => {
+      const doc = '- a\n        - Item 1\n- Item 2';
       const view = mountView(doc, doc.indexOf('Item 2'));
       expect(tab(view)).toBe(true);
-      expect(view.state.doc.toString()).toBe('        - Item 1\n    - Item 2');
-      expect(tab(view)).toBe(true);
-      expect(view.state.doc.toString()).toBe('        - Item 1\n        - Item 2');
+      expect(view.state.doc.toString()).toBe('- a\n        - Item 1\n    - Item 2');
       // Item 1's own indentation is untouched throughout.
     });
 
@@ -233,9 +251,9 @@ describe('markdownIndentKeymap', () => {
         end: doc.length,
       };
       for (const [label, pos] of Object.entries(positions)) {
-        const view = mountView(doc, pos);
+        const view = mountBelowSibling(doc, pos);
         expect(tab(view), `caret at ${label}`).toBe(true);
-        expect(view.state.doc.toString(), `caret at ${label}`).toBe(`    ${doc}`);
+        expect(lastLine(view), `caret at ${label}`).toBe(`    ${doc}`);
       }
     });
 
@@ -265,17 +283,18 @@ describe('markdownIndentKeymap', () => {
       it.each(Object.entries(caretPositions))(
         'Tab: caret %s produces the identical "    - Text" regardless of column',
         (_label, pos) => {
-          const view = mountView(doc, pos);
+          const view = mountBelowSibling(doc, pos);
           expect(tab(view)).toBe(true);
-          expect(view.state.doc.toString()).toBe('    - Text');
+          expect(lastLine(view)).toBe('    - Text');
         }
       );
 
       it('caret strictly before existing leading whitespace ("  |- Text" with caret at column 0) still indents from the marker\'s own position, not the caret', () => {
         const indented = '  - Text'; // 2 leading spaces already present
-        const view = mountView(indented, 0); // caret at the very start, before the 2 spaces
+        const sibling = '  - sibling\n'; // same indentation, so the item has an item above to nest under
+        const view = mountView(sibling + indented, sibling.length); // caret at the very start, before the 2 spaces
         expect(tab(view)).toBe(true);
-        expect(view.state.doc.toString()).toBe('      - Text'); // 2 existing + 4 new = 6 leading spaces
+        expect(lastLine(view)).toBe('      - Text'); // 2 existing + 4 new = 6 leading spaces
       });
 
       it('Shift-Tab is equally caret-independent across the same five positions', () => {
@@ -288,19 +307,49 @@ describe('markdownIndentKeymap', () => {
       });
     });
 
-    it('no preceding sibling required: a lone item indents independently, level by level', () => {
-      const view = mountView('- Only item', 0);
-      const seen: string[] = [view.state.doc.toString()];
+    it.each([
+      ['bullet -', '- Only item'],
+      ['bullet *', '* Only item'],
+      ['bullet +', '+ Only item'],
+      ['ordered', '1. Only item'],
+      ['task', '- [ ] Only item'],
+      ['checked task', '- [x] Only item'],
+    ])('%s: a lone first item has nothing to nest under, so Tab leaves it alone (never an indented code block)', (_label, doc) => {
+      const view = mountView(doc, 0);
       for (let i = 0; i < 3; i++) {
         expect(tab(view)).toBe(true);
-        seen.push(view.state.doc.toString());
+        expect(view.state.doc.toString()).toBe(doc);
       }
-      expect(seen).toEqual([
-        '- Only item',
-        '    - Only item',
-        '        - Only item',
-        '            - Only item',
-      ]);
+      expect(syntaxTree(view.state).topNode.firstChild?.name).not.toBe('CodeBlock');
+    });
+
+    it('the first item of a list is left alone even with items below it; the items below still nest', () => {
+      const view = mountView('- a\n- b\n- c', 0);
+      tab(view);
+      expect(view.state.doc.toString()).toBe('- a\n- b\n- c');
+
+      const second = mountView('- a\n- b\n- c', '- a\n- b'.length);
+      tab(second);
+      expect(second.state.doc.toString()).toBe('- a\n    - b\n- c');
+    });
+
+    it('an item that is already first in its nested list has nothing deeper to nest under either', () => {
+      const view = mountView('- a\n    - b', '- a\n    - b'.length);
+      tab(view);
+      expect(view.state.doc.toString()).toBe('- a\n    - b');
+    });
+
+    it('a list right after another list (different marker) can still nest under that list\'s last item', () => {
+      const view = mountView('- a\n* b', '- a\n* b'.length);
+      tab(view);
+      expect(view.state.doc.toString()).toBe('- a\n    * b');
+    });
+
+    it('the first item of a list that follows a paragraph or blank line is left alone', () => {
+      const doc = 'para\n\n- first\n- second';
+      const view = mountView(doc, doc.indexOf('first'));
+      tab(view);
+      expect(view.state.doc.toString()).toBe(doc);
     });
   });
 
@@ -318,35 +367,46 @@ describe('markdownIndentKeymap', () => {
    * reverted.
    */
   describe('source-local invariant: Tab/Shift-Tab never touch a line the user did not select', () => {
-    it('Case A — Tab on Parent only: Child line is byte-for-byte unchanged', () => {
+    it('Case A — Tab on Parent, the first item: nothing to nest under, so nothing changes, and Child is untouched', () => {
       const doc = '- Parent\n  - Child';
       const view = mountView(doc, doc.indexOf('Parent'));
       expect(tab(view)).toBe(true);
-      expect(view.state.doc.toString()).toBe('    - Parent\n  - Child');
-
-      const lines = view.state.doc.toString().split('\n');
-      expect(lines[0]).toBe('    - Parent'); // exactly one INDENT_STEP_SPACES more
-      expect(lines[1]).toBe('  - Child'); // untouched — still the original text
-
-      // The resulting tree is whatever CommonMark says for these columns:
-      // Parent and Child are now siblings in the same list, not nested.
-      // This is the accepted consequence of Model A, not a bug to "fix".
-      expect(listNestingDepths(view)).toEqual([0, 0]);
+      expect(view.state.doc.toString()).toBe(doc);
+      expect(listNestingDepths(view)).toEqual([0, 1]);
     });
 
-    it('Case B — Tab on Parent repeatedly, with Child + Grandchild: only Parent ever changes', () => {
+    it('Case A2 — Tab on a later Parent: only Parent changes, Child line is byte-for-byte unchanged', () => {
+      const doc = '- Zero\n- Parent\n  - Child';
+      const view = mountView(doc, doc.indexOf('Parent'));
+      expect(tab(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe('- Zero\n    - Parent\n  - Child');
+      // The Child line is untouched source: with Parent at four columns, Child (two) is a sibling of Parent under
+      // Zero, not nested under Parent. That is the accepted consequence of source-local indentation.
+      expect(listNestingDepths(view)).toEqual([0, 1, 1]);
+    });
+
+    it('Case B — Tab on Parent repeatedly (first item, with Child + Grandchild): nothing ever changes', () => {
       const doc = '- Parent\n  - Child\n    - Grandchild';
       const view = mountView(doc, doc.indexOf('Parent'));
 
       for (let i = 0; i < 4; i++) {
         expect(tab(view)).toBe(true);
-        const lines = view.state.doc.toString().split('\n');
-        expect(lines[1]).toBe('  - Child'); // unchanged every single press
-        expect(lines[2]).toBe('    - Grandchild'); // unchanged every single press
+        expect(view.state.doc.toString()).toBe(doc);
       }
+    });
 
-      const finalLines = view.state.doc.toString().split('\n');
-      expect(finalLines[0]).toBe(`${' '.repeat(4 * 4)}- Parent`);
+    it('Case B2 — Tab on a later Parent repeatedly: only Parent ever changes, Child and Grandchild never do', () => {
+      const doc = '- Zero\n- Parent\n  - Child\n    - Grandchild';
+      const view = mountView(doc, doc.indexOf('Parent'));
+
+      for (let i = 0; i < 4; i++) {
+        expect(tab(view)).toBe(true);
+        const lines = view.state.doc.toString().split('\n');
+        expect(lines[2]).toBe('  - Child'); // unchanged every single press
+        expect(lines[3]).toBe('    - Grandchild'); // unchanged every single press
+      }
+      // One press nests it under Zero; after that it is first in its own list with nothing deeper to nest under.
+      expect(view.state.doc.toString().split('\n')[1]).toBe('    - Parent');
     });
 
     it('Case C — the exact previously-reverted bug scenario: Tab on Item 1 must never touch Item 2', () => {
@@ -392,19 +452,19 @@ describe('markdownIndentKeymap', () => {
       ]);
     });
 
-    it('after each Tab, the line still parses as a valid, independently-addressable ListItem (reparsed, not assumed)', () => {
+    it('after each Tab the line is an indented code block (standard CommonMark: no parent to nest under), reparsed, not assumed', () => {
       const view = mountView('                - Item', 0);
       for (let i = 0; i < 4; i++) {
         expect(tab(view)).toBe(true);
-        const tree = syntaxTree(view.state);
-        let sawListItem = false;
-        tree.iterate({
-          enter: (node) => {
-            if (node.name === 'ListItem') sawListItem = true;
-          },
-        });
-        expect(sawListItem, `after Tab #${i + 1}`).toBe(true);
+        expect(syntaxTree(view.state).topNode.firstChild?.name, `after Tab #${i + 1}`).toBe('CodeBlock');
       }
+    });
+
+    it('an item with a parent above it nests instead: the same Tab on the second item is a nested list item', () => {
+      const view = mountView('- Parent\n- Item', '- Parent\n- Item'.length);
+      expect(tab(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe('- Parent\n    - Item');
+      expect(listNestingDepths(view)).toEqual([0, 1]);
     });
   });
 
@@ -426,29 +486,36 @@ describe('markdownIndentKeymap', () => {
   });
 
   describe('multi-line selection: every explicitly-selected line is indented — this is NOT subtree movement', () => {
-    it('selection spanning Parent + Child indents both, because both are explicitly selected', () => {
+    it('selection spanning Parent + Child indents both, because both are explicitly selected (and Parent can nest)', () => {
+      const doc = '- Zero\n- Parent\n  - Child';
+      const view = mountViewWithSelection(doc, [[doc.indexOf('Parent'), doc.length]]);
+      expect(tab(view)).toBe(true);
+      const lines = view.state.doc.toString().split('\n');
+      expect(lines[1]).toBe('    - Parent');
+      expect(lines[2]).toBe('      - Child');
+    });
+
+    it('the same selection with Parent as the first item has nothing to nest under: nothing changes', () => {
       const doc = '- Parent\n  - Child';
       const view = mountViewWithSelection(doc, [[0, doc.length]]);
       expect(tab(view)).toBe(true);
-      const lines = view.state.doc.toString().split('\n');
-      expect(lines[0]).toBe('    - Parent');
-      expect(lines[1]).toBe('      - Child');
+      expect(view.state.doc.toString()).toBe(doc);
     });
 
     it('selection touching a list line and a blockquote line indents both uniformly — no construct distinction', () => {
-      const doc = '- Item\n> Quote';
-      const view = mountViewWithSelection(doc, [[0, doc.length]]);
+      const doc = '- Zero\n- Item\n> Quote';
+      const view = mountViewWithSelection(doc, [[doc.indexOf('Item'), doc.length]]);
       expect(tab(view)).toBe(true);
       const lines = view.state.doc.toString().split('\n');
-      expect(lines[0]).toBe('    - Item');
-      expect(lines[1]).toBe('    > Quote'); // touched exactly like every other selected line
+      expect(lines[1]).toBe('    - Item');
+      expect(lines[2]).toBe('    > Quote'); // touched exactly like every other selected line
     });
 
     it('selection boundaries exactly at line starts/ends still cover both lines', () => {
-      const doc = '- A\n- B';
-      const view = mountViewWithSelection(doc, [[0, doc.length]]);
+      const doc = '- A\n- B\n- C';
+      const view = mountViewWithSelection(doc, [[doc.indexOf('B'), doc.length]]);
       expect(tab(view)).toBe(true);
-      expect(view.state.doc.toString()).toBe('    - A\n    - B');
+      expect(view.state.doc.toString()).toBe('- A\n    - B\n    - C');
     });
 
     // Note: this editor does not enable CM6's `allowMultipleSelections`
@@ -459,18 +526,26 @@ describe('markdownIndentKeymap', () => {
   });
 
   describe('Tab -> Enter: Enter reads the tree Tab produced, with no Enter-specific changes needed', () => {
-    it('Tab on Parent, then Enter at end of Parent: new sibling line appears at the post-Tab column', () => {
+    it('Tab on Parent (the first item) changes nothing, so Enter at its end still continues the list', () => {
       const doc = '- Parent\n  - Child';
       const view = mountView(doc, doc.indexOf('Parent') + 'Parent'.length);
       expect(tab(view)).toBe(true);
-      expect(view.state.doc.toString()).toBe('    - Parent\n  - Child');
+      expect(view.state.doc.toString()).toBe(doc);
 
       expect(pressEnter(view)).toBe(true);
       const lines = view.state.doc.toString().split('\n');
-      // Enter re-derives its own indentation from the CURRENT tree
-      // (Parent now at column 4) — no special-casing required here.
-      expect(lines[1]).toBe('    - '); // fresh sibling item at Parent's new column
+      expect(lines[0]).toBe('- Parent');
+      expect(lines[1]).toBe('- '); // a fresh sibling item at Parent's column
       expect(lines[2]).toBe('  - Child'); // still untouched
+    });
+
+    it('Tab on a second item, then Enter at its end: a fresh sibling at the post-Tab column', () => {
+      const doc = '- A\n- B';
+      const view = mountView(doc, doc.length);
+      expect(tab(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe('- A\n    - B');
+      expect(pressEnter(view)).toBe(true);
+      expect(view.state.doc.toString().split('\n')[2]).toBe('    - ');
     });
   });
 
@@ -489,24 +564,24 @@ describe('markdownIndentKeymap', () => {
     }
 
     it('three Tabs then three Undos restores the original text progressively, and Redo replays each step', () => {
-      const view = mountViewWithHistory('- Item', 0);
-      const states: string[] = [view.state.doc.toString()];
+      const view = mountViewWithHistory(CHAIN + '- Item', CHAIN.length);
+      const states: string[] = [lastLine(view)];
       for (let i = 0; i < 3; i++) {
         expect(tab(view)).toBe(true);
-        states.push(view.state.doc.toString());
+        states.push(lastLine(view));
       }
       expect(states).toEqual(['- Item', '    - Item', '        - Item', '            - Item']);
 
       for (let i = states.length - 1; i > 0; i--) {
         expect(pressUndo(view)).toBe(true);
-        expect(view.state.doc.toString()).toBe(states[i - 1]);
+        expect(lastLine(view)).toBe(states[i - 1]);
       }
       // Fully undone — one more Undo has nothing left to do.
       expect(pressUndo(view)).toBe(false);
 
       for (let i = 1; i < states.length; i++) {
         expect(pressRedo(view)).toBe(true);
-        expect(view.state.doc.toString()).toBe(states[i]);
+        expect(lastLine(view)).toBe(states[i]);
       }
     });
   });
@@ -537,7 +612,8 @@ describe('markdownIndentKeymap', () => {
     it('a genuinely blank line in the selection is indented too, matching native CM6', () => {
       const view = mountViewWithSelection('- one\n\n- two', [[0, 12]]);
       expect(tab(view)).toBe(true);
-      expect(view.state.doc.toString()).toBe('    - one\n    \n    - two');
+      // `- one` is the first item (nothing to nest under) and stays; `- two` nests under it.
+      expect(view.state.doc.toString()).toBe('- one\n    \n    - two');
     });
 
     it('Shift-Tab at 0 spaces on any construct is still a handled no-op (never declines)', () => {
@@ -559,12 +635,13 @@ describe('markdownIndentKeymap', () => {
     });
 
     it('a multi-line selection: lines already at the ceiling stay put while a shallower line in the same selection still grows', () => {
-      const doc = '                    - one\n- two'; // "one" already at 20 spaces, "two" at 0
+      const doc = '- zero\n                    - one\n- two'; // "one" already at 20 spaces, "two" at 0
       const view = mountViewWithSelection(doc, [[0, doc.length]]);
       expect(tab(view)).toBe(true);
       const lines = view.state.doc.toString().split('\n');
-      expect(lines[0]).toBe('                    - one'); // unchanged — already at the ceiling
-      expect(lines[1]).toBe('    - two'); // grew normally
+      expect(lines[0]).toBe('- zero'); // the first item has nothing to nest under
+      expect(lines[1]).toBe('                    - one'); // unchanged — already at the ceiling
+      expect(lines[2]).toBe('    - two'); // grew normally
     });
 
     it('Shift-Tab is completely unaffected by the ceiling — dedents past it freely', () => {
@@ -590,17 +667,17 @@ describe('markdownIndentKeymap', () => {
     });
 
     it('bullet line, caret at 0 (before the marker): caret ends up after the inserted indentation, still before the marker', () => {
-      const view = mountView('- Text', 0);
+      const view = mountBelowSibling('- Text', 0);
       expect(tab(view)).toBe(true);
-      expect(view.state.doc.toString()).toBe('    - Text');
-      expect(view.state.selection.main.head).toBe(4);
+      expect(lastLine(view)).toBe('    - Text');
+      expect(view.state.selection.main.head).toBe(SIBLING.length + 4);
     });
 
     it('ordered list line, caret at 0 (before the marker): caret ends up after the inserted indentation, still before the marker', () => {
-      const view = mountView('1. Text', 0);
+      const view = mountBelowSibling('1. Text', 0);
       expect(tab(view)).toBe(true);
-      expect(view.state.doc.toString()).toBe('    1. Text');
-      expect(view.state.selection.main.head).toBe(4);
+      expect(lastLine(view)).toBe('    1. Text');
+      expect(view.state.selection.main.head).toBe(SIBLING.length + 4);
     });
 
     it('repeated Tab at content-start: caret advances by INDENT_STEP_SPACES every press, never sticks', () => {
@@ -646,10 +723,10 @@ describe('markdownIndentKeymap', () => {
       const doc = '- A\n- B';
       const view = mountViewWithSelection(doc, [[0, doc.length]]);
       expect(tab(view)).toBe(true);
-      expect(view.state.doc.toString()).toBe('    - A\n    - B');
-      // Selection anchor was at 0 (before "- A"'s own insertion point);
-      // selection end was at doc.length (past every insertion point).
-      expect(view.state.selection.main.from).toBe(4);
+      // `- A` is the first item (nothing to nest under) and is left alone; `- B` nests under it.
+      expect(view.state.doc.toString()).toBe('- A\n    - B');
+      // Selection anchor was at 0 (A is untouched, so it stays); the end was at doc.length (past B's insertion).
+      expect(view.state.selection.main.from).toBe(0);
       expect(view.state.selection.main.to).toBe(view.state.doc.length);
     });
   });
@@ -937,7 +1014,8 @@ describe('markdownIndentKeymap', () => {
         const doc = '- A\n- B\n- C';
         const view = mountViewWithSelection(doc, [[0, doc.length]]);
         expect(tab(view)).toBe(true);
-        expect(view.state.doc.toString()).toBe('    - A\n    - B\n    - C');
+        // `- A` is the first item and stays; B and C nest under it with only the flat whitespace edit.
+        expect(view.state.doc.toString()).toBe('- A\n    - B\n    - C');
       });
     });
 
@@ -1151,11 +1229,21 @@ describe('source-local Tab/Shift-Tab contract', () => {
     ['task', '- [ ] item'],
     ['checked task', '- [x] item'],
   ])('%s list item', (_name, line) => {
+    // Tab nests an item under the one above it, so the item under test sits below a sibling.
+    const SIB = '- sibling\n';
+    const doc = SIB + line;
+
     it('Tab adds exactly one unit and Shift-Tab restores the original bytes', () => {
+      const view = mountWithUnit(doc, [at(doc, 'item')]);
+      tab(view);
+      expect(docOf(view)).toBe(SIB + UNIT + line);
+      shiftTab(view);
+      expect(docOf(view)).toBe(doc);
+    });
+
+    it('Tab on the first item, with nothing to nest under, changes nothing', () => {
       const view = mountWithUnit(line, [at(line, 'item')]);
       tab(view);
-      expect(docOf(view)).toBe(UNIT + line);
-      shiftTab(view);
       expect(docOf(view)).toBe(line);
     });
 
@@ -1166,12 +1254,13 @@ describe('source-local Tab/Shift-Tab contract', () => {
     });
 
     it('the caret stays on the same character through Tab and back', () => {
-      const view = mountWithUnit(line, [at(line, 'item')]);
-      const before = view.state.selection.main.head - view.state.doc.lineAt(0).from;
+      const view = mountWithUnit(doc, [at(doc, 'item')]);
+      const column = () => view.state.selection.main.head - view.state.doc.lineAt(view.state.selection.main.head).from;
+      const before = column();
       tab(view);
-      expect(view.state.selection.main.head).toBe(before + UNIT.length);
+      expect(column()).toBe(before + UNIT.length);
       shiftTab(view);
-      expect(view.state.selection.main.head).toBe(before);
+      expect(column()).toBe(before);
     });
   });
 
@@ -1202,33 +1291,35 @@ describe('source-local Tab/Shift-Tab contract', () => {
   });
 
   describe('nested and mixed lists', () => {
-    const doc = '- a\n    1. b\n        - [ ] c\n- d';
+    const doc = '- a\n    - x\n    1. b\n        - [ ] c\n- d';
 
     it('Tab on one nested item moves only that line by one unit; the others are byte-identical', () => {
       const view = mountWithUnit(doc, [at(doc, 'b')]);
       tab(view);
-      expect(docOf(view).split('\n')).toEqual(['- a', '        1. b', '        - [ ] c', '- d']);
+      expect(docOf(view).split('\n')).toEqual(['- a', '    - x', '        1. b', '        - [ ] c', '- d']);
     });
 
     it('Shift-Tab on one nested item moves only that line by one unit', () => {
       const view = mountWithUnit(doc, [at(doc, '[ ] c')]);
       shiftTab(view);
-      expect(docOf(view).split('\n')).toEqual(['- a', '    1. b', '    - [ ] c', '- d']);
+      expect(docOf(view).split('\n')).toEqual(['- a', '    - x', '    1. b', '    - [ ] c', '- d']);
     });
   });
 
   describe('multiline selections', () => {
-    const doc = '- a\n    1. b\n        - [ ] c\nplain\n> quote';
+    // `- zero` is the item above the selection, so `- a` (the first selected line) has something to nest under.
+    const doc = '- zero\n- a\n    1. b\n        - [ ] c\nplain\n> quote';
 
     it('Tab indents every selected line by one unit and keeps the selection on the same text', () => {
       const view = mountWithUnit(doc, [[doc.indexOf('a'), doc.indexOf('plain') + 2]]);
       const anchorText = doc.slice(view.state.selection.main.from, view.state.selection.main.to);
       tab(view);
       const { from, to } = view.state.selection.main;
-      expect(docOf(view).split('\n').slice(0, 4)).toEqual(
+      expect(docOf(view).split('\n').slice(0, 1)).toEqual(['- zero']);
+      expect(docOf(view).split('\n').slice(1, 5)).toEqual(
         ['- a', '    1. b', '        - [ ] c', 'plain'].map((l) => UNIT + l)
       );
-      expect(docOf(view).split('\n')[4]).toBe('> quote');
+      expect(docOf(view).split('\n')[5]).toBe('> quote');
       expect(docOf(view).slice(from, to)).toBe(anchorText.replace(/\n/g, '\n' + UNIT).replace(/^/, ''));
     });
 
@@ -1239,12 +1330,13 @@ describe('source-local Tab/Shift-Tab contract', () => {
       expect(docOf(view)).toBe(doc);
     });
 
-    it('relative nesting is preserved: every line moves by the same unit', () => {
+    it('relative nesting is preserved: every line below the first item moves by the same unit', () => {
       const view = mountWithUnit(doc, [[0, doc.length]]);
       const lead = (d: string) => d.split('\n').map((l) => l.length - l.trimStart().length);
       const before = lead(doc);
       tab(view);
-      expect(lead(docOf(view))).toEqual(before.map((n) => n + UNIT.length));
+      // `- zero` is the first item (nothing to nest under) and stays; everything below moves together.
+      expect(lead(docOf(view))).toEqual(before.map((n, i) => (i === 0 ? n : n + UNIT.length)));
     });
   });
 
@@ -1267,25 +1359,36 @@ describe('source-local Tab/Shift-Tab contract', () => {
   });
 
   describe('Enter and Backspace around indentation', () => {
-    it('Enter at the end of a Tabbed task item continues at the same indentation', () => {
-      const doc = '- [ ] item';
+    it('Enter at the end of a Tabbed task item (with a parent above) continues at the same indentation', () => {
+      const doc = '- [ ] parent\n- [ ] item';
       const view = mountWithUnit(doc, [[doc.length, doc.length]]);
       tab(view);
       pressEnter(view);
       const lines = docOf(view).split('\n');
-      expect(lines[0]).toBe(UNIT + doc);
-      expect(lines[1]?.startsWith(UNIT + '- [ ]')).toBe(true);
+      expect(lines[1]).toBe(UNIT + '- [ ] item');
+      expect(lines[2]?.startsWith(UNIT + '- [ ]')).toBe(true);
+    });
+
+    it('Tab on a lone first task item changes nothing, so Enter at its end continues the task list', () => {
+      const doc = '- [ ] item';
+      const view = mountWithUnit(doc, [[doc.length, doc.length]]);
+      tab(view);
+      expect(docOf(view)).toBe(doc);
+      expect(pressEnter(view)).toBe(true);
+      expect(docOf(view).split('\n')).toEqual(['- [ ] item', '- [ ] ']);
     });
 
     it.each([['- item'], ['1. item'], ['- [ ] item']])(
       'Backspace right before the marker of a Tabbed "%s" removes exactly one unit',
       (line) => {
-        const view = mountWithUnit(line, [[0, 0]]);
+        const doc = '- sibling\n' + line;
+        const lineStart = '- sibling\n'.length;
+        const view = mountWithUnit(doc, [[lineStart, lineStart]]);
         tab(view);
-        view.dispatch({ selection: { anchor: UNIT.length } });
+        view.dispatch({ selection: { anchor: lineStart + UNIT.length } });
         const target = { state: view.state, dispatch: (tr: any) => view.update([tr]) };
         expect(deleteCharBackward(target as unknown as EditorView)).toBe(true);
-        expect(docOf(view)).toBe(line);
+        expect(docOf(view)).toBe(doc);
       }
     );
   });

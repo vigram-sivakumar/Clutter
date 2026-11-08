@@ -2,10 +2,13 @@ import { syntaxTree } from '@codemirror/language';
 import type { SyntaxNode } from '@lezer/common';
 import {
   findClusterBreak,
-  type EditorState,
+  EditorState,
   type Extension,
   type Range,
   type StateCommand,
+  type Text,
+  Transaction,
+  type TransactionSpec,
 } from '@codemirror/state';
 import {
   Decoration,
@@ -202,6 +205,49 @@ export const deleteAroundHardBreakForward: StateCommand = ({ state, dispatch }) 
   return true;
 };
 
+/**
+ * The caret may rest after the hidden backslash (the visual end of the line is both edges of the atomic
+ * range), so text typed or pasted there would land after it — `one\Hello` — leaving the backslash mid-line
+ * where it is no longer a break and turns visible. Plain insertions at that spot go before the backslash
+ * instead. Newlines are left alone: Enter after the break is a different edit.
+ */
+const keepBackslashLast = EditorState.transactionFilter.of((tr) => {
+  if (!tr.docChanged) {
+    return tr;
+  }
+
+  const { startState } = tr;
+  const changes: { from: number; to: number; insert: Text }[] = [];
+  let moved = false;
+  tr.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
+    let from = fromA;
+    if (fromA === toA && inserted.length > 0 && inserted.lines === 1) {
+      const line = startState.doc.lineAt(fromA);
+      const hidden = fromA === line.to ? hardBreakBackslashEndingLine(startState, line.from, line.to) : null;
+      if (hidden) {
+        from = hidden.from;
+        moved = true;
+      }
+    }
+    changes.push({ from, to: from === fromA ? toA : from, insert: inserted });
+  });
+  if (!moved) {
+    return tr;
+  }
+
+  const spec: TransactionSpec = {
+    changes,
+    selection: tr.selection,
+    effects: tr.effects,
+    annotations: [
+      Transaction.userEvent.of(tr.annotation(Transaction.userEvent) ?? ''),
+      Transaction.addToHistory.of(tr.annotation(Transaction.addToHistory) ?? true),
+    ],
+    scrollIntoView: tr.scrollIntoView,
+  };
+  return spec;
+});
+
 export function hardBreakMarkerDecoration(): Extension {
   const plugin = ViewPlugin.fromClass(
     class {
@@ -224,5 +270,5 @@ export function hardBreakMarkerDecoration(): Extension {
     }
   );
 
-  return plugin;
+  return [plugin, keepBackslashLast];
 }

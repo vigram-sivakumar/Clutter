@@ -8,6 +8,7 @@ import type {
   ShippedFolderSource,
 } from '../welcome-content/ShippedSource';
 import { shippedSourceQueueKey, WrittenButNotRegisteredError } from '../welcome-content/ShippedSource';
+import { NameTakenError } from '../NameTakenError';
 import { Vault } from '../../vault/models/Vault';
 import { Workspace } from '../../workspace/Workspace';
 import { PagePersistenceCoordinator } from '../../vault/persistence/PagePersistenceCoordinator';
@@ -661,7 +662,7 @@ export class FolderOperations {
       const collision = this.findRenameCollision(folder, name.trim());
 
       if (collision) {
-        throw new Error(`A folder named "${collision.name}" already exists here.`);
+        throw new NameTakenError(`A folder named "${collision.name}" already exists here.`, name.trim());
       }
     }
 
@@ -1066,7 +1067,15 @@ export class FolderOperations {
         if (this.saveCoordinator.completeChannelSave(key, value)) {
           nameState.markSaved(value);
         }
-      } catch {
+      } catch (error) {
+        // A name a sibling folder already has is refused up front, not a failed save — see NameTakenError.
+        if (error instanceof NameTakenError) {
+          if (this.saveCoordinator.failChannelSave(key, value)) {
+            nameState.markSaved(nameState.savedValue);
+          }
+          return;
+        }
+
         if (this.saveCoordinator.failChannelSave(key, value)) {
           nameState.markSaveFailed();
         }

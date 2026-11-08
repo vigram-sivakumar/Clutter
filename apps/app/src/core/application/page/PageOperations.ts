@@ -1,3 +1,4 @@
+import { NameTakenError } from '../NameTakenError';
 import { classifySaveFailure, classifyWriteRefusal, isRetryableSaveFailure, type SaveFailureKind, type WriteRefusal } from '../../vault/atomicWrite/atomicWriteErrors';
 import type {
   CreateFromSourceOutcome,
@@ -1830,6 +1831,16 @@ export class PageOperations {
           titleState.markSaved(value);
         }
       } catch (error) {
+        // A title another note already has is refused up front, not a failed save: nothing was written, and
+        // "Couldn’t save changes" would be untrue. The channel returns to idle with its saved value as it was; the
+        // field keeps what was typed (the title editor says why, and reverts or stays open as it always does).
+        if (error instanceof NameTakenError) {
+          if (this.saveCoordinator.failChannelSave(key, value)) {
+            titleState.markSaved(titleState.savedValue);
+          }
+          return;
+        }
+
         // Mirrors runRequestSave()'s T11a/T11b split: rename() can throw
         // either before enqueueing (page not found — a title-channel
         // entry for a since-deleted page) or after a Gate failure. Either
@@ -3139,8 +3150,9 @@ export class PageOperations {
       const collision = this.findRenameCollision(page, title.trim());
 
       if (collision) {
-        throw new Error(
-          `A note named "${VaultPath.pageName(collision.path)}" already exists in this folder.`
+        throw new NameTakenError(
+          `A note named "${VaultPath.pageName(collision.path)}" already exists in this folder.`,
+          title.trim()
         );
       }
     }

@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest';
 import { syntaxTree } from '@codemirror/language';
-import type { EditorView } from '@codemirror/view';
+import { redo, undo } from '@codemirror/commands';
+import { EditorView } from '@codemirror/view';
 
 import { createEditorView } from '../createEditorView';
 import { markdownLanguageExtension } from '../markdownLanguage';
@@ -10,7 +11,7 @@ import { markdownIndentKeymap } from '../indent/markdownIndentKeymap';
 import { insertTaskMarkerOnSpace, TASK_MARKER } from './taskMarkerCreation';
 
 /**
- * Typing `[]` at the start of a line and pressing Space makes an unchecked task. These press real keys on a real
+ * Typing `[]` at the start of a line and pressing Space makes an unchecked task, whether the line is empty or already has text. These press real keys on a real
  * editor, through the same `markdownEnterKeymap()` the app installs, so the generated marker meets the existing Enter
  * and Backspace behavior for tasks, not a copy of it.
  */
@@ -41,6 +42,18 @@ function press(view: EditorView, key: string, code: string, keyCode = 0): Keyboa
   view.contentDOM.dispatchEvent(event);
   return event;
 }
+
+/** Types one character the way the browser does: input handlers first (closeBrackets, ours), else a plain insert. */
+function type(view: EditorView, char: string) {
+  const { from, to } = view.state.selection.main;
+  const handled = view.state
+    .facet(EditorView.inputHandler)
+    .some((handler) => handler(view, from, to, char, () => view.state.update({ changes: { from, to, insert: char } })));
+  if (!handled) {
+    view.dispatch({ changes: { from, to, insert: char }, selection: { anchor: from + char.length }, userEvent: 'input.type' });
+  }
+}
+const typeText = (view: EditorView, chars: string) => [...chars].forEach((c) => type(view, c));
 
 const space = (view: EditorView) => press(view, ' ', 'Space', 32);
 const enter = (view: EditorView) => press(view, 'Enter', 'Enter', 13);
@@ -74,13 +87,19 @@ describe('[] + Space makes an unchecked task', () => {
   });
 
   it('keeps the indentation as typed', () => {
-    const view = mount('    []|');
+    const view = mount('  []|');
     space(view);
-    expect(doc(view)).toBe('    - [ ] ');
-    expect(head(view)).toBe(10);
-    const tab = mount('\t[]|');
+    expect(doc(view)).toBe('  - [ ] ');
+    expect(head(view)).toBe(8);
+  });
+
+  it('does nothing inside an indented code block (four or more spaces, or a tab, after a blank line)', () => {
+    const view = mount('Intro\n\n    []|');
+    space(view);
+    expect(doc(view)).toBe('Intro\n\n    []');
+    const tab = mount('Intro\n\n\t[]|');
     space(tab);
-    expect(doc(tab)).toBe('\t- [ ] ');
+    expect(doc(tab)).toBe('Intro\n\n\t[]');
   });
 
   it('works on a later line, and under an item as a nested task', () => {
@@ -104,6 +123,64 @@ describe('[] + Space makes an unchecked task', () => {
   });
 });
 
+describe('[] + Space at the start of a line that already has text', () => {
+  const run = (source: string) => {
+    const view = mount(source);
+    const event = space(view);
+    expect(event.defaultPrevented, source).toBe(true);
+    return view;
+  };
+  /** The result, with the cursor shown as `|`. */
+  const shown = (view: EditorView) => doc(view).slice(0, head(view)) + '|' + doc(view).slice(head(view));
+
+  it('typed in front of text: the line becomes a task and keeps its text', () => {
+    expect(shown(run('[]|Buy groceries'))).toBe('- [ ] |Buy groceries');
+  });
+
+  it('with a space already after the brackets, no double space', () => {
+    expect(shown(run('[]| Buy groceries'))).toBe('- [ ] |Buy groceries');
+  });
+
+  it('keeps the indentation and the rest of the line exactly', () => {
+    expect(shown(run('  []|Buy  [x] groceries'))).toBe('  - [ ] |Buy  [x] groceries');
+  });
+
+  it('typing continues from the cursor and the result is a real task', () => {
+    const view = run('[]|milk');
+    text(view, 'fresh ');
+    expect(doc(view)).toBe('- [ ] fresh milk');
+    expect(nodeNames(view)).toEqual(expect.arrayContaining(['Task', 'TaskMarker']));
+  });
+
+  it('only touches the current line of a multiline document', () => {
+    expect(shown(run('first\n[]|Buy milk\nlast'))).toBe('first\n- [ ] |Buy milk\nlast');
+    expect(shown(run('first\n\n[]|\n\nlast'))).toBe('first\n\n- [ ] |\n\nlast');
+    expect(doc(run('a\nb\n[]|c'))).toBe('a\nb\n- [ ] c');
+  });
+
+  it('works under an item as a nested task', () => {
+    expect(shown(run('- a\n    []|see'))).toBe('- a\n    - [ ] |see');
+  });
+
+  it('is one undo step, and redo reapplies it', () => {
+    const view = mount('[]|Buy milk');
+    space(view);
+    expect(doc(view)).toBe('- [ ] Buy milk');
+    undo(view);
+    expect(doc(view)).toBe('[]Buy milk');
+    redo(view);
+    expect(doc(view)).toBe('- [ ] Buy milk');
+    expect(head(view)).toBe('- [ ] '.length);
+  });
+
+  it('undo also restores a bare []', () => {
+    const bare = mount('[]|');
+    space(bare);
+    undo(bare);
+    expect(doc(bare)).toBe('[]');
+  });
+});
+
 describe('[] + Space leaves everything else alone', () => {
   const declines = (source: string) => {
     const view = mount(source);
@@ -113,15 +190,17 @@ describe('[] + Space leaves everything else alone', () => {
     expect(event.defaultPrevented, source).toBe(false);
   };
 
-  it('does nothing for [] in the middle of text', () => {
+  it('does nothing for [] after text, however it is spaced', () => {
     declines('see []|');
-    declines('a [] b|'.replace(' b', ''));
+    declines('Buy groceries []|');
+    declines('Buy groceries []| from the supermarket');
     declines('word[]|');
+    declines('[|]');
   });
 
-  it('does nothing when text follows the cursor on the line', () => {
-    declines('[]|text');
-    declines('[|]');
+  it('does nothing for [] inside inline code, even at the start of a line', () => {
+    declines('`code []|`');
+    declines('`a\n[]| b`');
   });
 
   it('does nothing for brackets that are not a bare empty pair', () => {
@@ -139,6 +218,7 @@ describe('[] + Space leaves everything else alone', () => {
 
   it('does nothing inside fenced code', () => {
     declines('```\n[]|\n```');
+    declines('```\n[]|text\n```');
   });
 
   it('does nothing with a selection', () => {
@@ -217,5 +297,71 @@ describe('the generated task meets the existing Enter and Backspace behavior', (
     text(view, 'ab');
     backspace(view);
     expect(doc(view)).toBe('- [ ] a');
+  });
+});
+
+describe('typing [] in front of existing whitespace (no Space is pressed)', () => {
+  it('closeBrackets pairs the "[", the "]" steps over it, and the line becomes a task', () => {
+    const view = mount('| Buy groceries');
+    typeText(view, '[]');
+    expect(doc(view)).toBe('- [ ] Buy groceries');
+    expect(head(view)).toBe('- [ ] '.length);
+    expect(nodeNames(view)).toEqual(expect.arrayContaining(['Task', 'TaskMarker']));
+  });
+
+  it('keeps the indentation, and works after a tab', () => {
+    const indented = mount('  |  Buy');
+    typeText(indented, '[]');
+    expect(doc(indented)).toBe('  - [ ] Buy');
+    const tabbed = mount('|\tBuy');
+    typeText(tabbed, '[]');
+    expect(doc(tabbed)).toBe('- [ ] Buy');
+  });
+
+  it('undo removes the task (history groups keystrokes typed together, so no marker is left), redo reapplies it', () => {
+    const view = mount('| Buy');
+    typeText(view, '[]');
+    undo(view);
+    expect(doc(view)).not.toContain('- [ ]');
+    expect(doc(view).trim()).toMatch(/^(\[\])? ?Buy$/);
+    redo(view);
+    expect(doc(view)).toBe('- [ ] Buy');
+  });
+
+  it('on an empty line it still waits for Space', () => {
+    const view = mount('|');
+    typeText(view, '[]');
+    expect(doc(view)).toBe('[]');
+    space(view);
+    expect(doc(view)).toBe('- [ ] ');
+  });
+
+  it('with text glued after it, it still waits for Space', () => {
+    const view = mount('|Buy');
+    typeText(view, '[]');
+    expect(doc(view)).toBe('[]Buy');
+    space(view);
+    expect(doc(view)).toBe('- [ ] Buy');
+  });
+
+  it('does nothing after text, in code or inline code', () => {
+    const after = mount('Buy | milk');
+    typeText(after, '[]');
+    expect(doc(after)).toBe('Buy [] milk');
+    const fenced = mount('```\n| x\n```');
+    typeText(fenced, '[]');
+    expect(doc(fenced)).toBe('```\n[] x\n```');
+    const inline = mount('`a\n| b`');
+    typeText(inline, '[]');
+    expect(doc(inline)).toBe('`a\n[] b`');
+  });
+
+  it('does nothing for a bracket pair that is not empty, or a list item’s own text', () => {
+    const filled = mount('| Buy');
+    typeText(filled, '[x]');
+    expect(doc(filled)).toBe('[x] Buy');
+    const bullet = mount('- | Buy');
+    typeText(bullet, '[]');
+    expect(doc(bullet)).toBe('- [] Buy');
   });
 });

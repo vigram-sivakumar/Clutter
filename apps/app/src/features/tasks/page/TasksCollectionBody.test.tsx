@@ -8,6 +8,7 @@ import { TasksCollectionBody } from './TasksCollectionBody';
 import { buildTaskMenu } from '../helpers/buildTaskMenu';
 import { DEFAULT_TASK_DISPLAY_CONFIG } from '../helpers/groupTasks';
 import { resolveCollectionView } from '@core/presentation/collection/resolveCollectionView';
+import { formatTaskDueTime } from '../helpers/formatTaskDueDate';
 import { TASKS_COLLECTION } from '@core/presentation/collection/collectionDefinitions';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
 import { pinDateFormat } from '@shared/testing/pinDateFormat';
@@ -34,6 +35,9 @@ function task(overrides: Partial<TaskOccurrence>): TaskOccurrence {
     ...overrides,
   };
 }
+
+// The List starts as just Name and Due date; Source is one the user turns on.
+const LIST_WITH_SOURCE = resolveCollectionView(TASKS_COLLECTION, { listPropertyOverrides: { source: true } });
 
 describe('TasksCollectionBody', () => {
   beforeEach(() => {
@@ -102,6 +106,7 @@ describe('TasksCollectionBody', () => {
         onOpenTask={onOpenTask}
         onChangeDueDate={vi.fn()}
         getSource={() => ({ label: 'Trips', icon: 'note', emoji: '✈️' })}
+        collectionView={LIST_WITH_SOURCE}
       />
     );
 
@@ -121,6 +126,42 @@ describe('TasksCollectionBody', () => {
     expect(onOpenTask).toHaveBeenCalledWith(target);
   });
 
+  it('the List shows just the name and due date by default — no source link until it is turned on', () => {
+    const { container } = render(
+      <TasksCollectionBody
+        view="tasks-all"
+        tasks={[task({ text: 'Plan trip', dueDate: '2026-08-20' })]}
+        onToggleComplete={vi.fn()}
+        onOpenTask={vi.fn()}
+        onChangeDueDate={vi.fn()}
+        getSource={() => ({ label: 'Trips', icon: 'note', emoji: null })}
+      />
+    );
+
+    expect(container.querySelector('.task-row__due')).toHaveTextContent('20 August');
+    expect(container.querySelector('.collection-entry-properties--wiki')).toBeNull();
+  });
+
+  it('a task with a due time shows it after the date, as the sidebar does, in the List and the Table', () => {
+    const timed = task({ text: 'Call TJ', dueDate: '2026-08-20', dueTime: '16:00' });
+    const props = {
+      view: 'tasks-all' as const,
+      tasks: [timed],
+      onToggleComplete: vi.fn(),
+      onOpenTask: vi.fn(),
+      onChangeDueDate: vi.fn(),
+    };
+
+    const list = render(<TasksCollectionBody {...props} />);
+    expect(list.container.querySelector('.task-row__due')).toHaveTextContent(`20 August, ${formatTaskDueTime('16:00')}`);
+    list.unmount();
+
+    const table = render(
+      <TasksCollectionBody {...props} collectionView={resolveCollectionView(TASKS_COLLECTION, { layout: 'table' })} />
+    );
+    expect(table.container.querySelector('.task-row__due')).toHaveTextContent(`20 August, ${formatTaskDueTime('16:00')}`);
+  });
+
   it('an undated tasks-all row has no due-date control at all — only the wiki link trails the title', () => {
     const { container, queryByRole } = render(
       <TasksCollectionBody
@@ -130,6 +171,7 @@ describe('TasksCollectionBody', () => {
         onOpenTask={vi.fn()}
         onChangeDueDate={vi.fn()}
         getSource={() => ({ label: 'Trips', icon: 'note', emoji: null })}
+        collectionView={LIST_WITH_SOURCE}
       />
     );
 
@@ -192,6 +234,7 @@ describe('TasksCollectionBody', () => {
         onOpenTask={vi.fn()}
         onChangeDueDate={vi.fn()}
         getSource={() => ({ label: 'Trips', icon: 'note', emoji: null })}
+        collectionView={LIST_WITH_SOURCE}
       />
     );
 
@@ -790,6 +833,7 @@ describe('TasksCollectionBody', () => {
             view={view}
             tasks={everyDataset}
             getSource={() => ({ label: 'Src', icon: 'note', emoji: null })}
+            collectionView={LIST_WITH_SOURCE}
             {...noop}
           />
         );

@@ -119,7 +119,6 @@
    * exposure (`inset-inline-start: -3px`) needs a live check against real
    * layout before deciding on its own fix — not addressed here.
    */
-  padding-top: 8px;
 }
 .cm-editor .cm-table-wrapper {
   /* No border here — see `.cm-table-wrapper table`'s own rule below for
@@ -421,8 +420,9 @@
   width: max-content;
   min-width: 100%;
   max-width: calc(
-    var(--table-breakout-max-width, 100%) - var(--table-breakout-edge-gap, 24px) * 2 -
-      var(--cm-table-handle-gutter) * 2
+    var(--table-breakout-max-width, 100%) -
+      var(--table-breakout-edge-gap, 24px) * 2 - var(--cm-table-handle-gutter) *
+      2
   );
   padding-inline: var(--cm-table-handle-gutter);
   padding-block-start: var(--cm-table-handle-gutter);

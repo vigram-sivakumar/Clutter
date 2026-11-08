@@ -2,6 +2,7 @@ import { syntaxTree } from '@codemirror/language';
 import type { EditorState } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
+import { isQuoteNodeName, QUOTE_NODE_NAMES } from '@core/vault/ingest/grammar/quoteNodes';
 import {
   firstNonWhitespaceOffset,
   isIndentedPastColumn,
@@ -43,13 +44,13 @@ export type SeparatorHeight =
 const GROUPING_NODE_NAMES = new Set([
   'BulletList',
   'OrderedList',
-  'Blockquote',
+  ...QUOTE_NODE_NAMES,
 ]);
 
 /**
  * Node names whose own interior gets zero spacing from this system —
  * the construct's own rendering owns its internals completely. Both
- * `Table` and `FencedCode` are safe to include uniformly here: unlike an
+ * `Table`, `FencedCode` and `CodeBlock` (indented code) are safe to include uniformly here: unlike an
  * earlier padding-class-based version of this system, block *widgets*
  * never touch a `.cm-line`'s own CSS properties, so there is no
  * collision with `FencedCode`'s existing `--first`/`--last` card-inset
@@ -58,7 +59,7 @@ const GROUPING_NODE_NAMES = new Set([
  * collision was the reason an earlier version had to special-case
  * `FencedCode`'s entry boundary; no such special-casing is needed here.
  */
-const ATOMIC_NODE_NAMES = new Set(['Table', 'FencedCode']);
+const ATOMIC_NODE_NAMES = new Set(['Table', 'FencedCode', 'CodeBlock']);
 
 /**
  * The separator height owed *above* a heading's own first physical line,
@@ -139,7 +140,7 @@ function enclosingListItemIsTask(state: EditorState, pos: number): boolean {
   let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, 1);
   for (; node; node = node.parent) {
     if (node.name === 'ListItem') {
-      return taskMarkerOfListItem(node) !== null;
+      return taskMarkerOfListItem(node, state) !== null;
     }
   }
   return false;
@@ -164,8 +165,10 @@ function isOwnMarkerLine(
   ancestorNode: SyntaxNode
 ): boolean {
   const line = state.doc.lineAt(pos);
-  if (ancestorNode.name === 'Blockquote') {
-    return line.text.trimStart().startsWith('>');
+  if (isQuoteNodeName(ancestorNode.name)) {
+    // Either marker: a quote line may carry its own `>` or `" ` (and a nested quote can be the other kind).
+    const text = line.text.trimStart();
+    return text.startsWith('>') || text.startsWith('" ');
   }
   return resolveLineIndentContext(state, line).kind === 'list';
 }
@@ -283,7 +286,7 @@ function lineEnclosingParagraph(
     ) {
       return null;
     }
-    if (node.name === 'Blockquote') {
+    if (isQuoteNodeName(node.name)) {
       return paragraph;
     }
   }
@@ -720,7 +723,7 @@ export function resolveBoundaryHeight(
       }
       if (isGenuinelyGrouped(state, prevPos, pos, node)) {
         if (
-          node.name === 'Blockquote' &&
+          isQuoteNodeName(node.name) &&
           isContiguousBlockquoteParagraph(state, prevPos, pos)
         ) {
           return SEPARATOR.none;

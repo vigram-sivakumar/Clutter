@@ -1,6 +1,6 @@
 # ADR-067: First-run welcome content is installed once into the Space Clutter creates at first run, through the Gate, never into an existing folder
 
-**Status: Proposed.** Direction approved: Route G (Gate-routed, after the Space opens) with Option B (per-Space ledger), three attempts in total. The specification amendment below is applied to `architecture-specification.md` (§6, §6a, §7, §11); `ARCHITECTURE_RULES.md` and `implementation-rules.md` are unchanged. The status stays Proposed until the implementation and its verification are complete, which includes the real-app acceptance list at the end (not yet done).
+**Status: Proposed.** The decision of *when* to install (first Space per install, created folders only, the application-level record) is amended by [ADR-070](./070-welcome-content-is-provisioned-by-the-welcome-screen-entry-point.md). Direction approved: Route G (Gate-routed, after the Space opens) with Option B (per-Space ledger), three attempts in total. The specification amendment below is applied to `architecture-specification.md` (§6, §6a, §7, §11); `ARCHITECTURE_RULES.md` and `implementation-rules.md` are unchanged. The status stays Proposed until the implementation and its verification are complete, which includes the real-app acceptance list at the end (not yet done).
 
 ## Context
 

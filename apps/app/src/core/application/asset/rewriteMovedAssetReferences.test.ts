@@ -254,8 +254,7 @@ describe('planMovedAssetReferences: refused before anything moves', () => {
     const error = await refusal(planned);
 
     expect(error.reason).toBe('unsupported-spelling');
-    expect(error.message).toMatch(/can’t be moved out of Assets/);
-    expect(error.message).toMatch(/Nothing was moved/);
+    expect(error.message).toBe('Unable to move “logo.png”');
   });
 
   it('refuses a cover or an avatar spelled another way, too', async () => {
@@ -346,13 +345,13 @@ describe('planMovedAssetReferences: refused before anything moves', () => {
     expect((await refusal(planMovedAssetReferences(brokenScan, [step(logo, 'Docs/logo.png')], '“logo.png”'))).reason).toBe('scan-failed');
   });
 
-  it('names the file in the explanation, and the place when there is one', async () => {
+  it('names the file in the message, and keeps the place on the error for the console', async () => {
     const { planned } = plan({ resources: [logo], pages: [note('a', 'Has ![[./Assets/logo.png]]')] });
 
     const error = await refusal(planned);
 
-    expect(error.message).toContain('“logo.png”');
-    expect(error.message).toContain('a.md');
+    expect(error.message).toBe('Unable to move “logo.png”');
+    expect(error.detail).toContain('a.md');
   });
 });
 

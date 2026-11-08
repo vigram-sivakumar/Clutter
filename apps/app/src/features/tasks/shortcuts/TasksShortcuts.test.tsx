@@ -129,16 +129,18 @@ describe('TasksShortcuts', () => {
     expect(screen.getByRole('textbox')).toBeInTheDocument();
   });
 
-  it('Create is disabled until a non-empty title is typed, and calls onCreateTask with no due date by default', async () => {
+  it('Create with no title shakes the title field, and with one calls onCreateTask with no due date by default', async () => {
     const { onCreateTask } = renderTasksShortcuts();
 
     fireEvent.click(screen.getByText('New'));
 
     const createButton = screen.getByText('Create').closest('button')!;
-    expect(createButton).toBeDisabled();
+    expect(createButton).toBeEnabled();
+    fireEvent.click(createButton);
+    expect(screen.getByRole('textbox')).toHaveClass('editable-text--shake');
+    expect(onCreateTask).not.toHaveBeenCalled();
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Buy milk' } });
-    expect(createButton).not.toBeDisabled();
 
     fireEvent.click(createButton);
 

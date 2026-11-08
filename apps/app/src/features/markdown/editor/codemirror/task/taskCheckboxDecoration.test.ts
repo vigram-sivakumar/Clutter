@@ -18,7 +18,8 @@ function mountView(doc: string, withHistory = false): EditorView {
   if (withHistory) {
     extensions.push(history());
   }
-  const state = EditorState.create({ doc, extensions });
+  // The caret starts at the document end, as `createEditorView` opens a note (position 0 would touch the first marker).
+  const state = EditorState.create({ doc, selection: EditorSelection.cursor(doc.length), extensions });
   return new EditorView({ state, parent });
 }
 
@@ -189,48 +190,101 @@ describe('taskCheckboxDecoration: atomic caret behavior', () => {
     expect(isAtomicAt(view, taskMarker.from, taskMarker.to)).toBe(true);
   });
 
-  it('ArrowRight from just before the marker jumps straight to content-start, never landing inside "[ ]"', () => {
+  it('while the caret is in the text, a position strictly inside the marker is unreachable by ordinary caret motion', () => {
     const view = mountView('- [ ] Task');
     const taskMarker = findNode(view.state, 'TaskMarker')!;
-    view.dispatch({ selection: EditorSelection.cursor(taskMarker.from) });
-    view.dispatch(view.state.update({ selection: view.state.selection, userEvent: 'select' }));
-    const next = EditorSelection.cursor(taskMarker.from).from;
-    // Simulate the same forward hop CM6's own cursorCharRight would take,
-    // constrained by the same atomicRanges facet this decoration registers:
-    // moving strictly one atomic hop lands on taskMarker.to, never inside.
-    expect(next).toBe(taskMarker.from);
+    // The whole marker is one atomic span, so CM6 treats any interior position as unreachable via
+    // single-step caret motion (the span only stops being atomic while the caret touches it, see below).
     expect(isAtomicAt(view, taskMarker.from, taskMarker.to)).toBe(true);
-    // A position strictly inside the marker is never itself a registered atomic boundary
-    // (atomicRanges cover the *whole* [from,to) span, meaning CM6 treats any interior
-    // position as unreachable via ordinary single-step caret motion).
-    const interior = taskMarker.from + 1;
-    expect(interior).toBeGreaterThan(taskMarker.from);
-    expect(interior).toBeLessThan(taskMarker.to);
+    expect(taskMarker.from + 1).toBeLessThan(taskMarker.to);
   });
 
-  it('raw "[ ]"/"[x]" is never present as visible text, regardless of caret position nearby', () => {
-    const view = mountView('- [ ] Task');
-    const taskMarker = findNode(view.state, 'TaskMarker')!;
-    for (const pos of [taskMarker.from, taskMarker.from + 1, taskMarker.to, taskMarker.to + 1]) {
-      view.dispatch({ selection: EditorSelection.cursor(Math.min(pos, view.state.doc.length)) });
-      expect(hasCheckboxAt(view, 0, false)).toBe(true);
-      expect(visibleText(view)).toBe(' Task');
-    }
-  });
-
-  it('selecting a range spanning the checkbox does not reveal raw syntax', () => {
+  it('a selection extending past the marker does not reveal it (only a selection inside the marker does)', () => {
     const view = mountView('- [ ] Task');
     view.dispatch({ selection: EditorSelection.range(0, view.state.doc.length) });
     expect(hasCheckboxAt(view, 0, false)).toBe(true);
     expect(visibleText(view)).toBe(' Task');
   });
+});
 
-  it('decorations do not rebuild on selection changes alone (no reveal/engage state to recompute)', () => {
+describe('taskCheckboxDecoration: reveal while the caret is in the marker', () => {
+  const caretAt = (view: EditorView, pos: number) => view.dispatch({ selection: EditorSelection.cursor(pos) });
+
+  it('shows the raw "- [ ] " only while the caret touches the marker, and the checkbox otherwise', () => {
     const view = mountView('- [ ] Task');
-    const before = visibleText(view);
-    view.dispatch({ selection: EditorSelection.cursor(3) });
-    view.dispatch({ selection: EditorSelection.cursor(0) });
-    expect(visibleText(view)).toBe(before);
+
+    // Marker run is [0, 5) plus its separator: positions 0..5 touch it, 6 (content start) and beyond do not.
+    for (const pos of [0, 1, 2, 3, 4, 5]) {
+      caretAt(view, pos);
+      expect(visibleText(view), `caret at ${pos}`).toBe('- [ ] Task');
+      expect(view.dom.querySelector('.cm-task-checkbox')).toBeNull();
+    }
+    for (const pos of [6, 7, 10]) {
+      caretAt(view, pos);
+      expect(hasCheckboxAt(view, 0, false), `caret at ${pos}`).toBe(true);
+      expect(visibleText(view), `caret at ${pos}`).toBe(' Task');
+    }
+  });
+
+  it('the caret being elsewhere on the line (or in another line) does not reveal the marker', () => {
+    const view = mountView('- [ ] One\n- [ ] Two');
+    caretAt(view, view.state.doc.length);
+    expect(view.dom.querySelectorAll('.cm-task-checkbox')).toHaveLength(2);
+
+    caretAt(view, 8); // inside "One"
+    expect(view.dom.querySelectorAll('.cm-task-checkbox')).toHaveLength(2);
+  });
+
+  it('reveals only the marker the caret is in: a sibling keeps its checkbox', () => {
+    const view = mountView('- [ ] One\n- [x] Two');
+    caretAt(view, 2);
+
+    expect(view.dom.querySelectorAll('.cm-task-checkbox')).toHaveLength(1);
+    expect(hasCheckboxAt(view, 1, true)).toBe(true);
+    expect(visibleText(view)).toBe('- [ ] One\n Two');
+  });
+
+  it('reveals "1. [x] " for an ordered task and a nested task\'s own marker', () => {
+    const ordered = mountView('1. [x] Task');
+    ordered.dispatch({ selection: EditorSelection.cursor(0) });
+    expect(visibleText(ordered)).toBe('1. [x] Task');
+
+    const nested = mountView('- [ ] a\n    - [ ] b');
+    nested.dispatch({ selection: EditorSelection.cursor('- [ ] a\n    - '.length) });
+    expect(nested.dom.querySelectorAll('.cm-task-checkbox')).toHaveLength(1);
+    expect(visibleText(nested)).toBe(' a\n    - [ ] b');
+  });
+
+  it('the revealed run is marker-coloured and adds no atomic range, so the caret steps through it', () => {
+    const view = mountView('- [ ] Task');
+    caretAt(view, 2);
+
+    expect(view.dom.querySelector('.cm-marker')?.textContent).toBe('- [ ]');
+    const taskMarker = findNode(view.state, 'TaskMarker')!;
+    expect(isAtomicAt(view, taskMarker.from, taskMarker.to)).toBe(false);
+  });
+
+  it('never rewrites the source, revealed or not', () => {
+    const view = mountView('- [ ] Task');
+    caretAt(view, 2);
+    caretAt(view, 8);
+    expect(view.state.doc.toString()).toBe('- [ ] Task');
+  });
+
+  it('a read-only view never reveals, whatever the selection', () => {
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: '- [ ] Task',
+        selection: EditorSelection.cursor(2),
+        extensions: [markdownLanguageExtension(), taskCheckboxDecoration(), EditorState.readOnly.of(true)],
+      }),
+      parent,
+    });
+
+    expect(hasCheckboxAt(view, 0, false)).toBe(true);
+    expect(visibleText(view)).toBe(' Task');
   });
 });
 

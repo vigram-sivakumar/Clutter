@@ -1,7 +1,8 @@
 import { markdown } from '@codemirror/lang-markdown';
 
 import { fencedCodeLanguageDescriptions } from './fencedCode/fencedCodeLanguages';
-import { markdownGrammarExtensions } from '../../../../core/vault/ingest/grammar/markdownGrammarExtensions';
+import { markdownGrammarFor } from '../../../../core/vault/ingest/grammar/markdownGrammarExtensions';
+import { readEnableEmojiLists } from '@shared/helpers/enableEmojiListsPreference';
 
 /**
  * Markdown language support, scoped to a deliberate GFM subset plus the
@@ -66,9 +67,12 @@ import { markdownGrammarExtensions } from '../../../../core/vault/ingest/grammar
  * alongside it. Callers that only need the parser (tests reaching for
  * `.language`, decoration suites) are unaffected.
  */
-export function markdownLanguageExtension() {
+export function markdownLanguageExtension(options: { readonly emojiLists?: boolean } = {}) {
   return markdown({
-    extensions: markdownGrammarExtensions,
+    // The *Enable emoji lists* setting picks the grammar: off leaves out `emojiListSyntax` itself, so an emoji-led
+    // line parses as a plain `Paragraph` rather than being hidden or restyled after the fact. An editor passes its
+    // own value (and is remounted when the setting changes); everything else reads the saved setting.
+    extensions: markdownGrammarFor(options.emojiLists ?? readEnableEmojiLists()),
     addKeymap: false,
     codeLanguages: fencedCodeLanguageDescriptions,
   });

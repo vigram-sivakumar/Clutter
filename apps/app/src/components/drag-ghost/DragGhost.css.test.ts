@@ -30,4 +30,11 @@ describe('DragGhost.css — no borders on the picture', () => {
     const rule = css.match(/\.drag-ghost \.collection-table-row::after \{([^}]*)\}/)?.[1] ?? '';
     expect(rule).toMatch(/display:\s*none/);
   });
+
+  it('draws the count badge above the lifted pieces, which are themselves at the overlay layer', () => {
+    const piece = css.match(/\.drag-ghost \{([^}]*)\}/)?.[1] ?? '';
+    expect(piece).toMatch(/z-index:\s*var\(--z-overlay\)/);
+    const badge = css.match(/\.drag-snapshot__count \{([^}]*)\}/)?.[1] ?? '';
+    expect(badge).toMatch(/z-index:\s*calc\(var\(--z-overlay\)\s*\+\s*1\)/);
+  });
 });

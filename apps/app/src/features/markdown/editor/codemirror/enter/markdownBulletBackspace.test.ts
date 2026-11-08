@@ -282,10 +282,10 @@ describe('deleteBulletMarkerSeparator: source-local marker/separator boundary po
     });
 
     it('deep leading indentation survives exactly as it was — not altered, not normalized', () => {
-      // The cursor marker sits directly after the 4 spaces here, which
-      // breaks the render helper's end-of-line lookahead (same reason
-      // noted elsewhere in this file), so the spaces render literally.
-      expect(backspace('____- |')).toEqual({ rendered: '    |', handledBy: 'clutter' });
+      // A nested item (a parent above it): an isolated four-space `- ` would be indented code, not a list item.
+      // The cursor marker sits directly after the 4 spaces here, which breaks the render helper's end-of-line
+      // lookahead (same reason noted elsewhere in this file), so the spaces render literally.
+      expect(backspace('- Parent\n____- |')).toEqual({ rendered: '- Parent\n    |', handledBy: 'clutter' });
     });
 
     it('the resulting blank line is no longer any kind of list construct', () => {
@@ -408,34 +408,34 @@ describe('deleteBulletMarkerSeparator: source-local marker/separator boundary po
   });
 
   describe('Tab interaction: Backspace reads the CURRENT tree, independent of Tab history', () => {
-    it('"- Text", Tab, then Backspace at the (now-shifted) boundary still applies the same rule', () => {
-      let state = parse('- |Text');
+    it('"- Text" under a parent, Tab, then Backspace at the (now-shifted) boundary still applies the same rule', () => {
+      let state = parse('- Parent\n- |Text');
       const tab1 = { state, dispatch: (tr: Transaction) => (state = tr.state) };
       expect(markdownIndentMore(tab1)).toBe(true);
-      expect(state.doc.toString()).toBe('    - Text');
+      expect(state.doc.toString()).toBe('- Parent\n    - Text');
 
-      // Re-place the cursor at the new marker/content boundary (position 6:
-      // 4 leading spaces + "- ") and press Backspace — the command must see
-      // today's tree, not a pre-Tab one.
-      state = state.update({ selection: EditorSelection.cursor(6) }).state;
+      // Re-place the cursor at the new marker/content boundary (4 leading spaces + "- " on line 2) and press
+      // Backspace — the command must see today's tree (a nested item), not a pre-Tab one.
+      const boundary = state.doc.line(2).from + 6;
+      state = state.update({ selection: EditorSelection.cursor(boundary) }).state;
       const result = pressBackspace(state);
       expect(result.handledBy).toBe('clutter');
-      expect(result.state.doc.toString()).toBe('    -Text');
+      expect(result.state.doc.toString()).toBe('- Parent\n    -Text');
     });
 
     it('"- Parent\\n  - Child", Tab on Parent, then Backspace at Child boundary is unaffected by Parent\'s Tab', () => {
-      let state = parse('- |Parent\n  - Child');
+      let state = parse('- Zero\n- |Parent\n  - Child');
       const tab1 = { state, dispatch: (tr: Transaction) => (state = tr.state) };
       expect(markdownIndentMore(tab1)).toBe(true);
-      expect(state.doc.toString()).toBe('    - Parent\n  - Child');
+      expect(state.doc.toString()).toBe('- Zero\n    - Parent\n  - Child');
 
       const childBoundary = state.doc.toString().indexOf('Child');
       state = state.update({ selection: EditorSelection.cursor(childBoundary) }).state;
       const result = pressBackspace(state);
       expect(result.handledBy).toBe('clutter');
       const lines = result.state.doc.toString().split('\n');
-      expect(lines[0]).toBe('    - Parent'); // untouched by Backspace on Child
-      expect(lines[1]).toBe('  -Child');
+      expect(lines[1]).toBe('    - Parent'); // untouched by Backspace on Child
+      expect(lines[2]).toBe('  -Child');
     });
   });
 

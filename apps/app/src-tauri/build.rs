@@ -57,6 +57,16 @@ fn require_what_every_packaged_build_needs() {
         config.contains("\"entitlements\": \"Entitlements.plist\""),
         "tauri.conf.json must point bundle.macOS.entitlements at Entitlements.plist: every packaged Clutter is sandboxed."
     );
+    // The bundle identifier names the sandbox container, the saved folder access and the recovery records, and it is the
+    // identifier registered with Apple. A packaged build must carry the production one, never the old development one.
+    assert!(
+        config.contains("\"identifier\": \"com.vigram.clutter\""),
+        "tauri.conf.json must set \"identifier\" to com.vigram.clutter, the production bundle identifier."
+    );
+    assert!(
+        !config.contains("com.clutter.dev"),
+        "tauri.conf.json must not mention the retired development identifier com.clutter.dev."
+    );
     let entitlements = std::fs::read_to_string("Entitlements.plist").expect("read Entitlements.plist");
     for required in [
         "com.apple.security.app-sandbox",

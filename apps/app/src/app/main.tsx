@@ -9,6 +9,7 @@ import { App } from './App';
 import { installResizeDiagnostics } from './devResizeDiagnostics';
 import { installNativeContextMenuPolicy } from './suppressNativeContextMenu';
 import { installMarkdownItalicFontSync } from '@shared/helpers/markdownItalicFontPreference';
+import { installPreserveBulletStyleSync } from '@shared/helpers/preserveBulletStylePreference';
 
 import '../design-system/tokens.css';
 import '../design-system/theme.css';
@@ -27,6 +28,9 @@ document.documentElement.dataset.runtime = isTauri() ? 'tauri' : 'web';
 
 // Reflects the Markdown italic font setting on the root element, now and on every change (tokens.css reads it).
 installMarkdownItalicFontSync();
+
+// Reflects the Preserve bullet style setting on the root element, now and on every change (the list CSS reads it).
+installPreserveBulletStyleSync();
 
 // Production draws its own context menus: no native WebView menu (Reload, Inspect Element…) anywhere.
 // Development keeps the native one, for Inspect Element.

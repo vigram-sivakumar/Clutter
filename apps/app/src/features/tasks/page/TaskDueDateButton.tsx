@@ -1,11 +1,13 @@
 import { useRef, useState } from 'react';
 import { CollectionEntryProperties } from '@features/collection/components/entry/CollectionEntryProperties';
 import { TaskDatePicker } from '../sidebar/TaskDatePicker';
-import { formatTaskDueDateLong } from '../helpers/formatTaskDueDate';
+import { formatTaskDueDateLong, formatTaskDueTime } from '../helpers/formatTaskDueDate';
 
 interface TaskDueDateButtonProps {
   /** The task's raw ISO `YYYY-MM-DD` due date. A task with no due date has no control at all (it gets one in the Edit task modal). */
   readonly date: string;
+  /** The task's `HH:MM` due time, if it has one: shown after the date, as the sidebar's rows do ("9 October, 4:00 PM"). */
+  readonly time?: string;
   /** A date string sets it, null clears it — never moves the task (same contract as the row menu's Change due date). */
   readonly onChange: (date: string | null) => void;
 }
@@ -16,7 +18,7 @@ interface TaskDueDateButtonProps {
  * selected, to change or clear it. Its hover pill is a `::before` that extends past the text, so the text
  * lines up with the column title. Clicking never opens the row's note.
  */
-export function TaskDueDateButton({ date, onChange }: TaskDueDateButtonProps) {
+export function TaskDueDateButton({ date, time, onChange }: TaskDueDateButtonProps) {
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLDivElement>(null);
 
@@ -33,7 +35,7 @@ export function TaskDueDateButton({ date, onChange }: TaskDueDateButtonProps) {
           setOpen(true);
         }}
       >
-        {formatTaskDueDateLong(date)}
+        {time ? `${formatTaskDueDateLong(date)}, ${formatTaskDueTime(time)}` : formatTaskDueDateLong(date)}
       </CollectionEntryProperties>
       <TaskDatePicker
         anchorRef={anchorRef}

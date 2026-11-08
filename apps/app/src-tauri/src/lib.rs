@@ -4,9 +4,9 @@ use std::time::Duration;
 use tauri::{AppHandle, Manager, RunEvent, Url, WebviewWindow};
 
 mod app_menu;
-// The experimental atomic writer and its commands (ADR-063). Compiled in only with the off-by-default
-// `atomic-writes` feature, and then callable only from the `main` window (checked in the commands themselves).
-// Called by nothing: saves still go through the fs plugin's `writeTextFile`.
+// The atomic vault writer and its commands (ADR-063). Compiled in only with the `atomic-writes` Cargo feature, which
+// is on by default and is the only way Clutter saves (a release build refuses to compile without it: see build.rs).
+// Callable only from the `main` window (checked in the commands themselves).
 #[cfg(all(target_os = "macos", feature = "atomic-writes"))]
 mod atomic_replace;
 #[cfg(all(target_os = "macos", feature = "atomic-writes"))]

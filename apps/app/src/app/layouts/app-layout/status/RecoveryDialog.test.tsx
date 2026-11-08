@@ -79,7 +79,6 @@ describe('RecoveryDialog', () => {
     expect(screen.getByText('Weekly review')).toBeInTheDocument();
     expect(screen.getByText('2/2')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Remove recovery copy' }));
     await waitFor(() => expect(onDiscard).toHaveBeenCalledWith('b'));
     expect(onRestore).toHaveBeenCalledTimes(1);
   });
@@ -118,7 +117,7 @@ describe('RecoveryDialog', () => {
     expect(screen.queryByRole('button', { name: 'Decide later' })).toBeNull();
   });
 
-  it('asks before discarding, names the note, and cancelling keeps the record untouched', async () => {
+  it('discards the shown note straight away, without a second confirmation', async () => {
     const onDiscard = vi.fn(async () => {});
     render(
       <RecoveryDialog
@@ -132,16 +131,8 @@ describe('RecoveryDialog', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
 
-    expect(onDiscard).not.toHaveBeenCalled();
-    expect(screen.getByText('Launch plan')).toBeInTheDocument();
-    expect(screen.getByRole('alert')).toHaveTextContent(/Permanently remove this recovery copy/);
-    expect(screen.getByRole('alert')).toHaveTextContent(/can’t be restored afterwards/);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-
-    expect(screen.queryByRole('alert')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Restore' })).toBeInTheDocument();
-    expect(onDiscard).not.toHaveBeenCalled();
+    await waitFor(() => expect(onDiscard).toHaveBeenCalledWith('a'));
+    expect(screen.queryByRole('button', { name: 'Remove recovery copy' })).toBeNull();
   });
 
   it('does not show per-outcome explanations: a conflict card has the title and date only', () => {

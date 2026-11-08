@@ -57,7 +57,7 @@ export function isTaskMarkerChecked(raw: string): boolean {
  * not a second, independently-maintained copy of it — both call sites
  * import this one definition, logic unchanged.
  */
-export function taskMarkerOfListItem(listItem: SyntaxNode): SyntaxNode | null {
+export function taskMarkerOfListItem(listItem: SyntaxNode, state: EditorState): SyntaxNode | null {
   const marker = listItem.firstChild;
   if (!marker || marker.name !== 'ListMark') {
     return null;
@@ -67,7 +67,32 @@ export function taskMarkerOfListItem(listItem: SyntaxNode): SyntaxNode | null {
     return null;
   }
   const taskMarker = taskNode.firstChild;
-  return taskMarker && isTaskMarkerNode(taskMarker.name) ? taskMarker : null;
+  if (!taskMarker || !isTaskMarkerNode(taskMarker.name) || isChainedOnMarkerLine(listItem, marker, state)) {
+    return null;
+  }
+  return taskMarker;
+}
+
+/**
+ * Whether an enclosing `ListItem`'s own marker sits on this item's marker line, so this item's marker is not the
+ * first on its physical line. `* - [ ] Buy groceries` parses as a bullet holding a nested task (CommonMark, and the
+ * parser is global so that stays), but the editor treats everything after the first marker as literal text: the
+ * list marker is drawn once (`listMarkerDecoration.ts`) and Enter continues the first marker
+ * (`continueFirstSameLineListLevel`). A task on such a line is therefore not a task, with no checkbox and no task
+ * editing. Only a same-line marker counts: `* Parent` / `  - [ ] Child` (a different line) is a real task.
+ */
+function isChainedOnMarkerLine(listItem: SyntaxNode, marker: SyntaxNode, state: EditorState): boolean {
+  const lineFrom = state.doc.lineAt(marker.from).from;
+  for (let ancestor = listItem.parent; ancestor; ancestor = ancestor.parent) {
+    if (ancestor.name !== 'ListItem') {
+      continue;
+    }
+    const outerMarker = ancestor.firstChild;
+    if (outerMarker?.name === 'ListMark' && state.doc.lineAt(outerMarker.from).from === lineFrom) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**

@@ -72,8 +72,12 @@ describe('findTagOccurrences — what is a tag', () => {
     expect(names('| a | b |\n| - | - |\n| #x | y |')).toEqual(['x']);
   });
 
-  it('a four-space indented line is ordinary text here, exactly as in the editor (IndentedCode is removed)', () => {
-    expect(names('para\n\n    #indented')).toEqual(['indented']);
+  it('a four-space indented line after a blank line is an indented code block: no tag, exactly as in the editor', () => {
+    expect(names('para\n\n    #indented')).toEqual([]);
+  });
+
+  it('an indented line directly after a paragraph is lazy continuation text, so its tag is found', () => {
+    expect(names('para\n    #indented')).toEqual(['indented']);
   });
 
   it('a tag at the start of every line is found', () => {

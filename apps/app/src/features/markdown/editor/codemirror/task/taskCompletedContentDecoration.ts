@@ -53,7 +53,7 @@ function buildDecorations(view: EditorView): DecorationSet {
           return;
         }
 
-        const taskMarker = taskMarkerOfListItem(node.node);
+        const taskMarker = taskMarkerOfListItem(node.node, view.state);
         if (!taskMarker) {
           return;
         }

@@ -179,7 +179,7 @@ describe('UnsplashApi: no key, no credentials', () => {
 
 describe('UnsplashApi: the proxy address', () => {
   it('defaults to the deployed proxy', () => {
-    expect(DEFAULT_UNSPLASH_PROXY_URL).toBe('https://clutter-unsplash-proxy.vigram-work.workers.dev');
+    expect(DEFAULT_UNSPLASH_PROXY_URL).toBe('https://clutter-unsplash-proxy.vigram-sivakumar.workers.dev');
   });
 
   it('can be overridden with VITE_UNSPLASH_PROXY_URL, a trailing slash included', async () => {

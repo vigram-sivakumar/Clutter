@@ -35,14 +35,17 @@ const RESET_KEYS = [
   'clutter-header-separator',
   'clutter-header-separator-style',
   'clutter-markdown-italic-font',
+  'clutter-preserve-bullet-style',
+  'clutter-enable-emoji-lists',
+  'clutter-prefer-clutter-quote-syntax',
   // Legacy: read only to seed a Space once; left in place they would undo a reset.
   'clutter-default-cover-position',
   'clutter-auto-delete-archived',
 ] as const;
 
 /**
- * Not settings: interface layout, remembered picks, the saved Unsplash Editorial photos, the Space registry and the welcome content first-run record
- * (ADR-067). A settings reset leaves them; wiping the record would let the welcome content install a second time.
+ * Not settings: interface layout, remembered picks, the saved Unsplash Editorial photos and the Space registry. A
+ * settings reset leaves them.
  */
 const KEPT_KEYS = [
   'clutter-sidebar-width',
@@ -51,7 +54,6 @@ const KEPT_KEYS = [
   'clutter-emoji-skin-tone',
   'clutter-gradient-grainy-last-palette',
   'clutter.spaces.v1',
-  'clutter.welcomeContent',
 ] as const;
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');

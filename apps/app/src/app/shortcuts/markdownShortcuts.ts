@@ -25,6 +25,7 @@ export const MARKDOWN_SHORTCUT_GROUPS: readonly ShortcutRowGroup[] = [
       { id: 'inline-code-typed', label: 'Inline code', description: 'Type backticks around text', trigger: '`text`' },
       { id: 'highlight', label: 'Highlight', trigger: '==text==' },
       { id: 'strikethrough', label: 'Strikethrough', trigger: '~~text~~' },
+      { id: 'quote', label: 'Quote', description: 'Start a line with > or " and a space', trigger: '> text or " text' },
       { id: 'code-block', label: 'Code block', description: 'Type three backticks, and the closing fence is added', trigger: '```' },
     ],
   },
@@ -38,7 +39,7 @@ export const MARKDOWN_SHORTCUT_GROUPS: readonly ShortcutRowGroup[] = [
       { id: 'continue', label: 'Continue list or quote', keys: [key('Enter')] },
       { id: 'exit', label: 'Exit list or quote', description: 'On an empty item', keys: [key('Enter')] },
       { id: 'line-break', label: 'Insert line break', keys: [shift, key('Enter')] },
-      { id: 'remove-marker', label: 'Remove list marker or checkbox', description: 'At the start of an item', keys: [key('Delete')] },
+      { id: 'remove-marker', label: 'Remove list marker', description: 'At the start of an item', keys: [key('Delete')] },
     ],
   },
   {

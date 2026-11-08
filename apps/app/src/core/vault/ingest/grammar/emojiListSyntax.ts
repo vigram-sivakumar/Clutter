@@ -21,6 +21,22 @@ function isSpace(code: number): boolean {
 }
 
 /**
+ * The UTF-16 length of the emoji grapheme `rest` starts with, followed by
+ * whitespace or the end of `rest`, or -1 when `rest` does not start with an
+ * emoji list marker. Shared by the block parser below and by editor commands
+ * that need to recognize a marker in raw line text (Shift+Enter continuation),
+ * so the "what is an emoji marker" rule has exactly one definition.
+ */
+export function emojiMarkerSize(rest: string): number {
+  const match = EMOJI_MARKER_PATTERN.exec(rest);
+  if (!match || match[0].length === 0) {
+    return -1;
+  }
+  const size = match[0].length;
+  return size === rest.length || isSpace(rest.charCodeAt(size)) ? size : -1;
+}
+
+/**
  * Returns the marker's UTF-16 length if `line` starts (after any base
  * indent already stripped by enclosing contexts) with an emoji list
  * marker, or -1 otherwise. Any recognized emoji is a valid marker —
@@ -28,13 +44,7 @@ function isSpace(code: number): boolean {
  * distinguish "looks like a list" from "looks like prose" either.
  */
 export function isEmojiListMarker(line: Line): number {
-  const rest = line.text.slice(line.pos);
-  const match = EMOJI_MARKER_PATTERN.exec(rest);
-  if (!match || match[0].length === 0) {
-    return -1;
-  }
-  const size = match[0].length;
-  return size === rest.length || isSpace(rest.charCodeAt(size)) ? size : -1;
+  return emojiMarkerSize(line.text.slice(line.pos));
 }
 
 /**

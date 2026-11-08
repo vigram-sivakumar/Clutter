@@ -1,6 +1,7 @@
-import { parser as baseMarkdownParser } from '@lezer/markdown';
+import { parser as baseMarkdownParser, type MarkdownParser } from '@lezer/markdown';
 
-import { markdownGrammarExtensions } from '../../../core/vault/ingest/grammar/markdownGrammarExtensions';
+import { markdownGrammarFor } from '../../../core/vault/ingest/grammar/markdownGrammarExtensions';
+import { readEnableEmojiLists } from '@shared/helpers/enableEmojiListsPreference';
 
 /**
  * The one configured `@lezer/markdown` parser instance used by every
@@ -14,4 +15,15 @@ import { markdownGrammarExtensions } from '../../../core/vault/ingest/grammar/ma
  * a shared module even with one current consumer, since a second
  * CM6-independent rendering surface would need the identical grammar.
  */
-export const sharedMarkdownParser = baseMarkdownParser.configure(markdownGrammarExtensions);
+const parserWithEmojiLists = baseMarkdownParser.configure(markdownGrammarFor(true));
+const parserWithoutEmojiLists = baseMarkdownParser.configure(markdownGrammarFor(false));
+
+/**
+ * Both configured parsers exist once; which one parses is decided per call from the *Enable emoji lists* setting
+ * (`enableEmojiListsPreference.ts`), so every read-only surface follows it without each consumer reading the setting.
+ * With it off an emoji-led line is an ordinary paragraph (no `EmojiList` node), exactly as in the editor.
+ */
+export const sharedMarkdownParser: Pick<MarkdownParser, 'parse'> = {
+  parse: (...args: Parameters<MarkdownParser['parse']>) =>
+    (readEnableEmojiLists() ? parserWithEmojiLists : parserWithoutEmojiLists).parse(...args),
+};

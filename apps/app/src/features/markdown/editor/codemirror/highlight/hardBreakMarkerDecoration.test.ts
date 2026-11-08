@@ -161,4 +161,54 @@ describe('editing around the hidden marker', () => {
     markdownEnterCommand(plain) || plain.dispatch({ changes: { from: 5, insert: '\n' } });
     expect(plain.state.doc.toString()).toBe('Hello\n');
   });
+
+  describe('typing at the visual end of a line with a hard break', () => {
+    const type = (view: EditorView, text: string) =>
+      view.dispatch(view.state.replaceSelection(text), { userEvent: 'input.type' });
+
+    it('inserts before the backslash, which stays last on the line and hidden', () => {
+      const view = mount('First line|\\\nSecond line');
+      view.dispatch({ selection: { anchor: 11 } });
+
+      type(view, 'Hello');
+
+      expect(view.state.doc.toString()).toBe('First lineHello\\\nSecond line');
+      ensureSyntaxTree(view.state, view.state.doc.length, 5000);
+      expect(visibleLines(view)).toEqual(['First lineHello', 'Second line']);
+    });
+
+    it('keeps working one character at a time', () => {
+      const view = mount('First line\\\nSecond line|');
+      view.dispatch({ selection: { anchor: 11 } });
+
+      for (const ch of 'Hey') {
+        type(view, ch);
+        ensureSyntaxTree(view.state, view.state.doc.length, 5000);
+      }
+
+      expect(view.state.doc.toString()).toBe('First lineHey\\\nSecond line');
+      expect(visibleLines(view)).toEqual(['First lineHey', 'Second line']);
+    });
+
+    it('Backspace then deletes the visible character before the caret', () => {
+      const view = mount('First line\\\nSecond line|');
+      view.dispatch({ selection: { anchor: 11 } });
+      type(view, 'Hello');
+      ensureSyntaxTree(view.state, view.state.doc.length, 5000);
+
+      run(view, deleteAroundHardBreakBackward);
+
+      expect(view.state.doc.toString()).toBe('First lineHell\\\nSecond line');
+    });
+
+    it('leaves insertions elsewhere, and a literal trailing backslash, alone', () => {
+      const middle = mount('First|\\\nSecond');
+      type(middle, 'X');
+      expect(middle.state.doc.toString()).toBe('FirstX\\\nSecond');
+
+      const literal = mount('end\\|');
+      type(literal, 'X');
+      expect(literal.state.doc.toString()).toBe('end\\X');
+    });
+  });
 });

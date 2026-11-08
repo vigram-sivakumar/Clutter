@@ -350,7 +350,7 @@ export const RESOURCE_ACTIONS: Readonly<Record<ResourceKind, readonly ResourceAc
   // A tag's matching line is a reference to a line in a source note, not a note: its one action is Show in note.
   'tag-line': [{ ...OPEN_IN_NOTE, order: 10 }],
   // The right-click menu of a page's cover image: what the WebView's own image menu offers, and nothing else —
-  // Copy (the image itself) and Copy image address (its URL or vault path). Each is listed only when the page
+  // Copy (the image itself) and Copy image address (its URL; a vault image has none). Each is listed only when the page
   // supplied its operation (`executable`), so a control is never live without a handler.
   'cover-image': [
     {

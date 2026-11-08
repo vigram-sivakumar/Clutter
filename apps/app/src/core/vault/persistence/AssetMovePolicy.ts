@@ -94,28 +94,14 @@ export class AssetMoveRefusedError extends Error {
     /** Where the problem is, when there is one place to point at (a note's path, a reference as written). */
     readonly detail?: string
   ) {
-    super(describeRefusal(reason, subject, detail));
+    super(describeRefusal(reason, subject));
     this.name = 'AssetMoveRefusedError';
   }
 }
 
-function describeRefusal(reason: AssetMoveRefusalReason, subject: string, detail?: string): string {
-  const at = detail ? ` (${detail})` : '';
-
-  switch (reason) {
-    case 'unsupported-spelling':
-      return `${subject} can’t be moved out of Assets: a note refers to it in a way Clutter can’t update safely${at}. Nothing was moved`;
-    case 'changed-on-disk':
-      return `${subject} can’t be moved out of Assets yet: a note that uses it was changed outside Clutter${at}. Nothing was moved`;
-    case 'unsaved-draft':
-      return `${subject} can’t be moved out of Assets: a new note that hasn’t been saved yet uses it. Nothing was moved`;
-    case 'archived-folder':
-      return `${subject} can’t be moved out of Assets: an archived folder uses it as its cover${at}. Nothing was moved`;
-    case 'unrepresentable-path':
-      return `${subject} can’t be moved to that folder without breaking a reference: its new name has characters a reference can’t hold${at}. Nothing was moved`;
-    case 'scan-failed':
-      return `${subject} can’t be moved out of Assets: Clutter couldn’t check what uses it. Nothing was moved`;
-  }
+function describeRefusal(_reason: AssetMoveRefusalReason, subject: string): string {
+  // The reason stays on `reason` and `detail`, for code and the console; the user is told only what did not happen.
+  return `Unable to move ${subject}`;
 }
 
 /**

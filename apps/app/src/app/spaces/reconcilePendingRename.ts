@@ -6,6 +6,11 @@ import {
   type SpaceRegistry,
 } from './spaceRegistry';
 
+/** The folder's own name, for a message that has to fit in a toast. */
+function folderName(path: string): string {
+  return path.replace(/\/+$/, '').split('/').pop() || path;
+}
+
 /** What is known about a Space id at a path: its id, `null` when the folder has no Space profile, or unreadable. */
 export type SpaceIdReading = string | null | 'unreadable';
 
@@ -67,7 +72,7 @@ export async function reconcilePendingRename(registry: SpaceRegistry, deps: Reco
     return retained(
       registry,
       fromIsSomethingElse ? pending.from : null,
-      `Clutter couldn’t check “${pending.from}” and “${pending.to}” well enough to finish renaming a space`
+      `Couldn’t rename “${folderName(pending.to)}”`
     );
   }
 
@@ -79,12 +84,12 @@ export async function reconcilePendingRename(registry: SpaceRegistry, deps: Reco
       return resolved(
         registry,
         undefined,
-        toId === null ? undefined : `A different space already exists at “${pending.to}”, so the rename was not finished`
+        toId === null ? undefined : `Couldn’t rename “${folderName(pending.to)}”`
       );
     }
     // Both claim to be this Space. A matching id is not a matching folder — a copy carries the same id — so nothing
     // here can tell which is which: neither is opened, neither is changed, and the record is kept.
-    return ambiguous(registry, pending, `Two folders hold this space: “${pending.from}” and “${pending.to}”. Neither was opened or changed`);
+    return ambiguous(registry, pending, `Couldn’t rename “${folderName(pending.to)}”`);
   }
 
   if (toStatus === 'available' && matches(toId)) {
@@ -95,7 +100,7 @@ export async function reconcilePendingRename(registry: SpaceRegistry, deps: Reco
       return retained(
         registry,
         registry.activePath === pending.from ? pending.from : null,
-        `“${pending.to}” was renamed, but Clutter couldn’t carry this space’s saved settings over yet. It will try again next time`
+        `Couldn’t rename “${folderName(pending.to)}”`
       );
     }
 
@@ -118,8 +123,8 @@ export async function reconcilePendingRename(registry: SpaceRegistry, deps: Reco
     blockedActivePath: registry.activePath === pending.from ? pending.from : null,
     notice:
       fromStatus === 'missing' && toStatus === 'missing'
-        ? `Clutter couldn’t find “${pending.from}” or “${pending.to}” to finish renaming a space`
-        : `Clutter couldn’t confirm which folder is this space (“${pending.from}” or “${pending.to}”)`,
+        ? `Couldn’t rename “${folderName(pending.to)}”`
+        : `Couldn’t rename “${folderName(pending.to)}”`,
   };
 }
 

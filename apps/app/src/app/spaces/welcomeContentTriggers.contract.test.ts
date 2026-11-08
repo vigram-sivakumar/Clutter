@@ -9,15 +9,12 @@ const SRC = path.resolve(__dirname, '../..');
 const appShell = fs.readFileSync(path.join(SRC, 'app/AppShell.tsx'), 'utf8');
 const spaceDetails = fs.readFileSync(path.join(SRC, 'components/space-details/SpaceDetails.tsx'), 'utf8');
 
-describe('welcome content triggers (ADR-067)', () => {
-  it('createdByWelcomeRef is set in exactly one place: the Welcome dialog Create handler, from the created folder', () => {
-    const assignments = [...appShell.matchAll(/createdByWelcomeRef\.current = (?!null)/g)];
-    expect(assignments).toHaveLength(1);
-
-    const handler = appShell.slice(appShell.indexOf('async function createFolderOrOpenChosen'));
-    const handlerBody = handler.slice(0, handler.indexOf('\n  }\n'));
-    expect(handlerBody).toContain("createdByWelcomeRef.current = normalizeSpacePath(outcome.path)");
-    expect(handlerBody).toContain("'path' in outcome");
+describe('welcome content triggers (ADR-070)', () => {
+  it('the creation entry point decides: there is no created-by-Welcome flag, no first-run record and no background resume', () => {
+    expect(appShell).not.toContain('createdByWelcomeRef');
+    expect(appShell).not.toContain('resumeInterruptedWelcomeContent');
+    expect(appShell).not.toContain('welcomeContentRecord');
+    expect(fs.existsSync(path.join(SRC, 'app/spaces/welcomeContentRecord.ts'))).toBe(false);
   });
 
   it('the gate runs once, only for a Welcome open, BEFORE the Application is handed to the UI and the Space is remembered', () => {
@@ -25,24 +22,32 @@ describe('welcome content triggers (ADR-067)', () => {
     const gate = appShell.indexOf('prepareWelcomeSpace(');
 
     expect(gate).toBeGreaterThan(appShell.indexOf('const gatedByWelcome = onboardingForGate?.path === openPath'));
+    expect(appShell.slice(appShell.indexOf('if (gatedByWelcome) {'), gate)).not.toContain('} else {');
     expect(gate).toBeLessThan(appShell.indexOf('setApplication(prepared);\n      setError(null)'));
     expect(gate).toBeLessThan(appShell.indexOf('spaces.confirmOpened()'));
     // A closed gate throws, so the open sequence's own failure path discards the Application and keeps the dialog.
     expect(appShell).toContain('if (!gate.open) throw new WelcomeInstallIncompleteError(gate.message)');
+    // Only a Space that was just populated opens on the welcome folder.
+    expect(appShell).toContain('if (gate.installed) await openWelcomeFolder(prepared, openPath);');
   });
 
-  it('a closed gate leaves the folder claimed as created (so the retry resumes) and shows its message in the dialog', () => {
+  it('a Space is "from the Welcome Screen" only when the Welcome dialog is the one opening it; the sidebar flow never reaches the gate', () => {
+    // The gate condition is the Welcome dialog's own pending open (`onboardingRef`), set only by `openSpaceFromWelcome`.
+    expect(appShell.match(/onboardingRef\.current = \{/g)).toHaveLength(1);
+    const setter = appShell.slice(appShell.indexOf('async function openSpaceFromWelcome('));
+    expect(setter.slice(0, setter.indexOf('\n  }\n'))).toContain('onboardingRef.current = {');
+    // The sidebar's Space details dialog has no create handler and its open goes through `confirmPendingSpace`.
+    const sidebarDetails = appShell.slice(appShell.indexOf('<SpaceDetails'));
+    const sidebarProps = sidebarDetails.slice(0, sidebarDetails.indexOf('/>'));
+    expect(sidebarProps).not.toContain('onCreateFolder');
+    expect(sidebarProps).toContain('onOpenSpace={confirmPendingSpace}');
+    const confirm = appShell.slice(appShell.indexOf('async function confirmPendingSpace('));
+    expect(confirm.slice(0, confirm.indexOf('\n  }\n'))).not.toContain('openSpaceFromWelcome');
+  });
+
+  it('a closed gate shows its message in the dialog, which stays up; the retry is another Welcome open of the same folder', () => {
     expect(appShell).toContain('const unfinishedInstall = loadError instanceof WelcomeInstallIncompleteError');
-    expect(appShell).toContain('if (!unfinishedInstall && createdByWelcomeRef.current === openPath) createdByWelcomeRef.current = null');
     expect(appShell).toContain('unfinishedInstall\n              ? loadError.message');
-  });
-
-  it('only a Space opened outside the Welcome dialog resumes in the background, after it is open and remembered', () => {
-    expect(appShell.match(/resumeInterruptedWelcomeContent\(/g)).toHaveLength(1);
-    const background = appShell.indexOf('resumeInterruptedWelcomeContent(');
-
-    expect(background).toBeGreaterThan(appShell.indexOf('spaces.confirmOpened()'));
-    expect(appShell.slice(appShell.indexOf('if (onboarding && onboarding.path === openPath) {'), background)).toContain('} else {');
   });
 
   it('nothing else in the app calls the service, and Application constructs it once', () => {

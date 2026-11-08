@@ -246,8 +246,10 @@ describe('insertOrderedListMarkerSeparator — normalization on marker creation'
         current = tr.state;
       };
 
+      // The new item is the first of its list with nothing to nest under, so Tab leaves it alone (four more spaces
+      // would only make it lazy text of the paragraph above).
       markdownIndentMore({ state: current, dispatch });
-      expect(current.doc.toString()).toBe('Paragraph\n    1. ');
+      expect(current.doc.toString()).toBe('Paragraph\n1. ');
 
       markdownIndentLess({ state: current, dispatch });
       expect(current.doc.toString()).toBe('Paragraph\n1. ');

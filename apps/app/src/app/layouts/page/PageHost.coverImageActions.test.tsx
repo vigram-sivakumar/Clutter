@@ -296,13 +296,12 @@ describe('PageHost: cover image — Copy image address and Copy image', () => {
     expect(await screen.findByText('Image address copied')).toBeInTheDocument();
   });
 
-  it('Copy image address on a vault cover copies its vault-relative path — not a file:// URL or an absolute path', async () => {
+  it('lists no Copy image address for a vault cover: a file in Assets has no address to copy, only a remote image does', async () => {
     await openCoverMenu('Assets/photos/mountain.png');
 
-    fireEvent.click(screen.getByText('Copy image address'));
-
-    await waitFor(() => expect(writeText).toHaveBeenCalledWith('Assets/photos/mountain.png'));
-    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Copy image address')).not.toBeInTheDocument();
+    expect(screen.getByText('Copy image')).toBeInTheDocument();
+    expect(writeText).not.toHaveBeenCalled();
   });
 
   it('Copy image on a remote cover fetches it and puts image/png data — not text — on the clipboard', async () => {

@@ -50,6 +50,8 @@ export function ImagePickerUnsplash({ onSelect, orientation }: ImagePickerUnspla
   const [photos, setPhotos] = useState<UnsplashPhoto[]>(initialPhotos ?? []);
   const [isLoading, setIsLoading] = useState(initialPhotos === null);
   const [error, setError] = useState<string | null>(null);
+  // Thumbnails that did not load get a placeholder instead of a broken-image icon.
+  const [failedThumbnails, setFailedThumbnails] = useState<ReadonlySet<string>>(() => new Set());
 
   // A search starts at its first page; with no search text the Editorial feed opens on a random page.
   const handleQueryChange = (value: string) => {
@@ -191,11 +193,20 @@ export function ImagePickerUnsplash({ onSelect, orientation }: ImagePickerUnspla
                   className="image-picker-unsplash__item"
                   onClick={() => handleSelect(photo)}
                 >
-                  <img
-                    src={photo.urls.small}
-                    alt=""
-                    className="image-picker-unsplash__image"
-                  />
+                  {failedThumbnails.has(photo.id) ? (
+                    <span className="image-picker-unsplash__placeholder" aria-hidden="true">
+                      <AppIcon icon="image" />
+                    </span>
+                  ) : (
+                    <img
+                      src={photo.urls.small}
+                      alt=""
+                      className="image-picker-unsplash__image"
+                      onError={() =>
+                        setFailedThumbnails((failed) => new Set(failed).add(photo.id))
+                      }
+                    />
+                  )}
                 </button>
                 <span className="image-picker-unsplash__credit">
                   by{' '}

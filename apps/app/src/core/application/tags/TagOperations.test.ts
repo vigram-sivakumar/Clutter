@@ -219,6 +219,35 @@ describe('TagOperations.updateMetadata', () => {
   });
 });
 
+describe('TagOperations.isNameTaken', () => {
+  it('is true only when another existing tag already has that identity, whatever its casing or separator', () => {
+    const page = buildPage('p1', '#product-design and #Marketing_Team');
+    const { tagOperations } = setup([page]);
+
+    expect(tagOperations.isNameTaken('product-design', 'marketing-team')).toBe(true);
+    expect(tagOperations.isNameTaken('product-design', '  Marketing_Team  ')).toBe(true);
+  });
+
+  it('is false for a free name, the tag\'s own identity, and a name that is empty or malformed (refused, but not taken)', () => {
+    const page = buildPage('p1', '#product-design and #marketing');
+    const { tagOperations } = setup([page]);
+
+    expect(tagOperations.isNameTaken('product-design', 'UX design')).toBe(false);
+    expect(tagOperations.isNameTaken('product-design', 'product_design')).toBe(false);
+    expect(tagOperations.isNameTaken('product-design', '   ')).toBe(false);
+    expect(tagOperations.isNameTaken('product-design', 'Personal: project')).toBe(false);
+  });
+
+  it('agrees with canRename: a non-empty, well-formed name is refused exactly when it is taken', () => {
+    const page = buildPage('p1', '#product-design and #marketing');
+    const { tagOperations } = setup([page]);
+
+    for (const name of ['marketing', 'Marketing', 'brand-new', 'product-design']) {
+      expect(tagOperations.canRename('product-design', name)).toBe(!tagOperations.isNameTaken('product-design', name));
+    }
+  });
+});
+
 describe('TagOperations.canRename', () => {
   it('returns false for an empty or whitespace-only name, mirroring rename()\'s own rejection', () => {
     const page = buildPage('p1', '#product-design and #marketing');

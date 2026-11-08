@@ -443,3 +443,119 @@ describe('external versus internal paste, through CodeMirror', () => {
     expect(other.state.doc.toString()).toBe('- \\[ \\] kept\n  - nested');
   });
 });
+
+/**
+ * Fences indented four or more columns. Markdown reads four spaces as indented code, so plain text keeps that rule:
+ * only the rich-HTML path, which indents a `<pre>` in a list item to the item's content column, opts in with
+ * `indentedFences`. The expected plain-text outputs below are what `normalizeExternalPaste` produced before the option
+ * existed (two blank lines collapse to one, because the backticks are not a fence there), so they pin "unchanged".
+ */
+describe('normalizeExternalPaste — fences indented four or more columns', () => {
+  // [name, input, the plain-text result (unchanged), the result with `indentedFences` (the fence is recognised)]
+  const CASES = [
+    [
+      'after other indented text',
+      '    code\n    ```\n    a\n\n\n    b\n    ```',
+      '    code\n    ```\n    a\n\n    b\n    ```',
+      '    code\n    ```\n    a\n\n\n    b\n    ```',
+    ],
+    [
+      'under a list item',
+      '- a\n      ```\n      - x\n\n\n      y\n      ```',
+      '- a\n      ```\n      - x\n\n      y\n      ```',
+      '- a\n      ```\n      - x\n\n\n      y\n      ```',
+    ],
+    [
+      'under a nested list item',
+      '- a\n    - b\n      ```\n      - x\n\n\n      y\n      ```',
+      '- a\n    - b\n      ```\n      - x\n\n      y\n      ```',
+      '- a\n    - b\n      ```\n      - x\n\n\n      y\n      ```',
+    ],
+    [
+      'a tilde fence under a wide-marker item',
+      '10. a\n    ~~~\n    - x\n\n\n    y\n    ~~~',
+      '10. a\n    ~~~\n    - x\n\n    y\n    ~~~',
+      '10. a\n    ~~~\n    - x\n\n\n    y\n    ~~~',
+    ],
+  ] as const;
+
+  it.each(CASES)('plain text keeps its previous treatment: %s', (_name, input, plain) => {
+    expect(normalizeExternalPaste(input)).toBe(plain);
+    expect(normalizeExternalPaste(input, { indentedFences: false })).toBe(plain);
+  });
+
+  it.each(CASES)('HTML-converted text keeps the code inside the fence: %s', (_name, input, _plain, recognised) => {
+    expect(normalizeExternalPaste(input, { indentedFences: true })).toBe(recognised);
+  });
+
+  it('indented text that is not after a list item or indented line is never a fence, with the option on or off', () => {
+    const input = 'text\n\n    ```\n    a\n\n\n    b\n    ```';
+    const expected = 'text\n    ```\n    a\n\n    b\n    ```';
+
+    expect(normalizeExternalPaste(input)).toBe(expected);
+    expect(normalizeExternalPaste(input, { indentedFences: true })).toBe(expected);
+  });
+
+  it('fences indented 0–3 columns are recognised either way, and keep their blank lines', () => {
+    for (const input of ['```\na\n\n\nb\n```', '   ```\n   a\n\n\n   b\n   ```', '- a\n  ```\n  - x\n\n\n  y\n  ```', '1. a\n   ```\n   y\n\n\n   z\n   ```']) {
+      expect(normalizeExternalPaste(input)).toBe(input);
+      expect(normalizeExternalPaste(input, { indentedFences: true })).toBe(input);
+    }
+  });
+
+  it('the option leaves the other rules alone', () => {
+    expect(normalizeExternalPaste('- [ ]  Task\n\n\n\ntext', { indentedFences: true })).toBe('- [ ] Task\n\ntext');
+    expect(normalizeExternalPaste('- \\[ \\] Task', { indentedFences: true })).toBe('- [ ] Task');
+    expect(normalizeExternalPaste('- \\[ \\] Task', { indentedFences: true, restoreEscapedTasks: false })).toBe('- \\[ \\] Task');
+  });
+
+  describe('through a real paste event (plain text takes the clipboard filter, which passes no options)', () => {
+    const views: EditorView[] = [];
+
+    afterEach(() => {
+      for (const view of views.splice(0)) {
+        view.destroy();
+      }
+    });
+
+    function pasteText(text: string): string {
+      const parent = document.body.appendChild(document.createElement('div'));
+      const view = new EditorView({ state: EditorState.create({ doc: '', extensions: [externalPasteNormalization()] }), parent });
+      views.push(view);
+      const event = new Event('paste', { bubbles: true, cancelable: true }) as Event & { clipboardData: unknown };
+      event.clipboardData = { getData: (type: string) => (type === 'text/plain' ? text : '') };
+      view.contentDOM.dispatchEvent(event);
+      return view.state.doc.toString();
+    }
+
+    it.each(CASES)('plain-text paste: %s', (_name, input, plain) => {
+      expect(pasteText(input)).toBe(plain);
+    });
+  });
+});
+
+/**
+ * `origin: 'html'`: Markdown Clutter's own HTML conversion produced. A blank line in it separates independent blocks, so
+ * it is kept where removing it would merge two tables or two quotes. The default origin (`text`) is
+ * compacted exactly as before — the second column below is what `normalizeExternalPaste` returned before the option.
+ */
+describe('normalizeExternalPaste — origin', () => {
+  const cases: [string, string, string, string][] = [
+    // [name, input, text result (unchanged), html result]
+    ['two tables', '| a |\n| --- |\n\n| b |\n| --- |', '| a |\n| --- |\n| b |\n| --- |', '| a |\n| --- |\n\n| b |\n| --- |'],
+    ['three tables', '| a |\n| - |\n\n| b |\n| - |\n\n| c |\n| - |', '| a |\n| - |\n| b |\n| - |\n| c |\n| - |', '| a |\n| - |\n\n| b |\n| - |\n\n| c |\n| - |'],
+    ['two quotes', '> q\n\n> r', '> q\n> r', '> q\n\n> r'],
+    ['two paragraphs', 'a\n\nb', 'a\nb', 'a\nb'],
+    ['a heading and a paragraph', '# H\n\nbody', '# H\nbody', '# H\nbody'],
+    ['a paragraph and a list', 'x\n\n- y', 'x\n- y', 'x\n- y'],
+    ['a fence and a paragraph', '```\ncode\n```\n\nz', '```\ncode\n```\nz', '```\ncode\n```\nz'],
+    ['an embed between paragraphs', 'one\n\n![[Assets/a.png]]\n\ntwo', 'one\n![[Assets/a.png]]\ntwo', 'one\n![[Assets/a.png]]\ntwo'],
+    ['a long gap', 'a\n\n\n\nb', 'a\n\nb', 'a\n\nb'],
+  ];
+
+  it.each(cases)('%s', (_name, input, text, html) => {
+    expect(normalizeExternalPaste(input)).toBe(text);
+    expect(normalizeExternalPaste(input, { origin: 'text' })).toBe(text);
+    expect(normalizeExternalPaste(input, { origin: 'html' })).toBe(html);
+  });
+});

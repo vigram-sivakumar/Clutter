@@ -1,6 +1,7 @@
 import { Autolink, Strikethrough, Table, TaskList, type MarkdownExtension } from '@lezer/markdown';
 
 import { bareDomainSyntax } from './bareDomainSyntax';
+import { clutterQuoteSyntax } from './clutterQuoteSyntax';
 import { dateSyntax } from './dateSyntax';
 import { embedSyntax } from './embedSyntax';
 import { emojiListSyntax } from './emojiListSyntax';
@@ -26,38 +27,16 @@ import { wikiLinkSyntax } from './wikiLinkSyntax';
  * rationale (GFM subset scope, why WikiLink/Tag/Date are registered this
  * way, what's deliberately not enabled yet).
  *
- * `{ remove: ['IndentedCode'] }` (2026-08-28, editor-indentation-ceiling
- * milestone) disables CommonMark's "4+ leading columns = indented code
- * block" rule, everywhere this grammar is used — confirmed a single,
- * officially-supported `MarkdownParser.configure()` option
- * (`@lezer/markdown`'s own `remove` config, not a fork/custom dialect),
- * and confirmed empirically (real parse, both through this array directly
- * and through the full `markdown()` wrapper `markdownLanguage.ts` uses)
- * to leave `FencedCode`, list-nesting thresholds, and every other
- * construct's own parsing completely unaffected — `IndentedCode` is a
- * single, independently named block parser, entirely separate from
- * fenced code and from list-item nesting math. Placed in this shared
- * array (not duplicated in `markdownLanguage.ts` and
- * `tokenizeCompactMarkdown.ts` separately) specifically so both consumers
- * — the page editor and the sidebar's compact renderer — can never
- * disagree about which leading-indentation levels still count as a
- * paragraph/heading/blockquote/list vs. code, the same guarantee this
- * array already exists to provide for every other construct.
- *
- * **Consequence, deliberately accepted, not hidden**: a genuine,
- * intentionally-typed 4-space indented code block — anywhere, including
- * as a list item's own content — no longer parses as code inside Clutter
- * (falls back to an ordinary paragraph); fenced code blocks
- * (`` ``` ``) are the unaffected, fully-supported way to author code from
- * here on. This also means a Clutter document leaning on deep leading
- * indentation (now valid inside Clutter, up to the editor's own 20-space
- * ceiling — see `indent/markdownIndentContext.ts`) will render
- * differently in any standards-compliant external Markdown tool, which
- * has no way to know about this app-local parser configuration — an
- * unavoidable interop cost of the file format itself, not something this
- * configuration choice could avoid by being implemented differently.
+ * **Indented code is standard CommonMark here.** Four or more leading columns after a blank line (or at the start of a
+ * block) are an indented code block (`CodeBlock`/`CodeText`), so `        - x` after a blank line is code, not a
+ * bullet. An earlier version removed the `IndentedCode` block parser (2026-08-28, editor-indentation-ceiling) so deep
+ * Tab-indentation never became code; that is reverted (2026-11-03) so Clutter reads Markdown the way every other
+ * tool does. Lists still nest by the usual rule: a marker indented less than the parent item's content column plus
+ * four is a nested item, and an indented line directly after a paragraph is that paragraph's lazy continuation.
+ * This one shared array still keeps the editor and the compact renderer from disagreeing about any of it.
  */
-export const markdownGrammarExtensions: MarkdownExtension = [
+function buildMarkdownGrammarExtensions(emojiLists: boolean): MarkdownExtension {
+  return [
   Autolink,
   // Extends Autolink's own family: recognizes a scheme-less, www.-less
   // bare domain (example.com, example.co.uk/path) as the same URL node
@@ -83,7 +62,26 @@ export const markdownGrammarExtensions: MarkdownExtension = [
   doubleHorizontalRuleSyntax,
   dottedHorizontalRuleSyntax,
   labeledHorizontalRuleSyntax,
-  emojiListSyntax,
+  clutterQuoteSyntax,
+  ...(emojiLists ? [emojiListSyntax] : []),
   listMarkerParagraphInterrupt,
-  { remove: ['IndentedCode'] },
-];
+  ];
+}
+
+/**
+ * The grammar with emoji lists on — the default, and the one every persisted/ingest consumer (`tagParser`, the
+ * parsed-note cache) uses, since what is stored must not depend on a per-device preference.
+ */
+export const markdownGrammarExtensions: MarkdownExtension = buildMarkdownGrammarExtensions(true);
+
+/**
+ * The same grammar without `emojiListSyntax`: an emoji-led line is then an ordinary `Paragraph`, with no
+ * `EmojiList`/`EmojiListMark` nodes. Used by the editor and the read-only renderer while the *Enable emoji lists*
+ * setting is off; everything else about the grammar is identical.
+ */
+export const markdownGrammarExtensionsWithoutEmojiLists: MarkdownExtension = buildMarkdownGrammarExtensions(false);
+
+/** The grammar for the *Enable emoji lists* setting's current value. */
+export function markdownGrammarFor(emojiLists: boolean): MarkdownExtension {
+  return emojiLists ? markdownGrammarExtensions : markdownGrammarExtensionsWithoutEmojiLists;
+}

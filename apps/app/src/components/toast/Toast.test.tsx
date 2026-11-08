@@ -58,7 +58,7 @@ describe('Toast', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('stays longer for an error or an offered action than for a plain confirmation', () => {
+  it('stays longer only for an offered action; an error dismisses with a plain confirmation', () => {
     const plain = vi.fn();
     const error = vi.fn();
     const actionable = vi.fn();
@@ -75,13 +75,12 @@ describe('Toast', () => {
       vi.advanceTimersByTime(4000);
     });
     expect(plain).toHaveBeenCalledTimes(1);
-    expect(error).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalledTimes(1);
     expect(actionable).not.toHaveBeenCalled();
 
     act(() => {
       vi.advanceTimersByTime(4000);
     });
-    expect(error).toHaveBeenCalledTimes(1);
     expect(actionable).toHaveBeenCalledTimes(1);
   });
 

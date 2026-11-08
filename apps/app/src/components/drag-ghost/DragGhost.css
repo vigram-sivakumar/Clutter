@@ -96,7 +96,9 @@
   position: absolute;
   top: calc(-1 * var(--space-8));
   left: calc(-1 * var(--space-8));
-  z-index: 1;
+  /* Above the lifted pieces. Each piece is a `.drag-ghost` with `z-index: var(--z-overlay)`, in this same stacking
+     context, so a small number here would put the badge behind them. */
+  z-index: calc(var(--z-overlay) + 1);
 
   display: flex;
   align-items: center;

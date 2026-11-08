@@ -141,6 +141,21 @@ export class TagOperations {
   }
 
   /**
+   * Whether `newName` is refused only because another tag already has that identity — the one reason `canRename()`
+   * refuses that is a duplicate rather than an empty or malformed name. Lets a caller say "already taken" for exactly
+   * that case. Read-only; uses the same collision scan as `canRename()` and `rename()`.
+   */
+  isNameTaken(oldName: string, newName: string): boolean {
+    const trimmedNewName = newName.trim();
+
+    if (!trimmedNewName || !isValidTagName(serializeTagName(trimmedNewName))) {
+      return false;
+    }
+
+    return this.findCollision(normalizeTagName(oldName), normalizeTagName(trimmedNewName)) !== undefined;
+  }
+
+  /**
    * Renames a tag's canonical identity everywhere it is used: every inline
    * `#tag` occurrence and every frontmatter `tags:` entry in every note, and
    * the tag's definition (icon, favorite) moves with it.

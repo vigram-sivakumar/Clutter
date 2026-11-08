@@ -56,7 +56,7 @@ When a construct needs source-backed geometry for correct caret, selection, or l
 
 ### 1.6 Intentional replacement is allowed
 
-`Decoration.replace`/widgets are not universally forbidden. They're correct when replacement is intentionally part of the product's representation — a semantic task checkbox is the current example. A task checkbox widget is **not** equivalent to a concealed Markdown marker and must not be judged against the marker conceal/reveal rules at all; see §2 for the explicit distinction.
+`Decoration.replace`/widgets are not universally forbidden. They're correct when replacement is intentionally part of the product's representation — a semantic task checkbox is the current example. A task checkbox widget is **not** equivalent to a concealed Markdown marker and must not be judged against the marker conceal/reveal rules at all; see §2 for the explicit distinction. (It does show its raw `- [ ]` while the selection touches the marker — via the shared `isTokenEngaged` query, 2026-11-03 — but that is a convenience on top of the widget, not conformance with those rules.)
 
 ### 1.7 Do not force implementation uniformity
 
@@ -84,7 +84,7 @@ This contract defines DOM/geometry/ownership invariants, not one mandatory CodeM
 - [ ] Task
 ```
 
-- The checkbox is an interactive product control, not a hidden-then-revealed marker.
+- The checkbox is an interactive product control, not a hidden-then-revealed marker. (Since 2026-11-03 it reverts to raw source while the selection touches the marker run, never merely because the caret is on its line.)
 - Widget replacement is allowed intentionally (1.6).
 - This is not judged against, or forced into, the marker conceal/reveal model at all.
 
@@ -200,13 +200,13 @@ Bullet/ordered marker DOM already matches the naming contract: `<span class="cm-
 
 `.cm-list-line` **currently defines** `padding-left`/`text-indent` geometry in CSS ([`MarkdownEditor.css:169-175`](../apps/app/src/features/markdown/editor/MarkdownEditor.css)) — but since the list decoration extensions that would apply `.cm-list-line` are unwired, **this geometry is defined in CSS but not active in the current editor.** Its runtime interaction behavior (including whether it reproduces the same cross-boundary selection bug blockquote's own padding-based gutter had) **has not been verified and must be treated as unverified** until list rendering is re-enabled and actually tested — not asserted as a live bug.
 
-Task markers (`- [ ] `) are `Decoration.replace({widget: TaskCheckboxWidget})` — full replacement, permanently, in every engagement state. Per §2, this is the **semantic UI replacement** model, not marker conceal/reveal, and is correctly modeled as such today. This is not a conformance gap to fix; it's the intentional pattern §1.6/§2 describe.
+Task markers (`- [ ] `) are `Decoration.replace({widget: TaskCheckboxWidget})` at rest. **Updated 2026-11-03:** while the selection touches the marker (`isTokenEngaged` over the marker + separator + `TaskMarker`, boundaries included) the replacement is dropped and the raw `- [ ]` shows, marker-tinted, with no atomic range; a caret elsewhere on the line does not reveal it (see `editor-architecture-decisions.md`). Per §2, this is the **semantic UI replacement** model, not marker conceal/reveal, and is correctly modeled as such today. This is not a conformance gap to fix; it's the intentional pattern §1.6/§2 describe.
 
 **What remains genuinely open, not yet a violation:** if/when list is re-enabled, `.cm-list-line`'s padding/text-indent geometry needs the same verification blockquote already went through — confirm whether it actually produces a cross-boundary selection defect, rather than assuming 1.4 is already broken. Bullet/ordered markers do not currently have any conceal/reveal behavior at all (they always render); whether to add it is a product decision, independent of this migration.
 
 ### 5.4 Other constructs
 
-`tableDecoration.ts` and `emojiListMarkDecoration.ts` are dormant and not audited in depth here — flagged as unaudited, not as conforming or non-conforming. Tag and Date are widget-replace constructs (entirely atomic at rest, no marker/content split to speak of) and are not addressed by this pass — flagged as a later, separate question, not silently included or excluded.
+`tableDecoration.ts` is dormant and not audited in depth here (`emojiListMarkDecoration.ts`, listed as dormant when this was written, was retired 2026-11-03: the emoji marker is now part of `listMarkerDecoration.ts`'s shared pass) — flagged as unaudited, not as conforming or non-conforming. Tag and Date are widget-replace constructs (entirely atomic at rest, no marker/content split to speak of) and are not addressed by this pass — flagged as a later, separate question, not silently included or excluded.
 
 ### 5.5 Inline marker family — audit (third pass, 2026-08-27; §7.1 step 1 shipped and verified same day — see below)
 
@@ -351,7 +351,7 @@ Every claim sourced directly from current files. All seven constructs below curr
 
 1. **Heading migration is optional**, not scheduled. It requires a concrete UX/interaction reason (mirroring the kind of real, reproduced bug that justified blockquote's own migration) — not architectural symmetry. The existing `Decoration.replace` approach may remain indefinitely if its behavior stays intentional and tested. If a reason does emerge, the smallest change is: real `Decoration.mark` over `HeaderMark` (+ separator) in both engagement states, `cm-heading-marker`/`cm-heading-marker--concealed`, as a bespoke per-construct mechanism (matching blockquote's own choice not to modify the shared `liveMarkDecoration.ts` for every consumer at once) — re-evaluate whether `liveMarkSelectionSnap.ts` is still needed for heading at that point, not before.
 2. **List — bullet/ordered markers.** Before any DOM change: re-enable and verify whether `.cm-list-line`'s current padding/text-indent geometry actually reproduces a cross-boundary selection defect (§5.3) — do not assume it does. If it does, the migration is a genuinely new design problem, not a mechanical copy of blockquote's pattern: list markers vary in width and nest to arbitrary depth, unlike blockquote's fixed single bar.
-3. **List — task checkboxes are explicitly out of this migration.** They're correctly modeled today under the semantic UI replacement path (§2), not the marker conceal/reveal path — no change proposed.
+3. **List — task checkboxes are explicitly out of this migration.** They're correctly modeled today under the semantic UI replacement path (§2), not the marker conceal/reveal path — no change proposed. (They gained a raw reveal on marker engagement on 2026-11-03, using the existing `isTokenEngaged`; the replacement model itself is unchanged.)
 
 No code has been changed by this document. Naming-contract renames (blockquote's `cm-formatting-quote` → `cm-quote-marker`) happen in a future change that touches the relevant file, not as part of writing this agreement.
 
