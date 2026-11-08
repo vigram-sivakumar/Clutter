@@ -100,7 +100,7 @@
 //! # Volumes
 //!
 //! Only APFS is supported (`ReplaceRequest::supported_filesystems`, default `["apfs"]`). The destination
-//! directory's filesystem type is read with `fstatfs` before anything is created; any other type is refused
+//! directory's filesystem type is read (`volume_type`, from the volume's type-name resource value, ADR-069) before anything is created; any other type is refused
 //! (`UnsupportedFilesystem`). Atomic visibility was observed on exFAT disk images in an earlier milestone, but that
 //! is not evidence for production use, and SMB, NFS and cloud-synced folders were never verified. The list is a
 //! request field so tests and manual volume checks can widen it explicitly; nothing widens it silently.
@@ -132,9 +132,7 @@
 //! # Hand-written native interface
 //!
 //! The declarations below were checked against the macOS SDK headers on the build machine (constants by grep; the
-//! sizes of `statfs`, `attrlist` and `timespec` and the offset of `f_fstypename` by a C program and by tests).
-//! `fstatfs` uses the `$INODE64` symbol on x86_64; that path has **not** been exercised (the development machine
-//! is arm64). Extended-attribute reads use the size-then-read pattern; an attribute that changes in between makes
+//! sizes of `attrlist` and `timespec` by a C program and by tests). Extended-attribute reads use the size-then-read pattern; an attribute that changes in between makes
 //! the read fail, which refuses the write (safe, retryable), it does not copy a torn value.
 //!
 //! # Policies
@@ -199,7 +197,10 @@ struct AttrList {
     forkattr: u32,
 }
 
-/// `struct statfs` from `<sys/mount.h>` (64-bit inode layout). Only `f_fstypename` is read.
+/// `struct statfs` from `<sys/mount.h>` (64-bit inode layout). Only `f_fstypename` is read. Tests only: it is the
+/// independent oracle the volume-type tests compare `volume_type` against. The shipped code never calls `fstatfs`,
+/// which Apple lists as a disk-space API needing a declared reason that nothing here has (ADR-069).
+#[cfg(test)]
 #[repr(C)]
 struct Statfs {
     f_bsize: u32,
@@ -236,8 +237,9 @@ extern "C" {
         options: c_uint,
     ) -> c_int;
     fn renamex_np(from: *const c_char, to: *const c_char, flags: c_uint) -> c_int;
-    // The 64-bit-inode `statfs` family is the only layout `Statfs` below describes; on x86_64 macOS that is the
-    // `$INODE64` symbol, on Apple silicon the plain one.
+    // Tests only (the oracle for `volume_type`); the 64-bit-inode layout `Statfs` describes is the plain symbol on
+    // Apple silicon and `$INODE64` on x86_64.
+    #[cfg(test)]
     #[cfg_attr(target_arch = "x86_64", link_name = "fstatfs$INODE64")]
     fn fstatfs(fd: c_int, buf: *mut Statfs) -> c_int;
     fn flistxattr(fd: c_int, names: *mut c_char, size: usize, options: c_int) -> isize;
@@ -318,7 +320,7 @@ pub struct ReplaceRequest<'a> {
     pub intent: Intent<'a>,
     /// When set, the target's canonical parent directory must be inside this directory.
     pub scope_root: Option<&'a Path>,
-    /// Filesystem type names (as `fstatfs` reports them) the destination's volume must be one of. Default:
+    /// Filesystem type names (as `volume_type` reports them: `apfs`, `hfs`, `exfat`, `msdos`, ...) the destination's volume must be one of. Default:
     /// [`SUPPORTED_FILESYSTEMS`]. Widening it is an explicit act of the caller; the module never does it.
     pub supported_filesystems: &'a [&'a str],
 }
@@ -872,19 +874,42 @@ pub(crate) enum VolumeProbeError {
     Stat(io::Error),
 }
 
-/// The filesystem type name (`apfs`, `exfat`, `msdos`, `hfs`, ...) of the volume `directory` is on, as `fstatfs`
-/// reports it. The one place a volume's type is read: the save path ([`check_volume_at`]) and the Space picker's
-/// early check (`atomic_commands::check_space_filesystem`) both ask here, against the same [`SUPPORTED_FILESYSTEMS`].
+/// The filesystem type name (`apfs`, `exfat`, `msdos`, `hfs`, ...) of the volume `directory` is on: the name the
+/// system reports for the volume (`NSURLVolumeTypeNameKey`), identical to the `f_fstypename` of `statfs` (checked on
+/// APFS, HFS+, exFAT and FAT32 volumes). The one place a volume's type is read: the save path ([`check_volume_at`])
+/// and the Space picker's early check (`atomic_commands::check_space_filesystem`) both ask here, against the same
+/// [`SUPPORTED_FILESYSTEMS`]. It deliberately does not use `fstatfs`: that is one of Apple's disk-space APIs, which
+/// need a declared reason in the privacy manifest, and Clutter never reads free space (ADR-069).
 pub(crate) fn volume_type(directory: &Path) -> Result<String, VolumeProbeError> {
-    let directory = File::open(directory).map_err(VolumeProbeError::Open)?;
-    let mut info: Statfs = unsafe { std::mem::zeroed() };
-    cvt(unsafe { fstatfs(directory.as_raw_fd(), &mut info) }).map_err(VolumeProbeError::Stat)?;
-    let length = info
-        .f_fstypename
-        .iter()
-        .position(|byte| *byte == 0)
-        .unwrap_or(info.f_fstypename.len());
-    Ok(String::from_utf8_lossy(&info.f_fstypename[..length]).to_string())
+    // Opened first so a missing or unreadable directory fails here with the same error as before.
+    File::open(directory).map_err(VolumeProbeError::Open)?;
+    volume_type_name(directory).map_err(VolumeProbeError::Stat)
+}
+
+fn volume_type_name(directory: &Path) -> io::Result<String> {
+    use objc2_foundation::{NSArray, NSPOSIXErrorDomain, NSString, NSURLVolumeTypeNameKey, NSURL};
+
+    // Resolved first, as opening the directory does: a link to a directory is judged by the volume it points into.
+    let resolved = fs::canonicalize(directory)?;
+    let path = resolved
+        .to_str()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "the directory path is not valid UTF-8"))?;
+    let url = NSURL::fileURLWithPath_isDirectory(&NSString::from_str(path), true);
+    // SAFETY: a framework-provided constant that is valid for the life of the process.
+    let key = unsafe { NSURLVolumeTypeNameKey };
+    let keys = NSArray::from_slice(&[key]);
+    let values = url.resourceValuesForKeys_error(&keys).map_err(|error| {
+        if &*error.domain() == unsafe { NSPOSIXErrorDomain } {
+            io::Error::from_raw_os_error(error.code() as i32)
+        } else {
+            io::Error::other(error.localizedDescription().to_string())
+        }
+    })?;
+    values
+        .objectForKey(key)
+        .and_then(|value| value.downcast::<NSString>().ok())
+        .map(|name| name.to_string())
+        .ok_or_else(|| io::Error::other("the volume reported no type name"))
 }
 
 /// The destination directory's filesystem must be on the supported list. Nothing has been created yet.
@@ -2861,6 +2886,20 @@ mod tests {
         assert_eq!(unsafe { fstatfs(directory.as_raw_fd(), &mut info) }, 0);
         let length = info.f_fstypename.iter().position(|b| *b == 0).unwrap();
         String::from_utf8_lossy(&info.f_fstypename[..length]).to_string()
+    }
+
+    #[test]
+    fn volume_type_reports_what_statfs_reports_and_follows_a_link() {
+        let scratch = Scratch::new("volume-type");
+        let link = scratch.path("link");
+        std::os::unix::fs::symlink(&scratch.0, &link).unwrap();
+
+        for directory in [scratch.0.as_path(), link.as_path(), Path::new("/"), Path::new("/tmp")] {
+            let probed = volume_type(directory).ok().expect("the volume type of an existing directory");
+            assert_eq!(probed, volume_type_of(directory), "{}", directory.display());
+        }
+        assert_eq!(volume_type(&scratch.0).ok().unwrap(), "apfs");
+        assert!(matches!(volume_type(&scratch.path("missing")), Err(VolumeProbeError::Open(_))));
     }
 
     #[test]

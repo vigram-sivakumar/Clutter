@@ -24,7 +24,7 @@ export interface PersistedTasksViewConfig {
   /** Sidebar group ids (`today`/`overdue`/`upcoming`/`unscheduled`) the user has hidden. */
   readonly hiddenGroups?: readonly string[];
   /**
-   * The tab selected on the Tasks page's tab strip (`all`/`today`/`upcoming`/`unscheduled`), so the page reopens on the
+   * The tab selected on the Tasks page's tab strip (`all`/`today`/`overdue`/`upcoming`/`unscheduled`), so the page reopens on the
    * tab the user left it on. Held as a plain string — like `hiddenGroups`, this store has no opinion on what the valid
    * values are; the caller validates it and falls back to its default for anything it does not recognise.
    */

@@ -50,6 +50,7 @@ import { PreserveBulletStyleSetting } from './markdown-setting/PreserveBulletSty
 import { EnableEmojiListsSetting } from './markdown-setting/EnableEmojiListsSetting';
 import { PreferClutterQuoteSyntaxSetting } from './markdown-setting/PreferClutterQuoteSyntaxSetting';
 import { ResetSettings } from './reset-settings/ResetSettings';
+import { LegalLinks } from './legal-links/LegalLinks';
 import type { ResetSettingsOutcome } from './reset-settings/resetSettingsToDefaults';
 
 const PAGE_TITLES: Record<FixedSettingsPageId, string> = {
@@ -154,6 +155,7 @@ export function Settings({ templates, noteLocation, spaceSettings, space, onClos
                 <AutoDeleteArchivedSetting source={spaceSettings} />
               </SettingsGroup>
             </Fragment>
+            <LegalLinks />
             <ResetSettings
               onReset={onResetSettings}
               busy={space?.busy}

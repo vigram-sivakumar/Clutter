@@ -281,6 +281,7 @@ const SYNTAX: Record<string, { readonly source: string; readonly node: string }>
   'inline-code-typed': { source: '`text`', node: 'InlineCode' },
   highlight: { source: '==text==', node: 'Highlight' },
   strikethrough: { source: '~~text~~', node: 'Strikethrough' },
+  quote: { source: '" text', node: 'ClutterQuote' },
   'task-list': { source: '- [ ] t', node: 'TaskMarker' },
   'wiki-link': { source: '[[Page]]', node: 'WikiLink' },
   'wiki-link-alias': { source: '[[Page|alias]]', node: 'WikiLink' },
@@ -316,6 +317,12 @@ describe('the Markdown guide dialog’s typing triggers', () => {
     // The row shows the text that is typed (the example's text part may differ: "Title" and "alias" are placeholders).
     expect(row.trigger).toBeTruthy();
     expect(await nodesOf(source)).toContain(node);
+  });
+
+  it('a quote starts with either > or " and a space', async () => {
+    expect(await nodesOf('> text')).toContain('Blockquote');
+    expect(await nodesOf('" text')).toContain('ClutterQuote');
+    expect(await nodesOf('"Hello" she said')).not.toContain('ClutterQuote');
   });
 
   it('a divider straight under a paragraph is a heading, which is why the row says to leave a blank line', async () => {

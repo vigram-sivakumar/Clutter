@@ -253,8 +253,19 @@
   pointer-events: none;
 }
 
-/* A cover whose image could not be loaded keeps its place (the image is only hidden) over a quiet surface, so the page
-   does not jump, the menu stays reachable, and the toast explains. The note's cover is untouched. */
+/* A cover whose image could not be loaded gives its space back to the page: no container, no blank area, no broken-image
+   icon, and the page reflows as if there were no cover. The image stays mounted (hidden by Page.Cover.tsx, and still
+   loading), so a load that succeeds, or a Retry, brings the cover back. The note's cover is untouched; the toast explains
+   and offers Retry and Remove. Same two collapses as `data-hidden`: Side slides closed, Above leaves layout entirely
+   (`.page__content`'s `gap` would otherwise leave a stray gap above the title). */
 .page__cover[data-load-failed] {
-  background: var(--surface-secondary);
+  flex-grow: 0;
+  flex-basis: 0;
+  min-width: 0;
+  margin-left: 0;
+  transition-timing-function: var(--layout-transition-collapse-easing);
 }
+.page__content > .page__cover[data-load-failed] {
+  display: none;
+}
+

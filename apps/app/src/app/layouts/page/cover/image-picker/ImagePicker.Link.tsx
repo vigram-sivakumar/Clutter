@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Input } from '@components/input/Input';
 import { Button } from '@components/button/Button';
+import { useRejectShakeField } from '@components/property-list/useRejectShake';
 import type { CoverCredit } from '@core/vault/models/PageMetadata';
 import { getPhoto, trackPhotoDownload } from '@core/integrations/unsplash/UnsplashApi';
 import { parseUnsplashPhotoId, unsplashCoverUrl } from '@core/integrations/unsplash/unsplashAttribution';
@@ -26,6 +27,8 @@ export function ImagePickerLink({ onSubmit }: ImagePickerLinkProps) {
   const [link, setLink] = useState('');
   const [status, setStatus] = useState<Status>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Add with no address shakes the field.
+  const { ref: linkRef, shake: shakeLink } = useRejectShakeField<HTMLInputElement | HTMLTextAreaElement>();
   // Holds the in-flight preload probe. Two jobs at once: (1) keeps a
   // real reference to the Image alive for the duration of the check —
   // its onload/onerror closures already reference `probe` directly, but
@@ -71,6 +74,8 @@ export function ImagePickerLink({ onSubmit }: ImagePickerLinkProps) {
 
     const url = link.trim();
     if (!url) {
+      shakeLink();
+      linkRef.current?.focus();
       return;
     }
 
@@ -116,6 +121,7 @@ export function ImagePickerLink({ onSubmit }: ImagePickerLinkProps) {
   return (
     <div className="image-picker-link">
       <Input
+        ref={linkRef}
         type="url"
         placeholder="Paste image URL"
         value={link}

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ToastProvider } from '@components/toast/ToastProvider';
 import { Settings } from '../Settings';
+import { hasLegalLinks } from '@core/legalLinks';
 import { writeDateFormatChoice, readDateFormatChoice } from '@shared/helpers/time/dateFormatPreference';
 import { writeStartupBehavior } from '../startup-setting/startupPreference';
 import type { ResetSettingsOutcome } from './resetSettingsToDefaults';
@@ -42,6 +43,8 @@ describe('Settings → Preferences → Reset', () => {
       'Startup',
       'Calendar',
       'Data & storage',
+      // Present once a privacy policy or support address is published (core/legalLinks.ts).
+      ...(hasLegalLinks() ? ['Privacy and support'] : []),
     ]);
   });
 

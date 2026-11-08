@@ -141,11 +141,11 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
         owner: 'native',
         display: ['control', 'command', { label: 'F' }],
       },
-      // Page.tsx runs the cover's own hide / show handlers. ⌃⌘C: C for cover, and free in the editor's keymap, in the
-      // system and in the browsers (⇧⌘\\ is CodeMirror's jump-to-matching-bracket, ⌥⌘C opens the web inspector).
-      { id: 'toggle-cover-image', label: 'Toggle cover image', binding: mod('KeyC', { ctrl: true }), owner: 'app' },
-      { id: 'toggle-references', label: 'Toggle references', binding: mod('KeyR', { alt: true }), owner: 'app', pending: true },
-      { id: 'toggle-property-list', label: 'Toggle properties', binding: mod('KeyP', { alt: true }), owner: 'app', pending: true },
+      // Page.tsx runs the cover's own hide / show handlers. ⇧⌘C: C for cover, and free in the editor's keymap and in
+      // the app menu (the browsers' element picker is the only other user of it, in developer tools).
+      { id: 'toggle-cover-image', label: 'Toggle cover image', binding: mod('KeyC', { shift: true }), owner: 'app' },
+      { id: 'toggle-references', label: 'Toggle references', binding: mod('KeyR', { shift: true }), owner: 'app', pending: true },
+      { id: 'toggle-property-list', label: 'Toggle properties', binding: mod('KeyP', { shift: true }), owner: 'app', pending: true },
       // The View menu's own items (app_menu.rs, `add_zoom_items`): the menu bar owns the keys.
       { id: 'zoom-in', label: 'Zoom in', binding: null, owner: 'native', display: ['command', { label: '+' }] },
       { id: 'zoom-out', label: 'Zoom out', binding: null, owner: 'native', display: ['command', { label: '-' }] },

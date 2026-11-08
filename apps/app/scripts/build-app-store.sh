@@ -7,8 +7,11 @@
 #   APPLE_SIGNING_IDENTITY   "3rd Party Mac Developer Application: Name (TEAMID)" or "Apple Distribution: ..."
 #   APPLE_INSTALLER_IDENTITY "3rd Party Mac Developer Installer: Name (TEAMID)" or "Mac Installer Distribution: ..."
 #   APPLE_PROVISIONING_PROFILE  path to the Mac App Store provisioning profile (.provisionprofile) for the bundle id
-#   APP_STORE_BUNDLE_ID      the bundle identifier registered for the app (not com.clutter.dev)
-# Optional: CARGO_TARGET_DIR, APP_STORE_DRY_RUN=1 (checks the credentials and prints the configuration it would use,
+#   (The bundle identifier is not an input: it is the "identifier" in src-tauri/tauri.conf.json, com.vigram.clutter, and
+#   the provisioning profile must be for exactly that. APP_STORE_BUNDLE_ID may be set, but must equal it.)
+# Optional: APP_STORE_BUILD_NUMBER (CFBundleVersion for this upload, for example 2; it must be higher than every build
+# already uploaded for this version, and defaults to the "bundleVersion" in tauri.conf.json, currently 1; the marketing
+# version stays in apps/app/package.json), CARGO_TARGET_DIR, APP_STORE_DRY_RUN=1 (checks the credentials and prints the configuration it would use,
 # builds nothing).
 #
 # NOT verified end to end: this machine has no App Store credentials, so the signing, embedding and packaging steps
@@ -18,7 +21,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 cd "$HERE/.."
 
 MISSING=()
-for NAME in APPLE_SIGNING_IDENTITY APPLE_INSTALLER_IDENTITY APPLE_PROVISIONING_PROFILE APP_STORE_BUNDLE_ID; do
+for NAME in APPLE_SIGNING_IDENTITY APPLE_INSTALLER_IDENTITY APPLE_PROVISIONING_PROFILE; do
   [ -n "${!NAME:-}" ] || MISSING+=("$NAME")
 done
 if [ "${#MISSING[@]}" -gt 0 ]; then
@@ -26,7 +29,14 @@ if [ "${#MISSING[@]}" -gt 0 ]; then
   echo "See the header of this script and docs/building-and-distribution.md." >&2
   exit 1
 fi
-[ "$APP_STORE_BUNDLE_ID" != "com.clutter.dev" ] || { echo "APP_STORE_BUNDLE_ID must be the registered bundle id, not the development one." >&2; exit 1; }
+# One source for the identifier: the config. It is never the retired development one.
+CONFIG_BUNDLE_ID=$(python3 -c "import json; print(json.load(open('src-tauri/tauri.conf.json'))['identifier'])")
+[ "$CONFIG_BUNDLE_ID" = "com.vigram.clutter" ] || { echo "src-tauri/tauri.conf.json identifier is '$CONFIG_BUNDLE_ID', not com.vigram.clutter." >&2; exit 1; }
+APP_STORE_BUNDLE_ID="${APP_STORE_BUNDLE_ID:-$CONFIG_BUNDLE_ID}"
+[ "$APP_STORE_BUNDLE_ID" = "$CONFIG_BUNDLE_ID" ] || { echo "APP_STORE_BUNDLE_ID '$APP_STORE_BUNDLE_ID' differs from the configured identifier '$CONFIG_BUNDLE_ID'." >&2; exit 1; }
+CONFIG_BUILD_NUMBER=$(python3 -c "import json; print(json.load(open('src-tauri/tauri.conf.json'))['bundle']['macOS']['bundleVersion'])")
+BUILD_NUMBER="${APP_STORE_BUILD_NUMBER:-$CONFIG_BUILD_NUMBER}"
+echo "$BUILD_NUMBER" | grep -qE '^[0-9]+(\.[0-9]+){0,2}$' || { echo "The build number '$BUILD_NUMBER' must be one to three dot-separated integers (for example 2)." >&2; exit 1; }
 [ -f "$APPLE_PROVISIONING_PROFILE" ] || { echo "Provisioning profile not found: $APPLE_PROVISIONING_PROFILE" >&2; exit 1; }
 case "$APPLE_SIGNING_IDENTITY" in
   "3rd Party Mac Developer Application"*|"Apple Distribution"*) ;;
@@ -53,12 +63,12 @@ ENTITLEMENTS="$WORK/Entitlements.plist"
 cp src-tauri/Entitlements.plist "$ENTITLEMENTS"
 /usr/libexec/PlistBuddy -c "Add :com.apple.application-identifier string $TEAM_ID.$APP_STORE_BUNDLE_ID" "$ENTITLEMENTS"
 /usr/libexec/PlistBuddy -c "Add :com.apple.developer.team-identifier string $TEAM_ID" "$ENTITLEMENTS"
-CONFIG=$(python3 - "$APP_STORE_BUNDLE_ID" "$ENTITLEMENTS" "$APPLE_SIGNING_IDENTITY" "$APPLE_PROVISIONING_PROFILE" <<'PY'
+CONFIG=$(python3 - "$APP_STORE_BUNDLE_ID" "$ENTITLEMENTS" "$APPLE_SIGNING_IDENTITY" "$APPLE_PROVISIONING_PROFILE" "$BUILD_NUMBER" <<'PY'
 import json, sys
-bundle_id, entitlements, identity, profile = sys.argv[1:5]
+bundle_id, entitlements, identity, profile, build_number = sys.argv[1:6]
 print(json.dumps({
     "identifier": bundle_id,
-    "bundle": {"macOS": {"entitlements": entitlements, "signingIdentity": identity,
+    "bundle": {"macOS": {"bundleVersion": build_number, "entitlements": entitlements, "signingIdentity": identity,
                          "files": {"embedded.provisionprofile": profile}}},
 }))
 PY
@@ -70,6 +80,8 @@ if [ "${APP_STORE_DRY_RUN:-0}" = "1" ]; then
 fi
 
 "$HERE/check-atomic-default.sh"
+"$HERE/check-legal-links.sh"
+python3 -I "$HERE/check-privacy-manifest.py" src-tauri/PrivacyInfo.xcprivacy
 ../../node_modules/.bin/tauri build --config "$CONFIG" --bundles app
 TARGET="${CARGO_TARGET_DIR:-src-tauri/target}"
 BUNDLE=$(ls -d "$TARGET"/release/bundle/macos/*.app | head -1)

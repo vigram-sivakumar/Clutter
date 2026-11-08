@@ -24,6 +24,12 @@ name = "RATE_LIMITER"
 namespace_id = "1001"
 simple = { limit = 60, period = 60 }
 
-# No request or response logging by default: search terms are user data and are never logged.
+# No request or response logging: search terms are user data and are never logged. Nothing persists the Worker's
+# console output (Workers Logs is off, below), nothing exports it (Logpush is off), and no tail consumer is attached;
+# `wrangler tail` shows it live to whoever runs it, and the lines carry an event name and a status only (see `log` in
+# src/index.ts). Verified against the deployed Worker's settings on 2026-11-06: logpush false, observability not
+# configured, no tail consumers (docs/privacy-release.md).
+logpush = false
+
 [observability]
 enabled = false

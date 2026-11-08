@@ -124,6 +124,9 @@ vi.mock('./layouts/app-layout/AppLayout', async () => {
           <button onClick={() => spaces?.onSwitchSpace('/Third')}>
             switch-third
           </button>
+          <button onClick={() => spaces?.onSwitchSpace('/Users/me/Projects/Notes')}>
+            switch-notes
+          </button>
           <button onClick={() => spaces?.refreshAvailability?.()}>
             refresh-spaces
           </button>
@@ -149,6 +152,7 @@ import { VaultRootMissingError } from '../core/vault/providers/VaultRootMissingE
 import { ToastProvider } from '@components/toast/ToastProvider';
 import { AtomicNotCommittedError } from '../core/vault/atomicWrite/atomicWriteErrors';
 import {
+  needsReselectOpenedSpaceMessage,
   SpaceFilesystemRefusedError,
   UNCHECKED_OPENED_SPACE_MESSAGE,
   unsupportedOpenedSpaceMessage,
@@ -1368,10 +1372,9 @@ describe('AppShell: Welcome dialog actions', () => {
         // The same folder: no second create, no second space.
         expect(tauri.createFolder).toHaveBeenCalledTimes(1);
         expect(JSON.parse(SAVED()!).paths).toEqual(['/Users/me/Documents/Personal']);
-        expect(JSON.parse(localStorage.getItem('clutter.welcomeContent')!).state).toBe('done');
       });
 
-      it('selecting an existing folder skips the install, records the skip, and opens it', async () => {
+      it('selecting a folder in the Welcome Screen asks for the install too (an empty one is populated, any other is left to the service) and opens it', async () => {
         render(
           <ToastProvider>
             <AppShell />
@@ -1382,8 +1385,41 @@ describe('AppShell: Welcome dialog actions', () => {
         await click('Select a folder');
 
         expect(await screen.findByTestId('open-root')).toHaveTextContent('/Users/me/Existing');
-        expect(created[0]?.welcomeContentService.install).not.toHaveBeenCalled();
-        expect(JSON.parse(localStorage.getItem('clutter.welcomeContent')!).state).toBe('skipped-existing-folder');
+        expect(created[0]?.welcomeContentService.install).toHaveBeenCalledTimes(1);
+        expect(created[0]?.welcomeContentService.markShown).toHaveBeenCalledTimes(1);
+        expect(localStorage.getItem('clutter.welcomeContent')).toBeNull();
+      });
+
+      it('a second Welcome Screen open, after every Space was removed, asks for the install again: no once-per-install record', async () => {
+        localStorage.setItem('clutter.welcomeContent', JSON.stringify({ version: 1, state: 'done' }));
+        render(
+          <ToastProvider>
+            <AppShell />
+          </ToastProvider>
+        );
+        await screen.findByText(WELCOME);
+        await click('Create a new space');
+        await screen.findByText('Space name');
+        await typeName('Again');
+        await click('Create');
+
+        expect(await screen.findByTestId('open-root')).toHaveTextContent('/Users/me/Documents/Again');
+        expect(created[0]?.welcomeContentService.install).toHaveBeenCalledTimes(1);
+      });
+
+      it('a Space opened outside the Welcome Screen never installs, resumes or verifies anything', async () => {
+        localStorage.setItem('clutter.spaces.v1', JSON.stringify({ paths: ['/Users/me/Documents/Personal'], activePath: '/Users/me/Documents/Personal' }));
+        render(
+          <ToastProvider>
+            <AppShell />
+          </ToastProvider>
+        );
+
+        expect(await screen.findByTestId('open-root')).toHaveTextContent('/Users/me/Documents/Personal');
+        const service = created[0]!.welcomeContentService;
+        for (const method of ['install', 'resumeIfNeeded', 'verifyInstall', 'markShown'] as const) {
+          expect(service[method], method).not.toHaveBeenCalled();
+        }
       });
     });
 
@@ -2389,6 +2425,39 @@ describe('AppShell: the sidebar "New space" picker', () => {
     expect(bootstrap.mock.calls.length).toBe(bootstraps);
     expect(created[0]!.applySpaceProfile.mock.calls.length).toBe(profileWrites);
     expect(profileFiles.has('/Users/me/Projects/notes')).toBe(false);
+  });
+
+  it('ADR-070: adding a Space from the sidebar never provisions welcome content, and creates nothing in the folder', async () => {
+    await openA();
+    await pickFolder('/Users/me/Projects/empty-folder');
+
+    await click('Create');
+
+    await waitFor(() =>
+      expect(screen.getByTestId('open-root')).toHaveTextContent('/Users/me/Projects/empty-folder')
+    );
+    expect(tauri.createFolder).not.toHaveBeenCalled();
+    for (const app of created) {
+      for (const method of ['install', 'resumeIfNeeded', 'verifyInstall', 'markShown'] as const) {
+        expect(app.welcomeContentService[method], `${app.vault.root} ${method}`).not.toHaveBeenCalled();
+      }
+    }
+  });
+
+  it('ADR-070: switching Spaces from the selector never provisions welcome content', async () => {
+    await openA({
+      paths: ['/Users/me/A', '/Other'],
+      activePath: '/Users/me/A',
+    });
+
+    await act(async () => screen.getByText('switch-other').click());
+    await waitFor(() => expect(screen.getByTestId('open-root')).toHaveTextContent('/Other'));
+
+    for (const app of created) {
+      for (const method of ['install', 'resumeIfNeeded', 'verifyInstall', 'markShown'] as const) {
+        expect(app.welcomeContentService[method], `${app.vault.root} ${method}`).not.toHaveBeenCalled();
+      }
+    }
   });
 
   it('confirming registers the folder and starts the existing open flow, persisting once it has opened', async () => {
@@ -3816,6 +3885,9 @@ describe('AppShell: a Space whose filesystem Application.bootstrap refuses', () 
   });
   const refuseExfat = (root: string) =>
     refused.set(root, new SpaceFilesystemRefusedError('unsupported', EXFAT));
+  const RESELECT = needsReselectOpenedSpaceMessage('/Users/me/Projects/Notes');
+  const refuseReselect = (root: string) =>
+    refused.set(root, new SpaceFilesystemRefusedError('needsReselect', needsReselectOpenedSpaceMessage(root)));
 
   function renderShell() {
     render(
@@ -3875,6 +3947,34 @@ describe('AppShell: a Space whose filesystem Application.bootstrap refuses', () 
       expect(screen.getByRole('alert')).toHaveTextContent(UNCHECKED_OPENED_SPACE_MESSAGE);
     });
 
+    it('a Space whose folder access is gone says to select it again, then opens the next registered Space', async () => {
+      seed(['/Users/me/Projects/Notes', '/Users/me/B'], '/Users/me/Projects/Notes');
+      refuseReselect('/Users/me/Projects/Notes');
+
+      renderShell();
+
+      expect(await screen.findByTestId('open-root')).toHaveTextContent('/Users/me/B');
+      expect(screen.getByRole('alert')).toHaveTextContent(RESELECT);
+      expect(screen.queryByText(/no longer exists/)).toBeNull();
+      expect(created.map((app) => app.vault.root)).toEqual(['/Users/me/B']);
+      // Nothing is forgotten: the Space stays registered so it can be selected again.
+      expect(REGISTRY().paths).toEqual(['/Users/me/Projects/Notes', '/Users/me/B']);
+    });
+
+    it('shows the Welcome dialog with the reason, registry untouched, when no other Space can open', async () => {
+      seed(['/Users/me/Projects/Notes'], '/Users/me/Projects/Notes');
+      refuseReselect('/Users/me/Projects/Notes');
+      const before = SAVED();
+
+      renderShell();
+
+      expect(await screen.findByText(WELCOME)).toBeInTheDocument();
+      expect(screen.getByRole('alert')).toHaveTextContent(RESELECT);
+      expect(created).toHaveLength(0);
+      expect(events.filter((e) => e === 'bootstrap:/Users/me/Projects/Notes')).toHaveLength(1);
+      expect(SAVED()).toBe(before);
+    });
+
     it('a missing folder keeps its own flow: no unsupported-filesystem message', async () => {
       seed(['/Users/me/Gone', '/Users/me/B'], '/Users/me/Gone');
       refused.set('/Users/me/Gone', new VaultRootMissingError('/Users/me/Gone'));
@@ -3909,6 +4009,42 @@ describe('AppShell: a Space whose filesystem Application.bootstrap refuses', () 
       expect(created.map((app) => app.vault.root)).toEqual(['/web-dev-vault']);
       expect(REGISTRY().activePath).toBe('/web-dev-vault');
       expect(REGISTRY().paths).toEqual(['/web-dev-vault', '/Other']);
+    });
+
+    it('keeps the open Space fully functional when the destination needs its folder selected again', async () => {
+      seed(['/web-dev-vault', '/Users/me/Projects/Notes'], '/web-dev-vault');
+      renderShell();
+      await screen.findByText('/web-dev-vault');
+      const first = created[0]!;
+      refuseReselect('/Users/me/Projects/Notes');
+      probeOverrides.set('/Users/me/Projects/Notes', 'available'); // the probe let it through: the grant was lost since
+
+      await act(async () => screen.getByText('switch-notes').click());
+
+      await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(RESELECT));
+      expect(screen.getByTestId('open-root')).toHaveTextContent('/web-dev-vault');
+      // Space A was never closed, sealed or replaced: the refusal happened while the next one was being prepared.
+      expect(first.close).not.toHaveBeenCalled();
+      expect(events).not.toContain('close:/web-dev-vault');
+      expect(screen.queryByText(OPENING)).toBeNull();
+      expect(screen.queryByText(WELCOME)).toBeNull();
+      expect(created.map((app) => app.vault.root)).toEqual(['/web-dev-vault']);
+      expect(REGISTRY().activePath).toBe('/web-dev-vault');
+      expect(REGISTRY().paths).toEqual(['/web-dev-vault', '/Users/me/Projects/Notes']);
+    });
+
+    it('does not start a switch to a Space the probe already says needs its folder selected again', async () => {
+      seed(['/web-dev-vault', '/Users/me/Projects/Notes'], '/web-dev-vault');
+      renderShell();
+      await screen.findByText('/web-dev-vault');
+      probeOverrides.set('/Users/me/Projects/Notes', 'missing'); // what the probe answers for a folder with no grant
+
+      await act(async () => screen.getByText('switch-notes').click());
+
+      // It opens the "Space not found" flow for that folder, the one every other lost-access Space uses.
+      expect(events).not.toContain('bootstrap:/Users/me/Projects/Notes');
+      expect(screen.getByTestId('open-root')).toHaveTextContent('/web-dev-vault');
+      expect(created[0]!.close).not.toHaveBeenCalled();
     });
 
     it('still switches to a Space that is supported afterwards', async () => {

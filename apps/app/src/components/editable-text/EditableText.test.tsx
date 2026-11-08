@@ -596,7 +596,7 @@ describe('EditableText scroll offset on autoFocus', () => {
       this.scrollLeft = 20;
     };
     try {
-      render(<EditableText value="Autodesk" onCommit={vi.fn()} className="editable-text--nowrap" autoFocus />);
+      render(<EditableText value="Clutter" onCommit={vi.fn()} className="editable-text--nowrap" autoFocus />);
       const editable = getEditable();
       editable.scrollLeft = 20;
       settled = true;

@@ -4,6 +4,7 @@ import { Input } from '@components/input/Input';
 import { Button } from '@components/button/Button';
 import { RoundIconButton } from '@components/button/RoundIconButton';
 import { useOverlay } from '@components/overlay/hooks/useOverlay';
+import { useRejectShakeField } from '@components/property-list/useRejectShake';
 import { TaskDatePicker } from '@features/tasks/sidebar/TaskDatePicker';
 import type { ISODate } from '@shared/helpers/time/types';
 import { formatTaskDueDate } from '@features/tasks/helpers/formatTaskDueDate';
@@ -64,6 +65,9 @@ export function NewTaskContent({ onClose, onSubmit, editing, onDirtyChange }: Ne
 
   const trimmedTitle = title.trim();
 
+  // Create with no title leaves the button enabled and shakes the title field instead.
+  const { ref: titleRef, shake: shakeTitle } = useRejectShakeField<HTMLInputElement | HTMLTextAreaElement>();
+
   // Something the user entered: a title or due date on a new task, or a change to the task being edited.
   const isDirty = trimmedTitle !== (editing?.title ?? '').trim() || dueDate !== (editing?.dueDate as ISODate | undefined);
   useEffect(() => {
@@ -72,7 +76,13 @@ export function NewTaskContent({ onClose, onSubmit, editing, onDirtyChange }: Ne
   }, [isDirty, onDirtyChange]);
 
   const handleSubmit = async () => {
-    if (trimmedTitle === '' || isSubmitting) {
+    if (isSubmitting) {
+      return;
+    }
+
+    if (trimmedTitle === '') {
+      shakeTitle();
+      titleRef.current?.focus();
       return;
     }
 
@@ -97,6 +107,7 @@ export function NewTaskContent({ onClose, onSubmit, editing, onDirtyChange }: Ne
         <RoundIconButton icon="dismiss" aria-label="Close" onClick={onClose} />
       </div>
       <Input
+        ref={titleRef}
         className="new-task__input"
         value={title}
         placeholder="Task title"
@@ -128,7 +139,7 @@ export function NewTaskContent({ onClose, onSubmit, editing, onDirtyChange }: Ne
           className="new-task__create-button"
           variant="primary"
           size="medium"
-          disabled={trimmedTitle === '' || isSubmitting}
+          disabled={isSubmitting}
           onClick={handleSubmit}
         >
           {isEditing ? 'Save changes' : 'Create'}

@@ -2,12 +2,12 @@
   "$schema": "../../../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Clutter",
   "version": "../package.json",
-  "identifier": "com.clutter.dev",
+  "identifier": "com.vigram.clutter",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1421",
     "beforeDevCommand": "npm run dev:tauri",
-    "beforeBuildCommand": "npm run check:version && npm run check:atomic && npm run build"
+    "beforeBuildCommand": "npm run check:version && npm run check:atomic && npm run check:privacy && npm run build"
   },
   "app": {
     "windows": [
@@ -35,13 +35,13 @@
         "object-src": "'none'",
         "base-uri": "'self'",
         "img-src": "'self' asset: http://asset.localhost https: data: blob:",
-        "connect-src": "'self' ipc: http://ipc.localhost https://clutter-unsplash-proxy.vigram-work.workers.dev asset: http://asset.localhost",
+        "connect-src": "'self' ipc: http://ipc.localhost https://clutter-unsplash-proxy.vigram-sivakumar.workers.dev asset: http://asset.localhost",
         "style-src": "'self' 'unsafe-inline'"
       },
       "devCsp": {
         "default-src": "'self' 'unsafe-inline' 'unsafe-eval' ipc: http://ipc.localhost http://asset.localhost",
         "img-src": "'self' asset: http://asset.localhost https: data: blob:",
-        "connect-src": "'self' ipc: http://ipc.localhost http://localhost:5173 ws://localhost:5173 http://localhost:1421 ws://localhost:1421 https://clutter-unsplash-proxy.vigram-work.workers.dev asset: http://asset.localhost",
+        "connect-src": "'self' ipc: http://ipc.localhost http://localhost:5173 ws://localhost:5173 http://localhost:1421 ws://localhost:1421 https://clutter-unsplash-proxy.vigram-sivakumar.workers.dev asset: http://asset.localhost",
         "style-src": "'self' 'unsafe-inline'"
       },
       "assetProtocol": {
@@ -64,13 +64,17 @@
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
-      "icons/icon.ico"
+      "icons/icon.ico",
+      "icons/Clutter.icon"
     ],
     "android": {
       "debugApplicationIdSuffix": ".debug"
     },
     "category": "Productivity",
+    "copyright": "© 2026 Vigram Sivakumar",
     "macOS": {
+      "bundleVersion": "1",
+      "minimumSystemVersion": "13.3",
       "entitlements": "Entitlements.plist",
       "signingIdentity": "-",
       "files": {

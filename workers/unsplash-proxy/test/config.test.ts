@@ -28,6 +28,14 @@ describe('wrangler.toml', () => {
     expect(toml).not.toMatch(/^UNSPLASH_ACCESS_KEY\s*=/m);
   });
 
+  it('persists and exports no logs: Workers Logs off, Logpush off, no tail consumer', () => {
+    expect(setting('logpush')).toBe('false');
+    expect(/^\[observability\]\s*\n\s*enabled\s*=\s*false\s*$/m.test(toml)).toBe(true);
+    expect(toml).not.toMatch(/tail_consumers/);
+    expect(toml).not.toMatch(/\[observability\.logs\]/);
+    expect(toml).not.toMatch(/invocation_logs\s*=\s*true/);
+  });
+
   it('keeps the per-client rate limit', () => {
     expect(toml).toMatch(/\[\[ratelimits\]\]/);
     expect(setting('simple')).toContain('limit = 60');

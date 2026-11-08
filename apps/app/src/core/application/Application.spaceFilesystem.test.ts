@@ -10,7 +10,7 @@ const fs = vi.hoisted(() => ({
   writeFile: vi.fn(),
   stat: vi.fn(),
 }));
-const probe = vi.hoisted(() => ({ status: vi.fn() }));
+const probe = vi.hoisted(() => ({ status: vi.fn(), confirmedMissing: vi.fn() }));
 /** Every native command the open makes, in order, so a test can see what ran before the refusal. */
 const native = vi.hoisted(() => ({
   calls: [] as string[],
@@ -18,6 +18,8 @@ const native = vi.hoisted(() => ({
   classify: vi.fn(),
   /** Answers `ensure_space_access` (the runtime grant). */
   grant: vi.fn(),
+  /** Answers `restore_space_access` (the saved sandbox access, restored once at launch). */
+  restore: vi.fn(),
 }));
 
 vi.mock('@tauri-apps/api/core', () => ({
@@ -26,27 +28,35 @@ vi.mock('@tauri-apps/api/core', () => ({
     native.calls.push(command);
     if (command === 'check_space_filesystem') return native.classify(args);
     if (command === 'ensure_space_access') return native.grant(args);
+    if (command === 'restore_space_access') return native.restore(args);
     return undefined;
   },
 }));
 vi.mock('@tauri-apps/plugin-fs', () => fs);
 vi.mock('../vault/providers/probeSpaceFolder', () => ({
   probeSpaceFolder: (...args: unknown[]) => probe.status(...args),
-  isFolderConfirmedMissing: async () => false,
+  isFolderConfirmedMissing: (...args: unknown[]) => probe.confirmedMissing(...args),
   isNotFoundError: () => false,
 }));
 
 import { Application } from './Application';
 import { VaultRootMissingError } from '../vault/providers/VaultRootMissingError';
 import {
+  needsReselectOpenedSpaceMessage,
   SpaceFilesystemRefusedError,
   UNCHECKED_OPENED_SPACE_MESSAGE,
 } from '../vault/providers/spaceFolders';
+import { resetSandboxAccessForTests, restoreSpaceAccess } from '../vault/providers/sandboxAccess';
 
 const ROOT = '/Volumes/Drive/Notes';
 
 const apfs = { status: 'supported', filesystem: 'apfs' };
 const exfat = { status: 'unsupported', filesystem: 'exfat' };
+/** What the native commands reject with for a folder outside the runtime filesystem scope. */
+const outOfScope = {
+  code: 'outOfScope',
+  detail: 'the folder is not inside the approved filesystem scope',
+};
 
 /** Nothing the app could write or build from a Space: reached only after the classification passed. */
 function expectNothingWrittenOrScanned() {
@@ -61,9 +71,12 @@ beforeEach(() => {
   tauri.isTauri = true;
   Object.values(fs).forEach((mock) => mock.mockReset());
   probe.status.mockReset().mockResolvedValue('available');
+  probe.confirmedMissing.mockReset().mockResolvedValue(false);
   native.calls.length = 0;
   native.classify.mockReset().mockResolvedValue(apfs);
   native.grant.mockReset().mockResolvedValue(true);
+  native.restore.mockReset().mockResolvedValue([]);
+  resetSandboxAccessForTests();
   // Only the Space folder itself exists; every state file inside it is absent, as in a new Space.
   fs.exists.mockImplementation(async (path: string) => path === ROOT || path === `${ROOT}/`);
   fs.readDir.mockResolvedValue([]);
@@ -130,6 +143,7 @@ describe('Application.bootstrap: the Space’s filesystem is classified on every
 
   it('reports a missing folder as missing, not as an unsupported filesystem, and never classifies it', async () => {
     probe.status.mockResolvedValue('missing');
+    probe.confirmedMissing.mockResolvedValue(true);
     native.classify.mockResolvedValue(exfat);
 
     const error = await open().catch((e: unknown) => e);
@@ -196,5 +210,117 @@ describe('Application.bootstrap: the Space’s filesystem is classified on every
 
     expect(application.vault.root).toBe('/web-dev-vault');
     expect(native.calls).toEqual([]);
+  });
+});
+
+describe('Application.bootstrap: a Space whose filesystem access is gone says so, and never opens', () => {
+  const needsReselect = needsReselectOpenedSpaceMessage(ROOT);
+
+  async function refusal(): Promise<SpaceFilesystemRefusedError> {
+    const error = await open().catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(SpaceFilesystemRefusedError);
+    return error as SpaceFilesystemRefusedError;
+  }
+
+  it('refuses a Space the probe could not accept because no grant exists, as needing its folder selected again', async () => {
+    probe.status.mockResolvedValue('missing'); // the probe's answer for an existing folder with no recoverable access
+    native.classify.mockRejectedValue(outOfScope);
+
+    const error = await refusal();
+
+    expect(error.kind).toBe('needsReselect');
+    expect(error.message).toBe(needsReselect);
+    expect(error).not.toBeInstanceOf(VaultRootMissingError);
+    expectNothingWrittenOrScanned();
+  });
+
+  it('refuses a Space whose grant is lost after the probe passed, with the same distinct reason', async () => {
+    native.classify.mockRejectedValue(outOfScope);
+
+    const error = await refusal();
+
+    expect(error.kind).toBe('needsReselect');
+    expect(error.message).toBe(needsReselect);
+    expectNothingWrittenOrScanned();
+  });
+
+  it('is distinct from every other refusal', async () => {
+    native.classify.mockRejectedValue(outOfScope);
+    const scope = await refusal();
+    native.classify.mockResolvedValue(exfat);
+    const volume = await refusal();
+    native.classify.mockRejectedValue('command not found');
+    const unchecked = await refusal();
+
+    expect([scope.kind, volume.kind, unchecked.kind]).toEqual(['needsReselect', 'unsupported', 'unchecked']);
+  });
+
+  it('does not take a failed grant for permission: a Space the grant could not recover is still refused', async () => {
+    native.grant.mockRejectedValue('not allowed');
+    native.classify.mockRejectedValue(outOfScope);
+
+    expect((await refusal()).kind).toBe('needsReselect');
+    expectNothingWrittenOrScanned();
+  });
+
+  it('opens a Space whose runtime grant is restored before the check (a recoverable authorisation)', async () => {
+    // Out of scope until `ensure_space_access` has granted it, as for a Space created before Create made the grant.
+    let granted = false;
+    native.grant.mockImplementation(async () => {
+      granted = true;
+      return true;
+    });
+    native.classify.mockImplementation(async () => {
+      if (!granted) throw outOfScope;
+      return apfs;
+    });
+
+    const application = await open();
+
+    expect(application.vault.root).toBe(ROOT);
+    expect(native.calls.indexOf('ensure_space_access')).toBeLessThan(native.calls.indexOf('check_space_filesystem'));
+  });
+
+  it('asks the user to select a folder whose saved sandbox access could not be restored at launch', async () => {
+    native.restore.mockResolvedValue([{ path: ROOT, status: 'needsReselect' }]);
+    probe.status.mockResolvedValue('missing');
+    native.classify.mockRejectedValue(outOfScope);
+    await restoreSpaceAccess();
+
+    const error = await refusal();
+
+    expect(error.kind).toBe('needsReselect');
+    expectNothingWrittenOrScanned();
+  });
+
+  it('opens the same Space after a restart that restores its saved access', async () => {
+    // First launch: the access could not be restored.
+    native.restore.mockResolvedValue([{ path: ROOT, status: 'needsReselect' }]);
+    probe.status.mockResolvedValue('missing');
+    native.classify.mockRejectedValue(outOfScope);
+    await restoreSpaceAccess();
+    expect((await refusal()).kind).toBe('needsReselect');
+
+    // Next launch: the bookmark resolves, the folder is granted again, the probe and the check agree.
+    resetSandboxAccessForTests();
+    native.restore.mockResolvedValue([{ path: ROOT, status: 'restored' }]);
+    probe.status.mockResolvedValue('available');
+    native.classify.mockResolvedValue(apfs);
+    await restoreSpaceAccess();
+
+    const application = await open();
+
+    expect(application.vault.root).toBe(ROOT);
+  });
+
+  it('keeps reporting a deleted folder as missing, never as needing a new selection', async () => {
+    probe.status.mockResolvedValue('missing');
+    probe.confirmedMissing.mockResolvedValue(true);
+    native.classify.mockRejectedValue(outOfScope);
+
+    const error = await open().catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(VaultRootMissingError);
+    expect(error).not.toBeInstanceOf(SpaceFilesystemRefusedError);
   });
 });

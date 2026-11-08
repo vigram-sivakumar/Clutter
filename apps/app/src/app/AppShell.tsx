@@ -14,12 +14,10 @@ import { VaultRootMissingError } from '../core/vault/providers/VaultRootMissingE
 import { normalizeAllTablesInMarkdown } from '../features/markdown/editor/codemirror/table/tableColumnNormalization';
 
 import { useToast } from '../components/toast/ToastProvider';
-import { welcomeInstallNotice } from '../core/application/welcome-content/welcomeInstallNotice';
 import {
   WelcomeInstallIncompleteError,
   openWelcomeFolder,
   prepareWelcomeSpace,
-  resumeInterruptedWelcomeContent,
 } from './spaces/runWelcomeContent';
 import { probeSpaceFolder } from '../core/vault/providers/probeSpaceFolder';
 import {
@@ -158,7 +156,8 @@ async function acceptPickedSpace(path: string): Promise<string | null> {
   // comes before the access below is saved, so a refused folder leaves no remembered access behind.
   const support = await checkSpaceFilesystem(path);
   if (support.status === 'unsupported') return UNSUPPORTED_FILESYSTEM_MESSAGE;
-  if (support.status === 'unknown') return FILESYSTEM_UNCHECKED_MESSAGE;
+  // `outOfScope` should not happen for a folder the picker has just granted; if it does, the folder cannot be judged.
+  if (support.status === 'unknown' || support.status === 'outOfScope') return FILESYSTEM_UNCHECKED_MESSAGE;
   // App Sandbox: the pick only authorizes the folder for this run. Save the access now, or refuse the folder rather
   // than accept a Space that works today and cannot be opened after the next launch.
   try {
@@ -322,11 +321,6 @@ function AppShellContent() {
     /** The `missingRoot` this attempt cleared, put back if the attempt fails. */
     restoreMissingRoot: string | null;
   } | null>(null);
-  // ADR-067: the Space folder Clutter itself created through the Welcome dialog's Create, remembered until that Space
-  // opens. It is the only thing that lets the first-run welcome content install: choosing an existing folder never sets it.
-  const createdByWelcomeRef = useRef<string | null>(null);
-  // The first-run welcome content did not finish installing: said once, as a toast, once the Space has opened.
-  const [welcomeNotice, setWelcomeNotice] = useState<string | null>(null);
 
   // The shell always renders a screen (a placeholder while the vault opens,
   // then the workspace or an error), so there is nothing to decide and it
@@ -522,7 +516,7 @@ function AppShellContent() {
         throw openError;
       }
 
-      // ADR-067: a Space chosen or created in the Welcome dialog is not shown, and not remembered, until its welcome
+      // ADR-070: a Space chosen or created in the Welcome dialog is not shown, and not remembered, until its welcome
       // content is installed and verified. The Application is open (the Gate and Sync that write it are the running
       // ones) but not yet handed to the UI, and the dialog is still up. A failure throws: the catch below discards
       // this Application, puts the registry back and shows the message in the dialog, whose Create/open is the retry
@@ -530,12 +524,9 @@ function AppShellContent() {
       const onboardingForGate = onboardingRef.current;
       const gatedByWelcome = onboardingForGate?.path === openPath;
       if (gatedByWelcome) {
-        const gate = await prepareWelcomeSpace(prepared, {
-          storage: defaultSpaceStorage(),
-          createdByWelcome: createdByWelcomeRef.current === openPath,
-        });
+        const gate = await prepareWelcomeSpace(prepared);
         if (!gate.open) throw new WelcomeInstallIncompleteError(gate.message);
-        if (createdByWelcomeRef.current === openPath) await openWelcomeFolder(prepared, openPath);
+        if (gate.installed) await openWelcomeFolder(prepared, openPath);
       }
 
       openedPathRef.current = openPath;
@@ -567,18 +558,11 @@ function AppShellContent() {
       // Only a Space that actually opened is remembered for the next launch.
       spaces.confirmOpened();
       const onboarding = onboardingRef.current;
-      if (createdByWelcomeRef.current === openPath) createdByWelcomeRef.current = null;
       if (onboarding && onboarding.path === openPath) {
         const { settle } = onboarding;
         onboardingRef.current = null;
         setOnboardingPending(false);
         settle(null);
-      } else {
-        // Not the Welcome dialog (startup restore, recovery, switching): an existing user. Finish an interrupted
-        // install in the background if this Space holds one; the Space is already open and remembered.
-        void resumeInterruptedWelcomeContent(prepared, { storage: defaultSpaceStorage() }).then((result) =>
-          setWelcomeNotice(welcomeInstallNotice(result))
-        );
       }
     }
 
@@ -613,10 +597,9 @@ function AppShellContent() {
         const onboarding = onboardingRef.current;
         if (onboarding?.path === openPath && applicationRef.current === null) {
           onboardingRef.current = null;
-          // The folder Clutter created stays "created" while its welcome content is unfinished, so the retry that
-          // follows resumes the install; any other failure to open it ends that claim.
+          // An unfinished install is retried by the next Welcome open of the same folder, which resumes it from the
+          // Space's own ledger.
           const unfinishedInstall = loadError instanceof WelcomeInstallIncompleteError;
-          if (!unfinishedInstall && createdByWelcomeRef.current === openPath) createdByWelcomeRef.current = null;
           spaces.cancelSelection();
           setMissingRoot(onboarding.restoreMissingRoot);
           setOnboardingPending(false);
@@ -876,8 +859,6 @@ function AppShellContent() {
   ): Promise<CreateFolderOutcome> {
     const outcome = await createSpaceFolder(name);
     if ('cancelled' in outcome) return { handled: true };
-    // A folder Clutter has just created: the one Space the welcome content may be installed into (ADR-067).
-    if ('path' in outcome) createdByWelcomeRef.current = normalizeSpacePath(outcome.path);
     if (!('openFolder' in outcome)) return outcome;
     const draft = await draftFromPickedFolder(outcome.openFolder);
     if (typeof draft === 'string') return { error: draft };
@@ -1112,7 +1093,7 @@ function AppShellContent() {
         },
         renameFolder: renameSpaceFolder,
         readSpaceId: (path) => readSpaceIdFrom(openVaultFileSystem(path), path),
-        destinationExists: async (path) => (await probeSpaceFolder(path)) === 'available',
+        destinationExists: async (path) => (await probeSpaceFolder(path, { requireAccess: false })) === 'available',
         migrateState: (oldRoot, newRoot) =>
           migrateRenamedRootState(openVaultFileSystem(newRoot), oldRoot, newRoot),
         reopenActive: () => setReopenNonce((nonce) => nonce + 1),
@@ -1155,7 +1136,8 @@ function AppShellContent() {
           isRegistered: (candidate) => spaces.registry.paths.includes(normalizeSpacePath(candidate)),
           probe: probeSpaceFolder,
           readSpaceId: (candidate) => readSpaceIdFrom(openVaultFileSystem(candidate), candidate),
-          destinationExists: async (candidate) => (await probeSpaceFolder(candidate)) === 'available',
+          destinationExists: async (candidate) =>
+            (await probeSpaceFolder(candidate, { requireAccess: false })) === 'available',
           renameFolder: renameSpaceFolder,
           migrateState: (oldRoot, newRoot) =>
             migrateRenamedRootState(openVaultFileSystem(newRoot), oldRoot, newRoot),
@@ -1347,14 +1329,6 @@ function AppShellContent() {
       dismissNotice();
     }
   }, [notice, dismissNotice, toast]);
-
-  // The first-run welcome content did not finish installing (ADR-067): a brief, non-blocking toast, said once.
-  useEffect(() => {
-    if (welcomeNotice) {
-      toast.show({ text: welcomeNotice });
-      setWelcomeNotice(null);
-    }
-  }, [welcomeNotice, toast]);
 
   // A Space can't be shown, and no other has opened (yet): either none is configured, or the configured
   // one's folder is confirmed missing — and the search for another registered Space (see

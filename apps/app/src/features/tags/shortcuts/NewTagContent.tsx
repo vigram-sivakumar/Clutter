@@ -6,6 +6,7 @@ import { Button } from '@components/button/Button';
 import { RoundIconButton } from '@components/button/RoundIconButton';
 import { ChangeIconPicker } from '@components/change-icon-picker/ChangeIconPicker';
 import { useOverlay } from '@components/overlay/hooks/useOverlay';
+import { useRejectShakeField } from '@components/property-list/useRejectShake';
 import type { NewTagNameCheck } from '@core/application/tags/TagOperations';
 
 import './NewTagContent.css';
@@ -51,13 +52,20 @@ export function NewTagContent({ onClose, validateName, onSubmit }: NewTagContent
 
   const check = validateName(name);
   const nameMessage = check.ok ? undefined : messageFor(check);
-  const canSubmit = check.ok && !isSubmitting;
+  // Create with an unusable name leaves the button enabled and shakes the name field instead.
+  const { ref: nameRef, shake: shakeName } = useRejectShakeField<HTMLInputElement | HTMLTextAreaElement>();
 
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
 
-    if (!check.ok || isSubmitting) {
+    if (isSubmitting) {
+      return;
+    }
+
+    if (!check.ok) {
+      shakeName();
+      nameRef.current?.focus();
       return;
     }
 
@@ -87,6 +95,7 @@ export function NewTagContent({ onClose, validateName, onSubmit }: NewTagContent
 
       <div className="new-tag__field">
         <Input
+          ref={nameRef}
           className="new-tag__input"
           value={name}
           placeholder="Tag name"
@@ -125,7 +134,7 @@ export function NewTagContent({ onClose, validateName, onSubmit }: NewTagContent
           className="new-tag__create-button"
           variant="primary"
           size="medium"
-          disabled={!canSubmit}
+          disabled={isSubmitting}
         >
           Create
         </Button>

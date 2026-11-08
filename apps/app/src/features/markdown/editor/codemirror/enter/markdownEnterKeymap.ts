@@ -34,7 +34,7 @@ import {
   type RenumberEdit,
 } from '../list/orderedListRenumbering';
 import { taskMarkerOfListItem } from '../task/taskEngagement';
-import { insertTaskMarkerOnSpace } from '../task/taskMarkerCreation';
+import { insertTaskMarkerOnSpace, taskMarkerCreationExtensions } from '../task/taskMarkerCreation';
 
 /**
  * The one Markdown editing policy Clutter adds on top of CodeMirror:
@@ -1757,7 +1757,11 @@ export const deleteMarkupBackwardOnMarkerLines: StateCommand = (target) => {
  * Enter/Backspace/Delete/Space at all.
  */
 export function markdownEnterKeymap(): Extension {
-  return Prec.high(
+  return [
+    // Typing the closing `]` of a line-start `[]` before existing whitespace (no Space is pressed there); an input
+    // handler, so it also has to run before `closeBrackets()`.
+    Prec.high(taskMarkerCreationExtensions),
+    Prec.high(
     keymap.of([
       { key: 'Enter', run: markdownEnterCommand },
       { key: 'Shift-Enter', run: insertSoftLineBreak },
@@ -1779,5 +1783,6 @@ export function markdownEnterKeymap(): Extension {
       },
       { key: 'Space', run: (target) => insertOrderedListMarkerSeparator(target) || insertTaskMarkerOnSpace(target) },
     ])
-  );
+    ),
+  ];
 }

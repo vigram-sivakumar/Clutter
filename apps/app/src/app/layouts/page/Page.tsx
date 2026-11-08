@@ -5,7 +5,7 @@ import { shouldShowHeaderSeparator, useHeaderSeparatorMode, useHeaderSeparatorSt
 import type { PageHeaderControlsProps } from './header/PageHeaderControls';
 import type { CoverCredit } from '@core/vault/models/PageMetadata';
 import { useShortcutHandler } from '@app/shortcuts/ShortcutsProvider';
-import { useImperativeHandle, useRef, type MouseEvent, type ReactNode, type RefObject } from 'react';
+import { useImperativeHandle, useRef, useState, type MouseEvent, type ReactNode, type RefObject } from 'react';
 import type { EditableTextHandle } from '@components/editable-text/EditableText.types';
 import type { SystemIcon } from '@shared/icon';
 import type { CoverLayout } from '@core/vault/models/PageMetadata';
@@ -324,6 +324,9 @@ export function Page({
   // Responsive hide (AppLayout decides). Display-only — OR-ed into PageCover's `hidden` below and never
   // written to `coverHidden`, so the note's saved cover state is untouched.
   const isCoverSuppressed = useCoverSuppressed();
+  // The cover's image failed to load, so it is collapsed out of view: the title controls treat the page as having no
+  // cover (offering "Cover image" and its picker) until it is replaced, removed, or loads. Nothing is written to the note.
+  const [coverLoadFailed, setCoverLoadFailed] = useState(false);
   // One rule for every note page (notes and daily notes both render through here, and opt in): the preference, and whether the Properties
   // section — its rows, or only its "Add a property" row — is on screen, which is exactly whether `properties` was given.
   const headerSeparatorMode = useHeaderSeparatorMode();
@@ -369,6 +372,7 @@ export function Page({
       onRemove={onRemoveCoverImage}
       // The above-title cover is never hidden by the window's width, only by the note's own `coverHidden`.
       hidden={coverHidden || (coverLayout !== 'above' && isCoverSuppressed)}
+      onLoadFailureChange={setCoverLoadFailed}
       onHide={onHideCoverImage}
       onSaveToVault={onSaveCoverImageToVault}
       onDownload={onDownloadCoverImage}
@@ -518,7 +522,7 @@ export function Page({
               hasDescription={Boolean(description)}
               onEditDescription={onEditDescription}
               propertiesControl={propertiesControl}
-              hasCoverImage={Boolean(coverImage)}
+              hasCoverImage={Boolean(coverImage) && !coverLoadFailed}
               coverHidden={coverHidden}
               onSetCoverImage={onSetCoverImage}
               onSetCoverImageFromUpload={onSetCoverImageFromUpload}

@@ -140,9 +140,12 @@ fn build_app_submenu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>
         .clone()
         .unwrap_or_else(|| package.name.clone());
 
+    // The copyright line comes from `bundle.copyright` in tauri.conf.json, the one place it is set. While that is unset
+    // (the copyright holder is an open decision) the About panel shows no copyright line.
     let about = AboutMetadata {
         name: Some(name.clone()),
         version: Some(package.version.to_string()),
+        copyright: app.config().bundle.copyright.clone(),
         ..Default::default()
     };
     let settings = MenuItem::with_id(

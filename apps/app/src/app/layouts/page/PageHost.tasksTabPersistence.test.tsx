@@ -196,7 +196,7 @@ describe('Tasks page tab selection persists across an app restart', () => {
 
   it('an unrecognised stored tab (an old or hand-edited file) opens All tasks instead of failing', async () => {
     const fileSystem = new InMemoryVaultFileSystem({
-      [`${ROOT}/.clutter/workspace.json`]: JSON.stringify({ tasksViewConfig: { selectedTab: 'overdue' } }),
+      [`${ROOT}/.clutter/workspace.json`]: JSON.stringify({ tasksViewConfig: { selectedTab: 'done' } }),
     });
 
     render(<AppLayout application={await boot(fileSystem)} />);

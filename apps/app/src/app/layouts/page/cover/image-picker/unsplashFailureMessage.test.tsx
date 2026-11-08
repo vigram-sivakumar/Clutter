@@ -67,24 +67,20 @@ describe('unsplashFailureMessage', () => {
 
   it('words the pasted-link picker for what the user was doing', () => {
     expect(unsplashFailureMessage(failure('not-found', 404), 'link')).toBe(
-      'Couldn’t find this photo on Unsplash. Check the link and try again'
+      'Couldn’t add this image. Try again later'
     );
     expect(unsplashFailureMessage(failure('not-configured'), 'link')).toBe(
       'Unsplash links can’t be added right now. Use an image address instead'
     );
-    expect(unsplashFailureMessage(failure('failed', 418), 'link')).toBe(
-      'Couldn’t add this photo from Unsplash. Try again'
+    expect(unsplashFailureMessage(failure('failed', 418), 'link')).toBe('Couldn’t add this image. Try again later');
+    // The pasted-link picker takes any address, so its generic failures never name Unsplash.
+    expect(unsplashFailureMessage(failure('rate-limited'), 'link')).toBe(
+      'Couldn’t add this image. Try again later'
     );
-    // The failures that do not depend on the photo read the same in both pickers.
-    for (const kind of [
-      'rate-limited',
-      'unreachable',
-      'unavailable',
-    ] as const) {
-      expect(unsplashFailureMessage(failure(kind), 'link')).toBe(
-        unsplashFailureMessage(failure(kind), 'search')
-      );
-    }
+    expect(unsplashFailureMessage(failure('unreachable'), 'link')).toBe('Couldn’t add this image. Try again later');
+    expect(unsplashFailureMessage(failure('unavailable'), 'link')).toBe(
+      'Couldn’t add this image. Try again later'
+    );
   });
 
   it('gives anything that is not an Unsplash error the neutral failure, and never its text', () => {
@@ -137,8 +133,8 @@ describe('the search picker when a request fails', () => {
   it.each([
     ['429', failure('rate-limited', 429), SEARCH_COPY['rate-limited']],
     ['no answer', failure('unreachable'), SEARCH_COPY.unreachable],
-    ['502', failure('unavailable', 502), SEARCH_COPY.unavailable],
     ['503', failure('unavailable', 503), SEARCH_COPY.unavailable],
+    ['502', failure('unavailable', 502), SEARCH_COPY.unavailable],
     ['504', failure('unavailable', 504), SEARCH_COPY.unavailable],
     ['an unexpected answer', failure('failed'), SEARCH_COPY.failed],
     [
@@ -194,23 +190,22 @@ describe('the pasted-link picker when a lookup fails', () => {
   };
 
   it.each([
-    ['429', failure('rate-limited', 429), SEARCH_COPY['rate-limited']],
-    ['no answer', failure('unreachable'), SEARCH_COPY.unreachable],
-    ['503', failure('unavailable', 503), SEARCH_COPY.unavailable],
+    ['429', failure('rate-limited', 429), 'Couldn’t add this image. Try again later'],
+    ['a 503', failure('unavailable', 503), 'Couldn’t add this image. Try again later'],
     [
       'an unknown photo',
       failure('not-found', 404),
-      'Couldn’t find this photo on Unsplash. Check the link and try again',
+      'Couldn’t add this image. Try again later',
     ],
     [
       'an unexpected answer',
       failure('failed'),
-      'Couldn’t add this photo from Unsplash. Try again',
+      'Couldn’t add this image. Try again later',
     ],
     [
       'an error that is not an Unsplash one',
       new Error('internal stack detail'),
-      'Couldn’t add this photo from Unsplash. Try again',
+      'Couldn’t add this image. Try again later',
     ],
   ])(
     'shows the message for %s as an alert, sets nothing, and lets the user try again',

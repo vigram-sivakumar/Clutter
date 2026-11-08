@@ -50,6 +50,10 @@ The one rule that explains the whole contract: **a `tok-strike` element must nev
 
 This was found and fixed twice for the same underlying cause before the full rule was written down (Link/Autolink/URL/WikiLink, then InlineCode/Tag/Date/Emphasis/StrongEmphasis/Highlight) — treat a new report of "double strikethrough line" or "wrong strikethrough color" as this exact bug class, not a CSS problem: fix range ownership (`STRIKETHROUGH_PROTECTED_NODE_NAMES` in `inlineLivePreviewParticipants.ts`), never `text-decoration-color`, `z-index`, opacity, or a pseudo-element. The full contract document has the ownership model, the required regression cases, and a debugging checklist — read it rather than re-deriving any of this from scratch.
 
+## Project ownership (permanent)
+
+Clutter is a personal project of Vigram Sivakumar. It is not any employer's or company's project. Never name an employer or company anywhere in the repository (code, comments, tests, sample data, docs, UI copy, commit messages, metadata), and never attribute copyright or authorship to one. The copyright line is "© 2026 Vigram Sivakumar" and the licence is proprietary (no open-source licence).
+
 ## Git commit workflow (permanent)
 
 Every logically complete implementation milestone must be verified and committed before moving to the next one:

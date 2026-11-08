@@ -40,6 +40,21 @@ function fillAndSubmit(url: string) {
   fireEvent.click(screen.getByText(/^Add$|^Adding…$/));
 }
 
+describe('ImagePickerLink — an empty address', () => {
+  it('leaves Add enabled and shakes the address field instead of doing nothing', () => {
+    const onSubmit = vi.fn();
+    render(<ImagePickerLink onSubmit={onSubmit} />);
+
+    const add = screen.getByText('Add').closest('button')!;
+    expect(add.disabled).toBe(false);
+    fireEvent.click(add);
+
+    expect(screen.getByPlaceholderText('Paste image URL').classList.contains('editable-text--shake')).toBe(true);
+    expect(created).toHaveLength(0);
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+});
+
 describe('ImagePickerLink — URL syntax validation', () => {
   it('rejects an obviously invalid URL without ever probing an image', () => {
     const onSubmit = vi.fn();
@@ -191,7 +206,7 @@ describe('ImagePickerLink — Unsplash photo page links (resolved through the AP
 
     fillAndSubmit(PAGE);
 
-    expect((await screen.findByRole('alert')).textContent).toMatch(/couldn.t find this photo on unsplash/i);
+    expect((await screen.findByRole('alert')).textContent).toBe('Couldn’t add this image. Try again later');
     expect(onSubmit).not.toHaveBeenCalled();
     expect(trackMock).not.toHaveBeenCalled();
   });

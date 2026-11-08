@@ -1,6 +1,6 @@
 # ADR-065: Unsplash requests go through a Cloudflare Worker that holds the Access Key
 
-**Status: Accepted** (implemented and deployed to `https://clutter-unsplash-proxy.vigram-work.workers.dev`; deployment and release steps are in `workers/unsplash-proxy/README.md`)
+**Status: Accepted** (implemented and deployed to `https://clutter-unsplash-proxy.vigram-sivakumar.workers.dev`; deployment and release steps are in `workers/unsplash-proxy/README.md`)
 
 ## Context
 
@@ -20,7 +20,7 @@ Clutter called `api.unsplash.com` directly with an Access Key read from `VITE_UN
 ## Consequences
 
 - The shipped app contains no Unsplash credential. A key that was ever in a bundle built before this change must be treated as exposed and **rotated** after the Worker is deployed.
-- All users share the one Access Key's Unsplash quota; the proxy's per-client limit protects it but does not raise it (a Production-approved key has a far higher hourly limit than a Demo key). Which tier the application is on, and that approval has been granted, is **not recorded here** and must be confirmed before a public release (checklist item 22 in `docs/building-and-distribution.md`).
+- All users share the one Access Key's Unsplash quota; the proxy's per-client limit protects it but does not raise it (a Production-approved key has a far higher hourly limit than a Demo key). The owner reports that Production approval has been granted (2026-11-06); the deployed key's tier cannot be read from the repository, and how to confirm it is in `docs/privacy-release.md`. What the Worker and Cloudflare retain was verified on the same date and is recorded there.
 - Unsplash search and the paste-a-link cover need the proxy to be reachable; when it is not, the pickers show a plain message chosen from the failure's kind (request limit reached, temporarily unreachable, temporarily unavailable, or a neutral failure), never the raw error; the kind and HTTP status, and nothing else, go to the console.
 - The proxy does not cache. Caching Unsplash responses at the edge would cut upstream use but is not covered by the written confirmation about proxying and is left as a decision.
 
@@ -34,3 +34,7 @@ Clutter called `api.unsplash.com` directly with an Access Key read from `VITE_UN
 ## Update (2026-11-02): the dev servers' origins are allowed on the deployed Worker
 
 The deployed Worker now also answers `http://localhost:1421` (`tauri dev`), `http://localhost:1422` (`dev:sandbox`) and `http://localhost:5173` (the web dev server), so every dev flow uses the one hosted Worker with no local `wrangler dev`. This replaces the earlier rule that dev origins stay out of `wrangler.toml`: the local Worker had to be started by hand, and a missing one surfaced as an `unreachable` picker. The cost is small: CORS is not authentication (the Worker already answers any non-browser client), the rate limit and the key handling are unchanged, and a page on one of those localhost ports can read photo replies, which carry nothing private. `test/config.test.ts` pins the exact origin list.
+
+## Update (2026-11-07): the Worker's hostname changed
+
+The Cloudflare account's `workers.dev` subdomain was renamed from `vigram-work` to `vigram-sivakumar`, so the Worker is now served at `https://clutter-unsplash-proxy.vigram-sivakumar.workers.dev` (it was `https://clutter-unsplash-proxy.vigram-work.workers.dev`, which no longer resolves). The Worker, its secret and its configuration are unchanged; the app's default URL and `connect-src` follow the new hostname. Builds made before this change keep calling the old hostname and lose Unsplash until updated.

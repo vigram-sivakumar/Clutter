@@ -9,7 +9,7 @@ It is deployed **separately** from the app and is not part of the app's npm work
 
 | | |
 | --- | --- |
-| Worker URL | `https://clutter-unsplash-proxy.vigram-work.workers.dev` |
+| Worker URL | `https://clutter-unsplash-proxy.vigram-sivakumar.workers.dev` |
 | App setting | `VITE_UNSPLASH_PROXY_URL`. Unset, the app uses the URL above (`DEFAULT_UNSPLASH_PROXY_URL` in `UnsplashApi.ts`); set and empty, Unsplash is off; otherwise an `https` origin with no path |
 | App security policy | the Worker's origin in `connect-src` in `apps/app/src-tauri/tauri.conf.json`; change it together with the URL |
 | Access Key | the Worker secret `UNSPLASH_ACCESS_KEY` **only**. Never a `VITE_*` variable, never in the app, this repository or a chat |
@@ -42,6 +42,16 @@ when it displays a credit and reports the download through `/photos/:id/download
   (`not_found`), `405`, `414`, `429` (`rate_limited`, with `Retry-After`), `500` (`not_configured`), `502`
   (`upstream_error`) or `504` (`upstream_timeout`). Unsplash's own error body is never passed on.
 
+## Privacy and retention
+
+What the Worker and Cloudflare keep, as verified against the deployed Worker on 2026-11-06 (details and the commands in `docs/privacy-release.md`):
+
+- The Worker stores nothing and writes no request data. Log lines (`console.warn`) carry an event name and a status only; Workers Logs is off (`[observability] enabled = false`; the deployed settings report `observability: null`), Logpush is off (`logpush = false`) and no tail consumer is attached. `test/config.test.ts` fails if any of these changes.
+- The client IP (`CF-Connecting-IP`) is the rate limiter's key and is used nowhere else. Cloudflare keeps the limiter's counters in its own infrastructure; it does not say how long.
+- Cloudflare handles every request on its network and may keep operational data about it under its own privacy policy (it gives no retention figure for customer request data). That is why Clutter's App Privacy declaration treats search text as collected.
+- The deployed bundle was compared with the bundle this repository builds and was identical.
+- `workers.dev` is Cloudflare's hobby-grade hostname; a custom domain is recommended for wide release (steps in `docs/privacy-release.md`).
+
 ## Security properties
 
 - The key exists only as the `UNSPLASH_ACCESS_KEY` **secret** binding. It is sent to `api.unsplash.com` in an
@@ -72,7 +82,7 @@ You need a Cloudflare account and an Unsplash **Access Key** (from your applicat
    ```
 3. **Deploy.** `wrangler.toml` is the source of truth for `ALLOWED_ORIGINS`, `preview_urls` and the rate limiter, so a
    deploy sets them. The Worker name in `wrangler.toml` (`clutter-unsplash-proxy`) is the name of the placeholder you created,
-   so this replaces it and keeps the URL `https://clutter-unsplash-proxy.vigram-work.workers.dev`.
+   so this replaces it and keeps the URL `https://clutter-unsplash-proxy.vigram-sivakumar.workers.dev`.
    ```bash
    npx wrangler deploy
    ```
@@ -86,9 +96,9 @@ You need a Cloudflare account and an Unsplash **Access Key** (from your applicat
    **Secret**, name `UNSPLASH_ACCESS_KEY`, paste the key, **Deploy**. (Do not use the plain **Text** type: it is visible.)
 5. **Verify.**
    ```bash
-   curl https://clutter-unsplash-proxy.vigram-work.workers.dev/health
+   curl https://clutter-unsplash-proxy.vigram-sivakumar.workers.dev/health
    # {"ok":true}
-   curl "https://clutter-unsplash-proxy.vigram-work.workers.dev/search/photos?query=architecture&orientation=landscape"
+   curl "https://clutter-unsplash-proxy.vigram-sivakumar.workers.dev/search/photos?query=architecture&orientation=landscape"
    # {"results":[{"id":"…","urls":{…},"user":{…},"links":{"download_location":"https://api.unsplash.com/photos/…"}}]}
    ```
    A `500 {"error":"not_configured"}` means the secret is not set yet. Watch live events with `npx wrangler tail`.
@@ -113,6 +123,13 @@ API does not redirect, so a logged `upstream_redirect` is unexpected and worth a
 Set `VITE_UNSPLASH_PROXY_URL` for the app build, **and** change the origin in `connect-src` in
 `apps/app/src-tauri/tauri.conf.json`, or the packaged app's security policy blocks the requests. (An empty
 `VITE_UNSPLASH_PROXY_URL` turns Unsplash off in the app.)
+
+### History: the account subdomain changed on 2026-11-07
+
+The Cloudflare account's `workers.dev` subdomain was renamed from `vigram-work` to `vigram-sivakumar`, so the Worker
+moved from `clutter-unsplash-proxy.vigram-work.workers.dev` to the URL above. The old hostname stopped resolving at
+once. The Worker itself, its secret and `wrangler.toml` were not touched. App builds made before the move still call
+the old hostname, so Unsplash is unavailable in them until the user updates.
 
 ### If the rate-limit binding is rejected
 

@@ -4,6 +4,7 @@ import type { TaskViewKind } from '../helpers/tasksForView';
 const TASK_TABS = [
   { value: 'all', label: 'All tasks' },
   { value: 'today', label: 'Today' },
+  { value: 'overdue', label: 'Overdue' },
   { value: 'upcoming', label: 'Upcoming' },
   { value: 'unscheduled', label: 'Unscheduled' },
 ] as const;
@@ -19,6 +20,7 @@ export function resolveTasksTab(stored: string | undefined): TasksTabValue {
 export const TASKS_TAB_VIEW: Readonly<Record<TasksTabValue, TaskViewKind>> = {
   all: 'tasks-all',
   today: 'tasks-today',
+  overdue: 'tasks-overdue',
   upcoming: 'tasks-upcoming',
   unscheduled: 'tasks-unscheduled',
 };

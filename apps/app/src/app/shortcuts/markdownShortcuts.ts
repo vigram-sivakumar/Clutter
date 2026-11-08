@@ -25,6 +25,7 @@ export const MARKDOWN_SHORTCUT_GROUPS: readonly ShortcutRowGroup[] = [
       { id: 'inline-code-typed', label: 'Inline code', description: 'Type backticks around text', trigger: '`text`' },
       { id: 'highlight', label: 'Highlight', trigger: '==text==' },
       { id: 'strikethrough', label: 'Strikethrough', trigger: '~~text~~' },
+      { id: 'quote', label: 'Quote', description: 'Start a line with > or " and a space', trigger: '> text or " text' },
       { id: 'code-block', label: 'Code block', description: 'Type three backticks, and the closing fence is added', trigger: '```' },
     ],
   },

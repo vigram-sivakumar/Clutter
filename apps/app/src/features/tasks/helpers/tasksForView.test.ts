@@ -40,6 +40,9 @@ describe('tasksForView — the single authority on which tasks belong to each ta
     it('due today → Today', () => {
       expect(titles('tasks-today', all)).toEqual(['due today']);
     });
+    it('due before today and not completed → Overdue', () => {
+      expect(titles('tasks-overdue', all)).toEqual(['due yesterday']);
+    });
     it('due after today → Upcoming; unscheduled tasks are never Upcoming', () => {
       expect(titles('tasks-upcoming', all)).toEqual(['due tomorrow']);
     });
@@ -73,6 +76,12 @@ describe('tasksForView — the single authority on which tasks belong to each ta
       expect(titles('tasks-upcoming', [completedFuture], HIDE)).toEqual([]);
     });
 
+    it('a completed task never appears in Overdue — with Show completed on or off', () => {
+      const completedPast = task('done past', { completed: true, dueDate: '2026-10-01', completedAt: '2026-10-01' });
+      expect(titles('tasks-overdue', [completedPast], SHOW)).toEqual([]);
+      expect(titles('tasks-overdue', [completedPast], HIDE)).toEqual([]);
+    });
+
     it('a completed task never appears in Unscheduled — with Show completed on or off', () => {
       expect(titles('tasks-unscheduled', everyCompleted, SHOW)).toEqual([]);
       expect(titles('tasks-unscheduled', everyCompleted, HIDE)).toEqual([]);
@@ -85,6 +94,7 @@ describe('tasksForView — the single authority on which tasks belong to each ta
 
       expect(titles('tasks-unscheduled', [bad])).toEqual(['malformed']);
       expect(titles('tasks-today', [bad])).toEqual([]);
+      expect(titles('tasks-overdue', [bad])).toEqual([]);
       expect(titles('tasks-upcoming', [bad])).toEqual([]);
     });
   });

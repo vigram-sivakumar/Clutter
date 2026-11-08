@@ -224,8 +224,8 @@ export const ASSETS_COLLECTION: CollectionDefinition = {
 /**
  * The Task Collection — every task view (All Tasks, Today, Overdue, Upcoming, Unscheduled, Done) is a dataset of it, drawn as rows of the generic List (the default) or Table — there
  * is no Card. A task's properties are its Name (the title), Due date and Source (the note it lives in); all
- * three are on by default, which is exactly what the List row has always shown (title, the due-date
- * control and the source link). A task has no created/edited time, so those are not offered. Creating
+ * three are on by default in the Table; the List starts as just the Name and Due date (the source link is
+ * one the user can turn on). A task has no created/edited time, so those are not offered. Creating
  * a task is the page's New task action.
  */
 export const TASKS_COLLECTION: CollectionDefinition = {
@@ -233,6 +233,7 @@ export const TASKS_COLLECTION: CollectionDefinition = {
   emptyMessage: 'Tasks from your notes will appear here',
   properties: ['name', 'dueDate', 'source'],
   defaultVisible: ['name', 'dueDate', 'source'],
+  defaultVisibleByLayout: { list: ['name', 'dueDate'] },
   layouts: ['list', 'table'],
   defaultLayout: 'list',
   defaultSort: DEFAULT_SORT,

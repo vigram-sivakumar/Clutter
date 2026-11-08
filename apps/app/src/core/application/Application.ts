@@ -1,7 +1,12 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { isFolderConfirmedMissing, probeSpaceFolder } from '../vault/providers/probeSpaceFolder';
 import { VaultRootMissingError } from '../vault/providers/VaultRootMissingError';
-import { assertSpaceFilesystemSupported } from '../vault/providers/spaceFolders';
+import {
+  assertSpaceFilesystemSupported,
+  folderNeedsReselect,
+  needsReselectOpenedSpaceMessage,
+  SpaceFilesystemRefusedError,
+} from '../vault/providers/spaceFolders';
 import { isArchiveRetentionElapsed } from './archive/archiveRetention';
 import {
   collectAssetReferences,
@@ -239,7 +244,8 @@ export class Application {
   private readonly tagMetadataStore: TagMetadataStore;
   public pageOperations!: PageOperations;
   /**
-   * ADR-067: installs the bundled welcome content into the first Space, and finishes an interrupted install. Owns the
+   * ADR-067: installs the bundled welcome content into an empty Space opened from the Welcome Screen (ADR-070), and
+   * finishes an interrupted install. Owns the
    * workflow only; every page and folder write goes through the two `createFromSource` facade methods.
    */
   public welcomeContentService!: WelcomeContentService;
@@ -356,6 +362,14 @@ export class Application {
       // (creating a vault is an explicit user action, separate from opening one). Only a
       // *confirmed* absence lands here; a permission or scope error carries on and surfaces from
       // the scan below as before.
+      //
+      // `missing` is also what the probe answers for a folder that exists but whose access the user has to give
+      // again (saved sandbox access that could not be restored, or no grant in the runtime filesystem scope that
+      // anything the app keeps could bring back). That is not a lost folder and must not be reported as one: it is a
+      // distinct refusal that tells the user to select the folder again.
+      if (!(await isFolderConfirmedMissing(rootPath)) && (await folderNeedsReselect(rootPath))) {
+        throw new SpaceFilesystemRefusedError('needsReselect', needsReselectOpenedSpaceMessage(rootPath));
+      }
       throw new VaultRootMissingError(rootPath);
     }
 

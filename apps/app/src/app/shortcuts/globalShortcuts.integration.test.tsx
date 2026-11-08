@@ -149,7 +149,7 @@ describe('global shortcuts, through the real layout', () => {
     expect(await screen.findByLabelText('Folder name')).toBeInTheDocument();
   });
 
-  it('⌃⌘C hides and shows the open note’s cover through the cover’s own handlers, and never edits the note', async () => {
+  it('⇧⌘C hides and shows the open note’s cover through the cover’s own handlers, and never edits the note', async () => {
     const application = makeApplication();
     render(
       <ShortcutsProvider>
@@ -178,7 +178,7 @@ describe('global shortcuts, through the real layout', () => {
     const toggle = () =>
       act(() => {
         content.dispatchEvent(
-          new KeyboardEvent('keydown', { key: 'c', code: 'KeyC', keyCode: 67, metaKey: true, ctrlKey: true, bubbles: true, cancelable: true })
+          new KeyboardEvent('keydown', { key: 'c', code: 'KeyC', keyCode: 67, metaKey: true, shiftKey: true, bubbles: true, cancelable: true })
         );
       });
     toggle();

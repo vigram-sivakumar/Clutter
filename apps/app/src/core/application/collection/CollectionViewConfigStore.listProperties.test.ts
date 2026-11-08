@@ -175,12 +175,20 @@ describe('existing collection configurations still load', () => {
   });
 
   it('a collection whose own default layout is the List (Tasks) keeps choices saved before the List had its own', () => {
-    const config = { propertyOverrides: { dueDate: false } } as const;
-
-    expect(resolveCollectionView(TASKS_COLLECTION, config).visible).toEqual(['name', 'source']);
+    // The List starts as Name and Due date; a choice saved before it had its own still applies.
+    expect(resolveCollectionView(TASKS_COLLECTION, {}).visible).toEqual(['name', 'dueDate']);
+    expect(resolveCollectionView(TASKS_COLLECTION, { propertyOverrides: { dueDate: false } }).visible).toEqual(['name']);
+    expect(resolveCollectionView(TASKS_COLLECTION, { propertyOverrides: { source: true } }).visible).toEqual([
+      'name',
+      'dueDate',
+      'source',
+    ]);
     // Once the List is customized it has its own, and the shared ones no longer drive it.
     expect(
-      resolveCollectionView(TASKS_COLLECTION, { ...config, listPropertyOverrides: { source: false } }).visible
-    ).toEqual(['name', 'dueDate']);
+      resolveCollectionView(TASKS_COLLECTION, {
+        propertyOverrides: { source: true },
+        listPropertyOverrides: { dueDate: false },
+      }).visible
+    ).toEqual(['name']);
   });
 });

@@ -98,7 +98,7 @@ describe('the chips the dialog shows', () => {
     expect(shortcutKeys(byId('open-settings'))).toEqual(['command', 'comma']);
     expect(shortcutKeys(byId('new-folder'))).toEqual(['shift', 'command', { label: 'N' }]);
     expect(shortcutKeys(byId('go-tasks'))).toEqual(['command', { label: '3' }]);
-    expect(shortcutKeys(byId('toggle-cover-image'))).toEqual(['control', 'command', { label: 'C' }]);
+    expect(shortcutKeys(byId('toggle-cover-image'))).toEqual(['shift', 'command', { label: 'C' }]);
     expect(shortcutKeys(byId('previous-daily-note'))).toEqual(['control', 'command', 'arrowLeft']);
     expect(shortcutKeys(byId('next-daily-note'))).toEqual(['control', 'command', 'arrowRight']);
     expect(shortcutKeys(byId('new-tag'))).toEqual(['option', 'command', { label: 'T' }]);
@@ -123,13 +123,14 @@ describe('the chips the dialog shows', () => {
 });
 
 describe('matchShortcut', () => {
-  it('matches ⌃⌘C to Toggle cover image on a Mac, and exactly', () => {
-    expect(matchShortcut(key({ code: 'KeyC', metaKey: true, ctrlKey: true }), true)?.id).toBe('toggle-cover-image');
-    // ⌘C is Copy; ⌃C and ⌥⌘C are not ours.
+  it('matches ⇧⌘C to Toggle cover image on a Mac, and exactly', () => {
+    expect(matchShortcut(key({ code: 'KeyC', metaKey: true, shiftKey: true }), true)?.id).toBe('toggle-cover-image');
+    // ⌘C is Copy; ⇧C, ⌥⌘C and ⌃⌘C are not ours.
     expect(matchShortcut(key({ code: 'KeyC', metaKey: true }), true)).toBeNull();
-    expect(matchShortcut(key({ code: 'KeyC', ctrlKey: true }), true)).toBeNull();
+    expect(matchShortcut(key({ code: 'KeyC', shiftKey: true }), true)).toBeNull();
     expect(matchShortcut(key({ code: 'KeyC', metaKey: true, altKey: true }), true)).toBeNull();
-    expect(matchShortcut(key({ code: 'KeyC', metaKey: true, ctrlKey: true }), false)).toBeNull();
+    expect(matchShortcut(key({ code: 'KeyC', metaKey: true, ctrlKey: true }), true)).toBeNull();
+    expect(matchShortcut(key({ code: 'KeyC', ctrlKey: true, shiftKey: true }), false)?.id).toBe('toggle-cover-image');
   });
 
   it('keeps ⌘\\ for Toggle sidebar, and ⇧⌘\\ is not a shortcut of ours', () => {

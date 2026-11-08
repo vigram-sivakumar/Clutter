@@ -179,7 +179,10 @@ describe('NewTaskDialog — Edit task', () => {
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: '   ' } });
 
-    expect(screen.getByText('Save changes').closest('button')).toBeDisabled();
+    // The button stays enabled: pressing it shakes the title field instead.
+    expect(screen.getByText('Save changes').closest('button')).toBeEnabled();
+    fireEvent.click(screen.getByText('Save changes'));
+    expect(screen.getByRole('textbox')).toHaveClass('editable-text--shake');
     expect(onSaveTask).not.toHaveBeenCalled();
   });
 

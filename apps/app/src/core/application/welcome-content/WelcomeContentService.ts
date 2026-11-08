@@ -52,7 +52,8 @@ type EntryOutcome = 'done' | 'skipped';
 const UNRESOLVED_PARENT = 'unresolved-parent';
 
 /**
- * ADR-067: installs the bundled welcome content into the first Space, once, and finishes an interrupted install.
+ * ADR-067: installs the bundled welcome content into a completely empty Space (ADR-070: asked only by the Welcome Screen's open
+ * sequence), never twice into the same Space, and finishes an interrupted install.
  *
  * It owns the workflow, not a capability: every page and folder write is a Gate `enqueue` made by the two facades'
  * `createFromSource` (and `ensureReservedFolder` for Templates); this class enqueues nothing itself. The image is

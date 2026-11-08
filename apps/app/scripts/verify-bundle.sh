@@ -8,13 +8,17 @@
 #     only saving system (ADR-063): an executable without them cannot save at all, so a package without them is
 #     rejected here, before it is installed;
 #   * the WebDriver automation plugin is not in the executable (a test-harness build says so explicitly);
+#   * the app icon is the native Icon Composer asset (Contents/Resources/Assets.car, CFBundleIconName, with the default,
+#     dark and tinted renditions) and a valid legacy .icns is present as the fallback for macOS before 26. Tauri
+#     skips the Assets.car without failing when Xcode 26+ (actool) is missing, so this check is what catches that;
 #   * the code signature verifies.
 #
 # --local (default)  an installable build for this Mac: an ad-hoc signature is fine.
 # --share            a build to give to testers: must carry a Developer ID signature with the hardened runtime, and be
 #                    notarized with the ticket stapled, or Gatekeeper blocks it on other Macs.
 # --submission       a Mac App Store candidate: a distribution signature, the embedded provisioning profile, and the
-#                    application and team identifiers Apple requires, with a real bundle identifier.
+#                    application and team identifiers Apple requires, with the production bundle identifier
+#                    (com.vigram.clutter) and a valid build number.
 #
 # usage: verify-bundle.sh <path/to/Clutter.app> [--local|--share|--submission] [--allow-test-harness]
 set -uo pipefail
@@ -67,13 +71,57 @@ else
   pass "no automation plugin"
 fi
 
+# The app icon: the compiled Icon Composer asset, plus the legacy .icns for systems that do not read it. The icon is built
+# from src-tauri/icons/Clutter.icon (bundle.icon in tauri.conf.json); an Assets.car missing here means the build ran
+# without Xcode 26 or later (Tauri logs an error and carries on), so a packaged build must not go out.
+ICON_NAME=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIconName" "$APP/Contents/Info.plist" 2>/dev/null)
+ASSETS_CAR="$APP/Contents/Resources/Assets.car"
+if [ -f "$ASSETS_CAR" ]; then
+  pass "Contents/Resources/Assets.car exists"
+  [ "$ICON_NAME" = "Icon" ] && pass "CFBundleIconName is Icon" || fail "CFBundleIconName is '$ICON_NAME', expected Icon (the name Tauri gives the compiled Icon Composer asset)"
+  CAR_INFO=$(xcrun assetutil --info "$ASSETS_CAR" 2>/dev/null)
+  for APPEARANCE in NSAppearanceNameAqua NSAppearanceNameDarkAqua ISAppearanceTintable; do
+    # Python rather than a text match: the icon stack for each appearance must be an IconImageStack named after the icon.
+    echo "$CAR_INFO" | python3 -I -c "
+import json, sys
+entries = json.load(sys.stdin)
+sys.exit(0 if any(e.get('AssetType') == 'IconImageStack' and e.get('Name') == '$ICON_NAME' and e.get('Appearance') == '$APPEARANCE' for e in entries) else 1)
+" 2>/dev/null && pass "icon rendition $APPEARANCE in Assets.car" || fail "Assets.car has no $APPEARANCE icon rendition"
+  done
+else
+  fail "no Contents/Resources/Assets.car: the Icon Composer icon was not compiled (needs Xcode 26 or later; see docs/building-and-distribution.md)"
+fi
+ICNS_NAME=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIconFile" "$APP/Contents/Info.plist" 2>/dev/null)
+ICNS="$APP/Contents/Resources/$ICNS_NAME"
+if [ -n "$ICNS_NAME" ] && [ -f "$ICNS" ] && python3 -I - "$ICNS" <<'PY'
+import struct, sys
+data = open(sys.argv[1], "rb").read()
+if data[:4] != b"icns" or struct.unpack(">I", data[4:8])[0] != len(data):
+    sys.exit(1)
+types, pos = set(), 8
+while pos + 8 <= len(data):
+    kind, length = struct.unpack(">4sI", data[pos:pos + 8])
+    if length < 8:
+        sys.exit(1)
+    types.add(kind.decode("latin-1"))
+    pos += length
+# 512x512 (ic09) and 512x512@2x (ic10): what the Mac App Store has always required of an .icns.
+sys.exit(0 if pos == len(data) and {"ic09", "ic10"} <= types else 1)
+PY
+then pass "legacy icon $ICNS_NAME is a valid .icns with 512x512 and 512x512@2x"; else fail "no valid legacy .icns (CFBundleIconFile '$ICNS_NAME'): needs a well-formed file with 512x512 and 512x512@2x"; fi
+
 codesign --verify --deep --strict "$APP" 2>/dev/null && pass "code signature is valid" || fail "code signature does not verify"
 PRIVACY="$APP/Contents/Resources/PrivacyInfo.xcprivacy"
 if [ -f "$PRIVACY" ]; then
   plutil -lint "$PRIVACY" >/dev/null 2>&1 && pass "privacy manifest is a valid property list" || fail "PrivacyInfo.xcprivacy is not a valid property list"
-  # The executable reads file timestamps (stat), a required-reason API: its category must be declared.
-  grep -q "NSPrivacyAccessedAPICategoryFileTimestamp" "$PRIVACY" && pass "privacy manifest declares the file timestamp API" || fail "privacy manifest does not declare NSPrivacyAccessedAPICategoryFileTimestamp"
-  grep -q "NSPrivacyTracking" "$PRIVACY" && pass "privacy manifest states the tracking answer" || fail "privacy manifest lacks NSPrivacyTracking"
+  # Structure (Apple's keys, data types, purposes, categories and reason codes), and that the required-reason APIs the
+  # executable imports are exactly the categories declared: an undeclared one is refused by App Store Connect.
+  if CHECK=$(python3 -I "$(dirname "$0")/check-privacy-manifest.py" "$PRIVACY" "$BINARY" 2>&1); then
+    pass "privacy manifest is valid and matches the executable's required-reason APIs"
+  else
+    echo "$CHECK" | sed 's/^/      /'
+    fail "privacy manifest is invalid or does not match the executable"
+  fi
 else
   fail "no Contents/Resources/PrivacyInfo.xcprivacy (App Store validation requires a privacy manifest)"
 fi
@@ -86,9 +134,10 @@ echo "$SIGNATURE" | grep -q "Signature=adhoc" && ADHOC=true
 case "$MODE" in
   local)
     $ADHOC && warn "ad-hoc signature: fine to install here, but Gatekeeper blocks it on other Macs (use --share builds for testers)"
-    [ "$IDENTIFIER" = "com.clutter.dev" ] && warn "bundle identifier is the development one ($IDENTIFIER)"
+    [ "$IDENTIFIER" = "com.vigram.clutter" ] || warn "bundle identifier is $IDENTIFIER, not the production one (com.vigram.clutter)"
     ;;
   share)
+    [ "$IDENTIFIER" = "com.vigram.clutter" ] && pass "bundle identifier $IDENTIFIER" || fail "bundle identifier is $IDENTIFIER, not com.vigram.clutter"
     $ADHOC && fail "ad-hoc signature: testers' Macs would block this build; sign with a Developer ID Application identity"
     echo "$SIGNATURE" | grep -q "Authority=Developer ID Application" && pass "Developer ID Application signature" || fail "not signed with a Developer ID Application identity"
     echo "$SIGNATURE" | grep -q "flags=.*runtime" && pass "hardened runtime" || fail "hardened runtime is not enabled (required for notarization)"
@@ -102,7 +151,15 @@ case "$MODE" in
     echo "$ENTITLEMENTS" | grep -q "com.apple.application-identifier" && pass "application identifier entitlement" || fail "missing com.apple.application-identifier"
     echo "$ENTITLEMENTS" | grep -q "com.apple.developer.team-identifier" && pass "team identifier entitlement" || fail "missing com.apple.developer.team-identifier"
     [ -f "$APP/Contents/embedded.provisionprofile" ] && pass "provisioning profile embedded" || fail "no embedded.provisionprofile"
-    [ "$IDENTIFIER" = "com.clutter.dev" ] && fail "bundle identifier is still the development one" || pass "bundle identifier $IDENTIFIER"
+    [ "$IDENTIFIER" = "com.vigram.clutter" ] && pass "bundle identifier $IDENTIFIER" || fail "bundle identifier is $IDENTIFIER, not the production com.vigram.clutter"
+    SHORT_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP/Contents/Info.plist" 2>/dev/null)
+    BUILD_NUMBER=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$APP/Contents/Info.plist" 2>/dev/null)
+    echo "$SHORT_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$' && pass "marketing version $SHORT_VERSION" || fail "CFBundleShortVersionString '$SHORT_VERSION' is not MAJOR.MINOR.PATCH"
+    echo "$BUILD_NUMBER" | grep -qE '^[0-9]+(\.[0-9]+){0,2}$' && [ "$BUILD_NUMBER" != "$SHORT_VERSION" ] && pass "build number $BUILD_NUMBER" || fail "CFBundleVersion '$BUILD_NUMBER' is not a build number of its own (integers, not the marketing version)"
+    MINIMUM_SYSTEM=$(/usr/libexec/PlistBuddy -c "Print :LSMinimumSystemVersion" "$APP/Contents/Info.plist" 2>/dev/null)
+    [ -n "$MINIMUM_SYSTEM" ] && [ "$(printf '%s\n%s\n' 13.3 "$MINIMUM_SYSTEM" | sort -V | head -1)" = "13.3" ] && pass "minimum macOS $MINIMUM_SYSTEM (13.3 or later)" || fail "LSMinimumSystemVersion '$MINIMUM_SYSTEM' is below 13.3 (the web code needs WebKit 16.4)"
+    ARCHS=$(lipo -archs "$BINARY" 2>/dev/null)
+    [ "$ARCHS" = "arm64" ] && pass "architecture arm64 (Apple silicon only, as decided for 1.0)" || fail "architectures '$ARCHS', expected arm64 only"
     /usr/libexec/PlistBuddy -c "Print :LSApplicationCategoryType" "$APP/Contents/Info.plist" >/dev/null 2>&1 && pass "App Store category set" || fail "no LSApplicationCategoryType"
     ;;
 esac

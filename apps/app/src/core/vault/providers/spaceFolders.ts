@@ -2,7 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { documentDir, homeDir } from '@tauri-apps/api/path';
 
 import { VaultPath } from '../ingest/VaultPath';
-import { DOCUMENTS_ACCESS_NEEDED, requestDocumentsAccess, sandboxInfo } from './sandboxAccess';
+import { DOCUMENTS_ACCESS_NEEDED, needsFolderReselected, requestDocumentsAccess, sandboxInfo } from './sandboxAccess';
 import { isValidSpaceFolderName } from '../ingest/spaceFolderName';
 
 /** The folder new Spaces are created in, resolved from the current user's real home — never hardcoded. */
@@ -175,13 +175,22 @@ export async function isReachedThroughLink(path: string): Promise<boolean> {
  *
  * - `supported`: APFS.
  * - `unsupported`: any other volume. `filesystem` is the system's name for it (`exfat`, `msdos`, `hfs`, `smbfs`…).
+ * - `outOfScope`: the native side refused the folder because it is not inside the runtime filesystem scope the user's
+ *   own choices built (the picker's grant, the persisted scope, a restored bookmark, a Space Clutter made). The folder
+ *   was never classified. This is the one refusal that has a recovery: the user selects the folder again.
  * - `unknown`: the check itself failed (an unreadable folder, a build without the native writer, an answer that is
- *   not one of the two above). A folder that cannot be judged is never treated as supported.
+ *   not one of the above). A folder that cannot be judged is never treated as supported.
  */
 export type SpaceFilesystemSupport =
   | { readonly status: 'supported'; readonly filesystem: string }
   | { readonly status: 'unsupported'; readonly filesystem: string }
+  | { readonly status: 'outOfScope' }
   | { readonly status: 'unknown' };
+
+/** The native commands reject with `{ code, detail }`; `outOfScope` is the code for a folder outside the granted scope. */
+function isOutOfScopeRefusal(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 'outOfScope';
+}
 
 /** Classifies the volume of `path` through the native writer's own volume check. Never throws. */
 export async function checkSpaceFilesystem(path: string): Promise<SpaceFilesystemSupport> {
@@ -194,6 +203,7 @@ export async function checkSpaceFilesystem(path: string): Promise<SpaceFilesyste
       }
     }
   } catch (error) {
+    if (isOutOfScopeRefusal(error)) return { status: 'outOfScope' };
     console.error('Checking the space folder’s volume failed:', error);
   }
 
@@ -202,7 +212,9 @@ export async function checkSpaceFilesystem(path: string): Promise<SpaceFilesyste
 
 /**
  * An existing Space was refused when it was opened, because Clutter cannot show that its folder can be saved to
- * safely: the volume is not APFS (`unsupported`), or the volume could not be classified at all (`unchecked`).
+ * safely: the volume is not APFS (`unsupported`), or the volume could not be classified at all (`unchecked`); or
+ * because the access the user once gave for the folder is no longer in force and nothing the app keeps can bring it
+ * back (`needsReselect`): the user has to select the folder again.
  * The Space is not opened in any reduced mode: nothing in Clutter reliably disables every mutation path, so a
  * "read-only" Space would be a claim the code cannot back. The Space stays registered and untouched.
  */
@@ -210,17 +222,25 @@ export class SpaceFilesystemRefusedError extends Error {
   readonly name = 'SpaceFilesystemRefusedError';
 
   constructor(
-    readonly kind: 'unsupported' | 'unchecked',
+    readonly kind: 'unsupported' | 'unchecked' | 'needsReselect',
     message: string
   ) {
     super(message);
   }
 }
 
+function spaceFolderName(path: string): string {
+  return path.replace(/\/+$/, '').split('/').pop() || path;
+}
+
 /** The message for an already-registered Space whose folder is on a volume Clutter cannot save to safely. */
 export function unsupportedOpenedSpaceMessage(path: string): string {
-  const name = path.replace(/\/+$/, '').split('/').pop() || path;
-  return `Couldn’t open “${name}”: not on an APFS drive`;
+  return `Couldn’t open “${spaceFolderName(path)}”: not on an APFS drive`;
+}
+
+/** The message for an already-registered Space whose folder access is gone and has to be given again. */
+export function needsReselectOpenedSpaceMessage(path: string): string {
+  return `Couldn’t open “${spaceFolderName(path)}”: select its folder again`;
 }
 
 /** The message for an already-registered Space whose folder's volume could not be classified. */
@@ -240,7 +260,35 @@ export async function assertSpaceFilesystemSupported(path: string): Promise<void
   if (support.status === 'unsupported') {
     throw new SpaceFilesystemRefusedError('unsupported', unsupportedOpenedSpaceMessage(path));
   }
+  if (support.status === 'outOfScope') {
+    throw new SpaceFilesystemRefusedError('needsReselect', needsReselectOpenedSpaceMessage(path));
+  }
   throw new SpaceFilesystemRefusedError('unchecked', UNCHECKED_OPENED_SPACE_MESSAGE);
+}
+
+/**
+ * Whether the native side still holds no access to `path` after every recovery the app has: true only when
+ * `check_space_filesystem` refuses the folder as outside the runtime filesystem scope, once `ensureSpaceAccess` has
+ * restored what it can. Authorization is never inferred from where the folder is (inside `$HOME` or not): the only
+ * recoveries are the ones that rest on something the user did (the picker grant restored by the persisted scope, a
+ * saved bookmark restored at launch, the grant Create makes, and the marked Documents child `ensureSpaceAccess`
+ * covers). Any other answer, an unreadable or missing folder included, is not a missing grant.
+ *
+ * This is the same question `Application.bootstrap` asks, so the folder probe and the open cannot disagree about it.
+ * Desktop only: callers guard the web runtime, which has no native scope.
+ */
+export async function isOutsideApprovedScope(path: string): Promise<boolean> {
+  await ensureSpaceAccess(path);
+  return (await checkSpaceFilesystem(path)).status === 'outOfScope';
+}
+
+/**
+ * Whether the user has to select this Space's folder again before it can be opened: the sandbox could not restore the
+ * folder's saved access at launch, or the runtime scope holds no grant for it and none can be restored
+ * (`isOutsideApprovedScope`). Desktop only.
+ */
+export async function folderNeedsReselect(path: string): Promise<boolean> {
+  return needsFolderReselected(path) || (await isOutsideApprovedScope(path));
 }
 
 /** What the user knows a volume type as, as a phrase that follows "on": the system's own name when there is no better one. */

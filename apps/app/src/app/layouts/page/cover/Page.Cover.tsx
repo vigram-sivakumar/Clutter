@@ -50,6 +50,12 @@ type PageCoverProps = {
    */
   hidden?: boolean;
   /**
+   * Called with `true` while the cover's image has failed to load (the cover is then collapsed and hidden), and with
+   * `false` once it loads, is replaced, or this cover unmounts. Lets the page offer the way to pick a different cover
+   * from the title controls while this one is not on screen. Reporting only: the cover is never changed by it.
+   */
+  onLoadFailureChange?: (failed: boolean) => void;
+  /**
    * Persists `coverHidden: true` (PageHost's onHideCoverImage /
    * onHideFolderCoverImage). Never touches `cover` itself — the collapse
    * plays automatically once the resulting `hidden` prop change re-renders
@@ -165,6 +171,7 @@ export function PageCover({
   coverCredit,
   onRemove,
   hidden,
+  onLoadFailureChange,
   onHide,
   onSetCoverImage,
   onSetCoverImageFromUpload,
@@ -196,12 +203,24 @@ export function PageCover({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const suppressReturnFocusRef = useRef(false);
   // A cover whose image cannot be loaded (no network, a dead link, a deleted file) is never removed: that would edit
-  // the note because of something that may pass. It is hidden, a persistent toast says so and offers the way out, and a
+  // the note because of something that may pass. It is hidden and its space given back to the page (Page.Cover.css,
+  // `data-load-failed`: no container, no broken-image icon), a persistent toast says so and offers the way out, and a
   // load that later succeeds puts it back. `count` grows with every failed attempt so a retry that fails again shows the
   // toast again; `attempt` is the retry itself (it remounts the `<img>`, which asks for the image again).
   const toast = useToast();
   const [loadFailure, setLoadFailure] = useState<{ readonly count: number } | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const loadFailed = loadFailure !== null;
+  const onLoadFailureChangeRef = useRef(onLoadFailureChange);
+  onLoadFailureChangeRef.current = onLoadFailureChange;
+  useEffect(() => {
+    if (!loadFailed) {
+      return;
+    }
+    onLoadFailureChangeRef.current?.(true);
+
+    return () => onLoadFailureChangeRef.current?.(false);
+  }, [loadFailed]);
   const [judgedSrc, setJudgedSrc] = useState(src);
   // A different cover is judged on its own. Render-phase reset, like `view` and `previousLayout` below: an effect
   // would paint one frame of the old failure.
@@ -314,11 +333,14 @@ export function PageCover({
   const transitioningRef = useRef(false);
   const hiddenRef = useRef(hidden);
   hiddenRef.current = hidden;
+  // A failed cover is collapsed by CSS, so what it measures is not its settled width.
+  const failedRef = useRef(false);
+  failedRef.current = loadFailure !== null;
   const prevHiddenRef = useRef(hidden);
 
   function syncNaturalWidth(): void {
     const el = coverRef.current;
-    if (!el || hiddenRef.current || transitioningRef.current) {
+    if (!el || hiddenRef.current || failedRef.current || transitioningRef.current) {
       return;
     }
     el.style.setProperty('--page-cover-natural-width', `${el.getBoundingClientRect().width}px`);

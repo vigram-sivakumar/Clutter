@@ -1384,4 +1384,144 @@ mod tests {
         assert_eq!(invoke(&main, "check_space_filesystem", json!({ "path": world.outside })).unwrap_err()["code"], "outOfScope");
         assert_eq!(invoke(&other, "check_space_filesystem", json!({ "path": world.vault })).unwrap_err()["code"], "unauthorizedWindow");
     }
+
+    // ---- a Space's access across its lifecycle, against the real runtime scope --------------------------------
+    //
+    // `check_space_filesystem` is the open-time gate. These run it through the real `app.fs_scope()` (the scope the
+    // picker, Create, rename and the restored bookmarks / persisted scope all write to) and prove what recovers,
+    // what does not, and that nothing is inferred from where a folder happens to be.
+
+    fn fresh_scope() -> (MockApp, RuntimeScope) {
+        let app = mock_builder()
+            .plugin(tauri_plugin_fs::init())
+            .build(mock_context(noop_assets()))
+            .expect("the mock app builds");
+        let scope = RuntimeScope(app.fs_scope());
+        (app, scope)
+    }
+
+    fn classify(scope: &RuntimeScope, path: &Path) -> Result<SpaceFilesystemDto, AtomicCommandError> {
+        check_space_filesystem_blocking(scope, &path.display().to_string(), &volume("apfs"))
+    }
+
+    fn is_supported(result: Result<SpaceFilesystemDto, AtomicCommandError>) -> bool {
+        matches!(result, Ok(SpaceFilesystemDto::Supported { .. }))
+    }
+
+    #[test]
+    fn a_nested_space_inside_a_folder_the_user_authorised_is_inside_the_scope() {
+        let world = World::new("lifecycle-nested");
+        let nested = world.base.join("Work/Clients/Acme");
+        fs::create_dir_all(nested.join(".clutter")).unwrap();
+        let (app, scope) = fresh_scope();
+        app.fs_scope().allow_directory(world.base.join("Work"), true).unwrap();
+
+        assert!(is_supported(classify(&scope, &nested)));
+        assert!(is_supported(classify(&scope, &world.base.join("Work"))));
+    }
+
+    #[test]
+    fn nothing_is_inferred_from_a_parent_a_sibling_or_the_location_of_an_authorised_folder() {
+        let world = World::new("lifecycle-no-inference");
+        let (app, scope) = fresh_scope();
+        let authorised = world.base.join("Work/Acme");
+        let sibling = world.base.join("Work/Other");
+        let child_of_parent = world.base.join("Work");
+        for folder in [&authorised, &sibling] {
+            fs::create_dir_all(folder.join(".clutter")).unwrap();
+        }
+        app.fs_scope().allow_directory(&authorised, true).unwrap();
+
+        assert!(is_supported(classify(&scope, &authorised)));
+        // The same parent, a sibling Space with its own marker, and the parent itself: none was authorised.
+        assert_eq!(code(classify(&scope, &sibling)), "outOfScope");
+        assert_eq!(code(classify(&scope, &child_of_parent)), "outOfScope");
+        assert_eq!(code(classify(&scope, &world.base)), "outOfScope");
+        // A folder that merely shares a name prefix with the authorised one is not inside it either.
+        let lookalike = world.base.join("Work/Acme-2");
+        fs::create_dir_all(&lookalike).unwrap();
+        assert_eq!(code(classify(&scope, &lookalike)), "outOfScope");
+    }
+
+    #[test]
+    fn a_symlink_is_judged_by_where_it_leads_never_by_where_it_is_spelt() {
+        let world = World::new("lifecycle-links");
+        let (app, scope) = fresh_scope();
+        let granted = world.base.join("Granted");
+        let ungranted = world.base.join("Ungranted");
+        fs::create_dir_all(&granted).unwrap();
+        fs::create_dir_all(&ungranted).unwrap();
+        app.fs_scope().allow_directory(&granted, true).unwrap();
+
+        // Spelt inside the granted folder, leading outside it: refused.
+        symlink(&ungranted, granted.join("Shortcut")).unwrap();
+        assert_eq!(code(classify(&scope, &granted.join("Shortcut"))), "outOfScope");
+        // Spelt outside every grant, leading into the granted folder: it is the real folder that was authorised.
+        symlink(&granted, world.base.join("Alias")).unwrap();
+        assert!(is_supported(classify(&scope, &world.base.join("Alias"))));
+        // Spelt anywhere, leading to a folder nobody authorised: refused.
+        symlink(&ungranted, world.base.join("Elsewhere")).unwrap();
+        assert_eq!(code(classify(&scope, &world.base.join("Elsewhere"))), "outOfScope");
+        // A traversal spelling cannot step out of the grant either.
+        let escape = granted.join("../Ungranted");
+        assert_eq!(code(classify(&scope, &escape)), "outOfScope");
+    }
+
+    #[test]
+    fn a_grant_follows_a_rename_made_by_the_app_and_not_one_made_outside_it() {
+        let world = World::new("lifecycle-rename");
+        let (app, scope) = fresh_scope();
+        let old = world.base.join("Old");
+        let renamed = world.base.join("Renamed");
+        fs::create_dir_all(old.join(".clutter")).unwrap();
+        app.fs_scope().allow_directory(&old, true).unwrap(); // the persisted-scope record names the old path
+
+        // Renamed in Finder: the record is stale. The old path is gone, the new one was never granted.
+        fs::rename(&old, &renamed).unwrap();
+        assert_eq!(code(classify(&scope, &old)), "invalidPath");
+        assert_eq!(code(classify(&scope, &renamed)), "outOfScope");
+
+        // `rename_space_folder` grants exactly the new path (as the picker does when the user selects it again).
+        app.fs_scope().allow_directory(&renamed, true).unwrap();
+        assert!(is_supported(classify(&scope, &renamed)));
+    }
+
+    #[test]
+    fn a_restart_restores_access_only_from_what_was_recorded() {
+        let world = World::new("lifecycle-restart");
+        let recorded = world.base.join("Recorded");
+        let forgotten = world.base.join("Forgotten");
+        for folder in [&recorded, &forgotten] {
+            fs::create_dir_all(folder.join(".clutter")).unwrap();
+        }
+        let (first, first_scope) = fresh_scope();
+        first.fs_scope().allow_directory(&recorded, true).unwrap();
+        assert!(is_supported(classify(&first_scope, &recorded)));
+        drop(first);
+
+        // A new process starts with an empty runtime scope: nothing is allowed until the saved records are restored.
+        let (second, second_scope) = fresh_scope();
+        assert_eq!(code(classify(&second_scope, &recorded)), "outOfScope");
+        // Restoring the persisted scope / saved bookmark re-grants exactly what was recorded.
+        second.fs_scope().allow_directory(&recorded, true).unwrap();
+        assert!(is_supported(classify(&second_scope, &recorded)));
+        assert_eq!(code(classify(&second_scope, &forgotten)), "outOfScope");
+    }
+
+    #[test]
+    fn a_folder_with_no_marker_is_classified_but_never_written_to() {
+        // Picking a folder classifies it before any `.clutter` exists; the writer still refuses a root with no marker.
+        let world = World::new("lifecycle-marker");
+        let bare = world.base.join("Bare");
+        fs::create_dir_all(&bare).unwrap();
+        let (app, scope) = fresh_scope();
+        app.fs_scope().allow_directory(&bare, true).unwrap();
+
+        assert!(is_supported(classify(&scope, &bare)));
+        let note = bare.join("note.md");
+        let outcome = write_blocking(&scope, &write_request(&bare, &note, "x", IntentArg::Create));
+        assert_eq!(code(outcome), "invalidVaultRoot");
+        assert!(!note.exists());
+    }
 }
+

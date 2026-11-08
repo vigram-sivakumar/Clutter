@@ -11,7 +11,12 @@ vi.mock('@tauri-apps/api/path', () => ({
 }));
 
 import {
+  assertSpaceFilesystemSupported,
   createSpaceFolder,
+  folderNeedsReselect,
+  isOutsideApprovedScope,
+  needsReselectOpenedSpaceMessage,
+  SpaceFilesystemRefusedError,
   isTooBroadForSpace,
   ensureSpaceAccess,
   isReachedThroughLink,
@@ -339,6 +344,112 @@ describe('checkSpaceFilesystem', () => {
     arrange();
 
     expect(await checkSpaceFilesystem('/Volumes/Stick/Notes')).toEqual({ status: 'unknown' });
+  });
+});
+
+describe('checkSpaceFilesystem: a folder outside the granted scope', () => {
+  const OUT_OF_SCOPE = { code: 'outOfScope', detail: 'the folder is not inside the approved filesystem scope' };
+
+  it('is reported as its own answer, not as unknown: it is the one refusal the user can recover from', async () => {
+    invoke.mockRejectedValue(OUT_OF_SCOPE);
+
+    expect(await checkSpaceFilesystem('/Users/me/Projects/Notes')).toEqual({ status: 'outOfScope' });
+  });
+
+  it('is not guessed from other refusals or from a message that merely mentions the scope', async () => {
+    for (const rejection of [
+      { code: 'invalidPath', detail: 'the folder cannot be resolved' },
+      { code: 'unauthorizedWindow', detail: 'x' },
+      'the folder is not inside the approved filesystem scope',
+      new Error('outOfScope'),
+    ]) {
+      invoke.mockRejectedValue(rejection);
+      expect(await checkSpaceFilesystem('/x')).toEqual({ status: 'unknown' });
+    }
+  });
+});
+
+describe('assertSpaceFilesystemSupported: access that is gone', () => {
+  it('throws the distinct needsReselect refusal, with a message that tells the user what to do', async () => {
+    invoke.mockRejectedValue({ code: 'outOfScope', detail: 'd' });
+
+    const error = await assertSpaceFilesystemSupported('/Users/me/Projects/Notes/').catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(SpaceFilesystemRefusedError);
+    expect((error as SpaceFilesystemRefusedError).kind).toBe('needsReselect');
+    expect((error as Error).message).toBe(needsReselectOpenedSpaceMessage('/Users/me/Projects/Notes/'));
+    expect((error as Error).message).toBe('Couldn’t open “Notes”: select its folder again');
+  });
+});
+
+describe('isOutsideApprovedScope and folderNeedsReselect', () => {
+  const OUT_OF_SCOPE = { code: 'outOfScope', detail: 'd' };
+  const commands = (check: () => unknown, grant: () => unknown = () => false) =>
+    invoke.mockImplementation(async (command: string) => {
+      if (command === 'ensure_space_access') return grant();
+      if (command === 'check_space_filesystem') return check();
+      return undefined;
+    });
+
+  it('restores what can be restored first, then asks the native check, in that order', async () => {
+    const order: string[] = [];
+    commands(
+      () => {
+        order.push('check');
+        throw OUT_OF_SCOPE;
+      },
+      () => {
+        order.push('grant');
+        return false;
+      }
+    );
+
+    expect(await isOutsideApprovedScope('/Users/me/Notes')).toBe(true);
+    expect(order).toEqual(['grant', 'check']);
+  });
+
+  it('is false once the grant made the folder reachable, and for a folder on any supported or unsupported volume', async () => {
+    commands(() => ({ status: 'supported', filesystem: 'apfs' }), () => true);
+    expect(await isOutsideApprovedScope('/Users/me/Documents/Notes')).toBe(false);
+    commands(() => ({ status: 'unsupported', filesystem: 'exfat' }));
+    expect(await isOutsideApprovedScope('/Volumes/Stick/Notes')).toBe(false);
+  });
+
+  it('is still true after a failed grant: a grant that failed is never taken for permission', async () => {
+    invoke.mockImplementation(async (command: string) => {
+      if (command === 'ensure_space_access') throw 'denied';
+      throw { code: 'outOfScope', detail: 'd' };
+    });
+
+    expect(await isOutsideApprovedScope('/Users/me/Notes')).toBe(true);
+  });
+
+  it.each([
+    ['the folder cannot be resolved', { code: 'invalidPath', detail: 'd' }],
+    ['the volume cannot be read', { code: 'volumeUnreadable', detail: 'd' }],
+    ['the command is missing', 'Command check_space_filesystem not found'],
+  ])('is false when %s: only an outOfScope refusal is a missing grant', async (_name, rejection) => {
+    commands(() => {
+      throw rejection;
+    });
+
+    expect(await isOutsideApprovedScope('/Users/me/Notes')).toBe(false);
+    expect(await folderNeedsReselect('/Users/me/Notes')).toBe(false);
+  });
+
+  it('folderNeedsReselect is true for a folder the sandbox could not restore, without asking the native side', async () => {
+    const { restoreSpaceAccess, resetSandboxAccessForTests } = await import('./sandboxAccess');
+    resetSandboxAccessForTests();
+    invoke.mockImplementation(async (command: string) => {
+      if (command === 'restore_space_access') return [{ path: '/Volumes/Work/Notes', status: 'needsReselect' }];
+      throw new Error(`unexpected command ${command}`);
+    });
+    await restoreSpaceAccess();
+    invoke.mockClear();
+
+    expect(await folderNeedsReselect('/Volumes/Work/Notes')).toBe(true);
+    expect(invoke).not.toHaveBeenCalled();
+    resetSandboxAccessForTests();
   });
 });
 
