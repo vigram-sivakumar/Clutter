@@ -258,9 +258,9 @@ export function isDailyNotePath(vaultRoot: string, path: string): boolean {
 /**
  * The one rule for a page's type (Daily Note vs. Note), shared by PageBuilder (initial scan) and
  * every Vault mutation that recomputes it. A page is a Daily Note when its current path is a Daily
- * Note path — or when it is in the Trash (`status: 'archived'`) and its `originalPath`, the place
+ * Note path — or when it is in the Archive (`status: 'archived'`) and its `originalPath`, the place
  * it will be restored to, was one. A Daily Note keeps its identity (so its date title, its
- * read-only title) while it waits in the Trash; the moment it leaves the Trash, `originalPath` is
+ * read-only title) while it waits in the Archive; the moment it leaves the Archive, `originalPath` is
  * cleared and the current path alone decides again — a Daily Note restored anywhere but Daily
  * Notes (the Inbox fallback) is an ordinary Note. See ADR-042.
  */

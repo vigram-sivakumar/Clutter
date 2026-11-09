@@ -857,7 +857,7 @@ export class Application {
       },
       (pageIds) => this.pageOperations.flushPagesBeforeArchive(pageIds),
       // Everything derived from a page that was just permanently deleted goes with it, in one place for every
-      // delete path (single note, folder subtree, Empty trash, auto-cleanup). See handlePagesPermanentlyDeleted.
+      // delete path (single note, folder subtree, Empty archive, auto-cleanup). See handlePagesPermanentlyDeleted.
       (pageIds) => this.handlePagesPermanentlyDeleted(pageIds),
       // PageOperations.rewriteReferences() — same forward-reference-via-`this` shape as the two closures
       // above, for the same construction-order reason: a folder move/rename's page-content rewrite is a

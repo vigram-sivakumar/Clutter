@@ -4,9 +4,9 @@ import { PAGE_DELETE_CONFIRMATION_MESSAGE } from '@features/notes/helpers/folder
 
 import type { ResourceTopBarActionsProps } from '../topbar/ResourceTopBarActions';
 
-/** The wording when Move to trash needs a confirmation for something in the selection (a folder with contents). */
-const SELECTION_ARCHIVE_CONFIRMATION_TITLE = 'Move the selected items to trash?';
-const SELECTION_ARCHIVE_CONFIRMATION_MESSAGE = 'Folders in the selection take everything inside them to the trash too';
+/** The wording when Move to archive needs a confirmation for something in the selection (a folder with contents). */
+const SELECTION_ARCHIVE_CONFIRMATION_TITLE = 'Move the selected items to archive?';
+const SELECTION_ARCHIVE_CONFIRMATION_MESSAGE = 'Folders in the selection take everything inside them to the archive too';
 
 /** The Delete confirmation when the selection's items would each warn something different (a folder with contents among them). */
 const SELECTION_DELETE_CONFIRMATION_MESSAGE = `This will also permanently delete everything inside the selected folders. ${PAGE_DELETE_CONFIRMATION_MESSAGE}`;
@@ -71,7 +71,7 @@ export function buildSelectionContextMenu(
       // Once per resource (several entries can lead to the same one), and never for one that has been archived since
       // the selection was made — its own archive would only fail.
       archive: () => runForEach(archivable(items), (item) => item?.handlers?.['archive']?.()),
-      // Restore returns each item that is still in the trash to where it was; one that has been restored since is skipped.
+      // Restore returns each item that is still in the archive to where it was; one that has been restored since is skipped.
       restore: () => runForEach(restorable(items), (item) => item?.handlers?.['restore']?.()),
       delete: () => runForEach(items, (item) => item?.handlers?.['delete']?.()),
     },

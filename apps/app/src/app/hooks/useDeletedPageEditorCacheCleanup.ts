@@ -5,7 +5,7 @@ import { clearCachedEditorSession } from '@features/markdown/editor/codemirror/e
 
 /**
  * Drops the editor's in-memory session (undo history and scroll position, `editorHistoryCache.ts`) of every page
- * that was permanently deleted, whichever way it went: a single note, a folder's whole subtree, Empty trash or the
+ * that was permanently deleted, whichever way it went: a single note, a folder's whole subtree, Empty archive or the
  * automatic cleanup. The Application announces them only after the delete succeeded, and only for pages that were
  * really deleted, so an archive, a restore, a refused delete or an abandoned one never clears anything.
  *

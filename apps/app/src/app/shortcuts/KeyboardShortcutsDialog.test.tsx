@@ -30,7 +30,7 @@ describe('KeyboardShortcutsDialog', () => {
 
   it('shows each row’s keys beside it: the modifier icons, then the key', async () => {
     render(<KeyboardShortcutsDialog open onClose={vi.fn()} />);
-    const row = (await screen.findByText('Move to trash')).closest('.settings-entry') as HTMLElement;
+    const row = (await screen.findByText('Move to archive')).closest('.settings-entry') as HTMLElement;
     const keys = row.querySelectorAll('.shortcut-key');
     expect(keys).toHaveLength(3);
     expect(row.querySelector('[data-icon="shift"]')).not.toBeNull();

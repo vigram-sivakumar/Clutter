@@ -96,9 +96,9 @@ function rightClick(element: Element) {
   return event;
 }
 
-const NOT_FOR_TRASH = ['Move to…', 'Add to favorites', 'Remove from favorites', 'Move to trash', 'Duplicate', 'Rename'];
+const NOT_FOR_ARCHIVE = ['Move to…', 'Add to favorites', 'Remove from favorites', 'Move to archive', 'Duplicate', 'Rename'];
 
-describe('the Trash’s menu for one item', () => {
+describe('the Archive’s menu for one item', () => {
   it('offers Restore and Delete permanently for a note, a folder and a file — and nothing that is for live items', () => {
     draw();
 
@@ -107,7 +107,7 @@ describe('the Trash’s menu for one item', () => {
 
       expect(event.defaultPrevented).toBe(true);
       expect(items()).toEqual(['Restore', 'Delete permanently']);
-      for (const label of NOT_FOR_TRASH) {
+      for (const label of NOT_FOR_ARCHIVE) {
         expect(screen.queryByText(label)).not.toBeInTheDocument();
       }
       fireEvent.keyDown(document, { key: 'Escape' });
@@ -179,7 +179,7 @@ describe('the Trash’s menu for one item', () => {
   });
 });
 
-describe('the Trash’s menu for a selection', () => {
+describe('the Archive’s menu for a selection', () => {
   it('opens on a selected item with the count as its title, keeping the selection — only Select all, Restore and Delete', () => {
     draw();
     fireEvent.click(box('Old Note'));
@@ -189,7 +189,7 @@ describe('the Trash’s menu for a selection', () => {
 
     expect(screen.getByText('2 selected')).toBeInTheDocument();
     expect(items()).toEqual(['Select all', 'Restore', 'Delete permanently']);
-    for (const label of NOT_FOR_TRASH) {
+    for (const label of NOT_FOR_ARCHIVE) {
       expect(screen.queryByText(label)).not.toBeInTheDocument();
     }
     expect(checkedNames().sort()).toEqual(['Old Note', 'hero']);
@@ -240,7 +240,7 @@ describe('the Trash’s menu for a selection', () => {
     expect(acted.sort()).toEqual(['delete:n1', 'delete:n2', 'delete:r1']);
   });
 
-  it('drops deleted items from the selection once the Trash no longer holds them, leaving selection mode after the last', () => {
+  it('drops deleted items from the selection once the Archive no longer holds them, leaving selection mode after the last', () => {
     const acted: string[] = [];
     const { rerender, container } = draw(acted);
     fireEvent.click(box('Old Note'));

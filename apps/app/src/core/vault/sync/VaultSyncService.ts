@@ -1280,7 +1280,7 @@ export class VaultSyncService {
    * The rename pairing is best effort (no correlation cookie on macOS), so
    * a `moved` event's destination can be an unrelated path that merely
    * appeared inside the pairing window — Finder rewriting `.DS_Store` while
-   * it trashes a note is the common one. A destination that something else
+   * it archives a note is the common one. A destination that something else
    * already owns can never be this entity's new home.
    */
   private isDestinationTrackedByOther(absoluteTo: string, ownId: string): boolean {

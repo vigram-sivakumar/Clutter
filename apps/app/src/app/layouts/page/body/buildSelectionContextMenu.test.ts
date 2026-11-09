@@ -95,7 +95,7 @@ describe('buildSelectionContextMenu', () => {
 
     expect(props.moveDestinations!.map((destination) => destination.id)).toEqual(['root']);
     expect(props.archiveConfirmationMessage).toBeDefined();
-    expect(props.archiveConfirmationTitle).toBe('Move the selected items to trash?');
+    expect(props.archiveConfirmationTitle).toBe('Move the selected items to archive?');
 
     const plain = buildSelectionContextMenu([itemMenu('note', log, 'n')], ops());
     expect(plain.archiveConfirmationMessage).toBeUndefined();
@@ -146,29 +146,29 @@ describe('buildSelectionContextMenu — the Select all checkbox', () => {
 
 describe('buildSelectionContextMenu — Delete', () => {
   /** An archived item: its own menu offers Delete (and Restore), with the existing confirmation copy. */
-  const trashed = (log: string[], name: string, message = 'You can’t undo this action') =>
+  const archived = (log: string[], name: string, message = 'You can’t undo this action') =>
     itemMenu('note', log, name, { status: 'archived', isDeletable: true }, { deleteConfirmationMessage: message });
 
   it('is offered only when every selected item offers it itself', () => {
     const log: string[] = [];
 
-    expect(ids(buildSelectionContextMenu([trashed(log, 'a'), trashed(log, 'b')], ops()))).toContain('delete');
+    expect(ids(buildSelectionContextMenu([archived(log, 'a'), archived(log, 'b')], ops()))).toContain('delete');
     // One active item, whose own menu has no Delete, takes it away for everyone.
-    expect(ids(buildSelectionContextMenu([trashed(log, 'a'), itemMenu('note', log, 'n')], ops()))).not.toContain('delete');
-    expect(ids(buildSelectionContextMenu([trashed(log, 'a'), null], ops()))).not.toContain('delete');
+    expect(ids(buildSelectionContextMenu([archived(log, 'a'), itemMenu('note', log, 'n')], ops()))).not.toContain('delete');
+    expect(ids(buildSelectionContextMenu([archived(log, 'a'), null], ops()))).not.toContain('delete');
   });
 
-  it('keeps archive and delete distinct: Move to trash is never offered for an item already in the trash', () => {
+  it('keeps archive and delete distinct: Move to archive is never offered for an item already in the archive', () => {
     const log: string[] = [];
-    const props = buildSelectionContextMenu([trashed(log, 'a'), trashed(log, 'b')], ops());
+    const props = buildSelectionContextMenu([archived(log, 'a'), archived(log, 'b')], ops());
 
-    // Restore (the trash's own recovery) and Delete are offered; Move to trash is not, and neither is Move to.
+    // Restore (the archive's own recovery) and Delete are offered; Move to archive is not, and neither is Move to.
     expect(ids(props)).toEqual(['select-all', 'restore', 'delete']);
   });
 
   it('asks the existing confirmation, naming the count, and deletes every selected item only on confirm', () => {
     const log: string[] = [];
-    const props = buildSelectionContextMenu([trashed(log, 'a'), trashed(log, 'b'), trashed(log, 'c')], ops());
+    const props = buildSelectionContextMenu([archived(log, 'a'), archived(log, 'b'), archived(log, 'c')], ops());
 
     expect(props.deleteConfirmationTitle).toBe('Delete 3 items permanently?');
     expect(props.deleteConfirmationMessage).toBe('You can’t undo this action');
@@ -181,17 +181,17 @@ describe('buildSelectionContextMenu — Delete', () => {
   it('keeps a lone item’s own confirmation title, and warns about contents when the items’ warnings differ', () => {
     const log: string[] = [];
 
-    expect(buildSelectionContextMenu([trashed(log, 'a')], ops()).deleteConfirmationTitle).toBeUndefined();
+    expect(buildSelectionContextMenu([archived(log, 'a')], ops()).deleteConfirmationTitle).toBeUndefined();
 
-    const mixed = buildSelectionContextMenu([trashed(log, 'a'), trashed(log, 'f', 'Delete this folder and everything inside it? …')], ops());
+    const mixed = buildSelectionContextMenu([archived(log, 'a'), archived(log, 'f', 'Delete this folder and everything inside it? …')], ops());
     expect(mixed.deleteConfirmationMessage).toMatch(/everything inside the selected folders/);
   });
 
   it('tries every item even when one fails, then reports the failure', () => {
     const log: string[] = [];
-    const failing = trashed(log, 'bad');
+    const failing = archived(log, 'bad');
     failing.handlers = { delete: () => { throw new Error('nope'); } };
-    const props = buildSelectionContextMenu([failing, trashed(log, 'ok')], ops());
+    const props = buildSelectionContextMenu([failing, archived(log, 'ok')], ops());
 
     expect(() => props.handlers!['delete']!()).toThrow('nope');
     expect(log).toEqual(['delete:ok']);
@@ -234,24 +234,24 @@ describe('buildSelectionContextMenu — archiving a selection safely', () => {
 });
 
 
-describe('buildSelectionContextMenu — Restore (the Trash)', () => {
-  const trashed = (log: string[], name: string, over: Partial<ResourceTopBarActionsProps> = {}) =>
+describe('buildSelectionContextMenu — Restore (the Archive)', () => {
+  const archived = (log: string[], name: string, over: Partial<ResourceTopBarActionsProps> = {}) =>
     itemMenu('note', log, name, { status: 'archived', isDeletable: true }, { deleteConfirmationMessage: 'You can’t undo this action', ...over });
 
-  it('offers Restore only when every item offers it itself, and never Move to, favorites or Move to trash', () => {
+  it('offers Restore only when every item offers it itself, and never Move to, favorites or Move to archive', () => {
     const log: string[] = [];
 
-    expect(ids(buildSelectionContextMenu([trashed(log, 'a'), trashed(log, 'b')], ops()))).toEqual(['select-all', 'restore', 'delete']);
+    expect(ids(buildSelectionContextMenu([archived(log, 'a'), archived(log, 'b')], ops()))).toEqual(['select-all', 'restore', 'delete']);
     // A file inside an archived folder can only be deleted: it takes Restore away for the whole selection.
     const nested = itemMenu('asset', log, 'deep', { status: 'active', isEffectivelyArchived: true, isDeletable: true }, { deleteConfirmationMessage: 'x' });
-    expect(ids(buildSelectionContextMenu([trashed(log, 'a'), nested], ops()))).toEqual(['select-all', 'delete']);
+    expect(ids(buildSelectionContextMenu([archived(log, 'a'), nested], ops()))).toEqual(['select-all', 'delete']);
   });
 
   it('restores each selected item once, skipping any that is no longer archived', () => {
     const log: string[] = [];
-    const first = trashed(log, 'first', { resourceId: 'a', isArchived: () => true });
-    const duplicate = trashed(log, 'duplicate', { resourceId: 'a', isArchived: () => true });
-    const already = trashed(log, 'already', { resourceId: 'b', isArchived: () => false });
+    const first = archived(log, 'first', { resourceId: 'a', isArchived: () => true });
+    const duplicate = archived(log, 'duplicate', { resourceId: 'a', isArchived: () => true });
+    const already = archived(log, 'already', { resourceId: 'b', isArchived: () => false });
     const props = buildSelectionContextMenu([first, duplicate, already], ops());
 
     props.handlers!['restore']!();

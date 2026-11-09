@@ -109,7 +109,7 @@ describe('Sidebar: opening a local resource image shows ImageOverlay More Action
     expect(screen.getByText('Move to…')).toBeInTheDocument();
     expect(screen.getByText('Reveal in Finder')).toBeInTheDocument();
     expect(screen.getByText('Copy path')).toBeInTheDocument();
-    expect(screen.getByText('Move to trash')).toBeInTheDocument();
+    expect(screen.getByText('Move to archive')).toBeInTheDocument();
     expect(screen.queryByText('Rename')).not.toBeInTheDocument();
   });
 
@@ -145,7 +145,7 @@ describe('Sidebar: opening a local resource image shows ImageOverlay More Action
 
     fireEvent.click(screen.getByText('photo'));
     fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
-    fireEvent.click(screen.getByText('Move to trash'));
+    fireEvent.click(screen.getByText('Move to archive'));
 
     expect(archiveSpy).toHaveBeenCalledWith('resource-1');
   });
@@ -200,10 +200,10 @@ describe('Sidebar: opening a local resource pdf shows PdfOverlay, not ImageOverl
     expect(screen.getByText('Move to…')).toBeInTheDocument();
     expect(screen.getByText('Reveal in Finder')).toBeInTheDocument();
     expect(screen.getByText('Copy path')).toBeInTheDocument();
-    expect(screen.getByText('Move to trash')).toBeInTheDocument();
+    expect(screen.getByText('Move to archive')).toBeInTheDocument();
     expect(screen.queryByText('Rename')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByText('Move to trash'));
+    fireEvent.click(screen.getByText('Move to archive'));
     expect(archiveSpy).toHaveBeenCalledWith('resource-1');
   });
 

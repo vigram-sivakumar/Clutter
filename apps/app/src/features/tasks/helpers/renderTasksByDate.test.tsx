@@ -203,7 +203,7 @@ describe('renderTasksByDate', () => {
   describe('inline bare-date deduplication in the title, through the full render path', () => {
     it('removes the bare date matching dueDate from the title, leaving the trailing label as the only date shown', () => {
       const task1 = task({
-        text: 'Clean the Trash @2026-08-21',
+        text: 'Clean the Archive @2026-08-21',
         dueDate: '2026-08-21',
       });
 
@@ -222,10 +222,10 @@ describe('renderTasksByDate', () => {
         </>
       );
 
-      expect(getByText('Clean the Trash')).not.toBeNull();
+      expect(getByText('Clean the Archive')).not.toBeNull();
       expect(queryByText(/@2026-08-21/)).toBeNull();
 
-      const row = getByText('Clean the Trash').closest('.entry') as HTMLElement;
+      const row = getByText('Clean the Archive').closest('.entry') as HTMLElement;
       expect(within(row).getByText('21 Aug')).not.toBeNull();
     });
 
@@ -314,7 +314,7 @@ describe('renderTasksByDate', () => {
 
     it('leaves the title unchanged when there is no inline bare date to remove', () => {
       const task1 = task({
-        text: 'Clean the Trash',
+        text: 'Clean the Archive',
         dueDate: '2026-08-21',
       });
 
@@ -333,7 +333,7 @@ describe('renderTasksByDate', () => {
         </>
       );
 
-      expect(getByText('Clean the Trash')).not.toBeNull();
+      expect(getByText('Clean the Archive')).not.toBeNull();
     });
   });
 

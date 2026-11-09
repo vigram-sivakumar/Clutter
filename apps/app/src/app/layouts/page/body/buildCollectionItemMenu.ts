@@ -108,7 +108,7 @@ export function buildAssetItemMenu(
   };
 }
 
-/** What the Trash's right-click menu can do for an archived file: the operations a file's viewer already has for it. */
+/** What the Archive's right-click menu can do for an archived file: the operations a file's viewer already has for it. */
 export interface ArchivedResourceMenuActions {
   /** Returns the file to where it was (the host reports a failure, or asks where it should go). */
   onRestoreResource(resourceId: string): void;
@@ -117,7 +117,7 @@ export interface ArchivedResourceMenuActions {
 }
 
 /**
- * The right-click menu for one file in the Trash: Restore and Delete permanently, from the same canonical asset
+ * The right-click menu for one file in the Archive: Restore and Delete permanently, from the same canonical asset
  * actions the file's viewer uses (so wording, icons and grouping are theirs) — and nothing else, since everything
  * else an asset can do (rename, move, download, reveal…) is for a file that is not archived. Restore is offered
  * only for a file that sits directly in the Archive (it has a recorded original place); one inside an archived
@@ -152,7 +152,7 @@ export function buildArchivedResourceItemMenu(
     },
     deleteConfirmationMessage: PAGE_DELETE_CONFIRMATION_MESSAGE,
     resourceId: resource.id,
-    // Read live: a file restored or deleted since the selection was made is no longer in the trash.
+    // Read live: a file restored or deleted since the selection was made is no longer in the archive.
     isArchived: () => {
       const live = vault.getResource(resource.id);
       return live !== undefined && vault.isResourceEffectivelyArchived(live);

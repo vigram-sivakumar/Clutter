@@ -121,7 +121,7 @@ export function setCachedEditorSession(pageId: string, session: CachedEditorSess
  * come back and its prior editing session is still meaningful history to
  * have). The app layer's `useDeletedPageEditorCacheCleanup` calls it for
  * every permanent-delete path (a single note, a folder's subtree, Empty
- * trash, the automatic cleanup), only after the delete succeeded: this
+ * archive, the automatic cleanup), only after the delete succeeded: this
  * feature-layer cache module cannot be imported from `core/application`
  * without pointing the dependency direction this codebase enforces the
  * wrong way, so `Application` announces the deletion and the app layer

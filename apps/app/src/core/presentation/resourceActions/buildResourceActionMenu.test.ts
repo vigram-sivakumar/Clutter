@@ -289,7 +289,7 @@ describe('asset menu', () => {
   const asset = (context: Parameters<typeof buildResourceActionMenu>[1], surface: Parameters<typeof buildResourceActionMenu>[2] = 'sidebar') =>
     buildResourceActionMenu('asset', { status: 'active', ...context }, surface);
 
-  it('an image on the sidebar: Rename | Move to… | Reveal, Copy path, Download | Trash', () => {
+  it('an image on the sidebar: Rename | Move to… | Reveal, Copy path, Download | Archive', () => {
     const menu = asset({ assetKind: 'image' });
     expect(ids(menu)).toEqual(['rename', 'move-to', 'reveal-in-finder', 'copy-path', 'download', 'archive']);
     expect(dividedIds(menu)).toEqual(['move-to', 'reveal-in-finder', 'archive']);
@@ -385,7 +385,7 @@ describe('tag menu', () => {
     expect(ids(pinned)).not.toContain('toggle-favorite');
   });
 
-  it('a tag keeps Delete in the sidebar even though other resources do not (it has no Trash)', () => {
+  it('a tag keeps Delete in the sidebar even though other resources do not (it has no Archive)', () => {
     expect(ids(buildResourceActionMenu('tag', {}, 'sidebar'))).toContain('delete');
     expect(ids(buildResourceActionMenu('note', { status: 'archived', isDeletable: true }, 'sidebar'))).not.toContain(
       'delete'
@@ -422,7 +422,7 @@ describe('task menu', () => {
     expect(menu.find((item) => item.id === 'change-due-date')?.trailing).toBe('Tomorrow');
   });
 
-  it('Delete is a task\'s removal action, so the sidebar keeps it (a task has no Trash)', () => {
+  it('Delete is a task\'s removal action, so the sidebar keeps it (a task has no Archive)', () => {
     expect(ids(buildResourceActionMenu('task', { executable: all }, 'sidebar'))).toContain('delete');
   });
 });
@@ -446,7 +446,7 @@ describe('Save as template (ADR-048 organize group)', () => {
     }
   });
 
-  it('is hidden for a Trash / archived resource of any kind and for resources that cannot be templates', () => {
+  it('is hidden for an Archive / archived resource of any kind and for resources that cannot be templates', () => {
     expect(has('folder', { status: 'archived' })).toBe(false);
     expect(has('folder', { status: 'active' })).toBe(false);
     expect(has('asset', { assetKind: 'image', status: 'active' }, 'sidebar')).toBe(false);
@@ -669,7 +669,7 @@ describe('Hide / Show references (ADR-052)', () => {
 describe('danger variant', () => {
   const variantOf = (items: { id: string; variant?: string }[], id: string) => items.find((item) => item.id === id)?.variant;
 
-  it('Move to trash (archive) carries variant danger on every kind and surface that lists it', () => {
+  it('Move to archive (archive) carries variant danger on every kind and surface that lists it', () => {
     for (const kind of ['note', 'daily-note', 'folder', 'asset'] as const) {
       for (const surface of ['sidebar', 'favorites', 'topbar', 'overlay'] as const) {
         const items = buildResourceActionMenu(kind, { status: 'active', assetKind: 'image' }, surface);

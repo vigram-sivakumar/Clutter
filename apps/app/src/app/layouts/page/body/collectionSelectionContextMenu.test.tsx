@@ -83,7 +83,7 @@ describe('the selection’s right-click menu', () => {
     rightClick(rowOf('Beta'));
 
     expect(screen.getByText('2 selected')).toBeInTheDocument();
-    expect(items()).toEqual(['Select all', 'Add to favorites', 'Move to…', 'Move to trash']);
+    expect(items()).toEqual(['Select all', 'Add to favorites', 'Move to…', 'Move to archive']);
     expect(checkedNames()).toEqual(['Select Alpha', 'Select Beta']);
   });
 
@@ -125,7 +125,7 @@ describe('the selection’s right-click menu', () => {
     fireEvent.click(box('Projects'));
 
     rightClick(rowOf('Alpha'));
-    fireEvent.click(screen.getByText('Move to trash'));
+    fireEvent.click(screen.getByText('Move to archive'));
 
     expect(acted).toEqual(['archive:f', 'archive:a']);
   });
@@ -171,7 +171,7 @@ describe('the selection’s right-click menu', () => {
 
     // The menu is open; the selection is changed behind it.
     fireEvent.click(box('Gamma'));
-    fireEvent.click(screen.getByText('Move to trash'));
+    fireEvent.click(screen.getByText('Move to archive'));
 
     expect(acted).toEqual(['archive:a', 'archive:b']);
   });
@@ -237,8 +237,8 @@ describe('the selection’s right-click menu', () => {
   });
 });
 
-/** Items in the trash: their own menu offers Delete, with the existing confirmation copy. */
-function trashResolver(acted: string[]): CollectionItemMenuResolver {
+/** Items in the archive: their own menu offers Delete, with the existing confirmation copy. */
+function archiveResolver(acted: string[]): CollectionItemMenuResolver {
   return (entry) => {
     const menu = buildResourceActionMenu(entry.type === 'folder' ? 'folder' : 'note', { status: 'archived', isDeletable: true }, 'context');
     return {
@@ -250,12 +250,12 @@ function trashResolver(acted: string[]): CollectionItemMenuResolver {
 }
 
 describe('deleting the selection', () => {
-  const drawTrash = (acted: string[], notes = NOTES) =>
-    render(<CollectionBody notes={notes} viewMode="list" itemMenu={trashResolver(acted)} />);
+  const drawArchive = (acted: string[], notes = NOTES) =>
+    render(<CollectionBody notes={notes} viewMode="list" itemMenu={archiveResolver(acted)} />);
 
   it('asks the existing confirmation for the whole selection and deletes nothing until it is confirmed', () => {
     const acted: string[] = [];
-    drawTrash(acted);
+    drawArchive(acted);
     fireEvent.click(box('Alpha'));
     fireEvent.click(box('Beta'));
 
@@ -269,7 +269,7 @@ describe('deleting the selection', () => {
 
   it('cancelling deletes nothing and keeps the selection', () => {
     const acted: string[] = [];
-    drawTrash(acted);
+    drawArchive(acted);
     fireEvent.click(box('Alpha'));
     fireEvent.click(box('Beta'));
 
@@ -283,7 +283,7 @@ describe('deleting the selection', () => {
 
   it('confirming deletes exactly the selected items; once they are gone the selection is empty and the mode is off', () => {
     const acted: string[] = [];
-    const { rerender, container } = drawTrash(acted);
+    const { rerender, container } = drawArchive(acted);
     fireEvent.click(box('Alpha'));
     fireEvent.click(box('Beta'));
 
@@ -293,7 +293,7 @@ describe('deleting the selection', () => {
     expect(acted).toEqual(['delete:a', 'delete:b']);
 
     // The collection no longer holds them.
-    rerender(<CollectionBody notes={[NOTES[2]!]} viewMode="list" itemMenu={trashResolver(acted)} />);
+    rerender(<CollectionBody notes={[NOTES[2]!]} viewMode="list" itemMenu={archiveResolver(acted)} />);
     expect(screen.queryByText('Alpha')).not.toBeInTheDocument();
     expect(checkedNames()).toEqual([]);
     expect(container.querySelector('.collection-entry--selecting')).toBeNull();
@@ -301,7 +301,7 @@ describe('deleting the selection', () => {
 
   it('does not delete an item that was not selected when the menu opened', () => {
     const acted: string[] = [];
-    drawTrash(acted);
+    drawArchive(acted);
     fireEvent.click(box('Alpha'));
     rightClick(rowOf('Alpha'));
     fireEvent.click(box('Gamma')); // the selection moves behind the open menu
@@ -312,7 +312,7 @@ describe('deleting the selection', () => {
     expect(acted).toEqual(['delete:a']);
   });
 
-  it('offers no Delete for an item that is not in the trash, and leaves single-item Delete as it was', () => {
+  it('offers no Delete for an item that is not in the archive, and leaves single-item Delete as it was', () => {
     draw();
     fireEvent.click(box('Alpha'));
     rightClick(rowOf('Alpha'));
@@ -322,7 +322,7 @@ describe('deleting the selection', () => {
 
     // Nothing selected: the single-item menu and its own confirmation, unchanged.
     const acted: string[] = [];
-    drawTrash(acted);
+    drawArchive(acted);
     rightClick(rowOf('Alpha'));
     fireEvent.click(screen.getByText('Delete permanently'));
     expect(screen.queryByText(/items permanently/)).not.toBeInTheDocument();
@@ -361,7 +361,7 @@ describe('Delete / Backspace on the selection', () => {
     return event;
   };
 
-  it('asks to move the selection to the trash — naming the count, with no menu — and does nothing until it is confirmed', () => {
+  it('asks to move the selection to the archive — naming the count, with no menu — and does nothing until it is confirmed', () => {
     const acted: string[] = [];
     draw(acted);
     fireEvent.click(box('Alpha'));
@@ -370,11 +370,11 @@ describe('Delete / Backspace on the selection', () => {
     const event = press('Delete');
 
     expect(event.defaultPrevented).toBe(true);
-    expect(screen.getByText('Move 2 items to trash?')).toBeInTheDocument();
+    expect(screen.getByText('Move 2 items to archive?')).toBeInTheDocument();
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     expect(acted).toEqual([]);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Move to trash' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move to archive' }));
     expect(acted).toEqual(['archive:a', 'archive:b']);
   });
 
@@ -384,7 +384,7 @@ describe('Delete / Backspace on the selection', () => {
     fireEvent.click(box('Alpha'));
 
     press('Delete');
-    expect(screen.getByText('Move this item to trash?')).toBeInTheDocument();
+    expect(screen.getByText('Move this item to archive?')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(acted).toEqual([]);
@@ -402,7 +402,7 @@ describe('Delete / Backspace on the selection', () => {
     fireEvent.click(box('Beta'));
 
     press('Delete');
-    fireEvent.click(screen.getByRole('button', { name: 'Move to trash' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move to archive' }));
 
     expect(acted).toEqual(['archive:a', 'archive:b']);
   });
@@ -413,7 +413,7 @@ describe('Delete / Backspace on the selection', () => {
     fireEvent.click(box('Gamma'));
 
     press('Backspace');
-    fireEvent.click(screen.getByRole('button', { name: 'Move to trash' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move to archive' }));
 
     expect(acted).toEqual(['archive:c']);
   });
@@ -450,7 +450,7 @@ describe('Delete / Backspace on the selection', () => {
 
     press('Delete');
     // A folder with contents already carries its own confirmation, which the key reuses.
-    expect(screen.getByText('Move the selected items to trash?')).toBeInTheDocument();
+    expect(screen.getByText('Move the selected items to archive?')).toBeInTheDocument();
     expect(acted).toEqual([]);
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
@@ -458,13 +458,13 @@ describe('Delete / Backspace on the selection', () => {
     expect(checkedNames()).toEqual(['Select Projects', 'Select Alpha']);
 
     press('Delete');
-    fireEvent.click(screen.getByRole('button', { name: 'Move to trash' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move to archive' }));
     expect(acted).toEqual(['archive:f', 'archive:a']);
   });
 
-  it('does nothing for a selection that cannot be moved to the trash (items already there)', () => {
+  it('does nothing for a selection that cannot be moved to the archive (items already there)', () => {
     const acted: string[] = [];
-    render(<CollectionBody notes={NOTES} viewMode="list" itemMenu={trashResolver(acted)} />);
+    render(<CollectionBody notes={NOTES} viewMode="list" itemMenu={archiveResolver(acted)} />);
     fireEvent.click(box('Alpha'));
 
     expect(press('Delete').defaultPrevented).toBe(false);

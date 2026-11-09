@@ -7,12 +7,12 @@ const menu = (over: Partial<Parameters<typeof buildSelectionActionMenu>[0]> = {}
   buildSelectionActionMenu({ count: 3, total: 5, supported: ALL, allFavorite: false, ...over });
 
 describe('buildSelectionActionMenu', () => {
-  it('lists Select all, then favorite, Move to and Move to trash — the shared definitions’ wording and order', () => {
+  it('lists Select all, then favorite, Move to and Move to archive — the shared definitions’ wording and order', () => {
     expect(menu().map((item) => [item.id, item.label])).toEqual([
       ['select-all', 'Select all'],
       ['toggle-favorite', 'Add to favorites'],
       ['move-to', 'Move to…'],
-      ['archive', 'Move to trash'],
+      ['archive', 'Move to archive'],
     ]);
   });
 
@@ -70,7 +70,7 @@ describe('buildSelectionActionMenu — the Select all checkbox', () => {
 describe('buildSelectionActionMenu — Delete', () => {
   const all = new Set(['move-to', 'toggle-favorite', 'archive', 'delete']);
 
-  it('is the last action, in the destructive group — a divider of its own — and distinct from Move to trash', () => {
+  it('is the last action, in the destructive group — a divider of its own — and distinct from Move to archive', () => {
     const items = buildSelectionActionMenu({ count: 2, total: 5, supported: all, allFavorite: false });
 
     expect(items.map((item) => item.id)).toEqual(['select-all', 'toggle-favorite', 'move-to', 'archive', 'delete']);
@@ -79,7 +79,7 @@ describe('buildSelectionActionMenu — Delete', () => {
     expect(del.icon).toBe('trash');
     expect(del.variant).toBe('danger');
     expect(del.separatorBefore).toBe(true);
-    expect(items.find((item) => item.id === 'archive')!.label).toBe('Move to trash');
+    expect(items.find((item) => item.id === 'archive')!.label).toBe('Move to archive');
   });
 
   it('is left out unless every item supports it', () => {
@@ -89,7 +89,7 @@ describe('buildSelectionActionMenu — Delete', () => {
   });
 });
 
-describe('buildSelectionActionMenu — Restore (the Trash)', () => {
+describe('buildSelectionActionMenu — Restore (the Archive)', () => {
   it('offers only Restore and Delete permanently beside Select all when that is all the items support, each in its own group', () => {
     const items = buildSelectionActionMenu({ count: 3, total: 5, supported: new Set(['restore', 'delete']), allFavorite: false });
 

@@ -56,7 +56,7 @@ export function toPageDisplayLabelInput(page: Page): PageDisplayLabelInput {
  *     auto-generated one.
  *   - Daily Note: always its date, through the one shared
  *     formatDailyNoteTitle (the same text as the page header) — on
- *     every generic surface (collection lists, the Trash, ...), whatever
+ *     every generic surface (collection lists, the Archive, ...), whatever
  *     the note contains or wherever it lives. The one exception is the
  *     Daily Notes side panel, a preview surface with its own rule:
  *     getDailyNotePreviewLabel below.

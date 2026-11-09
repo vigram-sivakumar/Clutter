@@ -97,7 +97,7 @@ interface EmojiTrayProps {
   onSelect: (emoji: string) => void;
   hasIcon?: boolean;
   onRemove?: () => void;
-  /** Whether the header shows its remove (trash) button. Callers that offer their own remove action hide it. */
+  /** Whether the header shows its remove (remove) button. Callers that offer their own remove action hide it. */
   showRemove?: boolean;
 }
 

@@ -764,7 +764,7 @@ describe('renderTags', () => {
       );
 
       expect(screen.getByText('Rename')).toBeInTheDocument();
-      expect(screen.getByText('Move to trash')).toBeInTheDocument();
+      expect(screen.getByText('Move to archive')).toBeInTheDocument();
     });
 
     it("selecting Archive calls the same onArchiveNote PageOperations-backed handler the Notes sidebar uses", () => {
@@ -784,7 +784,7 @@ describe('renderTags', () => {
         </>
       );
 
-      fireEvent.click(screen.getByText('Move to trash'));
+      fireEvent.click(screen.getByText('Move to archive'));
 
       expect(onArchiveNote).toHaveBeenCalledWith('p1');
     });
@@ -882,7 +882,7 @@ describe('renderTags', () => {
       expect(screen.queryByText('Save as template')).not.toBeInTheDocument();
       // Its other actions are the ordinary note's.
       expect(screen.getByText('Rename')).toBeInTheDocument();
-      expect(screen.getByText('Move to trash')).toBeInTheDocument();
+      expect(screen.getByText('Move to archive')).toBeInTheDocument();
     });
   });
 

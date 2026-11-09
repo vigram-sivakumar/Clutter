@@ -42,7 +42,7 @@ afterEach(() => {
 });
 
 const menu: TopBarMenuItemConfig[] = [
-  { id: 'archive', label: 'Move to trash', icon: 'archive' },
+  { id: 'archive', label: 'Move to archive', icon: 'archive' },
   { id: 'add-a-description', label: 'Add a description', icon: 'description' },
 ];
 
@@ -80,7 +80,7 @@ describe('ResourceTopBarActions', () => {
     render(<ResourceTopBarActions menu={menu} />);
     openMenu();
 
-    expect(screen.getByText('Move to trash')).toBeDefined();
+    expect(screen.getByText('Move to archive')).toBeDefined();
     expect(screen.getByText('Add a description')).toBeDefined();
   });
 
@@ -91,7 +91,7 @@ describe('ResourceTopBarActions', () => {
     );
     openMenu();
 
-    fireEvent.click(screen.getByText('Move to trash'));
+    fireEvent.click(screen.getByText('Move to archive'));
 
     expect(onArchive).toHaveBeenCalledTimes(1);
   });
@@ -113,7 +113,7 @@ describe('ResourceTopBarActions', () => {
     openMenu();
 
     expect(() =>
-      fireEvent.click(screen.getByText('Move to trash'))
+      fireEvent.click(screen.getByText('Move to archive'))
     ).not.toThrow();
   });
 
@@ -122,7 +122,7 @@ describe('ResourceTopBarActions', () => {
     const disabledMenu: TopBarMenuItemConfig[] = [
       {
         id: 'archive',
-        label: 'Move to trash',
+        label: 'Move to archive',
         icon: 'archive',
         disabled: true,
       },
@@ -135,8 +135,8 @@ describe('ResourceTopBarActions', () => {
     );
     openMenu();
 
-    expect(screen.getByText('Move to trash')).toBeDefined();
-    fireEvent.click(screen.getByText('Move to trash'));
+    expect(screen.getByText('Move to archive')).toBeDefined();
+    fireEvent.click(screen.getByText('Move to archive'));
 
     expect(onArchive).not.toHaveBeenCalled();
   });
@@ -169,7 +169,7 @@ describe('ResourceTopBarActions', () => {
       );
       openMenu();
 
-      fireEvent.click(screen.getByText('Move to trash'));
+      fireEvent.click(screen.getByText('Move to archive'));
 
       expect(onArchive).toHaveBeenCalledTimes(1);
     });
@@ -279,19 +279,19 @@ describe('ResourceTopBarActions', () => {
         />
       );
       openMenu();
-      fireEvent.click(screen.getByText('Move to trash'));
+      fireEvent.click(screen.getByText('Move to archive'));
 
       expect(onArchive).not.toHaveBeenCalled();
-      expect(screen.getByText('Move this folder to trash?')).toBeDefined();
+      expect(screen.getByText('Move this folder to archive?')).toBeDefined();
       expect(screen.getByText(ARCHIVE_MESSAGE)).toBeDefined();
 
       const confirmButtons = screen.getAllByRole('button', {
-        name: 'Move to trash',
+        name: 'Move to archive',
       });
       fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
 
       expect(onArchive).toHaveBeenCalledTimes(1);
-      expect(screen.queryByText('Move this folder to trash?')).toBeNull();
+      expect(screen.queryByText('Move this folder to archive?')).toBeNull();
     });
 
     it('Cancel closes the confirmation dialog without invoking archive', () => {
@@ -304,12 +304,12 @@ describe('ResourceTopBarActions', () => {
         />
       );
       openMenu();
-      fireEvent.click(screen.getByText('Move to trash'));
+      fireEvent.click(screen.getByText('Move to archive'));
 
       fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
       expect(onArchive).not.toHaveBeenCalled();
-      expect(screen.queryByText('Move this folder to trash?')).toBeNull();
+      expect(screen.queryByText('Move this folder to archive?')).toBeNull();
     });
   });
 
@@ -332,9 +332,9 @@ describe('ResourceTopBarActions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     openMenu();
-    fireEvent.click(screen.getByText('Move to trash'));
+    fireEvent.click(screen.getByText('Move to archive'));
 
-    expect(screen.getByText('Move this folder to trash?')).toBeDefined();
+    expect(screen.getByText('Move this folder to archive?')).toBeDefined();
     expect(screen.queryByText('Delete permanently?')).toBeNull();
   });
 
@@ -532,7 +532,7 @@ describe('ResourceTopBarActions: the More actions trigger while its menu is open
 
     fireEvent.mouseLeave(trigger());
     fireEvent.pointerLeave(trigger());
-    fireEvent.mouseEnter(screen.getByText('Move to trash'));
+    fireEvent.mouseEnter(screen.getByText('Move to archive'));
     fireEvent.pointerEnter(screen.getByText('Add a description'));
 
     expect(trigger()).toHaveClass('button--active');

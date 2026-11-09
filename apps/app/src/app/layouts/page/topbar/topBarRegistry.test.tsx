@@ -66,7 +66,7 @@ describe('topBarRegistry — folder resource type (ADR-024)', () => {
   it("wires onArchive to the folder menu's Archive item, gated by confirmation when archiveConfirmationMessage is set (ADR-026)", () => {
     const onArchive = vi.fn();
     const menuWithArchive: TopBarMenuItemConfig[] = [
-      { id: 'archive', label: 'Move to trash', icon: 'archive' },
+      { id: 'archive', label: 'Move to archive', icon: 'archive' },
       ...folderMenu,
     ];
 
@@ -80,13 +80,13 @@ describe('topBarRegistry — folder resource type (ADR-024)', () => {
       </>
     );
     openOverflowMenu();
-    fireEvent.click(screen.getByText('Move to trash'));
+    fireEvent.click(screen.getByText('Move to archive'));
 
     // Gated: confirmation shown first, handler not yet called.
     expect(onArchive).not.toHaveBeenCalled();
     expect(screen.getByText('Archive this folder and everything inside it?')).toBeInTheDocument();
 
-    const confirmButtons = screen.getAllByRole('button', { name: 'Move to trash' });
+    const confirmButtons = screen.getAllByRole('button', { name: 'Move to archive' });
     fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
 
     expect(onArchive).toHaveBeenCalledTimes(1);

@@ -107,7 +107,7 @@ describe('Escape in the notes and folders body', () => {
 
     fireEvent.keyDown(document.body, { key: 'Backspace' });
 
-    expect(screen.queryByText(/to trash\?/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/to archive\?/)).not.toBeInTheDocument();
   });
 
   it('with the selection’s right-click menu open, Escape closes the menu first and keeps the selection; the next one clears it', () => {
@@ -137,16 +137,16 @@ describe('Escape in the notes and folders body', () => {
     expect(screen.queryByText('Duplicate')).not.toBeInTheDocument();
   });
 
-  it('with the move-to-trash confirmation open, Escape dismisses the confirmation and keeps the selection', () => {
+  it('with the move-to-archive confirmation open, Escape dismisses the confirmation and keeps the selection', () => {
     draw('list');
     fireEvent.click(box('Alpha'));
     fireEvent.click(box('Beta'));
     fireEvent.keyDown(document.body, { key: 'Backspace' });
-    expect(screen.getByText('Move 2 items to trash?')).toBeInTheDocument();
+    expect(screen.getByText('Move 2 items to archive?')).toBeInTheDocument();
 
     escape();
 
-    expect(screen.queryByText('Move 2 items to trash?')).not.toBeInTheDocument();
+    expect(screen.queryByText('Move 2 items to archive?')).not.toBeInTheDocument();
     expect(checkedNames()).toEqual(['Select Alpha', 'Select Beta']);
 
     escape();
@@ -201,7 +201,7 @@ describe('Escape in the assets body', () => {
   });
 });
 
-describe('Escape in the trash', () => {
+describe('Escape in the archive', () => {
   const resources: VaultResource[] = [
     { id: 'r1', kind: 'image', name: 'hero.png', path: '/vault/Archive/hero.png', parentId: 'folder-archive' },
     { id: 'r2', kind: 'pdf', name: 'manual.pdf', path: '/vault/Archive/manual.pdf', parentId: 'folder-archive' },

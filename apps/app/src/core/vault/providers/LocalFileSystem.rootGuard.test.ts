@@ -151,7 +151,7 @@ describe('LocalVaultProvider.seal: nothing queued for a discarded vault can land
     return provider;
   };
 
-  beforeEach(() => disk.dirs.add(ROOT)); // the folder exists again — e.g. restored from the Trash
+  beforeEach(() => disk.dirs.add(ROOT)); // the folder exists again — e.g. restored from the Archive
 
   it.each([
     ['createDirectory', (p: LocalVaultProvider) => p.createDirectory(`${ROOT}/Notes`)],

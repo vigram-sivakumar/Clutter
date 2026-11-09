@@ -34,7 +34,7 @@ export class PageBuilder {
     );
 
     // A page's Daily Note vs. Note role comes from resolvePageType (its current path, or — in the
-    // Trash — the Daily Note path it will be restored to), never persisted frontmatter
+    // Archive — the Daily Note path it will be restored to), never persisted frontmatter
     // (frontmatter.type, if present on disk, is inert legacy data — see FrontmatterSerializer).
     // Vault enforces the same rule for every later mutation; this is the one place it must be
     // computed before a Vault exists yet to enforce it (the initial scan).

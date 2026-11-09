@@ -2948,7 +2948,7 @@ describe('VaultSyncService: filesystem convergence invariant', () => {
  * The Rust watcher pairs any "path appeared" rename half with any pending
  * "path vanished" half (no correlation cookie on macOS), so an unrelated
  * rename landing within the pairing window — Finder rewriting `.DS_Store`
- * while it moves a note to the Trash is the common one — turns a delete
+ * while it moves a note to the Archive is the common one — turns a delete
  * into `moved(deleted -> unrelated)`. Sync must converge on disk truth
  * instead of committing a move to a destination that isn't the same kind
  * of vault entity.

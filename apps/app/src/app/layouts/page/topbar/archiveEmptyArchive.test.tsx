@@ -29,7 +29,7 @@ afterEach(() => {
   cleanup();
 });
 
-function renderTrashActions(onDeleteAll: () => void, isEmpty = false) {
+function renderArchiveActions(onDeleteAll: () => void, isEmpty = false) {
   render(
     <>
       {renderTopBarActions('reserved-folder', {
@@ -45,12 +45,12 @@ function openMenu() {
   fireEvent.click(document.querySelector('button[aria-haspopup="menu"]')!);
 }
 
-describe('Trash page "More actions" — Empty trash', () => {
-  it('shows a More actions menu containing Empty trash', () => {
-    renderTrashActions(vi.fn());
+describe('Archive page "More actions" — Empty archive', () => {
+  it('shows a More actions menu containing Empty archive', () => {
+    renderArchiveActions(vi.fn());
     openMenu();
 
-    expect(screen.getByText('Empty trash')).toBeInTheDocument();
+    expect(screen.getByText('Empty archive')).toBeInTheDocument();
   });
 
   it('renders no actions for a reserved folder that passes no menu', () => {
@@ -61,12 +61,12 @@ describe('Trash page "More actions" — Empty trash', () => {
 
   it('asks for confirmation with the exact copy before deleting anything', () => {
     const onDeleteAll = vi.fn();
-    renderTrashActions(onDeleteAll);
+    renderArchiveActions(onDeleteAll);
     openMenu();
-    fireEvent.click(screen.getByText('Empty trash'));
+    fireEvent.click(screen.getByText('Empty archive'));
 
     expect(
-      screen.getByText('Are you sure you want to permanently delete the items in the trash?')
+      screen.getByText('Are you sure you want to permanently delete the items in the archive?')
     ).toBeInTheDocument();
     expect(screen.getByText('You can’t undo this action')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
@@ -75,9 +75,9 @@ describe('Trash page "More actions" — Empty trash', () => {
 
   it('Cancel deletes nothing', () => {
     const onDeleteAll = vi.fn();
-    renderTrashActions(onDeleteAll);
+    renderArchiveActions(onDeleteAll);
     openMenu();
-    fireEvent.click(screen.getByText('Empty trash'));
+    fireEvent.click(screen.getByText('Empty archive'));
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(onDeleteAll).not.toHaveBeenCalled();
@@ -86,11 +86,11 @@ describe('Trash page "More actions" — Empty trash', () => {
 
   it('confirming runs the delete once, with the default (danger) confirm button like every other destructive confirmation', () => {
     const onDeleteAll = vi.fn();
-    renderTrashActions(onDeleteAll);
+    renderArchiveActions(onDeleteAll);
     openMenu();
-    fireEvent.click(screen.getByText('Empty trash'));
+    fireEvent.click(screen.getByText('Empty archive'));
 
-    const buttons = screen.getAllByRole('button', { name: 'Empty trash' });
+    const buttons = screen.getAllByRole('button', { name: 'Empty archive' });
     const confirm = buttons[buttons.length - 1]!;
     expect(confirm.className).toContain('button--danger');
     expect(confirm.className).not.toContain('button--primary');
@@ -100,11 +100,11 @@ describe('Trash page "More actions" — Empty trash', () => {
     expect(onDeleteAll).toHaveBeenCalledTimes(1);
   });
 
-  it('disables Empty trash when the Trash is already empty', () => {
+  it('disables Empty archive when the Archive is already empty', () => {
     const onDeleteAll = vi.fn();
-    renderTrashActions(onDeleteAll, true);
+    renderArchiveActions(onDeleteAll, true);
     openMenu();
-    fireEvent.click(screen.getByText('Empty trash'));
+    fireEvent.click(screen.getByText('Empty archive'));
 
     expect(screen.queryByText('You can’t undo this action')).toBeNull();
     expect(onDeleteAll).not.toHaveBeenCalled();

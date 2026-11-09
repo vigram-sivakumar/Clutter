@@ -3,14 +3,14 @@ import { formatTaskTitle } from './formatTaskTitle';
 
 describe('formatTaskTitle', () => {
   it('hides the single due date, with no leftover whitespace', () => {
-    expect(formatTaskTitle('Clean the Trash @2026-08-20', '2026-08-20')).toBe(
-      'Clean the Trash'
+    expect(formatTaskTitle('Clean the Archive @2026-08-20', '2026-08-20')).toBe(
+      'Clean the Archive'
     );
   });
 
   it('hides the due date when it is at the start of the text', () => {
-    expect(formatTaskTitle('@2026-08-20 Clean the trash', '2026-08-20')).toBe(
-      'Clean the trash'
+    expect(formatTaskTitle('@2026-08-20 Clean the archive', '2026-08-20')).toBe(
+      'Clean the archive'
     );
   });
 
@@ -21,8 +21,8 @@ describe('formatTaskTitle', () => {
   });
 
   it('hides the due date immediately followed by punctuation cleanly', () => {
-    expect(formatTaskTitle('Clean the Trash @2026-08-20!', '2026-08-20')).toBe(
-      'Clean the Trash!'
+    expect(formatTaskTitle('Clean the Archive @2026-08-20!', '2026-08-20')).toBe(
+      'Clean the Archive!'
     );
   });
 
@@ -54,14 +54,14 @@ describe('formatTaskTitle', () => {
   });
 
   it('leaves text with no bare date unchanged, e.g. dueDate came from @due: metadata (already stripped from text at extraction)', () => {
-    expect(formatTaskTitle('Clean the Trash', '2026-08-20')).toBe(
-      'Clean the Trash'
+    expect(formatTaskTitle('Clean the Archive', '2026-08-20')).toBe(
+      'Clean the Archive'
     );
   });
 
   it('leaves text completely unchanged when dueDate is undefined, bare dates included', () => {
-    expect(formatTaskTitle('Clean the Trash', undefined)).toBe(
-      'Clean the Trash'
+    expect(formatTaskTitle('Clean the Archive', undefined)).toBe(
+      'Clean the Archive'
     );
     expect(formatTaskTitle('Follow up @2026-08-22', undefined)).toBe(
       'Follow up @2026-08-22'
@@ -74,8 +74,8 @@ describe('formatTaskTitle', () => {
     // bare-date occurrence in the text (e.g. it came from @due:, or the
     // text has no matching date at all) falls through unchanged, exactly
     // as before.
-    expect(formatTaskTitle('Clean the Trash', '2026-13-45')).toBe(
-      'Clean the Trash'
+    expect(formatTaskTitle('Clean the Archive', '2026-13-45')).toBe(
+      'Clean the Archive'
     );
   });
 

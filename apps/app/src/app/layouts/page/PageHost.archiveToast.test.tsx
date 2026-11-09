@@ -103,13 +103,13 @@ async function flush(): Promise<void> {
   }
 }
 
-/** Right-clicks the entry in the open collection list and chooses Move to trash (Archive). */
+/** Right-clicks the entry in the open collection list and chooses Move to archive (Archive). */
 async function archiveFromList(shownName: string) {
   fireEvent.contextMenu(screen.getByText(shownName));
   await flush();
   fireEvent.click(
     Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]')).find(
-      (item) => item.textContent === 'Move to trash'
+      (item) => item.textContent === 'Move to archive'
     )!
   );
   await flush();

@@ -14,7 +14,7 @@ interface SpaceAvatarPickerProps {
   anchorRef: RefObject<HTMLElement>;
   open: boolean;
   onClose: () => void;
-  /** Whether an avatar is set; the trash action is only enabled then. */
+  /** Whether an avatar is set; the archive action is only enabled then. */
   hasAvatar: boolean;
   onSelectEmoji: (emoji: string) => void;
   /** An image chosen from the user's computer (an absolute path). */

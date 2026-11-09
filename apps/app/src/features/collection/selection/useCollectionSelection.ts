@@ -39,7 +39,7 @@ function targetOwnsKeys(target: EventTarget | null): boolean {
  * another folder, or the item is gone) is dropped.
  *
  * Escape leaves selection mode: while the mode is on, it clears the whole selection (the checkboxes, the selected styling and
- * the ids all follow from that one state, so every layout — list, table, note, asset and folder cards, the trash — resets the
+ * the ids all follow from that one state, so every layout — list, table, note, asset and folder cards, the archive — resets the
  * same way). It is registered only while the mode is on, so with nothing selected Escape is not touched at all, and it stands aside for
  * whatever else answers Escape: an open overlay (the key closes that first, and the selection stays for the next Escape), a
  * field or editor with focus, a drag or marquee in progress (they consume the key before it gets here), and anything that

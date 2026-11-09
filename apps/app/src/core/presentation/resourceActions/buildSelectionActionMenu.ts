@@ -21,7 +21,7 @@ export interface SelectionMenuFacts {
 /**
  * The menu for a Collection View selection, built by the same builder as every resource's menu (ADR-048) from
  * the shared definitions: Select all first, then — only those every selected item supports —
- * Move to, Add to / Remove from favorites, Move to trash, Restore and Delete, with the dividers the global groups give. The
+ * Move to, Add to / Remove from favorites, Move to archive, Restore and Delete, with the dividers the global groups give. The
  * first item carries the selection count as its group title ("3 selected").
  */
 export function buildSelectionActionMenu(

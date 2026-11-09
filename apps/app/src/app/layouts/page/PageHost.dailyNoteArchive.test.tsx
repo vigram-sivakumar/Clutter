@@ -26,7 +26,7 @@ import type { Page } from '@core/vault/models/Page';
 import { ToastProvider } from '@components/toast/ToastProvider';
 
 /**
- * A Daily Note in the Trash, through the real AppLayout composition: it keeps its Daily Note
+ * A Daily Note in the Archive, through the real AppLayout composition: it keeps its Daily Note
  * identity (the same date title, never editable), and restoring it when its day already has a
  * Daily Note asks instead of overwriting (Move to Inbox / Replace). See ADR-042.
  */
@@ -83,7 +83,7 @@ function makeApplication() {
     folder(`${ROOT}/Inbox`, null),
   ];
   const monthFolder = folders.find((f) => f.path === dailyDir)!;
-  const dailyNote = buildPage(DAILY_PATH, 'daily-1', 'Trashed day.', monthFolder.id);
+  const dailyNote = buildPage(DAILY_PATH, 'daily-1', 'Archived day.', monthFolder.id);
   const vault = new Vault(
     ROOT,
     [dailyNote],
@@ -97,7 +97,7 @@ function makeApplication() {
     []
   );
   const fileSystem = new InMemoryVaultFileSystem();
-  fileSystem.seedFile(DAILY_PATH, new FrontmatterSerializer().serializeDocument(dailyNote, 'Trashed day.'));
+  fileSystem.seedFile(DAILY_PATH, new FrontmatterSerializer().serializeDocument(dailyNote, 'Archived day.'));
   const application = new Application(vault, fileSystem, new SelfWriteRegistry());
   application.attachVault(vault, new PageCreator(new UuidGenerator(), new PageFactory()), new DailyNoteService());
   return { application, dailyNote, monthFolder, fileSystem };
@@ -124,8 +124,8 @@ async function clickMenuItem(label: string) {
   await flush();
 }
 
-describe('A Daily Note in the Trash keeps its title', () => {
-  it('shows the same date title before trashing, while in the Trash, and after restoring — never editable', async () => {
+describe('A Daily Note in the Archive keeps its title', () => {
+  it('shows the same date title before archiving, while in the Archive, and after restoring — never editable', async () => {
     const { application, dailyNote } = makeApplication();
     await application.pageOperations.open(dailyNote.id);
     render(
@@ -161,11 +161,11 @@ describe('A Daily Note in the Trash keeps its title', () => {
 });
 
 describe('A Daily Note shows the same title on every title surface', () => {
-  // One shared formatter writes it everywhere: the page header, and the Trash list below.
+  // One shared formatter writes it everywhere: the page header, and the Archive list below.
   const pageTitle = formatDailyNoteTitle('2026-01-15');
   const main = () => document.querySelector<HTMLElement>('.page')!;
 
-  it('page header shows the title, and a Daily Note has no breadcrumb — active and in the Trash', async () => {
+  it('page header shows the title, and a Daily Note has no breadcrumb — active and in the Archive', async () => {
     const { application, dailyNote } = makeApplication();
     await application.pageOperations.open(dailyNote.id);
     render(
@@ -175,20 +175,20 @@ describe('A Daily Note shows the same title on every title surface', () => {
   );
     await flush();
 
-    for (const trashed of [false, true]) {
-      if (trashed) {
+    for (const archived of [false, true]) {
+      if (archived) {
         await application.pageOperations.archive(dailyNote.id);
         await flush();
       }
 
       expect(titleRoot().textContent).toBe(pageTitle);
-      // A Daily Note has no breadcrumb: the Trash list row, below, is the other surface that shows its title.
+      // A Daily Note has no breadcrumb: the Archive list row, below, is the other surface that shows its title.
       expect(main().querySelector('.breadcrumb-item')).toBeNull();
       expect(within(main()).queryByText('Start typing…')).toBeNull();
     }
   });
 
-  it('the Trash list row is the same title, even for a note with content', async () => {
+  it('the Archive list row is the same title, even for a note with content', async () => {
     const { application, dailyNote } = makeApplication();
     await application.pageOperations.archive(dailyNote.id);
     application.navigation.openArchive();
@@ -201,12 +201,12 @@ describe('A Daily Note shows the same title on every title surface', () => {
 
     expect(within(main()).getByText(pageTitle)).toBeInTheDocument();
     expect(within(main()).queryByText('Start typing…')).toBeNull();
-    expect(within(main()).queryByText('Trashed day.')).toBeNull();
+    expect(within(main()).queryByText('Archived day.')).toBeNull();
   });
 });
 
 describe('Restoring a Daily Note whose day already has one', () => {
-  async function trashedWithNewerNote() {
+  async function archivedWithNewerNote() {
     const context = makeApplication();
     const { application, dailyNote, monthFolder, fileSystem } = context;
     await application.pageOperations.open(dailyNote.id);
@@ -227,7 +227,7 @@ describe('Restoring a Daily Note whose day already has one', () => {
   const dialog = () => screen.queryByText('Restore daily note');
 
   it('asks instead of overwriting: Move to Inbox / Replace, a close button, no Cancel', async () => {
-    const { application, dailyNote, newer } = await trashedWithNewerNote();
+    const { application, dailyNote, newer } = await archivedWithNewerNote();
 
     await clickMenuItem('Restore');
 
@@ -245,8 +245,8 @@ describe('Restoring a Daily Note whose day already has one', () => {
     expect(application.vault.getPage(newer.id)!.path).toBe(DAILY_PATH);
   });
 
-  it('closing the dialog leaves the note in the Trash', async () => {
-    const { application, dailyNote, newer } = await trashedWithNewerNote();
+  it('closing the dialog leaves the note in the Archive', async () => {
+    const { application, dailyNote, newer } = await archivedWithNewerNote();
     await clickMenuItem('Restore');
 
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
@@ -258,7 +258,7 @@ describe('Restoring a Daily Note whose day already has one', () => {
   });
 
   it('Move to Inbox restores it as a normal note, leaves the existing one alone, and toasts with Open', async () => {
-    const { application, dailyNote, newer, fileSystem } = await trashedWithNewerNote();
+    const { application, dailyNote, newer, fileSystem } = await archivedWithNewerNote();
     const existingBefore = await fileSystem.readFile(DAILY_PATH);
     await clickMenuItem('Restore');
 
@@ -279,7 +279,7 @@ describe('Restoring a Daily Note whose day already has one', () => {
   });
 
   it('Replace deletes the existing Daily Note and restores into its place', async () => {
-    const { application, dailyNote, newer } = await trashedWithNewerNote();
+    const { application, dailyNote, newer } = await archivedWithNewerNote();
     await clickMenuItem('Restore');
 
     fireEvent.click(screen.getByRole('button', { name: 'Replace' }));

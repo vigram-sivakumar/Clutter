@@ -92,7 +92,7 @@ const MOVE_TO: ResourceActionDefinition = activeOnly({
 
 /**
  * "Save as template": an independent copy of this page's content as a new Template — the source is
- * never moved or converted. For a Note or a Daily Note; not for one already in the Trash or already
+ * never moved or converted. For a Note or a Daily Note; not for one already in the Archive or already
  * a Template.
  */
 const CREATE_TEMPLATE: ResourceActionDefinition = activeOnly({
@@ -244,7 +244,7 @@ const TOGGLE_PIN: ResourceActionDefinition = {
   icon: 'pin',
 };
 
-/** A tag or task has no Trash: Delete removes it, after the caller's confirmation where there is one. */
+/** A tag or task has no Archive: Delete removes it, after the caller's confirmation where there is one. */
 const DELETE_TAG: ResourceActionDefinition = {
   id: 'delete',
   group: 'destructive',
@@ -284,7 +284,7 @@ const SELECT_ALL: ResourceActionDefinition = {
 
 /**
  * The actions a selection menu can offer, from the same definitions the single-resource menus use — so wording,
- * icon, group and order are theirs. Move to, Favorite, Move to trash, Restore and Delete are offered only when every selected
+ * icon, group and order are theirs. Move to, Favorite, Move to archive, Restore and Delete are offered only when every selected
  * item supports them (see `buildSelectionActionMenu`).
  */
 export const SELECTION_ACTIONS: readonly ResourceActionDefinition[] = [

@@ -2,7 +2,7 @@ import { formatDateDisplay } from '@shared/helpers/time';
 import { isValidCalendarDate } from '@shared/helpers/time/helpers/isValidCalendarDate';
 
 /**
- * A Daily Note's title — the one way every surface writes it: the page header, lists, the Trash, breadcrumbs,
+ * A Daily Note's title — the one way every surface writes it: the page header, lists, the Archive, breadcrumbs,
  * pickers, references, autocomplete rows. It is the shared `'heading'` date (`Today, 20 October`,
  * `Sat, 22 October`, `Fri, 5 March 2027`), so it follows the user's Date format preference, the system locale
  * and the year rule exactly as every other date does.

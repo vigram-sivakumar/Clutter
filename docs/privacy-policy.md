@@ -81,7 +81,7 @@ The app's data folder and cache are inside your Mac's `Library` folder, in a fol
 
 Clutter keeps no information about you on any server of its own, so there is nothing for me to retain or delete. On your Mac:
 
-- **Delete a note or attachment.** Archive and then delete it permanently in Clutter, or delete the file in Finder. A permanent delete does not go to the Trash and can't be undone.
+- **Delete a note or attachment.** Archive and then delete it permanently in Clutter, or delete the file in Finder. A permanent delete does not go to the Archive and can't be undone.
 - **Remove a Space.** Choose it in Settings and remove it. Clutter forgets the folder and its access to it. The folder and your notes stay where they are, and you can delete them in Finder.
 - **Remove everything the app stored.** Quit Clutter, delete the app, and delete the app's folder named `com.vigram.clutter` in `~/Library/Containers` (and the cache folder of the same name in `~/Library/Caches`, if present). Your Spaces are separate folders, so delete them separately if you want them gone.
 - **Data held by others.** Unsplash and Cloudflare keep whatever they keep under their own policies. To ask about it, contact them: [Unsplash privacy policy](https://unsplash.com/privacy) and [Cloudflare privacy policy](https://www.cloudflare.com/privacypolicy/).

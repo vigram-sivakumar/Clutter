@@ -62,7 +62,7 @@ function surfacesFor(name: string): Record<string, string> {
 
   return {
     'shared formatter': formatDailyNoteTitle(name),
-    'generic label (lists, Trash, references)': getPageDisplayLabel(entry(name))
+    'generic label (lists, Archive, references)': getPageDisplayLabel(entry(name))
       .text,
     'collection / archive row': buildEntryPresentation(entry(name)).title,
     'wiki-link suggestion': wikiLinkRow(suggestion).row.title,

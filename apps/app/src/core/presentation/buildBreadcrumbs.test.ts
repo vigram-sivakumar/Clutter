@@ -371,7 +371,7 @@ describe('buildBreadcrumbs — trailing crumb (Category B)', () => {
     expect(crumbs.at(-1)!.title).toBe(formatDailyNoteTitle('2026-08-02'));
   });
 
-  it('shows the formatted date for a trashed daily note too', () => {
+  it('shows the formatted date for a archived daily note too', () => {
     const page = makePage({
       type: 'daily-note',
       name: '2026-08-02',

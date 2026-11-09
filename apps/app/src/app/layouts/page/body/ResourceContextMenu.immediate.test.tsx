@@ -24,7 +24,7 @@ describe('ResourceContextMenu — an immediate action', () => {
     render(
       <StrictMode>
         <ResourceContextMenu
-          menu={{ menu: [{ id: 'archive', label: 'Move to trash' }], handlers: { archive } }}
+          menu={{ menu: [{ id: 'archive', label: 'Move to archive' }], handlers: { archive } }}
           point={{ x: 0, y: 0 }}
           immediate="archive"
           onDone={onDone}

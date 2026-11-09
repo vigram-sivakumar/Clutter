@@ -37,7 +37,7 @@ export function useCollectionSelectionMenu(
   const seqRef = useRef(0);
   const close = useCallback(() => setOpen(null), []);
 
-  // Delete / Backspace while items are selected moves them to the trash — the menu's own Move to trash, run for the
+  // Delete / Backspace while items are selected moves them to the archive — the menu's own Move to archive, run for the
   // selection as it is now (so a folder with contents asks the same confirmation). Only in selection mode, and never
   // while something else has the keys: a field, an editor, a menu or a dialog that is open.
   const latest = useRef({ selection, resolveFor });
@@ -66,15 +66,15 @@ export function useCollectionSelectionMenu(
         selectAll: current.selectAll,
         clear: current.clear,
       });
-      // The key has no menu to choose from, so it always asks first (the menu's Move to trash asks only where the
+      // The key has no menu to choose from, so it always asks first (the menu's Move to archive asks only where the
       // existing rule does: a folder with contents).
       const count = current.selectedIds.length;
       const menu = {
         ...composed,
-        archiveConfirmationTitle: composed.archiveConfirmationTitle ?? (count > 1 ? `Move ${count} items to trash?` : 'Move this item to trash?'),
-        archiveConfirmationMessage: composed.archiveConfirmationMessage ?? 'You can restore them from the trash',
+        archiveConfirmationTitle: composed.archiveConfirmationTitle ?? (count > 1 ? `Move ${count} items to archive?` : 'Move this item to archive?'),
+        archiveConfirmationMessage: composed.archiveConfirmationMessage ?? 'You can restore them from the archive',
       };
-      // Only when the selection can be moved to the trash at all.
+      // Only when the selection can be moved to the archive at all.
       if (!menu.menu.some((item) => item.id === 'archive')) {
         return;
       }

@@ -110,7 +110,7 @@ describe('PDF embed "More actions" — Remove/Download/Archive separation', () =
       'Move to…',
       'Reveal in Finder',
       'Copy path',
-      'Move to trash',
+      'Move to archive',
       'Remove',
     ]);
 
@@ -182,7 +182,7 @@ describe('PDF embed "More actions" — Remove/Download/Archive separation', () =
     );
     openMoreActionsMenu();
 
-    fireEvent.click(findMenuItem('Move to trash')!);
+    fireEvent.click(findMenuItem('Move to archive')!);
 
     expect(onArchiveResource).toHaveBeenCalledWith('resource-1');
   });

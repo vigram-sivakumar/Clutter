@@ -57,7 +57,7 @@ describe('buildEntryPresentation (page)', () => {
       ...overrides,
     }) as Parameters<typeof buildEntryPresentation>[0];
 
-  it('a Daily Note is its formatted date title in any list (the Trash, a collection), whatever it holds', () => {
+  it('a Daily Note is its formatted date title in any list (the Archive, a collection), whatever it holds', () => {
     for (const content of [
       { description: null, markdown: '' },
       { description: null, markdown: 'Meeting notes' },

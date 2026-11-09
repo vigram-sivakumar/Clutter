@@ -233,7 +233,7 @@ describe('clicking empty space in the assets body', () => {
   });
 });
 
-describe('clicking empty space in the trash', () => {
+describe('clicking empty space in the archive', () => {
   const resources: VaultResource[] = [
     { id: 'r1', kind: 'image', name: 'hero.png', path: '/vault/Archive/hero.png', parentId: 'folder-archive' },
     { id: 'r2', kind: 'pdf', name: 'manual.pdf', path: '/vault/Archive/manual.pdf', parentId: 'folder-archive' },

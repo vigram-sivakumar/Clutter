@@ -50,7 +50,7 @@ describe('the shortcut list', () => {
           'Actual size',
         ],
       ],
-      ['Application', ['Cancel', 'Show keyboard shortcuts', 'Move to trash', 'Quit Clutter']],
+      ['Application', ['Cancel', 'Show keyboard shortcuts', 'Move to archive', 'Quit Clutter']],
     ]);
   });
 
@@ -82,7 +82,7 @@ describe('the shortcut list', () => {
       'move-to',
       'toggle-references',
       'toggle-property-list',
-      'move-to-trash',
+      'move-to-archive',
     ]);
     expect(matchShortcut(key({ code: 'KeyF', metaKey: true }), true)).toBeNull();
     expect(matchShortcut(key({ code: 'KeyM', metaKey: true, shiftKey: true }), true)).toBeNull();
@@ -114,7 +114,7 @@ describe('the chips the dialog shows', () => {
     expect(shortcutKeys(byId('zoom-in'))).toEqual(['command', { label: '+' }]);
     expect(shortcutKeys(byId('zoom-out'))).toEqual(['command', { label: '-' }]);
     expect(shortcutKeys(byId('actual-size'))).toEqual(['command', { label: '0' }]);
-    expect(shortcutKeys(byId('move-to-trash'))).toEqual(['shift', 'command', { label: 'Delete' }]);
+    expect(shortcutKeys(byId('move-to-archive'))).toEqual(['shift', 'command', { label: 'Delete' }]);
     expect(shortcutKeys(byId('cancel'))).toEqual([{ label: 'Esc' }]);
     expect(shortcutKeys(byId('cancel'))).toEqual([{ label: 'Esc' }]);
     expect(shortcutKeys(byId('quit'))).toEqual(['command', { label: 'Q' }]);

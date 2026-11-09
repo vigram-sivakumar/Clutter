@@ -29,7 +29,7 @@ export type ShortcutId =
   | 'undo'
   | 'redo'
   | 'move-to'
-  | 'move-to-trash'
+  | 'move-to-archive'
   | 'toggle-cover-image'
   | 'toggle-references'
   | 'toggle-property-list'
@@ -163,7 +163,7 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
       // while a note is focused.
       { id: 'show-shortcuts', label: 'Show keyboard shortcuts', binding: mod('Slash', { alt: true }), owner: 'app' },
       // ⇧⌘Delete (⌘Delete alone is the editor's delete-to-line-start). Not wired to the action yet.
-      { id: 'move-to-trash', label: 'Move to trash', binding: mod('Backspace', { shift: true }), owner: 'app', pending: true },
+      { id: 'move-to-archive', label: 'Move to archive', binding: mod('Backspace', { shift: true }), owner: 'app', pending: true },
       // The system's own application-menu item (⌘Q).
       { id: 'quit', label: 'Quit Clutter', binding: null, owner: 'native', display: ['command', { label: 'Q' }] },
     ],

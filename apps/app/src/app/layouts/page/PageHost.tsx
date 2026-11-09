@@ -1339,7 +1339,7 @@ export function PageHost({
   // A Collection View entry's right-click menu — its resource's topbar menu (see `buildCollectionItemMenu`).
   const collectionItemMenu: CollectionItemMenuResolver = (entry) =>
     buildCollectionItemMenu(application, resourceMenuOps, entry);
-  // A file in the Trash: its right-click menu's Restore and Delete permanently — the same operations, and the same
+  // A file in the Archive: its right-click menu's Restore and Delete permanently — the same operations, and the same
   // failure reports, as the file's viewer (AppLayout): a Restore with no recorded place asks where it should go.
   const archivedResourceMenu: CollectionItemMenuResolver<VaultResource> = (resource) =>
     buildArchivedResourceItemMenu(
