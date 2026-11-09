@@ -65,7 +65,7 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico",
-      "icons/Clutter.icon"
+      "icons/Assets.car"
     ],
     "android": {
       "debugApplicationIdSuffix": ".debug"
