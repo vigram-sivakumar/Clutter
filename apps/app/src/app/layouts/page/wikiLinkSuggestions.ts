@@ -7,9 +7,10 @@ import type { Folder } from '@core/vault/models/Folder';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import { isDailyNotesCollectionPagesEnabled } from '@core/featureFlags';
 import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
-import { getSystemLocationIconForFolder } from '@core/presentation/systemPresentation';
+import { getSystemLocationIconForFolder, SYSTEM_LOCATION_PRESENTATION } from '@core/presentation/systemPresentation';
 import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
 import { VaultPath } from '@core/vault/ingest/VaultPath';
+import { LINKABLE_SYSTEM_FOLDERS } from '@core/vault/knowledge/nonPageLinkTarget';
 import { dailyNoteSearchText } from '@core/presentation/dailyNoteSearchText';
 import { isValidCalendarDate } from '@shared/helpers/time/helpers/isValidCalendarDate';
 import { matchesSearchText } from '@shared/helpers/matchesSearchText';
@@ -87,7 +88,14 @@ export function createWikiLinkSuggester(
     // first, rather than nothing, so autocomplete opens immediately. No folders or assets, and no Create option:
     // an empty path has nothing to create yet.
     if (!trimmed) {
-      return sortByLastEdited(livePages(), lastEditedMs, (page) => page.name).map((page) => toPageSuggestion(vault, page));
+      const pages = sortByLastEdited(livePages(), lastEditedMs, (page) => page.name).map((page) =>
+        toPageSuggestion(vault, page)
+      );
+
+      // Inbox, Templates, Archive and Assets are always on offer, after the notes, whether or not their directory exists.
+      return membershipSelector
+        ? [...pages, ...systemFolderSuggestions(vault, membershipSelector, spaceName)]
+        : pages;
     }
 
     const ranked = rankTargets(
@@ -187,6 +195,14 @@ function rankTargets(
       }
     }
 
+    // The four system locations are always offered: one that has no directory yet is added here, and one the
+    // loop above already offered is not added twice.
+    for (const suggestion of systemFolderSuggestions(vault, membershipSelector, spaceName)) {
+      if (!entries.some((entry) => entry.key === `folder:${suggestion.path}`)) {
+        add(suggestion, VaultPath.pageName(suggestion.path.slice(0, -1)), [], 0);
+      }
+    }
+
     for (const resource of membershipSelector.getAllVisibleResources()) {
       const suggestion = toAssetSuggestion(vault, resource, resolveResourceUrl);
       // The file name with its extension, so `hero.p` finds `hero.png`.
@@ -236,6 +252,31 @@ function toFolderSuggestion(
     : VaultPath.parentDirectory(relative) || null;
 
   return { kind: 'folder', path: `${relative}/`, title: folder.name, breadcrumb, ...identity };
+}
+
+/**
+ * Inbox, Templates, Archive and Assets as folder links, whether or not their directory exists: the folder itself
+ * when the Vault has it (so it reads exactly as any folder does), else a suggestion made from the name alone. Read-only:
+ * offering one creates nothing. Daily Notes and `.clutter` are not in `LINKABLE_SYSTEM_FOLDERS`.
+ */
+function systemFolderSuggestions(
+  vault: Vault,
+  membershipSelector: MembershipSelector,
+  spaceName: string | undefined
+): WikiLinkFolderSuggestion[] {
+  return LINKABLE_SYSTEM_FOLDERS.map(({ id, name }) => {
+    const folder = vault.getFolderByPath(`${vault.root}/${name}`);
+
+    return folder
+      ? toFolderSuggestion(vault, folder, membershipSelector, spaceName)
+      : {
+          kind: 'folder' as const,
+          path: `${name}/`,
+          title: name,
+          breadcrumb: spaceName || null,
+          icon: SYSTEM_LOCATION_PRESENTATION[id].icon,
+        };
+  });
 }
 
 /** An asset by its vault-relative path with its extension (`Assets/hero.png`). */

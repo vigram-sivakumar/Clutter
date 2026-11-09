@@ -11,7 +11,7 @@ import { View } from '@app/layouts/sidebar/View/Sidebar.View';
 import { buildTasksShortcutHandler } from '@features/tasks/shortcuts/buildTasksShortcutHandler';
 import { TasksShortcuts } from '@features/tasks/shortcuts/TasksShortcuts';
 import { createTagResolver } from '@app/layouts/page/resolveTag';
-import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
+import { createWikiLinkResolver, openSystemFolderThrough } from '@app/layouts/page/resolveWikiLink';
 import { createPageEmbedResolver } from '@app/layouts/page/resolvePageEmbed';
 import { useToast } from '@components/toast/ToastProvider';
 import { createTaskActions } from '../helpers/createTaskActions';
@@ -74,7 +74,9 @@ export function Tasks({
   // use to inject the page editor's own WikiLink/Tag/embed resolution —
   // cheap, stateless glue, not worth memoizing
   // (resolveTag.ts/resolveWikiLink.ts/resolvePageEmbed.ts).
-  const resolveWikiLink = createWikiLinkResolver(vault, pageOperations, folderOperations);
+  const resolveWikiLink = createWikiLinkResolver(vault, pageOperations, folderOperations, undefined, {
+    openSystemFolder: openSystemFolderThrough(navigation),
+  });
   const resolveTag = createTagResolver(navigation, vault);
   const resolveEmbed = createPageEmbedResolver(vault, effectivePageState);
 

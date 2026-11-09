@@ -12,7 +12,7 @@ import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal'
 import { createNoteForTag } from '@features/tags/helpers/createNoteForTag';
 import type { SourceRange } from '@core/presentation/getTagOccurrenceRanges';
 import { createTagResolver } from '@app/layouts/page/resolveTag';
-import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
+import { createWikiLinkResolver, openSystemFolderThrough } from '@app/layouts/page/resolveWikiLink';
 import { createPageEmbedResolver } from '@app/layouts/page/resolvePageEmbed';
 import { useRequestCreateTemplate } from '@app/layouts/createTemplate/CreateTemplateProvider';
 import { buildNoteRowActions } from '@features/notes/helpers/buildNoteRowActions';
@@ -110,7 +110,8 @@ export function Tags({
     vault,
     pageOperations,
     folderOperations,
-    effectivePageState
+    effectivePageState,
+    { openSystemFolder: openSystemFolderThrough(navigation) }
   );
   const resolveTag = createTagResolver(navigation, vault);
   const resolveEmbed = createPageEmbedResolver(vault, effectivePageState);

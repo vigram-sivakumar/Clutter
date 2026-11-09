@@ -23,7 +23,7 @@ import { buildNotesShortcutHandler } from '@features/notes/shortcuts/buildNotesS
 import { NotesShortcuts } from '@features/notes/shortcuts/NotesShortcuts';
 import type { SidebarSort } from '@core/properties/sidebarSort';
 import { createTagResolver } from '@app/layouts/page/resolveTag';
-import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
+import { createWikiLinkResolver, openSystemFolderThrough } from '@app/layouts/page/resolveWikiLink';
 import { createPageEmbedResolver } from '@app/layouts/page/resolvePageEmbed';
 import {
   FolderTree,
@@ -248,7 +248,8 @@ export function Notes({
     vault,
     pageOperations,
     folderOperations,
-    effectivePageState
+    effectivePageState,
+    { openSystemFolder: openSystemFolderThrough(navigation) }
   );
   const resolveTag = createTagResolver(navigation, vault);
   const resolveEmbed = createPageEmbedResolver(vault, effectivePageState);

@@ -102,10 +102,13 @@ function setup(pages: Page[], folders: Folder[], resources: VaultResource[], res
     { getAllResources: () => Array.from(vault.resources()) } as unknown as VaultQuery,
     {} as EffectivePageState
   );
+  const pageCreate = vi.fn();
+  const folderCreate = vi.fn();
+  const ensureReservedFolder = vi.fn();
   const suggest = createWikiLinkSuggester(
     vault,
-    { open: vi.fn(), create: vi.fn() } as unknown as PageOperations,
-    { create: vi.fn() } as unknown as FolderOperations,
+    { open: vi.fn(), create: pageCreate } as unknown as PageOperations,
+    { create: folderCreate, ensureReservedFolder } as unknown as FolderOperations,
     undefined,
     undefined,
     selector,
@@ -113,7 +116,7 @@ function setup(pages: Page[], folders: Folder[], resources: VaultResource[], res
     'My Space'
   );
 
-  return { vault, suggest };
+  return { vault, suggest, writes: { pageCreate, folderCreate, ensureReservedFolder } };
 }
 
 const summarize = (suggestions: ReturnType<ReturnType<typeof setup>['suggest']>) =>
@@ -127,11 +130,17 @@ describe('createWikiLinkSuggester — folders and assets', () => {
       [resource('Assets/hero.png'), resource('Assets/plan.pdf', 'pdf'), resource('Archive/old.png')]
     );
 
-  it('an empty query lists only notes — no folders (reserved or not), images or PDFs', () => {
+  it('an empty query lists the notes, then only the four system folders — no other folder, image or PDF', () => {
     const { suggest } = fixture();
+    const all = suggest('');
 
-    expect(summarize(suggest(''))).toEqual(expect.arrayContaining(['page:Plan', 'page:Projects']));
-    expect(suggest('').every((suggestion) => suggestion.kind === 'page')).toBe(true);
+    expect(summarize(all)).toEqual(expect.arrayContaining(['page:Plan', 'page:Projects']));
+    expect(all.filter((suggestion) => suggestion.kind !== 'page').map((suggestion) => suggestion.path)).toEqual([
+      'Inbox/',
+      'Templates/',
+      'Archive/',
+      'Assets/',
+    ]);
   });
 
   it('a typed query searches every target type at once, in one list ordered by match quality', () => {
@@ -224,7 +233,9 @@ describe('createWikiLinkSuggester — folders and assets', () => {
 
     expect(suggest('Newfolder/')).toEqual([]);
     expect(suggest('missing.png')).toEqual([]);
-    expect(suggest('Inbox')).toEqual([]);
+    // `Inbox` is a folder suggestion now, never a Create row.
+    expect(suggest('Inbox').map((suggestion) => suggestion.kind)).toEqual(['folder']);
+    expect(suggest('Daily Notes')).toEqual([]);
   });
 
   it('without a membership selector, only notes (and Create) are offered, as before', () => {
@@ -286,5 +297,74 @@ describe('createWikiLinkSuggester — folders and assets', () => {
       Assets: 'layers',
       Projects: undefined,
     });
+  });
+});
+
+describe('createWikiLinkSuggester — the four system folders are always offered', () => {
+  const FOUR = ['folder:Inbox/', 'folder:Templates/', 'folder:Archive/', 'folder:Assets/'];
+
+  it('offers all four on `[[` with no directories on disk, and on a typed query', () => {
+    const { suggest } = setup([page('Plan')], [], []);
+
+    expect(summarize(suggest(''))).toEqual(expect.arrayContaining(FOUR));
+    expect(summarize(suggest('inb'))).toEqual(['folder:Inbox/']);
+    expect(summarize(suggest('templ'))).toEqual(['folder:Templates/']);
+    expect(summarize(suggest('arch'))).toEqual(['folder:Archive/']);
+    expect(summarize(suggest('Assets/'))).toEqual(['folder:Assets/']);
+  });
+
+  it('presents them like a real reserved folder: system icon, shown inside the Space', () => {
+    const { suggest } = setup([], [], []);
+
+    expect(suggest('inb')[0]).toMatchObject({ kind: 'folder', path: 'Inbox/', title: 'Inbox', breadcrumb: 'My Space', icon: 'tray' });
+  });
+
+  it('offers each exactly once when the physical folders exist, and as the real folder', () => {
+    const { suggest } = setup([], [folder('Inbox'), folder('Templates'), folder('Archive'), folder('Assets')], []);
+
+    for (const query of ['', 'i', 'a', 'Inbox/', 'e']) {
+      const paths = summarize(suggest(query));
+      for (const entry of FOUR) expect(paths.filter((path) => path === entry).length).toBeLessThanOrEqual(1);
+    }
+    expect(summarize(suggest('')).filter((path) => FOUR.includes(path))).toEqual(FOUR);
+    expect(suggest('inb')[0]).toMatchObject({ kind: 'folder', path: 'Inbox/', icon: 'tray' });
+  });
+
+  it('never offers Daily Notes or .clutter, even when Daily Notes exists', () => {
+    const { suggest } = setup([], [folder('Daily Notes'), folder('.clutter')], []);
+
+    for (const query of ['', 'daily', 'Daily Notes/', 'clutter', '.clutter', 'notes']) {
+      const paths = summarize(suggest(query));
+      expect(paths).not.toContain('folder:Daily Notes/');
+      expect(paths).not.toContain('folder:.clutter/');
+    }
+  });
+
+  it('keeps ordinary ranking and filtering: a query matching only ordinary targets is unchanged', () => {
+    const { suggest } = setup([page('Projects'), page('Plan')], [folder('Projects')], [resource('Assets/hero.png')]);
+
+    expect(summarize(suggest('proj'))).toEqual(['folder:Projects/', 'page:Projects']);
+    expect(summarize(suggest('hero'))).toEqual(['asset:Assets/hero.png']);
+  });
+
+  it('typing and autocomplete write nothing: no note or folder is created, no reserved folder ensured', () => {
+    const { suggest, writes } = setup([], [], []);
+
+    for (const query of ['', 'i', 'Inbox', 'Inbox/', 'Assets/', 'zzz']) suggest(query);
+
+    expect(writes.pageCreate).not.toHaveBeenCalled();
+    expect(writes.folderCreate).not.toHaveBeenCalled();
+    expect(writes.ensureReservedFolder).not.toHaveBeenCalled();
+  });
+
+  it('without a membership selector nothing but notes is offered, as before', () => {
+    const vault = setup([page('Plan')], [], []).vault;
+    const suggest = createWikiLinkSuggester(
+      vault,
+      { open: vi.fn(), create: vi.fn() } as unknown as PageOperations,
+      { create: vi.fn() } as unknown as FolderOperations
+    );
+
+    expect(summarize(suggest(''))).toEqual(['page:Plan']);
   });
 });

@@ -2,6 +2,7 @@ import type { Vault } from '@core/vault/models/Vault';
 import type { Page } from '@core/vault/models/Page';
 import type { Folder } from '@core/vault/models/Folder';
 import type { VaultResource } from '@core/vault/models/VaultResource';
+import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
 import type { PageOperations } from '@core/application/page/PageOperations';
 import type { FolderOperations } from '@core/application/folder/FolderOperations';
 import type { EffectivePageState } from '@core/application/page/EffectivePageState';
@@ -9,7 +10,7 @@ import { formatDailyNoteTitle } from '@core/presentation/formatDailyNoteTitle';
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
 import { getResourceIcon } from '@core/presentation/getResourceIcon';
-import { getSystemLocationIconForFolder } from '@core/presentation/systemPresentation';
+import { getSystemLocationIconForFolder, SYSTEM_LOCATION_PRESENTATION } from '@core/presentation/systemPresentation';
 import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
 import { classifySupportedResourceFile } from '@core/vault/ingest/SupportedResourceKind';
 import { ASSETS_DIRECTORY_NAME } from '@core/vault/initialize/ensureAssetsDirectory';
@@ -18,6 +19,7 @@ import {
   folderLinkPath,
   isFolderLinkSyntax,
   resolveNonPageLinkTarget,
+  type LinkableSystemFolderId,
   type NonPageLinkTarget,
 } from '@core/vault/knowledge/nonPageLinkTarget';
 import { VaultPath } from '@core/vault/ingest/VaultPath';
@@ -61,6 +63,22 @@ import { resolvePageIdentityIcon } from './resolvePageIdentityIcon';
  * `resolvePageIdentityIcon()` already falls back to the durable
  * `page.metadata.icon`/`page.type` alone when `effective` is `undefined`.
  */
+/**
+ * The ONE mapping from a system-folder link to navigation, shared by every host that creates a resolver
+ * (the page editor and the Notes / Tags / Daily Notes / Tasks sidebars). Assets goes only through `openAssets`;
+ * Inbox, Templates and Archive through their existing lazy `open*` methods — no folder is created here.
+ */
+export function openSystemFolderThrough(
+  navigation: Pick<NavigationRouter, 'openAssets' | 'openInbox' | 'openTemplates' | 'openArchive'>
+): (id: LinkableSystemFolderId) => void {
+  return (id) => {
+    if (id === 'assets') navigation.openAssets();
+    else if (id === 'inbox') navigation.openInbox();
+    else if (id === 'templates') navigation.openTemplates();
+    else navigation.openArchive();
+  };
+}
+
 export function createWikiLinkResolver(
   vault: Vault,
   pageOperations: PageOperations,
@@ -74,6 +92,7 @@ export function createWikiLinkResolver(
     createMissing = true,
     openPage,
     openFolder,
+    openSystemFolder,
     openResource,
     membershipSelector,
     resolveResourceUrl,
@@ -90,6 +109,13 @@ export function createWikiLinkResolver(
      * physical Assets folder to the Assets collection). Default: `folderOperations.open`.
      */
     readonly openFolder?: (folderId: string) => void;
+    /**
+     * Opens a link to Inbox, Templates, Archive or Assets whose directory may not exist yet — the host's own
+     * navigation for it (`NavigationRouter.openInbox` / `openTemplates` / `openArchive`, which create the directory
+     * lazily, and `openAssets`, the Assets collection, which needs none) — build it with `openSystemFolderThrough`.
+     * Default: nothing opens (a host with no router).
+     */
+    readonly openSystemFolder?: (id: LinkableSystemFolderId) => void;
     /**
      * Opens a resolved asset link's file in the host's existing image / PDF preview; `archived` for a file
      * in the Archive, which is shown without its actions. Default: nothing opens (a host with no preview).
@@ -176,6 +202,22 @@ export function createWikiLinkResolver(
         },
         icon: systemIcon || 'folder',
         emoji: systemIcon ? null : folder.metadata.icon || null,
+      };
+    }
+
+    if (target.kind === 'system-folder') {
+      // No directory behind it (yet): resolved by name alone, so resolving it reads and writes nothing. Whatever
+      // creates the directory does so on activation, through the host's existing navigation.
+      return {
+        status: 'resolved',
+        targetKind: 'folder',
+        targetId: `system-folder:${target.id}`,
+        displayLabel: localAlias ?? target.name,
+        activate: () => {
+          openSystemFolder?.(target.id);
+        },
+        icon: SYSTEM_LOCATION_PRESENTATION[target.id].icon,
+        emoji: null,
       };
     }
 

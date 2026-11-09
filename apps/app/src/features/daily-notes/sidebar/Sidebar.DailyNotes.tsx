@@ -11,7 +11,7 @@ import type { MembershipSelector } from '@core/application/membership/Membership
 import type { EffectivePageState } from '@core/application/page/EffectivePageState';
 import type { DailyNotesSidebarState } from '@core/application/daily-notes/DailyNotesSidebarState';
 import { createTagResolver } from '@app/layouts/page/resolveTag';
-import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
+import { createWikiLinkResolver, openSystemFolderThrough } from '@app/layouts/page/resolveWikiLink';
 import { createPageEmbedResolver } from '@app/layouts/page/resolvePageEmbed';
 import { revealInFinder } from '@shared/helpers/revealInFinder';
 import { useRequestCreateTemplate } from '@app/layouts/createTemplate/CreateTemplateProvider';
@@ -126,7 +126,9 @@ export function DailyNotes({
   const resolveWikiLink = createWikiLinkResolver(
     vault,
     pageOperations,
-    folderOperations
+    folderOperations,
+    undefined,
+    { openSystemFolder: openSystemFolderThrough(navigation) }
   );
   const resolveTag = createTagResolver(navigation, vault);
   const resolveEmbed = createPageEmbedResolver(vault, effectivePageState);

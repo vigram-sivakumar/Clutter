@@ -105,7 +105,7 @@ import { createDateResolver } from '@app/layouts/page/resolveDate';
 import { DailyNoteNavControls } from '@features/daily-notes/controls/DailyNoteNavControls';
 import type { NotePreviewResolvers } from '@features/collection/components/note/notePreviewResolvers';
 import { createTagResolver } from '@app/layouts/page/resolveTag';
-import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
+import { createWikiLinkResolver, openSystemFolderThrough } from '@app/layouts/page/resolveWikiLink';
 import { openPageAtHeading } from '@app/layouts/page/headingReveal';
 import { createWikiLinkSuggester } from '@app/layouts/page/wikiLinkSuggestions';
 import { spaceName } from '@app/spaces/spaceRegistry';
@@ -673,6 +673,7 @@ export function PageHost({
       // A folder link opens through this host's own folder navigation (declared further down), an asset
       // link in the shared image / PDF preview — nothing new to open them with.
       openFolder: (folderId) => onOpenFolder(folderId),
+      openSystemFolder: (id) => onOpenSystemFolder(id),
       openResource: (resource, options) => onOpenResource(resource, options),
       membershipSelector: application.membershipSelector,
       resolveResourceUrl: (path) => application.resolveResourceImageUrl(path),
@@ -943,6 +944,9 @@ export function PageHost({
     }
     application.folderOperations.open(id);
   };
+  // A wiki link to Inbox, Templates, Archive or Assets, whose directory may not exist: the router's own methods. The
+  // first three create their directory lazily when opened; Assets is the collection and needs none.
+  const onOpenSystemFolder = openSystemFolderThrough(application.navigation);
 
   // ── Assets: every folder inside Assets/ is itself an Assets page ──────────────────────────
   // What the Assets header's Add menu calls its entries (this collection's wording, not the notes').
@@ -3164,6 +3168,7 @@ export function PageHost({
           createMissing: false,
           openPage: onOpenPage,
           openFolder: (folderId) => onOpenFolder(folderId),
+          openSystemFolder: (id) => onOpenSystemFolder(id),
           openResource: (resource, options) => onOpenResource(resource, options),
           membershipSelector: application.membershipSelector,
           resolveResourceUrl: (path) => application.resolveResourceImageUrl(path),

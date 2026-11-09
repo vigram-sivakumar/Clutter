@@ -1,3 +1,7 @@
+import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { resolve as resolvePath } from 'node:path';
+
 import { describe, expect, it, vi } from 'vitest';
 
 import { Vault } from '@core/vault/models/Vault';
@@ -13,7 +17,7 @@ import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { PageOperations } from '@core/application/page/PageOperations';
 import type { FolderOperations } from '@core/application/folder/FolderOperations';
 
-import { canCreateReferencedPage, createWikiLinkResolver } from './resolveWikiLink';
+import { canCreateReferencedPage, createWikiLinkResolver, openSystemFolderThrough } from './resolveWikiLink';
 
 /**
  * `[[Projects/]]` (a folder), `[[Assets/hero.png]]` (an asset) and a bare `[[Projects]]` that no note
@@ -111,15 +115,16 @@ function setup(
   const folderOpen = vi.fn(() => Promise.resolve());
   const pageCreate = vi.fn(() => Promise.resolve('new'));
   const folderCreate = vi.fn(() => Promise.resolve('new-folder'));
+  const ensureReservedFolder = vi.fn((id: string) => Promise.resolve({ id: `folder:/vault/${id}` }));
   const resolve = createWikiLinkResolver(
     vault,
     { open: openPage, create: pageCreate } as unknown as PageOperations,
-    { open: folderOpen, create: folderCreate } as unknown as FolderOperations,
+    { open: folderOpen, create: folderCreate, ensureReservedFolder } as unknown as FolderOperations,
     undefined,
     options
   );
 
-  return { vault, resolve, openPage, folderOpen, pageCreate, folderCreate };
+  return { vault, resolve, openPage, folderOpen, pageCreate, folderCreate, ensureReservedFolder };
 }
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -229,16 +234,136 @@ describe('wiki links to folders', () => {
     expect(folderOpen).toHaveBeenCalledWith(`folder:/vault/${name}`);
   });
 
-  it('a reserved folder that does not exist yet (they are created lazily) is unresolved, and a click does not create a note named after it', async () => {
-    const { resolve, pageCreate } = setup([], []);
+  describe('the four system folders with no directory on disk', () => {
+    const NAMES = ['Inbox', 'Templates', 'Archive', 'Assets'] as const;
 
-    for (const name of ['Inbox', 'Assets', 'Templates']) {
-      const resolution = resolve(name, null);
-      expect(resolution.status).toBe('unresolved');
-      resolution.activate();
-    }
-    await flush();
-    expect(pageCreate).not.toHaveBeenCalled();
+    it.each(NAMES)('%s resolves as a folder link, with and without the trailing slash, and resolving writes nothing', (name) => {
+      const { resolve, pageCreate, folderCreate, folderOpen, ensureReservedFolder } = setup([], []);
+
+      for (const link of [`${name}/`, name]) {
+        expect(resolve(link, null)).toMatchObject({ status: 'resolved', targetKind: 'folder', displayLabel: name });
+      }
+      expect(resolve(`${name}/`, 'Mine')).toMatchObject({ status: 'resolved', displayLabel: 'Mine' });
+      expect(pageCreate).not.toHaveBeenCalled();
+      expect(folderCreate).not.toHaveBeenCalled();
+      expect(folderOpen).not.toHaveBeenCalled();
+      expect(ensureReservedFolder).not.toHaveBeenCalled();
+    });
+
+    it('Daily Notes and .clutter stay unresolved, as do look-alikes that are not top-level system folders', () => {
+      const { resolve } = setup([], []);
+
+      for (const link of ['Daily Notes/', 'Daily Notes', '.clutter/', '.clutter', 'Projects/Inbox/', 'inbox/']) {
+        expect(resolve(link, null).status).toBe('unresolved');
+      }
+    });
+
+    it('a note named Inbox wins the bare link, an alias wins too, and `Inbox/` still means the folder', () => {
+      const note = setup([makePage('Inbox')], []);
+      expect(note.resolve('Inbox', null)).toMatchObject({ status: 'resolved', pageId: 'page:Inbox' });
+      expect(note.resolve('Inbox/', null)).toMatchObject({ status: 'resolved', targetKind: 'folder' });
+
+      const alias = setup([makePage('Notes/Plan', ['Templates'])], []);
+      expect(alias.resolve('Templates', null)).toMatchObject({ status: 'resolved', pageId: 'page:Notes/Plan' });
+    });
+
+    it('an existing folder is resolved exactly as before (its own id)', () => {
+      const { resolve } = setup([], [makeFolder('Inbox')]);
+
+      expect(resolve('Inbox/', null)).toMatchObject({ status: 'resolved', targetKind: 'folder', targetId: 'folder:/vault/Inbox' });
+    });
+
+    it('activation: each of the four goes to the host’s navigation for it, and nothing else is opened or created', () => {
+      const openSystemFolder = vi.fn();
+      const { resolve, folderOpen, folderCreate, ensureReservedFolder, pageCreate } = setup([], [], [], { openSystemFolder });
+
+      for (const name of NAMES) resolve(`${name}/`, null).activate();
+
+      expect(openSystemFolder.mock.calls).toEqual([['inbox'], ['templates'], ['archive'], ['assets']]);
+      expect(folderOpen).not.toHaveBeenCalled();
+      expect(folderCreate).not.toHaveBeenCalled();
+      expect(ensureReservedFolder).not.toHaveBeenCalled();
+      expect(pageCreate).not.toHaveBeenCalled();
+    });
+
+    it('without a host opener, activation does nothing: the resolver itself has no navigation or folder-creation logic', async () => {
+      const { resolve, folderOpen, folderCreate, ensureReservedFolder, pageCreate } = setup([], []);
+
+      for (const name of NAMES) resolve(`${name}/`, null).activate();
+      await flush();
+
+      expect(ensureReservedFolder).not.toHaveBeenCalled();
+      expect(folderOpen).not.toHaveBeenCalled();
+      expect(folderCreate).not.toHaveBeenCalled();
+      expect(pageCreate).not.toHaveBeenCalled();
+    });
+
+    it('openSystemFolderThrough sends Assets only to openAssets and the others to their own lazy open method', () => {
+      const navigation = {
+        openAssets: vi.fn(),
+        openInbox: vi.fn(),
+        openTemplates: vi.fn(),
+        openArchive: vi.fn(),
+      };
+      const open = openSystemFolderThrough(navigation);
+
+      open('assets');
+      expect(navigation.openAssets).toHaveBeenCalledTimes(1);
+      expect(navigation.openInbox).not.toHaveBeenCalled();
+      open('inbox');
+      open('templates');
+      open('archive');
+
+      expect(navigation.openInbox).toHaveBeenCalledTimes(1);
+      expect(navigation.openTemplates).toHaveBeenCalledTimes(1);
+      expect(navigation.openArchive).toHaveBeenCalledTimes(1);
+      expect(navigation.openAssets).toHaveBeenCalledTimes(1);
+    });
+
+    it.each(NAMES)('a resolver wired with the shared helper activates %s through exactly its navigation method', (name) => {
+      const navigation = { openAssets: vi.fn(), openInbox: vi.fn(), openTemplates: vi.fn(), openArchive: vi.fn() };
+      const { resolve, ensureReservedFolder, folderOpen } = setup([], [], [], {
+        openSystemFolder: openSystemFolderThrough(navigation),
+      });
+
+      resolve(`${name}/`, null).activate();
+
+      const calls = Object.values(navigation).map((fn) => fn.mock.calls.length);
+      expect(calls.reduce((sum, n) => sum + n, 0)).toBe(1);
+      expect(navigation[`open${name}` as keyof typeof navigation]).toHaveBeenCalledTimes(1);
+      expect(ensureReservedFolder).not.toHaveBeenCalled();
+      expect(folderOpen).not.toHaveBeenCalled();
+    });
+
+    it('every resolver instance in the app is wired with openSystemFolder (editor, archived editor, and the Notes, Tags, Daily Notes and Tasks sidebars)', () => {
+      const root = resolvePath(__dirname, '../../..');
+      const files = [
+        'app/layouts/page/PageHost.tsx',
+        'features/notes/sidebar/Sidebar.Notes.tsx',
+        'features/tags/sidebar/Sidebar.Tags.tsx',
+        'features/daily-notes/sidebar/Sidebar.DailyNotes.tsx',
+        'features/tasks/sidebar/Sidebar.Tasks.tsx',
+      ];
+      let instances = 0;
+      for (const file of files) {
+        const source = readFileSync(resolvePath(root, file), 'utf8');
+        for (const match of source.matchAll(/createWikiLinkResolver\(/g)) {
+          instances += 1;
+          const call = source.slice(match.index, match.index + 900);
+          expect(call, `${file} must pass openSystemFolder`).toContain('openSystemFolder');
+        }
+      }
+      expect(instances).toBe(6);
+
+      // And no other source file creates one without being listed here.
+      const others = execFileSync('grep', ['-rl', 'createWikiLinkResolver(', root, '--include=*.ts', '--include=*.tsx'])
+        .toString()
+        .split('\n')
+        .filter((path) => path && !/\.test\./.test(path) && !path.endsWith('resolveWikiLink.ts'))
+        .map((path) => path.slice(root.length + 1))
+        .sort();
+      expect(others).toEqual([...files].sort());
+    }, 30_000);
   });
 });
 

@@ -6,7 +6,7 @@ import type { VaultResource } from '@core/vault/models/VaultResource';
 
 import { LinkResolver } from './LinkResolver';
 import { PageIndex } from './PageIndex';
-import { resolveNonPageLinkTarget, type NonPageLinkTargetSource } from './nonPageLinkTarget';
+import { LINKABLE_SYSTEM_FOLDERS, resolveNonPageLinkTarget, type NonPageLinkTargetSource } from './nonPageLinkTarget';
 
 const ROOT = '/vault';
 
@@ -71,5 +71,45 @@ describe('resolveNonPageLinkTarget', () => {
     expect(resolveNonPageLinkTarget(source, 'Assets/hero.png/')).toBeUndefined();
     expect(resolveNonPageLinkTarget(source, 'Assets/hero.png')).toMatchObject({ kind: 'asset' });
     expect(resolveNonPageLinkTarget(source, '/')).toBeUndefined();
+  });
+});
+
+describe('the four system folders (Inbox, Templates, Archive, Assets) with no directory on disk', () => {
+  const index = new PageIndex([page('Notes')], ROOT);
+  const empty = sourceOf([], []);
+  const resolve = (target: string) => new LinkResolver().resolve([link(target)], index, empty)[0]!;
+
+  it.each(['Inbox', 'Templates', 'Archive', 'Assets'])('%s resolves, as `non-page`: never missing, no target page, so no graph edge', (name) => {
+    for (const target of [`${name}/`, name]) {
+      const resolved = resolve(target);
+      expect(resolved).toMatchObject({ status: 'non-page' });
+      expect(resolved.targetPageId).toBeUndefined();
+    }
+  });
+
+  it('Daily Notes, .clutter and nested look-alikes stay missing', () => {
+    for (const target of ['Daily Notes/', 'Daily Notes', '.clutter/', '.clutter', 'Projects/Inbox/', 'inbox/', 'Inbox/x']) {
+      expect(resolve(target)).toMatchObject({ status: 'missing' });
+    }
+  });
+
+  it('a note named Inbox wins the bare link; the trailing slash still means the folder', () => {
+    const withNote = new PageIndex([page('Inbox')], ROOT);
+    expect(new LinkResolver().resolve([link('Inbox')], withNote, empty)[0]).toMatchObject({ status: 'resolved', targetPageId: 'page:Inbox' });
+    expect(new LinkResolver().resolve([link('Inbox/')], withNote, empty)[0]).toMatchObject({ status: 'non-page' });
+  });
+
+  it('an embed’s resolution passes no lookup, so these stay missing there', () => {
+    expect(new LinkResolver().resolve([link('Inbox/')], index)[0]).toMatchObject({ status: 'missing' });
+  });
+
+  it('an existing folder is used as it is, ahead of the name-only fallback', () => {
+    const inbox = folder('Inbox');
+    expect(resolveNonPageLinkTarget(sourceOf([inbox], []), 'Inbox/')).toEqual({ kind: 'folder', folder: inbox });
+    expect(resolveNonPageLinkTarget(empty, 'Inbox/')).toEqual({ kind: 'system-folder', id: 'inbox', name: 'Inbox' });
+  });
+
+  it('is an explicit allowlist of exactly four, tied to the definitions it stands for', () => {
+    expect(LINKABLE_SYSTEM_FOLDERS.map((entry) => entry.name)).toEqual(['Inbox', 'Templates', 'Archive', 'Assets']);
   });
 });
