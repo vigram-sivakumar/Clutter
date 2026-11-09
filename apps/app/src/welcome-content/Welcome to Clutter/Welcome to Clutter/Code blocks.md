@@ -24,6 +24,6 @@ Each block has a copy button for grabbing the code in one click, and a menu that
 - **Remove** the block
 **Tip:** Format code works for JavaScript, TypeScript, JSON, CSS and HTML. The other languages still get their colours #Tip
 
->Need just a bit of code inside a sentence? That’s inline code, wrap it in single backticks or press `⌘ E`
+" Need just a bit of code inside a sentence? That’s inline code, wrap it in single backticks or press `⌘ E`
 .--- That’s it ---.
 ↪ Next up, [[Welcome to Clutter/Tables]]

@@ -222,14 +222,24 @@ export function createWikiLinkResolver(
     // consulted, and an unknown folder is just unresolved (a link never creates a folder).
     if (isFolderLinkSyntax(pagePart)) {
       const target = fragment === null ? resolveNonPageLinkTarget(vault, pagePart) : undefined;
+      if (target) {
+        return resolvedToNonPage(target, localAlias);
+      }
 
-      return (
-        (target && resolvedToNonPage(target, localAlias)) || {
-          status: 'unresolved',
-          displayLabel: localAlias ?? VaultPath.pageName(folderLinkPath(pagePart)),
-          activate: () => {},
-        }
-      );
+      // Not there any more: the folder may have been archived (it sits in Archive/ now, and still exists).
+      const archived = fragment === null ? findArchivedReferenceTarget(vault, pagePart) : undefined;
+      if (archived === 'ambiguous') {
+        return { status: 'ambiguous', displayLabel: localAlias ?? VaultPath.pageName(folderLinkPath(pagePart)), activate: () => {} };
+      }
+      if (archived?.kind === 'folder') {
+        return resolvedToNonPage({ kind: 'folder', folder: archived.folder }, localAlias);
+      }
+
+      return {
+        status: 'unresolved',
+        displayLabel: localAlias ?? VaultPath.pageName(folderLinkPath(pagePart)),
+        activate: () => {},
+      };
     }
 
     // WikiLink targets are canonically vault-relative, no extension
@@ -269,6 +279,23 @@ export function createWikiLinkResolver(
       return resolvedToNonPage(nonPage, localAlias);
     }
 
+    // Nothing active claims it. The item it names may have been archived: it sits in Archive/ now, still exists,
+    // and is found by where it was archived from. Opening it never restores it; a reference to an archived item
+    // is never a reason to create a new one.
+    const archived = findArchivedReferenceTarget(vault, pagePart, fragment !== null);
+    if (archived === 'ambiguous') {
+      return { status: 'ambiguous', displayLabel: localAlias ?? VaultPath.pageName(pagePart), activate: () => {} };
+    }
+    if (archived?.kind === 'page') {
+      return resolvedTo(archived.page, localAlias, fragment);
+    }
+    if (archived?.kind === 'folder') {
+      return resolvedToNonPage({ kind: 'folder', folder: archived.folder }, localAlias);
+    }
+    if (archived?.kind === 'asset') {
+      return resolvedToNonPage({ kind: 'asset', resource: archived.resource }, localAlias);
+    }
+
     return {
       status: 'unresolved',
       // Same rule as resolved/ambiguous: local alias, else the bare
@@ -292,6 +319,50 @@ export function createWikiLinkResolver(
         : () => {},
     };
   };
+}
+
+/** What an archived item named by a reference is, or `ambiguous` when more than one archived item claims the path. */
+export type ArchivedReferenceTarget =
+  | { readonly kind: 'page'; readonly page: Page }
+  | { readonly kind: 'folder'; readonly folder: Folder }
+  | { readonly kind: 'asset'; readonly resource: VaultResource };
+
+/**
+ * The archived item a reference path names, found by where the item was archived from (full path, never a title):
+ * a note first, then an asset, then a folder — the order active targets are tried in. `pageOnly` limits it to
+ * notes (a `#fragment` only means something inside a note). A `Name/` link names a folder only. The first level
+ * with a unique match wins; a level where several archived items claim the path is `ambiguous`, and nothing is
+ * guessed. Undefined when no archived item has that origin (permanently deleted, or never there).
+ */
+export function findArchivedReferenceTarget(
+  vault: Vault,
+  path: string,
+  pageOnly = false
+): ArchivedReferenceTarget | 'ambiguous' | undefined {
+  const explicitFolder = isFolderLinkSyntax(path);
+  const relative = explicitFolder ? folderLinkPath(path) : path.trim();
+
+  if (relative === '') return undefined;
+
+  const absolute = `${vault.root}/${relative}`;
+
+  if (!explicitFolder) {
+    const page = vault.findArchivedPageByOrigin(`${absolute}.md`);
+    if (page.status === 'ambiguous') return 'ambiguous';
+    if (page.status === 'unique') return { kind: 'page', page: page.item };
+
+    if (pageOnly) return undefined;
+
+    const asset = vault.findArchivedResourceByOrigin(absolute);
+    if (asset.status === 'ambiguous') return 'ambiguous';
+    if (asset.status === 'unique') return { kind: 'asset', resource: asset.item };
+  }
+
+  const folder = vault.findArchivedFolderByOrigin(absolute);
+  if (folder.status === 'ambiguous') return 'ambiguous';
+  if (folder.status === 'unique') return { kind: 'folder', folder: folder.item };
+
+  return undefined;
 }
 
 /**
@@ -393,6 +464,16 @@ export async function createReferencedPage(
   }
 
   if (!canCreateReferencedPage(vault, path)) {
+    return;
+  }
+
+  // The reference may name an item that was archived. It still exists: open it (never restoring it), and never
+  // make a replacement — and when several archived items claim the path, make nothing and guess nothing.
+  const archived = findArchivedReferenceTarget(vault, path);
+  if (archived !== undefined) {
+    if (activate && archived !== 'ambiguous' && archived.kind === 'page') {
+      void pageOperations.open(archived.page.id);
+    }
     return;
   }
 

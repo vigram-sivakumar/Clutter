@@ -97,6 +97,18 @@ function isEntryShape(entry: unknown): boolean {
 const now = () =>
   typeof performance !== 'undefined' ? performance.now() : Date.now();
 
+const FOLDER_ID_PREFIX = 'folder\u0000';
+
+/** The id under which a folder's `.folder.md` entry is indexed (internal; never persisted). */
+export function folderCacheId(folderId: string): string {
+  return `${FOLDER_ID_PREFIX}${folderId}`;
+}
+
+/** The folder id behind a namespaced cache id, or undefined for a note id. */
+export function folderIdOfCacheId(cacheId: string): string | undefined {
+  return cacheId.startsWith(FOLDER_ID_PREFIX) ? cacheId.slice(FOLDER_ID_PREFIX.length) : undefined;
+}
+
 export class ParsedNoteCache implements ParseMemo {
   private readonly entries: Map<string, unknown>;
   private readonly loadedKeys: Set<string>;
@@ -105,6 +117,15 @@ export class ParsedNoteCache implements ParseMemo {
   private cancelled = false;
   private persisted = false;
   private readonly info: ParsedNoteCacheReport;
+  /** Persist and forget run one at a time, in the order they were asked for. */
+  private queue: Promise<unknown> = Promise.resolve();
+  /** While the scan runs: the key each scanned file was parsed under, by path. Emptied by `bindNotes`. */
+  private readonly keyByPath = new Map<string, string>();
+  /** The note identity the file does not store: which note each startup entry belongs to, and the other way round. */
+  private readonly keyByNoteId = new Map<string, { readonly key: string; readonly fingerprint: string | undefined }>();
+  private readonly noteIdsByKey = new Map<string, Set<string>>();
+  /** Keys that must leave the file but whose rewrite did not succeed yet; retried by the next forget. */
+  private readonly pendingRemoval = new Set<string>();
 
   private constructor(
     private readonly backend: ParsedNoteCacheBackend | null,
@@ -251,6 +272,185 @@ export class ParsedNoteCache implements ParseMemo {
     this.fresh.add(key);
   }
 
+  noteSource(path: string, key: string): void {
+    if (!this.backend) return;
+    this.keyByPath.set(path, key);
+  }
+
+  /**
+   * Binds each note, by its stable id, to the entry its file was parsed under at startup (see `noteSource`). Called
+   * once, right after the Vault is built from the scan and before anything rewrites a file. A note's id survives
+   * archive, restore, move, rename and edits, so this stays the right way to find its entry for the whole session; a
+   * note created or first parsed later was never in the cache and has no binding. `fingerprint` is the note's
+   * `sourceFingerprint` at that moment: it lets `forget` tell whether another note that shared the entry still holds
+   * that exact text.
+   */
+  bindNotes(
+    notes: Iterable<{ readonly id: string; readonly path: string; readonly sourceFingerprint?: string }>,
+    folders: Iterable<{ readonly id: string; readonly path: string }> = []
+  ): void {
+    if (this.backend) {
+      for (const note of notes) {
+        this.bindOne(note.id, note.path, note.sourceFingerprint);
+      }
+      // A folder's `.folder.md` goes through the same memo; `path` is that exact file. Its id is namespaced so it can
+      // never collide with a note id, and it has no fingerprint.
+      for (const folder of folders) {
+        this.bindOne(folderCacheId(folder.id), folder.path, undefined);
+      }
+    }
+    this.keyByPath.clear();
+  }
+
+  private bindOne(id: string, path: string, fingerprint: string | undefined): void {
+    const key = this.keyByPath.get(path);
+    if (key === undefined) return;
+
+    this.keyByNoteId.set(id, { key, fingerprint });
+    let ids = this.noteIdsByKey.get(key);
+    if (!ids) {
+      ids = new Set();
+      this.noteIdsByKey.set(key, ids);
+    }
+    ids.add(id);
+  }
+
+  /**
+   * Same as `forget`, for permanently deleted folders: drops the entry of each folder's `.folder.md`, under the same
+   * shared-key rule. `isUnchanged` is asked about every other holder of an entry, folder holders by their namespaced
+   * id (see `folderIdOfCacheId`).
+   */
+  forgetFolders(
+    folderIds: readonly string[],
+    isUnchanged: (noteId: string, fingerprint: string | undefined) => boolean
+  ): Promise<void> {
+    return this.forget(folderIds.map(folderCacheId), isUnchanged);
+  }
+
+  /**
+   * Removes what the cache holds for notes that were permanently deleted, so their parsed text does not outlive them.
+   * An entry goes only when no remaining note still holds the text it was parsed from: a note that shared the entry
+   * and has not changed since the scan (`isUnchanged`) keeps it, one that has changed or is gone does not. Entries
+   * of every other note are left alone, and so are the format and the keys.
+   *
+   * The index is updated at once; the file is rewritten on the same queue as `persist`, so the two never interleave.
+   * A failed rewrite never removes the whole cache: the keys stay pending and the next call retries them. Never
+   * throws.
+   */
+  forget(noteIds: readonly string[], isUnchanged: (noteId: string, fingerprint: string | undefined) => boolean): Promise<void> {
+    if (!this.backend) return Promise.resolve();
+
+    for (const noteId of noteIds) {
+      const bound = this.keyByNoteId.get(noteId);
+      if (!bound) continue;
+
+      this.keyByNoteId.delete(noteId);
+      const sharers = this.noteIdsByKey.get(bound.key);
+      sharers?.delete(noteId);
+
+      for (const other of [...(sharers ?? [])]) {
+        const otherBound = this.keyByNoteId.get(other);
+        if (!otherBound || !isUnchanged(other, otherBound.fingerprint)) {
+          this.keyByNoteId.delete(other);
+          sharers?.delete(other);
+        }
+      }
+
+      if (!sharers || sharers.size === 0) {
+        this.noteIdsByKey.delete(bound.key);
+        this.pendingRemoval.add(bound.key);
+      }
+    }
+
+    if (this.pendingRemoval.size === 0) return Promise.resolve();
+
+    return this.enqueue(() => this.removePending());
+  }
+
+  /** Resolves once every persist and forget asked for so far has finished (for shutdown checks and tests). */
+  async idle(): Promise<void> {
+    await this.queue;
+  }
+
+  private enqueue<T>(operation: () => Promise<T>): Promise<T> {
+    const run = this.queue.then(operation);
+    // One failed step must not wedge the queue (each operation reports its own failure).
+    this.queue = run.catch(() => {});
+    return run;
+  }
+
+  /** Applies `pendingRemoval` to wherever the entries live now: memory before the one write, the file after it. */
+  private async removePending(): Promise<void> {
+    const backend = this.backend;
+    if (!backend || this.spaceId === null || this.cancelled || this.pendingRemoval.size === 0) return;
+    const keys = [...this.pendingRemoval];
+
+    if (!this.persisted) {
+      // The write has not happened yet and will only carry what was `seen`: dropping the keys here is enough. They stay
+      // in `loadedKeys`, which is what makes that write happen even when nothing else changed.
+      for (const key of keys) {
+        this.entries.delete(key);
+        this.seen.delete(key);
+        this.fresh.delete(key);
+        this.pendingRemoval.delete(key);
+      }
+      return;
+    }
+
+    try {
+      const read = await backend.read(this.rootPath);
+      if (read.contents === null && read.problem) {
+        // The file exists but could not be read (unreadable, oversize): the entries may still be in it. Keep the keys
+        // pending so a later forget retries; never remove the file.
+        console.warn(`[parsed-note-cache] cache file not readable (${read.problem}); cleanup kept for retry`);
+        return;
+      }
+      if (read.contents === null) {
+        // No file: nothing holds these entries any more.
+        for (const key of keys) this.pendingRemoval.delete(key);
+        return;
+      }
+      if (read.spaceId !== this.spaceId) return;
+
+      const parsed = await parseEnvelope(read.contents, this.spaceId, this.fingerprint);
+      if ('reason' in parsed) {
+        // A file this build cannot read is replaced or discarded at the next launch; there is nothing to rewrite.
+        return;
+      }
+
+      const present = keys.filter((key) => parsed.entries.has(key));
+      if (present.length === 0) {
+        for (const key of keys) this.pendingRemoval.delete(key);
+        return;
+      }
+      for (const key of present) parsed.entries.delete(key);
+
+      if (parsed.entries.size === 0) {
+        await backend.remove(this.rootPath);
+      } else {
+        const text = await this.serialize(parsed.entries);
+        if (this.cancelled) return;
+        if ((await backend.write(this.rootPath, text)) !== 'written') return;
+      }
+      for (const key of keys) this.pendingRemoval.delete(key);
+    } catch (error) {
+      // Deliberately not a reason to delete the whole cache: another operation may be relying on the other entries.
+      // The keys stay pending and the next forget retries; the worst case is stale derived data until then.
+      console.warn('[parsed-note-cache] could not remove deleted notes from the cache:', String(error));
+    }
+  }
+
+  private async serialize(entries: ReadonlyMap<string, unknown>): Promise<string> {
+    const record: Record<string, unknown> = {};
+    for (const key of [...entries.keys()].sort()) record[key] = entries.get(key);
+    const entriesText = JSON.stringify(record);
+    const checksum = await sha256Hex(entriesText);
+    return (
+      `{"format":${FORMAT},"parserFingerprint":${JSON.stringify(this.fingerprint)},` +
+      `"spaceId":${JSON.stringify(this.spaceId)},"checksum":"${checksum}","entries":${entriesText}}`
+    );
+  }
+
   /** One diagnostic line after the scan; silent when the cache is off. */
   logScanSummary(): void {
     if (!this.backend) return;
@@ -287,11 +487,13 @@ export class ParsedNoteCache implements ParseMemo {
    * the Vault, and a failure only means the next launch parses again.
    */
   async persist(): Promise<ParsedNoteCacheReport> {
-    try {
-      return await this.persistOnce();
-    } finally {
-      this.release();
-    }
+    return this.enqueue(async () => {
+      try {
+        return await this.persistOnce();
+      } finally {
+        this.release();
+      }
+    });
   }
 
   private async persistOnce(): Promise<ParsedNoteCacheReport> {
@@ -311,6 +513,14 @@ export class ParsedNoteCache implements ParseMemo {
         (key) => !this.seen.has(key)
       );
       const keys = [...this.seen].sort();
+      if (keys.length === 0 && this.loadedKeys.size > 0) {
+        // Every entry that was in the file is gone (its notes were deleted, or changed on disk) and nothing new is
+        // worth keeping: an empty cache is no file, never a stale one that still holds the old entries.
+        await this.backend.remove(this.rootPath);
+        this.info.writeStatus = 'written';
+        this.info.entriesWritten = 0;
+        return this.report();
+      }
       if (
         keys.length === 0 ||
         !(this.needsReplacement || this.fresh.size > 0 || unseenLoaded)

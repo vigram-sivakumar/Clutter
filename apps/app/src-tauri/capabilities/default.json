@@ -19,6 +19,7 @@
     "allow-atomic-inspect-write",
     "allow-atomic-confirm-durability",
     "allow-check-space-filesystem",
+    "allow-initialize-space",
     "allow-export-pick-destination",
     "allow-export-copy-file",
     "allow-export-write-file",

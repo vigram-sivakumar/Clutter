@@ -24,6 +24,6 @@ Type `@` and start writing a date the way you’d say it
 Pick the suggestion and it becomes a date chip. Click it to open that day’s daily note
 **Tip:** put a date on a task and it becomes the due date. Your Tasks view sorts it into Today, Upcoming or Overdue for you #Tip
 
->Behind the scenes a date is saved as plain text, like `@2026-10-30`, so your notes still read well in any other Markdown app
+" Behind the scenes a date is saved as plain text, like `@2026-10-30`, so your notes still read well in any other Markdown app
 .--- That’s it ---.
 ↪ Next up, [[Welcome to Clutter/Tags]]

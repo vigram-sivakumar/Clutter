@@ -23,6 +23,6 @@ Start a line with a symbol and a space, and Clutter turns it into a list. Hit `E
 - Need a second line inside the same item? Press `⇧ Enter`
 **Tip:** press `Delete` at the start of an item to remove its bullet or number and keep the text #Tip
 
->Want checkboxes? Type `[]` and a space at the start of a line. There’s more on that in [[Welcome to Clutter/Tasks & date mentions]]
+" Want checkboxes? Type `[]` and a space at the start of a line. There’s more on that in [[Welcome to Clutter/Tasks & date mentions]]
 .--- That’s it ---.
 ↪ Next up, [[Welcome to Clutter/Tasks & date mentions]]

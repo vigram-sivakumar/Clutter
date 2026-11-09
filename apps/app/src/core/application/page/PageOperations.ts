@@ -1067,6 +1067,28 @@ export class PageOperations {
   }
 
   /**
+   * Releases the title and description edit state of pages that were just permanently deleted along with something
+   * else (a folder's subtree), the same teardown `delete()` does for its own page. Idempotent: a page with no state
+   * is skipped, so after `delete()` has already done it this does nothing. Never touches the disk or the Vault.
+   */
+  public releaseDeletedPageState(pageIds: readonly string[]): void {
+    let released = false;
+
+    for (const pageId of pageIds) {
+      if (this.pendingHeadingBaselines.delete(pageId)) released = true;
+      if (this.titleStates.has(pageId) || this.descriptionStates.has(pageId)) released = true;
+
+      this.disposeTitleState(pageId);
+      this.disposeDescriptionState(pageId);
+    }
+
+    if (released) {
+      this.refreshSaveFailures();
+      for (const pageId of pageIds) this.emitUnsaved(pageId);
+    }
+  }
+
+  /**
    * Tears down a page's title channel, if it has one — the title
    * counterpart to DocumentRegistry.close()'s session teardown, called
    * from both close() and delete() for the same reason: no armed timer or
@@ -3566,13 +3588,16 @@ export class PageOperations {
     this.emitUnsaved(pageId);
 
     // Checked again when the delete runs (not only above): a restore queued ahead of it must win.
-    await this.enqueueGate(pageId, {
+    const result = await this.enqueueGate(pageId, {
       kind: 'delete',
       ...(!options.allowActive && { requireArchived: true }),
     });
 
-    // Only after the Gate delete succeeded: a delete that threw leaves the page, and so its preferences.
-    this.onPagesPermanentlyDeleted([pageId]);
+    // Only when the Gate really deleted the page: a delete that threw, or was `abandoned` (restored in the meantime,
+    // or never persisted), leaves the page, and so everything derived from it.
+    if (result.status === 'deleted') {
+      this.onPagesPermanentlyDeleted([pageId]);
+    }
 
     this.workspace.closePage(pageId);
 

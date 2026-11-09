@@ -1,3 +1,11 @@
+import {
+  findArchivedFolderByOrigin,
+  findArchivedPageByOrigin,
+  findArchivedResourceByOrigin,
+  type ArchivedLookup,
+  type ArchivedOriginSource,
+  type ArchivedResourceOrigins,
+} from './archivedOrigin';
 import type { Page } from './Page';
 import type { Folder } from './Folder';
 import type { FolderMetadata } from './FolderMetadata';
@@ -258,6 +266,44 @@ export class Vault {
    */
   isDirectlyInArchive(path: string): boolean {
     return VaultPath.parentDirectory(path) === this.archivePath();
+  }
+
+  private archivedResourceOrigins: ArchivedResourceOrigins | null = null;
+
+  /**
+   * Where archived assets came from (their record in `.clutter/resource-archive.json`), supplied by the
+   * Composition Root, which keeps it current. Without it, archived assets simply have no origin to match.
+   */
+  setArchivedResourceOrigins(origins: ArchivedResourceOrigins | null): void {
+    this.archivedResourceOrigins = origins;
+  }
+
+  private archivedOriginSource(): ArchivedOriginSource {
+    return {
+      archivePath: this.archivePath(),
+      pages: () => this.pagesById.values(),
+      folders: () => this.foldersById.values(),
+      resources: () => this.resourcesById.values(),
+      getFolderByPath: (path) => this.foldersByPath.get(path),
+      resourceOrigins: this.archivedResourceOrigins,
+    };
+  }
+
+  /**
+   * The archived note that came from `absolutePath` (a note's `.md` path), found by where it was archived from:
+   * unique, ambiguous (more than one archived note claims that path) or none. For reference resolution, after the
+   * active lookups missed; see `archivedOrigin.ts` for the rules.
+   */
+  findArchivedPageByOrigin(absolutePath: string): ArchivedLookup<Page> {
+    return findArchivedPageByOrigin(this.archivedOriginSource(), absolutePath);
+  }
+
+  findArchivedFolderByOrigin(absolutePath: string): ArchivedLookup<Folder> {
+    return findArchivedFolderByOrigin(this.archivedOriginSource(), absolutePath);
+  }
+
+  findArchivedResourceByOrigin(absolutePath: string): ArchivedLookup<VaultResource> {
+    return findArchivedResourceByOrigin(this.archivedOriginSource(), absolutePath);
   }
 
   /** Strictly beneath the reserved `Archive/` folder — the Archive itself is the container, not an archived item. */

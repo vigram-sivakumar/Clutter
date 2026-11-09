@@ -185,7 +185,12 @@ export class FolderOperations {
     private readonly rewriteReferences: (
       referencingPageIds: readonly string[],
       mapping: ReadonlyMap<string, string>
-    ) => Promise<ReferenceRewriteSummary> = async () => NO_REFERENCE_REWRITE
+    ) => Promise<ReferenceRewriteSummary> = async () => NO_REFERENCE_REWRITE,
+    /**
+     * Told after a folder was permanently deleted, with the folder and every folder nested in it (same moment
+     * as `onPagesPermanentlyDeleted`, never for an abandoned delete). Supplied by the Composition Root.
+     */
+    private readonly onFoldersPermanentlyDeleted: (folderIds: readonly string[]) => void = () => {}
   ) {}
 
   /**
@@ -383,11 +388,13 @@ export class FolderOperations {
 
     const folder = this.vault.getFolder(folderId);
     let descendantPageIds: readonly string[] = [];
+    let descendantFolderIds: readonly string[] = [];
 
     if (folder) {
-      const { pages } = this.vault.getDescendantFoldersAndPages(folderId);
+      const { folders, pages } = this.vault.getDescendantFoldersAndPages(folderId);
 
       descendantPageIds = pages.map((page) => page.id);
+      descendantFolderIds = folders.map((descendant) => descendant.id);
 
       for (const page of pages) {
         this.documentRegistry.close(page.id);
@@ -396,21 +403,44 @@ export class FolderOperations {
     }
 
     // Checked again when the delete runs (not only above): a restore queued ahead of it must win.
-    await this.coordinator.enqueue(folderId, {
+    const result = await this.coordinator.enqueue(folderId, {
       kind: 'delete-folder',
       ...(!options.allowActive && { requireArchived: true }),
     });
 
-    this.onPagesPermanentlyDeleted(descendantPageIds);
+    // Only when the Gate really deleted the folder: an `abandoned` delete (restored in the meantime, or already gone)
+    // leaves every page, and so every piece of state derived from it, exactly as it was.
+    if (result.status === 'folder-deleted') {
+      this.onPagesPermanentlyDeleted(descendantPageIds);
+      this.onFoldersPermanentlyDeleted([...descendantFolderIds, folderId]);
+    }
+
+    // Navigation only reacts to what is actually gone from the Vault: after an `abandoned` delete the survivors keep
+    // their tabs, and an active view that was never part of the subtree is never touched.
+    const { activePageId, activeFolderId } = this.workspace;
+    const activeWasDeleted =
+      (activePageId !== null && descendantPageIds.includes(activePageId) && !this.vault.getPage(activePageId)) ||
+      (activeFolderId !== null &&
+        (activeFolderId === folderId || descendantFolderIds.includes(activeFolderId)) &&
+        !this.vault.getFolder(activeFolderId));
 
     for (const pageId of descendantPageIds) {
-      this.workspace.closePage(pageId);
+      if (!this.vault.getPage(pageId)) {
+        this.workspace.closePage(pageId);
+      }
     }
-    this.workspace.closeFolder(folderId);
-    this.disposeNameState(folderId);
-    this.disposeDescriptionState(folderId);
+    // Every folder that went with the subtree, not only its root. closeFolder() is a no-op unless that folder is the
+    // active view. (The Composition Root's Vault subscription has usually already closed an active descendant, before
+    // any observer could render it; this makes the facade correct on its own.)
+    for (const goneFolderId of [...descendantFolderIds, folderId]) {
+      if (!this.vault.getFolder(goneFolderId)) {
+        this.workspace.closeFolder(goneFolderId);
+        this.disposeNameState(goneFolderId);
+        this.disposeDescriptionState(goneFolderId);
+      }
+    }
 
-    if (!this.workspace.activeView) {
+    if (activeWasDeleted && !this.workspace.activeView) {
       this.openFallbackPage();
     }
   }

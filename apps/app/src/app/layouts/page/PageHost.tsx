@@ -213,7 +213,6 @@ import {
   MarkdownEditor,
   type MarkdownEditorHandle,
 } from '@features/markdown/editor/MarkdownEditor';
-import { clearCachedEditorSession } from '@features/markdown/editor/codemirror/editorHistoryCache';
 import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal';
 import { useShowReferencesAutomatically } from '@shared/helpers/showReferencesAutomaticallyPreference';
 import { useShowTemplateSuggestions } from '@shared/helpers/showTemplateSuggestionsPreference';
@@ -727,7 +726,8 @@ export function PageHost({
   const onPdfEmbedClick = (path: string): void => {
     const resource = resolveResourceEmbed(vault, path);
     if (resource) {
-      onOpenResource(resource);
+      // A file now in the Archive opens without its actions.
+      onOpenResource(resource, vault.isResourceEffectivelyArchived(resource) ? { archived: true } : undefined);
     }
   };
   // Same per-render, stateless-glue composition as resolveEmbedImage above
@@ -1275,23 +1275,8 @@ export function PageHost({
   };
 
   const deletePage = (pageId: string): void => {
-    // Deletion is the one truly non-reversible page action — unlike
-    // archive/restore below (which deliberately do NOT clear this),
-    // a deleted page's cached editing session (editorHistoryCache.ts)
-    // can never legitimately be returned to, so it's cleared eagerly
-    // here rather than left to decay as an inert, never-looked-up-again
-    // entry. Best-effort: if this page's MarkdownEditor is still mounted
-    // and unmounts after this call (the common outcome of a delete,
-    // since navigation typically moves away from the deleted page), its
-    // own cleanup will write the entry back — a known, accepted race
-    // (see clearCachedEditorSession's own doc comment) that can only
-    // ever make this a no-op, never cause incorrect behavior.
-    clearCachedEditorSession(pageId);
-    // ADR-033: same rationale as clearCachedEditorSession above, applied
-    // to the durable fold-state store instead of the session cache.
-    application.foldStateStore.clear(pageId);
-    // ADR-052: same rationale, for the note's saved References display preferences.
-    application.referencesDisplayStore.clear(pageId);
+    // Everything derived from the page (its editor session cache, fold state and References display preferences) is
+    // dropped by the Application once the delete has succeeded, so a refused or abandoned delete keeps all of it.
     void application.pageOperations
       .delete(pageId)
       .catch((error: unknown) => toast.fail('Couldn’t delete this note', error));
@@ -3204,7 +3189,18 @@ export function PageHost({
           { ...image, resourceId: undefined },
           { actionsEnabled: false }
         )
-    : onOpenImageOverlay;
+    : (image, options) => {
+        // An image that resolved to a file now in the Archive (found by where it was archived from) opens to view
+        // only, like any other archived file; it is never offered the actions of an active one.
+        const target = image.resourceId !== undefined ? vault.getResource(image.resourceId) : undefined;
+
+        if (target && vault.isResourceEffectivelyArchived(target)) {
+          onOpenImageOverlay({ ...image, resourceId: undefined }, { actionsEnabled: false });
+          return;
+        }
+
+        onOpenImageOverlay(image, options);
+      };
   // A PDF embed opens its viewer without the file's actions.
   const editorPdfEmbedClick = isPageArchived
     ? (path: string): void => {

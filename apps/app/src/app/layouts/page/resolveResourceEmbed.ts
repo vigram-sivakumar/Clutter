@@ -39,5 +39,15 @@ import type { VaultResource } from '@core/vault/models/VaultResource';
  * expected to wrap this same function into that shape once it exists.
  */
 export function resolveResourceEmbed(vault: Vault, path: string): VaultResource | undefined {
-  return vault.getResourceByPath(`${vault.root}/${path}`);
+  const absolute = `${vault.root}/${path}`;
+  const active = vault.getResourceByPath(absolute);
+
+  if (active) return active;
+
+  // Not there any more: the file may have been archived. It still exists (and is shown from where it sits now),
+  // found by where it was archived from — the full path, never the filename. Several archived files claiming the
+  // path is not guessed at: the embed stays unresolved.
+  const archived = vault.findArchivedResourceByOrigin(absolute);
+
+  return archived.status === 'unique' ? archived.item : undefined;
 }

@@ -1,4 +1,5 @@
 import type { VaultFileSystem } from '../providers/VaultFileSystem';
+import { writeFileAtomic } from './writeFileAtomic';
 import { ensureClutterDirectory } from '../initialize/ensureClutterDirectory';
 import {
   RESOURCE_ARCHIVE_METADATA_RELATIVE_PATH,
@@ -42,12 +43,11 @@ export interface ResourceArchiveMetadataEntry {
  * like MoveService.resolveRestoreDestination/FolderPathResolver.
  * resolveRestoreDestination already do for Page/Folder.
  *
- * Read/write is a plain read-modify-write against VaultFileSystem, the same
- * shape TagOperations.updateMetadata() already uses — no atomic temp-file
- * swap, because none of the existing `.clutter/*.json` infrastructure
- * (VaultFileSystem.writeFile, LocalFileSystem's writeTextFile) provides one
- * to reuse. Introducing one here would be a new mechanism, not a reuse of
- * an existing pattern.
+ * Read/write is a read-modify-write serialised by the queue below. The write goes through `writeFileAtomic`, the
+ * same helper `TagMetadataStore` uses: on the packaged app's provider (`writesAreAtomic`, ADR-063) that is the native
+ * temp-file / fsync / rename replace, so a reader or a crash sees the old file or the new one, never a torn one; on a
+ * provider that cannot do that it stages a sibling temp file and renames it over the target. A failed write leaves
+ * the previous file untouched.
  */
 export class ResourceArchiveMetadataStore {
   /**
@@ -68,7 +68,12 @@ export class ResourceArchiveMetadataStore {
 
   constructor(
     private readonly fileSystem: VaultFileSystem,
-    private readonly rootPath: string
+    private readonly rootPath: string,
+    /**
+     * Told the whole record set after every read and every successful write, inside this store's queue, so an
+     * in-memory copy (reference resolution) is current before the operation that changed it completes.
+     */
+    private readonly onEntries: (entries: ReadonlyMap<string, ResourceArchiveMetadataEntry>) => void = () => {}
   ) {}
 
   /**
@@ -79,7 +84,11 @@ export class ResourceArchiveMetadataStore {
    * file).
    */
   async read(): Promise<ReadonlyMap<string, ResourceArchiveMetadataEntry>> {
-    return this.enqueue(() => this.readEntries());
+    return this.enqueue(async () => {
+      const entries = await this.readEntries();
+      this.onEntries(new Map(entries));
+      return entries;
+    });
   }
 
   /**
@@ -152,6 +161,46 @@ export class ResourceArchiveMetadataStore {
     });
   }
 
+  /**
+   * Drops the records of archived files that are confirmed to be gone, so a record never outlives the file it
+   * describes. Never touches a file. For each candidate (every record when `candidates` is omitted) that still has a
+   * record when its turn comes, `isConfirmedMissing` is asked, inside this store's queue: a record is removed only
+   * when it answers a definite `true`. A `false`, or an answer that throws, keeps the record, so an uncertain
+   * filesystem state (permissions, an unreachable directory, a transient error) never costs anyone a restore
+   * destination. The file is rewritten once, and only when something was removed. Returns the paths removed.
+   */
+  async removeRecordsOfMissingFiles(
+    isConfirmedMissing: (archivedPath: string) => Promise<boolean>,
+    candidates?: readonly string[]
+  ): Promise<readonly string[]> {
+    return this.enqueue(async () => {
+      const entries = await this.readEntries();
+      const removed: string[] = [];
+
+      for (const archivedPath of candidates ?? [...entries.keys()]) {
+        if (!entries.has(archivedPath)) continue;
+
+        let missing = false;
+        try {
+          missing = (await isConfirmedMissing(archivedPath)) === true;
+        } catch {
+          missing = false;
+        }
+
+        if (missing) {
+          entries.delete(archivedPath);
+          removed.push(archivedPath);
+        }
+      }
+
+      if (removed.length > 0) {
+        await this.writeEntries(entries);
+      }
+
+      return removed;
+    });
+  }
+
   private get path(): string {
     return `${this.rootPath}/${RESOURCE_ARCHIVE_METADATA_RELATIVE_PATH}`;
   }
@@ -174,10 +223,12 @@ export class ResourceArchiveMetadataStore {
   ): Promise<void> {
     await ensureClutterDirectory(this.fileSystem, this.rootPath);
 
-    await this.fileSystem.writeFile(
+    await writeFileAtomic(
+      this.fileSystem,
       this.path,
-      JSON.stringify({ resources: Object.fromEntries(entries) }, null, 2),
-      'upsert'
+      JSON.stringify({ resources: Object.fromEntries(entries) }, null, 2)
     );
+
+    this.onEntries(new Map(entries));
   }
 }

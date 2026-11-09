@@ -14,6 +14,6 @@ Started: # date
 ## Key ideas
 - 
 ## Worth quoting
-> 
+" 
 ## What I’ll do with it
 - [ ] 

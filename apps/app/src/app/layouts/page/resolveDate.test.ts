@@ -8,7 +8,7 @@ import { createDateResolver } from './resolveDate';
 const ROOT = '/vault';
 
 function fakeVault(): Vault {
-  return { root: ROOT } as unknown as Vault;
+  return { root: ROOT, getPageByPath: () => undefined, findArchivedPageByOrigin: () => ({ status: 'none' }) } as unknown as Vault;
 }
 
 function fakePageOperations(openAtPath: (path: string, options: { type: string }) => void): PageOperations {
@@ -59,7 +59,11 @@ describe('createDateResolver', () => {
 
 describe('createDateResolver in a read-only host (createMissing: false) — an archived note', () => {
   const vaultWith = (existingPaths: string[]): Vault =>
-    ({ root: ROOT, getPageByPath: (path: string) => (existingPaths.includes(path) ? { id: 'daily' } : undefined) }) as unknown as Vault;
+    ({
+      root: ROOT,
+      getPageByPath: (path: string) => (existingPaths.includes(path) ? { id: 'daily' } : undefined),
+      findArchivedPageByOrigin: () => ({ status: 'none' }),
+    }) as unknown as Vault;
   const PATH = `${ROOT}/Daily Notes/2026/August/2026-08-20.md`;
 
   it('a date whose Daily Note does not exist opens nothing — no draft', () => {
@@ -87,5 +91,43 @@ describe('createDateResolver in a read-only host (createMissing: false) — an a
     resolveDate('2026-08-20').activate();
 
     expect(openAtPath).toHaveBeenCalledWith(PATH, { type: 'daily-note' });
+  });
+});
+
+describe('createDateResolver: a day whose note was archived', () => {
+  const vaultWith = (lookup: unknown): Vault =>
+    ({ root: ROOT, getPageByPath: () => undefined, findArchivedPageByOrigin: () => lookup }) as unknown as Vault;
+  const operations = (open: (id: string) => void, openAtPath: (path: string) => void) =>
+    ({
+      open: (id: string) => {
+        open(id);
+        return Promise.resolve();
+      },
+      openAtPath: (path: string) => {
+        openAtPath(path);
+        return Promise.resolve('draft');
+      },
+    }) as unknown as PageOperations;
+
+  it('opens the archived note itself, and drafts no second note for the day', () => {
+    const open = vi.fn();
+    const openAtPath = vi.fn();
+    const resolveDate = createDateResolver(vaultWith({ status: 'unique', item: { id: 'archived-daily' } }), operations(open, openAtPath));
+
+    resolveDate('2026-08-20').activate();
+
+    expect(open).toHaveBeenCalledWith('archived-daily');
+    expect(openAtPath).not.toHaveBeenCalled();
+  });
+
+  it('does nothing when several archived notes claim the day (never guesses, never drafts)', () => {
+    const open = vi.fn();
+    const openAtPath = vi.fn();
+    const resolveDate = createDateResolver(vaultWith({ status: 'ambiguous' }), operations(open, openAtPath));
+
+    resolveDate('2026-08-20').activate();
+
+    expect(open).not.toHaveBeenCalled();
+    expect(openAtPath).not.toHaveBeenCalled();
   });
 });

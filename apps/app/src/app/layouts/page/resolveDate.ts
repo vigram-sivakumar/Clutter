@@ -44,8 +44,23 @@ export function createDateResolver(
 
       const path = DailyNotePath.absoluteFrom(vault.root, toDate(isoDate));
 
-      if (!createMissing && !vault.getPageByPath(path)) {
-        return;
+      if (!vault.getPageByPath(path)) {
+        // The day's note may have been archived: it still exists, found by where it was archived from. Open it
+        // (never restoring it, never drafting a second note for the day); if several archived notes claim the
+        // day, do nothing rather than guess.
+        const archived = vault.findArchivedPageByOrigin(path);
+
+        if (archived.status === 'unique') {
+          void pageOperations.open(archived.item.id);
+          return;
+        }
+        if (archived.status === 'ambiguous') {
+          return;
+        }
+
+        if (!createMissing) {
+          return;
+        }
       }
 
       void pageOperations.openAtPath(path, { type: 'daily-note' });

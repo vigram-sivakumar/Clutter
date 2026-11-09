@@ -20,6 +20,8 @@ const native = vi.hoisted(() => ({
   grant: vi.fn(),
   /** Answers `restore_space_access` (the saved sandbox access, restored once at launch). */
   restore: vi.fn(),
+  /** Answers `initialize_space` (creates `.clutter` for an ordinary folder). */
+  initialize: vi.fn(),
 }));
 
 vi.mock('@tauri-apps/api/core', () => ({
@@ -29,6 +31,7 @@ vi.mock('@tauri-apps/api/core', () => ({
     if (command === 'check_space_filesystem') return native.classify(args);
     if (command === 'ensure_space_access') return native.grant(args);
     if (command === 'restore_space_access') return native.restore(args);
+    if (command === 'initialize_space') return native.initialize(args);
     return undefined;
   },
 }));
@@ -76,6 +79,7 @@ beforeEach(() => {
   native.classify.mockReset().mockResolvedValue(apfs);
   native.grant.mockReset().mockResolvedValue(true);
   native.restore.mockReset().mockResolvedValue([]);
+  native.initialize.mockReset().mockResolvedValue({ status: 'existing' });
   resetSandboxAccessForTests();
   // Only the Space folder itself exists; every state file inside it is absent, as in a new Space.
   fs.exists.mockImplementation(async (path: string) => path === ROOT || path === `${ROOT}/`);

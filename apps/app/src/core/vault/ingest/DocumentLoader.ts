@@ -19,10 +19,14 @@ export class DocumentLoader {
 
     const content = await this.fileSystem.readFile(path);
 
-    const parsedMarkdown = await this.parse(content);
+    const { parsed: parsedMarkdown, key } = await this.parse(content);
 
     if (!parsedMarkdown) {
       return null;
+    }
+
+    if (this.memo?.noteSource && key !== null) {
+      this.memo.noteSource(path, key);
     }
 
     return {
@@ -47,8 +51,11 @@ export class DocumentLoader {
       const recalled = this.memo.recall(key);
       if (recalled) {
         return {
-          ...recalled,
-          body: this.frontmatterParser.split(content).body,
+          parsed: {
+            ...recalled,
+            body: this.frontmatterParser.split(content).body,
+          },
+          key,
         };
       }
     }
@@ -57,6 +64,6 @@ export class DocumentLoader {
       const { body: _body, ...parts } = parsed;
       this.memo.remember(key, parts);
     }
-    return parsed;
+    return { parsed, key };
   }
 }

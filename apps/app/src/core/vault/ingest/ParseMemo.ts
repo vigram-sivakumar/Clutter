@@ -23,4 +23,10 @@ export interface ParseMemo {
   recall(key: string): ParsedNoteParts | undefined;
   /** Records the parts parsed from the text that `key` identifies. Never throws. */
   remember(key: string, parts: ParsedNoteParts): void;
+  /**
+   * Optional: reports that the file at `path` was read and parsed under `key`. Lets a memo that must later forget
+   * what it holds for a note find the entry again, since an entry is keyed by text and carries no note identity.
+   * Never throws.
+   */
+  noteSource?(path: string, key: string): void;
 }

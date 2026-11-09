@@ -22,6 +22,16 @@ export class VaultPath {
     return lastSlashIndex >= 0 ? path.slice(0, lastSlashIndex) : '';
   }
 
+  /**
+   * The one spelling two paths are compared in when they must name the same entry but come from different
+   * places (a stored `originalPath`, an archive record, a path derived from an archived folder, a path composed
+   * from a link). Unicode NFC, `\\` read as `/`, repeated separators collapsed, no trailing separator. Case is
+   * kept: lookups by path (`getPageByPath` and the rest) are case-sensitive, and so is this.
+   */
+  static normalizeForMatch(path: string): string {
+    return path.normalize('NFC').replace(/\\/g, '/').replace(/\/{2,}/g, '/').replace(/(.)\/+$/, '$1');
+  }
+
   static isDescendantOf(path: string, ancestorPath: string): boolean {
     return path.startsWith(`${ancestorPath}/`);
   }

@@ -13,6 +13,7 @@ import type { Application } from '@core/application/Application';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import { useVault } from '@app/hooks/useVault';
 import { useArchiveCleanup } from '@app/hooks/useArchiveCleanup';
+import { useDeletedPageEditorCacheCleanup } from '@app/hooks/useDeletedPageEditorCacheCleanup';
 import { useSpaceSettingsMigration } from '@app/hooks/useSpaceSettingsMigration';
 import { useDateDisplayVersion } from '@app/hooks/useDateDisplayVersion';
 import { useMaxWidth, SIDEBAR_COLLAPSE_BREAKPOINT, COVER_HIDE_BREAKPOINT } from '@app/hooks/useMaxWidth';
@@ -113,6 +114,7 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
   useSpaceSettingsMigration(application);
   // Opt-in cleanup of archived items older than 30 days (Settings → Preferences → Data & storage); a no-op unless this Space turned it on.
   useArchiveCleanup(application);
+  useDeletedPageEditorCacheCleanup(application);
   const workspace = useWorkspace(application.workspace);
   const { width: sidebarWidth, setWidth: setSidebarWidth, commitWidth: commitSidebarWidth } =
     useSidebarWidth();

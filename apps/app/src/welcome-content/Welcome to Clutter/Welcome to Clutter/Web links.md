@@ -17,6 +17,6 @@ Paste an address and Clutter asks how you’d like it
 - **URL** keeps it as the address itself
 **Tip:** select some text first, then paste the address. Pick Markdown link and your text becomes the link #Tip
 
->Want an address to stay plain text? Wrap it in backticks, like `unsplash.com`
+" Want an address to stay plain text? Wrap it in backticks, like `unsplash.com`
 .--- That’s it ---.
 ↪ Next up, [[Welcome to Clutter/Quote blocks]]

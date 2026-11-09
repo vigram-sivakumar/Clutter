@@ -67,7 +67,10 @@ export class VaultSyncService {
     private readonly tagMetadataStore?: TagMetadataStore,
     // The paths the Persistence Gate is changing right now (an archive between its move and its Vault commit).
     // Shared with the Gate by the Composition Root; defaulted so every existing construction site is unchanged.
-    private readonly inFlight: InFlightPaths = new InFlightPaths()
+    private readonly inFlight: InFlightPaths = new InFlightPaths(),
+    // Told when a tracked resource's file is gone from disk and the Vault dropped it, so its archive record (if it
+    // had one) can be reconciled. Defaulted so every existing construction site is unchanged.
+    private readonly onResourceGone: (absolutePath: string) => void = () => {}
   ) {
     this.vault = vault;
     this.fileSystem = fileSystem;
@@ -413,6 +416,7 @@ export class VaultSyncService {
 
       if (resource) {
         this.vault.removeResource(resource.id);
+        this.onResourceGone(absolutePath);
       }
 
       // Nothing on disk, nothing tracked — already converged.

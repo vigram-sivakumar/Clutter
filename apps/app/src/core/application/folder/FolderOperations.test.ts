@@ -106,7 +106,9 @@ function setup(
   prepareNavigation: () => void = () => {},
   pages: Page[] = [],
   openFallbackPage: () => void = () => {},
-  flushPagesBeforeArchive?: (pageIds: readonly string[]) => Promise<void>
+  flushPagesBeforeArchive?: (pageIds: readonly string[]) => Promise<void>,
+  onPagesPermanentlyDeleted?: (pageIds: readonly string[]) => void,
+  onFoldersPermanentlyDeleted?: (folderIds: readonly string[]) => void
 ) {
   const vault = makeVault(folders, pages);
   const workspace = new Workspace();
@@ -132,7 +134,10 @@ function setup(
     documentRegistry,
     saveCoordinator,
     openFallbackPage,
-    flushPagesBeforeArchive
+    flushPagesBeforeArchive,
+    onPagesPermanentlyDeleted,
+    undefined,
+    onFoldersPermanentlyDeleted
   );
 
   return { vault, workspace, fileSystem, folderOperations, documentRegistry, saveCoordinator, coordinator };
@@ -1795,5 +1800,147 @@ describe('FolderOperations.canMove() — the read-only twin of move()', () => {
 
     expect(vault.getFolder('folder-1')!.path).toBe(`${ROOT}/Projects`);
     expect(vault.getFolder('folder-1')!.parentId).toBeNull();
+  });
+});
+
+describe('FolderOperations.delete() closes the whole subtree in the workspace', () => {
+  const projects = makeFolder('folder-projects', `${ROOT}/Projects`);
+  const design = makeFolder('folder-design', `${ROOT}/Projects/Design`, 'folder-projects');
+  const deep = makeFolder('folder-deep', `${ROOT}/Projects/Design/Deep`, 'folder-design');
+  const notes = makePage('page-notes', `${ROOT}/Projects/Design/Deep/Notes.md`, 'folder-deep');
+
+  async function boot(openFallbackPage: () => void, onDeleted?: (ids: readonly string[]) => void) {
+    const harness = setup([projects, design, deep], undefined, undefined, [notes], openFallbackPage, undefined, onDeleted);
+    await harness.fileSystem.createDirectory(deep.path);
+    await harness.fileSystem.writeFile(notes.path, '# Notes');
+    return harness;
+  }
+
+  it('an active DESCENDANT folder is closed, and the fallback is requested once', async () => {
+    const openFallbackPage = vi.fn();
+    const { vault, workspace, folderOperations } = await boot(openFallbackPage);
+    workspace.openFolder('folder-deep');
+
+    await folderOperations.delete('folder-projects', { allowActive: true });
+
+    expect(vault.getFolder('folder-deep')).toBeUndefined();
+    expect(workspace.activeView).toBeNull();
+    expect(openFallbackPage).toHaveBeenCalledTimes(1);
+  });
+
+  it('no workspace notification ever shows a folder that the Vault no longer has as the active view', async () => {
+    const { vault, workspace, folderOperations } = await boot(() => {});
+    workspace.openFolder('folder-design');
+    const seen: Array<string | null> = [];
+    workspace.subscribe(() => {
+      const id = workspace.activeFolderId;
+      seen.push(id !== null && !vault.getFolder(id) ? id : null);
+    });
+
+    await folderOperations.delete('folder-projects', { allowActive: true });
+
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.every((id) => id === null)).toBe(true);
+  });
+
+  it('an unrelated active folder or page is preserved, with no fallback', async () => {
+    const elsewhere = makeFolder('folder-elsewhere', `${ROOT}/Elsewhere`);
+    const keep = makePage('page-keep', `${ROOT}/Elsewhere/Keep.md`, 'folder-elsewhere');
+    const openFallbackPage = vi.fn();
+    const harness = setup(
+      [projects, design, deep, elsewhere],
+      undefined,
+      undefined,
+      [notes, keep],
+      openFallbackPage
+    );
+    await harness.fileSystem.createDirectory(deep.path);
+    await harness.fileSystem.createDirectory(elsewhere.path);
+    await harness.fileSystem.writeFile(notes.path, '# Notes');
+    await harness.fileSystem.writeFile(keep.path, '# Keep');
+
+    harness.workspace.openFolder('folder-elsewhere');
+    await harness.folderOperations.delete('folder-projects', { allowActive: true });
+    expect(harness.workspace.activeFolderId).toBe('folder-elsewhere');
+
+    harness.workspace.openPage('page-keep');
+    await harness.folderOperations.delete('folder-elsewhere', { allowActive: true });
+    expect(harness.workspace.activeView).toBeNull();
+    expect(openFallbackPage).toHaveBeenCalledTimes(1);
+  });
+
+  it('an unrelated active view is untouched by a subtree delete (no fallback, nothing closed)', async () => {
+    const elsewhere = makeFolder('folder-elsewhere', `${ROOT}/Elsewhere`);
+    const openFallbackPage = vi.fn();
+    const harness = setup([projects, design, deep, elsewhere], undefined, undefined, [notes], openFallbackPage);
+    await harness.fileSystem.createDirectory(deep.path);
+    await harness.fileSystem.createDirectory(elsewhere.path);
+    await harness.fileSystem.writeFile(notes.path, '# Notes');
+    harness.workspace.openFolder('folder-elsewhere');
+
+    await harness.folderOperations.delete('folder-design', { allowActive: true });
+
+    expect(harness.workspace.activeFolderId).toBe('folder-elsewhere');
+    expect(openFallbackPage).not.toHaveBeenCalled();
+  });
+
+  it('reports exactly the deleted pages, once, only after the Gate deleted the folder', async () => {
+    const onDeleted = vi.fn();
+    const { folderOperations } = await boot(() => {}, onDeleted);
+
+    await folderOperations.delete('folder-projects', { allowActive: true });
+
+    expect(onDeleted).toHaveBeenCalledTimes(1);
+    expect(onDeleted).toHaveBeenCalledWith(['page-notes']);
+  });
+
+  it('an abandoned delete reports nothing and closes nothing that still exists', async () => {
+    const onDeleted = vi.fn();
+    const openFallbackPage = vi.fn();
+    const { vault, workspace, folderOperations, coordinator } = await boot(openFallbackPage, onDeleted);
+    vi.spyOn(coordinator, 'enqueue').mockResolvedValue({ status: 'abandoned', reason: 'restored meanwhile' });
+    workspace.openPage('page-notes');
+
+    await folderOperations.delete('folder-projects', { allowActive: true });
+
+    expect(vault.getPage('page-notes')).toBeDefined();
+    expect(onDeleted).not.toHaveBeenCalled();
+    expect(workspace.isPageOpen('page-notes')).toBe(true);
+    expect(workspace.activePageId).toBe('page-notes');
+    expect(openFallbackPage).not.toHaveBeenCalled();
+  });
+
+  it('reports the folder and every nested folder to the folder hook, once, only after the Gate deleted it', async () => {
+    const onFolders = vi.fn();
+    const harness = setup([projects, design, deep], undefined, undefined, [notes], () => {}, undefined, undefined, onFolders);
+    await harness.fileSystem.createDirectory(deep.path);
+    await harness.fileSystem.writeFile(notes.path, '# Notes');
+
+    await harness.folderOperations.delete('folder-projects', { allowActive: true });
+
+    expect(onFolders).toHaveBeenCalledTimes(1);
+    expect([...onFolders.mock.calls[0]![0]].sort()).toEqual(['folder-deep', 'folder-design', 'folder-projects']);
+  });
+
+  it('an abandoned or failed delete never reaches the folder hook', async () => {
+    const onFolders = vi.fn();
+    const harness = setup([projects, design, deep], undefined, undefined, [notes], () => {}, undefined, undefined, onFolders);
+    const spy = vi.spyOn(harness.coordinator, 'enqueue').mockResolvedValue({ status: 'abandoned', reason: 'restored meanwhile' });
+
+    await harness.folderOperations.delete('folder-projects', { allowActive: true });
+    spy.mockRejectedValue(new Error('disk error'));
+    await expect(harness.folderOperations.delete('folder-projects', { allowActive: true })).rejects.toThrow('disk error');
+
+    expect(onFolders).not.toHaveBeenCalled();
+  });
+
+  it('a delete that throws reports nothing', async () => {
+    const onDeleted = vi.fn();
+    const { folderOperations, coordinator } = await boot(() => {}, onDeleted);
+    vi.spyOn(coordinator, 'enqueue').mockRejectedValue(new Error('disk error'));
+
+    await expect(folderOperations.delete('folder-projects', { allowActive: true })).rejects.toThrow('disk error');
+
+    expect(onDeleted).not.toHaveBeenCalled();
   });
 });

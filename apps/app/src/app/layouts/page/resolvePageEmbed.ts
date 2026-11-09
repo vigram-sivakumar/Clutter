@@ -10,7 +10,7 @@ import {
 import { splitTargetFragment } from '@core/vault/ingest/grammar/targetFragment';
 import type { PageEmbedResolution, ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbedResolution';
 
-import { findPagesByAlias } from './resolveWikiLink';
+import { findPagesByAlias, findArchivedReferenceTarget } from './resolveWikiLink';
 import { resolvePageIdentityIcon } from './resolvePageIdentityIcon';
 
 /**
@@ -106,6 +106,16 @@ export function createPageEmbedResolver(vault: Vault, effectivePageState: Effect
 
     if (aliasMatches.length > 1) {
       return { status: 'ambiguous', displayLabel: VaultPath.pageName(pagePath) };
+    }
+
+    // Nothing active claims it: the note may have been archived. It still exists, so the embed shows it (found
+    // by where it was archived from, by full path); several archived notes claiming the path is `ambiguous`.
+    const archived = findArchivedReferenceTarget(vault, pagePath, true);
+    if (archived === 'ambiguous') {
+      return { status: 'ambiguous', displayLabel: VaultPath.pageName(pagePath) };
+    }
+    if (archived?.kind === 'page') {
+      return resolvedTo(archived.page, headingQuery);
     }
 
     return { status: 'unresolved', displayLabel: VaultPath.pageName(pagePath) };

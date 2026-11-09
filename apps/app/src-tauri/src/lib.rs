@@ -203,6 +203,8 @@ pub fn run() {
             atomic_commands::atomic_confirm_durability,
             #[cfg(all(target_os = "macos", feature = "atomic-writes"))]
             atomic_commands::check_space_filesystem,
+            #[cfg(all(target_os = "macos", feature = "atomic-writes"))]
+            atomic_commands::initialize_space,
             export_file::export_pick_destination,
             export_file::export_copy_file,
             export_file::export_write_file,

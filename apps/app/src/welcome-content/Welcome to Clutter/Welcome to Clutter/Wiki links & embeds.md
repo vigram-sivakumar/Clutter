@@ -22,6 +22,6 @@ Add `!` in front of a link and the thing shows up right inside your note, not ju
 - `![[Another note]]` to show a whole note inside this one
 **Tip:** changed your mind about an embedded note? Its menu can turn it back into a plain link #Tip
 
->Rename a note, or even a heading, and every link pointing to it updates on its own. Nothing breaks
+" Rename a note, or even a heading, and every link pointing to it updates on its own. Nothing breaks
 .--- That’s it ---.
 ↪ Next up, [[Welcome to Clutter/Web links]]

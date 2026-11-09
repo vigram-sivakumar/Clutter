@@ -8,27 +8,21 @@ coverLayout: above
 tags:
   - Getting-started
 coverCredit: lilartsy <https://unsplash.com/@lilartsy> <https://api.unsplash.com/photos/333oj7zFsdg/download?ixid=M3wxMDMwMzI4fDB8MXxzZWFyY2h8OHx8V3JpdGluZ3xlbnwwfDB8fHwxNzkzNTUxNjQ5fDA>
+showProperties: false
 ---
-
 Hi, welcome to Clutter!\
 Here are a few things to help you get started
-
-- [ ] Whether you want to organise your notes and thoughts with folders, daily notes, and tags, or simply keep track of your tasks, there’s room for all of it here @2026-10-31
-
+Whether you want to organise your notes and thoughts with folders, daily notes, and tags, or simply keep track of your tasks, there’s room for all of it here
 ## Find your way around
-
 - Use `⌘ 1`, `⌘ 2`, `⌘ 3`, or `⌘ 4` to switch between Notes, Daily notes, Tasks, and Tags.
-- Press `⌘ N` to create your first note. New notes land in your [[Inbox]], ready for you to organise later
+- Press `⌘ N` to create your first note. New notes land in your `Inbox`, ready for you to organise later
 - Press `⌘ ⇧ D` to open today’s daily note
 - Press `⌘ ⇧ T` to create a task
 - Press `⌘ ⌃ T` to create a tag
-  That’s all for now. Explore, experiment, and make yourself at home!
-  .--- End of basics ---.
-
+That’s all for now. Explore, experiment, and make yourself at home!
+.--- End of basics ---.
 ## Markdown essentials
-
 Let’s play around with Markdown. I’ve put together a few examples to get you started, along with some interesting stuff to explore
-
 1. [[Welcome to Clutter/Inline styles]]
 2. [[Welcome to Clutter/Lists]]
 3. [[Welcome to Clutter/Tasks & date mentions]]

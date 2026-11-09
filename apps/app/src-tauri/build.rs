@@ -10,6 +10,7 @@ const APP_COMMANDS: &[&str] = &[
     "atomic_inspect_write",
     "atomic_confirm_durability",
     "check_space_filesystem",
+    "initialize_space",
     "export_pick_destination",
     "export_copy_file",
     "export_write_file",

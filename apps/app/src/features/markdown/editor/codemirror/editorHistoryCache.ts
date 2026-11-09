@@ -115,31 +115,23 @@ export function setCachedEditorSession(pageId: string, session: CachedEditorSess
 }
 
 /**
- * Drops a page's cached session outright — called from `PageHost.tsx`'s
- * `onDelete` (the one truly destructive, non-reversible page action;
- * `onArchive`/`onRestore` deliberately do *not* call this, since an
- * archived page can come back and its prior editing session is still
- * meaningful history to have). `PageHost.tsx` is the right place to call
- * this from, not `PageOperations.delete()` itself: this feature-layer
- * cache module cannot be imported from `core/application` without
- * pointing the dependency direction this codebase enforces the wrong
- * way, but `PageHost.tsx` (app layer) already legitimately depends on
- * both `core` (via `application.pageOperations`) and this feature's
- * `MarkdownEditor`, so it's the natural, already-existing bridge —  no
- * new event/subscription mechanism needed.
+ * Drops a page's cached session outright — called when a page is permanently
+ * deleted (the one truly destructive, non-reversible page action; archive
+ * and restore deliberately do *not* call this, since an archived page can
+ * come back and its prior editing session is still meaningful history to
+ * have). The app layer's `useDeletedPageEditorCacheCleanup` calls it for
+ * every permanent-delete path (a single note, a folder's subtree, Empty
+ * trash, the automatic cleanup), only after the delete succeeded: this
+ * feature-layer cache module cannot be imported from `core/application`
+ * without pointing the dependency direction this codebase enforces the
+ * wrong way, so `Application` announces the deletion and the app layer
+ * bridges it.
  *
- * **Known, accepted race, not solved here:** `pageOperations.delete()` is
- * async and (per the app's own navigation behavior) typically triggers
- * navigating away from the deleted page, which unmounts that page's
- * `MarkdownEditor` — whose own cleanup calls `setCachedEditorSession`
- * again, *after* this clear runs. If that unmount happens after this
- * call, the entry gets silently re-populated. This is judged acceptable
- * rather than worth solving with added coordination: a re-populated entry
- * for a deleted page is exactly as inert as if this function were never
- * called at all — the deleted page's id will never be looked up again
- * through normal navigation — so the race can only ever make this
- * best-effort cleanup a no-op in the worst case, never cause incorrect
- * behavior.
+ * Best effort: an editor that is still mounted can write its entry back as
+ * it unmounts. The delete has already succeeded by the time this runs, so
+ * that unmount normally happens first; and a re-populated entry for a
+ * deleted page is inert (its id is never looked up again), so the worst
+ * case is a no-op, never incorrect behavior.
  */
 export function clearCachedEditorSession(pageId: string): void {
   cache.delete(pageId);

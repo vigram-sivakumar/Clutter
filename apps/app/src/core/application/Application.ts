@@ -15,6 +15,7 @@ import {
   type ArchivedAsset,
 } from './archive/archivedAssetReferences';
 import { flushWorkspaceStateWrites, hasPendingWorkspaceStateWrites } from '../vault/initialize/workspaceStateFile';
+import { initializeSpace, type SpaceInitialization } from '../vault/initialize/initializeSpace';
 import { LocalVaultProvider } from '../vault/providers/LocalFileSystem';
 import { InMemoryVaultFileSystem } from '../vault/testing/InMemoryVaultFileSystem';
 import { BrowserFileSystemWatcher } from '../vault/providers/BrowserFileSystemWatcher';
@@ -27,7 +28,8 @@ import { PagePathResolver } from './page/PagePathResolver';
 import { UuidGenerator } from '../shared/identity/UuidGenerator';
 import { VaultBuilder } from '../vault/ingest';
 import { VaultScanner } from '../vault/ingest';
-import { ParsedNoteCache, type ParsedNoteCacheBackend } from '../vault/persistence/parsedNoteCache';
+import { ArchivedResourceOriginIndex } from '../vault/persistence/ArchivedResourceOriginIndex';
+import { ParsedNoteCache, folderIdOfCacheId, type ParsedNoteCacheBackend } from '../vault/persistence/parsedNoteCache';
 import { TauriParsedNoteCacheBackend } from '../vault/providers/TauriParsedNoteCacheBackend';
 import { fingerprint } from '../recovery/fingerprint';
 import { RecoveryJournal } from '../recovery/RecoveryJournal';
@@ -54,6 +56,8 @@ import { MembershipSelector } from './membership/MembershipSelector';
 import { SearchService } from './search/SearchService';
 import { FolderOperations } from './folder/FolderOperations';
 import { ResourceArchiveMetadataStore } from '../vault/persistence/ResourceArchiveMetadataStore';
+import { reconcileResourceArchiveRecords } from '../vault/sync/reconcileResourceArchiveRecords';
+import { confirmFileMissing } from '../vault/sync/confirmFileMissing';
 import { ResourceOperations } from './resource/ResourceOperations';
 import { TaskOperations } from './task/TaskOperations';
 import { TagOperations } from './tags/TagOperations';
@@ -270,6 +274,7 @@ export class Application {
    * was recorded; the UI only reads it (`read()`), never writes.
    */
   public resourceArchiveStore!: ResourceArchiveMetadataStore;
+  private readonly archivedResourceOrigins = new ArchivedResourceOriginIndex();
   public taskOperations!: TaskOperations;
   public tagOperations!: TagOperations;
   public navigation!: NavigationRouter;
@@ -390,6 +395,16 @@ export class Application {
       await ensureSpaceAccessIfDesktop(rootPath);
       await assertSpaceFilesystemSupported(rootPath);
     }
+    // The folder is now authorized (inside the runtime scope) and eligible (APFS). Before anything is scanned, repaired
+    // or written, an ordinary folder becomes a Clutter Space: the native side creates `.clutter`, and only that, or
+    // reuses the one that is there (idempotent, never touching its contents). The atomic writer's own `.clutter`
+    // check is unchanged; this is what makes the first atomic write to an ordinary folder legitimate. A failure stops
+    // the open here: the folder is never treated as a Space, and nothing has been written.
+    const initialization: SpaceInitialization | null =
+      runningInTauri && isAtomicWritesEnabled() ? await initializeSpace(invoke, rootPath) : null;
+    // A folder that was not a Space until this open. Its existing files are someone else's (they may be another
+    // app's notes), so the startup repairs that would rewrite them are not run on this first open.
+    const firstOpenOfFolder = initialization === 'initialized';
     const atomicWrites =
       runningInTauri && isAtomicWritesEnabled() && rawFileSystem instanceof LocalVaultProvider
         ? createAtomicWriteStack({
@@ -493,12 +508,19 @@ export class Application {
       scanResult,
       tagMetadata
     );
+    // Remember which note each parsed-note cache entry belongs to, by the note's stable id, now: before any startup
+    // repair rewrites a file, so the entry still corresponds to the text the note was scanned with.
+    parsedNoteCache.bindNotes(
+      vault.pages(),
+      // A folder's `.folder.md` is parsed (and cached) by the same scan; the path is exactly the one the scanner read.
+      Array.from(vault.folders(), (folder) => ({ id: folder.id, path: `${folder.path}/.folder.md` }))
+    );
 
     // A genuine duplicate id discovered during the initial scan was already
     // given a fresh id in-memory (VaultBuilder); repair the duplicate
     // file's own persisted frontmatter to match, the same way archive
     // metadata is repaired below — Ingest itself never writes to disk.
-    for (const path of reassignedPagePaths) {
+    for (const path of firstOpenOfFolder ? [] : reassignedPagePaths) {
       const page = vault.getPageByPath(path);
 
       if (!page) {
@@ -524,7 +546,7 @@ export class Application {
     // never manufactures one for a folder that never had it.
     const folderFrontmatterSerializer = new FrontmatterSerializer();
 
-    for (const path of reassignedFolderPaths) {
+    for (const path of firstOpenOfFolder ? [] : reassignedFolderPaths) {
       const folder = vault.getFolderByPath(path);
       const folderMetadataPath = `${path}/.folder.md`;
 
@@ -554,9 +576,17 @@ export class Application {
       rebuilder: new PageRebuilder(),
       onStale: (stalePath: string) => startupStalePaths.push(stalePath),
     };
-    await reconcileVaultArchiveMetadata(reconcileDeps);
-    // ADR-041: same startup pass for the template marker (moves made while the app was closed).
-    await reconcileVaultTemplateMetadata(reconcileDeps);
+    // Both rewrite a note's frontmatter, so neither runs on the first open of a folder (see `firstOpenOfFolder`):
+    // they repair metadata Clutter itself wrote and a move it did not see, which a folder it has never opened cannot
+    // hold. They run on every later open.
+    if (!firstOpenOfFolder) {
+      await reconcileVaultArchiveMetadata(reconcileDeps);
+      // ADR-041: same startup pass for the template marker (moves made while the app was closed).
+      await reconcileVaultTemplateMetadata(reconcileDeps);
+    }
+    // Records of archived files that were deleted outside the app while it was closed: dropped only when the file is
+    // positively confirmed missing, never on a doubt, and never by touching a file.
+    await reconcileResourceArchiveRecords(new ResourceArchiveMetadataStore(fileSystem, rootPath), fileSystem);
 
     const application = new Application(
       vault,
@@ -585,6 +615,9 @@ export class Application {
     const pageCreator = new PageCreator(new UuidGenerator(), new PageFactory());
 
     application.attachVault(vault, pageCreator, dailyNotes, rawFileSystem, normalizeMarkdownForSave);
+    // Where archived assets came from, for references to them. A failure leaves them without an origin, which is
+    // the unresolved behaviour they had before.
+    await application.loadArchivedResourceOrigins();
     for (const stalePath of startupStalePaths) {
       void application.vaultSyncService.reconcileKnownPath(stalePath).catch((error: unknown) => {
         console.error(`Sync: reconciling ${stalePath} after a refused startup repair failed`, error);
@@ -764,7 +797,13 @@ export class Application {
     // structural mutations, so every write to a given page is serialized
     // through the same per-page queue.
     const frontmatterSerializer = new FrontmatterSerializer();
-    this.resourceArchiveStore = new ResourceArchiveMetadataStore(this.fileSystem, vault.root);
+    // Reference resolution is synchronous, the archive record file is not: the store keeps this copy current after
+    // every read and every successful write, so an archive, restore or delete made here is reflected the moment it
+    // completes (no reload to wait for). External changes arrive through Sync's own store calls.
+    vault.setArchivedResourceOrigins(this.archivedResourceOrigins);
+    this.resourceArchiveStore = new ResourceArchiveMetadataStore(this.fileSystem, vault.root, (entries) =>
+      this.archivedResourceOrigins.replaceAll(entries)
+    );
     // The Gate registers the paths an archive is changing; Sync (below) waits on the same instance, so a watcher
     // event for a half-finished move is never read as an external change. One instance, wired here only.
     const inFlightPaths = new InFlightPaths();
@@ -817,14 +856,16 @@ export class Application {
         void this.openFallbackPage();
       },
       (pageIds) => this.pageOperations.flushPagesBeforeArchive(pageIds),
-      // A permanently deleted template's preference goes with it; the closure decides nothing, the store
-      // ignores pages that were never preferred.
-      (pageIds) => this.preferredTemplatesStore.removeAll(pageIds),
+      // Everything derived from a page that was just permanently deleted goes with it, in one place for every
+      // delete path (single note, folder subtree, Empty trash, auto-cleanup). See handlePagesPermanentlyDeleted.
+      (pageIds) => this.handlePagesPermanentlyDeleted(pageIds),
       // PageOperations.rewriteReferences() — same forward-reference-via-`this` shape as the two closures
       // above, for the same construction-order reason: a folder move/rename's page-content rewrite is a
       // page write, and every page write goes through PageOperations, never through FolderOperations
       // touching a page's body directly.
-      (referencingPageIds, mapping) => this.pageOperations.rewriteReferences(referencingPageIds, mapping)
+      (referencingPageIds, mapping) => this.pageOperations.rewriteReferences(referencingPageIds, mapping),
+      // Folders removed by a recursive delete: their parsed `.folder.md` entries leave the cache too.
+      (folderIds) => this.handleFoldersPermanentlyDeleted(folderIds)
     );
     this.folderOperations.assetMoveFeedback = relayAssetMoveFeedback;
     this.pageOperations = new PageOperations(
@@ -849,7 +890,7 @@ export class Application {
       normalizeMarkdownForSave,
       (path) => this.fileSystem.readFile(path),
       // Same hook as FolderOperations' above, for a single page.
-      (pageIds) => this.preferredTemplatesStore.removeAll(pageIds)
+      (pageIds) => this.handlePagesPermanentlyDeleted(pageIds)
     );
     this.navigation = new NavigationRouter(
       this.folderOperations,
@@ -938,7 +979,16 @@ export class Application {
       frontmatterSerializer,
       new UuidGenerator(),
       this.tagMetadataStore,
-      inFlightPaths
+      inFlightPaths,
+      // A resource that vanished outside the app takes its archive record with it, if it had one: the store drops it
+      // only on a positive confirmation (a failure to confirm keeps it), and never touches a file.
+      (path) => {
+        void this.resourceArchiveStore
+          .removeRecordsOfMissingFiles((archivedPath) => confirmFileMissing(this.fileSystem, archivedPath), [path])
+          .catch((error: unknown) => {
+            console.warn(`Sync: could not update the archive record for ${path}`, error);
+          });
+      }
     );
 
     this.pageOperations.setExternalReconciler((absolutePath) => this.vaultSyncService.reconcileKnownPath(absolutePath));
@@ -1874,6 +1924,71 @@ export class Application {
     return this.coverImageUrlResolver.toLoadableUrl(path);
   }
 
+  private readonly permanentDeleteListeners = new Set<(pageIds: readonly string[]) => void>();
+
+  /**
+   * Observes pages that were just permanently deleted, for state that lives above the core (the editor's in-memory
+   * session cache). Called once per deleted page set, only after the delete succeeded. Returns the unsubscribe.
+   */
+  public subscribePagesPermanentlyDeleted(listener: (pageIds: readonly string[]) => void): () => void {
+    this.permanentDeleteListeners.add(listener);
+
+    return () => {
+      this.permanentDeleteListeners.delete(listener);
+    };
+  }
+
+  /**
+   * The one place that drops everything derived from pages that were just permanently deleted. `PageOperations` and
+   * `FolderOperations` call it only after the Gate reported the delete as done (never for an abandoned or failed
+   * one), once per delete, with exactly the pages that went. Each store ignores an id it never held, and none of
+   * this touches a file the user owns.
+   */
+  private handlePagesPermanentlyDeleted(pageIds: readonly string[]): void {
+    if (pageIds.length === 0) return;
+
+    // A permanently deleted template's preference goes with it.
+    this.preferredTemplatesStore.removeAll(pageIds);
+    // Title and description edit state of pages deleted along with a folder (a single note's own is already gone).
+    this.pageOperations.releaseDeletedPageState(pageIds);
+    for (const pageId of pageIds) {
+      // ADR-033: the durable per-note fold state; ADR-052: the note's saved References display preferences.
+      this.foldStateStore.clear(pageId);
+      this.referencesDisplayStore.clear(pageId);
+    }
+    // The parsed-note cache's entries for these notes (ADR-053). A note that shared an entry with another keeps it only
+    // while that other note still holds the text it was scanned with. Best effort and never a reason to fail a delete.
+    void this.parsedNoteCache.forget(pageIds, this.isCachedSourceUnchanged).catch(() => {});
+    for (const listener of [...this.permanentDeleteListeners]) {
+      listener(pageIds);
+    }
+  }
+
+  /**
+   * Drops the parsed-note cache entries of folders that were just permanently deleted (their `.folder.md`). Called by
+   * `FolderOperations` only after the Gate reported the delete as done. Best effort, never a reason to fail a delete.
+   */
+  private handleFoldersPermanentlyDeleted(folderIds: readonly string[]): void {
+    if (folderIds.length === 0) return;
+
+    void this.parsedNoteCache.forgetFolders(folderIds, this.isCachedSourceUnchanged).catch(() => {});
+  }
+
+  /**
+   * Whether another holder of a shared cache entry still has the text it was scanned with. A note by its fingerprint;
+   * a folder (`.folder.md` has no fingerprint) only by still existing, which is the conservative answer.
+   */
+  private readonly isCachedSourceUnchanged = (id: string, fingerprint: string | undefined): boolean => {
+    const folderId = folderIdOfCacheId(id);
+    if (folderId !== undefined) return this.vault.getFolder(folderId) !== undefined;
+
+    const remaining = this.vault.getPage(id);
+    return (
+      remaining !== undefined &&
+      (fingerprint === undefined || remaining.sourceFingerprint === undefined || remaining.sourceFingerprint === fingerprint)
+    );
+  };
+
   /**
    * Tears down the runtime graph this composition root created.
    *
@@ -1902,6 +2017,15 @@ export class Application {
    * competes with window reveal, usability, the Gate or shutdown. Best effort:
    * never throws, never touches the Vault or any Markdown file.
    */
+  /** Loads the archive records into the in-memory copy references resolve against. Never throws. */
+  public async loadArchivedResourceOrigins(): Promise<void> {
+    try {
+      await this.resourceArchiveStore.read();
+    } catch (error) {
+      console.warn('Could not read the archive records; references to archived files stay unresolved', error);
+    }
+  }
+
   public async persistParsedNoteCache(): Promise<void> {
     // Not while being prepared for a folder rename, nor once sealed: the cache is keyed by this Space's path.
     if (this.closed || this.writeAdmission !== 'open') {

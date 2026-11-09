@@ -1,8 +1,12 @@
-//! Tauri commands for the experimental atomic writer (ADR-063, Stage 2a).
+//! Tauri commands for the atomic writer (ADR-063): the only saving system, plus the one command that initializes a Space.
 //!
-//! **Registered, but nothing in the application calls them.** The production writer is still the fs plugin's
-//! `writeTextFile`; no save goes through these commands. They exist so the Rust ↔ Tauri ↔ TypeScript boundary, and
-//! its scope enforcement, can be exercised before anything depends on it.
+//! # Space lifecycle
+//!
+//! A folder is eligible to become a Space; a Clutter-initialized folder is one that has a `.clutter` directory; an
+//! opened Space is a folder the user explicitly authorized (picked in the native dialog, or restored by the
+//! persisted-scope plugin). The order is always: authorize (runtime fs scope), then `initialize_space` (creates only
+//! `.clutter`, and reports whether it did), then normal atomic writes. The atomic commands themselves never create
+//! the marker: rule 2 below still refuses a root without it.
 //!
 //! # Trust boundary
 //!
@@ -18,9 +22,9 @@
 //!
 //! 1. the vault root must be absolute, exist, be a directory, and be inside the approved scope (so a forged root
 //!    such as `/` or another user's folder is refused);
-//! 2. the root must contain a real `.clutter` directory (a vault that has been opened by Clutter): this catches a
-//!    wrong or forged root *inside* the scope, it is an integrity check and not an additional authority: anything
-//!    that can write inside the scope can create a `.clutter` folder;
+//! 2. the root must contain a real `.clutter` directory (a vault that has been opened by Clutter, which is what
+//!    `initialize_space` makes): this catches a wrong or forged root *inside* the scope, it is an integrity check and
+//!    not an additional authority: anything that can write inside the scope can create a `.clutter` folder;
 //! 3. the target must be an absolute path inside the approved scope (the same test the plugin applies);
 //! 4. the target's canonical parent directory must lie inside the canonical vault root (done by the writer, with
 //!    symlinks resolved once): `..` and a symlinked folder that points elsewhere are refused.
@@ -642,6 +646,99 @@ pub async fn check_space_filesystem<R: Runtime>(
         .map_err(internal)?
 }
 
+/// What `initialize_space` found and did. Explicit so the caller can tell a folder it just made a Space from one that
+/// already was, and never has to infer it from a side effect.
+#[derive(Debug, Serialize, PartialEq, Eq)]
+#[serde(tag = "status", rename_all = "camelCase")]
+pub enum InitializeSpaceDto {
+    /// `.clutter` did not exist and this call created it (and nothing else).
+    Initialized,
+    /// `.clutter` was already a real directory. Nothing was created, written or changed.
+    Existing,
+}
+
+/// Makes an ordinary, user-authorized folder a Clutter Space by creating its `.clutter` directory, and nothing else.
+///
+/// This is the one place the marker `authorize()` requires is created. It is deliberately *not* a way around that
+/// check: `authorize()` is untouched and still refuses every atomic command on a root with no real `.clutter`. What
+/// this adds is an explicit step that runs first, under the same authority the writer relies on, so a folder is
+/// authorized (picked or restored into the runtime scope) and initialized before any atomic write is attempted.
+///
+/// Refused, with nothing created: a root that is not absolute, does not resolve, is not a directory, is outside the
+/// approved scope or is forbidden by it, and a `.clutter` that exists but is not a real directory (a file, or a
+/// symbolic link, even one to a directory: the writer's own marker check refuses it too). The directory is made
+/// non-recursively and exclusively, so it never creates the root, never follows a link, and never replaces anything.
+/// Idempotent and race-safe: if another creator wins, the result is `Existing`. If the marker cannot be confirmed as a
+/// real directory after it was made, it is removed again (it is empty, `remove_dir` cannot delete content) and the
+/// call fails, so a half-made Space is never reported as a Space.
+pub(crate) fn initialize_space_blocking(
+    scope: &dyn ScopeView,
+    vault_root: &str,
+) -> Result<InitializeSpaceDto, AtomicCommandError> {
+    if vault_root.is_empty() || !Path::new(vault_root).is_absolute() {
+        return Err(refuse("invalidVaultRoot", "the folder must be an absolute path"));
+    }
+    let root = std::fs::canonicalize(vault_root)
+        .map_err(|error| refuse("invalidVaultRoot", format!("the folder cannot be resolved: {error}")))?;
+    if !root.is_dir() {
+        return Err(refuse("invalidVaultRoot", "the folder is not a directory"));
+    }
+    if scope.forbids(&root) || !scope.allows(&root) {
+        return Err(refuse(
+            "outOfScope",
+            "the folder is not inside the approved filesystem scope",
+        ));
+    }
+
+    let marker = root.join(".clutter");
+    let is_real_directory = |path: &Path| matches!(std::fs::symlink_metadata(path), Ok(metadata) if metadata.is_dir());
+    match std::fs::symlink_metadata(&marker) {
+        Ok(metadata) if metadata.is_dir() => return Ok(InitializeSpaceDto::Existing),
+        Ok(_) => {
+            return Err(refuse(
+                "invalidVaultRoot",
+                "`.clutter` exists in this folder but is not a directory, so it cannot be used as a Space",
+            ))
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => {
+            return Err(refuse("invalidVaultRoot", format!("`.clutter` cannot be inspected: {error}")))
+        }
+    }
+
+    match std::fs::create_dir(&marker) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+            return if is_real_directory(&marker) {
+                Ok(InitializeSpaceDto::Existing)
+            } else {
+                Err(refuse("invalidVaultRoot", "`.clutter` appeared but is not a directory"))
+            };
+        }
+        Err(error) => {
+            return Err(refuse("invalidVaultRoot", format!("`.clutter` could not be created: {error}")))
+        }
+    }
+    if !is_real_directory(&marker) {
+        let _ = std::fs::remove_dir(&marker);
+        return Err(refuse("invalidVaultRoot", "`.clutter` could not be confirmed after it was created"));
+    }
+    Ok(InitializeSpaceDto::Initialized)
+}
+
+#[tauri::command]
+pub async fn initialize_space<R: Runtime>(
+    app: AppHandle<R>,
+    webview: Webview<R>,
+    path: String,
+) -> Result<InitializeSpaceDto, AtomicCommandError> {
+    require_authorized_caller(webview.label())?;
+    let scope = RuntimeScope(app.fs_scope());
+    tauri::async_runtime::spawn_blocking(move || initialize_space_blocking(&scope, &path))
+        .await
+        .map_err(internal)?
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1030,7 +1127,7 @@ mod tests {
     fn app_with_scope(allowed: &[&Path]) -> (MockApp, tauri::WebviewWindow<tauri::test::MockRuntime>) {
         let app = mock_builder()
             .plugin(tauri_plugin_fs::init())
-            .invoke_handler(tauri::generate_handler![atomic_write_file, atomic_inspect_write, atomic_confirm_durability])
+            .invoke_handler(tauri::generate_handler![atomic_write_file, atomic_inspect_write, atomic_confirm_durability, initialize_space])
             .build(mock_context(noop_assets()))
             .expect("the mock app builds");
         for directory in allowed {
@@ -1054,6 +1151,69 @@ mod tests {
             },
         )
         .map(|body| body.deserialize::<Value>().unwrap())
+    }
+
+    /// The whole lifecycle through the real command boundary (registered commands, IPC dispatch, the fs plugin's real
+    /// runtime scope, a real disk): ordinary folder, empty folder, reopen, two Spaces, and a restart.
+    #[test]
+    fn the_space_lifecycle_through_the_real_command_boundary() {
+        let world = World::new("ipc-lifecycle");
+        let ordinary = world.base.join("Ordinary");
+        let empty = world.base.join("Empty");
+        fs::create_dir_all(ordinary.join("Notes")).unwrap();
+        fs::create_dir_all(&empty).unwrap();
+        fs::write(ordinary.join("Notes/a.md"), "---\nstatus: archived\n---\nforeign").unwrap();
+        fs::write(ordinary.join("plain.txt"), "plain").unwrap();
+        let before = snapshot(&ordinary);
+
+        // Nothing is authorized yet: a folder nobody picked is refused, and nothing is created in it.
+        let (app, window) = app_with_scope(&[]);
+        let init = |window: &tauri::WebviewWindow<tauri::test::MockRuntime>, folder: &Path| {
+            invoke(window, "initialize_space", json!({ "path": folder }))
+        };
+        assert_eq!(init(&window, &ordinary).unwrap_err()["code"], "outOfScope");
+        assert!(!ordinary.join(".clutter").exists());
+
+        // Picking grants exactly that folder (what the dialog does). Then it initializes, once.
+        app.fs_scope().allow_directory(&ordinary, true).unwrap();
+        assert_eq!(init(&window, &ordinary).unwrap(), json!({ "status": "initialized" }));
+        let after = snapshot(&ordinary);
+        assert_eq!(after.len(), before.len() + 1);
+        assert!(before.iter().all(|entry| after.contains(entry)), "an existing file changed");
+        assert_eq!(fs::read_dir(ordinary.join(".clutter")).unwrap().count(), 0);
+
+        // The writer's own check now accepts it; a second open reports `existing` and changes nothing.
+        let note = ordinary.join("created.md");
+        let written = invoke(&window, "atomic_write_file", json!({ "request": {
+            "vaultRoot": ordinary, "path": note, "contents": "x", "intent": { "kind": "create" } } })).unwrap();
+        assert_eq!(written["status"], "committed", "{written}");
+        let reopened = snapshot(&ordinary);
+        assert_eq!(init(&window, &ordinary).unwrap(), json!({ "status": "existing" }));
+        assert_eq!(snapshot(&ordinary), reopened);
+
+        // An empty folder, and a second Space: each is initialized on its own, and a folder not picked stays refused.
+        app.fs_scope().allow_directory(&empty, true).unwrap();
+        assert_eq!(init(&window, &empty).unwrap(), json!({ "status": "initialized" }));
+        assert_eq!(fs::read_dir(&empty).unwrap().count(), 1);
+        assert_eq!(init(&window, &world.outside).unwrap_err()["code"], "outOfScope");
+        assert!(!world.outside.join(".clutter").exists());
+        assert_eq!(init(&window, &ordinary).unwrap(), json!({ "status": "existing" }));
+
+        // Another window may not call it.
+        let other = tauri::WebviewWindowBuilder::new(&app, "other", Default::default()).build().unwrap();
+        assert!(init(&other, &empty).is_err());
+
+        // A restart: a new process has an empty runtime scope until the saved grants are restored; both Spaces are
+        // then reused as they were.
+        drop(window);
+        drop(app);
+        let (restarted, window) = app_with_scope(&[]);
+        assert_eq!(init(&window, &ordinary).unwrap_err()["code"], "outOfScope");
+        restarted.fs_scope().allow_directory(&ordinary, true).unwrap();
+        restarted.fs_scope().allow_directory(&empty, true).unwrap();
+        assert_eq!(init(&window, &ordinary).unwrap(), json!({ "status": "existing" }));
+        assert_eq!(init(&window, &empty).unwrap(), json!({ "status": "existing" }));
+        assert_eq!(snapshot(&ordinary), reopened);
     }
 
     #[test]
@@ -1522,6 +1682,168 @@ mod tests {
         let outcome = write_blocking(&scope, &write_request(&bare, &note, "x", IntentArg::Create));
         assert_eq!(code(outcome), "invalidVaultRoot");
         assert!(!note.exists());
+    }
+
+    // ---- initialize_space ------------------------------------------------------------------------------
+
+    /// Every entry under `root` (relative path, kind, size, modified time, and the bytes of a file), sorted.
+    fn snapshot(root: &Path) -> Vec<(String, String)> {
+        fn walk(root: &Path, dir: &Path, out: &mut Vec<(String, String)>) {
+            let mut entries: Vec<_> = fs::read_dir(dir).unwrap().map(|e| e.unwrap().path()).collect();
+            entries.sort();
+            for path in entries {
+                let meta = fs::symlink_metadata(&path).unwrap();
+                let relative = path.strip_prefix(root).unwrap().display().to_string();
+                let modified = meta.modified().unwrap().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+                if meta.is_dir() {
+                    out.push((relative, format!("dir {modified}")));
+                    walk(root, &path, out);
+                } else if meta.file_type().is_symlink() {
+                    out.push((relative, format!("link {:?}", fs::read_link(&path).unwrap())));
+                } else {
+                    out.push((relative, format!("file {} {modified} {:?}", meta.len(), fs::read(&path).unwrap())));
+                }
+            }
+        }
+        let mut out = Vec::new();
+        walk(root, root, &mut out);
+        out
+    }
+
+    fn initialize(scope: &dyn ScopeView, path: &Path) -> Result<InitializeSpaceDto, AtomicCommandError> {
+        initialize_space_blocking(scope, &path.display().to_string())
+    }
+
+    #[test]
+    fn first_time_initialization_changes_nothing_but_creating_dot_clutter() {
+        let world = World::new("init-nothing-else");
+        let folder = world.base.join("Existing");
+        fs::create_dir_all(folder.join("Nested/Deeper")).unwrap();
+        fs::create_dir_all(folder.join("Archive")).unwrap();
+        fs::write(folder.join("note.md"), "---\nstatus: archived\n---\nforeign note").unwrap();
+        fs::write(folder.join("Nested/Deeper/data.bin"), [0u8, 159, 146, 150]).unwrap();
+        fs::write(folder.join(".hidden"), "hidden").unwrap();
+        fs::write(folder.join("Archive/old.md"), "old").unwrap();
+        symlink(folder.join("note.md"), folder.join("link.md")).unwrap();
+        let (app, scope) = fresh_scope();
+        app.fs_scope().allow_directory(&folder, true).unwrap();
+
+        let before = snapshot(&folder);
+        assert_eq!(initialize(&scope, &folder).unwrap(), InitializeSpaceDto::Initialized);
+
+        let after = snapshot(&folder);
+        // The only difference is the new, empty `.clutter` directory.
+        let added: Vec<_> = after.iter().filter(|entry| !before.contains(entry)).collect();
+        assert_eq!(added.len(), 1, "{added:?}");
+        assert_eq!(added[0].0, ".clutter");
+        assert_eq!(after.len(), before.len() + 1);
+        for entry in &before {
+            assert!(after.contains(entry), "{entry:?} changed");
+        }
+        assert_eq!(fs::read_dir(folder.join(".clutter")).unwrap().count(), 0);
+    }
+
+    #[test]
+    fn initializing_an_empty_folder_creates_only_dot_clutter() {
+        let world = World::new("init-empty");
+        let folder = world.base.join("Empty");
+        fs::create_dir_all(&folder).unwrap();
+        let (app, scope) = fresh_scope();
+        app.fs_scope().allow_directory(&folder, true).unwrap();
+
+        assert_eq!(initialize(&scope, &folder).unwrap(), InitializeSpaceDto::Initialized);
+        let names: Vec<_> = fs::read_dir(&folder).unwrap().map(|e| e.unwrap().file_name()).collect();
+        assert_eq!(names, vec![std::ffi::OsString::from(".clutter")]);
+    }
+
+    #[test]
+    fn initialization_is_idempotent_and_keeps_every_existing_clutter_file() {
+        let world = World::new("init-idempotent");
+        let folder = world.base.join("Reopened");
+        fs::create_dir_all(folder.join(".clutter/nested")).unwrap();
+        fs::write(folder.join(".clutter/workspace.json"), "{\"space\":{\"id\":\"abc\"}}").unwrap();
+        fs::write(folder.join(".clutter/tags.json"), "{}").unwrap();
+        fs::write(folder.join(".clutter/nested/x"), "x").unwrap();
+        let (app, scope) = fresh_scope();
+        app.fs_scope().allow_directory(&folder, true).unwrap();
+
+        let before = snapshot(&folder);
+        assert_eq!(initialize(&scope, &folder).unwrap(), InitializeSpaceDto::Existing);
+        assert_eq!(initialize(&scope, &folder).unwrap(), InitializeSpaceDto::Existing);
+        assert_eq!(snapshot(&folder), before);
+
+        // A fresh folder initializes once, then reports itself as existing.
+        let fresh = world.base.join("Fresh");
+        fs::create_dir_all(&fresh).unwrap();
+        app.fs_scope().allow_directory(&fresh, true).unwrap();
+        assert_eq!(initialize(&scope, &fresh).unwrap(), InitializeSpaceDto::Initialized);
+        assert_eq!(initialize(&scope, &fresh).unwrap(), InitializeSpaceDto::Existing);
+    }
+
+    #[test]
+    fn an_initialized_folder_is_then_accepted_by_the_unchanged_writer_check() {
+        let world = World::new("init-then-write");
+        let folder = world.base.join("Ordinary");
+        fs::create_dir_all(&folder).unwrap();
+        let (app, scope) = fresh_scope();
+        app.fs_scope().allow_directory(&folder, true).unwrap();
+        let note = folder.join("note.md");
+
+        assert_eq!(code(write_blocking(&scope, &write_request(&folder, &note, "x", IntentArg::Create))), "invalidVaultRoot");
+        initialize(&scope, &folder).unwrap();
+        write_blocking(&scope, &write_request(&folder, &note, "x", IntentArg::Create)).unwrap();
+        assert_eq!(fs::read_to_string(&note).unwrap(), "x");
+    }
+
+    #[test]
+    fn initialization_refuses_unsafe_roots_and_creates_nothing() {
+        let world = World::new("init-refusals");
+        let (app, scope) = fresh_scope();
+
+        // Outside the approved scope.
+        let ungranted = world.base.join("Ungranted");
+        fs::create_dir_all(&ungranted).unwrap();
+        assert_eq!(code(initialize(&scope, &ungranted)), "outOfScope");
+        assert!(!ungranted.join(".clutter").exists());
+
+        // Relative, empty, missing, and a file.
+        assert_eq!(code(initialize_space_blocking(&scope, "relative/path")), "invalidVaultRoot");
+        assert_eq!(code(initialize_space_blocking(&scope, "")), "invalidVaultRoot");
+        let missing = world.base.join("Missing");
+        app.fs_scope().allow_directory(&world.base, true).unwrap();
+        assert_eq!(code(initialize(&scope, &missing)), "invalidVaultRoot");
+        assert!(!missing.exists(), "initialization must never create the folder itself");
+        let file = world.base.join("file.txt");
+        fs::write(&file, "x").unwrap();
+        assert_eq!(code(initialize(&scope, &file)), "invalidVaultRoot");
+
+        // `.clutter` as a file, and as a symlink to a directory elsewhere: both refused and left as they were.
+        let marker_file = world.base.join("MarkerFile");
+        fs::create_dir_all(&marker_file).unwrap();
+        fs::write(marker_file.join(".clutter"), "not a directory").unwrap();
+        let marker_link = world.base.join("MarkerLink");
+        fs::create_dir_all(&marker_link).unwrap();
+        symlink(&world.outside, marker_link.join(".clutter")).unwrap();
+        for folder in [&marker_file, &marker_link] {
+            let before = snapshot(folder);
+            assert_eq!(code(initialize(&scope, folder)), "invalidVaultRoot");
+            assert_eq!(snapshot(folder), before);
+        }
+        assert_eq!(fs::read_dir(&world.outside).unwrap().count(), 1, "nothing was created through the link");
+    }
+
+    #[test]
+    fn a_root_reached_through_a_symlink_initializes_the_resolved_folder_only_when_it_is_in_scope() {
+        let world = World::new("init-root-link");
+        let real = world.base.join("Real");
+        fs::create_dir_all(&real).unwrap();
+        let link = world.base.join("Link");
+        symlink(&world.outside, &link).unwrap();
+        let (app, scope) = fresh_scope();
+        // Only `Real` is granted: a link to `outside` resolves outside it.
+        app.fs_scope().allow_directory(&real, true).unwrap();
+        assert_eq!(code(initialize(&scope, &link)), "outOfScope");
+        assert!(!world.outside.join(".clutter").exists());
     }
 }
 

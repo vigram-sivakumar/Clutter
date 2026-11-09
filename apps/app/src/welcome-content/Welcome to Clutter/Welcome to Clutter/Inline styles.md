@@ -19,6 +19,6 @@ Wrap a word in a few symbols and Clutter styles it as you type. The symbols hide
 - Wrap texts with `backticks` for Inline code
 **Tip:** select some text first and the shortcut wraps it for you #Tip
 
->One exception: whatever sits inside `**backticks**` stays exactly as you typed it. Handy when you want the symbols to show
+" One exception: whatever sits inside `**backticks**` stays exactly as you typed it. Handy when you want the symbols to show
 .--- That’s it ---.
 ↪ Next up, [[Welcome to Clutter/Lists]] 
