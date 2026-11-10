@@ -8,7 +8,7 @@
   padding: 0;
 }
 .space-page__error {
-  color: var(--danger-foreground-on-surface);
+  color: var(--danger-foreground);
   font-size: var(--text-label-small);
   line-height: var(--lh-label-small);
   letter-spacing: var(--ls-label-small);

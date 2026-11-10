@@ -23,6 +23,7 @@ import { probeSpaceFolder } from '../core/vault/providers/probeSpaceFolder';
 import {
   checkSpaceFilesystem,
   createSpaceFolder,
+  ensureRenameParentAccess,
   renameSpaceFolder,
   isReachedThroughLink,
   isTooBroadForSpace,
@@ -70,7 +71,7 @@ import { forgetRemovedSpaceAccess } from './spaces/forgetRemovedSpaceAccess';
 import { openVaultFileSystem } from '../core/vault/providers/openVaultFileSystem';
 import { migrateRenamedRootState } from '../core/application/space/migrateRenamedRootState';
 import { readSpaceIdFrom } from './spaces/readSpaceId';
-import { renameActiveSpaceFolder, type RenameOutcome } from './spaces/renameActiveSpace';
+import { describeRenameRefusal, renameActiveSpaceFolder, type RenameOutcome } from './spaces/renameActiveSpace';
 import { renameInactiveSpaceFolder, type InactiveRenameOutcome } from './spaces/renameInactiveSpace';
 import { changeInactiveSpaceAvatar, describeInactiveAvatarRefusal } from './spaces/changeInactiveSpaceAvatar';
 import {
@@ -930,6 +931,9 @@ function AppShellContent() {
     path: string,
     name: string
   ): Promise<CreateFolderResult> {
+    if ((await ensureRenameParentAccess(path)) === 'cancelled') {
+      return { error: describeRenameRefusal('cancelled') };
+    }
     const renamed = await renameSpaceFolder(path, name);
     if ('error' in renamed) return renamed;
     const from = normalizeSpacePath(path);
@@ -1091,6 +1095,7 @@ function AppShellContent() {
           abandonRename: spaces.abandonRename,
           hasPendingRename: () => spaces.registry.pendingRename !== undefined,
         },
+        ensureRenameParentAccess,
         renameFolder: renameSpaceFolder,
         readSpaceId: (path) => readSpaceIdFrom(openVaultFileSystem(path), path),
         destinationExists: async (path) => (await probeSpaceFolder(path, { requireAccess: false })) === 'available',
@@ -1138,7 +1143,8 @@ function AppShellContent() {
           readSpaceId: (candidate) => readSpaceIdFrom(openVaultFileSystem(candidate), candidate),
           destinationExists: async (candidate) =>
             (await probeSpaceFolder(candidate, { requireAccess: false })) === 'available',
-          renameFolder: renameSpaceFolder,
+          ensureRenameParentAccess,
+        renameFolder: renameSpaceFolder,
           migrateState: (oldRoot, newRoot) =>
             migrateRenamedRootState(openVaultFileSystem(newRoot), oldRoot, newRoot),
           renameEntry: (from, to) => {

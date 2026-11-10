@@ -228,6 +228,8 @@ pub fn run() {
             space_folder::create_space_folder,
             space_folder::ensure_space_access,
             space_folder::rename_space_folder,
+            space_access::check_rename_parent_access,
+            space_access::request_rename_parent_access,
             vault_asset_scope::allow_vault_asset_scope,
             vault_watcher::start_vault_watcher,
             vault_watcher::stop_vault_watcher,

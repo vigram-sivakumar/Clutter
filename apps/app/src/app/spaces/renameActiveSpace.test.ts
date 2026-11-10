@@ -80,12 +80,26 @@ function setup(overrides: Overrides = {}) {
     }),
     reopenActive: vi.fn(() => void note('reopen')),
     recoverFromLost: vi.fn((path: string) => void note(`recover ${path}`)),
+    ensureRenameParentAccess: vi.fn(async () => {
+      note('parent-access');
+      return 'notNeeded' as const;
+    }),
   };
 
   return { deps, application, log, guard, guardSeen };
 }
 
 describe('renameActiveSpaceFolder', () => {
+  it('refuses when parent authorization is cancelled, before anything is closed', async () => {
+    const { deps, log, application } = setup();
+    deps.ensureRenameParentAccess = vi.fn(async (): Promise<'cancelled'> => 'cancelled');
+    const outcome = await renameActiveSpaceFolder(deps, 'Journal');
+    expect(outcome).toEqual({ status: 'refused', reason: 'cancelled' });
+    expect(log).not.toContain('begin');
+    expect(log).not.toContain('quiesce');
+    expect(application.quiesceForRename).not.toHaveBeenCalled();
+  });
+
   it('runs the whole sequence in order, holding the guard until it is done, and ends on the new path', async () => {
     const { deps, log, guard, guardSeen } = setup();
 
@@ -95,6 +109,7 @@ describe('renameActiveSpaceFolder', () => {
     expect(log).toEqual([
       `exists ${TO}`, // a taken name is refused now, while the Space is still open
       `read ${FROM}`, // the id is confirmed to be saved in the folder
+      'parent-access',
       'begin', // the pending record is written before anything changes
       'quiesce',
       'close',

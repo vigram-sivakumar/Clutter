@@ -34,6 +34,8 @@ const APP_COMMANDS: &[&str] = &[
     "create_space_folder",
     "ensure_space_access",
     "rename_space_folder",
+    "check_rename_parent_access",
+    "request_rename_parent_access",
     "allow_vault_asset_scope",
     "start_vault_watcher",
     "stop_vault_watcher",

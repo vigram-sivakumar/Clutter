@@ -93,6 +93,7 @@ function setup(options: {
       abandonRename: () => view.result.current.abandonRename(),
       hasPendingRename: () => view.result.current.registry.pendingRename !== undefined,
     },
+    ensureRenameParentAccess: async () => 'notNeeded',
     renameFolder: async (path, name) => {
       const to = `/s/${name.trim()}`;
       try {

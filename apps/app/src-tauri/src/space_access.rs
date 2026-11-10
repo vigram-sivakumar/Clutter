@@ -17,6 +17,11 @@
 //!   for the Documents folder through a picker opened on Documents.
 //!
 //! One owner: this module is the only code that makes, stores, resolves or releases a bookmark.
+//!
+//! **Parent-directory bookmarks** (`parentForRename`) exist only for macOS sandbox operations that must write the
+//! Space's parent (today: renaming the Space folder). They widen **OS** access only: they never call Tauri
+//! `fs_scope.allow_directory` on the parent, so native commands that still check the Space runtime scope cannot reach
+//! unrelated siblings; see `fs_authorization` and `vault_entries`.
 
 use std::any::Any;
 use std::collections::{BTreeMap, BTreeSet};
@@ -28,7 +33,38 @@ use serde::Serialize;
 use sha2::Digest;
 
 const STORE_FILE: &str = "space-access.json";
-const STORE_VERSION: u64 = 1;
+const STORE_VERSION: u64 = 2;
+
+/// What a saved bookmark is for. Tauri fs scope is granted only for [`BookmarkRole::Space`]; rename needs
+/// [`BookmarkRole::ParentForRename`] at the OS layer only.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BookmarkRole {
+    Space,
+    ParentForRename,
+}
+
+impl BookmarkRole {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Space => "space",
+            Self::ParentForRename => "parentForRename",
+        }
+    }
+
+    fn parse(text: &str) -> Option<Self> {
+        match text {
+            "space" => Some(Self::Space),
+            "parentForRename" => Some(Self::ParentForRename),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct SavedEntry {
+    bookmark: Vec<u8>,
+    role: BookmarkRole,
+}
 
 /// Whether this process runs in the App Sandbox: the system sets `APP_SANDBOX_CONTAINER_ID` for sandboxed processes
 /// only.
@@ -121,7 +157,7 @@ pub struct RestoredAccess {
 struct State {
     /// Saved bookmarks by folder path. Entries that failed to restore are **kept**, so the user is asked again
     /// rather than the folder being forgotten.
-    saved: BTreeMap<String, Vec<u8>>,
+    saved: BTreeMap<String, SavedEntry>,
     /// Folders whose access is active in this run (restored, or authorized by the user in this run).
     active: BTreeSet<String>,
     /// Access started from a saved bookmark; released when the process ends.
@@ -152,6 +188,48 @@ fn from_hex(text: &str) -> Option<Vec<u8>> {
         .collect()
 }
 
+fn parse_store_entries(value: &serde_json::Value) -> Option<BTreeMap<String, SavedEntry>> {
+    let version = value["version"].as_u64()?;
+    let entries = value["entries"].as_object()?;
+    if version == 1 {
+        return Some(
+            entries
+                .iter()
+                .filter_map(|(path, data)| {
+                    Some((
+                        path.clone(),
+                        SavedEntry {
+                            bookmark: from_hex(data.as_str()?)?,
+                            role: BookmarkRole::Space,
+                        },
+                    ))
+                })
+                .collect(),
+        );
+    }
+    if version != STORE_VERSION {
+        return None;
+    }
+    Some(
+        entries
+            .iter()
+            .filter_map(|(path, data)| {
+                let bookmark = from_hex(data["bookmark"].as_str()?)?;
+                let role = BookmarkRole::parse(data["role"].as_str().unwrap_or("space"))?;
+                Some((path.clone(), SavedEntry { bookmark, role }))
+            })
+            .collect(),
+    )
+}
+
+fn directory_key(path: &Path) -> String {
+    key(&fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf()))
+}
+
+fn covers_path(candidate: &str, authorized: &str) -> bool {
+    candidate == authorized || candidate.starts_with(&format!("{authorized}/"))
+}
+
 impl SpaceAccess {
     /// Opens the registry saved in `directory` (the app data folder). A missing or unreadable file is an empty
     /// registry; it is never overwritten until something is saved.
@@ -160,25 +238,25 @@ impl SpaceAccess {
         let saved = fs::read_to_string(&store)
             .ok()
             .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
-            .and_then(|value| {
-                if value["version"].as_u64() != Some(STORE_VERSION) {
-                    return None;
-                }
-                let entries = value["entries"].as_object()?;
-                Some(
-                    entries
-                        .iter()
-                        .filter_map(|(path, data)| Some((path.clone(), from_hex(data.as_str()?)?)))
-                        .collect::<BTreeMap<_, _>>(),
-                )
-            })
+            .as_ref()
+            .and_then(parse_store_entries)
             .unwrap_or_default();
         SpaceAccess { store, os, state: Mutex::new(State { saved, ..State::default() }) }
     }
 
-    fn persist(&self, saved: &BTreeMap<String, Vec<u8>>) -> Result<(), String> {
-        let entries: serde_json::Map<String, serde_json::Value> =
-            saved.iter().map(|(path, data)| (path.clone(), serde_json::Value::String(to_hex(data)))).collect();
+    fn persist(&self, saved: &BTreeMap<String, SavedEntry>) -> Result<(), String> {
+        let entries: serde_json::Map<String, serde_json::Value> = saved
+            .iter()
+            .map(|(path, entry)| {
+                (
+                    path.clone(),
+                    serde_json::json!({
+                        "bookmark": to_hex(&entry.bookmark),
+                        "role": entry.role.as_str(),
+                    }),
+                )
+            })
+            .collect();
         let text = serde_json::json!({ "version": STORE_VERSION, "entries": entries }).to_string();
         if let Some(parent) = self.store.parent() {
             fs::create_dir_all(parent).map_err(|error| error.to_string())?;
@@ -196,13 +274,13 @@ impl SpaceAccess {
         let mut changed = false;
         let paths: Vec<String> = state.saved.keys().cloned().collect();
         for path in paths {
-            let data = state.saved[&path].clone();
-            match self.os.resolve(&data) {
+            let entry = state.saved[&path].clone();
+            match self.os.resolve(&entry.bookmark) {
                 Ok(resolved) if key(&resolved.path) == path => {
                     let mut status = RestoreStatus::Restored;
                     if resolved.stale {
                         if let Ok(fresh) = self.os.create(&resolved.path) {
-                            state.saved.insert(path.clone(), fresh);
+                            state.saved.insert(path.clone(), SavedEntry { bookmark: fresh, role: entry.role });
                             changed = true;
                             status = RestoreStatus::Refreshed;
                         }
@@ -224,11 +302,38 @@ impl SpaceAccess {
 
     /// Saves a bookmark for a folder the user has just authorized (a picker result), and counts it as active.
     pub fn remember(&self, path: &Path) -> Result<(), String> {
+        self.remember_with_role(path, BookmarkRole::Space)
+    }
+
+    /// Saves OS-level access to a Space's parent directory for renaming, without widening Tauri fs scope.
+    pub fn remember_parent_for_rename(&self, path: &Path) -> Result<(), String> {
+        self.remember_with_role(path, BookmarkRole::ParentForRename)
+    }
+
+    fn remember_with_role(&self, path: &Path, role: BookmarkRole) -> Result<(), String> {
         let data = self.os.create(path)?;
+        let path_key = key(path);
         let mut state = self.state.lock().unwrap();
-        state.saved.insert(key(path), data);
-        state.active.insert(key(path));
+        state.saved.insert(path_key.clone(), SavedEntry { bookmark: data, role });
+        state.active.insert(path_key);
         self.persist(&state.saved)
+    }
+
+    /// Whether a restored or remembered path should receive Tauri's runtime fs scope (not macOS rename parent access).
+    pub fn grants_tauri_scope(&self, path: &Path) -> bool {
+        self.state
+            .lock()
+            .unwrap()
+            .saved
+            .get(&key(path))
+            .is_some_and(|entry| entry.role == BookmarkRole::Space)
+    }
+
+    /// Whether the process has active security-scoped access covering `directory` (exactly or as an ancestor).
+    pub fn covers_directory_for_os(&self, directory: &Path) -> bool {
+        let directory_key = directory_key(directory);
+        let state = self.state.lock().unwrap();
+        state.active.iter().any(|authorized| covers_path(directory_key.as_str(), authorized))
     }
 
     /// Whether access to `path` is active in this run.
@@ -256,9 +361,10 @@ impl SpaceAccess {
             return Ok(false);
         }
         let data = self.os.create(new)?;
+        let role = state.saved.get(&key(old)).map(|entry| entry.role).unwrap_or(BookmarkRole::Space);
         let previous = state.saved.clone();
         state.saved.remove(&key(old));
-        state.saved.insert(key(new), data);
+        state.saved.insert(key(new), SavedEntry { bookmark: data, role });
         if let Err(error) = self.persist(&state.saved) {
             state.saved = previous;
             return Err(error);
@@ -553,7 +659,10 @@ pub async fn restore_space_access(app: AppHandle) -> Result<Vec<RestoredAccess>,
         let report = access.restore();
         for entry in &report {
             if entry.status != RestoreStatus::NeedsReselect {
-                allow(&handle, Path::new(&entry.path));
+                let folder = Path::new(&entry.path);
+                if access.grants_tauri_scope(folder) {
+                    allow(&handle, folder);
+                }
             }
         }
         report
@@ -602,6 +711,104 @@ pub async fn forget_space_access(app: AppHandle, path: String) -> Result<(), Str
     })
     .await
     .map_err(|error| error.to_string())?
+}
+
+/// The directory that must be writable to rename a Space folder in place.
+pub(crate) fn rename_parent_directory(space: &Path) -> Result<PathBuf, String> {
+    space
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .map(|parent| parent.to_path_buf())
+        .ok_or_else(|| "That folder can't be renamed".into())
+}
+
+fn same_directory(a: &Path, b: &Path) -> bool {
+    match (fs::canonicalize(a), fs::canonicalize(b)) {
+        (Ok(left), Ok(right)) => left == right,
+        _ => key(a) == key(b),
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RenameParentAccessCheck {
+    pub status: &'static str,
+    pub parent: Option<String>,
+}
+
+/// Whether macOS security-scoped access already covers the Space's parent directory for renaming.
+#[tauri::command]
+pub fn check_rename_parent_access(app: AppHandle, path: String) -> Result<RenameParentAccessCheck, String> {
+    let space = PathBuf::from(path);
+    let parent = rename_parent_directory(&space)?;
+    let parent_display = parent.to_string_lossy().into_owned();
+    if !is_sandboxed() {
+        return Ok(RenameParentAccessCheck { status: "notSandboxed", parent: Some(parent_display) });
+    }
+    let state = app.state::<SpaceAccessState>();
+    let Some(access) = state.0.as_ref() else {
+        return Ok(RenameParentAccessCheck { status: "needed", parent: Some(parent_display) });
+    };
+    if access.covers_directory_for_os(&parent) {
+        Ok(RenameParentAccessCheck {
+            status: "granted",
+            parent: Some(parent_display),
+        })
+    } else {
+        Ok(RenameParentAccessCheck {
+            status: "needed",
+            parent: Some(parent_display),
+        })
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RenameParentAccessRequest {
+    pub status: &'static str,
+    pub parent: Option<String>,
+}
+
+/// Asks the user to authorize the Space's parent directory. Widens **OS** access only, not Tauri fs scope.
+#[tauri::command]
+pub async fn request_rename_parent_access(app: AppHandle, path: String) -> Result<RenameParentAccessRequest, String> {
+    let space = PathBuf::from(path);
+    let parent = rename_parent_directory(&space)?;
+    let parent_display = parent.to_string_lossy().into_owned();
+    if !is_sandboxed() {
+        return Ok(RenameParentAccessRequest {
+            status: "alreadyGranted",
+            parent: Some(parent_display),
+        });
+    }
+    let state = app.state::<SpaceAccessState>();
+    let access = state.0.as_ref().ok_or_else(|| "access is not available".to_string())?;
+    if access.covers_directory_for_os(&parent) {
+        return Ok(RenameParentAccessRequest {
+            status: "alreadyGranted",
+            parent: Some(parent_display),
+        });
+    }
+    // Do not create a second saved entry when an ancestor already covers this parent (e.g. Documents).
+    let handle = app.clone();
+    let parent_for_panel = parent.clone();
+    let picked = tauri::async_runtime::spawn_blocking(move || pick_folder_for_parent_authorization(&handle, &parent_for_panel))
+        .await
+        .map_err(|error| error.to_string())?;
+    let Some(picked) = picked else {
+        return Ok(RenameParentAccessRequest {
+            status: "cancelled",
+            parent: Some(parent_display),
+        });
+    };
+    if !same_directory(&picked, &parent) {
+        return Err("Select the folder that contains this space".into());
+    }
+    access.remember_parent_for_rename(&parent)?;
+    Ok(RenameParentAccessRequest {
+        status: "granted",
+        parent: Some(parent_display),
+    })
 }
 
 /// `"notSandboxed"`, `"granted"` or `"needed"`: whether the user has authorized the Documents folder.
@@ -696,6 +903,56 @@ mod panel {
 /// run on the main thread, so it is run there and this thread waits for the answer. Choosing a folder in it is what
 /// makes the system grant the process access to that folder, exactly as with the plugin's panel; nothing else about the
 /// grant changes.
+/// Opens on `directory` so the user can authorize exactly that folder (for rename parent access). `None` on cancel.
+#[cfg(target_os = "macos")]
+fn pick_folder_for_parent_authorization(handle: &AppHandle, directory: &Path) -> Option<PathBuf> {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::{NSModalResponseOK, NSOpenPanel};
+    use objc2_foundation::{NSString, NSURL};
+
+    let (sender, receiver) = std::sync::mpsc::channel();
+    let directory = directory.to_path_buf();
+    let scheduled = handle.run_on_main_thread(move || {
+        let picked = MainThreadMarker::new().and_then(|main| {
+            let panel = NSOpenPanel::openPanel(main);
+            panel.setCanChooseFiles(false);
+            panel.setCanChooseDirectories(true);
+            panel.setAllowsMultipleSelection(false);
+            panel.setCanCreateDirectories(false);
+            panel.setPrompt(Some(&NSString::from_str("Allow")));
+            panel.setMessage(Some(&NSString::from_str(
+                "Clutter needs access to this folder to rename the space inside it.",
+            )));
+            panel.setDirectoryURL(Some(&NSURL::fileURLWithPath_isDirectory(
+                &NSString::from_str(&directory.to_string_lossy()),
+                true,
+            )));
+            if panel.runModal() != NSModalResponseOK {
+                return None;
+            }
+            panel
+                .URL()
+                .and_then(|url| url.path())
+                .map(|path| PathBuf::from(path.to_string()))
+        });
+        let _ = sender.send(picked);
+    });
+    if scheduled.is_err() {
+        return None;
+    }
+    receiver.recv().ok().flatten()
+}
+
+#[cfg(not(target_os = "macos"))]
+fn pick_folder_for_parent_authorization(handle: &AppHandle, directory: &Path) -> Option<PathBuf> {
+    handle
+        .dialog()
+        .file()
+        .set_directory(directory)
+        .blocking_pick_folder()
+        .and_then(|picked| picked.into_path().ok())
+}
+
 #[cfg(target_os = "macos")]
 fn pick_documents_folder(handle: &AppHandle, directory: &Path) -> Option<PathBuf> {
     use objc2::MainThreadMarker;
@@ -1164,5 +1421,37 @@ mod tests {
         assert_eq!(prompt_for(None, &documents), "Open", "nothing to choose yet");
 
         let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn a_parent_directory_is_covered_when_an_ancestor_bookmark_is_active() {
+        let dir = scratch("covers-ancestor");
+        let fake = Arc::new(Fake::default());
+        let access = registry(&dir, &fake);
+        access.remember(Path::new("/Users/me/Documents")).unwrap();
+        assert!(access.covers_directory_for_os(Path::new("/Users/me/Documents/Work")));
+        assert!(access.covers_directory_for_os(Path::new("/Users/me/Documents")));
+        assert!(!access.covers_directory_for_os(Path::new("/Users/me/Projects")));
+    }
+
+    #[test]
+    fn a_child_only_bookmark_does_not_cover_the_parent_for_rename() {
+        let dir = scratch("covers-child");
+        let fake = Arc::new(Fake::default());
+        let access = registry(&dir, &fake);
+        access.remember(Path::new("/Users/me/Documents/Notes")).unwrap();
+        assert!(!access.covers_directory_for_os(Path::new("/Users/me/Documents")));
+    }
+
+    #[test]
+    fn parent_for_rename_bookmarks_do_not_grant_tauri_scope() {
+        let dir = scratch("parent-role");
+        let fake = Arc::new(Fake::default());
+        let access = registry(&dir, &fake);
+        access.remember_parent_for_rename(Path::new("/Users/Shared")).unwrap();
+        assert!(access.covers_directory_for_os(Path::new("/Users/Shared")));
+        assert!(!access.grants_tauri_scope(Path::new("/Users/Shared")));
+        access.remember(Path::new("/Volumes/Work/Notes")).unwrap();
+        assert!(access.grants_tauri_scope(Path::new("/Volumes/Work/Notes")));
     }
 }

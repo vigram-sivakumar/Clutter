@@ -1,6 +1,7 @@
 import { isValidSpaceFolderName } from '@core/vault/ingest/spaceFolderName';
 import { VaultPath } from '@core/vault/ingest/VaultPath';
 import type { QuiesceResult } from '@core/application/Application';
+import type { EnsureRenameParentAccessResult } from '@core/vault/providers/spaceFolders';
 import { normalizeSpacePath } from './spaceRegistry';
 import type { SpaceIdReading } from './reconcilePendingRename';
 import type { SpaceLifecycleGuard } from './spaceLifecycleGuard';
@@ -25,6 +26,8 @@ export interface RenameDeps {
     abandonRename(): boolean;
     hasPendingRename(): boolean;
   };
+  /** macOS parent-directory authorization, before anything is closed. */
+  ensureRenameParentAccess(path: string): Promise<EnsureRenameParentAccessResult>;
   /** The existing Rust-backed rename: the folder, in place, never overwriting. */
   renameFolder(path: string, newName: string): Promise<{ path: string } | { error: string }>;
   readSpaceId(path: string): Promise<SpaceIdReading>;
@@ -147,6 +150,9 @@ export async function renameActiveSpaceFolder(deps: RenameDeps, newName: string)
     // A stable id, confirmed to be saved in the folder — not just held in memory — so it can be checked afterwards.
     const spaceId = application.spaceId;
     if (spaceId === null || (await deps.readSpaceId(origin)) !== spaceId) return refused('no-identity');
+
+    const parentAccess = await deps.ensureRenameParentAccess(origin);
+    if (parentAccess === 'cancelled') return refused('cancelled');
 
     if (!deps.registry.beginRename(to, spaceId)) return refused('registry-unwritable');
     recorded = true;

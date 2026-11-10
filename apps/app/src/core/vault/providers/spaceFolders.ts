@@ -84,6 +84,9 @@ function describeFolderFailure(
       ? `Clutter isn’t allowed to create folders in ${parentName}`
       : 'Clutter isn’t allowed to rename that folder';
   }
+  if (/renameParentAccessNeeded/i.test(message)) {
+    return 'Clutter still needs permission to rename this space';
+  }
   if (
     /Permission denied|Operation not permitted|\(os error 13\)|\(os error 1\)/i.test(
       message
@@ -329,6 +332,27 @@ export async function ensureSpaceAccess(path: string): Promise<void> {
   } catch (error) {
     console.error('Restoring access to the space folder failed:', error);
   }
+}
+
+export type EnsureRenameParentAccessResult = 'granted' | 'cancelled' | 'notNeeded';
+
+/**
+ * Inside the App Sandbox, renaming needs macOS security-scoped access to the Space's parent directory. That is
+ * separate from Tauri's fs scope: a parent bookmark widens OS authorization only, not the webview's filesystem
+ * permissions. This is the only user-facing parent-authorization prompt: opening, switching and note-taking never
+ * call it. Cancelling refuses the rename only and leaves the Space unchanged.
+ */
+export async function ensureRenameParentAccess(
+  path: string
+): Promise<EnsureRenameParentAccessResult> {
+  const check = await invoke<{ status: string }>('check_rename_parent_access', { path });
+  if (check.status === 'notSandboxed') return 'notNeeded';
+  if (check.status === 'granted') return 'granted';
+  const request = await invoke<{ status: string }>('request_rename_parent_access', { path });
+  if (request.status === 'cancelled') {
+    return 'cancelled';
+  }
+  return 'granted';
 }
 
 /**

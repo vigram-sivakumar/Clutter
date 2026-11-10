@@ -1,6 +1,7 @@
 import { isValidSpaceFolderName } from '@core/vault/ingest/spaceFolderName';
 import { VaultPath } from '@core/vault/ingest/VaultPath';
 import type { SpaceFolderStatus } from '@core/vault/providers/probeSpaceFolder';
+import type { EnsureRenameParentAccessResult } from '@core/vault/providers/spaceFolders';
 import type { RenameRefusal } from './renameActiveSpace';
 import type { SpaceIdReading } from './reconcilePendingRename';
 import { normalizeSpacePath } from './spaceRegistry';
@@ -16,6 +17,8 @@ export interface InactiveRenameDeps {
   readSpaceId(path: string): Promise<SpaceIdReading>;
   /** Advisory only, so a taken name is refused early; the Rust rename is authoritative. */
   destinationExists(path: string): Promise<boolean>;
+  /** macOS parent-directory authorization before the rename runs. */
+  ensureRenameParentAccess(path: string): Promise<EnsureRenameParentAccessResult>;
   /** The existing Rust-backed rename: in place, never overwriting, errors mapped to user wording. */
   renameFolder(path: string, newName: string): Promise<{ path: string } | { error: string }>;
   /** Carries saved state keyed by path-derived ids over to the renamed folder (idempotent). */
@@ -69,6 +72,9 @@ export async function renameInactiveSpaceFolder(
 
     const before = await deps.readSpaceId(from);
     if (before === 'unreadable') return refused('unavailable');
+
+    const parentAccess = await deps.ensureRenameParentAccess(from);
+    if (parentAccess === 'cancelled') return refused('cancelled');
 
     const renamed = await deps.renameFolder(from, newName);
     if ('error' in renamed) return { status: 'failed', message: renamed.error };

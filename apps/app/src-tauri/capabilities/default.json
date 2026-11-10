@@ -43,6 +43,8 @@
     "allow-create-space-folder",
     "allow-ensure-space-access",
     "allow-rename-space-folder",
+    "allow-check-rename-parent-access",
+    "allow-request-rename-parent-access",
     "allow-allow-vault-asset-scope",
     "allow-start-vault-watcher",
     "allow-stop-vault-watcher",

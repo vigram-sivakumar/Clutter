@@ -61,6 +61,10 @@ function setup(overrides: Overrides = {}) {
       note('entry');
       return overrides.renameEntry ?? true;
     }),
+    ensureRenameParentAccess: vi.fn(async () => {
+      note('parent-access');
+      return 'notNeeded' as const;
+    }),
   };
 
   return { deps, log, guard, guardSeen };
@@ -73,7 +77,16 @@ describe('renameInactiveSpaceFolder', () => {
     const outcome = await renameInactiveSpaceFolder(deps, FROM, 'Gamma');
 
     expect(outcome).toEqual({ status: 'renamed', path: TO, warnings: [] });
-    expect(log).toEqual([`exists ${TO}`, 'probe', `read ${FROM}`, 'rename', `read ${TO}`, 'migrate', 'entry']);
+    expect(log).toEqual([
+      `exists ${TO}`,
+      'probe',
+      `read ${FROM}`,
+      'parent-access',
+      'rename',
+      `read ${TO}`,
+      'migrate',
+      'entry',
+    ]);
     expect(guardSeen.every((held) => held === 'renaming')).toBe(true);
     expect(guard.active).toBeNull();
     expect(deps.migrateState).toHaveBeenCalledWith(FROM, TO);

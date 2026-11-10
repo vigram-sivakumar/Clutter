@@ -22,6 +22,7 @@ import {
   isReachedThroughLink,
   checkSpaceFilesystem,
   describeFilesystem,
+  ensureRenameParentAccess,
   renameSpaceFolder,
   resolveSpaceParent,
 } from './spaceFolders';
@@ -168,6 +169,30 @@ describe('ensureSpaceAccess', () => {
     await expect(
       ensureSpaceAccess('/Users/someone-else/Documents/Notes')
     ).resolves.toBeUndefined();
+  });
+});
+
+describe('ensureRenameParentAccess', () => {
+  it('returns notNeeded when the sandbox is off', async () => {
+    invoke.mockResolvedValueOnce({ status: 'notSandboxed' });
+    expect(await ensureRenameParentAccess('/Volumes/Drive/notes')).toBe('notNeeded');
+    expect(invoke).toHaveBeenCalledWith('check_rename_parent_access', { path: '/Volumes/Drive/notes' });
+    expect(invoke).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns granted when parent access is already active', async () => {
+    invoke.mockResolvedValueOnce({ status: 'granted' });
+    expect(await ensureRenameParentAccess('/Volumes/Drive/notes')).toBe('granted');
+    expect(invoke).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks for parent access when needed and returns cancelled without renaming', async () => {
+    invoke.mockResolvedValueOnce({ status: 'needed' });
+    invoke.mockResolvedValueOnce({ status: 'cancelled' });
+    expect(await ensureRenameParentAccess('/Volumes/Drive/notes')).toBe('cancelled');
+    expect(invoke).toHaveBeenNthCalledWith(2, 'request_rename_parent_access', {
+      path: '/Volumes/Drive/notes',
+    });
   });
 });
 

@@ -97,6 +97,17 @@ pub fn rename_space_folder(
     if !scope.is_allowed(&old) {
         return Err(format!("forbidden path: {path}"));
     }
+    if crate::space_access::is_sandboxed() {
+        let parent = crate::space_access::rename_parent_directory(&old)?;
+        let covered = app
+            .state::<crate::space_access::SpaceAccessState>()
+            .0
+            .as_ref()
+            .is_some_and(|access| access.covers_directory_for_os(&parent));
+        if !covered {
+            return Err("renameParentAccessNeeded".into());
+        }
+    }
     let new = rename_in_place(&old, &new_name)?;
     if new != old {
         if let Err(error) = scope.allow_directory(&new, true) {
