@@ -51,18 +51,13 @@ const firstRow = () =>
   ).map((el) => el.textContent);
 
 describe('Calendar week start', () => {
-  it('is Monday-first by default, in month mode', () => {
-    renderCalendar('month');
-    expect(headers()[0]).toBe('Monday');
-    expect(firstRow()).toEqual(['29', '30', '1', '2', '3', '4', '5']);
-  });
-
-  it('is Sunday-first when saved, in month mode', () => {
-    writeWeekStart('sunday');
+  it('is Sunday-first by default, in month mode', () => {
     renderCalendar('month');
     expect(headers()[0]).toBe('Sunday');
     expect(firstRow()).toEqual(['28', '29', '30', '1', '2', '3', '4']);
-    cleanup();
+  });
+
+  it('is Monday-first when saved, in month mode', () => {
     writeWeekStart('monday');
     renderCalendar('month');
     expect(headers()).toEqual([
@@ -79,20 +74,20 @@ describe('Calendar week start', () => {
 
   it('week mode follows the preference too', () => {
     renderCalendar('week');
-    expect(firstRow()).toEqual(['13', '14', '15', '16', '17', '18', '19']);
-    cleanup();
-    writeWeekStart('sunday');
-    renderCalendar('week');
     expect(firstRow()).toEqual(['12', '13', '14', '15', '16', '17', '18']);
+    cleanup();
+    writeWeekStart('monday');
+    renderCalendar('week');
+    expect(firstRow()).toEqual(['13', '14', '15', '16', '17', '18', '19']);
   });
 
   it('updates a mounted calendar when the preference changes', () => {
     renderCalendar('month');
-    expect(headers()[0]).toBe('Monday');
-    act(() => writeWeekStart('sunday'));
     expect(headers()[0]).toBe('Sunday');
     act(() => writeWeekStart('monday'));
     expect(headers()[0]).toBe('Monday');
+    act(() => writeWeekStart('sunday'));
+    expect(headers()[0]).toBe('Sunday');
   });
 
   it.each(['sunday', 'monday'] as const)(
@@ -121,11 +116,11 @@ describe('Calendar week start', () => {
 
   it('an outside-month cell reports its own real date in either mode', () => {
     const onSelect = renderCalendar('month');
-    // Monday-first (the default) July 2026: the first row's first cell is June 29.
+    // Sunday-first (the default) July 2026: the first row's first cell is June 28.
     fireEvent.click(
       document.querySelector('.calendar-month .calendar-cell--outside-month')!
     );
-    expect(onSelect).toHaveBeenCalledWith('2026-06-29');
+    expect(onSelect).toHaveBeenCalledWith('2026-06-28');
   });
 
   it.each(['sunday', 'monday'] as const)(

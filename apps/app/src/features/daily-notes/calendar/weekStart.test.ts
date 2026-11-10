@@ -14,21 +14,21 @@ const KEY = 'clutter-week-start';
 beforeEach(() => localStorage.clear());
 
 describe('week start preference', () => {
-  it('defaults to Monday when nothing is saved', () => {
-    expect(readWeekStart()).toBe('monday');
+  it('defaults to Sunday when nothing is saved', () => {
+    expect(readWeekStart()).toBe('sunday');
   });
 
-  it.each(['', 'Sunday', 'tuesday', 'bogus', 'false', '0'])(
-    'falls back to Monday for an invalid value (%j)',
+  it.each(['', 'Monday', 'tuesday', 'bogus', 'true', '1'])(
+    'falls back to Sunday for an invalid value (%j)',
     (value) => {
       localStorage.setItem(KEY, value);
-      expect(readWeekStart()).toBe('monday');
+      expect(readWeekStart()).toBe('sunday');
     }
   );
 
-  it('keeps an explicitly saved Sunday', () => {
-    localStorage.setItem(KEY, 'sunday');
-    expect(readWeekStart()).toBe('sunday');
+  it('keeps an explicitly saved Monday', () => {
+    localStorage.setItem(KEY, 'monday');
+    expect(readWeekStart()).toBe('monday');
   });
 
   it.each(['sunday', 'monday'] as const)(

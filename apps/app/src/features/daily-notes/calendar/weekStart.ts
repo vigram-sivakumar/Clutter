@@ -5,7 +5,7 @@ import { getSystemLocale } from '@shared/helpers/time/dateLocale';
 /** The day the calendar's week begins on. Presentation only: it never changes which date a cell is. */
 export type WeekStart = 'sunday' | 'monday';
 
-export const DEFAULT_WEEK_START: WeekStart = 'monday';
+export const DEFAULT_WEEK_START: WeekStart = 'sunday';
 
 const STORAGE_KEY = 'clutter-week-start';
 
@@ -40,12 +40,12 @@ export function weekdayNames(
 
 /**
  * App-global (not per-Space) like the theme: the same raw per-value localStorage convention as `useTheme`.
- * Only an explicitly saved `sunday` is Sunday-first; anything missing or unrecognised is Monday-first.
+ * Only an explicitly saved `monday` is Monday-first; anything missing or unrecognised is Sunday-first (the default).
  */
 export function readWeekStart(): WeekStart {
   try {
-    return localStorage.getItem(STORAGE_KEY) === 'sunday'
-      ? 'sunday'
+    return localStorage.getItem(STORAGE_KEY) === 'monday'
+      ? 'monday'
       : DEFAULT_WEEK_START;
   } catch {
     return DEFAULT_WEEK_START;
@@ -63,7 +63,7 @@ export function writeWeekStart(weekStart: WeekStart): void {
   listeners.forEach((listener) => listener());
 }
 
-/** Back to the default (Monday): removes the saved choice and notifies, so open calendars follow. */
+/** Back to the default (Sunday): removes the saved choice and notifies, so open calendars follow. */
 export function resetWeekStart(): void {
   try {
     localStorage.removeItem(STORAGE_KEY);

@@ -34,9 +34,9 @@ afterEach(() => {
 });
 
 describe('WeekStartSetting', () => {
-  it('is on by default (Monday-first), with the entry copy', () => {
+  it('is off by default (Sunday-first), with the entry copy', () => {
     render(<WeekStartSetting />);
-    expect(toggle()).toHaveAttribute('aria-checked', 'true');
+    expect(toggle()).toHaveAttribute('aria-checked', 'false');
     expect(
       screen.getByText('Start week on Monday', { selector: 'span' })
     ).toBeInTheDocument();
@@ -45,27 +45,27 @@ describe('WeekStartSetting', () => {
     ).toBeInTheDocument();
   });
 
-  it('turning it off makes the week Sunday-first, and persists false', () => {
+  it('turning it on makes the week Monday-first, and persists it', () => {
     const { unmount } = render(<WeekStartSetting />);
     fireEvent.click(toggle());
-    expect(toggle()).toHaveAttribute('aria-checked', 'false');
-    expect(localStorage.getItem(KEY)).toBe('sunday');
-    expect(readWeekStart()).toBe('sunday');
+    expect(toggle()).toHaveAttribute('aria-checked', 'true');
+    expect(localStorage.getItem(KEY)).toBe('monday');
+    expect(readWeekStart()).toBe('monday');
 
     unmount();
     render(<WeekStartSetting />);
-    expect(toggle()).toHaveAttribute('aria-checked', 'false');
+    expect(toggle()).toHaveAttribute('aria-checked', 'true');
 
     fireEvent.click(toggle());
-    expect(readWeekStart()).toBe('monday');
+    expect(readWeekStart()).toBe('sunday');
   });
 
-  it.each([null, '', 'bogus', 'true', 'Sunday'])(
-    'a missing or invalid saved value (%s) is Monday-first',
+  it.each([null, '', 'bogus', 'true', 'Monday'])(
+    'a missing or invalid saved value (%s) is Sunday-first',
     (stored) => {
       if (stored !== null) localStorage.setItem(KEY, stored);
       render(<WeekStartSetting />);
-      expect(toggle()).toHaveAttribute('aria-checked', 'true');
+      expect(toggle()).toHaveAttribute('aria-checked', 'false');
     }
   );
 
@@ -87,15 +87,15 @@ describe('WeekStartSetting', () => {
           .querySelector('.calendar-month .calendar-week-row')!
           .querySelectorAll('.calendar-cell__date')
       ).map((el) => el.textContent);
-    expect(headers()[0]).toBe('Monday');
-    expect(firstRow()).toEqual(['29', '30', '1', '2', '3', '4', '5']);
-
-    act(() => fireEvent.click(toggle()));
     expect(headers()[0]).toBe('Sunday');
     expect(firstRow()).toEqual(['28', '29', '30', '1', '2', '3', '4']);
 
     act(() => fireEvent.click(toggle()));
     expect(headers()[0]).toBe('Monday');
     expect(firstRow()).toEqual(['29', '30', '1', '2', '3', '4', '5']);
+
+    act(() => fireEvent.click(toggle()));
+    expect(headers()[0]).toBe('Sunday');
+    expect(firstRow()).toEqual(['28', '29', '30', '1', '2', '3', '4']);
   });
 });

@@ -44,7 +44,7 @@ describe('Settings → Preferences → Calendar', () => {
     render(<Settings />);
     expect(
       screen.getByRole('switch', { name: 'Start week on Monday' })
-    ).toHaveAttribute('aria-checked', 'true');
+    ).toHaveAttribute('aria-checked', 'false');
   });
 });
 

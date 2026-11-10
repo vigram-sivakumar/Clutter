@@ -48,10 +48,10 @@ describe('app-wide settings survive a restart', () => {
   });
 
   it('Start week on Monday', async () => {
-    (await import('@features/daily-notes/calendar/weekStart')).writeWeekStart('sunday');
+    (await import('@features/daily-notes/calendar/weekStart')).writeWeekStart('monday');
 
     relaunch();
-    expect((await import('@features/daily-notes/calendar/weekStart')).readWeekStart()).toBe('sunday');
+    expect((await import('@features/daily-notes/calendar/weekStart')).readWeekStart()).toBe('monday');
   });
 
   it('Date format', async () => {
@@ -81,7 +81,7 @@ describe('app-wide settings with nothing, or something unusable, stored use thei
     ['clutter-theme', async () => renderHook((await import('@design-system/useTheme')).useTheme).result.current.preference, 'system'],
     ['clutter-startup-behavior', async () => (await import('@features/settings/startup-setting/startupPreference')).readStartupBehavior(), 'todays-note'],
     ['clutter-default-sidebar-tab', async () => (await import('@features/settings/sidebar-setting/defaultSidebarTab')).readDefaultSidebarTab(), 'notes'],
-    ['clutter-week-start', async () => (await import('@features/daily-notes/calendar/weekStart')).readWeekStart(), 'monday'],
+    ['clutter-week-start', async () => (await import('@features/daily-notes/calendar/weekStart')).readWeekStart(), 'sunday'],
     ['clutter-date-format', async () => (await import('./time/dateFormatPreference')).readDateFormatChoice(), 'relative'],
     ['clutter-folder-item-limit', async () => (await import('./folderItemLimitPreference')).readFolderItemLimitChoice(), 10],
     ['clutter-show-assets-in-folders', async () => (await import('./showAssetsInFoldersPreference')).readShowAssetsInFolders(), true],
