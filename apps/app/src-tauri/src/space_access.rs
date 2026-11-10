@@ -619,13 +619,20 @@ pub fn grant_static_scope<R: tauri::Runtime>(app: &tauri::AppHandle<R>, folder: 
 /// Grants an authorized folder to everything that checks a scope: the runtime fs and asset scopes, and its static
 /// scope (so its dot entries are reachable). The same for every authorized folder, sandboxed or not: inside the sandbox
 /// `$HOME/**` is the container, so no other entry reaches a real folder, and outside it a folder picked outside `$HOME`
-/// needs the same entry.
-fn allow(app: &AppHandle, folder: &Path) {
+/// needs the same entry. Errors are returned to callers that must not continue without this grant (for example a rename).
+pub fn allow_folder<R: tauri::Runtime>(app: &AppHandle<R>, folder: &Path) -> Result<(), String> {
     protect_folder(app, folder);
-    let _ = app.fs_scope().allow_directory(folder, true);
-    let _ = app.asset_protocol_scope().allow_directory(folder, true);
-    if let Err(error) = grant_static_scope(app, folder) {
-        log::error!("Could not make the dot entries of {} reachable: {error}", folder.display());
+    app.fs_scope().allow_directory(folder, true).map_err(|error| error.to_string())?;
+    app.asset_protocol_scope()
+        .allow_directory(folder, true)
+        .map_err(|error| error.to_string())?;
+    grant_static_scope(app, folder)
+}
+
+/// Same as [`allow_folder`], but failures are logged and the call site continues (restore, remember, Documents).
+fn allow(app: &AppHandle, folder: &Path) {
+    if let Err(error) = allow_folder(app, folder) {
+        log::error!("Could not authorize {} for Clutter: {error}", folder.display());
     }
 }
 
@@ -1453,5 +1460,135 @@ mod tests {
         assert!(!access.grants_tauri_scope(Path::new("/Users/Shared")));
         access.remember(Path::new("/Volumes/Work/Notes")).unwrap();
         assert!(access.grants_tauri_scope(Path::new("/Volumes/Work/Notes")));
+    }
+
+    fn app_for_rename(
+        access: Option<SpaceAccess>,
+    ) -> (
+        Mock,
+        tauri::WebviewWindow<tauri::test::MockRuntime>,
+        tauri::AppHandle<tauri::test::MockRuntime>,
+    ) {
+        let app = tauri::test::mock_builder().plugin(tauri_plugin_fs::init()).build(crate::app_context()).unwrap();
+        app.manage(SpaceScopeGrants::default());
+        app.manage(ProtectedFolders::default());
+        app.manage(SpaceAccessState(access));
+        let handle = app.handle().clone();
+        let window = tauri::WebviewWindowBuilder::new(&app, "main", Default::default()).build().unwrap();
+        (app, window, handle)
+    }
+
+    fn space_with_profile(root: &Path, name: &str, id: &str) -> PathBuf {
+        let path = root.join(name);
+        fs::create_dir_all(path.join(".clutter")).unwrap();
+        fs::write(path.join(".clutter/workspace.json"), format!(r#"{{"id":"{id}"}}"#)).unwrap();
+        path
+    }
+
+    /// Scenario A: a Space folder under an authorized Documents tree with no per-folder bookmark.
+    #[test]
+    fn renaming_a_documents_space_carries_the_static_grant_to_the_new_path() {
+        use crate::space_folder::rename_space_folder;
+
+        let root = scratch("rename-documents");
+        let documents = root.join("Documents");
+        let old = space_with_profile(&documents, "ClutterSbxNotes", "doc-space-id");
+        let (_app, window, handle) = app_for_rename(None);
+        allow_folder(&handle, &old).unwrap();
+
+        let new = rename_space_folder(handle, old.to_string_lossy().into_owned(), "ClutterSbxJournal".into()).unwrap();
+        let renamed = PathBuf::from(new);
+        assert!(!old.exists());
+        assert_eq!(exists(&window, &renamed.join(".clutter/workspace.json")), Ok(true));
+        assert_eq!(
+            fs::read_to_string(renamed.join(".clutter/workspace.json")).unwrap(),
+            r#"{"id":"doc-space-id"}"#
+        );
+        assert!(!old.exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    /// Scenario B: a picked Space outside the usual home layout.
+    #[test]
+    fn renaming_an_external_picked_space_carries_the_static_grant_to_the_new_path() {
+        use crate::space_folder::rename_space_folder;
+
+        let root = scratch("rename-external");
+        let projects = root.join("Projects");
+        let old = space_with_profile(&projects, "Notes", "ext-space-id");
+        let store = scratch("rename-external-store");
+        let fake = Arc::new(Fake::default());
+        let access = registry(&store, &fake);
+        access.remember(&old).unwrap();
+        let (_app, window, handle) = app_for_rename(Some(access));
+        allow_folder(&handle, &old).unwrap();
+
+        let new = rename_space_folder(handle, old.to_string_lossy().into_owned(), "Journal".into()).unwrap();
+        let renamed = PathBuf::from(&new);
+        assert_eq!(exists(&window, &renamed.join(".clutter/workspace.json")), Ok(true));
+        assert_eq!(
+            fs::read_to_string(renamed.join(".clutter/workspace.json")).unwrap(),
+            r#"{"id":"ext-space-id"}"#
+        );
+        let report = access_from_store(&store, &fake).restore();
+        assert_eq!(report[0].path, new);
+        assert_eq!(report[0].status, RestoreStatus::Restored);
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_dir_all(store).unwrap();
+    }
+
+    fn access_from_store(store: &Path, fake: &Arc<Fake>) -> SpaceAccess {
+        registry(store, fake)
+    }
+
+    #[test]
+    fn renaming_a_picked_space_rekeys_its_bookmark_for_the_next_launch() {
+        use crate::space_folder::rename_space_folder;
+
+        let root = scratch("rename-rekey");
+        let old = space_with_profile(&root, "Old", "rekey-id");
+        let store = scratch("rename-rekey-store");
+        let fake = Arc::new(Fake::default());
+        let access = registry(&store, &fake);
+        access.remember(&old).unwrap();
+        let (_app, window, handle) = app_for_rename(Some(access));
+        allow_folder(&handle, &old).unwrap();
+
+        let new = rename_space_folder(handle.clone(), old.to_string_lossy().into_owned(), "New".into()).unwrap();
+        let renamed = PathBuf::from(&new);
+        assert_eq!(exists(&window, &renamed.join(".clutter/workspace.json")), Ok(true));
+
+        let relaunched = access_from_store(&store, &fake);
+        let report = relaunched.restore();
+        assert_eq!(report.len(), 1);
+        assert_eq!(report[0].path, new);
+        assert_eq!(report[0].status, RestoreStatus::Restored);
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_dir_all(store).unwrap();
+    }
+
+    #[test]
+    fn a_failed_rekey_after_rename_puts_the_folder_back_and_keeps_the_old_bookmark() {
+        use crate::space_folder::rename_space_folder;
+
+        let root = scratch("rename-rekey-fail");
+        let old = space_with_profile(&root, "Old", "stay-id");
+        let store = scratch("rename-rekey-fail-store");
+        let fake = Arc::new(Fake::default());
+        let access = registry(&store, &fake);
+        access.remember(&old).unwrap();
+        fake.gone.lock().unwrap().insert(key(&root.join("New")));
+        let (_app, _window, handle) = app_for_rename(Some(access));
+        allow_folder(&handle, &old).unwrap();
+
+        assert!(rename_space_folder(handle, old.to_string_lossy().into_owned(), "New".into()).is_err());
+        assert!(old.is_dir());
+        assert!(!root.join("New").exists());
+        let report = access_from_store(&store, &fake).restore();
+        assert_eq!(report.len(), 1);
+        assert_eq!(report[0].path, old.to_string_lossy());
+        assert_eq!(report[0].status, RestoreStatus::Restored);
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_dir_all(store).unwrap();
     }
 }

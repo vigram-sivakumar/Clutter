@@ -87,8 +87,8 @@ pub fn rename_in_place(old: &Path, new_name: &str) -> Result<PathBuf, String> {
 /// path is granted exactly as the old one was (the folder itself, recursively) — nothing wider. The plugin-fs
 /// `rename` cannot do this outside `$HOME`: it checks the destination path too, which no grant covers.
 #[tauri::command]
-pub fn rename_space_folder(
-    app: AppHandle,
+pub fn rename_space_folder<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     path: String,
     new_name: String,
 ) -> Result<String, String> {
@@ -110,12 +110,12 @@ pub fn rename_space_folder(
     }
     let new = rename_in_place(&old, &new_name)?;
     if new != old {
-        if let Err(error) = scope.allow_directory(&new, true) {
-            // The folder can't be reached under its new name, so put it back rather than strand it.
+        // The webview reads `.clutter/workspace.json` through the fs plugin, which needs the static capability on the new
+        // path — the same grant a picked or restored Space gets (`space_access::allow_folder`), not runtime scope alone.
+        if let Err(error) = crate::space_access::allow_folder(&app, &new) {
             let _ = fs::rename(&new, &old);
-            return Err(error.to_string());
+            return Err(error);
         }
-        let _ = app.asset_protocol_scope().allow_directory(&new, true);
         // A picked folder's saved access is keyed by its path: carry it to the new name, or the Space would need
         // selecting again after the next launch. If that cannot be done the rename is undone, never half applied.
         if let Some(access) = app.state::<crate::space_access::SpaceAccessState>().0.as_ref() {

@@ -18,8 +18,15 @@ describe('rename parent authorization, in the packaged sandboxed app', () => {
     expect((await call('create_space_folder', { name })).ok).toBe(folder);
     const check = await call('check_rename_parent_access', { path: folder });
     expect(check.ok?.status).toBe('granted');
+    fs.writeFileSync(`${folder}/.clutter/workspace.json`, JSON.stringify({ id: 'sbx-parent-rename-id' }));
     const renamed = await call('rename_space_folder', { path: folder, newName: `${name}2` });
     expect(renamed.ok).toBe(`${docs}/${name}2`);
+    const workspace = await call('plugin:fs|read_text_file', {
+      path: `${renamed.ok}/.clutter/workspace.json`,
+    });
+    console.log('RENAME workspace read', JSON.stringify(workspace));
+    expect(workspace.err).toBeUndefined();
+    expect(JSON.parse(String(workspace.ok)).id).toBe('sbx-parent-rename-id');
     fs.rmSync(renamed.ok as string, { recursive: true, force: true });
   });
 });

@@ -24,11 +24,16 @@ describe('rename a Space inside Documents, in the packaged sandboxed app', () =>
   });
 
   it('renames it in place', async () => {
+    fs.writeFileSync(`${A}/.clutter/workspace.json`, JSON.stringify({ id: 'sbx-rename-doc-id' }));
     const result = await call('rename_space_folder', { path: A, newName: 'ClutterSbxRenameA2' });
     console.log('RENAME result', JSON.stringify(result));
     expect(result.ok).toBe(A2);
     expect(fs.existsSync(A)).toBe(false);
     expect(fs.readFileSync(`${A2}/note.md`, 'utf8')).toBe('KEEP');
+    const workspace = await call('plugin:fs|read_text_file', { path: `${A2}/.clutter/workspace.json` });
+    console.log('RENAME workspace read', JSON.stringify(workspace));
+    expect(workspace.err).toBeUndefined();
+    expect(JSON.parse(String(workspace.ok)).id).toBe('sbx-rename-doc-id');
   });
 
   it('the renamed Space keeps its grant: a second rename (which the command authorizes by scope) also works', async () => {
