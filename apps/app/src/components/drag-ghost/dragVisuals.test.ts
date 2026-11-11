@@ -47,6 +47,7 @@ function makeSession(source: HTMLElement, pointer = { x: 500, y: 400 }, extra: P
   const session = {
     source,
     snapshot: source.cloneNode(true) as HTMLElement,
+    press: { ...pointer },
     grabOffsetY: 20,
     allowDragOutsideContainer: true,
     pointer: { ...pointer },
@@ -78,40 +79,43 @@ const B = { left: 100, top: 200, width: 300, height: 40 };
 const C = { left: 100, top: 300, width: 300, height: 40 };
 
 describe('a single item', () => {
-  it('draws one ghost — a harmless clone — and hides the original, which stays in the DOM and keeps its inline style', () => {
+  it('draws one snapshot piece and hides the original, which stays in the DOM and keeps its inline style', () => {
     const a = item('a', A);
     const before = a.getAttribute('style');
 
     visuals.start(makeSession(a).session);
 
-    expect(ghosts()).toHaveLength(1);
+    expect(snapshot()).not.toBeNull();
+    expect(ghosts()).toHaveLength(0);
+    expect(pieces()).toHaveLength(1);
     expect(document.querySelectorAll('.drag-visuals')).toHaveLength(1);
     expect(a).toHaveAttribute(DRAG_SOURCE_ATTRIBUTE, 'true');
     expect(a.isConnected).toBe(true);
     expect(a.getAttribute('style')).toBe(before);
+    expect(document.querySelector('.drag-snapshot__count')).toBeNull();
   });
 
-  it('the ghost is inert and hidden from assistive tech, with no ids, nothing focusable and no drag markers', () => {
+  it('the piece is inert and hidden from assistive tech, with no ids, nothing focusable and no drag markers', () => {
     const a = item('a', A);
     visuals.start(makeSession(a).session);
 
     expect(overlay()).toHaveAttribute('inert');
     expect(overlay()).toHaveAttribute('aria-hidden', 'true');
-    const ghost = ghosts()[0]!;
-    expect(ghost).toHaveAttribute('inert');
-    expect(ghost.querySelectorAll('[id], [tabindex], [role]')).toHaveLength(0);
-    expect([...ghost.querySelectorAll('*')].some((el) => [...el.attributes].some((attr) => attr.name.startsWith('data-drag')))).toBe(false);
+    const piece = pieces()[0]!;
+    expect(piece).toHaveAttribute('inert');
+    expect(piece.querySelectorAll('[id], [tabindex], [role]')).toHaveLength(0);
+    expect([...piece.querySelectorAll('*')].some((el) => [...el.attributes].some((attr) => attr.name.startsWith('data-drag')))).toBe(false);
     expect(document.querySelectorAll('[id="item-a"]')).toHaveLength(1);
   });
 
-  it('follows the pointer directly: centred on it at once, and exactly on every move', () => {
+  it('follows the pointer with the same grab offset as a multi-item snapshot', () => {
     const a = item('a', A);
     const { session, move } = makeSession(a, { x: 700, y: 500 });
     visuals.start(session);
 
-    expect(boxOf(ghosts()[0]!)).toEqual({ x: 700 - 150, y: 500 - 20, width: 300, height: 40 });
+    expect(boxOf(snapshot()!)).toEqual({ x: A.left, y: A.top, width: 300, height: 40 });
     move(40, 60);
-    expect(boxOf(ghosts()[0]!)).toEqual({ x: 40 - 150, y: 60 - 20, width: 300, height: 40 });
+    expect(boxOf(snapshot()!)).toEqual({ x: 40 - (700 - A.left), y: 60 - (500 - A.top), width: 300, height: 40 });
   });
 
   it('has no animation of any kind: no frame, no timer, no opacity, no transition', () => {
@@ -150,32 +154,34 @@ describe('a single item', () => {
     const { session, move } = makeSession(a, { x: 100, y: 300 });
     visuals.start(session);
 
-    expect(ghosts()[0]!.style.left).toBe('12px');
-    move(400, 300); // out over the page: centred on the cursor
-    expect(ghosts()[0]!.style.left).toBe('0px');
+    expect(snapshot()!.style.left).toBe('12px');
+    move(400, 300); // out over the page: free follow with grab offset
+    expect(snapshot()!.style.left).toBe('0px');
   });
 });
 
 describe('several items — a snapshot of the collection as it is', () => {
   const at = (el: HTMLElement) => ({ left: parseFloat(el.style.left), top: parseFloat(el.style.top), width: parseFloat(el.style.width), height: parseFloat(el.style.height) });
 
-  it('draws ONE layer holding a clone of each selected item — at its own measured place and size — and leaves EVERY original untouched', () => {
+  it('draws ONE layer holding a clone of each selected item — at its own measured place and size — and hides every original', () => {
     const [a, b, c] = [item('a', A), item('b', B), item('c', C)] as const;
-    const before = [a, b, c].map((el) => el.outerHTML);
+    const beforeStyles = [a, b, c].map((el) => el.getAttribute('style'));
 
     visuals.start(makeSession(a, { x: 700, y: 500 }).session, [b, c]);
 
     expect(snapshot()).not.toBeNull();
-    expect(ghosts()).toHaveLength(0); // no single-item ghost, no separate grid
+    expect(ghosts()).toHaveLength(0);
     expect(pieces()).toHaveLength(3);
     expect(pieces().map((p) => at(p))).toEqual([
       { left: 0, top: 0, width: 300, height: 40 },
       { left: 0, top: 100, width: 300, height: 40 },
       { left: 0, top: 200, width: 300, height: 40 },
     ]); // exactly the originals' own sizes and distances from one another
-    expect([a, b, c].map((el) => el.outerHTML)).toEqual(before); // visible, unmarked, unstyled — throughout
+    expect([a, b, c].every((el) => el.hasAttribute(DRAG_SOURCE_ATTRIBUTE))).toBe(true);
+    expect([a, b, c].map((el) => el.getAttribute('style'))).toEqual(beforeStyles);
     visuals.dispose();
-    expect([a, b, c].map((el) => el.outerHTML)).toEqual(before);
+    expect([a, b, c].every((el) => !el.hasAttribute(DRAG_SOURCE_ATTRIBUTE))).toBe(true);
+    expect([a, b, c].map((el) => el.getAttribute('style'))).toEqual(beforeStyles);
   });
 
   it('keeps the relative positions of a card grid — columns, gaps and rows — without computing any layout', () => {
@@ -388,8 +394,9 @@ describe('several items — a snapshot of the collection as it is', () => {
 
     c.remove();
     visuals.start(makeSession(a).session, [b, c]);
-    expect(snapshot()).toBeNull();
-    expect(ghosts()).toHaveLength(1);
+    expect(snapshot()).not.toBeNull();
+    expect(pieces()).toHaveLength(1);
+    expect(ghosts()).toHaveLength(0);
     expect(a).toHaveAttribute(DRAG_SOURCE_ATTRIBUTE, 'true');
   });
 });

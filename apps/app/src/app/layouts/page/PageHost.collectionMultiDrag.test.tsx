@@ -143,11 +143,12 @@ describe('dragging several checked items from a Collection View', () => {
     await show('Projects');
   });
 
-  it('a single checked item is an ordinary single drag: no badge, its original hidden', async () => {
+  it('a single checked item is an ordinary single drag: one piece, no count badge, its original hidden', async () => {
     select('N1');
     await drag(card(ids.N1!), centre(card(ids.Alpha!)), { release: false });
 
-    expect(ghostBadge()).toBeNull();
+    expect(ghostBadge()).toBe(1);
+    expect(document.querySelector('.drag-snapshot__count')).toBeNull();
     expect(card(ids.N1!)).toHaveAttribute('data-drag-source', 'true');
     act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: 400, clientY: 120 }));
     await settle();
@@ -173,8 +174,7 @@ describe('dragging several checked items from a Collection View', () => {
 
     expect(ghostBadge()).toBe(3);
     expect(checkedNames()).toEqual(['Select Beta', 'Select N1', 'Select N2']);
-    // Several items: every original stays visible (only clones move — see dragVisuals.ts).
-    expect(document.querySelectorAll('[data-drag-source="true"]')).toHaveLength(0);
+    expect(document.querySelectorAll('[data-drag-source="true"]')).toHaveLength(3);
     expect(feedback()).toHaveLength(1);
 
     act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: 400, clientY: 120 }));
@@ -222,7 +222,8 @@ describe('dragging several checked items from a Collection View', () => {
     select('N1', 'N2');
 
     await drag(card(ids.N3!), centre(card(ids.Alpha!)), { release: false });
-    expect(ghostBadge()).toBeNull();
+    expect(ghostBadge()).toBe(1);
+    expect(document.querySelector('.drag-snapshot__count')).toBeNull();
     expect(checkedNames()).toEqual(['Select N1', 'Select N2']);
     act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: 400, clientY: 120 }));
     await settle();

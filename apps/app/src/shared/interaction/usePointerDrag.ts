@@ -14,7 +14,9 @@ export interface PointerDragSession {
   readonly source: HTMLElement;
   /** A deep clone of `source` taken when the drag starts — before any "being dragged" styling lands on it. */
   readonly snapshot: HTMLElement;
-  /** Where inside `source` the press landed, vertically, so the ghost keeps the same grip on the row. */
+  /** Where the press landed in the viewport — the grip point for snapshot positioning. */
+  readonly press: { readonly x: number; readonly y: number };
+  /** Where inside `source` the press landed, vertically, so a column-pinned ghost keeps the same grip on the row. */
   readonly grabOffsetY: number;
   /** The option this drag was started with: its ghost may travel past the source's container (see `UsePointerDragOptions`). */
   readonly allowDragOutsideContainer: boolean;
@@ -108,6 +110,7 @@ export function usePointerDrag<T>(options: UsePointerDragOptions<T> = {}) {
       const session: PointerDragSession = {
         source,
         snapshot: source.cloneNode(true) as HTMLElement,
+        press: { x: startX, y: startY },
         grabOffsetY,
         allowDragOutsideContainer: optionsRef.current.allowDragOutsideContainer === true,
         pointer,

@@ -157,17 +157,19 @@ describe.each(['list', 'table', 'card'] as const)('the shared drag visuals in th
   beforeEach(() => setUp(layout));
 
   describe('one item', () => {
-    it('draws one ghost, hides the original (kept in the DOM) and follows the pointer directly', async () => {
+    it('draws one snapshot piece, hides the original (kept in the DOM) and follows the pointer with grab offset', async () => {
       await drag(card(ids.N2!), { x: 820, y: 650 }, { release: false });
 
-      expect(ghosts()).toHaveLength(1);
-      expect(pieces()).toHaveLength(0);
+      expect(snapshot()).not.toBeNull();
+      expect(ghosts()).toHaveLength(0);
+      expect(pieces()).toHaveLength(1);
+      expect(document.querySelector('.drag-snapshot__count')).toBeNull();
       expect(hidden()).toEqual([card(ids.N2!)]);
       expect(card(ids.N2!).isConnected).toBe(true);
-      expect(centreOf(ghosts()[0]!)).toEqual({ x: 820, y: 650 }); // on the cursor at once
+      expect(centreOf(snapshot()!)).toEqual({ x: 820, y: 650 }); // gripped where the press landed
 
       movePointer(300, 500);
-      expect(centreOf(ghosts()[0]!)).toEqual({ x: 300, y: 500 }); // and exactly, on every move
+      expect(centreOf(snapshot()!)).toEqual({ x: 300, y: 500 }); // the whole snapshot moves with the pointer
       release();
     });
 
@@ -197,7 +199,7 @@ describe.each(['list', 'table', 'card'] as const)('the shared drag visuals in th
   });
 
   describe('several items', () => {
-    it('draws ONE snapshot — a piece for each selected item at its own place and size — and keeps EVERY original visible and untouched throughout', async () => {
+    it('draws ONE snapshot — a piece for each selected item — and hides every dragged original throughout', async () => {
       select('N1', 'N2', 'N4');
       const before = entries().map((el) => el.outerHTML);
       await drag(card(ids.N2!), { x: 820, y: 650 }, { release: false });
@@ -205,13 +207,14 @@ describe.each(['list', 'table', 'card'] as const)('the shared drag visuals in th
       expect(snapshot()).not.toBeNull();
       expect(ghosts()).toHaveLength(0);
       expect(pieces()).toHaveLength(3);
-      expect(entries().map((el) => el.outerHTML)).toEqual(before); // nothing hidden, restyled or marked
+      expect(document.querySelector('.drag-snapshot__count')).toHaveTextContent('3');
+      expect(new Set(hidden())).toEqual(new Set([card(ids.N1!), card(ids.N2!), card(ids.N4!)]));
 
       const box = boxOf(snapshot()!);
       movePointer(300, 500);
       const moved = boxOf(snapshot()!);
       expect({ dx: moved.x - box.x, dy: moved.y - box.y }).toEqual({ dx: 300 - 820, dy: 500 - 650 }); // one unit, following directly
-      expect(entries().map((el) => el.outerHTML)).toEqual(before);
+      expect(hidden()).toHaveLength(3);
 
       escape();
       expect(overlay()).toBeNull();
@@ -272,11 +275,13 @@ describe.each(['list', 'table', 'card'] as const)('the shared drag visuals in th
       expect(parentOf('N2')).toBe(ids.Alpha);
     });
 
-    it('an unchecked item is dragged alone: a single-item ghost with its own original hidden', async () => {
+    it('an unchecked item is dragged alone: one snapshot piece, no count badge, its original hidden', async () => {
       select('N1', 'N2');
       await drag(card(ids.N4!), centre(card(ids.Alpha!)), { release: false });
 
-      expect(pieces()).toHaveLength(0);
+      expect(snapshot()).not.toBeNull();
+      expect(pieces()).toHaveLength(1);
+      expect(document.querySelector('.drag-snapshot__count')).toBeNull();
       expect(hidden()).toEqual([card(ids.N4!)]);
       release();
     });

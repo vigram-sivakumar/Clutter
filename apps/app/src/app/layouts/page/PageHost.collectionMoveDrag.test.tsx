@@ -195,19 +195,22 @@ describe('the ghost of a Collection View folder card', () => {
     await show('Projects');
   });
 
-  it('keeps the card\'s own size, centred on the cursor — over the sidebar too', async () => {
+  it('keeps the card\'s own size and follows the pointer with grab offset — over the sidebar too', async () => {
     const source = card(ids.Alpha!);
     const size = source.getBoundingClientRect(); // 300 × 40
+    const from = centre(source);
     await drag(source, { x: 120, y: 300 }, { release: false });
-    const ghost = document.body.querySelector<HTMLElement>('.drag-ghost')!;
-    expect(ghost.style.width).toBe(`${size.width}px`);
-    expect(ghost.style.height).toBe(`${size.height}px`);
-    expect(ghost.style.transform).toBe(`translate3d(${120 - size.width / 2}px, ${300 - size.height / 2}px, 0)`);
+    const layer = document.body.querySelector<HTMLElement>('.drag-snapshot')!;
+    expect(layer.style.width).toBe(`${size.width}px`);
+    expect(layer.style.height).toBe(`${size.height}px`);
+    expect(layer.style.transform).toBe(`translate3d(${120 - (from.x - size.left)}px, ${300 - (from.y - size.top)}px, 0)`);
   });
 
-  it('a note row dragged from the page gets the compact ghost', async () => {
-    await drag(card(ids.N1!), { x: 120, y: 300 }, { release: false });
-    expect(document.body.querySelector<HTMLElement>('.drag-ghost')!.style.width).toBe('256px');
+  it('a note row dragged from the page uses the row\'s own width in the snapshot', async () => {
+    const source = card(ids.N1!);
+    const size = source.getBoundingClientRect();
+    await drag(source, { x: 120, y: 300 }, { release: false });
+    expect(document.body.querySelector<HTMLElement>('.drag-snapshot')!.style.width).toBe(`${size.width}px`);
   });
 
   it('a note CARD (Card layout) keeps its own width, unlike a table or list row', async () => {
@@ -216,13 +219,13 @@ describe('the ghost of a Collection View folder card', () => {
     const source = card(ids.N1!);
     await drag(source, { x: 120, y: 300 }, { release: false });
     expect(source.hasAttribute('data-drag-ghost-size')).toBe(false);
-    expect(document.body.querySelector<HTMLElement>('.drag-ghost')!.style.width).toBe(`${source.getBoundingClientRect().width}px`);
+    expect(document.body.querySelector<HTMLElement>('.drag-snapshot')!.style.width).toBe(`${source.getBoundingClientRect().width}px`);
   });
 
   it('a sidebar row dragged out keeps the sidebar row\'s own width', async () => {
     const source = row(ids.Gamma!);
     await drag(source, { x: 500, y: 300 }, { release: false });
-    expect(document.body.querySelector<HTMLElement>('.drag-ghost')!.style.width).toBe(`${source.getBoundingClientRect().width}px`);
+    expect(document.body.querySelector<HTMLElement>('.drag-snapshot')!.style.width).toBe(`${source.getBoundingClientRect().width}px`);
   });
 });
 
@@ -380,9 +383,9 @@ describe('Sidebar → Collection View', () => {
 
   it('the ghost travels out of the sidebar to the card: not clipped, not held to the sidebar\'s width', async () => {
     await drag(row(ids.Delta!), centre(card(ids.Alpha!)), { release: false });
-    const ghost = document.body.querySelector<HTMLElement>('.drag-ghost')!;
-    expect(ghost.closest('.drag-visuals')!.parentElement).toBe(document.body);
-    expect(ghost.style.transform).toMatch(/^translate3d\([1-9]\d*(\.\d+)?px, /); // moved right of the sidebar's edge
+    const layer = document.body.querySelector<HTMLElement>('.drag-snapshot')!;
+    expect(layer.closest('.drag-visuals')!.parentElement).toBe(document.body);
+    expect(layer.style.transform).toMatch(/^translate3d\([1-9]\d*(\.\d+)?px, /); // moved right of the sidebar's edge
   });
 
   it('dragging across the Collection View selects no text — not the page title, not a card — and selection returns after the drop', async () => {
@@ -424,14 +427,17 @@ describe('Sidebar → Collection View', () => {
     expect(document.body.style.userSelect).toBe('');
   });
 
-  it('the ghost is centred under the cursor over the sidebar and over the page alike', async () => {
-    await drag(row(ids.Delta!), { x: 100, y: 300 }, { release: false });
-    const ghost = () => document.body.querySelector<HTMLElement>('.drag-ghost')!;
-    const half = { w: parseFloat(ghost().style.width) / 2, h: parseFloat(ghost().style.height) / 2 };
-    expect(ghost().style.transform).toBe(`translate3d(${100 - half.w}px, ${300 - half.h}px, 0)`);
+  it('the snapshot keeps its grab offset over the page once the pointer leaves the sidebar', async () => {
+    const source = row(ids.Delta!);
+    const from = centre(source);
+    const rect = source.getBoundingClientRect();
+    const grab = { x: from.x - rect.left, y: from.y - rect.top };
+    await drag(source, { x: 100, y: 300 }, { release: false });
+    const layer = () => document.body.querySelector<HTMLElement>('.drag-snapshot')!;
 
-    act(() => void fireEvent.pointerMove(document, { pointerId: 1, clientX: 550, clientY: 140 })); // over a card in the page
-    expect(ghost().style.transform).toBe(`translate3d(${550 - half.w}px, ${140 - half.h}px, 0)`);
+    act(() => void fireEvent.pointerMove(document, { pointerId: 1, clientX: 550, clientY: 140 }));
+    expect(layer().style.left).toBe('0px');
+    expect(layer().style.transform).toBe(`translate3d(${550 - grab.x}px, ${140 - grab.y}px, 0)`);
   });
 
   it('a sidebar note dragged onto a card moves into that folder', async () => {
@@ -471,7 +477,7 @@ describe('failed drops, selection and navigation', () => {
 
     expect(parentOf('N1')).toBe(ids.Projects);
     expect(feedback()).toHaveLength(0);
-    expect(document.querySelector('.drag-ghost')).toBeNull();
+    expect(document.querySelector('.drag-snapshot')).toBeNull();
     expect(card(ids.N1!)).not.toHaveAttribute('data-drag-source');
   });
 

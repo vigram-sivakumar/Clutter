@@ -5,15 +5,10 @@
  *
  *  - ONE ghost in ONE overlay, drawn when the drag begins, placed under the pointer on every move and removed the
  *    moment the drag ends — dropped, cancelled, refused or interrupted. Nothing slides, fades or eases, ever;
- *  - a single item is a clone of that item (a picture of the row, not a second row), and its original is hidden for
- *    the drag (`data-drag-source` + `visibility: hidden`, see DragGhost.css: kept in the DOM and in layout, border and
- *    pseudo-elements and all);
- *  - several items are a SNAPSHOT of the collection as it is: a clone of each selected item at its own measured
- *    place and size, relative to one another exactly as on the page — cards in their columns and gaps, list rows,
- *    table rows with their columns — as if lifted straight out of it, the first few rows of it, with a badge
- *    stating how many items the drag carries in all. No layout is computed here: only measured positions are
- *    copied, so every layout is mirrored by the same code. The originals all stay as they are — visible,
- *    selected — throughout.
+ *  - every drag is a SNAPSHOT: one or more clones of the dragged item(s) at measured place and size, relative to
+ *    one another exactly as on the page — as if lifted straight out of it; a multi-item drag also states how many
+ *    items it carries (`.drag-snapshot__count`). The originals of every dragged item are hidden for the drag
+ *    (`data-drag-source` + `visibility: hidden`, see DragGhost.css: kept in the DOM and in layout).
  *
  * Changing how dragging looks is a change to this file and `DRAG_VISUAL_POLICY`, and affects every drag.
  *
@@ -42,8 +37,8 @@ export const DRAG_SOURCE_ATTRIBUTE = 'data-drag-source';
 
 /** Every tunable of how a drag looks, in one place. */
 export const DRAG_VISUAL_POLICY = {
-  /** Whose originals are hidden while their clone is dragged: a single item's only; several items' all stay visible. */
-  hideOriginals: 'single-item-drags',
+  /** While a drag is on, every source element in the drag is marked hidden (see `DRAG_SOURCE_ATTRIBUTE`). */
+  hideOriginals: 'dragged-items',
 } as const;
 
 /** What a multi-item snapshot shows of the collection. */
@@ -221,75 +216,72 @@ export function createDragVisuals(): DragVisuals {
     overlay.setAttribute('aria-hidden', 'true');
 
     const ghost = document.createElement('div');
-    ghost.className = multi ? 'drag-snapshot' : 'drag-ghost';
+    ghost.className = 'drag-snapshot';
     ghost.setAttribute('inert', '');
     ghost.setAttribute('aria-hidden', 'true');
 
     // All the reads, once, before anything is written.
-    let snapshotSize = { width: 0, height: 0 };
-    let grab = { x: 0, y: 0 };
+    const measured = multi
+      ? firstRows(
+          sources.map((source) => ({ source, rect: source.getBoundingClientRect() })),
+          lead
+        )
+      : [{ source: lead, rect: lead.getBoundingClientRect() }];
+    const origin = {
+      x: Math.min(...measured.map((entry) => entry.rect.left)),
+      y: Math.min(...measured.map((entry) => entry.rect.top)),
+    };
+    const snapshotSize = {
+      width: Math.max(...measured.map((entry) => entry.rect.right)) - origin.x,
+      height: Math.max(...measured.map((entry) => entry.rect.bottom)) - origin.y,
+    };
+    // Where the press took hold of the snapshot (not where the threshold was crossed).
+    const grab = { x: session.press.x - origin.x, y: session.press.y - origin.y };
+    for (const { source, rect } of measured) {
+      ghost.append(pieceOf(source, prepareClone(source === lead ? session.snapshot : (source.cloneNode(true) as HTMLElement)), rect, origin));
+    }
     if (multi) {
-      const measured = firstRows(
-        sources.map((source) => ({ source, rect: source.getBoundingClientRect() })),
-        lead
-      );
-      const origin = {
-        x: Math.min(...measured.map((entry) => entry.rect.left)),
-        y: Math.min(...measured.map((entry) => entry.rect.top)),
-      };
-      snapshotSize = {
-        width: Math.max(...measured.map((entry) => entry.rect.right)) - origin.x,
-        height: Math.max(...measured.map((entry) => entry.rect.bottom)) - origin.y,
-      };
-      // Where the pointer took hold of the snapshot, so it is lifted out in place — under the pointer as it was.
-      grab = { x: session.pointer.x - origin.x, y: session.pointer.y - origin.y };
-      for (const { source, rect } of measured) {
-        ghost.append(pieceOf(source, prepareClone(source === lead ? session.snapshot : (source.cloneNode(true) as HTMLElement)), rect, origin));
-      }
       // The rows above are a sample (`SNAPSHOT.maxRows`); the badge is the whole drag's size.
       const badge = document.createElement('div');
       badge.className = 'drag-snapshot__count';
       badge.textContent = String(Math.max(count ?? 0, sources.length));
       ghost.append(badge);
-    } else {
-      ghost.append(prepareClone(session.snapshot));
     }
     const initial = lead.getBoundingClientRect();
 
-    // Then the writes, together: hide a single item's original and show the ghost.
-    const hidden = DRAG_VISUAL_POLICY.hideOriginals === 'single-item-drags' && !multi ? lead : null;
-    const hadAttribute = hidden?.getAttribute(DRAG_SOURCE_ATTRIBUTE) ?? null;
-    hidden?.setAttribute(DRAG_SOURCE_ATTRIBUTE, 'true');
+    const hiddenSources =
+      DRAG_VISUAL_POLICY.hideOriginals === 'dragged-items'
+        ? sources.filter((source) => source.isConnected).map((source) => ({
+            element: source,
+            had: source.getAttribute(DRAG_SOURCE_ATTRIBUTE),
+          }))
+        : [];
+    hiddenSources.forEach(({ element }) => element.setAttribute(DRAG_SOURCE_ATTRIBUTE, 'true'));
     overlay.append(ghost);
     document.body.append(overlay);
 
     let unsubscribe: (() => void) | null = null;
     let finished = false;
 
-    /** Places the ghost under the pointer: centred on it, or — a pinned sidebar row — kept in its column. */
+    /** Places the snapshot under the pointer; a pinned sidebar row keeps its column while the pointer is inside it. */
     function place() {
-      const { pointer, grabOffsetY, allowDragOutsideContainer } = session;
+      const { pointer, grabOffsetY } = session;
       const rect = lead.isConnected ? lead.getBoundingClientRect() : null;
       const bounds = container?.isConnected ? container.getBoundingClientRect() : null;
       const inside = bounds !== null && pointer.x >= bounds.left && pointer.x <= bounds.right;
-      const free = allowDragOutsideContainer && !(pinsInside && inside);
-      const compact = allowDragOutsideContainer && lead.getAttribute(DRAG_GHOST_SIZE_ATTRIBUTE) === 'compact';
-      const width = multi ? snapshotSize.width : compact ? DRAG_GHOST_WIDTH_PX : (rect?.width ?? initial.width);
-      const height = multi ? snapshotSize.height : (rect?.height ?? initial.height);
-      ghost.style.width = `${width}px`;
-      ghost.style.height = `${height}px`;
+      ghost.style.width = `${snapshotSize.width}px`;
+      ghost.style.height = `${snapshotSize.height}px`;
 
-      if (multi) {
+      if (
+        !multi &&
+        (pinsInside ? inside : !session.allowDragOutsideContainer)
+      ) {
+        ghost.style.left = `${rect?.left ?? initial.left}px`;
+        ghost.style.transform = `translate3d(0, ${pointer.y - grabOffsetY}px, 0)`;
+      } else {
         // One unit, kept exactly as grabbed.
         ghost.style.left = '0px';
         ghost.style.transform = `translate3d(${pointer.x - grab.x}px, ${pointer.y - grab.y}px, 0)`;
-      } else if (free) {
-        // Centred on the cursor, from the ghost's own size — no source-relative offset anywhere.
-        ghost.style.left = '0px';
-        ghost.style.transform = `translate3d(${pointer.x - width / 2}px, ${pointer.y - height / 2}px, 0)`;
-      } else {
-        ghost.style.left = `${rect?.left ?? initial.left}px`;
-        ghost.style.transform = `translate3d(0, ${pointer.y - grabOffsetY}px, 0)`;
       }
     }
 
@@ -303,12 +295,11 @@ export function createDragVisuals(): DragVisuals {
       unsubscribe = null;
       window.removeEventListener('resize', place);
       overlay.remove(); // the ghost and every clone with it
-      if (hidden) {
-        // Back to exactly what the original had: the marker is only ever the hiding, never a style of its own.
-        if (hadAttribute === null) {
-          hidden.removeAttribute(DRAG_SOURCE_ATTRIBUTE);
+      for (const { element, had } of hiddenSources) {
+        if (had === null) {
+          element.removeAttribute(DRAG_SOURCE_ATTRIBUTE);
         } else {
-          hidden.setAttribute(DRAG_SOURCE_ATTRIBUTE, hadAttribute);
+          element.setAttribute(DRAG_SOURCE_ATTRIBUTE, had);
         }
       }
       if (finishCurrent === finish) {

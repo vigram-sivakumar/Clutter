@@ -25,7 +25,7 @@ function Harness({ allow, compact, pin, onRelease, onCancel }: { allow?: boolean
   );
 }
 
-const ghost = () => document.body.querySelector<HTMLElement>('.drag-ghost');
+const snapshot = () => document.body.querySelector<HTMLElement>('.drag-snapshot');
 const start = (getByTestId: (id: string) => HTMLElement) =>
   fireEvent.pointerDown(getByTestId('row'), { button: 0, pointerId: 1, isPrimary: true, clientX: 40, clientY: 134 });
 const move = (x: number, y: number) => act(() => void fireEvent.pointerMove(document, { pointerId: 1, clientX: x, clientY: y }));
@@ -44,57 +44,51 @@ afterEach(async () => {
 });
 
 describe('allowDragOutsideContainer', () => {
-  // The ghost is the row's own 236×28 (a compact one is 256 wide): its centre is (118, 14).
-  it('on: the ghost is centred under the cursor on both axes', () => {
+  // Press at (40, 134); row at (12, 120) → grab offset (28, 14).
+  it('on: the snapshot follows the pointer with that grab offset', () => {
     const { getByTestId } = render(<Harness allow />);
     start(getByTestId);
     move(200, 300);
-    expect(ghost()!.style.transform).toBe('translate3d(82px, 286px, 0)'); // 200 − 118, 300 − 14
-    expect(ghost()!.style.width).toBe('236px'); // the row's own width
-    expect(ghost()!.style.height).toBe('28px'); // the source's height
+    expect(snapshot()!.style.transform).toBe('translate3d(172px, 286px, 0)');
+    expect(snapshot()!.style.width).toBe('236px');
+    expect(snapshot()!.style.height).toBe('28px');
   });
 
-  it('on: it stays centred past the container\'s right edge — to wherever a target outside it is', () => {
+  it('on: it keeps the grab offset past the container\'s edges', () => {
     const { getByTestId } = render(<Harness allow />);
     start(getByTestId);
-    move(260, 300); // at the container's edge
-    expect(ghost()!.style.transform).toBe('translate3d(142px, 286px, 0)');
-    move(700, 300); // far beyond it
-    expect(ghost()!.style.transform).toBe('translate3d(582px, 286px, 0)'); // 700 − 118
-  });
-
-  it('on: past the container\'s left edge likewise (a drag from the page into the sidebar)', () => {
-    const { getByTestId } = render(<Harness allow />);
-    start(getByTestId);
+    move(260, 300);
+    expect(snapshot()!.style.transform).toBe('translate3d(232px, 286px, 0)');
+    move(700, 300);
+    expect(snapshot()!.style.transform).toBe('translate3d(672px, 286px, 0)');
     move(-80, 300);
-    expect(ghost()!.style.transform).toBe('translate3d(-198px, 286px, 0)');
+    expect(snapshot()!.style.transform).toBe('translate3d(-108px, 286px, 0)');
   });
 
-  it('on: beyond the container vertically it is still centred on the cursor', () => {
+  it('on: beyond the container vertically it still follows the pointer', () => {
     const { getByTestId } = render(<Harness allow />);
     start(getByTestId);
-    move(200, 900); // well below the container's bottom (500)
-    expect(ghost()!.style.transform).toBe('translate3d(82px, 886px, 0)');
-    move(200, -50); // and above its top
-    expect(ghost()!.style.transform).toBe('translate3d(82px, -64px, 0)');
+    move(200, 900);
+    expect(snapshot()!.style.transform).toBe('translate3d(172px, 886px, 0)');
+    move(200, -50);
+    expect(snapshot()!.style.transform).toBe('translate3d(172px, -64px, 0)');
   });
 
-  it('on: the offset does not depend on where the source sits or how wide its container is', () => {
+  it('on: the offset follows where the press landed, not the row centre', () => {
     const { getByTestId } = render(<Harness allow />);
-    // Pressed at the row's far top-left, rather than its middle.
     fireEvent.pointerDown(getByTestId('row'), { button: 0, pointerId: 1, isPrimary: true, clientX: 14, clientY: 122 });
     move(500, 500);
-    expect(ghost()!.style.transform).toBe('translate3d(382px, 486px, 0)'); // 500 − 118, 500 − 14 — not relative to the grab point
+    expect(snapshot()!.style.transform).toBe('translate3d(498px, 498px, 0)'); // 500 − 2, 500 − 2
   });
 
-  it('on: a very wide source (a full-width table row) marked compact gives the 256px ghost, centred', () => {
+  it('on: a wide source uses its measured width in the snapshot (compact marker does not shrink it)', () => {
     ROW.width = 1500;
     try {
       const { getByTestId } = render(<Harness allow compact />);
       start(getByTestId);
       move(600, 300);
-      expect(ghost()!.style.width).toBe('256px');
-      expect(ghost()!.style.transform).toBe('translate3d(472px, 286px, 0)'); // 600 − 128
+      expect(snapshot()!.style.width).toBe('1500px');
+      expect(snapshot()!.style.transform).toBe('translate3d(572px, 286px, 0)');
     } finally {
       ROW.width = 236;
     }
@@ -102,37 +96,37 @@ describe('allowDragOutsideContainer', () => {
 
   it('pinned inside the container (a sidebar row): vertical only while the pointer is over the container, free once it leaves', () => {
     const { getByTestId } = render(<Harness allow pin />);
-    start(getByTestId); // grabbed 14px down the row
-    move(200, 300); // inside the container (x 0–260)
-    expect(ghost()!.style.transform).toBe('translate3d(0, 286px, 0)'); // 300 − 14, column kept (left: the row's 12)
-    expect(ghost()!.style.left).toBe('12px');
+    start(getByTestId);
+    move(200, 300);
+    expect(snapshot()!.style.transform).toBe('translate3d(0, 286px, 0)');
+    expect(snapshot()!.style.left).toBe('12px');
     move(255, 340);
-    expect(ghost()!.style.transform).toBe('translate3d(0, 326px, 0)');
-    move(400, 340); // out over the page: centred on the cursor
-    expect(ghost()!.style.left).toBe('0px');
-    expect(ghost()!.style.transform).toBe('translate3d(282px, 326px, 0)'); // 400 − 118, 340 − 14
-    move(100, 340); // back into the sidebar: pinned again
-    expect(ghost()!.style.left).toBe('12px');
-    expect(ghost()!.style.transform).toBe('translate3d(0, 326px, 0)');
+    expect(snapshot()!.style.transform).toBe('translate3d(0, 326px, 0)');
+    move(400, 340);
+    expect(snapshot()!.style.left).toBe('0px');
+    expect(snapshot()!.style.transform).toBe('translate3d(372px, 326px, 0)');
+    move(100, 340);
+    expect(snapshot()!.style.left).toBe('12px');
+    expect(snapshot()!.style.transform).toBe('translate3d(0, 326px, 0)');
   });
 
-  it('off (the default): the ghost stays in its column however far the pointer goes', () => {
+  it('off (the default): the snapshot stays in its column however far the pointer goes', () => {
     const { getByTestId } = render(<Harness />);
     start(getByTestId);
     move(700, 300);
-    expect(ghost()!.style.transform).toBe('translate3d(0, 286px, 0)'); // pinned to the source's column, grip kept
-    expect(ghost()!.style.left).toBe('12px');
-    move(-80, 900); // vertical is free either way
-    expect(ghost()!.style.transform).toBe('translate3d(0, 886px, 0)');
+    expect(snapshot()!.style.transform).toBe('translate3d(0, 286px, 0)');
+    expect(snapshot()!.style.left).toBe('12px');
+    move(-80, 900);
+    expect(snapshot()!.style.transform).toBe('translate3d(0, 886px, 0)');
   });
 
   it('is drawn in document.body, so no ancestor\'s overflow can clip it, and is inert', () => {
     const { getByTestId } = render(<Harness allow />);
     start(getByTestId);
     move(700, 300);
-    expect(ghost()!.closest('.drag-visuals')!.parentElement).toBe(document.body); // the shared overlay, in the body
-    expect(ghost()).toHaveAttribute('aria-hidden', 'true');
-    expect(ghost()).toHaveAttribute('inert');
+    expect(snapshot()!.closest('.drag-visuals')!.parentElement).toBe(document.body);
+    expect(snapshot()).toHaveAttribute('aria-hidden', 'true');
+    expect(snapshot()).toHaveAttribute('inert');
   });
 
   it('release outside the container still ends the drag once, and the click after it is swallowed', () => {
@@ -146,7 +140,7 @@ describe('allowDragOutsideContainer', () => {
     fireEvent.click(getByTestId('row'));
 
     expect(onRelease).toHaveBeenCalledExactlyOnceWith('item');
-    expect(ghost()).toBeNull();
+    expect(snapshot()).toBeNull();
     expect(onClick).not.toHaveBeenCalled();
   });
 
@@ -159,7 +153,7 @@ describe('allowDragOutsideContainer', () => {
     act(() => void fireEvent.keyDown(document, { key: 'Escape' }));
     act(() => void fireEvent.pointerUp(document, { pointerId: 1, clientX: 700, clientY: 300 }));
 
-    expect(ghost()).toBeNull();
+    expect(snapshot()).toBeNull();
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onRelease).not.toHaveBeenCalled();
   });
