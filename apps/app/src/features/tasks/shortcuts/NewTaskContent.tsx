@@ -117,6 +117,19 @@ export function NewTaskContent({ onClose, onSubmit, editing, onDirtyChange }: Ne
         hasBackground={false}
         hasBorder={false}
         onChange={(event) => setTitle(event.target.value)}
+        onKeyDown={
+          isEditing
+            ? undefined
+            : (event) => {
+                if (event.key !== 'Enter') {
+                  return;
+                }
+                event.preventDefault();
+                if (!event.shiftKey) {
+                  void handleSubmit();
+                }
+              }
+        }
       />
       {error && (
         <span className="new-task__error" role="alert">

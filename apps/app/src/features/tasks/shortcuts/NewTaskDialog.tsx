@@ -31,12 +31,13 @@ type NewTaskDialogProps = NewTaskModeProps | EditTaskModeProps;
  */
 export function NewTaskDialog(props: NewTaskDialogProps) {
   const { open, onClose } = props;
-  // Once something is typed or picked, Escape and a click outside no longer close the modal (the × and Cancel-style
-  // actions still do), so a title is not lost to a stray key or click. An empty modal dismisses freely.
+  const isEditing = props.editing !== undefined;
+  // Edit mode: once something is typed or picked, Escape and a click outside no longer close the modal. New task
+  // always dismisses on Escape (and outside click) — Enter creates from NewTaskContent.
   const [isDirty, setIsDirty] = useState(false);
 
   return (
-    <Dialog open={open} onClose={onClose} dismissible={!isDirty} size="large" top={240} scrim="strong">
+    <Dialog open={open} onClose={onClose} dismissible={isEditing ? !isDirty : true} size="large" top={240} scrim="strong">
       <NewTaskContent
         onClose={onClose}
         onDirtyChange={setIsDirty}

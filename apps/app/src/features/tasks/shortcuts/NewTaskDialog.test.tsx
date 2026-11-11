@@ -60,6 +60,61 @@ describe('NewTaskDialog — New task (unchanged)', () => {
 
     await waitFor(() => expect(onCreateTask).toHaveBeenCalledWith('Buy milk', undefined));
   });
+
+  it('Enter in the title field submits with the same validation as Create', async () => {
+    const onCreateTask = vi.fn().mockResolvedValue(undefined);
+    render(<NewTaskDialog open onClose={() => {}} onCreateTask={onCreateTask} />);
+
+    const field = screen.getByRole('textbox');
+    fireEvent.change(field, { target: { value: 'Buy milk' } });
+    fireEvent.keyDown(field, { key: 'Enter' });
+
+    await waitFor(() => expect(onCreateTask).toHaveBeenCalledTimes(1));
+    expect(onCreateTask).toHaveBeenCalledWith('Buy milk', undefined);
+  });
+
+  it('Enter on an empty title shakes the field and does not create', () => {
+    const onCreateTask = vi.fn().mockResolvedValue(undefined);
+    render(<NewTaskDialog open onClose={() => {}} onCreateTask={onCreateTask} />);
+
+    const field = screen.getByRole('textbox');
+    fireEvent.keyDown(field, { key: 'Enter' });
+
+    expect(onCreateTask).not.toHaveBeenCalled();
+    expect(field).toHaveClass('editable-text--shake');
+  });
+
+  it('Enter does not create twice while a create is in flight', async () => {
+    let resolveCreate!: () => void;
+    const onCreateTask = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveCreate = resolve;
+        })
+    );
+    render(<NewTaskDialog open onClose={() => {}} onCreateTask={onCreateTask} />);
+
+    const field = screen.getByRole('textbox');
+    fireEvent.change(field, { target: { value: 'Buy milk' } });
+    fireEvent.keyDown(field, { key: 'Enter' });
+    fireEvent.keyDown(field, { key: 'Enter' });
+    expect(onCreateTask).toHaveBeenCalledTimes(1);
+
+    resolveCreate();
+    await waitFor(() => expect(onCreateTask).toHaveBeenCalledTimes(1));
+  });
+
+  it('Shift+Enter does not submit or insert a newline in the title field', () => {
+    const onCreateTask = vi.fn().mockResolvedValue(undefined);
+    render(<NewTaskDialog open onClose={() => {}} onCreateTask={onCreateTask} />);
+
+    const field = screen.getByRole('textbox');
+    fireEvent.change(field, { target: { value: 'Line one' } });
+    fireEvent.keyDown(field, { key: 'Enter', shiftKey: true });
+
+    expect(onCreateTask).not.toHaveBeenCalled();
+    expect(field).toHaveValue('Line one');
+  });
 });
 
 /** The dialog open until it closes itself, so a dismissal shows as the dialog going away. */
@@ -84,15 +139,17 @@ describe('NewTaskDialog — dismissal', () => {
     expect(screen.queryByRole('textbox')).toBeNull();
   });
 
-  it('a typed title survives Escape and a click outside; only the × closes it', () => {
+  it('a typed New task still dismisses on Escape and on a click outside', () => {
     render(<NewHost />);
     typeTitle('Buy milk');
 
     pressEscape();
-    clickBackdrop();
-    expect(screen.getByRole('textbox')).toHaveValue('Buy milk');
+    expect(screen.queryByRole('textbox')).toBeNull();
 
-    fireEvent.click(screen.getByLabelText('Close'));
+    cleanup();
+    render(<NewHost />);
+    typeTitle('Buy milk');
+    clickBackdrop();
     expect(screen.queryByRole('textbox')).toBeNull();
   });
 
@@ -110,16 +167,7 @@ describe('NewTaskDialog — dismissal', () => {
     expect(screen.getByRole('textbox')).toBeInTheDocument();
   });
 
-  it('emptying the title again makes it dismissible again', () => {
-    render(<NewHost />);
-    typeTitle('Buy milk');
-    typeTitle('   ');
-
-    pressEscape();
-    expect(screen.queryByRole('textbox')).toBeNull();
-  });
-
-  it('closing and reopening starts unprotected: a fresh empty dialog dismisses', () => {
+  it('closing and reopening starts dismissible: a fresh empty dialog dismisses', () => {
     const { rerender } = render(<NewTaskDialog open onClose={() => {}} onCreateTask={vi.fn()} />);
     typeTitle('Buy milk');
     rerender(<NewTaskDialog open={false} onClose={() => {}} onCreateTask={vi.fn()} />);

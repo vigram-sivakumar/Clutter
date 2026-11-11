@@ -90,7 +90,7 @@ describe('TasksShortcuts', () => {
     expect(screen.getByRole('textbox')).toBeInTheDocument();
   });
 
-  it('focuses the title field on open, and once a title is typed Escape does not dismiss it', () => {
+  it('focuses the title field on open, and Escape dismisses the New task dialog even with a title typed', () => {
     renderTasksShortcuts();
 
     fireEvent.click(screen.getByText('New'));
@@ -98,11 +98,10 @@ describe('TasksShortcuts', () => {
     const input = screen.getByRole('textbox');
     expect(input).toHaveFocus();
 
-    // With something typed, auto-dismiss is off; only the explicit close button (below) may close it.
     fireEvent.change(input, { target: { value: 'Buy milk' } });
     fireEvent.keyDown(document, { key: 'Escape' });
 
-    expect(screen.getByRole('textbox')).toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 
   it('dismisses the overlay via the close button', () => {
@@ -116,7 +115,7 @@ describe('TasksShortcuts', () => {
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 
-  it('once a title is typed, a backdrop click does not dismiss the overlay', () => {
+  it('once a title is typed, a backdrop click still dismisses the New task overlay', () => {
     renderTasksShortcuts();
 
     fireEvent.click(screen.getByText('New'));
@@ -126,7 +125,7 @@ describe('TasksShortcuts', () => {
     expect(backdrop).not.toBeNull();
     fireEvent.click(backdrop!);
 
-    expect(screen.getByRole('textbox')).toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 
   it('Create with no title shakes the title field, and with one calls onCreateTask with no due date by default', async () => {
