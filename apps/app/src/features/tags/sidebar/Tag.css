@@ -1,11 +1,11 @@
 .tag__icon {
-  color: var(--sidebar-icon-foreground);
+  color: var(--sidebar-entry-icon-foreground);
   /* Purely decorative — shares .tag__caret's grid cell, same reasoning as
      Folder.css's identical .folder__icon rule. */
   pointer-events: none;
 }
 .tag__favorite-icon {
-  color: var(--sidebar-icon-foreground);
+  color: var(--sidebar-entry-icon-foreground);
   opacity: var(--opacity-strong);
 }
 

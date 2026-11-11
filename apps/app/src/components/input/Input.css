@@ -30,10 +30,10 @@
 }
 
 .input--background {
-  background: var(--surface-subtle);
+  background: var(--surface-layer-subtle);
 }
 .input--border {
-  box-shadow: var(--shadow-inset-default);
+  box-shadow: var(--shadow-inset-medium);
 }
 
 /* A wrapped, multi-line field needs its text top-aligned (not vertically

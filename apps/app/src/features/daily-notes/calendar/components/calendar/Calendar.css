@@ -1,5 +1,5 @@
 :root {
-  --calendar-surface: var(--surface-subtle);
+  --calendar-surface: var(--surface-layer-subtle);
   --calendar-foreground: var(--entry-foreground);
   --calendar-muted-foreground: var(--calendar-on-accent-foreground);
   --calendar-today-foreground: var(--calendar-accent);

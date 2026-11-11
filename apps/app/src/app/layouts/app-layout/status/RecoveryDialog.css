@@ -6,7 +6,7 @@
   background: var(--surface-secondary);
   border-radius: var(--radius-xxl);
   padding: var(--space-16);
-  box-shadow: var(--shadow-inset-default), var(--shadow-md);
+  box-shadow: var(--shadow-inset-medium), var(--shadow-md);
   max-height: 70vh;
 }
 
@@ -38,7 +38,7 @@
   gap: var(--space-6);
   padding: var(--space-12);
   border-radius: var(--radius-lg);
-  background: var(--surface-subtle);
+  background: var(--surface-layer-subtle);
 }
 
 .recovery-dialog__title {

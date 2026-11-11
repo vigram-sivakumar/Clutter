@@ -13,7 +13,7 @@
   margin: 0;
   /* One step stronger than the page's own divider, so the small preview reads clearly on the button. The line, wave and dots
      keep the divider's own shapes; only the colour differs. */
-  background-color: var(--border-stronger);
+  background-color: var(--border-strong);
 }
 .header-separator-style__value {
   display: inline-flex;

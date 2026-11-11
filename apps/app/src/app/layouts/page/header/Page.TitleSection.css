@@ -9,6 +9,12 @@
   gap: var(--space-12);
 }
 
+/* Archived pages without an above-title cover: the banner supplies top
+   breathing room; Page passes this modifier from `archived` + `coverLayout`. */
+.page-title-section--archived-no-above-cover {
+  padding-top: 0;
+}
+
 /* The More actions button stays mounted (PageHeaderControls.css sets its
    resting opacity/pointer-events to hidden) — this is the one hover surface
    that reveals it, so it owns the reveal rule rather than PageHeaderControls

@@ -14,7 +14,7 @@
 
   padding: var(--space-6);
 
-  box-shadow: var(--shadow-inset-default), var(--shadow-md);
+  box-shadow: var(--shadow-inset-medium), var(--shadow-md);
 }
 
 /* A menu is a flex column, so in a height-limited one (max-height, or a fixed height) its children would shrink to fit
@@ -46,7 +46,7 @@
   height: 1px;
   margin: var(--space-4) calc(var(--space-4) * -1);
   margin-inline: var(--space-8);
-  background: var(--border-default);
+  background: var(--border-medium);
 }
 
 .menu .input {

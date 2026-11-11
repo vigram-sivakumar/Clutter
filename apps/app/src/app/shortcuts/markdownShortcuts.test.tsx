@@ -12,6 +12,7 @@ import { EditorView } from '@codemirror/view';
 
 import { buildEditorExtensions, type BuildEditorExtensionsOptions } from '@features/markdown/editor/codemirror/buildEditorExtensions';
 import { createEditorView } from '@features/markdown/editor/codemirror/createEditorView';
+import { findAllTables, getNavigableRows, getRowCellBounds } from '@features/markdown/editor/codemirror/table/tableGeometry';
 import { MARKDOWN_SHORTCUT_GROUPS } from './markdownShortcuts';
 import type { ShortcutKeySpec } from './shortcuts';
 
@@ -308,7 +309,7 @@ async function nodesOf(doc: string): Promise<string[]> {
 describe('the Markdown guide dialog’s typing triggers', () => {
   it('lists exactly the triggers checked below', () => {
     const syntax = Object.keys(SYNTAX);
-    const rest = ['code-block', 'quick-task', 'suggest-tags', 'suggest-dates'];
+    const rest = ['code-block', 'quick-task', 'quick-table', 'suggest-tags', 'suggest-dates'];
     expect(TRIGGER_ROWS.map((row) => row.id).sort()).toEqual([...syntax, ...rest].sort());
   });
 
@@ -342,6 +343,24 @@ describe('the Markdown guide dialog’s typing triggers', () => {
     expect(event.defaultPrevented).toBe(true);
     expect(view.state.doc.toString()).toBe('- [ ] ');
     expect(view.state.selection.main.head).toBe(6);
+  });
+
+  it('|-\\| and a space on its own line becomes a three-column table', () => {
+    const view = mount('|-\|', 3, 3);
+    const event = press(view, { key: ' ', code: 'Space', keyCode: 32 });
+    expect(event.defaultPrevented).toBe(true);
+    expect(findAllTables(view.state)).toHaveLength(1);
+    const header = getNavigableRows(findAllTables(view.state)[0]!.node)[0]!;
+    expect(getRowCellBounds(header)).toHaveLength(3);
+    expect(getNavigableRows(findAllTables(view.state)[0]!.node)).toHaveLength(2);
+  });
+
+  it('| - | and a space on its own line becomes the same quick table', () => {
+    const view = mount('| - |', 5, 5);
+    const event = press(view, { key: ' ', code: 'Space', keyCode: 32 });
+    expect(event.defaultPrevented).toBe(true);
+    expect(findAllTables(view.state)).toHaveLength(1);
+    expect(getRowCellBounds(getNavigableRows(findAllTables(view.state)[0]!.node)[0]!)).toHaveLength(3);
   });
 
   it('typing three backticks adds the closing fence', () => {

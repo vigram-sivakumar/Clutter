@@ -1,7 +1,6 @@
 :root {
   --sidebar-padding-inline: var(--space-12);
-  --sidebar-icon-foreground: var(--foreground-entry);
-  --sidebar-item-placeholder-foreground: var(--foreground-placeholder);
+  --sidebar-entry-icon-foreground: var(--entry-icon-foreground);
 }
 
 .sidebar {

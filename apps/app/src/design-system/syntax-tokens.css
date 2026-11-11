@@ -144,7 +144,7 @@
      --syntax-code-background/--syntax-code-label above: inline code is
      tuned to different values today (a subtler inline accent, not a
      whole editor-like block) and the two could diverge further later. */
-  --syntax-inline-code-background: var(--surface-subtle);
+  --syntax-inline-code-background: var(--surface-layer-subtle);
   --syntax-inline-code-foreground: var(--foreground-secondary);
 }
 
@@ -182,6 +182,6 @@
   --syntax-gutter-number: var(--foreground-tertiary);
   --syntax-active-line: var(--state-selected);
   --syntax-active-line-number: var(--foreground-primary);
-  --syntax-inline-code-background: var(--surface-subtle);
+  --syntax-inline-code-background: var(--surface-layer-subtle);
   --syntax-inline-code-foreground: var(--foreground-secondary);
 }

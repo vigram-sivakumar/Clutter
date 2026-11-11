@@ -1,6 +1,6 @@
 :root {
   --cm-table-border-radius: 0px;
-  --cm-table-border-color: var(--border-stronger);
+  --cm-table-border-color: var(--border-strong);
   --cm-table-border-thickness: 0.5px;
 } /*
  * Real HTML `<table>` projection styling (Architecture E, ADR-034 — see
@@ -488,7 +488,7 @@
   border-bottom: var(--cm-table-border-thickness) solid
     var(--cm-table-border-color);
   color: var(--foreground-tertiary);
-  background: var(--surface-subtle);
+  background: var(--surface-layer-subtle);
 }
 
 .cm-editor .cm-table-wrapper .cm-table-cell-wrapper {

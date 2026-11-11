@@ -34,9 +34,11 @@ Neutrals    charcoal / gray
   --surface-primary: var(--neutral-900);
   --surface-secondary: var(--neutral-800);
   --surface-tertiary: var(--neutral-700);
-  --surface-subtle: rgba(255, 255, 255, 0.025);
-  --surface-inverse: var(--neutral-50);
   --surface-brand: #187cf6;
+
+  /* Surface layers */
+  --surface-layer-subtle: rgba(255, 255, 255, 0.025);
+  --surface-layer-strong: rgba(255, 255, 255, 0.05);
 
   /* Overlay scrim */
   --overlay-scrim: rgba(20, 20, 20, 0.55);
@@ -44,25 +46,44 @@ Neutrals    charcoal / gray
 
   /* Text & icons */
   --foreground-primary: #f7f7f7;
-  --foreground-secondary: hsl(0, 0%, 65%);
+  --foreground-secondary: #a6a6a6;
   --foreground-tertiary: #737373;
   --foreground-placeholder: #575757;
   --foreground-inverse: var(--neutral-700);
   --foreground-brand: white;
-  --foreground-entry: #cccccc;
+
+  /* Foreground neutral */
+  --foreground-white: white;
+  --foreground-black: black;
+
+  /* Border */
+  --border-light: rgba(255, 255, 255, 0.04);
+  --border-medium: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.1);
+  --border-active: var(--surface-brand);
+  --border-focus: var(--md-link-foreground);
+
+  /* Inset borders */
+  --shadow-inset-light: inset 0 0 0 1px var(--border-light);
+  --shadow-inset-medium: inset 0 0 0 1px var(--border-medium);
+  --shadow-inset-strong: inset 0 0 0 1px var(--border-strong);
+  --shadow-inset-thin-medium: inset 0 0 0 0.5px var(--border-strong);
+  --shadow-inset-thin-strong: inset 0 0 0 0.5px rgba(255, 255, 255, 0.14);
+  --shadow-inset-active: var(--surface-brand);
+  --shadow-inset-focus: inset 0 0 0 1px var(--border-focus);
+
+  /* Entry component */
+  --entry-text-foreground: var(--foreground-secondary);
+  --entry-icon-foreground: var(--foreground-secondary);
 
   /* Global decoration */
-  --link-underline: rgb(
-    from var(--foreground-tertiary) r g b / var(--opacity-strong)
-  );
+  --link-underline: rgba(255, 255, 255, 0.15);
 
   /* Markdown */
   --md-marker-foreground: var(--foreground-placeholder);
 
   --md-highlight-surface: rgba(255, 210, 0, 0.26);
   --md-compact-highlight-surface: rgba(255, 255, 255, 0.06);
-
-  --md-highlight-surface-2: #627800;
   --md-highlight-shadow-inline:
     var(--md-highlight-surface) -2px 0 0, var(--md-highlight-surface) 2px 0 0;
 
@@ -91,12 +112,12 @@ Neutrals    charcoal / gray
   --md-date-surface: var(--surface-tertiary);
   --md-date-foreground: #999999;
 
-  --md-inline-code-surface: var(--border-subtle);
+  --md-inline-code-surface: var(--border-light);
   --md-inline-code-foreground: #d95662;
   --md-inline-code-foreground-1: var(
     --foreground-secondary
   ); /* #e65d5c other option */
-  --md-inline-code-inset: var(--shadow-inset-default);
+  --md-inline-code-inset: var(--shadow-inset-medium);
 
   --md-img-resize-handle: rgba(244, 244, 244, 0.7);
   --md-pdf-resize-handle: rgba(244, 244, 244, 0.7);
@@ -112,7 +133,7 @@ Neutrals    charcoal / gray
      to how a card is outlined (a different width/opacity, or a per-theme
      split like `--md-inline-code-inset` already has) is one edit here,
      not three. */
-  --md-card-inset-border: var(--shadow-inset-thin);
+  --md-card-inset-border: var(--shadow-inset-thin-medium);
 
   --pill-surface: color-mix(
     in srgb,
@@ -143,9 +164,6 @@ Neutrals    charcoal / gray
   --danger-foreground-on-surface: white;
   --danger-foreground: #ec4c5a;
 
-  /* Secondary button */
-  --button-secondary-surface: rgba(255, 255, 255, 0.055);
-
   /* Selected tab */
   --tab-selected-surface: var(--state-selected);
 
@@ -171,22 +189,6 @@ Neutrals    charcoal / gray
   --opacity-medium: 55%;
   --opacity-subtle: 75%;
 
-  /* Border */
-  --border-subtle: rgba(255, 255, 255, 0.04);
-  --border-default: rgba(255, 255, 255, 0.06);
-  --border-strong: rgba(255, 255, 255, 0.1);
-  --border-stronger: rgba(255, 255, 255, 0.15);
-  --border-active: var(--surface-brand);
-  --border-focus: var(--md-link-foreground);
-
-  /* Inset borders */
-  --shadow-inset-default: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
-  --shadow-inset-subtle: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
-  --shadow-inset-strong: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
-  --shadow-inset-focus: inset 0 0 0 1px var(--border-focus);
-  --shadow-inset-thin: inset 0 0 0 0.5px rgba(255, 255, 255, 0.1);
-  --shadow-inset-thin-strong: inset 0 0 0 0.5px rgba(255, 255, 255, 0.15);
-
   /* Shadows */
   --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.06);
   --shadow-md:
@@ -207,11 +209,15 @@ Neutrals    charcoal / gray
   --surface-primary: var(--neutral-0);
   --surface-secondary: var(--neutral-50);
   --surface-tertiary: var(--neutral-200);
-  --surface-subtle: rgba(0, 0, 0, 0.04);
+  --surface-brand: #2e71e7;
+
+  /* Surface layers */
+  --surface-layer-subtle: rgba(0, 0, 0, 0.04);
+  --surface-layer-strong: rgba(0, 0, 0, 0.08);
+
+  /* Overlay scrim */
   --overlay-scrim: rgba(80, 80, 80, 0.25);
   --overlay-scrim-strong: rgba(80, 80, 80, 0.6);
-  --surface-inverse: var(--neutral-900);
-  --surface-brand: #2e71e7;
 
   /* Text & icons */
   --foreground-primary: #333333;
@@ -220,7 +226,30 @@ Neutrals    charcoal / gray
   --foreground-placeholder: #cccccc;
   --foreground-inverse: #d4d4d4;
   --foreground-brand: white;
-  --foreground-entry: #404040;
+
+  /* Foreground neutral */
+  --foreground-white: white;
+  --foreground-black: black;
+
+  /* Border */
+  --border-light: rgba(0, 0, 0, 0.04);
+  --border-medium: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.12);
+  --border-active: var(--surface-brand);
+  --border-focus: var(--md-link-foreground);
+
+  /* Inset borders */
+  --shadow-inset-light: inset 0 0 0 1px var(--border-light);
+  --shadow-inset-medium: inset 0 0 0 1px var(--border-medium);
+  --shadow-inset-strong: inset 0 0 0 1px var(--border-strong);
+  --shadow-inset-thin-medium: inset 0 0 0 0.5px var(--border-strong);
+  --shadow-inset-thin-strong: inset 0 0 0 0.5px rgba(0, 0, 0, 0.16);
+  --shadow-inset-active: var(--border-active);
+  --shadow-inset-focus: inset 0 0 0 1px var(--border-focus);
+
+  /* Entry component */
+  --entry-text-foreground: var(--foreground-secondary);
+  --entry-icon-foreground: var(--foreground-secondary);
 
   /* Global decoration */
   --link-underline: rgb(
@@ -232,7 +261,6 @@ Neutrals    charcoal / gray
 
   --md-highlight-surface: rgba(255, 230, 0, 0.42);
   --md-compact-highlight-surface: rgba(0, 0, 0, 0.06);
-  --md-highlight-surface-2: #cdfe06;
   --md-highlight-shadow-inline:
     var(--md-highlight-surface) -2px 0 0, var(--md-highlight-surface) 2px 0 0;
 
@@ -256,7 +284,7 @@ Neutrals    charcoal / gray
   --md-date-surface: var(--surface-tertiary);
   --md-date-foreground: #999999;
 
-  --md-inline-code-surface: var(--border-subtle);
+  --md-inline-code-surface: var(--border-light);
   --md-inline-code-foreground: #b63f4e;
   --md-inline-code-foreground-1: var(
     --foreground-secondary
@@ -270,7 +298,7 @@ Neutrals    charcoal / gray
 
   --md-embed-surface: var(--neutral-50);
   --fenced-code-surface: var(--neutral-50);
-  --md-card-inset-border: var(--shadow-inset-thin);
+  --md-card-inset-border: var(--shadow-inset-thin-medium);
 
   --pill-surface: color-mix(
     in srgb,
@@ -301,9 +329,6 @@ Neutrals    charcoal / gray
   --danger-foreground-on-surface: white;
   --danger-foreground: #c93648;
 
-  /* Secondary button */
-  --button-secondary-surface: rgba(0, 0, 0, 0.055);
-
   /* Selected tab */
   --tab-selected-surface: var(--surface-primary);
 
@@ -328,22 +353,6 @@ Neutrals    charcoal / gray
   --opacity-strong: 30%;
   --opacity-medium: 50%;
   --opacity-subtle: 70%;
-
-  /* Border */
-  --border-subtle: rgba(0, 0, 0, 0.04);
-  --border-default: rgba(0, 0, 0, 0.06);
-  --border-strong: rgba(0, 0, 0, 0.12);
-  --border-stronger: rgba(0, 0, 0, 0.16);
-  --border-active: var(--surface-brand);
-  --border-focus: var(--md-link-foreground);
-
-  /* Inset borders */
-  --shadow-inset-default: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
-  --shadow-inset-subtle: inset 0 0 0 1px rgba(0, 0, 0, 0.04);
-  --shadow-inset-strong: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
-  --shadow-inset-focus: inset 0 0 0 1px var(--border-focus);
-  --shadow-inset-thin: inset 0 0 0 0.5px rgba(0, 0, 0, 0.12);
-  --shadow-inset-thin-strong: inset 0 0 0 0.5px rgba(0, 0, 0, 0.16);
 
   /* Shadows */
   --shadow-sm: 0 2px 6px rgba(25, 25, 25, 0.04);

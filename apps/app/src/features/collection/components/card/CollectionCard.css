@@ -14,8 +14,8 @@
   width: 100%;
   min-width: 0;
   overflow: hidden;
-  background: var(--surface-subtle);
-  border: 1px solid var(--border-default);
+  background: var(--surface-layer-subtle);
+  border: 1px solid var(--border-medium);
   border-radius: var(--radius-lg);
   transition: background-color 120ms ease;
 }
@@ -27,7 +27,7 @@
 .collection-card:is(:hover, [data-context-menu-open='true']) {
   background: color-mix(
     in srgb,
-    var(--surface-subtle) 99%,
+    var(--surface-layer-subtle) 99%,
     rgb(var(--state-base)) 1%
   );
 }
@@ -89,7 +89,8 @@
   align-items: center;
   justify-content: center;
 }
-.collection-card:is(:hover, :focus-within, [data-context-menu-open='true']) > .collection-card__selection,
+.collection-card:is(:hover, :focus-within, [data-context-menu-open='true'])
+  > .collection-card__selection,
 .collection-card--checked > .collection-card__selection,
 .collection-card--selecting > .collection-card__selection {
   display: flex;
@@ -104,11 +105,12 @@
 
 /* ---- empty: the quiet "add something" card, its content centred ---- */
 .collection-card--empty {
-  background: var(--surface-action);
-  border-color: var(--border-subtle);
+  background: transparent;
+  border-color: var(--border-light);
+  transition: background-color 220ms ease;
 }
 .collection-card--empty:hover {
-  background: var(--surface-subtle);
+  background: var(--surface-layer-subtle);
 }
 .collection-card--empty > .collection-card__main {
   flex: 1 1 0;

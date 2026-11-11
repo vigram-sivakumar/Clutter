@@ -18,7 +18,7 @@
   padding-inline: var(--note-page-canvas-inset, var(--space-4));
 
   /* No background of its own: the card's surface shows through. */
-  /* Header/preview divider hidden on purpose (try-out) — restore `border-top: 1px solid var(--border-default)` to bring it back. */
+  /* Header/preview divider hidden on purpose (try-out) — restore `border-top: 1px solid var(--border-medium)` to bring it back. */
 
   /*
    * Bottom fade. A mask (not an overlay colored like the card) so it fades
@@ -119,15 +119,22 @@
   margin-top: var(--note-page-canvas-space-sm);
 }
 /* Soft line breaks inside a quote stay tight (the editor keeps contiguous quote lines gapless so the bar is unbroken), and inside list items they use the item gap. */
-.note-page-canvas .markdown-blocks__quote .markdown-blocks__line + .markdown-blocks__line {
+.note-page-canvas
+  .markdown-blocks__quote
+  .markdown-blocks__line
+  + .markdown-blocks__line {
   margin-top: 0;
 }
-.note-page-canvas .markdown-blocks__list-item .markdown-blocks__line + .markdown-blocks__line {
+.note-page-canvas
+  .markdown-blocks__list-item
+  .markdown-blocks__line
+  + .markdown-blocks__line {
   margin-top: var(--note-page-canvas-list-item-gap);
 }
 /* embed (image, PDF, note) -> surrounding content: larger gap. */
 .note-page-canvas .markdown-blocks__paragraph:has(> .compact-markdown-image),
-.note-page-canvas .markdown-blocks__paragraph:has(> .compact-markdown-image-missing),
+.note-page-canvas
+  .markdown-blocks__paragraph:has(> .compact-markdown-image-missing),
 .note-page-canvas .markdown-blocks__paragraph:has(> .compact-markdown-embed) {
   margin-block: var(--note-page-canvas-space-lg);
 }
@@ -173,7 +180,9 @@
  * checkbox: both are centered at half the list's 24px padding, i.e. 12px
  * left of the item's content edge. Ordered lists keep their native numbers.
  */
-.note-page-canvas ul.markdown-blocks__list:not(.markdown-blocks__list--emoji) > .markdown-blocks__list-item {
+.note-page-canvas
+  ul.markdown-blocks__list:not(.markdown-blocks__list--emoji)
+  > .markdown-blocks__list-item {
   list-style: none;
   position: relative;
 }
@@ -198,11 +207,15 @@
 :root:not([data-markdown-bullet-style='dot'])
   .note-page-canvas
   ul.markdown-blocks__list:not(.markdown-blocks__list--emoji)
-  > .markdown-blocks__list-item:not(.markdown-blocks__list-item--task)[data-bullet-marker='-']::before,
+  > .markdown-blocks__list-item:not(
+    .markdown-blocks__list-item--task
+  )[data-bullet-marker='-']::before,
 :root:not([data-markdown-bullet-style='dot'])
   .note-page-canvas
   ul.markdown-blocks__list:not(.markdown-blocks__list--emoji)
-  > .markdown-blocks__list-item:not(.markdown-blocks__list-item--task)[data-bullet-marker='+']::before {
+  > .markdown-blocks__list-item:not(
+    .markdown-blocks__list-item--task
+  )[data-bullet-marker='+']::before {
   content: attr(data-bullet-marker);
   width: calc(var(--space-12) * 2);
   height: auto;
@@ -288,7 +301,9 @@
 .note-page-canvas .markdown-blocks__task[data-checked='true'] {
   color: var(--foreground-tertiary);
 }
-.note-page-canvas .markdown-blocks__task[data-checked='true'] .markdown-blocks__task-box {
+.note-page-canvas
+  .markdown-blocks__task[data-checked='true']
+  .markdown-blocks__task-box {
   color: var(--checkbox-accent);
 }
 
@@ -355,7 +370,8 @@
   flex: 1;
   border-top: 1px solid var(--md-hr-line);
 }
-.note-page-canvas .markdown-blocks__rule:not(:has(.markdown-blocks__rule-label))::after {
+.note-page-canvas
+  .markdown-blocks__rule:not(:has(.markdown-blocks__rule-label))::after {
   display: none;
 }
 .note-page-canvas .markdown-blocks__rule[data-variant='double']::before,
@@ -479,10 +495,16 @@
 }
 
 /* ...but not at the very top or bottom of the content, where nothing hangs off the section. */
-.note-page-canvas .note-page-canvas__body > :first-child > .compact-markdown-image:first-child {
+.note-page-canvas
+  .note-page-canvas__body
+  > :first-child
+  > .compact-markdown-image:first-child {
   margin-top: 0;
 }
-.note-page-canvas .note-page-canvas__body > :last-child > .compact-markdown-image:last-child {
+.note-page-canvas
+  .note-page-canvas__body
+  > :last-child
+  > .compact-markdown-image:last-child {
   margin-bottom: 0;
 }
 

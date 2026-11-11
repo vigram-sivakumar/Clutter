@@ -86,10 +86,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--sidebar-icon-foreground);
+  color: var(--sidebar-entry-icon-foreground);
   pointer-events: none;
 }
-
 
 /* Asset row: the asset's image replaces the icon and fills the row's height (a square, cropped to
    cover). Padding is trimmed so the image sits close to the row's edge, and the row is tall enough

@@ -13,7 +13,7 @@
   width: var(--collection-media-width, var(--space-20));
   height: var(--collection-media-height, var(--space-20));
   overflow: hidden;
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--border-medium);
   border-radius: var(--radius-sm);
   pointer-events: none;
   user-select: none;

@@ -20,7 +20,7 @@
   border-radius: calc(var(--switch-height) / 2);
 
   background: var(--state-hover-strong);
-  box-shadow: var(--shadow-inset-thin);
+  box-shadow: var(--shadow-inset-thin-medium);
   cursor: pointer;
 
   transition:
@@ -52,7 +52,11 @@
 .switch--checked .switch__thumb {
   /* On the brand-colored track the thumb is white, as `--danger-foreground-on-surface` is on a danger surface. */
   background: white;
-  transform: translateX(calc(var(--switch-width) - var(--switch-thumb-width) - var(--switch-inset) * 2));
+  transform: translateX(
+    calc(
+      var(--switch-width) - var(--switch-thumb-width) - var(--switch-inset) * 2
+    )
+  );
 }
 
 .switch:focus-visible {

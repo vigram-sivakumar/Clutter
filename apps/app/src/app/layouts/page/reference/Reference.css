@@ -85,7 +85,7 @@
 .reference__divider {
   height: 1px;
   width: 100%;
-  background-color: var(--border-default);
+  background-color: var(--border-medium);
 }
 
 .reference__notes .reference__occurrences {

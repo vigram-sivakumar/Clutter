@@ -29,7 +29,7 @@
   /* One line of the title tall, so the icon centers on the title line even when a path sits below. */
   height: var(--lh-label);
   aspect-ratio: 1;
-  color: var(--sidebar-icon-foreground);
+  color: var(--sidebar-entry-icon-foreground);
 }
 .completion-row__icon svg {
   width: 16px;
@@ -88,7 +88,7 @@
 .completion-section__divider {
   height: 1px;
   margin: var(--space-4) var(--space-8);
-  background: var(--border-default);
+  background: var(--border-medium);
 }
 /* The first section has nothing above it to divide from. */
 .completion-section:first-child .completion-section__divider {
@@ -133,7 +133,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--sidebar-icon-foreground);
+  color: var(--sidebar-entry-icon-foreground);
 }
 .completion-row__thumbnail--icon svg {
   width: 16px;

@@ -56,16 +56,24 @@ stays while it is checked. In selection mode (some item is checked) every entry 
 .collection-entry__leading-hover {
   visibility: hidden;
 }
-.collection-entry--layout-list:is(:hover, :focus-within) .collection-entry__leading-rest,
-.collection-entry--folder-card:is(:hover, :focus-within) .collection-entry__leading-rest,
-:is(:hover, :focus-within) > .collection-entry--layout-cell .collection-entry__leading-rest,
+.collection-entry--layout-list:is(:hover, :focus-within)
+  .collection-entry__leading-rest,
+.collection-entry--folder-card:is(:hover, :focus-within)
+  .collection-entry__leading-rest,
+:is(:hover, :focus-within)
+  > .collection-entry--layout-cell
+  .collection-entry__leading-rest,
 .collection-entry--checked .collection-entry__leading-rest,
 .collection-entry--selecting .collection-entry__leading-rest {
   visibility: hidden;
 }
-.collection-entry--layout-list:is(:hover, :focus-within) .collection-entry__leading-hover,
-.collection-entry--folder-card:is(:hover, :focus-within) .collection-entry__leading-hover,
-:is(:hover, :focus-within) > .collection-entry--layout-cell .collection-entry__leading-hover,
+.collection-entry--layout-list:is(:hover, :focus-within)
+  .collection-entry__leading-hover,
+.collection-entry--folder-card:is(:hover, :focus-within)
+  .collection-entry__leading-hover,
+:is(:hover, :focus-within)
+  > .collection-entry--layout-cell
+  .collection-entry__leading-hover,
 .collection-entry--checked .collection-entry__leading-hover,
 .collection-entry--selecting .collection-entry__leading-hover {
   visibility: visible;
@@ -162,14 +170,15 @@ stays while it is checked. In selection mode (some item is checked) every entry 
   gap: var(--space-6);
 }
 .collection-entry--folder-card {
-  background: var(--surface-subtle);
+  background: var(--surface-layer-subtle);
+  border: 1px solid var(--border-medium);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-inset-thin-strong);
 }
 .collection-entry--folder-card-new {
   color: var(--foreground-tertiary);
   background: transparent;
-  box-shadow: var(--shadow-inset-thin);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
 }
 .collection-entry--folder-card-new .collection-entry__main {
   justify-content: center;
@@ -187,9 +196,15 @@ stays while it is checked. In selection mode (some item is checked) every entry 
   fill: var(--surface-primary);
 }
 
-/* A checked folder card: the selection border, 2px — inset, so the card's size never changes. */
-.collection-entry--folder-card.collection-entry--checked {
-  box-shadow: inset 0 0 0 2px var(--border-active);
+/* A checked folder card: the selection border, 2px — inset outline (same contract as `CollectionCard`). */
+.collection-entry--folder-card.collection-entry--checked,
+.collection-entry--folder-card.collection-entry--checked:is(
+    :hover,
+    [data-context-menu-open='true']
+  ) {
+  border-color: var(--border-active);
+  outline: 2px solid var(--border-active);
+  outline-offset: -2px;
 }
 
 /* Interaction States */
@@ -202,13 +217,16 @@ stays while it is checked. In selection mode (some item is checked) every entry 
 .collection-entry--folder-card:is(:hover, [data-context-menu-open='true']) {
   background: color-mix(
     in srgb,
-    var(--surface-subtle) 99%,
+    var(--surface-layer-subtle) 99%,
     rgb(var(--state-base)) 1%
   );
 }
 /* A checked list row: the selection background (the one a checked table row has), over its hover. The class existed but nothing styled it, so a checked list row looked unselected. */
 .collection-entry--layout-list.collection-entry--checked,
-.collection-entry--layout-list.collection-entry--checked:is(:hover, [data-context-menu-open='true']) {
+.collection-entry--layout-list.collection-entry--checked:is(
+    :hover,
+    [data-context-menu-open='true']
+  ) {
   background: var(--surface-selected);
 }
 /* Actions */
@@ -234,7 +252,7 @@ closes (see TaskTitleActions). */
   background: var(--surface-primary);
   padding: var(--space-2);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-inset-thin-strong), var(--shadow-md);
+  box-shadow: var(--shadow-inset-thin-medium), var(--shadow-md);
   margin-block: -4px;
 }
 .collection-entry:hover .collection-entry__actions,

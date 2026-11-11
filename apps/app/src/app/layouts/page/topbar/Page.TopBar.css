@@ -41,7 +41,7 @@
 }
 
 .button-group {
-  background-color: var(--surface-subtle);
+  background-color: var(--surface-layer-subtle);
   border-radius: var(--radius-lg);
   padding: var(--space-2);
 }

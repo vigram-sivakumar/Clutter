@@ -32,6 +32,6 @@
   left: var(--space-0);
   right: var(--space-0);
   height: 1px;
-  background: var(--border-default);
+  background: var(--border-medium);
   pointer-events: none;
 }

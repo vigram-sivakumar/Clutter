@@ -2,5 +2,5 @@
   color: inherit;
 }
 .resource__icon {
-  color: var(--sidebar-icon-foreground);
+  color: var(--sidebar-entry-icon-foreground);
 }

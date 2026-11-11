@@ -650,7 +650,7 @@
  * lines (an inset shadow paints inside its own element's box, so unlike an
  * *outer* shadow it is never occluded by the next sibling). `border-left`/
  * `border-right` (every line) plus `border-top`/`border-bottom` (`--first`/
- * `--last` only) using the same plain `--border-default` color token
+ * `--last` only) using the same plain `--border-medium` color token
  * blockquote/table already reference elsewhere in this file reproduces the
  * identical visual weight without fighting the token's own spread-only shape.
  *
@@ -695,7 +695,7 @@
   background: var(--fenced-code-surface);
   border-radius: var(--md-embed-radius);
   pointer-events: none;
-  box-shadow: var(--shadow-inset-thin), var(--shadow-md);
+  box-shadow: var(--shadow-inset-thin-medium), var(--shadow-md);
 }
 
 /*
@@ -711,7 +711,7 @@
  * swaps which shadow applies to that already-correctly-sized shape.
  */
 .cm-editor .cm-fenced-code-bg--folded {
-  box-shadow: var(--shadow-inset-thin), var(--shadow-sm);
+  box-shadow: var(--shadow-inset-thin-medium), var(--shadow-sm);
 }
 
 .cm-editor .cm-code-block-line {
@@ -1412,8 +1412,12 @@
  * geometry are unchanged (the `::before` is absolutely positioned inside the
  * same marker box).
  */
-:root[data-markdown-bullet-style='dot'] .cm-editor .cm-bullet-list-marker--dash::before,
-:root[data-markdown-bullet-style='dot'] .cm-editor .cm-bullet-list-marker--plus::before {
+:root[data-markdown-bullet-style='dot']
+  .cm-editor
+  .cm-bullet-list-marker--dash::before,
+:root[data-markdown-bullet-style='dot']
+  .cm-editor
+  .cm-bullet-list-marker--plus::before {
   content: '•';
   font-weight: 900;
   bottom: 2px;

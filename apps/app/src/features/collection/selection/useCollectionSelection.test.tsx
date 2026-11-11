@@ -316,7 +316,9 @@ describe('selected styling', () => {
     const entry = css('entry/CollectionEntry.css');
     const card = css('card/CollectionCard.css');
 
-    expect(entry).toMatch(/\.collection-entry--folder-card\.collection-entry--checked\s*\{\s*box-shadow: inset 0 0 0 2px var\(--border-active\);/);
+    expect(entry).toMatch(/\.collection-entry--folder-card\s*\{[^}]*border: 1px solid var\(--border-medium\)/);
+    expect(entry).toMatch(/\.collection-entry--folder-card-new\s*\{[^}]*border: 1px solid var\(--border-light\)/);
+    expect(entry).toMatch(/\.collection-entry--folder-card\.collection-entry--checked,[^{]*\{[^}]*border-color: var\(--border-active\);\s*outline: 2px solid var\(--border-active\);\s*outline-offset: -2px;/);
     expect(card).toMatch(/\.collection-card--checked,[^{]*\{[^}]*outline: 2px solid var\(--border-active\);\s*outline-offset: -2px;/);
   });
 

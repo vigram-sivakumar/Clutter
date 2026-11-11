@@ -10,7 +10,7 @@
   border-radius: var(--radius-xl);
 
   background: var(--surface-secondary);
-  box-shadow: var(--shadow-inset-default), var(--shadow-lg);
+  box-shadow: var(--shadow-inset-medium), var(--shadow-lg);
 }
 
 .emoji-tray__header {
@@ -72,5 +72,5 @@
   border-radius: var(--radius-xl);
 
   background: var(--surface-secondary);
-  box-shadow: var(--shadow-inset-default), var(--shadow-lg);
+  box-shadow: var(--shadow-inset-medium), var(--shadow-lg);
 }

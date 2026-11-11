@@ -711,6 +711,31 @@ describe('Page — archived banner', () => {
     render(<Page title="Note" body={<div />} archived={archived} coverLayout="above" />);
     expect(banner()!.classList.contains('archived-banner--full-width')).toBe(true);
   });
+
+  const titleSection = () => document.querySelector('.page-title-section');
+
+  it('drops the title section top padding when archived without an above cover', () => {
+    const { unmount } = render(<Page title="Note" body={<div />} archived={archived} />);
+    expect(titleSection()?.classList.contains('page-title-section--archived-no-above-cover')).toBe(true);
+    unmount();
+
+    render(
+      <Page title="Note" body={<div />} archived={archived} coverImage="c.png" coverLayout="side" />
+    );
+    expect(titleSection()?.classList.contains('page-title-section--archived-no-above-cover')).toBe(true);
+  });
+
+  it('keeps the title section top padding when archived with an above cover layout', () => {
+    render(
+      <Page title="Note" body={<div />} archived={archived} coverImage="c.png" coverLayout="above" />
+    );
+    expect(titleSection()?.classList.contains('page-title-section--archived-no-above-cover')).toBe(false);
+  });
+
+  it('keeps the title section top padding when the page is not archived', () => {
+    render(<Page title="Note" body={<div />} coverLayout="side" />);
+    expect(titleSection()?.classList.contains('page-title-section--archived-no-above-cover')).toBe(false);
+  });
 });
 
 describe('Page — ⇧⌘C Toggle cover image', () => {

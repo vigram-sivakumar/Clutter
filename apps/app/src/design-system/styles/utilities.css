@@ -42,7 +42,7 @@
   width: var(--height-xs);
   aspect-ratio: 1;
   border-radius: 50%;
-  background-color: var(--surface-inverse);
+  background-color: var(--foreground-primary);
   color: var(--foreground-inverse);
   scale: 0.85;
 

@@ -20,6 +20,7 @@ interface MarkdownShortcutsDialogProps {
 const CATEGORY_ICONS: Readonly<Record<string, SystemIcon>> = {
   'Text formatting': 'description',
   'Lists': 'multiLine',
+  Tables: 'table',
   'Links and suggestions': 'link',
   Dividers: 'minus',
   Editing: 'edit',

@@ -16,10 +16,10 @@ describe('RoundIconButton', () => {
     expect(button.querySelector('[data-icon="dismiss"] svg')).not.toBeNull();
   });
 
-  it('defaults to the xs ghost button, and lets a caller add a class', () => {
+  it('defaults to the xs filled button, and lets a caller add a class', () => {
     render(<RoundIconButton icon="dismiss" aria-label="Close" className="extra" />);
     expect(screen.getByRole('button')).toHaveClass(
-      'button--ghost',
+      'button--filled',
       'button--xs',
       'extra'
     );

@@ -7,7 +7,7 @@ import type { ShortcutRowGroup } from './shortcutRows';
  * Only what is useful and not obvious: Clutter's custom Markdown behavior and the CodeMirror commands people would not
  * guess. Conventional text-editing keys (select all, move by word or line, delete a word, undo and redo) are left out
  * on purpose. Every row here was checked against the editor; `markdownShortcuts.test.tsx` presses each key on a real
- * editor, so a row cannot stay after its key stops working. Not listed yet: tables (their keys are only unit-tested).
+ * editor, so a row cannot stay after its key stops working.
  */
 const command: ShortcutKeySpec = 'command';
 const option: ShortcutKeySpec = 'option';
@@ -40,6 +40,17 @@ export const MARKDOWN_SHORTCUT_GROUPS: readonly ShortcutRowGroup[] = [
       { id: 'exit', label: 'Exit list or quote', description: 'On an empty item', keys: [key('Enter')] },
       { id: 'line-break', label: 'Insert line break', keys: [shift, key('Enter')] },
       { id: 'remove-marker', label: 'Remove list marker', description: 'At the start of an item', keys: [key('Delete')] },
+    ],
+  },
+  {
+    title: 'Tables',
+    rows: [
+      {
+        id: 'quick-table',
+        label: 'Quick table',
+        description: 'On a line by itself, type |-| or | - | and a space — inserts a 3-column table',
+        trigger: '|-\|',
+      },
     ],
   },
   {

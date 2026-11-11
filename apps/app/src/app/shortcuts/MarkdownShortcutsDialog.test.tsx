@@ -22,6 +22,7 @@ afterEach(() => {
 const CATEGORIES = [
   'Text formatting',
   'Lists',
+  'Tables',
   'Links and suggestions',
   'Dividers',
   'Editing',
@@ -43,7 +44,7 @@ describe('MarkdownShortcutsDialog layout', () => {
     expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
   });
 
-  it('lists the six categories in order', () => {
+  it('lists every category in order', () => {
     render(<MarkdownShortcutsDialog open onClose={vi.fn()} />);
     expect(navItems().map((item) => item.textContent)).toEqual(CATEGORIES);
     expect(MARKDOWN_SHORTCUT_GROUPS.map((group) => group.title)).toEqual(CATEGORIES);
@@ -73,7 +74,7 @@ describe('MarkdownShortcutsDialog navigation', () => {
     fireEvent.click(within(sidebar()).getByText('Dividers'));
     expect(selectedItems().map((item) => item.textContent)).toEqual(['Dividers']);
     expect(paneTitle()).toBe('Dividers');
-    expect(rowLabels()).toEqual(MARKDOWN_SHORTCUT_GROUPS[3]!.rows.map((row) => row.label));
+    expect(rowLabels()).toEqual(MARKDOWN_SHORTCUT_GROUPS[4]!.rows.map((row) => row.label));
     expect(screen.queryByText('Bold')).toBeNull();
     expect(onClose).not.toHaveBeenCalled();
   });

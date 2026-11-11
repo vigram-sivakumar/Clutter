@@ -8,7 +8,7 @@
   gap: var(--space-2);
   border-radius: var(--radius-lg);
   padding: var(--space-2);
-  box-shadow: var(--shadow-inset-thin);
+  box-shadow: var(--shadow-inset-thin-medium);
 }
 .collection-header-actions__add-button-divider {
   width: 1px;

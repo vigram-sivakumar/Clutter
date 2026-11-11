@@ -25,7 +25,7 @@
 
 /* The space's name and saved location sit on the subtle surface. */
 .settings-entry.missing-space__entry {
-  background: var(--surface-subtle);
+  background: var(--surface-layer-subtle);
 }
 /* The avatar is the space-details one, but here it only identifies the space: nothing to click. */
 .missing-space__entry .space-details__avatar-picker {

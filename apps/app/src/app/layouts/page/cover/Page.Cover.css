@@ -167,7 +167,7 @@
   opacity: 0;
   transition: opacity 160ms ease;
   background: var(--surface-primary);
-  border: 1px solid var(--border-stronger);
+  border: 1px solid var(--border-strong);
   box-shadow: var(--shadow-lg);
 }
 .page__cover:hover .page__cover__actions,
@@ -268,4 +268,3 @@
 .page__content > .page__cover[data-load-failed] {
   display: none;
 }
-

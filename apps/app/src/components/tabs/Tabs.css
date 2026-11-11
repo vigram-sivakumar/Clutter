@@ -6,7 +6,7 @@
 .tabs--filled {
   border-radius: var(--radius-lg);
   border: 0;
-  background: var(--surface-subtle);
+  background: var(--surface-layer-subtle);
   padding: var(--space-2);
 }
 .tabs--ghost {

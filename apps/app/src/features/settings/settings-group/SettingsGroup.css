@@ -27,7 +27,7 @@
 .settings-group__entries {
   display: flex;
   flex-direction: column;
-  background: var(--surface-subtle);
+  background: var(--surface-layer-subtle);
   border-radius: var(--radius-md);
   flex: 1;
   min-width: 0;
@@ -35,7 +35,7 @@
 }
 .settings-group__divider {
   height: 1px;
-  background: var(--border-default);
+  background: var(--border-medium);
   margin-inline: var(--space-12);
 }
 .settings-group .settings-entry {

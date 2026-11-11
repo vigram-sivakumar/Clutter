@@ -15,9 +15,10 @@ type RoundIconButtonProps = Omit<
 };
 
 /**
- * The circular icon-only button, drawn by `Button` with a round, filled look. Always icon-only (it takes an
- * `icon`, never children), always named, and `xs` (20px) unless a caller asks for another size. `interaction` is not offered: the subtle interaction hides the
- * fill on hover, which is the opposite of what this button is for.
+ * The circular icon-only dismiss control: `Button` with `variant="filled"` and a round shape. Always icon-only
+ * (it takes an `icon`, never children), always named, and `xs` (20px) unless a caller asks for another size.
+ * `interaction` is not offered: the subtle interaction hides the fill on hover, which is the opposite of what
+ * this button is for.
  */
 /** The icon drawn in the xs button: smaller than the 16px every other button uses, so it sits well inside 20px. */
 const XS_ICON_SIZE = 12;
@@ -27,7 +28,7 @@ export const RoundIconButton = forwardRef<HTMLButtonElement, RoundIconButtonProp
     return (
       <Button
         ref={ref}
-        variant="ghost"
+        variant="filled"
         size={size}
         isIconOnly
         className={['round-icon-button', className]

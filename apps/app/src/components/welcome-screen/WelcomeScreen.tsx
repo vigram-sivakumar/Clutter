@@ -60,7 +60,7 @@ export function WelcomeScreen({
           description="Open an existing folder to create a space"
           trailing={
             <span className="icon-badge">
-              <AppIcon icon="arrowRight" />
+              <AppIcon icon="arrowRight" strokeWidth={1.6} />
             </span>
           }
           onClick={() => void run(onSelectFolder)}
@@ -70,7 +70,7 @@ export function WelcomeScreen({
           description="We’ll create a new space for you"
           trailing={
             <span className="icon-badge">
-              <AppIcon icon="arrowRight" />
+              <AppIcon icon="arrowRight" strokeWidth={1.6} />
             </span>
           }
           onClick={() => void run(onCreateSpace)}

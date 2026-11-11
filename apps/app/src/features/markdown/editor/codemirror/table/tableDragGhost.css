@@ -71,8 +71,10 @@
   padding: var(--space-6) var(--space-12);
   font-size: var(--text-body-small);
   line-height: var(--lh-body-small);
-  border-bottom: var(--cm-table-border-thickness) solid var(--cm-table-border-color);
-  border-right: var(--cm-table-border-thickness) solid var(--cm-table-border-color);
+  border-bottom: var(--cm-table-border-thickness) solid
+    var(--cm-table-border-color);
+  border-right: var(--cm-table-border-thickness) solid
+    var(--cm-table-border-color);
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -84,6 +86,6 @@
   height: 100%;
 }
 .cm-table-drag-ghost-cell--header {
-  background: var(--surface-subtle);
+  background: var(--surface-layer-subtle);
   color: var(--foreground-tertiary);
 }

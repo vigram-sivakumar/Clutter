@@ -64,7 +64,7 @@
   display: block;
   width: 16px;
   height: 4px;
-  background: var(--border-default);
+  background: var(--border-medium);
   border-radius: 4px;
 }
 /* .calendar-cell--selected .calendar-cell__dot {

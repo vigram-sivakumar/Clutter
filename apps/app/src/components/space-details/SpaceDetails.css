@@ -41,7 +41,7 @@
   font-size: var(--text-heading-4);
   font-weight: var(--fw-bold);
   color: var(--foreground-tertiary);
-  background: var(--surface-subtle);
+  background: var(--surface-layer-subtle);
 
   user-select: none;
   -webkit-user-select: none;

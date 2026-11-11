@@ -13,7 +13,7 @@
 
   background: var(--surface-secondary);
   border-radius: var(--radius-xxl);
-  box-shadow: var(--shadow-inset-default), var(--shadow-md);
+  box-shadow: var(--shadow-inset-medium), var(--shadow-md);
 
   padding: var(--space-12);
 }
@@ -31,8 +31,8 @@
   padding-top: var(--space-6);
   /* The rule above the list: a background line (a border would run into the padding, to the panel's edge), as wide
      as the input and fixed to the list's top while the rows scroll. */
-  background: linear-gradient(var(--border-default), var(--border-default)) top left / calc(100% - var(--space-12)) 1px
-    no-repeat;
+  background: linear-gradient(var(--border-medium), var(--border-medium)) top
+    left / calc(100% - var(--space-12)) 1px no-repeat;
 }
 
 .search-overlay__status {

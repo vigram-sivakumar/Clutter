@@ -34,6 +34,7 @@ import {
   type RenumberEdit,
 } from '../list/orderedListRenumbering';
 import { taskMarkerOfListItem } from '../task/taskEngagement';
+import { insertTableOnShortcutSpace } from './tableCreateSpaceShortcut';
 import { insertTaskMarkerOnSpace, taskMarkerCreationExtensions } from '../task/taskMarkerCreation';
 
 /**
@@ -1752,6 +1753,9 @@ export const deleteMarkupBackwardOnMarkerLines: StateCommand = (target) => {
  * handling unchanged. `insertTaskMarkerOnSpace` (`../task/taskMarkerCreation.ts`)
  * shares the entry, after it: a bare `[]` at the start of a line plus Space
  * becomes an unchecked task (`- [ ] `), and it too declines for everything else.
+ * `insertTableOnShortcutSpace` (`./tableCreateSpaceShortcut.ts`) runs after
+ * both: `|-|` or `| - |` at the end of an otherwise empty trigger line plus
+ * Space becomes a 3-column table, and declines for everything else.
  * Anything using `markdownLanguageExtension()` for
  * real editing must wire this alongside it, or it gets no Markdown-aware
  * Enter/Backspace/Delete/Space at all.
@@ -1781,7 +1785,13 @@ export function markdownEnterKeymap(): Extension {
           deleteAroundHardBreakForward(target) ||
           deleteCompleteListItemSelection(target),
       },
-      { key: 'Space', run: (target) => insertOrderedListMarkerSeparator(target) || insertTaskMarkerOnSpace(target) },
+      {
+        key: 'Space',
+        run: (target) =>
+          insertOrderedListMarkerSeparator(target) ||
+          insertTaskMarkerOnSpace(target) ||
+          insertTableOnShortcutSpace(target),
+      },
     ])
     ),
   ];

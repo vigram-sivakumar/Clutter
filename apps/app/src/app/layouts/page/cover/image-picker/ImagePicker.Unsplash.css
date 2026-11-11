@@ -43,7 +43,7 @@
   height: 84px;
   flex-shrink: 0;
   overflow: hidden;
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--border-medium);
   border-radius: var(--radius-md);
   box-sizing: border-box;
   cursor: pointer;
@@ -67,7 +67,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: var(--surface-subtle);
+  background: var(--surface-layer-subtle);
   color: var(--foreground-secondary);
 }
 
@@ -110,6 +110,6 @@
   justify-content: center;
   width: 100%;
   height: 100%;
-  background: var(--surface-subtle);
+  background: var(--surface-layer-subtle);
   color: var(--foreground-tertiary);
 }

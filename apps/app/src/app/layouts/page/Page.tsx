@@ -476,6 +476,11 @@ export function Page({
           {coverLayout === 'above' && cover}
           <header className="page__header">
             <PageTitleSection
+              className={
+                archived && coverLayout !== 'above'
+                  ? 'page-title-section--archived-no-above-cover'
+                  : undefined
+              }
               title={
                 <PageTitle
                   key={titleKey}

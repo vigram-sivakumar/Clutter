@@ -24,7 +24,7 @@ IMPORTANT: I manually commented out few of the css the comments in the css might
   background: var(--md-inline-code-surface);
   color: var(--md-inline-code-foreground);
   border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-inset-default);
+  box-shadow: var(--shadow-inset-medium);
   padding: 0.2em 0.4em; */
 }
 

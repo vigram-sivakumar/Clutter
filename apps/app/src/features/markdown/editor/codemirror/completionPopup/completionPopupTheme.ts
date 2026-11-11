@@ -17,7 +17,7 @@ export function completionPopupTheme(): Extension {
       borderRadius: 'var(--radius-xxl)',
       // CM6 puts the popup flush against the text line; this is the gap.
       marginTop: 'var(--space-6)',
-      boxShadow: 'var(--shadow-inset-default), var(--shadow-md)',
+      boxShadow: 'var(--shadow-inset-medium), var(--shadow-md)',
     },
     // `<ul>` is CM6's scroll container: padding here (not on the outer box) keeps the scrollbar at
     // the popup's real edge.
@@ -43,8 +43,10 @@ export function completionPopupTheme(): Extension {
     // While more rows lie below, the last visible ones fade out instead of ending at a hard edge —
     // `PickerCard`'s fade. `completionScrollFade()` sets the attribute.
     '.cm-tooltip.cm-tooltip-autocomplete > ul[data-can-scroll-down]': {
-      WebkitMaskImage: 'linear-gradient(to bottom, #000 calc(100% - 40px), transparent)',
-      maskImage: 'linear-gradient(to bottom, #000 calc(100% - 40px), transparent)',
+      WebkitMaskImage:
+        'linear-gradient(to bottom, #000 calc(100% - 40px), transparent)',
+      maskImage:
+        'linear-gradient(to bottom, #000 calc(100% - 40px), transparent)',
     },
     '.cm-tooltip-autocomplete ul > li': {
       padding: '0',

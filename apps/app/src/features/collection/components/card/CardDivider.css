@@ -6,5 +6,5 @@
   flex: none;
   height: 1px;
   min-width: 0;
-  background: var(--border-default);
+  background: var(--border-medium);
 }

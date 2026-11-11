@@ -24,9 +24,9 @@ body {
   color: var(--foreground-primary);
   background: var(--surface-root);
 
-  -webkit-font-smoothing: antialiased;
+  /* -webkit-font-smoothing: antialiased;
   font-optical-sizing: auto;
-  font-kerning: auto;
+  font-kerning: auto; */
 }
 
 h1,
