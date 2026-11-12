@@ -1,4 +1,4 @@
-import type { CreateDirectoryOptions, MoveFileOptions, VaultEntry, VaultFileStat, VaultFileSystem, VaultWriteIntent } from './VaultFileSystem';
+import { trashThrough, type CreateDirectoryOptions, type MoveFileOptions, type VaultEntry, type VaultFileStat, type VaultFileSystem, type VaultWriteIntent } from './VaultFileSystem';
 import type { SelfWriteRegistry } from './SelfWriteRegistry';
 
 /**
@@ -57,6 +57,10 @@ export class SelfWriteAwareFileSystem implements VaultFileSystem {
 
   deleteFile(path: string, options?: { recursive?: boolean }): Promise<void> {
     return this.inner.deleteFile(path, options);
+  }
+
+  trashFile(path: string): Promise<void> {
+    return trashThrough(this.inner, path);
   }
 
   async moveFile(sourcePath: string, destinationPath: string, options?: MoveFileOptions): Promise<void> {

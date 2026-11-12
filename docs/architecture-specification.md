@@ -18,7 +18,9 @@ Provide OS-level file I/O and change notification, with zero knowledge of vaults
     exists(path: string): Promise<boolean>;
     readFile(path: string): Promise<string>;
     writeFile(path: string, content: string): Promise<void>;
-    deleteFile(path: string): Promise<void>;
+    deleteFile(path: string): Promise<void>;   // hard delete: internal cleanup and rollback only (ADR-072)
+    // optional (ADR-072): move to the OS Trash; the Gate's only way to permanently delete for a user. Never deletes on failure.
+    trashFile?(path: string): Promise<void>;
     moveFile(from: string, to: string): Promise<void>;
     createDirectory(path: string): Promise<void>;
     readDirectory(path: string): Promise<DirectoryEntry[]>;
@@ -372,7 +374,8 @@ Be the only mechanism that writes a page/folder to disk and mutates the Vault on
 Constructed once at the Composition Root, after the Vault exists (it needs a `Vault` reference to mutate). Holds one queue per page id, created lazily on first `enqueue` for that id, garbage-collected implicitly once empty (no explicit cleanup needed — queues are plain promise chains, not persistent objects).
 
 ### Invariants
-- **Every** disk write for a page — save, create, delete, move, rename, archive, restore — enqueues through this one class. No other file calls `fileSystem.writeFile`/`deleteFile`/`moveFile` for page content.
+- **Every** disk write for a page — save, create, delete, move, rename, archive, restore — enqueues through this one class. No other file calls `fileSystem.writeFile`/`deleteFile`/`trashFile`/`moveFile` for page content.
+- A user's permanent delete (`delete`, `delete-folder`, `delete-resource`) calls `trashFile` (ADR-072), through `trashThrough`, and only after it resolves removes the Vault entry, the resource's archive metadata and the derived caches. A rejection leaves all of them in place and propagates; nothing falls back to `deleteFile`. `deleteFile` remains for internal cleanup and rollback.
 - Two operations enqueued for the same `pageId` execute strictly in enqueue order; operations for different `pageId`s execute concurrently.
 - Every operation that changes a page's path (move/archive/restore) delegates path computation and the actual `moveFile` call to `MoveService`, never inlines it.
 - On any step failure (write fails, parse fails), the queue for that page rejects the current operation and continues processing subsequent ones — one failed save never wedges the queue.
@@ -998,7 +1001,7 @@ UI "Delete" menu item
   → PageOperations.delete(pageId)
       → DocumentRegistry.close(pageId)   [close any open session first]
       → Gate.enqueue(pageId, { kind: 'delete' })
-          → [pageId resolves in Vault]  VaultFileSystem.deleteFile →
+          → [pageId resolves in Vault]  VaultFileSystem.trashFile (ADR-072: to the OS Trash) →
             Vault.removePage → notify()
           → [pageId does not resolve]  abandoned — no disk write, no error
             surfaced to the caller (ADR-017 §5/§7): a delete for a draft

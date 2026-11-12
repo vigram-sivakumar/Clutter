@@ -7,7 +7,7 @@ import type { Folder } from '../models/Folder';
 import type { FolderMetadata } from '../models/FolderMetadata';
 import type { VaultResource } from '../models/VaultResource';
 import { Vault } from '../models/Vault';
-import { DestinationExistsError, type VaultFileSystem } from '../providers/VaultFileSystem';
+import { DestinationExistsError, trashThrough, type VaultFileSystem } from '../providers/VaultFileSystem';
 import { InFlightPaths } from '../providers/InFlightPaths';
 import { FrontmatterSerializer } from '../ingest/FrontmatterSerializer';
 import { FrontmatterParser } from '../ingest/FrontmatterParser';
@@ -525,7 +525,9 @@ export class PagePersistenceCoordinator {
       return { status: 'abandoned', reason: `Page is no longer archived, so it was not deleted: ${current.id}` };
     }
 
-    await this.fileSystem.deleteFile(current.path);
+    // The user's permanent delete moves the file to the Trash (ADR-072). A rejection leaves the file, the page and
+    // everything derived from it exactly as they were, and never becomes a hard delete.
+    await trashThrough(this.fileSystem, current.path);
     // Only possible caller of removePage for an app-initiated deletion is
     // this dispatch, reached only after the existing-page guard above, so
     // there is no double-delete race for removePage to reject here — the
@@ -810,9 +812,9 @@ export class PagePersistenceCoordinator {
 
   /**
    * Permanently deletes a folder and its entire physical subtree (ADR-024,
-   * amended — see "Amendment (delete invariant correction)"). A single
-   * recursive VaultFileSystem.deleteFile(path, { recursive: true }) call
-   * removes everything under the folder's own path — Vault-tracked pages
+   * amended — see "Amendment (delete invariant correction)"; ADR-072: to the
+   * Trash, not a hard delete). A single VaultFileSystem.trashFile(path) call
+   * moves everything under the folder's own path — Vault-tracked pages
    * and folders, .folder.md files, and anything on disk the Vault model
    * never tracked (OS artifacts, externally-dropped files, Assets' own
    * image files) — scoped strictly to this folder's path, never touching
@@ -836,7 +838,8 @@ export class PagePersistenceCoordinator {
     }
 
     if (await this.fileSystem.exists(folder.path)) {
-      await this.fileSystem.deleteFile(folder.path, { recursive: true });
+      // Moved to the Trash as one unit (ADR-072); a rejection leaves the folder and its Vault entry untouched.
+      await trashThrough(this.fileSystem, folder.path);
     }
 
     this.vault.removeFolder(folderId);
@@ -1700,7 +1703,8 @@ export class PagePersistenceCoordinator {
       throw new Error(`Cannot permanently delete a resource that is not archived: ${resourceId}`);
     }
 
-    await this.fileSystem.deleteFile(resource.path);
+    // To the Trash (ADR-072). Only after it succeeds are the archive metadata and the Vault entry removed.
+    await trashThrough(this.fileSystem, resource.path);
     await this.resourceArchiveStore.remove(resource.path);
 
     // Deleting the file is also what the watcher reports, and Sync converges "not on disk" by

@@ -48,6 +48,11 @@ export class LostableVaultFileSystem extends InMemoryVaultFileSystem {
     this.landed.deleteFile++;
   }
 
+  override async trashFile(path: string): Promise<void> {
+    this.assertVaultPresent();
+    await super.trashFile(path);
+  }
+
   override async moveFile(sourcePath: string, destinationPath: string): Promise<void> {
     this.assertVaultPresent();
     await super.moveFile(sourcePath, destinationPath);

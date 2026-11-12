@@ -263,4 +263,17 @@ describe('AtomicWriteFileSystem: reads and moves are the inner provider’s', ()
     await fileSystem.deleteFile('/v/b.md');
     expect(await fileSystem.exists('/v/b.md')).toBe(false);
   });
+
+  it('delegates trashFile to the inner provider, and rejects rather than deleting when it has none (ADR-072)', async () => {
+    const { fileSystem, disk } = setup({ '/v/a.md': 'a' });
+
+    await fileSystem.trashFile('/v/a.md');
+    expect(disk.trashed).toEqual(['/v/a.md']);
+    expect(await disk.exists('/v/a.md')).toBe(false);
+
+    const { fileSystem: bare, disk: bareDisk } = setup({ '/v/b.md': 'b' });
+    (bareDisk as { trashFile?: unknown }).trashFile = undefined;
+    await expect(bare.trashFile('/v/b.md')).rejects.toThrow(/cannot move items to the Trash/);
+    expect(await bareDisk.exists('/v/b.md')).toBe(true);
+  });
 });

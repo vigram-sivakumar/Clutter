@@ -101,11 +101,32 @@ export interface VaultFileSystem {
    * `{ recursive: true }` removes `path` and everything nested under it,
    * and nothing else — the removal is always scoped strictly to `path`.
    *
+   * A hard delete: the bytes are gone and nothing can bring them back. It is
+   * for internal cleanup and rollback (temporary files, a failed duplicate, an
+   * asset created a moment ago). A user's permanent delete uses `trashFile`
+   * (ADR-072), never this.
+   *
    * This is a low-level infrastructure primitive.
    * Higher layers remain responsible for validation, confirmations,
    * and business rules before invoking it.
    */
   deleteFile(path: string, options?: { recursive?: boolean }): Promise<void>;
+
+  /**
+   * Moves a file, or a directory with everything in it, to the operating
+   * system's Trash (ADR-072) so the user can recover it there. Used only by
+   * the Persistence Gate, for a user's permanent delete.
+   *
+   * Never deletes: if the Trash cannot take the entry the promise rejects and
+   * the entry is exactly where it was. No caller may answer that rejection by
+   * calling `deleteFile`. A directory moves as one unit (no `recursive` flag);
+   * a link moves as the link.
+   *
+   * Optional only so that a provider with no Trash (a test double) is
+   * representable; callers go through `trashThrough`, which rejects for a
+   * provider without it instead of deleting.
+   */
+  trashFile?(path: string): Promise<void>;
   moveFile(sourcePath: string, destinationPath: string, options?: MoveFileOptions): Promise<void>;
 
   /**
@@ -170,4 +191,15 @@ export interface VaultFileSystem {
    * for the same reason as `stat`/`writeBinaryFile`.
    */
   readBinaryFile?(path: string): Promise<Uint8Array>;
+}
+
+/**
+ * Moves `path` to the Trash through `fileSystem`, or rejects when that filesystem has no Trash. The one place that
+ * decides what a missing `trashFile` means: it is an error, never a reason to delete (ADR-072).
+ */
+export function trashThrough(fileSystem: VaultFileSystem, path: string): Promise<void> {
+  if (!fileSystem.trashFile) {
+    return Promise.reject(new Error(`This filesystem cannot move items to the Trash, so ${path} was not deleted`));
+  }
+  return fileSystem.trashFile(path);
 }

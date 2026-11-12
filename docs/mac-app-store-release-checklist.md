@@ -98,6 +98,7 @@ Only tick an item when it was observed in a sandboxed, signed build, not a dev r
 - [ ] Rename of a picked folder outside Documents shows the Finder message
 - [ ] Note create, edit, rename, move, archive, restore, permanent delete
 - [ ] Folder create, move, delete (including a folder with untracked files)
+- [ ] Delete Permanently moves a note, a folder and a resource to the Trash (ADR-072), in a Space in Documents and in one outside it (bookmark restored): the item is in Finder's Trash, **Put Back** is offered, a repeated name is kept, a refused move (read-only parent) leaves the item in Clutter with an error, and nothing is ever hard-deleted. Also an external or non-APFS volume, and a restore-conflict "Replace"
 - [ ] Image and PDF import (file, paste, remote URL); images and PDFs display after relaunch from a bookmarked Space outside Documents
 - [ ] External edit while open: conflict handling; external delete
 - [ ] Crash recovery: force-quit with unsaved text, relaunch, text recovered

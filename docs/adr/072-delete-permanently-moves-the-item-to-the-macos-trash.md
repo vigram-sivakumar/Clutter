@@ -63,6 +63,12 @@ Decision: **`NSFileManager trashItemAtURL`**, because it gives normal Finder Tra
 - A failed move after a successful one is not possible within one call; for `Delete all`, each item is its own call (as today) and one failure does not undo the earlier ones, which are in the Trash.
 - An item recovered from the Trash returns without its archive metadata (it is removed on delete). Sync treats it as an archived or active item by location; ADR-026 already handles an item with no provenance (`RestoreNeedsDestinationError`, "Restore to…").
 
+## Implementation notes
+
+- `VaultFileSystem.trashFile` is declared **optional**, and every caller goes through `trashThrough(fileSystem, path)`, which rejects when a provider has none, never deletes. It is optional only because many test doubles implement `VaultFileSystem` and not all could be changed in the same commit as unfinished folder-sync work that implements it too; it should become required once that work lands.
+- Rust: `macos_trash::move_to_trash` and `vault_entries::trash_path`; the authorization shared with `delete_path` is `authorize_removal`.
+- `PageOperations.delete` and `FolderOperations.delete` close the editor sessions of the pages they delete and cancel their save timers **before** the Gate runs, as they did for a hard delete. Archived items are read-only, so there is no unsaved text to lose, and a failed move leaves the page in the Vault, where it opens again. The Vault entry, resource metadata, parsed-note cache and every derived store are cleared only after the Gate reports the delete as done.
+
 ## Consequences
 
 - Permanently deleted items are recoverable from Finder, and "Delete Permanently" stays hard for internal cleanup.

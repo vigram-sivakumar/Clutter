@@ -1110,9 +1110,15 @@ describe('Daily Note restore conflicts', () => {
   it("'replace' permanently deletes the existing Daily Note and restores into its place", async () => {
     const { dailyNote, second, vault, fileSystem, pageOperations } = await archivedWithNewerDailyNote();
 
+    const occupyingPath = vault.getPage(second.id)!.path;
+    const hardDelete = vi.spyOn(fileSystem, 'deleteFile');
+
     const outcome = await pageOperations.restore(dailyNote.id, { onConflict: 'replace' });
 
     expect(outcome).toEqual({ status: 'restored', movedToInbox: false });
+    // The occupying note goes to the Trash (ADR-072), it is not hard-deleted.
+    expect((fileSystem as InMemoryVaultFileSystem).trashed).toEqual([occupyingPath]);
+    expect(hardDelete).not.toHaveBeenCalled();
     expect(vault.getPage(second.id)).toBeUndefined();
     const restored = vault.getPage(dailyNote.id)!;
     expect(restored.path).toBe(DN_PATH);

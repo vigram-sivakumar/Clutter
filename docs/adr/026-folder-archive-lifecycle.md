@@ -110,7 +110,7 @@ A page or folder nested inside an archived folder must not appear in ordinary wo
 ## Non-Goals
 
 - **Does not resolve what happens when an individually-archived page's `originalParentId` folder is later itself archived or restored** — the page's own `originalParentId` still resolves to that folder by id; if that folder is inside `Archive/` at the time the page is restored, the page would restore into `Archive/`. Flagged, not fixed — a narrower follow-up if it proves to matter in practice, same deferral style ADR-025 used for its own out-of-scope TOCTOU gap.
-- **Does not add folder-level undo, trash, or versioned archive history** — matches `Page.archive()`'s existing scope.
+- **Does not add folder-level undo, trash, or versioned archive history** — matches `Page.archive()`'s existing scope. *(Clarified by [ADR-072](./072-delete-permanently-moves-the-item-to-the-macos-trash.md): Delete Permanently now moves to the macOS Trash; Clutter still has no trash, undo or archive history of its own, and Archive and Restore are unchanged.)*
 - **Does not change `Vault.moveFolder()`/`removeFolder()`'s existing contracts** — reused exactly as-is for the cascade.
 - **Does not implement the confirmation-dialog UI copy**, if one turns out to be wanted for archiving a non-empty folder (mirroring ADR-024's delete-confirmation precedent) — a UI-layer decision at implementation time, not an architectural one.
 

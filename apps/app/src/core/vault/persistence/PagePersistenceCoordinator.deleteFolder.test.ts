@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { PagePersistenceCoordinator } from './PagePersistenceCoordinator';
 import { MoveService } from './MoveService';
 import { Vault } from '../../vault/models/Vault';
@@ -262,5 +262,43 @@ describe('PagePersistenceCoordinator delete-folder vertical slice (ADR-024)', ()
     expect(resultB.status).toBe('folder-deleted');
     expect(vault.getFolder('folder-a')).toBeUndefined();
     expect(vault.getFolder('folder-b')).toBeUndefined();
+  });
+
+  describe('permanent delete goes to the Trash (ADR-072)', () => {
+    it('moves the whole folder to the Trash as one unit and never hard-deletes it', async () => {
+      const projects = makeFolder('folder-projects', `${ROOT}/Projects`);
+      const notes = makePage('page-notes', `${ROOT}/Projects/Notes.md`, 'folder-projects');
+      const { vault, fileSystem, coordinator } = setup([notes], [projects]);
+      await fileSystem.createDirectory(projects.path);
+      await fileSystem.writeFile(notes.path, '# Notes');
+      const hardDelete = vi.spyOn(fileSystem, 'deleteFile');
+
+      const result = await coordinator.enqueue('folder-projects', { kind: 'delete-folder' });
+
+      expect(result.status).toBe('folder-deleted');
+      expect(fileSystem.trashed).toEqual([projects.path]);
+      expect(hardDelete).not.toHaveBeenCalled();
+      expect(vault.getFolder('folder-projects')).toBeUndefined();
+      expect(vault.getPage('page-notes')).toBeUndefined();
+    });
+
+    it('a Trash that refuses leaves the folder, its contents and every Vault entry in place, and never hard-deletes', async () => {
+      const projects = makeFolder('folder-projects', `${ROOT}/Projects`);
+      const notes = makePage('page-notes', `${ROOT}/Projects/Notes.md`, 'folder-projects');
+      const { vault, fileSystem, coordinator } = setup([notes], [projects]);
+      await fileSystem.createDirectory(projects.path);
+      await fileSystem.writeFile(notes.path, '# Notes');
+      const hardDelete = vi.spyOn(fileSystem, 'deleteFile');
+      vi.spyOn(fileSystem, 'trashFile').mockRejectedValue(new Error('The Trash is not available'));
+
+      await expect(coordinator.enqueue('folder-projects', { kind: 'delete-folder' })).rejects.toThrow(
+        /Trash is not available/
+      );
+
+      expect(hardDelete).not.toHaveBeenCalled();
+      expect(await fileSystem.exists(notes.path)).toBe(true);
+      expect(vault.getFolder('folder-projects')).toBeDefined();
+      expect(vault.getPage('page-notes')).toBeDefined();
+    });
   });
 });

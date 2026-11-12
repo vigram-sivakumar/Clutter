@@ -70,3 +70,38 @@ describe('LocalVaultProvider.deleteFile', () => {
   });
 
 });
+
+describe('LocalVaultProvider.trashFile (ADR-072)', () => {
+  it('goes through the native trash_path command, with no recursive flag, and resolves a relative path under the root', async () => {
+    invoke.mockResolvedValue(undefined);
+    const provider = new LocalVaultProvider('/v');
+
+    await provider.trashFile('/v/a.md');
+    await provider.trashFile('/v/Folder');
+    await provider.trashFile('Archive/b.md');
+
+    expect(invoke).toHaveBeenNthCalledWith(1, 'trash_path', { path: '/v/a.md' });
+    expect(invoke).toHaveBeenNthCalledWith(2, 'trash_path', { path: '/v/Folder' });
+    expect(invoke).toHaveBeenNthCalledWith(3, 'trash_path', { path: '/v/Archive/b.md' });
+  });
+
+  it('a failure reaches the caller as it was and nothing else is attempted: no delete_path, no plugin remove', async () => {
+    invoke.mockRejectedValueOnce('Permission denied: /v/a.md could not be moved to the Trash, and was not deleted');
+
+    await expect(new LocalVaultProvider('/v').trashFile('/v/a.md')).rejects.toBe(
+      'Permission denied: /v/a.md could not be moved to the Trash, and was not deleted'
+    );
+
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(invoke).not.toHaveBeenCalledWith('delete_path', expect.anything());
+  });
+
+  it('deleteFile still hard-deletes through delete_path: the Trash is not its behaviour', async () => {
+    invoke.mockResolvedValue(undefined);
+
+    await new LocalVaultProvider('/v').deleteFile('/v/a.md');
+
+    expect(invoke).toHaveBeenCalledWith('delete_path', { path: '/v/a.md', recursive: false });
+    expect(invoke).not.toHaveBeenCalledWith('trash_path', expect.anything());
+  });
+});

@@ -121,6 +121,12 @@ export class LocalVaultProvider implements VaultFileSystem {
     await invoke('delete_path', { path: this.resolvePath(path), recursive: options?.recursive ?? false });
   }
 
+  /** Moves the entry to the user's Trash (`trash_path`, ADR-072). A failure leaves the entry where it was. */
+  async trashFile(path: string): Promise<void> {
+    this.assertWritable();
+    await invoke('trash_path', { path: this.resolvePath(path) });
+  }
+
   /**
    * Every move claims its destination in the native layer (`move_file_no_clobber`, which also judges the resolved
    * paths): this provider has no replacing move, because the fs plugin's `rename` replaces whatever is at the

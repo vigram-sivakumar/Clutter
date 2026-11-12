@@ -28,6 +28,7 @@ const mutations: [string, (fs: LocalVaultProvider) => Promise<unknown>, keyof ty
   ['writeFile', (fs) => fs.writeFile(`${ROOT}/a.md`, 'x'), 'writeTextFile'],
   ['writeBinaryFile', (fs) => fs.writeBinaryFile(`${ROOT}/a.png`, new Uint8Array()), 'invoke'],
   ['deleteFile', (fs) => fs.deleteFile(`${ROOT}/a.md`), 'invoke'],
+  ['trashFile', (fs) => fs.trashFile(`${ROOT}/a.md`), 'invoke'],
   ['moveFile', (fs) => fs.moveFile(`${ROOT}/a.md`, `${ROOT}/b.md`), 'invoke'],
   ['copyFile', (fs) => fs.copyFile('/tmp/a.png', `${ROOT}/a.png`), 'invoke'],
   ['createDirectory', (fs) => fs.createDirectory(`${ROOT}/Assets`), 'invoke'],

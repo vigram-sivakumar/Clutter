@@ -140,7 +140,7 @@ Raised before implementation began: the frontend is under active redesign and do
 ## Non-Goals
 
 - **Does not implement `Page.rename()`.** Still not implemented, per the frozen spec's own note (`architecture-specification.md` §6) — unrelated to this ADR, not touched.
-- **Does not add folder-level undo, trash, or soft-delete.** Matches `Page.delete()`'s existing hard-delete-only behavior, per `durability-model.md`'s explicit current scope.
+- **Does not add folder-level undo, trash, or soft-delete.** Matches `Page.delete()`'s existing hard-delete-only behavior, per `durability-model.md`'s explicit current scope. *(Clarified by [ADR-072](./072-delete-permanently-moves-the-item-to-the-macos-trash.md): a permanent delete now moves the folder to the macOS Trash. That is the operating system's Trash, not an app-owned trash, soft-delete or undo, so this statement about Clutter's own scope stands.)*
 - **Does not change `MembershipSelector`'s contract** (§7).
 - **Does not implement the confirmation dialog's UI itself** — only names that one must exist for a non-empty folder (§ "Resolved product decisions" #1); the dialog's copy/component is implementation work, not an architectural decision.
 

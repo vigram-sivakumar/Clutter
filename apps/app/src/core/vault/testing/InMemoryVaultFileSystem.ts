@@ -236,6 +236,26 @@ export class InMemoryVaultFileSystem implements VaultFileSystem {
     throw new Error(`InMemoryVaultFileSystem: path not found: ${path}`);
   }
 
+  /** Every path handed to `trashFile`, in order: what the user's Trash would hold. */
+  readonly trashed: string[] = [];
+
+  /**
+   * Stands in for the operating system's Trash (ADR-072): the entry, and everything under a directory, leaves the
+   * tree, and the path is recorded in `trashed`. A directory needs no `recursive` flag, as with the real Trash. A
+   * path that is not there rejects, as the real one does.
+   */
+  async trashFile(path: string): Promise<void> {
+    if (this.files.has(path)) {
+      this.files.delete(path);
+    } else if (this.directories.has(path)) {
+      this.removeRecursively(path);
+    } else {
+      throw new Error(`InMemoryVaultFileSystem: path not found: ${path}`);
+    }
+
+    this.trashed.push(path);
+  }
+
   private hasChildren(path: string): boolean {
     const prefix = `${path}/`;
 

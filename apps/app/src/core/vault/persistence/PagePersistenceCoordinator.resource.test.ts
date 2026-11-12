@@ -916,14 +916,29 @@ describe('PagePersistenceCoordinator: delete-resource vs. the watcher echo', () 
   it('a genuine filesystem failure still rejects and leaves the Vault entry and provenance alone', async () => {
     const { resource, coordinator, vault, fileSystem, resourceArchiveStore } = archivedSetup();
     await resourceArchiveStore.record(archivedPath, `${ROOT}/Assets/hero.png`);
-    vi.spyOn(fileSystem, 'deleteFile').mockRejectedValue(new Error('EACCES: permission denied'));
+    const hardDelete = vi.spyOn(fileSystem, 'deleteFile');
+    vi.spyOn(fileSystem, 'trashFile').mockRejectedValue(new Error('EACCES: permission denied'));
 
     await expect(coordinator.enqueue(resource.id, { kind: 'delete-resource' })).rejects.toThrow(
       /permission denied/
     );
 
+    expect(hardDelete).not.toHaveBeenCalled();
     expect(vault.getResource(resource.id)).toBeDefined();
     expect((await resourceArchiveStore.read()).has(archivedPath)).toBe(true);
+  });
+
+  it('moves the file to the Trash, never hard-deletes it, and only then drops the provenance and the Vault entry (ADR-072)', async () => {
+    const { resource, coordinator, vault, fileSystem, resourceArchiveStore } = archivedSetup();
+    await resourceArchiveStore.record(archivedPath, `${ROOT}/Assets/hero.png`);
+    const hardDelete = vi.spyOn(fileSystem, 'deleteFile');
+
+    await coordinator.enqueue(resource.id, { kind: 'delete-resource' });
+
+    expect(hardDelete).not.toHaveBeenCalled();
+    expect((fileSystem as InMemoryVaultFileSystem).trashed).toEqual([archivedPath]);
+    expect(vault.getResource(resource.id)).toBeUndefined();
+    expect((await resourceArchiveStore.read()).has(archivedPath)).toBe(false);
   });
 
   it('does not hide an unrelated Vault failure: removeResource errors for another reason still surface', async () => {

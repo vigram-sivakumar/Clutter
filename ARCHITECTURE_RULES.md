@@ -24,7 +24,7 @@ If a rule and a deadline conflict, the deadline yields, or the rule is formally 
 
 ## 2. Every page or folder write flows through the Persistence Gate
 
-**Rule:** `PagePersistenceCoordinator` (the Persistence Gate) is the only code path that calls `VaultFileSystem.writeFile`/`.deleteFile`/`.moveFile` for page or folder content, and the only code path that mutates `Vault` in response to an app-initiated action. Sync has its own, separate path for externally-triggered reconciliation, sharing the Gate's internal write-parse-rebuild-replace helper but not its queue.
+**Rule:** `PagePersistenceCoordinator` (the Persistence Gate) is the only code path that calls `VaultFileSystem.writeFile`/`.deleteFile`/`.trashFile`/`.moveFile` for page or folder content, and the only code path that mutates `Vault` in response to an app-initiated action. Sync has its own, separate path for externally-triggered reconciliation, sharing the Gate's internal write-parse-rebuild-replace helper but not its queue.
 
 **Scope:** the Gate governs Vault domain content only — `Page`/`Folder` objects and their durable metadata, the things `Vault.addPage`/`replacePage`/`removePage`/`updatePagePath`/`moveFolder` model. It does not govern Clutter-owned application infrastructure or configuration — caches, indexes, plugin state, `.clutter/*` files, or any other implementation artifact that never becomes a `Page`/`Folder` in the Vault domain model. Direct writes to those (e.g. `VaultInitializer` writing `.clutter/workspace.json`) are not Gate bypasses, because they were never Gate-governed to begin with.
 
@@ -32,7 +32,7 @@ If a rule and a deadline conflict, the deadline yields, or the rule is formally 
 
 **How it is enforced:** Compliance checklist, "Persistence Rules" section. Ideally backed by an ESLint import-boundary rule restricting `VaultFileSystem` write-method call sites to `vault/persistence/` and `vault/sync/` — this project has used ESLint architectural-boundary enforcement before (per its own git history) and should again.
 
-**Regression signature:** Any new file calling `fileSystem.writeFile`/`deleteFile`/`moveFile` directly. Any "bootstrap-only" or "just this once" direct write introduced without being the one documented Composition Root exception.
+**Regression signature:** Any new file calling `fileSystem.writeFile`/`deleteFile`/`trashFile`/`moveFile` directly. A user-facing delete that calls `deleteFile` instead of `trashFile` (ADR-072). Any "bootstrap-only" or "just this once" direct write introduced without being the one documented Composition Root exception.
 
 ---
 

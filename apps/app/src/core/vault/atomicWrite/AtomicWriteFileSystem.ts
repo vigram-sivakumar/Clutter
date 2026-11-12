@@ -6,6 +6,7 @@ import type {
   VaultFileSystem,
   VaultWriteIntent,
 } from '../providers/VaultFileSystem';
+import { trashThrough } from '../providers/VaultFileSystem';
 import {
   AtomicExternalChangeError,
   AtomicNotCommittedError,
@@ -74,6 +75,9 @@ export class AtomicWriteFileSystem implements VaultFileSystem {
   }
   deleteFile(path: string, options?: { recursive?: boolean }) {
     return this.inner.deleteFile(path, options);
+  }
+  trashFile(path: string) {
+    return trashThrough(this.inner, path);
   }
   moveFile(sourcePath: string, destinationPath: string, options?: MoveFileOptions) {
     return this.inner.moveFile(sourcePath, destinationPath, options);

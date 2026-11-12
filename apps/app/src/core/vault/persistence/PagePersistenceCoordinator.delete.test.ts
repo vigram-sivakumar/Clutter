@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { PagePersistenceCoordinator } from './PagePersistenceCoordinator';
 import { MoveService } from './MoveService';
 import { Vault } from '../../vault/models/Vault';
@@ -121,7 +121,7 @@ describe('PagePersistenceCoordinator delete vertical slice', () => {
       new FrontmatterSerializer().serializeDocument(page, page.source.markdown)
     );
 
-    class FailOnceDeleteFileSystem implements VaultFileSystem {
+    class FailOnceTrashFileSystem implements VaultFileSystem {
       private failNext = true;
       constructor(private readonly delegate: VaultFileSystem) {}
 
@@ -143,19 +143,22 @@ describe('PagePersistenceCoordinator delete vertical slice', () => {
       moveFile(sourcePath: string, destinationPath: string) {
         return this.delegate.moveFile(sourcePath, destinationPath);
       }
-      async deleteFile(path: string): Promise<void> {
+      deleteFile(path: string) {
+        return this.delegate.deleteFile(path);
+      }
+      async trashFile(path: string): Promise<void> {
         if (this.failNext) {
           this.failNext = false;
           throw new Error('delete failed');
         }
-        return this.delegate.deleteFile(path);
+        return this.delegate.trashFile!(path);
       }
       copyFile(sourceAbsolutePath: string, destinationAbsolutePath: string) {
         return this.delegate.copyFile(sourceAbsolutePath, destinationAbsolutePath);
       }
     }
 
-    const fileSystem = new FailOnceDeleteFileSystem(inner);
+    const fileSystem = new FailOnceTrashFileSystem(inner);
     const { vault, coordinator } = setup(page, fileSystem);
 
     await expect(coordinator.enqueue(page.id, { kind: 'delete' })).rejects.toThrow(
@@ -173,5 +176,59 @@ describe('PagePersistenceCoordinator delete vertical slice', () => {
     expect(vault.getPage(page.id)!.source.markdown).toBe(
       'Still editable after a failed delete'
     );
+  });
+
+  describe('permanent delete goes to the Trash (ADR-072)', () => {
+    it('moves the file to the Trash and never hard-deletes it', async () => {
+      const page = buildPage();
+      const { vault, fileSystem, coordinator } = setup(page);
+      const disk = fileSystem as InMemoryVaultFileSystem;
+      const hardDelete = vi.spyOn(disk, 'deleteFile');
+
+      const result = await coordinator.enqueue(page.id, { kind: 'delete' });
+
+      expect(result.status).toBe('deleted');
+      expect(disk.trashed).toEqual([page.path]);
+      expect(hardDelete).not.toHaveBeenCalled();
+      expect(vault.getPage(page.id)).toBeUndefined();
+    });
+
+    it('a Trash that refuses leaves the file and the page in place, rejects, and never falls back to a hard delete', async () => {
+      const page = buildPage();
+      const { vault, fileSystem, coordinator } = setup(page);
+      const disk = fileSystem as InMemoryVaultFileSystem;
+      const hardDelete = vi.spyOn(disk, 'deleteFile');
+      vi.spyOn(disk, 'trashFile').mockRejectedValue(new Error('EACCES: permission denied'));
+
+      await expect(coordinator.enqueue(page.id, { kind: 'delete' })).rejects.toThrow(/permission denied/);
+
+      expect(hardDelete).not.toHaveBeenCalled();
+      expect(disk.hasFileSync(page.path)).toBe(true);
+      expect(vault.getPage(page.id)).toBeDefined();
+    });
+
+    it('a filesystem with no Trash rejects instead of deleting', async () => {
+      const page = buildPage();
+      const inner = new InMemoryVaultFileSystem();
+      inner.seedFile(page.path, new FrontmatterSerializer().serializeDocument(page, page.source.markdown));
+      const noTrash: VaultFileSystem = {
+        exists: (path) => inner.exists(path),
+        createDirectory: (path) => inner.createDirectory(path),
+        readDirectory: (path) => inner.readDirectory(path),
+        readFile: (path) => inner.readFile(path),
+        writeFile: (path, contents) => inner.writeFile(path, contents),
+        moveFile: (from, to) => inner.moveFile(from, to),
+        deleteFile: (path, options) => inner.deleteFile(path, options),
+        copyFile: (from, to) => inner.copyFile(from, to),
+      };
+      const hardDelete = vi.spyOn(inner, 'deleteFile');
+      const { vault, coordinator } = setup(page, noTrash);
+
+      await expect(coordinator.enqueue(page.id, { kind: 'delete' })).rejects.toThrow(/cannot move items to the Trash/);
+
+      expect(hardDelete).not.toHaveBeenCalled();
+      expect(inner.hasFileSync(page.path)).toBe(true);
+      expect(vault.getPage(page.id)).toBeDefined();
+    });
   });
 });
