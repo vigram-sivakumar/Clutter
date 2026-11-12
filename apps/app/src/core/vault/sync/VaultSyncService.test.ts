@@ -1054,6 +1054,8 @@ describe('VaultSyncService: folder lifecycle (ADR-024)', () => {
   it('created: a duplicated folder (its own .folder.md carrying the original\'s frontmatter id) is assigned a fresh id, persisted to its own .folder.md, and the original is untouched', async () => {
     const projects = makeProjectsFolder();
     const { vault, fileSystem, watcher } = setup([], [projects]);
+    // A copy leaves the original directory in place.
+    await fileSystem.createDirectory(`${ROOT}/Projects`);
     await fileSystem.writeFile(
       `${ROOT}/Projects/.folder.md`,
       '---\nid: folder-projects\nicon: 📁\nfavorite: true\n---\n'
@@ -1095,6 +1097,8 @@ describe('VaultSyncService: folder lifecycle (ADR-024)', () => {
     const projects = makeProjectsFolder();
     const original = buildPage('Projects/Roadmap.md', 'Roadmap content', 'page-roadmap');
     const { vault, fileSystem, watcher } = setup([original], [projects]);
+    // A copy leaves the original directory in place.
+    await fileSystem.createDirectory(`${ROOT}/Projects`);
     await fileSystem.writeFile(
       `${ROOT}/Projects/.folder.md`,
       '---\nid: folder-projects\n---\n'

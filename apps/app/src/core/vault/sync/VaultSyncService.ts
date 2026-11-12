@@ -32,6 +32,7 @@ import {
   reconcilePageArchiveMetadata,
   reconcileFolderArchiveMetadata,
 } from './reconcileArchiveMetadata';
+import { isInsideArchiveFolder } from './ArchiveMetadataReconciler';
 import { reconcilePageTemplateMarker } from './reconcileTemplateMetadata';
 import { persistSyncedPageDocument } from './persistSyncedPageDocument';
 
@@ -321,6 +322,13 @@ export class VaultSyncService {
 
     if (isDirectory) {
       await this.reconcileDirectorySubtree(absolutePath);
+      return;
+    }
+
+    // A folder's identity file appearing (an atomic replace arrives as created plus changed): its metadata is
+    // reconciled exactly as a change to it would be, never built as a page.
+    if (VaultPath.filename(absolutePath) === '.folder.md') {
+      await this.handleFolderMetadataChanged(absolutePath);
       return;
     }
 
@@ -850,6 +858,35 @@ export class VaultSyncService {
     // every directory-shaped path — reconcilePath() never needs its own
     // parallel "manually remove what used to be here" logic.
     const diskExists = await this.fileSystem.exists(absolutePath);
+
+    // Fix 1: a tracked folder whose directory is gone may have been moved by another instance. Relocate it (keeping
+    // its Vault entry, descendants and open sessions) before the removal half below treats it as deleted.
+    let refusedRelocation: string | undefined;
+
+    if (!diskExists && trackedFolder) {
+      const relocation = await this.relocateFolderIfMoved(trackedFolder);
+
+      if (relocation.moved) {
+        return;
+      }
+
+      refusedRelocation = relocation.destination;
+    }
+
+    // Fix 2: an untracked directory that is really a tracked folder arriving from its vanished path is a move, not a
+    // new (or duplicated) folder: scanning it would hand its notes fresh ids and rewrite them on disk.
+    if (diskExists && !isVaultRoot && !trackedFolder) {
+      const claimant = await this.findMovedFolderClaimant(absolutePath);
+
+      if (claimant) {
+        this.dispatch(claimant.path, () => this.adoptRelocatedFolder(claimant.id, absolutePath), [
+          claimant.path,
+          absolutePath,
+        ]);
+        return;
+      }
+    }
+
     const scanResult: VaultScanResult = diskExists
       ? await this.vaultScanner.scan(absolutePath)
       : { rootPath: absolutePath, directories: [], pages: [], files: [] };
@@ -1054,6 +1091,186 @@ export class VaultSyncService {
         this.vault.removeResource(resource.id);
       }
     }
+
+    // A destination whose relocation was refused is still a directory the Vault should know about, now that the old
+    // entry no longer claims its identity.
+    if (refusedRelocation !== undefined && !this.vault.getFolderByPath(refusedRelocation)) {
+      await this.reconcileDirectorySubtree(refusedRelocation);
+    }
+  }
+
+  /**
+   * Fix 1. The directory of a tracked folder is gone: look for the same folder at a path the Vault does not track
+   * and apply it as a move (`applyMove(..., false)`: a refusal returns here, it never re-enters reconciliation).
+   * `moved` is whether the Vault entry was relocated; `destination` is the directory found, if any.
+   */
+  private async relocateFolderIfMoved(folder: Folder): Promise<{ moved: boolean; destination?: string }> {
+    const destination = await this.findRelocatedFolderPath(folder);
+
+    if (destination === undefined) {
+      return { moved: false };
+    }
+
+    // The awaits above may have let another lane move or remove the folder.
+    if (this.vault.getFolder(folder.id)?.path !== folder.path) {
+      return { moved: false };
+    }
+
+    return { moved: await this.applyMove(folder.path, destination, false), destination };
+  }
+
+  /**
+   * The one untracked directory that is `folder` at a new place, or undefined. Several candidates (a copy as well as
+   * the moved folder, two identical layouts) are ambiguous and are never guessed between. A listing failure means
+   * "not found", so the folder is then treated as deleted exactly as before.
+   */
+  private async findRelocatedFolderPath(folder: Folder): Promise<string | undefined> {
+    const pending = [this.vault.root];
+    const matches: string[] = [];
+
+    try {
+      while (pending.length > 0) {
+        const directory = pending.pop()!;
+
+        for (const entry of await this.fileSystem.readDirectory(directory)) {
+          if (!entry.isDirectory || isClutterInternalPath(this.vault.root, entry.path)) {
+            continue;
+          }
+
+          pending.push(entry.path);
+
+          if (!this.vault.getFolderByPath(entry.path) && (await this.directoryIsFolder(folder, entry.path))) {
+            matches.push(entry.path);
+          }
+        }
+      }
+    } catch {
+      return undefined;
+    }
+
+    return matches.length === 1 ? matches[0] : undefined;
+  }
+
+  /** The `id` in a directory's `.folder.md`, if it has one. */
+  private async readFolderId(directory: string): Promise<string | undefined> {
+    return this.readFrontmatterId(`${directory}/.folder.md`);
+  }
+
+  /**
+   * Whether `directory` is `folder`. A persisted `.folder.md` id decides on its own (equal: yes, different: it is
+   * another folder). Without one, identity comes from the notes: the folder must hold at least one page, and every
+   * page the Vault has under it must be at the same relative path in `directory` carrying the same id.
+   */
+  private async directoryIsFolder(folder: Folder, directory: string): Promise<boolean> {
+    const persistedId = await this.readFolderId(directory);
+
+    if (persistedId !== undefined) {
+      return persistedId === folder.id;
+    }
+
+    const pages = this.vault.getDescendantFoldersAndPages(folder.id).pages;
+
+    if (pages.length === 0) {
+      return false;
+    }
+
+    for (const page of pages) {
+      const candidate = `${directory}${page.path.slice(folder.path.length)}`;
+
+      if ((await this.readFrontmatterId(candidate)) !== page.id) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Fix 2. An untracked directory has appeared: the tracked folder it is, if that folder's own directory is gone
+   * (identity as in `directoryIsFolder`; for a directory without a persisted id, the first note in it that the Vault
+   * tracks names the folder it came from). A folder whose directory still exists makes this a copy, not a move.
+   */
+  private async findMovedFolderClaimant(directory: string): Promise<Folder | undefined> {
+    const persistedId = await this.readFolderId(directory);
+
+    if (persistedId !== undefined) {
+      const claimant = this.vault.getFolder(persistedId);
+
+      return claimant && claimant.path !== directory && !(await this.fileSystem.exists(claimant.path))
+        ? claimant
+        : undefined;
+    }
+
+    const pending = [directory];
+
+    try {
+      while (pending.length > 0) {
+        const current = pending.pop()!;
+
+        for (const entry of await this.fileSystem.readDirectory(current)) {
+          if (entry.isDirectory) {
+            if (!isClutterInternalPath(this.vault.root, entry.path)) {
+              pending.push(entry.path);
+            }
+            continue;
+          }
+
+          if (!this.isPageFilePath(entry.path)) {
+            continue;
+          }
+
+          const id = await this.readFrontmatterId(entry.path);
+          const page = id === undefined ? undefined : this.vault.getPage(id);
+
+          if (!page) {
+            continue;
+          }
+
+          // The first note the Vault already tracks decides: where it sits relative to this directory says which
+          // folder this is, and that folder must be gone and match completely.
+          const relative = entry.path.slice(directory.length);
+
+          if (!page.path.endsWith(relative)) {
+            return undefined;
+          }
+
+          const candidate = this.vault.getFolderByPath(page.path.slice(0, page.path.length - relative.length));
+
+          return candidate &&
+            candidate.path !== directory &&
+            !(await this.fileSystem.exists(candidate.path)) &&
+            (await this.directoryIsFolder(candidate, directory))
+            ? candidate
+            : undefined;
+        }
+      }
+    } catch {
+      return undefined;
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Fix 2's queued half, on the folder's own lane (handed off by `dispatch`, never awaited by the caller). The Vault
+   * is re-read here, not trusted from when this was queued: the folder may already have been relocated by its own
+   * `moved` event, by the old path's reconcile, or by an earlier hand-off.
+   */
+  private async adoptRelocatedFolder(folderId: string, destination: string): Promise<void> {
+    if (this.vault.getFolderByPath(destination)) {
+      return;
+    }
+
+    const current = this.vault.getFolder(folderId);
+
+    if (current) {
+      // Resolves the vanished path: relocates the folder to the destination, or removes it.
+      await this.reconcilePath(current.path);
+    }
+
+    if (!this.vault.getFolderByPath(destination)) {
+      await this.reconcileDirectorySubtree(destination);
+    }
   }
 
   /**
@@ -1086,6 +1303,30 @@ export class VaultSyncService {
     const fileContent = await this.fileSystem.readFile(absolutePath);
     const { frontmatter } = this.frontmatterParser.parse(fileContent);
     const status = frontmatter.status === 'archived' ? 'archived' : 'active';
+
+    // The four archive fields as the file holds them, normalised exactly as the startup scan does.
+    const onDisk = this.folderBuilder.build({
+      parentId: folder.parentId,
+      directory: { path: folder.path, parentPath: null, frontmatter },
+    }).metadata;
+    const archiveFields = {
+      status: onDisk.status,
+      archivedAt: onDisk.archivedAt,
+      originalPath: onDisk.originalPath,
+      originalParentId: onDisk.originalParentId,
+    };
+    const archiveFieldsDiffer = (Object.keys(archiveFields) as (keyof typeof archiveFields)[]).some(
+      (key) => (folder.metadata[key] ?? null) !== (archiveFields[key] ?? null)
+    );
+
+    // Another instance archived (or restored) this folder: the file is the truth and the folder already sits where
+    // it belongs (inside Archive/ when archived, anywhere when active), so the Vault takes the four fields as they
+    // are. Nothing is written — there is nothing to repair. An archived file outside Archive/ is the stale case
+    // below, which still repairs the file.
+    if (archiveFieldsDiffer && (status === 'active' || isInsideArchiveFolder(folder.path, this.vault.root))) {
+      this.vault.updateFolderMetadata(folder.id, archiveFields);
+      return;
+    }
 
     if (status === folder.metadata.status) {
       return;
@@ -1249,6 +1490,21 @@ export class VaultSyncService {
       const resolvedFolderParentId =
         folderDestinationParentId === undefined ? folder.parentId : folderDestinationParentId;
 
+      // The destination's own `.folder.md` may already hold the truth about the folder's archive state — another
+      // instance archived or restored it and wrote the file before this ran, whatever order the file's events and
+      // this `moved` arrive in. When it differs from the Vault and needs no repair (active anywhere, or archived
+      // inside Archive/), take it in the same single commit as the move and write nothing.
+      const archiveFromDisk = await this.readArchiveFieldsFromDisk(absoluteTo, folder);
+
+      if (
+        archiveFromDisk &&
+        this.archiveFieldsDiffer(folder, archiveFromDisk) &&
+        (archiveFromDisk.status === 'active' || isInsideArchiveFolder(absoluteTo, this.vault.root))
+      ) {
+        this.vault.correctFolderArchiveMetadata(folder.id, absoluteTo, resolvedFolderParentId, archiveFromDisk);
+        return true;
+      }
+
       const candidateFolder: Folder = {
         ...folder,
         path: absoluteTo,
@@ -1404,6 +1660,50 @@ export class VaultSyncService {
     } catch {
       return true;
     }
+  }
+
+  /**
+   * The four archive fields in `<directory>/.folder.md`, normalised as the startup scan does, or undefined when the
+   * file is missing or unreadable (the caller then keeps its existing behaviour).
+   */
+  private async readArchiveFieldsFromDisk(
+    directory: string,
+    folder: Folder
+  ): Promise<
+    | { status: 'active' | 'archived'; archivedAt: string | null; originalPath: string | null; originalParentId: string | null }
+    | undefined
+  > {
+    const metadataPath = `${directory}/.folder.md`;
+
+    try {
+      if (!(await this.fileSystem.exists(metadataPath))) {
+        return undefined;
+      }
+
+      const { frontmatter } = this.frontmatterParser.parse(await this.fileSystem.readFile(metadataPath));
+      const onDisk = this.folderBuilder.build({
+        parentId: folder.parentId,
+        directory: { path: directory, parentPath: null, frontmatter },
+      }).metadata;
+
+      return {
+        status: frontmatter.status === 'archived' ? 'archived' : 'active',
+        archivedAt: onDisk.archivedAt ?? null,
+        originalPath: onDisk.originalPath ?? null,
+        originalParentId: onDisk.originalParentId ?? null,
+      };
+    } catch {
+      return undefined;
+    }
+  }
+
+  private archiveFieldsDiffer(
+    folder: Folder,
+    fields: { status: string; archivedAt: string | null; originalPath: string | null; originalParentId: string | null }
+  ): boolean {
+    return (Object.keys(fields) as (keyof typeof fields)[]).some(
+      (key) => (folder.metadata[key] ?? null) !== (fields[key] ?? null)
+    );
   }
 
   /** The folder counterpart of `destinationIsNotAnotherPage`, read from the destination's `.folder.md`. */
