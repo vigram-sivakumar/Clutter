@@ -3,7 +3,15 @@
 import '@testing-library/jest-dom/vitest';
 import { useState } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import { Note } from './Note';
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
@@ -31,8 +39,8 @@ afterEach(() => {
 });
 
 const menuWithMove: OverflowMenuItemConfig[] = [
-  { id: 'rename', label: 'Rename', icon: 'notePencil' },
-  { id: 'change-icon', label: 'Change icon', icon: 'notePencil' },
+  { id: 'rename', label: 'Rename', icon: 'edit' },
+  { id: 'change-icon', label: 'Change icon', icon: 'smile' },
   { id: 'move-to', label: 'Move to…', icon: 'arrowDownRight' },
 ];
 
@@ -78,7 +86,13 @@ describe('Note — sidebar Move wiring', () => {
   it("selecting 'Move to…' opens the same MoveDestinationPicker the topbar uses, not a plain menu handler", () => {
     const onMenuSelect = vi.fn();
     const onMove = vi.fn();
-    render(<NoteHarness onMenuSelect={onMenuSelect} moveDestinations={destinations} onMove={onMove} />);
+    render(
+      <NoteHarness
+        onMenuSelect={onMenuSelect}
+        moveDestinations={destinations}
+        onMove={onMove}
+      />
+    );
 
     openMenu();
     fireEvent.click(screen.getByText('Move to…'));
@@ -107,7 +121,9 @@ describe('Note — sidebar Change icon wiring', () => {
   it("selecting 'Change icon' opens ChangeIconPicker, not a plain menu handler", () => {
     const onMenuSelect = vi.fn();
     const onChangeIcon = vi.fn();
-    render(<NoteHarness onMenuSelect={onMenuSelect} onChangeIcon={onChangeIcon} />);
+    render(
+      <NoteHarness onMenuSelect={onMenuSelect} onChangeIcon={onChangeIcon} />
+    );
 
     openMenu();
     fireEvent.click(screen.getByText('Change icon'));
@@ -141,7 +157,13 @@ describe('Note — sidebar Change icon wiring', () => {
 
   it('removes the icon when the remove button is clicked', () => {
     const onChangeIcon = vi.fn();
-    render(<NoteHarness onMenuSelect={vi.fn()} onChangeIcon={onChangeIcon} emoji="📝" />);
+    render(
+      <NoteHarness
+        onMenuSelect={vi.fn()}
+        onChangeIcon={onChangeIcon}
+        emoji="📝"
+      />
+    );
 
     openMenu();
     fireEvent.click(screen.getByText('Change icon'));
@@ -165,9 +187,15 @@ describe('Note — compact Markdown title rendering', () => {
 
     const titleEl = container.querySelector('.note__title')!;
     expect(titleEl.querySelector('strong')).toHaveTextContent('Ship');
-    expect(titleEl.querySelector('.compact-markdown-wikilink')).toHaveTextContent('Project Alpha');
-    expect(titleEl.querySelector('.compact-markdown-tag')).toHaveTextContent('#urgent');
-    expect(titleEl.querySelector('.compact-markdown-date')).toHaveTextContent('@15 January 2020');
+    expect(
+      titleEl.querySelector('.compact-markdown-wikilink')
+    ).toHaveTextContent('Project Alpha');
+    expect(titleEl.querySelector('.compact-markdown-tag')).toHaveTextContent(
+      '#urgent'
+    );
+    expect(titleEl.querySelector('.compact-markdown-date')).toHaveTextContent(
+      '@15 January 2020'
+    );
     // The raw syntax itself must never leak through as literal text.
     expect(titleEl).not.toHaveTextContent('**Ship**');
     expect(titleEl).not.toHaveTextContent('[[Project Alpha]]');
@@ -181,11 +209,16 @@ describe('Note — compact Markdown title rendering', () => {
     });
 
     const { container } = render(
-      <Note title="[[Projects/Alpha|Alpha]]" resolveWikiLink={resolveWikiLink} />
+      <Note
+        title="[[Projects/Alpha|Alpha]]"
+        resolveWikiLink={resolveWikiLink}
+      />
     );
 
     expect(resolveWikiLink).toHaveBeenCalledWith('Projects/Alpha', 'Alpha');
-    expect(container.querySelector('.compact-markdown-wikilink')).toHaveTextContent('Resolved Label');
+    expect(
+      container.querySelector('.compact-markdown-wikilink')
+    ).toHaveTextContent('Resolved Label');
   });
 
   it('resolves an Embed title through the injected resolveEmbed, not the raw target path', () => {
@@ -198,7 +231,9 @@ describe('Note — compact Markdown title rendering', () => {
       emoji: null,
     });
 
-    const { container } = render(<Note title="![[Projects/Alpha]]" resolveEmbed={resolveEmbed} />);
+    const { container } = render(
+      <Note title="![[Projects/Alpha]]" resolveEmbed={resolveEmbed} />
+    );
 
     expect(resolveEmbed).toHaveBeenCalledWith('Projects/Alpha');
     expect(container).toHaveTextContent('Project Alpha');
@@ -225,14 +260,18 @@ describe('Note — title truncation', () => {
   it('marks the title .truncate, explicitly rather than via Entry.css', () => {
     render(<NoteHarness onMenuSelect={vi.fn()} />);
 
-    expect(screen.getByText('My Note').closest('.note__title')).toHaveClass('truncate');
+    expect(screen.getByText('My Note').closest('.note__title')).toHaveClass(
+      'truncate'
+    );
   });
 });
 
 describe('Note — unaffected by the Daily notes Show emoji setting', () => {
   it('still shows its emoji while Show emoji (Daily notes) is off', () => {
     localStorage.clear();
-    const { container } = render(<NoteHarness onMenuSelect={vi.fn()} emoji="📝" />);
+    const { container } = render(
+      <NoteHarness onMenuSelect={vi.fn()} emoji="📝" />
+    );
 
     expect(container).toHaveTextContent('📝');
   });

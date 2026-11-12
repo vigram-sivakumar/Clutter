@@ -3,7 +3,15 @@
 import '@testing-library/jest-dom/vitest';
 import { useState } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import { Resource } from './Resource';
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
@@ -40,7 +48,9 @@ function makeResource(overrides: Partial<VaultResource> = {}): VaultResource {
 
 describe('Resource — icon selection', () => {
   it('renders the image icon for an image resource', () => {
-    const { container } = render(<Resource resource={makeResource({ kind: 'image' })} />);
+    const { container } = render(
+      <Resource resource={makeResource({ kind: 'image' })} />
+    );
 
     expect(container.querySelector('.resource__icon svg')).toBeTruthy();
   });
@@ -53,7 +63,9 @@ describe('Resource — icon selection', () => {
       <Resource resource={makeResource({ kind: 'pdf' })} />
     );
 
-    const imageSvg = imageContainer.querySelector('.resource__icon svg')?.outerHTML;
+    const imageSvg = imageContainer.querySelector(
+      '.resource__icon svg'
+    )?.outerHTML;
     const pdfSvg = pdfContainer.querySelector('.resource__icon svg')?.outerHTML;
 
     expect(imageSvg).toBeTruthy();
@@ -93,7 +105,7 @@ describe('Resource — no overflow menu by default', () => {
 });
 
 const resourceMenuItems: OverflowMenuItemConfig[] = [
-  { id: 'rename', label: 'Rename', icon: 'notePencil', opensInlineEdit: true },
+  { id: 'rename', label: 'Rename', icon: 'edit', opensInlineEdit: true },
   { id: 'archive', label: 'Archive', icon: 'archive' },
 ];
 
@@ -123,13 +135,17 @@ function openMenu() {
 
 describe('Resource — overflow menu', () => {
   it('renders the overflow/three-dot button when menuItems are supplied', () => {
-    render(<Resource resource={makeResource()} menuItems={resourceMenuItems} />);
+    render(
+      <Resource resource={makeResource()} menuItems={resourceMenuItems} />
+    );
 
     expect(screen.getByRole('button')).toBeInTheDocument();
   });
 
   it('the menu contains exactly Rename and Archive', () => {
-    render(<ResourceHarness resource={makeResource()} onMenuSelect={vi.fn()} />);
+    render(
+      <ResourceHarness resource={makeResource()} onMenuSelect={vi.fn()} />
+    );
 
     openMenu();
 
@@ -143,7 +159,9 @@ describe('Resource — overflow menu', () => {
 
   it('selecting Rename dispatches through onMenuSelect', () => {
     const onMenuSelect = vi.fn();
-    render(<ResourceHarness resource={makeResource()} onMenuSelect={onMenuSelect} />);
+    render(
+      <ResourceHarness resource={makeResource()} onMenuSelect={onMenuSelect} />
+    );
 
     openMenu();
     fireEvent.click(screen.getByText('Rename'));
@@ -153,7 +171,9 @@ describe('Resource — overflow menu', () => {
 
   it('selecting Archive dispatches through onMenuSelect', () => {
     const onMenuSelect = vi.fn();
-    render(<ResourceHarness resource={makeResource()} onMenuSelect={onMenuSelect} />);
+    render(
+      <ResourceHarness resource={makeResource()} onMenuSelect={onMenuSelect} />
+    );
 
     openMenu();
     fireEvent.click(screen.getByText('Archive'));
@@ -163,7 +183,12 @@ describe('Resource — overflow menu', () => {
 
   it('a pdf resource still shows a working overflow menu', () => {
     const onMenuSelect = vi.fn();
-    render(<ResourceHarness resource={makeResource({ kind: 'pdf' })} onMenuSelect={onMenuSelect} />);
+    render(
+      <ResourceHarness
+        resource={makeResource({ kind: 'pdf' })}
+        onMenuSelect={onMenuSelect}
+      />
+    );
 
     openMenu();
     fireEvent.click(screen.getByText('Archive'));
@@ -174,7 +199,9 @@ describe('Resource — overflow menu', () => {
 
 describe('Resource — rename editing', () => {
   it('isEditing renders an EditableText field seeded with the name minus its extension — the user never sees or types the extension', () => {
-    render(<Resource resource={makeResource({ name: 'floorplan.png' })} isEditing />);
+    render(
+      <Resource resource={makeResource({ name: 'floorplan.png' })} isEditing />
+    );
 
     expect(screen.getByRole('textbox')).toHaveTextContent('floorplan');
   });
@@ -268,7 +295,11 @@ describe('Resource — rename editing', () => {
   it('a row mid-rename does not navigate on click', () => {
     const onClick = vi.fn();
     render(
-      <Resource resource={makeResource({ kind: 'image' })} isEditing onClick={onClick} />
+      <Resource
+        resource={makeResource({ kind: 'image' })}
+        isEditing
+        onClick={onClick}
+      />
     );
 
     fireEvent.click(screen.getByRole('textbox'));
@@ -299,13 +330,17 @@ describe('Resource — click behavior', () => {
   });
 
   it('an image resource with no onClick provided renders non-interactive', () => {
-    const { container } = render(<Resource resource={makeResource({ kind: 'image' })} />);
+    const { container } = render(
+      <Resource resource={makeResource({ kind: 'image' })} />
+    );
 
     expect(container.querySelector('.entry-interactive')).toBeNull();
   });
 
   it('a pdf resource with no onClick provided renders non-interactive', () => {
-    const { container } = render(<Resource resource={makeResource({ kind: 'pdf' })} />);
+    const { container } = render(
+      <Resource resource={makeResource({ kind: 'pdf' })} />
+    );
 
     expect(container.querySelector('.entry-interactive')).toBeNull();
   });
@@ -315,6 +350,8 @@ describe('Resource — title truncation', () => {
   it('marks the static title .truncate, explicitly rather than via Entry.css', () => {
     render(<Resource resource={makeResource({ name: 'floorplan.png' })} />);
 
-    expect(screen.getByText('floorplan').closest('.resource__title')).toHaveClass('truncate');
+    expect(
+      screen.getByText('floorplan').closest('.resource__title')
+    ).toHaveClass('truncate');
   });
 });

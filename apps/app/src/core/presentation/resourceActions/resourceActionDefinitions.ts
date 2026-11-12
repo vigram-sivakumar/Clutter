@@ -1,4 +1,7 @@
-import { buildCopyPathSubmenu, type LocationEntityKind } from '../getLocationPathRepresentations';
+import {
+  buildCopyPathSubmenu,
+  type LocationEntityKind,
+} from '../getLocationPathRepresentations';
 import {
   ARCHIVE_ACTION_LABEL,
   DELETE_ACTION_LABEL,
@@ -6,7 +9,11 @@ import {
   UNFAVORITE_ACTION_LABEL,
 } from '../resourceActionLabels';
 import { FOLDER_SORT_BY } from './folderSortAction';
-import type { ResourceActionDefinition, ResourceActionContext, ResourceKind } from './resourceActionTypes';
+import type {
+  ResourceActionDefinition,
+  ResourceActionContext,
+  ResourceKind,
+} from './resourceActionTypes';
 
 /**
  * The canonical actions per resource kind (ADR-048). A definition owns its id, wording, icon,
@@ -23,14 +30,21 @@ import type { ResourceActionDefinition, ResourceActionContext, ResourceKind } fr
  * every surface. Restore and Delete are the archived resource's own actions and do not use this.
  */
 export function isArchivedContext(context: ResourceActionContext): boolean {
-  return context.status === 'archived' || context.isEffectivelyArchived === true;
+  return (
+    context.status === 'archived' || context.isEffectivelyArchived === true
+  );
 }
 
 /** The definition, hidden for an archived resource and otherwise unchanged. */
-function activeOnly(definition: ResourceActionDefinition): ResourceActionDefinition {
+function activeOnly(
+  definition: ResourceActionDefinition
+): ResourceActionDefinition {
   return {
     ...definition,
-    availability: (context) => (isArchivedContext(context) ? 'hidden' : (definition.availability?.(context) ?? 'enabled')),
+    availability: (context) =>
+      isArchivedContext(context)
+        ? 'hidden'
+        : (definition.availability?.(context) ?? 'enabled'),
   };
 }
 
@@ -41,7 +55,9 @@ function persistedOnly(context: ResourceActionContext) {
 
 /** Needs a saved, active resource (Move's approved contract excludes archived sources). */
 function activePersistedOnly(context: ResourceActionContext) {
-  return context.isDraft || context.status === 'archived' ? ('unavailable' as const) : ('enabled' as const);
+  return context.isDraft || context.status === 'archived'
+    ? ('unavailable' as const)
+    : ('enabled' as const);
 }
 
 const RENAME: ResourceActionDefinition = activeOnly({
@@ -49,7 +65,7 @@ const RENAME: ResourceActionDefinition = activeOnly({
   group: 'identity',
   order: 10,
   label: 'Rename',
-  icon: 'notePencil',
+  icon: 'edit',
   opensInlineEdit: true,
   availability: persistedOnly,
 });
@@ -67,8 +83,10 @@ const TOGGLE_FAVORITE: ResourceActionDefinition = activeOnly({
   id: 'toggle-favorite',
   group: 'organize',
   order: 10,
-  label: (context) => (context.isFavorite ? UNFAVORITE_ACTION_LABEL : FAVORITE_ACTION_LABEL),
-  icon: (context) => (context.isFavorite ? 'favouriteFilled' : 'favouriteOutline'),
+  label: (context) =>
+    context.isFavorite ? UNFAVORITE_ACTION_LABEL : FAVORITE_ACTION_LABEL,
+  icon: (context) =>
+    context.isFavorite ? 'favouriteFilled' : 'favouriteOutline',
   availability: persistedOnly,
 });
 
@@ -114,7 +132,8 @@ const TOGGLE_REFERENCES: ResourceActionDefinition = activeOnly({
   id: 'toggle-references',
   group: 'view',
   order: 10,
-  label: (context) => (context.referencesHidden ? 'Show references' : 'Hide references'),
+  label: (context) =>
+    context.referencesHidden ? 'Show references' : 'Hide references',
   icon: 'branch',
   availability: persistedOnly,
 });
@@ -149,7 +168,8 @@ const ARCHIVE: ResourceActionDefinition = {
   label: ARCHIVE_ACTION_LABEL,
   icon: 'archive',
   variant: 'danger',
-  availability: (context) => (isArchivedContext(context) ? 'hidden' : persistedOnly(context)),
+  availability: (context) =>
+    isArchivedContext(context) ? 'hidden' : persistedOnly(context),
 };
 
 export const RESTORE: ResourceActionDefinition = {
@@ -158,7 +178,8 @@ export const RESTORE: ResourceActionDefinition = {
   order: 10,
   label: 'Restore',
   icon: 'restore',
-  availability: (context) => (context.status === 'archived' ? persistedOnly(context) : 'hidden'),
+  availability: (context) =>
+    context.status === 'archived' ? persistedOnly(context) : 'hidden',
 };
 
 /** Permanent delete: only for an archived resource or an Archive descendant. */
@@ -169,24 +190,35 @@ const DELETE: ResourceActionDefinition = {
   label: DELETE_ACTION_LABEL,
   icon: 'trash',
   variant: 'danger',
-  availability: (context) => (context.isDeletable ? persistedOnly(context) : 'hidden'),
+  availability: (context) =>
+    context.isDeletable ? persistedOnly(context) : 'hidden',
 };
 
 /**
  * Assets act on a vault file or, for a remote image, a URL. A file action is hidden for a remote
  * asset; a URL action is hidden for a file.
  */
-function forFile(definition: ResourceActionDefinition): ResourceActionDefinition {
+function forFile(
+  definition: ResourceActionDefinition
+): ResourceActionDefinition {
   return {
     ...definition,
-    availability: (context) => (context.isRemote ? 'hidden' : (definition.availability?.(context) ?? 'enabled')),
+    availability: (context) =>
+      context.isRemote
+        ? 'hidden'
+        : (definition.availability?.(context) ?? 'enabled'),
   };
 }
 
-function forUrl(definition: ResourceActionDefinition): ResourceActionDefinition {
+function forUrl(
+  definition: ResourceActionDefinition
+): ResourceActionDefinition {
   return {
     ...definition,
-    availability: (context) => (context.isRemote ? (definition.availability?.(context) ?? 'enabled') : 'hidden'),
+    availability: (context) =>
+      context.isRemote
+        ? (definition.availability?.(context) ?? 'enabled')
+        : 'hidden',
   };
 }
 
@@ -206,7 +238,11 @@ const SET_AS_COVER_IMAGE: ResourceActionDefinition = activeOnly({
   label: 'Set as cover image',
   icon: 'image',
   availability: (context) =>
-    context.setAsCoverImage === 'enabled' ? 'enabled' : context.setAsCoverImage === 'disabled' ? 'unavailable' : 'hidden',
+    context.setAsCoverImage === 'enabled'
+      ? 'enabled'
+      : context.setAsCoverImage === 'disabled'
+        ? 'unavailable'
+        : 'hidden',
 });
 
 const OPEN_IN_BROWSER: ResourceActionDefinition = {
@@ -232,7 +268,8 @@ const DOWNLOAD: ResourceActionDefinition = {
   order: 50,
   label: 'Download',
   icon: 'download',
-  availability: (context) => (context.assetKind === 'image' ? 'enabled' : 'hidden'),
+  availability: (context) =>
+    context.assetKind === 'image' ? 'enabled' : 'hidden',
 };
 
 /** Pinning a tag is its `favorite` metadata (what the Pinned grouping reads) — named Pin, not Favorite. */
@@ -256,7 +293,10 @@ const DELETE_TAG: ResourceActionDefinition = {
 
 /** A task row lists an action only when its caller supplied the operation. */
 function whenExecutable(id: string) {
-  return (context: ResourceActionContext) => (context.executable?.includes(id) ? ('enabled' as const) : ('hidden' as const));
+  return (context: ResourceActionContext) =>
+    context.executable?.includes(id)
+      ? ('enabled' as const)
+      : ('hidden' as const);
 }
 
 /** Opens the note a line or task lives in (and, where the opener supports it, lands on the exact place). */
@@ -277,9 +317,14 @@ const SELECT_ALL: ResourceActionDefinition = {
   group: 'identity',
   order: 10,
   // One item that toggles: with everything selected it reads Deselect all.
-  label: (context) => (context.selectionState === 'all' ? 'Deselect all' : 'Select all'),
+  label: (context) =>
+    context.selectionState === 'all' ? 'Deselect all' : 'Select all',
   icon: (context) =>
-    context.selectionState === 'all' ? 'checkboxChecked' : context.selectionState === 'some' ? 'checkboxIndeterminate' : 'checkboxUnchecked',
+    context.selectionState === 'all'
+      ? 'checkboxChecked'
+      : context.selectionState === 'some'
+        ? 'checkboxIndeterminate'
+        : 'checkboxUnchecked',
 };
 
 /**
@@ -296,7 +341,9 @@ export const SELECTION_ACTIONS: readonly ResourceActionDefinition[] = [
   DELETE,
 ];
 
-export const RESOURCE_ACTIONS: Readonly<Record<ResourceKind, readonly ResourceActionDefinition[]>> = {
+export const RESOURCE_ACTIONS: Readonly<
+  Record<ResourceKind, readonly ResourceActionDefinition[]>
+> = {
   note: [
     RENAME,
     CHANGE_ICON,
@@ -313,7 +360,16 @@ export const RESOURCE_ACTIONS: Readonly<Record<ResourceKind, readonly ResourceAc
   ],
   // A Daily Note's title is its date: no rename, favorite, duplicate or move. It can carry an emoji
   // (the same frontmatter `icon` a Note's does).
-  'daily-note': [CHANGE_ICON, CREATE_TEMPLATE, TOGGLE_REFERENCES, revealInFinder(), copyPath('page'), ARCHIVE, RESTORE, DELETE],
+  'daily-note': [
+    CHANGE_ICON,
+    CREATE_TEMPLATE,
+    TOGGLE_REFERENCES,
+    revealInFinder(),
+    copyPath('page'),
+    ARCHIVE,
+    RESTORE,
+    DELETE,
+  ],
   // Folders are never duplicable or templates. Sort by is a sidebar view preference (the topbar
   // surface profile omits it).
   folder: [

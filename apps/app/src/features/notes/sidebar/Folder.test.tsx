@@ -3,7 +3,15 @@
 import '@testing-library/jest-dom/vitest';
 import { useState } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import { Folder } from './Folder';
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
@@ -28,8 +36,8 @@ afterEach(() => {
 });
 
 const menuWithMove: OverflowMenuItemConfig[] = [
-  { id: 'rename', label: 'Rename', icon: 'notePencil' },
-  { id: 'change-icon', label: 'Change icon', icon: 'notePencil' },
+  { id: 'rename', label: 'Rename', icon: 'edit' },
+  { id: 'change-icon', label: 'Change icon', icon: 'smile' },
   { id: 'move-to', label: 'Move to…', icon: 'arrowDownRight' },
 ];
 
@@ -75,7 +83,13 @@ describe('Folder — sidebar Move wiring', () => {
   it("selecting 'Move to…' opens the same MoveDestinationPicker the topbar uses, not a plain menu handler", () => {
     const onMenuSelect = vi.fn();
     const onMove = vi.fn();
-    render(<FolderHarness onMenuSelect={onMenuSelect} moveDestinations={destinations} onMove={onMove} />);
+    render(
+      <FolderHarness
+        onMenuSelect={onMenuSelect}
+        moveDestinations={destinations}
+        onMove={onMove}
+      />
+    );
 
     openMenu();
     fireEvent.click(screen.getByText('Move to…'));
@@ -104,7 +118,9 @@ describe('Folder — sidebar Change icon wiring', () => {
   it("selecting 'Change icon' opens ChangeIconPicker, not a plain menu handler", () => {
     const onMenuSelect = vi.fn();
     const onChangeIcon = vi.fn();
-    render(<FolderHarness onMenuSelect={onMenuSelect} onChangeIcon={onChangeIcon} />);
+    render(
+      <FolderHarness onMenuSelect={onMenuSelect} onChangeIcon={onChangeIcon} />
+    );
 
     openMenu();
     fireEvent.click(screen.getByText('Change icon'));
@@ -138,7 +154,13 @@ describe('Folder — sidebar Change icon wiring', () => {
 
   it('removes the icon when the remove button is clicked', () => {
     const onChangeIcon = vi.fn();
-    render(<FolderHarness onMenuSelect={vi.fn()} onChangeIcon={onChangeIcon} emoji="📁" />);
+    render(
+      <FolderHarness
+        onMenuSelect={vi.fn()}
+        onChangeIcon={onChangeIcon}
+        emoji="📁"
+      />
+    );
 
     openMenu();
     fireEvent.click(screen.getByText('Change icon'));
@@ -160,10 +182,15 @@ describe('Folder — count badge', () => {
   it('shows a CountBadge in the trailing slot when given a count, marked to show only on sidebar hover', () => {
     render(<Folder title="Projects" count={4} />);
 
-    const badge = screen.getByText('Projects').closest('.entry')!.querySelector('.entry__meta .count-badge')!;
+    const badge = screen
+      .getByText('Projects')
+      .closest('.entry')!
+      .querySelector('.entry__meta .count-badge')!;
     expect(badge.textContent).toBe('4');
     expect(badge.classList.contains('count-badge--small')).toBe(true);
-    expect(badge.classList.contains('count-badge--on-sidebar-hover')).toBe(true);
+    expect(badge.classList.contains('count-badge--on-sidebar-hover')).toBe(
+      true
+    );
   });
 
   it('shows nothing for a count of zero', () => {
@@ -179,7 +206,9 @@ describe('Folder — count badge', () => {
   });
 
   it('without a count, adds no badge and leaves the caller’s own trailing content alone', () => {
-    render(<Folder title="Projects" trailing={<span data-testid="mine">x</span>} />);
+    render(
+      <Folder title="Projects" trailing={<span data-testid="mine">x</span>} />
+    );
 
     expect(document.querySelector('.count-badge')).toBeNull();
     expect(screen.getByTestId('mine')).not.toBeNull();
@@ -194,4 +223,3 @@ describe('Folder — count badge', () => {
     expect(container.querySelector('.folder__title')!.outerHTML).toBe(without);
   });
 });
-
