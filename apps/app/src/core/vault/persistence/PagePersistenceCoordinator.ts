@@ -1877,6 +1877,13 @@ export class PagePersistenceCoordinator {
     const expected = expectedDiskFingerprint ?? page.sourceFingerprint;
 
     if (expected !== undefined && contentIdentity(current) !== expected) {
+      // Not the version the saver expected — but if it is already exactly the document about to be written (for
+      // instance Sync's metadata repair applied the same change first), the intended write has been made: nothing
+      // is overwritten and nothing is lost, so there is nothing to refuse. Any other text is an external edit.
+      if (current === document) {
+        return;
+      }
+
       throw new AtomicExternalChangeError(page.path);
     }
 
