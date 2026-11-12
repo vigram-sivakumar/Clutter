@@ -13,6 +13,7 @@ import { FakeIdGenerator } from '../testing/FakeIdGenerator';
 import { FrontmatterSerializer } from '../ingest/FrontmatterSerializer';
 import type { VaultEntry, VaultFileSystem } from '../providers/VaultFileSystem';
 import type { Page } from '../models/Page';
+import type { Folder } from '../models/Folder';
 
 /**
  * Gap A: another Clutter instance moves a note, so this instance sees the old path disappear (`deleted`) and the
@@ -279,5 +280,98 @@ describe('VaultSyncService: a page moved by another instance keeps its Vault ent
     expect(ctx.documentRegistry.get('p1')).toBe(session);
     expect(session.isDirty).toBe(true);
     expect(session.currentRevision.markdown).toBe('my unsaved edit');
+  });
+});
+
+/**
+ * Repeated movement: a stale `created` for the path the page has since left reaches reconcileFileEntity()
+ * directly (not through reconcilePath()), so its "gone again" branch must look for the page's new location too.
+ */
+const folderMetadata = {
+  defaultTemplateId: null,
+  icon: null,
+  favorite: false,
+  description: '',
+  cover: null,
+  coverHidden: false,
+  coverLayout: 'side' as const,
+  coverPositionAbove: 50,
+  coverPositionSide: 50,
+  status: 'active' as const,
+  archivedAt: null,
+  originalPath: null,
+  originalParentId: null,
+};
+
+const folders: Folder[] = ['F1', 'F2', 'F3'].map((name) => ({
+  id: `folder-${name}`,
+  name,
+  path: `${ROOT}/${name}`,
+  parentId: null,
+  metadata: folderMetadata,
+}));
+
+function pageIn(id: string, folderName: string): Page {
+  return new PageBuilder().build({
+    parentId: `folder-${folderName}`,
+    page: {
+      path: `${ROOT}/${folderName}/N.md`,
+      directoryPath: `${ROOT}/${folderName}`,
+      frontmatter: { id },
+      frontmatterAnalysis: { aliases: [] },
+      content: 'body',
+      analysis: { headings: [], blockReferences: [], tasks: [], tags: [], links: [], embeds: [] },
+    },
+  });
+}
+
+async function setupFolders(original: Page) {
+  const vault = new Vault(ROOT, [original], folders, [], [], [], new KnowledgeGraph([]), new VaultProjectionBuilder());
+  const inner = new InMemoryVaultFileSystem();
+  for (const folder of folders) await inner.createDirectory(folder.path);
+  const watcher = new FakeVaultFileSystemWatcher();
+  const documentRegistry = new DocumentRegistry();
+  new VaultSyncService(vault, inner, watcher, documentRegistry, new FrontmatterSerializer(), new FakeIdGenerator());
+  const removed: string[] = [];
+  vault.subscribe((event) => {
+    if (event.type === 'page-removed') removed.push(event.pageId);
+  });
+
+  return { vault, inner, watcher, documentRegistry, removed };
+}
+
+describe('VaultSyncService: repeated movement of the same note (stale created for the previous path)', () => {
+  it('F1 -> F2 then F2 -> F3 with a stale created(F2/N.md): never removed, same id, session and final path', async () => {
+    const ctx = await setupFolders(pageIn('p1', 'F1'));
+    const session = ctx.documentRegistry.open('p1', 'body');
+
+    // Move 1 (clean): the file is at F2 when events arrive.
+    ctx.inner.seedFile(`${ROOT}/F2/N.md`, document('p1'));
+    ctx.watcher.emit({ type: 'moved', fromPath: 'F1/N.md', toPath: 'F2/N.md' });
+    await settle();
+    expect(ctx.vault.getPage('p1')!.path).toBe(`${ROOT}/F2/N.md`);
+
+    // Move 2 already happened on disk (F2 -> F3); a late created(F2/N.md) is handled first.
+    await ctx.inner.deleteFile(`${ROOT}/F2/N.md`);
+    ctx.inner.seedFile(`${ROOT}/F3/N.md`, document('p1'));
+    ctx.watcher.emit({ type: 'created', path: 'F2/N.md', isDirectory: false });
+    ctx.watcher.emit({ type: 'moved', fromPath: 'F2/N.md', toPath: 'F3/N.md' });
+    await settle();
+
+    expect(ctx.removed).toEqual([]);
+    expect(ctx.vault.getPage('p1')!.path).toBe(`${ROOT}/F3/N.md`);
+    expect(ctx.vault.pageCount).toBe(1);
+    expect(ctx.documentRegistry.get('p1')).toBe(session);
+    expect(await ctx.inner.readFile(`${ROOT}/F3/N.md`)).toBe(document('p1'));
+  });
+
+  it('a stale created for a path whose file is genuinely gone still removes the page', async () => {
+    const ctx = await setupFolders(pageIn('p1', 'F2'));
+
+    ctx.watcher.emit({ type: 'created', path: 'F2/N.md', isDirectory: false });
+    await settle();
+
+    expect(ctx.vault.getPage('p1')).toBeUndefined();
+    expect(ctx.removed).toEqual(['p1']);
   });
 });

@@ -615,7 +615,9 @@ export class VaultSyncService {
       const goneAgainPage = this.vault.getPageByPath(absolutePath);
 
       if (goneAgainPage) {
-        this.vault.removePage(goneAgainPage.id);
+        // A stale `created` for a path the page has since moved away from lands here, not in reconcilePath():
+        // look for the page's new location before treating the vanished path as a deletion.
+        await this.relocateOrRemovePage(goneAgainPage);
       }
 
       return;
