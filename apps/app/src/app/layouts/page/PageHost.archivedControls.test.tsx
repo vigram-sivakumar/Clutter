@@ -679,7 +679,7 @@ describe('Phase 9 — an archived asset opened from the Archive', () => {
     await clickItem(DELETE_ACTION_LABEL);
     expect(application.vault.getResource('img-1')).toBeDefined();
     expect(document.body.textContent).toContain('Delete permanently?');
-    expect(document.body.textContent).toContain('You can\u2019t undo this action');
+    expect(document.body.textContent).toContain('will be moved to the macOS Trash, where you can restore it');
     // The confirmation's own button is the plain "Delete".
 
     const confirm = [...document.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === 'Delete')!;

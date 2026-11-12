@@ -665,7 +665,7 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
         {assetPendingDelete && (
           <Confirmation
             title="Delete permanently?"
-            description={`“${getResourceDisplayName(assetPendingDelete)}” will be deleted permanently. You can’t undo this action`}
+            description={`“${getResourceDisplayName(assetPendingDelete)}” will be moved to the macOS Trash, where you can restore it`}
             confirmLabel="Delete"
             onConfirm={confirmDeleteResource}
             onCancel={() => setAssetPendingDelete(null)}

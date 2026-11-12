@@ -9,6 +9,12 @@ import { ARCHIVE_ACTION_LABEL } from '@core/presentation/resourceActionLabels';
 export const FOLDER_ARCHIVE_CONFIRMATION_TITLE = 'Move this folder to archive?';
 export const FOLDER_ARCHIVE_CONFIRM_LABEL = ARCHIVE_ACTION_LABEL;
 
+/**
+ * What Delete permanently's confirmation says about an item (ADR-072): it is moved to the macOS Trash, so it is not
+ * gone for good and the copy must not say it is. The action keeps its name, "Delete permanently".
+ */
+export const DELETE_MOVES_TO_TRASH_MESSAGE = 'It will be moved to the macOS Trash, where you can restore it';
+
 export interface FolderActionConfirmation {
   readonly hasDescendants: boolean;
   readonly message: string;
@@ -65,8 +71,8 @@ export function getFolderDeleteConfirmation(
 ): FolderActionConfirmation {
   return describeFolderAction(vault, folderId, (folderCount, pageCount) =>
     folderCount === 0 && pageCount === 0
-      ? 'You can’t undo this action'
-      : `Delete this folder and everything inside it? This will permanently delete ${folderCount} folder(s) and ${pageCount} page(s). You can’t undo this action`
+      ? DELETE_MOVES_TO_TRASH_MESSAGE
+      : `Delete this folder and everything inside it? This will move ${folderCount} folder(s) and ${pageCount} page(s) to the macOS Trash, where you can restore them`
   );
 }
 
@@ -78,4 +84,4 @@ export function getFolderDeleteConfirmation(
  * (buildTopBarActions.tsx's isDeletable), and every such delete now
  * requires confirmation.
  */
-export const PAGE_DELETE_CONFIRMATION_MESSAGE = 'You can’t undo this action';
+export const PAGE_DELETE_CONFIRMATION_MESSAGE = DELETE_MOVES_TO_TRASH_MESSAGE;

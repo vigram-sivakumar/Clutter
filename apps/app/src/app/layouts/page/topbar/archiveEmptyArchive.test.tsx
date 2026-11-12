@@ -2,7 +2,15 @@
 
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import {
   buildArchiveTopBarMenu,
@@ -66,9 +74,15 @@ describe('Archive page "More actions" — Empty archive', () => {
     fireEvent.click(screen.getByText('Empty archive'));
 
     expect(
-      screen.getByText('Are you sure you want to permanently delete the items in the archive?')
+      screen.getByText(
+        'Are you sure you want to permanently delete the items in the archive?'
+      )
     ).toBeInTheDocument();
-    expect(screen.getByText('You can’t undo this action')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'The items will be moved to the macOS Trash, where you can restore them'
+      )
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
     expect(onDeleteAll).not.toHaveBeenCalled();
   });
@@ -81,7 +95,11 @@ describe('Archive page "More actions" — Empty archive', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(onDeleteAll).not.toHaveBeenCalled();
-    expect(screen.queryByText('You can’t undo this action')).toBeNull();
+    expect(
+      screen.queryByText(
+        'The items will be moved to the macOS Trash, where you can restore them'
+      )
+    ).toBeNull();
   });
 
   it('confirming runs the delete once, with the default (danger) confirm button like every other destructive confirmation', () => {
@@ -106,7 +124,11 @@ describe('Archive page "More actions" — Empty archive', () => {
     openMenu();
     fireEvent.click(screen.getByText('Empty archive'));
 
-    expect(screen.queryByText('You can’t undo this action')).toBeNull();
+    expect(
+      screen.queryByText(
+        'The items will be moved to the macOS Trash, where you can restore them'
+      )
+    ).toBeNull();
     expect(onDeleteAll).not.toHaveBeenCalled();
   });
 });

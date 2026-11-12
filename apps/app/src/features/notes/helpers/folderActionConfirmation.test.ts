@@ -93,7 +93,7 @@ describe('getFolderDeleteConfirmation', () => {
     const result = getFolderDeleteConfirmation(vault, 'folder-1');
 
     expect(result.hasDescendants).toBe(false);
-    expect(result.message).toBe('You can’t undo this action');
+    expect(result.message).toBe('It will be moved to the macOS Trash, where you can restore it');
   });
 
   it('hasDescendants is true and the message names counts for a non-empty folder', () => {
@@ -106,7 +106,7 @@ describe('getFolderDeleteConfirmation', () => {
 
     expect(result.hasDescendants).toBe(true);
     expect(result.message).toBe(
-      'Delete this folder and everything inside it? This will permanently delete 1 folder(s) and 1 page(s). You can’t undo this action'
+      'Delete this folder and everything inside it? This will move 1 folder(s) and 1 page(s) to the macOS Trash, where you can restore them'
     );
   });
 });
@@ -133,6 +133,22 @@ describe('getFolderArchiveConfirmation (unchanged by the "always confirm delete"
 
 describe('PAGE_DELETE_CONFIRMATION_MESSAGE', () => {
   it('is a fixed, non-empty confirmation message for a Note/Daily Note delete', () => {
-    expect(PAGE_DELETE_CONFIRMATION_MESSAGE).toBe('You can’t undo this action');
+    expect(PAGE_DELETE_CONFIRMATION_MESSAGE).toBe('It will be moved to the macOS Trash, where you can restore it');
+  });
+
+  it('never promises an irreversible delete: the item goes to the macOS Trash (ADR-072)', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const nestedPage = makePage('page-1', `${ROOT}/Projects/Note.md`, 'folder-1');
+    const messages = [
+      PAGE_DELETE_CONFIRMATION_MESSAGE,
+      getFolderDeleteConfirmation(makeVault([folder]), 'folder-1').message,
+      getFolderDeleteConfirmation(makeVault([folder], [nestedPage]), 'folder-1').message,
+    ];
+
+    for (const message of messages) {
+      expect(message).toContain('macOS Trash');
+      expect(message).not.toMatch(/undo|permanently|for good/i);
+      expect(message).not.toMatch(/\.$/);
+    }
   });
 });

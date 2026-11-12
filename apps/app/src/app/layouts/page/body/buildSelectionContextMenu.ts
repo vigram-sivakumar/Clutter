@@ -1,6 +1,5 @@
 import { buildSelectionActionMenu, SELECTION_ITEM_ACTION_IDS } from '@core/presentation/resourceActions/buildSelectionActionMenu';
 import type { PickerListItem } from '@components/picker-list/PickerList.types';
-import { PAGE_DELETE_CONFIRMATION_MESSAGE } from '@features/notes/helpers/folderActionConfirmation';
 
 import type { ResourceTopBarActionsProps } from '../topbar/ResourceTopBarActions';
 
@@ -9,7 +8,8 @@ const SELECTION_ARCHIVE_CONFIRMATION_TITLE = 'Move the selected items to archive
 const SELECTION_ARCHIVE_CONFIRMATION_MESSAGE = 'Folders in the selection take everything inside them to the archive too';
 
 /** The Delete confirmation when the selection's items would each warn something different (a folder with contents among them). */
-const SELECTION_DELETE_CONFIRMATION_MESSAGE = `This will also permanently delete everything inside the selected folders. ${PAGE_DELETE_CONFIRMATION_MESSAGE}`;
+const SELECTION_DELETE_CONFIRMATION_MESSAGE =
+  'This includes everything inside the selected folders. All of it will be moved to the macOS Trash, where you can restore it';
 
 export interface SelectionMenuOps {
   /** How many items the collection shows (what "all selected" is measured against). */
