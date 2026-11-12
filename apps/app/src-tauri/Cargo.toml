@@ -58,10 +58,11 @@ glob = { version = "0.3", optional = true }
 objc2-core-foundation = { version = "0.3", default-features = false, features = ["std", "CFBase", "CFDate", "CFDictionary", "CFString", "CFUserNotification"] }
 # The Documents authorization panel (src/space_access.rs) is an NSOpenPanel opened directly so its button can say
 # "Allow": the dialog plugin has no setting for the button's label. Already in the graph via rfd; features limited to
-# what is used. NSDictionary and NSError serve the volume-type lookup in src/atomic_replace.rs (ADR-069).
+# what is used. NSDictionary and NSError serve the volume-type lookup in src/atomic_replace.rs (ADR-069); NSFileManager
+# serves moving an entry to the Trash (src/macos_trash.rs, ADR-072).
 objc2 = "0.6"
 objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSOpenPanel", "NSPanel", "NSResponder", "NSSavePanel", "NSWindow"] }
-objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSDictionary", "NSError", "NSObject", "NSString", "NSURL"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSDictionary", "NSError", "NSFileManager", "NSObject", "NSString", "NSURL"] }
 
 # Test-only: Tauri's mock runtime, so the atomic-write commands are exercised through the real IPC dispatch and the
 # real fs-plugin scope (src/atomic_commands.rs). Adds no crate to the graph.

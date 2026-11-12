@@ -33,6 +33,7 @@
     "allow-recovery-remove",
     "allow-create-directory",
     "allow-delete-path",
+    "allow-trash-path",
     "allow-canonical-space-path",
     "allow-sandbox-info",
     "allow-restore-space-access",

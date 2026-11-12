@@ -13,6 +13,7 @@ mod atomic_replace;
 mod atomic_commands;
 mod export_file;
 mod fs_authorization;
+mod macos_trash;
 mod move_no_clobber;
 mod new_file_no_clobber;
 mod parse_cache;
@@ -218,6 +219,7 @@ pub fn run() {
             recovery_store::recovery_remove,
             vault_entries::create_directory,
             vault_entries::delete_path,
+            vault_entries::trash_path,
             space_folder::canonical_space_path,
             space_access::sandbox_info,
             space_access::restore_space_access,
