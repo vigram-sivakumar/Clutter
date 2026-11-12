@@ -191,6 +191,9 @@ describe('VaultSyncService', () => {
     const original = buildPage('Note.md', 'Original content', 'note-1');
     const { vault, fileSystem, watcher } = setup([original]);
 
+    // A copy leaves the original in place (a file that is gone from its old path would be a move instead).
+    fileSystem.seedFile(`${ROOT}/Note.md`, '---\nid: note-1\n---\nOriginal content');
+
     // A file copy (by any means — Finder, cp, a script) duplicates the
     // file's content byte-for-byte, including the frontmatter id.
     fileSystem.seedFile(

@@ -405,7 +405,7 @@ export class VaultSyncService {
       const page = this.vault.getPageByPath(absolutePath);
 
       if (page) {
-        this.vault.removePage(page.id);
+        await this.relocateOrRemovePage(page);
       }
 
       // The resource-scoped counterpart to the page removal above — a
@@ -459,6 +459,108 @@ export class VaultSyncService {
     }
 
     await this.reconcileFileEntity(absolutePath);
+  }
+
+  /**
+   * A tracked page's file is gone from its path. Before treating that as a deletion, look for the same page
+   * (by its frontmatter `id`) under a path the Vault does not track yet: another Clutter instance moving a note
+   * is reported here as a `deleted` for the old path, and the file is already at its destination by the time this
+   * runs. A found destination is applied as a move, which keeps the Vault entry — and with it the open tab and
+   * DocumentSession. Nothing found, or the move refused, is a genuine deletion exactly as before.
+   *
+   * Never recurses: the move is attempted with `fallbackOnRefusal: false`, so a refusal comes back here instead
+   * of reconciling the old path again.
+   */
+  private async relocateOrRemovePage(page: Page): Promise<void> {
+    const destination = await this.findRelocatedPagePath(page);
+
+    if (destination !== undefined && (await this.applyMove(page.path, destination, false))) {
+      return;
+    }
+
+    // The awaits above may have let another lane move or remove the page: only a page still tracked at the
+    // vanished path is removed.
+    const current = this.vault.getPage(page.id);
+
+    if (current && current.path === page.path) {
+      this.vault.removePage(page.id);
+    }
+
+    // A destination whose move was refused is still a file the Vault should know about, now that the old entry
+    // no longer claims its id.
+    if (destination !== undefined && !this.vault.getPageByPath(destination)) {
+      await this.reconcileFileEntity(destination);
+    }
+  }
+
+  /**
+   * The path of an untracked Markdown file whose frontmatter `id` is `page.id`, if there is one. Lists the vault
+   * tree without reading content, then reads only the Markdown files no Page tracks — normally none, so the cost
+   * is the directory listing. A listing or read failure means "not found" (the page is then treated as deleted).
+   */
+  private async findRelocatedPagePath(page: Page): Promise<string | undefined> {
+    const pending = [this.vault.root];
+
+    try {
+      while (pending.length > 0) {
+        const directory = pending.pop()!;
+
+        for (const entry of await this.fileSystem.readDirectory(directory)) {
+          if (entry.isDirectory) {
+            if (!isClutterInternalPath(this.vault.root, entry.path)) {
+              pending.push(entry.path);
+            }
+            continue;
+          }
+
+          if (!this.isPageFilePath(entry.path) || this.vault.getPageByPath(entry.path)) {
+            continue;
+          }
+
+          if ((await this.readFrontmatterId(entry.path)) === page.id) {
+            return entry.path;
+          }
+        }
+      }
+    } catch {
+      return undefined;
+    }
+
+    return undefined;
+  }
+
+  private async readFrontmatterId(absolutePath: string): Promise<string | undefined> {
+    try {
+      const id = this.frontmatterParser.parse(await this.fileSystem.readFile(absolutePath)).frontmatter.id;
+
+      return typeof id === 'string' && id !== '' ? id : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Change-B half of the same case, seen from the destination: a Markdown file appeared at an untracked path
+   * carrying the id of a page the Vault still tracks at another path whose file is gone. That is a move, not a
+   * duplicate. Runs on the page's own lane (queued by `dispatch`, never awaited by the caller) and re-reads the
+   * Vault rather than trusting anything captured before it was queued.
+   */
+  private async adoptRelocatedPage(pageId: string, destination: string): Promise<void> {
+    // Already adopted — by the old path's own reconcile, or by an earlier queued hand-off.
+    if (this.vault.getPageByPath(destination)) {
+      return;
+    }
+
+    const current = this.vault.getPage(pageId);
+
+    if (current) {
+      // Resolves the vanished path: relocates the page to the destination, or removes it.
+      await this.reconcilePath(current.path);
+    }
+
+    if (!this.vault.getPageByPath(destination)) {
+      await this.reconcileFileEntity(destination);
+    }
   }
 
   /**
@@ -533,6 +635,22 @@ export class VaultSyncService {
       this.vault.replacePage(rebuiltPage);
       this.convergeOpenSession(rebuiltPage.id, rebuiltPage.source.markdown);
       await this.reconcileArchiveMetadataForPage(rebuiltPage.id);
+      return;
+    }
+
+    // This path is new to the Vault. If its frontmatter id belongs to a page the Vault tracks at another path
+    // whose file is gone, it is that page arriving at its new home (moved by another instance), not a copy:
+    // hand it to that page's own lane to be applied as a move. Not awaited — nothing here may wait on another
+    // lane. A claimant whose file still exists is a genuine copy and falls through to the duplicate handling.
+    const claimedId = parsedMarkdown.frontmatter.id;
+    const claimant = typeof claimedId === 'string' && claimedId !== '' ? this.vault.getPage(claimedId) : undefined;
+
+    if (claimant && claimant.path !== absolutePath && !(await this.fileSystem.exists(claimant.path))) {
+      this.dispatch(
+        claimant.path,
+        () => this.adoptRelocatedPage(claimant.id, absolutePath),
+        [claimant.path, absolutePath]
+      );
       return;
     }
 
@@ -1068,8 +1186,18 @@ export class VaultSyncService {
    * cheaper single-notify path with no extra read/write.
    */
   private async handleMoved(fromPath: string, toPath: string): Promise<void> {
-    const absoluteFrom = this.resolvePath(fromPath);
-    const absoluteTo = this.resolvePath(toPath);
+    await this.applyMove(this.resolvePath(fromPath), this.resolvePath(toPath), true);
+  }
+
+  /**
+   * The body of `handleMoved`, on absolute paths. Resolves to whether the move was committed to the Vault.
+   *
+   * `fallbackOnRefusal` is what a watcher-reported move uses (true): a refused destination is reconciled from
+   * disk at both ends. A caller that is itself part of that reconciliation — relocating a page whose file
+   * disappeared (`relocateOrRemovePage`) — passes false, so a refusal returns instead of re-entering
+   * `reconcilePath` and looping back here.
+   */
+  private async applyMove(absoluteFrom: string, absoluteTo: string, fallbackOnRefusal: boolean): Promise<boolean> {
 
     // ADR-024: an external rename and an external move of a folder are the
     // same event (the OS/notify-crate reports one `moved` event for a
@@ -1108,9 +1236,11 @@ export class VaultSyncService {
         !(await this.isDirectoryOnDisk(absoluteTo)) ||
         !(await this.destinationIsNotAnotherFolder(absoluteTo, folder.id))
       ) {
-        await this.reconcilePath(absoluteFrom);
-        await this.reconcilePath(absoluteTo);
-        return;
+        if (fallbackOnRefusal) {
+          await this.reconcilePath(absoluteFrom);
+          await this.reconcilePath(absoluteTo);
+        }
+        return false;
       }
 
       const folderDestinationParentId = this.resolveParentId(this.directoryOf(absoluteTo));
@@ -1136,7 +1266,7 @@ export class VaultSyncService {
         this.vault.moveFolder(folder.id, absoluteTo, resolvedFolderParentId);
       }
 
-      return;
+      return true;
     }
 
     const page = this.vault.getPageByPath(absoluteFrom);
@@ -1156,9 +1286,11 @@ export class VaultSyncService {
           classifySupportedResourceFile(absoluteTo) !== resource.kind ||
           !(await this.fileSystem.exists(absoluteTo))
         ) {
-          await this.reconcilePath(absoluteFrom);
-          await this.reconcilePath(absoluteTo);
-          return;
+          if (fallbackOnRefusal) {
+            await this.reconcilePath(absoluteFrom);
+            await this.reconcilePath(absoluteTo);
+          }
+          return false;
         }
 
         const resourceDestinationParentId = this.resolveParentId(this.directoryOf(absoluteTo));
@@ -1174,7 +1306,7 @@ export class VaultSyncService {
         // why external archived-resource rename reconciliation is
         // deferred rather than guessed at here).
         this.vault.updateResourcePath(resource.id, absoluteTo, resolvedResourceParentId);
-        return;
+        return true;
       }
 
       // The 'from' half never resolved to a tracked page. An atomic save
@@ -1194,9 +1326,11 @@ export class VaultSyncService {
       // branch depends on what produced the event — only on the Vault's
       // and disk's current state at the two paths involved, which is
       // exactly reconcilePath()'s contract.
-      await this.reconcilePath(absoluteTo);
+      if (fallbackOnRefusal) {
+        await this.reconcilePath(absoluteTo);
+      }
 
-      return;
+      return false;
     }
 
     // Same fallback as the folder branch above: don't commit
@@ -1209,9 +1343,11 @@ export class VaultSyncService {
       !(await this.fileSystem.exists(absoluteTo)) ||
       !(await this.destinationIsNotAnotherPage(absoluteTo, page.id))
     ) {
-      await this.reconcilePath(absoluteFrom);
-      await this.reconcilePath(absoluteTo);
-      return;
+      if (fallbackOnRefusal) {
+        await this.reconcilePath(absoluteFrom);
+        await this.reconcilePath(absoluteTo);
+      }
+      return false;
     }
 
     const directoryPath = this.directoryOf(absoluteTo);
@@ -1235,13 +1371,20 @@ export class VaultSyncService {
     ) ?? archiveReconciled;
 
     if (!reconciled) {
+      // The repair checks above awaited: re-confirm, synchronously with the commit below, that the page is still
+      // here and the destination still free. Otherwise another lane got there first and there is nothing to commit.
+      if (!this.vault.getPage(page.id) || this.isDestinationTrackedByOther(absoluteTo, page.id)) {
+        return false;
+      }
+
       // No repair needed: preserve normal move behavior exactly —
       // one Vault mutation, one `page-moved` notification, no extra I/O.
       this.vault.updatePagePath(page.id, absoluteTo, resolvedParentId);
-      return;
+      return true;
     }
 
     this.convergeOpenSession(reconciled.id, reconciled.source.markdown);
+    return true;
   }
 
   /**
