@@ -59,6 +59,7 @@ import { NoteEmbedMoreActions, type NoteEmbedMoreActionsAnchor } from './codemir
 import type { OnOpenNoteEmbedMenu } from './codemirror/embed/NoteEmbedWidget';
 import { FencedCodeActionsMenu, type FencedCodeActionsMenuAnchor } from './codemirror/fencedCode/FencedCodeActionsMenu';
 import { UrlPasteMenu, type UrlPasteMenuAnchor } from './codemirror/link/urlPaste/UrlPasteMenu';
+import { useLinkContextMenu } from './codemirror/link/useLinkContextMenu';
 import type { OnOpenUrlPasteMenu } from './codemirror/link/urlPaste/UrlPasteAnchorWidget';
 import { clearUrlPasteEntry, findUrlPasteEntryById } from './codemirror/link/urlPaste/urlPasteChoiceState';
 import type { OnOpenFencedCodeMenu } from './codemirror/fencedCode/FencedCodeActionsButtonWidget';
@@ -292,6 +293,7 @@ export const MarkdownEditor = forwardRef<
   ref
 ) {
   const toast = useToast();
+  const linkContextMenu = useLinkContextMenu();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
   // `@date` labels follow the Date format preference and the system language, which can change while a note is
@@ -1991,7 +1993,8 @@ export const MarkdownEditor = forwardRef<
 
   return (
     <>
-      <div ref={containerRef} />
+      <div ref={containerRef} onContextMenu={linkContextMenu.onContextMenu} />
+      {linkContextMenu.overlay}
       <ImageOptionsMenu
         anchor={imageMenu?.anchor ?? null}
         currentMode={imageMenuCurrentMode}
