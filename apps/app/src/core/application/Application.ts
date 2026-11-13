@@ -1193,12 +1193,7 @@ export class Application {
   }
 
   private async runImportAsset(sourceAbsolutePath: string, destinationFolderPath?: string): Promise<string> {
-    // Nothing is added to an archived folder.
-    const destinationFolder = destinationFolderPath ? this.vault.getFolderByPath(destinationFolderPath) : undefined;
-
-    if (destinationFolder && this.vault.isFolderEffectivelyArchived(destinationFolder.id)) {
-      throw new Error(`Cannot add to an archived folder: ${destinationFolder.id}`);
-    }
+    this.assertAssetDestinationWritable(destinationFolderPath);
 
     const reference = await importAsset(this.fileSystem, this.rootPath, sourceAbsolutePath, destinationFolderPath);
 
@@ -1211,16 +1206,28 @@ export class Application {
    * Stores a file from the clipboard (an image or PDF, as bytes) in `Assets/` and registers it with the
    * Vault like any imported asset. Returns the vault-relative reference a Markdown embed uses.
    */
-  public importPastedAsset(name: string, mimeType: string, bytes: Uint8Array): Promise<string> {
-    return this.trackWrite(() => this.runImportPastedAsset(name, mimeType, bytes));
+  public importPastedAsset(name: string, mimeType: string, bytes: Uint8Array, destinationFolderPath?: string): Promise<string> {
+    return this.trackWrite(() => this.runImportPastedAsset(name, mimeType, bytes, destinationFolderPath));
   }
 
-  private async runImportPastedAsset(name: string, mimeType: string, bytes: Uint8Array): Promise<string> {
+  private assertAssetDestinationWritable(destinationFolderPath?: string): void {
+    // Nothing is added to an archived folder.
+    const destinationFolder = destinationFolderPath ? this.vault.getFolderByPath(destinationFolderPath) : undefined;
+
+    if (destinationFolder && this.vault.isFolderEffectivelyArchived(destinationFolder.id)) {
+      throw new Error(`Cannot add to an archived folder: ${destinationFolder.id}`);
+    }
+
+  }
+
+  private async runImportPastedAsset(name: string, mimeType: string, bytes: Uint8Array, destinationFolderPath?: string): Promise<string> {
+    this.assertAssetDestinationWritable(destinationFolderPath);
     const reference = await importAssetBytes(
       this.fileSystem,
       this.rootPath,
       pastedAssetFileName(name, mimeType),
-      bytes
+      bytes,
+      destinationFolderPath
     );
 
     await this.vaultSyncService.reconcileKnownPath(`${this.rootPath}/${reference}`);

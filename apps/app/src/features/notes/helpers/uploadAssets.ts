@@ -1,5 +1,5 @@
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
-import { supportedResourceFileExtensions } from '@core/vault/ingest/SupportedResourceKind';
+import { classifySupportedResourceFile, supportedResourceFileExtensions } from '@core/vault/ingest/SupportedResourceKind';
 
 /** What an upload did: how many files were picked (0 when the picker was cancelled) and which could not be added. */
 export interface UploadAssetsResult {
@@ -57,19 +57,27 @@ export async function uploadAssets(
     filters: [{ name: 'Images and PDFs', extensions: supportedResourceFileExtensions() }],
   });
   const paths = Array.isArray(selected) ? selected : selected ? [selected] : [];
+  return importAssetSources(paths, (source) => importAsset(source as string, destinationFolderPath));
+}
+
+/** Shared ordered batch for picker selections and native/browser drops. The existing importer owns all writes/naming. */
+export async function importAssetSources(
+  sources: readonly (string | File)[],
+  importSource: (source: string | File) => Promise<unknown>
+): Promise<UploadAssetsResult> {
   const failed: string[] = [];
   let firstError: unknown;
-
-  for (const sourcePath of paths) {
+  for (const source of sources) {
+    const name = typeof source === 'string' ? source : source.name;
     try {
-      await importAsset(sourcePath, destinationFolderPath);
+      if (!classifySupportedResourceFile(name)) throw new Error(`Unsupported file type: ${name}. Only images and PDFs are supported.`);
+      await importSource(source);
     } catch (error) {
-      if (failed.length === 0) {
-        firstError = error;
-      }
-      failed.push(sourcePath);
+      if (failed.length === 0) firstError = error;
+      failed.push(name);
     }
   }
-
-  return failed.length === 0 ? { total: paths.length, failed } : { total: paths.length, failed, firstError };
+  return failed.length === 0
+    ? { total: sources.length, failed }
+    : { total: sources.length, failed, firstError };
 }

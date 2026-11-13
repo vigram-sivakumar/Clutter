@@ -39,3 +39,13 @@ describe('importAssetBytes', () => {
     expect(await fileSystem.exists('/vault/Assets/a.png')).toBe(false);
   });
 });
+
+
+it('stores byte drops in the displayed Assets subfolder with collision-safe names', async () => {
+  const fileSystem = new InMemoryVaultFileSystem();
+  await fileSystem.createDirectory('/vault/Assets/Trips');
+  const bytes = new Uint8Array([1, 2, 3]);
+  expect(await importAssetBytes(fileSystem, '/vault', 'photo.png', bytes, '/vault/Assets/Trips')).toBe('Assets/Trips/photo.png');
+  expect(await importAssetBytes(fileSystem, '/vault', 'photo.png', bytes, '/vault/Assets/Trips')).toBe('Assets/Trips/photo 2.png');
+  expect(await fileSystem.readBinaryFile!('/vault/Assets/Trips/photo 2.png')).toEqual(bytes);
+});

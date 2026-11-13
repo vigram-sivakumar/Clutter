@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { act, cleanup, fireEvent, render } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AppLayout } from '../app-layout/AppLayout';
@@ -762,5 +762,111 @@ describe('Phase 10 — nothing is imported into an archived folder', () => {
 
     await expect(application.importAsset('/tmp/photo.png', old.path)).rejects.toThrow(/archived folder/);
     await expect(application.importAsset('/tmp/photo.png', inner.path)).rejects.toThrow(/archived folder/);
+  });
+});
+
+
+describe('Asset drop composition and immediate collection updates', () => {
+  function droppedFile(name: string) {
+    const file = new File([new Uint8Array([1, 2, 3])], name);
+    Object.defineProperty(file, 'arrayBuffer', { value: async () => new Uint8Array([1, 2, 3]).buffer });
+    return file;
+  }
+  it.each(['list', 'table', 'card'] as const)('imports mixed files, resolves collisions, and immediately updates the %s collection', async (layout) => {
+    const application = makeApplication();
+    Reflect.set(application, 'rootPath', ROOT);
+    await application.importPastedAsset('photo.png', 'image/png', new Uint8Array([1]));
+    application.collectionViewConfigStore.update('view:assets', { layout });
+    application.navigation.openAssets();
+    const { container } = render(<AppLayout application={application} />);
+    await flush();
+    const collection = container.querySelector('.collection__content')!;
+    expect(collection).not.toBeNull();
+    fireEvent.drop(collection, { dataTransfer: { types: ['Files'], files: [droppedFile('photo.png'), droppedFile('report.pdf')] } });
+    await waitFor(() => expect(application.vault.getResourceByPath(`${ROOT}/Assets/report.pdf`)).toBeDefined());
+    expect(application.vault.getResourceByPath(`${ROOT}/Assets/photo 2.png`)).toBeDefined();
+    const image = application.vault.getResourceByPath(`${ROOT}/Assets/photo 2.png`)!;
+    const pdf = application.vault.getResourceByPath(`${ROOT}/Assets/report.pdf`)!;
+    await waitFor(() => expect(container.querySelector(`[data-resource-id="${image.id}"]`)).not.toBeNull());
+    expect(container.querySelector(`[data-resource-id="${pdf.id}"]`)).not.toBeNull();
+    expect(container.querySelector('.cm-editor')).toBeNull();
+  });
+  it.each(['header', 'asset', 'page'] as const)('imports into the current collection when dropped on the %s', async (location) => {
+    const application = makeApplication();
+    Reflect.set(application, 'rootPath', ROOT);
+    await application.importPastedAsset('existing.png', 'image/png', new Uint8Array([1]));
+    application.navigation.openAssets();
+    const { container } = render(<AppLayout application={application} />);
+    await flush();
+    const existing = application.vault.getResourceByPath(`${ROOT}/Assets/existing.png`)!;
+    const selector = location === 'header' ? '.page__header' : location === 'asset' ? `[data-resource-id="${existing.id}"]` : '.page';
+    const target = container.querySelector(selector)!;
+    expect(target).not.toBeNull();
+    fireEvent.drop(target, { dataTransfer: { types: ['Files'], files: [droppedFile('added.png')] } });
+    await waitFor(() => expect(application.vault.getResourceByPath(`${ROOT}/Assets/added.png`)).toBeDefined());
+    expect(application.vault.getResourceByPath(`${ROOT}/Assets/existing.png`)).toBeDefined();
+  });
+  it('accepts a drop on the empty page header', async () => {
+    const application = makeApplication();
+    Reflect.set(application, 'rootPath', ROOT);
+    application.navigation.openAssets();
+    const { container } = render(<AppLayout application={application} />);
+    await flush();
+    fireEvent.drop(container.querySelector('.page__header')!, { dataTransfer: { types: ['Files'], files: [droppedFile('first.pdf')] } });
+    await waitFor(() => expect(application.vault.getResourceByPath(`${ROOT}/Assets/first.pdf`)).toBeDefined());
+  });
+  it('imports into the folder under the pointer without opening it', async () => {
+    const application = makeApplication();
+    Reflect.set(application, 'rootPath', ROOT);
+    await application.importPastedAsset('existing.png', 'image/png', new Uint8Array([1]));
+    const root = application.membershipSelector.getAssetsStorageFolder()!;
+    const folderId = await application.folderOperations.create('Trips', root.id);
+    application.navigation.openAssets();
+    const { container } = render(<AppLayout application={application} />);
+    await flush();
+    const folder = container.querySelector(`[data-assets-drop-folder="${folderId}"]`)!;
+    expect(folder).not.toBeNull();
+    fireEvent.dragOver(folder, { dataTransfer: { types: ['Files'], files: [] } });
+    expect(document.querySelector('[data-drop-feedback="inside"]')).not.toBeNull();
+    fireEvent.drop(folder, { dataTransfer: { types: ['Files'], files: [droppedFile('photo.png'), droppedFile('report.pdf')] } });
+    await waitFor(() => expect(application.vault.getResourceByPath(`${ROOT}/Assets/Trips/report.pdf`)).toBeDefined());
+    expect(application.vault.getResourceByPath(`${ROOT}/Assets/Trips/photo.png`)).toBeDefined();
+    expect(application.vault.getResourceByPath(`${ROOT}/Assets/photo.png`)).toBeUndefined();
+    expect(container.querySelector(`[data-assets-drop-folder="${folderId}"]`)).not.toBeNull();
+    expect(document.querySelector('[data-drop-feedback]')).toBeNull();
+  });
+  it('imports into the currently open Assets subfolder when dropped on its header', async () => {
+    const application = makeApplication();
+    Reflect.set(application, 'rootPath', ROOT);
+    await application.importPastedAsset('existing.png', 'image/png', new Uint8Array([1]));
+    const root = application.membershipSelector.getAssetsStorageFolder()!;
+    const folderId = await application.folderOperations.create('Trips', root.id);
+    await application.folderOperations.open(folderId);
+    const { container } = render(<AppLayout application={application} />);
+    await flush();
+    fireEvent.drop(container.querySelector('.page__header')!, { dataTransfer: { types: ['Files'], files: [droppedFile('photo.png')] } });
+    await waitFor(() => expect(application.vault.getResourceByPath(`${ROOT}/Assets/Trips/photo.png`)).toBeDefined());
+    expect(application.vault.getResourceByPath(`${ROOT}/Assets/photo.png`)).toBeUndefined();
+  });
+  it('does not import assets when files are dropped over a note editor', async () => {
+    const page = buildPage(`${ROOT}/Note.md`, 'note-drop-disabled');
+    const application = makeApplication([page]);
+    await application.pageOperations.open(page.id);
+    const importFile = vi.spyOn(application, 'importPastedAsset');
+    const importPath = vi.spyOn(application, 'importAsset');
+    const { container } = render(<AppLayout application={application} />);
+    await flush();
+    const content = container.querySelector('.cm-content')!;
+    expect(content).not.toBeNull();
+    fireEvent.drop(content, { dataTransfer: { types: ['Files'], files: [droppedFile('photo.png')], getData: () => '' } });
+    await flush();
+    expect(importFile).not.toHaveBeenCalled();
+    expect(importPath).not.toHaveBeenCalled();
+    expect(application.vault.getResourceByPath(`${ROOT}/Assets/photo.png`)).toBeUndefined();
+  });
+  it('refuses browser-byte imports into archived Assets folders', async () => {
+    const folder = buildFolder('archived-assets', `${ROOT}/Archive/Old`, 'archived');
+    const application = makeApplication([], [folder]);
+    await expect(application.importPastedAsset('photo.png', 'image/png', new Uint8Array([1]), folder.path)).rejects.toThrow(/archived folder/);
   });
 });

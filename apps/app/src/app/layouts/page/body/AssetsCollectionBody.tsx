@@ -258,7 +258,7 @@ export function AssetsCollectionBody({
           {folders.length > 0 && renderFolderGrid(
             sortedFolders,
             onCreateFolder,
-            folderContextMenu.entryProps,
+            (entry) => ({ ...folderContextMenu.entryProps(entry), 'data-assets-drop-folder': entry.id }),
             (entry) => selection.selectionFor(entry.id, entry.values.name)
           )}
           {assets.length > 0 && layout}

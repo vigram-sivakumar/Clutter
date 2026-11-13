@@ -13,6 +13,7 @@
     "windows": [
       {
         "title": "Clutter",
+        "dragDropEnabled": true,
         "hiddenTitle": true,
         "titleBarStyle": "Overlay",
         "trafficLightPosition": {

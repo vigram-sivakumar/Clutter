@@ -147,7 +147,8 @@ export async function importAssetBytes(
   fileSystem: VaultFileSystem,
   vaultRoot: string,
   fileName: string,
-  bytes: Uint8Array
+  bytes: Uint8Array,
+  destinationFolderPath?: string
 ): Promise<string> {
   if (!fileSystem.writeBinaryFile) {
     throw new Error('This vault cannot save pasted files.');
@@ -157,7 +158,7 @@ export async function importAssetBytes(
     throw new Error(`The pasted file was empty: ${fileName}`);
   }
 
-  const { reference } = await writeToFreeAssetName(fileSystem, vaultRoot, fileName, undefined, (destinationAbsolutePath) =>
+  const { reference } = await writeToFreeAssetName(fileSystem, vaultRoot, fileName, destinationFolderPath, (destinationAbsolutePath) =>
     fileSystem.writeBinaryFile!(destinationAbsolutePath, bytes)
   );
 

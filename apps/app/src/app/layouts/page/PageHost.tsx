@@ -76,7 +76,7 @@ import { levelEntries } from '@features/notes/sidebar/sidebarSort';
 import { setLevelSort } from '@features/notes/sidebar/sidebarOrderActions';
 import { DEFAULT_SIDEBAR_SORT } from '@core/properties/sidebarSort';
 import { resolveDefaultTemplateId } from '@features/notes/helpers/resolveDefaultTemplateId';
-import { reportUpload, uploadAssets } from '@features/notes/helpers/uploadAssets';
+import { importAssetSources, reportUpload, uploadAssets } from '@features/notes/helpers/uploadAssets';
 import { buildResourceMenuOptions, type ResourceMenuOps } from '@app/layouts/page/topbar/buildResourceMenuOptions';
 import {
   buildArchivedResourceItemMenu,
@@ -954,6 +954,27 @@ export function PageHost({
   // Create, for assets: pick files and copy them into the folder the page is showing — `Assets/`
   // itself on the top-level page — via the same import the cover upload uses (collision-free naming),
   // and let the vault's normal ingest/watch pick them up as resources.
+  const importDroppedAssets = async (files: readonly (string | File)[], destinationFolderPath?: string): Promise<void> => {
+    const result = await importAssetSources(files, async (file) => {
+      if (typeof file === 'string') return application.importAsset(file, destinationFolderPath);
+      return application.importPastedAsset(file.name, file.type, new Uint8Array(await file.arrayBuffer()), destinationFolderPath);
+    });
+    reportUpload(toast, result);
+  };
+
+  const assetsFileDrop = (destinationFolderPath?: string): NonNullable<Parameters<typeof Page>[0]['fileDrop']> => ({
+    targetFor: (hit, surface) => hit.closest<HTMLElement>('[data-assets-drop-folder]') ?? surface,
+    onDrop: async (files, _point, target) => {
+      const folderId = target.dataset.assetsDropFolder;
+      const folder = folderId ? vault.getFolder(folderId) : undefined;
+      if (folderId && (!folder || !application.membershipSelector.isAssetsFolder(folder))) {
+        throw new Error('This Assets folder is no longer available.');
+      }
+      await importDroppedAssets(files, folder?.path ?? destinationFolderPath);
+    },
+    onError: (error) => toast.fail('Couldn’t add the files', error),
+  });
+
   const uploadAssetsInto = (destinationFolderPath?: string): void => {
     void uploadAssets(
       (source, destination) => application.importAsset(source, destination),
@@ -2193,6 +2214,7 @@ export function PageHost({
           onSaveCoverPosition={onSaveFolderCoverPosition}
           coverKey={folder.id}
           coverEditable={!isFolderArchived}
+          fileDrop={isAssetsFolderPage && onCreate ? assetsFileDrop(folder.path) : undefined}
           body={
             isAssetsFolderPage ? (
               renderAssetsBody({
@@ -2305,6 +2327,7 @@ export function PageHost({
         canNavigateForward={workspace.canNavigateForward}
         onNavigateBack={() => application.navigation.back()}
         onNavigateForward={() => application.navigation.forward()}
+        fileDrop={onCreate ? assetsFileDrop() : undefined}
         title={getSystemLocationPresentation('assets').label}
         titleEditable={false}
         breadcrumbs={

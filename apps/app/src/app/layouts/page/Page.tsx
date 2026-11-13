@@ -1,3 +1,4 @@
+import { useFileDropTarget, type FileDropOptions } from '@shared/hooks/useFileDropTarget';
 import type { PropertiesControl } from './header/propertiesControl';
 import type { CoverApplyResult } from './header/PageHeaderMoreActionsMenu';
 import { PageDivider, type DividerVariant } from './PageDivider';
@@ -25,6 +26,8 @@ export interface PageFocusHandle {
 }
 
 type PageProps = {
+  /** Optional whole-page OS file drop capability, supplied by Assets collections. */
+  fileDrop?: FileDropOptions;
   title: string;
   description?: string;
   titleEditable?: boolean;
@@ -255,6 +258,7 @@ type PageProps = {
 };
 
 export function Page({
+  fileDrop,
   title,
   description,
   titleEditable,
@@ -321,6 +325,9 @@ export function Page({
   titleKey,
   descriptionKey,
 }: PageProps) {
+  const pageRef = useRef<HTMLDivElement>(null);
+  const fileDropTarget = useFileDropTarget(pageRef, fileDrop?.onDrop, fileDrop?.onError ?? console.error, fileDrop?.targetFor);
+
   // Responsive hide (AppLayout decides). Display-only — OR-ed into PageCover's `hidden` below and never
   // written to `coverHidden`, so the note's saved cover state is untouched.
   const isCoverSuppressed = useCoverSuppressed();
@@ -454,7 +461,8 @@ export function Page({
   };
 
   return (
-    <div className="page">
+    <div className="page" ref={pageRef} {...(fileDrop ? fileDropTarget.props : {})}>
+      {fileDropTarget.feedback}
       <div className="page__document">
         <PageTopBar
           breadcrumbs={breadcrumbs}
