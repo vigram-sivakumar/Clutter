@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import './CountBadge.css';
 
 export interface CountBadgeProps {
@@ -6,6 +7,8 @@ export interface CountBadgeProps {
   /** Display cap before showing `{max}+`. Default 99. */
   max?: number;
   className?: string;
+  /** Optional presentation of the value (e.g. an animated numeral); count still owns accessibility and visibility. */
+  children?: ReactNode;
 }
 
 function normalizeCount(count: number | null | undefined): number {
@@ -34,6 +37,7 @@ export function CountBadge({
   size = 'medium',
   max = 99,
   className,
+  children,
 }: CountBadgeProps) {
   const value = normalizeCount(count);
 
@@ -50,7 +54,7 @@ export function CountBadge({
         .join(' ')}
       aria-label={`${value} items`}
     >
-      {label}
+      {children ?? label}
     </span>
   );
 }

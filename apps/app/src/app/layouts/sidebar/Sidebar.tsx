@@ -1,4 +1,7 @@
 import type { Application } from '@core/application/Application';
+import { TaskTabIndicator } from '@features/tasks/sidebar/TaskTabIndicator';
+import { useLocalDay } from '@app/hooks/useLocalDay';
+import { tasksForView } from '@features/tasks/helpers/tasksForView';
 import { useWorkspace } from '@app/hooks/useWorkspace';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useFolderItemLimit } from '@shared/helpers/folderItemLimitPreference';
@@ -85,6 +88,13 @@ export function Sidebar({
   } = application;
 
   const workspace = useWorkspace(application.workspace);
+  // AppLayout already subscribes to EffectivePageState, including unsaved session edits.
+  // The clock also refreshes this count when the local day changes or the app resumes.
+  useLocalDay();
+  const currentTasks = effectivePageState.getTasks();
+  const dueTaskCount = tasksForView('tasks-today', currentTasks, { showCompleted: false }).length
+    + tasksForView('tasks-overdue', currentTasks, { showCompleted: false }).length;
+
   const spaces = useSpaces();
   const activeDailyNoteDate = getActiveDailyNoteDate(
     vault,
@@ -338,8 +348,10 @@ export function Sidebar({
           onValueChange={(tab) => (tab === 'search' ? onOpenSearch() : workspace.setActiveSidebarTab(tab))}
         >
           {tabs.map((tab) => (
-            <Tab key={tab.value} value={tab.value}>
-              <AppIcon icon={tab.icon} emoji={tab.emoji} />
+            <Tab key={tab.value} value={tab.value} aria-label={tab.value === 'tasks' ? (dueTaskCount > 0 ? `Tasks, ${dueTaskCount} due today or overdue` : 'Tasks') : undefined}>
+              {tab.value === 'tasks'
+                ? <TaskTabIndicator count={dueTaskCount} icon={tab.icon} />
+                : <AppIcon icon={tab.icon} emoji={tab.emoji} />}
             </Tab>
           ))}
         </Tabs>

@@ -455,3 +455,34 @@ describe('EffectivePageState: disposal', () => {
     }).not.toThrow();
   });
 });
+
+
+describe('EffectivePageState: live task projection', () => {
+  it('uses unsaved draft content and the existing extractor, excluding fenced-code examples', async () => {
+    const { pageOperations, effectivePageState } = setup();
+    const id = await pageOperations.openDraft({ folderId: null });
+    pageOperations.commitEdit(id, '- [ ] Due @2026-11-13\n```md\n- [ ] Example @2026-11-13\n```');
+    expect(effectivePageState.getTasks()).toEqual([
+      expect.objectContaining({ sourcePageId: id, completed: false, dueDate: '2026-11-13' }),
+    ]);
+    pageOperations.commitEdit(id, '- [x] Due @2026-11-13');
+    expect(effectivePageState.getTasks()[0]?.completed).toBe(true);
+    pageOperations.commitEdit(id, 'No tasks');
+    expect(effectivePageState.getTasks()).toEqual([]);
+  });
+  it('does not count a promoted draft twice, and live edits override stale durable tasks', async () => {
+    const { pageOperations, effectivePageState, vault } = setup();
+    const id = await pageOperations.openDraft({ folderId: null, title: 'Task note' });
+    await pageOperations.save(id, '- [ ] Original @2026-11-13');
+    expect(effectivePageState.getTasks()).toHaveLength(1);
+    pageOperations.commitEdit(id, '- [x] Original @2026-11-13\n- [ ] Added @2026-11-12');
+    expect([...vault.tasks()]).toHaveLength(1);
+    expect([...vault.tasks()][0]?.completed).toBe(false);
+    expect(effectivePageState.getTasks()).toEqual([
+      expect.objectContaining({ completed: true, sourcePageId: id }),
+      expect.objectContaining({ completed: false, sourcePageId: id, dueDate: '2026-11-12' }),
+    ]);
+    await pageOperations.save(id, '- [x] Original @2026-11-13\n- [ ] Added @2026-11-12');
+    expect(effectivePageState.getTasks()).toHaveLength(2);
+  });
+});

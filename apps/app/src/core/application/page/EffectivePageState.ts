@@ -1,3 +1,6 @@
+import { TaskExtractor } from '../../vault/ingest/extractors/TaskExtractor';
+import { PageAnalysisMapper } from '../../vault/ingest/PageAnalysisMapper';
+import type { TaskOccurrence } from '../../vault/models/occurrences/TaskOccurrence';
 import type { Vault } from '../../vault/models/Vault';
 import type { CoverCredit } from '../../vault/models/PageMetadata';
 import type { VaultQuery } from '../../vault/queries/VaultQuery';
@@ -114,6 +117,29 @@ export class EffectivePageState {
    */
   public getPage(id: string): EffectivePage | undefined {
     return this.resolve(id);
+  }
+
+  /** Active tasks with open sessions/drafts overriding durable analysis, without waiting for autosave. */
+  public getTasks(): readonly TaskOccurrence[] {
+    const overridden = new Set<string>();
+    const live: TaskOccurrence[] = [];
+    const extractor = new TaskExtractor();
+    const mapper = new PageAnalysisMapper();
+    for (const id of this.workspace.openPages) {
+      const effective = this.resolve(id);
+      if (!effective) continue;
+      overridden.add(id);
+      const durable = this.vault.getPage(id);
+      if (
+        this.vault.isFolderWithinReservedFolder(effective.folderId, 'templates') ||
+        this.vault.isFolderWithinReservedFolder(effective.folderId, 'archive') ||
+        (durable && this.vault.isPageEffectivelyArchived(durable))
+      ) continue;
+      live.push(...(durable && effective.markdown === durable.source.markdown
+        ? durable.analysis.tasks
+        : mapper.buildTasks(id, extractor.extract(effective.markdown))));
+    }
+    return [...this.vault.tasks()].filter((task) => !overridden.has(task.sourcePageId)).concat(live);
   }
 
   /**

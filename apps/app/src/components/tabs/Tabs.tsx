@@ -19,6 +19,7 @@ type TabsProps = {
 
 type TabProps = {
   value: string;
+  'aria-label'?: string;
   children?: ReactNode;
 };
 
@@ -47,7 +48,7 @@ export function Tabs({
 }
 
 // Tab
-export function Tab({ children, value }: TabProps) {
+export function Tab({ children, value, 'aria-label': ariaLabel }: TabProps) {
   const context = useContext(TabsContext);
 
   if (!context) {
@@ -68,6 +69,7 @@ export function Tab({ children, value }: TabProps) {
     <button
       type="button"
       className={className}
+      aria-label={ariaLabel}
       onClick={handleClick}
       data-testid={testIds.sidebar.tab(value)}
     >
