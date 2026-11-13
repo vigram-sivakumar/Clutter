@@ -148,8 +148,9 @@
   /* Typography */
 
   --font-sans:
-    'Inter', ui-sans-serif, -apple-system, 'system-ui', 'Segoe UI', Helvetica,
-    Arial, sans-serif;
+    ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI Variable',
+    'Segoe UI', Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji',
+    'Segoe UI Symbol', sans-serif;
 
   /* Bundled (font.css) but not applied anywhere yet. */
   --font-hanken:
@@ -159,11 +160,11 @@
   /* Markdown italic text (editor and note preview). Swap the family here to change italics only. */
   --font-italic: 'EB Garamond', var(--font-sans);
   /* Size of Markdown italic text relative to the text around it (editor and note preview), so the italic face looks balanced. */
-  --font-italic-scale: 1.2;
+  --font-italic-scale: 1.15;
   /* Default (subpixel) smoothing keeps italics from looking thin; the rest of the app is antialiased (base.css). */
   --font-italic-smoothing: antialiased;
   /* Weight of Markdown italic text; italics inside bold text or a heading keep that weight instead. */
-  --font-italic-weight: var(--fw-medium);
+  --font-italic-weight: var(--fw-regular);
 
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 

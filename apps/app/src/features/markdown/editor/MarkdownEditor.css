@@ -215,7 +215,7 @@
   font-family: var(--font-italic);
   font-size: calc(1em * var(--font-italic-scale));
   -webkit-font-smoothing: var(--font-italic-smoothing);
-  font-weight: var(--font-italic-weight);
+  /* font-weight: var(--font-italic-weight); */
   /* The scaled glyphs must not make the line taller: `line-height` inherits as a number (1.5), so it would scale with
      the font and grow every line that holds italics. Zero adds nothing to the line box; the line keeps its own height. */
   line-height: 0;

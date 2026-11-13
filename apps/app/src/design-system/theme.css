@@ -135,6 +135,9 @@ Neutrals    charcoal / gray
      not three. */
   --md-card-inset-border: var(--shadow-inset-thin-medium);
 
+  --md-italic-foreground: var(--md-inline-code-foreground);
+  --md-italic-foreground: var(--foreground-secondary);
+
   --pill-surface: color-mix(
     in srgb,
     var(--surface-secondary) 96%,
