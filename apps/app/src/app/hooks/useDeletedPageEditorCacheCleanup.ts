@@ -17,7 +17,7 @@ export function useDeletedPageEditorCacheCleanup(application: Application): void
     () =>
       application.subscribePagesPermanentlyDeleted((pageIds) => {
         for (const pageId of pageIds) {
-          clearCachedEditorSession(pageId);
+          clearCachedEditorSession(pageId, application);
         }
       }),
     [application]

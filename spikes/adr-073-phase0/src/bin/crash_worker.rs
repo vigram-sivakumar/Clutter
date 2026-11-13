@@ -1,8 +1,11 @@
 //! E2/E3 crash worker: commits intents in a loop and prints one line per ACKNOWLEDGED mutation. The parent kills it
 //! with SIGKILL at a random instant and then validates the persisted state against the acknowledgements.
+#[cfg(target_os = "macos")]
 use adr073_phase0::store::*;
+#[cfg(target_os = "macos")]
 use std::io::Write;
 
+#[cfg(target_os = "macos")]
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let dir = std::path::PathBuf::from(&args[1]);
@@ -34,4 +37,10 @@ fn main() {
             }
         }
     }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn main() {
+    eprintln!("The ADR-073 crash worker requires macOS and the real atomic writer.");
+    std::process::exit(2);
 }

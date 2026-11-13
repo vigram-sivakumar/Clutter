@@ -3,7 +3,7 @@ import type { StateEffect } from '@codemirror/state';
 import type { EditorHistorySnapshot } from './createEditorView';
 
 /**
- * In-memory `pageId -> CachedEditorSession` cache, keyed by the same
+ * In-memory `pageId -> CachedEditorSession` cache within an Application scope, keyed by the same
  * `activePageId` React already uses as `<MarkdownEditor key={activePageId}>`
  * (`PageHost.tsx`) — this is the state that `key` prop's remount currently
  * discards on every page switch. See docs/editor-architecture-decisions.md's
@@ -23,13 +23,13 @@ import type { EditorHistorySnapshot } from './createEditorView';
  * current... scroll position", intended to be handed to a later
  * `EditorViewConfig.scrollTo`) is captured at the same unmount moment as
  * `history` and applied at the same mount moment, gated behind the
- * *same* stale-document check as history (see `createEditorView.ts`'s
- * `restoreHistory`/`restoreScrollEffect` doc comments) — a session is
- * restored as one unit or not at all, never partially. `StateEffect`
+ * exact-document check for pixel scrolling (see `createEditorView.ts`'s
+ * `restoreScrollEffect` contract). History and selection can instead be mapped. `StateEffect`
  * instances are plain in-memory JS objects, not required to be
  * JSON-serializable for this cache's purposes (this cache is never itself
  * serialized to a string — see "session-lifetime" below), so it's stored
- * as the live effect object, not a JSON snapshot of one.
+ * as the live effect object, not a JSON snapshot of one. Overlap or a bounded-diff fallback resets history
+ * rather than replaying an obsolete inverse (ADR-073).
  *
  * **`domScrollTop` (2026-08-28) — a *second*, separate scroll mechanism,
  * necessary because `scrollSnapshot()` alone does not work in this app's
@@ -63,7 +63,11 @@ import type { EditorHistorySnapshot } from './createEditorView';
  * exactly; this cache can only ever make session preservation better than
  * the current baseline, never worse.
  *
- * **Deliberately a plain `Map` with no eviction policy.** Assessed, not
+ * Production scopes use weak Application keys so closed Spaces can be collected.
+ * A copied page ID in another Space cannot read or clear this Space's history.
+ * Standalone editors that omit a scope use an independent default cache.
+ *
+ * **Each scope uses a plain `Map` with no eviction policy.** Assessed, not
  * assumed: a real editing session opens at most a handful to a few dozen
  * distinct pages in a sitting (this app's own daily-notes-plus-notes
  * model doesn't encourage hundreds of simultaneously-recent pages the way
@@ -94,6 +98,17 @@ export interface CachedEditorSession {
 }
 
 const cache = new Map<string, CachedEditorSession>();
+let scopedCaches = new WeakMap<object, Map<string, CachedEditorSession>>();
+
+function cacheFor(scope?: object): Map<string, CachedEditorSession> {
+  if (!scope) return cache;
+  let entries = scopedCaches.get(scope);
+  if (!entries) {
+    entries = new Map();
+    scopedCaches.set(scope, entries);
+  }
+  return entries;
+}
 
 /**
  * Looks up a page's cached session (from a prior `setCachedEditorSession`
@@ -101,8 +116,8 @@ const cache = new Map<string, CachedEditorSession>();
  * — the caller falls back to creating a fresh `EditorState` with default
  * scroll, exactly as it always has.
  */
-export function getCachedEditorSession(pageId: string): CachedEditorSession | undefined {
-  return cache.get(pageId);
+export function getCachedEditorSession(pageId: string, scope?: object): CachedEditorSession | undefined {
+  return cacheFor(scope).get(pageId);
 }
 
 /**
@@ -110,8 +125,8 @@ export function getCachedEditorSession(pageId: string): CachedEditorSession | un
  * called from `MarkdownEditor`'s mount-effect cleanup, right before
  * `view.destroy()`.
  */
-export function setCachedEditorSession(pageId: string, session: CachedEditorSession): void {
-  cache.set(pageId, session);
+export function setCachedEditorSession(pageId: string, session: CachedEditorSession, scope?: object): void {
+  cacheFor(scope).set(pageId, session);
 }
 
 /**
@@ -133,11 +148,12 @@ export function setCachedEditorSession(pageId: string, session: CachedEditorSess
  * deleted page is inert (its id is never looked up again), so the worst
  * case is a no-op, never incorrect behavior.
  */
-export function clearCachedEditorSession(pageId: string): void {
-  cache.delete(pageId);
+export function clearCachedEditorSession(pageId: string, scope?: object): void {
+  cacheFor(scope).delete(pageId);
 }
 
 /** Test-only: empties the cache so tests don't leak state into each other. */
 export function __clearAllCachedEditorHistoryForTests(): void {
   cache.clear();
+  scopedCaches = new WeakMap();
 }

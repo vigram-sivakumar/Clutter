@@ -59,11 +59,11 @@ fn run_window(store: Arc<Store>, w: usize, iterations: usize, seed: u64) -> Outc
             }
             8 if !mine.is_empty() => {
                 let index = rng.below(mine.len() as u64) as usize;
-                store.mutate(&op, Intent::SetLastOpened { path: mine[index].0.clone() }, "w")
+                store.mutate(&op, Intent::SetLastOpened { path: mine[index].0.clone(), space_id: mine[index].1.clone() }, "w")
             }
             _ => {
                 // A deliberately stale intent: a path this window never registered.
-                store.mutate(&op, Intent::SetLastOpened { path: format!("/spike/never/{w}/{i}") }, "w")
+                store.mutate(&op, Intent::SetLastOpened { path: format!("/spike/never/{w}/{i}"), space_id: "missing".into() }, "w")
             }
         };
         match result {
@@ -118,11 +118,15 @@ fn stress(iterations: usize, label: &str) {
     assert_eq!(shared.len(), unique.len(), "R2: no duplicates");
     assert!(shared.iter().all(|e| !e.path.ends_with('/')), "R2: one canonical spelling");
 
-    // The persisted document equals the in-memory one after restart.
+    // Compare the full canonical document, including its computed checksum. The live Doc keeps checksum empty;
+    // serialization seals a copy, and parsing restores that checksum. Raw struct equality compares those two
+    // representations rather than persistence correctness. Reading actual bytes and reopening both stay required.
+    let persisted = std::fs::read(root.join("spaces/registry.json")).unwrap();
+    assert_eq!(persisted, doc.to_bytes(), "R6: disk bytes equal the acknowledged live document");
     let (again, report) = open(&root);
     assert_eq!(report.adopted, "main");
     assert_eq!(again.read().rev, doc.rev);
-    assert_eq!(*again.read(), *doc);
+    assert_eq!(again.read().to_bytes(), persisted, "R6: restart retains the complete persisted document");
     println!(
         "E1[{label}] {} commits across {WINDOWS} windows x {iterations} intents in {:?}; nochange={} stale/refused={}; entries={}",
         total,

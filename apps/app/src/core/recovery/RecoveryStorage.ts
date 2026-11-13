@@ -2,8 +2,9 @@
  * Where recovery records live. A directory per vault key, one JSON file per note. Deliberately tiny: this is not a
  * general persistence layer, just the four operations the journal needs.
  *
- * `writeAtomic` must leave any earlier file intact if it fails part-way (write a temporary file, then rename it over
- * the real one), so a crash during a snapshot never destroys the previous valid record.
+ * `writeAtomic` writes and syncs a temporary file before atomic replacement. Before replacement a failure leaves
+ * the earlier file intact. A directory-sync failure after replacement may leave the whole new file readable,
+ * but must reject: readable content alone does not acknowledge durable recovery protection.
  */
 export interface RecoveryStorage {
   /** The record file names in `dir` (committed `.json` and interrupted `.json.tmp`), or [] when it does not exist. */
@@ -72,4 +73,15 @@ export class BrowserRecoveryStorage implements RecoveryStorage {
   async remove(dir: string, name: string): Promise<void> {
     this.storage.removeItem(`${BROWSER_PREFIX}${dir}/${name}`);
   }
+}
+
+/** Read-only inventory, independent of the Space registry. Hints are not validated recovery content. */
+export interface RecoveryCatalogEntry {
+  readonly key: string;
+  readonly recordName: string;
+  readonly name: string | null;
+  readonly spaceId: string | null;
+  readonly lastPath: string | null;
+  readonly modifiedAtMs: number | null;
+  readonly metadataUnreadable: boolean;
 }

@@ -2,7 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { appDataDir } from '@tauri-apps/api/path';
 import { readDir, readTextFile } from '@tauri-apps/plugin-fs';
 import { isNotFoundError } from '../vault/providers/probeSpaceFolder';
-import type { RecoveryStorage } from './RecoveryStorage';
+import type { RecoveryCatalogEntry, RecoveryStorage } from './RecoveryStorage';
 
 /**
  * Recovery records in the application data directory (`<appData>/recovery/<vaultKey>/<note>.json`), outside every
@@ -14,6 +14,11 @@ import type { RecoveryStorage } from './RecoveryStorage';
  * record intact. (Same-directory rename is atomic and the temporary file is synced first; see ADR-062.)
  */
 export class TauriRecoveryStorage implements RecoveryStorage {
+  /** Includes orphaned Spaces without registering or modifying them. Bodies are validated by RecoveryJournal. */
+  async listAll(): Promise<RecoveryCatalogEntry[]> {
+    return invoke<RecoveryCatalogEntry[]>('recovery_list');
+  }
+
   private base: Promise<string> | null = null;
 
   private root(): Promise<string> {

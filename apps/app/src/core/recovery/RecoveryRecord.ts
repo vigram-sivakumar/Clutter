@@ -10,6 +10,13 @@ export const RECOVERY_VERSION = 1;
 
 export type RecoveryKind = 'page' | 'draft';
 
+/** Optional location hints, never filesystem authority. Version-1 readers can still recover the body without them. */
+export interface RecoverySpaceInfo {
+  readonly spaceId: string | null;
+  readonly lastPath: string | null;
+  readonly name: string | null;
+}
+
 /** What a draft needs in order to become a note again. */
 export interface RecoveryDraftInfo {
   readonly folderId: string | null;
@@ -22,6 +29,10 @@ export interface RecoveryDraftInfo {
 export interface RecoveryRecord {
   readonly format: typeof RECOVERY_FORMAT;
   readonly version: typeof RECOVERY_VERSION;
+  readonly schema?: number;
+  readonly spaceId?: string | null;
+  readonly lastPath?: string | null;
+  readonly name?: string | null;
   /** Which vault the note belongs to (see RecoveryJournal's vault keys). */
   readonly vaultKey: string;
   /** The note's id, or the id a draft will keep once it is saved (a draft is told apart by `kind`, never by id). */
@@ -108,7 +119,15 @@ export function parseRecord(text: string): RecoveryRecord | null {
     return null;
   }
 
-  return record as unknown as RecoveryRecord;
+  // Bad optional display hints must not hide otherwise valid unsaved content. Unknown fields remain compatible.
+  const { schema, spaceId, lastPath, name, ...content } = record;
+  return {
+    ...content,
+    ...(typeof schema === 'number' && Number.isInteger(schema) && schema >= 1 ? { schema } : {}),
+    ...(isNullableString(spaceId) ? { spaceId } : {}),
+    ...(isNullableString(lastPath) ? { lastPath } : {}),
+    ...(isNullableString(name) ? { name } : {}),
+  } as unknown as RecoveryRecord;
 }
 
 /**

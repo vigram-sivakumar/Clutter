@@ -33,6 +33,8 @@ export interface MarkdownEditorProps {
    * text, and a page's own text changes on every edit).
    */
   readonly pageId: string;
+  /** Application identity: isolates cached editing sessions across Spaces. Stable for this editor mount. */
+  readonly historyScope?: object;
   readonly markdown: string;
   /**
    * ADR-033: per-`pageId` CM6 fold-range persistence, surviving app

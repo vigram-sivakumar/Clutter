@@ -1827,6 +1827,7 @@ describe('MarkdownEditor: image options menu — Position', () => {
     expect(menuItem('Left')?.classList.contains('entry-selected')).toBe(true);
     expect(menuItem('Center')?.classList.contains('entry-selected')).toBe(false);
     cleanup();
+    __clearAllCachedEditorHistoryForTests(); // A separate fixture, not the same note returning after an external edit.
 
     renderImage('Prefix.\n\n![Photo|320,center](https://example.com/a.jpg)');
     openMenu();

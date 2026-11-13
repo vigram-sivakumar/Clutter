@@ -74,6 +74,23 @@ const recordOf = (storage: MemoryRecoveryStorage, pageId: string) => {
   return text === undefined ? null : parseRecord(text);
 };
 
+const rec = (pageId: string, markdown: string): RecoveryRecord => ({
+  format: 'clutter-recovery',
+  version: 1,
+  vaultKey: KEY,
+  pageId,
+  kind: 'page',
+  capturedAt: '2026-10-27T10:00:00.000Z',
+  sequence: 1,
+  label: pageId,
+  pagePath: null,
+  body: { markdown, revision: 1 },
+  title: null,
+  description: null,
+  base: { body: 'f1-x', title: pageId, description: '' },
+  draft: null,
+});
+
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 
@@ -817,22 +834,7 @@ describe('RecoveryJournal: ordering and timing', () => {
 describe('RecoveryJournal: session identifiers', () => {
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
   const tag = (n: number) => `${String(n).padStart(8, '0')}-0000-4000-8000-000000000000`;
-  const rec = (pageId: string, markdown: string): RecoveryRecord => ({
-    format: 'clutter-recovery',
-    version: 1,
-    vaultKey: KEY,
-    pageId,
-    kind: 'page',
-    capturedAt: '2026-10-27T10:00:00.000Z',
-    sequence: 1,
-    label: pageId,
-    pagePath: null,
-    body: { markdown, revision: 1 },
-    title: null,
-    description: null,
-    base: { body: 'f1-x', title: pageId, description: '' },
-    draft: null,
-  });
+
 
   it('a new session is tagged with a random UUID, and two sessions never share one', () => {
     const make = () => new RecoveryJournal({ storage: new MemoryRecoveryStorage(), vaultKey: KEY, source: new FakeSource() });
@@ -983,5 +985,76 @@ describe('RecoveryJournal: the session tag is stable through a session', () => {
     expect(entries.map((entry) => entry.record.body?.markdown)).toEqual(['revision 12']);
     expect(second.session).not.toBe(first.session);
     expect(storage.files.size).toBe(1);
+  });
+});
+
+
+describe('RecoveryJournal: recovery foundation', () => {
+  it('does not offer or settle committed/temp records owned by a live peer, then discovers them after it exits', async () => {
+    const storage = new MemoryRecoveryStorage();
+    const name = recordFileName('a', 'bbbbbbbb');
+    storage.files.set(`${KEY}/${name}`, serializeRecord(rec('a', 'unsaved')));
+    storage.files.set(`${KEY}/${name}.tmp`, serializeRecord(rec('a', 'unsaved')));
+    let live = true;
+    const isSessionLive = vi.fn(async () => live);
+    const journal = new RecoveryJournal({ storage, vaultKey: KEY, source: new FakeSource(), session: SESSION, isSessionLive });
+    const before = new Map(storage.files);
+    expect(await journal.discover()).toEqual({ entries: [], unreadable: 0 });
+    expect(storage.files).toEqual(before);
+    expect(isSessionLive).toHaveBeenCalledWith('bbbbbbbb');
+    live = false;
+    expect((await journal.discover()).entries).toHaveLength(1);
+    journal.dispose();
+  });
+
+  it('leaves peer records untouched and unoffered when liveness cannot be established', async () => {
+    const storage = new MemoryRecoveryStorage();
+    storage.files.set(`${KEY}/${recordFileName('a', 'bbbbbbbb')}`, serializeRecord(rec('a', 'unsaved')));
+    const before = new Map(storage.files);
+    const journal = new RecoveryJournal({ storage, vaultKey: KEY, source: new FakeSource(), session: SESSION,
+      isSessionLive: async () => { throw new Error('registry unavailable'); } });
+    expect(await journal.discover()).toEqual({ entries: [], unreadable: 1 });
+    expect(storage.files).toEqual(before);
+    journal.dispose();
+  });
+
+  it.each(['changed', 'new'] as const)('does not acknowledge protection when %s unsaved work arrives during a write', async (kind) => {
+    const storage = new MemoryRecoveryStorage();
+    const source = new FakeSource();
+    source.set({ pageId: 'a', body: { markdown: 'first', revision: 1 } });
+    let release!: () => void;
+    let started!: () => void;
+    const entered = new Promise<void>((resolve) => { started = resolve; });
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const write = storage.writeAtomic.bind(storage);
+    storage.writeAtomic = async (...args) => { started(); await gate; return write(...args); };
+    const journal = new RecoveryJournal({ storage, vaultKey: KEY, source, session: SESSION });
+    const protecting = journal.protectAll();
+    await entered;
+    source.set({ pageId: kind === 'new' ? 'b' : 'a', body: { markdown: 'latest', revision: 2 } });
+    release();
+    expect(await protecting).toBe(false);
+    expect(await journal.protectAll()).toBe(true);
+    journal.dispose();
+  });
+
+  it('adds optional Space hints to new snapshots without changing legacy recovery content', async () => {
+    const storage = new MemoryRecoveryStorage();
+    const legacy = serializeRecord(rec('old', 'legacy unsaved'));
+    const name = `${KEY}/${recordFileName('old', 'bbbbbbbb')}`;
+    storage.files.set(name, legacy);
+    const source = new FakeSource();
+    source.set({ pageId: 'a', body: { markdown: 'new unsaved', revision: 1 } });
+    const journal = new RecoveryJournal({ storage, vaultKey: KEY, source, session: SESSION,
+      spaceInfo: () => ({ spaceId: 'stable-space', lastPath: '/vault', name: 'Vault' }) });
+    expect(await journal.protectAll()).toBe(true);
+    const current = recordOf(storage, 'a')!;
+    expect(current).toMatchObject({ version: 1, schema: 1, spaceId: 'stable-space', lastPath: '/vault', name: 'Vault' });
+    expect((await journal.discover()).entries[0]?.record.body?.markdown).toBe('legacy unsaved');
+    expect(storage.files.get(name)).toBe(legacy);
+    const invalidHints = JSON.stringify({ ...current, schema: 'future', spaceId: {}, name: 12, lastPath: [] });
+    expect(parseRecord(invalidHints)?.body?.markdown).toBe('new unsaved');
+    expect(parseRecord(invalidHints)?.spaceId).toBeUndefined();
+    journal.dispose();
   });
 });

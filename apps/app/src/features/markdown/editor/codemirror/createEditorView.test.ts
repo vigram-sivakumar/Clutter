@@ -383,22 +383,15 @@ describe('Per-document undo/redo history preservation (editorHistoryCache + rest
     expect(aRestored.state.selection.main.head).toBe(5);
   });
 
-  it('F: a cache entry whose document no longer matches the incoming markdown prop is never used — no partial/stale restore, and no corrupted history', () => {
+  it('F: a changed cached document is reconciled before mount, preserving unrelated undo', () => {
     const a = openPage('page-a', 'A');
-    a.dispatch({ changes: { from: 1, to: 1, insert: '1' } }); // "A1"
-    closePage('page-a', a); // cache holds doc "A1" + 1 history entry
-
-    // Simulate an external change to page A's content while it was closed
-    // (PageOperations.mutateBody() — a task toggle from a different UI
-    // surface). The fresh markdown prop on reopen ("A1-external") no
-    // longer matches the cached snapshot's own embedded doc ("A1").
-    const aReopened = openPage('page-a', 'A1-external');
-
-    // The cached (now-stale) history must be silently ignored — never a
-    // partial restore that shows correct-looking content with a
-    // corrupted/mismatched history underneath it.
-    expect(aReopened.state.doc.toString()).toBe('A1-external'); // real, current content — not the stale cached "A1"
-    expect(undoDepth(aReopened.state)).toBe(0); // clean history, exactly like any other cache miss
+    a.dispatch({ changes: { from: 1, insert: '1' } });
+    closePage('page-a', a);
+    const reopened = openPage('page-a', 'A1-external');
+    expect(reopened.state.doc.toString()).toBe('A1-external');
+    expect(undoDepth(reopened.state)).toBe(1);
+    undo(reopened);
+    expect(reopened.state.doc.toString()).toBe('A-external');
   });
 
   it('G: scroll position (both the CM6 scrollEffect and the plain-DOM domScrollTop) is captured and handed back through the cache alongside history (jsdom cannot verify real pixel scrolling — see the real-browser verification in the doc entry for that)', () => {
@@ -421,19 +414,14 @@ describe('Per-document undo/redo history preservation (editorHistoryCache + rest
     expect(cached?.scrollEffect).toBe(scrollEffect);
   });
 
-  it('H: a stale (doc-mismatched) cache entry discards its scroll effect along with its history — never a partial restore of just one', () => {
+  it('H: changed cached text does not reuse a stale pixel scroll effect', () => {
     const a = openPage('page-a', 'A');
     closePage('page-a', a); // caches doc "A" + a real scrollEffect
 
     // Page changed externally while closed (same scenario as F).
     const aReopened = openPage('page-a', 'A-external');
 
-    // createEditorView's own gate (`scrollTo: restoredState ? ... :
-    // undefined`) means a stale entry never reaches EditorViewConfig.scrollTo
-    // at all — observable here as the reopened view still existing and
-    // functioning normally (no exception, no attempted restore) with a
-    // clean history, matching F's own assertion for the history half of
-    // the same guarantee.
+    // History/selection are mapped; the old pixel scroll effect still requires identical text.
     expect(aReopened.state.doc.toString()).toBe('A-external');
     expect(undoDepth(aReopened.state)).toBe(0);
   });

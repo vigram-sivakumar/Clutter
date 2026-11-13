@@ -14,6 +14,7 @@ const store = vi.hoisted(() => ({
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: async (command: string, args: Record<string, unknown>) => {
     store.calls.push({ command, args });
+    if (command === 'recovery_list') return [];
     const key = `${args.key}/${args.name}`;
     if (command === 'recovery_write') {
       if (store.failWrite) throw 'the record could not be written';
@@ -95,4 +96,10 @@ describe('TauriRecoveryStorage (against mocked native commands and a mocked read
     expect(store.files.size).toBe(0);
     expect(store.calls.filter((call) => call.command === 'recovery_remove')).toHaveLength(2);
   });
+});
+
+
+it('requests the registry-independent recovery inventory without accepting a filesystem path', async () => {
+  expect(await new TauriRecoveryStorage().listAll()).toEqual([]);
+  expect(store.calls).toEqual([{ command: 'recovery_list', args: undefined }]);
 });

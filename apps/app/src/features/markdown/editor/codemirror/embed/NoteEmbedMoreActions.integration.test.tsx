@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MarkdownEditor } from '../../MarkdownEditor';
+import { __clearAllCachedEditorHistoryForTests } from '../editorHistoryCache';
 import type { ResolveEmbedImage } from './embedImageResolution';
 import type { ResolveEmbedPdf } from '../pdf/embedPdfResolution';
 import type { PageEmbedResolution, ResolvePageEmbed } from '../../../render/blocks/pageEmbedResolution';
@@ -32,6 +33,8 @@ function openMoreActionsMenu() {
 // hook (`useOverlayPosition.ts`), same stub `MarkdownEditor.test.tsx`'s
 // image-overlay tests already establish for exactly this gap.
 beforeEach(() => {
+  // Each test is a different note fixture, despite reusing pageId="test-page".
+  __clearAllCachedEditorHistoryForTests();
   vi.stubGlobal(
     'ResizeObserver',
     class {

@@ -32,7 +32,8 @@ import { ArchivedResourceOriginIndex } from '../vault/persistence/ArchivedResour
 import { ParsedNoteCache, folderIdOfCacheId, type ParsedNoteCacheBackend } from '../vault/persistence/parsedNoteCache';
 import { TauriParsedNoteCacheBackend } from '../vault/providers/TauriParsedNoteCacheBackend';
 import { fingerprint } from '../recovery/fingerprint';
-import { RecoveryJournal } from '../recovery/RecoveryJournal';
+import { RecoveryJournal, type RecoveryJournalOptions } from '../recovery/RecoveryJournal';
+import { VaultPath } from '../vault/ingest/VaultPath';
 import { isAtomicWritesEnabled } from '../featureFlags';
 import { persistSyncedFolderDocument } from '../vault/sync/persistSyncedFolderDocument';
 import { assertAtomicCommandsRegistered, createAtomicWriteStack } from '../vault/atomicWrite/createAtomicWriteStack';
@@ -730,7 +731,7 @@ export class Application {
    * Sets up unsaved-work recovery for this vault (ADR-062). Records are keyed by the Space's stable id when it has one,
    * so renaming the folder does not orphan them; the key a Space had before it got an id is also read.
    */
-  public attachRecovery(storage: RecoveryStorage | null, rootPath: string): void {
+  public attachRecovery(storage: RecoveryStorage | null, rootPath: string, options: Pick<RecoveryJournalOptions, 'isSessionLive'> = {}): void {
     if (storage === null) {
       return;
     }
@@ -742,6 +743,12 @@ export class Application {
       vaultKey: profileId ? `space-${profileId}` : rootKey,
       readKeys: profileId ? [rootKey] : [],
       source: this.pageOperations,
+      isSessionLive: options.isSessionLive,
+      spaceInfo: () => ({
+        spaceId: this.spaceProfileStore.profile?.id ?? null,
+        lastPath: rootPath,
+        name: VaultPath.filename(rootPath) || rootPath,
+      }),
       onWriteError: (error) => console.error('Recovery: could not write a snapshot of unsaved work.', error),
       // A saved note whose last revision is not yet confirmed durable keeps its record (ADR-063, decision 13).
       holdRecord: (pageId) => {

@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MarkdownEditor } from '../../MarkdownEditor';
+import { __clearAllCachedEditorHistoryForTests } from '../editorHistoryCache';
 import type { ResolveEmbedImage } from '../embed/embedImageResolution';
 import type { EmbedPdfResolution, ResolveEmbedPdf } from './embedPdfResolution';
 
@@ -77,6 +78,8 @@ afterEach(() => {
 });
 
 beforeEach(() => {
+  // Each test is a different note fixture, despite reusing pageId="test-page".
+  __clearAllCachedEditorHistoryForTests();
   vi.stubGlobal('ResizeObserver', class {
     observe(): void {}
     unobserve(): void {}

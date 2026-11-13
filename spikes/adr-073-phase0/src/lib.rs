@@ -6,7 +6,12 @@
 
 #[path = "../../../apps/app/src-tauri/src/atomic_replace.rs"]
 pub mod atomic_replace;
+pub mod model;
+pub mod crash_checks;
+#[path = "../../../apps/app/src-tauri/src/recovery_files.rs"]
+pub mod recovery_files;
+#[cfg(target_os = "macos")]
 pub mod store;
 
-#[cfg(test)]
+#[cfg(all(test, target_os = "macos"))]
 mod experiments;

@@ -38,14 +38,17 @@ function Host({ application }: { application: Application }) {
 describe('useDeletedPageEditorCacheCleanup', () => {
   it('clears the editor session of exactly the pages announced as permanently deleted', () => {
     const { application, announce } = fakeApplication();
-    for (const id of ['a', 'b', 'c']) setCachedEditorSession(id, session);
+    const other = {};
+    setCachedEditorSession('a', session, other);
+    for (const id of ['a', 'b', 'c']) setCachedEditorSession(id, session, application);
     render(<Host application={application} />);
 
     announce(['a', 'b']);
 
-    expect(getCachedEditorSession('a')).toBeUndefined();
-    expect(getCachedEditorSession('b')).toBeUndefined();
-    expect(getCachedEditorSession('c')).toBe(session);
+    expect(getCachedEditorSession('a', application)).toBeUndefined();
+    expect(getCachedEditorSession('a', other)).toBe(session);
+    expect(getCachedEditorSession('b', application)).toBeUndefined();
+    expect(getCachedEditorSession('c', application)).toBe(session);
   });
 
   it('stops listening when unmounted', () => {

@@ -5,7 +5,6 @@ use crate::atomic_replace::{
     self as ar, DurabilityOutcome, DurabilityRequest, Faults, InspectRequest, Inspection, ReplaceOutcome, ReplaceRequest, TargetState,
 };
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -13,156 +12,15 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Instant;
 
-pub const SCHEMA: u32 = 1;
-pub const OPS_KEPT: usize = 256;
-pub const NOTICES_KEPT: usize = 50;
+pub use crate::model::*;
+use crate::model::{apply, Applied, ClaimRec};
 pub const LEASE_MS: u64 = 30_000;
 pub const RECONCILE_ATTEMPTS: usize = 3;
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Entry {
-    pub path: String,
-    pub space_id: String,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct PendingRename {
-    pub from: String,
-    pub to: String,
-    pub space_id: String,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Default)]
-pub struct Registry {
-    pub entries: Vec<Entry>,
-    pub last_opened: Option<String>,
-    pub pending_rename: Option<PendingRename>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Notice {
-    pub rev: u64,
-    pub kind: String,
-    pub from: Option<String>,
-    pub to: Option<String>,
-    pub fallback: Option<String>,
-    pub space_id: String,
-    pub origin: String,
-    pub episode: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct OpRec {
-    pub op_id: String,
-    pub rev: u64,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Default)]
-pub struct Legacy {
-    pub baseline_digest: String,
-    pub consumed: Vec<String>,
-    pub merged_digest: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Doc {
-    pub schema: u32,
-    pub rev: u64,
-    pub registry: Registry,
-    pub notices: Vec<Notice>,
-    pub ops: Vec<OpRec>,
-    pub legacy: Legacy,
-    pub checksum: String,
-}
-
-impl Doc {
-    pub fn empty() -> Doc {
-        Doc { schema: SCHEMA, rev: 0, registry: Registry::default(), notices: vec![], ops: vec![], legacy: Legacy::default(), checksum: String::new() }
-    }
-
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut copy = self.clone();
-        copy.checksum = String::new();
-        let body = serde_json::to_vec(&copy).unwrap();
-        copy.checksum = hex(&Sha256::digest(&body));
-        serde_json::to_vec(&copy).unwrap()
-    }
-
-    pub fn parse(bytes: &[u8]) -> Result<Doc, String> {
-        let doc: Doc = serde_json::from_slice(bytes).map_err(|error| format!("parse: {error}"))?;
-        if doc.schema != SCHEMA {
-            return Err(format!("unknown schema {}", doc.schema));
-        }
-        let mut copy = doc.clone();
-        copy.checksum = String::new();
-        let expected = hex(&Sha256::digest(&serde_json::to_vec(&copy).unwrap()));
-        if expected != doc.checksum {
-            return Err("checksum mismatch".into());
-        }
-        doc.validate()?;
-        Ok(doc)
-    }
-
-    /// The document-level invariants (§2 point 2). Historical notices are not re-validated: a notice's fallback was
-    /// valid when committed and may legitimately be gone later.
-    pub fn validate(&self) -> Result<(), String> {
-        let mut seen = std::collections::HashSet::new();
-        for entry in &self.registry.entries {
-            if entry.path.is_empty() {
-                return Err("empty path".into());
-            }
-            if !seen.insert(entry.path.clone()) {
-                return Err(format!("duplicate path {}", entry.path));
-            }
-        }
-        if let Some(last) = &self.registry.last_opened {
-            if !seen.contains(last) {
-                return Err("last_opened not registered".into());
-            }
-        }
-        if let Some(pending) = &self.registry.pending_rename {
-            if !seen.contains(&pending.from) {
-                return Err("pending_rename names an unregistered entry".into());
-            }
-        }
-        if self.ops.len() > OPS_KEPT {
-            return Err("too many ops".into());
-        }
-        if self.notices.iter().any(|notice| notice.rev > self.rev) {
-            return Err("notice from the future".into());
-        }
-        Ok(())
-    }
-}
-
-fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
-}
-
-pub fn digest_of(text: &str) -> String {
-    hex(&Sha256::digest(text.as_bytes()))
-}
+static LAUNCH_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 // ---------------------------------------------------------------------------------------------------------
 // Intents and results
 // ---------------------------------------------------------------------------------------------------------
-
-#[derive(Clone, Debug)]
-pub struct ClaimTok {
-    pub claim_id: u64,
-    pub fence: u64,
-}
-
-#[derive(Clone, Debug)]
-pub enum Intent {
-    Add { path: String, space_id: String, claim: Option<(String, ClaimTok)> },
-    Remove { path: String, space_id: String, fallback: Option<String> },
-    Replace { from: String, to: String, space_id: String },
-    SetLastOpened { path: String },
-    BeginRename { path: String, space_id: String, to: String },
-    CompleteRename { from: String, to: String, space_id: String },
-    PublishLost { from: String, space_id: String, fallback: Option<String>, epoch_key: String },
-}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum MutResult {
@@ -240,14 +98,6 @@ pub type Subscriber = Box<dyn Fn(u64) + Send + Sync>;
 // ---------------------------------------------------------------------------------------------------------
 // Claims and window registry
 // ---------------------------------------------------------------------------------------------------------
-
-#[derive(Clone, Debug)]
-struct ClaimRec {
-    claim_id: u64,
-    fence: u64,
-    window: String,
-    expires_at: u64,
-}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ClaimResult {
@@ -343,7 +193,7 @@ impl Store {
     }
 
     pub(crate) fn open_with_hook(dir: &Path, clock: Clock, hook: Option<FaultHook>) -> (Store, OpenReport) {
-        let launch = format!("L{}", std::process::id() as u64 * 1_000_003 + nanos() % 1_000_003);
+        let launch = format!("L{}-{}-{}", std::process::id(), nanos(), LAUNCH_SEQUENCE.fetch_add(1, Ordering::SeqCst));
         let store = Store {
             dir: dir.to_path_buf(),
             launch,
@@ -450,9 +300,7 @@ impl Store {
                 *self.snapshot.write().unwrap() = Arc::new(adopted);
             }
             Err(reason) => {
-                inner.doc = adopted.clone();
-                inner.bytes = bytes;
-                *self.snapshot.write().unwrap() = Arc::new(adopted);
+                // Startup has no confirmed snapshot yet. Keep the empty snapshot until normalization succeeds.
                 inner.mode = Mode::ReadOnly(reason.clone());
                 report.read_only = Some(reason);
             }
@@ -575,15 +423,19 @@ impl Store {
         }
         let now = self.clock.now_ms();
         let launch = self.launch.clone();
-        let applied = apply(&inner.doc, &intent, origin, now, &inner.claims, &launch);
-        let (mut next, unchanged) = match applied {
-            Applied::Next(doc) => (doc, false),
+        let applied = apply(&inner.doc, &intent, origin, now, &inner.claims, &launch, &inner.epochs);
+        let next = match applied {
+            Applied::Next(doc) => doc,
             Applied::NoChange => return MutResult::NoChange { rev: inner.doc.rev },
             Applied::Stale(reason) => return MutResult::Stale(reason),
             Applied::Refused(reason) => return MutResult::Refused(reason),
             Applied::ClaimRevoked => return MutResult::ClaimRevoked,
         };
-        let _ = unchanged;
+        self.commit(&mut inner, next, op_id)
+    }
+
+    /// One persistence/retention/indeterminate-outcome path for normal intents and legacy import.
+    fn commit(&self, inner: &mut Inner, mut next: Doc, op_id: &str) -> MutResult {
         next.rev = inner.doc.rev + 1;
         for notice in next.notices.iter_mut().filter(|notice| notice.rev == 0) {
             notice.rev = next.rev;
@@ -618,7 +470,7 @@ impl Store {
         self.trace.lock().unwrap().push(format!("main:{}", seq));
         match self.write_file(&main_path(&self.dir), &bytes, Kind::WriteMain, seq, 0) {
             Wr::Confirmed => {
-                self.publish(&mut inner, next.clone(), bytes);
+                self.publish(inner, next.clone(), bytes);
                 MutResult::Committed { rev: next.rev }
             }
             Wr::Pre(detail) => {
@@ -628,7 +480,7 @@ impl Store {
             Wr::Post(_) => {
                 self.side.lock().unwrap().pending = Some(op_id.to_string());
                 inner.pending = Some(Pending { op_id: op_id.to_string(), bytes, doc: next });
-                match self.reconcile(&mut inner, seq) {
+                match self.reconcile(inner, seq) {
                     Reconciled::Promoted(rev) => MutResult::Committed { rev },
                     Reconciled::NotCommitted => MutResult::Failed("replacement did not take effect (reconciled)".into()),
                     Reconciled::Degraded => MutResult::Indeterminate { op_id: op_id.to_string() },
@@ -745,8 +597,10 @@ impl Store {
     /// Idempotent, serialized under the mutex. Returns the revision after the call.
     pub fn reconcile_legacy(&self, op_prefix: &str, blob: Option<&str>) -> Result<u64, String> {
         let mut inner = self.inner.lock().unwrap();
-        if let Mode::ReadOnly(reason) = &inner.mode {
-            return Err(format!("read-only: {reason}"));
+        match &inner.mode {
+            Mode::ReadOnly(reason) => return Err(format!("read-only: {reason}")),
+            Mode::Degraded => return Err("store degraded: wait for the pending operation to reconcile".into()),
+            Mode::Normal => {}
         }
         let baseline_file = baseline_path(&self.dir);
         // The baseline is written once, create-only, confirmed, BEFORE the first registry document.
@@ -761,7 +615,16 @@ impl Store {
                 other => return Err(format!("baseline not confirmed: {other:?}")),
             }
         }
-        let baseline: Baseline = serde_json::from_slice(&fs::read(&baseline_file).map_err(|error| error.to_string())?).map_err(|error| error.to_string())?;
+        let baseline_bytes = fs::read(&baseline_file).map_err(|error| error.to_string())?;
+        // A previous baseline rename may have landed without a confirmed result. Existence alone is not durability.
+        if inner.doc.legacy.baseline_digest.is_empty() {
+            let faults = self.faults(Kind::Confirm, inner.seq, 0);
+            match ar::confirm_durability_with(&DurabilityRequest::new(&baseline_file, &baseline_bytes), &faults) {
+                DurabilityOutcome::Confirmed => {}
+                other => return Err(format!("baseline durability not confirmed: {other:?}")),
+            }
+        }
+        let baseline: Baseline = serde_json::from_slice(&baseline_bytes).map_err(|error| error.to_string())?;
         let mut next = inner.doc.clone();
         let mut changed = false;
         if next.legacy.baseline_digest.is_empty() {
@@ -791,17 +654,18 @@ impl Store {
                     let renamed = (!id.is_empty())
                         .then(|| next.registry.entries.iter().position(|entry| entry.space_id == id && !Path::new(&entry.path).is_dir()))
                         .flatten();
-                    match renamed {
-                        Some(index) => {
-                            let from = next.registry.entries[index].path.clone();
-                            next.registry.entries[index].path = path.clone();
-                            next.notices.push(notice("moved", Some(from), Some(path.clone()), None, id, "legacy-merge", None));
-                        }
-                        None => {
-                            next.registry.entries.push(Entry { path: path.clone(), space_id: id.clone() });
-                            next.notices.push(notice("added", None, Some(path.clone()), None, id, "legacy-merge", None));
-                        }
-                    }
+                    let previous_last = next.registry.last_opened.clone();
+                    let intent = match renamed {
+                        Some(index) => Intent::Replace { from: next.registry.entries[index].path.clone(), to: path.clone(), space_id: id },
+                        None => Intent::Add { path: path.clone(), space_id: id, claim: None },
+                    };
+                    next = match apply(&next, &intent, "legacy-merge", self.clock.now_ms(), &inner.claims, &self.launch, &inner.epochs) {
+                        Applied::Next(doc) => doc,
+                        other => return Err(format!("legacy intent refused: {other:?}")),
+                    };
+                    // Importing an old build's addition did not open it in a current window.
+                    if renamed.is_none() { next.registry.last_opened = previous_last; }
+
                 }
                 next.legacy.merged_digest = Some(digest);
                 changed = true;
@@ -810,29 +674,10 @@ impl Store {
         if !changed {
             return Ok(inner.doc.rev);
         }
-        next.rev = inner.doc.rev + 1;
-        for entry in next.notices.iter_mut().filter(|entry| entry.rev == 0) {
-            entry.rev = next.rev;
-        }
-        let op_id = format!("{op_prefix}-legacy-{}", next.rev);
-        next.ops.push(OpRec { op_id, rev: next.rev });
-        next.validate()?;
-        let bytes = next.to_bytes();
-        let seq = inner.seq;
-        inner.seq += 1;
-        if !inner.bytes.is_empty() {
-            match self.write_file(&prev_path(&self.dir), &inner.bytes.clone(), Kind::WritePrev, seq, 0) {
-                Wr::Confirmed => {}
-                Wr::Pre(detail) | Wr::Post(detail) => return Err(format!("prev: {detail}")),
-            }
-        }
-        match self.write_file(&main_path(&self.dir), &bytes, Kind::WriteMain, seq, 0) {
-            Wr::Confirmed => {
-                let rev = next.rev;
-                self.publish(&mut inner, next, bytes);
-                Ok(rev)
-            }
-            Wr::Pre(detail) | Wr::Post(detail) => Err(detail),
+        let op_id = format!("{op_prefix}-legacy-{}", inner.doc.rev + 1);
+        match self.commit(&mut inner, next, &op_id) {
+            MutResult::Committed { rev } => Ok(rev),
+            other => Err(format!("legacy commit: {other:?}")),
         }
     }
 }
@@ -887,140 +732,6 @@ pub fn read_space_id(path: &str) -> Option<String> {
     value["spaceId"].as_str().map(|id| id.to_string())
 }
 
-fn notice(kind: &str, from: Option<String>, to: Option<String>, fallback: Option<String>, space_id: String, origin: &str, episode: Option<String>) -> Notice {
-    Notice { rev: 0, kind: kind.into(), from, to, fallback, space_id, origin: origin.into(), episode }
-}
-
 fn nanos() -> u64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() as u64
-}
-
-// ---------------------------------------------------------------------------------------------------------
-// apply: pure; intents evaluated against the LATEST state (§2 point 2)
-// ---------------------------------------------------------------------------------------------------------
-
-enum Applied {
-    Next(Doc),
-    NoChange,
-    Stale(String),
-    Refused(String),
-    ClaimRevoked,
-}
-
-fn find<'a>(doc: &'a Doc, path: &str) -> Option<&'a Entry> {
-    doc.registry.entries.iter().find(|entry| entry.path == path)
-}
-
-fn apply(doc: &Doc, intent: &Intent, origin: &str, now: u64, claims: &HashMap<String, ClaimRec>, launch: &str) -> Applied {
-    let mut next = doc.clone();
-    match intent {
-        Intent::Add { path, space_id, claim } => {
-            if let Some((claim_path, token)) = claim {
-                match claims.get(claim_path) {
-                    Some(record) if record.claim_id == token.claim_id && record.fence == token.fence && record.expires_at > now => {}
-                    _ => {
-                        // A revoked holder never creates a second entry (R5/R13): idempotent if present, refused otherwise.
-                        return if find(doc, path).is_some() { Applied::NoChange } else { Applied::ClaimRevoked };
-                    }
-                }
-            }
-            if find(doc, path).is_some() {
-                return Applied::NoChange;
-            }
-            next.registry.entries.push(Entry { path: path.clone(), space_id: space_id.clone() });
-            next.registry.last_opened = Some(path.clone());
-            next.notices.push(notice("added", None, Some(path.clone()), None, space_id.clone(), origin, None));
-        }
-        Intent::Remove { path, space_id, fallback } => {
-            match find(doc, path) {
-                Some(entry) if &entry.space_id == space_id => {}
-                _ => return Applied::Stale("target is not registered with that identity".into()),
-            }
-            if let Some(fallback) = fallback {
-                if fallback == path || find(doc, fallback).is_none() {
-                    return Applied::Stale("fallback is no longer registered".into());
-                }
-            }
-            next.registry.entries.retain(|entry| &entry.path != path);
-            if next.registry.last_opened.as_ref() == Some(path) {
-                next.registry.last_opened = fallback.clone();
-            }
-            if next.registry.pending_rename.as_ref().is_some_and(|pending| &pending.from == path) {
-                next.registry.pending_rename = None;
-            }
-            next.notices.push(notice("removed", Some(path.clone()), None, fallback.clone(), space_id.clone(), origin, None));
-        }
-        Intent::Replace { from, to, space_id } => {
-            match find(doc, from) {
-                Some(entry) if &entry.space_id == space_id => {}
-                _ => return Applied::Stale("target is not registered with that identity".into()),
-            }
-            if find(doc, to).is_some() {
-                return Applied::Refused("destination already registered".into());
-            }
-            for entry in next.registry.entries.iter_mut().filter(|entry| &entry.path == from) {
-                entry.path = to.clone();
-            }
-            if next.registry.last_opened.as_ref() == Some(from) {
-                next.registry.last_opened = Some(to.clone());
-            }
-            next.notices.push(notice("moved", Some(from.clone()), Some(to.clone()), None, space_id.clone(), origin, None));
-        }
-        Intent::SetLastOpened { path } => {
-            if find(doc, path).is_none() {
-                return Applied::Stale("target is not registered".into());
-            }
-            if next.registry.last_opened.as_ref() == Some(path) {
-                return Applied::NoChange;
-            }
-            next.registry.last_opened = Some(path.clone());
-        }
-        Intent::BeginRename { path, space_id, to } => {
-            match find(doc, path) {
-                Some(entry) if &entry.space_id == space_id => {}
-                _ => return Applied::Stale("target is not registered with that identity".into()),
-            }
-            if doc.registry.pending_rename.is_some() {
-                return Applied::Refused("another rename is pending".into());
-            }
-            next.registry.pending_rename = Some(PendingRename { from: path.clone(), to: to.clone(), space_id: space_id.clone() });
-            next.notices.push(notice("renaming", Some(path.clone()), Some(to.clone()), None, space_id.clone(), origin, None));
-        }
-        Intent::CompleteRename { from, to, space_id } => {
-            match (&doc.registry.pending_rename, find(doc, from)) {
-                (Some(pending), Some(entry)) if &pending.from == from && &pending.to == to && &entry.space_id == space_id => {}
-                _ => return Applied::Stale("no matching pending rename".into()),
-            }
-            if find(doc, to).is_some() {
-                return Applied::Refused("destination already registered".into());
-            }
-            for entry in next.registry.entries.iter_mut().filter(|entry| &entry.path == from) {
-                entry.path = to.clone();
-            }
-            if next.registry.last_opened.as_ref() == Some(from) {
-                next.registry.last_opened = Some(to.clone());
-            }
-            next.registry.pending_rename = None;
-            next.notices.push(notice("renamed", Some(from.clone()), Some(to.clone()), None, space_id.clone(), origin, None));
-        }
-        Intent::PublishLost { from, space_id, fallback, epoch_key } => {
-            if !epoch_key.starts_with(launch) {
-                return Applied::Refused("episode from another launch".into());
-            }
-            match find(doc, from) {
-                Some(entry) if &entry.space_id == space_id => {}
-                _ => return Applied::Stale("target is not registered with that identity".into()),
-            }
-            if doc.notices.iter().any(|existing| existing.kind == "lost" && existing.episode.as_deref() == Some(epoch_key.as_str())) {
-                return Applied::NoChange;
-            }
-            if let Some(fallback) = fallback {
-                if fallback == from || find(doc, fallback).is_none() {
-                    return Applied::Stale("fallback is no longer registered".into());
-                }
-            }
-            next.notices.push(notice("lost", Some(from.clone()), None, fallback.clone(), space_id.clone(), origin, Some(epoch_key.clone())));
-        }
-    }
-    Applied::Next(next)
 }

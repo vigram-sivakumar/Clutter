@@ -17,6 +17,7 @@ mod macos_trash;
 mod move_no_clobber;
 mod new_file_no_clobber;
 mod parse_cache;
+mod recovery_files;
 mod recovery_store;
 mod space_access;
 mod space_folder;
@@ -217,6 +218,7 @@ pub fn run() {
             parse_cache::parse_cache_remove,
             recovery_store::recovery_write,
             recovery_store::recovery_remove,
+            recovery_store::recovery_list,
             vault_entries::create_directory,
             vault_entries::delete_path,
             vault_entries::trash_path,

@@ -308,12 +308,15 @@ fn e2_acknowledgement_order_flushes_then_publish_then_notify() {
 fn e2_kill_minus_nine_at_random_instants() {
     use std::io::BufRead;
     let exe = std::env::current_exe().unwrap();
-    let worker = exe.parent().unwrap().parent().unwrap().join("crash_worker");
+    let worker = std::env::var_os("ADR073_CRASH_WORKER").map(std::path::PathBuf::from)
+        .unwrap_or_else(|| exe.parent().unwrap().parent().unwrap().join("crash_worker"));
     assert!(worker.exists(), "build the worker first: {worker:?}");
     let root = scratch("e2-kill");
     let dir = root.join("spaces");
     let mut rng = Rng::new(0xDEAD_BEEF);
     let mut max_acked = 0u64;
+    let mut last_recovered = 0u64;
+    let mut cold_starts = 0usize;
     let kills: usize = std::env::var("E2_KILLS").ok().and_then(|v| v.parse().ok()).unwrap_or(500);
     let (mut prev_adopted, mut unacked_present, mut unacked_absent) = (0, 0, 0);
     for cycle in 0..kills {
@@ -330,7 +333,12 @@ fn e2_kill_minus_nine_at_random_instants() {
             let acks = acks.clone();
             let attempted = attempted.clone();
             std::thread::spawn(move || {
-                for line in std::io::BufReader::new(stdout).lines().map_while(Result::ok) {
+                let mut output = std::io::BufReader::new(stdout);
+                loop {
+                    let mut line = String::new();
+                    if output.read_line(&mut line).expect("read worker output") == 0 { break; }
+                    // SIGKILL may interrupt the last log frame. An incomplete line is not an observed ACK.
+                    if !line.ends_with('\n') { break; }
                     let parts: Vec<&str> = line.split_whitespace().collect();
                     match parts.as_slice() {
                         ["ACK", op, rev] => acks.lock().unwrap().push((op.to_string(), rev.parse().unwrap())),
@@ -348,6 +356,7 @@ fn e2_kill_minus_nine_at_random_instants() {
         let (store, report) = Store::open(&dir, Clock::real());
         let doc = store.read();
         assert!(!report.unreadable && !report.unknown_schema, "cycle {cycle}: {report:?}");
+        assert_eq!(store.mode(), Mode::Normal, "cycle {cycle}: recovery must finish: {report:?}");
         if report.adopted == "prev" {
             prev_adopted += 1;
         }
@@ -356,23 +365,31 @@ fn e2_kill_minus_nine_at_random_instants() {
             max_acked = max_acked.max(*rev);
             assert_eq!(store.op_status(op), OpStatus::Committed(*rev), "cycle {cycle}: acknowledged {op} not durable");
         }
-        // The one possibly-unacknowledged op: whole or absent, never partial.
-        let last = attempted.lock().unwrap().len();
-        let _ = last;
-        let acked_count = acks.lock().unwrap().len() as u64;
-        if doc.rev > max_acked.max(acked_count) { unacked_present += 1 } else { unacked_absent += 1 }
-        max_acked = max_acked.max(doc.rev.min(max_acked + 1));
-        doc.validate().unwrap();
-        let main = disk(&root, "registry.json").unwrap();
-        let prev = disk(&root, "registry.prev.json").unwrap();
-        assert!(prev.rev <= main.rev && main.rev <= prev.rev + 1, "cycle {cycle}: R12 {} / {}", prev.rev, main.rev);
-        assert_eq!(main.rev, doc.rev);
+        // A complete ACK is durable. A revision confirmed by the preceding recovery also cannot disappear.
+        let confirmed_floor = max_acked.max(last_recovered);
+        assert!(doc.rev <= confirmed_floor + 1, "cycle {cycle}: more than one unacknowledged commit");
+        if doc.rev > confirmed_floor { unacked_present += 1 } else { unacked_absent += 1 }
+        let read_generation = |name: &str| match std::fs::read(dir.join(name)) {
+            Ok(bytes) => Some(bytes),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+            Err(error) => panic!("cycle {cycle}: cannot read {name}: {error}"),
+        };
+        let main = read_generation("registry.json");
+        let prev = read_generation("registry.prev.json");
+        if main.is_none() && prev.is_none() { cold_starts += 1; }
+        crate::crash_checks::validate_recovered_generations(&doc, main.as_deref(), prev.as_deref(), confirmed_floor)
+            .unwrap_or_else(|error| panic!("cycle {cycle}: {error}; recovery={report:?}; worker output={:?}", attempted.lock().unwrap()));
+        last_recovered = doc.rev;
+        if (cycle + 1) % 50 == 0 {
+            println!("E2[kill-9] {}/{} cycles checked; confirmed rev {}; cold-start kills {}", cycle + 1, kills, last_recovered, cold_starts);
+        }
     }
     println!(
         "E2[kill-9] {kills} kills: acknowledged commits always present; prev adopted {prev_adopted}x (media damage only); \
          an unacknowledged commit had landed in {unacked_present} cycles and was absent in {unacked_absent}; final rev {}",
         open(&root).0.read().rev
     );
+    println!("E2[kill-9] valid pre-first-commit recoveries: {cold_starts}");
     assert_eq!(prev_adopted, 0, "a process kill must never invalidate registry.json");
     std::fs::remove_dir_all(root).unwrap();
 }

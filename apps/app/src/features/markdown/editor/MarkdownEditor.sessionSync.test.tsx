@@ -56,14 +56,17 @@ afterEach(() => {
 function Host({
   session,
   onEdit,
+  historyScope,
 }: {
   session: DocumentSession;
+  historyScope?: object;
   onEdit?: (markdown: string) => void;
 }) {
   useDocumentSession(session);
 
   return (
     <MarkdownEditor
+      historyScope={historyScope}
       pageId={session.id}
       markdown={session.currentRevision.markdown}
       onEdit={(markdown) => {
@@ -73,6 +76,27 @@ function Host({
     />
   );
 }
+
+it('restores this note’s undo after a real unmount and unrelated external session update', () => {
+  const session = new DocumentSession('returning-note', 'base');
+  const onEdit = vi.fn();
+  const first = render(<Host session={session} onEdit={onEdit} />);
+  const original = EditorView.findFromDOM(first.container as unknown as HTMLElement)!;
+  act(() => original.dispatch({ changes: { from: 0, insert: 'local ' }, userEvent: 'input.type' }));
+  first.unmount(); // Real MarkdownEditor cleanup captures the per-note session.
+  act(() => { session.commit(new DocumentTransaction('local base peer')); });
+  onEdit.mockClear();
+
+  const second = render(<Host session={session} onEdit={onEdit} />);
+  const reopened = EditorView.findFromDOM(second.container as unknown as HTMLElement)!;
+  expect(reopened.state.doc.toString()).toBe('local base peer');
+  expect(undoDepth(reopened.state)).toBe(1);
+  expect(onEdit).not.toHaveBeenCalled();
+  act(() => { expect(undo(reopened)).toBe(true); });
+  expect(session.currentRevision.markdown).toBe('base peer');
+  act(() => { expect(redo(reopened)).toBe(true); });
+  expect(session.currentRevision.markdown).toBe('local base peer');
+});
 
 function mount(initial: string) {
   const session = new DocumentSession('page', initial);
@@ -264,4 +288,28 @@ describe('selection mapping for an external change', () => {
     expect(view.state.selection.main.head).toBe(7);
     expect(view.state.selection.main.empty).toBe(true);
   });
+});
+
+
+it('restores history only in the originating Application when copied notes share IDs and text', () => {
+  const a = {}, b = {};
+  const firstSession = new DocumentSession('copied-note', 'base');
+  const first = render(<Host session={firstSession} historyScope={a} />);
+  const original = EditorView.findFromDOM(first.container as unknown as HTMLElement)!;
+  act(() => original.dispatch({ changes: { from: 0, insert: 'local ' }, userEvent: 'input.type' }));
+  first.unmount();
+
+  const copiedSession = new DocumentSession('copied-note', 'local base');
+  const second = render(<Host session={copiedSession} historyScope={b} />);
+  const isolated = EditorView.findFromDOM(second.container as unknown as HTMLElement)!;
+  expect(undoDepth(isolated.state)).toBe(0);
+  expect(isolated.state.doc.toString()).toBe('local base');
+  second.unmount();
+
+  const reopened = render(<Host session={firstSession} historyScope={a} />);
+  const restored = EditorView.findFromDOM(reopened.container as unknown as HTMLElement)!;
+  expect(undoDepth(restored.state)).toBe(1);
+  act(() => { expect(undo(restored)).toBe(true); });
+  expect(firstSession.currentRevision.markdown).toBe('base');
+  expect(copiedSession.currentRevision.markdown).toBe('local base');
 });

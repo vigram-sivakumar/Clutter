@@ -250,6 +250,7 @@ export const MarkdownEditor = forwardRef<
 >(function MarkdownEditor(
   {
     pageId,
+    historyScope,
     markdown,
     focusOnOpen,
     readOnly = false,
@@ -1546,7 +1547,7 @@ export const MarkdownEditor = forwardRef<
       return undefined;
     }
 
-    const cachedSession = getCachedEditorSession(pageId);
+    const cachedSession = getCachedEditorSession(pageId, historyScope);
 
     // A remount for the *Enable emoji lists* setting continues from the live view, not from this closure's props
     // (the first render's): the document, mode and selection it had when the setting changed.
@@ -1691,13 +1692,8 @@ export const MarkdownEditor = forwardRef<
     // that actually scrolls is outside CM6's own DOM, so restoring its
     // `scrollTop` is a plain DOM write, done here once the view's content
     // (and therefore the ancestor's real `scrollHeight`) exists. Gated on
-    // the identical doc-match check `createEditorView` already applies to
-    // `restoreHistory`/`restoreScrollEffect` — a session's scroll
-    // position is exactly as untrustworthy to restore as its history when
-    // the underlying document changed externally while this page was
-    // closed, and this is a *separate* restore path that needs its own
-    // copy of that same guard, not an assumption that createEditorView's
-    // internal gate already covered it.
+    // the exact-text guard used for pixel scroll restoration in createEditorView. History/selection can be
+    // mapped across external edits; an old DOM pixel offset cannot be mapped reliably and is skipped.
     scrollAncestorRef.current = findScrollableAncestor(container);
     const cachedSessionMatchesDoc =
       cachedSession !== undefined && docTextMatches(cachedSession.history, startDoc);
@@ -1788,11 +1784,15 @@ export const MarkdownEditor = forwardRef<
       // `scrollAncestorRef.current.scrollTop`) is the plain-DOM
       // counterpart that actually matters in this app's layout — see its
       // own doc comment for why a live read here is already too late.
-      setCachedEditorSession(pageId, {
-        history: captureEditorHistory(view),
-        scrollEffect: view.scrollSnapshot(),
-        domScrollTop: lastKnownScrollTopRef.current,
-      });
+      setCachedEditorSession(
+        pageId,
+        {
+          history: captureEditorHistory(view),
+          scrollEffect: view.scrollSnapshot(),
+          domScrollTop: lastKnownScrollTopRef.current,
+        },
+        historyScope
+      );
       // ADR-033: captured at the same unmount moment as the session
       // cache above, but written to the independent, durable
       // FoldStateStore instead — survives an app restart, not just this

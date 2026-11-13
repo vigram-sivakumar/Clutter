@@ -3032,6 +3032,7 @@ export function PageHost({
           <>
             <MarkdownBody>
               <MarkdownEditor
+                historyScope={application}
                 key={activePageId}
                 pageId={activePageId}
                 ref={editorRef}
@@ -3351,6 +3352,7 @@ export function PageHost({
           <>
             <MarkdownBody>
               <MarkdownEditor
+                historyScope={application}
                 // Keyed by the page only: archiving or restoring an open page re-configures this editor in
                 // place (its `readOnly` prop), it does not rebuild it.
                 key={activePageId}

@@ -9,12 +9,15 @@ import {
   isolateHistory,
   undoDepth,
 } from '@codemirror/commands';
-import { codeFolding, foldEffect, foldState, indentUnit } from '@codemirror/language';
 import {
-  Annotation,
+  codeFolding,
+  foldEffect,
+  foldState,
+  indentUnit,
+} from '@codemirror/language';
+import {
   Compartment,
   EditorState,
-  Transaction,
   type EditorSelection,
   type Extension,
   type StateEffect,
@@ -28,6 +31,13 @@ import {
   keymap,
 } from '@codemirror/view';
 
+import {
+  editorHistoryCompartment,
+  externalSync,
+  externalSyncTransactions,
+  localHistoryFootprint,
+  type HistoryRange,
+} from './externalEditorSync';
 import { cspNonceExtension } from './cspNonce';
 import { editorTheme } from './editorTheme';
 import { fencedCodeHoverMouseHandlers } from './fencedCode/fencedCodeHoverMouseHandlers';
@@ -51,14 +61,6 @@ import {
 // strikethrough, highlight, monospace) already had a dedicated Live Preview
 // decoration owner, making it a standing duplicate-ownership risk with no
 // safe remaining purpose, not a harmless dormant extension.
-
-/**
- * Marks a dispatched transaction as an external prop sync rather than user
- * input, so the update listener below can skip firing `onDocChange` for it
- * — mirrors the previous contentEditable implementation, where a direct
- * `textContent` assignment never fired a native `input` event either.
- */
-const externalSync = Annotation.define<boolean>();
 
 /**
  * Read-only support (docs/editor-architecture-decisions.md, "Note
@@ -117,7 +119,9 @@ const blockReadOnlyEdits = EditorState.transactionFilter.of((tr) =>
   // `externalSync` is the host re-aligning the view with the stored document (`syncMarkdownIntoView`):
   // not a user edit, and a read-only view of a page that changes elsewhere (a tag rename that reaches
   // an archived note) must follow it. Every other document change stays blocked.
-  tr.startState.readOnly && tr.docChanged && !tr.annotation(externalSync) ? [] : tr
+  tr.startState.readOnly && tr.docChanged && !tr.annotation(externalSync)
+    ? []
+    : tr
 );
 
 export interface CreateEditorViewOptions {
@@ -164,42 +168,18 @@ export interface CreateEditorViewOptions {
    */
   readonly enableFolding?: boolean;
   /**
-   * A previous `captureEditorHistory()` snapshot for this exact
-   * document (typically retrieved from `editorHistoryCache.ts` by the
-   * page id, right before this view is constructed for a page the user
-   * is returning to) — when supplied *and* its own embedded document text
-   * matches `doc`, the view's undo/redo history is restored from it
-   * instead of starting fresh. Per docs/editor-architecture-decisions.md's
-   * "Per-document CM6 undo/redo history preservation" entry: the doc-text
-   * match check is load-bearing, not defensive boilerplate — a snapshot
-   * whose embedded document no longer matches `doc` (something changed
-   * the page's content between when this snapshot was taken and now,
-   * e.g. a task toggled elsewhere while this page was closed) is exactly
-   * as untrustworthy to restore from as it would be to show stale content
-   * outright, so it's silently ignored and a fresh state is created
-   * instead — never a partial/best-effort restore.
+   * A per-note, in-memory snapshot. Its original state is reconciled to `doc` before mounting using the same
+   * external-sync mapping and overlap policy as a live editor. Unknown legacy snapshots restore only against
+   * identical text. No stale document is shown and the snapshot is never mutated.
    */
   readonly restoreHistory?: EditorHistorySnapshot;
-  /**
-   * A previous `view.scrollSnapshot()` effect for this same page —
-   * CM6's own documented mechanism for restoring scroll position
-   * (`EditorViewConfig.scrollTo`: "Pass an effect created with...
-   * `EditorView.scrollSnapshot` here to set an initial scroll
-   * position"). Applied only when `restoreHistory` above was *also*
-   * successfully restored (same doc-match gate) — scroll and history are
-   * one session, restored together or not at all; a scroll position
-   * captured against a document that's since changed elsewhere has
-   * nothing meaningful to scroll to any more, and CM6's own doc comment
-   * on `scrollSnapshot` warns exactly this case is silently unreliable
-   * ("not an error, but may not scroll to the expected position") rather
-   * than a case worth trying to partially honor.
-   */
+  /** A cached pixel scroll effect, restored only for identical text; history/selection may be mapped separately. */
   readonly restoreScrollEffect?: StateEffect<unknown>;
   /**
    * A previous `serializeFoldState()` snapshot for this exact document
    * (ADR-033) — typically `application.foldStateStore.get(pageId)`,
    * retrieved right before this view is constructed. Validated with the
-   * same `docTextMatches` gate `restoreHistory` uses, but applied
+   * same exact-text gate used for scroll restoration, but applied
    * independently of it (a separate `view.dispatch` right after
    * construction, not merged into the same `EditorState.fromJSON` call):
    * `restoreHistory` comes from the session-lifetime
@@ -264,7 +244,9 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       return;
     }
 
-    const isExternalSync = update.transactions.some((tr) => tr.annotation(externalSync));
+    const isExternalSync = update.transactions.some((tr) =>
+      tr.annotation(externalSync)
+    );
     if (isExternalSync) {
       return;
     }
@@ -321,7 +303,8 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       // Triple-click selects the line's text, not its line break (see tripleClickLineSelection.ts).
       tripleClickLineSelection(),
       EditorView.lineWrapping,
-      ...(enableHistory ? [history(), metadataHistoryStep((change) => onMetadataHistoryStep?.(change))] : []),
+      editorHistoryCompartment.of(enableHistory ? history() : []),
+      ...(enableHistory ? [localHistoryFootprint, metadataHistoryStep((change) => onMetadataHistoryStep?.(change))] : []),
       EditorState.allowMultipleSelections.of(true),
       // Purely visual/pointer standard CM6 extensions — no keymap, no
       // change to Backspace/Enter/Delete/Tab/Arrow handling. highlightSpecialChars()
@@ -460,34 +443,44 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
   // The history VALUE is carried over as it is (not serialized): CodeMirror's history keeps each entry's effects
   // in memory, and its JSON form drops them, which would sever a template's metadata step from its undo entry.
   // The value is opaque here and only handed back to the same field it came from.
-  const restoredState =
+  let restoredState: EditorState | null = null;
+  if (
     enableHistory &&
     restoreHistory?.history !== undefined &&
-    docTextMatches(restoreHistory, doc)
-      ? EditorState.create({
-          doc,
-          selection: restoreHistory.selection,
-          extensions: [...allExtensions, historyField.init(() => restoreHistory.history)],
-          // The carried history also remembers when its last edit happened, so an edit made right after a quick
-          // switch back would be joined into the previous session's last undo entry. A restored history always
-          // resumes in a fresh entry (as the JSON form did): isolate it from what comes next.
-        }).update({ annotations: isolateHistory.of('full') }).state
-      : null;
+    (docTextMatches(restoreHistory, doc) ||
+      restoreHistory.footprint !== undefined)
+  ) {
+    restoredState = EditorState.create({
+      doc: restoreHistory.doc,
+      selection: restoreHistory.selection,
+      extensions: [
+        ...allExtensions,
+        historyField.init(() => restoreHistory.history),
+        localHistoryFootprint.init(() => restoreHistory.footprint ?? [{ from: 0, to: restoreHistory.doc.length }]),
+      ],
+    }).update({ annotations: isolateHistory.of('full') }).state;
+    // Reconcile the immutable cached state before constructing a view, through the exact live-sync path.
+    // No onDocChange or metadata callback is fired, and the cache's original snapshot stays untouched.
+    for (const transaction of externalSyncTransactions(restoredState, doc))
+      restoredState = transaction.state;
+  }
 
   const state =
     restoredState ??
-    EditorState.create({ doc, selection: freshSelection, extensions: allExtensions });
+    EditorState.create({
+      doc,
+      selection: freshSelection,
+      extensions: allExtensions,
+    });
 
   const view = new EditorView({
     state,
     parent,
-    // Gated on `restoredState` (not merely on `restoreScrollEffect` being
-    // present) — a scroll target captured against a document that turned
-    // out to be stale (docTextMatches failed above) has nothing valid to
-    // scroll to; restoring it anyway would be exactly the kind of
-    // partial/best-effort restore this whole mechanism is designed to
-    // avoid (see `restoreScrollEffect`'s own doc comment).
-    scrollTo: restoredState ? restoreScrollEffect : undefined,
+    // Pixel scroll snapshots are valid only for identical text, even when history/selection can be mapped.
+    scrollTo:
+      restoredState && docTextMatches(restoreHistory, doc)
+        ? restoreScrollEffect
+        : undefined,
     // The one place every transaction passes through before it is applied — including undo and redo, which
     // CodeMirror's history creates with `filter: false` and so never reach a transaction filter. A refused
     // edit is dropped whole, so no state (document, history, selection) has to be repaired afterwards.
@@ -495,7 +488,9 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       ? (transactions, editorView) => {
           const refused = transactions.some(
             (transaction) =>
-              transaction.docChanged && !transaction.annotation(externalSync) && !canEdit()
+              transaction.docChanged &&
+              !transaction.annotation(externalSync) &&
+              !canEdit()
           );
 
           if (!refused) {
@@ -549,9 +544,7 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
  *
  * Exported (not module-private) so `MarkdownEditor.tsx` can apply the
  * exact same staleness check to its own DOM-level scroll-position
- * restoration (`editorHistoryCache.ts`'s `domScrollTop`) — a session's
- * scroll position is exactly as untrustworthy to restore as its history
- * is when the underlying document has changed externally, and duplicating
+ * restoration (`editorHistoryCache.ts`'s `domScrollTop`) — a pixel scroll position cannot be reliably reused when the underlying document has changed externally, and duplicating
  * this one-line comparison there instead of importing it would risk the
  * two checks silently drifting apart.
  */
@@ -569,6 +562,8 @@ export interface EditorHistorySnapshot {
   readonly selection: EditorSelection;
   /** CodeMirror's `historyField` value, opaque: handed back to `historyField.init` on restore. */
   readonly history: unknown;
+  /** Local conflict coordinates; older snapshots without these can only restore against identical text. */
+  readonly footprint?: readonly HistoryRange[];
 }
 
 /**
@@ -588,6 +583,7 @@ export function captureEditorHistory(view: EditorView): EditorHistorySnapshot {
     doc: view.state.doc.toString(),
     selection: view.state.selection,
     history: view.state.field(historyField, false),
+    footprint: view.state.field(localHistoryFootprint, false),
   };
 }
 
@@ -602,8 +598,14 @@ export function captureEditorHistory(view: EditorView): EditorHistorySnapshot {
  * `MarkdownEditor.tsx`'s unmount cleanup alongside (but independently of)
  * `captureEditorHistory`.
  */
-export function serializeFoldState(view: EditorView): { doc: string; fold: number[] } {
-  const json = view.state.toJSON({ fold: foldState }) as { doc: string; fold: number[] };
+export function serializeFoldState(view: EditorView): {
+  doc: string;
+  fold: number[];
+} {
+  const json = view.state.toJSON({ fold: foldState }) as {
+    doc: string;
+    fold: number[];
+  };
   return { doc: json.doc, fold: json.fold };
 }
 
@@ -628,111 +630,17 @@ export function serializeFoldState(view: EditorView): { doc: string; fold: numbe
  */
 export function hasEstablishedEditingPosition(view: EditorView): boolean {
   const { head } = view.state.selection.main;
-  return (head !== 0 && head !== view.state.doc.length) || undoDepth(view.state) > 0;
+  return (
+    (head !== 0 && head !== view.state.doc.length) || undoDepth(view.state) > 0
+  );
 }
 
 /**
- * The smallest single `{from, to, insert}` change that turns `current` into
- * `next` — a common-prefix/common-suffix diff, not a general (multi-hunk)
- * diff algorithm. That's deliberate, not a simplification taken for
- * expedience: `syncMarkdownIntoView`'s callers (task-checkbox toggles from
- * a different UI surface, any other single-`PageOperations.mutateBody()`-
- * style external mutation) each make one small, localized edit to an
- * otherwise-unchanged document, which a prefix/suffix diff finds exactly
- * and cheaply (no dependency, no O(n²)/Myers-diff cost). Its job here is
- * narrower than "compute a good diff" — it's "touch as little of the
- * document's position-space as possible," so that CM6's history mapping
- * (see `syncMarkdownIntoView`'s own doc comment) has the best chance of
- * keeping an *unrelated* prior user edit's undo entry intact. A full
- * `{from: 0, to: current.length, insert: next}` replace (the previous
- * behavior) touches the *entire* document's position-space on every sync,
- * regardless of how small the actual external change was — proven to be
- * more damage than the mapping can reliably recover from (see the doc
- * comment below).
- */
-function minimalReplaceChange(
-  current: string,
-  next: string
-): { from: number; to: number; insert: string } {
-  const maxCommon = Math.min(current.length, next.length);
-  let prefix = 0;
-  while (prefix < maxCommon && current[prefix] === next[prefix]) {
-    prefix++;
-  }
-  let suffix = 0;
-  const maxSuffix = maxCommon - prefix;
-  while (
-    suffix < maxSuffix &&
-    current[current.length - 1 - suffix] === next[next.length - 1 - suffix]
-  ) {
-    suffix++;
-  }
-  return {
-    from: prefix,
-    to: current.length - suffix,
-    insert: next.slice(prefix, next.length - suffix),
-  };
-}
-
-/**
- * Replaces the view's document with `markdown` to match an external change
- * — the page's content changed somewhere other than this same editor
- * instance (`PageOperations.mutateBody()`, e.g. a task-checkbox toggle from
- * a different UI surface, or a template applied to the open page — whether
- * or not the editor has focus; see `MarkdownEditor.tsx`'s own call site for
- * why that is safe). Tagged `externalSync` so the update listener above skips
- * `onDocChange` for it (prevents a feedback loop back into the very state
- * this sync is reconciling from) — completely independent of, and
- * unaffected by, the history annotation below; that annotation governs
- * whether the change is *undo-able*, this one governs whether it *re-fires
- * the edit callback*, and a transaction can need only one, the other, or
- * (here) both.
- *
- * **Also tagged `Transaction.addToHistory.of(false)` (2026-08-27) — this
- * transaction must never become a user-undoable step.** Confirmed as a
- * real bug, not a theoretical one, via a direct `createEditorView()` +
- * `syncMarkdownIntoView()` + CM6's own `undo`/`undoDepth` commands
- * reproduction (no UI needed — this is a CM6 history-mechanics question,
- * not a rendering one): dispatching this transaction *without* the
- * annotation, immediately after one real user edit, did not create a
- * *second* undo-able step as expected — CM6's default history grouping
- * silently merged it into the *same* group as the preceding user edit
- * (confirmed: `undoDepth` stayed at `1`, not `2`), so a single subsequent
- * `undo()` reverted the user's own edit *and* the unrelated external
- * change together, in one step the user never asked for.
- *
- * `Transaction.addToHistory.of(false)` alone is not sufficient, and this
- * is why the diff above is minimal rather than a full-document replace:
- * excluding a transaction from history does not exempt it from CM6's
- * change-mapping — a still-open undo entry from *before* this transaction
- * has its recorded positions mapped through it regardless, and a full
- * `{from: 0, to: current.length}` replace maps every prior position
- * through "the entire document was deleted and something new inserted,"
- * which degenerates the mapped entry into an empty/meaningless change —
- * confirmed directly: with `addToHistory: false` alone (full-document
- * replace), `undoDepth` dropped to `0` immediately after the sync, losing
- * the user's own still-unsaved edit from history entirely, with no way to
- * undo it. The minimal diff instead maps a prior edit's positions through
- * only the small, localized change that's actually different, which
- * `ChangeSet.map` can carry through intact when (as expected for this
- * call site's actual callers) the two edits don't overlap — confirmed
- * directly: `undoDepth` stays at `1` through this sync, `undo()` correctly
- * reverts only the user's own edit (leaving the externally-synced content
- * in place), and `redo()` correctly restores it afterward.
- *
- * No-ops if the view's document already matches (same as before this
- * fix) — this is the common case (the `markdown` prop round-tripping this
- * same editor's own just-committed edit back through React state), so the
- * cost of this function is usually just one string comparison.
+ * Reconciles host content without an edit callback or a remote undo entry. Precise changes map unrelated local
+ * history and selections; an overlapping local footprint or an imprecise bounded diff resets this note's
+ * history through CM compartments. Both undo and redo are reset together, without replaying metadata effects.
  */
 export function syncMarkdownIntoView(view: EditorView, markdown: string): void {
-  const currentDoc = view.state.doc.toString();
-  if (currentDoc === markdown) {
-    return;
-  }
-
-  view.dispatch({
-    changes: minimalReplaceChange(currentDoc, markdown),
-    annotations: [externalSync.of(true), Transaction.addToHistory.of(false)],
-  });
+  const transactions = externalSyncTransactions(view.state, markdown);
+  if (transactions.length) view.dispatch(transactions);
 }

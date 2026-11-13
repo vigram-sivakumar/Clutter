@@ -13,6 +13,7 @@ import {
   type RecoveryDraftInfo,
   type RecoveryKind,
   type RecoveryRecord,
+  type RecoverySpaceInfo,
 } from './RecoveryRecord';
 import type { RecoveryStorage } from './RecoveryStorage';
 
@@ -82,6 +83,10 @@ export interface RecoveryJournalOptions {
   readonly now?: () => Date;
   /** This session's tag. A random UUID by default; a test can fix it. */
   readonly session?: string;
+  /** Native window registry lookup. A failure leaves that session's records untouched and unoffered. */
+  readonly isSessionLive?: (session: string) => Promise<boolean>;
+  /** Captured with new snapshots only; existing records are never migrated eagerly. */
+  readonly spaceInfo?: () => RecoverySpaceInfo;
   /** Makes a new tag when the one in use is found on disk already (default: a random UUID). For tests. */
   readonly newSession?: () => string;
   readonly onWriteError?: (error: unknown, pageId: string) => void;
@@ -259,7 +264,16 @@ export class RecoveryJournal {
       const groups = new Set(names.map(committedNameOf));
 
       for (const committedName of groups) {
-        if (sessionOfFileName(committedName) === this.session) continue;
+        const session = sessionOfFileName(committedName);
+        if (session === this.session) continue;
+        if (session !== null && this.options.isSessionLive) {
+          try {
+            if (await this.options.isSessionLive(session)) continue;
+          } catch {
+            unreadable += 1;
+            continue;
+          }
+        }
         const tempName = `${committedName}.tmp`;
 
         const committed = hasCommitted.has(committedName)
@@ -370,8 +384,11 @@ export class RecoveryJournal {
    */
   public async protectAll(): Promise<boolean> {
     const results = await Promise.all(this.options.source.unsavedPageIds().map((pageId) => this.snapshotNow(pageId)));
-
-    return results.every(Boolean);
+    // A successful older write is not protection for edits/new notes that arrived while storage was awaited.
+    return results.every(Boolean) && this.options.source.unsavedPageIds().every((pageId) => {
+      const state = this.options.source.recoverableState(pageId);
+      return state === null || this.lastWritten.get(pageId) === this.contentKey(this.buildRecord(state, 0));
+    });
   }
 
   /**
@@ -492,7 +509,7 @@ export class RecoveryJournal {
       const name = recordFileName(pageId, this.session);
       const sequence = (this.sequences.get(pageId) ?? 0) + 1;
       const record = this.buildRecord(state, sequence);
-      const unchangedKey = serializeRecord({ ...record, capturedAt: '', sequence: 0 });
+      const unchangedKey = this.contentKey(record);
 
       if (this.lastWritten.get(pageId) === unchangedKey) {
         return true;
@@ -533,9 +550,11 @@ export class RecoveryJournal {
   }
 
   private buildRecord(state: RecoverableState, sequence: number): RecoveryRecord {
+    const space = this.options.spaceInfo?.();
     return {
       format: RECOVERY_FORMAT,
       version: RECOVERY_VERSION,
+      ...(space ? { schema: 1, spaceId: space.spaceId, lastPath: space.lastPath, name: space.name } : {}),
       vaultKey: this.options.vaultKey,
       pageId: state.pageId,
       kind: state.kind,
@@ -553,5 +572,9 @@ export class RecoveryJournal {
       },
       draft: state.draft,
     };
+  }
+
+  private contentKey(record: RecoveryRecord): string {
+    return serializeRecord({ ...record, capturedAt: '', sequence: 0 });
   }
 }
