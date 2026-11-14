@@ -1,0 +1,19 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> clutter-r07-two-view-experiment@0.1.0 test:native-support
+> node --test test/native-support.test.mjs
+
+✔ non-Mac preflight blocks before invoking Apple tools (0.8061ms)
+✔ missing SDK/compiler is blocked, not a passing native check (0.254833ms)
+✔ successful tool discovery permits launch preparation without declaring native acceptance (0.154155ms)
+✔ bundle staging handles directory spaces and preserves resource identities (3.244869ms)
+✔ manual catalogue is unique, scoped and never supplies fake passing results (0.313713ms)
+✔ actual runner --check reports unsupported host with exit 2 on Linux (91.690911ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 236.684714

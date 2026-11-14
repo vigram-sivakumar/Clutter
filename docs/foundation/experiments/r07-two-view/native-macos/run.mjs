@@ -78,6 +78,7 @@ if (process.argv.includes('--check')) {
       '/usr/bin/xcrun',
       [
         'swiftc',
+        '-parse-as-library',
         '-swift-version',
         '5',
         '-O',

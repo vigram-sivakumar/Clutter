@@ -1,6 +1,6 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-14. Documentation revision: 0.12.
+Last updated: 2026-11-14. Documentation revision: 0.13.
 Read this file first in a new chat or agent session. It is the checkpoint, not a
 second product specification. [README](README.md) identifies authoritative docs.
 
@@ -22,7 +22,9 @@ blocks provider enablement. R06 prepared qualification contracts. R07 has two ex
 Targeted selection/origin-history alternatives pass their scoped Linux checks;
 raw failures remain controls. The new AppKit/WKWebView source, eight-case checklist
 and automatic report runner are ready for the first Mac build, not natively verified.
-Swift/macOS SDK and actual native input are unavailable here. See [native preparation
+The user attempted the first Mac build and reported two Swift compiler errors.
+Revision 0.13 fixes those source issues; Mac recompilation is pending. Swift/macOS
+SDK and actual native input are unavailable here. See [native preparation
 evidence](evidence/r07-03-2026-11-14.json) and [run guide](experiments/r07-two-view/native-macos/README.md).
 
 | Area                                  | Verified status at this checkpoint                                                                                                                                                                                                                         |
@@ -86,8 +88,11 @@ contains those contents; do not reapply either route.
 12. R07 native host preparation, revision 0.12: `Clutter R07 Native Mac Harness 03.patch`,
     incremental over exact 0.11 experiment-02 contents. Apply 02 before this patch.
 
+13. Native compiler correction, revision 0.13: `Clutter R07 Mac Compiler Fix 04.patch`,
+    incremental over exact 0.12/patch-03 contents. User reports 03 committed as cdafd1c7.
+
 Each update is incremental over its predecessor's file contents, not a particular
-user-created commit hash. If this file is present at revision 0.12, do not blindly
+user-created commit hash. If this file is present at revision 0.13, do not blindly
 reapply those patches. Inspect actual files and git state; do not use reset/clean,
 force checkout or re-create the branch to hide divergence.
 
@@ -146,13 +151,16 @@ force checkout or re-create the branch to hide divergence.
 - Current authorized continuation includes the isolated R07 experiment, not a
   production rebuild. Preserve unqualified tests and report blocking observations.
 
-## Exact next action: first Mac build and native observations
+## Exact next action: retry Mac compilation after patch 04
 
-The user has a Mac; this environment is Linux. Deliver/apply the native patch after
-02, then the user runs the commands in the Mac guide. The source has not been
-compiled against AppKit/WebKit here. Do not claim the packaged app works until the
-real build/launch result is available. Tool/helper tests and plist parsing are
-separate evidence. No tool installation or remote login is automatic.
+The first real Mac build failed on two compiler issues, not on an editor test.
+The reported SDK is MacOSX26.5.sdk; user commit cdafd1c7 contains patch 03. Apply
+patch 04, then rerun npm run native:mac from the experiment folder. No npm reinstall
+or reapplication of 03 is needed. The coordinator-property rename avoids the
+inherited owner property; @main/@MainActor startup plus -parse-as-library fixes
+entry isolation. [Fix evidence](evidence/r07-04-2026-11-14.json) distinguishes the
+reported native failure from six local support passes. Mac recompilation is still
+pending; do not claim these source fixes compiled successfully on the target SDK.
 
 The runner builds a separate local .app, starts fixed loopback assets, presents
 native case controls and saves JSON reports automatically. Ask the user to follow

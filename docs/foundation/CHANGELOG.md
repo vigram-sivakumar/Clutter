@@ -3,6 +3,17 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.13 — 2026-11-14
+
+- User's first Mac build (SDK MacOSX26.5.sdk, reported commit cdafd1c7) failed:
+  CandidateWindow.owner collided with NSWindowController.owner; startup called
+  the main-actor delegate from a nonisolated top-level context.
+- Renamed the experiment coordinator property/initializer references and moved
+  startup into @main NativeLabMain with @MainActor main. Added -parse-as-library
+  to the existing Swift compiler invocation. No dependency or production change.
+- Six support checks pass on Linux; actual Mac recompilation/native tests remain
+  pending. Do not reinterpret these support checks as a successful Mac build.
+
 ## 0.12 — 2026-11-14
 
 - Prepared a separate local Swift/AppKit/WKWebView host, own bundle identity,

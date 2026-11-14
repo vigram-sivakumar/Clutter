@@ -1,6 +1,6 @@
 # Foundation roadmap
 
-Revision 0.12, 2026-11-14. This roadmap describes work and dependencies; the current
+Revision 0.13, 2026-11-14. This roadmap describes work and dependencies; the current
 checkpoint/authorization is in [START-HERE](START-HERE.md). Product scope is in
 product-contracts.md, not independently redefined here.
 
@@ -8,7 +8,7 @@ product-contracts.md, not independently redefined here.
 
 | ID  | State                                                         | Work and output                                                                                                                                                                                                          | Depends on                | Exit evidence                                                                                                                                                                      |
 | --- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| R00 | Documentation prepared                                        | Foundation pack 0.1–0.12: confirmed scope, ownership/API proposals, ADRs, initial test/spike specifications and resumable handoff                                                                                        | User clarification        | Remote 0.9 user commit verified at 1215044; R07 prepared, no agent commit/push                                                                                                     |
+| R00 | Documentation prepared                                        | Foundation pack 0.1–0.13: confirmed scope, ownership/API proposals, ADRs, initial test/spike specifications and resumable handoff                                                                                        | User clarification        | Remote 0.9 user commit verified at 1215044; R07 prepared, no agent commit/push                                                                                                     |
 | R01 | Complete — 2026-11-14                                         | [Inventory](current-capability-inventory.md): 45 source/wiring capability entries with target mapping                                                                                                                    | R00                       | [Selected run](evidence/r01-2026-11-14.json): 30 files/1,003 assertions passed across initial/targeted runs; initial load errors/setup corrections and static/target gaps explicit |
 | R02 | Draft prepared; policy review open                            | [R02](editor-interaction-spec.md) and [case catalogue](editor-interaction-cases.json): 72 shared/profile seed contracts, not execution                                                                                   | R01                       | 60 shared requirements/12 profile proposals specified; Q-01–Q-09 and variation expansion remain before acceptance                                                                  |
 | R03 | Conditional drafts prepared; review open                      | [Model](document-model-spec.md), [API](command-api-spec.md) and [registry/scenarios](model-api-contract-cases.json): semantic identity, placement, closure and logical signatures                                        | R01; consume R02          | DM-01–DM-15, 51 operation sketches and 24 unexecuted scenarios; M-01–M-07/Q-01–Q-09 and full wire/encoding qualification remain                                                    |
@@ -99,3 +99,7 @@ A separate native host/checklist/report runner is prepared in revision 0.12. The
 Swift/AppKit build and all native cases remain unexecuted on this Linux host. User
 Mac execution is the next evidence step; [preparation evidence](evidence/r07-03-2026-11-14.json)
 records helper/regression checks without treating them as native acceptance.
+
+The user attempted the first native build and reported Swift property/actor errors.
+[Patch 04 evidence](evidence/r07-04-2026-11-14.json) records targeted source corrections;
+Mac recompilation is pending. This is a build-stage failure, not an editor verdict.
