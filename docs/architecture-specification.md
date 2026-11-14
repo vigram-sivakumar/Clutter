@@ -1099,3 +1099,5 @@ PageOperations additionally exposes `mutateBodyAndSave(pageId: string, transform
 ## Task collection date grouping (ADR-076)
 
 [ADR-076](./adr/076-task-collections-group-by-due-date.md) extends the existing collection presentation contract: `CollectionViewConfig.groupBy?: 'none' | 'dueDate'` is persisted by `CollectionViewConfigStore.update` in its existing metadata key. The resolver exposes grouping only for tasks, defaulting to None. List and Table consume one shared due-date grouping calculation; the generic table accepts optional `{ id, header, rows }` groups without importing task or sidebar code. Task membership, identity, editing and persistence APIs are unchanged.
+
+`ResolvedCollectionView.disabled?: readonly PropertyId[]` describes properties temporarily unavailable in a view. Grouping tasks by Due date excludes `dueDate` from `visible` and disables its unchecked Properties option, preserving the stored visibility choice for ungrouped layouts. Properties, Group by and Display reuse the existing replacement-submenu mechanism, in that order above Sort by.

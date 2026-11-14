@@ -90,9 +90,9 @@ export interface TasksCollectionBodyProps {
  * scroll space that lets the last row scroll clear of the page's bottom
  * fade. Defined once here so no individual view can forget it.
  */
-function TasksPageBody({ children }: { readonly children: ReactNode }) {
+function TasksPageBody({ children, isList = false }: { readonly children: ReactNode; readonly isList?: boolean }) {
   return (
-    <PageBody className="collection__content">
+    <PageBody className="collection__content" data-task-layout={isList ? 'list' : undefined}>
       {children}
       <div className="collection__bottom-spacer" aria-hidden="true" />
     </PageBody>
@@ -333,7 +333,7 @@ export function TasksCollectionBody({
   };
 
   return (
-    <TasksPageBody>
+    <TasksPageBody isList>
       {dateGroups ? dateGroups.map(({ date, items }) => (
         <Section key={date || 'unscheduled'} {...sectionProps(date)}>
           <CollectionDataList className="task-list" items={items.map(itemOf)} />

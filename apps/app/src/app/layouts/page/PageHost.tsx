@@ -606,7 +606,8 @@ export function PageHost({
     updateCollectionViewConfig({ layout });
   // A required property can't be turned off, and a property at its default needs no override:
   // `setPropertyVisibility` is the one place that decides what a toggle writes.
-  const setCollectionProperty = (id: PropertyId, visible: boolean): void =>
+  const setCollectionProperty = (id: PropertyId, visible: boolean): void => {
+    if (collectionView.disabled?.includes(id)) return;
     updateCollectionViewConfig(
       propertyOverridesPatch(
         collectionView.layout,
@@ -624,6 +625,7 @@ export function PageHost({
         collectionViewConfig
       )
     );
+  };
   const setCollectionSort = (sort: CollectionSort): void =>
     updateCollectionViewConfig({ sort });
 

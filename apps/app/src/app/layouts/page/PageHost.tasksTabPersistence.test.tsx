@@ -154,10 +154,12 @@ describe('Tasks page tab selection persists across an app restart', () => {
     await flush();
     const configure = () => document.querySelector<HTMLElement>('.page-title-section [aria-haspopup="menu"]')!;
     fireEvent.click(configure());
+    fireEvent.click(first.getByText('Group by'));
     const dueDateChoices = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].filter((row) => row.textContent === 'Due date');
     fireEvent.click(dueDateChoices[dueDateChoices.length - 1]!);
     await flush();
     expect(document.querySelectorAll('.collection__content .section-header')).toHaveLength(3);
+    fireEvent.click(first.getByRole('button', { name: 'Back to configure' }));
     fireEvent.click(first.getByText('Table'));
     await flush();
     expect(document.querySelectorAll('.collection-table__header')).toHaveLength(1);
@@ -171,6 +173,7 @@ describe('Tasks page tab selection persists across an app restart', () => {
     await flush();
     expect(document.querySelectorAll('.collection-table__group-header')).toHaveLength(3);
     fireEvent.click(configure());
+    fireEvent.click(second.getByText('Group by'));
     fireEvent.click(second.getByText('None'));
     await flush();
     expect(document.querySelectorAll('.collection-table__group-header')).toHaveLength(0);

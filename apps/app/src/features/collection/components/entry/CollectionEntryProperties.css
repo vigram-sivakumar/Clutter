@@ -12,7 +12,7 @@
   max-width: 100%;
 
   color: var(--foreground-secondary);
-  font-size: var(--text-label-small);
+  font-size: var(--text-label);
   line-height: var(--lh-label);
 }
 

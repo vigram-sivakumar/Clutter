@@ -12,6 +12,10 @@
   max-width: var(--collection-width-max);
 }
 
+.collection__content[data-task-layout='list'] {
+  gap: 20px;
+}
+
 /*
  * Breathing room below the last row/card when scrolled to the bottom of
  * .page__content (the actual scroll container — see Page.css). A real

@@ -59,6 +59,7 @@ describe('TasksCollectionBody', () => {
     ]);
     expect([...container.querySelectorAll('.task-title')].map((node) => node.textContent)).toEqual(['Alpha', 'Zebra', 'Future', 'No date']);
     expect(container.querySelectorAll('.collection__bottom-spacer')).toHaveLength(1);
+    expect(container.querySelector('.task-row__due')).toBeNull();
     if (layout === 'table') expect(container.querySelectorAll('.collection-table__header')).toHaveLength(1);
     fireEvent.click(getAllByRole('checkbox')[0]!);
     expect(onToggleComplete).toHaveBeenCalledWith(tasks[1]);
@@ -86,6 +87,7 @@ describe('TasksCollectionBody', () => {
       collectionView={resolveCollectionView(TASKS_COLLECTION, { layout: 'table', groupBy: 'none' })} />);
     expect(container.querySelector('.section-header')).toBeNull();
     expect(queryByText('Dated')).toBeInTheDocument();
+    expect(container.querySelector('.task-row__due')).not.toBeNull();
   });
 
   it.each(['list', 'table'] as const)('%s applies completion visibility and sorting inside each group without empty date headings', (layout) => {

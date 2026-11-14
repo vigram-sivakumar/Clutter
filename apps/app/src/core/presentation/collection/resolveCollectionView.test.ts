@@ -26,6 +26,17 @@ const SCRAMBLED: CollectionDefinition = {
 };
 
 describe('resolveCollectionView — order and membership', () => {
+  it.each(['list', 'table'] as const)('%s hides and disables Due date only while grouping, retaining its visibility intent', (layout) => {
+    const config = { layout, groupBy: 'dueDate' as const, propertyOverrides: { dueDate: true }, listPropertyOverrides: { dueDate: true } };
+    const grouped = resolveCollectionView(TASKS_COLLECTION, config);
+    expect(grouped.visible).not.toContain('dueDate');
+    expect(grouped.disabled).toContain('dueDate');
+    const flat = resolveCollectionView(TASKS_COLLECTION, { ...config, groupBy: 'none' });
+    expect(flat.visible).toContain('dueDate');
+    expect(flat.disabled).toBeUndefined();
+    expect(config.propertyOverrides.dueDate).toBe(true);
+  });
+
   it('offers grouping only for task collections and keeps it across layouts', () => {
     for (const definition of [TASKS_COLLECTION, TASK_INBOX_COLLECTION]) {
       expect(resolveCollectionView(definition).groupBy).toBe('none');

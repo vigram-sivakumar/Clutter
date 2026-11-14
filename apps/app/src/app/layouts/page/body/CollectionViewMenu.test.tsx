@@ -87,6 +87,50 @@ const sortLabels = () => {
 };
 
 describe('CollectionViewMenu — root view', () => {
+  it('orders the Properties, Group by and Display submenus above Sort by and reuses their back navigation', () => {
+    const onDisplay = vi.fn();
+    const { container, getByText, getByRole, queryByText } = render(<CollectionViewMenu
+      view={resolveCollectionView(TASKS_COLLECTION, { groupBy: 'dueDate' })}
+      onLayoutChange={vi.fn()} onPropertyChange={vi.fn()} onSortChange={vi.fn()} onGroupByChange={vi.fn()}
+      toggles={[{ id: 'show', label: 'Show completed', checked: true, onChange: onDisplay }]}
+    />);
+    const trigger = container.querySelector('[aria-haspopup="menu"]')!;
+    fireEvent.click(trigger);
+    const text = document.querySelector('.menu')!.textContent!;
+    expect(text.indexOf('Properties')).toBeLessThan(text.indexOf('Group by'));
+    expect(text.indexOf('Group by')).toBeLessThan(text.indexOf('Display'));
+    expect(text.indexOf('Display')).toBeLessThan(text.indexOf('Sort by'));
+    expect(queryByText('None')).toBeNull();
+    expect(queryByText('Show completed')).toBeNull();
+    fireEvent.click(getByText('Group by'));
+    expect(getByText('None')).toBeInTheDocument();
+    expect(queryByText('Sort by')).toBeNull();
+    fireEvent.click(getByRole('button', { name: 'Back to configure' }));
+    fireEvent.click(getByText('Display'));
+    fireEvent.click(getByText('Show completed'));
+    expect(onDisplay).toHaveBeenCalledWith(false);
+    expect(queryByText('Layout')).toBeNull();
+    fireEvent.click(trigger);
+    fireEvent.click(trigger);
+    expect(getByText('Layout')).toBeInTheDocument();
+    expect(queryByText('Show completed')).toBeNull();
+  });
+
+  it('shows Due date unchecked and disabled in Properties when grouping by due date', () => {
+    const onPropertyChange = vi.fn();
+    const { container, getByText } = render(<CollectionViewMenu
+      view={resolveCollectionView(TASKS_COLLECTION, { groupBy: 'dueDate' })}
+      onLayoutChange={vi.fn()} onPropertyChange={onPropertyChange} onSortChange={vi.fn()}
+    />);
+    fireEvent.click(container.querySelector('[aria-haspopup="menu"]')!);
+    fireEvent.click(getByText('Properties'));
+    const row = getByText('Due date').closest('[role="menuitem"]')!;
+    expect(row).toHaveAttribute('aria-disabled', 'true');
+    expect(row.querySelector('.entry__leading svg')).toBeNull();
+    fireEvent.click(row);
+    expect(onPropertyChange).not.toHaveBeenCalled();
+  });
+
   it('offers None and Due date for task collections and emits the grouping choice', () => {
     const onGroupByChange = vi.fn();
     const { container, getByText } = render(<CollectionViewMenu
@@ -98,6 +142,7 @@ describe('CollectionViewMenu — root view', () => {
     />);
     fireEvent.click(container.querySelector('[aria-haspopup="menu"]')!);
     expect(getByText('Group by')).toBeInTheDocument();
+    fireEvent.click(getByText('Group by'));
     fireEvent.click(getByText('None'));
     expect(onGroupByChange).toHaveBeenLastCalledWith('none');
     const dueDateRows = [...document.querySelectorAll('[role="menuitem"]')].filter((row) => row.textContent === 'Due date');
@@ -590,10 +635,11 @@ describe('CollectionViewMenu — extra toggles (All tasks: Show completed / Auto
       />
     );
     fireEvent.click(utils.container.querySelector('[aria-haspopup="menu"]')!);
+    fireEvent.click(utils.getByText('Display'));
     return { ...utils, onShow, onAuto };
   }
 
-  it('lists the toggles after Sort by, separated by a divider, with a tick on the checked ones', () => {
+  it('lists the toggles inside the Display submenu, with a tick on the checked ones', () => {
     renderWithToggles({ show: true, auto: false });
 
     const labels = menuLabels();
@@ -624,7 +670,7 @@ describe('CollectionViewMenu — extra toggles (All tasks: Show completed / Auto
 
     expect(onShow).toHaveBeenCalledWith(false);
     expect(onAuto).toHaveBeenCalledWith(true);
-    expect(getByText('Layout')).toBeInTheDocument();
+    expect(getByText('Display')).toBeInTheDocument();
   });
 
   it('draws nothing extra without toggles (every other collection)', () => {
