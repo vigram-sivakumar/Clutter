@@ -1,0 +1,30 @@
+refused: step HC-01 nested foreign insertion: classify inverse vs refusal — UNDO_BLOCKED_FOREIGN_CONTENT
+pass: step HC-02 disjoint foreign text allows own undo and redo
+pass: step HC-03 foreign formatting: classify conservative refusal separately
+refused: step HC-04-row structural undo must retain foreign text in newly added cells — UNDO_BLOCKED_FOREIGN_CONTENT
+refused: step HC-04-column structural undo must retain foreign text in newly added cells — UNDO_BLOCKED_FOREIGN_CONTENT
+pass: step HC-05 disjoint foreign edit after row append exposes overbroad refusals
+pass: step HC-06 destructive view close/remount retains context undo history
+pass: step HC-07 delayed peer delivery converges and preserves foreign edits on undo
+refused: step HC-08 CLI foreign insertion shares the live view authority/history boundary — UNDO_BLOCKED_FOREIGN_CONTENT
+pass: step CP-01 desktop, real CLI and persistent stdio MCP share one accepted owner
+pass: step CP-02 operation retry crosses CLI/MCP and keeps one stable receipt
+pass: step CP-03 competing stale commands cannot silently overwrite accepted state
+pass: step CP-04 lost CLI response resolves via MCP outcome without duplicating accepted edit
+pass: step CP-05 owner reset rejects old session commands instead of applying them to new state
+pass: step CP-06 MCP notification/invalid requests do not mutate the live owner
+pass: origin HC-01 nested foreign insertion: classify inverse vs refusal
+pass: origin HC-02 disjoint foreign text allows own undo and redo
+pass: origin HC-03 foreign formatting: classify conservative refusal separately
+refused: origin HC-04-row structural undo must retain foreign text in newly added cells — UNDO_BLOCKED_FOREIGN_TABLE_EDIT
+refused: origin HC-04-column structural undo must retain foreign text in newly added cells — UNDO_BLOCKED_FOREIGN_TABLE_EDIT
+pass: origin HC-05 disjoint foreign edit after row append exposes overbroad refusals
+pass: origin HC-06 destructive view close/remount retains context undo history
+pass: origin HC-07 delayed peer delivery converges and preserves foreign edits on undo
+pass: origin HC-08 CLI foreign insertion shares the live view authority/history boundary
+pass: origin CP-01 desktop, real CLI and persistent stdio MCP share one accepted owner
+pass: origin CP-02 operation retry crosses CLI/MCP and keeps one stable receipt
+pass: origin CP-03 competing stale commands cannot silently overwrite accepted state
+pass: origin CP-04 lost CLI response resolves via MCP outcome without duplicating accepted edit
+pass: origin CP-05 owner reset rejects old session commands instead of applying them to new state
+pass: origin CP-06 MCP notification/invalid requests do not mutate the live owner

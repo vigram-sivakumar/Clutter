@@ -256,17 +256,20 @@ manual rerun or verdict-click cleanup is requested. A targeted native history/
 selection smoke can be batched with the next integrated slice before architecture
 acceptance. NM-03 remains unavailable and NM-06 deferred by user priority.
 
-## Next action: prepare the actual joined Mac candidate
+## Next action: launch runner16, then JN-01
 
-[Joined core15](r08-joined-core.md) passes JG-01–10 on Linux, with real EditorViews
-and a real durable owner. No new Mac result is claimed. Next prepare the packaged
-headless/native JG-11 candidate and only then guide targeted input/history/lifecycle
-and app-closed CLI/MCP checks. The existing Swift lab is still the older fixture;
-running it cannot qualify this new integration.
+The [new runner](r08-native-runner.md) is prepared with a pinned runtime and actual
+joined owner/editors. Eight Linux helper checks pass, **not native acceptance**.
+Native Swift/SDK compilation, signing/archive execution and WK tests have not run
+here. User runs npm run native:joined and shares actual setup/window output first.
+Fix concrete launch issues; when ready guide JN-01 one variation at a time. The
+old R07 lab/manual catalogue is not this candidate and must not be replayed as it.
 
-Earlier confirmed passes/raw reports remain intact. No broad manual replay or
-verdict cleanup now. IME unavailable, VoiceOver deferred, native15 not-run.
-No native host/runtime or production architecture accepted. [Evidence](evidence/r08-15-2026-11-14.json).
+Original manual passes/click corrections remain intact. IME unavailable and
+VoiceOver deferred; no fake passes. JG-11 remains open; prepared ad-hoc/same-user
+fixture is not production signing/sandbox/security/multi-client lease acceptance.
+[Evidence](evidence/r08-16-2026-11-14.json). Bundle16 supports13/14/15; corrected15
+apply command was supplied but completion is not explicitly confirmed.
 
 ## Next agent action
 

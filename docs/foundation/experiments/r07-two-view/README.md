@@ -193,3 +193,10 @@ PM/Y EditorViews and a real separate owner, not the earlier read-only browser
 projections. Shared Store/host and stable CLI/MCP operations commit one accepted
 Y root with its outcome. Native/installed JG-11 and entity/external assets12/13
 remain explicit gates. No new manual session or selected production stack.
+
+## New joined Mac runner16
+
+Use [joined-native guide](joined-native/README.md), not native:mac, for the actual
+joined candidate. npm run native:joined packages a pinned runtime and starts a
+separate Swift/WK host after headless checks. Native build/run is not-run here;
+8 Linux helper checks do not pass JG-11. Start JN-01 only when the new window is ready.

@@ -1,0 +1,13 @@
+{
+  "platform": "linux",
+  "arch": "x64",
+  "ready": false,
+  "nativeAcceptance": "not-run",
+  "checks": [
+    {
+      "name": "macOS",
+      "status": "blocked",
+      "reason": "Actual macOS build/run required; Linux tests cannot qualify WKWebView."
+    }
+  ]
+}

@@ -3,6 +3,22 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.40 — 2026-11-14
+
+- Prepared separate joined Mac/WKWebView host, pinned official runtime packaging,
+  ad-hoc signing, pre-window headless CLI/MCP smoke and4 targeted manual cases.
+  No Mac compilation/archive execution/signing/native pass claimed on Linux.
+- Added private marked discovery, component fingerprints, detached supervisor and
+  context-release metadata so abandoned input is recoverable without killing the
+  authority. New native schema2/marker; shared SQL/codec mechanics, no old migration
+  or duplicate document/task rules. Supervisor loss drains its actual writer.
+- Eight Linux packaged/helper checks,84 Node,10 joined,18 snapshot and unchanged
+  strict24 pass/6 refusals pass. Initial Unix EPERM and stale-reference attempts
+  retained. Native PRAGMA requests/readback are not power-loss proof.
+- Next actual Mac setup/window result, then JN-01 only. Earlier manual results,
+  IME/VoiceOver priorities preserved. Bundle16 supports exact13/14/15 and avoids
+  a repeated extraction-folder name. No production/dependency lock/agent commit.
+
 ## 0.39 — 2026-11-14
 
 - Joined two actual PM/Y editor views to an independent SQLite owner with one

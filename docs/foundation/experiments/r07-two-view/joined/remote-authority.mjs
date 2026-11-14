@@ -69,6 +69,11 @@ export class RemoteAuthority extends OriginAuthority {
       for (const p of this.peers.values()) p.history?.manager.clear();
       this.historyBoundary = 'OWNER_RESTART';
     }
+    for (const head of root.recoveryHeads ?? [])
+      this.generation.set(
+        head.context_id,
+        Math.max(this.generation.get(head.context_id) ?? 0, head.generation)
+      );
     this.epoch = root.ownerEpoch;
     this.serverVersion = root.version;
     Y.applyUpdate(this.doc, bytes(root.state.payload), this.remoteOrigin);

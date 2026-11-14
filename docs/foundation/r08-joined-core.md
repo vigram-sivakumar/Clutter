@@ -108,3 +108,10 @@ recorded G-M gates before related baseline acceptance; they are not newly added
 research. Keep the [review gate order](architecture-review.md) and [gap ledger](architecture-gap-disposition.md).
 No production implementation, accepted ADR, provider enablement, agent commit or
 push is authorized by a passing G-J slice alone.
+
+## Native runner preparation, revision0.40
+
+[Runner16](r08-native-runner.md) is prepared;8 Linux helper checks pass, not native
+compilation/execution or JG-11 acceptance. Next actual Mac launch/setup output and
+then targeted JN-01. Earlier evidence and remaining model/security/asset gates are
+unchanged; no production stack selected.

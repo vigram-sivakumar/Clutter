@@ -119,3 +119,10 @@ views and an independent SQL owner, plus retained regressions. G-J is boundedly
 qualified; no full stack accepted. Next JG-11 native/installed-headless candidate;
 JG-12/13 model/external-asset and other G-Q gates remain. Frozen JG specification
 not-run fields record its original state; execution evidence is separate.
+
+## Native runner preparation, revision0.40
+
+[Runner16](r08-native-runner.md) is prepared;8 Linux helper checks pass, not native
+compilation/execution or JG-11 acceptance. Next actual Mac launch/setup output and
+then targeted JN-01. Earlier evidence and remaining model/security/asset gates are
+unchanged; no production stack selected.

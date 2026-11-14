@@ -6,6 +6,8 @@ import { release as osRelease } from 'node:os';
 import { Store } from './store.mjs';
 export async function startHost({
   model,
+  nativeFullSync = false,
+  requireSupervisor = false,
   htmlPath = new URL('./desktop.html', import.meta.url),
   assets = null,
   editorContexts = [],
@@ -17,6 +19,7 @@ export async function startHost({
       throw Error('STORE_REQUIRED');
     store = new Store(dir, {
       init: process.argv.includes('--init'),
+      nativeFullSync,
       ...(model ? { model } : {}),
     });
   } catch (e) {
@@ -217,11 +220,16 @@ export async function startHost({
       });
     }
   );
-  process.on('SIGTERM', () => {
+  let stopping = false;
+  const shutdown = () => {
+    if (stopping) return;
+    stopping = true;
     for (const s of subscribers) s.end();
     server.close(() => {
       store.close();
       process.exit(0);
     });
-  });
+  };
+  process.on('SIGTERM', shutdown);
+  if (requireSupervisor) process.on('disconnect', shutdown);
 }

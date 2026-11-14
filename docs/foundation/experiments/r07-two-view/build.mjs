@@ -41,3 +41,10 @@ await build({
   format: 'esm',
   outfile: 'dist/joined.js',
 });
+
+await build({
+  entryPoints: ['joined-native/browser-entry.mjs'],
+  bundle: true,
+  format: 'esm',
+  outfile: 'dist/joined-native.js',
+});

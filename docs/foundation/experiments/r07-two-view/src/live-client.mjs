@@ -1,7 +1,9 @@
 // Experiment transport only. No filesystem/store access and no document logic.
-export async function remoteCommand(command) {
-  const endpoint = new URL(process.env.CLUTTER_LAB_RELAY_URL ?? 'invalid:');
-  const token = process.env.CLUTTER_LAB_RELAY_TOKEN;
+export async function remoteCommand(command, connection) {
+  const endpoint = new URL(
+    connection?.url ?? process.env.CLUTTER_LAB_RELAY_URL ?? 'invalid:'
+  );
+  const token = connection?.token ?? process.env.CLUTTER_LAB_RELAY_TOKEN;
   if (
     endpoint.protocol !== 'http:' ||
     endpoint.hostname !== '127.0.0.1' ||

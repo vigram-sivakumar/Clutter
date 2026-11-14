@@ -1,6 +1,6 @@
 # Clutter foundation
 
-Status: architecture definition pack, revision 0.39, 2026-11-14. Product scope
+Status: architecture definition pack, revision 0.40, 2026-11-14. Product scope
 confirmed; technology proposals remain unqualified.
 Baseline: `main` at `cae604273115c0c6c0d3ac34533b1e9834e9c778`.
 Working branch: `architecture/clutter-foundation`.
@@ -10,7 +10,8 @@ New chat or AI agent: start at [START-HERE](START-HERE.md), then follow the
 PM/Y origin-aware editing, a headless TS authority and SQLite for joined qualification.
 [Gap ledger](architecture-gap-disposition.md) and [JG contract](joined-core-contract.json)
 record remaining gates. [Joined result](r08-joined-core.md): JG-01–10 now pass with two actual editors and
-one durable owner. Next: prepare the Mac/installed-headless JG-11 candidate.
+one durable owner. [Mac runner](r08-native-runner.md) is prepared; next run it on the real Mac and
+report setup/window output before targeted JN-01.
 This is a proposed combination, not an accepted architecture or production rebuild.
 
 ## Purpose and authority
@@ -21,7 +22,7 @@ live cloud collaboration deferred.
 Evaluate it as a greenfield product. Migration and implementation effort remain
 visible planning dimensions with zero weight in architectural selection.
 
-The 0.2 product scope, retained in 0.39, reflects the user clarification sequence. Earlier draft
+The 0.2 product scope, retained in 0.40, reflects the user clarification sequence. Earlier draft
 requirements superseded by that discussion are replaced in this folder.
 This pack contains requirements and proposals, not an approved implementation
 specification. Existing documentation and `ARCHITECTURE_RULES.md` continue to
@@ -163,3 +164,7 @@ Revision0.39 executes [joined qualification](r08-joined-core.md):10 bounded Linu
 passes; next native/installed host, with entity/external-asset gates still explicit.
 Frozen JG declarations retain their original status; evidence records executions.
 No production/ADR acceptance or broad manual rerun. Bundle15 supports exact13/14.
+
+Revision0.40 prepares the [new native runner](r08-native-runner.md), pinned runtime
+and context handoff;8 Linux helper checks plus retained regressions pass. Native
+compilation/execution remains not-run. No stack approval or old manual replay.

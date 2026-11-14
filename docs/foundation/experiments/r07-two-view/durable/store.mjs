@@ -24,7 +24,10 @@ const sync = (p) => {
   }
 };
 export class Store {
-  constructor(dir, { init = false, model = snapshotModel } = {}) {
+  constructor(
+    dir,
+    { init = false, model = snapshotModel, nativeFullSync = false } = {}
+  ) {
     this.model = model;
     const marker = model.marker ?? 'CLUTTER-R07-DURABLE-EXPERIMENT-1\n';
     this.encode = model.encode ?? stable;
@@ -64,7 +67,11 @@ export class Store {
     });
     try {
       const db = this.db;
-      if (!init && db.prepare('PRAGMA user_version').get().user_version !== 1)
+      if (
+        !init &&
+        db.prepare('PRAGMA user_version').get().user_version !==
+          (model.schemaVersion ?? 1)
+      )
         throw Error('UNSUPPORTED_SCHEMA');
       if (typeof db.enableDefensive !== 'function')
         throw Error('UNSUPPORTED_NODE_PROFILE');
@@ -76,6 +83,11 @@ export class Store {
       db.exec(
         'PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA cache_size=8; PRAGMA cache_spill=ON; BEGIN EXCLUSIVE; COMMIT;'
       );
+      if (nativeFullSync) {
+        if (process.platform !== 'darwin')
+          throw Error('MAC_FLUSH_PROFILE_REQUIRES_MAC');
+        db.exec('PRAGMA fullfsync=ON; PRAGMA checkpoint_fullfsync=ON;');
+      }
       const sqlite = db
         .prepare(
           'SELECT sqlite_version() AS version, sqlite_source_id() AS source'
@@ -98,6 +110,8 @@ export class Store {
           'page_size',
           'cache_size',
           'cache_spill',
+          'fullfsync',
+          'checkpoint_fullfsync',
         ].map((k) => [k, Object.values(db.prepare('PRAGMA ' + k).get())[0]])
       );
       if (
@@ -110,7 +124,13 @@ export class Store {
         !pragmas.cache_spill
       )
         throw Error('PROFILE_MISMATCH');
+      if (
+        nativeFullSync &&
+        (pragmas.fullfsync !== 1 || pragmas.checkpoint_fullfsync !== 1)
+      )
+        throw Error('MAC_FLUSH_PROFILE_MISMATCH');
       this.profile = {
+        nativeFullSyncRequired: nativeFullSync,
         node: process.version,
         platform: process.platform,
         arch: process.arch,
@@ -129,7 +149,8 @@ export class Store {
       CREATE TABLE pins(version INTEGER PRIMARY KEY REFERENCES revisions(version));
       CREATE TABLE blobs(hash TEXT PRIMARY KEY,bytes BLOB NOT NULL);
       CREATE TABLE recovery(context_id TEXT PRIMARY KEY,generation INTEGER NOT NULL,base_version INTEGER NOT NULL REFERENCES revisions(version),owner_epoch TEXT NOT NULL,payload ${model.storageType ?? 'TEXT'},hash TEXT,active INTEGER NOT NULL);
-      PRAGMA user_version=1;`);
+      PRAGMA user_version=${model.schemaVersion ?? 1};`);
+        model.initialize?.(db);
         const s = this.encode(model.initial());
         db.prepare('INSERT INTO revisions VALUES(0,NULL,?,?,NULL)').run(
           s,
@@ -230,6 +251,7 @@ export class Store {
       } else if (r.payload !== null || r.hash !== null)
         throw Error('BROKEN_RECOVERY');
     }
+    this.model.checkClosure?.(this);
   }
   async execute(c, grant) {
     if (this.failed) throw Error('OWNER_UNAVAILABLE_RECONNECT');
@@ -272,7 +294,7 @@ export class Store {
           ...r,
           state: this.decode(r.payload),
           payload: undefined,
-          liveOwned: r.owner_epoch === this.epoch,
+          liveOwned: this.recoveryLive(r),
         }));
     if (!this.model.mutations.includes(c.method)) throw Error('UNKNOWN_METHOD');
     if (this.uncertainOperation) throw Error('COMMIT_OUTCOME_UNRESOLVED');
@@ -346,8 +368,7 @@ export class Store {
         .get(c.contextId);
       if (!recovery || recovery.generation !== c.generation)
         throw Error('RECOVERY_NOT_FOUND');
-      if (recovery.owner_epoch === this.epoch)
-        throw Error('RECOVERY_LIVE_OWNED');
+      if (this.recoveryLive(recovery)) throw Error('RECOVERY_LIVE_OWNED');
       if (recovery.base_version !== version) throw Error('RECOVERY_CONFLICT');
       state = this.decode(recovery.payload);
     }
@@ -424,6 +445,7 @@ export class Store {
         db.prepare(
           'UPDATE recovery SET active=0,payload=NULL,hash=NULL WHERE context_id=?'
         ).run(c.contextId);
+      this.model.applyMetadata?.(c, this);
       db.prepare('INSERT INTO outcomes VALUES(?,?,?,?)').run(
         c.operationId,
         fingerprint,
@@ -482,6 +504,11 @@ export class Store {
       ...s,
       attachments: s.attachments.filter((a) => a.blobHash !== h),
     });
+  }
+  recoveryLive(r) {
+    return (
+      this.model.isRecoveryLiveOwned?.(r, this) ?? r.owner_epoch === this.epoch
+    );
   }
   outcome(id) {
     const r = this.db

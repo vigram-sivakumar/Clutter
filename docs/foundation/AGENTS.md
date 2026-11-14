@@ -64,7 +64,7 @@ them by implication.
   state transition/schema before code; preserve old comparisons/native reports.
   User confirms13 applied; review14 base is exact13. No broad manual replay.
 
-- Current checkpoint0.39: read r08-joined-core.md and evidence/r08-15-2026-11-14.json.
+- Historical checkpoint0.39: read r08-joined-core.md and evidence/r08-15-2026-11-14.json.
   JG-01–10 now pass; their0.38 frozen contract remains historically not-run and must
   not be mistaken for current execution status. Next prepare the actual joined
   Mac/installed-headless JG-11 candidate; old Swift lab is not this integration.
@@ -72,3 +72,11 @@ them by implication.
   replay the old manual session, accept a stack or implement production from G-J.
   Bundle15 supports exact13/14 because14 application is unconfirmed. New proof
   stores one accepted Y BLOB; never add a competing PM JSON/Markdown save path.
+
+- Current0.40: r08-native-runner.md and r08-16 evidence. Native runner is prepared,
+  not Mac compiled/run. Next user launches npm run native:joined and reports setup;
+  only then guide JN-01. Eight Linux helper checks are not JG-11 acceptance.
+  Separate Swift host uses pinned packaged runtime and explicit context handoff;
+  no production security/lease/shell decision. Do not ask for private endpoint files.
+  Bundle16 preflights13/14/15;15 application unconfirmed after corrected command.
+  Use temporary extraction variable so downloaded folder renaming cannot break apply.

@@ -1,0 +1,4334 @@
+{
+  "date": "2026-11-14",
+  "codec": "clutter-r08-y-state-v1",
+  "profile": {
+    "nativeFullSyncRequired": false,
+    "node": "v24.22.1",
+    "platform": "linux",
+    "arch": "x64",
+    "sqlite": {
+      "version": "3.53.4",
+      "source": "2026-07-24 19:02:57 bf7c7f30031888f4e796e429ab3978879485813aaca6f641c7b33e4e09459bcc"
+    },
+    "pragmas": {
+      "journal_mode": "wal",
+      "synchronous": 2,
+      "locking_mode": "exclusive",
+      "foreign_keys": 1,
+      "trusted_schema": 0,
+      "page_size": 4096,
+      "cache_size": 8,
+      "cache_spill": 8,
+      "fullfsync": 0,
+      "checkpoint_fullfsync": 0
+    },
+    "compileOptions": [
+      "ATOMIC_INTRINSICS=1",
+      "COMPILER=gcc-14.2.1 20250110 (Red Hat 14.2.1-11)",
+      "DEFAULT_AUTOVACUUM",
+      "DEFAULT_CACHE_SIZE=-2000",
+      "DEFAULT_FILE_FORMAT=4",
+      "DEFAULT_JOURNAL_SIZE_LIMIT=-1",
+      "DEFAULT_MEMSTATUS=0",
+      "DEFAULT_MMAP_SIZE=0",
+      "DEFAULT_PAGE_SIZE=4096",
+      "DEFAULT_PCACHE_INITSZ=20",
+      "DEFAULT_RECURSIVE_TRIGGERS",
+      "DEFAULT_SECTOR_SIZE=4096",
+      "DEFAULT_SYNCHRONOUS=2",
+      "DEFAULT_WAL_AUTOCHECKPOINT=1000",
+      "DEFAULT_WAL_SYNCHRONOUS=2",
+      "DEFAULT_WORKER_THREADS=0",
+      "DIRECT_OVERFLOW_READ",
+      "ENABLE_COLUMN_METADATA",
+      "ENABLE_DBSTAT_VTAB",
+      "ENABLE_FTS3",
+      "ENABLE_FTS3_PARENTHESIS",
+      "ENABLE_FTS5",
+      "ENABLE_GEOPOLY",
+      "ENABLE_MATH_FUNCTIONS",
+      "ENABLE_PERCENTILE",
+      "ENABLE_PREUPDATE_HOOK",
+      "ENABLE_RBU",
+      "ENABLE_RTREE",
+      "ENABLE_SESSION",
+      "MALLOC_SOFT_LIMIT=1024",
+      "MAX_ATTACHED=10",
+      "MAX_COLUMN=2000",
+      "MAX_COMPOUND_SELECT=500",
+      "MAX_DEFAULT_PAGE_SIZE=8192",
+      "MAX_EXPR_DEPTH=1000",
+      "MAX_FUNCTION_ARG=1000",
+      "MAX_LENGTH=1000000000",
+      "MAX_LIKE_PATTERN_LENGTH=50000",
+      "MAX_MMAP_SIZE=0x7fff0000",
+      "MAX_PAGE_COUNT=0xfffffffe",
+      "MAX_PAGE_SIZE=65536",
+      "MAX_SQL_LENGTH=1000000000",
+      "MAX_TRIGGER_DEPTH=1000",
+      "MAX_VARIABLE_NUMBER=32766",
+      "MAX_VDBE_OP=250000000",
+      "MAX_WORKER_THREADS=8",
+      "MUTEX_PTHREADS",
+      "SYSTEM_MALLOC",
+      "TEMP_STORE=1",
+      "THREADSAFE=1"
+    ],
+    "osRelease": "6.18.57",
+    "filesystemType": 16914836
+  },
+  "results": [
+    {
+      "id": "JG-01",
+      "case_id": "JG-01",
+      "status": "pass",
+      "source_manifest": "candidate-manifest.json",
+      "codec_version": "clutter-r08-y-state-v1",
+      "runtime_and_sqlite_profile": "profile",
+      "os_filesystem": "profile.osRelease/filesystemType",
+      "fixture_ids_and_hashes": [
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "d2019d9a-5913-43aa-b302-3488ed396ca5",
+          "spaceId": "8bac2379-1793-4157-a3c9-a5823e6bb757",
+          "documentId": "60545a46-7157-4f91-b29a-6450a0798523",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "5d146e469f7c9ba3055b65410f6798c8eb759957575026e9883580b8a50bf434",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "restart",
+          "type": "inspection",
+          "id": "4d908270-e03a-40f2-a50d-f6e9160ba66f",
+          "spaceId": "8bac2379-1793-4157-a3c9-a5823e6bb757",
+          "documentId": "60545a46-7157-4f91-b29a-6450a0798523",
+          "version": 1,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "5d146e469f7c9ba3055b65410f6798c8eb759957575026e9883580b8a50bf434",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "2f6eb5704c68bda5bb0f9b0558f00e8e5881b92f3dcc003a6ced0bc497ffe71c",
+              "operation_id": "a9ed3cd0-9e3d-4894-9d01-6411a5c7cfba"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "a9ed3cd0-9e3d-4894-9d01-6411a5c7cfba",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "60545a46-7157-4f91-b29a-6450a0798523",
+                "durability": "durable",
+                "operationId": "a9ed3cd0-9e3d-4894-9d01-6411a5c7cfba",
+                "spaceId": "8bac2379-1793-4157-a3c9-a5823e6bb757",
+                "status": "applied",
+                "version": 1
+              }
+            }
+          ],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "e4a2283f-2259-40f4-8247-b36a96b5960a",
+          "spaceId": "8bac2379-1793-4157-a3c9-a5823e6bb757",
+          "documentId": "60545a46-7157-4f91-b29a-6450a0798523",
+          "version": 1,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "5d146e469f7c9ba3055b65410f6798c8eb759957575026e9883580b8a50bf434",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "2f6eb5704c68bda5bb0f9b0558f00e8e5881b92f3dcc003a6ced0bc497ffe71c",
+              "operation_id": "a9ed3cd0-9e3d-4894-9d01-6411a5c7cfba"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "a9ed3cd0-9e3d-4894-9d01-6411a5c7cfba",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "60545a46-7157-4f91-b29a-6450a0798523",
+                "durability": "durable",
+                "operationId": "a9ed3cd0-9e3d-4894-9d01-6411a5c7cfba",
+                "spaceId": "8bac2379-1793-4157-a3c9-a5823e6bb757",
+                "status": "applied",
+                "version": 1
+              }
+            }
+          ],
+          "recovery": [],
+          "faultControls": []
+        }
+      ],
+      "operation_ids": [
+        "a9ed3cd0-9e3d-4894-9d01-6411a5c7cfba"
+      ],
+      "fault_phase": [],
+      "before_after_revisions_roots_outcomes": [
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "d2019d9a-5913-43aa-b302-3488ed396ca5",
+          "spaceId": "8bac2379-1793-4157-a3c9-a5823e6bb757",
+          "documentId": "60545a46-7157-4f91-b29a-6450a0798523",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "5d146e469f7c9ba3055b65410f6798c8eb759957575026e9883580b8a50bf434",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "restart",
+          "type": "inspection",
+          "id": "4d908270-e03a-40f2-a50d-f6e9160ba66f",
+          "spaceId": "8bac2379-1793-4157-a3c9-a5823e6bb757",
+          "documentId": "60545a46-7157-4f91-b29a-6450a0798523",
+          "version": 1,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "5d146e469f7c9ba3055b65410f6798c8eb759957575026e9883580b8a50bf434",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "2f6eb5704c68bda5bb0f9b0558f00e8e5881b92f3dcc003a6ced0bc497ffe71c",
+              "operation_id": "a9ed3cd0-9e3d-4894-9d01-6411a5c7cfba"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "a9ed3cd0-9e3d-4894-9d01-6411a5c7cfba",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "60545a46-7157-4f91-b29a-6450a0798523",
+                "durability": "durable",
+                "operationId": "a9ed3cd0-9e3d-4894-9d01-6411a5c7cfba",
+                "spaceId": "8bac2379-1793-4157-a3c9-a5823e6bb757",
+                "status": "applied",
+                "version": 1
+              }
+            }
+          ],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "e4a2283f-2259-40f4-8247-b36a96b5960a",
+          "spaceId": "8bac2379-1793-4157-a3c9-a5823e6bb757",
+          "documentId": "60545a46-7157-4f91-b29a-6450a0798523",
+          "version": 1,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "5d146e469f7c9ba3055b65410f6798c8eb759957575026e9883580b8a50bf434",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "2f6eb5704c68bda5bb0f9b0558f00e8e5881b92f3dcc003a6ced0bc497ffe71c",
+              "operation_id": "a9ed3cd0-9e3d-4894-9d01-6411a5c7cfba"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "a9ed3cd0-9e3d-4894-9d01-6411a5c7cfba",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "60545a46-7157-4f91-b29a-6450a0798523",
+                "durability": "durable",
+                "operationId": "a9ed3cd0-9e3d-4894-9d01-6411a5c7cfba",
+                "spaceId": "8bac2379-1793-4157-a3c9-a5823e6bb757",
+                "status": "applied",
+                "version": 1
+              }
+            }
+          ],
+          "recovery": [],
+          "faultControls": []
+        }
+      ],
+      "expected": "Both real editor views reconstruct equal validated PM content and stable Clutter IDs from committed bytes; no independent JSON/Markdown fallback.",
+      "actual": {
+        "codec": "clutter-r08-y-state-v1",
+        "version": 1,
+        "rootHash": "e7f5e1bfad16810e6af4bb6f33c6384896324673cf56e6eb6d1377d21194739d",
+        "sqliteBlobOnly": true,
+        "stableIds": {
+          "spaceId": "8bac2379-1793-4157-a3c9-a5823e6bb757",
+          "documentId": "60545a46-7157-4f91-b29a-6450a0798523"
+        }
+      },
+      "limitations": [
+        "Synthetic Linux fixture; not native/production/full security or model acceptance."
+      ],
+      "detail": {
+        "codec": "clutter-r08-y-state-v1",
+        "version": 1,
+        "rootHash": "e7f5e1bfad16810e6af4bb6f33c6384896324673cf56e6eb6d1377d21194739d",
+        "sqliteBlobOnly": true,
+        "stableIds": {
+          "spaceId": "8bac2379-1793-4157-a3c9-a5823e6bb757",
+          "documentId": "60545a46-7157-4f91-b29a-6450a0798523"
+        }
+      }
+    },
+    {
+      "id": "JG-02",
+      "case_id": "JG-02",
+      "status": "pass",
+      "source_manifest": "candidate-manifest.json",
+      "codec_version": "clutter-r08-y-state-v1",
+      "runtime_and_sqlite_profile": "profile",
+      "os_filesystem": "profile.osRelease/filesystemType",
+      "fixture_ids_and_hashes": [
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "0595a594-b9bb-4854-adeb-db78716d8883",
+          "spaceId": "4e79ca56-ecf1-4a08-a71a-6e2b8c68ceb7",
+          "documentId": "5caa1881-ff0e-493d-b1e8-792ebde488af",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "a87eb337515ae5a6dc54ad5969aa1babb5f20f0bf1004c7a8b113ef83492ffe5",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "63c5d4e5-f1d4-4fbc-ab3d-d58298789437",
+          "spaceId": "4e79ca56-ecf1-4a08-a71a-6e2b8c68ceb7",
+          "documentId": "5caa1881-ff0e-493d-b1e8-792ebde488af",
+          "version": 2,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "a87eb337515ae5a6dc54ad5969aa1babb5f20f0bf1004c7a8b113ef83492ffe5",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "030f5b473bd58d64a7cf3804009f0f8a934e8085dec99990e9255ff0a48f5259",
+              "operation_id": "d294dc87-692a-4cd7-bd8b-c3e07755ff4b"
+            },
+            {
+              "version": 2,
+              "parent": 1,
+              "hash": "125ad2c046cafb0d0badd1bf41b0562ea5d28814c057e8ca273359293d7d9af0",
+              "operation_id": "77133545-36fa-4ada-acff-28e14365e086"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "d294dc87-692a-4cd7-bd8b-c3e07755ff4b",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "5caa1881-ff0e-493d-b1e8-792ebde488af",
+                "durability": "durable",
+                "operationId": "d294dc87-692a-4cd7-bd8b-c3e07755ff4b",
+                "spaceId": "4e79ca56-ecf1-4a08-a71a-6e2b8c68ceb7",
+                "status": "applied",
+                "version": 1
+              }
+            },
+            {
+              "operation_id": "77133545-36fa-4ada-acff-28e14365e086",
+              "version": 2,
+              "result": {
+                "contextId": "A",
+                "documentId": "5caa1881-ff0e-493d-b1e8-792ebde488af",
+                "durability": "durable",
+                "operationId": "77133545-36fa-4ada-acff-28e14365e086",
+                "spaceId": "4e79ca56-ecf1-4a08-a71a-6e2b8c68ceb7",
+                "status": "applied",
+                "version": 2
+              }
+            }
+          ],
+          "recovery": [],
+          "faultControls": [
+            {
+              "type": "fail_writes",
+              "value": true
+            },
+            {
+              "type": "fail_writes",
+              "value": false
+            }
+          ]
+        }
+      ],
+      "operation_ids": [
+        "d294dc87-692a-4cd7-bd8b-c3e07755ff4b",
+        "77133545-36fa-4ada-acff-28e14365e086"
+      ],
+      "fault_phase": [
+        {
+          "type": "fail_writes",
+          "value": true
+        },
+        {
+          "type": "fail_writes",
+          "value": false
+        }
+      ],
+      "before_after_revisions_roots_outcomes": [
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "0595a594-b9bb-4854-adeb-db78716d8883",
+          "spaceId": "4e79ca56-ecf1-4a08-a71a-6e2b8c68ceb7",
+          "documentId": "5caa1881-ff0e-493d-b1e8-792ebde488af",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "a87eb337515ae5a6dc54ad5969aa1babb5f20f0bf1004c7a8b113ef83492ffe5",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "63c5d4e5-f1d4-4fbc-ab3d-d58298789437",
+          "spaceId": "4e79ca56-ecf1-4a08-a71a-6e2b8c68ceb7",
+          "documentId": "5caa1881-ff0e-493d-b1e8-792ebde488af",
+          "version": 2,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "a87eb337515ae5a6dc54ad5969aa1babb5f20f0bf1004c7a8b113ef83492ffe5",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "030f5b473bd58d64a7cf3804009f0f8a934e8085dec99990e9255ff0a48f5259",
+              "operation_id": "d294dc87-692a-4cd7-bd8b-c3e07755ff4b"
+            },
+            {
+              "version": 2,
+              "parent": 1,
+              "hash": "125ad2c046cafb0d0badd1bf41b0562ea5d28814c057e8ca273359293d7d9af0",
+              "operation_id": "77133545-36fa-4ada-acff-28e14365e086"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "d294dc87-692a-4cd7-bd8b-c3e07755ff4b",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "5caa1881-ff0e-493d-b1e8-792ebde488af",
+                "durability": "durable",
+                "operationId": "d294dc87-692a-4cd7-bd8b-c3e07755ff4b",
+                "spaceId": "4e79ca56-ecf1-4a08-a71a-6e2b8c68ceb7",
+                "status": "applied",
+                "version": 1
+              }
+            },
+            {
+              "operation_id": "77133545-36fa-4ada-acff-28e14365e086",
+              "version": 2,
+              "result": {
+                "contextId": "A",
+                "documentId": "5caa1881-ff0e-493d-b1e8-792ebde488af",
+                "durability": "durable",
+                "operationId": "77133545-36fa-4ada-acff-28e14365e086",
+                "spaceId": "4e79ca56-ecf1-4a08-a71a-6e2b8c68ceb7",
+                "status": "applied",
+                "version": 2
+              }
+            }
+          ],
+          "recovery": [],
+          "faultControls": [
+            {
+              "type": "fail_writes",
+              "value": true
+            },
+            {
+              "type": "fail_writes",
+              "value": false
+            }
+          ]
+        }
+      ],
+      "expected": "Accepted engine/root/revision/receipt stay old together; provisional input and history remain available/protected. No post-hoc rollback of a published accepted Y mutation.",
+      "actual": {
+        "acceptedBeforeCommit": false,
+        "provisionalPreserved": true,
+        "historyAfterRetry": true
+      },
+      "limitations": [
+        "Synthetic Linux fixture; not native/production/full security or model acceptance."
+      ],
+      "detail": {
+        "acceptedBeforeCommit": false,
+        "provisionalPreserved": true,
+        "historyAfterRetry": true
+      }
+    },
+    {
+      "id": "JG-03",
+      "case_id": "JG-03",
+      "status": "pass",
+      "source_manifest": "candidate-manifest.json",
+      "codec_version": "clutter-r08-y-state-v1",
+      "runtime_and_sqlite_profile": "profile",
+      "os_filesystem": "profile.osRelease/filesystemType",
+      "fixture_ids_and_hashes": [
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "e2f4fd3d-0fb4-485f-9f6f-b34214ba7ca3",
+          "spaceId": "f445aa16-ac6d-443e-95f3-5c3192684d88",
+          "documentId": "e5710162-ab83-45e0-904d-3cf50b701339",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "9ccac3281a41042cee0700b4bf479e9b616bfb6cef2cbe08f7fa5eeaefcbc767",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "restart",
+          "type": "inspection",
+          "id": "aece020e-a081-4400-8316-3492368a2a39",
+          "spaceId": "f445aa16-ac6d-443e-95f3-5c3192684d88",
+          "documentId": "e5710162-ab83-45e0-904d-3cf50b701339",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "9ccac3281a41042cee0700b4bf479e9b616bfb6cef2cbe08f7fa5eeaefcbc767",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "576e643e-398e-4186-84f7-7c55ff797411",
+          "spaceId": "f445aa16-ac6d-443e-95f3-5c3192684d88",
+          "documentId": "e5710162-ab83-45e0-904d-3cf50b701339",
+          "version": 1,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "9ccac3281a41042cee0700b4bf479e9b616bfb6cef2cbe08f7fa5eeaefcbc767",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "ebb8ae2bebfbc6cddbe5c227542f1a7abad75cef8b823c5b650294d5fa53ae08",
+              "operation_id": "bb297e2e-4f70-4f5c-9826-227341e91550"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "bb297e2e-4f70-4f5c-9826-227341e91550",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "e5710162-ab83-45e0-904d-3cf50b701339",
+                "durability": "durable",
+                "operationId": "bb297e2e-4f70-4f5c-9826-227341e91550",
+                "spaceId": "f445aa16-ac6d-443e-95f3-5c3192684d88",
+                "status": "applied",
+                "version": 1
+              }
+            }
+          ],
+          "recovery": [],
+          "faultControls": []
+        },
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "772a188e-29c1-45ba-a236-8d2482066490",
+          "spaceId": "31ee6c61-5632-41dd-bcc7-7b3c43afa65e",
+          "documentId": "d75ba6b3-d194-41f6-8090-12cbbaa1bae0",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "9b81ba9e8590f0c431ea8b797fc52f027c8aaf59da78614dbb9e62874faf5b63",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "restart",
+          "type": "inspection",
+          "id": "6df1ead2-6cd1-4c7c-b4ba-3459f6a5cb47",
+          "spaceId": "31ee6c61-5632-41dd-bcc7-7b3c43afa65e",
+          "documentId": "d75ba6b3-d194-41f6-8090-12cbbaa1bae0",
+          "version": 1,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "9b81ba9e8590f0c431ea8b797fc52f027c8aaf59da78614dbb9e62874faf5b63",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "a865ae700c564a5e357031912f86f2626b70ba9d08f0051d2021e97408cad6a6",
+              "operation_id": "8764ee66-d84c-4302-a9df-d74a03da0a09"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "8764ee66-d84c-4302-a9df-d74a03da0a09",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "d75ba6b3-d194-41f6-8090-12cbbaa1bae0",
+                "durability": "durable",
+                "operationId": "8764ee66-d84c-4302-a9df-d74a03da0a09",
+                "spaceId": "31ee6c61-5632-41dd-bcc7-7b3c43afa65e",
+                "status": "applied",
+                "version": 1
+              }
+            }
+          ],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "be751eb3-8761-424f-b26a-bee4bb2e8cbc",
+          "spaceId": "31ee6c61-5632-41dd-bcc7-7b3c43afa65e",
+          "documentId": "d75ba6b3-d194-41f6-8090-12cbbaa1bae0",
+          "version": 1,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "9b81ba9e8590f0c431ea8b797fc52f027c8aaf59da78614dbb9e62874faf5b63",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "a865ae700c564a5e357031912f86f2626b70ba9d08f0051d2021e97408cad6a6",
+              "operation_id": "8764ee66-d84c-4302-a9df-d74a03da0a09"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "8764ee66-d84c-4302-a9df-d74a03da0a09",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "d75ba6b3-d194-41f6-8090-12cbbaa1bae0",
+                "durability": "durable",
+                "operationId": "8764ee66-d84c-4302-a9df-d74a03da0a09",
+                "spaceId": "31ee6c61-5632-41dd-bcc7-7b3c43afa65e",
+                "status": "applied",
+                "version": 1
+              }
+            }
+          ],
+          "recovery": [],
+          "faultControls": []
+        },
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "709073be-d326-4b15-930b-1cee02beb053",
+          "spaceId": "874a974f-d346-42cc-829f-24b7252a8d43",
+          "documentId": "9d60bbab-97e2-4a9d-a074-38e267c7c5a6",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "da0d87fa65e34199e8eb135c4ab00d68397f4685a74fd631e69f853bdf71c530",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "restart",
+          "type": "inspection",
+          "id": "333b0e32-cfc2-4946-ad4f-7fe59a36a2e5",
+          "spaceId": "874a974f-d346-42cc-829f-24b7252a8d43",
+          "documentId": "9d60bbab-97e2-4a9d-a074-38e267c7c5a6",
+          "version": 1,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "da0d87fa65e34199e8eb135c4ab00d68397f4685a74fd631e69f853bdf71c530",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "80dbeba54522c73936846e89df282b45b2b1a26fb1c8555645e4198ce1d25055",
+              "operation_id": "4a80cc96-b7c9-4cf1-bba5-4b2dee072ea5"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "4a80cc96-b7c9-4cf1-bba5-4b2dee072ea5",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "9d60bbab-97e2-4a9d-a074-38e267c7c5a6",
+                "durability": "durable",
+                "operationId": "4a80cc96-b7c9-4cf1-bba5-4b2dee072ea5",
+                "spaceId": "874a974f-d346-42cc-829f-24b7252a8d43",
+                "status": "applied",
+                "version": 1
+              }
+            }
+          ],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "1f929c74-5870-4abb-9fe3-9349c20f3885",
+          "spaceId": "874a974f-d346-42cc-829f-24b7252a8d43",
+          "documentId": "9d60bbab-97e2-4a9d-a074-38e267c7c5a6",
+          "version": 1,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "da0d87fa65e34199e8eb135c4ab00d68397f4685a74fd631e69f853bdf71c530",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "80dbeba54522c73936846e89df282b45b2b1a26fb1c8555645e4198ce1d25055",
+              "operation_id": "4a80cc96-b7c9-4cf1-bba5-4b2dee072ea5"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "4a80cc96-b7c9-4cf1-bba5-4b2dee072ea5",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "9d60bbab-97e2-4a9d-a074-38e267c7c5a6",
+                "durability": "durable",
+                "operationId": "4a80cc96-b7c9-4cf1-bba5-4b2dee072ea5",
+                "spaceId": "874a974f-d346-42cc-829f-24b7252a8d43",
+                "status": "applied",
+                "version": 1
+              }
+            }
+          ],
+          "recovery": [],
+          "faultControls": []
+        },
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "2e6ea12e-91b4-477e-bcfe-e128ada87f10",
+          "spaceId": "0e0132db-3f90-450b-9d47-75cb492a489a",
+          "documentId": "33776b90-b048-46ec-9dd1-220dab4d8bb4",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "8c064adea2e3c3c7c35c5a08916f7309da9c74d9a2d0c78166c1050a26749faf",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "84178e25-42c1-4e56-997f-88523e00ae33",
+          "spaceId": "0e0132db-3f90-450b-9d47-75cb492a489a",
+          "documentId": "33776b90-b048-46ec-9dd1-220dab4d8bb4",
+          "version": 2,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "8c064adea2e3c3c7c35c5a08916f7309da9c74d9a2d0c78166c1050a26749faf",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "35c80300ec231d557d1eef2857d9c1ba4ea294b27894d029f5710377e3a36a33",
+              "operation_id": "91a49e0f-3a06-46d1-b3f4-0417cd7e8c56"
+            },
+            {
+              "version": 2,
+              "parent": 1,
+              "hash": "5f902b63fe71d60360b31eb326a6dfcf3e81ac04ab05ba4bec5e533171b30025",
+              "operation_id": "7cb6ce5f-ce63-4ca6-beca-79417c7781c6"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "91a49e0f-3a06-46d1-b3f4-0417cd7e8c56",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "33776b90-b048-46ec-9dd1-220dab4d8bb4",
+                "durability": "durable",
+                "operationId": "91a49e0f-3a06-46d1-b3f4-0417cd7e8c56",
+                "spaceId": "0e0132db-3f90-450b-9d47-75cb492a489a",
+                "status": "applied",
+                "version": 1
+              }
+            },
+            {
+              "operation_id": "7cb6ce5f-ce63-4ca6-beca-79417c7781c6",
+              "version": 2,
+              "result": {
+                "contextId": "external",
+                "documentId": "33776b90-b048-46ec-9dd1-220dab4d8bb4",
+                "durability": "durable",
+                "operationId": "7cb6ce5f-ce63-4ca6-beca-79417c7781c6",
+                "spaceId": "0e0132db-3f90-450b-9d47-75cb492a489a",
+                "status": "applied",
+                "version": 2
+              }
+            }
+          ],
+          "recovery": [],
+          "faultControls": [
+            {
+              "type": "lose_commit_return"
+            },
+            {
+              "type": "lose_commit_return"
+            }
+          ]
+        }
+      ],
+      "operation_ids": [
+        "bb297e2e-4f70-4f5c-9826-227341e91550",
+        "8764ee66-d84c-4302-a9df-d74a03da0a09",
+        "4a80cc96-b7c9-4cf1-bba5-4b2dee072ea5",
+        "91a49e0f-3a06-46d1-b3f4-0417cd7e8c56",
+        "7cb6ce5f-ce63-4ca6-beca-79417c7781c6"
+      ],
+      "fault_phase": [
+        {
+          "type": "lose_commit_return"
+        },
+        {
+          "type": "lose_commit_return"
+        }
+      ],
+      "before_after_revisions_roots_outcomes": [
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "e2f4fd3d-0fb4-485f-9f6f-b34214ba7ca3",
+          "spaceId": "f445aa16-ac6d-443e-95f3-5c3192684d88",
+          "documentId": "e5710162-ab83-45e0-904d-3cf50b701339",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "9ccac3281a41042cee0700b4bf479e9b616bfb6cef2cbe08f7fa5eeaefcbc767",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "restart",
+          "type": "inspection",
+          "id": "aece020e-a081-4400-8316-3492368a2a39",
+          "spaceId": "f445aa16-ac6d-443e-95f3-5c3192684d88",
+          "documentId": "e5710162-ab83-45e0-904d-3cf50b701339",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "9ccac3281a41042cee0700b4bf479e9b616bfb6cef2cbe08f7fa5eeaefcbc767",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "576e643e-398e-4186-84f7-7c55ff797411",
+          "spaceId": "f445aa16-ac6d-443e-95f3-5c3192684d88",
+          "documentId": "e5710162-ab83-45e0-904d-3cf50b701339",
+          "version": 1,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "9ccac3281a41042cee0700b4bf479e9b616bfb6cef2cbe08f7fa5eeaefcbc767",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "ebb8ae2bebfbc6cddbe5c227542f1a7abad75cef8b823c5b650294d5fa53ae08",
+              "operation_id": "bb297e2e-4f70-4f5c-9826-227341e91550"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "bb297e2e-4f70-4f5c-9826-227341e91550",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "e5710162-ab83-45e0-904d-3cf50b701339",
+                "durability": "durable",
+                "operationId": "bb297e2e-4f70-4f5c-9826-227341e91550",
+                "spaceId": "f445aa16-ac6d-443e-95f3-5c3192684d88",
+                "status": "applied",
+                "version": 1
+              }
+            }
+          ],
+          "recovery": [],
+          "faultControls": []
+        },
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "772a188e-29c1-45ba-a236-8d2482066490",
+          "spaceId": "31ee6c61-5632-41dd-bcc7-7b3c43afa65e",
+          "documentId": "d75ba6b3-d194-41f6-8090-12cbbaa1bae0",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "9b81ba9e8590f0c431ea8b797fc52f027c8aaf59da78614dbb9e62874faf5b63",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "restart",
+          "type": "inspection",
+          "id": "6df1ead2-6cd1-4c7c-b4ba-3459f6a5cb47",
+          "spaceId": "31ee6c61-5632-41dd-bcc7-7b3c43afa65e",
+          "documentId": "d75ba6b3-d194-41f6-8090-12cbbaa1bae0",
+          "version": 1,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "9b81ba9e8590f0c431ea8b797fc52f027c8aaf59da78614dbb9e62874faf5b63",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "a865ae700c564a5e357031912f86f2626b70ba9d08f0051d2021e97408cad6a6",
+              "operation_id": "8764ee66-d84c-4302-a9df-d74a03da0a09"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "8764ee66-d84c-4302-a9df-d74a03da0a09",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "d75ba6b3-d194-41f6-8090-12cbbaa1bae0",
+                "durability": "durable",
+                "operationId": "8764ee66-d84c-4302-a9df-d74a03da0a09",
+                "spaceId": "31ee6c61-5632-41dd-bcc7-7b3c43afa65e",
+                "status": "applied",
+                "version": 1
+              }
+            }
+          ],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "be751eb3-8761-424f-b26a-bee4bb2e8cbc",
+          "spaceId": "31ee6c61-5632-41dd-bcc7-7b3c43afa65e",
+          "documentId": "d75ba6b3-d194-41f6-8090-12cbbaa1bae0",
+          "version": 1,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "9b81ba9e8590f0c431ea8b797fc52f027c8aaf59da78614dbb9e62874faf5b63",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "a865ae700c564a5e357031912f86f2626b70ba9d08f0051d2021e97408cad6a6",
+              "operation_id": "8764ee66-d84c-4302-a9df-d74a03da0a09"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "8764ee66-d84c-4302-a9df-d74a03da0a09",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "d75ba6b3-d194-41f6-8090-12cbbaa1bae0",
+                "durability": "durable",
+                "operationId": "8764ee66-d84c-4302-a9df-d74a03da0a09",
+                "spaceId": "31ee6c61-5632-41dd-bcc7-7b3c43afa65e",
+                "status": "applied",
+                "version": 1
+              }
+            }
+          ],
+          "recovery": [],
+          "faultControls": []
+        },
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "709073be-d326-4b15-930b-1cee02beb053",
+          "spaceId": "874a974f-d346-42cc-829f-24b7252a8d43",
+          "documentId": "9d60bbab-97e2-4a9d-a074-38e267c7c5a6",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "da0d87fa65e34199e8eb135c4ab00d68397f4685a74fd631e69f853bdf71c530",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "restart",
+          "type": "inspection",
+          "id": "333b0e32-cfc2-4946-ad4f-7fe59a36a2e5",
+          "spaceId": "874a974f-d346-42cc-829f-24b7252a8d43",
+          "documentId": "9d60bbab-97e2-4a9d-a074-38e267c7c5a6",
+          "version": 1,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "da0d87fa65e34199e8eb135c4ab00d68397f4685a74fd631e69f853bdf71c530",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "80dbeba54522c73936846e89df282b45b2b1a26fb1c8555645e4198ce1d25055",
+              "operation_id": "4a80cc96-b7c9-4cf1-bba5-4b2dee072ea5"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "4a80cc96-b7c9-4cf1-bba5-4b2dee072ea5",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "9d60bbab-97e2-4a9d-a074-38e267c7c5a6",
+                "durability": "durable",
+                "operationId": "4a80cc96-b7c9-4cf1-bba5-4b2dee072ea5",
+                "spaceId": "874a974f-d346-42cc-829f-24b7252a8d43",
+                "status": "applied",
+                "version": 1
+              }
+            }
+          ],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "1f929c74-5870-4abb-9fe3-9349c20f3885",
+          "spaceId": "874a974f-d346-42cc-829f-24b7252a8d43",
+          "documentId": "9d60bbab-97e2-4a9d-a074-38e267c7c5a6",
+          "version": 1,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "da0d87fa65e34199e8eb135c4ab00d68397f4685a74fd631e69f853bdf71c530",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "80dbeba54522c73936846e89df282b45b2b1a26fb1c8555645e4198ce1d25055",
+              "operation_id": "4a80cc96-b7c9-4cf1-bba5-4b2dee072ea5"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "4a80cc96-b7c9-4cf1-bba5-4b2dee072ea5",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "9d60bbab-97e2-4a9d-a074-38e267c7c5a6",
+                "durability": "durable",
+                "operationId": "4a80cc96-b7c9-4cf1-bba5-4b2dee072ea5",
+                "spaceId": "874a974f-d346-42cc-829f-24b7252a8d43",
+                "status": "applied",
+                "version": 1
+              }
+            }
+          ],
+          "recovery": [],
+          "faultControls": []
+        },
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "2e6ea12e-91b4-477e-bcfe-e128ada87f10",
+          "spaceId": "0e0132db-3f90-450b-9d47-75cb492a489a",
+          "documentId": "33776b90-b048-46ec-9dd1-220dab4d8bb4",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "8c064adea2e3c3c7c35c5a08916f7309da9c74d9a2d0c78166c1050a26749faf",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "84178e25-42c1-4e56-997f-88523e00ae33",
+          "spaceId": "0e0132db-3f90-450b-9d47-75cb492a489a",
+          "documentId": "33776b90-b048-46ec-9dd1-220dab4d8bb4",
+          "version": 2,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "8c064adea2e3c3c7c35c5a08916f7309da9c74d9a2d0c78166c1050a26749faf",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "35c80300ec231d557d1eef2857d9c1ba4ea294b27894d029f5710377e3a36a33",
+              "operation_id": "91a49e0f-3a06-46d1-b3f4-0417cd7e8c56"
+            },
+            {
+              "version": 2,
+              "parent": 1,
+              "hash": "5f902b63fe71d60360b31eb326a6dfcf3e81ac04ab05ba4bec5e533171b30025",
+              "operation_id": "7cb6ce5f-ce63-4ca6-beca-79417c7781c6"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "91a49e0f-3a06-46d1-b3f4-0417cd7e8c56",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "33776b90-b048-46ec-9dd1-220dab4d8bb4",
+                "durability": "durable",
+                "operationId": "91a49e0f-3a06-46d1-b3f4-0417cd7e8c56",
+                "spaceId": "0e0132db-3f90-450b-9d47-75cb492a489a",
+                "status": "applied",
+                "version": 1
+              }
+            },
+            {
+              "operation_id": "7cb6ce5f-ce63-4ca6-beca-79417c7781c6",
+              "version": 2,
+              "result": {
+                "contextId": "external",
+                "documentId": "33776b90-b048-46ec-9dd1-220dab4d8bb4",
+                "durability": "durable",
+                "operationId": "7cb6ce5f-ce63-4ca6-beca-79417c7781c6",
+                "spaceId": "0e0132db-3f90-450b-9d47-75cb492a489a",
+                "status": "applied",
+                "version": 2
+              }
+            }
+          ],
+          "recovery": [],
+          "faultControls": [
+            {
+              "type": "lose_commit_return"
+            },
+            {
+              "type": "lose_commit_return"
+            }
+          ]
+        }
+      ],
+      "expected": "Before commit: no effect/receipt. After commit: exact original durable root/receipt; one effect. Resolve unknown COMMIT before further writes/publishing a conflicting live root; preserve unaccepted input.",
+      "actual": {
+        "killPhases": [
+          {
+            "phase": "before_commit",
+            "operationId": "bb297e2e-4f70-4f5c-9826-227341e91550",
+            "version": 1
+          },
+          {
+            "phase": "after_commit",
+            "operationId": "8764ee66-d84c-4302-a9df-d74a03da0a09",
+            "version": 1
+          },
+          {
+            "phase": "before_reply",
+            "operationId": "4a80cc96-b7c9-4cf1-bba5-4b2dee072ea5",
+            "version": 1
+          }
+        ],
+        "uncertainCommitResolved": true
+      },
+      "limitations": [
+        "Synthetic Linux fixture; not native/production/full security or model acceptance."
+      ],
+      "detail": {
+        "killPhases": [
+          {
+            "phase": "before_commit",
+            "operationId": "bb297e2e-4f70-4f5c-9826-227341e91550",
+            "version": 1
+          },
+          {
+            "phase": "after_commit",
+            "operationId": "8764ee66-d84c-4302-a9df-d74a03da0a09",
+            "version": 1
+          },
+          {
+            "phase": "before_reply",
+            "operationId": "4a80cc96-b7c9-4cf1-bba5-4b2dee072ea5",
+            "version": 1
+          }
+        ],
+        "uncertainCommitResolved": true
+      }
+    },
+    {
+      "id": "JG-04",
+      "case_id": "JG-04",
+      "status": "pass",
+      "source_manifest": "candidate-manifest.json",
+      "codec_version": "clutter-r08-y-state-v1",
+      "runtime_and_sqlite_profile": "profile",
+      "os_filesystem": "profile.osRelease/filesystemType",
+      "fixture_ids_and_hashes": [
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "43291a6b-0019-4943-a257-d2b004b1ac59",
+          "spaceId": "72ae6e7c-34df-484f-b607-f6439b438edf",
+          "documentId": "bf94b251-1071-42be-b4c4-4be142bff6aa",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "668f4d6a6c980ef6bb0f3822c1166ceab3cecf6d9c61153e3b8a94bcaf9454df",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "153f648e-902e-4a6f-8d1c-abb719cf74f1",
+          "spaceId": "72ae6e7c-34df-484f-b607-f6439b438edf",
+          "documentId": "bf94b251-1071-42be-b4c4-4be142bff6aa",
+          "version": 4,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "668f4d6a6c980ef6bb0f3822c1166ceab3cecf6d9c61153e3b8a94bcaf9454df",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "cc3b1ac5a3a24b1b02f6f318695ef4f84238c8b90c856b490882cd1b62478d0e",
+              "operation_id": "58117733-ea4d-40f2-a810-d617e69b9eab"
+            },
+            {
+              "version": 2,
+              "parent": 1,
+              "hash": "ce7247cea5ab7857b0e7c1c5cfc750e0f7a5aa166419a1eb9b1da8ace676618b",
+              "operation_id": "5a15784a-da93-4c95-990a-eb50c13a63c3"
+            },
+            {
+              "version": 3,
+              "parent": 2,
+              "hash": "c325f302a9c6cc11afb72e59603dd98516a0ae2bc93441b4f3457afa7bd0a735",
+              "operation_id": "8d9f79b6-ea21-4ed5-b6ce-e860c4ea2cd3"
+            },
+            {
+              "version": 4,
+              "parent": 3,
+              "hash": "74aadb6ba6e1e3921c6c291ebf15fc38d4d5879cbb8b289075e5ce99c1a4f508",
+              "operation_id": "c6e341e4-f9a5-4fa7-8be9-59271d4e9699"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "58117733-ea4d-40f2-a810-d617e69b9eab",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "bf94b251-1071-42be-b4c4-4be142bff6aa",
+                "durability": "durable",
+                "operationId": "58117733-ea4d-40f2-a810-d617e69b9eab",
+                "spaceId": "72ae6e7c-34df-484f-b607-f6439b438edf",
+                "status": "applied",
+                "version": 1
+              }
+            },
+            {
+              "operation_id": "5a15784a-da93-4c95-990a-eb50c13a63c3",
+              "version": 2,
+              "result": {
+                "contextId": "B",
+                "documentId": "bf94b251-1071-42be-b4c4-4be142bff6aa",
+                "durability": "durable",
+                "operationId": "5a15784a-da93-4c95-990a-eb50c13a63c3",
+                "spaceId": "72ae6e7c-34df-484f-b607-f6439b438edf",
+                "status": "applied",
+                "version": 2
+              }
+            },
+            {
+              "operation_id": "8d9f79b6-ea21-4ed5-b6ce-e860c4ea2cd3",
+              "version": 3,
+              "result": {
+                "contextId": "external",
+                "documentId": "bf94b251-1071-42be-b4c4-4be142bff6aa",
+                "durability": "durable",
+                "operationId": "8d9f79b6-ea21-4ed5-b6ce-e860c4ea2cd3",
+                "spaceId": "72ae6e7c-34df-484f-b607-f6439b438edf",
+                "status": "applied",
+                "version": 3
+              }
+            },
+            {
+              "operation_id": "c6e341e4-f9a5-4fa7-8be9-59271d4e9699",
+              "version": 4,
+              "result": {
+                "contextId": "external",
+                "documentId": "bf94b251-1071-42be-b4c4-4be142bff6aa",
+                "durability": "durable",
+                "operationId": "c6e341e4-f9a5-4fa7-8be9-59271d4e9699",
+                "spaceId": "72ae6e7c-34df-484f-b607-f6439b438edf",
+                "status": "applied",
+                "version": 4
+              }
+            }
+          ],
+          "recovery": [],
+          "faultControls": []
+        }
+      ],
+      "operation_ids": [
+        "58117733-ea4d-40f2-a810-d617e69b9eab",
+        "5a15784a-da93-4c95-990a-eb50c13a63c3",
+        "8d9f79b6-ea21-4ed5-b6ce-e860c4ea2cd3",
+        "c6e341e4-f9a5-4fa7-8be9-59271d4e9699"
+      ],
+      "fault_phase": [],
+      "before_after_revisions_roots_outcomes": [
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "43291a6b-0019-4943-a257-d2b004b1ac59",
+          "spaceId": "72ae6e7c-34df-484f-b607-f6439b438edf",
+          "documentId": "bf94b251-1071-42be-b4c4-4be142bff6aa",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "668f4d6a6c980ef6bb0f3822c1166ceab3cecf6d9c61153e3b8a94bcaf9454df",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "153f648e-902e-4a6f-8d1c-abb719cf74f1",
+          "spaceId": "72ae6e7c-34df-484f-b607-f6439b438edf",
+          "documentId": "bf94b251-1071-42be-b4c4-4be142bff6aa",
+          "version": 4,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "668f4d6a6c980ef6bb0f3822c1166ceab3cecf6d9c61153e3b8a94bcaf9454df",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "cc3b1ac5a3a24b1b02f6f318695ef4f84238c8b90c856b490882cd1b62478d0e",
+              "operation_id": "58117733-ea4d-40f2-a810-d617e69b9eab"
+            },
+            {
+              "version": 2,
+              "parent": 1,
+              "hash": "ce7247cea5ab7857b0e7c1c5cfc750e0f7a5aa166419a1eb9b1da8ace676618b",
+              "operation_id": "5a15784a-da93-4c95-990a-eb50c13a63c3"
+            },
+            {
+              "version": 3,
+              "parent": 2,
+              "hash": "c325f302a9c6cc11afb72e59603dd98516a0ae2bc93441b4f3457afa7bd0a735",
+              "operation_id": "8d9f79b6-ea21-4ed5-b6ce-e860c4ea2cd3"
+            },
+            {
+              "version": 4,
+              "parent": 3,
+              "hash": "74aadb6ba6e1e3921c6c291ebf15fc38d4d5879cbb8b289075e5ce99c1a4f508",
+              "operation_id": "c6e341e4-f9a5-4fa7-8be9-59271d4e9699"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "58117733-ea4d-40f2-a810-d617e69b9eab",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "bf94b251-1071-42be-b4c4-4be142bff6aa",
+                "durability": "durable",
+                "operationId": "58117733-ea4d-40f2-a810-d617e69b9eab",
+                "spaceId": "72ae6e7c-34df-484f-b607-f6439b438edf",
+                "status": "applied",
+                "version": 1
+              }
+            },
+            {
+              "operation_id": "5a15784a-da93-4c95-990a-eb50c13a63c3",
+              "version": 2,
+              "result": {
+                "contextId": "B",
+                "documentId": "bf94b251-1071-42be-b4c4-4be142bff6aa",
+                "durability": "durable",
+                "operationId": "5a15784a-da93-4c95-990a-eb50c13a63c3",
+                "spaceId": "72ae6e7c-34df-484f-b607-f6439b438edf",
+                "status": "applied",
+                "version": 2
+              }
+            },
+            {
+              "operation_id": "8d9f79b6-ea21-4ed5-b6ce-e860c4ea2cd3",
+              "version": 3,
+              "result": {
+                "contextId": "external",
+                "documentId": "bf94b251-1071-42be-b4c4-4be142bff6aa",
+                "durability": "durable",
+                "operationId": "8d9f79b6-ea21-4ed5-b6ce-e860c4ea2cd3",
+                "spaceId": "72ae6e7c-34df-484f-b607-f6439b438edf",
+                "status": "applied",
+                "version": 3
+              }
+            },
+            {
+              "operation_id": "c6e341e4-f9a5-4fa7-8be9-59271d4e9699",
+              "version": 4,
+              "result": {
+                "contextId": "external",
+                "documentId": "bf94b251-1071-42be-b4c4-4be142bff6aa",
+                "durability": "durable",
+                "operationId": "c6e341e4-f9a5-4fa7-8be9-59271d4e9699",
+                "spaceId": "72ae6e7c-34df-484f-b607-f6439b438edf",
+                "status": "applied",
+                "version": 4
+              }
+            }
+          ],
+          "recovery": [],
+          "faultControls": []
+        }
+      ],
+      "expected": "Accepted state converges, each input applied once, no lost foreign text, native selections remain view-local; no Playwright-owned authority or read-only projection stand-in.",
+      "actual": {
+        "realEditors": 2,
+        "subprocessInterfaces": [
+          "CLI",
+          "MCP"
+        ],
+        "convergedVersion": 4,
+        "selectionIndependent": true
+      },
+      "limitations": [
+        "Synthetic Linux fixture; not native/production/full security or model acceptance."
+      ],
+      "detail": {
+        "realEditors": 2,
+        "subprocessInterfaces": [
+          "CLI",
+          "MCP"
+        ],
+        "convergedVersion": 4,
+        "selectionIndependent": true
+      }
+    },
+    {
+      "id": "JG-05",
+      "case_id": "JG-05",
+      "status": "pass",
+      "source_manifest": "candidate-manifest.json",
+      "codec_version": "clutter-r08-y-state-v1",
+      "runtime_and_sqlite_profile": "profile",
+      "os_filesystem": "profile.osRelease/filesystemType",
+      "fixture_ids_and_hashes": [
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "cf0b6478-693c-4620-ab6e-80ad08038f00",
+          "spaceId": "8324c17f-d3da-4009-b213-89310fd4302e",
+          "documentId": "e940909d-13d7-4913-a5e9-6ab4078fb3d3",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "2de00a77ab631c32f46129d993e9d022c30d61e0d9d1444682ba662a77b15759",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "f16906d2-4e17-4289-9d99-042444058ee3",
+          "spaceId": "8324c17f-d3da-4009-b213-89310fd4302e",
+          "documentId": "e940909d-13d7-4913-a5e9-6ab4078fb3d3",
+          "version": 9,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "2de00a77ab631c32f46129d993e9d022c30d61e0d9d1444682ba662a77b15759",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "314b11e1d76020096c0836d2b9b69f3a54f2a5e894e46d7e0fda0c55906b777a",
+              "operation_id": "5e666d53-6b5b-4591-8e26-e1c62c272985"
+            },
+            {
+              "version": 2,
+              "parent": 1,
+              "hash": "e989f4013f6751c7fb4bb7a9dae9bd374c493cdc28c1f0cf1a073cceca9ffe44",
+              "operation_id": "b1684ab1-17f3-4be6-8a75-2ed770ee1efb"
+            },
+            {
+              "version": 3,
+              "parent": 2,
+              "hash": "acd9a4aed47603179824b3f1597e6c36f2ff4b886e088a82147e858c9053963d",
+              "operation_id": "e6174bff-07dc-4753-b5ff-f1b140a556c4"
+            },
+            {
+              "version": 4,
+              "parent": 3,
+              "hash": "bcd4dd96bb259bbe955ab17c0e640e56265d551465433b854a7edb83e7dbcba3",
+              "operation_id": "4cc3ef50-2a8d-4b7b-8d80-910695d82e38"
+            },
+            {
+              "version": 5,
+              "parent": 4,
+              "hash": "ed4b459808eb3142a8869dd4ab870418da2db0829b03592c0eeca646b9649eb8",
+              "operation_id": "44abe1df-9626-4534-9b6e-efba30e874a9"
+            },
+            {
+              "version": 6,
+              "parent": 5,
+              "hash": "2d62fbc747e568dc0c3b2fb18a8ebbfacc0dc1485c60a21efc5664e5076a485c",
+              "operation_id": "40589010-1f4e-448b-91fe-976c203b632c"
+            },
+            {
+              "version": 7,
+              "parent": 6,
+              "hash": "2c3121063ff6cef37bfdfd8a0bbe1589536d4500e701de0270a763e14b94b7c9",
+              "operation_id": "bf6d5c98-a3ec-44ba-ac3b-3beb7e3e0f0a"
+            },
+            {
+              "version": 8,
+              "parent": 7,
+              "hash": "5119c2766ae419f6d800def64d80ae1cf73424c3c80c198f0be6680099cba50d",
+              "operation_id": "679db570-1b18-44d6-9ca9-a337a50f5544"
+            },
+            {
+              "version": 9,
+              "parent": 8,
+              "hash": "a0c3c0269b920da5cde3835979a7ad39a20f4cef83e258119915fb14fc394183",
+              "operation_id": "a871649e-815d-4d38-9151-56a4f40eaadd"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "5e666d53-6b5b-4591-8e26-e1c62c272985",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "e940909d-13d7-4913-a5e9-6ab4078fb3d3",
+                "durability": "durable",
+                "operationId": "5e666d53-6b5b-4591-8e26-e1c62c272985",
+                "spaceId": "8324c17f-d3da-4009-b213-89310fd4302e",
+                "status": "applied",
+                "version": 1
+              }
+            },
+            {
+              "operation_id": "b1684ab1-17f3-4be6-8a75-2ed770ee1efb",
+              "version": 2,
+              "result": {
+                "contextId": "external",
+                "documentId": "e940909d-13d7-4913-a5e9-6ab4078fb3d3",
+                "durability": "durable",
+                "operationId": "b1684ab1-17f3-4be6-8a75-2ed770ee1efb",
+                "spaceId": "8324c17f-d3da-4009-b213-89310fd4302e",
+                "status": "applied",
+                "version": 2
+              }
+            },
+            {
+              "operation_id": "e6174bff-07dc-4753-b5ff-f1b140a556c4",
+              "version": 3,
+              "result": {
+                "contextId": "A",
+                "documentId": "e940909d-13d7-4913-a5e9-6ab4078fb3d3",
+                "durability": "durable",
+                "operationId": "e6174bff-07dc-4753-b5ff-f1b140a556c4",
+                "spaceId": "8324c17f-d3da-4009-b213-89310fd4302e",
+                "status": "applied",
+                "version": 3
+              }
+            },
+            {
+              "operation_id": "4cc3ef50-2a8d-4b7b-8d80-910695d82e38",
+              "version": 4,
+              "result": {
+                "contextId": "A",
+                "documentId": "e940909d-13d7-4913-a5e9-6ab4078fb3d3",
+                "durability": "durable",
+                "operationId": "4cc3ef50-2a8d-4b7b-8d80-910695d82e38",
+                "spaceId": "8324c17f-d3da-4009-b213-89310fd4302e",
+                "status": "applied",
+                "version": 4
+              }
+            },
+            {
+              "operation_id": "44abe1df-9626-4534-9b6e-efba30e874a9",
+              "version": 5,
+              "result": {
+                "contextId": "external",
+                "documentId": "e940909d-13d7-4913-a5e9-6ab4078fb3d3",
+                "durability": "durable",
+                "operationId": "44abe1df-9626-4534-9b6e-efba30e874a9",
+                "spaceId": "8324c17f-d3da-4009-b213-89310fd4302e",
+                "status": "applied",
+                "version": 5
+              }
+            },
+            {
+              "operation_id": "40589010-1f4e-448b-91fe-976c203b632c",
+              "version": 6,
+              "result": {
+                "contextId": "A",
+                "documentId": "e940909d-13d7-4913-a5e9-6ab4078fb3d3",
+                "durability": "durable",
+                "operationId": "40589010-1f4e-448b-91fe-976c203b632c",
+                "spaceId": "8324c17f-d3da-4009-b213-89310fd4302e",
+                "status": "applied",
+                "version": 6
+              }
+            },
+            {
+              "operation_id": "bf6d5c98-a3ec-44ba-ac3b-3beb7e3e0f0a",
+              "version": 7,
+              "result": {
+                "contextId": "A",
+                "documentId": "e940909d-13d7-4913-a5e9-6ab4078fb3d3",
+                "durability": "durable",
+                "operationId": "bf6d5c98-a3ec-44ba-ac3b-3beb7e3e0f0a",
+                "spaceId": "8324c17f-d3da-4009-b213-89310fd4302e",
+                "status": "applied",
+                "version": 7
+              }
+            },
+            {
+              "operation_id": "679db570-1b18-44d6-9ca9-a337a50f5544",
+              "version": 8,
+              "result": {
+                "contextId": "A",
+                "documentId": "e940909d-13d7-4913-a5e9-6ab4078fb3d3",
+                "durability": "durable",
+                "operationId": "679db570-1b18-44d6-9ca9-a337a50f5544",
+                "spaceId": "8324c17f-d3da-4009-b213-89310fd4302e",
+                "status": "applied",
+                "version": 8
+              }
+            },
+            {
+              "operation_id": "a871649e-815d-4d38-9151-56a4f40eaadd",
+              "version": 9,
+              "result": {
+                "contextId": "A",
+                "documentId": "e940909d-13d7-4913-a5e9-6ab4078fb3d3",
+                "durability": "durable",
+                "operationId": "a871649e-815d-4d38-9151-56a4f40eaadd",
+                "spaceId": "8324c17f-d3da-4009-b213-89310fd4302e",
+                "status": "applied",
+                "version": 9
+              }
+            }
+          ],
+          "recovery": [],
+          "faultControls": []
+        },
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "e4be6ddf-6ec0-4441-b7cf-6ed9341f83d2",
+          "spaceId": "4d1512c0-e1eb-4ab7-b4e9-dc731832622c",
+          "documentId": "128bdc68-0143-41f2-ab55-9fc7920bf7c3",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "7207bb66eb15e39585735cd2d3545c9f1143c994de165decccd820f28545a5e0",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "a96c97b9-256f-463f-b633-917edf2833d9",
+          "spaceId": "4d1512c0-e1eb-4ab7-b4e9-dc731832622c",
+          "documentId": "128bdc68-0143-41f2-ab55-9fc7920bf7c3",
+          "version": 3,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "7207bb66eb15e39585735cd2d3545c9f1143c994de165decccd820f28545a5e0",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "9dc3e38fbe74f0017660e02cd4942b8ae6a1d36626ca725c98da75eaa8c505f0",
+              "operation_id": "2de4ef79-dc74-4abf-b54d-a78cec685937"
+            },
+            {
+              "version": 2,
+              "parent": 1,
+              "hash": "b4252abf808dd906344ef14b6909fff4fde9a8576c37155430b0ef21f3cf4dac",
+              "operation_id": "112c5ab0-67b4-48c8-a6eb-769d86f541d6"
+            },
+            {
+              "version": 3,
+              "parent": 2,
+              "hash": "f7b79bea2907593ecf32272ab9981d64cf3367bf53ccd97abc12fdb13d33ced3",
+              "operation_id": "a54adc4f-1fa9-4acf-8c6d-6c52299d065e"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "2de4ef79-dc74-4abf-b54d-a78cec685937",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "128bdc68-0143-41f2-ab55-9fc7920bf7c3",
+                "durability": "durable",
+                "operationId": "2de4ef79-dc74-4abf-b54d-a78cec685937",
+                "spaceId": "4d1512c0-e1eb-4ab7-b4e9-dc731832622c",
+                "status": "applied",
+                "version": 1
+              }
+            },
+            {
+              "operation_id": "112c5ab0-67b4-48c8-a6eb-769d86f541d6",
+              "version": 2,
+              "result": {
+                "contextId": "B",
+                "documentId": "128bdc68-0143-41f2-ab55-9fc7920bf7c3",
+                "durability": "durable",
+                "operationId": "112c5ab0-67b4-48c8-a6eb-769d86f541d6",
+                "spaceId": "4d1512c0-e1eb-4ab7-b4e9-dc731832622c",
+                "status": "applied",
+                "version": 2
+              }
+            },
+            {
+              "operation_id": "a54adc4f-1fa9-4acf-8c6d-6c52299d065e",
+              "version": 3,
+              "result": {
+                "contextId": "A",
+                "documentId": "128bdc68-0143-41f2-ab55-9fc7920bf7c3",
+                "durability": "durable",
+                "operationId": "a54adc4f-1fa9-4acf-8c6d-6c52299d065e",
+                "spaceId": "4d1512c0-e1eb-4ab7-b4e9-dc731832622c",
+                "status": "applied",
+                "version": 3
+              }
+            }
+          ],
+          "recovery": [],
+          "faultControls": []
+        },
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "3d7f7608-e2a2-4c49-972f-343e8b40fc4f",
+          "spaceId": "90e795bd-12b1-48c0-bfa2-3a2df1fa33c0",
+          "documentId": "48263407-357a-4818-8b80-ac832e6f958d",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "d39ac0bf6f7343a691924fffe5dc00e651f0933e38ef98695cfd499cb4c002a7",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "21deee56-387a-45c5-ab2c-38c7b23ede3c",
+          "spaceId": "90e795bd-12b1-48c0-bfa2-3a2df1fa33c0",
+          "documentId": "48263407-357a-4818-8b80-ac832e6f958d",
+          "version": 5,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "d39ac0bf6f7343a691924fffe5dc00e651f0933e38ef98695cfd499cb4c002a7",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "2b2130cbfdbad066e5979c8b4d97d1fe45249460829034b1e8673125f5752061",
+              "operation_id": "0879c7d4-1743-46af-a670-904ca68b4342"
+            },
+            {
+              "version": 2,
+              "parent": 1,
+              "hash": "37503e00d8f17613b7b1678d74ac9fcd494b26cbe6a79cde7a8abc056f5d4cf6",
+              "operation_id": "ed6016e8-1043-481e-ae79-f134c8842fa5"
+            },
+            {
+              "version": 3,
+              "parent": 2,
+              "hash": "79554343566e5841c54e139f75101f2d0cb797dd627b69675be82938816fbf42",
+              "operation_id": "01e4d001-fd12-456f-8f52-6133290752ef"
+            },
+            {
+              "version": 4,
+              "parent": 3,
+              "hash": "ad74dc05865185eef56e447f40f221a271a7e4c619cb89b5e3b61f318d476e82",
+              "operation_id": "74ea1a78-3b5f-468e-8a69-5f3527ee3a2b"
+            },
+            {
+              "version": 5,
+              "parent": 4,
+              "hash": "5ab5f8bcc9f92963d294b5553c3100f65892b6241880c90537982c0f65428eae",
+              "operation_id": "8ad7ca88-81a4-4e1c-9402-dff5e68fbe39"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "0879c7d4-1743-46af-a670-904ca68b4342",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "48263407-357a-4818-8b80-ac832e6f958d",
+                "durability": "durable",
+                "operationId": "0879c7d4-1743-46af-a670-904ca68b4342",
+                "spaceId": "90e795bd-12b1-48c0-bfa2-3a2df1fa33c0",
+                "status": "applied",
+                "version": 1
+              }
+            },
+            {
+              "operation_id": "ed6016e8-1043-481e-ae79-f134c8842fa5",
+              "version": 2,
+              "result": {
+                "contextId": "external",
+                "documentId": "48263407-357a-4818-8b80-ac832e6f958d",
+                "durability": "durable",
+                "operationId": "ed6016e8-1043-481e-ae79-f134c8842fa5",
+                "spaceId": "90e795bd-12b1-48c0-bfa2-3a2df1fa33c0",
+                "status": "applied",
+                "version": 2
+              }
+            },
+            {
+              "operation_id": "01e4d001-fd12-456f-8f52-6133290752ef",
+              "version": 3,
+              "result": {
+                "contextId": "A",
+                "documentId": "48263407-357a-4818-8b80-ac832e6f958d",
+                "durability": "durable",
+                "operationId": "01e4d001-fd12-456f-8f52-6133290752ef",
+                "spaceId": "90e795bd-12b1-48c0-bfa2-3a2df1fa33c0",
+                "status": "applied",
+                "version": 3
+              }
+            },
+            {
+              "operation_id": "74ea1a78-3b5f-468e-8a69-5f3527ee3a2b",
+              "version": 4,
+              "result": {
+                "contextId": "A",
+                "documentId": "48263407-357a-4818-8b80-ac832e6f958d",
+                "durability": "durable",
+                "operationId": "74ea1a78-3b5f-468e-8a69-5f3527ee3a2b",
+                "spaceId": "90e795bd-12b1-48c0-bfa2-3a2df1fa33c0",
+                "status": "applied",
+                "version": 4
+              }
+            },
+            {
+              "operation_id": "8ad7ca88-81a4-4e1c-9402-dff5e68fbe39",
+              "version": 5,
+              "result": {
+                "contextId": "B",
+                "documentId": "48263407-357a-4818-8b80-ac832e6f958d",
+                "durability": "durable",
+                "operationId": "8ad7ca88-81a4-4e1c-9402-dff5e68fbe39",
+                "spaceId": "90e795bd-12b1-48c0-bfa2-3a2df1fa33c0",
+                "status": "applied",
+                "version": 5
+              }
+            }
+          ],
+          "recovery": [],
+          "faultControls": []
+        },
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "e97f0c05-3b84-486f-8863-0cf611b7282c",
+          "spaceId": "583c7514-661d-40cc-b672-c6a35abc5898",
+          "documentId": "a8b6fba8-4a7e-40b3-b631-bdbc424adf24",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "faf11549f21fe1fefd97c515854dce5dd6b81c3d55370a0def09d29b32f15308",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "e84a61e3-b79c-455e-9808-8467a452da50",
+          "spaceId": "583c7514-661d-40cc-b672-c6a35abc5898",
+          "documentId": "a8b6fba8-4a7e-40b3-b631-bdbc424adf24",
+          "version": 5,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "faf11549f21fe1fefd97c515854dce5dd6b81c3d55370a0def09d29b32f15308",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "deca73d97ce5c922d6fdee4af7ce152cc61781484a5792ee9112d7454e64ad5c",
+              "operation_id": "c9fd6b94-1694-4569-ba61-41cf31f257ac"
+            },
+            {
+              "version": 2,
+              "parent": 1,
+              "hash": "467edb1eea065efc46d5cef8fdda35210d86e8a1b24f41afa1ec5767ebcb12dc",
+              "operation_id": "872ea7e2-8fd4-4531-bb15-0ba5812444dd"
+            },
+            {
+              "version": 3,
+              "parent": 2,
+              "hash": "9cdf82208095777cb61f5e4a8897e15bd5686b046f9d7c71fac54ddb2d494652",
+              "operation_id": "5f28400c-85b0-4eef-95ce-e7c6a26a6d42"
+            },
+            {
+              "version": 4,
+              "parent": 3,
+              "hash": "c1805f34102a1937e1372f6966166db25d541942dae66c2bbf28b5a3d7eddd5e",
+              "operation_id": "420595a3-5e27-41f1-bb2b-48038ed5bff0"
+            },
+            {
+              "version": 5,
+              "parent": 4,
+              "hash": "4d4c2f196cdfca078a8b7a8254d0757c2098446d33d8fe3f8bee1ddbde0f3443",
+              "operation_id": "0cc8e008-93a3-4241-bab5-04a1e926ff8a"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "c9fd6b94-1694-4569-ba61-41cf31f257ac",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "a8b6fba8-4a7e-40b3-b631-bdbc424adf24",
+                "durability": "durable",
+                "operationId": "c9fd6b94-1694-4569-ba61-41cf31f257ac",
+                "spaceId": "583c7514-661d-40cc-b672-c6a35abc5898",
+                "status": "applied",
+                "version": 1
+              }
+            },
+            {
+              "operation_id": "872ea7e2-8fd4-4531-bb15-0ba5812444dd",
+              "version": 2,
+              "result": {
+                "contextId": "external",
+                "documentId": "a8b6fba8-4a7e-40b3-b631-bdbc424adf24",
+                "durability": "durable",
+                "operationId": "872ea7e2-8fd4-4531-bb15-0ba5812444dd",
+                "spaceId": "583c7514-661d-40cc-b672-c6a35abc5898",
+                "status": "applied",
+                "version": 2
+              }
+            },
+            {
+              "operation_id": "5f28400c-85b0-4eef-95ce-e7c6a26a6d42",
+              "version": 3,
+              "result": {
+                "contextId": "A",
+                "documentId": "a8b6fba8-4a7e-40b3-b631-bdbc424adf24",
+                "durability": "durable",
+                "operationId": "5f28400c-85b0-4eef-95ce-e7c6a26a6d42",
+                "spaceId": "583c7514-661d-40cc-b672-c6a35abc5898",
+                "status": "applied",
+                "version": 3
+              }
+            },
+            {
+              "operation_id": "420595a3-5e27-41f1-bb2b-48038ed5bff0",
+              "version": 4,
+              "result": {
+                "contextId": "A",
+                "documentId": "a8b6fba8-4a7e-40b3-b631-bdbc424adf24",
+                "durability": "durable",
+                "operationId": "420595a3-5e27-41f1-bb2b-48038ed5bff0",
+                "spaceId": "583c7514-661d-40cc-b672-c6a35abc5898",
+                "status": "applied",
+                "version": 4
+              }
+            },
+            {
+              "operation_id": "0cc8e008-93a3-4241-bab5-04a1e926ff8a",
+              "version": 5,
+              "result": {
+                "contextId": "B",
+                "documentId": "a8b6fba8-4a7e-40b3-b631-bdbc424adf24",
+                "durability": "durable",
+                "operationId": "0cc8e008-93a3-4241-bab5-04a1e926ff8a",
+                "spaceId": "583c7514-661d-40cc-b672-c6a35abc5898",
+                "status": "applied",
+                "version": 5
+              }
+            }
+          ],
+          "recovery": [],
+          "faultControls": []
+        }
+      ],
+      "operation_ids": [
+        "5e666d53-6b5b-4591-8e26-e1c62c272985",
+        "b1684ab1-17f3-4be6-8a75-2ed770ee1efb",
+        "e6174bff-07dc-4753-b5ff-f1b140a556c4",
+        "4cc3ef50-2a8d-4b7b-8d80-910695d82e38",
+        "44abe1df-9626-4534-9b6e-efba30e874a9",
+        "40589010-1f4e-448b-91fe-976c203b632c",
+        "bf6d5c98-a3ec-44ba-ac3b-3beb7e3e0f0a",
+        "679db570-1b18-44d6-9ca9-a337a50f5544",
+        "a871649e-815d-4d38-9151-56a4f40eaadd",
+        "2de4ef79-dc74-4abf-b54d-a78cec685937",
+        "112c5ab0-67b4-48c8-a6eb-769d86f541d6",
+        "a54adc4f-1fa9-4acf-8c6d-6c52299d065e",
+        "0879c7d4-1743-46af-a670-904ca68b4342",
+        "ed6016e8-1043-481e-ae79-f134c8842fa5",
+        "01e4d001-fd12-456f-8f52-6133290752ef",
+        "74ea1a78-3b5f-468e-8a69-5f3527ee3a2b",
+        "8ad7ca88-81a4-4e1c-9402-dff5e68fbe39",
+        "c9fd6b94-1694-4569-ba61-41cf31f257ac",
+        "872ea7e2-8fd4-4531-bb15-0ba5812444dd",
+        "5f28400c-85b0-4eef-95ce-e7c6a26a6d42",
+        "420595a3-5e27-41f1-bb2b-48038ed5bff0",
+        "0cc8e008-93a3-4241-bab5-04a1e926ff8a"
+      ],
+      "fault_phase": [],
+      "before_after_revisions_roots_outcomes": [
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "cf0b6478-693c-4620-ab6e-80ad08038f00",
+          "spaceId": "8324c17f-d3da-4009-b213-89310fd4302e",
+          "documentId": "e940909d-13d7-4913-a5e9-6ab4078fb3d3",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "2de00a77ab631c32f46129d993e9d022c30d61e0d9d1444682ba662a77b15759",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "f16906d2-4e17-4289-9d99-042444058ee3",
+          "spaceId": "8324c17f-d3da-4009-b213-89310fd4302e",
+          "documentId": "e940909d-13d7-4913-a5e9-6ab4078fb3d3",
+          "version": 9,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "2de00a77ab631c32f46129d993e9d022c30d61e0d9d1444682ba662a77b15759",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "314b11e1d76020096c0836d2b9b69f3a54f2a5e894e46d7e0fda0c55906b777a",
+              "operation_id": "5e666d53-6b5b-4591-8e26-e1c62c272985"
+            },
+            {
+              "version": 2,
+              "parent": 1,
+              "hash": "e989f4013f6751c7fb4bb7a9dae9bd374c493cdc28c1f0cf1a073cceca9ffe44",
+              "operation_id": "b1684ab1-17f3-4be6-8a75-2ed770ee1efb"
+            },
+            {
+              "version": 3,
+              "parent": 2,
+              "hash": "acd9a4aed47603179824b3f1597e6c36f2ff4b886e088a82147e858c9053963d",
+              "operation_id": "e6174bff-07dc-4753-b5ff-f1b140a556c4"
+            },
+            {
+              "version": 4,
+              "parent": 3,
+              "hash": "bcd4dd96bb259bbe955ab17c0e640e56265d551465433b854a7edb83e7dbcba3",
+              "operation_id": "4cc3ef50-2a8d-4b7b-8d80-910695d82e38"
+            },
+            {
+              "version": 5,
+              "parent": 4,
+              "hash": "ed4b459808eb3142a8869dd4ab870418da2db0829b03592c0eeca646b9649eb8",
+              "operation_id": "44abe1df-9626-4534-9b6e-efba30e874a9"
+            },
+            {
+              "version": 6,
+              "parent": 5,
+              "hash": "2d62fbc747e568dc0c3b2fb18a8ebbfacc0dc1485c60a21efc5664e5076a485c",
+              "operation_id": "40589010-1f4e-448b-91fe-976c203b632c"
+            },
+            {
+              "version": 7,
+              "parent": 6,
+              "hash": "2c3121063ff6cef37bfdfd8a0bbe1589536d4500e701de0270a763e14b94b7c9",
+              "operation_id": "bf6d5c98-a3ec-44ba-ac3b-3beb7e3e0f0a"
+            },
+            {
+              "version": 8,
+              "parent": 7,
+              "hash": "5119c2766ae419f6d800def64d80ae1cf73424c3c80c198f0be6680099cba50d",
+              "operation_id": "679db570-1b18-44d6-9ca9-a337a50f5544"
+            },
+            {
+              "version": 9,
+              "parent": 8,
+              "hash": "a0c3c0269b920da5cde3835979a7ad39a20f4cef83e258119915fb14fc394183",
+              "operation_id": "a871649e-815d-4d38-9151-56a4f40eaadd"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "5e666d53-6b5b-4591-8e26-e1c62c272985",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "e940909d-13d7-4913-a5e9-6ab4078fb3d3",
+                "durability": "durable",
+                "operationId": "5e666d53-6b5b-4591-8e26-e1c62c272985",
+                "spaceId": "8324c17f-d3da-4009-b213-89310fd4302e",
+                "status": "applied",
+                "version": 1
+              }
+            },
+            {
+              "operation_id": "b1684ab1-17f3-4be6-8a75-2ed770ee1efb",
+              "version": 2,
+              "result": {
+                "contextId": "external",
+                "documentId": "e940909d-13d7-4913-a5e9-6ab4078fb3d3",
+                "durability": "durable",
+                "operationId": "b1684ab1-17f3-4be6-8a75-2ed770ee1efb",
+                "spaceId": "8324c17f-d3da-4009-b213-89310fd4302e",
+                "status": "applied",
+                "version": 2
+              }
+            },
+            {
+              "operation_id": "e6174bff-07dc-4753-b5ff-f1b140a556c4",
+              "version": 3,
+              "result": {
+                "contextId": "A",
+                "documentId": "e940909d-13d7-4913-a5e9-6ab4078fb3d3",
+                "durability": "durable",
+                "operationId": "e6174bff-07dc-4753-b5ff-f1b140a556c4",
+                "spaceId": "8324c17f-d3da-4009-b213-89310fd4302e",
+                "status": "applied",
+                "version": 3
+              }
+            },
+            {
+              "operation_id": "4cc3ef50-2a8d-4b7b-8d80-910695d82e38",
+              "version": 4,
+              "result": {
+                "contextId": "A",
+                "documentId": "e940909d-13d7-4913-a5e9-6ab4078fb3d3",
+                "durability": "durable",
+                "operationId": "4cc3ef50-2a8d-4b7b-8d80-910695d82e38",
+                "spaceId": "8324c17f-d3da-4009-b213-89310fd4302e",
+                "status": "applied",
+                "version": 4
+              }
+            },
+            {
+              "operation_id": "44abe1df-9626-4534-9b6e-efba30e874a9",
+              "version": 5,
+              "result": {
+                "contextId": "external",
+                "documentId": "e940909d-13d7-4913-a5e9-6ab4078fb3d3",
+                "durability": "durable",
+                "operationId": "44abe1df-9626-4534-9b6e-efba30e874a9",
+                "spaceId": "8324c17f-d3da-4009-b213-89310fd4302e",
+                "status": "applied",
+                "version": 5
+              }
+            },
+            {
+              "operation_id": "40589010-1f4e-448b-91fe-976c203b632c",
+              "version": 6,
+              "result": {
+                "contextId": "A",
+                "documentId": "e940909d-13d7-4913-a5e9-6ab4078fb3d3",
+                "durability": "durable",
+                "operationId": "40589010-1f4e-448b-91fe-976c203b632c",
+                "spaceId": "8324c17f-d3da-4009-b213-89310fd4302e",
+                "status": "applied",
+                "version": 6
+              }
+            },
+            {
+              "operation_id": "bf6d5c98-a3ec-44ba-ac3b-3beb7e3e0f0a",
+              "version": 7,
+              "result": {
+                "contextId": "A",
+                "documentId": "e940909d-13d7-4913-a5e9-6ab4078fb3d3",
+                "durability": "durable",
+                "operationId": "bf6d5c98-a3ec-44ba-ac3b-3beb7e3e0f0a",
+                "spaceId": "8324c17f-d3da-4009-b213-89310fd4302e",
+                "status": "applied",
+                "version": 7
+              }
+            },
+            {
+              "operation_id": "679db570-1b18-44d6-9ca9-a337a50f5544",
+              "version": 8,
+              "result": {
+                "contextId": "A",
+                "documentId": "e940909d-13d7-4913-a5e9-6ab4078fb3d3",
+                "durability": "durable",
+                "operationId": "679db570-1b18-44d6-9ca9-a337a50f5544",
+                "spaceId": "8324c17f-d3da-4009-b213-89310fd4302e",
+                "status": "applied",
+                "version": 8
+              }
+            },
+            {
+              "operation_id": "a871649e-815d-4d38-9151-56a4f40eaadd",
+              "version": 9,
+              "result": {
+                "contextId": "A",
+                "documentId": "e940909d-13d7-4913-a5e9-6ab4078fb3d3",
+                "durability": "durable",
+                "operationId": "a871649e-815d-4d38-9151-56a4f40eaadd",
+                "spaceId": "8324c17f-d3da-4009-b213-89310fd4302e",
+                "status": "applied",
+                "version": 9
+              }
+            }
+          ],
+          "recovery": [],
+          "faultControls": []
+        },
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "e4be6ddf-6ec0-4441-b7cf-6ed9341f83d2",
+          "spaceId": "4d1512c0-e1eb-4ab7-b4e9-dc731832622c",
+          "documentId": "128bdc68-0143-41f2-ab55-9fc7920bf7c3",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "7207bb66eb15e39585735cd2d3545c9f1143c994de165decccd820f28545a5e0",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "a96c97b9-256f-463f-b633-917edf2833d9",
+          "spaceId": "4d1512c0-e1eb-4ab7-b4e9-dc731832622c",
+          "documentId": "128bdc68-0143-41f2-ab55-9fc7920bf7c3",
+          "version": 3,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "7207bb66eb15e39585735cd2d3545c9f1143c994de165decccd820f28545a5e0",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "9dc3e38fbe74f0017660e02cd4942b8ae6a1d36626ca725c98da75eaa8c505f0",
+              "operation_id": "2de4ef79-dc74-4abf-b54d-a78cec685937"
+            },
+            {
+              "version": 2,
+              "parent": 1,
+              "hash": "b4252abf808dd906344ef14b6909fff4fde9a8576c37155430b0ef21f3cf4dac",
+              "operation_id": "112c5ab0-67b4-48c8-a6eb-769d86f541d6"
+            },
+            {
+              "version": 3,
+              "parent": 2,
+              "hash": "f7b79bea2907593ecf32272ab9981d64cf3367bf53ccd97abc12fdb13d33ced3",
+              "operation_id": "a54adc4f-1fa9-4acf-8c6d-6c52299d065e"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "2de4ef79-dc74-4abf-b54d-a78cec685937",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "128bdc68-0143-41f2-ab55-9fc7920bf7c3",
+                "durability": "durable",
+                "operationId": "2de4ef79-dc74-4abf-b54d-a78cec685937",
+                "spaceId": "4d1512c0-e1eb-4ab7-b4e9-dc731832622c",
+                "status": "applied",
+                "version": 1
+              }
+            },
+            {
+              "operation_id": "112c5ab0-67b4-48c8-a6eb-769d86f541d6",
+              "version": 2,
+              "result": {
+                "contextId": "B",
+                "documentId": "128bdc68-0143-41f2-ab55-9fc7920bf7c3",
+                "durability": "durable",
+                "operationId": "112c5ab0-67b4-48c8-a6eb-769d86f541d6",
+                "spaceId": "4d1512c0-e1eb-4ab7-b4e9-dc731832622c",
+                "status": "applied",
+                "version": 2
+              }
+            },
+            {
+              "operation_id": "a54adc4f-1fa9-4acf-8c6d-6c52299d065e",
+              "version": 3,
+              "result": {
+                "contextId": "A",
+                "documentId": "128bdc68-0143-41f2-ab55-9fc7920bf7c3",
+                "durability": "durable",
+                "operationId": "a54adc4f-1fa9-4acf-8c6d-6c52299d065e",
+                "spaceId": "4d1512c0-e1eb-4ab7-b4e9-dc731832622c",
+                "status": "applied",
+                "version": 3
+              }
+            }
+          ],
+          "recovery": [],
+          "faultControls": []
+        },
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "3d7f7608-e2a2-4c49-972f-343e8b40fc4f",
+          "spaceId": "90e795bd-12b1-48c0-bfa2-3a2df1fa33c0",
+          "documentId": "48263407-357a-4818-8b80-ac832e6f958d",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "d39ac0bf6f7343a691924fffe5dc00e651f0933e38ef98695cfd499cb4c002a7",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "21deee56-387a-45c5-ab2c-38c7b23ede3c",
+          "spaceId": "90e795bd-12b1-48c0-bfa2-3a2df1fa33c0",
+          "documentId": "48263407-357a-4818-8b80-ac832e6f958d",
+          "version": 5,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "d39ac0bf6f7343a691924fffe5dc00e651f0933e38ef98695cfd499cb4c002a7",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "2b2130cbfdbad066e5979c8b4d97d1fe45249460829034b1e8673125f5752061",
+              "operation_id": "0879c7d4-1743-46af-a670-904ca68b4342"
+            },
+            {
+              "version": 2,
+              "parent": 1,
+              "hash": "37503e00d8f17613b7b1678d74ac9fcd494b26cbe6a79cde7a8abc056f5d4cf6",
+              "operation_id": "ed6016e8-1043-481e-ae79-f134c8842fa5"
+            },
+            {
+              "version": 3,
+              "parent": 2,
+              "hash": "79554343566e5841c54e139f75101f2d0cb797dd627b69675be82938816fbf42",
+              "operation_id": "01e4d001-fd12-456f-8f52-6133290752ef"
+            },
+            {
+              "version": 4,
+              "parent": 3,
+              "hash": "ad74dc05865185eef56e447f40f221a271a7e4c619cb89b5e3b61f318d476e82",
+              "operation_id": "74ea1a78-3b5f-468e-8a69-5f3527ee3a2b"
+            },
+            {
+              "version": 5,
+              "parent": 4,
+              "hash": "5ab5f8bcc9f92963d294b5553c3100f65892b6241880c90537982c0f65428eae",
+              "operation_id": "8ad7ca88-81a4-4e1c-9402-dff5e68fbe39"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "0879c7d4-1743-46af-a670-904ca68b4342",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "48263407-357a-4818-8b80-ac832e6f958d",
+                "durability": "durable",
+                "operationId": "0879c7d4-1743-46af-a670-904ca68b4342",
+                "spaceId": "90e795bd-12b1-48c0-bfa2-3a2df1fa33c0",
+                "status": "applied",
+                "version": 1
+              }
+            },
+            {
+              "operation_id": "ed6016e8-1043-481e-ae79-f134c8842fa5",
+              "version": 2,
+              "result": {
+                "contextId": "external",
+                "documentId": "48263407-357a-4818-8b80-ac832e6f958d",
+                "durability": "durable",
+                "operationId": "ed6016e8-1043-481e-ae79-f134c8842fa5",
+                "spaceId": "90e795bd-12b1-48c0-bfa2-3a2df1fa33c0",
+                "status": "applied",
+                "version": 2
+              }
+            },
+            {
+              "operation_id": "01e4d001-fd12-456f-8f52-6133290752ef",
+              "version": 3,
+              "result": {
+                "contextId": "A",
+                "documentId": "48263407-357a-4818-8b80-ac832e6f958d",
+                "durability": "durable",
+                "operationId": "01e4d001-fd12-456f-8f52-6133290752ef",
+                "spaceId": "90e795bd-12b1-48c0-bfa2-3a2df1fa33c0",
+                "status": "applied",
+                "version": 3
+              }
+            },
+            {
+              "operation_id": "74ea1a78-3b5f-468e-8a69-5f3527ee3a2b",
+              "version": 4,
+              "result": {
+                "contextId": "A",
+                "documentId": "48263407-357a-4818-8b80-ac832e6f958d",
+                "durability": "durable",
+                "operationId": "74ea1a78-3b5f-468e-8a69-5f3527ee3a2b",
+                "spaceId": "90e795bd-12b1-48c0-bfa2-3a2df1fa33c0",
+                "status": "applied",
+                "version": 4
+              }
+            },
+            {
+              "operation_id": "8ad7ca88-81a4-4e1c-9402-dff5e68fbe39",
+              "version": 5,
+              "result": {
+                "contextId": "B",
+                "documentId": "48263407-357a-4818-8b80-ac832e6f958d",
+                "durability": "durable",
+                "operationId": "8ad7ca88-81a4-4e1c-9402-dff5e68fbe39",
+                "spaceId": "90e795bd-12b1-48c0-bfa2-3a2df1fa33c0",
+                "status": "applied",
+                "version": 5
+              }
+            }
+          ],
+          "recovery": [],
+          "faultControls": []
+        },
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "e97f0c05-3b84-486f-8863-0cf611b7282c",
+          "spaceId": "583c7514-661d-40cc-b672-c6a35abc5898",
+          "documentId": "a8b6fba8-4a7e-40b3-b631-bdbc424adf24",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "faf11549f21fe1fefd97c515854dce5dd6b81c3d55370a0def09d29b32f15308",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "e84a61e3-b79c-455e-9808-8467a452da50",
+          "spaceId": "583c7514-661d-40cc-b672-c6a35abc5898",
+          "documentId": "a8b6fba8-4a7e-40b3-b631-bdbc424adf24",
+          "version": 5,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "faf11549f21fe1fefd97c515854dce5dd6b81c3d55370a0def09d29b32f15308",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "deca73d97ce5c922d6fdee4af7ce152cc61781484a5792ee9112d7454e64ad5c",
+              "operation_id": "c9fd6b94-1694-4569-ba61-41cf31f257ac"
+            },
+            {
+              "version": 2,
+              "parent": 1,
+              "hash": "467edb1eea065efc46d5cef8fdda35210d86e8a1b24f41afa1ec5767ebcb12dc",
+              "operation_id": "872ea7e2-8fd4-4531-bb15-0ba5812444dd"
+            },
+            {
+              "version": 3,
+              "parent": 2,
+              "hash": "9cdf82208095777cb61f5e4a8897e15bd5686b046f9d7c71fac54ddb2d494652",
+              "operation_id": "5f28400c-85b0-4eef-95ce-e7c6a26a6d42"
+            },
+            {
+              "version": 4,
+              "parent": 3,
+              "hash": "c1805f34102a1937e1372f6966166db25d541942dae66c2bbf28b5a3d7eddd5e",
+              "operation_id": "420595a3-5e27-41f1-bb2b-48038ed5bff0"
+            },
+            {
+              "version": 5,
+              "parent": 4,
+              "hash": "4d4c2f196cdfca078a8b7a8254d0757c2098446d33d8fe3f8bee1ddbde0f3443",
+              "operation_id": "0cc8e008-93a3-4241-bab5-04a1e926ff8a"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "c9fd6b94-1694-4569-ba61-41cf31f257ac",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "a8b6fba8-4a7e-40b3-b631-bdbc424adf24",
+                "durability": "durable",
+                "operationId": "c9fd6b94-1694-4569-ba61-41cf31f257ac",
+                "spaceId": "583c7514-661d-40cc-b672-c6a35abc5898",
+                "status": "applied",
+                "version": 1
+              }
+            },
+            {
+              "operation_id": "872ea7e2-8fd4-4531-bb15-0ba5812444dd",
+              "version": 2,
+              "result": {
+                "contextId": "external",
+                "documentId": "a8b6fba8-4a7e-40b3-b631-bdbc424adf24",
+                "durability": "durable",
+                "operationId": "872ea7e2-8fd4-4531-bb15-0ba5812444dd",
+                "spaceId": "583c7514-661d-40cc-b672-c6a35abc5898",
+                "status": "applied",
+                "version": 2
+              }
+            },
+            {
+              "operation_id": "5f28400c-85b0-4eef-95ce-e7c6a26a6d42",
+              "version": 3,
+              "result": {
+                "contextId": "A",
+                "documentId": "a8b6fba8-4a7e-40b3-b631-bdbc424adf24",
+                "durability": "durable",
+                "operationId": "5f28400c-85b0-4eef-95ce-e7c6a26a6d42",
+                "spaceId": "583c7514-661d-40cc-b672-c6a35abc5898",
+                "status": "applied",
+                "version": 3
+              }
+            },
+            {
+              "operation_id": "420595a3-5e27-41f1-bb2b-48038ed5bff0",
+              "version": 4,
+              "result": {
+                "contextId": "A",
+                "documentId": "a8b6fba8-4a7e-40b3-b631-bdbc424adf24",
+                "durability": "durable",
+                "operationId": "420595a3-5e27-41f1-bb2b-48038ed5bff0",
+                "spaceId": "583c7514-661d-40cc-b672-c6a35abc5898",
+                "status": "applied",
+                "version": 4
+              }
+            },
+            {
+              "operation_id": "0cc8e008-93a3-4241-bab5-04a1e926ff8a",
+              "version": 5,
+              "result": {
+                "contextId": "B",
+                "documentId": "a8b6fba8-4a7e-40b3-b631-bdbc424adf24",
+                "durability": "durable",
+                "operationId": "0cc8e008-93a3-4241-bab5-04a1e926ff8a",
+                "spaceId": "583c7514-661d-40cc-b672-c6a35abc5898",
+                "status": "applied",
+                "version": 5
+              }
+            }
+          ],
+          "recovery": [],
+          "faultControls": []
+        }
+      ],
+      "expected": "Context history survives view destruction, safe inverses still apply and foreign work remains. Protective refusals are distinct from applied undo. Every accepted inverse/redo has coherent committed outcome.",
+      "actual": {
+        "checks": [
+          "nested foreign text undo/redo, both-view destruction and later tracking",
+          "safe inverse after disjoint foreign formatting",
+          "row disjoint applied inverse and overlapping protective refusal",
+          "column disjoint applied inverse and overlapping protective refusal"
+        ],
+        "protectiveRefusals": 2,
+        "acceptedInversesPersisted": true
+      },
+      "limitations": [
+        "Synthetic Linux fixture; not native/production/full security or model acceptance."
+      ],
+      "detail": {
+        "checks": [
+          "nested foreign text undo/redo, both-view destruction and later tracking",
+          "safe inverse after disjoint foreign formatting",
+          "row disjoint applied inverse and overlapping protective refusal",
+          "column disjoint applied inverse and overlapping protective refusal"
+        ],
+        "protectiveRefusals": 2,
+        "acceptedInversesPersisted": true
+      }
+    },
+    {
+      "id": "JG-06",
+      "case_id": "JG-06",
+      "status": "pass",
+      "source_manifest": "candidate-manifest.json",
+      "codec_version": "clutter-r08-y-state-v1",
+      "runtime_and_sqlite_profile": "profile",
+      "os_filesystem": "profile.osRelease/filesystemType",
+      "fixture_ids_and_hashes": [
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "8ceb6b4a-b117-4829-819f-2d359797919f",
+          "spaceId": "c2b11286-6d06-4a94-ba18-11f34cdd1b80",
+          "documentId": "40304198-39f2-4491-818d-e621909e54ba",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "a3d587c5f9e8a00cac503e6434f22f0952d52af174c9d0f2fa15e54e3a6061da",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "7599804c-3a23-4d76-a551-7e54aca006e6",
+          "spaceId": "c2b11286-6d06-4a94-ba18-11f34cdd1b80",
+          "documentId": "40304198-39f2-4491-818d-e621909e54ba",
+          "version": 1,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "a3d587c5f9e8a00cac503e6434f22f0952d52af174c9d0f2fa15e54e3a6061da",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "7e0dd7f346fee2b05ce819800768002e0360e5ddbbf21812023ebfc41ab5acfe",
+              "operation_id": "3149d185-e081-4db2-b5bb-9ea2badd8f6e"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "6f113882-08d3-4681-955c-1c84b360cfb9",
+              "version": 0,
+              "result": {
+                "contextId": "external",
+                "documentId": "40304198-39f2-4491-818d-e621909e54ba",
+                "durability": "durable_recovery",
+                "operationId": "6f113882-08d3-4681-955c-1c84b360cfb9",
+                "spaceId": "c2b11286-6d06-4a94-ba18-11f34cdd1b80",
+                "status": "protected",
+                "version": 0
+              }
+            },
+            {
+              "operation_id": "3149d185-e081-4db2-b5bb-9ea2badd8f6e",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "40304198-39f2-4491-818d-e621909e54ba",
+                "durability": "durable",
+                "operationId": "3149d185-e081-4db2-b5bb-9ea2badd8f6e",
+                "spaceId": "c2b11286-6d06-4a94-ba18-11f34cdd1b80",
+                "status": "applied",
+                "version": 1
+              }
+            }
+          ],
+          "recovery": [
+            {
+              "context_id": "A",
+              "generation": 2,
+              "base_version": 0,
+              "active": 1
+            }
+          ],
+          "faultControls": [
+            {
+              "type": "fail_protection",
+              "value": true
+            },
+            {
+              "type": "fail_protection",
+              "value": false
+            }
+          ]
+        }
+      ],
+      "operation_ids": [
+        "6f113882-08d3-4681-955c-1c84b360cfb9",
+        "3149d185-e081-4db2-b5bb-9ea2badd8f6e"
+      ],
+      "fault_phase": [
+        {
+          "type": "fail_protection",
+          "value": true
+        },
+        {
+          "type": "fail_protection",
+          "value": false
+        }
+      ],
+      "before_after_revisions_roots_outcomes": [
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "8ceb6b4a-b117-4829-819f-2d359797919f",
+          "spaceId": "c2b11286-6d06-4a94-ba18-11f34cdd1b80",
+          "documentId": "40304198-39f2-4491-818d-e621909e54ba",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "a3d587c5f9e8a00cac503e6434f22f0952d52af174c9d0f2fa15e54e3a6061da",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "7599804c-3a23-4d76-a551-7e54aca006e6",
+          "spaceId": "c2b11286-6d06-4a94-ba18-11f34cdd1b80",
+          "documentId": "40304198-39f2-4491-818d-e621909e54ba",
+          "version": 1,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "a3d587c5f9e8a00cac503e6434f22f0952d52af174c9d0f2fa15e54e3a6061da",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "7e0dd7f346fee2b05ce819800768002e0360e5ddbbf21812023ebfc41ab5acfe",
+              "operation_id": "3149d185-e081-4db2-b5bb-9ea2badd8f6e"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "6f113882-08d3-4681-955c-1c84b360cfb9",
+              "version": 0,
+              "result": {
+                "contextId": "external",
+                "documentId": "40304198-39f2-4491-818d-e621909e54ba",
+                "durability": "durable_recovery",
+                "operationId": "6f113882-08d3-4681-955c-1c84b360cfb9",
+                "spaceId": "c2b11286-6d06-4a94-ba18-11f34cdd1b80",
+                "status": "protected",
+                "version": 0
+              }
+            },
+            {
+              "operation_id": "3149d185-e081-4db2-b5bb-9ea2badd8f6e",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "40304198-39f2-4491-818d-e621909e54ba",
+                "durability": "durable",
+                "operationId": "3149d185-e081-4db2-b5bb-9ea2badd8f6e",
+                "spaceId": "c2b11286-6d06-4a94-ba18-11f34cdd1b80",
+                "status": "applied",
+                "version": 1
+              }
+            }
+          ],
+          "recovery": [
+            {
+              "context_id": "A",
+              "generation": 2,
+              "base_version": 0,
+              "active": 1
+            }
+          ],
+          "faultControls": [
+            {
+              "type": "fail_protection",
+              "value": true
+            },
+            {
+              "type": "fail_protection",
+              "value": false
+            }
+          ]
+        }
+      ],
+      "expected": "Failed protection keeps work/session alive and blocks destructive close. Successful protection commits full pending closure/base/generation before allowing close; not a flag-only UI save.",
+      "actual": {
+        "failedProtectionBlockedClose": true,
+        "durableDraftBeforeActualDetach": true
+      },
+      "limitations": [
+        "Synthetic Linux fixture; not native/production/full security or model acceptance."
+      ],
+      "detail": {
+        "failedProtectionBlockedClose": true,
+        "durableDraftBeforeActualDetach": true
+      }
+    },
+    {
+      "id": "JG-07",
+      "case_id": "JG-07",
+      "status": "pass",
+      "source_manifest": "candidate-manifest.json",
+      "codec_version": "clutter-r08-y-state-v1",
+      "runtime_and_sqlite_profile": "profile",
+      "os_filesystem": "profile.osRelease/filesystemType",
+      "fixture_ids_and_hashes": [
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "d7f0a8ab-73bf-4c2c-b8d5-609a6b22f04b",
+          "spaceId": "b0514bb4-feef-4208-8edb-750077eca0c5",
+          "documentId": "caa7be34-852a-4dbe-8b41-a35cc87c76d2",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "dd68531f089d21dae89fdaa75ae38fd3463a03f4edcffe6f5967bf7861ad168e",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "restart",
+          "type": "inspection",
+          "id": "72d2c55c-70d6-473b-bb3b-e0a554ef4369",
+          "spaceId": "b0514bb4-feef-4208-8edb-750077eca0c5",
+          "documentId": "caa7be34-852a-4dbe-8b41-a35cc87c76d2",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "dd68531f089d21dae89fdaa75ae38fd3463a03f4edcffe6f5967bf7861ad168e",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "d8a4dd90-80fd-452d-abce-411835c70c26",
+              "version": 0,
+              "result": {
+                "contextId": "external",
+                "documentId": "caa7be34-852a-4dbe-8b41-a35cc87c76d2",
+                "durability": "durable_recovery",
+                "operationId": "d8a4dd90-80fd-452d-abce-411835c70c26",
+                "spaceId": "b0514bb4-feef-4208-8edb-750077eca0c5",
+                "status": "protected",
+                "version": 0
+              }
+            },
+            {
+              "operation_id": "eecd208c-1fb4-4a7d-987f-c7ba8468544c",
+              "version": 0,
+              "result": {
+                "contextId": "external",
+                "documentId": "caa7be34-852a-4dbe-8b41-a35cc87c76d2",
+                "durability": "durable_recovery",
+                "operationId": "eecd208c-1fb4-4a7d-987f-c7ba8468544c",
+                "spaceId": "b0514bb4-feef-4208-8edb-750077eca0c5",
+                "status": "protected",
+                "version": 0
+              }
+            },
+            {
+              "operation_id": "f46f9b34-7b81-44a3-9cad-2a6d1514c167",
+              "version": 0,
+              "result": {
+                "contextId": "external",
+                "documentId": "caa7be34-852a-4dbe-8b41-a35cc87c76d2",
+                "durability": "durable",
+                "operationId": "f46f9b34-7b81-44a3-9cad-2a6d1514c167",
+                "spaceId": "b0514bb4-feef-4208-8edb-750077eca0c5",
+                "status": "recorded",
+                "version": 0
+              }
+            }
+          ],
+          "recovery": [
+            {
+              "context_id": "A",
+              "generation": 2,
+              "base_version": 0,
+              "active": 1
+            }
+          ]
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "d9179e1f-a5c4-4c40-8664-7c3bdcba8bd9",
+          "spaceId": "b0514bb4-feef-4208-8edb-750077eca0c5",
+          "documentId": "caa7be34-852a-4dbe-8b41-a35cc87c76d2",
+          "version": 1,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "dd68531f089d21dae89fdaa75ae38fd3463a03f4edcffe6f5967bf7861ad168e",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "845896661393c5bebb3ebab7a55af1f0ebe3419acf0c04890b17096aabadd929",
+              "operation_id": "5c880694-08a0-4e44-a018-9411e243bca0"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "d8a4dd90-80fd-452d-abce-411835c70c26",
+              "version": 0,
+              "result": {
+                "contextId": "external",
+                "documentId": "caa7be34-852a-4dbe-8b41-a35cc87c76d2",
+                "durability": "durable_recovery",
+                "operationId": "d8a4dd90-80fd-452d-abce-411835c70c26",
+                "spaceId": "b0514bb4-feef-4208-8edb-750077eca0c5",
+                "status": "protected",
+                "version": 0
+              }
+            },
+            {
+              "operation_id": "eecd208c-1fb4-4a7d-987f-c7ba8468544c",
+              "version": 0,
+              "result": {
+                "contextId": "external",
+                "documentId": "caa7be34-852a-4dbe-8b41-a35cc87c76d2",
+                "durability": "durable_recovery",
+                "operationId": "eecd208c-1fb4-4a7d-987f-c7ba8468544c",
+                "spaceId": "b0514bb4-feef-4208-8edb-750077eca0c5",
+                "status": "protected",
+                "version": 0
+              }
+            },
+            {
+              "operation_id": "f46f9b34-7b81-44a3-9cad-2a6d1514c167",
+              "version": 0,
+              "result": {
+                "contextId": "external",
+                "documentId": "caa7be34-852a-4dbe-8b41-a35cc87c76d2",
+                "durability": "durable",
+                "operationId": "f46f9b34-7b81-44a3-9cad-2a6d1514c167",
+                "spaceId": "b0514bb4-feef-4208-8edb-750077eca0c5",
+                "status": "recorded",
+                "version": 0
+              }
+            },
+            {
+              "operation_id": "5c880694-08a0-4e44-a018-9411e243bca0",
+              "version": 1,
+              "result": {
+                "contextId": "external",
+                "documentId": "caa7be34-852a-4dbe-8b41-a35cc87c76d2",
+                "durability": "durable",
+                "operationId": "5c880694-08a0-4e44-a018-9411e243bca0",
+                "spaceId": "b0514bb4-feef-4208-8edb-750077eca0c5",
+                "status": "applied",
+                "version": 1
+              }
+            },
+            {
+              "operation_id": "687a2d76-d7ce-4d73-bba9-1c435b8a84bd",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "caa7be34-852a-4dbe-8b41-a35cc87c76d2",
+                "durability": "durable",
+                "operationId": "687a2d76-d7ce-4d73-bba9-1c435b8a84bd",
+                "spaceId": "b0514bb4-feef-4208-8edb-750077eca0c5",
+                "status": "recorded",
+                "version": 1
+              }
+            },
+            {
+              "operation_id": "56ee094d-7b3a-409f-9d75-2e4b88cd578d",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "caa7be34-852a-4dbe-8b41-a35cc87c76d2",
+                "durability": "durable",
+                "operationId": "56ee094d-7b3a-409f-9d75-2e4b88cd578d",
+                "spaceId": "b0514bb4-feef-4208-8edb-750077eca0c5",
+                "status": "recorded",
+                "version": 1
+              }
+            }
+          ],
+          "recovery": [
+            {
+              "context_id": "A",
+              "generation": 2,
+              "base_version": 0,
+              "active": 0
+            }
+          ],
+          "faultControls": []
+        },
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "f63f836d-b62e-4124-8d05-672032b113df",
+          "spaceId": "799cf436-216f-4182-a38e-95dfeb076686",
+          "documentId": "e3554d76-5a34-4310-a366-e97fbd5ed79d",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "1e673b8301a9f1b3983dbfeabc8830359444edc26e1132bd0eb4ee72cee9e716",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "restart",
+          "type": "inspection",
+          "id": "80fbf20b-6525-4bb6-99fb-f487cc7e4f3c",
+          "spaceId": "799cf436-216f-4182-a38e-95dfeb076686",
+          "documentId": "e3554d76-5a34-4310-a366-e97fbd5ed79d",
+          "version": 1,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "1e673b8301a9f1b3983dbfeabc8830359444edc26e1132bd0eb4ee72cee9e716",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "1aaee39f5722fe7898a9c175e0f7fd3d99ba9e2329b6f6c7f4573c7da81e0305",
+              "operation_id": "92531cea-328f-44fe-8a77-6ac20250b97d"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "967195fd-3849-4306-95b2-13840c0ffafd",
+              "version": 0,
+              "result": {
+                "contextId": "external",
+                "documentId": "e3554d76-5a34-4310-a366-e97fbd5ed79d",
+                "durability": "durable_recovery",
+                "operationId": "967195fd-3849-4306-95b2-13840c0ffafd",
+                "spaceId": "799cf436-216f-4182-a38e-95dfeb076686",
+                "status": "protected",
+                "version": 0
+              }
+            },
+            {
+              "operation_id": "92531cea-328f-44fe-8a77-6ac20250b97d",
+              "version": 1,
+              "result": {
+                "contextId": "external",
+                "documentId": "e3554d76-5a34-4310-a366-e97fbd5ed79d",
+                "durability": "durable",
+                "operationId": "92531cea-328f-44fe-8a77-6ac20250b97d",
+                "spaceId": "799cf436-216f-4182-a38e-95dfeb076686",
+                "status": "applied",
+                "version": 1
+              }
+            }
+          ],
+          "recovery": [
+            {
+              "context_id": "A",
+              "generation": 1,
+              "base_version": 0,
+              "active": 1
+            }
+          ]
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "d91a3528-f20e-4af6-b568-5872d60e48cd",
+          "spaceId": "799cf436-216f-4182-a38e-95dfeb076686",
+          "documentId": "e3554d76-5a34-4310-a366-e97fbd5ed79d",
+          "version": 1,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "1e673b8301a9f1b3983dbfeabc8830359444edc26e1132bd0eb4ee72cee9e716",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "1aaee39f5722fe7898a9c175e0f7fd3d99ba9e2329b6f6c7f4573c7da81e0305",
+              "operation_id": "92531cea-328f-44fe-8a77-6ac20250b97d"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "967195fd-3849-4306-95b2-13840c0ffafd",
+              "version": 0,
+              "result": {
+                "contextId": "external",
+                "documentId": "e3554d76-5a34-4310-a366-e97fbd5ed79d",
+                "durability": "durable_recovery",
+                "operationId": "967195fd-3849-4306-95b2-13840c0ffafd",
+                "spaceId": "799cf436-216f-4182-a38e-95dfeb076686",
+                "status": "protected",
+                "version": 0
+              }
+            },
+            {
+              "operation_id": "92531cea-328f-44fe-8a77-6ac20250b97d",
+              "version": 1,
+              "result": {
+                "contextId": "external",
+                "documentId": "e3554d76-5a34-4310-a366-e97fbd5ed79d",
+                "durability": "durable",
+                "operationId": "92531cea-328f-44fe-8a77-6ac20250b97d",
+                "spaceId": "799cf436-216f-4182-a38e-95dfeb076686",
+                "status": "applied",
+                "version": 1
+              }
+            }
+          ],
+          "recovery": [
+            {
+              "context_id": "A",
+              "generation": 1,
+              "base_version": 0,
+              "active": 1
+            }
+          ],
+          "faultControls": []
+        }
+      ],
+      "operation_ids": [
+        "d8a4dd90-80fd-452d-abce-411835c70c26",
+        "eecd208c-1fb4-4a7d-987f-c7ba8468544c",
+        "f46f9b34-7b81-44a3-9cad-2a6d1514c167",
+        "5c880694-08a0-4e44-a018-9411e243bca0",
+        "687a2d76-d7ce-4d73-bba9-1c435b8a84bd",
+        "56ee094d-7b3a-409f-9d75-2e4b88cd578d",
+        "967195fd-3849-4306-95b2-13840c0ffafd",
+        "92531cea-328f-44fe-8a77-6ac20250b97d"
+      ],
+      "fault_phase": [],
+      "before_after_revisions_roots_outcomes": [
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "d7f0a8ab-73bf-4c2c-b8d5-609a6b22f04b",
+          "spaceId": "b0514bb4-feef-4208-8edb-750077eca0c5",
+          "documentId": "caa7be34-852a-4dbe-8b41-a35cc87c76d2",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "dd68531f089d21dae89fdaa75ae38fd3463a03f4edcffe6f5967bf7861ad168e",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "restart",
+          "type": "inspection",
+          "id": "72d2c55c-70d6-473b-bb3b-e0a554ef4369",
+          "spaceId": "b0514bb4-feef-4208-8edb-750077eca0c5",
+          "documentId": "caa7be34-852a-4dbe-8b41-a35cc87c76d2",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "dd68531f089d21dae89fdaa75ae38fd3463a03f4edcffe6f5967bf7861ad168e",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "d8a4dd90-80fd-452d-abce-411835c70c26",
+              "version": 0,
+              "result": {
+                "contextId": "external",
+                "documentId": "caa7be34-852a-4dbe-8b41-a35cc87c76d2",
+                "durability": "durable_recovery",
+                "operationId": "d8a4dd90-80fd-452d-abce-411835c70c26",
+                "spaceId": "b0514bb4-feef-4208-8edb-750077eca0c5",
+                "status": "protected",
+                "version": 0
+              }
+            },
+            {
+              "operation_id": "eecd208c-1fb4-4a7d-987f-c7ba8468544c",
+              "version": 0,
+              "result": {
+                "contextId": "external",
+                "documentId": "caa7be34-852a-4dbe-8b41-a35cc87c76d2",
+                "durability": "durable_recovery",
+                "operationId": "eecd208c-1fb4-4a7d-987f-c7ba8468544c",
+                "spaceId": "b0514bb4-feef-4208-8edb-750077eca0c5",
+                "status": "protected",
+                "version": 0
+              }
+            },
+            {
+              "operation_id": "f46f9b34-7b81-44a3-9cad-2a6d1514c167",
+              "version": 0,
+              "result": {
+                "contextId": "external",
+                "documentId": "caa7be34-852a-4dbe-8b41-a35cc87c76d2",
+                "durability": "durable",
+                "operationId": "f46f9b34-7b81-44a3-9cad-2a6d1514c167",
+                "spaceId": "b0514bb4-feef-4208-8edb-750077eca0c5",
+                "status": "recorded",
+                "version": 0
+              }
+            }
+          ],
+          "recovery": [
+            {
+              "context_id": "A",
+              "generation": 2,
+              "base_version": 0,
+              "active": 1
+            }
+          ]
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "d9179e1f-a5c4-4c40-8664-7c3bdcba8bd9",
+          "spaceId": "b0514bb4-feef-4208-8edb-750077eca0c5",
+          "documentId": "caa7be34-852a-4dbe-8b41-a35cc87c76d2",
+          "version": 1,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "dd68531f089d21dae89fdaa75ae38fd3463a03f4edcffe6f5967bf7861ad168e",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "845896661393c5bebb3ebab7a55af1f0ebe3419acf0c04890b17096aabadd929",
+              "operation_id": "5c880694-08a0-4e44-a018-9411e243bca0"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "d8a4dd90-80fd-452d-abce-411835c70c26",
+              "version": 0,
+              "result": {
+                "contextId": "external",
+                "documentId": "caa7be34-852a-4dbe-8b41-a35cc87c76d2",
+                "durability": "durable_recovery",
+                "operationId": "d8a4dd90-80fd-452d-abce-411835c70c26",
+                "spaceId": "b0514bb4-feef-4208-8edb-750077eca0c5",
+                "status": "protected",
+                "version": 0
+              }
+            },
+            {
+              "operation_id": "eecd208c-1fb4-4a7d-987f-c7ba8468544c",
+              "version": 0,
+              "result": {
+                "contextId": "external",
+                "documentId": "caa7be34-852a-4dbe-8b41-a35cc87c76d2",
+                "durability": "durable_recovery",
+                "operationId": "eecd208c-1fb4-4a7d-987f-c7ba8468544c",
+                "spaceId": "b0514bb4-feef-4208-8edb-750077eca0c5",
+                "status": "protected",
+                "version": 0
+              }
+            },
+            {
+              "operation_id": "f46f9b34-7b81-44a3-9cad-2a6d1514c167",
+              "version": 0,
+              "result": {
+                "contextId": "external",
+                "documentId": "caa7be34-852a-4dbe-8b41-a35cc87c76d2",
+                "durability": "durable",
+                "operationId": "f46f9b34-7b81-44a3-9cad-2a6d1514c167",
+                "spaceId": "b0514bb4-feef-4208-8edb-750077eca0c5",
+                "status": "recorded",
+                "version": 0
+              }
+            },
+            {
+              "operation_id": "5c880694-08a0-4e44-a018-9411e243bca0",
+              "version": 1,
+              "result": {
+                "contextId": "external",
+                "documentId": "caa7be34-852a-4dbe-8b41-a35cc87c76d2",
+                "durability": "durable",
+                "operationId": "5c880694-08a0-4e44-a018-9411e243bca0",
+                "spaceId": "b0514bb4-feef-4208-8edb-750077eca0c5",
+                "status": "applied",
+                "version": 1
+              }
+            },
+            {
+              "operation_id": "687a2d76-d7ce-4d73-bba9-1c435b8a84bd",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "caa7be34-852a-4dbe-8b41-a35cc87c76d2",
+                "durability": "durable",
+                "operationId": "687a2d76-d7ce-4d73-bba9-1c435b8a84bd",
+                "spaceId": "b0514bb4-feef-4208-8edb-750077eca0c5",
+                "status": "recorded",
+                "version": 1
+              }
+            },
+            {
+              "operation_id": "56ee094d-7b3a-409f-9d75-2e4b88cd578d",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "caa7be34-852a-4dbe-8b41-a35cc87c76d2",
+                "durability": "durable",
+                "operationId": "56ee094d-7b3a-409f-9d75-2e4b88cd578d",
+                "spaceId": "b0514bb4-feef-4208-8edb-750077eca0c5",
+                "status": "recorded",
+                "version": 1
+              }
+            }
+          ],
+          "recovery": [
+            {
+              "context_id": "A",
+              "generation": 2,
+              "base_version": 0,
+              "active": 0
+            }
+          ],
+          "faultControls": []
+        },
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "f63f836d-b62e-4124-8d05-672032b113df",
+          "spaceId": "799cf436-216f-4182-a38e-95dfeb076686",
+          "documentId": "e3554d76-5a34-4310-a366-e97fbd5ed79d",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "1e673b8301a9f1b3983dbfeabc8830359444edc26e1132bd0eb4ee72cee9e716",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "restart",
+          "type": "inspection",
+          "id": "80fbf20b-6525-4bb6-99fb-f487cc7e4f3c",
+          "spaceId": "799cf436-216f-4182-a38e-95dfeb076686",
+          "documentId": "e3554d76-5a34-4310-a366-e97fbd5ed79d",
+          "version": 1,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "1e673b8301a9f1b3983dbfeabc8830359444edc26e1132bd0eb4ee72cee9e716",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "1aaee39f5722fe7898a9c175e0f7fd3d99ba9e2329b6f6c7f4573c7da81e0305",
+              "operation_id": "92531cea-328f-44fe-8a77-6ac20250b97d"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "967195fd-3849-4306-95b2-13840c0ffafd",
+              "version": 0,
+              "result": {
+                "contextId": "external",
+                "documentId": "e3554d76-5a34-4310-a366-e97fbd5ed79d",
+                "durability": "durable_recovery",
+                "operationId": "967195fd-3849-4306-95b2-13840c0ffafd",
+                "spaceId": "799cf436-216f-4182-a38e-95dfeb076686",
+                "status": "protected",
+                "version": 0
+              }
+            },
+            {
+              "operation_id": "92531cea-328f-44fe-8a77-6ac20250b97d",
+              "version": 1,
+              "result": {
+                "contextId": "external",
+                "documentId": "e3554d76-5a34-4310-a366-e97fbd5ed79d",
+                "durability": "durable",
+                "operationId": "92531cea-328f-44fe-8a77-6ac20250b97d",
+                "spaceId": "799cf436-216f-4182-a38e-95dfeb076686",
+                "status": "applied",
+                "version": 1
+              }
+            }
+          ],
+          "recovery": [
+            {
+              "context_id": "A",
+              "generation": 1,
+              "base_version": 0,
+              "active": 1
+            }
+          ]
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "d91a3528-f20e-4af6-b568-5872d60e48cd",
+          "spaceId": "799cf436-216f-4182-a38e-95dfeb076686",
+          "documentId": "e3554d76-5a34-4310-a366-e97fbd5ed79d",
+          "version": 1,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "1e673b8301a9f1b3983dbfeabc8830359444edc26e1132bd0eb4ee72cee9e716",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "1aaee39f5722fe7898a9c175e0f7fd3d99ba9e2329b6f6c7f4573c7da81e0305",
+              "operation_id": "92531cea-328f-44fe-8a77-6ac20250b97d"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "967195fd-3849-4306-95b2-13840c0ffafd",
+              "version": 0,
+              "result": {
+                "contextId": "external",
+                "documentId": "e3554d76-5a34-4310-a366-e97fbd5ed79d",
+                "durability": "durable_recovery",
+                "operationId": "967195fd-3849-4306-95b2-13840c0ffafd",
+                "spaceId": "799cf436-216f-4182-a38e-95dfeb076686",
+                "status": "protected",
+                "version": 0
+              }
+            },
+            {
+              "operation_id": "92531cea-328f-44fe-8a77-6ac20250b97d",
+              "version": 1,
+              "result": {
+                "contextId": "external",
+                "documentId": "e3554d76-5a34-4310-a366-e97fbd5ed79d",
+                "durability": "durable",
+                "operationId": "92531cea-328f-44fe-8a77-6ac20250b97d",
+                "spaceId": "799cf436-216f-4182-a38e-95dfeb076686",
+                "status": "applied",
+                "version": 1
+              }
+            }
+          ],
+          "recovery": [
+            {
+              "context_id": "A",
+              "generation": 1,
+              "base_version": 0,
+              "active": 1
+            }
+          ],
+          "faultControls": []
+        }
+      ],
+      "expected": "No stale resurrection/deletion; accepted content and pending draft remain distinct. Explicit same-base recovery applies once; newer-current conflict preserves draft. Restart interactive-history boundary is declared, not fake restored UndoManager state.",
+      "actual": {
+        "newerGenerationPreserved": true,
+        "explicitRestoreOnce": true,
+        "staleBaseDraftPreserved": true,
+        "historyRestartBoundary": true
+      },
+      "limitations": [
+        "Synthetic Linux fixture; not native/production/full security or model acceptance."
+      ],
+      "detail": {
+        "newerGenerationPreserved": true,
+        "explicitRestoreOnce": true,
+        "staleBaseDraftPreserved": true,
+        "historyRestartBoundary": true
+      }
+    },
+    {
+      "id": "JG-08",
+      "case_id": "JG-08",
+      "status": "pass",
+      "source_manifest": "candidate-manifest.json",
+      "codec_version": "clutter-r08-y-state-v1",
+      "runtime_and_sqlite_profile": "profile",
+      "os_filesystem": "profile.osRelease/filesystemType",
+      "fixture_ids_and_hashes": [
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "edbdb814-8e8d-4960-965c-0669bfeb3cd1",
+          "spaceId": "712c87da-cc5c-4b53-afb4-7e8d2bed1b59",
+          "documentId": "93a96183-8f8d-4c9a-80b0-34e4979293a0",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "6afaa357d1a9c3c416fdd53c68811c2f2e81a6102a7c582ceeb0f73a3c0a1dfb",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "811894c1-1c75-4c51-adf2-a9c708ad70c7",
+          "spaceId": "712c87da-cc5c-4b53-afb4-7e8d2bed1b59",
+          "documentId": "93a96183-8f8d-4c9a-80b0-34e4979293a0",
+          "version": 2,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "6afaa357d1a9c3c416fdd53c68811c2f2e81a6102a7c582ceeb0f73a3c0a1dfb",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "72c6da76dd2a0e386d8aaba082f7a1c2715147bf4ebc3d45b6069784308389da",
+              "operation_id": "e95989ea-0862-4915-9cb6-8a652867c0b5"
+            },
+            {
+              "version": 2,
+              "parent": 1,
+              "hash": "ff1369db81fbaef410700ef513ff8e381bf932a08d37669b73725411a40321fc",
+              "operation_id": "81d37d47-ac4d-4f5a-8b01-217f852caaca"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "e95989ea-0862-4915-9cb6-8a652867c0b5",
+              "version": 1,
+              "result": {
+                "contextId": "external",
+                "documentId": "93a96183-8f8d-4c9a-80b0-34e4979293a0",
+                "durability": "durable",
+                "operationId": "e95989ea-0862-4915-9cb6-8a652867c0b5",
+                "spaceId": "712c87da-cc5c-4b53-afb4-7e8d2bed1b59",
+                "status": "applied",
+                "version": 1
+              }
+            },
+            {
+              "operation_id": "81d37d47-ac4d-4f5a-8b01-217f852caaca",
+              "version": 2,
+              "result": {
+                "contextId": "A",
+                "documentId": "93a96183-8f8d-4c9a-80b0-34e4979293a0",
+                "durability": "durable",
+                "operationId": "81d37d47-ac4d-4f5a-8b01-217f852caaca",
+                "spaceId": "712c87da-cc5c-4b53-afb4-7e8d2bed1b59",
+                "status": "applied",
+                "version": 2
+              }
+            }
+          ],
+          "recovery": [],
+          "faultControls": [
+            {
+              "type": "drop_hints",
+              "value": true
+            }
+          ]
+        }
+      ],
+      "operation_ids": [
+        "e95989ea-0862-4915-9cb6-8a652867c0b5",
+        "81d37d47-ac4d-4f5a-8b01-217f852caaca"
+      ],
+      "fault_phase": [
+        {
+          "type": "drop_hints",
+          "value": true
+        }
+      ],
+      "before_after_revisions_roots_outcomes": [
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "edbdb814-8e8d-4960-965c-0669bfeb3cd1",
+          "spaceId": "712c87da-cc5c-4b53-afb4-7e8d2bed1b59",
+          "documentId": "93a96183-8f8d-4c9a-80b0-34e4979293a0",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "6afaa357d1a9c3c416fdd53c68811c2f2e81a6102a7c582ceeb0f73a3c0a1dfb",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "811894c1-1c75-4c51-adf2-a9c708ad70c7",
+          "spaceId": "712c87da-cc5c-4b53-afb4-7e8d2bed1b59",
+          "documentId": "93a96183-8f8d-4c9a-80b0-34e4979293a0",
+          "version": 2,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "6afaa357d1a9c3c416fdd53c68811c2f2e81a6102a7c582ceeb0f73a3c0a1dfb",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "72c6da76dd2a0e386d8aaba082f7a1c2715147bf4ebc3d45b6069784308389da",
+              "operation_id": "e95989ea-0862-4915-9cb6-8a652867c0b5"
+            },
+            {
+              "version": 2,
+              "parent": 1,
+              "hash": "ff1369db81fbaef410700ef513ff8e381bf932a08d37669b73725411a40321fc",
+              "operation_id": "81d37d47-ac4d-4f5a-8b01-217f852caaca"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "e95989ea-0862-4915-9cb6-8a652867c0b5",
+              "version": 1,
+              "result": {
+                "contextId": "external",
+                "documentId": "93a96183-8f8d-4c9a-80b0-34e4979293a0",
+                "durability": "durable",
+                "operationId": "e95989ea-0862-4915-9cb6-8a652867c0b5",
+                "spaceId": "712c87da-cc5c-4b53-afb4-7e8d2bed1b59",
+                "status": "applied",
+                "version": 1
+              }
+            },
+            {
+              "operation_id": "81d37d47-ac4d-4f5a-8b01-217f852caaca",
+              "version": 2,
+              "result": {
+                "contextId": "A",
+                "documentId": "93a96183-8f8d-4c9a-80b0-34e4979293a0",
+                "durability": "durable",
+                "operationId": "81d37d47-ac4d-4f5a-8b01-217f852caaca",
+                "spaceId": "712c87da-cc5c-4b53-afb4-7e8d2bed1b59",
+                "status": "applied",
+                "version": 2
+              }
+            }
+          ],
+          "recovery": [],
+          "faultControls": [
+            {
+              "type": "drop_hints",
+              "value": true
+            }
+          ]
+        }
+      ],
+      "expected": "Both editor replicas catch up from durable revision truth; no echoed duplicate or silent cursor reset. Unprotected input is not discarded merely because the replica missed a hint.",
+      "actual": {
+        "droppedHints": true,
+        "pendingInputSurvivedCatchup": true,
+        "duplicateEchoEffects": 0
+      },
+      "limitations": [
+        "Synthetic Linux fixture; not native/production/full security or model acceptance."
+      ],
+      "detail": {
+        "droppedHints": true,
+        "pendingInputSurvivedCatchup": true,
+        "duplicateEchoEffects": 0
+      }
+    },
+    {
+      "id": "JG-09",
+      "case_id": "JG-09",
+      "status": "pass",
+      "source_manifest": "candidate-manifest.json",
+      "codec_version": "clutter-r08-y-state-v1",
+      "runtime_and_sqlite_profile": "profile",
+      "os_filesystem": "profile.osRelease/filesystemType",
+      "fixture_ids_and_hashes": [
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "0ce8123e-33de-43f0-8962-d545951d72e9",
+          "spaceId": "54ebed11-d2d2-409b-b805-509f226699c0",
+          "documentId": "7e7aca1c-92f1-46c1-9be3-b5e69d5b5b62",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "32bcc6d5aeb79819f0b6f2cc9bfa590b4e6586897cf80ca11b853e8fd48385f4",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "742e840b-e027-4808-a8ae-fc7bbb605ff6",
+          "spaceId": "54ebed11-d2d2-409b-b805-509f226699c0",
+          "documentId": "7e7aca1c-92f1-46c1-9be3-b5e69d5b5b62",
+          "version": 1,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "32bcc6d5aeb79819f0b6f2cc9bfa590b4e6586897cf80ca11b853e8fd48385f4",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "70ca1d8e525560a9242aa9a67d32b536498ba52219dbb86b33df81e705b4ef09",
+              "operation_id": "183a5b88-ffce-4f2c-a478-8b13e80344aa"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "183a5b88-ffce-4f2c-a478-8b13e80344aa",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "7e7aca1c-92f1-46c1-9be3-b5e69d5b5b62",
+                "durability": "durable",
+                "operationId": "183a5b88-ffce-4f2c-a478-8b13e80344aa",
+                "spaceId": "54ebed11-d2d2-409b-b805-509f226699c0",
+                "status": "applied",
+                "version": 1
+              }
+            }
+          ],
+          "recovery": [],
+          "faultControls": []
+        }
+      ],
+      "operation_ids": [
+        "183a5b88-ffce-4f2c-a478-8b13e80344aa"
+      ],
+      "fault_phase": [],
+      "before_after_revisions_roots_outcomes": [
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "0ce8123e-33de-43f0-8962-d545951d72e9",
+          "spaceId": "54ebed11-d2d2-409b-b805-509f226699c0",
+          "documentId": "7e7aca1c-92f1-46c1-9be3-b5e69d5b5b62",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "32bcc6d5aeb79819f0b6f2cc9bfa590b4e6586897cf80ca11b853e8fd48385f4",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "742e840b-e027-4808-a8ae-fc7bbb605ff6",
+          "spaceId": "54ebed11-d2d2-409b-b805-509f226699c0",
+          "documentId": "7e7aca1c-92f1-46c1-9be3-b5e69d5b5b62",
+          "version": 1,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "32bcc6d5aeb79819f0b6f2cc9bfa590b4e6586897cf80ca11b853e8fd48385f4",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "70ca1d8e525560a9242aa9a67d32b536498ba52219dbb86b33df81e705b4ef09",
+              "operation_id": "183a5b88-ffce-4f2c-a478-8b13e80344aa"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "183a5b88-ffce-4f2c-a478-8b13e80344aa",
+              "version": 1,
+              "result": {
+                "contextId": "A",
+                "documentId": "7e7aca1c-92f1-46c1-9be3-b5e69d5b5b62",
+                "durability": "durable",
+                "operationId": "183a5b88-ffce-4f2c-a478-8b13e80344aa",
+                "spaceId": "54ebed11-d2d2-409b-b805-509f226699c0",
+                "status": "applied",
+                "version": 1
+              }
+            }
+          ],
+          "recovery": [],
+          "faultControls": []
+        }
+      ],
+      "expected": "Reject unsafe admission without accepted root/outcome mutation or input loss; valid later edit still works. Internal Y origin is not a client grant; no direct raw-update bypass in public CLI/MCP.",
+      "actual": {
+        "rejections": [
+          {
+            "name": "public-token",
+            "error": "CONTEXT_GRANT_REQUIRED"
+          },
+          {
+            "name": "forged-context",
+            "error": "CONTEXT_GRANT_REQUIRED"
+          },
+          {
+            "name": "forged-origin",
+            "error": "INVALID_COMMAND"
+          },
+          {
+            "name": "malformed",
+            "error": "contentRefs[(info & binary.BITS5)] is not a function"
+          },
+          {
+            "name": "oversize",
+            "error": "HTTP_400"
+          },
+          {
+            "name": "task-id",
+            "error": "IMMUTABLE_FIXTURE_ID_OR_EMBED"
+          },
+          {
+            "name": "task-state",
+            "error": "INVALID_TASK_STATE"
+          },
+          {
+            "name": "embed",
+            "error": "IMMUTABLE_FIXTURE_ID_OR_EMBED"
+          },
+          {
+            "name": "extra-root",
+            "error": "UNSUPPORTED_Y_ROOT"
+          },
+          {
+            "name": "protection-extra-root",
+            "error": "UNSUPPORTED_Y_ROOT"
+          }
+        ],
+        "validSubsequentEdit": true
+      },
+      "limitations": [
+        "Synthetic Linux fixture; not native/production/full security or model acceptance."
+      ],
+      "detail": {
+        "rejections": [
+          {
+            "name": "public-token",
+            "error": "CONTEXT_GRANT_REQUIRED"
+          },
+          {
+            "name": "forged-context",
+            "error": "CONTEXT_GRANT_REQUIRED"
+          },
+          {
+            "name": "forged-origin",
+            "error": "INVALID_COMMAND"
+          },
+          {
+            "name": "malformed",
+            "error": "contentRefs[(info & binary.BITS5)] is not a function"
+          },
+          {
+            "name": "oversize",
+            "error": "HTTP_400"
+          },
+          {
+            "name": "task-id",
+            "error": "IMMUTABLE_FIXTURE_ID_OR_EMBED"
+          },
+          {
+            "name": "task-state",
+            "error": "INVALID_TASK_STATE"
+          },
+          {
+            "name": "embed",
+            "error": "IMMUTABLE_FIXTURE_ID_OR_EMBED"
+          },
+          {
+            "name": "extra-root",
+            "error": "UNSUPPORTED_Y_ROOT"
+          },
+          {
+            "name": "protection-extra-root",
+            "error": "UNSUPPORTED_Y_ROOT"
+          }
+        ],
+        "validSubsequentEdit": true
+      }
+    },
+    {
+      "id": "JG-10",
+      "case_id": "JG-10",
+      "status": "pass",
+      "source_manifest": "candidate-manifest.json",
+      "codec_version": "clutter-r08-y-state-v1",
+      "runtime_and_sqlite_profile": "profile",
+      "os_filesystem": "profile.osRelease/filesystemType",
+      "fixture_ids_and_hashes": [
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "92a0ca08-9865-4b47-987e-630d670c1ddc",
+          "spaceId": "e6fa3900-d889-402e-a247-60123c22086a",
+          "documentId": "1817e6ce-3357-4942-b483-09cb32b2d90f",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "2b39957a973c37e5d6b733d671017dfde99aefe41932159a25692de986e67f40",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "restart",
+          "type": "inspection",
+          "id": "f1fbae4d-ca55-4165-9cc4-43f6897ae666",
+          "spaceId": "e6fa3900-d889-402e-a247-60123c22086a",
+          "documentId": "1817e6ce-3357-4942-b483-09cb32b2d90f",
+          "version": 1,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "2b39957a973c37e5d6b733d671017dfde99aefe41932159a25692de986e67f40",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "1ea7c479b03ba281e08affa99b7fb88bfdd27db07a5cf7751397ad6ecaf60a01",
+              "operation_id": "718ff836-b980-4ada-9f6c-78668b4258f0"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "718ff836-b980-4ada-9f6c-78668b4258f0",
+              "version": 1,
+              "result": {
+                "contextId": "external",
+                "documentId": "1817e6ce-3357-4942-b483-09cb32b2d90f",
+                "durability": "durable",
+                "operationId": "718ff836-b980-4ada-9f6c-78668b4258f0",
+                "spaceId": "e6fa3900-d889-402e-a247-60123c22086a",
+                "status": "applied",
+                "version": 1
+              }
+            }
+          ],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "e1771db2-df99-45cf-af75-635ca539e218",
+          "spaceId": "e6fa3900-d889-402e-a247-60123c22086a",
+          "documentId": "1817e6ce-3357-4942-b483-09cb32b2d90f",
+          "version": 1,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "2b39957a973c37e5d6b733d671017dfde99aefe41932159a25692de986e67f40",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "1ea7c479b03ba281e08affa99b7fb88bfdd27db07a5cf7751397ad6ecaf60a01",
+              "operation_id": "718ff836-b980-4ada-9f6c-78668b4258f0"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "718ff836-b980-4ada-9f6c-78668b4258f0",
+              "version": 1,
+              "result": {
+                "contextId": "external",
+                "documentId": "1817e6ce-3357-4942-b483-09cb32b2d90f",
+                "durability": "durable",
+                "operationId": "718ff836-b980-4ada-9f6c-78668b4258f0",
+                "spaceId": "e6fa3900-d889-402e-a247-60123c22086a",
+                "status": "applied",
+                "version": 1
+              }
+            }
+          ],
+          "recovery": [],
+          "faultControls": []
+        }
+      ],
+      "operation_ids": [
+        "718ff836-b980-4ada-9f6c-78668b4258f0"
+      ],
+      "fault_phase": [],
+      "before_after_revisions_roots_outcomes": [
+        {
+          "point": "initial",
+          "type": "inspection",
+          "id": "92a0ca08-9865-4b47-987e-630d670c1ddc",
+          "spaceId": "e6fa3900-d889-402e-a247-60123c22086a",
+          "documentId": "1817e6ce-3357-4942-b483-09cb32b2d90f",
+          "version": 0,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "2b39957a973c37e5d6b733d671017dfde99aefe41932159a25692de986e67f40",
+              "operation_id": null
+            }
+          ],
+          "outcomes": [],
+          "recovery": []
+        },
+        {
+          "point": "restart",
+          "type": "inspection",
+          "id": "f1fbae4d-ca55-4165-9cc4-43f6897ae666",
+          "spaceId": "e6fa3900-d889-402e-a247-60123c22086a",
+          "documentId": "1817e6ce-3357-4942-b483-09cb32b2d90f",
+          "version": 1,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "2b39957a973c37e5d6b733d671017dfde99aefe41932159a25692de986e67f40",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "1ea7c479b03ba281e08affa99b7fb88bfdd27db07a5cf7751397ad6ecaf60a01",
+              "operation_id": "718ff836-b980-4ada-9f6c-78668b4258f0"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "718ff836-b980-4ada-9f6c-78668b4258f0",
+              "version": 1,
+              "result": {
+                "contextId": "external",
+                "documentId": "1817e6ce-3357-4942-b483-09cb32b2d90f",
+                "durability": "durable",
+                "operationId": "718ff836-b980-4ada-9f6c-78668b4258f0",
+                "spaceId": "e6fa3900-d889-402e-a247-60123c22086a",
+                "status": "applied",
+                "version": 1
+              }
+            }
+          ],
+          "recovery": []
+        },
+        {
+          "point": "final",
+          "type": "inspection",
+          "id": "e1771db2-df99-45cf-af75-635ca539e218",
+          "spaceId": "e6fa3900-d889-402e-a247-60123c22086a",
+          "documentId": "1817e6ce-3357-4942-b483-09cb32b2d90f",
+          "version": 1,
+          "roots": [
+            {
+              "version": 0,
+              "parent": null,
+              "hash": "2b39957a973c37e5d6b733d671017dfde99aefe41932159a25692de986e67f40",
+              "operation_id": null
+            },
+            {
+              "version": 1,
+              "parent": 0,
+              "hash": "1ea7c479b03ba281e08affa99b7fb88bfdd27db07a5cf7751397ad6ecaf60a01",
+              "operation_id": "718ff836-b980-4ada-9f6c-78668b4258f0"
+            }
+          ],
+          "outcomes": [
+            {
+              "operation_id": "718ff836-b980-4ada-9f6c-78668b4258f0",
+              "version": 1,
+              "result": {
+                "contextId": "external",
+                "documentId": "1817e6ce-3357-4942-b483-09cb32b2d90f",
+                "durability": "durable",
+                "operationId": "718ff836-b980-4ada-9f6c-78668b4258f0",
+                "spaceId": "e6fa3900-d889-402e-a247-60123c22086a",
+                "status": "applied",
+                "version": 1
+              }
+            }
+          ],
+          "recovery": [],
+          "faultControls": []
+        }
+      ],
+      "expected": "One semantic effect/original receipt; changed reuse/wrong destination/old capabilities denied. Paused owner retains exclusion; no independent writer fallback or token-as-operation identity.",
+      "actual": {
+        "concurrentAdapters": 3,
+        "effects": 1,
+        "pausedOwnerExcluded": true,
+        "oldCapabilityDenied": true
+      },
+      "limitations": [
+        "Synthetic Linux fixture; not native/production/full security or model acceptance."
+      ],
+      "detail": {
+        "concurrentAdapters": 3,
+        "effects": 1,
+        "pausedOwnerExcluded": true,
+        "oldCapabilityDenied": true
+      }
+    }
+  ],
+  "remaining": [
+    {
+      "id": "JG-11",
+      "status": "not-run"
+    },
+    {
+      "id": "JG-12",
+      "status": "not-run"
+    },
+    {
+      "id": "JG-13",
+      "status": "not-run"
+    }
+  ]
+}

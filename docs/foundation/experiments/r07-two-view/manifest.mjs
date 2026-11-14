@@ -20,6 +20,9 @@ const files = [
   ...readdirSync('native-macos')
     .filter((name) => /\.(swift|js|mjs|json)$/.test(name))
     .map((name) => 'native-macos/' + name),
+  ...readdirSync('joined-native')
+    .filter((n) => /\.(swift|mjs|json|md)$/.test(n))
+    .map((n) => 'joined-native/' + n),
   ...readdirSync('joined')
     .filter((n) => /\.(mjs|md|json)$/.test(n))
     .map((n) => 'joined/' + n),
@@ -39,7 +42,7 @@ const lock = JSON.parse(readFileSync('package-lock.json', 'utf8'));
 const manifest = {
   candidate: 'R07-PM-PUBLIC-02',
   alternatives: ['R07-PM-ORIGIN-02'],
-  iteration: 'R08-15-joined-origin-sqlite-2026-11-14',
+  iteration: 'R08-16-native-runner-preparation-2026-11-14',
   date: '2026-11-14',
   scope:
     'Exploratory two-view candidates and native host source; native compilation/execution must be recorded separately',
@@ -59,6 +62,8 @@ const manifest = {
   schema:
     'src/schema.mjs; minimal R02-derived semantic subset, not canonical Clutter schema',
   profiles: {
+    joinedNative:
+      'Runner16 prepared: checksum-pinned Mac Node, separate Swift/WK host, same-user synthetic bootstrap/context handoff. Linux packaged helper checks only; no Mac archive/SDK/signing/WK result or production security/host acceptance.',
     joined:
       'R08-15: two real PM/Y views use a remote read cache/provisional contexts; a real headless process stages accepted Y bytes and commits root/receipt through common SQLite Store before publication. JG-01–10 run separately; native/entity/external-asset gates remain open.',
     durable:
@@ -89,7 +94,7 @@ const manifest = {
   representations:
     'Authority accepted doc; immutable engine caches/provisional input in contexts; snapshot/recovery records deliberately serialize protected copies.',
   persistence:
-    'Editor candidates retain their MemoryStore/browser localStorage and legacy FileStore fixtures. The new durable/ fixture uses a separate real SQLite owner, not the editor integration. No production or power-loss qualification.',
+    'Editor candidates retain their MemoryStore/browser localStorage and legacy FileStore fixtures. Snapshot durable/ and joined Y/native profiles have separate marked stores and share the same Store/host; actual joined editors use the real Y owner. No production or power-loss qualification.',
   adapters:
     'Legacy file adapters remain independent controls. Live adapters reach the browser via the test relay; durable adapters reach a real SQLite owner directly. CLI/MCP share framing/transport and owner domain logic. No production discovery/grants/takeover implemented.',
   unsupported: [

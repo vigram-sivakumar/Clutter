@@ -1,6 +1,6 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-14. Documentation revision: 0.39.
+Last updated: 2026-11-14. Documentation revision: 0.40.
 Read AGENTS.md and this file first in a new chat or agent session. It is the checkpoint, not a
 second product specification. [README](README.md) identifies authoritative docs.
 
@@ -20,8 +20,9 @@ records. Keep one branch, `architecture/clutter-foundation`, and preserve all wo
 | Native/manual | Earlier09 confirmed passes/raw reports preserved; no12/13 Mac claim, IME unavailable, VoiceOver deferred; no broad rerun needed |
 | R08 review | Proposed PM/Y origin-aware + headless TS authority + SQLite combination, gap ledger and F006/F007; no baseline accepted |
 | Joined G-J (build15) | JG-01–10 pass on Linux: actual PM/Y views, real SQLite owner, CLI/MCP, failure/restart/protection and context history |
-| Next | Prepare Mac/installed-headless JG-11 candidate; JG-12/13 task/entity/external-asset gates remain before related baseline acceptance |
-| Git | User confirms13 applied;14 application unconfirmed. Bundle15 supports exact13 or14. No agent commit/push, production, Swift, dependency lock or branch change |
+| Native runner16 | Packaged runtime/Swift runner prepared;8 Linux helper checks pass. Mac compile/run and JG-11 acceptance not-run |
+| Next | User runs native:joined, reports actual setup/window, then targeted JN-01. JG-12/13 remain planned gates |
+| Git | 13 confirmed;15 corrected apply command supplied, completion unconfirmed. Bundle16 supports exact13/14/15. No agent commit/push, production, Swift, dependency lock or branch change |
 
 Read [durable qualification](r07-durable-authority.md), [history qualification](r07-history-ownership.md)
 and [native progress](NATIVE-TEST-PROGRESS.md). Separate executed evidence from
@@ -106,6 +107,9 @@ contains those contents; do not reapply either route.
 24. Joined core proof, revision0.39: `Clutter Joined Core Proof 15.zip`,
     alternatives over exact13/14, apply helper preflights; JG-01–10 Linux passed.
 
+25. Joined native runner preparation, revision0.40: `Clutter Native Runner 16.zip`,
+    exact13/14/15 alternatives. Linux helper/regressions pass; native compile/run not-run.
+
 Each update is incremental over its predecessor's file contents, not a particular
 user-created commit hash. If this file is present at revision 0.17, do not blindly
 reapply those patches. Inspect actual files and git state; do not use reset/clean,
@@ -166,40 +170,43 @@ force checkout or re-create the branch to hide divergence.
 - Current authorized continuation includes the isolated R07 experiment, not a
   production rebuild. Preserve unqualified tests and report blocking observations.
 
-## Exact next action: targeted Mac/installed-headless candidate, JG-11
+## Exact next action: run the new Mac builder, then JN-01 only
 
-Read [joined result](r08-joined-core.md), [evidence](evidence/r08-15-2026-11-14.json)
-and the [frozen implementation boundary](experiments/r07-two-view/joined/FORMAT.md).
-JG-01–10 now pass against two actual PM/Y EditorViews and a real independent SQLite
-owner. The driver/Playwright owns no accepted document. One versioned Y BLOB is
-committed with root/outcome; PM JSON is derived. Pending input/history/protection,
-unknown outcomes and owner restart are joined, not separate read-only projections.
-The original0.38 JG contract remains unchanged with historical not-run fields;
-current executions live in the result/evidence, not rewritten into the frozen spec.
+Read [runner preparation](r08-native-runner.md), [guide](experiments/r07-two-view/joined-native/README.md)
+and [evidence](evidence/r08-16-2026-11-14.json). Isolated runner16 packages the joined
+owner/CLI/MCP and a checksum-pinned Node24.22.1 runtime with a new AppKit/WKWebView
+host. Its pre-window headless smoke checks actual one-owner/receipt behavior before
+opening native editors. This is not the old R07 lab and does not require replacing
+the user's global Node. Builder needs macOS14+, Xcode tools and locked dependencies.
 
-Regressions:84 Node checks,18 earlier durable cases, unchanged strict24 pass/6
-protective refusals,66 candidate table checks and6 native-support checks pass.
-Raw failures/initial attempts and the extra-root protection negative control are
-preserved. No complete stack, production codec/model, native host or shipped runtime
-is accepted. The JS experiment is not a finished production TypeScript package.
+Eight Linux helper checks pass, including explicit context release/recovery while
+the owner stays alive and supervisor-disconnect drain. Earlier84 Node,10 joined,
+18 snapshot and unchanged strict24 pass/6 refusal cases pass. No Mac archive run,
+SDK typecheck/compilation, dylib audit, signing or WK/native result is claimed.
+SQL native full-flush PRAGMAs are requested/read back on Mac; this is not physical
+power-loss proof. Fixed A/B grants/private discovery are test infrastructure, not
+production security/multiple-client lease acceptance. The native profile uses a
+new marker/schema2 with explicit context release metadata; no schema1 migration.
 
-Next prepare a concrete Mac runner joining this owner to native editor views and
-packaging/pinning its headless runtime for app-closed CLI/MCP. Qualify JG-11's actual
-native input/history/lifecycle, grants/store identity/lock and flush profile before
-claiming it. The old Swift lab is not the joined candidate; do not ask the user to
-rerun that lab as proof. Provide targeted manual steps only when the new candidate
-is ready, one variation at a time. Preserve earlier confirmed manual results;
-IME unavailable and VoiceOver deferred remain labelled, never inferred passes.
+Next user command from the experiment: npm run native:joined (after the locked npm
+install if needed). First get actual terminal/setup/window output; fix concrete
+blockers. Only when ready, guide JN-01 native editing/remount/undo one variation at
+a time. Do not mark all JG-11 passed from build/headless smoke or rerun the earlier
+manual catalogue. Preserve old passes/raw reports; IME unavailable, VoiceOver
+deferred. Native/setup reports are safe synthetic JSON; do not request the private
+session endpoint/token files. The printed CLI command reads the same Space after
+Command-Q; printed stop command shuts down only the synthetic owner.
 
-JG-12 task/restore identity closure and JG-13 external assets are the already planned
-G-M follow-ups before related baseline acceptance. Keep architecture-review.md and
-architecture-gap-disposition.md gate order; do not start a new broad research cycle,
-production rebuild or provider enablement. No new product question is needed now.
+JG-12 task/restore closure and JG-13 external assets remain the recorded G-M
+follow-ups before related baseline acceptance. No stack/shell/runtime accepted,
+production rebuild, provider enablement or new research cycle is authorized.
+Rust may implement platform/shell mechanisms; shared semantics stay one owner.
 
-Delivery `Clutter Joined Core Proof 15.zip` contains verified alternatives over exact
-13 and14 plus a preflight apply helper; apply only one. User confirms13, not14.
-Same branch; no new dependency/lock, Swift, production, agent commit/push or accepted
-ADR changes. Native15 not-run. No new manual session requested by this delivery.
+Delivery: Clutter Native Runner 16.zip, preflight alternatives for exact13/14/15.
+The user received the corrected15 folder command but did not explicitly confirm
+its completion. Use mktemp extraction + helper, avoiding a manually repeated
+folder name. No agent commit/push; same branch. New Swift test host only, previous
+Swift/native cases and dependency lock unchanged. Documentation revision0.40.
 
 ## Session close protocol
 

@@ -20,7 +20,10 @@
     "test:comparison": "npm run build && node test/comparison.mjs",
     "test:history-lifecycle": "npm run build && node test/history-lifecycle.mjs",
     "test:durable": "node test/durable-owner.mjs",
-    "test:joined": "npm run build && node test/joined-core.mjs"
+    "test:joined": "npm run build && node test/joined-core.mjs",
+    "native:joined": "node joined-native/run.mjs",
+    "native:joined:check": "node joined-native/run.mjs --check",
+    "test:joined-native": "node test/joined-native.mjs"
   },
   "dependencies": {
     "prosemirror-collab": "1.3.1",
