@@ -362,14 +362,14 @@ describe('Sidebar: the Default note location setting', () => {
 });
 
 
-describe('Sidebar Tasks tab actionable count', () => {
+describe('Sidebar Tasks tab due-task dot', () => {
   beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date(2026, 10, 13, 12)); });
   afterEach(() => { cleanup(); vi.useRealTimers(); });
 
-  async function setupCount(markdown: string) {
+  async function setupIndicator(markdown: string) {
     const application = makeApplication([]);
     Reflect.set(application, 'rootPath', ROOT);
-    const id = await application.pageOperations.openDraft({ folderId: null, title: 'Task count' });
+    const id = await application.pageOperations.openDraft({ folderId: null, title: 'Task indicator' });
     application.pageOperations.commitEdit(id, markdown);
     render(<AppLayout application={application} />);
     const tab = () => screen.getByTestId('sidebar.tab.tasks');
@@ -377,45 +377,46 @@ describe('Sidebar Tasks tab actionable count', () => {
     return { application, id, tab, edit };
   }
 
-  it('replaces the icon with only incomplete today/overdue tasks, even on another sidebar tab', async () => {
-    const { tab } = await setupCount([
+  it('keeps the icon and marks incomplete today/overdue tasks, even on another sidebar tab', async () => {
+    const { tab } = await setupIndicator([
       '- [ ] Today @2026-11-13', '- [ ] Overdue @2026-11-12',
       '- [x] Done today @2026-11-13', '- [x] Done overdue @2026-11-12',
       '- [ ] Tomorrow @2026-11-14', '- [ ] Undated', '- [ ] Invalid @2026-13-45',
     ].join('\n'));
-    expect(tab().querySelector('.task-tab-indicator__current .count-badge')).toHaveTextContent('2');
-    expect(tab().querySelector('.task-tab-indicator__current .app-icon')).toBeNull();
-    expect(tab()).toHaveAccessibleName('Tasks, 2 due today or overdue');
+    expect(tab().querySelector('.tab__indicator')).toBeInTheDocument();
+    expect(tab().querySelector('.app-icon')).not.toBeNull();
+    expect(tab()).toHaveAccessibleName('Tasks, due today or overdue');
     fireEvent.click(tab());
     expect(tab()).toHaveClass('tab--active');
-    expect(tab().querySelector('.task-tab-indicator__current .count-badge')).toHaveTextContent('2');
+    expect(tab().querySelector('.tab__indicator')).toBeInTheDocument();
   });
-  it('restores the icon immediately at zero and updates again for unsaved edits', async () => {
-    const { application, id, tab, edit } = await setupCount('- [ ] Today @2026-11-13');
-    expect(tab().querySelector('.task-tab-indicator__current .count-badge')).toHaveTextContent('1');
+  it('removes the dot immediately when nothing is due and updates again for unsaved edits', async () => {
+    const { application, id, tab, edit } = await setupIndicator('- [ ] Today @2026-11-13');
+    expect(tab().querySelector('.tab__indicator')).toBeInTheDocument();
     edit('- [x] Today @2026-11-13');
-    expect(tab().querySelector('.task-tab-indicator__current .count-badge')).toBeNull();
-    expect(tab().querySelector('.task-tab-indicator__current .app-icon')).not.toBeNull();
+    expect(tab().querySelector('.tab__indicator')).toBeNull();
+    expect(tab().querySelector('.app-icon')).not.toBeNull();
     expect(tab()).toHaveAccessibleName('Tasks');
     edit('- [ ] Rescheduled @2026-11-14');
-    expect(tab().querySelector('.task-tab-indicator__current .count-badge')).toBeNull();
+    expect(tab().querySelector('.tab__indicator')).toBeNull();
     edit('- [ ] Overdue @2026-11-12\n- [ ] Today @2026-11-13');
-    expect(tab().querySelector('.task-tab-indicator__current .count-badge')).toHaveTextContent('2');
+    expect(tab().querySelector('.tab__indicator')).toBeInTheDocument();
     edit('Deleted all tasks');
-    expect(tab().querySelector('.task-tab-indicator__current .count-badge')).toBeNull();
+    expect(tab().querySelector('.tab__indicator')).toBeNull();
     expect(application.vault.getPage(id)).toBeUndefined(); // No autosave/promotion was needed for any update.
   });
-  it('caps the displayed badge but retains the actual count for accessibility', async () => {
-    const { tab } = await setupCount(Array.from({ length: 105 }, (_, i) => `- [ ] Task ${i} @2026-11-13`).join('\n'));
-    expect(tab().querySelector('.task-tab-indicator__current .count-badge')).toHaveTextContent('99+');
-    expect(tab()).toHaveAccessibleName('Tasks, 105 due today or overdue');
+  it('shows just one dot for any number of due tasks', async () => {
+    const { tab } = await setupIndicator(Array.from({ length: 105 }, (_, i) => `- [ ] Task ${i} @2026-11-13`).join('\n'));
+    expect(tab().querySelectorAll('.tab__indicator')).toHaveLength(1);
+    expect(tab().querySelector('.count-badge')).toBeNull();
+    expect(tab()).toHaveAccessibleName('Tasks, due today or overdue');
   });
-  it('counts tomorrow’s tasks at local midnight without a task edit', async () => {
+  it('marks tomorrow’s tasks at local midnight without a task edit', async () => {
     vi.setSystemTime(new Date(2026, 10, 13, 23, 59, 59, 900));
-    const { tab } = await setupCount('- [ ] Tomorrow @2026-11-14');
-    expect(tab().querySelector('.task-tab-indicator__current .count-badge')).toBeNull();
+    const { tab } = await setupIndicator('- [ ] Tomorrow @2026-11-14');
+    expect(tab().querySelector('.tab__indicator')).toBeNull();
     await act(async () => { await vi.advanceTimersByTimeAsync(102); });
-    expect(tab().querySelector('.task-tab-indicator__current .count-badge')).toHaveTextContent('1');
+    expect(tab().querySelector('.tab__indicator')).toBeInTheDocument();
   });
   it('counts closed notes independently of view filters and reacts to task actions', async () => {
     const application = makeApplication([]);
@@ -426,11 +427,11 @@ describe('Sidebar Tasks tab actionable count', () => {
     application.tasksViewConfigStore.update({ showCompleted: true, hiddenGroups: ['today', 'overdue'], selectedTab: 'unscheduled' });
     render(<AppLayout application={application} />);
     const tab = screen.getByTestId('sidebar.tab.tasks');
-    expect(tab.querySelector('.task-tab-indicator__current .count-badge')).toHaveTextContent('1');
+    expect(tab.querySelector('.tab__indicator')).toBeInTheDocument();
     const due = application.effectivePageState.getTasks().find((task) => !task.completed && task.dueDate === '2026-11-13')!;
     await act(async () => { await application.taskOperations.toggleComplete(due); });
-    expect(tab.querySelector('.task-tab-indicator__current .count-badge')).toBeNull();
-    expect(tab.querySelector('.task-tab-indicator__current .app-icon')).not.toBeNull();
+    expect(tab.querySelector('.tab__indicator')).toBeNull();
+    expect(tab.querySelector('.app-icon')).not.toBeNull();
   });
   it('does not count tasks in template or archived draft destinations', async () => {
     const application = makeApplication([]);
@@ -441,6 +442,6 @@ describe('Sidebar Tasks tab actionable count', () => {
       application.pageOperations.commitEdit(id, '- [ ] Not actionable @2026-11-13');
     }
     render(<AppLayout application={application} />);
-    expect(screen.getByTestId('sidebar.tab.tasks').querySelector('.task-tab-indicator__current .count-badge')).toBeNull();
+    expect(screen.getByTestId('sidebar.tab.tasks').querySelector('.tab__indicator')).toBeNull();
   });
 });

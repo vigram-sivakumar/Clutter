@@ -19,6 +19,7 @@ type TabsProps = {
 
 type TabProps = {
   value: string;
+  hasIndicator?: boolean;
   'aria-label'?: string;
   children?: ReactNode;
 };
@@ -48,7 +49,7 @@ export function Tabs({
 }
 
 // Tab
-export function Tab({ children, value, 'aria-label': ariaLabel }: TabProps) {
+export function Tab({ children, value, hasIndicator = false, 'aria-label': ariaLabel }: TabProps) {
   const context = useContext(TabsContext);
 
   if (!context) {
@@ -73,7 +74,10 @@ export function Tab({ children, value, 'aria-label': ariaLabel }: TabProps) {
       onClick={handleClick}
       data-testid={testIds.sidebar.tab(value)}
     >
-      {children}
+      <span className="tab__content">
+        {children}
+        {hasIndicator && <span className="tab__indicator" aria-hidden="true" />}
+      </span>
     </button>
   );
 }

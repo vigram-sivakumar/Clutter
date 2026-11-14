@@ -45,6 +45,26 @@
   color: var(--foreground-primary);
 }
 
+.tab__content {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: inherit;
+}
+
+.tab__indicator {
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger-surface);
+  border: 1.5px solid var(--surface-tertiary);
+  pointer-events: none;
+}
+
 .tabs--ghost .tab {
   width: auto;
   padding-inline: var(--space-12);
