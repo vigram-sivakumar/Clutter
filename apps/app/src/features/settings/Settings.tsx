@@ -36,6 +36,7 @@ import { StartupSetting } from './startup-setting/StartupSetting';
 import { DateFormatSetting } from './date-format-setting/DateFormatSetting';
 import { WeekStartSetting } from './week-start-setting/WeekStartSetting';
 import { ThemeSetting } from './theme-setting/ThemeSetting';
+import { DefaultTaskLocationSetting } from './tasks-setting/DefaultTaskLocationSetting';
 import { TaskItemsSetting } from './tasks-setting/TaskItemsSetting';
 import { GroupTasksByDueDateSetting } from './tasks-setting/GroupTasksByDueDateSetting';
 import { ApplyTemplateIconSetting } from './templates-setting/ApplyTemplateIconSetting';
@@ -177,10 +178,15 @@ export function Settings({ templates, noteLocation, spaceSettings, space, onClos
           </>
         )}
         {pageId === 'tasks' && (
-          <SettingsGroup title="Sidebar appearance">
-            <GroupTasksByDueDateSetting />
-            <TaskItemsSetting />
-          </SettingsGroup>
+          <>
+            <SettingsGroup title="Task creation">
+              <DefaultTaskLocationSetting />
+            </SettingsGroup>
+            <SettingsGroup title="Sidebar appearance">
+              <GroupTasksByDueDateSetting />
+              <TaskItemsSetting />
+            </SettingsGroup>
+          </>
         )}
         {pageId === 'tags' && (
           <>

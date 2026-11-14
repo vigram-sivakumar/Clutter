@@ -234,6 +234,10 @@ export class NavigationRouter {
   /**
    * Shows every task, incomplete and completed alike.
    */
+  public openTaskInbox(): void {
+    this.workspace.openFilteredView({ kind: 'tasks-inbox' });
+  }
+
   public openAllTasks(): void {
     this.workspace.openFilteredView({ kind: 'tasks-all' });
   }

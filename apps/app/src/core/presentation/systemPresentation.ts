@@ -18,6 +18,7 @@ export type SystemLocationId =
   | 'daily-notes'
   | 'tasks'
   | 'tasks-all'
+  | 'tasks-inbox'
   | 'tasks-unscheduled'
   | 'tags'
   | 'favorites'
@@ -75,9 +76,10 @@ export const SYSTEM_LOCATION_PRESENTATION: Readonly<
   tasks: { id: 'tasks', label: 'Tasks', icon: 'circleTick' },
   'tasks-all': {
     id: 'tasks-all',
-    label: 'Tasks',
+    label: 'All tasks',
     icon: 'circleTick',
   },
+  'tasks-inbox': { id: 'tasks-inbox', label: 'Inbox', icon: 'tray' },
   'tasks-unscheduled': {
     id: 'tasks-unscheduled',
     label: 'Unscheduled',

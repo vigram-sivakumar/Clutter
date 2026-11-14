@@ -1,3 +1,4 @@
+import { isTaskInboxPath } from '../../vault/initialize/ReservedResources';
 import type { Folder } from '../../vault/models/Folder';
 import type { Page } from '../../vault/models/Page';
 import type { Asset } from '../../vault/models/Asset';
@@ -335,7 +336,7 @@ export class MembershipSelector {
   }
 
   public isVisiblePage(page: Pick<EffectivePage | Page, 'name'>): boolean {
-    return !this.isHiddenName(page.name);
+    return !this.isHiddenName(page.name) && !('path' in page && typeof page.path === 'string' && isTaskInboxPath(this.vault.root, page.path));
   }
 
   /**

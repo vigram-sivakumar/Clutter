@@ -2,7 +2,7 @@ import type { FolderFrontmatter } from './frontmatter';
 import type { VaultScanResult } from './VaultScanResult';
 import type { VaultFileSystem } from '../providers';
 import { DocumentLoader } from './DocumentLoader';
-import { isClutterInternalPath } from '../initialize/ReservedResources';
+import { taskInboxPath, isClutterInternalPath } from '../initialize/ReservedResources';
 import { readPageFileTimes, readResourceMetadata } from './readResourceMetadata';
 import { classifySupportedResourceFile } from './SupportedResourceKind';
 import type { ParseMemo } from './ParseMemo';
@@ -12,7 +12,8 @@ export class VaultScanner {
 
   constructor(
     private readonly fileSystem: VaultFileSystem,
-    memo: ParseMemo | null = null
+    memo: ParseMemo | null = null,
+    private readonly contentRoot?: string
   ) {
     this.documentLoader = new DocumentLoader(fileSystem, memo);
   }
@@ -32,6 +33,11 @@ export class VaultScanner {
     };
 
     await this.scanDirectory(vaultPath, null, result);
+    const inbox = taskInboxPath(vaultPath);
+    if ((this.contentRoot === undefined || this.contentRoot === vaultPath) && await this.fileSystem.exists(inbox)) {
+      // Parentless internal source, never a navigable .clutter Folder.
+      await this.inspectFile(inbox, vaultPath, result);
+    }
 
     return result;
   }

@@ -20,6 +20,7 @@ export type FilteredView =
   | { readonly kind: 'workspace' }
   | { readonly kind: 'favorites' }
   | { readonly kind: 'tasks-all' }
+  | { readonly kind: 'tasks-inbox' }
   | { readonly kind: 'tasks-unscheduled' }
   | { readonly kind: 'tag'; readonly tagName: string }
   | { readonly kind: 'assets' };

@@ -1,3 +1,4 @@
+import { isTaskInboxPath } from '@core/vault/initialize/ReservedResources';
 import type { Vault } from '@core/vault/models/Vault';
 import type { Page } from '@core/vault/models/Page';
 import type { PageOperations } from '@core/application/page/PageOperations';
@@ -78,7 +79,7 @@ export function createWikiLinkSuggester(
   /** The Space's name: a reserved folder lives at the Space's top level, so it is shown as "in" it. */
   spaceName?: string
 ): GetWikiLinkSuggestions {
-  const livePages = () => Array.from(vault.pages()).filter((page) => !isArchived(page));
+  const livePages = () => Array.from(vault.pages()).filter((page) => !isArchived(page) && !isTaskInboxPath(vault.root, page.path));
 
   return (query) => {
     const trimmed = query.trim();

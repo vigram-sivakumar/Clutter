@@ -26,7 +26,7 @@ export interface NewTaskContentProps {
    */
   editing?: EditingTask;
   /**
-   * Creates the task in its target Daily Note and resolves once durable
+   * Creates the task in its chosen source and resolves once durable
    * (see TasksShortcutsProps.onCreateTask's own doc comment) — a plain
    * callback prop, never a TaskOperations/PageOperations import here
    * (UI/Features must not import a concrete application-layer class

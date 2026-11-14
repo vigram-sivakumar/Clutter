@@ -23,7 +23,7 @@ import { DocumentTransaction } from '../../engine/DocumentTransaction';
 import { FrontmatterParser, type ParsedMarkdown } from '../ingest/FrontmatterParser';
 import { FrontmatterSerializer } from '../ingest/FrontmatterSerializer';
 import { VaultPath } from '../ingest/VaultPath';
-import { isClutterInternalPath, TAG_METADATA_RELATIVE_PATH } from '../initialize/ReservedResources';
+import { isClutterInternalPath, isTaskInboxPath, taskInboxPath, TAG_METADATA_RELATIVE_PATH } from '../initialize/ReservedResources';
 import type { TagMetadataStore } from '../persistence/TagMetadataStore';
 import { tagMetadataEquals } from '../persistence/tagMetadataFile';
 import type { IdGenerator } from '../../shared/identity/IdGenerator';
@@ -79,7 +79,7 @@ export class VaultSyncService {
     this.pageRebuilder = new PageRebuilder();
     this.folderBuilder = new FolderBuilder();
     this.resourceBuilder = new ResourceBuilder();
-    this.vaultScanner = new VaultScanner(fileSystem);
+    this.vaultScanner = new VaultScanner(fileSystem, null, vault.root);
     this.documentRegistry = documentRegistry;
     this.frontmatterParser = new FrontmatterParser();
     this.frontmatterSerializer = frontmatterSerializer;
@@ -150,7 +150,7 @@ export class VaultSyncService {
     // folder exists. So reconcile the topmost unknown ancestor directory
     // instead: that scan adds the folder chain and everything in it, the target
     // included.
-    const target = this.topmostUnknownDirectory(absolutePath) ?? absolutePath;
+    const target = isTaskInboxPath(this.vault.root, absolutePath) ? absolutePath : this.topmostUnknownDirectory(absolutePath) ?? absolutePath;
     const prefix = `${this.vault.root}/`;
     const relativePath = target.startsWith(prefix) ? target.slice(prefix.length) : target;
 
@@ -189,6 +189,13 @@ export class VaultSyncService {
    * event interpretation stays here, unchanged from before this existed.
    */
   private handleChange(change: VaultFileChange): void {
+    // Coalesced events on the private directory must refresh its one content source too.
+    const internalDirectory = VaultPath.parentDirectory(taskInboxPath(this.vault.root));
+    const paths = change.type === 'moved' ? [change.fromPath, change.toPath] : [change.path];
+    if (paths.some((path) => this.resolvePath(path) === internalDirectory)) {
+      const inbox = taskInboxPath(this.vault.root);
+      this.dispatch(inbox, () => this.reconcilePath(inbox));
+    }
     if (this.tagMetadataStore && this.isTagMetadataFileChange(change)) {
       this.dispatch(this.resolvePath(TAG_METADATA_RELATIVE_PATH), () => this.reloadTagMetadata());
       return;
@@ -316,7 +323,7 @@ export class VaultSyncService {
     // Same exclusion VaultScanner applies at startup (ReservedResources'
     // isClutterInternalPath) — Clutter's own application data, never
     // discovered as vault content by either path.
-    if (isClutterInternalPath(this.vault.root, absolutePath)) {
+    if (isClutterInternalPath(this.vault.root, absolutePath) && !isTaskInboxPath(this.vault.root, absolutePath)) {
       return;
     }
 
@@ -362,7 +369,7 @@ export class VaultSyncService {
    * got here.
    */
   private async reconcilePath(absolutePath: string): Promise<void> {
-    if (isClutterInternalPath(this.vault.root, absolutePath)) {
+    if (isClutterInternalPath(this.vault.root, absolutePath) && !isTaskInboxPath(this.vault.root, absolutePath)) {
       return;
     }
 
@@ -480,6 +487,10 @@ export class VaultSyncService {
    * of reconciling the old path again.
    */
   private async relocateOrRemovePage(page: Page): Promise<void> {
+    if (isTaskInboxPath(this.vault.root, page.path)) {
+      this.vault.removePage(page.id);
+      return;
+    }
     const destination = await this.findRelocatedPagePath(page);
 
     if (destination !== undefined && (await this.applyMove(page.path, destination, false))) {
@@ -1742,7 +1753,7 @@ export class VaultSyncService {
     return (
       absolutePath.endsWith('.md') &&
       VaultPath.filename(absolutePath) !== '.folder.md' &&
-      !isClutterInternalPath(this.vault.root, absolutePath)
+      (!isClutterInternalPath(this.vault.root, absolutePath) || isTaskInboxPath(this.vault.root, absolutePath))
     );
   }
 
@@ -1784,7 +1795,7 @@ export class VaultSyncService {
   }
 
   private resolveParentId(directoryPath: string): string | null | undefined {
-    if (directoryPath === this.vault.root) {
+    if (directoryPath === this.vault.root || directoryPath === VaultPath.parentDirectory(taskInboxPath(this.vault.root))) {
       return null;
     }
 

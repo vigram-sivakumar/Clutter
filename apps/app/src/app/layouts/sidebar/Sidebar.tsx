@@ -44,7 +44,7 @@ import { createNote } from '@features/notes/helpers/createNote';
 import { createTemplate } from '@features/notes/helpers/createTemplate';
 import { reportUpload, uploadAssets } from '@features/notes/helpers/uploadAssets';
 import { useToast } from '@components/toast/ToastProvider';
-import { createTaskInDailyNote } from '@features/tasks/helpers/createTaskInDailyNote';
+import { createTask } from '@features/tasks/helpers/createTask';
 import { testIds } from '@shared/testing/selectors';
 import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal';
 import type { SidebarTab } from '@core/application/workspace/WorkspaceSessionStore';
@@ -377,7 +377,7 @@ export function Sidebar({
         open={creationDialog === 'task'}
         onClose={closeCreationDialog}
         onCreateTask={(title, dueDate) =>
-          createTaskInDailyNote({ vault, pageOperations, taskOperations }, title, dueDate)
+          createTask({ vault, pageOperations, taskOperations }, title, dueDate)
         }
       />
       {editingTask && (

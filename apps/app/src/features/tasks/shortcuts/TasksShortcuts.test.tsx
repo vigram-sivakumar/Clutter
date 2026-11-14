@@ -170,7 +170,7 @@ describe('TasksShortcuts', () => {
 
   it.each([
     ['tasks-all', 'all-tasks'],
-    ['tasks-unscheduled', 'unscheduled'],
+    ['tasks-inbox', 'inbox'],
   ] as const)('invokes onShortcut with "%s" when clicked', (locationId, id) => {
     const { onShortcut } = renderTasksShortcuts();
 

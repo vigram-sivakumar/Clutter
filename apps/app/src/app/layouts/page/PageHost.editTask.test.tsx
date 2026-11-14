@@ -328,3 +328,72 @@ describe('PageHost: Edit task from the Task Collection', () => {
     expect(titleField()).toHaveValue('');
   });
 });
+
+describe('PageHost: Task Inbox collection', () => {
+  it('uses the task collection without tabs or Source and opens Inbox tasks in the edit dialog', async () => {
+    const { application } = setup([
+      pageWith(
+        'inbox-source',
+        '- [ ] Captured @2026-11-20',
+        '.clutter/inbox.md'
+      ),
+      pageWith('other', '- [ ] Elsewhere'),
+    ]);
+    application.navigation.openTaskInbox();
+    render(<AppLayout application={application} />);
+    await flush();
+    const body = document.querySelector('.collection__content')!;
+    expect(body).toHaveTextContent('Captured');
+    expect(body).not.toHaveTextContent('Elsewhere');
+    expect(document.querySelector('[role="tablist"]')).toBeNull();
+    expect(document.querySelector('.collection__bottom-spacer')).not.toBeNull();
+    fireEvent.click(rowOf('Captured'));
+    await flush();
+    expect(document.body).toHaveTextContent('Save changes');
+    expect(titleField()).toHaveValue('Captured');
+    expect(application.workspace.activeView).toMatchObject({
+      type: 'filtered-view',
+      view: { kind: 'tasks-inbox' },
+    });
+  });
+
+  it('explains Tidy up in a confirmation and includes completed dated tasks', async () => {
+    const { application } = setup([
+      pageWith(
+        'inbox-source',
+        '- [x] Finished @2026-11-20 @completed:2026-11-14',
+        '.clutter/inbox.md'
+      ),
+    ]);
+    const tidy = vi
+      .spyOn(application.taskOperations, 'tidyInbox')
+      .mockResolvedValue(undefined);
+    application.navigation.openTaskInbox();
+    render(<AppLayout application={application} />);
+    await flush();
+    const button = [...document.querySelectorAll('button')].find(
+      (candidate) => candidate.textContent === 'Tidy up'
+    )!;
+    fireEvent.click(button);
+    await flush();
+    expect(document.body).toHaveTextContent('including completed tasks');
+    expect(tidy).not.toHaveBeenCalled();
+    const confirm = document.querySelector<HTMLButtonElement>(
+      '.confirmation__actions button:last-child'
+    )!;
+    fireEvent.click(confirm);
+    await flush();
+    expect(tidy).toHaveBeenCalledWith(ROOT, 'inbox-source');
+  });
+
+  it('shows an empty Inbox without creating a source document', async () => {
+    const { application, vault } = setup([]);
+    application.navigation.openTaskInbox();
+    render(<AppLayout application={application} />);
+    await flush();
+    expect(document.querySelector('.collection__content')).toHaveTextContent(
+      'Tasks you create in Inbox will appear here'
+    );
+    expect([...vault.pages()]).toHaveLength(0);
+  });
+});

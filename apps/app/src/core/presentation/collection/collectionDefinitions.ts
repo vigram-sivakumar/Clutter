@@ -230,7 +230,7 @@ export const ASSETS_COLLECTION: CollectionDefinition = {
  */
 export const TASKS_COLLECTION: CollectionDefinition = {
   kind: 'tasks',
-  emptyMessage: 'Tasks from your notes will appear here',
+  emptyMessage: 'Tasks you create or add to notes will appear here',
   properties: ['name', 'dueDate', 'source'],
   defaultVisible: ['name', 'dueDate', 'source'],
   defaultVisibleByLayout: { list: ['name', 'dueDate'] },
@@ -239,6 +239,14 @@ export const TASKS_COLLECTION: CollectionDefinition = {
   defaultSort: DEFAULT_SORT,
   actions: { create: true },
   required: { list: ['name'], table: ['name'] },
+};
+
+/** Same task collection behavior, with source fixed by membership rather than offered as a property. */
+export const TASK_INBOX_COLLECTION: CollectionDefinition = {
+  ...TASKS_COLLECTION,
+  emptyMessage: 'Tasks you create in Inbox will appear here',
+  properties: ['name', 'dueDate'],
+  defaultVisible: ['name', 'dueDate'],
 };
 
 /**
@@ -287,6 +295,8 @@ export function collectionDefinitionForFilteredView(view: FilteredView): Collect
     case 'assets':
       return ASSETS_COLLECTION;
     // Every task view is a dataset of the one Task Collection (ADR-046).
+    case 'tasks-inbox':
+      return TASK_INBOX_COLLECTION;
     case 'tasks-all':
     case 'tasks-unscheduled':
       return TASKS_COLLECTION;
@@ -309,4 +319,5 @@ export const ALL_COLLECTION_DEFINITIONS: readonly CollectionDefinition[] = [
   TAG_COLLECTION,
   ASSETS_COLLECTION,
   TASKS_COLLECTION,
+  TASK_INBOX_COLLECTION,
 ];

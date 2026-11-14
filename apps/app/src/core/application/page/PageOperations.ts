@@ -1,3 +1,4 @@
+import { isTaskInboxPath } from '../../vault/initialize/ReservedResources';
 import { NameTakenError } from '../NameTakenError';
 import { classifySaveFailure, classifyWriteRefusal, isRetryableSaveFailure, type SaveFailureKind, type WriteRefusal } from '../../vault/atomicWrite/atomicWriteErrors';
 import type {
@@ -245,6 +246,7 @@ export { classifySaveFailure, classifyWriteRefusal };
  * draft's title is updateDraftTitle()'s job, unchanged.
  */
 export class PageOperations {
+  private readonly ensuringPaths = new Map<string, Promise<string>>();
   /**
    * The one unsaved draft Clutter may hold at any time, across Notes and
    * Daily Notes alike (not one per folder, per date, or per type). Its
@@ -589,6 +591,11 @@ export class PageOperations {
     options?: { readonly recordHistory?: boolean }
   ): Promise<void> {
     const page = this.vault.getPage(pageId);
+    if (page && isTaskInboxPath(this.vault.root, page.path)) {
+      this.flushActivePage();
+      this.workspace.openFilteredView({ kind: 'tasks-inbox' });
+      return;
+    }
     const draft = page ? undefined : this.draftFor(pageId);
 
     if (!page && !draft) {
@@ -700,7 +707,24 @@ export class PageOperations {
    *   path create() uses, with the deterministic path and Daily Note folder
    *   chain resolved exactly as for a draft's first save).
    */
-  public async ensureAtPath(
+  public ensureAtPath(
+    path: string,
+    options: { readonly type: PageType; readonly title?: string }
+  ): Promise<string> {
+    const pending = this.ensuringPaths.get(path);
+    if (pending) return pending;
+    const work = this.ensureAtPathOnce(path, options);
+    this.ensuringPaths.set(path, work);
+    void work
+      .finally(() => {
+        if (this.ensuringPaths.get(path) === work)
+          this.ensuringPaths.delete(path);
+      })
+      .catch(() => {});
+    return work;
+  }
+
+  private async ensureAtPathOnce(
     path: string,
     options: { readonly type: PageType; readonly title?: string }
   ): Promise<string> {
@@ -1171,6 +1195,38 @@ export class PageOperations {
     this.saveCoordinator.cancelTimers(this.descriptionChannelKey(pageId));
   }
 
+  /** Whether a source is the managed Task Inbox, rather than an ordinary note. */
+  public isTaskInbox(pageId: string): boolean {
+    const page = this.vault.getPage(pageId);
+    return page !== undefined && isTaskInboxPath(this.vault.root, page.path);
+  }
+
+  /** A transfer may remove its source only after the destination reached Durable, not merely Committed. */
+  public async mutateBodyAndSave(
+    pageId: string,
+    transform: (markdown: string) => string
+  ): Promise<void> {
+    const throughSession = this.documentRegistry.get(pageId) !== undefined;
+    let expected: string | undefined;
+    await this.mutateBody(pageId, (markdown) => {
+      expected = transform(markdown);
+      return expected;
+    });
+    await this.requestSave(pageId);
+    const session = this.documentRegistry.get(pageId);
+    // Open sessions keep the user's raw Markdown while save() may normalize its durable representation.
+    const durableExpected = throughSession && expected !== undefined && this.normalizeMarkdownForSave
+      ? this.normalizeMarkdownForSave(expected)
+      : expected;
+    if (
+      this.vault.getPage(pageId)?.source.markdown !== durableExpected ||
+      session?.isDirty ||
+      (session !== undefined && session.currentRevision.markdown !== expected)
+    ) {
+      throw new Error('The task changes have not been saved');
+    }
+  }
+
   public getSession(pageId: string): DocumentSession | undefined {
     return this.documentRegistry.get(pageId);
   }
@@ -1193,8 +1249,8 @@ export class PageOperations {
    * here instead would silently strand the mutation in the session with no
    * scheduled persistence. No Gate call happens in this branch.
    *
-   * If no session is open, transform() runs against the Vault's durable
-   * page.source.markdown and the result is enqueued through the Gate's
+   * If no session is open, transform() runs against the Vault's latest
+   * durable page.source.markdown at dequeue time through the Gate's
    * existing 'save' kind — the same call TaskOperations.mutate() made
    * directly before this method existed, just relocated here so every
    * body-mutating feature facade shares one broker instead of
@@ -1239,7 +1295,8 @@ export class PageOperations {
 
     const result = await this.enqueueGate(pageId, {
       kind: 'save',
-      content: transform(page!.source.markdown),
+      content: page!.source.markdown,
+      transform,
     });
 
     if (result.status === 'abandoned') {

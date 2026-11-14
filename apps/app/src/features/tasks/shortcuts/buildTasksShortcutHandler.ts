@@ -21,8 +21,8 @@ export function buildTasksShortcutHandler(
       case 'all-tasks':
         navigation.openAllTasks();
         break;
-      case 'unscheduled':
-        navigation.openTasksUnscheduled();
+      case 'inbox':
+        navigation.openTaskInbox();
         break;
       default: {
         const _exhaustive: never = id;

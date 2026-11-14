@@ -3,11 +3,11 @@ import type { TaskOccurrence } from '@core/vault/models/occurrences';
 import { classifyDueDate } from './taskDueDate';
 
 /**
- * The task datasets of the Task Collection. `tasks-all` and `tasks-unscheduled` are also `FilteredView` kinds (pages the
+ * The task datasets of the Task Collection. `tasks-inbox`, `tasks-all` and `tasks-unscheduled` are also `FilteredView` kinds (pages the
  * sidebar opens); `tasks-today`, `tasks-overdue` and `tasks-upcoming` are datasets only — the Tasks page's tabs select them
  * (ADR-051, ADR-068).
  */
-export type TaskViewKind = 'tasks-all' | 'tasks-today' | 'tasks-overdue' | 'tasks-upcoming' | 'tasks-unscheduled';
+export type TaskViewKind = 'tasks-inbox' | 'tasks-all' | 'tasks-today' | 'tasks-overdue' | 'tasks-upcoming' | 'tasks-unscheduled';
 
 /**
  * The slice of the shared Tasks-view display preference that decides MEMBERSHIP (the other half,
@@ -23,6 +23,7 @@ export interface TaskViewMembershipConfig {
  * dataset is drawn. Nothing else — no render branch, helper or component — filters tasks per view.
  *
  * Membership (due dates are interpreted only by `classifyDueDate`):
+ *  - Inbox        — tasks from the managed Inbox source, respecting Show completed.
  *  - Tasks        — every task. The shared "Show completed" setting applies: off hides completed ones.
  *  - Today        — explicit valid due date is today. "Show completed" applies.
 
@@ -37,11 +38,14 @@ export interface TaskViewMembershipConfig {
 export function tasksForView(
   view: TaskViewKind,
   tasks: readonly TaskOccurrence[],
-  { showCompleted }: TaskViewMembershipConfig
+  { showCompleted }: TaskViewMembershipConfig,
+  inboxPageId?: string
 ): readonly TaskOccurrence[] {
   const visible = (task: TaskOccurrence) => showCompleted || !task.completed;
 
   switch (view) {
+    case 'tasks-inbox':
+      return tasks.filter((task) => task.sourcePageId === inboxPageId && visible(task));
     case 'tasks-all':
       return tasks.filter(visible);
     case 'tasks-today':

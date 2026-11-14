@@ -42,6 +42,8 @@ export type PersistenceOperation =
   | {
       readonly kind: 'save';
       readonly content: string;
+      /** Body transforms run against the latest source inside the existing per-page queue. */
+      readonly transform?: (markdown: string) => string;
       // Optional metadata patch, applied to the current Page before
       // re-serializing (see writeParseRebuildReplace) — lets a metadata-only
       // update (PageOperations.updateMetadata) reuse this same kind and the
@@ -415,7 +417,7 @@ export class PagePersistenceCoordinator {
         const target = operation.metadata
           ? { ...current, metadata: { ...current.metadata, ...operation.metadata } }
           : current;
-        return this.writeParseRebuildReplace(target, operation.content, operation.expectedDiskFingerprint);
+        return this.writeParseRebuildReplace(target, operation.transform ? operation.transform(current.source.markdown) : operation.content, operation.expectedDiskFingerprint);
       }
       case 'archive':
         return this.runArchive(current);

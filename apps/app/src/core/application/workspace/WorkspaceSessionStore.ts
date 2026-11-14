@@ -37,6 +37,7 @@ const FILTERED_VIEW_KINDS: Record<FilteredViewKind, true> = {
   workspace: true,
   favorites: true,
   'tasks-all': true,
+  'tasks-inbox': true,
   'tasks-unscheduled': true,
   tag: true,
   assets: true,

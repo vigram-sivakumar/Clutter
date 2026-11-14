@@ -516,7 +516,7 @@ describe('TasksCollectionBody', () => {
         );
 
         expect(getByRole('status')).toHaveTextContent(
-          'Tasks from your notes will appear here'
+          'Tasks you create or add to notes will appear here'
         );
       });
     });
@@ -876,7 +876,7 @@ describe('TasksCollectionBody', () => {
     );
 
     expect(getByRole('status')).toHaveTextContent(
-      'Tasks from your notes will appear here'
+      'Tasks you create or add to notes will appear here'
     );
   });
 
@@ -1166,4 +1166,15 @@ describe('TasksCollectionBody — right-click menu', () => {
     fireEvent.click(within(rowOf('Alpha') as HTMLElement).getByLabelText('Edit task'));
     expect(onEditTask).toHaveBeenCalledWith(expect.objectContaining({ text: 'Alpha' }));
   });
+});
+
+
+it('distinguishes an empty Inbox from completed tasks hidden by settings', () => {
+  render(<TasksCollectionBody
+    view="tasks-inbox" inboxPageId="inbox" tasks={[task({ sourcePageId: 'inbox', text: 'Hidden completed task', completed: true })]}
+    displayConfig={{ ...DEFAULT_TASK_DISPLAY_CONFIG, showCompleted: false }}
+    onToggleComplete={vi.fn()} onOpenTask={vi.fn()} onChangeDueDate={vi.fn()}
+  />);
+  expect(screen.getByText('No tasks to show with the current settings')).toBeInTheDocument();
+  expect(screen.queryByText('Hidden completed task')).toBeNull();
 });

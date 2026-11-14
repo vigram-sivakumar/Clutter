@@ -33,6 +33,7 @@ import { ShowMoreEntry } from '@components/entry/ShowMoreEntry';
 export const SIDEBAR_GROUP_TASK_LIMIT = 10;
 
 interface TaskRowCallbacks {
+  readonly inboxPageId?: string;
   readonly onToggleComplete: (task: TaskOccurrence) => void;
   /** Also what "Show in note" in the row's More Actions menu invokes — same action, same destination. */
   readonly onOpenTask: (task: TaskOccurrence) => void;
@@ -76,6 +77,7 @@ export function renderTaskRow(
   {
     onToggleComplete,
     onOpenTask,
+    inboxPageId,
     onChangeDueDate,
     onDuplicateTask,
     onDeleteTask,
@@ -113,7 +115,7 @@ export function renderTaskRow(
       onCheckedChange={() => onToggleComplete(task)}
       onClick={() => onOpenTask(task)}
       onChangeDueDate={(next) => onChangeDueDate(task, next)}
-      onOpenInNote={() => onOpenTask(task)}
+      onOpenInNote={task.sourcePageId === inboxPageId ? undefined : () => onOpenTask(task)}
       onDuplicate={() => onDuplicateTask(task)}
       onDelete={() => onDeleteTask(task)}
       onEdit={onEditTask && (() => onEditTask(task))}
@@ -155,6 +157,7 @@ export function renderTodayContent({
   today,
   onToggleComplete,
   onOpenTask,
+  inboxPageId,
   onChangeDueDate,
   onDuplicateTask,
   onDeleteTask,
@@ -166,6 +169,7 @@ export function renderTodayContent({
   return renderTaskList(today, {
     onToggleComplete,
     onOpenTask,
+    inboxPageId,
     onChangeDueDate,
     onDuplicateTask,
     onDeleteTask,
@@ -192,6 +196,7 @@ export function renderOverdueContent({
   overdue,
   onToggleComplete,
   onOpenTask,
+  inboxPageId,
   onChangeDueDate,
   onDuplicateTask,
   onDeleteTask,
@@ -203,6 +208,7 @@ export function renderOverdueContent({
   return renderTaskList(overdue, {
     onToggleComplete,
     onOpenTask,
+    inboxPageId,
     onChangeDueDate,
     onDuplicateTask,
     onDeleteTask,
@@ -227,6 +233,7 @@ export function renderUpcomingContent({
   upcoming,
   onToggleComplete,
   onOpenTask,
+  inboxPageId,
   onChangeDueDate,
   onDuplicateTask,
   onDeleteTask,
@@ -238,6 +245,7 @@ export function renderUpcomingContent({
   return renderTaskList(upcoming, {
     onToggleComplete,
     onOpenTask,
+    inboxPageId,
     onChangeDueDate,
     onDuplicateTask,
     onDeleteTask,
@@ -276,6 +284,7 @@ export function renderTasksByDate({
   workspace,
   onToggleComplete,
   onOpenTask,
+  inboxPageId,
   onChangeDueDate,
   onDuplicateTask,
   onDeleteTask,
@@ -323,6 +332,7 @@ export function renderTasksByDate({
   const rowProps = {
     onToggleComplete,
     onOpenTask,
+    inboxPageId,
     onChangeDueDate,
     onDuplicateTask,
     onDeleteTask,

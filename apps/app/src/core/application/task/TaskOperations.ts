@@ -1,3 +1,7 @@
+import { DailyNotePath } from '../../vault/ingest/DailyNotePath';
+import { TaskExtractor } from '../../vault/ingest/extractors/TaskExtractor';
+import { toDate } from '@shared/helpers/time/helpers/toDate';
+import { isValidCalendarDate } from '@shared/helpers/time/helpers/isValidCalendarDate';
 import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 import type { TaskOccurrence } from '../../vault/models/occurrences';
 import { MutateBodyAbandonedError, type PageOperations } from '../page/PageOperations';
@@ -43,6 +47,105 @@ interface TaskSourcePosition {
 export class TaskOperations {
   constructor(private readonly pageOperations: PageOperations) {}
 
+  private tidyPending: Promise<void> | undefined;
+
+  private mutateTaskBody(
+    pageId: string,
+    transform: (markdown: string) => string
+  ): Promise<void> {
+    return this.pageOperations.mutateBody(pageId, (markdown) => {
+      if (
+        this.pageOperations.isTaskInbox(pageId) &&
+        markdown.includes(INBOX_PLAN_PREFIX)
+      ) {
+        throw new Error('Finish Tidy up before changing Inbox tasks');
+      }
+      return transform(markdown);
+    });
+  }
+
+  /**
+   * One transfer workflow, using the same body broker, parser and task insertion policy.
+   * A durable source plan and per-destination receipt make retries safe after any write.
+   * Receipts are Markdown comments outside the task lines; task text/metadata is unchanged.
+   */
+  public tidyInbox(vaultRoot: string, inboxPageId: string): Promise<void> {
+    if (!this.pageOperations.isTaskInbox(inboxPageId))
+      return Promise.reject(new Error('The Task Inbox is no longer available'));
+    if (this.tidyPending) return this.tidyPending;
+    const work = this.runTidyInbox(vaultRoot, inboxPageId);
+    this.tidyPending = work;
+    void work
+      .finally(() => {
+        if (this.tidyPending === work) this.tidyPending = undefined;
+      })
+      .catch(() => {});
+    return work;
+  }
+
+  private async runTidyInbox(
+    vaultRoot: string,
+    inboxPageId: string
+  ): Promise<void> {
+    let plan: InboxTransferPlan | undefined;
+    let preparedBody = '';
+    await this.pageOperations.mutateBodyAndSave(inboxPageId, (markdown) => {
+      plan = readInboxPlan(markdown);
+      if (plan) {
+        preparedBody = markdown;
+        return markdown;
+      }
+      const eligible = new TaskExtractor()
+        .extract(markdown)
+        .some((task) => task.dueDate && isValidCalendarDate(task.dueDate));
+      if (!eligible) return markdown;
+      plan = { version: 1, id: crypto.randomUUID(), body: markdown };
+      // Keep user HTML/comment delimiters inside the JSON string, not in the surrounding comment.
+      const json = JSON.stringify(plan)
+        .replace(/</g, '\\u003c')
+        .replace(/>/g, '\\u003e');
+      preparedBody = `${markdown}\n${INBOX_PLAN_PREFIX}${json} -->`;
+      return preparedBody;
+    });
+    if (!plan) return;
+    const transfer = plan;
+    const tasks = new TaskExtractor()
+      .extract(transfer.body)
+      .filter((task) => task.dueDate && isValidCalendarDate(task.dueDate));
+    const dates = [...new Set(tasks.map((task) => task.dueDate!))];
+    for (const date of dates) {
+      const path = DailyNotePath.absoluteFrom(vaultRoot, toDate(date));
+      const destinationId = await this.pageOperations.ensureAtPath(path, {
+        type: 'daily-note',
+      });
+      const receipt = `<!-- clutter-inbox-transfer ${transfer.id}:${date} -->`;
+      const block = [
+        receipt,
+        ...tasks
+          .filter((task) => task.dueDate === date)
+          .map((task) => task.rawText),
+      ].join('\n');
+      await this.pageOperations.mutateBodyAndSave(destinationId, (markdown) =>
+        markdown.includes(receipt) ? markdown : insertTaskBlock(markdown, block)
+      );
+    }
+    // Remove originals only after EVERY destination has reached Durable.
+    await this.pageOperations.mutateBodyAndSave(inboxPageId, (markdown) => {
+      if (markdown !== preparedBody)
+        throw new Error('Inbox changed during Tidy up; its tasks were kept');
+      const movedOffsets = new Set(tasks.map((task) => task.startOffset));
+      let offset = 0;
+      return transfer.body
+        .split('\n')
+        .filter((line) => {
+          const keep = !movedOffsets.has(offset);
+          offset += line.length + 1;
+          return keep;
+        })
+        .join('\n');
+    });
+  }
+
   /**
    * Inserts a new task line into `pageId`'s body, immediately before the
    * body's first existing task line — the newest task is always the first
@@ -77,24 +180,9 @@ export class TaskOperations {
     }
 
     try {
-      await this.pageOperations.mutateBody(pageId, (markdown) => {
+      await this.mutateTaskBody(pageId, (markdown) => {
         const line = `- [ ] ${trimmed}${dueDate ? ` @${dueDate}` : ''}`;
-
-        if (markdown === '') {
-          return line;
-        }
-
-        const lines = markdown.split('\n');
-        const firstTaskIndex = lines.findIndex((candidate) =>
-          TASK_LINE_PATTERN.test(candidate)
-        );
-
-        if (firstTaskIndex === -1) {
-          return `${line}\n${markdown}`;
-        }
-
-        lines.splice(firstTaskIndex, 0, line);
-        return lines.join('\n');
+        return insertTaskBlock(markdown, line);
       });
     } catch (error) {
       if (error instanceof MutateBodyAbandonedError) {
@@ -116,7 +204,7 @@ export class TaskOperations {
     const source = this.requireSourcePosition(task);
 
     try {
-      await this.pageOperations.mutateBody(task.sourcePageId, (markdown) => {
+      await this.mutateTaskBody(task.sourcePageId, (markdown) => {
         const lines = markdown.split('\n');
         const lineIndex = this.locateLine(markdown, lines, task, source);
 
@@ -145,7 +233,7 @@ export class TaskOperations {
     const rawText = source.rawText;
 
     try {
-      await this.pageOperations.mutateBody(task.sourcePageId, (markdown) => {
+      await this.mutateTaskBody(task.sourcePageId, (markdown) => {
         const lines = markdown.split('\n');
         const lineIndex = this.locateLine(markdown, lines, task, source);
 
@@ -201,7 +289,7 @@ export class TaskOperations {
     const dueDateChanged = change.dueDate !== task.dueDate;
 
     try {
-      await this.pageOperations.mutateBody(task.sourcePageId, (markdown) => {
+      await this.mutateTaskBody(task.sourcePageId, (markdown) => {
         const lines = markdown.split('\n');
         const lineIndex = this.locateLine(markdown, lines, task, source);
 
@@ -299,7 +387,7 @@ export class TaskOperations {
     const rawText = source.rawText;
 
     try {
-      await this.pageOperations.mutateBody(task.sourcePageId, (markdown) => {
+      await this.mutateTaskBody(task.sourcePageId, (markdown) => {
         const lines = markdown.split('\n');
         const lineIndex = this.locateLine(markdown, lines, task, source);
 
@@ -326,7 +414,7 @@ export class TaskOperations {
     const rawText = source.rawText;
 
     try {
-      await this.pageOperations.mutateBody(task.sourcePageId, (markdown) => {
+      await this.mutateTaskBody(task.sourcePageId, (markdown) => {
         const lines = markdown.split('\n');
         const lineIndex = this.locateLine(markdown, lines, task, source);
 
@@ -553,4 +641,52 @@ export class TaskOperations {
 
     return `${rest} @${date}`.trim().replace(/ {2,}/g, ' ');
   }
+}
+
+const INBOX_PLAN_PREFIX = '<!-- clutter-inbox-plan ';
+interface InboxTransferPlan {
+  readonly version: 1;
+  readonly id: string;
+  readonly body: string;
+}
+function readInboxPlan(markdown: string): InboxTransferPlan | undefined {
+  if (!markdown.includes(INBOX_PLAN_PREFIX)) return undefined;
+  const match = /\n<!-- clutter-inbox-plan ([^\n]+) -->$/.exec(markdown);
+  if (!match)
+    throw new Error(
+      'The unfinished Tidy up record could not be read; Inbox was kept'
+    );
+  let plan: unknown;
+  try {
+    plan = JSON.parse(match[1]!);
+  } catch {
+    throw new Error(
+      'The unfinished Tidy up record could not be read; Inbox was kept'
+    );
+  }
+  if (
+    !plan ||
+    typeof plan !== 'object' ||
+    !('version' in plan) ||
+    plan.version !== 1 ||
+    !('id' in plan) ||
+    typeof plan.id !== 'string' ||
+    !/^[0-9a-f-]{36}$/.test(plan.id) ||
+    !('body' in plan) ||
+    typeof plan.body !== 'string' ||
+    markdown.slice(0, match.index) !== plan.body
+  ) {
+    throw new Error('Inbox changed since Tidy up started; its tasks were kept');
+  }
+  return plan as InboxTransferPlan;
+}
+
+/** The existing newest-task-first insertion policy, shared by creation and transfer. */
+function insertTaskBlock(markdown: string, block: string): string {
+  if (markdown === '') return block;
+  const lines = markdown.split('\n');
+  const firstTask = lines.findIndex((line) => TASK_LINE_PATTERN.test(line));
+  if (firstTask < 0) return `${block}\n${markdown}`;
+  lines.splice(firstTask, 0, block);
+  return lines.join('\n');
 }

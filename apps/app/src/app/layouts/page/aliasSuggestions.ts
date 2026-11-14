@@ -1,3 +1,4 @@
+import { isTaskInboxPath } from '@core/vault/initialize/ReservedResources';
 import type { Vault } from '@core/vault/models/Vault';
 import type { MultiSelectSuggestion } from '@components/property-list/PropertyList.types';
 
@@ -49,6 +50,7 @@ export function createAliasSuggester(
     const spellings = new Map<string, Map<string, number>>();
 
     for (const page of vault.pages()) {
+      if (isTaskInboxPath(vault.root, page.path)) continue;
       // An archived note's aliases are not offered for new ones to match.
       if (vault.isPageEffectivelyArchived(page)) {
         continue;

@@ -1,3 +1,4 @@
+import { isTaskInboxPath } from '@core/vault/initialize/ReservedResources';
 import type { Heading } from '@core/vault/models/analysis/Heading';
 import type { BlockReference } from '@core/vault/models/analysis/BlockReference';
 import type { Page } from '@core/vault/models/Page';
@@ -13,7 +14,7 @@ export class PageIndex {
     // The vault's root path: what a vault-relative link target is resolved against.
     private readonly root?: string
   ) {
-    this.pages = Array.from(pages);
+    this.pages = Array.from(pages).filter((page) => root === undefined || !isTaskInboxPath(root, page.path));
 
     for (const page of this.pages) {
       this.pagesByPath.set(page.path, page);

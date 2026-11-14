@@ -1,3 +1,4 @@
+import { taskInboxPath } from '@core/vault/initialize/ReservedResources';
 import type { Vault } from '@core/vault/models';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
 import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
@@ -65,6 +66,7 @@ export function Tasks({
   onEditTask,
 }: TasksPanelProps) {
   const tasks = [...vault.tasks()];
+  const inboxPageId = vault.getPageByPath(taskInboxPath(vault.root))?.id;
   const taskActions = createTaskActions(taskOperations, useToast());
   const groupTasksByDueDate = useGroupTasksByDueDate();
   const itemLimit = useTaskItemLimit();
@@ -99,6 +101,7 @@ export function Tasks({
   // always populated by TaskExtractor today; the guard only protects
   // against Occurrence's own still-optional typing.
   const onOpenTask = (task: TaskOccurrence): void => {
+    if (task.sourcePageId === inboxPageId) { onEditTask(task); return; }
     void pageOperations.open(task.sourcePageId);
     if (task.startOffset !== undefined && task.endOffset !== undefined) {
       onRequestReveal({
@@ -143,6 +146,7 @@ export function Tasks({
     >
       {renderTasksByDate({
         tasks,
+        inboxPageId,
         workspace,
         onToggleComplete,
         onOpenTask,

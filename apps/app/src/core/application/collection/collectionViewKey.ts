@@ -15,6 +15,7 @@ import type { ActiveView } from '../../workspace/Workspace';
  * The task views (`tasks-all`, `tasks-unscheduled`) are datasets of ONE Task Collection and share ONE
  * configuration: `view:tasks` (ADR-046). `view:tasks-all` was the key All Tasks briefly used on its
  * own; `CollectionViewConfigStore` still reads it as a fallback so no saved choice is lost.
+ * Inbox uses `view:tasks-inbox` with the same task renderer, omitting the fixed Source property.
  */
 export type CollectionViewKey = string;
 
@@ -47,7 +48,7 @@ export function collectionViewKeyForSidebarRoot(): CollectionViewKey {
 }
 
 export function collectionViewKeyForFilteredView(
-  kind: 'workspace' | 'favorites' | 'assets' | 'tasks'
+  kind: 'workspace' | 'favorites' | 'assets' | 'tasks' | 'tasks-inbox'
 ): CollectionViewKey {
   return `${COLLECTION_VIEW_KEY_PREFIX.filteredView}${kind}`;
 }
@@ -87,6 +88,8 @@ export function deriveCollectionViewKey(
     if (view.kind === 'workspace' || view.kind === 'favorites' || view.kind === 'assets') {
       return collectionViewKeyForFilteredView(view.kind);
     }
+
+    if (view.kind === 'tasks-inbox') return collectionViewKeyForFilteredView('tasks-inbox');
 
     if (view.kind === 'tasks-all' || view.kind === 'tasks-unscheduled') {
       return collectionViewKeyForFilteredView('tasks');

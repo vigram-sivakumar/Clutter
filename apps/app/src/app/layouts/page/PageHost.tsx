@@ -1,3 +1,6 @@
+import { Button } from '@components/button/Button';
+import { AppIcon } from '@shared/icon';
+import { taskInboxPath } from '@core/vault/initialize/ReservedResources';
 import {
   useEffect,
   useMemo,
@@ -76,8 +79,15 @@ import { levelEntries } from '@features/notes/sidebar/sidebarSort';
 import { setLevelSort } from '@features/notes/sidebar/sidebarOrderActions';
 import { DEFAULT_SIDEBAR_SORT } from '@core/properties/sidebarSort';
 import { resolveDefaultTemplateId } from '@features/notes/helpers/resolveDefaultTemplateId';
-import { importAssetSources, reportUpload, uploadAssets } from '@features/notes/helpers/uploadAssets';
-import { buildResourceMenuOptions, type ResourceMenuOps } from '@app/layouts/page/topbar/buildResourceMenuOptions';
+import {
+  importAssetSources,
+  reportUpload,
+  uploadAssets,
+} from '@features/notes/helpers/uploadAssets';
+import {
+  buildResourceMenuOptions,
+  type ResourceMenuOps,
+} from '@app/layouts/page/topbar/buildResourceMenuOptions';
 import {
   buildArchivedResourceItemMenu,
   buildAssetItemMenu,
@@ -105,7 +115,10 @@ import { createDateResolver } from '@app/layouts/page/resolveDate';
 import { DailyNoteNavControls } from '@features/daily-notes/controls/DailyNoteNavControls';
 import type { NotePreviewResolvers } from '@features/collection/components/note/notePreviewResolvers';
 import { createTagResolver } from '@app/layouts/page/resolveTag';
-import { createWikiLinkResolver, openSystemFolderThrough } from '@app/layouts/page/resolveWikiLink';
+import {
+  createWikiLinkResolver,
+  openSystemFolderThrough,
+} from '@app/layouts/page/resolveWikiLink';
 import { openPageAtHeading } from '@app/layouts/page/headingReveal';
 import { createWikiLinkSuggester } from '@app/layouts/page/wikiLinkSuggestions';
 import { spaceName } from '@app/spaces/spaceRegistry';
@@ -207,7 +220,7 @@ import {
   TasksTabs,
   type TasksTabValue,
 } from '@features/tasks/page/TasksTabs';
-import { createTaskInDailyNote } from '@features/tasks/helpers/createTaskInDailyNote';
+import { createTask } from '@features/tasks/helpers/createTask';
 import type { TaskDisplayConfig } from '@features/tasks/helpers/groupTasks';
 import {
   MarkdownEditor,
@@ -218,7 +231,10 @@ import { useShowReferencesAutomatically } from '@shared/helpers/showReferencesAu
 import { useShowTemplateSuggestions } from '@shared/helpers/showTemplateSuggestionsPreference';
 import { PropertyList } from '@components/property-list/PropertyList';
 import { buildPageProperties } from './buildPageProperties';
-import { initialCoverLayoutPatch, newCoverPatch } from '@core/application/page/coverPatch';
+import {
+  initialCoverLayoutPatch,
+  newCoverPatch,
+} from '@core/application/page/coverPatch';
 import { isDailyNotesCollectionPagesEnabled } from '@core/featureFlags';
 import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
 import {
@@ -342,7 +358,7 @@ interface PageHostProps {
 }
 
 const TASK_COLLECTION_VIEWS: ReadonlySet<string> = new Set<TasksCollectionView>(
-  ['tasks-all', 'tasks-unscheduled']
+  ['tasks-all', 'tasks-unscheduled', 'tasks-inbox']
 );
 
 /**
@@ -388,6 +404,10 @@ export function PageHost({
   onRevealHandled,
 }: PageHostProps) {
   const toast = useToast();
+  const [tidyOpen, setTidyOpen] = useState(false);
+  const [tidying, setTidying] = useState(false);
+  const [tidyError, setTidyError] = useState<string>();
+
   const taskActions = createTaskActions(application.taskOperations, toast);
   // Archive with its feedback: a failure is reported and a success offers Undo (the existing restore).
   const archiveActions = createArchiveActions({
@@ -400,6 +420,7 @@ export function PageHost({
   const requestCreateTemplate = useRequestCreateTemplate();
   const workspace = useWorkspace(application.workspace);
   const vault = application.vault;
+  const inboxPageId = vault.getPageByPath(taskInboxPath(vault.root))?.id;
 
   // The cover menu's file actions: Download for any cover, Save to vault only for one that is a URL
   // (an image already in the vault has nothing to save). The flows live with AppLayout.
@@ -414,10 +435,9 @@ export function PageHost({
       onCopyCoverImageAddress: () => coverImageActions.copyAddress(reference),
       // A cover from the vault's Assets has no right-click menu (the cover is a local file, not an address to copy).
       coverImageIsLocal: !isRemoteImageReference(reference),
-      onSaveCoverImageToVault:
-        isRemoteImageReference(reference)
-          ? () => coverImageActions.saveToVault(reference)
-          : undefined,
+      onSaveCoverImageToVault: isRemoteImageReference(reference)
+        ? () => coverImageActions.saveToVault(reference)
+        : undefined,
     };
   }
 
@@ -538,9 +558,13 @@ export function PageHost({
   // An ordinary folder's page orders its folders and notes by the folder's one sort — the very sort and manual
   // order its sidebar level uses (ADR-066) — not by a sort of its own. Every other collection keeps its own.
   const levelFolderId =
-    collectionDefinition.kind === 'folder' && activeView?.type === 'folder' ? activeView.id : undefined;
+    collectionDefinition.kind === 'folder' && activeView?.type === 'folder'
+      ? activeView.id
+      : undefined;
   const levelSort =
-    levelFolderId !== undefined ? (collectionViewConfig.sidebarSort ?? DEFAULT_SIDEBAR_SORT) : undefined;
+    levelFolderId !== undefined
+      ? (collectionViewConfig.sidebarSort ?? DEFAULT_SIDEBAR_SORT)
+      : undefined;
   const levelEntryIds =
     levelFolderId !== undefined
       ? levelEntries(
@@ -548,7 +572,9 @@ export function PageHost({
           levelFolderId,
           collectionViewConfig.sidebarSort,
           collectionViewConfig.sidebarOrder
-        ).map((entry) => (entry.kind === 'folder' ? entry.folder.id : entry.entry.id))
+        ).map((entry) =>
+          entry.kind === 'folder' ? entry.folder.id : entry.entry.id
+        )
       : undefined;
 
   // The Archive lists its files with the date each was archived, read from the archive record. Only
@@ -630,7 +656,12 @@ export function PageHost({
             ? {
                 sort: levelSort,
                 onChange: (next) =>
-                  setLevelSort(application.collectionViewConfigStore, application.membershipSelector, levelFolderId, next),
+                  setLevelSort(
+                    application.collectionViewConfigStore,
+                    application.membershipSelector,
+                    levelFolderId,
+                    next
+                  ),
               }
             : undefined,
         toggles,
@@ -651,7 +682,10 @@ export function PageHost({
     openPageAtHeading(
       {
         open: (id) => void application.pageOperations.open(id),
-        getMarkdown: (id) => application.effectivePageState.getPage(id)?.markdown ?? vault.getPage(id)?.source.markdown ?? '',
+        getMarkdown: (id) =>
+          application.effectivePageState.getPage(id)?.markdown ??
+          vault.getPage(id)?.source.markdown ??
+          '',
         requestReveal: onRequestReveal,
       },
       pageId,
@@ -660,7 +694,8 @@ export function PageHost({
   };
 
   // A link to a note that doesn't exist yet creates it when clicked (or accepted from autocomplete): say so when that fails.
-  const reportLinkedNoteFailure = (error: unknown): void => void toast.fail('Couldn’t create the note', error);
+  const reportLinkedNoteFailure = (error: unknown): void =>
+    void toast.fail('Couldn’t create the note', error);
   // Composed once per render from the currently-attached Vault/PageOperations
   // — cheap, stateless glue (resolveWikiLink.ts), not worth memoizing.
   const resolveWikiLink = createWikiLinkResolver(
@@ -728,7 +763,12 @@ export function PageHost({
     const resource = resolveResourceEmbed(vault, path);
     if (resource) {
       // A file now in the Archive opens without its actions.
-      onOpenResource(resource, vault.isResourceEffectivelyArchived(resource) ? { archived: true } : undefined);
+      onOpenResource(
+        resource,
+        vault.isResourceEffectivelyArchived(resource)
+          ? { archived: true }
+          : undefined
+      );
     }
   };
   // Same per-render, stateless-glue composition as resolveEmbedImage above
@@ -954,20 +994,35 @@ export function PageHost({
   // Create, for assets: pick files and copy them into the folder the page is showing — `Assets/`
   // itself on the top-level page — via the same import the cover upload uses (collision-free naming),
   // and let the vault's normal ingest/watch pick them up as resources.
-  const importDroppedAssets = async (files: readonly (string | File)[], destinationFolderPath?: string): Promise<void> => {
+  const importDroppedAssets = async (
+    files: readonly (string | File)[],
+    destinationFolderPath?: string
+  ): Promise<void> => {
     const result = await importAssetSources(files, async (file) => {
-      if (typeof file === 'string') return application.importAsset(file, destinationFolderPath);
-      return application.importPastedAsset(file.name, file.type, new Uint8Array(await file.arrayBuffer()), destinationFolderPath);
+      if (typeof file === 'string')
+        return application.importAsset(file, destinationFolderPath);
+      return application.importPastedAsset(
+        file.name,
+        file.type,
+        new Uint8Array(await file.arrayBuffer()),
+        destinationFolderPath
+      );
     });
     reportUpload(toast, result);
   };
 
-  const assetsFileDrop = (destinationFolderPath?: string): NonNullable<Parameters<typeof Page>[0]['fileDrop']> => ({
-    targetFor: (hit, surface) => hit.closest<HTMLElement>('[data-assets-drop-folder]') ?? surface,
+  const assetsFileDrop = (
+    destinationFolderPath?: string
+  ): NonNullable<Parameters<typeof Page>[0]['fileDrop']> => ({
+    targetFor: (hit, surface) =>
+      hit.closest<HTMLElement>('[data-assets-drop-folder]') ?? surface,
     onDrop: async (files, _point, target) => {
       const folderId = target.dataset.assetsDropFolder;
       const folder = folderId ? vault.getFolder(folderId) : undefined;
-      if (folderId && (!folder || !application.membershipSelector.isAssetsFolder(folder))) {
+      if (
+        folderId &&
+        (!folder || !application.membershipSelector.isAssetsFolder(folder))
+      ) {
         throw new Error('This Assets folder is no longer available.');
       }
       await importDroppedAssets(files, folder?.path ?? destinationFolderPath);
@@ -1000,7 +1055,10 @@ export function PageHost({
       open={folderDialog !== null}
       onClose={() => setFolderDialog(null)}
       canCreate={(name) =>
-        application.folderOperations.canCreate(name, folderDialog?.checkParentId ?? null)
+        application.folderOperations.canCreate(
+          name,
+          folderDialog?.checkParentId ?? null
+        )
       }
       onSubmit={async (name, icon, description) => {
         if (!folderDialog) return;
@@ -1071,20 +1129,24 @@ export function PageHost({
       onRenameResource={(id, name) =>
         void application.resourceOperations
           .renameResource(id, name)
-          .catch((error: unknown) => toast.fail('Couldn’t rename this file', error))
+          .catch((error: unknown) =>
+            toast.fail('Couldn’t rename this file', error)
+          )
       }
       // Right-click: an asset's More actions (the viewer's menu), and the folder cards' (the topbar's).
       assetMenu={(asset) =>
         buildAssetItemMenu(
           application,
           {
-            onArchiveResource: (id) =>
-              void archiveActions.archiveResource(id),
+            onArchiveResource: (id) => void archiveActions.archiveResource(id),
             onMoveResource: (id, destinationFolderId) =>
               void application.resourceOperations
                 .moveResource(id, destinationFolderId)
-                .catch((error: unknown) => reportMoveFailure(toast, 'file', error)),
-            onRenameResource: (id, name) => application.resourceOperations.renameResource(id, name),
+                .catch((error: unknown) =>
+                  reportMoveFailure(toast, 'file', error)
+                ),
+            onRenameResource: (id, name) =>
+              application.resourceOperations.renameResource(id, name),
             onRevealResourceInFinder: revealResourceInFinder,
             onCopyResourcePath: copyResourcePath,
             onDownloadResource: downloadResourceById,
@@ -1242,7 +1304,9 @@ export function PageHost({
   const archivePage = (pageId: string): void => {
     // The open note stays on screen under its ArchivedBanner (which has its own Restore); any other, archived
     // from a list's right-click menu, leaves the list — that one offers Undo.
-    void archiveActions.archivePage(pageId, { offerUndo: pageId !== activePageId });
+    void archiveActions.archivePage(pageId, {
+      offerUndo: pageId !== activePageId,
+    });
   };
   const restorePage = (pageId: string): void => {
     void application.pageOperations
@@ -1262,12 +1326,12 @@ export function PageHost({
         const date = originalPath ? VaultPath.pageName(originalPath) : '';
         setRestoreConflict({
           pageId,
-          dayLabel: isValidCalendarDate(date)
-            ? formatAbsoluteDate(date)
-            : date,
+          dayLabel: isValidCalendarDate(date) ? formatAbsoluteDate(date) : date,
         });
       })
-      .catch((error: unknown) => toast.fail('Couldn’t restore this note', error));
+      .catch((error: unknown) =>
+        toast.fail('Couldn’t restore this note', error)
+      );
   };
   const onRestore = (): void => {
     if (activePageId) {
@@ -1296,7 +1360,9 @@ export function PageHost({
           });
         }
       })
-      .catch((error: unknown) => toast.fail('Couldn’t restore this note', error));
+      .catch((error: unknown) =>
+        toast.fail('Couldn’t restore this note', error)
+      );
   };
 
   const deletePage = (pageId: string): void => {
@@ -1304,12 +1370,14 @@ export function PageHost({
     // dropped by the Application once the delete has succeeded, so a refused or abandoned delete keeps all of it.
     void application.pageOperations
       .delete(pageId)
-      .catch((error: unknown) => toast.fail('Couldn’t delete this note', error));
+      .catch((error: unknown) =>
+        toast.fail('Couldn’t delete this note', error)
+      );
   };
 
   const duplicatePage = (pageId: string): void => {
-    void duplicateAndOpenPage(application.pageOperations, pageId).catch((error: unknown) =>
-      toast.fail('Couldn’t duplicate this note', error)
+    void duplicateAndOpenPage(application.pageOperations, pageId).catch(
+      (error: unknown) => toast.fail('Couldn’t duplicate this note', error)
     );
   };
 
@@ -1326,16 +1394,23 @@ export function PageHost({
       });
 
   const archiveFolder = (folderId: string): void =>
-    void archiveActions.archiveFolder(folderId, { offerUndo: folderId !== activeFolderId });
+    void archiveActions.archiveFolder(folderId, {
+      offerUndo: folderId !== activeFolderId,
+    });
   const deleteFolder = (folderId: string): void =>
     void application.folderOperations
       .delete(folderId)
-      .catch((error: unknown) => toast.fail('Couldn’t delete this folder', error));
+      .catch((error: unknown) =>
+        toast.fail('Couldn’t delete this folder', error)
+      );
   const movePage = (pageId: string, destinationFolderId: string | null): void =>
     void application.pageOperations
       .move(pageId, destinationFolderId)
       .catch((error: unknown) => reportMoveFailure(toast, 'note', error));
-  const moveFolder = (folderId: string, destinationFolderId: string | null): void =>
+  const moveFolder = (
+    folderId: string,
+    destinationFolderId: string | null
+  ): void =>
     void application.folderOperations
       .move(folderId, destinationFolderId)
       .catch((error: unknown) => reportMoveFailure(toast, 'folder', error));
@@ -1362,23 +1437,29 @@ export function PageHost({
     buildCollectionItemMenu(application, resourceMenuOps, entry);
   // A file in the Archive: its right-click menu's Restore and Delete permanently — the same operations, and the same
   // failure reports, as the file's viewer (AppLayout): a Restore with no recorded place asks where it should go.
-  const archivedResourceMenu: CollectionItemMenuResolver<VaultResource> = (resource) =>
+  const archivedResourceMenu: CollectionItemMenuResolver<VaultResource> = (
+    resource
+  ) =>
     buildArchivedResourceItemMenu(
       application,
       {
         onRestoreResource: (resourceId) =>
-          void application.resourceOperations.restoreResource(resourceId).catch((error: unknown) => {
-            if (error instanceof RestoreNeedsDestinationError) {
-              onNeedsRestoreDestination?.({ kind: 'asset', id: resourceId });
-              return;
-            }
+          void application.resourceOperations
+            .restoreResource(resourceId)
+            .catch((error: unknown) => {
+              if (error instanceof RestoreNeedsDestinationError) {
+                onNeedsRestoreDestination?.({ kind: 'asset', id: resourceId });
+                return;
+              }
 
-            toast.fail('Couldn’t restore this file', error);
-          }),
+              toast.fail('Couldn’t restore this file', error);
+            }),
         onDeleteResource: (resourceId) =>
           void application.resourceOperations
             .deleteResource(resourceId)
-            .catch((error: unknown) => toast.fail('Couldn’t delete this file', error)),
+            .catch((error: unknown) =>
+              toast.fail('Couldn’t delete this file', error)
+            ),
       },
       resource
     );
@@ -1391,11 +1472,17 @@ export function PageHost({
   // Where a cover added to `noteId` goes, from the app-wide default (Settings → Preferences → Cover image). A draft
   // has no page yet, so no cover and no saved position — it takes the default like any note without a cover.
   const coverLayoutFor = (noteId: string) =>
-    initialCoverLayoutPatch(vault.getPage(noteId)?.metadata, application.defaultCoverPosition);
+    initialCoverLayoutPatch(
+      vault.getPage(noteId)?.metadata,
+      application.defaultCoverPosition
+    );
 
   // Returns the write, so a caller that waits (the title section's cover picker closes only once the cover is
   // applied) can; the others ignore it, as before.
-  const onSetCoverImage = (url: string, credit?: CoverCredit | null): Promise<void> | false => {
+  const onSetCoverImage = (
+    url: string,
+    credit?: CoverCredit | null
+  ): Promise<void> | false => {
     if (!activePageId) {
       return false;
     }
@@ -1425,7 +1512,10 @@ export function PageHost({
     }
     return waitForImage(displayUrl).then((loaded) => {
       if (!loaded) {
-        toast.fail('Couldn’t set the cover image', new Error('The image could not be loaded.'));
+        toast.fail(
+          'Couldn’t set the cover image',
+          new Error('The image could not be loaded.')
+        );
         return;
       }
       return apply();
@@ -1433,7 +1523,9 @@ export function PageHost({
   };
 
   // Resolves `true` once the cover is applied, `false` when it failed (already reported by the toast).
-  const onSetCoverImageFromUpload = (sourcePath: string): Promise<boolean> | false => {
+  const onSetCoverImageFromUpload = (
+    sourcePath: string
+  ): Promise<boolean> | false => {
     if (!activePageId) {
       return false;
     }
@@ -1629,7 +1721,9 @@ export function PageHost({
           ...newCoverPatch(relativePath),
           ...layout,
         });
-      })().catch((error: unknown) => toast.fail('Couldn’t set the cover image', error));
+      })().catch((error: unknown) =>
+        toast.fail('Couldn’t set the cover image', error)
+      );
     },
     onRemove: (noteId) => {
       void application.pageOperations.updateMetadata(noteId, {
@@ -1663,7 +1757,9 @@ export function PageHost({
       )
         // Counted only once the note exists; a failure is not a use (and is logged, as an unhandled rejection was).
         .then(() => application.templateUsageStore.recordUse(templatePageId))
-        .catch((error: unknown) => toast.fail('Couldn’t create the note from the template', error));
+        .catch((error: unknown) =>
+          toast.fail('Couldn’t create the note from the template', error)
+        );
     }
   };
 
@@ -1674,11 +1770,17 @@ export function PageHost({
     importFile: (file: { name: string; type: string }, bytes: Uint8Array) =>
       application.importPastedAsset(file.name, file.type, bytes),
     onFailed: (names: readonly string[]) =>
-      toast.fail(`Couldn’t add ${names.length === 1 ? names[0] : `${names.length} pasted files`}`),
+      toast.fail(
+        `Couldn’t add ${names.length === 1 ? names[0] : `${names.length} pasted files`}`
+      ),
     onSkipped: (names: readonly string[], reason: 'unsupported' | 'target') => {
-      const what = names.length === 1 ? names[0] : `${names.length} pasted files`;
+      const what =
+        names.length === 1 ? names[0] : `${names.length} pasted files`;
       toast.show({
-        text: reason === 'unsupported' ? 'Unsupported file type. Only images and PDFs are supported' : `${what} not added. Files can’t be pasted here`,
+        text:
+          reason === 'unsupported'
+            ? 'Unsupported file type. Only images and PDFs are supported'
+            : `${what} not added. Files can’t be pasted here`,
       });
     },
     onNotInserted: (stored: number, reason: 'closed' | 'readOnly') =>
@@ -1745,9 +1847,8 @@ export function PageHost({
           if (editor) {
             editor.applyBodyWithMetadata(markdown, step);
           } else {
-            return application.pageOperations.mutateBody(
-              note.id,
-              (current) => (current.trim() === '' ? markdown : current)
+            return application.pageOperations.mutateBody(note.id, (current) =>
+              current.trim() === '' ? markdown : current
             );
           }
         },
@@ -1756,9 +1857,10 @@ export function PageHost({
       // Counted only now that the application succeeded; a failure goes to the toast below and is not a use.
       .then(() => application.templateUsageStore.recordUse(templatePageId))
       // No focus call: the content is in the editor either way, and where the user types next is theirs to choose.
-      .catch((error: unknown) => toast.fail('Couldn’t apply the template', error));
+      .catch((error: unknown) =>
+        toast.fail('Couldn’t apply the template', error)
+      );
   };
-
 
   // A new Daily Note for TODAY gets the "Today's template" (Settings → Daily notes) applied by the same
   // applyTemplateToNote a "Start with template" click uses. Only today's: a note for a past or a future date — which
@@ -1768,7 +1870,8 @@ export function PageHost({
   // skipped, never swapped for another. Preferred templates are not consulted: they order suggestions, this one is
   // applied.
   const applyDefaultDailyNoteTemplate = (note: TemplateTargetNote): void => {
-    const templateId = application.preferredTemplatesStore.getDefaultDailyNoteTemplateId();
+    const templateId =
+      application.preferredTemplatesStore.getDefaultDailyNoteTemplateId();
 
     if (
       templateId === undefined ||
@@ -1778,15 +1881,19 @@ export function PageHost({
         type: note.type,
         markdown: note.markdown,
         isArchived: note.isArchived,
-        isInTemplatesFolder: application.membershipSelector.isInTemplatesFolder(note.folderId),
+        isInTemplatesFolder: application.membershipSelector.isInTemplatesFolder(
+          note.folderId
+        ),
       })
     ) {
       return;
     }
 
-    const isOffered = toTemplateEntries(vault, application.membershipSelector, () => undefined).some(
-      (template) => template.id === templateId
-    );
+    const isOffered = toTemplateEntries(
+      vault,
+      application.membershipSelector,
+      () => undefined
+    ).some((template) => template.id === templateId);
 
     if (note.type === 'daily-note' && isOffered) {
       applyTemplateToOpenNote(note, templateId);
@@ -1817,13 +1924,17 @@ export function PageHost({
     // Notes list for every other note; the recent-use ranking orders whatever follows them.
     const templates = putPreferredTemplatesFirst(
       ranked,
-      note.type === 'daily-note' ? preferredTemplateIds : preferredNoteTemplateIds
+      note.type === 'daily-note'
+        ? preferredTemplateIds
+        : preferredNoteTemplateIds
     );
 
     return (
       <CurrentNoteTemplateSuggestions
         templates={templates}
-        onApply={(templatePageId) => applyTemplateToOpenNote(note, templatePageId)}
+        onApply={(templatePageId) =>
+          applyTemplateToOpenNote(note, templatePageId)
+        }
         onCreateTemplate={() => {
           void createTemplate(
             application.folderOperations,
@@ -1899,14 +2010,19 @@ export function PageHost({
     // More-actions "Cover image" picker (PageHeaderMoreActionsMenu, via
     // <Page>) needs the exact same set/upload calls buildTopBarActions'
     // own cover-image menu item already uses, not a second copy.
-    const onSetFolderCoverImage = (url: string, credit?: CoverCredit | null): Promise<void> =>
+    const onSetFolderCoverImage = (
+      url: string,
+      credit?: CoverCredit | null
+    ): Promise<void> =>
       application.folderOperations.updateMetadata(folder.id, {
         cover: url,
         coverCredit: credit ?? application.findCoverCredit(url),
         coverPositionAbove: 50,
         coverPositionSide: 50,
       });
-    const onSetFolderCoverImageFromUpload = (sourcePath: string): Promise<boolean> =>
+    const onSetFolderCoverImageFromUpload = (
+      sourcePath: string
+    ): Promise<boolean> =>
       (async () => {
         const relativePath = await application.importCoverAsset(sourcePath);
         await application.folderOperations.updateMetadata(folder.id, {
@@ -1962,7 +2078,9 @@ export function PageHost({
                 toast.fail(message, result.firstError);
               }
             })
-            .catch((error: unknown) => toast.fail('Couldn’t delete the items in Archive', error)),
+            .catch((error: unknown) =>
+              toast.fail('Couldn’t delete the items in Archive', error)
+            ),
         archiveIsEmpty: !hasArchivedItems(application, folder.id),
       }),
     });
@@ -2064,7 +2182,8 @@ export function PageHost({
             parentId: folder.id,
             actions: buildMoveDropActions(application, toast),
             // Only a folder in Manual order offers positions; a card grid's run before/after along its row, a list's above/below.
-            reorder: (collectionDefinition.kind === 'folder' && levelSort?.key === 'manual'
+            reorder: (collectionDefinition.kind === 'folder' &&
+            levelSort?.key === 'manual'
               ? collectionView.layout === 'card'
                 ? 'grid'
                 : 'list'
@@ -2095,7 +2214,9 @@ export function PageHost({
             isRenameable ? () => onCancelFolderName(folder.id) : undefined
           }
           onTitleCommit={
-            isRenameable ? (name) => onCommitFolderName(folder.id, name) : undefined
+            isRenameable
+              ? (name) => onCommitFolderName(folder.id, name)
+              : undefined
           }
           descriptionKey={folder.id}
           // Same reserved-vs-ordinary gate as showMoreActions/emoji/cover
@@ -2214,7 +2335,11 @@ export function PageHost({
           onSaveCoverPosition={onSaveFolderCoverPosition}
           coverKey={folder.id}
           coverEditable={!isFolderArchived}
-          fileDrop={isAssetsFolderPage && onCreate ? assetsFileDrop(folder.path) : undefined}
+          fileDrop={
+            isAssetsFolderPage && onCreate
+              ? assetsFileDrop(folder.path)
+              : undefined
+          }
           body={
             isAssetsFolderPage ? (
               renderAssetsBody({
@@ -2275,7 +2400,7 @@ export function PageHost({
             )
           }
         />
-      {folderCreationDialog}
+        {folderCreationDialog}
       </>
     );
   }
@@ -2315,40 +2440,41 @@ export function PageHost({
           {
             onOpenFolder,
             onOpenNote: openNoteFromCollection,
-            onOpenDraftNote: (id: string) => application.pageOperations.open(id),
+            onOpenDraftNote: (id: string) =>
+              application.pageOperations.open(id),
           }
         ).folders
       : [];
 
     return (
       <>
-      <Page
-        canNavigateBack={workspace.canNavigateBack}
-        canNavigateForward={workspace.canNavigateForward}
-        onNavigateBack={() => application.navigation.back()}
-        onNavigateForward={() => application.navigation.forward()}
-        fileDrop={onCreate ? assetsFileDrop() : undefined}
-        title={getSystemLocationPresentation('assets').label}
-        titleEditable={false}
-        breadcrumbs={
-          <Breadcrumbs items={buildSystemLocationBreadcrumbs('assets')} />
-        }
-        icon={getSystemLocationPresentation('assets', 'page-header').icon}
-        showMoreActions={false}
-        titleActions={renderCollectionHeaderActions({
-          onAdd: onCreate,
-          onAddFolder: onCreateFolder,
-          menuLabels: ASSET_MENU_LABELS,
-          addLabel: 'Upload',
-        })}
-        body={renderAssetsBody({
-          assets: assetsOfPage(null),
-          folders: assetFolders,
-          onCreate,
-          onCreateFolder,
-        })}
-      />
-      {folderCreationDialog}
+        <Page
+          canNavigateBack={workspace.canNavigateBack}
+          canNavigateForward={workspace.canNavigateForward}
+          onNavigateBack={() => application.navigation.back()}
+          onNavigateForward={() => application.navigation.forward()}
+          fileDrop={onCreate ? assetsFileDrop() : undefined}
+          title={getSystemLocationPresentation('assets').label}
+          titleEditable={false}
+          breadcrumbs={
+            <Breadcrumbs items={buildSystemLocationBreadcrumbs('assets')} />
+          }
+          icon={getSystemLocationPresentation('assets', 'page-header').icon}
+          showMoreActions={false}
+          titleActions={renderCollectionHeaderActions({
+            onAdd: onCreate,
+            onAddFolder: onCreateFolder,
+            menuLabels: ASSET_MENU_LABELS,
+            addLabel: 'Upload',
+          })}
+          body={renderAssetsBody({
+            assets: assetsOfPage(null),
+            folders: assetFolders,
+            onCreate,
+            onCreateFolder,
+          })}
+        />
+        {folderCreationDialog}
       </>
     );
   }
@@ -2366,7 +2492,7 @@ export function PageHost({
     // The page's own view (what the title, breadcrumbs and icon describe) — the tab below picks the dataset, not the page.
     const view = workspace.activeView.view.kind as Extract<
       TasksCollectionView,
-      'tasks-all' | 'tasks-unscheduled'
+      'tasks-all' | 'tasks-unscheduled' | 'tasks-inbox'
     >;
 
     return (
@@ -2392,6 +2518,56 @@ export function PageHost({
           // Every task view is the one Task Collection: the same header actions as every collection
           // (Configure + Add), sharing one configuration; Add opens the New task dialog.
           <>
+            {view === 'tasks-inbox' && (
+              <Button
+                isIconOnly
+                variant="outline-fill"
+                disabled={!inboxPageId || tidying}
+                onClick={() => {
+                  setTidyError(undefined);
+                  setTidyOpen(true);
+                }}
+              >
+                <AppIcon icon="brush" />
+              </Button>
+            )}
+            <Dialog
+              open={tidyOpen}
+              onClose={() => {
+                if (!tidying) setTidyOpen(false);
+              }}
+              size="medium"
+            >
+              <Confirmation
+                title="Tidy up Inbox?"
+                description="Move tasks with due dates, including completed tasks, to their corresponding Daily Notes. Tasks without a valid due date stay in Inbox"
+                confirmLabel={tidying ? 'Tidying up…' : 'Tidy up'}
+                confirmVariant="primary"
+                confirmDisabled={tidying}
+                onCancel={() => {
+                  if (!tidying) setTidyOpen(false);
+                }}
+                onConfirm={() => {
+                  if (tidying || !inboxPageId) return;
+                  setTidying(true);
+                  setTidyError(undefined);
+                  void application.taskOperations
+                    .tidyInbox(vault.root, inboxPageId)
+                    .then(
+                      () => setTidyOpen(false),
+                      (error: unknown) =>
+                        setTidyError(
+                          error instanceof Error
+                            ? `Couldn’t finish Tidy up. ${error.message}`
+                            : 'Couldn’t finish Tidy up. Your task copies were kept; try again to finish'
+                        )
+                    )
+                    .finally(() => setTidying(false));
+                }}
+              >
+                {tidyError && <div role="alert">{tidyError}</div>}
+              </Confirmation>
+            </Dialog>
             {renderCollectionHeaderActions({
               onAdd: () => setIsNewTaskOpen(true),
               addLabel: 'New task',
@@ -2423,14 +2599,15 @@ export function PageHost({
               open={isNewTaskOpen}
               onClose={() => setIsNewTaskOpen(false)}
               onCreateTask={(title, dueDate) =>
-                createTaskInDailyNote(
+                createTask(
                   {
                     vault,
                     pageOperations: application.pageOperations,
                     taskOperations: application.taskOperations,
                   },
                   title,
-                  dueDate
+                  dueDate,
+                  view === 'tasks-inbox' ? 'inbox' : undefined
                 )
               }
             />
@@ -2447,10 +2624,12 @@ export function PageHost({
           <TasksCollectionBody
             view={view === 'tasks-all' ? TASKS_TAB_VIEW[tasksTab] : view}
             tasks={[...vault.tasks()]}
+            inboxPageId={inboxPageId}
             onToggleComplete={taskActions.toggleComplete}
-            onOpenTask={(task) =>
-              void application.pageOperations.open(task.sourcePageId)
-            }
+            onOpenTask={(task) => {
+              if (task.sourcePageId === inboxPageId) setEditingTask(task);
+              else void application.pageOperations.open(task.sourcePageId);
+            }}
             onChangeDueDate={taskActions.changeDueDate}
             onEditTask={setEditingTask}
             onDuplicateTask={taskActions.duplicate}
@@ -2458,6 +2637,10 @@ export function PageHost({
             displayConfig={tasksViewConfig}
             collectionView={collectionView}
             getSource={(task) => {
+              if (task.sourcePageId === inboxPageId)
+                return view === 'tasks-inbox'
+                  ? undefined
+                  : { label: 'Inbox', icon: 'tray', emoji: null };
               const sourcePage = vault.getPage(task.sourcePageId);
 
               if (!sourcePage) {
@@ -2579,118 +2762,123 @@ export function PageHost({
 
     return (
       <>
-      <Page
-        canNavigateBack={workspace.canNavigateBack}
-        canNavigateForward={workspace.canNavigateForward}
-        onNavigateBack={() => application.navigation.back()}
-        onNavigateForward={() => application.navigation.forward()}
-        title={titleProps.title}
-        description={model.description}
-        titleEditable={titleProps.titleEditable}
-        onTitleCommit={onTitleCommit}
-        breadcrumbs={
-          <Breadcrumbs
-            items={buildSystemLocationBreadcrumbs(
-              filteredViewSystemLocationId,
-              titleProps.title,
-              tagEmoji
-            )}
-          />
-        }
-        // A tag page's one top-bar action: Delete (TagOperations.deleteTag),
-        // through the same menu + confirmation surface every resource's
-        // More actions uses. Workspace/Favorites keep none.
-        actions={
-          view.kind === 'tag' ? (
-            <ResourceTopBarActions
-              menu={buildResourceActionMenu('tag', {}, 'topbar')}
-              handlers={{
-                delete: () =>
-                  void createTagCollectionDeleteHandler(
-                    {
-                      tagOperations: application.tagOperations,
-                      navigation: application.navigation,
-                      workspace: application.workspace,
-                      collectionViewConfigStore:
-                        application.collectionViewConfigStore,
-                      tagExpansionStore: application.tagExpansionStore,
-                    },
-                    view.tagName
-                  )()
-                    .then((result) => reportTagBatch(toast, result, 'delete'))
-                    .catch((error: unknown) => toast.fail('Couldn’t delete the tag', error)),
-              }}
-              deleteConfirmationTitle={getTagDeleteConfirmationTitle(
-                view.tagName
+        <Page
+          canNavigateBack={workspace.canNavigateBack}
+          canNavigateForward={workspace.canNavigateForward}
+          onNavigateBack={() => application.navigation.back()}
+          onNavigateForward={() => application.navigation.forward()}
+          title={titleProps.title}
+          description={model.description}
+          titleEditable={titleProps.titleEditable}
+          onTitleCommit={onTitleCommit}
+          breadcrumbs={
+            <Breadcrumbs
+              items={buildSystemLocationBreadcrumbs(
+                filteredViewSystemLocationId,
+                titleProps.title,
+                tagEmoji
               )}
-              deleteConfirmationMessage={TAG_DELETE_CONFIRMATION_MESSAGE}
             />
-          ) : undefined
-        }
-        titleActions={renderCollectionHeaderActions({
-          onAdd: onCreate,
-          onAddFolder: onCreateFolder,
-          fromTemplate: collectionDefinition.actions.fromTemplate
-            ? buildFromTemplate(null)
-            : undefined,
-        })}
-        // A tag's own emoji shows in the title the same way an ordinary
-        // folder's metadata.icon does; the generic icon below is what shows
-        // when it has none (and always for Workspace/Favorites).
-        emoji={tagEmoji}
-        icon={
-          getSystemLocationPresentation(
-            filteredViewSystemLocationId,
-            'page-header'
-          ).icon
-        }
-        // Only a tag's page is editable here: picking or removing its emoji
-        // goes through TagOperations.updateMetadata (the tag's definition in
-        // tags.json) and the header's existing emoji picker / More actions
-        // "Emoji" item — the same controls a folder's page uses, which show
-        // only the capabilities whose handler is supplied. Workspace and
-        // Favorites supply none and keep no More actions.
-        showMoreActions={view.kind === 'tag'}
-        onSelectEmoji={
-          view.kind === 'tag'
-            ? (selected) =>
-                void application.tagOperations.updateMetadata(view.tagName, {
-                  icon: selected,
-                })
-            : undefined
-        }
-        onRemoveEmoji={
-          view.kind === 'tag'
-            ? () =>
-                void application.tagOperations.updateMetadata(view.tagName, {
-                  icon: undefined,
-                })
-            : undefined
-        }
-        body={
-          <CollectionBody
-            folders={model.folders}
-            notes={model.notes}
-            viewMode={collectionView.layout}
-            visible={collectionView.visible}
-            sort={collectionView.sort}
-            onCreateFolder={onCreateFolder}
-            onCreate={onCreate}
-            emptyCreateLabel="New note"
-            emptyMessage={collectionDefinition.emptyMessage}
-            noteCover={noteCoverActions}
-            previewResolvers={notePreviewResolvers}
-            // The vault root's own collection: its folders and notes move like any other folder's.
-            moveDrag={
-              collectionDefinition.kind === 'workspace'
-                ? { parentId: null, actions: buildMoveDropActions(application, toast) }
-                : undefined
-            }
-            itemMenu={collectionItemMenu}
-          />
-        }
-      />
-      {folderCreationDialog}
+          }
+          // A tag page's one top-bar action: Delete (TagOperations.deleteTag),
+          // through the same menu + confirmation surface every resource's
+          // More actions uses. Workspace/Favorites keep none.
+          actions={
+            view.kind === 'tag' ? (
+              <ResourceTopBarActions
+                menu={buildResourceActionMenu('tag', {}, 'topbar')}
+                handlers={{
+                  delete: () =>
+                    void createTagCollectionDeleteHandler(
+                      {
+                        tagOperations: application.tagOperations,
+                        navigation: application.navigation,
+                        workspace: application.workspace,
+                        collectionViewConfigStore:
+                          application.collectionViewConfigStore,
+                        tagExpansionStore: application.tagExpansionStore,
+                      },
+                      view.tagName
+                    )()
+                      .then((result) => reportTagBatch(toast, result, 'delete'))
+                      .catch((error: unknown) =>
+                        toast.fail('Couldn’t delete the tag', error)
+                      ),
+                }}
+                deleteConfirmationTitle={getTagDeleteConfirmationTitle(
+                  view.tagName
+                )}
+                deleteConfirmationMessage={TAG_DELETE_CONFIRMATION_MESSAGE}
+              />
+            ) : undefined
+          }
+          titleActions={renderCollectionHeaderActions({
+            onAdd: onCreate,
+            onAddFolder: onCreateFolder,
+            fromTemplate: collectionDefinition.actions.fromTemplate
+              ? buildFromTemplate(null)
+              : undefined,
+          })}
+          // A tag's own emoji shows in the title the same way an ordinary
+          // folder's metadata.icon does; the generic icon below is what shows
+          // when it has none (and always for Workspace/Favorites).
+          emoji={tagEmoji}
+          icon={
+            getSystemLocationPresentation(
+              filteredViewSystemLocationId,
+              'page-header'
+            ).icon
+          }
+          // Only a tag's page is editable here: picking or removing its emoji
+          // goes through TagOperations.updateMetadata (the tag's definition in
+          // tags.json) and the header's existing emoji picker / More actions
+          // "Emoji" item — the same controls a folder's page uses, which show
+          // only the capabilities whose handler is supplied. Workspace and
+          // Favorites supply none and keep no More actions.
+          showMoreActions={view.kind === 'tag'}
+          onSelectEmoji={
+            view.kind === 'tag'
+              ? (selected) =>
+                  void application.tagOperations.updateMetadata(view.tagName, {
+                    icon: selected,
+                  })
+              : undefined
+          }
+          onRemoveEmoji={
+            view.kind === 'tag'
+              ? () =>
+                  void application.tagOperations.updateMetadata(view.tagName, {
+                    icon: undefined,
+                  })
+              : undefined
+          }
+          body={
+            <CollectionBody
+              folders={model.folders}
+              notes={model.notes}
+              viewMode={collectionView.layout}
+              visible={collectionView.visible}
+              sort={collectionView.sort}
+              onCreateFolder={onCreateFolder}
+              onCreate={onCreate}
+              emptyCreateLabel="New note"
+              emptyMessage={collectionDefinition.emptyMessage}
+              noteCover={noteCoverActions}
+              previewResolvers={notePreviewResolvers}
+              // The vault root's own collection: its folders and notes move like any other folder's.
+              moveDrag={
+                collectionDefinition.kind === 'workspace'
+                  ? {
+                      parentId: null,
+                      actions: buildMoveDropActions(application, toast),
+                    }
+                  : undefined
+              }
+              itemMenu={collectionItemMenu}
+            />
+          }
+        />
+        {folderCreationDialog}
       </>
     );
   }
@@ -2792,7 +2980,9 @@ export function PageHost({
     // its state (displayed, add button, title control) is derived.
     const sectionState = derivePropertiesSectionState({
       lines: target.metadata.unownedFrontmatter ?? [],
-      ...(target.metadata.frontmatterEntryOrder && { order: target.metadata.frontmatterEntryOrder }),
+      ...(target.metadata.frontmatterEntryOrder && {
+        order: target.metadata.frontmatterEntryOrder,
+      }),
       isArchived,
       hasDraft: propertyDrafts.drafts.length > 0,
       isStarting: startingPropertyPageId === target.id,
@@ -2908,7 +3098,8 @@ export function PageHost({
     }
 
     // The draft Daily Note's date (its title), when it is one — captured here so the header-controls callback below keeps the narrowing.
-    const draftDailyNoteDate = draft.type === 'daily-note' && draft.title ? draft.title : undefined;
+    const draftDailyNoteDate =
+      draft.type === 'daily-note' && draft.title ? draft.title : undefined;
     const draftBreadcrumbs = buildBreadcrumbsForDraft(
       activePageId,
       draft.folderId,
@@ -2991,7 +3182,9 @@ export function PageHost({
         // A Daily Note's title already is its date and it has its own date navigation, so it shows no
         // breadcrumbs at all (no element: the top bar leaves no gap where they would be).
         breadcrumbs={
-          draft.type === 'daily-note' ? undefined : <Breadcrumbs items={draftBreadcrumbs} />
+          draft.type === 'daily-note' ? undefined : (
+            <Breadcrumbs items={draftBreadcrumbs} />
+          )
         }
         // Same page chrome as a persisted page (ADR-017 Decision item 9) —
         // archive/restore/delete render disabled, not omitted, since they
@@ -3192,9 +3385,11 @@ export function PageHost({
           openPage: onOpenPage,
           openFolder: (folderId) => onOpenFolder(folderId),
           openSystemFolder: (id) => onOpenSystemFolder(id),
-          openResource: (resource, options) => onOpenResource(resource, options),
+          openResource: (resource, options) =>
+            onOpenResource(resource, options),
           membershipSelector: application.membershipSelector,
-          resolveResourceUrl: (path) => application.resolveResourceImageUrl(path),
+          resolveResourceUrl: (path) =>
+            application.resolveResourceImageUrl(path),
           onCreateFailed: reportLinkedNoteFailure,
         }
       )
@@ -3220,10 +3415,16 @@ export function PageHost({
     : (image, options) => {
         // An image that resolved to a file now in the Archive (found by where it was archived from) opens to view
         // only, like any other archived file; it is never offered the actions of an active one.
-        const target = image.resourceId !== undefined ? vault.getResource(image.resourceId) : undefined;
+        const target =
+          image.resourceId !== undefined
+            ? vault.getResource(image.resourceId)
+            : undefined;
 
         if (target && vault.isResourceEffectivelyArchived(target)) {
-          onOpenImageOverlay({ ...image, resourceId: undefined }, { actionsEnabled: false });
+          onOpenImageOverlay(
+            { ...image, resourceId: undefined },
+            { actionsEnabled: false }
+          );
           return;
         }
 
@@ -3263,7 +3464,9 @@ export function PageHost({
           isRenameable ? () => onCancelPageTitle(page.id) : undefined
         }
         onTitleCommit={
-          isRenameable ? (title) => onCommitPageTitle(page.id, title) : undefined
+          isRenameable
+            ? (title) => onCommitPageTitle(page.id, title)
+            : undefined
         }
         // A Note and a Daily Note both offer "Add a description"/"Description"
         // (the header More menu offers it for both) — unlike title, description editability has no note-vs-daily-
@@ -3297,7 +3500,11 @@ export function PageHost({
         showMoreActions={!isPageArchived}
         // A Daily Note's title already is its date and it has its own date navigation, so it shows no
         // breadcrumbs at all (no element: the top bar leaves no gap where they would be).
-        breadcrumbs={page.type === 'daily-note' ? undefined : <Breadcrumbs items={breadcrumbs} />}
+        breadcrumbs={
+          page.type === 'daily-note' ? undefined : (
+            <Breadcrumbs items={breadcrumbs} />
+          )
+        }
         archived={
           isPageArchived
             ? {
@@ -3433,8 +3640,7 @@ export function PageHost({
                 onArchiveResource={
                   isPageArchived
                     ? undefined
-                    : (id) =>
-                        void archiveActions.archiveResource(id)
+                    : (id) => void archiveActions.archiveResource(id)
                 }
                 onRevealResourceInFinder={
                   isPageArchived ? undefined : revealResourceInFinder

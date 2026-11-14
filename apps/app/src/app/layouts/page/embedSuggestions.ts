@@ -1,3 +1,4 @@
+import { isTaskInboxPath } from '@core/vault/initialize/ReservedResources';
 import type { Vault } from '@core/vault/models/Vault';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import type { Page } from '@core/vault/models/Page';
@@ -52,7 +53,7 @@ export function createEmbedSuggester(
    */
   isArchived: (page: Page) => boolean = (page) => vault.isPageEffectivelyArchived(page)
 ): GetEmbedSuggestions {
-  const embeddablePages = () => Array.from(vault.pages()).filter((page) => !isArchived(page));
+  const embeddablePages = () => Array.from(vault.pages()).filter((page) => !isArchived(page) && !isTaskInboxPath(vault.root, page.path));
 
   return (query) => {
     const normalizedQuery = query.trim().toLowerCase();

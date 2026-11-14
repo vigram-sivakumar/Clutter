@@ -3016,3 +3016,24 @@ describe('VaultSyncService: mis-paired rename halves converge on disk truth', ()
     expect(vault.getResource('res-1')).toBeUndefined();
   });
 });
+
+
+describe('Task Inbox filesystem reconciliation', () => {
+  it('loads, updates and removes the internal source without a navigable .clutter folder', async () => {
+    const { vault, fileSystem, watcher, service } = setup();
+    fileSystem.seedFile(`${ROOT}/.clutter/inbox.md`, '---\nid: inbox-id\n---\n- [ ] Captured');
+    watcher.emit({ type: 'created', path: '.clutter/inbox.md', isDirectory: false });
+    await flush();
+    expect([...vault.tasks()].map((task) => task.text)).toEqual(['Captured']);
+    fileSystem.seedFile(`${ROOT}/.clutter/inbox.md`, '---\nid: inbox-id\n---\n- [x] Captured @completed:2026-11-14');
+    watcher.emit({ type: 'changed', path: '.clutter' });
+    await flush();
+    expect([...vault.tasks()][0]?.completed).toBe(true);
+    expect([...vault.folders()]).toHaveLength(0);
+    await fileSystem.deleteFile(`${ROOT}/.clutter/inbox.md`);
+    watcher.emit({ type: 'deleted', path: '.clutter/inbox.md' });
+    await flush();
+    expect([...vault.tasks()]).toHaveLength(0);
+    service.dispose();
+  });
+});

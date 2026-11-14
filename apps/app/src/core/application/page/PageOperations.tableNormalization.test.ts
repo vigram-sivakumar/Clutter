@@ -273,3 +273,25 @@ describe('PageOperations.save — table normalization at the durable-save bounda
     expect(written).toContain(COMPACT_TABLE);
   });
 });
+
+
+describe('verified durable body mutations', () => {
+  it('accepts the existing normalized disk representation without changing the editor content', async () => {
+    const page = buildPage(COMPACT_TABLE);
+    const { vault, documentRegistry, pageOperations } = setup(page, { normalizeMarkdownForSave: normalizeAllTablesInMarkdown });
+    await pageOperations.open(page.id);
+    const task = '\n- [ ] Transferred task @2026-11-20';
+    await expect(pageOperations.mutateBodyAndSave(page.id, (body) => body + task)).resolves.toBeUndefined();
+    expect(vault.getPage(page.id)!.source.markdown).toContain(NORMALIZED_TABLE);
+    expect(vault.getPage(page.id)!.source.markdown).toContain(task);
+    expect(documentRegistry.get(page.id)!.currentRevision.markdown).toBe(COMPACT_TABLE + task);
+    expect(documentRegistry.get(page.id)!.isDirty).toBe(false);
+  });
+
+  it('keeps the existing closed-document mutation path unchanged', async () => {
+    const page = buildPage(COMPACT_TABLE);
+    const { vault, pageOperations } = setup(page, { normalizeMarkdownForSave: normalizeAllTablesInMarkdown });
+    await pageOperations.mutateBodyAndSave(page.id, (body) => body + '\n- [ ] Transferred task');
+    expect(vault.getPage(page.id)!.source.markdown).toBe(COMPACT_TABLE + '\n- [ ] Transferred task');
+  });
+});

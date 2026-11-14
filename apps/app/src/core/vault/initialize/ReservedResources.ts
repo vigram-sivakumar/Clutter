@@ -320,3 +320,12 @@ export const RESERVED_FOLDER_NAMES: ReadonlySet<string> = new Set(
     (resource): resource is ReservedFolder => resource.type === 'folder'
   ).map((resource) => resource.path)
 );
+
+/** The sole Markdown content source inside the otherwise private .clutter directory. */
+export const TASK_INBOX_RELATIVE_PATH = '.clutter/inbox.md';
+export function taskInboxPath(root: string): string {
+  return `${root}/${TASK_INBOX_RELATIVE_PATH}`;
+}
+export function isTaskInboxPath(root: string, path: string): boolean {
+  return path === taskInboxPath(root);
+}

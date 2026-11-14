@@ -17,7 +17,7 @@ import { taskPropertyValues } from '../helpers/taskPropertyValues';
 import { sortEntries } from '@core/properties/collectionSort';
 import type { PropertyValues } from '@core/properties/collectionProperties';
 import { resolveCollectionView, type ResolvedCollectionView } from '@core/presentation/collection/resolveCollectionView';
-import { TASKS_COLLECTION } from '@core/presentation/collection/collectionDefinitions';
+import { TASKS_COLLECTION, TASK_INBOX_COLLECTION } from '@core/presentation/collection/collectionDefinitions';
 import '../sidebar/Task.css';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
 import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
@@ -32,7 +32,7 @@ export type TasksCollectionView = TaskViewKind;
 /** The note a task lives in, as the wiki-link-style link the row shows: its label and its own identity icon/emoji. */
 export interface TaskSourceLink {
   readonly label: string;
-  readonly icon: 'note' | 'calendarNote' | 'calendarDot' | 'template';
+  readonly icon: 'tray' | 'note' | 'calendarNote' | 'calendarDot' | 'template';
   readonly emoji: string | null;
 }
 
@@ -46,6 +46,7 @@ interface TaskEntry {
 
 export interface TasksCollectionBodyProps {
   readonly view: TasksCollectionView;
+  readonly inboxPageId?: string;
   readonly tasks: readonly TaskOccurrence[];
   readonly onToggleComplete: (task: TaskOccurrence) => void;
   readonly onOpenTask: (task: TaskOccurrence) => void;
@@ -105,6 +106,7 @@ function TasksPageBody({ children }: { readonly children: ReactNode }) {
  */
 export function TasksCollectionBody({
   view,
+  inboxPageId,
   tasks,
   onToggleComplete,
   onOpenTask,
@@ -119,7 +121,7 @@ export function TasksCollectionBody({
   resolveTag,
   resolveEmbed,
 }: TasksCollectionBodyProps) {
-  const { layout, visible, sort } = collectionView ?? resolveCollectionView(TASKS_COLLECTION);
+  const { layout, visible, sort } = collectionView ?? resolveCollectionView(view === 'tasks-inbox' ? TASK_INBOX_COLLECTION : TASKS_COLLECTION);
 
   // Right-click on a row: the task's More actions — the same canonical task menu the sidebar row shows
   // (`buildTaskMenu`), over the operations this page supplies. Due date opens the calendar beside the row.
@@ -129,7 +131,7 @@ export function TasksCollectionBody({
     const { task } = entry;
     const handlers = {
       ...(onEditTask && { edit: () => onEditTask(task) }),
-      'open-in-note': () => onOpenTask(task),
+      ...(task.sourcePageId !== inboxPageId && { 'open-in-note': () => onOpenTask(task) }),
       'change-due-date': () => {
         datePickerAnchorRef.current = document.querySelector<HTMLElement>(`[data-context-entry="${CSS.escape(entry.id)}"]`);
         setDatePickerTask(task);
@@ -155,7 +157,7 @@ export function TasksCollectionBody({
   // The view decides the dataset. Ordering: the collection's sort (Name A→Z by default). Auto-sort completed
   // on moves completed tasks (newest-completed-first before sorting) below the incomplete ones, each group
   // sorted by the chosen property; off leaves them in their sorted place among the rest.
-  const dataset = tasksForView(view, tasks, displayConfig);
+  const dataset = tasksForView(view, tasks, displayConfig, inboxPageId);
   const entries = displayConfig.autoSortCompleted
     ? [
         ...sortEntries(dataset.filter((task) => !task.completed).map(toEntry), sort),
@@ -167,9 +169,10 @@ export function TasksCollectionBody({
       );
 
   if (entries.length === 0) {
+    const hiddenInboxTasks = view === 'tasks-inbox' && tasksForView(view, tasks, { showCompleted: true }, inboxPageId).length > 0;
     return (
       <TasksPageBody>
-        <CollectionEmptyState message={TASKS_COLLECTION.emptyMessage} />
+        <CollectionEmptyState message={hiddenInboxTasks ? 'No tasks to show with the current settings' : (view === 'tasks-inbox' ? TASK_INBOX_COLLECTION : TASKS_COLLECTION).emptyMessage} />
       </TasksPageBody>
     );
   }

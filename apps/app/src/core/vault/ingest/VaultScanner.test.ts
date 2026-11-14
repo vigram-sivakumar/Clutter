@@ -350,3 +350,21 @@ describe('VaultScanner page file times (ADR-057)', () => {
     expect(result.pages[0]!.fileTimes).toBeUndefined();
   });
 });
+
+
+describe('Task Inbox startup discovery', () => {
+  it('loads only the managed Inbox through the normal parser and never registers .clutter as a Folder', async () => {
+    const fs = new InMemoryVaultFileSystem();
+    await fs.createDirectory('/vault/.clutter');
+    fs.seedFile('/vault/.clutter/inbox.md', '---\nid: inbox-id\n---\n- [x] Done @2026-11-20 @completed:2026-11-14');
+    fs.seedFile('/vault/.clutter/other.md', '- [ ] Not content');
+    const scan = await new VaultScanner(fs).scan('/vault');
+    expect(scan.pages.map((page) => page.path)).toEqual(['/vault/.clutter/inbox.md']);
+    expect(scan.directories.map((folder) => folder.path)).toEqual(['/vault']);
+    const { VaultBuilder } = await import('./VaultBuilder');
+    const { FakeIdGenerator } = await import('../testing/FakeIdGenerator');
+    const { vault } = new VaultBuilder(new FakeIdGenerator()).build(scan);
+    expect([...vault.tasks()]).toMatchObject([{ sourcePageId: 'inbox-id', completed: true, dueDate: '2026-11-20' }]);
+    expect(vault.getPage('inbox-id')?.parentId).toBe(null);
+  });
+});

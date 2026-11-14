@@ -1,3 +1,4 @@
+import { isTaskInboxPath } from '../../vault/initialize/ReservedResources';
 import { TaskExtractor } from '../../vault/ingest/extractors/TaskExtractor';
 import { PageAnalysisMapper } from '../../vault/ingest/PageAnalysisMapper';
 import type { TaskOccurrence } from '../../vault/models/occurrences/TaskOccurrence';
@@ -284,6 +285,7 @@ export class EffectivePageState {
    */
   private resolve(id: string): EffectivePage | undefined {
     const page = this.vault.getPage(id);
+    if (page && isTaskInboxPath(this.vault.root, page.path)) return undefined;
     const draft = page ? undefined : this.pageOperations.getDraft(id);
 
     if (!page && !draft) {

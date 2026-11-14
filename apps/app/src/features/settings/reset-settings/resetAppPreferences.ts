@@ -1,3 +1,4 @@
+import { DEFAULT_TASK_LOCATION, writeDefaultTaskLocation } from '@shared/helpers/defaultTaskLocationPreference';
 import { resetThemePreference } from '@design-system/useTheme';
 import { resetWeekStart } from '@features/daily-notes/calendar/weekStart';
 import { resetHeaderSeparator } from '@app/layouts/page/headerSeparator';
@@ -50,6 +51,7 @@ export function resetAppPreferences(): void {
   // Calendar and dates
   resetWeekStart();
   writeDateFormatChoice(DEFAULT_DATE_FORMAT_CHOICE);
+  writeDefaultTaskLocation(DEFAULT_TASK_LOCATION);
   // Sidebar lists
   writeFolderItemLimitChoice(DEFAULT_FOLDER_ITEM_LIMIT_CHOICE);
   writeShowAssetsInFolders(DEFAULT_SHOW_ASSETS_IN_FOLDERS);

@@ -25,6 +25,7 @@ const RESET_KEYS = [
   'clutter-folder-item-limit',
   'clutter-show-assets-in-folders',
   'clutter-task-item-limit',
+  'clutter-default-task-location',
   'clutter-group-tasks-by-due-date',
   'clutter-show-tag-emojis',
   'clutter-show-daily-note-emoji',

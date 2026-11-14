@@ -56,8 +56,8 @@ function buildPage(id: string, body: string): Page {
   });
 }
 
-function setup(page: Page) {
-  const vault = new Vault(
+function setup(page: Page, reopened?: { vault: Vault; fileSystem: InMemoryVaultFileSystem }) {
+  const vault = reopened?.vault ?? new Vault(
     ROOT,
     [page],
     [],
@@ -67,9 +67,9 @@ function setup(page: Page) {
     new KnowledgeGraph([]),
     new VaultProjectionBuilder()
   );
-  const fileSystem = new InMemoryVaultFileSystem();
+  const fileSystem = reopened?.fileSystem ?? new InMemoryVaultFileSystem();
 
-  fileSystem.seedFile(
+  if (!reopened) fileSystem.seedFile(
     page.path,
     new FrontmatterSerializer().serializeDocument(page, page.source.markdown)
   );
@@ -1060,5 +1060,158 @@ describe('TaskOperations — routing through an open DocumentSession (ADR-031)',
       ).rejects.toThrow('Task title must not be empty.');
       expect(vault.getPage('p1')!.source.markdown).toBe('- [ ] Collect the bill');
     });
+  });
+});
+
+// Uses the real broker, Gate, parser and Vault; no parallel Inbox task implementation.
+describe('Task Inbox transfers', () => {
+  const inbox = (body: string): Page => ({
+    ...buildPage('inbox-source', body),
+    path: `${ROOT}/.clutter/inbox.md`,
+  });
+
+  it('moves dated completed and incomplete tasks verbatim, leaving undated/invalid tasks and prose', async () => {
+    const body =
+      '# Captured\n<!-- Keep this -->\n- [ ] Same @2026-11-20\n- [ ] Same @2026-11-20\n- [x] Finished @2026-11-21 @completed:2026-11-14\n- [ ] Timed @2026-11-22T14:30 @energy:high\n- [ ] Undated\n- [ ] Invalid @2026-13-45';
+    const env = setup(inbox(body));
+    await env.taskOperations.tidyInbox(ROOT, 'inbox-source');
+    expect(env.vault.getPage('inbox-source')!.source.markdown).toBe(
+      '# Captured\n<!-- Keep this -->\n- [ ] Undated\n- [ ] Invalid @2026-13-45'
+    );
+    const tasks = [...env.vault.tasks()];
+    expect(
+      tasks.filter((task) => task.rawText === '- [ ] Same @2026-11-20')
+    ).toHaveLength(2);
+    expect(
+      tasks.some(
+        (task) =>
+          task.rawText === '- [x] Finished @2026-11-21 @completed:2026-11-14' &&
+          task.completed
+      )
+    ).toBe(true);
+    expect(
+      tasks.some(
+        (task) => task.dueDate === '2026-11-22' && task.dueTime === '14:30'
+      )
+    ).toBe(true);
+    const count = tasks.length;
+    await env.taskOperations.tidyInbox(ROOT, 'inbox-source');
+    expect([...env.vault.tasks()]).toHaveLength(count);
+  });
+
+  it('resumes a failed source removal using durable receipts, including identical tasks', async () => {
+    const env = setup(inbox('- [ ] Same @2026-11-20\n- [ ] Same @2026-11-20'));
+    const persist = env.pageOperations.mutateBodyAndSave.bind(
+      env.pageOperations
+    );
+    let sourceWrites = 0;
+    const failure = vi
+      .spyOn(env.pageOperations, 'mutateBodyAndSave')
+      .mockImplementation(async (id, transform) => {
+        if (id === 'inbox-source' && ++sourceWrites === 2)
+          throw new Error('Disk unavailable');
+        return persist(id, transform);
+      });
+    await expect(
+      env.taskOperations.tidyInbox(ROOT, 'inbox-source')
+    ).rejects.toThrow('Disk unavailable');
+    expect(env.vault.getPage('inbox-source')!.source.markdown).toContain(
+      'clutter-inbox-plan'
+    );
+    expect([...env.vault.tasks()]).toHaveLength(4); // source is retained until all writes finish
+    await expect(
+      env.taskOperations.create('inbox-source', 'Wait')
+    ).rejects.toThrow('Finish Tidy up');
+    failure.mockRestore();
+    const restarted = new TaskOperations(env.pageOperations);
+    await restarted.tidyInbox(ROOT, 'inbox-source');
+    expect(env.vault.getPage('inbox-source')!.source.markdown).toBe('');
+    expect([...env.vault.tasks()]).toHaveLength(2);
+  });
+
+  it('keeps all originals when a destination fails and shares rapid repeated requests', async () => {
+    const body = '- [x] Finished @2026-11-20 @completed:2026-11-14';
+    const env = setup(inbox(body));
+    const ensure = vi
+      .spyOn(env.pageOperations, 'ensureAtPath')
+      .mockRejectedValueOnce(new Error('No access'));
+    const first = env.taskOperations.tidyInbox(ROOT, 'inbox-source');
+    expect(env.taskOperations.tidyInbox(ROOT, 'inbox-source')).toBe(first);
+    await expect(first).rejects.toThrow('No access');
+    expect(env.vault.getPage('inbox-source')!.source.markdown).toContain(body);
+    ensure.mockRestore();
+    await env.taskOperations.tidyInbox(ROOT, 'inbox-source');
+    expect([...env.vault.tasks()]).toHaveLength(1);
+    expect([...env.vault.tasks()][0]!.completed).toBe(true);
+  });
+
+  it('serializes concurrent task creation and coalesces first source creation', async () => {
+    const env = setup(inbox(''));
+    await Promise.all([
+      env.taskOperations.create('inbox-source', 'One'),
+      env.taskOperations.create('inbox-source', 'Two'),
+    ]);
+    expect([...env.vault.tasks()].map((task) => task.text).sort()).toEqual([
+      'One',
+      'Two',
+    ]);
+    const paths = await Promise.all([
+      env.pageOperations.ensureAtPath(`${ROOT}/New.md`, { type: 'note' }),
+      env.pageOperations.ensureAtPath(`${ROOT}/New.md`, { type: 'note' }),
+    ]);
+    expect(paths[0]).toBe(paths[1]);
+  });
+
+  it('refuses source removal when an open destination cannot be saved', async () => {
+    const env = setup(inbox('- [ ] Keep @2026-11-20'));
+    // Resolve through the production path convention, then leave a dirty editor session on it.
+    const { DailyNotePath } = await import('../../vault/ingest/DailyNotePath');
+    const targetId = await env.pageOperations.ensureAtPath(
+      DailyNotePath.absoluteFrom(ROOT, new Date(2026, 10, 20)),
+      { type: 'daily-note' }
+    );
+    await env.pageOperations.open(targetId);
+    const failedSave = vi
+      .spyOn(env.pageOperations, 'requestSave')
+      .mockResolvedValue(undefined);
+    await expect(
+      env.taskOperations.tidyInbox(ROOT, 'inbox-source')
+    ).rejects.toThrow('not been saved');
+    expect(env.vault.getPage('inbox-source')!.source.markdown).toContain(
+      '- [ ] Keep @2026-11-20'
+    );
+    failedSave.mockRestore();
+  });
+});
+
+
+describe('Inbox recovery across a full vault reload', () => {
+  it('recognizes a destination written before an interruption without duplicating it after restart', async () => {
+    const source = { ...buildPage('inbox-id', '- [x] Same @2026-11-20 @completed:2026-11-14\n- [x] Same @2026-11-20 @completed:2026-11-14'), path: `${ROOT}/.clutter/inbox.md` };
+    const env = setup(source);
+    await env.fileSystem.createDirectory(`${ROOT}/.clutter`);
+    const persist = env.pageOperations.mutateBodyAndSave.bind(env.pageOperations);
+    const interrupted = vi.spyOn(env.pageOperations, 'mutateBodyAndSave').mockImplementation(async (id, transform) => {
+      await persist(id, transform);
+      if (id !== source.id) throw new Error('Interrupted after destination save');
+    });
+    await expect(env.taskOperations.tidyInbox(ROOT, source.id)).rejects.toThrow('Interrupted');
+    interrupted.mockRestore();
+    const { VaultScanner } = await import('../../vault/ingest/VaultScanner');
+    const { VaultBuilder } = await import('../../vault/ingest/VaultBuilder');
+    const scan = await new VaultScanner(env.fileSystem).scan(ROOT);
+    const { vault } = new VaultBuilder(new UuidGenerator()).build(scan);
+    const restarted = setup(vault.getPage(source.id)!, { vault, fileSystem: env.fileSystem });
+    await restarted.taskOperations.tidyInbox(ROOT, source.id);
+    expect(vault.getPage(source.id)!.source.markdown).toBe('');
+    expect([...vault.tasks()]).toHaveLength(2);
+    expect([...vault.tasks()].every((task) => task.completed && task.completedAt === '2026-11-14')).toBe(true);
+  });
+
+  it('does not reserve comment text in ordinary notes', async () => {
+    const source = buildPage('ordinary', 'Example: <!-- clutter-inbox-plan \n- [ ] Still editable');
+    const env = setup(source);
+    await env.taskOperations.toggleComplete(firstTask(source));
+    expect(env.vault.getPage(source.id)!.analysis.tasks[0]!.completed).toBe(true);
   });
 });
