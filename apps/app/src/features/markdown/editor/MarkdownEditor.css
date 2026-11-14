@@ -1910,7 +1910,8 @@
  * `linkContentDecorations`'s own doc comment) needs this element's
  * text-decoration-line to be otherwise unclaimed so its own
  * `line-through` applies with no shorthand conflict. */
-.cm-editor .tok-link {
+.cm-editor .tok-link,
+.compact-markdown a.compact-markdown-link-title {
   color: var(--md-link-foreground);
   cursor: pointer;
 }
@@ -1920,7 +1921,8 @@
  * `--md-link-foreground`) in place of wiki's `--md-wiki-underline`. Owns
  * the underline exclusively so `.tok-link`'s own composed `tok-strike`
  * (above) never has to share a `text-decoration-line` with it. */
-.cm-editor .tok-link-title {
+.cm-editor .tok-link-title,
+.compact-markdown a.compact-markdown-link-title {
   text-decoration: underline;
   text-decoration-thickness: var(--md-underline-thickness);
   text-decoration-color: var(--md-link-underline);

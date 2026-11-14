@@ -1178,3 +1178,26 @@ it('distinguishes an empty Inbox from completed tasks hidden by settings', () =>
   expect(screen.getByText('No tasks to show with the current settings')).toBeInTheDocument();
   expect(screen.queryByText('Hidden completed task')).toBeNull();
 });
+
+
+describe('task collection Markdown links', () => {
+  it.each(['list', 'table'] as const)('opens URLs and labeled links without opening the task in %s layout', (layout) => {
+    const onOpenLink = vi.fn(); const onOpenTask = vi.fn();
+    render(<TasksCollectionBody
+      view="tasks-all"
+      tasks={[task({ text: 'Read [Clutter](https://clutter.app/docs) and https://example.com/help', startOffset: 0 })]}
+      collectionView={resolveCollectionView(TASKS_COLLECTION, { layout })}
+      onOpenLink={onOpenLink} onOpenTask={onOpenTask}
+      onToggleComplete={vi.fn()} onChangeDueDate={vi.fn()}
+    />);
+    const labeled = screen.getByRole('link', { name: 'Clutter' });
+    expect(labeled).toHaveAttribute('href', 'https://clutter.app/docs');
+    expect(screen.queryByText('https://clutter.app/docs')).toBeNull();
+    fireEvent.click(labeled);
+    fireEvent.click(screen.getByRole('link', { name: 'https://example.com/help' }));
+    expect(onOpenLink.mock.calls).toEqual([['https://clutter.app/docs'], ['https://example.com/help']]);
+    expect(onOpenTask).not.toHaveBeenCalled();
+    fireEvent.keyDown(labeled, { key: 'Enter' });
+    expect(onOpenTask).not.toHaveBeenCalled();
+  });
+});

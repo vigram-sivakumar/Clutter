@@ -3,7 +3,7 @@ import type { SyntaxNode } from '@lezer/common';
 import { matchStraightLabeledDivider, matchWrappedDivider } from '../../../../core/vault/ingest/grammar/dividerLabelMatch';
 import { parseTableColumnWidthsAttribute } from '../../editor/codemirror/table/tableColumnWidthMetadata';
 import { sharedMarkdownParser } from '../sharedMarkdownParser';
-import { tokenizeInline, type InlineSpan } from '../inlineSpan';
+import { tokenizeInline, type InlineSpan, type TokenizeInlineOptions } from '../inlineSpan';
 
 /**
  * The block-selection half of the compact-rendering policy — "which block
@@ -290,11 +290,11 @@ export function trimEdgeWhitespace(spans: readonly InlineSpan[]): InlineSpan[] {
 }
 
 /** The selected block's inline content, tokenized through the real inline pipeline — used by `tokenizeCompactMarkdown`. */
-export function compactBlockSpans(selection: CompactBlockSelection, text: string): InlineSpan[] {
+export function compactBlockSpans(selection: CompactBlockSelection, text: string, options?: TokenizeInlineOptions): InlineSpan[] {
   if (selection.dividerLabel !== null) {
     return [{ kind: 'text', value: selection.dividerLabel }];
   }
-  return trimEdgeWhitespace(tokenizeInline(selection.node, text, selection.contentFrom));
+  return trimEdgeWhitespace(tokenizeInline(selection.node, text, selection.contentFrom, options));
 }
 
 /**

@@ -39,7 +39,7 @@ export type InlineSpan =
   | { readonly kind: 'wikilink'; readonly path: string; readonly alias: string | null }
   | { readonly kind: 'tag'; readonly name: string }
   | { readonly kind: 'date'; readonly isoDate: string; readonly time?: string }
-  | { readonly kind: 'link'; readonly label: string }
+  | { readonly kind: 'link'; readonly label: string; readonly href?: string }
   /**
    * `src` is the Image's own raw destination (as written, never resolved) — present only when the
    * caller opted in via `TokenizeInlineOptions.includeImageSrc` (the Card view's block renderer, the
@@ -50,6 +50,8 @@ export type InlineSpan =
   | { readonly kind: 'embed'; readonly path: string; readonly alias: string | null };
 
 export interface TokenizeInlineOptions {
+  /** Retain the parser’s link destination for an interactive rendering surface. */
+  readonly includeLinkDestination?: boolean;
   /** Also record each Image's raw destination as `src` — see `InlineSpan`'s image variant. */
   readonly includeImageSrc?: boolean;
 }
@@ -164,16 +166,18 @@ function linkUrlText(node: SyntaxNode, text: string): string | null {
  * empty/absent there's nothing addressable at all — `null` tells the
  * caller to contribute nothing, never a raw `[]()`.
  */
-export function readLink(node: SyntaxNode, text: string): InlineSpan | null {
+export function readLink(node: SyntaxNode, text: string, includeDestination = false): InlineSpan | null {
   const label = bracketedLabelText(node, text);
   if (label === null) {
     return { kind: 'text', value: text.slice(node.from, node.to) };
   }
   if (label.trim().length > 0) {
-    return { kind: 'link', label };
+    const raw = includeDestination ? linkUrlText(node, text) : null;
+    const href = raw ? decodeLinkDestination(raw, 'Link') : null;
+    return { kind: 'link', label, ...(href ? { href } : {}) };
   }
   const url = linkUrlText(node, text);
-  return url ? { kind: 'link', label: url } : null;
+  return url ? { kind: 'link', label: url, ...(includeDestination ? { href: decodeLinkDestination(url, 'Link') } : {}) } : null;
 }
 
 /**
@@ -352,7 +356,7 @@ function tokenizeChildren(
 
     if (n.name === 'Link' || n.name === 'Image') {
       pushText(cursor, n.from);
-      const span = n.name === 'Link' ? readLink(n, text) : readImage(n, text, options.includeImageSrc);
+      const span = n.name === 'Link' ? readLink(n, text, options.includeLinkDestination) : readImage(n, text, options.includeImageSrc);
       if (span) {
         spans.push(span);
       }
@@ -369,14 +373,16 @@ function tokenizeChildren(
 
     if (n.name === 'Autolink') {
       pushText(cursor, n.from);
-      spans.push({ kind: 'link', label: markedInnerText(n, text, 'LinkMark') });
+      const label = markedInnerText(n, text, 'LinkMark');
+      spans.push({ kind: 'link', label, ...(options.includeLinkDestination ? { href: decodeLinkDestination(label, n.name) } : {}) });
       cursor = n.to;
       return;
     }
 
     if (n.name === 'URL') {
       pushText(cursor, n.from);
-      spans.push({ kind: 'link', label: text.slice(n.from, n.to) });
+      const label = text.slice(n.from, n.to);
+      spans.push({ kind: 'link', label, ...(options.includeLinkDestination ? { href: decodeLinkDestination(label, n.name) } : {}) });
       cursor = n.to;
       return;
     }
@@ -422,4 +428,34 @@ export function tokenizeInline(
   options?: TokenizeInlineOptions
 ): InlineSpan[] {
   return tokenizeChildren(node, text, from, options);
+}
+
+/** Shared destination decoding, extracted unchanged from the editor’s link context menu. */
+export function decodeLinkDestination(raw: string, kind?: string): string {
+  let destination =
+    raw.startsWith('<') && raw.endsWith('>') ? raw.slice(1, -1) : raw;
+  // Markdown destinations may escape punctuation or encode entities. Decode only the destination;
+  // Copy as Markdown retains the original source, including label formatting and optional title.
+  if (kind === 'Link') {
+    destination = destination.replace(
+      /\\([!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])/g,
+      '$1'
+    );
+    destination = destination.replace(
+      /&(?:#[xX][\da-fA-F]+|#\d+|[a-zA-Z][a-zA-Z\d]+);/g,
+      (entity) => {
+        const decoder = document.createElement('textarea');
+        decoder.innerHTML = entity;
+        return decoder.value;
+      }
+    );
+  }
+  if (
+    kind === 'Autolink' &&
+    !destination.includes(':') &&
+    destination.includes('@')
+  ) {
+    destination = `mailto:${destination}`;
+  }
+  return destination;
 }

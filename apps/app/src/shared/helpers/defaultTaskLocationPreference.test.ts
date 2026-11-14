@@ -15,21 +15,21 @@ describe('default task location', () => {
       removeEventListener() {},
     }));
   });
-  it('defaults to today and rejects unrecognized stored preferences', () => {
-    expect(readDefaultTaskLocation()).toBe('today');
+  it('defaults to Inbox and rejects unrecognized stored preferences', () => {
+    expect(readDefaultTaskLocation()).toBe('inbox');
     localStorage.setItem('clutter-default-task-location', 'unknown');
-    expect(readDefaultTaskLocation()).toBe('today');
+    expect(readDefaultTaskLocation()).toBe('inbox');
   });
-  it('persists both alternatives, notifies subscribers and resets to the existing behavior', () => {
+  it('persists both alternatives, notifies subscribers and resets to Inbox', () => {
     const listener = vi.fn();
     const stop = subscribeDefaultTaskLocation(listener);
-    writeDefaultTaskLocation('inbox');
-    expect(readDefaultTaskLocation()).toBe('inbox');
+    writeDefaultTaskLocation('today');
+    expect(readDefaultTaskLocation()).toBe('today');
     writeDefaultTaskLocation('due-date');
     expect(readDefaultTaskLocation()).toBe('due-date');
     expect(listener).toHaveBeenCalledTimes(2);
     resetAppPreferences();
-    expect(readDefaultTaskLocation()).toBe('today');
+    expect(readDefaultTaskLocation()).toBe('inbox');
     expect(localStorage.getItem('clutter-default-task-location')).toBeNull();
     stop();
   });

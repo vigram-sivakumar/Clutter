@@ -371,9 +371,8 @@ describe('PageHost: Task Inbox collection', () => {
     application.navigation.openTaskInbox();
     render(<AppLayout application={application} />);
     await flush();
-    const button = [...document.querySelectorAll('button')].find(
-      (candidate) => candidate.textContent === 'Tidy up'
-    )!;
+    const button = document.querySelector<HTMLButtonElement>('button[aria-label="Tidy up"]')!;
+    expect(button).not.toBeDisabled();
     fireEvent.click(button);
     await flush();
     expect(document.body).toHaveTextContent('including completed tasks');
@@ -395,5 +394,40 @@ describe('PageHost: Task Inbox collection', () => {
       'Tasks you create in Inbox will appear here'
     );
     expect([...vault.pages()]).toHaveLength(0);
+  });
+});
+
+
+describe('Tidy up button availability', () => {
+  it.each([
+    ['missing Inbox', undefined],
+    ['empty Inbox', ''],
+    ['only undated tasks', '- [ ] Undated\n- [x] Done without a date'],
+    ['only invalid dates', '- [ ] Invalid @2026-13-45'],
+  ])('hides the button for %s even when another note has dated tasks', async (_label, body) => {
+    const pages = [pageWith('other', '- [ ] Elsewhere @2026-11-20')];
+    if (body !== undefined) pages.push(pageWith('inbox-source', body, '.clutter/inbox.md'));
+    const { application } = setup(pages);
+    application.navigation.openTaskInbox();
+    render(<AppLayout application={application} />);
+    await flush();
+    expect(document.querySelector('button[aria-label="Tidy up"]')).toBeNull();
+  });
+
+  it('hides the trigger during a transfer and restores it after a failed attempt', async () => {
+    const { application } = setup([pageWith('inbox-source', '- [ ] Dated @2026-11-20', '.clutter/inbox.md')]);
+    let fail!: (error: Error) => void;
+    vi.spyOn(application.taskOperations, 'tidyInbox').mockImplementation(() => new Promise<void>((_resolve, reject) => { fail = reject; }));
+    application.navigation.openTaskInbox();
+    render(<AppLayout application={application} />);
+    await flush();
+    fireEvent.click(document.querySelector('button[aria-label="Tidy up"]')!);
+    await flush();
+    fireEvent.click(document.querySelector('.confirmation__actions button:last-child')!);
+    await flush();
+    expect(document.querySelector('button[aria-label="Tidy up"]')).toBeNull();
+    await act(async () => { fail(new Error('Couldn’t save')); });
+    await flush();
+    expect(document.querySelector('button[aria-label="Tidy up"]')).not.toBeNull();
   });
 });

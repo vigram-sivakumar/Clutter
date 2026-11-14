@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { render } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { ResolveTag, TagResolution } from '../editor/codemirror/tag/tagResolution';
@@ -754,5 +754,36 @@ describe('renderCompactMarkdown', () => {
       expect(container.querySelector('.compact-markdown-tag-prefix')).toHaveTextContent('#');
       expect(container).not.toHaveTextContent('📦');
     });
+  });
+});
+
+
+describe('opt-in compact Markdown link activation', () => {
+  it.each([
+    ['https://example.com/path', 'https://example.com/path', 'https://example.com/path'],
+    ['www.example.com/path', 'www.example.com/path', 'https://www.example.com/path'],
+    ['[Read this](<https://example.com/path>)', 'Read this', 'https://example.com/path'],
+    ['[Read this](https://example.com/path)', 'Read this', 'https://example.com/path'],
+    ['[Read this](www.example.com/path)', 'Read this', 'https://www.example.com/path'],
+    ['<https://example.com/path>', 'https://example.com/path', 'https://example.com/path'],
+    ['**[Read this](https://example.com/path)**', 'Read this', 'https://example.com/path'],
+  ])('uses the existing parser for %s', (markdown, label, destination) => {
+    const onOpenLink = vi.fn(); const parent = vi.fn();
+    const { unmount } = render(<div onClick={parent}>{renderCompactMarkdown(markdown, { onOpenLink })}</div>);
+    const link = screen.getByRole('link', { name: label });
+    expect(link).toHaveAttribute('href', destination);
+    expect(link).toHaveClass('compact-markdown-link-title');
+    fireEvent.click(link);
+    expect(onOpenLink).toHaveBeenCalledExactlyOnceWith(destination);
+    expect(parent).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  it('leaves unsupported executable destinations as text', () => {
+    const onOpenLink = vi.fn();
+    const { container } = render(<>{renderCompactMarkdown('[Unsafe](javascript:alert(1))', { onOpenLink })}</>);
+    expect(container).toHaveTextContent('Unsafe');
+    expect(container.querySelector('a')).toBeNull();
+    expect(onOpenLink).not.toHaveBeenCalled();
   });
 });

@@ -12,9 +12,9 @@ import {
 import { SettingsEntry } from '../settings-entry/SettingsEntry';
 
 const OPTIONS = [
+  { value: 'inbox', label: 'Inbox' },
   { value: 'today', label: 'Today’s Daily Note' },
   { value: 'due-date', label: 'Due-date Daily Note' },
-  { value: 'inbox', label: 'Inbox' },
 ] as const;
 
 export function DefaultTaskLocationSetting() {

@@ -80,3 +80,10 @@ describe('CompactMarkdown.css — styling-parity tokens', () => {
     expect(css).not.toMatch(/\.tok-[a-z-]+\s*[,{]/);
   });
 });
+
+
+it('interactive compact links share the editor’s actual link rules', () => {
+  const editorCss = readFileSync(new URL('../editor/MarkdownEditor.css', import.meta.url), 'utf8');
+  expect(editorCss).toMatch(/\.cm-editor \.tok-link,\s*\.compact-markdown a\.compact-markdown-link-title\s*\{/);
+  expect(editorCss).toMatch(/\.cm-editor \.tok-link-title,\s*\.compact-markdown a\.compact-markdown-link-title\s*\{/);
+});

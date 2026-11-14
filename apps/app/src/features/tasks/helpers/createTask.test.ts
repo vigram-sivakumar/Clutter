@@ -8,7 +8,7 @@ import { createTask } from './createTask';
 
 const ROOT = '/vault';
 
-describe('createTask (ADR-044)', () => {
+describe('createTask with Today’s Daily Note selected (ADR-044)', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2026, 9, 6)); // 2026-10-06
@@ -42,7 +42,7 @@ describe('createTask (ADR-044)', () => {
   ])('stores a task with %s in today\'s Daily Note, carrying exactly the explicit date given', async (_name, dueDate) => {
     const { deps, pageOperations, taskOperations } = setup();
 
-    await createTask(deps, 'Submit report', dueDate);
+    await createTask(deps, 'Submit report', dueDate, 'today');
 
     expect(pageOperations.ensureAtPath).toHaveBeenCalledTimes(1);
     expect(pageOperations.ensureAtPath).toHaveBeenCalledWith(todayPath, { type: 'daily-note' });
@@ -53,7 +53,7 @@ describe('createTask (ADR-044)', () => {
   it('never opens a Daily Note (and so never navigates), whatever the due date', async () => {
     const { deps, pageOperations } = setup();
 
-    await createTask(deps, 'Submit report', '2026-10-08');
+    await createTask(deps, 'Submit report', '2026-10-08', 'today');
 
     expect(pageOperations.openAtPath).not.toHaveBeenCalled();
   });
@@ -65,9 +65,9 @@ describe('configurable new task destination', () => {
     const taskOperations = { create: vi.fn().mockResolvedValue(undefined) };
     return { pageOperations, taskOperations, input: { vault: { root: ROOT } as Vault, pageOperations: pageOperations as unknown as PageOperations, taskOperations: taskOperations as unknown as TaskOperations } };
   }
-  it('stores dated tasks in Inbox without changing their due date', async () => {
+  it('defaults to Inbox for dated tasks without changing their due date', async () => {
     const env = deps();
-    await createTask(env.input, 'Plan', '2026-11-20', 'inbox');
+    await createTask(env.input, 'Plan', '2026-11-20');
     expect(env.pageOperations.ensureAtPath).toHaveBeenCalledWith('/vault/.clutter/inbox.md', { type: 'note' });
     expect(env.taskOperations.create).toHaveBeenCalledWith('source', 'Plan', '2026-11-20');
   });

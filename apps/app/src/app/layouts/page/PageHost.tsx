@@ -1,3 +1,4 @@
+import { openExternalUrl } from '@shared/helpers/openExternalUrl';
 import { Button } from '@components/button/Button';
 import { AppIcon } from '@shared/icon';
 import { taskInboxPath } from '@core/vault/initialize/ReservedResources';
@@ -2494,6 +2495,15 @@ export function PageHost({
       TasksCollectionView,
       'tasks-all' | 'tasks-unscheduled' | 'tasks-inbox'
     >;
+    const canTidyInbox =
+      view === 'tasks-inbox' &&
+      inboxPageId !== undefined &&
+      [...vault.tasks()].some(
+        (task) =>
+          task.sourcePageId === inboxPageId &&
+          task.dueDate !== undefined &&
+          isValidCalendarDate(task.dueDate)
+      );
 
     return (
       <Page
@@ -2518,11 +2528,11 @@ export function PageHost({
           // Every task view is the one Task Collection: the same header actions as every collection
           // (Configure + Add), sharing one configuration; Add opens the New task dialog.
           <>
-            {view === 'tasks-inbox' && (
+            {canTidyInbox && !tidying && (
               <Button
                 isIconOnly
                 variant="outline-fill"
-                disabled={!inboxPageId || tidying}
+                aria-label="Tidy up"
                 onClick={() => {
                   setTidyError(undefined);
                   setTidyOpen(true);
@@ -2625,6 +2635,9 @@ export function PageHost({
             view={view === 'tasks-all' ? TASKS_TAB_VIEW[tasksTab] : view}
             tasks={[...vault.tasks()]}
             inboxPageId={inboxPageId}
+            onOpenLink={(url) => {
+              void openExternalUrl(url).catch((error) => toast.fail('Couldn’t open the link', error));
+            }}
             onToggleComplete={taskActions.toggleComplete}
             onOpenTask={(task) => {
               if (task.sourcePageId === inboxPageId) setEditingTask(task);

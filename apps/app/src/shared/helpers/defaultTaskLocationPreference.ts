@@ -1,12 +1,12 @@
 import { useSyncExternalStore } from 'react';
 export type DefaultTaskLocation = 'today' | 'due-date' | 'inbox';
-export const DEFAULT_TASK_LOCATION: DefaultTaskLocation = 'today';
+export const DEFAULT_TASK_LOCATION: DefaultTaskLocation = 'inbox';
 const STORAGE_KEY = 'clutter-default-task-location';
 const listeners = new Set<() => void>();
 export function readDefaultTaskLocation(): DefaultTaskLocation {
   try {
     const value = localStorage.getItem(STORAGE_KEY);
-    return value === 'inbox' || value === 'due-date'
+    return value === 'inbox' || value === 'today' || value === 'due-date'
       ? value
       : DEFAULT_TASK_LOCATION;
   } catch {

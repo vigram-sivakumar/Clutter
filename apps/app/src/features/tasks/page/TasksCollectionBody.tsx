@@ -47,6 +47,7 @@ interface TaskEntry {
 export interface TasksCollectionBodyProps {
   readonly view: TasksCollectionView;
   readonly inboxPageId?: string;
+  readonly onOpenLink?: (url: string) => void;
   readonly tasks: readonly TaskOccurrence[];
   readonly onToggleComplete: (task: TaskOccurrence) => void;
   readonly onOpenTask: (task: TaskOccurrence) => void;
@@ -107,6 +108,7 @@ function TasksPageBody({ children }: { readonly children: ReactNode }) {
 export function TasksCollectionBody({
   view,
   inboxPageId,
+  onOpenLink,
   tasks,
   onToggleComplete,
   onOpenTask,
@@ -183,6 +185,7 @@ export function TasksCollectionBody({
         resolveWikiLink,
         resolveTag,
         resolveEmbed,
+        onOpenLink,
       })}
     </span>
   );

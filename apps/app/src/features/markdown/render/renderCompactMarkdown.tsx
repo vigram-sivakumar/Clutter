@@ -15,6 +15,8 @@ import { fallbackWikiLinkResolution, type ResolveWikiLink } from '../editor/code
 import type { ResolvePageEmbed } from './blocks/pageEmbedResolution';
 import { tokenizeCompactMarkdown, type CompactSpan } from './tokenizeCompactMarkdown';
 
+import { resolveNavigationUrl } from '@shared/helpers/openExternalUrl';
+
 import './CompactMarkdown.css';
 
 /**
@@ -29,6 +31,8 @@ import './CompactMarkdown.css';
  * target path, the same no-resolver convention.
  */
 export interface CompactMarkdownResolvers {
+  /** Opt-in external URL activation; omitted by sidebar and preview callers. */
+  readonly onOpenLink?: (url: string) => void;
   readonly resolveWikiLink?: ResolveWikiLink;
   readonly resolveTag?: ResolveTag;
   readonly resolveEmbed?: ResolvePageEmbed;
@@ -161,14 +165,41 @@ function renderEmbed(path: string, resolveEmbed: ResolvePageEmbed | undefined): 
  * exact same semantic tokens the editor's `.tok-link`/`.tok-link-title`
  * already use (`--md-link-foreground`/`--md-link-underline`,
  * `CompactMarkdown.css`), never `.tok-link` itself. Deliberately still a
- * `<span>`, never an `<a>` — compact rendering has no click/activation
- * (per this file's own top-level doc comment), so nothing here should
- * look interactive at the DOM-semantics level, only visually styled.
+ * `<span>` by default. Task collections opt into an anchor on the inner title;
+ * the outer span retains ownership of its existing composed strike.
  */
-function renderLink(label: string, key: number, struck: boolean): ReactNode {
+function renderLink(
+  span: Extract<CompactSpan, { kind: 'link' }>,
+  key: number,
+  struck: boolean,
+  onOpenLink: CompactMarkdownResolvers['onOpenLink']
+): ReactNode {
+  let href: string | undefined;
+  if (onOpenLink && span.href) {
+    try {
+      const resolved = resolveNavigationUrl(span.href);
+      // A real anchor must not expose executable or local-file destinations.
+      if (['https:', 'http:', 'mailto:', 'tel:'].includes(new URL(resolved).protocol)) href = resolved;
+    } catch { /* Keep unsupported destinations as the existing non-interactive text. */ }
+  }
   return (
     <span key={key} className={strikeClass('compact-markdown-link', struck)}>
-      <span className="compact-markdown-link-title">{label}</span>
+      {href ? (
+        <a
+          className="compact-markdown-link-title"
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onOpenLink?.(href);
+          }}
+          onKeyDown={(event) => event.stopPropagation()}
+        >
+          {span.label}
+        </a>
+      ) : <span className="compact-markdown-link-title">{span.label}</span>}
     </span>
   );
 }
@@ -322,7 +353,7 @@ function renderCompactSpan(span: CompactSpan, resolvers: CompactMarkdownResolver
     case 'date':
       return renderDate(span.isoDate, span.time, key, struck);
     case 'link':
-      return renderLink(span.label, key, struck);
+      return renderLink(span, key, struck, resolvers.onOpenLink);
     case 'image':
       return renderImage(span, resolvers, key);
     case 'embed':
@@ -443,14 +474,14 @@ function renderEmbedWikiLink(path: string, resolveEmbed: ResolvePageEmbed, key: 
  * this file's own `embed`/`image` cases below for why those two have no
  * inline visual treatment in either surface.
  *
- * Deliberately has no click/keyboard activation on individual tokens —
+ * By default has no click/keyboard activation on individual tokens —
  * the sidebar row itself is already the click target for opening the
  * page/task; per-token interaction (open a WikiLink's target, filter by a
  * Tag) is out of scope for this compact surface, consistent with the
  * "intentionally different" list this design was built against.
  */
 export function renderCompactMarkdown(text: string, resolvers: CompactMarkdownResolvers = {}): ReactNode {
-  const spans = tokenizeCompactMarkdown(text);
+  const spans = tokenizeCompactMarkdown(text, resolvers.onOpenLink ? { includeLinkDestination: true } : undefined);
 
   return <span className="compact-markdown">{renderCompactSpans(spans, resolvers)}</span>;
 }

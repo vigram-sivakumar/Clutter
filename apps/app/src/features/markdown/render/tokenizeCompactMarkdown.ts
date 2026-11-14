@@ -1,4 +1,4 @@
-import type { InlineSpan } from './inlineSpan';
+import type { InlineSpan, TokenizeInlineOptions } from './inlineSpan';
 import { compactBlockSpans, selectCompactBlock } from './blocks/selectCompactBlock';
 
 /** @deprecated use `InlineSpan` — kept as an alias so existing imports don't break. */
@@ -19,7 +19,7 @@ export type CompactSpan = InlineSpan;
  * only changes behavior for genuinely multi-block or structural-only
  * input, which is exactly the gap it exists to close.
  */
-export function tokenizeCompactMarkdown(text: string): CompactSpan[] {
+export function tokenizeCompactMarkdown(text: string, options?: TokenizeInlineOptions): CompactSpan[] {
   const selection = selectCompactBlock(text);
-  return selection ? compactBlockSpans(selection, text) : [];
+  return selection ? compactBlockSpans(selection, text, options) : [];
 }

@@ -4,6 +4,7 @@ import type { SyntaxNode } from '@lezer/common';
 
 import { resolveNavigationUrl } from '@shared/helpers/openExternalUrl';
 
+import { decodeLinkDestination } from '../../../render/inlineSpan';
 import { sharedMarkdownParser } from '../../../render/sharedMarkdownParser';
 
 export interface EditorLink {
@@ -41,31 +42,7 @@ export function editorLinkAt(
     if (!url) continue;
 
     const raw = state.sliceDoc(url.from, url.to);
-    let destination =
-      raw.startsWith('<') && raw.endsWith('>') ? raw.slice(1, -1) : raw;
-    // Markdown destinations may escape punctuation or encode entities. Decode only the destination;
-    // Copy as Markdown retains the original source, including label formatting and optional title.
-    if (link?.name === 'Link') {
-      destination = destination.replace(
-        /\\([!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])/g,
-        '$1'
-      );
-      destination = destination.replace(
-        /&(?:#[xX][\da-fA-F]+|#\d+|[a-zA-Z][a-zA-Z\d]+);/g,
-        (entity) => {
-          const decoder = document.createElement('textarea');
-          decoder.innerHTML = entity;
-          return decoder.value;
-        }
-      );
-    }
-    if (
-      link?.name === 'Autolink' &&
-      !destination.includes(':') &&
-      destination.includes('@')
-    ) {
-      destination = `mailto:${destination}`;
-    }
+    const destination = decodeLinkDestination(raw, link?.name);
     if (!destination) return null;
     const range = link ?? url;
     const navigationUrl = resolveNavigationUrl(destination);

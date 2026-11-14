@@ -20,21 +20,21 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe('Default location for new tasks', () => {
-  it('starts on today and offers all three destinations through the existing menu', () => {
+  it('starts on Inbox and offers all three destinations through the existing menu', () => {
     render(<DefaultTaskLocationSetting />);
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'Default location for new tasks: Today’s Daily Note',
+        name: 'Default location for new tasks: Inbox',
       })
     );
     expect(
       screen.getByRole('menuitem', { name: 'Due-date Daily Note' })
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Inbox' }));
-    expect(readDefaultTaskLocation()).toBe('inbox');
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Today’s Daily Note' }));
+    expect(readDefaultTaskLocation()).toBe('today');
     expect(
       screen.getByRole('button', {
-        name: 'Default location for new tasks: Inbox',
+        name: 'Default location for new tasks: Today’s Daily Note',
       })
     ).toBeInTheDocument();
   });
