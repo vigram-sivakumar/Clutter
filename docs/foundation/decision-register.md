@@ -1,56 +1,67 @@
 # Decision register
 
-Status: open. Effort and migration scores are informational and have zero decision weight.
+Status: product scope revised on 2026-11-14; technical choices remain open.
+Effort and migration scores remain visible with zero decision weight.
 
 ## Candidate combinations
 
-Evaluate complete systems rather than independently selecting an editor and store.
+| Candidate | Editor/model                                       | Persistence/access                                                 | Main qualification question                                                                     |
+| --------- | -------------------------------------------------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| A         | CM6 with text-oriented semantic model              | Authoritative files, derived index, shared API                     | Task/page identity, rich views, keyboard and safe provider state/history reconciliation         |
+| B         | Tiptap/PM with Clutter semantic schema             | Structured native files, derived index, CLI/MCP                    | Coordinated operations/moves, native input and retained version closure                         |
+| C         | Tiptap/PM with Clutter semantic schema             | Local transactional SQLite, immutable assets, CLI/MCP and checkout | Native input, process authority, rich/history integrity and separate provider protocol          |
+| D         | Structured editor with operation/CRDT-native model | Local operation/checkpoint store, derived queries, CLI/MCP         | Whether present reliability/semantics justify it without requiring live collaboration initially |
 
-| Candidate | Editor/model                                      | Persistence and external access                                           | Collaboration question                                                         |
-| --------- | ------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| A         | CM6/text-oriented semantic Markdown               | Authoritative files; rebuildable index; direct file tools plus shared API | Preserve rich operations/identity under external edits and collaborative merge |
-| B         | Tiptap/PM with Clutter semantic schema            | Structured native files and derived index; CLI/MCP and interchange        | Atomic multi-document operations and shared document undo                      |
-| C         | Tiptap/PM with Clutter semantic schema            | Transactional SQLite, immutable assets; CLI/MCP and checkout              | Canonical collaborative representation, operation durability and backup        |
-| D         | Structured editor with CRDT-native document model | Durable operation/checkpoint store and derived queries; CLI/MCP           | Schema invariants, compaction, version cuts, authority and permissions         |
+C was a leading research proposal, not a ratified choice. D may also use SQLite.
+A synced database file is not a candidate safe transport. Alternative engines
+remain eligible; no candidate wins due to existing investment or implementation ease.
 
-C was the earlier leading proposal, not a ratified choice. D may use SQLite too;
-its distinction is the canonical operation/merge model. Lexical and other engines
-remain alternatives if they better satisfy the same contracts. No candidate
-wins because it preserves existing code or promises a shorter schedule.
+## Open technical decisions
 
-## Open decisions and evidence
+| ID   | Decision                                                          | Required evidence / gate                                                                                              |
+| ---- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| D-01 | Editor/extension composition and DOM ownership                    | Actual native keyboard/IME/accessibility (T-01)                                                                       |
+| D-02 | Canonical schema, tasks/placement, history closure and migration  | Page/task identity, move/copy/restore, unknown-content handling (T-09, T-14, T-17, T-18)                              |
+| D-03 | Persistence, indexing and transaction scope                       | Failure injection, rebuild and any FTS discrepancy reproduced/resolved if applicable (T-06, T-10)                     |
+| D-04 | Headless authority, language/IPC, ownership election and takeover | Concurrent processes, sandbox access, app-closed API use (T-04, T-07)                                                 |
+| D-05 | Local multi-view undo and remote snapshot boundary                | Context-selective undo, dirty-state/IME protection, safe history rebase/reset (T-02, T-03, T-12)                      |
+| D-06 | External AI, native/Markdown interchange                          | CLI/MCP parity, loss reports and stale checkout handling (T-04, T-09)                                                 |
+| D-07 | Retention, pins, restore and cleanup budgets                      | History reconstruction, overwrite preservation, comments and assets (T-11, T-20)                                      |
+| D-08 | Optional provider protocol and deterministic winner order         | iCloud/Drive feasibility, delayed/reordered files, tombstones, ancestry, clock skew and disable/recovery (T-12, T-13) |
+| D-09 | Media lifecycle and future backup boundary                        | Images/PDFs, interrupted publication, complete native export/snapshot and reachable roots (T-06, T-10, T-11)          |
+| D-10 | View/context lifetime and duplicate-open policy                   | Windows/tabs/panes, focus, missing destinations (T-02, T-08)                                                          |
+| D-11 | Performance budgets/scale envelope                                | Agree document/media/history sizes and percentiles before benchmarking (T-15)                                         |
+| D-12 | Inventory, predefined fields and UI detail                        | Keep/redesign/retire inventory; editor/collection/default-field semantics (T-01, T-16, T-17)                          |
+| D-13 | Task scheduler, recurrence and sync consistency                   | Next-slot/time-zone rules, series identity, duplicate completion, archive/reminder behaviour (T-18, T-19)             |
+| D-14 | Cross-platform dependency/repository boundaries                   | Shared code free of macOS dependencies; explicit adapters and path contracts (T-21)                                   |
 
-| ID   | Decision                                            | Required evidence / acceptance                                                                              |
-| ---- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| D-01 | Editor, extension composition and DOM ownership     | Native keyboard/selection/IME/accessibility contracts; no unexplained recurring repair patches (T-01)       |
-| D-02 | Semantic schema, canonical format and migrations    | Rich/unknown content and ID preservation; version decoder compatibility (T-09, T-14)                        |
-| D-03 | Durable storage and indexing                        | Crash/failure injection, transactional scope, rebuild and FTS diagnosis if relevant (T-06, T-10)            |
-| D-04 | Local authority language, IPC and process lifecycle | Concurrent startup, headless operation, owner death, app sandbox permissions (T-07)                         |
-| D-05 | Concurrent editing and selective undo model         | Multi-view and multi-person overlapping edits, structural dependencies (T-02, T-03, T-12)                   |
-| D-06 | External AI and interchange                         | Actual CLI/MCP workflows, rich checkout fidelity and conflict recovery (T-04, T-09)                         |
-| D-07 | Historical versions and retention                   | Checkpoint reconstruction, guarded restore, compaction and asset reachability (T-11)                        |
-| D-08 | Collaboration transport, identity and security      | Two isolated replicas, partition/revocation, trust/key model (T-12, T-13)                                   |
-| D-09 | Assets, backup, recovery and deletion               | Interrupted publication, history-aware GC, restore on clean device (T-05, T-06, T-10, T-11)                 |
-| D-10 | View/context lifecycle and duplicate-open policy    | Tabs/splits/windows, focus, undo lifetime, missing destinations (T-02, T-08)                                |
-| D-11 | Performance budgets and scale envelope              | Agree sizes, latency percentiles, memory and recovery limits before benchmarks (T-15)                       |
-| D-12 | Feature inventory and UI product detail             | Classify current capabilities; approve ambiguous keyboard and history behaviour before release (T-01, T-16) |
+Future, non-initial gates: F-01 live cloud collaboration and page-sharing roles;
+F-02 automatic backup feature; encrypted Spaces need a new scope decision rather
+than an assumed commitment. See T-22/T-23 for future acceptance. Initial comment
+release timing is still open; anchors/history cannot be improvised if deferred.
 
-## Evidence discipline
+## Resolved product directions
 
-Record package/runtime versions, configuration, fixture, exact action sequence,
-expected/actual result, traces and limitations. Separate upstream behaviour,
-Clutter integration bugs and experimental patches. Reproduce earlier research
-before adopting it as decisive evidence. Linux WebKit is not macOS/WKWebView.
+Do not reopen these as unanswered technology questions: predefined-field collections;
+independent typed properties; task pages/inbox/single location; no subtask semantics;
+cut moves/copy duplicates; task/owner deletion; archive/reminder behaviour; recurrence
+with empty-body next occurrence; unlinked template copies; convert-to-page links;
+read-only page embeds; fixed dates/relative labels; separate reminders; version pins;
+latest-document-wins with history; opt-in provider sync desired; macOS first and
+Windows-ready; images/PDFs now. Details live in product-behaviour.md, not duplicated
+property definitions or independently editable task projections.
 
-Score UX, correctness/reliability, architectural coherence, extensibility,
-maintainability, external-tool usability, ownership/portability and operational
-recovery. Record trade-offs and uncertainty alongside scores. Blocking correctness
-failures cannot be averaged away. Maintain separate effort/migration estimates
-without including them in the decision total.
+## Evidence discipline and approval
 
-## Approval record
+Record runtime/package versions, fixture, exact input, expected/actual result,
+traces and limitations. Earlier PM patch/FTS findings are reproduction leads, not
+freshly verified evidence. Linux WebKit is not macOS/WKWebView. Candidate-specific
+patches need maintenance assessment and controls.
 
-Each decision moves Proposed → Qualified → Accepted, or Rejected. Record date,
-reviewer, evidence links, remaining limitations and affected ADRs. Do not mark a
-decision Accepted merely because a spike built or an adjacent layer was selected.
-Current state: no target technology decision has completed these gates in this pack.
+Score UX, correctness, architectural coherence, extensibility, maintainability,
+external-tool usability, portability and recovery. Blocking failures cannot be
+averaged away. Keep effort/migration estimates outside the decision total.
+
+Decisions move Proposed → Qualified → Accepted or Rejected, with evidence/date/
+reviewer and affected prior rules. Confirmed product scope does not prove a
+technology passes it. No target technology has completed these gates in this pack.

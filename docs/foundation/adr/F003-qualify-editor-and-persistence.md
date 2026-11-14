@@ -7,7 +7,7 @@ Decisions: D-01 through D-03, D-09, D-11.
 
 Editor, schema, canonical representation, history, external tools and storage
 constrain each other. Earlier recommendations and browser spikes do not establish
-native input reliability or collaborative correctness.
+native input reliability, task identity integrity or safe provider reconciliation.
 
 ## Proposal
 
@@ -15,7 +15,9 @@ Evaluate complete combinations in the decision register. Tiptap/PM with a
 Clutter-owned structured model and SQLite is a candidate, not an accepted baseline.
 Keep CM6 and other viable combinations as controls. Test the exact schema and
 extension composition on macOS/WKWebView. Include rich interchange, concurrency,
-recovery and collaboration when evaluating the canonical format.
+recovery and optional provider state/history reconciliation when evaluating the
+canonical format. Live cloud merge is deferred; preserve a versioned extension seam
+without making a CRDT an initial prerequisite.
 
 ## Alternatives and consequences
 
@@ -26,6 +28,7 @@ for planning but have zero selection weight; reliability remains substantive.
 
 ## Qualification and existing rules
 
-T-01, T-06, T-09, T-10, T-12, T-14 and agreed T-15 budgets inform approval.
+T-01, T-06, T-09, T-10, T-14, T-17 through T-21 and agreed T-15 budgets inform
+initial approval. T-12/T-13 gate provider enablement; T-22 is deferred cloud scope.
 An experimental dependency patch needs reproducible controls and maintainability
 review. Existing storage/editor ADRs remain in force for production meanwhile.

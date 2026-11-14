@@ -1,6 +1,8 @@
 # System architecture and ownership
 
-Status: proposed boundaries. Technology and process topology await qualification.
+Status: proposed mechanisms under confirmed product scope, revision 0.2.
+See [product behaviour](product-behaviour.md) for entity rules and
+[sync and portability](sync-and-portability.md) for provider/phase boundaries.
 
 ## Proposed system
 
@@ -9,92 +11,96 @@ flowchart TD
   UI["App windows and editor views"] --> API["Shared command and query API"]
   CLI["CLI"] --> API
   MCP["MCP adapter"] --> API
-  API --> Core["Space authority and document operations"]
+  API --> Core["Local Space authority and operations"]
   Core --> Store["Persistence, versions and recovery"]
-  Core --> Sync["Collaboration protocol"]
+  Provider["Opt-in provider transport"] --> Ingest["Validated state reconciliation"]
+  Ingest --> API
+  Core --> Publish["State package publication"]
+  Publish --> Provider
   Store --> Assets["Asset storage"]
   Core --> Read["Derived queries and subscriptions"]
   Read --> UI
 ```
 
-A document session belongs to the Space authority, not a webview. Different
-windows hold projections and pending local input, not separate writable domain
-models. The editor adapter maps engine transactions into shared operations and
-maps accepted operations back without resetting composition, selection or undo.
-The editor's required internal representation is a projection, not another
-independently persisted source of truth.
+No Clutter-hosted service or initial live-collaboration backend is implied.
+Provider transport is optional and unqualified. The active local database is
+not the transported multi-writer file. Outbound publication consumes coherent
+durable state; inbound packages go through shared reconciliation/validation.
 
-The proposed local topology is a headless-capable authority per open Space,
-shared by all local clients. App, CLI and MCP attach to it; headless invocation
-can start it without a window. Runtime language, IPC, startup election, lock
-ownership and crash takeover remain decisions. A singleton inside a webview is
-insufficient. SQLite locking alone does not coordinate live sessions.
+A session belongs to the local Space authority, not a webview. The editor has
+its necessary engine state/provisional input, but no independent persisted body.
+Accepted operations map between core and views without resetting input/selection.
+The authority is headless-capable, shared by app/CLI/MCP and local windows;
+language, IPC, startup election and takeover remain D-04. Database locking alone
+does not coordinate multiple frontend live sessions.
 
 ## Ownership table
 
-| Owner                         | Authoritative responsibility                                                                                            | Must not own                                          |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| Application coordinator       | Window lifecycle, Space registry, global preference mutations and service discovery                                     | Document bodies or a second mutation pipeline         |
-| Space authority               | Document/organisation operations, validation, revisions, assets, access decisions and ordering within the local replica | Cursor, scroll or tab history                         |
-| Document session              | Accepted live document state, pending durability, operation mapping and conflict lifecycle                              | Independent storage format or window layout           |
-| Persistence subsystem         | Atomic durable commit, retained versions, recovery records, migrations and backup consistency                           | UI state or independent business validation           |
-| Collaboration subsystem       | Replica identity, operation exchange, deduplication, causal ordering and convergence                                    | Separate document semantics or implicit access grants |
-| History subsystem             | Retained versions/checkpoints and restore planning through shared operations                                            | Interactive undo or an alternate current document     |
-| Editing context               | Undo/redo metadata and origin grouping for one document/context                                                         | Another participant's history or canonical content    |
-| Window                        | Layout, focused pane and window-specific navigation                                                                     | Shared content/preferences                            |
-| Pane                          | Tab collection and active tab                                                                                           | Document lifetime                                     |
-| Tab                           | Destination IDs and back/forward navigation                                                                             | Unsaved text or document identity                     |
-| Editor view                   | Selection, cursor, focus, scroll and temporary interaction state                                                        | Canonical document or persistence                     |
-| Derived query/index subsystem | Revision-tagged search/backlink/task projections                                                                        | Sole copy of tasks, links or content                  |
-| CLI/MCP/UI adapters           | Protocol translation, presentation and caller context                                                                   | Duplicate domain policy or direct storage writes      |
+| Owner                         | Authority                                                                   | Not an independent owner of                             |
+| ----------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Application coordinator       | Space registry, global settings, window lifecycle and discovery             | Document bodies                                         |
+| Local Space authority         | Entity/domain commands, validation, IDs, local ordering and access          | Selection/navigation                                    |
+| Document session              | Accepted live state, pending durability, mappings and conflict boundary     | Separate storage format                                 |
+| Task entity/placement policy  | Task content/fields and sole note-or-inbox placement invariant              | A copied body per projection                            |
+| Persistence subsystem         | Atomic durable changes, outcomes, recovery, tombstones and schema migration | Duplicate business policy                               |
+| History subsystem             | Retained/pinned/overwritten states, closure and restore planning            | Current state or interactive undo                       |
+| Provider reconciler           | Apply one shared state-ordering/ingest policy through domain API            | Direct DB writes or a second merge model                |
+| Provider transport adapter    | Transfer/availability/credential mechanics                                  | Winner selection, task generation or permissions policy |
+| Scheduler policy              | Dates, recurrence/occurrence identity and reminder eligibility              | UI-local duplicate task/reminder logic                  |
+| Platform notification adapter | OS delivery of eligible reminders                                           | Independent task schedule                               |
+| Editing context               | Undo/redo origin/grouping and mapping metadata                              | Another context's edits                                 |
+| Window / pane / tab           | Layout / tab set / destination and navigation respectively                  | Pending canonical content                               |
+| Editor view                   | Cursor/selection/scroll/focus and temporary interaction                     | Document lifetime                                       |
+| Derived queries               | Rebuildable search/backlink/task/collection views                           | Sole copy of tasks or inferred custom-property schema   |
+| UI/CLI/MCP adapters           | Protocol/presentation/context translation                                   | Domain rules/storage writes                             |
 
-A role may be a module rather than a separately deployed service. Avoid a generic
-framework until concrete contracts require one. Composition roots wire owners;
-they do not reimplement decisions.
+These are logical responsibilities, not instructions to create one service/class
+per row. Use concrete modules at the necessary boundaries, with one owner per rule.
 
-## Single authority with collaboration
+## Entity and representation boundaries
 
-One local authority does not imply one global mutable document instance. Multiple
-people have durable replicas. One shared merge model must define how accepted
-operations converge; no client invents an independent last-writer-wins policy.
-Membership authority and revocation rules must also be settled. A server's
-ordering, a CRDT and a database transaction solve different problems.
+Notes, daily notes, template copies and task pages share semantic editing concepts
+without becoming interchangeable identities. A task has one content owner and
+one location; its block/Tasks/page appearances point to it. Whether task payload
+is stored in its owning aggregate or a separate entity is D-02. Either must
+preserve ID/history on move and prevent duplicate ownership through sync/restore.
 
-Store the canonical collaborative representation once; rendered semantic
-snapshots, materialized tables and indexes are derived at identifiable revisions.
-If operation history is canonical, a JSON snapshot cannot become an unrelated
-second authority. The exact choice is open in ADR-F004.
+Custom properties belong to each note/task. Collections have predefined fields;
+no dynamic schema inference/global custom-property registry is introduced. Read-only
+page embeds render their target rather than persist/edit another canonical copy.
+
+Task completion, next-occurrence generation and historical preservation need one
+idempotent domain operation. Provider ingest must not generate the next occurrence
+again merely by observing an already-completed state. Task moves/cascades and
+state publication require a coherent cross-entity transaction/reconciliation unit.
 
 ## Operation lifecycle
 
-1. An adapter submits explicit target IDs, caller identity, origin/context,
-   preconditions, schema version and an operation ID.
-2. The authority checks permission, target state, deduplication and revision or
-   causal preconditions, then validates the proposed semantic change.
-3. It applies one ordered change or rejects it. A stale whole-document replacement
-   cannot overwrite unseen edits. Optimistic view input is provisional until accepted.
-4. Persistence records the required durable state, provenance, history boundaries
-   and operation outcome. Atomic multi-document operations have an explicit scope.
-5. The caller receives acceptance/durability status. Subscribers receive a revision
-   hint or mapped operation. Indexes expose their applied revision.
-6. Missed notifications trigger catch-up or snapshot reconciliation. A duplicate
-   event is harmless. An interrupted caller can query the operation outcome.
+1. Adapter submits explicit Space/target IDs, operation ID, origin/context, version,
+   payload and expected revision/preconditions. Validate the local access boundary.
+2. Authority validates intent, deduplication and current target state. Local stale
+   replacement is rejected; a remote competing document state is handled under
+   the separate latest-state-wins reconciliation contract with retained history.
+3. Apply one valid local change or refuse. Protect unsaved/input composition before
+   remote replacement. Context undo has a defined boundary at state replacement.
+4. Persist affected state, history/provenance/required assets and outcome atomically
+   within the selected backend scope, or use an explicit recoverable staged protocol.
+5. Report acceptance/durability; update revision-tagged subscribers/indexes. Publish
+   only coherent durable state packages if provider sync is enabled.
+6. Catch up by revision after lost events/reconnect. Duplicate messages/operations
+   do not create repeated tasks or destroy historical states. Query uncertain outcomes.
 
-Interactive acceptance may precede durability; that interval must be measured
-and protected. External mutation commands default to awaiting durable completion.
-Uncertain completion is not reported as definite failure or retried with a new ID.
-Recovery restores pending operations as pending, not fabricated durable versions.
+Interactive acceptance may precede durability; expose and protect that interval.
+External commands default to awaiting durability. Timeout/uncertainty is not proof
+of failure; retry with the same operation ID/outcome lookup, not a new mutation.
 
-## Data and lifecycle boundaries
+## Platform and future boundaries
 
-- Content, metadata, links and tasks share a semantic mutation boundary. Derived
-  rows carry the source revision and can be rebuilt.
-- Immutable media publication precedes a committed reference, or a staged protocol
-  must repair interruption. Backups and garbage collection use consistent roots.
-- Layout writes cannot mark content saved, replace sessions or delete recovery.
-- A session remains alive until pending work is durable/protected even with zero
-  views. Idle eviction requires proven clean state and no required undo/context lease.
-- Disk full, access loss, owner crash, deleted targets and unsupported migrations
-  have explicit results. Prevent stale completions from resurrecting closed sessions.
-- Same-device multi-process access and remote collaboration require separate tests;
-  sharing a filesystem over network/cloud-sync is not an approved collaboration protocol.
+Keep local domain/persistence/history/scheduler/sync policy and CLI/MCP contracts
+independent of native UI/services. Compose macOS implementations at boundaries;
+Windows should add adapters and native tests without reorganizing the shared core.
+
+Retained history, recovery, trash and pins govern asset roots. Provide a consistent
+snapshot boundary for future backup; no automatic scheduler now. Keep a versioned
+operation/protocol seam for future live collaboration, without selecting CRDT,
+server, identity provider or encryption in this documentation pass.

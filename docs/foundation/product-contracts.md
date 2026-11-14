@@ -1,81 +1,80 @@
 # Product contracts
 
-Status: draft requirements. These describe the target product, not today's app.
+Status: product direction confirmed in the 2026-11-14 discussion; technical
+mechanisms remain proposed and unqualified. See the scope and behaviour details
+in [product behaviour](product-behaviour.md) and [sync and portability](sync-and-portability.md).
+These contracts describe the target, not today's application.
 
-## Product principles
+## Product principles and release boundary
 
-Clutter is a local-first notes workspace with dependable authoring, rich content,
-user-owned data and core app/CLI/MCP access. Multiple views and multiple people
-operate on document identities rather than independent copies. Collaboration
-must preserve an excellent single-person, offline experience.
+Clutter is a local-first notes app. App, CLI and MCP are core interfaces over one
+shared command and vault API. macOS ships first with shared code and platform
+boundaries ready for Windows. There is no Clutter-hosted service initially.
 
-One source of truth means one owner for each fact and rule. It does not forbid
-replicas, immutable history, recovery records or rebuildable indexes. Each such
-representation needs a named authority, revision and reconciliation rule.
+Local editing, tasks, history, multiple views and image/PDF embeds belong in the
+initial architecture. Opt-in iCloud/Google Drive sync is desired, subject to
+qualification per provider. Live multi-person editing and sharing roles are future
+cloud-service capabilities, not initial qualification gates. Automatic backups
+and encrypted Spaces are not initial features. Math, diagrams and drawings are
+outside the planned content scope.
+
+One source of truth means one owner per fact/rule, not a ban on historical versions,
+recovery records or revision-tagged projections. Migration/implementation effort
+is visible for planning with zero influence on architectural selection.
 
 ## Requirements
 
-| ID   | Contract                                                                                                                                                                                         |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| P-01 | Document, block, Space, folder, window, pane and tab identities survive rename/move. Copy creates new identities with explicit reference handling.                                               |
-| P-02 | App, CLI and MCP expose the same supported domain capabilities through one shared API, validation and permission model. Headless use works without a window.                                     |
-| P-03 | Typing, navigation, selection, Enter, Shift+Enter, Tab, Shift+Tab, Backspace, Delete, clipboard and undo/redo behave predictably on actual macOS/WKWebView.                                      |
-| P-04 | A document can appear in multiple tabs, panes and windows. Views converge on shared accepted edits while retaining local interaction state.                                                      |
-| P-05 | Undo/redo is scoped to document and editing context, persists across tab switches and does not accidentally reverse another context's or participant's edits. Unsafe inverses are explicit.      |
-| P-06 | Pending, accepted, recovery-protected and durable edits are distinguishable. Failed/uncertain writes never become an unqualified saved indicator.                                                |
-| P-07 | Closing a view cannot destroy pending work. Shutdown, Space removal and access loss preserve work or report a recoverable failure before discarding it.                                          |
-| P-08 | Delayed, duplicated or missed notifications cannot cause silent divergence; resume/reconnect reconciles authoritative state and revisions.                                                       |
-| P-09 | External AI can read/create/edit notes, tasks, metadata and relationships through CLI/MCP, including with the UI closed. Stale writes are rejected or explicitly merged.                         |
-| P-10 | Portable native export preserves supported semantics, identities and assets. Markdown import/export declares losses; no private database is required to understand the documented native export. |
-| P-11 | Search, backlinks and task lists derive from accepted documents/metadata. Cache loss cannot lose canonical content; freshness is observable.                                                     |
-| P-12 | Asset references remain valid through move, history restore, backup and recovery. Garbage collection respects every retained reference, not only current documents.                              |
-| P-13 | Rename, move, archive, restore, delete and Space removal reconcile active/inactive views. Deletion and permanent purge are distinct operations.                                                  |
-| P-14 | Each tab has independent navigation. Focused window/pane/view determines UI command targets; headless mutations always name their targets.                                                       |
-| P-15 | Layout/preferences have explicit owners and persist separately from content. Missing destinations restore gracefully without inventing documents.                                                |
-| P-16 | Multiple local processes coordinate access to one vault. They cannot create competing in-memory authorities or silently overwrite accepted work.                                                 |
-| P-17 | Users can list, inspect, compare, label, export and restore retained document versions through app/CLI/MCP. Restore creates a new current revision.                                              |
-| P-18 | Automatic history, explicit checkpoints, interactive undo, recovery and backup have distinct contracts. Retention and purge are visible and protect pinned versions.                             |
-| P-19 | Multiple people can edit the same document, retain their own selections and undo contexts, and converge under concurrent text and structural edits.                                              |
-| P-20 | Membership and roles govern reads, edits, sharing, history and restore. Presence is ephemeral; access revocation and offline edits have explicit reconciliation rules.                           |
-| P-21 | Supported offline edits survive restart and reconnect. Merge conflicts, rejected writes and unsupported schema versions never silently discard content.                                          |
-| P-22 | Versioned schemas/protocols support validation, migrations and safe refusal by older clients. Unknown rich content must be preserved opaquely or refused explicitly.                             |
-| P-23 | Accessibility includes keyboard-only workflows, focus visibility, screen-reader semantics and platform text input/IME.                                                                           |
-| P-24 | Content is not sent to AI providers by Clutter implicitly. Tool access, collaboration networking and export are explicit user-controlled boundaries.                                             |
+| ID   | Contract                                                                                                                                                                                                  |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P-01 | Stable entity/view identities survive rename/move. Copy creates new identities; reference and restore policies are explicit.                                                                              |
+| P-02 | App, CLI and MCP use one shared capability API, validation and access boundary. Headless use works without a window.                                                                                      |
+| P-03 | Keyboard, selection, Enter/Shift+Enter, Tab/Shift+Tab, deletion, clipboard and undo/redo are reliable on actual macOS/WKWebView.                                                                          |
+| P-04 | Tabs, panes and windows are views of the same accepted document state with local cursor, selection, scroll and focus.                                                                                     |
+| P-05 | Interactive undo is document/context scoped, survives tab switches and cannot silently undo independent local-context changes. Remote snapshot replacement has an explicit history-rebase/reset contract. |
+| P-06 | Pending, accepted, recovery-protected and durable work are distinguishable. Failed/uncertain writes never become an unqualified saved indicator.                                                          |
+| P-07 | Closing views, removing Spaces or losing access cannot discard unprotected pending work.                                                                                                                  |
+| P-08 | Missed/duplicate/out-of-order notifications trigger revision reconciliation, not silent divergence.                                                                                                       |
+| P-09 | External AI uses CLI/MCP for documents, tasks and metadata with guarded writes, including headless use.                                                                                                   |
+| P-10 | Documented native interchange preserves supported semantics/IDs/assets; Markdown conversion reports losses.                                                                                               |
+| P-11 | Search, backlinks, collection/task views are derived, revision-tagged and rebuildable.                                                                                                                    |
+| P-12 | Current, historical, pinned, trashed and recovery-held asset references govern retention and collection.                                                                                                  |
+| P-13 | Archive/delete/restore propagate to all views and owned tasks. Logical deletion and irreversible purge are distinct.                                                                                      |
+| P-14 | Tabs have independent navigation; focused UI context determines command targets; headless commands name targets explicitly.                                                                               |
+| P-15 | Layout/preferences persist separately and never hold the only pending content.                                                                                                                            |
+| P-16 | Same-device app/CLI/MCP processes coordinate through one local Space authority. No independent competing window writers.                                                                                  |
+| P-17 | App/CLI/MCP support retained version inspection, comparison, pinning, export and guarded restore as a new revision.                                                                                       |
+| P-18 | Undo, version history, recovery and backup are separate. Pins survive automatic cleanup; automatic backups are deferred with a consistent snapshot boundary reserved.                                     |
+| P-19 | Future cloud service supports live multi-person editing; initial sync uses whole-document winner selection with retained overwritten versions, not automatic merging.                                     |
+| P-20 | Future individual-page sharing supports viewer/commenter/editor without sharing the whole Space. Public publishing is deferred; current local/tool authorization still applies.                           |
+| P-21 | Local/offline work survives restart. Qualified provider sync converges deterministically, preserving received overwritten states in history.                                                              |
+| P-22 | Versioned schemas/protocols support validation, migration and safe refusal of unsupported content.                                                                                                        |
+| P-23 | Keyboard-only accessibility, visible focus, screen-reader semantics and native input/IME are first-class requirements.                                                                                    |
+| P-24 | AI/network/tool access is explicit. Provider sync is opt-in in settings; no implicit Clutter-hosted backend.                                                                                              |
+| P-25 | Notes/tasks own arbitrary typed custom properties. Collections expose predefined fields, not columns inferred from custom labels/types.                                                                   |
+| P-26 | Tasks are identity-bearing entities with page content, standard fields and exactly one location: a note or independent inbox.                                                                             |
+| P-27 | Task move/copy/delete/archive rules preserve single location and identity correctly; indentation never creates subtasks.                                                                                  |
+| P-28 | Repeating tasks retain completed occurrences and follow the original schedule after completion, skipping missed occurrences.                                                                              |
+| P-29 | Templates are copied on application; no continuing link or update propagation.                                                                                                                            |
+| P-30 | Selected text/blocks can become pages with reference links left behind. Live page embeds are read-only and open the original for edits.                                                                   |
+| P-31 | Date mentions store fixed dates with relative labels. Any block can have a separately enabled reminder; tasks separate schedule and deadline.                                                             |
+| P-32 | Note archive suppresses its tasks/reminders; restoration resumes future reminders without replaying missed ones.                                                                                          |
+| P-33 | Deleting a commented block removes its discussion from current content; undo/version restore recovers both. Comments must never silently reanchor to unrelated text.                                      |
+| P-34 | Initial media scope includes images and PDFs. Math, diagrams and drawings are outside planned scope.                                                                                                      |
+| P-35 | Domain, persistence, provider sync and API policy remain independent of macOS-specific integrations so Windows does not require a structural rewrite.                                                     |
 
-## Workflow coverage
+## Specification completion
 
-Detailed UI specs must cover loading, empty, ready, pending, offline, conflicted,
-permission-denied, deleted and recovery states for each relevant workflow:
+The product-behaviour document owns the detailed rules behind P-25 through P-33.
+The sync document owns cross-device scope and the distinction from local API
+concurrency. Do not infer a full Notion-style database product from typed properties.
 
-- Create/edit notes, daily notes, templates, tasks, properties, tags and links.
-- Add/open/replace attachments and embeds; show missing or unsupported content.
-- Find/search, backlinks, collections and logical organisation.
-- Open/switch/close tabs, split panes, move views between windows and restore layout.
-- Read/edit via CLI/MCP; checkout/commit when file access is the useful interface.
-- Inspect/restore history; archive/delete/restore and deliberately purge.
-- Invite participants, change access, edit together, disconnect and reconnect.
-- Backup/restore a whole Space, including retained versions and required assets.
+Inventory current capabilities as keep/redesign/retire/unresolved before production
+implementation. Complete the editor matrix across text/blocks, positions, nesting,
+forward/backward selections, modifiers, widgets/tables, composition and focus.
+Engine defaults and older Markdown indentation rules are evidence, not automatic
+new-product decisions.
 
-This is a target scope inventory, not a claim that every existing feature was
-fully audited. The detailed PRD must map existing capabilities to keep, redesign,
-retire or unresolved, with explicit decisions before feature implementation.
-
-## Editor contract completion
-
-P-03 must be expanded into a reviewed input matrix for paragraphs, headings,
-lists/tasks, tables, code, links, embeds and custom widgets. Specify positions
-(start/middle/end), empty states, nesting, forward/backward and cross-block
-selections, modifier keys, focus transitions and composition. Include Unicode
-clusters, bidirectional text, native menus and assistive technology.
-
-Actual outcomes for ambiguous cases belong in that matrix before implementation;
-engine defaults and historical Markdown indentation rules are evidence, not an
-automatic product decision. Candidate engines must execute the same contracts.
-
-## Decisions still needed
-
-Version retention duration and storage budget; history visibility after access
-changes; participant roles and invitation UX; offline authorization expiry;
-collaboration hosting/encryption; simultaneous overlapping undo policy; duplicate
-tab policy; checkpoint cadence; performance budgets and supported document sizes.
-Track resolution in the decision register rather than guessing in code.
+The user has settled the listed product directions, not every UX detail or storage
+mechanism. Retention budgets, field vocabulary/default visibility, task-aware
+cross-device consistency, provider winner ordering, comment delivery phase and
+performance budgets remain explicit design work in the decision register.

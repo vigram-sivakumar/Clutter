@@ -5,7 +5,7 @@ Status: Proposed. Requirements: P-02, P-09, P-16, P-20, P-24. Decision: D-04, D-
 ## Context
 
 UI-only operations and independently implemented CLI/MCP writes create competing
-validation, permission, revision and persistence rules. External AI is a core
+validation, access, revision and persistence rules. External AI is a core
 Clutter workflow and must work without a window.
 
 ## Proposal
@@ -24,6 +24,7 @@ without forcing identical protocol payloads.
 
 ## Qualification and existing rules
 
-T-04, T-07 and T-13 must establish parity, takeover, outcomes and permission checks.
+T-04 and T-07 establish local parity, takeover, outcomes and access checks. T-13
+qualifies optional provider access; future remote roles require T-22.
 This proposal is compatible with the intent of one capability owner but does not
 supersede any current facade or persistence implementation yet.

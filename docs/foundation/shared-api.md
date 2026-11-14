@@ -1,81 +1,77 @@
 # Shared command and vault API
 
-Status: proposed logical contract, not existing method signatures or executable commands.
-Implements P-02, P-06, P-08, P-09, P-13, P-16 through P-22 and P-24.
+Status: proposed logical contracts, not existing methods or executable commands.
+Requirements: P-02, P-06, P-08, P-09, P-13, P-16 through P-35 as applicable.
 
-## Interfaces
+## Interfaces and envelope
 
-App, CLI and MCP are first-class adapters over the same command/query API. CLI
-and MCP do not drive hidden UI or independently manipulate database/files.
-Protocol adapters may differ in pagination and presentation, never semantics.
-Future agent/automation integrations use the same contract.
+App, CLI and MCP are first-class adapters over one domain command/query API. They
+never reimplement task/property/history/sync rules or directly manipulate storage.
+Headless operation must work without hidden UI. Protocol payloads may differ;
+domain results and validation do not.
 
-## Contract envelope
+Mutations identify Space, targets, operation ID, trusted local principal/capability,
+origin/context, protocol/schema version, payload and revision/preconditions.
+Do not trust an arbitrary actor ID as authentication. Results include operation
+ID, affected revisions, durability/outcome and structured errors/provenance.
+Reuse of an ID with changed payload rejects; timeout permits original-ID retry or
+outcome lookup. Specify deduplication scope/retention before shipping.
 
-Every mutation identifies Space, targets, operation ID, authenticated principal,
-editing context/origin, protocol/schema version, payload and preconditions. Caller
-identity must be derived from a trusted local/remote boundary, not accepted from
-an arbitrary `actorId` field. Revision tokens are opaque and scoped to their target.
-Collaborative incremental operations may carry causal dependencies instead of a
-single integer revision; whole-document replacement still needs a stale-write guard.
-
-Results identify operation ID, affected targets, resulting revisions, durability,
-source/provenance and structured errors. Reusing an ID with a different payload
-is invalid. Deduplication scope and retention must be specified before shipping;
-a timeout permits outcome lookup/retry with the same ID, never assumed failure.
-
-Queries include the revision/freshness of returned data. Search pagination and
-subscriptions must specify snapshot consistency. Notifications are hints, not
-proof that the caller has observed every revision.
+Queries include source revision/freshness. Search pagination and subscriptions
+need snapshot/catch-up semantics. Notification delivery is not revision truth.
 
 ## Capability catalogue
 
-| Capability      | Shared operations to specify                                                                               |
-| --------------- | ---------------------------------------------------------------------------------------------------------- |
-| Space lifecycle | Discover/open/close; registry changes; inspect health and revision                                         |
-| Documents       | Create/read; validated incremental changes; guarded replacement; rename/move/archive/delete/restore        |
-| Structure       | Insert/remove/move blocks; update formatting, tasks and properties; maintain links                         |
-| Queries         | List/filter/search; backlinks; task/daily-note queries; freshness and pagination                           |
-| Assets          | Import/read/reference; verify availability; collect only after reachability checks                         |
-| Versions        | List/inspect/compare; create checkpoint; label/pin/export; restore with preconditions                      |
-| Interchange     | Native export/import; Markdown export/import; revision-bound checkout/commit with loss reports             |
-| Collaboration   | Membership/roles; share/revoke; presence; operation catch-up and reconnect status                          |
-| Reliability     | Wait for durability; inspect operation outcome; recovery discovery/resolution; backup/restore verification |
+| Capability           | Initial commands/queries to specify                                                                                          |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Space lifecycle      | Registry/open/close, health, revision and local authority discovery                                                          |
+| Notes/pages          | Create/read/edit/guarded replacement, rename/move/archive/delete/restore, selected-content conversion                        |
+| Tasks                | Inbox create, page open/edit, single-location move/copy/delete, standard fields/completion and idempotent recurrence         |
+| Properties/templates | Entity-local typed custom properties; one-time template copy with new entity IDs                                             |
+| Queries              | Predefined collection fields, Tasks views, search/backlinks, freshness/pagination; no arbitrary property-to-column inference |
+| Dates/reminders      | Fixed date mentions, separate reminder toggle, schedule/deadline, eligibility/archive suppression                            |
+| Assets/embeds        | Image/PDF import/read, read-only page projections, references, validation and reachable-root collection                      |
+| Versions             | List/inspect/compare/label/pin/unpin/export and guarded restore with content/task/comment/asset closure                      |
+| Interchange          | Native/Markdown import/export, loss reports, revision-bound checkout/commit                                                  |
+| Provider sync        | Opt-in settings, validated state ingest/publication, status, history-preserving winner reconciliation                        |
+| Reliability          | Await durability, inspect operation outcome, discover/resolve recovery and consistent snapshot boundary                      |
 
-Editing-context undo uses the same validated mutation boundary; it is not an
-unrestricted command to revert arbitrary revisions. Administrative repair tools
-must be explicit, isolated capabilities, never the default AI write interface.
+Deferred catalogue: live participant presence, membership/sharing roles and remote
+operation merging; automatic backup scheduling. Comment APIs require phase decision
+before shipping; document/thread identity and restore closure are reserved now.
+Encrypted Spaces and public publishing are not initial capabilities.
 
-## Errors and atomicity
+## Mutation safety and sync
 
-Define stable machine-readable categories: not found, invalid input, permission
-denied, conflict, unsupported schema/protocol, unavailable, not committed,
-uncertain completion, corrupt data and partial interchange. Adapters may translate
-messages but retain categories and conflict details. Do not include note content
-or secrets in routine diagnostics.
+Same-device UI/CLI/MCP writes retain revision guards. Latest-document-wins is a
+provider reconciliation policy, not an instruction for arbitrary stale AI writes
+to replace current documents. The reconciler uses trusted ingestion/provenance
+and the same domain/persistence boundary; transport adapters do not gain repair
+SQL privileges. Task placement, recurrence and tombstones need valid reconciliation
+before applying a current remote state. Preserve received but invalid data for
+recoverable inspection without claiming successful sync.
 
-A batch declares whether it is atomic. Partial success is allowed only for an
-explicit non-atomic batch with per-item outcomes and resumability. SQL transactions
-cannot atomically include network delivery or arbitrary asset file copies; staged
-publication and retry contracts must account for those boundaries.
+Context undo is not arbitrary revision rewind. Restore is a new guarded mutation.
+A batch explicitly declares atomicity; non-atomic batches return per-item outcomes
+and resumability. Network/file publication is outside a SQL transaction unless a
+staged protocol accounts for interruption and deduplication.
 
-## External AI workflows
+Errors retain stable categories: invalid/not-found/denied/conflict/unsupported,
+unavailable/not-committed/uncertain/corrupt/partial-interchange. Routine diagnostics
+must not expose note content or secrets. Validate provider filenames, paths,
+packages, untrusted imported references and asset sizes at the ingestion boundary.
 
-- CLI/MCP reads Markdown or structured JSON with IDs and revision tokens, then
-  submits semantic changes. Read-only clients can inspect without write permission.
-- Checkout materializes editable files plus source revisions and stable mapping.
-  Commit validates changed regions and reports conflicts/losses. Unsupported rich
-  regions are preserved or refused, never silently flattened.
-- Export/upload/import is the fallback for tools without local integration.
-- File-only tools do not gain automatic live access to a structured database.
-  That friction is an explicit product trade-off to measure in qualification.
+## External AI
 
-No continuously writable Markdown mirror is assumed. No network-accessible local
-API is assumed. Local IPC authentication, Space grants, attachment path traversal,
-MCP exposure and destructive-operation permissions belong in the security spec.
+CLI/MCP can read Markdown/structured data with IDs/revisions and submit semantic
+changes. Checkout materializes editable files/mapping/source revisions; commit
+validates conflicts and losses, preserving unsupported rich regions or refusing.
+Tools with upload/download only use explicit interchange. No continuously writable
+Markdown mirror or network-listening local API is assumed.
 
 ## Contract tests
 
-Run identical scenarios against core, UI adapter, CLI and MCP: permissions,
-validation, stale revisions, repeat IDs, failure outcomes, history attribution and
-headless operation. Compare semantic results, not identical transport payloads.
+Compare core/UI/CLI/MCP semantics for supported capabilities, permissions,
+preconditions, retries, version attribution and headless use. Provider tests
+separately prove convergence/history and do not weaken normal mutation guards.
+Future cloud adapters require new permission/collaboration acceptance gates.

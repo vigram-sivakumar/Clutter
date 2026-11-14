@@ -25,6 +25,8 @@ context identity and lifecycle leases rather than independent full-document save
 
 ## Qualification and existing rules
 
-T-02, T-03, T-05, T-07 and T-08 must demonstrate these boundaries. This differs
+T-02, T-03, T-05, T-07 and T-08 must demonstrate these boundaries. Remote provider
+state replacement also needs the explicit history/IME boundary in T-12; it is not
+identical to live multi-person operation merging. This differs
 from the per-webview ownership described in existing ADR-073. It does not amend
 that record until an approved replacement explicitly defines the implementation.
