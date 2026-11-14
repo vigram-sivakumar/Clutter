@@ -3,6 +3,22 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.37 — 2026-11-14
+
+- Added an isolated real SQLite owner with atomic content/revision/outcome commits,
+  stable cross-restart operation identity, one OS-held exclusive owner and separately
+  protected recovery generations/tombstones. Browser projections, CLI and MCP use
+  one shared command path; common MCP stdio framing extracted without domain duplication.
+- Frozen 18-case contract passes on recorded Linux Node/SQLite profile, including
+  SIGKILL boundaries, zero-to-spilled-WAL rollback, lost/uncertain replies, allocation
+  full, corruption closure, pinned versions and tiny in-DB attachment retention.
+  Earlier 84 Node checks and unchanged 30-case strict comparison stay green.
+- Provisional browser retry now keeps its operation after an unknown reply. No
+  full PM/Y editor/native integration, external media ordering, power-loss, provider,
+  migration, GC or production acceptance claimed. No dependencies/Swift changed.
+- Next R08 architecture review package with proposed choices/ADRs and explicit
+  joined-core/native and release gates. No new manual rerun. Patch13 over exact12.
+
 ## 0.36 — 2026-11-14
 
 - Moved Origin UndoManager lifetime into the authority-owned editing context,

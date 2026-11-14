@@ -99,3 +99,8 @@ The above is the historical R06 entry record. [R07 evidence](evidence/r07-2026-1
 now records a bounded runnable slice and real Linux observations. [Findings](experiments/r07-two-view/findings.md)
 block selection. Runtime evidence does not retrospectively qualify omitted native,
 security, task-page/media or provider scope.
+
+Revision 0.37 follow-up: [bounded durable-owner proof](r07-durable-authority.md)
+passes18 separate Linux cases. Current next action is the R08 review package in
+[START-HERE](START-HERE.md), including explicit joined-editor/native gates; earlier
+results and open full-scope requirements above remain unchanged.

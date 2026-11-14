@@ -1,14 +1,15 @@
 # Clutter foundation
 
-Status: architecture definition pack, revision 0.36, 2026-11-14. Product scope
+Status: architecture definition pack, revision 0.37, 2026-11-14. Product scope
 confirmed; technology proposals remain unqualified.
 Baseline: `main` at `cae604273115c0c6c0d3ac34533b1e9834e9c778`.
 Working branch: `architecture/clutter-foundation`.
 
 New chat or AI agent: start at [START-HERE](START-HERE.md), then follow the
-[roadmap](roadmap.md). Current next task: retest confirmed table behaviour on Mac, one variation at a time. R01 inventory is
-complete; R02–R06 drafts retain open policies/encoding/durability choices and
-bounded Linux experimental evidence, with native/architecture qualification blocked.
+[roadmap](roadmap.md). Current next task: the R08 architecture decision review
+package. [Durable-owner proof](r07-durable-authority.md) passes 18 bounded Linux
+cases, separately from the green matched history contract. Their joined editor/
+durable/native path and wider release gates remain unqualified.
 
 ## Purpose and authority
 
@@ -18,7 +19,7 @@ live cloud collaboration deferred.
 Evaluate it as a greenfield product. Migration and implementation effort remain
 visible planning dimensions with zero weight in architectural selection.
 
-The 0.2 product scope, retained in 0.36, reflects the user clarification sequence. Earlier draft
+The 0.2 product scope, retained in 0.37, reflects the user clarification sequence. Earlier draft
 requirements superseded by that discussion are replaced in this folder.
 This pack contains requirements and proposals, not an approved implementation
 specification. Existing documentation and `ARCHITECTURE_RULES.md` continue to
@@ -138,10 +139,16 @@ R05 drafted provider protocol/feasibility rather than raw live-file sync; its
 coherence and route qualification remain blocked. R06 prepares native/editor and
 host/security experiments; two R07 slices ran and native/broader qualification is next.
 
-Latest [context ownership results](r07-history-ownership.md) and
+Build12 [context ownership results](r07-history-ownership.md) and
 [evidence](evidence/r07-28-2026-11-14.json): the unchanged matched contract is green,
 with 24 applied/passed cases and 6 explicit protective refusals. The prior three
 history gaps are fixed; 84 Node checks and seven added browser lifecycle cases
 pass. The [build 11 baseline](r07-matched-comparison.md), raw failures and earlier
-[manual reports](NATIVE-TEST-PROGRESS.md) remain intact. Next durable-owner proof,
-then architecture/ADR review. No complete production architecture accepted.
+[manual reports](NATIVE-TEST-PROGRESS.md) remain intact. The durable follow-up below
+is now executed; next is architecture/ADR review. No complete architecture accepted.
+
+Revision 0.37 adds [durable authority qualification](r07-durable-authority.md):
+18 bounded process-crash/retry/recovery cases pass on the recorded SQLite profile.
+The browser, CLI and MCP reach one durable owner; this is separate from the full
+editor candidate integration. Next R08 review proposes choices and remaining gates;
+no backend, host, editor or production rebuild is accepted.

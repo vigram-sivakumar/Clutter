@@ -20,6 +20,9 @@ const files = [
   ...readdirSync('native-macos')
     .filter((name) => /\.(swift|js|mjs|json)$/.test(name))
     .map((name) => 'native-macos/' + name),
+  ...readdirSync('durable')
+    .filter((n) => /\.(mjs|json|html|md)$/.test(n))
+    .map((n) => 'durable/' + n),
   ...['src', 'test'].flatMap((dir) =>
     readdirSync(dir)
       .filter((n) => n.endsWith('.mjs'))
@@ -33,7 +36,7 @@ const lock = JSON.parse(readFileSync('package-lock.json', 'utf8'));
 const manifest = {
   candidate: 'R07-PM-PUBLIC-02',
   alternatives: ['R07-PM-ORIGIN-02'],
-  iteration: 'R07-12-context-history-scope-2026-11-14',
+  iteration: 'R07-13-durable-owner-2026-11-14',
   date: '2026-11-14',
   scope:
     'Exploratory two-view candidates and native host source; native compilation/execution must be recorded separately',
@@ -53,6 +56,8 @@ const manifest = {
   schema:
     'src/schema.mjs; minimal R02-derived semantic subset, not canonical Clutter schema',
   profiles: {
+    durable:
+      'Separate P-SQL proof: real child-process exclusive SQLite owner; atomic document-version/outcome, protected drafts, pinned roots and tiny in-DB blobs. Browser projections/CLI/MCP share that owner; full editor/native integration not qualified. Exact SQLite build/readback in durable-results-final.json.',
     raw: 'Unpatched pinned ProseMirror libraries; guard disabled explicitly in diagnostic test only',
     guarded:
       'Default Context plus conservative history-guard.mjs; refuses foreign deletion/opaque overlap',
@@ -79,9 +84,9 @@ const manifest = {
   representations:
     'Authority accepted doc; immutable engine caches/provisional input in contexts; snapshot/recovery records deliberately serialize protected copies.',
   persistence:
-    'MemoryStore in tests, browser-only localStorage in UI, FileStore separate headless processes; never production app/vault. Node snapshot uses fsync/rename and directory fsync, not power-loss qualification.',
+    'Editor candidates retain their MemoryStore/browser localStorage and legacy FileStore fixtures. The new durable/ fixture uses a separate real SQLite owner, not the editor integration. No production or power-loss qualification.',
   adapters:
-    'CLI and MCP share execute(); headless disk adapters serialize by fail-closed lab lock. They do not connect to the browser authority. No general IPC/grants/takeover implemented.',
+    'Legacy file adapters remain independent controls. Live adapters reach the browser via the test relay; durable adapters reach a real SQLite owner directly. CLI/MCP share framing/transport and owner domain logic. No production discovery/grants/takeover implemented.',
   unsupported: [
     'macOS/WKWebView/IME/VoiceOver/native menus',
     'Windows',
@@ -95,7 +100,7 @@ const manifest = {
     'production security/authentication/IPC/process election',
   ],
   qualification:
-    'Exploratory targeted alternatives only. Raw controls remain failing. Full native/semantic/lifecycle/performance qualification is still blocked; see follow-up findings and separate evidence. The origin candidate has no persistence/CLI/MCP bridge.',
+    'Exploratory targeted alternatives only. Raw controls remain failing. Full native/semantic/lifecycle/performance qualification is still blocked; see follow-up findings and separate evidence. The Origin candidate has ephemeral live CLI/MCP ingress; the separate durable owner is not yet joined to its editor/history engine.',
 };
 mkdirSync('artifacts', { recursive: true });
 writeFileSync(

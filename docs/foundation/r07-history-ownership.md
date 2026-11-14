@@ -124,3 +124,11 @@ followed by the architecture/ADR review; it is not a production rebuild approval
 Patch 12 is incremental over the exact bundle 11 target. It changes only foundation
 code/tests/docs/evidence, with no agent commit/push or branch change. Existing
 manual reports and baseline qualification artifacts are never rewritten.
+
+## Durable follow-up, revision 0.37
+
+The bounded [durable-owner proof](r07-durable-authority.md) now passes 18 Linux
+cases in a separate fixture. It demonstrates atomic revisions/receipts and one
+owner across browser projections/CLI/MCP, not durable integration of these editor
+history engines. Next is the R08 architecture review package and explicit joined
+core/native gates. The history results and raw controls above remain unchanged.

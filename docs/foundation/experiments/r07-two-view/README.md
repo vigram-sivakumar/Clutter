@@ -175,3 +175,12 @@ route deliberately retains the old redo failure and is not a passing product tes
 Context history/bookmarks use public APIs and never retain an EditorView/binding.
 The accepted change journal contains ranges/origins, not duplicate documents.
 No new dependency/lock/native source changed; no native12 result claimed.
+
+## Separate durable-owner proof (build13)
+
+See [durable fixture](durable/README.md) and [qualification](../../r07-durable-authority.md).
+18 bounded Linux cases pass against a real exclusive SQLite owner shared by
+browser projections, CLI and MCP. This is separate from the full PM/Y candidates;
+it does not persist their editing contexts/undo histories. Existing matched strict
+contract and Node regressions pass. Next R08 review proposes complete combinations
+and remaining joined/native gates. No production architecture accepted.

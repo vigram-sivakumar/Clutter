@@ -1,49 +1,29 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-14. Documentation revision: 0.36.
+Last updated: 2026-11-14. Documentation revision: 0.37.
 Read AGENTS.md and this file first in a new chat or agent session. It is the checkpoint, not a
 second product specification. [README](README.md) identifies authoritative docs.
 
 ## Current position
 
-Product direction has been clarified with the user. Technical architecture is
-not finalized. Foundation documents, proposed ADRs and acceptance specifications
-exist; production implementation has not started. The first isolated R07
-qualification slice has now run, with blocking observations. R01 is complete as a bounded capability audit, with
-45 entries and selected existing-test evidence. R02 now has a reviewable interaction
-specification and 72 seed cases; the full catalogue remains unqualified and
-Q-01–Q-09 policy review remains open.
-R03 now has conditional model/API drafts, 51 logical operation signatures and 24
-unexecuted contract scenarios. M-01–M-07 model gaps and Q-01–Q-09 interaction gaps
-remain explicit. R04 adds a conditional persistence specification and 30 unexecuted
-fault cases across P-SQL/P-ROOT/P-TEXT; PS-01–PS-07 are still open. R05 adds a conditional provider protocol, official-source feasibility record and 30
-unexecuted SC scenarios. SY-01–SY-08 remain open; SY-04 coherent task reconciliation
-blocks provider enablement. R06 prepared qualification contracts. R07 has two executed Linux exploratory slices and now a prepared native Mac host.
-Targeted selection/origin-history alternatives pass their scoped Linux checks;
-raw failures remain controls. The user has now built/launched the Mac host after
-compiler correction 04 and shown four guarded-step fixture passes. The first native JSON
-has now been reviewed; it matches 07 but contains no saved manual verdicts. Native table feedback confirms a new contract; implementation
-and Linux regression checks were updated in 05. Patch 06 preserves the original
-cell/caret/focus on handle insertion; the user reports row/column focus works.
-Patch 07 implements confirmed editing/selected-cell modes and removes the rejected
-Escape-to-handle behaviour. The user reports the guided mode checks work and asks
-to proceed. Candidate unspecified for table checks; no full-case acceptance inferred.
-Both candidates’ guided cross-view undo/redo checks are now reported working.
-Exact guarded-step output/warning remains unknown. The 07 report has no manual
-attempts; conversation reports and stored evidence must stay distinct.
-Read [native progress](NATIVE-TEST-PROGRESS.md), [table contract](table-interaction-contract.md)
-and [triple-click evidence](evidence/r07-19-2026-11-14.json). No architecture is accepted.
+Product scope is recorded; architecture is not finalized and production work has
+not started. This checkpoint supersedes earlier next-action text in historical
+records. Keep one branch, `architecture/clutter-foundation`, and preserve all work.
 
-| Area                                  | Verified status at this checkpoint                                                                                                                                                                                                                         |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Product requirements/behaviour        | Recorded in product-contracts.md and product-behaviour.md; remaining detail gaps are explicit                                                                                                                                                              |
-| Architecture/API/history/sync         | Proposed contracts, not implemented target mechanisms                                                                                                                                                                                                      |
-| Technology selection                  | PM/Tiptap and local SQLite are candidates; no accepted replacement decision                                                                                                                                                                                |
-| Existing test evidence                | 30 selected Linux files/1,003 assertions passed across initial and targeted reruns. Initial load errors and setup corrections are retained in inventory/evidence.                                                                                          |
-| Native/platform/provider tests        | Mac build/launch and guarded-step fixture passes reported; revised NM-01 and remaining native/manual/provider work pending.                                                                                                                                |
-| Documentation checks                  | Formatting, relative links, requirement/test IDs and sequential patch application checked in handoff                                                                                                                                                       |
-| Existing production and old documents | Unchanged by the foundation deliveries                                                                                                                                                                                                                     |
-| Remote/user checkout                  | Remote 0.9 commit 1215044 verified and matched local docs; branch safely fast-forwarded. User reports R07-01 applied; R07-02 and native R07-03 prepared; application of 02 not independently verified. No new remote commit verified or agent commit/push. |
+| Area | Latest verified status |
+| --- | --- |
+| R01 | Bounded capability audit complete; 45 entries and selected existing-test evidence |
+| R02–R06 | Conditional interaction/model/API/persistence/provider/security drafts; explicit open policy/encoding/release gates, not complete implementation acceptance |
+| R07 history (build12) | Unchanged matched strict contract: 24 passes/6 explicit protective refusals, no gaps/failures; context-owned history and mapped guards |
+| R07 durability (build13) | 18 bounded Linux cases pass in a separate real SQLite owner/browser-projection/CLI/MCP fixture; full editor/native integration remains open |
+| Regressions in13 | 84 Node checks pass; unchanged strict comparison green, including 12 earlier live command cases |
+| Native/manual | Earlier09 confirmed passes/raw reports preserved; no12/13 Mac claim, IME unavailable, VoiceOver deferred; no broad rerun needed |
+| Next | R08 architecture review package: proposed complete combinations/ADRs, remaining gates and minimal joined core/native proof |
+| Git | User reports patch12 applied;13 prepared over exact12. No agent commit/push, production, Swift, dependency lock or branch change |
+
+Read [durable qualification](r07-durable-authority.md), [history qualification](r07-history-ownership.md)
+and [native progress](NATIVE-TEST-PROGRESS.md). Separate executed evidence from
+proposed policy and open qualification. No stack/provider is accepted.
 
 ## Repository and delivery state
 
@@ -176,39 +156,31 @@ force checkout or re-create the branch to hide divergence.
 - Current authorized continuation includes the isolated R07 experiment, not a
   production rebuild. Preserve unqualified tests and report blocking observations.
 
-## Exact next action: durable authority qualification proof
+## Exact next action: R08 architecture decision review package
 
-Read AGENTS.md, NATIVE-TEST-PROGRESS.md and r07-history-ownership.md. All three
-identified history gates are fixed: context-owned Origin manager survives actual
-view destruction; disjoint formatting/structural changes no longer globally block
-safe inverses. The unchanged 30-case strict contract now exits 0: step 11 pass/4
-protective refusals; origin 13 pass/2 protective refusals; no gaps/failures.
-All 12 live CLI/MCP contract cases still pass.84 Node checks and seven additional
-browser lifecycle cases pass; raw unsafe controls remain diagnostic failures.
+Read [durable-owner proof](r07-durable-authority.md), its
+[evidence](evidence/r07-29-2026-11-14.json), and [context history](r07-history-ownership.md).
+Build 13 adds a separate P-SQL durable-owner fixture: 18/18 Linux cases pass for
+atomic revision/outcome, real process death, lost replies, exclusive ownership,
+provisional recovery, tiny in-DB attachment closure and pinned historical content.
+Browser projections, real CLI and MCP share that owner. It does not yet join the
+full PM/Y editor/history engines to the durable owner or qualify native storage.
+84 Node regressions pass; unchanged matched strict gate remains 24 pass/6 explicit
+protective refusals, no gaps/failures. Original controls/manual evidence remain.
 
-Next freeze and execute a bounded R04 durable-owner proof: atomic accepted state,
-revision and operation outcomes; lost response and process restart; same owner for
-app/CLI/MCP; no independent file writers. Use the existing persistence fault/model
-contracts and explicitly experimental backend. No accepted store/host/editor stack
-or production work follows solely from these scoped results. No new manual session
-rerun is requested. Targeted native history smoke belongs before final acceptance;
-Mac 12 not run, earlier Mac 09 passes stay valid. IME unavailable, VoiceOver deferred.
+Next prepare a concrete architecture review: compare complete combinations,
+propose candidate choices and superseding ADRs, list rejected alternatives and
+remaining now/later gates. Specify the minimal joined editor-to-durable-core and
+native qualification slice before final acceptance. Resolve material R02–R06
+policy/model/security/performance gaps in that review; do not quietly mark them
+passed. No production implementation, provider enablement or accepted backend/
+editor/framework follows from the current results.
 
-[Current evidence](evidence/r07-28-2026-11-14.json). Patch12 applies over exact11;
-user reports bundle11 applied. No dependency/version, Swift, production, agent
-commit/push or branch change. Keep original baseline and manual reports intact.
-
-Latest Linux evidence: 84 Node checks (one raw-failure diagnostic), six support
-checks, 66 table-browser candidate passes; raw unguarded structural row/column
-undo failures are preserved separately. Default origin prototype now conservatively
-refuses structural handle undo after foreign changes. Full semantic inverses remain
-unqualified, not solved by calling every refusal a final UX. Existing native/browser
-fixtures and all earlier raw evidence remain historical records.
-
-Keep production untouched and one branch. No candidate, canonical store, framework
-or provider protocol is accepted. Shared-document OS windows, full native IME/menu/
-VoiceOver, schema/task lifecycle, API/durability parity and provider gates remain open.
-Do not infer them from this table implementation or another candidate's checks.
+Patch13 (`Clutter R07 Durable Authority Proof 13.patch`) applies over exact12;
+user reports12 applied. SQLite is the first experimental backend, not a decision.
+No dependency/lock, Swift, production, agent commit/push or branch change. No new
+manual session rerun requested. Mac12/13 not run, IME unavailable, VoiceOver deferred;
+earlier Mac09/manual passes remain valid. Keep all old raw evidence unchanged.
 
 ## Session close protocol
 

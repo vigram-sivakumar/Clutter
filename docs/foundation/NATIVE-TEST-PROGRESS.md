@@ -256,14 +256,18 @@ manual rerun or verdict-click cleanup is requested. A targeted native history/
 selection smoke can be batched with the next integrated slice before architecture
 acceptance. NM-03 remains unavailable and NM-06 deferred by user priority.
 
-## Next action: durable owner and operation-outcome proof
+## Next action: architecture decision review package
 
-Read r07-history-ownership.md and evidence/r07-28-2026-11-14.json. Prepare the bounded
-R04 durable-owner fault/restart experiment over the same app/CLI/MCP authority.
-Accepted document/revision/outcome must commit together and be queryable after an
-uncertain reply/restart. Keep one canonical state and explicit projections. No
-production backend/editor/framework accepted; do not re-open completed manual
-prompts or claim in-page protection qualifies on-disk recovery.
+Build13's separate [durable-owner proof](r07-durable-authority.md) passes 18 bounded
+Linux cases. Real owner, CLI/MCP subprocesses and browser projections share one
+commit path. It does not connect the full native/editor candidates to SQLite.
+No new Mac/manual result is claimed; original confirmed passes remain intact.
+
+Prepare the R08 review package with proposed complete combinations, affected ADRs,
+remaining now/later gates and the minimal joined editor/durable/native qualification
+slice. Do not ask for another broad manual session or verdict-click cleanup.
+Mac12/13 remain not-run; IME unavailable and VoiceOver deferred. Production and
+providers remain untouched/unqualified. [Evidence](evidence/r07-29-2026-11-14.json).
 
 ## Next agent action
 
@@ -277,5 +281,5 @@ library defaults or equate original controls with the current requirements.
 Separate four things in updates: confirmed policy; prototype choices; executed
 Linux evidence; observed native evidence. Keep raw controls and earlier artifacts.
 Current structural origin undo is guarded conservatively; broader semantic history,
-headless API/persistence parity, full editor matrix and provider consistency remain
+joined full-editor/API/durability parity, full editor matrix and provider consistency remain
 open. Passing the revised table case alone does not complete R07 or authorize R08.

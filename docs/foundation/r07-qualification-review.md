@@ -79,3 +79,8 @@ Build12 [context ownership results](r07-history-ownership.md) now close the thre
 matched history gates under the unchanged contract. The next engineering gate is
 the bounded durable-authority proof, followed by ADR review. Earlier scope/results
 above remain historical; no complete production stack has been accepted.
+
+Revision 0.37 follow-up: [bounded durable-owner proof](r07-durable-authority.md)
+passes18 separate Linux cases. Current next action is the R08 review package in
+[START-HERE](START-HERE.md), including explicit joined-editor/native gates; earlier
+results and open full-scope requirements above remain unchanged.

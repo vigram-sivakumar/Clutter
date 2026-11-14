@@ -1,0 +1,24 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> clutter-r07-two-view-experiment@0.1.0 test:durable
+> node test/durable-owner.mjs
+
+DO-01 pass
+DO-02 pass
+DO-03 pass
+DO-04 pass
+DO-05 pass
+DO-06 pass
+DO-07 pass
+DO-08 pass
+DO-09 pass
+DO-10 pass
+DO-11 pass
+DO-12 pass
+DO-13 pass
+DO-14 pass
+DO-15 pass
+DO-16 pass
+DO-17 pass
+DO-18 pass
+Report: artifacts/durable-results-final.json

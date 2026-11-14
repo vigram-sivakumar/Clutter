@@ -1,0 +1,48 @@
+{
+  "cwd": "docs/foundation/experiments/r07-two-view",
+  "commands": [
+    {
+      "command": "CHROMIUM_EXECUTABLE=/tmp/chromium DURABLE_RESULT=artifacts/durable-results-final.json npm run test:durable",
+      "exit": 0,
+      "result": "18 pass / 0 fail / 0 not-run"
+    },
+    {
+      "command": "npm test",
+      "exit": 0,
+      "result": "84 pass, including original raw diagnostic"
+    },
+    {
+      "command": "CHROMIUM_EXECUTABLE=/tmp/chromium npm run test:comparison",
+      "exit": 0,
+      "result": "discovery 24 pass / 6 explicit refusals"
+    },
+    {
+      "command": "CHROMIUM_EXECUTABLE=/tmp/chromium node test/comparison.mjs --strict",
+      "exit": 0,
+      "result": "unchanged strict gate, 24 pass / 6 refusals; no gaps/failures"
+    },
+    {
+      "command": "npm run test:native-support",
+      "exit": 0,
+      "result": "6 pass; helper tests, not native runtime"
+    },
+    {
+      "command": "node manifest.mjs (from experiment package directory)",
+      "exit": 0,
+      "result": "final source/dependency/environment manifest"
+    }
+  ],
+  "setup_notes": [
+    "Initial manifest invocation used repository root and failed MODULE_NOT_FOUND before execution; corrected working directory, no implementation change.",
+    "Two initial durable explorations passed all18; final strengthens zero-to-new-WAL, protection crash, concurrent duplicate and browser unknown-retry checks. Raw exploration logs retained; final report is authoritative.",
+    "PF source-ID mapping reviewed after exploratory runs: corruption PF-26/schema PF-24, historical task PF-20. No case assertion relaxed; PF scenarios remain partial/not fully qualified."
+  ],
+  "not_run": [
+    "macOS/native12/13",
+    "Windows",
+    "power/OS crash and VFS failures",
+    "full PM/Y editor to durable-owner integration",
+    "external attachment files, image/PDF decoding/rendering",
+    "provider sync, migrations, GC, backup, full task lifecycle"
+  ]
+}

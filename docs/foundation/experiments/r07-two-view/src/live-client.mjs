@@ -29,7 +29,12 @@ export async function remoteCommand(command) {
     throw new Error('TRANSPORT_OUTCOME_UNKNOWN');
   }
   if (!response.ok) throw new Error('RELAY_HTTP_' + response.status);
-  const envelope = await response.json();
+  let envelope;
+  try {
+    envelope = await response.json();
+  } catch {
+    throw new Error('TRANSPORT_OUTCOME_UNKNOWN');
+  }
   if (!envelope.ok) throw new Error(envelope.error);
   return envelope.result;
 }

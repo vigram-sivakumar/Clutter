@@ -47,3 +47,11 @@ them by implication.
   Match the downloaded filename exactly in quoted commands for
   /Users/sivakuv3/Downloads/Arc browser/. Explain prerequisites. Remember the user
   may be in the experiment subdirectory; change to the git root before git apply.
+
+- Latest checkpoint is revision 0.37: read r07-durable-authority.md and r07-29 evidence.
+  The separate P-SQL proof passes 18 bounded Linux cases; never describe it as the
+  full editor's durable integration, external attachment ordering or power-loss proof.
+  Next R08 review package proposes complete combinations/ADRs and remaining gates.
+  Do not rerun the user's manual session, enable providers or implement production
+  from these results. Stable operation identity survives transport/owner restart;
+  adapter retry must not generate a new operation after an unknown reply.
