@@ -177,12 +177,13 @@ try {
     );
     await check(
       'TB-12',
-      'handle in B targets B and typing enters the new cell',
+      'handle in focused B keeps its original active cell and caret',
       async () => {
+        await select('Four', 2, 2, 'B');
         await button('row', 'B').click();
         await page.keyboard.insertText('B-CELL');
-        assert.equal(await cell(4, 'B').innerText(), 'B-CELL');
-        assert.equal(await cell(4).innerText(), 'B-CELL');
+        assert.equal(await cell(3, 'B').innerText(), 'FoB-CELLur');
+        assert.equal(await cell(3).innerText(), 'FoB-CELLur');
       }
     );
     await check(
@@ -250,6 +251,113 @@ try {
           assert.match(JSON.stringify((await snap()).doc), /FOREIGN-CELL/);
         }
       );
+    for (const [id, axis] of [
+      ['TB-18', 'row'],
+      ['TB-19', 'column'],
+    ])
+      await check(
+        id,
+        'row 2 cell 2 caret/focus survives ' + axis + ' handle',
+        async () => {
+          await select('Four', 2);
+          await button(axis).click();
+          const s = await snap();
+          assert.equal(s.contexts.A.anchor, s.contexts.A.head);
+          assert.equal(
+            await page.evaluate(() =>
+              document.activeElement.getAttribute('aria-label')
+            ),
+            candidate === 'step' ? 'Editor view A' : 'Origin editor A'
+          );
+          await page.keyboard.insertText('X');
+          const table = page.locator(prefix + 'a table');
+          assert.equal(
+            await table.locator('tr').nth(1).locator('td').nth(1).innerText(),
+            'FoXur'
+          );
+          assert.deepEqual(
+            await shape(),
+            axis === 'row' ? { rows: 3, cells: 6 } : { rows: 2, cells: 6 }
+          );
+        }
+      );
+    await check(
+      'TB-20',
+      'immediate pointer cell placement survives handle click',
+      async () => {
+        await cell(3)
+          .locator('p')
+          .click({ position: { x: 8, y: 10 } });
+        await page.keyboard.press('End');
+        await button('column').click();
+        await page.keyboard.insertText('X');
+        assert.equal(
+          await page
+            .locator(prefix + 'a tr')
+            .nth(1)
+            .locator('td')
+            .nth(1)
+            .innerText(),
+          'FourX'
+        );
+      }
+    );
+    await check(
+      'TB-21',
+      'keyboard-activated handle restores the original cell caret',
+      async () => {
+        await select('Four', 2);
+        await page.keyboard.press('Escape');
+        await page.keyboard.press('Tab');
+        await page.keyboard.press('Enter');
+        await page.keyboard.insertText('X');
+        assert.equal(
+          await page
+            .locator(prefix + 'a tr')
+            .nth(1)
+            .locator('td')
+            .nth(1)
+            .innerText(),
+          'FoXur'
+        );
+      }
+    );
+    await check(
+      'TB-22',
+      'background handle does not steal the other view focus',
+      async () => {
+        await select('Four', 2, 2, 'A');
+        await button('row', 'B').click();
+        assert.equal(
+          await page.evaluate(() =>
+            document.activeElement.getAttribute('aria-label')
+          ),
+          candidate === 'step' ? 'Editor view A' : 'Origin editor A'
+        );
+        await page.keyboard.insertText('X');
+        assert.equal(await cell(3, 'A').innerText(), 'FoXur');
+      }
+    );
+    await check(
+      'TB-23',
+      'handle preserves backward text range instead of selecting a new cell',
+      async () => {
+        await select('Four', 4, 1);
+        await button('column').click();
+        const c = (await snap()).contexts.A;
+        assert.ok(c.anchor > c.head);
+        await page.keyboard.insertText('X');
+        assert.equal(
+          await page
+            .locator(prefix + 'a tr')
+            .nth(1)
+            .locator('td')
+            .nth(1)
+            .innerText(),
+          'FX'
+        );
+      }
+    );
   }
   for (const [axis, index] of [
     ['row', 4],

@@ -119,13 +119,14 @@ manual checklist. `npm run native:mac` builds a separate AppKit/WKWebView .app a
 saves reports locally. Swift compilation/native launch is not verified on the
 current Linux host. Automatic fixture checks are separate from native observations.
 
-## Confirmed table profile (patch 05)
+## Confirmed table profile (patches 05–06)
 
 [Table contract](../../table-interaction-contract.md) supersedes earlier table
 defaults. Enter moves down the same column and stops at the bottom. Shift+Enter
 inserts an in-cell hard break. Tab/Shift+Tab arrive at cell text end; final Tab
 stays put. Bottom/right handles append a row/column explicitly. Escape exposes
-keyboard-accessible handles. No navigation command creates structure.
+keyboard-accessible handles. Adding either axis preserves the original active
+cell, caret/selection and focus. No navigation command creates structure.
 
 Run `npm run test:tables` for both candidates. Table navigation, handle operations
 and safety checks are separated from the explicitly failing unguarded structural

@@ -1,5 +1,6 @@
 import { TableView } from 'prosemirror-tables';
 import { appendTableAxis, cellContext } from './table-command.mjs';
+import { reconcileNativeTextSelection } from './selection-preflight.mjs';
 
 // Shared presentation adapter. Both candidates submit identical table operations
 // through their own existing authority; button DOM never stores table content.
@@ -18,7 +19,11 @@ export function tableView(node, view, getPos, boundary = () => {}) {
     button.className = 'table-add table-add-' + axis;
     button.setAttribute('aria-label', label);
     button.title = label;
-    button.addEventListener('pointerdown', (event) => event.preventDefault());
+    button.addEventListener('pointerdown', (event) => {
+      // Reconcile a just-clicked native caret before suppressing button focus.
+      reconcileNativeTextSelection(view, event);
+      event.preventDefault();
+    });
     button.addEventListener('click', () => {
       let position;
       try {
@@ -28,6 +33,12 @@ export function tableView(node, view, getPos, boundary = () => {}) {
       }
       if (view.isDestroyed || typeof position !== 'number' || !view.editable)
         return;
+      const focused = view.dom.ownerDocument.activeElement;
+      const restoreEditor =
+        focused === view.dom ||
+        focused === button ||
+        focused === view.dom.ownerDocument.body ||
+        !focused;
       boundary('before', axis);
       const changed = appendTableAxis(
         view.state,
@@ -36,7 +47,7 @@ export function tableView(node, view, getPos, boundary = () => {}) {
         axis
       );
       boundary(changed ? 'after' : 'cancel', axis);
-      if (changed) view.focus();
+      if (changed && restoreEditor && !view.hasFocus()) view.focus();
     });
     base.dom.append(button);
   }

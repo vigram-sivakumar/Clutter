@@ -1,6 +1,6 @@
 # Table interaction contract
 
-Revision 0.14, confirmed by the user on 2026-11-14 during the native R07 trial.
+Revision 0.15, confirmed by the user on 2026-11-14 during the native R07 trial.
 This is the authority for the agreed table navigation/addition behaviour. It
 supersedes the earlier Q-04/EI-068/EI-069 exploratory defaults. Representation,
 editor engine and final handle styling remain implementation choices.
@@ -13,6 +13,7 @@ editor engine and final handle styling remain implementation choices.
 | TB-C04 | Tab/Shift+Tab move forward/backward through existing cells in row-major order. Arrival places the caret at the destination text end; it does not select all cell text. |
 | TB-C05 | Tab in the final cell stays there. It does not change content, caret, focus or dimensions.                                                                             |
 | TB-C06 | New rows and columns require explicit row/column handles. No navigation key creates them. Keyboard activation of a focused handle is an explicit handle action.        |
+| TB-C08 | Adding either axis preserves the original active cell, caret/selection and editor focus. Row 2, cell 2 remains active when a row or column is added.                   |
 | TB-C07 | All operations use the same document authority, update other views and preserve unrelated content. Unsafe undo must not delete another context's work.                 |
 
 This is an editor navigation rule, not a requirement for DOM handles in headless
@@ -21,8 +22,8 @@ semantics rather than implement independent storage writes.
 
 The user supplied Craft/Notion images as handle references, not a requirement to
 copy their entire editor. The prototype uses an append-row handle below the table
-and append-column handle on its right. Each adds one axis and focuses a new empty
-cell. Fine-grained row/column menus, dragging, resizing, deletion and merged-cell
+and append-column handle on its right. Each adds one axis while preserving the
+original active cell, caret/selection and editor focus. Fine-grained row/column menus, dragging, resizing, deletion and merged-cell
 behaviour are not settled by this navigation decision. Do not invent them as
 confirmed product scope.
 

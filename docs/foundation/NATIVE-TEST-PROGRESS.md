@@ -1,6 +1,6 @@
 # Native test progress and next action
 
-Updated 2026-11-14, revision 0.14. Maintain this alongside START-HERE at every native
+Updated 2026-11-14, revision 0.15. Maintain this alongside START-HERE at every native
 handoff. Evidence sources are explicit; no native JSON report has been uploaded yet.
 
 ## Observed so far
@@ -14,7 +14,7 @@ handoff. Evidence sources are explicit; no native JSON report has been uploaded 
 | Origin fixture checks       | Not reported; do not infer from the step window.                                                                                                                             |
 | Old NM-01 partial trial     | User reports last-cell navigation created one row and entered New. This was only one variation and the old proposal is now superseded; never mark full NM-01 passed from it. |
 | Native keyboard feedback    | User identifies whole-cell text selection as wrong and confirms the table contract linked below.                                                                             |
-| Current NM-01               | Requires rerun after patch 05; no current-contract native pass yet.                                                                                                          |
+| Current NM-01               | User said “All good” after 05 without a detailed verdict/report; focus retention clarified afterward. Patch 06 native retest pending.                                        |
 | NM-02–NM-08                 | Not formally reported. Practice edits/screenshots are not passing verdicts.                                                                                                  |
 | Native JSON report review   | Pending. No architecture, framework or editor accepted.                                                                                                                      |
 
@@ -23,18 +23,20 @@ handoff. Evidence sources are explicit; no native JSON report has been uploaded 
 [Table contract](table-interaction-contract.md) owns the exact rules. Enter moves
 down the same column and does nothing at the bottom. Shift+Enter is an in-cell
 line break. Tab/Shift+Tab arrive at cell text end with no whole-text selection.
-Final-cell Tab stays put. Row/column handles are the explicit creation mechanism.
+Final-cell Tab stays put. Row/column handles are the explicit creation mechanism;
+adding either axis preserves the original active cell, caret/selection and focus.
 The user permits replacing the entire existing app/editor implementation.
 
 ## Next user action
 
 1. Quit the old lab with Command-Q so old code/cases are not mixed with a new build.
    Keep its saved report; it remains historical evidence.
-2. Apply `Clutter R07 Table Interaction Update 05.patch` after 04, then run
+2. Apply `Clutter R07 Preserve Table Focus 06.patch` after 05, then run
    `npm run native:mac` from the experiment folder. No dependency changes.
 3. In the guarded step window, run Fixture checks, then select the revised NM-01.
-4. Guide **one variation at a time**. First: click One, press Tab and type X;
-   expected TwoX with a collapsed caret and no selected text. Do not mark the whole
+4. Guide **one variation at a time**. First: click inside Four (row 2, cell 2), click Add row, then type X;
+   expected X inserted at the original caret inside Four, with focus still there.
+   Repeat with Add column as a separate variation. Do not mark the whole
    case passed until Enter, bottom boundaries, Shift+Enter, wrapping and handles
    have been checked. Then repeat the table case in the origin window.
 5. Record pass/fail/blocked in the native UI, with actual chords/input source.

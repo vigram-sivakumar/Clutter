@@ -14,6 +14,7 @@ them by implication.
 - table-interaction-contract.md owns confirmed table behaviour. Enter moves down
   the same column and stops at the bottom; Shift+Enter is an in-cell break; Tab/
   Shift+Tab arrive at text end; final Tab stays put; handles add rows/columns.
+  Adding an axis preserves the original active cell, caret/selection and focus.
   Do not restore the withdrawn auto-growth or whole-cell-selection defaults.
 - Preserve earlier test artifacts and raw controls. Legacy controls intentionally
   implement old policies and are not current product acceptance oracles. An expected

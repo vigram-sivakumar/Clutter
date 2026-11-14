@@ -87,14 +87,9 @@ export function appendTableAxis(state, dispatch, tablePos, axis) {
     targetState,
     dispatch &&
       ((tr) => {
-        const updated = TableMap.get(tr.doc.nodeAt(tablePos));
-        const offset =
-          axis === 'row'
-            ? updated.map[(updated.height - 1) * updated.width]
-            : updated.map[updated.width - 1];
-        dispatch(
-          tr.setSelection(cellEnd(tr.doc, start + offset)).scrollIntoView()
-        );
+        // Placement of the addition uses a temporary last-axis selection, but
+        // the user's original selection belongs to the view and stays mapped.
+        dispatch(tr.setSelection(state.selection.map(tr.doc, tr.mapping)));
       })
   );
 }

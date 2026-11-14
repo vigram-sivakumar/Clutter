@@ -76,9 +76,11 @@ test('table commands leave ordinary paragraph keys to their existing handlers', 
 });
 for (const axis of ['row', 'column']) {
   test(
-    'explicit ' + axis + ' handle appends only that axis and focuses new cell',
+    'explicit ' +
+      axis +
+      ' handle appends only that axis and preserves active cell',
     () => {
-      const before = stateAt('One');
+      const before = stateAt('Four', 2);
       let pos;
       before.doc.descendants((n, p) => {
         if (n.type.name === 'table') pos = p;
@@ -92,8 +94,31 @@ for (const axis of ['row', 'column']) {
       assert.equal(table.childCount, axis === 'row' ? 3 : 2);
       assert.equal(table.firstChild.childCount, axis === 'column' ? 3 : 2);
       assert.equal(next.selection.empty, true);
-      assert.equal(next.selection.$head.parent.textContent, '');
+      assert.equal(next.selection.$head.parent.textContent, 'Four');
+      assert.equal(next.selection.$head.parentOffset, 2);
       assert.equal(next.doc.child(2).attrs.id, 't1');
     }
   );
 }
+
+for (const axis of ['row', 'column'])
+  test(
+    axis + ' insertion preserves a backward selection in the original cell',
+    () => {
+      const base = stateAt('Four'),
+        start = textPosition(base.doc, 'Four');
+      const state = EditorState.create({
+        doc: base.doc,
+        selection: TextSelection.create(base.doc, start + 4, start + 1),
+      });
+      let tablePos;
+      state.doc.descendants((n, p) => {
+        if (n.type.name === 'table') tablePos = p;
+      });
+      let next;
+      appendTableAxis(state, (tr) => (next = state.apply(tr)), tablePos, axis);
+      assert.equal(next.selection.$anchor.parent.textContent, 'Four');
+      assert.equal(next.selection.$anchor.parentOffset, 4);
+      assert.equal(next.selection.$head.parentOffset, 1);
+    }
+  );

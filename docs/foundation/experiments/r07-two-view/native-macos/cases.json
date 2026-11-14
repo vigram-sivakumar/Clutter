@@ -7,10 +7,11 @@
     "steps": [
       "Reset using Fixture checks. In A, press Tab from One and Shift-Tab from Four, then type: text must append at the destination cell end, without selecting its contents.",
       "Enter in One/Two moves down the same column. Enter anywhere on the bottom row does nothing. Shift-Enter inserts a line break inside the cell.",
-      "In the final cell press Tab: it stays there and adds nothing. Use the bottom Add row and right Add column handles to append explicitly; verify B matches. Escape in a cell focuses the row handle for keyboard access."
+      "In the final cell press Tab: it stays there and adds nothing. Use the bottom Add row and right Add column handles to append explicitly; verify B matches. Escape in a cell focuses the row handle for keyboard access.",
+      "Place the caret inside Four (row 2, cell 2). Add a row, then type X: the original cell/caret must receive X. Reset and repeat Add column. Also check keyboard activation restores that caret."
     ],
-    "expected": "No row or column is created by Enter/Tab. Navigation changes only the caret; Shift-Enter changes only the current cell. Handles add one axis at a time through the shared authority. The old automatic-growth native trial was a superseded proposal, not this contract. Record physical chords and any unexpected selection/focus.",
-    "contractRevision": "table-policy-2026-11-14"
+    "expected": "No row or column is created by Enter/Tab. Navigation changes only the caret; Shift-Enter changes only the current cell. Handles add one axis at a time through the shared authority. The old automatic-growth native trial was a superseded proposal, not this contract. Record physical chords and any unexpected selection/focus. Adding a row or column preserves the original active cell, caret/selection and editor focus; it never jumps to a newly created cell.",
+    "contractRevision": "table-policy-focus-2026-11-14"
   },
   {
     "id": "NM-02",

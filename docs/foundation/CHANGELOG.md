@@ -3,6 +3,18 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.15 — 2026-11-14
+
+- Confirmed TB-C08: explicit row/column insertion preserves the original active
+  cell, caret/selection and editor focus. Replaces the provisional new-cell focus.
+- Updated both isolated candidates and regression coverage for row 2/cell 2,
+  immediate pointer placement, keyboard handle activation, backward selections and
+  background-view focus. Native NM-01/catalogue and agent checkpoint updated.
+- 53 Node checks, 46 candidate table-browser checks and existing regression suites
+  passed on Linux; raw structural undo failures remain diagnostic controls.
+  See evidence/r07-06-2026-11-14.json. Mac focus retest remains pending.
+- Incremental patch 06 over exact 05; production, dependencies and Swift unchanged.
+
 ## 0.14 — 2026-11-14
 
 - Recorded confirmed table keyboard/addition policy: same-column Enter/bottom no-op,
