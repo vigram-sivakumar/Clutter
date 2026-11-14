@@ -102,3 +102,18 @@ agreed delivery phase; no claim of comment completion from a fixture-only schema
 Report core correctness, integration bugs and temporary dependency patches separately.
 No production editor switch without native acceptance; no provider enablement
 without durable overwritten versions and coherent task/delete reconciliation.
+
+## R05 provider qualification boundary
+
+Use [SC cases](provider-sync-cases.json) for protocol simulation and the
+[feasibility record](provider-feasibility.md) for exact-route native experiments.
+Resolve SY-04 and supply runnable fixtures/budgets before claiming convergence;
+static review or successful file transfer is insufficient.
+
+## R06 qualification preparation
+
+[R06 readiness](qualification-readiness.md) defines the concrete first two-view
+experiment and scoped entry gates. Use [editor qualification](editor-qualification-plan.md),
+[budgets](qualification-budgets.json), [candidate template](qualification-candidate-template.json)
+and [HQ scenarios](host-security-cases.json). Candidate locks/native environment and
+relevant policy approval remain outstanding; no executed R06 proof is claimed.

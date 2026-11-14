@@ -91,3 +91,10 @@ The 0.7 persistence patch requires the exact 0.6 delivery. It supplies candidate
 commit/ack/root/failure contracts and primary references, not a storage implementation
 or a tested journal/flush profile. PF cases remain unexecuted; native/provider
 qualification is pending. No unrelated main changes were merged into this branch.
+
+## R06 qualification preparation
+
+The 0.9 patch is incremental over the exact 0.8 Provider Sync delivery. The user
+reported R05 done; remote commit confirmation remains separate. [R06 readiness](qualification-readiness.md)
+records next experiment scope and unqualified areas. Keep the same branch and new
+files within this folder; no agent commit/push or production implementation here.

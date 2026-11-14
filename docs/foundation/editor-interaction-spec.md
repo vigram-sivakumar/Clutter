@@ -257,3 +257,10 @@ explicit variant instances are frozen. R07 records execution later; R08 selects
 technology from that evidence. R03 must specify canonical identity, mapping and
 command/inverse contracts that make these behaviours possible, without silently
 binding the product to Markdown mechanics or PM internals.
+
+## R06 qualification preparation
+
+[R06 qualification plan](editor-qualification-plan.md) defines native evidence and
+stop conditions without duplicating these seed oracles. Its [instance catalogue](editor-qualification-instances.json)
+expands timing and native/race probes; all are not-run. Q-01–Q-09 remain open for
+binding acceptance. The user allows full implementation replacement.

@@ -94,3 +94,16 @@ owns per-operation signature sketches and 24 unexecuted contract scenarios. The
 overview is a capability map, not a second signature registry. Internal sync and
 maintenance operations are not automatically public CLI/MCP tools. All R03 contracts
 remain conditional until wire schemas, policy choices and runtime evidence are ready.
+
+## R05 provider qualification boundary
+
+[R05 protocol](provider-sync-spec.md) keeps provider ingestion behind internal core
+capabilities. SY-08 leaves sync-once/status exposure and process lifetime for R06;
+no new implemented public command is claimed.
+
+## R06 qualification preparation
+
+[Local security](local-security-api-spec.md) supplies proposed admission/grant and
+CLI/MCP framing boundaries. [Platform lifecycle](platform-boundaries-spec.md)
+separates durable outcomes from process/transport lifetime; exact wire/exit codes
+remain unaccepted and the R03 logical operation count stays 51.

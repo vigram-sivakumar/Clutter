@@ -348,3 +348,9 @@ is accepted merely because these contracts can be written for it.
 
 P-ROOT/P-TEXT protocols and Clutter-specific failure requirements above are design
 proposals/inferences, not claims that SQLite documentation validates another backend.
+
+## R05 provider qualification boundary
+
+[R05 protocol](provider-sync-spec.md) consumes this document’s outbox, inbound
+progress and protected-root contracts. Transport acknowledgements do not strengthen
+local durability or release history/media roots by themselves.

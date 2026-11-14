@@ -80,8 +80,21 @@ invariants; M-01–M-07 and Q-01–Q-09 remain unapproved policy/encoding gaps. 
 runtime/domain/protocol tests were run. R04 now has conditional [persistence contracts](vault-persistence-spec.md) and
 [30 unexecuted fault scenarios](persistence-contract-cases.json), comparing P-SQL/
 P-ROOT/P-TEXT. PS-01–PS-07 remain open; no crash/backend/native proof is claimed.
-Next is R05 provider packaging, deterministic ordering, deletion/history/media
-coherence and actual iCloud/Drive feasibility specification, preserving M/Q/PS gaps. [START-HERE](START-HERE.md)
+R05 provider protocol/feasibility and R06 qualification preparation are now drafted;
+R07 experiment setup is next, preserving M/Q/PS/SY/PL/SEC gaps. [START-HERE](START-HERE.md)
 records handoff/authorization and [roadmap](roadmap.md) orders specifications,
 qualification and implementation. These navigation documents do not accept any
 technical decision or duplicate product rules.
+
+## R05 provider qualification boundary
+
+[R05 protocol](provider-sync-spec.md) owns SY-01–SY-08 rather than duplicating
+provider decisions here. D-08 remains unaccepted while causal ordering and coherent
+task ownership are unqualified; [feasibility](provider-feasibility.md) is research only.
+
+## R06 qualification preparation
+
+[Editor qualification](editor-qualification-plan.md) tightens D-01/D-05 gates;
+[platform](platform-boundaries-spec.md) owns PL-01–PL-05 and [security](local-security-api-spec.md)
+owns SEC-01–SEC-04. [Budgets](qualification-budgets.json) are D-11 proposals, not
+measurements. R07 setup is next; no technology was accepted or runtime qualified.

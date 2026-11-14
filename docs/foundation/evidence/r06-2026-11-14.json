@@ -1,0 +1,43 @@
+{
+  "document": "R06 static specification validation evidence",
+  "date": "2026-11-14",
+  "revision": "0.9",
+  "scope": "Documentation consistency and incremental patch reproduction, not target runtime qualification",
+  "source_branch": "architecture/clutter-foundation",
+  "source_head": "f22a5cd182c171ae9bfaf22f7ac320019fb9a4ec",
+  "incremental_base_tree": "19821639dee86e2ef3b4912df1d1e715da4588de",
+  "environment": {
+    "os": "Linux",
+    "node": "v24.22.1",
+    "python": "3.12.14"
+  },
+  "static_checks": {
+    "markdown_relative_links": "passed",
+    "balanced_fences": "passed",
+    "json_parse": "passed",
+    "seed_refs_and_unchanged_r02_catalogue": "passed",
+    "unique_instances_and_not_run_status": "passed",
+    "pl_sec_ledger_coverage": "passed",
+    "workload_references_and_unicode_corpus": "passed",
+    "candidate_null_fields_and_repository_lock_digest": "passed",
+    "checkpoint_roadmap_next": "R07"
+  },
+  "catalogue_counts": {
+    "editor_seed_timing_instances": 102,
+    "additional_editor_probes": 16,
+    "host_security_scenarios": 18
+  },
+  "execution_status": {
+    "new_editor_cases": "not-run",
+    "native_macOS_keyboard_IME_VoiceOver": "not-run; native environment unavailable",
+    "host_IPC_security_faults": "not-run",
+    "performance_measurements": "not-run",
+    "provider_simulation_and_accounts": "not-run"
+  },
+  "limitations": [
+    "No candidate locked, selected, built or installed.",
+    "No target architecture implementation or production change.",
+    "Budgets are proposals, not measurements or approved product limits.",
+    "User reported R05 done; remote branch still at f22a5cd when checked."
+  ]
+}

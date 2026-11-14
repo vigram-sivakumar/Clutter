@@ -3,6 +3,33 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.9 — 2026-11-14
+
+- Added R06 headless lifecycle/platform and local API security proposals with PL/SEC
+  decision ledgers; app/CLI/MCP remain peers over one shared operation boundary.
+- Prioritized native editor qualification: 102 unexecuted seed/timing instances,
+  16 additional native/race probes, evidence rules and explicit blocking failures.
+- Added proposed numeric performance/input/queue budgets, deterministic workload
+  recipes, 18 unexecuted HQ scenarios and a reproducibility template with honest gaps.
+- Recorded explicit permission to replace the entire current implementation; no
+  existing editor/framework/storage choice constrains the target architecture.
+- Corrected R04 patch revision typo in checkpoint (0.7); recorded user's R05 done
+  report separately from remote verification. Main advance was observed, not merged.
+- R07 isolated experiment preparation is next. Native macOS/IME/accessibility,
+  process/security/provider tests and runnable target prototypes remain unexecuted.
+
+## 0.8 — 2026-11-14
+
+- Added conditional R05 provider protocol, immutable publication, baseline/rebind,
+  causal-order proposal, durable discovery, status and retention contracts.
+- Kept cross-document task ownership/recurrence reconciliation as SY-04 release
+  blocker; unrelated documents cannot be discarded through whole-Space latest-wins.
+- Reviewed official Apple/Google documentation; separated candidate routes from
+  native qualification, Windows visibility and actual account/client configuration.
+- Added 30 unexecuted SC scenarios and SY-01–SY-08 ledger. No provider connection,
+  simulation, native test, production edit or old-document change was performed.
+- R06 platform/security/qualification preparation is next. Updated resumable handoff.
+
 ## 0.7 — 2026-11-14
 
 - Added conditional R04 vault persistence: commit/ack/protection vocabulary,

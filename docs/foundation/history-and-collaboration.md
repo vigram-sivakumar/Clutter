@@ -89,3 +89,9 @@ snapshot leases. It distinguishes current durable state from recovery-protected
 input and automatic history from outcome/deduplication records. Retention budgets,
 purge policy and native durability still need qualification; no automatic backup
 feature is added by the snapshot seam.
+
+## R05 provider qualification boundary
+
+[R05 protocol](provider-sync-spec.md) defines proposed losing-state publication and
+retention boundaries. SY-06 must settle the promised replicated history/pin scope;
+provider trash is not Clutter version history.

@@ -134,3 +134,16 @@ encodings and records PS decisions rather than selecting a backend. Read models
 and notifications follow committed/protected state; they are never the sole copy
 of accepted canonical entities. No native crash or storage guarantee was qualified
 by preparing this specification.
+
+## R05 provider qualification boundary
+
+Provider adapters remain subordinate to core validation/reconciliation. See the
+[protocol](provider-sync-spec.md) for package/effect ownership and SY-04, which blocks
+provider enablement until coherent task reconciliation is selected and tested.
+
+## R06 qualification preparation
+
+[Platform proposal](platform-boundaries-spec.md) owns startup/lifetime/ownership,
+provisional-input reconciliation and PL decisions. [Local security](local-security-api-spec.md)
+owns transport/grants and SEC decisions. These are conditional contracts, not an
+accepted host language/topology. Every existing component may be replaced.

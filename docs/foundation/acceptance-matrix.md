@@ -77,3 +77,17 @@ and related context/root cases. All are unexecuted. Distinguish process kill fro
 actual OS/power durability, single-file atomic replace from multi-entity commit,
 complete snapshot from database-only copy, and index rebuild from canonical repair.
 The existing R01 run and static catalogue validation do not pass these new gates.
+
+## R05 provider qualification boundary
+
+[SC-01–SC-30](provider-sync-cases.json) expand provider qualification with explicit
+forbidden outcomes. All remain not-run; SY-04 ownership reconciliation is a release
+blocker, and native/provider routes require independent evidence.
+
+## R06 qualification preparation
+
+T-01/T-02/T-03 consume [editor qualification instances](editor-qualification-instances.json)
+and native evidence rules in [the plan](editor-qualification-plan.md). T-04/T-07/T-21
+consume [HQ cases](host-security-cases.json); T-15 consumes proposed [budgets](qualification-budgets.json).
+All new instances/scenarios are not-run. [Readiness](qualification-readiness.md)
+separates exploratory setup, binding acceptance and native/provider availability.
