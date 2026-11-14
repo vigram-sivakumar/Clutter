@@ -66,7 +66,8 @@ same checkout. No commit/push occurs unless explicitly requested.
 separate conflicting task order. [START-HERE](START-HERE.md) is the current-session
 checkpoint and reusable new-chat instruction. Update both at handoff with real
 evidence/status. Revision 0.4 completes the bounded R01 source/wiring inventory and records selected
-existing-test evidence; R02 editor interaction specification is next. No production
+existing-test evidence; R02 is now drafted; Q-01–Q-09 policy review/execution remain. R03 conditional
+model/API drafts are next, without silently accepting a profile or engine. No production
 implementation or native qualification has started.
 The 0.3 resume update patch requires 0.2 file contents and stays on the same branch.
 
@@ -74,3 +75,8 @@ The 0.4 inventory patch is based on verified remote foundation commit f22a5cd,
 which contains the previous three deliveries. Do not reapply older patches to that
 commit. Initial dependency-load failures and their targeted reruns stay explicit; completing
 an inventory is not a full-suite/clean-install or native qualification claim.
+
+The 0.5 editor-interaction patch requires the exact 0.4 inventory delivery. It
+adds specification/case data, not a runnable test harness, engine choice or product
+implementation. Source/structured behaviour differs deliberately; shared correctness
+and task/page guarantees do not. See R02 policy review before freezing keymaps.

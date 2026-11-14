@@ -1,0 +1,1747 @@
+{
+  "document": "R02 editor interaction case catalogue",
+  "revision": "0.5",
+  "date": "2026-11-14",
+  "status": "specification-only; no interaction cases executed",
+  "vocabulary": "Semantic fixture notation only, not canonical storage schema, PM node JSON, CM offsets or product API signatures. Source/structured cases deliberately differ.",
+  "offset_convention": "ASCII offsets in plain text cases are zero-based boundaries; Unicode cases use named whole-grapheme boundaries. Candidate adapters must map safely to engine offsets.",
+  "all_cases_inherit": "Requirements and invariants in editor-interaction-spec.md; reset fixtures per case, record candidate profile and actual runtime bindings. No automatic acceptance of proposed cases.",
+  "fixtures": {
+    "FX-TEXT": {
+      "description": "Two plain paragraphs; no formatting, task placement or hidden metadata.",
+      "blocks": [
+        {
+          "id": "p1",
+          "kind": "paragraph",
+          "text": "Alpha beta"
+        },
+        {
+          "id": "p2",
+          "kind": "paragraph",
+          "text": "Gamma delta"
+        }
+      ]
+    },
+    "FX-LIST": {
+      "description": "A logical bullet list; IDs below name fixture items, not a required database schema.",
+      "items": [
+        {
+          "id": "l1",
+          "text": "First",
+          "indent": 0
+        },
+        {
+          "id": "l2",
+          "text": "Second",
+          "indent": 0
+        },
+        {
+          "id": "l3",
+          "text": "",
+          "indent": 0
+        }
+      ]
+    },
+    "FX-TASK": {
+      "description": "Task t1 has one placement in note n1; n2 is empty; inbox exists. Opening a task page is another view of its body.",
+      "task": {
+        "id": "t1",
+        "title": "Send proposal",
+        "body": [
+          {
+            "id": "tp1",
+            "text": "Budget details"
+          }
+        ],
+        "fields": {
+          "completed": false,
+          "scheduled": "2026-11-16",
+          "deadline": "2026-11-20"
+        },
+        "custom": {
+          "Priority": {
+            "type": "text",
+            "value": "High"
+          }
+        },
+        "location": {
+          "note": "n1",
+          "placement": "b-task1"
+        }
+      },
+      "notes": {
+        "n1": ["p-before", "b-task1", "p-after"],
+        "n2": []
+      }
+    },
+    "FX-TABLE": {
+      "description": "Plain 2 by 2 editable table, no merged cells, no header-only restrictions.",
+      "id": "table1",
+      "rows": [
+        ["A1", "B1"],
+        ["A2", "B2"]
+      ],
+      "cell_ids": [
+        ["a1", "b1"],
+        ["a2", "b2"]
+      ],
+      "surrounding_paragraphs": {
+        "p-before": "Before",
+        "p-after": "After"
+      }
+    },
+    "FX-MEDIA": {
+      "description": "Source note n1 has plain paragraph p-before, image placement im1, PDF placement pdf1, read-only page embed em1 targeting n2, then p-after. n2 contains Original.",
+      "image_asset": "img-a",
+      "pdf_asset": "pdf-a",
+      "embed_target": "n2",
+      "source_order": ["p-before", "im1", "pdf1", "em1", "p-after"],
+      "paragraph_text": {
+        "p-before": "Before",
+        "p-after": "After"
+      }
+    },
+    "FX-CODE": {
+      "description": "Code block c1, language plain text; line breaks and whitespace are literal.",
+      "id": "c1",
+      "text": "one\n  two"
+    },
+    "FX-DATE": {
+      "description": "Paragraph p1 contains Review plus a date mention d1 resolved on insertion to 2026-11-14. No reminder initially.",
+      "mention": {
+        "id": "d1",
+        "date": "2026-11-14",
+        "reminder": null
+      },
+      "clock": {
+        "date": "2026-11-14",
+        "zone": "Asia/Kolkata"
+      }
+    },
+    "FX-UNICODE": {
+      "description": "Four independent text fixtures; cursor anchors use named grapheme boundaries rather than assumed engine offsets.",
+      "texts": {
+        "emoji": "A👩🏽‍💻B",
+        "combining": "AéB",
+        "flag": "A🇮🇳B",
+        "bidi": "Hello שלום world"
+      }
+    },
+    "FX-VIEWS": {
+      "description": "Views A/B share logical FX-TEXT at accepted revision r0; contexts ca/cb; selections independent. Window A is focused.",
+      "document": "n1",
+      "base_fixture": "FX-TEXT",
+      "views": {
+        "A": {
+          "context": "ca",
+          "caret": "p1@5"
+        },
+        "B": {
+          "context": "cb",
+          "caret": "p2@5"
+        }
+      }
+    },
+    "FX-UNKNOWN": {
+      "description": "One opaque unsupported block u1 between plain p1/p2; original payload/asset references retained exactly.",
+      "opaque_id": "u1",
+      "payload": {
+        "vendor": "example",
+        "version": 99,
+        "bytes": "opaque-original"
+      },
+      "asset_roots": ["opaque-asset"]
+    },
+    "FX-WRAP": {
+      "description": "A paragraph spans at least three measured visual lines. Harness pins font, width, zoom and direction; positions are measured before each movement. Not a fixed engine-specific offset fixture.",
+      "paragraph": "wrap1",
+      "text": "A long paragraph with several words that wraps over multiple visual lines at the fixed harness width."
+    }
+  },
+  "cases": [
+    {
+      "id": "EI-001",
+      "title": "Insert plain text",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-05"],
+      "acceptance": ["T-01", "T-03"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "Collapsed p1@5, between Alpha and space.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Type X once.",
+      "expected": {
+        "document": "p1 becomes AlphaX beta; p2 unchanged.",
+        "selection": "Collapsed p1@6 after X.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "One undo restores Alpha beta and original caret; redo restores the insertion."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-002",
+      "title": "Replace selected text immediately",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-05"],
+      "acceptance": ["T-01", "T-03"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "Forward selection p1@6 to p1@10 (beta).",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Type team without an artificial settlement wait.",
+      "expected": {
+        "document": "p1 becomes Alpha team; p2 unchanged.",
+        "selection": "Collapsed after team.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "One replacement group; undo restores beta and its logical selection."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-003",
+      "title": "Backward selection replacement",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-05"],
+      "acceptance": ["T-01", "T-03"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "Anchor p1@10, head p1@6 (backward beta).",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Type team immediately.",
+      "expected": {
+        "document": "Same semantic result as EI-002; no text outside beta changes.",
+        "selection": "Collapsed after team, never at the old anchor.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "Undo restores beta and the original backward logical anchor/head selection; redo replaces the same intended range."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-004",
+      "title": "Extend and contract keyboard selection",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03"],
+      "acceptance": ["T-01"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "Collapsed p1@5.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Shift+Left once, then Shift+Right once.",
+      "expected": {
+        "document": "Unchanged.",
+        "selection": "After first action select a in Alpha; after second return collapsed p1@5.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "No new undo group."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-005",
+      "title": "Plain forward/backward deletion",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-05"],
+      "acceptance": ["T-01", "T-03"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "Run independently at p1@5 and p1@6.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "At p1@5 Backspace; reset; at p1@6 forward-delete.",
+      "expected": {
+        "document": "First result Alph beta; independent second result Alpha eta.",
+        "selection": "First caret p1@4; second p1@6.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "Each deletion is independently undoable; reset between variants."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-006",
+      "title": "Grapheme deletion",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-23"],
+      "acceptance": ["T-01"],
+      "initial": {
+        "fixture": "FX-UNICODE",
+        "selection": "Caret immediately after the whole emoji/combining/flag cluster; run each independently.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Backspace once using the active text input context.",
+      "expected": {
+        "document": "For emoji/combining/flag fixtures respectively, AB; no lone joiners, modifiers, combining marks or surrogate fragments.",
+        "selection": "Between A and B.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "Undo restores the whole removed cluster once."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-007",
+      "title": "Grapheme and bidirectional navigation",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-23"],
+      "acceptance": ["T-01"],
+      "initial": {
+        "fixture": "FX-UNICODE",
+        "selection": "Before each whole cluster; additionally use both ends and direction transitions of bidi text.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Arrow and Shift+Arrow through the text in the declared platform movement convention.",
+      "expected": {
+        "document": "Unchanged.",
+        "selection": "Only valid text/grapheme boundaries; visual/logical bidi order declared by platform profile and browser/model mapping agrees.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "No new undo group."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-008",
+      "title": "Wrapped vertical movement",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03"],
+      "acceptance": ["T-01"],
+      "initial": {
+        "fixture": "FX-WRAP",
+        "selection": "Middle of measured second visual line at x coordinate X.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Up once, then Down once without horizontal movement.",
+      "expected": {
+        "document": "Unchanged.",
+        "selection": "Nearest valid boundary at retained preferred X on line one, then line two; no jump to another block or hidden markup.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "No new undo group."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-009",
+      "title": "Word and line movement",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-23"],
+      "acceptance": ["T-01"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "p1@8 inside beta.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Invoke declared macOS word-left, then line-start; repeat with Shift modifiers.",
+      "expected": {
+        "document": "Unchanged.",
+        "selection": "Word-left reaches beta start p1@6; line-start reaches first visual text boundary. Shift variants extend from original anchor.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "No new undo group."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-010",
+      "title": "Near-focus navigation regression",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-23"],
+      "acceptance": ["T-01"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "Focus another control, restore p1@8 programmatically.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Immediately invoke the declared line-start binding, then type X; repeat at 0/50/199/201/300 ms delays.",
+      "expected": {
+        "document": "p1 becomes XAlpha beta.",
+        "selection": "Caret immediately after X; no later focus recovery restores p1@8.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "Undo removes only X. Physical Home/End additionally obey the platform binding declaration, not an assumed Linux caret movement."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-011",
+      "title": "Select all scoped to focused field",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-14"],
+      "acceptance": ["T-01", "T-08"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "Focus document body; repeat independently in title field and find field.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Primary+A then type X.",
+      "expected": {
+        "document": "Only the active editable field/document selection is replaced. Document-body variant contains X; title/find variants leave body unchanged.",
+        "selection": "Caret in replaced focused field.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "Document changes undo in document context; field-local input does not undo unrelated body."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-012",
+      "title": "Pointer drag in both directions",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03"],
+      "acceptance": ["T-01"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "At rendered p1 start; run reverse independently from p1 end.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Drag over exactly beta; immediately type Z.",
+      "expected": {
+        "document": "p1 becomes Alpha Z in both variants.",
+        "selection": "Caret after Z; recorded drag direction preserved before replacement.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "One replacement group."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-013",
+      "title": "Cross-paragraph text selection",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-10"],
+      "acceptance": ["T-01", "T-09"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "Anchor p1@6, head p2@5; beta through Gamma.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Copy selection, then cancel selection without mutation.",
+      "expected": {
+        "document": "Unchanged; clipboard represents beta then paragraph separator then Gamma in the declared text export convention.",
+        "selection": "Logical range remains on the intended content before cancellation; no neighbouring widgets included.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "No new undo group."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-014",
+      "title": "Composition does not split text or commands",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-05", "P-23"],
+      "acceptance": ["T-01"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "Replace selected beta in p1.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Start CJK IME, update preedit twice, commit 会議.",
+      "expected": {
+        "document": "p1 becomes Alpha 会議 once; no duplicated preedit strings.",
+        "selection": "After committed text; composition selection follows native input until commit.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "Committed composition is one undo action; preedit updates do not create user-visible steps."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-015",
+      "title": "Cancelled composition",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-23"],
+      "acceptance": ["T-01"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "Collapsed p1@5.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Start IME preedit and cancel using the actual native cancellation path.",
+      "expected": {
+        "document": "Exact original content.",
+        "selection": "Native cancellation restores a valid insertion point in p1; no phantom selected text.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "No committed document undo group."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-016",
+      "title": "Modifier and Enter during composition",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-23"],
+      "acceptance": ["T-01"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "Active IME candidate list/preedit at p1@5.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Use Enter/Space/arrows as IME candidate controls, then commit.",
+      "expected": {
+        "document": "Only committed text changes; no extra paragraph, list split or command caused by candidate confirmation.",
+        "selection": "At committed text endpoint.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "Composition group only."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-017",
+      "title": "Toolbar formatting focus restoration",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-05", "P-14"],
+      "acceptance": ["T-01", "T-08"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "Select beta in p1.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Activate Bold toolbar control; dismiss any related popover.",
+      "expected": {
+        "document": "Selected beta becomes semantically bold; no other text changes. Source profile may add delimiters as its declared representation.",
+        "selection": "Same logical beta range retained for continued editing.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "One formatting group; undo restores original formatting/content."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-018",
+      "title": "Find and dialog focus",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-14"],
+      "acceptance": ["T-01", "T-08"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "Caret p1@5, find/dialog control opened.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Type in the control; Escape to dismiss.",
+      "expected": {
+        "document": "Document unchanged by control typing.",
+        "selection": "Document selection restored to p1@5 if unchanged; otherwise mapped to a valid corresponding anchor.",
+        "focus": "Dialog/control receives input while open; Escape restores its initiating editor without stealing another window focus.",
+        "undo": "Control editing does not create document undo groups."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-019",
+      "title": "Date picker and reminder separation",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-31"],
+      "acceptance": ["T-01", "T-19"],
+      "initial": {
+        "fixture": "FX-DATE",
+        "selection": "Date mention d1 active.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Open picker, choose 2026-11-16, leave reminder disabled; then enable reminder and choose its time explicitly.",
+      "expected": {
+        "document": "Date changes to fixed 2026-11-16; reminder remains absent until explicit enable/commit.",
+        "selection": "Return to a valid d1 boundary with no inserted duplicate date token.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "Each committed semantic operation can be reversed without reverting unrelated text; exact grouping follows declared dialog transaction."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-020",
+      "title": "Relative label change is presentation only",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-05", "P-31"],
+      "acceptance": ["T-01", "T-19"],
+      "initial": {
+        "fixture": "FX-DATE",
+        "selection": "No editing selection; clock advances from 2026-11-14 to 2026-11-15.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Refresh time-dependent presentation.",
+      "expected": {
+        "document": "Stored d1 date remains 2026-11-14; label becomes Yesterday under the agreed relative display setting.",
+        "selection": "Any current cursor/selection stays anchored; no refocus.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "No content version, dirty state or undo group from a display refresh."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-021",
+      "title": "Keyboard-only controls and focus escape",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-14", "P-23", "P-34"],
+      "acceptance": ["T-01", "T-08"],
+      "initial": {
+        "fixture": "FX-MEDIA",
+        "selection": "Focus source editor then tab into its reachable toolbar/media controls using the declared focus escape.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Navigate controls, activate open-original, close viewer and return.",
+      "expected": {
+        "document": "No unintended content mutation.",
+        "selection": "A visible accessible focus/selection exists at every step; return anchor maps to source placement.",
+        "focus": "Declared focus order must be finite and escapable; no permanent Tab trap, including inside tables/code.",
+        "undo": "Navigation does not mutate history."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-022",
+      "title": "Screen-reader content and action semantics",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-23", "P-26"],
+      "acceptance": ["T-01", "T-18"],
+      "initial": {
+        "fixture": "FX-TASK",
+        "selection": "Keyboard focus on task t1 checkbox/title and then page-open action.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Use assistive technology to read state and activate completion/open.",
+      "expected": {
+        "document": "Completion toggles t1 once; page-open does not duplicate t1.",
+        "selection": "Accessible checked state/name and focus destination agree with actual task state.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "Completion is undoable once; opening a view creates no content group."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-023",
+      "title": "Continuous typing grouping",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-05"],
+      "acceptance": ["T-01", "T-03"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "Collapsed p1@5, empty history; explicit typing-group boundary inserted before/after sequence.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Type XYZ continuously inside the declared group.",
+      "expected": {
+        "document": "p1 becomes AlphaXYZ beta.",
+        "selection": "After Z.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "One undo removes XYZ, one redo restores it; grouping window/config recorded rather than assumed from delays."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-024",
+      "title": "Typing and semantic action separate groups",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-05"],
+      "acceptance": ["T-03"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "Collapsed p1@5.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Type X, explicitly close typing group, apply a formatting command to X.",
+      "expected": {
+        "document": "AlphaX beta with X formatted.",
+        "selection": "On X or after X as declared by formatting command.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "First undo removes formatting only; second removes X."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-025",
+      "title": "Same note in two views",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-04", "P-05", "P-08"],
+      "acceptance": ["T-02", "T-03"],
+      "initial": {
+        "fixture": "FX-VIEWS",
+        "selection": "A p1@5, B p2@5.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "A inserts X; B inserts Y at its mapped original caret.",
+      "expected": {
+        "document": "p1 AlphaX beta; p2 GammaY delta visible in both views.",
+        "selection": "A stays after its X; B after its Y; neither acquires the other selection.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "Contexts own their edits; no duplicate canonical body."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-026",
+      "title": "Selective local-context undo",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-04", "P-05"],
+      "acceptance": ["T-02", "T-03"],
+      "initial": {
+        "fixture": "FX-VIEWS",
+        "selection": "Complete EI-025; A remains focus owner.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Undo in A; then redo in A.",
+      "expected": {
+        "document": "Undo leaves p1 Alpha beta and p2 GammaY delta; redo restores only X.",
+        "selection": "A maps to its insertion boundary; B selection remains mapped in p2.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "Never remove B insertion as part of A undo."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-027",
+      "title": "Unsafe inverse is not silent collateral deletion",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-05", "P-07"],
+      "acceptance": ["T-03"],
+      "initial": {
+        "fixture": "FX-VIEWS",
+        "selection": "A inserts an identifiable block; B adds content into it.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "A requests undo of its block insertion.",
+      "expected": {
+        "document": "Preserve B content; either a valid selective inverse or explicit refused/narrowed inverse under D-05, never blind subtree deletion.",
+        "selection": "All views retain valid anchors; refusal does not move focus.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "No unexplained success flag if inverse was refused; engine limits recorded."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-028",
+      "title": "Tab switch preserves editing context",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-04", "P-05", "P-14"],
+      "acceptance": ["T-02", "T-03"],
+      "initial": {
+        "fixture": "FX-VIEWS",
+        "selection": "A has typed X in n1; navigate its tab to n2 then back to n1.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Undo in restored n1 context.",
+      "expected": {
+        "document": "Only A insertion X is removed; n2 unchanged.",
+        "selection": "Restored/mapped n1 logical position; no inherited n2 cursor.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "History survives navigation; context lifetime explicitly defined independently of view recreation."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-029",
+      "title": "Focused window routes native undo",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-05", "P-14"],
+      "acceptance": ["T-01", "T-03", "T-08"],
+      "initial": {
+        "fixture": "FX-VIEWS",
+        "selection": "A and B have independent edits; B window focused.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Invoke native Edit Undo, then native Redo.",
+      "expected": {
+        "document": "Only eligible B-context edits change; never the last globally stored editor reference.",
+        "selection": "B retains focus; A only maps its projection.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "Native command and keyboard binding reach the same history owner."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-030",
+      "title": "External local command preserves view state",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-02", "P-04", "P-05", "P-09"],
+      "acceptance": ["T-02", "T-03", "T-04"],
+      "initial": {
+        "fixture": "FX-VIEWS",
+        "selection": "A composing disabled; B caret p2@5; CLI requests guarded p1 end append Z.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Accept command once and deliver its change to both views.",
+      "expected": {
+        "document": "p1 Alpha betaZ; p2 unchanged; no editor replacement for every save.",
+        "selection": "A/B positions mapped; no focus steal.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "CLI origin does not become an A/B typing action or remove their independent undo entries."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-031",
+      "title": "Missed notifications catch up",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-04", "P-08"],
+      "acceptance": ["T-02"],
+      "initial": {
+        "fixture": "FX-VIEWS",
+        "selection": "Suspend B notifications; A commits two edits.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Resume B and reconcile authoritative revision.",
+      "expected": {
+        "document": "B reaches accepted current state exactly once, including task/media references.",
+        "selection": "B anchor maps or explicit fallback if its block was deleted; no invalid offset.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "Catch-up is not two extra B undo steps."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-032",
+      "title": "Remote winner protects local input",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-05", "P-06", "P-07", "P-19", "P-21"],
+      "acceptance": ["T-12"],
+      "initial": {
+        "fixture": "FX-VIEWS",
+        "selection": "A has recovery-protected pending input and an active IME; incoming provider snapshot wins protocol ordering.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Receive/reconcile snapshot, then finish or cancel composition.",
+      "expected": {
+        "document": "Do not overwrite preedit or discard local work; apply winner only through explicit safe boundary, preserving overwritten accepted local state/history.",
+        "selection": "No phantom caret or selected stale DOM; settled anchors valid in winner.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "Remote replacement obeys Q-07; never become an A typing undo entry."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-033",
+      "title": "Close last view with failed save",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-06", "P-07", "P-14"],
+      "acceptance": ["T-05", "T-08"],
+      "initial": {
+        "fixture": "FX-VIEWS",
+        "selection": "n1 pending changes, durable write fails.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Close last n1 view; then restart when safe in harness.",
+      "expected": {
+        "document": "Work retained by session/recovery until durable or explicit reviewed discard policy Q-08; close does not implicitly delete it.",
+        "selection": "Remaining focused view valid; reopening/recovery has a defined destination.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "Last-view closure is not content undo or purge."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-034",
+      "title": "Open task as its page",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-01", "P-04", "P-26"],
+      "acceptance": ["T-18"],
+      "initial": {
+        "fixture": "FX-TASK",
+        "selection": "Focus t1 placement in n1.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Activate task page-open action; edit tp1 body by appending X.",
+      "expected": {
+        "document": "Same t1 body becomes Budget detailsX; exactly one t1 at n1.",
+        "selection": "New task-page view caret after X; source placement retained.",
+        "focus": "Focus opened task page in explicit destination; do not silently open an independent copy.",
+        "undo": "Body edit belongs to task-page editing context; opening did not duplicate the task."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-035",
+      "title": "Create from All Tasks goes to inbox",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-02", "P-26"],
+      "acceptance": ["T-04", "T-18"],
+      "initial": {
+        "fixture": "FX-TASK",
+        "selection": "All Tasks create UI active; no new task yet.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Create Buy groceries with optional due field empty.",
+      "expected": {
+        "document": "One new task identity/body in independent inbox; no automatic daily-note block.",
+        "selection": "Task page opens on explicit activation, with empty body editable.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "Creation is a domain action, never a fabricated source daily-note edit."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-036",
+      "title": "Cut and paste moves task",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-01", "P-03", "P-26", "P-27"],
+      "acceptance": ["T-18"],
+      "initial": {
+        "fixture": "FX-TASK",
+        "selection": "Select whole task placement b-task1 in n1; n2 open in another view.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Cut and paste internally into n2; wait for move acceptance.",
+      "expected": {
+        "document": "One t1 in n2; removed from n1; title/body/fields/custom/history preserved.",
+        "selection": "Destination has one selected task placement/caret at declared task boundary.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "One logical move action; cross-document undo ownership is Q-05, not two unrelated destructive writes."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-037",
+      "title": "Copy and paste duplicates task",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-01", "P-03", "P-26", "P-27"],
+      "acceptance": ["T-18"],
+      "initial": {
+        "fixture": "FX-TASK",
+        "selection": "Select whole t1 placement.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Copy then paste into n2.",
+      "expected": {
+        "document": "Source t1 unchanged; new unique task/placement/block identities, copied body/properties; no cross-note reference to t1.",
+        "selection": "At new placement; opening it edits its independent body.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "Undo removes only the copy; redo recreates the same copy identity within that history action when still safe."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-038",
+      "title": "Task cut failure and retry",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-06", "P-07", "P-27"],
+      "acceptance": ["T-05", "T-18"],
+      "initial": {
+        "fixture": "FX-TASK",
+        "selection": "Whole t1 cut intent prepared; force destination mutation failure.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Paste, observe failure, retry using original move intent.",
+      "expected": {
+        "document": "t1 remains accessible/recoverable; at most one accepted destination placement after retry. No disappearance just because clipboard/focus changed.",
+        "selection": "Failure leaves recoverable source/destination context; no hidden moved duplicate.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "Failed paste creates no successful move undo group; cut lifecycle before paste is Q-05."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-039",
+      "title": "Delete selected task placement",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-01", "P-13", "P-26", "P-27"],
+      "acceptance": ["T-18"],
+      "initial": {
+        "fixture": "FX-TASK",
+        "selection": "Entire b-task1 block selected, not just title text.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Invoke Delete selection.",
+      "expected": {
+        "document": "t1 removed from active note/Tasks, preserved for recovery/history; not orphaned in inbox.",
+        "selection": "Valid adjacent insertion boundary in n1.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "Undo restores t1 identity/body/properties and sole placement when preconditions allow."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-040",
+      "title": "Title editing is not entity deletion",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-26", "P-27"],
+      "acceptance": ["T-01", "T-18"],
+      "initial": {
+        "fixture": "FX-TASK",
+        "selection": "Select word proposal inside t1 title.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Backspace once, leaving Send plus its existing separator.",
+      "expected": {
+        "document": "Only selected title text removed; tp1 body and fields remain unchanged.",
+        "selection": "At selected text start.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "One text-edit group; no task delete/cascade. Empty-title boundary policy is Q-02."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-041",
+      "title": "Indent tasks without subtasks",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-26", "P-27"],
+      "acceptance": ["T-01", "T-18"],
+      "initial": {
+        "fixture": "FX-TASK",
+        "selection": "Two independent task placements in n1; second selected.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Invoke indent then outdent using declared bindings.",
+      "expected": {
+        "document": "Only placement indentation changes; IDs/status/dates/content and ownership unchanged; no parent task relation.",
+        "selection": "Same logical task selection through indentation.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "Each semantic indent/outdent can be reversed without completing/deleting either task."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-042",
+      "title": "Task state stays unified in views",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-02", "P-04", "P-05", "P-26", "P-28"],
+      "acceptance": ["T-02", "T-18", "T-19"],
+      "initial": {
+        "fixture": "FX-TASK",
+        "selection": "Task page, owning note and global Tasks view open.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Toggle completion once in Tasks.",
+      "expected": {
+        "document": "One t1 state changes everywhere; if repeating, exactly one next occurrence is generated under P-28.",
+        "selection": "No view steals focus; task body cursor remains mapped.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "Completion and repeat-generation inverse must preserve independent intervening work; exact inverse policy Q-06."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-043",
+      "title": "Convert selected text into a linked page",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-01", "P-03", "P-30"],
+      "acceptance": ["T-20"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "Select beta in p1.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Invoke Convert to page and accept creation.",
+      "expected": {
+        "document": "Selected beta moves into one new page; p1 holds Alpha plus one reference at that position; p2 unchanged.",
+        "selection": "Reference selected or caret after it under declared action; new page opens only per explicit navigation action.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "One logical conversion; undo restores source/new-page lifecycle only when safe, otherwise explicit conflict."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-044",
+      "title": "Convert whole block with failed creation",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-06", "P-07", "P-30"],
+      "acceptance": ["T-05", "T-20"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "Select p2 as whole block; force new-page creation to fail.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Invoke Convert to page.",
+      "expected": {
+        "document": "Original Gamma delta remains intact; no dangling link presented as success.",
+        "selection": "Original p2 block selection retained/mapped.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "No successful conversion history entry; retry deduplicates operation."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-045",
+      "title": "Read-only page embed cannot mutate original",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-14", "P-30"],
+      "acceptance": ["T-01", "T-20"],
+      "initial": {
+        "fixture": "FX-MEDIA",
+        "selection": "Select text Original within em1 rendered content.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Type X, paste text, cut text and invoke formatting independently.",
+      "expected": {
+        "document": "Neither n1 placement nor original n2 content is mutated by editing attempts within read-only content. Copy remains permitted.",
+        "selection": "Selection is within read-only surface; any blocked action must not target an unrelated focused editor.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "No source/original undo group from a refused edit."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-046",
+      "title": "Delete embed placement only",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-05", "P-30"],
+      "acceptance": ["T-01", "T-20"],
+      "initial": {
+        "fixture": "FX-MEDIA",
+        "selection": "Select entire em1 placement in source n1.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Delete; then undo.",
+      "expected": {
+        "document": "Delete removes em1 from n1; n2 Original remains unchanged. Undo restores reference to same n2, not a copied body.",
+        "selection": "Valid boundary beside placement, then restored placement.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "One source-document group only."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-047",
+      "title": "Open original from embed",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-14", "P-23", "P-30"],
+      "acceptance": ["T-01", "T-08", "T-20"],
+      "initial": {
+        "fixture": "FX-MEDIA",
+        "selection": "Focus em1 open-original action.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Activate with pointer and separately keyboard.",
+      "expected": {
+        "document": "n2 is opened, not duplicated; original content editable there only.",
+        "selection": "Valid original-page editing anchor; source caret can be restored on back.",
+        "focus": "Destination n2 view receives focus; source view preserves its navigation context.",
+        "undo": "Navigation adds no content undo."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-048",
+      "title": "Media boundary navigation",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-23", "P-34"],
+      "acceptance": ["T-01"],
+      "initial": {
+        "fixture": "FX-MEDIA",
+        "selection": "Caret at p-before end.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Arrow/Shift+Arrow through image/PDF/embed using declared text/block selection policy, then return.",
+      "expected": {
+        "document": "No content mutation and no widget DOM accidentally serialized.",
+        "selection": "Each boundary is reachable/escapable; selection kind and exact covered placements observable; no selection leakage into viewer controls.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "No undo group."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-049",
+      "title": "Delete media reference with history",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-05", "P-12", "P-34"],
+      "acceptance": ["T-01", "T-11"],
+      "initial": {
+        "fixture": "FX-MEDIA",
+        "selection": "Select entire im1, then test pdf1 independently.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Delete and undo.",
+      "expected": {
+        "document": "Only selected placement removed/restored; underlying asset retained while history/recovery references it.",
+        "selection": "Valid adjacent caret after deletion; restored placement after undo.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "One placement group; never irreversible asset purge."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-050",
+      "title": "Delayed media layout does not move selection",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-05", "P-34"],
+      "acceptance": ["T-01"],
+      "initial": {
+        "fixture": "FX-MEDIA",
+        "selection": "Caret in p-after, media loading unresolved.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Resolve image/PDF dimensions/previews and refresh embed while typing X at p-after.",
+      "expected": {
+        "document": "Exactly one X at intended p-after anchor; no other content changes.",
+        "selection": "Text caret and logical range preserved; scroll anchoring prevents unexpected focus jump.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "Media presentation creates no undo/content version."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-051",
+      "title": "Native table-cell click and immediate typing",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-05"],
+      "acceptance": ["T-01"],
+      "initial": {
+        "fixture": "FX-TABLE",
+        "selection": "No active cell editor; table rendered.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Click measured midpoint between A and 1 in a1 and immediately type X; repeat double-click and backward drag variants.",
+      "expected": {
+        "document": "a1 becomes AX1 for midpoint insertion; selection variants replace exactly their selected text; other cells unchanged.",
+        "selection": "Caret after X in correct cell, not root document or previous cell.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "One authoritative document edit; no nested independent undo stack."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-052",
+      "title": "Table-cell redo through native and keyboard routes",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-05", "P-14"],
+      "acceptance": ["T-01", "T-03"],
+      "initial": {
+        "fixture": "FX-TABLE",
+        "selection": "a1 text A1, caret after A; root body otherwise unchanged.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Type X; undo; redo using declared keyboard and native menu in separate variants.",
+      "expected": {
+        "document": "AX1 then A1 then AX1; other cells unchanged.",
+        "selection": "Current a1 cursor remains valid through root/nested reconciliation.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "Exactly the same history action via either command route."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-053",
+      "title": "Table range replacement and undo",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-05", "P-10"],
+      "acceptance": ["T-01"],
+      "initial": {
+        "fixture": "FX-TABLE",
+        "selection": "Select a1 through b1 as cell range, distinct from text range.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Paste 2-cell row [X,Y].",
+      "expected": {
+        "document": "First row [X,Y], second [A2,B2].",
+        "selection": "Range/caret after operation matches declared table-range policy; does not select source Markdown delimiters in structured mode.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "Single paste group; undo restores both original cells and logical selected range."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-054",
+      "title": "Selection across paragraphs and table",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-05", "P-10"],
+      "acceptance": ["T-01"],
+      "initial": {
+        "fixture": "FX-TABLE",
+        "selection": "Anchor p-before@3 in Before, head p-after@2 in After; whole table between them; run backward direction independently.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Drag/select across table in both directions, copy; then delete only after verifying declared text/block range.",
+      "expected": {
+        "document": "Copy contains selected fore, the full 2x2 table and Af under declared rich/plain export. Delete removes precisely that range/table, preserving prefix Bef and suffix ter under the declared join profile. Undo restores original text/table and selected range; never serialize table-control UI.",
+        "selection": "Anchor/head direction and text-versus-cell-versus-block kind explicit.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "One deletion group, no cell/root double application."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-055",
+      "title": "Paste external rich content",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-10", "P-24"],
+      "acceptance": ["T-01", "T-09"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "Select beta.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Paste equivalent HTML/plain payload with bold text and an external link.",
+      "expected": {
+        "document": "Supported semantics preserved via declared rich paste; no executable script, invisible UI fragments or silent replacement outside beta. Plain-paste action inserts literal text.",
+        "selection": "After inserted content.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "One user paste group; conversion losses handled explicitly."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-056",
+      "title": "Paste/drop image and PDF",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-06", "P-12", "P-34"],
+      "acceptance": ["T-01", "T-06"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "Caret p1 end.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Paste/drop one supported image and one PDF; test import failure before publication.",
+      "expected": {
+        "document": "Success inserts one reference per asset at intended destination; failure leaves recoverable original content and no falsely available reference.",
+        "selection": "After inserted placements with stable surrounding text selection.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "One declared import action grouping; undo removes placements and retains required history asset roots."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-057",
+      "title": "Unknown block integrity",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-10", "P-22"],
+      "acceptance": ["T-01", "T-09", "T-14"],
+      "initial": {
+        "fixture": "FX-UNKNOWN",
+        "selection": "Caret in p1 adjacent to u1.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Edit p1, navigate across u1, save/reopen through supported decoder; attempt unsupported inner editing.",
+      "expected": {
+        "document": "Opaque payload/asset roots unchanged; unsupported edit refused instead of flattening content.",
+        "selection": "Valid boundary outside u1; UI communicates non-editable content.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "Only p1 text edit enters history."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-058",
+      "title": "Structural copy versus reference remains explicit",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-01", "P-27", "P-30"],
+      "acceptance": ["T-18", "T-20"],
+      "initial": {
+        "fixture": "FX-MEDIA",
+        "selection": "Select one page-reference/embedded-page placement; original n2 exists.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Copy/paste it, then attempt equivalent operation on a whole task placement.",
+      "expected": {
+        "document": "Page placement may reference same n2; whole task copy creates a new task as EI-037 and never a cross-note task reference.",
+        "selection": "At pasted placement; original view selection unchanged.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "Undo affects pasted placement/entity only, not referenced original."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-059",
+      "title": "Anchor comments on block deletion",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-05", "P-17", "P-33"],
+      "acceptance": ["T-20"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "p2 has a thread/comment anchor; comment feature enabled in candidate fixture.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Delete whole p2 block, then undo or restore the version containing it.",
+      "expected": {
+        "document": "Thread leaves current page with block, remains retained with historical content and restores with it; no reanchor to p1.",
+        "selection": "Valid adjacent boundary after delete; restored block/thread anchor valid.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "One logical content delete; history closure includes thread. Before comment delivery this is a schema fixture, not shipping UI evidence."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-060",
+      "title": "Operation sequence repeatability",
+      "authority": "required",
+      "profile": "shared",
+      "decision": null,
+      "requirements": ["P-03", "P-05", "P-23"],
+      "acceptance": ["T-01", "T-03"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "Empty history; run each declared source/structured profile independently.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Enter→Backspace, Backspace→Enter, Tab→Enter, Enter→Tab, Shift+Tab→Enter, paste→undo→redo, focus→navigation→type; reset between sequences.",
+      "expected": {
+        "document": "Each intermediate result matches that profile case; whole sequence has no dropped/replayed keystroke or schema corruption.",
+        "selection": "Selection/focus valid after every step, not only final render.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "Declared groups/inverses remain reproducible with action log."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-061",
+      "title": "Source paragraph Enter",
+      "authority": "proposed",
+      "profile": "source",
+      "decision": "Q-01",
+      "requirements": ["P-03", "P-05"],
+      "acceptance": ["T-01"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "Caret p1@5 in Alpha beta; plain source editing profile.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Enter once.",
+      "expected": {
+        "document": "Text becomes Alpha then source newline then space beta; whether parser projects same paragraph is declared by source dialect.",
+        "selection": "Caret just after inserted source newline.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "One newline action; undo restores original source."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-062",
+      "title": "Structured paragraph Enter",
+      "authority": "proposed",
+      "profile": "structured",
+      "decision": "Q-01",
+      "requirements": ["P-01", "P-03", "P-05"],
+      "acceptance": ["T-01"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "Caret p1@5; structured editing profile.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Enter once.",
+      "expected": {
+        "document": "Split p1 into paragraph Alpha and a new paragraph containing space beta; existing p2 unchanged; old p1 identity retained on left, fresh ID on right.",
+        "selection": "Start of new right paragraph.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "One split action; undo restores original p1 without changing p2."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-063",
+      "title": "Structured soft line break",
+      "authority": "proposed",
+      "profile": "structured",
+      "decision": "Q-01",
+      "requirements": ["P-03", "P-05"],
+      "acceptance": ["T-01"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "Caret p1@5; structured profile.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Shift+Enter.",
+      "expected": {
+        "document": "One paragraph contains Alpha, a soft line break, then space beta; no new task or paragraph entity.",
+        "selection": "After soft line break inside p1.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "One action; inverse removes only break."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-064",
+      "title": "Structured boundary join",
+      "authority": "proposed",
+      "profile": "structured",
+      "decision": "Q-01",
+      "requirements": ["P-01", "P-03", "P-05"],
+      "acceptance": ["T-01"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "Caret p2@0, no node/task/media selection.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Backspace.",
+      "expected": {
+        "document": "Join paragraphs as Alpha betaGamma delta with no invented separator; p2 retired into historical identity mapping, not duplicated.",
+        "selection": "At original join boundary after Alpha beta.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "One join; undo restores both paragraph identities and original boundary when safe."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-065",
+      "title": "Structured empty list exit",
+      "authority": "proposed",
+      "profile": "structured",
+      "decision": "Q-01",
+      "requirements": ["P-03", "P-05"],
+      "acceptance": ["T-01"],
+      "initial": {
+        "fixture": "FX-LIST",
+        "selection": "Caret at empty l3; depth 0.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Enter.",
+      "expected": {
+        "document": "End list with l1/l2 unchanged; empty l3 becomes a following paragraph, no extra empty list item.",
+        "selection": "Start of that paragraph.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "One structural action; undo restores empty l3 list context."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-066",
+      "title": "Code indentation profile",
+      "authority": "proposed",
+      "profile": "structured",
+      "decision": "Q-03",
+      "requirements": ["P-03", "P-05", "P-23"],
+      "acceptance": ["T-01"],
+      "initial": {
+        "fixture": "FX-CODE",
+        "selection": "Select both lines in code block.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Tab, then independently Shift+Tab after reset to indented variant.",
+      "expected": {
+        "document": "Indent/outdent literal code using declared language/indent unit; never turn code into list/task.",
+        "selection": "Selection maps over the same two lines.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "One grouped code edit per action. Focus escape remains available."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-067",
+      "title": "Plain paragraph Tab proposal",
+      "authority": "proposed",
+      "profile": "structured",
+      "decision": "Q-03",
+      "requirements": ["P-03", "P-23"],
+      "acceptance": ["T-01"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "Caret p1@5, no list/table/code context.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Tab.",
+      "expected": {
+        "document": "No content mutation under proposed focus-navigation policy; source alternative may insert source indentation if explicitly declared.",
+        "selection": "No forced caret snap; focus changes under focus policy.",
+        "focus": "Proposed: move to next reachable UI control via an escapable focus order.",
+        "undo": "No content undo group for focus movement."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-068",
+      "title": "Table Tab and final-cell growth proposal",
+      "authority": "proposed",
+      "profile": "structured",
+      "decision": "Q-04",
+      "requirements": ["P-03", "P-05", "P-23"],
+      "acceptance": ["T-01"],
+      "initial": {
+        "fixture": "FX-TABLE",
+        "selection": "Run from a1 then independently b2.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Tab.",
+      "expected": {
+        "document": "a1 variant moves to b1 without content change. b2 variant appends one empty row only under proposed growth policy.",
+        "selection": "a1→b1 start; b2→new third-row first cell under growth policy.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "Navigation no undo group; row insertion one structural group."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-069",
+      "title": "Table-cell Enter proposal",
+      "authority": "proposed",
+      "profile": "structured",
+      "decision": "Q-04",
+      "requirements": ["P-03", "P-05"],
+      "acceptance": ["T-01"],
+      "initial": {
+        "fixture": "FX-TABLE",
+        "selection": "a1 caret after A.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Enter.",
+      "expected": {
+        "document": "Under proposed multi-paragraph-cell profile, split a1 into paragraph A and paragraph 1; other cells unchanged. A single-line-cell profile must instead declare navigation, not fake a split.",
+        "selection": "Start of second cell paragraph or declared navigation target in alternate profile.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "One cell split if supported; not independent nested history."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-070",
+      "title": "Task title Enter proposal",
+      "authority": "proposed",
+      "profile": "structured",
+      "decision": "Q-02",
+      "requirements": ["P-01", "P-03", "P-26", "P-27"],
+      "acceptance": ["T-01", "T-18"],
+      "initial": {
+        "fixture": "FX-TASK",
+        "selection": "Override t1 title to Alphabeta; caret after Alpha; body Budget details.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Enter in task title, not task page body.",
+      "expected": {
+        "document": "Proposed: keep t1 title Alpha with its body/fields, create independent adjacent task beta with empty body and default fields, no subtask relationship.",
+        "selection": "Start of new task title.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "One split action preserving original body; task placement and generation rules must be explicit before implementation."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-071",
+      "title": "Typed Markdown syntax is optional input policy",
+      "authority": "proposed",
+      "profile": "structured",
+      "decision": "Q-09",
+      "requirements": ["P-03", "P-05", "P-22"],
+      "acceptance": ["T-01"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "Empty plain paragraph substituted for p1.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Type heading/list/task/emphasis trigger syntax at start/end positions.",
+      "expected": {
+        "document": "Profile declares literal source, rich shortcut transformation or literal text. If transformed, one semantic representation; no lost literal content or forced visible markers.",
+        "selection": "At intended text insertion position after transformation.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "Backspace/undo can reverse shortcut under declared rule without deleting unrelated entity/body."
+      },
+      "execution": "not-run"
+    },
+    {
+      "id": "EI-072",
+      "title": "Cross-block replacement profile",
+      "authority": "proposed",
+      "profile": "structured",
+      "decision": "Q-01",
+      "requirements": ["P-01", "P-03", "P-05"],
+      "acceptance": ["T-01"],
+      "initial": {
+        "fixture": "FX-TEXT",
+        "selection": "Select p1@6 through p2@5; type X.",
+        "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
+      },
+      "action": "Replace selected semantic range immediately.",
+      "expected": {
+        "document": "Proposed structured result: one paragraph AlphaX delta; all text outside selected beta/Gamma range preserved. Source profile may retain dialect-specific separators and must declare exact projection.",
+        "selection": "After X at join boundary.",
+        "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
+        "undo": "One replacement group; inverse restores original blocks and range subject to safe mapping."
+      },
+      "execution": "not-run"
+    }
+  ]
+}

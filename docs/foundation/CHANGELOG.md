@@ -3,6 +3,21 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.5 — 2026-11-14
+
+- Captured the user's clarification: the old Markdown editor is evidence, not a
+  universal interaction target for new candidates.
+- Added R02 interaction specification with shared reliability/Clutter semantics,
+  explicit source/structured profiles and nine bounded policy-review items.
+- Added 11 semantic fixtures and 72 seed cases (60 shared requirements, 12 profile
+  proposals) with initial state/action/document/selection/focus/undo expectations.
+  These are specification data, not canonical schema or executed tests.
+- Covered native input/IME/accessibility, multi-view/history/focus, task identity
+  and clipboard, tables, read-only embeds, images/PDFs and failure boundaries.
+- Updated acceptance references, candidate qualification/ADR guidance and resume
+  checkpoint. R02 draft is prepared; policy approval and execution are pending.
+  Next is conditional R03 model/API drafting. No production/runtime changes.
+
 ## 0.4 — 2026-11-14
 
 - Verified the user's prior three commits at remote f22a5cd and fast-forwarded this

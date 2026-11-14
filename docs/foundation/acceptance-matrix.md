@@ -38,3 +38,18 @@ and actual browser/native input tests. Record revision, environment, fixture,
 expected/actual state, seed/actions, artifact links and pass/fail/blocked.
 Skip is not pass; a patched dependency is a distinct candidate. Defined traceability
 is not runtime verification. Keep deferred gates out of initial pass totals.
+
+## R02 specification reference
+
+[Editor interaction specification](editor-interaction-spec.md) and its
+[case catalogue](editor-interaction-cases.json) define the initial EI-001–EI-072
+seed contracts behind T-01/T-02/T-03 and relevant T-04/T-05/T-08/T-09/T-11/T-12/
+T-14/T-18/T-19/T-20 cases. None was executed as part of R02. The 60 shared cases
+and 12 profile proposals are not a reported pass count. Required variation expansion
+and Q-01–Q-09 policy review are explicit. Existing R01 fixture successes are not
+new-architecture/native proof.
+
+Do not freeze current Markdown Enter/marker/indent behaviour as universal acceptance
+for structured candidates. Compare shared guarantees and required Clutter semantics;
+report source/structured profile UX separately. Exploratory profile runs may inform
+review without turning unresolved proposals into binding acceptance or failures.

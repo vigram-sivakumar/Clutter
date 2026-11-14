@@ -78,3 +78,12 @@ The user has settled the listed product directions, not every UX detail or stora
 mechanism. Retention budgets, field vocabulary/default visibility, task-aware
 cross-device consistency, provider winner ordering, comment delivery phase and
 performance budgets remain explicit design work in the decision register.
+
+## Editing-model clarification — 2026-11-14
+
+The user explicitly clarified that the current implementation is Markdown-oriented
+and is not a 100% interaction template for new candidates. The [R02 specification](editor-interaction-spec.md)
+separates shared reliability/Clutter semantics from source/structured profiles.
+Model-specific Enter/Tab/Backspace/selection rules are evaluated for UX rather
+than required to reproduce current Markdown mechanics. This clarification does
+not waive reliable selection, identity, undo, accessibility or preservation.

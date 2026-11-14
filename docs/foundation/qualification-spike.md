@@ -15,6 +15,18 @@ composition against CM6, not simplified demos against the full app. The fixture
 contains paragraphs, independently indented tasks, code/table, read-only page embed,
 image/PDF and Unicode. There are no subtask or dynamic property-column requirements.
 
+## R02 input and equivalent comparisons
+
+Use [R02](editor-interaction-spec.md) and [EI fixtures/cases](editor-interaction-cases.json)
+to prepare candidate adapters and explicit variation instances. The notation is
+not a PM schema or canonical storage choice. Compare required shared behaviour
+and Clutter task/page semantics, not identical source newline/marker/indent output.
+Declare each candidate's source/structured key/selection profile. Profiles may be
+explored while Q-01–Q-09 remain open, but count them as exploratory rather than
+binding pass/fail. Freeze agreed outcomes before product acceptance. Maintain
+native/IME/focus requirements for every model and do not count source-only syntax
+checks against a candidate that has no editable syntax markers.
+
 ## Stage A: local vertical slice
 
 1. Start one headless Space authority; attach two panes then two native windows

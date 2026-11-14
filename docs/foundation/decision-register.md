@@ -20,7 +20,7 @@ remain eligible; no candidate wins due to existing investment or implementation 
 
 | ID   | Decision                                                          | Required evidence / gate                                                                                                                                            |
 | ---- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D-01 | Editor/extension composition and DOM ownership                    | Actual native keyboard/IME/accessibility (T-01)                                                                                                                     |
+| D-01 | Editor/extension composition and DOM ownership                    | Shared reliability plus declared source/structured profile UX; actual native keyboard/IME/accessibility (T-01; EI catalogue, Q-01–Q-09)                             |
 | D-02 | Canonical schema, tasks/placement, history closure and migration  | Page/task identity, move/copy/restore, unknown-content handling (T-09, T-14, T-17, T-18)                                                                            |
 | D-03 | Persistence, indexing and transaction scope                       | Failure injection, rebuild and any FTS discrepancy reproduced/resolved if applicable (T-06, T-10)                                                                   |
 | D-04 | Headless authority, language/IPC, ownership election and takeover | Concurrent processes, sandbox access, app-closed API use (T-04, T-07)                                                                                               |
@@ -71,8 +71,11 @@ technology passes it. No target technology has completed these gates in this pac
 R01 is complete as a bounded [capability inventory](current-capability-inventory.md).
 Its selected files passed 1,003 assertions across initial and targeted reruns;
 initial dependency-load errors/setup corrections remain recorded. No full-suite/
-clean-install or native/provider qualification is claimed. Next is
-R02, the editor interaction specification. [START-HERE](START-HERE.md)
+clean-install or native/provider qualification is claimed. R02 now has a reviewable [interaction specification](editor-interaction-spec.md)
+and [72 seed cases](editor-interaction-cases.json), not runtime results. Q-01–Q-09
+track proposed model-specific policies; no engine or Markdown-equivalent behaviour
+is implicitly accepted. Next is R03 conditional model/API drafting, preserving
+those unresolved policy references for prototype/product review. [START-HERE](START-HERE.md)
 records handoff/authorization and [roadmap](roadmap.md) orders specifications,
 qualification and implementation. These navigation documents do not accept any
 technical decision or duplicate product rules.

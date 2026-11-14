@@ -1,6 +1,6 @@
 # Foundation roadmap
 
-Revision 0.4, 2026-11-14. This roadmap describes work and dependencies; the current
+Revision 0.5, 2026-11-14. This roadmap describes work and dependencies; the current
 checkpoint/authorization is in [START-HERE](START-HERE.md). Product scope is in
 product-contracts.md, not independently redefined here.
 
@@ -8,10 +8,10 @@ product-contracts.md, not independently redefined here.
 
 | ID  | State                                            | Work and output                                                                                                                                               | Depends on                | Exit evidence                                                                                                                                                                      |
 | --- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| R00 | Documentation prepared                           | Foundation pack 0.1–0.4: confirmed scope, ownership/API proposals, ADRs, initial test/spike specifications and resumable handoff                              | User clarification        | Prior 0.1–0.3 remote commits confirmed at f22a5cd; 0.4 delivery pending user application                                                                                           |
+| R00 | Documentation prepared                           | Foundation pack 0.1–0.5: confirmed scope, ownership/API proposals, ADRs, initial test/spike specifications and resumable handoff                              | User clarification        | Prior 0.1–0.3 remote commits confirmed at f22a5cd; 0.4/0.5 delivery pending user application                                                                                       |
 | R01 | Complete — 2026-11-14                            | [Inventory](current-capability-inventory.md): 45 source/wiring capability entries with target mapping                                                         | R00                       | [Selected run](evidence/r01-2026-11-14.json): 30 files/1,003 assertions passed across initial/targeted runs; initial load errors/setup corrections and static/target gaps explicit |
-| R02 | Next                                             | `editor-interaction-spec.md`: observable keyboard/selection/clipboard/IME/focus/undo matrix                                                                   | R01                       | Precise expected outcomes and native fixtures for T-01/T-03, including tables/media/read-only embeds                                                                               |
-| R03 | Planned                                          | `document-model-spec.md` and `command-api-spec.md`: typed schema, IDs, task placement/copy/move, comments/version closure, versioned command/query signatures | R01; consume R02          | One owner per fact/rule, API parity/preconditions, edge cases and migration/refusal rules                                                                                          |
+| R02 | Draft prepared; policy review open               | [R02](editor-interaction-spec.md) and [case catalogue](editor-interaction-cases.json): 72 shared/profile seed contracts, not execution                        | R01                       | 60 shared requirements/12 profile proposals specified; Q-01–Q-09 and variation expansion remain before acceptance                                                                  |
+| R03 | Next — conditional drafts                        | `document-model-spec.md` and `command-api-spec.md`: typed schema, IDs, task placement/copy/move, comments/version closure, versioned command/query signatures | R01; consume R02          | One owner per fact/rule, API parity/preconditions, edge cases and migration/refusal rules                                                                                          |
 | R04 | Planned                                          | `vault-persistence-spec.md`: candidate transaction boundaries, history/pins/recovery/media lifecycle, outcome/durability and future snapshot contract         | R03 draft                 | Failure states and cleanup roots explicit; no chosen backend treated as proven                                                                                                     |
 | R05 | Planned                                          | `provider-sync-spec.md`: local/outbox lifecycle, packages, ordering/tombstones, task consistency and separate provider feasibility                            | R03/R04 drafts            | No active DB replication, retained overwritten states, restart/disable/credential semantics and measurable provider gates                                                          |
 | R06 | Planned                                          | Close qualification fixtures/budgets, `platform-boundaries-spec.md` and local security/IPC detail; update acceptance/spike docs                               | R02–R05 drafts            | Reproducible candidate configs, performance limits, portable boundaries and no missing critical contracts in spike scope                                                           |
@@ -58,4 +58,11 @@ not invented calendar estimates or a commitment to every proposed filename.
 
 R01 completion means the bounded inventory was delivered, not a passing full-suite
 or native acceptance result. Initial load failures/resolved setup and source-level task
-projection freshness risk remain visible. R02 is next; production work is still gated.
+projection freshness risk remain visible. R02 draft is prepared with policy review open. R03 conditional schema/API drafts
+are next; preserve Q-01–Q-09 rather than choosing defaults silently. Production work
+is still gated.
+
+The user's latest clarification explicitly rejects treating current Markdown
+interactions as the target for every candidate. R02 profiles keep that distinction
+visible. R02 approval and R07 execution are different gates; the drafted catalogue
+is not proof that an engine passes, and exploratory profile comparison is allowed.

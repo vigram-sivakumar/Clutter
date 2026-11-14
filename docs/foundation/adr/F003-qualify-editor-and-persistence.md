@@ -32,3 +32,11 @@ T-01, T-06, T-09, T-10, T-14, T-17 through T-21 and agreed T-15 budgets inform
 initial approval. T-12/T-13 gate provider enablement; T-22 is deferred cloud scope.
 An experimental dependency patch needs reproducible controls and maintainability
 review. Existing storage/editor ADRs remain in force for production meanwhile.
+
+## R02 clarification
+
+The current Markdown experience is evidence, not universal interaction acceptance.
+Qualify shared reliability and Clutter semantic contracts, then evaluate declared
+source/structured profiles for UX. A paragraph split need not imitate a source
+newline. R02 Q-01–Q-09 remain proposals/open boundaries; catalogue creation is not
+execution or technology approval. See [R02](../editor-interaction-spec.md).
