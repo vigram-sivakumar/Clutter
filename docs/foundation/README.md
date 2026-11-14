@@ -1,12 +1,12 @@
 # Clutter foundation
 
-Status: architecture definition pack, revision 0.10, 2026-11-14. Product scope
+Status: architecture definition pack, revision 0.11, 2026-11-14. Product scope
 confirmed; technology proposals remain unqualified.
 Baseline: `main` at `cae604273115c0c6c0d3ac34533b1e9834e9c778`.
 Working branch: `architecture/clutter-foundation`.
 
 New chat or AI agent: start at [START-HERE](START-HERE.md), then follow the
-[roadmap](roadmap.md). Current next task: R07 investigate blocking native-selection/history findings. R01 inventory is
+[roadmap](roadmap.md). Current next task: R07 native and broader semantic qualification preparation. R01 inventory is
 complete; R02–R06 drafts retain open policies/encoding/durability choices and
 bounded Linux experimental evidence, with native/architecture qualification blocked.
 
@@ -18,7 +18,7 @@ live cloud collaboration deferred.
 Evaluate it as a greenfield product. Migration and implementation effort remain
 visible planning dimensions with zero weight in architectural selection.
 
-The 0.2 product scope, retained in 0.10, reflects the user clarification sequence. Earlier draft
+The 0.2 product scope, retained in 0.11, reflects the user clarification sequence. Earlier draft
 requirements superseded by that discussion are replaced in this folder.
 This pack contains requirements and proposals, not an approved implementation
 specification. Existing documentation and `ARCHITECTURE_RULES.md` continue to
@@ -31,45 +31,47 @@ current-system references; they are not copied into competing target specs.
 
 ## Reading order and document ownership
 
-| Document                                                         | Sole purpose                                                                              |
-| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| [Resume checkpoint](START-HERE.md)                               | Exact current position, patch prerequisites and new-chat continuation                     |
-| [Roadmap](roadmap.md)                                            | Named tasks, dependencies, evidence and next deliverables                                 |
-| [Current capability inventory](current-capability-inventory.md)  | R01 source/wiring audit, target mapping, contradictions and validation gaps               |
-| [R01 executed evidence](evidence/r01-2026-11-14.json)            | Selected existing-test results and initial load-error/targeted rerun provenance           |
-| [Editor interaction specification](editor-interaction-spec.md)   | R02 shared/model-specific behaviours, profile review and native obligations               |
-| [Editor case catalogue](editor-interaction-cases.json)           | 11 semantic fixtures, 72 unexecuted cases; not a canonical schema                         |
-| [Document model](document-model-spec.md)                         | R03 logical entities, single ownership, historical closure and M-01–M-07 gaps             |
-| [Command specification](command-api-spec.md)                     | R03 common envelopes, guards, outcomes, reads and inverse contracts                       |
-| [API registry/scenarios](model-api-contract-cases.json)          | 51 logical signatures and 24 unexecuted consistency scenarios; not wire schemas           |
-| [Vault persistence](vault-persistence-spec.md)                   | R04 commit/ack, candidate encodings, protected roots, history/recovery/outbox and PS gaps |
-| [Persistence failure catalogue](persistence-contract-cases.json) | PF-01–PF-30 unexecuted fault/restart cases; not a crash harness                           |
-| [Provider protocol](provider-sync-spec.md)                       | R05 packages, lifecycle, ordering and SY-01–SY-08 conditional decisions                   |
-| [Provider feasibility](provider-feasibility.md)                  | Official facilities, candidate routes and untested native/provider gates                  |
-| [Provider case catalogue](provider-sync-cases.json)              | SC-01–SC-30 unexecuted scenarios; not a working simulation                                |
-| [Editor qualification](editor-qualification-plan.md)             | Native interaction gates, exploratory policies and evidence protocol                      |
-| [Editor instances/probes](editor-qualification-instances.json)   | 102 unexecuted seed/timing instances and 16 additional probes                             |
-| [Platform boundaries](platform-boundaries-spec.md)               | Proposed headless ownership/lifetime and portable adapter contracts                       |
-| [Local API security](local-security-api-spec.md)                 | Authentication/grants, untrusted content and adapter boundary proposals                   |
-| [Qualification budgets](qualification-budgets.json)              | Proposed numeric targets, workload recipes and decoder/queue bounds                       |
-| [Host/security cases](host-security-cases.json)                  | 18 unexecuted process/IPC/security scenarios                                              |
-| [Readiness](qualification-readiness.md)                          | Actual availability, blockers and first isolated R07 experiment                           |
-| [Candidate template](qualification-candidate-template.json)      | Required reproducibility fields; deliberately unpopulated, not a selected stack           |
-| [R07 isolated experiment](experiments/r07-two-view/README.md)    | Runnable two-view candidate, standalone lock and CLI/MCP test adapters                    |
-| [R07 findings](experiments/r07-two-view/findings.md)             | Raw versus guarded undo and immediate-selection blockers                                  |
-| [R07 executed evidence](evidence/r07-2026-11-14.json)            | Exact scope, source manifest, 34 Node tests and 13 pass/2 fail browser probes             |
-| [Product contracts](product-contracts.md)                        | Requirement IDs and initial/future scope                                                  |
-| [Confirmed behaviour](product-behaviour.md)                      | Agreed task/property/template/date/comment semantics                                      |
-| [Sync and portability](sync-and-portability.md)                  | Opt-in provider policy, concurrency and Windows-ready boundaries                          |
-| [System architecture](system-architecture.md)                    | State ownership and operation lifecycle                                                   |
-| [Shared API](shared-api.md)                                      | App/CLI/MCP capability boundaries                                                         |
-| [History](history-and-collaboration.md)                          | Versions, pins, restore and future collaboration seam                                     |
-| [Decision register](decision-register.md)                        | Remaining technical choices and evidence gates                                            |
-| [Acceptance matrix](acceptance-matrix.md)                        | Tests traced to requirements with initial/provider/future gates                           |
-| [Qualification spike](qualification-spike.md)                    | First local/native and provider experiment specification                                  |
-| [Delivery plan](delivery-plan.md)                                | Dependencies, reviews and patch prerequisites                                             |
-| [ADR index](adr/README.md)                                       | Technical proposals and rationale                                                         |
-| [Changelog](CHANGELOG.md)                                        | Specification revisions and withdrawn proposals                                           |
+| Document                                                              | Sole purpose                                                                              |
+| --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| [Resume checkpoint](START-HERE.md)                                    | Exact current position, patch prerequisites and new-chat continuation                     |
+| [Roadmap](roadmap.md)                                                 | Named tasks, dependencies, evidence and next deliverables                                 |
+| [Current capability inventory](current-capability-inventory.md)       | R01 source/wiring audit, target mapping, contradictions and validation gaps               |
+| [R01 executed evidence](evidence/r01-2026-11-14.json)                 | Selected existing-test results and initial load-error/targeted rerun provenance           |
+| [Editor interaction specification](editor-interaction-spec.md)        | R02 shared/model-specific behaviours, profile review and native obligations               |
+| [Editor case catalogue](editor-interaction-cases.json)                | 11 semantic fixtures, 72 unexecuted cases; not a canonical schema                         |
+| [Document model](document-model-spec.md)                              | R03 logical entities, single ownership, historical closure and M-01–M-07 gaps             |
+| [Command specification](command-api-spec.md)                          | R03 common envelopes, guards, outcomes, reads and inverse contracts                       |
+| [API registry/scenarios](model-api-contract-cases.json)               | 51 logical signatures and 24 unexecuted consistency scenarios; not wire schemas           |
+| [Vault persistence](vault-persistence-spec.md)                        | R04 commit/ack, candidate encodings, protected roots, history/recovery/outbox and PS gaps |
+| [Persistence failure catalogue](persistence-contract-cases.json)      | PF-01–PF-30 unexecuted fault/restart cases; not a crash harness                           |
+| [Provider protocol](provider-sync-spec.md)                            | R05 packages, lifecycle, ordering and SY-01–SY-08 conditional decisions                   |
+| [Provider feasibility](provider-feasibility.md)                       | Official facilities, candidate routes and untested native/provider gates                  |
+| [Provider case catalogue](provider-sync-cases.json)                   | SC-01–SC-30 unexecuted scenarios; not a working simulation                                |
+| [Editor qualification](editor-qualification-plan.md)                  | Native interaction gates, exploratory policies and evidence protocol                      |
+| [Editor instances/probes](editor-qualification-instances.json)        | 102 unexecuted seed/timing instances and 16 additional probes                             |
+| [Platform boundaries](platform-boundaries-spec.md)                    | Proposed headless ownership/lifetime and portable adapter contracts                       |
+| [Local API security](local-security-api-spec.md)                      | Authentication/grants, untrusted content and adapter boundary proposals                   |
+| [Qualification budgets](qualification-budgets.json)                   | Proposed numeric targets, workload recipes and decoder/queue bounds                       |
+| [Host/security cases](host-security-cases.json)                       | 18 unexecuted process/IPC/security scenarios                                              |
+| [Readiness](qualification-readiness.md)                               | Actual availability, blockers and first isolated R07 experiment                           |
+| [Candidate template](qualification-candidate-template.json)           | Required reproducibility fields; deliberately unpopulated, not a selected stack           |
+| [R07 isolated experiment](experiments/r07-two-view/README.md)         | Runnable two-view candidate, standalone lock and CLI/MCP test adapters                    |
+| [R07 findings](experiments/r07-two-view/findings.md)                  | Raw versus guarded undo and immediate-selection blockers                                  |
+| [R07 executed evidence](evidence/r07-2026-11-14.json)                 | Exact scope, source manifest, 34 Node tests and 13 pass/2 fail browser probes             |
+| [R07 second findings](experiments/r07-two-view/follow-up-findings.md) | Public selection preflight and separate origin-aware history comparison                   |
+| [R07 second evidence](evidence/r07-02-2026-11-14.json)                | Targeted Linux passes, explicit raw controls and limits per candidate                     |
+| [Product contracts](product-contracts.md)                             | Requirement IDs and initial/future scope                                                  |
+| [Confirmed behaviour](product-behaviour.md)                           | Agreed task/property/template/date/comment semantics                                      |
+| [Sync and portability](sync-and-portability.md)                       | Opt-in provider policy, concurrency and Windows-ready boundaries                          |
+| [System architecture](system-architecture.md)                         | State ownership and operation lifecycle                                                   |
+| [Shared API](shared-api.md)                                           | App/CLI/MCP capability boundaries                                                         |
+| [History](history-and-collaboration.md)                               | Versions, pins, restore and future collaboration seam                                     |
+| [Decision register](decision-register.md)                             | Remaining technical choices and evidence gates                                            |
+| [Acceptance matrix](acceptance-matrix.md)                             | Tests traced to requirements with initial/provider/future gates                           |
+| [Qualification spike](qualification-spike.md)                         | First local/native and provider experiment specification                                  |
+| [Delivery plan](delivery-plan.md)                                     | Dependencies, reviews and patch prerequisites                                             |
+| [ADR index](adr/README.md)                                            | Technical proposals and rationale                                                         |
+| [Changelog](CHANGELOG.md)                                             | Specification revisions and withdrawn proposals                                           |
 
 Requirements live in product contracts; other documents reference their IDs.
 Acceptance IDs belong to the matrix. ADRs explain decisions rather than repeat
@@ -128,4 +130,4 @@ R04 compares backend commit contracts and primary documentation without selectin
 one or executing crash tests. Its PS decisions are separate from product P IDs;
 R05 drafted provider protocol/feasibility rather than raw live-file sync; its
 coherence and route qualification remain blocked. R06 prepares native/editor and
-host/security experiments; the first R07 slice ran and blocker investigation is next.
+host/security experiments; two R07 slices ran and native/broader qualification is next.

@@ -1,0 +1,71 @@
+{
+  "document": "R07 second-slice experimental mitigation evidence",
+  "revision": "0.11",
+  "date": "2026-11-14",
+  "status": "targeted Linux comparisons pass; complete architecture/native/provider qualification still open",
+  "base": "Exact 0.10 Clutter R07 Two View Experiment 01.patch contents. User reports applied; remote only verified at 0.9 commit 1215044. No new agent commit/push or production changes.",
+  "candidates": {
+    "R07-PM-PUBLIC-02": "Existing step authority/guarded history plus public text-selection command preflight",
+    "R07-PM-ORIGIN-02": "Separate local accepted Y.Doc and per-context provisional replicas with origin-aware history; no persistence/CLI/MCP bridge"
+  },
+  "counts": {
+    "node": {
+      "total": 38,
+      "pass": 38,
+      "fail": 0,
+      "meaning": "37 checks plus one diagnostic that reproduces the raw-history violation; not 38 acceptance passes"
+    },
+    "selection_browser": {
+      "candidate_pass": 21,
+      "candidate_fail": 0,
+      "adapted_control_pass": 1,
+      "raw_control_fail": 1,
+      "command_exit": 0,
+      "meaning": "Raw failure remains reported, excluded from candidate acceptance totals. Synthetic flag test is not native IME evidence."
+    },
+    "origin_browser": {
+      "pass": 11,
+      "fail": 0,
+      "command_exit": 0
+    },
+    "immediate_sequence_repeats": {
+      "separate_runs": 3,
+      "pass": 3,
+      "meaning": "Additional executions of BR-14 without waits; not new unique coverage"
+    }
+  },
+  "findings": [
+    {
+      "id": "R07-F1-followup",
+      "baseline": "Raw batched undo diagnostic unchanged and still violates foreign text preservation. The original guard still refuses it.",
+      "comparison": "Origin-aware binding now undoes own batched text to FOREIGNAlpha beta and redoes it to abFOREIGNcdAlpha beta; B can undo its own contribution independently. Tests include granular input, Unicode, foreign formatting on retained text, queued same-position edits, table cells and redo overlap.",
+      "limit": "Text/history subset only; no persistence, public shared command/CLI/MCP parity, all structural/attribute conflict semantics or native acceptance for the new candidate."
+    },
+    {
+      "id": "R07-F2-followup",
+      "baseline": "Raw CT-01 still reports native Four@4 while engine selection is document@1 and row count stays 2.",
+      "comparison": "Same control with public preflight maps native range to engine position 91 at End; immediate Tab creates row 3. BR-14 and empty-cell/backward-range/focus tests pass without action delays or private observer calls.",
+      "limit": "Focused native text-selection profile only. Node/cell selections are intentionally excluded, composition checks are synthetic; full actual IME/OS input and complete matrix not qualified."
+    }
+  ],
+  "clean_checks": {
+    "npm_ci_ignore_scripts": "passed",
+    "build": "passed",
+    "npm_audit_reported_known_vulnerabilities": 0,
+    "node": "v24.22.1",
+    "browser": "153.0.8010.0",
+    "os": "linux"
+  },
+  "evidence_policy": "Earlier R07 artifacts remain unchanged. Expected raw failures are explicit diagnostics, never reclassified as passing acceptance. New proof is scoped to each candidate; first-candidate persistence/API checks do not transfer to the origin candidate.",
+  "artifacts": {
+    "candidate-manifest.json": "r07-02-2026-11-14/candidate-manifest.json",
+    "browser-results.json": "r07-02-2026-11-14/browser-results.json",
+    "origin-results.json": "r07-02-2026-11-14/origin-results.json",
+    "core-run.txt": "r07-02-2026-11-14/core-run.txt",
+    "browser-run.txt": "r07-02-2026-11-14/browser-run.txt",
+    "origin-run.txt": "r07-02-2026-11-14/origin-run.txt",
+    "audit.json": "r07-02-2026-11-14/audit.json",
+    "commands.json": "r07-02-2026-11-14/commands.json"
+  },
+  "next": "Packaged macOS native input/IME/VoiceOver/menu and full interaction coverage, plus origin-candidate structural history and headless shared-API/durability parity. No editor/storage/host architecture chosen."
+}

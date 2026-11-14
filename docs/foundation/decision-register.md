@@ -81,7 +81,7 @@ runtime/domain/protocol tests were run. R04 now has conditional [persistence con
 [30 unexecuted fault scenarios](persistence-contract-cases.json), comparing P-SQL/
 P-ROOT/P-TEXT. PS-01–PS-07 remain open; no crash/backend/native proof is claimed.
 R05 provider protocol/feasibility and R06 qualification preparation are now drafted;
-R07 first-slice blocker investigation is next, preserving M/Q/PS/SY/PL/SEC gaps. [START-HERE](START-HERE.md)
+R07 native and broader semantic qualification is next, preserving M/Q/PS/SY/PL/SEC gaps. [START-HERE](START-HERE.md)
 records handoff/authorization and [roadmap](roadmap.md) orders specifications,
 qualification and implementation. These navigation documents do not accept any
 technical decision or duplicate product rules.
@@ -106,3 +106,10 @@ was accepted or fully qualified.
 blockers. No engine/library/backend was selected. The guarded history experiment
 is not a production workaround approval; compare viable complete candidates and
 native evidence before accepting D-01/D-05.
+
+## R07 second-slice comparison
+
+[Second findings](experiments/r07-two-view/follow-up-findings.md) narrow D-01/D-05
+with tested alternatives, not an accepted stack. D-04/D-03 parity, structural history,
+performance and actual native input remain gates. Preserve declared candidate scope
+and costs; no sunk-cost preference or provider-policy change.

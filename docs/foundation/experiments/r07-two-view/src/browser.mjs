@@ -1,14 +1,17 @@
 import { EditorView } from 'prosemirror-view';
-import { TextSelection } from 'prosemirror-state';
+import { TextSelection, NodeSelection } from 'prosemirror-state';
 import { baseKeymap, toggleMark } from 'prosemirror-commands';
 import { keymap } from 'prosemirror-keymap';
 import { undo, redo } from 'prosemirror-history';
-import { tableEditing, goToNextCell } from 'prosemirror-tables';
+import { tableEditing, goToNextCell, CellSelection } from 'prosemirror-tables';
 import { Authority } from './authority.mjs';
 import { Context, settle } from './context.mjs';
 import { fixture, schema, textPosition } from './schema.mjs';
 import { execute } from './api.mjs';
 import { nextCellOrRow } from './table-command.mjs';
+import { reconcileNativeTextSelection } from './selection-preflight.mjs';
+const selectionPreflight =
+  new URLSearchParams(location.search).get('selection') !== 'raw';
 
 const prefix = 'clutter-r07-lab:';
 class BrowserStore {
@@ -166,10 +169,14 @@ function mount(id) {
           return false;
         },
         keydown(view, event) {
+          const preflight = selectionPreflight
+            ? reconcileNativeTextSelection(view, event)
+            : { changed: false, reason: 'raw-control' };
           const native = window.getSelection();
           record('keydown', {
             view: id,
             key: event.key,
+            preflight,
             from: view.state.selection.from,
             to: view.state.selection.to,
             nativeText: native?.anchorNode?.textContent?.slice(0, 60),
@@ -294,6 +301,24 @@ window.addEventListener('beforeunload', (e) => {
 // Synthetic-fixture test controls. This global exists only in this lab bundle.
 window.lab = {
   reset: () => reset(false),
+  selectionPreflight: (id, event) =>
+    reconcileNativeTextSelection(views[id], event),
+  selectKind(id, kind) {
+    const c = clients[id],
+      positions = [];
+    c.state.doc.descendants((node, pos) => {
+      if (node.type.name === (kind === 'cells' ? 'table_cell' : 'embed'))
+        positions.push(pos);
+    });
+    c.apply(
+      c.state.tr.setSelection(
+        kind === 'cells'
+          ? CellSelection.create(c.state.doc, positions[0], positions.at(-1))
+          : NodeSelection.create(c.state.doc, positions[0])
+      )
+    );
+    views[id].focus();
+  },
   snapshot: () => ({
     doc: authority.doc.toJSON(),
     version: authority.version,

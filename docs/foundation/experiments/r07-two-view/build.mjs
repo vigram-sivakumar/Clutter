@@ -26,3 +26,11 @@ await build({
   outfile: 'dist/control.js',
 });
 copyFileSync('control.html', 'dist/control.html');
+
+await build({
+  entryPoints: ['src/origin-browser.mjs'],
+  bundle: true,
+  format: 'esm',
+  outfile: 'dist/origin.js',
+});
+copyFileSync('origin.html', 'dist/origin.html');

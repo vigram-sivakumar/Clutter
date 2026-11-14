@@ -3,6 +3,22 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.11 — 2026-11-14
+
+- Added explicit public-API text-selection preflight candidate; immediate final-cell
+  navigation and empty-cell/backward/focus guards pass without settle waits/private
+  observers. Preserved raw CT-01 failure and first-slice artifacts unchanged.
+- Added separate pinned local Yjs/y-prosemirror origin-history comparison. Actual
+  browser undo/redo now preserves foreign batched/Unicode text; no history metadata
+  rewrite, server or provider-policy change. Full structural/native parity remains.
+- Clean install/build, 38 Node checks (one raw-failure diagnostic), 21 selection and
+  11 origin browser candidate checks pass; adapted minimal control passes. Raw
+  control failure remains diagnostic, not counted as an acceptance success.
+- Three additional immediate-sequence runs pass. Audit reported zero known issues
+  for the isolated lock; not security proof. New source/trace evidence is separate.
+- Native macOS/IME/VoiceOver and full origin-candidate API/durability/lifecycle are
+  still unqualified. Updated resumable handoff; no production change or agent commit/push.
+
 ## 0.10 — 2026-11-14
 
 - Added isolated R07 two-view ProseMirror candidate, pinned standalone dependencies,

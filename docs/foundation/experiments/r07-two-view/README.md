@@ -2,7 +2,7 @@
 
 A standalone, disposable candidate under `docs/foundation/`. No production imports,
 vault access, root dependency changes or architecture selection. All example text
-is synthetic. See [findings](findings.md) before interpreting test exit codes.
+is synthetic. Read the preserved [first findings](findings.md) and [second-slice findings](follow-up-findings.md) before interpreting results.
 
 ## Run
 
@@ -36,11 +36,29 @@ browser. The runner uses container-only sandbox flags on Linux; these are test
 launch options, not a deployment security configuration. Browser checks are not
 macOS/WKWebView/native input qualification. Real IME/VoiceOver are not simulated.
 
-**The browser command is expected to exit nonzero on the recorded configuration:**
-BR-14 and CT-01 expose an immediate cell-navigation failure. Do not add a wait or
-mark them skipped to obtain green results. Isolate one case with `BROWSER_CASE=BR-14`.
-Artifacts include snapshots, input traces and failure screenshots. `node manifest.mjs`
-records exact sources/dependency locks for a run. Generated output stays ignored.
+The default `/` route now uses the public selection preflight candidate. The
+browser runner checks candidate cases plus `/control` (unchanged raw failure) and
+`/control?selection=public` (adapted control). Raw failure stays visible in results;
+only candidate/adapted-control failures cause the candidate suite to fail. This is
+not a relabelled acceptance pass for the raw control. The `/?selection=raw` route
+also disables the adapter in the original two-view composition.
+
+For the separate origin-aware history comparison, open `http://127.0.0.1:4178/origin`
+or run:
+
+```bash
+npm run test:origin
+```
+
+That comparison uses Yjs only for local representation/origin history. It has no
+cloud service, persistence or live CLI/MCP bridge. It preserves foreign batched
+text through actual undo and redo; it does not select a production CRDT/store.
+The old guard and raw failure reproduction remain available unchanged.
+
+`BROWSER_CASE=BR-14` isolates the table case. Artifacts include snapshots/traces;
+`node manifest.mjs` records exact sources/locks. Generated output stays ignored.
+No sleeps were added to immediate-input actions. Synthetic composition-flag guards
+are not native IME proof. See the follow-up findings for all remaining gaps.
 
 ## Headless adapter demonstration
 
@@ -74,7 +92,7 @@ crash rather than deleting locks around a live process. No shared DB/provider fo
 - `src/control.mjs`: raw one-view control; no coordination/collab layer.
 
 The core suite's green result includes one diagnostic that **confirms the raw
-candidate violates the undo requirement**. It is not 34 passing product acceptance
+candidate violates the undo requirement**. It is not a count of passing product acceptance
 cases. The guard is intentionally broad for foreign mark/attribute changes, replays
 an uncompressed step log and is not performance-qualified. A refusal does not
 advance undo history or delete work; it does not prove a satisfactory final UX.
@@ -89,3 +107,7 @@ platform work remain gaps. Read the candidate manifest and qualification report.
 
 Pinned view 1.42.9 exceeds the advisory's fixed version; npm audit reported no known
 vulnerabilities for this lock at review time. Neither observation proves security.
+
+The origin candidate and selection preflight are separate comparisons. Core/API
+parity, durable snapshots and safe-close tests from the first candidate do not
+qualify those missing features in the origin candidate by association.

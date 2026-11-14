@@ -7,6 +7,8 @@ export function server(port = 4178) {
     // Only fixed built artifacts. No path traversal or app-vault access.
     const name = new URL(req.url, 'http://localhost').pathname;
     const files = {
+      '/origin': 'origin.html',
+      '/origin.js': 'origin.js',
       '/control': 'control.html',
       '/control.js': 'control.js',
       '/': 'index.html',

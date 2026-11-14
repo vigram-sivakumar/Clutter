@@ -98,3 +98,10 @@ This table remains unqualified as a full matrix. [R07 evidence](evidence/r07-202
 provides partial core/browser observations; it does not mark whole T/EI cases passed.
 Raw undo violates origin preservation and immediate final-cell Tab fails the tested
 profile in both integration and control. Native/platform/provider gates stay open.
+
+## R07 second-slice comparison
+
+[Second R07 evidence](evidence/r07-02-2026-11-14.json) improves targeted selection
+and origin-history results; it does not qualify the complete T/EI matrix. Synthetic
+composition guards are not native IME proof, and raw-control failure is not a pass.
+First-candidate persistence/CLI/MCP evidence does not transfer to the origin candidate.

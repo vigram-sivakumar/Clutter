@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>R07 origin-aware history comparison</title>
+    <link rel="stylesheet" href="prosemirror.css" />
+    <link rel="stylesheet" href="tables.css" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Origin-aware history comparison</h1>
+      <p>
+        Separate local-only candidate. Synthetic content. No persistence, vault
+        access, provider sync or architecture selection.
+      </p>
+      <div class="toolbar">
+        <button id="origin-undo">Undo</button
+        ><button id="origin-redo">Redo</button
+        ><button id="origin-reset">Reset fixture</button>
+      </div>
+      <p id="origin-status" role="status"></p>
+      <div class="panes">
+        <section>
+          <h2>View A</h2>
+          <div id="origin-a"></div>
+        </section>
+        <section>
+          <h2>View B</h2>
+          <div id="origin-b"></div>
+        </section>
+      </div>
+      <p>
+        The accepted document has a single local authority; each editor has a
+        provisional replica and its own origin history. Task-page,
+        schema/lifecycle, persistence and security qualification remain outside
+        this comparison.
+      </p>
+    </main>
+    <script type="module" src="origin.js"></script>
+  </body>
+</html>

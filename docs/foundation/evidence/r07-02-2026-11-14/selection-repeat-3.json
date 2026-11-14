@@ -1,0 +1,110 @@
+{
+  "runtime": "153.0.8010.0",
+  "os": "linux",
+  "input": "Playwright browser key/pointer events; not native macOS input",
+  "results": [
+    {
+      "id": "BR-14",
+      "title": "exploratory final-cell Tab creates one row and focuses its first cell",
+      "role": "candidate",
+      "status": "pass"
+    }
+  ],
+  "errors": [],
+  "trace": [
+    {
+      "time": 181,
+      "type": "keydown",
+      "view": "A",
+      "key": "End",
+      "preflight": {
+        "changed": true,
+        "reason": "native-text-selection"
+      },
+      "from": 91,
+      "to": 91,
+      "nativeText": "Four",
+      "nativeOffset": 4
+    },
+    {
+      "time": 184,
+      "type": "keydown",
+      "view": "A",
+      "key": "Tab",
+      "preflight": {
+        "changed": false,
+        "reason": "already-aligned"
+      },
+      "from": 91,
+      "to": 91,
+      "nativeText": "Four",
+      "nativeOffset": 4
+    },
+    {
+      "time": 192,
+      "type": "keydown",
+      "view": "A",
+      "key": "N",
+      "preflight": {
+        "changed": false,
+        "reason": "already-aligned"
+      },
+      "from": 97,
+      "to": 97,
+      "nativeText": "",
+      "nativeOffset": 0
+    },
+    {
+      "time": 192,
+      "type": "beforeinput",
+      "view": "A",
+      "inputType": "insertText",
+      "from": 97,
+      "to": 97
+    },
+    {
+      "time": 198,
+      "type": "keydown",
+      "view": "A",
+      "key": "E",
+      "preflight": {
+        "changed": false,
+        "reason": "already-aligned"
+      },
+      "from": 98,
+      "to": 98,
+      "nativeText": "N",
+      "nativeOffset": 1
+    },
+    {
+      "time": 198,
+      "type": "beforeinput",
+      "view": "A",
+      "inputType": "insertText",
+      "from": 98,
+      "to": 98
+    },
+    {
+      "time": 202,
+      "type": "keydown",
+      "view": "A",
+      "key": "W",
+      "preflight": {
+        "changed": false,
+        "reason": "already-aligned"
+      },
+      "from": 99,
+      "to": 99,
+      "nativeText": "NE",
+      "nativeOffset": 2
+    },
+    {
+      "time": 202,
+      "type": "beforeinput",
+      "view": "A",
+      "inputType": "insertText",
+      "from": 99,
+      "to": 99
+    }
+  ]
+}

@@ -12,6 +12,7 @@ const files = [
   'manifest.mjs',
   'index.html',
   'control.html',
+  'origin.html',
   'style.css',
   ...['src', 'test'].flatMap((dir) =>
     readdirSync(dir)
@@ -24,7 +25,8 @@ const hashes = Object.fromEntries(
 );
 const lock = JSON.parse(readFileSync('package-lock.json', 'utf8'));
 const manifest = {
-  candidate: 'R07-PM-LOCAL-01',
+  candidate: 'R07-PM-PUBLIC-02',
+  alternatives: ['R07-PM-ORIGIN-02'],
   date: '2026-11-14',
   scope: 'Exploratory Linux local two-view integration; not product acceptance',
   sourceHashes: hashes,
@@ -47,7 +49,11 @@ const manifest = {
     guarded:
       'Default Context plus conservative history-guard.mjs; refuses foreign deletion/opaque overlap',
     control:
-      'One raw editor, same schema/fixture/table command; no authority/collab/backup',
+      'CT-01 raw one-view editor remains unadapted; CT-02 adds only the public selection preflight',
+    selection:
+      'Focused native TextSelection mapped through public posAtDOM before key commands; no timers/private observers; skip composition, node/cell model selections and nested controls',
+    origin:
+      'Separate OriginAuthority accepted Y.Doc and per-context provisional replicas. y-prosemirror 1.3.7 sync/undo plugins, Yjs 13.6.33, no prosemirror-history plugin in this candidate. Remote deliveries have an untracked origin. No server/provider transport.',
     plugins: [
       'history depth=100, newGroupDelay=500ms',
       'collab with explicit context origin and current version',
@@ -79,7 +85,7 @@ const manifest = {
     'production security/authentication/IPC/process election',
   ],
   qualification:
-    'blocked; see findings.md and committed evidence. npm test includes a passing diagnostic that confirms an unsafe raw-candidate result, not an acceptance pass.',
+    'Exploratory targeted alternatives only. Raw controls remain failing. Full native/semantic/lifecycle/performance qualification is still blocked; see follow-up findings and separate evidence. The origin candidate has no persistence/CLI/MCP bridge.',
 };
 mkdirSync('artifacts', { recursive: true });
 writeFileSync(

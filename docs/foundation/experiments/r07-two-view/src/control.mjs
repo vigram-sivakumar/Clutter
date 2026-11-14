@@ -6,6 +6,9 @@ import { keymap } from 'prosemirror-keymap';
 import { tableEditing } from 'prosemirror-tables';
 import { fixture } from './schema.mjs';
 import { nextCellOrRow } from './table-command.mjs';
+import { reconcileNativeTextSelection } from './selection-preflight.mjs';
+const selectionPreflight =
+  new URLSearchParams(location.search).get('selection') === 'public';
 const trace = [];
 const view = new EditorView(document.querySelector('#control'), {
   state: EditorState.create({
@@ -22,9 +25,13 @@ const view = new EditorView(document.querySelector('#control'), {
   },
   handleDOMEvents: {
     keydown(view, event) {
+      const preflight = selectionPreflight
+        ? reconcileNativeTextSelection(view, event)
+        : { changed: false, reason: 'raw-control' };
       const native = window.getSelection();
       trace.push({
         key: event.key,
+        preflight,
         from: view.state.selection.from,
         nativeText: native?.anchorNode?.textContent,
         nativeOffset: native?.anchorOffset,

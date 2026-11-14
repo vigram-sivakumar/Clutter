@@ -125,3 +125,10 @@ relevant policy approval remain outstanding; no executed R06 proof is claimed.
 implement the first bounded slice. Raw versus guarded history and the one-view
 control remain distinct. Investigate BR-14/CT-01 without settle waits; keep native
 and provider stages blocked until real environment/evidence exist.
+
+## R07 second-slice comparison
+
+[Second-slice evidence](evidence/r07-02-2026-11-14.json) and [findings](experiments/r07-two-view/follow-up-findings.md)
+record the public-selection and origin-history alternatives. Preserve raw controls;
+macOS native tests and complete origin-candidate semantic/API/durability parity are
+next gates. Local CRDT history is not a provider merge-policy decision.
