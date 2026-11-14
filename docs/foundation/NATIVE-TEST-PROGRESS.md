@@ -1,8 +1,9 @@
 # Native test progress and next action
 
-Updated 2026-11-14, revision 0.27. Maintain this alongside START-HERE at every native
+Updated 2026-11-14, revision 0.34. Maintain this alongside START-HERE at every native
 handoff. Evidence sources are explicit. The first 07 report has now been uploaded/reviewed;
-manual conversation results and stored verdicts remain distinct.
+manual conversation results and stored verdicts remain distinct. The fresh09
+report now verifies both NM-09 verdicts and ready captures.
 
 ## Observed so far
 
@@ -21,9 +22,11 @@ manual conversation results and stored verdicts remain distinct.
 | NM-03                       | Blocked/unavailable: user says no Japanese/Chinese/Korean input source enabled. No real native composition passed; preserve this gate.                                                                                                                                                                                            |
 | NM-04 menu Undo/Redo        | User individually confirmed four guarded-step menu checks, then reports the same checks passed in Origin-aware. Both candidates have reported menu Undo/Redo passes in A/B. Menu dismissal/window-focus variants remain pending; no JSON reviewed.                                                                                |
 | NM-05                       | User reports all guided clipboard/selection checks, including final table-paste undo restoring Four without growth, work in both candidates. Reported case coverage; saved JSON review/recorded verdicts pending.                                                                                                                 |
-| NM-06–NM-08                 | Not formally reported; the uploaded 07 report stores these cases as not-run.                                                                                                                                                                                                                                                      |
+| NM-06                       | Deferred/untested at user request: user corrects earlier familiarity reply and says they have never used VoiceOver and do not want to prioritise it. Do not repeat the onboarding/test prompt by default or mark accessibility passed.                                                                                            |
+| NM-07                       | Guarded Bold toolbar and Origin Command-B typing routes reported passed. Step close/reopen retains AEDIT/BEDIT; reopened A undo removes only AEDIT, redo restores it while retaining BEDIT, all reported passed. Origin toolbar unavailable; no fresh saved07 verdict reviewed.                                                   |
+| NM-08                       | Guarded step: user reports RECOVER survives in-page Protect & restart with Fail saves, both failures block close with CLOSE_BLOCKED, then both flags off permit close and preserve B's text. Same-session lab protection only; saved verdict/report capture next.                                                                 |
 | Native JSON report review   | native-2026-11-14T08-53-44-634Z.json reviewed: exact 07 source/web hashes matched before changes; 20 origin and 26 step fixture runs all pass (four repeated checks each). All 15 manual cases not-run; zero attempts. Startup latestCapture says not ready; no later manual capture.                                             |
-| Table triple-click          | User reports triple-click incorrectly selects the cell. Reproduced both candidates; shared text-range override tested on Linux. Native NM-09 added; retest pending in 09.                                                                                                                                                         |
+| Table triple-click          | Guided09 replacement/undo reported passed in both. Fresh native-2026-11-14T09-38-40-422Z.json now stores NM-09 pass/one attempt/ready error-free capture in each; build/source/web hashes match09, restored 2×2 table and A/B equality verified. Multiline native not inferred.                                                   |
 
 ## Settled decisions — do not reopen as default questions
 
@@ -144,21 +147,95 @@ public handler/command. Text and multi-paragraph ranges, empty cells, replacemen
 undo, unchanged cell structure and existing double-click behaviour are covered.
 No production/dependency/Swift change. Existing 07 reports stay historical.
 
-## Next user action: NM-09 triple-click fix retest
+## Reported native NM-09 results after 09
 
-Quit the old lab with Command-Q after retaining its saved JSON. Apply the
-Clutter R07 Triple Click Fix 09 bundle (the helper checks whether 07 or documentation
-08 is present and applies the matching verified patch). Rebuild with native:mac.
-In Experiment > Guarded step candidate select NM-09, run Fixture checks, then
-triple-click Four. Expected the word's text selected in editing mode, not the
-whole cell in cell-selection mode. Observe this before replacement/undo and the
-Origin-aware repeat. Previously reported manual successes remain historical;
-new build retest is scoped to the fix and affected interactions.
+After bundle09 instructions, user said done next; then success for the Guarded
+step triple-click Four, type X, Command-Z sequence and success for the repeated
+Origin-aware sequence. Expected text-only selection/replacement/undo, Four restored
+in both A/B and unchanged table dimensions. Record the bounded variation as
+reported passed in both candidates, not a reviewed snapshot or multiline native
+pass. User reports 09 completed; no new commit hash/report reviewed yet.
 
-After this fix's retest, verify one manual verdict actually saves: select NM-05,
-click Pass, confirm the picker says pass, then Reveal saved JSON report and review
-a fresh file. The uploaded 07 report has no manual attempts and only startup
-capture readiness; do not infer the current capture is broken or re-run all tests.
+## Fresh09 report verifies saved results
+
+User confirmed Origin NM-09 picker ended pass, then marked Guarded step and
+uploaded native-2026-11-14T09-38-40-422Z.json (updated09:42:39Z). Original/report
+review retained in evidence/r07-21-2026-11-14/. All source and web hashes match09.
+Each window stores one NM-09 pass attempt with ready=true, no capture error and
+matching authority/A/B documents. Snapshot tables are One/Two, Three/Four (2×2).
+No load errors. Both have one four-check fixture pass run; these are not native
+input proof. Remaining manual verdicts are not-run in this fresh session.
+
+The09 recording check is verified; no current capture failure remains established.
+Do not alter the historical07 report or promote earlier conversation results into
+stored verdicts. Manual gesture details are user observations, supported by saved
+verdicts/result snapshots here, not independently replayed by the agent.
+
+## User priority correction: defer VoiceOver
+
+User corrects the earlier yes: they have not used VoiceOver and say it need not
+be prioritised. NM-06 is deferred and untested, not passed. Respect this priority
+and continue other qualification. Do not ask again or start VoiceOver onboarding
+by default. Keep accessibility as explicit later qualification; no app code or
+acceptance requirement is silently removed by deferring this manual session.
+
+## Reported NM-07 formatting routes
+
+Guarded step: user says success after selecting beta, clicking Bold in the lab
+and typing X without clicking the editor again; expected Alpha X with X bold in
+A/B. Origin: user notes there is no Bold button. Source origin.html confirms the
+lab only exposes Undo/Redo/Reset. User instead tests selected beta, Command-B,
+then X and reports success. Record keyboard formatting passed, not Origin toolbar
+focus; that route is unavailable in this lab. No new native JSON reviewed for
+these trials. Do not repeat or conflate the routes.
+
+## Reported NM-07 step view lifetime/history
+
+In Guarded step, user reports success after A appends AEDIT to Alpha beta, B
+appends BEDIT to Gamma delta, then Close view A/Reopen view A leaves both edits
+visible in both views. User then reports success for Command-Z in reopened A
+removing only AEDIT while BEDIT remains, and success for Shift-Command-Z restoring
+AEDIT while BEDIT remains. Bounded conversational reports; no fresh raw verdict or
+snapshot for NM-07 inspected. Do not repeat these prompts by default.
+
+## Reported NM-08 injected failure checks
+
+User reports success with Fail saves enabled, appending RECOVER to Gamma delta
+and using in-page Protect & restart: Gamma delta RECOVER remains in both views.
+They then report success enabling Fail recovery as well and attempting Close
+view A: close blocked with CLOSE_BLOCKED, text/view retained. Finally both flags
+are turned off and Close view A succeeds while B retains Gamma delta RECOVER.
+Both injected failures are off at this checkpoint. No OS-quit/crash, disk store,
+power-loss or provider claim follows from this ephemeral WKWebView session.
+These are user reports pending the new saved verdicts/captures; do not repeat
+by default or leave the user thinking the fault switches must stay enabled.
+
+## Latest report and user clarification
+
+User supplies updated native-2026-11-14T09-38-40-422Z(1).json, updated09:56:44Z.
+Original/review retained in evidence/r07-26-2026-11-14/. All source/web hashes match 09. All seven stored attempt captures are ready with no capture error. Origin
+has two NM-07 Pass clicks; step has three. Both also retain one NM-09 Pass.
+Treat these as repeated verdict clicks, not seven independent test executions.
+User says earlier clicks were accidental and explicitly confirms all performed
+manual tests passed. These confirmations remain valid; duplicates do not cancel
+them. Preserve raw records and do not invent attempt attribution.
+
+The report still has NM-08 not-run and no NM-08 attempts. Keep the conversational
+protection/blocked-close/cleanup passes separate from this missing UI verdict.
+Do not require another upload, rerun or button cleanup just to repair bookkeeping.
+Origin notes are empty; Command-B/absent toolbar detail comes from conversation
+and source, not from report notes. Other saved case labels remain not-run even
+where earlier manual steps were confirmed. No raw report is edited or backfilled.
+
+## Next action: consolidate and qualify history/authority boundaries
+
+The current guided manual session is complete: all performed tests are user-
+confirmed passes. Stop asking for reruns or UI-button cleanup. Read
+r07-qualification-review.md and prepare the matched history/authority contract
+for the next bounded R07 experiment, keeping raw unsafe-history controls and
+explicit refusal semantics. Do not select an editor or rebuild production from
+this native slice alone. NM-03 remains unavailable and NM-06 deferred. No new
+manual tests are pending for this session; lab09 unchanged.
 
 ## Next agent action
 

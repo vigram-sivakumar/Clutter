@@ -1,0 +1,14 @@
+{
+  "document": "Native step view lifetime and retained history reports",
+  "revision": "0.32",
+  "date": "2026-11-14",
+  "source": "User success to close/reopen content test, success to reopened-A undo, success to redo. No new raw NM-07 capture/verdict inspected.",
+  "reported_passes": [
+    "A Alpha beta AEDIT; B Gamma delta BEDIT; Close view A/Reopen view A -> both edits retained in both views.",
+    "Reopened A Command-Z removes AEDIT, keeps BEDIT in both views.",
+    "A Shift-Command-Z restores AEDIT, keeps BEDIT in both views."
+  ],
+  "next": "In Experiment > Guarded step candidate select NM-08 and click Fixture checks.\nEnable Fail saves, then append space+RECOVER after Gamma delta in View A. Click\nthe in-page Protect & restart button. Expected RECOVER remains in both views\nafter the in-page restart. Observe this first variation before enabling Fail\nrecovery and testing Close view A. This is synthetic same-session WKWebView\nprotection, not OS crash/on-disk durability or app-quit recovery. No rebuild needed.",
+  "limits": "Origin has no view-close/Bold toolbar route in lab. NM-03 unavailable; NM-06 deferred; no full native/editor/API/durability/provider acceptance.",
+  "delivery": "Local docs for next bundle; lab09 unchanged, no new patch/build/automated execution."
+}

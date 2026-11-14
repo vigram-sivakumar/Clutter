@@ -1,0 +1,50 @@
+{
+  "document": "Reviewed09 native report and manual recording verification",
+  "revision": "0.29",
+  "date": "2026-11-14",
+  "source_file": "native-report-original.json",
+  "source_sha256": "fe3ff7c8a058fed27656a01060d00ffe0002f03c45932e08082d5fa2b875bc06",
+  "report_start": "2026-11-14T09:38:40Z",
+  "report_updated": "2026-11-14T09:42:39Z",
+  "build_iteration": "R07-09-cell-text-triple-click-2026-11-14",
+  "source_hash_match": true,
+  "web_asset_hash_match": true,
+  "verified": [
+    {
+      "candidate": "origin",
+      "case": "NM-09",
+      "stored_status": "pass",
+      "attempt_id": "7148F89F-258E-47A0-B078-69E71C58E57F",
+      "capture_ready": true,
+      "capture_errors": null,
+      "table": [
+        ["One", "Two"],
+        ["Three", "Four"]
+      ],
+      "contexts_equal_authority": true,
+      "accepted_version": 2,
+      "fixture_runs": 1,
+      "event_count": 43
+    },
+    {
+      "candidate": "step",
+      "case": "NM-09",
+      "stored_status": "pass",
+      "attempt_id": "22E42DFE-B200-4401-B75C-FC06A5021A78",
+      "capture_ready": true,
+      "capture_errors": null,
+      "table": [
+        ["One", "Two"],
+        ["Three", "Four"]
+      ],
+      "contexts_equal_authority": true,
+      "accepted_version": 2,
+      "fixture_runs": 1,
+      "event_count": 49
+    }
+  ],
+  "conclusion": "Both manual NM-09 passes and ready error-free snapshots are stored. Snapshots show restored Four in unchanged 2x2 table, contexts match authority. Startup-only recording gap in07 is not present in these fresh manual captures.",
+  "limits": "This verifies saved manual verdicts and resulting snapshots, not independent replay/observation of the complete gesture. Multiline native selection unreported; other case verdicts remain not-run. Earlier conversation passes remain reported separately.",
+  "next": "NM-06 VoiceOver and keyboard access: ask whether user has used macOS VoiceOver before, then guide one bounded action at a time. Do not infer accessibility from naming/CSS/helper tests. NM-03 input sources remain unavailable.",
+  "delivery": "Local docs for next bundle. Lab09 unchanged; no new patch, rebuild or automated execution."
+}

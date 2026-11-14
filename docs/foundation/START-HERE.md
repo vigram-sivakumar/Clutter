@@ -1,6 +1,6 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-14. Documentation revision: 0.27.
+Last updated: 2026-11-14. Documentation revision: 0.34.
 Read AGENTS.md and this file first in a new chat or agent session. It is the checkpoint, not a
 second product specification. [README](README.md) identifies authoritative docs.
 
@@ -109,6 +109,8 @@ contains those contents; do not reapply either route.
 18. Triple-click fix and accumulated native progress, revision 0.27: `Clutter R07 Triple Click Fix 09.zip`.
     Includes verified alternative patches for exact 07 or 08; apply helper selects by preflight.
     Do not apply both alternatives. Rebuild native:mac after the fix.
+19. Native results and qualification handoff, revision 0.34: `Clutter R07 Native Qualification Handoff 10.patch`,
+    documentation/evidence only over exact bundle09 target; no native rebuild.
 
 Each update is incremental over its predecessor's file contents, not a particular
 user-created commit hash. If this file is present at revision 0.17, do not blindly
@@ -170,32 +172,27 @@ force checkout or re-create the branch to hide divergence.
 - Current authorized continuation includes the isolated R07 experiment, not a
   production rebuild. Preserve unqualified tests and report blocking observations.
 
-## Exact next action: native NM-09 triple-click fix
+## Exact next action: matched history/authority qualification contract
 
-Read AGENTS.md and NATIVE-TEST-PROGRESS.md. User-reported earlier manual passes
-are preserved. The first uploaded 07 JSON is reviewed and retained: matching build
-hashes and passing fixture repetitions, but all stored manual cases not-run and
-zero attempts. Do not claim those user reports are confirmed by stored verdicts.
-NM-03 remains unavailable. Triple-click cell selection was then reported as a bug.
+Read AGENTS.md, NATIVE-TEST-PROGRESS.md and r07-qualification-review.md. Latest09
+report reviewed with exact source/web hashes, ready attempt captures and repeated
+NM-07 Pass clicks. User explains accidental clicks and confirms all performed
+manual tests passed. Keep valid manual results; repeated clicks are not extra
+executions. NM-08 remains a conversational pass with raw UI not-run; no reruns or
+button cleanup requested. Preserve that distinction without blocking continuation.
 
-Quit the old lab with Command-Q after retaining its saved JSON. Apply the
-Clutter R07 Triple Click Fix 09 bundle (the helper checks whether 07 or documentation
-08 is present and applies the matching verified patch). Rebuild with native:mac.
-In Experiment > Guarded step candidate select NM-09, run Fixture checks, then
-triple-click Four. Expected the word's text selected in editing mode, not the
-whole cell in cell-selection mode. Observe this before replacement/undo and the
-Origin-aware repeat. Previously reported manual successes remain historical;
-new build retest is scoped to the fix and affected interactions.
+The current guided manual session is complete: all performed tests are user-
+confirmed passes. Stop asking for reruns or UI-button cleanup. Read
+r07-qualification-review.md and prepare the matched history/authority contract
+for the next bounded R07 experiment, keeping raw unsafe-history controls and
+explicit refusal semantics. Do not select an editor or rebuild production from
+this native slice alone. NM-03 remains unavailable and NM-06 deferred. No new
+manual tests are pending for this session; lab09 unchanged.
 
-After this fix's retest, verify one manual verdict actually saves: select NM-05,
-click Pass, confirm the picker says pass, then Reveal saved JSON report and review
-a fresh file. The uploaded 07 report has no manual attempts and only startup
-capture readiness; do not infer the current capture is broken or re-run all tests.
-
-09 bundles all pending documentation progress since 07. Since 08 application was
-never confirmed, delivery contains two verified patch alternatives, one over 07
-and one over 08; its helper applies only one matching preflight and stops on
-other file states. No reset/clean, force application, branch change or agent commit.
+[Latest review](evidence/r07-26-2026-11-14/review.json) retains exact raw evidence.
+Documentation patch10 carries accumulated records since delivered09 and this
+review, with no code or rebuild. Its exact09 base is saved; apply only on matching
+foundation contents. No agent commit/push or full architecture acceptance.
 
 Latest Linux evidence: 61 Node checks (one raw-failure diagnostic), six support
 checks, 66 table-browser candidate passes; raw unguarded structural row/column

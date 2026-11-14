@@ -29,6 +29,9 @@ them by implication.
 - Update START-HERE, the progress log, changelog and scoped evidence when code,
   requirements or meaningful native results change. Keep one current next action.
   Record blocked/not-run honestly; retain failing attempts and identify the build.
+- Preserve explicitly confirmed manual results even if UI verdict clicks are
+  missing or duplicated. Keep raw attempts intact; do not count clicks as test
+  executions or require reruns just for bookkeeping.
 - Guide manual testing one concrete variation at a time. Do not mark all NM-01
   passed from one successful substep. Ask one example-based question only for a
   genuinely unresolved material decision, not a settled requirement.

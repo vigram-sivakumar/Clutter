@@ -1,0 +1,59 @@
+{
+  "document": "Latest native report review with duplicate/accidental clicks",
+  "revision": "0.34",
+  "date": "2026-11-14",
+  "source_file": "native-report-original.json",
+  "source_sha256": "395cc683b8979a0a83c7185aa64ac1fe2b734f277345f1194e6529d4a45bb099",
+  "report_updated": "2026-11-14T09:56:44Z",
+  "iteration": "R07-09-cell-text-triple-click-2026-11-14",
+  "source_web_hashes_match": true,
+  "windows": [
+    {
+      "candidate": "origin",
+      "attempt_records": 3,
+      "NM-07_pass_clicks": 2,
+      "NM-09_pass_clicks": 1,
+      "stored_cases": {
+        "NM-01": "not-run",
+        "NM-02": "not-run",
+        "NM-03": "not-run",
+        "NM-04": "not-run",
+        "NM-05": "not-run",
+        "NM-06": "not-run",
+        "NM-07": "pass",
+        "NM-09": "pass"
+      },
+      "all_attempt_captures_ready": true,
+      "load_error": ""
+    },
+    {
+      "candidate": "step",
+      "attempt_records": 4,
+      "NM-07_pass_clicks": 3,
+      "NM-09_pass_clicks": 1,
+      "stored_cases": {
+        "NM-01": "not-run",
+        "NM-02": "not-run",
+        "NM-03": "not-run",
+        "NM-04": "not-run",
+        "NM-05": "not-run",
+        "NM-06": "not-run",
+        "NM-07": "pass",
+        "NM-08": "not-run",
+        "NM-09": "pass"
+      },
+      "all_attempt_captures_ready": true,
+      "load_error": ""
+    }
+  ],
+  "user_clarification": "User accidentally clicked Pass earlier and again, but confirms all performed manual tests passed.",
+  "interpretation": "Preserve all raw attempts; repeated/accidental Pass clicks are not independent executions. Completed conversation-confirmed tests remain reported passes; duplicate clicks do not invalidate them.",
+  "deduplicated_stored_labels": {
+    "origin": ["NM-07 pass", "NM-09 pass"],
+    "step": ["NM-07 pass", "NM-09 pass"]
+  },
+  "NM-08": "Raw step case status remains not-run, with zero NM-08 attempts. User explicitly confirmed in-page protection, blocked close and cleanup succeeded; keep manual reported pass separate from missing UI verdict. Do not ask for reruns or button cleanup merely to repair bookkeeping.",
+  "notes_gap": "Origin NM-07 stored notes empty. Command-B route and absent Bold toolbar are documented from conversation/source, not those notes.",
+  "limits": "Snapshots support resulting state/recording, not independent replay of every gesture. NM-03 unavailable and NM-06 deferred. No whole architecture/native matrix accepted.",
+  "next": "Consolidate docs handoff and review remaining history/API/durability qualification before choosing architecture. No more current manual tests requested."
+}

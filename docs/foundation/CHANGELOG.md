@@ -3,6 +3,66 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.34 — 2026-11-14
+
+- Retained/reviewed updated09 JSON: matching hashes, ready captures, repeated
+  NM-07 Pass clicks. User confirms all performed tests passed manually and notes
+  accidental clicks. Preserve reported passes; deduplicate counts, never raw logs.
+- NM-08 raw status remains not-run despite explicit manual success; retain both
+  facts without reruns/button cleanup. Origin Command-B detail recorded separately.
+- Added R07 qualification review and next matched history/authority gate; do not
+  select technology from unequal prototype features or claim full native parity.
+- Documentation/evidence patch10 over exact09 target; no lab/source/dependency/
+  Swift change, rebuild or new automated execution. User commits locally.
+
+## 0.33 — 2026-11-14
+
+- User reports NM-08 in-page protection preserves RECOVER when saves fail, both
+  failure paths block close, and disabling both flags permits close with B intact.
+  Flags are now off. No OS/disk durability claim; saved raw verdict review pending.
+- Next capture NM-07/NM-08 verdicts and consolidate handoff/gaps. Local docs only;
+  no new patch, source, build or automated run. VoiceOver remains deferred.
+
+## 0.32 — 2026-11-14
+
+- User reports step view close/reopen retains AEDIT/BEDIT and reopened-A undo/redo
+  changes only AEDIT while preserving BEDIT. No new raw NM-07 capture reviewed.
+- Next NM-08 injected save failure and in-page recovery; OS crash/on-disk durability
+  remains a separate gate. Local docs only; no patch/source/build/automatic run.
+
+## 0.31 — 2026-11-14
+
+- Recorded Guarded-step toolbar Bold followed by typing as reported passed.
+  Origin lacks Bold UI; Command-B followed by typing reported passed instead.
+  Keep routes distinct; no unavailable toolbar acceptance inferred.
+- Next step view close/reopen and retained per-context history. Local docs only;
+  no new patch, source, build or automatic execution. VoiceOver remains deferred.
+
+## 0.30 — 2026-11-14
+
+- User corrects earlier VoiceOver familiarity: never used it and requests that
+  it not be prioritised. Record NM-06 deferred/untested; do not repeat onboarding.
+- Next NM-07 toolbar formatting/focus. No accessibility pass or removed later
+  qualification inferred. Local docs only; no patch/source/build/automated run.
+
+## 0.29 — 2026-11-14
+
+- Retained/reviewed fresh09 native report. Both NM-09 passes have stored attempts
+  and ready error-free captures; source/web hashes match09, restored2×2 table and
+  authority/A/B document equality verified. Other case verdicts remain not-run.
+- Recording verification complete for these captures; historical07 report retained.
+  No inferred multiline gesture or full matrix pass. Next NM-06 VoiceOver guidance.
+- Local documentation only; no new patch, source, build or automated execution.
+
+## 0.28 — 2026-11-14
+
+- User reports bundle09 completed and native triple-click Four replacement/undo
+  working in both candidates. No new raw report/commit inspected; multiline
+  native selection is not inferred from the single-cell trial.
+- Next: verify Pass updates NM-09 in the picker, then inspect a fresh saved report
+  with attempts/captures. Old07 manual-recording gap remains historical evidence.
+- Local documentation only; no new patch, source, rebuild or automated run.
+
 ## 0.27 — 2026-11-14
 
 - Retained/reviewed uploaded 07 native JSON. Source/web hashes matched; all fixture

@@ -1,0 +1,10 @@
+{
+  "document": "Native triple-click fix reports after bundle09",
+  "revision": "0.28",
+  "date": "2026-11-14",
+  "source": "User done next after bundle09; success after Guarded step Four -> X -> Command-Z prompt; sucess after Origin-aware repeat.",
+  "reported_status": "Bounded native NM-09 trial passed in both candidates: text-only replacement/undo, Four restored in A/B and unchanged table dimensions.",
+  "limits": "No new report/raw text or commit reviewed. Multiline native trial not inferred. The earlier07 report had no manual attempts/verdicts.",
+  "next": "In Experiment > Origin-aware candidate, keep NM-09 selected and click the Pass\nbutton next to the case dropdown. Verify the dropdown changes to NM-09 ... \u2014 pass.\nObserve that before doing anything else. Then mark the tested Guarded step NM-09\nPass too, use Experiment > Reveal saved JSON report, and upload the current file.\nReview actual saved attempts, statuses, fingerprint and ready capture. The old07\nreport had no attempts; do not infer this new manual recording worked from oral\nsuccess alone. Do not repeat prior clipboard/selection tests by default.",
+  "delivery": "Local checkpoint for next bundle; lab09 unchanged, no new patch/build/automated tests."
+}
