@@ -85,12 +85,22 @@ final class JoinedLab: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavi
             do {
                 self.descriptor = try JSONSerialization.jsonObject(with: Data(contentsOf: self.session.appendingPathComponent("endpoint.json"))) as? [String: Any] ?? [:]
                 self.events.append(["event":"owner-connected","at":stamp(),"profile":info])
-                if load { guard let address = self.descriptor["url"] as? String, var url = URLComponents(string: address) else { throw NSError(domain:"JoinedURL",code:1) }; url.path = "/"; let data = try JSONSerialization.data(withJSONObject: self.descriptor); url.percentEncodedFragment = String(data:data,encoding:.utf8)!.addingPercentEncoding(withAllowedCharacters:.alphanumerics); guard let full = url.url else { throw NSError(domain:"JoinedURL",code:2) }; self.web.load(URLRequest(url: full)) }
+                try self.installBootstrap()
+                if load { guard let address = self.descriptor["url"] as? String, var url = URLComponents(string: address) else { throw NSError(domain:"JoinedURL",code:1) }; url.path = "/"; url.fragment = nil; guard let full = url.url else { throw NSError(domain:"JoinedURL",code:2) }; self.web.load(URLRequest(url: full)) }
                 else { self.js("await window.joined.reconnect(descriptor); return window.joinedNative.capture();",arguments:["descriptor":self.descriptor]) { _ in } }
                 self.writeReport()
             } catch { self.recordError(error) }
         }
     } }
+    func installBootstrap() throws {
+        var value: [String: Any] = [:]
+        for key in ["url","token","editorGrants","spaceId","documentId"] { guard let item = descriptor[key] else { throw NSError(domain:"JoinedBootstrap",code:1) }; value[key] = item }
+        let data = try JSONSerialization.data(withJSONObject:value,options:[.sortedKeys])
+        let template = try String(contentsOf:resources.appendingPathComponent("bootstrap.js"),encoding:.utf8)
+        let script = template.replacingOccurrences(of:"__CLUTTER_NATIVE_BOOTSTRAP__",with:String(data:data,encoding:.utf8)!)
+        web.configuration.userContentController.removeAllUserScripts()
+        web.configuration.userContentController.addUserScript(WKUserScript(source:script,injectionTime:.atDocumentStart,forMainFrameOnly:true))
+    }
     func js(_ body: String, arguments: [String: Any] = [:], completion: @escaping (Bool) -> Void = { _ in }) {
         web.callAsyncJavaScript(body,arguments: arguments,in: nil,in: .page) { [weak self] result in
             guard let self = self else { completion(false); return }
@@ -120,7 +130,17 @@ final class JoinedLab: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavi
     @objc func reopenWindow() { window.makeKeyAndOrderFront(nil); if ready { js("return await window.joinedNative.reopen();") } }
     func webView(_ webView: WKWebView,didFinish navigation: WKNavigation!) { js("for(let i=0;i<150;i++){if(window.joinedNative)return window.joinedNative.capture();await new Promise(r=>setTimeout(r,100));}throw Error('JOINED_EDITOR_NOT_READY');") { [weak self] ok in self?.ready = ok; if ok { self?.status.stringValue = "Joined editor ready. Start JN-01 only; use synthetic text." } } }
     func webView(_ webView: WKWebView,didFailProvisionalNavigation navigation: WKNavigation!,withError error: Error) { recordError(error) }
-    func webView(_ webView: WKWebView,decidePolicyFor navigationAction: WKNavigationAction,decisionHandler: @escaping (WKNavigationActionPolicy)->Void) { guard let url = navigationAction.request.url, let address = descriptor["url"] as? String, let base = URL(string:address) else { decisionHandler(.cancel); return }; decisionHandler((url.scheme == base.scheme && url.host == base.host && url.port == base.port) || url.absoluteString == "about:blank" ? .allow : .cancel) }
+    func webView(_ webView: WKWebView,decidePolicyFor navigationAction: WKNavigationAction,decisionHandler: @escaping (WKNavigationActionPolicy)->Void) { guard let url = navigationAction.request.url, let address = descriptor["url"] as? String, let base = URL(string:address) else { decisionHandler(.cancel); return }; let local = url.scheme == base.scheme && url.host == base.host && url.port == base.port
+        guard local || url.absoluteString == "about:blank" else { decisionHandler(.cancel); return }
+        if local && navigationAction.navigationType == .reload && ready {
+            prepare(true) { [weak self] ok in
+                guard let self = self else { decisionHandler(.cancel); return }
+                if ok { self.events.append(["event":"reload-protected","at":stamp()]); self.ready = false; self.writeReport() }
+                decisionHandler(ok ? .allow : .cancel)
+            }
+            return
+        }
+        decisionHandler(.allow) }
     func recordError(_ error: Error) { status.stringValue = "Blocked: \(error.localizedDescription). Keep the app open and share the report."; events.append(["event":"error","message":error.localizedDescription,"at":stamp()]); writeReport() }
     func writeReport() { do { let value: [String: Any] = ["format":"clutter-joined-native16-v1","startedAt":started,"updatedAt":stamp(),"nativeAcceptance":"manual observations only; build/setup does not pass JG-11","os":ProcessInfo.processInfo.operatingSystemVersionString,"build":build,"headlessAutomation":headless,"manualAttempts":attempts,"events":events,"latestCapture":lastSnapshot,"limits":["Ad-hoc experiment, not notarized distribution/sandbox acceptance","Same-user private synthetic session, not production IPC/grants","IME unavailable and VoiceOver deferred; no automatic pass","No JG-12/13 entity/assets acceptance"]]; let data = try JSONSerialization.data(withJSONObject:value,options:[.prettyPrinted,.sortedKeys]); guard data.count < 16*1024*1024 else { throw NSError(domain:"ReportLimit",code:1) }; try data.write(to:reportURL,options:.atomic) } catch { status.stringValue = "Report write failed: \(error.localizedDescription)" } }
     func menu() { let main = NSMenu(); let app = NSMenuItem(); let menu = NSMenu(); menu.addItem(withTitle:"Quit joined lab",action:#selector(NSApplication.terminate(_:)),keyEquivalent:"q"); app.submenu = menu; main.addItem(app)

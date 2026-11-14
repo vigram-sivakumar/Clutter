@@ -97,6 +97,7 @@ export function bundleIdentity(resources) {
       ![
         'runtime/node',
         'bin/clutter-lab',
+        'bootstrap.js',
         'owner.mjs',
         'service.mjs',
         'launcher.mjs',
@@ -111,7 +112,7 @@ export function bundleIdentity(resources) {
     if (sha(readFileSync(join(resources, name))) !== want)
       throw Error('BUNDLE_CHANGED');
   }
-  if (Object.keys(manifest.files).length !== 10)
+  if (Object.keys(manifest.files).length !== 11)
     throw Error('INCOMPLETE_BUNDLE');
   return sha(Buffer.from(JSON.stringify(manifest.files)));
 }

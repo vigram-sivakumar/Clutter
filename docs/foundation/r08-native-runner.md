@@ -136,3 +136,23 @@ unchanged. A new grid/border/alignment assertion reproduced the problem before t
 fix;8 helper and10 joined cases pass afterward. Mac visual confirmation remains
 pending. Quit the old test app and rebuild/relaunch before JN-01. No Swift/domain/
 runtime change; signing17 retained. [Evidence](evidence/r08-18-2026-11-14.json).
+
+## User-observed reload failure and recovery19
+
+An accidental reload produced blank editor panes/JS error. The original browser
+removed its URL-fragment bootstrap, so a later document could not connect. This
+reproduces while committed data remains unchanged in the test store; that does
+not independently prove the user's current saved/pending state. Unprotected text
+already lost with the old JS context cannot be reconstructed by a promise or reset.
+
+Recovery19 first reads the existing store through its original bundled client and
+attempts to reopen the original app/session with a separate report. It refuses
+missing store files/new initialization and mismatched saved identity. It records
+canonical/protected text and last captured state in an ignored private diagnostic;
+no automatic restore. Do not run native:joined (fresh Space) until recovery is checked.
+
+The next rebuilt native host installs a consumed in-memory bootstrap at every
+document start, gates reload on acknowledged protection/context handoff and shows
+explicit protected recovery. No bearer web storage. Ten helper +10 joined Linux
+cases pass; new Swift navigation behavior and actual Mac recovery are pending.
+Previous setup pointers are archived for future runs. [Evidence](evidence/r08-19-2026-11-14.json).

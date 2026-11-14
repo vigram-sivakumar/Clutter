@@ -73,3 +73,15 @@ window.joinedNative = {
     return result;
   },
 };
+
+const protections = await window.joined.rpc({ method: 'list_recovery' });
+if (protections.length) {
+  const banner = document.createElement('p');
+  banner.id = 'protected-recovery-notice';
+  banner.setAttribute('role', 'status');
+  banner.textContent =
+    'Protected work is available for ' +
+    protections.map((r) => r.context_id).join(', ') +
+    '. Use Recover protected A to restore A explicitly; conflicts remain protected.';
+  document.querySelector('h1').after(banner);
+}

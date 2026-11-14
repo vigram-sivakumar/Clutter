@@ -5,6 +5,27 @@ and execution have not run on the Linux preparation host.** Eight Linux helper
 checks exercise packaged processes, discovery and the JavaScript close/handoff
 route; they do not pass JG-11 or native keyboard input.
 
+## If accidental reload produced blank editors: recover first
+
+Do not run the fresh-space builder yet. From a separate Terminal in this package,
+run `npm run native:joined:reopen` after applying19. It requires the latest setup
+record and existing store, uses the original bundled client to inspect saved and
+protected state, writes a separate private recovery diagnostic and attempts to open
+the original app with the SAME session/new report file. No reset/new Space or
+content restore occurs. The original compiled app is reused, so do not reload that
+recovered window again until the fixed host is rebuilt.
+
+The terminal prints Space ID/revision/protected-context counts and diagnostic path,
+not credentials. If data is missing, preserve those reports and the old session.
+Uncommitted/unprotected memory discarded by the old reload may not be recoverable;
+the last native capture may help but is not necessarily the latest text. Do not
+share endpoint.json. A specific old setup file can be supplied as an argument;
+`--inspect-only` avoids requesting a native window.
+
+Source19's document-start WK bootstrap and protected reload guard require a later
+Mac rebuild/test. The builder then archives previous setup records instead of
+silently losing the prior-session pointer. First verify recovery, then resume tests.
+
 ## Start on the Mac
 
 From this experiment package directory:

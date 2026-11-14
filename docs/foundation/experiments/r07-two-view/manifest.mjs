@@ -21,7 +21,7 @@ const files = [
     .filter((name) => /\.(swift|js|mjs|json)$/.test(name))
     .map((name) => 'native-macos/' + name),
   ...readdirSync('joined-native')
-    .filter((n) => /\.(swift|mjs|json|md)$/.test(n))
+    .filter((n) => /\.(swift|js|mjs|json|md)$/.test(n))
     .map((n) => 'joined-native/' + n),
   ...readdirSync('joined')
     .filter((n) => /\.(mjs|md|json)$/.test(n))
@@ -42,7 +42,7 @@ const lock = JSON.parse(readFileSync('package-lock.json', 'utf8'));
 const manifest = {
   candidate: 'R07-PM-PUBLIC-02',
   alternatives: ['R07-PM-ORIGIN-02'],
-  iteration: 'R08-18-native-stylesheet-csp-fix-2026-11-14',
+  iteration: 'R08-19-reload-bootstrap-recovery-2026-11-14',
   date: '2026-11-14',
   scope:
     'Exploratory two-view candidates and native host source; native compilation/execution must be recorded separately',

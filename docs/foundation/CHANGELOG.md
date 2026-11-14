@@ -3,6 +3,21 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.43 — 2026-11-14
+
+- Recorded user-observed accidental reload/blank panes. Empty URL bootstrap fails
+  before mounting editors; storage deletion is not established. Current-session
+  recovery takes priority over building a fresh synthetic Space.
+- Added read-only same-session diagnostic/reopener using original packaged client/
+  app, requiring existing store files and preserving old reports. No reset, new
+  Space or automatic content restore. Unprotected lost memory cannot be guaranteed.
+- Future native host injects bootstrap per document start, protects/hands off pending
+  input before reload and cancels failures; recovery notice supports explicit restore.
+  No web credential storage. Builders archive previous setup metadata.
+- Ten helper +10 joined Linux cases pass, including accepted/protected reload and
+  same-session identity/non-creation checks. Updated Swift Mac verification pending.
+  Bundle19 over16/17/18. No production/dependency/agent commit or push.
+
 ## 0.42 — 2026-11-14
 
 - Recorded actual joined Mac launch screenshot: ready/revision1/HEADLESS in both

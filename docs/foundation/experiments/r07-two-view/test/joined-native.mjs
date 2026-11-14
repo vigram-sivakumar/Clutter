@@ -14,6 +14,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import { chromium } from 'playwright';
+import { reopenCurrent } from '../joined-native/reopen-current.mjs';
 import { packResources, finishManifest } from '../joined-native/pack.mjs';
 import {
   createSession,
@@ -91,7 +92,7 @@ try {
     'NP-03',
     'Packed runtime and app-closed CLI/MCP single owner',
     async () => {
-      resources = join(base, 'Bundle with spaces', 'Contents', 'Resources');
+      resources = join(base, 'Bundle with spaces.app', 'Contents', 'Resources');
       await packResources(resources, process.execPath);
       finishManifest(resources, {
         testProfile: 'Linux node copy; not downloaded Mac archive or Swift app',
@@ -335,6 +336,193 @@ try {
         clearTimeout(timer);
         if (p.exitCode === null) p.kill('SIGKILL');
       }
+    }
+  );
+  await check(
+    'NP-09',
+    'Reload bootstrap restores committed state and protected drafts',
+    async () => {
+      descriptor = await readDescriptor();
+      const bad = await browser.newPage();
+      const badErrors = [];
+      bad.on('pageerror', (e) => badErrors.push(e.message));
+      await bad.goto(
+        descriptor.url.replace('/rpc', '/') +
+          '#' +
+          encodeURIComponent(JSON.stringify(descriptor))
+      );
+      await bad.waitForFunction(() => !!window.joinedNative);
+      const before = (await command({ method: 'read' })).result;
+      await bad.reload();
+      await bad.waitForFunction(() => !window.joinedNative);
+      assert.equal(
+        (await command({ method: 'read' })).result.version,
+        before.version
+      );
+      assert.deepEqual(
+        (await command({ method: 'read' })).result.state.doc,
+        before.state.doc
+      );
+      assert.ok(badErrors.some((e) => e.includes('MISSING_BOOTSTRAP')));
+      await bad.close();
+      const bootstrap = Object.fromEntries(
+        ['url', 'token', 'editorGrants', 'spaceId', 'documentId'].map((k) => [
+          k,
+          descriptor[k],
+        ])
+      );
+      const script = readFileSync('joined-native/bootstrap.js', 'utf8').replace(
+        '__CLUTTER_NATIVE_BOOTSTRAP__',
+        JSON.stringify(bootstrap)
+      );
+      const good = await browser.newPage();
+      const errors = [];
+      good.on('pageerror', (e) => errors.push(e.message));
+      await good.addInitScript({ content: script });
+      await good.goto(descriptor.url.replace('/rpc', '/'));
+      await good.waitForFunction(() => !!window.joinedNative);
+      await good.evaluate(() => {
+        window.originLab.select('A', 'Alpha');
+        window.originLab
+          .view('A')
+          .dispatch(
+            window.originLab.view('A').state.tr.insertText('RELOAD-SAVED ')
+          );
+      });
+      await good.evaluate(() => window.joined.settle());
+      const saved = (await command({ method: 'read' })).result;
+      await good.reload();
+      await good.waitForFunction(() => !!window.joinedNative);
+      assert.match(
+        JSON.stringify(
+          await good.evaluate(() => window.originLab.snapshot().doc)
+        ),
+        /RELOAD-SAVED/
+      );
+      assert.equal(
+        (await command({ method: 'read' })).result.version,
+        saved.version
+      );
+      assert.equal(
+        await good.evaluate(() => Object.hasOwn(window, '__clutterBootstrap')),
+        false
+      );
+      assert.equal(await good.evaluate(() => location.hash), '');
+      assert.equal(
+        await good.evaluate(() => sessionStorage.length + localStorage.length),
+        0
+      );
+      await good.evaluate(() => {
+        window.originLab.pause('A');
+        window.originLab.select('A', 'Alpha');
+        window.originLab
+          .view('A')
+          .dispatch(
+            window.originLab.view('A').state.tr.insertText('RELOAD-PENDING ')
+          );
+      });
+      await command({}, ['--control', 'fail_protection', 'true']);
+      assert.equal(
+        await good.evaluate(async () => {
+          try {
+            await window.joinedNative.prepareClose(true);
+            return 'bad';
+          } catch (e) {
+            return e.message;
+          }
+        }),
+        'INJECTED_SAVE_FAILURE'
+      );
+      await command({}, ['--control', 'fail_protection', 'false']);
+      await good.evaluate(() => window.joinedNative.prepareClose(true));
+      await good.reload();
+      await good.waitForFunction(
+        () =>
+          !!window.joinedNative &&
+          !!document.querySelector('#protected-recovery-notice')
+      );
+      assert.match(
+        JSON.stringify((await command({ method: 'list_recovery' })).result),
+        /RELOAD-PENDING/
+      );
+      await good.evaluate(() => window.joinedNative.recover('A'));
+      assert.match(
+        JSON.stringify(
+          await good.evaluate(() => window.originLab.snapshot().doc)
+        ),
+        /RELOAD-PENDING/
+      );
+      assert.deepEqual(errors, []);
+      await good.close();
+      return {
+        missingFragmentReproduced: true,
+        canonicalRootUnaffectedByFailedBootstrap: true,
+        inMemoryBootstrapReload: true,
+        credentialsNotStored: true,
+        guardHelperPreservesPending: true,
+        nativeNavigationDelegate:
+          'prepared; actual WK reload requires Mac test',
+      };
+    }
+  );
+  await check(
+    'NP-10',
+    'Same-session recovery helper cannot create a new Space',
+    async () => {
+      const fakeBundle = resolve(resources, '../..');
+      const setupPath = join(base, 'setup.json');
+      writeFileSync(
+        setupPath,
+        JSON.stringify({
+          bundle: fakeBundle,
+          session,
+          report: join(base, 'missing-native-report.json'),
+        })
+      );
+      const before = (await command({ method: 'read' })).result;
+      writeFileSync(
+        setupPath,
+        JSON.stringify({
+          bundle: fakeBundle,
+          session,
+          headless: {
+            owner: { spaceId: before.spaceId, documentId: before.documentId },
+          },
+        })
+      );
+      const result = reopenCurrent(setupPath, { openWindow: false });
+      assert.equal(result.spaceId, before.spaceId);
+      assert.equal(result.revision, before.version);
+      const after = (await command({ method: 'read' })).result;
+      assert.deepEqual(after.state.doc, before.state.doc);
+      assert.equal(after.version, before.version);
+      writeFileSync(
+        setupPath,
+        JSON.stringify({
+          bundle: fakeBundle,
+          session,
+          headless: {
+            owner: { spaceId: 'wrong', documentId: before.documentId },
+          },
+        })
+      );
+      assert.throws(
+        () => reopenCurrent(setupPath, { openWindow: false }),
+        /IDENTITY_MISMATCH/
+      );
+      writeFileSync(
+        setupPath,
+        JSON.stringify({
+          bundle: fakeBundle,
+          session: join(base, 'missing-session'),
+        })
+      );
+      assert.throws(() => reopenCurrent(setupPath, { openWindow: false }));
+      return {
+        sameSpaceReadOnly: true,
+        recordedDiagnosticWithoutCredentials: true,
+        nativeWindowLaunch: 'not-run on Linux',
+      };
     }
   );
 } catch (e) {

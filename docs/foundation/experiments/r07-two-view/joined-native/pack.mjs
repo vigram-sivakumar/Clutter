@@ -13,6 +13,7 @@ export async function packResources(resources, nodePath) {
   mkdirSync(join(resources, 'runtime'), { recursive: true });
   mkdirSync(join(resources, 'web'), { recursive: true });
   mkdirSync(join(resources, 'bin'), { recursive: true });
+  copyFileSync('joined-native/bootstrap.js', join(resources, 'bootstrap.js'));
   writeFileSync(join(resources, 'bin/clutter-lab'), wrapper, { mode: 0o755 });
   copyFileSync(nodePath, join(resources, 'runtime/node'));
   chmodSync(join(resources, 'runtime/node'), 0o755);
@@ -49,6 +50,7 @@ export function finishManifest(resources, extra = {}) {
   const names = [
     'runtime/node',
     'bin/clutter-lab',
+    'bootstrap.js',
     'owner.mjs',
     'service.mjs',
     'launcher.mjs',

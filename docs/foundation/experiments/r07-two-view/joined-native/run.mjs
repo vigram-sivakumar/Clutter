@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import {
   readFileSync,
+  existsSync,
   writeFileSync,
   mkdirSync,
   copyFileSync,
@@ -23,6 +24,15 @@ import { headlessSmoke } from './smoke.mjs';
 const lab = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 process.chdir(lab);
 mkdirSync('artifacts', { recursive: true });
+if (existsSync('artifacts/joined-native-setup.json'))
+  copyFileSync(
+    'artifacts/joined-native-setup.json',
+    'artifacts/joined-native-setup-previous-' +
+      new Date().toISOString().replace(/[:.]/g, '-') +
+      '-' +
+      randomUUID().slice(0, 8) +
+      '.json'
+  );
 const setup = {
     startedAt: new Date().toISOString(),
     status: 'not-run',

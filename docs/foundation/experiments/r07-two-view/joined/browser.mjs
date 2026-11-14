@@ -1,6 +1,17 @@
 import { RemoteAuthority, fetchRoot } from './remote-authority.mjs';
-const descriptor = JSON.parse(decodeURIComponent(location.hash.slice(1)));
-history.replaceState(null, '', location.pathname);
+import { consumeBootstrap } from './bootstrap.mjs';
+let descriptor;
+try {
+  descriptor = consumeBootstrap();
+} catch (error) {
+  document.querySelector('h1').textContent =
+    'Connection to saved session is unavailable';
+  document.querySelector('main > p').textContent =
+    'This page could not reconnect. It does not show whether saved or protected text exists. Reopen the existing session; do not reset or start a new test Space.';
+  document.querySelector('#origin-reset').disabled = true;
+  document.querySelector('#origin-status').textContent = error.message;
+  throw error;
+}
 const authority = new RemoteAuthority(descriptor, await fetchRoot(descriptor));
 window.clutterAuthorityFactory = () => authority;
 await import('../src/origin-browser.mjs');

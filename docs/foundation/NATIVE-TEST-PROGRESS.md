@@ -256,16 +256,21 @@ manual rerun or verdict-click cleanup is requested. A targeted native history/
 selection smoke can be batched with the next integrated slice before architecture
 acceptance. NM-03 remains unavailable and NM-06 deferred by user priority.
 
-## Next action: stylesheet18 and layout confirmation
+## Next action: same-session recovery, not a new builder
 
-User screenshot shows the joined Mac window ready with HEADLESS content/revision1.
-A/B stack with default font/borderless cells because host CSP blocks own CSS. No
-manual case is passed from this image. Correction18 enables same-origin stylesheet
-files;8 helper +10 joined cases pass with a new rendered layout regression.
+User accidentally reloaded the joined page; blank panes/JS error are an observed
+bootstrap defect. No manual case passes and no SQLite deletion is established.
+Apply19 in a separate Terminal and run native:joined:reopen. It reads the same
+existing Space through the original packaged client, records safe diagnostics and
+attempts to reopen the original app/session without reset or automatic restore.
+Do not run the fresh-space builder, delete sessions or force-quit before checking.
 
-Quit the old test app, apply18 and rerun native:joined. First verify styled A/B
-side by side, then JN-01 only. No old manual replay; IME/VoiceOver priorities and
-all previously confirmed results remain. [Evidence](evidence/r08-18-2026-11-14.json).
+Confirm whether text returns. Previously unprotected typing may be unrecoverable;
+do not promise otherwise. Source19 adds document-start credentials/protected reload
+for the next rebuilt host.10 helper +10 joined Linux passes; actual Mac reopen,
+new Swift compile/reload policy and JG-11 remain unverified. JN-01 paused until data
+and corrected host are checked. IME/VoiceOver and earlier passes unchanged.
+[Evidence](evidence/r08-19-2026-11-14.json).
 
 ## Next agent action
 

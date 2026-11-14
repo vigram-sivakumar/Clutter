@@ -1,6 +1,6 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-14. Documentation revision: 0.42.
+Last updated: 2026-11-14. Documentation revision: 0.43.
 Read AGENTS.md and this file first in a new chat or agent session. It is the checkpoint, not a
 second product specification. [README](README.md) identifies authoritative docs.
 
@@ -116,6 +116,10 @@ contains those contents; do not reapply either route.
 27. Native stylesheet correction, revision0.42: `Clutter Native Styles Fix 18.zip`,
     exact16/17 alternatives;8 helper +10 joined cases pass, Mac layout retry pending.
 
+28. Reload bootstrap and same-session recovery, revision0.43:
+    `Clutter-Native-Reload-Recovery-19.zip`, exact16/17/18 alternatives.
+    First native:joined:reopen, not a fresh native:joined builder.
+
 Each update is incremental over its predecessor's file contents, not a particular
 user-created commit hash. If this file is present at revision 0.17, do not blindly
 reapply those patches. Inspect actual files and git state; do not use reset/clean,
@@ -176,27 +180,43 @@ force checkout or re-create the branch to hide divergence.
 - Current authorized continuation includes the isolated R07 experiment, not a
   production rebuild. Preserve unqualified tests and report blocking observations.
 
-## Exact next action: stylesheet correction18, verify layout, then JN-01
+## Exact next action: recover the current session before rebuilding
 
-User screenshot shows the joined Mac window ready with accepted revision1 and
-HEADLESS content in both views. No manual JN result is inferred. Styling is missing:
-View B stacks below A, default font and borderless cells. Diagnosis: shared host
-CSP allowed only inline styles, blocking its own stylesheet URLs. Previous browser
-checks missed rendered layout; a new computed-style/geometry assertion reproduced
-block instead of grid before the fix.
+User reports accidental reload, blank A/B panes and a JavaScript error in the
+joined Mac window. This is an observed reload/bootstrap defect, not an established
+SQLite deletion. Cause: joined browser consumed URL-fragment credentials and
+removed the fragment; reload then failed parsing an empty bootstrap before editors
+mounted. Saved text on the user's Mac has not yet been independently checked;
+text that was never committed/protected may not be recoverable after that old reload.
 
-Correction18 adds 'self' to style-src, keeping scripts/connections same-origin and
-all other CSP restrictions. Updated8 helper cases and10 joined cases pass with
-actual grid layout/editor/table borders and horizontally aligned A/B. No editor,
-save, runtime, Swift or dependency change. Existing signing correction17 is retained.
-Read evidence/r08-18-2026-11-14.json. Mac style retry is pending; signing/window launch
-is observed but exact source/build profile has not been independently reviewed.
+Do NOT tell the user to run native:joined now: that creates another synthetic Space
+and replaces the latest setup pointer. First apply19 from a separate Terminal, then
+npm run native:joined:reopen from the experiment. This helper requires existing
+store/marker/SQLite files, reads through the ORIGINAL packaged client, checks saved
+identity when present, writes a separate private diagnostic with canonical/protected
+text and last recorded capture, and attempts to launch the ORIGINAL app with the
+SAME session and a NEW report path. It neither resets nor restores content or creates
+a Space. Keep the broken window/session; do not force-quit/delete it before checking.
+Original app reuse means avoid another reload of that recovered window until rebuilt.
 
-User should quit this test app with Command-Q, apply bundle18 (exact16 or17 route)
-and rerun native:joined. The builder creates a fresh signed app, reuses/reverifies
-runtime cache. Verify styled side-by-side views first; only then guide JN-01 one
-variation at a time. Do not rerun old manual tests or mark JG-11 passed from launch.
-Keep IME unavailable and VoiceOver deferred. Same branch/no production/agent commit.
+Ask whether text returns. If missing, inspect the safe recovery diagnostic, distinguish
+canonical/protected/last captured versus unprotected lost memory, and do not claim
+recovery without evidence. Never ask for endpoint/token files. Tests do not establish
+the user's actual data state or Mac reopen result.
+
+Source19 fixes future native reloads with a per-document-start WKUserScript bootstrap,
+consumed/deleted in memory; no credentials in local/sessionStorage. Native reload
+policy awaits full protection/context handoff and cancels when it fails. New documents
+show a protected-work notice and explicit recovery action; no stale automatic overwrite.
+Previously saved setup reports are archived before future builders replace the pointer.
+Ten helper and10 joined Linux cases pass, including reproducing missing-bootstrap
+reload without canonical mutation, valid injected reload, protected pending recovery,
+and same-session read-only recovery tooling. Updated Swift injection/policy is NOT
+Mac-compiled/tested here; verify later only after current-session data is safe.
+
+Bundle19 supports exact16/17/18; current source fingerprint/application18 has not
+been independently reviewed. Same branch/no production or dependency changes. JN-01
+is paused for this blocker; preserve old manual passes/IME unavailable/VoiceOver deferred.
 
 ## Session close protocol
 

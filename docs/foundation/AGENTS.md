@@ -87,8 +87,16 @@ them by implication.
   get actual launch result before JN-01. No native signing pass inferred; Swift/domain
   unchanged,8 updated Linux helper checks pass. Preserve raw16 failure/evidence.
 
-- Current0.42: screenshot shows joined Mac launched/HEADLESS revision1, but CSS was
+- Historical0.42: screenshot shows joined Mac launched/HEADLESS revision1, but CSS was
   blocked by style-src lacking self. Correction18 adds same-origin styles only;
   reproduced layout assertion fails before and passes after.8 helper +10 joined
   cases pass. Next quit old test app/apply18/relaunch, confirm side-by-side layout
   before JN-01. Bundle supports16/17; source fingerprint17 not independently reviewed.
+
+- Current0.43: accidental reload blanked the user's joined page because URL bootstrap
+  was consumed. Data deletion is unverified. First recover SAME session using
+  native:joined:reopen, not fresh native:joined. Helper requires existing store and
+  original bundle, records canonical/protected/last capture, opens original app with
+  new report path. Avoid another old-host reload. Source19 adds native document-start
+  bootstrap/protected reload;10 helper +10 joined Linux passes, new Swift not Mac-tested.
+  Never guarantee recovery of uncommitted/unprotected text or discard the old session.
