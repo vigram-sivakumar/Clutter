@@ -13,8 +13,9 @@ import {
   previousCell,
   nextRowSameColumn,
   cellLineBreak,
+  selectCurrentCell,
 } from './table-command.mjs';
-import { tableView, focusTableHandle } from './table-view.mjs';
+import { tableView, tableCellHighlight } from './table-view.mjs';
 import { reconcileNativeTextSelection } from './selection-preflight.mjs';
 const selectionPreflight =
   new URLSearchParams(location.search).get('selection') !== 'raw';
@@ -109,9 +110,10 @@ function createClients() {
           'Shift-Tab': previousCell,
           Enter: nextRowSameColumn,
           'Shift-Enter': cellLineBreak,
-          Escape: focusTableHandle,
+          Escape: selectCurrentCell,
         }),
         keymap(baseKeymap),
+        tableCellHighlight(),
         tableEditing(),
       ];
       const c = new Context(authority, id, plugins);

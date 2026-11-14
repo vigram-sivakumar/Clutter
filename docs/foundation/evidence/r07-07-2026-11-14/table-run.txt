@@ -1,0 +1,65 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> clutter-r07-two-view-experiment@0.1.0 test:tables
+> node test/table-browser.mjs
+
+pass: step TB-01 Tab appends at destination end, without selecting its text
+pass: step TB-02 Shift-Tab appends at previous cell end
+pass: step TB-03 Tab wraps into the next existing row
+pass: step TB-04 final Tab preserves current caret and table
+pass: step TB-05 Enter stays in the same column
+pass: step TB-06 Enter stays in the same column
+pass: step TB-07 bottom-row Enter has no content, caret or revision effect
+pass: step TB-08 bottom-row Enter has no content, caret or revision effect
+pass: step TB-09 Shift-Enter creates a hard line break in one cell, undoable
+pass: step TB-10 bottom handle adds one row, shared and undoable
+pass: step TB-11 right handle adds one column, shared and undoable
+pass: step TB-12 handle in focused B keeps its original active cell and caret
+pass: step TB-13 Escape selects the active cell without moving focus to a handle
+pass: step TB-14 Enter and Tab remain no-ops in newly added empty final cell
+pass: step TB-15 adding a row does not undo previous independent typing
+pass: step TB-16 undo of own added row preserves foreign cell content
+pass: step TB-17 undo of own added column preserves foreign cell content
+pass: step TB-18 row 2 cell 2 caret/focus survives row handle
+pass: step TB-19 row 2 cell 2 caret/focus survives column handle
+pass: step TB-20 immediate pointer cell placement survives handle click
+pass: step TB-21 Enter returns from selected cell to editing that same cell
+pass: step TB-22 background handle does not steal the other view focus
+pass: step TB-23 handle preserves backward text range instead of selecting a new cell
+pass: step TB-24 selected-cell Tab and Shift-Tab navigate without a caret
+pass: step TB-25 selected-cell Tab boundaries do not grow the table or enter editing
+pass: step TB-26 clicking a cell highlights it and restores a text caret
+pass: step TB-27 selected-cell mode remains local when the other view edits
+pass: step TB-28-row handle preserves selected-cell mode when adding row
+pass: step TB-28-column handle preserves selected-cell mode when adding column
+pass: origin TB-01 Tab appends at destination end, without selecting its text
+pass: origin TB-02 Shift-Tab appends at previous cell end
+pass: origin TB-03 Tab wraps into the next existing row
+pass: origin TB-04 final Tab preserves current caret and table
+pass: origin TB-05 Enter stays in the same column
+pass: origin TB-06 Enter stays in the same column
+pass: origin TB-07 bottom-row Enter has no content, caret or revision effect
+pass: origin TB-08 bottom-row Enter has no content, caret or revision effect
+pass: origin TB-09 Shift-Enter creates a hard line break in one cell, undoable
+pass: origin TB-10 bottom handle adds one row, shared and undoable
+pass: origin TB-11 right handle adds one column, shared and undoable
+pass: origin TB-12 handle in focused B keeps its original active cell and caret
+pass: origin TB-13 Escape selects the active cell without moving focus to a handle
+pass: origin TB-14 Enter and Tab remain no-ops in newly added empty final cell
+pass: origin TB-15 adding a row does not undo previous independent typing
+pass: origin TB-16 undo of own added row preserves foreign cell content
+pass: origin TB-17 undo of own added column preserves foreign cell content
+pass: origin TB-18 row 2 cell 2 caret/focus survives row handle
+pass: origin TB-19 row 2 cell 2 caret/focus survives column handle
+pass: origin TB-20 immediate pointer cell placement survives handle click
+pass: origin TB-21 Enter returns from selected cell to editing that same cell
+pass: origin TB-22 background handle does not steal the other view focus
+pass: origin TB-23 handle preserves backward text range instead of selecting a new cell
+pass: origin TB-24 selected-cell Tab and Shift-Tab navigate without a caret
+pass: origin TB-25 selected-cell Tab boundaries do not grow the table or enter editing
+pass: origin TB-26 clicking a cell highlights it and restores a text caret
+pass: origin TB-27 selected-cell mode remains local when the other view edits
+pass: origin TB-28-row handle preserves selected-cell mode when adding row
+pass: origin TB-28-column handle preserves selected-cell mode when adding column
+fail: origin-unguarded TC-RAW-row unguarded structural undo must preserve foreign text
+fail: origin-unguarded TC-RAW-column unguarded structural undo must preserve foreign text

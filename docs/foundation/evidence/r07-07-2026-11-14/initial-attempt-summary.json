@@ -1,0 +1,32 @@
+{
+  "scope": "Initial 07 table-browser attempt, recorded from observed runner output before correction. Original runner JSON/log was overwritten during rerun; this is an attempt summary, not a preserved raw artifact.",
+  "candidate_failures": [
+    {
+      "candidate": "step",
+      "id": "TB-26",
+      "actual": "selection",
+      "expected": "editing",
+      "cause": "Plain click did not explicitly restore a TextSelection from cell-selection mode."
+    },
+    {
+      "candidate": "origin",
+      "id": "TB-26",
+      "actual": "selection",
+      "expected": "editing",
+      "cause": "Same click-mode issue."
+    },
+    {
+      "candidate": "origin",
+      "id": "TB-27",
+      "actual": "editing",
+      "expected": "selection",
+      "cause": "Y sync restores non-node selections as text ranges, losing local cell-selection mode."
+    }
+  ],
+  "corrections": [
+    "Shared public handleClick sets a text selection on a plain cell click.",
+    "Origin adapter reconstructs cell selection from relative-mapped endpoints after public sync transactions. No private library mutation."
+  ],
+  "raw_unguarded_structural_failures": 2,
+  "final_attempt": "All 58 candidate checks pass; raw controls still fail as intended diagnostics."
+}

@@ -1,6 +1,6 @@
 # Editor interaction specification — R02
 
-Revision 0.14, 2026-11-14. Status: reviewed table-navigation policy within an
+Revision 0.16, 2026-11-14. Status: reviewed table-navigation policy within an
 otherwise conditional editor specification; no candidate selected. Scoped executed
 evidence and remaining native work are recorded in the checkpoint/progress log. Product directions are confirmed
 in [product behaviour](product-behaviour.md); model-specific defaults below are
@@ -159,7 +159,9 @@ another task. A task cannot become a reference reused in multiple notes.
 Keep text-range selection distinct from cell/row/column/block selection. A nested
 cell editor must reconcile root history and selection rather than expose two undo
 stacks. The [table contract](table-interaction-contract.md) now confirms navigation, hard
-breaks, final boundaries and explicit addition controls. Cell schema/complex selection
+breaks, final boundaries, explicit addition controls and two view-local modes.
+Escape removes the caret while retaining the highlighted cell; selection-mode
+Tab/Shift+Tab move the highlight and Enter returns to editing. Cell schema/complex selection
 details remain scoped independently; do not restore the withdrawn Enter/Tab defaults.
 
 Read-only page embeds may allow text copy/selection and opening the original;

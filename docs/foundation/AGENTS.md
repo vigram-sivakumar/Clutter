@@ -15,6 +15,9 @@ them by implication.
   the same column and stops at the bottom; Shift+Enter is an in-cell break; Tab/
   Shift+Tab arrive at text end; final Tab stays put; handles add rows/columns.
   Adding an axis preserves the original active cell, caret/selection and focus.
+  Escape keeps the same cell highlighted without a caret; selected-cell Tab/
+  Shift+Tab move the highlight without entering text; Enter resumes editing.
+  Do not route Escape to handles. Selection mode belongs to each view.
   Do not restore the withdrawn auto-growth or whole-cell-selection defaults.
 - Preserve earlier test artifacts and raw controls. Legacy controls intentionally
   implement old policies and are not current product acceptance oracles. An expected

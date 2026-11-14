@@ -1,4 +1,6 @@
-import { TableView } from 'prosemirror-tables';
+import { Plugin, TextSelection } from 'prosemirror-state';
+import { Decoration, DecorationSet } from 'prosemirror-view';
+import { TableView, CellSelection } from 'prosemirror-tables';
 import { appendTableAxis, cellContext } from './table-command.mjs';
 import { reconcileNativeTextSelection } from './selection-preflight.mjs';
 
@@ -63,12 +65,44 @@ export function tableView(node, view, getPos, boundary = () => {}) {
     stopEvent: (event) => !!event.target.closest?.('[data-table-handle]'),
   };
 }
-export function focusTableHandle(state, _dispatch, view) {
-  const at = cellContext(state);
-  if (!at || !view) return false;
-  const tableDOM = view.nodeDOM(at.tablePos),
-    button = tableDOM?.querySelector('[data-table-handle="row"]');
-  if (!button) return false;
-  button.focus();
-  return true;
+// Selection is view state, never document content or a second table model.
+export function tableCellHighlight() {
+  return new Plugin({
+    props: {
+      handleClick(view, pos, event) {
+        if (
+          event.button !== 0 ||
+          event.shiftKey ||
+          event.metaKey ||
+          event.ctrlKey ||
+          event.altKey ||
+          event.target.closest('[contenteditable="false"]')
+        )
+          return false;
+        const selection = TextSelection.near(view.state.doc.resolve(pos));
+        if (!cellContext({ selection })) return false;
+        view.dispatch(
+          view.state.tr.setSelection(selection).setMeta('addToHistory', false)
+        );
+        view.focus();
+        return true;
+      },
+      attributes(state) {
+        return {
+          'data-table-mode':
+            state.selection instanceof CellSelection ? 'selection' : 'editing',
+        };
+      },
+      decorations(state) {
+        const at = cellContext(state);
+        if (!at) return null;
+        const pos = at.start + at.offset;
+        return DecorationSet.create(state.doc, [
+          Decoration.node(pos, pos + state.doc.nodeAt(pos).nodeSize, {
+            class: 'active-table-cell',
+          }),
+        ]);
+      },
+    },
+  });
 }

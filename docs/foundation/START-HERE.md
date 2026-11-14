@@ -1,6 +1,6 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-14. Documentation revision: 0.15.
+Last updated: 2026-11-14. Documentation revision: 0.16.
 Read AGENTS.md and this file first in a new chat or agent session. It is the checkpoint, not a
 second product specification. [README](README.md) identifies authoritative docs.
 
@@ -24,9 +24,11 @@ raw failures remain controls. The user has now built/launched the Mac host after
 compiler correction 04 and shown four guarded-step fixture passes. No native JSON
 has been uploaded. Native table feedback confirms a new contract; implementation
 and Linux regression checks were updated in 05. Patch 06 preserves the original
-cell/caret/focus on handle insertion; native retesting remains pending.
+cell/caret/focus on handle insertion; the user reports row/column focus works.
+Patch 07 implements confirmed editing/selected-cell modes and removes the rejected
+Escape-to-handle behaviour. Native mode retest remains pending.
 Read [native progress](NATIVE-TEST-PROGRESS.md), [table contract](table-interaction-contract.md)
-and [latest evidence](evidence/r07-06-2026-11-14.json). No architecture is accepted.
+and [latest evidence](evidence/r07-07-2026-11-14.json). No architecture is accepted.
 
 | Area                                  | Verified status at this checkpoint                                                                                                                                                                                                                         |
 | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -96,9 +98,11 @@ contains those contents; do not reapply either route.
     incremental over exact 0.13/patch-04 contents. Quit the old native host before rebuilding.
 15. Preserve original table focus, revision 0.15: `Clutter R07 Preserve Table Focus 06.patch`,
     based on exact 05 contents.
+16. Selected-cell/editing modes, revision 0.16: `Clutter R07 Table Selection Modes 07.patch`,
+    based on exact 06 contents.
 
 Each update is incremental over its predecessor's file contents, not a particular
-user-created commit hash. If this file is present at revision 0.15, do not blindly
+user-created commit hash. If this file is present at revision 0.16, do not blindly
 reapply those patches. Inspect actual files and git state; do not use reset/clean,
 force checkout or re-create the branch to hide divergence.
 
@@ -164,16 +168,15 @@ launch success after commit f68d7d8c and guarded-step fixture checks 4/0/0. The 
 Mac final-Tab-created-row trial was partial and is superseded, not a pass of current
 behaviour. Do not ask again whether Enter/Tab should grow the table or select text.
 
-The user must quit the old host, apply 06 after 05 and rerun native:mac. Guide one
-variation at a time. First in guarded step: place the caret inside Four (row 2,
-cell 2), click Add row, then type X; the original caret/cell must receive X.
-Repeat Add column separately. Continue same-column Enter, bottom no-ops, Shift+Enter,
-row wrapping, explicit handles and safe history, then origin candidate. Do not mark
-full NM-01 passed early. Record verdicts/notes in the native UI and request saved JSON
-after useful progress/failure. The runner now embeds the exact manual catalogue.
+The user must quit the old host, apply 07 after 06 and rerun native:mac. Guide one
+variation at a time. First: click Four, then Escape; Four remains highlighted
+without a caret and focus stays in the editor. Then separately test Tab/Shift+Tab
+as cell highlight navigation and Enter as return to editing. Row/column insertion
+focus was reported working after 06, with candidate unspecified; preserve that
+bounded result without inferring all NM-01 or both candidates passed.
 
-Latest Linux evidence: 53 Node checks (one raw-failure diagnostic), six support
-checks, 46 table-browser candidate passes; raw unguarded structural row/column
+Latest Linux evidence: 57 Node checks (one raw-failure diagnostic), six support
+checks, 58 table-browser candidate passes; raw unguarded structural row/column
 undo failures are preserved separately. Default origin prototype now conservatively
 refuses structural handle undo after foreign changes. Full semantic inverses remain
 unqualified, not solved by calling every refusal a final UX. Existing native/browser

@@ -1,10 +1,11 @@
-import { EditorState, TextSelection } from 'prosemirror-state';
+import { EditorState, TextSelection, Plugin } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { keymap } from 'prosemirror-keymap';
 import { baseKeymap, toggleMark } from 'prosemirror-commands';
-import { tableEditing } from 'prosemirror-tables';
+import { tableEditing, CellSelection, cellAround } from 'prosemirror-tables';
 import {
   ySyncPlugin,
+  ySyncPluginKey,
   yUndoPlugin,
   undo,
   redo,
@@ -17,8 +18,9 @@ import {
   previousCell,
   nextRowSameColumn,
   cellLineBreak,
+  selectCurrentCell,
 } from './table-command.mjs';
-import { tableView, focusTableHandle } from './table-view.mjs';
+import { tableView, tableCellHighlight } from './table-view.mjs';
 import { reconcileNativeTextSelection } from './selection-preflight.mjs';
 
 const structuralGuard =
@@ -101,9 +103,32 @@ function reset() {
           'Shift-Tab': previousCell,
           Enter: nextRowSameColumn,
           'Shift-Enter': cellLineBreak,
-          Escape: focusTableHandle,
+          Escape: selectCurrentCell,
         }),
         keymap(baseKeymap),
+        // The public Y binding restores non-node selections as text ranges.
+        // Reconstruct the local cell selection from those relative-mapped endpoints
+        // on a sync transaction; mode is view state, never shared document data.
+        new Plugin({
+          appendTransaction(transactions, previous, current) {
+            if (
+              !(previous.selection instanceof CellSelection) ||
+              current.selection instanceof CellSelection ||
+              !transactions.some(
+                (tr) => tr.getMeta(ySyncPluginKey)?.isChangeOrigin
+              )
+            )
+              return null;
+            const anchor = cellAround(current.selection.$anchor),
+              head = cellAround(current.selection.$head);
+            if (!anchor || !head || anchor.node(-1) !== head.node(-1))
+              return null;
+            return current.tr
+              .setSelection(new CellSelection(anchor, head))
+              .setMeta('addToHistory', false);
+          },
+        }),
+        tableCellHighlight(),
         tableEditing(),
       ],
     });

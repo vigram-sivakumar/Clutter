@@ -164,3 +164,19 @@ pre#trace {
   width: 28px;
   height: calc(100% - 34px);
 }
+
+/* The same cell stays highlighted when Escape removes the editing caret. */
+.ProseMirror-focused .active-table-cell {
+  outline: 2px solid #6b9fee;
+  outline-offset: -2px;
+}
+.ProseMirror[data-table-mode='selection'] {
+  caret-color: transparent;
+}
+.ProseMirror[data-table-mode='selection'] ::selection {
+  background: transparent;
+}
+
+.ProseMirror .selectedCell:after {
+  pointer-events: none;
+}

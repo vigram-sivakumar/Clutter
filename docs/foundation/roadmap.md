@@ -1,6 +1,6 @@
 # Foundation roadmap
 
-Revision 0.15, 2026-11-14. This roadmap describes work and dependencies; the current
+Revision 0.16, 2026-11-14. This roadmap describes work and dependencies; the current
 checkpoint/authorization is in [START-HERE](START-HERE.md). Product scope is in
 product-contracts.md, not independently redefined here.
 
@@ -8,7 +8,7 @@ product-contracts.md, not independently redefined here.
 
 | ID  | State                                                                         | Work and output                                                                                                                                                                                                          | Depends on                | Exit evidence                                                                                                                                                                      |
 | --- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| R00 | Documentation prepared                                                        | Foundation pack 0.1–0.15: confirmed scope, ownership/API proposals, ADRs, initial test/spike specifications and resumable handoff                                                                                        | User clarification        | Remote 0.9 user commit verified at 1215044; R07 prepared, no agent commit/push                                                                                                     |
+| R00 | Documentation prepared                                                        | Foundation pack 0.1–0.16: confirmed scope, ownership/API proposals, ADRs, initial test/spike specifications and resumable handoff                                                                                        | User clarification        | Remote 0.9 user commit verified at 1215044; R07 prepared, no agent commit/push                                                                                                     |
 | R01 | Complete — 2026-11-14                                                         | [Inventory](current-capability-inventory.md): 45 source/wiring capability entries with target mapping                                                                                                                    | R00                       | [Selected run](evidence/r01-2026-11-14.json): 30 files/1,003 assertions passed across initial/targeted runs; initial load errors/setup corrections and static/target gaps explicit |
 | R02 | Draft prepared; policy review open                                            | [R02](editor-interaction-spec.md) and [case catalogue](editor-interaction-cases.json): 72 shared/profile seed contracts, not execution                                                                                   | R01                       | 60 shared, 10 profile proposals, 2 confirmed table cases; other Q policies/variation qualification remain open                                                                     |
 | R03 | Conditional drafts prepared; review open                                      | [Model](document-model-spec.md), [API](command-api-spec.md) and [registry/scenarios](model-api-contract-cases.json): semantic identity, placement, closure and logical signatures                                        | R01; consume R02          | DM-01–DM-15, 51 operation sketches and 24 unexecuted scenarios; M-01–M-07/Q-01–Q-09 and full wire/encoding qualification remain                                                    |
@@ -104,7 +104,7 @@ The user attempted the first native build and reported Swift property/actor erro
 [Patch 04 evidence](evidence/r07-04-2026-11-14.json) records targeted source corrections;
 Mac compilation/launch then succeeded, as recorded in the native progress log.
 
-Revision 0.15 implements the [confirmed table contract](table-interaction-contract.md).
+Revision 0.16 implements the [confirmed table contract](table-interaction-contract.md).
 [Native progress](NATIVE-TEST-PROGRESS.md) records build/fixture observations and the
 revised NM-01 retest. New [Linux evidence](evidence/r07-06-2026-11-14.json) preserves
 raw structural undo failures while guarding normal candidates. Native/full R07
@@ -112,3 +112,8 @@ qualification and architecture acceptance remain separate.
 
 Patch 06 preserves the original active table cell, caret/selection and focus when
 adding either axis. Linux regression is recorded; native focus retest is next.
+
+Revision 0.16 adds the confirmed editing/selected-cell modes and removes the
+rejected Escape-to-handle shortcut. User reports 06 row/column focus works; no
+full native case or candidate-wide acceptance inferred. [07 evidence](evidence/r07-07-2026-11-14.json)
+records Linux regressions and the next native mode check.

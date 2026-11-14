@@ -1,0 +1,6 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> clutter-r07-two-view-experiment@0.1.0 test:native-capture
+> node test/native-capture.mjs
+
+3 routes passed capture/fixture helper validation; native Mac remains not-run.

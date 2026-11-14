@@ -188,25 +188,31 @@ try {
     );
     await check(
       'TB-13',
-      'Escape exposes keyboard-reachable handles',
+      'Escape selects the active cell without moving focus to a handle',
       async () => {
-        await select('Four');
+        await select('Four', 2);
+        const before = await snap();
         await page.keyboard.press('Escape');
         assert.equal(
-          await page.evaluate(() =>
-            document.activeElement.getAttribute('aria-label')
-          ),
-          'Add row'
+          await cell(3)
+            .getAttribute('class')
+            .then((c) => c.includes('selectedCell')),
+          true
         );
-        await page.keyboard.press('Tab');
+        assert.equal(
+          await page
+            .locator(prefix + 'a .ProseMirror')
+            .getAttribute('data-table-mode'),
+          'selection'
+        );
         assert.equal(
           await page.evaluate(() =>
             document.activeElement.getAttribute('aria-label')
           ),
-          'Add column'
+          candidate === 'step' ? 'Editor view A' : 'Origin editor A'
         );
-        await page.keyboard.press('Enter');
-        assert.deepEqual(await shape(), { rows: 2, cells: 6 });
+        assert.equal((await snap()).version, before.version);
+        assert.deepEqual((await snap()).doc, before.doc);
       }
     );
     await check(
@@ -304,22 +310,20 @@ try {
     );
     await check(
       'TB-21',
-      'keyboard-activated handle restores the original cell caret',
+      'Enter returns from selected cell to editing that same cell',
       async () => {
         await select('Four', 2);
         await page.keyboard.press('Escape');
-        await page.keyboard.press('Tab');
         await page.keyboard.press('Enter');
-        await page.keyboard.insertText('X');
         assert.equal(
           await page
-            .locator(prefix + 'a tr')
-            .nth(1)
-            .locator('td')
-            .nth(1)
-            .innerText(),
-          'FoXur'
+            .locator(prefix + 'a .ProseMirror')
+            .getAttribute('data-table-mode'),
+          'editing'
         );
+        await page.keyboard.insertText('X');
+        assert.equal(await cell(3).innerText(), 'FourX');
+        assert.deepEqual(await shape(), { rows: 2, cells: 4 });
       }
     );
     await check(
@@ -358,6 +362,136 @@ try {
         );
       }
     );
+    await check(
+      'TB-24',
+      'selected-cell Tab and Shift-Tab navigate without a caret',
+      async () => {
+        await select('One', 1);
+        await page.keyboard.press('Escape');
+        for (const [key, index] of [
+          ['Tab', 1],
+          ['Tab', 2],
+          ['Shift+Tab', 1],
+        ]) {
+          await page.keyboard.press(key);
+          assert.ok(
+            (await cell(index).getAttribute('class')).includes('selectedCell')
+          );
+          assert.equal(
+            await page
+              .locator(prefix + 'a .ProseMirror')
+              .getAttribute('data-table-mode'),
+            'selection'
+          );
+          assert.equal(
+            await page
+              .locator(prefix + 'a .ProseMirror')
+              .evaluate((e) => getComputedStyle(e).caretColor),
+            'rgba(0, 0, 0, 0)'
+          );
+        }
+        await page.keyboard.press('Enter');
+        await page.keyboard.insertText('X');
+        assert.equal(await cell(1).innerText(), 'TwoX');
+      }
+    );
+    await check(
+      'TB-25',
+      'selected-cell Tab boundaries do not grow the table or enter editing',
+      async () => {
+        for (const [text, key, index] of [
+          ['Four', 'Tab', 3],
+          ['One', 'Shift+Tab', 0],
+        ]) {
+          await select(text, 1);
+          await page.keyboard.press('Escape');
+          await page.keyboard.press(key);
+          assert.ok(
+            (await cell(index).getAttribute('class')).includes('selectedCell')
+          );
+          assert.equal(
+            await page
+              .locator(prefix + 'a .ProseMirror')
+              .getAttribute('data-table-mode'),
+            'selection'
+          );
+        }
+        assert.deepEqual(await shape(), { rows: 2, cells: 4 });
+      }
+    );
+    await check(
+      'TB-26',
+      'clicking a cell highlights it and restores a text caret',
+      async () => {
+        await select('Four', 2);
+        await page.keyboard.press('Escape');
+        await cell(0).locator('p').click();
+        await page.keyboard.press('End');
+        assert.equal(
+          await page
+            .locator(prefix + 'a .ProseMirror')
+            .getAttribute('data-table-mode'),
+          'editing'
+        );
+        assert.ok(
+          (await cell(0).getAttribute('class')).includes('active-table-cell')
+        );
+        await page.keyboard.insertText('X');
+        assert.equal(await cell(0).innerText(), 'OneX');
+      }
+    );
+    await check(
+      'TB-27',
+      'selected-cell mode remains local when the other view edits',
+      async () => {
+        await select('Four', 2, 2, 'A');
+        await page.keyboard.press('Escape');
+        await select('One', 1, 1, 'B');
+        await page.keyboard.insertText('X');
+        assert.equal(
+          await page
+            .locator(prefix + 'a .ProseMirror')
+            .getAttribute('data-table-mode'),
+          'selection'
+        );
+        assert.equal(
+          await page
+            .locator(prefix + 'b .ProseMirror')
+            .getAttribute('data-table-mode'),
+          'editing'
+        );
+        assert.ok(
+          (await cell(3).getAttribute('class')).includes('selectedCell')
+        );
+      }
+    );
+    for (const axis of ['row', 'column'])
+      await check(
+        'TB-28-' + axis,
+        'handle preserves selected-cell mode when adding ' + axis,
+        async () => {
+          await select('Four', 2);
+          await page.keyboard.press('Escape');
+          await button(axis).click();
+          const target = page
+            .locator(prefix + 'a tr')
+            .nth(1)
+            .locator('td')
+            .nth(1);
+          assert.ok(
+            (await target.getAttribute('class')).includes('selectedCell')
+          );
+          assert.equal(
+            await page
+              .locator(prefix + 'a .ProseMirror')
+              .getAttribute('data-table-mode'),
+            'selection'
+          );
+          await page.keyboard.press('Enter');
+          await page.keyboard.insertText('X');
+          assert.equal(await target.innerText(), 'FourX');
+        }
+      );
   }
   for (const [axis, index] of [
     ['row', 4],
@@ -393,7 +527,7 @@ try {
     'artifacts/table-results.json',
     JSON.stringify(
       {
-        contract: 'table-policy-2026-11-14',
+        contract: 'table-two-modes-2026-11-14',
         runtime: await browser.version(),
         os: process.platform,
         input: 'Playwright browser keys/pointer; not native Mac',

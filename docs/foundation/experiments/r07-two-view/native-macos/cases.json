@@ -5,13 +5,13 @@
     "targets": ["step", "origin"],
     "seeds": ["EI-010", "EI-051", "EI-068", "EI-069"],
     "steps": [
-      "Reset using Fixture checks. In A, press Tab from One and Shift-Tab from Four, then type: text must append at the destination cell end, without selecting its contents.",
-      "Enter in One/Two moves down the same column. Enter anywhere on the bottom row does nothing. Shift-Enter inserts a line break inside the cell.",
-      "In the final cell press Tab: it stays there and adds nothing. Use the bottom Add row and right Add column handles to append explicitly; verify B matches. Escape in a cell focuses the row handle for keyboard access.",
-      "Place the caret inside Four (row 2, cell 2). Add a row, then type X: the original cell/caret must receive X. Reset and repeat Add column. Also check keyboard activation restores that caret."
+      "Reset using Fixture checks. Click Four: the cell is highlighted with a caret. Press Escape: the same cell stays selected/highlighted without a caret; focus does not move to a handle.",
+      "While the cell is selected, Tab/Shift-Tab move the highlight through existing cells without a caret. Enter resumes editing the selected cell. Check final Tab stays on the final cell.",
+      "While editing, Tab/Shift-Tab put a caret at the destination text end. Enter moves down the same column and does nothing at the bottom. Shift-Enter inserts an in-cell line break.",
+      "Add a row/column with its explicit handle; the original cell/caret or selected-cell mode remains active. Verify B matches content. Navigation never creates structure."
     ],
-    "expected": "No row or column is created by Enter/Tab. Navigation changes only the caret; Shift-Enter changes only the current cell. Handles add one axis at a time through the shared authority. The old automatic-growth native trial was a superseded proposal, not this contract. Record physical chords and any unexpected selection/focus. Adding a row or column preserves the original active cell, caret/selection and editor focus; it never jumps to a newly created cell.",
-    "contractRevision": "table-policy-focus-2026-11-14"
+    "expected": "Two view-local modes: editing = highlighted cell plus caret; cell selection = highlighted cell without caret. Escape selects the current cell; Tab/Shift-Tab navigate selected cells; Enter resumes editing. Editing Enter moves down the same column. Final Tab never grows a table. Handles preserve the original cell/focus/mode. Record actual physical chords and failures; do not infer native pass from fixture checks.",
+    "contractRevision": "table-two-modes-2026-11-14"
   },
   {
     "id": "NM-02",

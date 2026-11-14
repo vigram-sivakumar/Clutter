@@ -3,6 +3,22 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.16 — 2026-11-14
+
+- Confirmed two table modes: click edits a highlighted cell; Escape keeps it
+  selected without a caret; selected-cell Tab/Shift+Tab move the highlight;
+  Enter resumes editing. Removed the unrequested Escape-to-handle shortcut.
+- Both isolated candidates implement view-local selection/highlighting. The
+  origin adapter restores cell selections after public Y sync restores text ranges;
+  no library patch or second document store. Initial click/remote-mode failures
+  were corrected and retained in the evidence summary.
+- 57 Node checks and 58 candidate table-browser checks pass on Linux. Earlier
+  raw history/selection diagnostics remain failures, separate from acceptance.
+- User reports 06 row/column insertion focus works; candidate not specified and
+  no native JSON reviewed. New mode behaviour needs Mac retest. Progress,
+  catalogue and continuation instructions updated; architecture is still unaccepted.
+- Incremental patch 07 over exact 06. No production, dependency or Swift change.
+
 ## 0.15 — 2026-11-14
 
 - Confirmed TB-C08: explicit row/column insertion preserves the original active

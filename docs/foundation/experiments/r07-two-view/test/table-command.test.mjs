@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { CellSelection } from 'prosemirror-tables';
 import assert from 'node:assert/strict';
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { fixture, textPosition } from '../src/schema.mjs';
@@ -8,6 +9,7 @@ import {
   nextRowSameColumn,
   cellLineBreak,
   appendTableAxis,
+  selectCurrentCell,
 } from '../src/table-command.mjs';
 const stateAt = (text, offset = 0) => {
   const doc = fixture();
@@ -122,3 +124,35 @@ for (const axis of ['row', 'column'])
       assert.equal(next.selection.$head.parentOffset, 1);
     }
   );
+
+test('Escape selects the current cell; Enter re-enters it without content changes', () => {
+  const initial = stateAt('Four', 2);
+  const selected = apply(initial, selectCurrentCell).state;
+  assert.ok(selected.selection instanceof CellSelection);
+  assert.ok(selected.doc.eq(initial.doc));
+  assert.equal(apply(selected, selectCurrentCell).state, selected);
+  const editing = apply(selected, nextRowSameColumn).state;
+  assert.ok(editing.selection instanceof TextSelection);
+  assert.equal(editing.selection.head, textPosition(editing.doc, 'Four', 4));
+  assert.ok(editing.doc.eq(initial.doc));
+});
+test('selected-cell Tab moves the cell selection while preserving content', () => {
+  const initial = stateAt('Two', 1);
+  const selected = apply(initial, selectCurrentCell).state;
+  const next = apply(selected, nextCell).state;
+  assert.ok(next.selection instanceof CellSelection);
+  assert.equal(next.selection.$anchorCell.nodeAfter.textContent, 'Three');
+  const back = apply(next, previousCell).state;
+  assert.equal(back.selection.$anchorCell.nodeAfter.textContent, 'Two');
+  assert.ok(back.doc.eq(initial.doc));
+});
+for (const [text, command] of [
+  ['Four', nextCell],
+  ['One', previousCell],
+])
+  test('selected-cell boundary keeps ' + text + ' selected', () => {
+    const selected = apply(stateAt(text, 1), selectCurrentCell).state;
+    const result = apply(selected, command);
+    assert.equal(result.handled, true);
+    assert.equal(result.state, selected);
+  });

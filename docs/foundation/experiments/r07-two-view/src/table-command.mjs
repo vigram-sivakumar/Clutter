@@ -1,7 +1,22 @@
 import { EditorState, TextSelection } from 'prosemirror-state';
-import { TableMap, addRowAfter, addColumnAfter } from 'prosemirror-tables';
+import {
+  TableMap,
+  CellSelection,
+  addRowAfter,
+  addColumnAfter,
+} from 'prosemirror-tables';
 
 export function cellContext(state) {
+  if (state.selection instanceof CellSelection) {
+    const { $anchorCell, $headCell } = state.selection;
+    if ($anchorCell.pos !== $headCell.pos) return null;
+    const table = $headCell.node(-1),
+      tablePos = $headCell.before($headCell.depth - 1),
+      start = tablePos + 1;
+    const map = TableMap.get(table),
+      offset = $headCell.pos - start;
+    return { table, tablePos, start, map, offset, rect: map.findCell(offset) };
+  }
   if (!(state.selection instanceof TextSelection)) return null;
   const $head = state.selection.$head;
   for (let depth = $head.depth; depth > 0; depth--) {
@@ -42,11 +57,18 @@ function navigate(direction, vertical = false) {
     }
     // Forward boundary is an intentional no-op, not schema growth or focus escape.
     // First-cell Shift-Tab keeps the previous native backward focus escape.
-    if (target == null) return vertical || direction > 0;
+    if (target == null)
+      return (
+        state.selection instanceof CellSelection || vertical || direction > 0
+      );
     if (dispatch)
       dispatch(
         state.tr
-          .setSelection(cellEnd(state.doc, at.start + target))
+          .setSelection(
+            state.selection instanceof CellSelection
+              ? CellSelection.create(state.doc, at.start + target)
+              : cellEnd(state.doc, at.start + target)
+          )
           .setMeta('addToHistory', false)
           .scrollIntoView()
       );
@@ -55,9 +77,35 @@ function navigate(direction, vertical = false) {
 }
 export const nextCell = navigate(1);
 export const previousCell = navigate(-1);
-export const nextRowSameColumn = navigate(1, true);
+const moveDown = navigate(1, true);
+export function nextRowSameColumn(state, dispatch) {
+  const at = cellContext(state);
+  if (at && state.selection instanceof CellSelection) {
+    if (dispatch)
+      dispatch(
+        state.tr
+          .setSelection(cellEnd(state.doc, at.start + at.offset))
+          .setMeta('addToHistory', false)
+      );
+    return true;
+  }
+  return moveDown(state, dispatch);
+}
+export function selectCurrentCell(state, dispatch) {
+  const at = cellContext(state);
+  if (!at) return false;
+  if (state.selection instanceof CellSelection) return true;
+  if (dispatch)
+    dispatch(
+      state.tr
+        .setSelection(CellSelection.create(state.doc, at.start + at.offset))
+        .setMeta('addToHistory', false)
+    );
+  return true;
+}
 export function cellLineBreak(state, dispatch) {
-  if (!cellContext(state)) return false;
+  if (!(state.selection instanceof TextSelection) || !cellContext(state))
+    return false;
   if (dispatch)
     dispatch(
       state.tr
