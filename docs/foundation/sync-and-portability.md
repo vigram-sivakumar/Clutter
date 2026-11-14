@@ -153,3 +153,12 @@ Encrypted Spaces are not initial scope; future support was not decided. Keep sec
 handling behind platform boundaries without choosing keys/encryption now. Live
 collaboration should have versioned operation/protocol extension points, but no
 initial CRDT/server requirement is imposed solely for a deferred feature.
+
+## R04 persistence boundary for R05
+
+[Vault persistence](vault-persistence-spec.md) supplies proposed local state/outcome/
+outbox commit, inbound replay/progress, asset publication and root-retention contracts.
+It does not choose provider packaging/order, tombstone retirement or cross-document
+remote reconciliation. Those are R05 work. Local-only operation needs no unbounded
+disabled-provider queue; enabling sync must establish the explicitly specified
+current/history baseline instead of assuming every earlier edit was queued.

@@ -1,13 +1,14 @@
 # Clutter foundation
 
-Status: architecture definition pack, revision 0.6, 2026-11-14. Product scope
+Status: architecture definition pack, revision 0.7, 2026-11-14. Product scope
 confirmed; technology proposals remain unqualified.
 Baseline: `main` at `cae604273115c0c6c0d3ac34533b1e9834e9c778`.
 Working branch: `architecture/clutter-foundation`.
 
 New chat or AI agent: start at [START-HERE](START-HERE.md), then follow the
-[roadmap](roadmap.md). Current next task: R04 conditional persistence specification. R01 inventory is
-complete; R02/R03 drafts have explicit policy/encoding gaps and no new runtime proof.
+[roadmap](roadmap.md). Current next task: R05 conditional provider specification. R01 inventory is
+complete; R02/R03/R04 drafts retain open policies/encoding/durability choices and
+no new target-runtime proof.
 
 ## Purpose and authority
 
@@ -17,7 +18,7 @@ live cloud collaboration deferred.
 Evaluate it as a greenfield product. Migration and implementation effort remain
 visible planning dimensions with zero weight in architectural selection.
 
-The 0.2 product scope, retained in 0.6, reflects the user clarification sequence. Earlier draft
+The 0.2 product scope, retained in 0.7, reflects the user clarification sequence. Earlier draft
 requirements superseded by that discussion are replaced in this folder.
 This pack contains requirements and proposals, not an approved implementation
 specification. Existing documentation and `ARCHITECTURE_RULES.md` continue to
@@ -30,29 +31,31 @@ current-system references; they are not copied into competing target specs.
 
 ## Reading order and document ownership
 
-| Document                                                        | Sole purpose                                                                    |
-| --------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| [Resume checkpoint](START-HERE.md)                              | Exact current position, patch prerequisites and new-chat continuation           |
-| [Roadmap](roadmap.md)                                           | Named tasks, dependencies, evidence and next deliverables                       |
-| [Current capability inventory](current-capability-inventory.md) | R01 source/wiring audit, target mapping, contradictions and validation gaps     |
-| [R01 executed evidence](evidence/r01-2026-11-14.json)           | Selected existing-test results and initial load-error/targeted rerun provenance |
-| [Editor interaction specification](editor-interaction-spec.md)  | R02 shared/model-specific behaviours, profile review and native obligations     |
-| [Editor case catalogue](editor-interaction-cases.json)          | 11 semantic fixtures, 72 unexecuted cases; not a canonical schema               |
-| [Document model](document-model-spec.md)                        | R03 logical entities, single ownership, historical closure and M-01–M-07 gaps   |
-| [Command specification](command-api-spec.md)                    | R03 common envelopes, guards, outcomes, reads and inverse contracts             |
-| [API registry/scenarios](model-api-contract-cases.json)         | 51 logical signatures and 24 unexecuted consistency scenarios; not wire schemas |
-| [Product contracts](product-contracts.md)                       | Requirement IDs and initial/future scope                                        |
-| [Confirmed behaviour](product-behaviour.md)                     | Agreed task/property/template/date/comment semantics                            |
-| [Sync and portability](sync-and-portability.md)                 | Opt-in provider policy, concurrency and Windows-ready boundaries                |
-| [System architecture](system-architecture.md)                   | State ownership and operation lifecycle                                         |
-| [Shared API](shared-api.md)                                     | App/CLI/MCP capability boundaries                                               |
-| [History](history-and-collaboration.md)                         | Versions, pins, restore and future collaboration seam                           |
-| [Decision register](decision-register.md)                       | Remaining technical choices and evidence gates                                  |
-| [Acceptance matrix](acceptance-matrix.md)                       | Tests traced to requirements with initial/provider/future gates                 |
-| [Qualification spike](qualification-spike.md)                   | First local/native and provider experiment specification                        |
-| [Delivery plan](delivery-plan.md)                               | Dependencies, reviews and patch prerequisites                                   |
-| [ADR index](adr/README.md)                                      | Technical proposals and rationale                                               |
-| [Changelog](CHANGELOG.md)                                       | Specification revisions and withdrawn proposals                                 |
+| Document                                                         | Sole purpose                                                                              |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| [Resume checkpoint](START-HERE.md)                               | Exact current position, patch prerequisites and new-chat continuation                     |
+| [Roadmap](roadmap.md)                                            | Named tasks, dependencies, evidence and next deliverables                                 |
+| [Current capability inventory](current-capability-inventory.md)  | R01 source/wiring audit, target mapping, contradictions and validation gaps               |
+| [R01 executed evidence](evidence/r01-2026-11-14.json)            | Selected existing-test results and initial load-error/targeted rerun provenance           |
+| [Editor interaction specification](editor-interaction-spec.md)   | R02 shared/model-specific behaviours, profile review and native obligations               |
+| [Editor case catalogue](editor-interaction-cases.json)           | 11 semantic fixtures, 72 unexecuted cases; not a canonical schema                         |
+| [Document model](document-model-spec.md)                         | R03 logical entities, single ownership, historical closure and M-01–M-07 gaps             |
+| [Command specification](command-api-spec.md)                     | R03 common envelopes, guards, outcomes, reads and inverse contracts                       |
+| [API registry/scenarios](model-api-contract-cases.json)          | 51 logical signatures and 24 unexecuted consistency scenarios; not wire schemas           |
+| [Vault persistence](vault-persistence-spec.md)                   | R04 commit/ack, candidate encodings, protected roots, history/recovery/outbox and PS gaps |
+| [Persistence failure catalogue](persistence-contract-cases.json) | PF-01–PF-30 unexecuted fault/restart cases; not a crash harness                           |
+| [Product contracts](product-contracts.md)                        | Requirement IDs and initial/future scope                                                  |
+| [Confirmed behaviour](product-behaviour.md)                      | Agreed task/property/template/date/comment semantics                                      |
+| [Sync and portability](sync-and-portability.md)                  | Opt-in provider policy, concurrency and Windows-ready boundaries                          |
+| [System architecture](system-architecture.md)                    | State ownership and operation lifecycle                                                   |
+| [Shared API](shared-api.md)                                      | App/CLI/MCP capability boundaries                                                         |
+| [History](history-and-collaboration.md)                          | Versions, pins, restore and future collaboration seam                                     |
+| [Decision register](decision-register.md)                        | Remaining technical choices and evidence gates                                            |
+| [Acceptance matrix](acceptance-matrix.md)                        | Tests traced to requirements with initial/provider/future gates                           |
+| [Qualification spike](qualification-spike.md)                    | First local/native and provider experiment specification                                  |
+| [Delivery plan](delivery-plan.md)                                | Dependencies, reviews and patch prerequisites                                             |
+| [ADR index](adr/README.md)                                       | Technical proposals and rationale                                                         |
+| [Changelog](CHANGELOG.md)                                        | Specification revisions and withdrawn proposals                                           |
 
 Requirements live in product contracts; other documents reference their IDs.
 Acceptance IDs belong to the matrix. ADRs explain decisions rather than repeat
@@ -106,3 +109,7 @@ guarantees and their actual UX. No new runtime acceptance was executed for R02.
 R03 drafts define semantic ownership/commands without choosing an editor, native
 format or database. Model/API catalogue checks are static specification validation,
 not domain/protocol test execution; R04/R06/R07 must close and qualify the details.
+
+R04 compares backend commit contracts and primary documentation without selecting
+one or executing crash tests. Its PS decisions are separate from product P IDs;
+R05 next specifies provider protocol/feasibility rather than raw live-file sync.

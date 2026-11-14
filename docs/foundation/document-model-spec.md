@@ -289,3 +289,12 @@ These conditional gaps prevent treating the draft as implementation-ready. They 
 not reopen the confirmed inbox, task-page, no-subtasks or copy-only-template choices.
 The [API draft](command-api-spec.md) references these semantics; it does not create
 a second independently writable model.
+
+## R04 persistence reference
+
+[Vault persistence](vault-persistence-spec.md) defines the proposed commit/ack
+boundary for this model: current state, required history/identity/outcome protection
+and pending publication form one recoverable effect set; external asset durability
+has explicit staging/order. It compares P-SQL/P-ROOT/P-TEXT without accepting one.
+Its PS-01–PS-07 decisions and PF failure scenarios remain unqualified. This reference
+does not close M-06 or make physical encoding part of the semantic model by accident.

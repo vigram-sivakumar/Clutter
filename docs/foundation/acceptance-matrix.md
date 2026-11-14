@@ -68,3 +68,12 @@ R04/R06 must expand actual schemas/limits/failure-point cases and R07 must execu
 them. R02 profile choices and M-01–M-07 cannot be silently resolved in an adapter
 or an invented storage schema. A JSON catalogue that parses is not evidence that
 any proposed command implementation exists or preserves these invariants.
+
+## R04 failure specification reference
+
+[Vault persistence](vault-persistence-spec.md) and [PF-01–PF-30](persistence-contract-cases.json)
+provide candidate-specific fault/restart contracts for T-04–T-07/T-10–T-14/T-18/T-19
+and related context/root cases. All are unexecuted. Distinguish process kill from
+actual OS/power durability, single-file atomic replace from multi-entity commit,
+complete snapshot from database-only copy, and index rebuild from canonical repair.
+The existing R01 run and static catalogue validation do not pass these new gates.

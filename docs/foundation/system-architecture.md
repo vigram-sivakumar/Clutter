@@ -1,6 +1,6 @@
 # System architecture and ownership
 
-Status: proposed mechanisms under confirmed product scope, revision 0.6.
+Status: proposed mechanisms under confirmed product scope, revision 0.7.
 See [product behaviour](product-behaviour.md) for entity rules and
 [sync and portability](sync-and-portability.md) for provider/phase boundaries.
 
@@ -125,3 +125,12 @@ R02 Q-01–Q-09 and model M-01–M-07 remain explicit. R04 must prove persistenc
 coherent effect sets, outcomes/history and outbox rather than treating these names
 as an already transactional architecture. Provider task-placement coherence remains
 a separate enablement blocker; no library/database is accepted by the R03 draft.
+
+## R04 persistence reference
+
+[Vault persistence](vault-persistence-spec.md) owns the detailed commit/acknowledgement,
+asset/root, history/recovery and outbox durability contract. It compares backend
+encodings and records PS decisions rather than selecting a backend. Read models
+and notifications follow committed/protected state; they are never the sole copy
+of accepted canonical entities. No native crash or storage guarantee was qualified
+by preparing this specification.

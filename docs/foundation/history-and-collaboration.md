@@ -80,3 +80,12 @@ The rendering must label current versus retained target expansion honestly.
 [API restore plans](command-api-spec.md) recheck current closure tokens at commit;
 M-04 keeps the moved-task collision policy explicit. Pin metadata has its own
 history-catalog revision instead of pretending the current body was edited.
+
+## R04 retention and recovery boundary
+
+[Vault persistence](vault-persistence-spec.md) specifies protected root sets, pin/GC
+races, restore plan revalidation, decoder/compaction obligations and consistent
+snapshot leases. It distinguishes current durable state from recovery-protected
+input and automatic history from outcome/deduplication records. Retention budgets,
+purge policy and native durability still need qualification; no automatic backup
+feature is added by the snapshot seam.

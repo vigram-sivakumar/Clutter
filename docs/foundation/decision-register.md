@@ -77,8 +77,11 @@ track proposed model-specific policies; no engine or Markdown-equivalent behavio
 is implicitly accepted. R03 now has conditional [model](document-model-spec.md), [API](command-api-spec.md)
 and [signature/scenario](model-api-contract-cases.json) drafts. DM-01–DM-15 name
 invariants; M-01–M-07 and Q-01–Q-09 remain unapproved policy/encoding gaps. No new
-runtime/domain/protocol tests were run. Next is R04 conditional persistence/history/
-recovery/outcome/outbox specification; it must preserve these open dependencies. [START-HERE](START-HERE.md)
+runtime/domain/protocol tests were run. R04 now has conditional [persistence contracts](vault-persistence-spec.md) and
+[30 unexecuted fault scenarios](persistence-contract-cases.json), comparing P-SQL/
+P-ROOT/P-TEXT. PS-01–PS-07 remain open; no crash/backend/native proof is claimed.
+Next is R05 provider packaging, deterministic ordering, deletion/history/media
+coherence and actual iCloud/Drive feasibility specification, preserving M/Q/PS gaps. [START-HERE](START-HERE.md)
 records handoff/authorization and [roadmap](roadmap.md) orders specifications,
 qualification and implementation. These navigation documents do not accept any
 technical decision or duplicate product rules.

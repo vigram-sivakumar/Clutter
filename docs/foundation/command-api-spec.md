@@ -236,3 +236,12 @@ wire schemas, durability journal/outcome retention, provider reconciliation unit
 local authentication, limits and platform host details. R04 drafts the persistence
 boundary; R06 finalizes protocol exposure. This document does not accept a stack
 or authorize production implementation before qualification.
+
+## R04 persistence reference
+
+[Vault persistence](vault-persistence-spec.md) supplies proposed local commit/flush/
+acknowledgement and outcome-compaction obligations. [PF scenarios](persistence-contract-cases.json)
+exercise the intended ordering of receipt replay, guards, coherent effects, history,
+asset roots and outbox. They are unexecuted contracts. PS-01–PS-07 must be settled
+for the selected backend before claiming these outcomes are implemented. A pending/
+uncertain receipt cannot become a new mutating request just because its caller timed out.

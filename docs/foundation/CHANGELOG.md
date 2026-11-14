@@ -3,6 +3,21 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.7 — 2026-11-14
+
+- Added conditional R04 vault persistence: commit/ack/protection vocabulary,
+  current/history/identity/outcome/outbox root closure, assets/staging/GC,
+  recovery/owner fencing, restore/compaction/migration and snapshot seams.
+- Compared P-SQL/P-ROOT/P-TEXT encoding boundaries; checked official SQLite
+  transaction/WAL/synchronous/backup references without accepting a backend.
+- Added 30 unexecuted PF fault/restart scenarios and PS-01–PS-07 decision ledger.
+  Process-crash proof is explicitly separate from OS/power/native proof.
+- Recorded unrelated main advance to f797bf6 (CompactMarkdown CSS); did not merge
+  it or rewrite the historical R01 baseline/evidence.
+- Updated acceptance/model/API/history/sync/roadmap/checkpoint references. R05
+  provider protocol/feasibility specification is next. No storage/runtime tests,
+  production edits or old-document changes.
+
 ## 0.6 — 2026-11-14
 
 - Added conditional R03 semantic model: entity identity/body, single task placement,

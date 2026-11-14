@@ -38,6 +38,17 @@ lost response with stale expected tokens, concurrent duplicate admission, pinned
 historical task content and interrupted state/outcome/outbox persistence. Keep
 M-01–M-07/Q-01–Q-09 policy gaps visible in pass/fail/blocked reporting.
 
+## R04 failure input
+
+Use [persistence contracts](vault-persistence-spec.md) and
+[PF catalogue](persistence-contract-cases.json) to enumerate real fault points for
+P-SQL/P-ROOT/P-TEXT candidates. Implement a scoped fault injector later, not a toy
+checker that merely repeats the specification assertions. Retain before/after
+roots, operation identities/outcomes, durability claims, asset reachability and
+restart traces. Pin/read back actual backend configuration and native runtime.
+A clean subprocess kill is not OS/power-failure proof. Relevant PS-01–PS-07 gaps
+remain blocked until resolved; no failure case was executed in R04 documentation.
+
 ## Stage A: local vertical slice
 
 1. Start one headless Space authority; attach two panes then two native windows

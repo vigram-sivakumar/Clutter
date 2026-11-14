@@ -1,6 +1,6 @@
 # Foundation roadmap
 
-Revision 0.6, 2026-11-14. This roadmap describes work and dependencies; the current
+Revision 0.7, 2026-11-14. This roadmap describes work and dependencies; the current
 checkpoint/authorization is in [START-HERE](START-HERE.md). Product scope is in
 product-contracts.md, not independently redefined here.
 
@@ -8,12 +8,12 @@ product-contracts.md, not independently redefined here.
 
 | ID  | State                                            | Work and output                                                                                                                                                                   | Depends on                | Exit evidence                                                                                                                                                                      |
 | --- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| R00 | Documentation prepared                           | Foundation pack 0.1–0.6: confirmed scope, ownership/API proposals, ADRs, initial test/spike specifications and resumable handoff                                                  | User clarification        | Prior 0.1–0.3 remote commits confirmed at f22a5cd; 0.4–0.6 delivery pending user application                                                                                       |
+| R00 | Documentation prepared                           | Foundation pack 0.1–0.7: confirmed scope, ownership/API proposals, ADRs, initial test/spike specifications and resumable handoff                                                  | User clarification        | Prior 0.1–0.3 remote commits confirmed at f22a5cd; 0.4–0.7 delivery pending user application                                                                                       |
 | R01 | Complete — 2026-11-14                            | [Inventory](current-capability-inventory.md): 45 source/wiring capability entries with target mapping                                                                             | R00                       | [Selected run](evidence/r01-2026-11-14.json): 30 files/1,003 assertions passed across initial/targeted runs; initial load errors/setup corrections and static/target gaps explicit |
 | R02 | Draft prepared; policy review open               | [R02](editor-interaction-spec.md) and [case catalogue](editor-interaction-cases.json): 72 shared/profile seed contracts, not execution                                            | R01                       | 60 shared requirements/12 profile proposals specified; Q-01–Q-09 and variation expansion remain before acceptance                                                                  |
 | R03 | Conditional drafts prepared; review open         | [Model](document-model-spec.md), [API](command-api-spec.md) and [registry/scenarios](model-api-contract-cases.json): semantic identity, placement, closure and logical signatures | R01; consume R02          | DM-01–DM-15, 51 operation sketches and 24 unexecuted scenarios; M-01–M-07/Q-01–Q-09 and full wire/encoding qualification remain                                                    |
-| R04 | Next — conditional draft                         | `vault-persistence-spec.md`: candidate transaction boundaries, history/pins/recovery/media lifecycle, outcome/durability and future snapshot contract                             | R03 draft                 | Failure states and cleanup roots explicit; no chosen backend treated as proven                                                                                                     |
-| R05 | Planned                                          | `provider-sync-spec.md`: local/outbox lifecycle, packages, ordering/tombstones, task consistency and separate provider feasibility                                                | R03/R04 drafts            | No active DB replication, retained overwritten states, restart/disable/credential semantics and measurable provider gates                                                          |
+| R04 | Conditional draft prepared; qualification open   | [Persistence spec](vault-persistence-spec.md) and [PF catalogue](persistence-contract-cases.json): backend commit/ack, roots, history/recovery/outbox and failure contracts       | R03 draft                 | P-SQL/P-ROOT/P-TEXT compared; 30 unexecuted fault cases and PS-01–PS-07 open; no backend/native proof                                                                              |
+| R05 | Next — conditional provider draft                | `provider-sync-spec.md`: local/outbox lifecycle, packages, ordering/tombstones, task consistency and separate provider feasibility                                                | R03/R04 drafts            | No active DB replication, retained overwritten states, restart/disable/credential semantics and measurable provider gates                                                          |
 | R06 | Planned                                          | Close qualification fixtures/budgets, `platform-boundaries-spec.md` and local security/IPC detail; update acceptance/spike docs                                                   | R02–R05 drafts            | Reproducible candidate configs, performance limits, portable boundaries and no missing critical contracts in spike scope                                                           |
 | R07 | Planned; not executed                            | Isolated local/native qualification, deterministic provider simulation, then real-provider experiments                                                                            | R06                       | Relevant T-01–T-21 pass/fail/blocked with logs; native and each provider qualified separately                                                                                      |
 | R08 | Planned                                          | Architecture baseline review and accepted/superseding ADRs                                                                                                                        | R07 for related scope     | Compare complete combinations; resolve blockers; identify every affected existing rule before production changes                                                                   |
@@ -59,7 +59,8 @@ not invented calendar estimates or a commitment to every proposed filename.
 R01 completion means the bounded inventory was delivered, not a passing full-suite
 or native acceptance result. Initial load failures/resolved setup and source-level task
 projection freshness risk remain visible. R02 draft is prepared with policy review open. R03 conditional schema/API drafts
-are prepared. R04 persistence/history/outcome/outbox specification is next; preserve
+are prepared. R04 persistence/history/outcome/outbox draft is prepared. R05 provider specification
+is next; preserve
 M-01–M-07 and Q-01–Q-09 rather than choosing defaults silently. Production work
 is still gated.
 
@@ -72,3 +73,8 @@ R03 completion here is draft preparation, not implementation readiness or accept
 canonical encoding. The operation catalogue is a logical signature registry, not
 a working API. Qualify retries, failure atomicity and reconstructable history in
 R04/R07 before accepting a storage baseline or publishing adapter contracts.
+
+R04 is specification preparation, not fault-injection execution or a selected
+backend. R05 must make provider ordering/coherence/tombstone/baseline rules concrete;
+its files must not be interpreted as an active shared SQLite database. Actual native
+and provider support remain R07 evidence gates after detailed contracts/budgets.
