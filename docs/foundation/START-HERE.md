@@ -1,6 +1,6 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-14. Documentation revision: 0.37.
+Last updated: 2026-11-14. Documentation revision: 0.38.
 Read AGENTS.md and this file first in a new chat or agent session. It is the checkpoint, not a
 second product specification. [README](README.md) identifies authoritative docs.
 
@@ -18,8 +18,9 @@ records. Keep one branch, `architecture/clutter-foundation`, and preserve all wo
 | R07 durability (build13) | 18 bounded Linux cases pass in a separate real SQLite owner/browser-projection/CLI/MCP fixture; full editor/native integration remains open |
 | Regressions in13 | 84 Node checks pass; unchanged strict comparison green, including 12 earlier live command cases |
 | Native/manual | Earlier09 confirmed passes/raw reports preserved; no12/13 Mac claim, IME unavailable, VoiceOver deferred; no broad rerun needed |
-| Next | R08 architecture review package: proposed complete combinations/ADRs, remaining gates and minimal joined core/native proof |
-| Git | User reports patch12 applied;13 prepared over exact12. No agent commit/push, production, Swift, dependency lock or branch change |
+| R08 review | Proposed PM/Y origin-aware + headless TS authority + SQLite combination, gap ledger and F006/F007; no baseline accepted |
+| Next | Execute JG-01–JG-10: join two actual editor views to the real durable owner; native/entity/media gates follow |
+| Git | User confirms patch13 applied;14 review prepared over exact13. No agent commit/push, production, Swift, dependency lock or branch change |
 
 Read [durable qualification](r07-durable-authority.md), [history qualification](r07-history-ownership.md)
 and [native progress](NATIVE-TEST-PROGRESS.md). Separate executed evidence from
@@ -96,6 +97,11 @@ contains those contents; do not reapply either route.
 21. Context-owned history fixes, revision 0.36: `Clutter R07 Context History Fix 12.patch`,
     incremental over exact bundle11 target; native 12 smoke remains unrun.
 
+22. Durable authority proof, revision 0.37: `Clutter R07 Durable Authority Proof 13.patch`,
+    exact12 base; user confirms applied. Full-editor/native integration not included.
+23. Architecture review, revision 0.38: `Clutter Foundation Architecture Review 14.patch`,
+    exact13 base; proposed combination/ADRs/gates only, no new runtime qualification.
+
 Each update is incremental over its predecessor's file contents, not a particular
 user-created commit hash. If this file is present at revision 0.17, do not blindly
 reapply those patches. Inspect actual files and git state; do not use reset/clean,
@@ -156,31 +162,39 @@ force checkout or re-create the branch to hide divergence.
 - Current authorized continuation includes the isolated R07 experiment, not a
   production rebuild. Preserve unqualified tests and report blocking observations.
 
-## Exact next action: R08 architecture decision review package
+## Exact next action: joined Origin/SQLite proof, JG-01–JG-10
 
-Read [durable-owner proof](r07-durable-authority.md), its
-[evidence](evidence/r07-29-2026-11-14.json), and [context history](r07-history-ownership.md).
-Build 13 adds a separate P-SQL durable-owner fixture: 18/18 Linux cases pass for
-atomic revision/outcome, real process death, lost replies, exclusive ownership,
-provisional recovery, tiny in-DB attachment closure and pinned historical content.
-Browser projections, real CLI and MCP share that owner. It does not yet join the
-full PM/Y editor/history engines to the durable owner or qualify native storage.
-84 Node regressions pass; unchanged matched strict gate remains 24 pass/6 explicit
-protective refusals, no gaps/failures. Original controls/manual evidence remain.
+The user confirms patch13 applied. Read the [architecture review](architecture-review.md),
+[gap disposition](architecture-gap-disposition.md), proposed
+[F006](adr/F006-structured-origin-and-transactional-roots.md) and
+[F007](adr/F007-headless-runtime-and-platform-composition.md), then the frozen
+[joined contract](joined-core-contract.json). All13 JG cases are not-run.
 
-Next prepare a concrete architecture review: compare complete combinations,
-propose candidate choices and superseding ADRs, list rejected alternatives and
-remaining now/later gates. Specify the minimal joined editor-to-durable-core and
-native qualification slice before final acceptance. Resolve material R02–R06
-policy/model/security/performance gaps in that review; do not quietly mark them
-passed. No production implementation, provider enablement or accepted backend/
-editor/framework follows from the current results.
+The review recommends PM/Y origin-aware contexts plus one headless TS Space owner
+and local SQLite for qualification. It does not accept a production stack/codec,
+Tiptap, Tauri or shipped Node binding. Preserve the single source of truth: J uses
+one versioned accepted Y-state root; decoded PM JSON is validation/rendering state,
+not another persisted writable document. Stable Clutter IDs are not Y coordinates.
 
-Patch13 (`Clutter R07 Durable Authority Proof 13.patch`) applies over exact12;
-user reports12 applied. SQLite is the first experimental backend, not a decision.
-No dependency/lock, Swift, production, agent commit/push or branch change. No new
-manual session rerun requested. Mac12/13 not run, IME unavailable, VoiceOver deferred;
-earlier Mac09/manual passes remain valid. Keep all old raw evidence unchanged.
+Next implement the bounded G-J slice (JG-01–10), inside docs/foundation experiments:
+real durable owner, two actual EditorViews, shared CLI/MCP ingress, staged validation
+and SQL commit before accepted publication, pending-input protection and restart/
+unknown-outcome reconciliation. Freeze the exact envelope/state transition/schema
+before coding and keep prior matched contract/raw controls unchanged. Full task
+entity/asset closure JG-12/13 and native/installed host JG-11 are subsequent explicit
+gates before related baseline acceptance. Do not substitute read-only projections
+or a Playwright-owned authority for the missing integration.
+
+This delivery is documentation only: no new runtime tests or acceptance results.
+Prior build12 strict24 passes/6 refusals and build13's18 durable Linux cases remain
+separate evidence. No broad manual session or new product questionnaire requested.
+Mac12/13/integrated path remain not-run, IME unavailable, VoiceOver deferred; earlier
+confirmed native/manual results remain valid.
+
+Patch14 (`Clutter Foundation Architecture Review 14.patch`) applies over exact13.
+Review evidence is r08-2026-11-14.json. Same branch, no agent commit/push, production,
+Swift, runtime/dependency or prior evidence changes. Do not create production
+packages, supersede existing ADRs or enable providers from this recommendation.
 
 ## Session close protocol
 

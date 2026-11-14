@@ -256,18 +256,18 @@ manual rerun or verdict-click cleanup is requested. A targeted native history/
 selection smoke can be batched with the next integrated slice before architecture
 acceptance. NM-03 remains unavailable and NM-06 deferred by user priority.
 
-## Next action: architecture decision review package
+## Next action: joined core before targeted native integration
 
-Build13's separate [durable-owner proof](r07-durable-authority.md) passes 18 bounded
-Linux cases. Real owner, CLI/MCP subprocesses and browser projections share one
-commit path. It does not connect the full native/editor candidates to SQLite.
-No new Mac/manual result is claimed; original confirmed passes remain intact.
+The [R08 review](architecture-review.md) is prepared, with proposed PM/Y + TS owner
++ SQLite and explicit alternatives/gates. No complete stack accepted. All13
+[joined cases](joined-core-contract.json) remain not-run. Next automate JG-01–10
+against two actual editor views and a real owner. Only after a concrete Mac build
+exists, guide targeted JG-11/native history/input/installed headless checks.
 
-Prepare the R08 review package with proposed complete combinations, affected ADRs,
-remaining now/later gates and the minimal joined editor/durable/native qualification
-slice. Do not ask for another broad manual session or verdict-click cleanup.
-Mac12/13 remain not-run; IME unavailable and VoiceOver deferred. Production and
-providers remain untouched/unqualified. [Evidence](evidence/r07-29-2026-11-14.json).
+No new Mac result, manual-session replay, verdict-click cleanup or VoiceOver/IME
+request in this review. Original passes stay valid; Mac12/13/integrated path not-run,
+IME unavailable and VoiceOver deferred. User confirms patch13 applied. Review14
+is documentation only. [Evidence](evidence/r08-2026-11-14.json).
 
 ## Next agent action
 

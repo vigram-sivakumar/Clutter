@@ -15,3 +15,14 @@ product-behaviour.md; they do not establish that a candidate meets those contrac
 Accepted technical records require evidence, consequences and explicitly affected
 older rules. Changing a future accepted record requires supersession. Proposed
 records may be revised with the changelog, as F004 was in 0.2.
+
+## R08 proposed combination and runtime records
+
+- [F006](F006-structured-origin-and-transactional-roots.md): PM/Y origin-aware
+  contexts and versioned transactional roots — **Proposed for joined qualification**.
+- [F007](F007-headless-runtime-and-platform-composition.md): one headless semantic
+  runtime with thin platform clients — **Proposed for qualification**.
+
+[Review](../architecture-review.md) compares alternatives and identifies old-rule
+impact. Neither record supersedes accepted production rules or accepts F001–F005.
+The13 [JG cases](../joined-core-contract.json) are specification-only/not-run.

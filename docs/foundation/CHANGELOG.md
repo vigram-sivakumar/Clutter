@@ -3,6 +3,20 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.38 — 2026-11-14
+
+- Prepared R08 architecture review: recommend PM/Y origin-aware contexts, one
+  headless TS authority and SQLite for the joined proof; compare complete reserves,
+  consequences and current evidence without declaring a selected baseline.
+- Proposed F006/F007, one committed Y-root codec for the next synthetic integration,
+  host/runtime boundaries and scoped existing-rule impact. Production model/task/
+  asset layout, native host and runtime binding remain gated.
+- Added Q/M/PS/SY/PL/SEC gap disposition and13 frozen not-run JG cases. Next JG-01–10
+  connects two actual editors, CLI/MCP and real durable owner before native/model/
+  asset acceptance. No runtime code or tests changed/executed in this delivery.
+- Recorded user confirmation that13 is applied. Review14 is over exact13. No agent
+  commit/push, old evidence changes or new manual session request.
+
 ## 0.37 — 2026-11-14
 
 - Added an isolated real SQLite owner with atomic content/revision/outcome commits,

@@ -55,3 +55,11 @@ them by implication.
   Do not rerun the user's manual session, enable providers or implement production
   from these results. Stable operation identity survives transport/owner restart;
   adapter retry must not generate a new operation after an unknown reply.
+
+- Revision0.38 prepares architecture-review.md, architecture-gap-disposition.md,
+  proposed F006/F007 and joined-core-contract.json. All13 JG cases are not-run;
+  next JG-01–10 is isolated real-owner/full-editor qualification, not production.
+  Recommendation PM/Y + TS owner + SQLite is not accepted. J proposes one Y-state
+  persisted payload; decoded PM JSON is not another writable root. Freeze envelope,
+  state transition/schema before code; preserve old comparisons/native reports.
+  User confirms13 applied; review14 base is exact13. No broad manual replay.

@@ -119,3 +119,10 @@ encoding/security and performance gaps to explicit now/later gates. Do not selec
 stack because it is the current implementation or infer production approval from
 these 18 cases. Keep this branch and prepare reviewable proposed ADRs; no production
 implementation or new broad manual session is the next step.
+
+## R08 review prepared, revision0.38
+
+[Review](architecture-review.md), [gap disposition](architecture-gap-disposition.md)
+and proposed F006/F007 now exist. No new runtime results or accepted stack. Next
+[JG-01–10](joined-core-contract.json) joins full editor contexts to the real durable
+owner; native/entity/external-asset gates remain explicit. User confirms13 applied.

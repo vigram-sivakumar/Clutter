@@ -1,15 +1,16 @@
 # Clutter foundation
 
-Status: architecture definition pack, revision 0.37, 2026-11-14. Product scope
+Status: architecture definition pack, revision 0.38, 2026-11-14. Product scope
 confirmed; technology proposals remain unqualified.
 Baseline: `main` at `cae604273115c0c6c0d3ac34533b1e9834e9c778`.
 Working branch: `architecture/clutter-foundation`.
 
 New chat or AI agent: start at [START-HERE](START-HERE.md), then follow the
-[roadmap](roadmap.md). Current next task: the R08 architecture decision review
-package. [Durable-owner proof](r07-durable-authority.md) passes 18 bounded Linux
-cases, separately from the green matched history contract. Their joined editor/
-durable/native path and wider release gates remain unqualified.
+[roadmap](roadmap.md). [Architecture review](architecture-review.md) recommends
+PM/Y origin-aware editing, a headless TS authority and SQLite for joined qualification.
+[Gap ledger](architecture-gap-disposition.md) and [JG contract](joined-core-contract.json)
+record remaining gates. Next: JG-01–10 with two actual editors and one durable owner.
+This is a proposed combination, not an accepted architecture or production rebuild.
 
 ## Purpose and authority
 
@@ -19,7 +20,7 @@ live cloud collaboration deferred.
 Evaluate it as a greenfield product. Migration and implementation effort remain
 visible planning dimensions with zero weight in architectural selection.
 
-The 0.2 product scope, retained in 0.37, reflects the user clarification sequence. Earlier draft
+The 0.2 product scope, retained in 0.38, reflects the user clarification sequence. Earlier draft
 requirements superseded by that discussion are replaced in this folder.
 This pack contains requirements and proposals, not an approved implementation
 specification. Existing documentation and `ARCHITECTURE_RULES.md` continue to
@@ -152,3 +153,7 @@ Revision 0.37 adds [durable authority qualification](r07-durable-authority.md):
 The browser, CLI and MCP reach one durable owner; this is separate from the full
 editor candidate integration. Next R08 review proposes choices and remaining gates;
 no backend, host, editor or production rebuild is accepted.
+
+Revision 0.38 prepares the [R08 review](architecture-review.md), proposed F006/F007
+and13 not-run joined cases. No new runtime execution. User confirms13 applied;
+review14 is incremental over13. No manual testing requested at this stage.

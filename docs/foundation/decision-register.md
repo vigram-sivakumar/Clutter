@@ -130,3 +130,17 @@ views do not dispose it. Six explicit unsafe-inverse refusals remain classified
 separately from 24 applied/passed cases. The live synthetic app/CLI/MCP slice is
 still ephemeral; durable owner/outcome/restart qualification is next. No D-01/
 D-03/D-04/D-05 stack or target 51-operation API acceptance follows from this alone.
+
+## R08 review recommendation, revision0.38
+
+The [review](architecture-review.md) recommends the C-origin combination for the
+next proof: direct PM/Y origin-aware contexts, one headless TS Space authority and
+SQLite. This is a proposal combining separately tested boundaries, not a Qualified
+or Accepted complete stack. Tiptap/native shell/production runtime binding remain
+unselected. Proposed [F006](adr/F006-structured-origin-and-transactional-roots.md)
+and [F007](adr/F007-headless-runtime-and-platform-composition.md) record consequences
+and old-rule impact; A/B/C-step/D and alternative hosts remain explicit reserves.
+[Gap disposition](architecture-gap-disposition.md) maps every Q/M/PS/SY/PL/SEC label;
+none is silently marked resolved. Next G-J runs JG-01–10 with actual editor views
+and the real durable owner. All13 [JG cases](joined-core-contract.json) remain
+not-run. No new runtime tests, production rule supersession or provider enablement.

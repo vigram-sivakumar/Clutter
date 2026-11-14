@@ -1,0 +1,199 @@
+{
+  "document": "R08 frozen joined-core qualification contract",
+  "revision": "0.38",
+  "date": "2026-11-14",
+  "status": "specification-only; all13 not-run",
+  "candidate": "Proposed C-origin: direct PM/Y origin contexts + real headless TS authority + local SQLite; packaged host still unqualified",
+  "preconditions": [
+    "Read architecture-review.md, F006/F007 and existing table/product/API contracts.",
+    "Freeze exact versioned Y payload envelope, accepted/provisional/committed state transition, context/operation identity and SQL transaction schema before implementation.",
+    "Keep prior matched contract unchanged and all raw controls; no dependency upgrades without separate manifest/evidence.",
+    "Real process owns state and SQL; Playwright may drive UI but cannot implement an owner or a second reducer.",
+    "G-J is cases01\u201310; G-N case11 and required host/security gates; G-M cases12\u201313. These do not replace full feature/release tests."
+  ],
+  "scope_boundaries": [
+    "No production implementation authorized by this contract.",
+    "No live provider/cloud collaboration, full entity/scheduler feature coverage, GC/migration/export or cross-Space feature promise.",
+    "Engine binary encoding is an experimental candidate, not accepted production native format.",
+    "No restart serialization promise for selective undo stacks; retained document history/pins remain required.",
+    "SIGKILL proves only the executed process-failure profile; native flush and OS/power failure require separate evidence."
+  ],
+  "required_result_fields": [
+    "case_id",
+    "source_manifest",
+    "codec_version",
+    "runtime_and_sqlite_profile",
+    "os_filesystem",
+    "fixture_ids_and_hashes",
+    "operation_ids",
+    "fault_phase",
+    "before_after_revisions_roots_outcomes",
+    "expected",
+    "actual",
+    "status",
+    "limitations"
+  ],
+  "cases": [
+    {
+      "id": "JG-01",
+      "gate": "G-J",
+      "title": "Canonical codec survives owner restart",
+      "action": "Serialize one versioned accepted Y-state root into SQLite. Kill owner; reopen without any PM JSON/body cache.",
+      "expected": "Both real editor views reconstruct equal validated PM content and stable Clutter IDs from committed bytes; no independent JSON/Markdown fallback.",
+      "execution": "not-run",
+      "actual": null
+    },
+    {
+      "id": "JG-02",
+      "gate": "G-J",
+      "title": "Commit before accepted publication",
+      "action": "With two real EditorViews connected to a real owner, inject precommit failure during an edit.",
+      "expected": "Accepted engine/root/revision/receipt stay old together; provisional input and history remain available/protected. No post-hoc rollback of a published accepted Y mutation.",
+      "execution": "not-run",
+      "actual": null
+    },
+    {
+      "id": "JG-03",
+      "gate": "G-J",
+      "title": "Unknown commit and lost editor reply",
+      "action": "Pause/kill at before commit, after commit and before reply, including a real full-editor operation. Retry after reconnect using same operation ID.",
+      "expected": "Before commit: no effect/receipt. After commit: exact original durable root/receipt; one effect. Resolve unknown COMMIT before further writes/publishing a conflicting live root; preserve unaccepted input.",
+      "execution": "not-run",
+      "actual": null
+    },
+    {
+      "id": "JG-04",
+      "gate": "G-J",
+      "title": "Two real editor views plus CLI and MCP",
+      "action": "Alternate overlapping/disjoint changes from A/B and real subprocess CLI/MCP through the same owner.",
+      "expected": "Accepted state converges, each input applied once, no lost foreign text, native selections remain view-local; no Playwright-owned authority or read-only projection stand-in.",
+      "execution": "not-run",
+      "actual": null
+    },
+    {
+      "id": "JG-05",
+      "gate": "G-J",
+      "title": "Context undo through durable command path",
+      "action": "Repeat unchanged applicable matched-history assertions while CLI/MCP insert foreign work; destroy and remount both actual editor views.",
+      "expected": "Context history survives view destruction, safe inverses still apply and foreign work remains. Protective refusals are distinct from applied undo. Every accepted inverse/redo has coherent committed outcome.",
+      "execution": "not-run",
+      "actual": null
+    },
+    {
+      "id": "JG-06",
+      "gate": "G-J",
+      "title": "Protection and failed-close integration",
+      "action": "Pause acceptance, type in A, close its view with failed main save; inject protection failure and success separately.",
+      "expected": "Failed protection keeps work/session alive and blocks destructive close. Successful protection commits full pending closure/base/generation before allowing close; not a flag-only UI save.",
+      "execution": "not-run",
+      "actual": null
+    },
+    {
+      "id": "JG-07",
+      "gate": "G-J",
+      "title": "Owner restart with pending work",
+      "action": "Commit newer protected generation, attempt stale cleanup, kill owner, reconnect both clients and inspect recovery.",
+      "expected": "No stale resurrection/deletion; accepted content and pending draft remain distinct. Explicit same-base recovery applies once; newer-current conflict preserves draft. Restart interactive-history boundary is declared, not fake restored UndoManager state.",
+      "execution": "not-run",
+      "actual": null
+    },
+    {
+      "id": "JG-08",
+      "gate": "G-J",
+      "title": "Missed events and transport echoes",
+      "action": "Suppress notifications, suspend one client, accept a command and its retry, then resume and resync by revision.",
+      "expected": "Both editor replicas catch up from durable revision truth; no echoed duplicate or silent cursor reset. Unprotected input is not discarded merely because the replica missed a hint.",
+      "execution": "not-run",
+      "actual": null
+    },
+    {
+      "id": "JG-09",
+      "gate": "G-J",
+      "title": "Editor payload admission and schema bounds",
+      "action": "Send malformed/oversized update, forged context/origin, invalid task ID/shape or read-only embed mutation; then a valid edit.",
+      "expected": "Reject unsafe admission without accepted root/outcome mutation or input loss; valid later edit still works. Internal Y origin is not a client grant; no direct raw-update bypass in public CLI/MCP.",
+      "execution": "not-run",
+      "actual": null
+    },
+    {
+      "id": "JG-10",
+      "gate": "G-J",
+      "title": "Same identity and real process contention",
+      "action": "Race exact duplicate commands from editor/CLI/MCP, changed-ID reuse, two owners and a paused incumbent; rotate credentials after a real restart.",
+      "expected": "One semantic effect/original receipt; changed reuse/wrong destination/old capabilities denied. Paused owner retains exclusion; no independent writer fallback or token-as-operation identity.",
+      "execution": "not-run",
+      "actual": null
+    },
+    {
+      "id": "JG-11",
+      "gate": "G-N",
+      "title": "Targeted native and installed headless smoke",
+      "action": "On exact signed/packaged Mac candidate, launch CLI with desktop closed, attach two native editor views, undo/redo through view remount, exercise confirmed table modes, failed close and owner restart.",
+      "expected": "Record actual runtime/SQLite/OS/filesystem/input route and outcomes. CLI/MCP work without developer Node or a window; shell exit does not kill protected in-flight owner. Only new integration risks retested; earlier manual results stay valid. IME unavailable/VoiceOver deferred remain labelled, never inferred pass.",
+      "execution": "not-run",
+      "actual": null
+    },
+    {
+      "id": "JG-12",
+      "gate": "G-M",
+      "title": "Atomic task identity and historical restore closure",
+      "action": "Using proposed production entity representation, move one task with body/properties from note1 to note2, crash around commit and restore a historical note after that task moved.",
+      "expected": "Exactly one active placement and one canonical body/properties; old-or-new move closure and one outcome. Historical note stays historical; restore rechecks placement and refuses conflicts rather than duplicating or relocating silently. Not the one-document embedded-task fixture.",
+      "execution": "not-run",
+      "actual": null
+    },
+    {
+      "id": "JG-13",
+      "gate": "G-M",
+      "title": "External asset commit and retained root closure",
+      "action": "Stage valid pinned PNG/PDF fixtures as external immutable files, fault before/after publication and SQL reference commit, then retain/pin/read an old root after removing current reference.",
+      "expected": "No acknowledged root references absent/partial bytes; atomic or replay-safe publication with verified hashes/flush profile. Old pinned versions keep required assets. Orphans do not become current or get unsafe cleanup. This is not in-DB BLOB coverage or full media render acceptance.",
+      "execution": "not-run",
+      "actual": null
+    }
+  ],
+  "codec_envelope_proposal": {
+    "format": "clutter-r08-y-state-v1",
+    "formatVersion": 1,
+    "fields": [
+      "spaceId",
+      "documentId",
+      "version",
+      "parentVersion",
+      "semanticSchemaVersion",
+      "engineCodecVersion",
+      "payloadSha256",
+      "payloadBytes"
+    ],
+    "payload": "One Y.encodeStateAsUpdate accepted-state binary payload using pinned Yjs13.6.33 initially. Full state per retained fixture revision; validate decoded PM through the pinned schema. No second authoritative PM JSON/Markdown body.",
+    "metadata": "Space/document/version/parent and semantic/engine decoder versions are SQL root metadata committed with payload bytes/hash and original outcome. State vector is derived, not a content hash or authoritative revision.",
+    "scope": "One synthetic document, existing semantic fixture only. Production entity/property layout and multi-document closure are G-M; no external format acceptance.",
+    "unsupported": "Unknown format/schema/engine codec refuses writable open without overwriting existing roots; no silent decode fallback or migration."
+  },
+  "acceptance_state_machine_proposal": [
+    {
+      "phase": "admit",
+      "rule": "Authenticate destination/grant/context. Stable semantic request fingerprint includes operationId, space/document and operation arguments; transport bearer/owner generation are excluded from semantic identity. Resolve exact prior outcome before expectedVersion checks. Reject changed reuse."
+    },
+    {
+      "phase": "stage",
+      "rule": "Starting from authoritative committed version, apply bounded proposed operation/update only to isolated staging state; validate full semantic/asset closure and map required selection/context effects. Preserve original provisional peer input; never mutate accepted live state before SQL."
+    },
+    {
+      "phase": "commit",
+      "rule": "Serialized owner commits new Y root/parent/version and original outcome together. Retain all fixture roots/receipts; no GC, migrations or independent body writes. A changed accepted root increments content version once; no-change/metadata receipt cannot fabricate a content edit."
+    },
+    {
+      "phase": "resolve_uncertain",
+      "rule": "On uncertain COMMIT result, stop further mutation admission until query/reopen resolves durable root/outcome. Do not publish staged state or reject as definitely unexecuted. Reconnect and retry same semantic ID; if root cannot be resolved, fail closed preserving provisional input."
+    },
+    {
+      "phase": "publish",
+      "rule": "After known committed state, reconcile accepted in-memory engine from committed bytes/operation and publish revision-tagged updates. Failure between COMMIT and publication is catch-up work, never transaction rollback. Notifications are hints; readers fetch authoritative revision."
+    },
+    {
+      "phase": "protect_or_reconcile",
+      "rule": "A precommit failure leaves accepted state old. Provisional edit/context history stays recoverable or is durably protected with base/generation before destructive close. On owner restart separate protected input from accepted state and use declared interactive-history boundary; no automatic stale overwrite."
+    }
+  ]
+}

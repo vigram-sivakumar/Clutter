@@ -104,3 +104,10 @@ Revision 0.37 follow-up: [bounded durable-owner proof](r07-durable-authority.md)
 passes18 separate Linux cases. Current next action is the R08 review package in
 [START-HERE](START-HERE.md), including explicit joined-editor/native gates; earlier
 results and open full-scope requirements above remain unchanged.
+
+## R08 review prepared, revision0.38
+
+[Review](architecture-review.md), [gap disposition](architecture-gap-disposition.md)
+and proposed F006/F007 now exist. No new runtime results or accepted stack. Next
+[JG-01–10](joined-core-contract.json) joins full editor contexts to the real durable
+owner; native/entity/external-asset gates remain explicit. User confirms13 applied.

@@ -1,0 +1,69 @@
+{
+  "document": "R08 architecture review preparation",
+  "revision": "0.38",
+  "date": "2026-11-14",
+  "status": "Documentation review prepared; no new runtime execution, no stack accepted",
+  "user_confirmation": "User confirms patch13 applied in this conversation. No remote commit/push inferred.",
+  "recommendation": "For joined qualification: direct ProseMirror with origin-aware Yjs contexts, one headless TypeScript Space owner and local SQLite. Tiptap, native shell, production runtime binding and entity encoding remain gated.",
+  "records": [
+    "../architecture-review.md",
+    "../architecture-gap-disposition.md",
+    "../adr/F006-structured-origin-and-transactional-roots.md",
+    "../adr/F007-headless-runtime-and-platform-composition.md",
+    "../joined-core-contract.json"
+  ],
+  "source_evidence": {
+    "history": "r07-28-2026-11-14.json",
+    "durable": "r07-29-2026-11-14.json",
+    "history_cases": "30: 24 pass / 6 explicit protective refusals, unchanged prior strict gate",
+    "durable_cases": "18 bounded Linux passes in separate owner fixture",
+    "node_regressions": "84 prior passes, including raw-history diagnostic; not rerun for this docs-only change"
+  },
+  "static_validation": {
+    "unique_joined_cases": 13,
+    "all_joined_statuses": "not-run with null actual; not fabricated passes",
+    "gap_ids_covered": 40,
+    "families": {
+      "Q": 9,
+      "M": 7,
+      "PS": 7,
+      "SY": 8,
+      "PL": 5,
+      "SEC": 4
+    },
+    "prior_runtime_source_hashes_unchanged": 62,
+    "proposed_files_formatting_checked": true,
+    "relative_links_and_json": "checked after creating this evidence target",
+    "base_proof": "Reconstructed exact13 by applying delivered13 to captured exact12; tree matches recorded14 base",
+    "patch_apply_roundtrip": "temporary-index exact-base apply/check and resulting tree equality required before delivery"
+  },
+  "limitations": [
+    "Review is a recommendation and gate plan, not full comparative benchmarking or architecture approval.",
+    "JG-01\u201310 real full-editor/durable-owner integration not-run; no read-only-projection substitution.",
+    "JG-11 installed/native profile, JG-12 task entity closure and JG-13 external asset publication are not-run.",
+    "All old native/manual evidence preserved; no blanket rerun, IME still unavailable and VoiceOver deferred.",
+    "No existing accepted ADR/root rule superseded. Impact map requires complete call-site/section audit before acceptance.",
+    "No production source/runtime/dependency change, new branch, commit or push."
+  ],
+  "primary_sources_checked": [
+    {
+      "url": "https://docs.yjs.dev/api/document-updates",
+      "purpose": "Candidate public binary state/update API; not an atomic-domain/permission proof."
+    },
+    {
+      "url": "https://v2.tauri.app/develop/sidecar/",
+      "purpose": "Bundled external binary mechanism; not installed headless/sandbox/signing acceptance."
+    },
+    {
+      "url": "https://prosemirror.net/docs/guide/",
+      "result": "fetch403; new upstream claims not based on this failed retrieval"
+    }
+  ],
+  "next": "Freeze/review the exact proposed joined envelope/state transition, then implement isolated JG-01\u2013JG-10; retain unchanged comparisons and raw controls. No production implementation.",
+  "delivery": {
+    "patch": "Clutter Foundation Architecture Review 14.patch",
+    "base_tree": "0b29e566cd82be3f2a610a515b32181424dd97e1",
+    "base": "exact13, user confirms applied",
+    "branch": "architecture/clutter-foundation"
+  }
+}
