@@ -8,7 +8,7 @@ import { TasksCollectionBody } from './TasksCollectionBody';
 import { buildTaskMenu } from '../helpers/buildTaskMenu';
 import { DEFAULT_TASK_DISPLAY_CONFIG } from '../helpers/groupTasks';
 import { resolveCollectionView } from '@core/presentation/collection/resolveCollectionView';
-import { formatTaskDueTime } from '../helpers/formatTaskDueDate';
+import { formatTaskDueTime, formatTaskDueDateLong } from '../helpers/formatTaskDueDate';
 import { TASKS_COLLECTION } from '@core/presentation/collection/collectionDefinitions';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
 import { pinDateFormat } from '@shared/testing/pinDateFormat';
@@ -40,6 +40,87 @@ function task(overrides: Partial<TaskOccurrence>): TaskOccurrence {
 const LIST_WITH_SOURCE = resolveCollectionView(TASKS_COLLECTION, { listPropertyOverrides: { source: true } });
 
 describe('TasksCollectionBody', () => {
+  it.each(['list', 'table'] as const)('%s groups dates chronologically, preserves sorting and actions, and places Unscheduled last', (layout) => {
+    const onToggleComplete = vi.fn();
+    const onOpenTask = vi.fn();
+    const tasks = [
+      task({ text: 'Zebra', dueDate: '2026-08-02' }),
+      task({ text: 'Alpha', dueDate: '2026-08-02' }),
+      task({ text: 'Future', dueDate: '2026-08-08' }),
+      task({ text: 'No date' }),
+    ];
+    const { container, getByText, getAllByRole } = render(<TasksCollectionBody
+      view="tasks-all" tasks={tasks}
+      collectionView={resolveCollectionView(TASKS_COLLECTION, { layout, groupBy: 'dueDate' })}
+      onToggleComplete={onToggleComplete} onOpenTask={onOpenTask} onChangeDueDate={vi.fn()}
+    />);
+    expect([...container.querySelectorAll('.section-header__title')].map((node) => node.textContent)).toEqual([
+      formatTaskDueDateLong('2026-08-02'), formatTaskDueDateLong('2026-08-08'), 'Unscheduled',
+    ]);
+    expect([...container.querySelectorAll('.task-title')].map((node) => node.textContent)).toEqual(['Alpha', 'Zebra', 'Future', 'No date']);
+    expect(container.querySelectorAll('.collection__bottom-spacer')).toHaveLength(1);
+    if (layout === 'table') expect(container.querySelectorAll('.collection-table__header')).toHaveLength(1);
+    fireEvent.click(getAllByRole('checkbox')[0]!);
+    expect(onToggleComplete).toHaveBeenCalledWith(tasks[1]);
+    fireEvent.click(getByText('Alpha'));
+    expect(onOpenTask).toHaveBeenCalledWith(tasks[1]);
+  });
+
+  it('shares date-group collapse between List and Table and can return to ungrouped rows', () => {
+    const props = {
+      view: 'tasks-all' as const,
+      tasks: [task({ text: 'Dated', dueDate: '2026-08-02' }), task({ text: 'Undated' })],
+      onToggleComplete: vi.fn(), onOpenTask: vi.fn(), onChangeDueDate: vi.fn(),
+    };
+    const { container, rerender, queryByText } = render(<TasksCollectionBody {...props}
+      collectionView={resolveCollectionView(TASKS_COLLECTION, { layout: 'list', groupBy: 'dueDate' })} />);
+    fireEvent.click(container.querySelector('.section-header')!);
+    expect(queryByText('Dated')).toBeNull();
+    expect(queryByText('Undated')).toBeInTheDocument();
+    rerender(<TasksCollectionBody {...props}
+      collectionView={resolveCollectionView(TASKS_COLLECTION, { layout: 'table', groupBy: 'dueDate' })} />);
+    expect(queryByText('Dated')).toBeNull();
+    fireEvent.click(container.querySelector('.section-header')!);
+    expect(queryByText('Dated')).toBeInTheDocument();
+    rerender(<TasksCollectionBody {...props}
+      collectionView={resolveCollectionView(TASKS_COLLECTION, { layout: 'table', groupBy: 'none' })} />);
+    expect(container.querySelector('.section-header')).toBeNull();
+    expect(queryByText('Dated')).toBeInTheDocument();
+  });
+
+  it.each(['list', 'table'] as const)('%s applies completion visibility and sorting inside each group without empty date headings', (layout) => {
+    const tasks = [
+      task({ text: 'Alpha completed', completed: true, dueDate: '2026-08-02' }),
+      task({ text: 'Zebra open', dueDate: '2026-08-02' }),
+      task({ text: 'Only completed', completed: true, dueDate: '2026-08-03' }),
+    ];
+    const props = {
+      view: 'tasks-all' as const, tasks,
+      onToggleComplete: vi.fn(), onOpenTask: vi.fn(), onChangeDueDate: vi.fn(),
+      collectionView: resolveCollectionView(TASKS_COLLECTION, { layout, groupBy: 'dueDate' }),
+    };
+    const { container, rerender } = render(<TasksCollectionBody {...props}
+      displayConfig={{ showCompleted: true, autoSortCompleted: true }} />);
+    expect([...container.querySelectorAll('.task-title')].map((node) => node.textContent)).toEqual([
+      'Zebra open', 'Alpha completed', 'Only completed',
+    ]);
+    rerender(<TasksCollectionBody {...props} displayConfig={{ showCompleted: false, autoSortCompleted: true }} />);
+    expect([...container.querySelectorAll('.task-title')].map((node) => node.textContent)).toEqual(['Zebra open']);
+    expect(container.querySelectorAll('.section-header')).toHaveLength(1);
+  });
+
+  it('groups Inbox tasks without including tasks stored in other notes', () => {
+    const { container, queryByText } = render(<TasksCollectionBody
+      view="tasks-inbox" inboxPageId="inbox"
+      tasks={[task({ text: 'Inbox task', sourcePageId: 'inbox', dueDate: '2026-08-02' }), task({ text: 'Note task', dueDate: '2026-08-03' })]}
+      collectionView={resolveCollectionView(TASKS_COLLECTION, { groupBy: 'dueDate' })}
+      onToggleComplete={vi.fn()} onOpenTask={vi.fn()} onChangeDueDate={vi.fn()}
+    />);
+    expect(queryByText('Inbox task')).toBeInTheDocument();
+    expect(queryByText('Note task')).toBeNull();
+    expect(container.querySelectorAll('.section-header')).toHaveLength(1);
+  });
+
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2026, 7, 4)); // 2026-08-04

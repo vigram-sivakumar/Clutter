@@ -6,6 +6,8 @@ import {
   ARCHIVE_COLLECTION,
   ASSETS_COLLECTION,
   FOLDER_COLLECTION,
+  TASKS_COLLECTION,
+  TASK_INBOX_COLLECTION,
   type CollectionDefinition,
 } from './collectionDefinitions';
 import {
@@ -24,6 +26,18 @@ const SCRAMBLED: CollectionDefinition = {
 };
 
 describe('resolveCollectionView — order and membership', () => {
+  it('offers grouping only for task collections and keeps it across layouts', () => {
+    for (const definition of [TASKS_COLLECTION, TASK_INBOX_COLLECTION]) {
+      expect(resolveCollectionView(definition).groupBy).toBe('none');
+      for (const layout of ['list', 'table'] as const) {
+        expect(resolveCollectionView(definition, { layout, groupBy: 'dueDate' }).groupBy).toBe('dueDate');
+      }
+    }
+    for (const definition of [FOLDER_COLLECTION, ASSETS_COLLECTION, ARCHIVE_COLLECTION]) {
+      expect(resolveCollectionView(definition, { groupBy: 'dueDate' }).groupBy).toBeUndefined();
+    }
+  });
+
   it('canonical (registry) order wins over the definition\'s array order', () => {
     const view = resolveCollectionView(SCRAMBLED);
 

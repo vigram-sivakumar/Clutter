@@ -12,6 +12,7 @@ import {
   ARCHIVE_COLLECTION,
   ASSETS_COLLECTION,
   FOLDER_COLLECTION,
+  TASKS_COLLECTION,
   type CollectionDefinition,
 } from '@core/presentation/collection/collectionDefinitions';
 import { resolveCollectionView, type ResolvedCollectionView } from '@core/presentation/collection/resolveCollectionView';
@@ -86,6 +87,29 @@ const sortLabels = () => {
 };
 
 describe('CollectionViewMenu — root view', () => {
+  it('offers None and Due date for task collections and emits the grouping choice', () => {
+    const onGroupByChange = vi.fn();
+    const { container, getByText } = render(<CollectionViewMenu
+      view={resolveCollectionView(TASKS_COLLECTION)}
+      onLayoutChange={vi.fn()}
+      onPropertyChange={vi.fn()}
+      onSortChange={vi.fn()}
+      onGroupByChange={onGroupByChange}
+    />);
+    fireEvent.click(container.querySelector('[aria-haspopup="menu"]')!);
+    expect(getByText('Group by')).toBeInTheDocument();
+    fireEvent.click(getByText('None'));
+    expect(onGroupByChange).toHaveBeenLastCalledWith('none');
+    const dueDateRows = [...document.querySelectorAll('[role="menuitem"]')].filter((row) => row.textContent === 'Due date');
+    fireEvent.click(dueDateRows[dueDateRows.length - 1]!);
+    expect(onGroupByChange).toHaveBeenLastCalledWith('dueDate');
+  });
+
+  it('does not offer grouping to a non-task collection', () => {
+    const { queryByText } = renderMenu();
+    expect(queryByText('Group by')).toBeNull();
+  });
+
   it('shows Layout, a Properties trigger row (not its options), and Sort by', () => {
     const { getByText, getAllByText } = renderMenu();
 

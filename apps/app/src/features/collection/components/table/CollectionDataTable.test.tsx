@@ -28,6 +28,25 @@ const row = (overrides: Partial<CollectionDataTableRow> = {}): CollectionDataTab
 });
 
 describe('CollectionDataTable', () => {
+  it('renders grouped rows under one shared header using the existing row actions', () => {
+    const onClick = vi.fn();
+    const { container, getByText } = render(<CollectionDataTable
+      columns={columns}
+      rows={[]}
+      groups={[
+        { id: 'a', header: <span>First group</span>, rows: [row({ onClick })] },
+        { id: 'b', header: <span>Second group</span>, rows: [row({ id: 'r2', cells: { name: { variant: 'header', title: 'Other' } } })] },
+      ]}
+    />);
+    expect(container.querySelectorAll('.collection-table__header')).toHaveLength(1);
+    expect(container.querySelectorAll('.collection-table__group-header')).toHaveLength(2);
+    expect(container.querySelectorAll('.collection-table-row')).toHaveLength(2);
+    fireEvent.click(getByText('Plan'));
+    expect(onClick).toHaveBeenCalledOnce();
+    expect(getByText('First group')).toBeInTheDocument();
+    expect(getByText('Second group')).toBeInTheDocument();
+  });
+
   it('draws the header from the columns, and a row per entry', () => {
     const { container } = render(<CollectionDataTable columns={columns} rows={[row(), row({ id: 'r2' })]} />);
 

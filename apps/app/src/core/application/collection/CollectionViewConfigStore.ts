@@ -7,6 +7,7 @@ import type { CollectionSort } from '../../properties/collectionSort';
 import { isSidebarSortKey, normalizeSidebarOrder, type SidebarSort } from '../../properties/sidebarSort';
 import {
   isCollectionLayout,
+  isCollectionGroupBy,
   type CollectionLayout,
   type CollectionViewConfig,
   type LegacyCollectionProperties,
@@ -286,9 +287,10 @@ export class CollectionViewConfigStore {
 
 /** An entry without its absent (undefined) fields, or `undefined` when nothing is left — so "clear this field" and "no entry" are the same thing. */
 function compact(entry: PersistedCollectionViewConfig): PersistedCollectionViewConfig | undefined {
-  const { layout, propertyOverrides, listPropertyOverrides, layoutPropertyOverrides, sort, sidebarSort, sidebarOrder, legacyProperties } = entry;
+  const { layout, groupBy, propertyOverrides, listPropertyOverrides, layoutPropertyOverrides, sort, sidebarSort, sidebarOrder, legacyProperties } = entry;
   const result: PersistedCollectionViewConfig = {
     ...(layout !== undefined && { layout }),
+    ...(isCollectionGroupBy(groupBy) && { groupBy }),
     ...(propertyOverrides !== undefined && Object.keys(propertyOverrides).length > 0 && { propertyOverrides }),
     ...(listPropertyOverrides !== undefined &&
       Object.keys(listPropertyOverrides).length > 0 && { listPropertyOverrides }),
@@ -313,8 +315,9 @@ function parseCollectionViewConfigEntry(raw: unknown): PersistedCollectionViewCo
     return undefined;
   }
 
-  const { layout, propertyOverrides, listPropertyOverrides, layoutPropertyOverrides, properties, sort, sidebarSort, sidebarOrder } = raw as {
+  const { layout, groupBy, propertyOverrides, listPropertyOverrides, layoutPropertyOverrides, properties, sort, sidebarSort, sidebarOrder } = raw as {
     layout?: unknown;
+    groupBy?: unknown;
     propertyOverrides?: unknown;
     listPropertyOverrides?: unknown;
     layoutPropertyOverrides?: unknown;
@@ -326,6 +329,7 @@ function parseCollectionViewConfigEntry(raw: unknown): PersistedCollectionViewCo
 
   return compact({
     ...(isCollectionLayout(layout) && { layout }),
+    ...(isCollectionGroupBy(groupBy) && { groupBy }),
     ...(parsePropertyOverrides(propertyOverrides) && { propertyOverrides: parsePropertyOverrides(propertyOverrides) }),
     ...(parsePropertyOverrides(listPropertyOverrides) && {
       listPropertyOverrides: parsePropertyOverrides(listPropertyOverrides),

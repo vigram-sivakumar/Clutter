@@ -652,6 +652,7 @@ export function PageHost({
         onLayoutChange: setCollectionLayout,
         onPropertyChange: setCollectionProperty,
         onSortChange: setCollectionSort,
+        onGroupByChange: (groupBy) => updateCollectionViewConfig({ groupBy }),
         levelSort:
           levelFolderId !== undefined && levelSort
             ? {

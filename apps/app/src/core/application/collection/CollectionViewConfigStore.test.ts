@@ -29,6 +29,26 @@ async function flushMicrotasks(): Promise<void> {
 }
 
 describe('CollectionViewConfigStore — load()', () => {
+  it('persists grouping across layout changes and reloads without changing sibling metadata', async () => {
+    const fileSystem = new InMemoryVaultFileSystem({ [WORKSPACE_PATH]: JSON.stringify({ foldState: { kept: true } }) });
+    const store = await reload(fileSystem);
+    store.update('view:tasks', { groupBy: 'dueDate', layout: 'list' });
+    store.update('view:tasks', { layout: 'table' });
+    await flushMicrotasks();
+    const loaded = await reload(fileSystem);
+    expect(loaded.get('view:tasks')).toMatchObject({ groupBy: 'dueDate', layout: 'table' });
+    expect(JSON.parse(await fileSystem.readFile(WORKSPACE_PATH)).foldState).toEqual({ kept: true });
+    loaded.update('view:tasks', { groupBy: 'none' });
+    await flushMicrotasks();
+    expect((await reload(fileSystem)).get('view:tasks')?.groupBy).toBe('none');
+  });
+
+  it('ignores malformed grouping while keeping existing valid choices', async () => {
+    const store = await loadWith({ 'view:tasks': { groupBy: 'source', layout: 'table' } });
+    expect(store.get('view:tasks')).toEqual({ layout: 'table' });
+    expect(resolveCollectionView(TASKS_COLLECTION, store.get('view:tasks')).groupBy).toBe('none');
+  });
+
   it('a vault with no workspace.json at all starts with no persisted collection view configuration', async () => {
     const fileSystem = new InMemoryVaultFileSystem();
     const store = await CollectionViewConfigStore.load(fileSystem, ROOT);

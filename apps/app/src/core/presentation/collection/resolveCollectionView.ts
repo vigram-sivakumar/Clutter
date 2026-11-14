@@ -27,6 +27,7 @@ import {
 import type { CollectionSort } from '@core/properties/collectionSort';
 import type {
   CollectionLayout,
+  CollectionGroupBy,
   CollectionViewConfig,
   LegacyCollectionProperties,
   PersistedCollectionViewConfig,
@@ -36,6 +37,8 @@ import type {
 import { DEFAULT_REQUIRED, type CollectionDefinition } from './collectionDefinitions';
 
 export interface ResolvedCollectionView {
+  /** Present only for task collections, the only collections offering due-date grouping. */
+  readonly groupBy?: CollectionGroupBy;
   /** The layouts the collection offers, in menu order. */
   readonly layouts: readonly CollectionLayout[];
   readonly layout: CollectionLayout;
@@ -127,7 +130,10 @@ export function resolveCollectionView(
   const sort =
     config.sort !== undefined && sortable.includes(config.sort.property) ? config.sort : definition.defaultSort;
 
-  return { layouts: definition.layouts, layout, available, visible, locked, sortable, sort };
+  return {
+    layouts: definition.layouts, layout, available, visible, locked, sortable, sort,
+    ...(definition.kind === 'tasks' && { groupBy: config.groupBy === 'dueDate' ? 'dueDate' as const : 'none' as const }),
+  };
 }
 
 /**

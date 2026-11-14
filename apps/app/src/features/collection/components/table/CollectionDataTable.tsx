@@ -1,4 +1,4 @@
-import type { HTMLAttributes } from 'react';
+import { Fragment, type HTMLAttributes, type ReactNode } from 'react';
 import type { CollectionEntryAttributes } from '../entry/collectionEntryAttributes';
 import { CollectionTableCell, type CollectionTableCellProps } from './cells/CollectionTableCell';
 import { AppIcon } from '@shared/icon';
@@ -34,6 +34,12 @@ export interface CollectionDataTableProps extends HTMLAttributes<HTMLDivElement>
   /** The single source of both the header and every row's grid — and of which cell sits in which column. */
   readonly columns: readonly CollectionTableColumn[];
   readonly rows: readonly CollectionDataTableRow[];
+  /** Optional caller-ordered groups. Headings are opaque presentation content; rows use the same renderer. */
+  readonly groups?: readonly {
+    readonly id: string;
+    readonly header: ReactNode;
+    readonly rows: readonly CollectionDataTableRow[];
+  }[];
   /** A trailing "New …" row (`label` is its whole title); absent, none is drawn. */
   readonly newItem?: {
     readonly label: string;
@@ -49,7 +55,31 @@ const join = (...names: Array<string | undefined>) => names.filter(Boolean).join
  * `columns`. The caller supplies values only; this draws them. It knows
  * nothing about what a row is.
  */
-export function CollectionDataTable({ columns, rows, newItem, ...props }: CollectionDataTableProps) {
+export function CollectionDataTable({ columns, rows, groups, newItem, ...props }: CollectionDataTableProps) {
+  const renderRow = (row: CollectionDataTableRow) => (
+    <CollectionTableRow
+      {...row.props}
+      key={row.id}
+      className={row.selection?.active ? 'collection-table-row--selecting' : undefined}
+      {...selectionCaptureProps(row.selection, row.onClick !== undefined)}
+      data-selection-id={row.selection?.id}
+      isSelected={row.isSelected || row.selection?.checked}
+      onClick={withSelectionToggle(row.selection, row.onClick ? () => row.onClick?.() : undefined)}
+    >
+      {columns.map((column) => {
+        const value = row.cells[column.id];
+        return value ? (
+          <CollectionTableCell
+            key={column.id}
+            {...(value.variant === 'header' && row.selection ? { ...value, selection: row.selection } : value)}
+            className={join(column.cellClassName, value.className)}
+          />
+        ) : (
+          <CollectionTableCell key={column.id} variant="text" className={column.cellClassName} />
+        );
+      })}
+    </CollectionTableRow>
+  );
   return (
     <CollectionTable
       {...props}
@@ -65,30 +95,12 @@ export function CollectionDataTable({ columns, rows, newItem, ...props }: Collec
         )
       }
     >
-      {rows.map((row) => (
-        <CollectionTableRow
-          {...row.props}
-          key={row.id}
-          className={row.selection?.active ? 'collection-table-row--selecting' : undefined}
-          {...selectionCaptureProps(row.selection, row.onClick !== undefined)}
-          data-selection-id={row.selection?.id}
-          isSelected={row.isSelected || row.selection?.checked}
-          onClick={withSelectionToggle(row.selection, row.onClick ? () => row.onClick?.() : undefined)}
-        >
-          {columns.map((column) => {
-            const value = row.cells[column.id];
-            return value ? (
-              <CollectionTableCell
-                key={column.id}
-                {...(value.variant === 'header' && row.selection ? { ...value, selection: row.selection } : value)}
-                className={join(column.cellClassName, value.className)}
-              />
-            ) : (
-              <CollectionTableCell key={column.id} variant="text" className={column.cellClassName} />
-            );
-          })}
-        </CollectionTableRow>
-      ))}
+      {groups ? groups.map((group) => (
+        <Fragment key={group.id}>
+          <div className="collection-table__group-header">{group.header}</div>
+          {group.rows.map(renderRow)}
+        </Fragment>
+      )) : rows.map(renderRow)}
     </CollectionTable>
   );
 }

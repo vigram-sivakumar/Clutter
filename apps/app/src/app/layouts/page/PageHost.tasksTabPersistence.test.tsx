@@ -24,6 +24,8 @@ import { VaultProjectionBuilder } from '@core/vault/knowledge/VaultProjectionBui
 import { KnowledgeGraph } from '@core/vault/models/graph/KnowledgeGraph';
 import { InMemoryVaultFileSystem } from '@core/vault/testing/InMemoryVaultFileSystem';
 import { TasksViewConfigStore } from '@core/application/task/TasksViewConfigStore';
+import { CollectionViewConfigStore } from '@core/application/collection/CollectionViewConfigStore';
+import { flushWorkspaceStateWrites } from '@core/vault/initialize/workspaceStateFile';
 import { SelfWriteRegistry } from '@core/vault/providers/SelfWriteRegistry';
 import { PageCreator } from '@core/application/page/PageCreator';
 import { PageFactory } from '@core/application/page/PageFactory';
@@ -110,13 +112,14 @@ async function boot(fileSystem: InMemoryVaultFileSystem) {
   );
   // What bootstrap() does at start-up: load the persisted store from the files, then construct.
   const tasksViewConfigStore = await TasksViewConfigStore.load(fileSystem, ROOT);
+  const collectionViewConfigStore = await CollectionViewConfigStore.load(fileSystem, ROOT);
   const application = new Application(
     vault,
     fileSystem,
     new SelfWriteRegistry(),
     undefined,
     undefined,
-    undefined,
+    collectionViewConfigStore,
     tasksViewConfigStore
   );
   application.attachVault(
@@ -124,7 +127,6 @@ async function boot(fileSystem: InMemoryVaultFileSystem) {
     new PageCreator(new UuidGenerator(), new PageFactory()),
     new DailyNoteService()
   );
-  application.collectionViewConfigStore.update('view:tasks', { layout: 'list' });
   application.navigation.openAllTasks();
 
   return application;
@@ -145,6 +147,36 @@ const tab = (label: string) =>
   [...document.querySelectorAll<HTMLElement>('.page-title-section .tab')].find((el) => el.textContent === label)!;
 
 describe('Tasks page tab selection persists across an app restart', () => {
+  it('persists Group by due date from Configure across List/Table and an app restart', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    const firstApp = await boot(fileSystem);
+    const first = render(<AppLayout application={firstApp} />);
+    await flush();
+    const configure = () => document.querySelector<HTMLElement>('.page-title-section [aria-haspopup="menu"]')!;
+    fireEvent.click(configure());
+    const dueDateChoices = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].filter((row) => row.textContent === 'Due date');
+    fireEvent.click(dueDateChoices[dueDateChoices.length - 1]!);
+    await flush();
+    expect(document.querySelectorAll('.collection__content .section-header')).toHaveLength(3);
+    fireEvent.click(first.getByText('Table'));
+    await flush();
+    expect(document.querySelectorAll('.collection-table__header')).toHaveLength(1);
+    expect(document.querySelectorAll('.collection-table__group-header')).toHaveLength(3);
+    expect(firstApp.collectionViewConfigStore.get('view:tasks')).toMatchObject({ groupBy: 'dueDate', layout: 'table' });
+    await flushWorkspaceStateWrites();
+    first.unmount();
+
+    const secondApp = await boot(fileSystem);
+    const second = render(<AppLayout application={secondApp} />);
+    await flush();
+    expect(document.querySelectorAll('.collection-table__group-header')).toHaveLength(3);
+    fireEvent.click(configure());
+    fireEvent.click(second.getByText('None'));
+    await flush();
+    expect(document.querySelectorAll('.collection-table__group-header')).toHaveLength(0);
+    expect(document.querySelectorAll('.collection-table .task-title')).toHaveLength(3);
+  });
+
   it('a first launch opens on All tasks, with every task listed', async () => {
     render(<AppLayout application={await boot(new InMemoryVaultFileSystem())} />);
     await flush();

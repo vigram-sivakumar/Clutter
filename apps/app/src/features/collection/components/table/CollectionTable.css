@@ -58,3 +58,8 @@
   padding-block: var(--space-8);
   padding-inline: var(--space-6);
 }
+
+.collection-table__group-header {
+  grid-column: 1 / -1;
+  padding-block: var(--space-8);
+}

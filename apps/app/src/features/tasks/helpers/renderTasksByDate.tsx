@@ -1,4 +1,5 @@
 import { Fragment } from 'react';
+import { groupByTaskDueDate } from './groupByTaskDueDate';
 import './renderTasksByDate.css';
 
 // Components
@@ -354,24 +355,16 @@ export function renderTasksByDate({
         </>
       );
     }
-    const byDate = new Map<string, TaskOccurrence[]>();
-    for (const task of list) {
-      const date = task.dueDate ?? '';
-      byDate.set(date, [...(byDate.get(date) ?? []), task]);
-    }
-    // Chronological, whatever order the section's own sort left same-date tasks in; a stable sort keeps each group's order.
-    const dates = [...byDate.keys()].sort((a, b) => a.localeCompare(b));
     return (
       <>
-        {dates.map((date) => {
+        {groupByTaskDueDate(list, (task) => task.dueDate).map(({ date, items: tasks }) => {
           const key: TaskExpansionKey = `${id}:${date}`;
-          const tasks = byDate.get(date)!;
           return (
             <Section
               key={key}
               hasHeader
               interaction="subtle"
-              title={formatTaskDueDateLong(date)}
+              title={date ? formatTaskDueDateLong(date) : 'Unscheduled'}
             >
               {renderTaskList(capped(key, tasks), {
                 ...rowProps,

@@ -24,6 +24,11 @@ import type { CollectionSort } from './collectionSort';
 import type { SidebarSort } from './sidebarSort';
 
 export type CollectionLayout = 'list' | 'table' | 'card';
+export type CollectionGroupBy = 'none' | 'dueDate';
+
+export function isCollectionGroupBy(value: unknown): value is CollectionGroupBy {
+  return value === 'none' || value === 'dueDate';
+}
 
 /** The layouts in the order the Configure menu lists them. */
 export const COLLECTION_LAYOUTS: readonly CollectionLayout[] = ['list', 'table', 'card'];
@@ -35,6 +40,8 @@ export function isCollectionLayout(value: unknown): value is CollectionLayout {
 export type PropertyOverrides = Partial<Record<PropertyId, boolean>>;
 
 export interface CollectionViewConfig {
+  /** Task collection grouping, shared across layouts. Absent means None. */
+  readonly groupBy?: CollectionGroupBy;
   readonly layout?: CollectionLayout;
   readonly propertyOverrides?: PropertyOverrides;
   /** The List layout's own overrides — see the module comment. Absent: the List shows its layout default. */

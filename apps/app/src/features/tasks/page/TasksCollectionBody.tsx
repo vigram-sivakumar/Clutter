@@ -3,7 +3,11 @@ import { PageBody } from '@app/layouts/page/body/Page.Body';
 import { CollectionEmptyState } from '@features/collection/components/empty/CollectionEmptyState';
 import { CollectionSourceLink } from '@features/collection/components/entry/CollectionSourceLink';
 import { CollectionDataList } from '@features/collection/components/list/CollectionDataList';
-import { CollectionDataTable } from '@features/collection/components/table/CollectionDataTable';
+import { CollectionDataTable, type CollectionDataTableRow } from '@features/collection/components/table/CollectionDataTable';
+import { Section } from '@app/layouts/sidebar/section/Section';
+import { Header } from '@app/layouts/sidebar/section/Section.Header';
+import { groupByTaskDueDate } from '../helpers/groupByTaskDueDate';
+import { formatTaskDueDateLong } from '../helpers/formatTaskDueDate';
 import { buildPropertyTableColumns, propertyValueCells } from '@features/collection/properties/tableColumns';
 import { useCollectionItemContextMenu } from '@app/layouts/page/body/useCollectionItemContextMenu';
 import { TaskDatePicker } from '../sidebar/TaskDatePicker';
@@ -102,8 +106,8 @@ function TasksPageBody({ children }: { readonly children: ReactNode }) {
  * is drawn, through the generic `CollectionDataList` / `CollectionDataTable`. Deliberately not a
  * CollectionBody variant — CollectionEntryModel (folder/note-shaped) has no room for
  * `completed`/`dueDate` (ADR-022) — so tasks are mapped to the shared property `values` instead
- * (ADR-045, ADR-046). The sidebar's own sections (`renderTasksByDate`) are a separate presentation and
- * are untouched.
+ * (ADR-045, ADR-046). The sidebar keeps its own presentation; exact-date bucketing is shared through
+ * `groupByTaskDueDate` (ADR-076).
  */
 export function TasksCollectionBody({
   view,
@@ -123,7 +127,20 @@ export function TasksCollectionBody({
   resolveTag,
   resolveEmbed,
 }: TasksCollectionBodyProps) {
-  const { layout, visible, sort } = collectionView ?? resolveCollectionView(view === 'tasks-inbox' ? TASK_INBOX_COLLECTION : TASKS_COLLECTION);
+  const { layout, visible, sort, groupBy } = collectionView ?? resolveCollectionView(view === 'tasks-inbox' ? TASK_INBOX_COLLECTION : TASKS_COLLECTION);
+  const [collapsedGroups, setCollapsedGroups] = useState<readonly string[]>([]);
+  const sectionProps = (date: string) => {
+    const key = `${view}:${date}`;
+    return {
+      hasHeader: true,
+      title: date ? formatTaskDueDateLong(date) : 'Unscheduled',
+      isCollapsible: true,
+      isTitleToggle: true,
+      isExpanded: !collapsedGroups.includes(key),
+      onExpandedChange: (expanded: boolean) => setCollapsedGroups((current) =>
+        expanded ? current.filter((id) => id !== key) : [...current.filter((id) => id !== key), key]),
+    };
+  };
 
   // Right-click on a row: the task's More actions — the same canonical task menu the sidebar row shows
   // (`buildTaskMenu`), over the operations this page supplies. Due date opens the calendar beside the row.
@@ -169,6 +186,8 @@ export function TasksCollectionBody({
         [...dataset.filter((task) => !task.completed), ...getCompletedTasks(dataset)].map(toEntry),
         sort
       );
+
+  const dateGroups = groupBy === 'dueDate' ? groupByTaskDueDate(entries, (entry) => entry.task.dueDate) : undefined;
 
   if (entries.length === 0) {
     const hiddenInboxTasks = view === 'tasks-inbox' && tasksForView(view, tasks, { showCompleted: true }, inboxPageId).length > 0;
@@ -243,30 +262,46 @@ export function TasksCollectionBody({
     </>
   );
 
+  const tableRowOf = (entry: TaskEntry): CollectionDataTableRow => ({
+    id: entry.id,
+    cells: {
+      name: {
+        variant: 'header' as const,
+        leading: checkboxOf(entry),
+        titleContent: titleSlotOf(entry),
+        actions: actionsOf(entry),
+      },
+      ...propertyValueCells(visible, entry.values),
+      // The same controls as the List's trailing slot (a task with no source keeps the empty text cell).
+      ...(visible.includes('dueDate') &&
+        entry.task.dueDate !== undefined && { dueDate: { variant: 'custom' as const, children: dueDateOf(entry) } }),
+      ...(visible.includes('source') &&
+        entry.source && { source: { variant: 'custom' as const, children: sourceOf(entry) } }),
+    },
+    onClick: () => onOpenTask(entry.task),
+    props: contextMenu.entryProps(entry),
+  });
+
   if (layout === 'table') {
     return (
       <TasksPageBody>
         <CollectionDataTable
           columns={buildPropertyTableColumns(visible)}
-          rows={entries.map((entry) => ({
-            id: entry.id,
-            cells: {
-              name: {
-                variant: 'header' as const,
-                leading: checkboxOf(entry),
-                titleContent: titleSlotOf(entry),
-                actions: actionsOf(entry),
-              },
-              ...propertyValueCells(visible, entry.values),
-              // The same controls as the List's trailing slot (a task with no source keeps the empty text cell).
-              ...(visible.includes('dueDate') &&
-                entry.task.dueDate !== undefined && { dueDate: { variant: 'custom' as const, children: dueDateOf(entry) } }),
-              ...(visible.includes('source') &&
-                entry.source && { source: { variant: 'custom' as const, children: sourceOf(entry) } }),
-            },
-            onClick: () => onOpenTask(entry.task),
-            props: contextMenu.entryProps(entry),
-          }))}
+          rows={dateGroups ? [] : entries.map(tableRowOf)}
+          groups={dateGroups?.map(({ date, items }) => {
+            const section = sectionProps(date);
+            return {
+              id: date || 'unscheduled',
+              header: <Header
+                title={section.title}
+                isCollapsible
+                isTitleToggle
+                isExpanded={section.isExpanded}
+                onExpandToggle={() => section.onExpandedChange(!section.isExpanded)}
+              />,
+              rows: section.isExpanded ? items.map(tableRowOf) : [],
+            };
+          })}
         />
         {menuOverlays}
       </TasksPageBody>
@@ -276,7 +311,7 @@ export function TasksCollectionBody({
   const showDueDate = visible.includes('dueDate');
   const showSource = visible.includes('source');
 
-  const items = entries.map((entry) => {
+  const itemOf = (entry: TaskEntry) => {
     const { task, source } = entry;
 
     return {
@@ -295,11 +330,15 @@ export function TasksCollectionBody({
       onClick: () => onOpenTask(task),
       props: contextMenu.entryProps(entry),
     };
-  });
+  };
 
   return (
     <TasksPageBody>
-      <CollectionDataList className="task-list" items={items} />
+      {dateGroups ? dateGroups.map(({ date, items }) => (
+        <Section key={date || 'unscheduled'} {...sectionProps(date)}>
+          <CollectionDataList className="task-list" items={items.map(itemOf)} />
+        </Section>
+      )) : <CollectionDataList className="task-list" items={entries.map(itemOf)} />}
       {menuOverlays}
     </TasksPageBody>
   );
