@@ -30,7 +30,7 @@
   overflow: hidden;
   background: var(--calendar-accent);
   color: var(--danger-foreground-on-surface);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 
 .task-tab-indicator__outgoing {

@@ -1,21 +1,35 @@
 import { Fragment } from 'react/jsx-runtime';
 import { Section } from '@app/layouts/sidebar/section/Section';
+import { EmptyEntry } from '@components/entry/EmptyEntry';
 import { FavoritesSection } from '@app/layouts/sidebar/section/FavoritesSection';
 import { Tag } from '../sidebar/Tag';
 import { TagContextEntry } from '../sidebar/TagContextEntry';
 import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
 import { buildTagMenuHandlers } from './buildTagMenuHandlers';
 import { groupTagsByFavorite } from './groupTagsByFavorite';
-import { formatTagDisplayLabel, normalizeTagName, type Tag as TagModel } from '@core/vault/models/Tag';
-import { PageEntry, type NoteRowActions } from '@features/notes/sidebar/FolderTree';
+import {
+  formatTagDisplayLabel,
+  normalizeTagName,
+  type Tag as TagModel,
+} from '@core/vault/models/Tag';
+import {
+  PageEntry,
+  type NoteRowActions,
+} from '@features/notes/sidebar/FolderTree';
 import type { Vault } from '@core/vault/models';
 import type { EffectivePage } from '@core/application/page/EffectivePageState';
 import type { Workspace } from '@core/workspace/Workspace';
 import type { EffectivePageState } from '@core/application/page/EffectivePageState';
 import type { TagExpansionStore } from '@core/application/tags/TagExpansionStore';
-import { getTagLineContexts, type TagLineContext } from '@core/presentation/getTagLineContexts';
+import {
+  getTagLineContexts,
+  type TagLineContext,
+} from '@core/presentation/getTagLineContexts';
 import type { SourceRange } from '@core/presentation/getTagOccurrenceRanges';
-import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
+import type {
+  ResolveTag,
+  ResolveWikiLink,
+} from '@features/markdown/editor/MarkdownEditor';
 import type { ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbedResolution';
 
 export interface TagRowActions {
@@ -177,25 +191,36 @@ function getTagChildren(
     return {
       note,
       page,
-      hasInline: page?.analysis.tags.some((occurrence) => normalizeTagName(occurrence.name) === key) ?? false,
+      hasInline:
+        page?.analysis.tags.some(
+          (occurrence) => normalizeTagName(occurrence.name) === key
+        ) ?? false,
       // A draft carries the tag as note-level membership, like a frontmatter entry.
       hasFrontmatterMembership:
-        note.isDraft || (page?.metadata.tags ?? []).some((tag) => normalizeTagName(tag) === key),
+        note.isDraft ||
+        (page?.metadata.tags ?? []).some(
+          (tag) => normalizeTagName(tag) === key
+        ),
     };
   });
 
   // Notes with an inline occurrence first, then the frontmatter-only ones (and
   // drafts) — each group in the index's order, no new sort.
-  return [...children.filter((child) => child.hasInline), ...children.filter((child) => !child.hasInline)].map(
-    ({ note, page, hasFrontmatterMembership }) => ({
-      note,
-      hasFrontmatterMembership,
-      lineContexts: getTagLineContexts(page, tagName),
-    })
-  );
+  return [
+    ...children.filter((child) => child.hasInline),
+    ...children.filter((child) => !child.hasInline),
+  ].map(({ note, page, hasFrontmatterMembership }) => ({
+    note,
+    hasFrontmatterMembership,
+    lineContexts: getTagLineContexts(page, tagName),
+  }));
 }
 
-function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOptions) {
+function renderTagRow(
+  tag: TagModel,
+  isFavorite: boolean,
+  options: RenderTagsOptions
+) {
   const {
     onOpenTag,
     onOpenNoteEntry,
@@ -223,14 +248,17 @@ function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOpt
   // an open draft carries it (a tag's "new note"). Only an unused tag needs
   // that check, and it reads the open pages, never the vault, so rendering
   // many tags costs nothing per tag.
-  const hasDraft = tag.usageCount === 0 && effectivePageState.hasDraftForTag(tag.name);
+  const hasDraft =
+    tag.usageCount === 0 && effectivePageState.hasDraftForTag(tag.name);
   const isEmpty = tag.usageCount === 0 && !hasDraft;
   const isExpanded = isEmpty ? false : tagExpansionStore.isExpanded(tag.name);
   // Only resolved while actually expanded — satisfies "don't parse/query
   // every note repeatedly every time a tag is expanded" by not querying
   // at all for a collapsed or empty tag; every read here is an existing
   // index/already-computed analysis, never a fresh Markdown parse.
-  const children = isExpanded ? getTagChildren(tag.name, vault, effectivePageState) : [];
+  const children = isExpanded
+    ? getTagChildren(tag.name, vault, effectivePageState)
+    : [];
 
   return (
     <Fragment key={tag.name}>
@@ -242,29 +270,39 @@ function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOpt
         isEmpty={isEmpty}
         isExpanded={isExpanded}
         onExpandToggle={() => tagExpansionStore.toggleExpanded(tag.name)}
-        onAddClick={onCreateNoteForTag ? () => onCreateNoteForTag(tag.name) : undefined}
+        onAddClick={
+          onCreateNoteForTag ? () => onCreateNoteForTag(tag.name) : undefined
+        }
         // Row click opens the tag's collection page, like a folder row; only
         // the caret (onExpandToggle above) expands/collapses its notes.
         onClick={isEditing ? undefined : () => onOpenTag(tag.name)}
         isEditing={isEditing}
         onTitleCommit={
-          rowActions ? (value) => rowActions.onCommitRename(tag.name, value) : undefined
+          rowActions
+            ? (value) => rowActions.onCommitRename(tag.name, value)
+            : undefined
         }
         // Only onTitleEditingEnd ends the session — EditableText's own
         // handleBlur already calls onEditingEnd unconditionally (committed
         // OR escaped), so wiring onTitleCancel to the same onRenameEnd()
         // would double-fire it on every Escape.
-        onTitleEditingEnd={rowActions ? () => rowActions.onRenameEnd() : undefined}
+        onTitleEditingEnd={
+          rowActions ? () => rowActions.onRenameEnd() : undefined
+        }
         menuItems={menuItems}
         menuOpen={rowActions?.openMenuId === tag.name}
         onMenuOpenChange={
           rowActions
-            ? (open) => (open ? rowActions.onOpenMenu(tag.name) : rowActions.onCloseMenu())
+            ? (open) =>
+                open
+                  ? rowActions.onOpenMenu(tag.name)
+                  : rowActions.onCloseMenu()
             : undefined
         }
         onMenuSelect={
           rowActions
-            ? (id) => buildTagMenuHandlers(rowActions, tag.name, tag.favorite)[id]?.()
+            ? (id) =>
+                buildTagMenuHandlers(rowActions, tag.name, tag.favorite)[id]?.()
             : undefined
         }
         onChangeIcon={
@@ -351,7 +389,10 @@ function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOpt
 export const TAGS_PINNED_SECTION_ID = 'tags-pinned';
 export const TAGS_OTHERS_SECTION_ID = 'tags-others';
 
-export function renderTags(tags: readonly TagModel[], options: RenderTagsOptions) {
+export function renderTags(
+  tags: readonly TagModel[],
+  options: RenderTagsOptions
+) {
   const { favorites, others } = groupTagsByFavorite(tags);
   const { workspace } = options;
   // "Others" only has a header (so can only be collapsed) while something is
@@ -378,12 +419,19 @@ export function renderTags(tags: readonly TagModel[], options: RenderTagsOptions
         title="Others"
         isCollapsible
         isTitleToggle
-        isExpanded={othersHaveHeader ? workspace.isSectionExpanded(TAGS_OTHERS_SECTION_ID) : true}
+        isExpanded={
+          othersHaveHeader
+            ? workspace.isSectionExpanded(TAGS_OTHERS_SECTION_ID)
+            : true
+        }
         onExpandedChange={(expanded) =>
           workspace.setSectionExpanded(TAGS_OTHERS_SECTION_ID, expanded)
         }
       >
         {others.map((tag) => renderTagRow(tag, false, options))}
+        {tags.length === 0 && (
+          <EmptyEntry>Add tags to keep your notes organized</EmptyEntry>
+        )}
       </Section>
     </>
   );
