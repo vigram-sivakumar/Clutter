@@ -18,22 +18,22 @@ remain eligible; no candidate wins due to existing investment or implementation 
 
 ## Open technical decisions
 
-| ID   | Decision                                                          | Required evidence / gate                                                                                              |
-| ---- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| D-01 | Editor/extension composition and DOM ownership                    | Actual native keyboard/IME/accessibility (T-01)                                                                       |
-| D-02 | Canonical schema, tasks/placement, history closure and migration  | Page/task identity, move/copy/restore, unknown-content handling (T-09, T-14, T-17, T-18)                              |
-| D-03 | Persistence, indexing and transaction scope                       | Failure injection, rebuild and any FTS discrepancy reproduced/resolved if applicable (T-06, T-10)                     |
-| D-04 | Headless authority, language/IPC, ownership election and takeover | Concurrent processes, sandbox access, app-closed API use (T-04, T-07)                                                 |
-| D-05 | Local multi-view undo and remote snapshot boundary                | Context-selective undo, dirty-state/IME protection, safe history rebase/reset (T-02, T-03, T-12)                      |
-| D-06 | External AI, native/Markdown interchange                          | CLI/MCP parity, loss reports and stale checkout handling (T-04, T-09)                                                 |
-| D-07 | Retention, pins, restore and cleanup budgets                      | History reconstruction, overwrite preservation, comments and assets (T-11, T-20)                                      |
-| D-08 | Optional provider protocol and deterministic winner order         | iCloud/Drive feasibility, delayed/reordered files, tombstones, ancestry, clock skew and disable/recovery (T-12, T-13) |
-| D-09 | Media lifecycle and future backup boundary                        | Images/PDFs, interrupted publication, complete native export/snapshot and reachable roots (T-06, T-10, T-11)          |
-| D-10 | View/context lifetime and duplicate-open policy                   | Windows/tabs/panes, focus, missing destinations (T-02, T-08)                                                          |
-| D-11 | Performance budgets/scale envelope                                | Agree document/media/history sizes and percentiles before benchmarking (T-15)                                         |
-| D-12 | Inventory, predefined fields and UI detail                        | Keep/redesign/retire inventory; editor/collection/default-field semantics (T-01, T-16, T-17)                          |
-| D-13 | Task scheduler, recurrence and sync consistency                   | Next-slot/time-zone rules, series identity, duplicate completion, archive/reminder behaviour (T-18, T-19)             |
-| D-14 | Cross-platform dependency/repository boundaries                   | Shared code free of macOS dependencies; explicit adapters and path contracts (T-21)                                   |
+| ID   | Decision                                                          | Required evidence / gate                                                                                                                                            |
+| ---- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D-01 | Editor/extension composition and DOM ownership                    | Actual native keyboard/IME/accessibility (T-01)                                                                                                                     |
+| D-02 | Canonical schema, tasks/placement, history closure and migration  | Page/task identity, move/copy/restore, unknown-content handling (T-09, T-14, T-17, T-18)                                                                            |
+| D-03 | Persistence, indexing and transaction scope                       | Failure injection, rebuild and any FTS discrepancy reproduced/resolved if applicable (T-06, T-10)                                                                   |
+| D-04 | Headless authority, language/IPC, ownership election and takeover | Concurrent processes, sandbox access, app-closed API use (T-04, T-07)                                                                                               |
+| D-05 | Local multi-view undo and remote snapshot boundary                | Context-selective undo, dirty-state/IME protection, safe history rebase/reset (T-02, T-03, T-12)                                                                    |
+| D-06 | External AI, native/Markdown interchange                          | CLI/MCP parity, loss reports and stale checkout handling (T-04, T-09)                                                                                               |
+| D-07 | Retention, pins, restore and cleanup budgets                      | History reconstruction, overwrite preservation, comments and assets (T-11, T-20)                                                                                    |
+| D-08 | Optional provider protocol and deterministic winner order         | iCloud/Drive feasibility, durable outbox/catch-up, transfer acknowledgements, tombstones, ancestry, clock skew and disable/restart/background-lifetime (T-12, T-13) |
+| D-09 | Media lifecycle and future backup boundary                        | Images/PDFs, interrupted publication, complete native export/snapshot and reachable roots (T-06, T-10, T-11)                                                        |
+| D-10 | View/context lifetime and duplicate-open policy                   | Windows/tabs/panes, focus, missing destinations (T-02, T-08)                                                                                                        |
+| D-11 | Performance budgets/scale envelope                                | Agree document/media/history sizes and percentiles before benchmarking (T-15)                                                                                       |
+| D-12 | Inventory, predefined fields and UI detail                        | Keep/redesign/retire inventory; editor/collection/default-field semantics (T-01, T-16, T-17)                                                                        |
+| D-13 | Task scheduler, recurrence and sync consistency                   | Next-slot/time-zone rules, series identity, duplicate completion, archive/reminder behaviour (T-18, T-19)                                                           |
+| D-14 | Cross-platform dependency/repository boundaries                   | Shared code free of macOS dependencies; explicit adapters and path contracts (T-21)                                                                                 |
 
 Future, non-initial gates: F-01 live cloud collaboration and page-sharing roles;
 F-02 automatic backup feature; encrypted Spaces need a new scope decision rather
@@ -65,3 +65,10 @@ averaged away. Keep effort/migration estimates outside the decision total.
 Decisions move Proposed → Qualified → Accepted or Rejected, with evidence/date/
 reviewer and affected prior rules. Confirmed product scope does not prove a
 technology passes it. No target technology has completed these gates in this pack.
+
+## Current work checkpoint
+
+Start with roadmap R01, the current capability inventory. [START-HERE](START-HERE.md)
+records handoff/authorization and [roadmap](roadmap.md) orders specifications,
+qualification and implementation. These navigation documents do not accept any
+technical decision or duplicate product rules.

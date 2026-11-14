@@ -1,9 +1,12 @@
 # Clutter foundation
 
-Status: architecture definition pack, revision 0.2, 2026-11-14. Product scope
+Status: architecture definition pack, revision 0.3, 2026-11-14. Product scope
 confirmed; technology proposals remain unqualified.
 Baseline: `main` at `cae604273115c0c6c0d3ac34533b1e9834e9c778`.
 Working branch: `architecture/clutter-foundation`.
+
+New chat or AI agent: start at [START-HERE](START-HERE.md), then follow the
+[roadmap](roadmap.md). Current next task: R01 capability inventory.
 
 ## Purpose and authority
 
@@ -13,7 +16,7 @@ live cloud collaboration deferred.
 Evaluate it as a greenfield product. Migration and implementation effort remain
 visible planning dimensions with zero weight in architectural selection.
 
-The 0.2 product scope reflects the user clarification sequence. Earlier draft
+The 0.2 product scope, retained in 0.3, reflects the user clarification sequence. Earlier draft
 requirements superseded by that discussion are replaced in this folder.
 This pack contains requirements and proposals, not an approved implementation
 specification. Existing documentation and `ARCHITECTURE_RULES.md` continue to
@@ -26,20 +29,22 @@ current-system references; they are not copied into competing target specs.
 
 ## Reading order and document ownership
 
-| Document                                        | Sole purpose                                                     |
-| ----------------------------------------------- | ---------------------------------------------------------------- |
-| [Product contracts](product-contracts.md)       | Requirement IDs and initial/future scope                         |
-| [Confirmed behaviour](product-behaviour.md)     | Agreed task/property/template/date/comment semantics             |
-| [Sync and portability](sync-and-portability.md) | Opt-in provider policy, concurrency and Windows-ready boundaries |
-| [System architecture](system-architecture.md)   | State ownership and operation lifecycle                          |
-| [Shared API](shared-api.md)                     | App/CLI/MCP capability boundaries                                |
-| [History](history-and-collaboration.md)         | Versions, pins, restore and future collaboration seam            |
-| [Decision register](decision-register.md)       | Remaining technical choices and evidence gates                   |
-| [Acceptance matrix](acceptance-matrix.md)       | Tests traced to requirements with initial/provider/future gates  |
-| [Qualification spike](qualification-spike.md)   | First local/native and provider experiment specification         |
-| [Delivery plan](delivery-plan.md)               | Dependencies, reviews and patch prerequisites                    |
-| [ADR index](adr/README.md)                      | Technical proposals and rationale                                |
-| [Changelog](CHANGELOG.md)                       | Specification revisions and withdrawn proposals                  |
+| Document                                        | Sole purpose                                                          |
+| ----------------------------------------------- | --------------------------------------------------------------------- |
+| [Resume checkpoint](START-HERE.md)              | Exact current position, patch prerequisites and new-chat continuation |
+| [Roadmap](roadmap.md)                           | Named tasks, dependencies, evidence and next deliverables             |
+| [Product contracts](product-contracts.md)       | Requirement IDs and initial/future scope                              |
+| [Confirmed behaviour](product-behaviour.md)     | Agreed task/property/template/date/comment semantics                  |
+| [Sync and portability](sync-and-portability.md) | Opt-in provider policy, concurrency and Windows-ready boundaries      |
+| [System architecture](system-architecture.md)   | State ownership and operation lifecycle                               |
+| [Shared API](shared-api.md)                     | App/CLI/MCP capability boundaries                                     |
+| [History](history-and-collaboration.md)         | Versions, pins, restore and future collaboration seam                 |
+| [Decision register](decision-register.md)       | Remaining technical choices and evidence gates                        |
+| [Acceptance matrix](acceptance-matrix.md)       | Tests traced to requirements with initial/provider/future gates       |
+| [Qualification spike](qualification-spike.md)   | First local/native and provider experiment specification              |
+| [Delivery plan](delivery-plan.md)               | Dependencies, reviews and patch prerequisites                         |
+| [ADR index](adr/README.md)                      | Technical proposals and rationale                                     |
+| [Changelog](CHANGELOG.md)                       | Specification revisions and withdrawn proposals                       |
 
 Requirements live in product contracts; other documents reference their IDs.
 Acceptance IDs belong to the matrix. ADRs explain decisions rather than repeat

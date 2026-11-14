@@ -59,3 +59,11 @@ of the user's local commit ID. Apply it after the first patch, on the same branc
 A combined patch is only for a checkout that has neither delivery. Every handoff
 states prerequisite/scope/checks; never apply both combined and incremental to the
 same checkout. No commit/push occurs unless explicitly requested.
+
+## Resume and execution order
+
+[Roadmap](roadmap.md) expands these gates into named work items; do not maintain a
+separate conflicting task order. [START-HERE](START-HERE.md) is the current-session
+checkpoint and reusable new-chat instruction. Update both at handoff with real
+evidence/status. Revision 0.3 adds documentation only; R01 inventory is next.
+The 0.3 resume update patch requires 0.2 file contents and stays on the same branch.

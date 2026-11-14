@@ -3,6 +3,17 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.3 — 2026-11-14
+
+- Clarified local-first reads/saves, persistent pending-publication intent, inbound
+  replay/cursor handling, provider acknowledgement and separate local/sync status.
+- Confirmed desktop/CLI/MCP use one save/history/sync pipeline with structured
+  results; no assumed always-running service or Markdown canonical format.
+- Added roadmap with dependencies and gates plus START-HERE checkpoint, patch
+  prerequisites, read order, exact next task and reusable new-chat instructions.
+- Current next task is the source-grounded capability inventory (R01). Technology
+  choices remain unqualified; no production or native/provider test execution.
+
 ## 0.2 — 2026-11-14
 
 Confirmed the user's question-by-question decisions and superseded earlier draft scope:

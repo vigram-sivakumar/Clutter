@@ -36,6 +36,54 @@ replicated file set. Other designs must meet the same constraints. Provider APIs
 folder transport, OAuth/sandbox access, availability and Windows compatibility
 need actual qualification; support for either provider is not claimed yet.
 
+## Local-first save and transfer lifecycle
+
+Editing and ordinary reads use the local store. Saving must not wait for an
+internet connection. Each device holds a local replica; the provider carries
+transferable states/assets, not a second independent local body authority.
+
+Proposed durable outbox pattern, to qualify in D-03/D-08:
+
+1. Accept an operation through the shared core and commit local state/history
+   together with persistent pending-publication intent. Avoid a gap where a save
+   succeeds but a crash forgets that the change still needs uploading.
+2. Report local durability immediately when justified. Publish the corresponding
+   state/required assets asynchronously when opted-in transport is available.
+3. Record acknowledged transfer progress durably and retry idempotently. Immutable
+   state identity allows safe retry after uncertain upload completion. Do not
+   collect referenced content/assets while publication or history still needs them.
+4. On provider changes/startup/resume, discover and download required state/assets,
+   validate completeness/identity/schema, then ingest through core reconciliation.
+   Protect local dirty input, retain overwritten versions and update open views.
+5. Persist inbound progress/cursors only consistently with durable ingestion, or
+   make replay safe. Expired discovery cursors require safe rescan. Reprocessing
+   a received state must not create an endless upload echo or duplicate occurrence.
+
+Define recoverable handling for partial/missing assets rather than marking an
+incomplete state fully available. A failed transfer never rolls back a good local
+save. A rejected/malformed inbound package never overwrites local current content.
+These are contract requirements; no outbox/storage/transport implementation is
+selected by this section.
+
+## Status and process lifetime
+
+Local save state and provider transfer state are separate axes. A note may be
+saved locally while sync is pending, offline, retrying or blocked by access loss.
+Expose enough status for recovery without interrupting ordinary typing.
+
+“Synced” may mean this client has provider-confirmed publication and has ingested
+known remote changes; it cannot prove that every other device has downloaded them.
+Do not claim all-device synchronization from one successful upload. An iCloud
+folder write may only be locally staged; distinguish that from provider-confirmed
+availability when the platform exposes it. Specify limitations of provider evidence.
+
+The desktop, CLI and MCP all create the same durable pending work through core.
+A desktop window is not required, but a running process is required to perform
+Clutter-controlled transfer. With every Clutter process stopped, delivery may
+wait until next startup unless a separately specified background agent is enabled.
+OS/provider transfer of already-published files does not itself run Clutter's
+validation/reconciliation logic. No always-running agent is selected or promised.
+
 ## Winner selection and historical preservation
 
 The confirmed policy accepts whole-document replacement. Concurrent edits to

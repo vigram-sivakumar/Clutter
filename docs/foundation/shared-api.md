@@ -7,7 +7,12 @@ Requirements: P-02, P-06, P-08, P-09, P-13, P-16 through P-35 as applicable.
 
 App, CLI and MCP are first-class adapters over one domain command/query API. They
 never reimplement task/property/history/sync rules or directly manipulate storage.
-Headless operation must work without hidden UI. Protocol payloads may differ;
+Headless operation must work without hidden UI. CLI mutations use the same local
+save/history/pending-sync pipeline; structured JSON results expose IDs, revisions,
+local durability and transfer status separately. Markdown input/output does not
+predetermine the canonical format. An AI needs local command-execution access and
+authorization to use CLI; MCP is a separate adapter over the same core, not a
+prerequisite for CLI access. Protocol payloads may differ;
 domain results and validation do not.
 
 Mutations identify Space, targets, operation ID, trusted local principal/capability,
@@ -75,3 +80,7 @@ Compare core/UI/CLI/MCP semantics for supported capabilities, permissions,
 preconditions, retries, version attribution and headless use. Provider tests
 separately prove convergence/history and do not weaken normal mutation guards.
 Future cloud adapters require new permission/collaboration acceptance gates.
+
+Closing all windows does not necessarily terminate a headless authority; terminating
+all Clutter processes does suspend Clutter-controlled reconciliation unless a
+separately designed background agent runs. No such agent is implied by CLI support.

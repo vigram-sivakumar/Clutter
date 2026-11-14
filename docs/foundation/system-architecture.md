@@ -83,9 +83,11 @@ state publication require a coherent cross-entity transaction/reconciliation uni
    the separate latest-state-wins reconciliation contract with retained history.
 3. Apply one valid local change or refuse. Protect unsaved/input composition before
    remote replacement. Context undo has a defined boundary at state replacement.
-4. Persist affected state, history/provenance/required assets and outcome atomically
+4. Persist affected state, history/provenance/required assets, outcome and durable
+   pending-publication intent atomically
    within the selected backend scope, or use an explicit recoverable staged protocol.
-5. Report acceptance/durability; update revision-tagged subscribers/indexes. Publish
+5. Report local acceptance/durability separately from provider transfer status;
+   update revision-tagged subscribers/indexes. Publish
    only coherent durable state packages if provider sync is enabled.
 6. Catch up by revision after lost events/reconnect. Duplicate messages/operations
    do not create repeated tasks or destroy historical states. Query uncertain outcomes.
@@ -104,3 +106,8 @@ Retained history, recovery, trash and pins govern asset roots. Provide a consist
 snapshot boundary for future backup; no automatic scheduler now. Keep a versioned
 operation/protocol seam for future live collaboration, without selecting CRDT,
 server, identity provider or encryption in this documentation pass.
+
+A successful local save cannot be forgotten by the uploader after restart. Inbound
+validation/current-state changes/history and catch-up progress must be replay-safe.
+The detailed outbox/status/process lifetime contract lives in
+[sync and portability](sync-and-portability.md), not independently in each adapter.

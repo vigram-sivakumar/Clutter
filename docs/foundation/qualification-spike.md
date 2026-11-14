@@ -30,7 +30,8 @@ image/PDF and Unicode. There are no subtask or dynamic property-column requireme
 6. Test recurrence/reminders using a controlled clock, archive suppression and
    retry-safe next-occurrence generation, with dates advanced from original schedule.
 7. Inject persistence/publication failures; close last view and restart the owner.
-   Verify protected work, uncertainty reporting and history before current replacement.
+   Verify protected work, uncertainty reporting and history before current replacement. With sync enabled, inject a crash after local save
+   but before upload; pending-publication intent must survive.
 8. Execute actual macOS/WKWebView keyboard/IME/native menus and image/PDF/embed
    selection boundaries. Linux browser runs remain preliminary evidence.
 
@@ -46,7 +47,10 @@ ownership/generation. Exercise dirty view/IME handling and remote-history bounda
 Then qualify actual opted-in iCloud and Google Drive transport separately under
 available native/provider environments. Cover permissions, partial downloads,
 pending uploads, app-closed use, disable/re-enable and corrupted/untrusted input.
-A simulated transport pass is not a provider support claim. Block enabling an
+Verify upload acknowledgement versus mere staging, persistent retries, ingest/cursor
+crash replay, safe rescan and no echo loops. Test next-startup catch-up with all
+processes stopped, rather than assuming background sync exists. A simulated
+transport pass is not a provider support claim. Block enabling an
 unqualified provider rather than quietly falling back to shared-live-DB syncing.
 
 ## Deferred stage: future cloud collaboration
