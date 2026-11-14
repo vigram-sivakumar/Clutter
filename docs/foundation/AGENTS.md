@@ -73,10 +73,16 @@ them by implication.
   Bundle15 supports exact13/14 because14 application is unconfirmed. New proof
   stores one accepted Y BLOB; never add a competing PM JSON/Markdown save path.
 
-- Current0.40: r08-native-runner.md and r08-16 evidence. Native runner is prepared,
+- Historical0.40: r08-native-runner.md and r08-16 evidence. Native runner is prepared,
   not Mac compiled/run. Next user launches npm run native:joined and reports setup;
   only then guide JN-01. Eight Linux helper checks are not JG-11 acceptance.
   Separate Swift host uses pinned packaged runtime and explicit context handoff;
   no production security/lease/shell decision. Do not ask for private endpoint files.
   Bundle16 preflights13/14/15;15 application unconfirmed after corrected command.
   Use temporary extraction variable so downloaded folder renaming cannot break apply.
+
+- Current0.41: user Mac committed16 as60b0505b, Swift compiled, signing blocked by
+  unsigned CLI script in MacOS. Correction17 moves it to Resources/bin and signs
+  the outer app last; strict verification remains. Next apply17/retry native:joined,
+  get actual launch result before JN-01. No native signing pass inferred; Swift/domain
+  unchanged,8 updated Linux helper checks pass. Preserve raw16 failure/evidence.

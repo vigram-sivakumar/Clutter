@@ -12,6 +12,8 @@ export async function packResources(resources, nodePath) {
   resources = resolve(resources);
   mkdirSync(join(resources, 'runtime'), { recursive: true });
   mkdirSync(join(resources, 'web'), { recursive: true });
+  mkdirSync(join(resources, 'bin'), { recursive: true });
+  writeFileSync(join(resources, 'bin/clutter-lab'), wrapper, { mode: 0o755 });
   copyFileSync(nodePath, join(resources, 'runtime/node'));
   chmodSync(join(resources, 'runtime/node'), 0o755);
   for (const [entry, out] of [
@@ -46,6 +48,7 @@ export async function packResources(resources, nodePath) {
 export function finishManifest(resources, extra = {}) {
   const names = [
     'runtime/node',
+    'bin/clutter-lab',
     'owner.mjs',
     'service.mjs',
     'launcher.mjs',
@@ -69,4 +72,4 @@ export function finishManifest(resources, extra = {}) {
   return files;
 }
 export const wrapper =
-  '#!/bin/sh\nclutter_bin_dir="${0%/*}"\nclutter_bin_dir="$(CDPATH= cd "$clutter_bin_dir" && pwd)"\nexec "$clutter_bin_dir/../Resources/runtime/node" "$clutter_bin_dir/../Resources/launcher.mjs" "$@"\n';
+  '#!/bin/sh\nclutter_bin_dir="${0%/*}"\nclutter_bin_dir="$(CDPATH= cd "$clutter_bin_dir" && pwd)"\nexec "$clutter_bin_dir/../runtime/node" "$clutter_bin_dir/../launcher.mjs" "$@"\n';

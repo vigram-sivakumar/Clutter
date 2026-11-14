@@ -1,0 +1,24 @@
+{
+  "source": "User-provided terminal output",
+  "user_commit": "60b0505b",
+  "branch": "architecture/clutter-foundation",
+  "architecture": "arm64",
+  "bundle_run_id": "Joined-2026-11-14T13-06-10-850Z",
+  "completed_stages": [
+    "Runtime archive preparation/checksum/extraction",
+    "Swift compilation",
+    "Runtime dylib audit",
+    "Inner Node ad-hoc signing command returned success"
+  ],
+  "failure": {
+    "stage": "main/app codesign",
+    "message": "code object is not signed at all",
+    "subcomponent": "Contents/MacOS/clutter-lab",
+    "exit": 1
+  },
+  "not_reached": [
+    "Pre-window headless smoke",
+    "Native app window/manual cases"
+  ],
+  "native_acceptance": "not-run; partial setup progress only"
+}

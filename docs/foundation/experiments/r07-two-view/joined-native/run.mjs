@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { preflight } from './preflight.mjs';
 import { acquireRuntime, lock } from './runtime.mjs';
-import { packResources, finishManifest, wrapper } from './pack.mjs';
+import { packResources, finishManifest } from './pack.mjs';
 import {
   atomicPrivate,
   checkSession,
@@ -92,7 +92,6 @@ if (process.argv.includes('--check')) {
       ],
       { env: { ...process.env, MACOSX_DEPLOYMENT_TARGET: '14.0' } }
     );
-    writeFileSync(join(macOS, 'clutter-lab'), wrapper, { mode: 0o755 });
     writeFileSync(
       join(contents, 'Info.plist'),
       `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>com.clutter.foundation.joined16</string><key>CFBundleName</key><string>Clutter Joined Lab</string><key>CFBundleExecutable</key><string>ClutterJoinedLab</string><key>CFBundlePackageType</key><string>APPL</string><key>CFBundleVersion</key><string>16</string><key>LSMinimumSystemVersion</key><string>14.0</string><key>NSHighResolutionCapable</key><true/><key>LSMultipleInstancesProhibited</key><true/><key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict></dict></plist>`
@@ -112,12 +111,6 @@ if (process.argv.includes('--check')) {
       '--sign',
       '-',
       join(resources, 'runtime/node'),
-    ]);
-    exec('/usr/bin/codesign', [
-      '--force',
-      '--sign',
-      '-',
-      join(macOS, 'ClutterJoinedLab'),
     ]);
     finishManifest(resources, {
       runtime: { version: lock.version, archive: runtime.archive },
@@ -154,7 +147,7 @@ if (process.argv.includes('--check')) {
     setup.report = report;
     checkpoint();
     const quote = (s) => "'" + s.replaceAll("'", "'\\''") + "'";
-    const cli = join(macOS, 'clutter-lab');
+    const cli = join(resources, 'bin/clutter-lab');
     console.log(
       'Headless checks passed. Opening the real joined WKWebView lab. Start JN-01 only.\nReport: ' +
         report +

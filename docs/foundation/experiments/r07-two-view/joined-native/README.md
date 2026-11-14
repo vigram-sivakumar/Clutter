@@ -93,3 +93,14 @@ external PNG/PDF publication JG-13, scale, full security and provider gates rema
 `artifacts/joined-native-<timestamp>.json`. Build/runtime downloads live in ignored
 `joined-native/out/`; session descriptors/tokens are private and must not be shared.
 Share setup/native JSON reports, not `endpoint.json` or the private session folder.
+
+## Signing correction17
+
+The first user Mac run compiled this Swift host, then16 signing failed on the CLI
+shell script placed in Contents/MacOS.17 packages the script as Resources/bin/clutter-lab
+and seals its fingerprint; its runtime/client paths are relative to Resources.
+The outer app signs the main executable after resources are complete, with strict
+verification retained. Run native:joined again after applying17. No new dependency
+install, runtime-cache deletion or manual repair of the failed bundle is needed.
+Mac signing remains unverified until that retry; Linux helper success is not signing
+acceptance. See [Apple's layout guidance](https://developer.apple.com/library/archive/technotes/tn2206/_index.html).

@@ -256,20 +256,18 @@ manual rerun or verdict-click cleanup is requested. A targeted native history/
 selection smoke can be batched with the next integrated slice before architecture
 acceptance. NM-03 remains unavailable and NM-06 deferred by user priority.
 
-## Next action: launch runner16, then JN-01
+## Next action: signing correction17, then retry launch
 
-The [new runner](r08-native-runner.md) is prepared with a pinned runtime and actual
-joined owner/editors. Eight Linux helper checks pass, **not native acceptance**.
-Native Swift/SDK compilation, signing/archive execution and WK tests have not run
-here. User runs npm run native:joined and shares actual setup/window output first.
-Fix concrete launch issues; when ready guide JN-01 one variation at a time. The
-old R07 lab/manual catalogue is not this candidate and must not be replayed as it.
+User committed16 as60b0505b. First actual arm64 Mac run completed runtime preparation
+and Swift compilation, then signing rejected the CLI shell script in Contents/MacOS.
+No new window/manual/headless smoke result. Correction17 places it in Resources/bin
+and signs the outer app last with strict verification retained.8 updated Linux
+helper checks pass; Mac signing retry not-run here.
 
-Original manual passes/click corrections remain intact. IME unavailable and
-VoiceOver deferred; no fake passes. JG-11 remains open; prepared ad-hoc/same-user
-fixture is not production signing/sandbox/security/multi-client lease acceptance.
-[Evidence](evidence/r08-16-2026-11-14.json). Bundle16 supports13/14/15; corrected15
-apply command was supplied but completion is not explicitly confirmed.
+Apply17 over16 and rerun native:joined; obtain actual terminal/window output before
+JN-01. Do not replay the old manual session. Native Swift source unchanged; earlier
+manual passes/IME unavailable/VoiceOver deferred remain intact.
+[Evidence](evidence/r08-17-2026-11-14.json).
 
 ## Next agent action
 

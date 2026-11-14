@@ -3,6 +3,18 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.41 — 2026-11-14
+
+- Recorded user commit60b0505b and first real Mac setup: runtime preparation,
+  Swift compilation/dylib audit reached; signing failed on unsigned CLI script
+  under Contents/MacOS. No native window/headless result inferred.
+- Moved CLI script to Resources/bin, fixed relative runtime/client paths and sealed
+  it in the component fingerprint. Removed premature standalone main signing;
+  signed runtime → finalized resources → outer app → strict/deep verification.
+- Eight updated Linux helper checks pass, including actual resource-wrapper launch.
+  Mac signing correction remains to be executed. No Swift/domain/dependency change,
+  production, accepted stack or agent commit/push. Patch17 over exact16.
+
 ## 0.40 — 2026-11-14
 
 - Prepared separate joined Mac/WKWebView host, pinned official runtime packaging,

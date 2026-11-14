@@ -14,11 +14,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import { chromium } from 'playwright';
-import {
-  packResources,
-  finishManifest,
-  wrapper,
-} from '../joined-native/pack.mjs';
+import { packResources, finishManifest } from '../joined-native/pack.mjs';
 import {
   createSession,
   readPrivate,
@@ -101,10 +97,7 @@ try {
         testProfile: 'Linux node copy; not downloaded Mac archive or Swift app',
       });
       const report = await headlessSmoke(resources, session);
-      const macOS = resolve(resources, '../MacOS');
-      mkdirSync(macOS, { recursive: true });
-      const wrapped = join(macOS, 'clutter-lab');
-      writeFileSync(wrapped, wrapper, { mode: 0o755 });
+      const wrapped = join(resources, 'bin/clutter-lab');
       const wrappedRead = spawnSync(wrapped, ['--session', session], {
         input: '{"method":"read"}',
         env: { ...process.env, PATH: '/usr/bin:/bin' },

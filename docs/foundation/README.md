@@ -1,6 +1,6 @@
 # Clutter foundation
 
-Status: architecture definition pack, revision 0.40, 2026-11-14. Product scope
+Status: architecture definition pack, revision 0.41, 2026-11-14. Product scope
 confirmed; technology proposals remain unqualified.
 Baseline: `main` at `cae604273115c0c6c0d3ac34533b1e9834e9c778`.
 Working branch: `architecture/clutter-foundation`.
@@ -22,7 +22,7 @@ live cloud collaboration deferred.
 Evaluate it as a greenfield product. Migration and implementation effort remain
 visible planning dimensions with zero weight in architectural selection.
 
-The 0.2 product scope, retained in 0.40, reflects the user clarification sequence. Earlier draft
+The 0.2 product scope, retained in 0.41, reflects the user clarification sequence. Earlier draft
 requirements superseded by that discussion are replaced in this folder.
 This pack contains requirements and proposals, not an approved implementation
 specification. Existing documentation and `ARCHITECTURE_RULES.md` continue to
@@ -168,3 +168,7 @@ No production/ADR acceptance or broad manual rerun. Bundle15 supports exact13/14
 Revision0.40 prepares the [new native runner](r08-native-runner.md), pinned runtime
 and context handoff;8 Linux helper checks plus retained regressions pass. Native
 compilation/execution remains not-run. No stack approval or old manual replay.
+
+Revision0.41 fixes the first Mac signing blocker: shell CLI is now a sealed resource,
+not an unsigned MacOS subcomponent. User16 commit60b0505b/Swift compile confirmed;
+next apply17 and retry native:joined. Mac signing/native acceptance remains open.

@@ -107,3 +107,21 @@ Primary sources checked2026-11-14:
 [Node checksums](https://nodejs.org/download/release/v24.22.1/SHASUMS256.txt),
 [Apple async WK API](<https://developer.apple.com/documentation/webkit/wkwebview/callasyncjavascript(_:arguments:in:in:completionhandler:)>),
 [SQLite PRAGMAs](https://www.sqlite.org/pragma.html).
+
+## First actual Mac setup and signing correction17
+
+The user committed16 as60b0505b and ran it on arm64 macOS. Runtime preparation,
+Swift compilation and dylib audit completed; the inner runtime signing command
+returned successfully. Signing then rejected unsigned Contents/MacOS/clutter-lab.
+This is a bundle-layout error, not an editor/domain failure. No headless smoke,
+native window or JG-11 result ran in that attempt.
+
+Correction17 moves the shell wrapper to Resources/bin/clutter-lab, adjusts relative
+paths and fingerprints the script. Node signs before metadata, then the outer app
+signs its main executable and verifies strictly. No signature check is bypassed.
+Eight updated Linux helper checks pass; actual Mac signing retry remains pending.
+[Evidence](evidence/r08-17-2026-11-14.json). Apple's
+[TN2206](https://developer.apple.com/library/archive/technotes/tn2206/_index.html)
+recommends Resources for shell/non-Mach-O executables. Existing Swift source,
+canonical data and dependency versions are unchanged. Rerun the builder; it creates
+a fresh bundle and reuses the verified runtime cache. No old-bundle repair needed.
