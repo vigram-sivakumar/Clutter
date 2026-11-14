@@ -151,15 +151,27 @@ and live-mcp.mjs processes; the authenticated loopback Playwright relay delivers
 to the browser's liveCommand entry and owns no document. Legacy command and
 file-store adapters remain intact as prior evidence, not another production API.
 
-Discovery exit0 means execution completed without unexpected failure, not that
+Discovery exit 0 means execution completed without unexpected failure, not that
 every case applied its inverse. Pass, explicit refusal and gap are separate.
-npm run test:comparison -- --strict currently exits1 on the recorded disjoint
-refusals/lifecycle gap. Reports go to ignored artifacts/comparison-results.json;
-committed evidence retains discovery and strict runs separately.
+Build 11 npm run test:comparison -- --strict exited 1 on the recorded disjoint
+refusals/lifecycle gap. Build 12 now passes the unchanged contract; see the current
+[ownership fix](../../r07-history-ownership.md). Reports go to ignored artifacts/comparison-results.json;
+retained evidence keeps discovery and strict runs separately.
 
-Origin recreateView is a destructive public lifecycle probe. It intentionally
-reveals the current integration's lost redo/new-edit tracking; no production
-close/reopen feature is claimed. All receipts/storage are ephemeral. This is not
+Origin recreateView is a destructive public lifecycle probe. Build 11 exposed lost
+redo/new-edit tracking; build 12 keeps history in the authority-owned context.
+No production close/reopen feature is claimed. All receipts/storage are ephemeral. This is not
 app IPC, disk recovery, a Clutter server requirement or full MCP conformance.
 No manual retest is requested for this automation slice. Headless inputs use
 synthetic string targets; stable product IDs/security/durability remain separate.
+
+## Context-owned history (patch 12)
+
+[Current results](../../r07-history-ownership.md) close the three strict gates
+without changing matched-comparison-contract.json. npm run test:history-lifecycle
+adds repeated A/B remounts, closed-view foreign delivery, paused provisional edits,
+scoped guard undo/redo and selected-cell mode checks. Normal cases pass; the raw
+route deliberately retains the old redo failure and is not a passing product test.
+Context history/bookmarks use public APIs and never retain an EditorView/binding.
+The accepted change journal contains ranges/origins, not duplicate documents.
+No new dependency/lock/native source changed; no native12 result claimed.

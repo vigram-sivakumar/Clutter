@@ -33,7 +33,7 @@ const lock = JSON.parse(readFileSync('package-lock.json', 'utf8'));
 const manifest = {
   candidate: 'R07-PM-PUBLIC-02',
   alternatives: ['R07-PM-ORIGIN-02'],
-  iteration: 'R07-11-matched-history-authority-2026-11-14',
+  iteration: 'R07-12-context-history-scope-2026-11-14',
   date: '2026-11-14',
   scope:
     'Exploratory two-view candidates and native host source; native compilation/execution must be recorded separately',

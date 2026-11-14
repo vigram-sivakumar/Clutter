@@ -1,4 +1,7 @@
 import * as Y from 'yjs';
+import { StepMap } from 'prosemirror-transform';
+import { OriginHistoryContext } from './origin-history-context.mjs';
+import { touches, mapRange, validRange } from './change-footprint.mjs';
 import {
   prosemirrorToYDoc,
   yDocToProsemirror,
@@ -15,9 +18,11 @@ export class OriginAuthority {
     this.remoteOrigin = Object.freeze({ authorityDelivery: true });
     this.peers = new Map();
     this.paused = new Set();
-    this.version = 0;
-    this.latestOriginVersion = new Map();
+    this.changes = [];
     this.onStatus = () => {};
+  }
+  get version() {
+    return this.changes.length;
   }
   read() {
     return yDocToProsemirror(schema, this.doc);
@@ -61,6 +66,7 @@ export class OriginAuthority {
     } finally {
       staged.destroy();
     }
+    const before = this.read();
     let changed = false;
     const change = () => {
       changed = true;
@@ -72,8 +78,25 @@ export class OriginAuthority {
       this.doc.off('update', change);
     }
     if (changed) {
-      this.version++;
-      this.latestOriginVersion.set(peer.id, this.version);
+      const after = this.read(),
+        from = before.content.findDiffStart(after.content),
+        end = before.content.findDiffEnd(after.content);
+      // A conservative PM token span; store only positional metadata, not roots.
+      const start = from ?? 0;
+      let to = end?.a ?? before.content.size,
+        newTo = end?.b ?? after.content.size;
+      // Equal prefix/suffix runs can overlap on pure insertion/deletion. Keep
+      // a valid conservative replacement map instead of a negative old span.
+      const overlap = Math.max(0, start - Math.min(to, newTo));
+      to += overlap;
+      newTo += overlap;
+      this.changes.push({
+        version: this.version + 1,
+        origin: peer.id,
+        from: start,
+        to,
+        newTo,
+      });
     }
     this.deliver();
     this.onStatus();
@@ -120,13 +143,64 @@ export class OriginAuthority {
     );
     if (peer.error) throw new Error(peer.error);
   }
-  hasForeignSince(id, version) {
-    return [...this.latestOriginVersion].some(
-      ([origin, last]) => origin !== id && last > version
-    );
+  historyContext(id) {
+    const peer = this.peers.get(id);
+    if (!peer) throw new Error('UNKNOWN_CONTEXT');
+    return (peer.history ??= new OriginHistoryContext(
+      peer.doc.getXmlFragment('prosemirror'),
+      schema
+    ));
+  }
+  mapScopeSince(version, scope) {
+    if (
+      !validRange(scope) ||
+      !Number.isSafeInteger(version) ||
+      version < 0 ||
+      version > this.version
+    )
+      throw new Error('INVALID_HISTORY_SCOPE');
+    let current = { ...scope };
+    for (const change of this.changes)
+      if (change.version > version)
+        current = mapRange(
+          current,
+          new StepMap([
+            change.from,
+            change.to - change.from,
+            change.newTo - change.from,
+          ])
+        );
+    return current;
+  }
+  hasForeignInScope(id, version, scope) {
+    if (
+      !validRange(scope) ||
+      !Number.isSafeInteger(version) ||
+      version < 0 ||
+      version > this.version
+    )
+      return true;
+    let current = { ...scope };
+    for (const change of this.changes) {
+      if (change.version <= version) continue;
+      if (change.origin !== id && touches(current, change.from, change.to))
+        return true;
+      current = mapRange(
+        current,
+        new StepMap([
+          change.from,
+          change.to - change.from,
+          change.newTo - change.from,
+        ])
+      );
+    }
+    return false;
   }
   destroy() {
-    for (const peer of this.peers.values()) peer.doc.destroy();
+    for (const peer of this.peers.values()) {
+      peer.history?.destroy();
+      peer.doc.destroy();
+    }
     this.doc.destroy();
   }
 }

@@ -3,6 +3,10 @@
 Revision 0.35, 2026-11-14. Automated R07 slice; no production architecture accepted.
 The prior guided manual passes remain valid and are not being rerun or revoked.
 
+This document retains the **build11 baseline**. The three identified gates are now
+fixed by12 under the unchanged contract; see [current ownership results](r07-history-ownership.md).
+The baseline table/strict failure below is historical evidence, not current status.
+
 ## Result
 
 Thirty matched candidate cases ran twice (discovery and strict qualification):
@@ -15,8 +19,8 @@ Thirty matched candidate cases ran twice (discovery and strict qualification):
 These totals describe different behaviours, not a ranking. Refusing a risky inverse
 preserves data but does not demonstrate the same editing experience as applying
 one. The default discovery command exits 0 when execution has no unexpected
-failures; it does not mean qualification passed. Strict mode exits 1 for the three
-open gates below. Both runs have the same classification. Existing raw controls
+failures; it does not mean qualification passed. Build 11 strict mode exited 1 for the three
+then-open gates below. Both runs have the same classification. Existing raw controls
 still reproduce unsafe history/selection behaviour and remain separate evidence.
 
 | Case                                                                    | Guarded step                                 | Origin-aware                                                    | Implication                                                                         |
@@ -79,7 +83,7 @@ contract without retaining destroyed editors, private observer calls or library
 patches. The conservative guards likewise remain exploratory, not approved
 final user experience.
 
-## Next bounded engineering work
+## Baseline next engineering work (implemented by build 12)
 
 Implement and qualify context-owned history lifetime for the Origin integration,
 then narrow the two demonstrated disjoint-refusal boundaries while keeping nested
@@ -103,7 +107,7 @@ a Playwright Chromium installation (or CHROMIUM_EXECUTABLE pointing to Chromium)
 
 - npm test —67 Node checks, including one pre-existing raw-history diagnostic.
 - npm run test:comparison — discovery with pass/refusal/gap distinctions.
-- npm run test:comparison -- --strict — currently exits 1 for the three open gates.
+- npm run test:comparison -- --strict — build 11 exited 1; build 12 passes the unchanged contract.
 - Existing browser/origin/table/support/capture suites remain the scoped regressions.
 
 [Executed evidence](evidence/r07-27-2026-11-14.json) retains exact manifests, the

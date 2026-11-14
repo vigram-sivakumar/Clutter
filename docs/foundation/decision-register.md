@@ -121,3 +121,12 @@ outcome operations from desktop, CLI and stdio MCP against each live authority.
 The relay is test infrastructure, not production IPC/persistence. Three strict
 history gates remain open; D-01/D-03/D-04/D-05 and the target 51 operation sketches
 are not accepted by these scoped passes. No existing manual result is revoked.
+
+## R07 context history qualification update
+
+[Build12 evidence](r07-history-ownership.md) closes the three demonstrated history
+boundaries under the unchanged matched contract. Context lifetime owns history;
+views do not dispose it. Six explicit unsafe-inverse refusals remain classified
+separately from 24 applied/passed cases. The live synthetic app/CLI/MCP slice is
+still ephemeral; durable owner/outcome/restart qualification is next. No D-01/
+D-03/D-04/D-05 stack or target 51-operation API acceptance follows from this alone.

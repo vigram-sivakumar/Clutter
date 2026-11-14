@@ -1,6 +1,6 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-14. Documentation revision: 0.35.
+Last updated: 2026-11-14. Documentation revision: 0.36.
 Read AGENTS.md and this file first in a new chat or agent session. It is the checkpoint, not a
 second product specification. [README](README.md) identifies authoritative docs.
 
@@ -113,6 +113,8 @@ contains those contents; do not reapply either route.
     documentation/evidence only over exact bundle09 target; no native rebuild.
 20. Matched automated history/command comparison, revision 0.35: `Clutter R07 Matched Comparison 11.zip`,
     verified alternatives over exact09 or exact10. No new manual test/rebuild requested.
+21. Context-owned history fixes, revision 0.36: `Clutter R07 Context History Fix 12.patch`,
+    incremental over exact bundle11 target; native 12 smoke remains unrun.
 
 Each update is incremental over its predecessor's file contents, not a particular
 user-created commit hash. If this file is present at revision 0.17, do not blindly
@@ -174,32 +176,29 @@ force checkout or re-create the branch to hide divergence.
 - Current authorized continuation includes the isolated R07 experiment, not a
   production rebuild. Preserve unqualified tests and report blocking observations.
 
-## Exact next action: context-owned history and safe disjoint undo
+## Exact next action: durable authority qualification proof
 
-Read AGENTS.md, NATIVE-TEST-PROGRESS.md and r07-matched-comparison.md. The requested
-matched history/API comparison is executed. Thirty cases: step 10 pass/5 refusal;
-origin 11 pass/3 refusal/1 lifecycle gap. All 12 live CLI/MCP contract cases pass.
-Strict mode remains red for step's disjoint-format refusal, origin's disjoint-row
-refusal and origin view-remount redo/new-edit tracking. No guarded foreign-content
-loss occurred in these fixtures; original raw failures remain separate.
+Read AGENTS.md, NATIVE-TEST-PROGRESS.md and r07-history-ownership.md. All three
+identified history gates are fixed: context-owned Origin manager survives actual
+view destruction; disjoint formatting/structural changes no longer globally block
+safe inverses. The unchanged 30-case strict contract now exits 0: step 11 pass/4
+protective refusals; origin 13 pass/2 protective refusals; no gaps/failures.
+All 12 live CLI/MCP contract cases still pass.84 Node checks and seven additional
+browser lifecycle cases pass; raw unsafe controls remain diagnostic failures.
 
-Next implement/qualify context-owned Origin history lifetime without private APIs
-or retained destroyed editors, then narrow the two proven disjoint refusals while
-preserving foreign edits. Reuse matched-comparison-contract.json and keep all
-current evidence. Durable app/CLI/MCP outcomes/restarts, task model and provider
-qualification follow; do not choose a production stack from pass counts.
+Next freeze and execute a bounded R04 durable-owner proof: atomic accepted state,
+revision and operation outcomes; lost response and process restart; same owner for
+app/CLI/MCP; no independent file writers. Use the existing persistence fault/model
+contracts and explicitly experimental backend. No accepted store/host/editor stack
+or production work follows solely from these scoped results. No new manual session
+rerun is requested. Targeted native history smoke belongs before final acceptance;
+Mac 12 not run, earlier Mac 09 passes stay valid. IME unavailable, VoiceOver deferred.
 
-Prior confirmed manual tests remain passed. No new manual testing requested.
-IME unavailable and VoiceOver deferred by user choice. The command bridge is a
-Playwright-driven test relay into the live browser authority, not production IPC
-or a vault server. Read/insert/outcome are only a synthetic three-operation slice.
+[Current evidence](evidence/r07-28-2026-11-14.json). Patch12 applies over exact11;
+user reports bundle11 applied. No dependency/version, Swift, production, agent
+commit/push or branch change. Keep original baseline and manual reports intact.
 
-Bundle11 handles exact09 or exact10 contents because application of docs10 was
-not confirmed. Its helper preflights and applies one matching alternative only.
-No new dependency, Swift, production edit, branch switch or agent commit/push.
-Native lab11 input/bridge is not newly Mac-qualified. [Evidence](evidence/r07-27-2026-11-14.json).
-
-Latest Linux evidence: 67 Node checks (one raw-failure diagnostic), six support
+Latest Linux evidence: 84 Node checks (one raw-failure diagnostic), six support
 checks, 66 table-browser candidate passes; raw unguarded structural row/column
 undo failures are preserved separately. Default origin prototype now conservatively
 refuses structural handle undo after foreign changes. Full semantic inverses remain

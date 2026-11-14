@@ -1,0 +1,78 @@
+[
+  {
+    "command": "npm test",
+    "exit": 0,
+    "note": "Scope and raw diagnostic qualifications in results; strict now passes unchanged contract."
+  },
+  {
+    "command": "npm run build",
+    "exit": 0,
+    "note": "Scope and raw diagnostic qualifications in results; strict now passes unchanged contract."
+  },
+  {
+    "command": "node test/comparison.mjs --strict",
+    "exit": 0,
+    "environment": {
+      "CHROMIUM_EXECUTABLE": "/tmp/chromium"
+    },
+    "note": "Scope and raw diagnostic qualifications in results; strict now passes unchanged contract."
+  },
+  {
+    "command": "node test/comparison.mjs",
+    "exit": 0,
+    "environment": {
+      "CHROMIUM_EXECUTABLE": "/tmp/chromium"
+    },
+    "note": "Scope and raw diagnostic qualifications in results; strict now passes unchanged contract."
+  },
+  {
+    "command": "node test/history-lifecycle.mjs",
+    "exit": 0,
+    "environment": {
+      "CHROMIUM_EXECUTABLE": "/tmp/chromium"
+    },
+    "note": "Scope and raw diagnostic qualifications in results; strict now passes unchanged contract."
+  },
+  {
+    "command": "npm run test:browser",
+    "exit": 0,
+    "environment": {
+      "CHROMIUM_EXECUTABLE": "/tmp/chromium"
+    },
+    "note": "Scope and raw diagnostic qualifications in results; strict now passes unchanged contract."
+  },
+  {
+    "command": "npm run test:origin",
+    "exit": 0,
+    "environment": {
+      "CHROMIUM_EXECUTABLE": "/tmp/chromium"
+    },
+    "note": "Scope and raw diagnostic qualifications in results; strict now passes unchanged contract."
+  },
+  {
+    "command": "npm run test:tables",
+    "exit": 0,
+    "environment": {
+      "CHROMIUM_EXECUTABLE": "/tmp/chromium"
+    },
+    "note": "Scope and raw diagnostic qualifications in results; strict now passes unchanged contract."
+  },
+  {
+    "command": "npm run test:native-support",
+    "exit": 0,
+    "note": "Scope and raw diagnostic qualifications in results; strict now passes unchanged contract."
+  },
+  {
+    "command": "npm run test:native-capture",
+    "exit": 0,
+    "environment": {
+      "CHROMIUM_EXECUTABLE": "/tmp/chromium"
+    },
+    "note": "Scope and raw diagnostic qualifications in results; strict now passes unchanged contract."
+  },
+  {
+    "command": "node manifest.mjs",
+    "exit": 0,
+    "note": "Scope and raw diagnostic qualifications in results; strict now passes unchanged contract."
+  }
+]

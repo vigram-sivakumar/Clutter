@@ -1,0 +1,11 @@
+{
+  "scope": "Initial implementation attempt, preserved before delivery.",
+  "failure": "Table boundary callback passed tablePos but its receiver signature omitted the parameter; ReferenceError prevented the new structural tag from being registered. Matched cases/page-error assertions caught it.",
+  "retained": [
+    "history12-initial-results.json",
+    "history12-initial-run.txt"
+  ],
+  "correction": "Added the parameter, retained overlapping foreign-content refusals, and added explicit undo/redo guard round-trip cases for both axes.",
+  "source_provenance": "Observed transient attempt, not a separately frozen complete candidate. Final source hashes and tests are the accepted run manifest.",
+  "additional_hardening": "Normalized overlapping prefix/suffix diff spans; rejected malformed guard scopes; removed redundant global origin watermark/revision counter; added real-destruction assertions."
+}

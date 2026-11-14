@@ -74,3 +74,8 @@ Current next action: context-owned history lifetime and narrower disjoint guards
 as specified in the matched comparison. The older capability table describes the
 manual-slice checkpoint; the new live three-operation bridge now has matched tests.
 Bundle11 updates the handoff; no technology accepted.
+
+Build12 [context ownership results](r07-history-ownership.md) now close the three
+matched history gates under the unchanged contract. The next engineering gate is
+the bounded durable-authority proof, followed by ADR review. Earlier scope/results
+above remain historical; no complete production stack has been accepted.

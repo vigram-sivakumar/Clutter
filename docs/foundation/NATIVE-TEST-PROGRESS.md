@@ -1,6 +1,6 @@
 # Native test progress and next action
 
-Updated 2026-11-14, revision 0.35. Maintain this alongside START-HERE at every native
+Updated 2026-11-14, revision 0.36. Maintain this alongside START-HERE at every native
 handoff. Evidence sources are explicit. The first 07 report has now been uploaded/reviewed;
 manual conversation results and stored verdicts remain distinct. The fresh09
 report now verifies both NM-09 verdicts and ready captures.
@@ -227,7 +227,7 @@ Origin notes are empty; Command-B/absent toolbar detail comes from conversation
 and source, not from report notes. Other saved case labels remain not-run even
 where earlier manual steps were confirmed. No raw report is edited or backfilled.
 
-## Automated comparison after the manual session
+## Automated build 11 comparison after the manual session
 
 All earlier confirmed manual passes remain intact. The matched Linux slice now
 runs real CLI/MCP processes through the shared live-authority ingress. No new
@@ -240,14 +240,30 @@ not a revocation of the user's earlier available-route passes.
 Strict qualification exits 1 for step HC-03 and origin HC-05/HC-06. Earlier raw
 controls stay diagnostic failures. IME remains unavailable and VoiceOver deferred.
 
-## Next action: context-owned history and disjoint-refusal boundaries
+## Automated history fixes after comparison11
 
-Read r07-matched-comparison.md, its JSON case contract and evidence/r07-27-2026-11-14.json.
-Qualify context-owned Origin history across destructive view remount, then narrow
-the observed disjoint-refusal boundaries without losing foreign edits. Keep the
-same contract and preserve current/raw evidence. No more current-session manual
-prompts, no production migration and no architecture acceptance. Lab11 code is
-Linux-tested; no new Mac build/capture is claimed.
+[Current fix](r07-history-ownership.md) resolves all three identified gates under
+the unchanged 30-case contract. Origin history now belongs to the authority's
+editing context; view destruction does not dispose it. Step mark/attribute guards
+are range-scoped, Origin structural protection is table-scoped and mapped through
+accepted changes. Outside changes permit undo; overlapping foreign work remains
+protected. Strict exits 0:24 pass/6 explicit refusal,0 gaps/failures. Seven extra
+browser lifecycle cases pass while the old raw lifecycle failure still reproduces.
+
+These are build 12 headless/Linux/Chromium results, not new native manual passes.
+Keep all earlier confirmed manual results and raw uploaded files intact. No broad
+manual rerun or verdict-click cleanup is requested. A targeted native history/
+selection smoke can be batched with the next integrated slice before architecture
+acceptance. NM-03 remains unavailable and NM-06 deferred by user priority.
+
+## Next action: durable owner and operation-outcome proof
+
+Read r07-history-ownership.md and evidence/r07-28-2026-11-14.json. Prepare the bounded
+R04 durable-owner fault/restart experiment over the same app/CLI/MCP authority.
+Accepted document/revision/outcome must commit together and be queryable after an
+uncertain reply/restart. Keep one canonical state and explicit projections. No
+production backend/editor/framework accepted; do not re-open completed manual
+prompts or claim in-page protection qualifies on-disk recovery.
 
 ## Next agent action
 

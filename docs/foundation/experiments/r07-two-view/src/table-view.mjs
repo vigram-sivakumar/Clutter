@@ -45,14 +45,14 @@ export function tableView(node, view, getPos, boundary = () => {}) {
         focused === button ||
         focused === view.dom.ownerDocument.body ||
         !focused;
-      boundary('before', axis);
+      boundary('before', axis, position);
       const changed = appendTableAxis(
         view.state,
         (tr) => view.dispatch(tr),
         position,
         axis
       );
-      boundary(changed ? 'after' : 'cancel', axis);
+      boundary(changed ? 'after' : 'cancel', axis, position);
       if (changed && restoreEditor && !view.hasFocus()) view.focus();
     });
     base.dom.append(button);

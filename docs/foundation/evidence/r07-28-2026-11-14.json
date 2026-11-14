@@ -1,0 +1,100 @@
+{
+  "document": "Context-owned history and scoped undo guard fixes",
+  "revision": "0.36",
+  "date": "2026-11-14",
+  "status": "All three prior gates fixed; unchanged bounded strict contract green. No complete architecture acceptance.",
+  "verification": {
+    "strict": {
+      "exit": 0,
+      "unchanged_case_contract": true,
+      "unchanged_comparison_driver": true,
+      "cases": 30,
+      "pass": 24,
+      "protective_refusals": 6,
+      "gap": 0,
+      "unexpected_fail": 0,
+      "summary": {
+        "step": {
+          "pass": 11,
+          "refused": 4,
+          "gap": 0,
+          "fail": 0
+        },
+        "origin": {
+          "pass": 13,
+          "refused": 2,
+          "gap": 0,
+          "fail": 0
+        }
+      }
+    },
+    "discovery": "Same final classification as strict.",
+    "node": {
+      "pass": 84,
+      "fail": 0,
+      "new_history_boundary_tests": 17,
+      "note": "Includes original raw-history failure reproducer; not84 product acceptance tests."
+    },
+    "new_browser_lifecycle": {
+      "pass": 7,
+      "preserved_raw_lifecycle_gap": 1
+    },
+    "existing_regressions": {
+      "selection_candidate_pass": 21,
+      "adapted_legacy_control_pass": 1,
+      "raw_legacy_control_fail": 1,
+      "origin_pass": 11,
+      "table_candidate_pass": 66,
+      "raw_origin_structural_fail": 2,
+      "native_support_pass": 6,
+      "chromium_capture_helper_routes_pass": 3
+    },
+    "native12": "Not-run. Earlier native/manual09 passes remain intact; targeted native smoke can be batched before final acceptance."
+  },
+  "implementation": {
+    "ownership": "OriginAuthority lazily owns one OriginHistoryContext per editing context. Public PM/Y bridge has no EditorView/DOM/binding reference and no view-disposal manager hook. Context/authority disposal owns destruction.",
+    "selection": "Public relative/model bookmark APIs restore backward text, node, all-document and selected-cell history states.",
+    "step_guard": "Mapped foreign mark ranges/node attribute spans. Unknown opaque effects remain conservative; overlapping foreign text/formatting/attributes remain protected.",
+    "origin_guard": "Mapped affected-table scope over a derived accepted-change journal; no independent global watermark/revision counter or stored document copies.",
+    "lifecycle_proof": "True destroyed/replaced EditorViews, repeated A/B cycles, foreign changes while closed and paused own edits while closed; undo/redo/new capture remain usable."
+  },
+  "limits": [
+    "Guards remain conservative within overlapping scopes; no complete property-level or cell-level semantic ownership.",
+    "History metadata/session receipts remain ephemeral, no production retention/performance/disk guarantee.",
+    "No dependency version/lock, native case/Swift or production change; isolated package adds tests/script.",
+    "Raw failures and original manual reports remain unchanged; no broad manual rerun requested."
+  ],
+  "next": "Freeze/execute bounded durable-owner proof: atomic document/revision/operation outcome, uncertain acknowledgement, process restart, one owner across app/CLI/MCP; durable operation identity separate from session capability. Then architecture/ADRs.",
+  "references": {
+    "review": "../r07-history-ownership.md",
+    "baseline": "r07-27-2026-11-14.json"
+  },
+  "artifacts": {
+    "history12-origin-run.txt": "r07-28-2026-11-14/history12-origin-run.txt",
+    "history12-strict-run.txt": "r07-28-2026-11-14/history12-strict-run.txt",
+    "history12-capture-run.txt": "r07-28-2026-11-14/history12-capture-run.txt",
+    "origin-results.json": "r07-28-2026-11-14/origin-results.json",
+    "history12-support-run.txt": "r07-28-2026-11-14/history12-support-run.txt",
+    "history12-discovery-results.json": "r07-28-2026-11-14/history12-discovery-results.json",
+    "history12-discovery-run.txt": "r07-28-2026-11-14/history12-discovery-run.txt",
+    "history12-lifecycle-run.txt": "r07-28-2026-11-14/history12-lifecycle-run.txt",
+    "commands.json": "r07-28-2026-11-14/commands.json",
+    "history12-core-run.txt": "r07-28-2026-11-14/history12-core-run.txt",
+    "candidate-manifest.json": "r07-28-2026-11-14/candidate-manifest.json",
+    "history12-initial-results.json": "r07-28-2026-11-14/history12-initial-results.json",
+    "history12-build-run.txt": "r07-28-2026-11-14/history12-build-run.txt",
+    "history12-initial-run.txt": "r07-28-2026-11-14/history12-initial-run.txt",
+    "history-lifecycle-results.json": "r07-28-2026-11-14/history-lifecycle-results.json",
+    "history12-manifest-run.txt": "r07-28-2026-11-14/history12-manifest-run.txt",
+    "browser-results.json": "r07-28-2026-11-14/browser-results.json",
+    "history12-browser-run.txt": "r07-28-2026-11-14/history12-browser-run.txt",
+    "initial-attempt-review.json": "r07-28-2026-11-14/initial-attempt-review.json",
+    "native-helper-results.json": "r07-28-2026-11-14/native-helper-results.json",
+    "table-results.json": "r07-28-2026-11-14/table-results.json",
+    "history12-table-run.txt": "r07-28-2026-11-14/history12-table-run.txt",
+    "history12-comparison-run.txt": "r07-28-2026-11-14/history12-comparison-run.txt",
+    "history12-strict-results.json": "r07-28-2026-11-14/history12-strict-results.json",
+    "delivery-validation.json": "r07-28-2026-11-14/delivery-validation.json"
+  },
+  "delivery": "Clutter R07 Context History Fix12 patch over exact bundle11 target; no agent commit/push/branch change."
+}

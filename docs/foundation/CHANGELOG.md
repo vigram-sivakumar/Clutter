@@ -3,6 +3,22 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.36 — 2026-11-14
+
+- Moved Origin UndoManager lifetime into the authority-owned editing context,
+  preserving undo/redo and new-edit capture through destructive view remounts.
+  Public model/relative-selection bridge has no retained EditorView/binding or
+  view-disposal manager hook; disposal occurs with the context/authority.
+- Scoped step foreign formatting/attribute protection to mapped ranges/nodes;
+  unknown opaque steps remain conservative. Scoped Origin structural protection
+  to its table through a derived change journal; removed global watermark state.
+- Unchanged30-case strict gate now passes:24 applied/pass,6 explicit protective
+  refusals, no gaps/failures.84 Node checks and seven lifecycle cases pass; raw
+  unsafe controls and initial callback-wiring failure retained as evidence.
+- Next bounded durable-authority/outcome/restart proof, then architecture/ADRs.
+  No new dependency, Swift or production change. Native 12 not run; earlier manual
+  results preserved, no broad manual rerun requested. Patch12 over exact11.
+
 ## 0.35 — 2026-11-14
 
 - Added shared session-scoped live read/insert/outcome ingress and thin subprocess

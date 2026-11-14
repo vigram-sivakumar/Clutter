@@ -147,3 +147,12 @@ provider enablement until coherent task reconciliation is selected and tested.
 provisional-input reconciliation and PL decisions. [Local security](local-security-api-spec.md)
 owns transport/grants and SEC decisions. These are conditional contracts, not an
 accepted host language/topology. Every existing component may be replaced.
+
+## R07 context history qualification update
+
+[Build12 evidence](r07-history-ownership.md) closes the three demonstrated history
+boundaries under the unchanged matched contract. Context lifetime owns history;
+views do not dispose it. Six explicit unsafe-inverse refusals remain classified
+separately from 24 applied/passed cases. The live synthetic app/CLI/MCP slice is
+still ephemeral; durable owner/outcome/restart qualification is next. No D-01/
+D-03/D-04/D-05 stack or target 51-operation API acceptance follows from this alone.

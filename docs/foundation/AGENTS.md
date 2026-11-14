@@ -35,10 +35,11 @@ them by implication.
 - Guide manual testing one concrete variation at a time. Do not mark all NM-01
   passed from one successful substep. Ask one example-based question only for a
   genuinely unresolved material decision, not a settled requirement.
-- Read r07-matched-comparison.md before continuing qualification. The 30-case
-  comparison separates applied operations, refusals and lifecycle gaps; discovery
-  exit 0 is not a qualified stack. Strict mode currently exits 1. No manual reruns
-  are required for bookkeeping or for this automated slice.
+- Read r07-history-ownership.md and the unchanged matched contract before further
+  qualification. The bounded 30-case strict gate now exits 0:24 passes,6 explicit
+  protective refusals, no gaps/failures. It is not full architecture acceptance.
+  Keep the original failing baseline/raw controls and the context-owned lifecycle
+  boundary. Do not reintroduce view-owned manager disposal or global undo locks.
 - The origin candidate's structural history guard is conservative and provisional;
   native input, full semantic undo, CLI/MCP/durability parity and provider consistency
   remain separate gates. No editor/framework/storage architecture has been accepted.

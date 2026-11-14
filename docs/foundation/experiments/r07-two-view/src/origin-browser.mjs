@@ -28,40 +28,63 @@ const structuralGuard =
   new URLSearchParams(location.search).get('history') !== 'raw';
 const structuralTag = 'r07-table-handle';
 let historyWarnings = {};
+function historyManager(id) {
+  return (
+    peers[id].history?.manager ??
+    yUndoPluginKey.getState(views[id].state).undoManager
+  );
+}
 function historyCommand(id, direction) {
   const view = views[id],
-    manager = yUndoPluginKey.getState(view.state).undoManager;
+    manager = historyManager(id);
   const stack = direction === 'undo' ? manager.undoStack : manager.redoStack,
     tag = stack.at(-1)?.meta.get(structuralTag);
   historyWarnings[id] = null;
-  if (structuralGuard && tag && authority.hasForeignSince(id, tag.version)) {
+  if (
+    structuralGuard &&
+    tag &&
+    authority.hasForeignInScope(id, tag.version, tag.scope)
+  ) {
     historyWarnings[id] = 'UNDO_BLOCKED_FOREIGN_TABLE_EDIT';
     authority.onStatus();
     return false;
   }
-  const changed = (direction === 'undo' ? undo : redo)(view.state);
+  const context = peers[id].history;
+  const changed = context
+    ? context.run(direction, view.state)
+    : (direction === 'undo' ? undo : redo)(view.state);
+  if (changed && context)
+    context.restore(view.state, (tr) => view.dispatch(tr));
   if (changed && tag) {
     const opposite =
       direction === 'undo' ? manager.redoStack : manager.undoStack;
-    opposite
-      .at(-1)
-      ?.meta.set(structuralTag, { ...tag, version: authority.version });
+    opposite.at(-1)?.meta.set(structuralTag, {
+      ...tag,
+      scope: authority.mapScopeSince(tag.version, tag.scope),
+      version: authority.version,
+    });
   }
   authority.onStatus();
   return changed;
 }
-function tableBoundary(id, view, phase, axis) {
-  const manager = yUndoPluginKey.getState(view.state).undoManager;
+function tableBoundary(id, view, phase, axis, tablePos) {
+  const manager = historyManager(id);
   manager.stopCapturing();
   if (phase === 'after')
-    manager.undoStack
-      .at(-1)
-      ?.meta.set(structuralTag, { axis, version: authority.version });
+    manager.undoStack.at(-1)?.meta.set(structuralTag, {
+      axis,
+      version: authority.version,
+      scope: {
+        from: tablePos,
+        to: tablePos + view.state.doc.nodeAt(tablePos).nodeSize,
+      },
+    });
 }
 let commandIngress, ingressSession;
 let authority,
   peers,
   views = {},
+  detachedViews = new Map(),
   active = 'A';
 const status = (text) => {
   document.querySelector('#origin-status').textContent = text;
@@ -70,6 +93,7 @@ function reset() {
   for (const view of Object.values(views)) view.destroy();
   authority?.destroy();
   views = {};
+  detachedViews.clear();
   authority = new OriginAuthority();
   peers = {};
   historyWarnings = {};
@@ -86,7 +110,7 @@ function reset() {
       schema,
       plugins: [
         ySyncPlugin(peer.doc.getXmlFragment('prosemirror')),
-        yUndoPlugin(),
+        structuralGuard ? authority.historyContext(id).plugin() : yUndoPlugin(),
         keymap({
           'Mod-z': () => {
             historyCommand(id, 'undo');
@@ -141,8 +165,8 @@ function reset() {
         state,
         nodeViews: {
           table: (node, current, getPos) =>
-            tableView(node, current, getPos, (phase, axis) =>
-              tableBoundary(id, current, phase, axis)
+            tableView(node, current, getPos, (phase, axis, tablePos) =>
+              tableBoundary(id, current, phase, axis, tablePos)
             ),
         },
         attributes: {
@@ -209,17 +233,31 @@ document.querySelector('#origin-redo').onclick = () =>
 window.originLab = {
   liveCommand: (command) => commandIngress(command),
   commandSession: () => ingressSession,
-  // Destructive public-view lifecycle probe, not a new production capability.
-  // Reusing EditorState deliberately tests whether this composition's history
-  // actually survives view destruction. Do not hide a lost stack as a pass.
-  recreateView(id) {
-    const old = views[id],
-      state = old.state,
-      props = old.props,
-      place = old.dom.parentNode;
+  // Real view destruction leaves only model/props/container for remount. The
+  // authority-owned history context has no view or binding reference.
+  detachView(id) {
+    const old = views[id];
+    detachedViews.set(id, {
+      state: old.state,
+      props: old.props,
+      place: old.dom.parentNode,
+    });
     old.destroy();
-    views[id] = new EditorView(place, { ...props, state });
+    delete views[id];
+  },
+  attachView(id) {
+    const saved = detachedViews.get(id);
+    if (!saved) throw new Error('VIEW_NOT_DETACHED');
+    views[id] = new EditorView(saved.place, {
+      ...saved.props,
+      state: saved.state,
+    });
+    detachedViews.delete(id);
     return views[id];
+  },
+  recreateView(id) {
+    window.originLab.detachView(id);
+    return window.originLab.attachView(id);
   },
   view: (id) => views[id],
   reset,
@@ -249,7 +287,7 @@ window.originLab = {
     v.focus();
   },
   boundary(id) {
-    yUndoPluginKey.getState(views[id].state).undoManager.stopCapturing();
+    historyManager(id).stopCapturing();
   },
   pause: (id) => authority.pause(id),
   resume: (id) => authority.resume(id),
