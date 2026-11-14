@@ -137,6 +137,7 @@ vi.mock('./layouts/app-layout/AppLayout', async () => {
                 key={space.path}
                 data-path={space.path}
                 data-missing={space.missing ? 'true' : undefined}
+                data-avatar-src={space.avatar?.type === 'image' ? space.avatar.src : undefined}
               />
             ))}
           </ul>
@@ -324,6 +325,30 @@ afterEach(() => {
 const OPENING = 'Opening Clutter…';
 
 describe('AppShell: startup', () => {
+  it('prepares an inactive Space’s image access before publishing its avatar, without opening it', async () => {
+    tauri.isTauri = true;
+    seed(['/Users/me/Active', '/Users/me/Other'], '/Users/me/Active');
+    profileFiles.set('/Users/me/Other', {
+      id: 'other', avatar: { type: 'image', src: 'Assets/avatar.png' },
+    });
+    const imageAccess = deferred<void>();
+    tauri.invoke.mockImplementation(async (command: string, args?: { vaultRoot?: string }) => {
+      if (command === 'allow_vault_asset_scope' && args?.vaultRoot === '/Users/me/Other') {
+        await imageAccess.promise;
+      }
+    });
+    render(<ToastProvider><AppShell /></ToastProvider>);
+    await screen.findByTestId('open-root');
+    await waitFor(() => expect(tauri.invoke).toHaveBeenCalledWith(
+      'allow_vault_asset_scope', { vaultRoot: '/Users/me/Other' }
+    ));
+    const row = () => screen.getByTestId('space-selector').querySelector('[data-path="/Users/me/Other"]');
+    expect(row()).not.toHaveAttribute('data-avatar-src');
+    await act(async () => imageAccess.resolve());
+    await waitFor(() => expect(row()).toHaveAttribute('data-avatar-src', '/Users/me/Other/Assets/avatar.png'));
+    expect(bootstrap.mock.calls.map(([root]) => root)).toEqual(['/Users/me/Active']);
+  });
+
   it('shows the opening screen until the first Space is ready', async () => {
     const gate = deferred<void>();
     gates.set('/web-dev-vault', gate);

@@ -49,13 +49,25 @@ function Initial({ folderName }: { folderName: string }) {
 const isPng = (src: string) => /\.png$/i.test(src.split(/[?#]/)[0] ?? '');
 
 function Image({ url, folderName, bordered }: { url: string; folderName: string; bordered: boolean }) {
-  const [failed, setFailed] = useState(false);
+  const [status, setStatus] = useState<'loading' | 'loaded' | 'failed'>('loading');
 
-  if (failed) {
+  if (status === 'failed') {
     return <Initial folderName={folderName} />;
   }
 
-  return <img className={bordered ? 'space__avatar' : 'space__avatar space__avatar--borderless'} src={url} alt="" onError={() => setFailed(true)} />;
+  return (
+    <>
+      {status === 'loading' && <Initial folderName={folderName} />}
+      <img
+        className={bordered ? 'space__avatar' : 'space__avatar space__avatar--borderless'}
+        src={url}
+        alt=""
+        style={status === 'loading' ? { display: 'none' } : undefined}
+        onLoad={() => setStatus('loaded')}
+        onError={() => setStatus('failed')}
+      />
+    </>
+  );
 }
 
 function Avatar({ avatar, folderName, resolveImageUrl = identity }: SpaceAvatarProps) {
@@ -63,6 +75,7 @@ function Avatar({ avatar, folderName, resolveImageUrl = identity }: SpaceAvatarP
     case 'emoji':
       return avatar.emoji ? <AppIcon emoji={avatar.emoji} /> : <Initial folderName={folderName} />;
     case 'image': {
+      if (!avatar.src.trim()) return <Initial folderName={folderName} />;
       const url = resolveImageUrl(avatar.src);
       // Keyed on the URL so a new image gets a fresh load attempt after an earlier failure.
       return url ? (

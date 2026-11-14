@@ -50,6 +50,48 @@ describe('SpaceAvatar: emoji', () => {
 });
 
 describe('SpaceAvatar: image', () => {
+  it('shows the initial until the image loads successfully', () => {
+    const { container } = renderAvatar({ avatar: { type: 'image', src: 'Assets/avatar.png' } });
+    const image = container.querySelector('img')!;
+    expect(image).not.toBeVisible();
+    expect(container.querySelector('.space__initial')).toHaveTextContent('V');
+    fireEvent.load(image);
+    expect(image).toBeVisible();
+    expect(container.querySelector('.space__initial')).toBeNull();
+  });
+
+  it.each(['', '   '])('does not resolve or load an empty image reference (%j)', (src) => {
+    const resolveImageUrl = vi.fn(() => 'asset://localhost/');
+    const { container } = renderAvatar({ avatar: { type: 'image', src }, resolveImageUrl });
+    expect(resolveImageUrl).not.toHaveBeenCalled();
+    expect(container.querySelector('img')).toBeNull();
+    expect(container.querySelector('.space__initial')).toHaveTextContent('V');
+  });
+
+  it('removes a previous image immediately when the next Space has only an initial', () => {
+    const resolveImageUrl = vi.fn((src: string) => src);
+    const { container, rerender } = renderAvatar({
+      avatar: { type: 'image', src: 'Assets/avatar.png' }, resolveImageUrl,
+    });
+    fireEvent.load(container.querySelector('img')!);
+    resolveImageUrl.mockClear();
+    rerender(<SpaceAvatar folderName="coconut" avatar={{ type: 'initial' }} resolveImageUrl={resolveImageUrl} />);
+    expect(resolveImageUrl).not.toHaveBeenCalled();
+    expect(container.querySelector('img')).toBeNull();
+    expect(container.querySelector('.space__initial')).toHaveTextContent('C');
+  });
+
+  it('does not reuse a loaded image’s visibility for a different image', () => {
+    const { container, rerender } = renderAvatar({ avatar: { type: 'image', src: 'Assets/old.png' } });
+    fireEvent.load(container.querySelector('img')!);
+    rerender(<SpaceAvatar folderName="next" avatar={{ type: 'image', src: 'Assets/new.png' }} />);
+    expect(container.querySelector('img')).not.toBeVisible();
+    expect(container.querySelector('.space__initial')).toHaveTextContent('N');
+    fireEvent.error(container.querySelector('img')!);
+    expect(container.querySelector('img')).toBeNull();
+    expect(container.querySelector('.space__initial')).toHaveTextContent('N');
+  });
+
   it('loads a local asset path through the injected resolver', () => {
     const resolveImageUrl = vi.fn((src: string) => `asset://localhost/${src}`);
     const { container } = renderAvatar({

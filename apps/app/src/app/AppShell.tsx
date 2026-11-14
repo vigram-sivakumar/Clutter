@@ -61,6 +61,7 @@ import {
 import { spacePageId } from '../features/settings/settings-sidebar/SettingsSidebar';
 import { SpacesContext, type SpacesApi } from './spaces/SpacesContext';
 import { localCoverImageUrlResolver } from '../core/vault/providers/LocalCoverImageUrlResolver';
+import { registerVaultAssetScope } from '../core/vault/providers/registerVaultAssetScope';
 import {
   defaultSpaceStorage,
   listSpaces,
@@ -90,9 +91,12 @@ import { MissingSpaceDialog } from '@components/missing-space-dialog/MissingSpac
 
 /** A Space's own profile, read without opening it (read-only, never throws). The web runtime has none. */
 async function readProfileAt(path: string): Promise<SpaceProfile | null> {
-  return isTauri()
-    ? readSpaceProfile(openVaultFileSystem(path), path)
-    : null;
+  if (!isTauri()) return null;
+  const profile = await readSpaceProfile(openVaultFileSystem(path), path);
+  // Inactive Spaces have not passed through Application.open(): make their images
+  // loadable before publishing the avatar, using the same authorized asset scope.
+  if (profile?.avatar?.type === 'image') await registerVaultAssetScope(path);
+  return profile;
 }
 
 /** The avatar a Space carries, ready to show: an image's Space-relative reference becomes its absolute path. */
@@ -108,7 +112,7 @@ function displayAvatar(
 }
 
 /**
- * A Space avatar's image is the absolute path of a file the user picked (it lives outside every Space), so
+ * A Space avatar's image lives inside its Space and is resolved to an absolute path by displayAvatar, so
  * it loads through the Tauri file resolver. Where there is none (the web runtime) it is `null`, which
  * shows the Space's initial instead.
  */
