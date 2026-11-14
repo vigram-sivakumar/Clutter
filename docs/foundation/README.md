@@ -1,13 +1,13 @@
 # Clutter foundation
 
-Status: architecture definition pack, revision 0.5, 2026-11-14. Product scope
+Status: architecture definition pack, revision 0.6, 2026-11-14. Product scope
 confirmed; technology proposals remain unqualified.
 Baseline: `main` at `cae604273115c0c6c0d3ac34533b1e9834e9c778`.
 Working branch: `architecture/clutter-foundation`.
 
 New chat or AI agent: start at [START-HERE](START-HERE.md), then follow the
-[roadmap](roadmap.md). Current next task: R03 conditional document-model/API drafts. R01 inventory is
-complete; R02 specification is drafted with policy review and execution pending.
+[roadmap](roadmap.md). Current next task: R04 conditional persistence specification. R01 inventory is
+complete; R02/R03 drafts have explicit policy/encoding gaps and no new runtime proof.
 
 ## Purpose and authority
 
@@ -17,7 +17,7 @@ live cloud collaboration deferred.
 Evaluate it as a greenfield product. Migration and implementation effort remain
 visible planning dimensions with zero weight in architectural selection.
 
-The 0.2 product scope, retained in 0.5, reflects the user clarification sequence. Earlier draft
+The 0.2 product scope, retained in 0.6, reflects the user clarification sequence. Earlier draft
 requirements superseded by that discussion are replaced in this folder.
 This pack contains requirements and proposals, not an approved implementation
 specification. Existing documentation and `ARCHITECTURE_RULES.md` continue to
@@ -38,6 +38,9 @@ current-system references; they are not copied into competing target specs.
 | [R01 executed evidence](evidence/r01-2026-11-14.json)           | Selected existing-test results and initial load-error/targeted rerun provenance |
 | [Editor interaction specification](editor-interaction-spec.md)  | R02 shared/model-specific behaviours, profile review and native obligations     |
 | [Editor case catalogue](editor-interaction-cases.json)          | 11 semantic fixtures, 72 unexecuted cases; not a canonical schema               |
+| [Document model](document-model-spec.md)                        | R03 logical entities, single ownership, historical closure and M-01–M-07 gaps   |
+| [Command specification](command-api-spec.md)                    | R03 common envelopes, guards, outcomes, reads and inverse contracts             |
+| [API registry/scenarios](model-api-contract-cases.json)         | 51 logical signatures and 24 unexecuted consistency scenarios; not wire schemas |
 | [Product contracts](product-contracts.md)                       | Requirement IDs and initial/future scope                                        |
 | [Confirmed behaviour](product-behaviour.md)                     | Agreed task/property/template/date/comment semantics                            |
 | [Sync and portability](sync-and-portability.md)                 | Opt-in provider policy, concurrency and Windows-ready boundaries                |
@@ -99,3 +102,7 @@ macOS/native/provider qualification is claimed; read inventory/evidence first.
 R02 records the user's clarification that the current Markdown experience is not
 the universal target. Source/structured profiles are evaluated on shared product
 guarantees and their actual UX. No new runtime acceptance was executed for R02.
+
+R03 drafts define semantic ownership/commands without choosing an editor, native
+format or database. Model/API catalogue checks are static specification validation,
+not domain/protocol test execution; R04/R06/R07 must close and qualify the details.

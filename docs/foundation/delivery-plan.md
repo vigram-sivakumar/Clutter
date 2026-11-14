@@ -67,7 +67,8 @@ separate conflicting task order. [START-HERE](START-HERE.md) is the current-sess
 checkpoint and reusable new-chat instruction. Update both at handoff with real
 evidence/status. Revision 0.4 completes the bounded R01 source/wiring inventory and records selected
 existing-test evidence; R02 is now drafted; Q-01–Q-09 policy review/execution remain. R03 conditional
-model/API drafts are next, without silently accepting a profile or engine. No production
+model/API drafts are prepared. R04 persistence contracts are next, without silently
+accepting a profile, encoding or engine. No production
 implementation or native qualification has started.
 The 0.3 resume update patch requires 0.2 file contents and stays on the same branch.
 
@@ -80,3 +81,8 @@ The 0.5 editor-interaction patch requires the exact 0.4 inventory delivery. It
 adds specification/case data, not a runnable test harness, engine choice or product
 implementation. Source/structured behaviour differs deliberately; shared correctness
 and task/page guarantees do not. See R02 policy review before freezing keymaps.
+
+The 0.6 model/API patch requires the exact 0.5 delivery. It adds conditional logical
+contracts and unexecuted cases; no CLI/MCP binary, API server, canonical encoding
+or database is implemented. R04 must prove the proposed atomicity/retention/outcome
+boundaries rather than treating the catalogue as implementation-ready signatures.

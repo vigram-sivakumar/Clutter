@@ -1,6 +1,6 @@
 # System architecture and ownership
 
-Status: proposed mechanisms under confirmed product scope, revision 0.2.
+Status: proposed mechanisms under confirmed product scope, revision 0.6.
 See [product behaviour](product-behaviour.md) for entity rules and
 [sync and portability](sync-and-portability.md) for provider/phase boundaries.
 
@@ -111,3 +111,17 @@ A successful local save cannot be forgotten by the uploader after restart. Inbou
 validation/current-state changes/history and catch-up progress must be replay-safe.
 The detailed outbox/status/process lifetime contract lives in
 [sync and portability](sync-and-portability.md), not independently in each adapter.
+
+## R03 contract boundary
+
+[Document model](document-model-spec.md) defines logical entity/placement/content
+ownership and DM-01–DM-15 invariants; [command specification](command-api-spec.md)
+and [operation/scenario catalogue](model-api-contract-cases.json) define the shared
+mutation/query boundary. These are conditional proposals, not a selected physical
+schema or implementation. In particular, body structure and task location each have
+one authoritative relation; reverse indexes/views do not become independent writers.
+
+R02 Q-01–Q-09 and model M-01–M-07 remain explicit. R04 must prove persistence of
+coherent effect sets, outcomes/history and outbox rather than treating these names
+as an already transactional architecture. Provider task-placement coherence remains
+a separate enablement blocker; no library/database is accepted by the R03 draft.

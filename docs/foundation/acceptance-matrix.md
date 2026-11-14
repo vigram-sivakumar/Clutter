@@ -53,3 +53,18 @@ Do not freeze current Markdown Enter/marker/indent behaviour as universal accept
 for structured candidates. Compare shared guarantees and required Clutter semantics;
 report source/structured profile UX separately. Exploratory profile runs may inform
 review without turning unresolved proposals into binding acceptance or failures.
+
+## R03 model and API references
+
+[Document model](document-model-spec.md), [command specification](command-api-spec.md)
+and [operation/scenario catalogue](model-api-contract-cases.json) add DM-01–DM-15
+and MC-01–MC-24. These are conditional logical contracts and unexecuted scenarios,
+not passing domain/protocol tests. They cover identity/single placement, operation
+replay-before-stale-guard ordering, local versus provider authority, restore/pin
+closure, recurrence deduplication and failure protection relevant to T-02–T-14/
+T-17–T-20. They are not exhaustive coverage of all 51 operation sketches.
+
+R04/R06 must expand actual schemas/limits/failure-point cases and R07 must execute
+them. R02 profile choices and M-01–M-07 cannot be silently resolved in an adapter
+or an invented storage schema. A JSON catalogue that parses is not evidence that
+any proposed command implementation exists or preserves these invariants.

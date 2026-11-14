@@ -27,6 +27,17 @@ binding pass/fail. Freeze agreed outcomes before product acceptance. Maintain
 native/IME/focus requirements for every model and do not count source-only syntax
 checks against a candidate that has no editable syntax markers.
 
+## R03 contract input
+
+[Model](document-model-spec.md), [API](command-api-spec.md) and
+[MC scenarios/operation registry](model-api-contract-cases.json) supply logical
+ownership, preconditions, idempotency and outcome cases. Implement only a scoped
+isolated harness after relevant contracts/wire shapes are ready; catalogue files
+are not a runtime validator. Include stale restore after task move, retry after a
+lost response with stale expected tokens, concurrent duplicate admission, pinned
+historical task content and interrupted state/outcome/outbox persistence. Keep
+M-01–M-07/Q-01–Q-09 policy gaps visible in pass/fail/blocked reporting.
+
 ## Stage A: local vertical slice
 
 1. Start one headless Space authority; attach two panes then two native windows

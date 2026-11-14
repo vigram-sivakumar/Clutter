@@ -1,0 +1,1527 @@
+{
+  "document": "R03 logical operation registry and contract scenario catalogue",
+  "revision": "0.6",
+  "date": "2026-11-14",
+  "api_version": "draft-1",
+  "status": "conditional specification only; not executable schemas, runtime API or passing tests",
+  "operation_signature_authority": "Logical per-operation signatures live here; common envelope/execution semantics in command-api-spec.md, entity invariants in document-model-spec.md.",
+  "operations": [
+    {
+      "id": "space.inspect",
+      "kind": "query",
+      "payload": {
+        "spaceId": "SpaceId from envelope"
+      },
+      "guards": ["read grant"],
+      "effects": [],
+      "result": "Space identity, supported schema/API capabilities, local authority epoch, health and scoped sync status",
+      "owner": "Space authority",
+      "access": "space.read",
+      "model_invariants": ["DM-01", "DM-15"],
+      "interaction_cases": [],
+      "open_policies": [],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "document.read",
+      "kind": "query",
+      "payload": {
+        "entityId": "NoteId or TaskId",
+        "format": "semantic projection or loss-reported Markdown"
+      },
+      "guards": ["read grant", "supported format/version"],
+      "effects": [],
+      "result": "ReadSnapshot, entity revision, content/fields and referenced coherent state descriptors; no editor required",
+      "owner": "Content/query core",
+      "access": "content.read",
+      "model_invariants": ["DM-01", "DM-04", "DM-11"],
+      "interaction_cases": ["EI-030", "EI-034"],
+      "open_policies": [],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "note.create",
+      "kind": "command",
+      "payload": {
+        "role": "note or daily-note; template role conditional",
+        "title": "text",
+        "body": "BodyInput: validated semantic content or core-decoded bounded interchange source",
+        "folderId": "FolderId or logical root",
+        "dailyDate": "fixed calendar date only for daily note"
+      },
+      "guards": [
+        "edit grant",
+        "destination structure revision",
+        "daily identity rule M-07"
+      ],
+      "effects": [
+        "new note and owned IDs",
+        "one folder membership",
+        "history/outcome/publication intent under R04"
+      ],
+      "result": "EntityId, state/structure revisions, identity map",
+      "owner": "Note operations",
+      "access": "content.edit",
+      "model_invariants": ["DM-01", "DM-02", "DM-06", "DM-13"],
+      "interaction_cases": [],
+      "open_policies": ["M-07"],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "document.applyEdits",
+      "kind": "command",
+      "payload": {
+        "entityId": "content target",
+        "edits": "versioned allowlisted ChangeSet",
+        "profile": "declared source/structured semantics for profile-dependent intents"
+      },
+      "guards": [
+        "expected entity/structure revisions",
+        "range/anchor validity",
+        "schema and lifecycle effects"
+      ],
+      "effects": [
+        "one validated content effect set",
+        "mapped view changes",
+        "history group metadata"
+      ],
+      "result": "Updated revisions, change group and anchor mapping or resnapshot requirement",
+      "owner": "Content operations",
+      "access": "content.edit",
+      "model_invariants": [
+        "DM-01",
+        "DM-02",
+        "DM-04",
+        "DM-13",
+        "DM-14",
+        "DM-05"
+      ],
+      "interaction_cases": [
+        "EI-001",
+        "EI-002",
+        "EI-014",
+        "EI-017",
+        "EI-023",
+        "EI-051",
+        "EI-055",
+        "EI-057"
+      ],
+      "open_policies": ["Q-01", "Q-02", "Q-04", "Q-09"],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "document.planInterchangeReplace",
+      "kind": "query",
+      "payload": {
+        "entityId": "target",
+        "source": "bounded Markdown/native bytes or staged reference",
+        "format": "versioned decoder"
+      },
+      "guards": [
+        "read/edit-plan grant",
+        "current revision",
+        "source size/schema"
+      ],
+      "effects": [],
+      "result": "PlanToken, decoded intended effects, loss report, task/asset/opaque-content closure and current revision guards",
+      "owner": "Interchange planner",
+      "access": "content.edit",
+      "model_invariants": ["DM-04", "DM-10", "DM-13", "DM-14"],
+      "interaction_cases": ["EI-055", "EI-057"],
+      "open_policies": [],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "document.commitInterchangeReplace",
+      "kind": "command",
+      "payload": {
+        "planToken": "unexpired plan bound to source/effects"
+      },
+      "guards": [
+        "edit grant",
+        "all planned current revisions",
+        "loss/closure policy"
+      ],
+      "effects": [
+        "validated planned effects only",
+        "history/outcome/publication intent"
+      ],
+      "result": "Revisions and effect/identity map, or stale/unsupported/loss rejection",
+      "owner": "Interchange/content operations",
+      "access": "content.edit",
+      "model_invariants": ["DM-03", "DM-04", "DM-10", "DM-13", "DM-14"],
+      "interaction_cases": ["EI-055", "EI-057"],
+      "open_policies": [],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "folder.create",
+      "kind": "command",
+      "payload": {
+        "name": "text",
+        "parentFolderId": "FolderId or root"
+      },
+      "guards": [
+        "edit grant",
+        "expected parent structure",
+        "name/cycle validation"
+      ],
+      "effects": ["new FolderId and canonical organisation edge"],
+      "result": "FolderId and structure revision",
+      "owner": "Organisation operations",
+      "access": "content.edit",
+      "model_invariants": ["DM-01", "DM-02", "DM-06"],
+      "interaction_cases": [],
+      "open_policies": [],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "folder.move",
+      "kind": "command",
+      "payload": {
+        "folderId": "FolderId",
+        "destinationParent": "FolderId or root",
+        "name": "optional explicit rename"
+      },
+      "guards": [
+        "expected folder/source/destination structure",
+        "no cycle",
+        "edit grant"
+      ],
+      "effects": ["one organisation relocation/rename", "identity unchanged"],
+      "result": "Revisions and derived path invalidation hints",
+      "owner": "Organisation operations",
+      "access": "content.edit",
+      "model_invariants": ["DM-01", "DM-02", "DM-06"],
+      "interaction_cases": [],
+      "open_policies": [],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "task.create",
+      "kind": "command",
+      "payload": {
+        "title": "text",
+        "location": "inbox by default or explicit note/anchor",
+        "body": "optional validated content",
+        "fields": "supported standard/custom input"
+      },
+      "guards": [
+        "edit grant",
+        "expected destination structure",
+        "allowed single placement"
+      ],
+      "effects": ["new TaskId, one placement, owned body/property IDs"],
+      "result": "TaskId, placementId, state/structure revisions",
+      "owner": "Task operations",
+      "access": "content.edit",
+      "model_invariants": ["DM-01", "DM-03", "DM-04", "DM-06"],
+      "interaction_cases": ["EI-035"],
+      "open_policies": [],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "task.move",
+      "kind": "command",
+      "payload": {
+        "taskId": "TaskId",
+        "destination": "Inbox or NoteId + InsertAnchor"
+      },
+      "guards": [
+        "edit grant",
+        "expected placement/source/destination structure",
+        "coherent location"
+      ],
+      "effects": [
+        "same task relocated once",
+        "body/fields/history unchanged",
+        "atomic placement effect"
+      ],
+      "result": "Placement/current structure revisions and change group",
+      "owner": "Task placement operations",
+      "access": "content.edit",
+      "model_invariants": ["DM-02", "DM-03", "DM-04", "DM-06"],
+      "interaction_cases": ["EI-036", "EI-038"],
+      "open_policies": ["Q-05", "M-02", "M-06"],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "task.copy",
+      "kind": "command",
+      "payload": {
+        "taskId": "source TaskId",
+        "destination": "Inbox or NoteId + InsertAnchor"
+      },
+      "guards": [
+        "source revision",
+        "destination structure revision",
+        "edit grant",
+        "copy policy"
+      ],
+      "effects": [
+        "new independent TaskId and owned body/property/placement identities",
+        "source unchanged"
+      ],
+      "result": "New IDs/reference map, revisions; repeat-series mapping if applicable",
+      "owner": "Task copy operations",
+      "access": "content.edit",
+      "model_invariants": ["DM-01", "DM-03", "DM-04", "DM-06"],
+      "interaction_cases": ["EI-037", "EI-058"],
+      "open_policies": ["M-02", "M-05"],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "task.setFields",
+      "kind": "command",
+      "payload": {
+        "taskId": "TaskId",
+        "changes": "explicit standard-field patches, separate from custom-property API"
+      },
+      "guards": ["task expected revision", "typed fields", "edit grant"],
+      "effects": [
+        "one task field change",
+        "completion mutation routed to task.complete, not hidden in arbitrary patch"
+      ],
+      "result": "Task revision and affected query/scheduler hints",
+      "owner": "Task operations",
+      "access": "content.edit",
+      "model_invariants": ["DM-04", "DM-07", "DM-09"],
+      "interaction_cases": ["EI-019", "EI-042"],
+      "open_policies": ["M-03"],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "task.complete",
+      "kind": "command",
+      "payload": {
+        "taskId": "TaskId",
+        "transition": "explicit complete or reopen intent"
+      },
+      "guards": [
+        "task expected revision",
+        "series/occurrence generation preconditions",
+        "edit grant"
+      ],
+      "effects": [
+        "completion state",
+        "when eligible one distinct next future occurrence, empty body",
+        "coherent effect group"
+      ],
+      "result": "Affected task/series/placement revisions, next TaskId or no generation",
+      "owner": "Task/scheduler operations",
+      "access": "content.edit",
+      "model_invariants": ["DM-03", "DM-04", "DM-08"],
+      "interaction_cases": ["EI-022", "EI-042"],
+      "open_policies": ["Q-06", "M-05"],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "task.delete",
+      "kind": "command",
+      "payload": {
+        "taskId": "TaskId",
+        "placementId": "known sole placement"
+      },
+      "guards": [
+        "task/placement revisions",
+        "edit grant",
+        "logical delete lifecycle"
+      ],
+      "effects": [
+        "task and placement logically deleted",
+        "owned body/fields recoverable"
+      ],
+      "result": "Tombstone/state revisions and effect group",
+      "owner": "Task lifecycle operations",
+      "access": "content.edit",
+      "model_invariants": ["DM-03", "DM-04", "DM-10", "DM-12"],
+      "interaction_cases": ["EI-039"],
+      "open_policies": ["Q-02"],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "entity.archive",
+      "kind": "command",
+      "payload": {
+        "entityId": "supported note/folder target; independent-task archive is not implicitly added",
+        "archive": "true or false"
+      },
+      "guards": [
+        "target/current ownership revisions",
+        "edit grant",
+        "supported scope"
+      ],
+      "effects": [
+        "effective archive/unarchive",
+        "derived task visibility/reminder eligibility update",
+        "no missed reminder replay"
+      ],
+      "result": "Affected revisions and lifecycle closure descriptor",
+      "owner": "Entity lifecycle operations",
+      "access": "content.edit",
+      "model_invariants": ["DM-03", "DM-09", "DM-15"],
+      "interaction_cases": [],
+      "open_policies": ["M-06"],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "note.delete",
+      "kind": "command",
+      "payload": {
+        "noteId": "NoteId"
+      },
+      "guards": ["note/owned task placement closure revisions", "edit grant"],
+      "effects": [
+        "note and owned tasks logically deleted together",
+        "historical closure protected"
+      ],
+      "result": "Tombstones/revisions/affected closure",
+      "owner": "Note lifecycle operations",
+      "access": "content.edit",
+      "model_invariants": ["DM-03", "DM-04", "DM-10", "DM-12"],
+      "interaction_cases": ["EI-033", "EI-039"],
+      "open_policies": ["Q-08", "M-04"],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "entity.planRestoreDeleted",
+      "kind": "query",
+      "payload": {
+        "entityId": "deleted root",
+        "sourceState": "retained deletion/VersionId"
+      },
+      "guards": [
+        "read/history grant",
+        "source retained",
+        "current state inspection"
+      ],
+      "effects": [],
+      "result": "PlanToken and identity/ownership/media conflicts; no implicit relocation",
+      "owner": "Lifecycle/history planner",
+      "access": "history.restore",
+      "model_invariants": ["DM-03", "DM-10", "DM-11", "DM-12"],
+      "interaction_cases": [],
+      "open_policies": ["M-04"],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "entity.restoreDeleted",
+      "kind": "command",
+      "payload": {
+        "planToken": "validated deleted-state restore plan"
+      },
+      "guards": [
+        "restore grant",
+        "plan/current revision guards",
+        "explicit conflict resolution"
+      ],
+      "effects": [
+        "new current revisions for restored valid closure",
+        "immutable old states retained"
+      ],
+      "result": "Restored IDs/revisions and provenance",
+      "owner": "Lifecycle/history operations",
+      "access": "history.restore",
+      "model_invariants": ["DM-03", "DM-10", "DM-11", "DM-12"],
+      "interaction_cases": ["EI-039", "EI-059"],
+      "open_policies": ["M-04"],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "property.set",
+      "kind": "command",
+      "payload": {
+        "ownerId": "NoteId or TaskId",
+        "propertyId": "existing property or allocate new local identity",
+        "definition": "type/label/options when creating",
+        "value": "typed value"
+      },
+      "guards": [
+        "entity/property expected revision",
+        "edit grant",
+        "typed schema"
+      ],
+      "effects": [
+        "one entity-local custom property value/definition",
+        "no collection schema creation"
+      ],
+      "result": "Entity/property revision and new PropertyId when created",
+      "owner": "Property operations",
+      "access": "content.edit",
+      "model_invariants": ["DM-01", "DM-07"],
+      "interaction_cases": ["EI-034"],
+      "open_policies": ["M-03"],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "property.convertType",
+      "kind": "command",
+      "payload": {
+        "ownerId": "NoteId or TaskId",
+        "propertyId": "PropertyId",
+        "newType": "supported type",
+        "conversion": "explicit loss-aware conversion intent"
+      },
+      "guards": ["expected revision", "edit grant", "conversion validation"],
+      "effects": [
+        "change one local property type/value or reject without effect"
+      ],
+      "result": "Revision plus loss/refusal details, never silent coercion",
+      "owner": "Property operations",
+      "access": "content.edit",
+      "model_invariants": ["DM-07", "DM-14"],
+      "interaction_cases": [],
+      "open_policies": ["M-03"],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "property.remove",
+      "kind": "command",
+      "payload": {
+        "ownerId": "NoteId or TaskId",
+        "propertyId": "custom PropertyId"
+      },
+      "guards": [
+        "expected revision",
+        "edit grant",
+        "not a standard-field alias"
+      ],
+      "effects": ["remove only local custom property; history preserved"],
+      "result": "Revision/effect group",
+      "owner": "Property operations",
+      "access": "content.edit",
+      "model_invariants": ["DM-07", "DM-11"],
+      "interaction_cases": [],
+      "open_policies": [],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "template.apply",
+      "kind": "command",
+      "payload": {
+        "templateId": "template source",
+        "targetId": "existing/draft note",
+        "applicationPolicy": "explicit reviewed merge/replace mode"
+      },
+      "guards": [
+        "source/target revisions",
+        "edit grant",
+        "copy identity mapping"
+      ],
+      "effects": ["one-time content/property copy", "no ongoing template link"],
+      "result": "Target revisions and copy map",
+      "owner": "Template/content operations",
+      "access": "content.edit",
+      "model_invariants": ["DM-02", "DM-06", "DM-07"],
+      "interaction_cases": ["EI-024"],
+      "open_policies": ["M-02", "M-03"],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "page.convertSelection",
+      "kind": "command",
+      "payload": {
+        "sourceId": "NoteId",
+        "selection": "guarded text/block range",
+        "destination": "folder/creation target",
+        "title": "optional explicit title"
+      },
+      "guards": [
+        "source/destination revisions",
+        "edit grant",
+        "supported selection lifecycle"
+      ],
+      "effects": [
+        "new page",
+        "move selection and replace source with page reference",
+        "all-or-nothing valid closure"
+      ],
+      "result": "New EntityId, revisions and source selection mapping",
+      "owner": "Page conversion operations",
+      "access": "content.edit",
+      "model_invariants": ["DM-01", "DM-02", "DM-03", "DM-06"],
+      "interaction_cases": ["EI-043", "EI-044"],
+      "open_policies": ["Q-01", "Q-02", "Q-05", "M-02"],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "reminder.set",
+      "kind": "command",
+      "payload": {
+        "ownerEntity": "NoteId or TaskId",
+        "targetBlockOrField": "stable block/standard field identity",
+        "reminder": "explicit enabled definition or remove"
+      },
+      "guards": ["target revision", "edit grant", "date/time-zone validation"],
+      "effects": [
+        "reminder definition only",
+        "eligibility derived from archive/lifecycle"
+      ],
+      "result": "Revision and scheduler invalidation token",
+      "owner": "Reminder operations",
+      "access": "content.edit",
+      "model_invariants": ["DM-09", "DM-15"],
+      "interaction_cases": ["EI-019", "EI-020"],
+      "open_policies": ["M-05"],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "history.list",
+      "kind": "query",
+      "payload": {
+        "entityId": "EntityId",
+        "cursor": "optional bounded history cursor",
+        "filter": "supported version filter"
+      },
+      "guards": ["history read grant"],
+      "effects": [],
+      "result": "Retained version descriptors, pin metadata and history catalogue snapshot/cursor",
+      "owner": "History queries",
+      "access": "history.read",
+      "model_invariants": ["DM-10", "DM-11", "DM-15"],
+      "interaction_cases": [],
+      "open_policies": [],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "history.read",
+      "kind": "query",
+      "payload": {
+        "versionId": "VersionId",
+        "format": "manifest/content/diff against explicit other revision"
+      },
+      "guards": ["history read grant", "required state/decoder retained"],
+      "effects": [],
+      "result": "Immutable manifest and reconstructable owned closure or explicit unavailable/incomplete state",
+      "owner": "History queries",
+      "access": "history.read",
+      "model_invariants": ["DM-10", "DM-11", "DM-14"],
+      "interaction_cases": ["EI-059"],
+      "open_policies": [],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "history.setPin",
+      "kind": "command",
+      "payload": {
+        "versionId": "VersionId",
+        "pinned": "boolean"
+      },
+      "guards": [
+        "history write grant",
+        "history catalogue revision",
+        "version exists"
+      ],
+      "effects": [
+        "pin metadata update; root protection changes",
+        "current document body untouched"
+      ],
+      "result": "History catalogue revision, effective pin state",
+      "owner": "History operations",
+      "access": "history.edit",
+      "model_invariants": ["DM-10", "DM-11", "DM-15"],
+      "interaction_cases": [],
+      "open_policies": [],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "history.planRestore",
+      "kind": "query",
+      "payload": {
+        "entityId": "current/deleted root",
+        "versionId": "retained source VersionId"
+      },
+      "guards": [
+        "history read/restore-plan grant",
+        "current/source state readable"
+      ],
+      "effects": [],
+      "result": "Guarded PlanToken, closure, loss/conflict set and exact source/current token binding",
+      "owner": "History planner",
+      "access": "history.restore",
+      "model_invariants": ["DM-03", "DM-10", "DM-11", "DM-12"],
+      "interaction_cases": ["EI-059"],
+      "open_policies": ["M-04"],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "history.restore",
+      "kind": "command",
+      "payload": {
+        "planToken": "version restore plan"
+      },
+      "guards": [
+        "restore grant",
+        "current closure revisions",
+        "plan source/schema/expiry",
+        "ownership validation"
+      ],
+      "effects": [
+        "new current revisions/provenance",
+        "no destructive history rewind"
+      ],
+      "result": "Affected IDs/revisions and source VersionId provenance",
+      "owner": "History operations",
+      "access": "history.restore",
+      "model_invariants": ["DM-03", "DM-10", "DM-11", "DM-12"],
+      "interaction_cases": ["EI-059"],
+      "open_policies": ["Q-05", "M-04"],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "asset.import",
+      "kind": "command",
+      "payload": {
+        "stagedSource": "bounded file/bytes descriptor",
+        "mediaKind": "image or PDF",
+        "displayName": "optional human filename"
+      },
+      "guards": [
+        "asset import grant",
+        "source validation/size limits",
+        "integrity/availability checks"
+      ],
+      "effects": [
+        "staged then valid asset descriptor/content",
+        "no falsely durable document reference"
+      ],
+      "result": "AssetId, integrity/availability/retention handle for later binding",
+      "owner": "Asset lifecycle operations",
+      "access": "asset.import",
+      "model_invariants": ["DM-01", "DM-10", "DM-14"],
+      "interaction_cases": ["EI-049", "EI-050", "EI-056"],
+      "open_policies": [],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "collection.query",
+      "kind": "query",
+      "payload": {
+        "collectionKind": "predefined registered view",
+        "filterSort": "supported predefined fields",
+        "cursor": "optional snapshot-bound cursor"
+      },
+      "guards": ["read grant", "registered fields/layout-independent query"],
+      "effects": [],
+      "result": "Rows referencing authoritative entities, freshness and pagination snapshot; custom labels do not define columns",
+      "owner": "Derived query core",
+      "access": "content.read",
+      "model_invariants": ["DM-01", "DM-03", "DM-07", "DM-15"],
+      "interaction_cases": ["EI-035", "EI-042"],
+      "open_policies": [],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "search.query",
+      "kind": "query",
+      "payload": {
+        "query": "bounded text",
+        "scope": "Space/filter",
+        "cursor": "optional query/snapshot-bound cursor"
+      },
+      "guards": ["read grant", "limits"],
+      "effects": [],
+      "result": "Entity references/snippets plus applied index freshness and snapshot/cursor contract",
+      "owner": "Search/index queries",
+      "access": "content.read",
+      "model_invariants": ["DM-01", "DM-15"],
+      "interaction_cases": [],
+      "open_policies": [],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "context.undo",
+      "kind": "command",
+      "payload": {
+        "contextId": "owned editing context",
+        "historyActionId": "eligible inverse intent or explicit undo-head token"
+      },
+      "guards": [
+        "context ownership",
+        "inverse guards and mapped dependencies",
+        "edit grant"
+      ],
+      "effects": [
+        "only eligible safe inverse effects or explicit refusal",
+        "not version rewind"
+      ],
+      "result": "New revisions/group and selection mapping, or conflict/refusal",
+      "owner": "Context history + domain validator",
+      "access": "context.edit",
+      "model_invariants": ["DM-03", "DM-06", "DM-12", "DM-13"],
+      "interaction_cases": ["EI-026", "EI-027", "EI-028", "EI-029", "EI-052"],
+      "open_policies": ["Q-05", "Q-06", "Q-07"],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "operation.inspect",
+      "kind": "query",
+      "payload": {
+        "operationId": "same trusted namespace identity"
+      },
+      "guards": ["current operation/Space access grant"],
+      "effects": [],
+      "result": "Known retained outcome, pending/uncertain status or explicit expired/unknown; never inference that not-found means safe to repeat",
+      "owner": "Operation authority",
+      "access": "operation.read",
+      "model_invariants": ["DM-13", "DM-15"],
+      "interaction_cases": ["EI-038"],
+      "open_policies": [],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "sync.configure",
+      "kind": "command",
+      "payload": {
+        "provider": "iCloud or Google Drive candidate",
+        "enabled": "explicit opt-in",
+        "scope": "approved Space/device settings scope"
+      },
+      "guards": [
+        "settings grant",
+        "provider qualified and access valid",
+        "expected settings revision"
+      ],
+      "effects": [
+        "local configuration/pending transfer policy; no forced network body rewrite"
+      ],
+      "result": "Settings revision and explicitly scoped sync status",
+      "owner": "Sync configuration policy",
+      "access": "sync.configure",
+      "model_invariants": ["DM-13", "DM-15"],
+      "interaction_cases": [],
+      "open_policies": ["M-06"],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "sync.ingest",
+      "kind": "internal-command",
+      "payload": {
+        "package": "validated staged state/effect manifest reference",
+        "provenance": "trusted transport + claimed origin checked"
+      },
+      "guards": [
+        "internal ingest capability",
+        "integrity/schema/completeness/order/ownership rules"
+      ],
+      "effects": [
+        "retain winner and received overwritten states",
+        "apply valid coherent current-state set or retain pending/blocked"
+      ],
+      "result": "Outcome/revisions/history refs/catch-up checkpoint",
+      "owner": "Core provider reconciler",
+      "access": "internal.sync",
+      "model_invariants": [
+        "DM-03",
+        "DM-08",
+        "DM-10",
+        "DM-11",
+        "DM-13",
+        "DM-14"
+      ],
+      "interaction_cases": ["EI-031", "EI-032"],
+      "open_policies": ["Q-07", "M-06"],
+      "phase": "provider-enablement",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "snapshot.describe",
+      "kind": "internal-query",
+      "payload": {
+        "spaceId": "SpaceId",
+        "scope": "consistent current/history/media roots"
+      },
+      "guards": ["internal snapshot capability", "retention/snapshot lifetime"],
+      "effects": [],
+      "result": "Consistent immutable root manifest/lease for future backup/export tooling; no scheduler",
+      "owner": "Persistence snapshot boundary",
+      "access": "internal.snapshot",
+      "model_invariants": ["DM-10", "DM-11", "DM-15"],
+      "interaction_cases": [],
+      "open_policies": [],
+      "phase": "initial-boundary; automatic-backup deferred",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "comment.mutate",
+      "kind": "reserved",
+      "payload": {
+        "threadOrAnchor": "versioned anchored discussion identity",
+        "intent": "add/reply/resolve per later comment spec"
+      },
+      "guards": [
+        "comment phase approved",
+        "supported local/future access boundary",
+        "anchor revisions"
+      ],
+      "effects": ["thread mutation with explicit historical closure"],
+      "result": "Thread/content revision and anchor mapping",
+      "owner": "Comment/history operations",
+      "access": "comment.edit",
+      "model_invariants": ["DM-02", "DM-11", "DM-14"],
+      "interaction_cases": ["EI-059"],
+      "open_policies": [],
+      "phase": "comment-delivery unresolved",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "note.move",
+      "kind": "command",
+      "payload": {
+        "noteId": "NoteId",
+        "destinationFolder": "FolderId or root",
+        "anchor": "optional valid organisation order anchor"
+      },
+      "guards": [
+        "expected note/source/destination membership revisions",
+        "edit grant"
+      ],
+      "effects": [
+        "one canonical folder membership move",
+        "note/task identity and content unchanged"
+      ],
+      "result": "Note/organisation revisions and query invalidation",
+      "owner": "Organisation/note operations",
+      "access": "content.edit",
+      "model_invariants": ["DM-01", "DM-02", "DM-06"],
+      "interaction_cases": [],
+      "open_policies": [],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "document.setMetadata",
+      "kind": "command",
+      "payload": {
+        "entityId": "NoteId or TaskId",
+        "changes": "allowlisted title/description/icon/cover/attribution/noteTags/aliases as supported by entity schema"
+      },
+      "guards": [
+        "expected entity revision",
+        "edit grant",
+        "field type/reference validation"
+      ],
+      "effects": [
+        "one authoritative entity metadata change",
+        "no arbitrary property/placement bypass"
+      ],
+      "result": "State revision and affected reference/query hints",
+      "owner": "Content metadata operations",
+      "access": "content.edit",
+      "model_invariants": ["DM-01", "DM-04", "DM-07", "DM-10"],
+      "interaction_cases": ["EI-034", "EI-040"],
+      "open_policies": ["M-03"],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "settings.set",
+      "kind": "command",
+      "payload": {
+        "scope": "typed application/Space/device-view scope",
+        "key": "registered setting ID",
+        "value": "typed value"
+      },
+      "guards": [
+        "scope grant",
+        "expected settings revision",
+        "registered key/schema",
+        "qualified provider policy when enabling sync"
+      ],
+      "effects": [
+        "one settings owner update",
+        "no body/history mutation solely for presentation"
+      ],
+      "result": "Settings revision and affected subscriptions",
+      "owner": "Scoped settings operations",
+      "access": "settings.edit",
+      "model_invariants": ["DM-09", "DM-15"],
+      "interaction_cases": ["EI-020"],
+      "open_policies": [],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "context.redo",
+      "kind": "command",
+      "payload": {
+        "contextId": "owned editing context",
+        "historyActionId": "eligible redo intent/head token"
+      },
+      "guards": [
+        "context ownership",
+        "current reapply guards/mappings",
+        "edit grant"
+      ],
+      "effects": ["safe reapply of eligible action only or explicit refusal"],
+      "result": "Revisions/group/mapping or conflict",
+      "owner": "Context history + domain validator",
+      "access": "context.edit",
+      "model_invariants": ["DM-03", "DM-06", "DM-12", "DM-13"],
+      "interaction_cases": ["EI-023", "EI-026", "EI-029", "EI-052"],
+      "open_policies": ["Q-05", "Q-06", "Q-07"],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "asset.read",
+      "kind": "query",
+      "payload": {
+        "assetId": "AssetId",
+        "representation": "original/preview descriptor"
+      },
+      "guards": ["asset read grant", "retained/reference availability"],
+      "effects": [],
+      "result": "Integrity/kind/size and bounded content handle or explicit pending/missing state",
+      "owner": "Asset query core",
+      "access": "content.read",
+      "model_invariants": ["DM-01", "DM-10"],
+      "interaction_cases": ["EI-048", "EI-050"],
+      "open_policies": [],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "history.createCheckpoint",
+      "kind": "command",
+      "payload": {
+        "entityId": "root entity",
+        "label": "optional text"
+      },
+      "guards": [
+        "history write grant",
+        "expected coherent closure revision",
+        "retention/availability"
+      ],
+      "effects": [
+        "one retained manifest of coherent entity/owned task/comment/asset closure",
+        "body not rewritten"
+      ],
+      "result": "VersionId and history catalogue revision",
+      "owner": "History operations",
+      "access": "history.edit",
+      "model_invariants": ["DM-10", "DM-11", "DM-15"],
+      "interaction_cases": [],
+      "open_policies": [],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "interchange.export",
+      "kind": "query",
+      "payload": {
+        "roots": "entity/Space/version roots",
+        "format": "versioned native bundle or loss-reported Markdown",
+        "include": "explicit supported history/assets scope"
+      },
+      "guards": [
+        "read/history/export grant as applicable",
+        "coherent snapshot lease",
+        "format support"
+      ],
+      "effects": [],
+      "result": "Consistent manifest/stream descriptor, fidelity report and included/excluded scope; not automatic backup scheduling",
+      "owner": "Interchange/snapshot queries",
+      "access": "content.read",
+      "model_invariants": ["DM-01", "DM-10", "DM-11", "DM-14"],
+      "interaction_cases": [],
+      "open_policies": [],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "interchange.planImport",
+      "kind": "query",
+      "payload": {
+        "source": "bounded staged native/Markdown package",
+        "mode": "create/fork/restore/merge as supported",
+        "destination": "Space/folder/inbox scope"
+      },
+      "guards": [
+        "import plan grant",
+        "decode/integrity/limits",
+        "collision inspection"
+      ],
+      "effects": [],
+      "result": "PlanToken, ID/reference map, closure/loss/conflict report and exact destination guards",
+      "owner": "Interchange planner",
+      "access": "content.edit",
+      "model_invariants": ["DM-01", "DM-03", "DM-06", "DM-10", "DM-14"],
+      "interaction_cases": [],
+      "open_policies": ["M-02", "M-04"],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "interchange.commitImport",
+      "kind": "command",
+      "payload": {
+        "planToken": "import plan with explicit mode/resolutions"
+      },
+      "guards": [
+        "import grant",
+        "current source/destination guards",
+        "valid closure"
+      ],
+      "effects": [
+        "planned all-or-nothing import or explicitly independent partial batch",
+        "history/outcome/publication intent"
+      ],
+      "result": "IDs/revisions/effects, no hidden merge from path matching",
+      "owner": "Interchange/domain operations",
+      "access": "content.edit",
+      "model_invariants": [
+        "DM-01",
+        "DM-03",
+        "DM-06",
+        "DM-10",
+        "DM-13",
+        "DM-14"
+      ],
+      "interaction_cases": [],
+      "open_policies": ["M-02", "M-04", "M-06"],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "changes.readSince",
+      "kind": "query",
+      "payload": {
+        "cursor": "authority epoch/local feed token",
+        "scope": "granted entity/Space filter"
+      },
+      "guards": ["read grant", "cursor/scope validity"],
+      "effects": [],
+      "result": "Complete supported catch-up page or explicit resnapshot boundary, current token and projection freshness",
+      "owner": "Read/subscription core",
+      "access": "content.read",
+      "model_invariants": ["DM-01", "DM-13", "DM-15"],
+      "interaction_cases": ["EI-031"],
+      "open_policies": [],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "recovery.list",
+      "kind": "query",
+      "payload": {
+        "scope": "Space/session roots"
+      },
+      "guards": ["recovery read grant", "active-owner discovery rules"],
+      "effects": [],
+      "result": "Protected pending-work descriptors with base revisions and conflict/missing/active-owner state; not automatically current content",
+      "owner": "Recovery queries",
+      "access": "recovery.read",
+      "model_invariants": ["DM-01", "DM-10", "DM-13", "DM-15"],
+      "interaction_cases": ["EI-033"],
+      "open_policies": [],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "recovery.resolve",
+      "kind": "command",
+      "payload": {
+        "recordId": "protected recovery record",
+        "intent": "guarded apply or save-as-new; discard separately gated by Q-08"
+      },
+      "guards": [
+        "recovery grant",
+        "record/current revisions",
+        "ownership/active-owner checks"
+      ],
+      "effects": [
+        "chosen safe recovery effects",
+        "release recovery roots only when result protected or explicitly permitted discard"
+      ],
+      "result": "Outcome/revisions/new IDs or recoverable conflict",
+      "owner": "Recovery/domain operations",
+      "access": "recovery.edit",
+      "model_invariants": ["DM-03", "DM-06", "DM-10", "DM-12", "DM-13"],
+      "interaction_cases": ["EI-033"],
+      "open_policies": ["Q-08", "M-04"],
+      "phase": "initial",
+      "status": "proposed; not implemented"
+    },
+    {
+      "id": "entity.purge",
+      "kind": "reserved",
+      "payload": {
+        "root": "explicit entity/version purge scope",
+        "plan": "retention/pin/asset/history impact plan"
+      },
+      "guards": [
+        "maintenance grant",
+        "irreversible purge policy approved",
+        "pin/closure/replica rules"
+      ],
+      "effects": [
+        "only explicitly scoped irrecoverable removal under later approved retention contract"
+      ],
+      "result": "Explicit purge result and limits; not an ordinary Delete key intent",
+      "owner": "Lifecycle/retention maintenance",
+      "access": "internal.maintenance",
+      "model_invariants": ["DM-10", "DM-11", "DM-12"],
+      "interaction_cases": [],
+      "open_policies": [],
+      "phase": "reserved until R04 retention/purge policy accepted",
+      "status": "proposed; not implemented"
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "MC-01",
+      "title": "Independent inbox task",
+      "commands": ["task.create", "document.read", "collection.query"],
+      "initial": "No task t1 and today daily note may not exist.",
+      "action": "Create task from All Tasks; read/open returned task.",
+      "expected": "One TaskId/one inbox placement, empty/default body, no daily note auto-create; page and Tasks row reference same identity.",
+      "model_invariants": ["DM-01", "DM-03", "DM-04"],
+      "requirements": ["P-01", "P-02", "P-26"],
+      "interaction_cases": ["EI-035"],
+      "open_policies": [],
+      "execution": "not-run"
+    },
+    {
+      "id": "MC-02",
+      "title": "Task body one owner",
+      "commands": ["document.read", "document.applyEdits"],
+      "initial": "t1 has placement in n1 and one body Budget details; two views open it.",
+      "action": "Append X to task-page body through core.",
+      "expected": "Both task-page views see Budget detailsX at returned revision; owning note/Tasks resolve same t1, no second note/body or placement.",
+      "model_invariants": ["DM-01", "DM-03", "DM-04"],
+      "requirements": ["P-04", "P-26"],
+      "interaction_cases": ["EI-034"],
+      "open_policies": [],
+      "execution": "not-run"
+    },
+    {
+      "id": "MC-03",
+      "title": "Atomic task move",
+      "commands": ["task.move"],
+      "initial": "t1 placed in n1; n2 destination/current guards read.",
+      "action": "Move to n2 then inspect both sources.",
+      "expected": "Only n2 owns t1; title/body/custom/standard fields and history preserved; no intermediate accepted state with two/no active placements.",
+      "model_invariants": ["DM-02", "DM-03", "DM-06"],
+      "requirements": ["P-01", "P-26", "P-27"],
+      "interaction_cases": ["EI-036"],
+      "open_policies": ["Q-05", "M-06"],
+      "execution": "not-run"
+    },
+    {
+      "id": "MC-04",
+      "title": "Copy task independence",
+      "commands": ["task.copy", "task.complete"],
+      "initial": "t1 active in n1, body B/custom C.",
+      "action": "Copy into n2 then complete copied task.",
+      "expected": "Fresh independent task/owned identities with B/C; completing copy leaves t1 unchanged; no user reference reuse. Series mapping is conditional M-05.",
+      "model_invariants": ["DM-01", "DM-03", "DM-04", "DM-06"],
+      "requirements": ["P-01", "P-26", "P-27"],
+      "interaction_cases": ["EI-037"],
+      "open_policies": ["M-02", "M-05"],
+      "execution": "not-run"
+    },
+    {
+      "id": "MC-05",
+      "title": "Retry before stale guard",
+      "commands": ["task.move", "operation.inspect"],
+      "initial": "Move op k succeeds with source/destination old revisions; response lost.",
+      "action": "Retry identical op k after revisions advanced.",
+      "expected": "Return original result/identity map or pending status without evaluating old guard as a new mutation and without moving again. Current authorization still required.",
+      "model_invariants": ["DM-03", "DM-06", "DM-13"],
+      "requirements": ["P-02", "P-06", "P-27"],
+      "interaction_cases": ["EI-038"],
+      "open_policies": [],
+      "execution": "not-run"
+    },
+    {
+      "id": "MC-06",
+      "title": "ID reused for changed intent",
+      "commands": ["task.move"],
+      "initial": "Operation k previously moved t1 to n2.",
+      "action": "Send k with destination n3.",
+      "expected": "OPERATION_ID_REUSED, no mutation; do not return successful result for the changed request.",
+      "model_invariants": ["DM-13"],
+      "requirements": ["P-02", "P-06"],
+      "interaction_cases": [],
+      "open_policies": [],
+      "execution": "not-run"
+    },
+    {
+      "id": "MC-07",
+      "title": "Concurrent duplicate admission",
+      "commands": ["task.create"],
+      "initial": "No recorded operation k; two local clients submit identical k concurrently.",
+      "action": "Race authority admission/reservation.",
+      "expected": "At most one new task/placement; both observe same eventual outcome/IDs. Duplicate reservation cannot race validation/write.",
+      "model_invariants": ["DM-03", "DM-13"],
+      "requirements": ["P-02", "P-16", "P-26"],
+      "interaction_cases": [],
+      "open_policies": [],
+      "execution": "not-run"
+    },
+    {
+      "id": "MC-08",
+      "title": "Expired dedup record",
+      "commands": ["operation.inspect", "task.create"],
+      "initial": "Old accepted identity has compacted body/outcome under selected R04 retention protocol.",
+      "action": "Inspect/retry old identity outside supported lease/window.",
+      "expected": "Explicit expired/unknown plus reconciliation path; never execute old accepted intent again just because a detailed outcome is absent.",
+      "model_invariants": ["DM-13"],
+      "requirements": ["P-02", "P-06"],
+      "interaction_cases": [],
+      "open_policies": [],
+      "execution": "not-run"
+    },
+    {
+      "id": "MC-09",
+      "title": "Stale local replace rejected",
+      "commands": [
+        "document.planInterchangeReplace",
+        "document.commitInterchangeReplace"
+      ],
+      "initial": "AI plan prepared at note r1; user edits produce r2.",
+      "action": "Commit old plan, claiming latest-wins provider policy.",
+      "expected": "PRECONDITION_FAILED/plan conflict; r2 untouched. Normal AI capability cannot invoke internal sync bypass.",
+      "model_invariants": ["DM-04", "DM-13", "DM-14"],
+      "requirements": ["P-02", "P-09", "P-19"],
+      "interaction_cases": ["EI-030"],
+      "open_policies": [],
+      "execution": "not-run"
+    },
+    {
+      "id": "MC-10",
+      "title": "Property independence and fixed columns",
+      "commands": ["property.set", "collection.query"],
+      "initial": "Notes a/b each own a property labelled Status with independent definitions.",
+      "action": "Change a option/value; query predefined collection.",
+      "expected": "b unchanged; no new dynamic columns or auto-written properties; standard field names cannot alias custom data.",
+      "model_invariants": ["DM-07"],
+      "requirements": ["P-11", "P-25"],
+      "interaction_cases": [],
+      "open_policies": ["M-03"],
+      "execution": "not-run"
+    },
+    {
+      "id": "MC-11",
+      "title": "Task deletion and restore",
+      "commands": [
+        "task.delete",
+        "entity.planRestoreDeleted",
+        "entity.restoreDeleted"
+      ],
+      "initial": "t1 has body/fields and sole n1 placement.",
+      "action": "Delete whole placement, then guarded restore.",
+      "expected": "Task leaves active views, not silently moved to inbox. Recovery/restore can recover same identity/body/fields and sole placement when conflicts absent.",
+      "model_invariants": ["DM-03", "DM-04", "DM-10", "DM-12"],
+      "requirements": ["P-13", "P-26", "P-27"],
+      "interaction_cases": ["EI-039"],
+      "open_policies": ["M-04"],
+      "execution": "not-run"
+    },
+    {
+      "id": "MC-12",
+      "title": "Title edits and visual indentation protect task body/independence",
+      "commands": ["document.applyEdits"],
+      "initial": "Task title selected text but task body B exists.",
+      "action": "Delete selected title text only; in a separately reset variant indent/outdent the task placement.",
+      "expected": "Body B/properties remain; no lifecycle cascade from text emptying. Indentation changes placement presentation only, no parent/subtask status/date/deletion dependency. Empty-title outcome conditional Q-02.",
+      "model_invariants": ["DM-04", "DM-05"],
+      "requirements": ["P-03", "P-26", "P-27"],
+      "interaction_cases": ["EI-040", "EI-041"],
+      "open_policies": ["Q-02"],
+      "execution": "not-run"
+    },
+    {
+      "id": "MC-13",
+      "title": "Note delete effect closure",
+      "commands": ["note.delete", "entity.restoreDeleted"],
+      "initial": "n1 owns t1/t2; unrelated inbox t3 exists.",
+      "action": "Delete n1 then restore from guarded retained closure.",
+      "expected": "n1/t1/t2 active state removed/restored coherently; t3 unaffected. Historical task moved elsewhere causes explicit ownership conflict rather than duplication.",
+      "model_invariants": ["DM-03", "DM-10", "DM-11", "DM-12"],
+      "requirements": ["P-12", "P-13", "P-27"],
+      "interaction_cases": [],
+      "open_policies": ["M-04", "M-06"],
+      "execution": "not-run"
+    },
+    {
+      "id": "MC-14",
+      "title": "Pinned historical task body",
+      "commands": ["history.setPin", "history.read"],
+      "initial": "Pinned n1 version references t1 body Old at revision a; current t1 becomes New and moves.",
+      "action": "Read old n1 version and run permitted automatic compaction in later harness.",
+      "expected": "Historical owned task body remains Old; all manifest dependencies/assets retained. Current t1 remains New at current location.",
+      "model_invariants": ["DM-03", "DM-10", "DM-11"],
+      "requirements": ["P-12", "P-17", "P-18"],
+      "interaction_cases": [],
+      "open_policies": [],
+      "execution": "not-run"
+    },
+    {
+      "id": "MC-15",
+      "title": "Stale restore plan with moved task",
+      "commands": ["history.planRestore", "history.restore"],
+      "initial": "Plan n1 historical restore while t1 at original location; then t1 moves to n2.",
+      "action": "Commit stale plan.",
+      "expected": "Reject/replan ownership/revision conflict; no second t1 placement or hidden relocation. Restore-as-copy is a separate explicit policy.",
+      "model_invariants": ["DM-03", "DM-06", "DM-12"],
+      "requirements": ["P-01", "P-17", "P-27"],
+      "interaction_cases": [],
+      "open_policies": ["Q-05", "M-04"],
+      "execution": "not-run"
+    },
+    {
+      "id": "MC-16",
+      "title": "Recurrence generation dedup",
+      "commands": ["task.complete", "sync.ingest"],
+      "initial": "Weekly Monday task t1 pending, then completed Wednesday after missed Monday.",
+      "action": "Retry completion, replay provider state and race separate stale completion.",
+      "expected": "Exactly one next distinct future Monday occurrence, empty body, copied title/properties with temporal adjustments; completed body retained. Reopen/edit/undo remain conditional.",
+      "model_invariants": ["DM-03", "DM-04", "DM-08", "DM-13"],
+      "requirements": ["P-26", "P-28"],
+      "interaction_cases": ["EI-042"],
+      "open_policies": ["Q-06", "M-05", "M-06"],
+      "execution": "not-run"
+    },
+    {
+      "id": "MC-17",
+      "title": "Presentation does not mutate",
+      "commands": ["document.read", "collection.query"],
+      "initial": "Date mention stores 2026-11-14 and no reminder; current date advances a day.",
+      "action": "Refresh labels and load media previews.",
+      "expected": "Yesterday label but same semantic revision; no reminder/outbox/history entry solely from rendering or display refresh.",
+      "model_invariants": ["DM-09", "DM-15"],
+      "requirements": ["P-05", "P-31"],
+      "interaction_cases": ["EI-020", "EI-050"],
+      "open_policies": [],
+      "execution": "not-run"
+    },
+    {
+      "id": "MC-18",
+      "title": "Conversion failure is not half a move",
+      "commands": ["page.convertSelection"],
+      "initial": "n1 selection beta; force destination creation persistence failure.",
+      "action": "Convert to page.",
+      "expected": "Original content/reference closure protected; no falsely successful dangling page link. Outcome distinguishes rejected/not-committed from uncertainty; retry uses same identity.",
+      "model_invariants": ["DM-02", "DM-06", "DM-13"],
+      "requirements": ["P-06", "P-07", "P-30"],
+      "interaction_cases": ["EI-043", "EI-044"],
+      "open_policies": ["Q-01", "Q-05", "M-02"],
+      "execution": "not-run"
+    },
+    {
+      "id": "MC-19",
+      "title": "Unknown content preserved",
+      "commands": ["document.applyEdits", "document.commitInterchangeReplace"],
+      "initial": "Opaque block u1 with asset roots between known text blocks.",
+      "action": "Edit known text, then attempt interchange that cannot represent u1.",
+      "expected": "Known edit preserves opaque payload/roots; unsupported destructive replacement reports loss/refuses according to explicit policy; never silently flattens u1.",
+      "model_invariants": ["DM-10", "DM-14"],
+      "requirements": ["P-10", "P-12", "P-22"],
+      "interaction_cases": ["EI-057"],
+      "open_policies": [],
+      "execution": "not-run"
+    },
+    {
+      "id": "MC-20",
+      "title": "Provider competing placement rejected as incoherent",
+      "commands": ["sync.ingest"],
+      "initial": "Two received note winner packages both claim same TaskId after concurrent moves.",
+      "action": "Attempt ingestion before required coherent reconciliation unit is resolved.",
+      "expected": "Current state remains valid with at most one task placement; retain received states pending/blocked and history, not blindly apply per-file winners. Provider support blocked until M-06 solved.",
+      "model_invariants": ["DM-03", "DM-08", "DM-11", "DM-13"],
+      "requirements": ["P-19", "P-21", "P-27"],
+      "interaction_cases": ["EI-032"],
+      "open_policies": ["M-06"],
+      "execution": "not-run"
+    },
+    {
+      "id": "MC-21",
+      "title": "Save/outbox and uncertain completion",
+      "commands": ["document.applyEdits", "operation.inspect"],
+      "initial": "Local edit accepted; inject interruption around durable state/outcome/outbox write.",
+      "action": "Restart/inspect original operation.",
+      "expected": "No false durable/synced flag; committed work has persistent publication intent, unconfirmed work remains protected/reconcilable, no blind new-ID retry. Exact write protocol R04.",
+      "model_invariants": ["DM-10", "DM-13", "DM-15"],
+      "requirements": ["P-06", "P-07", "P-21"],
+      "interaction_cases": [],
+      "open_policies": [],
+      "execution": "not-run"
+    },
+    {
+      "id": "MC-22",
+      "title": "Access checks on retry and internal commands",
+      "commands": ["operation.inspect", "sync.ingest"],
+      "initial": "Local client lacks ingest capability or loses its Space grant after an earlier operation.",
+      "action": "Request internal ingest or inspect sensitive retained result.",
+      "expected": "ACCESS_DENIED without content leakage; operationId/actor string is not authentication and replay does not bypass current authorization.",
+      "model_invariants": ["DM-13", "DM-15"],
+      "requirements": ["P-02", "P-09", "P-24"],
+      "interaction_cases": [],
+      "open_policies": [],
+      "execution": "not-run"
+    },
+    {
+      "id": "MC-23",
+      "title": "Selective inverse protects another context",
+      "commands": ["context.undo"],
+      "initial": "A inserts block, B adds independent content to it.",
+      "action": "A requests original block insertion inverse.",
+      "expected": "Safe selective inverse or explicit conflict/narrowing; never delete B content blindly and report success. No whole-version rewind.",
+      "model_invariants": ["DM-02", "DM-12", "DM-13"],
+      "requirements": ["P-04", "P-05"],
+      "interaction_cases": ["EI-026", "EI-027"],
+      "open_policies": ["Q-05", "Q-07"],
+      "execution": "not-run"
+    },
+    {
+      "id": "MC-24",
+      "title": "Comment history closure",
+      "commands": ["document.applyEdits", "history.read", "history.restore"],
+      "initial": "Retained version contains block b1 plus anchored thread c1.",
+      "action": "Delete b1, then undo or guarded restore of retained content.",
+      "expected": "Thread absent from live page after delete, retained with b1 version and restored with it; not reanchored to unrelated block. Comment feature phase remains unresolved.",
+      "model_invariants": ["DM-02", "DM-11", "DM-12"],
+      "requirements": ["P-17", "P-33"],
+      "interaction_cases": ["EI-059"],
+      "open_policies": ["M-04"],
+      "execution": "not-run"
+    }
+  ]
+}

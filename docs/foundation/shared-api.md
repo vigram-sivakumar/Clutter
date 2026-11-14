@@ -84,3 +84,13 @@ Future cloud adapters require new permission/collaboration acceptance gates.
 Closing all windows does not necessarily terminate a headless authority; terminating
 all Clutter processes does suspend Clutter-controlled reconciliation unless a
 separately designed background agent runs. No such agent is implied by CLI support.
+
+## Detailed R03 references
+
+The [command specification](command-api-spec.md) owns common envelope, deduplication
+ordering, outcomes, guards, reads and inverse semantics. Its [logical registry](model-api-contract-cases.json)
+owns per-operation signature sketches and 24 unexecuted contract scenarios. The
+[document model](document-model-spec.md) owns canonical semantic constraints. This
+overview is a capability map, not a second signature registry. Internal sync and
+maintenance operations are not automatically public CLI/MCP tools. All R03 contracts
+remain conditional until wire schemas, policy choices and runtime evidence are ready.

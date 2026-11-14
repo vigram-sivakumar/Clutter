@@ -28,3 +28,12 @@ T-04 and T-07 establish local parity, takeover, outcomes and access checks. T-13
 qualifies optional provider access; future remote roles require T-22.
 This proposal is compatible with the intent of one capability owner but does not
 supersede any current facade or persistence implementation yet.
+
+## R03 draft references
+
+See [command specification](../command-api-spec.md) and its
+[logical registry/scenarios](../model-api-contract-cases.json). Retry deduplication
+precedes current revision checks after authorization; uncertain outcomes are not
+proof of no effect. Public adapters cannot invoke internal provider/maintenance
+capabilities merely by naming an actor. These signatures remain proposals pending
+wire/security/persistence qualification, not an acceptance of this ADR.

@@ -34,3 +34,11 @@ provider sync need explicit consistency contracts, not ad hoc UI listeners.
 T-17 through T-20 plus T-12/T-14 cover properties, ownership, copy/move/restore,
 recurrence and schema integrity. Persistence shape is not selected here. Existing
 production task implementation remains untouched until the target is qualified.
+
+## R03 draft references
+
+[Document model](../document-model-spec.md) defines TaskState versus its sole
+Placement and derives page/note/Tasks views without duplicated mutable bodies.
+Its M-01–M-07 ledger keeps task-body nesting, copy/conversion, properties, historical
+restore and provider coherence open. [API](../command-api-spec.md) protects logical
+moves/cascades/generation as coherent effects; no physical schema is accepted here.

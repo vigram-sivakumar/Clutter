@@ -70,3 +70,13 @@ checkpoints, anchored comments, membership/revocation including historical acces
 offline write rejection and selective undo across two isolated replicas. Do not
 assume current latest-whole-document-wins provides that experience. Preserve
 recoverability of locally rejected work when future server rules are introduced.
+
+## R03 closure and API references
+
+[Document-model DM-10–DM-12](document-model-spec.md) defines retained owned-state
+closure, including historical task bodies, placement and comment/asset references.
+Ordinary links/embeds do not recursively snapshot/restore their entire target graph.
+The rendering must label current versus retained target expansion honestly.
+[API restore plans](command-api-spec.md) recheck current closure tokens at commit;
+M-04 keeps the moved-task collision policy explicit. Pin metadata has its own
+history-catalog revision instead of pretending the current body was edited.

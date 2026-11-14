@@ -3,6 +3,21 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.6 — 2026-11-14
+
+- Added conditional R03 semantic model: entity identity/body, single task placement,
+  typed custom versus standard fields, references, owned historical closure, media,
+  tombstones, schema/refusal and metadata/settings boundaries.
+- Added shared command/query draft with guards, retry deduplication before stale
+  guards, outcome/durability distinctions, local authorization, safe inverses,
+  coherent effect sets, reads/catch-up and internal provider capability boundaries.
+- Added logical registry of 51 operation sketches and 24 unexecuted contract scenarios;
+  these are not runtime APIs, full wire schemas or passing domain tests.
+- Kept R02 Q-01–Q-09 and new model M-01–M-07 explicitly conditional; no engine,
+  physical schema, encoding or database selected. Updated ADR/acceptance/handoff links.
+- R04 conditional persistence/history/recovery/outcome/outbox specification is next.
+  Production/older documents unchanged; no new runtime checks claimed.
+
 ## 0.5 — 2026-11-14
 
 - Captured the user's clarification: the old Markdown editor is evidence, not a

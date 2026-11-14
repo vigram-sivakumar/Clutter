@@ -1,6 +1,6 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-14. Documentation revision: 0.5.
+Last updated: 2026-11-14. Documentation revision: 0.6.
 Read this file first in a new chat or agent session. It is the checkpoint, not a
 second product specification. [README](README.md) identifies authoritative docs.
 
@@ -12,8 +12,10 @@ exist; production implementation and qualification spikes have not started as
 part of this foundation work. R01 is complete as a bounded capability audit, with
 45 entries and selected existing-test evidence. R02 now has a reviewable interaction
 specification and 72 seed cases, none executed; Q-01–Q-09 policy review remains open.
-Next is R03 conditional document-model/API drafting, informed by R02 without treating
-source/structured alternatives as settled product decisions.
+R03 now has conditional model/API drafts, 51 logical operation signatures and 24
+unexecuted contract scenarios. M-01–M-07 model gaps and Q-01–Q-09 interaction gaps
+remain explicit. Next is R04 conditional persistence/history/recovery/outcome/outbox
+specification; no target library/format/backend is accepted.
 
 | Area                                  | Verified status at this checkpoint                                                                                                                                |
 | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -24,7 +26,7 @@ source/structured alternatives as settled product decisions.
 | Native/platform/provider tests        | No new macOS/native/provider qualification; the target architecture remains untested.                                                                             |
 | Documentation checks                  | Formatting, relative links, requirement/test IDs and sequential patch application checked in handoff                                                              |
 | Existing production and old documents | Unchanged by the foundation deliveries                                                                                                                            |
-| Remote/user checkout                  | Prior 0.1–0.3 commits verified on remote branch at f22a5cd. New 0.4/0.5 patches are prepared; user application is not yet confirmed.                              |
+| Remote/user checkout                  | Prior 0.1–0.3 commits verified on remote branch at f22a5cd. New 0.4–0.6 patches are prepared; user application is not yet confirmed.                              |
 
 ## Repository and delivery state
 
@@ -34,7 +36,7 @@ to reset to that commit. Preserve all later user commits and unrelated work.
 At the R01 start, remote branch `f22a5cd182c171ae9bfaf22f7ac320019fb9a4ec`
 contained the user's three documentation commits and exactly matched the local
 0.3 files; this checkout was safely fast-forwarded to it. Production source is
-unchanged from main `cae6042`. New 0.4 audit and 0.5 R02 changes are uncommitted.
+unchanged from main `cae6042`. New 0.4 audit, 0.5 R02 and 0.6 R03 changes are uncommitted.
 No commit or push was performed by the agent. Inspect a new environment rather
 than assume these statuses, scratch paths or installed dependencies.
 
@@ -48,9 +50,11 @@ Delivered patch order:
    based on remote commit `f22a5cd` (the prior three are confirmed committed there).
 5. R02 specification, revision 0.5: `Clutter Foundation Editor Interactions.patch`,
    incremental over the exact 0.4 inventory delivery contents.
+6. R03 model/API, revision 0.6: `Clutter Foundation Model API.patch`, incremental
+   over the exact 0.5 delivery contents.
 
 Each update is incremental over its predecessor's file contents, not a particular
-user-created commit hash. If this file is present at revision 0.5, do not blindly
+user-created commit hash. If this file is present at revision 0.6, do not blindly
 reapply those patches. Inspect actual files and git state; do not use reset/clean,
 force checkout or re-create the branch to hide divergence.
 
@@ -60,12 +64,14 @@ force checkout or re-create the branch to hide divergence.
    its [executed evidence](evidence/r01-2026-11-14.json).
 2. [R02 interaction specification](editor-interaction-spec.md),
    [case catalogue](editor-interaction-cases.json) and policy ledger Q-01–Q-09.
-3. [Product contracts](product-contracts.md) and [behaviour](product-behaviour.md).
-4. [System architecture](system-architecture.md) and [shared API](shared-api.md).
-5. [Sync/platform](sync-and-portability.md) and [history](history-and-collaboration.md).
-6. [Decision register](decision-register.md), [ADRs](adr/README.md),
+3. [R03 document model](document-model-spec.md), [command API](command-api-spec.md)
+   and [operation/scenario catalogue](model-api-contract-cases.json), including M-01–M-07.
+4. [Product contracts](product-contracts.md) and [behaviour](product-behaviour.md).
+5. [System architecture](system-architecture.md) and [shared API](shared-api.md).
+6. [Sync/platform](sync-and-portability.md) and [history](history-and-collaboration.md).
+7. [Decision register](decision-register.md), [ADRs](adr/README.md),
    [acceptance matrix](acceptance-matrix.md) and [qualification plan](qualification-spike.md).
-7. [Delivery discipline](delivery-plan.md), current repository guidance and relevant
+8. [Delivery discipline](delivery-plan.md), current repository guidance and relevant
    source/tests. Old production rules remain binding until explicitly superseded.
 
 ## Guardrails for resuming
@@ -92,25 +98,28 @@ force checkout or re-create the branch to hide divergence.
 - Current authorized continuation is documentation/specification. Do not begin a
   production rebuild merely because the roadmap describes later implementation.
 
-## Exact next action: R03 conditional specification drafts
+## Exact next action: R04 conditional persistence specification
 
-Read R02 cases/profiles/policy ledger, then draft
-`docs/foundation/document-model-spec.md` and `command-api-spec.md`. Specify stable
-entity identity, task page/body/single note-or-inbox placement, custom versus
-standard properties, reference/embed closure, version/asset/comment references,
-copy/move/restore invariants and versioned command/query/precondition/outcome shapes.
+Read R03 model/API/registry plus R02 policy ledger, then draft
+`docs/foundation/vault-persistence-spec.md`. Compare backend encodings against
+coherent effect sets, current versus retained state, pinned version/task/comment/
+asset closure, durable outcome/deduplication, recovery and pending-publication intent.
+Specify failure/uncertainty/restart behaviour and cleanup/snapshot roots before
+selecting implementation. A transaction name is not evidence of atomicity across
+files/assets/provider transfer.
 
-Keep the semantic model independent of CM6 text offsets, PM internal node JSON and
-physical storage. Trace commands and inverse preconditions to R02 cases. Where
-Q-01–Q-09 affect splitting/joining/task title/clipboard/history, record alternatives
-and dependencies; do not close them by arbitrary schema design or imply approval.
-Ask one example-based product question only if it materially blocks the scoped
-work; exploratory prototypes can inform profile choices later.
+Keep technology options open and record how each meets DM invariants. Do not
+silently settle M-06 canonical structure/provider-unit encoding or impose PM node
+JSON/Markdown mechanics. Preserve M-01–M-07/Q-01–Q-09, and state which affect each
+backend design. Define how old operation identities remain protected after outcome
+compaction, how pinned historical task content is reconstructed, and how restore
+plans reject stale/moved-task closure. R05 later specifies provider winner/delivery.
 
-R02 is draft-complete, not approved/executed. Required variant expansion, nine
-policy items and native evidence remain. R01's 1,003 existing assertions are not
-R02 passes. No new runtime tests were run for R02; only documentation/catalogue
-checks and patch reproduction. Production implementation remains gated.
+R02/R03 are draft-prepared, not approved/executed. No new runtime interaction/domain/
+protocol tests were run for their delivery. R01 evidence remains separate. Validate
+new documentation/data consistency and produce an incremental patch; production
+implementation remains gated. Ask only a material blocking product question with
+an example, rather than re-running the answered questionnaire.
 
 ## Session close protocol
 
