@@ -1,14 +1,14 @@
 # Clutter foundation
 
-Status: architecture definition pack, revision 0.9, 2026-11-14. Product scope
+Status: architecture definition pack, revision 0.10, 2026-11-14. Product scope
 confirmed; technology proposals remain unqualified.
 Baseline: `main` at `cae604273115c0c6c0d3ac34533b1e9834e9c778`.
 Working branch: `architecture/clutter-foundation`.
 
 New chat or AI agent: start at [START-HERE](START-HERE.md), then follow the
-[roadmap](roadmap.md). Current next task: R07 isolated experiment preparation. R01 inventory is
+[roadmap](roadmap.md). Current next task: R07 investigate blocking native-selection/history findings. R01 inventory is
 complete; R02–R06 drafts retain open policies/encoding/durability choices and
-no new target-runtime proof.
+bounded Linux experimental evidence, with native/architecture qualification blocked.
 
 ## Purpose and authority
 
@@ -18,7 +18,7 @@ live cloud collaboration deferred.
 Evaluate it as a greenfield product. Migration and implementation effort remain
 visible planning dimensions with zero weight in architectural selection.
 
-The 0.2 product scope, retained in 0.9, reflects the user clarification sequence. Earlier draft
+The 0.2 product scope, retained in 0.10, reflects the user clarification sequence. Earlier draft
 requirements superseded by that discussion are replaced in this folder.
 This pack contains requirements and proposals, not an approved implementation
 specification. Existing documentation and `ARCHITECTURE_RULES.md` continue to
@@ -55,6 +55,9 @@ current-system references; they are not copied into competing target specs.
 | [Host/security cases](host-security-cases.json)                  | 18 unexecuted process/IPC/security scenarios                                              |
 | [Readiness](qualification-readiness.md)                          | Actual availability, blockers and first isolated R07 experiment                           |
 | [Candidate template](qualification-candidate-template.json)      | Required reproducibility fields; deliberately unpopulated, not a selected stack           |
+| [R07 isolated experiment](experiments/r07-two-view/README.md)    | Runnable two-view candidate, standalone lock and CLI/MCP test adapters                    |
+| [R07 findings](experiments/r07-two-view/findings.md)             | Raw versus guarded undo and immediate-selection blockers                                  |
+| [R07 executed evidence](evidence/r07-2026-11-14.json)            | Exact scope, source manifest, 34 Node tests and 13 pass/2 fail browser probes             |
 | [Product contracts](product-contracts.md)                        | Requirement IDs and initial/future scope                                                  |
 | [Confirmed behaviour](product-behaviour.md)                      | Agreed task/property/template/date/comment semantics                                      |
 | [Sync and portability](sync-and-portability.md)                  | Opt-in provider policy, concurrency and Windows-ready boundaries                          |
@@ -125,4 +128,4 @@ R04 compares backend commit contracts and primary documentation without selectin
 one or executing crash tests. Its PS decisions are separate from product P IDs;
 R05 drafted provider protocol/feasibility rather than raw live-file sync; its
 coherence and route qualification remain blocked. R06 prepares native/editor and
-host/security experiments; R07 setup is next.
+host/security experiments; the first R07 slice ran and blocker investigation is next.

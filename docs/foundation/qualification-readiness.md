@@ -92,3 +92,10 @@ Remaining Q/M/PS/SY/PL/SEC decisions do not block every independent experiment.
 They do block unqualified claims of complete architecture or release readiness.
 Next step is R07 experiment preparation and execution within an explicitly scoped
 isolated harness; do not write more broad product discovery or choose by sunk cost.
+
+## R07 first-slice evidence
+
+The above is the historical R06 entry record. [R07 evidence](evidence/r07-2026-11-14.json)
+now records a bounded runnable slice and real Linux observations. [Findings](experiments/r07-two-view/findings.md)
+block selection. Runtime evidence does not retrospectively qualify omitted native,
+security, task-page/media or provider scope.

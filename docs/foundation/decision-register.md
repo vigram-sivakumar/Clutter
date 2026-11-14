@@ -81,7 +81,7 @@ runtime/domain/protocol tests were run. R04 now has conditional [persistence con
 [30 unexecuted fault scenarios](persistence-contract-cases.json), comparing P-SQL/
 P-ROOT/P-TEXT. PS-01–PS-07 remain open; no crash/backend/native proof is claimed.
 R05 provider protocol/feasibility and R06 qualification preparation are now drafted;
-R07 experiment setup is next, preserving M/Q/PS/SY/PL/SEC gaps. [START-HERE](START-HERE.md)
+R07 first-slice blocker investigation is next, preserving M/Q/PS/SY/PL/SEC gaps. [START-HERE](START-HERE.md)
 records handoff/authorization and [roadmap](roadmap.md) orders specifications,
 qualification and implementation. These navigation documents do not accept any
 technical decision or duplicate product rules.
@@ -97,4 +97,12 @@ task ownership are unqualified; [feasibility](provider-feasibility.md) is resear
 [Editor qualification](editor-qualification-plan.md) tightens D-01/D-05 gates;
 [platform](platform-boundaries-spec.md) owns PL-01–PL-05 and [security](local-security-api-spec.md)
 owns SEC-01–SEC-04. [Budgets](qualification-budgets.json) are D-11 proposals, not
-measurements. R07 setup is next; no technology was accepted or runtime qualified.
+measurements. R07 evidence now covers only the scoped first slice; no technology
+was accepted or fully qualified.
+
+## R07 first-slice evidence
+
+[R07 findings](experiments/r07-two-view/findings.md) supply concrete D-01/D-05
+blockers. No engine/library/backend was selected. The guarded history experiment
+is not a production workaround approval; compare viable complete candidates and
+native evidence before accepting D-01/D-05.

@@ -3,6 +3,22 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.10 — 2026-11-14
+
+- Added isolated R07 two-view ProseMirror candidate, pinned standalone dependencies,
+  mapped context input/history, shared dispatcher, CLI/MCP test adapters, guarded
+  history alternative, filesystem/browser recovery and a raw one-view control.
+- Clean install/build and 34 Node tests passed; one test confirms a raw-history
+  requirement failure. Browser probes: 13 passed, BR-14/CT-01 failed. Preserved
+  failing immediate-input tests and exact source/runtime/trace evidence.
+- Raw batched insertion undo deletes foreign input; the guarded alternative refuses
+  that unsafe inverse. Granular input is tested separately. A final-cell Tab native/
+  model selection mismatch reproduces without the multi-view coordination layer.
+- No production change, native/macOS/IME/VoiceOver acceptance, provider enablement or
+  architecture choice. R07 remains blocked pending investigation/comparison.
+- Verified user's remote 0.9 commit 1215044 and safely fast-forwarded this branch.
+  New incremental experiment patch prepared; no new agent commit or push.
+
 ## 0.9 — 2026-11-14
 
 - Added R06 headless lifecycle/platform and local API security proposals with PL/SEC

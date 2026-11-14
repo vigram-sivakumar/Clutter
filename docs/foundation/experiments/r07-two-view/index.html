@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Clutter — R07 editing experiment</title>
+    <link rel="stylesheet" href="prosemirror.css" />
+    <link rel="stylesheet" href="tables.css" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Two views. One document.</h1>
+      <p class="intro">
+        Isolated R07 experiment · synthetic content only · not the Clutter app
+      </p>
+      <div class="toolbar" role="toolbar" aria-label="Experiment actions">
+        <button id="undo">Undo</button><button id="redo">Redo</button
+        ><button id="bold">Bold</button>
+        <button id="external">External edit</button
+        ><button id="close-a">Close view A</button
+        ><button id="restart">Protect &amp; restart</button>
+        <label><input id="fail-save" type="checkbox" /> Fail saves</label
+        ><label
+          ><input id="fail-protect" type="checkbox" /> Fail recovery</label
+        >
+      </div>
+      <p id="status" role="status" aria-live="polite"></p>
+      <div class="panes">
+        <section>
+          <h2>View A</h2>
+          <div id="view-a"></div>
+        </section>
+        <section>
+          <h2>View B</h2>
+          <div id="view-b"></div>
+        </section>
+      </div>
+      <details id="recovery" hidden>
+        <summary>Protected input for review</summary>
+        <pre id="recovery-text"></pre>
+      </details>
+      <details>
+        <summary>Experiment boundaries</summary>
+        <p>
+          Per-view history and mapped selections; optional paused delivery in
+          test controls. Local browser storage protects synthetic snapshots
+          only. No macOS menus/IME qualification, task-page projection, media
+          import, provider sync or production vault access. View state and
+          accepted document state are separate.
+        </p>
+      </details>
+      <details>
+        <summary>Recent input trace (synthetic content)</summary>
+        <pre id="trace"></pre>
+      </details>
+    </main>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

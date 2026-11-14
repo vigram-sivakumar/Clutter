@@ -1,0 +1,1342 @@
+{
+  "runtime": "153.0.8010.0",
+  "os": "linux",
+  "input": "Playwright browser key/pointer events; not native macOS input",
+  "results": [
+    {
+      "id": "BR-01",
+      "title": "pointer focus, End and immediate keyboard input converge",
+      "status": "pass"
+    },
+    {
+      "id": "BR-02",
+      "title": "backward selection replacement followed by keyboard undo",
+      "status": "pass"
+    },
+    {
+      "id": "BR-03",
+      "title": "alternating views and focused undo preserve foreign edits",
+      "status": "pass"
+    },
+    {
+      "id": "BR-04",
+      "title": "granular keyboard history removes only own text around a foreign insertion",
+      "status": "pass"
+    },
+    {
+      "id": "BR-05",
+      "title": "table cell click and immediate input targets only that cell",
+      "status": "pass"
+    },
+    {
+      "id": "BR-06",
+      "title": "toolbar bold acts on captured selection without changing focus owner",
+      "status": "pass"
+    },
+    {
+      "id": "BR-07",
+      "title": "external shared-API edit preserves focused selection mapping",
+      "status": "pass"
+    },
+    {
+      "id": "BR-08",
+      "title": "close/reopen a view keeps the other live and retains its context history",
+      "status": "pass"
+    },
+    {
+      "id": "BR-09",
+      "title": "failed save uses recovery and restores accepted state after restart",
+      "status": "pass"
+    },
+    {
+      "id": "BR-10",
+      "title": "failure of save and recovery blocks closing the view",
+      "status": "pass"
+    },
+    {
+      "id": "BR-11",
+      "title": "read-only embed rejects text insertion into its content",
+      "status": "pass"
+    },
+    {
+      "id": "BR-12",
+      "title": "paused delivery catches up and maps queued text without resetting the view",
+      "status": "pass"
+    },
+    {
+      "id": "BR-13",
+      "title": "batched text input uses the conservative unsafe-undo refusal",
+      "status": "pass"
+    },
+    {
+      "id": "BR-14",
+      "title": "exploratory final-cell Tab creates one row and focuses its first cell",
+      "status": "fail",
+      "error": "Expected values to be strictly equal:\n\n2 !== 3\n",
+      "snapshot": {
+        "doc": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Alpha beta"
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Gamma delta"
+                }
+              ]
+            },
+            {
+              "type": "task",
+              "attrs": {
+                "id": "t1",
+                "completed": false,
+                "properties": {
+                  "Priority": {
+                    "type": "text",
+                    "value": "High"
+                  }
+                }
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Send proposal"
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Budget details"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "table",
+              "content": [
+                {
+                  "type": "table_row",
+                  "content": [
+                    {
+                      "type": "table_cell",
+                      "attrs": {
+                        "colspan": 1,
+                        "rowspan": 1,
+                        "colwidth": null
+                      },
+                      "content": [
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "text",
+                              "text": "One"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "table_cell",
+                      "attrs": {
+                        "colspan": 1,
+                        "rowspan": 1,
+                        "colwidth": null
+                      },
+                      "content": [
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "text",
+                              "text": "Two"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "table_row",
+                  "content": [
+                    {
+                      "type": "table_cell",
+                      "attrs": {
+                        "colspan": 1,
+                        "rowspan": 1,
+                        "colwidth": null
+                      },
+                      "content": [
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "text",
+                              "text": "Three"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "table_cell",
+                      "attrs": {
+                        "colspan": 1,
+                        "rowspan": 1,
+                        "colwidth": null
+                      },
+                      "content": [
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "text",
+                              "text": "Four"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "embed",
+              "attrs": {
+                "target": "original-note",
+                "label": "Original note"
+              }
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "café é 👩🏽‍💻 日本語 مرحبا"
+                }
+              ]
+            }
+          ]
+        },
+        "version": 0,
+        "durableVersion": 0,
+        "contexts": {
+          "A": {
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Alpha beta"
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Gamma delta"
+                    }
+                  ]
+                },
+                {
+                  "type": "task",
+                  "attrs": {
+                    "id": "t1",
+                    "completed": false,
+                    "properties": {
+                      "Priority": {
+                        "type": "text",
+                        "value": "High"
+                      }
+                    }
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Send proposal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Budget details"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "table",
+                  "content": [
+                    {
+                      "type": "table_row",
+                      "content": [
+                        {
+                          "type": "table_cell",
+                          "attrs": {
+                            "colspan": 1,
+                            "rowspan": 1,
+                            "colwidth": null
+                          },
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "type": "text",
+                                  "text": "One"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "table_cell",
+                          "attrs": {
+                            "colspan": 1,
+                            "rowspan": 1,
+                            "colwidth": null
+                          },
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "type": "text",
+                                  "text": "Two"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "table_row",
+                      "content": [
+                        {
+                          "type": "table_cell",
+                          "attrs": {
+                            "colspan": 1,
+                            "rowspan": 1,
+                            "colwidth": null
+                          },
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "type": "text",
+                                  "text": "Three"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "table_cell",
+                          "attrs": {
+                            "colspan": 1,
+                            "rowspan": 1,
+                            "colwidth": null
+                          },
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "type": "text",
+                                  "text": "Four"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "embed",
+                  "attrs": {
+                    "target": "original-note",
+                    "label": "Original note"
+                  }
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "café é 👩🏽‍💻 日本語 مرحبا"
+                    }
+                  ]
+                }
+              ]
+            },
+            "anchor": 1,
+            "head": 1,
+            "pending": 0,
+            "recovery": []
+          },
+          "B": {
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Alpha beta"
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Gamma delta"
+                    }
+                  ]
+                },
+                {
+                  "type": "task",
+                  "attrs": {
+                    "id": "t1",
+                    "completed": false,
+                    "properties": {
+                      "Priority": {
+                        "type": "text",
+                        "value": "High"
+                      }
+                    }
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Send proposal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Budget details"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "table",
+                  "content": [
+                    {
+                      "type": "table_row",
+                      "content": [
+                        {
+                          "type": "table_cell",
+                          "attrs": {
+                            "colspan": 1,
+                            "rowspan": 1,
+                            "colwidth": null
+                          },
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "type": "text",
+                                  "text": "One"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "table_cell",
+                          "attrs": {
+                            "colspan": 1,
+                            "rowspan": 1,
+                            "colwidth": null
+                          },
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "type": "text",
+                                  "text": "Two"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "table_row",
+                      "content": [
+                        {
+                          "type": "table_cell",
+                          "attrs": {
+                            "colspan": 1,
+                            "rowspan": 1,
+                            "colwidth": null
+                          },
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "type": "text",
+                                  "text": "Three"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "table_cell",
+                          "attrs": {
+                            "colspan": 1,
+                            "rowspan": 1,
+                            "colwidth": null
+                          },
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "type": "text",
+                                  "text": "Four"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "embed",
+                  "attrs": {
+                    "target": "original-note",
+                    "label": "Original note"
+                  }
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "café é 👩🏽‍💻 日本語 مرحبا"
+                    }
+                  ]
+                }
+              ]
+            },
+            "anchor": 1,
+            "head": 1,
+            "pending": 0,
+            "recovery": []
+          }
+        }
+      },
+      "trace": [
+        {
+          "time": 322,
+          "type": "keydown",
+          "view": "A",
+          "key": "c",
+          "from": 3,
+          "to": 3,
+          "nativeText": "abAlpha beta",
+          "nativeOffset": 2
+        },
+        {
+          "time": 322,
+          "type": "beforeinput",
+          "view": "A",
+          "inputType": "insertText",
+          "from": 3,
+          "to": 3
+        },
+        {
+          "time": 324,
+          "type": "keydown",
+          "view": "A",
+          "key": "d",
+          "from": 4,
+          "to": 4,
+          "nativeText": "abcAlpha beta",
+          "nativeOffset": 3
+        },
+        {
+          "time": 324,
+          "type": "beforeinput",
+          "view": "A",
+          "inputType": "insertText",
+          "from": 4,
+          "to": 4
+        },
+        {
+          "time": 329,
+          "type": "keydown",
+          "view": "B",
+          "key": "F",
+          "from": 3,
+          "to": 3,
+          "nativeText": "abcdAlpha beta",
+          "nativeOffset": 2
+        },
+        {
+          "time": 329,
+          "type": "beforeinput",
+          "view": "B",
+          "inputType": "insertText",
+          "from": 3,
+          "to": 3
+        },
+        {
+          "time": 332,
+          "type": "keydown",
+          "view": "B",
+          "key": "O",
+          "from": 4,
+          "to": 4,
+          "nativeText": "abFcdAlpha beta",
+          "nativeOffset": 3
+        },
+        {
+          "time": 332,
+          "type": "beforeinput",
+          "view": "B",
+          "inputType": "insertText",
+          "from": 4,
+          "to": 4
+        },
+        {
+          "time": 335,
+          "type": "keydown",
+          "view": "B",
+          "key": "R",
+          "from": 5,
+          "to": 5,
+          "nativeText": "abFOcdAlpha beta",
+          "nativeOffset": 4
+        },
+        {
+          "time": 335,
+          "type": "beforeinput",
+          "view": "B",
+          "inputType": "insertText",
+          "from": 5,
+          "to": 5
+        },
+        {
+          "time": 337,
+          "type": "keydown",
+          "view": "B",
+          "key": "E",
+          "from": 6,
+          "to": 6,
+          "nativeText": "abFORcdAlpha beta",
+          "nativeOffset": 5
+        },
+        {
+          "time": 338,
+          "type": "beforeinput",
+          "view": "B",
+          "inputType": "insertText",
+          "from": 6,
+          "to": 6
+        },
+        {
+          "time": 340,
+          "type": "keydown",
+          "view": "B",
+          "key": "I",
+          "from": 7,
+          "to": 7,
+          "nativeText": "abFOREcdAlpha beta",
+          "nativeOffset": 6
+        },
+        {
+          "time": 340,
+          "type": "beforeinput",
+          "view": "B",
+          "inputType": "insertText",
+          "from": 7,
+          "to": 7
+        },
+        {
+          "time": 344,
+          "type": "keydown",
+          "view": "B",
+          "key": "G",
+          "from": 8,
+          "to": 8,
+          "nativeText": "abFOREIcdAlpha beta",
+          "nativeOffset": 7
+        },
+        {
+          "time": 344,
+          "type": "beforeinput",
+          "view": "B",
+          "inputType": "insertText",
+          "from": 8,
+          "to": 8
+        },
+        {
+          "time": 348,
+          "type": "keydown",
+          "view": "B",
+          "key": "N",
+          "from": 9,
+          "to": 9,
+          "nativeText": "abFOREIGcdAlpha beta",
+          "nativeOffset": 8
+        },
+        {
+          "time": 348,
+          "type": "beforeinput",
+          "view": "B",
+          "inputType": "insertText",
+          "from": 9,
+          "to": 9
+        },
+        {
+          "time": 352,
+          "type": "keydown",
+          "view": "A",
+          "key": "Control",
+          "from": 12,
+          "to": 12,
+          "nativeText": "abFOREIGNcdAlpha beta",
+          "nativeOffset": 11
+        },
+        {
+          "time": 353,
+          "type": "keydown",
+          "view": "A",
+          "key": "z",
+          "from": 12,
+          "to": 12,
+          "nativeText": "abFOREIGNcdAlpha beta",
+          "nativeOffset": 11
+        },
+        {
+          "time": 400,
+          "type": "keydown",
+          "view": "A",
+          "key": "End",
+          "from": 1,
+          "to": 1,
+          "nativeText": "One",
+          "nativeOffset": 3
+        },
+        {
+          "time": 402,
+          "type": "keydown",
+          "view": "A",
+          "key": "X",
+          "from": 1,
+          "to": 1,
+          "nativeText": "One",
+          "nativeOffset": 3
+        },
+        {
+          "time": 402,
+          "type": "beforeinput",
+          "view": "A",
+          "inputType": "insertText",
+          "from": 1,
+          "to": 1
+        },
+        {
+          "time": 413,
+          "type": "keydown",
+          "view": "A",
+          "key": "Control",
+          "from": 66,
+          "to": 66,
+          "nativeText": "OneX",
+          "nativeOffset": 4
+        },
+        {
+          "time": 414,
+          "type": "keydown",
+          "view": "A",
+          "key": "z",
+          "from": 66,
+          "to": 66,
+          "nativeText": "OneX",
+          "nativeOffset": 4
+        },
+        {
+          "time": 421,
+          "type": "keydown",
+          "view": "A",
+          "key": "Control",
+          "from": 1,
+          "to": 1,
+          "nativeText": "Alpha beta",
+          "nativeOffset": 0
+        },
+        {
+          "time": 422,
+          "type": "keydown",
+          "view": "A",
+          "key": "Shift",
+          "from": 1,
+          "to": 1,
+          "nativeText": "Alpha beta",
+          "nativeOffset": 0
+        },
+        {
+          "time": 423,
+          "type": "keydown",
+          "view": "A",
+          "key": "z",
+          "from": 1,
+          "to": 1,
+          "nativeText": "Alpha beta",
+          "nativeOffset": 0
+        },
+        {
+          "time": 505,
+          "type": "keydown",
+          "view": "B",
+          "key": "X",
+          "from": 22,
+          "to": 22,
+          "nativeText": "Gamma delta",
+          "nativeOffset": 2
+        },
+        {
+          "time": 505,
+          "type": "beforeinput",
+          "view": "B",
+          "inputType": "insertText",
+          "from": 22,
+          "to": 22
+        },
+        {
+          "time": 522,
+          "type": "keydown",
+          "view": "A",
+          "key": "A",
+          "from": 1,
+          "to": 1,
+          "nativeText": "Alpha beta",
+          "nativeOffset": 0
+        },
+        {
+          "time": 522,
+          "type": "beforeinput",
+          "view": "A",
+          "inputType": "insertText",
+          "from": 1,
+          "to": 1
+        },
+        {
+          "time": 525,
+          "type": "keydown",
+          "view": "A",
+          "key": "-",
+          "from": 2,
+          "to": 2,
+          "nativeText": "AAlpha beta",
+          "nativeOffset": 1
+        },
+        {
+          "time": 525,
+          "type": "beforeinput",
+          "view": "A",
+          "inputType": "insertText",
+          "from": 2,
+          "to": 2
+        },
+        {
+          "time": 569,
+          "type": "keydown",
+          "view": "B",
+          "key": "B",
+          "from": 15,
+          "to": 15,
+          "nativeText": "Gamma delta",
+          "nativeOffset": 0
+        },
+        {
+          "time": 569,
+          "type": "beforeinput",
+          "view": "B",
+          "inputType": "insertText",
+          "from": 15,
+          "to": 15
+        },
+        {
+          "time": 572,
+          "type": "keydown",
+          "view": "B",
+          "key": "-",
+          "from": 16,
+          "to": 16,
+          "nativeText": "BGamma delta",
+          "nativeOffset": 1
+        },
+        {
+          "time": 572,
+          "type": "beforeinput",
+          "view": "B",
+          "inputType": "insertText",
+          "from": 16,
+          "to": 16
+        },
+        {
+          "time": 619,
+          "type": "keydown",
+          "view": "A",
+          "key": "Control",
+          "from": 3,
+          "to": 3,
+          "nativeText": "A-Alpha beta",
+          "nativeOffset": 2
+        },
+        {
+          "time": 620,
+          "type": "keydown",
+          "view": "A",
+          "key": "z",
+          "from": 3,
+          "to": 3,
+          "nativeText": "A-Alpha beta",
+          "nativeOffset": 2
+        },
+        {
+          "time": 666,
+          "type": "keydown",
+          "view": "A",
+          "key": "R",
+          "from": 1,
+          "to": 1,
+          "nativeText": "Alpha beta",
+          "nativeOffset": 0
+        },
+        {
+          "time": 666,
+          "type": "beforeinput",
+          "view": "A",
+          "inputType": "insertText",
+          "from": 1,
+          "to": 1
+        },
+        {
+          "time": 668,
+          "type": "keydown",
+          "view": "A",
+          "key": "E",
+          "from": 2,
+          "to": 2,
+          "nativeText": "RAlpha beta",
+          "nativeOffset": 1
+        },
+        {
+          "time": 668,
+          "type": "beforeinput",
+          "view": "A",
+          "inputType": "insertText",
+          "from": 2,
+          "to": 2
+        },
+        {
+          "time": 670,
+          "type": "keydown",
+          "view": "A",
+          "key": "C",
+          "from": 3,
+          "to": 3,
+          "nativeText": "REAlpha beta",
+          "nativeOffset": 2
+        },
+        {
+          "time": 670,
+          "type": "beforeinput",
+          "view": "A",
+          "inputType": "insertText",
+          "from": 3,
+          "to": 3
+        },
+        {
+          "time": 673,
+          "type": "keydown",
+          "view": "A",
+          "key": "O",
+          "from": 4,
+          "to": 4,
+          "nativeText": "RECAlpha beta",
+          "nativeOffset": 3
+        },
+        {
+          "time": 673,
+          "type": "beforeinput",
+          "view": "A",
+          "inputType": "insertText",
+          "from": 4,
+          "to": 4
+        },
+        {
+          "time": 674,
+          "type": "keydown",
+          "view": "A",
+          "key": "V",
+          "from": 5,
+          "to": 5,
+          "nativeText": "RECOAlpha beta",
+          "nativeOffset": 4
+        },
+        {
+          "time": 675,
+          "type": "beforeinput",
+          "view": "A",
+          "inputType": "insertText",
+          "from": 5,
+          "to": 5
+        },
+        {
+          "time": 677,
+          "type": "keydown",
+          "view": "A",
+          "key": "E",
+          "from": 6,
+          "to": 6,
+          "nativeText": "RECOVAlpha beta",
+          "nativeOffset": 5
+        },
+        {
+          "time": 678,
+          "type": "beforeinput",
+          "view": "A",
+          "inputType": "insertText",
+          "from": 6,
+          "to": 6
+        },
+        {
+          "time": 681,
+          "type": "keydown",
+          "view": "A",
+          "key": "R",
+          "from": 7,
+          "to": 7,
+          "nativeText": "RECOVEAlpha beta",
+          "nativeOffset": 6
+        },
+        {
+          "time": 681,
+          "type": "beforeinput",
+          "view": "A",
+          "inputType": "insertText",
+          "from": 7,
+          "to": 7
+        },
+        {
+          "time": 684,
+          "type": "keydown",
+          "view": "A",
+          "key": "-",
+          "from": 8,
+          "to": 8,
+          "nativeText": "RECOVERAlpha beta",
+          "nativeOffset": 7
+        },
+        {
+          "time": 684,
+          "type": "beforeinput",
+          "view": "A",
+          "inputType": "insertText",
+          "from": 8,
+          "to": 8
+        },
+        {
+          "time": 837,
+          "type": "keydown",
+          "view": "A",
+          "key": "K",
+          "from": 1,
+          "to": 1,
+          "nativeText": "Alpha beta",
+          "nativeOffset": 0
+        },
+        {
+          "time": 838,
+          "type": "beforeinput",
+          "view": "A",
+          "inputType": "insertText",
+          "from": 1,
+          "to": 1
+        },
+        {
+          "time": 841,
+          "type": "keydown",
+          "view": "A",
+          "key": "E",
+          "from": 2,
+          "to": 2,
+          "nativeText": "KAlpha beta",
+          "nativeOffset": 1
+        },
+        {
+          "time": 841,
+          "type": "beforeinput",
+          "view": "A",
+          "inputType": "insertText",
+          "from": 2,
+          "to": 2
+        },
+        {
+          "time": 843,
+          "type": "keydown",
+          "view": "A",
+          "key": "E",
+          "from": 3,
+          "to": 3,
+          "nativeText": "KEAlpha beta",
+          "nativeOffset": 2
+        },
+        {
+          "time": 843,
+          "type": "beforeinput",
+          "view": "A",
+          "inputType": "insertText",
+          "from": 3,
+          "to": 3
+        },
+        {
+          "time": 845,
+          "type": "keydown",
+          "view": "A",
+          "key": "P",
+          "from": 4,
+          "to": 4,
+          "nativeText": "KEEAlpha beta",
+          "nativeOffset": 3
+        },
+        {
+          "time": 845,
+          "type": "beforeinput",
+          "view": "A",
+          "inputType": "insertText",
+          "from": 4,
+          "to": 4
+        },
+        {
+          "time": 847,
+          "type": "keydown",
+          "view": "A",
+          "key": "-",
+          "from": 5,
+          "to": 5,
+          "nativeText": "KEEPAlpha beta",
+          "nativeOffset": 4
+        },
+        {
+          "time": 847,
+          "type": "beforeinput",
+          "view": "A",
+          "inputType": "insertText",
+          "from": 5,
+          "to": 5
+        },
+        {
+          "time": 994,
+          "type": "keydown",
+          "view": "B",
+          "key": "B",
+          "from": 13,
+          "to": 13,
+          "nativeText": "Gamma delta",
+          "nativeOffset": 0
+        },
+        {
+          "time": 994,
+          "type": "beforeinput",
+          "view": "B",
+          "inputType": "insertText",
+          "from": 13,
+          "to": 13
+        },
+        {
+          "time": 996,
+          "type": "keydown",
+          "view": "B",
+          "key": "-",
+          "from": 14,
+          "to": 14,
+          "nativeText": "BGamma delta",
+          "nativeOffset": 1
+        },
+        {
+          "time": 996,
+          "type": "beforeinput",
+          "view": "B",
+          "inputType": "insertText",
+          "from": 14,
+          "to": 14
+        },
+        {
+          "time": 999,
+          "type": "keydown",
+          "view": "A",
+          "key": "A",
+          "from": 1,
+          "to": 1,
+          "nativeText": "Alpha beta",
+          "nativeOffset": 0
+        },
+        {
+          "time": 999,
+          "type": "beforeinput",
+          "view": "A",
+          "inputType": "insertText",
+          "from": 1,
+          "to": 1
+        },
+        {
+          "time": 1001,
+          "type": "keydown",
+          "view": "A",
+          "key": "-",
+          "from": 2,
+          "to": 2,
+          "nativeText": "AAlpha beta",
+          "nativeOffset": 1
+        },
+        {
+          "time": 1001,
+          "type": "beforeinput",
+          "view": "A",
+          "inputType": "insertText",
+          "from": 2,
+          "to": 2
+        },
+        {
+          "time": 1013,
+          "type": "beforeinput",
+          "view": "A",
+          "inputType": "insertText",
+          "from": 1,
+          "to": 1
+        },
+        {
+          "time": 1016,
+          "type": "beforeinput",
+          "view": "B",
+          "inputType": "insertText",
+          "from": 3,
+          "to": 3
+        },
+        {
+          "time": 1019,
+          "type": "keydown",
+          "view": "A",
+          "key": "Control",
+          "from": 12,
+          "to": 12,
+          "nativeText": "abFOREIGNcdAlpha beta",
+          "nativeOffset": 11
+        },
+        {
+          "time": 1019,
+          "type": "keydown",
+          "view": "A",
+          "key": "z",
+          "from": 12,
+          "to": 12,
+          "nativeText": "abFOREIGNcdAlpha beta",
+          "nativeOffset": 11
+        },
+        {
+          "time": 1065,
+          "type": "keydown",
+          "view": "A",
+          "key": "End",
+          "from": 1,
+          "to": 1,
+          "nativeText": "Four",
+          "nativeOffset": 4
+        },
+        {
+          "time": 1066,
+          "type": "keydown",
+          "view": "A",
+          "key": "Tab",
+          "from": 1,
+          "to": 1,
+          "nativeText": "Four",
+          "nativeOffset": 4
+        }
+      ]
+    },
+    {
+      "id": "CT-01",
+      "title": "raw editor control: immediate final-cell Tab",
+      "status": "fail",
+      "rows": 2,
+      "trace": [
+        {
+          "key": "End",
+          "from": 1,
+          "nativeText": "Four",
+          "nativeOffset": 4
+        },
+        {
+          "key": "Tab",
+          "from": 1,
+          "nativeText": "Four",
+          "nativeOffset": 4
+        }
+      ],
+      "meaning": "Same Q-04 table command without authority/collab/backup; not a native or full upstream diagnosis."
+    }
+  ],
+  "errors": [],
+  "trace": []
+}

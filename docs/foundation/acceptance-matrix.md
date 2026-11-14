@@ -91,3 +91,10 @@ and native evidence rules in [the plan](editor-qualification-plan.md). T-04/T-07
 consume [HQ cases](host-security-cases.json); T-15 consumes proposed [budgets](qualification-budgets.json).
 All new instances/scenarios are not-run. [Readiness](qualification-readiness.md)
 separates exploratory setup, binding acceptance and native/provider availability.
+
+## R07 first-slice evidence
+
+This table remains unqualified as a full matrix. [R07 evidence](evidence/r07-2026-11-14.json)
+provides partial core/browser observations; it does not mark whole T/EI cases passed.
+Raw undo violates origin preservation and immediate final-cell Tab fails the tested
+profile in both integration and control. Native/platform/provider gates stay open.

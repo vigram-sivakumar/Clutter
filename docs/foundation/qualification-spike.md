@@ -1,7 +1,8 @@
 # First qualification spike
 
-Status: specification only, updated to confirmed initial scope. No prototype or
-production implementation is part of this documentation change.
+Status: qualification plan with a bounded R07 experiment now executed; see the
+[R07 evidence](evidence/r07-2026-11-14.json). Native and full qualification remain
+blocked. No production implementation is part of this change.
 
 ## Question and fixture
 
@@ -117,3 +118,10 @@ experiment and scoped entry gates. Use [editor qualification](editor-qualificati
 [budgets](qualification-budgets.json), [candidate template](qualification-candidate-template.json)
 and [HQ scenarios](host-security-cases.json). Candidate locks/native environment and
 relevant policy approval remain outstanding; no executed R06 proof is claimed.
+
+## R07 first-slice evidence
+
+[R07 experiment](experiments/r07-two-view/README.md) and [evidence](evidence/r07-2026-11-14.json)
+implement the first bounded slice. Raw versus guarded history and the one-view
+control remain distinct. Investigate BR-14/CT-01 without settle waits; keep native
+and provider stages blocked until real environment/evidence exist.
