@@ -1,3 +1,4 @@
+import { TaskTransferRecoveryStore } from '../../vault/persistence/TaskTransferRecoveryStore';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TaskOperations } from './TaskOperations';
 import { PageOperations } from '../page/PageOperations';
@@ -56,7 +57,7 @@ function buildPage(id: string, body: string): Page {
   });
 }
 
-function setup(page: Page, reopened?: { vault: Vault; fileSystem: InMemoryVaultFileSystem }) {
+function setup(page: Page, reopened?: { vault: Vault; fileSystem: InMemoryVaultFileSystem }, normalizeMarkdownForSave?: (markdown: string) => string) {
   const vault = reopened?.vault ?? new Vault(
     ROOT,
     [page],
@@ -106,16 +107,20 @@ function setup(page: Page, reopened?: { vault: Vault; fileSystem: InMemoryVaultF
     new PageCreator(new UuidGenerator(), new PageFactory()),
     folderOperations,
     new DailyNoteService(),
-    () => {}
+    () => {},
+    undefined,
+    normalizeMarkdownForSave
   );
 
+  const transferRecovery = new TaskTransferRecoveryStore(fileSystem, ROOT);
   return {
     vault,
     fileSystem,
     coordinator,
     documentRegistry,
     pageOperations,
-    taskOperations: new TaskOperations(pageOperations),
+    transferRecovery,
+    taskOperations: new TaskOperations(pageOperations, transferRecovery, normalizeMarkdownForSave),
   };
 }
 
@@ -1099,7 +1104,7 @@ describe('Task Inbox transfers', () => {
     expect([...env.vault.tasks()]).toHaveLength(count);
   });
 
-  it('resumes a failed source removal using durable receipts, including identical tasks', async () => {
+  it('resumes a failed source removal using private recovery metadata, including identical tasks', async () => {
     const env = setup(inbox('- [ ] Same @2026-11-20\n- [ ] Same @2026-11-20'));
     const persist = env.pageOperations.mutateBodyAndSave.bind(
       env.pageOperations
@@ -1115,18 +1120,18 @@ describe('Task Inbox transfers', () => {
     await expect(
       env.taskOperations.tidyInbox(ROOT, 'inbox-source')
     ).rejects.toThrow('Disk unavailable');
-    expect(env.vault.getPage('inbox-source')!.source.markdown).toContain(
-      'clutter-inbox-plan'
-    );
+    expect(env.vault.getPage('inbox-source')!.source.markdown).toBe('- [ ] Same @2026-11-20\n- [ ] Same @2026-11-20');
+    expect(await env.transferRecovery.load()).not.toBeNull();
     expect([...env.vault.tasks()]).toHaveLength(4); // source is retained until all writes finish
     await expect(
       env.taskOperations.create('inbox-source', 'Wait')
     ).rejects.toThrow('Finish Tidy up');
     failure.mockRestore();
-    const restarted = new TaskOperations(env.pageOperations);
+    const restarted = new TaskOperations(env.pageOperations, env.transferRecovery);
     await restarted.tidyInbox(ROOT, 'inbox-source');
     expect(env.vault.getPage('inbox-source')!.source.markdown).toBe('');
     expect([...env.vault.tasks()]).toHaveLength(2);
+    expect(await env.transferRecovery.load()).toBeNull();
   });
 
   it('keeps all originals when a destination fails and shares rapid repeated requests', async () => {
@@ -1214,4 +1219,94 @@ describe('Inbox recovery across a full vault reload', () => {
     await env.taskOperations.toggleComplete(firstTask(source));
     expect(env.vault.getPage(source.id)!.analysis.tasks[0]!.completed).toBe(true);
   });
+});
+
+
+describe('Tidy up adds only task lines to user Markdown', () => {
+  const raw = '- [x] Finished @2026-11-20 @completed:2026-11-14';
+  const inbox = (body: string): Page => ({ ...buildPage('inbox-source', body), path: `${ROOT}/.clutter/inbox.md` });
+
+  it('preserves old comments while inserting only the task lines', async () => {
+    const env = setup(inbox(raw + '\n- [ ] Undated'));
+    const { DailyNotePath } = await import('../../vault/ingest/DailyNotePath');
+    const target = await env.pageOperations.ensureAtPath(DailyNotePath.absoluteFrom(ROOT, new Date(2026, 10, 20)), { type: 'daily-note' });
+    const old = '<!-- clutter-inbox-transfer fa780adf-0056-47b1-9a8e-e32d14e832bb:2026-11-20 -->';
+    const previous = `# Notes\n${old}\n<!-- My own comment -->\n- [ ] Existing task`;
+    await env.pageOperations.mutateBodyAndSave(target, () => previous);
+    await env.taskOperations.tidyInbox(ROOT, 'inbox-source');
+    expect(env.vault.getPage(target)!.source.markdown).toBe(`# Notes\n${old}\n<!-- My own comment -->\n${raw}\n- [ ] Existing task`);
+    expect(env.vault.getPage('inbox-source')!.source.markdown).toBe('- [ ] Undated');
+    expect(await env.transferRecovery.load()).toBeNull();
+  });
+
+  it('refuses a move before adding anything when private recovery cannot be saved', async () => {
+    const env = setup(inbox(raw));
+    vi.spyOn(env.transferRecovery, 'save').mockRejectedValueOnce(new Error('Metadata unavailable'));
+    await expect(env.taskOperations.tidyInbox(ROOT, 'inbox-source')).rejects.toThrow('Metadata unavailable');
+    expect(env.vault.getPage('inbox-source')!.source.markdown).toBe(raw);
+    expect([...env.vault.pages()]).toHaveLength(1);
+  });
+
+  it('finishes failed metadata cleanup before accepting a new Inbox task', async () => {
+    const env = setup(inbox(raw));
+    const save = env.transferRecovery.save.bind(env.transferRecovery);
+    const cleanup = vi.spyOn(env.transferRecovery, 'save').mockImplementation(async (expected, next) => {
+      if (next === null) throw new Error('Cleanup failed');
+      return save(expected, next);
+    });
+    await expect(env.taskOperations.tidyInbox(ROOT, 'inbox-source')).rejects.toThrow('Cleanup failed');
+    expect(env.vault.getPage('inbox-source')!.source.markdown).toBe('');
+    cleanup.mockRestore();
+    await env.taskOperations.create('inbox-source', 'New capture');
+    expect(env.vault.getPage('inbox-source')!.source.markdown).toBe('- [ ] New capture');
+    expect([...env.vault.tasks()].filter((task) => task.completed)).toHaveLength(1);
+    expect(await env.transferRecovery.load()).toBeNull();
+  });
+
+  it('recognizes an old pending checkpoint without adding or removing old comments', async () => {
+    const id = 'fa780adf-0056-47b1-9a8e-e32d14e832bb';
+    const checkpoint = `<!-- clutter-inbox-plan ${JSON.stringify({ version: 1, id, body: raw })} -->`;
+    const env = setup(inbox(`${raw}\n${checkpoint}`));
+    const { DailyNotePath } = await import('../../vault/ingest/DailyNotePath');
+    const target = await env.pageOperations.ensureAtPath(DailyNotePath.absoluteFrom(ROOT, new Date(2026, 10, 20)), { type: 'daily-note' });
+    const previous = `<!-- clutter-inbox-transfer ${id}:2026-11-20 -->\n${raw}`;
+    await env.pageOperations.mutateBodyAndSave(target, () => previous);
+    await env.taskOperations.tidyInbox(ROOT, 'inbox-source');
+    expect(env.vault.getPage(target)!.source.markdown).toBe(previous);
+    expect(env.vault.getPage('inbox-source')!.source.markdown).toBe(checkpoint);
+    expect([...env.vault.tasks()]).toHaveLength(1);
+    await env.taskOperations.create('inbox-source', 'Another capture');
+    expect(env.vault.getPage('inbox-source')!.source.markdown).toContain(checkpoint);
+  });
+});
+
+
+it('recovers privately when an open Daily Note was normalized during its save', async () => {
+  const { normalizeAllTablesInMarkdown } = await import('../../../features/markdown/editor/codemirror/table/tableColumnNormalization');
+  const raw = '- [ ] Move exactly once @2026-11-20';
+  const source = { ...buildPage('inbox-source', raw), path: `${ROOT}/.clutter/inbox.md` };
+  const env = setup(source, undefined, normalizeAllTablesInMarkdown);
+  await env.fileSystem.createDirectory(`${ROOT}/.clutter`);
+  const { DailyNotePath } = await import('../../vault/ingest/DailyNotePath');
+  const targetPath = DailyNotePath.absoluteFrom(ROOT, new Date(2026, 10, 20));
+  const target = await env.pageOperations.ensureAtPath(targetPath, { type: 'daily-note' });
+  await env.pageOperations.open(target);
+  await env.pageOperations.mutateBodyAndSave(target, () => '# User notes\n\n| a | longer |\n|---|---|\n| 1 | 2 |');
+  const persist = env.pageOperations.mutateBodyAndSave.bind(env.pageOperations);
+  const interrupted = vi.spyOn(env.pageOperations, 'mutateBodyAndSave').mockImplementation(async (id, transform) => {
+    await persist(id, transform);
+    if (id === target) throw new Error('Interrupted after normalized save');
+  });
+  await expect(env.taskOperations.tidyInbox(ROOT, source.id)).rejects.toThrow('Interrupted');
+  interrupted.mockRestore();
+  const savedBody = env.vault.getPage(target)!.source.markdown;
+  expect(savedBody).not.toContain('<!-- clutter-inbox');
+  const { VaultScanner } = await import('../../vault/ingest/VaultScanner');
+  const { VaultBuilder } = await import('../../vault/ingest/VaultBuilder');
+  const { vault } = new VaultBuilder(new UuidGenerator()).build(await new VaultScanner(env.fileSystem).scan(ROOT));
+  const restarted = setup(vault.getPage(source.id)!, { vault, fileSystem: env.fileSystem }, normalizeAllTablesInMarkdown);
+  await restarted.taskOperations.tidyInbox(ROOT, source.id);
+  expect(vault.getPage(target)!.source.markdown).toBe(savedBody);
+  expect([...vault.tasks()]).toHaveLength(1);
+  expect(vault.getPage(source.id)!.source.markdown).toBe('');
 });

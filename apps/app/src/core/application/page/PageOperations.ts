@@ -1195,6 +1195,15 @@ export class PageOperations {
     this.saveCoordinator.cancelTimers(this.descriptionChannelKey(pageId));
   }
 
+  /** Snapshot the current editable body for a guarded multi-document operation. */
+  public getBodyForMutation(pageId: string): string {
+    const page = this.vault.getPage(pageId);
+    const session = this.documentRegistry.get(pageId);
+    if (!page && !session) throw new Error(`Page not found: ${pageId}`);
+    this.assertEditable(pageId);
+    return session?.currentRevision.markdown ?? page!.source.markdown;
+  }
+
   /** Whether a source is the managed Task Inbox, rather than an ordinary note. */
   public isTaskInbox(pageId: string): boolean {
     const page = this.vault.getPage(pageId);

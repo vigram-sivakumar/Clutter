@@ -14,6 +14,7 @@ import {
   isArchivedAssetReferenced,
   type ArchivedAsset,
 } from './archive/archivedAssetReferences';
+import { TaskTransferRecoveryStore } from '../vault/persistence/TaskTransferRecoveryStore';
 import { flushWorkspaceStateWrites, hasPendingWorkspaceStateWrites } from '../vault/initialize/workspaceStateFile';
 import { initializeSpace, type SpaceInitialization } from '../vault/initialize/initializeSpace';
 import { LocalVaultProvider } from '../vault/providers/LocalFileSystem';
@@ -902,7 +903,7 @@ export class Application {
     // which is what decides (per-page) whether the write targets an open
     // DocumentSession or the Gate's existing 'save' kind — TaskOperations
     // itself no longer touches Vault or the Gate directly.
-    this.taskOperations = new TaskOperations(this.pageOperations);
+    this.taskOperations = new TaskOperations(this.pageOperations, new TaskTransferRecoveryStore(this.fileSystem, vault.root), normalizeMarkdownForSave);
     // Not Gate-backed, deliberately — tag definitions are application
     // configuration (.clutter/tags.json), not Vault domain content, so they
     // are outside the Persistence Gate's scope (ARCHITECTURE_RULES.md rule

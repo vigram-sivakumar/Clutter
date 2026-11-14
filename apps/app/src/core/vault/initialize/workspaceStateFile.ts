@@ -69,19 +69,21 @@ export async function readWorkspaceStateFileText(
 export function mergeAndWriteWorkspaceStateFile(
   fileSystem: VaultFileSystem,
   rootPath: string,
-  patch: Record<string, unknown>
+  patch: Record<string, unknown>,
+  precondition?: { readonly key: string; readonly expected: unknown }
 ): Promise<void> {
   pendingWrites++;
   const write = writeQueue
-    .then(() => mergeAndWrite(fileSystem, rootPath, patch))
+    .then(() => mergeAndWrite(fileSystem, rootPath, patch, precondition))
     // The vault is gone (its root was deleted or moved, or its Application was discarded and the
     // filesystem sealed): the filesystem refused the write, which is the guard working — the store that
     // asked belongs to a vault nobody is showing any more, and the in-memory state it persists is
     // discarded with it. That is an expected outcome of the vault lifecycle (ADR-056), not a failure, so
     // it ends here instead of reaching the stores' fire-and-forget callers as an unhandled rejection.
+    // Conditional recovery writes must report every refusal; ordinary preferences retain this lifecycle exception.
     // Every other error (disk full, permission, a serialization bug) still propagates to the caller.
     .catch((error: unknown) => {
-      if (!(error instanceof VaultRootMissingError)) {
+      if (precondition || !(error instanceof VaultRootMissingError)) {
         throw error;
       }
     });
@@ -113,7 +115,8 @@ export function flushWorkspaceStateWrites(): Promise<void> {
 async function mergeAndWrite(
   fileSystem: VaultFileSystem,
   rootPath: string,
-  patch: Record<string, unknown>
+  patch: Record<string, unknown>,
+  precondition?: { readonly key: string; readonly expected: unknown }
 ): Promise<void> {
   await ensureClutterDirectory(fileSystem, rootPath);
 
@@ -139,6 +142,15 @@ async function mergeAndWrite(
     } catch {
       readable = false;
       // Fall through with an empty base — see doc comment above.
+    }
+
+    if (
+      precondition &&
+      (!readable ||
+        JSON.stringify(current[precondition.key] ?? null) !==
+          JSON.stringify(precondition.expected ?? null))
+    ) {
+      throw new Error('The operation changed elsewhere; try again');
     }
 
     if (guarded && existed && !readable) {

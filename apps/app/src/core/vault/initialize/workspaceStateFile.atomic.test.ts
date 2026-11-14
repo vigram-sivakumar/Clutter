@@ -92,3 +92,22 @@ describe('workspace.json under the atomic provider (ADR-063, decision 14)', () =
     expect(JSON.parse(await disk.readFile(FILE))).toEqual({ b: 2 });
   });
 });
+
+
+it.each([['old', true], ['theirs', false]] as const)('rechecks the key precondition after a file conflict: %s', async (externalValue, succeeds) => {
+  const { disk, fileSystem } = setup({ [FILE]: '{"guarded":"old"}' });
+  const read = disk.readFile.bind(disk);
+  let first = true;
+  disk.readFile = async (path: string) => {
+    const text = await read(path);
+    if (path === FILE && first) {
+      first = false;
+      await disk.writeFile(FILE, JSON.stringify({ guarded: externalValue, unrelated: true }));
+    }
+    return text;
+  };
+  const write = mergeAndWriteWorkspaceStateFile(fileSystem, ROOT, { guarded: 'ours' }, { key: 'guarded', expected: 'old' });
+  if (succeeds) await write;
+  else await expect(write).rejects.toThrow('changed elsewhere');
+  expect(JSON.parse(await disk.readFile(FILE))).toEqual({ guarded: succeeds ? 'ours' : 'theirs', unrelated: true });
+});

@@ -1,3 +1,4 @@
+import type { TaskTransferRecord, TaskTransferRecoveryStore } from '../../vault/persistence/TaskTransferRecoveryStore';
 import { DailyNotePath } from '../../vault/ingest/DailyNotePath';
 import { TaskExtractor } from '../../vault/ingest/extractors/TaskExtractor';
 import { toDate } from '@shared/helpers/time/helpers/toDate';
@@ -45,30 +46,50 @@ interface TaskSourcePosition {
  * *is* (task-line semantics), never *how* it reaches the document.
  */
 export class TaskOperations {
-  constructor(private readonly pageOperations: PageOperations) {}
+  constructor(
+    private readonly pageOperations: PageOperations,
+    private readonly transferRecovery?: TaskTransferRecoveryStore,
+    private readonly normalizeForRecovery: (markdown: string) => string = (markdown) => markdown
+  ) {}
 
   private tidyPending: Promise<void> | undefined;
 
-  private mutateTaskBody(
+  private async mutateTaskBody(
     pageId: string,
     transform: (markdown: string) => string
   ): Promise<void> {
-    return this.pageOperations.mutateBody(pageId, (markdown) => {
-      if (
-        this.pageOperations.isTaskInbox(pageId) &&
-        markdown.includes(INBOX_PLAN_PREFIX)
-      ) {
+    if (this.pageOperations.isTaskInbox(pageId)) {
+      if (this.tidyPending)
         throw new Error('Finish Tidy up before changing Inbox tasks');
+      const recovery = this.requireRecovery();
+      const pending = await recovery.load();
+      if (pending) {
+        if (
+          pending.inboxPageId === pageId &&
+          pending.after === removeTaskLines(pending.before) &&
+          destinationsSaved(pending) &&
+          this.pageOperations.getBodyForMutation(pageId) === pending.after
+        ) {
+          await recovery.save(pending, null);
+        } else throw new Error('Finish Tidy up before changing Inbox tasks');
       }
+      if (legacyTransferId(this.pageOperations.getBodyForMutation(pageId)))
+        throw new Error('Finish Tidy up before changing Inbox tasks');
+    }
+    return this.pageOperations.mutateBody(pageId, (markdown) => {
+      if (this.pageOperations.isTaskInbox(pageId) && this.tidyPending)
+        throw new Error('Finish Tidy up before changing Inbox tasks');
       return transform(markdown);
     });
   }
 
-  /**
-   * One transfer workflow, using the same body broker, parser and task insertion policy.
-   * A durable source plan and per-destination receipt make retries safe after any write.
-   * Receipts are Markdown comments outside the task lines; task text/metadata is unchanged.
-   */
+  private requireRecovery(): TaskTransferRecoveryStore {
+    if (!this.transferRecovery)
+      throw new Error('Task transfer recovery is unavailable');
+    return this.transferRecovery;
+  }
+
+  /** Transfers only task lines; recovery bookkeeping never enters Markdown. */
   public tidyInbox(vaultRoot: string, inboxPageId: string): Promise<void> {
     if (!this.pageOperations.isTaskInbox(inboxPageId))
       return Promise.reject(new Error('The Task Inbox is no longer available'));
@@ -87,63 +108,150 @@ export class TaskOperations {
     vaultRoot: string,
     inboxPageId: string
   ): Promise<void> {
-    let plan: InboxTransferPlan | undefined;
-    let preparedBody = '';
-    await this.pageOperations.mutateBodyAndSave(inboxPageId, (markdown) => {
-      plan = readInboxPlan(markdown);
-      if (plan) {
-        preparedBody = markdown;
-        return markdown;
-      }
-      const eligible = new TaskExtractor()
-        .extract(markdown)
-        .some((task) => task.dueDate && isValidCalendarDate(task.dueDate));
-      if (!eligible) return markdown;
-      plan = { version: 1, id: crypto.randomUUID(), body: markdown };
-      // Keep user HTML/comment delimiters inside the JSON string, not in the surrounding comment.
-      const json = JSON.stringify(plan)
-        .replace(/</g, '\\u003c')
-        .replace(/>/g, '\\u003e');
-      preparedBody = `${markdown}\n${INBOX_PLAN_PREFIX}${json} -->`;
-      return preparedBody;
-    });
-    if (!plan) return;
-    const transfer = plan;
-    const tasks = new TaskExtractor()
-      .extract(transfer.body)
-      .filter((task) => task.dueDate && isValidCalendarDate(task.dueDate));
-    const dates = [...new Set(tasks.map((task) => task.dueDate!))];
-    for (const date of dates) {
-      const path = DailyNotePath.absoluteFrom(vaultRoot, toDate(date));
-      const destinationId = await this.pageOperations.ensureAtPath(path, {
-        type: 'daily-note',
+    const recovery = this.requireRecovery();
+    let record = await recovery.load();
+    if (record && record.inboxPageId !== inboxPageId)
+      throw new Error('Another Inbox transfer needs recovery');
+    if (!record) {
+      let before = '';
+      // Drain earlier source mutations through the existing broker before planning the transfer.
+      await this.pageOperations.mutateBodyAndSave(inboxPageId, (body) => {
+        before = body;
+        return body;
       });
-      const receipt = `<!-- clutter-inbox-transfer ${transfer.id}:${date} -->`;
-      const block = [
-        receipt,
-        ...tasks
-          .filter((task) => task.dueDate === date)
-          .map((task) => task.rawText),
-      ].join('\n');
-      await this.pageOperations.mutateBodyAndSave(destinationId, (markdown) =>
-        markdown.includes(receipt) ? markdown : insertTaskBlock(markdown, block)
-      );
+      const tasks = datedTasks(before);
+      if (!tasks.length) return;
+      const legacyId = legacyTransferId(before);
+      record = {
+        version: 1,
+        id: crypto.randomUUID(),
+        inboxPageId,
+        before,
+        after: removeTaskLines(before),
+        destinations: [],
+        ...(legacyId ? { legacyId } : {}),
+      };
+      await recovery.save(null, record);
     }
-    // Remove originals only after EVERY destination has reached Durable.
-    await this.pageOperations.mutateBodyAndSave(inboxPageId, (markdown) => {
-      if (markdown !== preparedBody)
+    if (record.after !== removeTaskLines(record.before))
+      throw new Error(
+        'The task transfer recovery record is invalid; Inbox tasks were kept'
+      );
+    const source = this.pageOperations.getBodyForMutation(inboxPageId);
+    if (source === record.after && destinationsSaved(record)) {
+      await recovery.save(record, null);
+      return;
+    }
+    if (source !== record.before)
+      throw new Error('Inbox changed during Tidy up; its tasks were kept');
+    const tasks = datedTasks(record.before);
+    const dates = [...new Set(tasks.map((task) => task.dueDate!))];
+    if (
+      new Set(record.destinations.map((d) => d.date)).size !==
+        record.destinations.length ||
+      record.destinations.some((d) => !dates.includes(d.date))
+    )
+      throw new Error(
+        'The task transfer destinations are invalid; Inbox tasks were kept'
+      );
+    for (const date of dates) {
+      const destinationId = await this.pageOperations.ensureAtPath(
+        DailyNotePath.absoluteFrom(vaultRoot, toDate(date)),
+        { type: 'daily-note' }
+      );
+      const lines = tasks
+        .filter((task) => task.dueDate === date)
+        .map((task) => task.rawText);
+      const block = lines.join('\n');
+      let destination = record.destinations.find((d) => d.date === date);
+      if (destination && destination.pageId !== destinationId) {
+        const current = this.normalizeForRecovery(
+          this.pageOperations.getBodyForMutation(destinationId)
+        );
+        if (
+          current !== destination.after &&
+          (destination.state === 'saved' || current !== destination.before)
+        )
+          throw new Error(
+            'A destination Daily Note changed; Inbox tasks were kept'
+          );
+        const adopted = { ...destination, pageId: destinationId };
+        const next: TaskTransferRecord = {
+          ...record,
+          destinations: record.destinations.map((d) =>
+            d.date === date ? adopted : d
+          ),
+        };
+        await recovery.save(record, next);
+        record = next;
+        destination = adopted;
+      }
+      if (!destination) {
+        const body = this.pageOperations.getBodyForMutation(destinationId);
+        // Read old receipts only for compatibility; new transfers never generate them.
+        const existingReceipt =
+          record.legacyId &&
+          body.includes(
+            `<!-- clutter-inbox-transfer ${record.legacyId}:${date} -->`
+          );
+        if (existingReceipt && !containsTaskLines(body, lines))
+          throw new Error(
+            'Previously moved tasks changed; Inbox tasks were kept'
+          );
+        destination = {
+          date,
+          pageId: destinationId,
+          before: this.normalizeForRecovery(body),
+          after: this.normalizeForRecovery(
+            existingReceipt ? body : insertTaskBlock(body, block)
+          ),
+          state: existingReceipt ? 'saved' : 'prepared',
+        };
+        const next: TaskTransferRecord = {
+          ...record,
+          destinations: [...record.destinations, destination],
+        };
+        await recovery.save(record, next);
+        record = next;
+      }
+      if (destination.state === 'saved') continue;
+      const prepared = destination;
+      await this.pageOperations.mutateBodyAndSave(destinationId, (body) => {
+        const current = this.normalizeForRecovery(body);
+        if (current === prepared.after) return body;
+        if (current !== prepared.before)
+          throw new Error(
+            'A destination Daily Note changed; Inbox tasks were kept'
+          );
+        return insertTaskBlock(body, block);
+      });
+      const next: TaskTransferRecord = {
+        ...record,
+        destinations: record.destinations.map((d) =>
+          d.date === date ? { ...d, state: 'saved' as const } : d
+        ),
+      };
+      await recovery.save(record, next);
+      record = next;
+    }
+    for (const destination of record.destinations) {
+      if (
+        this.normalizeForRecovery(
+          this.pageOperations.getBodyForMutation(destination.pageId)
+        ) !== destination.after
+      )
+        throw new Error(
+          'A destination Daily Note changed; Inbox tasks were kept'
+        );
+    }
+    const completed = record;
+    await this.pageOperations.mutateBodyAndSave(inboxPageId, (body) => {
+      if (body === completed.after) return body;
+      if (body !== completed.before)
         throw new Error('Inbox changed during Tidy up; its tasks were kept');
-      const movedOffsets = new Set(tasks.map((task) => task.startOffset));
-      let offset = 0;
-      return transfer.body
-        .split('\n')
-        .filter((line) => {
-          const keep = !movedOffsets.has(offset);
-          offset += line.length + 1;
-          return keep;
-        })
-        .join('\n');
+      return completed.after;
     });
+    await recovery.save(record, null);
   }
 
   /**
@@ -643,15 +751,15 @@ export class TaskOperations {
   }
 }
 
-const INBOX_PLAN_PREFIX = '<!-- clutter-inbox-plan ';
-interface InboxTransferPlan {
+const LEGACY_INBOX_PLAN_PREFIX = '<!-- clutter-inbox-plan ';
+interface LegacyInboxTransferPlan {
   readonly version: 1;
   readonly id: string;
   readonly body: string;
 }
-function readInboxPlan(markdown: string): InboxTransferPlan | undefined {
-  if (!markdown.includes(INBOX_PLAN_PREFIX)) return undefined;
-  const match = /\n<!-- clutter-inbox-plan ([^\n]+) -->$/.exec(markdown);
+function readLegacyInboxPlan(markdown: string): LegacyInboxTransferPlan | undefined {
+  if (!markdown.includes(LEGACY_INBOX_PLAN_PREFIX)) return undefined;
+  const match = /(?:^|\n)<!-- clutter-inbox-plan ([^\n]+) -->$/.exec(markdown);
   if (!match)
     throw new Error(
       'The unfinished Tidy up record could not be read; Inbox was kept'
@@ -673,12 +781,11 @@ function readInboxPlan(markdown: string): InboxTransferPlan | undefined {
     typeof plan.id !== 'string' ||
     !/^[0-9a-f-]{36}$/.test(plan.id) ||
     !('body' in plan) ||
-    typeof plan.body !== 'string' ||
-    markdown.slice(0, match.index) !== plan.body
+    typeof plan.body !== 'string'
   ) {
     throw new Error('Inbox changed since Tidy up started; its tasks were kept');
   }
-  return plan as InboxTransferPlan;
+  return plan as LegacyInboxTransferPlan;
 }
 
 /** The existing newest-task-first insertion policy, shared by creation and transfer. */
@@ -689,4 +796,60 @@ function insertTaskBlock(markdown: string, block: string): string {
   if (firstTask < 0) return `${block}\n${markdown}`;
   lines.splice(firstTask, 0, block);
   return lines.join('\n');
+}
+
+function datedTasks(markdown: string) {
+  return new TaskExtractor()
+    .extract(markdown)
+    .filter((task) => task.dueDate && isValidCalendarDate(task.dueDate));
+}
+function removeTaskLines(markdown: string): string {
+  const offsets = new Set(datedTasks(markdown).map((task) => task.startOffset));
+  let offset = 0;
+  return markdown
+    .split('\n')
+    .filter((line) => {
+      const keep = !offsets.has(offset);
+      offset += line.length + 1;
+      return keep;
+    })
+    .join('\n');
+}
+function legacyTransferId(markdown: string): string | undefined {
+  const text = markdown.trimEnd();
+  const plan = readLegacyInboxPlan(text);
+  if (!plan) return undefined;
+  const marker = text.lastIndexOf(LEGACY_INBOX_PLAN_PREFIX);
+  const prefix = marker === 0 ? '' : text.slice(0, marker - 1);
+  if (prefix === plan.body) return plan.id;
+  const original = new Set(datedTasks(plan.body).map((task) => task.rawText));
+  if (datedTasks(prefix).some((task) => original.has(task.rawText))) {
+    throw new Error(
+      'An earlier Tidy up checkpoint changed; Inbox tasks were kept for review'
+    );
+  }
+  return undefined;
+}
+function destinationsSaved(record: TaskTransferRecord): boolean {
+  const dates = new Set(datedTasks(record.before).map((task) => task.dueDate));
+  return (
+    dates.size > 0 &&
+    record.destinations.length === dates.size &&
+    new Set(record.destinations.map((d) => d.date)).size === dates.size &&
+    record.destinations.every((d) => d.state === 'saved' && dates.has(d.date))
+  );
+}
+function containsTaskLines(
+  markdown: string,
+  lines: readonly string[]
+): boolean {
+  const counts = new Map<string, number>();
+  for (const task of new TaskExtractor().extract(markdown))
+    counts.set(task.rawText, (counts.get(task.rawText) ?? 0) + 1);
+  for (const line of lines) {
+    const count = counts.get(line) ?? 0;
+    if (!count) return false;
+    counts.set(line, count - 1);
+  }
+  return true;
 }
