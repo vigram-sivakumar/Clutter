@@ -147,3 +147,7 @@ s {
   color: var(--md-wiki-foreground);
   padding-inline: var(--space-3);
 }
+
+.compact-markdown strong {
+  font-weight: inherit;
+}
