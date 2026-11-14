@@ -268,6 +268,16 @@ function AppShellContent() {
     (count: number) => count + 1,
     0
   );
+  // The open Space's store is authoritative, including automatic avatar removal after an asset archive.
+  useEffect(() => {
+    if (!application) return;
+    const update = () => setProfiles((current) => ({
+      ...current,
+      [application.vault.root]: application.spaceProfile,
+    }));
+    update();
+    return application.spaceProfileStore.subscribe(update);
+  }, [application]);
   // The folder the open dialog was prefilled from, and the avatar it was prefilled with: a confirmed avatar
   // equal to it is no change at all (an existing Space's avatar is only touched when the user changes it).
   const prefilledRef = useRef<{
@@ -1004,13 +1014,17 @@ function AppShellContent() {
           async (path) => [path, await readProfileAt(path)] as const
         )
       );
-      if (!cancelled) setProfiles(Object.fromEntries(entries));
+      if (!cancelled) setProfiles({
+        ...Object.fromEntries(entries),
+        // A profile read started before an archive must not put the old avatar back.
+        ...(application && { [application.vault.root]: application.spaceProfile }),
+      });
     })();
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [registeredPathsKey, profilesTick]);
+  }, [registeredPathsKey, profilesTick, application]);
 
   // "Remove space": forgets the missing Space's entry in Clutter. The folder and its files are never touched.
   function removeMissingSpace() {

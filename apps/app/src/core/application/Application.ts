@@ -60,6 +60,7 @@ import { ResourceArchiveMetadataStore } from '../vault/persistence/ResourceArchi
 import { reconcileResourceArchiveRecords } from '../vault/sync/reconcileResourceArchiveRecords';
 import { confirmFileMissing } from '../vault/sync/confirmFileMissing';
 import { ResourceOperations } from './resource/ResourceOperations';
+import { resolveLocalAssetReference } from './membership/AssetCatalogBuilder';
 import { TaskOperations } from './task/TaskOperations';
 import { TagOperations } from './tags/TagOperations';
 import { FoldStateStore } from './editor/FoldStateStore';
@@ -1029,7 +1030,10 @@ export class Application {
     // must not be read as "the active draft is gone." Folders have no
     // draft concept (spec §7), so activeFolderId is checked against Vault
     // alone.
-    this.workspaceVaultReconciliationUnsubscribe = vault.subscribe(() => {
+    this.workspaceVaultReconciliationUnsubscribe = vault.subscribe((event) => {
+      if (event.type === 'resource-moved') {
+        this.clearSpaceAvatarForArchivedResource(event.resourceId);
+      }
       // Something in the Space changed: a tag may have just lost its last reference (when the Space cleans those up).
       this.scheduleUnusedTagCleanup();
 
@@ -1692,6 +1696,28 @@ export class Application {
 
     void this.spaceProfileStore.setDefaultNoteFolder(undefined);
     return undefined;
+  }
+
+  /** A confirmed asset archive also removes that asset's Space-avatar assignment. */
+  private clearSpaceAvatarForArchivedResource(resourceId: string): void {
+    const avatar = this.spaceProfileStore.profile?.avatar;
+    const resource = this.vault.getResource(resourceId);
+    if (avatar?.type !== 'image' || !resource || !this.vault.isResourceEffectivelyArchived(resource)) return;
+    const originalPath = this.archivedResourceOrigins.originalPathOf(resource.path);
+    if (!originalPath) return;
+    const paths = new Map([[originalPath, resource], [resource.path, resource]]);
+    if (!resolveLocalAssetReference(this.vault.root, paths, avatar.src)) return;
+
+    // This profile write belongs to the open Application, including during shutdown.
+    const write = this.applySpaceProfile({ avatar: null });
+    this.activeWrites.add(write);
+    void write.then(
+      () => this.activeWrites.delete(write),
+      (error: unknown) => {
+        this.activeWrites.delete(write);
+        console.error('Removing the archived Space avatar failed:', error);
+      }
+    );
   }
 
   /**

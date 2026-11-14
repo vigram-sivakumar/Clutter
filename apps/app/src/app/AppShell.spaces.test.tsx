@@ -31,14 +31,14 @@ type TestAvatar =
 const profileFiles = vi.hoisted(
   () => new Map<string, { id: string; avatar?: TestAvatar }>()
 );
+const readProfile = vi.hoisted(() => vi.fn());
 vi.mock(
   '../core/application/space/SpaceProfileStore',
   async (importOriginal) => ({
     ...(await importOriginal<
       typeof import('../core/application/space/SpaceProfileStore')
     >()),
-    readSpaceProfile: async (_fs: unknown, root: string) =>
-      profileFiles.get(root) ?? null,
+    readSpaceProfile: (_fs: unknown, root: string) => readProfile(root),
   })
 );
 /** Per-path overrides for the folder probe, on top of the name-based default below. */
@@ -161,6 +161,9 @@ import {
 
 interface FakeApplication {
   vault: { root: string };
+  readonly spaceProfile: { id: string; avatar?: TestAvatar } | null;
+  readonly spaceProfileStore: { subscribe(listener: () => void): () => void };
+  readonly profileListeners: Set<() => void>;
   /** The AppShell's loss subscription (Application.onRootLost) and its focus-time check. */
   lostListeners: Set<() => void>;
   onRootLost: (listener: () => void) => () => void;
@@ -206,8 +209,17 @@ let profileWriteFails: Map<string, unknown>;
 
 function makeApp(root: string): FakeApplication {
   const lostListeners = new Set<() => void>();
+  const profileListeners = new Set<() => void>();
   const app: FakeApplication = {
     vault: { root },
+    get spaceProfile() { return profileFiles.get(root) ?? null; },
+    profileListeners,
+    spaceProfileStore: {
+      subscribe: (listener) => {
+        profileListeners.add(listener);
+        return () => { profileListeners.delete(listener); };
+      },
+    },
     lostListeners,
     onRootLost: (listener) => {
       lostListeners.add(listener);
@@ -262,6 +274,7 @@ function makeApp(root: string): FakeApplication {
         };
       }
       profileFiles.set(root, next);
+      profileListeners.forEach((listener) => listener());
       return next;
     }),
   };
@@ -301,6 +314,7 @@ beforeEach(() => {
   );
   probeOverrides.clear();
   profileFiles.clear();
+  readProfile.mockReset().mockImplementation(async (root: string) => profileFiles.get(root) ?? null);
   created = [];
   events = [];
   gates = new Map();
@@ -347,6 +361,32 @@ describe('AppShell: startup', () => {
     await act(async () => imageAccess.resolve());
     await waitFor(() => expect(row()).toHaveAttribute('data-avatar-src', '/Users/me/Other/Assets/avatar.png'));
     expect(bootstrap.mock.calls.map(([root]) => root)).toEqual(['/Users/me/Active']);
+  });
+
+  it('updates the avatar immediately on a profile-store change and ignores an older in-flight profile read', async () => {
+    tauri.isTauri = true;
+    const root = '/Users/me/Active';
+    seed([root], root);
+    const original = { id: 'active', avatar: { type: 'image' as const, src: 'Assets/avatar.jpg' } };
+    profileFiles.set(root, original);
+    render(<ToastProvider><AppShell /></ToastProvider>);
+    await screen.findByTestId('open-root');
+    const row = () => screen.getByTestId('space-selector').querySelector('[data-path="/Users/me/Active"]');
+    await waitFor(() => expect(row()).toHaveAttribute('data-avatar-src', `${root}/Assets/avatar.jpg`));
+
+    const pending = deferred<typeof original>();
+    readProfile.mockImplementationOnce(() => pending.promise);
+    const readCount = readProfile.mock.calls.length;
+    fireEvent.click(screen.getByText('refresh-spaces'));
+    await waitFor(() => expect(readProfile.mock.calls.length).toBeGreaterThan(readCount));
+    await act(async () => {
+      profileFiles.set(root, { id: 'active' });
+      created[0]!.profileListeners.forEach((listener) => listener());
+    });
+    expect(row()).not.toHaveAttribute('data-avatar-src');
+    await act(async () => pending.resolve(original));
+    expect(row()).not.toHaveAttribute('data-avatar-src');
+    expect(bootstrap).toHaveBeenCalledTimes(1);
   });
 
   it('shows the opening screen until the first Space is ready', async () => {

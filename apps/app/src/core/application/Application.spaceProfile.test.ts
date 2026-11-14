@@ -12,11 +12,17 @@ import { InMemoryVaultFileSystem } from '../vault/testing/InMemoryVaultFileSyste
 import { SelfWriteRegistry } from '../vault/providers/SelfWriteRegistry';
 import { KnowledgeGraph } from '../vault/models/graph/KnowledgeGraph';
 import { VaultProjectionBuilder } from '../vault/knowledge/VaultProjectionBuilder';
+import { PageCreator } from './page/PageCreator';
+import { PageFactory } from './page/PageFactory';
+import { DailyNoteService } from './daily-notes/DailyNoteService';
+import { UuidGenerator } from '../shared/identity/UuidGenerator';
+import type { VaultResource } from '../vault/models/VaultResource';
+import { flushWorkspaceStateWrites } from '../vault/initialize/workspaceStateFile';
 
 const ROOT = '/space';
 
-async function createApplication(fileSystem = new InMemoryVaultFileSystem()) {
-  const vault = new Vault(ROOT, [], [], [], [], [], new KnowledgeGraph([]), new VaultProjectionBuilder(), new Map(), []);
+async function createApplication(fileSystem = new InMemoryVaultFileSystem(), resources: VaultResource[] = []) {
+  const vault = new Vault(ROOT, [], [], [], [], [], new KnowledgeGraph([]), new VaultProjectionBuilder(), new Map(), resources);
   const store = await SpaceProfileStore.load(fileSystem, ROOT);
   const application = new Application(
     vault,
@@ -90,6 +96,59 @@ describe('Application.applySpaceProfile', () => {
       application.applySpaceProfile({ avatar: { type: 'image', sourcePath: '/x.png' } })
     ).rejects.toThrow('copy failed');
 
+    expect(application.spaceProfile?.avatar).toEqual({ type: 'emoji', emoji: '🌿' });
+  });
+});
+
+describe('archiving the Space avatar asset', () => {
+  async function setup() {
+    const fileSystem = new InMemoryVaultFileSystem();
+    await fileSystem.createDirectory(`${ROOT}/Assets`);
+    await fileSystem.createDirectory(`${ROOT}/Other`);
+    const resources: VaultResource[] = [
+      { id: 'avatar', kind: 'image', name: 'Floral Pattern Photo.jpg', path: `${ROOT}/Assets/Floral Pattern Photo.jpg`, parentId: null },
+      { id: 'other', kind: 'image', name: 'Floral Pattern Photo.jpg', path: `${ROOT}/Other/Floral Pattern Photo.jpg`, parentId: null },
+    ];
+    resources.forEach((resource) => fileSystem.seedFile(resource.path, 'image bytes'));
+    const result = await createApplication(fileSystem, resources);
+    result.application.attachVault(result.application.vault, new PageCreator(new UuidGenerator(), new PageFactory()), new DailyNoteService());
+    await result.application.spaceProfileStore.setAvatar({ type: 'image', src: 'Assets/Floral Pattern Photo.jpg' });
+    return result;
+  }
+
+  it('clears the matching assignment durably, keeps the image in Archive, and does not reassign it on restore', async () => {
+    const { application, fileSystem } = await setup();
+    const id = application.spaceProfile!.id;
+    await application.resourceOperations.archiveResource('avatar');
+    await flushWorkspaceStateWrites();
+    expect(application.spaceProfile?.avatar).toBeUndefined();
+    expect(application.spaceProfile?.id).toBe(id);
+    const archived = application.vault.getResource('avatar')!;
+    expect(application.vault.isResourceEffectivelyArchived(archived)).toBe(true);
+    expect(await fileSystem.readFile(archived.path)).toBe('image bytes');
+    expect((await SpaceProfileStore.load(fileSystem, ROOT)).profile?.avatar).toBeUndefined();
+    await application.resourceOperations.restoreResource('avatar');
+    expect(application.spaceProfile?.avatar).toBeUndefined();
+  });
+
+  it('does not clear an avatar when a same-named asset in another folder is archived', async () => {
+    const { application } = await setup();
+    await application.resourceOperations.archiveResource('other');
+    expect(application.spaceProfile?.avatar).toEqual({ type: 'image', src: 'Assets/Floral Pattern Photo.jpg' });
+  });
+
+  it('keeps the assignment when the archive move fails', async () => {
+    const { application, fileSystem } = await setup();
+    vi.spyOn(fileSystem, 'moveFile').mockRejectedValueOnce(new Error('move failed'));
+    await expect(application.resourceOperations.archiveResource('avatar')).rejects.toThrow('move failed');
+    expect(application.spaceProfile?.avatar).toEqual({ type: 'image', src: 'Assets/Floral Pattern Photo.jpg' });
+    expect((await SpaceProfileStore.load(fileSystem, ROOT)).profile?.avatar).toEqual(application.spaceProfile?.avatar);
+  });
+
+  it('leaves emoji avatars alone', async () => {
+    const { application } = await setup();
+    await application.applySpaceProfile({ avatar: { type: 'emoji', emoji: '🌿' } });
+    await application.resourceOperations.archiveResource('avatar');
     expect(application.spaceProfile?.avatar).toEqual({ type: 'emoji', emoji: '🌿' });
   });
 });
