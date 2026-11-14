@@ -9,6 +9,9 @@ const files = [
   'serve.mjs',
   'cli.mjs',
   'mcp.mjs',
+  'live-cli.mjs',
+  'live-mcp.mjs',
+  'matched-comparison-contract.json',
   'manifest.mjs',
   'index.html',
   'control.html',
@@ -30,7 +33,7 @@ const lock = JSON.parse(readFileSync('package-lock.json', 'utf8'));
 const manifest = {
   candidate: 'R07-PM-PUBLIC-02',
   alternatives: ['R07-PM-ORIGIN-02'],
-  iteration: 'R07-09-cell-text-triple-click-2026-11-14',
+  iteration: 'R07-11-matched-history-authority-2026-11-14',
   date: '2026-11-14',
   scope:
     'Exploratory two-view candidates and native host source; native compilation/execution must be recorded separately',

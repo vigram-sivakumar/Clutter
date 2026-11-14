@@ -141,3 +141,25 @@ Original minimal controls now import `legacy-table-command.mjs` and retain their
 old exploratory behaviour for reproduction. They do not define current acceptance.
 Use [native progress](../../NATIVE-TEST-PROGRESS.md) for observed versus pending
 Mac work, and retest the revised NM-01 after quitting/rebuilding the old host.
+
+## Matched history and live commands (bundle11)
+
+Read [comparison](../../r07-matched-comparison.md) and
+[case contract](matched-comparison-contract.json). npm run test:comparison runs
+both candidates using identical semantic fixtures. It launches real live-cli.mjs
+and live-mcp.mjs processes; the authenticated loopback Playwright relay delivers
+to the browser's liveCommand entry and owns no document. Legacy command and
+file-store adapters remain intact as prior evidence, not another production API.
+
+Discovery exit0 means execution completed without unexpected failure, not that
+every case applied its inverse. Pass, explicit refusal and gap are separate.
+npm run test:comparison -- --strict currently exits1 on the recorded disjoint
+refusals/lifecycle gap. Reports go to ignored artifacts/comparison-results.json;
+committed evidence retains discovery and strict runs separately.
+
+Origin recreateView is a destructive public lifecycle probe. It intentionally
+reveals the current integration's lost redo/new-edit tracking; no production
+close/reopen feature is claimed. All receipts/storage are ephemeral. This is not
+app IPC, disk recovery, a Clutter server requirement or full MCP conformance.
+No manual retest is requested for this automation slice. Headless inputs use
+synthetic string targets; stable product IDs/security/durability remain separate.

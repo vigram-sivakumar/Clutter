@@ -1,6 +1,6 @@
 # R07 qualification review and next engineering gate
 
-Revision 0.34, 2026-11-14. This closes the current guided manual session; it does
+Revision 0.35, 2026-11-14. This closes the current guided manual session; it does
 not select a production editor, document representation, host or vault backend.
 
 ## Current conclusion
@@ -36,11 +36,11 @@ No candidate may win because it has more prototype controls, because current
 production already uses a library, or because another candidate lacks adapters
 that were never built. Compare complete, equivalently scoped compositions.
 
-## Next bounded R07 work: history/authority parity
+## Executed bounded R07 work: history/authority parity
 
-Prepare a matched qualification contract before adding another feature. Use the
-same fixture, accepted-state assertions and context identities for both history
-adapters; keep independent raw controls. Cover:
+The [matched comparison](r07-matched-comparison.md) now executes the next contract
+with the same fixture, accepted-state assertions and context identities. It
+retains raw controls and exposes three strict gates. Its covered questions:
 
 1. A batched insertion with B inserting inside it; A undo/redo preserves B.
 2. Disjoint foreign edits: distinguish a successful own inverse from a conservative
@@ -69,3 +69,8 @@ The next agent reads START-HERE, AGENTS, the progress log, this review and lates
 raw evidence. Stay on architecture/clutter-foundation; retain all user work and
 old reports. Documentation patch10 is incremental over the exact bundle09 target;
 no source/dependency/Swift changes or native rebuild. User commits it locally.
+
+Current next action: context-owned history lifetime and narrower disjoint guards,
+as specified in the matched comparison. The older capability table describes the
+manual-slice checkpoint; the new live three-operation bridge now has matched tests.
+Bundle11 updates the handoff; no technology accepted.

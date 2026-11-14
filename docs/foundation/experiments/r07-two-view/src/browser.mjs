@@ -8,6 +8,7 @@ import { Authority } from './authority.mjs';
 import { Context, settle } from './context.mjs';
 import { fixture, schema, textPosition } from './schema.mjs';
 import { execute } from './api.mjs';
+import { liveCommands } from './live-command.mjs';
 import {
   nextCell,
   previousCell,
@@ -20,6 +21,7 @@ import { reconcileNativeTextSelection } from './selection-preflight.mjs';
 const selectionPreflight =
   new URLSearchParams(location.search).get('selection') !== 'raw';
 
+let commandIngress, ingressSession;
 const prefix = 'clutter-r07-lab:';
 class BrowserStore {
   constructor() {
@@ -238,6 +240,7 @@ function reset(restart = false) {
   views = {};
   paused.clear();
   authority = Authority.restore(store, fixture());
+  installCommandIngress();
   createClients();
   mount('A');
   mount('B');
@@ -311,8 +314,24 @@ window.addEventListener('beforeunload', (e) => {
     e.returnValue = '';
   }
 });
+function installCommandIngress() {
+  ingressSession = crypto.randomUUID();
+  commandIngress = liveCommands(
+    {
+      read: () => ({ version: authority.version, doc: authority.doc.toJSON() }),
+      insert: ({ session, ...command }) => {
+        execute(authority, { ...command, id: session + ':' + command.id });
+        pump();
+      },
+    },
+    ingressSession
+  );
+}
+installCommandIngress();
 // Synthetic-fixture test controls. This global exists only in this lab bundle.
 window.lab = {
+  liveCommand: (command) => commandIngress(command),
+  commandSession: () => ingressSession,
   reset: () => reset(false),
   selectionPreflight: (id, event) =>
     reconcileNativeTextSelection(views[id], event),

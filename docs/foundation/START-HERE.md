@@ -1,6 +1,6 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-14. Documentation revision: 0.34.
+Last updated: 2026-11-14. Documentation revision: 0.35.
 Read AGENTS.md and this file first in a new chat or agent session. It is the checkpoint, not a
 second product specification. [README](README.md) identifies authoritative docs.
 
@@ -111,6 +111,8 @@ contains those contents; do not reapply either route.
     Do not apply both alternatives. Rebuild native:mac after the fix.
 19. Native results and qualification handoff, revision 0.34: `Clutter R07 Native Qualification Handoff 10.patch`,
     documentation/evidence only over exact bundle09 target; no native rebuild.
+20. Matched automated history/command comparison, revision 0.35: `Clutter R07 Matched Comparison 11.zip`,
+    verified alternatives over exact09 or exact10. No new manual test/rebuild requested.
 
 Each update is incremental over its predecessor's file contents, not a particular
 user-created commit hash. If this file is present at revision 0.17, do not blindly
@@ -172,29 +174,32 @@ force checkout or re-create the branch to hide divergence.
 - Current authorized continuation includes the isolated R07 experiment, not a
   production rebuild. Preserve unqualified tests and report blocking observations.
 
-## Exact next action: matched history/authority qualification contract
+## Exact next action: context-owned history and safe disjoint undo
 
-Read AGENTS.md, NATIVE-TEST-PROGRESS.md and r07-qualification-review.md. Latest09
-report reviewed with exact source/web hashes, ready attempt captures and repeated
-NM-07 Pass clicks. User explains accidental clicks and confirms all performed
-manual tests passed. Keep valid manual results; repeated clicks are not extra
-executions. NM-08 remains a conversational pass with raw UI not-run; no reruns or
-button cleanup requested. Preserve that distinction without blocking continuation.
+Read AGENTS.md, NATIVE-TEST-PROGRESS.md and r07-matched-comparison.md. The requested
+matched history/API comparison is executed. Thirty cases: step 10 pass/5 refusal;
+origin 11 pass/3 refusal/1 lifecycle gap. All 12 live CLI/MCP contract cases pass.
+Strict mode remains red for step's disjoint-format refusal, origin's disjoint-row
+refusal and origin view-remount redo/new-edit tracking. No guarded foreign-content
+loss occurred in these fixtures; original raw failures remain separate.
 
-The current guided manual session is complete: all performed tests are user-
-confirmed passes. Stop asking for reruns or UI-button cleanup. Read
-r07-qualification-review.md and prepare the matched history/authority contract
-for the next bounded R07 experiment, keeping raw unsafe-history controls and
-explicit refusal semantics. Do not select an editor or rebuild production from
-this native slice alone. NM-03 remains unavailable and NM-06 deferred. No new
-manual tests are pending for this session; lab09 unchanged.
+Next implement/qualify context-owned Origin history lifetime without private APIs
+or retained destroyed editors, then narrow the two proven disjoint refusals while
+preserving foreign edits. Reuse matched-comparison-contract.json and keep all
+current evidence. Durable app/CLI/MCP outcomes/restarts, task model and provider
+qualification follow; do not choose a production stack from pass counts.
 
-[Latest review](evidence/r07-26-2026-11-14/review.json) retains exact raw evidence.
-Documentation patch10 carries accumulated records since delivered09 and this
-review, with no code or rebuild. Its exact09 base is saved; apply only on matching
-foundation contents. No agent commit/push or full architecture acceptance.
+Prior confirmed manual tests remain passed. No new manual testing requested.
+IME unavailable and VoiceOver deferred by user choice. The command bridge is a
+Playwright-driven test relay into the live browser authority, not production IPC
+or a vault server. Read/insert/outcome are only a synthetic three-operation slice.
 
-Latest Linux evidence: 61 Node checks (one raw-failure diagnostic), six support
+Bundle11 handles exact09 or exact10 contents because application of docs10 was
+not confirmed. Its helper preflights and applies one matching alternative only.
+No new dependency, Swift, production edit, branch switch or agent commit/push.
+Native lab11 input/bridge is not newly Mac-qualified. [Evidence](evidence/r07-27-2026-11-14.json).
+
+Latest Linux evidence: 67 Node checks (one raw-failure diagnostic), six support
 checks, 66 table-browser candidate passes; raw unguarded structural row/column
 undo failures are preserved separately. Default origin prototype now conservatively
 refuses structural handle undo after foreign changes. Full semantic inverses remain

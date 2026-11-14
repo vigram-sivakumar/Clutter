@@ -3,6 +3,23 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.35 — 2026-11-14
+
+- Added shared session-scoped live read/insert/outcome ingress and thin subprocess
+  CLI/stdio MCP adapters for both live authorities. Test relay holds no document;
+  Origin external insertion uses public Y positions without a hidden editor.
+- Added matched 30-case history/command contract and driver. Final/repeat:21 pass,
+  8 explicit refusals,1 lifecycle gap,0 unexpected failures. Strict exits 1 on three
+  unresolved history gates; refuses/gaps are never counted as successful inverses.
+- Found overbroad disjoint refusals in both guards and lost redo/new-edit tracking
+  on destructive Origin view remount. Prior user manual passes remain valid.
+- 67 Node checks and existing browser/origin/table/support/capture regressions pass
+  within scope; raw diagnostic failures retained. Initial duplicate legacy command
+  wiring failure retained and fixed through additive liveCommand entrypoint.
+- Next context-owned history/refusal qualification before durable authority/R08.
+  Bundle11 handles exact09 or docs10. No dependencies, Swift, production or native
+  manual rerun; no accepted architecture or agent commit/push.
+
 ## 0.34 — 2026-11-14
 
 - Retained/reviewed updated09 JSON: matching hashes, ready captures, repeated

@@ -12,6 +12,7 @@ import {
   yUndoPluginKey,
 } from 'y-prosemirror';
 import { OriginAuthority } from './origin-authority.mjs';
+import { liveCommands } from './live-command.mjs';
 import { schema, textPosition } from './schema.mjs';
 import {
   nextCell,
@@ -57,6 +58,7 @@ function tableBoundary(id, view, phase, axis) {
       .at(-1)
       ?.meta.set(structuralTag, { axis, version: authority.version });
 }
+let commandIngress, ingressSession;
 let authority,
   peers,
   views = {},
@@ -181,6 +183,17 @@ function reset() {
     );
     views[id] = view;
   }
+  ingressSession = crypto.randomUUID();
+  commandIngress = liveCommands(
+    {
+      read: () => ({
+        version: authority.version,
+        doc: authority.read().toJSON(),
+      }),
+      insert: (command) => authority.insertExternal(command),
+    },
+    ingressSession
+  );
   authority.onStatus();
 }
 reset();
@@ -194,6 +207,20 @@ document.querySelector('#origin-redo').onpointerdown = (e) =>
 document.querySelector('#origin-redo').onclick = () =>
   historyCommand(active, 'redo');
 window.originLab = {
+  liveCommand: (command) => commandIngress(command),
+  commandSession: () => ingressSession,
+  // Destructive public-view lifecycle probe, not a new production capability.
+  // Reusing EditorState deliberately tests whether this composition's history
+  // actually survives view destruction. Do not hide a lost stack as a pass.
+  recreateView(id) {
+    const old = views[id],
+      state = old.state,
+      props = old.props,
+      place = old.dom.parentNode;
+    old.destroy();
+    views[id] = new EditorView(place, { ...props, state });
+    return views[id];
+  },
   view: (id) => views[id],
   reset,
   snapshot: () => ({

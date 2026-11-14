@@ -107,3 +107,11 @@ no new implemented public command is claimed.
 CLI/MCP framing boundaries. [Platform lifecycle](platform-boundaries-spec.md)
 separates durable outcomes from process/transport lifetime; exact wire/exit codes
 remain unaccepted and the R03 logical operation count stays 51.
+
+## R07 matched live-authority/history evidence
+
+[Matched results](r07-matched-comparison.md) execute synthetic shared read/insert/
+outcome operations from desktop, CLI and stdio MCP against each live authority.
+The relay is test infrastructure, not production IPC/persistence. Three strict
+history gates remain open; D-01/D-03/D-04/D-05 and the target 51 operation sketches
+are not accepted by these scoped passes. No existing manual result is revoked.

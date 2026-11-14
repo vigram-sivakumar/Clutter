@@ -1,6 +1,6 @@
 # Native test progress and next action
 
-Updated 2026-11-14, revision 0.34. Maintain this alongside START-HERE at every native
+Updated 2026-11-14, revision 0.35. Maintain this alongside START-HERE at every native
 handoff. Evidence sources are explicit. The first 07 report has now been uploaded/reviewed;
 manual conversation results and stored verdicts remain distinct. The fresh09
 report now verifies both NM-09 verdicts and ready captures.
@@ -227,15 +227,27 @@ Origin notes are empty; Command-B/absent toolbar detail comes from conversation
 and source, not from report notes. Other saved case labels remain not-run even
 where earlier manual steps were confirmed. No raw report is edited or backfilled.
 
-## Next action: consolidate and qualify history/authority boundaries
+## Automated comparison after the manual session
 
-The current guided manual session is complete: all performed tests are user-
-confirmed passes. Stop asking for reruns or UI-button cleanup. Read
-r07-qualification-review.md and prepare the matched history/authority contract
-for the next bounded R07 experiment, keeping raw unsafe-history controls and
-explicit refusal semantics. Do not select an editor or rebuild production from
-this native slice alone. NM-03 remains unavailable and NM-06 deferred. No new
-manual tests are pending for this session; lab09 unchanged.
+All earlier confirmed manual passes remain intact. The matched Linux slice now
+runs real CLI/MCP processes through the shared live-authority ingress. No new
+manual cases were requested. HC-06 adds a destructive Origin view remount route
+that was absent from the native lab UI; it exposes lost redo/new-edit tracking,
+not a revocation of the user's earlier available-route passes.
+
+[Comparison](r07-matched-comparison.md) records 30 candidate cases: 21 applied/pass,
+8 explicit refusals,1 Origin lifecycle gap,0 unexpected failures in the final runs.
+Strict qualification exits 1 for step HC-03 and origin HC-05/HC-06. Earlier raw
+controls stay diagnostic failures. IME remains unavailable and VoiceOver deferred.
+
+## Next action: context-owned history and disjoint-refusal boundaries
+
+Read r07-matched-comparison.md, its JSON case contract and evidence/r07-27-2026-11-14.json.
+Qualify context-owned Origin history across destructive view remount, then narrow
+the observed disjoint-refusal boundaries without losing foreign edits. Keep the
+same contract and preserve current/raw evidence. No more current-session manual
+prompts, no production migration and no architecture acceptance. Lab11 code is
+Linux-tested; no new Mac build/capture is claimed.
 
 ## Next agent action
 

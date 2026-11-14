@@ -1,6 +1,6 @@
 # Clutter foundation
 
-Status: architecture definition pack, revision 0.34, 2026-11-14. Product scope
+Status: architecture definition pack, revision 0.35, 2026-11-14. Product scope
 confirmed; technology proposals remain unqualified.
 Baseline: `main` at `cae604273115c0c6c0d3ac34533b1e9834e9c778`.
 Working branch: `architecture/clutter-foundation`.
@@ -18,7 +18,7 @@ live cloud collaboration deferred.
 Evaluate it as a greenfield product. Migration and implementation effort remain
 visible planning dimensions with zero weight in architectural selection.
 
-The 0.2 product scope, retained in 0.34, reflects the user clarification sequence. Earlier draft
+The 0.2 product scope, retained in 0.35, reflects the user clarification sequence. Earlier draft
 requirements superseded by that discussion are replaced in this folder.
 This pack contains requirements and proposals, not an approved implementation
 specification. Existing documentation and `ARCHITECTURE_RULES.md` continue to
@@ -138,11 +138,11 @@ R05 drafted provider protocol/feasibility rather than raw live-file sync; its
 coherence and route qualification remain blocked. R06 prepares native/editor and
 host/security experiments; two R07 slices ran and native/broader qualification is next.
 
-Latest [native progress](NATIVE-TEST-PROGRESS.md),
-[report review](evidence/r07-26-2026-11-14/review.json) and
-[qualification handoff](r07-qualification-review.md): user confirms all performed
-manual tests passed. Repeated/accidental verdict clicks do not create extra runs;
-raw NM-08 UI status remains not-run despite manual success. No reruns requested.
-Next is matched history/authority qualification, then durable app/CLI/MCP parity.
-VoiceOver deferred and real input composition unavailable; no architecture accepted.
-Documentation/evidence patch10 needs no lab rebuild.
+Latest [matched comparison](r07-matched-comparison.md) and
+[executed evidence](evidence/r07-27-2026-11-14.json):30 cases distinguish21 applied
+operations, 8 explicit refusals and 1 lifecycle gap. Live desktop/CLI/MCP ownership
+checks pass for the synthetic three-operation slice. Strict history qualification
+remains open; next context-owned Origin history and disjoint refusal boundaries.
+Earlier [manual results](NATIVE-TEST-PROGRESS.md) stay valid; no repeated manual
+session requested. No production stack or durable authority accepted. Bundle11
+handles exact09/10 patch bases.

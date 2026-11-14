@@ -113,3 +113,11 @@ native evidence before accepting D-01/D-05.
 with tested alternatives, not an accepted stack. D-04/D-03 parity, structural history,
 performance and actual native input remain gates. Preserve declared candidate scope
 and costs; no sunk-cost preference or provider-policy change.
+
+## R07 matched live-authority/history evidence
+
+[Matched results](r07-matched-comparison.md) execute synthetic shared read/insert/
+outcome operations from desktop, CLI and stdio MCP against each live authority.
+The relay is test infrastructure, not production IPC/persistence. Three strict
+history gates remain open; D-01/D-03/D-04/D-05 and the target 51 operation sketches
+are not accepted by these scoped passes. No existing manual result is revoked.

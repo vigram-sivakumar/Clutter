@@ -1,6 +1,11 @@
 import * as Y from 'yjs';
-import { prosemirrorToYDoc, yDocToProsemirror } from 'y-prosemirror';
-import { fixture, schema, validateDocument } from './schema.mjs';
+import {
+  prosemirrorToYDoc,
+  yDocToProsemirror,
+  initProseMirrorDoc,
+  absolutePositionToRelativePosition,
+} from 'y-prosemirror';
+import { fixture, schema, validateDocument, textPosition } from './schema.mjs';
 
 // Separate history candidate: accepted Y.Doc plus per-context provisional replicas.
 // This is local-only delivery, not a provider protocol or production vault format.
@@ -94,6 +99,26 @@ export class OriginAuthority {
     peer.queued = [];
     for (const update of queued) if (!this.submit(peer, update)) break;
     this.deliver();
+  }
+  insertExternal({ target, offset, text }) {
+    const peer = this.peers.get('external') ?? this.attach('external');
+    if (peer.error) throw new Error(peer.error);
+    const fragment = peer.doc.getXmlFragment('prosemirror');
+    const { doc, mapping } = initProseMirrorDoc(fragment, schema);
+    const pos = textPosition(doc, target, offset);
+    const relative = absolutePositionToRelativePosition(pos, fragment, mapping);
+    const absolute = Y.createAbsolutePositionFromRelativePosition(
+      relative,
+      peer.doc
+    );
+    if (!(absolute?.type instanceof Y.XmlText))
+      throw new Error('NOT_TEXT_TARGET');
+    // Public Y text operation, no hidden EditorView and no second canonical model.
+    peer.doc.transact(
+      () => absolute.type.insert(absolute.index, text),
+      'external-command'
+    );
+    if (peer.error) throw new Error(peer.error);
   }
   hasForeignSince(id, version) {
     return [...this.latestOriginVersion].some(
