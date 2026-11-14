@@ -1,11 +1,11 @@
 {
   "document": "R02 editor interaction case catalogue",
-  "revision": "0.5",
+  "revision": "0.14",
   "date": "2026-11-14",
-  "status": "specification-only; no interaction cases executed",
+  "status": "Case specification; full catalogue unqualified. Scoped execution/native observations are tracked separately; no full-case pass inferred.",
   "vocabulary": "Semantic fixture notation only, not canonical storage schema, PM node JSON, CM offsets or product API signatures. Source/structured cases deliberately differ.",
   "offset_convention": "ASCII offsets in plain text cases are zero-based boundaries; Unicode cases use named whole-grapheme boundaries. Candidate adapters must map safely to engine offsets.",
-  "all_cases_inherit": "Requirements and invariants in editor-interaction-spec.md; reset fixtures per case, record candidate profile and actual runtime bindings. No automatic acceptance of proposed cases.",
+  "all_cases_inherit": "Requirements and invariants in editor-interaction-spec.md; reset fixtures per case, record candidate profile and actual runtime bindings. No automatic acceptance of proposed cases. Confirmed visual-table navigation/addition is now owned by table-interaction-contract.md; EI-068/EI-069 replace the old growth/paragraph proposals.",
   "fixtures": {
     "FX-TEXT": {
       "description": "Two plain paragraphs; no formatting, task placement or hidden metadata.",
@@ -121,10 +121,10 @@
     "FX-UNICODE": {
       "description": "Four independent text fixtures; cursor anchors use named grapheme boundaries rather than assumed engine offsets.",
       "texts": {
-        "emoji": "A👩🏽‍💻B",
-        "combining": "AéB",
-        "flag": "A🇮🇳B",
-        "bidi": "Hello שלום world"
+        "emoji": "A\ud83d\udc69\ud83c\udffd\u200d\ud83d\udcbbB",
+        "combining": "Ae\u0301B",
+        "flag": "A\ud83c\uddee\ud83c\uddf3B",
+        "bidi": "Hello \u05e9\u05dc\u05d5\u05dd world"
       }
     },
     "FX-VIEWS": {
@@ -458,9 +458,9 @@
         "selection": "Replace selected beta in p1.",
         "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
       },
-      "action": "Start CJK IME, update preedit twice, commit 会議.",
+      "action": "Start CJK IME, update preedit twice, commit \u4f1a\u8b70.",
       "expected": {
-        "document": "p1 becomes Alpha 会議 once; no duplicated preedit strings.",
+        "document": "p1 becomes Alpha \u4f1a\u8b70 once; no duplicated preedit strings.",
         "selection": "After committed text; composition selection follows native input until commit.",
         "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
         "undo": "Committed composition is one undo action; preedit updates do not create user-visible steps."
@@ -1470,7 +1470,7 @@
         "selection": "Empty history; run each declared source/structured profile independently.",
         "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
       },
-      "action": "Enter→Backspace, Backspace→Enter, Tab→Enter, Enter→Tab, Shift+Tab→Enter, paste→undo→redo, focus→navigation→type; reset between sequences.",
+      "action": "Enter\u2192Backspace, Backspace\u2192Enter, Tab\u2192Enter, Enter\u2192Tab, Shift+Tab\u2192Enter, paste\u2192undo\u2192redo, focus\u2192navigation\u2192type; reset between sequences.",
       "expected": {
         "document": "Each intermediate result matches that profile case; whole sequence has no dropped/replayed keystroke or schema corruption.",
         "selection": "Selection/focus valid after every step, not only final render.",
@@ -1635,8 +1635,8 @@
     },
     {
       "id": "EI-068",
-      "title": "Table Tab and final-cell growth proposal",
-      "authority": "proposed",
+      "title": "Confirmed table Tab/Shift-Tab caret and boundary behaviour",
+      "authority": "required",
       "profile": "structured",
       "decision": "Q-04",
       "requirements": ["P-03", "P-05", "P-23"],
@@ -1646,19 +1646,19 @@
         "selection": "Run from a1 then independently b2.",
         "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
       },
-      "action": "Tab.",
+      "action": "Tab from a1; separately Shift-Tab from b2 and Tab from final b2.",
       "expected": {
-        "document": "a1 variant moves to b1 without content change. b2 variant appends one empty row only under proposed growth policy.",
-        "selection": "a1→b1 start; b2→new third-row first cell under growth policy.",
+        "document": "Content and dimensions unchanged for every navigation variant; no automatic row/column growth.",
+        "selection": "a1 Tab -> b1 text end, collapsed; b2 Shift-Tab -> a2 text end, collapsed; final b2 Tab preserves current caret.",
         "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
-        "undo": "Navigation no undo group; row insertion one structural group."
+        "undo": "Navigation adds no content history group; explicit handles are separately tested structural commands."
       },
       "execution": "not-run"
     },
     {
       "id": "EI-069",
-      "title": "Table-cell Enter proposal",
-      "authority": "proposed",
+      "title": "Confirmed table Enter and Shift-Enter",
+      "authority": "required",
       "profile": "structured",
       "decision": "Q-04",
       "requirements": ["P-03", "P-05"],
@@ -1668,12 +1668,12 @@
         "selection": "a1 caret after A.",
         "condition": "Reset fixture and history unless this case declares a prerequisite sequence."
       },
-      "action": "Enter.",
+      "action": "Enter from a1 and b1; Enter on bottom-row cells; Shift-Enter within a1 text.",
       "expected": {
-        "document": "Under proposed multi-paragraph-cell profile, split a1 into paragraph A and paragraph 1; other cells unchanged. A single-line-cell profile must instead declare navigation, not fake a split.",
-        "selection": "Start of second cell paragraph or declared navigation target in alternate profile.",
+        "document": "Enter never changes table content/dimensions. Shift-Enter inserts one hard break only inside the selected cell.",
+        "selection": "Enter moves to the next row in the same column at text end; bottom row stays put. Shift-Enter stays in the cell after the break.",
         "focus": "Remain in the initiating focused view unless the action explicitly changes destination.",
-        "undo": "One cell split if supported; not independent nested history."
+        "undo": "Enter creates no content group. Shift-Enter is undoable through the same context history."
       },
       "execution": "not-run"
     },

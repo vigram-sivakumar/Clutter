@@ -1,15 +1,16 @@
 [
   {
     "id": "NM-01",
-    "title": "Immediate table keys",
-    "targets": ["step", "origin", "raw", "adapted"],
-    "seeds": ["EI-010", "EI-051", "EI-068"],
+    "title": "Confirmed table navigation and handles",
+    "targets": ["step", "origin"],
+    "seeds": ["EI-010", "EI-051", "EI-068", "EI-069"],
     "steps": [
-      "Reset the synthetic fixture. Click the final table cell containing Four.",
-      "Press your native line-end chord (for example Command-Right), immediately Tab, then type NEW. Do not pause between keys. Treat Home/End scrolling according to your actual OS convention.",
-      "Repeat with an empty final cell and Shift-Tab. Record the physical chord used."
+      "Reset using Fixture checks. In A, press Tab from One and Shift-Tab from Four, then type: text must append at the destination cell end, without selecting its contents.",
+      "Enter in One/Two moves down the same column. Enter anywhere on the bottom row does nothing. Shift-Enter inserts a line break inside the cell.",
+      "In the final cell press Tab: it stays there and adds nothing. Use the bottom Add row and right Add column handles to append explicitly; verify B matches. Escape in a cell focuses the row handle for keyboard access."
     ],
-    "expected": "For the declared next-cell/new-row profile, Tab creates exactly one row and NEW enters its first cell. Input must follow the actual caret. Raw controls may reproduce a failure; record that failure rather than calling it a pass."
+    "expected": "No row or column is created by Enter/Tab. Navigation changes only the caret; Shift-Enter changes only the current cell. Handles add one axis at a time through the shared authority. The old automatic-growth native trial was a superseded proposal, not this contract. Record physical chords and any unexpected selection/focus.",
+    "contractRevision": "table-policy-2026-11-14"
   },
   {
     "id": "NM-02",

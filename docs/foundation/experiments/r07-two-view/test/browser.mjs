@@ -268,13 +268,13 @@ try {
   );
   await run(
     'BR-14',
-    'exploratory final-cell Tab creates one row and focuses its first cell',
+    'confirmed final-cell Tab stays put and adds no row',
     async () => {
       await page.locator('#view-a td').last().click();
       await page.keyboard.press('End');
       await page.keyboard.press('Tab');
       await page.keyboard.type('NEW');
-      assert.equal(await page.locator('#view-a tr').count(), 3);
+      assert.equal(await page.locator('#view-a tr').count(), 2);
       assert.equal(
         await page
           .locator('#view-a tr')
@@ -282,7 +282,11 @@ try {
           .locator('td')
           .first()
           .innerText(),
-        'NEW'
+        'Three'
+      );
+      assert.equal(
+        await page.locator('#view-a td').last().innerText(),
+        'FourNEW'
       );
       assert.deepEqual(
         (await snap()).contexts.A.doc,
@@ -292,7 +296,7 @@ try {
   );
   await run(
     'BR-15',
-    'empty last cell immediate Tab adds one row without losing focus',
+    'empty last cell immediate Tab stays without adding a row',
     async () => {
       await page.evaluate(() => lab.select('A', 'Four', 0, 4));
       await page.keyboard.press('Backspace');
@@ -300,7 +304,7 @@ try {
       await page.locator('#view-a td').last().click();
       await page.keyboard.press('Tab');
       await page.keyboard.insertText('EMPTY');
-      assert.equal(await page.locator('#view-a tr').count(), 3);
+      assert.equal(await page.locator('#view-a tr').count(), 2);
       assert.equal(
         await page
           .locator('#view-a tr')
@@ -308,6 +312,10 @@ try {
           .locator('td')
           .first()
           .innerText(),
+        'Three'
+      );
+      assert.equal(
+        await page.locator('#view-a td').last().innerText(),
         'EMPTY'
       );
     }
@@ -327,7 +335,7 @@ try {
           .locator('td')
           .first()
           .innerText(),
-        'PREVIOUS'
+        'ThreePREVIOUS'
       );
       assert.equal(await page.locator('#view-a td').last().innerText(), 'Four');
     }

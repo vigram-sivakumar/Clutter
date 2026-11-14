@@ -5,7 +5,7 @@ import { baseKeymap } from 'prosemirror-commands';
 import { keymap } from 'prosemirror-keymap';
 import { tableEditing } from 'prosemirror-tables';
 import { fixture } from './schema.mjs';
-import { nextCellOrRow } from './table-command.mjs';
+import { nextCellOrRow } from './legacy-table-command.mjs';
 import { reconcileNativeTextSelection } from './selection-preflight.mjs';
 const selectionPreflight =
   new URLSearchParams(location.search).get('selection') === 'public';

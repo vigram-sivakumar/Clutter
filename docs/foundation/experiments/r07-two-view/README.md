@@ -118,3 +118,22 @@ The [Mac guide](native-macos/README.md) gives build/run commands and the built-i
 manual checklist. `npm run native:mac` builds a separate AppKit/WKWebView .app and
 saves reports locally. Swift compilation/native launch is not verified on the
 current Linux host. Automatic fixture checks are separate from native observations.
+
+## Confirmed table profile (patch 05)
+
+[Table contract](../../table-interaction-contract.md) supersedes earlier table
+defaults. Enter moves down the same column and stops at the bottom. Shift+Enter
+inserts an in-cell hard break. Tab/Shift+Tab arrive at cell text end; final Tab
+stays put. Bottom/right handles append a row/column explicitly. Escape exposes
+keyboard-accessible handles. No navigation command creates structure.
+
+Run `npm run test:tables` for both candidates. Table navigation, handle operations
+and safety checks are separated from the explicitly failing unguarded structural
+history controls. `/origin?history=raw` is a diagnostic-only route; the default
+origin comparison refuses table-handle undo/redo after foreign changes. This
+conservative guard may refuse safe disjoint inverses and is not final semantic undo.
+
+Original minimal controls now import `legacy-table-command.mjs` and retain their
+old exploratory behaviour for reproduction. They do not define current acceptance.
+Use [native progress](../../NATIVE-TEST-PROGRESS.md) for observed versus pending
+Mac work, and retest the revised NM-01 after quitting/rebuilding the old host.

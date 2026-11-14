@@ -47,6 +47,9 @@ if (process.argv.includes('--check')) {
     run(process.execPath, ['manifest.mjs']);
     const metadata = {
       createdAt: new Date().toISOString(),
+      manualCaseCatalog: JSON.parse(
+        readFileSync('native-macos/cases.json', 'utf8')
+      ),
       webAssetHashes: fingerprint([
         'dist/app.js',
         'dist/origin.js',

@@ -1,7 +1,8 @@
 # Editor interaction specification — R02
 
-Revision 0.5, 2026-11-14. Status: reviewable specification draft; no candidate
-selected and no new interaction cases executed. Product directions are confirmed
+Revision 0.14, 2026-11-14. Status: reviewed table-navigation policy within an
+otherwise conditional editor specification; no candidate selected. Scoped executed
+evidence and remaining native work are recorded in the checkpoint/progress log. Product directions are confirmed
 in [product behaviour](product-behaviour.md); model-specific defaults below are
 explicit proposals, not previously approved decisions.
 
@@ -22,7 +23,7 @@ Three distinct layers prevent the comparison from favouring today's code:
 
 The [case catalogue](editor-interaction-cases.json) is the authoritative set of
 initial fixtures/actions/expected results for this revision: **72 cases**, including
-**60 shared required contracts and 12 model-specific proposals**. It is a test
+**60 shared required contracts, 10 model-specific proposals and two confirmed table-profile contracts**. It is a test
 specification, not an executable harness or a pass report. The required label
 means product-derived/common correctness obligation; it does not claim the user
 personally approved each keyboard default. Open choices are in Q-01 through Q-09.
@@ -157,8 +158,9 @@ another task. A task cannot become a reference reused in multiple notes.
 
 Keep text-range selection distinct from cell/row/column/block selection. A nested
 cell editor must reconcile root history and selection rather than expose two undo
-stacks. Freeze supported cell content (plain versus multi-paragraph) before taking
-EI-069 as binding. Test exact edge movement and final-cell Tab policy under Q-04.
+stacks. The [table contract](table-interaction-contract.md) now confirms navigation, hard
+breaks, final boundaries and explicit addition controls. Cell schema/complex selection
+details remain scoped independently; do not restore the withdrawn Enter/Tab defaults.
 
 Read-only page embeds may allow text copy/selection and opening the original;
 inner typing/formatting cannot mutate original or silently act on another view.
@@ -216,17 +218,17 @@ These questions are bounded to newly specified interactions. They do not reopen
 confirmed properties/task/page/archive/sync decisions. The proposed alternatives
 below are not implementation permission; cite the ledger item until resolved.
 
-| ID   | Decision still open                                                       | Concrete proposal / safe boundary                                                                                                                                                                                                   | Blocks                                                                        |
-| ---- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Q-01 | Target paragraph/block/list splitting/joining and cross-block replacement | Evaluate declared source and structured profiles independently; structured proposals EI-062–EI-065/EI-072 preserve outside content/identity and source EI-061 stays literal. No exact-key equality requirement.                     | Freezing corresponding R02 cases and destructive structural commands          |
-| Q-02 | Task title Enter/empty-title/Backspace and body boundary                  | EI-070 proposes a fresh adjacent task with empty body/default fields; protect original body. Never delete a task page body just because its title emptied. Empty demotion/merge needs explicit product choice.                      | Task title keymaps, selection-to-entity mapping and schema/API inverse detail |
-| Q-03 | Plain paragraph Tab, list/code indentation and focus escape               | Propose Tab focus navigation in plain paragraphs, context indent/outdent for lists/code and an always-accessible escape. Source profile may choose text indentation. Specify units/caps per profile.                                | Final keymaps, focus/accessibility tests                                      |
-| Q-04 | Table cell content, Enter/Shift+Enter and final Tab/arrow escape          | EI-068 proposes next-cell Tab and one new row at final cell; EI-069 proposes multi-paragraph cells when supported. Single-line cells require a separate exact navigation profile. Row/column selection bindings also need freezing. | Table schema/keyboard/clipboard acceptance                                    |
-| Q-05 | Cross-document cut lifecycle, undo owner and external clipboard           | Preserve task identity and accessibility until move succeeds; clipboard expiry/failure must not lose it. Choose the move context/inverse policy and supported cross-Space/device behaviour; copy creates new IDs.                   | Task move transaction/clipboard protocol and cross-document undo              |
-| Q-06 | Undo of recurrence completion after next occurrence changed               | One idempotent completion/generation operation; never delete independent edits to the next task during undo. Define refusal/narrowing and redo identities explicitly.                                                               | Completion inverse/API and history semantics                                  |
-| Q-07 | Interactive undo across a remote winning snapshot                         | Protect pending input/history first; propose a visible history boundary if safe rebase cannot preserve local undo. Retained overwritten versions remain accessible; never silently undo remote state as local typing.               | Provider-to-view/history integration, not basic local-only typing             |
-| Q-08 | Explicit discard during failed-save close                                 | Default preserves work/cancels close until protected. Existing implementation offers explicit close-and-lose; target P-07 does not yet define that exception. Do not inherit it silently.                                           | Destructive lifecycle override, not the normal close path                     |
-| Q-09 | Markdown-looking input shortcuts and source/rich modes                    | Declare triggers, Escape/literal entry and reversible grouping per profile. No automatic requirement for source mode or PM input rules.                                                                                             | Shortcut UX; does not decide native storage format                            |
+| ID   | Decision still open                                                       | Concrete proposal / safe boundary                                                                                                                                                                                                                                      | Blocks                                                                        |
+| ---- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Q-01 | Target paragraph/block/list splitting/joining and cross-block replacement | Evaluate declared source and structured profiles independently; structured proposals EI-062–EI-065/EI-072 preserve outside content/identity and source EI-061 stays literal. No exact-key equality requirement.                                                        | Freezing corresponding R02 cases and destructive structural commands          |
+| Q-02 | Task title Enter/empty-title/Backspace and body boundary                  | EI-070 proposes a fresh adjacent task with empty body/default fields; protect original body. Never delete a task page body just because its title emptied. Empty demotion/merge needs explicit product choice.                                                         | Task title keymaps, selection-to-entity mapping and schema/API inverse detail |
+| Q-03 | Plain paragraph Tab, list/code indentation and focus escape               | Propose Tab focus navigation in plain paragraphs, context indent/outdent for lists/code and an always-accessible escape. Source profile may choose text indentation. Specify units/caps per profile.                                                                   | Final keymaps, focus/accessibility tests                                      |
+| Q-04 | Navigation/addition confirmed 2026-11-14; broader table UX still open     | [Table contract](table-interaction-contract.md) supersedes Enter paragraph-split and final-Tab growth proposals. EI-068/EI-069 are now confirmed. Handles, in-cell breaks and caret-end navigation are required; merged cells/menus/range bindings remain unqualified. | Native retest and remaining table schema/accessibility/history qualification  |
+| Q-05 | Cross-document cut lifecycle, undo owner and external clipboard           | Preserve task identity and accessibility until move succeeds; clipboard expiry/failure must not lose it. Choose the move context/inverse policy and supported cross-Space/device behaviour; copy creates new IDs.                                                      | Task move transaction/clipboard protocol and cross-document undo              |
+| Q-06 | Undo of recurrence completion after next occurrence changed               | One idempotent completion/generation operation; never delete independent edits to the next task during undo. Define refusal/narrowing and redo identities explicitly.                                                                                                  | Completion inverse/API and history semantics                                  |
+| Q-07 | Interactive undo across a remote winning snapshot                         | Protect pending input/history first; propose a visible history boundary if safe rebase cannot preserve local undo. Retained overwritten versions remain accessible; never silently undo remote state as local typing.                                                  | Provider-to-view/history integration, not basic local-only typing             |
+| Q-08 | Explicit discard during failed-save close                                 | Default preserves work/cancels close until protected. Existing implementation offers explicit close-and-lose; target P-07 does not yet define that exception. Do not inherit it silently.                                                                              | Destructive lifecycle override, not the normal close path                     |
+| Q-09 | Markdown-looking input shortcuts and source/rich modes                    | Declare triggers, Escape/literal entry and reversible grouping per profile. No automatic requirement for source mode or PM input rules.                                                                                                                                | Shortcut UX; does not decide native storage format                            |
 
 A follow-up product review can settle these one at a time with concrete examples.
 Exploratory prototypes may compare unresolved profiles before approval, provided

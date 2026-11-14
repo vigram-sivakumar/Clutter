@@ -30,6 +30,7 @@ const lock = JSON.parse(readFileSync('package-lock.json', 'utf8'));
 const manifest = {
   candidate: 'R07-PM-PUBLIC-02',
   alternatives: ['R07-PM-ORIGIN-02'],
+  iteration: 'R07-05-confirmed-table-2026-11-14',
   date: '2026-11-14',
   scope:
     'Exploratory two-view candidates and native host source; native compilation/execution must be recorded separately',
@@ -53,7 +54,7 @@ const manifest = {
     guarded:
       'Default Context plus conservative history-guard.mjs; refuses foreign deletion/opaque overlap',
     control:
-      'CT-01 raw one-view editor remains unadapted; CT-02 adds only the public selection preflight',
+      'Archived legacy table-key profile: CT-01 raw; CT-02 changes only selection preflight. Neither defines current table policy.',
     selection:
       'Focused native TextSelection mapped through public posAtDOM before key commands; no timers/private observers; skip composition, node/cell model selections and nested controls',
     origin:
@@ -65,8 +66,10 @@ const manifest = {
       'baseKeymap',
       'tableEditing',
     ],
+    tablePolicy:
+      'table-interaction-contract.md confirmed 2026-11-14; origin structural handle history uses conservative public StackItem.meta guard after foreign changes; raw history control route retained.',
     keymap:
-      'src/browser.mjs; Mod-z / Mod-Shift-z / Mod-y, Mod-b; Q-04 exploratory nextCellOrRow; Shift-Tab previous cell',
+      'src/browser.mjs: shared confirmed table-command.mjs; caret-end Tab/Shift-Tab, same-column Enter/bottom no-op, Shift-Enter hard break, final Tab no-op; explicit table-view handles. Mod-z/redo and Mod-b retain candidate history.',
   },
   histories:
     'Per editing context, preserved across view detach; not persisted across host restart. Foreign accepted steps rebased via pinned collab plugin. Guard is an experiment, not accepted selective undo design.',

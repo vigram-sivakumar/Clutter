@@ -1,7 +1,8 @@
 # Editor qualification and interaction gates — R06
 
-Revision 0.9, 2026-11-14. This prepares experiments; no editor, native key, IME or
-accessibility case was executed. The user prioritizes solid keyboard/interactions
+Revision 0.14, 2026-11-14. R06 preparation plan updated with confirmed table policy.
+Scoped R07 execution and native observations are tracked in START-HERE and the
+native progress log; full native keyboard/IME/accessibility qualification is open. The user prioritizes solid keyboard/interactions
 and explicitly allows replacing the entire implementation to get the best design.
 Current Markdown mechanics, dependencies and migration costs impose no constraint.
 
@@ -83,7 +84,7 @@ choice. Do not count an undecided profile as acceptance pass/failure.
 | Q-01   | Structured Enter splits `Alpha                                                                                                                                                                                                                                 | beta`into`Alpha`and` beta`; Shift+Enter makes a soft break. Boundary join preserves outside IDs/content. Source profile declares its own newline mechanics.                                                                   |
 | Q-02   | Enter in `Send                                                                                                                                                                                                                                                 | proposal`leaves original task title`Send`, body/properties intact, and creates adjacent ` proposal` with empty body/default fields. Empty title remains an editable task; Backspace does not silently delete its hidden body. |
 | Q-03   | Paragraph Tab traverses focus, list/code Tab indents with declared units; Shift+Tab reverses; an accessible escape returns to outer navigation.                                                                                                                |
-| Q-04   | Multi-paragraph cells: Enter paragraph, Shift+Enter soft break, Tab next cell, final-cell Tab creates exactly one row; explicit edge escape. Single-line alternative has a separate profile.                                                                   |
+| Q-04   | Superseded by the confirmed [table contract](table-interaction-contract.md): Enter down same column/bottom no-op; Shift-Enter hard break; Tab/Shift-Tab caret-end; final Tab no-op; handles add explicitly. Other schema/selection choices stay open.          |
 | Q-05   | Pending internal task cut preserves recoverable original until atomic paste commits a move. Failed/cancelled paste preserves identity/content; committed move has one inverse owner. External/plain clipboard is an explicit copy/export path, never an alias. |
 | Q-06   | Undo completion refuses if removing the generated next occurrence would destroy independent edits; original/next states stay protected with an actionable explanation.                                                                                         |
 | Q-07   | Whole remote winner creates an explicit interactive-history boundary after protecting pending input; retained versions recover overwritten content. Safe rebase can compete if demonstrated.                                                                   |

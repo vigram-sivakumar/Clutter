@@ -1,0 +1,79 @@
+{
+  "runtime": "153.0.8010.0",
+  "results": [
+    {
+      "route": "/",
+      "quick": {
+        "route": "JavaScript fixture checks in WKWebView; not native keyboard, IME or menus",
+        "results": [
+          {
+            "id": "QK-01",
+            "status": "pass"
+          },
+          {
+            "id": "QK-02",
+            "status": "pass"
+          },
+          {
+            "id": "QK-03",
+            "status": "pass"
+          },
+          {
+            "id": "QK-04",
+            "status": "pass"
+          }
+        ]
+      },
+      "ready": true,
+      "eventCount": 256,
+      "status": "pass",
+      "scope": "Chromium helper validation only; no Swift/WKWebView/native acceptance"
+    },
+    {
+      "route": "/origin",
+      "quick": {
+        "route": "JavaScript fixture checks in WKWebView; not native keyboard, IME or menus",
+        "results": [
+          {
+            "id": "QK-01",
+            "status": "pass"
+          },
+          {
+            "id": "QK-02",
+            "status": "pass"
+          },
+          {
+            "id": "QK-03",
+            "status": "pass"
+          },
+          {
+            "id": "QK-04",
+            "status": "pass"
+          }
+        ]
+      },
+      "ready": true,
+      "eventCount": 256,
+      "status": "pass",
+      "scope": "Chromium helper validation only; no Swift/WKWebView/native acceptance"
+    },
+    {
+      "route": "/control",
+      "quick": {
+        "route": "JavaScript fixture checks in WKWebView; not native input",
+        "results": [
+          {
+            "id": "QK-01",
+            "status": "blocked",
+            "reason": "Candidate API not ready or raw control has no two-view API"
+          }
+        ]
+      },
+      "ready": false,
+      "eventCount": 256,
+      "status": "pass",
+      "scope": "Chromium helper validation only; no Swift/WKWebView/native acceptance"
+    }
+  ],
+  "nativeMacOS": "not-run"
+}

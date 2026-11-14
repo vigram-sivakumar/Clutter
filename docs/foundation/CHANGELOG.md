@@ -3,6 +3,24 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.14 — 2026-11-14
+
+- Recorded confirmed table keyboard/addition policy: same-column Enter/bottom no-op,
+  Shift+Enter in-cell break, Tab/Shift+Tab caret-end and final Tab no-op; explicit
+  row/column handles only. Replaced withdrawn EI-068/EI-069 proposal oracles.
+- Implemented shared commands/append handles in both isolated candidates. Added
+  keyboard handle access and preserved original minimal controls as legacy profiles.
+- New adversarial probes exposed raw origin structural undo deleting foreign cell
+  input. Default prototype conservatively refuses such inverses using public origin/
+  history metadata; raw failing controls remain preserved. No final history approval.
+- 51 Node checks (one diagnostic), six support checks and 34 table-browser candidate
+  checks pass. Existing browser/helper checks rerun. Revised native NM-01 not yet run.
+- Added AGENTS.md, native progress log, case-catalogue reporting and resumable next
+  action. Recorded successful Mac launch/4 guarded-step fixture passes as reported;
+  earlier row-growth substep is superseded and remaining manual cases unreported.
+- No production/Swift host or root dependency change, architecture acceptance,
+  agent commit or push. Patch 05 is incremental over 04.
+
 ## 0.13 — 2026-11-14
 
 - User's first Mac build (SDK MacOSX26.5.sdk, reported commit cdafd1c7) failed:

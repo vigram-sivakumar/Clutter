@@ -1,12 +1,12 @@
 # Clutter foundation
 
-Status: architecture definition pack, revision 0.12, 2026-11-14. Product scope
+Status: architecture definition pack, revision 0.14, 2026-11-14. Product scope
 confirmed; technology proposals remain unqualified.
 Baseline: `main` at `cae604273115c0c6c0d3ac34533b1e9834e9c778`.
 Working branch: `architecture/clutter-foundation`.
 
 New chat or AI agent: start at [START-HERE](START-HERE.md), then follow the
-[roadmap](roadmap.md). Current next task: first Mac build and native observations using the prepared harness. R01 inventory is
+[roadmap](roadmap.md). Current next task: retest confirmed table behaviour on Mac, one variation at a time. R01 inventory is
 complete; R02–R06 drafts retain open policies/encoding/durability choices and
 bounded Linux experimental evidence, with native/architecture qualification blocked.
 
@@ -18,7 +18,7 @@ live cloud collaboration deferred.
 Evaluate it as a greenfield product. Migration and implementation effort remain
 visible planning dimensions with zero weight in architectural selection.
 
-The 0.2 product scope, retained in 0.12, reflects the user clarification sequence. Earlier draft
+The 0.2 product scope, retained in 0.14, reflects the user clarification sequence. Earlier draft
 requirements superseded by that discussion are replaced in this folder.
 This pack contains requirements and proposals, not an approved implementation
 specification. Existing documentation and `ARCHITECTURE_RULES.md` continue to
@@ -62,6 +62,10 @@ current-system references; they are not copied into competing target specs.
 | [R07 second evidence](evidence/r07-02-2026-11-14.json)                  | Targeted Linux passes, explicit raw controls and limits per candidate                     |
 | [Native Mac run guide](experiments/r07-two-view/native-macos/README.md) | Build/run commands, automatic reports and bounded manual checklist                        |
 | [Native preparation evidence](evidence/r07-03-2026-11-14.json)          | Support checks and explicit uncompiled/unexecuted native scope                            |
+| [Agent instructions](AGENTS.md)                                         | Foundation-only continuation and evidence discipline                                      |
+| [Native progress log](NATIVE-TEST-PROGRESS.md)                          | Reported results, pending cases and exact guided retest                                   |
+| [Table contract](table-interaction-contract.md)                         | Confirmed keyboard/addition behaviour; supersedes old defaults                            |
+| [Latest table evidence](evidence/r07-05-2026-11-14.json)                | Scoped regression, raw safety controls and unrun revised native work                      |
 | [Product contracts](product-contracts.md)                               | Requirement IDs and initial/future scope                                                  |
 | [Confirmed behaviour](product-behaviour.md)                             | Agreed task/property/template/date/comment semantics                                      |
 | [Sync and portability](sync-and-portability.md)                         | Opt-in provider policy, concurrency and Windows-ready boundaries                          |

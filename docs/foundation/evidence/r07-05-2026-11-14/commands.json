@@ -1,0 +1,38 @@
+[
+  {
+    "command": ["npm", "ci", "--ignore-scripts", "--workspaces=false"],
+    "exit": 0
+  },
+  {
+    "command": ["npm", "test"],
+    "exit": 0
+  },
+  {
+    "command": ["npm", "run", "test:native-support"],
+    "exit": 0
+  },
+  {
+    "command": ["npm", "run", "build"],
+    "exit": 0
+  },
+  {
+    "command": ["npm", "run", "test:tables"],
+    "exit": 0
+  },
+  {
+    "command": ["npm", "run", "test:browser"],
+    "exit": 0
+  },
+  {
+    "command": ["npm", "run", "test:origin"],
+    "exit": 0
+  },
+  {
+    "command": ["npm", "run", "test:native-capture"],
+    "exit": 0
+  },
+  {
+    "command": ["node", "manifest.mjs"],
+    "exit": 0
+  }
+]

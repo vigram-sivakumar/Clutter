@@ -3,12 +3,18 @@ import { TextSelection, NodeSelection } from 'prosemirror-state';
 import { baseKeymap, toggleMark } from 'prosemirror-commands';
 import { keymap } from 'prosemirror-keymap';
 import { undo, redo } from 'prosemirror-history';
-import { tableEditing, goToNextCell, CellSelection } from 'prosemirror-tables';
+import { tableEditing, CellSelection } from 'prosemirror-tables';
 import { Authority } from './authority.mjs';
 import { Context, settle } from './context.mjs';
 import { fixture, schema, textPosition } from './schema.mjs';
 import { execute } from './api.mjs';
-import { nextCellOrRow } from './table-command.mjs';
+import {
+  nextCell,
+  previousCell,
+  nextRowSameColumn,
+  cellLineBreak,
+} from './table-command.mjs';
+import { tableView, focusTableHandle } from './table-view.mjs';
 import { reconcileNativeTextSelection } from './selection-preflight.mjs';
 const selectionPreflight =
   new URLSearchParams(location.search).get('selection') !== 'raw';
@@ -99,8 +105,11 @@ function createClients() {
             return true;
           },
           'Mod-b': toggleMark(schema.marks.strong),
-          Tab: nextCellOrRow,
-          'Shift-Tab': goToNextCell(-1),
+          Tab: nextCell,
+          'Shift-Tab': previousCell,
+          Enter: nextRowSameColumn,
+          'Shift-Enter': cellLineBreak,
+          Escape: focusTableHandle,
         }),
         keymap(baseKeymap),
         tableEditing(),
@@ -134,6 +143,8 @@ function mount(id) {
     {
       state: c.state,
       nodeViews: {
+        table: (node, view, getPos) =>
+          tableView(node, view, getPos, () => c.boundary()),
         embed(node) {
           const dom = document.createElement('aside'),
             button = document.createElement('button');

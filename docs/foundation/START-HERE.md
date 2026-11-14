@@ -1,7 +1,7 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-14. Documentation revision: 0.13.
-Read this file first in a new chat or agent session. It is the checkpoint, not a
+Last updated: 2026-11-14. Documentation revision: 0.14.
+Read AGENTS.md and this file first in a new chat or agent session. It is the checkpoint, not a
 second product specification. [README](README.md) identifies authoritative docs.
 
 ## Current position
@@ -20,12 +20,12 @@ fault cases across P-SQL/P-ROOT/P-TEXT; PS-01–PS-07 are still open. R05 adds a
 unexecuted SC scenarios. SY-01–SY-08 remain open; SY-04 coherent task reconciliation
 blocks provider enablement. R06 prepared qualification contracts. R07 has two executed Linux exploratory slices and now a prepared native Mac host.
 Targeted selection/origin-history alternatives pass their scoped Linux checks;
-raw failures remain controls. The new AppKit/WKWebView source, eight-case checklist
-and automatic report runner are ready for the first Mac build, not natively verified.
-The user attempted the first Mac build and reported two Swift compiler errors.
-Revision 0.13 fixes those source issues; Mac recompilation is pending. Swift/macOS
-SDK and actual native input are unavailable here. See [native preparation
-evidence](evidence/r07-03-2026-11-14.json) and [run guide](experiments/r07-two-view/native-macos/README.md).
+raw failures remain controls. The user has now built/launched the Mac host after
+compiler correction 04 and shown four guarded-step fixture passes. No native JSON
+has been uploaded. Native table feedback confirms a new contract; implementation
+and Linux regression checks are updated in 05, but the revised NM-01 needs retesting.
+Read [native progress](NATIVE-TEST-PROGRESS.md), [table contract](table-interaction-contract.md)
+and [latest evidence](evidence/r07-05-2026-11-14.json). No architecture is accepted.
 
 | Area                                  | Verified status at this checkpoint                                                                                                                                                                                                                         |
 | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -33,7 +33,7 @@ evidence](evidence/r07-03-2026-11-14.json) and [run guide](experiments/r07-two-v
 | Architecture/API/history/sync         | Proposed contracts, not implemented target mechanisms                                                                                                                                                                                                      |
 | Technology selection                  | PM/Tiptap and local SQLite are candidates; no accepted replacement decision                                                                                                                                                                                |
 | Existing test evidence                | 30 selected Linux files/1,003 assertions passed across initial and targeted reruns. Initial load errors and setup corrections are retained in inventory/evidence.                                                                                          |
-| Native/platform/provider tests        | Linux core/browser exploratory evidence now exists; macOS/native/provider qualification remains blocked.                                                                                                                                                   |
+| Native/platform/provider tests        | Mac build/launch and guarded-step fixture passes reported; revised NM-01 and remaining native/manual/provider work pending.                                                                                                                                |
 | Documentation checks                  | Formatting, relative links, requirement/test IDs and sequential patch application checked in handoff                                                                                                                                                       |
 | Existing production and old documents | Unchanged by the foundation deliveries                                                                                                                                                                                                                     |
 | Remote/user checkout                  | Remote 0.9 commit 1215044 verified and matched local docs; branch safely fast-forwarded. User reports R07-01 applied; R07-02 and native R07-03 prepared; application of 02 not independently verified. No new remote commit verified or agent commit/push. |
@@ -91,8 +91,11 @@ contains those contents; do not reapply either route.
 13. Native compiler correction, revision 0.13: `Clutter R07 Mac Compiler Fix 04.patch`,
     incremental over exact 0.12/patch-03 contents. User reports 03 committed as cdafd1c7.
 
+14. Confirmed table interactions/progress, revision 0.14: `Clutter R07 Table Interaction Update 05.patch`,
+    incremental over exact 0.13/patch-04 contents. Quit the old native host before rebuilding.
+
 Each update is incremental over its predecessor's file contents, not a particular
-user-created commit hash. If this file is present at revision 0.13, do not blindly
+user-created commit hash. If this file is present at revision 0.14, do not blindly
 reapply those patches. Inspect actual files and git state; do not use reset/clean,
 force checkout or re-create the branch to hide divergence.
 
@@ -151,31 +154,31 @@ force checkout or re-create the branch to hide divergence.
 - Current authorized continuation includes the isolated R07 experiment, not a
   production rebuild. Preserve unqualified tests and report blocking observations.
 
-## Exact next action: retry Mac compilation after patch 04
+## Exact next action: retest the confirmed table contract on Mac
 
-The first real Mac build failed on two compiler issues, not on an editor test.
-The reported SDK is MacOSX26.5.sdk; user commit cdafd1c7 contains patch 03. Apply
-patch 04, then rerun npm run native:mac from the experiment folder. No npm reinstall
-or reapplication of 03 is needed. The coordinator-property rename avoids the
-inherited owner property; @main/@MainActor startup plus -parse-as-library fixes
-entry isolation. [Fix evidence](evidence/r07-04-2026-11-14.json) distinguishes the
-reported native failure from six local support passes. Mac recompilation is still
-pending; do not claim these source fixes compiled successfully on the target SDK.
+Read this folder's AGENTS.md and NATIVE-TEST-PROGRESS.md. User reports native build/
+launch success after commit f68d7d8c and guarded-step fixture checks 4/0/0. The earlier
+Mac final-Tab-created-row trial was partial and is superseded, not a pass of current
+behaviour. Do not ask again whether Enter/Tab should grow the table or select text.
 
-The runner builds a separate local .app, starts fixed loopback assets, presents
-native case controls and saves JSON reports automatically. Ask the user to follow
-the eight bounded manual cases for keyboard, IME, native Edit menu, clipboard,
-VoiceOver and focus, marking pass/fail/blocked. Automated fixture checks never set
-manual verdicts. A/B within one candidate share content; candidate windows do not.
-Website data is ephemeral, not native durable storage. Keep synthetic content only.
+The user must quit the old host, apply 05 after 04 and rerun native:mac. Guide one
+variation at a time. First in guarded step: click One, Tab, type X; expect TwoX,
+not selected/replaced text. Continue same-column Enter, bottom no-ops, Shift+Enter,
+row wrapping, explicit handles and safe history, then origin candidate. Do not mark
+full NM-01 passed early. Record verdicts/notes in the native UI and request saved JSON
+after useful progress/failure. The runner now embeds the exact manual catalogue.
 
-When the user shares a report, inspect build/source/OS identity, manual attempts,
-raw versus adapted control scope, fixture failures, capture errors and not-run/
-blocked cases. Any observed failure remains relevant even after a passing retry.
-If compilation/setup fails, fix it from the setup JSON and actual compiler error;
-do not reinterpret blocked native work as passed. Broader structural history,
-task lifecycle, headless API/durability and provider gaps remain independent gates.
-Do not choose a stack or start production from the count of Linux checks passing.
+Latest Linux evidence: 51 Node checks (one raw-failure diagnostic), six support
+checks, 34 new table-browser candidate passes; raw unguarded structural row/column
+undo failures are preserved separately. Default origin prototype now conservatively
+refuses structural handle undo after foreign changes. Full semantic inverses remain
+unqualified, not solved by calling every refusal a final UX. Existing native/browser
+fixtures and all earlier raw evidence remain historical records.
+
+Keep production untouched and one branch. No candidate, canonical store, framework
+or provider protocol is accepted. Shared-document OS windows, full native IME/menu/
+VoiceOver, schema/task lifecycle, API/durability parity and provider gates remain open.
+Do not infer them from this table implementation or another candidate's checks.
 
 ## Session close protocol
 

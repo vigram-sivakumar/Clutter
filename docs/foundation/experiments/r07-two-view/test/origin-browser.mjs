@@ -173,13 +173,13 @@ try {
   );
   await check(
     'OH-08',
-    'immediate click End Tab follows the same selection adapter',
+    'immediate final Tab stays at the end without growing table',
     async () => {
       await page.locator('#origin-a td').last().click();
       await key('End');
       await key('Tab');
       await page.keyboard.insertText('NEW');
-      assert.equal(await page.locator('#origin-a tr').count(), 3);
+      assert.equal(await page.locator('#origin-a tr').count(), 2);
       assert.equal(
         await page
           .locator('#origin-a tr')
@@ -187,7 +187,11 @@ try {
           .locator('td')
           .first()
           .innerText(),
-        'NEW'
+        'Three'
+      );
+      assert.equal(
+        await page.locator('#origin-a td').last().innerText(),
+        'FourNEW'
       );
     }
   );

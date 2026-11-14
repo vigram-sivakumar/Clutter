@@ -1,0 +1,194 @@
+{
+  "runtime": "153.0.8010.0",
+  "os": "linux",
+  "input": "Playwright browser key/pointer events; not native macOS input",
+  "results": [
+    {
+      "id": "BR-01",
+      "title": "pointer focus, End and immediate keyboard input converge",
+      "role": "candidate",
+      "status": "pass"
+    },
+    {
+      "id": "BR-02",
+      "title": "backward selection replacement followed by keyboard undo",
+      "role": "candidate",
+      "status": "pass"
+    },
+    {
+      "id": "BR-03",
+      "title": "alternating views and focused undo preserve foreign edits",
+      "role": "candidate",
+      "status": "pass"
+    },
+    {
+      "id": "BR-04",
+      "title": "granular keyboard history removes only own text around a foreign insertion",
+      "role": "candidate",
+      "status": "pass"
+    },
+    {
+      "id": "BR-05",
+      "title": "table cell click and immediate input targets only that cell",
+      "role": "candidate",
+      "status": "pass"
+    },
+    {
+      "id": "BR-06",
+      "title": "toolbar bold acts on captured selection without changing focus owner",
+      "role": "candidate",
+      "status": "pass"
+    },
+    {
+      "id": "BR-07",
+      "title": "external shared-API edit preserves focused selection mapping",
+      "role": "candidate",
+      "status": "pass"
+    },
+    {
+      "id": "BR-08",
+      "title": "close/reopen a view keeps the other live and retains its context history",
+      "role": "candidate",
+      "status": "pass"
+    },
+    {
+      "id": "BR-09",
+      "title": "failed save uses recovery and restores accepted state after restart",
+      "role": "candidate",
+      "status": "pass"
+    },
+    {
+      "id": "BR-10",
+      "title": "failure of save and recovery blocks closing the view",
+      "role": "candidate",
+      "status": "pass"
+    },
+    {
+      "id": "BR-11",
+      "title": "read-only embed rejects text insertion into its content",
+      "role": "candidate",
+      "status": "pass"
+    },
+    {
+      "id": "BR-12",
+      "title": "paused delivery catches up and maps queued text without resetting the view",
+      "role": "candidate",
+      "status": "pass"
+    },
+    {
+      "id": "BR-13",
+      "title": "batched text input uses the conservative unsafe-undo refusal",
+      "role": "candidate",
+      "status": "pass"
+    },
+    {
+      "id": "BR-14",
+      "title": "confirmed final-cell Tab stays put and adds no row",
+      "role": "candidate",
+      "status": "pass"
+    },
+    {
+      "id": "BR-15",
+      "title": "empty last cell immediate Tab stays without adding a row",
+      "role": "candidate",
+      "status": "pass"
+    },
+    {
+      "id": "BR-16",
+      "title": "immediate Shift-Tab moves within the clicked table",
+      "role": "candidate",
+      "status": "pass"
+    },
+    {
+      "id": "BR-17",
+      "title": "native backward range is reconciled before destructive key command",
+      "role": "candidate",
+      "status": "pass"
+    },
+    {
+      "id": "BR-18",
+      "title": "selection adapter does not act for an unfocused editor",
+      "role": "candidate",
+      "status": "pass"
+    },
+    {
+      "id": "BR-19",
+      "title": "synthetic composition flag bypasses reconciliation (not native IME evidence)",
+      "role": "candidate",
+      "status": "pass"
+    },
+    {
+      "id": "BR-20",
+      "title": "node and cell-range model selections are never coerced into text",
+      "role": "candidate",
+      "status": "pass"
+    },
+    {
+      "id": "BR-21",
+      "title": "nested read-only button focus cannot be stolen by adapter",
+      "role": "candidate",
+      "status": "pass"
+    },
+    {
+      "id": "CT-01",
+      "title": "raw editor control: immediate final-cell Tab",
+      "status": "fail",
+      "rows": 2,
+      "trace": [
+        {
+          "key": "End",
+          "preflight": {
+            "changed": false,
+            "reason": "raw-control"
+          },
+          "from": 1,
+          "nativeText": "Four",
+          "nativeOffset": 4
+        },
+        {
+          "key": "Tab",
+          "preflight": {
+            "changed": false,
+            "reason": "raw-control"
+          },
+          "from": 1,
+          "nativeText": "Four",
+          "nativeOffset": 4
+        }
+      ],
+      "role": "known-raw-control",
+      "meaning": "Same Q-04 table command without authority/collab/backup; not a native or full upstream diagnosis."
+    },
+    {
+      "id": "CT-02",
+      "title": "same minimal control with public selection adapter",
+      "role": "adapted-control",
+      "status": "pass",
+      "rows": 3,
+      "trace": [
+        {
+          "key": "End",
+          "preflight": {
+            "changed": true,
+            "reason": "native-text-selection"
+          },
+          "from": 91,
+          "nativeText": "Four",
+          "nativeOffset": 4
+        },
+        {
+          "key": "Tab",
+          "preflight": {
+            "changed": false,
+            "reason": "already-aligned"
+          },
+          "from": 91,
+          "nativeText": "Four",
+          "nativeOffset": 4
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "trace": []
+}

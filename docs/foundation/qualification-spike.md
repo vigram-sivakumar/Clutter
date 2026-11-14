@@ -139,3 +139,9 @@ The [Mac host](experiments/r07-two-view/native-macos/README.md) is prepared for 
 first real build/run. [Preparation evidence](evidence/r07-03-2026-11-14.json) records
 support tests only. Keep automatic fixture checks separate from manual native
 input and do not infer shared-document OS windows or durable storage from this host.
+
+## Current table gate
+
+Use the [confirmed table contract](table-interaction-contract.md) and
+[native progress log](NATIVE-TEST-PROGRESS.md). Old automatic-growth trials and
+controls do not define current acceptance. Retest NM-01 after patch 05.

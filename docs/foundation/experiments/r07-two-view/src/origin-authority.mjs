@@ -11,6 +11,7 @@ export class OriginAuthority {
     this.peers = new Map();
     this.paused = new Set();
     this.version = 0;
+    this.latestOriginVersion = new Map();
     this.onStatus = () => {};
   }
   read() {
@@ -65,7 +66,10 @@ export class OriginAuthority {
     } finally {
       this.doc.off('update', change);
     }
-    if (changed) this.version++;
+    if (changed) {
+      this.version++;
+      this.latestOriginVersion.set(peer.id, this.version);
+    }
     this.deliver();
     this.onStatus();
     return true;
@@ -90,6 +94,11 @@ export class OriginAuthority {
     peer.queued = [];
     for (const update of queued) if (!this.submit(peer, update)) break;
     this.deliver();
+  }
+  hasForeignSince(id, version) {
+    return [...this.latestOriginVersion].some(
+      ([origin, last]) => origin !== id && last > version
+    );
   }
   destroy() {
     for (const peer of this.peers.values()) peer.doc.destroy();

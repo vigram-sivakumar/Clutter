@@ -135,3 +135,32 @@ pre#trace {
     padding: 16px;
   }
 }
+
+/* Experimental append handles: explicit operations, keyboard reachable. */
+.ProseMirror .lab-table {
+  position: relative;
+  overflow: visible;
+  padding: 0 34px 34px 0;
+  margin: 16px 0;
+}
+.table-add {
+  position: absolute;
+  padding: 0;
+  font-size: 22px;
+  line-height: 26px;
+  color: #275f7d;
+  background: #edf4f8;
+  border: 1px solid #b5c2c9;
+}
+.table-add-row {
+  bottom: 0;
+  left: 0;
+  width: calc(100% - 34px);
+  height: 28px;
+}
+.table-add-column {
+  right: 0;
+  top: 0;
+  width: 28px;
+  height: calc(100% - 34px);
+}

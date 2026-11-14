@@ -7,7 +7,7 @@ fixture snapshots and your notes. Nothing is uploaded automatically.
 
 ## Start on your Mac
 
-Apply experiment patches 01, 02 and 03 in order. From the repository root:
+Apply experiment patches 01–05 in order (04 fixes compilation; 05 updates tables). Quit the old lab before rebuilding. From the repository root:
 
 ```bash
 cd docs/foundation/experiments/r07-two-view
@@ -24,9 +24,11 @@ locally with an ad-hoc signature, and serves fixed assets on an ephemeral loopba
 port while the app runs. This is a repository-backed local test host, not a
 redistributable signed/notarized release. Keep the terminal running.
 
-**The Swift/AppKit build cannot be compiled or verified on the current Linux host.**
-The first real native build and tests happen on your Mac. A successful package
-build still does not mean keyboard/IME/accessibility acceptance.
+**The Linux host cannot compile AppKit.** The user has now reported a successful
+Mac build/launch after patch 04 and four step-candidate fixture passes. These are
+recorded in [native progress](../../../NATIVE-TEST-PROGRESS.md); the revised table
+profile in patch 05 still needs its own native retest. Build/fixture success does
+not establish keyboard/IME/accessibility acceptance.
 
 ## What you do
 
@@ -89,3 +91,11 @@ child if needed, preserving checkpoints already written.
 
 This host has a distinct bundle identifier and no app sandbox/release qualification.
 It tests native web input integration, not a final desktop framework choice.
+
+## Resume the current native run
+
+[Native progress](../../../NATIVE-TEST-PROGRESS.md) is the live handoff. Start the
+revised NM-01 one variation at a time; the old final-Tab-new-row result is superseded.
+Original raw/adapted minimal controls preserve legacy keys and have no current
+manual table cases. Use the two main candidates for confirmed-policy acceptance.
+The native report now embeds the exact manual case catalogue as well as its hash.
