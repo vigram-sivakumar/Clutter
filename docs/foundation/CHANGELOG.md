@@ -3,6 +3,22 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.39 — 2026-11-14
+
+- Joined two actual PM/Y editor views to an independent SQLite owner with one
+  versioned accepted Y BLOB, derived PM projection and atomic root/outcome commits.
+  Shared Store codec/domain port and HTTP host retain the snapshot profile; CLI/MCP
+  use the same command path, no duplicate transaction/business implementation.
+- JG-01–10 pass: staged failures, real SIGKILL/reconnect, stable outcomes, provisional
+  input/protection, context history/remount, scoped undo and rejected unsafe updates.
+  Fixed extra-root validation for protected input; retained pre-fix diagnostic and
+  initial failed runs. Broader native/entity/asset/performance gates remain open.
+- Regressions:84 Node,18 snapshot durability,66 table candidate and6 native-support
+  passes; unchanged strict24 pass/6 refusals. Raw unsafe controls remain failures.
+- Next prepare joined native/installed-headless JG-11; old Swift lab is not joined.
+  No new manual replay, production, dependency/lock, Swift, accepted ADR or agent
+  commit/push. Bundle15 supports exact13/14;14 application not confirmed.
+
 ## 0.38 — 2026-11-14
 
 - Prepared R08 architecture review: recommend PM/Y origin-aware contexts, one

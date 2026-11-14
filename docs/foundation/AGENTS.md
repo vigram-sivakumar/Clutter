@@ -48,7 +48,7 @@ them by implication.
   /Users/sivakuv3/Downloads/Arc browser/. Explain prerequisites. Remember the user
   may be in the experiment subdirectory; change to the git root before git apply.
 
-- Latest checkpoint is revision 0.37: read r07-durable-authority.md and r07-29 evidence.
+- Historical checkpoint revision 0.37: read r07-durable-authority.md and r07-29 evidence.
   The separate P-SQL proof passes 18 bounded Linux cases; never describe it as the
   full editor's durable integration, external attachment ordering or power-loss proof.
   Next R08 review package proposes complete combinations/ADRs and remaining gates.
@@ -63,3 +63,12 @@ them by implication.
   persisted payload; decoded PM JSON is not another writable root. Freeze envelope,
   state transition/schema before code; preserve old comparisons/native reports.
   User confirms13 applied; review14 base is exact13. No broad manual replay.
+
+- Current checkpoint0.39: read r08-joined-core.md and evidence/r08-15-2026-11-14.json.
+  JG-01–10 now pass; their0.38 frozen contract remains historically not-run and must
+  not be mistaken for current execution status. Next prepare the actual joined
+  Mac/installed-headless JG-11 candidate; old Swift lab is not this integration.
+  JG-12/13 entity/external assets remain G-M gates. Do not reopen broad research,
+  replay the old manual session, accept a stack or implement production from G-J.
+  Bundle15 supports exact13/14 because14 application is unconfirmed. New proof
+  stores one accepted Y BLOB; never add a competing PM JSON/Markdown save path.

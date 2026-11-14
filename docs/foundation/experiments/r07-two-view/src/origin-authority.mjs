@@ -1,7 +1,12 @@
 import * as Y from 'yjs';
 import { StepMap } from 'prosemirror-transform';
 import { OriginHistoryContext } from './origin-history-context.mjs';
-import { touches, mapRange, validRange } from './change-footprint.mjs';
+import {
+  touches,
+  mapRange,
+  validRange,
+  documentChange,
+} from './change-footprint.mjs';
 import {
   prosemirrorToYDoc,
   yDocToProsemirror,
@@ -35,7 +40,7 @@ export class OriginAuthority {
     this.peers.set(id, peer);
     doc.on('update', (update, origin) => {
       if (origin === this.remoteOrigin || peer.error) return;
-      if (this.paused.has(id)) {
+      if (this.paused.has(id) && !this.transportQueuesPaused) {
         peer.queued.push(update.slice());
         return;
       }
@@ -78,25 +83,9 @@ export class OriginAuthority {
       this.doc.off('update', change);
     }
     if (changed) {
-      const after = this.read(),
-        from = before.content.findDiffStart(after.content),
-        end = before.content.findDiffEnd(after.content);
-      // A conservative PM token span; store only positional metadata, not roots.
-      const start = from ?? 0;
-      let to = end?.a ?? before.content.size,
-        newTo = end?.b ?? after.content.size;
-      // Equal prefix/suffix runs can overlap on pure insertion/deletion. Keep
-      // a valid conservative replacement map instead of a negative old span.
-      const overlap = Math.max(0, start - Math.min(to, newTo));
-      to += overlap;
-      newTo += overlap;
-      this.changes.push({
-        version: this.version + 1,
-        origin: peer.id,
-        from: start,
-        to,
-        newTo,
-      });
+      this.changes.push(
+        documentChange(before, this.read(), peer.id, this.version + 1)
+      );
     }
     this.deliver();
     this.onStatus();

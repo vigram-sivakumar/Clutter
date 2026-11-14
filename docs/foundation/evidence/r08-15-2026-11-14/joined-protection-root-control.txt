@@ -1,0 +1,2 @@
+Pre-fix protect result: protected
+Pre-fix closure failure: UNSUPPORTED_Y_ROOT

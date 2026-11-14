@@ -111,3 +111,11 @@ results and open full-scope requirements above remain unchanged.
 and proposed F006/F007 now exist. No new runtime results or accepted stack. Next
 [JG-01–10](joined-core-contract.json) joins full editor contexts to the real durable
 owner; native/entity/external-asset gates remain explicit. User confirms13 applied.
+
+## Joined follow-up, revision0.39
+
+[Joined proof15](r08-joined-core.md) now passes JG-01–10 on Linux with real editor
+views and an independent SQL owner, plus retained regressions. G-J is boundedly
+qualified; no full stack accepted. Next JG-11 native/installed-headless candidate;
+JG-12/13 model/external-asset and other G-Q gates remain. Frozen JG specification
+not-run fields record its original state; execution evidence is separate.

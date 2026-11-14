@@ -1,0 +1,27 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> clutter-r07-two-view-experiment@0.1.0 test:joined
+> npm run build && node test/joined-core.mjs
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> clutter-r07-two-view-experiment@0.1.0 build
+> node build.mjs
+
+JG-01 FAIL Error: OWNER_EXIT file:///workspace/scratch/c3964483bf30/clutter-architecture/docs/foundation/experiments/r07-two-view/durable/host.mjs:213
+          osRelease: release(),
+                     ^
+
+TypeError: release is not a function
+    at Server.<anonymous> (file:///workspace/scratch/c3964483bf30/clutter-architecture/docs/foundation/experiments/r07-two-view/durable/host.mjs:213:22)
+    at Server.wrapper (node:events:639:12)
+    at Server.emit (node:events:526:24)
+    at emitListeningNT (node:net:2485:10)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+
+Node.js v24.22.1
+
+    at ChildProcess.<anonymous> (file:///workspace/scratch/c3964483bf30/clutter-architecture/docs/foundation/experiments/r07-two-view/test/joined-support.mjs:43:44)
+    at ChildProcess.emit (node:events:514:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:324:12)
+Report artifacts/joined-results-final.json

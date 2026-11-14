@@ -1,6 +1,6 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-14. Documentation revision: 0.38.
+Last updated: 2026-11-14. Documentation revision: 0.39.
 Read AGENTS.md and this file first in a new chat or agent session. It is the checkpoint, not a
 second product specification. [README](README.md) identifies authoritative docs.
 
@@ -19,8 +19,9 @@ records. Keep one branch, `architecture/clutter-foundation`, and preserve all wo
 | Regressions in13 | 84 Node checks pass; unchanged strict comparison green, including 12 earlier live command cases |
 | Native/manual | Earlier09 confirmed passes/raw reports preserved; no12/13 Mac claim, IME unavailable, VoiceOver deferred; no broad rerun needed |
 | R08 review | Proposed PM/Y origin-aware + headless TS authority + SQLite combination, gap ledger and F006/F007; no baseline accepted |
-| Next | Execute JG-01–JG-10: join two actual editor views to the real durable owner; native/entity/media gates follow |
-| Git | User confirms patch13 applied;14 review prepared over exact13. No agent commit/push, production, Swift, dependency lock or branch change |
+| Joined G-J (build15) | JG-01–10 pass on Linux: actual PM/Y views, real SQLite owner, CLI/MCP, failure/restart/protection and context history |
+| Next | Prepare Mac/installed-headless JG-11 candidate; JG-12/13 task/entity/external-asset gates remain before related baseline acceptance |
+| Git | User confirms13 applied;14 application unconfirmed. Bundle15 supports exact13 or14. No agent commit/push, production, Swift, dependency lock or branch change |
 
 Read [durable qualification](r07-durable-authority.md), [history qualification](r07-history-ownership.md)
 and [native progress](NATIVE-TEST-PROGRESS.md). Separate executed evidence from
@@ -102,6 +103,9 @@ contains those contents; do not reapply either route.
 23. Architecture review, revision 0.38: `Clutter Foundation Architecture Review 14.patch`,
     exact13 base; proposed combination/ADRs/gates only, no new runtime qualification.
 
+24. Joined core proof, revision0.39: `Clutter Joined Core Proof 15.zip`,
+    alternatives over exact13/14, apply helper preflights; JG-01–10 Linux passed.
+
 Each update is incremental over its predecessor's file contents, not a particular
 user-created commit hash. If this file is present at revision 0.17, do not blindly
 reapply those patches. Inspect actual files and git state; do not use reset/clean,
@@ -162,39 +166,40 @@ force checkout or re-create the branch to hide divergence.
 - Current authorized continuation includes the isolated R07 experiment, not a
   production rebuild. Preserve unqualified tests and report blocking observations.
 
-## Exact next action: joined Origin/SQLite proof, JG-01–JG-10
+## Exact next action: targeted Mac/installed-headless candidate, JG-11
 
-The user confirms patch13 applied. Read the [architecture review](architecture-review.md),
-[gap disposition](architecture-gap-disposition.md), proposed
-[F006](adr/F006-structured-origin-and-transactional-roots.md) and
-[F007](adr/F007-headless-runtime-and-platform-composition.md), then the frozen
-[joined contract](joined-core-contract.json). All13 JG cases are not-run.
+Read [joined result](r08-joined-core.md), [evidence](evidence/r08-15-2026-11-14.json)
+and the [frozen implementation boundary](experiments/r07-two-view/joined/FORMAT.md).
+JG-01–10 now pass against two actual PM/Y EditorViews and a real independent SQLite
+owner. The driver/Playwright owns no accepted document. One versioned Y BLOB is
+committed with root/outcome; PM JSON is derived. Pending input/history/protection,
+unknown outcomes and owner restart are joined, not separate read-only projections.
+The original0.38 JG contract remains unchanged with historical not-run fields;
+current executions live in the result/evidence, not rewritten into the frozen spec.
 
-The review recommends PM/Y origin-aware contexts plus one headless TS Space owner
-and local SQLite for qualification. It does not accept a production stack/codec,
-Tiptap, Tauri or shipped Node binding. Preserve the single source of truth: J uses
-one versioned accepted Y-state root; decoded PM JSON is validation/rendering state,
-not another persisted writable document. Stable Clutter IDs are not Y coordinates.
+Regressions:84 Node checks,18 earlier durable cases, unchanged strict24 pass/6
+protective refusals,66 candidate table checks and6 native-support checks pass.
+Raw failures/initial attempts and the extra-root protection negative control are
+preserved. No complete stack, production codec/model, native host or shipped runtime
+is accepted. The JS experiment is not a finished production TypeScript package.
 
-Next implement the bounded G-J slice (JG-01–10), inside docs/foundation experiments:
-real durable owner, two actual EditorViews, shared CLI/MCP ingress, staged validation
-and SQL commit before accepted publication, pending-input protection and restart/
-unknown-outcome reconciliation. Freeze the exact envelope/state transition/schema
-before coding and keep prior matched contract/raw controls unchanged. Full task
-entity/asset closure JG-12/13 and native/installed host JG-11 are subsequent explicit
-gates before related baseline acceptance. Do not substitute read-only projections
-or a Playwright-owned authority for the missing integration.
+Next prepare a concrete Mac runner joining this owner to native editor views and
+packaging/pinning its headless runtime for app-closed CLI/MCP. Qualify JG-11's actual
+native input/history/lifecycle, grants/store identity/lock and flush profile before
+claiming it. The old Swift lab is not the joined candidate; do not ask the user to
+rerun that lab as proof. Provide targeted manual steps only when the new candidate
+is ready, one variation at a time. Preserve earlier confirmed manual results;
+IME unavailable and VoiceOver deferred remain labelled, never inferred passes.
 
-This delivery is documentation only: no new runtime tests or acceptance results.
-Prior build12 strict24 passes/6 refusals and build13's18 durable Linux cases remain
-separate evidence. No broad manual session or new product questionnaire requested.
-Mac12/13/integrated path remain not-run, IME unavailable, VoiceOver deferred; earlier
-confirmed native/manual results remain valid.
+JG-12 task/restore identity closure and JG-13 external assets are the already planned
+G-M follow-ups before related baseline acceptance. Keep architecture-review.md and
+architecture-gap-disposition.md gate order; do not start a new broad research cycle,
+production rebuild or provider enablement. No new product question is needed now.
 
-Patch14 (`Clutter Foundation Architecture Review 14.patch`) applies over exact13.
-Review evidence is r08-2026-11-14.json. Same branch, no agent commit/push, production,
-Swift, runtime/dependency or prior evidence changes. Do not create production
-packages, supersede existing ADRs or enable providers from this recommendation.
+Delivery `Clutter Joined Core Proof 15.zip` contains verified alternatives over exact
+13 and14 plus a preflight apply helper; apply only one. User confirms13, not14.
+Same branch; no new dependency/lock, Swift, production, agent commit/push or accepted
+ADR changes. Native15 not-run. No new manual session requested by this delivery.
 
 ## Session close protocol
 

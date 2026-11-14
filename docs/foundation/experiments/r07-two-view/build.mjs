@@ -34,3 +34,10 @@ await build({
   outfile: 'dist/origin.js',
 });
 copyFileSync('origin.html', 'dist/origin.html');
+
+await build({
+  entryPoints: ['joined/browser.mjs'],
+  bundle: true,
+  format: 'esm',
+  outfile: 'dist/joined.js',
+});

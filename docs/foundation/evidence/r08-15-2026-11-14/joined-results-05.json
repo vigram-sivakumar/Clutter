@@ -1,0 +1,63 @@
+{
+  "date": "2026-11-14",
+  "codec": "clutter-r08-y-state-v1",
+  "results": [
+    {
+      "id": "JG-01",
+      "case_id": "JG-01",
+      "status": "fail",
+      "error": "Error: OWNER_EXIT file:///workspace/scratch/c3964483bf30/clutter-architecture/docs/foundation/experiments/r07-two-view/durable/host.mjs:213\n          osRelease: release(),\n                     ^\n\nTypeError: release is not a function\n    at Server.<anonymous> (file:///workspace/scratch/c3964483bf30/clutter-architecture/docs/foundation/experiments/r07-two-view/durable/host.mjs:213:22)\n    at Server.wrapper (node:events:639:12)\n    at Server.emit (node:events:526:24)\n    at emitListeningNT (node:net:2485:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)\n\nNode.js v24.22.1\n\n    at ChildProcess.<anonymous> (file:///workspace/scratch/c3964483bf30/clutter-architecture/docs/foundation/experiments/r07-two-view/test/joined-support.mjs:43:44)\n    at ChildProcess.emit (node:events:514:28)\n    at ChildProcess._handle.onexit (node:internal/child_process:324:12)",
+      "observations": []
+    }
+  ],
+  "remaining": [
+    {
+      "id": "JG-02",
+      "status": "not-run"
+    },
+    {
+      "id": "JG-03",
+      "status": "not-run"
+    },
+    {
+      "id": "JG-04",
+      "status": "not-run"
+    },
+    {
+      "id": "JG-05",
+      "status": "not-run"
+    },
+    {
+      "id": "JG-06",
+      "status": "not-run"
+    },
+    {
+      "id": "JG-07",
+      "status": "not-run"
+    },
+    {
+      "id": "JG-08",
+      "status": "not-run"
+    },
+    {
+      "id": "JG-09",
+      "status": "not-run"
+    },
+    {
+      "id": "JG-10",
+      "status": "not-run"
+    },
+    {
+      "id": "JG-11",
+      "status": "not-run"
+    },
+    {
+      "id": "JG-12",
+      "status": "not-run"
+    },
+    {
+      "id": "JG-13",
+      "status": "not-run"
+    }
+  ]
+}

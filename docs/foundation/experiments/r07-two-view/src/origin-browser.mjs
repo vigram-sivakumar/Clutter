@@ -40,6 +40,11 @@ function historyCommand(id, direction) {
   const stack = direction === 'undo' ? manager.undoStack : manager.redoStack,
     tag = stack.at(-1)?.meta.get(structuralTag);
   historyWarnings[id] = null;
+  if (structuralGuard && tag?.pending) {
+    historyWarnings[id] = 'UNDO_PENDING_DURABILITY';
+    authority.onStatus();
+    return false;
+  }
   if (
     structuralGuard &&
     tag &&
@@ -79,6 +84,10 @@ function tableBoundary(id, view, phase, axis, tablePos) {
         to: tablePos + view.state.doc.nodeAt(tablePos).nodeSize,
       },
     });
+  if (phase === 'after') {
+    const tag = manager.undoStack.at(-1)?.meta.get(structuralTag);
+    if (tag) authority.tagHistory?.(id, tag);
+  }
 }
 let commandIngress, ingressSession;
 let authority,
@@ -94,7 +103,7 @@ function reset() {
   authority?.destroy();
   views = {};
   detachedViews.clear();
-  authority = new OriginAuthority();
+  authority = window.clutterAuthorityFactory?.() ?? new OriginAuthority();
   peers = {};
   historyWarnings = {};
   authority.onStatus = () =>

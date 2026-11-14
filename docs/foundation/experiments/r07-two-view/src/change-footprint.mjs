@@ -20,3 +20,15 @@ export function validRange(range) {
     range.to > range.from
   );
 }
+
+// Derived model-coordinate journal entry, shared by local and durable projections.
+export function documentChange(before, after, origin, version) {
+  const start = before.content.findDiffStart(after.content) ?? 0,
+    end = before.content.findDiffEnd(after.content);
+  let to = end?.a ?? before.content.size,
+    newTo = end?.b ?? after.content.size;
+  const overlap = Math.max(0, start - Math.min(to, newTo));
+  to += overlap;
+  newTo += overlap;
+  return { version, origin, from: start, to, newTo };
+}

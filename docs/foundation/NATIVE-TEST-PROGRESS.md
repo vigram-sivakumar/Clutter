@@ -256,18 +256,17 @@ manual rerun or verdict-click cleanup is requested. A targeted native history/
 selection smoke can be batched with the next integrated slice before architecture
 acceptance. NM-03 remains unavailable and NM-06 deferred by user priority.
 
-## Next action: joined core before targeted native integration
+## Next action: prepare the actual joined Mac candidate
 
-The [R08 review](architecture-review.md) is prepared, with proposed PM/Y + TS owner
-+ SQLite and explicit alternatives/gates. No complete stack accepted. All13
-[joined cases](joined-core-contract.json) remain not-run. Next automate JG-01–10
-against two actual editor views and a real owner. Only after a concrete Mac build
-exists, guide targeted JG-11/native history/input/installed headless checks.
+[Joined core15](r08-joined-core.md) passes JG-01–10 on Linux, with real EditorViews
+and a real durable owner. No new Mac result is claimed. Next prepare the packaged
+headless/native JG-11 candidate and only then guide targeted input/history/lifecycle
+and app-closed CLI/MCP checks. The existing Swift lab is still the older fixture;
+running it cannot qualify this new integration.
 
-No new Mac result, manual-session replay, verdict-click cleanup or VoiceOver/IME
-request in this review. Original passes stay valid; Mac12/13/integrated path not-run,
-IME unavailable and VoiceOver deferred. User confirms patch13 applied. Review14
-is documentation only. [Evidence](evidence/r08-2026-11-14.json).
+Earlier confirmed passes/raw reports remain intact. No broad manual replay or
+verdict cleanup now. IME unavailable, VoiceOver deferred, native15 not-run.
+No native host/runtime or production architecture accepted. [Evidence](evidence/r08-15-2026-11-14.json).
 
 ## Next agent action
 

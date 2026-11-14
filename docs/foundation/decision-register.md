@@ -144,3 +144,11 @@ and old-rule impact; A/B/C-step/D and alternative hosts remain explicit reserves
 none is silently marked resolved. Next G-J runs JG-01–10 with actual editor views
 and the real durable owner. All13 [JG cases](joined-core-contract.json) remain
 not-run. No new runtime tests, production rule supersession or provider enablement.
+
+## Joined follow-up, revision0.39
+
+[Joined proof15](r08-joined-core.md) now passes JG-01–10 on Linux with real editor
+views and an independent SQL owner, plus retained regressions. G-J is boundedly
+qualified; no full stack accepted. Next JG-11 native/installed-headless candidate;
+JG-12/13 model/external-asset and other G-Q gates remain. Frozen JG specification
+not-run fields record its original state; execution evidence is separate.

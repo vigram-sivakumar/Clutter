@@ -184,3 +184,12 @@ browser projections, CLI and MCP. This is separate from the full PM/Y candidates
 it does not persist their editing contexts/undo histories. Existing matched strict
 contract and Node regressions pass. Next R08 review proposes complete combinations
 and remaining joined/native gates. No production architecture accepted.
+
+## Joined full-editor/durable-owner proof (build15)
+
+[Joined runner](joined/README.md), [codec/transition boundary](joined/FORMAT.md)
+and [result](../../r08-joined-core.md): JG-01–10 pass on Linux. This uses actual
+PM/Y EditorViews and a real separate owner, not the earlier read-only browser
+projections. Shared Store/host and stable CLI/MCP operations commit one accepted
+Y root with its outcome. Native/installed JG-11 and entity/external assets12/13
+remain explicit gates. No new manual session or selected production stack.

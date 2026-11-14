@@ -20,6 +20,9 @@ const files = [
   ...readdirSync('native-macos')
     .filter((name) => /\.(swift|js|mjs|json)$/.test(name))
     .map((name) => 'native-macos/' + name),
+  ...readdirSync('joined')
+    .filter((n) => /\.(mjs|md|json)$/.test(n))
+    .map((n) => 'joined/' + n),
   ...readdirSync('durable')
     .filter((n) => /\.(mjs|json|html|md)$/.test(n))
     .map((n) => 'durable/' + n),
@@ -36,7 +39,7 @@ const lock = JSON.parse(readFileSync('package-lock.json', 'utf8'));
 const manifest = {
   candidate: 'R07-PM-PUBLIC-02',
   alternatives: ['R07-PM-ORIGIN-02'],
-  iteration: 'R07-13-durable-owner-2026-11-14',
+  iteration: 'R08-15-joined-origin-sqlite-2026-11-14',
   date: '2026-11-14',
   scope:
     'Exploratory two-view candidates and native host source; native compilation/execution must be recorded separately',
@@ -56,6 +59,8 @@ const manifest = {
   schema:
     'src/schema.mjs; minimal R02-derived semantic subset, not canonical Clutter schema',
   profiles: {
+    joined:
+      'R08-15: two real PM/Y views use a remote read cache/provisional contexts; a real headless process stages accepted Y bytes and commits root/receipt through common SQLite Store before publication. JG-01–10 run separately; native/entity/external-asset gates remain open.',
     durable:
       'Separate P-SQL proof: real child-process exclusive SQLite owner; atomic document-version/outcome, protected drafts, pinned roots and tiny in-DB blobs. Browser projections/CLI/MCP share that owner; full editor/native integration not qualified. Exact SQLite build/readback in durable-results-final.json.',
     raw: 'Unpatched pinned ProseMirror libraries; guard disabled explicitly in diagnostic test only',
@@ -100,7 +105,7 @@ const manifest = {
     'production security/authentication/IPC/process election',
   ],
   qualification:
-    'Exploratory targeted alternatives only. Raw controls remain failing. Full native/semantic/lifecycle/performance qualification is still blocked; see follow-up findings and separate evidence. The Origin candidate has ephemeral live CLI/MCP ingress; the separate durable owner is not yet joined to its editor/history engine.',
+    'Exploratory targeted alternatives only. Raw controls remain failing. Full native/semantic/lifecycle/performance qualification is still blocked; see follow-up findings and separate evidence. The Origin candidate has ephemeral live CLI/MCP ingress; the separate joined/ profile connects actual PM/Y views to the durable process; production native/entity/media gates remain open.',
 };
 mkdirSync('artifacts', { recursive: true });
 writeFileSync(

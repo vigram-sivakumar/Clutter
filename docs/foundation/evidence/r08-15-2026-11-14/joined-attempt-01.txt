@@ -1,0 +1,10 @@
+JG-01 pass
+JG-02 pass
+JG-03 FAIL page.evaluate: TypeError: Cannot read properties of undefined (reading '0')
+    at eval (eval at evaluate (:311:30), <anonymous>:1:30)
+    at UtilityScript.evaluate (<anonymous>:313:16)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+    at /workspace/scratch/c3964483bf30/clutter-architecture/docs/foundation/experiments/r07-two-view/test/joined-core.mjs:22:235
+    at async run (/workspace/scratch/c3964483bf30/clutter-architecture/docs/foundation/experiments/r07-two-view/test/joined-core.mjs:15:43)
+    at async file:///workspace/scratch/c3964483bf30/clutter-architecture/docs/foundation/experiments/r07-two-view/test/joined-core.mjs:22:2
+Report artifacts/joined-results.json

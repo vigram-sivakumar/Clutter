@@ -13,16 +13,8 @@ import {
   closeSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import {
-  hash,
-  stable,
-  initial,
-  validateState,
-  validateCommand,
-  mutations,
-  reduce,
-} from './model.mjs';
-const marker = 'CLUTTER-R07-DURABLE-EXPERIMENT-1\n';
+import { hash, stable } from './model.mjs';
+import * as snapshotModel from './model.mjs';
 const sync = (p) => {
   const f = openSync(p, 'r');
   try {
@@ -32,7 +24,11 @@ const sync = (p) => {
   }
 };
 export class Store {
-  constructor(dir, { init = false } = {}) {
+  constructor(dir, { init = false, model = snapshotModel } = {}) {
+    this.model = model;
+    const marker = model.marker ?? 'CLUTTER-R07-DURABLE-EXPERIMENT-1\n';
+    this.encode = model.encode ?? stable;
+    this.decode = model.decode ?? JSON.parse;
     this.dir = dir;
     this.phase = async () => {};
     if (!existsSync(dir)) {
@@ -127,14 +123,14 @@ export class Store {
       };
       if (init) {
         db.exec(`BEGIN EXCLUSIVE;
-      CREATE TABLE revisions(version INTEGER PRIMARY KEY,parent INTEGER,state TEXT NOT NULL,hash TEXT NOT NULL,operation_id TEXT UNIQUE);
+      CREATE TABLE revisions(version INTEGER PRIMARY KEY,parent INTEGER,state ${model.storageType ?? 'TEXT'} NOT NULL,hash TEXT NOT NULL,operation_id TEXT UNIQUE);
       CREATE TABLE meta(singleton INTEGER PRIMARY KEY CHECK(singleton=1),space_id TEXT NOT NULL,document_id TEXT NOT NULL,current_version INTEGER NOT NULL REFERENCES revisions(version),owner_epoch TEXT NOT NULL);
       CREATE TABLE outcomes(operation_id TEXT PRIMARY KEY,request_hash TEXT NOT NULL,result TEXT NOT NULL,version INTEGER NOT NULL REFERENCES revisions(version));
       CREATE TABLE pins(version INTEGER PRIMARY KEY REFERENCES revisions(version));
       CREATE TABLE blobs(hash TEXT PRIMARY KEY,bytes BLOB NOT NULL);
-      CREATE TABLE recovery(context_id TEXT PRIMARY KEY,generation INTEGER NOT NULL,base_version INTEGER NOT NULL REFERENCES revisions(version),owner_epoch TEXT NOT NULL,payload TEXT,hash TEXT,active INTEGER NOT NULL);
+      CREATE TABLE recovery(context_id TEXT PRIMARY KEY,generation INTEGER NOT NULL,base_version INTEGER NOT NULL REFERENCES revisions(version),owner_epoch TEXT NOT NULL,payload ${model.storageType ?? 'TEXT'},hash TEXT,active INTEGER NOT NULL);
       PRAGMA user_version=1;`);
-        const s = stable(initial());
+        const s = this.encode(model.initial());
         db.prepare('INSERT INTO revisions VALUES(0,NULL,?,?,NULL)').run(
           s,
           hash(s)
@@ -165,10 +161,10 @@ export class Store {
   root(v) {
     const r = this.db.prepare('SELECT * FROM revisions WHERE version=?').get(v);
     if (!r) throw Error('VERSION_NOT_FOUND');
-    return { ...r, state: JSON.parse(r.state) };
+    return { ...r, state: this.decode(r.state) };
   }
   checkState(s) {
-    validateState(s);
+    this.model.validateState(s);
     for (const a of s.attachments) {
       const b = this.db
         .prepare('SELECT bytes FROM blobs WHERE hash=?')
@@ -195,7 +191,7 @@ export class Store {
         hash(r.state) !== r.hash
       )
         throw Error('BROKEN_REVISION');
-      this.checkState(JSON.parse(r.state));
+      this.checkState(this.decode(r.state));
       if (i) {
         const o = db
           .prepare('SELECT * FROM outcomes WHERE operation_id=?')
@@ -230,20 +226,22 @@ export class Store {
         throw Error('BROKEN_RECOVERY');
       if (r.active) {
         if (hash(r.payload ?? '') !== r.hash) throw Error('BROKEN_RECOVERY');
-        this.checkState(JSON.parse(r.payload));
+        this.checkState(this.decode(r.payload));
       } else if (r.payload !== null || r.hash !== null)
         throw Error('BROKEN_RECOVERY');
     }
   }
-  async execute(c) {
+  async execute(c, grant) {
     if (this.failed) throw Error('OWNER_UNAVAILABLE_RECONNECT');
-    validateCommand(c);
+    this.model.validateCommand(c);
+    this.model.authorize?.(c, grant);
     const db = this.db,
       m = this.getMeta();
     if (c.spaceId !== m.space_id || c.documentId !== m.document_id)
       throw Error('WRONG_DESTINATION');
     if (c.method === 'read')
       return {
+        ...(this.model.readMeta?.(this) ?? {}),
         spaceId: m.space_id,
         documentId: m.document_id,
         version: m.current_version,
@@ -258,18 +256,26 @@ export class Store {
           .prepare('SELECT 1 FROM pins WHERE version=?')
           .get(c.version),
       };
-    if (c.method === 'outcome') return this.outcome(c.operationId);
+    if (c.method === 'outcome') {
+      const result = this.outcome(c.operationId);
+      if (this.uncertainOperation === c.operationId) {
+        this.check();
+        this.uncertainOperation = null;
+      }
+      return result;
+    }
     if (c.method === 'list_recovery')
       return db
         .prepare('SELECT * FROM recovery WHERE active=1')
         .all()
         .map((r) => ({
           ...r,
-          state: JSON.parse(r.payload),
+          state: this.decode(r.payload),
           payload: undefined,
           liveOwned: r.owner_epoch === this.epoch,
         }));
-    if (!mutations.includes(c.method)) throw Error('UNKNOWN_METHOD');
+    if (!this.model.mutations.includes(c.method)) throw Error('UNKNOWN_METHOD');
+    if (this.uncertainOperation) throw Error('COMMIT_OUTCOME_UNRESOLVED');
     const fingerprint = hash(stable(c)),
       prior = db
         .prepare('SELECT * FROM outcomes WHERE operation_id=?')
@@ -289,8 +295,16 @@ export class Store {
       state,
       blob,
       recovery;
-    if (['insert', 'task_update', 'remove_attachment'].includes(c.method))
-      state = reduce(this.root(version).state, c);
+    if (
+      (
+        this.model.reduceMethods ?? [
+          'insert',
+          'task_update',
+          'remove_attachment',
+        ]
+      ).includes(c.method)
+    )
+      state = this.model.reduce(this.root(version).state, c, this);
     if (c.method === 'attach') {
       if (
         typeof c.base64 !== 'string' ||
@@ -311,13 +325,14 @@ export class Store {
         name: c.name,
         mime: c.mime,
       });
-      validateState(state);
+      this.model.validateState(state);
     }
     if (c.method === 'restore_version') state = this.root(c.version).state;
     if (c.method === 'pin_version') this.root(c.version);
     if (c.method === 'protect') {
       this.root(c.baseVersion);
       this.checkState(c.state);
+      this.model.validateProtection?.(c.state, this.root(c.baseVersion).state);
       recovery = db
         .prepare('SELECT * FROM recovery WHERE context_id=?')
         .get(c.contextId);
@@ -334,8 +349,14 @@ export class Store {
       if (recovery.owner_epoch === this.epoch)
         throw Error('RECOVERY_LIVE_OWNED');
       if (recovery.base_version !== version) throw Error('RECOVERY_CONFLICT');
-      state = JSON.parse(recovery.payload);
+      state = this.decode(recovery.payload);
     }
+    if (
+      state &&
+      this.model.deduplicateState &&
+      hash(this.encode(state)) === this.root(version).hash
+    )
+      state = undefined;
     if (state) {
       this.checkStateExceptNewBlob(state, blob);
       status = 'applied';
@@ -343,6 +364,7 @@ export class Store {
     }
     const result = {
       status,
+      ...(this.model.resultMeta?.(c) ?? {}),
       durability: status === 'protected' ? 'durable_recovery' : 'durable',
       operationId: c.operationId,
       spaceId: m.space_id,
@@ -352,6 +374,11 @@ export class Store {
     let committed = false,
       commitAttempted = false;
     await this.phase('before_begin', c);
+    if (
+      (this.failWrites && state) ||
+      (c.method === 'protect' && this.failProtection)
+    )
+      throw Error('INJECTED_SAVE_FAILURE');
     try {
       db.exec('BEGIN EXCLUSIVE');
       if (blob)
@@ -360,7 +387,7 @@ export class Store {
           blob
         );
       if (state) {
-        const json = stable(state);
+        const json = this.encode(state);
         db.prepare('INSERT INTO revisions VALUES(?,?,?,?,?)').run(
           version,
           m.current_version,
@@ -376,7 +403,7 @@ export class Store {
       if (c.method === 'pin_version')
         db.prepare('INSERT OR IGNORE INTO pins VALUES(?)').run(c.version);
       if (c.method === 'protect') {
-        const json = stable(c.state);
+        const json = this.encode(c.state);
         db.prepare(
           'INSERT INTO recovery VALUES(?,?,?,?,?,?,1) ON CONFLICT(context_id) DO UPDATE SET generation=excluded.generation,base_version=excluded.base_version,owner_epoch=excluded.owner_epoch,payload=excluded.payload,hash=excluded.hash,active=1'
         ).run(
@@ -411,6 +438,7 @@ export class Store {
       await this.phase('after_commit', c);
       if (this.loseCommitReturn) {
         this.loseCommitReturn = false;
+        this.uncertainOperation = c.operationId;
         return {
           status: 'uncertain',
           operationId: c.operationId,
@@ -431,7 +459,8 @@ export class Store {
         rollbackFailed = true;
         this.failed = true;
       }
-      if (committed || commitAttempted || rollbackFailed)
+      if (committed || commitAttempted || rollbackFailed) {
+        this.uncertainOperation = c.operationId;
         return {
           status: 'uncertain',
           operationId: c.operationId,
@@ -442,11 +471,12 @@ export class Store {
           },
           reason: e.message,
         };
+      }
       throw e;
     }
   }
   checkStateExceptNewBlob(s, blob) {
-    validateState(s);
+    this.model.validateState(s);
     const h = blob && hash(blob);
     this.checkState({
       ...s,

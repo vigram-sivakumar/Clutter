@@ -174,3 +174,11 @@ TS runtime topology. The ProseMirror public guide fetch was blocked (403); engin
 behavior cited above is from the pinned executed source/tests, not a newly verified
 upstream claim. Existing [durable evidence](evidence/r07-29-2026-11-14.json) records
 SQLite runtime/profile and its original primary references.
+
+## Joined follow-up, revision0.39
+
+[Joined proof15](r08-joined-core.md) now passes JG-01–10 on Linux with real editor
+views and an independent SQL owner, plus retained regressions. G-J is boundedly
+qualified; no full stack accepted. Next JG-11 native/installed-headless candidate;
+JG-12/13 model/external-asset and other G-Q gates remain. Frozen JG specification
+not-run fields record its original state; execution evidence is separate.
