@@ -111,3 +111,10 @@ vulnerabilities for this lock at review time. Neither observation proves securit
 The origin candidate and selection preflight are separate comparisons. Core/API
 parity, durable snapshots and safe-close tests from the first candidate do not
 qualify those missing features in the origin candidate by association.
+
+## Native macOS host
+
+The [Mac guide](native-macos/README.md) gives build/run commands and the built-in
+manual checklist. `npm run native:mac` builds a separate AppKit/WKWebView .app and
+saves reports locally. Swift compilation/native launch is not verified on the
+current Linux host. Automatic fixture checks are separate from native observations.

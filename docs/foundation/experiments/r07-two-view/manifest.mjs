@@ -14,6 +14,9 @@ const files = [
   'control.html',
   'origin.html',
   'style.css',
+  ...readdirSync('native-macos')
+    .filter((name) => /\.(swift|js|mjs|json)$/.test(name))
+    .map((name) => 'native-macos/' + name),
   ...['src', 'test'].flatMap((dir) =>
     readdirSync(dir)
       .filter((n) => n.endsWith('.mjs'))
@@ -28,7 +31,8 @@ const manifest = {
   candidate: 'R07-PM-PUBLIC-02',
   alternatives: ['R07-PM-ORIGIN-02'],
   date: '2026-11-14',
-  scope: 'Exploratory Linux local two-view integration; not product acceptance',
+  scope:
+    'Exploratory two-view candidates and native host source; native compilation/execution must be recorded separately',
   sourceHashes: hashes,
   dependencyLockSha256: hashes['package-lock.json'],
   versions: Object.fromEntries(

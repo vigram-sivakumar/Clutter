@@ -3,6 +3,22 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.12 — 2026-11-14
+
+- Prepared a separate local Swift/AppKit/WKWebView host, own bundle identity,
+  native responder-chain Edit menu and candidate/raw/adapted windows.
+- Added tool gating, local build/sign/launch runner, eight bounded manual cases,
+  four automatic fixture checks and local JSON checkpoints with separate verdicts.
+  Repeated failures stay visible; quick checks never mark manual cases passed.
+- Added six passing support tests and three-route Chromium capture/helper tests;
+  existing 38 Node and 21 selection/11 origin browser candidate checks still pass.
+  Narrow ATS/local-loopback plist parsed; no production/root dependency changes.
+- Swift compilation, .app launch and physical Mac/IME/VoiceOver/menu/clipboard tests
+  remain blocked here. Native website storage is ephemeral, not durability proof;
+  candidate windows are independent. No desktop framework/editor accepted.
+- User must apply 03 after 02, run the Mac guide and return the saved JSON. New
+  evidence/checkpoint distinguishes preparation from actual native results.
+
 ## 0.11 — 2026-11-14
 
 - Added explicit public-API text-selection preflight candidate; immediate final-cell

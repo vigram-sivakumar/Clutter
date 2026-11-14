@@ -1,0 +1,14 @@
+{
+  "platform": "linux",
+  "node": "v24.22.1",
+  "arch": "x64",
+  "ready": false,
+  "checks": [
+    {
+      "name": "macOS",
+      "status": "blocked",
+      "reason": "Requires a real Mac with Command Line Tools; no native result inferred on this host."
+    }
+  ],
+  "nativeAcceptance": "not-run"
+}

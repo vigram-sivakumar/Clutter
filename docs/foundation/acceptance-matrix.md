@@ -105,3 +105,11 @@ profile in both integration and control. Native/platform/provider gates stay ope
 and origin-history results; it does not qualify the complete T/EI matrix. Synthetic
 composition guards are not native IME proof, and raw-control failure is not a pass.
 First-candidate persistence/CLI/MCP evidence does not transfer to the origin candidate.
+
+## Native host preparation
+
+Use [NM-01–NM-08](experiments/r07-two-view/native-macos/cases.json) as bounded manual
+entry checks, not full T-01/T-02/T-03 qualification. Swift compilation/native
+execution remain not-run; [preparation evidence](evidence/r07-03-2026-11-14.json)
+does not supersede native gates. Actual reports must retain observed failures and
+record input source/chords and unsupported cases.

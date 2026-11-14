@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { resolve, extname } from 'node:path';
 const root = resolve('dist');
-export function server(port = 4178) {
+export function server(port = 4178, assetRoot = root) {
   const app = createServer(async (req, res) => {
     // Only fixed built artifacts. No path traversal or app-vault access.
     const name = new URL(req.url, 'http://localhost').pathname;
@@ -23,7 +23,7 @@ export function server(port = 4178) {
       return;
     }
     try {
-      const bytes = await readFile(resolve(root, files[name]));
+      const bytes = await readFile(resolve(assetRoot, files[name]));
       res.setHeader(
         'Content-Type',
         { '.js': 'text/javascript', '.css': 'text/css', '.html': 'text/html' }[

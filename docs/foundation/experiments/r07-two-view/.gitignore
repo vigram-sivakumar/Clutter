@@ -2,3 +2,4 @@ node_modules/
 dist/
 artifacts/
 .lab-data/
+native-macos/out/

@@ -1,6 +1,6 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-14. Documentation revision: 0.11.
+Last updated: 2026-11-14. Documentation revision: 0.12.
 Read this file first in a new chat or agent session. It is the checkpoint, not a
 second product specification. [README](README.md) identifies authoritative docs.
 
@@ -18,23 +18,23 @@ unexecuted contract scenarios. M-01–M-07 model gaps and Q-01–Q-09 interactio
 remain explicit. R04 adds a conditional persistence specification and 30 unexecuted
 fault cases across P-SQL/P-ROOT/P-TEXT; PS-01–PS-07 are still open. R05 adds a conditional provider protocol, official-source feasibility record and 30
 unexecuted SC scenarios. SY-01–SY-08 remain open; SY-04 coherent task reconciliation
-blocks provider enablement. R06 prepared qualification contracts. R07 now has two executed exploratory slices. The first exposed unsafe raw undo and
-immediate cell selection. The second adds a public-selection adapter and a separate
-origin-aware history comparison. Latest evidence: 38 Node checks (one raw-failure
-diagnostic), 21 selection-browser candidate passes, an adapted-control pass, the
-preserved raw-control failure, and 11 origin-history browser passes. No architecture
-is selected. See [second-slice evidence](evidence/r07-02-2026-11-14.json).
+blocks provider enablement. R06 prepared qualification contracts. R07 has two executed Linux exploratory slices and now a prepared native Mac host.
+Targeted selection/origin-history alternatives pass their scoped Linux checks;
+raw failures remain controls. The new AppKit/WKWebView source, eight-case checklist
+and automatic report runner are ready for the first Mac build, not natively verified.
+Swift/macOS SDK and actual native input are unavailable here. See [native preparation
+evidence](evidence/r07-03-2026-11-14.json) and [run guide](experiments/r07-two-view/native-macos/README.md).
 
-| Area                                  | Verified status at this checkpoint                                                                                                                                                                     |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Product requirements/behaviour        | Recorded in product-contracts.md and product-behaviour.md; remaining detail gaps are explicit                                                                                                          |
-| Architecture/API/history/sync         | Proposed contracts, not implemented target mechanisms                                                                                                                                                  |
-| Technology selection                  | PM/Tiptap and local SQLite are candidates; no accepted replacement decision                                                                                                                            |
-| Existing test evidence                | 30 selected Linux files/1,003 assertions passed across initial and targeted reruns. Initial load errors and setup corrections are retained in inventory/evidence.                                      |
-| Native/platform/provider tests        | Linux core/browser exploratory evidence now exists; macOS/native/provider qualification remains blocked.                                                                                               |
-| Documentation checks                  | Formatting, relative links, requirement/test IDs and sequential patch application checked in handoff                                                                                                   |
-| Existing production and old documents | Unchanged by the foundation deliveries                                                                                                                                                                 |
-| Remote/user checkout                  | Remote 0.9 commit 1215044 verified and matched local docs; branch safely fast-forwarded. User reports R07-01 applied; incremental R07-02 prepared. No new remote commit verified or agent commit/push. |
+| Area                                  | Verified status at this checkpoint                                                                                                                                                                                                                         |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Product requirements/behaviour        | Recorded in product-contracts.md and product-behaviour.md; remaining detail gaps are explicit                                                                                                                                                              |
+| Architecture/API/history/sync         | Proposed contracts, not implemented target mechanisms                                                                                                                                                                                                      |
+| Technology selection                  | PM/Tiptap and local SQLite are candidates; no accepted replacement decision                                                                                                                                                                                |
+| Existing test evidence                | 30 selected Linux files/1,003 assertions passed across initial and targeted reruns. Initial load errors and setup corrections are retained in inventory/evidence.                                                                                          |
+| Native/platform/provider tests        | Linux core/browser exploratory evidence now exists; macOS/native/provider qualification remains blocked.                                                                                                                                                   |
+| Documentation checks                  | Formatting, relative links, requirement/test IDs and sequential patch application checked in handoff                                                                                                                                                       |
+| Existing production and old documents | Unchanged by the foundation deliveries                                                                                                                                                                                                                     |
+| Remote/user checkout                  | Remote 0.9 commit 1215044 verified and matched local docs; branch safely fast-forwarded. User reports R07-01 applied; R07-02 and native R07-03 prepared; application of 02 not independently verified. No new remote commit verified or agent commit/push. |
 
 ## Repository and delivery state
 
@@ -83,8 +83,11 @@ contains those contents; do not reapply either route.
 11. R07 blocker comparisons, revision 0.11: `Clutter R07 Editor Blocker Investigation 02.patch`,
     incremental over exact 0.10 experiment-01 contents (regardless of user commit hash).
 
+12. R07 native host preparation, revision 0.12: `Clutter R07 Native Mac Harness 03.patch`,
+    incremental over exact 0.11 experiment-02 contents. Apply 02 before this patch.
+
 Each update is incremental over its predecessor's file contents, not a particular
-user-created commit hash. If this file is present at revision 0.11, do not blindly
+user-created commit hash. If this file is present at revision 0.12, do not blindly
 reapply those patches. Inspect actual files and git state; do not use reset/clean,
 force checkout or re-create the branch to hide divergence.
 
@@ -108,6 +111,8 @@ force checkout or re-create the branch to hide divergence.
    and [first evidence](evidence/r07-2026-11-14.json), then
    [second findings](experiments/r07-two-view/follow-up-findings.md) and
    [second evidence](evidence/r07-02-2026-11-14.json). Keep candidate configurations distinct.
+   Then read [Mac run guide](experiments/r07-two-view/native-macos/README.md) and
+   [native preparation evidence](evidence/r07-03-2026-11-14.json).
 8. [Product contracts](product-contracts.md) and [behaviour](product-behaviour.md).
 9. [System architecture](system-architecture.md) and [shared API](shared-api.md).
 10. [Sync/platform](sync-and-portability.md) and [history](history-and-collaboration.md).
@@ -141,28 +146,28 @@ force checkout or re-create the branch to hide divergence.
 - Current authorized continuation includes the isolated R07 experiment, not a
   production rebuild. Preserve unqualified tests and report blocking observations.
 
-## Exact next action: R07 native and semantic qualification preparation
+## Exact next action: first Mac build and native observations
 
-Read second-slice findings/evidence. Keep the public-selection adapter, raw controls
-and origin-aware comparison distinct. Targeted Linux observations now pass for the
-new comparisons; the old raw failures remain explicit. No native acceptance follows.
+The user has a Mac; this environment is Linux. Deliver/apply the native patch after
+02, then the user runs the commands in the Mac guide. The source has not been
+compiled against AppKit/WebKit here. Do not claim the packaged app works until the
+real build/launch result is available. Tool/helper tests and plist parsing are
+separate evidence. No tool installation or remote login is automatic.
 
-Prepare a reproducible packaged macOS harness and execution checklist carrying the
-same immediate input, two-view selection/history, focus and safety cases into actual
-WKWebView/native menus, IME, clipboard and VoiceOver. A browser on macOS alone is not
-packaged native acceptance. Record missing tooling/environment as blocked. Do not
-choose PM/Yjs or patch upstream privately based only on the scoped Linux results.
+The runner builds a separate local .app, starts fixed loopback assets, presents
+native case controls and saves JSON reports automatically. Ask the user to follow
+the eight bounded manual cases for keyboard, IME, native Edit menu, clipboard,
+VoiceOver and focus, marking pass/fail/blocked. Automated fixture checks never set
+manual verdicts. A/B within one candidate share content; candidate windows do not.
+Website data is ephemeral, not native durable storage. Keep synthetic content only.
 
-Independently extend the origin candidate's structural/history semantics, task/page
-lifecycle and headless shared command/outcome/durability parity before comparing
-complete architectures. It currently has no persistence or CLI/MCP bridge. The first
-candidate's save/API tests cannot qualify those features in another candidate.
-Do not change the approved whole-document latest-wins provider policy into CRDT
-replica merging. Q/M/PS/SY/PL/SEC gaps remain for affected scopes.
-
-Continue isolated R07 work on this branch, keeping new files in this foundation
-folder and production untouched. The existing implementation can be replaced 100%.
-R08 accepts a baseline only after relevant native/correctness/architecture evidence.
+When the user shares a report, inspect build/source/OS identity, manual attempts,
+raw versus adapted control scope, fixture failures, capture errors and not-run/
+blocked cases. Any observed failure remains relevant even after a passing retry.
+If compilation/setup fails, fix it from the setup JSON and actual compiler error;
+do not reinterpret blocked native work as passed. Broader structural history,
+task lifecycle, headless API/durability and provider gaps remain independent gates.
+Do not choose a stack or start production from the count of Linux checks passing.
 
 ## Session close protocol
 

@@ -1,0 +1,56 @@
+[
+  {
+    "command": ["npm", "ci", "--ignore-scripts", "--workspaces=false"],
+    "exit": 0,
+    "expected_exit": 0,
+    "scope": "Linux support/regression checks only; native compilation/execution not available"
+  },
+  {
+    "command": ["npm", "test"],
+    "exit": 0,
+    "expected_exit": 0,
+    "scope": "Linux support/regression checks only; native compilation/execution not available"
+  },
+  {
+    "command": ["npm", "run", "test:native-support"],
+    "exit": 0,
+    "expected_exit": 0,
+    "scope": "Linux support/regression checks only; native compilation/execution not available"
+  },
+  {
+    "command": ["npm", "run", "build"],
+    "exit": 0,
+    "expected_exit": 0,
+    "scope": "Linux support/regression checks only; native compilation/execution not available"
+  },
+  {
+    "command": ["npm", "run", "test:native-capture"],
+    "exit": 0,
+    "expected_exit": 0,
+    "scope": "Linux support/regression checks only; native compilation/execution not available"
+  },
+  {
+    "command": ["npm", "run", "test:browser"],
+    "exit": 0,
+    "expected_exit": 0,
+    "scope": "Linux support/regression checks only; native compilation/execution not available"
+  },
+  {
+    "command": ["npm", "run", "test:origin"],
+    "exit": 0,
+    "expected_exit": 0,
+    "scope": "Linux support/regression checks only; native compilation/execution not available"
+  },
+  {
+    "command": ["npm", "run", "native:check"],
+    "exit": 2,
+    "expected_exit": 2,
+    "scope": "Linux support/regression checks only; native compilation/execution not available"
+  },
+  {
+    "command": ["node", "manifest.mjs"],
+    "exit": 0,
+    "expected_exit": 0,
+    "scope": "Linux support/regression checks only; native compilation/execution not available"
+  }
+]

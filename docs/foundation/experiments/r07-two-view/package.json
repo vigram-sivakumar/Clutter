@@ -11,7 +11,11 @@
     "build": "node build.mjs",
     "serve": "node serve.mjs",
     "test:browser": "node test/browser.mjs",
-    "test:origin": "node test/origin-browser.mjs"
+    "test:origin": "node test/origin-browser.mjs",
+    "native:check": "node native-macos/run.mjs --check",
+    "native:mac": "node native-macos/run.mjs",
+    "test:native-support": "node --test test/native-support.test.mjs",
+    "test:native-capture": "node test/native-capture.mjs"
   },
   "dependencies": {
     "prosemirror-collab": "1.3.1",

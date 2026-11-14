@@ -132,3 +132,10 @@ and provider stages blocked until real environment/evidence exist.
 record the public-selection and origin-history alternatives. Preserve raw controls;
 macOS native tests and complete origin-candidate semantic/API/durability parity are
 next gates. Local CRDT history is not a provider merge-policy decision.
+
+## Native host preparation
+
+The [Mac host](experiments/r07-two-view/native-macos/README.md) is prepared for the
+first real build/run. [Preparation evidence](evidence/r07-03-2026-11-14.json) records
+support tests only. Keep automatic fixture checks separate from manual native
+input and do not infer shared-document OS windows or durable storage from this host.

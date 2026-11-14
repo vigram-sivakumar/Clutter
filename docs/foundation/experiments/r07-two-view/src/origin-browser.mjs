@@ -106,6 +106,7 @@ document.querySelector('#origin-redo').onpointerdown = (e) =>
 document.querySelector('#origin-redo').onclick = () =>
   redo(views[active].state);
 window.originLab = {
+  view: (id) => views[id],
   reset,
   snapshot: () => ({
     doc: authority.read().toJSON(),

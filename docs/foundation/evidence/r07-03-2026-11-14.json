@@ -1,0 +1,72 @@
+{
+  "document": "R07 native macOS harness preparation evidence",
+  "revision": "0.12",
+  "date": "2026-11-14",
+  "status": "source/package preparation only; Swift compilation and actual macOS/native acceptance blocked on Linux",
+  "base": "Exact 0.11 experiment-02 contents; user application of 02 not independently verified. This delivery requires patch 02 first. No agent commit/push or production changes.",
+  "deliverable": {
+    "host": "Separate AppKit/WKWebView .app built locally with Swift via xcrun; own bundle identifier; repository-backed loopback asset host",
+    "commands": ["npm run native:check", "npm run native:mac"],
+    "manual_cases": 8,
+    "automatic_fixture_checks": 4,
+    "case_targets": "7 common candidate cases; save-failure case step-only; raw/adapted controls expose only the table/input case",
+    "reporting": "Manual attempts and fixture checks separate; local JSON checkpoints with bounded traces/snapshots; an observed failure stays failing in the same session",
+    "privacy_scope": "No automatic upload, clipboard read or production vault access; reports contain synthetic fixture snapshots and tester notes"
+  },
+  "verification": {
+    "node_core_adapter_checks": {
+      "pass": 38,
+      "fail": 0,
+      "note": "Includes one unchanged raw-history failure diagnostic, not 38 acceptance cases"
+    },
+    "native_support_tests": {
+      "pass": 6,
+      "fail": 0,
+      "note": "Tool gating, resources/paths and checklist tests; mocked Apple discovery is not actual Mac execution"
+    },
+    "capture_helper": {
+      "routes": 3,
+      "status": "passed in Chromium",
+      "runtime": "153.0.8010.0",
+      "scope": "Capture/fixture helper, bounded export and key-character filtering only"
+    },
+    "selection_browser": {
+      "candidate_pass": 21,
+      "adapted_control_pass": 1,
+      "raw_control_fail": 1
+    },
+    "origin_browser": {
+      "pass": 11,
+      "fail": 0
+    },
+    "info_plist": "Parsed with Python plistlib; distinct identifier and narrow local-network keys checked",
+    "native_preflight": {
+      "platform": "linux",
+      "ready": false,
+      "exit": 2
+    },
+    "swift_compilation": "not-run; Swift compiler/macOS SDK unavailable",
+    "packaged_app_launch": "not-run",
+    "manual_keyboard_IME_VoiceOver_menu_clipboard": "not-run"
+  },
+  "limits": [
+    "Candidate windows are independent, not one shared document across OS windows",
+    "WKWebsiteDataStore is nonpersistent; no native on-disk durability/crash proof",
+    "Native menus deliberately use responder-chain selectors; disabled/wrong routing must be recorded, not bypassed with JS",
+    "Origin candidate still lacks persistence/CLI/MCP parity",
+    "No architecture acceptance, native support claim, provider enablement or final desktop framework choice"
+  ],
+  "artifacts": {
+    "candidate-manifest.json": "r07-03-2026-11-14/candidate-manifest.json",
+    "native-preflight.json": "r07-03-2026-11-14/native-preflight.json",
+    "native-setup-result.json": "r07-03-2026-11-14/native-setup-result.json",
+    "native-helper-results.json": "r07-03-2026-11-14/native-helper-results.json",
+    "core-run.txt": "r07-03-2026-11-14/core-run.txt",
+    "support-run.txt": "r07-03-2026-11-14/support-run.txt",
+    "capture-run.txt": "r07-03-2026-11-14/capture-run.txt",
+    "commands.json": "r07-03-2026-11-14/commands.json",
+    "browser-results.json": "r07-03-2026-11-14/browser-results.json",
+    "origin-results.json": "r07-03-2026-11-14/origin-results.json"
+  },
+  "next": "User applies patch 03 after 02, runs native:mac on Mac, follows built-in checklist and shares the automatically saved JSON report. If setup fails, share native-setup-result.json plus compiler error. Continue independent R07 semantic/API work without selecting a stack."
+}
