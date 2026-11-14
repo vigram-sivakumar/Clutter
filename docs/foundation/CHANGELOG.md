@@ -3,6 +3,22 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.4 — 2026-11-14
+
+- Verified the user's prior three commits at remote f22a5cd and fast-forwarded this
+  checkout after confirming matching files; audited production source inherited from cae6042.
+- Added R01 inventory of 45 capabilities with live source/wiring, test evidence,
+  target disposition, requirements, proposed owner and next validation.
+- Identified stale table/properties/atomic-write documentation; task entity/inbox,
+  history and provider gaps; local/remote concurrency distinctions; and source-level
+  sidebar-versus-task-collection freshness risk (not a reproduced UI failure).
+- Executed 30 selected existing Linux files: 1,003 assertions passed across the
+  initial run and targeted reruns. Preserved initial two dependency-load errors,
+  external runner path allowance and real workspace dependency-link correction.
+  No production edits, extra mocks, checked-in config changes or native/provider tests.
+- Marked R01 complete as a bounded inventory and R02 next; updated the resume
+  checkpoint and reading order. Target architecture remains unqualified.
+
 ## 0.3 — 2026-11-14
 
 - Clarified local-first reads/saves, persistent pending-publication intent, inbound

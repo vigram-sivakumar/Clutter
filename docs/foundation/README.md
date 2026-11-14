@@ -1,12 +1,13 @@
 # Clutter foundation
 
-Status: architecture definition pack, revision 0.3, 2026-11-14. Product scope
+Status: architecture definition pack, revision 0.4, 2026-11-14. Product scope
 confirmed; technology proposals remain unqualified.
 Baseline: `main` at `cae604273115c0c6c0d3ac34533b1e9834e9c778`.
 Working branch: `architecture/clutter-foundation`.
 
 New chat or AI agent: start at [START-HERE](START-HERE.md), then follow the
-[roadmap](roadmap.md). Current next task: R01 capability inventory.
+[roadmap](roadmap.md). Current next task: R02 editor interaction specification. R01 inventory is complete
+with bounded evidence and explicit runtime limitations.
 
 ## Purpose and authority
 
@@ -16,7 +17,7 @@ live cloud collaboration deferred.
 Evaluate it as a greenfield product. Migration and implementation effort remain
 visible planning dimensions with zero weight in architectural selection.
 
-The 0.2 product scope, retained in 0.3, reflects the user clarification sequence. Earlier draft
+The 0.2 product scope, retained in 0.4, reflects the user clarification sequence. Earlier draft
 requirements superseded by that discussion are replaced in this folder.
 This pack contains requirements and proposals, not an approved implementation
 specification. Existing documentation and `ARCHITECTURE_RULES.md` continue to
@@ -29,22 +30,24 @@ current-system references; they are not copied into competing target specs.
 
 ## Reading order and document ownership
 
-| Document                                        | Sole purpose                                                          |
-| ----------------------------------------------- | --------------------------------------------------------------------- |
-| [Resume checkpoint](START-HERE.md)              | Exact current position, patch prerequisites and new-chat continuation |
-| [Roadmap](roadmap.md)                           | Named tasks, dependencies, evidence and next deliverables             |
-| [Product contracts](product-contracts.md)       | Requirement IDs and initial/future scope                              |
-| [Confirmed behaviour](product-behaviour.md)     | Agreed task/property/template/date/comment semantics                  |
-| [Sync and portability](sync-and-portability.md) | Opt-in provider policy, concurrency and Windows-ready boundaries      |
-| [System architecture](system-architecture.md)   | State ownership and operation lifecycle                               |
-| [Shared API](shared-api.md)                     | App/CLI/MCP capability boundaries                                     |
-| [History](history-and-collaboration.md)         | Versions, pins, restore and future collaboration seam                 |
-| [Decision register](decision-register.md)       | Remaining technical choices and evidence gates                        |
-| [Acceptance matrix](acceptance-matrix.md)       | Tests traced to requirements with initial/provider/future gates       |
-| [Qualification spike](qualification-spike.md)   | First local/native and provider experiment specification              |
-| [Delivery plan](delivery-plan.md)               | Dependencies, reviews and patch prerequisites                         |
-| [ADR index](adr/README.md)                      | Technical proposals and rationale                                     |
-| [Changelog](CHANGELOG.md)                       | Specification revisions and withdrawn proposals                       |
+| Document                                                        | Sole purpose                                                                    |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| [Resume checkpoint](START-HERE.md)                              | Exact current position, patch prerequisites and new-chat continuation           |
+| [Roadmap](roadmap.md)                                           | Named tasks, dependencies, evidence and next deliverables                       |
+| [Current capability inventory](current-capability-inventory.md) | R01 source/wiring audit, target mapping, contradictions and validation gaps     |
+| [R01 executed evidence](evidence/r01-2026-11-14.json)           | Selected existing-test results and initial load-error/targeted rerun provenance |
+| [Product contracts](product-contracts.md)                       | Requirement IDs and initial/future scope                                        |
+| [Confirmed behaviour](product-behaviour.md)                     | Agreed task/property/template/date/comment semantics                            |
+| [Sync and portability](sync-and-portability.md)                 | Opt-in provider policy, concurrency and Windows-ready boundaries                |
+| [System architecture](system-architecture.md)                   | State ownership and operation lifecycle                                         |
+| [Shared API](shared-api.md)                                     | App/CLI/MCP capability boundaries                                               |
+| [History](history-and-collaboration.md)                         | Versions, pins, restore and future collaboration seam                           |
+| [Decision register](decision-register.md)                       | Remaining technical choices and evidence gates                                  |
+| [Acceptance matrix](acceptance-matrix.md)                       | Tests traced to requirements with initial/provider/future gates                 |
+| [Qualification spike](qualification-spike.md)                   | First local/native and provider experiment specification                        |
+| [Delivery plan](delivery-plan.md)                               | Dependencies, reviews and patch prerequisites                                   |
+| [ADR index](adr/README.md)                                      | Technical proposals and rationale                                               |
+| [Changelog](CHANGELOG.md)                                       | Specification revisions and withdrawn proposals                                 |
 
 Requirements live in product contracts; other documents reference their IDs.
 Acceptance IDs belong to the matrix. ADRs explain decisions rather than repeat
@@ -86,4 +89,7 @@ These are source anchors, not claims of complete feature coverage:
 Earlier research reported a PM focus conflict and experimental patch, incomplete
 native keyboard qualification, and an FTS diagnostic discrepancy. Those are
 leads to reproduce, not new passing evidence or verified upstream diagnoses.
-No runtime acceptance tests were executed as part of this documentation change.
+R01 executed 30 selected existing Linux Node/jsdom files successfully across
+initial and targeted reruns: 1,003 assertions passed. Initial dependency-load
+failures and setup changes remain recorded. No full-suite/clean-install or
+macOS/native/provider qualification is claimed; read inventory/evidence first.

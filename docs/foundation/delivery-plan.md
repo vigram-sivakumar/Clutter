@@ -65,5 +65,12 @@ same checkout. No commit/push occurs unless explicitly requested.
 [Roadmap](roadmap.md) expands these gates into named work items; do not maintain a
 separate conflicting task order. [START-HERE](START-HERE.md) is the current-session
 checkpoint and reusable new-chat instruction. Update both at handoff with real
-evidence/status. Revision 0.3 adds documentation only; R01 inventory is next.
+evidence/status. Revision 0.4 completes the bounded R01 source/wiring inventory and records selected
+existing-test evidence; R02 editor interaction specification is next. No production
+implementation or native qualification has started.
 The 0.3 resume update patch requires 0.2 file contents and stays on the same branch.
+
+The 0.4 inventory patch is based on verified remote foundation commit f22a5cd,
+which contains the previous three deliveries. Do not reapply older patches to that
+commit. Initial dependency-load failures and their targeted reruns stay explicit; completing
+an inventory is not a full-suite/clean-install or native qualification claim.

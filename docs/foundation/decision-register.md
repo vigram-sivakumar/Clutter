@@ -68,7 +68,11 @@ technology passes it. No target technology has completed these gates in this pac
 
 ## Current work checkpoint
 
-Start with roadmap R01, the current capability inventory. [START-HERE](START-HERE.md)
+R01 is complete as a bounded [capability inventory](current-capability-inventory.md).
+Its selected files passed 1,003 assertions across initial and targeted reruns;
+initial dependency-load errors/setup corrections remain recorded. No full-suite/
+clean-install or native/provider qualification is claimed. Next is
+R02, the editor interaction specification. [START-HERE](START-HERE.md)
 records handoff/authorization and [roadmap](roadmap.md) orders specifications,
 qualification and implementation. These navigation documents do not accept any
 technical decision or duplicate product rules.

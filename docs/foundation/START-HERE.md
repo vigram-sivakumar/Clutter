@@ -1,6 +1,6 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-14. Documentation revision: 0.3.
+Last updated: 2026-11-14. Documentation revision: 0.4.
 Read this file first in a new chat or agent session. It is the checkpoint, not a
 second product specification. [README](README.md) identifies authoritative docs.
 
@@ -9,26 +9,33 @@ second product specification. [README](README.md) identifies authoritative docs.
 Product direction has been clarified with the user. Technical architecture is
 not finalized. Foundation documents, proposed ADRs and acceptance specifications
 exist; production implementation and qualification spikes have not started as
-part of this foundation work. The next task is roadmap R01, the capability inventory.
+part of this foundation work. R01 is complete as a bounded capability audit, with
+45 entries and selected existing-test evidence. The next task is R02, the detailed
+editor interaction specification. Read [inventory](current-capability-inventory.md)
+and its limitations before drafting it.
 
-| Area                                  | Verified status at this checkpoint                                                                   |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Product requirements/behaviour        | Recorded in product-contracts.md and product-behaviour.md; remaining detail gaps are explicit        |
-| Architecture/API/history/sync         | Proposed contracts, not implemented target mechanisms                                                |
-| Technology selection                  | PM/Tiptap and local SQLite are candidates; no accepted replacement decision                          |
-| Native/platform/provider tests        | No new runtime tests executed for this documentation work                                            |
-| Documentation checks                  | Formatting, relative links, requirement/test IDs and sequential patch application checked in handoff |
-| Existing production and old documents | Unchanged by the foundation deliveries                                                               |
-| Remote/user checkout                  | Applying/committing/pushing delivered patches is not confirmed; inspect the actual repo              |
+| Area                                  | Verified status at this checkpoint                                                                                                                                |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Product requirements/behaviour        | Recorded in product-contracts.md and product-behaviour.md; remaining detail gaps are explicit                                                                     |
+| Architecture/API/history/sync         | Proposed contracts, not implemented target mechanisms                                                                                                             |
+| Technology selection                  | PM/Tiptap and local SQLite are candidates; no accepted replacement decision                                                                                       |
+| Existing test evidence                | 30 selected Linux files/1,003 assertions passed across initial and targeted reruns. Initial load errors and setup corrections are retained in inventory/evidence. |
+| Native/platform/provider tests        | No new macOS/native/provider qualification; the target architecture remains untested.                                                                             |
+| Documentation checks                  | Formatting, relative links, requirement/test IDs and sequential patch application checked in handoff                                                              |
+| Existing production and old documents | Unchanged by the foundation deliveries                                                                                                                            |
+| Remote/user checkout                  | Prior 0.1–0.3 commits verified on remote branch at f22a5cd. New 0.4 inventory patch is prepared; user application is not yet confirmed.                           |
 
 ## Repository and delivery state
 
 Use the single branch `architecture/clutter-foundation`. Initial source baseline
 was main `cae604273115c0c6c0d3ac34533b1e9834e9c778`; this is provenance, not a request
 to reset to that commit. Preserve all later user commits and unrelated work.
-The working copy used for preparation has uncommitted foundation files. No commit
-or push was performed for the user. A new environment may differ; do not assume
-scratch paths, commit IDs for the docs or installed dependencies.
+At the R01 start, remote branch `f22a5cd182c171ae9bfaf22f7ac320019fb9a4ec`
+contained the user's three documentation commits and exactly matched the local
+0.3 files; this checkout was safely fast-forwarded to it. Production source is
+unchanged from main `cae6042`. New 0.4 audit/checkpoint changes are uncommitted.
+No commit or push was performed by the agent. Inspect a new environment rather
+than assume these statuses, scratch paths or installed dependencies.
 
 Delivered patch order:
 
@@ -36,15 +43,18 @@ Delivered patch order:
    may have downloaded it as `Clutter Foundation Docs.patch`).
 2. Scope update, revision 0.2: `Clutter Foundation Scope Update.patch`.
 3. Sync/roadmap/resume update, revision 0.3: `Clutter Foundation Resume Update.patch`.
+4. R01 audit/checkpoint update, revision 0.4: `Clutter Foundation Capability Inventory.patch`,
+   based on remote commit `f22a5cd` (the prior three are confirmed committed there).
 
 Each update is incremental over its predecessor's file contents, not a particular
-user-created commit hash. If this file is present at revision 0.3, do not blindly
+user-created commit hash. If this file is present at revision 0.4, do not blindly
 reapply those patches. Inspect actual files and git state; do not use reset/clean,
 force checkout or re-create the branch to hide divergence.
 
 ## Read order
 
-1. [Roadmap](roadmap.md), including the first next task and exit criteria.
+1. [Roadmap](roadmap.md), then [R01 inventory](current-capability-inventory.md) and
+   its [executed evidence](evidence/r01-2026-11-14.json).
 2. [Product contracts](product-contracts.md) and [behaviour](product-behaviour.md).
 3. [System architecture](system-architecture.md) and [shared API](shared-api.md).
 4. [Sync/platform](sync-and-portability.md) and [history](history-and-collaboration.md).
@@ -73,20 +83,26 @@ force checkout or re-create the branch to hide divergence.
 - Current authorized continuation is documentation/specification. Do not begin a
   production rebuild merely because the roadmap describes later implementation.
 
-## Exact next action: R01
+## Exact next action: R02
 
-Inspect current source, UI wiring and tests, then create
-`docs/foundation/current-capability-inventory.md`. For each capability record:
-source anchors, what live code establishes, relevant test evidence, old-doc
-contradictions, confirmed target requirement IDs, keep/redesign/retire/unresolved,
-next validation and owning subsystem. Preserve product guarantees rather than
-requiring reuse of their implementation. Do not invent runtime evidence from
-static reading. Classify without asking the user the entire question list again.
+Create `docs/foundation/editor-interaction-spec.md`. Use the inventory C17–C25,
+confirmed task/date/page/media behaviour and P-03/P-05/P-23 to specify expected
+keyboard, selection, focus, clipboard and undo outcomes before choosing an engine.
+Cover plain/empty/nested blocks, task indentation without subtasks, tables,
+read-only page embeds, images/PDFs, forward/backward/cross-block selections,
+composition/Unicode, toolbar/dialog focus and native menu shortcuts.
 
-Cover notes/daily notes/templates/folders, tasks/properties/collections, navigation/
-views, editor input/clipboard/undo, assets/embeds, history/recovery/persistence,
-search/backlinks/settings and automation/platform boundaries. R01 is not complete
-until every group is accounted for and missing coverage is explicit.
+Assign stable case IDs, fixtures, initial state/action/expected document+selection,
+undo grouping and native evidence requirements. Distinguish confirmed product
+outcomes, reasoned proposals and material questions. Do not claim tests pass from
+writing a matrix or silently select an engine default as a product requirement.
+Resolve routine details from existing contracts; ask one concrete question only
+if a material product ambiguity blocks the scoped specification.
+
+The initially load-blocked PageHost.editTask and tableLiveWiring files passed after
+temporary dependency-path corrections, adding 8 and 30 assertions respectively.
+The evidence records all three invocations. Do not claim a full-suite, clean-install
+or native pass: the all-file selection was not rerun together after setup correction.
 
 ## Session close protocol
 
