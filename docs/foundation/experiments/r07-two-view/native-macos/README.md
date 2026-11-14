@@ -44,7 +44,7 @@ not establish keyboard/IME/accessibility acceptance.
 4. Quit with **Command-Q**. The terminal prints the JSON report path. Share that
    file here. **Experiment → Reveal saved JSON report** opens it in Finder too.
 
-There are eight bounded manual cases (seven apply to both candidates; save-failure
+There are nine bounded manual cases (eight apply to both candidates; save-failure
 protection applies only to the step candidate). They are a first native pass,
 not the full editor matrix. Repeat available IME languages and record unavailable
 ones as blocked in Notes. Do not mark something passed because a browser test did.
@@ -99,3 +99,9 @@ revised NM-01 one variation at a time; the old final-Tab-new-row result is super
 Original raw/adapted minimal controls preserve legacy keys and have no current
 manual table cases. Use the two main candidates for confirmed-policy acceptance.
 The native report now embeds the exact manual case catalogue as well as its hash.
+
+NM-09 isolates triple-click text selection from cell selection. The first uploaded
+07 report is retained as historical evidence: correct source/build hashes and
+passing fixture repetitions, but all manual statuses not-run and no attempts.
+An initial Capture API not ready entry is not proof that later capture is broken;
+verify a fresh manual mark and capture after load. Keep conversation reports distinct.

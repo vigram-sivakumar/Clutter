@@ -17,6 +17,7 @@ them by implication.
   Adding an axis preserves the original active cell, caret/selection and focus.
   Escape keeps the same cell highlighted without a caret; selected-cell Tab/
   Shift+Tab move the highlight without entering text; Enter resumes editing.
+  Triple-click selects all text inside the cell as a text range, not a cell.
   Do not route Escape to handles. Selection mode belongs to each view.
   Do not restore the withdrawn auto-growth or whole-cell-selection defaults.
 - Preserve earlier test artifacts and raw controls. Legacy controls intentionally

@@ -1,0 +1,31 @@
+{
+  "document": "Review of uploaded Mac lab report before triple-click fix",
+  "report_sha256": "826b44858be71919da47875f58d624dfe92ee1972166bf067dd00452c72a8191",
+  "source_file": "native-report-original.json",
+  "build_iteration": "R07-07-table-selection-modes-2026-11-14",
+  "review_before_code_changes": "All embedded source hashes matched local lab07. Regression test source added afterward.",
+  "web_asset_hash_differences_before_fix": [],
+  "report_started": "2026-11-14T08:53:45Z",
+  "report_updated": "2026-11-14T09:27:08Z",
+  "findings": {
+    "manual_verdicts": "All 15 applicable case entries not-run. Both manualAttempts arrays empty; no saved pass/fail/blocked verdicts.",
+    "fixture_runs": {
+      "origin": {
+        "runs": 20,
+        "checks_per_run": 4,
+        "pass_observations": 80
+      },
+      "step": {
+        "runs": 26,
+        "checks_per_run": 4,
+        "pass_observations": 104
+      }
+    },
+    "distinctness": "These are repetitions of four fixture checks per candidate, not 184 distinct acceptance cases.",
+    "latest_capture": "Both latestCapture objects only contain startup ready:false Capture API not ready at 08:53:45Z. No later manual capture exists; this does not establish capture remains broken after load.",
+    "load_errors": "Empty in both windows.",
+    "nativeAcceptance": "No architecture acceptance; fixtures are JavaScript WKWebView checks, not native keyboard/menu proof."
+  },
+  "conversational_results": "Keep prior user-reported manual successes separately. Uploaded file contains no stored verdicts/snapshots to confirm those steps.",
+  "next_after_fix": "Verify Pass saves one NM-05 verdict and a ready capture, then obtain fresh report; do not repeat all completed manual tests."
+}

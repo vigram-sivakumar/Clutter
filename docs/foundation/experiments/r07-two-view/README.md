@@ -119,7 +119,7 @@ manual checklist. `npm run native:mac` builds a separate AppKit/WKWebView .app a
 saves reports locally. Swift compilation/native launch is not verified on the
 current Linux host. Automatic fixture checks are separate from native observations.
 
-## Confirmed table profile (patches 05–07)
+## Confirmed table profile (patches 05–09)
 
 [Table contract](../../table-interaction-contract.md) supersedes earlier table
 defaults. Enter moves down the same column and stops at the bottom. Shift+Enter
@@ -127,6 +127,7 @@ inserts an in-cell hard break. Tab/Shift+Tab arrive at cell text end; final Tab
 stays put. Bottom/right handles append a row/column explicitly. Clicking a cell
 highlights it with a caret; Escape keeps that cell selected without a caret.
 Selected-cell Tab/Shift+Tab move only the highlight; Enter returns to editing.
+Triple-click selects all text inside the cell, not a structural cell selection.
 The old Escape-to-handle shortcut is removed. Adding either axis preserves the original active
 cell, caret/selection and focus. No navigation command creates structure.
 

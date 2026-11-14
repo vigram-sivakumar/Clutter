@@ -1,0 +1,24 @@
+{
+  "document": "Native composition availability and guarded-step menu reports",
+  "revision": "0.19",
+  "date": "2026-11-14",
+  "source": "User conversation after lab patch 07; no JSON or raw output reviewed.",
+  "NM-03": {
+    "status": "blocked-unavailable",
+    "reason": "User has no Japanese, Chinese or Korean input source enabled.",
+    "limit": "No native composition pass. Gate retained; proceed without requiring installation."
+  },
+  "NM-04": {
+    "candidate": "Guarded step / public selection",
+    "reported_passes": [
+      "A TEST: macOS Edit > Undo removes TEST from both views.",
+      "A: macOS Edit > Redo restores TEST.",
+      "B SECOND: macOS Edit > Undo removes SECOND and retains TEST.",
+      "B: macOS Edit > Redo restores SECOND and retains TEST."
+    ],
+    "basis": "User answered success to each prompt.",
+    "limit": "Bounded menu substeps only. No whole NM-04 or both-candidate acceptance."
+  },
+  "next": "Experiment > Origin-aware candidate; select NM-04; Fixture checks; A types TEST; macOS Edit > Undo should remove it from both views. Observe before next variation.",
+  "delivery": "Local docs for next bundle; no new patch delivered; patch08 application unconfirmed. Lab07 unchanged, no build/test rerun."
+}

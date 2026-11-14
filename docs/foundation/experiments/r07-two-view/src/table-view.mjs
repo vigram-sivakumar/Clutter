@@ -1,7 +1,11 @@
 import { Plugin, TextSelection } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import { TableView, CellSelection } from 'prosemirror-tables';
-import { appendTableAxis, cellContext } from './table-command.mjs';
+import {
+  appendTableAxis,
+  cellContext,
+  selectCellText,
+} from './table-command.mjs';
 import { reconcileNativeTextSelection } from './selection-preflight.mjs';
 
 // Shared presentation adapter. Both candidates submit identical table operations
@@ -86,6 +90,23 @@ export function tableCellHighlight() {
         );
         view.focus();
         return true;
+      },
+      handleTripleClick(view, pos, event) {
+        if (
+          event.button !== 0 ||
+          event.shiftKey ||
+          event.metaKey ||
+          event.ctrlKey ||
+          event.altKey
+        )
+          return false;
+        const handled = selectCellText(
+          view.state,
+          (tr) => view.dispatch(tr),
+          pos
+        );
+        if (handled) view.focus();
+        return handled;
       },
       attributes(state) {
         return {

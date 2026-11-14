@@ -1,0 +1,11 @@
+{
+  "document": "Final native clipboard undo report and capture checkpoint",
+  "revision": "0.26",
+  "date": "2026-11-14",
+  "source": "User: works in both after Command-Z table-paste undo prompt. No raw text/JSON inspected.",
+  "reported_test": "After table Paste and Match Style, Command-Z in the same view without reset restores Four in A/B; rows/columns unchanged.",
+  "status": "Reported passed in both candidates; guided NM-05 sequence finished.",
+  "next": "In each candidate window, select NM-05 and mark Pass for the clipboard cases just\ntested. Then use Experiment > Reveal saved JSON report and attach the latest\ntimestamped native-*.json from the experiment artifacts folder. No need to quit\nor rebuild. Review the actual candidate fingerprints, attempts/statuses and saved\ncaptures before claiming inspected evidence. Do not silently mark unrelated cases\npassed; NM-03 remains unavailable/blocked. Remaining NM-06\u2013NM-08 work follows report\ncapture; no architecture accepted.",
+  "limits": "Raw report, NM-06\u2013NM-08 and full native/editor matrix remain unreviewed/unqualified; NM-03 input sources unavailable.",
+  "delivery": "Local docs for next bundle; no new patch/source/build/automated run. Lab07 unchanged; patch08 application unconfirmed."
+}

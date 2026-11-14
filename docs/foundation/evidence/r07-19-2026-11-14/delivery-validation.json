@@ -1,0 +1,13 @@
+{
+  "base07_tree": "baa8e23c35d7c42a0cae0f428c42cb6088291bff",
+  "patch_bases": "Exact 07 and exact 08 verified to produce identical current foundation bytes.",
+  "checks": [
+    "Both git apply --cached --check and actual isolated application of helper at each base pass.",
+    "All changed indexed blobs match current file bytes; only docs/foundation paths; no generated node_modules/dist/artifacts/out.",
+    "Repeating helper detects already-applied target and makes no change.",
+    "Unmatched target content causes safe preflight failure and leaves every file unchanged.",
+    "bash -n helper, changed JSON parsing, local Markdown links and whitespace checks pass.",
+    "Uploaded native report source hashes also match immutable exact-07 git tree, not just prior working files."
+  ],
+  "delivery": "No branch switch, production/dependency mutation or agent commit/push."
+}

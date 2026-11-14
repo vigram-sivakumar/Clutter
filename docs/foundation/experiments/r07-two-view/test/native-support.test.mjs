@@ -67,8 +67,8 @@ test('bundle staging handles directory spaces and preserves resource identities'
   assert.ok(!plist.includes('NSAllowsArbitraryLoads'));
 });
 test('manual catalogue is unique, scoped and never supplies fake passing results', () => {
-  assert.equal(cases.length, 8);
-  assert.equal(new Set(cases.map((c) => c.id)).size, 8);
+  assert.equal(cases.length, 9);
+  assert.equal(new Set(cases.map((c) => c.id)).size, 9);
   assert.ok(
     cases.every(
       (c) =>

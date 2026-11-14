@@ -492,6 +492,122 @@ try {
           assert.equal(await target.innerText(), 'FourX');
         }
       );
+    await check(
+      'TB-29',
+      'triple-click selects cell text, replacement and undo retain the cell structure',
+      async () => {
+        const before = await snap();
+        await cell(3).locator('p').click({ clickCount: 3 });
+        assert.equal(
+          await page
+            .locator(prefix + 'a .ProseMirror')
+            .getAttribute('data-table-mode'),
+          'editing'
+        );
+        assert.ok(
+          !((await cell(3).getAttribute('class')) ?? '').includes(
+            'selectedCell'
+          )
+        );
+        assert.equal(
+          await page.evaluate(() => getSelection().toString()),
+          'Four'
+        );
+        assert.equal((await snap()).version, before.version);
+        await page.keyboard.insertText('X');
+        assert.equal(await cell(3).innerText(), 'X');
+        assert.equal(await cell(0).innerText(), 'One');
+        assert.deepEqual(await shape(), { rows: 2, cells: 4 });
+        await page.keyboard.press('ControlOrMeta+z');
+        assert.equal(await cell(3).innerText(), 'Four');
+      }
+    );
+    await check(
+      'TB-30',
+      'triple-click selects all paragraphs in this cell only',
+      async () => {
+        await page.evaluate(
+          ({ g, prefix }) => {
+            const v = window[g].view('A');
+            const td = document.querySelector(prefix + 'a td:last-child');
+            const start = v.posAtDOM(td, 0),
+              node = v.state.doc.resolve(start).parent;
+            const { schema } = v.state;
+            v.dispatch(
+              v.state.tr.replaceWith(start, start + node.content.size, [
+                schema.nodes.paragraph.create(null, schema.text('First line')),
+                schema.nodes.paragraph.create(null, schema.text('Second line')),
+              ])
+            );
+          },
+          { g: global, prefix }
+        );
+        // The public setup targets the first row's second cell.
+        const target = cell(1);
+        const before = await snap();
+        await target.locator('p').first().click({ clickCount: 3 });
+        assert.equal(
+          await page
+            .locator(prefix + 'a .ProseMirror')
+            .getAttribute('data-table-mode'),
+          'editing'
+        );
+        const selected = await page.evaluate((g) => {
+          const v = window[g].view('A'),
+            s = v.state.selection;
+          return v.state.doc.textBetween(s.from, s.to, '|');
+        }, global);
+        assert.equal(selected, 'First line|Second line');
+        assert.equal((await snap()).version, before.version);
+        await page.keyboard.insertText('X');
+        assert.equal(await target.innerText(), 'X');
+        assert.equal(await cell(0).innerText(), 'One');
+        assert.equal(await cell(3).innerText(), 'Four');
+        assert.deepEqual(await shape(), { rows: 2, cells: 4 });
+      }
+    );
+    await check(
+      'TB-31',
+      'triple-click in an empty cell stays a text selection',
+      async () => {
+        await select('Four', 0, 4);
+        await page.keyboard.press('Backspace');
+        await cell(3).locator('p').click({ clickCount: 3 });
+        assert.equal(
+          await page
+            .locator(prefix + 'a .ProseMirror')
+            .getAttribute('data-table-mode'),
+          'editing'
+        );
+        assert.ok(
+          !((await cell(3).getAttribute('class')) ?? '').includes(
+            'selectedCell'
+          )
+        );
+        await page.keyboard.insertText('X');
+        assert.equal(await cell(3).innerText(), 'X');
+        assert.deepEqual(await shape(), { rows: 2, cells: 4 });
+      }
+    );
+    await check(
+      'TB-32',
+      'double-click remains word selection within an editing cell',
+      async () => {
+        await cell(3)
+          .locator('p')
+          .click({ clickCount: 2, position: { x: 16, y: 10 } });
+        assert.equal(
+          await page.evaluate(() => getSelection().toString()),
+          'Four'
+        );
+        assert.equal(
+          await page
+            .locator(prefix + 'a .ProseMirror')
+            .getAttribute('data-table-mode'),
+          'editing'
+        );
+      }
+    );
   }
   for (const [axis, index] of [
     ['row', 4],
@@ -527,7 +643,7 @@ try {
     'artifacts/table-results.json',
     JSON.stringify(
       {
-        contract: 'table-two-modes-2026-11-14',
+        contract: 'table-text-selection-2026-11-14',
         runtime: await browser.version(),
         os: process.platform,
         input: 'Playwright browser keys/pointer; not native Mac',

@@ -1,22 +1,23 @@
 # Table interaction contract
 
-Revision 0.16, confirmed by the user on 2026-11-14 during the native R07 trial.
+Revision 0.27, confirmed by the user on 2026-11-14 during the native R07 trial.
 This is the authority for the agreed table navigation/addition behaviour. It
 supersedes the earlier Q-04/EI-068/EI-069 exploratory defaults. Representation,
 editor engine and final handle styling remain implementation choices.
 
-| ID     | Confirmed behaviour                                                                                                                                                                   |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| TB-C01 | While editing, Enter moves to the next cell below in the same column. A destination uses a collapsed caret at its text end, consistent with Tab.                                      |
-| TB-C02 | While editing, Enter on the bottom row does nothing: no newline, row/column insertion or table exit.                                                                                  |
-| TB-C03 | While editing, Shift+Enter inserts a hard line break inside the current cell, not another cell or paragraph split.                                                                    |
-| TB-C04 | While editing, Tab/Shift+Tab move forward/backward through existing cells in row-major order. Arrival places the caret at the destination text end; it does not select all cell text. |
-| TB-C05 | Tab in the final cell stays there. It does not change content, caret, focus or dimensions.                                                                                            |
-| TB-C06 | New rows and columns require explicit row/column handles. No navigation key creates them. Keyboard activation of a focused handle is an explicit handle action.                       |
-| TB-C09 | Clicking a cell highlights it and places a text caret. Escape hides the caret and keeps that same cell selected/highlighted; editor focus does not move to a handle.                  |
-| TB-C10 | In cell-selection mode, Tab/Shift+Tab move the cell highlight through existing cells without a caret. Enter begins editing the selected cell.                                         |
-| TB-C08 | Adding either axis preserves the original active cell, caret/selection and editor focus. Row 2, cell 2 remains active when a row or column is added.                                  |
-| TB-C07 | All operations use the same document authority, update other views and preserve unrelated content. Unsafe undo must not delete another context's work.                                |
+| ID     | Confirmed behaviour                                                                                                                                                                                            |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TB-C01 | While editing, Enter moves to the next cell below in the same column. A destination uses a collapsed caret at its text end, consistent with Tab.                                                               |
+| TB-C02 | While editing, Enter on the bottom row does nothing: no newline, row/column insertion or table exit.                                                                                                           |
+| TB-C03 | While editing, Shift+Enter inserts a hard line break inside the current cell, not another cell or paragraph split.                                                                                             |
+| TB-C04 | While editing, Tab/Shift+Tab move forward/backward through existing cells in row-major order. Arrival places the caret at the destination text end; it does not select all cell text.                          |
+| TB-C05 | Tab in the final cell stays there. It does not change content, caret, focus or dimensions.                                                                                                                     |
+| TB-C06 | New rows and columns require explicit row/column handles. No navigation key creates them. Keyboard activation of a focused handle is an explicit handle action.                                                |
+| TB-C09 | Clicking a cell highlights it and places a text caret. Escape hides the caret and keeps that same cell selected/highlighted; editor focus does not move to a handle.                                           |
+| TB-C10 | In cell-selection mode, Tab/Shift+Tab move the cell highlight through existing cells without a caret. Enter begins editing the selected cell.                                                                  |
+| TB-C08 | Adding either axis preserves the original active cell, caret/selection and editor focus. Row 2, cell 2 remains active when a row or column is added.                                                           |
+| TB-C11 | Triple-click within cell text selects all text inside that cell (including multiple paragraphs), using a text range rather than selecting the cell. Typing replaces text without replacing the cell structure. |
+| TB-C07 | All operations use the same document authority, update other views and preserve unrelated content. Unsafe undo must not delete another context's work.                                                         |
 
 This is an editor navigation rule, not a requirement for DOM handles in headless
 automation. Explicit API/CLI/MCP table-add operations must share the same operation

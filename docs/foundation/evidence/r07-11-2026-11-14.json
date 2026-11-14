@@ -1,0 +1,14 @@
+{
+  "document": "Origin-aware native menu Undo/Redo report",
+  "revision": "0.20",
+  "date": "2026-11-14",
+  "source": "User: I tested the same in the Origin aware candidate as well. it passed.",
+  "reported_scope": "Repeat of guided A TEST Undo/Redo and B SECOND Undo/Redo preserving TEST. Same checks previously reported in Guarded step.",
+  "limits": [
+    "No native JSON/raw text reviewed.",
+    "Full NM-04 menu-dismissal/window-focus variations not yet reported.",
+    "NM-03 remains blocked/unavailable; no relevant input source."
+  ],
+  "next": "Origin-aware: caret between l and p in Alpha beta; open Edit menu; Escape; type X without clicking. Expect AlXpha beta in both views.",
+  "delivery": "Local docs for next bundle; no new patch, lab code, rebuild or automated test run; patch08 application unconfirmed."
+}

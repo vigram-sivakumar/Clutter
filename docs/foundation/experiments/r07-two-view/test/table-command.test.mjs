@@ -10,6 +10,7 @@ import {
   cellLineBreak,
   appendTableAxis,
   selectCurrentCell,
+  selectCellText,
 } from '../src/table-command.mjs';
 const stateAt = (text, offset = 0) => {
   const doc = fixture();
@@ -156,3 +157,66 @@ for (const [text, command] of [
     assert.equal(result.handled, true);
     assert.equal(result.state, selected);
   });
+
+test('triple-click selects the entire cell text without changing document or selecting the cell', () => {
+  const before = stateAt('Four', 2);
+  const result = apply(before, (state, dispatch) =>
+    selectCellText(state, dispatch, state.selection.head)
+  );
+  assert.equal(result.handled, true);
+  assert.ok(result.state.selection instanceof TextSelection);
+  assert.equal(
+    result.state.selection.from,
+    textPosition(before.doc, 'Four', 0)
+  );
+  assert.equal(result.state.selection.to, textPosition(before.doc, 'Four', 4));
+  assert.ok(result.state.doc.eq(before.doc));
+});
+test('triple-click cell text spans all paragraphs, without adjacent cells', () => {
+  let before = stateAt('Four', 2);
+  const $pos = before.selection.$head;
+  const cellStart = $pos.before($pos.depth - 1),
+    cell = before.doc.nodeAt(cellStart);
+  before = before.apply(
+    before.tr.replaceWith(cellStart + 1, cellStart + cell.nodeSize - 1, [
+      before.schema.nodes.paragraph.create(
+        null,
+        before.schema.text('First line')
+      ),
+      before.schema.nodes.paragraph.create(
+        null,
+        before.schema.text('Second line')
+      ),
+    ])
+  );
+  const result = apply(before, (state, dispatch) =>
+    selectCellText(state, dispatch, cellStart + 2)
+  );
+  const sel = result.state.selection;
+  assert.ok(sel instanceof TextSelection);
+  assert.equal(
+    result.state.doc.textBetween(sel.from, sel.to, '|'),
+    'First line|Second line'
+  );
+  assert.ok(result.state.doc.eq(before.doc));
+});
+test('triple-click empty cell is a collapsed text selection', () => {
+  const state = stateAt('Four', 0);
+  const empty = state.apply(
+    state.tr.delete(state.selection.from, state.selection.from + 4)
+  );
+  const result = apply(empty, (state, dispatch) =>
+    selectCellText(state, dispatch, state.selection.from)
+  );
+  assert.ok(result.state.selection instanceof TextSelection);
+  assert.equal(result.state.selection.empty, true);
+  assert.ok(result.state.doc.eq(empty.doc));
+});
+test('triple-click override does not handle text outside a table', () => {
+  const state = stateAt('Alpha', 2);
+  const result = apply(state, (state, dispatch) =>
+    selectCellText(state, dispatch, state.selection.from)
+  );
+  assert.equal(result.handled, false);
+  assert.equal(result.state, state);
+});

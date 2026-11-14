@@ -3,6 +3,104 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.27 — 2026-11-14
+
+- Retained/reviewed uploaded 07 native JSON. Source/web hashes matched; all fixture
+  repetitions pass, but all 15 manual cases not-run, zero attempts, only startup
+  not-ready captures. Conversation results remain reported observations.
+- Reproduced/fixed triple-click selecting the cell: both candidates now select
+  all cell text through a shared public command/handler. Multi-paragraph text,
+  empty cells, replacement/undo and unchanged double-click are tested; NM-09 added.
+- 61 Node and 66 candidate table-browser checks pass on Linux; existing regressions
+  pass and earlier raw diagnostic failures remain. New Mac retest pending.
+- Bundle 09 includes pending native progress and two verified alternatives for
+  07 or docs08; helper chooses by preflight. No production, dependency or Swift change.
+
+## 0.26 — 2026-11-14
+
+- User reports table paste undo restores Four without changing table dimensions
+  in both candidates, completing the guided NM-05 clipboard sequence.
+- Next: mark the tested clipboard verdicts and capture/review the saved JSON.
+  No raw report reviewed yet; NM-03 unavailable and NM-06–NM-08 remain open.
+- Local checkpoint only; no new patch, source, rebuild or automated test run.
+
+## 0.25 — 2026-11-14
+
+- User reports cross-view plain cut/paste and native rich/plain-style table-cell
+  replacement passed in both candidates without duplication or structural growth.
+- Next: undo last table paste, then collect saved JSON. No full native matrix,
+  unobserved outcome or report review inferred. NM-03 remains unavailable.
+- Local documentation only; no new patch, lab source, build or automated run.
+
+## 0.24 — 2026-11-14
+
+- User reports bold native TextEdit paste and Paste and Match Style to plain text
+  passed in both candidates. Bounded paragraph clipboard variations only.
+- Next: plain cut/paste from A to B. Table-cell clipboard/full native matrix open.
+- Local docs for next bundle; no new patch, source, rebuild or automated test run.
+
+## 0.23 — 2026-11-14
+
+- Recorded user-reported backward mouse selection replacement and undo in both
+  candidates. Remaining NM-05 clipboard variants and full native matrix open.
+- Next: native formatted paste from TextEdit into Guarded step; one variation
+  at a time. Local docs only; lab07 unchanged, no new patch/build/test execution.
+
+## 0.22 — 2026-11-14
+
+- Recorded reported window-switch View B caret restoration in both directions,
+  retaining independent candidate contents. No native JSON reviewed.
+- Next: NM-05 backward mouse selection replacement, then undo; broader clipboard
+  and native qualification remain open. NM-03 still unavailable.
+- Local docs for next bundled handoff; no new patch, lab code, rebuild or tests.
+
+## 0.21 — 2026-11-14
+
+- Recorded menu-dismissal paragraph-caret checks as user-reported passed in
+  Origin-aware and Guarded step. No raw JSON reviewed or full NM-04 inferred.
+- Next: native window-switch focus, preserving the original View B caret.
+- Local documentation only for next handoff; lab07 unchanged, no new patch,
+  rebuild or automated test run. NM-03 remains unavailable.
+
+## 0.20 — 2026-11-14
+
+- User reports repeating the A/B native menu Undo/Redo checks in Origin-aware
+  successfully. Both candidates now have these bounded reported passes.
+- Next is menu dismissal retaining the original paragraph caret, then window
+  focus. NM-03 remains unavailable and full NM-04/report review remains open.
+- Local docs only for the next bundled handoff; no new lab code, patch delivery,
+  rebuild or automated test execution.
+
+## 0.19 — 2026-11-14
+
+- NM-03 blocked/unavailable: no Japanese/Chinese/Korean input source enabled.
+  Preserve real native composition as an unpassed gate; no installation required.
+- Recorded guarded-step menu Undo/Redo in A and B as reported passes, preserving
+  A's TEST when undoing B's SECOND. Origin menu checks are next; full focus/menu
+  matrix and report review remain open.
+- Local documentation checkpoint for next bundled delivery. Lab remains 07;
+  no new source, patch delivery, rebuild or automated test execution.
+
+## 0.18 — 2026-11-14
+
+- Recorded user-reported FOREIGN undo/redo checks in both candidate windows.
+  Guarded-step exact content/refusal and native JSON remain unreviewed; no full
+  semantic history or full NM-02 matrix acceptance inferred.
+- Next action is NM-03 real-composition input-source availability, then one
+  native variation at a time; unavailable languages remain blocked, not passed.
+- Documentation-only local checkpoint for the next bundled delivery. No new lab
+  source, rebuild, automated test run or patch 09 delivery.
+
+## 0.17 — 2026-11-14
+
+- Recorded user-reported 07 table-mode passes: Escape preserves highlighted cell
+  without caret; selected-cell Tab/Shift+Tab navigate; Enter resumes editing;
+  final Tab stays. Candidate unspecified; no JSON reviewed and no full matrix pass.
+- Advanced current native action to NM-02 cross-view undo, then redo and the other
+  candidate. Preserve foreign text; record conservative refusals distinctly.
+- Documentation-only patch 08 over 07. No lab/source/dependency change or rebuild;
+  Linux verification remains the executed 07 evidence, not a new test run.
+
 ## 0.16 — 2026-11-14
 
 - Confirmed two table modes: click edits a highlighted cell; Escape keeps it

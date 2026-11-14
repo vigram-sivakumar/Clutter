@@ -1,0 +1,11 @@
+{
+  "document": "Native menu dismissal and caret reports",
+  "revision": "0.21",
+  "date": "2026-11-14",
+  "source": "User replied success to Origin-aware menu-dismissal test, then success to the repeated Guarded step test. No native JSON/raw text reviewed.",
+  "reported_test": "Caret Al|pha beta; open macOS Edit menu; Escape; type X without clicking. Expected AlXpha beta mirrored in A/B.",
+  "status": "Reported passed in both candidates for this bounded variation.",
+  "next": "Stay in Experiment > Guarded step candidate. Reset with Fixture checks, then\nclick at the end of Gamma delta in View B. Switch using Experiment > Origin-aware\ncandidate, then return using Experiment > Guarded step candidate. Without clicking\ninside an editor again, type X. Expected Gamma deltaX in both guarded-step views;\nOrigin content unchanged. This checks responder/caret restoration on window switch,\nnot content sharing between candidate windows. Observe this single variation\nbefore reversing direction. Lab07 unchanged; no rebuild required.",
+  "limits": "NM-03 input sources unavailable; full NM-04, remaining native cases and architecture acceptance open.",
+  "delivery": "Local checkpoint for next bundle; no new patch, source, build or automated test run; lab07 unchanged, patch08 application unconfirmed."
+}

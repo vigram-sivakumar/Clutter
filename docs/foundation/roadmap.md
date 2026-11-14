@@ -1,25 +1,25 @@
 # Foundation roadmap
 
-Revision 0.16, 2026-11-14. This roadmap describes work and dependencies; the current
+Revision 0.27, 2026-11-14. This roadmap describes work and dependencies; the current
 checkpoint/authorization is in [START-HERE](START-HERE.md). Product scope is in
 product-contracts.md, not independently redefined here.
 
 ## Progress and next deliverables
 
-| ID  | State                                                                         | Work and output                                                                                                                                                                                                          | Depends on                | Exit evidence                                                                                                                                                                      |
-| --- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| R00 | Documentation prepared                                                        | Foundation pack 0.1–0.16: confirmed scope, ownership/API proposals, ADRs, initial test/spike specifications and resumable handoff                                                                                        | User clarification        | Remote 0.9 user commit verified at 1215044; R07 prepared, no agent commit/push                                                                                                     |
-| R01 | Complete — 2026-11-14                                                         | [Inventory](current-capability-inventory.md): 45 source/wiring capability entries with target mapping                                                                                                                    | R00                       | [Selected run](evidence/r01-2026-11-14.json): 30 files/1,003 assertions passed across initial/targeted runs; initial load errors/setup corrections and static/target gaps explicit |
-| R02 | Draft prepared; policy review open                                            | [R02](editor-interaction-spec.md) and [case catalogue](editor-interaction-cases.json): 72 shared/profile seed contracts, not execution                                                                                   | R01                       | 60 shared, 10 profile proposals, 2 confirmed table cases; other Q policies/variation qualification remain open                                                                     |
-| R03 | Conditional drafts prepared; review open                                      | [Model](document-model-spec.md), [API](command-api-spec.md) and [registry/scenarios](model-api-contract-cases.json): semantic identity, placement, closure and logical signatures                                        | R01; consume R02          | DM-01–DM-15, 51 operation sketches and 24 unexecuted scenarios; M-01–M-07/Q-01–Q-09 and full wire/encoding qualification remain                                                    |
-| R04 | Conditional draft prepared; qualification open                                | [Persistence spec](vault-persistence-spec.md) and [PF catalogue](persistence-contract-cases.json): backend commit/ack, roots, history/recovery/outbox and failure contracts                                              | R03 draft                 | P-SQL/P-ROOT/P-TEXT compared; 30 unexecuted fault cases and PS-01–PS-07 open; no backend/native proof                                                                              |
-| R05 | Conditional draft prepared; qualification open                                | [Protocol](provider-sync-spec.md), [feasibility](provider-feasibility.md) and [SC cases](provider-sync-cases.json): lifecycle, packages, ordering and ownership gates                                                    | R03/R04 drafts            | 30 unexecuted scenarios; SY-01–SY-08 open, SY-04 ownership blocker; official sources reviewed, no real-provider proof                                                              |
-| R06 | Conditional drafts prepared; experiment setup open                            | [Editor qualification](editor-qualification-plan.md), [platform](platform-boundaries-spec.md), [security](local-security-api-spec.md), [budgets](qualification-budgets.json) and [readiness](qualification-readiness.md) | R02–R05 drafts            | 102 seed/timing instances + 16 probes, 18 HQ scenarios, all not-run; candidate locks/native environment and relevant policy decisions still required                               |
-| R07 | Two scoped slices executed; Mac launch observed; revised table retest pending | [Isolated experiment](experiments/r07-two-view/README.md) and [Mac guide](experiments/r07-two-view/native-macos/README.md); native build/input and provider work remain                                                  | R06                       | Latest: 38 Node checks, 21 selection + 11 origin browser passes; adapted control passes/raw control fails; native/full parity unqualified                                          |
-| R08 | Planned                                                                       | Architecture baseline review and accepted/superseding ADRs                                                                                                                                                               | R07 for related scope     | Compare complete combinations; resolve blockers; identify every affected existing rule before production changes                                                                   |
-| R09 | Planned; production work requires explicit scope                              | Implement one production vertical slice across app/CLI/MCP, two views, task identity, persistence/history/recovery                                                                                                       | R08                       | Contract tests, native input, failures and code review demonstrate agreed behaviour                                                                                                |
-| R10 | Planned                                                                       | Expand initial feature coverage, detailed UI specs and release qualification; enable only qualified opt-in providers                                                                                                     | R09                       | Declared release matrix passes; no untested provider/Windows support claims                                                                                                        |
-| R11 | Deferred                                                                      | Live cloud collaboration/page-sharing roles and automatic backup feature as separately scoped increments                                                                                                                 | New product/service phase | T-22/T-23 and new security/hosting contracts before enabling; not initial blockers                                                                                                 |
+| ID  | State                                                                                                                                          | Work and output                                                                                                                                                                                                          | Depends on                | Exit evidence                                                                                                                                                                      |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R00 | Documentation prepared                                                                                                                         | Foundation pack 0.1–0.27: confirmed scope, ownership/API proposals, ADRs, initial test/spike specifications and resumable handoff                                                                                        | User clarification        | Remote 0.9 user commit verified at 1215044; R07 prepared, no agent commit/push                                                                                                     |
+| R01 | Complete — 2026-11-14                                                                                                                          | [Inventory](current-capability-inventory.md): 45 source/wiring capability entries with target mapping                                                                                                                    | R00                       | [Selected run](evidence/r01-2026-11-14.json): 30 files/1,003 assertions passed across initial/targeted runs; initial load errors/setup corrections and static/target gaps explicit |
+| R02 | Draft prepared; policy review open                                                                                                             | [R02](editor-interaction-spec.md) and [case catalogue](editor-interaction-cases.json): 72 shared/profile seed contracts, not execution                                                                                   | R01                       | 60 shared, 10 profile proposals, 2 confirmed table cases; other Q policies/variation qualification remain open                                                                     |
+| R03 | Conditional drafts prepared; review open                                                                                                       | [Model](document-model-spec.md), [API](command-api-spec.md) and [registry/scenarios](model-api-contract-cases.json): semantic identity, placement, closure and logical signatures                                        | R01; consume R02          | DM-01–DM-15, 51 operation sketches and 24 unexecuted scenarios; M-01–M-07/Q-01–Q-09 and full wire/encoding qualification remain                                                    |
+| R04 | Conditional draft prepared; qualification open                                                                                                 | [Persistence spec](vault-persistence-spec.md) and [PF catalogue](persistence-contract-cases.json): backend commit/ack, roots, history/recovery/outbox and failure contracts                                              | R03 draft                 | P-SQL/P-ROOT/P-TEXT compared; 30 unexecuted fault cases and PS-01–PS-07 open; no backend/native proof                                                                              |
+| R05 | Conditional draft prepared; qualification open                                                                                                 | [Protocol](provider-sync-spec.md), [feasibility](provider-feasibility.md) and [SC cases](provider-sync-cases.json): lifecycle, packages, ordering and ownership gates                                                    | R03/R04 drafts            | 30 unexecuted scenarios; SY-01–SY-08 open, SY-04 ownership blocker; official sources reviewed, no real-provider proof                                                              |
+| R06 | Conditional drafts prepared; experiment setup open                                                                                             | [Editor qualification](editor-qualification-plan.md), [platform](platform-boundaries-spec.md), [security](local-security-api-spec.md), [budgets](qualification-budgets.json) and [readiness](qualification-readiness.md) | R02–R05 drafts            | 102 seed/timing instances + 16 probes, 18 HQ scenarios, all not-run; candidate locks/native environment and relevant policy decisions still required                               |
+| R07 | Two scoped slices executed; table modes and guided cross-view undo/redo reported working; native report reviewed; triple-click fix retest next | [Isolated experiment](experiments/r07-two-view/README.md) and [Mac guide](experiments/r07-two-view/native-macos/README.md); native build/input and provider work remain                                                  | R06                       | Latest Linux: 61 Node checks, 66 table + 21 selection + 11 origin passes; raw diagnostics retained. Reported native table substeps pass; full parity unqualified                   |
+| R08 | Planned                                                                                                                                        | Architecture baseline review and accepted/superseding ADRs                                                                                                                                                               | R07 for related scope     | Compare complete combinations; resolve blockers; identify every affected existing rule before production changes                                                                   |
+| R09 | Planned; production work requires explicit scope                                                                                               | Implement one production vertical slice across app/CLI/MCP, two views, task identity, persistence/history/recovery                                                                                                       | R08                       | Contract tests, native input, failures and code review demonstrate agreed behaviour                                                                                                |
+| R10 | Planned                                                                                                                                        | Expand initial feature coverage, detailed UI specs and release qualification; enable only qualified opt-in providers                                                                                                     | R09                       | Declared release matrix passes; no untested provider/Windows support claims                                                                                                        |
+| R11 | Deferred                                                                                                                                       | Live cloud collaboration/page-sharing roles and automatic backup feature as separately scoped increments                                                                                                                 | New product/service phase | T-22/T-23 and new security/hosting contracts before enabling; not initial blockers                                                                                                 |
 
 R00 means the documents were prepared, not that G0 inventory or architecture
 qualification is complete. R03–R06 produce reviewable proposals; experiments may
@@ -104,7 +104,7 @@ The user attempted the first native build and reported Swift property/actor erro
 [Patch 04 evidence](evidence/r07-04-2026-11-14.json) records targeted source corrections;
 Mac compilation/launch then succeeded, as recorded in the native progress log.
 
-Revision 0.16 implements the [confirmed table contract](table-interaction-contract.md).
+Revision 0.17 implements the [confirmed table contract](table-interaction-contract.md).
 [Native progress](NATIVE-TEST-PROGRESS.md) records build/fixture observations and the
 revised NM-01 retest. New [Linux evidence](evidence/r07-06-2026-11-14.json) preserves
 raw structural undo failures while guarding normal candidates. Native/full R07
@@ -113,7 +113,60 @@ qualification and architecture acceptance remain separate.
 Patch 06 preserves the original active table cell, caret/selection and focus when
 adding either axis. Linux regression is recorded; native focus retest is next.
 
-Revision 0.16 adds the confirmed editing/selected-cell modes and removes the
+Revision 0.17 adds the confirmed editing/selected-cell modes and removes the
 rejected Escape-to-handle shortcut. User reports 06 row/column focus works; no
 full native case or candidate-wide acceptance inferred. [07 evidence](evidence/r07-07-2026-11-14.json)
 records Linux regressions and the next native mode check.
+
+Revision 0.17 records guided native table-mode passes from the user conversation
+(candidate unspecified, no JSON reviewed) and advances the current action to
+NM-02 cross-view undo. This is a documentation-only checkpoint, not a new lab build
+or completed R07 gate. [Progress evidence](evidence/r07-08-2026-11-14.json).
+
+Revision 0.18 records the guided FOREIGN undo/redo variation as user-reported
+working in both candidates. Guarded-step exact result/refusal and JSON are not
+reviewed; other history variations remain open. Next: NM-03 input-source
+availability, then real native composition, or NM-04 if unavailable. No code or
+new automated test execution; next delivery must account for unconfirmed patch 08.
+
+Revision 0.19 records native composition as unavailable (no enabled input source)
+and four guarded-step native menu Undo/Redo substeps as user-reported passes.
+Next is Origin-aware menu routing. Native IME/full focus/editor qualification
+remains open; no lab code or automated test rerun. See [progress](evidence/r07-10-2026-11-14.json).
+
+Revision 0.20 records the same native menu Undo/Redo checks as user-reported passed
+in Origin-aware too. Next is NM-04 menu dismissal with original-caret preservation,
+then window focus. Native composition remains unavailable; no full NM-04 or
+architecture acceptance. [Progress](evidence/r07-11-2026-11-14.json).
+
+Revision 0.21: menu-dismissal paragraph-caret checks reported successful in both
+candidates; next is NM-04 window-switch focus. No full case/architecture acceptance.
+[Progress](evidence/r07-12-2026-11-14.json). Local docs only; lab07 unchanged.
+
+Revision 0.22: both directional candidate-window View B caret-restoration checks
+reported passed. Next is NM-05 backward selection replacement, then undo.
+[Progress](evidence/r07-13-2026-11-14.json). No new lab source or automated run.
+
+Revision 0.23: backward-selection replacement/undo reported passed in both
+candidates. Next NM-05 external formatted paste. [Progress](evidence/r07-14-2026-11-14.json).
+No new lab source or automatic execution; native composition remains unavailable.
+
+Revision 0.24: external bold paste and Paste and Match Style reported passed in
+both candidates. Next NM-05 plain cut/paste between A/B.
+[Progress](evidence/r07-15-2026-11-14.json). Local docs only; lab07 unchanged.
+
+Revision 0.25: cross-view cut/paste and rich/plain-style table replacements reported
+working in both candidates. Next table paste undo, then saved report review.
+[Progress](evidence/r07-16-2026-11-14.json). Local docs only; lab07 unchanged.
+
+Revision 0.26: final table-paste undo reported passed in both candidates, completing
+the guided clipboard sequence. Capture/review saved native report before remaining
+NM-06–NM-08 checks. [Progress](evidence/r07-17-2026-11-14.json). No full matrix acceptance.
+
+Revision 0.27 reviews the first native 07 report: exact build/source hashes and
+passing fixture repetitions; no saved manual verdicts or later ready capture.
+Conversation successes remain separate. Triple-click selecting a cell is
+reproduced/fixed in both candidates through shared public text-range selection;
+next is NM-09 Mac retest and one saved verdict/capture verification. Full native,
+IME, persistence/API parity and architecture gates remain open.
+[09 evidence](evidence/r07-19-2026-11-14.json). Delivery handles exact 07/08 docs bases.

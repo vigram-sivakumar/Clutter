@@ -1,0 +1,15 @@
+{
+  "document": "Native cross-view cut/paste and table replacement reports",
+  "revision": "0.25",
+  "date": "2026-11-14",
+  "source": "User replied works in both to each of three prompts. No native JSON/raw text/clipboard inspected.",
+  "reported_passes": [
+    "Cut beta from Alpha beta in A; in B add space after Gamma delta and paste; Gamma delta beta, source beta removed, both views match without duplicate.",
+    "TextEdit bold Clipboard test -> select Four -> Command-V: bold replacement in cell, mirrored, no row/column growth.",
+    "Same rich source -> select Four -> Edit > Paste and Match Style: plain replacement in cell, mirrored, no growth."
+  ],
+  "candidates": ["Guarded step", "Origin-aware history"],
+  "next": "In each candidate, keep the same view focused after the table Paste and Match\nStyle test, then press Command-Z once. Expected Four restored in that cell in\nboth A/B, with table dimensions unchanged. Do not reset before undo. Observe this\nlast clipboard-history variation, then collect the saved native JSON through\nExperiment > Reveal saved JSON report. No new lab build needed.",
+  "limits": "NM-03 unavailable; remaining native cases, JSON review and full architecture qualification remain open.",
+  "delivery": "Local checkpoint for next bundle; no patch/source/build/automated execution. Lab07 unchanged; patch08 application unconfirmed."
+}

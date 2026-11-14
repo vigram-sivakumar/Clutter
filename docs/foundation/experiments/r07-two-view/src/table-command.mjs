@@ -2,6 +2,7 @@ import { EditorState, TextSelection } from 'prosemirror-state';
 import {
   TableMap,
   CellSelection,
+  cellAround,
   addRowAfter,
   addColumnAfter,
 } from 'prosemirror-tables';
@@ -112,6 +113,20 @@ export function cellLineBreak(state, dispatch) {
         .replaceSelectionWith(state.schema.nodes.hard_break.create())
         .scrollIntoView()
     );
+  return true;
+}
+// Triple-click is text selection within a cell, not structural cell selection.
+export function selectCellText(state, dispatch, position) {
+  const $cell = cellAround(state.doc.resolve(position));
+  if (!$cell) return false;
+  const start = $cell.pos + 1,
+    end = $cell.pos + $cell.nodeAfter.nodeSize - 1;
+  const selection = TextSelection.between(
+    state.doc.resolve(start),
+    state.doc.resolve(end)
+  );
+  if (dispatch)
+    dispatch(state.tr.setSelection(selection).setMeta('addToHistory', false));
   return true;
 }
 export function appendTableAxis(state, dispatch, tablePos, axis) {

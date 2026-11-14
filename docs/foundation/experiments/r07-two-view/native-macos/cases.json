@@ -96,5 +96,17 @@
       "Verify close is blocked; turn both switches off afterwards."
     ],
     "expected": "Accepted synthetic work survives in-page protected restart, or close refuses when neither path can protect it. This WKWebView uses an in-memory website store: quitting the native app is NOT an on-disk durability/crash-recovery test."
+  },
+  {
+    "id": "NM-09",
+    "title": "Table triple-click selects text",
+    "targets": ["step", "origin"],
+    "seeds": ["EI-003", "EI-051"],
+    "steps": [
+      "Reset using Fixture checks. Triple-click Four in the table. The cell text is selected; the whole cell is not in cell-selection mode.",
+      "Type X, then Command-Z: only the text changes to X and back to Four in both views; table structure stays unchanged. Repeat on multiline cell text when available."
+    ],
+    "expected": "Triple-click selects all text in this cell, not the cell. The text selection stays in editing mode; replacement/undo preserve rows, columns and other cell content. Record the result manually with Pass/Fail/Blocked after testing.",
+    "contractRevision": "table-triple-text-2026-11-14"
   }
 ]

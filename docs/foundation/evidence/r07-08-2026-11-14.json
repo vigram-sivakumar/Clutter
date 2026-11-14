@@ -1,0 +1,41 @@
+{
+  "document": "Native table progress checkpoint and next test",
+  "revision": "0.17",
+  "date": "2026-11-14",
+  "kind": "User-reported native observations; documentation-only update over patch 07.",
+  "source": "Conversation after patch 07; no native JSON reviewed. Candidate window not identified.",
+  "reported_passes": [
+    {
+      "check": "Click Four then Escape",
+      "report": "good it works I tested what next"
+    },
+    {
+      "check": "Selected Four -> Shift+Tab -> Three highlighted without caret",
+      "report": "works"
+    },
+    {
+      "check": "Selected Three -> Enter -> type X -> ThreeX",
+      "report": "works"
+    },
+    {
+      "check": "Click One -> Escape -> Tab -> Two highlighted without caret",
+      "report": "works"
+    },
+    {
+      "check": "Click Four -> Escape -> Tab -> stay without caret or growth",
+      "report": "everything works, let\u2019s move to next step of things",
+      "qualification": "General affirmative after this prompt, not a detailed trace."
+    }
+  ],
+  "prior_reported_passes": "Patch 06 row/column insertion preserves original focus.",
+  "limits": [
+    "No full NM-01 variation matrix or both-candidate pass inferred.",
+    "No new Linux or native execution by agent; tests remain evidence/r07-07-2026-11-14.json.",
+    "No architecture acceptance or production implementation."
+  ],
+  "next": "NM-02 guarded step: A inserts abcd; B inserts FOREIGN between ab and cd; A undo must preserve FOREIGN or visibly refuse. Observe exact result before testing redo; repeat origin separately.",
+  "artifacts": {
+    "progress": "../NATIVE-TEST-PROGRESS.md",
+    "linux_reference": "r07-07-2026-11-14.json"
+  }
+}

@@ -1,6 +1,6 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-14. Documentation revision: 0.16.
+Last updated: 2026-11-14. Documentation revision: 0.27.
 Read AGENTS.md and this file first in a new chat or agent session. It is the checkpoint, not a
 second product specification. [README](README.md) identifies authoritative docs.
 
@@ -21,14 +21,18 @@ unexecuted SC scenarios. SY-01–SY-08 remain open; SY-04 coherent task reconcil
 blocks provider enablement. R06 prepared qualification contracts. R07 has two executed Linux exploratory slices and now a prepared native Mac host.
 Targeted selection/origin-history alternatives pass their scoped Linux checks;
 raw failures remain controls. The user has now built/launched the Mac host after
-compiler correction 04 and shown four guarded-step fixture passes. No native JSON
-has been uploaded. Native table feedback confirms a new contract; implementation
+compiler correction 04 and shown four guarded-step fixture passes. The first native JSON
+has now been reviewed; it matches 07 but contains no saved manual verdicts. Native table feedback confirms a new contract; implementation
 and Linux regression checks were updated in 05. Patch 06 preserves the original
 cell/caret/focus on handle insertion; the user reports row/column focus works.
 Patch 07 implements confirmed editing/selected-cell modes and removes the rejected
-Escape-to-handle behaviour. Native mode retest remains pending.
+Escape-to-handle behaviour. The user reports the guided mode checks work and asks
+to proceed. Candidate unspecified for table checks; no full-case acceptance inferred.
+Both candidates’ guided cross-view undo/redo checks are now reported working.
+Exact guarded-step output/warning remains unknown. The 07 report has no manual
+attempts; conversation reports and stored evidence must stay distinct.
 Read [native progress](NATIVE-TEST-PROGRESS.md), [table contract](table-interaction-contract.md)
-and [latest evidence](evidence/r07-07-2026-11-14.json). No architecture is accepted.
+and [triple-click evidence](evidence/r07-19-2026-11-14.json). No architecture is accepted.
 
 | Area                                  | Verified status at this checkpoint                                                                                                                                                                                                                         |
 | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -100,9 +104,14 @@ contains those contents; do not reapply either route.
     based on exact 05 contents.
 16. Selected-cell/editing modes, revision 0.16: `Clutter R07 Table Selection Modes 07.patch`,
     based on exact 06 contents.
+17. Native progress checkpoint, revision 0.17: `Clutter R07 Native Progress 08.patch`,
+    documentation only over exact 07 contents; no lab rebuild required.
+18. Triple-click fix and accumulated native progress, revision 0.27: `Clutter R07 Triple Click Fix 09.zip`.
+    Includes verified alternative patches for exact 07 or 08; apply helper selects by preflight.
+    Do not apply both alternatives. Rebuild native:mac after the fix.
 
 Each update is incremental over its predecessor's file contents, not a particular
-user-created commit hash. If this file is present at revision 0.16, do not blindly
+user-created commit hash. If this file is present at revision 0.17, do not blindly
 reapply those patches. Inspect actual files and git state; do not use reset/clean,
 force checkout or re-create the branch to hide divergence.
 
@@ -161,22 +170,35 @@ force checkout or re-create the branch to hide divergence.
 - Current authorized continuation includes the isolated R07 experiment, not a
   production rebuild. Preserve unqualified tests and report blocking observations.
 
-## Exact next action: retest the confirmed table contract on Mac
+## Exact next action: native NM-09 triple-click fix
 
-Read this folder's AGENTS.md and NATIVE-TEST-PROGRESS.md. User reports native build/
-launch success after commit f68d7d8c and guarded-step fixture checks 4/0/0. The earlier
-Mac final-Tab-created-row trial was partial and is superseded, not a pass of current
-behaviour. Do not ask again whether Enter/Tab should grow the table or select text.
+Read AGENTS.md and NATIVE-TEST-PROGRESS.md. User-reported earlier manual passes
+are preserved. The first uploaded 07 JSON is reviewed and retained: matching build
+hashes and passing fixture repetitions, but all stored manual cases not-run and
+zero attempts. Do not claim those user reports are confirmed by stored verdicts.
+NM-03 remains unavailable. Triple-click cell selection was then reported as a bug.
 
-The user must quit the old host, apply 07 after 06 and rerun native:mac. Guide one
-variation at a time. First: click Four, then Escape; Four remains highlighted
-without a caret and focus stays in the editor. Then separately test Tab/Shift+Tab
-as cell highlight navigation and Enter as return to editing. Row/column insertion
-focus was reported working after 06, with candidate unspecified; preserve that
-bounded result without inferring all NM-01 or both candidates passed.
+Quit the old lab with Command-Q after retaining its saved JSON. Apply the
+Clutter R07 Triple Click Fix 09 bundle (the helper checks whether 07 or documentation
+08 is present and applies the matching verified patch). Rebuild with native:mac.
+In Experiment > Guarded step candidate select NM-09, run Fixture checks, then
+triple-click Four. Expected the word's text selected in editing mode, not the
+whole cell in cell-selection mode. Observe this before replacement/undo and the
+Origin-aware repeat. Previously reported manual successes remain historical;
+new build retest is scoped to the fix and affected interactions.
 
-Latest Linux evidence: 57 Node checks (one raw-failure diagnostic), six support
-checks, 58 table-browser candidate passes; raw unguarded structural row/column
+After this fix's retest, verify one manual verdict actually saves: select NM-05,
+click Pass, confirm the picker says pass, then Reveal saved JSON report and review
+a fresh file. The uploaded 07 report has no manual attempts and only startup
+capture readiness; do not infer the current capture is broken or re-run all tests.
+
+09 bundles all pending documentation progress since 07. Since 08 application was
+never confirmed, delivery contains two verified patch alternatives, one over 07
+and one over 08; its helper applies only one matching preflight and stops on
+other file states. No reset/clean, force application, branch change or agent commit.
+
+Latest Linux evidence: 61 Node checks (one raw-failure diagnostic), six support
+checks, 66 table-browser candidate passes; raw unguarded structural row/column
 undo failures are preserved separately. Default origin prototype now conservatively
 refuses structural handle undo after foreign changes. Full semantic inverses remain
 unqualified, not solved by calling every refusal a final UX. Existing native/browser

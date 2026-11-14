@@ -1,6 +1,6 @@
 # Editor interaction specification — R02
 
-Revision 0.16, 2026-11-14. Status: reviewed table-navigation policy within an
+Revision 0.27, 2026-11-14. Status: reviewed table-navigation policy within an
 otherwise conditional editor specification; no candidate selected. Scoped executed
 evidence and remaining native work are recorded in the checkpoint/progress log. Product directions are confirmed
 in [product behaviour](product-behaviour.md); model-specific defaults below are
@@ -161,7 +161,8 @@ cell editor must reconcile root history and selection rather than expose two und
 stacks. The [table contract](table-interaction-contract.md) now confirms navigation, hard
 breaks, final boundaries, explicit addition controls and two view-local modes.
 Escape removes the caret while retaining the highlighted cell; selection-mode
-Tab/Shift+Tab move the highlight and Enter returns to editing. Cell schema/complex selection
+Tab/Shift+Tab move the highlight and Enter returns to editing. Triple-click in a
+cell selects all of its text as a text range, not the cell structure. Cell schema/complex selection
 details remain scoped independently; do not restore the withdrawn Enter/Tab defaults.
 
 Read-only page embeds may allow text copy/selection and opening the original;
