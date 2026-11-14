@@ -104,3 +104,11 @@ verification retained. Run native:joined again after applying17. No new dependen
 install, runtime-cache deletion or manual repair of the failed bundle is needed.
 Mac signing remains unverified until that retry; Linux helper success is not signing
 acceptance. See [Apple's layout guidance](https://developer.apple.com/library/archive/technotes/tn2206/_index.html).
+
+## Stylesheet correction18
+
+If the joined app appears in a default serif font with A/B stacked and borderless
+tables, host CSP is blocking its own stylesheets.18 enables same-origin styles and
+adds computed-layout regression checks. Quit the test app and run native:joined
+after applying18; verify side-by-side styled views before testing JN-01. No cache
+clearing or dependency reinstall is required.

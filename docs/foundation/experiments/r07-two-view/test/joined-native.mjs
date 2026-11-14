@@ -144,6 +144,23 @@ try {
           encodeURIComponent(JSON.stringify(descriptor))
       );
       await page.waitForFunction(() => !!window.joinedNative);
+      const presentation = await page.evaluate(() => ({
+        panes: getComputedStyle(document.querySelector('.panes')).display,
+        border: getComputedStyle(document.querySelector('.ProseMirror td'))
+          .borderTopStyle,
+        editorBorder: getComputedStyle(document.querySelector('.ProseMirror'))
+          .borderTopStyle,
+        sameRow:
+          Math.abs(
+            document.querySelector('#origin-a').getBoundingClientRect().top -
+              document.querySelector('#origin-b').getBoundingClientRect().top
+          ) < 2,
+      }));
+      assert.equal(presentation.panes, 'grid');
+      assert.equal(presentation.border, 'solid');
+      assert.equal(presentation.editorBorder, 'solid');
+      assert.equal(presentation.sameRow, true);
+
       await page.evaluate(() => {
         window.originLab.pause('A');
         window.originLab.select('A', 'Alpha');

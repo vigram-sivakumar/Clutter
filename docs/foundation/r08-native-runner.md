@@ -125,3 +125,14 @@ Eight updated Linux helper checks pass; actual Mac signing retry remains pending
 recommends Resources for shell/non-Mach-O executables. Existing Swift source,
 canonical data and dependency versions are unchanged. Rerun the builder; it creates
 a fresh bundle and reuses the verified runtime cache. No old-bundle repair needed.
+
+## Observed launch and stylesheet correction18
+
+The user's next screenshot shows joined editor ready, accepted revision1 and
+HEADLESS in A/B. It also shows unstyled stacked views. No manual interaction case
+passes from this image. The host CSP omitted self in style-src, blocking its own
+three stylesheet URLs.18 allows same-origin styles while leaving other directives
+unchanged. A new grid/border/alignment assertion reproduced the problem before the
+fix;8 helper and10 joined cases pass afterward. Mac visual confirmation remains
+pending. Quit the old test app and rebuild/relaunch before JN-01. No Swift/domain/
+runtime change; signing17 retained. [Evidence](evidence/r08-18-2026-11-14.json).

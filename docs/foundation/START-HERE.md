@@ -1,6 +1,6 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-14. Documentation revision: 0.41.
+Last updated: 2026-11-14. Documentation revision: 0.42.
 Read AGENTS.md and this file first in a new chat or agent session. It is the checkpoint, not a
 second product specification. [README](README.md) identifies authoritative docs.
 
@@ -113,6 +113,9 @@ contains those contents; do not reapply either route.
 26. Native signing correction, revision0.41: `Clutter Native Signing Fix 17.zip`,
     exact16 base confirmed by user commit60b0505b; actual Mac retry required.
 
+27. Native stylesheet correction, revision0.42: `Clutter Native Styles Fix 18.zip`,
+    exact16/17 alternatives;8 helper +10 joined cases pass, Mac layout retry pending.
+
 Each update is incremental over its predecessor's file contents, not a particular
 user-created commit hash. If this file is present at revision 0.17, do not blindly
 reapply those patches. Inspect actual files and git state; do not use reset/clean,
@@ -173,33 +176,27 @@ force checkout or re-create the branch to hide divergence.
 - Current authorized continuation includes the isolated R07 experiment, not a
   production rebuild. Preserve unqualified tests and report blocking observations.
 
-## Exact next action: apply signing correction17 and retry Mac launch
+## Exact next action: stylesheet correction18, verify layout, then JN-01
 
-The user confirms runner16 applied/committed as60b0505b. Their arm64 Mac completed
-runtime preparation, Swift compilation, runtime dylib audit and inner Node signing,
-then failed signing the app/main executable because the unsigned shell CLI wrapper
-was in Contents/MacOS. No native window or pre-window headless smoke ran.
+User screenshot shows the joined Mac window ready with accepted revision1 and
+HEADLESS content in both views. No manual JN result is inferred. Styling is missing:
+View B stacks below A, default font and borderless cells. Diagnosis: shared host
+CSP allowed only inline styles, blocking its own stylesheet URLs. Previous browser
+checks missed rendered layout; a new computed-style/geometry assertion reproduced
+block instead of grid before the fix.
 
-Correction17 moves the script to Contents/Resources/bin/clutter-lab, adjusts its
-relative paths and includes it in the component fingerprint. Contents/MacOS now
-contains the native main executable only. Node signs first, resource metadata is
-finalized, then signing the outer app covers its main executable; strict/deep
-verification stays enabled. No --deep signing/resource exclusions/xattr workaround.
-Apple TN2206 recommends scripts in Resources. Native Swift source and domain/codec/
-SQLite behavior are unchanged by17. Eight updated Linux helper checks pass,
-including executing the actual resource wrapper with a restricted PATH/spaced path.
+Correction18 adds 'self' to style-src, keeping scripts/connections same-origin and
+all other CSP restrictions. Updated8 helper cases and10 joined cases pass with
+actual grid layout/editor/table borders and horizontally aligned A/B. No editor,
+save, runtime, Swift or dependency change. Existing signing correction17 is retained.
+Read evidence/r08-18-2026-11-14.json. Mac style retry is pending; signing/window launch
+is observed but exact source/build profile has not been independently reviewed.
 
-Read [correction evidence](evidence/r08-17-2026-11-14.json) and
-[runner guide](experiments/r07-two-view/joined-native/README.md). Apply Clutter Native
-Signing Fix17 over exact16, then rerun npm run native:joined from the experiment.
-A fresh timestamped bundle is built; the downloaded runtime cache is reused and
-reverified. Do not repair/delete the old failed bundle or request private endpoint
-files. First obtain actual terminal/window output; only once ready guide JN-01 one
-variation at a time. No native signing success or JG-11 pass is inferred here.
-
-Prior manual results/IME unavailable/VoiceOver deferred remain unchanged. Existing
-G-J passes and G-M12/13/security/host gates remain; no new broad research or manual
-catalogue replay. Same branch, no production/dependency/agent commit or push.
+User should quit this test app with Command-Q, apply bundle18 (exact16 or17 route)
+and rerun native:joined. The builder creates a fresh signed app, reuses/reverifies
+runtime cache. Verify styled side-by-side views first; only then guide JN-01 one
+variation at a time. Do not rerun old manual tests or mark JG-11 passed from launch.
+Keep IME unavailable and VoiceOver deferred. Same branch/no production/agent commit.
 
 ## Session close protocol
 

@@ -3,6 +3,16 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.42 — 2026-11-14
+
+- Recorded actual joined Mac launch screenshot: ready/revision1/HEADLESS in both
+  views; no native interaction passes inferred. CSS was blocked by host CSP.
+- Added same-origin styles to style-src; other directives unchanged. Added actual
+  grid/cell/editor-border/alignment assertions, reproduced failure before fix.
+  8 helper and10 joined cases pass after fix; Mac layout retry remains pending.
+- Next quit/relaunch corrected app and verify styling before JN-01. Bundle18 over
+  exact16/17 retains signing correction; no Swift/domain/dependency/production change.
+
 ## 0.41 — 2026-11-14
 
 - Recorded user commit60b0505b and first real Mac setup: runtime preparation,

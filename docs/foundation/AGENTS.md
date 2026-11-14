@@ -81,8 +81,14 @@ them by implication.
   Bundle16 preflights13/14/15;15 application unconfirmed after corrected command.
   Use temporary extraction variable so downloaded folder renaming cannot break apply.
 
-- Current0.41: user Mac committed16 as60b0505b, Swift compiled, signing blocked by
+- Historical0.41: user Mac committed16 as60b0505b, Swift compiled, signing blocked by
   unsigned CLI script in MacOS. Correction17 moves it to Resources/bin and signs
   the outer app last; strict verification remains. Next apply17/retry native:joined,
   get actual launch result before JN-01. No native signing pass inferred; Swift/domain
   unchanged,8 updated Linux helper checks pass. Preserve raw16 failure/evidence.
+
+- Current0.42: screenshot shows joined Mac launched/HEADLESS revision1, but CSS was
+  blocked by style-src lacking self. Correction18 adds same-origin styles only;
+  reproduced layout assertion fails before and passes after.8 helper +10 joined
+  cases pass. Next quit old test app/apply18/relaunch, confirm side-by-side layout
+  before JN-01. Bundle supports16/17; source fingerprint17 not independently reviewed.

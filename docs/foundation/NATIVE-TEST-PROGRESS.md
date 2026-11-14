@@ -256,18 +256,16 @@ manual rerun or verdict-click cleanup is requested. A targeted native history/
 selection smoke can be batched with the next integrated slice before architecture
 acceptance. NM-03 remains unavailable and NM-06 deferred by user priority.
 
-## Next action: signing correction17, then retry launch
+## Next action: stylesheet18 and layout confirmation
 
-User committed16 as60b0505b. First actual arm64 Mac run completed runtime preparation
-and Swift compilation, then signing rejected the CLI shell script in Contents/MacOS.
-No new window/manual/headless smoke result. Correction17 places it in Resources/bin
-and signs the outer app last with strict verification retained.8 updated Linux
-helper checks pass; Mac signing retry not-run here.
+User screenshot shows the joined Mac window ready with HEADLESS content/revision1.
+A/B stack with default font/borderless cells because host CSP blocks own CSS. No
+manual case is passed from this image. Correction18 enables same-origin stylesheet
+files;8 helper +10 joined cases pass with a new rendered layout regression.
 
-Apply17 over16 and rerun native:joined; obtain actual terminal/window output before
-JN-01. Do not replay the old manual session. Native Swift source unchanged; earlier
-manual passes/IME unavailable/VoiceOver deferred remain intact.
-[Evidence](evidence/r08-17-2026-11-14.json).
+Quit the old test app, apply18 and rerun native:joined. First verify styled A/B
+side by side, then JN-01 only. No old manual replay; IME/VoiceOver priorities and
+all previously confirmed results remain. [Evidence](evidence/r08-18-2026-11-14.json).
 
 ## Next agent action
 

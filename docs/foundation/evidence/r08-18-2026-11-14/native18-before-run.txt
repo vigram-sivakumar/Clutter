@@ -1,0 +1,11 @@
+NP-01 pass Unsupported host and runtime integrity fail closed
+NP-02 pass Private marked session and descriptor validation
+NP-03 pass Packed runtime and app-closed CLI/MCP single owner
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+'block' !== 'grid'
+
+    at file:///workspace/scratch/c3964483bf30/clutter-architecture/docs/foundation/experiments/r07-two-view/test/joined-native.mjs:148:14
+    at async check (file:///workspace/scratch/c3964483bf30/clutter-architecture/docs/foundation/experiments/r07-two-view/test/joined-native.mjs:36:20)
+    at async file:///workspace/scratch/c3964483bf30/clutter-architecture/docs/foundation/experiments/r07-two-view/test/joined-native.mjs:127:3
+Report artifacts/native18-before-results.json

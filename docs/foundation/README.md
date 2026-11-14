@@ -1,6 +1,6 @@
 # Clutter foundation
 
-Status: architecture definition pack, revision 0.41, 2026-11-14. Product scope
+Status: architecture definition pack, revision 0.42, 2026-11-14. Product scope
 confirmed; technology proposals remain unqualified.
 Baseline: `main` at `cae604273115c0c6c0d3ac34533b1e9834e9c778`.
 Working branch: `architecture/clutter-foundation`.
@@ -22,7 +22,7 @@ live cloud collaboration deferred.
 Evaluate it as a greenfield product. Migration and implementation effort remain
 visible planning dimensions with zero weight in architectural selection.
 
-The 0.2 product scope, retained in 0.41, reflects the user clarification sequence. Earlier draft
+The 0.2 product scope, retained in 0.42, reflects the user clarification sequence. Earlier draft
 requirements superseded by that discussion are replaced in this folder.
 This pack contains requirements and proposals, not an approved implementation
 specification. Existing documentation and `ARCHITECTURE_RULES.md` continue to
@@ -172,3 +172,7 @@ compilation/execution remains not-run. No stack approval or old manual replay.
 Revision0.41 fixes the first Mac signing blocker: shell CLI is now a sealed resource,
 not an unsigned MacOS subcomponent. User16 commit60b0505b/Swift compile confirmed;
 next apply17 and retry native:joined. Mac signing/native acceptance remains open.
+
+Revision0.42 fixes same-origin CSS blocked by CSP after observed Mac launch.8 helper
+and10 joined cases pass including rendered layout; next Mac layout confirmation
+before JN-01. No manual/native interaction pass inferred from the launch screenshot.

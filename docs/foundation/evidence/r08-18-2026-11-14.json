@@ -1,0 +1,78 @@
+{
+  "document": "Own stylesheet CSP correction18",
+  "revision": "0.42",
+  "date": "2026-11-14",
+  "status": "Reproduced missing layout before fix;8 helper and10 joined cases pass after; Mac retry pending",
+  "user_observation": {
+    "source": "User-provided Screenshot 2026-11-14 at 18.44.28.png",
+    "observed": [
+      "Joined native window open; status says joined editor ready",
+      "Accepted revision1 with HEADLESS Alpha beta in A/B",
+      "Default serif type, stacked A/B and borderless table cells"
+    ],
+    "not_inferred": [
+      "Exact source/build fingerprint or commit17",
+      "Any JN interaction pass or full JG-11 acceptance"
+    ]
+  },
+  "diagnosis": "Shared host CSP had style-src unsafe-inline only, blocking same-origin linked CSS. Earlier checks verified editor logic but missed rendered stylesheet load.",
+  "change": "Add self to style-src; no other directive, editor/SQL/runtime/Swift or dependency change.",
+  "verification": {
+    "negative": "New rendered assertion reproduces block != grid before fix",
+    "after_helper_pass": 8,
+    "joined_pass": 10,
+    "assertions": [
+      "panes display grid",
+      "table cell and editor solid borders",
+      "A/B vertical alignment confirms same row"
+    ],
+    "commands": [
+      {
+        "command": "CHROMIUM_EXECUTABLE=/tmp/chromium node test/joined-native.mjs",
+        "before_exit": 1,
+        "after_exit": 0
+      },
+      {
+        "command": "CHROMIUM_EXECUTABLE=/tmp/chromium node test/joined-core.mjs",
+        "exit": 0
+      }
+    ],
+    "mac_style_retry": "pending; no native visual pass inferred"
+  },
+  "next": "Quit test app using Command-Q; apply18 and rerun native:joined. Confirm styled side-by-side layout before JN-01.",
+  "delivery": {
+    "bundle": "Clutter Native Styles Fix 18.zip",
+    "bases": [
+      "exact16",
+      "exact17"
+    ],
+    "base17_tree": "b7197dc35d28827adec5f236edfbe17c8ae2e385",
+    "branch": "architecture/clutter-foundation",
+    "production_changed": false,
+    "agent_commit_push": false
+  },
+  "references": {
+    "prior": "r08-17-2026-11-14.json",
+    "guide": "../experiments/r07-two-view/joined-native/README.md"
+  },
+  "artifacts": {
+    "candidate-manifest.json": "r08-18-2026-11-14/candidate-manifest.json",
+    "native18-before-results.json": "r08-18-2026-11-14/native18-before-results.json",
+    "native18-before-run.txt": "r08-18-2026-11-14/native18-before-run.txt",
+    "native18-helper-results.json": "r08-18-2026-11-14/native18-helper-results.json",
+    "native18-helper-run.txt": "r08-18-2026-11-14/native18-helper-run.txt",
+    "native18-joined-results.json": "r08-18-2026-11-14/native18-joined-results.json",
+    "native18-joined-run.txt": "r08-18-2026-11-14/native18-joined-run.txt",
+    "native18-manifest-run.txt": "r08-18-2026-11-14/native18-manifest-run.txt"
+  },
+  "artifact_sha256": {
+    "candidate-manifest.json": "931833f296bc59c4600ad10d02ef0c84dc1f6c76c905309f6aaf062f681274b6",
+    "native18-before-results.json": "2905f68aa4c2218d40c32bca723201c931e1ffb22bfc467660aae8d0c6bda861",
+    "native18-before-run.txt": "f26a4643a377df4393de2b01243ea2cacf7b93280e6ef036a892faa4970761a3",
+    "native18-helper-results.json": "6b6fb0115b3c486ff781f68ede24d7c00ed05b2936109e340a28882b08fd5688",
+    "native18-helper-run.txt": "6cc24f28e7560243eff0297962af5db669c27e392c048c15611fabc353f9f65c",
+    "native18-joined-results.json": "cf8e245ed41c6ed5f856994431706ca09842c176584651262b0bbaae265f33f4",
+    "native18-joined-run.txt": "0cbe3a701016d3b804aa5b058e025bc35932e23059d702eb05add5d9a986b362",
+    "native18-manifest-run.txt": "6a3ba67e5f20619263fe4ea3d10de94e63e70a4c8bcfc32a3900edf100dd4e54"
+  }
+}
