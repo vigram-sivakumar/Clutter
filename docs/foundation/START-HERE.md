@@ -1,6 +1,6 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-15. Documentation revision: 0.47, review23.
+Last updated: 2026-11-15. Documentation revision: 0.48, proof24.
 Read [AGENTS](AGENTS.md), this checkpoint and [README](README.md) first.
 
 ## Current position
@@ -22,55 +22,62 @@ This current checkpoint supersedes earlier next-action text in historical record
 | Entity build21 |14 Linux cases pass for proposed canonical task page/unique placement, atomic multi-note move, historical read/restore conflict,6 real process-death phases, CLI/MCP parity and stored Y closure |
 | Media build22 |12 Linux media cases pass with13 real crash phases;14 entity,84 Node and2 old-profile headless regressions pass; browser reruns environment-blocked |
 | Review23 | Recommendation/module ownership/gate assessment complete; F006/F007 evidence updated, F008 and frozen PK01–10 proposed; no new runtime tests |
-| Next | Bounded per-page root / atomic Space version-set proof (PK01–10), then explicit G-Q baseline blockers |
+| Page proof24 | PK01–10 pass headlessly,10 multi-page crash boundaries plus interrupted import; single-page writes, snapshot/pin/lease closure; no new native/browser/performance claim |
+| Next | Scoped I1 Core/API implementation-entry decision (F009), then disposable three-interface module slice; G-Q remains before real data |
 
 ## Branch and delivery state
 
-Stay on architecture/clutter-foundation. User confirms delivery22 done; its exact
-content base is85cc9499fce70f0a3c8c698d45c378c905331603. Exact new user commit/push was
-not supplied. Review23 is docs-only over22; no agent commit/push and no production
-or main changes. This workspace holds later uncommitted foundation content; inspect
-actual Git state, not just the stale local HEAD, before resuming elsewhere.
+Stay on architecture/clutter-foundation. User confirms review23 done; exact content
+base c163b44e53d8c774302feb246b6f0c4cdde363b7. Proof24 is incremental over23; exact
+new user commit/push is not assumed. No agent commit/push, production/main changes
+or user-vault writes. Current workspace holds later uncommitted content; inspect
+actual Git/files rather than stale local HEAD before resuming elsewhere.
 
-The separate accidental generated-output repair on main preserved five app fixes
-and added narrow root ignore rules. Keep that backup and saved native sessions.
-No main merge/rebase/reset or app/runtime/cache/artifacts/test-store staging.
-Tiny PNG/PDF fixtures are source inputs. Apply helpers must guard this single branch.
+Preserve repaired-main backup and old native sessions. No main switch/merge/rebase/
+reset, generated bundle/runtime/cache/artifacts or test-store staging. Shared source
+planners and SQL transaction engine are reused; new page adapter is not another
+policy implementation. Old aggregate/native profiles remain comparison controls.
 
-## Exact next work — bounded page-partition proof
+## Exact next work — scoped implementation entry
 
-1. Read [readiness review](architecture-readiness.md), [F008](adr/F008-page-roots-and-atomic-version-sets.md)
-   and [frozen PK01–10](page-partition-contract.json). All PK cases are not-run.
-   Architecture review recommends PM/Y + shared TS core + SQLite/external files,
-   but production format, native host/runtime and G-Q remain unaccepted.
-2. In the existing isolated experiment, qualify per-page engine payloads inside
-   one Space transaction system. Define exact page/commit/version-set and asset
-   manifests before coding. Do not duplicate the SQL transaction engine or public
-   command policy; preserve aggregate21/22 as controls.
-3. Re-prove atomic task move with unchanged canonical task page; old/new reader
-   snapshots and historical note/task/cover/pin closure; crash/retry receipts and
-   stale ownership refusal. An unchanged old note must not resolve current task data.
-4. Record actual encoded/written bytes and untouched heads. Aggregate whole-Space
-   encoding and full retained-history startup verification are source-level scale
-   risks, not measured failures. No broad performance pass from tiny fixtures;
-   D11/reference host/Space-size/active-Space targets must be fixed before benchmarks.
-5. Preserve all earlier user native passes. Browser regression availability remains
-   blocked in this environment; do not invent passes or request a blanket Mac replay.
-   After PK review, close exact remaining G-Q native/runtime/security/format/budget
-   evidence and supersession scope before accepting a production baseline.
+1. Read [page result](r08-page-closure.md), [implementation entry](implementation-entry.md),
+   [runtime ownership](runtime-ownership.md) and Proposed [F009](adr/F009-scoped-core-implementation-entry.md).
+   The user asks when implementation begins and wants no duplicate owners. “Space
+   service” is the running Core application service with its Vault adapter, not
+   a second core/authority. UI, CLI and MCP are peers; none invokes the CLI as policy.
+2. Review/adopt the concrete I1 scope: one typed command catalogue/module/port
+   contract and disposable-only data enforcement, then implement the shared Core/
+   API and desktop/CLI/MCP vertical slice. No new broad engine search or empty
+   package scaffolding. F009 is Proposed, not assistant-invented user acceptance.
+3. Bind actual per-page editor contexts/private updates/protected drafts. PK used
+   headless projections, not EditorViews or native input. Keep prior keyboard
+   results; automate changed-route tests and request only targeted native input if
+   a concrete build requires it. Known browser environment block remains labelled.
+4. Do not open existing vaults/freeze final codec/enable migration while G-Q native
+   runtime/discovery/grants/flush, format/history/retention, D11 workload/budgets and
+   precise existing-rule/migration scope remain open. Those gates still block real
+   data; disposable module work is not a false production/shipping acceptance.
 
-## Current recommendation and decision ownership
+## Proof24 facts and limits
 
-[Architecture review](architecture-review.md) owns comparison/recommendation;
-[readiness](architecture-readiness.md) owns evidence/gate/module assessment;
-[decision register](decision-register.md) owns decision dispositions. F006/F007/F008
-stay Proposed; frozen old JG and new PK specifications keep original execution
-fields, while executions live in evidence. This review creates no production folder
-scaffolding, runtime result, accepted budget or API/format implementation.
+PK01–10 pass under the recorded headless Linux profile. One page edit encodes only
+that page; task move updates two note heads/indexes/receipt atomically without
+changing task body/cover. Same note root resolves old/current task data by snapshot
+context. Pins/leases retain root/file references through restart; no GC or lease
+expiry. Ten actual process-death phases and interrupted import recover/retry safely.
+Same-path second writer refuses; complete alias/discovery/fencing is not qualified.
 
-Native shell choice remains open. Rust may implement platform mechanisms, never a
-second domain core. Node's116.19MiB size is user-reported executable/Git-blob size,
-not measured RSS/installer cost. Installed topology and full native flush remain gates.
+Shared planners/admission/file publisher/transaction engine reused. Regressions:
+entity14, media12, Node84, two old snapshot/joined headless cases and one old native
+context metadata case pass. No new browser run/native test or budget approval.
+Structural byte counters are not physical SQL/WAL, speed, memory or startup targets;
+initial deep historical audit remains intentionally measured, not optimized away.
+
+The new query API is a proof surface. heads/metrics are diagnostics. Page session
+Y updates/protection and a pin/lease metadata cursor are not implemented here.
+Public production DTO/schema/permissions must be concrete before I1 coding.
+Frozen PK/JG contracts keep original not-run fields; actual results are separate
+in evidence/r08-24-2026-11-15.json. No old evidence or confirmed product scope changed.
 
 ## Media proof interpretation
 

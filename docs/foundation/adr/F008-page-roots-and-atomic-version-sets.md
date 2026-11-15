@@ -1,6 +1,6 @@
 # ADR-F008: Per-page engine roots and atomic Space version sets
 
-Status: **Proposed for bounded partition qualification**, 2026-11-15, revision0.47.
+Status: **Proposed for bounded partition qualification**, 2026-11-15, revision0.48.
 D02/D03/D07/D09/D11, M04/M06 and PS02/04/06. No production rule superseded.
 
 ## Context
@@ -60,5 +60,7 @@ budgets; code reuse/migration effort does not decide the result.
 Execute the frozen [PK01–10 contract](../page-partition-contract.json); retain exact
 format/engine/runtime/SQL/filesystem/fault profile and structural write counters.
 Re-prove the semantic/media closure from21/22 with real commits/old/new readers.
-It is currently not-run. Then resolve G-Q performance/format/native/security gates
+The [bounded proof24](../r08-page-closure.md) now passes PK01–10 headlessly, with
+recorded counters, crash routes and limitations. Native/editor binding and broader
+G-Q remain unqualified. Then resolve G-Q performance/format/native/security gates
 for the scope before an accepted successor. No runtime result is created by this ADR.

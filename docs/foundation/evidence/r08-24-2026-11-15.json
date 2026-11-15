@@ -1,0 +1,169 @@
+{
+  "document": "Per-page roots and atomic Space snapshot proof24",
+  "revision": "0.48",
+  "date": "2026-11-15",
+  "status": "PK01\u201310 bounded headless pass; not actual per-page editor/native/performance or production acceptance",
+  "execution": {
+    "command": "PAGE_RESULT=artifacts/page24-results-final.json node test/pages.mjs",
+    "exit": 0,
+    "pass": 10,
+    "real_multi_page_crash_phases": 10,
+    "additional_interrupted_import": true,
+    "regressions": {
+      "entity": 14,
+      "media": 12,
+      "node_core": 84,
+      "old_snapshot_joined_headless_ports": 2,
+      "old_native_context_metadata_port": 1
+    },
+    "browser_native": "Not rerun24 due known22 browser environment restriction; previous passes retained, no new actual view/native claim",
+    "initial_run": "Preliminary green run before strengthening future-codec, same-path writer, lease restart, import crash and matched-count control checks; final run authoritative",
+    "profile": {
+      "nativeFullSyncRequired": false,
+      "node": "v24.22.1",
+      "platform": "linux",
+      "arch": "x64",
+      "sqlite": {
+        "version": "3.53.4",
+        "source": "2026-07-24 19:02:57 bf7c7f30031888f4e796e429ab3978879485813aaca6f641c7b33e4e09459bcc"
+      },
+      "pragmas": {
+        "journal_mode": "wal",
+        "synchronous": 2,
+        "locking_mode": "exclusive",
+        "foreign_keys": 1,
+        "trusted_schema": 0,
+        "page_size": 4096,
+        "cache_size": 8,
+        "cache_spill": 8,
+        "fullfsync": 0,
+        "checkpoint_fullfsync": 0
+      },
+      "compileOptions": [
+        "ATOMIC_INTRINSICS=1",
+        "COMPILER=gcc-14.2.1 20250110 (Red Hat 14.2.1-11)",
+        "DEFAULT_AUTOVACUUM",
+        "DEFAULT_CACHE_SIZE=-2000",
+        "DEFAULT_FILE_FORMAT=4",
+        "DEFAULT_JOURNAL_SIZE_LIMIT=-1",
+        "DEFAULT_MEMSTATUS=0",
+        "DEFAULT_MMAP_SIZE=0",
+        "DEFAULT_PAGE_SIZE=4096",
+        "DEFAULT_PCACHE_INITSZ=20",
+        "DEFAULT_RECURSIVE_TRIGGERS",
+        "DEFAULT_SECTOR_SIZE=4096",
+        "DEFAULT_SYNCHRONOUS=2",
+        "DEFAULT_WAL_AUTOCHECKPOINT=1000",
+        "DEFAULT_WAL_SYNCHRONOUS=2",
+        "DEFAULT_WORKER_THREADS=0",
+        "DIRECT_OVERFLOW_READ",
+        "ENABLE_COLUMN_METADATA",
+        "ENABLE_DBSTAT_VTAB",
+        "ENABLE_FTS3",
+        "ENABLE_FTS3_PARENTHESIS",
+        "ENABLE_FTS5",
+        "ENABLE_GEOPOLY",
+        "ENABLE_MATH_FUNCTIONS",
+        "ENABLE_PERCENTILE",
+        "ENABLE_PREUPDATE_HOOK",
+        "ENABLE_RBU",
+        "ENABLE_RTREE",
+        "ENABLE_SESSION",
+        "MALLOC_SOFT_LIMIT=1024",
+        "MAX_ATTACHED=10",
+        "MAX_COLUMN=2000",
+        "MAX_COMPOUND_SELECT=500",
+        "MAX_DEFAULT_PAGE_SIZE=8192",
+        "MAX_EXPR_DEPTH=1000",
+        "MAX_FUNCTION_ARG=1000",
+        "MAX_LENGTH=1000000000",
+        "MAX_LIKE_PATTERN_LENGTH=50000",
+        "MAX_MMAP_SIZE=0x7fff0000",
+        "MAX_PAGE_COUNT=0xfffffffe",
+        "MAX_PAGE_SIZE=65536",
+        "MAX_SQL_LENGTH=1000000000",
+        "MAX_TRIGGER_DEPTH=1000",
+        "MAX_VARIABLE_NUMBER=32766",
+        "MAX_VDBE_OP=250000000",
+        "MAX_WORKER_THREADS=8",
+        "MUTEX_PTHREADS",
+        "SYSTEM_MALLOC",
+        "TEMP_STORE=1",
+        "THREADSAFE=1"
+      ],
+      "osRelease": "6.18.57",
+      "filesystemType": 16914836
+    }
+  },
+  "architecture": {
+    "running_owner": "one Space service = running Core application service with Vault adapter; authority/owner historical synonyms",
+    "interfaces": "UI/CLI/MCP peers, no shell/CLI business chain",
+    "storage": "per-page Y BLOBs + reference-only changed-root Space ledger; one database/connection/transaction path",
+    "shared_policy": "entity move/restore planner, page/property and association validators, media admission/file publisher factored/reused by aggregate and page profiles",
+    "shared_commit_extension": "ephemeral staged data, initializer return state and awaited metadata callback; no BEGIN/COMMIT in page adapter",
+    "indexes": "current heads/task/block/asset lookup projections updated atomically",
+    "snapshots": "Space-context as-of root resolution with transitive reference pin/lease manifests; no copied task body or held SQL read txn"
+  },
+  "contract_sha256": "ef647aeba85cbb163f705936a608bf28260c5a81151af9c0da08379fc200813f",
+  "sources": {
+    "pages/model.mjs": "1ffa6a061f21dc0ef483c66d2a3b751d1380f3f5db88ccc825b135a1df703d31",
+    "pages/README.md": "48b15890bad84a77f596d069f1955a8d1d786b599bde8e90f739d9677d4e26b5",
+    "pages/mcp.mjs": "e6a1fd78695fdb9674ebd83417a65f2a54a274ca10cc46d24308068797b60a47",
+    "pages/owner.mjs": "fc516bf3e47694c778ac031ec232d569679b5d647e78f9bce6e1daf6518cff17",
+    "pages/codec.mjs": "daa4a0f3c1b23ea07d7437e741632d7ccac14ffe443957f2f3b08963e33f305a",
+    "pages/FORMAT.md": "5bc747d0598f12feef85acf4866e61f14d2531b109ef9f7d5cb918b76197cc14",
+    "entities/model.mjs": "e6e88625c47fa749eec25ff19d884e466831929239f8034df7a5fe15664c1ade",
+    "media/model.mjs": "dbc33515aa24184d80ac1565184a904a15178e6bbeee96295c824ab4bed93857",
+    "durable/store.mjs": "7ffc916ae099ed154295ad5ef78e78aeed234e44068f943ae02b915de657c656",
+    "durable/host.mjs": "ee12880f549e478a052ddd2ae6549feddd7c23c68d54ce01f75b0da7c006de5b",
+    "test/pages.mjs": "5f5c124f7401b5418dcdadb7bd85120391b4e868e0a84adb2d2fb512c4d2c976",
+    "test/page-native-port.mjs": "2ee48fbfbfde7960447df350de305cbe2da8c041611b437a7ceaf8db675e4400",
+    "package.json": "1ad0eea6a2ed203dd6309d4621bc050711b4f9bb490cea40422658e4b6065f16",
+    "package-lock.json": "0ab21d88bb3982a9f31691b739f3b192d320bdf278b1a63fd75e1b66eecbc5f5"
+  },
+  "structural_counts": {
+    "candidateFixture": {
+      "notes": 3,
+      "tasks": 2
+    },
+    "aggregateControlFixture": {
+      "notes": 3,
+      "tasks": 2
+    },
+    "encodedPages": [
+      "n1"
+    ],
+    "pagePayloadBytes": 346,
+    "descriptorBytes": 167,
+    "aggregateRootBytes": 1004,
+    "historyRootRows": 6,
+    "startupDeepDecoded": 11,
+    "comparison": "same five page titles/bodies/task properties; page candidate additionally stores note properties; byte counters only, not a speed/size benchmark win",
+    "budgets": "Proposed/unmeasured",
+    "nativeBrowser": "not run"
+  },
+  "limits": [
+    "Headless read/projection clients, not EditorViews or new Y editing contexts",
+    "Per-page private editor updates/protected drafts and metadata cursor still I1 integration work",
+    "Root/payload schemas are experimental; no creation/deletion/copy/full schema or task restore UX acceptance",
+    "Startup deep audit retained, no GC/lease expiry; no timing/RSS/SQL physical WAL benchmark",
+    "Same-path writer refusal not complete OS alias/discovery/grant/fencing qualification",
+    "Native/runtime/format/budget/security/migration G-Q stays before real-vault writes"
+  ],
+  "implementation_entry": {
+    "next": "Scoped F009/I1 entry decision then real shared Core/API modules and disposable desktop/CLI/MCP slice",
+    "F009": "Proposed; no invented acceptance or full G-Q waiver",
+    "no_new_broad_research_or_manual_loop": true,
+    "real_data": "still blocked until named gates"
+  },
+  "repo": {
+    "branch": "architecture/clutter-foundation",
+    "production_main_changes": false,
+    "agent_commit_push": false,
+    "base": "exact23 c163b44e53d8c774302feb246b6f0c4cdde363b7",
+    "user_confirms23_done": true,
+    "frozen_PK_JG_budgets_lockfile_native_host_changed": false,
+    "previous_evidence_modified": false
+  },
+  "delivery": "Clutter-Foundation-Page-Proof-24.zip"
+}

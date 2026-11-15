@@ -150,8 +150,8 @@ export class Store {
       CREATE TABLE blobs(hash TEXT PRIMARY KEY,bytes BLOB NOT NULL);
       CREATE TABLE recovery(context_id TEXT PRIMARY KEY,generation INTEGER NOT NULL,base_version INTEGER NOT NULL REFERENCES revisions(version),owner_epoch TEXT NOT NULL,payload ${model.storageType ?? 'TEXT'},hash TEXT,active INTEGER NOT NULL);
       PRAGMA user_version=${model.schemaVersion ?? 1};`);
-        model.initialize?.(db);
-        const s = this.encode(model.initial());
+        const initialization = model.initialize?.(db, this);
+        const s = this.encode(model.initial(initialization));
         db.prepare('INSERT INTO revisions VALUES(0,NULL,?,?,NULL)').run(
           s,
           hash(s)
@@ -319,7 +319,8 @@ export class Store {
       status = 'recorded',
       state,
       blob,
-      recovery;
+      recovery,
+      commitData;
     if (
       (
         this.model.reduceMethods ?? [
@@ -328,8 +329,17 @@ export class Store {
           'remove_attachment',
         ]
       ).includes(c.method)
-    )
-      state = await this.model.reduce(this.root(version).state, c, this);
+    ) {
+      if (this.model.stage) {
+        const staged = await this.model.stage(
+          this.root(version).state,
+          c,
+          this
+        );
+        state = staged.state;
+        commitData = staged.commitData;
+      } else state = await this.model.reduce(this.root(version).state, c, this);
+    }
     if (c.method === 'attach') {
       if (
         typeof c.base64 !== 'string' ||
@@ -448,7 +458,12 @@ export class Store {
         db.prepare(
           'UPDATE recovery SET active=0,payload=NULL,hash=NULL WHERE context_id=?'
         ).run(c.contextId);
-      this.model.applyMetadata?.(c, this);
+      await this.model.applyMetadata?.(c, this, {
+        state,
+        version,
+        result,
+        commitData,
+      });
       db.prepare('INSERT INTO outcomes VALUES(?,?,?,?)').run(
         c.operationId,
         fingerprint,

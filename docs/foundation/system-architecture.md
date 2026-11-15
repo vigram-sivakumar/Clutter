@@ -6,8 +6,14 @@ See [product behaviour](product-behaviour.md) for entity rules and
 
 Current mechanism recommendation/module ownership is in [review23](architecture-readiness.md).
 [F008](adr/F008-page-roots-and-atomic-version-sets.md) proposes per-page engine roots
-inside one atomic Space store; PK01–10 are not-run. This high-level ownership spec
+inside one atomic Space store; PK01–10 now pass in the bounded headless profile. This high-level ownership spec
 is not acceptance of aggregate21/22 layout, a native shell or production format.
+
+Runtime terminology: the [Space service](runtime-ownership.md) is the one running
+Core application service composed with the Vault adapter. Historical “authority”/
+“owner” labels name it, not another policy implementation. UI/CLI/MCP are peers.
+Proof24 qualifies per-page storage headlessly; actual editor/runtime/real-data gates
+and [I1 entry](implementation-entry.md) remain explicit.
 
 ## Proposed system
 
@@ -16,8 +22,8 @@ flowchart TD
   UI["App windows and editor views"] --> API["Shared command and query API"]
   CLI["CLI"] --> API
   MCP["MCP adapter"] --> API
-  API --> Core["Local Space authority and operations"]
-  Core --> Store["Persistence, versions and recovery"]
+  API --> Core["Space service · shared Core"]
+  Core --> Store["Vault adapter · transactions/history"]
   Provider["Opt-in provider transport"] --> Ingest["Validated state reconciliation"]
   Ingest --> API
   Core --> Publish["State package publication"]

@@ -1,6 +1,6 @@
 # Architecture decision review — R08
 
-Revision0.47, 2026-11-15. **Recommended combination, not accepted production baseline.**
+Revision0.48 update, 2026-11-15. **Recommended combination, not accepted production baseline.**
 Current decision-readiness, module boundaries and exact next gate are owned by
 [architecture-readiness](architecture-readiness.md). Product scope remains in
 product-behaviour.md. This replaces the earlier0.38 next-experiment recommendation;
@@ -24,9 +24,10 @@ in22 were environment-blocked, with retained headless alternatives and prior pas
 The remaining design change is **per-page engine roots in one Space transaction
 system**. Aggregate21/22 roots are closure controls, not an accepted per-keystroke
 Space serialization policy. [F008](adr/F008-page-roots-and-atomic-version-sets.md)
-and [PK01–10](page-partition-contract.json) freeze the next bounded qualification,
-including coherent historic task/media version sets without copied bodies. No new
-runtime tests or schema implementation are performed by this review.
+and frozen [PK01–10](page-partition-contract.json) now have [proof24](r08-page-closure.md)
+headless results, including coherent historic task/media sets without copied bodies.
+The review itself remains distinct from that runtime execution; no full production
+format or editor/native binding is accepted.
 
 ## Complete alternatives and remaining host choice
 
@@ -62,8 +63,8 @@ format/migration and precise existing-rule supersession remain required for scop
 G-F is full feature release; G-P is optional provider enablement. Live collaboration
 is later; it must not silently alter the confirmed latest-document provider policy.
 
-Next: execute PK01–10, then resolve the enumerated G-Q blockers in a scoped baseline
-review. No production packages, main merge, provider feature or repeated Mac editor
+Next: [scoped I1 entry](implementation-entry.md), then the disposable Core/API
+implementation slice while the enumerated real-data G-Q blockers remain explicit. No production packages, main merge, provider feature or repeated Mac editor
 session follows automatically. F006/F007/F008 stay Proposed. Existing rules below
 are an impact inventory, not already superseded instructions.
 

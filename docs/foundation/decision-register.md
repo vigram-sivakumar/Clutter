@@ -4,6 +4,17 @@ Status: confirmed product scope; mechanism recommendation reviewed2026-11-15.
 Technical production baseline/format/host not yet accepted.
 Effort and migration scores remain visible with zero decision weight.
 
+## Current execution/entry update — revision0.48
+
+PK01–10 pass in the headless per-page proof24; F008 stays Proposed for production
+scope. Task/media semantic planners and one commit engine are shared, not copied.
+Next Proposed F009 entry decision: shared Core/API/catalogue/ports and a disposable
+three-interface slice; actual page editor contexts/protection must be implemented
+and tested there. Native/runtime/format/budget/security/migration gates still block
+real-vault writes. “Authority” is the same running Core Space service, not another
+owner. User confirms this no-duplication requirement. No blanket architecture or
+shipping acceptance and no new manual tests inferred.
+
 ## Current technical dispositions — revision0.47
 
 [Recommendation](architecture-review.md) and [readiness/gates](architecture-readiness.md)

@@ -79,32 +79,47 @@ export function placements(s) {
     }
   return result;
 }
-function validateProjection(s) {
-  const ids = new Set();
+export function validatePage(
+  kind,
+  n,
+  { seenBlocks = new Set(), hasTask = () => true } = {}
+) {
+  keys(n, kind === 'notes' ? 'title,body' : 'title,body,properties');
+  if (typeof n.title !== 'string' || n.title.length > 10000)
+    throw Error('INVALID_TITLE');
+  const doc = parse(kind === 'notes' ? noteSchema : taskSchema, n.body);
+  if (doc.nodeSize > 200000) throw Error('BODY_LIMIT');
+  const slots = [];
+  doc.descendants((b) => {
+    if (b.isText) return;
+    if (!id(b.attrs.blockId) || seenBlocks.has(b.attrs.blockId))
+      throw Error('DUPLICATE_OR_INVALID_BLOCK_ID');
+    seenBlocks.add(b.attrs.blockId);
+    if (b.type.name === 'task_slot') {
+      if (!hasTask(b.attrs.taskId)) throw Error('DANGLING_TASK');
+      if (b.attrs.blockId !== slotId(b.attrs.taskId))
+        throw Error('INVALID_SLOT_ID');
+      slots.push({ taskId: b.attrs.taskId, blockId: b.attrs.blockId });
+    }
+  });
+  if (kind === 'tasks') properties(n.properties);
+  return { blockIds: [...seenBlocks], slots };
+}
+export const validateProperties = properties;
+export function validateProjection(s) {
+  const seenBlocks = new Set();
   let count = 0;
-  for (const [kind, schema] of [
-    ['notes', noteSchema],
-    ['tasks', taskSchema],
-  ]) {
+  for (const kind of ['notes', 'tasks'])
     for (const [entityId, n] of Object.entries(s[kind])) {
       if (!id(entityId) || entityId === 'inbox' || ++count > 200)
         throw Error('INVALID_ENTITY_ID');
       if (Object.hasOwn(s[kind === 'notes' ? 'tasks' : 'notes'], entityId))
         throw Error('DUPLICATE_ENTITY_ID');
-      keys(n, kind === 'notes' ? 'title,body' : 'title,body,properties');
-      if (typeof n.title !== 'string' || n.title.length > 10000)
-        throw Error('INVALID_TITLE');
-      const doc = parse(schema, n.body);
-      if (doc.nodeSize > 200000) throw Error('BODY_LIMIT');
-      doc.descendants((b) => {
-        if (b.isText) return;
-        if (!id(b.attrs.blockId) || ids.has(b.attrs.blockId))
-          throw Error('DUPLICATE_OR_INVALID_BLOCK_ID');
-        ids.add(b.attrs.blockId);
+      validatePage(kind, n, {
+        seenBlocks,
+        hasTask: (taskId) => Object.hasOwn(s.tasks, taskId),
       });
-      if (kind === 'tasks') properties(n.properties);
     }
-  }
   placements(s);
 }
 export function ydoc(payload) {
@@ -361,7 +376,7 @@ const footprint = (body) =>
       .map((b) => b.attrs)
       .sort((a, b) => a.taskId.localeCompare(b.taskId))
   );
-function setBody(record, schema, body, d) {
+export function setBody(record, schema, body, d) {
   const fragment = record.get('body'),
     { mapping } = initProseMirrorDoc(fragment, schema);
   updateYFragment(d, fragment, parse(schema, body), {
@@ -369,55 +384,79 @@ function setBody(record, schema, body, d) {
     isOMark: new Map(),
   });
 }
+export function planEntity(c, context) {
+  const notes = Object.create(null),
+    tasks = Object.create(null);
+  const getNote = (id) => {
+    const n = context.getNote(id);
+    if (!n) throw Error('NOTE_NOT_FOUND');
+    return structuredClone(n);
+  };
+  if (c.method === 'move_task') {
+    if (!context.hasTask(c.taskId)) throw Error('TASK_NOT_FOUND');
+    const current = context.placementOf(c.taskId)?.noteId ?? 'inbox';
+    if (current !== c.fromNoteId) throw Error('TASK_PLACEMENT_CONFLICT');
+    if (current === c.toNoteId) throw Error('SAME_PLACEMENT');
+    const destination = c.toNoteId !== 'inbox' ? getNote(c.toNoteId) : null;
+    if (current !== 'inbox') {
+      const source = getNote(current);
+      source.body.content = source.body.content.filter(
+        (b) => b.type !== 'task_slot' || b.attrs.taskId !== c.taskId
+      );
+      notes[current] = source;
+    }
+    if (destination) {
+      destination.body.content ??= [];
+      if (c.index > destination.body.content.length)
+        throw Error('INVALID_INDEX');
+      destination.body.content.splice(c.index, 0, slot(c.taskId));
+      notes[c.toNoteId] = destination;
+    } else if (c.index !== 0) throw Error('INVALID_INDEX');
+  } else if (c.method === 'edit_task') {
+    if (!context.hasTask(c.taskId)) throw Error('TASK_NOT_FOUND');
+    tasks[c.taskId] = {
+      title: c.title,
+      body: structuredClone(c.body),
+      properties: structuredClone(c.properties),
+    };
+  } else {
+    const note = getNote(c.noteId);
+    let body = c.body;
+    if (c.method === 'restore_note') {
+      const old = context.historyNote(c.noteId, c.version);
+      if (!old) throw Error('HISTORICAL_NOTE_NOT_FOUND');
+      body = old.body;
+    }
+    if (footprint(note.body) !== footprint(body))
+      throw Error('TASK_PLACEMENT_CONFLICT');
+    notes[c.noteId] = { ...note, body: structuredClone(body) };
+  }
+  return { notes, tasks };
+}
+export function setProperties(record, values) {
+  const p = record.get('properties');
+  for (const k of [...p.keys()]) if (!Object.hasOwn(values, k)) p.delete(k);
+  for (const [k, v] of Object.entries(values)) p.set(k, structuredClone(v));
+}
 export function reduce(s, c, store, extensionRoots = []) {
   const d = ydoc(s.payload);
   try {
-    const notes = d.getMap('notes'),
-      tasks = d.getMap('tasks');
-    if (c.method === 'move_task') {
-      if (!tasks.has(c.taskId)) throw Error('TASK_NOT_FOUND');
-      const current = placements(s)[c.taskId]?.noteId ?? 'inbox';
-      if (current !== c.fromNoteId) throw Error('TASK_PLACEMENT_CONFLICT');
-      if (current === c.toNoteId) throw Error('SAME_PLACEMENT');
-      if (c.toNoteId !== 'inbox' && !notes.has(c.toNoteId))
-        throw Error('NOTE_NOT_FOUND');
-      if (current !== 'inbox') {
-        const body = structuredClone(s.notes[current].body);
-        body.content = body.content.filter(
-          (b) => b.type !== 'task_slot' || b.attrs.taskId !== c.taskId
-        );
-        setBody(notes.get(current), noteSchema, body, d);
+    const plan = planEntity(c, {
+      getNote: (id) => (Object.hasOwn(s.notes, id) ? s.notes[id] : undefined),
+      hasTask: (id) => Object.hasOwn(s.tasks, id),
+      placementOf: (id) => placements(s)[id],
+      historyNote: (id, version) => store.root(version).state.notes[id],
+    });
+    for (const [kind, schema] of [
+      ['notes', noteSchema],
+      ['tasks', taskSchema],
+    ])
+      for (const [id, page] of Object.entries(plan[kind])) {
+        const record = d.getMap(kind).get(id);
+        record.set('title', page.title);
+        setBody(record, schema, page.body, d);
+        if (kind === 'tasks') setProperties(record, page.properties);
       }
-      if (c.toNoteId !== 'inbox') {
-        const body = structuredClone(s.notes[c.toNoteId].body);
-        body.content ??= [];
-        if (c.index > body.content.length) throw Error('INVALID_INDEX');
-        body.content.splice(c.index, 0, slot(c.taskId));
-        setBody(notes.get(c.toNoteId), noteSchema, body, d);
-      } else if (c.index !== 0) throw Error('INVALID_INDEX');
-    } else if (c.method === 'edit_task') {
-      const task = tasks.get(c.taskId);
-      if (!task) throw Error('TASK_NOT_FOUND');
-      task.set('title', c.title);
-      setBody(task, taskSchema, c.body, d);
-      const p = task.get('properties');
-      for (const k of [...p.keys()])
-        if (!Object.hasOwn(c.properties, k)) p.delete(k);
-      for (const [k, v] of Object.entries(c.properties))
-        p.set(k, structuredClone(v));
-    } else {
-      const note = notes.get(c.noteId);
-      if (!note) throw Error('NOTE_NOT_FOUND');
-      let body = c.body;
-      if (c.method === 'restore_note') {
-        const old = store.root(c.version).state.notes[c.noteId];
-        if (!old) throw Error('HISTORICAL_NOTE_NOT_FOUND');
-        body = old.body;
-      }
-      if (footprint(s.notes[c.noteId].body) !== footprint(body))
-        throw Error('TASK_PLACEMENT_CONFLICT');
-      setBody(note, noteSchema, body, d);
-    }
     const next = stateOf(d, extensionRoots);
     validateState(next, extensionRoots);
     return next;

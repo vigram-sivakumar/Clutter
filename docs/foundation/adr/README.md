@@ -31,4 +31,8 @@ not-run fields; current executions are in the evidence/review, not rewritten the
   Space version sets — **Proposed for bounded partition qualification**.
 
 [Current readiness](../architecture-readiness.md) identifies remaining gates. None
-of these records is an accepted production baseline; PK01–10 have not run.
+of these records is an accepted production baseline; PK01–10 now pass in the [headless profile](../r08-page-closure.md); native/editor/
+format/production gates remain open.
+
+- [F009](F009-scoped-core-implementation-entry.md): disposable Core/API module
+  implementation entry — **Proposed for I1 entry review**.

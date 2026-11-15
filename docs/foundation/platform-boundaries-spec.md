@@ -4,6 +4,11 @@ Revision 0.9, 2026-11-14. Conditional architecture proposal, not an implemented
 process model. D-04/D-14 and PL-01–PL-05 require experiment evidence. Existing
 production rules remain binding until an accepted ADR identifies replacements.
 
+Runtime naming update0.48: the [Space service](runtime-ownership.md) is the running
+Core application service, not an additional policy implementation. UI/CLI/MCP are
+peers over its API. Current [page proof](r08-page-closure.md) and [I1 entry](implementation-entry.md)
+separate bounded evidence from production platform acceptance.
+
 ## Selection principles
 
 The user explicitly permits replacing 100% of the current implementation.

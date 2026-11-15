@@ -1,23 +1,21 @@
 # Foundation roadmap
 
-Revision 0.47, 2026-11-15. This roadmap describes work and dependencies; the current
+Revision 0.48, 2026-11-15. This roadmap describes work and dependencies; the current
 checkpoint/authorization is in [START-HERE](START-HERE.md). Product scope is in
 product-contracts.md, not independently redefined here.
 
-## Current deliverable — review23
+## Current deliverable — proof24 and I1 entry plan
 
-[Decision-readiness review](architecture-readiness.md) recommends direct PM/Y,
-shared TS semantic core, one headless Space authority, SQLite and external files.
-It distinguishes bounded proofs from G-Q production blockers; F006/F007 are updated
-but remain Proposed. [F008](adr/F008-page-roots-and-atomic-version-sets.md) proposes
-per-page engine state with atomic Space version sets, not aggregate per-keystroke
-saves or separate databases. Coherent historic task/media reads/pins are required.
-Next deliverable: frozen [PK01–10](page-partition-contract.json), currently not-run,
-with structural amplification counts and existing regression controls. No new runtime
-tests in23, empty production package scaffolding, main changes or manual replay.
-Remaining host/runtime, native file durability, discovery/grants/security, format/
-migration, D11 budgets/scale and supersession gates stay explicit before acceptance.
-Historical progress entries below preserve prior checkpoints, not current next actions.
+[PK01–10](r08-page-closure.md) pass headlessly through shared planners/Store commits:
+per-page writes, atomic task move, coherent old/current task/cover snapshots,
+transitive pins/leases,10 crash boundaries plus interrupted import and API parity.
+Regressions: entity14/media12/Node84/two old headless ports/one native-metadata port.
+No new native/browser or performance result. Aggregate controls stay intact.
+Next: [scoped implementation entry](implementation-entry.md), Proposed F009, then
+shared Core/API plus disposable desktop/CLI/MCP page slice. Actual per-page editor
+binding/protection is part of I1, not inferred from PK. No production/user-vault
+cutover until existing G-Q native/runtime/format/budget/security/migration gates.
+Historical progress below records earlier checkpoints, not current next actions.
 
 ## Progress and next deliverables
 

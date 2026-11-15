@@ -15,6 +15,11 @@ Current runtime/host/budget blockers are in [readiness](../architecture-readines
 
 ## Proposal
 
+“Space service” names the running Core application service with one Vault adapter.
+Historical authority/owner terms refer to that same component, not another core.
+[Runtime ownership](../runtime-ownership.md) clarifies UI/CLI/MCP peer calls.
+
+
 Qualify an on-demand per-Space packaged JS authority running the same TypeScript
 semantic core for every interface. One exclusive owner orders commands and
 coordinates accepted engine state with persistence. All windows, CLI and MCP are

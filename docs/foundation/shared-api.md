@@ -1,5 +1,12 @@
 # Shared command and vault API
 
+Current runtime clarification: [UI, CLI and MCP are peers](runtime-ownership.md),
+calling one running Core/Space service and the same handlers. UI does not execute
+CLI commands; MCP does not need to invoke CLI. Vault adapter commits the Core's
+plan and has no second business policy. Proof24's head API is a bounded test surface,
+not the final I1 production catalogue; see [entry plan](implementation-entry.md).
+
+
 Status: proposed logical contracts, not existing methods or executable commands.
 Requirements: P-02, P-06, P-08, P-09, P-13, P-16 through P-35 as applicable.
 

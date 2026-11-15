@@ -26,6 +26,9 @@ const files = [
   ...readdirSync('joined')
     .filter((n) => /\.(mjs|md|json)$/.test(n))
     .map((n) => 'joined/' + n),
+  ...readdirSync('pages')
+    .filter((n) => /\.(mjs|md|json)$/.test(n))
+    .map((n) => 'pages/' + n),
   ...readdirSync('media')
     .filter((n) => /\.(mjs|md|json)$/.test(n))
     .map((n) => 'media/' + n),
@@ -51,7 +54,7 @@ const lock = JSON.parse(readFileSync('package-lock.json', 'utf8'));
 const manifest = {
   candidate: 'R07-PM-PUBLIC-02',
   alternatives: ['R07-PM-ORIGIN-02'],
-  iteration: 'R08-22-external-media-closure-2026-11-15',
+  iteration: 'R08-24-page-roots-2026-11-15',
   date: '2026-11-14',
   scope:
     'Exploratory two-view candidates and native host source; native compilation/execution must be recorded separately',
@@ -71,6 +74,8 @@ const manifest = {
   schema:
     'src/schema.mjs; minimal R02-derived semantic subset, not canonical Clutter schema',
   profiles: {
+    pages:
+      'Proof24 per-page Y payloads, delta-only Space ledger, one shared commit engine/semantic planner, coherent version-set pins/leases; ten headless PK cases, no new EditorView/native/performance/production claim.',
     media:
       'Build22 external content-addressed PNG/PDF publication before SQL, note/task body/cover associations, retained-root file closure; shared Store extensions, Linux process-crash proof only; no renderer/power-loss/Mac flush acceptance.',
     entities:

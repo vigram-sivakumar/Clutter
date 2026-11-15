@@ -27,6 +27,8 @@
     "test:entities": "node test/entities.mjs",
     "test:media": "node test/media.mjs",
     "test:media-ports": "node test/media-ports.mjs",
+    "test:pages": "node test/pages.mjs",
+    "test:page-native-port": "node test/page-native-port.mjs",
     "native:joined:reopen": "node joined-native/reopen-current.mjs"
   },
   "dependencies": {

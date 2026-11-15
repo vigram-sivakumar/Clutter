@@ -1,0 +1,25 @@
+{
+  "scope": "Headless Store-port regression; no EditorView/browser pass inferred",
+  "results": [
+    {
+      "profile": "snapshot",
+      "status": "pass",
+      "checks": [
+        "RPC/CLI/MCP one receipt",
+        "failed write unchanged",
+        "uncertain commit resolution",
+        "restart closure"
+      ]
+    },
+    {
+      "profile": "joined",
+      "status": "pass",
+      "checks": [
+        "RPC/CLI/MCP one receipt",
+        "failed write unchanged",
+        "uncertain commit resolution",
+        "restart closure"
+      ]
+    }
+  ]
+}

@@ -34,6 +34,9 @@ export function stateOf(d) {
     assets: Object.fromEntries(d.getMap('assets').entries()),
     assetLinks: Object.fromEntries(d.getMap('assetLinks').entries()),
   };
+  return validateAssociations(s);
+}
+export function validateAssociations(s) {
   const used = new Set(),
     covers = new Set();
   if (
@@ -208,6 +211,12 @@ export const commandSchema = {
     }),
   ],
 };
+export function admitImport(c, { hasPage, hasAttachment, pageLinks }) {
+  if (!hasPage(c.pageId)) throw Error('PAGE_NOT_FOUND');
+  if (hasAttachment(c.attachmentId)) throw Error('DUPLICATE_ATTACHMENT');
+  if (c.role === 'cover' && pageLinks.some((l) => l.role === 'cover'))
+    throw Error('COVER_EXISTS');
+}
 export async function reduce(s, c, store) {
   if (entity.reduceMethods.includes(c.method)) {
     const next = entity.reduce(baseState(s), c, store, roots),
@@ -223,15 +232,13 @@ export async function reduce(s, c, store) {
     const assets = d.getMap('assets'),
       links = d.getMap('assetLinks');
     if (c.method === 'import_asset') {
-      if (!pageExists(s, c.pageId)) throw Error('PAGE_NOT_FOUND');
-      if (links.has(c.attachmentId)) throw Error('DUPLICATE_ATTACHMENT');
-      if (
-        c.role === 'cover' &&
-        Object.values(s.assetLinks).some(
-          (l) => l.pageId === c.pageId && l.role === 'cover'
-        )
-      )
-        throw Error('COVER_EXISTS');
+      admitImport(c, {
+        hasPage: (pageId) => pageExists(s, pageId),
+        hasAttachment: (id) => links.has(id),
+        pageLinks: Object.values(s.assetLinks).filter(
+          (l) => l.pageId === c.pageId
+        ),
+      });
       const { digest, meta } = await publish(
         store,
         c,

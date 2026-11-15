@@ -1,10 +1,18 @@
 # Architecture decision readiness
 
-Revision0.47, 2026-11-15, review23. This is the current recommendation and readiness
-assessment, not accepted production ADRs. No runtime tests are executed by this
-review; all proof results below refer to retained evidence. Product requirements
+Revision0.48 update, 2026-11-15; review23 plus proof24 disposition. This is the current recommendation and readiness
+assessment, not accepted production ADRs. Review23 executed no runtime tests; proof24 execution is linked separately,
+with exact retained results and limits. Product requirements
 remain authoritative in product-behaviour.md. No implementation is retained merely
 because it already exists.
+
+## Proof24 update
+
+The [page proof](r08-page-closure.md) now passes PK01–10 headlessly, including per-page
+writes and coherent snapshots/pins. No actual EditorViews/new native run, production
+format or budget pass follows. Next [I1 entry](implementation-entry.md) / Proposed
+F009 clarifies when module implementation starts and what still blocks real data.
+Earlier proposed-gate wording below describes review23; execution evidence is separate.
 
 ## Recommendation
 
@@ -18,8 +26,8 @@ is later. Its presence does not accept live collaboration or provider reconcilia
 Recommend **per-page engine state inside one Space database**, not a database per
 page and not a whole-Space Y.Doc saved for every keystroke. A single SQLite
 transaction can update several page heads, placements/projections and the original
-operation receipt. This production layout is a new candidate requiring the next
-bounded proof; build21/22 proved the semantics with a coarse aggregate root.
+operation receipt. This candidate now has bounded PK evidence; actual per-page editor binding, final
+format and G-Q remain open. Build21/22 remain coarse aggregate controls.
 That distinction must remain visible. No new format is accepted by this review.
 
 Keep native mechanisms behind platform ports. Rust is suitable as a proposed
@@ -135,7 +143,7 @@ more writers or processes. Explicit external targets never rely on a focused not
 | Gate | Current disposition | Required before crossing it |
 | --- | --- | --- |
 | Shared mechanism recommendation | Supported by bounded evidence | Keep listed limits and fallback; not blanket acceptance |
-| Production page/history partition | Not qualified | Execute [PK contract](page-partition-contract.json), coherent version-set reads/pins and multi-page atomic closure |
+| Production page/history partition | Headless PK passed; production format open | Actual editor binding, final format/retention and remaining G-Q; see [page result](r08-page-closure.md) |
 | Runtime/host/platform baseline | Not selected | Installed launch/grants/alias fencing, actual native flush contract, reference-host footprint/startup; Tauri not inferred from WK |
 | Budgets/scale | Proposed and unmeasured | Fix D11 host/workload/percentiles before representative runs; add Space page-count and active-Space dimensions missing from current recipes |
 | Initial native format | Not frozen | Per-page codec/envelope, root/dependency manifests, historical decoders, migration/rollback/export and unknown-content handling |
@@ -150,14 +158,14 @@ actual Windows packaging is later, not proven by portable TypeScript alone.
 
 ## Implementation entry sequence
 
-1. Next: one bounded per-page/atomic-commit/version-set proof under foundation,
-   [PK01–10](page-partition-contract.json). Preserve aggregate controls. No UI redesign
-   or broad new engine search; only reopen a choice for a concrete failing gate.
+1. PK01–10 now pass headlessly. Next is [F009/I1 entry](implementation-entry.md):
+   concrete module/catalogue/port contracts and disposable-data enforcement, then
+   the shared Core/API slice. No broad engine search or repeated native session.
 2. Resolve runtime/native durability, format and D11 blocking evidence alongside
    that scoped architecture review. Publish an accepted successor with precise
    impact/migration boundaries only when its required gates pass.
-3. After scoped baseline acceptance, extract model/contracts/engine/authority ports
-   and a disposable-vault vertical slice using those boundaries. Desktop, CLI and
+3. After scoped I1 entry adoption, implement model/contracts/engine/Space-service ports
+   and the disposable-data vertical slice. This is not full G-Q or real-vault acceptance. Desktop, CLI and
    MCP join that slice together; do not implement desktop policy then copy it later.
 4. Permit real-vault migration only after validated import/export, backup/rollback,
    protected pending work and platform durability/grants. Legacy code stays isolated
@@ -166,5 +174,6 @@ actual Windows packaging is later, not proven by portable TypeScript alone.
 No speculative feature scaffolding or empty package tree is created by this review.
 No production ADR is superseded. F006/F007 remain Proposed, now with reviewed
 evidence; [F008](adr/F008-page-roots-and-atomic-version-sets.md) records the next
-partition proposal. This is a concrete decision package, not a claim that all
+partition proposal and its current bounded evidence. F009 separately proposes I1
+entry. This is a concrete decision package, not a claim that all
 qualification or product implementation has finished.

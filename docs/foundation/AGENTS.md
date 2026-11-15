@@ -136,7 +136,7 @@ the same page ID operations as notes. Tiny PNG/PDF files are source test fixture
 Build22 supports exact20/21 since21 application unconfirmed. Never touch main,
 commit generated objects/stages or discard native sessions/repair backup.
 
-## Current checkpoint — revision0.47 / review23
+## Historical checkpoint — revision0.47 / review23
 
 User confirms22 applied/done. Review23 is docs/static evidence review only over
 exact22. START-HERE/readiness/F008 own next bounded PK01–10 proof; all PK not-run.
@@ -148,3 +148,19 @@ No broad research/native replay, source packages or new performance claims in23.
 D11 targets/reference-host/Space-size dimensions remain proposals; source scale risk
 is not a benchmark failure. Before production, close exact G-Q and rule-impact gates.
 Current main/source/user data/backups remain untouched; use one foundation branch.
+
+## Current checkpoint — revision0.48 / proof24
+
+User confirms23 done. PK01–10 now pass headlessly with shared task/media planners
+and one Store transaction path, not new per-interface reducers. Actual native/
+EditorViews/new context-update/protection route NOT qualified by PK. Source entity
+planners and validators were factored once, reused by old aggregate and page ports.
+User clarified UI/CLI/MCP are peers and objects to duplicate owners. Use “Space
+service” for the one running Core application service plus Vault adapter; authority/
+owner are historical synonyms, not another component. Read runtime-ownership.md.
+Next is F009 scoped I1 entry decision and concrete Core/API/catalogue/port contract,
+then disposable-only three-interface implementation. No broad research/manual loop
+or empty packages. F009 remains Proposed; G-Q still blocks real-vault writes, final
+format/native/discovery/grants/flush/budgets/migration and full production acceptance.
+Read START-HERE/implementation-entry/r08-page-closure for exact next steps. All old
+manual passes/evidence/PK/JG/budgets retained; no main/production/agent commit/push.

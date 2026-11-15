@@ -3,6 +3,23 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.48 — 2026-11-15
+
+- Implemented frozen PK01–10 in a marked headless page profile: independent Y page
+  payloads, changed-root Space ledger, one atomic commit for page heads/indexes/outcome.
+- Task move/restore planners, page/property/association validators and media
+  admission are shared with aggregate controls. No second transaction engine/policy.
+- All ten PK cases pass with10 multi-page crash boundaries and interrupted import;
+  historic/current task/cover contexts and transitive pins/leases survive restart.
+  One page edit encodes one page; counters are not a performance acceptance result.
+- Regressions pass: entity14, media12, Node84, two older headless profiles and one
+  native-context metadata callback. No new browser/native/real-vault claim.
+- Clarified Space service = running Core application service, UI/CLI/MCP peers,
+  Vault adapter mechanisms only. Added concrete I1 implementation entry plan and
+  Proposed F009; actual per-page editor binding/protection remains I1 work.
+- User confirms23 done. Same foundation branch, no production/main/lockfile/previous
+  evidence/frozen contract/budget changes, agent commit/push or manual replay.
+
 ## 0.47 — 2026-11-15
 
 - Completed architecture decision-readiness review of retained joined/native/entity/
