@@ -51,3 +51,11 @@ packages/automation/reports/
 .cache/
 .temp/
 .tmp/
+
+# Generated foundation experiment output (source/docs remain tracked)
+/docs/foundation/experiments/r07-two-view/artifacts/
+/docs/foundation/experiments/r07-two-view/joined-native/out/
+/docs/foundation/experiments/r07-two-view/native-macos/out/
+/docs/foundation/experiments/r07-two-view/dist/
+/docs/foundation/experiments/r07-two-view/node_modules/
+/docs/foundation/experiments/r07-two-view/.lab-data/
