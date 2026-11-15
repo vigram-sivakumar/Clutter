@@ -1,5 +1,55 @@
 # Native test progress and next action
 
+## Native report reviewed — 2026-11-15
+
+Uploaded joined-native-2026-11-15T11-38-29-475Z.json retained verbatim with SHA256
+and review in evidence/r08-native-manual-2026-11-15. Report identifies build20,
+Mac arm64, runtime24.22.1 and SQLite3.53.4; captures JN01/02 pass, HN01/02 pass,
+last accepted revision27 with equal A/B and pending0/0, PROTECTED content.
+Report ends before later RESTART/reconnect/CLI-read conversation: only owner-connect
+and fail_protection-on events captured. JN03/04 retain user-reported passes; do not
+invent instrumented evidence or demand repeat tests for missing picker captures.
+No conflicting failed manual verdict found. Native reload still not manually exercised.
+Next substantive gates: canonical task move/history closure JG12, then external
+PNG/PDF retained-root publication JG13. No production/stack acceptance yet.
+
+
+## App-closed continuity confirmed — 2026-11-15
+
+User confirms the same-session inspectCurrent/packaged CLI read after Command-Q
+printed RESTART saved: true. Numeric revision/output not supplied. JN-04 now has
+bounded user-reported pass for owner restart and app-closed accepted document read.
+JN-01 through JN-04 all have user-reported passes; preserve these without requiring
+repeat runs due to picker/verdict mistakes. Raw native JSON review is next, before
+closing native qualification. Do not infer distribution, IME, VoiceOver, entity/
+asset JG-12/13, production readiness or stack acceptance from these four cases.
+
+
+## Latest manual checkpoint — 2026-11-15
+
+- JN-02 user-reported pass: actual bottom-right Tab stays put after user-added row;
+  Shift-Tab caret at prior cell end; Escape/Shift-Tab/Enter modes; add-row keeps active
+  cell/focus and immediate X insertion. No raw native report reviewed.
+- JN-03 initial close with only Fail protection enabled was expected, not a failure.
+  With Fail saves + fresh PROTECTED + Fail protection, native close was blocked (PASS).
+  Disabling Fail protection allowed close; Experiment/Reopen retained PROTECTED.
+  Disabling Fail saves and Resume A propagated text; user supplied status revision36,
+  SQLite owner, pending A:0. No B queue counter was supplied; do not invent one.
+- JN-04 restart portion user reports RESTART visible in both views after Pause A,
+  typing, Protect pending, Crash/reconnect, Resume A. App-closed same-Space CLI read
+  remains the next check. Do not rerun earlier steps or claim all JG-11 accepted.
+
+
+## User-reported update — 2026-11-15
+
+- Build20 alternating-cell whitespace click correction: user confirms fixed on Mac.
+- JN-01: user reports success after LOCAL insertion/shared visibility, real Close/reopen A,
+  and Command-Z/Shift-Command-Z with HEADLESS preserved. Bounded manual report;
+  raw native JSON has not been reviewed. No broader native acceptance inferred.
+- Next: JN-02 table keyboard/focus, in small steps. Start final-cell Tab boundary,
+  then Shift-Tab to preceding cell with caret at text end. No broad old-suite rerun.
+
+
 ## Latest — build20, 2026-11-14
 
 - User reports recovery completed; screenshot confirms mounted A/B, not additional

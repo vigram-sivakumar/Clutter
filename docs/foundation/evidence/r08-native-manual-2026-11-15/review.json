@@ -1,0 +1,54 @@
+{
+  "date": "2026-11-15",
+  "source": "joined-native-2026-11-15T11-38-29-475Z.json",
+  "sha256": "59340d8f33c642e235a9bb89f723e7b7f2dfbb517d3a43e6f35314619d5a01f8",
+  "build_iteration": "R08-20-table-padding-click-2026-11-14",
+  "observed": {
+    "platform": "darwin arm64",
+    "os": "Version 26.6.2 (Build 25G83)",
+    "runtime": "v24.22.1",
+    "sqlite": "3.53.4",
+    "manual_attempts": [
+      {
+        "id": "JN-01",
+        "status": "pass",
+        "captureSucceeded": true
+      },
+      {
+        "id": "JN-02",
+        "status": "pass",
+        "captureSucceeded": true
+      }
+    ],
+    "last_revision": 27,
+    "last_pending": {
+      "A": 0,
+      "B": 0
+    },
+    "last_context_documents_equal": true,
+    "headless_checks": [
+      "HN-01 pass",
+      "HN-02 pass"
+    ],
+    "last_content_contains": "PROTECTED"
+  },
+  "manual_user_reports": {
+    "JN-01": "pass",
+    "JN-02": "pass; includes final-cell boundary after added row and focus preservation",
+    "JN-03": "pass; initial protection-only close expected, then both fault flags block close; protection success/reopen/resume confirmed",
+    "JN-04": "pass; restart converges, post-quit same-session CLI finds RESTART"
+  },
+  "capture_limits": [
+    "Report ends before later restart/RESTART check; those outcomes retained as user observations, not fabricated report events",
+    "Only fail_protection event is present; no captured failed-save close or owner restart sequence",
+    "Report error events absent does not establish later failures were absent",
+    "Mac native reload safety not explicitly manually exercised",
+    "Raw native screenshot/pointer and broad product/distribution/IME/accessibility acceptance not implied"
+  ],
+  "disposition": "Accept four bounded manual case reports; no repeat due to missing verdict captures. Report supports build20 native runtime and JN01/02, does not trace entire later sequence. JG11 partial instrumented plus manual evidence; frozen contract unchanged.",
+  "next": [
+    "JG-12 canonical task identity/move/historical restore proof",
+    "JG-13 external PNG/PDF publication and retained historical asset closure"
+  ],
+  "no_retest_required_now": true
+}

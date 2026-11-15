@@ -3,6 +3,21 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.45 — 2026-11-15
+
+- Preserved JN01–04 manual passes and original uploaded native report; separated
+  captured JN01/02/build/runtime evidence from later user-reported close/restart/CLI.
+- Added JG12 proposed normalized task/Y representation: one canonical task page,
+  read-derived unique note placement, atomic same-Space move, inbox independence
+  and conservative historical note restore without rewinding/reclaiming task data.
+-14 Linux cases pass, including six real owner-death boundaries, retry deduplication,
+  historic pins/projection, invalid identity/type refusal and RPC/CLI/MCP parity.
+  Shared Store/host remain unchanged. No native task binding or production schema claim.
+- Consolidated START-HERE into one current checkpoint and next JG13 protocol/proof;
+  updated handoff rules after user's separate main generated-artifact repair.
+- Single foundation branch; no production/old evidence/lockfile changes, commit/push
+  or provider enablement. Existing frozen JG contract remains unchanged.
+
 ## 0.44 — 2026-11-14
 
 - Recorded successful visible reopener and new user-reproducible alternating-cell

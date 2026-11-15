@@ -152,3 +152,14 @@ views and an independent SQL owner, plus retained regressions. G-J is boundedly
 qualified; no full stack accepted. Next JG-11 native/installed-headless candidate;
 JG-12/13 model/external-asset and other G-Q gates remain. Frozen JG specification
 not-run fields record its original state; execution evidence is separate.
+
+## Current qualification update — revision0.45
+
+JG01–10 executed in15; native JN01–04 passed by user report in20, with raw report
+review recording exact captured limits. [Entity proof21](r08-entity-closure.md)
+passes14 bounded cases for proposed canonical tasks/unique placement and atomic
+multi-note roots. Conservative note restore refuses ownership changes and does
+not rewind independent task bodies. Coarse aggregate root, partitioning, task-page
+restore UX, native entity binding and cross-note undo remain unaccepted. F006/F007
+stay Proposed. Next JG13 external PNG/PDF/history closure, then remaining G-Q gates;
+no silent production supersession or full JG11/distribution approval.

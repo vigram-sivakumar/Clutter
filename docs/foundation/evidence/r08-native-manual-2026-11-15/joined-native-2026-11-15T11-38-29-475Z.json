@@ -1,0 +1,2449 @@
+{
+  "build" : {
+    "files" : {
+      "bin\/clutter-lab" : "3890188ac4cc936f88a6e2df3d4854aafc0b316eeef630bdbf5d22a1c4af268b",
+      "bootstrap.js" : "e3aa07946dbe18edcc0b1763730d57158136e3c405ec082f193972d262ba3cdb",
+      "launcher.mjs" : "a4e7c270d2fb6dbb7af94480bf4fadca6d25a57abaa2573c4e70e9bebf1ee4b7",
+      "owner.mjs" : "d2d272082f53ee7dd00957799231af3058b4744cae8a46aafe3cc6e25802dc30",
+      "runtime\/node" : "cd9da8ecb0ccf4b18048b6d0ce00dc0aa9fb24ab3e54dd10aeff74c255c6f5f5",
+      "service.mjs" : "c9e005c1400651bbbf1c9cb8079565db808649741cc26ae6fa029f923a1bf1dc",
+      "web\/origin.html" : "bc0d4288e5876289817872f69b5afca326fc8b58270cf22b97c5e8ea3eb1c4f4",
+      "web\/origin.js" : "77369dc72b646a509057eca1fded7ffbb73930cdcb8206571f03af7cade674fa",
+      "web\/prosemirror.css" : "1234171efd99cd16d1a6754c0f6586d0d8b69573432aff2e671cb6a26c9eaa57",
+      "web\/style.css" : "0fa3cf15d94a56f2a8adafef2520704b82383a878cd11cf81ee5248037590cf4",
+      "web\/tables.css" : "3fec20590b901e5ecf7d17691df2b053e836ed052894632a199d07081d3019a9"
+    },
+    "format" : "clutter-joined-native-bundle-v1",
+    "nativePreflight" : {
+      "arch" : "arm64",
+      "checks" : [
+        {
+          "name" : "os",
+          "reason" : null,
+          "status" : "pass",
+          "value" : "26.6.2"
+        },
+        {
+          "name" : "compiler",
+          "reason" : null,
+          "status" : "pass",
+          "value" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/bin\/swiftc"
+        },
+        {
+          "name" : "sdk",
+          "reason" : null,
+          "status" : "pass",
+          "value" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX26.5.sdk"
+        },
+        {
+          "name" : "signing-tool",
+          "status" : "pass"
+        }
+      ],
+      "nativeAcceptance" : "not-run",
+      "platform" : "darwin",
+      "ready" : true
+    },
+    "runtime" : {
+      "archive" : {
+        "file" : "node-v24.22.1-darwin-arm64.tar.gz",
+        "sha256" : "89c682593d76cd44233fa53b1563264e7de9cbb189cad169135c5b4fadfbc0a7"
+      },
+      "version" : "v24.22.1"
+    },
+    "signing" : "ad-hoc, not notarized or sandbox\/distribution acceptance",
+    "source" : {
+      "adapters" : "Legacy file adapters remain independent controls. Live adapters reach the browser via the test relay; durable adapters reach a real SQLite owner directly. CLI\/MCP share framing\/transport and owner domain logic. No production discovery\/grants\/takeover implemented.",
+      "alternatives" : [
+        "R07-PM-ORIGIN-02"
+      ],
+      "candidate" : "R07-PM-PUBLIC-02",
+      "date" : "2026-11-14",
+      "dependencyLockSha256" : "0ab21d88bb3982a9f31691b739f3b192d320bdf278b1a63fd75e1b66eecbc5f5",
+      "environment" : {
+        "arch" : "arm64",
+        "node" : "v24.11.0",
+        "os" : "darwin",
+        "release" : "25.6.0"
+      },
+      "histories" : "Per editing context, preserved across view detach; not persisted across host restart. Foreign accepted steps rebased via pinned collab plugin. Guard is an experiment, not accepted selective undo design.",
+      "iteration" : "R08-20-table-padding-click-2026-11-14",
+      "persistence" : "Editor candidates retain their MemoryStore\/browser localStorage and legacy FileStore fixtures. Snapshot durable\/ and joined Y\/native profiles have separate marked stores and share the same Store\/host; actual joined editors use the real Y owner. No production or power-loss qualification.",
+      "profiles" : {
+        "control" : "Archived legacy table-key profile: CT-01 raw; CT-02 changes only selection preflight. Neither defines current table policy.",
+        "durable" : "Separate P-SQL proof: real child-process exclusive SQLite owner; atomic document-version\/outcome, protected drafts, pinned roots and tiny in-DB blobs. Browser projections\/CLI\/MCP share that owner; full editor\/native integration not qualified. Exact SQLite build\/readback in durable-results-final.json.",
+        "guarded" : "Default Context plus conservative history-guard.mjs; refuses foreign deletion\/opaque overlap",
+        "joined" : "R08-15: two real PM\/Y views use a remote read cache\/provisional contexts; a real headless process stages accepted Y bytes and commits root\/receipt through common SQLite Store before publication. JG-01–10 run separately; native\/entity\/external-asset gates remain open.",
+        "joinedNative" : "Runner16 prepared: checksum-pinned Mac Node, separate Swift\/WK host, same-user synthetic bootstrap\/context handoff. Linux packaged helper checks only; no Mac archive\/SDK\/signing\/WK result or production security\/host acceptance.",
+        "keymap" : "src\/browser.mjs: shared confirmed table-command.mjs; caret-end Tab\/Shift-Tab, same-column Enter\/bottom no-op, Shift-Enter hard break, final Tab no-op; explicit table-view handles. Mod-z\/redo and Mod-b retain candidate history.",
+        "origin" : "Separate OriginAuthority accepted Y.Doc and per-context provisional replicas. y-prosemirror 1.3.7 sync\/undo plugins, Yjs 13.6.33, no prosemirror-history plugin in this candidate. Remote deliveries have an untracked origin. No server\/provider transport.",
+        "plugins" : [
+          "history depth=100, newGroupDelay=500ms",
+          "collab with explicit context origin and current version",
+          "explicit keymap (including guarded undo\/redo)",
+          "baseKeymap",
+          "tableEditing"
+        ],
+        "raw" : "Unpatched pinned ProseMirror libraries; guard disabled explicitly in diagnostic test only",
+        "selection" : "Focused native TextSelection mapped through public posAtDOM before key commands; no timers\/private observers; skip composition, node\/cell model selections and nested controls",
+        "tablePolicy" : "table-interaction-contract.md confirmed 2026-11-14; origin structural handle history uses conservative public StackItem.meta guard after foreign changes; raw history control route retained."
+      },
+      "qualification" : "Exploratory targeted alternatives only. Raw controls remain failing. Full native\/semantic\/lifecycle\/performance qualification is still blocked; see follow-up findings and separate evidence. The Origin candidate has ephemeral live CLI\/MCP ingress; the separate joined\/ profile connects actual PM\/Y views to the durable process; production native\/entity\/media gates remain open.",
+      "representations" : "Authority accepted doc; immutable engine caches\/provisional input in contexts; snapshot\/recovery records deliberately serialize protected copies.",
+      "schema" : "src\/schema.mjs; minimal R02-derived semantic subset, not canonical Clutter schema",
+      "scope" : "Exploratory two-view candidates and native host source; native compilation\/execution must be recorded separately",
+      "sourceHashes" : {
+        "build.mjs" : "83beedbb32c992c890bdfd773f2977a04a51efb014a6f299ff943e4a45ebb19f",
+        "cli.mjs" : "bc9731e9896d1059ef5abcd3e69b936809d9dc02d2ee3f8b3be281c1a89506b0",
+        "control.html" : "0d96d9b1a54627f0ed19f0d6b6da2b6256ae68dd78edc99b0489ccde4f1e50e2",
+        "durable\/cli.mjs" : "4b947be0e25ccae8c5398b1947888e45230454727d0e8b8a82876ee86fb1b891",
+        "durable\/contract.json" : "48d482fc221e81bf94df178573b760f19304d3671484cb4c27b09eab376cc09e",
+        "durable\/desktop.html" : "188351ae1ab23fc1932d04c3700fa3d51fa76aa555850e6d5e489c2a127e7222",
+        "durable\/desktop.mjs" : "322e0177341da46aa89525e25a634084a571fd6a1b9f9887a307f66ffcc2ee46",
+        "durable\/host.mjs" : "ee12880f549e478a052ddd2ae6549feddd7c23c68d54ce01f75b0da7c006de5b",
+        "durable\/mcp.mjs" : "1e6dbcae34197b26d5e3ac33c2a3cde3e5a71d490ba430fd1d9de3c2106f27ee",
+        "durable\/model.mjs" : "eae200823a99b666175fa1f38b0e079ed1aace6d4e304b0dace343880f39239d",
+        "durable\/owner.mjs" : "94ae7b671552965dd1a860f770b7e5b2b1e8b3ddfdd562addf7309c3bc47728a",
+        "durable\/README.md" : "39d8a322596610be2b7ed2b0fb5c6ed242606b451b9269c07a7bfc5b32eaedba",
+        "durable\/store.mjs" : "031c1bd739ded12bcfd2e68bdb97ae1ee4e9d023250550daf9d595d723042273",
+        "index.html" : "1c33d835f0011fab43805391e6bed15d91b3a1aba6cb7b46c8bc66bbed5ee03d",
+        "joined-native\/bootstrap.js" : "e3aa07946dbe18edcc0b1763730d57158136e3c405ec082f193972d262ba3cdb",
+        "joined-native\/browser-entry.mjs" : "970e846b39fb98f3e12140f509fd303ac819cb860434d7626d9878cece5d4b80",
+        "joined-native\/cases.json" : "c62e183edc9f4a91b3d4d2cbef33bc4c961ad28797f0b3305e50ecfe6db692ce",
+        "joined-native\/discovery.mjs" : "ce16b11af2003af635b6d57fef2fed6b21b0a7b8d643a78f43f1965e8fbc9916",
+        "joined-native\/launcher.mjs" : "1767c49fe0c76f7cd146677f78a490ade68b8f2b64756d5e47413cc176488ad3",
+        "joined-native\/Main.swift" : "f8ee40938e8ee3dcbc29b14e6506fe8ec5179dfa318a0d43fe79ce540cb4b5ea",
+        "joined-native\/model.mjs" : "4e24d7f474c7e8a90b891104f5be8fd114b1fe70526a2970a0157d8ca3322743",
+        "joined-native\/owner-entry.mjs" : "8676a46bf9a3fb14b57b9b885a7c28ddd288959c390a3da6d3a1027f599b8603",
+        "joined-native\/pack.mjs" : "d44291abbcf1284c48f95357a85062598f42b29d9f7bddccdc300e09e05f9315",
+        "joined-native\/preflight.mjs" : "a3037a5310e0ea22a41b69072831b2ccbe8d0dd525178a840f02c42e2856e248",
+        "joined-native\/private-session.mjs" : "d9a27769ff145f2b9e48d52b5295a58c5c39ddcf1d5b6341b715c9e079522ef3",
+        "joined-native\/README.md" : "d520abb98c50eceb441426b8e526519f3bf623c9e06afb3f6b929d692ea939fd",
+        "joined-native\/reopen-current.mjs" : "eebdf63b5e3798d61b4f88e934e292dce5a641fe118249ce26e011dfca59edc6",
+        "joined-native\/run.mjs" : "dec0041068f6c0e4f9a957dd5294fed169149032a740cac42557d311cdec5cd4",
+        "joined-native\/runtime-lock.json" : "374eeb2a6138d273a3b950457e68231def3c0cb79966803880ad770b5275ce91",
+        "joined-native\/runtime.mjs" : "684a312481f02fa1d76e92e9d6ae80253d38d6398695db4eec91540d7094fd1e",
+        "joined-native\/service.mjs" : "f1abdfef4abd18976f92b8ba9b59f631829a496329a1b3562c779c3825a5c8fc",
+        "joined-native\/smoke.mjs" : "dd958dd084f23501c994922f3f62ab450d5120835ed5a895abb35cf1f90948f8",
+        "joined\/bootstrap.mjs" : "350f6dcf08ef6b8cc5b767efe61b4c77566f4d8f82943b734268ef88c6344b65",
+        "joined\/browser.mjs" : "879013b5f0b2cadd5eb064b740163b9353c303ddccae8412fc8643b62175e085",
+        "joined\/codec.mjs" : "b8c929acf2abe31d112529a897acd3be0a80dde1df3fda52e9060825e8f7f412",
+        "joined\/FORMAT.md" : "cbb3e1752b2586f4409bfdbe89d6f6910ac96564e24716256aaf35d377bdeefa",
+        "joined\/mcp.mjs" : "7b48982df28cc8bccdab055370b14f45e84ba0da7fcf1a3dd6fb9d5f454d8e1c",
+        "joined\/owner.mjs" : "a08b2266da3a5fdedff8b496ca382cd2935203ae8296f9723242121f1d1ab992",
+        "joined\/README.md" : "b164f47190cac0e568b531c7b78630ca8f2f9dc9879fc1583efb168e0c1ebb2c",
+        "joined\/remote-authority.mjs" : "df72d6260efc6e505162cf8ec85cceaebff7f733ff3dba190c1765f10a768425",
+        "live-cli.mjs" : "1aa5bb9a50572fb59dc52363a39397b6c9f6078e57ee3cc832d0e510e0e06c07",
+        "live-mcp.mjs" : "d55e135bcf3e6e3ec2a0de258a39175afd3a354c2920ac93a854f59563263ef8",
+        "manifest.mjs" : "4f08a61966bbf8082a247f067d94dfc802767b4385fca855d235205f24fb1190",
+        "matched-comparison-contract.json" : "67ecb1e8b09aa5389e35b3ae2b84b2d6f7609e58cec09c48492a66e3ad9a9b86",
+        "mcp.mjs" : "8c684580d0b9778ec6c72d4aa2f1147de234758eb7305ab4021866cd4b2570f4",
+        "native-macos\/capture.js" : "9544de09f4199f21ea3eb2743851cedd24bb9a2b60f14964ba15eb2b986d54c2",
+        "native-macos\/cases.json" : "325b5c496f277a490598cbb1befea765171d0f1844a99ca949269a202c440917",
+        "native-macos\/Main.swift" : "ae4d5fb71cbff65b11b4c049002cc5dbd7b83e8b2673484606c73b6a29c538de",
+        "native-macos\/run.mjs" : "ea9f07bad0e290d06594c7decb7edbfe460a5ee4ced0be437447951f954e9ebb",
+        "native-macos\/support.mjs" : "49243194bcd06a492bfba170aa34b6068480f186aa444aac929a57da1f74b004",
+        "origin.html" : "bc0d4288e5876289817872f69b5afca326fc8b58270cf22b97c5e8ea3eb1c4f4",
+        "package-lock.json" : "0ab21d88bb3982a9f31691b739f3b192d320bdf278b1a63fd75e1b66eecbc5f5",
+        "package.json" : "8acd667aa81c6a9f6798ae51269460beaf2eb9044f2e896a77537397564e1821",
+        "serve.mjs" : "2335863ce596721f7f669dd463a0405fefc2e9c8e814482219965e135174d851",
+        "src\/api.mjs" : "f189ca5bee59a10ed3c1c215b7777bdd505baf8ee83e9cf8e9e538b1d81642c3",
+        "src\/authority.mjs" : "4440d3ee577f43aa73c77589e490c3fc24cf27f881a93e4f0c753e6617fa7678",
+        "src\/browser.mjs" : "65e46c790db9f787494b92edb9d2569ff3ebdb6f2af30625b31d97b9065f331a",
+        "src\/change-footprint.mjs" : "3d9a012d1e1fc7022d2d38e8638897050f0ff92c15d5373cd8f001820ad337e9",
+        "src\/context.mjs" : "ac120c95b2daf5dc44caaa69cf29247270c0834e431c0422141252721a31c5c1",
+        "src\/control.mjs" : "7abd75ed64044669e2a9c527e9ced2a38b8b694208432b1342a050c64b1f451b",
+        "src\/file-store.mjs" : "6d22159506df538514228b58a5b98804bd1ce4eeef45bd62719c6c97891d27cc",
+        "src\/history-guard.mjs" : "e3b5ac03d6f6646409b6d84693b158337b2326453cd626c72139d8b2487eb5da",
+        "src\/legacy-table-command.mjs" : "7b4130edcfc007f6e9c40ebdb8a40beb2b9a1e62c0bbd459da1c45b398852b0a",
+        "src\/live-client.mjs" : "bd8d19e43cced7274791b8a0ad42855f5cad04fc85d1d126c0a43e27572b3806",
+        "src\/live-command.mjs" : "06c58ba99b291f3e5e177086e2a5c26201f306399041a116f26335ca01231c8d",
+        "src\/live-relay.mjs" : "f8744270d13ebd23b78b119f249d07a9f40d3aa8f929d06c3b60dcd1eb660989",
+        "src\/mcp-stdio.mjs" : "4ffef9b10119134478c1c295168719cde91c323cdf405983440588a12bf9f77a",
+        "src\/origin-authority.mjs" : "530cc8215209638bd6faccc837e2cde6dd223ae1f140bed66f469dbfc97871be",
+        "src\/origin-browser.mjs" : "7b657171d2043cea1ac5897bad4dcd45f561502bd738af6b5c38e6f8b7967ee3",
+        "src\/origin-history-context.mjs" : "499e0763f9cacd19a451f392937f2840fface3a8155eed15e76db451fa29e7b5",
+        "src\/schema.mjs" : "b56804c148b3992f59a8d5b815cfd74e77dfca998d2234eab148720fcb3fe2e8",
+        "src\/selection-preflight.mjs" : "35cf2ace97c0752c202c32b082e45c025118d4b6c0953077f4a2826567141c22",
+        "src\/table-command.mjs" : "313c0de917974d78a6b9b212db50b65341bff4e1db63687ee53efa462207555b",
+        "src\/table-view.mjs" : "0d9696707fe8fc7931a82a3fb3ee51fb5c968b258959db549c68534bb4f259c4",
+        "style.css" : "0fa3cf15d94a56f2a8adafef2520704b82383a878cd11cf81ee5248037590cf4",
+        "test\/adapters.test.mjs" : "21d18cfb37497e00f685fd790e52e08759256ca53363c1878733f84ad5fcffaf",
+        "test\/browser.mjs" : "e7797312eda53bd3a9fba6c700d85de2763f1e5bae707669e2a2e5bb4eaef1ee",
+        "test\/comparison.mjs" : "448ffd3a6fa9af7455ece40fc60b106c7b520294db9875c8f6bfd629ffda16ec",
+        "test\/core.test.mjs" : "4845ba334e05777d5e6002574ded6c249c57d121550580b362adbbaafb16c1e2",
+        "test\/durable-owner.mjs" : "40256e272911cd3c7872b88d83d7f0b3df8aa3d10c2b336e2214b4243147d92d",
+        "test\/history-boundaries.test.mjs" : "67b99a5e3580a69a39ff868873ba341f22f4e930c43c658b339e09911dc66db7",
+        "test\/history-lifecycle.mjs" : "c7b7983e8517cdb3d56e478d10b61813cc84e6f29904ed80b3ac0d4cce227876",
+        "test\/joined-core.mjs" : "4ee9b387cf526614406e4fbce566cad711fddd5f05ddd11802dfb357de14c601",
+        "test\/joined-native.mjs" : "0525e8376cb26617970e33a0cfffaadab38b940bb741e993161e3d2e9003ec7d",
+        "test\/joined-support.mjs" : "4f293001ab44724eac07113fdbc199bd50fee0cbdea20820c13732f53fb3cb19",
+        "test\/live-command.test.mjs" : "39d5da7acbbafec2cc173085476f01c79da62538dbdd80ee331317f0a1072bb2",
+        "test\/native-capture.mjs" : "540b1b8b127d895405fae3060bfce9a0619dabd15f60e424213f70989da98195",
+        "test\/native-support.test.mjs" : "ee4c00fca82c20999ed7742a485cd4142620553227cb74c492c9befbc8015182",
+        "test\/origin-authority.test.mjs" : "ced75f6201f543f1b106af70f7beedb3bd6c79b99b93ab33dcc088c555bc33b9",
+        "test\/origin-browser.mjs" : "f53ad3ab637dbd4ac3cc229d3344f4597c1b27a370ad816cdc5e5447a81794c9",
+        "test\/table-browser.mjs" : "41c3025ebd35bdc0f792b84e30ef4ba1c8ae8f7fa87a066373b8a4ca73a07b49",
+        "test\/table-command.test.mjs" : "3b27894616d2355a467b2fc8602487a8a45b61c55ecbb4441d259a835b82d76a"
+      },
+      "unsupported" : [
+        "macOS\/WKWebView\/IME\/VoiceOver\/native menus",
+        "Windows",
+        "task page projection and full task move\/copy\/delete\/recurrence commands",
+        "block IDs and schema migration",
+        "image\/PDF import\/render",
+        "opening original embedded page",
+        "provider sync and remote-snapshot undo",
+        "history\/step-log compaction and optimized provenance",
+        "performance budgets and large workloads",
+        "production security\/authentication\/IPC\/process election"
+      ],
+      "versions" : {
+        "node_modules\/esbuild" : "0.28.2",
+        "node_modules\/fsevents" : "2.3.2",
+        "node_modules\/isomorphic.js" : "0.2.5",
+        "node_modules\/lib0" : "0.2.120",
+        "node_modules\/orderedmap" : "2.1.1",
+        "node_modules\/playwright" : "1.62.1",
+        "node_modules\/playwright-core" : "1.62.1",
+        "node_modules\/prosemirror-collab" : "1.3.1",
+        "node_modules\/prosemirror-commands" : "1.7.2",
+        "node_modules\/prosemirror-history" : "1.5.1",
+        "node_modules\/prosemirror-keymap" : "1.2.3",
+        "node_modules\/prosemirror-model" : "1.25.13",
+        "node_modules\/prosemirror-state" : "1.4.4",
+        "node_modules\/prosemirror-tables" : "1.8.5",
+        "node_modules\/prosemirror-transform" : "1.12.5",
+        "node_modules\/prosemirror-view" : "1.42.9",
+        "node_modules\/rope-sequence" : "1.3.4",
+        "node_modules\/w3c-keyname" : "2.2.8",
+        "node_modules\/y-prosemirror" : "1.3.7",
+        "node_modules\/y-protocols" : "1.0.7",
+        "node_modules\/yjs" : "13.6.33"
+      }
+    }
+  },
+  "events" : [
+    {
+      "at" : "2026-11-15T11:38:37Z",
+      "event" : "owner-connected",
+      "profile" : {
+        "documentId" : "73800a1a-521f-4950-92af-ec1ba6f4237c",
+        "ok" : true,
+        "ownerEpoch" : "7d4c8a51-82ca-479b-bebd-35c58835387e",
+        "profile" : {
+          "arch" : "arm64",
+          "compileOptions" : [
+            "ATOMIC_INTRINSICS=1",
+            "COMPILER=clang-16.0.0",
+            "DEFAULT_AUTOVACUUM",
+            "DEFAULT_CACHE_SIZE=-2000",
+            "DEFAULT_FILE_FORMAT=4",
+            "DEFAULT_JOURNAL_SIZE_LIMIT=-1",
+            "DEFAULT_MEMSTATUS=0",
+            "DEFAULT_MMAP_SIZE=0",
+            "DEFAULT_PAGE_SIZE=4096",
+            "DEFAULT_PCACHE_INITSZ=20",
+            "DEFAULT_RECURSIVE_TRIGGERS",
+            "DEFAULT_SECTOR_SIZE=4096",
+            "DEFAULT_SYNCHRONOUS=2",
+            "DEFAULT_WAL_AUTOCHECKPOINT=1000",
+            "DEFAULT_WAL_SYNCHRONOUS=2",
+            "DEFAULT_WORKER_THREADS=0",
+            "DIRECT_OVERFLOW_READ",
+            "ENABLE_COLUMN_METADATA",
+            "ENABLE_DBSTAT_VTAB",
+            "ENABLE_FTS3",
+            "ENABLE_FTS3_PARENTHESIS",
+            "ENABLE_FTS5",
+            "ENABLE_GEOPOLY",
+            "ENABLE_MATH_FUNCTIONS",
+            "ENABLE_PERCENTILE",
+            "ENABLE_PREUPDATE_HOOK",
+            "ENABLE_RBU",
+            "ENABLE_RTREE",
+            "ENABLE_SESSION",
+            "MALLOC_SOFT_LIMIT=1024",
+            "MAX_ATTACHED=10",
+            "MAX_COLUMN=2000",
+            "MAX_COMPOUND_SELECT=500",
+            "MAX_DEFAULT_PAGE_SIZE=8192",
+            "MAX_EXPR_DEPTH=1000",
+            "MAX_FUNCTION_ARG=1000",
+            "MAX_LENGTH=1000000000",
+            "MAX_LIKE_PATTERN_LENGTH=50000",
+            "MAX_MMAP_SIZE=0x7fff0000",
+            "MAX_PAGE_COUNT=0xfffffffe",
+            "MAX_PAGE_SIZE=65536",
+            "MAX_SQL_LENGTH=1000000000",
+            "MAX_TRIGGER_DEPTH=1000",
+            "MAX_VARIABLE_NUMBER=32766",
+            "MAX_VDBE_OP=250000000",
+            "MAX_WORKER_THREADS=8",
+            "MUTEX_PTHREADS",
+            "SYSTEM_MALLOC",
+            "TEMP_STORE=1",
+            "THREADSAFE=1"
+          ],
+          "filesystemType" : 26,
+          "nativeFullSyncRequired" : true,
+          "node" : "v24.22.1",
+          "osRelease" : "25.6.0",
+          "platform" : "darwin",
+          "pragmas" : {
+            "cache_size" : 8,
+            "cache_spill" : 8,
+            "checkpoint_fullfsync" : 1,
+            "foreign_keys" : 1,
+            "fullfsync" : 1,
+            "journal_mode" : "wal",
+            "locking_mode" : "exclusive",
+            "page_size" : 4096,
+            "synchronous" : 2,
+            "trusted_schema" : 0
+          },
+          "sqlite" : {
+            "source" : "2026-07-24 19:02:57 bf7c7f30031888f4e796e429ab3978879485813aaca6f641c7b33e4e09459bcc",
+            "version" : "3.53.4"
+          }
+        },
+        "spaceId" : "2869ed7c-ab09-44a4-a067-b501e293f6fe"
+      }
+    },
+    {
+      "at" : "2026-11-15T11:44:50Z",
+      "event" : "fail_protection",
+      "value" : true
+    }
+  ],
+  "format" : "clutter-joined-native16-v1",
+  "headlessAutomation" : {
+    "checks" : [
+      {
+        "id" : "HN-01",
+        "status" : "pass",
+        "title" : "Concurrent app-closed clients attach to one owner"
+      },
+      {
+        "id" : "HN-02",
+        "operationId" : "f708ed5c-a1ad-4569-9a9d-3bdc7a3060fb",
+        "status" : "pass",
+        "title" : "CLI\/MCP original receipt and one durable effect",
+        "version" : 1
+      }
+    ],
+    "driverNode" : "v24.11.0",
+    "owner" : {
+      "documentId" : "73800a1a-521f-4950-92af-ec1ba6f4237c",
+      "ownerEpoch" : "7d4c8a51-82ca-479b-bebd-35c58835387e",
+      "spaceId" : "2869ed7c-ab09-44a4-a067-b501e293f6fe"
+    },
+    "scope" : "Packaged owner\/CLI\/MCP without a native window or global developer Node; not a native input or distribution result.",
+    "stateFromCommittedOwner" : true
+  },
+  "latestCapture" : {
+    "protectedContexts" : [
+
+    ],
+    "quitting" : true,
+    "snapshot" : {
+      "at" : "2026-11-15T11:45:56.188Z",
+      "historyBoundary" : null,
+      "pending" : {
+        "A" : 0,
+        "B" : 0
+      },
+      "ready" : true,
+      "snapshot" : {
+        "contexts" : {
+          "A" : {
+            "anchor" : 10,
+            "doc" : {
+              "content" : [
+                {
+                  "content" : [
+                    {
+                      "text" : "PROTECTED",
+                      "type" : "text"
+                    }
+                  ],
+                  "type" : "paragraph"
+                },
+                {
+                  "content" : [
+                    {
+                      "text" : "HEADLESS Alpha beta",
+                      "type" : "text"
+                    }
+                  ],
+                  "type" : "paragraph"
+                },
+                {
+                  "content" : [
+                    {
+                      "text" : "Gamma delta",
+                      "type" : "text"
+                    }
+                  ],
+                  "type" : "paragraph"
+                },
+                {
+                  "attrs" : {
+                    "completed" : false,
+                    "id" : "t1",
+                    "properties" : {
+                      "Priority" : {
+                        "type" : "text",
+                        "value" : "High"
+                      }
+                    }
+                  },
+                  "content" : [
+                    {
+                      "content" : [
+                        {
+                          "text" : "Send proposal",
+                          "type" : "text"
+                        }
+                      ],
+                      "type" : "paragraph"
+                    },
+                    {
+                      "content" : [
+                        {
+                          "text" : "Budget details",
+                          "type" : "text"
+                        }
+                      ],
+                      "type" : "paragraph"
+                    }
+                  ],
+                  "type" : "task"
+                },
+                {
+                  "content" : [
+                    {
+                      "content" : [
+                        {
+                          "attrs" : {
+                            "colspan" : 1,
+                            "colwidth" : null,
+                            "rowspan" : 1
+                          },
+                          "content" : [
+                            {
+                              "content" : [
+                                {
+                                  "text" : "One",
+                                  "type" : "text"
+                                }
+                              ],
+                              "type" : "paragraph"
+                            }
+                          ],
+                          "type" : "table_cell"
+                        },
+                        {
+                          "attrs" : {
+                            "colspan" : 1,
+                            "colwidth" : null,
+                            "rowspan" : 1
+                          },
+                          "content" : [
+                            {
+                              "content" : [
+                                {
+                                  "text" : "Two",
+                                  "type" : "text"
+                                }
+                              ],
+                              "type" : "paragraph"
+                            }
+                          ],
+                          "type" : "table_cell"
+                        }
+                      ],
+                      "type" : "table_row"
+                    },
+                    {
+                      "content" : [
+                        {
+                          "attrs" : {
+                            "colspan" : 1,
+                            "colwidth" : null,
+                            "rowspan" : 1
+                          },
+                          "content" : [
+                            {
+                              "content" : [
+                                {
+                                  "text" : "Three",
+                                  "type" : "text"
+                                }
+                              ],
+                              "type" : "paragraph"
+                            }
+                          ],
+                          "type" : "table_cell"
+                        },
+                        {
+                          "attrs" : {
+                            "colspan" : 1,
+                            "colwidth" : null,
+                            "rowspan" : 1
+                          },
+                          "content" : [
+                            {
+                              "content" : [
+                                {
+                                  "text" : "Four",
+                                  "type" : "text"
+                                }
+                              ],
+                              "type" : "paragraph"
+                            }
+                          ],
+                          "type" : "table_cell"
+                        }
+                      ],
+                      "type" : "table_row"
+                    },
+                    {
+                      "content" : [
+                        {
+                          "attrs" : {
+                            "colspan" : 1,
+                            "colwidth" : null,
+                            "rowspan" : 1
+                          },
+                          "content" : [
+                            {
+                              "content" : [
+                                {
+                                  "text" : "X",
+                                  "type" : "text"
+                                }
+                              ],
+                              "type" : "paragraph"
+                            }
+                          ],
+                          "type" : "table_cell"
+                        },
+                        {
+                          "attrs" : {
+                            "colspan" : 1,
+                            "colwidth" : null,
+                            "rowspan" : 1
+                          },
+                          "content" : [
+                            {
+                              "type" : "paragraph"
+                            }
+                          ],
+                          "type" : "table_cell"
+                        }
+                      ],
+                      "type" : "table_row"
+                    },
+                    {
+                      "content" : [
+                        {
+                          "attrs" : {
+                            "colspan" : 1,
+                            "colwidth" : null,
+                            "rowspan" : 1
+                          },
+                          "content" : [
+                            {
+                              "type" : "paragraph"
+                            }
+                          ],
+                          "type" : "table_cell"
+                        },
+                        {
+                          "attrs" : {
+                            "colspan" : 1,
+                            "colwidth" : null,
+                            "rowspan" : 1
+                          },
+                          "content" : [
+                            {
+                              "type" : "paragraph"
+                            }
+                          ],
+                          "type" : "table_cell"
+                        }
+                      ],
+                      "type" : "table_row"
+                    }
+                  ],
+                  "type" : "table"
+                },
+                {
+                  "attrs" : {
+                    "label" : "Original note",
+                    "target" : "original-note"
+                  },
+                  "type" : "embed"
+                },
+                {
+                  "content" : [
+                    {
+                      "text" : "café é 👩🏽‍💻 日本語 مرحبا",
+                      "type" : "text"
+                    }
+                  ],
+                  "type" : "paragraph"
+                }
+              ],
+              "type" : "doc"
+            },
+            "error" : null,
+            "head" : 10,
+            "historyWarning" : null
+          },
+          "B" : {
+            "anchor" : 111,
+            "doc" : {
+              "content" : [
+                {
+                  "content" : [
+                    {
+                      "text" : "PROTECTED",
+                      "type" : "text"
+                    }
+                  ],
+                  "type" : "paragraph"
+                },
+                {
+                  "content" : [
+                    {
+                      "text" : "HEADLESS Alpha beta",
+                      "type" : "text"
+                    }
+                  ],
+                  "type" : "paragraph"
+                },
+                {
+                  "content" : [
+                    {
+                      "text" : "Gamma delta",
+                      "type" : "text"
+                    }
+                  ],
+                  "type" : "paragraph"
+                },
+                {
+                  "attrs" : {
+                    "completed" : false,
+                    "id" : "t1",
+                    "properties" : {
+                      "Priority" : {
+                        "type" : "text",
+                        "value" : "High"
+                      }
+                    }
+                  },
+                  "content" : [
+                    {
+                      "content" : [
+                        {
+                          "text" : "Send proposal",
+                          "type" : "text"
+                        }
+                      ],
+                      "type" : "paragraph"
+                    },
+                    {
+                      "content" : [
+                        {
+                          "text" : "Budget details",
+                          "type" : "text"
+                        }
+                      ],
+                      "type" : "paragraph"
+                    }
+                  ],
+                  "type" : "task"
+                },
+                {
+                  "content" : [
+                    {
+                      "content" : [
+                        {
+                          "attrs" : {
+                            "colspan" : 1,
+                            "colwidth" : null,
+                            "rowspan" : 1
+                          },
+                          "content" : [
+                            {
+                              "content" : [
+                                {
+                                  "text" : "One",
+                                  "type" : "text"
+                                }
+                              ],
+                              "type" : "paragraph"
+                            }
+                          ],
+                          "type" : "table_cell"
+                        },
+                        {
+                          "attrs" : {
+                            "colspan" : 1,
+                            "colwidth" : null,
+                            "rowspan" : 1
+                          },
+                          "content" : [
+                            {
+                              "content" : [
+                                {
+                                  "text" : "Two",
+                                  "type" : "text"
+                                }
+                              ],
+                              "type" : "paragraph"
+                            }
+                          ],
+                          "type" : "table_cell"
+                        }
+                      ],
+                      "type" : "table_row"
+                    },
+                    {
+                      "content" : [
+                        {
+                          "attrs" : {
+                            "colspan" : 1,
+                            "colwidth" : null,
+                            "rowspan" : 1
+                          },
+                          "content" : [
+                            {
+                              "content" : [
+                                {
+                                  "text" : "Three",
+                                  "type" : "text"
+                                }
+                              ],
+                              "type" : "paragraph"
+                            }
+                          ],
+                          "type" : "table_cell"
+                        },
+                        {
+                          "attrs" : {
+                            "colspan" : 1,
+                            "colwidth" : null,
+                            "rowspan" : 1
+                          },
+                          "content" : [
+                            {
+                              "content" : [
+                                {
+                                  "text" : "Four",
+                                  "type" : "text"
+                                }
+                              ],
+                              "type" : "paragraph"
+                            }
+                          ],
+                          "type" : "table_cell"
+                        }
+                      ],
+                      "type" : "table_row"
+                    },
+                    {
+                      "content" : [
+                        {
+                          "attrs" : {
+                            "colspan" : 1,
+                            "colwidth" : null,
+                            "rowspan" : 1
+                          },
+                          "content" : [
+                            {
+                              "content" : [
+                                {
+                                  "text" : "X",
+                                  "type" : "text"
+                                }
+                              ],
+                              "type" : "paragraph"
+                            }
+                          ],
+                          "type" : "table_cell"
+                        },
+                        {
+                          "attrs" : {
+                            "colspan" : 1,
+                            "colwidth" : null,
+                            "rowspan" : 1
+                          },
+                          "content" : [
+                            {
+                              "type" : "paragraph"
+                            }
+                          ],
+                          "type" : "table_cell"
+                        }
+                      ],
+                      "type" : "table_row"
+                    },
+                    {
+                      "content" : [
+                        {
+                          "attrs" : {
+                            "colspan" : 1,
+                            "colwidth" : null,
+                            "rowspan" : 1
+                          },
+                          "content" : [
+                            {
+                              "type" : "paragraph"
+                            }
+                          ],
+                          "type" : "table_cell"
+                        },
+                        {
+                          "attrs" : {
+                            "colspan" : 1,
+                            "colwidth" : null,
+                            "rowspan" : 1
+                          },
+                          "content" : [
+                            {
+                              "type" : "paragraph"
+                            }
+                          ],
+                          "type" : "table_cell"
+                        }
+                      ],
+                      "type" : "table_row"
+                    }
+                  ],
+                  "type" : "table"
+                },
+                {
+                  "attrs" : {
+                    "label" : "Original note",
+                    "target" : "original-note"
+                  },
+                  "type" : "embed"
+                },
+                {
+                  "content" : [
+                    {
+                      "text" : "café é 👩🏽‍💻 日本語 مرحبا",
+                      "type" : "text"
+                    }
+                  ],
+                  "type" : "paragraph"
+                }
+              ],
+              "type" : "doc"
+            },
+            "error" : null,
+            "head" : 111,
+            "historyWarning" : null
+          }
+        },
+        "doc" : {
+          "content" : [
+            {
+              "content" : [
+                {
+                  "text" : "PROTECTED",
+                  "type" : "text"
+                }
+              ],
+              "type" : "paragraph"
+            },
+            {
+              "content" : [
+                {
+                  "text" : "HEADLESS Alpha beta",
+                  "type" : "text"
+                }
+              ],
+              "type" : "paragraph"
+            },
+            {
+              "content" : [
+                {
+                  "text" : "Gamma delta",
+                  "type" : "text"
+                }
+              ],
+              "type" : "paragraph"
+            },
+            {
+              "attrs" : {
+                "completed" : false,
+                "id" : "t1",
+                "properties" : {
+                  "Priority" : {
+                    "type" : "text",
+                    "value" : "High"
+                  }
+                }
+              },
+              "content" : [
+                {
+                  "content" : [
+                    {
+                      "text" : "Send proposal",
+                      "type" : "text"
+                    }
+                  ],
+                  "type" : "paragraph"
+                },
+                {
+                  "content" : [
+                    {
+                      "text" : "Budget details",
+                      "type" : "text"
+                    }
+                  ],
+                  "type" : "paragraph"
+                }
+              ],
+              "type" : "task"
+            },
+            {
+              "content" : [
+                {
+                  "content" : [
+                    {
+                      "attrs" : {
+                        "colspan" : 1,
+                        "colwidth" : null,
+                        "rowspan" : 1
+                      },
+                      "content" : [
+                        {
+                          "content" : [
+                            {
+                              "text" : "One",
+                              "type" : "text"
+                            }
+                          ],
+                          "type" : "paragraph"
+                        }
+                      ],
+                      "type" : "table_cell"
+                    },
+                    {
+                      "attrs" : {
+                        "colspan" : 1,
+                        "colwidth" : null,
+                        "rowspan" : 1
+                      },
+                      "content" : [
+                        {
+                          "content" : [
+                            {
+                              "text" : "Two",
+                              "type" : "text"
+                            }
+                          ],
+                          "type" : "paragraph"
+                        }
+                      ],
+                      "type" : "table_cell"
+                    }
+                  ],
+                  "type" : "table_row"
+                },
+                {
+                  "content" : [
+                    {
+                      "attrs" : {
+                        "colspan" : 1,
+                        "colwidth" : null,
+                        "rowspan" : 1
+                      },
+                      "content" : [
+                        {
+                          "content" : [
+                            {
+                              "text" : "Three",
+                              "type" : "text"
+                            }
+                          ],
+                          "type" : "paragraph"
+                        }
+                      ],
+                      "type" : "table_cell"
+                    },
+                    {
+                      "attrs" : {
+                        "colspan" : 1,
+                        "colwidth" : null,
+                        "rowspan" : 1
+                      },
+                      "content" : [
+                        {
+                          "content" : [
+                            {
+                              "text" : "Four",
+                              "type" : "text"
+                            }
+                          ],
+                          "type" : "paragraph"
+                        }
+                      ],
+                      "type" : "table_cell"
+                    }
+                  ],
+                  "type" : "table_row"
+                },
+                {
+                  "content" : [
+                    {
+                      "attrs" : {
+                        "colspan" : 1,
+                        "colwidth" : null,
+                        "rowspan" : 1
+                      },
+                      "content" : [
+                        {
+                          "content" : [
+                            {
+                              "text" : "X",
+                              "type" : "text"
+                            }
+                          ],
+                          "type" : "paragraph"
+                        }
+                      ],
+                      "type" : "table_cell"
+                    },
+                    {
+                      "attrs" : {
+                        "colspan" : 1,
+                        "colwidth" : null,
+                        "rowspan" : 1
+                      },
+                      "content" : [
+                        {
+                          "type" : "paragraph"
+                        }
+                      ],
+                      "type" : "table_cell"
+                    }
+                  ],
+                  "type" : "table_row"
+                },
+                {
+                  "content" : [
+                    {
+                      "attrs" : {
+                        "colspan" : 1,
+                        "colwidth" : null,
+                        "rowspan" : 1
+                      },
+                      "content" : [
+                        {
+                          "type" : "paragraph"
+                        }
+                      ],
+                      "type" : "table_cell"
+                    },
+                    {
+                      "attrs" : {
+                        "colspan" : 1,
+                        "colwidth" : null,
+                        "rowspan" : 1
+                      },
+                      "content" : [
+                        {
+                          "type" : "paragraph"
+                        }
+                      ],
+                      "type" : "table_cell"
+                    }
+                  ],
+                  "type" : "table_row"
+                }
+              ],
+              "type" : "table"
+            },
+            {
+              "attrs" : {
+                "label" : "Original note",
+                "target" : "original-note"
+              },
+              "type" : "embed"
+            },
+            {
+              "content" : [
+                {
+                  "text" : "café é 👩🏽‍💻 日本語 مرحبا",
+                  "type" : "text"
+                }
+              ],
+              "type" : "paragraph"
+            }
+          ],
+          "type" : "doc"
+        },
+        "version" : 27
+      }
+    }
+  },
+  "limits" : [
+    "Ad-hoc experiment, not notarized distribution\/sandbox acceptance",
+    "Same-user private synthetic session, not production IPC\/grants",
+    "IME unavailable and VoiceOver deferred; no automatic pass",
+    "No JG-12\/13 entity\/assets acceptance"
+  ],
+  "manualAttempts" : [
+    {
+      "at" : "2026-11-15T11:41:39Z",
+      "captureSucceeded" : true,
+      "caseId" : "JN-01",
+      "notes" : "",
+      "snapshot" : {
+        "at" : "2026-11-15T11:41:39.662Z",
+        "historyBoundary" : null,
+        "pending" : {
+          "A" : 0,
+          "B" : 0
+        },
+        "ready" : true,
+        "snapshot" : {
+          "contexts" : {
+            "A" : {
+              "anchor" : 26,
+              "doc" : {
+                "content" : [
+                  {
+                    "content" : [
+                      {
+                        "text" : "HEADLESS Alpha local beta",
+                        "type" : "text"
+                      }
+                    ],
+                    "type" : "paragraph"
+                  },
+                  {
+                    "content" : [
+                      {
+                        "text" : "Gamma delta",
+                        "type" : "text"
+                      }
+                    ],
+                    "type" : "paragraph"
+                  },
+                  {
+                    "attrs" : {
+                      "completed" : false,
+                      "id" : "t1",
+                      "properties" : {
+                        "Priority" : {
+                          "type" : "text",
+                          "value" : "High"
+                        }
+                      }
+                    },
+                    "content" : [
+                      {
+                        "content" : [
+                          {
+                            "text" : "Send proposal",
+                            "type" : "text"
+                          }
+                        ],
+                        "type" : "paragraph"
+                      },
+                      {
+                        "content" : [
+                          {
+                            "text" : "Budget details",
+                            "type" : "text"
+                          }
+                        ],
+                        "type" : "paragraph"
+                      }
+                    ],
+                    "type" : "task"
+                  },
+                  {
+                    "content" : [
+                      {
+                        "content" : [
+                          {
+                            "attrs" : {
+                              "colspan" : 1,
+                              "colwidth" : null,
+                              "rowspan" : 1
+                            },
+                            "content" : [
+                              {
+                                "content" : [
+                                  {
+                                    "text" : "One",
+                                    "type" : "text"
+                                  }
+                                ],
+                                "type" : "paragraph"
+                              }
+                            ],
+                            "type" : "table_cell"
+                          },
+                          {
+                            "attrs" : {
+                              "colspan" : 1,
+                              "colwidth" : null,
+                              "rowspan" : 1
+                            },
+                            "content" : [
+                              {
+                                "content" : [
+                                  {
+                                    "text" : "Two",
+                                    "type" : "text"
+                                  }
+                                ],
+                                "type" : "paragraph"
+                              }
+                            ],
+                            "type" : "table_cell"
+                          }
+                        ],
+                        "type" : "table_row"
+                      },
+                      {
+                        "content" : [
+                          {
+                            "attrs" : {
+                              "colspan" : 1,
+                              "colwidth" : null,
+                              "rowspan" : 1
+                            },
+                            "content" : [
+                              {
+                                "content" : [
+                                  {
+                                    "text" : "Three",
+                                    "type" : "text"
+                                  }
+                                ],
+                                "type" : "paragraph"
+                              }
+                            ],
+                            "type" : "table_cell"
+                          },
+                          {
+                            "attrs" : {
+                              "colspan" : 1,
+                              "colwidth" : null,
+                              "rowspan" : 1
+                            },
+                            "content" : [
+                              {
+                                "content" : [
+                                  {
+                                    "text" : "Four",
+                                    "type" : "text"
+                                  }
+                                ],
+                                "type" : "paragraph"
+                              }
+                            ],
+                            "type" : "table_cell"
+                          }
+                        ],
+                        "type" : "table_row"
+                      },
+                      {
+                        "content" : [
+                          {
+                            "attrs" : {
+                              "colspan" : 1,
+                              "colwidth" : null,
+                              "rowspan" : 1
+                            },
+                            "content" : [
+                              {
+                                "type" : "paragraph"
+                              }
+                            ],
+                            "type" : "table_cell"
+                          },
+                          {
+                            "attrs" : {
+                              "colspan" : 1,
+                              "colwidth" : null,
+                              "rowspan" : 1
+                            },
+                            "content" : [
+                              {
+                                "type" : "paragraph"
+                              }
+                            ],
+                            "type" : "table_cell"
+                          }
+                        ],
+                        "type" : "table_row"
+                      }
+                    ],
+                    "type" : "table"
+                  },
+                  {
+                    "attrs" : {
+                      "label" : "Original note",
+                      "target" : "original-note"
+                    },
+                    "type" : "embed"
+                  },
+                  {
+                    "content" : [
+                      {
+                        "text" : "café é 👩🏽‍💻 日本語 مرحبا",
+                        "type" : "text"
+                      }
+                    ],
+                    "type" : "paragraph"
+                  }
+                ],
+                "type" : "doc"
+              },
+              "error" : null,
+              "head" : 26,
+              "historyWarning" : null
+            },
+            "B" : {
+              "anchor" : 106,
+              "doc" : {
+                "content" : [
+                  {
+                    "content" : [
+                      {
+                        "text" : "HEADLESS Alpha local beta",
+                        "type" : "text"
+                      }
+                    ],
+                    "type" : "paragraph"
+                  },
+                  {
+                    "content" : [
+                      {
+                        "text" : "Gamma delta",
+                        "type" : "text"
+                      }
+                    ],
+                    "type" : "paragraph"
+                  },
+                  {
+                    "attrs" : {
+                      "completed" : false,
+                      "id" : "t1",
+                      "properties" : {
+                        "Priority" : {
+                          "type" : "text",
+                          "value" : "High"
+                        }
+                      }
+                    },
+                    "content" : [
+                      {
+                        "content" : [
+                          {
+                            "text" : "Send proposal",
+                            "type" : "text"
+                          }
+                        ],
+                        "type" : "paragraph"
+                      },
+                      {
+                        "content" : [
+                          {
+                            "text" : "Budget details",
+                            "type" : "text"
+                          }
+                        ],
+                        "type" : "paragraph"
+                      }
+                    ],
+                    "type" : "task"
+                  },
+                  {
+                    "content" : [
+                      {
+                        "content" : [
+                          {
+                            "attrs" : {
+                              "colspan" : 1,
+                              "colwidth" : null,
+                              "rowspan" : 1
+                            },
+                            "content" : [
+                              {
+                                "content" : [
+                                  {
+                                    "text" : "One",
+                                    "type" : "text"
+                                  }
+                                ],
+                                "type" : "paragraph"
+                              }
+                            ],
+                            "type" : "table_cell"
+                          },
+                          {
+                            "attrs" : {
+                              "colspan" : 1,
+                              "colwidth" : null,
+                              "rowspan" : 1
+                            },
+                            "content" : [
+                              {
+                                "content" : [
+                                  {
+                                    "text" : "Two",
+                                    "type" : "text"
+                                  }
+                                ],
+                                "type" : "paragraph"
+                              }
+                            ],
+                            "type" : "table_cell"
+                          }
+                        ],
+                        "type" : "table_row"
+                      },
+                      {
+                        "content" : [
+                          {
+                            "attrs" : {
+                              "colspan" : 1,
+                              "colwidth" : null,
+                              "rowspan" : 1
+                            },
+                            "content" : [
+                              {
+                                "content" : [
+                                  {
+                                    "text" : "Three",
+                                    "type" : "text"
+                                  }
+                                ],
+                                "type" : "paragraph"
+                              }
+                            ],
+                            "type" : "table_cell"
+                          },
+                          {
+                            "attrs" : {
+                              "colspan" : 1,
+                              "colwidth" : null,
+                              "rowspan" : 1
+                            },
+                            "content" : [
+                              {
+                                "content" : [
+                                  {
+                                    "text" : "Four",
+                                    "type" : "text"
+                                  }
+                                ],
+                                "type" : "paragraph"
+                              }
+                            ],
+                            "type" : "table_cell"
+                          }
+                        ],
+                        "type" : "table_row"
+                      },
+                      {
+                        "content" : [
+                          {
+                            "attrs" : {
+                              "colspan" : 1,
+                              "colwidth" : null,
+                              "rowspan" : 1
+                            },
+                            "content" : [
+                              {
+                                "type" : "paragraph"
+                              }
+                            ],
+                            "type" : "table_cell"
+                          },
+                          {
+                            "attrs" : {
+                              "colspan" : 1,
+                              "colwidth" : null,
+                              "rowspan" : 1
+                            },
+                            "content" : [
+                              {
+                                "type" : "paragraph"
+                              }
+                            ],
+                            "type" : "table_cell"
+                          }
+                        ],
+                        "type" : "table_row"
+                      }
+                    ],
+                    "type" : "table"
+                  },
+                  {
+                    "attrs" : {
+                      "label" : "Original note",
+                      "target" : "original-note"
+                    },
+                    "type" : "embed"
+                  },
+                  {
+                    "content" : [
+                      {
+                        "text" : "café é 👩🏽‍💻 日本語 مرحبا",
+                        "type" : "text"
+                      }
+                    ],
+                    "type" : "paragraph"
+                  }
+                ],
+                "type" : "doc"
+              },
+              "error" : null,
+              "head" : 106,
+              "historyWarning" : null
+            }
+          },
+          "doc" : {
+            "content" : [
+              {
+                "content" : [
+                  {
+                    "text" : "HEADLESS Alpha local beta",
+                    "type" : "text"
+                  }
+                ],
+                "type" : "paragraph"
+              },
+              {
+                "content" : [
+                  {
+                    "text" : "Gamma delta",
+                    "type" : "text"
+                  }
+                ],
+                "type" : "paragraph"
+              },
+              {
+                "attrs" : {
+                  "completed" : false,
+                  "id" : "t1",
+                  "properties" : {
+                    "Priority" : {
+                      "type" : "text",
+                      "value" : "High"
+                    }
+                  }
+                },
+                "content" : [
+                  {
+                    "content" : [
+                      {
+                        "text" : "Send proposal",
+                        "type" : "text"
+                      }
+                    ],
+                    "type" : "paragraph"
+                  },
+                  {
+                    "content" : [
+                      {
+                        "text" : "Budget details",
+                        "type" : "text"
+                      }
+                    ],
+                    "type" : "paragraph"
+                  }
+                ],
+                "type" : "task"
+              },
+              {
+                "content" : [
+                  {
+                    "content" : [
+                      {
+                        "attrs" : {
+                          "colspan" : 1,
+                          "colwidth" : null,
+                          "rowspan" : 1
+                        },
+                        "content" : [
+                          {
+                            "content" : [
+                              {
+                                "text" : "One",
+                                "type" : "text"
+                              }
+                            ],
+                            "type" : "paragraph"
+                          }
+                        ],
+                        "type" : "table_cell"
+                      },
+                      {
+                        "attrs" : {
+                          "colspan" : 1,
+                          "colwidth" : null,
+                          "rowspan" : 1
+                        },
+                        "content" : [
+                          {
+                            "content" : [
+                              {
+                                "text" : "Two",
+                                "type" : "text"
+                              }
+                            ],
+                            "type" : "paragraph"
+                          }
+                        ],
+                        "type" : "table_cell"
+                      }
+                    ],
+                    "type" : "table_row"
+                  },
+                  {
+                    "content" : [
+                      {
+                        "attrs" : {
+                          "colspan" : 1,
+                          "colwidth" : null,
+                          "rowspan" : 1
+                        },
+                        "content" : [
+                          {
+                            "content" : [
+                              {
+                                "text" : "Three",
+                                "type" : "text"
+                              }
+                            ],
+                            "type" : "paragraph"
+                          }
+                        ],
+                        "type" : "table_cell"
+                      },
+                      {
+                        "attrs" : {
+                          "colspan" : 1,
+                          "colwidth" : null,
+                          "rowspan" : 1
+                        },
+                        "content" : [
+                          {
+                            "content" : [
+                              {
+                                "text" : "Four",
+                                "type" : "text"
+                              }
+                            ],
+                            "type" : "paragraph"
+                          }
+                        ],
+                        "type" : "table_cell"
+                      }
+                    ],
+                    "type" : "table_row"
+                  },
+                  {
+                    "content" : [
+                      {
+                        "attrs" : {
+                          "colspan" : 1,
+                          "colwidth" : null,
+                          "rowspan" : 1
+                        },
+                        "content" : [
+                          {
+                            "type" : "paragraph"
+                          }
+                        ],
+                        "type" : "table_cell"
+                      },
+                      {
+                        "attrs" : {
+                          "colspan" : 1,
+                          "colwidth" : null,
+                          "rowspan" : 1
+                        },
+                        "content" : [
+                          {
+                            "type" : "paragraph"
+                          }
+                        ],
+                        "type" : "table_cell"
+                      }
+                    ],
+                    "type" : "table_row"
+                  }
+                ],
+                "type" : "table"
+              },
+              {
+                "attrs" : {
+                  "label" : "Original note",
+                  "target" : "original-note"
+                },
+                "type" : "embed"
+              },
+              {
+                "content" : [
+                  {
+                    "text" : "café é 👩🏽‍💻 日本語 مرحبا",
+                    "type" : "text"
+                  }
+                ],
+                "type" : "paragraph"
+              }
+            ],
+            "type" : "doc"
+          },
+          "version" : 10
+        }
+      },
+      "status" : "pass"
+    },
+    {
+      "at" : "2026-11-15T11:44:07Z",
+      "captureSucceeded" : true,
+      "caseId" : "JN-02",
+      "notes" : "",
+      "snapshot" : {
+        "at" : "2026-11-15T11:44:07.908Z",
+        "historyBoundary" : null,
+        "pending" : {
+          "A" : 0,
+          "B" : 0
+        },
+        "ready" : true,
+        "snapshot" : {
+          "contexts" : {
+            "A" : {
+              "anchor" : 107,
+              "doc" : {
+                "content" : [
+                  {
+                    "content" : [
+                      {
+                        "text" : "HEADLESS Alpha beta",
+                        "type" : "text"
+                      }
+                    ],
+                    "type" : "paragraph"
+                  },
+                  {
+                    "content" : [
+                      {
+                        "text" : "Gamma delta",
+                        "type" : "text"
+                      }
+                    ],
+                    "type" : "paragraph"
+                  },
+                  {
+                    "attrs" : {
+                      "completed" : false,
+                      "id" : "t1",
+                      "properties" : {
+                        "Priority" : {
+                          "type" : "text",
+                          "value" : "High"
+                        }
+                      }
+                    },
+                    "content" : [
+                      {
+                        "content" : [
+                          {
+                            "text" : "Send proposal",
+                            "type" : "text"
+                          }
+                        ],
+                        "type" : "paragraph"
+                      },
+                      {
+                        "content" : [
+                          {
+                            "text" : "Budget details",
+                            "type" : "text"
+                          }
+                        ],
+                        "type" : "paragraph"
+                      }
+                    ],
+                    "type" : "task"
+                  },
+                  {
+                    "content" : [
+                      {
+                        "content" : [
+                          {
+                            "attrs" : {
+                              "colspan" : 1,
+                              "colwidth" : null,
+                              "rowspan" : 1
+                            },
+                            "content" : [
+                              {
+                                "content" : [
+                                  {
+                                    "text" : "One",
+                                    "type" : "text"
+                                  }
+                                ],
+                                "type" : "paragraph"
+                              }
+                            ],
+                            "type" : "table_cell"
+                          },
+                          {
+                            "attrs" : {
+                              "colspan" : 1,
+                              "colwidth" : null,
+                              "rowspan" : 1
+                            },
+                            "content" : [
+                              {
+                                "content" : [
+                                  {
+                                    "text" : "Two",
+                                    "type" : "text"
+                                  }
+                                ],
+                                "type" : "paragraph"
+                              }
+                            ],
+                            "type" : "table_cell"
+                          }
+                        ],
+                        "type" : "table_row"
+                      },
+                      {
+                        "content" : [
+                          {
+                            "attrs" : {
+                              "colspan" : 1,
+                              "colwidth" : null,
+                              "rowspan" : 1
+                            },
+                            "content" : [
+                              {
+                                "content" : [
+                                  {
+                                    "text" : "Three",
+                                    "type" : "text"
+                                  }
+                                ],
+                                "type" : "paragraph"
+                              }
+                            ],
+                            "type" : "table_cell"
+                          },
+                          {
+                            "attrs" : {
+                              "colspan" : 1,
+                              "colwidth" : null,
+                              "rowspan" : 1
+                            },
+                            "content" : [
+                              {
+                                "content" : [
+                                  {
+                                    "text" : "Four",
+                                    "type" : "text"
+                                  }
+                                ],
+                                "type" : "paragraph"
+                              }
+                            ],
+                            "type" : "table_cell"
+                          }
+                        ],
+                        "type" : "table_row"
+                      },
+                      {
+                        "content" : [
+                          {
+                            "attrs" : {
+                              "colspan" : 1,
+                              "colwidth" : null,
+                              "rowspan" : 1
+                            },
+                            "content" : [
+                              {
+                                "content" : [
+                                  {
+                                    "text" : "X",
+                                    "type" : "text"
+                                  }
+                                ],
+                                "type" : "paragraph"
+                              }
+                            ],
+                            "type" : "table_cell"
+                          },
+                          {
+                            "attrs" : {
+                              "colspan" : 1,
+                              "colwidth" : null,
+                              "rowspan" : 1
+                            },
+                            "content" : [
+                              {
+                                "type" : "paragraph"
+                              }
+                            ],
+                            "type" : "table_cell"
+                          }
+                        ],
+                        "type" : "table_row"
+                      },
+                      {
+                        "content" : [
+                          {
+                            "attrs" : {
+                              "colspan" : 1,
+                              "colwidth" : null,
+                              "rowspan" : 1
+                            },
+                            "content" : [
+                              {
+                                "type" : "paragraph"
+                              }
+                            ],
+                            "type" : "table_cell"
+                          },
+                          {
+                            "attrs" : {
+                              "colspan" : 1,
+                              "colwidth" : null,
+                              "rowspan" : 1
+                            },
+                            "content" : [
+                              {
+                                "type" : "paragraph"
+                              }
+                            ],
+                            "type" : "table_cell"
+                          }
+                        ],
+                        "type" : "table_row"
+                      }
+                    ],
+                    "type" : "table"
+                  },
+                  {
+                    "attrs" : {
+                      "label" : "Original note",
+                      "target" : "original-note"
+                    },
+                    "type" : "embed"
+                  },
+                  {
+                    "content" : [
+                      {
+                        "text" : "café é 👩🏽‍💻 日本語 مرحبا",
+                        "type" : "text"
+                      }
+                    ],
+                    "type" : "paragraph"
+                  }
+                ],
+                "type" : "doc"
+              },
+              "error" : null,
+              "head" : 107,
+              "historyWarning" : null
+            },
+            "B" : {
+              "anchor" : 100,
+              "doc" : {
+                "content" : [
+                  {
+                    "content" : [
+                      {
+                        "text" : "HEADLESS Alpha beta",
+                        "type" : "text"
+                      }
+                    ],
+                    "type" : "paragraph"
+                  },
+                  {
+                    "content" : [
+                      {
+                        "text" : "Gamma delta",
+                        "type" : "text"
+                      }
+                    ],
+                    "type" : "paragraph"
+                  },
+                  {
+                    "attrs" : {
+                      "completed" : false,
+                      "id" : "t1",
+                      "properties" : {
+                        "Priority" : {
+                          "type" : "text",
+                          "value" : "High"
+                        }
+                      }
+                    },
+                    "content" : [
+                      {
+                        "content" : [
+                          {
+                            "text" : "Send proposal",
+                            "type" : "text"
+                          }
+                        ],
+                        "type" : "paragraph"
+                      },
+                      {
+                        "content" : [
+                          {
+                            "text" : "Budget details",
+                            "type" : "text"
+                          }
+                        ],
+                        "type" : "paragraph"
+                      }
+                    ],
+                    "type" : "task"
+                  },
+                  {
+                    "content" : [
+                      {
+                        "content" : [
+                          {
+                            "attrs" : {
+                              "colspan" : 1,
+                              "colwidth" : null,
+                              "rowspan" : 1
+                            },
+                            "content" : [
+                              {
+                                "content" : [
+                                  {
+                                    "text" : "One",
+                                    "type" : "text"
+                                  }
+                                ],
+                                "type" : "paragraph"
+                              }
+                            ],
+                            "type" : "table_cell"
+                          },
+                          {
+                            "attrs" : {
+                              "colspan" : 1,
+                              "colwidth" : null,
+                              "rowspan" : 1
+                            },
+                            "content" : [
+                              {
+                                "content" : [
+                                  {
+                                    "text" : "Two",
+                                    "type" : "text"
+                                  }
+                                ],
+                                "type" : "paragraph"
+                              }
+                            ],
+                            "type" : "table_cell"
+                          }
+                        ],
+                        "type" : "table_row"
+                      },
+                      {
+                        "content" : [
+                          {
+                            "attrs" : {
+                              "colspan" : 1,
+                              "colwidth" : null,
+                              "rowspan" : 1
+                            },
+                            "content" : [
+                              {
+                                "content" : [
+                                  {
+                                    "text" : "Three",
+                                    "type" : "text"
+                                  }
+                                ],
+                                "type" : "paragraph"
+                              }
+                            ],
+                            "type" : "table_cell"
+                          },
+                          {
+                            "attrs" : {
+                              "colspan" : 1,
+                              "colwidth" : null,
+                              "rowspan" : 1
+                            },
+                            "content" : [
+                              {
+                                "content" : [
+                                  {
+                                    "text" : "Four",
+                                    "type" : "text"
+                                  }
+                                ],
+                                "type" : "paragraph"
+                              }
+                            ],
+                            "type" : "table_cell"
+                          }
+                        ],
+                        "type" : "table_row"
+                      },
+                      {
+                        "content" : [
+                          {
+                            "attrs" : {
+                              "colspan" : 1,
+                              "colwidth" : null,
+                              "rowspan" : 1
+                            },
+                            "content" : [
+                              {
+                                "content" : [
+                                  {
+                                    "text" : "X",
+                                    "type" : "text"
+                                  }
+                                ],
+                                "type" : "paragraph"
+                              }
+                            ],
+                            "type" : "table_cell"
+                          },
+                          {
+                            "attrs" : {
+                              "colspan" : 1,
+                              "colwidth" : null,
+                              "rowspan" : 1
+                            },
+                            "content" : [
+                              {
+                                "type" : "paragraph"
+                              }
+                            ],
+                            "type" : "table_cell"
+                          }
+                        ],
+                        "type" : "table_row"
+                      },
+                      {
+                        "content" : [
+                          {
+                            "attrs" : {
+                              "colspan" : 1,
+                              "colwidth" : null,
+                              "rowspan" : 1
+                            },
+                            "content" : [
+                              {
+                                "type" : "paragraph"
+                              }
+                            ],
+                            "type" : "table_cell"
+                          },
+                          {
+                            "attrs" : {
+                              "colspan" : 1,
+                              "colwidth" : null,
+                              "rowspan" : 1
+                            },
+                            "content" : [
+                              {
+                                "type" : "paragraph"
+                              }
+                            ],
+                            "type" : "table_cell"
+                          }
+                        ],
+                        "type" : "table_row"
+                      }
+                    ],
+                    "type" : "table"
+                  },
+                  {
+                    "attrs" : {
+                      "label" : "Original note",
+                      "target" : "original-note"
+                    },
+                    "type" : "embed"
+                  },
+                  {
+                    "content" : [
+                      {
+                        "text" : "café é 👩🏽‍💻 日本語 مرحبا",
+                        "type" : "text"
+                      }
+                    ],
+                    "type" : "paragraph"
+                  }
+                ],
+                "type" : "doc"
+              },
+              "error" : null,
+              "head" : 100,
+              "historyWarning" : null
+            }
+          },
+          "doc" : {
+            "content" : [
+              {
+                "content" : [
+                  {
+                    "text" : "HEADLESS Alpha beta",
+                    "type" : "text"
+                  }
+                ],
+                "type" : "paragraph"
+              },
+              {
+                "content" : [
+                  {
+                    "text" : "Gamma delta",
+                    "type" : "text"
+                  }
+                ],
+                "type" : "paragraph"
+              },
+              {
+                "attrs" : {
+                  "completed" : false,
+                  "id" : "t1",
+                  "properties" : {
+                    "Priority" : {
+                      "type" : "text",
+                      "value" : "High"
+                    }
+                  }
+                },
+                "content" : [
+                  {
+                    "content" : [
+                      {
+                        "text" : "Send proposal",
+                        "type" : "text"
+                      }
+                    ],
+                    "type" : "paragraph"
+                  },
+                  {
+                    "content" : [
+                      {
+                        "text" : "Budget details",
+                        "type" : "text"
+                      }
+                    ],
+                    "type" : "paragraph"
+                  }
+                ],
+                "type" : "task"
+              },
+              {
+                "content" : [
+                  {
+                    "content" : [
+                      {
+                        "attrs" : {
+                          "colspan" : 1,
+                          "colwidth" : null,
+                          "rowspan" : 1
+                        },
+                        "content" : [
+                          {
+                            "content" : [
+                              {
+                                "text" : "One",
+                                "type" : "text"
+                              }
+                            ],
+                            "type" : "paragraph"
+                          }
+                        ],
+                        "type" : "table_cell"
+                      },
+                      {
+                        "attrs" : {
+                          "colspan" : 1,
+                          "colwidth" : null,
+                          "rowspan" : 1
+                        },
+                        "content" : [
+                          {
+                            "content" : [
+                              {
+                                "text" : "Two",
+                                "type" : "text"
+                              }
+                            ],
+                            "type" : "paragraph"
+                          }
+                        ],
+                        "type" : "table_cell"
+                      }
+                    ],
+                    "type" : "table_row"
+                  },
+                  {
+                    "content" : [
+                      {
+                        "attrs" : {
+                          "colspan" : 1,
+                          "colwidth" : null,
+                          "rowspan" : 1
+                        },
+                        "content" : [
+                          {
+                            "content" : [
+                              {
+                                "text" : "Three",
+                                "type" : "text"
+                              }
+                            ],
+                            "type" : "paragraph"
+                          }
+                        ],
+                        "type" : "table_cell"
+                      },
+                      {
+                        "attrs" : {
+                          "colspan" : 1,
+                          "colwidth" : null,
+                          "rowspan" : 1
+                        },
+                        "content" : [
+                          {
+                            "content" : [
+                              {
+                                "text" : "Four",
+                                "type" : "text"
+                              }
+                            ],
+                            "type" : "paragraph"
+                          }
+                        ],
+                        "type" : "table_cell"
+                      }
+                    ],
+                    "type" : "table_row"
+                  },
+                  {
+                    "content" : [
+                      {
+                        "attrs" : {
+                          "colspan" : 1,
+                          "colwidth" : null,
+                          "rowspan" : 1
+                        },
+                        "content" : [
+                          {
+                            "content" : [
+                              {
+                                "text" : "X",
+                                "type" : "text"
+                              }
+                            ],
+                            "type" : "paragraph"
+                          }
+                        ],
+                        "type" : "table_cell"
+                      },
+                      {
+                        "attrs" : {
+                          "colspan" : 1,
+                          "colwidth" : null,
+                          "rowspan" : 1
+                        },
+                        "content" : [
+                          {
+                            "type" : "paragraph"
+                          }
+                        ],
+                        "type" : "table_cell"
+                      }
+                    ],
+                    "type" : "table_row"
+                  },
+                  {
+                    "content" : [
+                      {
+                        "attrs" : {
+                          "colspan" : 1,
+                          "colwidth" : null,
+                          "rowspan" : 1
+                        },
+                        "content" : [
+                          {
+                            "type" : "paragraph"
+                          }
+                        ],
+                        "type" : "table_cell"
+                      },
+                      {
+                        "attrs" : {
+                          "colspan" : 1,
+                          "colwidth" : null,
+                          "rowspan" : 1
+                        },
+                        "content" : [
+                          {
+                            "type" : "paragraph"
+                          }
+                        ],
+                        "type" : "table_cell"
+                      }
+                    ],
+                    "type" : "table_row"
+                  }
+                ],
+                "type" : "table"
+              },
+              {
+                "attrs" : {
+                  "label" : "Original note",
+                  "target" : "original-note"
+                },
+                "type" : "embed"
+              },
+              {
+                "content" : [
+                  {
+                    "text" : "café é 👩🏽‍💻 日本語 مرحبا",
+                    "type" : "text"
+                  }
+                ],
+                "type" : "paragraph"
+              }
+            ],
+            "type" : "doc"
+          },
+          "version" : 13
+        }
+      },
+      "status" : "pass"
+    }
+  ],
+  "nativeAcceptance" : "manual observations only; build\/setup does not pass JG-11",
+  "os" : "Version 26.6.2 (Build 25G83)",
+  "startedAt" : "2026-11-15T11:38:36Z",
+  "updatedAt" : "2026-11-15T11:45:56Z"
+}

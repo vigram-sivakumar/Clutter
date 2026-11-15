@@ -1,8 +1,19 @@
 # Foundation roadmap
 
-Revision 0.43, 2026-11-14. This roadmap describes work and dependencies; the current
+Revision 0.45, 2026-11-15. This roadmap describes work and dependencies; the current
 checkpoint/authorization is in [START-HERE](START-HERE.md). Product scope is in
 product-contracts.md, not independently redefined here.
+
+## Current deliverable — build21
+
+Native JN01–04 user passes preserved; raw build20 report reviewed. Build21 completes
+14 bounded canonical-entity cases against the existing real owner: atomic multi-note
+task move, single task page, conflict-safe historical note restore, six process-death
+phases, original receipts and RPC/CLI/MCP parity. See [result](r08-entity-closure.md).
+This is proposed representation closure, not native task UI or production acceptance.
+Next JG-13 is external PNG/PDF publication/retained-root closure. Then reassess remaining
+G-Q runtime/performance/security/format gates before the architecture decision.
+Historical progress entries below preserve earlier checkpoints, not current next actions.
 
 ## Progress and next deliverables
 

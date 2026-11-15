@@ -24,6 +24,7 @@
     "native:joined": "node joined-native/run.mjs",
     "native:joined:check": "node joined-native/run.mjs --check",
     "test:joined-native": "node test/joined-native.mjs",
+    "test:entities": "node test/entities.mjs",
     "native:joined:reopen": "node joined-native/reopen-current.mjs"
   },
   "dependencies": {

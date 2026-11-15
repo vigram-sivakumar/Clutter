@@ -1,6 +1,6 @@
 # Clutter foundation
 
-Status: architecture definition pack, revision 0.43, 2026-11-14. Product scope
+Status: architecture definition pack, revision 0.45, 2026-11-15. Product scope
 confirmed; technology proposals remain unqualified.
 Baseline: `main` at `cae604273115c0c6c0d3ac34533b1e9834e9c778`.
 Working branch: `architecture/clutter-foundation`.
@@ -10,8 +10,10 @@ New chat or AI agent: start at [START-HERE](START-HERE.md), then follow the
 PM/Y origin-aware editing, a headless TS authority and SQLite for joined qualification.
 [Gap ledger](architecture-gap-disposition.md) and [JG contract](joined-core-contract.json)
 record remaining gates. [Joined result](r08-joined-core.md): JG-01–10 now pass with two actual editors and
-one durable owner. [Mac runner](r08-native-runner.md) is prepared; next run it on the real Mac and
-report setup/window output before targeted JN-01.
+one durable owner. [Mac runner](r08-native-runner.md) has bounded JN-01–04 user-reported passes, with
+[reviewed native evidence](evidence/r08-native-manual-2026-11-15/review.json).
+[Entity proof21](r08-entity-closure.md) passes14 Linux cases; next is external PNG/PDF
+publication/history closure (JG-13). No repeated manual suite is required.
 This is a proposed combination, not an accepted architecture or production rebuild.
 
 ## Purpose and authority

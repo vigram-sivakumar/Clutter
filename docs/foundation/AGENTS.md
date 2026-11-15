@@ -93,7 +93,7 @@ them by implication.
   cases pass. Next quit old test app/apply18/relaunch, confirm side-by-side layout
   before JN-01. Bundle supports16/17; source fingerprint17 not independently reviewed.
 
-- Current0.43: accidental reload blanked the user's joined page because URL bootstrap
+- Historical0.43: accidental reload blanked the user's joined page because URL bootstrap
   was consumed. Data deletion is unverified. First recover SAME session using
   native:joined:reopen, not fresh native:joined. Helper requires existing store and
   original bundle, records canonical/protected/last capture, opens original app with
@@ -101,7 +101,7 @@ them by implication.
   bootstrap/protected reload;10 helper +10 joined Linux passes, new Swift not Mac-tested.
   Never guarantee recovery of uncommitted/unprotected text or discard the old session.
 
-## Current checkpoint override — revision0.44 / build20
+## Historical checkpoint — revision0.44 / build20
 
 Read START-HERE's build20 action first. User has reopened visible editors, then
 reported alternating table-cell whitespace clicks jumping into adjacent cells.
@@ -111,3 +111,14 @@ app to take effect; reopener deliberately runs the original binary. Preserve old
 session/store, use normal protected quit and archive setup before fresh builder.
 Linux pointer path did not reproduce native symptom; injected adjacent hit proves
 the pre20 adapter lacked DOM-cell bounds. No new architecture decision.
+
+## Current checkpoint — revision0.45 / build21
+
+START-HERE now owns the single current next action: JG-13 external image/PDF file
+closure. JN01–04 user passes and raw report review retained; no native replay.
+Fourteen entity cases pass with six real crash phases through common Store/host.
+Normalized task ownership/restore policies are proof proposals, not approved UX or
+production format. Original frozen JG contract is unchanged; evidence is separate.
+No production/main changes or agent commit/push. User repaired accidental generated
+output on local main separately; preserve backup and sessions, stage no outputs.
+Build21 patch base is exact20 / remote17d63b3; do not assume applied until reported.

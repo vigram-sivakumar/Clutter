@@ -98,3 +98,13 @@ host before measurement and met (or explicitly revised with reason) before G-Q;
 no memory/performance evidence is supplied by this review. Product proposals above
 are not user decisions. Resolve only material UX gaps one example at a time when
 needed for the corresponding implementation, without reopening settled contracts.
+
+## Execution update — revision0.45
+
+[Entity proof21](r08-entity-closure.md) supplies14 bounded cases for M02/M04/M06
+and PS02's proposed multi-note root closure: canonical independent tasks, derived
+unique placement, conservative note restore, process-death atomicity and shared
+command ingress. It does not settle complete clipboard/move undo, task restore UX,
+production partitioning/performance or external assets. JG13/PS02/PS04 attachment
+publication/retained-file closure remains open. Keep ledger dispositions/proposed
+policies and original frozen JG contract separate from executed evidence.

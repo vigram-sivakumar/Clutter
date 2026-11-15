@@ -200,3 +200,13 @@ Use [joined-native guide](joined-native/README.md), not native:mac, for the actu
 joined candidate. npm run native:joined packages a pinned runtime and starts a
 separate Swift/WK host after headless checks. Native build/run is not-run here;
 8 Linux helper checks do not pass JG-11. Start JN-01 only when the new window is ready.
+
+## Canonical task entity/placement proof (build21)
+
+[Entity contract](entities/CONTRACT.md) and [result](../../r08-entity-closure.md):
+`npm run test:entities` runs14 bounded Linux cases through the same Store/host,
+existing CLI transport and thin entity MCP schema wrapper. No browser is required.
+Notes contain placement slots, not copied task bodies/properties. Multi-note moves
+commit as one Y root/receipt; historical ownership conflicts refuse restoration.
+This is separate from earlier native editor binding; prior user manual passes stay
+valid. Next JG13 external files, not more native keyboard retesting.

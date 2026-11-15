@@ -113,3 +113,12 @@ entry checks, not full T-01/T-02/T-03 qualification. Swift compilation/native
 execution remain not-run; [preparation evidence](evidence/r07-03-2026-11-14.json)
 does not supersede native gates. Actual reports must retain observed failures and
 record input source/chords and unsupported cases.
+
+## Entity closure evidence — build21
+
+JG-12 has14 bounded Linux passes against the proposed canonical-task/Y aggregate
+representation; [result and limits](r08-entity-closure.md) and execution evidence
+are authoritative. Includes six real process deaths, unique placement, move/restore
+closure and one RPC/CLI/MCP reducer. Does not accept native entity binding, clipboard
+UI, task-page restore, production partitioning or entire feature criteria. JG-13
+external PNG/PDF retained-root closure remains next. Earlier native passes preserved.

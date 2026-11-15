@@ -26,6 +26,9 @@ const files = [
   ...readdirSync('joined')
     .filter((n) => /\.(mjs|md|json)$/.test(n))
     .map((n) => 'joined/' + n),
+  ...readdirSync('entities')
+    .filter((n) => /\.(mjs|md|json)$/.test(n))
+    .map((n) => 'entities/' + n),
   ...readdirSync('durable')
     .filter((n) => /\.(mjs|json|html|md)$/.test(n))
     .map((n) => 'durable/' + n),
@@ -42,7 +45,7 @@ const lock = JSON.parse(readFileSync('package-lock.json', 'utf8'));
 const manifest = {
   candidate: 'R07-PM-PUBLIC-02',
   alternatives: ['R07-PM-ORIGIN-02'],
-  iteration: 'R08-20-table-padding-click-2026-11-14',
+  iteration: 'R08-21-canonical-entity-closure-2026-11-15',
   date: '2026-11-14',
   scope:
     'Exploratory two-view candidates and native host source; native compilation/execution must be recorded separately',
@@ -62,6 +65,8 @@ const manifest = {
   schema:
     'src/schema.mjs; minimal R02-derived semantic subset, not canonical Clutter schema',
   profiles: {
+    entities:
+      'Build21 proposed notes/tasks Y maps and canonical task pages; derived single placements, multi-note atomic moves and conservative note restore through common Store/host. No editor binding, production format or performance acceptance.',
     joinedNative:
       'Runner16 prepared: checksum-pinned Mac Node, separate Swift/WK host, same-user synthetic bootstrap/context handoff. Linux packaged helper checks only; no Mac archive/SDK/signing/WK result or production security/host acceptance.',
     joined:
