@@ -210,3 +210,12 @@ Notes contain placement slots, not copied task bodies/properties. Multi-note mov
 commit as one Y root/receipt; historical ownership conflicts refuse restoration.
 This is separate from earlier native editor binding; prior user manual passes stay
 valid. Next JG13 external files, not more native keyboard retesting.
+
+## External image/PDF closure (build22)
+
+[Media guide](media/README.md), [frozen protocol](media/CONTRACT.md) and
+[result](../../r08-media-closure.md). `npm run test:media` exercises external
+publication/pins/retries/crashes; `npm run test:media-ports` checks shared Store
+compatibility headlessly.12 media cases/13 process-death phases pass. Notes and
+tasks use the same body/cover association operations; actual media rendering is
+not qualified here. Prior manual passes remain. Next decision-readiness review.

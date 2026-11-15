@@ -25,6 +25,8 @@
     "native:joined:check": "node joined-native/run.mjs --check",
     "test:joined-native": "node test/joined-native.mjs",
     "test:entities": "node test/entities.mjs",
+    "test:media": "node test/media.mjs",
+    "test:media-ports": "node test/media-ports.mjs",
     "native:joined:reopen": "node joined-native/reopen-current.mjs"
   },
   "dependencies": {

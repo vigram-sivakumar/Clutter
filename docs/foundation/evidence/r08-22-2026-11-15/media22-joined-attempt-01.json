@@ -1,0 +1,59 @@
+{
+  "date": "2026-11-14",
+  "codec": "clutter-r08-y-state-v1",
+  "results": [],
+  "remaining": [
+    {
+      "id": "JG-01",
+      "status": "not-run"
+    },
+    {
+      "id": "JG-02",
+      "status": "not-run"
+    },
+    {
+      "id": "JG-03",
+      "status": "not-run"
+    },
+    {
+      "id": "JG-04",
+      "status": "not-run"
+    },
+    {
+      "id": "JG-05",
+      "status": "not-run"
+    },
+    {
+      "id": "JG-06",
+      "status": "not-run"
+    },
+    {
+      "id": "JG-07",
+      "status": "not-run"
+    },
+    {
+      "id": "JG-08",
+      "status": "not-run"
+    },
+    {
+      "id": "JG-09",
+      "status": "not-run"
+    },
+    {
+      "id": "JG-10",
+      "status": "not-run"
+    },
+    {
+      "id": "JG-11",
+      "status": "not-run"
+    },
+    {
+      "id": "JG-12",
+      "status": "not-run"
+    },
+    {
+      "id": "JG-13",
+      "status": "not-run"
+    }
+  ]
+}

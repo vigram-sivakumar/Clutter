@@ -1,0 +1,16 @@
+Pillow load: pass,1x1 RGBA
+
+Custom Metadata: no
+Metadata Stream: no
+Tagged:          no
+UserProperties:  no
+Suspects:        no
+Form:            none
+JavaScript:      no
+Pages:           1
+Encrypted:       no
+Page size:       72 x 72 pts
+Page rot:        0
+File size:       415 bytes
+Optimized:       no
+PDF version:     1.4

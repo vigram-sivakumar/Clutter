@@ -1,0 +1,20 @@
+MA-01 pass Notes and task pages share body/cover assets; task move keeps ownership
+MA-02 pass Content-address reuse and pinned historical media survive all current removals
+MA-03 pass Real owner deaths across file publication and SQL commit recover old-or-new roots
+MA-04 pass Publication/flush checkpoints precede SQL and failures never acknowledge a root
+MA-05 pass Failed SQL leaves complete orphan unreachable; restart never adopts it
+MA-06 pass Corrupt existing orphan is refused, never overwritten from import bytes
+MA-07 pass Missing truncated or corrupt pinned objects fail media reads and reopening
+MA-08 pass Symlink objects and directories cannot redirect file publication
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
++ actual - expected
+
++ 'ASSET_BYTE_LIMIT'
+- 'INVALID_ASSET_BASE64'
+
+    at refused (file:///workspace/scratch/c3964483bf30/clutter-architecture/docs/foundation/experiments/r07-two-view/test/media.mjs:18:77)
+    at file:///workspace/scratch/c3964483bf30/clutter-architecture/docs/foundation/experiments/r07-two-view/test/media.mjs:123:35
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async check (file:///workspace/scratch/c3964483bf30/clutter-architecture/docs/foundation/experiments/r07-two-view/test/media.mjs:23:52)
+    at async file:///workspace/scratch/c3964483bf30/clutter-architecture/docs/foundation/experiments/r07-two-view/test/media.mjs:114:3
+Report artifacts/media22-results-initial.json

@@ -112,7 +112,7 @@ session/store, use normal protected quit and archive setup before fresh builder.
 Linux pointer path did not reproduce native symptom; injected adjacent hit proves
 the pre20 adapter lacked DOM-cell bounds. No new architecture decision.
 
-## Current checkpoint — revision0.45 / build21
+## Historical checkpoint — revision0.45 / build21
 
 START-HERE now owns the single current next action: JG-13 external image/PDF file
 closure. JN01–04 user passes and raw report review retained; no native replay.
@@ -122,3 +122,16 @@ production format. Original frozen JG contract is unchanged; evidence is separat
 No production/main changes or agent commit/push. User repaired accidental generated
 output on local main separately; preserve backup and sessions, stage no outputs.
 Build21 patch base is exact20 / remote17d63b3; do not assume applied until reported.
+
+## Current checkpoint — revision0.46 / build22
+
+START-HERE owns next action: architecture decision-readiness review, not another
+broad/manual editor session. Media12 passes across13 actual crash boundaries;
+entity14, Node84 and2 old-profile headless checks pass. Fresh browser suites could
+not launch due to environment Unix socket restrictions; retain raw attempts and
+prior historical passes without inventing new ones. Linux fsync/inert-byte tests
+do not qualify Mac fullsync, power loss, native media renderer or PDF security.
+Tasks remain full pages with body/cover/embeds intended; media associations use
+the same page ID operations as notes. Tiny PNG/PDF files are source test fixtures.
+Build22 supports exact20/21 since21 application unconfirmed. Never touch main,
+commit generated objects/stages or discard native sessions/repair backup.

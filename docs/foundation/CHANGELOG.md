@@ -3,6 +3,21 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.46 — 2026-11-15
+
+- Added bounded external-media/Y profile: notes/tasks share body/cover associations;
+  immutable file publication and directory flush precede SQL root/receipt commit.
+-12 cases pass with13 real crash phases, exact retries, retained pinned history,
+  no unsafe orphan adoption/overwrite, corrupt/missing historical file refusal,
+  canonical file bytes outside SQL/Y and RPC/CLI/MCP parity.
+- Shared Store adds optional external-state/read ports and awaited staging; entity
+  model adds declared extension maps. No second transaction engine or reducer fork.
+-14 entity,84 Node and2 old-profile headless regressions pass. Browser reruns blocked
+  by environment socket restrictions; preserve attempts, no new browser/native claim.
+  Initial wrong expected size-limit error corrected; raw failed run retained.
+- Advanced checkpoint to architecture decision-readiness review with explicit G-Q
+  blockers. No production/main/lockfile changes, commit/push, providers or manual replay.
+
 ## 0.45 — 2026-11-15
 
 - Preserved JN01–04 manual passes and original uploaded native report; separated

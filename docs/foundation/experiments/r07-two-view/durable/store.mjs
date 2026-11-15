@@ -193,6 +193,7 @@ export class Store {
       if (!b || hash(b.bytes) !== a.blobHash)
         throw Error('BROKEN_BLOB_CLOSURE');
     }
+    this.model.checkExternalState?.(s, this);
   }
   check() {
     const db = this.db;
@@ -278,6 +279,8 @@ export class Store {
           .prepare('SELECT 1 FROM pins WHERE version=?')
           .get(c.version),
       };
+    if (this.model.readMethods?.includes(c.method))
+      return this.model.read(c, this);
     if (c.method === 'outcome') {
       const result = this.outcome(c.operationId);
       if (this.uncertainOperation === c.operationId) {
@@ -326,7 +329,7 @@ export class Store {
         ]
       ).includes(c.method)
     )
-      state = this.model.reduce(this.root(version).state, c, this);
+      state = await this.model.reduce(this.root(version).state, c, this);
     if (c.method === 'attach') {
       if (
         typeof c.base64 !== 'string' ||

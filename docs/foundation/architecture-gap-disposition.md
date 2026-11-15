@@ -108,3 +108,15 @@ command ingress. It does not settle complete clipboard/move undo, task restore U
 production partitioning/performance or external assets. JG13/PS02/PS04 attachment
 publication/retained-file closure remains open. Keep ledger dispositions/proposed
 policies and original frozen JG contract separate from executed evidence.
+
+## External media evidence — revision0.46
+
+[Media proof22](r08-media-closure.md) supplies12 bounded JG13/PS02/PS04 cases with13
+real process-death boundaries: publication-before-reference, original receipt,
+pin/history retention and safe orphan treatment. Notes and tasks share page-ID
+body/cover associations. This is Linux inert-byte/storage evidence, not native
+renderer, Mac full-flush/power-loss, general PDF security, production partitioning
+or full release acceptance. Shared Store regression evidence: entity14, Node84
+and2 headless original-model cases; fresh browser suites environment-blocked.
+Next reconcile the gate ledger and Proposed ADRs in a decision-readiness review;
+no automatic baseline acceptance or repeated manual session.

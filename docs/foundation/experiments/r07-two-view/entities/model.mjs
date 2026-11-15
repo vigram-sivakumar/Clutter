@@ -117,8 +117,13 @@ export function ydoc(payload) {
     throw e;
   }
 }
-export function stateOf(d) {
-  if ([...d.share.keys()].sort().join() !== 'notes,tasks')
+export function stateOf(d, extensionRoots = []) {
+  // Empty declared top-level maps have no Y structs until first insertion.
+  for (const name of extensionRoots) d.getMap(name);
+  if (
+    [...d.share.keys()].sort().join() !==
+    ['notes', 'tasks', ...extensionRoots].sort().join()
+  )
     throw Error('INVALID_ENTITY_ROOT');
   const out = { notes: {}, tasks: {} };
   for (const [kind, schema] of [
@@ -206,7 +211,7 @@ export function initial() {
     d.destroy();
   }
 }
-export function validateState(s) {
+export function validateState(s, extensionRoots = []) {
   keys(s, 'payload,notes,tasks,attachments');
   if (
     typeof s.payload !== 'string' ||
@@ -218,7 +223,7 @@ export function validateState(s) {
     throw Error('INVALID_ENTITY_STATE');
   const d = ydoc(s.payload);
   try {
-    const derived = stateOf(d);
+    const derived = stateOf(d, extensionRoots);
     if (
       stable(derived.notes) !== stable(s.notes) ||
       stable(derived.tasks) !== stable(s.tasks)
@@ -364,7 +369,7 @@ function setBody(record, schema, body, d) {
     isOMark: new Map(),
   });
 }
-export function reduce(s, c, store) {
+export function reduce(s, c, store, extensionRoots = []) {
   const d = ydoc(s.payload);
   try {
     const notes = d.getMap('notes'),
@@ -413,8 +418,8 @@ export function reduce(s, c, store) {
         throw Error('TASK_PLACEMENT_CONFLICT');
       setBody(note, noteSchema, body, d);
     }
-    const next = stateOf(d);
-    validateState(next);
+    const next = stateOf(d, extensionRoots);
+    validateState(next, extensionRoots);
     return next;
   } finally {
     d.destroy();

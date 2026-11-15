@@ -117,8 +117,8 @@ export async function cli(o, c) {
   await deadline(once(p, 'exit'));
   return JSON.parse(out);
 }
-export async function mcp(o) {
-  const child = spawn(process.execPath, ['entities/mcp.mjs'], {
+export async function mcp(o, { entry = 'entities/mcp.mjs' } = {}) {
+  const child = spawn(process.execPath, [entry], {
     env: o.env,
     stdio: ['pipe', 'pipe', 'pipe'],
   });

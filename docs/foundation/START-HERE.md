@@ -1,6 +1,6 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-15. Documentation revision: 0.45, build21.
+Last updated: 2026-11-15. Documentation revision: 0.46, build22.
 Read [AGENTS](AGENTS.md), this checkpoint and [README](README.md) first.
 
 ## Current position
@@ -20,45 +20,56 @@ This current checkpoint supersedes earlier next-action text in historical record
 | Native report reviewed | evidence/r08-native-manual-2026-11-15/review.json: actual build20 Mac arm64/Node24.22.1/SQLite3.53.4; raw JN01/02, HN01/02 and synced final PROTECTED root; later checks are user reports |
 | Native limits | IME unavailable; VoiceOver deferred; distribution/security/full release matrix and explicit native reload-safety trial unqualified |
 | Entity build21 |14 Linux cases pass for proposed canonical task page/unique placement, atomic multi-note move, historical read/restore conflict,6 real process-death phases, CLI/MCP parity and stored Y closure |
-| Next | JG-13 external PNG/PDF file publication and retained historical root closure |
+| Media build22 |12 Linux media cases pass with13 real crash phases;14 entity,84 Node and2 old-profile headless regressions pass; browser reruns environment-blocked |
+| Next | Architecture decision-readiness review: reconcile evidence and remaining G-Q blockers before baseline selection |
 
 ## Branch and delivery state
 
-Remote foundation17d63b3 contains exact build20 (verified tree
-f8e3b85c383bd656eb1b5e25df3035a98205e073). Build21 is an incremental patch over20;
-application/commit is not assumed until user confirms. This workspace holds later
-uncommitted foundation changes; no agent commit or push. Initial source provenance
-was main cae604273115c0c6c0d3ac34533b1e9834e9c778; do not reset to it.
+Work stays on architecture/clutter-foundation. Remote17d63b3 is exact20, tree
+f8e3b85c383bd656eb1b5e25df3035a98205e073. Delivery21 application is unconfirmed;
+build22 supports exact20 or21 with a single matching preflight. No agent commit or
+push; this workspace holds later foundation changes. Never reset to the historical
+main cae604273115c0c6c0d3ac34533b1e9834e9c778 provenance baseline.
 
-The user's local main accidentally committed generated outputs during unrelated
-app work. A guarded utility repaired its five unpublished app commits, preserving
-legitimate content/metadata and adding narrow root ignores. User reported repaired
-main c3bb1d6d97dd5547a888f2b49ff881fb0b0be34e and a backup. Push success is unreported.
-Remote main568dd8e was independently verified free of foundation paths before repair.
-This is repository hygiene, not a foundation merge or architecture decision.
+The user's accidental generated-output commits on local main were repaired by a
+separate guarded utility, preserving five app fixes and adding root ignore rules;
+reported result c3bb1d6d. Push success is not directly supplied in this thread.
+Foundation is not merged into main. Keep repair backup and saved native sessions.
+Apply helpers guard the foundation branch; stage only source/docs/evidence under
+this folder, never app bundles, runtimes, caches, artifacts/ or local test stores.
+The tiny PNG/PDF fixtures are intentional source inputs, not generated app output.
 
-Do not switch/merge/rebase main or push backup refs while resuming foundation.
-Every apply helper must guard this branch. Keep outputs under ignored directories,
-use explicit foundation staging, and inspect staged paths before user commits.
-Never stage app bundles, runtime archives, caches, artifacts/ or local test stores.
-Never remove the user's saved native sessions or repair backup.
+## Exact next work — decision-readiness review
 
-## Exact next work
+1. Read [media result](r08-media-closure.md), [entity result](r08-entity-closure.md),
+   architecture-review.md, architecture-gap-disposition.md and the gate/decision
+   register. Frozen JG contract not-run fields are historical; executions are separate.
+2. Reconcile bounded JG01–10, four user-reported native cases (raw capture limits),
+   entity14 and media12 against the intended architecture. Preserve reported passes.
+3. Produce a concrete recommended baseline/module ownership with a table of proved,
+   proposed and still-blocking G-Q decisions. Explicitly cover reference workload/
+   budgets/Space-root partitioning, packaged runtime footprint, native file flush,
+   installed discovery/grants/security/distribution, format/migration and fresh
+   browser-regression availability. Do not silently mark these accepted.
+4. Update Proposed ADRs and implementation gates around that review. Do not start a
+   production rebuild or more broad exploratory spikes without a concrete gap.
+   Ask only for material product choices, one example/question at a time if needed.
 
-1. Read [entity result](r08-entity-closure.md), entity CONTRACT.md and
-   [gap ledger](architecture-gap-disposition.md), then JG-13 in the frozen
-   joined-core-contract.json. Do not rewrite frozen not-run fields: evidence is separate.
-2. Freeze an external-asset protocol before code: valid PNG/PDF inputs, hash/size/
-   decoder bounds, immutable file names, stage/flush/publish/directory-flush before
-   SQL reference commit, original operation receipts and crash reconciliation.
-3. Extend the existing Store/host port, preserving earlier model profiles. Prove
-   no acknowledged root can reference absent/partial bytes; old pinned roots keep
-   their files after current-reference removal; orphan files stay unreachable and
-   are not unsafely cleaned. No GC or cloud provider work.
-4. Run bounded Linux faults/closure tests, record actual platform/flush limits,
-   update checkpoint/roadmap/decisions/evidence and deliver the next incremental ZIP.
-5. Review G-Q performance/runtime/security/format gaps before a baseline decision;
-   G-M success alone does not qualify production or all product interactions.
+## Media proof interpretation
+
+Both notes and tasks are first-class page IDs for body/cover associations. Current
+body schemas/rendering are only subsets; tasks are NOT restricted to those subsets
+in the intended product. Immutable hash-named external files precede SQL references;
+root/history metadata has no second writable file-byte copy. Pins retain files,
+current-reference removal never unlinks, and orphans remain unreachable. No GC.
+
+12 media cases cover13 real child-process death boundaries and a few injected
+pre-flush exceptions (not actual fsync syscall/power-loss faults).14 entity and84
+Node checks plus2 legacy/joined headless-port cases pass. Two fresh browser suites
+could not launch Chromium because Unix sockets are denied in this environment;
+recorded attempts are blocked, not passing or new semantic assertion failures.
+No more user manual tests requested. Native rendering, general PDF/image security,
+Mac F_FULLFSYNC/directory behavior, Windows and power-loss guarantees remain open.
 
 ## Entity interpretation and remaining limits
 

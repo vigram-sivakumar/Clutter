@@ -26,6 +26,12 @@ const files = [
   ...readdirSync('joined')
     .filter((n) => /\.(mjs|md|json)$/.test(n))
     .map((n) => 'joined/' + n),
+  ...readdirSync('media')
+    .filter((n) => /\.(mjs|md|json)$/.test(n))
+    .map((n) => 'media/' + n),
+  ...readdirSync('media/fixtures')
+    .filter((n) => /\.(png|pdf)$/.test(n))
+    .map((n) => 'media/fixtures/' + n),
   ...readdirSync('entities')
     .filter((n) => /\.(mjs|md|json)$/.test(n))
     .map((n) => 'entities/' + n),
@@ -45,7 +51,7 @@ const lock = JSON.parse(readFileSync('package-lock.json', 'utf8'));
 const manifest = {
   candidate: 'R07-PM-PUBLIC-02',
   alternatives: ['R07-PM-ORIGIN-02'],
-  iteration: 'R08-21-canonical-entity-closure-2026-11-15',
+  iteration: 'R08-22-external-media-closure-2026-11-15',
   date: '2026-11-14',
   scope:
     'Exploratory two-view candidates and native host source; native compilation/execution must be recorded separately',
@@ -65,6 +71,8 @@ const manifest = {
   schema:
     'src/schema.mjs; minimal R02-derived semantic subset, not canonical Clutter schema',
   profiles: {
+    media:
+      'Build22 external content-addressed PNG/PDF publication before SQL, note/task body/cover associations, retained-root file closure; shared Store extensions, Linux process-crash proof only; no renderer/power-loss/Mac flush acceptance.',
     entities:
       'Build21 proposed notes/tasks Y maps and canonical task pages; derived single placements, multi-note atomic moves and conservative note restore through common Store/host. No editor binding, production format or performance acceptance.',
     joinedNative:

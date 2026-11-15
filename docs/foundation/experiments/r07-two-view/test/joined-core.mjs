@@ -95,6 +95,7 @@ async function run(id, f) {
     throw e;
   }
 }
+let runnerError = null;
 const text = (s) => JSON.stringify(s);
 async function equal(p) {
   const s = await snapshot(p);
@@ -642,6 +643,8 @@ try {
     };
   });
 } catch (e) {
+  runnerError = e.stack ?? e.message;
+  console.error(runnerError);
   process.exitCode = 1;
 } finally {
   for (const o of live)
@@ -657,6 +660,7 @@ try {
       {
         date: '2026-11-14',
         codec: 'clutter-r08-y-state-v1',
+        runnerError,
         profile,
         results,
         remaining: contract.cases
