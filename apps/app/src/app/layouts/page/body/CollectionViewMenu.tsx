@@ -31,7 +31,7 @@ export interface CollectionViewMenuProps {
   levelSort?: { readonly sort: SidebarSort; readonly onChange: (next: SidebarSort) => void };
   /**
    * Extra on/off preferences a collection offers beyond Layout / Properties / Sort by — drawn as
-   * a Display submenu above Sort by (All Tasks' Show completed / Auto-sort completed). Absent or
+   * flat Display rows above Sort by (All Tasks' Show completed / Auto-sort completed). Absent or
    * empty: the menu is exactly the standard one. Like a property toggle, flipping one does not
    * close the menu.
    */
@@ -55,13 +55,13 @@ const VIEW_ITEMS: ReadonlyArray<{
   { mode: 'card', label: 'Card', icon: 'card' },
 ];
 
-type ConfigureMenuView = 'root' | 'properties' | 'groupBy' | 'display';
+type ConfigureMenuView = 'root' | 'properties';
 
 /**
  * The collection List/Table/Properties/Sort-by control — lives beside the
  * page title (PageTitleSection's `actions` slot), not the top bar.
  *
- * Properties, Group by and Display are replacement views, not second floating menus —
+ * Properties is a replacement view, not a second floating menu —
  * one shared `<Menu>`, its children swapped by `panel` state, exactly the
  * pattern FencedCodeActionsMenu.tsx's Change Language view established
  * (see that file's own, extensively documented comment for the full
@@ -138,22 +138,26 @@ export function CollectionViewMenu({ view, onLayoutChange, onPropertyChange, onS
         <Menu size="medium">
           {panel === 'root' ? (
             <>
-              <MenuGroupTitle>Layout</MenuGroupTitle>
-              {VIEW_ITEMS.filter(({ mode }) => view.layouts.includes(mode)).map(({ mode, label, icon }) => (
-                <MenuItem
-                  key={mode}
-                  selected={mode === view.layout}
-                  leading={<AppIcon icon={icon} />}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onLayoutChange(mode);
-                    setOpen(false);
-                  }}
-                >
-                  {label}
-                </MenuItem>
-              ))}
-              {view.available.length > 0 && (
+              {view.layouts.length > 1 && (
+                <>
+                  <MenuGroupTitle>Layout</MenuGroupTitle>
+                  {VIEW_ITEMS.filter(({ mode }) => view.layouts.includes(mode)).map(({ mode, label, icon }) => (
+                    <MenuItem
+                      key={mode}
+                      selected={mode === view.layout}
+                      leading={<AppIcon icon={icon} />}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onLayoutChange(mode);
+                        setOpen(false);
+                      }}
+                    >
+                      {label}
+                    </MenuItem>
+                  ))}
+                </>
+              )}
+              {view.configurableProperties !== false && view.available.length > 0 && (
                 <>
                   <div className="menu__divider" role="separator" />
                   <MenuItem
@@ -168,26 +172,39 @@ export function CollectionViewMenu({ view, onLayoutChange, onPropertyChange, onS
                 </>
               )}
               {view.groupBy !== undefined && onGroupByChange && (
-                <MenuItem
-                  trailing={<AppIcon icon="chevronRight" />}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setPanel('groupBy');
-                  }}
-                >
-                  Group by
-                </MenuItem>
+                <>
+                  <MenuGroupTitle>Group by</MenuGroupTitle>
+                  {(['none', 'dueDate'] as const).map((value) => (
+                    <MenuItem
+                      key={value}
+                      leading={view.groupBy === value ? <AppIcon icon="tick" /> : <span className="app-icon" />}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onGroupByChange(value);
+                      }}
+                    >
+                      {value === 'none' ? 'None' : propertyLabel('dueDate')}
+                    </MenuItem>
+                  ))}
+                </>
               )}
               {toggles && toggles.length > 0 && (
-                <MenuItem
-                  trailing={<AppIcon icon="chevronRight" />}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setPanel('display');
-                  }}
-                >
-                  Display
-                </MenuItem>
+                <>
+                  <div className="menu__divider" role="separator" />
+                  <MenuGroupTitle>Display</MenuGroupTitle>
+                  {toggles.map((toggle) => (
+                    <MenuItem
+                      key={toggle.id}
+                      leading={toggle.checked ? <AppIcon icon="tick" /> : <span className="app-icon" />}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        toggle.onChange(!toggle.checked);
+                      }}
+                    >
+                      {toggle.label}
+                    </MenuItem>
+                  ))}
+                </>
               )}
               {(levelSort || view.sortable.length > 0) && (
                 <>
@@ -283,10 +300,10 @@ export function CollectionViewMenu({ view, onLayoutChange, onPropertyChange, onS
                   </Button>
                 }
               >
-                {panel === 'properties' ? 'Properties' : panel === 'groupBy' ? 'Group by' : 'Display'}
+                Properties
               </MenuGroupTitle>
               <div className="menu__divider" role="separator" />
-              {panel === 'properties' && view.available.map((id) => {
+              {view.available.map((id) => {
                 const checked = view.visible.includes(id);
                 // Required properties stay checked; temporarily unavailable ones (grouped Due date)
                 // stay unchecked. Both are disabled here, following the resolver's state.
@@ -323,30 +340,7 @@ export function CollectionViewMenu({ view, onLayoutChange, onPropertyChange, onS
                   </MenuItem>
                 );
               })}
-              {panel === 'groupBy' && (['none', 'dueDate'] as const).map((value) => (
-                <MenuItem
-                  key={value}
-                  leading={view.groupBy === value ? <AppIcon icon="tick" /> : <span className="app-icon" />}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onGroupByChange?.(value);
-                  }}
-                >
-                  {value === 'none' ? 'None' : propertyLabel('dueDate')}
-                </MenuItem>
-              ))}
-              {panel === 'display' && toggles?.map((toggle) => (
-                <MenuItem
-                  key={toggle.id}
-                  leading={toggle.checked ? <AppIcon icon="tick" /> : <span className="app-icon" />}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    toggle.onChange(!toggle.checked);
-                  }}
-                >
-                  {toggle.label}
-                </MenuItem>
-              ))}
+
             </>
           )}
         </Menu>

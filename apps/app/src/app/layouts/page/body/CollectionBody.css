@@ -16,6 +16,10 @@
   gap: 20px;
 }
 
+.collection__content[data-task-layout='list'] .section-header {
+  --entry-hover-surface: transparent;
+}
+
 /*
  * Breathing room below the last row/card when scrolled to the bottom of
  * .page__content (the actual scroll container — see Page.css). A real

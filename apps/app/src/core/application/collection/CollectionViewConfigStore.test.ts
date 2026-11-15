@@ -508,7 +508,8 @@ describe('CollectionViewConfigStore — the Task Collection (one shared key, vie
       const viewKey = deriveCollectionViewKey({ type: 'filtered-view', view: { kind } })!;
       const view = resolveCollectionView(TASKS_COLLECTION, toCollectionViewConfig(TASKS_COLLECTION, restarted.get(viewKey)));
 
-      expect(view.layout, kind).toBe('table');
+      expect(view.layout, kind).toBe('list');
+      expect(restarted.get(viewKey)?.layout).toBe('table');
       expect(view.visible, kind).toEqual(['name', 'dueDate']);
       expect(view.sort, kind).toEqual({ property: 'dueDate', direction: 'up' });
     }

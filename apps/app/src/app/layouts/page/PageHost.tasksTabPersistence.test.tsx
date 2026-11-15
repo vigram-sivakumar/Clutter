@@ -147,23 +147,24 @@ const tab = (label: string) =>
   [...document.querySelectorAll<HTMLElement>('.page-title-section .tab')].find((el) => el.textContent === label)!;
 
 describe('Tasks page tab selection persists across an app restart', () => {
-  it('persists Group by due date from Configure across List/Table and an app restart', async () => {
-    const fileSystem = new InMemoryVaultFileSystem();
+  it('uses List for a saved Table preference and persists flat grouping/display controls across a restart', async () => {
+    const fileSystem = new InMemoryVaultFileSystem({
+      [`${ROOT}/.clutter/workspace.json`]: JSON.stringify({ collectionViewConfig: { 'view:tasks': { layout: 'table' } } }),
+    });
     const firstApp = await boot(fileSystem);
     const first = render(<AppLayout application={firstApp} />);
     await flush();
     const configure = () => document.querySelector<HTMLElement>('.page-title-section [aria-haspopup="menu"]')!;
     fireEvent.click(configure());
-    fireEvent.click(first.getByText('Group by'));
     const dueDateChoices = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].filter((row) => row.textContent === 'Due date');
-    fireEvent.click(dueDateChoices[dueDateChoices.length - 1]!);
+    fireEvent.click(dueDateChoices[0]!);
     await flush();
     expect(document.querySelectorAll('.collection__content .section-header')).toHaveLength(3);
-    fireEvent.click(first.getByRole('button', { name: 'Back to configure' }));
-    fireEvent.click(first.getByText('Table'));
-    await flush();
-    expect(document.querySelectorAll('.collection-table__header')).toHaveLength(1);
-    expect(document.querySelectorAll('.collection-table__group-header')).toHaveLength(3);
+    expect(first.queryByText('Layout')).toBeNull();
+    expect(first.queryByText('Properties')).toBeNull();
+    expect(first.getByText('Show completed')).toBeInTheDocument();
+    expect(document.querySelector('.collection-table')).toBeNull();
+    expect(document.querySelector('.collection-list')).not.toBeNull();
     expect(firstApp.collectionViewConfigStore.get('view:tasks')).toMatchObject({ groupBy: 'dueDate', layout: 'table' });
     await flushWorkspaceStateWrites();
     first.unmount();
@@ -171,13 +172,12 @@ describe('Tasks page tab selection persists across an app restart', () => {
     const secondApp = await boot(fileSystem);
     const second = render(<AppLayout application={secondApp} />);
     await flush();
-    expect(document.querySelectorAll('.collection-table__group-header')).toHaveLength(3);
+    expect(document.querySelectorAll('.collection__content .section-header')).toHaveLength(3);
     fireEvent.click(configure());
-    fireEvent.click(second.getByText('Group by'));
     fireEvent.click(second.getByText('None'));
     await flush();
-    expect(document.querySelectorAll('.collection-table__group-header')).toHaveLength(0);
-    expect(document.querySelectorAll('.collection-table .task-title')).toHaveLength(3);
+    expect(document.querySelectorAll('.collection__content .section-header')).toHaveLength(0);
+    expect(document.querySelectorAll('.collection-list .task-title')).toHaveLength(3);
   });
 
   it('a first launch opens on All tasks, with every task listed', async () => {

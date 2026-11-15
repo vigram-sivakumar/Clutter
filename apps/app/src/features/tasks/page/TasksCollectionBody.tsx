@@ -3,12 +3,9 @@ import { PageBody } from '@app/layouts/page/body/Page.Body';
 import { CollectionEmptyState } from '@features/collection/components/empty/CollectionEmptyState';
 import { CollectionSourceLink } from '@features/collection/components/entry/CollectionSourceLink';
 import { CollectionDataList } from '@features/collection/components/list/CollectionDataList';
-import { CollectionDataTable, type CollectionDataTableRow } from '@features/collection/components/table/CollectionDataTable';
 import { Section } from '@app/layouts/sidebar/section/Section';
-import { Header } from '@app/layouts/sidebar/section/Section.Header';
 import { groupByTaskDueDate } from '../helpers/groupByTaskDueDate';
 import { formatTaskDueDateLong } from '../helpers/formatTaskDueDate';
-import { buildPropertyTableColumns, propertyValueCells } from '@features/collection/properties/tableColumns';
 import { useCollectionItemContextMenu } from '@app/layouts/page/body/useCollectionItemContextMenu';
 import { TaskDatePicker } from '../sidebar/TaskDatePicker';
 import { buildTaskMenu } from '../helpers/buildTaskMenu';
@@ -71,7 +68,7 @@ export interface TasksCollectionBodyProps {
    */
   readonly displayConfig?: TaskDisplayConfig;
   /**
-   * The Task Collection's resolved Configure state (layout, visible properties, sort) — shared by all six task views, the same
+   * The Task Collection's resolved Configure state (visible properties, sort) — shared by all six task views, the same
    * `resolveCollectionView` result every collection page draws from. Absent: the collection's defaults.
    */
   readonly collectionView?: ResolvedCollectionView;
@@ -90,9 +87,9 @@ export interface TasksCollectionBodyProps {
  * scroll space that lets the last row scroll clear of the page's bottom
  * fade. Defined once here so no individual view can forget it.
  */
-function TasksPageBody({ children, isList = false }: { readonly children: ReactNode; readonly isList?: boolean }) {
+function TasksPageBody({ children }: { readonly children: ReactNode }) {
   return (
-    <PageBody className="collection__content" data-task-layout={isList ? 'list' : undefined}>
+    <PageBody className="collection__content" data-task-layout="list">
       {children}
       <div className="collection__bottom-spacer" aria-hidden="true" />
     </PageBody>
@@ -103,7 +100,7 @@ function TasksPageBody({ children, isList = false }: { readonly children: ReactN
  * The page body of every task view — ONE renderer. The view decides the dataset (`tasksForView`, the
  * single authority on which tasks belong to Today / Overdue / Upcoming / Unscheduled / Done / All), the
  * shared collection configuration (`collectionView`: layout, properties, sort) decides how that dataset
- * is drawn, through the generic `CollectionDataList` / `CollectionDataTable`. Deliberately not a
+ * is drawn, through the generic `CollectionDataList`. Deliberately not a
  * CollectionBody variant — CollectionEntryModel (folder/note-shaped) has no room for
  * `completed`/`dueDate` (ADR-022) — so tasks are mapped to the shared property `values` instead
  * (ADR-045, ADR-046). The sidebar keeps its own presentation; exact-date bucketing is shared through
@@ -127,7 +124,7 @@ export function TasksCollectionBody({
   resolveTag,
   resolveEmbed,
 }: TasksCollectionBodyProps) {
-  const { layout, visible, sort, groupBy } = collectionView ?? resolveCollectionView(view === 'tasks-inbox' ? TASK_INBOX_COLLECTION : TASKS_COLLECTION);
+  const { visible, sort, groupBy } = collectionView ?? resolveCollectionView(view === 'tasks-inbox' ? TASK_INBOX_COLLECTION : TASKS_COLLECTION);
   const [collapsedGroups, setCollapsedGroups] = useState<readonly string[]>([]);
   const sectionProps = (date: string) => {
     const key = `${view}:${date}`;
@@ -213,7 +210,7 @@ export function TasksCollectionBody({
   );
 
   // The title (its own slot) and the actions drawn right after it (Edit and the due-date picker — never in an overflow menu), as
-  // the title's sibling inside the entry's content; one definition each for the List and the Table.
+  // the title's sibling inside the entry's content.
   const titleSlotOf = (entry: TaskEntry) => <span className="task-row-title">{titleOf(entry)}</span>;
   const actionsOf = (entry: TaskEntry) => (
     <TaskTitleActions
@@ -224,7 +221,7 @@ export function TasksCollectionBody({
   );
 
   // The due-date control — the task's date, only for a dated task (an undated one has no control; its date is set in
-  // the Edit task modal) — and the source as a wiki-link-styled link. One definition each for the List and the Table;
+  // the Edit task modal) — and the source as a wiki-link-styled link;
   // none of them opens the row's note.
   const dueDateOf = ({ task }: TaskEntry) =>
     task.dueDate !== undefined && (
@@ -262,52 +259,6 @@ export function TasksCollectionBody({
     </>
   );
 
-  const tableRowOf = (entry: TaskEntry): CollectionDataTableRow => ({
-    id: entry.id,
-    cells: {
-      name: {
-        variant: 'header' as const,
-        leading: checkboxOf(entry),
-        titleContent: titleSlotOf(entry),
-        actions: actionsOf(entry),
-      },
-      ...propertyValueCells(visible, entry.values),
-      // The same controls as the List's trailing slot (a task with no source keeps the empty text cell).
-      ...(visible.includes('dueDate') &&
-        entry.task.dueDate !== undefined && { dueDate: { variant: 'custom' as const, children: dueDateOf(entry) } }),
-      ...(visible.includes('source') &&
-        entry.source && { source: { variant: 'custom' as const, children: sourceOf(entry) } }),
-    },
-    onClick: () => onOpenTask(entry.task),
-    props: contextMenu.entryProps(entry),
-  });
-
-  if (layout === 'table') {
-    return (
-      <TasksPageBody>
-        <CollectionDataTable
-          columns={buildPropertyTableColumns(visible)}
-          rows={dateGroups ? [] : entries.map(tableRowOf)}
-          groups={dateGroups?.map(({ date, items }) => {
-            const section = sectionProps(date);
-            return {
-              id: date || 'unscheduled',
-              header: <Header
-                title={section.title}
-                isCollapsible
-                isTitleToggle
-                isExpanded={section.isExpanded}
-                onExpandToggle={() => section.onExpandedChange(!section.isExpanded)}
-              />,
-              rows: section.isExpanded ? items.map(tableRowOf) : [],
-            };
-          })}
-        />
-        {menuOverlays}
-      </TasksPageBody>
-    );
-  }
-
   const showDueDate = visible.includes('dueDate');
   const showSource = visible.includes('source');
 
@@ -333,7 +284,7 @@ export function TasksCollectionBody({
   };
 
   return (
-    <TasksPageBody isList>
+    <TasksPageBody>
       {dateGroups ? dateGroups.map(({ date, items }) => (
         <Section key={date || 'unscheduled'} {...sectionProps(date)}>
           <CollectionDataList className="task-list" items={items.map(itemOf)} />

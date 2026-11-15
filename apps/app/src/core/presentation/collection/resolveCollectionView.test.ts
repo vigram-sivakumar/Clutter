@@ -26,6 +26,20 @@ const SCRAMBLED: CollectionDefinition = {
 };
 
 describe('resolveCollectionView — order and membership', () => {
+  it('makes Tasks and Inbox list-only without mutating saved layout or visibility intent', () => {
+    for (const definition of [TASKS_COLLECTION, TASK_INBOX_COLLECTION]) {
+      const config = { layout: 'table' as const, listPropertyOverrides: { dueDate: false } };
+      const resolved = resolveCollectionView(definition, config);
+      expect(resolved.layout).toBe('list');
+      expect(resolved.layouts).toEqual(['list']);
+      expect(resolved.configurableProperties).toBe(false);
+      expect(resolved.visible).not.toContain('dueDate');
+      expect(config.layout).toBe('table');
+      expect(config.listPropertyOverrides.dueDate).toBe(false);
+    }
+    expect(resolveCollectionView(FOLDER_COLLECTION, { layout: 'table' }).layout).toBe('table');
+    expect(resolveCollectionView(FOLDER_COLLECTION).configurableProperties).not.toBe(false);
+  });
   it.each(['list', 'table'] as const)('%s hides and disables Due date only while grouping, retaining its visibility intent', (layout) => {
     const config = { layout, groupBy: 'dueDate' as const, propertyOverrides: { dueDate: true }, listPropertyOverrides: { dueDate: true } };
     const grouped = resolveCollectionView(TASKS_COLLECTION, config);

@@ -60,14 +60,15 @@ describe('TasksCollectionBody', () => {
     expect([...container.querySelectorAll('.task-title')].map((node) => node.textContent)).toEqual(['Alpha', 'Zebra', 'Future', 'No date']);
     expect(container.querySelectorAll('.collection__bottom-spacer')).toHaveLength(1);
     expect(container.querySelector('.task-row__due')).toBeNull();
-    if (layout === 'table') expect(container.querySelectorAll('.collection-table__header')).toHaveLength(1);
+    expect(container.querySelector('.collection-table')).toBeNull();
+    expect(container.querySelector('.collection-list')).not.toBeNull();
     fireEvent.click(getAllByRole('checkbox')[0]!);
     expect(onToggleComplete).toHaveBeenCalledWith(tasks[1]);
     fireEvent.click(getByText('Alpha'));
     expect(onOpenTask).toHaveBeenCalledWith(tasks[1]);
   });
 
-  it('shares date-group collapse between List and Table and can return to ungrouped rows', () => {
+  it('keeps date-group collapse when an obsolete Table preference resolves to List and can ungroup', () => {
     const props = {
       view: 'tasks-all' as const,
       tasks: [task({ text: 'Dated', dueDate: '2026-08-02' }), task({ text: 'Undated' })],
@@ -225,7 +226,7 @@ describe('TasksCollectionBody', () => {
     expect(container.querySelector('.collection-entry-properties--wiki')).toBeNull();
   });
 
-  it('a task with a due time shows it after the date, as the sidebar does, in the List and the Table', () => {
+  it('a task with a due time shows it after the date, as the sidebar does, in List, including an obsolete Table preference', () => {
     const timed = task({ text: 'Call TJ', dueDate: '2026-08-20', dueTime: '16:00' });
     const props = {
       view: 'tasks-all' as const,
@@ -383,8 +384,8 @@ describe('TasksCollectionBody', () => {
       emoji: null,
     });
 
-    it('draws the Table layout through the generic table: Name (checkbox + title), Due date and Source columns', () => {
-      const view = resolveCollectionView(TASKS_COLLECTION, { layout: 'table' });
+    it('falls back from saved Table to List, preserving Name, Due date and saved Source visibility', () => {
+      const view = resolveCollectionView(TASKS_COLLECTION, { layout: 'table', listPropertyOverrides: { source: true } });
       const { container, getAllByRole } = render(
         <TasksCollectionBody
           view="tasks-all"
@@ -395,31 +396,18 @@ describe('TasksCollectionBody', () => {
         />
       );
 
-      expect(container.querySelector('.collection-table')).not.toBeNull();
-      expect(container.querySelector('.collection-list')).toBeNull();
-      expect(
-        [...container.querySelectorAll('.collection-table__header-cell')].map(
-          (cell) => cell.textContent
-        )
-      ).toEqual(['Name', 'Due date', 'Source']);
-      const row =
-        container.querySelector(
-          '.collection-table-row:not(.collection-table__header)'
-        ) ?? container.querySelectorAll('.collection-table-row')[1];
+      expect(container.querySelector('.collection-table')).toBeNull();
+      expect(container.querySelector('.collection-list')).not.toBeNull();
+      const row = container.querySelector('.collection-entry')!;
       expect(row).toHaveTextContent('Plan trip');
-      // The same controls as the List's trailing slot: the due-date button, and the source as the wiki link.
-      expect(
-        row!.querySelector('.collection-table-row__dueDate .task-row__due')
-      ).toHaveTextContent('20 August');
-      const link = row!.querySelector(
-        '.collection-table-row__source .collection-entry-properties--wiki'
-      );
+      expect(row.querySelector('.task-row__due')).toHaveTextContent('20 August');
+      const link = row.querySelector('.collection-entry-properties--wiki');
       expect(link).toHaveAttribute('role', 'link');
       expect(link).toHaveTextContent('Alpha note');
       expect(getAllByRole('checkbox')).toHaveLength(1);
     });
 
-    it('Table completion still works: the checkbox toggles the task without opening it', () => {
+    it('Completion with a legacy Table preference still works: the checkbox toggles the task without opening it', () => {
       const onToggleComplete = vi.fn();
       const onOpenTask = vi.fn();
       const target = task({ text: 'Plan trip' });
@@ -440,7 +428,7 @@ describe('TasksCollectionBody', () => {
       expect(onToggleComplete).toHaveBeenCalledWith(target);
     });
 
-    it('a hidden property reserves nothing: Due date and Source off removes their table columns', () => {
+    it('saved hidden properties remain hidden after falling back from Table to List', () => {
       const view = resolveCollectionView(TASKS_COLLECTION, {
         layout: 'table',
         propertyOverrides: { dueDate: false, source: false },
@@ -455,11 +443,9 @@ describe('TasksCollectionBody', () => {
         />
       );
 
-      expect(
-        [...container.querySelectorAll('.collection-table__header-cell')].map(
-          (cell) => cell.textContent
-        )
-      ).toEqual(['Name']);
+      expect(container.querySelector('.collection-list')).not.toBeNull();
+      expect(container.querySelector('.task-row__due')).toBeNull();
+      expect(container.querySelector('.collection-entry-properties--wiki')).toBeNull();
     });
 
     it('List layout: the Due date and Source properties drive the due-date controls and the source link', () => {
@@ -858,7 +844,7 @@ describe('TasksCollectionBody', () => {
     );
 
     it.each(VIEWS)(
-      '%s: switches to the generic CollectionDataTable when the shared layout says Table',
+      '%s: keeps generic CollectionDataList rows for an obsolete Table preference',
       (view) => {
         const { container } = render(
           <TasksCollectionBody
@@ -871,10 +857,10 @@ describe('TasksCollectionBody', () => {
           />
         );
 
-        expect(container.querySelector('.collection-list')).toBeNull();
-        expect(container.querySelector('.collection-table')).not.toBeNull();
+        expect(container.querySelector('.collection-list')).not.toBeNull();
+        expect(container.querySelector('.collection-table')).toBeNull();
         expect(
-          container.querySelectorAll('.collection-table .task-title').length
+          container.querySelectorAll('.collection-list .task-title').length
         ).toBe(expected[view].length);
       }
     );
@@ -895,13 +881,10 @@ describe('TasksCollectionBody', () => {
           />
         );
 
-        expect(
-          [...container.querySelectorAll('.collection-table__header-cell')].map(
-            (c) => c.textContent
-          )
-        ).toEqual(['Name', 'Due date']);
+        expect(container.querySelector('.collection-list')).not.toBeNull();
+        expect(container.querySelector('.collection-entry-properties--wiki')).toBeNull();
         const shown = [
-          ...container.querySelectorAll('.collection-table .task-title'),
+          ...container.querySelectorAll('.collection-list .task-title'),
         ].map((el) => el.textContent);
         // Name Z→A for every view.
         expect(shown).toEqual([...expected[view]].sort().reverse());

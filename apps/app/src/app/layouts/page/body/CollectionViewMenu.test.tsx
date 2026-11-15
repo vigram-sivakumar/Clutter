@@ -13,6 +13,7 @@ import {
   ASSETS_COLLECTION,
   FOLDER_COLLECTION,
   TASKS_COLLECTION,
+  TASK_INBOX_COLLECTION,
   type CollectionDefinition,
 } from '@core/presentation/collection/collectionDefinitions';
 import { resolveCollectionView, type ResolvedCollectionView } from '@core/presentation/collection/resolveCollectionView';
@@ -83,52 +84,39 @@ const menuLabels = () => [...document.querySelectorAll('[role="menuitem"]')].map
 /** The Sort by options on the root view: every menu item after the Properties row. */
 const sortLabels = () => {
   const items = menuLabels();
-  return items.slice(items.indexOf('Properties') + 1);
+  const title = [...document.querySelectorAll('*')].find((node) => node.classList.contains('menu__group-title') && node.textContent === 'Sort by');
+  if (!title) return items.slice(items.indexOf('Properties') + 1);
+  return [...document.querySelectorAll('[role="menuitem"]')].filter((item) => Boolean(title.compareDocumentPosition(item) & Node.DOCUMENT_POSITION_FOLLOWING)).map((item) => item.textContent?.trim());
 };
 
 describe('CollectionViewMenu — root view', () => {
-  it('orders the Properties, Group by and Display submenus above Sort by and reuses their back navigation', () => {
+  it('shows flat Group by, Display and Sort by sections for Tasks, with no Layout or Properties controls', () => {
     const onDisplay = vi.fn();
-    const { container, getByText, getByRole, queryByText } = render(<CollectionViewMenu
-      view={resolveCollectionView(TASKS_COLLECTION, { groupBy: 'dueDate' })}
-      onLayoutChange={vi.fn()} onPropertyChange={vi.fn()} onSortChange={vi.fn()} onGroupByChange={vi.fn()}
+    const onGroupByChange = vi.fn();
+    const { container, getByText, queryByText, queryByRole } = render(<CollectionViewMenu
+      view={resolveCollectionView(TASKS_COLLECTION, { layout: 'table', groupBy: 'dueDate' })}
+      onLayoutChange={vi.fn()} onPropertyChange={vi.fn()} onSortChange={vi.fn()} onGroupByChange={onGroupByChange}
       toggles={[{ id: 'show', label: 'Show completed', checked: true, onChange: onDisplay }]}
     />);
-    const trigger = container.querySelector('[aria-haspopup="menu"]')!;
-    fireEvent.click(trigger);
+    fireEvent.click(container.querySelector('[aria-haspopup="menu"]')!);
     const text = document.querySelector('.menu')!.textContent!;
-    expect(text.indexOf('Properties')).toBeLessThan(text.indexOf('Group by'));
     expect(text.indexOf('Group by')).toBeLessThan(text.indexOf('Display'));
     expect(text.indexOf('Display')).toBeLessThan(text.indexOf('Sort by'));
-    expect(queryByText('None')).toBeNull();
-    expect(queryByText('Show completed')).toBeNull();
-    fireEvent.click(getByText('Group by'));
+    for (const label of ['Layout', 'List', 'Table', 'Card', 'Properties']) expect(queryByText(label)).toBeNull();
+    expect(queryByRole('button', { name: 'Back to configure' })).toBeNull();
     expect(getByText('None')).toBeInTheDocument();
-    expect(queryByText('Sort by')).toBeNull();
-    fireEvent.click(getByRole('button', { name: 'Back to configure' }));
-    fireEvent.click(getByText('Display'));
+    expect(getByText('Show completed')).toBeInTheDocument();
+    fireEvent.click(getByText('None'));
+    expect(onGroupByChange).toHaveBeenCalledWith('none');
     fireEvent.click(getByText('Show completed'));
     expect(onDisplay).toHaveBeenCalledWith(false);
-    expect(queryByText('Layout')).toBeNull();
-    fireEvent.click(trigger);
-    fireEvent.click(trigger);
-    expect(getByText('Layout')).toBeInTheDocument();
-    expect(queryByText('Show completed')).toBeNull();
+    expect(getByText('Sort by')).toBeInTheDocument();
   });
 
-  it('shows Due date unchecked and disabled in Properties when grouping by due date', () => {
-    const onPropertyChange = vi.fn();
-    const { container, getByText } = render(<CollectionViewMenu
-      view={resolveCollectionView(TASKS_COLLECTION, { groupBy: 'dueDate' })}
-      onLayoutChange={vi.fn()} onPropertyChange={onPropertyChange} onSortChange={vi.fn()}
-    />);
-    fireEvent.click(container.querySelector('[aria-haspopup="menu"]')!);
-    fireEvent.click(getByText('Properties'));
-    const row = getByText('Due date').closest('[role="menuitem"]')!;
-    expect(row).toHaveAttribute('aria-disabled', 'true');
-    expect(row.querySelector('.entry__leading svg')).toBeNull();
-    fireEvent.click(row);
-    expect(onPropertyChange).not.toHaveBeenCalled();
+  it('also removes Layout and Properties for the Tasks Inbox', () => {
+    const { queryByText } = renderMenu({ definition: TASK_INBOX_COLLECTION });
+    expect(queryByText('Layout')).toBeNull();
+    expect(queryByText('Properties')).toBeNull();
   });
 
   it('offers None and Due date for task collections and emits the grouping choice', () => {
@@ -142,11 +130,10 @@ describe('CollectionViewMenu — root view', () => {
     />);
     fireEvent.click(container.querySelector('[aria-haspopup="menu"]')!);
     expect(getByText('Group by')).toBeInTheDocument();
-    fireEvent.click(getByText('Group by'));
     fireEvent.click(getByText('None'));
     expect(onGroupByChange).toHaveBeenLastCalledWith('none');
     const dueDateRows = [...document.querySelectorAll('[role="menuitem"]')].filter((row) => row.textContent === 'Due date');
-    fireEvent.click(dueDateRows[dueDateRows.length - 1]!);
+    fireEvent.click(dueDateRows[0]!);
     expect(onGroupByChange).toHaveBeenLastCalledWith('dueDate');
   });
 
@@ -476,8 +463,14 @@ describe('CollectionViewMenu — Properties and Sort by are ONE list', () => {
         );
         fireEvent.click(utils.container.querySelector('[aria-haspopup="menu"]')!);
         const sorts = sortLabels();
-        openPropertiesSubmenu(utils.getByText);
-        const properties = menuLabels();
+        const expectedProperties = view.available.map((id) => propertyLabel(id));
+        let properties = expectedProperties;
+        if (view.configurableProperties !== false) {
+          openPropertiesSubmenu(utils.getByText);
+          properties = menuLabels();
+        } else {
+          expect(utils.queryByText('Properties')).toBeNull();
+        }
 
         const sortable = view.available.filter((id) => isSortableProperty(id)).map((id) => propertyLabel(id));
         expect(properties, `${definition.kind} ${layout}`).toEqual(view.available.map((id) => propertyLabel(id)));
@@ -635,15 +628,15 @@ describe('CollectionViewMenu — extra toggles (All tasks: Show completed / Auto
       />
     );
     fireEvent.click(utils.container.querySelector('[aria-haspopup="menu"]')!);
-    fireEvent.click(utils.getByText('Display'));
     return { ...utils, onShow, onAuto };
   }
 
-  it('lists the toggles inside the Display submenu, with a tick on the checked ones', () => {
+  it('lists the toggles directly under Display, with a tick on the checked ones', () => {
     renderWithToggles({ show: true, auto: false });
 
     const labels = menuLabels();
-    expect(labels.slice(-2)).toEqual(['Show completed', 'Auto-sort completed']);
+    expect(labels).toContain('Show completed');
+    expect(labels.indexOf('Auto-sort completed')).toBe(labels.indexOf('Show completed') + 1);
 
     const rows = [...document.querySelectorAll('[role="menuitem"]')];
     const show = rows.find((row) => row.textContent?.trim() === 'Show completed')!;

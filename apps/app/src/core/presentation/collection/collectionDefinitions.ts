@@ -61,6 +61,8 @@ export interface CollectionActions {
 }
 
 export interface CollectionDefinition {
+  /** False for collections with fixed property controls, such as the list-only Tasks collection. */
+  readonly configurableProperties?: boolean;
   readonly kind: CollectionKind;
   /** The global properties this collection offers — membership only, never an ordering. */
   readonly properties: readonly PropertyId[];
@@ -222,23 +224,22 @@ export const ASSETS_COLLECTION: CollectionDefinition = {
 };
 
 /**
- * The Task Collection — every task view (All Tasks, Today, Overdue, Upcoming, Unscheduled, Done) is a dataset of it, drawn as rows of the generic List (the default) or Table — there
- * is no Card. A task's properties are its Name (the title), Due date and Source (the note it lives in); all
- * three are on by default in the Table; the List starts as just the Name and Due date (the source link is
- * one the user can turn on). A task has no created/edited time, so those are not offered. Creating
- * a task is the page's New task action.
+ * The Task Collection uses the generic List for every dataset. Layout and Properties controls are
+ * not offered; saved property choices are retained, and obsolete Table selections resolve to List.
+ * The default List shows Name and Due date; grouping by date hides the repeated due-date value.
  */
 export const TASKS_COLLECTION: CollectionDefinition = {
   kind: 'tasks',
+  configurableProperties: false,
   emptyMessage: 'Tasks you create or add to notes will appear here',
   properties: ['name', 'dueDate', 'source'],
   defaultVisible: ['name', 'dueDate', 'source'],
   defaultVisibleByLayout: { list: ['name', 'dueDate'] },
-  layouts: ['list', 'table'],
+  layouts: ['list'],
   defaultLayout: 'list',
   defaultSort: DEFAULT_SORT,
   actions: { create: true },
-  required: { list: ['name'], table: ['name'] },
+  required: { list: ['name'] },
 };
 
 /** Same task collection behavior, with source fixed by membership rather than offered as a property. */

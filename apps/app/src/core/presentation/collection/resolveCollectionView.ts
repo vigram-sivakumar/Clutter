@@ -37,6 +37,8 @@ import type {
 import { DEFAULT_REQUIRED, type CollectionDefinition } from './collectionDefinitions';
 
 export interface ResolvedCollectionView {
+  /** False when the collection does not offer a Properties menu. */
+  readonly configurableProperties?: boolean;
   /** Present only for task collections, the only collections offering due-date grouping. */
   readonly groupBy?: CollectionGroupBy;
   /** Temporarily unavailable properties; their saved visibility choices are preserved. */
@@ -138,6 +140,7 @@ export function resolveCollectionView(
   return {
     layouts: definition.layouts, layout, available, visible, locked, sortable, sort,
     ...(groupBy !== undefined && { groupBy }),
+    ...(definition.configurableProperties === false && { configurableProperties: false }),
     ...(disabled.length > 0 && { disabled }),
   };
 }

@@ -115,16 +115,16 @@ describe('the Tasks collection', () => {
     expect(TASKS_COLLECTION.defaultSort).toEqual({ property: 'name', direction: 'down' });
   });
 
-  it('the Tasks List starts as just Name and Due date; the Table shows all three', () => {
+  it('the fixed Tasks List starts as Name and Due date without offering Properties', () => {
     expect([...defaultVisibleFor(TASKS_COLLECTION, 'list')]).toEqual(['name', 'dueDate']);
-    expect([...defaultVisibleFor(TASKS_COLLECTION, 'table')].sort()).toEqual(['dueDate', 'name', 'source']);
+    expect(TASKS_COLLECTION.configurableProperties).toBe(false);
   });
 });
 
 describe('layouts and defaults', () => {
-  it('every collection offers List, Table and Card — except the Archive and the Tasks collection, which offer List and Table only', () => {
+  it('Tasks offers only List; Archive keeps List/Table and other collections keep all layouts', () => {
     for (const definition of ALL_COLLECTION_DEFINITIONS) {
-      expect([...definition.layouts], definition.kind).toEqual(definition.kind === 'archive' || definition.kind === 'tasks' ? ['list', 'table'] : ['list', 'table', 'card']);
+      expect([...definition.layouts], definition.kind).toEqual(definition.kind === 'tasks' ? ['list'] : definition.kind === 'archive' ? ['list', 'table'] : ['list', 'table', 'card']);
     }
   });
 
@@ -140,9 +140,9 @@ describe('required properties — Name is required everywhere except the Asset c
     expect(DEFAULT_REQUIRED).toEqual({ list: ['name'], table: ['name'], card: ['name'] });
   });
 
-  it('every note-shaped collection uses the base rule (no override); the Archive and Tasks state Name for their two layouts', () => {
+  it('every note-shaped collection uses the base rule (no override); the Archive requires Name in both layouts and Tasks requires Name in List', () => {
     expect(ARCHIVE_COLLECTION.required).toEqual({ list: ['name'], table: ['name'] });
-    expect(TASKS_COLLECTION.required).toEqual({ list: ['name'], table: ['name'] });
+    expect(TASKS_COLLECTION.required).toEqual({ list: ['name'] });
     for (const definition of ALL_COLLECTION_DEFINITIONS.filter((d) => d.kind !== 'assets' && d.kind !== 'archive' && d.kind !== 'tasks')) {
       expect(definition.required, definition.kind).toBeUndefined();
     }

@@ -22,3 +22,9 @@ Rendering the sidebar's task rows in the collection loses collection properties 
 ## Consequences
 
 Existing spaces remain ungrouped. Users can switch layouts without losing grouping. Archived, hidden or completed task membership follows existing task-view rules. Date grouping is presentation only: it never moves tasks or changes Markdown. No note migration is required. The optional generic table extension is backward compatible for all existing callers.
+
+## Amendment: list-only task collections (2026-11-15)
+
+Tasks and Inbox now support List only. This supersedes the task Table and submenu decisions above. The existing resolver falls back to List for saved Table preferences without rewriting stored layout or property choices. Task rendering uses the existing list component and task interactions.
+
+`CollectionDefinition.configurableProperties?: boolean` defaults to enabled; Tasks and Inbox set it to false and the resolver exposes that capability to the shared menu. The menu hides Layout when only one layout is supported and hides Properties when that capability is false. Other collections retain their existing controls. Group by and Display are flat sections above Sort by. Due date remains hidden while grouping by date, preserving its saved visibility preference. Task section headings override the existing hover-surface token to transparent; collapse and keyboard focus remain interactive. No storage or task-operation changes are introduced.
