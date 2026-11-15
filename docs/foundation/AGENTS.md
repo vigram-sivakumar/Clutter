@@ -123,7 +123,7 @@ No production/main changes or agent commit/push. User repaired accidental genera
 output on local main separately; preserve backup and sessions, stage no outputs.
 Build21 patch base is exact20 / remote17d63b3; do not assume applied until reported.
 
-## Current checkpoint — revision0.46 / build22
+## Historical checkpoint — revision0.46 / build22
 
 START-HERE owns next action: architecture decision-readiness review, not another
 broad/manual editor session. Media12 passes across13 actual crash boundaries;
@@ -135,3 +135,16 @@ Tasks remain full pages with body/cover/embeds intended; media associations use
 the same page ID operations as notes. Tiny PNG/PDF files are source test fixtures.
 Build22 supports exact20/21 since21 application unconfirmed. Never touch main,
 commit generated objects/stages or discard native sessions/repair backup.
+
+## Current checkpoint — revision0.47 / review23
+
+User confirms22 applied/done. Review23 is docs/static evidence review only over
+exact22. START-HERE/readiness/F008 own next bounded PK01–10 proof; all PK not-run.
+Recommend PM/Y + shared TS core + SQLite, not a selected shell/runtime or accepted
+production format. Per-page payloads inside atomic Space transactions must re-prove
+coherent historical task/cover/media version sets; do not freeze whole-Space Y state
+from21/22. Preserve aggregate controls, shared commit path and previous manual passes.
+No broad research/native replay, source packages or new performance claims in23.
+D11 targets/reference-host/Space-size dimensions remain proposals; source scale risk
+is not a benchmark failure. Before production, close exact G-Q and rule-impact gates.
+Current main/source/user data/backups remain untouched; use one foundation branch.

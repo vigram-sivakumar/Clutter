@@ -1,0 +1,108 @@
+{
+  "document": "Frozen per-page root and atomic version-set qualification contract",
+  "revision": "0.47",
+  "date": "2026-11-15",
+  "status": "proposed bounded experiment; all cases not-run",
+  "purpose": "Qualify production partition candidate without treating aggregate21/22 as a final format or duplicating transaction engines",
+  "fixture": {
+    "notes": 3,
+    "tasks": 2,
+    "views_for_one_page": 2,
+    "background_readers": 1,
+    "media": "reuse independently verified22 PNG/PDF source fixtures",
+    "retention": "retain all roots/receipts/files; no GC",
+    "performance_targets": "none accepted here; qualification-budgets.json remains Proposed"
+  },
+  "implementation_constraints": [
+    "One Space SQLite store/commit owner; independently versioned page engine state",
+    "Canonical task body/title/properties once; note-owned slot; index derived and transactional",
+    "No UI/CLI/MCP filesystem or SQL bypass, no copied reducer",
+    "Coherent historical version-set context and transitive pin references",
+    "Old aggregate profile retained; reuse/factor common transaction primitive rather than fork",
+    "Use marked disposable stores; no production/main/user vault or old native sessions",
+    "Respect known environment browser block; label actual interface route, do not infer native/browser pass"
+  ],
+  "cases": [
+    {
+      "id": "PK-01",
+      "title": "Canonical page partition and lazy engine boundaries",
+      "action": "Create3 notes/2 independent task pages with stable IDs/properties and valid22 media. Load requested pages through the real owner.",
+      "expected": "One payload per page; task slots/derived placement index have one mutation path. Unknown root/codec refuses overwrite. Record loads and deep-check cost, not a fake startup budget pass.",
+      "execution": "not-run",
+      "actual": null
+    },
+    {
+      "id": "PK-02",
+      "title": "One page edit does not serialize other pages",
+      "action": "Edit one paragraph through shared command; compare all immutable payload rows/heads and instrument actual encoding/writes.",
+      "expected": "Only affected page engine payload is encoded/persisted. No whole-Space Y state or new database per page. Metadata write amplification is separately reported.",
+      "execution": "not-run",
+      "actual": null
+    },
+    {
+      "id": "PK-03",
+      "title": "Atomic task move across page heads",
+      "action": "Move task from note1 to note2 while preserving canonical task body/properties/cover.",
+      "expected": "One SQL transaction changes both note heads and derived unique placement index plus original receipt; task payload unchanged. At most one active placement, no duplicated bytes/body.",
+      "execution": "not-run",
+      "actual": null
+    },
+    {
+      "id": "PK-04",
+      "title": "Historical note resolves historical task without copied body",
+      "action": "Pin note snapshot at commit C, change only referenced task title/body/cover later, then read old note snapshot.",
+      "expected": "Old note resolves task and assets as of C, not current task. Note own unchanged head is not enough: coherent version-set context retained without embedding copied task body. A current view of the same unchanged note payload resolves the newer task/cover; do not bind all reads to note payload creation time.",
+      "execution": "not-run",
+      "actual": null
+    },
+    {
+      "id": "PK-05",
+      "title": "Historical restore rechecks current ownership",
+      "action": "Move/detach task after pinned old note, preview restore, change ownership again, attempt restore. Also restore plain note text when ownership remains unchanged.",
+      "expected": "Conflicting/stale restore refuses with no heads/index/outcome effect. Safe note-content restore does not rewind independent newer task body/properties/cover.",
+      "execution": "not-run",
+      "actual": null
+    },
+    {
+      "id": "PK-06",
+      "title": "Transitive pinned media/root closure",
+      "action": "Pin version set containing task/page PNG/PDF, remove all current associations, restart and read old snapshot.",
+      "expected": "Pin references retain required task/page roots, codecs/dependencies and immutable files; read validates bytes. No current fallback, body copy, GC or unsafe orphan adoption.",
+      "execution": "not-run",
+      "actual": null
+    },
+    {
+      "id": "PK-07",
+      "title": "Real crash old-or-new multi-page state",
+      "action": "Kill actual owner around root staging/head/index/outcome/COMMIT/reply; reopen and exact-retry same request.",
+      "expected": "All involved heads/index/Space commit/outcome recover old or new, never half move. Exact retry one effect; changed operation-ID reuse refused. Reuse/factor one transaction engine.",
+      "execution": "not-run",
+      "actual": null
+    },
+    {
+      "id": "PK-08",
+      "title": "Coherent old/new readers and stale commands",
+      "action": "Hold explicit immutable snapshot lease, commit task move/body edit, query old/new readers and submit old expected-head command.",
+      "expected": "Each reader gets one coherent version set. No indefinite SQL read transaction for window lifetime; stale mutation fails. Report lease semantics; no GC expiry implies permission to discard pending work.",
+      "execution": "not-run",
+      "actual": null
+    },
+    {
+      "id": "PK-09",
+      "title": "Client parity and revision-tagged catch-up",
+      "action": "Use RPC/CLI/MCP for same mutation, pause observer across multi-page commit, resume from watermark.",
+      "expected": "One command catalogue/handler/receipt. Notifications are hints; catch-up fetches authoritative affected heads/version set. No per-interface writer or partial authoritative publication.",
+      "execution": "not-run",
+      "actual": null
+    },
+    {
+      "id": "PK-10",
+      "title": "Structural amplification and decision inputs",
+      "action": "Compare aggregate control and page candidate on declared fixture; record bytes encoded/written, roots touched, open/deep-check work and complete format/runtime profile.",
+      "expected": "No performance pass from tiny fixture or skipped validation. D11 targets/reference host and Space-size/active-Space dimensions fixed separately before representative measurement. Failure/unsupported results retained.",
+      "execution": "not-run",
+      "actual": null
+    }
+  ],
+  "exit": "Bounded PK results reviewed with G-Q format/performance/native/runtime/security blockers; no automatic production baseline or feature release acceptance"
+}

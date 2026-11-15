@@ -1,6 +1,6 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-15. Documentation revision: 0.46, build22.
+Last updated: 2026-11-15. Documentation revision: 0.47, review23.
 Read [AGENTS](AGENTS.md), this checkpoint and [README](README.md) first.
 
 ## Current position
@@ -21,39 +21,56 @@ This current checkpoint supersedes earlier next-action text in historical record
 | Native limits | IME unavailable; VoiceOver deferred; distribution/security/full release matrix and explicit native reload-safety trial unqualified |
 | Entity build21 |14 Linux cases pass for proposed canonical task page/unique placement, atomic multi-note move, historical read/restore conflict,6 real process-death phases, CLI/MCP parity and stored Y closure |
 | Media build22 |12 Linux media cases pass with13 real crash phases;14 entity,84 Node and2 old-profile headless regressions pass; browser reruns environment-blocked |
-| Next | Architecture decision-readiness review: reconcile evidence and remaining G-Q blockers before baseline selection |
+| Review23 | Recommendation/module ownership/gate assessment complete; F006/F007 evidence updated, F008 and frozen PK01–10 proposed; no new runtime tests |
+| Next | Bounded per-page root / atomic Space version-set proof (PK01–10), then explicit G-Q baseline blockers |
 
 ## Branch and delivery state
 
-Work stays on architecture/clutter-foundation. Remote17d63b3 is exact20, tree
-f8e3b85c383bd656eb1b5e25df3035a98205e073. Delivery21 application is unconfirmed;
-build22 supports exact20 or21 with a single matching preflight. No agent commit or
-push; this workspace holds later foundation changes. Never reset to the historical
-main cae604273115c0c6c0d3ac34533b1e9834e9c778 provenance baseline.
+Stay on architecture/clutter-foundation. User confirms delivery22 done; its exact
+content base is85cc9499fce70f0a3c8c698d45c378c905331603. Exact new user commit/push was
+not supplied. Review23 is docs-only over22; no agent commit/push and no production
+or main changes. This workspace holds later uncommitted foundation content; inspect
+actual Git state, not just the stale local HEAD, before resuming elsewhere.
 
-The user's accidental generated-output commits on local main were repaired by a
-separate guarded utility, preserving five app fixes and adding root ignore rules;
-reported result c3bb1d6d. Push success is not directly supplied in this thread.
-Foundation is not merged into main. Keep repair backup and saved native sessions.
-Apply helpers guard the foundation branch; stage only source/docs/evidence under
-this folder, never app bundles, runtimes, caches, artifacts/ or local test stores.
-The tiny PNG/PDF fixtures are intentional source inputs, not generated app output.
+The separate accidental generated-output repair on main preserved five app fixes
+and added narrow root ignore rules. Keep that backup and saved native sessions.
+No main merge/rebase/reset or app/runtime/cache/artifacts/test-store staging.
+Tiny PNG/PDF fixtures are source inputs. Apply helpers must guard this single branch.
 
-## Exact next work — decision-readiness review
+## Exact next work — bounded page-partition proof
 
-1. Read [media result](r08-media-closure.md), [entity result](r08-entity-closure.md),
-   architecture-review.md, architecture-gap-disposition.md and the gate/decision
-   register. Frozen JG contract not-run fields are historical; executions are separate.
-2. Reconcile bounded JG01–10, four user-reported native cases (raw capture limits),
-   entity14 and media12 against the intended architecture. Preserve reported passes.
-3. Produce a concrete recommended baseline/module ownership with a table of proved,
-   proposed and still-blocking G-Q decisions. Explicitly cover reference workload/
-   budgets/Space-root partitioning, packaged runtime footprint, native file flush,
-   installed discovery/grants/security/distribution, format/migration and fresh
-   browser-regression availability. Do not silently mark these accepted.
-4. Update Proposed ADRs and implementation gates around that review. Do not start a
-   production rebuild or more broad exploratory spikes without a concrete gap.
-   Ask only for material product choices, one example/question at a time if needed.
+1. Read [readiness review](architecture-readiness.md), [F008](adr/F008-page-roots-and-atomic-version-sets.md)
+   and [frozen PK01–10](page-partition-contract.json). All PK cases are not-run.
+   Architecture review recommends PM/Y + shared TS core + SQLite/external files,
+   but production format, native host/runtime and G-Q remain unaccepted.
+2. In the existing isolated experiment, qualify per-page engine payloads inside
+   one Space transaction system. Define exact page/commit/version-set and asset
+   manifests before coding. Do not duplicate the SQL transaction engine or public
+   command policy; preserve aggregate21/22 as controls.
+3. Re-prove atomic task move with unchanged canonical task page; old/new reader
+   snapshots and historical note/task/cover/pin closure; crash/retry receipts and
+   stale ownership refusal. An unchanged old note must not resolve current task data.
+4. Record actual encoded/written bytes and untouched heads. Aggregate whole-Space
+   encoding and full retained-history startup verification are source-level scale
+   risks, not measured failures. No broad performance pass from tiny fixtures;
+   D11/reference host/Space-size/active-Space targets must be fixed before benchmarks.
+5. Preserve all earlier user native passes. Browser regression availability remains
+   blocked in this environment; do not invent passes or request a blanket Mac replay.
+   After PK review, close exact remaining G-Q native/runtime/security/format/budget
+   evidence and supersession scope before accepting a production baseline.
+
+## Current recommendation and decision ownership
+
+[Architecture review](architecture-review.md) owns comparison/recommendation;
+[readiness](architecture-readiness.md) owns evidence/gate/module assessment;
+[decision register](decision-register.md) owns decision dispositions. F006/F007/F008
+stay Proposed; frozen old JG and new PK specifications keep original execution
+fields, while executions live in evidence. This review creates no production folder
+scaffolding, runtime result, accepted budget or API/format implementation.
+
+Native shell choice remains open. Rust may implement platform mechanisms, never a
+second domain core. Node's116.19MiB size is user-reported executable/Git-blob size,
+not measured RSS/installer cost. Installed topology and full native flush remain gates.
 
 ## Media proof interpretation
 

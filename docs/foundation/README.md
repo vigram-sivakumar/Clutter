@@ -1,7 +1,7 @@
 # Clutter foundation
 
-Status: architecture definition pack, revision 0.46, 2026-11-15. Product scope
-confirmed; technology proposals remain unqualified.
+Status: architecture definition pack, revision 0.47, 2026-11-15. Product scope
+confirmed; the production technology baseline remains unaccepted.
 Baseline: `main` at `cae604273115c0c6c0d3ac34533b1e9834e9c778`.
 Working branch: `architecture/clutter-foundation`.
 
@@ -13,8 +13,11 @@ record remaining gates. [Joined result](r08-joined-core.md): JG-01–10 now pass
 one durable owner. [Mac runner](r08-native-runner.md) has bounded JN-01–04 user-reported passes, with
 [reviewed native evidence](evidence/r08-native-manual-2026-11-15/review.json).
 [Entity proof21](r08-entity-closure.md) passes14 Linux cases.
-[Media proof22](r08-media-closure.md) passes12 cases with13 crash phases; next is the
-architecture decision-readiness review and remaining G-Q gates. No manual replay.
+[Media proof22](r08-media-closure.md) passes12 cases with13 crash phases.
+[Decision-readiness review23](architecture-readiness.md) now recommends the mechanism
+combination and module boundaries; [F008](adr/F008-page-roots-and-atomic-version-sets.md)
+and [PK01–10](page-partition-contract.json) define the next per-page/version-set proof.
+No manual replay, accepted production baseline or native-host selection.
 This is a proposed combination, not an accepted architecture or production rebuild.
 
 ## Purpose and authority

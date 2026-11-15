@@ -1,7 +1,30 @@
 # Decision register
 
-Status: product scope revised on 2026-11-14; technical choices remain open.
+Status: confirmed product scope; mechanism recommendation reviewed2026-11-15.
+Technical production baseline/format/host not yet accepted.
 Effort and migration scores remain visible with zero decision weight.
+
+## Current technical dispositions — revision0.47
+
+[Recommendation](architecture-review.md) and [readiness/gates](architecture-readiness.md)
+are reviewed; no new runtime proof in23. Historical candidate/required-evidence tables
+below remain reference, not a claim that joined/entity/media have never run.
+
+| Decision | Current disposition |
+| --- | --- |
+| D01/D05 | Recommend direct PM/Y now for demonstrated local context history; full schemas/native/inverse matrix still gated |
+| D02/D03 | Recommend canonical task pages + shared SQLite commits; per-page format/version-set candidate requires PK01–10 |
+| D04/D14 | Shared TS semantic runtime leads; OS mechanisms via ports (Rust eligible), actual shell/production runtime/discovery/grants unselected |
+| D06 | CLI/MCP are core peers with shared catalogue/handlers; full production framing/interchange/checkout still gated |
+| D07/D09 | Retained roots/pins and immutable external-file publication have bounded proofs; production retention/GC/native flush/media renderer still open |
+| D08 | Provider protocol/enablement deferred; latest-document policy unchanged; not a sync-live-DB design |
+| D10 | Shared document/context vs local view ownership supported; complete tabs/panes/windows/focus/catch-up release coverage remains |
+| D11 | Budget/reference host unapproved/unmeasured; add Space-size/active-Space dimensions before representative runs |
+| D12/D13 | Confirmed product directions unchanged; detailed UI/recurrence/inverse schemas/tests required before related feature implementation |
+
+Next [PK contract](page-partition-contract.json) freezes the specific storage/history
+partition proof, not another broad editor search. F006/F007/F008 remain Proposed;
+G-Q and precise accepted-rule/migration impact must close before baseline acceptance.
 
 ## Candidate combinations
 
@@ -66,7 +89,7 @@ Decisions move Proposed → Qualified → Accepted or Rejected, with evidence/da
 reviewer and affected prior rules. Confirmed product scope does not prove a
 technology passes it. No target technology has completed these gates in this pack.
 
-## Current work checkpoint
+## Historical R01–R06 checkpoint
 
 R01 is complete as a bounded [capability inventory](current-capability-inventory.md).
 Its selected files passed 1,003 assertions across initial and targeted reruns;

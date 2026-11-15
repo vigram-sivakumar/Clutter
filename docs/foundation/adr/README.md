@@ -19,10 +19,16 @@ records may be revised with the changelog, as F004 was in 0.2.
 ## R08 proposed combination and runtime records
 
 - [F006](F006-structured-origin-and-transactional-roots.md): PM/Y origin-aware
-  contexts and versioned transactional roots — **Proposed for joined qualification**.
+  contexts and versioned transactional roots — **Proposed; mechanism evidence reviewed**.
 - [F007](F007-headless-runtime-and-platform-composition.md): one headless semantic
-  runtime with thin platform clients — **Proposed for qualification**.
+  runtime with thin platform clients — **Proposed; fixture evidence reviewed**.
 
 [Review](../architecture-review.md) compares alternatives and identifies old-rule
 impact. Neither record supersedes accepted production rules or accepts F001–F005.
-The13 [JG cases](../joined-core-contract.json) are specification-only/not-run.
+The frozen13-case [JG specification](../joined-core-contract.json) keeps its original
+not-run fields; current executions are in the evidence/review, not rewritten there.
+- [F008](F008-page-roots-and-atomic-version-sets.md): per-page engine roots and atomic
+  Space version sets — **Proposed for bounded partition qualification**.
+
+[Current readiness](../architecture-readiness.md) identifies remaining gates. None
+of these records is an accepted production baseline; PK01–10 have not run.

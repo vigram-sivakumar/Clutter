@@ -134,3 +134,12 @@ or full release acceptance. Shared Store regression evidence: entity14, Node84
 and2 headless original-model cases; fresh browser suites environment-blocked.
 Next reconcile the gate ledger and Proposed ADRs in a decision-readiness review;
 no automatic baseline acceptance or repeated manual session.
+
+## Decision-readiness review23 — revision0.47
+
+[Review23](architecture-readiness.md) reconciles earlier bounded evidence without
+new runtime tests. Mechanism recommendation leads; G-Q is not passed. F008/PK01–10
+qualify per-page payloads/atomic version sets/history closure next. Aggregate21/22
+remain controls, not a production partition. Existing native/feature/security/format/
+budget/provider gates stay at their required scopes; no blanket postponement or
+acceptance from this document-only review. No repeated manual session needed.

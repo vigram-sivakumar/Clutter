@@ -1,0 +1,6 @@
+2026-11-15 review23
+References/JSON and retained counts checked.
+PK01-10 remain not-run; F006/F007/F008 remain Proposed.
+Budgets/frozen JG, all experiment/runtime code and previous evidence preserved.
+Patch application/base/branch/generated-path checks run during delivery preparation.
+No runtime execution or benchmark in23.

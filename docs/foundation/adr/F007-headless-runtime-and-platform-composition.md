@@ -1,15 +1,17 @@
 # ADR-F007: One headless semantic runtime with thin platform clients
 
-Status: **Proposed for qualification**, 2026-11-14, revision 0.38.
+Status: **Proposed; headless/native fixture evidence reviewed**, 2026-11-15, revision0.47.
 Decisions D-04/D-06/D-10/D-14, PL-01–PL-05 and SEC-01–SEC-04 remain gated.
 No production ADR is superseded.
 
 ## Context
 
-The direct PM/Y candidates execute headless semantic operations in JavaScript.
-Build13's real owner demonstrates browser/CLI/MCP access to one durable SQL writer,
-but a parent test launcher supplies credentials. It does not implement installed
-endpoint discovery, app-closed bootstrap, OS peer authentication or production grants.
+Actual joined PM/Y and SQLite owner tests now run, including user-reported native
+restart/app-closed read and packaged CLI/MCP headless checks. See the [native review](../evidence/r08-native-manual-2026-11-15/review.json)
+for exact captured versus user-reported scope. This proves the fixture composition,
+not production installed discovery/peer authentication/grants, Tauri or distribution.
+The user-reported116.19MiB Node Git blob is not an app RSS/installer measurement.
+Current runtime/host/budget blockers are in [readiness](../architecture-readiness.md).
 
 ## Proposal
 
@@ -27,13 +29,13 @@ platform ports. Domain code imports no DOM, React, Tauri, AppKit, provider SDK o
 OS-specific path API. Rust/platform code implements mechanisms, not a second task,
 property, recurrence or restore policy.
 
-Tauri2/WKWebView plus this packaged owner is the leading host experiment because
-it exercises the native webview route already represented in the lab while
-retaining the single headless engine/runtime boundary. This is a test hypothesis,
-not a conclusion from current-app compatibility or measured resource savings.
-The Swift harness is not a Tauri acceptance result. Qualify signing, update/runtime
-compatibility, sandbox/grant model and app-closed independent launch. If unsuitable,
-compare another shell/runtime topology, including Electron, using the same gates.
+Keep the shell replaceable. Tauri2 with Rust platform mechanisms is a candidate,
+not selected by the Swift/WKWebView harness. Another shell/runtime, including
+Electron, is eligible against the same installed lifetime/security/footprint gates.
+Do not preserve a host merely because the existing app uses it or reject another
+from unmeasured size/performance assumptions. A Rust native bridge can implement
+mechanisms while TypeScript remains the one semantic core; a second Rust policy
+engine is not the recommendation. Actual flush/grants/IPC binding needs proof.
 
 One OS/backend ownership proof must exclude resumed stale writers; PID/timeout
 heuristics are not election. Resolve path aliases to one store identity, retain

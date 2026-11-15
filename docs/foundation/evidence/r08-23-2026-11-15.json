@@ -1,0 +1,101 @@
+{
+  "document": "Architecture decision-readiness review23",
+  "revision": "0.47",
+  "date": "2026-11-15",
+  "status": "Recommended mechanism combination; production baseline unaccepted",
+  "runtime_execution": "None in23. Retained evidence reviewed, not rerun or expanded.",
+  "recommendation": {
+    "engine": "Direct ProseMirror + Yjs for local context history now",
+    "semantic_core": "One shared TypeScript domain/authority command implementation",
+    "storage": "One Space SQLite commit system and immutable external assets",
+    "interfaces": "Desktop/CLI/MCP first-class thin clients",
+    "partition": "Per-page engine roots with coherent Space version sets; new proposal not yet qualified",
+    "native": "Mechanisms behind ports; Rust eligible bridge, no second policy core; shell/runtime unselected"
+  },
+  "findings": [
+    {
+      "claim": "Aggregate21/22 encode/persist a full Space Y state per revision",
+      "basis": "source + existing stored-root tests",
+      "interpretation": "write-amplification risk, not benchmark failure"
+    },
+    {
+      "claim": "Store.check deep-verifies all retained roots and external assets in fixture",
+      "basis": "source",
+      "interpretation": "qualification oracle; production startup/deep-audit policy unmeasured"
+    },
+    {
+      "claim": "Per-page history needs coherent task/cover/root context even when note payload unchanged",
+      "basis": "derived closure obligation from canonical tasks/version history",
+      "interpretation": "PK04/06/08 must prove old/current resolution without copied task bodies"
+    },
+    {
+      "claim": "Runtime executable116.19MiB reported",
+      "basis": "user terminal observation file",
+      "interpretation": "not RSS/installer or runtime comparison"
+    }
+  ],
+  "retained_evidence": {
+    "joined15": "JG01\u201310 pass under original bounded profile",
+    "native20": "JN01\u201304 user passes; raw JN01/02 and PROTECTED final state, later cases from user confirmations",
+    "entity21": "14 cases with6 process-death boundaries",
+    "media22": "12 cases with13 process-death boundaries;14 entity84 Node2 old-profile headless regressions",
+    "browser22": "Environment-blocked, not a fresh pass or new semantic failure"
+  },
+  "gate_state": {
+    "G-J": "bounded qualified mechanism",
+    "G-N": "targeted fixture/manual evidence only; platform/distribution/security open",
+    "G-M": "aggregate task/media closure proved; production partition/format open",
+    "G-Q": "not passed",
+    "G-F": "not passed for full feature release",
+    "G-P": "not enabled/qualified"
+  },
+  "implementation_entry": "Bounded PK proof next; no production packages or user-vault writes until scoped baseline/format/native/migration gates",
+  "pk_contract": {
+    "cases": 10,
+    "executed": 0,
+    "file": "page-partition-contract.json",
+    "sha256": "ef647aeba85cbb163f705936a608bf28260c5a81151af9c0da08379fc200813f"
+  },
+  "static_verification": [
+    "new relative references resolve",
+    "ten sequential PK IDs with execution not-run/actual null",
+    "F006/F007/F008 Status Proposed",
+    "retained test counts checked against original evidence",
+    "budgets and frozen JG unchanged",
+    "all runtime/experiment source unchanged from22; no old evidence mutation"
+  ],
+  "inputs": {
+    "evidence/r08-15-2026-11-14.json": "5673c8aa7d7a89bbba000013731c99770c921a88694d47fa512b57239111ef34",
+    "evidence/r08-native-manual-2026-11-15/review.json": "ec0a2d63d00ffc059a693f58b49e92774974e308c14265a499acd1d72c919a00",
+    "evidence/r08-21-2026-11-15.json": "98f70c541be896be290f7392002c8620a91230736d1fca9a1b07fd6e84760e88",
+    "evidence/r08-22-2026-11-15.json": "eae7b1a4ff8e4a55dcebcd5cc29053eb02f70dddf9f24954f3695ba27cb00f13",
+    "qualification-budgets.json": "3fc42d918fc21cbffdabe38bfb4525679af46f4ffc4149afcb30e06320bcf4b9",
+    "experiments/r07-two-view/durable/store.mjs": "bb6a4f0b9f1ed72787c11c7dd1c79ade5d3ea3eb5d9c017b38e18402fe2b1173",
+    "experiments/r07-two-view/entities/model.mjs": "dd0016b7a55aaad7a08704d5dbb01ac78a485927d9b9bccef7347d18322b8096",
+    "experiments/r07-two-view/media/model.mjs": "d1efbc86aa20b1967d66866bad161e04afcd26f4f7572901ff0ee8057543f62f"
+  },
+  "review_outputs": {
+    "architecture-readiness.md": "c07faab9407d31cd901619e6f81c445ada8e4a0083f4a4da8c2f756dc713821d",
+    "architecture-review.md": "08555c13dde0360ba4d435b44fbeb6e0fefb9f9df33c78f819f175d5f5289cdf",
+    "page-partition-contract.json": "ef647aeba85cbb163f705936a608bf28260c5a81151af9c0da08379fc200813f",
+    "adr/F006-structured-origin-and-transactional-roots.md": "7c43269ae7cbb84f3628ee7796578f7409c8c2b0af3cc184117c253394cf75dd",
+    "adr/F007-headless-runtime-and-platform-composition.md": "4c4481a52b2de4fbabd2c72ac00a292d807cf3c714f6ef046da1a12b3d4d940f",
+    "adr/F008-page-roots-and-atomic-version-sets.md": "63891deb02a53f1fdf169de118c6c9e25c71a4c28018834316863b3c1c9c9030"
+  },
+  "scope": {
+    "docs_only": true,
+    "production_main_changes": false,
+    "agent_commit_push": false,
+    "manual_retest": false,
+    "existing_ADR_supersession": false,
+    "approved_new_budgets": false
+  },
+  "next": "PK01\u201310 per-page/atomic version-set proof; then exact G-Q format/native/runtime/security/performance/impact gates",
+  "delivery": {
+    "zip": "Clutter-Foundation-Architecture-Review-23.zip",
+    "base": "exact22 /85cc9499fce70f0a3c8c698d45c378c905331603",
+    "user_confirms22_done": true,
+    "new_user_commit_or_push": "not supplied",
+    "branch": "architecture/clutter-foundation"
+  }
+}

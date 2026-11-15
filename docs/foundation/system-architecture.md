@@ -4,6 +4,11 @@ Status: proposed mechanisms under confirmed product scope, revision 0.7.
 See [product behaviour](product-behaviour.md) for entity rules and
 [sync and portability](sync-and-portability.md) for provider/phase boundaries.
 
+Current mechanism recommendation/module ownership is in [review23](architecture-readiness.md).
+[F008](adr/F008-page-roots-and-atomic-version-sets.md) proposes per-page engine roots
+inside one atomic Space store; PK01–10 are not-run. This high-level ownership spec
+is not acceptance of aggregate21/22 layout, a native shell or production format.
+
 ## Proposed system
 
 ```mermaid

@@ -1,29 +1,31 @@
 # ADR-F006: Origin-aware structured editing with transactional roots
 
-Status: **Proposed for joined qualification**, 2026-11-14, revision 0.38.
+Status: **Proposed; bounded mechanism evidence reviewed**, 2026-11-15, revision0.47.
 Decisions D-01/D-02/D-03/D-05/D-07/D-09. No production ADR is superseded.
 
 ## Context and evidence
 
-The [matched history proof](../r07-history-ownership.md) passes its bounded strict
-contract; Origin applies13 cases with2 protective refusals, step11 with4. The
-[durable proof](../r07-durable-authority.md) separately passes18 Linux cases with
-PM JSON snapshots and tiny in-database blobs. Neither proves their combination.
-The raw unguarded Origin structural undo failures remain relevant controls.
+The [history proof](../r07-history-ownership.md) and [joined proof15](../r08-joined-core.md)
+now exercise local PM/Y contexts through a real SQLite owner. JN01–04 have user
+passes with [reviewed capture limits](../evidence/r08-native-manual-2026-11-15/review.json).
+[Entity21](../r08-entity-closure.md) and [media22](../r08-media-closure.md) add bounded
+canonical task/restore/external-file closure. Raw structural controls remain failing;
+protective guards are part of the tested candidate. Fresh browser22 reruns were
+blocked by the environment, not replaced by invented passes.
 
 ## Proposal
 
 Use direct PM with Clutter semantic schema and Yjs origin-aware history for the
-next isolated slice. Keep history owned by editing contexts, never EditorViews;
+proposed baseline candidate. Keep history owned by editing contexts, never EditorViews;
 keep selection/focus/navigation per view. Tiptap is not required or qualified by
 PM results. Shared domain commands admit all desktop/CLI/MCP changes.
 
-For the joined synthetic fixture, make a versioned encoded accepted Y-state the
+For the joined synthetic fixture, a versioned encoded accepted Y-state is the
 single committed document payload. SQL metadata supplies Space/document IDs,
 revision/parent, codec version, original outcome and closure references. Decode PM
 JSON to validate and render; do not persist a second independently writable JSON
-or Markdown body. This is a new experimental codec, not an accepted production
-format or an assertion that build13 already stores Yjs.
+or Markdown body. This is an executed experimental codec, not an accepted production
+format; build13 remains its separate snapshot control.
 
 Stage a proposed operation against an isolated engine state. Validate semantic
 invariants, actor/context admission and closure before the SQL commit. Commit the
@@ -54,10 +56,12 @@ complete selection score. Yjs does not establish future live cloud behavior and
 must not override the confirmed latest-document provider policy.
 
 The PM step candidate remains the fallback. P-ROOT/text-oriented candidates are
-unqualified alternatives, not demonstrated failures. Production entity/typed
-property/task placement storage is still M-06/M-03: prove one authoritative payload
-per entity, atomic moves and historical restore closure. Do not adopt the embedded
-synthetic task as a production layout. See the [review](../architecture-review.md).
+unqualified alternatives, not demonstrated failures. Aggregate21/22 prove task/
+history/media closure, not production partition/scale.
+[F008](F008-page-roots-and-atomic-version-sets.md) proposes per-page roots with atomic
+Space commits and coherent version-set pins/reads. Qualify that boundary before
+freezing format/retention. [Readiness review](../architecture-readiness.md) owns the
+current evidence/gap assessment. No exact codec/header/index or migration is accepted.
 
 ## Acceptance and impact
 

@@ -1,10 +1,12 @@
-# Qualification readiness and first experiment — R06
+# Qualification readiness: historical R06 plan
 
-Revision 0.9, 2026-11-14. R06 specification prepared; experimental configuration
-and acceptance are not yet ready. No target editor/host/storage/provider was built
-or tested. Do not confuse preparing this pack with executing its catalogues.
+Historical revision0.9 plan/evidence snapshot,2026-11-14. Availability statements
+below describe that stage, not current results. Current readiness is owned by
+[review23](architecture-readiness.md) and [START-HERE](START-HERE.md): joined/native/
+entity/media have bounded evidence; production G-Q remains open. Frozen catalogues
+are not execution records. No old required gate is implicitly removed.
 
-## Actual evidence and availability
+## Historical evidence and availability — R06
 
 | Item                      | Observed state                                                                                                   |
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------- |

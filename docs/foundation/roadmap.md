@@ -1,20 +1,23 @@
 # Foundation roadmap
 
-Revision 0.46, 2026-11-15. This roadmap describes work and dependencies; the current
+Revision 0.47, 2026-11-15. This roadmap describes work and dependencies; the current
 checkpoint/authorization is in [START-HERE](START-HERE.md). Product scope is in
 product-contracts.md, not independently redefined here.
 
-## Current deliverable — build22
+## Current deliverable — review23
 
-[JG13 media proof22](r08-media-closure.md):12 Linux cases,13 real process-death
-boundaries, external PNG/PDF bytes, first-class note/task cover/body associations,
-historical pin retention and no unsafe orphan adoption. Shared Store hooks reuse
-transactions;14 entity,84 Node and2 old-profile headless regression cases pass.
-Browser reruns environment-blocked, not relabelled. Prior native manual passes stand.
-Next: decision-readiness review of architecture/module boundaries and remaining
-G-Q performance/runtime/format/native-file/security blockers. No production rebuild,
-new provider work, automatic ADR acceptance or manual replay from these bounded proofs.
-Earlier entries below preserve historical checkpoints, not current next actions.
+[Decision-readiness review](architecture-readiness.md) recommends direct PM/Y,
+shared TS semantic core, one headless Space authority, SQLite and external files.
+It distinguishes bounded proofs from G-Q production blockers; F006/F007 are updated
+but remain Proposed. [F008](adr/F008-page-roots-and-atomic-version-sets.md) proposes
+per-page engine state with atomic Space version sets, not aggregate per-keystroke
+saves or separate databases. Coherent historic task/media reads/pins are required.
+Next deliverable: frozen [PK01–10](page-partition-contract.json), currently not-run,
+with structural amplification counts and existing regression controls. No new runtime
+tests in23, empty production package scaffolding, main changes or manual replay.
+Remaining host/runtime, native file durability, discovery/grants/security, format/
+migration, D11 budgets/scale and supersession gates stay explicit before acceptance.
+Historical progress entries below preserve prior checkpoints, not current next actions.
 
 ## Progress and next deliverables
 

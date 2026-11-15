@@ -3,6 +3,20 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.47 — 2026-11-15
+
+- Completed architecture decision-readiness review of retained joined/native/entity/
+  media evidence; no new runtime execution or reclassification of blocked browser runs.
+- Recommended direct PM/Y, shared TS semantic core, one headless Space owner, SQLite
+  and immutable files; defined module/field ownership and gated implementation entry.
+- Identified aggregate serialization/deep startup verification as scale risks, not
+  measured failures. Proposed per-page roots with atomic coherent Space version sets.
+- Updated F006/F007 evidence without accepting them; added Proposed F008 and frozen
+  not-run PK01–10 covering moves, historic task/cover/pins, crash receipts/readers and
+  structural write amplification. Host/runtime/native/format/budget/security gates open.
+- User confirms22 done; review23 patch is over22. No production/main/runtime-code,
+  dependency, prior evidence, frozen JG or budget changes; no commit/push/manual replay.
+
 ## 0.46 — 2026-11-15
 
 - Added bounded external-media/Y profile: notes/tasks share body/cover associations;
