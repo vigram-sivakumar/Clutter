@@ -3,6 +3,17 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.44 — 2026-11-14
+
+- Recorded successful visible reopener and new user-reproducible alternating-cell
+  whitespace click blocker; JN-01 paused, prior evidence retained.
+- Bound table click positions to actual DOM cell; preserve ordinary text click,
+  modifiers, double/triple-click and selection commands. No document/undo policy change.
+- Added repeated real pointer/typing checks in both candidates/views and packaged
+  joined fixture; injected cross-cell mapping fails before and passes after.
+  Physical Mac reproduction still needs native retest; Chromium passed before too.
+- Retain old session/store and setup archive while rebuilding source into new host.
+
 ## 0.43 — 2026-11-14
 
 - Recorded user-observed accidental reload/blank panes. Empty URL bootstrap fails

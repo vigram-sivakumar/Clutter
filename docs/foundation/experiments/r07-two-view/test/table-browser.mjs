@@ -441,6 +441,74 @@ try {
       }
     );
     await check(
+      'TB-26-padding',
+      'repeated whitespace clicks in different cells keep typing in the clicked cell',
+      async () => {
+        for (const id of ['A', 'B']) {
+          for (const index of [0, 3, 1, 2, 0, 1]) {
+            const target = cell(index, id);
+            const before = await Promise.all(
+              [0, 1, 2, 3].map((i) => cell(i, id).innerText())
+            );
+            const box = await target.boundingBox();
+            await page.mouse.click(
+              box.x + box.width - 12,
+              box.y + box.height / 2
+            );
+            assert.ok(
+              (await target.getAttribute('class')).includes('active-table-cell')
+            );
+            await page.keyboard.insertText('X');
+            const expected = [...before];
+            expected[index] += 'X';
+            assert.deepEqual(
+              await Promise.all(
+                [0, 1, 2, 3].map((i) => cell(i, id).innerText())
+              ),
+              expected
+            );
+          }
+        }
+      }
+    );
+    await check(
+      'TB-26-mapped',
+      'adjacent-cell coordinate result cannot override the actual clicked DOM cell',
+      async () => {
+        for (const id of ['A', 'B']) {
+          for (const padding of [false, true]) {
+            const result = await page.evaluate(
+              ({ g, id, prefix, padding }) => {
+                const view = window[g].view(id);
+                const cells = document.querySelectorAll(
+                  prefix + id.toLowerCase() + ' td'
+                );
+                const plugin = view.state.plugins.find(
+                  (p) =>
+                    p.props.handleClick &&
+                    p.props.decorations &&
+                    p.props.attributes
+                );
+                const pos = view.posAtDOM(cells[1].querySelector('p'), 0);
+                const handled = plugin.props.handleClick(view, pos, {
+                  button: 0,
+                  target: padding ? cells[0] : cells[0].querySelector('p'),
+                });
+                const native = document.getSelection();
+                const el =
+                  native.focusNode?.nodeType === 1
+                    ? native.focusNode
+                    : native.focusNode?.parentElement;
+                return { handled, clicked: el?.closest('td') === cells[0] };
+              },
+              { g: global, id, prefix, padding }
+            );
+            assert.deepEqual(result, { handled: true, clicked: true });
+          }
+        }
+      }
+    );
+    await check(
       'TB-27',
       'selected-cell mode remains local when the other view edits',
       async () => {

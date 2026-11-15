@@ -100,3 +100,14 @@ them by implication.
   new report path. Avoid another old-host reload. Source19 adds native document-start
   bootstrap/protected reload;10 helper +10 joined Linux passes, new Swift not Mac-tested.
   Never guarantee recovery of uncommitted/unprotected text or discard the old session.
+
+## Current checkpoint override — revision0.44 / build20
+
+Read START-HERE's build20 action first. User has reopened visible editors, then
+reported alternating table-cell whitespace clicks jumping into adjacent cells.
+Pause JN-01 for targeted Mac retest of20. Keep native reports and earlier manual
+passes; do not infer JN-01 or native reload acceptance. Source needs a new packaged
+app to take effect; reopener deliberately runs the original binary. Preserve old
+session/store, use normal protected quit and archive setup before fresh builder.
+Linux pointer path did not reproduce native symptom; injected adjacent hit proves
+the pre20 adapter lacked DOM-cell bounds. No new architecture decision.

@@ -1,0 +1,31 @@
+✔ Tab collapses caret at destination end without changing content (7.670915ms)
+✔ Shift-Tab collapses caret at destination end without changing content (0.472393ms)
+✔ Tab wraps existing rows collapses caret at destination end without changing content (0.354743ms)
+✔ Enter column one collapses caret at destination end without changing content (0.402414ms)
+✔ Enter column two collapses caret at destination end without changing content (0.284263ms)
+✔ last Tab is handled without selection/content/structural change (0.375014ms)
+✔ bottom Enter left is handled without selection/content/structural change (0.258521ms)
+✔ bottom Enter right is handled without selection/content/structural change (0.185379ms)
+✔ Shift-Enter inserts one hard break in the same cell (2.713307ms)
+✔ first Shift-Tab retains native backward focus escape (0.346873ms)
+✔ table commands leave ordinary paragraph keys to their existing handlers (0.68576ms)
+✔ explicit row handle appends only that axis and preserves active cell (1.661241ms)
+✔ explicit column handle appends only that axis and preserves active cell (0.719726ms)
+✔ row insertion preserves a backward selection in the original cell (0.634962ms)
+✔ column insertion preserves a backward selection in the original cell (2.037284ms)
+✔ Escape selects the current cell; Enter re-enters it without content changes (0.571866ms)
+✔ selected-cell Tab moves the cell selection while preserving content (2.397201ms)
+✔ selected-cell boundary keeps Four selected (0.222782ms)
+✔ selected-cell boundary keeps One selected (0.137337ms)
+✔ triple-click selects the entire cell text without changing document or selecting the cell (0.59629ms)
+✔ triple-click cell text spans all paragraphs, without adjacent cells (0.722567ms)
+✔ triple-click empty cell is a collapsed text selection (0.402355ms)
+✔ triple-click override does not handle text outside a table (0.110459ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 195.24853

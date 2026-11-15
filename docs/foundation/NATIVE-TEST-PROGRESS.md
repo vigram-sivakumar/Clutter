@@ -1,5 +1,20 @@
 # Native test progress and next action
 
+## Latest — build20, 2026-11-14
+
+- User reports recovery completed; screenshot confirms mounted A/B, not additional
+  typed-text recovery or JN-01 completion.
+- Blocker: alternate clicking whitespace after text in different table cells;
+  caret/highlight jumps to another cell's beginning. Not repeated same-cell clicks.
+- Expected: selection/caret stay in clicked cell; no content mutation until typing.
+- Build20 bounds click destination by DOM cell. Linux table suite70 product passes,
+  two expected raw history control failures retained. Before: two mapped-hit product
+  failures; physical whitespace clicks already passed in Chromium. Mac retest pending.
+- Next: protected normal quit, apply20/rebuild (old store retained and setup archived),
+  retest only alternating whitespace clicks in A/B, then resume JN-01 if clear.
+- No extra pass inferred from screenshot or prior accidental verdict clicks.
+
+
 Updated 2026-11-14, revision 0.36. Maintain this alongside START-HERE at every native
 handoff. Evidence sources are explicit. The first 07 report has now been uploaded/reviewed;
 manual conversation results and stored verdicts remain distinct. The fresh09

@@ -1,0 +1,22 @@
+{
+  "document": "Table whitespace click destination bounds20",
+  "revision": "0.44",
+  "date": "2026-11-14",
+  "observation": "User reproducibly alternates clicking whitespace after text in different cells; caret/highlight jumps into another cell start. Same-cell repetitions not the reproduction.",
+  "fix": "If computed click position is outside actual event DOM cell, choose end of clicked paragraph or cell; keep normal text hit positions within cell.",
+  "verification": {
+    "table_product_pass": 70,
+    "expected_raw_history_failures": 2,
+    "before_mapped_hit_product_failures": 2,
+    "native_helper_pass": 11,
+    "command_tests_pass": 23,
+    "physical_pointer_before": "Passed in Chromium; native symptom not independently reproduced on Linux",
+    "injected_adjacent_hit": "Fails both candidates before; passes after",
+    "packaged_joined": "12 alternating padding clicks + typing across A/B survive real SQLite acceptance and propagate to other view",
+    "native_mac": "pending user retest; Swift19 still not compiled here"
+  },
+  "state": "Architecture unaccepted; JN-01 paused for native pointer retest",
+  "recovery": "User reports fixed/done and screenshot shows mounted editors at revision1. Additional typed-text recovery unverified.",
+  "next": "Normal protected quit, apply20 over19, rebuild creates new synthetic fixture while archiving setup/preserving old store. Targeted alternating whitespace clicks in both A/B only.",
+  "scope": "docs/foundation only; no production/dependency/domain policy changes; no agent commit/push"
+}

@@ -1,8 +1,30 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-14. Documentation revision: 0.43.
+Last updated: 2026-11-14. Documentation revision: 0.44.
 Read AGENTS.md and this file first in a new chat or agent session. It is the checkpoint, not a
 second product specification. [README](README.md) identifies authoritative docs.
+
+## Current action — build20
+
+User reports the reopener is fixed/done; screenshot shows both mounted views and
+HEADLESS fixture at revision1. Recovery of any earlier additional typing is not
+independently established. No JN-01 pass has been reported.
+
+New reproducible Mac blocker: click whitespace after text while alternating between
+different table cells; caret/highlight may jump to another cell's start. Pause
+JN-01; qualify this before accepting editor integration. Build20 bounds computed
+click positions by the actual clicked DOM cell. Linux physical clicks passed even
+before the change; injected adjacent-cell hit results reproduce the adapter gap
+before and pass after. Do not claim native WebKit reproduction or acceptance here.
+
+Apply20 over exact19 only. Quit working test window normally with Command-Q first;
+if protection blocks, stop and preserve the session. Rebuild using native:joined to
+load changed adapter/native host. This creates a fresh synthetic Space, archives
+the previous setup pointer, and preserves the old store. Original compiled app
+still has pre19 reload behavior. Once running, test ONLY the alternating whitespace
+click reproduction in both A/B; report it before resuming JN-01. Do not reset/delete
+old reports or rerun previously accepted unrelated cases. New Swift19 Mac compile,
+reload protection and pointer20 behavior remain unverified until user observation.
 
 ## Current position
 
@@ -21,7 +43,7 @@ records. Keep one branch, `architecture/clutter-foundation`, and preserve all wo
 | R08 review | Proposed PM/Y origin-aware + headless TS authority + SQLite combination, gap ledger and F006/F007; no baseline accepted |
 | Joined G-J (build15) | JG-01–10 pass on Linux: actual PM/Y views, real SQLite owner, CLI/MCP, failure/restart/protection and context history |
 | Native runner16/17 | User Mac compiled Swift and reached signing;16 blocked by CLI script in MacOS. Correction17 moves script to Resources/bin;8 Linux helper checks pass; Mac retry pending |
-| Next | User runs native:joined, reports actual setup/window, then targeted JN-01. JG-12/13 remain planned gates |
+| Next | Build20 cell-padding regression Mac retest before JN-01; preserve original session/setup. JG-12/13 remain open |
 | Git | User committed16 as60b0505b on architecture/clutter-foundation. Signing correction17 is incremental over exact16. No agent commit/push or production changes |
 
 Read [durable qualification](r07-durable-authority.md), [history qualification](r07-history-ownership.md)

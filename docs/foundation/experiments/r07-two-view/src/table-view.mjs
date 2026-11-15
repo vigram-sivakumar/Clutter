@@ -5,6 +5,7 @@ import {
   appendTableAxis,
   cellContext,
   selectCellText,
+  cellEnd,
 } from './table-command.mjs';
 import { reconcileNativeTextSelection } from './selection-preflight.mjs';
 
@@ -83,7 +84,37 @@ export function tableCellHighlight() {
           event.target.closest('[contenteditable="false"]')
         )
           return false;
-        const selection = TextSelection.near(view.state.doc.resolve(pos));
+        let selection = TextSelection.near(view.state.doc.resolve(pos));
+        const clickedCell = event.target.closest('td, th');
+        if (!clickedCell || !view.dom.contains(clickedCell)) return false;
+        // Coordinate hit testing can resolve padding to an adjacent cell in
+        // WebKit. The DOM cell that received the click bounds the destination.
+        const $inside = view.state.doc.resolve(view.posAtDOM(clickedCell, 0));
+        let cellPosition;
+        for (let depth = $inside.depth; depth > 0; depth--) {
+          if (
+            ['cell', 'header_cell'].includes(
+              $inside.node(depth).type.spec.tableRole
+            )
+          ) {
+            cellPosition = $inside.before(depth);
+            break;
+          }
+        }
+        if (cellPosition == null) return false;
+        const at = cellContext({ selection });
+        if (!at || at.start + at.offset !== cellPosition) {
+          const paragraph = event.target.closest('p');
+          selection =
+            paragraph && clickedCell.contains(paragraph)
+              ? TextSelection.near(
+                  view.state.doc.resolve(
+                    view.posAtDOM(paragraph, paragraph.childNodes.length)
+                  ),
+                  -1
+                )
+              : cellEnd(view.state.doc, cellPosition);
+        }
         if (!cellContext({ selection })) return false;
         view.dispatch(
           view.state.tr.setSelection(selection).setMeta('addToHistory', false)

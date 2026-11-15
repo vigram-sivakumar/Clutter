@@ -525,6 +525,55 @@ try {
       };
     }
   );
+  await check(
+    'NP-11',
+    'Packaged joined views keep repeated padding clicks in the clicked cell',
+    async () => {
+      descriptor = await readDescriptor();
+      const p = await browser.newPage({
+        viewport: { width: 1280, height: 1000 },
+      });
+      const errors = [];
+      p.on('pageerror', (e) => errors.push(e.message));
+      await p.goto(
+        descriptor.url.replace('/rpc', '/') +
+          '#' +
+          encodeURIComponent(JSON.stringify(descriptor))
+      );
+      await p.waitForFunction(() => !!window.joinedNative);
+      for (const id of ['a', 'b']) {
+        for (const index of [0, 3, 1, 2, 0, 1]) {
+          const cells = p.locator('#origin-' + id + ' td');
+          const before = await cells.allInnerTexts();
+          const target = cells.nth(index);
+          const box = await target.boundingBox();
+          await p.mouse.click(box.x + box.width - 12, box.y + box.height / 2);
+          assert.ok(
+            (await target.getAttribute('class')).includes('active-table-cell')
+          );
+          await p.keyboard.insertText('X');
+          await p.evaluate(() => window.joined.settle());
+          const expected = [...before];
+          expected[index] += 'X';
+          assert.deepEqual(await cells.allInnerTexts(), expected);
+          assert.deepEqual(
+            await p
+              .locator('#origin-' + (id === 'a' ? 'b' : 'a') + ' td')
+              .allInnerTexts(),
+            expected
+          );
+        }
+      }
+      assert.deepEqual(errors, []);
+      await p.close();
+      return {
+        clicks: 12,
+        views: ['A', 'B'],
+        sqliteAcceptance: true,
+        nativeWebKit: 'Mac retest pending',
+      };
+    }
+  );
 } catch (e) {
   process.exitCode = 1;
   console.error(e.stack);
