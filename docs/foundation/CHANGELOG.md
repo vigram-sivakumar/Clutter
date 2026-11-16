@@ -3,6 +3,32 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.62 — 2026-11-16
+
+- Preserve all3 Ready screenshots and user-reported cross-view edit/save/reopen
+  retention passes, with exact prefixes. No cold owner restart/full host gate inferred.
+- Instrument38 verifies existing signed apps/ZIP ancestry and measures full bundle
+  logical/reported allocation bytes without following framework aliases; hardlink
+  allocation counted once, APFS sharing limits explicit, trial size failures retained.
+- Separate C physical-footprint calibration reads its own temporary child using
+  proc_pid_rusage/RUSAGE_INFO_V4, detects64MiB allocation and stable start identity;
+  no RSS substitute, no app/Space changes. Actual Mac compile/counter still pending.
+-9 Linux support tests pass. Aggregate attribution/presentation/workload comparisons
+  remain not-run. No host winner, gate weakening, old manual replay or legacy migration.
+
+## 0.62 — 2026-11-16
+
+- Preserve all3 Ready screenshots and user-reported cross-view edit/save/reopen
+  retention passes, with exact prefixes. No cold owner restart/full host gate inferred.
+- Instrument38 verifies existing signed apps/ZIP ancestry and measures full bundle
+  logical/reported allocation bytes without following framework aliases; hardlink
+  allocation counted once, APFS sharing limits explicit, trial size failures retained.
+- Separate C physical-footprint calibration reads its own temporary child using
+  proc_pid_rusage/RUSAGE_INFO_V4, detects64MiB allocation and stable start identity;
+  no RSS substitute, no app/Space changes. Actual Mac compile/counter still pending.
+-9 Linux support tests pass. Aggregate attribution/presentation/workload comparisons
+  remain not-run. No host winner, gate weakening, old manual replay or legacy migration.
+
 ## 0.61 — 2026-11-16
 
 - User36 commit31df10cf: all three actual Mac build/sign/strict verify/packaged

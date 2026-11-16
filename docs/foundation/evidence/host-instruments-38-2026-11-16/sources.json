@@ -1,0 +1,18 @@
+[
+  {
+    "url": "https://github.com/apple-oss-distributions/xnu/blob/main/libsyscall/wrappers/libproc/libproc.h",
+    "basis": "proc_pid_rusage declaration; checked2026-11-16"
+  },
+  {
+    "url": "https://developer.apple.com/documentation/kernel/rusage_info_v4",
+    "basis": "native usage struct; actual installed SDK compile remains required"
+  },
+  {
+    "url": "https://github.com/apple/darwin-xnu/blob/main/bsd/sys/resource.h",
+    "basis": "physical footprint and process-start fields; no RSS substitution"
+  },
+  {
+    "url": "https://developer.apple.com/documentation/xcode/gathering-information-about-memory-use",
+    "basis": "Apple memory instrumentation guidance; no tool-presence qualification claim"
+  }
+]

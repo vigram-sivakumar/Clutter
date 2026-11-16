@@ -1,6 +1,54 @@
 # Foundation roadmap
 
-## Current checkpoint — GUI launch37, 2026-11-16
+## Current checkpoint — native instruments38, 2026-11-16
+
+All three candidates have screenshot-confirmed Ready/two Alpha beta views and
+user-reported shared edit/save + close/same-session reopen retention PASS. Expected
+retained prefixes: H-T TAURI, H-E ELECTRON, H-S SWIFT. Native JSON reports were not
+audited. Reopen does not establish cold owner restart or full H01 acceptance.
+See evidence/host-instruments-38-2026-11-16/manual-results.json; raw screenshots
+are preserved there. Do not repeat these checks for missing UI verdict clicks.
+
+Next apply38 and run instruments38/prepare.mjs --run completed36 ID (full command
+in the instrument guide). It verifies existing signed artifacts/archives, reports
+complete installed logical/reported allocated bytes and compressed ZIP sizes, and
+compiles a separate native cross-process physical-footprint counter calibration.
+A temporary child touches64MiB, is read externally before/held/released, then exits.
+No GUI/owner/session/Space/app is launched, rebuilt or modified by this command.
+
+9 new Linux support tests pass; actual Mac instrument compilation/calibration and
+sizes remain pending. This is instrumentation preparation, not an H01 benchmark.
+Aggregate helper/shared-WebKit attribution and actual native presentation remain
+unqualified; no RSS/JS heap/RAF/readiness substitute and no host winner. P-37
+no-legacy-user/data-migration scope remains in force. Filename preference: spaces
+in quoted downloaded-file paths in Bash. No status-only delivery needed.
+
+
+## Current checkpoint — native instruments38, 2026-11-16
+
+All three candidates have screenshot-confirmed Ready/two Alpha beta views and
+user-reported shared edit/save + close/same-session reopen retention PASS. Expected
+retained prefixes: H-T TAURI, H-E ELECTRON, H-S SWIFT. Native JSON reports were not
+audited. Reopen does not establish cold owner restart or full H01 acceptance.
+See evidence/host-instruments-38-2026-11-16/manual-results.json; raw screenshots
+are preserved there. Do not repeat these checks for missing UI verdict clicks.
+
+Next apply38 and run instruments38/prepare.mjs --run completed36 ID (full command
+in the instrument guide). It verifies existing signed artifacts/archives, reports
+complete installed logical/reported allocated bytes and compressed ZIP sizes, and
+compiles a separate native cross-process physical-footprint counter calibration.
+A temporary child touches64MiB, is read externally before/held/released, then exits.
+No GUI/owner/session/Space/app is launched, rebuilt or modified by this command.
+
+9 new Linux support tests pass; actual Mac instrument compilation/calibration and
+sizes remain pending. This is instrumentation preparation, not an H01 benchmark.
+Aggregate helper/shared-WebKit attribution and actual native presentation remain
+unqualified; no RSS/JS heap/RAF/readiness substitute and no host winner. P-37
+no-legacy-user/data-migration scope remains in force. Filename preference: spaces
+in quoted downloaded-file paths in Bash. No status-only delivery needed.
+
+
+## Previous checkpoint — GUI launch37 (superseded above), 2026-11-16
 
 User commit31df10cf/run2026-11-16T10-35-45-751Z-5b4941c3 reports all three
 candidates built, signed, strict-verified and packaged CLI/MCP smoke PASS.
@@ -15,7 +63,7 @@ in both views. Do not repeat NC28 tests or launch other candidates yet.
 P-37 greenfield scope is included: no legacy-user/data migration work.
 
 
-Revision 0.61, 2026-11-16. This roadmap describes work and dependencies; the current
+Revision 0.62, 2026-11-16. This roadmap describes work and dependencies; the current
 checkpoint/authorization is in [START-HERE](START-HERE.md). Product scope is in
 product-contracts.md, not independently redefined here.
 

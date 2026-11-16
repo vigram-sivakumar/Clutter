@@ -1,6 +1,54 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-16. Documentation revision: 0.61, completed builds and GUI launch37.
+## Current checkpoint — native instruments38, 2026-11-16
+
+All three candidates have screenshot-confirmed Ready/two Alpha beta views and
+user-reported shared edit/save + close/same-session reopen retention PASS. Expected
+retained prefixes: H-T TAURI, H-E ELECTRON, H-S SWIFT. Native JSON reports were not
+audited. Reopen does not establish cold owner restart or full H01 acceptance.
+See evidence/host-instruments-38-2026-11-16/manual-results.json; raw screenshots
+are preserved there. Do not repeat these checks for missing UI verdict clicks.
+
+Next apply38 and run instruments38/prepare.mjs --run completed36 ID (full command
+in the instrument guide). It verifies existing signed artifacts/archives, reports
+complete installed logical/reported allocated bytes and compressed ZIP sizes, and
+compiles a separate native cross-process physical-footprint counter calibration.
+A temporary child touches64MiB, is read externally before/held/released, then exits.
+No GUI/owner/session/Space/app is launched, rebuilt or modified by this command.
+
+9 new Linux support tests pass; actual Mac instrument compilation/calibration and
+sizes remain pending. This is instrumentation preparation, not an H01 benchmark.
+Aggregate helper/shared-WebKit attribution and actual native presentation remain
+unqualified; no RSS/JS heap/RAF/readiness substitute and no host winner. P-37
+no-legacy-user/data-migration scope remains in force. Filename preference: spaces
+in quoted downloaded-file paths in Bash. No status-only delivery needed.
+
+
+## Current checkpoint — native instruments38, 2026-11-16
+
+All three candidates have screenshot-confirmed Ready/two Alpha beta views and
+user-reported shared edit/save + close/same-session reopen retention PASS. Expected
+retained prefixes: H-T TAURI, H-E ELECTRON, H-S SWIFT. Native JSON reports were not
+audited. Reopen does not establish cold owner restart or full H01 acceptance.
+See evidence/host-instruments-38-2026-11-16/manual-results.json; raw screenshots
+are preserved there. Do not repeat these checks for missing UI verdict clicks.
+
+Next apply38 and run instruments38/prepare.mjs --run completed36 ID (full command
+in the instrument guide). It verifies existing signed artifacts/archives, reports
+complete installed logical/reported allocated bytes and compressed ZIP sizes, and
+compiles a separate native cross-process physical-footprint counter calibration.
+A temporary child touches64MiB, is read externally before/held/released, then exits.
+No GUI/owner/session/Space/app is launched, rebuilt or modified by this command.
+
+9 new Linux support tests pass; actual Mac instrument compilation/calibration and
+sizes remain pending. This is instrumentation preparation, not an H01 benchmark.
+Aggregate helper/shared-WebKit attribution and actual native presentation remain
+unqualified; no RSS/JS heap/RAF/readiness substitute and no host winner. P-37
+no-legacy-user/data-migration scope remains in force. Filename preference: spaces
+in quoted downloaded-file paths in Bash. No status-only delivery needed.
+
+
+Last updated: 2026-11-16. Documentation revision: 0.62, GUI checks complete; instrument preparation38.
 Read [AGENTS](AGENTS.md), this checkpoint and [README](README.md) first.
 
 ## User scope correction — greenfield, no existing-user/data migration
@@ -12,7 +60,7 @@ is required. Initial schema/format, future version envelopes, backup/recovery an
 portability remain. Keep completed build36/evidence/pins unchanged; no rebuild for this planning
 clarification. Scope is included in37; user application of37 is pending.
 
-## Current checkpoint — GUI launch37, 2026-11-16
+## Previous checkpoint — GUI launch37 (superseded above), 2026-11-16
 
 User commit31df10cf/run2026-11-16T10-35-45-751Z-5b4941c3 reports all three
 candidates built, signed, strict-verified and packaged CLI/MCP smoke PASS.
@@ -68,7 +116,8 @@ This current checkpoint supersedes earlier next-action text in historical record
 | Actual retry35 | User commit476e7f71: Swift retained/verified PASS; Electron nested sign/strict verify/CLI+MCP smoke PASS; Tauri stopped by RETRY_DEPENDENCY_MANIFEST_CHANGED before compile |
 | Normalization36 | Exact Cargo difference supplied: same pins, CLI inline tables/features=[]; generator fixed and partial retry ancestry validated;15 support tests pass |
 | Actual36 | User31df10cf reports all three build/sign/strict verify/CLI+MCP smoke PASS; GUI/performance not-run |
-| Next | Apply GUI launch37 and open H-S from completed36 run; confirm Ready and Alpha beta in both views only |
+| GUI37 actual | All3 Ready screenshot-confirmed; edits/save/reopen retention user-confirmed PASS |
+| Next | Apply38 and run instrument/package preparation; actual Mac counter/sizes pending, no more manual GUI replay |
 
 ## Branch and delivery state
 
@@ -167,5 +216,5 @@ restart product discovery, replay native tests, enable provider sync or change
 production based on these proofs. Keep ADRs Proposed until an explicit decision.
 Update this checkpoint, roadmap and changelog together at meaningful handoffs.
 
-New agent: continue JG-13 from this checkpoint on the single foundation branch;
+New agent: continue the current instruments38 action at the top of this checkpoint;
 inspect current Git state rather than assuming local paths or patch application.

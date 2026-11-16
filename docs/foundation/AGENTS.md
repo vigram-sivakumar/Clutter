@@ -1,5 +1,53 @@
 # Clutter foundation continuation instructions
 
+## Current checkpoint — native instruments38, 2026-11-16
+
+All three candidates have screenshot-confirmed Ready/two Alpha beta views and
+user-reported shared edit/save + close/same-session reopen retention PASS. Expected
+retained prefixes: H-T TAURI, H-E ELECTRON, H-S SWIFT. Native JSON reports were not
+audited. Reopen does not establish cold owner restart or full H01 acceptance.
+See evidence/host-instruments-38-2026-11-16/manual-results.json; raw screenshots
+are preserved there. Do not repeat these checks for missing UI verdict clicks.
+
+Next apply38 and run instruments38/prepare.mjs --run completed36 ID (full command
+in the instrument guide). It verifies existing signed artifacts/archives, reports
+complete installed logical/reported allocated bytes and compressed ZIP sizes, and
+compiles a separate native cross-process physical-footprint counter calibration.
+A temporary child touches64MiB, is read externally before/held/released, then exits.
+No GUI/owner/session/Space/app is launched, rebuilt or modified by this command.
+
+9 new Linux support tests pass; actual Mac instrument compilation/calibration and
+sizes remain pending. This is instrumentation preparation, not an H01 benchmark.
+Aggregate helper/shared-WebKit attribution and actual native presentation remain
+unqualified; no RSS/JS heap/RAF/readiness substitute and no host winner. P-37
+no-legacy-user/data-migration scope remains in force. Filename preference: spaces
+in quoted downloaded-file paths in Bash. No status-only delivery needed.
+
+
+## Current checkpoint — native instruments38, 2026-11-16
+
+All three candidates have screenshot-confirmed Ready/two Alpha beta views and
+user-reported shared edit/save + close/same-session reopen retention PASS. Expected
+retained prefixes: H-T TAURI, H-E ELECTRON, H-S SWIFT. Native JSON reports were not
+audited. Reopen does not establish cold owner restart or full H01 acceptance.
+See evidence/host-instruments-38-2026-11-16/manual-results.json; raw screenshots
+are preserved there. Do not repeat these checks for missing UI verdict clicks.
+
+Next apply38 and run instruments38/prepare.mjs --run completed36 ID (full command
+in the instrument guide). It verifies existing signed artifacts/archives, reports
+complete installed logical/reported allocated bytes and compressed ZIP sizes, and
+compiles a separate native cross-process physical-footprint counter calibration.
+A temporary child touches64MiB, is read externally before/held/released, then exits.
+No GUI/owner/session/Space/app is launched, rebuilt or modified by this command.
+
+9 new Linux support tests pass; actual Mac instrument compilation/calibration and
+sizes remain pending. This is instrumentation preparation, not an H01 benchmark.
+Aggregate helper/shared-WebKit attribution and actual native presentation remain
+unqualified; no RSS/JS heap/RAF/readiness substitute and no host winner. P-37
+no-legacy-user/data-migration scope remains in force. Filename preference: spaces
+in quoted downloaded-file paths in Bash. No status-only delivery needed.
+
+
 These instructions apply to this folder and its isolated experiments. Existing
 production architecture rules still govern production; this pack does not replace
 them by implication.
@@ -11,7 +59,7 @@ them by implication.
   dual-write/cutover gates from active work; no old API/format preservation needed.
   Initial schema quality/future version envelopes, backup/recovery/portability still
   required. Frozen evidence/pins and completed build36 stay unchanged. Scope is included
-  in37. Current next action: H-S GUI Ready/two-view visual check only.
+  in37. Current next action is instruments38 above; GUI checks passed.
 - Stay on architecture/clutter-foundation. Keep foundation work isolated here.
   Do not pull unrelated main changes, reset/clean, replace this branch, modify
   production, commit or push merely because a roadmap describes future work.

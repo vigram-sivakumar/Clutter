@@ -1,0 +1,17 @@
+✔ symlink aliases do not multiply framework contents; blocks and directories are explicit (3.541827ms)
+✔ hardlinked file allocation is counted once; per-entry logical bytes stay disclosed (0.451867ms)
+✔ external and dangling symlinks refuse rather than excluding required dependencies (1.509218ms)
+✔ preparation requires one explicit completed run ID and accepts no fixture/reset switches (0.628758ms)
+✔ counter validation requires actual physical bytes, child identity and observed change (0.519106ms)
+✔ release counter need not instantly return to baseline; it is recorded without a false leak claim (0.174187ms)
+✔ fixed size limits use bytes and preserve failing dispositions (0.326902ms)
+✔ unsupported host refuses before creating reports, compiling or reading builds (108.744443ms)
+✔ native utility has an executable Linux refusal branch, never fake Mac footprint (51.455406ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 343.989184

@@ -1,0 +1,60 @@
+{
+  "format": "clutter-user-host-gui37-results",
+  "date": "2026-11-16",
+  "runId": "2026-11-16T10-35-45-751Z-5b4941c3",
+  "source": "Guided conversation plus initial screenshots; native JSON reports not supplied/audited",
+  "cases": {
+    "H-T": {
+      "initialReadyAndTwoViews": "screenshot-confirmed",
+      "editInAVisibleInBAndSaved": "user-reported-pass",
+      "closeAndExplicitSameSessionReopen": "user-reported-pass",
+      "expectedRetainedText": "TAURI Alpha beta",
+      "contentRetainedInBothViews": "user-reported-pass"
+    },
+    "H-E": {
+      "initialReadyAndTwoViews": "screenshot-confirmed",
+      "editInAVisibleInBAndSaved": "user-reported-pass",
+      "closeAndExplicitSameSessionReopen": "user-reported-pass",
+      "expectedRetainedText": "ELECTRON Alpha beta",
+      "contentRetainedInBothViews": "user-reported-pass"
+    },
+    "H-S": {
+      "initialReadyAndTwoViews": "screenshot-confirmed",
+      "editInAVisibleInBAndSaved": "user-reported-pass",
+      "closeAndExplicitSameSessionReopen": "user-reported-pass",
+      "expectedRetainedText": "SWIFT Alpha beta",
+      "contentRetainedInBothViews": "user-reported-pass"
+    }
+  },
+  "limits": [
+    "Basic launch/edit/save/reopen checks only, not all H01 cases",
+    "Reopen may attach a still-running owner; not proof of cold owner restart",
+    "No aggregate memory, native presentation latency or workload performance measured"
+  ],
+  "screenshots": [
+    {
+      "candidate": "H-S",
+      "file": "H-S-ready.png",
+      "uploadedName": "Screenshot 2026-11-16 at 16.53.36.png",
+      "libraryFileId": "libfile_ed74c6f187888191b8bfe879409a4674",
+      "sha256": "4d71f0b4fd6e565a871320affce350e904e32df90ee935b13098d5ca9c3cf115",
+      "proves": "Ready and initial Alpha beta in both visible views only"
+    },
+    {
+      "candidate": "H-E",
+      "file": "H-E-ready.png",
+      "uploadedName": "Screenshot 2026-11-16 at 16.54.30.png",
+      "libraryFileId": "libfile_050b5d4ebbb88191b9480bb359ef93c2",
+      "sha256": "90f742fab4a774881b1b3b89e37b75664082ae27708a0978b5d2a7e537d459e6",
+      "proves": "Ready and initial Alpha beta in both visible views only"
+    },
+    {
+      "candidate": "H-T",
+      "file": "H-T-ready.png",
+      "uploadedName": "Screenshot 2026-11-16 at 16.54.58.png",
+      "libraryFileId": "libfile_5fc9db5b77688191be2d93df9a20ca73",
+      "sha256": "00c226ac68d467dc2e1b3e617298eb870340c3ed0e248f0f2881c5a6e0451b10",
+      "proves": "Ready and initial Alpha beta in both visible views only"
+    }
+  ]
+}
