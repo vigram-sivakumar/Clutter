@@ -1,6 +1,6 @@
 # Clutter foundation
 
-Status: architecture definition pack, revision 0.48, 2026-11-15. Product scope
+Status: architecture definition pack, revision 0.49, 2026-11-15. Product scope
 confirmed; the production technology baseline remains unaccepted.
 Baseline: `main` at `cae604273115c0c6c0d3ac34533b1e9834e9c778`.
 Working branch: `architecture/clutter-foundation`.
@@ -17,11 +17,12 @@ one durable owner. [Mac runner](r08-native-runner.md) has bounded JN-01–04 use
 [Decision-readiness review23](architecture-readiness.md) now recommends the mechanism
 combination and module boundaries; [F008](adr/F008-page-roots-and-atomic-version-sets.md)
 and frozen [PK01–10](page-partition-contract.json) now have
-[headless page proof24](r08-page-closure.md). Next is the scoped
-[Core/API implementation entry](implementation-entry.md), not another broad research
-round. [One running Space service](runtime-ownership.md) explains the shared owner.
+[headless page proof24](r08-page-closure.md). The scoped [Core/API entry](implementation-entry.md) is accepted for disposable
+implementation only: [I1a implementation25](i1/result.md) now has21 passing tests
+and strict TypeScript. Next is I1b actual per-page editor/context/media integration. [One running Space service](runtime-ownership.md) explains the shared owner.
 No manual replay, accepted production baseline or native-host selection.
-This is a proposed combination, not an accepted architecture or production rebuild.
+The production combination remains proposed; I1a is working private implementation,
+not production or user-vault migration.
 
 ## Purpose and authority
 

@@ -1,3 +1,7 @@
+import {
+  atomic,
+  CommitUnknown,
+} from '../../../../../packages/foundation-runtime/src/adapters/sql-transaction.ts';
 // P-SQL experiment only. One connection/owner, no Markdown mirror or view cache.
 import { DatabaseSync } from 'node:sqlite';
 import { randomUUID } from 'node:crypto';
@@ -405,8 +409,6 @@ export class Store {
       documentId: m.document_id,
       version,
     };
-    let committed = false,
-      commitAttempted = false;
     await this.phase('before_begin', c);
     if (
       (this.failWrites && state) ||
@@ -414,68 +416,69 @@ export class Store {
     )
       throw Error('INJECTED_SAVE_FAILURE');
     try {
-      db.exec('BEGIN EXCLUSIVE');
-      if (blob)
-        db.prepare('INSERT OR IGNORE INTO blobs VALUES(?,?)').run(
-          hash(blob),
-          blob
-        );
-      if (state) {
-        const json = this.encode(state);
-        db.prepare('INSERT INTO revisions VALUES(?,?,?,?,?)').run(
-          version,
-          m.current_version,
-          json,
-          hash(json),
-          c.operationId
-        );
-        db.prepare('UPDATE meta SET current_version=? WHERE singleton=1').run(
-          version
-        );
-        await this.phase('after_revision', c);
-      }
-      if (c.method === 'pin_version')
-        db.prepare('INSERT OR IGNORE INTO pins VALUES(?)').run(c.version);
-      if (c.method === 'protect') {
-        const json = this.encode(c.state);
-        db.prepare(
-          'INSERT INTO recovery VALUES(?,?,?,?,?,?,1) ON CONFLICT(context_id) DO UPDATE SET generation=excluded.generation,base_version=excluded.base_version,owner_epoch=excluded.owner_epoch,payload=excluded.payload,hash=excluded.hash,active=1'
-        ).run(
-          c.contextId,
-          c.generation,
-          c.baseVersion,
-          this.epoch,
-          json,
-          hash(json)
-        );
-        await this.phase('after_protection', c);
-      }
-      if (c.method === 'release_protection')
-        db.prepare(
-          'UPDATE recovery SET active=0,payload=NULL,hash=NULL WHERE context_id=? AND owner_epoch=? AND generation<=?'
-        ).run(c.contextId, c.ownerEpoch, c.throughGeneration);
-      if (c.method === 'restore_protection')
-        db.prepare(
-          'UPDATE recovery SET active=0,payload=NULL,hash=NULL WHERE context_id=?'
-        ).run(c.contextId);
-      await this.model.applyMetadata?.(c, this, {
-        state,
-        version,
-        result,
-        commitData,
-      });
-      db.prepare('INSERT INTO outcomes VALUES(?,?,?,?)').run(
-        c.operationId,
-        fingerprint,
-        stable(result),
-        version
+      await atomic(
+        db,
+        async () => {
+          if (blob)
+            db.prepare('INSERT OR IGNORE INTO blobs VALUES(?,?)').run(
+              hash(blob),
+              blob
+            );
+          if (state) {
+            const json = this.encode(state);
+            db.prepare('INSERT INTO revisions VALUES(?,?,?,?,?)').run(
+              version,
+              m.current_version,
+              json,
+              hash(json),
+              c.operationId
+            );
+            db.prepare(
+              'UPDATE meta SET current_version=? WHERE singleton=1'
+            ).run(version);
+            await this.phase('after_revision', c);
+          }
+          if (c.method === 'pin_version')
+            db.prepare('INSERT OR IGNORE INTO pins VALUES(?)').run(c.version);
+          if (c.method === 'protect') {
+            const json = this.encode(c.state);
+            db.prepare(
+              'INSERT INTO recovery VALUES(?,?,?,?,?,?,1) ON CONFLICT(context_id) DO UPDATE SET generation=excluded.generation,base_version=excluded.base_version,owner_epoch=excluded.owner_epoch,payload=excluded.payload,hash=excluded.hash,active=1'
+            ).run(
+              c.contextId,
+              c.generation,
+              c.baseVersion,
+              this.epoch,
+              json,
+              hash(json)
+            );
+            await this.phase('after_protection', c);
+          }
+          if (c.method === 'release_protection')
+            db.prepare(
+              'UPDATE recovery SET active=0,payload=NULL,hash=NULL WHERE context_id=? AND owner_epoch=? AND generation<=?'
+            ).run(c.contextId, c.ownerEpoch, c.throughGeneration);
+          if (c.method === 'restore_protection')
+            db.prepare(
+              'UPDATE recovery SET active=0,payload=NULL,hash=NULL WHERE context_id=?'
+            ).run(c.contextId);
+          await this.model.applyMetadata?.(c, this, {
+            state,
+            version,
+            result,
+            commitData,
+          });
+          db.prepare('INSERT INTO outcomes VALUES(?,?,?,?)').run(
+            c.operationId,
+            fingerprint,
+            stable(result),
+            version
+          );
+          await this.phase('after_outcome', c);
+          await this.phase('before_commit', c);
+        },
+        () => this.phase('after_commit', c)
       );
-      await this.phase('after_outcome', c);
-      await this.phase('before_commit', c);
-      commitAttempted = true;
-      db.exec('COMMIT');
-      committed = true;
-      await this.phase('after_commit', c);
       if (this.loseCommitReturn) {
         this.loseCommitReturn = false;
         this.uncertainOperation = c.operationId;
@@ -492,14 +495,8 @@ export class Store {
       }
       return result;
     } catch (e) {
-      let rollbackFailed = false;
-      try {
-        if (db.isTransaction) db.exec('ROLLBACK');
-      } catch {
-        rollbackFailed = true;
-        this.failed = true;
-      }
-      if (committed || commitAttempted || rollbackFailed) {
+      if (e instanceof CommitUnknown) {
+        if (e.rollbackFailed) this.failed = true;
         this.uncertainOperation = c.operationId;
         return {
           status: 'uncertain',
@@ -509,7 +506,7 @@ export class Store {
             documentId: m.document_id,
             operationId: c.operationId,
           },
-          reason: e.message,
+          reason: e.cause?.message ?? e.message,
         };
       }
       throw e;

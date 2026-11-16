@@ -1,0 +1,16 @@
+NP-01 pass Unsupported host and runtime integrity fail closed
+NP-02 pass Private marked session and descriptor validation
+NP-03 pass Packed runtime and app-closed CLI/MCP single owner
+browserType.launch: Executable doesn't exist at /home/agent/.cache/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-linux64/chrome-headless-shell
+╔════════════════════════════════════════════════════════════╗
+║ Looks like Playwright was just installed or updated.       ║
+║ Please run the following command to download new browsers: ║
+║                                                            ║
+║     npx playwright install                                 ║
+║                                                            ║
+║ <3 Playwright Team                                         ║
+╚════════════════════════════════════════════════════════════╝
+    at /workspace/scratch/c3964483bf30/clutter-architecture/docs/foundation/experiments/r07-two-view/test/joined-native.mjs:132:32
+    at check (/workspace/scratch/c3964483bf30/clutter-architecture/docs/foundation/experiments/r07-two-view/test/joined-native.mjs:37:26)
+    at /workspace/scratch/c3964483bf30/clutter-architecture/docs/foundation/experiments/r07-two-view/test/joined-native.mjs:128:9
+Report artifacts/joined-native-linux.json

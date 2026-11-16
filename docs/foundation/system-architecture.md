@@ -13,7 +13,9 @@ Runtime terminology: the [Space service](runtime-ownership.md) is the one runnin
 Core application service composed with the Vault adapter. Historical “authority”/
 “owner” labels name it, not another policy implementation. UI/CLI/MCP are peers.
 Proof24 qualifies per-page storage headlessly; actual editor/runtime/real-data gates
-and [I1 entry](implementation-entry.md) remain explicit.
+and [I1 entry](implementation-entry.md) remain explicit. F009 now accepts disposable
+I1 only; [I1a](i1/result.md) has real Core/adapter modules. Actual per-page editor
+contexts/media/protection remain I1b. The legacy production app is not rewired.
 
 ## Proposed system
 

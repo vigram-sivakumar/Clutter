@@ -1,12 +1,13 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-15. Documentation revision: 0.48, proof24.
+Last updated: 2026-11-15. Documentation revision: 0.49, implementation25.
 Read [AGENTS](AGENTS.md), this checkpoint and [README](README.md) first.
 
 ## Current position
 
 Architecture qualification continues on **architecture/clutter-foundation**.
-No production rebuild, accepted stack or provider implementation. Product decisions
+Disposable Core implementation has begun under F009; no accepted production stack,
+real-vault cutover or provider implementation. Product decisions
 remain in product-contracts.md; historical progress is in CHANGELOG.md/roadmap.md.
 This current checkpoint supersedes earlier next-action text in historical records.
 
@@ -23,13 +24,13 @@ This current checkpoint supersedes earlier next-action text in historical record
 | Media build22 |12 Linux media cases pass with13 real crash phases;14 entity,84 Node and2 old-profile headless regressions pass; browser reruns environment-blocked |
 | Review23 | Recommendation/module ownership/gate assessment complete; F006/F007 evidence updated, F008 and frozen PK01–10 proposed; no new runtime tests |
 | Page proof24 | PK01–10 pass headlessly,10 multi-page crash boundaries plus interrupted import; single-page writes, snapshot/pin/lease closure; no new native/browser/performance claim |
-| Next | Scoped I1 Core/API implementation-entry decision (F009), then disposable three-interface module slice; G-Q remains before real data |
+| I1a implementation25 |21 integration tests and strict TypeScript pass: shared page CRUD/Core, SQLite multi-root commits, CLI/MCP stdio clients, desktop draft session; actual editor binding pending |
+| Next | I1b: actual per-page editor/context updates, protected drafts and immutable-media API integration; G-Q remains before real data |
 
 ## Branch and delivery state
 
-Stay on architecture/clutter-foundation. User confirms review23 done; exact content
-base c163b44e53d8c774302feb246b6f0c4cdde363b7. Proof24 is incremental over23; exact
-new user commit/push is not assumed. No agent commit/push, production/main changes
+Stay on architecture/clutter-foundation. User confirms proof24 applied. Implementation25 is incremental over exact24
+content tree acd69f3be3fd1af8b9874b0d981439081b3b6713; new user commit/push is not assumed. No agent commit/push, apps/app/main changes
 or user-vault writes. Current workspace holds later uncommitted content; inspect
 actual Git/files rather than stale local HEAD before resuming elsewhere.
 
@@ -38,25 +39,34 @@ reset, generated bundle/runtime/cache/artifacts or test-store staging. Shared so
 planners and SQL transaction engine are reused; new page adapter is not another
 policy implementation. Old aggregate/native profiles remain comparison controls.
 
-## Exact next work — scoped implementation entry
+## Exact next work — I1b integration
 
-1. Read [page result](r08-page-closure.md), [implementation entry](implementation-entry.md),
-   [runtime ownership](runtime-ownership.md) and Proposed [F009](adr/F009-scoped-core-implementation-entry.md).
-   The user asks when implementation begins and wants no duplicate owners. “Space
-   service” is the running Core application service with its Vault adapter, not
-   a second core/authority. UI, CLI and MCP are peers; none invokes the CLI as policy.
-2. Review/adopt the concrete I1 scope: one typed command catalogue/module/port
-   contract and disposable-only data enforcement, then implement the shared Core/
-   API and desktop/CLI/MCP vertical slice. No new broad engine search or empty
-   package scaffolding. F009 is Proposed, not assistant-invented user acceptance.
-3. Bind actual per-page editor contexts/private updates/protected drafts. PK used
-   headless projections, not EditorViews or native input. Keep prior keyboard
-   results; automate changed-route tests and request only targeted native input if
-   a concrete build requires it. Known browser environment block remains labelled.
-4. Do not open existing vaults/freeze final codec/enable migration while G-Q native
-   runtime/discovery/grants/flush, format/history/retention, D11 workload/budgets and
-   precise existing-rule/migration scope remain open. Those gates still block real
-   data; disposable module work is not a false production/shipping acceptance.
+1. Read [I1a result](i1/result.md), [contract](i1/contract.md),
+   [F009](adr/F009-scoped-core-implementation-entry.md) and
+   [runtime ownership](runtime-ownership.md). F009 is accepted only for disposable
+   implementation, following the user's “proceed”. I1a is implemented; I1 is not done.
+2. Continue the same private workspace in packages/foundation-runtime. Bind actual
+   per-page EditorViews/contexts to the shared API with private grants, staged Y
+   updates, origin-aware history, remount/catch-up and durable protected drafts.
+   Add semantic operations to the same catalogue/PageOperations, never a UI save path.
+3. Integrate immutable-media operations through Core/Vault ports, preserving the
+   qualified publication/closure rules and coherent multi-page version sets. The
+   I1a Vault already supports multiple guarded root changes in one Space sequence.
+   Its full-body paragraph dev adapter is not a live editor protocol or final schema.
+4. Automate changed integration routes; preserve prior keyboard/native passes.
+   Browser-dependent regressions attempted25 are blocked by the missing Playwright
+   executable (prior system Chromium also failed sockets). Do not install/bypass or
+   infer browser/native passes. Arrange supported execution for I1b before acceptance.
+   No new manual testing is needed merely to apply25.
+5. Keep G-Q blocking existing/user-vault writes, production runtime/discovery/grants,
+   native flush, final format/history/retention, migration and fixed D11 budgets.
+   No main branch changes, installed CLI claims, provider enablement or full-I1 pass.
+
+Developer checks: `npm run foundation:test` and `npm run foundation:typecheck` at
+repo root (Node24.22.1+, usual root dependencies and existing nested locked PM/Y
+experiment dependencies installed). The bundle changes the private workspace,
+root scripts/workspace lock metadata, scoped rule note and foundation docs only.
+Do not stage artifacts/out/runtime/cache/temp stores or push backup refs.
 
 ## Proof24 facts and limits
 
@@ -75,7 +85,8 @@ initial deep historical audit remains intentionally measured, not optimized away
 
 The new query API is a proof surface. heads/metrics are diagnostics. Page session
 Y updates/protection and a pin/lease metadata cursor are not implemented here.
-Public production DTO/schema/permissions must be concrete before I1 coding.
+I1a now has a concrete limited catalogue and injected scopes; production peer grants
+and the live context protocol remain gated.
 Frozen PK/JG contracts keep original not-run fields; actual results are separate
 in evidence/r08-24-2026-11-15.json. No old evidence or confirmed product scope changed.
 

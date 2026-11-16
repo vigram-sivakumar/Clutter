@@ -4,6 +4,18 @@ These are the rules that define Clutter's architecture and should still be true 
 
 If a rule and a deadline conflict, the deadline yields, or the rule is formally amended via a new ADR. It is never silently bypassed "for now."
 
+## Scoped disposable foundation implementation
+
+[ADR-F009](docs/foundation/adr/F009-scoped-core-implementation-entry.md) permits the
+private `packages/foundation-runtime` I1 namespace on architecture/clutter-foundation.
+It creates only marked OS-temporary Spaces and cannot open legacy/user vaults.
+Its sole internal PageOperations facade runs inside one Core SpaceService; its
+Vault port owns atomic commit mechanics. It is not wired into apps/app. Existing
+production rules below, including PageOperations/PersistenceGate/Vault ownership,
+remain unchanged for all existing data. This is not a second writer for that data
+or authorization to bypass a rule during cutover. Dependency/isolation tests and
+the F009 gates enforce this scope before any real-vault integration.
+
 ---
 
 ## 1. Every capability has exactly one owning facade

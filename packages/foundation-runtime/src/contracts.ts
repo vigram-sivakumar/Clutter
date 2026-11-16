@@ -1,0 +1,256 @@
+/** The I1a catalogue is the single source for request types and runtime schemas. */
+export type Json =
+  null | boolean | number | string | Json[] | { [key: string]: Json };
+type Schema<T> = { json: Record<string, unknown>; parse(value: unknown): T };
+type Infer<S> = S extends Schema<infer T> ? T : never;
+export class Fault extends Error {
+  readonly code: string;
+  constructor(code: string) {
+    super(code);
+    this.code = code;
+  }
+}
+const bad = (): never => {
+  throw new Fault('INVALID_REQUEST');
+};
+const scalar = <T>(
+  json: Record<string, unknown>,
+  check: (x: unknown) => boolean
+): Schema<T> => ({ json, parse: (x) => (check(x) ? (x as T) : bad()) });
+const literal = <T extends string | number>(value: T) =>
+  scalar<T>({ const: value }, (x) => x === value);
+const text = (max: number, pattern?: string) =>
+  scalar<string>(
+    { type: 'string', maxLength: max, ...(pattern ? { pattern } : {}) },
+    (x) =>
+      typeof x === 'string' &&
+      x.length <= max &&
+      (!pattern || new RegExp(pattern).test(x))
+  );
+const id = text(128, '^[a-zA-Z0-9_-]{1,128}$');
+const sequence = scalar<number>(
+  { type: 'integer', minimum: 1 },
+  (x) => Number.isSafeInteger(x) && (x as number) > 0
+);
+const optional = <T>(s: Schema<T>): Schema<T | undefined> => ({
+  json: s.json,
+  parse: (x) => (x === undefined ? undefined : s.parse(x)),
+});
+type Fields<S extends Record<string, Schema<unknown>>> = {
+  [K in keyof S as undefined extends Infer<S[K]> ? never : K]: Infer<S[K]>;
+} & {
+  [K in keyof S as undefined extends Infer<S[K]> ? K : never]?: Exclude<
+    Infer<S[K]>,
+    undefined
+  >;
+};
+const object = <S extends Record<string, Schema<unknown>>>(
+  fields: S
+): Schema<Fields<S>> => ({
+  json: {
+    type: 'object',
+    properties: Object.fromEntries(
+      Object.entries(fields).map(([k, s]) => [k, s.json])
+    ),
+    required: Object.entries(fields)
+      .filter(([, s]) => {
+        try {
+          return s.parse(undefined) !== undefined;
+        } catch {
+          return true;
+        }
+      })
+      .map(([k]) => k),
+    additionalProperties: false,
+  },
+  parse(x) {
+    if (
+      !x ||
+      typeof x !== 'object' ||
+      Array.isArray(x) ||
+      Object.keys(x).some((k) => !Object.hasOwn(fields, k))
+    )
+      return bad();
+    const out = Object.create(null);
+    for (const [k, s] of Object.entries(fields)) {
+      const v = s.parse((x as Record<string, unknown>)[k]);
+      if (v !== undefined) out[k] = v;
+    }
+    return out;
+  },
+});
+const union = <S extends readonly Schema<unknown>[]>(
+  ...options: S
+): Schema<Infer<S[number]>> => ({
+  json: { oneOf: options.map((s) => s.json) },
+  parse(x) {
+    for (const s of options) {
+      try {
+        return s.parse(x) as Infer<S[number]>;
+      } catch {}
+    }
+    return bad();
+  },
+});
+function jsonValue(x: unknown, depth = 0, count = { n: 0 }): Json {
+  if (depth > 32 || ++count.n > 50000) return bad();
+  if (
+    x === null ||
+    typeof x === 'boolean' ||
+    (typeof x === 'number' && Number.isFinite(x))
+  )
+    return x;
+  if (typeof x === 'string') return x.length <= 200000 ? x : bad();
+  if (Array.isArray(x)) return x.map((v) => jsonValue(v, depth + 1, count));
+  if (
+    x &&
+    typeof x === 'object' &&
+    [Object.prototype, null].includes(Object.getPrototypeOf(x))
+  ) {
+    const out = Object.create(null);
+    for (const [k, v] of Object.entries(x)) {
+      if (['__proto__', 'constructor', 'prototype'].includes(k)) return bad();
+      out[k] = jsonValue(v, depth + 1, count);
+    }
+    return out;
+  }
+  return bad();
+}
+const json: Schema<Json> = { json: {}, parse: (x) => jsonValue(x) };
+const property = union(
+  object({ type: literal('text'), value: union(text(10000), literalNull()) }),
+  object({
+    type: literal('date'),
+    value: union(text(10, '^\\d{4}-\\d{2}-\\d{2}$'), literalNull()),
+  }),
+  object({
+    type: literal('number'),
+    value: union(
+      scalar<number>(
+        { type: 'number' },
+        (x) => typeof x === 'number' && Number.isFinite(x)
+      ),
+      literalNull()
+    ),
+  }),
+  object({
+    type: literal('checkbox'),
+    value: union(
+      scalar<boolean>({ type: 'boolean' }, (x) => typeof x === 'boolean'),
+      literalNull()
+    ),
+  })
+);
+function literalNull(): Schema<null> {
+  return scalar<null>({ type: 'null' }, (x) => x === null);
+}
+const properties: Schema<Record<string, Infer<typeof property>>> = {
+  json: {
+    type: 'object',
+    maxProperties: 64,
+    propertyNames: { minLength: 1, maxLength: 128 },
+    additionalProperties: property.json,
+  },
+  parse(x) {
+    if (
+      !x ||
+      typeof x !== 'object' ||
+      Array.isArray(x) ||
+      Object.keys(x).length > 64
+    )
+      return bad();
+    const out = Object.create(null);
+    for (const [k, v] of Object.entries(x)) {
+      if (
+        !k ||
+        k.length > 128 ||
+        ['__proto__', 'constructor', 'prototype'].includes(k)
+      )
+        return bad();
+      out[k] = property.parse(v);
+    }
+    return out;
+  },
+};
+const body = object({
+  format: literal('clutter.i1.pm-json'),
+  schemaVersion: literal(1),
+  value: json,
+});
+const base = { apiVersion: literal(1), spaceId: id };
+const patch = object({
+  title: optional(text(10000)),
+  body: optional(body),
+  properties: optional(properties),
+});
+export const catalogue = {
+  'page.create': object({
+    ...base,
+    method: literal('page.create'),
+    operationId: id,
+    pageId: id,
+    kind: union(literal('note'), literal('task')),
+    title: text(10000),
+    body,
+    properties,
+  }),
+  'page.read': object({
+    ...base,
+    method: literal('page.read'),
+    pageId: id,
+    atSequence: optional(sequence),
+  }),
+  'page.update': object({
+    ...base,
+    method: literal('page.update'),
+    operationId: id,
+    pageId: id,
+    expectedHead: text(64, '^[a-f0-9]{64}$'),
+    patch,
+  }),
+} as const;
+export type Command = Infer<(typeof catalogue)[keyof typeof catalogue]>;
+export type Mutation = Exclude<Command, { method: 'page.read' }>;
+export type PageContent = Pick<
+  Extract<Command, { method: 'page.create' }>,
+  'title' | 'body' | 'properties'
+>;
+export type PageKind = Extract<Command, { method: 'page.create' }>['kind'];
+export type PageSnapshot = PageContent & {
+  pageId: string;
+  kind: PageKind;
+  head: string;
+  sequence: number;
+};
+export type Receipt = {
+  changedHeads: Record<string, string>;
+  operationId: string;
+  pageId: string;
+  head: string;
+  sequence: number;
+};
+export type Reply<T = PageSnapshot | Receipt> =
+  | { ok: true; value: T }
+  | { ok: false; error: { code: string; operationId?: string } };
+export function parseCommand(value: unknown): Command {
+  const x = value as Record<string, unknown>;
+  if (!x || typeof x.method !== 'string' || !Object.hasOwn(catalogue, x.method))
+    return bad();
+  return catalogue[x.method as keyof typeof catalogue].parse(value);
+}
+export const commandSchema = {
+  type: 'object',
+  oneOf: Object.values(catalogue).map((s) => s.json),
+};
+export function stable(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return '[' + value.map(stable).join(',') + ']';
+  return (
+    '{' +
+    Object.entries(value)
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+      .map(([k, v]) => JSON.stringify(k) + ':' + stable(v))
+      .join(',') +
+    '}'
+  );
+}

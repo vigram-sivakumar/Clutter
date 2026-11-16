@@ -149,7 +149,7 @@ D11 targets/reference-host/Space-size dimensions remain proposals; source scale 
 is not a benchmark failure. Before production, close exact G-Q and rule-impact gates.
 Current main/source/user data/backups remain untouched; use one foundation branch.
 
-## Current checkpoint — revision0.48 / proof24
+## Historical checkpoint — revision0.48 / proof24
 
 User confirms23 done. PK01–10 now pass headlessly with shared task/media planners
 and one Store transaction path, not new per-interface reducers. Actual native/
@@ -164,3 +164,21 @@ or empty packages. F009 remains Proposed; G-Q still blocks real-vault writes, fi
 format/native/discovery/grants/flush/budgets/migration and full production acceptance.
 Read START-HERE/implementation-entry/r08-page-closure for exact next steps. All old
 manual passes/evidence/PK/JG/budgets retained; no main/production/agent commit/push.
+
+## Current checkpoint — revision0.49 / implementation25
+
+User confirms24 applied and authorizes proceed after Core/desktop clarifications.
+F009 is accepted for disposable I1 only. Read START-HERE and i1/result.md. I1a has
+real code in private packages/foundation-runtime: inferred catalogue/types/schemas,
+sole internal PageOperations and SpaceService, portable client/desktop draft session,
+SQLite multi-root commit port, shared CLI/MCP adapters.21 integration tests and
+strict TypeScript pass. No installed CLI, actual editor binding, media API or
+protected-draft implementation is claimed; next I1b closes those named routes.
+One atomic transaction primitive and MCP framer are factored/reused by old proofs.
+Root package/lock changes only add scripts/private workspace metadata; no dependencies.
+Only the dev composition imports the prior qualified Y codec; runtime imports no
+experiments. Preserve OS-temp factory/marker/identity enforcement, old app save path,
+all raw controls/evidence and real-vault G-Q gates. No main/commit/push/manual replay.
+The two browser-dependent legacy suites attempted25 are BLOCKED after DO01/NP01–03:
+missing Playwright executable. Do not report them as full passes or install/bypass.
+Package25 requires exact24; stage explicit new package/root paths along with docs.

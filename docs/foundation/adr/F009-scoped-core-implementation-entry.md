@@ -1,6 +1,6 @@
 # ADR-F009: Scoped entry to Core/API implementation
 
-Status: **Proposed for I1 entry review**, 2026-11-15, revision0.48.
+Status: **Accepted for disposable I1 implementation only**, 2026-11-15, revision0.49.
 No full production baseline or prior production rule is superseded.
 
 ## Context
@@ -36,6 +36,19 @@ Test actual per-page view/context binding, shared three-interface handlers and
 dependency rules during I1. G-Q native/runtime/format/budget/security/migration
 and precise old-rule impact stay blocking before any real-vault cutover.
 
-This record is Proposed, not an automatic acceptance from10 PK passes or user
-approval invented by the assistant. Next action is the named scoped entry decision,
-then implementation within its bounds, without another broad research/manual loop.
+The original0.48 proposal required a scoped entry disposition rather than automatic
+acceptance from10 PK passes. The disposition below now adopts that limited boundary
+following the user's instruction to proceed; production gates remain unaccepted.
+
+## Scoped disposition — implementation25
+
+The user's “proceed”, following the ownership and desktop clarifications, authorizes
+this limited implementation. It does not accept G-Q or a production stack/format.
+I1a implements typed page CRUD, shared Core, SQLite Vault, CLI/MCP adapters and a
+desktop draft session. I1b must bind actual per-page EditorViews/context updates,
+media operations and protected drafts before I1 is complete. No legacy application
+rule is superseded: the new private namespace cannot open old or real vaults, and
+apps/app is not wired to it. The legacy PageOperations/PersistenceGate/Vault path
+continues to own existing production data. The new Core PageOperations is the sole
+semantic page facade for its separate disposable Spaces. Service composition is
+not another semantic owner. See [I1a contract](../i1/contract.md).

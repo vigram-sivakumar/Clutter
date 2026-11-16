@@ -3,6 +3,23 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.49 — 2026-11-15
+
+- Adopted F009 for disposable I1 only; concrete module/command/port contract before code.
+- Began real private TypeScript Core/API implementation, not another proof-only plan:
+  one inferred catalogue, internal PageOperations/SpaceService, client, draft session,
+  SQLite multi-root commit adapter and CLI/MCP stdio adapters.
+- 21 integration tests and strict TypeScript pass. Real Y blobs, conflicts/unknown
+  outcomes, draft preservation, durable retry/restart, process death and peer parity.
+- Shared runtime transaction primitive and MCP framer with prior qualification
+  controls. Page10/entity14/media12/Node84/old headless2/native metadata1 pass.
+  Legacy browser-dependent durability/native suites blocked by missing browser after
+  DO01/NP01–03 pass; raw attempts retained. No new browser/native acceptance.
+- I1a is partial I1. Next I1b: actual per-page editor/context updates/history,
+  protected drafts and immutable-media API. G-Q still blocks user-vault writes.
+- Private workspace/root scripts/lock metadata and scoped architecture-rule note added;
+  no new dependencies, apps/app/main changes, generated outputs or agent commit/push.
+
 ## 0.48 — 2026-11-15
 
 - Implemented frozen PK01–10 in a marked headless page profile: independent Y page

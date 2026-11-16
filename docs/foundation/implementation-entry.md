@@ -1,16 +1,16 @@
 # When implementation begins
 
-Revision0.48, 2026-11-15. **The next milestone is I1: shared Core/API module
-implementation with disposable Spaces.** The proof work is implemented experimental
-code; production feature work and user-vault migration have not started.
+Revision0.49, 2026-11-15. **I1 implementation has begun with disposable Spaces.**
+[I1a](i1/result.md) implements real private Core/API modules; actual per-page editor
+binding and media integration are I1b. I1 is incomplete; user-vault migration has not started.
 
-One scoped entry decision remains: review/adopt [F009](adr/F009-scoped-core-implementation-entry.md)
-for the I1 boundary below, then build that slice. This is not another broad candidate
+[F009](adr/F009-scoped-core-implementation-entry.md) is adopted for the I1 boundary
+below, following the user's “proceed”; [the contract](i1/contract.md) preceded code. This is not another broad candidate
 research round or a requirement to finish every feature/provider test first. It
 also does not imply that unfinished G-Q/native/security/format gates have passed.
 No completion-date promise is inferred from case counts.
 
-## I1 scope to adopt before creating product modules
+## Adopted I1 scope
 
 - Use the recommended PM/Y mechanisms and one TypeScript semantic implementation.
   Establish real module responsibilities/dependency enforcement, not empty packages.
@@ -71,11 +71,10 @@ and full release coverage before shipping. Task pages/covers/embeds, templates,
 calendar/reminders, recurrence and collections are not removed because I1 is small.
 Cloud/provider enablement and live collaboration remain separate later gates.
 
-## Exact next action
+## Exact next action — I1b
 
-Review the concrete I1 scope/module contract and record the scoped entry disposition
-in F009/decision register. If adopted for that limited scope, start model/contracts/
-Core/API implementation and the disposable three-interface slice. Do not authorize
-real-vault writes, a final native format or full G-Q by implication. If a specific
-entry contract is missing, close that named item rather than restarting architecture
-research. User confirmed ownership requirements are in [runtime ownership](runtime-ownership.md).
+The scoped entry and I1a modules/catalogue/ports are complete; do not repeat that
+review. Continue actual per-page editor/context/protection and immutable-media API
+integration as described in [the I1a result](i1/result.md) and START-HERE. Keep
+real-vault G-Q blocking. User confirms ownership requirements in
+[runtime ownership](runtime-ownership.md).

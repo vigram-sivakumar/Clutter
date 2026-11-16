@@ -1,10 +1,23 @@
 # Foundation roadmap
 
-Revision 0.48, 2026-11-15. This roadmap describes work and dependencies; the current
+Revision 0.49, 2026-11-15. This roadmap describes work and dependencies; the current
 checkpoint/authorization is in [START-HERE](START-HERE.md). Product scope is in
 product-contracts.md, not independently redefined here.
 
-## Current deliverable — proof24 and I1 entry plan
+## Current deliverable — I1a implementation25
+
+F009 is adopted for disposable implementation only. [I1a](i1/result.md) implements
+one typed catalogue, PageOperations/Core service, portable client, desktop draft
+session, SQLite multi-root commit adapter and CLI/MCP stdio adapters.21 new tests
+and strict TypeScript pass. Existing app/user data untouched. I1 is partial.
+
+Next I1b binds actual per-page EditorViews/context grants/updates/history/protection,
+then immutable-media operations through the same Core API and atomic Vault port.
+Supported browser/native execution remains required for that changed route; no
+broad replay of the old manual session. G-Q still blocks real-vault cutover/release.
+Root workspace lock changes register the private package only, no dependencies.
+
+## Historical deliverable — proof24 and I1 entry plan
 
 [PK01–10](r08-page-closure.md) pass headlessly through shared planners/Store commits:
 per-page writes, atomic task move, coherent old/current task/cover snapshots,

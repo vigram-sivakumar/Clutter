@@ -4,7 +4,17 @@ Status: confirmed product scope; mechanism recommendation reviewed2026-11-15.
 Technical production baseline/format/host not yet accepted.
 Effort and migration scores remain visible with zero decision weight.
 
-## Current execution/entry update — revision0.48
+## Current execution update — revision0.49
+
+F009 accepted for disposable I1 implementation only, after the user's “proceed”.
+[I1a result](i1/result.md):21 integration tests plus strict TypeScript pass for
+one catalogue, Core service, SQLite multi-root commit port, CLI/MCP stdio adapters
+and desktop draft lifecycle. The old app is not wired in; no real-vault access.
+Actual EditorViews/context updates/protection and media API integration remain I1b;
+I1/full G-Q are not passed. SQL runtime transactions and MCP framing are factored
+once and reused by historical proofs. Production host/runtime/format unchanged.
+
+## Historical execution/entry update — revision0.48
 
 PK01–10 pass in the headless per-page proof24; F008 stays Proposed for production
 scope. Task/media semantic planners and one commit engine are shared, not copied.

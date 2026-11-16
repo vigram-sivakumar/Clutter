@@ -1,6 +1,8 @@
 # Acceptance matrix
 
-Status: specification, not execution. Every case is pending. Product rules are
+Status: release-level specification. Bounded proof executions do not pass whole rows.
+[I1a implementation25](i1/result.md) adds21 passing tests for subsets of T-04/T-05/
+T-06/T-07; actual per-page editor/protection and full release coverage remain open. Product rules are
 confirmed where stated; passing implementations and complete input matrices do
 not follow from written coverage. Initial/future gate is explicit per row.
 

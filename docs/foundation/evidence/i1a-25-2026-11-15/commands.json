@@ -1,0 +1,55 @@
+{
+  "cwd": "repository root unless specified",
+  "profile": "Node v24.22.1/Linux x64; TypeScript5.9.3 from already installed audit environment",
+  "commands": [
+    {
+      "command": "npm run foundation:test",
+      "result": "21 pass;0 fail"
+    },
+    {
+      "command": "tsc -p packages/foundation-runtime/tsconfig.json",
+      "environment": "existing TypeScript5.9.3 binary with explicit existing audit @types/node typeRoots; normal npm root install resolves it without override",
+      "result": "exit0; includes negative compile-time API tests"
+    },
+    {
+      "cwd": "docs/foundation/experiments/r07-two-view",
+      "command": "PAGE_RESULT=... node test/pages.mjs",
+      "result": "PK01\u201310 pass"
+    },
+    {
+      "cwd": "same experiment",
+      "command": "ENTITY_RESULT=... node test/entities.mjs",
+      "result": "14 pass"
+    },
+    {
+      "cwd": "same experiment",
+      "command": "MEDIA_RESULT=... node test/media.mjs",
+      "result": "12 pass"
+    },
+    {
+      "cwd": "same experiment",
+      "command": "npm test",
+      "result": "84 pass"
+    },
+    {
+      "cwd": "same experiment",
+      "command": "node test/media-ports.mjs",
+      "result": "2 headless pass"
+    },
+    {
+      "cwd": "same experiment",
+      "command": "node test/page-native-port.mjs",
+      "result": "1 metadata pass"
+    },
+    {
+      "cwd": "same experiment",
+      "command": "node test/durable-owner.mjs",
+      "result": "DO01 pass then blocked missing Playwright executable; runner exit1"
+    },
+    {
+      "cwd": "same experiment",
+      "command": "node test/joined-native.mjs",
+      "result": "NP01\u201303 pass then blocked missing Playwright executable; runner exit1"
+    }
+  ]
+}

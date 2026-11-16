@@ -35,4 +35,4 @@ of these records is an accepted production baseline; PK01–10 now pass in the [
 format/production gates remain open.
 
 - [F009](F009-scoped-core-implementation-entry.md): disposable Core/API module
-  implementation entry — **Proposed for I1 entry review**.
+  implementation entry — **Accepted for disposable I1 implementation only**; I1a implemented, I1b pending.
