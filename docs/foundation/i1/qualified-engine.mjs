@@ -1,3 +1,5 @@
+import { assertBodyRebase } from '../../../packages/foundation-runtime/src/editor-rebase.ts';
+export { assertBodyRebase };
 import {
   createDecoder,
   hasContent,
@@ -26,11 +28,10 @@ function content(c) {
     !body ||
     body.type !== 'doc' ||
     Object.keys(body).some((k) => !['type', 'content'].includes(k)) ||
-    !Array.isArray(body.content) ||
-    !body.content.length
+    (body.content !== undefined && !Array.isArray(body.content))
   )
     throw new Fault('UNSUPPORTED_CONTENT');
-  for (const b of body.content) {
+  for (const b of body.content ?? []) {
     if (
       b.type !== 'paragraph' ||
       Object.keys(b).some((k) => !['type', 'attrs', 'content'].includes(k)) ||
@@ -60,22 +61,6 @@ function staged(fn) {
   }
 }
 // Shared rebase admission: never hide a locally edited block or delete foreign work.
-export function assertBodyRebase(base, draft, latest) {
-  const blocks = (body) =>
-    new Map(body.content.map((block) => [block.attrs.blockId, block]));
-  const b = blocks(base),
-    d = blocks(draft),
-    l = blocks(latest);
-  for (const id of new Set([...b.keys(), ...d.keys()])) {
-    const before = b.get(id),
-      local = d.get(id),
-      remote = l.get(id);
-    if (stable(before ?? null) === stable(local ?? null)) continue;
-    if (before && local && !remote) throw new Fault('EDITOR_REBASE_CONFLICT');
-    if (before && !local && remote && stable(before) !== stable(remote))
-      throw new Fault('EDITOR_REBASE_CONFLICT');
-  }
-}
 function mergeUpdate(previous, update) {
   const d = read(previous);
   try {

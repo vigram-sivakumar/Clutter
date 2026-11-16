@@ -53,3 +53,13 @@ next. EditorSession protection does not journal pending media commands or unsent
 file bytes; a host must resolve or durably protect those before allowing close.
 Do not bundle the Node-based dev codec directly into a browser/WK renderer; compose
 a browser-safe codec/bridge behind the existing ports. No shipping/real-vault claim.
+
+
+Native28 adds a browser-safe view adapter/composition and durable media ingress
+which journals exact commands+bytes before close protection acknowledgements and
+replays through Core. Root envelope/projection/rebase are shared; CoreClient verifies
+root/media SHA.77 automated cases pass. Native build scripts live at root; Mac
+compilation/manual observations remain required. See docs/foundation/START-HERE.md.
+All generated native artifacts use Git-internal clutter-native28 storage, not source.
+Qualification app is synthetic-only; no production shell/native durability/security
+acceptance. Empty notes remain saveable per the note schema; task constraints stay.

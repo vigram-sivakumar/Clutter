@@ -3,7 +3,8 @@
 Status: release-level specification. Bounded proof executions do not pass whole rows.
 [Editor26](i1/editor-result.md) extends I1a to44 passing runtime tests (including
 23 actual-view DOM cases); [media27](i1/media-result.md) adds19 cases (63 total); these are bounded observations for subsets of T-04/T-05/
-T-06/T-07; supported browser/native presentation/lifecycle qualification and full release coverage remain open. Product rules are
+T-06/T-07; [Native28](i1/native-result.md) raises automated runtime coverage to77. Actual Mac
+compilation/presentation/lifecycle and full release coverage remain open. Product rules are
 confirmed where stated; passing implementations and complete input matrices do
 not follow from written coverage. Initial/future gate is explicit per row.
 

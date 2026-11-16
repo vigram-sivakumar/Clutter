@@ -3,6 +3,27 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.52 — 2026-11-16
+
+- Prepared a NEW Core macOS WKWebView/PDFKit qualification host and pinned-runtime
+  builder, same-session reopen, strict integrity/signing flow and app-closed CLI/MCP.
+- Factored browser-safe replica from dev composition. Shared envelope/projection/
+  rebase sources; SHA checks before root/media use. Browser bundle excludes Node/
+  fs/SQL/old semantic models, and Node bundles exclude old Store profiles.
+- Added durable exact media ingress (request+bytes), retry/replay through same Core;
+  close/reload freezes input/history/buttons and awaits admitted media actions.
+  Failed journal/protection refuses close; no second semantic mutation owner.
+- View-owned Blob URLs dispose on refresh/detach; PDFKit receives Core-read synthetic
+  bytes through origin-checked native bridge. One contract JSON supplies manual cases.
+- 77 runtime tests (13 new native helpers +1 empty-note fix), strict TS and prior
+  media12/page10/entity14/Node84 pass. Actual browser bundle boots in jsdom without
+  Buffer; hardware image/PDF/native/key/geometry/flush behavior is NOT inferred.
+- Mac build/Swift compilation/manual NC28-01…04 are NOT RUN. Next user launches and
+  reports Ready/setup output. SQL fullsync flags configured on Mac, not qualified.
+- Generated binaries/cache/reports moved to Git-internal storage so cannot pollute
+  main. No dependencies/locks/main/app/user-data changes or agent commit/push.
+  Existing sessions/frozen evidence preserved; normal rerun cannot silently reset.
+
 ## 0.51 — 2026-11-16
 
 - Added media.import/replace/remove/list/read to existing inferred catalogue and

@@ -365,3 +365,12 @@ Media API/history/publication/editor compatibility now pass (63 runtime cases).
 Next is a targeted NEW Core native composition contract/build, not an old lab rerun.
 Actual image/PDF presentation and pending media close/reload handling remain open.
 No native input/flush/security pass or manual replay requested just to apply27.
+
+## NEW Core28 — 2026-11-16 (actual Mac run NEXT)
+
+77 automated runtime/helper cases and old regressions pass. Mac Swift compilation,
+NC28-01…04 manual observations, PDFKit/image/close/native inputs NOT RUN. User applies
+28 and launches npm run native:core28, reports Ready/compiler output before NC28-01.
+Use native:core28:reopen for SAME session; do not run --new for recovery. Native UI
+Show report reveals sanitized attempts; do not request endpoint/bootstrap files.
+Old joined/native/manual passes stay historical, not passes of this changed route.

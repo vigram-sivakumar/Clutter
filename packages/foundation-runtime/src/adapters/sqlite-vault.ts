@@ -106,7 +106,10 @@ export class SqliteVault implements Vault {
     this.db = new DatabaseSync(file, { open: true });
     try {
       this.db.exec(
-        'PRAGMA busy_timeout=0; PRAGMA locking_mode=EXCLUSIVE; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; BEGIN EXCLUSIVE; COMMIT;'
+        (process.platform === 'darwin'
+          ? 'PRAGMA fullfsync=ON; PRAGMA checkpoint_fullfsync=ON; '
+          : '') +
+          'PRAGMA busy_timeout=0; PRAGMA locking_mode=EXCLUSIVE; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; BEGIN EXCLUSIVE; COMMIT;'
       );
       if (initialize) {
         this.db.exec(`BEGIN EXCLUSIVE;
@@ -524,6 +527,24 @@ export class SqliteVault implements Vault {
       }
       throw e;
     }
+  }
+  profile() {
+    return {
+      node: process.version,
+      platform: process.platform,
+      arch: process.arch,
+      schema: 3,
+      sqlite: this.db.prepare('SELECT sqlite_version() AS version').get()!
+        .version,
+      sqlFullSyncConfigured: process.platform === 'darwin',
+      pragmas: {
+        fullfsync: this.db.prepare('PRAGMA fullfsync').get()!.fullfsync,
+        checkpoint_fullfsync: this.db
+          .prepare('PRAGMA checkpoint_fullfsync')
+          .get()!.checkpoint_fullfsync,
+      },
+      nativeDurabilityQualified: false,
+    };
   }
   close(): void {
     this.db.close();

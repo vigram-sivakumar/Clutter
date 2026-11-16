@@ -23,7 +23,10 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "clean": "rm -rf node_modules apps/*/node_modules apps/*/dist apps/*/coverage packages/*/node_modules",
     "foundation:test": "npm test --workspace=packages/foundation-runtime",
-    "foundation:typecheck": "npm run typecheck --workspace=packages/foundation-runtime"
+    "foundation:typecheck": "npm run typecheck --workspace=packages/foundation-runtime",
+    "native:core28": "node docs/foundation/i1/native/run.mjs",
+    "native:core28:reopen": "node docs/foundation/i1/native/run.mjs --reopen",
+    "native:core28:check": "node docs/foundation/i1/native/run.mjs --check"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.1",

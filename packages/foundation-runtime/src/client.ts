@@ -1,3 +1,4 @@
+import { sha256 } from './root-envelope.ts';
 import {
   parseCommand,
   fromBase64,
@@ -64,6 +65,7 @@ export class CoreClient {
           if (
             m.attachmentId !== c.attachmentId ||
             fromBase64(m.payload).length !== m.bytes ||
+            (await sha256(fromBase64(m.payload))) !== m.hash ||
             (c.atSequence !== undefined && m.sequence > c.atSequence)
           )
             throw Error('INVALID_REPLY');
@@ -96,7 +98,8 @@ export class CoreClient {
             !['note', 'task'].includes(e.kind)
           )
             throw Error('INVALID_REPLY');
-          fromBase64(e.payload);
+          if ((await sha256(fromBase64(e.payload))) !== e.head)
+            throw Error('INVALID_ROOT_DIGEST');
           if (
             c.method === 'editor.open' &&
             (!('grant' in e) ||

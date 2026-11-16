@@ -205,7 +205,7 @@ Bundle26 base is exact25; no agent commit/push. Stage docs/foundation,
 packages/foundation-runtime and package-lock.json only. Track raw attempts and all
 prior evidence; first expanded failures and their corrections are retained in26.
 
-## Current checkpoint — revision0.51 / media implementation27
+## Historical checkpoint — revision0.51 / media implementation27
 
 User confirms26 applied. START-HERE owns current next action: targeted native host/
 browser-safe renderer/media lifecycle integration contract, then a concrete build.
@@ -225,3 +225,26 @@ close gating before real UI. Published orphan bytes are NOT user-intent recovery
 Keep old manual/native sessions, prior evidence/frozen/lock/budgets, main/apps/app/
 real data untouched. No agent commit/push/manual replay.27 is exact26 incremental;
 stage docs/foundation and packages/foundation-runtime only, no generated paths.
+
+## Current checkpoint — revision0.52 / native build28 prepared
+
+User confirms27 applied. Read START-HERE + i1/native-result + native/README and
+native-contract.json. NEW Core native host/browser-safe replica/codec/Blob lifetime/
+PDFKit bridge/durable exact media ingress/close-reload guard are prepared.77 runtime
+cases, strict TS and legacy media12/page10/entity14/Node84 pass. No Mac Swift compile,
+image/PDF/native input/traffic-light/flush pass: NEXT USER runs native:core28 and
+reports Ready or compiler/setup output. Then NC28-01 only, not all old manual cases.
+Native UI reads case steps from the single contract JSON; reports retain manual
+attempts without auto-passing. Private bootstrap/tokens excluded from reports.
+Generated apps/caches/reports are Git-internal clutter-native28, never staged. Root
+scripts added, no dependencies/locks/main/apps/app/user-vault changes. Same-session
+reopen reuses original bundle/store and refuses a live window; normal repeat refuses
+existing session unless explicit --new. Keep prior locators/sessions/repair backup.
+Media ingress persists exact commands+bytes and replays through existing Core only;
+failed journal refuses close. Freeze guards typing/undo/buttons/admitted async media.
+Browser graph has no Node/fs/SQL/old semantic models; Node graph excludes old Store.
+Shared envelope/projection/rebase sources preserve prefix bytes; client verifies SHA.
+Empty notes now follow note schema and remain saveable. General UI/decoder/security/
+conflict/retention/grants/discovery/native power-loss/D11/migration gates remain open.
+No agent commit/push.28 base is exact27; stage docs/foundation, packages/foundation-
+runtime and package.json only. Do not infer28 applied/compiled until user reports it.

@@ -1,6 +1,6 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-16. Documentation revision: 0.51, media implementation27.
+Last updated: 2026-11-16. Documentation revision: 0.52, native build28 prepared.
 Read [AGENTS](AGENTS.md), this checkpoint and [README](README.md) first.
 
 ## Current position
@@ -27,64 +27,68 @@ This current checkpoint supersedes earlier next-action text in historical record
 | I1a implementation25 |21 integration tests and strict TypeScript pass: shared page CRUD/Core, SQLite multi-root commits, CLI/MCP stdio clients, desktop draft session; actual editor binding pending |
 | I1b editor26 |23 additional actual EditorView/context tests pass in jsdom; shared update/protection/recovery API, peer-bound grants, exact pending requests;44 total runtime tests + strict TypeScript; no fresh native/browser qualification |
 | I1b media27 |19 additional media/editor cases pass (63 runtime total),11 publication/SQL process-death trials; prior media12/page10/entity14/Node84 and strict TS pass |
-| Next | Targeted native editor/media composition and lifecycle qualification; I1/G-Q remain open |
+| Native build28 |Browser-safe bundle + NEW Core host + durable media ingress + Mac WK/PDFKit host prepared;77 automated cases/TS and legacy regressions pass; Mac compilation/manual cases NOT RUN |
+| Next | User applies28, runs npm run native:core28 on Mac and reports Ready/compiler outcome before NC28-01 |
 
 ## Branch and delivery state
 
-Stay on architecture/clutter-foundation. User confirms26 applied;27 is incremental
-over exact26 content tree 4ff986bd46b50274684bf3bba8764d424414fa09. Do not infer27
-applied/committed until reported. No agent commit/push, apps/app/main/user-vault
-changes. Current local HEAD is old; inspect files/content trees. This bundle changes
-docs/foundation and packages/foundation-runtime only; no dependency/lock changes.
-No generated runtime/cache/node_modules/test stores are delivered.
+Stay on architecture/clutter-foundation. User confirms27 applied;28 is incremental
+over exact27 content tree aed9937166eac33b7b50e2d7fa1a4fb543137a0f. Do not infer28
+applied/committed/compiled until reported. No agent commit/push, main/apps/app/user-
+vault changes. Local HEAD is stale; use files/content trees. Source changes are
+foundation docs, private runtime and three root npm scripts only; no lock/dependency
+changes. Generated bundles/cache/reports use Git's internal clutter-native28 path,
+not source directories, so cannot be staged on main or the foundation branch.
 
 Preserve repaired-main backup and old native sessions. No main switch/merge/rebase/
 reset, generated bundle/runtime/cache/artifacts or test-store staging. Shared source
 planners and SQL transaction engine are reused; new page adapter is not another
 policy implementation. Old aggregate/native profiles remain comparison controls.
 
-## Exact next work — targeted native editor/media integration
+## Exact next work — actual Mac build/launch result
 
-1. Read [media27 result](i1/media-result.md), [media contract](i1/media-contract.md),
-   [editor26 result](i1/editor-result.md), F009 and runtime-ownership.md. Actual media
-   API/immutable publication/history/editor compatibility are implemented. Do not
-   redo I1a/editor/media API work or start broad architecture/candidate research.
-2. Freeze a bounded native composition/test contract before the host code: one
-   running NEW Core service/Space, peer-bound editor contexts, same UI/CLI/MCP API,
-   supported targeted two-view/history/protection/media/owner-restart cases. Do not
-   point the old joined/native Store profile at schema3 or reuse it as new Core.
-   Existing native/manual sessions must remain intact. Final shell/runtime remains
-   unselected; a qualification host is not shipping architecture acceptance.
-3. Implement browser-safe renderer/codec wiring behind the existing ports. The
-   current qualified DOM adapter imports Node-based dev codecs/Buffer/hash helpers;
-   it cannot be assumed to bundle into WK/browser unchanged. Keep filesystem/Node
-   mechanisms in the service; do not add browser-side mutation/file fallbacks.
-4. Qualify image/PDF/cover presentation and resource lifetime on the selected test
-   host. API associations exist; inline media nodes/placement, object-URL disposal,
-   PDF sandbox/security/general decoders and full UI are NOT delivered by27.
-   Current admission is deliberately bounded PNG + conventional-xref PDF,256KiB,
-   not a production image/PDF decoder or security guarantee.
-5. Native close/reload must compose EditorSession.prepareClose/sync with outstanding
-   media operations. EditorSession protects editor.apply work, NOT unsent image
-   bytes or pending media.import/replace requests. Resolve those exact outcomes or
-   persist request+bytes safely before allowing close. Do not silently discard them
-   or assume published-but-unreferenced objects are a recoverable user intent.
-6. Arrange only the targeted changed-route native checks once a concrete build is
-   ready; no broad old keyboard/manual replay or browser restriction bypass.
-   No manual/native test is needed just to apply27. Existing app/main stays unchanged.
-7. Keep G-Q before real data: production runtime/discovery/auth/grant lifecycle,
-   native flush, final schema/codec/version-set/retention/migration, full features,
-   fixed D11 host/workloads/performance and safe migration remain unqualified.
+1. Read [native28 result](i1/native-result.md), [runner README](i1/native/README.md),
+   [single native contract](i1/native-contract.json) and F009. NEW Core composition,
+   browser-safe replica and durable media ingress are implemented. Do not restart
+   architecture research, redo I1a/editor/media API, or rebuild the OLD joined Store.
+2. User applies28/commits explicit source paths, then runs `npm run native:core28`
+   at repo root on macOS14+/Xcode tools, Node24.22.1+ and existing locked dependencies.
+   First get **Ready or actual compiler/setup error**. Linux helpers are not Mac
+   compilation, image/PDF display, native close/key chords or durability acceptance.
+3. Once Ready is confirmed, guide only NC28-01 (two views, context undo/remount).
+   Next cases are NC28-02 native image/cover/PDF, NC28-03 journal/close failure, and
+   NC28-04 protected text/app-closed CLI. The UI loads steps from native-contract.json.
+   Preserve raw manual attempts; duplicate Pass clicks are not extra qualifications.
+4. If work seems gone/closed, use `npm run native:core28:reopen`: original bundle/
+   same Space/journal, signature/integrity checks, no fresh-Space substitution. A
+   normal repeat refuses an existing session; --new is an explicit NEW synthetic
+   run, never a recovery command. Do not overwrite/close old joined lab sessions.
+5. Native UI Show report reveals the sanitized manual report. Build/setup/session
+   locator is Git-internal clutter-native28/artifacts/latest-session.json. Failed
+   builds archive attempts and keep the valid locator. Do not request private
+   endpoint.json/bootstrap tokens or claim successful Mac compilation without output.
+6. Core UI/CLI/MCP share one NEW service/schema3. Pending media command+bytes are
+   now journaled/flushed before protection acknowledgement and replayed unchanged;
+   no second reducer, rebase or orphan-as-intent assumption. Failed ingress refuses
+   close; typed work uses EditorSession.prepareClose. Freeze covers buttons/history/
+   typing and waits for admitted asynchronous media actions. Fresh bootstrap stays
+   read-only until Ready. Volatile unacknowledged process-crash input is not promised.
+7. Keep G-Q before real data: final shell/runtime/auth/discovery/alias/fencing/grant
+   lifecycle, general decoder/PDF security/inline placement, IME/accessibility/full
+   UI/focus, Mac file flush/power loss, final formats/retention/migration/D11 budgets.
+   SQL fullsync flags are configuration only; nativeDurabilityQualified stays false.
 
-Developer checks: `npm run foundation:test` (63) and `npm run foundation:typecheck`
-at repo root (Node24.22.1+, normal root + existing nested PM/Y dependencies). Legacy
-media12/page10/entity14/Node84 regressions also pass after factoring shared helpers.
-Media files/byte/admission policy is now shared SOURCE in the actual runtime package;
-older proof files re-export/import it. No copied second publisher or business owner.
-Schema3 refuses earlier temp schema1/2 without migration; leave old stores intact.
-All roots/protected snapshots/bytes remain retained; no automatic release/pruning/GC.
-Conservative rebase/recovery conflicts preserve the live/protected draft. No full
-native/browser/geometry/IME/window-close/flush or production qualification inferred.
+Automated evidence28:77 runtime tests (63 prior +13 native helper/bundle cases +1
+empty-note case), strict TypeScript and old media12/page10/entity14/Node84 pass.
+Browser tests load the actual bundle in jsdom without Buffer; image decoding/PDFKit/
+geometry/native input are not emulated passes. Browser graph excludes Node/SQL/fs/
+old semantic models; Node bundle excludes old Store/owner. Root envelope/projection/
+rebase share sources, and CoreClient verifies SHA before renderer/media use.
+
+The builder uses checksum-pinned runtime acquisition, resources/bin launcher (not
+MacOS scripts), nested runtime signing before final outer signing/strict verify.
+Mac Swift compilation is NOT RUN here. Fix observed setup errors in bounded patches,
+retain raw failures and same-session work; no broad manual replay or guessed pass.
 
 ## Proof24 facts and limits
 

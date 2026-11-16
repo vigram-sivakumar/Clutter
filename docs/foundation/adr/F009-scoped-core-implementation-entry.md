@@ -69,3 +69,10 @@ boundary. Same facade/Core/transaction; shared qualified policies/mechanisms mov
 once, not copied. Schema3 is experimental/refuses older temp stores. No production
 baseline or native/general decoder/security/inline/pending-media-close acceptance.
 See media result and START-HERE for exact native composition follow-up.
+
+## Build28 continuation — revision0.52
+
+NEW Core native qualification composition is prepared. Browser/Node separation,
+durable exact media ingress and lifecycle helpers pass automation. Actual Mac Swift
+compilation and manual observations remain not-run. Qualification host does not
+select production shell/runtime, infer native flush/security or permit real vaults.

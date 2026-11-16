@@ -1,0 +1,6 @@
+{
+  "revision": "0.52",
+  "status": "Native host prepared; Mac compile/manual not-run",
+  "review": "i1-native-28-2026-11-16/review.json",
+  "next": "User apply/commit28; npm run native:core28 on Mac; first Ready/compiler outcome, then NC28-01 only"
+}

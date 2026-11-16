@@ -1,0 +1,11 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> clutter-notes@2.0.0 native:core28:check
+> node docs/foundation/i1/native/run.mjs --check
+
+{
+  "supported": false,
+  "node": "v24.22.1",
+  "arch": "x64",
+  "requires": "macOS14+, Xcode command line tools; native PDFKit/WKWebView"
+}

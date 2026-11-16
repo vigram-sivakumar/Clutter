@@ -4,7 +4,15 @@ Status: confirmed product scope; mechanism recommendation reviewed2026-11-15.
 Technical production baseline/format/host not yet accepted.
 Effort and migration scores remain visible with zero decision weight.
 
-## Current execution update — revision0.51
+## Current execution update — revision0.52
+
+[Native28](i1/native-result.md) is prepared for actual Mac compilation/observation;
+77 automated cases/TS/old regressions pass. Browser-safe codec/replica, exact durable
+media ingress, same NEW Core CLI/MCP and native close/PDF/report host now exist.
+This is a qualification host, not selected shipping shell/runtime or G-Q acceptance.
+Next user launch/Ready outcome, then NC28-01 individually. No old manual replay.
+
+## Historical execution update — revision0.51
 
 [Media27](i1/media-result.md) implements shared media API and immutable history/
 protected closure.63 runtime tests (19 new), strict TS, legacy media12/page10/entity14/

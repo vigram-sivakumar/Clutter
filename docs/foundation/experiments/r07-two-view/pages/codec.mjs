@@ -1,3 +1,8 @@
+import {
+  PAGE_CODEC,
+  pageRootPrefix,
+} from '../../../../../packages/foundation-runtime/src/root-envelope.ts';
+import { pageFields } from '../../../../../packages/foundation-runtime/src/page-fields.ts';
 import * as Y from 'yjs';
 import {
   prosemirrorToYXmlFragment,
@@ -11,9 +16,8 @@ import {
   setProperties,
 } from '../entities/model.mjs';
 import { hash } from '../media/formats.mjs';
-export const codec = 'clutter-page-y-v1';
-const prefix = (pageId, kind) =>
-  Buffer.from(codec + '\0schema1\0yjs13.6.33\0' + pageId + '\0' + kind + '\0');
+export const codec = PAGE_CODEC;
+const prefix = (pageId, kind) => Buffer.from(pageRootPrefix(pageId, kind));
 export function projection(d, kind) {
   if (!['notes', 'tasks'].includes(kind)) throw Error('UNSUPPORTED_PAGE_KIND');
   d.getMap('links');
@@ -26,15 +30,12 @@ export function projection(d, kind) {
     !(record.get('properties') instanceof Y.Map)
   )
     throw Error('INVALID_PAGE_RECORD');
-  const p = {
-    title: record.get('title'),
-    body: yXmlFragmentToProseMirrorRootNode(
-      record.get('body'),
+  const p = pageFields(d, (fragment) =>
+    yXmlFragmentToProseMirrorRootNode(
+      fragment,
       kind === 'notes' ? noteSchema : taskSchema
-    ).toJSON(),
-    properties: Object.fromEntries(record.get('properties').entries()),
-    links: Object.fromEntries(d.getMap('links').entries()),
-  };
+    ).toJSON()
+  );
   validateProperties(p.properties);
   validatePage(kind, entityProjection(p, kind));
   return p;

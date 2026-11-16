@@ -1187,3 +1187,17 @@ test('protected editor drafts retain transitive media after current removal and 
   await assert.rejects(recovered.recover(), /RECOVERY_CONFLICT/);
   assert.equal(text(rv), 'Alpha beta');
 });
+
+test('clearing a note remains saveable/protectable through the real view binding', async (t) => {
+  const x = await seeded(t),
+    a = await x.open('A'),
+    av = x.mount(a);
+  av.dispatch(av.state.tr.delete(0, av.state.doc.content.size));
+  await a.flush();
+  await a.settle();
+  const p = ok(await x.read());
+  assert.equal(p.body.value.type, 'doc');
+  assert.equal(av.state.doc.textContent, '');
+  assert.equal(a.dirty, false);
+  assert.equal(a.canClose, true);
+});

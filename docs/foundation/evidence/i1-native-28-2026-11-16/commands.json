@@ -1,0 +1,34 @@
+{
+  "date": "2026-11-16",
+  "commands": [
+    {
+      "command": "npm run foundation:test",
+      "result": "77 pass;0 fail;0 skipped"
+    },
+    {
+      "command": "npm run foundation:typecheck",
+      "result": "strict TS5.9.3 exit0"
+    },
+    {
+      "command": "MEDIA_RESULT=... node test/media.mjs",
+      "result": "12 pass"
+    },
+    {
+      "command": "PAGE_RESULT=... node test/pages.mjs",
+      "result": "10 pass"
+    },
+    {
+      "command": "ENTITY_RESULT=... node test/entities.mjs",
+      "result": "14 pass"
+    },
+    {
+      "command": "npm test (old experiment)",
+      "result": "84 pass"
+    },
+    {
+      "command": "npm run native:core28:check",
+      "result": "Linux unsupported exit2 expected; Mac compile/manual NOT RUN"
+    }
+  ],
+  "scope": "Synthetic actual packed Core/browser/journal tests; not Mac compilation or native manual acceptance"
+}

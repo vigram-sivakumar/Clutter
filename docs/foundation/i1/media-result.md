@@ -1,5 +1,7 @@
 # Media API integration — implementation27
 
+Historical media checkpoint. Current targeted host: [native28](native-result.md).
+
 Revision0.51, 2026-11-16. **Media API/publication/history/editor compatibility pass;
 I1 remains partial.** F009 disposable scope only; existing app/main/user data unchanged.
 [Contract before code](media-contract.md), [review/evidence](../evidence/i1b-media-27-2026-11-16/review.json).

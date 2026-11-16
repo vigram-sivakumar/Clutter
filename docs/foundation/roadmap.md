@@ -1,10 +1,23 @@
 # Foundation roadmap
 
-Revision 0.51, 2026-11-16. This roadmap describes work and dependencies; the current
+Revision 0.52, 2026-11-16. This roadmap describes work and dependencies; the current
 checkpoint/authorization is in [START-HERE](START-HERE.md). Product scope is in
 product-contracts.md, not independently redefined here.
 
-## Current deliverable — I1b media implementation27
+## Current deliverable — NEW Core native build28
+
+[Native28](i1/native-result.md) prepares browser-safe actual views + NEW Core owner,
+packaged app-closed CLI/MCP, durable media ingress/close guard, PDFKit preview and
+versioned manual reports.77 automatic cases/strict TS/old regressions pass. Mac
+compilation/native observations are NOT RUN. Generated binaries/caches/reports live
+in Git-internal storage, not source/branches. Same-session reopen is the recovery
+route; normal repeats refuse implicit fresh Spaces. No final shipping shell choice.
+
+NEXT user applies28 and launches native:core28, reports Ready/compiler output, then
+NC28-01 only. NC28-02/03/04 follow individually. Preserve old sessions/manual passes;
+no broad replay or architecture research. G-Q stays open before real data/release.
+
+## Historical deliverable — I1b media implementation27
 
 [Media27](i1/media-result.md) implements media.import/replace/remove/list/read in
 the same Core/catalogue. Immutable external objects precede SQL association commits;
