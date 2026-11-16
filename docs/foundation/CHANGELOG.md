@@ -3,6 +3,18 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.59 — 2026-11-16
+
+- User34 commit8ed5331c: actual Swift build/sign/strict verify/CLI+MCP smoke pass;
+  Electron fails nested framework resource signature, Tauri fails missing icon.
+- Fix35 supplies configured RGBA icon and explicit inside-out Electron signing;
+  entitlements/flags retained, CoreData untouched, strict deep verify unchanged.
+- Added retry of failed candidates with original common resources, source hashes,
+  Swift artifact verification, cached release checksum and original npm/Cargo locks.
+  New outputs only; original failures/report/pass remain intact, no version drift.
+-12 support tests pass. Actual Mac fixes still unrun; no GUI/performance/winner or
+  new Core behavior. Next retry original run and inspect actual results.
+
 ## 0.58 — 2026-11-16
 
 - User33 commit5bbd7f10 and actual Mac capability report recorded. Tool availability

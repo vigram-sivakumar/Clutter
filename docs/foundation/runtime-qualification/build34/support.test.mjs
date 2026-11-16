@@ -13,6 +13,8 @@ import {
   tauriProject,
   tree,
   graphSourceHashes,
+  sha,
+  writeJson,
 } from './projects.mjs';
 const source = dirname(fileURLToPath(import.meta.url));
 const ui = {
@@ -202,3 +204,107 @@ test(
     assert.equal(r.performance, 'not-run');
   }
 );
+
+const { mkdirSync, writeFileSync, symlinkSync } = await import('node:fs');
+const { nestedSigningPlan, signArguments } = await import('./signing.mjs');
+const { retryId, loadRetry } = await import('./retry.mjs');
+test('Tauri required icon exists as valid RGBA PNG at its configured path', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'h35-icon-'));
+  try {
+    tauriProject(
+      dir,
+      { tauriNpmCli: '2.12.4', tauriCrate: '2.12.5', tauriBuildCrate: '2.7.4' },
+      source
+    );
+    const config = JSON.parse(
+      readFileSync(join(dir, 'src-tauri/tauri.conf.json'))
+    );
+    assert.deepEqual(config.bundle.icon, ['icons/icon.png']);
+    const bytes = readFileSync(join(dir, 'src-tauri', config.bundle.icon[0]));
+    const { validateBytes } =
+      await import('../../../../packages/foundation-runtime/src/adapters/media-formats.mjs');
+    validateBytes(bytes, 'image/png');
+    assert.equal(bytes[25], 6, 'RGBA color type');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+test('nested Electron code signs real leaves before containing bundles, excluding CoreData and alias duplicates', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'h35-sign-'));
+  try {
+    const fw = join(dir, 'Contents/Frameworks/Engine.framework'),
+      a = join(fw, 'Versions/A'),
+      helper = join(a, 'Helpers/Worker.app');
+    mkdirSync(join(helper, 'Contents/MacOS'), { recursive: true });
+    mkdirSync(join(a, 'Resources'));
+    const macho = Buffer.from('cffaedfe00000000', 'hex');
+    writeFileSync(join(a, 'Engine'), macho);
+    writeFileSync(join(helper, 'Contents/MacOS/Worker'), macho);
+    symlinkSync('A', join(fw, 'Versions/Current'));
+    symlinkSync('Versions/Current/Resources', join(fw, 'Resources'));
+    symlinkSync('Versions/Current/Engine', join(fw, 'Engine'));
+    mkdirSync(join(dir, 'Contents/Resources/CoreData/runtime'), {
+      recursive: true,
+    });
+    writeFileSync(join(dir, 'Contents/Resources/CoreData/runtime/node'), macho);
+    const plan = nestedSigningPlan(dir);
+    assert.equal(plan.length, 4);
+    assert.equal(plan.at(-1).path, fw);
+    assert.equal(plan.at(-2).path, helper);
+    assert.equal(plan.filter((p) => p.kind === 'mach-o').length, 2);
+    assert.ok(plan.every((p) => !p.path.includes('CoreData')));
+    for (const p of plan) {
+      assert.ok(!signArguments(p.path).includes('--deep'));
+      assert.ok(signArguments(p.path).some((a) => a.includes('entitlements')));
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+test('nested signing refuses a framework symlink escaping the generated frameworks tree', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'h35-escape-'));
+  try {
+    mkdirSync(join(dir, 'Contents/Frameworks'), { recursive: true });
+    symlinkSync(tmpdir(), join(dir, 'Contents/Frameworks/escape'));
+    assert.throws(() => nestedSigningPlan(dir), /ESCAPES/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+test('retry ledger verifies original common resources and compiled inputs, refusing mutation', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'h35-retry-')),
+    id = 'original-build',
+    run = join(dir, id);
+  try {
+    mkdirSync(join(run, 'CommonCore'), { recursive: true });
+    writeFileSync(join(run, 'CommonCore/file'), 'fixed');
+    writeFileSync(join(run, 'source.mjs'), 'original');
+    const inputs = { 'source.mjs': sha(Buffer.from('original')) };
+    writeJson(join(run, 'input-source-hashes.json'), inputs);
+    writeJson(join(run, 'build-report.json'), {
+      id,
+      format: 'clutter-matched-build34',
+      manifestSha256: 'manifest',
+      status: 'build-smoke-incomplete',
+      commonCore: tree(join(run, 'CommonCore')),
+      compiledInputSourceSha256: sha(JSON.stringify(inputs)),
+    });
+    assert.equal(loadRetry(dir, id, 'manifest').report.id, id);
+    writeFileSync(join(run, 'source.mjs'), 'changed');
+    assert.throws(
+      () => loadRetry(dir, id, 'manifest'),
+      /COMPILED_INPUT_CHANGED/
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+test('retry option rejects paths and preserves a single explicit original build ID', () => {
+  assert.equal(retryId([]), null);
+  assert.equal(
+    retryId(['--retry', '2026-11-16T09-58-25-103Z-7838dcfb']),
+    '2026-11-16T09-58-25-103Z-7838dcfb'
+  );
+  assert.throws(() => retryId(['--retry', '../elsewhere']));
+  assert.throws(() => retryId(['--retry', 'id', 'extra']));
+});

@@ -380,3 +380,13 @@ and future local Spaces, optional advanced restrictions; no separate Space codes
 or repetitive prompts. Per-Space writers/internal transport handles stay separate.
 See local-security-api-spec and integration-access-cases; no production auth pass.
 START-HERE is current; do not repeat generic metadata or broad native editor suite.
+
+## Build correction35 checkpoint — 2026-11-16
+
+User34 commit8ed5331c; H-S ACTUAL built/signed/strict-verified/packaged CLI+MCP
+smoke PASS. H-E nested framework signature FAIL; H-T missing-icon macro FAIL.
+Fix35 icon/signing/retry ready;12 support tests pass, actual Mac fix not-run.
+Next `build34/run.mjs --retry 2026-11-16T09-58-25-103Z-7838dcfb` (full foundation
+path in START-HERE). Preserve old run/Swift pass, original locks/CommonCore/hashes,
+rebuild failed candidates in new directory. No fresh dependency resolution, GUI,
+benchmark, NC28 replay or another inventory. P-36 one-time all-Spaces UX stands.

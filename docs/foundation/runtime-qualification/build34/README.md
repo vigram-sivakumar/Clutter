@@ -61,3 +61,29 @@ After successful Mac builds,35 can launch changed hosts with controlled private
 bootstrap and gather actual readiness/lifecycle/instrument evidence. Do not replay
 the old broad editor suite. The source keeps the single Core and Windows seams;
 this Mac-only wrapper build does not claim Windows runtime qualification.
+
+## Current correction — retry35 over original34
+
+User34 commit8ed5331c: H-S built/signed/strict-verified and packaged CLI/MCP smoke
+passed. H-E failed nested Electron Framework signature verification; H-T macro
+failed because generated project omitted icons/icon.png. No GUI/benchmark run.
+
+After apply35, retry ONLY the failed candidates while keeping original artifacts:
+
+```bash
+node docs/foundation/runtime-qualification/build34/run.mjs --retry 2026-11-16T09-58-25-103Z-7838dcfb
+```
+
+Retry verifies original common/source/artifact/lock/checksum hashes. It re-verifies
+the passed Swift signature/archive, reuses identical common CoreData and copies the
+original npm/Cargo locks (no new resolution). Failed candidates rebuild in a NEW
+run directory using prior caches. Original build/report/signatures/failures stay
+untouched. If inputs changed, retry refuses rather than mixing evidence; report
+that error instead of resetting/deleting anything or bypassing checks.
+
+Tauri now receives its explicitly configured valid RGBA icon. Electron receives
+explicit inside-out Mach-O/nested bundle signing with signature metadata preserved;
+CoreData node is excluded and its hash must remain identical. Outer app last, deep
+strict verification stays mandatory. Symlink escape/ambiguous framework versions
+refuse; no `--deep` force signing or removal of resource verification. Actual Mac
+results after these fixes remain pending; Linux12 tests only cover support logic.

@@ -32,6 +32,11 @@ export function tauriProject(root, pins, source) {
   mkdirSync(join(root, 'src-tauri/src'), { recursive: true });
   mkdirSync(join(root, 'src-tauri/CoreData'));
   mkdirSync(join(root, 'frontend'));
+  mkdirSync(join(root, 'src-tauri/icons'));
+  copyFileSync(
+    resolve(source, '../../i1/native/fixtures/cover-blue.png'),
+    join(root, 'src-tauri/icons/icon.png')
+  );
   writeJson(join(root, 'package.json'), {
     name: 'clutter-h01-tauri-build',
     version: '0.0.0',
@@ -68,6 +73,7 @@ export function tauriProject(root, pins, source) {
     bundle: {
       active: true,
       targets: ['app'],
+      icon: ['icons/icon.png'],
       resources: ['CoreData'],
       macOS: { minimumSystemVersion: '14.0', signingIdentity: '-' },
     },

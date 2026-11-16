@@ -1,6 +1,6 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-16. Documentation revision: 0.58, matched host build-smoke34 prepared.
+Last updated: 2026-11-16. Documentation revision: 0.59, matched host build retry35.
 Read [AGENTS](AGENTS.md), this checkpoint and [README](README.md) first.
 
 ## Current position
@@ -40,13 +40,15 @@ This current checkpoint supersedes earlier next-action text in historical record
 | Actual preflight33 | User commit5bbd7f10; hardware/OS match, Xcode/Swift/SDK/Rust/APFS SSD and probe tools supplied; power/thermal fields unknown |
 | P-36 access UX | User confirms connect once per integration/device, default all current/future local Spaces, optional restrictions; no per-Space codes/prompts |
 | Build34 | Matched native wrapper/packaging sources ready;7 support tests+80 runtime+TS pass on Linux; Mac build/GUI/metrics not-run |
-| Next | Apply34; run build34/run.mjs on Mac; paste final build status/error. No more inventory or old manual replay |
+| Actual build34 | User commit8ed5331c: Swift signed/strict-verified/headless-smoke PASS; Electron nested signature FAIL; Tauri missing-icon macro FAIL |
+| Retry35 | Missing icon and nested signing flow corrected;12 support tests pass; actual Mac retry pending |
+| Next | Apply35; retry original34 run ID, preserve Swift pass/locks/Core; paste final build summary/error. No GUI or benchmark yet |
 
 ## Branch and delivery state
 
 Stay on architecture/clutter-foundation. User confirms28 committed as e2613ec2, then29 applied and native window works
-(screenshot Ready). User confirms33 applied/committed5bbd7f10 and supplies actual capability report.
-Build34 is incremental over exact33 tree a7f46cabf4cc53319b158057e7c21302703b3d14. Mac launch now user-confirmed; full
+(screenshot Ready). User confirms34 applied/committed8ed5331c and supplies actual build log.
+Fix35 is incremental over exact34 tree6f1dbc13628771024d30c19b48043c8d625bf4ca. Mac launch now user-confirmed; full
 NC28-01 remount/toolbar issues are confirmed fixed by user after30; user-reported PASS,
 not a raw report audit. No agent commit/push, main/apps/app/user-
 vault changes. Local HEAD is stale; use files/content trees. Cumulative source changes are
@@ -59,37 +61,31 @@ reset, generated bundle/runtime/cache/artifacts or test-store staging. Shared so
 planners and SQL transaction engine are reused; new page adapter is not another
 policy implementation. Old aggregate/native profiles remain comparison controls.
 
-## Exact next work — actual Mac matched build result, not another inventory
+## Exact next work — retry failed native builds, preserving Swift34
 
-Actual33 report is in evidence/host-build-34-2026-11-16/user-mac-preflight.json;
-its source manifest hash matches local33. Read build34/README under runtime-
-qualification and its worker/runner. User confirmed P-36 access UX while builds were
-prepared. No H01 candidate Mac build, GUI observation or benchmark result exists yet.
+Read retry35 review and original user build log in evidence/host-build-retry-35-
+2026-11-16. User34 commit8ed5331c. H-S ACTUALLY built/signed/deep-strict verified/
+packaged CLI+MCP smoke passed. H-E failed nested framework signature; H-T failed
+missing icon at generate_context. No GUI/benchmarks or winner. Do not repeat inventory.
 
-1. Apply34/commit docs/foundation only, then run
-   `node docs/foundation/runtime-qualification/build34/run.mjs` on Mac. It downloads
-   isolated fixed dependencies if needed, compiles/signs three candidate apps and runs
-   packaged headless CLI/MCP against new factory temp Spaces. No GUI launch/global
-   install/old-session/vault change. Outputs/cache/apps/logs Git-internal only.
-2. Get final summary or exact first compiler/download error. All three statuses
-   distinct; do not assume Swift/Tauri compiled from Linux helper tests. Preserve
-   failure logs, no silent framework downgrade. Build support7 + runtime80 + TS pass.
-3. Source-pack/owner/browser must remain identical across shells. Script's one small
-   native event port seam keeps original WK fallback. Shared prepareClose/handlers,
-   no shell reducer. One-paragraph smoke is NOT HP-10/1K/10K/D11; no timings allowed.
-4. After builds pass,35 launches actual changed hosts and qualifies readiness/
-   lifecycle/instruments. No broad editor replay or another generic metadata round.
-   Native PDF bridge absent in build-only shells: H-10 not passed. Production alias/
-   auth/flush/security/distribution/update/D11/real-vault gates remain open.
-5. P-36 is confirmed: connect integration once per local user/device, all current
-   and FUTURE local Spaces by default. No separate Space codes/prompts; optional
-   advanced restrictions. Built-in CLI OS-user trust is explicit; do not promise
-   hostile same-user shell isolation. Product/security docs+IA cases updated, full
-   production grant implementation still pending. Internal Space transport handles
-   are not user-facing per-Space authorization, and writers remain per Space.
-6. Empty lowPowerModes/thermalLimits and readOnly null mean unknown.120Hz metadata
-   isn't fixed presentation proof. Missing template name isn't missing instrument.
-   Retain actual48GiB host label, no16GiB performance claim. NC28/I1 passes stand.
+1. Apply35/commit docs/foundation only. Run:
+   `node docs/foundation/runtime-qualification/build34/run.mjs --retry 2026-11-16T09-58-25-103Z-7838dcfb`
+2. Retry verifies previous source/common/CoreData/Swift artifact/archive/locks/SHA
+   records, preserves original run and Swift pass, rebuilds only failed candidates
+   in new output directory. Original dependency locks reused, no version resolution
+   or downgrade. Keep retry args across Node24.22 bootstrap. Do not delete outputs.
+3. Tauri gets valid explicit icons/icon.png; Electron signs actual Mach-O leaves
+   then nested bundles then outer app, preserves entitlements/flags, excludes CoreData.
+   Strict deep verification remains.12 support tests pass; Mac fix unproven until run.
+4. Obtain final summary or exact error. If retry says inputs changed, report it;
+   no reset/clean/bypass. Subsequent GUI/readiness/metrics remain separate, not-run.
+   Core/browser/worker/native shell source unchanged; prior80/TS not rerun for35.
+5. P-36 remains confirmed: one integration connection/device, all CURRENT/FUTURE
+   local Spaces by default, optional advanced restrictions; no per-Space codes.
+   Space writers/internal tickets stay separate; production credential auth unqualified.
+6. Preserve main/app/real vaults/old native sessions, all old evidence, H01/pins/budgets.
+   No old manual replay or another architecture framework search. Swift pass alone
+   cannot choose a winner; known packaging mistakes are fixed within same contract.
 
 ## Proof24 facts and limits
 

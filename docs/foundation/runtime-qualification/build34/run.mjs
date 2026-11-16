@@ -28,6 +28,9 @@ import {
   safeArchiveNames,
   graphSourceHashes,
 } from './projects.mjs';
+import { nestedSigningPlan, signArguments } from './signing.mjs';
+import { retryId, loadRetry } from './retry.mjs';
+const requestedRetry = retryId(process.argv.slice(2));
 const source = dirname(fileURLToPath(import.meta.url)),
   root = resolve(source, '../../../..');
 if (
@@ -89,11 +92,15 @@ if (process.platform !== 'darwin' || process.arch !== 'arm64') {
   );
   const runtime = await acquireRuntime(nodeCache, 'arm64');
   if (process.version !== lock.version) {
-    const child = spawn(runtime.binary, [fileURLToPath(import.meta.url)], {
-      cwd: root,
-      stdio: 'inherit',
-      env: process.env,
-    });
+    const child = spawn(
+      runtime.binary,
+      [fileURLToPath(import.meta.url), ...process.argv.slice(2)],
+      {
+        cwd: root,
+        stdio: 'inherit',
+        env: process.env,
+      }
+    );
     const code = await new Promise((ok, fail) => {
       child.once('exit', ok);
       child.once('error', fail);
@@ -120,6 +127,15 @@ async function buildAll(runtime, cache) {
     candidates: {},
     events: [],
   };
+  const previous = requestedRetry
+    ? loadRetry(gitPath('builds'), requestedRetry, sha(manifestBytes))
+    : null;
+  if (previous) {
+    report.retryOf = previous.report.id;
+    report.previousReportSha256 = sha(
+      readFileSync(join(previous.dir, 'build-report.json'))
+    );
+  }
   const checkpoint = () => writeJson(join(dir, 'build-report.json'), report);
   const buildEnv = {
     ...process.env,
@@ -198,24 +214,46 @@ async function buildAll(runtime, cache) {
       ]),
     };
     checkpoint();
-    await worker('pack', common, join(dir, 'bundle-graphs.json'));
-    const graph = JSON.parse(
-      readFileSync(join(dir, 'bundle-graphs.json'), 'utf8')
-    );
-    const sourceHashes = graphSourceHashes(graph, dir);
-    writeJson(join(dir, 'input-source-hashes.json'), sourceHashes);
-    report.compiledInputSourceSha256 = sha(JSON.stringify(sourceHashes));
-    report.hostBuildSourceSha256 = tree(source).sha256;
-    copyFileSync(runtime.license, join(common, 'NODE-LICENSE.txt'));
-    await run('sign-common-node', '/usr/bin/codesign', [
-      '--force',
-      '--sign',
-      '-',
-      join(common, 'runtime/node'),
-    ]);
-    await worker('manifest', common);
-    report.commonCore = tree(common);
-    checkpoint();
+    if (previous) {
+      cpSync(join(previous.dir, 'CommonCore'), common, {
+        recursive: true,
+        dereference: false,
+      });
+      copyFileSync(
+        join(previous.dir, 'input-source-hashes.json'),
+        join(dir, 'input-source-hashes.json')
+      );
+      copyFileSync(
+        join(previous.dir, 'bundle-graphs.json'),
+        join(dir, 'bundle-graphs.json')
+      );
+      report.commonCore = previous.report.commonCore;
+      report.compiledInputSourceSha256 =
+        previous.report.compiledInputSourceSha256;
+      report.hostBuildSourceSha256 = tree(source).sha256;
+      if (tree(common).sha256 !== report.commonCore.sha256)
+        throw Error('RETRY_COPY_CHANGED_COMMON_CORE');
+      checkpoint();
+    } else {
+      await worker('pack', common, join(dir, 'bundle-graphs.json'));
+      const graph = JSON.parse(
+        readFileSync(join(dir, 'bundle-graphs.json'), 'utf8')
+      );
+      const sourceHashes = graphSourceHashes(graph, dir);
+      writeJson(join(dir, 'input-source-hashes.json'), sourceHashes);
+      report.compiledInputSourceSha256 = sha(JSON.stringify(sourceHashes));
+      report.hostBuildSourceSha256 = tree(source).sha256;
+      copyFileSync(runtime.license, join(common, 'NODE-LICENSE.txt'));
+      await run('sign-common-node', '/usr/bin/codesign', [
+        '--force',
+        '--sign',
+        '-',
+        join(common, 'runtime/node'),
+      ]);
+      await worker('manifest', common);
+      report.commonCore = tree(common);
+      checkpoint();
+    }
     let rust;
     async function swiftApp() {
       const app = join(dir, 'Clutter H-S.app'),
@@ -247,12 +285,20 @@ async function buildAll(runtime, cache) {
         name = `electron-v${version}-darwin-arm64.zip`,
         folder = join(cache, 'electron-' + version);
       mkdirSync(folder, { recursive: true });
-      const checks = await download(
-        `https://github.com/electron/electron/releases/download/v${version}/SHASUMS256.txt`,
-        1024 * 1024
-      );
+      const checks = previous
+        ? readFileSync(join(previous.dir, 'electron-SHASUMS256.txt'))
+        : await download(
+            `https://github.com/electron/electron/releases/download/v${version}/SHASUMS256.txt`,
+            1024 * 1024
+          );
       const digest = checksumEntry(checks.toString('utf8'), name);
       writeFileSync(join(dir, 'electron-SHASUMS256.txt'), checks);
+      if (
+        previous &&
+        (previous.report.electronArchive?.version !== version ||
+          previous.report.electronArchive?.sha256 !== digest)
+      )
+        throw Error('RETRY_ELECTRON_RELEASE_CHANGED');
       const archive = join(folder, name);
       if (!existsSync(archive)) {
         const bytes = await download(
@@ -309,20 +355,39 @@ async function buildAll(runtime, cache) {
       const project = join(dir, 'tauri-project');
       mkdirSync(project);
       tauriProject(project, meta.candidatePins['H-T'], source);
-      await run(
-        'npm-lock-H-T',
-        'npm',
-        [
-          'install',
-          '--package-lock-only',
-          '--ignore-scripts',
-          '--workspaces=false',
-          '--package-lock=true',
-          '--audit=false',
-          '--fund=false',
-        ],
-        { cwd: project }
-      );
+      if (previous) {
+        const old = join(previous.dir, 'tauri-project');
+        for (const name of ['package.json', 'src-tauri/Cargo.toml'])
+          if (
+            !readFileSync(join(old, name)).equals(
+              readFileSync(join(project, name))
+            )
+          )
+            throw Error('RETRY_DEPENDENCY_MANIFEST_CHANGED');
+        for (const [name, hash] of [
+          ['package-lock.json', previous.report.tauriLocks?.npmSha256],
+          ['src-tauri/Cargo.lock', previous.report.tauriLocks?.cargoSha256],
+        ]) {
+          const bytes = readFileSync(join(old, name));
+          if (sha(bytes) !== hash) throw Error('RETRY_LOCK_CHANGED');
+          copyFileSync(join(old, name), join(project, name));
+        }
+      } else {
+        await run(
+          'npm-lock-H-T',
+          'npm',
+          [
+            'install',
+            '--package-lock-only',
+            '--ignore-scripts',
+            '--workspaces=false',
+            '--package-lock=true',
+            '--audit=false',
+            '--fund=false',
+          ],
+          { cwd: project }
+        );
+      }
       await run(
         'npm-ci-H-T',
         'npm',
@@ -372,16 +437,18 @@ async function buildAll(runtime, cache) {
       symlinkSync(cargo, join(tools, 'cargo'));
       symlinkSync(rustc, join(tools, 'rustc'));
       const env = { RUSTC: rustc, PATH: tools + ':' + buildEnv.PATH };
-      await run(
-        'cargo-lock-H-T',
-        cargo,
-        [
-          'generate-lockfile',
-          '--manifest-path',
-          join(project, 'src-tauri/Cargo.toml'),
-        ],
-        { cwd: project, env }
-      );
+      if (!previous) {
+        await run(
+          'cargo-lock-H-T',
+          cargo,
+          [
+            'generate-lockfile',
+            '--manifest-path',
+            join(project, 'src-tauri/Cargo.toml'),
+          ],
+          { cwd: project, env }
+        );
+      }
       await run(
         'cargo-fetch-H-T',
         cargo,
@@ -496,6 +563,32 @@ async function buildAll(runtime, cache) {
       ['H-E', electronApp],
       ['H-T', tauriApp],
     ]) {
+      if (
+        previous?.report.candidates[candidate]?.status ===
+        'built-signed-headless-smoke-pass'
+      ) {
+        const kept = previous.report.candidates[candidate];
+        if (
+          tree(kept.app).sha256 !== kept.bundleSha256 ||
+          sha(
+            readFileSync(join(previous.dir, candidate + '-darwin-arm64.zip'))
+          ) !== kept.archiveSha256 ||
+          tree(kept.resources).sha256 !== report.commonCore.sha256
+        )
+          throw Error('PREVIOUS_PASS_ARTIFACT_CHANGED');
+        await run('verify-kept-' + candidate, '/usr/bin/codesign', [
+          '--verify',
+          '--deep',
+          '--strict',
+          kept.app,
+        ]);
+        report.candidates[candidate] = {
+          ...kept,
+          verifiedKeptFrom: previous.report.id,
+        };
+        checkpoint();
+        continue;
+      }
       report.candidates[candidate] = { status: 'building' };
       checkpoint();
       try {
@@ -533,12 +626,29 @@ async function buildAll(runtime, cache) {
           'Add :NSAppTransportSecurity:NSAllowsLocalNetworking bool true',
           info,
         ]);
-        await run('sign-' + candidate, '/usr/bin/codesign', [
-          '--force',
-          '--sign',
-          '-',
-          app,
-        ]);
+        if (candidate === 'H-E') {
+          const plan = nestedSigningPlan(app);
+          writeJson(
+            join(dir, 'electron-signing-plan.json'),
+            plan.map((item) => ({
+              kind: item.kind,
+              path: item.path.slice(app.length + 1),
+            }))
+          );
+          for (const [index, item] of plan.entries())
+            await run(
+              'sign-nested-H-E-' + index,
+              '/usr/bin/codesign',
+              signArguments(item.path)
+            );
+        }
+        await run(
+          'sign-' + candidate,
+          '/usr/bin/codesign',
+          signArguments(app, { outer: true })
+        );
+        if (tree(resources).sha256 !== report.commonCore.sha256)
+          throw Error('SIGNING_CHANGED_COMMON_CORE');
         await run('verify-' + candidate, '/usr/bin/codesign', [
           '--verify',
           '--deep',

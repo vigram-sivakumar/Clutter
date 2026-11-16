@@ -1,0 +1,6 @@
+{
+  "delivery": 35,
+  "revision": "0.59",
+  "review": "host-build-retry-35-2026-11-16/review.json",
+  "status": "Swift34 pass preserved; Electron/Tauri packaging fixes35 prepared, Mac retry pending"
+}
