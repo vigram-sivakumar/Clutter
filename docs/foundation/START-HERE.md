@@ -1,6 +1,29 @@
 # Resume Clutter foundation work
 
-## Current checkpoint — verified executable aliases41, 2026-11-16
+## Current checkpoint — existing trace table export42, 2026-11-16
+
+User41 commit41968700/capture2026-11-16T12-25-47-726Z-be47befa: all3 snapshots
+have0 unavailable processes, stable membership, aliases accepted. Trace finishes
+with graceful SIGINT/status0 and TOC export succeeds. User confirms79 tables and51
+schema names. Prior parser incorrectly searched schema/name instead of table/schema;
+42 fixes this without rerecording. Raw capture retained in new scoped evidence.
+
+Known UI/owner sum62166080 bytes; all-same-user WebKit sums include other apps/shared
+charges and cannot rank Clutter. No application aggregate footprint or native input
+latency qualified. Trace availability is not actual event/presentation correlation.
+
+Next apply42 and export existing capture with trace42/export.mjs --capture
+2026-11-16T12-25-47-726Z-be47befa. Tauri need not be open. Three fixed table exports
+(process-info, frame lifetimes, displayed surfaces),15s/4MiB limits per export;
+proper XML structure/PID summaries through existing /usr/bin/python3. Missing tools,
+oversized/failed exports remain blocked. Raw XML stays private/Git-internal, summaries
+omit names/paths/application text. No recording/launch/probe/Space/permissions change.
+30 Linux tests pass (6 new+24 regressions); actual Mac42 export not-run. Return the
+safe JSON. Inspect actual table relationships/units before any attribution/latency
+claim, then compare eligible Electron route without replaying old manual tests.
+
+
+## Previous checkpoint — verified executable aliases41 (superseded above), 2026-11-16
 
 User40 commitaabdc996: all16 WebKit failures were path-before-mismatch, not native
 counter errors. User then ran checksum-verified read-only file checks: all16 have
@@ -127,7 +150,7 @@ no-legacy-user/data-migration scope remains in force. Filename preference: space
 in quoted downloaded-file paths in Bash. No status-only delivery needed.
 
 
-Last updated: 2026-11-16. Documentation revision: 0.65, verified executable aliases and corrected capture41.
+Last updated: 2026-11-16. Documentation revision: 0.66, successful capture; existing trace table export42.
 Read [AGENTS](AGENTS.md), this checkpoint and [README](README.md) first.
 
 ## User scope correction — greenfield, no existing-user/data migration
@@ -199,7 +222,8 @@ This current checkpoint supersedes earlier next-action text in historical record
 | Actual38 | Mac counter calibration/compile and experimental size limits PASS; source user1bcd2783 |
 | Actual39 | Mac probe pass;16 unavailable WebKit processes, trace finalization timeout and export10; metrics blocked |
 | Actual40 | All16 mismatches confirmed same-file/canonical-path aliases by user; native read failures0 |
-| Next | Apply41; keep H-T open and run39 capture with verified alias matching and40 graceful tracing |
+| Actual41 |0 unavailable, trace graceful exit0/export success;79 tables/51 schema names confirmed; parser corrected42 |
+| Next | Apply42 and export3 existing trace tables; no recording or open UI required |
 
 ## Branch and delivery state
 
@@ -298,5 +322,5 @@ restart product discovery, replay native tests, enable provider sync or change
 production based on these proofs. Keep ADRs Proposed until an explicit decision.
 Update this checkpoint, roadmap and changelog together at meaningful handoffs.
 
-New agent: continue the current corrected capture41 action at the top of this checkpoint;
+New agent: continue the current existing-trace export42 action at the top of this checkpoint;
 inspect current Git state rather than assuming local paths or patch application.

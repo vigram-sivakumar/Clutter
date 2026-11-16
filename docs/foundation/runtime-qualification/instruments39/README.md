@@ -1,5 +1,10 @@
 # Process counter and native trace diagnostic39
 
+Current42: actual41 capture/export succeeds; TOC has79 tables/51 schemas. Next is
+existing trace export in ../trace42/README.md, with no recording or open UI required.
+Earlier next-record instructions below are historical; preserve source trace.
+
+
 Current41: all16 path mismatches are user-verified same-file/canonical aliases.
 Narrow alias matching is implemented/tested. The next action is now the full H-T
 capture in ../identity41/README.md, using40 graceful tracing. Earlier40 no-record

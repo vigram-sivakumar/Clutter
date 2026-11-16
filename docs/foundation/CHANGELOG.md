@@ -3,6 +3,20 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.66 — 2026-11-16
+
+- Preserve actual41 raw terminal:3 complete counter snapshots, graceful SIGINT trace
+  exit0/TOC export success. User confirms79 tables and51 unique table/schema values.
+- Fix TOC parser to use real table/schema attributes while retaining old fixture
+  support; no inference that earlier empty extraction meant an empty trace.
+- Bounded42 export derives process-info/frame-lifetime/displayed-surface table
+  structures from existing trace. XML summaries suppress arbitrary names/content,
+  distinguish typed process IDs/references from generic timestamp integers, retain
+  unavailable/empty/oversized export status. No new recording or UI needed.
+-30 Linux tests pass (6 new+24 regressions); Mac42 execution pending. Shared-memory
+  attribution, timestamp semantics/input correlation, workload/environment gates
+  and host choice remain open. No app/Core/pin/budget/old-evidence/product changes.
+
 ## 0.65 — 2026-11-16
 
 - User40 aabdc996 confirms16 path-before mismatches,0 native API-stage failures;

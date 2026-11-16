@@ -1,6 +1,29 @@
 # Clutter foundation
 
-## Current checkpoint — verified executable aliases41, 2026-11-16
+## Current checkpoint — existing trace table export42, 2026-11-16
+
+User41 commit41968700/capture2026-11-16T12-25-47-726Z-be47befa: all3 snapshots
+have0 unavailable processes, stable membership, aliases accepted. Trace finishes
+with graceful SIGINT/status0 and TOC export succeeds. User confirms79 tables and51
+schema names. Prior parser incorrectly searched schema/name instead of table/schema;
+42 fixes this without rerecording. Raw capture retained in new scoped evidence.
+
+Known UI/owner sum62166080 bytes; all-same-user WebKit sums include other apps/shared
+charges and cannot rank Clutter. No application aggregate footprint or native input
+latency qualified. Trace availability is not actual event/presentation correlation.
+
+Next apply42 and export existing capture with trace42/export.mjs --capture
+2026-11-16T12-25-47-726Z-be47befa. Tauri need not be open. Three fixed table exports
+(process-info, frame lifetimes, displayed surfaces),15s/4MiB limits per export;
+proper XML structure/PID summaries through existing /usr/bin/python3. Missing tools,
+oversized/failed exports remain blocked. Raw XML stays private/Git-internal, summaries
+omit names/paths/application text. No recording/launch/probe/Space/permissions change.
+30 Linux tests pass (6 new+24 regressions); actual Mac42 export not-run. Return the
+safe JSON. Inspect actual table relationships/units before any attribution/latency
+claim, then compare eligible Electron route without replaying old manual tests.
+
+
+## Previous checkpoint — verified executable aliases41 (superseded above), 2026-11-16
 
 User40 commitaabdc996: all16 WebKit failures were path-before-mismatch, not native
 counter errors. User then ran checksum-verified read-only file checks: all16 have
@@ -118,7 +141,7 @@ in both views. Do not repeat NC28 tests or launch other candidates yet.
 P-37 greenfield scope is included: no legacy-user/data migration work.
 
 
-Status: architecture definition pack, revision 0.65, 2026-11-16. Product scope
+Status: architecture definition pack, revision 0.66, 2026-11-16. Product scope
 confirmed; the production technology baseline remains unaccepted.
 Baseline: `main` at `cae604273115c0c6c0d3ac34533b1e9834e9c778`.
 Working branch: `architecture/clutter-foundation`.

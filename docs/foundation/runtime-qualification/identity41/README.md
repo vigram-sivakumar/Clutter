@@ -1,5 +1,10 @@
 # Verified executable aliases41
 
+Current42: actual41 capture/export succeeds; TOC has79 tables/51 schemas. Next is
+existing trace export in ../trace42/README.md, with no recording or open UI required.
+Earlier next-record instructions below are historical; preserve source trace.
+
+
 User40 actual diagnostic:16 WebKit path-before mismatches, no failed native API
 stage. User's independent read-only check then confirms ALL16 paths resolve to the
 same canonical path and stable file identity (dev/inode/size/ctimeNs). This supports

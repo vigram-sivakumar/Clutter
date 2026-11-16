@@ -177,11 +177,20 @@ export function sanitizeSample(selected, raw, after) {
 export function schemaNames(xml) {
   if (typeof xml !== 'string' || Buffer.byteLength(xml) > 8 * 1024 * 1024)
     throw Error('TRACE_TOC_LIMIT');
-  return [
-    ...new Set(
-      [...xml.matchAll(/<schema\b[^>]*\bname="([A-Za-z0-9_.:-]{1,200})"/g)].map(
-        (m) => m[1]
-      )
-    ),
-  ].sort();
+  if (/<!DOCTYPE|<!ENTITY/i.test(xml)) throw Error('TRACE_TOC_DECLARATION');
+  const clean = xml.replace(/<!--[\s\S]*?-->/g, ''),
+    result = [];
+  // xctrace TOC stores schema on table attributes; old fixtures used schema/name.
+  for (const tag of clean.matchAll(/<(table|schema)\b[^>]*>/g)) {
+    const attribute = tag[1] === 'table' ? 'schema' : 'name';
+    const match = new RegExp(
+      '(?:^|\\s)' +
+        attribute +
+        '\\s*=\\s*([\"\'])' +
+        '([A-Za-z0-9_.:-]{1,200})' +
+        '\\1'
+    ).exec(tag[0]);
+    if (match) result.push(match[2]);
+  }
+  return [...new Set(result)].sort();
 }
