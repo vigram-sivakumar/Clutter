@@ -1,6 +1,38 @@
 # Resume Clutter foundation work
 
-## Current checkpoint — native instruments38, 2026-11-16
+## Current checkpoint — shared UI and host diagnostics39, 2026-11-16
+
+User38 commit1bcd2783: actual Mac compile and cross-process physical-footprint
+counter sanity PASS. All three experimental package size trials pass. Exact sizes,
+probe/compiler/SDK hashes and limits are in evidence/host-process-capture-39-2026-11-16/
+user-instrument38-result.json. No application footprint or presentation latency yet.
+
+P-38/P-39 now confirmed: one shared web UI/editor, Core and command API; Mac first,
+Windows/browser implemented through explicit capabilities/adapters from the start.
+No duplicate native UI or split wrappers without demonstrated benefit. Read
+shared-platform-contract.md. Swift remains a control; Tauri/Electron are shipping
+shortlist. Browser backend connectivity/storage remains future implementation,
+not an assumption that Node/SQLite or desktop permissions work inside browsers.
+
+Next apply39, close any qualification windows, reopen H-T with the existing37
+launcher --reopen and run instruments39/capture.mjs against completed36. One
+candidate first. It captures three provisional process-counter snapshots and tries
+one5s native Animation Hitches attach/export after memory sampling.10 new Linux
+helper tests pass; actual Mac39 compile/capture/trace still not-run. Processes,
+private traces and helper logs stay Git-internal; no endpoint/token/store reads,
+app rebuilds or source/native-feature changes. No typing/manual suite requested.
+
+All same-user WebKit matches are explicitly uncertain (may belong to other apps),
+missing/changed counters become unavailable/null, no native renderer cost is called
+zero. Sums are provisional and may double-count shared pages; they are not rigorous
+bounds or ranking evidence. Trace table availability is not input-to-display latency;
+trace failure remains blocked. H01 workload/environment/attribution/correlation and
+remaining host correctness gates still must close; no host winner. Do not replay
+prior manual tests or repeat successful38 calibration for bookkeeping (39 reuses
+its native code and sanity check solely to validate the new diagnostic executable).
+
+
+## Previous checkpoint — native instruments38 (superseded above), 2026-11-16
 
 All three candidates have screenshot-confirmed Ready/two Alpha beta views and
 user-reported shared edit/save + close/same-session reopen retention PASS. Expected
@@ -24,7 +56,7 @@ no-legacy-user/data-migration scope remains in force. Filename preference: space
 in quoted downloaded-file paths in Bash. No status-only delivery needed.
 
 
-## Current checkpoint — native instruments38, 2026-11-16
+## Previous checkpoint — native instruments38 (superseded above), 2026-11-16
 
 All three candidates have screenshot-confirmed Ready/two Alpha beta views and
 user-reported shared edit/save + close/same-session reopen retention PASS. Expected
@@ -48,7 +80,7 @@ no-legacy-user/data-migration scope remains in force. Filename preference: space
 in quoted downloaded-file paths in Bash. No status-only delivery needed.
 
 
-Last updated: 2026-11-16. Documentation revision: 0.62, GUI checks complete; instrument preparation38.
+Last updated: 2026-11-16. Documentation revision: 0.63, shared platform requirement and process/trace diagnostic39.
 Read [AGENTS](AGENTS.md), this checkpoint and [README](README.md) first.
 
 ## User scope correction — greenfield, no existing-user/data migration
@@ -117,7 +149,8 @@ This current checkpoint supersedes earlier next-action text in historical record
 | Normalization36 | Exact Cargo difference supplied: same pins, CLI inline tables/features=[]; generator fixed and partial retry ancestry validated;15 support tests pass |
 | Actual36 | User31df10cf reports all three build/sign/strict verify/CLI+MCP smoke PASS; GUI/performance not-run |
 | GUI37 actual | All3 Ready screenshot-confirmed; edits/save/reopen retention user-confirmed PASS |
-| Next | Apply38 and run instrument/package preparation; actual Mac counter/sizes pending, no more manual GUI replay |
+| Actual38 | Mac counter calibration/compile and experimental size limits PASS; source user1bcd2783 |
+| Next | Apply39, reopen H-T and capture provisional process counters/native trace feasibility; no manual suite |
 
 ## Branch and delivery state
 
@@ -216,5 +249,5 @@ restart product discovery, replay native tests, enable provider sync or change
 production based on these proofs. Keep ADRs Proposed until an explicit decision.
 Update this checkpoint, roadmap and changelog together at meaningful handoffs.
 
-New agent: continue the current instruments38 action at the top of this checkpoint;
+New agent: continue the current diagnostics39 action at the top of this checkpoint;
 inspect current Git state rather than assuming local paths or patch application.

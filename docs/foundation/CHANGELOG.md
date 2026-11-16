@@ -3,6 +3,22 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.63 — 2026-11-16
+
+- User38 commit1bcd2783 confirms Mac counter compile/calibration and all three
+  experimental package size limits pass; exact numeric result preserved separately.
+- P-38/P-39 confirm one shared web UI/editor, Core/API and OS adapters from the start;
+  Mac first, Windows/browser without shared-code restructuring. No duplicate native
+  UI/split wrappers without demonstrated benefit. Swift control, Tauri/Electron shortlist.
+- Diagnostic39 reuses38 native counter/calibration, captures provisional per-process
+  physical bytes with identity/path checks and uncertain shared WebKit separately.
+  Unknown/missing data remains unavailable; sums cannot rank candidates yet.
+- After snapshots, attempts5s native trace attach and table inventory; tool/trace
+  availability is not input-to-display timing.10 new Linux tests pass; actual Mac39
+  compile/capture remains pending. Existing signed apps/Core/pins/contracts unchanged.
+- Progress/handoff updated and duplicate38 checkpoint text consolidated; old raw
+  evidence preserved. No manual replay, legacy migration or production host selection.
+
 ## 0.62 — 2026-11-16
 
 - Preserve all3 Ready screenshots and user-reported cross-view edit/save/reopen

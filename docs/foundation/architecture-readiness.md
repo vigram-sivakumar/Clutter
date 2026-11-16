@@ -1,30 +1,38 @@
 # Architecture decision readiness
 
-## Current checkpoint — native instruments38, 2026-11-16
+## Current checkpoint — shared UI and host diagnostics39, 2026-11-16
 
-All three candidates have screenshot-confirmed Ready/two Alpha beta views and
-user-reported shared edit/save + close/same-session reopen retention PASS. Expected
-retained prefixes: H-T TAURI, H-E ELECTRON, H-S SWIFT. Native JSON reports were not
-audited. Reopen does not establish cold owner restart or full H01 acceptance.
-See evidence/host-instruments-38-2026-11-16/manual-results.json; raw screenshots
-are preserved there. Do not repeat these checks for missing UI verdict clicks.
+User38 commit1bcd2783: actual Mac compile and cross-process physical-footprint
+counter sanity PASS. All three experimental package size trials pass. Exact sizes,
+probe/compiler/SDK hashes and limits are in evidence/host-process-capture-39-2026-11-16/
+user-instrument38-result.json. No application footprint or presentation latency yet.
 
-Next apply38 and run instruments38/prepare.mjs --run completed36 ID (full command
-in the instrument guide). It verifies existing signed artifacts/archives, reports
-complete installed logical/reported allocated bytes and compressed ZIP sizes, and
-compiles a separate native cross-process physical-footprint counter calibration.
-A temporary child touches64MiB, is read externally before/held/released, then exits.
-No GUI/owner/session/Space/app is launched, rebuilt or modified by this command.
+P-38/P-39 now confirmed: one shared web UI/editor, Core and command API; Mac first,
+Windows/browser implemented through explicit capabilities/adapters from the start.
+No duplicate native UI or split wrappers without demonstrated benefit. Read
+shared-platform-contract.md. Swift remains a control; Tauri/Electron are shipping
+shortlist. Browser backend connectivity/storage remains future implementation,
+not an assumption that Node/SQLite or desktop permissions work inside browsers.
 
-9 new Linux support tests pass; actual Mac instrument compilation/calibration and
-sizes remain pending. This is instrumentation preparation, not an H01 benchmark.
-Aggregate helper/shared-WebKit attribution and actual native presentation remain
-unqualified; no RSS/JS heap/RAF/readiness substitute and no host winner. P-37
-no-legacy-user/data-migration scope remains in force. Filename preference: spaces
-in quoted downloaded-file paths in Bash. No status-only delivery needed.
+Next apply39, close any qualification windows, reopen H-T with the existing37
+launcher --reopen and run instruments39/capture.mjs against completed36. One
+candidate first. It captures three provisional process-counter snapshots and tries
+one5s native Animation Hitches attach/export after memory sampling.10 new Linux
+helper tests pass; actual Mac39 compile/capture/trace still not-run. Processes,
+private traces and helper logs stay Git-internal; no endpoint/token/store reads,
+app rebuilds or source/native-feature changes. No typing/manual suite requested.
+
+All same-user WebKit matches are explicitly uncertain (may belong to other apps),
+missing/changed counters become unavailable/null, no native renderer cost is called
+zero. Sums are provisional and may double-count shared pages; they are not rigorous
+bounds or ranking evidence. Trace table availability is not input-to-display latency;
+trace failure remains blocked. H01 workload/environment/attribution/correlation and
+remaining host correctness gates still must close; no host winner. Do not replay
+prior manual tests or repeat successful38 calibration for bookkeeping (39 reuses
+its native code and sanity check solely to validate the new diagnostic executable).
 
 
-## Current checkpoint — native instruments38, 2026-11-16
+## Previous checkpoint — native instruments38 (superseded above), 2026-11-16
 
 All three candidates have screenshot-confirmed Ready/two Alpha beta views and
 user-reported shared edit/save + close/same-session reopen retention PASS. Expected

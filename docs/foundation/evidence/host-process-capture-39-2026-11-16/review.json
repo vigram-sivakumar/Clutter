@@ -1,0 +1,64 @@
+{
+  "revision": "0.63",
+  "sourceBase": "exact38",
+  "newSupportTests": {
+    "platform": "linux",
+    "passed": 10,
+    "failed": 0,
+    "MacNativeCompile": "not-run"
+  },
+  "actual38": {
+    "format": "clutter-user-instrument38-result",
+    "source": "user terminal JSON; Git-internal raw report not independently opened",
+    "commit": "1bcd2783",
+    "runId": "2026-11-16T10-35-45-751Z-5b4941c3",
+    "instrumentRun": "2026-11-16T11-44-22-665Z-5b557db3",
+    "status": "package-accounting-and-counter-sanity-complete",
+    "contractSha256": "d745da668c9808d56570828747f99246bc5149f1937bf790ada8ecdb032982bf",
+    "sdk": "26.5",
+    "compiler": "Apple clang21.0.0 (clang-2100.1.1.101), arm64-apple-darwin25.6.0",
+    "probeSourceSha256": "c5edfab2c6f44141bbe996cf880b9855d2660a044d4dff5a9f82303859413858",
+    "probeSha256": "aa0d63ca1ca7a5f37b251a0cd18c5024a6cb3f34cb492a88e06a14a69a830181",
+    "sizes": {
+      "H-S": {
+        "archiveBytes": 39096747,
+        "installedLogicalBytes": 123462795,
+        "installedAllocatedBytes": 123510784
+      },
+      "H-E": {
+        "archiveBytes": 158951810,
+        "installedLogicalBytes": 392303256,
+        "installedAllocatedBytes": 394031104
+      },
+      "H-T": {
+        "archiveBytes": 43668531,
+        "installedLogicalBytes": 135516031,
+        "installedAllocatedBytes": 137195520
+      }
+    },
+    "allExperimentalPackageSizeTrials": "within-trial-limit",
+    "memory": "counter-sanity-pass",
+    "calibration": {
+      "allocatedBytes": 67108864,
+      "beforeBytes": 835776,
+      "heldBytes": 67993864,
+      "releasedBytes": 835776,
+      "deltaBytes": 67158088,
+      "crossProcessRead": true,
+      "sameProcessIdentity": true
+    },
+    "applicationFootprint": "not-run",
+    "presentation": "not-run",
+    "ranking": "not-qualified"
+  },
+  "P38_P39": "user-confirmed one shared UI and platform adapters; no split wrappers without benefit",
+  "next": "Apply39, reopen saved H-T then capture process/trace diagnostic",
+  "capture39": "not-run on Mac",
+  "ranking": "not-qualified",
+  "limits": [
+    "Provisional process membership and shared-page double accounting unresolved",
+    "Idle trace tables do not prove input-to-display latency",
+    "Single-page prototype not frozen H01 workload",
+    "No native Windows/browser implementation or shipping host selected"
+  ]
+}

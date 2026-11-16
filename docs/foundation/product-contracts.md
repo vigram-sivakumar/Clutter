@@ -64,6 +64,8 @@ is visible for planning with zero influence on architectural selection.
 | P-35 | Domain, persistence, provider sync and API policy remain independent of macOS-specific integrations so Windows does not require a structural rewrite.                                                                                            |
 | P-36 | Connect an integration once per local user/device with access to all current and future local Spaces by default. No separate Space codes or repeated Space prompts; optional restrictions are advanced settings. Command capabilities remain those authorized for that integration. |
 | P-37 | Greenfield rebuild: no existing users/data need migration. No legacy format/API compatibility, converters, staged rollout or dual-write cutover required. Initial schema quality, future versioning, backup/recovery and portability remain requirements. |
+| P-38 | One shared web UI/editor and product interaction implementation across Mac, Windows and future browser host; no duplicated per-OS native feature UI. Core/command ownership stays single for UI/CLI/MCP. |
+| P-39 | Mac first with shared modules free of OS/framework assumptions from the start. Windows/browser add explicit adapters and platform testing rather than repo restructuring or feature rewrites. Separate wrapper families require a demonstrated benefit to justify extra maintenance. |
 
 ## Specification completion
 
@@ -95,3 +97,5 @@ P-36 detailed authorization UX/security boundary is owned by local-security-api-
 integration-access-cases.json specifies its acceptance cases (not-run).
 
 P-37 current scope is detailed in greenfield-scope.md and supersedes old migration/cutover planning gates.
+
+P-38/P-39 ownership, browser limits and conformance requirements: [shared platform contract](shared-platform-contract.md).
