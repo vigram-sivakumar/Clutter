@@ -1,6 +1,6 @@
 # Clutter foundation
 
-Status: architecture definition pack, revision 0.57, 2026-11-16. Product scope
+Status: architecture definition pack, revision 0.58, 2026-11-16. Product scope
 confirmed; the production technology baseline remains unaccepted.
 Baseline: `main` at `cae604273115c0c6c0d3ac34533b1e9834e9c778`.
 Working branch: `architecture/clutter-foundation`.
@@ -226,3 +226,7 @@ Reopen runs its original bundle and cannot load patched source. No upgrade/reset
 of an existing Space is attempted. Never use --new for recovery. Retest NC28-01
 only; do not claim its Pass or advance02 until user confirms both issues fixed.
 START-HERE.md is the current checkpoint. No main/app/real-vault changes.
+
+Current next action: user33 Mac tools are supplied; apply [matched builds34](runtime-qualification/build34/README.md)
+and get actual Mac compiler/headless smoke results. No another inventory/benchmark
+or old manual replay. P-36 one-time/all-Spaces integration UX is user-confirmed.

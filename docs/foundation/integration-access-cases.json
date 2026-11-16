@@ -1,0 +1,50 @@
+{
+  "document": "P-36 confirmed app-wide integration access acceptance",
+  "date": "2026-11-16",
+  "status": "Requirement confirmed by user; implementation tests not-run",
+  "source": "product-contracts.md P-36 and local-security-api-spec.md",
+  "cases": [
+    {
+      "id": "IA-01",
+      "given": "New registered integration/device, no advanced restrictions",
+      "action": "Connect once and use approved read/write command families in existing Spaces A and B",
+      "expected": "No separate Space code or repeated authorization prompt; same Core handlers; destination ID validated",
+      "execution": "not-run"
+    },
+    {
+      "id": "IA-02",
+      "given": "Integration connected with default scope",
+      "action": "User creates Space C, integration discovers/targets it",
+      "expected": "C included automatically within already approved command capabilities, no new Space ceremony",
+      "execution": "not-run"
+    },
+    {
+      "id": "IA-03",
+      "given": "User explicitly restricts integration to A in advanced settings",
+      "action": "Read/write B or newly created C, or reuse cached grant/subscription",
+      "expected": "Server rejects new admissions outside restriction and stops unauthorized subscriptions; not a UI-only hide",
+      "execution": "not-run"
+    },
+    {
+      "id": "IA-04",
+      "given": "Integration connected and write committed before revocation",
+      "action": "Revoke integration and attempt new write or receipt lookup without authorization",
+      "expected": "New unauthorized access denied, committed history not retroactively erased, uncertain prior outcomes follow defined authorized recovery",
+      "execution": "not-run"
+    },
+    {
+      "id": "IA-05",
+      "given": "Authorized app-wide integration connected to service for A",
+      "action": "Send command naming B on A endpoint or forge another device/OS principal",
+      "expected": "Destination/principal mismatch rejected or explicitly routed by authenticated client; no accidental writes or grant widening",
+      "execution": "not-run"
+    },
+    {
+      "id": "IA-06",
+      "given": "Trusted local CLI and AI with full same-user terminal authority",
+      "action": "Invoke CLI without per-Space codes",
+      "expected": "No repeated Space prompts; document OS-user boundary honestly, do not claim a CLI profile prevents unrestricted same-user shell access",
+      "execution": "not-run"
+    }
+  ]
+}

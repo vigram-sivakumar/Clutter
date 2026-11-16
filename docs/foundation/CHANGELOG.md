@@ -3,6 +3,21 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.58 — 2026-11-16
+
+- User33 commit5bbd7f10 and actual Mac capability report recorded. Tool availability
+  supports build preparation, not benchmarks; empty/unknown fields retained honestly.
+- Prepared actual Swift/WK, Electron and Tauri build recipes around identical Core
+  resources, isolated dependency/cache paths, checksums/locks/signatures and packaged
+  CLI/MCP smoke.7 new support checks +80 runtime tests +strict TS pass; Mac compile,
+  GUI/installed host/security/metrics remain not-run. No old native replay.
+- Small renderer event-port seam preserves prior WK fallback; common Core/history/
+  prepareClose logic stays single. PDF bridge unqualified in build-only shells.
+- User confirms P-36: connect integration once/device across current and future
+  local Spaces, optional advanced restrictions, no per-Space access codes/prompts.
+  Product/security/acceptance cases updated; no production credential UX implemented.
+- Next user runs build34 and supplies final status/errors, then changed-host35 route.
+
 ## 0.57 — 2026-11-16
 
 - Recorded user32 commit44c624ac and supplied actual M4 Pro48GiB Mac hardware.

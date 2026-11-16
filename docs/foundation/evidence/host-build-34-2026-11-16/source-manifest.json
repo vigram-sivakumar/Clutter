@@ -1,0 +1,12 @@
+{
+  "docs/foundation/runtime-qualification/build34/Control.swift": "8cce203cf1f8a5fa7a84ade030e7057342c360b1f02686a73582068a7ac618cd",
+  "docs/foundation/runtime-qualification/build34/README.md": "4c61f691bac0a6d72dece43fa5dd1f7a4b5b99f2f7c8fb0df306d9f369ba14e9",
+  "docs/foundation/runtime-qualification/build34/bootstrap.mjs": "6fca80bc5b98b041a889acb93fd04df5777550fa0c2fdebd83eca8c7ef1f7464",
+  "docs/foundation/runtime-qualification/build34/electron-preload.cjs": "48548415fcd19f9e118a531b8d758bacef8e20aeb77e6df0deb26c4a510e39cc",
+  "docs/foundation/runtime-qualification/build34/electron.cjs": "a895e6739ad907eef75ee3a362b00f2972dd56ddc00fb2c7a5838659a337ad3d",
+  "docs/foundation/runtime-qualification/build34/main.rs": "bc74dcd3c2dbe8f3c38223094c84c1b5699a47b850b06198768147bcb139e2b1",
+  "docs/foundation/runtime-qualification/build34/projects.mjs": "cd25c00a91cd6047c5aac87d146c118f78f1a71a1f031b472c017a1967877b14",
+  "docs/foundation/runtime-qualification/build34/run.mjs": "81ae6f5e0712052608f017ccd64ae56a6fa0213c21f634a4ac783199cd662758",
+  "docs/foundation/runtime-qualification/build34/support.test.mjs": "68933d3b5e9e73c8c37a5d89598654115da14bb4ae4f645676bc2d6ce793616c",
+  "docs/foundation/runtime-qualification/build34/worker.mjs": "417a4690be6f17b8cf84d76119178d68073f84a678b903b40a4ecba802ab3c01"
+}

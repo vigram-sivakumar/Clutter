@@ -334,3 +334,16 @@ then matched isolated builds34. No repeated generic inventory or NC28 manual tes
 Framework binaries/checksums/complete locks/actual metrics remain unverified; no
 measurements or shipping selection. Single pinned runtime lock and Core unchanged.
 START-HERE supersedes older pending32 instructions. No new installs/app/vault changes.
+
+## Matched build34 / P-36 checkpoint — 2026-11-16
+
+User33 commit5bbd7f10, actual Mac tools supplied. No more inventory request.
+Next apply34 and run runtime-qualification/build34/run.mjs; get Mac build summary/
+error before GUI tests/benchmarks.7 support +80 runtime +strict TS pass in Linux,
+not Mac compilation. Same Core resources/prepareClose across three host wrappers,
+outputs Git-internal, smoke Spaces new/factory-only, old NC28 sessions untouched.
+Product P-36 CONFIRMED: one integration connection/user-device, default all current
+and future local Spaces, optional advanced restrictions; no separate Space codes
+or repetitive prompts. Per-Space writers/internal transport handles stay separate.
+See local-security-api-spec and integration-access-cases; no production auth pass.
+START-HERE is current; do not repeat generic metadata or broad native editor suite.

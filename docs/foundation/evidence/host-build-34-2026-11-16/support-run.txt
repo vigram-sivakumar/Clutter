@@ -1,0 +1,15 @@
+✔ origin-bound shell bootstrap exposes only UI data and finite host events (4.610013ms)
+✔ close bridge calls shared prepareClose and carries challenge; failures stay unsafe (1.627812ms)
+✔ host event decoder refuses another boot, scheme, or malformed close result (0.308095ms)
+✔ download admission requires one exact upstream checksum and contained archive names (0.806951ms)
+✔ Tauri project generation pins versions in an isolated project with no renderer permissions (1.336232ms)
+✔ actual copied common Core supports packaged CLI/MCP same-head smoke without GUI/user PATH (6059.867988ms)
+✔ Linux build invocation is explicitly not a Mac compile or performance pass (78.08653ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6284.976288

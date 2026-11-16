@@ -1,6 +1,7 @@
 # Product contracts
 
-Status: product direction confirmed in the 2026-11-14 discussion; technical
+Status: product direction confirmed in the 2026-11-14 discussion, with P-36 access
+UX confirmed2026-11-16; technical
 mechanisms remain proposed and unqualified. See the scope and behaviour details
 in [product behaviour](product-behaviour.md) and [sync and portability](sync-and-portability.md).
 These contracts describe the target, not today's application.
@@ -61,6 +62,7 @@ is visible for planning with zero influence on architectural selection.
 | P-33 | Deleting a commented block removes its discussion from current content; undo/version restore recovers both. Comments must never silently reanchor to unrelated text.                                                                             |
 | P-34 | Initial media scope includes images and PDFs. Math, diagrams and drawings are outside planned scope.                                                                                                                                             |
 | P-35 | Domain, persistence, provider sync and API policy remain independent of macOS-specific integrations so Windows does not require a structural rewrite.                                                                                            |
+| P-36 | Connect an integration once per local user/device with access to all current and future local Spaces by default. No separate Space codes or repeated Space prompts; optional restrictions are advanced settings. Command capabilities remain those authorized for that integration. |
 
 ## Specification completion
 
@@ -87,3 +89,6 @@ separates shared reliability/Clutter semantics from source/structured profiles.
 Model-specific Enter/Tab/Backspace/selection rules are evaluated for UX rather
 than required to reproduce current Markdown mechanics. This clarification does
 not waive reliable selection, identity, undo, accessibility or preservation.
+
+P-36 detailed authorization UX/security boundary is owned by local-security-api-spec.md;
+integration-access-cases.json specifies its acceptance cases (not-run).

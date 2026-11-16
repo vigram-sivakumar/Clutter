@@ -1,7 +1,8 @@
 # Local API and untrusted input — R06
 
-Revision 0.9, 2026-11-14. Proposed threat boundary and experiment requirements.
-No IPC listener, credential, access grant or authentication mechanism was installed.
+Revision0.58, 2026-11-16. P-36 access UX is confirmed; production transport/authentication
+remains a proposal. I1 fixtures have private local transport handles, not installed
+production enrollment/peer authentication. Original R06 mechanisms remain gated.
 R03 remains the authority for command semantics; this document owns local transport
 security rather than changing future page-sharing roles.
 
@@ -45,13 +46,39 @@ revocation. An already committed write remains in history; revocation/cancellati
 is not retroactive rollback. Define/qualify the atomic admission-to-commit boundary
 for a concurrent revoke, rather than promising instantaneous erasure.
 
-Proposed grant UX: user-initiated local CLI setup explicitly binds a Space and a
-read-only or content-edit capability; an MCP launch uses a configured scoped grant.
-No repetitive per-command prompts are required by this draft. Exact grant storage,
-expiry, reauthorization and noninteractive failure remain SEC-02 and must preserve
-app-closed use. Tokens must not enter arguments/logs/provider packages; protected
-inherited handles or protected local secret storage are candidate delivery routes.
-A general same-user launcher must not mint wider grants from an untrusted request.
+## Confirmed integration access UX — P-36, 2026-11-16
+
+No Clutter cloud account/server login is required for this local enrollment.
+One connection/authorization per integration on a local user/device grants the
+approved command capabilities across all current and future registered local Spaces
+by default. The user explicitly rejected separate Space access codes/authorization
+friction and confirmed this model. Optional per-Space restrictions live in advanced
+settings; no repeated ordinary prompt/code when switching or creating a Space.
+This supersedes the earlier proposal that CLI setup must bind one Space.
+
+A client credential identifies the integration/device under that OS user. Server-side
+policy expands its default all-Spaces grant or optional restriction and derives the
+Space-bound principal/transport ticket internally. Explicit Space ID/destination
+checks remain necessary to prevent accidental cross-Space operations, but are not
+another user authorization ceremony. New Spaces inherit the default grant without
+an extra prompt. Provider administration/irreversible maintenance stay separate
+command capabilities; all-Spaces visibility does not bypass semantic write guards.
+
+Revocation/restriction applies to new admissions/subscriptions; already committed
+writes remain in history. Keep the existing unknown-outcome/revoke race contract.
+The built-in trusted terminal CLI may act as the local OS user without a separate
+client-secret setup. An AI running with that same unrestricted shell has the same
+OS-user authority; do not promise adversarial integration isolation merely from a
+CLI profile. Distinct enforceable integration grants apply where the client identity
+is authenticated (such as its MCP connection). This is the existing same-user threat
+boundary, not a new per-Space setup requirement.
+
+Exact credential storage, IPC identity, expiry/noninteractive reauthorization and
+server-side grant derivation remain SEC-02/03/04 implementation/qualification work.
+No bearer secrets in arguments/logs/provider packages. Fixtures' per-Space private
+UI tokens are internal qualification transport handles; they neither require user
+codes nor demonstrate this full production enrollment model. Do not claim P-36
+implemented from a successful fixture startup. Authorization precedes receipt lookup.
 
 ## Framing, paths and content
 

@@ -52,3 +52,12 @@ Window layout persistence stores destinations/layout only; unsaved content must
 be committed or protected by the Space service. Undo context lifetime differs
 from view lifetime and retained history. The per-page proof24 is headless storage
 evidence; actual per-page editor/context binding must still be tested in I1.
+
+## Integration authorization — P-36 confirmation
+
+User confirms one connection per integration/local user-device, default access to
+all current and future local Spaces; optional restrictions only in advanced settings.
+No separate Space access codes/prompts. See product-contracts P-36 and
+local-security-api-spec for the normative UX/security boundary. This does not merge
+Space data/writers: each Space keeps its own single service, IDs and commit history.
+Internal Space-bound transport handles are generated without repeated user setup.

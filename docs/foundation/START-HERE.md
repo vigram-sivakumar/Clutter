@@ -1,6 +1,6 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-16. Documentation revision: 0.57, actual Mac hardware binding/preflight33.
+Last updated: 2026-11-16. Documentation revision: 0.58, matched host build-smoke34 prepared.
 Read [AGENTS](AGENTS.md), this checkpoint and [README](README.md) first.
 
 ## Current position
@@ -37,13 +37,16 @@ This current checkpoint supersedes earlier next-action text in historical record
 | H01 contract32 | Candidate configurations,12 hard cases,Space-size recipes and trial targets prepared; all host comparisons not-run |
 | Actual H01 Mac | User32 commit44c624ac; M4 Pro/Mac16,7/48GiB/14 logical CPUs/macOS26.6.2(25G83),native arm64 supplied |
 | Preflight33 | Hardware evidence bound, exact candidate version metadata selected, safe tool/environment helper ready; artifact locks and instruments still unverified |
-| Next | Apply33; run run-preflight.mjs and supply safe JSON, then matched isolated builds34; no more generic host inventory or NC28 replay |
+| Actual preflight33 | User commit5bbd7f10; hardware/OS match, Xcode/Swift/SDK/Rust/APFS SSD and probe tools supplied; power/thermal fields unknown |
+| P-36 access UX | User confirms connect once per integration/device, default all current/future local Spaces, optional restrictions; no per-Space codes/prompts |
+| Build34 | Matched native wrapper/packaging sources ready;7 support tests+80 runtime+TS pass on Linux; Mac build/GUI/metrics not-run |
+| Next | Apply34; run build34/run.mjs on Mac; paste final build status/error. No more inventory or old manual replay |
 
 ## Branch and delivery state
 
 Stay on architecture/clutter-foundation. User confirms28 committed as e2613ec2, then29 applied and native window works
-(screenshot Ready). User confirms32 applied/committed44c624ac. Preflight33 is incremental over exact32
-tree f120551db8f11239610aa63afdd395829cfa9dc9. Mac launch now user-confirmed; full
+(screenshot Ready). User confirms33 applied/committed5bbd7f10 and supplies actual capability report.
+Build34 is incremental over exact33 tree a7f46cabf4cc53319b158057e7c21302703b3d14. Mac launch now user-confirmed; full
 NC28-01 remount/toolbar issues are confirmed fixed by user after30; user-reported PASS,
 not a raw report audit. No agent commit/push, main/apps/app/user-
 vault changes. Local HEAD is stale; use files/content trees. Cumulative source changes are
@@ -56,33 +59,37 @@ reset, generated bundle/runtime/cache/artifacts or test-store staging. Shared so
 planners and SQL transaction engine are reused; new page adapter is not another
 policy implementation. Old aggregate/native profiles remain comparison controls.
 
-## Exact next work — remaining read-only capability preflight, then builds34
+## Exact next work — actual Mac matched build result, not another inventory
 
-User32 committed44c624ac and supplied actual hardware. Read the reference evidence
-in evidence/host-preflight-33-2026-11-16/user-host-inventory.json, H01 contract32
-(unchanged) and runtime-qualification/preflight-manifest.json. This is the48GiB
-comparison host, not a16GiB product performance proof. No measurements have run.
+Actual33 report is in evidence/host-build-34-2026-11-16/user-mac-preflight.json;
+its source manifest hash matches local33. Read build34/README under runtime-
+qualification and its worker/runner. User confirmed P-36 access UX while builds were
+prepared. No H01 candidate Mac build, GUI observation or benchmark result exists yet.
 
-1. Apply33/commit docs/foundation only, then run
-   `node docs/foundation/runtime-qualification/run-preflight.mjs` and obtain safe
-   JSON. No app/owner/session/Space, install/update/download/compile/settings changes.
-   Missing probes remain unavailable; no sudo/permission-bypass request.
-2. Host metadata is ALREADY supplied; do not ask to rerun host-inventory.mjs. This
-   final preflight captures existing compiler/SDK/Rust, display/power/storage and
-   instrumentation capabilities in one report. Benchmark readiness stays false.
-3. Then build matched isolated H-T/H-E/control34 using reported actual tools and
-   preflight-manifest exact version choices. Resolve complete Cargo/npm locks,
-   verified release artifact hashes/license notices and compatibility BEFORE use;
-   missing checksum retrieval in agent web was recorded, never filled with fake SHA.
-   No new generic inventory cycle; identify any prerequisite failure concretely.
-4. Bind actual resolved font/display/power/volume and validated physical-footprint/
-   native-presentation instruments before normative timings. Tool presence alone is
-   not H-11 pass; RAF/JS timing/heap or one-process RSS are not silent substitutes.
-5. User Node24.11 is only the metadata runner. Core uses common pinned packaged
-   runtime from existing lock, not user PATH/Electron embedded Node. Keep single TS
-   policy owner and UI/CLI/MCP peers. No main/app/real-vault/code-path changes.
-6. NC28/I1 passes stand; no replay or --new. H01 candidate builds/performance not-run,
-   shipping G-Q/native flush/auth/format/migration and full product D11 remain open.
+1. Apply34/commit docs/foundation only, then run
+   `node docs/foundation/runtime-qualification/build34/run.mjs` on Mac. It downloads
+   isolated fixed dependencies if needed, compiles/signs three candidate apps and runs
+   packaged headless CLI/MCP against new factory temp Spaces. No GUI launch/global
+   install/old-session/vault change. Outputs/cache/apps/logs Git-internal only.
+2. Get final summary or exact first compiler/download error. All three statuses
+   distinct; do not assume Swift/Tauri compiled from Linux helper tests. Preserve
+   failure logs, no silent framework downgrade. Build support7 + runtime80 + TS pass.
+3. Source-pack/owner/browser must remain identical across shells. Script's one small
+   native event port seam keeps original WK fallback. Shared prepareClose/handlers,
+   no shell reducer. One-paragraph smoke is NOT HP-10/1K/10K/D11; no timings allowed.
+4. After builds pass,35 launches actual changed hosts and qualifies readiness/
+   lifecycle/instruments. No broad editor replay or another generic metadata round.
+   Native PDF bridge absent in build-only shells: H-10 not passed. Production alias/
+   auth/flush/security/distribution/update/D11/real-vault gates remain open.
+5. P-36 is confirmed: connect integration once per local user/device, all current
+   and FUTURE local Spaces by default. No separate Space codes/prompts; optional
+   advanced restrictions. Built-in CLI OS-user trust is explicit; do not promise
+   hostile same-user shell isolation. Product/security docs+IA cases updated, full
+   production grant implementation still pending. Internal Space transport handles
+   are not user-facing per-Space authorization, and writers remain per Space.
+6. Empty lowPowerModes/thermalLimits and readOnly null mean unknown.120Hz metadata
+   isn't fixed presentation proof. Missing template name isn't missing instrument.
+   Retain actual48GiB host label, no16GiB performance claim. NC28/I1 passes stand.
 
 ## Proof24 facts and limits
 

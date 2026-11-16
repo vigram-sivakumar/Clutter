@@ -16,8 +16,12 @@ let frozen = true,
   ready = false,
   poll;
 const status = (text) => (document.querySelector('#status').textContent = text);
-const native = (action, value = {}) =>
-  globalThis.webkit?.messageHandlers?.core28?.postMessage({ action, ...value });
+const native = (action, value = {}) => {
+  const message = { action, ...value };
+  if (typeof globalThis.__clutterHostEvent === 'function')
+    return globalThis.__clutterHostEvent(message);
+  return globalThis.webkit?.messageHandlers?.core28?.postMessage(message);
+};
 async function rpc(path, value) {
   const r = await fetch(config.url + path, {
     method: value === undefined ? 'GET' : 'POST',
