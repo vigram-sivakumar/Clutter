@@ -58,11 +58,17 @@ export function createEditorReplica(
     if (origin === ySyncPluginKey || origin === history.manager) onLocal();
   };
   doc.on('update', changed);
-  const runHistory = (view, direction) => {
+  const runHistory = (view, direction, historyOptions = {}) => {
     if (options.canEdit?.() === false) return false;
     if (!views.has(view)) throw new Fault('WRONG_CONTEXT_VIEW');
+    // Toolbar commands retain this view's current caret/range, mapped through Y.
+    // Keyboard undo keeps its established edit-bookmark restoration behavior.
+    const bookmark = historyOptions.preserveSelection
+      ? history.bookmark(view.state)
+      : undefined;
     const changed = history.run(direction, view.state);
-    if (changed) history.restore(view.state, (tr) => view.dispatch(tr));
+    if (changed)
+      history.restore(view.state, (tr) => view.dispatch(tr), bookmark);
     return changed;
   };
   return {

@@ -65,3 +65,12 @@ native file fullsync/power loss, migration/retention/GC and D11 budgets remain g
 SQLite fullfsync/checkpoint_fullfsync are configured/checked on Mac; profile still
 says nativeDurabilityQualified:false. A failed/broken bootstrap never enables editing.
 Volatile input lost in a web-content process crash is NOT inferred recovered.
+
+## Applying source fixes after a successful run
+
+Reopen uses the original immutable bundle. To test fix30, safely close the current
+lab, then explicitly run `npm run native:core28 -- --new` to compile corrected
+sources into a separate synthetic session. Prior bundle/store/report and locator
+archive remain intact. This is a new qualification run, never recovery or an in-place
+upgrade. Retest NC28-01: one remount click restores A; toolbar caret/range stays at
+the same surviving text. Original keyboard history defaults stay unchanged.

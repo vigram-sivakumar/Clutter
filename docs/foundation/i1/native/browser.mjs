@@ -245,14 +245,29 @@ document.querySelector('#retry').onclick = async () => {
   }
 };
 document.querySelector('#remount').onclick = async () => {
-  if (!views.A) {
-    mount('A');
-    await panels.A.refresh();
-  } else {
-    views.A.destroy();
-    panels.A.destroy();
+  if (frozen) return;
+  try {
+    // One activation destroys and recreates only the view; the session/history live on.
+    const selection = views.A?.state.selection.toJSON();
+    views.A?.destroy();
+    panels.A?.destroy();
     delete views.A;
     delete panels.A;
+    mount('A');
+    const view = views.A;
+    if (selection)
+      view.dispatch(
+        view.state.tr
+          .setSelection(
+            view.state.selection.constructor.fromJSON(view.state.doc, selection)
+          )
+          .setMeta('addToHistory', false)
+      );
+    view.focus();
+    await panels.A.refresh();
+    status('View A reopened; context history retained');
+  } catch (e) {
+    status('View A remount failed: ' + e.message);
   }
 };
 document.querySelector('#recover').onclick = async () => {
@@ -269,13 +284,21 @@ document.querySelector('#save').onclick = () =>
     .then(refresh)
     .catch((e) => status(e.message));
 for (const id of ['A', 'B'])
-  for (const direction of ['undo', 'redo'])
-    document.querySelector('#' + direction + '-' + id).onclick = () => {
-      if (views[id]) {
-        sessions[id].history(views[id], direction);
+  for (const direction of ['undo', 'redo']) {
+    const button = document.querySelector('#' + direction + '-' + id);
+    // Pointer activation must not move DOM focus/selection into the toolbar.
+    // Click also handles keyboard activation and returns focus to its target editor.
+    button.onmousedown = (event) => {
+      if (event.button === 0) event.preventDefault();
+    };
+    button.onclick = () => {
+      if (!frozen && views[id]) {
+        sessions[id].history(views[id], direction, { preserveSelection: true });
+        views[id].focus();
         autosave(id);
       }
     };
+  }
 globalThis.lab28 = { capture, prepareClose, refresh, ready: () => ready };
 addEventListener('focus', () => {
   if (ready && !frozen) refresh().catch((e) => status(e.message));

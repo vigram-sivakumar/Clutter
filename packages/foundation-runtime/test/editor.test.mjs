@@ -1201,3 +1201,30 @@ test('clearing a note remains saveable/protectable through the real view binding
   assert.equal(a.dirty, false);
   assert.equal(a.canClose, true);
 });
+
+test('toolbar history maps the current caret/range instead of jumping to the edit bookmark', async (t) => {
+  const x = await seeded(t),
+    a = await x.open('A'),
+    av = x.mount(a);
+  insert(av, 'LOCAL ');
+  a.stopCapturing();
+  const end = av.state.doc.content.size - 1;
+  av.dispatch(
+    av.state.tr.setSelection(TextSelection.create(av.state.doc, end))
+  );
+  assert.equal(a.history(av, 'undo', { preserveSelection: true }), true);
+  assert.equal(text(av), 'Alpha beta');
+  assert.equal(av.state.selection.head, end - 6);
+  assert.equal(a.history(av, 'redo', { preserveSelection: true }), true);
+  assert.equal(av.state.selection.head, end);
+  // Backward ranges stay backward and anchored to the same surviving characters.
+  av.dispatch(
+    av.state.tr.setSelection(TextSelection.create(av.state.doc, end, end - 4))
+  );
+  assert.equal(a.history(av, 'undo', { preserveSelection: true }), true);
+  assert.equal(av.state.selection.anchor, end - 6);
+  assert.equal(av.state.selection.head, end - 10);
+  assert.equal(a.history(av, 'redo', { preserveSelection: true }), true);
+  assert.equal(av.state.selection.anchor, end);
+  assert.equal(av.state.selection.head, end - 4);
+});

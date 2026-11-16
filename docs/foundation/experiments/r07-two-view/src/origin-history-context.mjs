@@ -99,8 +99,7 @@ export class OriginHistoryContext {
       this.actionSelection = null;
     }
   }
-  restore(state, dispatch) {
-    const bookmark = this.restoreBookmark;
+  restore(state, dispatch, bookmark = this.restoreBookmark) {
     this.restoreBookmark = null;
     if (!bookmark) return false;
     const { doc, mapping } = initProseMirrorDoc(this.fragment, this.schema);

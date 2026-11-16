@@ -56,3 +56,19 @@ Apply29, rerun `npm run native:core28`, and report Ready or compiler output firs
 Do not use --new/reset for this failure; no valid28 session was created yet.
 Prior77 runtime/TS/regression evidence remains historical, not a Mac compile pass.
 Current instructions: START-HERE.md. No main/production/runtime owner changes.
+
+## Native interaction follow-up30 — 2026-11-16
+
+User confirms29 runs; screenshot Ready. NC28-01 remains incomplete: one remount
+click left A closed, toolbar Undo/Redo jumped caret. Fix30 recreates A immediately
+over the same context and retains local selection/history. Toolbar preserves mapped
+current caret/range and focuses its target view; keyboard history defaults unchanged.
+Three focused automated checks added; actual Mac retest pending. See fix30 review
+for current test results. Older29 compiler-failure next-action text is superseded.
+
+NEXT: apply30; safely close current lab; run `npm run native:core28 -- --new` for an
+explicit NEW corrected synthetic run, preserving old bundle/store/report/locator.
+Reopen runs its original bundle and cannot load patched source. No upgrade/reset
+of an existing Space is attempted. Never use --new for recovery. Retest NC28-01
+only; do not claim its Pass or advance02 until user confirms both issues fixed.
+START-HERE.md is the current checkpoint. No main/app/real-vault changes.

@@ -12,6 +12,7 @@ export interface EditorViewHandle {
   destroy(): void;
   focus(): void;
 }
+export type HistoryOptions = { preserveSelection?: boolean };
 /** Renderer/CRDT port. Selection lives in each handle; history lives in the replica. */
 export interface EditorReplica {
   delta(base: EditorCheckout): string;
@@ -19,7 +20,11 @@ export interface EditorReplica {
     checkout: Pick<EditorCheckout, 'pageId' | 'kind' | 'head' | 'payload'>
   ): void;
   mount(target: unknown): EditorViewHandle;
-  history(view: EditorViewHandle, direction: 'undo' | 'redo'): boolean;
+  history(
+    view: EditorViewHandle,
+    direction: 'undo' | 'redo',
+    options?: HistoryOptions
+  ): boolean;
   stopCapturing(): void;
   clearHistory(): void;
   destroy(): void;
@@ -101,8 +106,12 @@ export class EditorSession {
     if (this.disposed) throw new Fault('CONTEXT_DISPOSED');
     return this.replica.mount(target);
   }
-  history(view: EditorViewHandle, direction: 'undo' | 'redo'): boolean {
-    return this.replica.history(view, direction);
+  history(
+    view: EditorViewHandle,
+    direction: 'undo' | 'redo',
+    options?: HistoryOptions
+  ): boolean {
+    return this.replica.history(view, direction, options);
   }
   stopCapturing(): void {
     this.replica.stopCapturing();

@@ -1,6 +1,6 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-16. Documentation revision: 0.53, native compiler fix29 prepared.
+Last updated: 2026-11-16. Documentation revision: 0.54, native interaction fix30 prepared.
 Read [AGENTS](AGENTS.md), this checkpoint and [README](README.md) first.
 
 ## Current position
@@ -29,13 +29,15 @@ This current checkpoint supersedes earlier next-action text in historical record
 | I1b media27 |19 additional media/editor cases pass (63 runtime total),11 publication/SQL process-death trials; prior media12/page10/entity14/Node84 and strict TS pass |
 | Native build28 |Browser-safe bundle + NEW Core host + durable media ingress + Mac WK/PDFKit host prepared;77 automated cases/TS and legacy regressions pass; Mac compilation/manual cases NOT RUN |
 | Native compiler29 | User committed28 as e2613ec2; Mac compile failed at WebKit argument label. Fix29 prepared; no Ready/manual pass |
-| Next | User applies29, reruns npm run native:core28; first report Ready/compiler outcome before NC28-01 |
+| Native interaction30 | User confirms fix29 launches/works; NC28-01 reported two issues: first remount click left A closed, toolbar caret jumped. Fix30 prepared, manual retest pending |
+| Next | Apply30, safely close current lab, explicitly build a NEW synthetic run with npm run native:core28 -- --new, then retest NC28-01 only |
 
 ## Branch and delivery state
 
-Stay on architecture/clutter-foundation. User confirms28 applied/committed as e2613ec2. Patch29 is incremental
-over exact28 content tree 9678f08afb511c71e6816a82f6c510bcb571d282. Mac compile
-failed before Ready; do not infer29 applied/compiled or any NC28 manual pass. No agent commit/push, main/apps/app/user-
+Stay on architecture/clutter-foundation. User confirms28 committed as e2613ec2, then29 applied and native window works
+(screenshot Ready). Patch30 is incremental over exact29 tree
+d8ed3f339069a14497647af1151770ee34cdb440. Mac launch now user-confirmed; full
+NC28-01 is NOT PASS: remount/toolbar issues reported, fixed30 but not yet Mac-retested. No agent commit/push, main/apps/app/user-
 vault changes. Local HEAD is stale; use files/content trees. Source changes are
 foundation docs, private runtime and three root npm scripts only; no lock/dependency
 changes. Generated bundles/cache/reports use Git's internal clutter-native28 path,
@@ -46,52 +48,30 @@ reset, generated bundle/runtime/cache/artifacts or test-store staging. Shared so
 planners and SQL transaction engine are reused; new page adapter is not another
 policy implementation. Old aggregate/native profiles remain comparison controls.
 
-## Exact next work — compiler fix29 and actual Mac build/launch result
+## Exact next work — interaction fix30 and NC28-01 retest
 
-1. Read [native28 result](i1/native-result.md), [runner README](i1/native/README.md),
-   [single native contract](i1/native-contract.json) and F009. NEW Core composition,
-   browser-safe replica and durable media ingress are implemented. Do not restart
-   architecture research, redo I1a/editor/media API, or rebuild the OLD joined Store.
-2. User applies29/commits docs/foundation only, then reruns `npm run native:core28`
-   at repo root on macOS14+/Xcode tools, Node24.22.1+ and existing locked dependencies.
-   The failed28 build created no valid latest-session locator; rerun normally, no
-   --new/reset/reopen needed for this compiler failure. First get **Ready or actual
-   compiler/setup error**. Linux helpers are not Mac
-   compilation, image/PDF display, native close/key chords or durability acceptance.
-3. Once Ready is confirmed, guide only NC28-01 (two views, context undo/remount).
-   Next cases are NC28-02 native image/cover/PDF, NC28-03 journal/close failure, and
-   NC28-04 protected text/app-closed CLI. The UI loads steps from native-contract.json.
-   Preserve raw manual attempts; duplicate Pass clicks are not extra qualifications.
-4. If work seems gone/closed, use `npm run native:core28:reopen`: original bundle/
-   same Space/journal, signature/integrity checks, no fresh-Space substitution. A
-   normal repeat refuses an existing session; --new is an explicit NEW synthetic
-   run, never a recovery command. Do not overwrite/close old joined lab sessions.
-5. Native UI Show report reveals the sanitized manual report. Build/setup/session
-   locator is Git-internal clutter-native28/artifacts/latest-session.json. Failed
-   builds archive attempts and keep the valid locator. Do not request private
-   endpoint.json/bootstrap tokens or claim successful Mac compilation without output.
-6. Core UI/CLI/MCP share one NEW service/schema3. Pending media command+bytes are
-   now journaled/flushed before protection acknowledgement and replayed unchanged;
-   no second reducer, rebase or orphan-as-intent assumption. Failed ingress refuses
-   close; typed work uses EditorSession.prepareClose. Freeze covers buttons/history/
-   typing and waits for admitted asynchronous media actions. Fresh bootstrap stays
-   read-only until Ready. Volatile unacknowledged process-crash input is not promised.
-7. Keep G-Q before real data: final shell/runtime/auth/discovery/alias/fencing/grant
-   lifecycle, general decoder/PDF security/inline placement, IME/accessibility/full
-   UI/focus, Mac file flush/power loss, final formats/retention/migration/D11 budgets.
-   SQL fullsync flags are configuration only; nativeDurabilityQualified stays false.
-
-Automated evidence28:77 runtime tests (63 prior +13 native helper/bundle cases +1
-empty-note case), strict TypeScript and old media12/page10/entity14/Node84 pass.
-Browser tests load the actual bundle in jsdom without Buffer; image decoding/PDFKit/
-geometry/native input are not emulated passes. Browser graph excludes Node/SQL/fs/
-old semantic models; Node bundle excludes old Store/owner. Root envelope/projection/
-rebase share sources, and CoreClient verifies SHA before renderer/media use.
-
-The builder uses checksum-pinned runtime acquisition, resources/bin launcher (not
-MacOS scripts), nested runtime signing before final outer signing/strict verify.
-Mac Swift compilation is NOT RUN here. Fix observed setup errors in bounded patches,
-retain raw failures and same-session work; no broad manual replay or guessed pass.
+1. Read [native result](i1/native-result.md), [runner](i1/native/README.md),
+   [native contract v2](i1/native-contract.json) and new fix30 evidence. Do not restart
+   architecture research or reimplement the Core. User confirmed29 runs/Ready.
+2. Apply30/commit explicit docs/foundation + packages/foundation-runtime paths.
+   Safely close current synthetic window normally. Run
+   `npm run native:core28 -- --new` to BUILD the corrected sources in a NEW synthetic
+   session. This is an explicit replacement test run, NOT recovery/reset of old data.
+   Old signed bundle/store/report and archived locator remain untouched. Reopen
+   reuses its original bundle; it cannot load patched source. No session upgrade is
+   implemented. Never use --new when recovering pending/lost-looking work.
+3. Retest only NC28-01: A local edit, B foreign edit, Undo A/Redo A preserve B's text;
+   put caret/range elsewhere before toolbar activation and verify it stays mapped
+   to the same surviving text. One Close/reopen A activation must destroy/recreate
+   its view immediately, retain selection/history, and leave B mounted. Then repeat
+   Undo A/Redo A. Toolbar focus returns to A; keyboard undo behavior stays unchanged.
+4. Report Ready/compiler error first if launch fails; mark Pass only after the
+   corrected remount/caret behavior is actually observed on Mac. NC28-02…04 remain
+   not-run. Do not replay old broad keyboard tests. Screenshot/manual user report
+   does not imply raw automatic report captured the same steps.
+5. Preserve full G-Q/native flush/auth/format/migration/security/D11 gates and old
+   sessions/repair backups. No new production stack acceptance, app wiring or real
+   data. Another agent resumes this exact pending NC28-01 retest, not NC28-02.
 
 ## Proof24 facts and limits
 

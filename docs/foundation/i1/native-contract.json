@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "delivery": 28,
   "date": "2026-11-16",
   "scope": "Synthetic disposable NEW Core native composition; not production shell acceptance",
@@ -23,9 +23,9 @@
     {
       "id": "NC28-01",
       "title": "Two views and context history",
-      "expected": "Edits converge; undo reverses only that context; remount preserves history",
+      "expected": "Edits converge; undo reverses only that context; one activation remounts A and retains history/selection; toolbar retains mapped current caret/range",
       "steps": [
-        "Type LOCAL before Alpha in A. Confirm B updates. Type FOREIGN in B. Use Undo A / Redo A; FOREIGN must remain. Close/reopen view A once and repeat undo. Record the result before moving on."
+        "Type LOCAL before Alpha in A; confirm B updates. Type FOREIGN in B. Move the caret (or select text) elsewhere in A, then use Undo A / Redo A: FOREIGN remains, and the toolbar retains the mapped current caret/range and returns focus to A. Click Close/reopen view A ONCE: A immediately reappears, selection/history retained and B unchanged. Repeat Undo A/Redo A before marking Pass."
       ]
     },
     {
@@ -61,5 +61,12 @@
     "native power-loss/flush and pending-write semantics",
     "final formats/retention/migration/D11 budgets"
   ],
-  "initialStatus": "not-run"
+  "initialStatus": "not-run",
+  "revisions": [
+    {
+      "version": 2,
+      "delivery": 30,
+      "reason": "User-reported remount/toolbar issues; clarify one activation and mapped current selection. Prior attempts not promoted to Pass."
+    }
+  ]
 }

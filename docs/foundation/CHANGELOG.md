@@ -3,6 +3,23 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.54 — 2026-11-16
+
+- User confirms29 launches; screenshot shows Ready. NC28-01 partially exercised but
+  NOT accepted: Close/reopen A only closed on first click; toolbar moved caret.
+- Fix30 makes remount one synchronous view replacement over the same editing
+  context; selection restored locally, context history retained, B unchanged.
+- Toolbar opts into mapping its current Y-relative caret/range through undo/redo;
+  pointer-down keeps DOM focus and keyboard activation returns to target editor.
+  Existing keyboard undo/history defaults are unchanged. Shared bookmark restore
+  gains an optional explicit bookmark; no duplicate history engine/Core owner.
+- Added three focused tests (actual bundled UI remount/toolbar + editor caret/range).
+ 80 runtime tests, strict TS and84 old Node regressions pass.
+  jsdom uses empty Range rectangles for focus-command execution, no layout claim.
+- Rebuild corrected source as explicit NEW synthetic run; old signed bundle/store
+  remains intact. Reopen intentionally loads old bundle; no in-place session upgrade.
+  Mac retest pending, NC28-02…04 still not-run. See fix30 evidence for actual checks.
+
 ## 0.53 — 2026-11-16
 
 - User applied/committed28 as e2613ec2. Mac compilation stopped at Main.swift:107:

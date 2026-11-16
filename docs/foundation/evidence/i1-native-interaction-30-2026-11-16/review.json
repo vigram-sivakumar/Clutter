@@ -1,0 +1,39 @@
+{
+  "revision": "0.54",
+  "delivery": 30,
+  "date": "2026-11-16",
+  "baseContentTree": "d8ed3f339069a14497647af1151770ee34cdb440",
+  "userObservations": {
+    "after29": "Native window runs; attached screenshot Ready",
+    "NC28-01": "Partial functionality works, but remount leaves A closed and toolbar caret jumps; NOT accepted",
+    "NC28-02": "not-run",
+    "NC28-03": "not-run",
+    "NC28-04": "not-run"
+  },
+  "causes": [
+    "Close/reopen label promised one action but handler toggled closed/open on successive clicks",
+    "Toolbar used edit-history bookmark instead of current view bookmark, allowed pointer focus transfer, and did not return focus"
+  ],
+  "changes": [
+    "One synchronous destroy/mount over existing context, local view selection restored; B unchanged",
+    "Optional current Y-relative bookmark passed into existing shared restore; defaults/keyboard semantics unchanged",
+    "Toolbar pointer default prevented; click including keyboard activation focuses target editor"
+  ],
+  "validation": {
+    "runtime": {
+      "tests": 80,
+      "pass": 80,
+      "fail": 0,
+      "skipped": 0
+    },
+    "strictTypeScript": true,
+    "oldNodeRegression": 84,
+    "newTests": 3,
+    "browser": "Actual bundled UI under jsdom; Range rectangle stubs for focus command flow only, no geometry/scroll/native input claim",
+    "testHarnessNotes": "Focused test development exposed missing jsdom Range geometry and asynchronous teardown; explicit empty rectangles and settled/protected cleanup used; no swallowed uncaught DOM errors",
+    "nativeRetestAfter30": "not-run; no Mac SDK available"
+  },
+  "next": "Apply30; safely close lab; explicitly build new corrected synthetic session via npm run native:core28 -- --new; retest NC28-01 only",
+  "lifecycle": "Existing signed bundle/store/report remain intact, locator archived; reopening uses old bundle; no in-place upgrade or recovery substitution",
+  "scope": "Foundation only; same Core/SQLite/history owner, no dependencies/locks/main/app/real vault changes"
+}

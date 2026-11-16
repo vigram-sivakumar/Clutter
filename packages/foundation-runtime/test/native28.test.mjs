@@ -352,6 +352,17 @@ async function boot(x) {
         },
       });
       Object.defineProperty(w, 'crypto', { value: globalThis.crypto });
+      // jsdom has no layout engine. Empty rectangles support focused command flow
+      // only; these tests make no scrolling/caret geometry or native-input claim.
+      w.Range.prototype.getClientRects = () => [];
+      w.Range.prototype.getBoundingClientRect = () => ({
+        left: 0,
+        right: 0,
+        top: 0,
+        bottom: 0,
+        width: 0,
+        height: 0,
+      });
       w.TextEncoder = TextEncoder;
       w.TextDecoder = TextDecoder;
       w.structuredClone = structuredClone;
@@ -571,4 +582,122 @@ test('runner requires explicit same-session recovery and refuses a second live w
     () => sessionChoice({ existing, reopen: true, fresh: true }),
     /CHOOSE_REOPEN_OR_NEW/
   );
+});
+
+async function until(check, label) {
+  for (let i = 0; i < 200; i++) {
+    if (check()) return;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  assert.fail(label);
+}
+async function caret(b, id, anchorOffset, headOffset = anchorOffset) {
+  const w = b.dom.window,
+    editor = w.document.querySelector('#editor-' + id + ' .ProseMirror');
+  editor.focus();
+  const node = editor.querySelector('p').firstChild;
+  w.getSelection().setBaseAndExtent(node, anchorOffset, node, headOffset);
+  w.document.dispatchEvent(new w.Event('selectionchange'));
+  await until(() => {
+    const s = w.lab28.capture().views[id].selection;
+    return s.anchor === anchorOffset + 1 && s.head === headOffset + 1;
+  }, 'DOM caret reaches target view');
+}
+test('one remount click recreates A with its selection/history and leaves B mounted', async () => {
+  const x = await fresh(),
+    b = await boot(x);
+  try {
+    const w = b.dom.window,
+      doc = w.document;
+    const oldA = doc.querySelector('#editor-A .ProseMirror'),
+      oldB = doc.querySelector('#editor-B .ProseMirror');
+    const p = oldA.querySelector('p');
+    p.firstChild.nodeValue = 'LOCAL ' + p.firstChild.nodeValue;
+    await until(
+      () => w.lab28.capture().views.B.text.startsWith('LOCAL '),
+      'A edit saved and shown in B'
+    );
+    await caret(b, 'A', p.textContent.length);
+    const before = w.lab28.capture().views.A.selection;
+    await doc.querySelector('#remount').onclick();
+    const newA = doc.querySelector('#editor-A .ProseMirror');
+    assert.ok(newA);
+    assert.notEqual(newA, oldA);
+    assert.equal(oldA.isConnected, false);
+    assert.equal(doc.querySelector('#editor-B .ProseMirror'), oldB);
+    assert.deepEqual(w.lab28.capture().views.A.selection, before);
+    assert.equal(doc.activeElement, newA);
+    doc.querySelector('#undo-A').click();
+    await until(
+      () => !w.lab28.capture().views.A.text.startsWith('LOCAL '),
+      'history survives remount'
+    );
+    doc.querySelector('#redo-A').click();
+    await until(
+      () => w.lab28.capture().views.A.text.startsWith('LOCAL '),
+      'redo survives remount'
+    );
+    assert.deepEqual(b.errors, []);
+  } finally {
+    await b.dom.window.document.querySelector('#save').onclick();
+    await b.dom.window.lab28.prepareClose();
+    b.dom.window.close();
+  }
+});
+test('actual toolbar pointer/keyboard activation retains mapped caret/range and focuses its own view', async () => {
+  const x = await fresh(),
+    b = await boot(x);
+  try {
+    const w = b.dom.window,
+      doc = w.document;
+    const p = doc.querySelector('#editor-A p');
+    p.firstChild.nodeValue = 'LOCAL ' + p.firstChild.nodeValue;
+    await until(
+      () => w.lab28.capture().views.B.text.startsWith('LOCAL '),
+      'A edit converges'
+    );
+    const length = p.textContent.length;
+    await caret(b, 'A', length, length - 4);
+    const undo = doc.querySelector('#undo-A'),
+      redo = doc.querySelector('#redo-A');
+    const down = new w.MouseEvent('mousedown', {
+      button: 0,
+      bubbles: true,
+      cancelable: true,
+    });
+    assert.equal(
+      undo.dispatchEvent(down),
+      false,
+      'pointer-down default prevented'
+    );
+    undo.click();
+    assert.equal(w.lab28.capture().views.A.selection.anchor, length + 1 - 6);
+    assert.equal(w.lab28.capture().views.A.selection.head, length + 1 - 10);
+    assert.equal(
+      doc.activeElement,
+      doc.querySelector('#editor-A .ProseMirror')
+    );
+    // Keyboard-activated button may have focus; click must return to its own editor.
+    redo.focus();
+    redo.click();
+    assert.equal(w.lab28.capture().views.A.selection.anchor, length + 1);
+    assert.equal(w.lab28.capture().views.A.selection.head, length + 1 - 4);
+    assert.equal(
+      doc.activeElement,
+      doc.querySelector('#editor-A .ProseMirror')
+    );
+    await caret(b, 'B', 3);
+    undo.focus();
+    undo.click();
+    assert.equal(
+      doc.activeElement,
+      doc.querySelector('#editor-A .ProseMirror')
+    );
+    assert.ok(w.lab28.capture().views.B.selection.head > 0);
+    assert.deepEqual(b.errors, []);
+  } finally {
+    await b.dom.window.document.querySelector('#save').onclick();
+    await b.dom.window.lab28.prepareClose();
+    b.dom.window.close();
+  }
 });
