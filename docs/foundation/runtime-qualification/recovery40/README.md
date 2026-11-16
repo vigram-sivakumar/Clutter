@@ -1,5 +1,11 @@
 # Diagnose unreadable process counters; preserve failed trace40
 
+Current41: all16 path mismatches are user-verified same-file/canonical aliases.
+Narrow alias matching is implemented/tested. The next action is now the full H-T
+capture in ../identity41/README.md, using40 graceful tracing. Earlier40 no-record
+instructions below are historical; preserve old failed artifacts, do not overwrite.
+
+
 Actual39 Mac compile/counter sanity passes. UI/owner read;16 WebKit candidates
 unavailable. Trace recorded5s then finalization exceeded wrapper25s; existing trace
 export returns10/Document Missing Template Error. The exact underlying collector/

@@ -1,5 +1,11 @@
 # Process counter and native trace diagnostic39
 
+Current41: all16 path mismatches are user-verified same-file/canonical aliases.
+Narrow alias matching is implemented/tested. The next action is now the full H-T
+capture in ../identity41/README.md, using40 graceful tracing. Earlier40 no-record
+instructions below are historical; preserve old failed artifacts, do not overwrite.
+
+
 Current40 correction: actual39 trace finalization timed out and partial export failed.
 Do not rerun this full recording yet. Follow ../recovery40/README.md for one read-only
 failure-stage diagnostic. Future recordings now use SIGINT12s then bounded CLI-only

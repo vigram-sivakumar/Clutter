@@ -1,3 +1,4 @@
+import { executableMatch } from '../identity41/executable.mjs';
 import { resolve, sep } from 'node:path';
 export function captureArgs(args) {
   const result = {};
@@ -92,12 +93,14 @@ export function sanitizeSample(selected, raw, after) {
     if (!bound || seen.has(p.pid)) throw Error('COUNTER_PID_MISMATCH');
     seen.add(p.pid);
     const current = after.find((x) => x.pid === p.pid),
+      beforePath = executableMatch(p.executable, bound.executable),
+      afterPath = executableMatch(p.executable, current?.executable),
       valid =
         p.status === 'read' &&
         typeof p.startTicks === 'string' &&
         /^[1-9]\d*$/.test(p.startTicks) &&
-        p.executable === bound.executable &&
-        current?.executable === p.executable &&
+        beforePath.matches &&
+        afterPath.matches &&
         current?.uid === bound.uid &&
         Number.isSafeInteger(p.physicalFootprintBytes) &&
         p.physicalFootprintBytes >= 0;
@@ -112,11 +115,9 @@ export function sanitizeSample(selected, raw, after) {
         ].includes(p.failureStage)
           ? p.failureStage
           : 'native-unavailable';
-      else if (p.executable !== bound.executable)
-        failure = 'path-before-mismatch';
+      else if (!beforePath.matches) failure = 'path-before-mismatch';
       else if (!current) failure = 'process-gone';
-      else if (current.executable !== p.executable)
-        failure = 'path-after-mismatch';
+      else if (!afterPath.matches) failure = 'path-after-mismatch';
       else if (current.uid !== bound.uid) failure = 'user-changed';
       else failure = 'invalid-counter-or-identity';
     }
@@ -124,6 +125,14 @@ export function sanitizeSample(selected, raw, after) {
       pid: p.pid,
       role: bound.role,
       status: valid ? 'read' : 'unavailable-or-changed',
+      ...(p.status === 'read'
+        ? {
+            pathValidation: {
+              before: beforePath.method,
+              after: afterPath.method,
+            },
+          }
+        : {}),
       ...(!valid
         ? {
             failureStage: failure,

@@ -3,6 +3,19 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.65 — 2026-11-16
+
+- User40 aabdc996 confirms16 path-before mismatches,0 native API-stage failures;
+  subsequent file verification confirms all16 same file AND canonical path.
+- Diagnostic executable matching now admits only verified canonical/stable-file
+  aliases alongside original exact paths. No basename/hash-only matching or guard
+  weakening; distinct files, missing paths and retargeted aliases stay rejected.
+-24 Linux tests pass (7 new identity +17 regression), including actual filesystem
+  aliases and full sanitizer path/user/identity/byte guards. Mac41 run pending.
+- Next corrected full H-T diagnostic uses40 graceful trace process; old failure
+  retained. No valid aggregate/presentation metric, shared attribution or ranking
+  inferred. No app/Core/contract/pin/product changes or repeated manual suite.
+
 ## 0.64 — 2026-11-16
 
 - Preserve actual39 terminal attachment,16 unavailable WebKit rows per sample,

@@ -1,6 +1,28 @@
 # Native test progress and next action
 
-## Current checkpoint — read/trace failure diagnostic40, 2026-11-16
+## Current checkpoint — verified executable aliases41, 2026-11-16
+
+User40 commitaabdc996: all16 WebKit failures were path-before-mismatch, not native
+counter errors. User then ran checksum-verified read-only file checks: all16 have
+sameFile=true and sameCanonicalPath=true. Evidence is transcribed explicitly in
+host-executable-identity-41. These are actual aliases, not an OS permission denial.
+
+41 preserves exact-path acceptance and adds a diagnostic alias match only with
+same canonical path AND stable dev/inode/size/ctime metadata over repeated stat/
+realpath observations. Missing/different/retargeted files and changed process/user/
+start identity stay rejected. Paths remain private; reports show finite match method.
+24 Linux tests pass (7 new identity +17 regressions). No app/Core/native/pin/budget
+changes; no alias-based Space ownership or authentication inference.
+
+Next apply41 with H-T qualification window still open, then run existing39 capture
+for completed36/H-T. This takes fresh snapshots and ONE trace attempt using40's
+graceful shutdown; original failed trace/logs remain untouched. No recompile/reopen
+of signed app, new Space, old editor/manual replay or permission changes. Actual
+Mac41 capture/graceful trace success pending. Shared WebKit accounting and trace
+input-to-presentation correlation still cannot rank hosts or pass H01 workloads.
+
+
+## Previous checkpoint — read/trace failure diagnostic40 (superseded above), 2026-11-16
 
 User39 commit09c31e1c: Mac probe compile/sanity pass; UI/owner counters readable,
 16 WebKit candidates unavailable in all3 snapshots, totals null. Trace reached5s
