@@ -63,6 +63,7 @@ is visible for planning with zero influence on architectural selection.
 | P-34 | Initial media scope includes images and PDFs. Math, diagrams and drawings are outside planned scope.                                                                                                                                             |
 | P-35 | Domain, persistence, provider sync and API policy remain independent of macOS-specific integrations so Windows does not require a structural rewrite.                                                                                            |
 | P-36 | Connect an integration once per local user/device with access to all current and future local Spaces by default. No separate Space codes or repeated Space prompts; optional restrictions are advanced settings. Command capabilities remain those authorized for that integration. |
+| P-37 | Greenfield rebuild: no existing users/data need migration. No legacy format/API compatibility, converters, staged rollout or dual-write cutover required. Initial schema quality, future versioning, backup/recovery and portability remain requirements. |
 
 ## Specification completion
 
@@ -92,3 +93,5 @@ not waive reliable selection, identity, undo, accessibility or preservation.
 
 P-36 detailed authorization UX/security boundary is owned by local-security-api-spec.md;
 integration-access-cases.json specifies its acceptance cases (not-run).
+
+P-37 current scope is detailed in greenfield-scope.md and supersedes old migration/cutover planning gates.

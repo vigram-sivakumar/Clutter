@@ -11,7 +11,13 @@ export function retryId(args) {
     throw Error('USE_--retry_BUILD_ID');
   return args[1];
 }
-export function loadRetry(builds, id, expectedManifest) {
+export function loadBuild(
+  builds,
+  id,
+  expectedManifest,
+  requiredStatus = 'build-smoke-incomplete'
+) {
+  retryId(['--retry', id]);
   const dir = resolve(builds, id);
   if (!dir.startsWith(resolve(builds) + sep) || realpathSync(dir) !== dir)
     throw Error('INVALID_RETRY_DIRECTORY');
@@ -24,8 +30,12 @@ export function loadRetry(builds, id, expectedManifest) {
     report.manifestSha256 !== expectedManifest
   )
     throw Error('RETRY_PROFILE_MISMATCH');
-  if (report.status !== 'build-smoke-incomplete')
-    throw Error('RETRY_REQUIRES_INCOMPLETE_BUILD');
+  if (report.status !== requiredStatus)
+    throw Error(
+      requiredStatus === 'build-smoke-incomplete'
+        ? 'RETRY_REQUIRES_INCOMPLETE_BUILD'
+        : 'COMPLETED_BUILD_REQUIRED'
+    );
   if (tree(join(dir, 'CommonCore')).sha256 !== report.commonCore?.sha256)
     throw Error('RETRY_COMMON_CORE_CHANGED');
   const inputs = JSON.parse(
@@ -40,6 +50,10 @@ export function loadRetry(builds, id, expectedManifest) {
   if (report.compiledInputSourceSha256 !== sha(JSON.stringify(inputs)))
     throw Error('RETRY_INPUT_MANIFEST_CHANGED');
   return { dir, report };
+}
+
+export function loadRetry(builds, id, expectedManifest) {
+  return loadBuild(builds, id, expectedManifest);
 }
 
 // Verified ancestry carries passed artifacts and dependency locks through partial retries.

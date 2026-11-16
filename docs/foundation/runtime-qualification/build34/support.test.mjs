@@ -436,3 +436,155 @@ test('retry ancestry refuses altered lock bytes or ancestor reports instead of r
     rmSync(f.builds, { recursive: true, force: true });
   }
 });
+
+const { launchArgs, chooseGuiSession, nativeEvents, completedCandidate } =
+  await import('./launch-model.mjs');
+test('GUI arguments bind exactly one completed run/candidate and explicit recovery mode', () => {
+  assert.equal(
+    launchArgs(['--run', 'build-id', '--candidate', 'H-S'])['--candidate'],
+    'H-S'
+  );
+  assert.throws(() =>
+    launchArgs(['--run', '../elsewhere', '--candidate', 'H-S'])
+  );
+  assert.throws(() => launchArgs(['--run', 'id', '--candidate', 'H-Z']));
+  assert.throws(() =>
+    launchArgs(['--run', 'id', '--candidate', 'H-E', '--new', '--reopen'])
+  );
+});
+test('GUI session choice refuses implicit replacement/live windows and reopens original session explicitly', () => {
+  const previous = { session: 'original-session', bundle: 'original-bundle' };
+  assert.throws(() => chooseGuiSession(previous, {}, false), /SESSION_EXISTS/);
+  assert.throws(
+    () => chooseGuiSession(previous, { '--reopen': true }, true),
+    /STILL_OPEN/
+  );
+  assert.equal(
+    chooseGuiSession(previous, { '--reopen': true }, false),
+    previous
+  );
+  assert.equal(chooseGuiSession(previous, { '--new': true }, false), undefined);
+});
+test('native readiness parser accepts only complete bounded events from the selected host', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'h37-events-')),
+    file = join(dir, 'events.jsonl');
+  try {
+    assert.deepEqual(nativeEvents(file, 'H-S'), []);
+    writeFileSync(
+      file,
+      JSON.stringify({ host: 'H-S', event: 'ready' }) +
+        '\n' +
+        JSON.stringify({ host: 'H-S', event: 'close-guard' })
+    );
+    assert.equal(
+      nativeEvents(file, 'H-S').length,
+      1,
+      'unterminated tail waits for next read'
+    );
+    assert.throws(() => nativeEvents(file, 'H-E'), /PROTOCOL_INVALID/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+test('GUI loader requires a completed build and matching actual artifact/common hashes', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'h37-complete-')),
+    run = join(dir, 'done'),
+    app = join(run, 'Control.app'),
+    resources = join(app, 'Contents/Resources/CoreData');
+  try {
+    mkdirSync(resources, { recursive: true });
+    mkdirSync(join(run, 'CommonCore'));
+    writeFileSync(join(resources, 'data'), 'body');
+    writeFileSync(join(run, 'CommonCore/data'), 'body');
+    writeFileSync(join(run, 'source.mjs'), 'source');
+    const inputs = { 'source.mjs': sha(Buffer.from('source')) };
+    writeJson(join(run, 'input-source-hashes.json'), inputs);
+    const report = {
+      id: 'done',
+      format: 'clutter-matched-build34',
+      status: 'build-smoke-complete',
+      manifestSha256: 'manifest',
+      compiledInputSourceSha256: sha(JSON.stringify(inputs)),
+      commonCore: tree(join(run, 'CommonCore')),
+      candidates: {
+        'H-S': {
+          status: 'built-signed-headless-smoke-pass',
+          app,
+          resources,
+          bundleSha256: tree(app).sha256,
+        },
+      },
+    };
+    writeJson(join(run, 'build-report.json'), report);
+    assert.equal(
+      completedCandidate(dir, 'done', 'H-S', 'manifest').record.app,
+      app
+    );
+    writeFileSync(join(resources, 'data'), 'altered');
+    assert.throws(
+      () => completedCandidate(dir, 'done', 'H-S', 'manifest'),
+      /BUILT_CANDIDATE_CHANGED/
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+test('actual GUI boot/reboot refreshes private bootstrap while keeping the same Space and session', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'h37-boot-')),
+    resources = join(dir, 'Resources');
+  let binding;
+  function worker(mode, extra, session) {
+    const p = spawnSync(
+      process.execPath,
+      [
+        join(source, 'worker.mjs'),
+        mode,
+        resources,
+        extra,
+        ...(session ? [session] : []),
+      ],
+      { encoding: 'utf8', timeout: 30000, maxBuffer: 4 * 1024 * 1024 }
+    );
+    assert.equal(p.status, 0, p.stderr);
+    return p.stdout.trim();
+  }
+  try {
+    worker('pack', join(dir, 'graphs.json'));
+    worker('manifest', '');
+    binding = JSON.parse(worker('boot', join(dir, 'events1.jsonl')));
+    const second = JSON.parse(
+      worker('reboot', join(dir, 'events2.jsonl'), binding.session)
+    );
+    assert.equal(binding.spaceId, second.spaceId);
+    assert.equal(binding.session, second.session);
+    assert.notEqual(binding.bootFile, second.bootFile);
+    const firstCfg = JSON.parse(readFileSync(binding.bootFile)),
+      secondCfg = JSON.parse(readFileSync(second.bootFile));
+    assert.equal(firstCfg.ui.spaceId, secondCfg.ui.spaceId);
+    assert.notEqual(firstCfg.bootNonce, secondCfg.bootNonce);
+    assert.equal(secondCfg.report, join(dir, 'events2.jsonl'));
+    assert.equal(secondCfg.ui.admin, undefined);
+  } finally {
+    if (binding) {
+      spawnSync(
+        join(resources, 'runtime/node'),
+        [
+          join(resources, 'launcher.mjs'),
+          '--session',
+          binding.session,
+          '--control',
+          'stop',
+        ],
+        { timeout: 10000 }
+      );
+      try {
+        const m = JSON.parse(
+          readFileSync(join(binding.session, 'session.json'))
+        );
+        rmSync(m.vaultDir, { recursive: true, force: true });
+        rmSync(binding.session, { recursive: true, force: true });
+      } catch {}
+    }
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

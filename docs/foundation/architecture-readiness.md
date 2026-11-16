@@ -1,10 +1,33 @@
 # Architecture decision readiness
 
+## Current checkpoint — GUI launch37, 2026-11-16
+
+User commit31df10cf/run2026-11-16T10-35-45-751Z-5b4941c3 reports all three
+candidates built, signed, strict-verified and packaged CLI/MCP smoke PASS.
+Swift/Electron artifacts retained and verified; Tauri now passes too. No host
+winner: GUI, installed lifecycle/security and performance remain unqualified.
+
+Launcher37 opens one verified existing signed candidate without rebuilding it.
+20 support tests pass on Linux, including actual factory boot/reboot with the
+same Space and fresh private bootstrap. These are not Mac GUI or benchmark passes.
+Next: apply37, launch H-S from the completed36 run, confirm Ready and Alpha beta
+in both views. Do not repeat NC28 tests or launch other candidates yet.
+P-37 greenfield scope is included: no legacy-user/data migration work.
+
+
 Revision0.48 update, 2026-11-15; review23 plus proof24 disposition. This is the current recommendation and readiness
 assessment, not accepted production ADRs. Review23 executed no runtime tests; proof24 execution is linked separately,
 with exact retained results and limits. Product requirements
 remain authoritative in product-behaviour.md. No implementation is retained merely
 because it already exists.
+
+## Current scope correction — P-37, 2026-11-16
+
+No existing users/data need migration. [Greenfield scope](greenfield-scope.md)
+supersedes old active migration/legacy compatibility/dual-write/cutover blockers.
+Initial schema/versioning, backup/recovery, portability and native reliability/
+security/performance remain. No new migration harness or preservation of current
+format/API required. Frozen build contracts/evidence stay intact; completed build36 remains unchanged. This scope update is included in37.
 
 ## Current update — revision0.56, 2026-11-16
 

@@ -1,0 +1,14 @@
+{
+  "format": "clutter-user-build36-result",
+  "source": "user terminal output; report file not independently inspected",
+  "commit": "31df10cf",
+  "runId": "2026-11-16T10-35-45-751Z-5b4941c3",
+  "status": "build-smoke-complete",
+  "candidates": {
+    "H-S": "built-signed-headless-smoke-pass",
+    "H-E": "built-signed-headless-smoke-pass",
+    "H-T": "built-signed-headless-smoke-pass"
+  },
+  "gui": "not-run",
+  "performance": "not-run"
+}

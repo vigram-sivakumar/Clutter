@@ -6,6 +6,12 @@ them by implication.
 
 - Read START-HERE.md first, then NATIVE-TEST-PROGRESS.md, the current roadmap item
   and relevant contract/evidence. Inspect git state and preserve the user's work.
+- User P-37 clarification2026-11-16: GREENFIELD, no existing users/data to migrate.
+  Read greenfield-scope.md. Remove legacy converter/user migration/staged rollout/
+  dual-write/cutover gates from active work; no old API/format preservation needed.
+  Initial schema quality/future version envelopes, backup/recovery/portability still
+  required. Frozen evidence/pins and completed build36 stay unchanged. Scope is included
+  in37. Current next action: H-S GUI Ready/two-view visual check only.
 - Stay on architecture/clutter-foundation. Keep foundation work isolated here.
   Do not pull unrelated main changes, reset/clean, replace this branch, modify
   production, commit or push merely because a roadmap describes future work.

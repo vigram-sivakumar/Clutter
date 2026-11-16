@@ -1,0 +1,28 @@
+✔ origin-bound shell bootstrap exposes only UI data and finite host events (5.763416ms)
+✔ close bridge calls shared prepareClose and carries challenge; failures stay unsafe (2.213377ms)
+✔ host event decoder refuses another boot, scheme, or malformed close result (0.455392ms)
+✔ download admission requires one exact upstream checksum and contained archive names (2.010217ms)
+✔ Tauri project generation pins versions in an isolated project with no renderer permissions (2.90348ms)
+✔ actual copied common Core supports packaged CLI/MCP same-head smoke without GUI/user PATH (6028.243528ms)
+✔ Linux build invocation is explicitly not a Mac compile or performance pass (77.576043ms)
+✔ Tauri required icon exists as valid RGBA PNG at its configured path (43.581541ms)
+✔ nested Electron code signs real leaves before containing bundles, excluding CoreData and alias duplicates (1.552291ms)
+✔ nested signing refuses a framework symlink escaping the generated frameworks tree (0.671631ms)
+✔ retry ledger verifies original common resources and compiled inputs, refusing mutation (0.899016ms)
+✔ retry option rejects paths and preserves a single explicit original build ID (0.125185ms)
+✔ generated Cargo manifest matches the actual user-supplied Tauri normalization exactly (0.888281ms)
+✔ partial retry retains both pass archives and obtains unchanged locks from the verified ancestor (1.222364ms)
+✔ retry ancestry refuses altered lock bytes or ancestor reports instead of resolving new dependencies (0.932236ms)
+✔ GUI arguments bind exactly one completed run/candidate and explicit recovery mode (0.211342ms)
+✔ GUI session choice refuses implicit replacement/live windows and reopens original session explicitly (0.23019ms)
+✔ native readiness parser accepts only complete bounded events from the selected host (0.48802ms)
+✔ GUI loader requires a completed build and matching actual artifact/common hashes (1.550839ms)
+✔ actual GUI boot/reboot refreshes private bootstrap while keeping the same Space and session (2355.644549ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8669.283847

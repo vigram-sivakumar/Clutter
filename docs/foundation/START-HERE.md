@@ -1,7 +1,30 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-16. Documentation revision: 0.60, canonical Cargo/partial retry fix36.
+Last updated: 2026-11-16. Documentation revision: 0.61, completed builds and GUI launch37.
 Read [AGENTS](AGENTS.md), this checkpoint and [README](README.md) first.
+
+## User scope correction — greenfield, no existing-user/data migration
+
+User explicitly confirms no users/data need migration. P-37 and
+[greenfield scope](greenfield-scope.md) supersede earlier migration/cutover gates.
+No legacy converter/backward-compatible facade/dual writer/staged rollout project
+is required. Initial schema/format, future version envelopes, backup/recovery and
+portability remain. Keep completed build36/evidence/pins unchanged; no rebuild for this planning
+clarification. Scope is included in37; user application of37 is pending.
+
+## Current checkpoint — GUI launch37, 2026-11-16
+
+User commit31df10cf/run2026-11-16T10-35-45-751Z-5b4941c3 reports all three
+candidates built, signed, strict-verified and packaged CLI/MCP smoke PASS.
+Swift/Electron artifacts retained and verified; Tauri now passes too. No host
+winner: GUI, installed lifecycle/security and performance remain unqualified.
+
+Launcher37 opens one verified existing signed candidate without rebuilding it.
+20 support tests pass on Linux, including actual factory boot/reboot with the
+same Space and fresh private bootstrap. These are not Mac GUI or benchmark passes.
+Next: apply37, launch H-S from the completed36 run, confirm Ready and Alpha beta
+in both views. Do not repeat NC28 tests or launch other candidates yet.
+P-37 greenfield scope is included: no legacy-user/data migration work.
 
 ## Current position
 
@@ -44,13 +67,14 @@ This current checkpoint supersedes earlier next-action text in historical record
 | Retry35 | Missing icon and nested signing flow corrected;12 support tests pass; actual Mac retry pending |
 | Actual retry35 | User commit476e7f71: Swift retained/verified PASS; Electron nested sign/strict verify/CLI+MCP smoke PASS; Tauri stopped by RETRY_DEPENDENCY_MANIFEST_CHANGED before compile |
 | Normalization36 | Exact Cargo difference supplied: same pins, CLI inline tables/features=[]; generator fixed and partial retry ancestry validated;15 support tests pass |
-| Next | Apply36; retry latest35 run ID, verify/reuse Swift+Electron, build only Tauri. No more diagnostic/inventory or GUI tests yet |
+| Actual36 | User31df10cf reports all three build/sign/strict verify/CLI+MCP smoke PASS; GUI/performance not-run |
+| Next | Apply GUI launch37 and open H-S from completed36 run; confirm Ready and Alpha beta in both views only |
 
 ## Branch and delivery state
 
 Stay on architecture/clutter-foundation. User confirms28 committed as e2613ec2, then29 applied and native window works
 (screenshot Ready). User confirms35 applied/committed476e7f71 and supplies actual retry+Cargo diagnostic.
-Fix36 is incremental over exact35 treef3e0587b53a423461e9b22cae23c716325fc082f. Mac launch now user-confirmed; full
+GUI37 is incremental over exact36 tree9839e2cae0454521e026fff7e2a033af724dd4f6. Mac launch now user-confirmed; full
 NC28-01 remount/toolbar issues are confirmed fixed by user after30; user-reported PASS,
 not a raw report audit. No agent commit/push, main/apps/app/user-
 vault changes. Local HEAD is stale; use files/content trees. Cumulative source changes are

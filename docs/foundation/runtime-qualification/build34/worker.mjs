@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { pack, manifest } from '../../i1/native/pack.mjs';
-import { createSession, json } from '../../i1/native/session.mjs';
+import { createSession, json, session } from '../../i1/native/session.mjs';
 import { bootstrap } from './bootstrap.mjs';
 const [mode, resources, extra] = process.argv.slice(2);
 const run = (args, input = '') => {
@@ -103,10 +103,12 @@ if (mode === 'pack') {
       run(['--session', directory, '--control', 'stop']);
     } catch {}
   }
-} else if (mode === 'boot') {
+} else if (mode === 'boot' || mode === 'reboot') {
   // Explicit future GUI launch: separate new synthetic session, never NC28/latest-session.
-  const directory = createSession(resources),
-    ensured = JSON.parse(run(['--session', directory, '--ensure']));
+  const directory =
+    mode === 'reboot' ? process.argv[5] : createSession(resources);
+  session(directory, resources);
+  const ensured = JSON.parse(run(['--session', directory, '--ensure']));
   const descriptor = json(join(directory, 'endpoint.json'));
   const ui = {
     url: descriptor.url,
@@ -124,7 +126,7 @@ if (mode === 'pack') {
       script: bootstrap(ui, bootNonce),
       report: extra,
     };
-  const path = join(directory, 'host34-private.json');
+  const path = join(directory, 'host34-private-' + randomUUID() + '.json');
   writeFileSync(path, JSON.stringify(cfg), { mode: 0o600, flag: 'wx' });
   chmodSync(path, 0o600);
   console.log(

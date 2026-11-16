@@ -1,6 +1,21 @@
 # Clutter foundation
 
-Status: architecture definition pack, revision 0.60, 2026-11-16. Product scope
+## Current checkpoint — GUI launch37, 2026-11-16
+
+User commit31df10cf/run2026-11-16T10-35-45-751Z-5b4941c3 reports all three
+candidates built, signed, strict-verified and packaged CLI/MCP smoke PASS.
+Swift/Electron artifacts retained and verified; Tauri now passes too. No host
+winner: GUI, installed lifecycle/security and performance remain unqualified.
+
+Launcher37 opens one verified existing signed candidate without rebuilding it.
+20 support tests pass on Linux, including actual factory boot/reboot with the
+same Space and fresh private bootstrap. These are not Mac GUI or benchmark passes.
+Next: apply37, launch H-S from the completed36 run, confirm Ready and Alpha beta
+in both views. Do not repeat NC28 tests or launch other candidates yet.
+P-37 greenfield scope is included: no legacy-user/data migration work.
+
+
+Status: architecture definition pack, revision 0.61, 2026-11-16. Product scope
 confirmed; the production technology baseline remains unaccepted.
 Baseline: `main` at `cae604273115c0c6c0d3ac34533b1e9834e9c778`.
 Working branch: `architecture/clutter-foundation`.

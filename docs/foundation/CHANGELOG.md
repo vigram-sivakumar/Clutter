@@ -3,6 +3,18 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.61 — 2026-11-16
+
+- User36 commit31df10cf: all three actual Mac build/sign/strict verify/packaged
+  CLI+MCP smoke checks pass. Preserve original artifacts and prior failed attempts.
+- GUI37 launches one checksum/signature-verified existing candidate; private
+  Git-internal reports and explicit same-session reopen, no silent fixture reset.
+-20 support tests pass on Linux. Native GUI/performance remain not-run; first
+  user action is H-S Ready and both Alpha beta views, not a full test replay.
+- P-37 greenfield clarification removes active legacy-user/data migration,
+  dual-write and cutover work; retains initial schema, future versioning,
+  history/recovery/portability and native reliability/security/performance.
+
 ## 0.60 — 2026-11-16
 
 - User confirms35 Swift+Electron pass and supplies exact Tauri Cargo difference:

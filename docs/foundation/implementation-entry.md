@@ -6,7 +6,8 @@ in a DOM composition. [media27](i1/media-result.md) now adds immutable media API
 [Native28–30](i1/native-result.md) now has guided user-reported NC28-01…04 passes,
 plus supplied app-closed CLI read PROTECTED at sequence38. [Scoped completion
 review](i1/completion-review.md) records I1 complete for the tested disposable
-integration profile. User-vault migration and production G-Q remain unstarted/open.
+integration profile. Existing-user/data migration is out of scope (P-37); production reliability/security
+qualification remains open.
 
 [F009](adr/F009-scoped-core-implementation-entry.md) is adopted for the I1 boundary
 below, following the user's “proceed”; [the contract](i1/contract.md) preceded code. This is not another broad candidate
@@ -64,11 +65,13 @@ G-Q remains unpassed for production/data-bearing scope. Required closure include
 2. Honest macOS file/SQL durability and pending-protection behavior under actual
    native flush/permission/storage failures; Windows later behind the same ports.
 3. Final schema/codec/version-set/retention/checkpoint choices, typed property and
-   unknown-content rules, coherent history/pins, backup/export and migration rollback.
+   unknown-content rules, coherent history/pins, backup/export and future schema-version
+   safety. No current-data migration or migration rollback implementation is required.
 4. D11 reference host and workload dimensions/targets fixed before representative
    latency/memory/disk measurements. PK byte counts are not benchmark acceptance.
-5. Explicit current-rule/ADR impact and migration cutover. No silently competing
-   old/new mutation paths for one vault; no main merge of experiments as product code.
+5. Document the clean new ownership/ADR boundaries. No legacy API/format preservation,
+   user migration or dual-write cutover is required. Keep one canonical mutation path;
+   experiments are not silently merged as finished product.
 
 Each feature also needs its detailed contracts/inverses/tests before implementation
 and full release coverage before shipping. Task pages/covers/embeds, templates,
@@ -81,7 +84,8 @@ The scoped I1 integration is complete; do not repeat the old/native manual suite
 Prepare the contract/exit criteria for production host/runtime/discovery/auth/alias
 fencing/native ports and D11 reference workloads/targets before implementing or
 measuring that route. Keep the single Core with peer UI/CLI/MCP adapters. Existing
-real-vault G-Q format/migration/security/native durability gates remain blocking.
+new-data G-Q format/security/native durability gates remain blocking; legacy data
+migration is explicitly out of scope (P-37).
 See completion review and START-HERE for evidence limits and delivery state.
 
 ## Next-action update — revision0.56
@@ -114,3 +118,5 @@ and future local Spaces, optional advanced restrictions; no separate Space codes
 or repetitive prompts. Per-Space writers/internal transport handles stay separate.
 See local-security-api-spec and integration-access-cases; no production auth pass.
 START-HERE is current; do not repeat generic metadata or broad native editor suite.
+
+Current P-37 greenfield scope supersedes older migration/cutover wording in historical records; see greenfield-scope.md.
