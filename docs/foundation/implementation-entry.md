@@ -1,10 +1,12 @@
 # When implementation begins
 
-Revision0.52, 2026-11-16. **I1 implementation has begun with disposable Spaces.**
+Revision0.55, 2026-11-16. **I1 implementation has begun with disposable Spaces.**
 [I1a](i1/result.md) implements real private Core/API modules; [editor26](i1/editor-result.md) now qualifies actual per-page view/context/protection
 in a DOM composition. [media27](i1/media-result.md) now adds immutable media API/history/closure.
-[Native28](i1/native-result.md) now prepares that host; actual Mac compile/native
-observations remain. I1 is incomplete; user-vault migration has not started.
+[Native28–30](i1/native-result.md) now has guided user-reported NC28-01…04 passes,
+plus supplied app-closed CLI read PROTECTED at sequence38. [Scoped completion
+review](i1/completion-review.md) records I1 complete for the tested disposable
+integration profile. User-vault migration and production G-Q remain unstarted/open.
 
 [F009](adr/F009-scoped-core-implementation-entry.md) is adopted for the I1 boundary
 below, following the user's “proceed”; [the contract](i1/contract.md) preceded code. This is not another broad candidate
@@ -73,10 +75,11 @@ and full release coverage before shipping. Task pages/covers/embeds, templates,
 calendar/reminders, recurrence and collections are not removed because I1 is small.
 Cloud/provider enablement and live collaboration remain separate later gates.
 
-## Exact next action — targeted native integration
+## Exact next action — bounded production host/runtime qualification contract
 
-The scoped entry and I1a modules/catalogue/ports are complete; do not repeat that
-review. Run the prepared targeted Mac host and record actual compiler/Ready/native results
-as described in [native28](i1/native-result.md) and START-HERE. Keep
-real-vault G-Q blocking. User confirms ownership requirements in
-[runtime ownership](runtime-ownership.md).
+The scoped I1 integration is complete; do not repeat the old/native manual suite.
+Prepare the contract/exit criteria for production host/runtime/discovery/auth/alias
+fencing/native ports and D11 reference workloads/targets before implementing or
+measuring that route. Keep the single Core with peer UI/CLI/MCP adapters. Existing
+real-vault G-Q format/migration/security/native durability gates remain blocking.
+See completion review and START-HERE for evidence limits and delivery state.

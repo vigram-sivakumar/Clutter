@@ -1,6 +1,6 @@
 # Clutter foundation
 
-Status: architecture definition pack, revision 0.52, 2026-11-16. Product scope
+Status: architecture definition pack, revision 0.55, 2026-11-16. Product scope
 confirmed; the production technology baseline remains unaccepted.
 Baseline: `main` at `cae604273115c0c6c0d3ac34533b1e9834e9c778`.
 Working branch: `architecture/clutter-foundation`.
@@ -21,9 +21,12 @@ and frozen [PK01–10](page-partition-contract.json) now have
 implementation only: [I1a implementation25](i1/result.md) now has21 passing tests
 and strict TypeScript. The [editor26 slice](i1/editor-result.md) adds23 actual-view/context tests (44 total),
 including protected restart recovery. [Media27](i1/media-result.md) adds19 cases (63 runtime total) for immutable media
-API/history/cover/editor compatibility. [Native build28](i1/native-result.md) prepares the targeted NEW Core Mac host;77
-automated tests pass, but Mac compilation/native observations are not-run. Next
-user runs native:core28 and reports Ready/setup outcome; I1 remains partial. [One running Space service](runtime-ownership.md) explains the shared owner.
+API/history/cover/editor compatibility. [Native build28–30](i1/native-result.md) now has80 passing automated runtime tests,
+strict TS/84 old regressions, and guided NC28-01…04 user-reported Mac passes.
+Supplied app-closed CLI output confirms PROTECTED at sequence38. Raw native reports
+are not audited. [Scoped I1 completion](i1/completion-review.md) is recorded;
+next is the bounded production host/runtime qualification contract and D11 inputs.
+[One running Space service](runtime-ownership.md) explains the shared owner.
 No manual replay, accepted production baseline or native-host selection.
 The production combination remains proposed; I1a is working private implementation,
 not production or user-vault migration.

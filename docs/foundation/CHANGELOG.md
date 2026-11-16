@@ -3,7 +3,21 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.55 — 2026-11-16
+
+- Consolidated user-confirmed NC28-01…04, preserving original compiler/interaction
+  issues and correction30. Recorded staged03/04 close/reopen/recovery observations.
+- Supplied app-closed same-Space CLI JSON returns PROTECTED at sequence38. Raw native
+  reports not inspected; no duplicate Pass clicks counted as new runs.
+- Assessed I1 scoped definition of done as met for disposable integration profile.
+  Production host/runtime/auth/alias/native flush/format/migration/D11 remain open.
+- Updated current resume/roadmap/entry/ADR checkpoint. Next bounded production
+  host/runtime qualification contract; no old manual replay, tests or code in31.
+
 ## 0.54 — 2026-11-16
+
+- Post-delivery user confirms fix30 works: NC28-01 user-reported PASS. Next02;
+  raw native report not inspected. This checkpoint awaits the next scoped delivery.
 
 - User confirms29 launches; screenshot shows Ready. NC28-01 partially exercised but
   NOT accepted: Close/reopen A only closed on first click; toolbar moved caret.

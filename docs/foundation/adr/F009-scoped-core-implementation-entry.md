@@ -76,3 +76,12 @@ NEW Core native qualification composition is prepared. Browser/Node separation,
 durable exact media ingress and lifecycle helpers pass automation. Actual Mac Swift
 compilation and manual observations remain not-run. Qualification host does not
 select production shell/runtime, infer native flush/security or permit real vaults.
+
+## Scoped I1 completion — revision0.55
+
+I1 definition-of-done review is recorded in ../i1/completion-review.md: actual shared
+Core/editor/media/context and native disposable composition qualified within scope.
+NC28-01…04 are user-reported passes; final app-closed CLI JSON supplied at sequence38.
+Raw native reports are not audited. Production host/runtime/native flush/auth/alias/
+format/migration/D11 remain separate open gates; no old production ADR superseded.
+Next is their bounded host/runtime qualification contract, not another editor spike.

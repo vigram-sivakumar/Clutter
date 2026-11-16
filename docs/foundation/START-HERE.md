@@ -1,6 +1,6 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-16. Documentation revision: 0.54, native interaction fix30 prepared.
+Last updated: 2026-11-16. Documentation revision: 0.55, scoped I1 completion checkpoint31.
 Read [AGENTS](AGENTS.md), this checkpoint and [README](README.md) first.
 
 ## Current position
@@ -29,16 +29,21 @@ This current checkpoint supersedes earlier next-action text in historical record
 | I1b media27 |19 additional media/editor cases pass (63 runtime total),11 publication/SQL process-death trials; prior media12/page10/entity14/Node84 and strict TS pass |
 | Native build28 |Browser-safe bundle + NEW Core host + durable media ingress + Mac WK/PDFKit host prepared;77 automated cases/TS and legacy regressions pass; Mac compilation/manual cases NOT RUN |
 | Native compiler29 | User committed28 as e2613ec2; Mac compile failed at WebKit argument label. Fix29 prepared; no Ready/manual pass |
-| Native interaction30 | User confirms fix29 launches/works; NC28-01 reported two issues: first remount click left A closed, toolbar caret jumped. Fix30 prepared, manual retest pending |
-| Next | Apply30, safely close current lab, explicitly build a NEW synthetic run with npm run native:core28 -- --new, then retest NC28-01 only |
+| Native interaction30 | User confirms fix30 works: NC28-01 remount/toolbar corrections PASS (user report; raw report not inspected) |
+| Native media | NC28-02 user-reported PASS; raw report not inspected |
+| Native media protection | NC28-03 user-reported PASS: unsafe close refused, journal-protected close/reopen retained request, retry saved it |
+| Native text protection | NC28-04 all guided stages user-confirmed; supplied app-closed CLI JSON returns PROTECTED, sequence38 |
+| I1 scoped milestone | Complete for tested disposable profile; raw native reports not audited; production G-Q remains open |
+| Next | Apply checkpoint31, then prepare bounded production host/runtime qualification contract + D11 measurement inputs |
 
 ## Branch and delivery state
 
 Stay on architecture/clutter-foundation. User confirms28 committed as e2613ec2, then29 applied and native window works
-(screenshot Ready). Patch30 is incremental over exact29 tree
-d8ed3f339069a14497647af1151770ee34cdb440. Mac launch now user-confirmed; full
-NC28-01 is NOT PASS: remount/toolbar issues reported, fixed30 but not yet Mac-retested. No agent commit/push, main/apps/app/user-
-vault changes. Local HEAD is stale; use files/content trees. Source changes are
+(screenshot Ready). User confirms30 applied/tested; checkpoint31 is incremental over exact30 tree
+b1f462e0222998e82f2122bbcb5815dab88735fe. Mac launch now user-confirmed; full
+NC28-01 remount/toolbar issues are confirmed fixed by user after30; user-reported PASS,
+not a raw report audit. No agent commit/push, main/apps/app/user-
+vault changes. Local HEAD is stale; use files/content trees. Cumulative source changes are
 foundation docs, private runtime and three root npm scripts only; no lock/dependency
 changes. Generated bundles/cache/reports use Git's internal clutter-native28 path,
 not source directories, so cannot be staged on main or the foundation branch.
@@ -48,30 +53,29 @@ reset, generated bundle/runtime/cache/artifacts or test-store staging. Shared so
 planners and SQL transaction engine are reused; new page adapter is not another
 policy implementation. Old aggregate/native profiles remain comparison controls.
 
-## Exact next work — interaction fix30 and NC28-01 retest
+## Exact next work — production host/runtime qualification contract
 
-1. Read [native result](i1/native-result.md), [runner](i1/native/README.md),
-   [native contract v2](i1/native-contract.json) and new fix30 evidence. Do not restart
-   architecture research or reimplement the Core. User confirmed29 runs/Ready.
-2. Apply30/commit explicit docs/foundation + packages/foundation-runtime paths.
-   Safely close current synthetic window normally. Run
-   `npm run native:core28 -- --new` to BUILD the corrected sources in a NEW synthetic
-   session. This is an explicit replacement test run, NOT recovery/reset of old data.
-   Old signed bundle/store/report and archived locator remain untouched. Reopen
-   reuses its original bundle; it cannot load patched source. No session upgrade is
-   implemented. Never use --new when recovering pending/lost-looking work.
-3. Retest only NC28-01: A local edit, B foreign edit, Undo A/Redo A preserve B's text;
-   put caret/range elsewhere before toolbar activation and verify it stays mapped
-   to the same surviving text. One Close/reopen A activation must destroy/recreate
-   its view immediately, retain selection/history, and leave B mounted. Then repeat
-   Undo A/Redo A. Toolbar focus returns to A; keyboard undo behavior stays unchanged.
-4. Report Ready/compiler error first if launch fails; mark Pass only after the
-   corrected remount/caret behavior is actually observed on Mac. NC28-02…04 remain
-   not-run. Do not replay old broad keyboard tests. Screenshot/manual user report
-   does not imply raw automatic report captured the same steps.
-5. Preserve full G-Q/native flush/auth/format/migration/security/D11 gates and old
-   sessions/repair backups. No new production stack acceptance, app wiring or real
-   data. Another agent resumes this exact pending NC28-01 retest, not NC28-02.
+I1's scoped integration milestone is complete for the recorded disposable profile.
+Read [completion review](i1/completion-review.md) and
+[completion evidence](evidence/i1-native-completion-31-2026-11-16/review.json).
+NC28-01…04 pass by guided user report; supplied final CLI JSON reads PROTECTED at
+sequence38 after the window is closed. Raw native reports are not inspected. Do not
+repeat those tests, treat the forgotten Recover click as data loss, or infer a final
+shipping architecture from the fixture host. Fix30 is user-confirmed applied/tested.
+
+1. User applies docs-only checkpoint31 over exact30 tree
+   b1f462e0222998e82f2122bbcb5815dab88735fe. No agent commit/push. Do not infer31
+   applied until confirmed. No build/native manual test required for documentation.
+2. Next substantive deliverable: bounded production host/runtime qualification
+   contract under existing G-Q. Fix comparable complete candidates, installed
+   lifecycle/discovery/auth/canonical Space/alias fencing, signing/distribution/update
+   and native file/SQL ports. Keep UI/CLI/MCP peers and the single TS semantic Core.
+3. Define D11 reference host/workloads/metrics/thresholds before measurements. Do
+   not start another launcher, copy a policy reducer, choose Rust as a second Core,
+   claim Swift/WK/pinned Node is the production choice, or reopen editor research.
+4. Real-vault format/retention/backup/migration/rollback and precise old-rule impact
+   remain blocking before cutover. Preserve repaired main, old sessions and reports;
+   generated runtime/cache/report outputs stay Git-internal, never source staging.
 
 ## Proof24 facts and limits
 

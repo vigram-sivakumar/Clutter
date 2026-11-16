@@ -400,3 +400,42 @@ Reopen runs its original bundle and cannot load patched source. No upgrade/reset
 of an existing Space is attempted. Never use --new for recovery. Retest NC28-01
 only; do not claim its Pass or advance02 until user confirms both issues fixed.
 START-HERE.md is the current checkpoint. No main/app/real-vault changes.
+
+### User confirmation after fix30 — 2026-11-16
+
+User: "perfect worked" after corrected NC28-01 retest. Record user-reported PASS
+for one-click A remount/history and toolbar mapped caret/selection; raw report not
+reviewed. Next NC28-02 only in current session;03/04 not-run. This checkpoint is
+local until included in next patch; do not ask user to apply a status-only patch.
+
+### NC28-02 confirmation — 2026-11-16
+
+User reports "pass" after image/cover/native PDF/replacement instructions. NC28-02
+is user-reported PASS, raw report not reviewed. Next03 first stage: Fail media +
+Fail journal, Add sample image, red close refuses. Do not mark03 Pass yet.04 not-run.
+Current-session work only; no --new, no typing during03, no status-only patch.
+
+### NC28-03 confirmation — 2026-11-16
+
+User passed each guided stage: failed journal refused close; durable journal allowed
+close; same-session reopen retained pending request; retry with media failure cleared
+published in both views and count0. NC28-03 user-reported PASS; raw report not read.
+Next04 failed-save + failed-protection close refusal FIRST; full04 still not-run.
+Do not repeat01–03 or use --new. Checkpoint remains local until next scoped patch.
+
+### NC28-04 progress — 2026-11-16
+
+User confirms unsafe-close refusal, protected close, explicit Recover protected A,
+then successful save and service restart retaining PROTECTED in both views. Initial
+old-data screenshot preceded clicking Recover; user corrected that omission and
+recovery passed. Final app-closed same-Space CLI read still pending;04 NOT complete.
+No raw report audit, no new session or broad replay. Local checkpoint awaits delivery.
+
+## Completion checkpoint31 — 2026-11-16
+
+Supersedes earlier pending-test next actions. NC28-01…04 user-reported PASS; supplied
+app-closed CLI JSON confirms PROTECTED at sequence38. Raw native reports not audited.
+I1 disposable integration milestone complete; see i1/completion-review.md (relative
+to foundation root). No production baseline/G-Q acceptance.31 is docs-only, no new
+tests. Next bounded production host/runtime contract and pre-measurement D11 inputs;
+no repeated native/manual suite or user-vault work. START-HERE is the resume point.

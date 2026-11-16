@@ -1,21 +1,20 @@
 # Foundation roadmap
 
-Revision 0.52, 2026-11-16. This roadmap describes work and dependencies; the current
+Revision 0.55, 2026-11-16. This roadmap describes work and dependencies; the current
 checkpoint/authorization is in [START-HERE](START-HERE.md). Product scope is in
 product-contracts.md, not independently redefined here.
 
-## Current deliverable — NEW Core native build28
+## Current deliverable — scoped I1 completion checkpoint31
 
-[Native28](i1/native-result.md) prepares browser-safe actual views + NEW Core owner,
-packaged app-closed CLI/MCP, durable media ingress/close guard, PDFKit preview and
-versioned manual reports.77 automatic cases/strict TS/old regressions pass. Mac
-compilation/native observations are NOT RUN. Generated binaries/caches/reports live
-in Git-internal storage, not source/branches. Same-session reopen is the recovery
-route; normal repeats refuse implicit fresh Spaces. No final shipping shell choice.
+[Completion review](i1/completion-review.md) maps I1 definition of done to evidence.
+80 runtime tests/strict TS/84 old regressions passed after30. NC28-01…04 pass by
+staged user report; app-closed CLI JSON supplied, PROTECTED at sequence38. Native
+raw reports not audited; no new tests in docs-only31. No more NC28 manual replay.
 
-NEXT user applies28 and launches native:core28, reports Ready/compiler output, then
-NC28-01 only. NC28-02/03/04 follow individually. Preserve old sessions/manual passes;
-no broad replay or architecture research. G-Q stays open before real data/release.
+NEXT: bounded production host/runtime qualification contract and D11 measurement
+inputs, before implementation/measurement of installed production route. Production
+G-Q, format/retention/migration/security/native flush and release gates remain open.
+No main/app/user-vault changes; see START-HERE for exact current delivery state.
 
 ## Historical deliverable — I1b media implementation27
 

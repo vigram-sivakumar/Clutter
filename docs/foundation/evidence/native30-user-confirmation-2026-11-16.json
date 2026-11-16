@@ -1,0 +1,47 @@
+{
+  "date": "2026-11-16",
+  "delivery": 30,
+  "source": "user message after fix30 retest",
+  "quote": "perfect worked",
+  "NC28-01": "user-reported PASS after remount/toolbar corrections",
+  "rawReportReviewed": false,
+  "NC28-02": "user-reported PASS (image/cover/native PDF/blue replacement)",
+  "NC28-03": "user-reported PASS across individually guided refusal/protected close/same-session reopen/retry stages",
+  "NC28-04": "user-reported PASS all guided stages, supplied app-closed CLI JSON PROTECTED at sequence38",
+  "next": "Scoped I1 completion checkpoint, then production host/runtime qualification contract",
+  "deliveryState": "Included in checkpoint31; user application of31 not yet confirmed",
+  "observations": [
+    {
+      "case": "NC28-02",
+      "quote": "pass",
+      "rawReportReviewed": false
+    },
+    {
+      "case": "NC28-03",
+      "sequence": [
+        "pass (failed journal close refusal)",
+        "pass closed. (journal enabled protection close)",
+        "Yes it shows (same-session protected request)",
+        "pass (retry count0/image both views)"
+      ],
+      "rawReportReviewed": false
+    },
+    {
+      "case": "NC28-04",
+      "sequence": [
+        "pass (failed save/protection close refusal)",
+        "pass (protected close)",
+        "forgot Recover before old-data screenshot; no data-loss finding",
+        "its works pass (explicit Recover protected A)",
+        "pass (saved and restart retained PROTECTED)"
+      ],
+      "rawReportReviewed": false
+    },
+    {
+      "case": "NC28-04",
+      "stage": "app-closed same-Space CLI read",
+      "result": "ok:true; pageId:page; body:PROTECTED; sequence:38",
+      "rawCliOutputSupplied": true
+    }
+  ]
+}

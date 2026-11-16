@@ -1,0 +1,38 @@
+{
+  "revision": "0.55",
+  "delivery": 31,
+  "date": "2026-11-16",
+  "baseContentTree": "b1f462e0222998e82f2122bbcb5815dab88735fe",
+  "scope": "Docs/evidence checkpoint, no new code or tests",
+  "nativeCases": {
+    "NC28-01": "user-reported PASS after fix30 (remount + mapped toolbar selection)",
+    "NC28-02": "user-reported PASS image/cover/native PDF/blue replacement",
+    "NC28-03": "user-reported PASS guided journal refusal/protected close/same-session reopen/retry",
+    "NC28-04": "user-reported PASS protection/recovery/save/restart; supplied app-closed CLI JSON confirms PROTECTED at sequence38"
+  },
+  "rawNativeReportsInspected": false,
+  "rawCliOutputSupplied": true,
+  "qualifications": [
+    "User initially forgot Recover protected A; confirmed it worked after clicking; no data-loss finding",
+    "No extra test runs inferred from repeated Pass messages",
+    "Compiler failure28 and interaction issues29 retained in historical evidence",
+    "No native reload-specific, full editor/IME/accessibility/multi-window/flush/security/performance acceptance inferred"
+  ],
+  "existingAutomatedEvidence": {
+    "source": "i1-native-interaction-30-2026-11-16/review.json",
+    "runtimePasses": 80,
+    "oldNodePasses": 84,
+    "strictTypeScript": true,
+    "rerunFor31": false
+  },
+  "disposition": "Scoped I1 integration milestone complete for the tested disposable profile; not production baseline or user-vault readiness",
+  "next": "Freeze bounded production host/runtime qualification contract and D11 measurement inputs before implementing another launcher/native bridge or real-vault path",
+  "unchanged": [
+    "main",
+    "production app",
+    "all runtime code",
+    "existing test contracts/evidence",
+    "dependencies/locks",
+    "sessions/vaults"
+  ]
+}
