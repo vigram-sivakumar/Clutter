@@ -1,0 +1,62 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> clutter-notes@2.0.0 foundation:test
+> npm test --workspace=packages/foundation-runtime
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> @clutter/foundation-runtime@0.0.1 test
+> node --test test/*.test.mjs
+
+✔ actual EditorViews: local and foreign edits share one page, undo is context-specific (76.514214ms)
+✔ destroying a view preserves context history and other view selections (47.83033ms)
+✔ missed notifications reconcile on resume using the authoritative root (11.304602ms)
+✔ lost reply retains exact request while newer typing stays pending (20.155434ms)
+✔ typing during an in-flight save survives acknowledgement (17.520135ms)
+✔ failed saves remain provisional; protected close and restart restore the exact pending work (21.767402ms)
+✔ failed protection refuses context close and leaves the view editable (14.273024ms)
+✔ new typing after a protection acknowledgement requires a new protection generation (16.300089ms)
+✔ service restart clears interactive undo explicitly but keeps saved content and a live view (12.853529ms)
+✔ context grants and private outcomes/protection are bound to the trusted peer (19.371612ms)
+✔ raw updates cannot change title/properties/links or introduce unknown nodes (9.034913ms)
+✔ malformed binary, unknown base and dangling Y dependencies refuse without replacing a root (6.305876ms)
+✔ semantic CLI-style writes and task pages use the same Core and editor route (18.09962ms)
+✔ keyboard Enter creates stable paragraph identities through the actual binding (32.548362ms)
+✔ a lost protection reply retries exactly; later typing remains unprotected (16.796547ms)
+✔ typing while protection is in flight prevents an unsafe close (16.220236ms)
+✔ protection refuses pending work absent from its staged snapshot (7.468641ms)
+✔ schema1 temporary stores are refused without automatic migration or overwrite (3.0562ms)
+✔ real CLI/MCP processes update a mounted view and read back UI edits (376.258103ms)
+✔ real process death: editor.apply is old-or-new with exact durable replay (410.378405ms)
+✔ real process death: editor.protect is old-or-new with exact durable replay (407.986809ms)
+✔ a foreign paragraph replacement cannot silently consume unsaved local text (8.978239ms)
+✔ undo after a foreign edit in a newly split paragraph preserves the foreign text (13.4108ms)
+✔ catalogue generates strict schemas and inferred commands from the same fields (3.855941ms)
+✔ real Y root persists once; note and task share the same page operations (33.598492ms)
+✔ one running writer and durable identity survive service restart (4.818982ms)
+✔ all adapters receive the same conflict/outcome semantics; operation IDs are immutable (9.426431ms)
+✔ permission checks precede receipt lookup and cannot be supplied in a command (4.217094ms)
+✔ queued request is snapshotted; later caller mutation cannot change admitted writes (8.58607ms)
+✔ unknown fields/schema/content refuse without overwriting the current root (8.2942ms)
+✔ desktop conflict keeps its draft and refuses silent close (8.975495ms)
+✔ lost reply retries identical request after further typing and preserves newer local draft (15.013416ms)
+✔ typing during in-flight save is preserved; acknowledged base uses receipt sequence (13.497118ms)
+✔ after-COMMIT fault freezes unrelated writes until exact operation resolves (8.236816ms)
+✔ pre-COMMIT fault rolls back root/head/outcome and exact retry succeeds (7.604823ms)
+✔ disposable restrictions refuse arbitrary directories, symlink aliases and missing stores (3.572692ms)
+✔ unknown store version, identity mismatch and corrupt roots are refused without repair (18.502685ms)
+✔ real CLI and MCP processes use the same running Core and exact receipt (483.197941ms)
+✔ real process death before/after COMMIT yields old/new complete state, exact retry once (458.683589ms)
+✔ module boundary: portable modules import no platform/SQL/DOM code; legacy app is not wired (230.283656ms)
+✔ malformed mutation replies remain unknown and malformed read replies are unavailable (2.999416ms)
+✔ MCP requires initialization and rejects malformed, oversized and truncated frames (233.174971ms)
+✔ desktop retains draft when snapshot does not match the acknowledged receipt (6.264705ms)
+✔ Vault port atomically guards and commits several page roots in one Space sequence (7.963913ms)
+ℹ tests 44
+ℹ suites 0
+ℹ pass 44
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2604.509012

@@ -10,15 +10,25 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, basename } from 'node:path';
-import { Fault, stable } from '../contracts.ts';
+import { Fault, stable, parseCommand } from '../contracts.ts';
 import type { Mutation, Receipt } from '../contracts.ts';
-import type { Root, Stored, Vault, RootChange } from '../ports.ts';
+import type {
+  Root,
+  Stored,
+  Vault,
+  RootChange,
+  CommitOptions,
+  RecoveryRoot,
+} from '../ports.ts';
 import { atomic, CommitUnknown } from './sql-transaction.ts';
 const digest = (x: string | Uint8Array) =>
   createHash('sha256').update(x).digest('hex');
 const markerName = 'I1-DISPOSABLE.json';
 const format = 'CLUTTER-I1-DISPOSABLE-25';
-type Hooks = { beforeCommit?: () => void; afterCommit?: () => void };
+type Hooks = {
+  beforeCommit?: (command: Mutation) => void;
+  afterCommit?: (command: Mutation) => void;
+};
 type Row = {
   page_id: string;
   kind: 'note' | 'task';
@@ -86,13 +96,14 @@ export class SqliteVault implements Vault {
         this.db.exec(`BEGIN EXCLUSIVE;
           CREATE TABLE identity(format TEXT NOT NULL,space_id TEXT NOT NULL);
           CREATE TABLE roots(page_id TEXT NOT NULL,kind TEXT NOT NULL,root_hash TEXT NOT NULL,payload BLOB NOT NULL,PRIMARY KEY(page_id,root_hash));
-          CREATE TABLE commits(sequence INTEGER PRIMARY KEY,operation_id TEXT UNIQUE NOT NULL,fingerprint TEXT NOT NULL,receipt TEXT NOT NULL);
+          CREATE TABLE commits(sequence INTEGER PRIMARY KEY,operation_id TEXT UNIQUE NOT NULL,fingerprint TEXT NOT NULL,receipt TEXT NOT NULL,actor_id TEXT NOT NULL);
           CREATE TABLE revisions(sequence INTEGER NOT NULL REFERENCES commits(sequence),page_id TEXT NOT NULL,root_hash TEXT NOT NULL,PRIMARY KEY(sequence,page_id),FOREIGN KEY(page_id,root_hash) REFERENCES roots(page_id,root_hash));
-          CREATE TABLE heads(page_id TEXT PRIMARY KEY,sequence INTEGER NOT NULL,FOREIGN KEY(sequence,page_id) REFERENCES revisions(sequence,page_id));`);
+          CREATE TABLE heads(page_id TEXT PRIMARY KEY,sequence INTEGER NOT NULL,FOREIGN KEY(sequence,page_id) REFERENCES revisions(sequence,page_id));
+          CREATE TABLE protections(sequence INTEGER PRIMARY KEY REFERENCES commits(sequence),page_id TEXT NOT NULL,context_id TEXT NOT NULL,actor_id TEXT NOT NULL,generation INTEGER NOT NULL,base_head TEXT NOT NULL,root_hash TEXT NOT NULL,pending TEXT,FOREIGN KEY(page_id,root_hash) REFERENCES roots(page_id,root_hash),UNIQUE(page_id,context_id,actor_id,generation));`);
         this.db
           .prepare('INSERT INTO identity VALUES(?,?)')
           .run(format, this.spaceId);
-        this.db.exec('PRAGMA user_version=1; COMMIT;');
+        this.db.exec('PRAGMA user_version=2; COMMIT;');
         chmodSync(file, 0o600);
       }
       this.check();
@@ -125,7 +136,7 @@ export class SqliteVault implements Vault {
       space_id: string;
     }[];
     if (
-      version.user_version !== 1 ||
+      version.user_version !== 2 ||
       identity.length !== 1 ||
       identity[0].format !== format ||
       identity[0].space_id !== this.spaceId
@@ -157,11 +168,37 @@ export class SqliteVault implements Vault {
         c.sequence !== i + 1 ||
         r.sequence !== c.sequence ||
         r.operationId !== c.operation_id ||
-        !revisions.length ||
-        r.head !== heads[r.pageId] ||
+        (!r.protection && (!revisions.length || r.head !== heads[r.pageId])) ||
         stable(r.changedHeads) !== stable(heads)
       )
         throw new Fault('BROKEN_STORE');
+      if (r.protection) {
+        const p = this.db
+          .prepare('SELECT * FROM protections WHERE sequence=?')
+          .get(c.sequence!);
+        if (
+          !p ||
+          revisions.length ||
+          r.head !== p.root_hash ||
+          r.pageId !== p.page_id ||
+          r.protection.contextId !== p.context_id ||
+          r.protection.generation !== p.generation ||
+          r.protection.baseHead !== p.base_head ||
+          c.actor_id !== p.actor_id ||
+          !this.findRoot(r.pageId, p.base_head as string)
+        )
+          throw new Fault('BROKEN_PROTECTION');
+        if (p.pending) {
+          const command = parseCommand(JSON.parse(p.pending as string));
+          if (
+            command.method !== 'editor.apply' ||
+            command.pageId !== r.pageId ||
+            command.contextId !== p.context_id ||
+            command.generation > Number(p.generation)
+          )
+            throw new Fault('BROKEN_PROTECTION');
+        }
+      }
     }
     const bad = this.db
       .prepare(
@@ -192,12 +229,47 @@ export class SqliteVault implements Vault {
       .get(pageId, atSequence ?? Number.MAX_SAFE_INTEGER) as Row | undefined;
     return row ? { ...this.root(row), sequence: row.sequence } : undefined;
   }
-  outcome(command: Mutation): Receipt | undefined {
+  findRoot(pageId: string, head: string): Stored | undefined {
+    const row = this.db
+      .prepare(
+        'SELECT r.*,v.sequence FROM revisions v JOIN roots r ON r.page_id=v.page_id AND r.root_hash=v.root_hash WHERE v.page_id=? AND v.root_hash=? ORDER BY v.sequence DESC LIMIT 1'
+      )
+      .get(pageId, head) as Row | undefined;
+    return row ? { ...this.root(row), sequence: row.sequence } : undefined;
+  }
+  recovery(
+    pageId: string,
+    contextId: string,
+    actorId: string
+  ): RecoveryRoot | undefined {
+    const row = this.db
+      .prepare(
+        'SELECT r.*,p.sequence,p.generation,p.base_head,p.pending FROM protections p JOIN roots r ON r.page_id=p.page_id AND r.root_hash=p.root_hash WHERE p.page_id=? AND p.context_id=? AND p.actor_id=? ORDER BY p.generation DESC LIMIT 1'
+      )
+      .get(pageId, contextId, actorId) as
+      | (Row & {
+          generation: number;
+          base_head: string;
+          pending: string | null;
+        })
+      | undefined;
+    return row
+      ? {
+          root: { ...this.root(row), sequence: row.sequence },
+          contextId,
+          generation: row.generation,
+          baseHead: row.base_head,
+          ...(row.pending ? { pending: JSON.parse(row.pending) } : {}),
+        }
+      : undefined;
+  }
+  outcome(command: Mutation, actorId = ''): Receipt | undefined {
     if (this.failed) throw new Fault('STORE_UNAVAILABLE');
     const row = this.db
       .prepare('SELECT * FROM commits WHERE operation_id=?')
       .get(command.operationId);
     if (row) {
+      if (row.actor_id !== actorId) throw new Fault('OPERATION_NOT_OWNED');
       if (row.fingerprint !== digest(stable(command)))
         throw new Fault('OPERATION_ID_REUSED');
       if (this.uncertain === command.operationId) this.uncertain = undefined;
@@ -214,9 +286,12 @@ export class SqliteVault implements Vault {
   }
   async commit(
     command: Mutation,
-    changes: readonly RootChange[]
+    changes: readonly RootChange[],
+    options: CommitOptions = {}
   ): Promise<Receipt> {
-    const prior = this.outcome(command);
+    const actorId = options.actorId ?? '',
+      protection = options.protection;
+    const prior = this.outcome(command, actorId);
     if (prior) return prior;
     const changedHeads = Object.create(null) as Record<string, string>;
     for (const { root } of changes) {
@@ -229,7 +304,21 @@ export class SqliteVault implements Vault {
         throw new Fault('INVALID_ROOT');
       changedHeads[root.pageId] = root.head;
     }
-    if (!Object.hasOwn(changedHeads, command.pageId))
+    if (protection) {
+      const root = protection.root;
+      if (
+        changes.length ||
+        root.pageId !== command.pageId ||
+        digest(root.bytes) !== root.head ||
+        root.bytes.length > 1500000 ||
+        !actorId ||
+        !this.findRoot(root.pageId, protection.baseHead)
+      )
+        throw new Fault('INVALID_PROTECTION');
+      const old = this.recovery(root.pageId, protection.contextId, actorId);
+      if (old && old.generation >= protection.generation)
+        throw new Fault('STALE_PROTECTION');
+    } else if (!Object.hasOwn(changedHeads, command.pageId))
       throw new Fault('INVALID_ROOT');
     try {
       return await atomic(
@@ -247,7 +336,16 @@ export class SqliteVault implements Vault {
           const receipt = {
             operationId: command.operationId,
             pageId: command.pageId,
-            head: changedHeads[command.pageId],
+            head: protection?.root.head ?? changedHeads[command.pageId],
+            ...(protection
+              ? {
+                  protection: {
+                    contextId: protection.contextId,
+                    generation: protection.generation,
+                    baseHead: protection.baseHead,
+                  },
+                }
+              : {}),
             sequence,
             changedHeads: { ...changedHeads },
           };
@@ -255,14 +353,34 @@ export class SqliteVault implements Vault {
             this.db
               .prepare('INSERT OR IGNORE INTO roots VALUES(?,?,?,?)')
               .run(root.pageId, root.kind, root.head, root.bytes);
+          if (protection) {
+            const root = protection.root;
+            this.db
+              .prepare('INSERT OR IGNORE INTO roots VALUES(?,?,?,?)')
+              .run(root.pageId, root.kind, root.head, root.bytes);
+          }
           this.db
-            .prepare('INSERT INTO commits VALUES(?,?,?,?)')
+            .prepare('INSERT INTO commits VALUES(?,?,?,?,?)')
             .run(
               sequence,
               command.operationId,
               digest(stable(command)),
-              stable(receipt)
+              stable(receipt),
+              actorId
             );
+          if (protection)
+            this.db
+              .prepare('INSERT INTO protections VALUES(?,?,?,?,?,?,?,?)')
+              .run(
+                sequence,
+                command.pageId,
+                protection.contextId,
+                actorId,
+                protection.generation,
+                protection.baseHead,
+                protection.root.head,
+                protection.pending ? stable(protection.pending) : null
+              );
           for (const { root } of changes) {
             this.db
               .prepare('INSERT INTO revisions VALUES(?,?,?)')
@@ -273,10 +391,10 @@ export class SqliteVault implements Vault {
               )
               .run(root.pageId, sequence);
           }
-          this.hooks.beforeCommit?.();
+          this.hooks.beforeCommit?.(command);
           return receipt;
         },
-        this.hooks.afterCommit
+        () => this.hooks.afterCommit?.(command)
       );
     } catch (e) {
       if (e instanceof CommitUnknown) {

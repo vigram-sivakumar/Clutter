@@ -1,0 +1,64 @@
+{
+  "revision": "0.50",
+  "date": "2026-11-16",
+  "delivery": 26,
+  "status": "Editor slice passes DOM integration; I1/G-Q incomplete",
+  "profile": {
+    "node": "v24.22.1",
+    "typescript": "5.9.3",
+    "os": "linux",
+    "arch": "x64",
+    "dom": "jsdom29.1.1",
+    "pmY": "existing nested qualification lock unchanged",
+    "runtimeSchema": 2
+  },
+  "passes": {
+    "runtimeTotal": 44,
+    "newActualViewContextCases": 23,
+    "previousI1aCases": 21,
+    "strictTypeScript": true,
+    "oldNode": 84,
+    "newRealProcessDeathTrials": 4
+  },
+  "results": [
+    "real two-view editing and context-specific undo/redo",
+    "context history survives view destruction; foreign selection maps",
+    "missed hints reconcile from canonical root",
+    "exact apply/protection retries and newer-typing preservation",
+    "failed-save/protection close guards",
+    "protected exact pending recovery and epoch history boundary",
+    "trusted-peer grants/outcome/protection isolation",
+    "body-only strict raw update admission with known base/dependency completeness",
+    "real CLI/MCP subprocesses and mounted view share Core",
+    "old-or-new apply/protect transactions across actual process death"
+  ],
+  "corrections": [
+    "DOM serialization and constructor dispatch target in new renderer",
+    "unknown XML was silently dropped by projection: validate raw shape first",
+    "trailing bytes accepted by Y parser: require complete binary consumption",
+    "append-transaction ID assignment broke history: assign IDs in original user transaction",
+    "jsdom event geometry error could be printed despite a passing assertion: tests now fail on all uncaught DOM events and explicitly disable scroll geometry",
+    "Foreign structural replacement could hide local pending text during rebase; shared admission now refuses and preserves the live/protected draft. Conflicting recovery refuses without overwriting canonical state."
+  ],
+  "limits": [
+    "no browser/native/geometry/IME/focus/accessibility/macOS close/flush qualification",
+    "renderer/engine are explicit temporary qualified composition adapters; runtime imports no proofs",
+    "immutable media API not yet integrated",
+    "protected snapshots retained without automatic release/GC",
+    "production grant lifecycle/auth/discovery/native runtime still gated",
+    "schema2 experimental; older temp schema1 refused, no migration",
+    "full per-view layout/cursor persistence and final format/version/retention/migration/D11 budgets still gated",
+    "Conservative rebase/recovery refusals; full conflict-resolution UI remains gated"
+  ],
+  "next": "I1b media API integration through same Core/Vault ports, then targeted supported browser/native changed-route qualification",
+  "branch": "architecture/clutter-foundation",
+  "baseContentTree": "f36a7752aac02cf692f7932e4a4ac8b896fc5f55",
+  "unchanged": [
+    "apps/app",
+    "main",
+    "previous evidence/frozen PK/JG/budgets/nested lock",
+    "user vaults/native sessions/repair backup"
+  ],
+  "dependencies": "already-locked jsdom29.1.1 declared as direct dev dependency; no new external versions",
+  "manualAction": "Apply/commit bundle26 only; no manual native test or old lab launch needed now"
+}

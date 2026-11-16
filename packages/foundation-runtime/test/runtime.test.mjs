@@ -124,12 +124,11 @@ async function processRun(args, input, service, principal) {
   return { out, err, exit, signal };
 }
 test('catalogue generates strict schemas and inferred commands from the same fields', () => {
-  assert.equal(commandSchema.oneOf.length, 3);
-  assert.deepEqual(Object.keys(catalogue), [
-    'page.create',
-    'page.read',
-    'page.update',
-  ]);
+  assert.equal(commandSchema.oneOf.length, 7);
+  assert.deepEqual(
+    Object.keys(catalogue).filter((k) => k.startsWith('page.')),
+    ['page.create', 'page.read', 'page.update']
+  );
   const c = create('s');
   assert.equal(parseCommand(c).method, 'page.create');
   for (const v of [
@@ -426,7 +425,7 @@ test('disposable restrictions refuse arbitrary directories, symlink aliases and 
 });
 test('unknown store version, identity mismatch and corrupt roots are refused without repair', async (t) => {
   for (const change of [
-    (db) => db.exec('PRAGMA user_version=2'),
+    (db) => db.exec('PRAGMA user_version=999'),
     (db) => db.exec("UPDATE identity SET space_id='other'"),
     (db) => db.exec("UPDATE roots SET payload=x'00'"),
   ]) {

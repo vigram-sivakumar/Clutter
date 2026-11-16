@@ -52,3 +52,12 @@ apps/app is not wired to it. The legacy PageOperations/PersistenceGate/Vault pat
 continues to own existing production data. The new Core PageOperations is the sole
 semantic page facade for its separate disposable Spaces. Service composition is
 not another semantic owner. See [I1a contract](../i1/contract.md).
+
+## Implementation26 continuation — revision0.50
+
+Within the same accepted disposable boundary, editor/context/protection APIs and
+actual-view DOM integration now pass. No new writer or facade was introduced.
+SQLite schema2 is experimental and refuses earlier I1 temp stores without migration.
+The renderer/engine are explicitly composed adapters; runtime has no proof imports.
+Actual browser/native route, media API and production G-Q remain open. See
+[editor result](../i1/editor-result.md) and START-HERE for the single next action.

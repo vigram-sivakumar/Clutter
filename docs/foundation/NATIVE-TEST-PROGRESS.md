@@ -351,3 +351,10 @@ Linux evidence; observed native evidence. Keep raw controls and earlier artifact
 Current structural origin undo is guarded conservatively; broader semantic history,
 joined full-editor/API/durability parity, full editor matrix and provider consistency remain
 open. Passing the revised table case alone does not complete R07 or authorize R08.
+
+## Implementation26 — 2026-11-16 (not a new native run)
+
+23 new EditorView/context/protection cases run in jsdom;44 runtime tests total.
+No native keyboard/geometry/IME/window-close/flush qualification is inferred.
+Prior user manual passes stand. No manual replay or lab launch requested for26.
+START-HERE owns the current next step: media API, then supported targeted native route.

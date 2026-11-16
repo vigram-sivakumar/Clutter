@@ -14,5 +14,8 @@
     ".": "./src/index.ts",
     "./sqlite": "./src/adapters/sqlite-vault.ts",
     "./stdio": "./src/adapters/stdio.ts"
+  },
+  "devDependencies": {
+    "jsdom": "29.1.1"
   }
 }

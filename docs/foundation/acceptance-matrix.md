@@ -1,8 +1,9 @@
 # Acceptance matrix
 
 Status: release-level specification. Bounded proof executions do not pass whole rows.
-[I1a implementation25](i1/result.md) adds21 passing tests for subsets of T-04/T-05/
-T-06/T-07; actual per-page editor/protection and full release coverage remain open. Product rules are
+[Editor26](i1/editor-result.md) extends I1a to44 passing runtime tests (including
+23 actual-view DOM cases); these are bounded observations for subsets of T-04/T-05/
+T-06/T-07; supported browser/native qualification, media integration and full release coverage remain open. Product rules are
 confirmed where stated; passing implementations and complete input matrices do
 not follow from written coverage. Initial/future gate is explicit per row.
 

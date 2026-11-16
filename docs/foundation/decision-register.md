@@ -4,7 +4,17 @@ Status: confirmed product scope; mechanism recommendation reviewed2026-11-15.
 Technical production baseline/format/host not yet accepted.
 Effort and migration scores remain visible with zero decision weight.
 
-## Current execution update — revision0.49
+## Current execution update — revision0.50
+
+F009 disposable scope continues. [Editor26](i1/editor-result.md):23 new actual-view/
+context/protection cases pass in jsdom,44 total runtime tests + strict TS +84 old
+Node cases. Core/API owns all mutations; each editor replica is provisional and its
+undo context survives view destruction. Peer-bound receipts/protection survive
+restart. Raw unknown content is rejected before conversion. No blanket I1 or G-Q
+pass: immutable media API, supported browser/native route and production gates
+remain open. No change to main/app or confirmed full task-page feature scope.
+
+## Historical execution update — revision0.49
 
 F009 accepted for disposable I1 implementation only, after the user's “proceed”.
 [I1a result](i1/result.md):21 integration tests plus strict TypeScript pass for

@@ -1,10 +1,24 @@
 # Foundation roadmap
 
-Revision 0.49, 2026-11-15. This roadmap describes work and dependencies; the current
+Revision 0.50, 2026-11-16. This roadmap describes work and dependencies; the current
 checkpoint/authorization is in [START-HERE](START-HERE.md). Product scope is in
 product-contracts.md, not independently redefined here.
 
-## Current deliverable — I1a implementation25
+## Current deliverable — I1b editor implementation26
+
+[Editor26](i1/editor-result.md) adds real EditorSession/context API, actual PM/Y
+EditorViews in a jsdom composition and SQLite protected-draft storage.23 new cases
+plus21 I1a runtime cases, strict TypeScript and84 old Node cases pass. Tests include
+peer isolation, two views/undo/remount, missed hints, exact unknown-result retries,
+failed-save/protection close guards, explicit recovery and4 process-death trials.
+No browser/native/geometry/window-close/IME/flush or production acceptance follows.
+
+Next I1b media operations in the same Core/catalogue and immutable Vault/platform
+ports; then supported targeted browser/native qualification. I1 and real-vault G-Q
+are still open. No new architecture search or broad old manual replay. Retention/
+release/GC, production grant lifecycle and complete layout state remain gated.
+
+## Historical deliverable — I1a implementation25
 
 F009 is adopted for disposable implementation only. [I1a](i1/result.md) implements
 one typed catalogue, PageOperations/Core service, portable client, desktop draft

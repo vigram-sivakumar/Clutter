@@ -3,6 +3,30 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.50 — 2026-11-16
+
+- Implemented editor.open/apply/protect/recovery in the shared inferred catalogue,
+  sole PageOperations and queued SpaceService; trusted peer/page/context grants.
+- Added portable EditorSession and an explicit actual PM/Y EditorView composition:
+  context-owned history, view-owned selection, remount, missed-hint reconciliation,
+  exact pending requests, newer-typing preservation and explicit epoch boundaries.
+- SQLite schema2 retains immutable draft roots and pending exact requests, separate
+  from canonical heads, with peer-bound durable outcomes. Old temp schema1 refuses;
+  no automatic migration, release/retention/GC or real-vault admission.
+- 23 new actual-view/jsdom cases +21 existing runtime tests pass. Strict TypeScript
+  and84 old Node regressions pass. Four new process-death trials and real CLI/MCP
+  processes exercise the same running Core as the mounted view.
+- Fixed discovered integration defects before qualification: missing DOM serialization/
+  constructor dispatch target; unknown XML silently dropped by conversion; trailing
+  bytes accepted; ID normalization in an appended transaction broke history. IDs now
+  join the original user transaction; strict raw admission precedes projection.
+- DOM tests disable scroll geometry and fail on any uncaught event; no native/browser/
+  geometry/IME/window-close/macOS durability pass is claimed. Prior manual/evidence
+  unchanged. Next I1b media API, then targeted supported native/browser route.
+- User confirms25 applied.26 changes private workspace/foundation docs and direct
+  test-dependency metadata for already-locked jsdom; no new external versions or
+  apps/app/main changes, generated files, agent commit/push or manual replay.
+
 ## 0.49 — 2026-11-15
 
 - Adopted F009 for disposable I1 only; concrete module/command/port contract before code.

@@ -165,7 +165,7 @@ format/native/discovery/grants/flush/budgets/migration and full production accep
 Read START-HERE/implementation-entry/r08-page-closure for exact next steps. All old
 manual passes/evidence/PK/JG/budgets retained; no main/production/agent commit/push.
 
-## Current checkpoint — revision0.49 / implementation25
+## Historical checkpoint — revision0.49 / implementation25
 
 User confirms24 applied and authorizes proceed after Core/desktop clarifications.
 F009 is accepted for disposable I1 only. Read START-HERE and i1/result.md. I1a has
@@ -182,3 +182,25 @@ all raw controls/evidence and real-vault G-Q gates. No main/commit/push/manual r
 The two browser-dependent legacy suites attempted25 are BLOCKED after DO01/NP01–03:
 missing Playwright executable. Do not report them as full passes or install/bypass.
 Package25 requires exact24; stage explicit new package/root paths along with docs.
+
+## Current checkpoint — revision0.50 / editor implementation26
+
+User confirms25 applied and authorizes proceed. START-HERE is the single current
+handoff; read i1/editor-result.md and editor-contract.md. Real runtime EditorSession
+plus editor.open/apply/protect/recovery now use the same PageOperations/SpaceService.
+23 actual EditorView/jsdom cases and21 existing runtime tests pass; strict TS and
+84 old Node checks pass. DOM tests fail on uncaught events and explicitly disable
+scroll geometry. They are NOT browser/native/IME/window-close/flush acceptance.
+The actual PM/Y adapter lives in explicit dev composition; runtime imports no proofs.
+Known-base/latest validation refuses unknown XML, trailing bytes, incomplete Y
+updates and non-body changes; paragraph IDs are assigned in the original user tr.
+SQLite schema2 adds actor-bound receipts and immutable protected roots/pending exact
+commands without changing canonical heads. Refuse old temp schema1; no auto migration.
+Context history outlives view destruction; epoch/recovery resets are explicit.
+Protected snapshots remain retained; no automatic release/GC/full grant lifecycle.
+Next is I1b media API integration, then supported targeted browser/native changed-
+route qualification. I1/G-Q remain open. Do not rerun broad research/old manual
+sessions, touch main/apps/app/user vaults or stage generated output/node_modules.
+Bundle26 base is exact25; no agent commit/push. Stage docs/foundation,
+packages/foundation-runtime and package-lock.json only. Track raw attempts and all
+prior evidence; first expanded failures and their corrections are retained in26.

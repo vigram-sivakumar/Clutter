@@ -1,0 +1,23 @@
+{
+  "date": "2026-11-16",
+  "commands": [
+    {
+      "cwd": "repo root",
+      "command": "npm run foundation:test",
+      "result": "44 pass;0 fail;23 actual-view/context +21 prior I1a"
+    },
+    {
+      "cwd": "repo root",
+      "command": "npm run foundation:typecheck",
+      "result": "exit0; strict TypeScript5.9.3; native TS source, no emit"
+    },
+    {
+      "cwd": "docs/foundation/experiments/r07-two-view",
+      "command": "npm test",
+      "result": "84 pass;0 fail"
+    }
+  ],
+  "domPolicy": "Actual EditorViews in jsdom29.1.1; scroll handler explicitly bypasses geometry, every uncaught jsdom event fails. No browser/native claim.",
+  "dependencies": "Normal root/npm and existing frozen nested PM/Y lock. Local already-installed modules used via ignored development links; no node_modules delivered.",
+  "sourceProfile": "Node24.22.1/Linux x64; SQLite schema2 disposable only"
+}

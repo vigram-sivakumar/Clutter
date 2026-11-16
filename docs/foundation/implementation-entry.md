@@ -1,8 +1,8 @@
 # When implementation begins
 
-Revision0.49, 2026-11-15. **I1 implementation has begun with disposable Spaces.**
-[I1a](i1/result.md) implements real private Core/API modules; actual per-page editor
-binding and media integration are I1b. I1 is incomplete; user-vault migration has not started.
+Revision0.50, 2026-11-16. **I1 implementation has begun with disposable Spaces.**
+[I1a](i1/result.md) implements real private Core/API modules; [editor26](i1/editor-result.md) now qualifies actual per-page view/context/protection
+in a DOM composition. I1b media and supported browser/native integration remain. I1 is incomplete; user-vault migration has not started.
 
 [F009](adr/F009-scoped-core-implementation-entry.md) is adopted for the I1 boundary
 below, following the user's “proceed”; [the contract](i1/contract.md) preceded code. This is not another broad candidate
@@ -71,10 +71,10 @@ and full release coverage before shipping. Task pages/covers/embeds, templates,
 calendar/reminders, recurrence and collections are not removed because I1 is small.
 Cloud/provider enablement and live collaboration remain separate later gates.
 
-## Exact next action — I1b
+## Exact next action — I1b media
 
 The scoped entry and I1a modules/catalogue/ports are complete; do not repeat that
-review. Continue actual per-page editor/context/protection and immutable-media API
-integration as described in [the I1a result](i1/result.md) and START-HERE. Keep
+review. Continue immutable-media API integration and targeted supported browser/native
+qualification as described in [editor26](i1/editor-result.md) and START-HERE. Keep
 real-vault G-Q blocking. User confirms ownership requirements in
 [runtime ownership](runtime-ownership.md).

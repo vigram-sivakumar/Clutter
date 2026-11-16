@@ -1,5 +1,7 @@
 # I1a result — implementation25
 
+Historical checkpoint. Current editor integration: [implementation26](editor-result.md).
+
 Revision0.49, 2026-11-15. **I1 implementation has begun. I1a passes; I1 remains
 partial.** F009 authorizes disposable data only. Product package:
 packages/foundation-runtime. Existing app/main/user vaults are untouched.

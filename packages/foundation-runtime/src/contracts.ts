@@ -183,7 +183,38 @@ const patch = object({
   body: optional(body),
   properties: optional(properties),
 });
+const head = text(64, '^[a-f0-9]{64}$');
+const binary = text(
+  700000,
+  '^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$'
+);
+const editorBase = { ...base, pageId: id, contextId: id };
+const editorApply = object({
+  ...editorBase,
+  method: literal('editor.apply'),
+  operationId: id,
+  grant: id,
+  baseHead: head,
+  update: binary,
+  generation: sequence,
+});
 export const catalogue = {
+  'editor.open': object({ ...editorBase, method: literal('editor.open') }),
+  'editor.apply': editorApply,
+  'editor.protect': object({
+    ...editorBase,
+    method: literal('editor.protect'),
+    operationId: id,
+    grant: id,
+    baseHead: head,
+    update: binary,
+    generation: sequence,
+    pending: optional(editorApply),
+  }),
+  'editor.recovery': object({
+    ...editorBase,
+    method: literal('editor.recovery'),
+  }),
   'page.create': object({
     ...base,
     method: literal('page.create'),
@@ -210,7 +241,9 @@ export const catalogue = {
   }),
 } as const;
 export type Command = Infer<(typeof catalogue)[keyof typeof catalogue]>;
-export type Mutation = Exclude<Command, { method: 'page.read' }>;
+export type Mutation = Extract<Command, { operationId: string }>;
+export type EditorApply = Extract<Command, { method: 'editor.apply' }>;
+export type EditorProtect = Extract<Command, { method: 'editor.protect' }>;
 export type PageContent = Pick<
   Extract<Command, { method: 'page.create' }>,
   'title' | 'body' | 'properties'
@@ -222,14 +255,46 @@ export type PageSnapshot = PageContent & {
   head: string;
   sequence: number;
 };
+export type EditorCheckout = {
+  pageId: string;
+  kind: PageKind;
+  head: string;
+  sequence: number;
+  contextId: string;
+  grant: string;
+  epoch: string;
+  payload: string;
+  generationFloor: number;
+};
+export type ProtectedDraft = {
+  pageId: string;
+  kind: PageKind;
+  head: string;
+  sequence: number;
+  contextId: string;
+  generation: number;
+  baseHead: string;
+  payload: string;
+  pending?: EditorApply;
+};
+export type ResultFor<C extends Command> = C extends { method: 'page.read' }
+  ? PageSnapshot
+  : C extends { method: 'editor.open' }
+    ? EditorCheckout
+    : C extends { method: 'editor.recovery' }
+      ? ProtectedDraft
+      : Receipt;
 export type Receipt = {
+  protection?: { contextId: string; generation: number; baseHead: string };
   changedHeads: Record<string, string>;
   operationId: string;
   pageId: string;
   head: string;
   sequence: number;
 };
-export type Reply<T = PageSnapshot | Receipt> =
+export type Reply<
+  T = PageSnapshot | Receipt | EditorCheckout | ProtectedDraft,
+> =
   | { ok: true; value: T }
   | { ok: false; error: { code: string; operationId?: string } };
 export function parseCommand(value: unknown): Command {
@@ -253,4 +318,17 @@ export function stable(value: unknown): string {
       .join(',') +
     '}'
   );
+}
+
+/** Binary codec shared by transport/engine adapters; no Buffer or OS import. */
+export function toBase64(bytes: Uint8Array): string {
+  let s = '';
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s);
+}
+export function fromBase64(value: string): Uint8Array {
+  binary.parse(value);
+  const bytes = Uint8Array.from(atob(value), (c) => c.charCodeAt(0));
+  if (toBase64(bytes) !== value) throw new Fault('INVALID_BINARY');
+  return bytes;
 }
