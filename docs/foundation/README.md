@@ -195,3 +195,13 @@ Revision0.43 addresses a user-observed reload/bootstrap failure. First use
 native:joined:reopen for the SAME saved session; do not run a fresh builder until
 recovery is checked.10 helper +10 joined Linux cases pass; user data/Mac results
 remain unverified. Read START-HERE for the recovery-first handoff.
+
+## Compiler follow-up29 — 2026-11-16
+
+User applied/committed28 (e2613ec2), but Mac Swift compilation failed at
+Main.swift:107: callAsyncJavaScript requires `in:in:`. Fix29 corrects the label
+and adapts the completion closure. No Ready/NC28 manual pass is recorded.
+Apply29, rerun `npm run native:core28`, and report Ready or compiler output first.
+Do not use --new/reset for this failure; no valid28 session was created yet.
+Prior77 runtime/TS/regression evidence remains historical, not a Mac compile pass.
+Current instructions: START-HERE.md. No main/production/runtime owner changes.

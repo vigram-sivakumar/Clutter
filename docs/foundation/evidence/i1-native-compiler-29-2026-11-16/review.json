@@ -1,0 +1,13 @@
+{
+  "delivery": 29,
+  "date": "2026-11-16",
+  "baseContentTree": "9678f08afb511c71e6816a82f6c510bcb571d282",
+  "userConfirmedCommit": "e2613ec2",
+  "observation": "Mac compile failed before Ready at Main.swift:107; expected _:arguments:in:in:completionHandler:",
+  "fix": "Use in: .page Swift label and inferred completion adapter",
+  "nativeCompile": "not-run after fix (Linux environment)",
+  "nativeManual": "not-run; previous premature NC28-01 guidance superseded",
+  "previousAutomatedEvidence": "77 runtime + strict TS + legacy media12/page10/entity14/Node84; not rerun for this label-only bridge correction",
+  "next": "Apply29; npm run native:core28; first Ready/compiler outcome",
+  "scope": "docs/foundation only; no owner/business logic, main, app, dependency, lock, session or vault changes"
+}

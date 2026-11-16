@@ -327,3 +327,13 @@ Revision0.43 pauses JN-01 for actual reload failure.19 provides same-session
 recovery plus future native document-start bootstrap/protected reload.10 helper
 and10 joined Linux cases pass; next verify user's saved/protected data using the
 original session, not a new Space. New Swift/Mac reload gate remains open.
+
+## Compiler follow-up29 — 2026-11-16
+
+User applied/committed28 (e2613ec2), but Mac Swift compilation failed at
+Main.swift:107: callAsyncJavaScript requires `in:in:`. Fix29 corrects the label
+and adapts the completion closure. No Ready/NC28 manual pass is recorded.
+Apply29, rerun `npm run native:core28`, and report Ready or compiler output first.
+Do not use --new/reset for this failure; no valid28 session was created yet.
+Prior77 runtime/TS/regression evidence remains historical, not a Mac compile pass.
+Current instructions: START-HERE.md. No main/production/runtime owner changes.

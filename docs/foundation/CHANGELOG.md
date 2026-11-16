@@ -3,6 +3,18 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.53 — 2026-11-16
+
+- User applied/committed28 as e2613ec2. Mac compilation stopped at Main.swift:107:
+  WebKit's Swift signature uses `in:in:`, not `in:contentWorld:`. No Ready or
+  NC28 manual pass occurred. Earlier instructions to run NC28-01 were premature.
+- Fixed the argument label; the small completion adapter lets WebKit infer its
+  callback closure attributes instead of converting the stored callback directly.
+- Patch29 changes only native bridge source and progress/evidence docs. Existing77
+  automated runtime passes remain historical; no fresh Mac compile inferred.
+- Next: apply29 and rerun npm run native:core28 (failed28 created no valid session
+  locator). Stop at Ready/compiler output before running NC28-01. No --new/reset.
+
 ## 0.52 — 2026-11-16
 
 - Prepared a NEW Core macOS WKWebView/PDFKit qualification host and pinned-runtime

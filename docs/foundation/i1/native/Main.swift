@@ -104,7 +104,7 @@ final class Core28Lab: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavi
             } catch { self.record(error.localizedDescription) }
         }
     }
-    func js(_ code: String, completion: @escaping (Result<Any,Error>) -> Void) { web.callAsyncJavaScript(code,arguments:[:],in:nil,contentWorld:.page,completionHandler:completion) }
+    func js(_ code: String, completion: @escaping (Result<Any,Error>) -> Void) { web.callAsyncJavaScript(code,arguments:[:],in:nil,in:.page,completionHandler: { result in completion(result) }) }
     func guarded(onRefused: (() -> Void)? = nil, _ action: @escaping () -> Void) {
         if guarding { onRefused?(); return }; if !ready { onRefused?(); return }
         guarding = true; status.stringValue = "Saving or protecting pending work…"

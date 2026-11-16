@@ -46,3 +46,13 @@ for a new synthetic run; earlier locators/old sessions stay archived/intact. The
 terminal prints an exact app-closed CLI read and stop command. Native Show report
 reveals the sanitized manual report. Never ask for private endpoint/bootstrap files.
 No agent commit/push, main/app/user-vault changes or full I1/G-Q acceptance.
+
+## Compiler follow-up29 — 2026-11-16
+
+User applied/committed28 (e2613ec2), but Mac Swift compilation failed at
+Main.swift:107: callAsyncJavaScript requires `in:in:`. Fix29 corrects the label
+and adapts the completion closure. No Ready/NC28 manual pass is recorded.
+Apply29, rerun `npm run native:core28`, and report Ready or compiler output first.
+Do not use --new/reset for this failure; no valid28 session was created yet.
+Prior77 runtime/TS/regression evidence remains historical, not a Mac compile pass.
+Current instructions: START-HERE.md. No main/production/runtime owner changes.

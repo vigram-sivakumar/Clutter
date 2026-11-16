@@ -374,3 +374,13 @@ NC28-01…04 manual observations, PDFKit/image/close/native inputs NOT RUN. User
 Use native:core28:reopen for SAME session; do not run --new for recovery. Native UI
 Show report reveals sanitized attempts; do not request endpoint/bootstrap files.
 Old joined/native/manual passes stay historical, not passes of this changed route.
+
+## Compiler follow-up29 — 2026-11-16
+
+User applied/committed28 (e2613ec2), but Mac Swift compilation failed at
+Main.swift:107: callAsyncJavaScript requires `in:in:`. Fix29 corrects the label
+and adapts the completion closure. No Ready/NC28 manual pass is recorded.
+Apply29, rerun `npm run native:core28`, and report Ready or compiler output first.
+Do not use --new/reset for this failure; no valid28 session was created yet.
+Prior77 runtime/TS/regression evidence remains historical, not a Mac compile pass.
+Current instructions: START-HERE.md. No main/production/runtime owner changes.

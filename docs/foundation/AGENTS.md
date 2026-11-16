@@ -248,3 +248,13 @@ Empty notes now follow note schema and remain saveable. General UI/decoder/secur
 conflict/retention/grants/discovery/native power-loss/D11/migration gates remain open.
 No agent commit/push.28 base is exact27; stage docs/foundation, packages/foundation-
 runtime and package.json only. Do not infer28 applied/compiled until user reports it.
+
+## Compiler follow-up29 — 2026-11-16
+
+User applied/committed28 (e2613ec2), but Mac Swift compilation failed at
+Main.swift:107: callAsyncJavaScript requires `in:in:`. Fix29 corrects the label
+and adapts the completion closure. No Ready/NC28 manual pass is recorded.
+Apply29, rerun `npm run native:core28`, and report Ready or compiler output first.
+Do not use --new/reset for this failure; no valid28 session was created yet.
+Prior77 runtime/TS/regression evidence remains historical, not a Mac compile pass.
+Current instructions: START-HERE.md. No main/production/runtime owner changes.

@@ -1,6 +1,6 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-16. Documentation revision: 0.52, native build28 prepared.
+Last updated: 2026-11-16. Documentation revision: 0.53, native compiler fix29 prepared.
 Read [AGENTS](AGENTS.md), this checkpoint and [README](README.md) first.
 
 ## Current position
@@ -28,13 +28,14 @@ This current checkpoint supersedes earlier next-action text in historical record
 | I1b editor26 |23 additional actual EditorView/context tests pass in jsdom; shared update/protection/recovery API, peer-bound grants, exact pending requests;44 total runtime tests + strict TypeScript; no fresh native/browser qualification |
 | I1b media27 |19 additional media/editor cases pass (63 runtime total),11 publication/SQL process-death trials; prior media12/page10/entity14/Node84 and strict TS pass |
 | Native build28 |Browser-safe bundle + NEW Core host + durable media ingress + Mac WK/PDFKit host prepared;77 automated cases/TS and legacy regressions pass; Mac compilation/manual cases NOT RUN |
-| Next | User applies28, runs npm run native:core28 on Mac and reports Ready/compiler outcome before NC28-01 |
+| Native compiler29 | User committed28 as e2613ec2; Mac compile failed at WebKit argument label. Fix29 prepared; no Ready/manual pass |
+| Next | User applies29, reruns npm run native:core28; first report Ready/compiler outcome before NC28-01 |
 
 ## Branch and delivery state
 
-Stay on architecture/clutter-foundation. User confirms27 applied;28 is incremental
-over exact27 content tree aed9937166eac33b7b50e2d7fa1a4fb543137a0f. Do not infer28
-applied/committed/compiled until reported. No agent commit/push, main/apps/app/user-
+Stay on architecture/clutter-foundation. User confirms28 applied/committed as e2613ec2. Patch29 is incremental
+over exact28 content tree 9678f08afb511c71e6816a82f6c510bcb571d282. Mac compile
+failed before Ready; do not infer29 applied/compiled or any NC28 manual pass. No agent commit/push, main/apps/app/user-
 vault changes. Local HEAD is stale; use files/content trees. Source changes are
 foundation docs, private runtime and three root npm scripts only; no lock/dependency
 changes. Generated bundles/cache/reports use Git's internal clutter-native28 path,
@@ -45,15 +46,17 @@ reset, generated bundle/runtime/cache/artifacts or test-store staging. Shared so
 planners and SQL transaction engine are reused; new page adapter is not another
 policy implementation. Old aggregate/native profiles remain comparison controls.
 
-## Exact next work — actual Mac build/launch result
+## Exact next work — compiler fix29 and actual Mac build/launch result
 
 1. Read [native28 result](i1/native-result.md), [runner README](i1/native/README.md),
    [single native contract](i1/native-contract.json) and F009. NEW Core composition,
    browser-safe replica and durable media ingress are implemented. Do not restart
    architecture research, redo I1a/editor/media API, or rebuild the OLD joined Store.
-2. User applies28/commits explicit source paths, then runs `npm run native:core28`
+2. User applies29/commits docs/foundation only, then reruns `npm run native:core28`
    at repo root on macOS14+/Xcode tools, Node24.22.1+ and existing locked dependencies.
-   First get **Ready or actual compiler/setup error**. Linux helpers are not Mac
+   The failed28 build created no valid latest-session locator; rerun normally, no
+   --new/reset/reopen needed for this compiler failure. First get **Ready or actual
+   compiler/setup error**. Linux helpers are not Mac
    compilation, image/PDF display, native close/key chords or durability acceptance.
 3. Once Ready is confirmed, guide only NC28-01 (two views, context undo/remount).
    Next cases are NC28-02 native image/cover/PDF, NC28-03 journal/close failure, and
