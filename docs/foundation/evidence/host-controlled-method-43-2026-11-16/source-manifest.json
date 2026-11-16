@@ -1,0 +1,8 @@
+{
+  "runtime-qualification/controlled43/README.md": "e1b867c31b698babde1f99a8ae61a4fa6d092047e5e57a0dffad2b03564f45a4",
+  "runtime-qualification/controlled43/contract.json": "5ad54fb13aeecf4874626dd43d66003552e0bd050a67269fc3801110fab48bbf",
+  "runtime-qualification/controlled43/model.mjs": "b0eca859a34479e9ae563ee69edba95e0786c4fd7972bf273bfbc5c3f382f0dd",
+  "runtime-qualification/controlled43/run.mjs": "d89a9110b52c4a0c7ce7cc5d4fd55ab4e21a2198dad27411003dc97919ed7200",
+  "runtime-qualification/controlled43/support.test.mjs": "4c56934c4148da6e84e6b78bc88a8e7a92e901b03f8385c9a1e76aca9553f6ff",
+  "runtime-qualification/recovery40/trace-process.mjs": "e9130df1d4f0ab87ab506f1545d1291f4bb1bfd2cd798d2df8ca2c5c2d673a91"
+}

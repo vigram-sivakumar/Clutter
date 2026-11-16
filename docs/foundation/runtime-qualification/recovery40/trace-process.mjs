@@ -3,7 +3,14 @@ import { spawn } from 'node:child_process';
 export function traceProcess(
   executable,
   args,
-  { cwd, env, interruptMs = 12000, terminateMs = 27000, killMs = 30000 } = {}
+  {
+    cwd,
+    env,
+    interruptMs = 12000,
+    terminateMs = 27000,
+    killMs = 30000,
+    onStdout,
+  } = {}
 ) {
   if (!(interruptMs > 0 && terminateMs > interruptMs && killMs > terminateMs))
     throw Error('INVALID_TRACE_DEADLINES');
@@ -51,7 +58,16 @@ export function traceProcess(
         signal('SIGINT');
       }
     };
-    child.stdout.on('data', (x) => append('stdout', x));
+    child.stdout.on('data', (x) => {
+      append('stdout', x);
+      if (typeof onStdout === 'function') {
+        try {
+          onStdout(x.toString());
+        } catch {
+          result.observerFailed = true;
+        }
+      }
+    });
     child.stderr.on('data', (x) => append('stderr', x));
     child.once('error', (e) => {
       result.errorCode = e.code ?? 'SPAWN_ERROR';

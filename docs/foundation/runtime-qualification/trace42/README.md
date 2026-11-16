@@ -1,5 +1,10 @@
 # Existing trace table inspection42
 
+Current43: actual42 exports complete but idle data cannot establish input/producer/
+presentation linkage. Do not rerun generic idle exports. Follow controlled43 trial
+and remaining-gates audit; original tables remain preserved.
+
+
 User41 commit41968700: executable alias correction works, all process samples read,
 trace gracefully finalizes and exports. Real TOC has79 tables/51 distinct schemas.
 The earlier parser expected schema/name elements; actual TOC uses table/schema.

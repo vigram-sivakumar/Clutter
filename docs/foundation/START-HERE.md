@@ -1,6 +1,32 @@
 # Resume Clutter foundation work
 
-## Current checkpoint — existing trace table export42, 2026-11-16
+## Current checkpoint — controlled input method trial43, 2026-11-16
+
+User42 commit03c4256d: exports succeed, process-info1101 rows, frame lifetimes9,
+displayed surfaces7. Process roster has no parent/responsible/coalition columns;
+frame rows have no identified producer PID. Display summary mentions36534 (not
+established as Clutter renderer); first3 sampled latency cells are sentinels. No
+latency or complete memory attribution can be inferred. Idle trace inspection stops.
+Raw42 terminal/result retained in evidence/host-controlled-method-43-2026-11-16.
+
+Read runtime-qualification/remaining-gates.md for honest remaining H01 work. Most
+full matched-host hard cases and HP workloads remain open despite useful Core/I1
+and basic host checks. Next apply43, reopen saved H-T with37 --reopen, then run
+controlled43/run.mjs for completed36/H-T. Wait for RECORDING STARTED, click View A
+text with caret/no selected range, type lowercase a, b, c about2s apart, leave UI
+open. This is one20s method trial, not a benchmark or replay of functional tests.
+
+Controller verifies existing app/GUI binding, records same native template with
+32/47/50s graceful CLI deadlines, and exports TOC. No event injection/listener, new
+OS permissions, raw key logger, app source/Core/Space write path or native rebuild.
+Typing uses the actual shared editor/Core like normal synthetic fixture edits.
+Report never confirms input/presentation correlation just from recording success.
+36 Linux tests pass (6 new+30 regressions); actual Mac43 recording pending. One
+method trial per candidate: if linkage is missing, record exact H11 blocker rather
+than more idle captures. No host winner, gate waiver or scope/migration change.
+
+
+## Previous checkpoint — existing trace table export42 (superseded above), 2026-11-16
 
 User41 commit41968700/capture2026-11-16T12-25-47-726Z-be47befa: all3 snapshots
 have0 unavailable processes, stable membership, aliases accepted. Trace finishes
@@ -150,7 +176,7 @@ no-legacy-user/data-migration scope remains in force. Filename preference: space
 in quoted downloaded-file paths in Bash. No status-only delivery needed.
 
 
-Last updated: 2026-11-16. Documentation revision: 0.66, successful capture; existing trace table export42.
+Last updated: 2026-11-16. Documentation revision: 0.67, remaining-gate audit and controlled input trial43.
 Read [AGENTS](AGENTS.md), this checkpoint and [README](README.md) first.
 
 ## User scope correction — greenfield, no existing-user/data migration
@@ -223,7 +249,8 @@ This current checkpoint supersedes earlier next-action text in historical record
 | Actual39 | Mac probe pass;16 unavailable WebKit processes, trace finalization timeout and export10; metrics blocked |
 | Actual40 | All16 mismatches confirmed same-file/canonical-path aliases by user; native read failures0 |
 | Actual41 |0 unavailable, trace graceful exit0/export success;79 tables/51 schema names confirmed; parser corrected42 |
-| Next | Apply42 and export3 existing trace tables; no recording or open UI required |
+| Actual42 | Exports1101 process/9 frame/7 surface rows; no established input/renderer/presentation join |
+| Next | Apply43, reopen saved H-T; one controlled20s/three-key method trial, gate audit linked |
 
 ## Branch and delivery state
 
@@ -322,5 +349,5 @@ restart product discovery, replay native tests, enable provider sync or change
 production based on these proofs. Keep ADRs Proposed until an explicit decision.
 Update this checkpoint, roadmap and changelog together at meaningful handoffs.
 
-New agent: continue the current existing-trace export42 action at the top of this checkpoint;
+New agent: continue the current bounded controlled method43 action at the top of this checkpoint;
 inspect current Git state rather than assuming local paths or patch application.

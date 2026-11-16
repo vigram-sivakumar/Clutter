@@ -1,6 +1,32 @@
 # Clutter foundation
 
-## Current checkpoint — existing trace table export42, 2026-11-16
+## Current checkpoint — controlled input method trial43, 2026-11-16
+
+User42 commit03c4256d: exports succeed, process-info1101 rows, frame lifetimes9,
+displayed surfaces7. Process roster has no parent/responsible/coalition columns;
+frame rows have no identified producer PID. Display summary mentions36534 (not
+established as Clutter renderer); first3 sampled latency cells are sentinels. No
+latency or complete memory attribution can be inferred. Idle trace inspection stops.
+Raw42 terminal/result retained in evidence/host-controlled-method-43-2026-11-16.
+
+Read runtime-qualification/remaining-gates.md for honest remaining H01 work. Most
+full matched-host hard cases and HP workloads remain open despite useful Core/I1
+and basic host checks. Next apply43, reopen saved H-T with37 --reopen, then run
+controlled43/run.mjs for completed36/H-T. Wait for RECORDING STARTED, click View A
+text with caret/no selected range, type lowercase a, b, c about2s apart, leave UI
+open. This is one20s method trial, not a benchmark or replay of functional tests.
+
+Controller verifies existing app/GUI binding, records same native template with
+32/47/50s graceful CLI deadlines, and exports TOC. No event injection/listener, new
+OS permissions, raw key logger, app source/Core/Space write path or native rebuild.
+Typing uses the actual shared editor/Core like normal synthetic fixture edits.
+Report never confirms input/presentation correlation just from recording success.
+36 Linux tests pass (6 new+30 regressions); actual Mac43 recording pending. One
+method trial per candidate: if linkage is missing, record exact H11 blocker rather
+than more idle captures. No host winner, gate waiver or scope/migration change.
+
+
+## Previous checkpoint — existing trace table export42 (superseded above), 2026-11-16
 
 User41 commit41968700/capture2026-11-16T12-25-47-726Z-be47befa: all3 snapshots
 have0 unavailable processes, stable membership, aliases accepted. Trace finishes
@@ -141,7 +167,7 @@ in both views. Do not repeat NC28 tests or launch other candidates yet.
 P-37 greenfield scope is included: no legacy-user/data migration work.
 
 
-Status: architecture definition pack, revision 0.66, 2026-11-16. Product scope
+Status: architecture definition pack, revision 0.67, 2026-11-16. Product scope
 confirmed; the production technology baseline remains unaccepted.
 Baseline: `main` at `cae604273115c0c6c0d3ac34533b1e9834e9c778`.
 Working branch: `architecture/clutter-foundation`.

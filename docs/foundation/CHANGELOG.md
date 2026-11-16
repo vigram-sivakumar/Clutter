@@ -3,6 +3,20 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.67 — 2026-11-16
+
+- Preserve actual42 terminal/table summaries. Exports work, but process roster lacks
+  ownership links, frame ownership unresolved, sampled latency cells unavailable.
+- Add honest remaining-H01 gate audit; several substantial host qualification steps
+  remain. No helper-test-count percentage or imminent-decision promise.
+- Prepare one bounded controlled native recording around three operator keystrokes
+  in existing synthetic editor; shared trace child gains live readiness observer.
+  No injection/global key listener/permission change/app or semantic Core code.
+-36 Linux tests pass (6 new+30 regressions); actual Mac43 recording/input-to-display
+  correlation still pending. Recording success never becomes latency acceptance.
+- Current next action and one-trial failure disposition fixed; no further generic
+  idle trace fishing, old manual-suite replay, gate relaxation or host winner.
+
 ## 0.66 — 2026-11-16
 
 - Preserve actual41 raw terminal:3 complete counter snapshots, graceful SIGINT trace
