@@ -1,6 +1,6 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-16. Documentation revision: 0.55, scoped I1 completion checkpoint31.
+Last updated: 2026-11-16. Documentation revision: 0.56, H01 host/runtime contract32 prepared.
 Read [AGENTS](AGENTS.md), this checkpoint and [README](README.md) first.
 
 ## Current position
@@ -34,13 +34,14 @@ This current checkpoint supersedes earlier next-action text in historical record
 | Native media protection | NC28-03 user-reported PASS: unsafe close refused, journal-protected close/reopen retained request, retry saved it |
 | Native text protection | NC28-04 all guided stages user-confirmed; supplied app-closed CLI JSON returns PROTECTED, sequence38 |
 | I1 scoped milestone | Complete for tested disposable profile; raw native reports not audited; production G-Q remains open |
-| Next | Apply checkpoint31, then prepare bounded production host/runtime qualification contract + D11 measurement inputs |
+| H01 contract32 | Candidate configurations,12 hard cases,Space-size recipes and trial targets prepared; all host comparisons not-run |
+| Next | Apply32; run safe host-inventory command on Mac and supply JSON; then bind host/version/instrument manifest before builds/timing |
 
 ## Branch and delivery state
 
 Stay on architecture/clutter-foundation. User confirms28 committed as e2613ec2, then29 applied and native window works
-(screenshot Ready). User confirms30 applied/tested; checkpoint31 is incremental over exact30 tree
-b1f462e0222998e82f2122bbcb5815dab88735fe. Mac launch now user-confirmed; full
+(screenshot Ready). User confirms31 applied. Contract32 is incremental over exact31 tree
+e0e4a28b672f58b8a273b3f9c53e243c39f02af1. Mac launch now user-confirmed; full
 NC28-01 remount/toolbar issues are confirmed fixed by user after30; user-reported PASS,
 not a raw report audit. No agent commit/push, main/apps/app/user-
 vault changes. Local HEAD is stale; use files/content trees. Cumulative source changes are
@@ -53,29 +54,32 @@ reset, generated bundle/runtime/cache/artifacts or test-store staging. Shared so
 planners and SQL transaction engine are reused; new page adapter is not another
 policy implementation. Old aggregate/native profiles remain comparison controls.
 
-## Exact next work — production host/runtime qualification contract
+## Exact next work — H01 reference-host inventory, not another contract rewrite
 
-I1's scoped integration milestone is complete for the recorded disposable profile.
-Read [completion review](i1/completion-review.md) and
-[completion evidence](evidence/i1-native-completion-31-2026-11-16/review.json).
-NC28-01…04 pass by guided user report; supplied final CLI JSON reads PROTECTED at
-sequence38 after the window is closed. Raw native reports are not inspected. Do not
-repeat those tests, treat the forgotten Recover click as data loss, or infer a final
-shipping architecture from the fixture host. Fix30 is user-confirmed applied/tested.
+User confirms checkpoint31 applied. I1/NC28 remains complete within its recorded
+scope. [H01 contract](runtime-qualification/contract.json) and
+[guide](runtime-qualification/README.md) now fix candidate families/gates/recipes/
+trial targets. Existing qualification-budgets.json remains unchanged. No H01 candidate
+build, performance result, reference binding or shipping choice is inferred.
 
-1. User applies docs-only checkpoint31 over exact30 tree
-   b1f462e0222998e82f2122bbcb5815dab88735fe. No agent commit/push. Do not infer31
-   applied until confirmed. No build/native manual test required for documentation.
-2. Next substantive deliverable: bounded production host/runtime qualification
-   contract under existing G-Q. Fix comparable complete candidates, installed
-   lifecycle/discovery/auth/canonical Space/alias fencing, signing/distribution/update
-   and native file/SQL ports. Keep UI/CLI/MCP peers and the single TS semantic Core.
-3. Define D11 reference host/workloads/metrics/thresholds before measurements. Do
-   not start another launcher, copy a policy reducer, choose Rust as a second Core,
-   claim Swift/WK/pinned Node is the production choice, or reopen editor research.
-4. Real-vault format/retention/backup/migration/rollback and precise old-rule impact
-   remain blocking before cutover. Preserve repaired main, old sessions and reports;
-   generated runtime/cache/report outputs stay Git-internal, never source staging.
+1. User applies32 over exact31 tree e0e4a28b672f58b8a273b3f9c53e243c39f02af1 and
+   commits docs/foundation only.32 includes one read-only inventory helper, no runtime
+   installs/downloads/new app/Space and no product/old runtime code changes.
+2. Run `node docs/foundation/runtime-qualification/host-inventory.mjs` on user Mac
+   and obtain its safe JSON. No usernames/hostname/serial/tokens/endpoint/vault access.
+   It archives Git-internal facts and refuses another branch. Linux inventory/checks
+   are not Mac results. Do not ask for NC28 manual replay or use --new.
+3. Next33 binds actual host, exact candidate/toolchain/runtime/archive/version/hash
+   pins and feasible physical-footprint/presentation instruments. Missing display/
+   power/volume/instrument metadata remains explicitly unresolved; inventory alone
+   does not approve a host or permit normative timing.
+4. Matched candidates: H-T Tauri2 + separate common Node owner; H-E Electron + same
+   owner (count embedded+extra runtime); H-S Swift/WK control. Single TS semantic
+   Core/PM/Y/SQLite path stays fixed. Rust/Swift are mechanism ports, no reducers.
+5. Build34 → compare35 → scoped ADR36, or explicit failed/blocked gate. No open-ended
+   editor/framework research or moving thresholds after results. Full mixed-product
+   W workloads and real-vault G-Q remain separately blocking; paragraph host profiles
+   do not claim those features or product performance. Preserve old sessions/main.
 
 ## Proof24 facts and limits
 

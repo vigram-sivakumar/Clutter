@@ -1,6 +1,6 @@
 # Clutter foundation
 
-Status: architecture definition pack, revision 0.55, 2026-11-16. Product scope
+Status: architecture definition pack, revision 0.56, 2026-11-16. Product scope
 confirmed; the production technology baseline remains unaccepted.
 Baseline: `main` at `cae604273115c0c6c0d3ac34533b1e9834e9c778`.
 Working branch: `architecture/clutter-foundation`.
@@ -25,7 +25,8 @@ API/history/cover/editor compatibility. [Native build28–30](i1/native-result.m
 strict TS/84 old regressions, and guided NC28-01…04 user-reported Mac passes.
 Supplied app-closed CLI output confirms PROTECTED at sequence38. Raw native reports
 are not audited. [Scoped I1 completion](i1/completion-review.md) is recorded;
-next is the bounded production host/runtime qualification contract and D11 inputs.
+[H01 host/runtime contract](runtime-qualification/README.md) is now prepared; next
+is safe Mac host inventory, then pinned manifests before candidate builds/timing.
 [One running Space service](runtime-ownership.md) explains the shared owner.
 No manual replay, accepted production baseline or native-host selection.
 The production combination remains proposed; I1a is working private implementation,

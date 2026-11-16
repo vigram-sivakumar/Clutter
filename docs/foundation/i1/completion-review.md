@@ -39,3 +39,12 @@ Before real data, final schema/codec/retention/history/pins/backups/export/migra
 rollback and current-rule/ADR impact still need their established gates. Broader task
 page, properties, templates, calendar/recurrence, full editor/accessibility and provider
 features retain their product contracts; none are removed by this slice's small UI.
+
+## H01 contract32 checkpoint — 2026-11-16
+
+User confirms31 applied. Host/runtime contract is now in runtime-qualification/
+contract.json and README.md (relative foundation root). Do not rewrite it or replay
+NC28. Next safe host inventory JSON from user Mac, then bind candidate/version/host/
+instruments before builds/timing. All H01 comparisons not-run. Single TS Core and
+common independent Node owner; Tauri/Electron shortlist, Swift/WK control.32 does not
+select shipping runtime or waive real-data/full-workload gates. START-HERE is current.

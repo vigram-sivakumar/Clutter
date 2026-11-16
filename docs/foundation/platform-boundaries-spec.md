@@ -9,6 +9,14 @@ Core application service, not an additional policy implementation. UI/CLI/MCP ar
 peers over its API. Current [page proof](r08-page-closure.md) and [I1 entry](implementation-entry.md)
 separate bounded evidence from production platform acceptance.
 
+## Current qualification route — revision0.56
+
+[H01](runtime-qualification/contract.json) fixes the host/runtime comparison while
+preserving these ownership/platform requirements. It does not infer that framework
+sidecar APIs satisfy independent owner lifetime or that a system webview eliminates
+headless runtime costs. First gather actual Mac host inventory; no measurement or
+shipping choice has run. I1 fixture evidence is not production IPC/auth/alias proof.
+
 ## Selection principles
 
 The user explicitly permits replacing 100% of the current implementation.

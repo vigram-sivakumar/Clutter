@@ -1,20 +1,23 @@
 # Foundation roadmap
 
-Revision 0.55, 2026-11-16. This roadmap describes work and dependencies; the current
+Revision 0.56, 2026-11-16. This roadmap describes work and dependencies; the current
 checkpoint/authorization is in [START-HERE](START-HERE.md). Product scope is in
 product-contracts.md, not independently redefined here.
 
-## Current deliverable — scoped I1 completion checkpoint31
+## Current deliverable — H01 host/runtime qualification contract32
 
-[Completion review](i1/completion-review.md) maps I1 definition of done to evidence.
-80 runtime tests/strict TS/84 old regressions passed after30. NC28-01…04 pass by
-staged user report; app-closed CLI JSON supplied, PROTECTED at sequence38. Native
-raw reports not audited; no new tests in docs-only31. No more NC28 manual replay.
+[Normative contract](runtime-qualification/contract.json), [guide/inventory](runtime-qualification/README.md):
+Tauri/Electron shortlist + Swift/WK control with identical independent Node/Core;
+12 required cases,Space-size recipes and trial targets fixed before comparison.
+No built candidate, benchmark, actual Mac reference binding or shipping selection.
 
-NEXT: bounded production host/runtime qualification contract and D11 measurement
-inputs, before implementation/measurement of installed production route. Production
-G-Q, format/retention/migration/security/native flush and release gates remain open.
-No main/app/user-vault changes; see START-HERE for exact current delivery state.
+NEXT user applies32 and supplies safe host inventory JSON.33 binds exact host/
+versions/instruments →34 matched builds →35 controlled Mac comparison →36 scoped
+ADR or explicit blocked result. No further broad research or manual NC28 replay.
+Original budgets preserved; full mixed-product workloads/real-data G-Q stay blocking.
+
+Scoped I1 is complete per [review](i1/completion-review.md);80 prior automated cases,
+TS/84 regressions and guided NC28 passes are historical, not new H01 executions.
 
 ## Historical deliverable — I1b media implementation27
 

@@ -73,3 +73,12 @@ Preserve root architecture rules on platform isolation, composition and downward
 dependencies. Reconcile concrete Vault/facade ownership and ADR-073's registry vs
 document responsibilities in scoped successors; a per-user registry is not a
 per-Space document authority. See [review and impact map](../architecture-review.md).
+
+## H01 qualification contract — revision0.56
+
+I1 integration/native evidence is complete within its disposable scope (completion31).
+H01 now fixes candidate combinations/gates/recipes/trial targets. Single independent
+Node SpaceService first-round control for Tauri/Electron/Swift shells; all package/
+process costs counted. Optimized owner/runtime variants need a new candidate and
+lifetime/SQL evidence. No shell selected. Next safe host inventory then exact run
+manifests. This ADR remains Proposed for production; no existing rule superseded.

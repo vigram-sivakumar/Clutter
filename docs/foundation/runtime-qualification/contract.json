@@ -1,0 +1,276 @@
+{
+  "id": "H01",
+  "version": 1,
+  "delivery": 32,
+  "date": "2026-11-16",
+  "status": "Candidate families, invariants, cases, workload recipes and trial thresholds fixed before comparison; host binding/version pins/instrumentation pending. No candidate execution or benchmark approval inferred.",
+  "scope": "Select next implementation host/runtime within disposable-data boundary; production real-data G-Q remains separate",
+  "canonicalSources": {
+    "product": "../product-contracts.md",
+    "ownership": "../runtime-ownership.md",
+    "platform": "../platform-boundaries-spec.md",
+    "I1Evidence": "../i1/completion-review.md",
+    "existingBudgets": {
+      "path": "../qualification-budgets.json",
+      "sha256": "3fc42d918fc21cbffdabe38bfb4525679af46f4ffc4149afcb30e06320bcf4b9",
+      "use": "B-01\u202608 values remain defined only there; full W-TYPICAL/W-LARGE need richer schema, not approximated by H profiles"
+    }
+  },
+  "fixedShared": {
+    "core": "Same packages/foundation-runtime source hash, catalogue, PageOperations/SpaceService/EditorSession and Vault/engine ports; no forked policy or CLI subprocess for UI business commands",
+    "editor": "Same actual PM/Y browser bundle/schema/fixtures and context history binding",
+    "writer": "One detached/on-demand SpaceService per canonical Space; no window lifetime ownership or always-on daemon requirement",
+    "runtime": "Same separately packaged pinned Node owner in first controlled comparison; users install no Node/npm. Qualified I1 pin is an experiment input, not shipping security approval. Pin runtime+archive hashes before builds.",
+    "storage": "Same experimental SQLite binding/options/codec and immutable media paths per comparison; no real vaults, GC, format migration or altered flush semantics",
+    "registry": "Trusted per-user locator for Space identity/endpoint discovery only; owns no document state, transaction or task policy",
+    "inputs": "Same fonts, assets, build flags, viewport, UI code, dataset snapshot and operation trace",
+    "ports": "Host/OS mechanisms only: lifecycle, IPC identity, permissions, locks/flush, windows/focus, signing/update. Swift/Rust must not become another semantic engine"
+  },
+  "candidates": [
+    {
+      "id": "H-T",
+      "role": "shortlist",
+      "shell": "Tauri2 system webview",
+      "macNativeMechanisms": "Rust/macOS ports",
+      "owner": "common separately packaged Node SpaceService",
+      "windowsSeam": "Tauri host plus Windows platform-port implementations; no Windows pass inferred",
+      "status": "not-built"
+    },
+    {
+      "id": "H-E",
+      "role": "shortlist",
+      "shell": "Electron bundled renderer",
+      "macNativeMechanisms": "Electron/native platform ports",
+      "owner": "common separately packaged Node SpaceService; count Electron embedded Node and extra owner runtime in footprint",
+      "windowsSeam": "Electron host plus Windows platform-port implementations; no Windows pass inferred",
+      "status": "not-built"
+    },
+    {
+      "id": "H-S",
+      "role": "control and eligible fallback",
+      "shell": "Swift AppKit/WKWebView",
+      "macNativeMechanisms": "Swift/macOS ports",
+      "owner": "common separately packaged Node SpaceService",
+      "windowsSeam": "Document Windows shell adapter against same client/platform contracts; no source reorganization/shared-core rewrite required; actual Windows host later",
+      "status": "I1 fixture only; production H gates not-run"
+    }
+  ],
+  "candidateChangePolicy": "Electron utility-process/integrated owner, alternative JS runtime or other shell is a NEW complete candidate ID, with explicit app-closed lifetime/SQL API equivalence and fresh measurements. Do not transfer H-E results to an optimized variant or call the controlled baseline the best possible Electron size. No unbounded runtime rewrite in H01.",
+  "referenceHost": {
+    "id": "H-MAC-PRIMARY",
+    "binding": "pending safe inventory from user Mac; inventory is NOT benchmark",
+    "minimumReferenceClass": {
+      "os": "macOS14+",
+      "arch": "arm64",
+      "ramGiB": 16,
+      "storage": "local SSD; type/volume semantics separately confirmed"
+    },
+    "requiredManifestFields": [
+      "chip/model",
+      "actual RAM bytes",
+      "OS product/build",
+      "architecture/translation status",
+      "display refresh/resolution",
+      "power/low-power/thermal condition",
+      "filesystem/volume type and free capacity",
+      "font family/version/size",
+      "shell/webview/runtime/SQLite/compiler/SDK exact versions",
+      "signed bundle and source hashes",
+      "scenario/data hashes",
+      "process-discovery and presentation/footprint instrumentation"
+    ],
+    "preMeasurementRule": "Bind and record the actual host/versions/instrumentation before first timing. Other hardware is a separately labelled profile, not a silent reference substitution. Missing fields block normative benchmarks."
+  },
+  "spaceProfiles": [
+    {
+      "id": "HP-10",
+      "notes": 10,
+      "taskPages": 5,
+      "activeSpaces": 1,
+      "views": 2,
+      "windows": 1,
+      "activePageParagraphs": 20,
+      "asciiCharsPerParagraph": 80,
+      "unrelatedNoteParagraphs": 20,
+      "retainedVersionsPerPage": 10,
+      "media": [
+        "same tiny verified PNG",
+        "same verified synthetic PDF"
+      ],
+      "use": "Initial build/correctness/shell overhead; task pages independent, no task placements implied"
+    },
+    {
+      "id": "HP-1K",
+      "notes": 1000,
+      "taskPages": 100,
+      "activeSpaces": 1,
+      "views": 2,
+      "windows": 1,
+      "activePageParagraphs": 500,
+      "asciiCharsPerParagraph": 160,
+      "unrelatedNoteParagraphs": 20,
+      "retainedVersionsPerPage": 10,
+      "media": [
+        "same tiny verified PNG",
+        "same verified synthetic PDF"
+      ],
+      "use": "Page-count sensitivity; no table/native full-product workload claim"
+    },
+    {
+      "id": "HP-10K",
+      "notes": 10000,
+      "taskPages": 1000,
+      "activeSpaces": 3,
+      "views": 4,
+      "windows": 2,
+      "activePageParagraphs": 500,
+      "asciiCharsPerParagraph": 160,
+      "unrelatedNoteParagraphs": 20,
+      "retainedVersionsPerPage": 10,
+      "media": [
+        "same tiny verified PNG",
+        "same verified synthetic PDF"
+      ],
+      "use": "Each active Space has these counts; only one Space has active editor page. Count all three owners. Pre-adoption scalability gate, not product maximum"
+    }
+  ],
+  "fixtureRecipe": "Seed public Core commands into factory-created marked temp Spaces. Note n-i body paragraph j = padded i/j + x to declared length. Task t-i is its own task page with one Details i paragraph, no subtasks. Active page is n-1. Initial version plus nine deterministic final-character changes for ten retained versions. Media bytes copied from hashed I1 fixtures; four-view trace uses two independent note contexts per active note. Seed outside timing, flush/reopen, pin fixture hash, archive any generation failure; no direct SQL/Y seed shortcut. Tables/full typed properties/inline assets from old W profiles are NOT represented by these paragraph profiles. Each active Space holds an authenticated client during multi-Space measurements; four views/two windows target the active note in Space1, background Spaces2/3 retain headless clients so idle exit does not remove their costs.",
+  "hardCases": [
+    {
+      "id": "H-01",
+      "area": "ownership/modules",
+      "procedure": "Audit imports and bundled graphs; run same CRUD/editor/media commands from UI/CLI/MCP on one Space; reject adapter policy reducers",
+      "pass": "Identical catalogue/outcomes and one semantic owner; no renderer OS/SQL access"
+    },
+    {
+      "id": "H-02",
+      "area": "installed headless lifecycle",
+      "procedure": "Installed signed app resources, no developer Node/PATH dependency: CLI and MCP independently cold-start same Space with no window; later UI attaches, close/quit UI while headless operation runs; idle shutdown then relaunch",
+      "pass": "Same Space/history/outcomes; no owner killed by launching client/window; no permanent daemon; no GUI flash required"
+    },
+    {
+      "id": "H-03",
+      "area": "ownership races and aliases",
+      "procedure": "20 simultaneous mixed clients, realpath/symlink/case/Unicode aliases where supported, moved folder, copied store identity, owner suspend/resume and stale descriptor; separate OS user denied",
+      "pass": "Exactly one writer for same canonical store; explicit copied-identity policy; OS/backend fencing prevents stale writer, no PID/timeout election or direct-store fallback"
+    },
+    {
+      "id": "H-04",
+      "area": "authenticated bounded admission",
+      "procedure": "Forged/stale endpoint, wrong grant/Space/generation, hostile origin/renderer, malformed/oversized/truncated frame, read-only and revoked grant, unknown outcome replay",
+      "pass": "Authenticate destination/peer and authorize before receipt lookup; reject changed reused IDs; bounded framing before allocation, preserve pending intent, no secret/log leakage"
+    },
+    {
+      "id": "H-05",
+      "area": "close/reload/renderer failure",
+      "procedure": "Changed-route subset: two contexts, single-click remount, toolbar caret/range, suspended view catch-up; deny text save/protect and media journal; reload/quit/kill renderer",
+      "pass": "Protect or refuse close; retain acknowledged intent; accepted revisions reconcile; keyboard/focus guards work; unacknowledged volatile-input limit explicit, no crash-loss claim from tidy close"
+    },
+    {
+      "id": "H-06",
+      "area": "owner crash/durability ports",
+      "procedure": "Crash around journal/publication/SQL/reply, deny write/full disk/permission loss, resume stale process, restart and retry original IDs; actual Mac filesystem + SQLite capability probe",
+      "pass": "No acknowledged loss/duplicate commit or second writer; distinguish SQL config, file/dir flush and actual OS guarantee. Unsupported flush fails explicitly; process-death tests do not prove arbitrary power-loss durability"
+    },
+    {
+      "id": "H-07",
+      "area": "multi-window and Windows seam",
+      "procedure": "Two windows/four views across three Spaces, focused command target, close dirty window, route IDs not paths; dependency audit and Windows path/case/reserved-name fixtures",
+      "pass": "No global active editor/second copy of page, view selection stays local; no native imports in Core. Windows runtime implementation may remain labelled not-run"
+    },
+    {
+      "id": "H-08",
+      "area": "installed assets/security/distribution",
+      "procedure": "Pack all runtime/native libraries/licenses, verify nested/outer signatures; move app and launch offline; forbidden navigation/Node renderer access; observe quarantine/notarization/Gatekeeper and permission flow when credentials available",
+      "pass": "No runtime download/npm during ordinary offline launch; private bridge scoped; unsigned bypass not allowed. Missing signing/notarization credentials recorded BLOCKED, not passed"
+    },
+    {
+      "id": "H-09",
+      "area": "compatibility/update/uninstall",
+      "procedure": "UI/CLI/MCP version skew and old/new owner contention; staged app update while clients active, interrupted replace/rollback; revoke/reauthorize storage grant; uninstall application",
+      "pass": "Negotiate/reject before write, quiesce/protect and keep one owner; unsupported schema never overwritten; app removal preserves user data. Qualification fixtures only, not production migration acceptance"
+    },
+    {
+      "id": "H-10",
+      "area": "native editor smoke",
+      "procedure": "Only actual changed-host keyboard/focus/menu/table selection bridge, image/cover/PDF presentation and clipboard smoke from confirmed contracts; same tests on eligible candidates",
+      "pass": "Host introduces no regression in tested route; retain I1 manual passes without broad replay. IME/VoiceOver full release matrix remains separately labelled"
+    },
+    {
+      "id": "H-11",
+      "area": "instrumentation integrity",
+      "procedure": "Prove process membership including shared WK/GPU/network/helper processes, monotonic clocks/trace points, presentation method, physical footprint and package accounting; record absent instruments",
+      "pass": "No JS heap/one-process RSS substituted for aggregate footprint; no JS transaction/RAF substituted for actual native presentation; comparable runs or BLOCKED metric"
+    },
+    {
+      "id": "H-12",
+      "area": "scale and corruption",
+      "procedure": "HP profiles startup/query/edit with retained history, missed100 revisions, lazy loading/deep verification, altered asset/checkpoint and interrupted startup",
+      "pass": "Bounded ordinary start/read plan with explicit repair/corruption failure; no silent weakening of checks to pass metrics; fixture size supported or gate fails explicitly"
+    }
+  ],
+  "measurement": {
+    "sequence": "Pin/validate contract+host+versions+instrumentation, seed/hash fixture, correctness smoke, release builds, measured comparison, independent correctness/fault evidence. Do not infer correctness from timing success.",
+    "repeats": "Existing budget method applies: 5 warmups,30 measured opens/catchups,1000 input samples over>=5 fresh sessions, nearest-rank quantiles; report raw samples and stalled/cancelled/failed attempts. Initial ready-machine cold runs:30 independent service/process cold launches; label OS-cache-warm, not disk-cache-cold.",
+    "order": "Rotate candidates A/B/C per repetition; same thermal/power profile and local volume, no debugger/dev server; no privileged cache purge. Bad environment remains retained/excluded with reason before analysis.",
+    "startup": "External monotonic start through authenticated first query OR first native-presented/editable document; record endpoints separately. Report first-ever install/recovery separately from ordinary cold and warm starts.",
+    "memory": "Measure aggregate physical-footprint idle/peak/post-close plateau, plus process breakdown. Attribute or conservatively include system webview helpers/shared services; disclose double-count/shared-accounting method. Missing attribution cannot rank a candidate as free memory.",
+    "disk": "Separate per-arch compressed signed distributable, full installed app/runtime/helper logical+allocated bytes, per-user service cache, and fixed fixture DB/WAL/journal/media. Report required OS webview/runtime dependencies; no source map/cache/fixture exclusions hidden.",
+    "comparison": "Reject correctness failures first. Among candidates meeting fixed applicable thresholds, rank steady-state aggregate physical footprint, then actual native input p99, then cold GUI p95, then installed size. <=5% differences or uncertainty overlapping that band are ties; publish all tradeoffs. Existing code, migration effort and implementation effort have zero selection weight.",
+    "revisionRule": "No post-result threshold/workload/candidate change without new version/reason and full comparable rerun; archive failures. No meaningful winner if mandatory metric missing."
+  },
+  "hostThresholds": [
+    {
+      "id": "BH-01",
+      "metric": "cold GUI usable native-presented document",
+      "profile": "HP-1K",
+      "p95Ms": 3000
+    },
+    {
+      "id": "BH-02",
+      "metric": "aggregate headless idle physical footprint with UI quit",
+      "profile": "HP-1K",
+      "maxMiB": 192,
+      "window": "Measure at15 seconds after UI quit, before30-second quiescent idle-exit deadline; include all attributable service/helpers. Do not keep a duplicate GUI/broker secretly running."
+    },
+    {
+      "id": "BH-03",
+      "metric": "signed compressed distributable per architecture",
+      "maxMiB": 200
+    },
+    {
+      "id": "BH-04",
+      "metric": "installed app plus every bundled runtime/helper, excludes fixture data",
+      "maxMiB": 600
+    },
+    {
+      "id": "BH-05",
+      "metric": "owner idle exit after all clients detach and work saved/protected",
+      "deadlineSeconds": 30,
+      "note": "Idle grace is trial from original budget proposal; pending accepted work cannot be discarded to meet it"
+    }
+  ],
+  "existingTargetApplicability": {
+    "B-01": "Apply timing threshold to HP-10/HP-1K host-input trace as labelled host screen only, not W-TYPICAL qualification",
+    "B-03": "HP-1K warm active-page open uses W-TYPICAL numeric target; report distinct scenario ID, not original workload pass",
+    "B-04": "HP-1K page-body ordinary durable commit uses W-TYPICAL numeric target, no power-loss claim",
+    "B-05": "HP-1K same-page visible view catch-up from accepted revision",
+    "B-06": "HP-1K all-owner-processes-stopped start+first query; original target",
+    "B-07": "HP-1K100 missed accepted revisions, samepage catch-up",
+    "B-08": "HP-1K peak/100-cycle retained-growth limits; aggregate physical-footprint, steady state additionally reported",
+    "HP-10K": "Correctness + all raw metrics mandatory for selection; original W-LARGE quantitative targets not redefined or claimed passed; product-scale target acceptance remains D11"
+  },
+  "exitDispositions": {
+    "hostForNextDisposableImplementation": "All H cases applicable to measured host proven or explicitly release-only blocked items separated; H-01\u202607 and H-10\u202612 correctness and mandatory metrics cannot be waived. H08 private-bridge/offline/integrity still mandatory; notarized distribution and full update rehearsal may remain BLOCKED only with conditional implementation ADR. No real data. H-09 protocol/version-skew rejection and no-second-writer checks are mandatory; only the signed distribution update/rollback rehearsal may remain credential-blocked at this conditional stage.",
+    "shippingOrRealVault": "Full applicable H08/H09 distribution/security/update evidence, native durability guarantee and remaining G-Q final format/history/retention/migration/rollback/backup and D11 representative product workloads must close. H01 does not waive them.",
+    "adr": "Record exact host+versions+source/build/artifact hashes, all passes/fails/blocked/not-run, primary raw evidence, rejected alternatives/tradeoffs and superseded production-rule map. Conditional selection labelled explicitly."
+  },
+  "boundedPlan": [
+    "32: contract + safe host inventory only; no install, timing, runtime download, app or vault change",
+    "33: bind returned reference-host inventory, resolve exact candidate/toolchain pins+licenses+checksums and instrumentation feasibility; freeze run manifests before timing",
+    "34: build two shortlist shells and current control around common Core/client, isolated generated outputs and temporary fixtures; automate installed lifecycle/footprint capture; no new business reducers",
+    "35: run same controlled Mac comparison and targeted changed-host checks; one correction cycle per diagnosed failure without moving gates; blocked remains blocked",
+    "36: compare complete results and write conditional implementation ADR or explicit failed/blocked decision with exact remaining gate, not another open-ended research round"
+  ],
+  "initialResults": "All H01 candidate cases and performance measurements not-run. I1 passes remain separate evidence, no score transfers."
+}

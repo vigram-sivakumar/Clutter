@@ -6,6 +6,14 @@ with exact retained results and limits. Product requirements
 remain authoritative in product-behaviour.md. No implementation is retained merely
 because it already exists.
 
+## Current update — revision0.56, 2026-11-16
+
+[I1 completion](i1/completion-review.md) supersedes older not-run editor/native
+statements below within its narrow disposable scope. H01 now defines the bounded
+host/runtime comparison: [contract and next inventory](runtime-qualification/README.md).
+All H01 measurements unrun; no production winner or full G-Q inferred. Full old
+mixed-product scale recipes require schema/features beyond paragraph host fixtures.
+
 ## Proof24 update
 
 The [page proof](r08-page-closure.md) now passes PK01–10 headlessly, including per-page

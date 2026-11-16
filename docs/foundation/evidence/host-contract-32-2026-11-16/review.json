@@ -1,0 +1,37 @@
+{
+  "revision": "0.56",
+  "delivery": 32,
+  "date": "2026-11-16",
+  "baseContentTree": "e0e4a28b672f58b8a273b3f9c53e243c39f02af1",
+  "userConfirmed": "checkpoint31 applied",
+  "newScope": [
+    "H01 normative contract/guide",
+    "read-only safe host inventory helper",
+    "progress/version/decision/ADR handoff updates"
+  ],
+  "staticChecks": {
+    "contractJson": "valid",
+    "uniqueCandidates": 3,
+    "uniqueHardCases": 12,
+    "uniqueSpaceProfiles": 3,
+    "originalBudgets": "bytes and pinned hash unchanged",
+    "inventorySyntax": "node --check pass",
+    "linuxInventory": "correctly unbound/unsupported; not Mac benchmark",
+    "otherBranchGuard": "refused before inventory write",
+    "runtimeOrBenchmarkTests": "not-run/not-needed for docs and inventory only"
+  },
+  "candidateBuilds": "not-run",
+  "benchmarks": "not-run",
+  "actualMacInventory": "pending",
+  "referenceBinding": "pending host+versions+instrumentation",
+  "newRuntimeTests": "none;80 runtime/TS/84 regressions remain historical I1 evidence, not rerun for contract",
+  "decision": "No shipping host/runtime selected. Candidate families/gates/host fixture recipes/trial targets fixed before comparison; current inventories cannot pass full product D11.",
+  "next": "Apply32; run host-inventory.mjs on user Mac; use safe JSON to bind preflight33 before builds/timings",
+  "unchanged": [
+    "main/app/runtime packages and source",
+    "all old evidence/NC28 sessions/vaults",
+    "locks/dependencies",
+    "qualification-budgets.json bytes",
+    "production mutation ownership"
+  ]
+}

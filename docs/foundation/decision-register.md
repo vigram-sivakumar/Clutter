@@ -4,13 +4,20 @@ Status: confirmed product scope; mechanism recommendation reviewed2026-11-15.
 Technical production baseline/format/host not yet accepted.
 Effort and migration scores remain visible with zero decision weight.
 
-## Current execution update — revision0.52
+## Current execution update — revision0.56
 
-[Native28](i1/native-result.md) is prepared for actual Mac compilation/observation;
-77 automated cases/TS/old regressions pass. Browser-safe codec/replica, exact durable
-media ingress, same NEW Core CLI/MCP and native close/PDF/report host now exist.
-This is a qualification host, not selected shipping shell/runtime or G-Q acceptance.
-Next user launch/Ready outcome, then NC28-01 individually. No old manual replay.
+Scoped I1/NC28 completed as recorded in completion31; raw native reports not audited,
+CLI PROTECTED/sequence38 supplied. H01 contract32 now fixes the production host/
+runtime comparison and references unchanged B targets. All H candidate builds and
+measurements remain not-run; actual reference host/version/instruments unbound.
+Next safe Mac host inventory, then matched manifests. Single Core/peer interfaces
+unchanged; no second Rust/Swift semantic engine or production baseline acceptance.
+See [H01](runtime-qualification/README.md) and START-HERE for current action.
+
+## Historical execution update — revision0.52
+
+Native28 preparation is historical; corrected native30/31 results supersede its
+not-run next actions. Original evidence remains unchanged.
 
 ## Historical execution update — revision0.51
 

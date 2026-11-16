@@ -1,6 +1,6 @@
 # When implementation begins
 
-Revision0.55, 2026-11-16. **I1 implementation has begun with disposable Spaces.**
+Revision0.56, 2026-11-16. **I1 implementation has begun with disposable Spaces.**
 [I1a](i1/result.md) implements real private Core/API modules; [editor26](i1/editor-result.md) now qualifies actual per-page view/context/protection
 in a DOM composition. [media27](i1/media-result.md) now adds immutable media API/history/closure.
 [Native28–30](i1/native-result.md) now has guided user-reported NC28-01…04 passes,
@@ -83,3 +83,9 @@ fencing/native ports and D11 reference workloads/targets before implementing or
 measuring that route. Keep the single Core with peer UI/CLI/MCP adapters. Existing
 real-vault G-Q format/migration/security/native durability gates remain blocking.
 See completion review and START-HERE for evidence limits and delivery state.
+
+## Next-action update — revision0.56
+
+H01 contract is now prepared; do not repeat that writing step. Next safe Mac host
+inventory, then exact versions/instruments/host binding before matched builds.
+START-HERE and runtime-qualification/README.md are current. No app/real-vault wiring.

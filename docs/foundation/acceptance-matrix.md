@@ -1,12 +1,13 @@
 # Acceptance matrix
 
-Status: release-level specification. Bounded proof executions do not pass whole rows.
-[Editor26](i1/editor-result.md) extends I1a to44 passing runtime tests (including
-23 actual-view DOM cases); [media27](i1/media-result.md) adds19 cases (63 total); these are bounded observations for subsets of T-04/T-05/
-T-06/T-07; [Native28](i1/native-result.md) raises automated runtime coverage to77. Actual Mac
-compilation/presentation/lifecycle and full release coverage remain open. Product rules are
-confirmed where stated; passing implementations and complete input matrices do
-not follow from written coverage. Initial/future gate is explicit per row.
+Status: release-level specification. Bounded executions do not pass whole rows.
+Current revision0.56: [scoped I1](i1/completion-review.md) is complete for the tested
+disposable profile;80 prior runtime cases/strict TS/84 old regressions and guided
+NC28-01…04 user reports are retained. CLI PROTECTED/sequence38 supplied; raw native
+reports not audited. [H01](runtime-qualification/contract.json) now fixes the next
+host/runtime cases; all candidate builds/measurements not-run. It cannot pass full
+release rows or mixed-product D11 from paragraph host fixtures. Product scope and
+existing recorded evidence remain unchanged.
 
 | Test | Requirements                 | Gate and required observation                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | ---- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -3,6 +3,18 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.56 — 2026-11-16
+
+- Prepared H01 normative host/runtime contract: Tauri/Electron shortlist plus Swift/WK
+  control, same Core/owner,12 required cases,three explicit Space-size profiles and
+  fixed engineering trial thresholds. Source budgets remain immutable/referenced.
+- Separated conditional next-implementation host choice from production real-vault/
+  shipping acceptance; full mixed-product workloads not faked by paragraph fixtures.
+- Added safe Git-internal read-only host inventory; no installs/benchmarks/native
+  launch/vault access. Actual Mac binding/version pins/instruments still pending.
+- Primary framework docs checked for mechanism availability, not winner/performance
+  claims. User confirms31 applied. Next safe Mac inventory, then matched manifests.
+
 ## 0.55 — 2026-11-16
 
 - Consolidated user-confirmed NC28-01…04, preserving original compiler/interaction
