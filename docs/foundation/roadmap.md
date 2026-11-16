@@ -390,3 +390,14 @@ Next `build34/run.mjs --retry 2026-11-16T09-58-25-103Z-7838dcfb` (full foundatio
 path in START-HERE). Preserve old run/Swift pass, original locks/CommonCore/hashes,
 rebuild failed candidates in new directory. No fresh dependency resolution, GUI,
 benchmark, NC28 replay or another inventory. P-36 one-time all-Spaces UX stands.
+
+## Confirmed normalization/fix36 checkpoint — 2026-11-16
+
+Swift and Electron both actual build/sign/strict verify/CLI+MCP smoke PASS. User
+Cargo diagnostic supplied: same exact versions, only CLI equivalent table/features=[]
+normalization.36 generates exact observed bytes; strict comparisons/locks stay.
+Partial retry follows verified ancestor report hashes for original34 locks/Swift
+archive and35 Electron archive, retaining both passes and building only Tauri.
+Next --retry 2026-11-16T10-19-43-465Z-627d2e3f (full command START-HERE).15 support
+tests pass; Mac Tauri after36 pending, no GUI/metrics or repeated diagnostic/inventory.
+P-36/default all current/future Spaces and existing Core/pins/signing remain unchanged.

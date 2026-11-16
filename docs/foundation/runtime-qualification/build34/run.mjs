@@ -29,7 +29,7 @@ import {
   graphSourceHashes,
 } from './projects.mjs';
 import { nestedSigningPlan, signArguments } from './signing.mjs';
-import { retryId, loadRetry } from './retry.mjs';
+import { retryId, loadRetry, tauriRetrySource, keptArchive } from './retry.mjs';
 const requestedRetry = retryId(process.argv.slice(2));
 const source = dirname(fileURLToPath(import.meta.url)),
   root = resolve(source, '../../../..');
@@ -356,17 +356,19 @@ async function buildAll(runtime, cache) {
       mkdirSync(project);
       tauriProject(project, meta.candidatePins['H-T'], source);
       if (previous) {
-        const old = join(previous.dir, 'tauri-project');
+        const lockSource = tauriRetrySource(gitPath('builds'), previous);
+        report.tauriLockOrigin = lockSource.report.id;
+        const old = join(lockSource.dir, 'tauri-project');
         for (const name of ['package.json', 'src-tauri/Cargo.toml'])
           if (
             !readFileSync(join(old, name)).equals(
               readFileSync(join(project, name))
             )
           )
-            throw Error('RETRY_DEPENDENCY_MANIFEST_CHANGED');
+            throw Error('RETRY_DEPENDENCY_MANIFEST_CHANGED:' + name);
         for (const [name, hash] of [
-          ['package-lock.json', previous.report.tauriLocks?.npmSha256],
-          ['src-tauri/Cargo.lock', previous.report.tauriLocks?.cargoSha256],
+          ['package-lock.json', lockSource.report.tauriLocks?.npmSha256],
+          ['src-tauri/Cargo.lock', lockSource.report.tauriLocks?.cargoSha256],
         ]) {
           const bytes = readFileSync(join(old, name));
           if (sha(bytes) !== hash) throw Error('RETRY_LOCK_CHANGED');
@@ -568,11 +570,14 @@ async function buildAll(runtime, cache) {
         'built-signed-headless-smoke-pass'
       ) {
         const kept = previous.report.candidates[candidate];
+        const archiveOrigin = keptArchive(
+          gitPath('builds'),
+          previous,
+          candidate
+        );
         if (
           tree(kept.app).sha256 !== kept.bundleSha256 ||
-          sha(
-            readFileSync(join(previous.dir, candidate + '-darwin-arm64.zip'))
-          ) !== kept.archiveSha256 ||
+          sha(readFileSync(archiveOrigin.path)) !== kept.archiveSha256 ||
           tree(kept.resources).sha256 !== report.commonCore.sha256
         )
           throw Error('PREVIOUS_PASS_ARTIFACT_CHANGED');
@@ -585,6 +590,7 @@ async function buildAll(runtime, cache) {
         report.candidates[candidate] = {
           ...kept,
           verifiedKeptFrom: previous.report.id,
+          verifiedArchiveOrigin: archiveOrigin.runId,
         };
         checkpoint();
         continue;

@@ -3,6 +3,17 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.60 — 2026-11-16
+
+- User confirms35 Swift+Electron pass and supplies exact Tauri Cargo difference:
+  equivalent CLI inline-table normalization, same versions with empty features.
+- Generator emits that exact form; full manifest/lock/pin checks remain strict.
+- Retry follows verified report ancestry for original lock/archive ownership,
+  retaining both successful candidates when latest retry lacks old files.
+-15 support tests pass, including supplied-byte regression and partial retry/tamper
+  scenarios. Actual Tauri Mac result still pending; no GUI/performance/production
+  claim. Next retry latest35 run, rebuild Tauri only, no repeated diagnostics.
+
 ## 0.59 — 2026-11-16
 
 - User34 commit8ed5331c: actual Swift build/sign/strict verify/CLI+MCP smoke pass;

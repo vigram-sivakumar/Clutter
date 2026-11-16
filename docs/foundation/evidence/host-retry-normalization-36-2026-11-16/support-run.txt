@@ -1,0 +1,23 @@
+✔ origin-bound shell bootstrap exposes only UI data and finite host events (6.103058ms)
+✔ close bridge calls shared prepareClose and carries challenge; failures stay unsafe (2.450237ms)
+✔ host event decoder refuses another boot, scheme, or malformed close result (0.385359ms)
+✔ download admission requires one exact upstream checksum and contained archive names (2.461242ms)
+✔ Tauri project generation pins versions in an isolated project with no renderer permissions (1.8094ms)
+✔ actual copied common Core supports packaged CLI/MCP same-head smoke without GUI/user PATH (5608.723546ms)
+✔ Linux build invocation is explicitly not a Mac compile or performance pass (68.917982ms)
+✔ Tauri required icon exists as valid RGBA PNG at its configured path (41.317835ms)
+✔ nested Electron code signs real leaves before containing bundles, excluding CoreData and alias duplicates (1.425254ms)
+✔ nested signing refuses a framework symlink escaping the generated frameworks tree (0.570602ms)
+✔ retry ledger verifies original common resources and compiled inputs, refusing mutation (1.00289ms)
+✔ retry option rejects paths and preserves a single explicit original build ID (0.243189ms)
+✔ generated Cargo manifest matches the actual user-supplied Tauri normalization exactly (0.429003ms)
+✔ partial retry retains both pass archives and obtains unchanged locks from the verified ancestor (1.21964ms)
+✔ retry ancestry refuses altered lock bytes or ancestor reports instead of resolving new dependencies (0.986436ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5862.148304

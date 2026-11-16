@@ -53,7 +53,7 @@ export function tauriProject(root, pins, source) {
   );
   writeFileSync(
     join(root, 'src-tauri/Cargo.toml'),
-    `[package]\nname = "clutter-h01-tauri"\nversion = "0.0.0"\nedition = "2021"\nrust-version = "1.90"\n[workspace]\nresolver = "3"\n[build-dependencies]\ntauri-build = "=${pins.tauriBuildCrate}"\n[dependencies]\ntauri = "=${pins.tauriCrate}"\nserde_json = "=1.0.145"\n`
+    `[package]\nname = "clutter-h01-tauri"\nversion = "0.0.0"\nedition = "2021"\nrust-version = "1.90"\n[workspace]\nresolver = "3"\n[build-dependencies]\ntauri-build = { version = "=${pins.tauriBuildCrate}", features = [] }\n[dependencies]\ntauri = { version = "=${pins.tauriCrate}", features = [] }\nserde_json = "=1.0.145"\n`
   );
   writeFileSync(
     join(root, 'src-tauri/build.rs'),

@@ -41,3 +41,81 @@ export function loadRetry(builds, id, expectedManifest) {
     throw Error('RETRY_INPUT_MANIFEST_CHANGED');
   return { dir, report };
 }
+
+// Verified ancestry carries passed artifacts and dependency locks through partial retries.
+// A retry may fail before copying its own locks, while still adding another passed app.
+export function retryHistory(builds, previous) {
+  const result = [],
+    seen = new Set();
+  let current = previous;
+  for (let depth = 0; depth < 32; depth++) {
+    const id = current.report.id;
+    if (seen.has(id)) throw Error('RETRY_HISTORY_CYCLE');
+    seen.add(id);
+    result.push(current);
+    const parent = current.report.retryOf;
+    if (!parent) return result;
+    retryId(['--retry', parent]);
+    const dir = resolve(builds, parent);
+    if (realpathSync(dir) !== dir) throw Error('INVALID_RETRY_ANCESTOR');
+    const bytes = readFileSync(join(dir, 'build-report.json'));
+    if (
+      !current.report.previousReportSha256 ||
+      sha(bytes) !== current.report.previousReportSha256
+    )
+      throw Error('RETRY_ANCESTOR_REPORT_CHANGED');
+    const report = JSON.parse(bytes);
+    if (
+      report.id !== parent ||
+      report.format !== previous.report.format ||
+      report.manifestSha256 !== previous.report.manifestSha256 ||
+      report.commonCore?.sha256 !== previous.report.commonCore?.sha256 ||
+      report.compiledInputSourceSha256 !==
+        previous.report.compiledInputSourceSha256
+    )
+      throw Error('RETRY_ANCESTOR_PROFILE_MISMATCH');
+    current = { dir, report };
+  }
+  throw Error('RETRY_HISTORY_LIMIT');
+}
+export function tauriRetrySource(builds, previous) {
+  const source = retryHistory(builds, previous).find(
+    (r) => r.report.tauriLocks
+  );
+  if (!source) throw Error('RETRY_NO_VERIFIED_TAURI_LOCK_PROVENANCE');
+  for (const [name, hash] of [
+    ['package-lock.json', source.report.tauriLocks.npmSha256],
+    ['src-tauri/Cargo.lock', source.report.tauriLocks.cargoSha256],
+  ])
+    if (
+      typeof hash !== 'string' ||
+      sha(readFileSync(join(source.dir, 'tauri-project', name))) !== hash
+    )
+      throw Error('RETRY_ANCESTOR_LOCK_CHANGED');
+  return source;
+}
+export function keptArchive(builds, previous, candidate) {
+  const history = retryHistory(builds, previous);
+  let source = previous;
+  const expected = previous.report.candidates[candidate];
+  for (let depth = 0; depth < history.length; depth++) {
+    const kept = source.report.candidates[candidate];
+    if (
+      !kept ||
+      kept.status !== 'built-signed-headless-smoke-pass' ||
+      kept.bundleSha256 !== expected.bundleSha256 ||
+      kept.archiveSha256 !== expected.archiveSha256
+    )
+      throw Error('RETRY_KEPT_ARTIFACT_PROVENANCE_CHANGED');
+    if (!kept.verifiedKeptFrom)
+      return {
+        path: join(source.dir, candidate + '-darwin-arm64.zip'),
+        runId: source.report.id,
+      };
+    const parent = history.find((r) => r.report.id === kept.verifiedKeptFrom);
+    if (!parent || parent.report.id === source.report.id)
+      throw Error('RETRY_KEPT_ARTIFACT_HISTORY_INVALID');
+    source = parent;
+  }
+  throw Error('RETRY_KEPT_ARTIFACT_HISTORY_LIMIT');
+}

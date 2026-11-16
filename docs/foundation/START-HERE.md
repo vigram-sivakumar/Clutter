@@ -1,6 +1,6 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-16. Documentation revision: 0.59, matched host build retry35.
+Last updated: 2026-11-16. Documentation revision: 0.60, canonical Cargo/partial retry fix36.
 Read [AGENTS](AGENTS.md), this checkpoint and [README](README.md) first.
 
 ## Current position
@@ -42,13 +42,15 @@ This current checkpoint supersedes earlier next-action text in historical record
 | Build34 | Matched native wrapper/packaging sources ready;7 support tests+80 runtime+TS pass on Linux; Mac build/GUI/metrics not-run |
 | Actual build34 | User commit8ed5331c: Swift signed/strict-verified/headless-smoke PASS; Electron nested signature FAIL; Tauri missing-icon macro FAIL |
 | Retry35 | Missing icon and nested signing flow corrected;12 support tests pass; actual Mac retry pending |
-| Next | Apply35; retry original34 run ID, preserve Swift pass/locks/Core; paste final build summary/error. No GUI or benchmark yet |
+| Actual retry35 | User commit476e7f71: Swift retained/verified PASS; Electron nested sign/strict verify/CLI+MCP smoke PASS; Tauri stopped by RETRY_DEPENDENCY_MANIFEST_CHANGED before compile |
+| Normalization36 | Exact Cargo difference supplied: same pins, CLI inline tables/features=[]; generator fixed and partial retry ancestry validated;15 support tests pass |
+| Next | Apply36; retry latest35 run ID, verify/reuse Swift+Electron, build only Tauri. No more diagnostic/inventory or GUI tests yet |
 
 ## Branch and delivery state
 
 Stay on architecture/clutter-foundation. User confirms28 committed as e2613ec2, then29 applied and native window works
-(screenshot Ready). User confirms34 applied/committed8ed5331c and supplies actual build log.
-Fix35 is incremental over exact34 tree6f1dbc13628771024d30c19b48043c8d625bf4ca. Mac launch now user-confirmed; full
+(screenshot Ready). User confirms35 applied/committed476e7f71 and supplies actual retry+Cargo diagnostic.
+Fix36 is incremental over exact35 treef3e0587b53a423461e9b22cae23c716325fc082f. Mac launch now user-confirmed; full
 NC28-01 remount/toolbar issues are confirmed fixed by user after30; user-reported PASS,
 not a raw report audit. No agent commit/push, main/apps/app/user-
 vault changes. Local HEAD is stale; use files/content trees. Cumulative source changes are
@@ -61,31 +63,28 @@ reset, generated bundle/runtime/cache/artifacts or test-store staging. Shared so
 planners and SQL transaction engine are reused; new page adapter is not another
 policy implementation. Old aggregate/native profiles remain comparison controls.
 
-## Exact next work — retry failed native builds, preserving Swift34
+## Exact next work — Tauri-only retry after confirmed normalization diagnosis
 
-Read retry35 review and original user build log in evidence/host-build-retry-35-
-2026-11-16. User34 commit8ed5331c. H-S ACTUALLY built/signed/deep-strict verified/
-packaged CLI+MCP smoke passed. H-E failed nested framework signature; H-T failed
-missing icon at generate_context. No GUI/benchmarks or winner. Do not repeat inventory.
+User35 commit476e7f71. Swift and Electron both have actual signed/deep-strict verified/
+packaged CLI+MCP smoke PASS. Tauri has not recompiled after icon correction because
+byte guard stopped it. User now supplies exact Cargo difference: CLI converted ONLY
+tauri/tauri-build bare version strings into equivalent inline tables with empty
+features; versions unchanged, package.json identical. See36 evidence. Do not ask diagnostic again.
 
-1. Apply35/commit docs/foundation only. Run:
-   `node docs/foundation/runtime-qualification/build34/run.mjs --retry 2026-11-16T09-58-25-103Z-7838dcfb`
-2. Retry verifies previous source/common/CoreData/Swift artifact/archive/locks/SHA
-   records, preserves original run and Swift pass, rebuilds only failed candidates
-   in new output directory. Original dependency locks reused, no version resolution
-   or downgrade. Keep retry args across Node24.22 bootstrap. Do not delete outputs.
-3. Tauri gets valid explicit icons/icon.png; Electron signs actual Mach-O leaves
-   then nested bundles then outer app, preserves entitlements/flags, excludes CoreData.
-   Strict deep verification remains.12 support tests pass; Mac fix unproven until run.
-4. Obtain final summary or exact error. If retry says inputs changed, report it;
-   no reset/clean/bypass. Subsequent GUI/readiness/metrics remain separate, not-run.
-   Core/browser/worker/native shell source unchanged; prior80/TS not rerun for35.
-5. P-36 remains confirmed: one integration connection/device, all CURRENT/FUTURE
-   local Spaces by default, optional advanced restrictions; no per-Space codes.
-   Space writers/internal tickets stay separate; production credential auth unqualified.
-6. Preserve main/app/real vaults/old native sessions, all old evidence, H01/pins/budgets.
-   No old manual replay or another architecture framework search. Swift pass alone
-   cannot choose a winner; known packaging mistakes are fixed within same contract.
+1. Apply36/commit docs/foundation only. Run
+   `node docs/foundation/runtime-qualification/build34/run.mjs --retry 2026-11-16T10-19-43-465Z-627d2e3f`
+2. Generator emits exact observed normalized Cargo bytes. Full-file equality still
+   mandatory; no version/feature changes, ad-hoc parser relaxation or re-resolution.
+3. Retry ancestry resolves original34 Tauri locks and Swift archive plus Electron35
+   archive, verifies recorded parent-report/profile/source/CommonCore/lock/artifact
+   hashes, reuses both pass artifacts, rebuilds only Tauri in new output. It must not
+   assume missing35 lock files/archive copies exist or rebuild already-passed apps.
+4.15 support tests pass, including actual Cargo byte fixture, partial history and
+   tamper rejection. Core/browser/native wrappers/signing/pins/worker unchanged;
+   prior80/TS not rerun. Actual Mac Tauri result after36 pending. Obtain summary/error.
+5. No GUI, benchmarks, NC28 replay, new inventory or production/user-vault changes.
+   P-36 all current/future local Spaces one-time integration connection remains.
+   Main/old artifacts/reports/sessions/dependency locks remain untouched.
 
 ## Proof24 facts and limits
 

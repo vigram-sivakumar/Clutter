@@ -1,0 +1,6 @@
+{
+  "file": "src-tauri/Cargo.toml",
+  "original": "[package]\nname = \"clutter-h01-tauri\"\nversion = \"0.0.0\"\nedition = \"2021\"\nrust-version = \"1.90\"\n[workspace]\nresolver = \"3\"\n[build-dependencies]\ntauri-build = { version = \"=2.7.4\", features = [] }\n[dependencies]\ntauri = { version = \"=2.12.5\", features = [] }\nserde_json = \"=1.0.145\"\n",
+  "retry": "[package]\nname = \"clutter-h01-tauri\"\nversion = \"0.0.0\"\nedition = \"2021\"\nrust-version = \"1.90\"\n[workspace]\nresolver = \"3\"\n[build-dependencies]\ntauri-build = \"=2.7.4\"\n[dependencies]\ntauri = \"=2.12.5\"\nserde_json = \"=1.0.145\"\n",
+  "source": "User read-only diagnostic output; package.json produced no difference"
+}

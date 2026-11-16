@@ -134,7 +134,7 @@ test('Tauri project generation pins versions in an isolated project with no rend
     assert.equal(config.app.withGlobalTauri, false);
     assert.match(
       readFileSync(join(dir, 'src-tauri/Cargo.toml'), 'utf8'),
-      /tauri = "=2.12.5"/
+      /tauri = \{ version = "=2.12.5", features = \[\] \}/
     );
     assert.equal(
       JSON.parse(readFileSync(join(dir, 'package.json'))).dependencies[
@@ -307,4 +307,132 @@ test('retry option rejects paths and preserves a single explicit original build 
   );
   assert.throws(() => retryId(['--retry', '../elsewhere']));
   assert.throws(() => retryId(['--retry', 'id', 'extra']));
+});
+
+test('generated Cargo manifest matches the actual user-supplied Tauri normalization exactly', () => {
+  const fixture = JSON.parse(
+    readFileSync(
+      join(
+        source,
+        '../../evidence/host-retry-normalization-36-2026-11-16/user-manifest-difference.json'
+      )
+    )
+  );
+  const dir = mkdtempSync(join(tmpdir(), 'h36-normalized-'));
+  try {
+    tauriProject(
+      dir,
+      { tauriNpmCli: '2.12.4', tauriCrate: '2.12.5', tauriBuildCrate: '2.7.4' },
+      source
+    );
+    assert.equal(
+      readFileSync(join(dir, 'src-tauri/Cargo.toml'), 'utf8'),
+      fixture.original
+    );
+    assert.notEqual(fixture.original, fixture.retry);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+const { tauriRetrySource, keptArchive } = await import('./retry.mjs');
+function partialRetryFixture() {
+  const builds = mkdtempSync(join(tmpdir(), 'h36-history-'));
+  const original = join(builds, 'original'),
+    partial = join(builds, 'partial');
+  const inputs = { 'source.mjs': sha(Buffer.from('same source')) };
+  for (const dir of [original, partial]) {
+    mkdirSync(join(dir, 'CommonCore'), { recursive: true });
+    writeFileSync(join(dir, 'CommonCore/data'), 'same data');
+    writeFileSync(join(dir, 'source.mjs'), 'same source');
+    writeJson(join(dir, 'input-source-hashes.json'), inputs);
+  }
+  const base = {
+    format: 'clutter-matched-build34',
+    status: 'build-smoke-incomplete',
+    manifestSha256: 'manifest',
+    commonCore: tree(join(original, 'CommonCore')),
+    compiledInputSourceSha256: sha(JSON.stringify(inputs)),
+  };
+  const candidate = (name) => ({
+    status: 'built-signed-headless-smoke-pass',
+    bundleSha256: name + '-bundle',
+    archiveSha256: sha(Buffer.from(name + '-archive')),
+  });
+  mkdirSync(join(original, 'tauri-project/src-tauri'), { recursive: true });
+  writeFileSync(join(original, 'tauri-project/package-lock.json'), 'npm lock');
+  writeFileSync(
+    join(original, 'tauri-project/src-tauri/Cargo.lock'),
+    'cargo lock'
+  );
+  const report = {
+    ...base,
+    id: 'original',
+    tauriLocks: {
+      npmSha256: sha(Buffer.from('npm lock')),
+      cargoSha256: sha(Buffer.from('cargo lock')),
+    },
+    candidates: {
+      'H-S': candidate('S'),
+      'H-E': { status: 'failed' },
+      'H-T': { status: 'failed' },
+    },
+  };
+  writeFileSync(join(original, 'H-S-darwin-arm64.zip'), 'S-archive');
+  writeJson(join(original, 'build-report.json'), report);
+  const newer = {
+    ...base,
+    id: 'partial',
+    retryOf: 'original',
+    previousReportSha256: sha(
+      readFileSync(join(original, 'build-report.json'))
+    ),
+    candidates: {
+      'H-S': { ...candidate('S'), verifiedKeptFrom: 'original' },
+      'H-E': candidate('E'),
+      'H-T': { status: 'failed', error: 'RETRY_DEPENDENCY_MANIFEST_CHANGED' },
+    },
+  };
+  writeFileSync(join(partial, 'H-E-darwin-arm64.zip'), 'E-archive');
+  writeJson(join(partial, 'build-report.json'), newer);
+  return {
+    builds,
+    original,
+    partial,
+    previous: loadRetry(builds, 'partial', 'manifest'),
+  };
+}
+test('partial retry retains both pass archives and obtains unchanged locks from the verified ancestor', () => {
+  const f = partialRetryFixture();
+  try {
+    assert.equal(tauriRetrySource(f.builds, f.previous).report.id, 'original');
+    assert.equal(
+      keptArchive(f.builds, f.previous, 'H-S').path,
+      join(f.original, 'H-S-darwin-arm64.zip')
+    );
+    assert.equal(
+      keptArchive(f.builds, f.previous, 'H-E').path,
+      join(f.partial, 'H-E-darwin-arm64.zip')
+    );
+  } finally {
+    rmSync(f.builds, { recursive: true, force: true });
+  }
+});
+test('retry ancestry refuses altered lock bytes or ancestor reports instead of resolving new dependencies', () => {
+  const f = partialRetryFixture();
+  try {
+    const lock = join(f.original, 'tauri-project/src-tauri/Cargo.lock');
+    writeFileSync(lock, 'changed');
+    assert.throws(
+      () => tauriRetrySource(f.builds, f.previous),
+      /ANCESTOR_LOCK_CHANGED/
+    );
+    writeFileSync(lock, 'cargo lock');
+    writeFileSync(join(f.original, 'build-report.json'), '{}');
+    assert.throws(
+      () => tauriRetrySource(f.builds, f.previous),
+      /ANCESTOR_REPORT_CHANGED/
+    );
+  } finally {
+    rmSync(f.builds, { recursive: true, force: true });
+  }
 });

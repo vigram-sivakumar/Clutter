@@ -1,6 +1,6 @@
 # Clutter foundation
 
-Status: architecture definition pack, revision 0.58, 2026-11-16. Product scope
+Status: architecture definition pack, revision 0.60, 2026-11-16. Product scope
 confirmed; the production technology baseline remains unaccepted.
 Baseline: `main` at `cae604273115c0c6c0d3ac34533b1e9834e9c778`.
 Working branch: `architecture/clutter-foundation`.
@@ -230,3 +230,7 @@ START-HERE.md is the current checkpoint. No main/app/real-vault changes.
 Current next action: user33 Mac tools are supplied; apply [matched builds34](runtime-qualification/build34/README.md)
 and get actual Mac compiler/headless smoke results. No another inventory/benchmark
 or old manual replay. P-36 one-time/all-Spaces integration UX is user-confirmed.
+
+Current host checkpoint36: Swift+Electron actual build/sign/headless smoke pass;
+Tauri-only retry awaits canonical manifest fix. START-HERE has exact latest35 run
+command. No new inventory, broad native replay, GUI or benchmarks requested.

@@ -1,0 +1,38 @@
+{
+  "revision": "0.60",
+  "delivery": 36,
+  "date": "2026-11-16",
+  "baseContentTree": "f3e0587b53a423461e9b22cae23c716325fc082f",
+  "userConfirmedCommit": "476e7f71",
+  "latestRun": "2026-11-16T10-19-43-465Z-627d2e3f",
+  "actualResults": {
+    "H-S": "kept and verified PASS from34",
+    "H-E": "actual nested sign/strict verify/CLI+MCP smoke PASS in35",
+    "H-T": "blocked before compile by manifest byte comparison"
+  },
+  "diagnosis": "User supplied exact Cargo.toml diff: Tauri rewrote bare tauri/tauri-build version strings as equivalent inline tables, same exact versions with features=[]; package.json no difference",
+  "fix": "Generate that exact observed normalized form. Strict full-file comparison and dependency lock/checksum checks remain; no arbitrary TOML normalization or version/feature changes accepted",
+  "partialRetryFix": "Traverse recorded retry ancestry, verify predecessor report hashes/profile, use original recorded tauri lock source when latest stopped before copy, and verify passed archive at original owning run rather than assuming a copy in newest run",
+  "validation": {
+    "supportTests": 15,
+    "failed": 0,
+    "newRegressionCases": [
+      "Actual user Cargo bytes match generated normalized manifest",
+      "Partial retry keeps Swift archive34 + Electron archive35 and recovers locks34",
+      "Ancestor report/lock tampering rejected"
+    ],
+    "MacAfter36": "not-run; requires actual Tauri retry",
+    "runtimeTests": "Prior80/TS retained, not rerun for builder-only correction"
+  },
+  "next": "Apply36, retry latest35 run ID. Verify/reuse both passed artifacts, source common/Core/locks by hash; only Tauri rebuilds; paste summary/error",
+  "unchanged": [
+    "Core/browser/native host/worker/signing implementations",
+    "P-36 app-wide current/future Spaces integration model",
+    "framework/runtime pins, original dependency locks, H01/budgets",
+    "old artifacts/reports/sessions/main/app/real vaults"
+  ],
+  "notInferred": [
+    "Tauri compiles after fix until actual result",
+    "GUI/performance/security/installed discovery/durability or production baseline acceptance"
+  ]
+}

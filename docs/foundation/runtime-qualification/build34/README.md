@@ -87,3 +87,24 @@ CoreData node is excluded and its hash must remain identical. Outer app last, de
 strict verification stays mandatory. Symlink escape/ambiguous framework versions
 refuse; no `--deep` force signing or removal of resource verification. Actual Mac
 results after these fixes remain pending; Linux12 tests only cover support logic.
+
+## Current correction36 — preserve both passes, retry only Tauri
+
+User35 commit476e7f71/run2026-11-16T10-19-43-465Z-627d2e3f: Swift retained/verified
+PASS; Electron actual nested signing/strict verify/CLI+MCP smoke PASS; Tauri stopped
+before compile. User diagnostic proves CLI wrote equivalent inline-table versions
+with empty features. The generator now emits those EXACT observed Cargo bytes; full
+manifest comparison and all pin/lock checks stay strict, not skipped/loosened.
+
+```bash
+node docs/foundation/runtime-qualification/build34/run.mjs --retry 2026-11-16T10-19-43-465Z-627d2e3f
+```
+
+Latest35 has no copied Tauri locks because it stopped before copying them, and its
+Swift archive still lives in original34. Retry36 follows verified parent report
+hashes/profile and artifact records to find those original files, reuses both passed
+apps, and rebuilds only Tauri with original34 dependency locks. No new dependency
+resolution or alteration of old outputs. Modified ancestor reports/lock bytes refuse.
+15 support tests pass, including actual user Cargo normalization and partial retry
+regressions. Mac Tauri compilation after36 remains not-run until this command.
+No GUI/benchmark/old native replay or another inventory needed.

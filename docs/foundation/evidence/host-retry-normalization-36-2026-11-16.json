@@ -1,0 +1,6 @@
+{
+  "delivery": 36,
+  "revision": "0.60",
+  "review": "host-retry-normalization-36-2026-11-16/review.json",
+  "status": "Canonical Cargo/retry ancestry fix ready;15 support passes; Swift/Electron passes stand; Tauri actual retry pending"
+}

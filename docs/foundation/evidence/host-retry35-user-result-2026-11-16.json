@@ -1,0 +1,14 @@
+{
+  "date": "2026-11-16",
+  "commit": "476e7f71",
+  "run": "2026-11-16T10-19-43-465Z-627d2e3f",
+  "source": "user pasted terminal summary",
+  "H-S": "kept/strict-verified PASS",
+  "H-E": "nested signed/strict-verified/CLI+MCP smoke PASS",
+  "H-T": "RETRY_DEPENDENCY_MANIFEST_CHANGED before compile",
+  "diagnosis": "Exact package.json/Cargo.toml difference not yet available; do not infer formatting-only or change dependencies",
+  "next": "Read-only compare only those generated manifest files vs original34, then targeted correction preserving both passes and verified ancestor locks",
+  "gui": "not-run",
+  "performance": "not-run",
+  "delivery": "Local pending next scoped patch"
+}
