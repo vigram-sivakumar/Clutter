@@ -1,6 +1,6 @@
 import { SqliteVault } from '../src/adapters/sqlite-vault.ts';
 import { SpaceService } from '../src/index.ts';
-import { qualifiedEngine } from '../../../docs/foundation/i1/qualified-engine.mjs';
+import { qualifiedEngine } from '../src/editor/engine.mjs';
 const [directory, phase, json] = process.argv.slice(2),
   command = JSON.parse(json),
   kill = () => process.kill(process.pid, 'SIGKILL');

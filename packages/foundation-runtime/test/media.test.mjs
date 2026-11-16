@@ -24,7 +24,7 @@ import {
 } from '../src/index.ts';
 import { SqliteVault } from '../src/adapters/sqlite-vault.ts';
 import { hash, crc32 } from '../src/adapters/media-formats.mjs';
-import { qualifiedEngine } from '../../../docs/foundation/i1/qualified-engine.mjs';
+import { qualifiedEngine } from '../src/editor/engine.mjs';
 const png = readFileSync(
   new URL(
     '../../../docs/foundation/experiments/r07-two-view/media/fixtures/tiny.png',

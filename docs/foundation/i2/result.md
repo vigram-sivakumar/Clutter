@@ -1,5 +1,8 @@
 # I2a result46
 
+I2b47 is now complete; see [shared extraction](shared-editor-extraction.md) and
+START-HERE for current continuation. Original I2a result below is retained.
+
 Implemented EditingContextRegistry in packages/foundation-runtime, exported through
 its index. The composition factory supplies existing EditorSession. No session,
 SpaceService, mutation handler, save/protection reducer or storage engine is copied.

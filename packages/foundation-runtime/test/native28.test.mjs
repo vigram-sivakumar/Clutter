@@ -128,7 +128,7 @@ test('browser pack contains no Node/SQL/filesystem or old semantic model', () =>
   assert.ok(buildMeta.browserBytes > 1000);
   assert.equal(
     buildMeta.browserInputs.some((n) =>
-      /sqlite|media-files|media-formats|qualified-engine|entities\/model|durable\/model/.test(
+      /sqlite|media-files|media-formats|qualified-engine|editor\/(backend|engine|page-codec|page-model|qualified-replica)\.mjs|entities\/model|durable\/model/.test(
         n
       )
     ),

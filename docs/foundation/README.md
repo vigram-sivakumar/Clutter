@@ -1,10 +1,11 @@
 # Clutter foundation
 
-Revision0.70,2026-11-16. Working branch: architecture/clutter-foundation.
+Revision0.71,2026-11-16. Working branch: architecture/clutter-foundation.
 [F010](adr/F010-tauri-implementation-baseline.md) accepts Tauri, shared web UI/editor,
 PM/Y contexts, TypeScript Core and SQLite ports for implementation. Final native
 safety/format/security and shipping qualification remain open at explicit milestones.
-I2a context ownership is implemented; I2b shared editor extraction is next.
+I2a context ownership and I2b shared editor extraction are implemented; I2c selected
+Tauri composition is next. See [shared editor extraction](i2/shared-editor-extraction.md).
 Existing production rules/data remain isolated from this disposable namespace.
 
 Start with [AGENTS](AGENTS.md), then [START-HERE](START-HERE.md), the single current

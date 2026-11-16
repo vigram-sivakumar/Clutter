@@ -1,46 +1,44 @@
 # Resume Clutter foundation work
 
-## Current checkpoint — I2a implementation46, 2026-11-16
+## Current checkpoint — I2b shared editor extraction47, 2026-11-16
 
-The user approved “then let's freeze this and move to next step”.
-[ADR-F010](adr/F010-tauri-implementation-baseline.md) is accepted for implementation:
-**Tauri2 + one shared web UI/editor + PM/Y editing contexts + TypeScript Core/API +
-SQLite/per-page transactional ports**. Rust/native adapters own host mechanisms,
-not another semantic Core. UI/CLI/MCP are peer clients of the same authority.
+User reports delivery46 applied and asks to proceed. No commit hash supplied;
+inspect actual branch before applying another patch. [F010](adr/F010-tauri-implementation-baseline.md)
+is accepted: Tauri2, one shared web UI/editor, PM/Y contexts, TypeScript Core/API,
+SQLite/per-page transactional ports. Rust/native code owns mechanisms, no second
+semantic Core. UI/CLI/MCP are peer clients. I2 uses marked disposable Spaces only.
 
-The profiling comparison is stopped as an implementation prerequisite. Original
-H01/budgets/pins/evidence remain unchanged. The explicit [entry override46](runtime-qualification/implementation-entry-override46.json)
-schedules open safety/security/format and measurement cases at named milestones;
-none becomes a pass. No comparative memory/latency winner is established. I2 still
-uses marked disposable Spaces; no existing app route or user-selected vault access.
+I2a46 retains EditingContextRegistry leases over existing EditorSession. I2b47 now
+places editor/schema/history/browser+backend codecs/engine in runtime/src/editor,
+with explicit browser/backend package entries and declared locked dependencies.
+I1 integration paths re-export the same functions. Standalone comparison snapshots
+remain isolated, never dependencies of shared product code. See [extraction result](i2/shared-editor-extraction.md).
+No existing Core/session/Vault policy or product behavior changed.
 
-I2a code is implemented in packages/foundation-runtime: EditingContextRegistry
-borrows the existing EditorSession, coalesces opens and preserves pending work and
-undo history when views detach. Retirement delegates existing prepareClose policy;
-active borrowers/unsafe close prevent destruction. No second mutation/save owner.
-Linux validation: **89/89 runtime tests**, including 7 new registry and 2 actual
-SQLite/Core/PM-Y integration tests; strict TypeScript passes. No native UI wiring
-changed and no new Mac manual test is required for this slice.
+Validation: **93/93 runtime tests**, strict TypeScript, source-equivalence audit,
+offline npm lock dry-run; isolated historical page10/entity14 cases pass. New browser
+entry builds/runs without Node globals, backend bundles without qualification sources,
+actual editor/SQLite/CLI/MCP/crash/media regressions pass. These are Linux/build checks,
+not Mac native/measurement acceptance. No manual replay needed for extraction.
 
-NEXT: apply/commit delivery46 on architecture/clutter-foundation if not yet applied,
-then implement **I2b shared editor/schema/codec extraction** per [I2 contract](i2/contract.md).
-Inspect current imports, move the qualified implementation once into shared module(s)
-with browser/backend entry separation, and replace experiment imports with that
-same implementation. No production imports from docs/experiments or hardcoded
-node_modules paths. Do not create a copied editor or empty package scaffolding.
-Then I2c wires selected Tauri composition; I2d adds shared page/task feature UI.
+NEXT: apply/commit47 if pending, then **I2c selected Tauri desktop/headless composition**
+using shared runtime/editor entries. Prepare an actual selected-host composition
+outside docs/experiments; package shared browser UI + Core, UI/CLI/MCP as peers,
+headless owner independent of windows. Integrate registry leases, per-view selection,
+existing protection/failure guards and platform-only OS/Rust ports. Do not copy old
+fixture reducers or use a UI-to-CLI business route. Installed discovery/admission/
+fencing/native durability remain explicit milestones under override46. I2d adds
+page/task feature UI/operations after this shared composition is runnable.
 
-Latest supplied45 analysis is a truncated user output fragment, preserved in46
-with its limits. It confirms unvalidated input/frame/clock linkage, not a new host
-failure. Do not request more recordings/exports or replay the old manual suite.
-Earlier user manual passes remain valid within their recorded scope. No 45 commit
-hash was supplied; inspect actual Git state before applying/moving code.
+No further host comparison/profiling is an entry task. [Override46](runtime-qualification/implementation-entry-override46.json)
+schedules unproven H01 cases at implementation/data-safety/release milestones; none
+becomes a pass. Original H01/pins/budgets/evidence unchanged. Keep user manual passes;
+no latency/whole-process-memory ranking. No existing app/main/data route changes.
 
 ## Handoff authority
 
-This file is the single current next action. AGENTS owns evergreen rules, product
-contracts own behaviour; changelog/progress/evidence retain historical results.
-Dated commands in older documents are historical, not tasks to execute again.
-New chats need the latest branch/local commits, then AGENTS + START-HERE + F010/I2.
+This file owns the single current action. AGENTS/product contracts own evergreen
+rules/behavior. Changelog/progress/evidence retain history and failed attempts.
+New chats need latest branch/local commits, AGENTS + START-HERE + F010/I2 contract.
 Do not infer native execution from source availability. No automatic commit/push,
-main merge, legacy migration, profiling work or real-vault integration is authorized.
+main merge, migration project, real-vault access or profiling task is authorized.

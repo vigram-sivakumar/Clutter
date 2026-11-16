@@ -27,7 +27,7 @@ export async function pack(resources, nodePath) {
   });
   if (
     Object.keys(browser.metafile.inputs).some((n) =>
-      /sqlite|media-files|media-formats|qualified-engine|durable\/model|entities\/model/.test(
+      /sqlite|media-files|media-formats|qualified-engine|editor\/(backend|engine|page-codec|page-model|qualified-replica)\.mjs|durable\/model|entities\/model/.test(
         n
       )
     )

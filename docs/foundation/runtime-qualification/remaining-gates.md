@@ -4,7 +4,7 @@
 > as an entry prerequisite. [Override46](implementation-entry-override46.json) owns
 > the current open/blocked case milestones. Original H01 definitions, budgets and
 > evidence remain immutable. Do not execute historical profiler commands below as
-> current work. [START-HERE](../START-HERE.md) points to I2b shared editor extraction.
+> current work. [START-HERE](../START-HERE.md) points to I2c selected Tauri composition.
 
 
 Current45: user manual44 trace is saved/readable. The next action is bounded saved-

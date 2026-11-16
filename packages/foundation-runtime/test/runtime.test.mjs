@@ -27,7 +27,7 @@ import {
   catalogue,
   stable,
 } from '../src/index.ts';
-import { qualifiedEngine } from '../../../docs/foundation/i1/qualified-engine.mjs';
+import { qualifiedEngine } from '../src/editor/engine.mjs';
 const here = dirname(fileURLToPath(import.meta.url)),
   root = join(here, '../../..');
 const body = (text = 'initial') => ({

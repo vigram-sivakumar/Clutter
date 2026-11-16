@@ -16,7 +16,7 @@ import {
   fromBase64,
 } from '../src/index.ts';
 import { SqliteVault } from '../src/adapters/sqlite-vault.ts';
-import { qualifiedEngine } from '../../../docs/foundation/i1/qualified-engine.mjs';
+import { qualifiedEngine } from '../src/editor/engine.mjs';
 const domErrors = [];
 const virtualConsole = new VirtualConsole();
 virtualConsole.on('jsdomError', (e) => domErrors.push(e.message));
@@ -57,13 +57,13 @@ globalThis.cancelAnimationFrame = dom.window.cancelAnimationFrame.bind(
   dom.window
 );
 const { createQualifiedReplica } =
-  await import('../../../docs/foundation/i1/qualified-editor.mjs');
+  await import('../src/editor/qualified-replica.mjs');
 const { TextSelection } =
-  await import('../../../docs/foundation/experiments/r07-two-view/node_modules/prosemirror-state/dist/index.js');
+  await import('prosemirror-state');
 const Y =
-  await import('../../../docs/foundation/experiments/r07-two-view/node_modules/yjs/dist/yjs.mjs');
+  await import('yjs');
 const { decode } =
-  await import('../../../docs/foundation/experiments/r07-two-view/pages/codec.mjs');
+  await import('../src/editor/page-codec.mjs');
 const ok = (r) => {
   assert.equal(r.ok, true, JSON.stringify(r));
   return r.value;

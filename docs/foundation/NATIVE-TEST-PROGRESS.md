@@ -720,3 +720,11 @@ fragment confirms input/frame/clock linkage remains unvalidated; no new recordin
 latency, memory ranking or host failure inferred. Prior manual passes stay recorded.
 I2a shared context ownership: 89 Linux runtime tests + strict TS pass, no native UI
 wiring changed, no manual replay required. Next action lives only in START-HERE.
+
+## 2026-11-16 — shared editor extraction47 (no native replay)
+
+I2b complete: I1 integration now uses canonical runtime/editor source and split
+browser/backend entry points.93 runtime tests + strict TS pass; source audit retains
+executable statements. Historical comparison page10/entity14 tests pass separately.
+Native pack graph/actual browser bootstrap regressions pass on Linux, no Mac run
+or performance claim. No current manual task; NEXT only in START-HERE (I2c).

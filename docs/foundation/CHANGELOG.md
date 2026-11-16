@@ -3,6 +3,18 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.71 — 2026-11-16
+
+- Complete I2b: promote qualified PM/Y replica, schema, history, page mechanics,
+  codecs and engine into runtime with explicit browser/backend entries and locked
+  workspace dependencies. I1 integration re-exports the same implementations.
+- Preserve isolated standalone comparisons byte-for-byte after detecting constructor
+  identity failures from attempted cross-install cross-wiring; failed attempts retained.
+- 93 runtime tests pass (4 new boundary cases), strict TS/source-equivalence audit
+  and offline lock-plan check pass. Historical page10/entity14 tests pass in isolation.
+- No semantic Core/session/Vault change, Mac manual/profiling run or new native UI.
+  Handoff advances to I2c selected Tauri composition; original evidence/gates retained.
+
 ## 0.70 — 2026-11-16
 
 - Accept F010 Tauri implementation baseline and shared structural contracts after

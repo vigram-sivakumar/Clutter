@@ -19,8 +19,8 @@ to ship that runtime without support/security/version checks.
 | Slice | Deliverable | Gate |
 | --- | --- | --- |
 | I2a (46) | Shared EditingContextRegistry over existing EditorSession | Concurrent acquire shares one context, view release retains pending/history, active leases block teardown, unsafe close retains/retries through same session |
-| I2b (next) | Move PM/Y editor/schema/codec binding once into shared module(s), with browser/backend entry separation | No production import from docs/experiments or hardcoded node_modules; same actual editor/codec/history implementations, focused regression/import-graph checks |
-| I2c | Tauri desktop + packaged Core/CLI/MCP composition from shared modules | Platform-only Rust/OS ports, app-independent single Core owner, real shared browser build; installed discovery/grants/fencing remain explicit until qualified |
+| I2b (47, implemented) | Move PM/Y editor/schema/codec binding once into shared module(s), with browser/backend entry separation | No production import from docs/experiments or hardcoded node_modules; same actual editor/codec/history implementations, focused regression/import-graph checks |
+| I2c (next) | Tauri desktop + packaged Core/CLI/MCP composition from shared modules | Platform-only Rust/OS ports, app-independent single Core owner, real shared browser build; installed discovery/grants/fencing remain explicit until qualified |
 | I2d | Shared page/task editing UI with stable routes, properties/media and required operation contracts | One UI, typed API/catalogue, same Core handlers, no hidden direct storage writes or duplicated semantic reducers |
 
 I2b module placement/dependency details are finalized against current import graph
@@ -69,3 +69,7 @@ are exercised through EditorSession. Full runtime/strict TS checks recorded in46
 No Mac manual replay required for this pure integration module. Native/window UI,
 cache/selection persistence policy and production OS guarantees remain subsequent
 work. Generic registry tests do not replace native acceptance.
+
+Delivery47 result: [shared editor extraction](shared-editor-extraction.md). Runtime
+contains the canonical integration; standalone comparison snapshots remain frozen
+and isolated, not product import targets. START-HERE owns the exact current action.

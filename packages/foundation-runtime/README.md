@@ -1,9 +1,9 @@
-# Disposable Core, editor contexts and media API — I1
+# Shared foundation Core and editor runtime — I2
 
 Private, nonshipping workspace. Requires Node24.22.1 or newer with native TypeScript
 stripping and node:sqlite. The existing app remains on its current save path.
 The existing locked jsdom29.1.1 is now declared as a direct dev dependency; no new
-external package versions were added. The final production runtime/format is not selected.
+external package versions were added. F010 selects the implementation direction; final shipping format/native guarantees remain gated.
 
 Portable entry: contracts/catalogue, SpaceService, CoreClient, EditorSession, DesktopSession and
 engine/Vault interfaces. SQLite and stdio entries are opt-in Node adapters. One
@@ -14,12 +14,16 @@ semantic page facade. No UI/CLI/MCP adapter owns another document implementation
 requires that same marked temporary path and matching database identity. No API
 creates a store at a user-provided path. Do not use this for user notes.
 
-Root commands: `npm run foundation:test`, `npm run foundation:typecheck` after the
-normal root dependency install. Integration tests also need the existing locked
-PM/Y experiment dependencies: from docs/foundation/experiments/r07-two-view run
-`npm ci --ignore-scripts --workspaces=false`. Tests reuse that qualified codec via
-an explicitly temporary composition adapter in docs/foundation/i1; actual runtime
-source imports no experiment modules. No copies of writable JSON bodies persist.
+Root commands: npm run foundation:test and npm run foundation:typecheck after
+normal root npm ci --ignore-scripts (Node24.22.1+ for tests). Editor dependencies
+are now declared and pinned here; shared product code never imports docs/experiments
+or hardcoded node_modules. Public editor/browser and editor/schema entries are
+browser-safe; editor/backend contains the existing bounded engine/hash codec.
+See docs/foundation/i2/shared-editor-extraction.md for module/dependency boundaries.
+I1 harness paths re-export these same mechanisms. Some legacy integration test
+fixtures/pack tooling remain under docs until selected composition I2c; they do not
+appear in the shared runtime source import graph. Standalone comparison snapshots
+remain isolated historical implementations; do not use them in new product code.
 
 CLI/MCP stdio adapters accept a CoreClient transport. Tests launch real separate
 stdio processes with a private parent-IPC dev composition. There is no installed
