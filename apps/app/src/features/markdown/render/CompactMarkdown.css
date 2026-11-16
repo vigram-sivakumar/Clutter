@@ -109,17 +109,20 @@ IMPORTANT: I manually commented out few of the css the comments in the css might
 .compact-markdown-date {
   /* Same token the editor's own .tok-date uses — was `inherit`, which
    * incorrectly skipped this construct's own established foreground. */
-  color: var(--md-date-foreground);
+  /* color: var(--md-date-foreground); */
+  color: inherit;
 }
 
 .compact-markdown-date .compact-markdown-date-prefix {
   /* opacity: var(--opacity-medium); */
   opacity: 1;
+  font-feature-settings: 'case' 1;
 }
 
 .compact-markdown-date[data-date-status='invalid'] {
   /* opacity: var(--opacity-medium); */
   opacity: 1;
+  font-feature-settings: 'case' 1;
 }
 
 /* Strikethrough — every struck element
