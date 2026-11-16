@@ -1,6 +1,35 @@
 # Clutter foundation continuation instructions
 
-## Current checkpoint — controlled input method trial43, 2026-11-16
+## Current checkpoint — matched method blocker and GUI acquisition44, 2026-11-16
+
+User43 commit14b45119: both H-T trial14-23-57/c24c7b81 and H-E14-27-05/6cc14187
+emit recordExit1, SIGINT/SIGTERM and TOC10. Tauri log confirms recording reached20s
+then stalled during finalization, export Document Missing Template Error; detailed
+Electron stderr not supplied. No host defect/performance preference established.
+H11 measurement acquisition/correlation BLOCKED. Both attempts retained;43 entry
+now refuses CLI recording retries (original source remains in Git43/evidence hashes).
+
+Replacement HM-GUI-44 changes acquisition driver only: manual Instruments Record/
+Stop/Save, then existing CLI export for validation. Third-party tool author reports
+similar macOS26 SIMULATOR behavior; not proof of this native desktop cause. No timeout
+extension, OS/toolchain change, new event API or weaker H01 gate. One H-T GUI pilot.
+
+Next apply44 and run manual44/prepare.mjs with completed36/H-T. It verifies/reuses
+correct existing test window, or delegates explicit saved-session --reopen to37;
+no duplicate window, fresh Space or direct-store write. Opens existing Instruments,
+prints target PID/save directory/validation command. Do not record until template/
+target instructions are clear. No CLI record command or input hook is started.
+40 Linux tests pass (4 new+36 regressions); actual Mac44 prepare/GUI pilot pending.
+
+Validation after manual Save: exact planned manual.trace in Git metadata, readable
+TOC and required schemas. This is only acquisition-readability/schema gate, NEVER
+latency/H11 pass. Actual input/producer/frame/clock join, uncertainty/overhead, shared
+memory attribution, HP workloads and other H01 cases remain open. Stop after one
+failed/uninformative GUI pilot with exact blocker; no more blind recording loops.
+Shared UI/Core/platform contracts and P-37 greenfield scope unchanged; no host winner.
+
+
+## Previous checkpoint — controlled input method trial43 (superseded above), 2026-11-16
 
 User42 commit03c4256d: exports succeed, process-info1101 rows, frame lifetimes9,
 displayed surfaces7. Process roster has no parent/responsible/coalition columns;

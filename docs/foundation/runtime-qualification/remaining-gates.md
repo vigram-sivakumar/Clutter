@@ -1,4 +1,4 @@
-# Remaining work before host selection — checkpoint43
+# Remaining work before host selection — checkpoint44
 
 This is an evidence audit, not an estimate that three workstreams mean three small
 patches. Core/I1 implementation and product contracts exist; basic all-host GUI,
@@ -18,7 +18,7 @@ No percentage/time promise or shipping-ready claim follows from helper test coun
 | H08 packaging/security | All builds signed/strict verified, packed runtime smoke and size limits | Offline/moved-app/private-bridge checks; release notarization/Gatekeeper remains credential-blocked if unavailable |
 | H09 compatibility/update | Version envelopes and greenfield policy | Protocol/schema/version-skew and old/new owner contention; signed distribution update rehearsal may be release-blocked |
 | H10 native editor smoke | Prior scoped manual results and all-host basic editing | Focused changed-route native keyboard/menu/clipboard/media cases; no broad old-suite replay |
-| H11 instruments | Counter calibration, all reads fixed, native trace/export works | Candidate/helper/shared-page attribution; actual input/producer/presentation join and clocks |
+| H11 instruments | Counter/alias calibration and idle trace/export work; both controlled CLI43 trials BLOCKED | Candidate/helper/shared-page attribution; actual input/producer/presentation join and clocks |
 | H12 scale/corruption | Earlier bounded backend crash/history proofs | Frozen HP10/HP1K/HP10K fixture generation/ordinary start/read/edit/catch-up/corruption evidence |
 
 These are matched-host evidence gaps, not assertions that existing implementation
@@ -28,7 +28,8 @@ not future unsupported-version rejection, recovery or upgrade safety.
 
 ## Bounded sequence
 
-1. One controlled input method trial, starting Tauri43. Validate native input,
+1. Controlled CLI43 trial has blocked on both hosts; no retry. One manual GUI44
+   acquisition pilot, Tauri first, with explicit readability then measurement gates. Validate native input,
    renderer/surface ownership and clocks; if linkage is absent, record exact H11
    blocker and choose a concrete common instrumentation seam, not repeated idle
    exports or a lowered presentation definition. Export current trial only as needed.

@@ -1,5 +1,10 @@
 # One controlled keyboard/presentation method trial43
 
+RETIRED44: both matched controlled CLI attempts fail finalization/export. run.mjs
+now refuses recording. No more43 runs; use ../manual44/README.md. The remainder
+is historical method documentation, not current execution instructions.
+
+
 Actual42 exports succeeded. The idle trace cannot establish input-to-document
 presentation: process roster lacks responsibility links, frame producer unresolved,
 first3 surface latency cells are sentinel/unavailable. No more generic idle export.

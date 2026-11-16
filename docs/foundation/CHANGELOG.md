@@ -3,6 +3,20 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.68 — 2026-11-16
+
+- Record matched43 failures: both record1/TOC10 after SIGINT/SIGTERM; Tauri detailed
+  finalization/template error confirmed, exact Electron stderr not supplied.
+- H11 blocked, no host defect or performance preference inferred.43 CLI recording
+  entry retired to explicit refusal; frozen contract/old source/evidence retained.
+- HM-GUI-44 defines manual Instruments Record/Stop/Save replacement acquisition,
+  prepared target PID/Git-internal save destination, existing-window reuse or guarded
+  saved reopen, and bounded saved-trace validator. No recording starts automatically.
+- GUI readability/schema success kept separate from input-to-presentation/memory/
+  workload acceptance. One pilot; failure/uninformative data remains explicit block.
+-40 Linux tests pass (4 new+36 regressions); Mac44 path still pending. No Core/UI/
+  native app/probe/pin/H01 budget or product change, OS install, private API or retries.
+
 ## 0.67 — 2026-11-16
 
 - Preserve actual42 terminal/table summaries. Exports work, but process roster lacks
