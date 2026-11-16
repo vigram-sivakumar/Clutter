@@ -1,5 +1,13 @@
 # Architecture freeze readiness — checkpoint45
 
+> Current disposition (revision0.70, 2026-11-16): [F010](adr/F010-tauri-implementation-baseline.md)
+> accepts Tauri and shared structural mechanisms for I2 implementation. Host profiling
+> is no longer an entry prerequisite; open cases follow the explicit override46
+> milestones, never a passing result. Use [START-HERE](START-HERE.md) for the current
+> I2b shared editor extraction action. Prior planning/next commands below are historical
+> wherever they conflict with this accepted decision. Disposable data boundary remains.
+
+
 ## Answer to the current planning question
 
 The structural architecture can be baselined around the user-confirmed contracts.

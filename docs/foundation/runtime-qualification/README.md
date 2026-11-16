@@ -1,5 +1,12 @@
 # H01 — production host/runtime qualification
 
+> F010/override46 disposition: Tauri selected for I2 implementation; comparison stopped
+> as an entry prerequisite. [Override46](implementation-entry-override46.json) owns
+> the current open/blocked case milestones. Original H01 definitions, budgets and
+> evidence remain immutable. Do not execute historical profiler commands below as
+> current work. [START-HERE](../START-HERE.md) points to I2b shared editor extraction.
+
+
 ## Current checkpoint — shared UI and host diagnostics39, 2026-11-16
 
 User38 commit1bcd2783: actual Mac compile and cross-process physical-footprint

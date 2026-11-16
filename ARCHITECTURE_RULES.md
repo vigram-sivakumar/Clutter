@@ -8,6 +8,10 @@ If a rule and a deadline conflict, the deadline yields, or the rule is formally 
 
 [ADR-F009](docs/foundation/adr/F009-scoped-core-implementation-entry.md) permits the
 private `packages/foundation-runtime` I1 namespace on architecture/clutter-foundation.
+[ADR-F010](docs/foundation/adr/F010-tauri-implementation-baseline.md) extends this
+scope to I2 shared modules and selected Tauri composition, with one shared web
+UI/editor and the same Core authority. Its explicit qualification timing overlay
+does not mark unproven cases passed or authorize existing app/data integration.
 It creates only marked OS-temporary Spaces and cannot open legacy/user vaults.
 Its sole internal PageOperations facade runs inside one Core SpaceService; its
 Vault port owns atomic commit mechanics. It is not wired into apps/app. Existing

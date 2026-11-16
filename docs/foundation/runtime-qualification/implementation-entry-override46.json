@@ -1,0 +1,29 @@
+{
+  "id":"H01-IMPLEMENTATION-ENTRY-OVERRIDE-46",
+  "version":1,
+  "date":"2026-11-16",
+  "status":"accepted by explicit user decision for I2 implementation",
+  "authority":"ADR-F010",
+  "userAuthorization":"then let's freeze this and move to next step",
+  "originalContract":{"id":"H01","version":1,"path":"contract.json","sha256":"d745da668c9808d56570828747f99246bc5149f1937bf790ada8ecdb032982bf","immutable":true},
+  "replacedEntryRequirement":"All mandatory H01 cases/metrics before selecting a host for the next disposable implementation",
+  "currentEntryPolicy":"Tauri2 accepted as implementation host with shared web UI/PM-Y, TypeScript Core/API and SQLite ports. Open qualification is scheduled alongside implementation; no valid comparative performance winner claimed.",
+  "scope":"I2 shared modules/selected desktop composition in marked disposable Spaces. No main/legacy app data route change.",
+  "profilingLoop":"stopped; no more speculative comparison/recorder retries as implementation prerequisite",
+  "deferredCases":[
+    {"case":"H-01","state":"open; bounded ownership evidence exists","milestone":"I2 every slice: one catalogue/handler owner, import graph and UI/CLI/MCP parity"},
+    {"case":"H-02","state":"open; packaged smoke exists","milestone":"I2 selected desktop/headless composition; before user-selected durable Spaces"},
+    {"case":"H-03","state":"open; prototype fencing only","milestone":"before user-selected durable Spaces: actual alias/copy/race/stale-owner OS fencing"},
+    {"case":"H-04","state":"open; prototype admission tests exist","milestone":"before user-selected durable Spaces: real transport/peer/grant isolation"},
+    {"case":"H-05","state":"open; scoped earlier manual evidence retained","milestone":"I2 selected UI/context lifecycle; before data-bearing release"},
+    {"case":"H-06","state":"open; process-death proofs retained","milestone":"before user-selected durable Spaces: native flush/recovery/storage fault qualification"},
+    {"case":"H-07","state":"open; two-view fixture evidence exists","milestone":"I2 windows/panes/focus composition and portable boundary enforcement; Windows native runtime later"},
+    {"case":"H-08","state":"open; signed experimental builds/sizes evidenced","milestone":"I2 packaging/private bridge/offline; release signing/notarization before distribution"},
+    {"case":"H-09","state":"open","milestone":"protocol/schema safety before user-selected durable Spaces; distribution update rehearsal before release"},
+    {"case":"H-10","state":"open; targeted basic editor passes retained","milestone":"each changed editor/native route with automation and focused native checks"},
+    {"case":"H-11","state":"blocked; native input/frame/clock and aggregate attribution unqualified","milestone":"planned measurement instrumentation on implemented shared UI; before performance claims/release acceptance"},
+    {"case":"H-12","state":"open; bounded backend proofs retained","milestone":"representative scale/corruption acceptance before advertised scale/data-bearing release"}
+  ],
+  "unchanged":["H01 test definitions/targets/source hashes","raw pass/fail/blocked evidence","no latency or memory winner","data safety/recovery/security and final format obligations","shared UI/Core and platform adapters","P37 no existing-user migration"],
+  "resultPolicy":"deferred/open/blocked are never represented as passed"
+}

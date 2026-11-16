@@ -12,10 +12,10 @@ contract and scoped evidence before changing or replaying an experiment.
 - Stay on architecture/clutter-foundation. Inspect Git state and preserve user work.
   Do not reset/clean, pull unrelated main changes, merge to main, commit or push
   merely because a plan describes future work. User applies/commits delivered patches.
-- Existing production rules still govern production. Foundation proposals do not
-  supersede them implicitly. Current45 work is scoped to docs/foundation; production
-  code/real vaults/old sessions remain outside this task. Broader changes need actual
-  task authorization, not an inferred roadmap instruction.
+- Existing production rules still govern production. F010 explicitly authorizes I2 in the foundation namespace and selected shared
+  modules. It adopts Tauri/PM-Y/TS Core/SQLite implementation direction and changes
+  H01 entry timing through override46. Existing app/real vaults/old sessions remain
+  outside this task. No implicit change to legacy rules or data writers.
 - User permits replacing100% of old implementation. It is Markdown-oriented evidence,
   not a target constraint. No existing users/data need migration (P37): no legacy
   converter/compatibility facade/dual-write/cutover project. Initial schema safety,
@@ -51,11 +51,16 @@ contract and scoped evidence before changing or replaying an experiment.
   No missing metric as zero, JS heap/RSS/RAF substitute, nearest-frame causal guess,
   private API/permission workaround, or post-result threshold change to force a winner.
 - Blocked methods have finite stopping rules.43 CLI recording is retired after
-  matched failures. Use the current saved-pilot analysis action; missing links need
-  exact H11 disposition and scoped observable, not more generic capture/export loops.
-- Existing F009 acceptance is for disposable I1 only. F006/F007/F008 and production
-  format/authority/host acceptance remain as recorded. Freeze-readiness review does
-  not silently accept ADRs, waive gates or move mandatory selection tests to release.
+  matched failures. F010 stops host profiling as implementation entry work. Preserve the exact H11
+  blocked disposition; do not resume recorder/export experiments without a new task.
+- F010 is the accepted I2 implementation baseline and explicit gate-timing revision.
+  It adopts structural mechanisms from F001–F008 without accepting every draft detail.
+  Final format/native durability/installed security and shipping claims remain gated
+  at override46 milestones. Use disposable Spaces until data-bearing gates close.
+- Shared product code must not import docs/experiments or hardcoded node_modules.
+  Move qualified implementations once; browser/backend entries remain separated.
+  A view releases its lease, never destroys the retained editing context. Registry
+  retirement is not the complete window-close guard; retain existing protection policy.
 
 ## Delivery and continuation
 

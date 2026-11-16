@@ -1,5 +1,11 @@
 # Foundation architecture decision records
 
+[F010: Tauri implementation baseline and structural freeze](F010-tauri-implementation-baseline.md)
+is **Accepted for I2 implementation**. It explicitly adopts structural mechanisms
+and revises H01 host-adoption timing; original draft detail and raw evidence remain
+as recorded. F009 disposable I1 proof is retained; current I2b action is in START-HERE.
+
+
 Identifiers are local to this folder; existing ADR numbers/statuses are unchanged.
 Technical proposals remain Proposed. Confirmed product directions are recorded in
 product-behaviour.md; they do not establish that a candidate meets those contracts.

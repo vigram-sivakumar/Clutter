@@ -3,6 +3,19 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.70 — 2026-11-16
+
+- Accept F010 Tauri implementation baseline and shared structural contracts after
+  explicit user freeze decision; stop profiling as implementation prerequisite.
+- Add override46 with named milestones for all open/blocked H01 cases; immutable
+  definitions/targets/raw evidence retained, no memory/latency winner or new pass.
+- Implement I2a EditingContextRegistry over the existing EditorSession: coalesced
+  opens, retained pending/history, leases and safe explicit retirement; no new owner.
+- Validate 89/89 runtime tests, 36 targeted tests and strict TypeScript on Linux,
+  including 7 new unit and 2 actual SQLite/Core/PM-Y integration cases. No Mac/UI claim.
+- Preserve truncated user45 output with interpretation limits. Update canonical
+  handoff to I2b shared editor extraction, then Tauri composition/shared feature UI.
+
 ## 0.69 — 2026-11-16
 
 - Preserve user44 manual GUI recording/save and validation export0/schema-only gate

@@ -711,3 +711,12 @@ archive and35 Electron archive, retaining both passes and building only Tauri.
 Next --retry 2026-11-16T10-19-43-465Z-627d2e3f (full command START-HERE).15 support
 tests pass; Mac Tauri after36 pending, no GUI/metrics or repeated diagnostic/inventory.
 P-36/default all current/future Spaces and existing Core/pins/signing remain unchanged.
+
+## 2026-11-16 — implementation baseline46 (no new native test)
+
+User approved freezing direction and moving forward. F010 accepts Tauri implementation
+baseline, override46 explicitly defers qualification to named milestones. User45
+fragment confirms input/frame/clock linkage remains unvalidated; no new recording,
+latency, memory ranking or host failure inferred. Prior manual passes stay recorded.
+I2a shared context ownership: 89 Linux runtime tests + strict TS pass, no native UI
+wiring changed, no manual replay required. Next action lives only in START-HERE.

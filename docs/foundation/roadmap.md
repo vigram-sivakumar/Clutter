@@ -1,5 +1,25 @@
 # Foundation roadmap
 
+## Current implementation sequence (revision0.70)
+
+[F010](adr/F010-tauri-implementation-baseline.md) is accepted. Host selection research
+is closed for I2 entry; open qualification is scheduled in override46. No latency
+or aggregate-memory winner is claimed. [START-HERE](START-HERE.md) owns current state.
+
+1. I2a46: retain existing editing contexts across view lifetimes (implemented, 89 runtime tests + strict TS).
+2. I2b: extract shared PM/Y editor/schema/codec once with browser/backend boundaries.
+3. I2c: wire selected Tauri desktop and headless Core/CLI/MCP composition.
+4. I2d: shared page/task editing, properties/media and feature operations.
+5. Before user-selected durable Spaces: close native safety/recovery/format/security gates.
+   Before shipping/claims: representative performance/scale/distribution acceptance.
+
+No migration project: there are no existing users/data. No new manual profiling task.
+See [I2 contract](i2/contract.md) for deliverables and acceptance. The roadmap below
+is retained historical planning, superseded by F010/override46 for implementation entry.
+
+## Historical qualification roadmap
+
+
 Current state/next action lives only in [START-HERE](START-HERE.md). Read it first.
 [Freeze readiness](freeze-readiness-review.md) separates structural baseline from
 open technology/gates.45 analyzes the saved44 trace; no new recording. Dated

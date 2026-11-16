@@ -1,0 +1,44 @@
+✔ concurrent view acquires open once and release is idempotent without destroying context (8.13828ms)
+✔ space/page/context identity partitions sessions and caller mutation cannot change the retained key (0.971664ms)
+✔ catalogue validation rejects invalid identities before opening any session (0.455833ms)
+✔ failed open releases reservation and allows a later independent retry (0.617742ms)
+✔ unsafe explicit close retains the same session for further views and retry (0.620155ms)
+✔ close barrier blocks acquire and deduplicates concurrent teardown (1.682403ms)
+✔ teardown error leaves the cached context intact and clears close barrier (0.853179ms)
+✔ actual EditorViews: local and foreign edits share one page, undo is context-specific (118.310485ms)
+✔ destroying a view preserves context history and other view selections (25.912477ms)
+✔ missed notifications reconcile on resume using the authoritative root (13.00354ms)
+✔ lost reply retains exact request while newer typing stays pending (32.065526ms)
+✔ typing during an in-flight save survives acknowledgement (26.410426ms)
+✔ failed saves remain provisional; protected close and restart restore the exact pending work (28.600368ms)
+✔ failed protection refuses context close and leaves the view editable (34.206205ms)
+✔ new typing after a protection acknowledgement requires a new protection generation (19.892161ms)
+✔ service restart clears interactive undo explicitly but keeps saved content and a live view (13.278727ms)
+✔ context grants and private outcomes/protection are bound to the trusted peer (17.48979ms)
+✔ raw updates cannot change title/properties/links or introduce unknown nodes (6.661902ms)
+✔ malformed binary, unknown base and dangling Y dependencies refuse without replacing a root (5.174596ms)
+✔ semantic CLI-style writes and task pages use the same Core and editor route (17.31291ms)
+✔ keyboard Enter creates stable paragraph identities through the actual binding (44.95618ms)
+✔ a lost protection reply retries exactly; later typing remains unprotected (28.39805ms)
+✔ typing while protection is in flight prevents an unsafe close (14.395885ms)
+✔ protection refuses pending work absent from its staged snapshot (6.829689ms)
+✔ schema1 temporary stores are refused without automatic migration or overwrite (3.04849ms)
+✔ real CLI/MCP processes update a mounted view and read back UI edits (461.650595ms)
+✔ real process death: editor.apply is old-or-new with exact durable replay (423.533923ms)
+✔ real process death: editor.protect is old-or-new with exact durable replay (475.699557ms)
+✔ a foreign paragraph replacement cannot silently consume unsaved local text (12.950277ms)
+✔ undo after a foreign edit in a newly split paragraph preserves the foreign text (32.399079ms)
+✔ live editor saves and undo preserve media introduced through real CLI/MCP clients (353.359772ms)
+✔ protected editor drafts retain transitive media after current removal and restart (23.668304ms)
+✔ clearing a note remains saveable/protectable through the real view binding (4.61511ms)
+✔ toolbar history maps the current caret/range instead of jumping to the edit bookmark (5.858045ms)
+✔ registry keeps actual editor context/history when all views detach and later remount (13.401118ms)
+✔ registry retains real pending editor work when both save and protection fail (12.09553ms)
+ℹ tests 36
+ℹ suites 0
+ℹ pass 36
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3923.866045

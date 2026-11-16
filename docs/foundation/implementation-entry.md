@@ -1,5 +1,13 @@
 # When implementation begins
 
+> Current disposition (revision0.70, 2026-11-16): [F010](adr/F010-tauri-implementation-baseline.md)
+> accepts Tauri and shared structural mechanisms for I2 implementation. Host profiling
+> is no longer an entry prerequisite; open cases follow the explicit override46
+> milestones, never a passing result. Use [START-HERE](START-HERE.md) for the current
+> I2b shared editor extraction action. Prior planning/next commands below are historical
+> wherever they conflict with this accepted decision. Disposable data boundary remains.
+
+
 Revision0.56, 2026-11-16. **I1 implementation has begun with disposable Spaces.**
 [I1a](i1/result.md) implements real private Core/API modules; [editor26](i1/editor-result.md) now qualifies actual per-page view/context/protection
 in a DOM composition. [media27](i1/media-result.md) now adds immutable media API/history/closure.
@@ -78,7 +86,7 @@ and full release coverage before shipping. Task pages/covers/embeds, templates,
 calendar/reminders, recurrence and collections are not removed because I1 is small.
 Cloud/provider enablement and live collaboration remain separate later gates.
 
-## Exact next action — bounded production host/runtime qualification contract
+## Historical I1 exit action — superseded by F010/I2
 
 The scoped I1 integration is complete; do not repeat the old/native manual suite.
 Prepare the contract/exit criteria for production host/runtime/discovery/auth/alias
@@ -88,7 +96,7 @@ new-data G-Q format/security/native durability gates remain blocking; legacy dat
 migration is explicitly out of scope (P-37).
 See completion review and START-HERE for evidence limits and delivery state.
 
-## Next-action update — revision0.56
+## Historical next-action update — revision0.56
 
 H01 contract is now prepared; do not repeat that writing step. Next safe Mac host
 inventory, then exact versions/instruments/host binding before matched builds.

@@ -1228,3 +1228,81 @@ test('toolbar history maps the current caret/range instead of jumping to the edi
   assert.equal(av.state.selection.anchor, end);
   assert.equal(av.state.selection.head, end - 4);
 });
+
+test('registry keeps actual editor context/history when all views detach and later remount', async (t) => {
+  const { EditingContextRegistry } = await import('../src/index.ts');
+  const x = await seeded(t);
+  let opens = 0;
+  const registry = new EditingContextRegistry(async (scope) => {
+    opens++;
+    return x.open(scope.contextId, x.client(), scope.pageId);
+  });
+  const scope = { spaceId: x.v.spaceId, pageId: 'p', contextId: 'A' };
+  const [one, two] = await Promise.all([
+    registry.acquire(scope),
+    registry.acquire(scope),
+  ]);
+  assert.equal(one.session, two.session);
+  const a = x.mount(one.session),
+    b = x.mount(two.session);
+  insert(a, 'RETAINED ');
+  one.session.stopCapturing();
+  await one.session.flush();
+  await one.session.settle();
+  assert.equal(text(b), 'RETAINED Alpha beta');
+  a.destroy();
+  one.release();
+  await assert.rejects(registry.close(scope), /CONTEXT_IN_USE/);
+  b.destroy();
+  two.release();
+  const again = await registry.acquire(scope),
+    remounted = x.mount(again.session);
+  assert.equal(opens, 1);
+  assert.equal(text(remounted), 'RETAINED Alpha beta');
+  assert.equal(again.session.history(remounted, 'undo'), true);
+  assert.equal(text(remounted), 'Alpha beta');
+  assert.equal(again.session.history(remounted, 'redo'), true);
+  remounted.destroy();
+  again.release();
+  assert.equal(await registry.close(scope), true);
+  x.sessions = x.sessions.filter((s) => s !== again.session);
+});
+
+test('registry retains real pending editor work when both save and protection fail', async (t) => {
+  const { EditingContextRegistry } = await import('../src/index.ts');
+  let fail = true;
+  const x = await seeded(t, {
+    beforeCommit: (c) => {
+      if (fail && ['editor.apply', 'editor.protect'].includes(c.method))
+        throw Error('disk failure');
+    },
+  });
+  const scope = { spaceId: x.v.spaceId, pageId: 'p', contextId: 'A' };
+  let opens = 0;
+  const registry = new EditingContextRegistry(async (s) => {
+    opens++;
+    return x.open(s.contextId);
+  });
+  const lease = await registry.acquire(scope),
+    view = x.mount(lease.session);
+  insert(view, 'UNSAVED ');
+  view.destroy();
+  lease.release();
+  assert.equal(await registry.close(scope), false);
+  const pending = lease.session.pendingCommand;
+  const again = await registry.acquire(scope),
+    remounted = x.mount(again.session);
+  assert.equal(opens, 1);
+  assert.equal(again.session, lease.session);
+  assert.equal(text(remounted), 'UNSAVED Alpha beta');
+  assert.deepEqual(again.session.pendingCommand, pending);
+  assert.equal(await savedText(x), 'Alpha beta');
+  fail = false;
+  await again.session.flush();
+  await again.session.settle();
+  assert.equal(await savedText(x), 'UNSAVED Alpha beta');
+  remounted.destroy();
+  again.release();
+  assert.equal(await registry.close(scope), true);
+  x.sessions = x.sessions.filter((s) => s !== again.session);
+});

@@ -1,0 +1,7 @@
+{
+  "date": "2026-11-16",
+  "quote": "then let's freeze this and move to next step",
+  "accepted": "F010 Tauri implementation baseline and structural contracts",
+  "qualification": "Explicitly deferred/open/blocked at overlay46 milestones; no metric or safety case passed by decision",
+  "boundary": "marked disposable Spaces; existing app/main/data untouched"
+}

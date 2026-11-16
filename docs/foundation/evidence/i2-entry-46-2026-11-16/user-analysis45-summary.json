@@ -1,0 +1,15 @@
+{
+  "source": "user-provided truncated terminal output; not full JSON/raw trace audit",
+  "sha256": "a1fb0b54afc6e15f0717332e3731e4d440dbbb49ed478d47f6d757ace4312332",
+  "analysisId": "2026-11-16T15-25-24-172Z-b0fd846d",
+  "measurement": "blocked; input/producer/frame/clock join unvalidated",
+  "runloopExport": "blocked; exact error not included in fragment",
+  "rows": {
+    "visual-chain": 0,
+    "hitches-frame-lifetimes": 583,
+    "displayed-surfaces-interval": 580,
+    "time-info": 1
+  },
+  "interpretation": "Candidate ID overlaps are not causal input-to-frame linkage. Native clock fields exist but their mapping is not validated. No proof of absent typing, latency calculation or host ranking.",
+  "next": "F010 stops profiling as I2 entry requirement; preserve evidence and implement shared editor modules."
+}

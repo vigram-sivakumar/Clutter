@@ -1,0 +1,9 @@
+{
+  "packages/foundation-runtime/src/adapters/editor-context-registry.ts": "d0540e884290b964e2112c55425f5c7243497821677e696e609c1b4d97f6640d",
+  "packages/foundation-runtime/src/index.ts": "9d10413b6a97e09f699ddef1ed7e15064b576198dd5949e905e0d435672d93e8",
+  "packages/foundation-runtime/test/context-registry.test.mjs": "60f963aabf25ed6133fb4d1f96e7643a3f99f0dd1aaf8f401f645de656b7826a",
+  "packages/foundation-runtime/test/editor.test.mjs": "3f6a83d0d6175edfe76dcd9966028f13fac08826f527379e7fc3996b694715ca",
+  "docs/foundation/adr/F010-tauri-implementation-baseline.md": "68ac7eccf2626aa6e41be07e42e737bb99318e22f5aef9c9ba48053a0908862e",
+  "docs/foundation/runtime-qualification/implementation-entry-override46.json": "b2a7a7caa7ea74f04777aec1048c80c3942c83649284e0e1fa8eec0af4398a17",
+  "docs/foundation/i2/contract.md": "d2687bc287af77bdd3fd135dce74692a3202858a7299beedf79400ad625944d8"
+}

@@ -1,5 +1,12 @@
 # Remaining work before host selection — checkpoint44
 
+> F010/override46 disposition: Tauri selected for I2 implementation; comparison stopped
+> as an entry prerequisite. [Override46](implementation-entry-override46.json) owns
+> the current open/blocked case milestones. Original H01 definitions, budgets and
+> evidence remain immutable. Do not execute historical profiler commands below as
+> current work. [START-HERE](../START-HERE.md) points to I2b shared editor extraction.
+
+
 Current45: user manual44 trace is saved/readable. The next action is bounded saved-
 trace relationship analysis in analysis45, not another recording. See START-HERE
 and freeze-readiness-review.md for exact action and unresolved technology gates.

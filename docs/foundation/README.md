@@ -1,8 +1,11 @@
 # Clutter foundation
 
-Revision0.69,2026-11-16. Working branch: architecture/clutter-foundation.
-The shared product/ownership direction is confirmed; production technology baseline
-and final host acceptance remain provisional. Existing production rules still apply.
+Revision0.70,2026-11-16. Working branch: architecture/clutter-foundation.
+[F010](adr/F010-tauri-implementation-baseline.md) accepts Tauri, shared web UI/editor,
+PM/Y contexts, TypeScript Core and SQLite ports for implementation. Final native
+safety/format/security and shipping qualification remain open at explicit milestones.
+I2a context ownership is implemented; I2b shared editor extraction is next.
+Existing production rules/data remain isolated from this disposable namespace.
 
 Start with [AGENTS](AGENTS.md), then [START-HERE](START-HERE.md), the single current
 checkpoint/next action. Give a new agent access to the latest branch/local commits;
@@ -10,8 +13,8 @@ conversation memory and this agent's scratch files are not the handoff mechanism
 
 ## Current planning and source ownership
 
-- [Freeze readiness](freeze-readiness-review.md): structural baseline versus open
-  host/format/authority decisions, qualification gates and next implementation scope.
+- [Freeze readiness](freeze-readiness-review.md): accepted implementation baseline versus remaining
+  format/security/qualification responsibilities; superseded planning is labelled.
 - [Product contracts](product-contracts.md): P01–P39 confirmed direction.
 - [Shared platform contract](shared-platform-contract.md): one web UI/editor/Core,
   Mac first and Windows/browser capability adapters from the start.
