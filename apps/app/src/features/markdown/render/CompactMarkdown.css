@@ -89,12 +89,14 @@ IMPORTANT: I manually commented out few of the css the comments in the css might
   padding: var(--md-badge-padding);
 } */
 .compact-markdown-tag .compact-markdown-tag-prefix {
-  opacity: var(--opacity-medium);
+  /* opacity: var(--opacity-medium); */
+  opacity: 1;
   padding-right: 2px;
 }
 
 .compact-markdown-tag[data-tag-status='unresolved'] {
   opacity: var(--opacity-medium);
+  opacity: 1;
 }
 
 .compact-markdown-highlight {
@@ -111,11 +113,13 @@ IMPORTANT: I manually commented out few of the css the comments in the css might
 }
 
 .compact-markdown-date .compact-markdown-date-prefix {
-  opacity: var(--opacity-medium);
+  /* opacity: var(--opacity-medium); */
+  opacity: 1;
 }
 
 .compact-markdown-date[data-date-status='invalid'] {
-  opacity: var(--opacity-medium);
+  /* opacity: var(--opacity-medium); */
+  opacity: 1;
 }
 
 /* Strikethrough — every struck element
