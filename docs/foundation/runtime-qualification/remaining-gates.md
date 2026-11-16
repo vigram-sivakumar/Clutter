@@ -1,5 +1,10 @@
 # Remaining work before host selection — checkpoint44
 
+Current45: user manual44 trace is saved/readable. The next action is bounded saved-
+trace relationship analysis in analysis45, not another recording. See START-HERE
+and freeze-readiness-review.md for exact action and unresolved technology gates.
+
+
 This is an evidence audit, not an estimate that three workstreams mean three small
 patches. Core/I1 implementation and product contracts exist; basic all-host GUI,
 save/reopen, package signing/sizes and counter/trace mechanics have evidence. Most

@@ -1,6 +1,18 @@
-# Native test progress and next action
+# Native evidence and progress history
 
-## Current checkpoint — matched method blocker and GUI acquisition44, 2026-11-16
+Current next action: START-HERE.md. This file retains historical runs, including
+superseded next-action wording; never execute dated instructions as current policy.
+
+## Manual44 acquisition confirmed; analysis45 prepared — 2026-11-16
+
+User a1403932, plan14-42-17/f8d8efff, targetH-T29254. User reports record/type/stop/
+save completed; validator export0/readable-schema-gate-only and51 schemas supplied.
+Raw trace not uploaded. Input/producer/frame/clock linkage unqualified.45 prepares
+one bounded analysis,46 Linux helpers pass; Mac45 not-run. Freeze-readiness review
+added; current handoff consolidated to START-HERE with history preserved here.
+
+
+## Historical checkpoint — matched method blocker and GUI acquisition44, 2026-11-16
 
 User43 commit14b45119: both H-T trial14-23-57/c24c7b81 and H-E14-27-05/6cc14187
 emit recordExit1, SIGINT/SIGTERM and TOC10. Tauri log confirms recording reached20s

@@ -1,5 +1,11 @@
 # Architecture decision readiness
 
+Current45 planning disposition: see freeze-readiness-review.md and START-HERE.md.
+Structural contracts are ready for baseline review; host/production technology
+acceptance and mandatory H01 gates remain provisional/blocked. No ADR status changed.
+Manual44 trace is readable; one bounded relationship analysis45 is next.
+
+
 ## Current checkpoint — shared UI and host diagnostics39, 2026-11-16
 
 User38 commit1bcd2783: actual Mac compile and cross-process physical-footprint

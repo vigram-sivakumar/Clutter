@@ -1,5 +1,10 @@
 # Replacement acquisition44 — manual Instruments, independent validator
 
+Current45: user manual44 trace is saved/readable. The next action is bounded saved-
+trace relationship analysis in analysis45, not another recording. See START-HERE
+and freeze-readiness-review.md for exact action and unresolved technology gates.
+
+
 Both controlled CLI43 attempts fail finalization/export. H-T detailed log ends at
 Stoppingrecording and export10/Document Missing Template Error. H-E has the same
 status/signals/TOC outcome; exact detailed stderr was not provided. Do not infer a

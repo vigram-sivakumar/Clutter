@@ -1,432 +1,48 @@
 # Clutter foundation
 
-## Current checkpoint — matched method blocker and GUI acquisition44, 2026-11-16
-
-User43 commit14b45119: both H-T trial14-23-57/c24c7b81 and H-E14-27-05/6cc14187
-emit recordExit1, SIGINT/SIGTERM and TOC10. Tauri log confirms recording reached20s
-then stalled during finalization, export Document Missing Template Error; detailed
-Electron stderr not supplied. No host defect/performance preference established.
-H11 measurement acquisition/correlation BLOCKED. Both attempts retained;43 entry
-now refuses CLI recording retries (original source remains in Git43/evidence hashes).
-
-Replacement HM-GUI-44 changes acquisition driver only: manual Instruments Record/
-Stop/Save, then existing CLI export for validation. Third-party tool author reports
-similar macOS26 SIMULATOR behavior; not proof of this native desktop cause. No timeout
-extension, OS/toolchain change, new event API or weaker H01 gate. One H-T GUI pilot.
-
-Next apply44 and run manual44/prepare.mjs with completed36/H-T. It verifies/reuses
-correct existing test window, or delegates explicit saved-session --reopen to37;
-no duplicate window, fresh Space or direct-store write. Opens existing Instruments,
-prints target PID/save directory/validation command. Do not record until template/
-target instructions are clear. No CLI record command or input hook is started.
-40 Linux tests pass (4 new+36 regressions); actual Mac44 prepare/GUI pilot pending.
-
-Validation after manual Save: exact planned manual.trace in Git metadata, readable
-TOC and required schemas. This is only acquisition-readability/schema gate, NEVER
-latency/H11 pass. Actual input/producer/frame/clock join, uncertainty/overhead, shared
-memory attribution, HP workloads and other H01 cases remain open. Stop after one
-failed/uninformative GUI pilot with exact blocker; no more blind recording loops.
-Shared UI/Core/platform contracts and P-37 greenfield scope unchanged; no host winner.
-
-
-## Previous checkpoint — controlled input method trial43 (superseded above), 2026-11-16
-
-User42 commit03c4256d: exports succeed, process-info1101 rows, frame lifetimes9,
-displayed surfaces7. Process roster has no parent/responsible/coalition columns;
-frame rows have no identified producer PID. Display summary mentions36534 (not
-established as Clutter renderer); first3 sampled latency cells are sentinels. No
-latency or complete memory attribution can be inferred. Idle trace inspection stops.
-Raw42 terminal/result retained in evidence/host-controlled-method-43-2026-11-16.
-
-Read runtime-qualification/remaining-gates.md for honest remaining H01 work. Most
-full matched-host hard cases and HP workloads remain open despite useful Core/I1
-and basic host checks. Next apply43, reopen saved H-T with37 --reopen, then run
-controlled43/run.mjs for completed36/H-T. Wait for RECORDING STARTED, click View A
-text with caret/no selected range, type lowercase a, b, c about2s apart, leave UI
-open. This is one20s method trial, not a benchmark or replay of functional tests.
-
-Controller verifies existing app/GUI binding, records same native template with
-32/47/50s graceful CLI deadlines, and exports TOC. No event injection/listener, new
-OS permissions, raw key logger, app source/Core/Space write path or native rebuild.
-Typing uses the actual shared editor/Core like normal synthetic fixture edits.
-Report never confirms input/presentation correlation just from recording success.
-36 Linux tests pass (6 new+30 regressions); actual Mac43 recording pending. One
-method trial per candidate: if linkage is missing, record exact H11 blocker rather
-than more idle captures. No host winner, gate waiver or scope/migration change.
-
-
-## Previous checkpoint — existing trace table export42 (superseded above), 2026-11-16
-
-User41 commit41968700/capture2026-11-16T12-25-47-726Z-be47befa: all3 snapshots
-have0 unavailable processes, stable membership, aliases accepted. Trace finishes
-with graceful SIGINT/status0 and TOC export succeeds. User confirms79 tables and51
-schema names. Prior parser incorrectly searched schema/name instead of table/schema;
-42 fixes this without rerecording. Raw capture retained in new scoped evidence.
-
-Known UI/owner sum62166080 bytes; all-same-user WebKit sums include other apps/shared
-charges and cannot rank Clutter. No application aggregate footprint or native input
-latency qualified. Trace availability is not actual event/presentation correlation.
-
-Next apply42 and export existing capture with trace42/export.mjs --capture
-2026-11-16T12-25-47-726Z-be47befa. Tauri need not be open. Three fixed table exports
-(process-info, frame lifetimes, displayed surfaces),15s/4MiB limits per export;
-proper XML structure/PID summaries through existing /usr/bin/python3. Missing tools,
-oversized/failed exports remain blocked. Raw XML stays private/Git-internal, summaries
-omit names/paths/application text. No recording/launch/probe/Space/permissions change.
-30 Linux tests pass (6 new+24 regressions); actual Mac42 export not-run. Return the
-safe JSON. Inspect actual table relationships/units before any attribution/latency
-claim, then compare eligible Electron route without replaying old manual tests.
-
-
-## Previous checkpoint — verified executable aliases41 (superseded above), 2026-11-16
-
-User40 commitaabdc996: all16 WebKit failures were path-before-mismatch, not native
-counter errors. User then ran checksum-verified read-only file checks: all16 have
-sameFile=true and sameCanonicalPath=true. Evidence is transcribed explicitly in
-host-executable-identity-41. These are actual aliases, not an OS permission denial.
-
-41 preserves exact-path acceptance and adds a diagnostic alias match only with
-same canonical path AND stable dev/inode/size/ctime metadata over repeated stat/
-realpath observations. Missing/different/retargeted files and changed process/user/
-start identity stay rejected. Paths remain private; reports show finite match method.
-24 Linux tests pass (7 new identity +17 regressions). No app/Core/native/pin/budget
-changes; no alias-based Space ownership or authentication inference.
-
-Next apply41 with H-T qualification window still open, then run existing39 capture
-for completed36/H-T. This takes fresh snapshots and ONE trace attempt using40's
-graceful shutdown; original failed trace/logs remain untouched. No recompile/reopen
-of signed app, new Space, old editor/manual replay or permission changes. Actual
-Mac41 capture/graceful trace success pending. Shared WebKit accounting and trace
-input-to-presentation correlation still cannot rank hosts or pass H01 workloads.
-
-
-## Previous checkpoint — read/trace failure diagnostic40 (superseded above), 2026-11-16
-
-User39 commit09c31e1c: Mac probe compile/sanity pass; UI/owner counters readable,
-16 WebKit candidates unavailable in all3 snapshots, totals null. Trace reached5s
-stop then wrapper timed out25s (ETIMEDOUT/status1). Export of existing partial trace
-returned10: Document Missing Template Error. Underlying cause not established;
-no application correctness failure or performance pass inferred. Preserve original
-trace, logs and full uploaded terminal evidence in evidence/host-diagnostic-recovery-40.
-
-40 adds bounded failure-stage/errno reporting and distinct path/identity mismatch
-reasons without loosening guards. Future capture uses asynchronous graceful SIGINT
-at12s, SIGTERM27s, final CLI-only SIGKILL30s, never app/process-group signalling;
-trace export still validates readability independently. This is a harness correction,
-not a proven Mac tracing fix. No recording is requested by the next command.
-
-Next apply40 with existing Tauri qualification window open and run recovery40/
-diagnose.mjs using completed36/H-T. One read-only process snapshot; no trace, new
-Space, owner launch, rebuild of signed app, permissions workaround or test replay.
-If UI was closed, reopen saved H-T via37 --reopen first; never --new for recovery.
-17 Linux tests pass (7 new+10 regressions, including real child signal handling);
-Mac40 diagnosis/finalization correction unrun. Return failureCounts/stages. Decide
-from evidence, not blanket sudo, relaxed path checks or substituted RSS. P-38/P-39
-shared UI/adapters and P-37 greenfield scope unchanged. No host winner.
-
-
-## Previous checkpoint — shared UI and host diagnostics39 (superseded above), 2026-11-16
-
-User38 commit1bcd2783: actual Mac compile and cross-process physical-footprint
-counter sanity PASS. All three experimental package size trials pass. Exact sizes,
-probe/compiler/SDK hashes and limits are in evidence/host-process-capture-39-2026-11-16/
-user-instrument38-result.json. No application footprint or presentation latency yet.
-
-P-38/P-39 now confirmed: one shared web UI/editor, Core and command API; Mac first,
-Windows/browser implemented through explicit capabilities/adapters from the start.
-No duplicate native UI or split wrappers without demonstrated benefit. Read
-shared-platform-contract.md. Swift remains a control; Tauri/Electron are shipping
-shortlist. Browser backend connectivity/storage remains future implementation,
-not an assumption that Node/SQLite or desktop permissions work inside browsers.
-
-Next apply39, close any qualification windows, reopen H-T with the existing37
-launcher --reopen and run instruments39/capture.mjs against completed36. One
-candidate first. It captures three provisional process-counter snapshots and tries
-one5s native Animation Hitches attach/export after memory sampling.10 new Linux
-helper tests pass; actual Mac39 compile/capture/trace still not-run. Processes,
-private traces and helper logs stay Git-internal; no endpoint/token/store reads,
-app rebuilds or source/native-feature changes. No typing/manual suite requested.
-
-All same-user WebKit matches are explicitly uncertain (may belong to other apps),
-missing/changed counters become unavailable/null, no native renderer cost is called
-zero. Sums are provisional and may double-count shared pages; they are not rigorous
-bounds or ranking evidence. Trace table availability is not input-to-display latency;
-trace failure remains blocked. H01 workload/environment/attribution/correlation and
-remaining host correctness gates still must close; no host winner. Do not replay
-prior manual tests or repeat successful38 calibration for bookkeeping (39 reuses
-its native code and sanity check solely to validate the new diagnostic executable).
-
-
-## Previous checkpoint — native instruments38 (superseded above), 2026-11-16
-
-All three candidates have screenshot-confirmed Ready/two Alpha beta views and
-user-reported shared edit/save + close/same-session reopen retention PASS. Expected
-retained prefixes: H-T TAURI, H-E ELECTRON, H-S SWIFT. Native JSON reports were not
-audited. Reopen does not establish cold owner restart or full H01 acceptance.
-See evidence/host-instruments-38-2026-11-16/manual-results.json; raw screenshots
-are preserved there. Do not repeat these checks for missing UI verdict clicks.
-
-Next apply38 and run instruments38/prepare.mjs --run completed36 ID (full command
-in the instrument guide). It verifies existing signed artifacts/archives, reports
-complete installed logical/reported allocated bytes and compressed ZIP sizes, and
-compiles a separate native cross-process physical-footprint counter calibration.
-A temporary child touches64MiB, is read externally before/held/released, then exits.
-No GUI/owner/session/Space/app is launched, rebuilt or modified by this command.
-
-9 new Linux support tests pass; actual Mac instrument compilation/calibration and
-sizes remain pending. This is instrumentation preparation, not an H01 benchmark.
-Aggregate helper/shared-WebKit attribution and actual native presentation remain
-unqualified; no RSS/JS heap/RAF/readiness substitute and no host winner. P-37
-no-legacy-user/data-migration scope remains in force. Filename preference: spaces
-in quoted downloaded-file paths in Bash. No status-only delivery needed.
-
-
-## Previous checkpoint — GUI launch37 (superseded above), 2026-11-16
-
-User commit31df10cf/run2026-11-16T10-35-45-751Z-5b4941c3 reports all three
-candidates built, signed, strict-verified and packaged CLI/MCP smoke PASS.
-Swift/Electron artifacts retained and verified; Tauri now passes too. No host
-winner: GUI, installed lifecycle/security and performance remain unqualified.
-
-Launcher37 opens one verified existing signed candidate without rebuilding it.
-20 support tests pass on Linux, including actual factory boot/reboot with the
-same Space and fresh private bootstrap. These are not Mac GUI or benchmark passes.
-Next: apply37, launch H-S from the completed36 run, confirm Ready and Alpha beta
-in both views. Do not repeat NC28 tests or launch other candidates yet.
-P-37 greenfield scope is included: no legacy-user/data migration work.
-
-
-Status: architecture definition pack, revision 0.68, 2026-11-16. Product scope
-confirmed; the production technology baseline remains unaccepted.
-Baseline: `main` at `cae604273115c0c6c0d3ac34533b1e9834e9c778`.
-Working branch: `architecture/clutter-foundation`.
-
-New chat or AI agent: start at [START-HERE](START-HERE.md), then follow the
-[roadmap](roadmap.md). [Architecture review](architecture-review.md) recommends
-PM/Y origin-aware editing, a headless TS authority and SQLite for joined qualification.
-[Gap ledger](architecture-gap-disposition.md) and [JG contract](joined-core-contract.json)
-record remaining gates. [Joined result](r08-joined-core.md): JG-01–10 now pass with two actual editors and
-one durable owner. [Mac runner](r08-native-runner.md) has bounded JN-01–04 user-reported passes, with
-[reviewed native evidence](evidence/r08-native-manual-2026-11-15/review.json).
-[Entity proof21](r08-entity-closure.md) passes14 Linux cases.
-[Media proof22](r08-media-closure.md) passes12 cases with13 crash phases.
-[Decision-readiness review23](architecture-readiness.md) now recommends the mechanism
-combination and module boundaries; [F008](adr/F008-page-roots-and-atomic-version-sets.md)
-and frozen [PK01–10](page-partition-contract.json) now have
-[headless page proof24](r08-page-closure.md). The scoped [Core/API entry](implementation-entry.md) is accepted for disposable
-implementation only: [I1a implementation25](i1/result.md) now has21 passing tests
-and strict TypeScript. The [editor26 slice](i1/editor-result.md) adds23 actual-view/context tests (44 total),
-including protected restart recovery. [Media27](i1/media-result.md) adds19 cases (63 runtime total) for immutable media
-API/history/cover/editor compatibility. [Native build28–30](i1/native-result.md) now has80 passing automated runtime tests,
-strict TS/84 old regressions, and guided NC28-01…04 user-reported Mac passes.
-Supplied app-closed CLI output confirms PROTECTED at sequence38. Raw native reports
-are not audited. [Scoped I1 completion](i1/completion-review.md) is recorded;
-[H01 host/runtime contract](runtime-qualification/README.md) is now prepared; next
-is the remaining safe tool/environment preflight; actual M4 Pro48GiB hardware
-is recorded. Then matched isolated builds; no benchmark or production choice yet.
-[One running Space service](runtime-ownership.md) explains the shared owner.
-No manual replay, accepted production baseline or native-host selection.
-The production combination remains proposed; I1a is working private implementation,
-not production or user-vault migration.
-
-## Purpose and authority
-
-Design Clutter as one coordinated product across editing, storage, organisation,
-app windows, external tools, retained history and optional provider sync, with
-live cloud collaboration deferred.
-Evaluate it as a greenfield product. Migration and implementation effort remain
-visible planning dimensions with zero weight in architectural selection.
-
-The 0.2 product scope, retained in 0.43, reflects the user clarification sequence. Earlier draft
-requirements superseded by that discussion are replaced in this folder.
-This pack contains requirements and proposals, not an approved implementation
-specification. Existing documentation and `ARCHITECTURE_RULES.md` continue to
-govern existing production code. Nothing here supersedes an existing ADR or
-permits a production bypass. A future baseline approval must identify each
-superseded rule explicitly before implementation changes it.
-
-All new foundation documents live here. Older documents remain historical and
-current-system references; they are not copied into competing target specs.
-
-## Reading order and document ownership
-
-| Document                                                                | Sole purpose                                                                              |
-| ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| [Resume checkpoint](START-HERE.md)                                      | Exact current position, patch prerequisites and new-chat continuation                     |
-| [Roadmap](roadmap.md)                                                   | Named tasks, dependencies, evidence and next deliverables                                 |
-| [Current capability inventory](current-capability-inventory.md)         | R01 source/wiring audit, target mapping, contradictions and validation gaps               |
-| [R01 executed evidence](evidence/r01-2026-11-14.json)                   | Selected existing-test results and initial load-error/targeted rerun provenance           |
-| [Editor interaction specification](editor-interaction-spec.md)          | R02 shared/model-specific behaviours, profile review and native obligations               |
-| [Editor case catalogue](editor-interaction-cases.json)                  | 11 semantic fixtures, 72 unexecuted cases; not a canonical schema                         |
-| [Document model](document-model-spec.md)                                | R03 logical entities, single ownership, historical closure and M-01–M-07 gaps             |
-| [Command specification](command-api-spec.md)                            | R03 common envelopes, guards, outcomes, reads and inverse contracts                       |
-| [API registry/scenarios](model-api-contract-cases.json)                 | 51 logical signatures and 24 unexecuted consistency scenarios; not wire schemas           |
-| [Vault persistence](vault-persistence-spec.md)                          | R04 commit/ack, candidate encodings, protected roots, history/recovery/outbox and PS gaps |
-| [Persistence failure catalogue](persistence-contract-cases.json)        | PF-01–PF-30 unexecuted fault/restart cases; not a crash harness                           |
-| [Provider protocol](provider-sync-spec.md)                              | R05 packages, lifecycle, ordering and SY-01–SY-08 conditional decisions                   |
-| [Provider feasibility](provider-feasibility.md)                         | Official facilities, candidate routes and untested native/provider gates                  |
-| [Provider case catalogue](provider-sync-cases.json)                     | SC-01–SC-30 unexecuted scenarios; not a working simulation                                |
-| [Editor qualification](editor-qualification-plan.md)                    | Native interaction gates, exploratory policies and evidence protocol                      |
-| [Editor instances/probes](editor-qualification-instances.json)          | 102 unexecuted seed/timing instances and 16 additional probes                             |
-| [Platform boundaries](platform-boundaries-spec.md)                      | Proposed headless ownership/lifetime and portable adapter contracts                       |
-| [Local API security](local-security-api-spec.md)                        | Authentication/grants, untrusted content and adapter boundary proposals                   |
-| [Qualification budgets](qualification-budgets.json)                     | Proposed numeric targets, workload recipes and decoder/queue bounds                       |
-| [Host/security cases](host-security-cases.json)                         | 18 unexecuted process/IPC/security scenarios                                              |
-| [Readiness](qualification-readiness.md)                                 | Actual availability, blockers and first isolated R07 experiment                           |
-| [Candidate template](qualification-candidate-template.json)             | Required reproducibility fields; deliberately unpopulated, not a selected stack           |
-| [R07 isolated experiment](experiments/r07-two-view/README.md)           | Runnable two-view candidate, standalone lock and CLI/MCP test adapters                    |
-| [R07 findings](experiments/r07-two-view/findings.md)                    | Raw versus guarded undo and immediate-selection blockers                                  |
-| [R07 executed evidence](evidence/r07-2026-11-14.json)                   | Exact scope, source manifest, 34 Node tests and 13 pass/2 fail browser probes             |
-| [R07 second findings](experiments/r07-two-view/follow-up-findings.md)   | Public selection preflight and separate origin-aware history comparison                   |
-| [R07 second evidence](evidence/r07-02-2026-11-14.json)                  | Targeted Linux passes, explicit raw controls and limits per candidate                     |
-| [Native Mac run guide](experiments/r07-two-view/native-macos/README.md) | Build/run commands, automatic reports and bounded manual checklist                        |
-| [Native preparation evidence](evidence/r07-03-2026-11-14.json)          | Support checks and explicit uncompiled/unexecuted native scope                            |
-| [Agent instructions](AGENTS.md)                                         | Foundation-only continuation and evidence discipline                                      |
-| [Native progress log](NATIVE-TEST-PROGRESS.md)                          | Reported results, pending cases and exact guided retest                                   |
-| [Table contract](table-interaction-contract.md)                         | Confirmed keyboard/addition behaviour; supersedes old defaults                            |
-| [Latest table evidence](evidence/r07-19-2026-11-14.json)                | Scoped regression, raw safety controls and unrun revised native work                      |
-| [Product contracts](product-contracts.md)                               | Requirement IDs and initial/future scope                                                  |
-| [Confirmed behaviour](product-behaviour.md)                             | Agreed task/property/template/date/comment semantics                                      |
-| [Sync and portability](sync-and-portability.md)                         | Opt-in provider policy, concurrency and Windows-ready boundaries                          |
-| [System architecture](system-architecture.md)                           | State ownership and operation lifecycle                                                   |
-| [Shared API](shared-api.md)                                             | App/CLI/MCP capability boundaries                                                         |
-| [History](history-and-collaboration.md)                                 | Versions, pins, restore and future collaboration seam                                     |
-| [Decision register](decision-register.md)                               | Remaining technical choices and evidence gates                                            |
-| [Acceptance matrix](acceptance-matrix.md)                               | Tests traced to requirements with initial/provider/future gates                           |
-| [Qualification spike](qualification-spike.md)                           | First local/native and provider experiment specification                                  |
-| [Delivery plan](delivery-plan.md)                                       | Dependencies, reviews and patch prerequisites                                             |
-| [ADR index](adr/README.md)                                              | Technical proposals and rationale                                                         |
-| [Changelog](CHANGELOG.md)                                               | Specification revisions and withdrawn proposals                                           |
-
-Requirements live in product contracts; other documents reference their IDs.
-Acceptance IDs belong to the matrix. ADRs explain decisions rather than repeat
-all requirements. Implementation agents must resolve contract gaps in the
-specification instead of silently selecting product behaviour in code.
-
-## Terminology
-
-- **Space:** local content boundary and sync scope; vault means its local storage.
-- **Document:** stable semantic identity, independent of any view or path.
-- **Document session:** shared live state for one Space/document in one local
-  coordination authority; provider-synced replicas reconcile under the explicit
-  document-state policy, not independent window writes.
-- **View:** editor projection with its own selection, cursor, scroll and focus.
-- **Revision:** concurrency identity for state; not necessarily a retained version.
-- **Version:** retained, restorable historical state with provenance; a pin protects
-  it from automatic cleanup.
-- **Task:** identity-bearing page content with one note-or-inbox placement; no
-  subtask semantics.
-- **Collection:** predefined-field query/view, not a custom-property database schema.
-- **Undo:** reversal of eligible edits in one editing context.
-- **Recovery:** protection and reconciliation of pending work after failure.
-- **Contract:** required observable behaviour. **Proposal:** a design awaiting evidence.
-
-## Current-system evidence
-
-These are source anchors, not claims of complete feature coverage:
-
-| Current source                                                                                        | Relevance to this work                                                         |
-| ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| [Application](../../apps/app/src/core/application/Application.ts)                                     | Existing composition and lifecycle wiring                                      |
-| [DocumentRegistry](../../apps/app/src/core/engine/DocumentRegistry.ts)                                | Existing per-Application session ownership                                     |
-| [DocumentSession](../../apps/app/src/core/engine/DocumentSession.ts)                                  | Current live/saved revision distinction                                        |
-| [ADR-073](../adr/073-multiple-windows-preferences-belong-to-clutter-navigation-belongs-to-windows.md) | Earlier multi-window design; differs from proposed shared core                 |
-| [Durability model](../durability-model.md)                                                            | Existing guarantees and documented gaps; describes no retained version history |
-| [Keyboard ODR](../editor-research/canonical-keyboard-odr-v2.md)                                       | Earlier behaviour decisions and unresolved questions                           |
-| [Automation package](../../packages/automation/AUTOMATION.md)                                         | Existing native acceptance infrastructure to assess                            |
-
-Earlier research reported a PM focus conflict and experimental patch, incomplete
-native keyboard qualification, and an FTS diagnostic discrepancy. Those are
-leads to reproduce, not new passing evidence or verified upstream diagnoses.
-R01 executed 30 selected existing Linux Node/jsdom files successfully across
-initial and targeted reruns: 1,003 assertions passed. Initial dependency-load
-failures and setup changes remain recorded. No full-suite/clean-install or
-macOS/native/provider qualification is claimed; read inventory/evidence first.
-
-R02 records the user's clarification that the current Markdown experience is not
-the universal target. Source/structured profiles are evaluated on shared product
-guarantees and their actual UX. No new runtime acceptance was executed for R02.
-
-R03 drafts define semantic ownership/commands without choosing an editor, native
-format or database. Model/API catalogue checks are static specification validation,
-not domain/protocol test execution; R04/R06/R07 must close and qualify the details.
-
-R04 compares backend commit contracts and primary documentation without selecting
-one or executing crash tests. Its PS decisions are separate from product P IDs;
-R05 drafted provider protocol/feasibility rather than raw live-file sync; its
-coherence and route qualification remain blocked. R06 prepares native/editor and
-host/security experiments; two R07 slices ran and native/broader qualification is next.
-
-Build12 [context ownership results](r07-history-ownership.md) and
-[evidence](evidence/r07-28-2026-11-14.json): the unchanged matched contract is green,
-with 24 applied/passed cases and 6 explicit protective refusals. The prior three
-history gaps are fixed; 84 Node checks and seven added browser lifecycle cases
-pass. The [build 11 baseline](r07-matched-comparison.md), raw failures and earlier
-[manual reports](NATIVE-TEST-PROGRESS.md) remain intact. The durable follow-up below
-is now executed; next is architecture/ADR review. No complete architecture accepted.
-
-Revision 0.37 adds [durable authority qualification](r07-durable-authority.md):
-18 bounded process-crash/retry/recovery cases pass on the recorded SQLite profile.
-The browser, CLI and MCP reach one durable owner; this is separate from the full
-editor candidate integration. Next R08 review proposes choices and remaining gates;
-no backend, host, editor or production rebuild is accepted.
-
-Revision 0.38 prepares the [R08 review](architecture-review.md), proposed F006/F007
-and13 not-run joined cases. No new runtime execution. User confirms13 applied;
-review14 is incremental over13. No manual testing requested at this stage.
-
-Revision0.39 executes [joined qualification](r08-joined-core.md):10 bounded Linux
-passes; next native/installed host, with entity/external-asset gates still explicit.
-Frozen JG declarations retain their original status; evidence records executions.
-No production/ADR acceptance or broad manual rerun. Bundle15 supports exact13/14.
-
-Revision0.40 prepares the [new native runner](r08-native-runner.md), pinned runtime
-and context handoff;8 Linux helper checks plus retained regressions pass. Native
-compilation/execution remains not-run. No stack approval or old manual replay.
-
-Revision0.41 fixes the first Mac signing blocker: shell CLI is now a sealed resource,
-not an unsigned MacOS subcomponent. User16 commit60b0505b/Swift compile confirmed;
-next apply17 and retry native:joined. Mac signing/native acceptance remains open.
-
-Revision0.42 fixes same-origin CSS blocked by CSP after observed Mac launch.8 helper
-and10 joined cases pass including rendered layout; next Mac layout confirmation
-before JN-01. No manual/native interaction pass inferred from the launch screenshot.
-
-Revision0.43 addresses a user-observed reload/bootstrap failure. First use
-native:joined:reopen for the SAME saved session; do not run a fresh builder until
-recovery is checked.10 helper +10 joined Linux cases pass; user data/Mac results
-remain unverified. Read START-HERE for the recovery-first handoff.
-
-## Compiler follow-up29 — 2026-11-16
-
-User applied/committed28 (e2613ec2), but Mac Swift compilation failed at
-Main.swift:107: callAsyncJavaScript requires `in:in:`. Fix29 corrects the label
-and adapts the completion closure. No Ready/NC28 manual pass is recorded.
-Apply29, rerun `npm run native:core28`, and report Ready or compiler output first.
-Do not use --new/reset for this failure; no valid28 session was created yet.
-Prior77 runtime/TS/regression evidence remains historical, not a Mac compile pass.
-Current instructions: START-HERE.md. No main/production/runtime owner changes.
-
-## Native interaction follow-up30 — 2026-11-16
-
-User confirms29 runs; screenshot Ready. NC28-01 remains incomplete: one remount
-click left A closed, toolbar Undo/Redo jumped caret. Fix30 recreates A immediately
-over the same context and retains local selection/history. Toolbar preserves mapped
-current caret/range and focuses its target view; keyboard history defaults unchanged.
-Three focused automated checks added; actual Mac retest pending. See fix30 review
-for current test results. Older29 compiler-failure next-action text is superseded.
-
-NEXT: apply30; safely close current lab; run `npm run native:core28 -- --new` for an
-explicit NEW corrected synthetic run, preserving old bundle/store/report/locator.
-Reopen runs its original bundle and cannot load patched source. No upgrade/reset
-of an existing Space is attempted. Never use --new for recovery. Retest NC28-01
-only; do not claim its Pass or advance02 until user confirms both issues fixed.
-START-HERE.md is the current checkpoint. No main/app/real-vault changes.
-
-Current next action: user33 Mac tools are supplied; apply [matched builds34](runtime-qualification/build34/README.md)
-and get actual Mac compiler/headless smoke results. No another inventory/benchmark
-or old manual replay. P-36 one-time/all-Spaces integration UX is user-confirmed.
-
-Current host checkpoint36: Swift+Electron actual build/sign/headless smoke pass;
-Tauri-only retry awaits canonical manifest fix. START-HERE has exact latest35 run
-command. No new inventory, broad native replay, GUI or benchmarks requested.
+Revision0.69,2026-11-16. Working branch: architecture/clutter-foundation.
+The shared product/ownership direction is confirmed; production technology baseline
+and final host acceptance remain provisional. Existing production rules still apply.
+
+Start with [AGENTS](AGENTS.md), then [START-HERE](START-HERE.md), the single current
+checkpoint/next action. Give a new agent access to the latest branch/local commits;
+conversation memory and this agent's scratch files are not the handoff mechanism.
+
+## Current planning and source ownership
+
+- [Freeze readiness](freeze-readiness-review.md): structural baseline versus open
+  host/format/authority decisions, qualification gates and next implementation scope.
+- [Product contracts](product-contracts.md): P01–P39 confirmed direction.
+- [Shared platform contract](shared-platform-contract.md): one web UI/editor/Core,
+  Mac first and Windows/browser capability adapters from the start.
+- [Greenfield scope](greenfield-scope.md): no existing users/data migration; initial
+  schema/version/recovery/portability guarantees remain.
+- [Architecture readiness](architecture-readiness.md), [decisions](decision-register.md),
+  [ADRs](adr/README.md), [implementation entry](implementation-entry.md): evidence,
+  accepted/proposed scope and production limitations.
+- [Shared API](shared-api.md), [runtime ownership](runtime-ownership.md),
+  [platform boundaries](platform-boundaries-spec.md): single command/authority design.
+
+## Evidence and roadmap
+
+[Roadmap](roadmap.md) owns dependencies; [remaining H01 gates](runtime-qualification/remaining-gates.md)
+tracks matched host qualification. [CHANGELOG](CHANGELOG.md) is specification/delivery
+history; [native progress](NATIVE-TEST-PROGRESS.md) retains dated runs/user observations.
+Current action stays in START-HERE, not in dated instructions embedded in old proofs.
+
+Bounded mechanisms are documented in [R07 history](r07-history-ownership.md),
+[joined Core](r08-joined-core.md), [entity](r08-entity-closure.md),
+[media](r08-media-closure.md), [page roots](r08-page-closure.md) and [I1](i1/result.md).
+F009 permits disposable I1 implementation; prior proof/manual passes do not imply
+full native/security/format/Windows/Web/shipping acceptance. H01 measurement method
+and workload status stay separate from implementation helper-test counts.
+
+The current native manual recording is saved/readable on the user's Mac.45 adds
+one bounded relationship inspection and a freeze-readiness review. Its Mac execution
+is pending; the ZIP/helper tests are not native input-to-display evidence. No new
+recording is needed for this action. See START-HERE for exact plan ID and command.
+
+No automatic main/production/vault modification, commit or push. Generated builds,
+runtimes/traces/cache remain Git-internal. Source and deliberate scoped evidence
+are reviewable separately. Older instruction/index text is retained in45 evidence
+and Git; no raw evidence or confirmed product result was deleted.

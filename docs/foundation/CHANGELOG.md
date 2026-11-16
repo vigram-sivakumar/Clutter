@@ -3,6 +3,21 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.69 — 2026-11-16
+
+- Preserve user44 manual GUI recording/save and validation export0/schema-only gate
+  success; no keyboard/presentation/memory qualification inferred from readability.
+- Prepare bounded45 native relationship inspection of saved controlled trace:
+  typed refs resolved per file, candidate input enums and semantic IDs exposed as
+  candidates, no cross-file intern-ID joins/nearest-frame guess or latency output.
+- Reuse one42 OS table exporter and XML loader; keep existing structural output.
+ 46 Linux tests pass (6 new+40 regression), Mac45 still pending.
+- Add freeze-readiness review: structural contract baseline versus provisional
+  host/production schema/authority/qualification. No ADR/gate silently accepted.
+- Consolidate duplicated current checkpoint text to START-HERE; preserve history in
+  native progress/changelog and all raw evidence. New-chat prompt/access guidance
+  and exact next command included. No new recording/UI/native/runtime changes.
+
 ## 0.68 — 2026-11-16
 
 - Record matched43 failures: both record1/TOC10 after SIGINT/SIGTERM; Tauri detailed

@@ -21,13 +21,16 @@ def process_pid(node,definitions):
     m=re.search(r'\((\d{1,10})\)$',node.get('fmt',''))
     return int(m[1]) if m and 0<int(m[1])<=2147483647 else None
 
-def analyze(path,target):
+def load_trace_xml(path):
     if path.stat().st_size>LIMIT: raise ValueError('XML_SIZE_LIMIT')
     data=path.read_bytes()
     if len(data)>LIMIT: raise ValueError('XML_SIZE_LIMIT')
     text=data.decode('utf-8-sig')
     if re.search(r'<!DOCTYPE|<!ENTITY',text,re.I): raise ValueError('XML_DECLARATION')
-    root=ET.fromstring(text)
+    return ET.fromstring(text)
+
+def analyze(path,target):
+    root=load_trace_xml(path)
     definitions={n.get('id'):n for n in root.iter() if tag(n)=='process' and n.get('id')}
     columns=[]
     for node in root.iter():
