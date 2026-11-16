@@ -355,3 +355,15 @@ Reopen runs its original bundle and cannot load patched source. No upgrade/reset
 of an existing Space is attempted. Never use --new for recovery. Retest NC28-01
 only; do not claim its Pass or advance02 until user confirms both issues fixed.
 START-HERE.md is the current checkpoint. No main/app/real-vault changes.
+
+## Actual host/preflight33 checkpoint — 2026-11-16
+
+User32 commit44c624ac; hardware inventory supplied M4 Pro48GiB/Mac16,7/14 logical
+CPUs/macOS26.6.2 build25G83/native arm64. Source evidence and exact candidate
+version metadata in host-preflight33 evidence + runtime-qualification/preflight-
+manifest.json. H01/budgets unchanged;48GiB is not16GiB performance evidence.
+Next run run-preflight.mjs for remaining existing tool/environment capabilities,
+then matched isolated builds34. No repeated generic inventory or NC28 manual tests.
+Framework binaries/checksums/complete locks/actual metrics remain unverified; no
+measurements or shipping selection. Single pinned runtime lock and Core unchanged.
+START-HERE supersedes older pending32 instructions. No new installs/app/vault changes.

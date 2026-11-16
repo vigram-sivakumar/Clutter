@@ -1,6 +1,6 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-16. Documentation revision: 0.56, H01 host/runtime contract32 prepared.
+Last updated: 2026-11-16. Documentation revision: 0.57, actual Mac hardware binding/preflight33.
 Read [AGENTS](AGENTS.md), this checkpoint and [README](README.md) first.
 
 ## Current position
@@ -35,13 +35,15 @@ This current checkpoint supersedes earlier next-action text in historical record
 | Native text protection | NC28-04 all guided stages user-confirmed; supplied app-closed CLI JSON returns PROTECTED, sequence38 |
 | I1 scoped milestone | Complete for tested disposable profile; raw native reports not audited; production G-Q remains open |
 | H01 contract32 | Candidate configurations,12 hard cases,Space-size recipes and trial targets prepared; all host comparisons not-run |
-| Next | Apply32; run safe host-inventory command on Mac and supply JSON; then bind host/version/instrument manifest before builds/timing |
+| Actual H01 Mac | User32 commit44c624ac; M4 Pro/Mac16,7/48GiB/14 logical CPUs/macOS26.6.2(25G83),native arm64 supplied |
+| Preflight33 | Hardware evidence bound, exact candidate version metadata selected, safe tool/environment helper ready; artifact locks and instruments still unverified |
+| Next | Apply33; run run-preflight.mjs and supply safe JSON, then matched isolated builds34; no more generic host inventory or NC28 replay |
 
 ## Branch and delivery state
 
 Stay on architecture/clutter-foundation. User confirms28 committed as e2613ec2, then29 applied and native window works
-(screenshot Ready). User confirms31 applied. Contract32 is incremental over exact31 tree
-e0e4a28b672f58b8a273b3f9c53e243c39f02af1. Mac launch now user-confirmed; full
+(screenshot Ready). User confirms32 applied/committed44c624ac. Preflight33 is incremental over exact32
+tree f120551db8f11239610aa63afdd395829cfa9dc9. Mac launch now user-confirmed; full
 NC28-01 remount/toolbar issues are confirmed fixed by user after30; user-reported PASS,
 not a raw report audit. No agent commit/push, main/apps/app/user-
 vault changes. Local HEAD is stale; use files/content trees. Cumulative source changes are
@@ -54,32 +56,33 @@ reset, generated bundle/runtime/cache/artifacts or test-store staging. Shared so
 planners and SQL transaction engine are reused; new page adapter is not another
 policy implementation. Old aggregate/native profiles remain comparison controls.
 
-## Exact next work — H01 reference-host inventory, not another contract rewrite
+## Exact next work — remaining read-only capability preflight, then builds34
 
-User confirms checkpoint31 applied. I1/NC28 remains complete within its recorded
-scope. [H01 contract](runtime-qualification/contract.json) and
-[guide](runtime-qualification/README.md) now fix candidate families/gates/recipes/
-trial targets. Existing qualification-budgets.json remains unchanged. No H01 candidate
-build, performance result, reference binding or shipping choice is inferred.
+User32 committed44c624ac and supplied actual hardware. Read the reference evidence
+in evidence/host-preflight-33-2026-11-16/user-host-inventory.json, H01 contract32
+(unchanged) and runtime-qualification/preflight-manifest.json. This is the48GiB
+comparison host, not a16GiB product performance proof. No measurements have run.
 
-1. User applies32 over exact31 tree e0e4a28b672f58b8a273b3f9c53e243c39f02af1 and
-   commits docs/foundation only.32 includes one read-only inventory helper, no runtime
-   installs/downloads/new app/Space and no product/old runtime code changes.
-2. Run `node docs/foundation/runtime-qualification/host-inventory.mjs` on user Mac
-   and obtain its safe JSON. No usernames/hostname/serial/tokens/endpoint/vault access.
-   It archives Git-internal facts and refuses another branch. Linux inventory/checks
-   are not Mac results. Do not ask for NC28 manual replay or use --new.
-3. Next33 binds actual host, exact candidate/toolchain/runtime/archive/version/hash
-   pins and feasible physical-footprint/presentation instruments. Missing display/
-   power/volume/instrument metadata remains explicitly unresolved; inventory alone
-   does not approve a host or permit normative timing.
-4. Matched candidates: H-T Tauri2 + separate common Node owner; H-E Electron + same
-   owner (count embedded+extra runtime); H-S Swift/WK control. Single TS semantic
-   Core/PM/Y/SQLite path stays fixed. Rust/Swift are mechanism ports, no reducers.
-5. Build34 → compare35 → scoped ADR36, or explicit failed/blocked gate. No open-ended
-   editor/framework research or moving thresholds after results. Full mixed-product
-   W workloads and real-vault G-Q remain separately blocking; paragraph host profiles
-   do not claim those features or product performance. Preserve old sessions/main.
+1. Apply33/commit docs/foundation only, then run
+   `node docs/foundation/runtime-qualification/run-preflight.mjs` and obtain safe
+   JSON. No app/owner/session/Space, install/update/download/compile/settings changes.
+   Missing probes remain unavailable; no sudo/permission-bypass request.
+2. Host metadata is ALREADY supplied; do not ask to rerun host-inventory.mjs. This
+   final preflight captures existing compiler/SDK/Rust, display/power/storage and
+   instrumentation capabilities in one report. Benchmark readiness stays false.
+3. Then build matched isolated H-T/H-E/control34 using reported actual tools and
+   preflight-manifest exact version choices. Resolve complete Cargo/npm locks,
+   verified release artifact hashes/license notices and compatibility BEFORE use;
+   missing checksum retrieval in agent web was recorded, never filled with fake SHA.
+   No new generic inventory cycle; identify any prerequisite failure concretely.
+4. Bind actual resolved font/display/power/volume and validated physical-footprint/
+   native-presentation instruments before normative timings. Tool presence alone is
+   not H-11 pass; RAF/JS timing/heap or one-process RSS are not silent substitutes.
+5. User Node24.11 is only the metadata runner. Core uses common pinned packaged
+   runtime from existing lock, not user PATH/Electron embedded Node. Keep single TS
+   policy owner and UI/CLI/MCP peers. No main/app/real-vault/code-path changes.
+6. NC28/I1 passes stand; no replay or --new. H01 candidate builds/performance not-run,
+   shipping G-Q/native flush/auth/format/migration and full product D11 remain open.
 
 ## Proof24 facts and limits
 

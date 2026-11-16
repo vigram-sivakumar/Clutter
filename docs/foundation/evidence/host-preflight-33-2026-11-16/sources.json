@@ -1,0 +1,37 @@
+{
+  "checked": "2026-11-16",
+  "primarySources": [
+    {
+      "url": "https://releases.electronjs.org/release/v45.3.3",
+      "scope": "Exact Electron/embedded Chromium/Node/V8 release metadata"
+    },
+    {
+      "url": "https://github.com/tauri-apps/tauri/releases/tag/tauri-v2.12.5",
+      "scope": "Exact stable2 core tag; /latest redirected to3 alpha and was not adopted"
+    },
+    {
+      "url": "https://github.com/tauri-apps/tauri/releases",
+      "scope": "CLI2.12.4/build2.7.4 release feed entries; artifact integrity still pending"
+    },
+    {
+      "url": "https://v2.tauri.app/release/@tauri-apps/api/",
+      "scope": "API2.12.3 published version"
+    },
+    {
+      "url": "https://developer.apple.com/videos/play/wwdc2022/10106/",
+      "scope": "VM Tracker/xctrace memory-recording mechanism, no full-process attribution inferred"
+    },
+    {
+      "url": "https://developer.apple.com/documentation/os/recording-performance-data",
+      "scope": "Signposts mark intervals, not proof of physical frame presentation"
+    },
+    {
+      "url": "https://rust-lang.github.io/rustup/overrides.html",
+      "scope": "Directory/toolchain overrides motivate installed-chain-only probes outside repo"
+    }
+  ],
+  "retrievalLimits": [
+    "Electron official release SHASUMS download and individual Tauri CLI/build tag retrieval unavailable through agent web tool; no SHA/SRI invented",
+    "Registry/cargo locks, full license notices, binary hashes and compatibility await isolated acquisition/build; version metadata is not executable verification"
+  ]
+}

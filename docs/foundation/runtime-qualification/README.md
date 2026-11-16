@@ -98,3 +98,31 @@ do not lower its guarantees to force a winner. Reference results retain raw atte
 
 Those documents support mechanism availability only. All candidate suitability,
 size/performance/lifecycle conclusions require the actual H01 evidence.
+
+## Current step — preflight33 (supersedes initial inventory request)
+
+User applied32 as44c624ac and supplied Mac16,7/M4 Pro,48GiB,14 logical CPUs,macOS
+26.6.2 build25G83,untranslated arm64. Hardware evidence is bound in
+[preflight-manifest.json](preflight-manifest.json); remaining environment/versions/
+instrument readiness is unproven. This48GiB machine is not16GiB performance evidence.
+Do not request host-inventory.mjs again or repeat NC28. Host Node24.11 is only a
+metadata runner; common Core runtime still resolves from the existing pinned lock.
+
+After apply33, run `node docs/foundation/runtime-qualification/run-preflight.mjs`
+and paste JSON. It probes existing Xcode/Swift/SDK, already-installed Rust toolchain,
+xctrace/template/tool availability, sanitized display/power/volume/WebKit facts.
+No installs/updates/downloads/compilation/app launch/system changes or vault access.
+Progress labels go to stderr, safe JSON to stdout and Git-internal archive. Missing
+commands/permissions produce unavailable fields, never a pass. It does not request
+sudo or silently use JS heap/RSS/RAF as missing metric replacements.
+
+The exact version choices live only in preflight-manifest.json. Complete dependency
+locks/checksums/license notices and compatibility are still pending isolated build;
+framework version metadata is not a binary integrity check. Official release checksum
+retrieval was unavailable in agent web tooling, so values remain unclaimed. Before
+any timing all binary/source/fixture pins and actual font/display/power/volume +
+physical-footprint/presentation instruments must be validated, as H01 already requires.
+
+Next after this output: matched isolated builds34 using actual reported tools. Do
+not introduce another generic inventory round, alter contract32 thresholds, replace
+Node from the user's PATH for Core execution, or claim any performance result.

@@ -3,6 +3,19 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.57 — 2026-11-16
+
+- Recorded user32 commit44c624ac and supplied actual M4 Pro48GiB Mac hardware.
+  Bound hardware evidence by hash; no16GiB performance or timing-readiness claim.
+- Prepared exact candidate version metadata/common-runtime lock references and
+  actual-tool/environment preflight. Framework binaries/locks/checksums/licenses/
+  compatibility remain pending; unavailable checksum retrieval recorded honestly.
+- Added allowlisted sanitized OS/tool capability helper; no installs/updates/builds,
+  app/vault/settings changes or benchmarks. Existing contract/budget/runtime code
+  unchanged. Linux syntax/non-Mac/branch guard checks only, actual Mac probes next.
+- Next remaining capability JSON, then matched builds34; no repeated generic
+  inventory/native manual round. Inventory Node is distinct from packaged Core.
+
 ## 0.56 — 2026-11-16
 
 - Prepared H01 normative host/runtime contract: Tauri/Electron shortlist plus Swift/WK

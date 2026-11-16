@@ -1,0 +1,13 @@
+{
+  "hostEvidence": "user supplied Mac inventory; commit44c624ac",
+  "memoryConversion": "51539607552 bytes=48GiB",
+  "contract32": "unchanged by byte and hash",
+  "runtimeLock": "single source retained, verified hash",
+  "referenceEvidence": "verified content hash",
+  "helperSyntax": "node --check pass",
+  "helperLinux": "non-Mac/unbound/benchmarkReady false, not Mac probe",
+  "otherBranch": "refused before writes",
+  "candidateBuilds": "not-run",
+  "performance": "not-run",
+  "actualMacToolPreflight": "pending"
+}

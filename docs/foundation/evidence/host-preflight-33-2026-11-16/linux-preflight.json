@@ -1,0 +1,45 @@
+{
+  "format": "clutter-host-preflight-v1",
+  "capturedAt": "2026-11-16T09:09:50.443Z",
+  "manifestSha256": "0667db819cb04752002dea197b2973954c3a4628e0a31139b6c6eca7b6cd165f",
+  "kind": "capability-preflight-not-benchmark",
+  "platform": "linux",
+  "architecture": "x64",
+  "machineFacts": null,
+  "hardwareMatches": false,
+  "osMatches": false,
+  "reference": "H-MAC-PRIMARY-M4PRO48",
+  "inventoryRunnerNode": "v24.22.1",
+  "commonOwnerRuntime": "v24.22.1",
+  "native": {
+    "status": "not-macos"
+  },
+  "volumes": {
+    "repository": {
+      "typeCode": 2035054128,
+      "totalBytes": 67586535424,
+      "availableBytes": 62301822976,
+      "filesystem": null,
+      "solidState": null,
+      "readOnly": null
+    },
+    "tempFixtures": {
+      "typeCode": 16914836,
+      "totalBytes": 5225713664,
+      "availableBytes": 5066113024,
+      "filesystem": null,
+      "solidState": null,
+      "readOnly": null
+    }
+  },
+  "unavailable": [],
+  "benchmarkReady": false,
+  "pending": [
+    "actual Mac preflight/environment + compiler/SDK report",
+    "exact complete framework dependency locks and verified artifact checksums/licenses",
+    "same Core/browser/source/fixture/bundle hashes",
+    "verified resolved font + display/power/volume profile",
+    "validated actual physical-footprint/process attribution and native-presentation instrumentation"
+  ],
+  "privacy": "Allowlisted version/capability facts only. No raw display serials, host/user names, paths, power logs, Rust path overrides, secrets, endpoint or vault data emitted."
+}

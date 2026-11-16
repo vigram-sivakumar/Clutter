@@ -1,0 +1,27 @@
+{
+  "format": "clutter-host-inventory-v1",
+  "contract": "H01-v1",
+  "capturedAt": "2026-11-16T09:03:52.693Z",
+  "kind": "facts-only-not-benchmark",
+  "platform": "darwin",
+  "architecture": "arm64",
+  "machine": "arm64",
+  "model": "Mac16,7",
+  "chip": "Apple M4 Pro",
+  "ramBytes": 51539607552,
+  "logicalCpuCount": 14,
+  "osVersion": "26.6.2",
+  "osBuild": "25G83",
+  "translated": false,
+  "inventoryRunnerNode": "v24.11.0",
+  "proposedReferenceClass": "hardware-class-check-only-pending-binding",
+  "binding": "not-yet-bound",
+  "stillRequiredBeforeTiming": [
+    "local SSD/volume semantics and free capacity",
+    "display refresh/resolution, font, viewport",
+    "power/low-power/thermal conditions",
+    "candidate/runtime/SQLite/compiler/SDK pins and artifact hashes",
+    "validated presentation and full-process physical-footprint instruments"
+  ],
+  "privacy": "No hostname, username, serial number, home path, tokens, environment or endpointcontents collected."
+}
