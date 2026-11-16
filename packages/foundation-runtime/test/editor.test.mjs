@@ -1042,3 +1042,148 @@ test('undo after a foreign edit in a newly split paragraph preserves the foreign
   await settle(a, b);
   assert.match(await savedText(x), /FOREIGN/);
 });
+
+test('live editor saves and undo preserve media introduced through real CLI/MCP clients', async (t) => {
+  const x = await seeded(t),
+    a = await x.open('A'),
+    av = x.mount(a),
+    bytes = readFileSync(
+      new URL(
+        '../../../docs/foundation/experiments/r07-two-view/media/fixtures/tiny.png',
+        import.meta.url
+      )
+    );
+  const command = {
+    apiVersion: 1,
+    spaceId: x.v.spaceId,
+    pageId: 'p',
+    method: 'media.import',
+    operationId: x.next(),
+    expectedHead: x.v.load('p').head,
+    attachmentId: 'image',
+    name: 'image.png',
+    role: 'body',
+    mime: 'image/png',
+    payload: toBase64(bytes),
+  };
+  ok((await stdio(x, 'cli', JSON.stringify(command)))[0]);
+  await a.settle();
+  insert(av, 'LOCAL ');
+  a.stopCapturing();
+  await a.flush();
+  await a.settle();
+  assert.equal(a.history(av, 'undo'), true);
+  await a.flush();
+  await a.settle();
+  const media = ok(
+    await x.run({
+      apiVersion: 1,
+      spaceId: x.v.spaceId,
+      pageId: 'p',
+      method: 'media.list',
+    })
+  );
+  assert.equal(media.assets.image.mime, 'image/png');
+  const messages = [
+    {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: {
+        protocolVersion: '2025-11-25',
+        clientInfo: { name: 'test', version: '1' },
+        capabilities: {},
+      },
+    },
+    { jsonrpc: '2.0', method: 'notifications/initialized' },
+    {
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: {
+        name: 'clutter_command',
+        arguments: {
+          apiVersion: 1,
+          spaceId: x.v.spaceId,
+          pageId: 'p',
+          method: 'media.read',
+          attachmentId: 'image',
+        },
+      },
+    },
+  ];
+  const replies = await stdio(
+    x,
+    'mcp',
+    messages.map(JSON.stringify).join('\n') + '\n'
+  );
+  const file = ok(JSON.parse(replies.at(-1).result.content[0].text));
+  assert.deepEqual(Buffer.from(fromBase64(file.payload)), bytes);
+});
+test('protected editor drafts retain transitive media after current removal and restart', async (t) => {
+  const x = await seeded(t),
+    bytes = readFileSync(
+      new URL(
+        '../../../docs/foundation/experiments/r07-two-view/media/fixtures/tiny.png',
+        import.meta.url
+      )
+    );
+  const imported = ok(
+    await x.run({
+      apiVersion: 1,
+      spaceId: x.v.spaceId,
+      pageId: 'p',
+      method: 'media.import',
+      operationId: x.next(),
+      expectedHead: x.v.load('p').head,
+      attachmentId: 'image',
+      name: 'image.png',
+      role: 'body',
+      mime: 'image/png',
+      payload: toBase64(bytes),
+    })
+  );
+  const a = await x.open('A'),
+    av = x.mount(a);
+  insert(av, 'PROTECTED ');
+  ok(await a.protect());
+  a.destroy();
+  ok(
+    await x.run({
+      apiVersion: 1,
+      spaceId: x.v.spaceId,
+      pageId: 'p',
+      method: 'media.remove',
+      operationId: x.next(),
+      expectedHead: x.v.load('p').head,
+      attachmentId: 'image',
+    })
+  );
+  x.restart();
+  const saved = x.v.recovery('p', 'A', 'desktop');
+  assert.ok(saved);
+  const links = x.v.assetLinks(saved.root);
+  assert.ok(links.image);
+  assert.deepEqual(Buffer.from(x.v.readAsset(links.image.hash)), bytes);
+  assert.deepEqual(
+    Buffer.from(
+      fromBase64(
+        ok(
+          await x.run({
+            apiVersion: 1,
+            spaceId: x.v.spaceId,
+            pageId: 'p',
+            method: 'media.read',
+            attachmentId: 'image',
+            atSequence: imported.sequence,
+          })
+        ).payload
+      )
+    ),
+    bytes
+  );
+  const recovered = await x.open('A'),
+    rv = x.mount(recovered);
+  await assert.rejects(recovered.recover(), /RECOVERY_CONFLICT/);
+  assert.equal(text(rv), 'Alpha beta');
+});

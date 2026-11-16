@@ -14,6 +14,7 @@ import {
 import {
   Fault,
   stable,
+  parseAssetLinks,
 } from '../../../packages/foundation-runtime/src/contracts.ts';
 const kind = (k) => (k === 'note' ? 'notes' : 'tasks');
 function content(c) {
@@ -134,6 +135,32 @@ function mergeUpdate(previous, update) {
   }
 }
 export const qualifiedEngine = {
+  assetLinks(previous) {
+    return staged(() => {
+      const d = read(previous);
+      try {
+        return parseAssetLinks(projection(d, kind(previous.kind)).links);
+      } finally {
+        d.destroy();
+      }
+    });
+  },
+  withAssetLinks(previous, links) {
+    return staged(() => {
+      const d = read(previous);
+      try {
+        const map = d.getMap('links'),
+          valid = parseAssetLinks(links);
+        for (const id of [...map.keys()])
+          if (!Object.hasOwn(valid, id)) map.delete(id);
+        for (const [id, link] of Object.entries(valid))
+          map.set(id, { ...link });
+        return root(d, previous.pageId, previous.kind);
+      } finally {
+        d.destroy();
+      }
+    });
+  },
   applyUpdate(latest, base, update) {
     return staged(() => {
       const draft = mergeUpdate(base, update);

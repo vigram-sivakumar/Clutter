@@ -1,5 +1,8 @@
+import { hash } from './media-formats.mjs';
+import { directories, publish, readObject } from './media-files.mjs';
+import type { AssetFileHost } from './media-files.mjs';
 import { DatabaseSync } from 'node:sqlite';
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import {
   mkdtempSync,
   realpathSync,
@@ -10,8 +13,20 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, basename } from 'node:path';
-import { Fault, stable, parseCommand } from '../contracts.ts';
-import type { Mutation, Receipt } from '../contracts.ts';
+import {
+  Fault,
+  stable,
+  parseCommand,
+  parseAssetLinks,
+  parseAssetMeta,
+} from '../contracts.ts';
+import type {
+  Mutation,
+  Receipt,
+  AssetLinks,
+  AssetMeta,
+  AssetLink,
+} from '../contracts.ts';
 import type {
   Root,
   Stored,
@@ -21,11 +36,11 @@ import type {
   RecoveryRoot,
 } from '../ports.ts';
 import { atomic, CommitUnknown } from './sql-transaction.ts';
-const digest = (x: string | Uint8Array) =>
-  createHash('sha256').update(x).digest('hex');
+const digest = hash;
 const markerName = 'I1-DISPOSABLE.json';
 const format = 'CLUTTER-I1-DISPOSABLE-25';
 type Hooks = {
+  assetPhase?: (name: string, command: Mutation) => Promise<void> | void;
   beforeCommit?: (command: Mutation) => void;
   afterCommit?: (command: Mutation) => void;
 };
@@ -42,6 +57,7 @@ export class SqliteVault implements Vault {
   readonly spaceId: string;
   private readonly db: DatabaseSync;
   private readonly hooks: Hooks;
+  private readonly fileHost: AssetFileHost;
   private uncertain?: string;
   private failed = false;
   private constructor(
@@ -98,14 +114,25 @@ export class SqliteVault implements Vault {
           CREATE TABLE roots(page_id TEXT NOT NULL,kind TEXT NOT NULL,root_hash TEXT NOT NULL,payload BLOB NOT NULL,PRIMARY KEY(page_id,root_hash));
           CREATE TABLE commits(sequence INTEGER PRIMARY KEY,operation_id TEXT UNIQUE NOT NULL,fingerprint TEXT NOT NULL,receipt TEXT NOT NULL,actor_id TEXT NOT NULL);
           CREATE TABLE revisions(sequence INTEGER NOT NULL REFERENCES commits(sequence),page_id TEXT NOT NULL,root_hash TEXT NOT NULL,PRIMARY KEY(sequence,page_id),FOREIGN KEY(page_id,root_hash) REFERENCES roots(page_id,root_hash));
+          CREATE TABLE asset_objects(hash TEXT PRIMARY KEY,mime TEXT NOT NULL,bytes INTEGER NOT NULL);
+          CREATE TABLE asset_refs(page_id TEXT NOT NULL,root_hash TEXT NOT NULL,attachment_id TEXT NOT NULL,hash TEXT NOT NULL REFERENCES asset_objects(hash),name TEXT NOT NULL,role TEXT NOT NULL,PRIMARY KEY(page_id,root_hash,attachment_id),FOREIGN KEY(page_id,root_hash) REFERENCES roots(page_id,root_hash));
           CREATE TABLE heads(page_id TEXT PRIMARY KEY,sequence INTEGER NOT NULL,FOREIGN KEY(sequence,page_id) REFERENCES revisions(sequence,page_id));
           CREATE TABLE protections(sequence INTEGER PRIMARY KEY REFERENCES commits(sequence),page_id TEXT NOT NULL,context_id TEXT NOT NULL,actor_id TEXT NOT NULL,generation INTEGER NOT NULL,base_head TEXT NOT NULL,root_hash TEXT NOT NULL,pending TEXT,FOREIGN KEY(page_id,root_hash) REFERENCES roots(page_id,root_hash),UNIQUE(page_id,context_id,actor_id,generation));`);
         this.db
           .prepare('INSERT INTO identity VALUES(?,?)')
           .run(format, this.spaceId);
-        this.db.exec('PRAGMA user_version=2; COMMIT;');
+        this.db.exec('PRAGMA user_version=3; COMMIT;');
         chmodSync(file, 0o600);
       }
+      if (this.db.prepare('PRAGMA user_version').get()?.user_version !== 3)
+        throw new Fault('UNSUPPORTED_STORE');
+      this.fileHost = {
+        dir: this.directory,
+        phase: async (name, command) => {
+          await this.hooks.assetPhase?.(name, command as Mutation);
+        },
+      };
+      directories(this.fileHost, { create: initialize });
       this.check();
     } catch (e) {
       try {
@@ -136,7 +163,7 @@ export class SqliteVault implements Vault {
       space_id: string;
     }[];
     if (
-      version.user_version !== 2 ||
+      version.user_version !== 3 ||
       identity.length !== 1 ||
       identity[0].format !== format ||
       identity[0].space_id !== this.spaceId
@@ -151,6 +178,8 @@ export class SqliteVault implements Vault {
       .prepare('SELECT * FROM roots')
       .all() as unknown as Row[])
       this.root(row);
+    for (const row of this.db.prepare('SELECT hash FROM asset_objects').all())
+      this.readAsset(row.hash as string);
     const commits = this.db
       .prepare('SELECT * FROM commits ORDER BY sequence')
       .all();
@@ -228,6 +257,81 @@ export class SqliteVault implements Vault {
       )
       .get(pageId, atSequence ?? Number.MAX_SAFE_INTEGER) as Row | undefined;
     return row ? { ...this.root(row), sequence: row.sequence } : undefined;
+  }
+  assetMeta(hash: string): AssetMeta {
+    const row = this.db
+      .prepare('SELECT mime,bytes FROM asset_objects WHERE hash=?')
+      .get(hash);
+    if (!row) throw new Fault('ASSET_NOT_FOUND');
+    return parseAssetMeta(row);
+  }
+  assetLinks(root: Root): AssetLinks {
+    return parseAssetLinks(
+      Object.fromEntries(
+        this.db
+          .prepare(
+            'SELECT attachment_id,hash,name,role FROM asset_refs WHERE page_id=? AND root_hash=? ORDER BY attachment_id'
+          )
+          .all(root.pageId, root.head)
+          .map((row) => [
+            row.attachment_id,
+            { hash: row.hash, name: row.name, role: row.role },
+          ])
+      )
+    );
+  }
+  currentAttachment(
+    attachmentId: string
+  ): ({ pageId: string } & AssetLink) | undefined {
+    const rows = this.db
+      .prepare(
+        'SELECT a.* FROM heads h JOIN revisions r ON r.sequence=h.sequence AND r.page_id=h.page_id JOIN asset_refs a ON a.page_id=r.page_id AND a.root_hash=r.root_hash WHERE a.attachment_id=?'
+      )
+      .all(attachmentId);
+    if (rows.length > 1) throw new Fault('BROKEN_ASSET_INDEX');
+    const row = rows[0];
+    return row
+      ? {
+          pageId: row.page_id as string,
+          ...parseAssetLinks({
+            [attachmentId]: { hash: row.hash, name: row.name, role: row.role },
+          })[attachmentId],
+        }
+      : undefined;
+  }
+  auditRoots(visitor: (root: Root, links: AssetLinks) => void): void {
+    for (const row of this.db
+      .prepare('SELECT * FROM roots')
+      .all() as unknown as Row[]) {
+      const root = this.root(row);
+      visitor(root, this.assetLinks(root));
+    }
+  }
+  async publishAsset(
+    command: Mutation & { mime: AssetMeta['mime'] },
+    bytes: Uint8Array
+  ): Promise<{ hash: string; meta: AssetMeta }> {
+    try {
+      const result = await publish(this.fileHost, command, Buffer.from(bytes));
+      return { hash: result.digest, meta: parseAssetMeta(result.meta) };
+    } catch (e) {
+      throw new Fault((e as Error).message);
+    }
+  }
+  readAsset(hash: string): Uint8Array {
+    try {
+      return readObject(this.fileHost, hash, this.assetMeta(hash));
+    } catch (e) {
+      throw e instanceof Fault ? e : new Fault((e as Error).message);
+    }
+  }
+  private insertLinks(root: Root, links: AssetLinks = {}): void {
+    for (const [id, link] of Object.entries(parseAssetLinks(links)))
+      this.db
+        .prepare('INSERT OR IGNORE INTO asset_refs VALUES(?,?,?,?,?,?)')
+        .run(root.pageId, root.head, id, link.hash, link.name, link.role);
+    if (stable(this.assetLinks(root)) !== stable(links))
+      throw new Fault('BROKEN_ASSET_INDEX');
   }
   findRoot(pageId: string, head: string): Stored | undefined {
     const row = this.db
@@ -333,6 +437,19 @@ export class SqliteVault implements Vault {
               .prepare('SELECT COALESCE(MAX(sequence),0)+1 AS n FROM commits')
               .get()!.n
           );
+          for (const [hash, meta] of Object.entries(options.objects ?? {})) {
+            parseAssetMeta(meta);
+            const old = this.db
+              .prepare('SELECT mime,bytes FROM asset_objects WHERE hash=?')
+              .get(hash);
+            if (old && stable(old) !== stable(meta))
+              throw new Fault('ASSET_METADATA_MISMATCH');
+            // Verify published bytes before allowing any SQL reference.
+            readObject(this.fileHost, hash, meta);
+            this.db
+              .prepare('INSERT OR IGNORE INTO asset_objects VALUES(?,?,?)')
+              .run(hash, meta.mime, meta.bytes);
+          }
           const receipt = {
             operationId: command.operationId,
             pageId: command.pageId,
@@ -359,6 +476,9 @@ export class SqliteVault implements Vault {
               .prepare('INSERT OR IGNORE INTO roots VALUES(?,?,?,?)')
               .run(root.pageId, root.kind, root.head, root.bytes);
           }
+          for (const change of changes)
+            this.insertLinks(change.root, change.links);
+          if (protection) this.insertLinks(protection.root, protection.links);
           this.db
             .prepare('INSERT INTO commits VALUES(?,?,?,?,?)')
             .run(

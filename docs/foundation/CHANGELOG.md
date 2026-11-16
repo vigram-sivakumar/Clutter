@@ -3,6 +3,29 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.51 — 2026-11-16
+
+- Added media.import/replace/remove/list/read to existing inferred catalogue and
+  PageOperations; same UI/CLI/MCP handlers, expected heads and stable outcomes.
+- Canonical Y links reference immutable file hashes. Object metadata is canonical
+  in SQL; root refs are derived/audited. Files/formats/admission/association helpers
+  moved once into the runtime package; old proofs import/re-export shared source.
+- Publication flush/link/dir-sync precedes the same SQL root/ref/outcome transaction.
+  Removal changes current links only; historic/protected roots retain bytes. Explicit
+  cover replacement is atomic; notes/tasks share body/cover/PDF associations.
+- 19 new cases pass (63 runtime total),11 real publication/SQL process-death trials,
+  strict TS and old media12/page10/entity14/Node84 regressions pass. Real CLI/MCP,
+  live editor saves/undo and protected drafts preserve media closure.
+- Fixed discovered null-prototype schema objects unsupported by Y JSON storage;
+  normalized validated link values at engine boundary. Replaced regex dependency
+  scanning with TS AST after media.import caused a false positive. Raw attempts kept.
+- Disposable schema3 refuses1/2 without migration. No dependencies/locks/main/app/
+  real-vault changes, generated artifacts, agent commit/push or old manual replay.
+- Next targeted native/browser-safe editor/media composition and lifecycle contract.
+  General decoder/security/inline presentation/native flush and pending media close
+  protection are not qualified; EditorSession protects editor updates, not media
+  requests. No orphan-as-intent recovery or full I1/G-Q acceptance inferred.
+
 ## 0.50 — 2026-11-16
 
 - Implemented editor.open/apply/protect/recovery in the shared inferred catalogue,

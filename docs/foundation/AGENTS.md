@@ -183,7 +183,7 @@ The two browser-dependent legacy suites attempted25 are BLOCKED after DO01/NP01�
 missing Playwright executable. Do not report them as full passes or install/bypass.
 Package25 requires exact24; stage explicit new package/root paths along with docs.
 
-## Current checkpoint — revision0.50 / editor implementation26
+## Historical checkpoint — revision0.50 / editor implementation26
 
 User confirms25 applied and authorizes proceed. START-HERE is the single current
 handoff; read i1/editor-result.md and editor-contract.md. Real runtime EditorSession
@@ -204,3 +204,24 @@ sessions, touch main/apps/app/user vaults or stage generated output/node_modules
 Bundle26 base is exact25; no agent commit/push. Stage docs/foundation,
 packages/foundation-runtime and package-lock.json only. Track raw attempts and all
 prior evidence; first expanded failures and their corrections are retained in26.
+
+## Current checkpoint — revision0.51 / media implementation27
+
+User confirms26 applied. START-HERE owns current next action: targeted native host/
+browser-safe renderer/media lifecycle integration contract, then a concrete build.
+Media.import/replace/remove/list/read now use the same catalogue/PageOperations/
+SpaceService; no media owner or renderer file writes. Canonical Y links -> immutable
+object metadata/files; root reference indexes audited by engine on composition.
+Publication flush/link/dir-sync precedes the existing SQL root/ref/outcome commit.
+Media files/formats/admission/association helpers were moved once into runtime;
+old proof modules import/re-export them. No duplicate publisher/policy.19 new cases
+pass (63 runtime total), strict TS, old media12/page10/entity14/Node84 pass;11 new real
+publication/SQL process-death trials. No native/browser/security/performance pass.
+Schema3 refuses earlier temp schema1/2; no migration/GC/unlink of referenced bytes.
+Native host still must handle Node dev codecs vs browser bundle, actual image/PDF
+presentation, inline placement and resource disposal. Crucially editor protection
+covers raw editor.apply only; unsent/pending media requests need resolve/journal +
+close gating before real UI. Published orphan bytes are NOT user-intent recovery.
+Keep old manual/native sessions, prior evidence/frozen/lock/budgets, main/apps/app/
+real data untouched. No agent commit/push/manual replay.27 is exact26 incremental;
+stage docs/foundation and packages/foundation-runtime only, no generated paths.

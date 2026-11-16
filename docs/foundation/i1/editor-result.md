@@ -1,5 +1,7 @@
 # Editor/context integration — implementation26
 
+Historical editor checkpoint. Current media integration: [implementation27](media-result.md).
+
 Revision0.50, 2026-11-16. **The editor slice is implemented and DOM-qualified; I1
 remains partial.** No production app/main/user-vault writes or native acceptance.
 [Contract before code](editor-contract.md), [review/evidence](../evidence/i1b-editor-26-2026-11-16/review.json).

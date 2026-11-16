@@ -61,3 +61,11 @@ SQLite schema2 is experimental and refuses earlier I1 temp stores without migrat
 The renderer/engine are explicitly composed adapters; runtime has no proof imports.
 Actual browser/native route, media API and production G-Q remain open. See
 [editor result](../i1/editor-result.md) and START-HERE for the single next action.
+
+## Implementation27 continuation — revision0.51
+
+Media API/publication/history/protected closure now pass within the same disposable
+boundary. Same facade/Core/transaction; shared qualified policies/mechanisms moved
+once, not copied. Schema3 is experimental/refuses older temp stores. No production
+baseline or native/general decoder/security/inline/pending-media-close acceptance.
+See media result and START-HERE for exact native composition follow-up.

@@ -358,3 +358,10 @@ open. Passing the revised table case alone does not complete R07 or authorize R0
 No native keyboard/geometry/IME/window-close/flush qualification is inferred.
 Prior user manual passes stand. No manual replay or lab launch requested for26.
 START-HERE owns the current next step: media API, then supported targeted native route.
+
+## Implementation27 — 2026-11-16 (API, not a new native run)
+
+Media API/history/publication/editor compatibility now pass (63 runtime cases).
+Next is a targeted NEW Core native composition contract/build, not an old lab rerun.
+Actual image/PDF presentation and pending media close/reload handling remain open.
+No native input/flush/security pass or manual replay requested just to apply27.

@@ -1,0 +1,81 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> clutter-notes@2.0.0 foundation:test
+> npm test --workspace=packages/foundation-runtime
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> @clutter/foundation-runtime@0.0.1 test
+> node --test test/*.test.mjs
+
+✔ actual EditorViews: local and foreign edits share one page, undo is context-specific (116.589902ms)
+✔ destroying a view preserves context history and other view selections (112.229203ms)
+✔ missed notifications reconcile on resume using the authoritative root (16.332873ms)
+✔ lost reply retains exact request while newer typing stays pending (24.214363ms)
+✔ typing during an in-flight save survives acknowledgement (18.86484ms)
+✔ failed saves remain provisional; protected close and restart restore the exact pending work (38.850271ms)
+✔ failed protection refuses context close and leaves the view editable (24.553573ms)
+✔ new typing after a protection acknowledgement requires a new protection generation (16.822025ms)
+✔ service restart clears interactive undo explicitly but keeps saved content and a live view (16.302327ms)
+✔ context grants and private outcomes/protection are bound to the trusted peer (50.550168ms)
+✔ raw updates cannot change title/properties/links or introduce unknown nodes (16.473751ms)
+✔ malformed binary, unknown base and dangling Y dependencies refuse without replacing a root (9.89374ms)
+✔ semantic CLI-style writes and task pages use the same Core and editor route (33.178664ms)
+✔ keyboard Enter creates stable paragraph identities through the actual binding (78.316625ms)
+✔ a lost protection reply retries exactly; later typing remains unprotected (46.959686ms)
+✔ typing while protection is in flight prevents an unsafe close (22.962487ms)
+✔ protection refuses pending work absent from its staged snapshot (7.759381ms)
+✔ schema1 temporary stores are refused without automatic migration or overwrite (3.403293ms)
+✔ real CLI/MCP processes update a mounted view and read back UI edits (515.276399ms)
+✔ real process death: editor.apply is old-or-new with exact durable replay (576.547015ms)
+✔ real process death: editor.protect is old-or-new with exact durable replay (579.304879ms)
+✔ a foreign paragraph replacement cannot silently consume unsaved local text (14.304549ms)
+✔ undo after a foreign edit in a newly split paragraph preserves the foreign text (24.193284ms)
+✔ live editor saves and undo preserve media introduced through real CLI/MCP clients (323.467217ms)
+✔ protected editor drafts retain transitive media after current removal and restart (24.622417ms)
+✔ PNG/PDF associations use the same page operations for notes and full task pages (53.902094ms)
+✔ cover replacement is atomic; old immutable bytes and names remain historically readable (24.323044ms)
+✔ remove detaches only current links; history and bytes survive restart (22.638328ms)
+✔ admission and stale heads refuse before publishing any object (21.602299ms)
+✔ invalid bytes, MIME and oversized objects never create a reference (200.362347ms)
+✔ SQL failure leaves an unreachable object; exact retry commits only once (11.237863ms)
+✔ unknown import reply survives service restart and replays its exact receipt (9.313584ms)
+✔ identical bytes deduplicate across page associations without sharing attachment identity (14.939627ms)
+✔ full-body/metadata edits preserve associations and history closure (12.151933ms)
+✔ missing, truncated and symlink objects refuse reads and reopening (18.434845ms)
+✔ symlink directories and existing object collisions fail without redirecting writes (5.614274ms)
+✔ derived root references are audited against the canonical Y links (6.808217ms)
+✔ read-only principals may read media but cannot publish or replace it (5.337297ms)
+✔ publication and SQL crash boundaries retain old-or-new closure and exact retries (2855.337424ms)
+✔ replacement crash before/after SQL commit preserves both old and new historical bytes (532.686442ms)
+✔ SQL stores references and object metadata, never a second media byte copy (6.213029ms)
+✔ older disposable media-less schemas are refused without migration (4.921173ms)
+✔ catalogue generates strict schemas and inferred commands from the same fields (3.748672ms)
+✔ real Y root persists once; note and task share the same page operations (48.255461ms)
+✔ one running writer and durable identity survive service restart (6.286637ms)
+✔ all adapters receive the same conflict/outcome semantics; operation IDs are immutable (7.742455ms)
+✔ permission checks precede receipt lookup and cannot be supplied in a command (3.438764ms)
+✔ queued request is snapshotted; later caller mutation cannot change admitted writes (4.150045ms)
+✔ unknown fields/schema/content refuse without overwriting the current root (8.916338ms)
+✔ desktop conflict keeps its draft and refuses silent close (8.380096ms)
+✔ lost reply retries identical request after further typing and preserves newer local draft (11.522263ms)
+✔ typing during in-flight save is preserved; acknowledged base uses receipt sequence (20.828342ms)
+✔ after-COMMIT fault freezes unrelated writes until exact operation resolves (20.982524ms)
+✔ pre-COMMIT fault rolls back root/head/outcome and exact retry succeeds (18.966239ms)
+✔ disposable restrictions refuse arbitrary directories, symlink aliases and missing stores (4.735769ms)
+✔ unknown store version, identity mismatch and corrupt roots are refused without repair (15.13871ms)
+✔ real CLI and MCP processes use the same running Core and exact receipt (672.284994ms)
+✔ real process death before/after COMMIT yields old/new complete state, exact retry once (621.794377ms)
+✔ module boundary: portable modules import no platform/SQL/DOM code; legacy app is not wired (235.838739ms)
+✔ malformed mutation replies remain unknown and malformed read replies are unavailable (4.862095ms)
+✔ MCP requires initialization and rejects malformed, oversized and truncated frames (381.652499ms)
+✔ desktop retains draft when snapshot does not match the acknowledged receipt (6.781858ms)
+✔ Vault port atomically guards and commits several page roots in one Space sequence (6.740227ms)
+ℹ tests 63
+ℹ suites 0
+ℹ pass 63
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4198.544802

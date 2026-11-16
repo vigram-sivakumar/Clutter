@@ -1,6 +1,6 @@
 # Resume Clutter foundation work
 
-Last updated: 2026-11-16. Documentation revision: 0.50, editor implementation26.
+Last updated: 2026-11-16. Documentation revision: 0.51, media implementation27.
 Read [AGENTS](AGENTS.md), this checkpoint and [README](README.md) first.
 
 ## Current position
@@ -26,61 +26,65 @@ This current checkpoint supersedes earlier next-action text in historical record
 | Page proof24 | PK01–10 pass headlessly,10 multi-page crash boundaries plus interrupted import; single-page writes, snapshot/pin/lease closure; no new native/browser/performance claim |
 | I1a implementation25 |21 integration tests and strict TypeScript pass: shared page CRUD/Core, SQLite multi-root commits, CLI/MCP stdio clients, desktop draft session; actual editor binding pending |
 | I1b editor26 |23 additional actual EditorView/context tests pass in jsdom; shared update/protection/recovery API, peer-bound grants, exact pending requests;44 total runtime tests + strict TypeScript; no fresh native/browser qualification |
-| Next | I1b media API integration, then targeted supported browser/native qualification; I1/G-Q remain open |
+| I1b media27 |19 additional media/editor cases pass (63 runtime total),11 publication/SQL process-death trials; prior media12/page10/entity14/Node84 and strict TS pass |
+| Next | Targeted native editor/media composition and lifecycle qualification; I1/G-Q remain open |
 
 ## Branch and delivery state
 
-Stay on architecture/clutter-foundation. User confirms25 applied;26 is incremental
-over exact25 content tree f36a7752aac02cf692f7932e4a4ac8b896fc5f55. Do not infer
-that26 is applied/committed until reported. No agent commit/push, apps/app/main or
-user-vault changes. Current local HEAD is old; use actual files/content trees.
-Only docs/foundation, packages/foundation-runtime and workspace-lock metadata change.
-No new external package versions: jsdom29.1.1 was already locked, now declared as a
-direct test dependency. Generated output/node_modules/temp DBs are not delivered.
+Stay on architecture/clutter-foundation. User confirms26 applied;27 is incremental
+over exact26 content tree 4ff986bd46b50274684bf3bba8764d424414fa09. Do not infer27
+applied/committed until reported. No agent commit/push, apps/app/main/user-vault
+changes. Current local HEAD is old; inspect files/content trees. This bundle changes
+docs/foundation and packages/foundation-runtime only; no dependency/lock changes.
+No generated runtime/cache/node_modules/test stores are delivered.
 
 Preserve repaired-main backup and old native sessions. No main switch/merge/rebase/
 reset, generated bundle/runtime/cache/artifacts or test-store staging. Shared source
 planners and SQL transaction engine are reused; new page adapter is not another
 policy implementation. Old aggregate/native profiles remain comparison controls.
 
-## Exact next work — I1b media integration
+## Exact next work — targeted native editor/media integration
 
-1. Read [editor26 result](i1/editor-result.md), [editor contract](i1/editor-contract.md),
-   [I1a result](i1/result.md), F009 and runtime-ownership.md. Actual editor/context/
-   protection integration has now run against real SQLite and real EditorViews in
-   jsdom. Do not repeat I1a or start another architecture/candidate search.
-2. Add image/PDF/cover association operations to the SAME catalogue/PageOperations.
-   Put immutable byte publication/flush/read behind Vault/platform ports. Reuse the
-   qualified media admission/publication/closure rules; do not copy a second policy
-   or transaction engine. Preserve atomic multi-page/root/outcome behavior and
-   coherent historical references. Existing media proofs are inputs, not a pass of
-   those new runtime operations. Tasks remain full pages with body/cover/embeds.
-3. After media integration, arrange a supported targeted browser/native run of the
-   changed route before claiming I1 complete. The23 new DOM cases are not native
-   typing, geometry, focus/window-close integration, IME or macOS durability passes.
-   No browser install/bypass or broad old manual-session replay. No manual test is
-   required just to apply26; the production app is not wired to these modules.
-4. Preserve current editor guarantees: private trusted-peer/page/context grants;
-   raw updates body-only, known accepted base, complete dependencies, no lossy
-   unknown nodes; exact pending request across unknown replies/recovery; view closure
-   does not dispose context history; restart/recovery explicitly resets undo history.
-   Native host must call prepareClose/sync and re-establish hint subscription on
-   reconnect. A red macOS close button is NOT connected by this DOM-only slice.
-5. Retain F009 disposable enforcement and real-data G-Q gates: production runtime/
-   discovery/auth/grant lifecycle, native flush, final schema/format/version-set/
-   retention/migration, fixed D11 workloads and performance remain unqualified.
-   No main switch/merge/rebase/reset, real-vault access or provider enablement.
+1. Read [media27 result](i1/media-result.md), [media contract](i1/media-contract.md),
+   [editor26 result](i1/editor-result.md), F009 and runtime-ownership.md. Actual media
+   API/immutable publication/history/editor compatibility are implemented. Do not
+   redo I1a/editor/media API work or start broad architecture/candidate research.
+2. Freeze a bounded native composition/test contract before the host code: one
+   running NEW Core service/Space, peer-bound editor contexts, same UI/CLI/MCP API,
+   supported targeted two-view/history/protection/media/owner-restart cases. Do not
+   point the old joined/native Store profile at schema3 or reuse it as new Core.
+   Existing native/manual sessions must remain intact. Final shell/runtime remains
+   unselected; a qualification host is not shipping architecture acceptance.
+3. Implement browser-safe renderer/codec wiring behind the existing ports. The
+   current qualified DOM adapter imports Node-based dev codecs/Buffer/hash helpers;
+   it cannot be assumed to bundle into WK/browser unchanged. Keep filesystem/Node
+   mechanisms in the service; do not add browser-side mutation/file fallbacks.
+4. Qualify image/PDF/cover presentation and resource lifetime on the selected test
+   host. API associations exist; inline media nodes/placement, object-URL disposal,
+   PDF sandbox/security/general decoders and full UI are NOT delivered by27.
+   Current admission is deliberately bounded PNG + conventional-xref PDF,256KiB,
+   not a production image/PDF decoder or security guarantee.
+5. Native close/reload must compose EditorSession.prepareClose/sync with outstanding
+   media operations. EditorSession protects editor.apply work, NOT unsent image
+   bytes or pending media.import/replace requests. Resolve those exact outcomes or
+   persist request+bytes safely before allowing close. Do not silently discard them
+   or assume published-but-unreferenced objects are a recoverable user intent.
+6. Arrange only the targeted changed-route native checks once a concrete build is
+   ready; no broad old keyboard/manual replay or browser restriction bypass.
+   No manual/native test is needed just to apply27. Existing app/main stays unchanged.
+7. Keep G-Q before real data: production runtime/discovery/auth/grant lifecycle,
+   native flush, final schema/codec/version-set/retention/migration, full features,
+   fixed D11 host/workloads/performance and safe migration remain unqualified.
 
-Developer checks: `npm run foundation:test` (44) and `npm run foundation:typecheck`
-at repo root, Node24.22.1+. Use normal root install plus the existing nested locked
-PM/Y experiment install. The explicit dev renderer/engine composition is temporary;
-actual runtime modules import no experiment code. jsdom tests disable automatic
-scroll handling (no layout engine) and fail on ANY uncaught DOM event error.
-Schema2 refuses earlier I1 temporary stores without migration; leave them in place.
-Protected snapshots are retained, not automatically released/pruned. Conflicting
-foreign paragraph replacement refuses rebase without hiding local text; recovery
-against a different canonical base refuses explicitly and leaves the snapshot intact. Do not claim
-active-recovery cleanup, a final format or complete view-layout/cursor persistence.
+Developer checks: `npm run foundation:test` (63) and `npm run foundation:typecheck`
+at repo root (Node24.22.1+, normal root + existing nested PM/Y dependencies). Legacy
+media12/page10/entity14/Node84 regressions also pass after factoring shared helpers.
+Media files/byte/admission policy is now shared SOURCE in the actual runtime package;
+older proof files re-export/import it. No copied second publisher or business owner.
+Schema3 refuses earlier temp schema1/2 without migration; leave old stores intact.
+All roots/protected snapshots/bytes remain retained; no automatic release/pruning/GC.
+Conservative rebase/recovery conflicts preserve the live/protected draft. No full
+native/browser/geometry/IME/window-close/flush or production qualification inferred.
 
 ## Proof24 facts and limits
 

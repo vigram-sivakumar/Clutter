@@ -1,4 +1,4 @@
-# Disposable Core and editor context implementation — I1
+# Disposable Core, editor contexts and media API — I1
 
 Private, nonshipping workspace. Requires Node24.22.1 or newer with native TypeScript
 stripping and node:sqlite. The existing app remains on its current save path.
@@ -39,3 +39,17 @@ replacement is semantic CRUD, not the origin-aware editing protocol. Editor26 no
 in DOM tests. Next I1b integrates immutable media operations and qualifies the
 changed route on a supported browser/native host. No new native/manual testing is requested for I1a.
 See docs/foundation/START-HERE.md and i1/contract.md for gates and exact next work.
+
+
+Implementation27 adds media.import/replace/remove/list/read through the same Core.
+63 runtime tests pass. Immutable objects are flushed/published before SQL refs;
+removal never unlinks retained bytes. Root link indexes are verified by Core/engine
+on composition. Files/formats/admission helpers here are also reused by old proofs.
+The profile admits bounded PNG/conventional-xref PDF only, not general decoders or
+security. Schema3 refuses earlier temp stores without migration. No dependency change.
+
+Actual native media rendering/inline placement/URL lifecycle and close handling are
+next. EditorSession protection does not journal pending media commands or unsent
+file bytes; a host must resolve or durably protect those before allowing close.
+Do not bundle the Node-based dev codec directly into a browser/WK renderer; compose
+a browser-safe codec/bridge behind the existing ports. No shipping/real-vault claim.

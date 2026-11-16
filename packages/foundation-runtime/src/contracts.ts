@@ -188,6 +188,40 @@ const binary = text(
   700000,
   '^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$'
 );
+export const MAX_ASSET_BYTES = 256 * 1024;
+const mime = union(literal('image/png'), literal('application/pdf'));
+const role = union(literal('body'), literal('cover'));
+const assetName = text(256, '^.+$');
+const assetBytes = scalar<number>(
+  { type: 'integer', minimum: 1, maximum: MAX_ASSET_BYTES },
+  (x) =>
+    Number.isSafeInteger(x) &&
+    (x as number) > 0 &&
+    (x as number) <= MAX_ASSET_BYTES
+);
+const assetLink = object({ hash: head, name: assetName, role });
+const assetMeta = object({ mime, bytes: assetBytes });
+export type AssetLink = Infer<typeof assetLink>;
+export type AssetLinks = Record<string, AssetLink>;
+export type AssetMeta = Infer<typeof assetMeta>;
+export type AssetDescriptor = AssetLink & AssetMeta;
+export function parseAssetLinks(value: unknown): AssetLinks {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
+    Object.keys(value).length > 100
+  )
+    throw new Fault('INVALID_MEDIA_FIELDS');
+  const links = Object.create(null);
+  for (const [key, v] of Object.entries(value)) {
+    id.parse(key);
+    links[key] = assetLink.parse(v);
+  }
+  return links;
+}
+export const parseAssetMeta = (value: unknown): AssetMeta =>
+  assetMeta.parse(value);
 const editorBase = { ...base, pageId: id, contextId: id };
 const editorApply = object({
   ...editorBase,
@@ -199,6 +233,50 @@ const editorApply = object({
   generation: sequence,
 });
 export const catalogue = {
+  'media.import': object({
+    ...base,
+    pageId: id,
+    method: literal('media.import'),
+    operationId: id,
+    expectedHead: head,
+    attachmentId: id,
+    name: assetName,
+    role,
+    mime,
+    payload: binary,
+  }),
+  'media.replace': object({
+    ...base,
+    pageId: id,
+    method: literal('media.replace'),
+    operationId: id,
+    expectedHead: head,
+    attachmentId: id,
+    name: assetName,
+    mime,
+    payload: binary,
+  }),
+  'media.remove': object({
+    ...base,
+    pageId: id,
+    method: literal('media.remove'),
+    operationId: id,
+    expectedHead: head,
+    attachmentId: id,
+  }),
+  'media.list': object({
+    ...base,
+    pageId: id,
+    method: literal('media.list'),
+    atSequence: optional(sequence),
+  }),
+  'media.read': object({
+    ...base,
+    pageId: id,
+    method: literal('media.read'),
+    attachmentId: id,
+    atSequence: optional(sequence),
+  }),
   'editor.open': object({ ...editorBase, method: literal('editor.open') }),
   'editor.apply': editorApply,
   'editor.protect': object({
@@ -277,13 +355,30 @@ export type ProtectedDraft = {
   payload: string;
   pending?: EditorApply;
 };
-export type ResultFor<C extends Command> = C extends { method: 'page.read' }
-  ? PageSnapshot
-  : C extends { method: 'editor.open' }
-    ? EditorCheckout
-    : C extends { method: 'editor.recovery' }
-      ? ProtectedDraft
-      : Receipt;
+export type MediaSnapshot = {
+  pageId: string;
+  head: string;
+  sequence: number;
+  assets: Record<string, AssetDescriptor>;
+};
+export type MediaFile = AssetDescriptor & {
+  pageId: string;
+  head: string;
+  sequence: number;
+  attachmentId: string;
+  payload: string;
+};
+export type ResultFor<C extends Command> = C extends { method: 'media.list' }
+  ? MediaSnapshot
+  : C extends { method: 'media.read' }
+    ? MediaFile
+    : C extends { method: 'page.read' }
+      ? PageSnapshot
+      : C extends { method: 'editor.open' }
+        ? EditorCheckout
+        : C extends { method: 'editor.recovery' }
+          ? ProtectedDraft
+          : Receipt;
 export type Receipt = {
   protection?: { contextId: string; generation: number; baseHead: string };
   changedHeads: Record<string, string>;
@@ -293,7 +388,13 @@ export type Receipt = {
   sequence: number;
 };
 export type Reply<
-  T = PageSnapshot | Receipt | EditorCheckout | ProtectedDraft,
+  T =
+    | PageSnapshot
+    | Receipt
+    | EditorCheckout
+    | ProtectedDraft
+    | MediaSnapshot
+    | MediaFile,
 > =
   | { ok: true; value: T }
   | { ok: false; error: { code: string; operationId?: string } };

@@ -1,6 +1,6 @@
 # Clutter foundation
 
-Status: architecture definition pack, revision 0.50, 2026-11-16. Product scope
+Status: architecture definition pack, revision 0.51, 2026-11-16. Product scope
 confirmed; the production technology baseline remains unaccepted.
 Baseline: `main` at `cae604273115c0c6c0d3ac34533b1e9834e9c778`.
 Working branch: `architecture/clutter-foundation`.
@@ -20,8 +20,9 @@ and frozen [PK01–10](page-partition-contract.json) now have
 [headless page proof24](r08-page-closure.md). The scoped [Core/API entry](implementation-entry.md) is accepted for disposable
 implementation only: [I1a implementation25](i1/result.md) now has21 passing tests
 and strict TypeScript. The [editor26 slice](i1/editor-result.md) adds23 actual-view/context tests (44 total),
-including protected restart recovery. Next is I1b media API integration and targeted
-supported browser/native qualification; I1 remains partial. [One running Space service](runtime-ownership.md) explains the shared owner.
+including protected restart recovery. [Media27](i1/media-result.md) adds19 cases (63 runtime total) for immutable media
+API/history/cover/editor compatibility. Next is targeted native editor/media
+composition and lifecycle qualification; I1 remains partial. [One running Space service](runtime-ownership.md) explains the shared owner.
 No manual replay, accepted production baseline or native-host selection.
 The production combination remains proposed; I1a is working private implementation,
 not production or user-vault migration.

@@ -1,0 +1,50 @@
+{
+  "date": "2026-11-16",
+  "commands": [
+    {
+      "cwd": "repo root",
+      "command": "npm run foundation:test",
+      "result": "63 pass;0 fail;19 new +44 prior runtime"
+    },
+    {
+      "cwd": "repo root",
+      "command": "npm run foundation:typecheck",
+      "result": "exit0; strict TypeScript5.9.3"
+    },
+    {
+      "cwd": "docs/foundation/experiments/r07-two-view",
+      "command": "MEDIA_RESULT=... node test/media.mjs",
+      "result": "12 pass"
+    },
+    {
+      "cwd": "same experiment",
+      "command": "PAGE_RESULT=... node test/pages.mjs",
+      "result": "10 pass"
+    },
+    {
+      "cwd": "same experiment",
+      "command": "ENTITY_RESULT=... node test/entities.mjs",
+      "result": "14 pass"
+    },
+    {
+      "cwd": "same experiment",
+      "command": "npm test",
+      "result": "84 pass"
+    }
+  ],
+  "scope": "Disposable Core/media/editor API; not native display/security/production or pending-media close qualification",
+  "realProcessDeathPhases": [
+    "asset_before_stage",
+    "asset_half_written",
+    "asset_before_file_sync",
+    "asset_after_file_sync",
+    "asset_after_publish",
+    "asset_before_dir_sync",
+    "asset_after_dir_sync",
+    "sql_before_commit",
+    "sql_after_commit",
+    "replacement:sql_before_commit",
+    "replacement:sql_after_commit"
+  ],
+  "domPolicy": "Existing actual EditorView tests in jsdom; no geometry; all uncaught DOM errors fail; no fresh browser/native run"
+}

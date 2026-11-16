@@ -4,6 +4,9 @@ import type {
   Receipt,
   Mutation,
   EditorApply,
+  AssetLinks,
+  AssetMeta,
+  AssetLink,
 } from './contracts.ts';
 export type Root = {
   pageId: string;
@@ -17,18 +20,29 @@ export interface PageEngine {
   create(pageId: string, kind: PageKind, content: PageContent): Root;
   update(previous: Root, content: PageContent): Root;
   project(root: Root): PageContent;
+  assetLinks?(root: Root): AssetLinks;
+  withAssetLinks?(root: Root, links: AssetLinks): Root;
   applyUpdate?(latest: Root, base: Root, update: Uint8Array): Root;
 }
 /** Vault implements atomic storage and guards; it contains no page/task workflow. */
-export type RootChange = { root: Root; expectedHead: string | null };
+export type RootChange = {
+  root: Root;
+  expectedHead: string | null;
+  links?: AssetLinks;
+};
 export type ProtectionPlan = {
   contextId: string;
   generation: number;
   baseHead: string;
   root: Root;
+  links?: AssetLinks;
   pending?: EditorApply;
 };
-export type CommitOptions = { actorId?: string; protection?: ProtectionPlan };
+export type CommitOptions = {
+  actorId?: string;
+  protection?: ProtectionPlan;
+  objects?: Record<string, AssetMeta>;
+};
 export type RecoveryRoot = {
   root: Stored;
   contextId: string;
@@ -38,6 +52,17 @@ export type RecoveryRoot = {
 };
 export interface Vault {
   readonly spaceId: string;
+  publishAsset(
+    command: Mutation & { mime: AssetMeta['mime'] },
+    bytes: Uint8Array
+  ): Promise<{ hash: string; meta: AssetMeta }>;
+  assetMeta(hash: string): AssetMeta;
+  readAsset(hash: string): Uint8Array;
+  assetLinks(root: Root): AssetLinks;
+  currentAttachment(
+    attachmentId: string
+  ): ({ pageId: string } & AssetLink) | undefined;
+  auditRoots(visitor: (root: Root, links: AssetLinks) => void): void;
   load(pageId: string, atSequence?: number): Stored | undefined;
   findRoot(pageId: string, head: string): Stored | undefined;
   recovery(

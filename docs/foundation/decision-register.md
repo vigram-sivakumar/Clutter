@@ -4,7 +4,17 @@ Status: confirmed product scope; mechanism recommendation reviewed2026-11-15.
 Technical production baseline/format/host not yet accepted.
 Effort and migration scores remain visible with zero decision weight.
 
-## Current execution update — revision0.50
+## Current execution update — revision0.51
+
+[Media27](i1/media-result.md) implements shared media API and immutable history/
+protected closure.63 runtime tests (19 new), strict TS, legacy media12/page10/entity14/
+Node84 pass.11 real crash boundaries; no second publisher/policy/Core owner. F009
+scope unchanged; disposable schema3 only, no migration/GC/real-vault writes. Next
+native composition must replace Node dev codec assumptions, qualify actual media
+presentation and guard/journal pending media requests before close. I1/G-Q remain
+open; no full native/browser/security/decoder/performance acceptance.
+
+## Historical execution update — revision0.50
 
 F009 disposable scope continues. [Editor26](i1/editor-result.md):23 new actual-view/
 context/protection cases pass in jsdom,44 total runtime tests + strict TS +84 old

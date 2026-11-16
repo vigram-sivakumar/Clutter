@@ -1,10 +1,26 @@
 # Foundation roadmap
 
-Revision 0.50, 2026-11-16. This roadmap describes work and dependencies; the current
+Revision 0.51, 2026-11-16. This roadmap describes work and dependencies; the current
 checkpoint/authorization is in [START-HERE](START-HERE.md). Product scope is in
 product-contracts.md, not independently redefined here.
 
-## Current deliverable — I1b editor implementation26
+## Current deliverable — I1b media implementation27
+
+[Media27](i1/media-result.md) implements media.import/replace/remove/list/read in
+the same Core/catalogue. Immutable external objects precede SQL association commits;
+historical/protected closure is retained and indexes audited against engine links.
+Cover replacement is explicit/atomic; notes/tasks use the same operations.19 new
+cases pass (63 runtime total), strict TS and old media12/page10/entity14/Node84 pass.
+11 new real publication/SQL process-death trials pass. Shared helpers moved once;
+no new dependencies/lock changes, old evidence/main/app/user data untouched.
+
+Next: targeted native composition contract/build with browser-safe codec wiring,
+actual image/PDF/cover presentation and resource/close lifecycle. Pending media
+requests/selected bytes are not protected by EditorSession; resolve/journal them
+before host close. No native/security/general decoder/inline placement/production
+qualification follows from API tests. I1/G-Q remain open; no broad manual replay.
+
+## Historical deliverable — I1b editor implementation26
 
 [Editor26](i1/editor-result.md) adds real EditorSession/context API, actual PM/Y
 EditorViews in a jsdom composition and SQLite protected-draft storage.23 new cases

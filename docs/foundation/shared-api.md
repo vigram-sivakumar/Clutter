@@ -7,7 +7,9 @@ plan and has no second business policy. Proof24's head API is a bounded test sur
 not the I1a catalogue. The executable limited catalogue is now in
 packages/foundation-runtime/src/contracts.ts; see [I1a contract/result](i1/result.md).
 It derives request types, CLI help and MCP schemas, with shared handlers and no
-interface-specific reducers. Editor26 adds editor.open/apply/protect/recovery; immutable-media APIs remain I1b.
+interface-specific reducers. Editor26 adds editor.open/apply/protect/recovery; [media27](i1/media-result.md) adds media.import/replace/remove/list/read.
+The executable catalogue remains the only wire/type/schema source. Native UI
+presentation and pending media request lifecycle remain unqualified.
 
 
 Status: broader proposed logical contracts below; only the explicitly bounded I1a

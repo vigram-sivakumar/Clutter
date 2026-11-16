@@ -1,4 +1,12 @@
-import { Fault, parseCommand, toBase64, fromBase64 } from './contracts.ts';
+import { admitImport, validateAssociations } from './media-policy.mjs';
+import {
+  Fault,
+  parseCommand,
+  toBase64,
+  fromBase64,
+  stable,
+  parseAssetLinks,
+} from './contracts.ts';
 import type {
   Command,
   PageSnapshot,
@@ -6,8 +14,19 @@ import type {
   Reply,
   EditorCheckout,
   ProtectedDraft,
+  MediaSnapshot,
+  MediaFile,
+  AssetLinks,
+  AssetMeta,
 } from './contracts.ts';
-import type { PageEngine, Principal, Vault, Stored } from './ports.ts';
+import type {
+  PageEngine,
+  Principal,
+  Vault,
+  Stored,
+  Root,
+  RootChange,
+} from './ports.ts';
 export type ContextOptions = { newGrant: () => string };
 type ContextGrant = { pageId: string; peerId: string; grant: string };
 /** Sole semantic page facade. Context commands are another ingress, not another owner. */
@@ -22,6 +41,51 @@ class PageOperations {
     this.engine = engine;
     this.options = options;
     this.epoch = options?.newGrant();
+    vault.auditRoots((root, index) => {
+      const links = this.links(root);
+      if (stable(links) !== stable(index))
+        throw new Fault('BROKEN_ASSET_INDEX');
+      this.validateLinks(root, links);
+    });
+  }
+  private links(root: Root): AssetLinks {
+    return parseAssetLinks(this.engine.assetLinks?.(root) ?? {});
+  }
+  private validateLinks(
+    root: Root,
+    links: AssetLinks,
+    objects: Record<string, AssetMeta> = {}
+  ): void {
+    const assets = Object.fromEntries(
+      Object.values(links).map((link) => [
+        link.hash,
+        objects[link.hash] ?? this.vault.assetMeta(link.hash),
+      ])
+    );
+    try {
+      validateAssociations({
+        notes: root.kind === 'note' ? { [root.pageId]: {} } : {},
+        tasks: root.kind === 'task' ? { [root.pageId]: {} } : {},
+        assets,
+        assetLinks: Object.fromEntries(
+          Object.entries(links).map(([id, link]) => [
+            id,
+            { pageId: root.pageId, ...link },
+          ])
+        ),
+      });
+    } catch (e) {
+      throw new Fault((e as Error).message);
+    }
+  }
+  private change(
+    root: Root,
+    expectedHead: string | null,
+    objects: Record<string, AssetMeta> = {}
+  ): RootChange {
+    const links = this.links(root);
+    this.validateLinks(root, links, objects);
+    return { root, expectedHead, links };
   }
   private page(id: string): Stored {
     const p = this.vault.load(id);
@@ -44,7 +108,14 @@ class PageOperations {
   async execute(
     c: Command,
     peerId: string
-  ): Promise<PageSnapshot | Receipt | EditorCheckout | ProtectedDraft> {
+  ): Promise<
+    | PageSnapshot
+    | Receipt
+    | EditorCheckout
+    | ProtectedDraft
+    | MediaSnapshot
+    | MediaFile
+  > {
     if (c.method === 'page.read') {
       const p = this.vault.load(c.pageId, c.atSequence);
       if (!p) throw new Fault('NOT_FOUND');
@@ -54,6 +125,37 @@ class PageOperations {
         kind: p.kind,
         head: p.head,
         sequence: p.sequence,
+      };
+    }
+    if (c.method === 'media.list' || c.method === 'media.read') {
+      const root = this.vault.load(c.pageId, c.atSequence);
+      if (!root) throw new Fault('NOT_FOUND');
+      const links = this.links(root);
+      this.validateLinks(root, links);
+      if (c.method === 'media.list')
+        return {
+          pageId: c.pageId,
+          head: root.head,
+          sequence: root.sequence,
+          assets: Object.fromEntries(
+            Object.entries(links).map(([id, link]) => [
+              id,
+              { ...link, ...this.vault.assetMeta(link.hash) },
+            ])
+          ),
+        };
+      const link = Object.hasOwn(links, c.attachmentId)
+        ? links[c.attachmentId]
+        : undefined;
+      if (!link) throw new Fault('ATTACHMENT_NOT_FOUND');
+      return {
+        pageId: c.pageId,
+        head: root.head,
+        sequence: root.sequence,
+        attachmentId: c.attachmentId,
+        ...link,
+        ...this.vault.assetMeta(link.hash),
+        payload: toBase64(this.vault.readAsset(link.hash)),
       };
     }
     if (c.method === 'editor.open') {
@@ -104,10 +206,52 @@ class PageOperations {
     if (c.method === 'page.create') {
       if (this.vault.load(c.pageId)) throw new Fault('ALREADY_EXISTS');
       return this.vault.commit(c, [
-        { root: this.engine.create(c.pageId, c.kind, c), expectedHead: null },
+        this.change(this.engine.create(c.pageId, c.kind, c), null),
       ]);
     }
     const previous = this.page(c.pageId);
+    if (
+      c.method === 'media.import' ||
+      c.method === 'media.replace' ||
+      c.method === 'media.remove'
+    ) {
+      if (previous.head !== c.expectedHead) throw new Fault('CONFLICT');
+      if (!this.engine.withAssetLinks) throw new Fault('MEDIA_UNAVAILABLE');
+      const links = this.links(previous);
+      this.validateLinks(previous, links);
+      const existing = Object.hasOwn(links, c.attachmentId)
+        ? links[c.attachmentId]
+        : undefined;
+      if (c.method === 'media.remove') {
+        if (!existing) throw new Fault('ATTACHMENT_NOT_FOUND');
+        delete links[c.attachmentId];
+        const root = this.engine.withAssetLinks(previous, links);
+        return this.vault.commit(c, [this.change(root, previous.head)]);
+      }
+      if (c.method === 'media.import') {
+        try {
+          admitImport(c, {
+            hasPage: () => true,
+            hasAttachment: (id) => !!this.vault.currentAttachment(id),
+            pageLinks: Object.values(links),
+          });
+        } catch (e) {
+          throw new Fault((e as Error).message);
+        }
+        if (Object.keys(links).length >= 100)
+          throw new Fault('MEDIA_COUNT_LIMIT');
+      } else if (!existing) throw new Fault('ATTACHMENT_NOT_FOUND');
+      const role = c.method === 'media.import' ? c.role : existing!.role;
+      if (role === 'cover' && c.mime !== 'image/png')
+        throw new Fault('INVALID_COVER');
+      const published = await this.vault.publishAsset(c, fromBase64(c.payload)),
+        objects = { [published.hash]: published.meta };
+      links[c.attachmentId] = { hash: published.hash, name: c.name, role };
+      const root = this.engine.withAssetLinks(previous, links);
+      return this.vault.commit(c, [this.change(root, previous.head, objects)], {
+        objects,
+      });
+    }
     if (c.method === 'editor.apply' || c.method === 'editor.protect') {
       this.granted(c, peerId);
       const base = this.vault.findRoot(c.pageId, c.baseHead);
@@ -116,7 +260,7 @@ class PageOperations {
       const update = fromBase64(c.update);
       if (c.method === 'editor.apply') {
         const root = this.engine.applyUpdate(previous, base, update);
-        return this.vault.commit(c, [{ root, expectedHead: previous.head }], {
+        return this.vault.commit(c, [this.change(root, previous.head)], {
           actorId,
         });
       }
@@ -147,6 +291,7 @@ class PageOperations {
           generation: c.generation,
           baseHead: c.baseHead,
           root,
+          links: this.change(root, base.head).links,
           ...(c.pending ? { pending: c.pending } : {}),
         },
       });
@@ -154,13 +299,13 @@ class PageOperations {
     if (previous.head !== c.expectedHead) throw new Fault('CONFLICT');
     if (Object.keys(c.patch).length === 0) throw new Fault('EMPTY_PATCH');
     return this.vault.commit(c, [
-      {
-        root: this.engine.update(previous, {
+      this.change(
+        this.engine.update(previous, {
           ...this.engine.project(previous),
           ...c.patch,
         }),
-        expectedHead: c.expectedHead,
-      },
+        c.expectedHead
+      ),
     ]);
   }
 }
@@ -175,9 +320,9 @@ export class SpaceService {
   >();
   constructor(vault: Vault, engine: PageEngine, options?: ContextOptions) {
     if (boundVaults.has(vault)) throw new Fault('SERVICE_ALREADY_BOUND');
-    boundVaults.add(vault);
     this.spaceId = vault.spaceId;
     this.operations = new PageOperations(vault, engine, options);
+    boundVaults.add(vault);
   }
   subscribe(
     listener: (hint: { pageIds: string[]; sequence: number }) => void
@@ -190,7 +335,11 @@ export class SpaceService {
     try {
       c = parseCommand(value);
       peerId = principal.peerId ?? '';
-      const read = c.method === 'page.read' || c.method === 'editor.recovery';
+      const read =
+        c.method === 'page.read' ||
+        c.method === 'editor.recovery' ||
+        c.method === 'media.list' ||
+        c.method === 'media.read';
       if (
         c.spaceId !== this.spaceId ||
         principal.spaceId !== this.spaceId ||

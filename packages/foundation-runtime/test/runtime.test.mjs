@@ -1,3 +1,4 @@
+import ts from 'typescript';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -124,7 +125,7 @@ async function processRun(args, input, service, principal) {
   return { out, err, exit, signal };
 }
 test('catalogue generates strict schemas and inferred commands from the same fields', () => {
-  assert.equal(commandSchema.oneOf.length, 7);
+  assert.equal(commandSchema.oneOf.length, 12);
   assert.deepEqual(
     Object.keys(catalogue).filter((k) => k.startsWith('page.')),
     ['page.create', 'page.read', 'page.update']
@@ -534,12 +535,23 @@ test('module boundary: portable modules import no platform/SQL/DOM code; legacy 
     assert.doesNotMatch(file, /sqlite-vault|stdio|mcp-framing/);
     const source = readFileSync(file, 'utf8');
     assert.doesNotMatch(source, /from ['"]node:|\bdocument\.|\bwindow\./);
-    for (const match of source.matchAll(
-      /(?:from|import)\s*['"]([^'"]+)['"]/g
-    )) {
-      assert.ok(match[1].startsWith('.'), match[1]);
-      portable(resolve(dirname(file), match[1]));
-    }
+    const ast = ts.createSourceFile(
+      file,
+      source,
+      ts.ScriptTarget.Latest,
+      true,
+      file.endsWith('.mjs') ? ts.ScriptKind.JS : ts.ScriptKind.TS
+    );
+    for (const node of ast.statements)
+      if (
+        (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+        node.moduleSpecifier &&
+        ts.isStringLiteral(node.moduleSpecifier)
+      ) {
+        const spec = node.moduleSpecifier.text;
+        assert.ok(spec.startsWith('.'), spec);
+        portable(resolve(dirname(file), spec));
+      }
   }
   portable(join(src, 'index.ts'));
   for (const file of files(src).filter((p) => p.endsWith('.ts'))) {

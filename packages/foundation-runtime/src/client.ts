@@ -1,4 +1,9 @@
-import { parseCommand, fromBase64 } from './contracts.ts';
+import {
+  parseCommand,
+  fromBase64,
+  parseAssetLinks,
+  parseAssetMeta,
+} from './contracts.ts';
 import type {
   Command,
   PageSnapshot,
@@ -7,6 +12,8 @@ import type {
   ResultFor,
   EditorCheckout,
   ProtectedDraft,
+  MediaSnapshot,
+  MediaFile,
 } from './contracts.ts';
 export type Transport = (command: Command) => Promise<unknown>;
 export class CoreClient {
@@ -37,7 +44,30 @@ export class CoreClient {
           v.sequence < 1
         )
           throw Error('INVALID_REPLY');
-        if (c.method === 'page.read') {
+        if (c.method === 'media.list') {
+          const m = v as MediaSnapshot;
+          const links = Object.fromEntries(
+            Object.entries(m.assets).map(([id, a]) => {
+              parseAssetMeta({ mime: a.mime, bytes: a.bytes });
+              return [id, { hash: a.hash, name: a.name, role: a.role }];
+            })
+          );
+          parseAssetLinks(links);
+          if (c.atSequence !== undefined && m.sequence > c.atSequence)
+            throw Error('INVALID_REPLY');
+        } else if (c.method === 'media.read') {
+          const m = v as MediaFile;
+          parseAssetLinks({
+            [m.attachmentId]: { hash: m.hash, name: m.name, role: m.role },
+          });
+          parseAssetMeta({ mime: m.mime, bytes: m.bytes });
+          if (
+            m.attachmentId !== c.attachmentId ||
+            fromBase64(m.payload).length !== m.bytes ||
+            (c.atSequence !== undefined && m.sequence > c.atSequence)
+          )
+            throw Error('INVALID_REPLY');
+        } else if (c.method === 'page.read') {
           if (
             !('kind' in v) ||
             (c.atSequence !== undefined && v.sequence > c.atSequence)
