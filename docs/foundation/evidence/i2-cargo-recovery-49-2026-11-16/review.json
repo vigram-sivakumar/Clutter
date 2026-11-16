@@ -1,0 +1,16 @@
+{
+  "delivery": 49,
+  "changes": [
+    "Dedicated Git-internal CARGO_HOME seeded with prior registry only; prior cache/config/credentials not modified or copied as settings",
+    "Offline locked fetch first, at most one online --locked acquisition if unavailable; compile stays --locked --offline",
+    "Verify Cargo.lock digest immediately after acquisition as well as after compile; no dependency pin, lock graph or version fallback",
+    "Restore controlled Mac deployment/resolver/flag environment matching the earlier build profile"
+  ],
+  "tests": {
+    "targeted": 10,
+    "failed": 0,
+    "scope": "2 cache/acquisition cases +8 existing composition regressions on Linux"
+  },
+  "native": "pending user Mac retry; not inferred from helper tests",
+  "remaining": "Same pending composition closeout, then existing-UI reuse/CM6-Markdown replacement plan discussion; no new implementation phase"
+}

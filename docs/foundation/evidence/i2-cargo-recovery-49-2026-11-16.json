@@ -1,0 +1,8 @@
+{
+  "delivery": 49,
+  "evidenceDirectory": "i2-cargo-recovery-49-2026-11-16",
+  "userApplied48": "c50963c4",
+  "targetedTests": 10,
+  "native": "not-run; dependency acquisition blocked before compile on48",
+  "next": "apply49, rerun foundation:desktop"
+}

@@ -3,6 +3,16 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.73 — 2026-11-16
+
+- Record user48 commitc50963c4 and offline Cargo index failure before native compile.
+- Correct omitted private CARGO_HOME: seed registry from prior isolated cache,
+  preserve its contents and omit config/credentials. At most one locked online
+  acquisition when offline cache is incomplete; compile remains locked/offline.
+- Preserve direct pins/lock graph, verify digest after fetch, restore controlled
+  deployment/resolver/flags.10 targeted Linux tests pass; native retry still pending.
+- Same closeout scope then discuss existing-UI reuse/old-pipeline removal plan.
+
 ## 0.72 — 2026-11-16
 
 - Record user-applied47 b2c67fc8 and completed dependency install. New runner handles

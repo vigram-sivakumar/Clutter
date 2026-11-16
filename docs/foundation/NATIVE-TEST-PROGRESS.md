@@ -738,3 +738,11 @@ Only changed-route Mac closeout is next; no old/manual/profiling replay. Existin
 product remains CM6/Markdown, unchanged. User authorized wrapping48, then discussion
 of clean replacement retaining existing UI/components; legacy architecture can go,
 no migration. No permanent replacement design inferred from this two-view screen.
+
+## 2026-11-16 — acquisition correction49
+
+User48 c50963c4 applied; install completed. Offline cargo fetch failed because48
+used global cache, whereas original34 used isolated CARGO_HOME. No Rust compile/
+window pass.49 restores private cache with prior registry seed and bounded locked
+network acquisition when needed.10 targeted Linux tests pass; same Mac retry,
+then agreed cleanup-plan discussion. Original pins/evidence/store/app unchanged.

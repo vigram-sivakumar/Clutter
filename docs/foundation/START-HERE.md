@@ -1,9 +1,23 @@
 # Resume Clutter foundation work
 
-## Current checkpoint — pending composition48 closeout, 2026-11-16
+## Current checkpoint — Cargo cache recovery49, 2026-11-16
 
-User confirmed47 applied as b2c67fc8; root npm ci completed on Node24.11.0 with
-engine warnings and35 reported audit issues. No automatic dependency upgrade/fix.
+User confirmed48 applied as c50963c4; dependency install completed. Native setup
+stopped BEFORE compilation: offline global Cargo index offered tauri-build2.6.3
+while locked graph requires2.7.4. Earlier build34 used isolated Git-internal
+CARGO_HOME;48 omitted it. No native window or Mac compilation pass inferred.
+49 restores a dedicated private Cargo home seeded with the prior registry only;
+no prior config/credentials or cache contents are changed. Offline locked fetch
+first; if missing, one setup-only online --locked acquisition, then digest check.
+Compile remains --locked --offline. No version downgrade or unlocked resolution.
+10 targeted Linux tests pass (2 new +8 composition). Earlier102 runtime/strict TS
+results remain scoped to48; no new full-suite/native claim.
+
+NEXT: apply/commit49, then npm run foundation:desktop. No root dependency reinstall
+or global Node/Rust change is required for this correction. Prior failed build is
+retained; no session existed from that failed attempt. First ask whether Saved and
+both views appear, then bounded changed-route closeout. Keep the plan below.
+
 User explicitly clarified: retain existing UI/components, remove/replace the entire
 old CM6/Markdown architecture; no users/data migration, nothing architectural must
 be preserved for compatibility. Discuss cleanup/replacement plan before product rewrite.
@@ -21,7 +35,7 @@ Mac build/signature/native close/window checks are pending, not inferred. H01 ra
 contracts/budgets/pins/evidence unchanged; no host profiling task or performance claim.
 F010 remains the accepted architecture baseline, with override46 milestones open.
 
-NEXT: apply/commit48 if pending; npm ci --ignore-scripts; npm run foundation:desktop.
+After49 fixes acquisition, continue the existing composition launch/check scope.
 The runner bootstraps pinned Node24.22.1 before Core loads, no global Node change.
 First ask only whether Saved and both views appear. If successful, guide a bounded
 changed-route editing/remount/close check. Existing old/manual passes need no replay.

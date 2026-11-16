@@ -1,6 +1,6 @@
 # Clutter foundation
 
-Revision0.72,2026-11-16. Working branch: architecture/clutter-foundation.
+Revision0.73,2026-11-16. Working branch: architecture/clutter-foundation.
 [F010](adr/F010-tauri-implementation-baseline.md) accepts Tauri, shared web UI/editor,
 PM/Y contexts, TypeScript Core and SQLite ports for implementation. Final native
 safety/format/security and shipping qualification remain open at explicit milestones.

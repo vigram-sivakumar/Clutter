@@ -24,6 +24,7 @@ import { ensureOwner } from '../host/launcher.mjs';
 import { bootstrap } from '../host/bootstrap.mjs';
 import { prepareLockedTools } from './locks.mjs';
 import { setLoopbackPolicy } from './plist.mjs';
+import { prepareCargoCache, fetchLockedCargo } from './cargo-cache.mjs';
 const source = resolve(dirname(fileURLToPath(import.meta.url)), '..'),
   root = resolve(source, '../..');
 const [base, node, license, ...args] = process.argv.slice(2);
@@ -132,6 +133,14 @@ try {
         RUSTC: rustc,
         RUSTUP_TOOLCHAIN: chain,
         CARGO_TARGET_DIR: target,
+        CARGO_HOME: prepareCargoCache(
+          join(base, 'cache/cargo'),
+          gitPath('clutter-host-qualification/cache/cargo')
+        ),
+        MACOSX_DEPLOYMENT_TARGET: '14.0',
+        RUSTFLAGS: '',
+        CARGO_ENCODED_RUSTFLAGS: '',
+        CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS: 'fallback',
       };
     run(
       'locked-native-tools',
@@ -145,18 +154,27 @@ try {
       ],
       { cwd: project, env, stdio: 'inherit' }
     );
-    run(
-      'locked-native-dependencies',
-      cargo,
-      [
-        'fetch',
-        '--locked',
-        '--offline',
-        '--manifest-path',
-        join(project, 'src-tauri/Cargo.toml'),
-      ],
-      { cwd: project, env, stdio: 'inherit' }
+    console.log(
+      '[locked-native-dependencies: private cache, then locked acquisition if needed]'
     );
+    const acquisition = fetchLockedCargo(
+      cargo,
+      join(project, 'src-tauri/Cargo.toml'),
+      (command, args, options = {}) =>
+        spawnSync(command, args, {
+          cwd: project,
+          env: {
+            ...env,
+            ...(options.online ? { CARGO_NET_OFFLINE: 'false' } : {}),
+          },
+          stdio: 'inherit',
+        })
+    );
+    if (
+      hash(readFileSync(join(project, 'src-tauri/Cargo.lock'))) !==
+      provenance.cargoSha256
+    )
+      throw Error('LOCK_CHANGED_DURING_ACQUISITION');
     const cli = JSON.parse(
         readFileSync(join(project, 'node_modules/@tauri-apps/cli/package.json'))
       ),
@@ -243,6 +261,7 @@ try {
       runtime: process.version,
       compiler,
       dependencyProvenance: provenance,
+      cargoAcquisition: acquisition,
       graph,
       compiledInputSha256: inputs,
       nativeSourceSha256: hash(

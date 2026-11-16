@@ -6,6 +6,13 @@ wants existing UI/components reused while old architecture can be stripped entir
 a cleanup/replacement plan must be discussed before that product work starts.
 See [proposal](rebuild-plan-proposal.md).
 
+Delivery49 correction: user48 c50963c4 stopped at offline dependency acquisition,
+before compile. The earlier build used isolated CARGO_HOME;48 used global Cargo
+cache.49 seeds a new private registry cache from that prior cache, preserves the
+source and omits config/credentials, allows at most one online --locked setup fetch
+if needed, verifies digest and keeps compile --locked --offline.10 targeted Linux
+tests pass, native retry pending. Direct pins and external graph are unchanged.
+
 ## Boundaries and current source
 
 | Location | Responsibility |
@@ -53,7 +60,7 @@ Windows native runner/runtime still not implemented or claimed.
 
 First build currently reuses exact dependency locks from the user's completed
 2026-11-16T10-35-45-751Z-5b4941c3 build, verifies report/hash/direct pins, changes only
-root package names, and builds Cargo locked/offline with the prior Rust1.90.0.
+root package names, and compiles Cargo locked/offline with the prior Rust1.90.0 (setup may fetch locked dependencies online).
 Prior source/binaries/data stay untouched. Native lock derivatives/provenance are
 saved in the new Git-internal build. **Capture these real locks into the agreed
 product tooling before a fresh checkout becomes independently buildable.** A missing

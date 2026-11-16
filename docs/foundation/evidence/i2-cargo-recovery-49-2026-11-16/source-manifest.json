@@ -1,0 +1,5 @@
+{
+  "apps/foundation-desktop/tools/build.mjs": "d77e8b40b74d36996546056288076deaf20cbddb8226d563269216a1625d137b",
+  "apps/foundation-desktop/tools/cargo-cache.mjs": "0a18be48bbc44ba1b3e6d987715e0f5ac490fe6407ca70d9fb937ea0b8d5779c",
+  "packages/foundation-runtime/test/cargo-cache.test.mjs": "5e67a0e732e749eb9c066f3dde87ec059a92657fe24093a38df038685e962c10"
+}
