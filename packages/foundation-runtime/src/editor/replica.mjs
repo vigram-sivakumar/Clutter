@@ -37,7 +37,8 @@ export function createEditorReplica(
     fragment = doc.getMap('page').get('body'),
     history = new OriginHistoryContext(fragment, schema),
     views = new Set(),
-    remote = Symbol('accepted-root');
+    remote = Symbol('accepted-root'),
+    selectionOwner = Symbol('view-selection-owner');
   let disposed = false,
     acceptedBody = projection(doc, kind(checkout.kind)).body;
   const changed = (_update, origin) => {
@@ -144,6 +145,22 @@ export function createEditorReplica(
         destroy();
       };
       return view;
+    },
+    captureSelection(view) {
+      if (!views.has(view)) throw new Fault('WRONG_CONTEXT_VIEW');
+      return Object.freeze({
+        owner: selectionOwner,
+        bookmark: history.bookmark(view.state),
+      });
+    },
+    restoreSelection(view, value) {
+      if (!views.has(view) || value?.owner !== selectionOwner)
+        throw new Fault('WRONG_CONTEXT_VIEW');
+      return history.restore(
+        view.state,
+        (tr) => view.dispatch(tr),
+        value.bookmark
+      );
     },
     history: runHistory,
     stopCapturing: () => history.manager.stopCapturing(),

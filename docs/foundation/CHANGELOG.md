@@ -3,6 +3,20 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.72 — 2026-11-16
+
+- Record user-applied47 b2c67fc8 and completed dependency install. New runner handles
+  pinned Node before Core imports; no global Node change or blind audit fix.
+- Complete pending48 disposable development composition source with shared UI
+  controller, one packaged headless Core and peer CLI/MCP; existing apps/app unchanged.
+- Add relative view-selection bookmark port for asynchronous remount/foreign edits,
+  preserving view locality and existing history/save/protection policy.
+- 102 runtime tests, strict TS and lock-plan checks pass on Linux. Mac native build
+  remains pending. Retain failures; fix late status update after document teardown.
+- Record user requirement to reuse existing UI/components and permit complete old
+  CM6/Markdown architecture removal. After composition closeout, discuss concrete
+  cleanup/replacement plan before product rewiring/deletion. No migration needed.
+
 ## 0.71 — 2026-11-16
 
 - Complete I2b: promote qualified PM/Y replica, schema, history, page mechanics,

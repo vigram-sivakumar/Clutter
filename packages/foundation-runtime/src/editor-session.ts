@@ -25,6 +25,8 @@ export interface EditorReplica {
     direction: 'undo' | 'redo',
     options?: HistoryOptions
   ): boolean;
+  captureSelection(view: EditorViewHandle): unknown;
+  restoreSelection(view: EditorViewHandle, bookmark: unknown): boolean;
   stopCapturing(): void;
   clearHistory(): void;
   destroy(): void;
@@ -112,6 +114,13 @@ export class EditorSession {
     options?: HistoryOptions
   ): boolean {
     return this.replica.history(view, direction, options);
+  }
+  /** Opaque view-local bookmark; accepted document state still lives in Core. */
+  captureSelection(view: EditorViewHandle): unknown {
+    return this.replica.captureSelection(view);
+  }
+  restoreSelection(view: EditorViewHandle, bookmark: unknown): boolean {
+    return this.replica.restoreSelection(view, bookmark);
   }
   stopCapturing(): void {
     this.replica.stopCapturing();

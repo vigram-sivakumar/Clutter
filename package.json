@@ -26,7 +26,10 @@
     "foundation:typecheck": "npm run typecheck --workspace=packages/foundation-runtime",
     "native:core28": "node docs/foundation/i1/native/run.mjs",
     "native:core28:reopen": "node docs/foundation/i1/native/run.mjs --reopen",
-    "native:core28:check": "node docs/foundation/i1/native/run.mjs --check"
+    "native:core28:check": "node docs/foundation/i1/native/run.mjs --check",
+    "foundation:desktop": "node apps/foundation-desktop/run.mjs",
+    "foundation:desktop:reopen": "node apps/foundation-desktop/run.mjs --reopen",
+    "foundation:desktop:check": "node apps/foundation-desktop/run.mjs --check"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.1",

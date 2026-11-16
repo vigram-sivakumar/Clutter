@@ -15,7 +15,11 @@ const mediaActions = new Set();
 let frozen = true,
   ready = false,
   poll;
-const status = (text) => (document.querySelector('#status').textContent = text);
+const status = (text) => {
+  // A completed request must not update a document after its view is torn down.
+  const target = globalThis.document?.querySelector('#status');
+  if (target) target.textContent = text;
+};
 const native = (action, value = {}) => {
   const message = { action, ...value };
   if (typeof globalThis.__clutterHostEvent === 'function')

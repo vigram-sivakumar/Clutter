@@ -728,3 +728,13 @@ browser/backend entry points.93 runtime tests + strict TS pass; source audit ret
 executable statements. Historical comparison page10/entity14 tests pass separately.
 Native pack graph/actual browser bootstrap regressions pass on Linux, no Mac run
 or performance claim. No current manual task; NEXT only in START-HERE (I2c).
+
+## 2026-11-16 — pending development composition48 closeout
+
+User applied47 b2c67fc8, install completed with Node24.11 engine warnings.48 provides
+pinned bootstrap and packaged owner, shared workspace controller and native bridge.
+102 Linux tests + strict TS/lock-plan pass; no Mac compile/signature/window pass.
+Only changed-route Mac closeout is next; no old/manual/profiling replay. Existing
+product remains CM6/Markdown, unchanged. User authorized wrapping48, then discussion
+of clean replacement retaining existing UI/components; legacy architecture can go,
+no migration. No permanent replacement design inferred from this two-view screen.

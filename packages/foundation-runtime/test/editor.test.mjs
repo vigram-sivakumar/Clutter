@@ -58,12 +58,9 @@ globalThis.cancelAnimationFrame = dom.window.cancelAnimationFrame.bind(
 );
 const { createQualifiedReplica } =
   await import('../src/editor/qualified-replica.mjs');
-const { TextSelection } =
-  await import('prosemirror-state');
-const Y =
-  await import('yjs');
-const { decode } =
-  await import('../src/editor/page-codec.mjs');
+const { TextSelection } = await import('prosemirror-state');
+const Y = await import('yjs');
+const { decode } = await import('../src/editor/page-codec.mjs');
 const ok = (r) => {
   assert.equal(r.ok, true, JSON.stringify(r));
   return r.value;
@@ -1305,4 +1302,22 @@ test('registry retains real pending editor work when both save and protection fa
   again.release();
   assert.equal(await registry.close(scope), true);
   x.sessions = x.sessions.filter((s) => s !== again.session);
+});
+
+test('view-local selection bookmark maps foreign edits while detached and refuses another context', async (t) => {
+  const x = await seeded(t),
+    a = await x.open('selection_a'),
+    b = await x.open('selection_b');
+  const av = x.mount(a),
+    bv = x.mount(b);
+  av.dispatch(av.state.tr.setSelection(TextSelection.create(av.state.doc, 6)));
+  const bookmark = a.captureSelection(av);
+  av.destroy();
+  insert(bv, 'FOREIGN ', 1);
+  ok(await b.save());
+  await settle(a, b);
+  const reopened = x.mount(a);
+  assert.equal(a.restoreSelection(reopened, bookmark), true);
+  assert.equal(reopened.state.selection.anchor, 14);
+  assert.throws(() => b.restoreSelection(bv, bookmark), /WRONG_CONTEXT_VIEW/);
 });

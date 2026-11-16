@@ -1,0 +1,10 @@
+{
+  "platform": "linux",
+  "architecture": "x64",
+  "developerNode": "v24.22.1",
+  "ownerRuntime": "v24.22.1",
+  "macBuild": "not-run",
+  "native": "not-run",
+  "sharedUI": true,
+  "requires": "macOS14+ ARM64 and existing verified Tauri build locks; no global Node/Rust changes"
+}

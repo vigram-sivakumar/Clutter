@@ -1,6 +1,6 @@
 # Foundation roadmap
 
-## Current implementation sequence (revision0.71)
+## Current implementation sequence (revision0.72)
 
 [F010](adr/F010-tauri-implementation-baseline.md) is accepted. Host selection research
 is closed for I2 entry; open qualification is scheduled in override46. No latency
@@ -8,9 +8,10 @@ or aggregate-memory winner is claimed. [START-HERE](START-HERE.md) owns current 
 
 1. I2a46: retain existing editing contexts across view lifetimes (implemented, 89 runtime tests + strict TS).
 2. I2b47: shared PM/Y editor/schema/codec extracted with browser/backend boundaries (93 runtime tests + strict TS).
-3. I2c (next): wire selected Tauri desktop and headless Core/CLI/MCP composition.
-4. I2d: shared page/task editing, properties/media and feature operations.
-5. Before user-selected durable Spaces: close native safety/recovery/format/security gates.
+3. I2c48: disposable development composition source complete; Mac validation pending.
+4. Review the existing-UI reuse/old-pipeline removal plan before product rewrite.
+5. I2d: implement agreed product slices using reused presentation and new contracts.
+6. Before user-selected durable Spaces: close native safety/recovery/format/security gates.
    Before shipping/claims: representative performance/scale/distribution acceptance.
 
 No migration project: there are no existing users/data. No new manual profiling task.

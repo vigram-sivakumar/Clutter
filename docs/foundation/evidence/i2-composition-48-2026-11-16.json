@@ -1,0 +1,9 @@
+{
+  "delivery": 48,
+  "evidenceDirectory": "i2-composition-48-2026-11-16",
+  "tests": 102,
+  "typecheck": "pass",
+  "native": "pending Mac",
+  "productPipeline": "unchanged CM6/Markdown in apps/app",
+  "next": "composition closeout then cleanup-plan discussion"
+}

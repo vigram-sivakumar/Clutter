@@ -31,6 +31,17 @@ contract and scoped evidence before changing or replaying an experiment.
   default; optional restrictions, no per-Space codes/prompts (P36). Internal tickets
   do not create another user-facing enrollment or semantic owner.
 
+## Product rebuild scope clarified by user
+
+- Existing Clutter UI/components are the reuse target. The entire old CM6/Markdown
+  architecture may be removed/replaced; no compatibility/migration requirement.
+- Wrap pending development composition48, then discuss cleanup/replacement sequence
+  before product rewiring/deletion. No automatic I2d feature implementation yet.
+- A separate minimal development screen is not a new product UI design or permanent
+  parallel app. Inventory presentation versus mixed legacy/OS/domain orchestration;
+  reuse visuals, rewrite owners/data flows. Retire obsolete dependencies/tests with
+  the old pipeline under the agreed plan; preserve desired behavioral guarantees.
+
 ## Product/editor and evidence discipline
 
 - table-interaction-contract.md owns agreed behaviour: Enter down same column and
