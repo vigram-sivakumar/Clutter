@@ -1,3 +1,4 @@
+import { traceProcess } from '../recovery40/trace-process.mjs';
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -227,8 +228,7 @@ async function capture() {
       )
     ) {
       const trace = join(output, 'presentation.trace'),
-        p = run(
-          'native-trace',
+        p = await traceProcess(
           '/usr/bin/xcrun',
           [
             'xctrace',
@@ -243,11 +243,21 @@ async function capture() {
             '--output',
             trace,
           ],
-          25000
+          {
+            cwd: output,
+            env: {
+              ...process.env,
+              PATH: '/usr/bin:/bin',
+              NODE_OPTIONS: '',
+              NODE_PATH: '',
+            },
+          }
         );
+      writeJson(join(output, 'native-trace.json'), p);
+      report.traceSignalsSent = p.signalsSent;
       report.traceRecordExit = p.status;
       report.traceArtifactPresent = existsSync(trace);
-      if (p.status === 0 && report.traceArtifactPresent) {
+      if (report.traceArtifactPresent) {
         const toc = join(output, 'trace-toc.xml'),
           exported = run(
             'trace-toc',
@@ -265,7 +275,12 @@ async function capture() {
           'blocked: trace attach failed or timed out; see private logs';
     } else
       report.presentation = 'blocked: installed record interface unavailable';
-    report.status = 'diagnostic-capture-complete';
+    report.status =
+      report.samples.some(
+        (s) => s.unavailableProcesses || !s.membershipStableDuringRead
+      ) || report.presentation.startsWith('blocked:')
+        ? 'diagnostic-capture-with-blockers'
+        : 'diagnostic-capture-complete';
     report.remaining = [
       'Prove process membership/coalition attribution and shared-page accounting before aggregate memory ranking',
       'Map trace tables to actual input and physical presentation; empty idle trace or table presence is not latency evidence',

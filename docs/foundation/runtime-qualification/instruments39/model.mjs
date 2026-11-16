@@ -101,10 +101,39 @@ export function sanitizeSample(selected, raw, after) {
         current?.uid === bound.uid &&
         Number.isSafeInteger(p.physicalFootprintBytes) &&
         p.physicalFootprintBytes >= 0;
+    let failure;
+    if (!valid) {
+      if (p.status !== 'read')
+        failure = [
+          'counter-first',
+          'path',
+          'counter-second',
+          'start-identity',
+        ].includes(p.failureStage)
+          ? p.failureStage
+          : 'native-unavailable';
+      else if (p.executable !== bound.executable)
+        failure = 'path-before-mismatch';
+      else if (!current) failure = 'process-gone';
+      else if (current.executable !== p.executable)
+        failure = 'path-after-mismatch';
+      else if (current.uid !== bound.uid) failure = 'user-changed';
+      else failure = 'invalid-counter-or-identity';
+    }
     rows.push({
       pid: p.pid,
       role: bound.role,
       status: valid ? 'read' : 'unavailable-or-changed',
+      ...(!valid
+        ? {
+            failureStage: failure,
+            ...(Number.isInteger(p.errorNumber) &&
+            p.errorNumber >= 0 &&
+            p.errorNumber <= 4096
+              ? { errorNumber: p.errorNumber }
+              : {}),
+          }
+        : {}),
       ...(valid
         ? {
             startTicks: p.startTicks,

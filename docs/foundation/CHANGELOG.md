@@ -3,6 +3,20 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.64 — 2026-11-16
+
+- Preserve actual39 terminal attachment,16 unavailable WebKit rows per sample,
+  successful UI/owner reads, ETIMEDOUT during native trace finalization and existing
+  trace export10/Document Missing Template Error. No valid aggregate memory/latency.
+- Add native failure-stage/errno and safe path/user/identity mismatch diagnostics;
+  retain strict admission and unavailable/null totals rather than hiding failures.
+- Trace subprocess now has graceful SIGINT and bounded CLI-only escalation instead
+  of immediate25s synchronous termination. Export is attempted for retained artifact
+  independently of recording exit; no Mac repair success or valid trace inferred.
+-17 Linux tests pass (7 new+10 regression); next one no-trace, read-only diagnostic
+  against open H-T. No app rebuild/owner/store change, permission escalation, source
+  pin/budget change, repeated manual tests, policy change or host winner.
+
 ## 0.63 — 2026-11-16
 
 - User38 commit1bcd2783 confirms Mac counter compile/calibration and all three

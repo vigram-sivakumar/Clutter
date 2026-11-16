@@ -28,12 +28,27 @@ int main(int argc, char **argv) {
     for (int i=2;i<argc;i++) {
         pid_t pid=pids[i-2]; struct rusage_info_v4 first,second;
         char path[PROC_PIDPATHINFO_MAXSIZE]={0};
-        int ok=read_counter(pid,&first) && proc_pidpath(pid,path,sizeof(path))>0 && read_counter(pid,&second) && first.ri_proc_start_abstime!=0 && first.ri_proc_start_abstime==second.ri_proc_start_abstime;
+        int ok=0, error_number=0;
+        const char *failure_stage="counter-first";
+        errno=0;
+        if(!read_counter(pid,&first)) error_number=errno;
+        else {
+            failure_stage="path"; errno=0;
+            if(proc_pidpath(pid,path,sizeof(path))<=0) error_number=errno;
+            else {
+                failure_stage="counter-second"; errno=0;
+                if(!read_counter(pid,&second)) error_number=errno;
+                else {
+                    failure_stage="start-identity";
+                    ok=first.ri_proc_start_abstime!=0 && first.ri_proc_start_abstime==second.ri_proc_start_abstime;
+                }
+            }
+        }
         if(i>2)putchar(',');
         if(ok) {
             printf("{\"pid\":%d,\"status\":\"read\",\"startTicks\":\"%" PRIu64 "\",\"physicalFootprintBytes\":%" PRIu64 ",\"executable\":",pid,second.ri_proc_start_abstime,second.ri_phys_footprint);
             json_path(path);putchar('}');
-        } else printf("{\"pid\":%d,\"status\":\"unavailable-or-changed\"}",pid);
+        } else printf("{\"pid\":%d,\"status\":\"unavailable-or-changed\",\"failureStage\":\"%s\",\"errorNumber\":%d}",pid,failure_stage,error_number);
     }
     puts("]}");return 0;
 #else

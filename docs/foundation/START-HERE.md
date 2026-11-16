@@ -1,6 +1,31 @@
 # Resume Clutter foundation work
 
-## Current checkpoint — shared UI and host diagnostics39, 2026-11-16
+## Current checkpoint — read/trace failure diagnostic40, 2026-11-16
+
+User39 commit09c31e1c: Mac probe compile/sanity pass; UI/owner counters readable,
+16 WebKit candidates unavailable in all3 snapshots, totals null. Trace reached5s
+stop then wrapper timed out25s (ETIMEDOUT/status1). Export of existing partial trace
+returned10: Document Missing Template Error. Underlying cause not established;
+no application correctness failure or performance pass inferred. Preserve original
+trace, logs and full uploaded terminal evidence in evidence/host-diagnostic-recovery-40.
+
+40 adds bounded failure-stage/errno reporting and distinct path/identity mismatch
+reasons without loosening guards. Future capture uses asynchronous graceful SIGINT
+at12s, SIGTERM27s, final CLI-only SIGKILL30s, never app/process-group signalling;
+trace export still validates readability independently. This is a harness correction,
+not a proven Mac tracing fix. No recording is requested by the next command.
+
+Next apply40 with existing Tauri qualification window open and run recovery40/
+diagnose.mjs using completed36/H-T. One read-only process snapshot; no trace, new
+Space, owner launch, rebuild of signed app, permissions workaround or test replay.
+If UI was closed, reopen saved H-T via37 --reopen first; never --new for recovery.
+17 Linux tests pass (7 new+10 regressions, including real child signal handling);
+Mac40 diagnosis/finalization correction unrun. Return failureCounts/stages. Decide
+from evidence, not blanket sudo, relaxed path checks or substituted RSS. P-38/P-39
+shared UI/adapters and P-37 greenfield scope unchanged. No host winner.
+
+
+## Previous checkpoint — shared UI and host diagnostics39 (superseded above), 2026-11-16
 
 User38 commit1bcd2783: actual Mac compile and cross-process physical-footprint
 counter sanity PASS. All three experimental package size trials pass. Exact sizes,
@@ -80,7 +105,7 @@ no-legacy-user/data-migration scope remains in force. Filename preference: space
 in quoted downloaded-file paths in Bash. No status-only delivery needed.
 
 
-Last updated: 2026-11-16. Documentation revision: 0.63, shared platform requirement and process/trace diagnostic39.
+Last updated: 2026-11-16. Documentation revision: 0.64, diagnose WebKit failures; trace finalization correction40.
 Read [AGENTS](AGENTS.md), this checkpoint and [README](README.md) first.
 
 ## User scope correction — greenfield, no existing-user/data migration
@@ -150,7 +175,8 @@ This current checkpoint supersedes earlier next-action text in historical record
 | Actual36 | User31df10cf reports all three build/sign/strict verify/CLI+MCP smoke PASS; GUI/performance not-run |
 | GUI37 actual | All3 Ready screenshot-confirmed; edits/save/reopen retention user-confirmed PASS |
 | Actual38 | Mac counter calibration/compile and experimental size limits PASS; source user1bcd2783 |
-| Next | Apply39, reopen H-T and capture provisional process counters/native trace feasibility; no manual suite |
+| Actual39 | Mac probe pass;16 unavailable WebKit processes, trace finalization timeout and export10; metrics blocked |
+| Next | Apply40; keep H-T open and run recovery40 read-failure diagnosis only, no fresh trace |
 
 ## Branch and delivery state
 
@@ -249,5 +275,5 @@ restart product discovery, replay native tests, enable provider sync or change
 production based on these proofs. Keep ADRs Proposed until an explicit decision.
 Update this checkpoint, roadmap and changelog together at meaningful handoffs.
 
-New agent: continue the current diagnostics39 action at the top of this checkpoint;
+New agent: continue the current diagnostic40 action at the top of this checkpoint;
 inspect current Git state rather than assuming local paths or patch application.

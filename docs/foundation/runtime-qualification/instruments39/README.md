@@ -1,5 +1,11 @@
 # Process counter and native trace diagnostic39
 
+Current40 correction: actual39 trace finalization timed out and partial export failed.
+Do not rerun this full recording yet. Follow ../recovery40/README.md for one read-only
+failure-stage diagnostic. Future recordings now use SIGINT12s then bounded CLI-only
+escalation27/30s, with independent export attempt; old25s wording below is historical.
+
+
 User38 actual Mac compile and cross-process64MiB counter sanity pass. All three
 experimental package sizes are within fixed limits. P-38/P-39 now require one shared
 UI/Core with explicit platform adapters: Tauri/Electron shortlist, Swift control.

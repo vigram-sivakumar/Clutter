@@ -1,0 +1,53 @@
+{
+  "revision": "0.64",
+  "actual39": {
+    "source": "user attachment plus two subsequent terminal diagnostics",
+    "commit": "09c31e1c",
+    "captureRun": "2026-11-16T12-03-02-340Z-dcf49d64",
+    "candidate": "H-T",
+    "probeCompileAndSanity": "Mac pass",
+    "stablePidSet": true,
+    "samples": 3,
+    "readableRoles": [
+      "bundled-owner-runtime",
+      "ui"
+    ],
+    "unavailableWebKitPerSample": 16,
+    "aggregateFootprint": null,
+    "traceRecord": {
+      "status": 1,
+      "signal": null,
+      "errorCode": "ETIMEDOUT",
+      "stdout": "Starting recording with the Animation Hitches template. Attaching to: clutter-h01-tauri (16838).Time limit: 5.0 s\nCtrl-C to stop the recording\nReached specified time limit, ending recording...\n",
+      "stderr": ""
+    },
+    "priorTracePresent": true,
+    "traceExportRecovery": {
+      "status": 10,
+      "error": null,
+      "schemas": [],
+      "stderr": "Export failed: Document Missing Template Error\n",
+      "failureOutput": ""
+    },
+    "interpretation": "Native trace reached five-second stop but finalization exceeded wrapper25s; installed exporter cannot read resulting trace. Underlying collector/template cause not established; no app correctness failure inferred. WebKit per-stage cause unknown until diagnostic40.",
+    "ranking": "not-qualified",
+    "rawAttachmentSha256": "55dee02189fcc9595c6e30a8674513737bca58119babad5a7f719ad7b76dae04"
+  },
+  "linuxTests": {
+    "passed": 17,
+    "failed": 0,
+    "new": 7,
+    "regression": 10
+  },
+  "mac40": "not-run",
+  "traceFix": "prepared graceful finalization, not proven on Mac; no new recording requested",
+  "next": "With H-T open run recovery40/diagnose.mjs; return exact stage/errno counts",
+  "unchanged": [
+    "Core/renderer/signed apps",
+    "instrument38 calibrated counter",
+    "H01 and trial budgets",
+    "product/shared-platform contracts",
+    "old evidence/private traces/sessions/vaults/main"
+  ],
+  "ranking": "not-qualified"
+}
