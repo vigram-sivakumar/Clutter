@@ -1,0 +1,23 @@
+{
+  "delivery": 55,
+  "base": 54,
+  "requirement": "Seamless normal note switching, no blank/flicker/loading message",
+  "cause": "Navigation busy/layout state unmounted the active tab and rendered Preparing view during private metadata writes",
+  "change": [
+    "Separate pending and visible navigation; register and prime destination before publication",
+    "Retain old editor DOM while waiting; transition read-only prevents edits to old destination",
+    "Reuse retained contexts and cached scoped identity promises",
+    "Coalesce warm registered navigation metadata120ms; Save/Close checkpoint latest and serialize outstanding writes",
+    "Unaffected split panes retain DOM identity"
+  ],
+  "checks": {
+    "tests": 104,
+    "passed": 104,
+    "typescript": "strict Core/runtime pass",
+    "boundaries": "41 source files pass"
+  },
+  "attempts": "Initial unit fixtures needed context-prime isolation; focused2/3 pass17 and focused4 pass18; actual rendered bundle uses real transport/Core/SQLite",
+  "native": "Mac visual retest pending; no layout/presentation/latency qualification from jsdom",
+  "scope": "UI mechanism/source and two integration test files; Core/editor/runtime source/native/dependency locks unchanged",
+  "next": "Scoped Mac transition check, then stage3 UX discussion one question at a time; no stage3 implementation"
+}

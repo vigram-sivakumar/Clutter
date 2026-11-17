@@ -64,3 +64,17 @@ retained; new synthetic Space is explicit). No dependency install is needed for5
 Reopen that new session with npm run desktop:reopen. Tab/pane closing, rearranging and
 resizing are not implemented in this slice. From stage3 onward, agree UX first via
 one question at a time; do not implement title/rich-text/final visual UI before then.
+
+## Note transitions55
+
+Routine note navigation must not blank the editor or display a loading placeholder.
+55 primes destination contexts before publishing navigation, reuses retained contexts
+for visited notes and keeps unaffected split editors mounted. While a cold destination
+prepares, the previous editor remains visible/read-only. Already registered destinations
+switch without waiting for another private metadata acknowledgement. Warm metadata
+bookkeeping is coalesced for120ms; Save/Close checkpoint latest and wait for writes.
+Failures retain the current route for retry. No note body is copied into React state.
+
+Apply55 then npm run desktop -- --new; old sessions retained, no dependency install.
+Mac visual smoothness is pending; jsdom checks DOM/lifecycle, not presentation.
+Stage3 UX must be discussed one question at a time before implementation.

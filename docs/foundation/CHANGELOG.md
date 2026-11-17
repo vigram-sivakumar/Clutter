@@ -3,6 +3,17 @@
 Dated experimental implementation history is archived in Git. This is the concise
 current ledger; revisions below are delivery identifiers, not document file versions.
 
+## 55 — 2026-11-17
+
+- User54 navigation works; routine Preparing view flash is a reported defect.
+- Keep the old editor visible until the registered destination context is ready;
+  retain unaffected split DOM. Reuse scoped contexts/identity promises.
+- Warm navigation does not wait for another metadata write; coalesce bookkeeping,
+  checkpoint latest at Save/Close and preserve failure/recovery guards.
+- 104 Linux tests, strict Core/runtime TS and41-source boundaries pass. Native55
+  visual result pending; no Core/editor/runtime source or lock changes.
+- Stage3 still waits for UX agreement, one question at a time.
+
 ## 54 — 2026-11-17
 
 - Implement final P-40: current-tab normal navigation, per-pane Back/Forward,

@@ -36,10 +36,13 @@ export class WindowWorkspace {
     this.loading = null;
     this.closing = null;
     this.navigationTask = null;
+    this.pendingNavigation = null;
     this.registeredViews = new Set();
     this.layoutRevision = 0;
     this.pendingLayout = null;
     this.layoutTail = Promise.resolve();
+    this.layoutTimer = null;
+    this.layoutWriteToken = 0;
   }
   get pageId() {
     return this.navigation.page();
@@ -64,13 +67,16 @@ export class WindowWorkspace {
     );
   }
   get layoutRegistered() {
+    return this.isRegistered(this.navigation);
+  }
+  isRegistered(navigation) {
     if (!this.stateStore) return true;
-    const tab = this.navigation.activeTab;
+    const tab = navigation.activeTab;
     return (
       !tab ||
       tab.panes.every((pane) =>
         this.registeredViews.has(
-          JSON.stringify([tab.id, pane.id, this.navigation.page(pane)])
+          JSON.stringify([tab.id, pane.id, navigation.page(pane)])
         )
       )
     );
@@ -141,7 +147,9 @@ export class WindowWorkspace {
   }
   checkpoint() {
     if (!this.stateStore) return Promise.resolve();
-    const value = JSON.stringify(this.navigation.snapshot());
+    const value = JSON.stringify(
+      (this.pendingNavigation ?? this.navigation).snapshot()
+    );
     const record =
       this.pendingLayout?.value === value
         ? this.pendingLayout
@@ -161,39 +169,95 @@ export class WindowWorkspace {
     if (!this.canNavigate) return Promise.resolve(false);
     let changed;
     try {
-      changed = change();
+      const next = new WindowNavigation(
+        this.nextId,
+        this.navigation.snapshot()
+      );
+      changed = change(next);
+      if (changed) this.pendingNavigation = next;
     } catch {
       this.notify('This development layout has reached its navigation limit.');
       return Promise.resolve(false);
     }
-    this.focusTarget = 'editor';
-    this.focusRevision++;
     if (!changed) {
+      this.focusTarget = 'editor';
+      this.focusRevision++;
       this.changed();
       return Promise.resolve(true);
     }
     // Register view identities/history before opening an editable context.
     return this.commitNavigation();
   }
+  async primeNavigation(navigation) {
+    const tab = navigation.activeTab;
+    if (!tab) return;
+    await Promise.all(
+      tab.panes.map((pane) =>
+        this.editor(navigation.page(pane)).prime(navigation.viewKey(tab, pane))
+      )
+    );
+  }
+  cancelLayoutWrite() {
+    clearTimeout(this.layoutTimer);
+    this.layoutTimer = null;
+    this.layoutWriteToken++;
+  }
+  scheduleLayoutWrite() {
+    this.cancelLayoutWrite();
+    const token = this.layoutWriteToken;
+    this.layoutTimer = setTimeout(async () => {
+      this.layoutTimer = null;
+      await this.layoutTail;
+      if (token !== this.layoutWriteToken || this.frozen) return;
+      try {
+        await this.checkpoint();
+      } catch {
+        if (token === this.layoutWriteToken && !this.frozen) {
+          this.navigationError = true;
+          this.notify(
+            'Could not save navigation. Retry navigation before closing.'
+          );
+        }
+      }
+    }, 120);
+  }
+  setTransitionPaused(value) {
+    for (const e of this.editors.values()) e.setTransitionPaused(value);
+  }
   commitNavigation() {
     const recovering = this.navigationError;
+    const candidate = this.pendingNavigation;
+    const registered = candidate && this.isRegistered(candidate);
+    this.cancelLayoutWrite();
     this.navigationBusy = true;
+    this.setTransitionPaused(true);
     this.changed();
-    this.navigationTask = this.checkpoint()
-      .then(() => {
-        this.navigationError = false;
-        if (recovering) this.notify('Navigation saved');
-        return true;
-      })
+    this.navigationTask = (async () => {
+      // New identities need durable registration. Existing ones can switch from
+      // retained contexts without waiting for disk/transport bookkeeping again.
+      if (!registered) await this.checkpoint();
+      if (candidate) {
+        await this.primeNavigation(candidate);
+        this.navigation = candidate;
+        if (this.pendingNavigation === candidate) this.pendingNavigation = null;
+        this.focusTarget = 'editor';
+        this.focusRevision++;
+      }
+      this.navigationError = false;
+      if (registered) this.scheduleLayoutWrite();
+      if (recovering) this.notify('Navigation ready');
+      return true;
+    })()
       .catch(() => {
         this.navigationError = true;
         this.notify(
-          'Could not save navigation. Retry navigation before continuing.'
+          'Could not complete navigation. Retry navigation to continue.'
         );
         return false;
       })
       .finally(() => {
         this.navigationBusy = false;
+        this.setTransitionPaused(false);
         this.navigationTask = null;
         this.changed();
       });
@@ -205,19 +269,19 @@ export class WindowWorkspace {
     return this.commitNavigation();
   }
   open(pageId) {
-    return this.navigate(() => this.navigation.open(pageId));
+    return this.navigate((nav) => nav.open(pageId));
   }
   openInNewTab(pageId) {
-    return this.navigate(() => this.navigation.newTab(pageId));
+    return this.navigate((nav) => nav.newTab(pageId));
   }
   openInSplit(pageId) {
-    return this.navigate(() => this.navigation.split(pageId));
+    return this.navigate((nav) => nav.split(pageId));
   }
   back() {
-    return this.navigate(() => this.navigation.travel(-1));
+    return this.navigate((nav) => nav.travel(-1));
   }
   forward() {
-    return this.navigate(() => this.navigation.travel(1));
+    return this.navigate((nav) => nav.travel(1));
   }
   selectTab(id, focusEditor = true) {
     if (!this.canSelectView) return;
@@ -241,6 +305,7 @@ export class WindowWorkspace {
         nextId: this.nextId,
         onStatus: (status) => this.notify(status),
       });
+      e.setTransitionPaused(this.navigationBusy);
       if (this.frozen) e.freeze();
       this.editors.set(pageId, e);
     }
@@ -291,9 +356,11 @@ export class WindowWorkspace {
         return;
       }
       this.pendingCreate = null;
-      this.navigation.open(command.pageId, this.createTarget);
-      this.focusTarget = 'editor';
-      this.focusRevision++;
+      this.pendingNavigation = new WindowNavigation(
+        this.nextId,
+        this.navigation.snapshot()
+      );
+      this.pendingNavigation.open(command.pageId, this.createTarget);
       await this.commitNavigation();
       if (!this.navigationError) this.notify('Saved');
       await this.list();
@@ -314,6 +381,7 @@ export class WindowWorkspace {
   }
   async save() {
     if (this.frozen || !this.ready) return;
+    this.cancelLayoutWrite();
     this.notify('Saving…');
     try {
       await this.navigationTask;
@@ -327,6 +395,7 @@ export class WindowWorkspace {
   }
   prepareClose() {
     if (this.closing) return this.closing;
+    this.cancelLayoutWrite();
     this.frozen = true;
     for (const e of this.editors.values()) e.freeze();
     this.changed();

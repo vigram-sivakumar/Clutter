@@ -69,6 +69,8 @@ is visible for planning with zero influence on architectural selection.
 
 | P-40 | Windows contain tabs; each tab owns its split layout of note panes. Ordinary note opening navigates the active pane within the current tab and records Back/Forward history; it does not implicitly create or switch top-level tabs. Explicit menu actions open a note in a new tab, or in a split pane within the currently active tab. Split panes may show different notes or independent views of the same note. Switching tabs retains each tab's own layout/navigation state. Shared content uses one Space authority; caret/selection/scroll/history contexts remain view-local. |
 
+| P-41 | Routine note switching should feel natural, without blanking, flicker or a loading message. Reuse retained note contexts and preserve unaffected split panes; make destination content ready before replacing the current view. This is a UX requirement, not a measured performance result. |
+
 ## Specification completion
 
 The product-behaviour document owns the detailed rules behind P-25 through P-33.

@@ -1,0 +1,7 @@
+{
+  "packages/ui/src/app.jsx": "8f1540294970634bef23449d382e65cb92eae9934bcc847a81414a5bbe1a178c",
+  "packages/ui/src/workspace.mjs": "25c6b6de9938b938da98ae2555de10dc9d6f29fc555995d90f28eed94ab07181",
+  "packages/ui/src/window-workspace.mjs": "d544c395d9060d4c2656c6ea0f74801794446a1e82468d3fa7ce007bd1c1883b",
+  "packages/desktop-runtime/test/navigation.test.mjs": "1b6f78ab8591cac0c96e8684481af9c9d6081b68d4fe2221dbf54abd92f5c120",
+  "packages/desktop-runtime/test/foundation-desktop.test.mjs": "70ffe867c1e22c35e0b72d0b521095ef5f0b769742fb9bd742b9175ca0638046"
+}

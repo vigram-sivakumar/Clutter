@@ -1,11 +1,35 @@
 # Resume Clutter Structured
 
-## Current checkpoint — roadmap stage2 navigation54, 2026-11-17
+## Current checkpoint — seamless note navigation55, 2026-11-17
 
-User PASS after53: the new development window switches between notes. Do not infer
-53 close/reopen, full native lifecycle or installed-data qualification from that.
-53 removed the entire legacy full/compact Markdown/CM6/vault/persistence pipeline;
-54 preserves the clean package split, one Core and exact dependency/native locks.
+User reports navigation54 works, but routine switching showed “Preparing view…”.
+The confirmed requirement is natural note switching without blanking, flicker or
+loading messages. This is a stage2 correction, not stage3 implementation.
+
+55 keeps the current editor mounted while preparing a destination. New view IDs
+are durably registered and destination contexts primed before publishing the route.
+The previous content briefly stays read-only during preparation so typing cannot
+land in the wrong note. Unaffected split-pane DOM stays mounted. Visited contexts
+and their scoped identity promises are reused; returning to registered notes does
+not wait for disk/transport layout bookkeeping. Those metadata updates are coalesced
+for120ms; Save/Close checkpoint the latest state and serialize outstanding writes.
+Failed preparation retains the previous visible note and supports retry. No second
+body cache, Core owner, schema, dependency, native host or storage source change.
+
+104/104 Linux integration tests, strict Core/runtime TypeScript and41-source boundary
+checks pass. Production React/PM bundle with real Core/SQLite verifies stable old
+DOM while registration is delayed, sibling-pane identity, navigation failure/retry,
+warm navigation without disk acknowledgement and close waiting for metadata.
+jsdom has no layout/presentation engine: Mac55 visual smoothness, caret, IME and
+native close/reopen are pending. No timing/instant-switch or shipping claim.
+Evidence: [review](evidence/note-transitions-55-2026-11-17/review.json).
+
+NEXT: apply55, close the prior development window, npm run desktop -- --new (fresh
+synthetic Space; earlier sessions retained). Create notes with different text; click
+between them and use Back/Forward, then switch the active note in a split. Expect
+no Preparing view/blank flash and the other pane to stay stable. Reopen this session
+with npm run desktop:reopen. No old profiler/manual suite replay. After this scoped
+feedback, discuss stage3 UX ONE question at a time before implementing that stage.
 
 LATEST confirmed P-40 navigation (supersedes intermediate discussion):
 Window -> Tabs -> each tab's split layout -> note panes. Ordinary opening stays in
@@ -28,22 +52,6 @@ note references survive forward-history branching so protected contexts remain
 addressable. Existing registered editors remain usable after a failed close/layout
 write; unregistered new views wait for Retry navigation. Close guards every retained
 context, hidden tab and visited note plus unresolved creation/navigation writes.
-
-102/102 Linux integration tests, strict Core/runtime TS and41-source package checks
-pass. Real React bundle/PM DOM/SQLite/CLI/MCP checks include same-note convergence,
-different-note splits, per-tab layout restore, hidden-tab failed protection, actual
-owner restart + recovery in the original context, and layout-write failure/retry.
-These are jsdom/integration results, not native macOS layout/IME/gesture/a11y proof.
-No Chromium/host profiling replay or dependency upgrade. Scoped evidence is
-[evidence](evidence/tab-navigation-54-2026-11-17/review.json).
-
-NEXT user action: apply/commit54, close the previous development window and build
-with npm run desktop -- --new to load changed source. This explicitly creates a new
-synthetic Space; old builds/sessions/locators are retained. Future same-session reopen
-uses npm run desktop:reopen. Initial native check: create two notes, normal-click
-between them and use Back/Forward (one tab); then note menu -> new tab / split and
-verify the split stays in its tab when switching. Synthetic text only. No old suite
-replay. Native54 compile/interaction/close/reopen not yet reported.
 
 This remains development UI, not restoration of Clutter's final visual design. Tab/
 pane close/reordering/resizing and full window/installed-storage/feature UX remain

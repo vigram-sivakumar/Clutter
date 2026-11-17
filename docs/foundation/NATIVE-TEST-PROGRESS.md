@@ -93,3 +93,34 @@ Spaces only. The current UI is not the final visual design, and tab/pane closing
 reorder/resize and installed cross-process/window/security/durability/scale/release
 work are not completed by this slice. From stage3 onward, user agrees UX first,
 one question at a time, before implementation.
+
+## 2026-11-17 — note transitions55
+
+User reports navigation54 works, but routine switching showed “Preparing view…”.
+The confirmed requirement is natural note switching without blanking, flicker or
+loading messages. This is a stage2 correction, not stage3 implementation.
+
+55 keeps the current editor mounted while preparing a destination. New view IDs
+are durably registered and destination contexts primed before publishing the route.
+The previous content briefly stays read-only during preparation so typing cannot
+land in the wrong note. Unaffected split-pane DOM stays mounted. Visited contexts
+and their scoped identity promises are reused; returning to registered notes does
+not wait for disk/transport layout bookkeeping. Those metadata updates are coalesced
+for120ms; Save/Close checkpoint the latest state and serialize outstanding writes.
+Failed preparation retains the previous visible note and supports retry. No second
+body cache, Core owner, schema, dependency, native host or storage source change.
+
+104/104 Linux integration tests, strict Core/runtime TypeScript and41-source boundary
+checks pass. Production React/PM bundle with real Core/SQLite verifies stable old
+DOM while registration is delayed, sibling-pane identity, navigation failure/retry,
+warm navigation without disk acknowledgement and close waiting for metadata.
+jsdom has no layout/presentation engine: Mac55 visual smoothness, caret, IME and
+native close/reopen are pending. No timing/instant-switch or shipping claim.
+Evidence: [review](evidence/note-transitions-55-2026-11-17/review.json).
+
+NEXT: apply55, close the prior development window, npm run desktop -- --new (fresh
+synthetic Space; earlier sessions retained). Create notes with different text; click
+between them and use Back/Forward, then switch the active note in a split. Expect
+no Preparing view/blank flash and the other pane to stay stable. Reopen this session
+with npm run desktop:reopen. No old profiler/manual suite replay. After this scoped
+feedback, discuss stage3 UX ONE question at a time before implementing that stage.

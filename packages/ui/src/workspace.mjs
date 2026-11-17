@@ -27,8 +27,10 @@ export class EditorWorkspace {
     this.bookmarks = new Map();
     this.viewports = new Map();
     this.contexts = new Map();
+    this.scopes = new Map();
     this.timers = new Map();
     this.frozen = false;
+    this.transitionPaused = false;
     this.closing = null;
     this.safeToRelease = false;
     this.registry = new EditingContextRegistry(async (scope) => {
@@ -44,25 +46,49 @@ export class EditorWorkspace {
               this.schedule(scope.contextId);
             },
             nextId,
-            { ...viewOptions, codec: browserCodec, canEdit: () => !this.frozen }
+            {
+              ...viewOptions,
+              codec: browserCodec,
+              canEdit: () => this.isEditable(),
+            }
           ),
       });
       this.contexts.set(scope.contextId, session);
       return session;
     });
   }
-  async scope(id) {
+  scope(id) {
     const identity = JSON.stringify([
       this.spaceId,
       this.windowId,
       this.pageId,
       id,
     ]);
-    return {
-      spaceId: this.spaceId,
-      pageId: this.pageId,
-      contextId: 'editor_' + (await sha256(new TextEncoder().encode(identity))),
-    };
+    let pending = this.scopes.get(identity);
+    if (!pending) {
+      pending = sha256(new TextEncoder().encode(identity)).then((digest) =>
+        Object.freeze({
+          spaceId: this.spaceId,
+          pageId: this.pageId,
+          contextId: 'editor_' + digest,
+        })
+      );
+      this.scopes.set(identity, pending);
+      pending.catch(() => {
+        if (this.scopes.get(identity) === pending) this.scopes.delete(identity);
+      });
+    }
+    return pending;
+  }
+  prime(id) {
+    // Resolve the context/identity without a DOM view. A later mount borrows it.
+    const task = (async () => {
+      const lease = await this.registry.acquire(await this.scope(id));
+      lease.release();
+    })();
+    this.mountTasks.add(task);
+    task.finally(() => this.mountTasks.delete(task)).catch(() => {});
+    return task;
   }
   mount(id, target) {
     const task = this.mountView(id, target);
@@ -155,6 +181,14 @@ export class EditorWorkspace {
     if (!r.ok) throw Error(r.error.code);
     this.onStatus('Recovered work is ready to save');
   }
+  isEditable() {
+    return !this.frozen && !this.transitionPaused;
+  }
+  setTransitionPaused(value) {
+    this.transitionPaused = value;
+    for (const { view } of this.views.values())
+      view.setProps({ editable: () => this.isEditable() });
+  }
   freeze() {
     this.frozen = true;
     for (const t of this.timers.values()) clearTimeout(t);
@@ -182,7 +216,7 @@ export class EditorWorkspace {
       if (!safe) {
         this.frozen = false;
         for (const { view } of this.views.values())
-          view.setProps({ editable: () => !this.frozen });
+          view.setProps({ editable: () => this.isEditable() });
         focused?.focus();
         this.onStatus('Cannot close: work could not be saved or protected');
       }
@@ -197,7 +231,7 @@ export class EditorWorkspace {
     this.frozen = false;
     this.safeToRelease = false;
     for (const { view } of this.views.values())
-      view.setProps({ editable: () => !this.frozen });
+      view.setProps({ editable: () => this.isEditable() });
   }
   // Called only after prepareClose succeeds. Unsafe sessions are never auto-disposed.
   async releaseAfterClose() {

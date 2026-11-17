@@ -293,12 +293,9 @@ function App({ model }) {
             </Button>
           )}
         </div>
-        {!model.ready ||
-        model.navigationBusy ||
-        !model.layoutRegistered ||
-        model.busy ? (
+        {!model.ready ? (
           <div className="empty-state">
-            <p>{model.ready ? 'Preparing view…' : 'Connecting…'}</p>
+            <p>Connecting…</p>
           </div>
         ) : tab ? (
           <div
@@ -306,6 +303,7 @@ function App({ model }) {
             key={tab.id}
             id={'tab-panel-' + tab.id}
             role="tabpanel"
+            aria-busy={model.navigationBusy || model.busy}
             aria-labelledby={'tab-' + tab.id}
           >
             {tab.panes.map((item) => (

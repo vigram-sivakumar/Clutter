@@ -408,7 +408,37 @@ test('React navigation stays in the current tab, owns split layouts per tab, and
     await ui.wait(() => ui.active()?.textContent === 'FIRST PAGE');
     ui.doc.querySelector('[aria-label=Forward]').click();
     await ui.wait(() => ui.active()?.textContent === 'SECOND PAGE');
+    const previousEditor = ui.active();
+    const originalFetch = ui.dom.window.fetch;
+    let releaseNavigation,
+      held = false;
+    ui.dom.window.fetch = async (address, options = {}) => {
+      if (
+        !held &&
+        String(address).endsWith('/view-state') &&
+        JSON.parse(options.body).action === 'write'
+      ) {
+        held = true;
+        await new Promise((ok) => (releaseNavigation = ok));
+      }
+      return originalFetch(address, options);
+    };
     await ui.menu(first, 'Open in split view');
+    await ui.wait(() => held);
+    try {
+      assert.equal(
+        ui.active(),
+        previousEditor,
+        'current editor must remain mounted while navigation is prepared'
+      );
+      assert.equal(previousEditor.isConnected, true);
+      assert.equal(previousEditor.getAttribute('contenteditable'), 'false');
+      assert(!ui.doc.body.textContent.includes('Preparing view'));
+    } finally {
+      releaseNavigation();
+      ui.dom.window.fetch = originalFetch;
+    }
+
     await ui.wait(
       () => ui.panes().length === 2 && ui.active()?.textContent === 'FIRST PAGE'
     );
@@ -417,6 +447,17 @@ test('React navigation stays in the current tab, owns split layouts per tab, and
       ['SECOND PAGE', 'FIRST PAGE']
     );
     assert.equal(ui.tabs().length, 1);
+    const untouchedPane = ui.panes()[0].querySelector('.ProseMirror');
+    ui.doc.querySelector('.page-link[data-page="' + second + '"]').click();
+    await ui.wait(() => ui.active()?.textContent === 'SECOND PAGE');
+    assert.equal(
+      ui.panes()[0].querySelector('.ProseMirror'),
+      untouchedPane,
+      'unaffected split editor must not remount'
+    );
+    ui.doc.querySelector('[aria-label=Back]').click();
+    await ui.wait(() => ui.active()?.textContent === 'FIRST PAGE');
+    assert.equal(ui.panes()[0].querySelector('.ProseMirror'), untouchedPane);
     await ui.menu(second, 'Open in new tab');
     await ui.wait(
       () =>
@@ -593,18 +634,22 @@ test('window-state endpoint is UI-only and navigation write failure refuses clos
     );
     await control(dir, { failViewState: true });
     await ui.menu(page, 'Open in new tab');
-    await ui.wait(
-      () => ui.tabs().length === 2 && !!ui.button('Retry navigation')
-    );
+    await ui.wait(() => !!ui.button('Retry navigation'));
     assert.equal(
-      ui.panes().length,
-      0,
-      'an unregistered new view must not become editable'
+      ui.tabs().length,
+      1,
+      'an unregistered destination must not be published'
     );
+    assert.equal(ui.active()?.textContent, 'BODY ONLY IN CORE');
     assert.equal((await ui.close()).safe, false);
     await control(dir, { failViewState: false });
     ui.button('Retry navigation').click();
-    await ui.wait(() => ui.active()?.textContent === 'BODY ONLY IN CORE');
+    await ui.wait(
+      () =>
+        ui.tabs().length === 2 &&
+        ui.tabs()[1].getAttribute('aria-selected') === 'true' &&
+        ui.active()?.textContent === 'BODY ONLY IN CORE'
+    );
     assert.equal((await ui.close()).safe, true);
   } finally {
     if (ui) await ui.dispose();

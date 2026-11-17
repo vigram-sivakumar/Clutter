@@ -19,6 +19,12 @@ function store(t, beforeWrite) {
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   return { directory, data: new WindowStateStore(directory, beforeWrite) };
 }
+// Unit cases below isolate layout/storage. Bundled-UI cases exercise real Core priming.
+function unitWindow(options) {
+  const model = new WindowWorkspace(options);
+  model.primeNavigation = async () => {};
+  return model;
+}
 const port = (data, windowId = 'window') => ({
   load: async () => data.execute({ action: 'read', windowId }),
   save: async (record) =>
@@ -164,7 +170,7 @@ test('private layout writes are isolated, monotonic and exactly retryable across
 });
 test('window restore uses persisted tab/pane keys so same-note contexts remain distinct and protected work remains addressable', async (t) => {
   const { data } = store(t);
-  const first = new WindowWorkspace({
+  const first = unitWindow({
     client: client(),
     spaceId: 's',
     windowId: 'w',
@@ -185,7 +191,7 @@ test('window restore uses persisted tab/pane keys so same-note contexts remain d
   await first.open('b');
   await first.back();
   assert.equal((await first.prepareClose()).safe, true);
-  const second = new WindowWorkspace({
+  const second = unitWindow({
     client: client(),
     spaceId: 's',
     windowId: 'w',
@@ -201,7 +207,7 @@ test('window restore uses persisted tab/pane keys so same-note contexts remain d
       .scope(second.navigation.viewKey(restored, restored.panes[1])),
     right
   );
-  const other = new WindowWorkspace({
+  const other = unitWindow({
     client: client(),
     spaceId: 's',
     windowId: 'other',
@@ -240,7 +246,7 @@ test('a navigation write must finish before editing starts or the window close g
       return underlying.save(record);
     },
   };
-  const model = new WindowWorkspace({
+  const model = unitWindow({
     client: client(),
     spaceId: 's',
     windowId: 'w',
@@ -269,7 +275,7 @@ test('failed navigation storage refuses close, retries latest state, and never r
   const { data } = store(t, () => {
     if (fail) throw Error('INJECTED');
   });
-  const model = new WindowWorkspace({
+  const model = unitWindow({
     client: client(),
     spaceId: 's',
     windowId: 'w',
@@ -280,14 +286,16 @@ test('failed navigation storage refuses close, retries latest state, and never r
   fail = true;
   assert.equal(await model.open('a'), false);
   assert.equal(model.navigationError, true);
-  assert.equal(model.layoutRegistered, false);
+  assert.equal(model.pageId, null);
+  assert.equal(model.pendingNavigation.page(), 'a');
+  assert.equal(model.editors.size, 0);
   assert.equal(model.canNavigate, false);
   assert.equal((await model.prepareClose()).safe, false);
   fail = false;
   assert.equal(await model.retryNavigation(), true);
   assert.equal((await model.prepareClose()).safe, true);
   let writes = 0;
-  const damaged = new WindowWorkspace({
+  const damaged = unitWindow({
     client: client(),
     spaceId: 's',
     windowId: 'damaged',
@@ -302,4 +310,86 @@ test('failed navigation storage refuses close, retries latest state, and never r
   assert.equal(damaged.ready, false);
   assert.equal((await damaged.prepareClose()).safe, true);
   assert.equal(writes, 0);
+});
+
+test('navigation publishes its destination only after metadata and context readiness, retaining the previous note on failure', async (t) => {
+  const { data } = store(t);
+  const model = unitWindow({
+    client: client(),
+    spaceId: 's',
+    windowId: 'w',
+    nextId: ids(),
+    stateStore: port(data),
+  });
+  await model.start();
+  await model.open('a');
+  let release,
+    fail = false;
+  model.primeNavigation = async () => {
+    await new Promise((ok) => (release = ok));
+    if (fail) throw Error('CONTEXT_UNAVAILABLE');
+  };
+  const switching = model.open('b');
+  await new Promise((ok) => setImmediate(ok));
+  assert.equal(model.pageId, 'a');
+  assert.equal(model.pendingNavigation.page(), 'b');
+  assert.equal(model.navigationBusy, true);
+  release();
+  assert.equal(await switching, true);
+  assert.equal(model.pageId, 'b');
+  fail = true;
+  const failed = model.open('c');
+  await new Promise((ok) => setImmediate(ok));
+  release();
+  assert.equal(await failed, false);
+  assert.equal(model.pageId, 'b');
+  assert.equal(model.pendingNavigation.page(), 'c');
+  fail = false;
+  const retry = model.retryNavigation();
+  await new Promise((ok) => setImmediate(ok));
+  release();
+  assert.equal(await retry, true);
+  assert.equal(model.pageId, 'c');
+  assert.equal(model.pendingNavigation, null);
+  assert.equal((await model.prepareClose()).safe, true);
+});
+
+test('returning to registered notes does not wait for another layout write, while close still requires it', async (t) => {
+  const { data } = store(t),
+    underlying = port(data);
+  let block = false,
+    release;
+  const model = unitWindow({
+    client: client(),
+    spaceId: 's',
+    windowId: 'w',
+    nextId: ids(),
+    stateStore: {
+      load: underlying.load,
+      save: async (record) => {
+        if (block) {
+          await new Promise((ok) => (release = ok));
+          block = false;
+        }
+        return underlying.save(record);
+      },
+    },
+  });
+  await model.start();
+  await model.open('a');
+  await model.open('b');
+  block = true;
+  assert.equal(await model.back(), true);
+  assert.equal(model.pageId, 'a');
+  assert.equal(await model.forward(), true);
+  assert.equal(model.pageId, 'b');
+  let closed = false;
+  const closing = model.prepareClose().then((r) => {
+    closed = true;
+    return r;
+  });
+  await new Promise((ok) => setImmediate(ok));
+  assert.equal(closed, false);
+  release();
+  assert.equal((await closing).safe, true);
 });
