@@ -1,0 +1,31 @@
+{
+  "productName": "Clutter Structured",
+  "version": "0.0.0",
+  "identifier": "com.clutter.structured.desktop.dev",
+  "build": {
+    "frontendDist": "../frontend"
+  },
+  "app": {
+    "windows": [],
+    "withGlobalTauri": false,
+    "security": {
+      "capabilities": []
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "app"
+    ],
+    "icon": [
+      "icons/icon.png"
+    ],
+    "resources": [
+      "CoreData"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "14.0",
+      "signingIdentity": "-"
+    }
+  }
+}

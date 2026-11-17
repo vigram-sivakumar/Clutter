@@ -1,2 +1,0 @@
-snapshot pass
-joined pass

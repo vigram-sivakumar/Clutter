@@ -1,101 +1,47 @@
-# Clutter foundation continuation instructions
+# Clutter rebuild working rules
 
-Read [START-HERE](START-HERE.md) first. It owns the single current checkpoint,
-confirmed user state and next action. This file owns evergreen working rules.
-[Product contracts](product-contracts.md) own confirmed behaviour; [changelog](CHANGELOG.md)
-and [native progress history](NATIVE-TEST-PROGRESS.md) retain dated execution history.
-Historical next-action wording never overrides START-HERE. Read relevant source,
-contract and scoped evidence before changing or replaying an experiment.
+Read START-HERE.md, ../../ARCHITECTURE_RULES.md and ../architecture.md. Product and
+table contracts in this folder own confirmed target behavior. Historical class/API
+specifications are retired; Git history is the archive, not an implementation constraint.
 
-## Scope and repository safety
-
-- Stay on architecture/clutter-foundation in the Clutter Structured worktree.
-  Clutter Markdown is main; same Git repository, separate installs/builds. Inspect
-  Git state and preserve user work.
-  Do not reset/clean, pull unrelated main changes, merge to main, commit or push
-  merely because a plan describes future work. User applies/commits delivered patches.
-- User authorizes complete architecture deconstruction/rebuild, including apps/app,
-  old editor/domain/native wiring, dependencies, tests and docs as needed by the
-  active rebuild plan. Do not preserve legacy APIs/class names/doc rules as accidental
-  constraints. Retain single-owner/durability/identity intent through new contracts.
-- User permits replacing100% of old implementation. It is Markdown-oriented evidence,
-  not a target constraint. No existing users/data need migration (P37): no legacy
-  converter/compatibility facade/dual-write/cutover project. Initial schema safety,
-  future version envelopes, recovery/history and portability remain required.
-- One shared web UI/editor across Mac/Windows/future browser, small platform ports
-  and composition roots (P38/P39). No OS/framework dependencies in shared product
-  logic, duplicate native feature UI or split wrappers without demonstrated benefit.
-- One Core/Space semantic authority and command API; UI/CLI/MCP are peer adapters.
-  No UI-to-CLI business subprocess or separate mutation/undo/task/persistence policy.
-  Task is an independent full page, with the product's body/properties/cover/media
-  scope even when a proof schema renders only paragraphs. Product contracts own detail.
-- Integration connection once/user-device across current/future local Spaces by
-  default; optional restrictions, no per-Space codes/prompts (P36). Internal tickets
-  do not create another user-facing enrollment or semantic owner.
-
-## Clean rebuild mandate
-
-- Clean/stable/neat architecture is the priority. Retain overall layout intent and
-  useful global primitives; everything else may be redesigned or removed, including
-  old CM6 widget UI, current foundation scaffolding, tests and documentation.
-- Active plan: rebuild/README.md. New editor UI is component-based; PM owns editable
-  content DOM, React owns surrounding UI through a renderer adapter. No two document
-  owners/renderers or permanent old/new product pipelines.
-- Main may be inspected/fetched read-only as visual/behavior reference. Do not merge
-  legacy architecture to acquire UI changes. Record exact commit/scope; unpublished
-  user main changes are not visible from origin/main.
-- R1 native locks are checked in by52 from the user-provided successful Mac export.
-  Do not request another export or require an old experiment cache. Current
-  issue: intermittent caret displacement, user asked to move on, not confirmed fixed.
-- There is no existing-user migration/legacy compatibility requirement. Retire code
-  and obsolete docs rather than adapt indefinitely. Preserve confirmed product
-  behavior and truthful current pass/open-risk ledger; Git history holds old details.
-
-## Product/editor and evidence discipline
-
-- table-interaction-contract.md owns agreed behaviour: Enter down same column and
-  stop at bottom; Shift+Enter in-cell break; Tab/Shift+Tab arrive at text end and final
-  Tab stays; handles add axes preserving active cell/caret/focus. Escape retains
-  selected cell without caret; selected-mode Tab moves highlight, Enter edits.
-  Triple-click selects cell text. Do not restore withdrawn auto-growth/selection defaults.
-- Documents and views have separate lifetimes. Closing a view protects dirty work;
-  cursor/selection/layout are view-local, accepted state/revisions have one owner.
-- Preserve confirmed manual passes even with absent/duplicate verdict clicks.
-  Do not require replay for bookkeeping. Guide only a necessary native variation,
-  one concrete step at a time. IME/VoiceOver and Windows claims stay within recorded
-  limits; user deferred prioritizing VoiceOver. Never invent a native pass.
-- Distinguish confirmed policy, proposed mechanism, Linux helper/proof tests, user
-  observations and audited raw native artifacts. A build/test count, schema, Ready
-  event, timing proxy or readable trace alone cannot establish H01 measurement.
-- Historical H01/workload/budget results must not be rewritten into passing claims.
-  No missing metric as zero, JS heap/RSS/RAF substitute, nearest-frame causal guess,
-  private API/permission workaround, or post-result threshold change to force a winner.
-- Blocked methods have finite stopping rules.43 CLI recording is retired after
-  matched failures. F010 stops host profiling as implementation entry work. Preserve the exact H11
-  blocked disposition; do not resume recorder/export experiments without a new task.
-- F010 is the accepted I2 implementation baseline and explicit gate-timing revision.
-  It adopts structural mechanisms from F001–F008 without accepting every draft detail.
-  Final format/native durability/installed security and shipping claims remain gated
-  at override46 milestones. Use disposable Spaces until data-bearing gates close.
-- Shared product code must not import docs/experiments or hardcoded node_modules.
-  Move qualified implementations once; browser/backend entries remain separated.
-  A view releases its lease, never destroys the retained editing context. Registry
-  retirement is not the complete window-close guard; retain existing protection policy.
-
-## Delivery and continuation
-
-- Update START-HERE, progress history, CHANGELOG and new scoped evidence for meaningful
-  changes/results. Keep current next action in START-HERE. During consolidation, retain a truthful
-  concise result/open-risk ledger; obsolete docs/raw proof trees can retire to Git
-  history after live code/build/test dependencies and useful fixtures are removed.
-- Native apps/runtime/cache/traces/reports live in Git metadata/private marked
-  fixtures, never staged. Deliberate scoped evidence is separate. No blanket git add.
-  Never ask for endpoint/token/private boot files or blind raw-trace uploads.
-- Run relevant checks, retain failures/blocked states, and report platform/scope.
-  Export/raw XML remains private; shareable summaries omit process names/content.
-- Deliver incremental patch ZIP against exact latest delivered tree; validate apply
-  and scope. No automatic commit/push. Download filenames in Bash use SPACES in
-  quoted paths under '/Users/sivakuv3/Downloads/Arc browser/'. Use direct ZIP links.
-- A new chat may lack conversation or scratch state. Provide access to latest repo
-  branch/local commits, read this file + START-HERE, inspect actual Git/native result
-  state and continue the current action. Source present does not mean Mac step ran.
+- Work on architecture/clutter-foundation in Clutter Structured. Clutter Markdown is
+  the independent main worktree. Inspect/preserve user work; no reset/clean, main
+  merge/switch, automatic commit or push. User applies delivered incremental patches.
+- User explicitly authorizes complete replacement: both full/compact Markdown,
+  CM6, old vault/persistence/domain/native logic, UI controllers, tests and docs.
+  Keep only code that fits the selected architecture. No courtesy reuse, compatibility
+  façade, duplicate writer or existing-user/data migration project.
+- One Core/SpaceService and command catalogue. UI/CLI/MCP are peer clients. Rust and
+  desktop runtime own mechanisms, not semantic page/task/save/undo policy.
+- One shared React web UI/editor for Mac/Windows/future browser. PM owns editable DOM;
+  React owns surrounding components. Do not restore OS-specific feature UIs or React
+  body mirrors. Implement NodeView renderer adapters when rich components need them.
+- Page/window/pane/context identities and lifetimes differ. Closing/navigating a view
+  never silently discards pending work/history. Window close guards every retained
+  page and unresolved mutation, not just the visible editor.
+- No active product/test imports from docs/research/hardcoded node_modules. Module
+  directions in ../../tools/check-boundaries.mjs enforce the selected split. Exact
+  native locks are checked in; no old experiment cache or new lock export required.
+- Root command is npm run desktop. Current builds/locators use Git metadata
+  clutter-structured53. New product entry does not consume old proof sessions.
+  Use synthetic content until installed format/security/durability gates close.
+- Confirmed table/keyboard behavior survives the teardown: Enter down same column
+  stops at bottom; Shift+Enter inserts a break; final Tab stays; Escape retains cell
+  highlight without caret; selected-mode Tab moves highlight, Enter edits; triple
+  click selects text; axis handles preserve active cell/caret/focus. Tables are R2,
+  not currently rendered by the paragraph-only first product slice.
+- Preserve user-observed prior native passes and intermittent/unreproduced caret
+  risk. No repeated old manual/profiling suite for bookkeeping. H11 input/presentation
+  measurement stayed blocked; no latency ranking was established. F010 ends that
+  research as an implementation-entry prerequisite. Do not restart it unasked.
+- Integration access remains one connection per user/device across local Spaces by
+  default, optional restrictions, no per-Space enrollment codes. Task is a full page
+  with body/properties/cover/media/embed scope, no subtasks/single placement as agreed.
+- Update current checkpoint, scoped evidence and concise outcome/risk ledger for
+  meaningful changes. Separate Linux integration checks, user manual observations,
+  native compile results and shipping qualifications. Deleted obsolete tests are not
+  passing tests. Run checks relevant to the change, not a growing research project.
+- Deliver source-only incremental patch ZIP against the latest delivered tree;
+  verify apply/reapply/main refusal. No generated binaries/cache/private sessions.
+  Download names in quoted user Bash paths use SPACES. User Mac root is
+  /Users/sivakuv3/Documents/Personal/projects/Clutter Structured.

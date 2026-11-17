@@ -1,7 +1,0 @@
-{
-  "revision": "0.55",
-  "delivery": 31,
-  "review": "i1-native-completion-31-2026-11-16/review.json",
-  "cli": "i1-native-completion-31-2026-11-16/cli-read.json",
-  "status": "NC28-01\u201304 user-reported PASS; CLI read supplied; no raw native report audit"
-}

@@ -1,16 +1,17 @@
-# Editor interaction specification — R02
+# Editor interaction requirements
 
-Revision 0.27, 2026-11-14. Status: reviewed table-navigation policy within an
-otherwise conditional editor specification; no candidate selected. Scoped executed
-evidence and remaining native work are recorded in the checkpoint/progress log. Product directions are confirmed
-in [product behaviour](product-behaviour.md); model-specific defaults below are
-explicit proposals, not previously approved decisions.
+Current context: the structured architecture is selected and the first product entry53
+is implemented. This retained requirement/profile catalogue describes the target;
+it is not a request to compare hosts or preserve the retired CM6/Markdown application.
+Confirmed table policy in table-interaction-contract.md overrides older proposals.
+Unconfirmed defaults below remain proposals for R2, not approved behavior. Current
+implementation/verification status is START-HERE.md and NATIVE-TEST-PROGRESS.md.
 
 ## Purpose and authority
 
 Specify the intended Clutter experience, then qualify complete candidates against
-it. The current editor is Markdown-oriented evidence, not a target implementation
-or a universal behaviour oracle. R01's [inventory](current-capability-inventory.md)
+it. The retired editor was Markdown-oriented evidence, not a target implementation
+or a universal behaviour oracle. R01's inventory (retired to Git history)
 C17–C25 identifies complexity worth testing, not mechanics every candidate must copy.
 
 Three distinct layers prevent the comparison from favouring today's code:
@@ -265,7 +266,7 @@ binding the product to Markdown mechanics or PM internals.
 
 ## R06 qualification preparation
 
-[R06 qualification plan](editor-qualification-plan.md) defines native evidence and
-stop conditions without duplicating these seed oracles. Its [instance catalogue](editor-qualification-instances.json)
+R06 qualification plan (historical reference retired to Git history) defines native evidence and
+stop conditions without duplicating these seed oracles. Its instance catalogue (historical reference retired to Git history)
 expands timing and native/race probes; all are not-run. Q-01–Q-09 remain open for
 binding acceptance. The user allows full implementation replacement.

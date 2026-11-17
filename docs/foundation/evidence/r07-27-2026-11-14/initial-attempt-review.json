@@ -1,8 +1,0 @@
-{
-  "scope": "Initial new comparator wiring, not an architecture finding.",
-  "retained": "comparison11-initial-results.json and comparison11-initial-run.txt",
-  "cause": "Step lab already exposed legacy command(request). A new duplicate command property was shadowed, causing six live-ingress cases to fail INVALID_REQUEST.",
-  "correction": "Preserved old command API/control evidence. Both new adapters use additive liveCommand and shared session dispatcher. No duplicate key remains.",
-  "coverage_refinement": "First Origin remount undo alone worked. Added redo and new-edit undo checks to avoid a false lifecycle pass; both reveal silent no-op after destructive remount. Current contract tests all three.",
-  "final": "Discovery and strict repeat have identical30-case classification; no unexpected runtime or foreign-content failure."
-}

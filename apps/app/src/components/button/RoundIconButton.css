@@ -1,4 +1,0 @@
-/* Circular shape for the filled icon-only dismiss control — fill, hover and disabled come from `Button`. */
-.button.round-icon-button {
-  border-radius: 50%;
-}

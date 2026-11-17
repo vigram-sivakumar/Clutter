@@ -1,46 +1,28 @@
 {
-  "name": "clutter-notes",
-  "version": "2.0.0",
+  "name": "clutter-structured",
+  "version": "0.1.0",
   "private": true,
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace=apps/app",
-    "dev:web": "npm run dev:web --workspace=apps/app",
-    "tauri": "npm run tauri --workspace=apps/app --",
-    "desktop": "npm run desktop --workspace=apps/app",
-    "dev:sandbox": "npm run dev:sandbox --workspace=apps/app",
-    "build:appstore": "npm run build:appstore --workspace=apps/app",
-    "build:share": "npm run build:share --workspace=apps/app",
-    "verify:bundle": "npm run verify:bundle --workspace=apps/app --",
-    "test": "npm test --workspace=apps/app",
-    "test:run": "npm test --workspace=apps/app -- --run",
-    "automation:build": "npm run build:app --workspace=packages/automation",
-    "automation:poc": "npm run poc --workspace=packages/automation",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "clean": "rm -rf node_modules apps/*/node_modules apps/*/dist apps/*/coverage packages/*/node_modules",
-    "foundation:test": "npm test --workspace=packages/foundation-runtime",
-    "foundation:typecheck": "npm run typecheck --workspace=packages/foundation-runtime",
-    "native:core28": "node docs/foundation/i1/native/run.mjs",
-    "native:core28:reopen": "node docs/foundation/i1/native/run.mjs --reopen",
-    "native:core28:check": "node docs/foundation/i1/native/run.mjs --check",
-    "foundation:desktop": "node apps/foundation-desktop/run.mjs",
-    "foundation:desktop:reopen": "node apps/foundation-desktop/run.mjs --reopen",
-    "foundation:desktop:check": "node apps/foundation-desktop/run.mjs --check"
+    "dev": "node apps/desktop/run.mjs",
+    "desktop": "node apps/desktop/run.mjs",
+    "desktop:reopen": "node apps/desktop/run.mjs --reopen",
+    "desktop:check": "node apps/desktop/run.mjs --check",
+    "test": "node --test packages/desktop-runtime/test/*.test.mjs",
+    "typecheck": "tsc -p packages/core/tsconfig.json && tsc -p packages/desktop-runtime/tsconfig.json",
+    "check:boundaries": "node tools/check-boundaries.mjs"
   },
   "devDependencies": {
-    "@testing-library/dom": "^10.4.1",
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.2",
-    "prettier": "^3.2.5",
-    "typescript": "^5.3.3"
+    "typescript": "5.9.3",
+    "@types/node": "25.9.4",
+    "esbuild": "0.28.1",
+    "jsdom": "29.1.1"
   },
   "engines": {
-    "node": ">=18.0.0",
+    "node": ">=24.11.0",
     "npm": ">=9.0.0"
-  },
-  "packageManager": "npm@9.9.0"
+  }
 }

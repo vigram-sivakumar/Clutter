@@ -1,0 +1,208 @@
+:root {
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  color: #292a2c;
+  background: #fff;
+  font-synthesis: none;
+  --muted: #777a80;
+  --line: #e9e9ec;
+  --accent: #496bdd;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+button {
+  font: inherit;
+  cursor: pointer;
+}
+button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.workspace {
+  height: 100vh;
+  display: grid;
+  grid-template-columns: 244px minmax(0, 1fr);
+}
+.sidebar {
+  background: #f6f6f7;
+  border-right: 1px solid var(--line);
+  padding: 28px 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  overflow: auto;
+}
+.brand {
+  font-size: 19px;
+  font-weight: 650;
+  padding: 0 9px;
+}
+.brand span {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  margin-left: 5px;
+}
+.space-label {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 0 9px;
+}
+.button {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 7px 10px;
+  color: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.button:hover:enabled {
+  background: #eeeef1;
+}
+.new-page {
+  background: white;
+  border-color: #e0e0e6;
+  text-align: left;
+  font-size: 13px;
+}
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.page-link {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 9px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #55575e;
+}
+.page-link > span:last-child {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.page-link:hover {
+  background: #eaeaec;
+}
+.page-link[aria-current='page'] {
+  background: #e5e8f2;
+  color: #283e7f;
+}
+.development-note {
+  margin-top: auto;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.7;
+  padding-left: 9px;
+}
+.page-area {
+  overflow: auto;
+  min-width: 0;
+}
+.page-bar {
+  height: 57px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  font-size: 12px;
+  color: #666a72;
+}
+.page-bar > div {
+  display: flex;
+  gap: 6px;
+}
+.status-line {
+  height: 30px;
+  text-align: right;
+  padding: 8px 32px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.page {
+  max-width: 1120px;
+  margin: 48px auto;
+  padding: 0 64px 100px;
+}
+.page h1 {
+  font-size: 36px;
+  letter-spacing: -1px;
+  font-weight: 650;
+  margin-bottom: 24px;
+}
+.editors {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.editors.split {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px;
+}
+.editor-pane {
+  min-width: 0;
+}
+.editor-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-bottom: 14px;
+}
+.editor-tools .button {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 5px 7px;
+}
+.editor-content .ProseMirror {
+  min-height: 420px;
+  outline: none;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  line-height: 1.8;
+  font-size: 16px;
+  padding: 12px 0;
+}
+.editor-content .ProseMirror p {
+  margin: 0 0 12px;
+}
+.empty-state {
+  margin: 22vh auto;
+  text-align: center;
+  color: var(--muted);
+}
+.empty-state h1 {
+  color: #4b4e55;
+  font-size: 26px;
+  font-weight: 500;
+}
+@media (max-width: 800px) {
+  .workspace {
+    grid-template-columns: 190px minmax(0, 1fr);
+  }
+  .page {
+    padding: 0 28px;
+    margin-top: 24px;
+  }
+  .editors.split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

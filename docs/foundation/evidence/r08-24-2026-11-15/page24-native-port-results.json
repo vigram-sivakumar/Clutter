@@ -1,8 +1,0 @@
-{
-  "results": [
-    {
-      "status": "pass",
-      "scope": "Old native-profile protect/release/restore metadata through shared Store; no macOS/AppKit/browser claim"
-    }
-  ]
-}

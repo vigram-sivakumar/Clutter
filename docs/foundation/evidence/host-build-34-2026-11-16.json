@@ -1,6 +1,0 @@
-{
-  "delivery": 34,
-  "revision": "0.58",
-  "review": "host-build-34-2026-11-16/review.json",
-  "status": "Matched native build recipes prepared;7 support+80 runtime+TS pass; Mac builds/GUI/timing not-run"
-}

@@ -1,8 +1,0 @@
-{
-  "date": "2026-11-16",
-  "requirement": "P-36",
-  "userConcern": "Different access for each Space causes friction",
-  "assistantProposal": "One connection per integration/local user-device, all current and future local Spaces by default, optional advanced restrictions; independent per-Space writers unchanged",
-  "userConfirmation": "I agree with you",
-  "status": "Confirmed product requirement, production enrollment implementation not-run"
-}

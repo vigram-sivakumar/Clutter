@@ -1,6 +1,0 @@
-{
-  "revision": "0.51",
-  "status": "Media API/publication/history/editor compatibility pass; native composition and I1/G-Q open",
-  "review": "i1b-media-27-2026-11-16/review.json",
-  "next": "Freeze targeted NEW Core native composition/browser-safe renderer/media lifecycle contract, then prepare concrete supported host build"
-}

@@ -1,9 +1,0 @@
-{
-  "docs/foundation/i1/native/browser.mjs": "1a15512a30d0721d2c98d6dfc030886122769b5ad6c5f8efc979340e6b3a7060",
-  "docs/foundation/i1/editor-replica.mjs": "12052f7b896a5b5afb850ab28d63955efaf35ff2d038c469b527bcf61d329e2e",
-  "docs/foundation/i1/native-contract.json": "13029ab383b1911b4506a41142d5d4e17ffb2e0624a3e896c08036aadfc384a7",
-  "docs/foundation/experiments/r07-two-view/src/origin-history-context.mjs": "4de112219f3188cb0895098948bda402e2b3b44d14b8bbd437db395e28148b3a",
-  "packages/foundation-runtime/src/editor-session.ts": "9269ccf49031deec8628a41d3f02a8a512b8d0665431220d25ba72e6c72fe741",
-  "packages/foundation-runtime/test/editor.test.mjs": "e7fa071b187db8c679e82b3286effd6be34e9ad2fdbd56794d2a4cc4daab14b6",
-  "packages/foundation-runtime/test/native28.test.mjs": "f100306172ecfd17a49e2816924faae194841105d0b55e9da06027a8f82f5694"
-}

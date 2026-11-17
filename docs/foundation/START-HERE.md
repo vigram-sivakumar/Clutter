@@ -1,49 +1,58 @@
-# Resume Clutter work
+# Resume Clutter Structured
 
-## Current checkpoint — R1 native dependency inputs52, 2026-11-17
+## Current checkpoint — clean product boot53, 2026-11-17
 
-User completed separate worktree setup. User Mac paths now:
-- `/Users/sivakuv3/Documents/Personal/projects/Clutter Structured`:
-  `architecture/clutter-foundation`, active rebuild.
-- `/Users/sivakuv3/Documents/Personal/projects/Clutter Markdown`:
-  `main`, existing CM6/Markdown application.
-These are worktrees of one repository, not separate repositories. Keep installs and
-builds in their respective trees. No automatic branch switch/merge/push. Old command
-paths in dated evidence are historical; use the Structured path for new instructions.
+User applied52 and authorized proceeding, then explicitly included BOTH full and
+compact Markdown implementations, old vault/persistence and everything connected in
+the teardown. Clean/stable architecture takes precedence over saving old code/docs.
+No existing users/data require migration. Main stays untouched.
 
-Uploaded Native Dependency Locks ZIP verified: four SHA256s match provenance from
-successful Mac build2026-11-17T01-28-09-292Z. Exact manifests/full transitive npm/Cargo
-locks are checked in under apps/foundation-desktop/tools/native-locks. Runner copies
-those exact bytes; old controlled-build reports, generated projects and Cargo/Node
-cache seeding are removed from active build prerequisites. Fresh private cache may
-acquire exact locked dependencies; native compile remains locked/offline. No version
-upgrade, global toolchain change, runtime/store/owner/editor/UI semantic change.
+53 replaces the actual product source graph. apps/desktop is the single Tauri entry;
+packages/core, editor, ui and desktop-runtime own real moved/reworked implementations.
+React renders sidebar/header/page controls; PM owns contenteditable DOM. Core page.list
+queries current accepted heads with bounded keyset pagination. UI creates real pages,
+opens/edits/saves, retains contexts across page navigation, supports split contexts and
+protects inactive-page drafts on close. Unknown create replies retry the exact request
+and block unsafe close. Context IDs hash space/window/page/pane to bounded stable IDs.
 
-52 is the reproducibility prerequisite within R1, not completion of the product
-rebuild. Linux runtime109/109 and strict TypeScript pass; focused relocation/integrity and
-exact patch validation are recorded in scoped52 evidence.
-No new Mac compile/fresh-checkout native-build pass is claimed. No need to rerun old
-native tests or export locks again. Existing temporary sessions are not moved or
-rewritten; historical absolute locators may reference the previous directory. Do not
-use an old session failure as permission to reset notes or create a silent replacement.
+Removed: entire apps/app (including CM6/full+compact Markdown and its domain/vault/
+persistence/native pipeline), old app automation, Foundation demo workspaces and
+entry, duplicate draft-only controller, executable research/proof hosts, stale launch
+configuration and obsolete old architecture docs. Useful media/stdio test fixtures now
+live under packages/desktop-runtime/test/fixtures. Git history holds retired material.
+Current root lock has137 workspace/dependency entries (previous873), no CM6/Lezer or
+Markdown parser. Native exported lock bytes remain exact; crate identity is retained
+only to avoid gratuitous dependency-lock changes, not as another product entry.
 
-NEXT after applying52: implement the remainder of R1 from rebuild/README.md: actual
-core/editor/ui/desktop-runtime module boundaries, shared React product entry with
-selected global visuals, real Core page query/create/list/open/edit/save/reopen and
-coherent removal of old CM6/Core/boot. Minimal foundation demo is temporary. Do not
-stop for more host profiling or another architecture decision. Delete/redesign old
-implementation and obsolete docs as authorized; no compatibility or migration work.
+Source acceptance:93/93 Linux integration tests, strict TS and38-source boundary
+checks pass; exact native locks unchanged and npm locked install plan validates. See evidence/clean-product-53-2026-11-17/review.json and current
+verification ledger. Linux integration/type/boundary/lock validation does not infer a
+Mac build/native pass. Separate Chromium pilot could not start under the execution
+host's socket restrictions; no real-browser/native measurement claimed from it.
+Previous user native composition passes remain historical; caret displacement remains
+intermittent/unreproduced and user asked to move on. No new Mac caret fix claimed.
 
-Baseline context: user PASS for shared edits, A remount, text Undo/Redo, native close
-and same-Space reopen. Caret displacement remains intermittent/unreproduced; user
-asked to move on. Do not claim fixed or replay the old suite. Product contracts and
-F010 own behavior and ownership. Read-only main visual reference5c532f8; no merge.
-No installed-security/native durability/final-format/scale/distribution pass inferred.
+NEXT user action: apply/commit53 in Clutter Structured, npm ci --ignore-scripts,
+npm run desktop. This builds a fresh synthetic Structured Space under Git metadata
+clutter-structured53, leaving old proof locators/stores untouched. No new profiling or
+old suite replay. Once the new window opens: create two pages, type distinct text,
+switch between them, save/close, then npm run desktop:reopen and confirm pages/text.
+Guide only a necessary failure/reproduction, one concrete step at a time.
 
-## Authority
+Then R2: title editing, full editor schema and actual component/NodeView renderer
+adapters for agreed text/blocks/tables/tasks/media. Do not restore legacy widgets or
+compact Markdown to fill missing screens. R3 completes remaining product flows.
+Installed data-bearing storage/identity/security/durability/final-format, Windows/web
+compositions, scale and release/distribution stay explicit future milestones.
 
-AGENTS owns evergreen working rules; rebuild/README owns the current plan and
-retirement sequence; confirmed product contracts/F010 own retained behavior and
-mechanism direction until consolidated under the new docs index. Older checkpoint
-commands and contradictory legacy wiring instructions are historical. New chat:
-provide latest branch/local commits, then read AGENTS + this file + rebuild plan.
+## Worktrees and authority
+
+- /Users/sivakuv3/Documents/Personal/projects/Clutter Structured:
+  architecture/clutter-foundation, active rebuild.
+- /Users/sivakuv3/Documents/Personal/projects/Clutter Markdown:
+  main, existing application. Same repository; separate checked-out files/builds.
+
+No source is migrated from main. Its read-only5c532f8 snapshot was only a visual/
+behavior reference. No automatic commit/push/merge/main switch. Root AGENTS.md,
+ARCHITECTURE_RULES.md, docs/architecture.md and confirmed product contracts replace old
+frozen class/API governance. Current checkpoint overrides dated historical next steps.

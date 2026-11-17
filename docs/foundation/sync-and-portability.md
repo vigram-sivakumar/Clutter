@@ -156,19 +156,9 @@ initial CRDT/server requirement is imposed solely for a deferred feature.
 
 ## R04 persistence boundary for R05
 
-[Vault persistence](vault-persistence-spec.md) supplies proposed local state/outcome/
-outbox commit, inbound replay/progress, asset publication and root-retention contracts.
-It does not choose provider packaging/order, tombstone retirement or cross-document
-remote reconciliation. Those belong to the conditional [R05 protocol](provider-sync-spec.md). Local-only operation needs no unbounded
-disabled-provider queue; enabling sync must establish the explicitly specified
-current/history baseline instead of assuming every earlier edit was queued.
-
-## R05 provider qualification boundary
-
-[Provider protocol](provider-sync-spec.md) owns conditional packaging, lifecycle,
-ordering and SY-01–SY-08. [Feasibility](provider-feasibility.md) separates official
-facilities from untested candidate routes; [SC cases](provider-sync-cases.json) are
-30 unexecuted scenarios. SY-04 coherent task ownership across remote moves/deletes/
-recurrence remains a provider release blocker; whole-Space latest-wins is not a
-substitute. Existing local guards and persistence roots still apply. R06 prepares
-platform/security/budgets; R07 requires executable and real-provider evidence.
+The current selected architecture and development storage limits are documented in
+[architecture](../architecture.md). Earlier conditional local/provider protocol
+research and feasibility/case files are retired to Git history. They are not active
+implementations, a required old vault, or proof that sync/security/durability gates
+have passed. Provider sync remains a future capability with the requirements above;
+no old Markdown/filesystem-note persistence pipeline is retained for compatibility.

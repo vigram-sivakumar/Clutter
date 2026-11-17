@@ -1,0 +1,19 @@
+{
+  "name": "@clutter/desktop-runtime",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./sqlite": "./src/sqlite-store.ts",
+    "./stdio": "./src/stdio.ts",
+    "./media-ingress": "./src/media-ingress.mjs"
+  },
+  "dependencies": {
+    "@clutter/core": "0.0.1",
+    "@clutter/editor": "0.0.1"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}

@@ -2,14 +2,14 @@
 
 Status: product direction confirmed in the 2026-11-14 discussion, with P-36 access
 UX confirmed2026-11-16; technical
-mechanisms remain proposed and unqualified. See the scope and behaviour details
+mechanisms are selected in [current architecture](../architecture.md), while implementation and qualification limits remain explicit. See the scope and behaviour details
 in [product behaviour](product-behaviour.md) and [sync and portability](sync-and-portability.md).
 These contracts describe the target, not today's application.
 
 ## Product principles and release boundary
 
 Clutter is a local-first notes app. App, CLI and MCP are core interfaces over one
-shared command and vault API. macOS ships first with shared code and platform
+shared Space command API. macOS ships first with shared code and platform
 boundaries ready for Windows. There is no Clutter-hosted service initially.
 
 Local editing, tasks, history, multiple views and image/PDF embeds belong in the

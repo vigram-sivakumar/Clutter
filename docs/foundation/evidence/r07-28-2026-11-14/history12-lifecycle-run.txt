@@ -1,8 +1,0 @@
-pass: LC-01 repeated destruction/remount keeps both contexts undo, redo and new edits
-pass: LC-02 foreign edits while A is destroyed reconcile before A history runs
-pass: LC-03 paused provisional own edits retain history while the view is destroyed
-pass: LC-04-row structural undo/redo maps its guard past disjoint foreign edits, then blocks overlap
-pass: LC-04-column structural undo/redo maps its guard past disjoint foreign edits, then blocks overlap
-pass: LC-05 overlap guard still refuses a foreign format within the affected table
-pass: LC-06 handle undo/redo restores selected-cell mode without a caret
-diagnostic-gap: LC-RAW old view-owned integration loses redo after remount

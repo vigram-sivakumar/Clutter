@@ -1,0 +1,47 @@
+{
+  "format": "clutter-clean-product53",
+  "date": "2026-11-17",
+  "baselineTree52": "d9fdbcf656b49f6e0c1d953c27bb575c504845e4",
+  "branch": "architecture/clutter-foundation",
+  "status": "R1-source-and-Linux-integration-pass; Mac product-entry build/check pending",
+  "userMandate": "Remove both full/compact Markdown, CM6, old vault/persistence and all connected incompatible implementation; no courtesy reuse, compatibility or existing-user migration",
+  "retiredFileCounts": {
+    "apps/app": 2482,
+    "packages/automation": 83,
+    "apps/foundation-desktop": 27,
+    "packages/foundation-runtime": 48,
+    "packages/foundation-ui": 3,
+    "docs/foundation/experiments": 125,
+    "docs/foundation/runtime-qualification": 59,
+    "docs/foundation/i1": 28,
+    "docs/foundation/i2": 4,
+    "workers": 13
+  },
+  "rootLockEntries": {
+    "before": 873,
+    "after": 137,
+    "externalVersionsResolvedUrlsIntegrities": "unchanged for retained packages",
+    "nativeLockFiles": "five exact export/provenance files unchanged from52"
+  },
+  "checks": {
+    "integration": "93/93 pass on Linux; old proof/draft/comparison tests retired, counts not comparable to109 at52",
+    "strictTypeScript": "pass: Core and desktop runtime",
+    "packageBoundaries": "38 shared source files; direction and retired graph checks pass",
+    "boundaryRegression": "1/1 pass after allowing ignored old build caches without retaining source",
+    "lockedInstallPlan": "npm ci --dry-run --ignore-scripts --offline exit0; not a fresh network install or native build",
+    "bundle": "browser and Node pack pass, no docs/retired/backend imports in browser graph",
+    "newCoreCases": "bounded ordered current-head catalogue, read scope/admission/reply validation, restart, exact unknown-create retry/close refusal, stable bounded window-page-pane identity",
+    "ReactIntegration": "real browser bundle in jsdom, page create/list, PM DOM input, navigation, inactive-page save/protection refusal and retry, readback, same owner CLI/MCP"
+  },
+  "limitations": {
+    "nativeMac": "not-run for53; user must build and check new entry",
+    "ChromiumPilot": "blocked before recording/input: process-singleton socket Operation not permitted; no elevation or workaround",
+    "layoutIMEPresentation": "not established by jsdom",
+    "featureScope": "paragraph-only first product flow; title/rich block/table/task/media/property/full navigation UI remains next",
+    "installedStore": "still marked disposable; no user-selected real notes or migration",
+    "caret": "previous user issue intermittent/unreproduced; no new Mac fix claimed",
+    "release": "security/durability/final-format/identity/scale/Windows-browser/distribution gates pending"
+  },
+  "historyDisposition": "Prior native observations and blocked H11 method retained in concise ledger; executable research/obsolete docs and raw proof evidence retired to user Git history",
+  "next": "Mac build basic two-page edit/navigate/close/reopen check, then R2 editor schema/components; no profiler or old suite replay"
+}

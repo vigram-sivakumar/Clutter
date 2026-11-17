@@ -51,9 +51,9 @@ mode and multi-cell ranges are not qualified by this bounded change.
   trial of the old proposal, **not** acceptance of that behaviour. It is superseded.
 - The reported whole-cell text selection is a UX failure against TB-C04, not an
   intended default to preserve for compatibility.
-- [Table test source](experiments/r07-two-view/test/table-browser.mjs) exercises both
+- Table test source (historical proof source retired to Git history) exercises both
   candidates. [Native progress](NATIVE-TEST-PROGRESS.md) separates observed native
-  facts from unrun cases. Current Mac NM-01 must be rerun against this contract.
+  facts from unrun cases. R2 table components must be checked against this contract after they exist; do not replay an old host suite now.
 - Original raw controls keep an explicitly archived table profile for reproducibility;
   never treat their row-growth result as the target contract.
 - The origin candidate's raw structural undo can erase foreign cell content. The
@@ -65,3 +65,8 @@ mode and multi-cell ranges are not qualified by this bounded change.
 Only the behaviours in the matrix are product requirements. A local test pass
 proves the observed fixture/profile, not complete keyboard, IME, durability,
 interchange or native accessibility qualification.
+
+
+Current53 product schema is paragraph-only. The historical table implementation is
+retired; R2 must implement this contract through the new editor/components. Prior
+observations do not imply that tables are implemented or native-verified in53.

@@ -1,9 +1,0 @@
-{
-  "checked": "2026-11-16",
-  "primary": [
-    "https://github.com/apple-oss-distributions/xnu/blob/main/libsyscall/wrappers/libproc/libproc.h",
-    "https://developer.apple.com/documentation/xcode/improving-app-responsiveness",
-    "https://developer.apple.com/documentation/xcode/understanding-user-interface-responsiveness"
-  ],
-  "commandSyntax": "Installed xctrace help record is checked before attach; no prompt/sudo or browser automation. Hitches/trace acquisition alone are not event-to-pixel latency."
-}

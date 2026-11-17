@@ -1,9 +1,0 @@
-<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path
-    d="M 7.99977 2 L 9.99977 2 C 12.2089 2 13.9998 3.79086 13.9998 6 L 13.9998 10 C 13.9998 12.2091 12.2089 14 9.99977 14 L 5.99977 14 C 3.79063 14 1.99977 12.2091 1.99977 10 L 1.99977 6 C 1.99977 3.79086 3.79063 2 5.99977 2 L 7.99977 2 Z"
-    stroke="currentColor"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    stroke-dasharray="2.6 2.4"
-  />
-</svg>

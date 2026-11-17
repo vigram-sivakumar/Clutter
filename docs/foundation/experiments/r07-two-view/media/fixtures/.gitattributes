@@ -1,3 +1,0 @@
-# Preserve fixture bytes and PDF cross-reference offsets on every platform.
-*.png binary
-*.pdf binary

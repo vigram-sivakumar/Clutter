@@ -1,23 +1,16 @@
-# Clutter architecture and clean rebuild
+# Clutter contracts and rebuild checkpoint
 
-Revision0.76,2026-11-17. Branch: architecture/clutter-foundation.
+Read [START-HERE](START-HERE.md), [architecture](../architecture.md),
+[development](../development.md) and [working rules](AGENTS.md).
 
-Start with [AGENTS](AGENTS.md), [START-HERE](START-HERE.md), then the active
-[clean rebuild plan](rebuild/README.md). Existing layout/global visuals are reference
-and candidates; the entire old CM6/Markdown architecture, editor UI and obsolete docs
-may be redesigned/deleted. No compatibility or existing-user migration obligation.
+This folder retains confirmed [product requirements](product-contracts.md),
+[table interactions](table-interaction-contract.md), shared-platform intent and the
+current rebuild handoff. Old CM6/Markdown architecture, executable host experiments,
+proof applications and obsolete documentation are retired to Git history. They are
+not another implementation or a requirement to preserve old code.
 
-F010 accepts Tauri/shared web UI/PM-Y/TypeScript Core/SQLite as implementation direction.
-Basic native composition closeout passed; intermittent caret issue remains tracked.
-The existing product has not been rebuilt yet. Read-only main reference is5c532f8;
-no merge or main source change.52 checks in exact native locks and removes active
-build dependency on old experiment caches. User worktrees are Clutter Structured
-(foundation) and Clutter Markdown (main). Next is actual clean product boot/removal,
-not more host comparison or qualification paperwork.
-
-Confirmed [product contracts](product-contracts.md), [table interactions](table-interaction-contract.md)
-and [F010](adr/F010-tauri-implementation-baseline.md) preserve behavior and ownership.
-Final native format/security/durability/scale/distribution responsibilities remain
-open at appropriate milestones. Older docs/proofs are historical and may be retired
-as the new current architecture/product/development index replaces them. They are
-not a requirement to preserve old implementation. Never infer a shipping pass.
+The accepted F010 direction is implemented as a first development product entry:
+Tauri + shared React UI + PM/Y editor + portable TypeScript Core + SQLite/media runtime.
+The rest of feature/schema/UI and installed security/durability/format/scale/release
+qualification remain open. See [rebuild steps](rebuild/README.md) and
+[verification ledger](NATIVE-TEST-PROGRESS.md). No migration or legacy compatibility.

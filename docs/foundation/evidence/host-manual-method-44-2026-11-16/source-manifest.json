@@ -1,9 +1,0 @@
-{
-  "runtime-qualification/controlled43/run.mjs": "8062c1037022ce3152ff8c6558b7ebec0326c8ee6177831779e757f5bcd00687",
-  "runtime-qualification/manual44/README.md": "efa32e92eb59d8ed5537859ece3bf2808501fda4b6e4cea35bf740699c68887a",
-  "runtime-qualification/manual44/contract.json": "0146a0df50e5fc52717e24390148daeab06c5083b3329de8495bd60785ea32d9",
-  "runtime-qualification/manual44/model.mjs": "201d00676cbff5fa6f47de34cba54c56cfb0f7e05174edf441a4b2e289895d44",
-  "runtime-qualification/manual44/prepare.mjs": "9130039f340b519d9859600d53b66a247ea1e0f0120ee04a28a750fb459a6c87",
-  "runtime-qualification/manual44/support.test.mjs": "2929be891975d554dfecb24dcc046fa21976cade2f3e28704b7f7fea742ccbde",
-  "runtime-qualification/manual44/validate.mjs": "2fd4514048150fe8528294c50eef38fdbfa66c21700100e1eaab1bba92c391d2"
-}
