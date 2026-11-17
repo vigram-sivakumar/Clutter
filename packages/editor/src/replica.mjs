@@ -1,3 +1,4 @@
+import { bodyBlockInteractions } from './block-selection.mjs';
 import { textFormatting, isFormattingTransaction } from './formatting.mjs';
 import { guardNodeSelections } from './node-selection-bridge.mjs';
 import { objectInteractions } from './object-interactions.mjs';
@@ -138,6 +139,11 @@ export function createEditorReplica(
           plugins: [
             ySyncPlugin(fragment),
             history.plugin(),
+            bodyBlockInteractions({
+              canEdit: options.canEdit,
+              nextId: nextBlockId,
+              stopCapturing: () => history.manager.stopCapturing(),
+            }),
             textFormatting({
               canEdit: options.canEdit,
               renderToolbar: options.renderFormattingToolbar,

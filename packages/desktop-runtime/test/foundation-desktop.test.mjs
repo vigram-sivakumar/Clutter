@@ -1647,3 +1647,121 @@ test('70 toolbar owns dropdown/link focus gaps without losing controls or mapped
     await ui.dispose();
   }
 });
+
+test('71 production select-all excludes title, suppresses text replacement and saves explicit deletion with Undo/reopen', async () => {
+  const dir = await session();
+  let ui = await browserWindow(dir, 'blocks71');
+  try {
+    ui.button('+ New page').click();
+    await ui.wait(() => !!ui.active());
+    const pageId = ui.panes()[0].dataset.page,
+      editor = ui.active();
+    const read = (await ui.api({ method: 'page.read', pageId })).value;
+    const content = pageContent('Visible title', 'Alpha beta', {
+      title: 'select-title',
+      body: 'select-one',
+    });
+    content.value.content.push({
+      type: 'paragraph',
+      attrs: { blockId: 'select-two', indent: 0, parentId: null },
+      content: [{ type: 'text', text: 'Second' }],
+    });
+    assert(
+      (
+        await ui.api({
+          method: 'page.update',
+          pageId,
+          operationId: crypto.randomUUID(),
+          expectedHead: read.head,
+          patch: { content },
+        })
+      ).ok
+    );
+    await ui.wait(
+      () => editor.querySelector('p')?.textContent === 'Alpha beta'
+    );
+    editor.focus();
+    const selection = ui.dom.window.getSelection();
+    selection.selectAllChildren(editor.querySelector('p'));
+    selection.collapseToEnd();
+    ui.doc.dispatchEvent(new ui.dom.window.Event('selectionchange'));
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    const key = (key, extra = {}) =>
+      editor.dispatchEvent(
+        new ui.dom.window.KeyboardEvent('keydown', {
+          key,
+          bubbles: true,
+          cancelable: true,
+          ...extra,
+        })
+      );
+    key('a', { metaKey: true });
+    await ui.wait(() => selection.toString() === 'Alpha beta');
+    key('a', { metaKey: true });
+    await ui.wait(
+      () => editor.querySelectorAll('.selected-body-block').length === 2
+    );
+    assert.equal(
+      editor.querySelector('[data-title]').textContent,
+      'Visible title'
+    );
+    assert(
+      !editor
+        .querySelector('[data-title]')
+        .classList.contains('selected-body-block')
+    );
+    assert(editor.hasAttribute('data-body-selection'));
+    await ui.wait(
+      () =>
+        !ui.doc.querySelector('[role=toolbar][aria-label="Text formatting"]')
+    );
+    const before = editor.textContent;
+    const input = new ui.dom.window.InputEvent('beforeinput', {
+      inputType: 'insertText',
+      data: 'X',
+      bubbles: true,
+      cancelable: true,
+    });
+    editor.dispatchEvent(input);
+    assert(input.defaultPrevented);
+    key('x');
+    assert.equal(editor.textContent, before);
+    key('Escape');
+    assert.equal(editor.querySelectorAll('.selected-body-block').length, 0);
+    assert(editor.hasAttribute('data-body-selection'));
+    key('a', { metaKey: true });
+    key('Delete');
+    await ui.wait(
+      () =>
+        editor.querySelectorAll('p').length === 1 &&
+        editor.querySelector('p').textContent === ''
+    );
+    assert.equal(
+      editor.querySelector('[data-title]').textContent,
+      'Visible title'
+    );
+    await ui.saved();
+    const deleted = (await ui.api({ method: 'page.read', pageId })).value;
+    assert.equal(deleted.title, 'Visible title');
+    assert.equal(deleted.content.value.content.length, 2);
+    ui.button('Undo').click();
+    await ui.wait(
+      () => editor.querySelector('p')?.textContent === 'Alpha beta'
+    );
+    await ui.saved();
+    const restored = (await ui.api({ method: 'page.read', pageId })).value;
+    assert.equal(restored.content.value.content.length, 3);
+    await ui.dispose();
+    ui = await browserWindow(dir, 'blocks71');
+    await ui.wait(
+      () => ui.active()?.querySelector('p')?.textContent === 'Alpha beta'
+    );
+    assert.equal(
+      ui.active().querySelectorAll('.selected-body-block').length,
+      0,
+      'block selection is not saved with document'
+    );
+  } finally {
+    await ui.dispose();
+  }
+});

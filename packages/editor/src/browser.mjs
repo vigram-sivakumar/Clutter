@@ -8,3 +8,5 @@ export { createBlockDefinitions } from './block-definitions.mjs';
 export { createInsertionTransaction } from './block-insertion.mjs';
 
 export { formatColors } from './formatting-spec.mjs';
+
+export { BodyBlockSelection, selectBodyBlocks } from './body-selection.mjs';

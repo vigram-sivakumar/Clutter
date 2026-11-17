@@ -1,0 +1,26 @@
+{
+  "delivery": 71,
+  "date": "2026-11-17",
+  "scope": "3C keyboard select-all and shared explicit body selection/deletion; pointer features next",
+  "priorManual70": "formatting controls, Undo/Redo, save/window reopen PASS",
+  "automated": {
+    "fullSuite": 218,
+    "pass": 218,
+    "fail": 0,
+    "newScopedCases": 8,
+    "finalAdditionalCheck": "expanded disjoint explicit copy/delete and real-peer readback PASS",
+    "strictCoreRuntimeTypecheck": "PASS",
+    "boundarySources": 57,
+    "productionUI": "two-stage text/block selection, title exclusion, no replacement, toolbar dismissal, delete/Undo/save/context reopen",
+    "realPeers": "CLI/MCP accepted explicit deletion with surviving child graph/format; MCP remote selection mapping"
+  },
+  "architectureReview": {
+    "selection": "single PM BodyBlockSelection explicit ID model; no Core/Y/React content state",
+    "deletion": "shared deleteBlocks replaces object-only structural implementation; view adapters retain destination policy",
+    "history": "existing context bookmarks and public Y selection guard extended; no new manager",
+    "unchanged": "Core/runtime/native/schema/contracts/dependencies/locks"
+  },
+  "manual71": "pending scoped Mac select-all/title isolation",
+  "notImplemented": "marquee/handles/group/hierarchical pointer reorder; next on same model",
+  "next": "Mac two-stage Cmd+A body/title check, then Escape/title/deletion checks before pointer capability"
+}

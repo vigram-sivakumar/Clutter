@@ -231,3 +231,13 @@ marquee. Active-app AI integration remains deferred roadmap, not current scope.
 70 [toolbar focus correction](toolbar-focus-70.md) follows actual69 Bold PASS and
 reported native colour/link dismissal. Shared interaction ownership, no format/schema
 change. Scoped native check required before completing formatting and starting3C.
+
+Formatting69/70 now user Mac COMPLETE: all controls, Undo/Redo and Save/window-reopen
+PASS. NEXT3C Ctrl+A/marquee using one flat explicit body-block selection model and
+recorded title exclusion/deletion rules. Evidence in toolbar-focus-70.md; no replay
+of client milestone68 or formatting required for bookkeeping.
+
+71 delivers3C's first complete keyboard capability: two-stage Cmd/Ctrl+A, title
+isolation, explicit body IDs, Escape/no-caret mode, typing guards, explicit-only
+deletion/history/peer mapping. [Details](body-selection-71.md). This is not whole3C:
+marquee/handles/group reorder next on the same selection model after scoped Mac check.

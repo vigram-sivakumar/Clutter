@@ -22,5 +22,16 @@
     "unchanged": "format executor/schema/Core/runtime/native/UI component/locks/dependencies",
     "removedAssumption": "editor-or-control focused at every instant; no timer/OS/per-control special case"
   },
-  "next": "Mac Text colour Red retest, then highlight/background/link controls before3C"
+  "next": "3C Ctrl+A and body block selection per recorded UX",
+  "manual70": {
+    "result": "PASS",
+    "source": "user: all the formats pass",
+    "scope": "formatting controls after focus correction, including previously reported colour/link interactions",
+    "limits": "formatting acceptance complete; no owner restart/Windows/IME or shipping qualification inferred",
+    "historyAndPersistence": {
+      "result": "PASS",
+      "source": "user pass after requested final formatting check",
+      "scope": "Bold + text colour, Undo twice/Redo twice, Save, red-button close and same-session reopen retaining text/formats"
+    }
+  }
 }

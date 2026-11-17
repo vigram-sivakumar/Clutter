@@ -179,7 +179,7 @@ both an ancestor and descendant happen to be explicitly selected.
 | B14 | Parent deleted, children not selected | Keep those children at their current indentation. Do not automatically outdent or delete them. |
 
 
-### Select-all refinement — user confirmed17 November2026; queued for3C
+### Select-all refinement — confirmed; keyboard implementation71, pointer3C pending
 
 | ID | Interaction | Confirmed behavior |
 | --- | --- | --- |
@@ -189,7 +189,7 @@ both an ancestor and descendant happen to be explicitly selected.
 | A04 | Ctrl+A with caret in title | Select only title text; do not expand into body blocks. |
 | A05 | Escape | Clear selection; block mode follows B11 (no text caret). |
 
-Implement this with the block-selection mode in3C, including platform-standard
+71 implements this with the shared block-selection mode, including platform-standard
 Command+A on Mac and Ctrl+A elsewhere.61 records the decision; it does not add a
 competing temporary select-all implementation to block insertion. Table-cell mode
 retains its own contract. Do not let PM's default whole-document selectAll become

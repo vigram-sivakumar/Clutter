@@ -1,35 +1,43 @@
 # Resume Clutter Structured
 
-## Current checkpoint — toolbar focus70, 17 November 2026
+## Current checkpoint — body selection71, 17 November 2026
 
-**Actual Mac69 result:** Bold on selected body text and selection preservation PASS.
-User then reports all three colour controls and link fields/buttons dismiss toolbar.
-Do not count69's automated controls test as native acceptance; it focused controls
-immediately and missed the interval with no focused editor/control.
+**Formatting70 COMPLETE — user Mac PASS:** all controls, final Undo/Redo and
+Save/red-button close/same-session reopen retained text/formats.68 actual real
+CLI/MCP milestone is also complete (native window/context reopen, no owner restart).
+Do not replay those completed manual milestones for bookkeeping.
 
-**70 corrects focus ownership in the ONE shared toolbar lifecycle.** Pointer intent
-inside toolbar or keyboard focus transfer claims interaction before blur. Temporary
-body/null focus/native popup does not unmount controls or erase URL draft. Actual
-outside pointer/focus, Escape, invalid/empty range, read-only/inert view still dismiss
-or refuse action. Existing live PM range maps edits; one executor/context history/
-Core/SQLite path remains. No timeout, blanket input preventDefault, per-colour/native
-special case, stored selection or alternate toolbar. Read [correction](rebuild/toolbar-focus-70.md).
+**71 delivers the keyboard capability within3C.** Cmd/Ctrl+A first selects current
+body-block text; second switches to explicit BODY-block selection, excluding title.
+Repeated select-all in title stays title-only. Escape clears selection/highlights
+without caret; ordinary typing cannot replace blocks. Normal text click restores
+caret editing. Delete/Backspace removes only selected IDs, preserving title and
+unselected children at unchanged indent under nearest surviving parent. One empty
+paragraph remains when all body blocks are removed. Read [outcome/checklist](rebuild/body-selection-71.md).
 
-Validation70:210 full Linux tests PASS; strict Core/runtime TS and54-source boundary
-checks PASS. Focused formatting/real CLI/MCP regressions PASS. New production UI test
-exposes temporary body focus before control focus, checks all three selectors and
-link input/Apply/Remove/draft retention, unchanged range and real outside dismissal.
-This simulates the gap; it is not a native popup or pixel qualification.
+One custom PM BodyBlockSelection owns stable explicit IDs and empty/no-caret mode;
+no content attributes or React copy. History/bookmarks and shared Y selection guard
+preserve mode across Undo/peer edits. Object and block deletion share one structural
+transform, retain their different cursor destinations. Real CLI/MCP observe accepted
+deleted roots with surviving child formatting/indent. Bulk deletion leaves no-caret
+mode; click text to resume. Selection-only commands do not mutate accepted root.
 
-NEXT: apply70 over69, `npm run desktop -- --new`, no install. Select body text and open
-Text colour; toolbar/dropdown must remain usable and chosen colour apply to original
-range. Then Text highlight/Block background and Link input/Apply/Remove. Native fix
-pending this scoped check; do not advance to3C on an automated-only pass.
+Validation71:218 full Linux tests PASS;8 scoped new selection tests PASS, final
+expanded disjoint copy/delete/real-peer check PASS. Strict Core/runtime TS and57-source
+boundaries PASS. Production React/PM/Core/SQLite selection/title isolation, input
+guards, delete/Undo/save/context reopen PASS. Actual native keyboard/pointer checks
+remain pending.
 
-68 dedicated real CLI/MCP read/write/conflict/UI save/same-root visible native window
-reopen PASS remains complete; owner restart was not performed. No replay for bookkeeping.
-Previous text66/object67 rules unchanged. AI active-app/current-note integration stays
-deferred roadmap; targeted generated/secret ignore rules remain. No local files deleted.
+NEXT scoped Mac Cmd+A/title-exclusion check. Marquee, handles and group/hierarchical
+reorder remain the next3C pointer capability on THIS SAME selection model; they are
+not claimed implemented. No inactive controls/placeholders added. Table-cell mode
+remains separately scoped. Ctrl+A is no longer a queued temporary path.
+
+Build71 fresh synthetic app `npm run desktop -- --new`; no install/schema/contract/
+Core/runtime/native/dependency/lock changes. Existing bundles/sessions remain intact.
+AI active-app integration remains deferred roadmap. Current source delivery includes
+final formatting observation docs queued after70. Native71 pointer/pixel/Windows/IME
+qualification is not inferred from Linux tests.
 
 
 ## Working agreement

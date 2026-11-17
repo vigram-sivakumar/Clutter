@@ -1,3 +1,4 @@
+import { BodyBlockSelection } from './body-selection.mjs';
 import { UndoManager } from 'yjs';
 import {
   Plugin,
@@ -55,6 +56,8 @@ export class OriginHistoryContext {
     const { doc, mapping } = initProseMirrorDoc(this.fragment, this.schema);
     if (!doc.eq(state.doc)) throw new Error('HISTORY_STATE_OUT_OF_SYNC');
     const selection = state.selection;
+    if (selection instanceof BodyBlockSelection)
+      return { type: 'body-blocks', ids: selection.ids };
     const type =
       selection instanceof CellSelection
         ? 'cell'
@@ -113,7 +116,9 @@ export class OriginHistoryContext {
     const { doc, mapping } = initProseMirrorDoc(this.fragment, this.schema);
     if (!doc.eq(state.doc)) throw new Error('HISTORY_STATE_OUT_OF_SYNC');
     let selection;
-    if (bookmark.type === 'all') selection = new AllSelection(state.doc);
+    if (bookmark.type === 'body-blocks')
+      selection = new BodyBlockSelection(state.doc, bookmark.ids);
+    else if (bookmark.type === 'all') selection = new AllSelection(state.doc);
     else {
       const anchor = relativePositionToAbsolutePosition(
         this.fragment.doc,

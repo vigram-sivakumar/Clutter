@@ -238,3 +238,21 @@ Escape, invalid selection or view editability/inert guard. Existing live PM rang
 still the single view selection; no copied document, separate range store, timer,
 platform/per-control branch, new command or persistence/history path. URL draft is
 ordinary toolbar input state and survives the focus interval. Disposal removes listeners.
+
+## Explicit body selection71
+
+BodyBlockSelection is the single PM view selection for explicit flat block IDs,
+document-ordered and title-filtered; an empty instance is inactive/no-caret mode.
+It maps by canonical IDs, produces only selected blocks for copy, and never stores
+membership in Y/Core, React body state or document attrs. Keyboard is the first
+adapter; future marquee/handles use the same public selection constructor.
+
+OriginHistoryContext bookmarks and existing public Y transaction selection guard
+recognize this mode (no second Undo manager/accepted writer). bodyBlockInteractions
+handles select-all stages, title isolation, Escape/click/typing/delete behavior;
+formatting text-range toolbar hides when mode switches. deleteBlocks is shared with
+single-object deletion, reparenting only surviving children to nearest surviving
+ancestor while preserving indentation/content/format. Object67 retains its body-caret
+destination; bulk mode remains no-caret until text click. Schema/Core/runtime/native
+sources unchanged. Marquee/handles/group drag and table-cell modes are not implemented
+by this keyboard adapter or inferred from its tests.

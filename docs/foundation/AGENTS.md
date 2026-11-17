@@ -223,3 +223,15 @@ intent/focus or Escape; no timer or per-control/native branch. Keep PM range map
 UI URL draft local, command executor/history/Core/save unchanged. Native70 check next;
 69 jsdom direct-focus test did not establish this focus interval.68 milestone remains
 complete. Do not start3C before this correction's scoped Mac check.
+
+## Current body selection71
+
+Formatting70 actual controls/Undo/Redo/save/window-reopen PASS;68 client milestone
+also complete.71 implements keyboard3C capability on one BodyBlockSelection explicit
+ID model, not full-document AllSelection. Read rebuild/body-selection-71.md. First
+Cmd/Ctrl+A current body block text, second all BODY IDs; title stays isolated; Escape
+no caret; typing/replacement disabled in block mode; deletion only explicit IDs.
+Generic deleteBlocks is shared with object67, preserving surviving child graph/indent.
+History/relative sync guard handles custom selection without another saved fact or
+Undo manager. No marquee/handles/group reorder yet: implement next using same model,
+not a parallel state machine. Native keyboard check first; don't mark whole3C complete.

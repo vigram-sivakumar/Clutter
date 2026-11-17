@@ -1,3 +1,4 @@
+import { deleteBlocks } from './block-deletion.mjs';
 import { bodySelectionNear } from './node-selection-bridge.mjs';
 import { Plugin, NodeSelection, TextSelection } from 'prosemirror-state';
 
@@ -43,26 +44,9 @@ export function continueAfterObject(state, nextId) {
 export function deleteBodyObject(state, nextId) {
   const selected = selectedBodyObject(state);
   if (!selected) return null;
-  const { blockId, parentId } = selected.node.attrs;
-  const tr = state.tr;
-  // Explicitly unselected children survive at unchanged indent, under the old
-  // parent. Never leave dangling references or infer descendants from pixels.
-  state.doc.forEach((node, pos) => {
-    if (node.attrs.parentId === blockId)
-      tr.setNodeMarkup(pos, undefined, { ...node.attrs, parentId });
-  });
-  tr.delete(selected.from, selected.to);
-  let at = selected.from;
-  const titleEnd = tr.doc.firstChild.nodeSize;
-  if (tr.doc.childCount === 1) {
-    tr.insert(
-      titleEnd,
-      state.schema.nodes.paragraph.create({ blockId: nextId() })
-    );
-    return tr
-      .setSelection(TextSelection.create(tr.doc, titleEnd + 1))
-      .scrollIntoView();
-  }
+  const tr = deleteBlocks(state, [selected.node.attrs.blockId], nextId);
+  if (!tr) return null;
+  const at = selected.from;
   tr.setSelection(bodySelectionNear(tr.doc, at));
   return tr.setStoredMarks([]).scrollIntoView();
 }

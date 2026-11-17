@@ -3441,3 +3441,248 @@ test('69 raw Y updates cannot sneak unknown marks, custom colours or title forma
     assert.equal(ok(await x.read()).head, opened.head);
   }
 });
+
+const { BodyBlockSelection, selectBodyBlocks } =
+  await import('../../editor/src/body-selection.mjs');
+for (const modifier of ['metaKey', 'ctrlKey'])
+  test(`71 ${modifier} first selects current body block text, second selects body IDs only; title stays isolated`, async (t) => {
+    const x = await seededList(t, [
+        { id: 'one', type: 'paragraph', text: 'First' },
+        { id: 'two', type: 'heading', text: 'Second' },
+        { id: 'sep', type: 'separator' },
+      ]),
+      { av, a } = x;
+    // Make title nonempty so exclusion is observable in text and copied content.
+    av.dispatch(av.state.tr.insertText('Title', 1));
+    a.stopCapturing();
+    rowAt(av, 'two', 3);
+    const before = av.state.doc.toJSON();
+    assert(keydown(av, 'a', { [modifier]: true }).defaultPrevented);
+    assert(av.state.selection instanceof TextSelection);
+    assert.equal(av.state.selection.$from.parent.attrs.blockId, 'two');
+    assert.equal(
+      av.state.doc.textBetween(av.state.selection.from, av.state.selection.to),
+      'Second'
+    );
+    keydown(av, 'a', { [modifier]: true });
+    assert(av.state.selection instanceof BodyBlockSelection);
+    assert.deepEqual(av.state.selection.ids, ['one', 'two', 'sep']);
+    assert.equal(av.state.selection.visible, false);
+    assert.equal(av.dom.querySelectorAll('.selected-body-block').length, 3);
+    assert(
+      !av.dom
+        .querySelector('h1[data-title]')
+        .classList.contains('selected-body-block')
+    );
+    assert(
+      !av.state.selection
+        .content()
+        .content.textBetween(0, av.state.selection.content().content.size)
+        .includes('Title')
+    );
+    keydown(av, 'Escape');
+    assert(av.state.selection instanceof BodyBlockSelection);
+    assert.deepEqual(av.state.selection.ids, []);
+    assert.equal(av.state.selection.visible, false);
+    assert.equal(av.dom.querySelectorAll('.selected-body-block').length, 0);
+    assert(keydown(av, 'x').defaultPrevented);
+    keydown(av, 'Enter');
+    av.dom.dispatchEvent(
+      new dom.window.InputEvent('beforeinput', {
+        bubbles: true,
+        cancelable: true,
+        inputType: 'insertText',
+        data: 'X',
+      })
+    );
+    assert.deepEqual(av.state.doc.toJSON(), before);
+    av.dispatch(
+      av.state.tr.setSelection(TextSelection.create(av.state.doc, 2))
+    );
+    for (let n = 0; n < 3; n++) {
+      keydown(av, 'a', { [modifier]: true });
+      assert(av.state.selection instanceof TextSelection);
+      assert.equal(av.state.selection.from, 1);
+      assert.equal(av.state.selection.to, 6);
+    }
+    await a.flush();
+  });
+test('71 empty body needs two select-all presses and ordinary click restores exact text caret', async (t) => {
+  const x = await seeded(t),
+    a = await x.open('empty-select'),
+    av = x.mount(a);
+  bodyInput(av, '');
+  rowAt(av, 'paragraph-1');
+  keydown(av, 'a', { metaKey: true });
+  assert(av.state.selection instanceof TextSelection);
+  keydown(av, 'a', { metaKey: true });
+  assert.deepEqual(av.state.selection.ids, ['paragraph-1']);
+  const pos = av.state.doc.firstChild.nodeSize + 1;
+  assert(
+    av.someProp('handleClick', (handler) =>
+      handler(av, pos, new dom.window.MouseEvent('click', { button: 0 }))
+    )
+  );
+  assert(av.state.selection instanceof TextSelection);
+  assert.equal(av.state.selection.from, pos);
+  av.dispatch(av.state.tr.insertText('Typing'));
+  await a.flush();
+  assert.equal(
+    ok(await x.read()).content.value.content[1].content[0].text,
+    'Typing'
+  );
+});
+test('71 disjoint explicit deletion preserves unselected descendants/indent, title and formats with Undo/Redo', async (t) => {
+  const x = await seededList(t, [
+      { id: 'parent', text: 'Parent' },
+      { id: 'child', text: 'Child', indent: 1, parent: 'parent' },
+      { id: 'grandchild', text: 'Grandchild', indent: 2, parent: 'child' },
+      { id: 'unrelated', text: 'Keep' },
+    ]),
+    { av, a } = x;
+  rowAt(av, 'grandchild');
+  const markStart = av.state.selection.from;
+  av.dispatch(
+    av.state.tr.setSelection(
+      TextSelection.create(av.state.doc, markStart, markStart + 10)
+    )
+  );
+  av.dispatch(createFormattingTransaction(av.state, 'background', 'purple'));
+  av.dispatch(selectBodyBlocks(av.state, ['parent', 'child', 'title']));
+  assert.deepEqual(av.state.selection.ids, ['parent', 'child']);
+  const copied = av.state.selection.content().content;
+  assert.equal(copied.childCount, 2);
+  assert.equal(copied.child(0).textContent, 'Parent');
+  const before = av.state.doc.toJSON();
+  keydown(av, 'Delete');
+  assert.deepEqual(
+    listRows(av).map((r) => r.id),
+    ['grandchild', 'unrelated']
+  );
+  assert.equal(av.state.doc.child(1).attrs.indent, 2);
+  assert.equal(av.state.doc.child(1).attrs.background, 'purple');
+  assert.equal(av.state.doc.child(1).attrs.parentId, null);
+  assert(av.state.selection instanceof BodyBlockSelection);
+  assert.deepEqual(av.state.selection.ids, []);
+  await a.flush();
+  assert(a.history(av, 'undo'));
+  assert.deepEqual(av.state.doc.toJSON(), before);
+  assert(av.state.selection instanceof BodyBlockSelection);
+  assert.deepEqual(av.state.selection.ids, ['parent', 'child']);
+  assert(a.history(av, 'redo'));
+  await a.flush();
+  // A second operation proves noncontiguous membership/copy/delete does not
+  // sweep the rows between explicit IDs into the selected set.
+  assert(a.history(av, 'undo'));
+  av.dispatch(selectBodyBlocks(av.state, ['unrelated', 'parent', 'title']));
+  assert.deepEqual(av.state.selection.ids, ['parent', 'unrelated']);
+  const disjoint = av.state.selection.content().content;
+  assert.deepEqual(
+    [disjoint.child(0).textContent, disjoint.child(1).textContent],
+    ['Parent', 'Keep']
+  );
+  keydown(av, 'Delete');
+  await a.flush();
+  assert.deepEqual(
+    listRows(av).map((row) => row.id),
+    ['child', 'grandchild']
+  );
+  assert.equal(av.state.doc.child(1).attrs.parentId, null);
+  assert.equal(av.state.doc.child(2).attrs.parentId, 'child');
+  assert.equal(av.state.doc.child(2).attrs.background, 'purple');
+  for (const mode of ['cli', 'mcp']) {
+    const read = ok(
+      await peerCommand67(x, mode, {
+        apiVersion: 1,
+        method: 'page.read',
+        spaceId: x.v.spaceId,
+        pageId: 'p',
+      })
+    );
+    assert.equal(read.content.value.content[0].type, 'title');
+    assert.deepEqual(
+      read.content.value.content.slice(1).map((n) => n.attrs.blockId),
+      ['child', 'grandchild']
+    );
+  }
+});
+test('71 deleting all body blocks retains one empty paragraph and never deletes title', async (t) => {
+  const x = await seeded(t),
+    a = await x.open('all-delete'),
+    av = x.mount(a);
+  av.dispatch(av.state.tr.insertText('Title', 1));
+  rowAt(av, 'paragraph-1');
+  keydown(av, 'a', { ctrlKey: true });
+  keydown(av, 'a', { ctrlKey: true });
+  keydown(av, 'Backspace');
+  assert.equal(av.state.doc.firstChild.textContent, 'Title');
+  assert.equal(av.state.doc.childCount, 2);
+  assert.equal(av.state.doc.child(1).type.name, 'paragraph');
+  assert.equal(av.state.doc.child(1).textContent, '');
+  assert(av.state.selection instanceof BodyBlockSelection);
+  assert.equal(av.state.selection.visible, false);
+  await a.flush();
+});
+test('71 peer writes map explicit selection by stable IDs and removal does not leak selection into title', async (t) => {
+  const x = await seededList(t, [
+      { id: 'one', type: 'paragraph', text: 'First' },
+      { id: 'two', type: 'paragraph', text: 'Second' },
+    ]),
+    { av, a } = x;
+  av.dispatch(selectBodyBlocks(av.state, ['one', 'two']));
+  const content = body('Peer');
+  content.value.content[1].attrs.blockId = 'two';
+  ok(
+    await peerCommand67(x, 'mcp', {
+      apiVersion: 1,
+      method: 'page.update',
+      spaceId: x.v.spaceId,
+      pageId: 'p',
+      operationId: x.next(),
+      expectedHead: x.v.load('p').head,
+      patch: { content },
+    })
+  );
+  await settle(a);
+  assert(av.state.selection instanceof BodyBlockSelection);
+  assert.deepEqual(av.state.selection.ids, ['two']);
+  assert.equal(av.state.doc.firstChild.type.name, 'title');
+  const read = ok(await x.read());
+  assert.equal(JSON.stringify(read).includes('body-blocks'), false);
+  // Empty/suspended selection also remains view-local through remote transactions.
+  keydown(av, 'Escape');
+  assert.deepEqual(av.state.selection.ids, []);
+  await a.flush();
+});
+test('71 read-only deletion and beforeinput guards prevent block replacement', async (t) => {
+  const { bodyBlockInteractions } =
+    await import('../../editor/src/block-selection.mjs');
+  const x = await seeded(t),
+    a = await x.open('selection-guards'),
+    av = x.mount(a);
+  av.dispatch(selectBodyBlocks(av.state, ['paragraph-1']));
+  const before = av.state.doc.toJSON();
+  const locked = bodyBlockInteractions({
+    canEdit: () => false,
+    nextId: x.next,
+  });
+  assert(
+    locked.props.handleKeyDown(
+      av,
+      new dom.window.KeyboardEvent('keydown', { key: 'Delete' })
+    )
+  );
+  assert.deepEqual(av.state.doc.toJSON(), before);
+  const beforeInput = new dom.window.InputEvent('beforeinput', {
+    inputType: 'insertText',
+    data: 'X',
+    cancelable: true,
+  });
+  assert(locked.props.handleDOMEvents.beforeinput(av, beforeInput));
+  assert(beforeInput.defaultPrevented);
+  const cut = new dom.window.Event('cut', { cancelable: true });
+  assert(locked.props.handleDOMEvents.cut(av, cut));
+  assert(cut.defaultPrevented);
+  assert(locked.props.handleDrop(av));
+  assert(locked.props.handlePaste(av));
+});

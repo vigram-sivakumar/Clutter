@@ -101,3 +101,7 @@ history/save. First scoped native formatting check next; Ctrl+A/marquee3C follow
 70 [toolbar focus correction](toolbar-focus-70.md) follows actual69 Bold PASS and
 reported native colour/link dismissal. Shared interaction ownership, no format/schema
 change. Scoped native check required before completing formatting and starting3C.
+
+Formatting70 now user Mac COMPLETE including Undo/Redo/save/window reopen.71 begins3C
+with [keyboard/body selection](body-selection-71.md). Shared explicit selection model
+also owns later marquee/handles; those pointer features remain next, not yet delivered.

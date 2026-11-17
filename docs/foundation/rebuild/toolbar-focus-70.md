@@ -55,3 +55,19 @@ visibility. No alternate command/save/history, copied range, OS/per-control bran
 or production delay. Schema/mark/preset validators, UI component, Core/runtime/native
 sources, dependencies/locks and69 ignore/roadmap changes are untouched. Only focus
 adapter, related regression and progress/evidence docs changed.
+
+## Actual user70 result
+
+User reports “all the formats pass.” Formatting controls, including previously
+reported colour/link interactions, are now native PASS. Final Undo/Redo and
+Save/window-reopen formatting persistence check remains separately unconfirmed.
+Record that next, then3C. Include this observation in the next source delivery;
+no code or tests changed for recording feedback.
+
+## Final formatting acceptance — COMPLETE
+
+User PASS after requested Bold+text-colour, Undo twice/Redo twice, Save, red-button
+close and same-session reopen retaining text/formats. Combined with all-controls
+PASS above, formatting capability is complete. NEXT3C Ctrl+A/body block selection
+per consolidated UX; do not repeat completed tests for bookkeeping. Observation
+update queued for next delivery after70. No owner restart/shipping inference.

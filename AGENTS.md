@@ -8,13 +8,14 @@ The user authorized complete removal of old architecture, not a compatibility pr
 Do not resurrect the retired CM6/full-or-compact Markdown/vault/persistence pipeline.
 
 Stage3 execution order and acceptance: docs/foundation/rebuild/stage3-implementation-plan.md.
-68 actual Mac CLI/MCP milestone COMPLETE, window/context reopen only (owner not
-restarted).69 user Bold/selection preservation PASS; colour/link controls DISMISS
-on interaction, not accepted as native pass. Current70 corrects shared toolbar focus
-ownership for native dropdown/link focus gaps. Read docs/foundation/rebuild/toolbar-focus-70.md. One interaction lifecycle, same live PM range,
-format executor/history/Core/save; no timeout/platform branch or per-control workaround.
-Next Mac check all three colours plus link input/Apply/Remove before3C. Text66/object67
-remain current. Deferred AI app integration stays roadmap only; ignore rules unchanged.
+68 real Mac client milestone and70 formatting controls/history/save/window-reopen
+are user PASS. Current71 implements3C keyboard selection: first Cmd/Ctrl+A current
+body text, second explicit BODY block IDs excluding title; title stays title-only.
+Escape clears without caret; typing cannot replace blocks; delete explicit IDs only,
+preserve unselected children. Read docs/foundation/rebuild/body-selection-71.md.
+One BodyBlockSelection model is already used by keyboard and context/history mapping;
+marquee/handles/reorder will use it next, not implemented or claimed in71. No temporary
+whole-document selectAll path. Native keyboard check next. AI app integration deferred.
 
 MANDATORY ON EVERY CHANGE: follow the completion review in docs/foundation/AGENTS.md.
 Remove superseded paths; check for duplicate owners/implementations and boundary

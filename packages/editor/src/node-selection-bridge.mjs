@@ -1,3 +1,4 @@
+import { BodyBlockSelection } from './body-selection.mjs';
 import {
   AllSelection,
   NodeSelection,
@@ -31,6 +32,13 @@ export function guardNodeSelections(doc, views) {
   const before = () => {
     for (const view of views) {
       const selection = view.state.selection;
+      if (selection instanceof BodyBlockSelection) {
+        pending.set(view, { ids: selection.ids });
+        view.dispatch(
+          view.state.tr.setSelection(new AllSelection(view.state.doc))
+        );
+        continue;
+      }
       if (!(selection instanceof NodeSelection)) continue;
       pending.set(view, {
         id: selection.node.attrs.blockId,
@@ -44,6 +52,14 @@ export function guardNodeSelections(doc, views) {
   const after = () => {
     for (const [view, saved] of pending) {
       if (!views.has(view)) continue;
+      if (saved.ids) {
+        view.dispatch(
+          view.state.tr.setSelection(
+            new BodyBlockSelection(view.state.doc, saved.ids)
+          )
+        );
+        continue;
+      }
       let pos;
       view.state.doc.forEach((node, start) => {
         if (node.attrs.blockId === saved.id && NodeSelection.isSelectable(node))

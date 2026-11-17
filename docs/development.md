@@ -243,3 +243,10 @@ broad git add/clean on the retired remnants; current patch stages exact source p
 source with `npm run desktop -- --new`; no dependency install.69 old sessions keep
 original bundles. Check all three colour controls and link field/Apply/Remove without
 losing toolbar/range. Only Bold was user-confirmed in69; native correction pending.
+
+## Body selection71
+
+[Keyboard capability/checklist](foundation/rebuild/body-selection-71.md). Apply over70,
+`npm run desktop -- --new`; no install. First Cmd/Ctrl+A block text, second BODY blocks,
+never title. Escape no caret; click text to edit. Explicit deletion/history/peer
+mapping shares existing Core. Marquee/handles/reorder next, not available in71.

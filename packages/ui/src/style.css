@@ -539,3 +539,16 @@ button:focus-visible {
 .formatting-toolbar button[aria-label='Strikethrough'] {
   text-decoration: line-through;
 }
+
+/* View-local block membership. Saved block background remains unchanged. */
+.ProseMirror.body-selection-mode {
+  caret-color: transparent;
+}
+.ProseMirror.body-selection-mode ::selection {
+  background: transparent;
+}
+.ProseMirror .selected-body-block {
+  outline: 2px solid #4a87be;
+  outline-offset: 1px;
+  background-color: #dcecff !important;
+}
