@@ -3,6 +3,19 @@
 Dated experimental implementation history is archived in Git. This is the concise
 current ledger; revisions below are delivery identifiers, not document file versions.
 
+## 57 — 2026-11-17
+
+- User56 reports flickering stopped; scoped manual visual PASS retained.
+- Default duplicate split admission off; explicit allowDuplicateNoteInTab option
+  enables it. Current displayed panes only; preserve normal navigation/history.
+- Add new-window host port and actual Tauri window creation sharing one owner;
+  per-window close nonces, guarded app quit and peer resume after refusal.
+- Keep opaque child IDs privately addressable for developer same-session recovery.
+- 114 Linux tests, strict Core/runtime TS and42-source boundaries pass. Native Rust
+  compilation/new-window/quit awaits Mac; no Rust compiler here. No Core/editor/
+  desktop-runtime source, schema or dependency/native-lock changes.
+- Stage3 remains UX-first, one question at a time after navigation feedback.
+
 ## 56 — 2026-11-17
 
 - Replace normal global busy/editability cycles with scoped operations and stable

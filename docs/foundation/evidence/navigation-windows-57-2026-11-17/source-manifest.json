@@ -1,0 +1,15 @@
+{
+  "packages/ui/src/app.jsx": "bf80dcf6ec74f44808e735162a267f33bddb74e70e0dbe1024273f17adf8d169",
+  "packages/ui/src/navigation.mjs": "a74f237420f0325a2dab62a5b4b24a945185581c49c08f7c04e9e6e8c8b44600",
+  "packages/ui/src/window-workspace.mjs": "577a2b1ae024c97bf027886fdb198ad8652e61ba8e51619b4e257c71c0dd2bf7",
+  "packages/ui/src/note-menu.jsx": "b3f65ceca93cac1bdb0b2b8b711c16c9092444b2190230ba3408a7768add71d0",
+  "apps/desktop/host/bootstrap.mjs": "b2be5b81fa3c2d7c1b6cbcf61409a3e391c4ab84fb1268e836d0ece2a7250989",
+  "apps/desktop/host/window-records.mjs": "ca28abffeda53e7bc17be6a4e4f2e052a6f1dc704ca7886066ac1804f6d12815",
+  "apps/desktop/src-tauri/src/main.rs": "4c8fe03b87b363350f3394c9d459a17c260a37a03623b43811112657c3f31489",
+  "apps/desktop/run.mjs": "841d02523c7442620aaf76ff91791195c3ba11a82b5d0984e5a9e1642372a4f0",
+  "apps/desktop/tools/build.mjs": "8035d34868a74385ce7c75cb5b6bbc797ec7dc731de001321917e772cdfb9fd2",
+  "apps/desktop/web/main.mjs": "00d8fb68921898d0116a684a5edbc1ec6443104dd24543eb95cd806be1515f11",
+  "packages/desktop-runtime/test/navigation.test.mjs": "cf131fe70af6ef8c4dc7e804bf9e701e8243f20db629bbdd4c6ec82fd5fa7aec",
+  "packages/desktop-runtime/test/foundation-desktop.test.mjs": "641e629400c879b4238a0329c2b0114eabb3be4d48aeb572a45ef5ddf19235ab",
+  "packages/desktop-runtime/test/window-host.test.mjs": "e9cb41101e5a989ad1ea144d0045373e8706d48f1e1cdcd18e027500cf6a16bb"
+}

@@ -24,6 +24,10 @@ const client = new CoreClient(async (command) => {
 const { model } = mountWorkspace(document.querySelector('#app'), {
   client,
   ...config,
+  openWindow:
+    typeof globalThis.__clutterOpenWindow === 'function'
+      ? (request) => globalThis.__clutterOpenWindow(request)
+      : null,
   stateStore: {
     load: () => windowState({ action: 'read' }),
     save: (record) => windowState({ action: 'write', ...record }),
@@ -56,7 +60,7 @@ const sync = async () => {
     syncing = false;
   }
 };
-const poll = setInterval(sync, 1000);
+let poll = setInterval(sync, 1000);
 addEventListener('focus', sync);
 addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'r') {
@@ -65,6 +69,11 @@ addEventListener('keydown', (e) => {
   }
 });
 globalThis.clutterWindow = {
+  resume: () => {
+    model.refuseClose();
+    clearInterval(poll);
+    poll = setInterval(sync, 1000);
+  },
   prepareClose: async () => {
     const result = await model.prepareClose();
     if (result.safe) clearInterval(poll);

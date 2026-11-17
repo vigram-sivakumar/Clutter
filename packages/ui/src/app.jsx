@@ -143,6 +143,7 @@ function App({ model }) {
 }
 const Sidebar = memo(function Sidebar({ model }) {
   useModel(model, indexState);
+  useModel(model, navigation);
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -180,6 +181,9 @@ const Sidebar = memo(function Sidebar({ model }) {
             <NoteMenu
               label={page.title || 'Untitled'}
               disabled={!model.canNavigate}
+              splitDisabled={!model.canSplit(page.pageId)}
+              windowDisabled={!model.canOpenWindow}
+              onNewWindow={() => void model.openInNewWindow(page.pageId)}
               onNewTab={() => void model.openInNewTab(page.pageId)}
               onSplit={() => void model.openInSplit(page.pageId)}
             />

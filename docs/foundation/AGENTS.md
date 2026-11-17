@@ -54,3 +54,13 @@ discuss expected UX with the user. Ask ONE question at a time, record their answ
 and resolve that stage's UX before coding it. Do not batch questions or infer the
 new UX from retired controllers/sample UI. Do not re-ask already confirmed behavior.
 This is the requested product workflow, not permission for more architecture research.
+
+## Latest confirmed navigation refinement (57)
+
+User56 reports flickering stopped. P-42 disables duplicate split admission by default
+for a note currently displayed in the current tab; allowDuplicateNoteInTab:true is
+an explicit enabling prop. Histories/contexts/other tabs do not block splitting.
+Do not silently change normal open/Back/Forward into focus-existing-pane routing.
+New tab creates a tab; new window is another native window with the same Space owner,
+not another semantic process/authority. Preserve per-window close and all-window quit
+barriers. Native57 compile/window/quit is pending;114 Linux tests do not establish it.

@@ -9,6 +9,9 @@ export class WindowWorkspace {
     changed = () => {},
     nextId = () => crypto.randomUUID(),
     stateStore = null,
+    allowDuplicateNoteInTab = false,
+    initialPageId = null,
+    openWindow = null,
   }) {
     Object.assign(this, {
       client,
@@ -17,8 +20,16 @@ export class WindowWorkspace {
       changed,
       nextId,
       stateStore,
+      initialPageId,
+      openWindow,
     });
-    this.navigation = new WindowNavigation(nextId);
+    this.navigationOptions = Object.freeze({ allowDuplicateNoteInTab });
+    this.navigation = new WindowNavigation(
+      nextId,
+      undefined,
+      this.navigationOptions
+    );
+    this.windowRequests = new Map();
     this.editors = new Map();
     this.pages = [];
     this.next = undefined;
@@ -130,7 +141,8 @@ export class WindowWorkspace {
         if (value !== null)
           this.navigation = new WindowNavigation(
             this.nextId,
-            JSON.parse(value)
+            JSON.parse(value),
+            this.navigationOptions
           );
       }
       if (value !== null)
@@ -139,7 +151,8 @@ export class WindowWorkspace {
         );
       await this.list();
       if (value === null) {
-        if (this.pages.length) this.navigation.open(this.pages[0].pageId);
+        if (this.initialPageId) this.navigation.open(this.initialPageId);
+        else if (this.pages.length) this.navigation.open(this.pages[0].pageId);
         await this.checkpoint();
       }
       const release = await this.primeNavigation(this.navigation);
@@ -197,7 +210,8 @@ export class WindowWorkspace {
     let index = 0;
     const next = new WindowNavigation(
       () => intent.ids[index++] ?? (intent.ids[index - 1] = this.nextId()),
-      this.navigation.snapshot()
+      this.navigation.snapshot(),
+      this.navigationOptions
     );
     const changed = intent.change(next);
     if (intent.epoch !== this.focusEpoch) {
@@ -379,7 +393,33 @@ export class WindowWorkspace {
   openInNewTab(pageId) {
     return this.navigate((nav) => nav.newTab(pageId));
   }
+  canSplit(pageId) {
+    return this.canNavigate && this.navigation.canSplit(pageId);
+  }
+  get canOpenWindow() {
+    return this.canSelectView && typeof this.openWindow === 'function';
+  }
+  openInNewWindow(pageId) {
+    if (!this.canOpenWindow) return Promise.resolve(false);
+    if (this.windowRequests.has(pageId)) return this.windowRequests.get(pageId);
+    const requestId = this.nextId();
+    const task = Promise.resolve()
+      .then(() => this.openWindow({ pageId, requestId }))
+      .then(() => true)
+      .catch(() => {
+        this.notify(
+          'Could not confirm the new window. Existing notes remain available.'
+        );
+        return false;
+      })
+      .finally(() => {
+        this.windowRequests.delete(pageId);
+      });
+    this.windowRequests.set(pageId, task);
+    return task;
+  }
   openInSplit(pageId) {
+    if (!this.canSplit(pageId)) return Promise.resolve(false);
     const location = this.navigation.location();
     return this.navigate((nav) => nav.split(pageId, location));
   }
@@ -532,6 +572,7 @@ export class WindowWorkspace {
       await this.loading?.catch(() => {});
       await this.creating;
       await this.navigationTail;
+      await Promise.allSettled([...this.windowRequests.values()]);
       await Promise.allSettled([...this.preparing]);
       let safe = !this.pendingCreate;
       if (this.ready) {

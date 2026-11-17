@@ -93,3 +93,31 @@ No dependency install is needed. Close previous dev window; apply56 and rebuild 
 npm run desktop -- --new (fresh synthetic Space, previous sessions retained). Check
 New Page, split, normal note navigation, Back/Forward and tabs for no dimming/blank
 flash. Mac presentation/IME/caret/scroll remains pending. Stage3 UX discussion first.
+
+## Navigation/windows57
+
+User56 reports flicker stopped.57 changes split admission: Open in split is disabled
+if the note is displayed in the current tab; other tabs/history do not count. Shared
+UI composition can opt into allowDuplicateNoteInTab:true; it defaults false.
+Open in new tab creates a tab; Open in new window creates another Tauri window in
+the same process/Space authority. No dependency install is needed. Rebuild source
+with npm run desktop -- --new after closing previous dev windows.
+
+Native57 compilation and actual window/quit checks must run on Mac; this Linux host
+has no Rust compiler. The114 passing tests include two actual production UI bundles
+sharing a real owner through an injected window adapter, not a Tauri launch. Check
+menu admission and opening the same note in another window first. Shared editing,
+closing one window while the other stays usable, and app quit/refusal are distinct
+native observations. No profiler replay. Stage3 UX discussion still precedes code.
+
+Normal npm run desktop:reopen restores the original window. For developer recovery
+of a child, close ALL native windows, then use:
+
+```bash
+npm run desktop:reopen -- --window-id CHILD_WINDOW_ID
+```
+
+IDs/page references are retained in private Git metadata under
+clutter-structured53/windows/<session-hash>/*.json; no bodies/tokens in descriptors.
+This explicit developer path preserves context identity; recent-window/automatic
+session restore UX has not been implemented. Keep synthetic data until release gates.

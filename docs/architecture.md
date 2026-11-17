@@ -124,3 +124,29 @@ A cancelled reveal never cancels accepted Core work. Focus follows current inten
 not late callbacks. No Core/editor/storage/host/format/dependency redesign in56.
 Actual Mac paint/geometry/IME/caret behavior still requires scoped observation;
 passing DOM tests do not qualify presentation latency or guarantee zero flicker.
+
+## Window destinations and split admission (57)
+
+allowDuplicateNoteInTab defaults false in the shared navigation constructor. The
+split command and canSplit both inspect currently displayed pages of the target
+tab; queued/rebased intents cannot bypass it. The menu reflects the same rule.
+Existing layouts are preserved; histories/cached contexts and other tabs are not
+counted. Ordinary open/Back/Forward behavior is unchanged. Enabling the option
+preserves the engine's qualified independent same-note contexts.
+
+New window is a UI-injected host mechanism, separate from normal navigation. The
+Tauri host creates a fresh native window against the same Space owner endpoint,
+not another owner or CLI semantic path. Unique window IDs scope layout and editor
+contexts. The initial page applies only to an empty window record; saved navigation
+wins on reopen. The bridge validates IDs, correlates request/reply and binds native
+events to window ID/boot nonce. Native close guards are per-window; quitting waits
+for all live window guards, and refusal resumes already-frozen peers. Shared UI
+retains save/protection decisions. Native request replay and close barriers avoid
+untracked asynchronous window creation. Native compilation and OS behavior remain
+pending actual Mac validation; JS bridge tests do not qualify Rust/Tauri execution.
+
+Child locator files contain only windowId/initialPageId, scoped under developer
+session identity and written privately before reveal. Explicit developer reopen by
+window ID preserves protected-context addressability. Finished automatic window
+restoration/recents and installed Windows support remain later UX/platform work.
+No Core/editor/storage format/dependency graph change is required by this slice.

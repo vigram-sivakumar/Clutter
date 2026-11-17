@@ -1,0 +1,8 @@
+{
+  "purpose": "Primary Tauri API reference for native mechanism, not execution evidence",
+  "sources": [
+    "https://docs.rs/tauri/2.12.5/tauri/struct.AppHandle.html",
+    "https://docs.rs/tauri/latest/tauri/webview/struct.WebviewWindowBuilder.html"
+  ],
+  "notes": "AppHandle pinned2.12.5 page accessible. Builder page retrieved2.12.6 documents initialization_script, hidden windows and separate-thread creation; exact2.12.5 builder page unavailable. Pinned dependencies were NOT changed. Mac compile is still required."
+}

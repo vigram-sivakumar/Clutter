@@ -1,6 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 /** Small shared-web menu; actions retain the current tab/pane as their destination. */
-export function NoteMenu({ label, disabled, onNewTab, onSplit }) {
+export function NoteMenu({
+  label,
+  disabled,
+  splitDisabled = false,
+  windowDisabled = false,
+  onNewTab,
+  onNewWindow,
+  onSplit,
+}) {
   const [open, setOpen] = useState(false);
   const root = useRef(null),
     trigger = useRef(null),
@@ -47,7 +55,9 @@ export function NoteMenu({ label, disabled, onNewTab, onSplit }) {
           aria-label={'Open ' + label}
           onKeyDown={(e) => {
             const items = [
-              ...e.currentTarget.querySelectorAll('[role=menuitem]'),
+              ...e.currentTarget.querySelectorAll(
+                '[role=menuitem]:not(:disabled)'
+              ),
             ];
             const index = items.indexOf(document.activeElement);
             if (e.key === 'Escape') {
@@ -74,7 +84,23 @@ export function NoteMenu({ label, disabled, onNewTab, onSplit }) {
           <button ref={first} role="menuitem" onClick={() => select(onNewTab)}>
             Open in new tab
           </button>
-          <button role="menuitem" onClick={() => select(onSplit)}>
+          <button
+            role="menuitem"
+            disabled={windowDisabled}
+            onClick={() => select(onNewWindow)}
+          >
+            Open in new window
+          </button>
+          <button
+            role="menuitem"
+            disabled={splitDisabled}
+            title={
+              splitDisabled
+                ? 'This note is already displayed in this tab'
+                : undefined
+            }
+            onClick={() => select(onSplit)}
+          >
             Open in split view
           </button>
         </div>

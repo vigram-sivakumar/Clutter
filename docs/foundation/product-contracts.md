@@ -71,6 +71,8 @@ is visible for planning with zero influence on architectural selection.
 
 | P-41 | Routine note switching should feel natural, without blanking, flicker or a loading message. Reuse retained note contexts and preserve unaffected split panes; make destination content ready before replacing the current view. This is a UX requirement, not a measured performance result. |
 
+| P-42 | Open in split is disabled by default when the requested note is currently displayed in any pane of the current tab. History/retained contexts and other tabs/windows do not block it. A shared allowDuplicateNoteInTab option can enable same-note splits; the coordinator enforces admission as well as the menu. New tab explicitly creates a tab. New window opens the note in another Clutter window sharing the Space authority, with independent navigation/editing contexts. It does not require an independent application process or data owner. Normal opening/Back/Forward continue P-40; no new implicit existing-pane routing is introduced. |
+
 ## Specification completion
 
 The product-behaviour document owns the detailed rules behind P-25 through P-33.

@@ -4,15 +4,11 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawn } from 'node:child_process';
 import { lock, acquireRuntime } from './tools/runtime.mjs';
+import { windowArguments } from './host/window-records.mjs';
 const source = dirname(fileURLToPath(import.meta.url)),
   root = resolve(source, '../..'),
   args = process.argv.slice(2);
-if (
-  args.some((a) => !['--check', '--reopen', '--new'].includes(a)) ||
-  new Set(args).size !== args.length ||
-  (args.includes('--reopen') && args.includes('--new'))
-)
-  throw Error('USE_CHECK_REOPEN_OR_NEW');
+windowArguments(args);
 if (
   execFileSync('git', ['branch', '--show-current'], {
     cwd: root,

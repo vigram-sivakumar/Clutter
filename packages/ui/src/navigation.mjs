@@ -68,7 +68,14 @@ export function parseNavigation(value) {
 }
 /** UI navigation only. Histories contain page references, never document bodies. */
 export class WindowNavigation {
-  constructor(nextId, value = { version: 1, tabs: [], activeTabId: null }) {
+  constructor(
+    nextId,
+    value = { version: 1, tabs: [], activeTabId: null },
+    { allowDuplicateNoteInTab = false } = {}
+  ) {
+    if (typeof allowDuplicateNoteInTab !== 'boolean')
+      throw Error('INVALID_NAVIGATION_OPTION');
+    this.allowDuplicateNoteInTab = allowDuplicateNoteInTab;
     this.nextId = nextId;
     this.value = parseNavigation(value);
   }
@@ -142,7 +149,16 @@ export class WindowNavigation {
       return true;
     });
   }
+  canSplit(pageId, location) {
+    const { tab } = this.pane(this.value, location);
+    return (
+      !tab ||
+      this.allowDuplicateNoteInTab ||
+      !tab.panes.some((p) => this.page(p) === pageId)
+    );
+  }
   split(pageId, location) {
+    if (!this.canSplit(pageId, location)) return false;
     if (!this.activeTab) return this.newTab(pageId);
     return this.mutate((draft) => {
       const { tab } = this.pane(draft, location);

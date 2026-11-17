@@ -1,0 +1,27 @@
+{
+  "delivery": 57,
+  "base": 56,
+  "user56": "flickering has stopped (user manual observation)",
+  "scope": [
+    "Default duplicate split admission off with explicit shared enabling option",
+    "New tab retained; new native window port/bridge sharing the same Space owner and fresh window contexts",
+    "Per-window close/nonces; all-window quit barrier and resume on refusal",
+    "Opaque private child locators and explicit same-session developer reopen"
+  ],
+  "checks": {
+    "linuxTests": 114,
+    "passed": 114,
+    "typescript": "strict Core/runtime pass",
+    "boundaries": 42
+  },
+  "native": "NOT COMPILED/RUN: Rust compiler absent on this Linux host; actual Mac build/window creation/close/quit and Windows support pending",
+  "automatedWindowCoverage": "Two production React/PM browser windows with actual Core/SQLite/owner through injected host adapter; VM bootstrap protocol/nonce/reply/resume tests. Not a Tauri launch or native quit-state test.",
+  "attempts": "Default-policy change required explicitly enabling old same-note consistency fixtures. Initial focused attempts exposed missed menu prop wiring, a reused test ID generator and a locator fixture missing private mode; corrected. Focused3 run26 and full113 pass. Native source was reviewed against official API references but cannot be qualified by those tests. Final full114 run also verifies repeated native-window activation joins one request and source close waits for its acknowledgement.",
+  "frozen": "Core/editor/desktop-runtime source, schema and all external dependency/native lock bytes unchanged",
+  "remaining": [
+    "Native Mac compile/new-window/close/all-window quit/refusal observations",
+    "Finished recent/automatic window restore UX",
+    "Stage3 UX discussion one question at a time before implementation",
+    "Prior installed format/security/durability/identity/scale/browser/Windows/distribution gates"
+  ]
+}

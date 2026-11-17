@@ -22,6 +22,11 @@ import {
 } from '../../../packages/desktop-runtime/src/host/session.mjs';
 import { ensureOwner } from '../../../packages/desktop-runtime/src/host/launcher.mjs';
 import { bootstrap } from '../host/bootstrap.mjs';
+import {
+  windowArguments,
+  windowDirectory,
+  readWindowRecord,
+} from '../host/window-records.mjs';
 import { prepareLockedTools } from './locks.mjs';
 import { setLoopbackPolicy } from './plist.mjs';
 import { fetchLockedCargo } from './cargo-cache.mjs';
@@ -258,11 +263,18 @@ try {
   }
   const endpoint = await ensureOwner(current.resources, current.session),
     m = readSession(current.session, current.resources);
+  const selectedWindow = windowArguments(args).windowId;
+  const windowsDirectory = windowDirectory(base, current.session);
+  const requested = selectedWindow
+    ? readWindowRecord(windowsDirectory, selectedWindow)
+    : null;
   const host = {
     url: endpoint.url + '/',
     token: m.tokens.ui,
     spaceId: m.spaceId,
-    windowId: current.windowId,
+    windowId: requested?.windowId ?? current.windowId,
+    initialPageId: requested?.initialPageId ?? null,
+    windowsDirectory,
     bootNonce: randomUUID(),
   };
   host.script = bootstrap(host);
@@ -290,7 +302,7 @@ try {
         owner: 'headless-existing-Core',
         session: 'same-disposable-session',
         native: 'awaiting-user-observation',
-        next: 'Wait for Saved and both views. Do not begin old manual/profiling suites.',
+        next: 'Use the new window only after its editor is ready. No old profiling suite is needed.',
         report: latest,
       },
       null,

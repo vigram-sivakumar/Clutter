@@ -248,7 +248,15 @@ test('local transport denies foreign origins, bad tokens, admin mutations and ov
   });
   assert.equal(huge.status, 400);
 });
-async function browserWindow(dir, windowId = 'window54') {
+async function browserWindow(
+  dir,
+  windowId = 'window54',
+  {
+    allowDuplicateNoteInTab = false,
+    initialPageId = null,
+    onOpenWindow = null,
+  } = {}
+) {
   const m = readSession(dir, resources),
     start = await run(dir);
   assert.equal(start.code, 0, start.err);
@@ -300,7 +308,10 @@ async function browserWindow(dir, windowId = 'window54') {
     spaceId: m.spaceId,
     token: m.tokens.ui,
     windowId,
+    allowDuplicateNoteInTab,
+    initialPageId,
   };
+  if (onOpenWindow) dom.window.__clutterOpenWindow = onOpenWindow;
   dom.window.__clutterHostEvent = (e) => events.push(e);
   dom.window.eval(readFileSync(join(resources, 'web/app.js'), 'utf8'));
   const doc = dom.window.document;
@@ -399,7 +410,9 @@ async function browserWindow(dir, windowId = 'window54') {
 }
 test('React navigation stays in the current tab, owns split layouts per tab, and keeps same-note views consistent', async () => {
   const dir = await session();
-  let ui = await browserWindow(dir);
+  let ui = await browserWindow(dir, 'window54', {
+    allowDuplicateNoteInTab: true,
+  });
   try {
     ui.button('+ New page').click();
     await ui.wait(() => !!ui.active());
@@ -536,7 +549,9 @@ test('React navigation stays in the current tab, owns split layouts per tab, and
     await ui.dispose();
     ui = null;
     // Reopening the same window restores tab-owned layouts and view identities.
-    ui = await browserWindow(dir);
+    ui = await browserWindow(dir, 'window54', {
+      allowDuplicateNoteInTab: true,
+    });
     assert.equal(ui.instanceId, instance);
     await ui.wait(
       () => ui.tabs().length === 2 && ui.active()?.textContent === 'FIRST PAGE'
@@ -863,6 +878,65 @@ test('creation and split preparation preserve shell controls, existing editabili
   } finally {
     release();
     if (restore) ui.dom.window.fetch = restore;
+    await ui.dispose();
+  }
+});
+
+test('default menu blocks only already-displayed split notes; new tabs/windows share Core with independent views and close guards', async () => {
+  const dir = await session();
+  let child = null,
+    requests = [];
+  const ui = await browserWindow(dir, 'parent-window', {
+    onOpenWindow: async (request) => {
+      requests.push(request);
+      child = await browserWindow(dir, 'child-window', {
+        initialPageId: request.pageId,
+      });
+      return { windowId: 'child-window' };
+    },
+  });
+  try {
+    ui.button('+ New page').click();
+    await ui.wait(() => !!ui.active());
+    const page = ui.panes()[0].dataset.page;
+    await ui.type('SHARED PAGE');
+    await ui.saved();
+    const row = ui.doc.querySelector('.page-row');
+    row.querySelector('.note-menu-trigger').click();
+    await ui.wait(() => !!row.querySelector('[role=menu]'));
+    const split = [...row.querySelectorAll('[role=menuitem]')].find(
+      (b) => b.textContent === 'Open in split view'
+    );
+    assert.equal(split.disabled, true);
+    split.click();
+    assert.equal(ui.panes().length, 1);
+    [...row.querySelectorAll('[role=menuitem]')]
+      .find((b) => b.textContent === 'Open in new window')
+      .click();
+    await ui.wait(() => child?.active()?.textContent === 'SHARED PAGE');
+    assert.equal(requests.length, 1);
+    assert.equal(
+      child.instanceId,
+      ui.instanceId,
+      'both UIs use one running owner'
+    );
+    assert.notEqual(child.active(), ui.active());
+    assert.equal(ui.tabs().length, 1, 'new window does not add a source tab');
+    await child.type('SHARED PAGE FROM CHILD');
+    await child.saved();
+    await ui.wait(() => ui.active()?.textContent === 'SHARED PAGE FROM CHILD');
+    await control(dir, { failSaves: true, failProtection: true });
+    await child.type('CHILD PENDING');
+    assert.equal((await child.close()).safe, false);
+    assert.equal(ui.active().getAttribute('contenteditable'), 'true');
+    await control(dir, { failSaves: false, failProtection: false });
+    await child.saved();
+    assert.equal((await child.close()).safe, true);
+    await ui.menu(page, 'Open in new tab');
+    await ui.wait(() => ui.tabs().length === 2);
+    assert.equal(ui.panes().length, 1);
+  } finally {
+    if (child) await child.dispose();
     await ui.dispose();
   }
 });

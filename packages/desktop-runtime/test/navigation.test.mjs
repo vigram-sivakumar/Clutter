@@ -50,7 +50,9 @@ test('ordinary note navigation stays in the current tab/pane and Back/Forward hi
   assert.equal(nav.travel(1), false);
 });
 test('each tab owns a split layout and each pane navigates independently, including notes open in another tab', () => {
-  const nav = new WindowNavigation(ids());
+  const nav = new WindowNavigation(ids(), undefined, {
+    allowDuplicateNoteInTab: true,
+  });
   nav.open('a');
   const first = nav.activeTab.id,
     left = nav.activePane.id;
@@ -171,6 +173,7 @@ test('private layout writes are isolated, monotonic and exactly retryable across
 test('window restore uses persisted tab/pane keys so same-note contexts remain distinct and protected work remains addressable', async (t) => {
   const { data } = store(t);
   const first = unitWindow({
+    allowDuplicateNoteInTab: true,
     client: client(),
     spaceId: 's',
     windowId: 'w',
@@ -192,6 +195,7 @@ test('window restore uses persisted tab/pane keys so same-note contexts remain d
   await first.back();
   assert.equal((await first.prepareClose()).safe, true);
   const second = unitWindow({
+    allowDuplicateNoteInTab: true,
     client: client(),
     spaceId: 's',
     windowId: 'w',
@@ -208,6 +212,7 @@ test('window restore uses persisted tab/pane keys so same-note contexts remain d
     right
   );
   const other = unitWindow({
+    allowDuplicateNoteInTab: true,
     client: client(),
     spaceId: 's',
     windowId: 'other',
@@ -532,4 +537,93 @@ test('uncertain creation retries exactly once per operation and accepted late cr
   assert(model.pages.some((p) => p.pageId === commands[0].pageId));
   assert.equal(model.pendingCreate, null);
   assert.equal((await model.prepareClose()).safe, true);
+});
+
+test('duplicate split admission defaults off, ignores history/other tabs, and has one explicit enabling option', async () => {
+  const nav = new WindowNavigation(ids());
+  nav.open('a');
+  assert.equal(nav.canSplit('a'), false);
+  assert.equal(nav.split('a'), false);
+  assert.equal(nav.activeTab.panes.length, 1);
+  nav.split('b');
+  nav.open('c');
+  assert.equal(nav.canSplit('b'), true, 'history alone does not block');
+  nav.newTab('a');
+  assert.equal(nav.canSplit('c'), true, 'other tabs do not block');
+  assert.equal(nav.split('a'), false);
+  const enabled = new WindowNavigation(
+    () => 'extra_' + crypto.randomUUID(),
+    nav.snapshot(),
+    {
+      allowDuplicateNoteInTab: true,
+    }
+  );
+  assert.equal(enabled.split('a'), true);
+  assert.equal(enabled.activeTab.panes.length, 2);
+  const restored = new WindowNavigation(ids(), enabled.snapshot());
+  assert.equal(
+    restored.activeTab.panes.length,
+    2,
+    'restoring prior layouts does not drop views'
+  );
+  assert.throws(
+    () =>
+      new WindowNavigation(ids(), undefined, {
+        allowDuplicateNoteInTab: 'yes',
+      }),
+    /INVALID_NAVIGATION_OPTION/
+  );
+  const model = unitWindow({
+    client: client(),
+    spaceId: 's',
+    windowId: 'w',
+    nextId: ids(),
+  });
+  await model.start();
+  await model.open('a');
+  assert.equal(await model.openInSplit('a'), false);
+  await Promise.all([model.openInSplit('b'), model.openInSplit('b')]);
+  assert.deepEqual(
+    model.navigation.activeTab.panes.map((p) => model.navigation.page(p)),
+    ['a', 'b'],
+    'queued intent cannot bypass admission'
+  );
+  assert.equal((await model.prepareClose()).safe, true);
+});
+
+test('window creation joins repeated activation and the source close guard waits for its acknowledgement', async () => {
+  let entered,
+    release,
+    calls = 0;
+  const waiting = new Promise((ok) => (entered = ok));
+  const model = unitWindow({
+    client: client(),
+    spaceId: 's',
+    windowId: 'parent',
+    nextId: ids(),
+    openWindow: async (request) => {
+      calls++;
+      assert.equal(request.pageId, 'a');
+      assert(request.requestId);
+      entered();
+      await new Promise((ok) => (release = ok));
+      return { windowId: 'child' };
+    },
+  });
+  await model.start();
+  await model.open('a');
+  const opening = model.openInNewWindow('a');
+  assert.equal(model.openInNewWindow('a'), opening);
+  await waiting;
+  let closed = false;
+  const closing = model.prepareClose().then((result) => {
+    closed = true;
+    return result;
+  });
+  await new Promise((ok) => setImmediate(ok));
+  assert.equal(closed, false);
+  release();
+  assert.equal(await opening, true);
+  assert.equal((await closing).safe, true);
+  assert.equal(calls, 1);
 });
