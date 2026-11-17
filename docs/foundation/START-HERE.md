@@ -1,19 +1,31 @@
 # Resume Clutter Structured
 
-## Current checkpoint — stage3 UX documented58, 17 November 2026
+## Current checkpoint — stage3 implementation plan59, 17 November 2026
 
 **Read [Stage3 UX decisions](rebuild/stage3-ux.md) first.** It consolidates the final
 confirmed rules, corrections, scope and deferred work from this conversation.
-The user requested this documentation checkpoint because the discussion is long.
+The final UX record includes the toolbar actions and preset-only colour policy.
+Read [the implementation plan](rebuild/stage3-implementation-plan.md) next.
 
 **Status:** UX discussion in progress. No stage3 editor/schema/application code has
 been implemented. Do not mistake agreed UX or historical tests for completed work.
 
-**Exact next topic:** actions in the floating text-selection formatting toolbar.
-The user has not answered that question. Bold/italic/underline/strikethrough/links/
-text-colour/highlight were examples only. Do not implement those as an approved list.
-The latest request is to document first; do not ask another UX question in that
-handoff response. Resume this pending question when the user resumes discussion.
+**Latest answer after58:** the user resumed UX discussion and approved bold, italic,
+underline, strikethrough, links, text colour and highlight, plus BLOCK BACKGROUND
+COLOUR. Highlight affects selected text; block background affects the entire block
+containing that selection. The toolbar action list is no longer unanswered.
+
+**Latest answer:** PRESET COLOURS ONLY; no custom colour input.
+
+**Exact next step: implement part3A of the plan** — one canonical structured title/body
+document and shared context/history, typed Core/codec changes, derived sidebar title,
+and the agreed title/paste/boundary interactions. No standalone React title writer.
+
+The plan has five buildable parts:3A content/title/history;3B blocks/formatting;
+3C selection/drag;3D tasks/images;3E tables/integrated UI.59 is documentation only;
+no stage3 application/schema/native code or dependencies have changed yet. No more
+required pre-code UX questions. Use consistent defaults for ordinary details; ask
+only a genuine material blocker, one at a time.
 
 ## Working agreement
 
@@ -49,7 +61,7 @@ User56 observation: “the flickering has stopped”. User57 observation: “it 
 after the requested split-disabled/new-window check. Preserve these scoped manual
 passes. No raw compile log, all-window quit/refusal, protected-child recovery, IME
 or installed-data/shipping qualification is inferred. Do not replay old manual or
-host profiling suites for bookkeeping.58 is DOCUMENTATION ONLY; no rebuild needed.
+host profiling suites for bookkeeping.58/59 are DOCUMENTATION ONLY; no rebuild needed.
 
 Use synthetic Spaces until installed format/security/durability/identity/scale and
 release gates close. Windows/browser composition and finished session-restoration

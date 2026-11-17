@@ -6,9 +6,11 @@ conversation. It records the final agreed behavior, not earlier proposals. Curre
 application behavior and editor-library defaults are not substitutes for these rules.
 
 Discuss UX **one question at a time** and agree the stage before implementation.
-The next open question is the floating formatting toolbar's action list. The user
-paused that discussion to request this documentation; do not treat example toolbar
-buttons as approved, and do not silently begin implementation.
+The user resumed discussion after documentation58 and approved the toolbar actions
+below, adding block background colour, and chose PRESET COLOURS ONLY.
+The core UX baseline is sufficient; the concrete [implementation plan](stage3-implementation-plan.md) is now prepared. Do not
+continue an exhaustive minor-detail questionnaire or treat unspecified behavior
+as permission to contradict this record.
 
 ## 1. Scope for this stage
 
@@ -82,7 +84,10 @@ a separate interaction from selecting an insertion command in this menu.
 | F01 | Selected body text | Show a floating formatting toolbar **directly above the selected text**. |
 | F02 | Placement | Anchor to the selection, not to the top of the entire block or beside the selection. |
 | F03 | Selection stability | Showing the toolbar must preserve the text selection. |
-| F04 | Available actions | **Not decided yet.** Bold, italic, underline, strikethrough, links, text colour and highlight were examples in the unanswered question, not an approved action list. |
+| F04 | Available actions | Bold, italic, underline, strikethrough, links, text colour, highlight, and block background colour. All seven previously proposed actions are now approved; block background colour is additionally required. |
+| F05 | Text highlight | Highlight applies to the selected text range, separately from block background colour. |
+| F06 | Block background colour | Change the background of the entire block containing the selected text, rather than only the selected characters. |
+| F07 | Colour choices | PRESET COLOURS ONLY for the toolbar colour controls. Do not add custom colour entry/pickers. Exact preset swatches are not yet specified and can be reviewed with the component. |
 
 ## 6. Lists: indentation, Enter and Backspace
 
@@ -214,9 +219,12 @@ ledger exists to prevent a future agent reviving either kind of superseded propo
 
 ## 12. Open question and continuation
 
-**Next question: which actions should the floating formatting toolbar contain?**
-No answer has been given. The examples in the previous question are not requirements.
-Do not resume a different topic or ask the user to repeat the decisions above.
+**Next step: implement part3A of the [stage3 plan](stage3-implementation-plan.md).
+No further required pre-code UX questions.** The toolbar action list and preset-only colour policy
+are answered (F04–F07). The user asked how many questions remain; stop the serial
+minor-detail questionnaire. Do not re-ask confirmed decisions. Use consistent
+editing conventions for ordinary implementation details; bring up only genuine
+material blockers, one at a time. Visual details can be reviewed with the component.
 
 Unspecified details are not silently settled by this document. Resolve material
 ambiguities as needed, one question at a time, without reopening agreed behavior.

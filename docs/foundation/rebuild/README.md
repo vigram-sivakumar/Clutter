@@ -10,7 +10,7 @@ architecture. No migration/compatibility façade, dual writer or permanent paral
 | R0 | Closed51 | Old/main import inventory and concrete clean rebuild decision |
 | R1 prerequisites | Closed52 | Exact native manifests/full locks checked in; old experiment cache dependency removed |
 | R1 source | Delivered53; later scoped user checks recorded through57 | Actual package split, single React/Tauri product entry, real Core catalogue/create/open/edit/save/reopen flow; coherent old-pipeline removal |
-| R2 / roadmap stage3 | UX discussion required before code | Title/full block schema, real component/NodeView adapters, tables/tasks/media and agreed interaction behavior |
+| R2 / roadmap stage3 | Plan59 ready; implementation not started | Title/full block schema, real component/NodeView adapters, tables/tasks/media and agreed interaction behavior |
 | R3 | Pending | Complete navigation/windows/panes/tabs, daily notes/templates/folders, task/property/collection UX, history/search/recovery/interchange |
 | Data/release gates | Pending before real data/shipping | Installed storage/final format/security/physical identity/native durability, scale, Windows/web mechanisms and distribution |
 
@@ -19,8 +19,9 @@ boundaries. [Development](../../development.md) owns current commands/worktrees.
 [Checkpoint](../START-HERE.md) owns the one next action and user observations.
 The authoritative current stage3 discussion record is [Stage3 UX](stage3-ux.md).
 Documentation58 consolidates the user's final decisions and corrections; application
-baseline57 remains unchanged. No stage3 implementation has started. Resume UX one
-question at a time with the pending formatting-toolbar action list.
+baseline57 remains unchanged. Toolbar actions and preset-only colours are now
+confirmed. [Plan59](stage3-implementation-plan.md) defines five working parts;
+implement3A next. No further required pre-code UX questions.
 
 The application can be temporarily incomplete; do not retain legacy controllers or
 another permanent demo to make a missing screen appear finished.
@@ -42,6 +43,6 @@ Roadmap stage2 navigation was delivered through57: tab-owned split layouts,
 current-pane Back/Forward, explicit new-tab/new-window actions and optional duplicate
 splits. User56 reports flicker stopped; user57's scoped navigation/new-window check
 passed. Wider native/release qualification remains pending. Documentation58 records
-the in-progress stage3 UX discussion; it does not implement the editor. Next is the
-unanswered formatting-toolbar action list. No architecture-comparison restart or
+the stage3 UX decisions;59 adds the implementation plan and final colour policy.
+Neither implements the editor. Next is part3A of that plan. No architecture-comparison restart or
 migration work is part of this.

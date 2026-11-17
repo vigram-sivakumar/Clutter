@@ -3,6 +3,17 @@
 Dated experimental implementation history is archived in Git. This is the concise
 current ledger; revisions below are delivery identifiers, not document file versions.
 
+## 59 — 2026-11-17 — implementation plan, documentation only
+
+- Record approved toolbar actions, whole-block background colour and preset colours
+  only. Stop the minor-detail questionnaire; the UX baseline is sufficient.
+- Inspect current engine/codec/contracts/history/storage ports; document the actual
+  paragraph-only/scalar-title/body-history gaps rather than adding UI-only workarounds.
+- Plan five real app parts:3A content/title/history,3B blocks/formatting,3C selection/
+  drag,3D tasks/images,3E tables/integration. Define package ownership and acceptance.
+- Next: implement3A. No stage3 application/schema/native/dependency changes or test/
+  build replay in this delivery. Source scope/link/patch checks only.
+
 ## 58 — 2026-11-17 — documentation only
 
 - Consolidate the full stage3 UX discussion into rebuild/stage3-ux.md with stable

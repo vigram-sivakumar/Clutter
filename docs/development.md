@@ -129,3 +129,12 @@ behavior, final corrections and deferred scope. Read it with the resume checkpoi
 before continuing. This delivery changes documentation only: no npm install,
 application rebuild, new session or test replay is needed. Stage3 code has not begun;
 formatting-toolbar actions remain the next unanswered UX question.
+
+## Plan59 — stage3 implementation order
+
+Read [the plan](foundation/rebuild/stage3-implementation-plan.md) with the updated
+UX record. Toolbar actions and preset-only colours are confirmed. Next is3A: shared
+structured title/body schema, Core/codec contract and one editing history, followed
+by the real title/paste view. Later parts add common blocks/formatting, block
+selection/drag, tasks/images and tables. No new architecture-selection or migration
+phase.59 itself is docs only; no install/build/session change is required.

@@ -71,7 +71,10 @@ quit/refusal, protected-child recovery and shipping qualification remain pending
 
 Read [the consolidated record](rebuild/stage3-ux.md) before proposing or implementing
 stage3 behavior. It owns final title/list/marquee/task/media/table decisions and
-supersedes older proposals. No stage3 code has begun. The unanswered question is the
-formatting toolbar action list. The user requested documentation first; preserve
-that pause rather than jumping into implementation or another UX question.
+supersedes older proposals. No stage3 code has begun. After58, the user resumed UX
+and approved all proposed formatting actions plus whole-block background colour.
+Preset colours ONLY are confirmed. The [stage3 implementation plan](rebuild/stage3-implementation-plan.md) is prepared;
+implement3A next, not more serial UX questions about minor details. Ask only genuine material
+blockers one at a time. Do not re-ask the action list or custom colours, and do not
+claim stage3 implementation is complete.
 Do not treat user56/57 scoped native passes as complete lifecycle qualification.
