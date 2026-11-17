@@ -26,7 +26,15 @@ Custom properties stay on the entity until the user explicitly adds/changes them
 ## Tasks, pages and location — P-26, P-27
 
 A task has a stable identity, standard fields, custom properties and its own
-editable body. Opening it from Tasks or its note opens that same task as a page.
+editable body capability. Its full page is the same task entity, not another note.
+
+Stage3 UX clarification (2026-11-17): a task inserted in a note starts in inline
+editing mode. Clicking its title edits it in place. Only clicking the adjacent
+conversion icon converts it to a full task page; afterwards, clicking the title
+opens that page, while its checkbox still toggles completion independently.
+Conversion preserves identity/status/properties and ownership; do not create a
+second task. Unconverted-task routing in the global Tasks view will be agreed in
+that view’s UX stage. See [Stage3 UX](rebuild/stage3-ux.md) for inline keyboard rules.
 Body text is not a separate note copy. A task has exactly one owning location:
 one note, or the independent All Tasks inbox. The global Tasks list is a projection,
 not an additional owning location. Tasks are not referenceable from multiple notes.

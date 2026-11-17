@@ -9,7 +9,7 @@ architecture. No migration/compatibility façade, dual writer or permanent paral
 | --- | --- | --- |
 | R0 | Closed51 | Old/main import inventory and concrete clean rebuild decision |
 | R1 prerequisites | Closed52 | Exact native manifests/full locks checked in; old experiment cache dependency removed |
-| R1 source | Delivered53; Mac verification pending | Actual package split, single React/Tauri product entry, real Core catalogue/create/open/edit/save/reopen flow; coherent old-pipeline removal |
+| R1 source | Delivered53; later scoped user checks recorded through57 | Actual package split, single React/Tauri product entry, real Core catalogue/create/open/edit/save/reopen flow; coherent old-pipeline removal |
 | R2 / roadmap stage3 | UX discussion required before code | Title/full block schema, real component/NodeView adapters, tables/tasks/media and agreed interaction behavior |
 | R3 | Pending | Complete navigation/windows/panes/tabs, daily notes/templates/folders, task/property/collection UX, history/search/recovery/interchange |
 | Data/release gates | Pending before real data/shipping | Installed storage/final format/security/physical identity/native durability, scale, Windows/web mechanisms and distribution |
@@ -17,6 +17,11 @@ architecture. No migration/compatibility façade, dual writer or permanent paral
 [Architecture](../../architecture.md) defines the package responsibilities and one-owner
 boundaries. [Development](../../development.md) owns current commands/worktrees.
 [Checkpoint](../START-HERE.md) owns the one next action and user observations.
+The authoritative current stage3 discussion record is [Stage3 UX](stage3-ux.md).
+Documentation58 consolidates the user's final decisions and corrections; application
+baseline57 remains unchanged. No stage3 implementation has started. Resume UX one
+question at a time with the pending formatting-toolbar action list.
+
 The application can be temporarily incomplete; do not retain legacy controllers or
 another permanent demo to make a missing screen appear finished.
 
@@ -33,8 +38,10 @@ The user requests a UX discussion before each stage from stage3 onward, one ques
 at a time. Record agreed behavior, then implement that stage. Stage2 navigation is
 already authorized and continues; this does not reopen the architecture selection.
 
-Roadmap stage2 /54 adds actual tab-owned split layouts and active-pane note history
-before R2/editor work. Current-tab normal navigation and explicit menu actions are
-implemented;102 Linux tests pass, Mac54 check pending. Stage3 and every later stage
-must begin with UX discussion, one question at a time. No architecture comparison
-restart or migration work is part of this.
+Roadmap stage2 navigation was delivered through57: tab-owned split layouts,
+current-pane Back/Forward, explicit new-tab/new-window actions and optional duplicate
+splits. User56 reports flicker stopped; user57's scoped navigation/new-window check
+passed. Wider native/release qualification remains pending. Documentation58 records
+the in-progress stage3 UX discussion; it does not implement the editor. Next is the
+unanswered formatting-toolbar action list. No architecture-comparison restart or
+migration work is part of this.

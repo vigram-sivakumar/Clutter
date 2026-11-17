@@ -3,6 +3,16 @@
 Dated experimental implementation history is archived in Git. This is the concise
 current ledger; revisions below are delivery identifiers, not document file versions.
 
+## 58 — 2026-11-17 — documentation only
+
+- Consolidate the full stage3 UX discussion into rebuild/stage3-ux.md with stable
+  decision IDs, final corrections, deferred scope and implementation/evidence limits.
+- Update root/foundation agent entry points and a concise resume checkpoint so a
+  new agent can continue without asking the user to repeat agreed behavior.
+- Preserve scoped user56 flicker PASS and57 navigation/new-window PASS. Record that
+  stage3 implementation has NOT started and toolbar actions are still unanswered.
+- No application/native/schema/dependency/session changes; no app test/build replay.
+
 ## 57 — 2026-11-17
 
 - User56 reports flickering stopped; scoped manual visual PASS retained.

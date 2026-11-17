@@ -6,6 +6,10 @@ mechanisms are selected in [current architecture](../architecture.md), while imp
 in [product behaviour](product-behaviour.md) and [sync and portability](sync-and-portability.md).
 These contracts describe the target, not today's application.
 
+The latest stage3 interaction decisions are consolidated in
+[Stage3 UX](rebuild/stage3-ux.md). They include final corrections and deferred scope;
+they are requirements, not implemented/tested editor behavior.
+
 ## Product principles and release boundary
 
 Clutter is a local-first notes app. App, CLI and MCP are core interfaces over one

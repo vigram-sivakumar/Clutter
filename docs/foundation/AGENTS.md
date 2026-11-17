@@ -35,8 +35,8 @@ specifications are retired; Git history is the archive, not an implementation co
   measurement stayed blocked; no latency ranking was established. F010 ends that
   research as an implementation-entry prerequisite. Do not restart it unasked.
 - Integration access remains one connection per user/device across local Spaces by
-  default, optional restrictions, no per-Space enrollment codes. Task is a full page
-  with body/properties/cover/media/embed scope, no subtasks/single placement as agreed.
+  default, optional restrictions, no per-Space enrollment codes. Tasks retain one identity/location with eventual full-page body/properties scope;
+  stage3 UX starts them inline until explicit icon conversion. No semantic subtasks.
 - Update current checkpoint, scoped evidence and concise outcome/risk ledger for
   meaningful changes. Separate Linux integration checks, user manual observations,
   native compile results and shipping qualifications. Deleted obsolete tests are not
@@ -63,4 +63,15 @@ an explicit enabling prop. Histories/contexts/other tabs do not block splitting.
 Do not silently change normal open/Back/Forward into focus-existing-pane routing.
 New tab creates a tab; new window is another native window with the same Space owner,
 not another semantic process/authority. Preserve per-window close and all-window quit
-barriers. Native57 compile/window/quit is pending;114 Linux tests do not establish it.
+barriers. User57 reported the scoped split-policy/new-window check works. Full
+quit/refusal, protected-child recovery and shipping qualification remain pending;
+114 Linux tests do not establish those native outcomes.
+
+## Stage3 UX decision authority (documentation58)
+
+Read [the consolidated record](rebuild/stage3-ux.md) before proposing or implementing
+stage3 behavior. It owns final title/list/marquee/task/media/table decisions and
+supersedes older proposals. No stage3 code has begun. The unanswered question is the
+formatting toolbar action list. The user requested documentation first; preserve
+that pause rather than jumping into implementation or another UX question.
+Do not treat user56/57 scoped native passes as complete lifecycle qualification.

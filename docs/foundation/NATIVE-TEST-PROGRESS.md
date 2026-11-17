@@ -233,3 +233,21 @@ window must leave the first usable. Actual app quit/all-window refusal is a sepa
 native guard check, not a passing result yet. Report first scoped result; no old host
 profiling/manual suite replay. After this navigation feedback, discuss stage3 UX ONE
 question at a time before implementing editor/title/familiar-UI features.
+
+## 2026-11-17 — user57 result; advance to UX discussion
+
+User: “it works thanks, proceed to next” after the requested default duplicate-split
+and new-window note-opening check. Scoped native interaction PASS; no raw compile
+log, all-window quit/refusal, protected-child reopen, IME or shipping pass inferred.
+56 flicker PASS retained. Next is stage3 UX discussion one question at a time before
+implementation. First question: initial focus in a new note, title or body; pending.
+No stage3 code changed. No additional manual/profiling replay requested.
+
+## 2026-11-17 — documentation checkpoint58
+
+The stage3 UX conversation is consolidated in rebuild/stage3-ux.md. This is a
+requirements record, NOT an implemented/tested editor. User56 flicker PASS and57
+scoped navigation/new-window PASS remain separate from broader native qualification.
+No additional native result is inferred and no application tests/builds were run
+for this documentation-only change. Resume with the unanswered formatting-toolbar
+action-list question, one question at a time, after the user resumes discussion.

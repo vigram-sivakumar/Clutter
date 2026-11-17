@@ -121,3 +121,11 @@ IDs/page references are retained in private Git metadata under
 clutter-structured53/windows/<session-hash>/*.json; no bodies/tokens in descriptors.
 This explicit developer path preserves context identity; recent-window/automatic
 session restore UX has not been implemented. Keep synthetic data until release gates.
+
+## Documentation58 — stage3 UX checkpoint
+
+[Stage3 UX decisions](foundation/rebuild/stage3-ux.md) records current confirmed
+behavior, final corrections and deferred scope. Read it with the resume checkpoint
+before continuing. This delivery changes documentation only: no npm install,
+application rebuild, new session or test replay is needed. Stage3 code has not begun;
+formatting-toolbar actions remain the next unanswered UX question.

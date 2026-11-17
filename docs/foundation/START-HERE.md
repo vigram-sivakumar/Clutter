@@ -1,93 +1,76 @@
 # Resume Clutter Structured
 
-## Current checkpoint — split policy and new windows57, 2026-11-17
+## Current checkpoint — stage3 UX documented58, 17 November 2026
 
-USER56 VISUAL PASS: “the flickering has stopped”. Preserve this scoped observation;
-it is not a raw native compile/IME/full lifecycle qualification report. User agreed
-that Open in split is disabled for a note already displayed in the current tab,
-with an explicit enabling option; new tab and new window remain available. User
-then authorized proceeding. These are stage2 changes; stage3 UX/code has NOT begun.
+**Read [Stage3 UX decisions](rebuild/stage3-ux.md) first.** It consolidates the final
+confirmed rules, corrections, scope and deferred work from this conversation.
+The user requested this documentation checkpoint because the discussion is long.
 
-57 implements default allowDuplicateNoteInTab:false in the shared navigation model
-and NoteMenu. canSplit/split guard the rule at execution/rebase, not just the button.
-Only current pane pages in the target tab count: history, cached contexts and other
-tabs/windows do not. Restoring an existing layout does not delete duplicate views.
-Normal current-pane opening and Back/Forward remain the agreed P-40 navigation;
-this is split admission, not a new focus-existing-pane override for normal clicks.
-Passing allowDuplicateNoteInTab:true to mountWorkspace/WindowWorkspace enables the
-underlying supported same-note splits. Consistency tests explicitly retain that mode.
+**Status:** UX discussion in progress. No stage3 editor/schema/application code has
+been implemented. Do not mistake agreed UX or historical tests for completed work.
 
-Open in new tab still creates another tab. Open in new window uses an injected UI
-host port; the Tauri mechanism creates another window in the SAME native process and
-uses the SAME Space endpoint/token/Core owner, with a fresh window ID and its own
-layout/editor contexts. The browser entry passes the requested initial page only
-when no saved layout exists. Native windows start hidden and show after UI ready
-(or show its error state); no new semantic authority or app-to-CLI writer is added.
+**Exact next topic:** actions in the floating text-selection formatting toolbar.
+The user has not answered that question. Bold/italic/underline/strikethrough/links/
+text-colour/highlight were examples only. Do not implement those as an approved list.
+The latest request is to document first; do not ask another UX question in that
+handoff response. Resume this pending question when the user resumes discussion.
 
-Native host now has per-window nonce-bound close guards and an all-window quit barrier.
-A refused quit resumes already-prepared peer windows and polling. New-window requests
-have IDs, native replay records, a bounded acknowledgement timeout, and a UI close
-barrier. A request acknowledgement confirms window creation, not editor load/native
-qualification. Child locator records contain only window/page IDs, written privately
-before reveal; no bodies/tokens enter those records. New window does NOT mean a new
-independent application process. Windows lifecycle policy remains shared UI/Core.
+## Working agreement
 
-Developer same-session child recovery is addressable: after ALL native windows close,
-npm run desktop:reopen -- --window-id CHILD_WINDOW_ID reuses its saved layout/context
-IDs. Descriptors live under Git metadata clutter-structured53/windows/<session-hash>/.
-The normal reopen still uses the original window. This is developer recovery plumbing,
-not a finished recent-windows/automatic session-restoration UX. No descriptor cleanup
-or installed Windows platform qualification is implied. Previous sessions retained.
+Discuss and agree UX before implementing each stage from stage3 onward. Ask ONE
+question at a time and record answers. Latest explicit corrections supersede older
+proposals. Do not ask the user to repeat the decisions in the UX document.
 
-114/114 Linux tests, strict Core/runtime TS and42-source boundary checks pass. Production
-React/PM/Core/SQLite runs two real UI windows through an injected host adapter, confirms
-the same owner instance, shared accepted edits, independent DOM/context/close guards,
-and menu admission. Additional bridge VM tests cover scoped request/reply/close/resume,
-timeout/no token in emitted address, and private session-scoped child locators. Enabled
-same-note split consistency remains tested. Native Rust compilation and actual Tauri
-window creation/quit were NOT run: this Linux environment has no Rust compiler. No
-native57 pass inferred from JS tests. Official Tauri API references are in scoped evidence.
-Evidence: [review](evidence/navigation-windows-57-2026-11-17/review.json).
+The UX document covers titles, title paste/feedback, slash commands, H1–H6, free list
+indentation and keyboard behavior, hierarchical drag versus flat block selection,
+marquee/additive selection, explicit-only deletion, inline tasks/page conversion,
+single-file Image picker, table presets and deferred embeds. Important distinctions:
 
-NEXT: close prior dev windows, apply/commit57, npm run desktop -- --new (fresh synthetic
-Space; no dependency install). First verify the native build succeeds. Open a note's
-menu: split disabled for its current tab; new tab enabled; new window opens the same
-note. Edit/save in either window and observe the other update. Closing the second
-window must leave the first usable. Actual app quit/all-window refusal is a separate
-native guard check, not a passing result yet. Report first scoped result; no old host
-profiling/manual suite replay. After this navigation feedback, discuss stage3 UX ONE
-question at a time before implementing editor/title/familiar-UI features.
+- Tab/Shift+Tab and parent dragging carry descendants; selection does not auto-select
+  them, and Delete removes children only when explicitly selected.
+- Marquee needs no Shift; crossing the starting block changes text selection into
+  block selection. Shift+drag adds disjoint blocks to the prior selection.
+- Multiline title paste appends ALL content to the body bottom, leaves no caret,
+  scrolls there and highlights until any click. No three-second timer.
+- Task titles edit inline until icon-driven page conversion; after conversion,
+  title clicks open the task page and checkbox clicks still toggle completion.
+- Images use an immediate ONE-file picker. Embed is deferred, including YouTube.
+- Table presets2×2/3×3/4×4 live inside the slash menu. Existing
+  [table interactions](table-interaction-contract.md) remain authoritative.
 
-LATEST confirmed P-40 navigation (supersedes intermediate discussion):
-Window -> Tabs -> each tab's split layout -> note panes. Ordinary opening stays in
-the current tab's active pane with Back/Forward history. Only explicit note-menu
-"Open in new tab" creates another tab; "Open in split view" adds a pane inside the
-currently active tab. Same or different notes are supported. No default global
-focus-existing-tab override, no per-pane tab strip, no auto-new-tab for normal clicks.
+## Application baseline and observations
 
-This remains development UI, not restoration of Clutter's final visual design. Tab/
-pane close/reordering/resizing and full window/installed-storage/feature UX remain
-later work; do not imply they exist. Decoder bounds are prototype safety limits,
-not agreed product limits. No stage3 title/rich-text/familiar-UI work has begun.
+Delivered57 is the latest application baseline: stable surfaces/scoped UI lifecycle,
+default duplicate-split restriction with an enabling option, and shared-owner native
+windows. Its114 Linux tests, strict Core/runtime TS and42-source boundary checks
+passed. These do not cover unimplemented stage3 UX.
 
-## Next stage — UX first, one question at a time
+User56 observation: “the flickering has stopped”. User57 observation: “it works”
+after the requested split-disabled/new-window check. Preserve these scoped manual
+passes. No raw compile log, all-window quit/refusal, protected-child recovery, IME
+or installed-data/shipping qualification is inferred. Do not replay old manual or
+host profiling suites for bookkeeping.58 is DOCUMENTATION ONLY; no rebuild needed.
 
-User explicitly requests a UX discussion BEFORE implementing each stage starting
-with roadmap stage3 (editor and familiar UI / prior R2). After stage2 feedback,
-ask ONE concrete UX question at a time, record answers, agree that stage's UX and
-only then implement it. Preserve confirmed behaviors; don't re-ask settled rules.
-Do not silently start title editing, block components or the real layout. No more
-architecture/host-selection research as a prerequisite. Later stages cover full
-features, desktop completion and data/release gates; no existing-user migration.
+Use synthetic Spaces until installed format/security/durability/identity/scale and
+release gates close. Windows/browser composition and finished session-restoration
+UX remain pending. No existing-user/data migration project is required.
 
-## Worktrees and authority
+## Worktrees and ownership
 
-- /Users/sivakuv3/Documents/Personal/projects/Clutter Structured:
-  architecture/clutter-foundation, active rebuild.
-- /Users/sivakuv3/Documents/Personal/projects/Clutter Markdown:
-  main, existing application. Same repository; separate checked-out files/builds.
+- Active Mac worktree: /Users/sivakuv3/Documents/Personal/projects/Clutter Structured,
+  branch architecture/clutter-foundation.
+- Existing application: /Users/sivakuv3/Documents/Personal/projects/Clutter Markdown,
+  main. Do not modify/merge/switch/reset it as part of this work.
+- No automatic commit or push. Deliver exact source-only incremental patches with
+  literal-path staging manifests; do not stage broad generated/private directories.
+- One Core/SpaceService and command catalogue; UI/CLI/MCP are peers. React owns
+  surrounding components; PM owns editable DOM. Rust is a window/OS mechanism,
+  not another semantic owner. No separate title/task persistence pipeline.
+- No courtesy retention of old CM6/full-or-compact Markdown/vault architecture.
+  The architecture selection is closed; do not restart host comparison research.
 
-No source is migrated from main. Its read-only5c532f8 snapshot was only a visual/
-behavior reference. No automatic commit/push/merge/main switch. Root AGENTS.md,
-ARCHITECTURE_RULES.md, docs/architecture.md and confirmed product contracts replace old
-frozen class/API governance. Current checkpoint overrides dated historical next steps.
+Read [working rules](AGENTS.md), [architecture](../architecture.md),
+[development](../development.md), [product contracts](product-contracts.md),
+[task behavior](product-behaviour.md) and [native progress](NATIVE-TEST-PROGRESS.md)
+for their scopes. The current checkpoint and final UX record override historical
+next-step instructions; historical qualification limits remain in force.
