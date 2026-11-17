@@ -3,7 +3,7 @@ import { Schema } from 'prosemirror-model';
 // Explicit composition adapter: actual PM/Y views over the new runtime port.
 // Temporary supported schema/codec; no legacy app wiring or second save path.
 import * as Y from 'yjs';
-import { EditorState, Plugin } from 'prosemirror-state';
+import { EditorState, Plugin, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { keymap } from 'prosemirror-keymap';
 import { baseKeymap } from 'prosemirror-commands';
@@ -45,9 +45,49 @@ export function createEditorReplica(
     if (origin === ySyncPluginKey || origin === history.manager) onLocal();
   };
   doc.on('update', changed);
+  // Native selectionchange can lag a visible click. Before a toolbar bookmark,
+  // reconcile only this focused view's text selection through public PM APIs.
+  // Cell/node/all selections and another editor's DOM selection remain untouched.
+  const adoptVisibleTextSelection = (view) => {
+    if (!(view.state.selection instanceof TextSelection) || !view.hasFocus())
+      return;
+    const root = view.root;
+    const selection =
+      typeof root.getSelection === 'function'
+        ? root.getSelection()
+        : view.dom.ownerDocument.getSelection();
+    if (
+      !selection ||
+      selection.rangeCount !== 1 ||
+      !selection.anchorNode ||
+      !selection.focusNode ||
+      !view.dom.contains(selection.anchorNode) ||
+      !view.dom.contains(selection.focusNode)
+    )
+      return;
+    let next;
+    try {
+      const anchor = view.posAtDOM(
+        selection.anchorNode,
+        selection.anchorOffset
+      );
+      const head = view.posAtDOM(selection.focusNode, selection.focusOffset);
+      next = TextSelection.between(
+        view.state.doc.resolve(anchor),
+        view.state.doc.resolve(head)
+      );
+    } catch {
+      return;
+    } // Unmapped/retired DOM cannot replace valid model state.
+    if (!next.eq(view.state.selection))
+      view.dispatch(
+        view.state.tr.setSelection(next).setMeta('addToHistory', false)
+      );
+  };
   const runHistory = (view, direction, historyOptions = {}) => {
     if (options.canEdit?.() === false) return false;
     if (!views.has(view)) throw new Fault('WRONG_CONTEXT_VIEW');
+    if (historyOptions.preserveSelection) adoptVisibleTextSelection(view);
     // Toolbar commands retain this view's current caret/range, mapped through Y.
     // Keyboard undo keeps its established edit-bookmark restoration behavior.
     const bookmark = historyOptions.preserveSelection
@@ -148,6 +188,7 @@ export function createEditorReplica(
     },
     captureSelection(view) {
       if (!views.has(view)) throw new Fault('WRONG_CONTEXT_VIEW');
+      adoptVisibleTextSelection(view);
       return Object.freeze({
         owner: selectionOwner,
         bookmark: history.bookmark(view.state),

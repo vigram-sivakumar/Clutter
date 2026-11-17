@@ -13,6 +13,13 @@ source and omits config/credentials, allows at most one online --locked setup fe
 if needed, verifies digest and keeps compile --locked --offline.10 targeted Linux
 tests pass, native retry pending. Direct pins and external graph are unchanged.
 
+Native observation after49: user log/screenshot confirm compile/ad-hoc strict
+verification/launch. User passes shared edits, A remount and Undo/Redo text. A caret
+boundary fails; delivery50 reproduces stale native selectionchange and corrects
+focused-text bookmark capture via public APIs.108 Linux tests + strict TS pass;
+Mac caret retest pending. Earlier no-native-run statements below describe48 source
+validation, not current observed launch. Prior passes are not replay requirements.
+
 ## Boundaries and current source
 
 | Location | Responsibility |

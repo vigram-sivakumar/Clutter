@@ -1,0 +1,4 @@
+{
+  "packages/foundation-runtime/src/editor/replica.mjs": "ac30287537de10f224fbe8aead6142dfa96d63ebda3c005f52c01abd50ff8a86",
+  "packages/foundation-runtime/test/editor.test.mjs": "8ec9677c361ed91a98966ff455666381a799264adc20d9dc526204226c21d198"
+}

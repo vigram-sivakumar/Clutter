@@ -746,3 +746,14 @@ used global cache, whereas original34 used isolated CARGO_HOME. No Rust compile/
 window pass.49 restores private cache with prior registry seed and bounded locked
 network acquisition when needed.10 targeted Linux tests pass; same Mac retry,
 then agreed cleanup-plan discussion. Original pins/evidence/store/app unchanged.
+
+## 2026-11-16 — native composition launch + caret correction50
+
+User49 commit6ba91499. Terminal log: Mac release build and strict ad-hoc signature
+verification succeeded; screenshot Saved + two views. User PASS: A edit in B,
+single-click A remount/B retained, Undo/Redo shared text. Caret FAIL: visible before
+A becomes after A on Undo and stays displaced. Do not mark caret passed from text.
+50 reproduces delayed selectionchange (DOM/model disagree) and synchronizes focused
+text selection before existing relative bookmark.108 Linux tests + strict TS pass;
+Mac fix retest pending. Rebuild explicit --new synthetic Space to load new bundle,
+preserve old data/locators, no broad suite replay. Existing-UI rebuild plan stays next.

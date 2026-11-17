@@ -1,0 +1,22 @@
+{
+  "delivery": 50,
+  "problem": "Toolbar captures stale PM text selection before pending native selectionchange; simulated DOM before A / model after A reproduces user 1-character drift (2 vs1)",
+  "fix": "For focused text selection only, map current in-view DOM anchor/head through public PM posAtDOM before toolbar/remount bookmark. Selection-only transaction excluded from history. Existing relative Y restore preserved.",
+  "guards": [
+    "No other editor selection adopted",
+    "Non-text cell/node/all selections unchanged",
+    "Invalid/retired DOM mappings leave model selection intact",
+    "Keyboard history path unchanged",
+    "No content/save/Core/schema/persistence/native-framework changes"
+  ],
+  "checks": {
+    "editorCases": 34,
+    "fullRuntime": 108,
+    "failed": 0,
+    "newCases": 4,
+    "strictTypeScript": "pass",
+    "platform": "Linux/Node24.22.1"
+  },
+  "nativeRetest": "pending after rebuilding fresh disposable bundle; no automatic native pass",
+  "next": "One caret-boundary native retest, remaining bounded close/reopen, then existing UI reuse/removal plan discussion"
+}

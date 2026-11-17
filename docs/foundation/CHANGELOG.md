@@ -3,6 +3,16 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.74 — 2026-11-16
+
+- Record user49 commit6ba91499 and Mac compilation/signature/launch success. Preserve
+  native shared-edit, A-remount and Undo/Redo TEXT passes; caret boundary failed.
+- Reproduce delayed native selectionchange yielding one-character caret drift.
+  Read focused DOM text selection through public PM APIs before toolbar/remount
+  bookmark, preserve existing relative mapping, non-text/keyboard/context isolation.
+- 108 runtime tests + strict TS pass (4 new regressions); Mac boundary retest pending.
+  No engine/schema/save/native/pin changes. Same finite closeout then cleanup planning.
+
 ## 0.73 — 2026-11-16
 
 - Record user48 commitc50963c4 and offline Cargo index failure before native compile.

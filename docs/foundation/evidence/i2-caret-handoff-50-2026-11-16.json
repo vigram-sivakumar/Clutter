@@ -1,0 +1,8 @@
+{
+  "delivery": 50,
+  "evidenceDirectory": "i2-caret-handoff-50-2026-11-16",
+  "tests": 108,
+  "newTests": 4,
+  "strictTypeScript": "pass",
+  "nativeCaret": "pending retest; previous text/remount passes retained"
+}

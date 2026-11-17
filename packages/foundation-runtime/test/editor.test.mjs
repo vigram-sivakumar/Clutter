@@ -1321,3 +1321,95 @@ test('view-local selection bookmark maps foreign edits while detached and refuse
   assert.equal(reopened.state.selection.anchor, 14);
   assert.throws(() => b.restoreSelection(bv, bookmark), /WRONG_CONTEXT_VIEW/);
 });
+
+test('toolbar caret before surviving first character stays before it across prefix undo/redo', async (t) => {
+  const x = await seeded(t),
+    a = await x.open('prefix_boundary'),
+    av = x.mount(a);
+  insert(av, 'LOCAL ');
+  a.stopCapturing();
+  av.dispatch(av.state.tr.setSelection(TextSelection.create(av.state.doc, 7)));
+  assert.equal(text(av), 'LOCAL Alpha beta');
+  assert.equal(a.history(av, 'undo', { preserveSelection: true }), true);
+  assert.equal(text(av), 'Alpha beta');
+  assert.equal(
+    av.state.selection.head,
+    1,
+    'caret must stay before A after removing the prefix'
+  );
+  assert.equal(a.history(av, 'redo', { preserveSelection: true }), true);
+  assert.equal(text(av), 'LOCAL Alpha beta');
+  assert.equal(
+    av.state.selection.head,
+    7,
+    'caret must stay before A after restoring the prefix'
+  );
+});
+
+test('toolbar uses the visible focused DOM caret when native selectionchange is still pending', async (t) => {
+  const x = await seeded(t),
+    a = await x.open('native_boundary'),
+    av = x.mount(a);
+  insert(av, 'LOCAL ');
+  a.stopCapturing();
+  av.dispatch(av.state.tr.setSelection(TextSelection.create(av.state.doc, 8)));
+  av.focus();
+  const node = av.dom.querySelector('p').firstChild;
+  // Native click has moved the visible caret before A; selectionchange has not
+  // reached PM yet. The toolbar pointer-down preserves this DOM selection.
+  const visible = av.dom.ownerDocument.getSelection();
+  visible.setBaseAndExtent(node, 6, node, 6);
+  assert.equal(
+    av.state.selection.head,
+    8,
+    'stored selection intentionally lags DOM'
+  );
+  assert.equal(a.history(av, 'undo', { preserveSelection: true }), true);
+  assert.equal(text(av), 'Alpha beta');
+  assert.equal(
+    av.state.selection.head,
+    1,
+    'toolbar must use visible caret before A'
+  );
+  assert.equal(a.history(av, 'redo', { preserveSelection: true }), true);
+  assert.equal(
+    av.state.selection.head,
+    7,
+    'redo must retain the same logical boundary'
+  );
+});
+
+test('toolbar reconciles a pending backward DOM range without reversing its endpoints', async (t) => {
+  const x = await seeded(t),
+    a = await x.open('native_range'),
+    av = x.mount(a);
+  insert(av, 'LOCAL ');
+  a.stopCapturing();
+  av.focus();
+  const node = av.dom.querySelector('p').firstChild;
+  av.dom.ownerDocument.getSelection().setBaseAndExtent(node, 16, node, 6);
+  a.history(av, 'undo', { preserveSelection: true });
+  assert.equal(av.state.selection.anchor, 11);
+  assert.equal(av.state.selection.head, 1);
+  a.history(av, 'redo', { preserveSelection: true });
+  assert.equal(av.state.selection.anchor, 17);
+  assert.equal(av.state.selection.head, 7);
+});
+test('toolbar targeting an unfocused context never borrows another editor DOM caret', async (t) => {
+  const x = await seeded(t),
+    a = await x.open('native_target_a'),
+    b = await x.open('native_target_b'),
+    av = x.mount(a),
+    bv = x.mount(b);
+  insert(av, 'LOCAL ');
+  a.stopCapturing();
+  ok(await a.save());
+  await settle(a, b);
+  av.dispatch(av.state.tr.setSelection(TextSelection.create(av.state.doc, 17)));
+  bv.focus();
+  const node = bv.dom.querySelector('p').firstChild;
+  bv.dom.ownerDocument.getSelection().setBaseAndExtent(node, 6, node, 6);
+  a.history(av, 'undo', { preserveSelection: true });
+  assert.equal(av.state.selection.head, 11);
+  assert.equal(bv.hasFocus(), true);
+});

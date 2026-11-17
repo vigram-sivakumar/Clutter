@@ -1,10 +1,11 @@
 # Clutter foundation
 
-Revision0.73,2026-11-16. Working branch: architecture/clutter-foundation.
+Revision0.74,2026-11-16. Working branch: architecture/clutter-foundation.
 [F010](adr/F010-tauri-implementation-baseline.md) accepts Tauri, shared web UI/editor,
 PM/Y contexts, TypeScript Core and SQLite ports for implementation. Final native
 safety/format/security and shipping qualification remain open at explicit milestones.
-I2c48 development composition source is implemented; Mac closeout is pending.
+I2c development composition builds/launches on the user Mac.50 corrects a caret
+selection handoff bug; native retest/closeout remains pending.
 Existing product UI/pipeline is unchanged. Next, discuss the clean rebuild using
 existing UI/components. See [composition](i2/desktop-composition.md) and
 [rebuild proposal](i2/rebuild-plan-proposal.md).

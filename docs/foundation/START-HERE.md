@@ -1,22 +1,26 @@
 # Resume Clutter foundation work
 
-## Current checkpoint — Cargo cache recovery49, 2026-11-16
+## Current checkpoint — toolbar native-selection handoff50, 2026-11-16
 
-User confirmed48 applied as c50963c4; dependency install completed. Native setup
-stopped BEFORE compilation: offline global Cargo index offered tauri-build2.6.3
-while locked graph requires2.7.4. Earlier build34 used isolated Git-internal
-CARGO_HOME;48 omitted it. No native window or Mac compilation pass inferred.
-49 restores a dedicated private Cargo home seeded with the prior registry only;
-no prior config/credentials or cache contents are changed. Offline locked fetch
-first; if missing, one setup-only online --locked acquisition, then digest check.
-Compile remains --locked --offline. No version downgrade or unlocked resolution.
-10 targeted Linux tests pass (2 new +8 composition). Earlier102 runtime/strict TS
-results remain scoped to48; no new full-suite/native claim.
+User applied49 as6ba91499. The attached Mac log confirms compile, bundled Node/outer
+ad-hoc signing and strict signature verification completed for run2026-11-16T16-56-32-816Z.
+Screenshot shows Saved + both views. User PASS: A edit reflects in B; single A remount
+retains text/B; Undo/Redo changes text correctly. Preserve these observations.
+User found caret bug: LOCAL |Alpha -> Undo A|lpha, remains displaced on Redo.
 
-NEXT: apply/commit49, then npm run foundation:desktop. No root dependency reinstall
-or global Node/Rust change is required for this correction. Prior failed build is
-retained; no session existed from that failed attempt. First ask whether Saved and
-both views appear, then bounded changed-route closeout. Keep the plan below.
+50 reproduces this by delaying native selectionchange: DOM before A, PM state after A.
+Toolbar now maps focused in-view DOM text selection via public PM APIs before the
+existing Y-relative bookmark. Backward ranges and other-editor isolation covered;
+non-text and keyboard undo paths unchanged. No Core/save/schema/native changes.
+108 runtime tests + strict TS pass on Linux (4 new cases); native fix not yet verified.
+
+NEXT: apply/commit50. Wait for Saved and close current synthetic window. Rebuild via
+npm run foundation:desktop -- --new (a NEW synthetic Space; previous locator/data
+retained). --reopen reuses the old bundle and cannot verify changed browser code.
+No npm reinstall or global Node change. In fresh build type LOCAL followed by space
+before Alpha, wait Saved, click immediately before A and use A's Undo/Redo buttons.
+Expected: LOCAL |Alpha -> |Alpha -> LOCAL |Alpha. One targeted native retest, no old
+suite replay. Remaining close/reopen check then discuss clean rebuild proposal.
 
 User explicitly clarified: retain existing UI/components, remove/replace the entire
 old CM6/Markdown architecture; no users/data migration, nothing architectural must
@@ -35,7 +39,7 @@ Mac build/signature/native close/window checks are pending, not inferred. H01 ra
 contracts/budgets/pins/evidence unchanged; no host profiling task or performance claim.
 F010 remains the accepted architecture baseline, with override46 milestones open.
 
-After49 fixes acquisition, continue the existing composition launch/check scope.
+Earlier49 acquisition instructions are historical; current50 caret retest is above.
 The runner bootstraps pinned Node24.22.1 before Core loads, no global Node change.
 First ask only whether Saved and both views appear. If successful, guide a bounded
 changed-route editing/remount/close check. Existing old/manual passes need no replay.
