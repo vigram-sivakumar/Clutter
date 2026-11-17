@@ -82,3 +82,11 @@ adapter and the existing context/Core/SQLite paths. Targeted ignore verification
 reported generated output/secrets only; worker source and active editor source remain
 visible. No user credentials read, deleted or embedded. Completed68 terminal and visual
 reopen evidence is recorded with its actual window-only scope, not owner restart.
+
+## Actual native69 feedback
+
+User Bold/selection-preservation PASS. All three colour controls and link fields/
+buttons dismiss toolbar on click. Correction [70](toolbar-focus-70.md) supersedes the
+instantaneous-focus visibility assumption; existing formatting executor/schema remains.
+Earlier automated tests are not a native controls pass: they focused the destination
+immediately and did not expose a temporary focus gap.

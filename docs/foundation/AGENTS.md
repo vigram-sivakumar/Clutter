@@ -213,3 +213,13 @@ replay. Ctrl+A/marquee3C remains next capability after formatting acceptance.
 AI active-app/focused-note/selection integration is deferred roadmap only. Targeted
 ignore rules cover old generated schemas/r07 artifacts and worker credentials/state;
 do not delete .dev.vars or hide whole source trees. No legacy resurrection.
+
+## Current toolbar focus correction70
+
+Read rebuild/toolbar-focus-70.md.69 Mac Bold/selection PASS; colour/link interaction
+reported broken.70 owns the toolbar focus interaction before editor blur, preserving
+controls through temporary native-popup/body/null focus. Dismiss on real outside
+intent/focus or Escape; no timer or per-control/native branch. Keep PM range mapped,
+UI URL draft local, command executor/history/Core/save unchanged. Native70 check next;
+69 jsdom direct-focus test did not establish this focus interval.68 milestone remains
+complete. Do not start3C before this correction's scoped Mac check.

@@ -1,42 +1,35 @@
 # Resume Clutter Structured
 
-## Current checkpoint — body formatting69, 17 November 2026
+## Current checkpoint — toolbar focus70, 17 November 2026
 
-**Mac client acceptance68 COMPLETE — PASS.** Real CLI/MCP read/write, both stale
-conflicts, UI saved body marker, identical accepted root after native window process
-replacement. Before/after screenshots show all four lines including UI VERIFIED.
-Owner restart not performed. Do not replay completed68 for bookkeeping. Earlier
-3A and scoped separator67 insert/select/Enter/type passes remain recorded.
+**Actual Mac69 result:** Bold on selected body text and selection preservation PASS.
+User then reports all three colour controls and link fields/buttons dismiss toolbar.
+Do not count69's automated controls test as native acceptance; it focused controls
+immediately and missed the interval with no focused editor/control.
 
-**69 implements agreed formatting:** floating toolbar above selected BODY text,
-Bold/Italic/Underline/Strikethrough, safe links, text colour, text highlight and
-whole selected-block background. Seven preset colour names plus Default, no custom
-colour/CSS input. Controls preserve the mapped selection and return focus to the
-same editor. Cmd/Ctrl+B/I/U and Shift+Cmd/Ctrl+X share the executor; title and object
-selection are excluded. No separate UI text, save or history state. PM owns editable
-DOM; React toolbar is a portal/chrome adapter. Read [scope/checklist](rebuild/formatting-69.md).
+**70 corrects focus ownership in the ONE shared toolbar lifecycle.** Pointer intent
+inside toolbar or keyboard focus transfer claims interaction before blur. Temporary
+body/null focus/native popup does not unmount controls or erase URL draft. Actual
+outside pointer/focus, Escape, invalid/empty range, read-only/inert view still dismiss
+or refuse action. Existing live PM range maps edits; one executor/context history/
+Core/SQLite path remains. No timeout, blanket input preventDefault, per-colour/native
+special case, stored selection or alternate toolbar. Read [correction](rebuild/toolbar-focus-70.md).
 
-Stored-format vocabulary/preset validation is shared by UI schema, strict JSON and
-raw-Y accepted validation. Block background is an optional/null preset attr on body
-text blocks, retained by conversion/outdent; inline marks are for text, atomic
-reference/date/break metadata stays unchanged. Existing page JSON schema2 and one
-Core command/save path remain; build fresh synthetic Space for changed bundle.
+Validation70:210 full Linux tests PASS; strict Core/runtime TS and54-source boundary
+checks PASS. Focused formatting/real CLI/MCP regressions PASS. New production UI test
+exposes temporary body focus before control focus, checks all three selectors and
+link input/Apply/Remove/draft retention, unchanged range and real outside dismissal.
+This simulates the gap; it is not a native popup or pixel qualification.
 
-Validation69:209 full Linux tests PASS;15 focused formatting checks PASS; strict
-Core/runtime TS and54-source boundaries PASS. Real CLI/MCP formatted writes/readback
-and invalid JSON/raw-Y rejection PASS. Production React/PM toolbar range retention,
-controls/link validation, accepted save and context reopen PASS. Actual native69
-pointer/pixel/keyboard/Windows/IME qualifications remain pending.
+NEXT: apply70 over69, `npm run desktop -- --new`, no install. Select body text and open
+Text colour; toolbar/dropdown must remain usable and chosen colour apply to original
+range. Then Text highlight/Block background and Link input/Apply/Remove. Native fix
+pending this scoped check; do not advance to3C on an automated-only pass.
 
-NEXT: apply69 over68, `npm run desktop -- --new`; no install. Select part of a body
-paragraph; toolbar above it, Bold changes only selection and selection stays. First
-scoped native check, then colours/link/background/Undo/save-reopen checks; no native69
-pass inferred from Linux. Ctrl+A/marquee3C follows this capability's acceptance.
-
-Also included: deferred active-app/current-note AI integration roadmap, targeted
-.gitignore for the reported legacy generated schemas/r07 outputs and worker local
-.dev.vars/.wrangler. Files are preserved locally, not committed/deleted. Completed68
-observation docs are now included in69.
+68 dedicated real CLI/MCP read/write/conflict/UI save/same-root visible native window
+reopen PASS remains complete; owner restart was not performed. No replay for bookkeeping.
+Previous text66/object67 rules unchanged. AI active-app/current-note integration stays
+deferred roadmap; targeted generated/secret ignore rules remain. No local files deleted.
 
 
 ## Working agreement

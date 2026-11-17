@@ -1,0 +1,26 @@
+{
+  "delivery": 70,
+  "date": "2026-11-17",
+  "scope": "shared toolbar interaction/focus ownership correction",
+  "manual69": {
+    "boldRangeRetention": "PASS",
+    "colourLinkControls": "reported dismissal on click; not native pass"
+  },
+  "automated": {
+    "fullSuite": 210,
+    "pass": 210,
+    "fail": 0,
+    "strictCoreRuntimeTypecheck": "PASS",
+    "boundarySources": 54,
+    "productionRegression": "deliberate pointer/keyboard focus gap on body, scroll update, three colour selectors, URL draft/Apply/Remove, range retention, real outside dismissal and accepted save",
+    "realPeers": "existing real CLI/MCP formatted writes/readback and invalid-payload/history regressions PASS",
+    "native": "not run; focus interval simulated, native popup behavior pending"
+  },
+  "architectureReview": {
+    "singleLifecycle": "toolbar claims pointer/keyboard interaction before blur; actual outside intent releases",
+    "selection": "existing mapped PM range; no copied document/range or new bookmark owner",
+    "unchanged": "format executor/schema/Core/runtime/native/UI component/locks/dependencies",
+    "removedAssumption": "editor-or-control focused at every instant; no timer/OS/per-control special case"
+  },
+  "next": "Mac Text colour Red retest, then highlight/background/link controls before3C"
+}

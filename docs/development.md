@@ -236,3 +236,10 @@ client milestone. Title formatting stays restricted. AI active-app integration l
 Targeted ignores preserve old generated schemas/experiments/runtime downloads and
 worker .dev.vars/.wrangler locally while keeping them out of staging. Do not use
 broad git add/clean on the retired remnants; current patch stages exact source paths.
+
+## Toolbar focus70
+
+[Scoped correction/check](foundation/rebuild/toolbar-focus-70.md). Build changed
+source with `npm run desktop -- --new`; no dependency install.69 old sessions keep
+original bundles. Check all three colour controls and link field/Apply/Remove without
+losing toolbar/range. Only Bold was user-confirmed in69; native correction pending.

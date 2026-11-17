@@ -138,7 +138,8 @@ export function textFormatting({ canEdit, renderToolbar } = {}) {
     view(view) {
       const renderer = renderToolbar?.({ document: view.dom.ownerDocument });
       let dismissed = null,
-        destroyed = false;
+        destroyed = false,
+        interacting = false;
       const update = () => {
         const state = view.state;
         if (!renderer || destroyed) return;
@@ -147,7 +148,7 @@ export function textFormatting({ canEdit, renderToolbar } = {}) {
           !bodyTextSelection(state) ||
           state.selection.empty ||
           view.dom.closest('[inert]') ||
-          (!view.hasFocus() && !renderer.hasFocus()) ||
+          (!view.hasFocus() && !renderer.hasFocus() && !interacting) ||
           dismissed?.eq(state.selection)
         ) {
           renderer.update(null);
@@ -193,6 +194,7 @@ export function textFormatting({ canEdit, renderToolbar } = {}) {
             return true;
           },
           dismiss: () => {
+            interacting = false;
             dismissed = view.state.selection;
             renderer.update(null);
             view.focus();
@@ -200,14 +202,39 @@ export function textFormatting({ canEdit, renderToolbar } = {}) {
         });
       };
       const doc = view.dom.ownerDocument;
-      const outside = (event) => {
-        if (!renderer?.contains(event.target)) {
-          dismissed = view.state.selection;
-          renderer?.update(null);
+      // Claim ownership BEFORE the editor blurs. Native select popups and WebKit
+      // focus transitions can temporarily leave activeElement on body/null. That
+      // gap is not outside intent and must not unmount the initiating control.
+      const pointer = (event) => {
+        if (renderer?.contains(event.target)) {
+          interacting = true;
+          return;
         }
+        interacting = false;
+        dismissed = view.state.selection;
+        renderer?.update(null);
       };
-      const focus = () => queueMicrotask(update);
-      doc.addEventListener('pointerdown', outside, true);
+      const focus = (event) => {
+        if (
+          renderer?.contains(event.target) ||
+          renderer?.contains(event.relatedTarget)
+        )
+          interacting = true;
+        if (event.type === 'focusin') {
+          if (view.dom.contains(event.target)) interacting = false;
+          else if (
+            !renderer?.contains(event.target) &&
+            event.target !== doc.body &&
+            event.target !== doc.documentElement &&
+            event.target !== doc
+          ) {
+            interacting = false;
+            dismissed = view.state.selection;
+          }
+        }
+        queueMicrotask(update);
+      };
+      doc.addEventListener('pointerdown', pointer, true);
       doc.addEventListener('focusin', focus);
       doc.addEventListener('focusout', focus);
       doc.addEventListener('scroll', update, true);
@@ -220,7 +247,7 @@ export function textFormatting({ canEdit, renderToolbar } = {}) {
         },
         destroy: () => {
           destroyed = true;
-          doc.removeEventListener('pointerdown', outside, true);
+          doc.removeEventListener('pointerdown', pointer, true);
           doc.removeEventListener('focusin', focus);
           doc.removeEventListener('focusout', focus);
           doc.removeEventListener('scroll', update, true);

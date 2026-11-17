@@ -22,8 +22,12 @@
     "unchanged": "native adapters, runtime source, Core sources/contracts, dependencies/locks"
   },
   "priorNative68": "PASS real CLI/MCP read-write/conflict, saved UI body marker, same accepted root and visible native window reopen; owner not restarted",
-  "manual69": "pending first selected-text Bold/toolbar check",
+  "manual69": {
+    "boldAndRangeRetention": "user PASS",
+    "coloursAndLink": "user reports toolbar disappears when clicking any of the three colours or link controls",
+    "result": "partial pass; focus correction70 required"
+  },
   "roadmap": "active-app/focused note/selection AI integration deferred, no implementation promised vendor app picker support",
   "housekeeping": "targeted .gitignore; no user Mac files deleted or credentials read",
-  "next": "scoped formatting Mac checks one at a time, then3C Ctrl+A/marquee"
+  "next": "native toolbar focus70 check before remaining formatting/3C"
 }

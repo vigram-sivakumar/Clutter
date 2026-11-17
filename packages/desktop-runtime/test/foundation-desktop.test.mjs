@@ -1508,3 +1508,142 @@ test('69 production floating toolbar preserves body range through controls, save
     await ui.dispose();
   }
 });
+
+test('70 toolbar owns dropdown/link focus gaps without losing controls or mapped body selection', async () => {
+  const dir = await session(),
+    ui = await browserWindow(dir, 'toolbar70');
+  try {
+    ui.button('+ New page').click();
+    await ui.wait(() => !!ui.active());
+    await ui.type('Alpha beta gamma');
+    const editor = ui.active(),
+      pageId = ui.panes()[0].dataset.page,
+      p = editor.querySelector('p');
+    const selectAlpha = () => {
+      editor.focus();
+      const range = ui.doc.createRange();
+      range.setStart(p.firstChild, 0);
+      range.setEnd(p.firstChild, 5);
+      const selection = ui.dom.window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      ui.doc.dispatchEvent(new ui.dom.window.Event('selectionchange'));
+    };
+    selectAlpha();
+    const toolbar = () =>
+      ui.doc.querySelector('[role=toolbar][aria-label="Text formatting"]');
+    await ui.wait(() => !!toolbar());
+    const gap = async (target, keyboard = false) => {
+      if (keyboard)
+        editor.dispatchEvent(
+          new ui.dom.window.FocusEvent('focusout', {
+            bubbles: true,
+            relatedTarget: target,
+          })
+        );
+      else
+        target.dispatchEvent(
+          new ui.dom.window.Event('pointerdown', {
+            bubbles: true,
+            cancelable: true,
+          })
+        );
+      editor.blur();
+      // Deliberately expose the missing-focus interval and an update, rather than
+      // focusing the control immediately as the earlier jsdom test did.
+      assert.equal(ui.doc.activeElement, ui.doc.body);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      ui.doc.dispatchEvent(new ui.dom.window.Event('scroll'));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      assert(
+        target.isConnected,
+        'native control must not be unmounted during focus gap'
+      );
+      assert(toolbar(), 'toolbar retained while its control owns interaction');
+      target.focus();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    };
+    for (const [label, value, selector] of [
+      ['Text colour', 'red', '[data-format="text_color"][data-preset="red"]'],
+      [
+        'Text highlight',
+        'yellow',
+        '[data-format="highlight"][data-preset="yellow"]',
+      ],
+      ['Block background', 'green', 'p[data-background="green"]'],
+    ]) {
+      const control = toolbar().querySelector(
+        'select[aria-label="' + label + '"]'
+      );
+      await gap(control);
+      control.value = value;
+      control.dispatchEvent(
+        new ui.dom.window.Event('change', { bubbles: true })
+      );
+      await ui.wait(() => !!editor.querySelector(selector));
+      assert.equal(ui.dom.window.getSelection().toString(), 'Alpha');
+      assert.equal(ui.doc.activeElement, editor);
+    }
+    toolbar().querySelector('[aria-label="Link"]').click();
+    await ui.wait(() => !!toolbar()?.querySelector('input'));
+    const input = toolbar().querySelector('input');
+    await gap(input, true);
+    const set = Object.getOwnPropertyDescriptor(
+      ui.dom.window.HTMLInputElement.prototype,
+      'value'
+    ).set;
+    set.call(input, 'https://example.com/focus');
+    input.dispatchEvent(new ui.dom.window.Event('input', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    input.blur();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert(input.isConnected);
+    assert.equal(input.value, 'https://example.com/focus');
+    const apply = [...toolbar().querySelectorAll('button')].find(
+      (button) => button.textContent === 'Apply link'
+    );
+    apply.dispatchEvent(
+      new ui.dom.window.Event('pointerdown', { bubbles: true })
+    );
+    apply.focus();
+    toolbar()
+      .querySelector('form')
+      .dispatchEvent(
+        new ui.dom.window.Event('submit', { bubbles: true, cancelable: true })
+      );
+    await ui.wait(
+      () =>
+        editor.querySelector('a')?.getAttribute('href') ===
+        'https://example.com/focus'
+    );
+    assert.equal(ui.dom.window.getSelection().toString(), 'Alpha');
+    toolbar().querySelector('[aria-label="Link"]').click();
+    await ui.wait(() => !!toolbar()?.querySelector('input'));
+    const remove = [...toolbar().querySelectorAll('button')].find(
+      (button) => button.textContent === 'Remove link'
+    );
+    await gap(remove);
+    remove.click();
+    await ui.wait(() => !editor.querySelector('a'));
+    assert.equal(ui.dom.window.getSelection().toString(), 'Alpha');
+    // Genuine focus outside still dismisses; claiming toolbar interaction cannot
+    // pin a stale toolbar after moving to application controls.
+    ui.button('Save').dispatchEvent(
+      new ui.dom.window.Event('pointerdown', { bubbles: true })
+    );
+    ui.button('Save').focus();
+    await ui.wait(() => !toolbar());
+    await ui.saved();
+    const saved = (await ui.api({ method: 'page.read', pageId })).value;
+    assert.equal(saved.content.value.content[1].attrs.background, 'green');
+    const marks = saved.content.value.content[1].content[0].marks;
+    assert(!marks.some((mark) => mark.type === 'link'));
+    assert(
+      marks.some(
+        (mark) => mark.type === 'text_color' && mark.attrs.preset === 'red'
+      )
+    );
+  } finally {
+    await ui.dispose();
+  }
+});

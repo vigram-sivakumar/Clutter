@@ -227,3 +227,7 @@ Current69 implements the agreed floating formatting toolbar on shared editor/sch
 accepted validation. Read [formatting69](formatting-69.md).68 real Mac client milestone
 has actual PASS; no replay required. Native formatting check next, then3C Ctrl+A and
 marquee. Active-app AI integration remains deferred roadmap, not current scope.
+
+70 [toolbar focus correction](toolbar-focus-70.md) follows actual69 Bold PASS and
+reported native colour/link dismissal. Shared interaction ownership, no format/schema
+change. Scoped native check required before completing formatting and starting3C.

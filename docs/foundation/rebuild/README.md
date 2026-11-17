@@ -97,3 +97,7 @@ local artifacts were deleted. Include this housekeeping in the next source deliv
 69 delivers [body formatting](formatting-69.md) after actual Mac client milestone68
 PASS. Shared toolbar/shortcut executor, accepted preset/mark validation, same Core/
 history/save. First scoped native formatting check next; Ctrl+A/marquee3C follows.
+
+70 [toolbar focus correction](toolbar-focus-70.md) follows actual69 Bold PASS and
+reported native colour/link dismissal. Shared interaction ownership, no format/schema
+change. Scoped native check required before completing formatting and starting3C.

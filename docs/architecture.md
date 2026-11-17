@@ -227,3 +227,14 @@ is retained/mapped, palette controls preserve it, and inactive/read-only/removed
 refuse toolbar commands. Block background is kept by text conversion/list outdent;
 indent and graph selectors retain their existing ownership. Core catalogue, SQLite,
 revision/conflict protection, native adapters and dependencies remain unchanged.
+
+## Toolbar focus ownership70
+
+Shared formatting lifecycle claims toolbar interaction from pointer capture or
+keyboard focus transfer before editor blur. activeElement alone cannot establish
+outside intent: native popup/focus transitions may temporarily yield body/null.
+Keep controls mounted through that interval; release on actual outside pointer/focus,
+Escape, invalid selection or view editability/inert guard. Existing live PM range is
+still the single view selection; no copied document, separate range store, timer,
+platform/per-control branch, new command or persistence/history path. URL draft is
+ordinary toolbar input state and survives the focus interval. Disposal removes listeners.

@@ -8,16 +8,13 @@ The user authorized complete removal of old architecture, not a compatibility pr
 Do not resurrect the retired CM6/full-or-compact Markdown/vault/persistence pipeline.
 
 Stage3 execution order and acceptance: docs/foundation/rebuild/stage3-implementation-plan.md.
-68 dedicated real Mac CLI/MCP milestone COMPLETE: actual client read/write/conflict,
-UI save and visible native window/context reopen PASS; owner restart NOT performed.
-Current69 implements the agreed floating body formatting toolbar. Read
-docs/foundation/rebuild/formatting-69.md. One PM executor for toolbar/shortcuts;
-shared schema/JSON/raw-Y validation for marks/preset block background. Title stays
-plain-looking with link semantics; no body formatting on title/objects. Selection
-stays in place. Text66/object67 remain current. Native69 toolbar check NEXT; do not
-replay68 for bookkeeping. Ctrl+A/marquee remains3C after this capability's check.
-Deferred AI active-app integration is roadmap only. Targeted generated/secret ignore
-rules included; never add old generated files or .dev.vars. No local deletion.
+68 actual Mac CLI/MCP milestone COMPLETE, window/context reopen only (owner not
+restarted).69 user Bold/selection preservation PASS; colour/link controls DISMISS
+on interaction, not accepted as native pass. Current70 corrects shared toolbar focus
+ownership for native dropdown/link focus gaps. Read docs/foundation/rebuild/toolbar-focus-70.md. One interaction lifecycle, same live PM range,
+format executor/history/Core/save; no timeout/platform branch or per-control workaround.
+Next Mac check all three colours plus link input/Apply/Remove before3C. Text66/object67
+remain current. Deferred AI app integration stays roadmap only; ignore rules unchanged.
 
 MANDATORY ON EVERY CHANGE: follow the completion review in docs/foundation/AGENTS.md.
 Remove superseded paths; check for duplicate owners/implementations and boundary
