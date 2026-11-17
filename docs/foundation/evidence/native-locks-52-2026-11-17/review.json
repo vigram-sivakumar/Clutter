@@ -1,0 +1,33 @@
+{
+  "format": "clutter-native-lock-inputs52",
+  "date": "2026-11-17",
+  "scope": "R1 reproducibility prerequisite; product replacement pending",
+  "attachment": "Clutter Native Dependency Locks.zip",
+  "verifiedFiles": {
+    "native-tools.package.json": "0e171da9b78e6bf61a2cd60af0bdc1a116fdd97428797dc373e0ef9b8ede3eac",
+    "native-tools.package-lock.json": "2c3314e3cc3fabb27e8a4a3f08ce874c2f3ef76898e88b826459cc7dcdf97522",
+    "Cargo.toml": "7e0481e756baa5abe1369b60a436fae5aef385978e318ca52f8398cb2b6c1c9a",
+    "Cargo.lock": "dcd4eb2ea8622d6bdefe0c31c4a0148518325b4728e83c0a48eede1110d7e8f4"
+  },
+  "checks": {
+    "focused": "4/4 Linux checks",
+    "runtime": "109/109 Linux tests; replaces two old cache/lock-seed tests with three checked-in-input checks",
+    "typecheck": "strict TypeScript pass",
+    "patch": "validated by delivery helper before publication"
+  },
+  "changes": [
+    "checked-in exact exported manifests and complete transitive locks",
+    "active build no longer reads old controlled-build report/project",
+    "removed Cargo registry and Node archive seed lookup from prior experiments",
+    "fresh private cache uses exact locked acquisition; Cargo compilation stays locked/offline",
+    "handoff records user-confirmed Structured/foundation and Markdown/main worktrees"
+  ],
+  "native": "not run; no fresh-checkout Mac build qualification inferred",
+  "unchanged": [
+    "semantic Core/editor/UI/store policy",
+    "main branch source",
+    "native dependency versions and external integrity/checksum entries",
+    "previous user-observed native passes and intermittent unreproduced caret risk"
+  ],
+  "next": "R1 real shared modules and React/Core page flow with coherent CM6/legacy-boot removal; do not resume profiling or ask for lock export"
+}

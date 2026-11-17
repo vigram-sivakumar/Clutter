@@ -21,7 +21,6 @@ import {
   readJSON,
   hash,
 } from '../../../apps/foundation-desktop/host/session.mjs';
-import { prepareLockedTools } from '../../../apps/foundation-desktop/tools/locks.mjs';
 import {
   verifyArchive,
   lock,
@@ -332,58 +331,6 @@ test('actual shared browser UI remounts history and refuses close while save and
   assert.match(
     JSON.parse(read.out).value.body.value.content[0].content[0].text,
     /PENDING/
-  );
-});
-test('native tool preparation verifies prior lock hashes and changes root names only', () => {
-  const previous = join(base, 'previous'),
-    project = join(base, 'project');
-  mkdirSync(join(previous, 'tauri-project/src-tauri'), { recursive: true });
-  const npm = JSON.stringify({
-      name: 'clutter-h01-tauri-build',
-      version: '0.0.0',
-      packages: {
-        '': {
-          name: 'clutter-h01-tauri-build',
-          dependencies: { '@tauri-apps/cli': '2.12.4' },
-        },
-      },
-    }),
-    cargo =
-      'version = 4\n[[package]]\nname = "clutter-h01-tauri"\nversion = "0.0.0"\n';
-  writeFileSync(join(previous, 'tauri-project/package-lock.json'), npm);
-  writeFileSync(join(previous, 'tauri-project/src-tauri/Cargo.lock'), cargo);
-  writeFileSync(
-    join(previous, 'tauri-project/src-tauri/Cargo.toml'),
-    'tauri = "=2.12.5"\ntauri-build = "=2.7.4"\nserde_json = "=1.0.145"\n'
-  );
-  writeFileSync(
-    join(previous, 'build-report.json'),
-    JSON.stringify({
-      id: 'prior',
-      format: 'clutter-matched-build34',
-      status: 'build-smoke-complete',
-      manifestSha256:
-        '0667db819cb04752002dea197b2973954c3a4628e0a31139b6c6eca7b6cd165f',
-      candidates: { 'H-T': { status: 'built-signed-headless-smoke-pass' } },
-      tauriLocks: { npmSha256: hash(npm), cargoSha256: hash(cargo) },
-    })
-  );
-  const result = prepareLockedTools(previous, project);
-  assert.equal(
-    readFileSync(join(project, 'src-tauri/Cargo.lock'), 'utf8').replace(
-      'clutter-foundation-desktop',
-      'clutter-h01-tauri'
-    ),
-    cargo
-  );
-  assert.equal(result.cargoSourceSha256, hash(cargo));
-  writeFileSync(
-    join(previous, 'tauri-project/src-tauri/Cargo.lock'),
-    'changed'
-  );
-  assert.throws(
-    () => prepareLockedTools(previous, join(base, 'badproject')),
-    /DEPENDENCY_LOCK_INTEGRITY/
   );
 });
 test('runtime/bootstrap pins fail closed and no secret is placed in the navigation address', () => {

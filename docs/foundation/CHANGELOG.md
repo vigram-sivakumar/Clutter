@@ -3,6 +3,16 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.76 — 2026-11-17
+
+- User confirmed architecture-named worktrees: Structured/foundation and Markdown/main.
+- Verify uploaded native dependency inputs and check in exact four files/provenance.
+  Remove prior experiment build/report and Cargo/Node cache seed dependencies from
+  active runner. No dependency upgrades or previous native qualification inferred.
+- Focused relocation/integrity checks and runtime/typecheck results in scoped52 evidence.
+  R1 product React/modules/page flow and old-pipeline removal remain next. No new
+  native build requested, no user data/session changes, no automatic commit/push.
+
 ## 0.75 — 2026-11-17
 
 - Record user close/reopen PASS and intermittent/currently-unreproduced caret issue;

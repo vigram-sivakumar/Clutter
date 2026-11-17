@@ -775,3 +775,12 @@ is intermittent/currently unreproduced; user asked to move on. No native caret p
 full host qualification or new51 editor change inferred. Clean rebuild plan now
 permits redesign/deletion of architecture/editor UI/docs; main5c532f8 read-only audit
 is a UI reference. Next dependency-lock capture, then reproducible clean product boot.
+
+## 2026-11-17 — native dependency inputs52; no new native test
+
+User completed worktree separation as Clutter Structured/foundation and Clutter
+Markdown/main. Verified actual Native Dependency Locks ZIP SHA256s from successful
+Mac build2026-11-17T01-28-09-292Z. Source-controlled full locks replace mandatory
+historical projects/reports and all active experiment cache seeding. No Mac compile,
+fresh-checkout native-build or new editor pass inferred. Keep prior observed native
+passes and intermittent/unreproduced caret risk. Actual clean product R1 remains next.

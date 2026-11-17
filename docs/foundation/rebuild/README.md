@@ -1,6 +1,9 @@
 # Clean Clutter rebuild
 
-Status: authorized reset scope; delivery51 provides the concrete removal/rebuild plan.
+Status: authorized reset scope; delivery51 provides the removal/rebuild plan.
+Delivery52 checks in verified native dependency inputs and removes the active build
+requirement for previous experiment projects/caches. R1 product replacement remains
+pending; no new Mac compile or fresh-checkout native-build pass inferred.
 The goal is a clean, stable architecture. Existing implementation, editor UI and
 documentation have no entitlement to survive. Keep overall layout intent and useful
 global components, redesign anything else. No existing users/data need migration.
@@ -157,3 +160,24 @@ open-ended architecture research phase.
   handoff. Two planning-tool tests pass; no new product-runtime or Mac claim.
 - No latency/aggregate-memory winner, shipping security/durability or full product
   feature acceptance is inferred. F010 choices remain accepted; host research closed.
+
+## Development worktrees and native lock inputs52
+
+User confirmed worktree setup: Clutter Structured contains architecture/clutter-foundation;
+Clutter Markdown contains main. Folder names describe architectures, not release status.
+Build/install in each independently; shared Git history does not automatically merge
+changes. Shared Core stays the authority regardless of folder or client.
+
+Native inputs: apps/foundation-desktop/tools/native-locks includes the exact two npm
+and two Cargo files plus allowlisted export provenance. The root crate/tool identities
+already match the Foundation host. No normalization or external graph changes in52.
+The active runner prepares from these source-controlled bytes, never a previous
+controlled host build. Private cache starts empty if needed. npm ci uses its complete
+lock; Cargo fetch tries offline then one locked network acquisition, compile remains
+--locked --offline. Existing Rust1.90.0/Xcode and pinned bundled Node remain required.
+This removes the historical prerequisite, not proof of a fresh Mac build. The old lock
+export script is historical support tooling; do not request another export.
+
+The next delivery implements the actual clean product entry, module split, Core page
+catalogue operation and old pipeline removal. No new placeholder application or legacy
+compatibility facade.52 does not complete those R1 acceptance conditions.

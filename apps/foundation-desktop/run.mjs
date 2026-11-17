@@ -1,5 +1,5 @@
 // This bootstrap imports no TS/Core/build dependencies before selecting pinned Node.
-import { readFileSync, mkdirSync, existsSync, copyFileSync } from 'node:fs';
+import { readFileSync, mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawn } from 'node:child_process';
@@ -32,7 +32,7 @@ if (args.includes('--check')) {
         native: 'not-run',
         sharedUI: true,
         requires:
-          'macOS14+ ARM64 and existing verified Tauri build locks; no global Node/Rust changes',
+          'macOS14+ ARM64, Rust1.90.0/Xcode and checked-in native locks; no prior experiment cache or global toolchain changes',
       },
       null,
       2
@@ -55,13 +55,6 @@ if (args.includes('--check')) {
   const base = gitPath('clutter-foundation48'),
     cache = join(base, 'cache');
   mkdirSync(cache, { recursive: true });
-  const archive = lock.archives[process.arch].file;
-  for (const old of [
-    gitPath('clutter-host-qualification/cache/node'),
-    gitPath('clutter-native28/out/cache'),
-  ])
-    if (!existsSync(join(cache, archive)) && existsSync(join(old, archive)))
-      copyFileSync(join(old, archive), join(cache, archive));
   console.log(
     'Preparing pinned Node ' +
       lock.version +

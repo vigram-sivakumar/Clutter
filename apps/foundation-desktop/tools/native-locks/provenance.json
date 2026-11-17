@@ -1,0 +1,18 @@
+{
+  "format": "clutter-native-lock-export51",
+  "sourceBuild": "2026-11-17T01-28-09-292Z",
+  "files": {
+    "native-tools.package.json": "0e171da9b78e6bf61a2cd60af0bdc1a116fdd97428797dc373e0ef9b8ede3eac",
+    "native-tools.package-lock.json": "2c3314e3cc3fabb27e8a4a3f08ce874c2f3ef76898e88b826459cc7dcdf97522",
+    "Cargo.toml": "7e0481e756baa5abe1369b60a436fae5aef385978e318ca52f8398cb2b6c1c9a",
+    "Cargo.lock": "dcd4eb2ea8622d6bdefe0c31c4a0148518325b4728e83c0a48eede1110d7e8f4"
+  },
+  "origin": {
+    "sourceRun": "2026-11-16T10-35-45-751Z-5b4941c3",
+    "npmSourceSha256": "3f194ab288805b277e287b8586fe3bae941000ca25c67d846dbfb9f061e15b8c",
+    "cargoSourceSha256": "e0570e6abb84d87bdb1843418d919d4d00c17e95976dd87b20baf13457a6660e",
+    "npmSha256": "2c3314e3cc3fabb27e8a4a3f08ce874c2f3ef76898e88b826459cc7dcdf97522",
+    "cargoSha256": "dcd4eb2ea8622d6bdefe0c31c4a0148518325b4728e83c0a48eede1110d7e8f4"
+  },
+  "scope": "Dependency files only. Not a native qualification pass."
+}

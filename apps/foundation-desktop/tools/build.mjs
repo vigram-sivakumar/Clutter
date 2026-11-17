@@ -24,7 +24,7 @@ import { ensureOwner } from '../host/launcher.mjs';
 import { bootstrap } from '../host/bootstrap.mjs';
 import { prepareLockedTools } from './locks.mjs';
 import { setLoopbackPolicy } from './plist.mjs';
-import { prepareCargoCache, fetchLockedCargo } from './cargo-cache.mjs';
+import { fetchLockedCargo } from './cargo-cache.mjs';
 const source = resolve(dirname(fileURLToPath(import.meta.url)), '..'),
   root = resolve(source, '../..');
 const [base, node, license, ...args] = process.argv.slice(2);
@@ -34,14 +34,6 @@ if (
   process.arch !== 'arm64'
 )
   throw Error('PINNED_MAC_RUNTIME_REQUIRED');
-const gitPath = (part) =>
-  resolve(
-    root,
-    execFileSync('git', ['rev-parse', '--git-path', part], {
-      cwd: root,
-      encoding: 'utf8',
-    }).trim()
-  );
 const run = (label, command, arguments_, options = {}) => {
   console.log('[' + label + ']');
   const output = execFileSync(command, arguments_, {
@@ -87,12 +79,7 @@ try {
       join(project, 'src-tauri/CoreData/placeholder.txt'),
       'Core resources copied after compilation.'
     );
-    const provenance = prepareLockedTools(
-      gitPath(
-        'clutter-host-qualification/builds/2026-11-16T10-35-45-751Z-5b4941c3'
-      ),
-      project
-    );
+    const provenance = prepareLockedTools(project);
     privateJSON(join(directory, 'dependency-provenance.json'), provenance);
     const chain = 'stable-aarch64-apple-darwin',
       compiler = run('rust-version', 'rustup', [
@@ -133,15 +120,13 @@ try {
         RUSTC: rustc,
         RUSTUP_TOOLCHAIN: chain,
         CARGO_TARGET_DIR: target,
-        CARGO_HOME: prepareCargoCache(
-          join(base, 'cache/cargo'),
-          gitPath('clutter-host-qualification/cache/cargo')
-        ),
+        CARGO_HOME: join(base, 'cache/cargo'),
         MACOSX_DEPLOYMENT_TARGET: '14.0',
         RUSTFLAGS: '',
         CARGO_ENCODED_RUSTFLAGS: '',
         CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS: 'fallback',
       };
+    mkdirSync(env.CARGO_HOME, { recursive: true, mode: 0o700 });
     run(
       'locked-native-tools',
       'npm',

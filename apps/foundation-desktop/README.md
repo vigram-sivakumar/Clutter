@@ -1,26 +1,27 @@
 # Disposable Foundation development composition
 
-This is an integration checkpoint, not a replacement design for Clutter. Existing
-apps/app and its UI/pipeline are unchanged. The next product step is to discuss
-reusing its presentation while replacing the old architecture completely.
+Temporary integration composition; not the final Clutter product UI. Clean rebuild
+R1 will replace this entry and retire the old apps/app CM6/Markdown pipeline. See the
+[active plan](../../docs/foundation/rebuild/README.md) and
+[handoff](../../docs/foundation/START-HERE.md).
 
-Root: npm run foundation:desktop (macOS ARM64, existing Rust1.90.0/Xcode and verified
-prior Tauri build locks). It prepares pinned Node24.22.1 automatically, builds only
-in Git metadata and opens a synthetic disposable Space. No global toolchain changes.
-Use foundation:desktop:reopen to reopen the same session; explicit --new preserves
-old locators and creates a different test Space. No real notes or automatic fresh
-replacement. No source runtime cache/binaries/reports are staged.
+Run in the Clutter Structured worktree on architecture/clutter-foundation. Clutter
+Markdown/main is independent. Root npm run foundation:desktop requires macOS ARM64,
+existing Rust1.90.0/Xcode, and network for missing locked dependencies. It prepares
+pinned Node24.22.1 without global toolchain changes and builds in Git metadata.
+Checked-in tools/native-locks contains exact user-exported manifests/full locks with
+SHA256 provenance. No earlier experiment build/report/cache required. Native npm uses
+ci; Cargo uses locked acquisition then locked/offline compilation. Missing dependencies
+are not evidence that a different version is acceptable. Fresh Mac build not run by52.
 
-Root npm ci --ignore-scripts installs the two new workspace links. Direct external
-dependency versions stay unchanged. This runner's initial native-lock seed is from
-completed prior build2026-11-16T10-35-45-751Z-5b4941c3, verified read-only. Capture its
-new lock derivatives before an independently reproducible product build is claimed.
+foundation:desktop:reopen opens an existing session/bundle; explicit --new preserves
+old locators and creates a different disposable Space. Source changes require a new
+bundle. No52 native rerun requested. Moving a worktree does not rewrite historical
+absolute session locators. Never silently reset a session after relocation failure.
+No source runtime cache/binary/report is staged. No real notes yet.
 
-Shared UI/controller is packages/foundation-ui, all document operations use existing
-foundation-runtime. Node headless owner uses packaged runtime and outlives the window.
-Private loopback reservation is developer-scoped, not installed registry/security
-qualification. Idle shutdown and full distribution/feature UI are still pending.
-
-Mac build/native observation is not inferred from Linux tests. See
-[handoff](../../docs/foundation/START-HERE.md), [composition](../../docs/foundation/i2/desktop-composition.md)
-and [rebuild proposal](../../docs/foundation/rebuild/README.md).
+packages/foundation-ui owns temporary shared UI/controller; foundation-runtime owns
+all document operations. Packaged headless owner outlives the window. Private loopback
+reservation is developer-scoped, not installed security qualification. Idle shutdown,
+full product UI and data-bearing/distribution gates remain pending. Mac compilation
+and native observation are not inferred from Linux tests.

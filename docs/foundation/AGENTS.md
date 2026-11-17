@@ -9,7 +9,9 @@ contract and scoped evidence before changing or replaying an experiment.
 
 ## Scope and repository safety
 
-- Stay on architecture/clutter-foundation. Inspect Git state and preserve user work.
+- Stay on architecture/clutter-foundation in the Clutter Structured worktree.
+  Clutter Markdown is main; same Git repository, separate installs/builds. Inspect
+  Git state and preserve user work.
   Do not reset/clean, pull unrelated main changes, merge to main, commit or push
   merely because a plan describes future work. User applies/commits delivered patches.
 - User authorizes complete architecture deconstruction/rebuild, including apps/app,
@@ -42,8 +44,8 @@ contract and scoped evidence before changing or replaying an experiment.
 - Main may be inspected/fetched read-only as visual/behavior reference. Do not merge
   legacy architecture to acquire UI changes. Record exact commit/scope; unpublished
   user main changes are not visible from origin/main.
-- R1 needs actual native locks from the successful Mac build before removing cache
-  provenance. Export dependency files only; no new profiling/manual replay. Current
+- R1 native locks are checked in by52 from the user-provided successful Mac export.
+  Do not request another export or require an old experiment cache. Current
   issue: intermittent caret displacement, user asked to move on, not confirmed fixed.
 - There is no existing-user migration/legacy compatibility requirement. Retire code
   and obsolete docs rather than adapt indefinitely. Preserve confirmed product

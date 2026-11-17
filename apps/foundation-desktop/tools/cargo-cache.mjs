@@ -1,24 +1,3 @@
-import { constants, cpSync, existsSync, lstatSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
-/** Development cache only: never copy Cargo config, credentials or build outputs. */
-export function prepareCargoCache(destination, previous) {
-  mkdirSync(destination, { recursive: true, mode: 0o700 });
-  const source = join(previous, 'registry');
-  if (existsSync(source)) {
-    if (!lstatSync(source).isDirectory() || lstatSync(source).isSymbolicLink())
-      throw Error('UNSAFE_PRIOR_CARGO_REGISTRY');
-    cpSync(source, join(destination, 'registry'), {
-      recursive: true,
-      dereference: false,
-      force: false,
-      errorOnExist: false,
-      mode: constants.COPYFILE_FICLONE,
-      filter: (path) =>
-        !lstatSync(path).isSymbolicLink() && !path.endsWith('/.package-cache'),
-    });
-  }
-  return destination;
-}
 export function fetchLockedCargo(cargo, manifest, invoke) {
   const args = ['fetch', '--locked', '--manifest-path', manifest];
   const offline = invoke(cargo, [...args, '--offline']);

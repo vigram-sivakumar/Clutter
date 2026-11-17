@@ -1,43 +1,44 @@
 # Resume Clutter work
 
-## Current checkpoint — clean rebuild plan51, 2026-11-17
+## Current checkpoint — R1 native dependency inputs52, 2026-11-17
 
-Bounded composition closeout is sufficient to move on: user PASS for shared edits,
-A remount, text Undo/Redo, native close and same-Space reopen. Caret issue occurred
-intermittently, is currently unreproduced, and user explicitly asked to move on.
-Do not replay the old suite or invent a native caret pass/new fix. Baseline108
-runtime tests + strict TS from50 remain scoped evidence, not shipping qualification.
-No50 commit hash was supplied; verify actual Git state. Last supplied49 hash6ba91499.
+User completed separate worktree setup. User Mac paths now:
+- `/Users/sivakuv3/Documents/Personal/projects/Clutter Structured`:
+  `architecture/clutter-foundation`, active rebuild.
+- `/Users/sivakuv3/Documents/Personal/projects/Clutter Markdown`:
+  `main`, existing CM6/Markdown application.
+These are worktrees of one repository, not separate repositories. Keep installs and
+builds in their respective trees. No automatic branch switch/merge/push. Old command
+paths in dated evidence are historical; use the Structured path for new instructions.
 
-User now authorizes complete deconstruction, including editor UI and documentation:
-clean/stable architecture first; keep overall layout intent and useful global UI,
-not old controllers or code merely for reuse. The active [clean rebuild plan](rebuild/README.md)
-replaces the earlier proposal. It includes target responsibilities, component model,
-keep/redesign/delete map, code/docs retirement, staged vertical slices and acceptance.
-No existing-user migration or legacy compatibility requirement.
+Uploaded Native Dependency Locks ZIP verified: four SHA256s match provenance from
+successful Mac build2026-11-17T01-28-09-292Z. Exact manifests/full transitive npm/Cargo
+locks are checked in under apps/foundation-desktop/tools/native-locks. Runner copies
+those exact bytes; old controlled-build reports, generated projects and Cargo/Node
+cache seeding are removed from active build prerequisites. Fresh private cache may
+acquire exact locked dependencies; native compile remains locked/offline. No version
+upgrade, global toolchain change, runtime/store/owner/editor/UI semantic change.
 
-Read-only origin/main fetch succeeded at5c532f8443321c0784cb379a184ed97f13de1820
-(2026-11-16 date-mention alignment change). It is the committed UI/behavior reference,
-not a merge target. Foundation working branch stayed architecture/clutter-foundation.
-Audit: main1080 production JS/TS files +978 test files; foundation1077/974. Static
-imports show old app/layout/page/property hosts depend on legacy Core/CM6/platform
-code. Buttons/input/dialog/overlay/menu/toast/icons/theme are candidates only.
-One missing legacy Reference.css import is noted, not repaired. CSS/runtime/focus
-and unpublished local main changes are not proven by this static inventory.
+52 is the reproducibility prerequisite within R1, not completion of the product
+rebuild. Linux runtime109/109 and strict TypeScript pass; focused relocation/integrity and
+exact patch validation are recorded in scoped52 evidence.
+No new Mac compile/fresh-checkout native-build pass is claimed. No need to rerun old
+native tests or export locks again. Existing temporary sessions are not moved or
+rewritten; historical absolute locators may reference the previous directory. Do not
+use an old session failure as permission to reset notes or create a silent replacement.
 
-NEXT: apply/commit51 if pending, then export completed native dependency locks using
-rebuild/export-native-locks.mjs and provide the ZIP. No new native build/manual test.
-Export reads only four dependency files + allowlisted provenance from the successful
-Git-internal native build, not session/endpoint/token/store/runtime contents. Native
-locks are required to remove the runner's dependence on earlier local build caches
-and make R1 independently reproducible. Node24.11 is sufficient for the export.
+NEXT after applying52: implement the remainder of R1 from rebuild/README.md: actual
+core/editor/ui/desktop-runtime module boundaries, shared React product entry with
+selected global visuals, real Core page query/create/list/open/edit/save/reopen and
+coherent removal of old CM6/Core/boot. Minimal foundation demo is temporary. Do not
+stop for more host profiling or another architecture decision. Delete/redesign old
+implementation and obsolete docs as authorized; no compatibility or migration work.
 
-Then R1: real shared modules/product React entry and selected global visuals,
-reproducible locked build, actual Core page query/create/edit flow, coherent old-boot
-removal. The minimal Foundation demo is not the final UI or permanent parallel app.
-No old Application/Vault façade to keep screens working. All legacy code/docs may
-be retired when useful contracts/fixtures/current outcomes are promoted. Git history
-is the archive. No main modification, automatic commit/push or user-data deletion.
+Baseline context: user PASS for shared edits, A remount, text Undo/Redo, native close
+and same-Space reopen. Caret displacement remains intermittent/unreproduced; user
+asked to move on. Do not claim fixed or replay the old suite. Product contracts and
+F010 own behavior and ownership. Read-only main visual reference5c532f8; no merge.
+No installed-security/native durability/final-format/scale/distribution pass inferred.
 
 ## Authority
 

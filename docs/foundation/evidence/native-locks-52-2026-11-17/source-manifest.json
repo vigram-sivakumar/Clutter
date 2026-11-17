@@ -1,0 +1,7 @@
+{
+  "apps/foundation-desktop/tools/locks.mjs": "eb253e612913e1d2923e6264cd3a984d7d412a09426ddc2bdcc2e82b35b51ba6",
+  "apps/foundation-desktop/tools/build.mjs": "2dc800aebf3bf65b4c32e95eee69536abb5e3e7b9f78e88626d4aa628ba3e1f8",
+  "apps/foundation-desktop/tools/cargo-cache.mjs": "3de6a3acc50edfa72c83dc73960c8638ff8f0d36e10039404089c83a4f6cbc19",
+  "apps/foundation-desktop/run.mjs": "c58f7618461cc4e0a2fc9e21d018f2cfbe948658ad492f14c9454b177db95283",
+  "packages/foundation-runtime/test/native-locks.test.mjs": "474ed9fd1a7808f9afe53cdec334e33953ba0bfa24cc3b2328035628f4635d57"
+}
