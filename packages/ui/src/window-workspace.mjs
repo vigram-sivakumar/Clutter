@@ -24,7 +24,6 @@ export class WindowWorkspace {
     this.next = undefined;
     this.status = 'Connecting…';
     this.ready = !stateStore;
-    this.busy = false;
     this.navigationBusy = false;
     this.navigationError = false;
     this.focusTarget = 'editor';
@@ -43,21 +42,24 @@ export class WindowWorkspace {
     this.layoutTail = Promise.resolve();
     this.layoutTimer = null;
     this.layoutWriteToken = 0;
+    this.navigationTail = Promise.resolve();
+    this.intents = new Map();
+    this.routeOperations = new Map();
+    this.preparing = new Set();
+    this.intentSequence = 0;
+    this.focusEpoch = 0;
+    this.failedIntent = null;
+    this.creationState = 'idle';
+    this.prepareViews = null;
   }
   get pageId() {
     return this.navigation.page();
   }
   get canSelectView() {
-    return (
-      this.ready &&
-      !this.frozen &&
-      !this.busy &&
-      !this.navigationBusy &&
-      !this.pendingCreate
-    );
+    return this.ready && !this.frozen;
   }
   get canNavigate() {
-    return this.canSelectView && !this.navigationError;
+    return this.canSelectView;
   }
   references(value) {
     return value.tabs.flatMap((tab) =>
@@ -140,16 +142,16 @@ export class WindowWorkspace {
         if (this.pages.length) this.navigation.open(this.pages[0].pageId);
         await this.checkpoint();
       }
+      const release = await this.primeNavigation(this.navigation);
       this.ready = true;
       this.notify('Ready');
+      release?.();
     })();
     return this.loading;
   }
-  checkpoint() {
+  checkpoint(navigation = this.pendingNavigation ?? this.navigation) {
     if (!this.stateStore) return Promise.resolve();
-    const value = JSON.stringify(
-      (this.pendingNavigation ?? this.navigation).snapshot()
-    );
+    const value = JSON.stringify(navigation.snapshot());
     const record =
       this.pendingLayout?.value === value
         ? this.pendingLayout
@@ -165,30 +167,70 @@ export class WindowWorkspace {
     this.layoutTail = task.catch(() => {});
     return task;
   }
-  navigate(change) {
+  navigate(
+    change,
+    { route = null, focus = true, epoch = ++this.focusEpoch } = {}
+  ) {
     if (!this.canNavigate) return Promise.resolve(false);
-    let changed;
-    try {
-      const next = new WindowNavigation(
-        this.nextId,
-        this.navigation.snapshot()
-      );
-      changed = change(next);
-      if (changed) this.pendingNavigation = next;
-    } catch {
-      this.notify('This development layout has reached its navigation limit.');
-      return Promise.resolve(false);
+    const intent = {
+      change,
+      route,
+      focus,
+      epoch,
+      sequence: ++this.intentSequence,
+      ids: [],
+    };
+    intent.superseded = new Promise((resolve) => {
+      intent.supersede = () => {
+        intent.cancelled = true;
+        resolve();
+      };
+    });
+    if (route) {
+      this.routeOperations.get(route)?.supersede();
+      this.routeOperations.set(route, intent);
+      this.intents.set(route, intent.sequence);
     }
-    if (!changed) {
-      this.focusTarget = 'editor';
-      this.focusRevision++;
-      this.changed();
-      return Promise.resolve(true);
+    return this.commitNavigation(intent);
+  }
+  candidate(intent) {
+    let index = 0;
+    const next = new WindowNavigation(
+      () => intent.ids[index++] ?? (intent.ids[index - 1] = this.nextId()),
+      this.navigation.snapshot()
+    );
+    const changed = intent.change(next);
+    if (intent.epoch !== this.focusEpoch) {
+      const current = this.navigation.activeTab;
+      const tab = next.tabs.find((t) => t.id === current?.id);
+      if (tab) {
+        next.value.activeTabId = tab.id;
+        if (tab.panes.some((p) => p.id === current.activePaneId))
+          tab.activePaneId = current.activePaneId;
+      }
     }
-    // Register view identities/history before opening an editable context.
-    return this.commitNavigation();
+    return { next, changed };
+  }
+  currentIntent(intent) {
+    return !intent.route || this.intents.get(intent.route) === intent.sequence;
+  }
+  async waitForIntent(intent, work) {
+    const task = Promise.resolve(work);
+    this.preparing.add(task);
+    task.then(
+      (value) => {
+        this.preparing.delete(task);
+        if (intent.cancelled && typeof value === 'function') value();
+      },
+      () => this.preparing.delete(task)
+    );
+    return Promise.race([
+      task.then((value) => ({ value })),
+      intent.superseded.then(() => null),
+    ]);
   }
   async primeNavigation(navigation) {
+    if (this.prepareViews) return this.prepareViews(navigation);
     const tab = navigation.activeTab;
     if (!tab) return;
     await Promise.all(
@@ -210,7 +252,7 @@ export class WindowWorkspace {
       await this.layoutTail;
       if (token !== this.layoutWriteToken || this.frozen) return;
       try {
-        await this.checkpoint();
+        await this.checkpoint(this.navigation);
       } catch {
         if (token === this.layoutWriteToken && !this.frozen) {
           this.navigationError = true;
@@ -221,77 +263,150 @@ export class WindowWorkspace {
       }
     }, 120);
   }
-  setTransitionPaused(value) {
-    for (const e of this.editors.values()) e.setTransitionPaused(value);
-  }
-  commitNavigation() {
-    const recovering = this.navigationError;
-    const candidate = this.pendingNavigation;
-    const registered = candidate && this.isRegistered(candidate);
+  commitNavigation(intent = this.failedIntent) {
+    if (!intent)
+      return this.checkpoint(this.navigation)
+        .then(() => {
+          this.navigationError = false;
+          this.changed();
+          return true;
+        })
+        .catch(() => false);
     this.cancelLayoutWrite();
     this.navigationBusy = true;
-    this.setTransitionPaused(true);
-    this.changed();
-    this.navigationTask = (async () => {
-      // New identities need durable registration. Existing ones can switch from
-      // retained contexts without waiting for disk/transport bookkeeping again.
-      if (!registered) await this.checkpoint();
-      if (candidate) {
-        await this.primeNavigation(candidate);
-        this.navigation = candidate;
-        if (this.pendingNavigation === candidate) this.pendingNavigation = null;
-        this.focusTarget = 'editor';
-        this.focusRevision++;
-      }
-      this.navigationError = false;
-      if (registered) this.scheduleLayoutWrite();
-      if (recovering) this.notify('Navigation ready');
-      return true;
-    })()
-      .catch(() => {
-        this.navigationError = true;
-        this.notify(
-          'Could not complete navigation. Retry navigation to continue.'
+    const preparations = [];
+    const task = this.navigationTail
+      .then(async () => {
+        if (!this.currentIntent(intent)) return false;
+        let { next, changed } = this.candidate(intent);
+        if (!changed) {
+          this.failedIntent = null;
+          this.navigationError = false;
+          this.pendingNavigation = null;
+          this.scheduleLayoutWrite();
+          if (intent.epoch === this.focusEpoch) {
+            this.focusTarget = intent.focus ? 'editor' : 'tabs';
+            this.focusRevision++;
+            this.changed();
+          }
+          return true;
+        }
+        this.pendingNavigation = next;
+        const registered = this.isRegistered(next);
+        if (
+          !registered &&
+          !(await this.waitForIntent(intent, this.checkpoint(next)))
+        )
+          return false;
+        if (!this.currentIntent(intent)) return false;
+        const prepared = await this.waitForIntent(
+          intent,
+          this.primeNavigation(next)
         );
-        return false;
-      })
-      .finally(() => {
-        this.navigationBusy = false;
-        this.setTransitionPaused(false);
-        this.navigationTask = null;
+        if (!prepared) return false;
+        preparations.push(prepared.value);
+        if (!this.currentIntent(intent)) return false;
+        // A pane/tab may have been activated while preparation was pending. Rebase
+        // the intent over current topology without allocating different view IDs.
+        const rebased = this.candidate(intent).next;
+        if (
+          JSON.stringify(rebased.snapshot()) !== JSON.stringify(next.snapshot())
+        ) {
+          next = rebased;
+          this.pendingNavigation = next;
+          if (
+            !this.isRegistered(next) &&
+            !(await this.waitForIntent(intent, this.checkpoint(next)))
+          )
+            return false;
+          if (!this.currentIntent(intent)) return false;
+          const rebasedPreparation = await this.waitForIntent(
+            intent,
+            this.primeNavigation(next)
+          );
+          if (!rebasedPreparation) return false;
+          preparations.push(rebasedPreparation.value);
+        }
+        if (!this.currentIntent(intent)) return false;
+        // No awaits between the final selection rebase and publication.
+        const final = this.candidate(intent).next;
+        this.navigation = final;
+        this.pendingNavigation = null;
+        this.failedIntent = null;
+        this.navigationError = false;
+        if (intent.epoch === this.focusEpoch) {
+          this.focusTarget = intent.focus ? 'editor' : 'tabs';
+          this.focusRevision++;
+        }
+        this.scheduleLayoutWrite();
         this.changed();
+        return true;
+      })
+      .catch(() => {
+        if (this.currentIntent(intent)) {
+          this.failedIntent = intent;
+          this.navigationError = true;
+          this.notify(
+            'Could not complete this navigation. Existing notes remain available.'
+          );
+        }
+        return false;
       });
-    return this.navigationTask;
+    const settled = task.finally(() => {
+      if (this.navigationTask === settled) {
+        this.navigationBusy = false;
+        this.navigationTask = null;
+      }
+      if (!this.failedIntent && this.navigationTask === null)
+        this.pendingNavigation = null;
+      for (const release of preparations) release?.();
+      this.changed();
+    });
+    this.navigationTail = settled.then(() => {});
+    this.navigationTask = settled;
+    return settled;
   }
   retryNavigation() {
-    if (!this.ready || this.frozen || this.navigationBusy || this.busy)
-      return Promise.resolve(false);
+    if (!this.canNavigate) return Promise.resolve(false);
     return this.commitNavigation();
   }
   open(pageId) {
-    return this.navigate((nav) => nav.open(pageId));
+    const location = this.navigation.location();
+    return this.navigate((nav) => nav.open(pageId, location), {
+      route: JSON.stringify(location),
+    });
   }
   openInNewTab(pageId) {
     return this.navigate((nav) => nav.newTab(pageId));
   }
   openInSplit(pageId) {
-    return this.navigate((nav) => nav.split(pageId));
+    const location = this.navigation.location();
+    return this.navigate((nav) => nav.split(pageId, location));
   }
   back() {
-    return this.navigate((nav) => nav.travel(-1));
+    return this.travel(-1);
   }
   forward() {
-    return this.navigate((nav) => nav.travel(1));
+    return this.travel(1);
+  }
+  travel(offset) {
+    const location = this.navigation.location();
+    return this.navigate((nav) => nav.travel(offset, location), {
+      route: JSON.stringify(location),
+    });
   }
   selectTab(id, focusEditor = true) {
-    if (!this.canSelectView) return;
-    this.navigation.selectTab(id);
-    this.focusTarget = focusEditor ? 'editor' : 'tabs';
-    this.focusRevision++;
-    this.changed();
+    return this.navigate((nav) => nav.selectTab(id), {
+      route: 'tab-selection',
+      focus: focusEditor,
+    });
   }
-  selectPane(tabId, paneId, editorFocus = false) {
+  selectPane(tabId, paneId, editorFocus = false, userIntent = false) {
     if (!this.canSelectView) return;
+    if (this.navigation.activeTab?.id !== tabId) return;
+    // Explicit user activity invalidates late focus requests, even in the same pane.
+    if (userIntent || this.navigation.activePane?.id !== paneId)
+      this.focusEpoch++;
     this.focusTarget = editorFocus ? 'editor' : null;
     if (this.navigation.selectPane(tabId, paneId)) this.changed();
   }
@@ -305,20 +420,13 @@ export class WindowWorkspace {
         nextId: this.nextId,
         onStatus: (status) => this.notify(status),
       });
-      e.setTransitionPaused(this.navigationBusy);
       if (this.frozen) e.freeze();
       this.editors.set(pageId, e);
     }
     return this.editors.get(pageId);
   }
   create() {
-    if (
-      !this.ready ||
-      this.frozen ||
-      this.navigationBusy ||
-      this.navigationError
-    )
-      return Promise.resolve();
+    if (!this.canSelectView) return Promise.resolve();
     if (this.creating) return this.creating;
     if (!this.pendingCreate) {
       this.createTarget = this.navigation.location();
@@ -341,13 +449,16 @@ export class WindowWorkspace {
         properties: {},
       };
     }
-    const command = this.pendingCreate;
-    this.busy = true;
-    this.notify('Creating…');
+    const command = this.pendingCreate,
+      location = this.createTarget,
+      epoch = ++this.focusEpoch;
+    this.creationState = 'pending';
+    this.changed();
     this.creating = (async () => {
       const result = await this.client.execute(command);
       if (!result.ok) {
         if (result.error.code !== 'OUTCOME_UNKNOWN') this.pendingCreate = null;
+        this.creationState = this.pendingCreate ? 'uncertain' : 'failed';
         this.notify(
           this.pendingCreate
             ? 'Creation not confirmed. Retry creation.'
@@ -356,20 +467,38 @@ export class WindowWorkspace {
         return;
       }
       this.pendingCreate = null;
-      this.pendingNavigation = new WindowNavigation(
-        this.nextId,
-        this.navigation.snapshot()
-      );
-      this.pendingNavigation.open(command.pageId, this.createTarget);
-      await this.commitNavigation();
-      if (!this.navigationError) this.notify('Saved');
-      await this.list();
+      this.creationState = 'idle';
+      // Project the accepted command result, not a speculative React body copy.
+      const read = await this.client.execute({
+        apiVersion: 1,
+        method: 'page.read',
+        spaceId: this.spaceId,
+        pageId: command.pageId,
+      });
+      if (!read.ok) throw Error(read.error.code);
+      const { pageId, title, kind, head, sequence } = read.value;
+      this.pages = [
+        ...this.pages.filter((p) => p.pageId !== pageId),
+        { pageId, title, kind, head, sequence },
+      ];
+      this.changed();
+      // Accepted creations remain in the index even if newer navigation supersedes
+      // their reveal. Do not restore an obsolete destination or steal focus.
+      if (epoch === this.focusEpoch)
+        await this.navigate((nav) => nav.open(pageId, location), {
+          route: JSON.stringify(location),
+          epoch,
+        });
     })()
-      .catch(() =>
-        this.notify('Could not refresh pages. Your saved work is retained.')
-      )
+      .catch((error) => {
+        this.creationState = this.pendingCreate ? 'uncertain' : 'failed';
+        this.notify(
+          'Could not confirm creation details: ' +
+            error.message +
+            '. Refresh pages; accepted work is retained.'
+        );
+      })
       .finally(() => {
-        this.busy = false;
         this.creating = null;
         this.changed();
       });
@@ -384,8 +513,8 @@ export class WindowWorkspace {
     this.cancelLayoutWrite();
     this.notify('Saving…');
     try {
-      await this.navigationTask;
-      await this.checkpoint();
+      await this.navigationTail;
+      await this.checkpoint(this.navigation);
       this.navigationError = false;
       for (const e of this.editors.values()) await e.flush();
       this.notify('Saved');
@@ -402,11 +531,12 @@ export class WindowWorkspace {
     this.closing = (async () => {
       await this.loading?.catch(() => {});
       await this.creating;
-      await this.navigationTask;
+      await this.navigationTail;
+      await Promise.allSettled([...this.preparing]);
       let safe = !this.pendingCreate;
       if (this.ready) {
         try {
-          await this.checkpoint();
+          await this.checkpoint(this.navigation);
           this.navigationError = false;
         } catch {
           safe = false;
@@ -432,7 +562,6 @@ export class WindowWorkspace {
   }
   refuseClose() {
     this.focusTarget = 'editor';
-    this.recoveryEpoch++;
     this.frozen = false;
     for (const e of this.editors.values()) e.resumeAfterRefusedClose();
     this.focusRevision++;

@@ -3,6 +3,25 @@
 Dated experimental implementation history is archived in Git. This is the concise
 current ledger; revisions below are delivery identifiers, not document file versions.
 
+## 56 — 2026-11-17
+
+- Replace normal global busy/editability cycles with scoped operations and stable
+  shell/pane hosts. Prepare actual PM surfaces before reveal across all routes.
+- Add bounded recent surface retention, preserving context/history on eviction;
+  retain source editability and user focus while splits prepare.
+- Rebase queued structural changes; supersede obsolete same-pane work; guard focus,
+  exact creation retry, registration and close across all outstanding preparation.
+- 109 Linux tests, strict Core/runtime TS and42-source boundary checks pass. No
+  Core/editor/runtime/native/dependency change; native visual result pending.
+- Progress/handoff updated; stage3 still requires UX agreement before code.
+
+## Follow-up to55 — analysis only, 2026-11-17
+
+- User reports ordinary switching improved; New Page and split opening still flash.
+- Trace common window-wide busy/disabled/editability coupling, incomplete surface
+  readiness and pane/tab mount lifetimes. Record coherent lifecycle proposal and
+  acceptance in rebuild/view-lifecycle-review.md; no implementation/pass claimed.
+
 ## 55 — 2026-11-17
 
 - User54 navigation works; routine Preparing view flash is a reported defect.

@@ -282,11 +282,19 @@ async function browserWindow(dir, windowId = 'window54') {
     width: 0,
     height: 0,
   });
-  dom.window.fetch = (address, options = {}) =>
-    fetch(address, {
+  // Browser Response.json produces objects in the browser realm. Node fetch's
+  // objects would fail the Core JSON plain-object guard across jsdom realms.
+  dom.window.fetch = async (address, options = {}) => {
+    const response = await fetch(address, {
       ...options,
       headers: { ...options.headers, origin: url },
     });
+    return {
+      ok: response.ok,
+      status: response.status,
+      json: async () => dom.window.JSON.parse(await response.text()),
+    };
+  };
   dom.window.__clutterHost = {
     url,
     spaceId: m.spaceId,
@@ -307,8 +315,12 @@ async function browserWindow(dir, windowId = 'window54') {
     );
   };
   const button = (text) =>
-    [...doc.querySelectorAll('button')].find((b) => b.textContent === text);
-  const panes = () => [...doc.querySelectorAll('[data-pane]')];
+    [...doc.querySelectorAll('button')].find(
+      (b) => b.textContent === text && !b.closest('[hidden]')
+    );
+  const panes = () => [
+    ...doc.querySelectorAll('.tab-panel:not([hidden]) [data-pane]'),
+  ];
   const active = () =>
     doc.querySelector('[data-pane][data-active=true] .ProseMirror');
   const tabs = () => [...doc.querySelectorAll('[role=tab]')];
@@ -432,7 +444,16 @@ test('React navigation stays in the current tab, owns split layouts per tab, and
         'current editor must remain mounted while navigation is prepared'
       );
       assert.equal(previousEditor.isConnected, true);
-      assert.equal(previousEditor.getAttribute('contenteditable'), 'false');
+      assert.equal(previousEditor.getAttribute('contenteditable'), 'true');
+      assert.equal(ui.button('+ New page').textContent, '+ New page');
+      for (const control of ui.doc.querySelectorAll(
+        '.sidebar button, [role=tab], .editor-tools button'
+      ))
+        assert.equal(control.disabled, false);
+      assert.equal(
+        ui.doc.querySelector('.page-bar button:last-child').disabled,
+        false
+      );
       assert(!ui.doc.body.textContent.includes('Preparing view'));
     } finally {
       releaseNavigation();
@@ -699,4 +720,149 @@ test('native ATS preparation replaces existing broad exceptions and fails closed
     () => setLoopbackPolicy('/not-a-generated-plist', () => ({ status: 0 })),
     /GENERATED_APP_PLIST_REQUIRED/
   );
+});
+
+test('creation and split preparation preserve shell controls, existing editability and focus; actual PM surfaces stage before reveal', async () => {
+  const dir = await session();
+  const ui = await browserWindow(dir, 'stable-window');
+  let release = () => {},
+    restore;
+  try {
+    ui.button('+ New page').click();
+    await ui.wait(() => !!ui.active());
+    const first = ui.panes()[0].dataset.page;
+    await ui.type('KEEP EDITABLE');
+    await ui.saved();
+    const shell = ui.doc.querySelector('.workspace'),
+      sidebar = ui.doc.querySelector('.sidebar'),
+      panel = ui.doc.querySelector('.tab-panel');
+    const original = ui.active(),
+      initialFocus = ui.doc.activeElement;
+    const mutations = [],
+      staged = [];
+    const observer = new ui.dom.window.MutationObserver((records) => {
+      for (const record of records) {
+        if (
+          record.type === 'attributes' &&
+          record.attributeName === 'disabled' &&
+          record.target.closest('.workspace') &&
+          !record.target.matches('[aria-label=Back], [aria-label=Forward]')
+        )
+          mutations.push(record);
+        for (const node of record.addedNodes)
+          if (node.nodeType === 1 && node.matches('.ProseMirror'))
+            staged.push({ node, staged: !!node.closest('.surface-staging') });
+      }
+    });
+    observer.observe(ui.doc.body, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ['disabled'],
+    });
+    restore = ui.dom.window.fetch;
+    let held = false;
+    ui.dom.window.fetch = async (address, options = {}) => {
+      if (
+        !held &&
+        String(address).endsWith('/api') &&
+        JSON.parse(options.body).method === 'page.create'
+      ) {
+        held = true;
+        await new Promise((ok) => (release = ok));
+      }
+      return restore(address, options);
+    };
+    ui.button('+ New page').click();
+    await ui.wait(() => held);
+    assert.equal(ui.active(), original);
+    assert.equal(original.getAttribute('contenteditable'), 'true');
+    assert.equal(ui.doc.activeElement, initialFocus);
+    assert.equal(ui.button('+ New page').textContent, '+ New page');
+    for (const b of ui.doc.querySelectorAll(
+      '.sidebar button, [role=tab], .editor-tools button'
+    ))
+      assert.equal(b.disabled, false);
+    assert.equal(mutations.length, 0);
+    // Duplicate activation joins the same request instead of creating another page.
+    ui.button('+ New page').click();
+    release();
+    await ui.wait(
+      () =>
+        ui.doc.querySelectorAll('.page-link').length === 2 &&
+        ui.active() !== original
+    );
+    ui.dom.window.fetch = restore;
+    const second = ui.panes()[0].dataset.page;
+    assert(staged.some((e) => e.node === ui.active() && e.staged));
+    assert.equal(ui.doc.querySelector('.workspace'), shell);
+    assert.equal(ui.doc.querySelector('.sidebar'), sidebar);
+    assert.equal(ui.doc.querySelector('.tab-panel'), panel);
+    const paneHost = ui.panes()[0];
+    ui.doc.querySelector('.page-link[data-page="' + first + '"]').click();
+    await ui.wait(() => ui.active() === original);
+    assert.equal(
+      ui.panes()[0],
+      paneHost,
+      'pane host outlives its page binding'
+    );
+    ui.doc.querySelector('.page-link[data-page="' + second + '"]').click();
+    await ui.wait(() => ui.panes()[0].dataset.page === second && !!ui.active());
+    const secondView = ui.active();
+    held = false;
+    ui.dom.window.fetch = async (address, options = {}) => {
+      if (
+        !held &&
+        String(address).endsWith('/api') &&
+        JSON.parse(options.body).method === 'editor.open'
+      ) {
+        held = true;
+        await new Promise((ok) => (release = ok));
+      }
+      return restore(address, options);
+    };
+    await ui.menu(first, 'Open in split view');
+    await ui.wait(() => held);
+    assert.equal(
+      ui.panes().length,
+      1,
+      'no empty split exposed during editor preparation'
+    );
+    assert.equal(ui.active(), secondView);
+    assert.equal(secondView.getAttribute('contenteditable'), 'true');
+    // Continue working in the source pane: completion must not steal active pane/focus.
+    ui.panes()[0].dispatchEvent(
+      new ui.dom.window.Event('pointerdown', { bubbles: true })
+    );
+    await ui.type('CONTINUED WHILE PREPARING', secondView);
+    const focus = ui.doc.activeElement;
+    release();
+    await ui.wait(() => ui.panes().length === 2);
+    assert.equal(ui.active(), secondView);
+    assert.equal(ui.doc.activeElement, focus);
+    assert.equal(
+      ui.panes()[1].querySelector('.ProseMirror').textContent,
+      'KEEP EDITABLE'
+    );
+    assert(
+      staged.some(
+        (e) =>
+          e.node === ui.panes()[1].querySelector('.ProseMirror') && e.staged
+      )
+    );
+    assert.equal(ui.panes()[0], paneHost);
+    assert.equal(ui.doc.querySelector('.workspace'), shell);
+    assert.equal(
+      mutations.length,
+      0,
+      'normal lifecycle must not toggle unrelated disabled attributes'
+    );
+    observer.disconnect();
+    ui.dom.window.fetch = restore;
+    await ui.saved();
+  } finally {
+    release();
+    if (restore) ui.dom.window.fetch = restore;
+    await ui.dispose();
+  }
 });

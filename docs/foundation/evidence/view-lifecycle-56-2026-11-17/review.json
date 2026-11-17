@@ -1,0 +1,27 @@
+{
+  "delivery": 56,
+  "base": 55,
+  "date": "2026-11-17",
+  "userObservations": "55 ordinary switching much better; New Page and split opening still flash",
+  "architecture": [
+    "Stable shell/tab/pane hosts; pane identity independent of page binding",
+    "Actual PM view staging/ready attachment, cache16 inactive surfaces after reservations settle; retain contexts on resource eviction",
+    "Scoped index/topology/status/focus subscriptions and creation state; no routine global busy/read-only/disabled cycle",
+    "Destination-captured/rebased operations, per-route supersession and focus epoch; accepted creation projected from page.read",
+    "Serialized recovery registration and metadata; close waits ALL queued/superseded preparation and retained contexts"
+  ],
+  "validation": {
+    "tests": 109,
+    "pass": 109,
+    "typescript": "strict Core/runtime pass",
+    "boundaries": 42,
+    "native": "pending Mac visual check; jsdom has no presentation engine"
+  },
+  "attempts": "Initial integration exposed Node Response.json cross-realm plain-object validation and hidden-button click assumptions; harness corrected without weakening Core. A subsequent no-disabled-churn assertion was scoped to exclude legitimate Back/Forward availability changes. Incomplete scoped development attempts are not passes; final full run109 and focused7 run23 passed.",
+  "scope": "UI source, navigation/resource/production bundle tests and docs; Core/editor/runtime source, dependencies and native locks unchanged",
+  "remaining": [
+    "Mac visual/IME/caret/scroll observation",
+    "Stage3 UX agreement one question at a time before implementation",
+    "Previously tracked installed data/security/durability/identity/scale/Windows/browser/distribution gates"
+  ]
+}

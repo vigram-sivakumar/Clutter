@@ -93,3 +93,34 @@ product UX commitments. Limit refusal does not truncate histories or silently di
 contexts. Tab/pane closing/reordering/resizing, native navigation gestures and complete
 multi-window UX are outside54. Stage3 editor/familiar-UI UX must be discussed with the
 user one question at a time before implementation. Current UI is still provisional.
+
+## Stable surfaces and scoped operations (56)
+
+WindowWorkspace coordinates window topology/intent, not document semantics. Its
+operation queue captures stable destinations, rebases structural changes and uses
+per-route generations to prevent obsolete publication/focus. Same-pane supersession
+can bypass slow obsolete preparation; such work remains tracked by the close guard.
+Only real close freezes the window. Normal creation/navigation/split preparation does
+not disable unrelated controls or toggle existing editor editability. Creation has
+explicit pending/uncertain/failed states and exact operation retry.
+
+React shell, tab hosts and pane hosts have stable identities. Pane identity is its
+pane ID, not page ID. Sidebar/index, topology, lifecycle/focus and status subscriptions
+are scoped. SurfaceRegistry prepares actual PM views in inert/hidden containers with
+editor geometry/styles before route publication. A pane attaches a ready DOM surface
+synchronously in a layout effect; it never renders an empty async editor destination.
+PM owns editable children, the registry owns their surface container/lease, and React
+owns the surrounding slot. This resource map contains no mirrored body JSON or
+independent semantic writer. Tab switching detaches/restores surfaces without
+rebuilding the shell. Up to16 inactive surfaces are retained after preparation settles,
+plus active/preparing views. Evicting a surface unmounts its PM view and retains its
+EditorSession, mapped selection bookmark, history and protection obligations.
+
+New view recovery identities remain durably registered before editing. Metadata
+writes remain serialized/idempotent; warm bookkeeping is coalesced. Close checkpoints
+latest visible navigation after settling queued creation/navigation, ALL outstanding
+preparation (including superseded work), and every hidden/retained editor context.
+A cancelled reveal never cancels accepted Core work. Focus follows current intent,
+not late callbacks. No Core/editor/storage/host/format/dependency redesign in56.
+Actual Mac paint/geometry/IME/caret behavior still requires scoped observation;
+passing DOM tests do not qualify presentation latency or guarantee zero flicker.

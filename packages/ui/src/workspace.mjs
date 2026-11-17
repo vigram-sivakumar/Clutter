@@ -30,7 +30,6 @@ export class EditorWorkspace {
     this.scopes = new Map();
     this.timers = new Map();
     this.frozen = false;
-    this.transitionPaused = false;
     this.closing = null;
     this.safeToRelease = false;
     this.registry = new EditingContextRegistry(async (scope) => {
@@ -120,11 +119,21 @@ export class EditorWorkspace {
       throw e;
     }
   }
+  captureView(id) {
+    const entry = this.views.get(id);
+    if (entry)
+      this.bookmarks.set(id, entry.lease.session.captureSelection(entry.view));
+  }
+  restoreView(id) {
+    const entry = this.views.get(id);
+    if (entry && this.bookmarks.has(id))
+      entry.lease.session.restoreSelection(entry.view, this.bookmarks.get(id));
+  }
   unmount(id) {
     this.mountTickets.delete(id);
     const entry = this.views.get(id);
     if (!entry) return;
-    this.bookmarks.set(id, entry.lease.session.captureSelection(entry.view));
+    this.captureView(id);
     entry.view.destroy();
     entry.lease.release();
     this.views.delete(id);
@@ -182,12 +191,7 @@ export class EditorWorkspace {
     this.onStatus('Recovered work is ready to save');
   }
   isEditable() {
-    return !this.frozen && !this.transitionPaused;
-  }
-  setTransitionPaused(value) {
-    this.transitionPaused = value;
-    for (const { view } of this.views.values())
-      view.setProps({ editable: () => this.isEditable() });
+    return !this.frozen;
   }
   freeze() {
     this.frozen = true;

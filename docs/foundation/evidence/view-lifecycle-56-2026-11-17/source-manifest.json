@@ -1,0 +1,11 @@
+{
+  "packages/ui/src/app.jsx": "de255e3817d8fd9c60c8a470fc6210b73be50d89f0361fc0cf9ac21b89ed6db4",
+  "packages/ui/src/navigation.mjs": "0891c4856c4595b4c1af53a1d610fffc07df2eb4b1f9901569bf5194573d4578",
+  "packages/ui/src/workspace.mjs": "0869eb74f8371b5fd86a624757a32c814f8effa2e222f575c5229f68903e54f4",
+  "packages/ui/src/window-workspace.mjs": "493c358feb457380ac46210c7348de7dcfb8b1bab486317da7ec0825720ba636",
+  "packages/ui/src/surfaces.mjs": "ca45e3a6e9683442a6bd9bae67c22e39e2d54862645a09fb410e5b8b19ee0d0a",
+  "packages/ui/src/style.css": "7a5e0c2ea2dec54b7e59de9f155e8cf6a75ebcf781aaebe92e1c392f78bab565",
+  "packages/desktop-runtime/test/foundation-desktop.test.mjs": "f788fb9d2ea7dbc6e229e4cfd0dc610af730ac2d27d851fc99d65d61802fee88",
+  "packages/desktop-runtime/test/navigation.test.mjs": "3f77fe41babba7772da2cf4d5f25e1e9a1f594d3e36aeaa613d28ea165570291",
+  "packages/desktop-runtime/test/surfaces.test.mjs": "d9484bf6a7d64aa4018cec839802f4037c264a7cd1c288c5adc01b3a031aa708"
+}

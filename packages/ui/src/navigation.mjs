@@ -142,10 +142,11 @@ export class WindowNavigation {
       return true;
     });
   }
-  split(pageId) {
+  split(pageId, location) {
     if (!this.activeTab) return this.newTab(pageId);
     return this.mutate((draft) => {
-      const { tab } = this.pane(draft);
+      const { tab } = this.pane(draft, location);
+      if (!tab) throw Error('VIEW_NOT_AVAILABLE');
       const pane = {
         id: this.nextId(),
         history: [pageId],
@@ -157,9 +158,9 @@ export class WindowNavigation {
       return true;
     });
   }
-  travel(offset) {
+  travel(offset, location) {
     return this.mutate((draft) => {
-      const { pane } = this.pane(draft);
+      const { pane } = this.pane(draft, location);
       if (
         !pane ||
         ![-1, 1].includes(offset) ||

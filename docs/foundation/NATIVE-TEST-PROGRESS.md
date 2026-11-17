@@ -124,3 +124,54 @@ between them and use Back/Forward, then switch the active note in a split. Expec
 no Preparing view/blank flash and the other pane to stay stable. Reopen this session
 with npm run desktop:reopen. No old profiler/manual suite replay. After this scoped
 feedback, discuss stage3 UX ONE question at a time before implementing that stage.
+
+## 2026-11-17 — stable lifecycle56
+
+User55 ordinary navigation is “much better”, but New Page and split opening still
+flash. The user requested common architectural correction, then authorized proceeding.
+56 implements that stage2 correction; stage3 UX/code has NOT begun.
+
+One coherent UI lifecycle now covers opening/creation/splits/tabs: stable React shell,
+tab and pane hosts; pane IDs independent of page binding; actual PM surfaces prepared
+in inert/hidden geometry wrappers before reveal; synchronous ready-surface attachment
+in layout effects; retained recent views and view-local bookmarks/scroll. Existing
+editors stay editable during normal preparation. No global busy/disabled/opacity or
+contenteditable cycle; only real close freezes the window. Separate creation states
+prevent an ordinary pending request from displaying Retry creation. Repeated creation
+activation joins the same request; an uncertain retry reuses its operation ID.
+
+The UI operation coordinator captures destination IDs, rebases structural changes,
+and guards publication/focus by intent generation. Newer same-pane routes can bypass
+obsolete preparation without discarding accepted results. Close still waits for all
+outstanding/superseded preparation and metadata, then guards ALL retained contexts.
+New recovery IDs remain registered before editing. Warm layout bookkeeping remains
+coalesced and serialized. Accepted creation updates the sidebar from an authoritative
+page.read projection; it does not refresh the whole list to reveal the new note.
+Scoped shell/index/navigation/status subscriptions avoid global status rerenders.
+
+SurfaceRegistry owns DOM resources/leases only, not document bodies or semantic policy.
+It retains at most16 inactive surfaces after preparation settles, plus attached active
+views (and temporary reserved preparation). Eviction calls view unmount and retains
+EditorSession/context/history/protection; it does not discard document work. React
+owns containers; PM owns editable DOM. Core/editor/runtime/native/dependency sources
+are unchanged. No second authority/cache of document JSON was introduced.
+
+109/109 Linux tests, strict Core/runtime TS and42-source boundary checks pass. Actual
+production React/PM/Core/SQLite checks cover delayed creation/registration/editor
+opening, stable shell/pane and cached PM identities, no unrelated disabled churn,
+editable source panes during split preparation, current user focus winning late
+completion, same-note reconciliation and protected hidden-tab work after owner restart.
+Additional tests cover superseded-route close barriers, rebased structural actions,
+exact uncertain create retry and bounded surface-resource eviction. Browser test
+Response.json now parses in jsdom's own realm; hidden-tab buttons are excluded from
+simulated visible clicks. These are harness corrections, not weakened Core validation.
+Evidence: [review](evidence/view-lifecycle-56-2026-11-17/review.json).
+
+NEXT: apply/commit56, close the prior dev window and npm run desktop -- --new (fresh
+synthetic Space; old sessions retained). Confirm New Page, Open in split, ordinary
+switching/Back/Forward and tab switching leave surrounding UI stable. New split
+width/reflow is expected; dimming, blank content and caret flashes are defects.
+Native56 paint/IME/selection/scroll results are PENDING; jsdom cannot establish no
+blank frame or input-to-presentation latency. No old profiler/manual suite replay.
+Future same-session reopen: npm run desktop:reopen. After this scoped feedback,
+stage3 starts with UX discussion ONE question at a time, before implementation.

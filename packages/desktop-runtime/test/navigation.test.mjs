@@ -258,7 +258,7 @@ test('a navigation write must finish before editing starts or the window close g
   const opening = model.open('a');
   await new Promise((ok) => setImmediate(ok));
   assert.equal(model.navigationBusy, true);
-  assert.equal(model.canNavigate, false);
+  assert.equal(model.canNavigate, true);
   let closed = false;
   const closing = model.prepareClose().then((r) => {
     closed = true;
@@ -289,7 +289,7 @@ test('failed navigation storage refuses close, retries latest state, and never r
   assert.equal(model.pageId, null);
   assert.equal(model.pendingNavigation.page(), 'a');
   assert.equal(model.editors.size, 0);
-  assert.equal(model.canNavigate, false);
+  assert.equal(model.canNavigate, true);
   assert.equal((await model.prepareClose()).safe, false);
   fail = false;
   assert.equal(await model.retryNavigation(), true);
@@ -392,4 +392,144 @@ test('returning to registered notes does not wait for another layout write, whil
   assert.equal(closed, false);
   release();
   assert.equal((await closing).safe, true);
+});
+
+test('rapid pane intents supersede late preparation without publishing obsolete routes or stealing newer focus', async () => {
+  const model = unitWindow({
+    client: client(),
+    spaceId: 's',
+    windowId: 'w',
+    nextId: ids(),
+  });
+  await model.start();
+  await model.open('a');
+  let release, entered;
+  const waiting = new Promise((ok) => (entered = ok));
+  const published = [];
+  model.changed = () => published.push(model.pageId);
+  model.primeNavigation = async (nav) => {
+    if (nav.page() === 'b') {
+      entered();
+      await new Promise((ok) => (release = ok));
+    }
+  };
+  const first = model.open('b');
+  await waiting;
+  assert.equal(model.canNavigate, true);
+  const newer = model.open('c');
+  assert.equal(model.pageId, 'a');
+  assert.equal(await first, false);
+  assert.equal(await newer, true);
+  // The newer ready note must not wait for the obsolete network preparation.
+  assert.equal(model.pageId, 'c');
+  let closed = false;
+  const closing = model.prepareClose().then((r) => {
+    closed = true;
+    return r;
+  });
+  await new Promise((ok) => setImmediate(ok));
+  assert.equal(closed, false, 'close still waits for superseded preparation');
+  release();
+  assert.equal((await closing).safe, true);
+  assert(!published.includes('b'));
+  assert.deepEqual(model.navigation.activePane.history, ['a', 'c']);
+  assert.equal((await model.prepareClose()).safe, true);
+});
+
+test('queued structural intents rebase over current topology and retain explicit pane focus during preparation', async () => {
+  const model = unitWindow({
+    client: client(),
+    spaceId: 's',
+    windowId: 'w',
+    nextId: ids(),
+  });
+  await model.start();
+  await model.open('a');
+  const original = model.navigation.location();
+  let release, entered;
+  const waiting = new Promise((ok) => (entered = ok));
+  model.primeNavigation = async (nav) => {
+    if (nav.activeTab.panes.length === 2 && !release) {
+      entered();
+      await new Promise((ok) => (release = ok));
+    }
+  };
+  const split = model.openInSplit('b');
+  await waiting;
+  const tab = model.openInNewTab('c');
+  model.selectPane(original.tabId, original.paneId, true, true);
+  const epoch = model.focusEpoch;
+  release();
+  await split;
+  await tab;
+  assert.equal(model.navigation.tabs.length, 2);
+  assert.deepEqual(
+    model.navigation.tabs[0].panes.map((p) => model.navigation.page(p)),
+    ['a', 'b']
+  );
+  assert.equal(model.navigation.activeTab.id, original.tabId);
+  assert.equal(model.navigation.activePane.id, original.paneId);
+  assert.equal(model.focusEpoch, epoch);
+  assert.equal((await model.prepareClose()).safe, true);
+});
+
+test('uncertain creation retries exactly once per operation and accepted late creation never restores an obsolete destination', async () => {
+  const commands = [];
+  let unknown = true,
+    release,
+    entered;
+  let waiting = new Promise((ok) => (entered = ok));
+  const fake = {
+    execute: async (c) => {
+      if (c.method === 'page.list') return { ok: true, value: { pages: [] } };
+      if (c.method === 'page.create') {
+        commands.push(structuredClone(c));
+        entered();
+        await new Promise((ok) => (release = ok));
+        return unknown
+          ? { ok: false, error: { code: 'OUTCOME_UNKNOWN' } }
+          : { ok: true, value: { pageId: c.pageId } };
+      }
+      if (c.method === 'page.read')
+        return {
+          ok: true,
+          value: {
+            pageId: c.pageId,
+            title: 'Untitled',
+            kind: 'note',
+            head: 'accepted',
+            sequence: 1,
+          },
+        };
+      throw Error('unexpected command');
+    },
+  };
+  const model = unitWindow({
+    client: fake,
+    spaceId: 's',
+    windowId: 'w',
+    nextId: ids(),
+  });
+  await model.start();
+  await model.open('a');
+  let creating = model.create();
+  await waiting;
+  assert.equal(model.creationState, 'pending');
+  assert.equal(model.canNavigate, true);
+  assert.equal(model.create(), creating);
+  release();
+  await creating;
+  assert.equal(model.creationState, 'uncertain');
+  unknown = false;
+  waiting = new Promise((ok) => (entered = ok));
+  creating = model.create();
+  await waiting;
+  await model.open('b');
+  release();
+  await creating;
+  assert.deepEqual(commands[1], commands[0]);
+  assert.equal(model.pageId, 'b');
+  assert(model.pages.some((p) => p.pageId === commands[0].pageId));
+  assert.equal(model.pendingCreate, null);
+  assert.equal((await model.prepareClose()).safe, true);
 });

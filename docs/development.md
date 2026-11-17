@@ -78,3 +78,18 @@ Failures retain the current route for retry. No note body is copied into React s
 Apply55 then npm run desktop -- --new; old sessions retained, no dependency install.
 Mac visual smoothness is pending; jsdom checks DOM/lifecycle, not presentation.
 Stage3 UX must be discussed one question at a time before implementation.
+
+## View lifecycle56 (supersedes55 transition pausing)
+
+56 retains existing pane editability during all normal preparation. It stages actual
+PM views before reveal, keeps stable pane hosts and recent DOM surfaces, and scopes
+operation/render state. New Page keeps its normal label during pending success.
+Split insertion reveals ready content and layout together; existing-pane reflow is
+expected. Late completions cannot override newer routes/focus. Close still freezes,
+settles all operations and protects all retained contexts. Surface eviction retains
+contexts/history; inactive DOM cache budget is16 after reservations settle.
+
+No dependency install is needed. Close previous dev window; apply56 and rebuild with
+npm run desktop -- --new (fresh synthetic Space, previous sessions retained). Check
+New Page, split, normal note navigation, Back/Forward and tabs for no dimming/blank
+flash. Mac presentation/IME/caret/scroll remains pending. Stage3 UX discussion first.
