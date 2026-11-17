@@ -76,5 +76,5 @@ and isolated, not product import targets. START-HERE owns the exact current acti
 
 User scope clarification after47: existing UI/components must be reused where useful,
 old CM6/Markdown architecture can be stripped completely. Wrap pending48 development
-composition, then discuss [cleanup/replacement plan](rebuild-plan-proposal.md) before
+composition, then discuss [cleanup/replacement plan](../rebuild/README.md) before
 product implementation/deletion. The development screen is not the final product UI.

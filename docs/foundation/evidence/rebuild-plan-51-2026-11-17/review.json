@@ -1,0 +1,48 @@
+{
+  "delivery": 51,
+  "scope": "Planning/import inventory/native dependency export; no product or native implementation changes",
+  "authorization": "User permits full deconstruction/redesign of all architectural/editor UI/docs material; layout/global components may be retained only if useful; main read-only inspection authorized",
+  "main": {
+    "reference": "origin/main fetched read-only",
+    "commit": "5c532f8443321c0784cb379a184ed97f13de1820",
+    "date": "2026-11-17",
+    "extractedPaths": [
+      "apps/app/src",
+      "apps/app/tsconfig.json",
+      "apps/app/package.json",
+      "ARCHITECTURE_RULES.md",
+      "apps/app/devtools"
+    ],
+    "scope": "Committed remote UI reference only, no merge, source execution, dependency install or working tree switch. User local unpushed main work is not visible."
+  },
+  "counts": {
+    "foundation": {
+      "productionSourceFiles": 1077,
+      "testSourceFiles": 974,
+      "parsedReachableSourceFiles": 1079,
+      "unresolvedLocalImports": 1
+    },
+    "main": {
+      "productionSourceFiles": 1080,
+      "testSourceFiles": 978,
+      "parsedReachableSourceFiles": 1082,
+      "unresolvedLocalImports": 1
+    }
+  },
+  "checks": {
+    "planningTools": {
+      "pass": 2,
+      "fail": 0
+    },
+    "staticImportAudit": "both source snapshots completed; one preexisting missing CSS reference each",
+    "runtime": "not rerun; previous108/strict TS50 result retained",
+    "native": "no new native run; user close/reopen PASS recorded"
+  },
+  "limits": [
+    "Static conservative graph includes type-only edges; not behavior/CSS/a11y certification",
+    "Main snapshot only covers fetched committed state, not unpublished local work",
+    "Native dependency locks still on user Mac; exporter required before clean product bootstrap can be independent",
+    "Intermittent caret unresolved, no fabricated pass"
+  ],
+  "next": "Capture completed-build dependency locks; R1 new shared modules/product boot and coherent retirement of old pipeline per plan"
+}

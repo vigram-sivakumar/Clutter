@@ -12,10 +12,10 @@ contract and scoped evidence before changing or replaying an experiment.
 - Stay on architecture/clutter-foundation. Inspect Git state and preserve user work.
   Do not reset/clean, pull unrelated main changes, merge to main, commit or push
   merely because a plan describes future work. User applies/commits delivered patches.
-- Existing production rules still govern production. F010 explicitly authorizes I2 in the foundation namespace and selected shared
-  modules. It adopts Tauri/PM-Y/TS Core/SQLite implementation direction and changes
-  H01 entry timing through override46. Existing app/real vaults/old sessions remain
-  outside this task. No implicit change to legacy rules or data writers.
+- User authorizes complete architecture deconstruction/rebuild, including apps/app,
+  old editor/domain/native wiring, dependencies, tests and docs as needed by the
+  active rebuild plan. Do not preserve legacy APIs/class names/doc rules as accidental
+  constraints. Retain single-owner/durability/identity intent through new contracts.
 - User permits replacing100% of old implementation. It is Markdown-oriented evidence,
   not a target constraint. No existing users/data need migration (P37): no legacy
   converter/compatibility facade/dual-write/cutover project. Initial schema safety,
@@ -31,16 +31,23 @@ contract and scoped evidence before changing or replaying an experiment.
   default; optional restrictions, no per-Space codes/prompts (P36). Internal tickets
   do not create another user-facing enrollment or semantic owner.
 
-## Product rebuild scope clarified by user
+## Clean rebuild mandate
 
-- Existing Clutter UI/components are the reuse target. The entire old CM6/Markdown
-  architecture may be removed/replaced; no compatibility/migration requirement.
-- Wrap pending development composition48, then discuss cleanup/replacement sequence
-  before product rewiring/deletion. No automatic I2d feature implementation yet.
-- A separate minimal development screen is not a new product UI design or permanent
-  parallel app. Inventory presentation versus mixed legacy/OS/domain orchestration;
-  reuse visuals, rewrite owners/data flows. Retire obsolete dependencies/tests with
-  the old pipeline under the agreed plan; preserve desired behavioral guarantees.
+- Clean/stable/neat architecture is the priority. Retain overall layout intent and
+  useful global primitives; everything else may be redesigned or removed, including
+  old CM6 widget UI, current foundation scaffolding, tests and documentation.
+- Active plan: rebuild/README.md. New editor UI is component-based; PM owns editable
+  content DOM, React owns surrounding UI through a renderer adapter. No two document
+  owners/renderers or permanent old/new product pipelines.
+- Main may be inspected/fetched read-only as visual/behavior reference. Do not merge
+  legacy architecture to acquire UI changes. Record exact commit/scope; unpublished
+  user main changes are not visible from origin/main.
+- R1 needs actual native locks from the successful Mac build before removing cache
+  provenance. Export dependency files only; no new profiling/manual replay. Current
+  issue: intermittent caret displacement, user asked to move on, not confirmed fixed.
+- There is no existing-user migration/legacy compatibility requirement. Retire code
+  and obsolete docs rather than adapt indefinitely. Preserve confirmed product
+  behavior and truthful current pass/open-risk ledger; Git history holds old details.
 
 ## Product/editor and evidence discipline
 
@@ -58,7 +65,7 @@ contract and scoped evidence before changing or replaying an experiment.
 - Distinguish confirmed policy, proposed mechanism, Linux helper/proof tests, user
   observations and audited raw native artifacts. A build/test count, schema, Ready
   event, timing proxy or readable trace alone cannot establish H01 measurement.
-- H01/workloads/budgets and prior evidence stay hash-stable during comparison.
+- Historical H01/workload/budget results must not be rewritten into passing claims.
   No missing metric as zero, JS heap/RSS/RAF substitute, nearest-frame causal guess,
   private API/permission workaround, or post-result threshold change to force a winner.
 - Blocked methods have finite stopping rules.43 CLI recording is retired after
@@ -76,9 +83,9 @@ contract and scoped evidence before changing or replaying an experiment.
 ## Delivery and continuation
 
 - Update START-HERE, progress history, CHANGELOG and new scoped evidence for meaningful
-  changes/results. Keep current next action in START-HERE; link it elsewhere instead
-  of copying checkpoints. Preserve old raw evidence/failing attempts.45 also retains
-  pre-consolidation instruction/index copies in its evidence directory.
+  changes/results. Keep current next action in START-HERE. During consolidation, retain a truthful
+  concise result/open-risk ledger; obsolete docs/raw proof trees can retire to Git
+  history after live code/build/test dependencies and useful fixtures are removed.
 - Native apps/runtime/cache/traces/reports live in Git metadata/private marked
   fixtures, never staged. Deliberate scoped evidence is separate. No blanket git add.
   Never ask for endpoint/token/private boot files or blind raw-trace uploads.

@@ -1,0 +1,566 @@
+{
+  "format": "clutter-rebuild-inventory51",
+  "scope": "Current foundation-branch files; static literal imports including type-only edges. No remote main merge, behavior/runtime/CSS accessibility audit or wholesale reuse approval.",
+  "counts": {
+    "productionSourceFiles": 1080,
+    "testSourceFiles": 978,
+    "parsedReachableSourceFiles": 1082,
+    "unresolvedLocalImports": 1
+  },
+  "sourceTreeSha256": "4f2f8d0418395d957122bf6d85af647885185d1fb56820b5a14149e5a37d3889",
+  "groups": {
+    "features/markdown": 239,
+    "core/vault": 194,
+    "app/layouts": 117,
+    "features/notes": 50,
+    "core/application": 49,
+    "features/collection": 47,
+    "shared/helpers": 46,
+    "features/settings": 44,
+    "core/presentation": 29,
+    "features/tasks": 26,
+    "features/daily-notes": 22,
+    "components/property-list": 17,
+    "features/tags": 16,
+    "app/hooks": 14,
+    "app/spaces": 12,
+    "features/pdf": 10,
+    "app/shortcuts": 8,
+    "components/overlay": 8,
+    "components/menu": 7,
+    "core/engine": 7,
+    "core/shared": 7,
+    "core/properties": 6,
+    "shared/icon": 6,
+    "shared/interaction": 6,
+    "components/entry": 5,
+    "core/integrations": 5,
+    "core/recovery": 5,
+    "app/devLab": 4,
+    "components/drag-ghost": 3,
+    "components/toast": 3,
+    "components/button": 2,
+    "components/change-icon-picker": 2,
+    "components/confirmation": 2,
+    "components/editable-text": 2,
+    "components/emoji-tray": 2,
+    "components/input": 2,
+    "components/move-destination-picker": 2,
+    "components/picker-list": 2,
+    "components/search": 2,
+    "components/space-avatar": 2,
+    "components/template-suggestions": 2,
+    "components/welcome-screen": 2,
+    "shared/testing": 2,
+    "app/ActiveSpaceSettingsDialog.tsx": 1,
+    "app/App.tsx": 1,
+    "app/AppShell.tsx": 1,
+    "app/StartupFrame.tsx": 1,
+    "app/UnsavedCloseDialog.tsx": 1,
+    "app/devResizeDiagnostics.ts": 1,
+    "app/frontendReady.ts": 1,
+    "app/main.tsx": 1,
+    "app/saveFailureMessages.ts": 1,
+    "app/scheduleAfterFirstPaint.ts": 1,
+    "app/suppressNativeContextMenu.ts": 1,
+    "app/unsavedCloseCopy.ts": 1,
+    "app/useNativeSettingsMenu.ts": 1,
+    "app/windowCloseHandler.ts": 1,
+    "components/caret": 1,
+    "components/checkbox": 1,
+    "components/count-badge": 1,
+    "components/cover-attribution": 1,
+    "components/date-label": 1,
+    "components/date-picker": 1,
+    "components/dialog": 1,
+    "components/gradient-grainy": 1,
+    "components/missing-space-dialog": 1,
+    "components/picker-card": 1,
+    "components/popover": 1,
+    "components/shortcut-key": 1,
+    "components/space-avatar-picker": 1,
+    "components/space-details": 1,
+    "components/switch": 1,
+    "components/tabs": 1,
+    "components/tauri-drag-strip": 1,
+    "components/template-picker": 1,
+    "components/wiki": 1,
+    "core/featureFlags.ts": 1,
+    "core/legalLinks.ts": 1,
+    "core/workspace": 1,
+    "design-system/TagColors.ts": 1,
+    "design-system/markdownIndent.ts": 1,
+    "design-system/useTheme.ts": 1,
+    "features/search": 1,
+    "shared/hooks": 1,
+    "vite-env.d.ts": 1
+  },
+  "representativeRoots": [
+    {
+      "file": "apps/app/src/app/App.tsx",
+      "sourceModulesInClosure": 1043,
+      "structuralCoupling": [
+        "cm6-lezer",
+        "legacy-core",
+        "legacy-editor",
+        "platform"
+      ],
+      "shortestExamplePaths": {
+        "platform": [
+          "apps/app/src/app/App.tsx",
+          "apps/app/src/app/AppShell.tsx"
+        ],
+        "legacy-core": [
+          "apps/app/src/app/App.tsx",
+          "apps/app/src/app/AppShell.tsx",
+          "apps/app/src/core/recovery/RecoveryStorage.ts"
+        ],
+        "legacy-editor": [
+          "apps/app/src/app/App.tsx",
+          "apps/app/src/app/AppShell.tsx",
+          "apps/app/src/features/markdown/editor/codemirror/table/tableColumnNormalization.ts"
+        ],
+        "cm6-lezer": [
+          "apps/app/src/app/App.tsx",
+          "apps/app/src/app/AppShell.tsx",
+          "apps/app/src/features/markdown/editor/codemirror/table/tableColumnNormalization.ts"
+        ]
+      }
+    },
+    {
+      "file": "apps/app/src/app/AppShell.tsx",
+      "sourceModulesInClosure": 1042,
+      "structuralCoupling": [
+        "cm6-lezer",
+        "legacy-core",
+        "legacy-editor",
+        "platform"
+      ],
+      "shortestExamplePaths": {
+        "platform": [
+          "apps/app/src/app/AppShell.tsx"
+        ],
+        "legacy-core": [
+          "apps/app/src/app/AppShell.tsx",
+          "apps/app/src/core/recovery/RecoveryStorage.ts"
+        ],
+        "legacy-editor": [
+          "apps/app/src/app/AppShell.tsx",
+          "apps/app/src/features/markdown/editor/codemirror/table/tableColumnNormalization.ts"
+        ],
+        "cm6-lezer": [
+          "apps/app/src/app/AppShell.tsx",
+          "apps/app/src/features/markdown/editor/codemirror/table/tableColumnNormalization.ts"
+        ]
+      }
+    },
+    {
+      "file": "apps/app/src/app/main.tsx",
+      "sourceModulesInClosure": 1049,
+      "structuralCoupling": [
+        "cm6-lezer",
+        "legacy-core",
+        "legacy-editor",
+        "platform"
+      ],
+      "shortestExamplePaths": {
+        "platform": [
+          "apps/app/src/app/main.tsx"
+        ],
+        "cm6-lezer": [
+          "apps/app/src/app/main.tsx",
+          "apps/app/src/app/devLab/mountDevLab.tsx",
+          "apps/app/src/app/devLab/DevLab.tsx"
+        ],
+        "legacy-core": [
+          "apps/app/src/app/main.tsx",
+          "apps/app/src/app/App.tsx",
+          "apps/app/src/app/AppShell.tsx",
+          "apps/app/src/core/recovery/RecoveryStorage.ts"
+        ],
+        "legacy-editor": [
+          "apps/app/src/app/main.tsx",
+          "apps/app/src/app/App.tsx",
+          "apps/app/src/app/AppShell.tsx",
+          "apps/app/src/features/markdown/editor/codemirror/table/tableColumnNormalization.ts"
+        ]
+      }
+    },
+    {
+      "file": "apps/app/src/app/layouts/app-layout/AppLayout.tsx",
+      "sourceModulesInClosure": 972,
+      "structuralCoupling": [
+        "cm6-lezer",
+        "legacy-core",
+        "legacy-editor",
+        "platform"
+      ],
+      "shortestExamplePaths": {
+        "legacy-core": [
+          "apps/app/src/app/layouts/app-layout/AppLayout.tsx",
+          "apps/app/src/core/application/Application.ts"
+        ],
+        "platform": [
+          "apps/app/src/app/layouts/app-layout/AppLayout.tsx",
+          "apps/app/src/core/application/Application.ts"
+        ],
+        "legacy-editor": [
+          "apps/app/src/app/layouts/app-layout/AppLayout.tsx",
+          "apps/app/src/features/markdown/editor/codemirror/image/ImageOverlay.tsx"
+        ],
+        "cm6-lezer": [
+          "apps/app/src/app/layouts/app-layout/AppLayout.tsx",
+          "apps/app/src/app/layouts/page/PageHost.tsx",
+          "apps/app/src/features/markdown/editor/codemirror/metadataHistoryStep.ts"
+        ]
+      }
+    },
+    {
+      "file": "apps/app/src/app/layouts/page/PageHost.tsx",
+      "sourceModulesInClosure": 871,
+      "structuralCoupling": [
+        "cm6-lezer",
+        "legacy-core",
+        "legacy-editor",
+        "platform"
+      ],
+      "shortestExamplePaths": {
+        "platform": [
+          "apps/app/src/app/layouts/page/PageHost.tsx",
+          "apps/app/src/shared/helpers/openExternalUrl.ts"
+        ],
+        "legacy-core": [
+          "apps/app/src/app/layouts/page/PageHost.tsx",
+          "apps/app/src/core/vault/initialize/ReservedResources.ts"
+        ],
+        "legacy-editor": [
+          "apps/app/src/app/layouts/page/PageHost.tsx",
+          "apps/app/src/features/markdown/editor/codemirror/image/ImageOverlay.tsx"
+        ],
+        "cm6-lezer": [
+          "apps/app/src/app/layouts/page/PageHost.tsx",
+          "apps/app/src/features/markdown/editor/codemirror/metadataHistoryStep.ts"
+        ]
+      }
+    },
+    {
+      "file": "apps/app/src/components/button/Button.tsx",
+      "sourceModulesInClosure": 1,
+      "structuralCoupling": [],
+      "shortestExamplePaths": {}
+    },
+    {
+      "file": "apps/app/src/components/input/Input.tsx",
+      "sourceModulesInClosure": 2,
+      "structuralCoupling": [],
+      "shortestExamplePaths": {}
+    },
+    {
+      "file": "apps/app/src/components/dialog/Dialog.tsx",
+      "sourceModulesInClosure": 9,
+      "structuralCoupling": [],
+      "shortestExamplePaths": {}
+    },
+    {
+      "file": "apps/app/src/components/overlay/Overlay.tsx",
+      "sourceModulesInClosure": 8,
+      "structuralCoupling": [],
+      "shortestExamplePaths": {}
+    },
+    {
+      "file": "apps/app/src/components/menu/Menu.tsx",
+      "sourceModulesInClosure": 3,
+      "structuralCoupling": [],
+      "shortestExamplePaths": {}
+    },
+    {
+      "file": "apps/app/src/components/toast/ToastProvider.tsx",
+      "sourceModulesInClosure": 3,
+      "structuralCoupling": [],
+      "shortestExamplePaths": {}
+    },
+    {
+      "file": "apps/app/src/shared/icon/AppIcon.tsx",
+      "sourceModulesInClosure": 17,
+      "structuralCoupling": [],
+      "shortestExamplePaths": {}
+    },
+    {
+      "file": "apps/app/src/design-system/useTheme.ts",
+      "sourceModulesInClosure": 1,
+      "structuralCoupling": [],
+      "shortestExamplePaths": {}
+    },
+    {
+      "file": "apps/app/src/components/property-list/PropertyList.tsx",
+      "sourceModulesInClosure": 120,
+      "structuralCoupling": [
+        "cm6-lezer",
+        "legacy-core",
+        "legacy-editor",
+        "platform"
+      ],
+      "shortestExamplePaths": {
+        "legacy-editor": [
+          "apps/app/src/components/property-list/PropertyList.tsx",
+          "apps/app/src/components/property-list/PropertyList.types.ts",
+          "apps/app/src/features/markdown/editor/codemirror/tag/tagSuggestion.ts"
+        ],
+        "legacy-core": [
+          "apps/app/src/components/property-list/PropertyList.tsx",
+          "apps/app/src/components/property-list/propertyTypeRegistry.tsx",
+          "apps/app/src/core/properties/Property.types.ts"
+        ],
+        "platform": [
+          "apps/app/src/components/property-list/PropertyList.tsx",
+          "apps/app/src/components/property-list/propertyTypeRegistry.tsx",
+          "apps/app/src/components/property-list/UrlPropertyValue.tsx",
+          "apps/app/src/shared/helpers/openExternalUrl.ts"
+        ],
+        "cm6-lezer": [
+          "apps/app/src/components/property-list/PropertyList.tsx",
+          "apps/app/src/components/property-list/propertyTypeRegistry.tsx",
+          "apps/app/src/components/property-list/UrlPropertyValue.tsx",
+          "apps/app/src/features/markdown/render/sharedMarkdownParser.ts"
+        ]
+      }
+    },
+    {
+      "file": "apps/app/src/components/tabs/Tabs.tsx",
+      "sourceModulesInClosure": 2,
+      "structuralCoupling": [],
+      "shortestExamplePaths": {}
+    },
+    {
+      "file": "apps/app/src/components/space-avatar/SpaceAvatar.tsx",
+      "sourceModulesInClosure": 20,
+      "structuralCoupling": [],
+      "shortestExamplePaths": {}
+    },
+    {
+      "file": "apps/app/src/components/entry/Entry.tsx",
+      "sourceModulesInClosure": 8,
+      "structuralCoupling": [],
+      "shortestExamplePaths": {}
+    }
+  ],
+  "componentGroups": {
+    "button": {
+      "sourceModules": 2,
+      "coupledSourceModules": 0,
+      "flags": []
+    },
+    "caret": {
+      "sourceModules": 1,
+      "coupledSourceModules": 0,
+      "flags": []
+    },
+    "change-icon-picker": {
+      "sourceModules": 2,
+      "coupledSourceModules": 0,
+      "flags": []
+    },
+    "checkbox": {
+      "sourceModules": 1,
+      "coupledSourceModules": 0,
+      "flags": []
+    },
+    "confirmation": {
+      "sourceModules": 2,
+      "coupledSourceModules": 0,
+      "flags": []
+    },
+    "count-badge": {
+      "sourceModules": 1,
+      "coupledSourceModules": 0,
+      "flags": []
+    },
+    "cover-attribution": {
+      "sourceModules": 1,
+      "coupledSourceModules": 1,
+      "flags": [
+        "legacy-core",
+        "platform"
+      ]
+    },
+    "date-label": {
+      "sourceModules": 1,
+      "coupledSourceModules": 0,
+      "flags": []
+    },
+    "date-picker": {
+      "sourceModules": 1,
+      "coupledSourceModules": 0,
+      "flags": []
+    },
+    "dialog": {
+      "sourceModules": 1,
+      "coupledSourceModules": 0,
+      "flags": []
+    },
+    "drag-ghost": {
+      "sourceModules": 3,
+      "coupledSourceModules": 0,
+      "flags": []
+    },
+    "editable-text": {
+      "sourceModules": 2,
+      "coupledSourceModules": 0,
+      "flags": []
+    },
+    "emoji-tray": {
+      "sourceModules": 2,
+      "coupledSourceModules": 0,
+      "flags": []
+    },
+    "entry": {
+      "sourceModules": 5,
+      "coupledSourceModules": 0,
+      "flags": []
+    },
+    "gradient-grainy": {
+      "sourceModules": 1,
+      "coupledSourceModules": 0,
+      "flags": []
+    },
+    "input": {
+      "sourceModules": 2,
+      "coupledSourceModules": 0,
+      "flags": []
+    },
+    "menu": {
+      "sourceModules": 7,
+      "coupledSourceModules": 0,
+      "flags": []
+    },
+    "missing-space-dialog": {
+      "sourceModules": 1,
+      "coupledSourceModules": 0,
+      "flags": []
+    },
+    "move-destination-picker": {
+      "sourceModules": 2,
+      "coupledSourceModules": 1,
+      "flags": [
+        "legacy-core"
+      ]
+    },
+    "overlay": {
+      "sourceModules": 8,
+      "coupledSourceModules": 0,
+      "flags": []
+    },
+    "picker-card": {
+      "sourceModules": 1,
+      "coupledSourceModules": 1,
+      "flags": [
+        "legacy-core"
+      ]
+    },
+    "picker-list": {
+      "sourceModules": 2,
+      "coupledSourceModules": 1,
+      "flags": [
+        "legacy-core"
+      ]
+    },
+    "popover": {
+      "sourceModules": 1,
+      "coupledSourceModules": 0,
+      "flags": []
+    },
+    "property-list": {
+      "sourceModules": 17,
+      "coupledSourceModules": 11,
+      "flags": [
+        "cm6-lezer",
+        "legacy-core",
+        "legacy-editor",
+        "platform"
+      ]
+    },
+    "search": {
+      "sourceModules": 2,
+      "coupledSourceModules": 0,
+      "flags": []
+    },
+    "shortcut-key": {
+      "sourceModules": 1,
+      "coupledSourceModules": 0,
+      "flags": []
+    },
+    "space-avatar": {
+      "sourceModules": 2,
+      "coupledSourceModules": 0,
+      "flags": []
+    },
+    "space-avatar-picker": {
+      "sourceModules": 1,
+      "coupledSourceModules": 1,
+      "flags": [
+        "platform"
+      ]
+    },
+    "space-details": {
+      "sourceModules": 1,
+      "coupledSourceModules": 1,
+      "flags": [
+        "legacy-core",
+        "platform"
+      ]
+    },
+    "switch": {
+      "sourceModules": 1,
+      "coupledSourceModules": 0,
+      "flags": []
+    },
+    "tabs": {
+      "sourceModules": 1,
+      "coupledSourceModules": 0,
+      "flags": []
+    },
+    "tauri-drag-strip": {
+      "sourceModules": 1,
+      "coupledSourceModules": 0,
+      "flags": []
+    },
+    "template-picker": {
+      "sourceModules": 1,
+      "coupledSourceModules": 1,
+      "flags": [
+        "legacy-core"
+      ]
+    },
+    "template-suggestions": {
+      "sourceModules": 2,
+      "coupledSourceModules": 1,
+      "flags": [
+        "legacy-core"
+      ]
+    },
+    "toast": {
+      "sourceModules": 3,
+      "coupledSourceModules": 0,
+      "flags": []
+    },
+    "welcome-screen": {
+      "sourceModules": 2,
+      "coupledSourceModules": 1,
+      "flags": [
+        "legacy-core",
+        "platform"
+      ]
+    },
+    "wiki": {
+      "sourceModules": 1,
+      "coupledSourceModules": 0,
+      "flags": []
+    }
+  },
+  "unresolvedLocalImports": [
+    {
+      "from": "apps/app/src/app/layouts/page/referenceV1/ReferenceV2.tsx",
+      "spec": "./Reference.css"
+    }
+  ]
+}

@@ -23,4 +23,4 @@ qualification. Idle shutdown and full distribution/feature UI are still pending.
 
 Mac build/native observation is not inferred from Linux tests. See
 [handoff](../../docs/foundation/START-HERE.md), [composition](../../docs/foundation/i2/desktop-composition.md)
-and [rebuild proposal](../../docs/foundation/i2/rebuild-plan-proposal.md).
+and [rebuild proposal](../../docs/foundation/rebuild/README.md).

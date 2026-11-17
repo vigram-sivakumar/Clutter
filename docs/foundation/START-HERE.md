@@ -1,62 +1,48 @@
-# Resume Clutter foundation work
+# Resume Clutter work
 
-## Current checkpoint — toolbar native-selection handoff50, 2026-11-16
+## Current checkpoint — clean rebuild plan51, 2026-11-17
 
-User applied49 as6ba91499. The attached Mac log confirms compile, bundled Node/outer
-ad-hoc signing and strict signature verification completed for run2026-11-16T16-56-32-816Z.
-Screenshot shows Saved + both views. User PASS: A edit reflects in B; single A remount
-retains text/B; Undo/Redo changes text correctly. Preserve these observations.
-User found caret bug: LOCAL |Alpha -> Undo A|lpha, remains displaced on Redo.
+Bounded composition closeout is sufficient to move on: user PASS for shared edits,
+A remount, text Undo/Redo, native close and same-Space reopen. Caret issue occurred
+intermittently, is currently unreproduced, and user explicitly asked to move on.
+Do not replay the old suite or invent a native caret pass/new fix. Baseline108
+runtime tests + strict TS from50 remain scoped evidence, not shipping qualification.
+No50 commit hash was supplied; verify actual Git state. Last supplied49 hash6ba91499.
 
-50 reproduces this by delaying native selectionchange: DOM before A, PM state after A.
-Toolbar now maps focused in-view DOM text selection via public PM APIs before the
-existing Y-relative bookmark. Backward ranges and other-editor isolation covered;
-non-text and keyboard undo paths unchanged. No Core/save/schema/native changes.
-108 runtime tests + strict TS pass on Linux (4 new cases); native fix not yet verified.
+User now authorizes complete deconstruction, including editor UI and documentation:
+clean/stable architecture first; keep overall layout intent and useful global UI,
+not old controllers or code merely for reuse. The active [clean rebuild plan](rebuild/README.md)
+replaces the earlier proposal. It includes target responsibilities, component model,
+keep/redesign/delete map, code/docs retirement, staged vertical slices and acceptance.
+No existing-user migration or legacy compatibility requirement.
 
-NEXT: apply/commit50. Wait for Saved and close current synthetic window. Rebuild via
-npm run foundation:desktop -- --new (a NEW synthetic Space; previous locator/data
-retained). --reopen reuses the old bundle and cannot verify changed browser code.
-No npm reinstall or global Node change. In fresh build type LOCAL followed by space
-before Alpha, wait Saved, click immediately before A and use A's Undo/Redo buttons.
-Expected: LOCAL |Alpha -> |Alpha -> LOCAL |Alpha. One targeted native retest, no old
-suite replay. Remaining close/reopen check then discuss clean rebuild proposal.
+Read-only origin/main fetch succeeded at5c532f8443321c0784cb379a184ed97f13de1820
+(2026-11-16 date-mention alignment change). It is the committed UI/behavior reference,
+not a merge target. Foundation working branch stayed architecture/clutter-foundation.
+Audit: main1080 production JS/TS files +978 test files; foundation1077/974. Static
+imports show old app/layout/page/property hosts depend on legacy Core/CM6/platform
+code. Buttons/input/dialog/overlay/menu/toast/icons/theme are candidates only.
+One missing legacy Reference.css import is noted, not repaired. CSS/runtime/focus
+and unpublished local main changes are not proven by this static inventory.
 
-User explicitly clarified: retain existing UI/components, remove/replace the entire
-old CM6/Markdown architecture; no users/data migration, nothing architectural must
-be preserved for compatibility. Discuss cleanup/replacement plan before product rewrite.
-User then authorized resuming and wrapping pending composition work48.
+NEXT: apply/commit51 if pending, then export completed native dependency locks using
+rebuild/export-native-locks.mjs and provide the ZIP. No new native build/manual test.
+Export reads only four dependency files + allowlisted provenance from the successful
+Git-internal native build, not session/endpoint/token/store/runtime contents. Native
+locks are required to remove the runner's dependence on earlier local build caches
+and make R1 independently reproducible. Node24.11 is sufficient for the export.
 
-48 source implements a **separate disposable development composition**, not a
-replacement product UI: apps/foundation-desktop + shared foundation-ui controller,
-existing foundation-runtime Core/editor, peer CLI/MCP and packaged pinned Node.
-apps/app is unchanged and still uses the old pipeline. No existing code was removed.
-Minimal two-view UI is integration-only, not a second permanent product design.
-See [composition result](i2/desktop-composition.md).
+Then R1: real shared modules/product React entry and selected global visuals,
+reproducible locked build, actual Core page query/create/edit flow, coherent old-boot
+removal. The minimal Foundation demo is not the final UI or permanent parallel app.
+No old Application/Vault façade to keep screens working. All legacy code/docs may
+be retired when useful contracts/fixtures/current outcomes are promoted. Git history
+is the archive. No main modification, automatic commit/push or user-data deletion.
 
-Validation:102 runtime tests + strict TS + offline root-lock dry-run pass on Linux.
-Mac build/signature/native close/window checks are pending, not inferred. H01 raw
-contracts/budgets/pins/evidence unchanged; no host profiling task or performance claim.
-F010 remains the accepted architecture baseline, with override46 milestones open.
+## Authority
 
-Earlier49 acquisition instructions are historical; current50 caret retest is above.
-The runner bootstraps pinned Node24.22.1 before Core loads, no global Node change.
-First ask only whether Saved and both views appear. If successful, guide a bounded
-changed-route editing/remount/close check. Existing old/manual passes need no replay.
-The first build needs verified native locks from the prior completed Mac build;
-read-only seed, not imports of old implementation. Missing seed must fail explicitly.
-Generated locks/provenance must be captured for fresh-checkout tooling later.
-
-**After composition closeout: discuss [clean rebuild plan](i2/rebuild-plan-proposal.md)
-before further product implementation/deletion.** Inventory keep/rebind/replace/delete
-boundaries, agree final repository/boot ownership, retire old pipeline and reconnect
-the existing presentation to new contracts. No migration/compatibility facade or
-parallel writer. Do not automatically begin I2d features or promote the demo UI.
-
-## Handoff authority
-
-AGENTS owns evergreen rules; product contracts own behavior. This file owns current
-next action, changelog/progress/evidence preserve history and failed attempts.
-New chat needs latest branch/local commits then AGENTS + START-HERE + F010/I2.
-No automatic commit/push/main merge, real-vault access or profiling. Native source
-availability does not establish Mac execution or mean existing product was rebuilt.
+AGENTS owns evergreen working rules; rebuild/README owns the current plan and
+retirement sequence; confirmed product contracts/F010 own retained behavior and
+mechanism direction until consolidated under the new docs index. Older checkpoint
+commands and contradictory legacy wiring instructions are historical. New chat:
+provide latest branch/local commits, then read AGENTS + this file + rebuild plan.

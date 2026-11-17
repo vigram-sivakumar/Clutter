@@ -757,3 +757,21 @@ A becomes after A on Undo and stays displaced. Do not mark caret passed from tex
 text selection before existing relative bookmark.108 Linux tests + strict TS pass;
 Mac fix retest pending. Rebuild explicit --new synthetic Space to load new bundle,
 preserve old data/locators, no broad suite replay. Existing-UI rebuild plan stays next.
+
+## 2026-11-17 — caret retest is intermittent, cause unconfirmed
+
+User initially reported the before-A displacement again, then clarified: could not
+reproduce it subsequently; happened only the first time. Record one observed
+occurrence, currently unreproduced. Do not call50 fully native-verified or assume
+its simulated stale-selection mechanism explains this occurrence. No51 code fix
+implemented. Preserve prior editing/remount/text-history passes. Continue bounded
+native close/reopen closeout, then discuss existing-UI clean replacement plan.
+
+## 2026-11-17 — bounded composition closeout complete enough for rebuild
+
+User PASS: native red-button close after Save, then same-session reopen with saved
+content in both views. Preserve earlier editing/remount/text-history passes. Caret
+is intermittent/currently unreproduced; user asked to move on. No native caret pass,
+full host qualification or new51 editor change inferred. Clean rebuild plan now
+permits redesign/deletion of architecture/editor UI/docs; main5c532f8 read-only audit
+is a UI reference. Next dependency-lock capture, then reproducible clean product boot.

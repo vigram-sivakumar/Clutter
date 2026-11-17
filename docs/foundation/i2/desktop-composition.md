@@ -4,7 +4,7 @@ This completes the pending development composition source, **not a rebuild of th
 existing Clutter product**. apps/app remains CM6/Markdown and unchanged. The user
 wants existing UI/components reused while old architecture can be stripped entirely;
 a cleanup/replacement plan must be discussed before that product work starts.
-See [proposal](rebuild-plan-proposal.md).
+See [proposal](../rebuild/README.md).
 
 Delivery49 correction: user48 c50963c4 stopped at offline dependency acquisition,
 before compile. The earlier build used isolated CARGO_HOME;48 used global Cargo
@@ -96,6 +96,6 @@ normal root npm ci --ignore-scripts, run npm run foundation:desktop. First repor
 whether the app reaches Saved with both editor views. Then perform a small changed-
 route check, not the old manual or profiling suites. No memory/latency winner inferred.
 
-After bounded composition closeout, discuss the [clean rebuild proposal](rebuild-plan-proposal.md).
+After bounded composition closeout, discuss the [clean rebuild proposal](../rebuild/README.md).
 Do not automatically continue product feature implementation or replace/delete the
 existing pipeline before that discussion. F010/override46 remain unchanged.

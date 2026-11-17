@@ -1,55 +1,21 @@
-# Clutter foundation
+# Clutter architecture and clean rebuild
 
-Revision0.74,2026-11-16. Working branch: architecture/clutter-foundation.
-[F010](adr/F010-tauri-implementation-baseline.md) accepts Tauri, shared web UI/editor,
-PM/Y contexts, TypeScript Core and SQLite ports for implementation. Final native
-safety/format/security and shipping qualification remain open at explicit milestones.
-I2c development composition builds/launches on the user Mac.50 corrects a caret
-selection handoff bug; native retest/closeout remains pending.
-Existing product UI/pipeline is unchanged. Next, discuss the clean rebuild using
-existing UI/components. See [composition](i2/desktop-composition.md) and
-[rebuild proposal](i2/rebuild-plan-proposal.md).
-Existing production rules/data remain isolated from this disposable namespace.
+Revision0.75,2026-11-17. Branch: architecture/clutter-foundation.
 
-Start with [AGENTS](AGENTS.md), then [START-HERE](START-HERE.md), the single current
-checkpoint/next action. Give a new agent access to the latest branch/local commits;
-conversation memory and this agent's scratch files are not the handoff mechanism.
+Start with [AGENTS](AGENTS.md), [START-HERE](START-HERE.md), then the active
+[clean rebuild plan](rebuild/README.md). Existing layout/global visuals are reference
+and candidates; the entire old CM6/Markdown architecture, editor UI and obsolete docs
+may be redesigned/deleted. No compatibility or existing-user migration obligation.
 
-## Current planning and source ownership
+F010 accepts Tauri/shared web UI/PM-Y/TypeScript Core/SQLite as implementation direction.
+Basic native composition closeout passed; intermittent caret issue remains tracked.
+The existing product has not been rebuilt yet. Read-only main reference is5c532f8;
+no merge or main source change. Next is reproducible clean product boot/removal plan,
+not more host comparison or qualification paperwork.
 
-- [Freeze readiness](freeze-readiness-review.md): accepted implementation baseline versus remaining
-  format/security/qualification responsibilities; superseded planning is labelled.
-- [Product contracts](product-contracts.md): P01–P39 confirmed direction.
-- [Shared platform contract](shared-platform-contract.md): one web UI/editor/Core,
-  Mac first and Windows/browser capability adapters from the start.
-- [Greenfield scope](greenfield-scope.md): no existing users/data migration; initial
-  schema/version/recovery/portability guarantees remain.
-- [Architecture readiness](architecture-readiness.md), [decisions](decision-register.md),
-  [ADRs](adr/README.md), [implementation entry](implementation-entry.md): evidence,
-  accepted/proposed scope and production limitations.
-- [Shared API](shared-api.md), [runtime ownership](runtime-ownership.md),
-  [platform boundaries](platform-boundaries-spec.md): single command/authority design.
-
-## Evidence and roadmap
-
-[Roadmap](roadmap.md) owns dependencies; [remaining H01 gates](runtime-qualification/remaining-gates.md)
-tracks matched host qualification. [CHANGELOG](CHANGELOG.md) is specification/delivery
-history; [native progress](NATIVE-TEST-PROGRESS.md) retains dated runs/user observations.
-Current action stays in START-HERE, not in dated instructions embedded in old proofs.
-
-Bounded mechanisms are documented in [R07 history](r07-history-ownership.md),
-[joined Core](r08-joined-core.md), [entity](r08-entity-closure.md),
-[media](r08-media-closure.md), [page roots](r08-page-closure.md) and [I1](i1/result.md).
-F009 permits disposable I1 implementation; prior proof/manual passes do not imply
-full native/security/format/Windows/Web/shipping acceptance. H01 measurement method
-and workload status stay separate from implementation helper-test counts.
-
-The current native manual recording is saved/readable on the user's Mac.45 adds
-one bounded relationship inspection and a freeze-readiness review. Its Mac execution
-is pending; the ZIP/helper tests are not native input-to-display evidence. No new
-recording is needed for this action. See START-HERE for exact plan ID and command.
-
-No automatic main/production/vault modification, commit or push. Generated builds,
-runtimes/traces/cache remain Git-internal. Source and deliberate scoped evidence
-are reviewable separately. Older instruction/index text is retained in45 evidence
-and Git; no raw evidence or confirmed product result was deleted.
+Confirmed [product contracts](product-contracts.md), [table interactions](table-interaction-contract.md)
+and [F010](adr/F010-tauri-implementation-baseline.md) preserve behavior and ownership.
+Final native format/security/durability/scale/distribution responsibilities remain
+open at appropriate milestones. Older docs/proofs are historical and may be retired
+as the new current architecture/product/development index replaces them. They are
+not a requirement to preserve old implementation. Never infer a shipping pass.

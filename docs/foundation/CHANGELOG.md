@@ -3,6 +3,20 @@
 Specification revisions, not app releases or user document versions. The latter
 are specified in [history](history-and-collaboration.md).
 
+## 0.75 — 2026-11-17
+
+- Record user close/reopen PASS and intermittent/currently-unreproduced caret issue;
+  user asked to move on. No new editor fix/native caret claim or old-suite replay.
+- Adopt clean rebuild mandate: preserve useful layout/global visuals, redesign or
+  delete everything else including editor UI/old architecture/docs without courtesy reuse.
+- Read-only fetch/audit origin/main5c532f8 alongside foundation. No branch switch,
+  main merge/source change or dependency install. Concrete removal/topology/component
+  plan replaces the older proposal; obsolete proposal deleted and links updated.
+- Add read-only import inventory and safe public native dependency-lock export.
+  Two planning-tool tests pass. Existing50 runtime108/TS evidence is not rerun/overclaimed.
+- Next actual input is native lock bytes, then independently reproducible product
+  boot/shared modules and coherent legacy-boot removal under the plan.
+
 ## 0.74 — 2026-11-16
 
 - Record user49 commit6ba91499 and Mac compilation/signature/launch success. Preserve

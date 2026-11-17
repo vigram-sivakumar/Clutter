@@ -1,0 +1,8 @@
+{
+  "delivery": 51,
+  "evidenceDirectory": "rebuild-plan-51-2026-11-17",
+  "mainCommit": "5c532f8443321c0784cb379a184ed97f13de1820",
+  "planningToolTests": 2,
+  "productChanges": "none",
+  "next": "native dependency lock export, then R1 clean product boot/removal"
+}
