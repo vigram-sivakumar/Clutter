@@ -771,7 +771,7 @@ test('schema1 temporary stores are refused without automatic migration or overwr
   );
   assert.deepEqual(readFileSync(file), before);
 });
-async function stdio(x, mode, input) {
+async function stdio(x, mode, input, expectedExit = 0) {
   const entry = fileURLToPath(
       new URL('./fixtures/stdio-entry.mjs', import.meta.url)
     ),
@@ -790,7 +790,7 @@ async function stdio(x, mode, input) {
   p.stdin.end(input);
   const [exit] = await once(p, 'exit');
   clearTimeout(timer);
-  assert.equal(exit, 0, err);
+  assert.equal(exit, expectedExit, err);
   return out.trim().split('\n').map(JSON.parse);
 }
 test('real CLI/MCP processes update a mounted view and read back UI edits', async (t) => {
@@ -2978,8 +2978,9 @@ test('67 selected object key guards do not mutate on modified Enter, composition
       false
     );
 });
-async function peerCommand67(x, mode, command) {
-  if (mode === 'cli') return (await stdio(x, mode, JSON.stringify(command)))[0];
+async function peerCommand67(x, mode, command, cliExit = 0) {
+  if (mode === 'cli')
+    return (await stdio(x, mode, JSON.stringify(command), cliExit))[0];
   const messages = [
     {
       jsonrpc: '2.0',
@@ -3129,3 +3130,314 @@ for (const listStyle of ['ordered', 'unordered'])
     assert.equal(av.state.doc.child(2).textContent, 'Child');
     await a.flush();
   });
+
+const { createFormattingTransaction, formattingState } =
+  await import('../../editor/src/formatting.mjs');
+function selectBodyText(view, from = 0, to = 5) {
+  const start = view.state.doc.firstChild.nodeSize + 1;
+  view.dispatch(
+    view.state.tr.setSelection(
+      TextSelection.create(view.state.doc, start + from, start + to)
+    )
+  );
+  view.focus();
+}
+for (const [action, value] of [
+  ['bold'],
+  ['italic'],
+  ['underline'],
+  ['strike'],
+  ['link', 'https://example.com'],
+  ['text_color', 'blue'],
+  ['highlight', 'yellow'],
+  ['background', 'green'],
+])
+  test(`69 ${action} preserves selection, saves and undoes/redoes through context history`, async (t) => {
+    const x = await seeded(t),
+      a = await x.open('format_' + action),
+      av = x.mount(a);
+    selectBodyText(av);
+    const before = av.state.doc.toJSON(),
+      selection = av.state.selection.toJSON();
+    av.dispatch(createFormattingTransaction(av.state, action, value));
+    assert.deepEqual(av.state.selection.toJSON(), selection);
+    assert(av.hasFocus());
+    assert.equal(formattingState(av.state)[action], value ?? true);
+    await a.flush();
+    const saved = ok(await x.read());
+    assert.equal(saved.title, '');
+    if (action === 'background')
+      assert.equal(saved.content.value.content[1].attrs.background, value);
+    else
+      assert(
+        saved.content.value.content[1].content[0].marks.some(
+          (mark) => mark.type === action
+        )
+      );
+    assert(a.history(av, 'undo'));
+    assert.deepEqual(av.state.doc.toJSON(), before);
+    assert(a.history(av, 'redo'));
+    assert.equal(formattingState(av.state)[action], value ?? true);
+    av.dispatch(
+      createFormattingTransaction(
+        av.state,
+        action,
+        ['bold', 'italic', 'underline', 'strike'].includes(action)
+          ? undefined
+          : null
+      )
+    );
+    assert.equal(formattingState(av.state)[action], null);
+    await a.flush();
+  });
+test('69 shortcuts share formatting executor; title, objects and title-crossing ranges cannot acquire body formats', async (t) => {
+  const x = await seeded(t),
+    a = await x.open('shortcuts'),
+    av = x.mount(a);
+  selectBodyText(av);
+  for (const [key, extra, mark] of [
+    ['b', { metaKey: true }, 'bold'],
+    ['i', { ctrlKey: true }, 'italic'],
+    ['u', { metaKey: true }, 'underline'],
+    ['x', { ctrlKey: true, shiftKey: true }, 'strike'],
+  ]) {
+    assert(keydown(av, key, extra).defaultPrevented);
+    assert(formattingState(av.state)[mark]);
+  }
+  rowAt(av, 'paragraph-1', 5);
+  keydown(av, 'b', { metaKey: true });
+  av.dispatch(av.state.tr.insertText('BOLD'));
+  assert(av.state.doc.child(1).textContent.includes('BOLD'));
+  await a.flush();
+  av.dispatch(av.state.tr.setSelection(TextSelection.create(av.state.doc, 1)));
+  const before = av.state.doc.toJSON();
+  assert(keydown(av, 'b', { metaKey: true }).defaultPrevented);
+  assert.deepEqual(av.state.doc.toJSON(), before);
+  assert.equal(
+    createFormattingTransaction(av.state, 'background', 'red'),
+    null
+  );
+  av.dispatch(
+    av.state.tr.setSelection(
+      TextSelection.create(
+        av.state.doc,
+        1,
+        av.state.doc.firstChild.nodeSize + 3
+      )
+    )
+  );
+  assert.equal(createFormattingTransaction(av.state, 'bold'), null);
+});
+test('69 formatting spans body blocks without formatting semantic atoms, preserves background on conversion and outdent', async (t) => {
+  const x = await seededList(t, [
+      { id: 'one', type: 'heading', text: 'First', indent: 1 },
+      { id: 'two', type: 'paragraph', text: 'Second' },
+    ]),
+    { av, a } = x;
+  const start = av.state.doc.firstChild.nodeSize + 1,
+    end = av.state.doc.content.size - 1;
+  av.dispatch(
+    av.state.tr.setSelection(TextSelection.create(av.state.doc, start, end))
+  );
+  av.dispatch(createFormattingTransaction(av.state, 'bold'));
+  av.dispatch(createFormattingTransaction(av.state, 'background', 'purple'));
+  assert.equal(av.state.doc.child(1).attrs.background, 'purple');
+  assert.equal(av.state.doc.child(2).attrs.background, 'purple');
+  rowAt(av, 'one', 5);
+  av.dispatch(av.state.tr.insertText('/ul'));
+  keydown(av, 'Enter');
+  assert.equal(av.state.doc.child(1).attrs.background, 'purple');
+  rowAt(av, 'one');
+  keydown(av, 'Backspace');
+  assert.equal(av.state.doc.child(1).type.name, 'paragraph');
+  assert.equal(av.state.doc.child(1).attrs.background, 'purple');
+  await a.flush();
+});
+test('69 invalid custom formats, unsafe links and title formats are rejected through real CLI/MCP without changing accepted root', async (t) => {
+  const x = await seeded(t),
+    initial = ok(await x.read());
+  const bad = [
+    (c) =>
+      (c.value.content[1].content[0].marks = [
+        { type: 'text_color', attrs: { preset: '#ff0000' } },
+      ]),
+    (c) =>
+      (c.value.content[1].content[0].marks = [
+        { type: 'link', attrs: { href: 'javascript:alert(1)' } },
+      ]),
+    (c) =>
+      (c.value.content[1].content[0].marks = [
+        { type: 'bold', attrs: { html: 'bad' } },
+      ]),
+    (c) => (c.value.content[1].attrs.background = 'url(https://example.com)'),
+    (c) =>
+      (c.value.content[0].content = [
+        { type: 'text', text: 'Title', marks: [{ type: 'bold' }] },
+      ]),
+  ];
+  for (const mode of ['cli', 'mcp'])
+    for (const mutate of bad) {
+      const content = body();
+      mutate(content);
+      const reply = await peerCommand67(
+        x,
+        mode,
+        {
+          apiVersion: 1,
+          spaceId: x.v.spaceId,
+          pageId: 'p',
+          method: 'page.update',
+          operationId: x.next(),
+          expectedHead: initial.head,
+          patch: { content },
+        },
+        mode === 'cli' ? 1 : 0
+      );
+      assert.equal(reply.ok, false);
+      assert.equal(ok(await x.read()).head, initial.head);
+    }
+});
+test('69 formatted peer writes, local formatting undo, and saved reopen share one accepted root through real clients', async (t) => {
+  const x = await seeded(t),
+    a = await x.open('format_peers'),
+    av = x.mount(a);
+  for (const mode of ['cli', 'mcp']) {
+    const content = body('Peer formatted');
+    content.value.content[1].attrs.background = 'blue';
+    content.value.content[1].content[0].marks = [
+      { type: 'italic' },
+      { type: 'text_color', attrs: { preset: 'red' } },
+    ];
+    ok(
+      await peerCommand67(x, mode, {
+        apiVersion: 1,
+        spaceId: x.v.spaceId,
+        pageId: 'p',
+        method: 'page.update',
+        operationId: x.next(),
+        expectedHead: x.v.load('p').head,
+        patch: { content },
+      })
+    );
+    await settle(a);
+    selectBodyText(av, 0, 4);
+    assert(formattingState(av.state).italic);
+    av.dispatch(createFormattingTransaction(av.state, 'underline'));
+    await a.flush();
+    const read = ok(
+      await peerCommand67(x, mode, {
+        apiVersion: 1,
+        spaceId: x.v.spaceId,
+        pageId: 'p',
+        method: 'page.read',
+      })
+    );
+    assert(
+      read.content.value.content[1].content[0].marks.some(
+        (m) => m.type === 'underline'
+      )
+    );
+    assert(a.history(av, 'undo'));
+    assert(!formattingState(av.state).underline);
+    assert(formattingState(av.state).italic);
+    assert.equal(av.state.doc.child(1).attrs.background, 'blue');
+    await a.flush();
+  }
+  const b = await x.open('format_reopen'),
+    bv = x.mount(b);
+  assert.deepEqual(bv.state.doc.toJSON(), av.state.doc.toJSON());
+});
+test('69 selection formatting preserves reference/date/break atoms without unsupported mark metadata', async (t) => {
+  const x = await seeded(t),
+    content = body('');
+  content.value.content[1].content = [
+    { type: 'text', text: 'Before ' },
+    { type: 'note_reference', attrs: { pageId: 'ref', label: 'Reference' } },
+    { type: 'date', attrs: { value: '2026-11-17' } },
+    { type: 'hard_break' },
+    { type: 'text', text: 'After' },
+  ];
+  ok(
+    await x.run({
+      apiVersion: 1,
+      spaceId: x.v.spaceId,
+      pageId: 'p',
+      method: 'page.update',
+      operationId: x.next(),
+      expectedHead: x.v.load('p').head,
+      patch: { content },
+    })
+  );
+  const a = await x.open('format_atoms'),
+    av = x.mount(a);
+  selectBodyText(av, 0, av.state.doc.child(1).content.size);
+  av.dispatch(createFormattingTransaction(av.state, 'bold'));
+  for (const node of av.state.doc.child(1).content.content)
+    assert.equal(node.marks.length, node.isText ? 1 : 0);
+  await a.flush();
+  const saved = ok(await x.read());
+  assert.deepEqual(
+    JSON.parse(
+      JSON.stringify(
+        saved.content.value.content[1].content.filter((n) => n.type !== 'text')
+      )
+    ),
+    content.value.content[1].content.filter((n) => n.type !== 'text')
+  );
+});
+test('69 raw Y updates cannot sneak unknown marks, custom colours or title formatting past accepted validation', async (t) => {
+  const x = await seeded(t),
+    opened = ok(
+      await x.run({
+        apiVersion: 1,
+        spaceId: x.v.spaceId,
+        pageId: 'p',
+        contextId: 'format_attack',
+        method: 'editor.open',
+      })
+    );
+  for (const [i, mutate] of [
+    (fragment) => fragment.get(1).get(0).format(0, 1, { unknown: {} }),
+    (fragment) =>
+      fragment
+        .get(1)
+        .get(0)
+        .format(0, 1, { text_color: { preset: '#000' } }),
+    (fragment) =>
+      fragment
+        .get(1)
+        .get(0)
+        .format(0, 1, { link: { href: 'javascript:alert(1)' } }),
+    (fragment) => fragment.get(1).setAttribute('background', 'not-preset'),
+    (fragment) => {
+      const text = new Y.XmlText();
+      text.insert(0, 'Title', { bold: {} });
+      fragment.get(0).insert(0, [text]);
+    },
+  ].entries()) {
+    const d = decode({
+        pageId: 'p',
+        kind: 'notes',
+        bytes: fromBase64(opened.payload),
+        hash: opened.head,
+      }),
+      vector = Y.encodeStateVector(d);
+    mutate(d.getMap('page').get('content'));
+    const update = toBase64(Y.encodeStateAsUpdate(d, vector));
+    d.destroy();
+    const result = await x.run({
+      apiVersion: 1,
+      spaceId: x.v.spaceId,
+      pageId: 'p',
+      contextId: 'format_attack',
+      grant: opened.grant,
+      baseHead: opened.head,
+      operationId: 'format-bad-' + i,
+      method: 'editor.apply',
+      generation: 1,
+      update,
+    });
+    assert.equal(result.ok, false);
+    assert.equal(ok(await x.read()).head, opened.head);
+  }
+});

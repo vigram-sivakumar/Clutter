@@ -69,3 +69,12 @@ pending-next-step docs updated, no alternative semantic writer/owner introduced.
 The helper constructs synthetic fixtures using the existing shared schema helper;
 all reads/writes go through real peer clients on the accepted Core path. Current
 scope fulfills the every-change architecture/client review without changing UI UX.
+
+## Actual Mac result — PASS,17 November2026
+
+User supplied verify and verify-reopen JSON: CLI/MCP read/write, both conflicts,
+UI marker and accepted-root equality PASS; windowProcessReplaced true. Before/after
+screenshots show Client check68 with all four expected body lines including UI
+VERIFIED. Dedicated Mac client save/window-context reopen milestone is complete.
+Owner was retained; no owner restart/disk-recovery claim. Proceed to agreed formatting.
+Observation docs are queued for the next delivery after68; no code or tests changed.

@@ -190,3 +190,26 @@ and native process replacement. Operator confirms actual visual restoration. Nat
 process guards in Linux tests are stand-ins, not native evidence. Do not restart or
 kill owner/windows automatically. No rebuild needed; keep latest session. After this
 scoped Mac acceptance, proceed to already-agreed formatting; Ctrl+A remains3C.
+
+## Actual68 acceptance complete
+
+User terminal reports and reopen screenshot confirm the dedicated Mac CLI/MCP
+milestone PASS: reads/writes, both stale conflicts, UI save visible to both clients,
+same accepted root and visible note after native window process replacement. Owner
+restart not performed. NEXT formatting; do not replay this milestone for bookkeeping.
+Include these observation updates in next source delivery after68. Every-change
+architecture/client review remains mandatory for that implementation.
+
+## Current formatting69
+
+Read rebuild/formatting-69.md. User approved toolbar actions F01–F07; presets only.
+One shared PM executor handles toolbar and keyboard, central dispatcher groups context
+history and returns focus. Keep mapped selection; no body/title React mirror, second
+save handler or platform feature logic. Preset token/mark validation shared by schema,
+JSON and raw-Y accepted paths; do not allow custom CSS or unknown marks to disappear
+silently during parsing. Body text only, title keeps prior plain-looking/link rule.
+Native69 check next.68 actual Mac client milestone complete; not another prerequisite
+replay. Ctrl+A/marquee3C remains next capability after formatting acceptance.
+AI active-app/focused-note/selection integration is deferred roadmap only. Targeted
+ignore rules cover old generated schemas/r07 artifacts and worker credentials/state;
+do not delete .dev.vars or hide whole source trees. No legacy resurrection.

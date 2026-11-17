@@ -8,12 +8,16 @@ The user authorized complete removal of old architecture, not a compatibility pr
 Do not resurrect the retired CM6/full-or-compact Markdown/vault/persistence pipeline.
 
 Stage3 execution order and acceptance: docs/foundation/rebuild/stage3-implementation-plan.md.
-User67 scoped insert/select/Enter/type Mac check PASS. Current68 is the dedicated
-real Mac CLI/MCP acceptance, BEFORE formatting. Read docs/foundation/rebuild/client-acceptance-68.md. Run
-node tools/check-clients.mjs --prepare against the current67 synthetic session; then
-UI marker/save, --verify, native window close/reopen and --verify-reopen. Do not infer
-native visual/reopen pass from automation alone. Text controls66 and selected-object
-UX67 remain current. Ctrl+A A01–A05 remains3C; no formatting implementation yet.
+68 dedicated real Mac CLI/MCP milestone COMPLETE: actual client read/write/conflict,
+UI save and visible native window/context reopen PASS; owner restart NOT performed.
+Current69 implements the agreed floating body formatting toolbar. Read
+docs/foundation/rebuild/formatting-69.md. One PM executor for toolbar/shortcuts;
+shared schema/JSON/raw-Y validation for marks/preset block background. Title stays
+plain-looking with link semantics; no body formatting on title/objects. Selection
+stays in place. Text66/object67 remain current. Native69 toolbar check NEXT; do not
+replay68 for bookkeeping. Ctrl+A/marquee remains3C after this capability's check.
+Deferred AI active-app integration is roadmap only. Targeted generated/secret ignore
+rules included; never add old generated files or .dev.vars. No local deletion.
 
 MANDATORY ON EVERY CHANGE: follow the completion review in docs/foundation/AGENTS.md.
 Remove superseded paths; check for duplicate owners/implementations and boundary

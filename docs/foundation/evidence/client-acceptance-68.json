@@ -29,6 +29,21 @@
     "fixture": "existing shared schema helper",
     "unchanged": "all product/editor/UI/native/runtime sources, schema/contracts, dependencies/locks"
   },
-  "macAcceptance": "pending prepare -> visual read/UI save -> verify -> native window reopen -> verify-reopen/operator observation",
-  "next": "formatting only after scoped Mac client milestone passes"
+  "macAcceptance": {
+    "status": "PASS",
+    "date": "2026-11-17",
+    "source": "user terminal verify and verify-reopen JSON plus before/after screenshots",
+    "checks": {
+      "cliReadWrite": "PASS",
+      "mcpHandshakeReadWrite": "PASS",
+      "cliStaleConflict": "PASS",
+      "mcpStaleConflict": "PASS",
+      "uiSaveVisibleToBothClients": "PASS",
+      "sameAcceptedRoot": "PASS",
+      "windowProcessReplaced": true,
+      "visualReopen": "Screenshot shows Client check68 and all four body lines including UI VERIFIED"
+    },
+    "limit": "native window/context reopened; owner restart not performed"
+  },
+  "next": "already-agreed formatting capability; client milestone closed"
 }

@@ -110,6 +110,9 @@ export function createInsertionTransaction(
     source = tr.doc.nodeAt(start);
   const action = source.content.size === 0 ? policy.empty : policy.nonEmpty;
   const attrs = {
+    ...(type.isTextblock
+      ? { background: source.attrs.background ?? null }
+      : {}),
     indent: source.attrs.indent,
     parentId: source.attrs.parentId,
     ...definition.attrs,

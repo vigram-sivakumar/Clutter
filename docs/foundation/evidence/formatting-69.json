@@ -1,0 +1,29 @@
+{
+  "delivery": 69,
+  "date": "2026-11-17",
+  "scope": "floating body formatting toolbar, shared accepted format validation; roadmap/targeted ignores",
+  "automated": {
+    "fullSuite": 209,
+    "pass": 209,
+    "fail": 0,
+    "focusedFormatting": 15,
+    "strictCoreRuntimeTypecheck": "PASS",
+    "boundarySources": 54,
+    "realClients": "CLI/MCP formatted writes/readback, local formatting undo retains peer formats, invalid custom formats/unsafe links/title formats refused",
+    "rawUpdates": "unknown marks/custom colours/unsafe links/title styles refused without accepted changes",
+    "productionUI": "React toolbar text range/focus preserved through all controls and link field; save/context reopen PASS",
+    "ignoreVerification": "reported generated paths and local secrets ignored; ordinary worker/editor source visible"
+  },
+  "architectureReview": {
+    "vocabulary": "shared formatting-spec preset/mark/link rules across schema and JSON/raw-Y validation",
+    "commands": "one formatting transaction executor for toolbar/shortcuts; existing context grouping",
+    "ownership": "existing Core catalogue/SQLite/save/conflict/history; no copied React body",
+    "superseded": "strict link-only JSON/raw mark validation replaced by shared vocabulary, no parallel parser",
+    "unchanged": "native adapters, runtime source, Core sources/contracts, dependencies/locks"
+  },
+  "priorNative68": "PASS real CLI/MCP read-write/conflict, saved UI body marker, same accepted root and visible native window reopen; owner not restarted",
+  "manual69": "pending first selected-text Bold/toolbar check",
+  "roadmap": "active-app/focused note/selection AI integration deferred, no implementation promised vendor app picker support",
+  "housekeeping": "targeted .gitignore; no user Mac files deleted or credentials read",
+  "next": "scoped formatting Mac checks one at a time, then3C Ctrl+A/marquee"
+}

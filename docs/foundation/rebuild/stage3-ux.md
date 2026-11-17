@@ -104,7 +104,7 @@ this does not replace their selection/Enter/Tab contract.
 | F04 | Available actions | Bold, italic, underline, strikethrough, links, text colour, highlight, and block background colour. All seven previously proposed actions are now approved; block background colour is additionally required. |
 | F05 | Text highlight | Highlight applies to the selected text range, separately from block background colour. |
 | F06 | Block background colour | Change the background of the entire block containing the selected text, rather than only the selected characters. |
-| F07 | Colour choices | PRESET COLOURS ONLY for the toolbar colour controls. Do not add custom colour entry/pickers. Exact preset swatches are not yet specified and can be reviewed with the component. |
+| F07 | Colour choices | PRESET COLOURS ONLY for the toolbar colour controls. Do not add custom colour entry/pickers. 69 uses Gray, Red, Orange, Yellow, Green, Blue and Purple plus Default. Text/background shades share semantic preset IDs; final component appearance remains reviewable. |
 
 ## Body-wide indentation (confirmed66)
 

@@ -71,3 +71,29 @@ before formatting. Text conversion/indentation66 remains current.
 User67 requested separator insert/select/Enter/type check PASS. Current68 is
 [real client acceptance](client-acceptance-68.md), verification-only, before formatting.
 Keep current67 app/session; no rebuild/install. Native observations remain pending.
+
+## Deferred AI desktop app integration
+
+User requested17 November2026: add active-app/active-note AI integration to the later
+roadmap; do not implement it during current formatting work. Desired future scope:
+authorized AI desktop clients can discover Clutter's focused window/pane/note and
+selected range, read allowed context and apply changes through the existing Core,
+with revision/conflict/history/save protections. Current CLI/MCP saved-note access
+is implemented/tested; active-view discovery/selection, OS accessibility adapters
+and vendor-specific app-picker support are NOT implemented or verified. One shared
+integration contract; platform mechanisms remain adapters. No separate semantic
+writer, Markdown file bridge or duplicate AI save path. Vendor app-picker inclusion
+must be verified with the relevant vendor; do not promise automatic availability.
+
+## Generated remnants after the clean rebuild
+
+Untracked old apps/app/src-tauri/gen/schemas, r07 artifacts/joined-native/out and
+worker .wrangler state are generated remnants, not new Structured source. Local
+.dev.vars may contain credentials; preserve locally and never commit. Targeted
+.gitignore rules hide these exact generated/secret paths; do not ignore all apps/app,
+workers or experiments as a way to conceal accidental source reintroduction. No
+local artifacts were deleted. Include this housekeeping in the next source delivery.
+
+69 delivers [body formatting](formatting-69.md) after actual Mac client milestone68
+PASS. Shared toolbar/shortcut executor, accepted preset/mark validation, same Core/
+history/save. First scoped native formatting check next; Ctrl+A/marquee3C follows.

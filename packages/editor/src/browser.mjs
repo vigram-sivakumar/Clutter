@@ -6,3 +6,5 @@ export { noteSchema, taskSchema, pageContent } from './schema.mjs';
 
 export { createBlockDefinitions } from './block-definitions.mjs';
 export { createInsertionTransaction } from './block-insertion.mjs';
+
+export { formatColors } from './formatting-spec.mjs';

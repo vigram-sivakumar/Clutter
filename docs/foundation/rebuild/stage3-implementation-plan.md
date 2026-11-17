@@ -222,3 +222,8 @@ before formatting. Text conversion/indentation66 remains current.
 User67 requested separator insert/select/Enter/type check PASS. Current68 is
 [real client acceptance](client-acceptance-68.md), verification-only, before formatting.
 Keep current67 app/session; no rebuild/install. Native observations remain pending.
+
+Current69 implements the agreed floating formatting toolbar on shared editor/schema/
+accepted validation. Read [formatting69](formatting-69.md).68 real Mac client milestone
+has actual PASS; no replay required. Native formatting check next, then3C Ctrl+A and
+marquee. Active-app AI integration remains deferred roadmap, not current scope.

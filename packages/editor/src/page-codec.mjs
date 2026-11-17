@@ -1,3 +1,4 @@
+import { validateFormat } from './formatting-spec.mjs';
 import { PAGE_CODEC, pageRootPrefix } from '../../core/src/root-envelope.ts';
 import { pageFields } from '../../core/src/page-fields.ts';
 import * as Y from 'yjs';
@@ -35,6 +36,8 @@ function validateXml(fragment) {
           : block.nodeName === 'list_item'
             ? ['blockId', 'indent', 'parentId', 'listStyle']
             : ['blockId', 'indent', 'parentId'];
+    if (['paragraph', 'heading', 'list_item'].includes(block.nodeName))
+      allowed.push('background');
     if (block.nodeName === 'separator' && block.length)
       throw Error('INVALID_SEPARATOR');
     if (Object.keys(block.getAttributes()).some((k) => !allowed.includes(k)))
@@ -42,17 +45,9 @@ function validateXml(fragment) {
     for (const child of block.toArray()) {
       if (child instanceof Y.XmlText) {
         for (const op of child.toDelta()) {
-          if (
-            typeof op.insert !== 'string' ||
-            Object.keys(op.attributes ?? {}).some((k) => k !== 'link')
-          )
-            throw Error('UNSUPPORTED_CONTENT');
-          if (
-            op.attributes?.link &&
-            (typeof op.attributes.link !== 'object' ||
-              Object.keys(op.attributes.link).join() !== 'href')
-          )
-            throw Error('INVALID_LINK');
+          if (typeof op.insert !== 'string') throw Error('UNSUPPORTED_CONTENT');
+          for (const [type, attrs] of Object.entries(op.attributes ?? {}))
+            validateFormat(type, attrs, index === 0);
         }
       } else {
         const attrs =

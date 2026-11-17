@@ -51,3 +51,12 @@ packages/automation/reports/
 .cache/
 .temp/
 .tmp/
+
+# Generated remnants of retired app/experiment runners (not product source)
+/apps/app/src-tauri/gen/schemas/
+/docs/foundation/experiments/r07-two-view/artifacts/
+/docs/foundation/experiments/r07-two-view/joined-native/out/
+
+# Local worker secrets and emulator state
+**/.dev.vars
+**/.wrangler/

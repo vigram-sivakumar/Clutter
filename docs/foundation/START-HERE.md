@@ -1,38 +1,42 @@
 # Resume Clutter Structured
 
-## Current checkpoint — real client acceptance68, 17 November 2026
+## Current checkpoint — body formatting69, 17 November 2026
 
-**User67 scoped Mac PASS:** filled text/list separator insertion selects/highlights;
-Enter starts normal paragraph below ready to type (the requested first check).
-Do not extend this into an unobserved full click/delete/Undo matrix. Text controls66,
-selected-object UX67 and earlier3A observations remain recorded.
+**Mac client acceptance68 COMPLETE — PASS.** Real CLI/MCP read/write, both stale
+conflicts, UI saved body marker, identical accepted root after native window process
+replacement. Before/after screenshots show all four lines including UI VERIFIED.
+Owner restart not performed. Do not replay completed68 for bookkeeping. Earlier
+3A and scoped separator67 insert/select/Enter/type passes remain recorded.
 
-**68 is verification-only:** real bundled CLI/MCP read/write/conflict, UI save and
-same-session window/context reopen. Read [exact steps and limits](rebuild/client-acceptance-68.md).
-Runner: `node tools/check-clients.mjs --prepare`, then UI appends UI VERIFIED to the
-new Client check68 note; Save, `--verify`, close/reopen SAME app window/session and
-`--verify-reopen`. Formatting follows acceptance, not another profiling/research gate.
+**69 implements agreed formatting:** floating toolbar above selected BODY text,
+Bold/Italic/Underline/Strikethrough, safe links, text colour, text highlight and
+whole selected-block background. Seven preset colour names plus Default, no custom
+colour/CSS input. Controls preserve the mapped selection and return focus to the
+same editor. Cmd/Ctrl+B/I/U and Shift+Cmd/Ctrl+X share the executor; title and object
+selection are excluded. No separate UI text, save or history state. PM owns editable
+DOM; React toolbar is a portal/chrome adapter. Read [scope/checklist](rebuild/formatting-69.md).
 
-One synthetic note is created through real CLI; MCP and CLI update it using expected
-heads. Both clients must reject stale writes without accepted changes. Shared UI adds
-marker; both peer clients read it. Reopen verifier requires a new live native process,
-old recorded process gone and same accepted head; operator still confirms visual note
-restoration. No owner restart/disk-recovery qualification is inferred. Reports/plan
-live privately under Git metadata, bound to the exact bundle/Space/session. No tokens
-or note bodies in returned summaries. Existing notes stay untouched.
+Stored-format vocabulary/preset validation is shared by UI schema, strict JSON and
+raw-Y accepted validation. Block background is an optional/null preset attr on body
+text blocks, retained by conversion/outdent; inline marks are for text, atomic
+reference/date/break metadata stays unchanged. Existing page JSON schema2 and one
+Core command/save path remain; build fresh synthetic Space for changed bundle.
 
-Linux evidence68: one new end-to-end test PASS using actual bundled client processes,
-headless owner/Core/SQLite and production React/PM UI save/context restoration. Native
-PID transition guards are tested using disposable stand-in processes, not Mac UI.
-Strict Core/runtime TS and51-source boundaries PASS. Product packages, native code,
-schema/contracts/dependencies/locks unchanged; no rebuild/install needed for68.
-No full-suite replay claimed; preceding67 had191 full tests plus final16 scoped checks.
+Validation69:209 full Linux tests PASS;15 focused formatting checks PASS; strict
+Core/runtime TS and54-source boundaries PASS. Real CLI/MCP formatted writes/readback
+and invalid JSON/raw-Y rejection PASS. Production React/PM toolbar range retention,
+controls/link validation, accepted save and context reopen PASS. Actual native69
+pointer/pixel/keyboard/Windows/IME qualifications remain pending.
 
-NEXT: apply68 over67, run --prepare while current test app remains open. Click Refresh
-pages, open Client check68 and inspect its three client lines. Add UI VERIFIED at the
-BODY bottom without removing those lines; Save. Await that scoped result before the
-next command. Do not mark the Mac client milestone complete before verify/reopen and
-user observation. Ctrl+A/body block selection remains3C, no formatting added here.
+NEXT: apply69 over68, `npm run desktop -- --new`; no install. Select part of a body
+paragraph; toolbar above it, Bold changes only selection and selection stays. First
+scoped native check, then colours/link/background/Undo/save-reopen checks; no native69
+pass inferred from Linux. Ctrl+A/marquee3C follows this capability's acceptance.
+
+Also included: deferred active-app/current-note AI integration roadmap, targeted
+.gitignore for the reported legacy generated schemas/r07 outputs and worker local
+.dev.vars/.wrangler. Files are preserved locally, not committed/deleted. Completed68
+observation docs are now included in69.
 
 
 ## Working agreement
@@ -100,3 +104,11 @@ Read [working rules](AGENTS.md), [architecture](../architecture.md),
 [task behavior](product-behaviour.md) and [native progress](NATIVE-TEST-PROGRESS.md)
 for their scopes. The current checkpoint and final UX record override historical
 next-step instructions; historical qualification limits remain in force.
+
+## Roadmap and housekeeping included69
+
+User added deferred AI active-app/current-note/selection integration to roadmap;
+see rebuild/README.md. Do not implement that in formatting. Targeted .gitignore
+restores exclusions for retired generated schemas/r07 output and worker local secrets/
+emulator state after user reported them untracked. No Mac files deleted or read;
+.dev.vars stays local. 69 delivers the formatting implementation; native check is next.

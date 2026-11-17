@@ -1,3 +1,4 @@
+import { validateFormat, isPreset } from './formatting-spec.mjs';
 // Canonical page validation and deterministic fragment replacement.
 import { plainTitle } from '../../core/src/page-fields.ts';
 import { initProseMirrorDoc, updateYFragment } from 'y-prosemirror';
@@ -62,16 +63,25 @@ export function validateDocument(value, schema = noteSchema) {
     if (!allowed.includes(b.type)) throw Error('UNSUPPORTED_CONTENT');
     if (b.type === 'separator' && b.content !== undefined)
       throw Error('INVALID_SEPARATOR');
-    keys(
-      b.attrs,
+    const baseAttrs =
       index === 0
         ? 'blockId'
         : b.type === 'heading'
           ? 'blockId,indent,parentId,level'
           : b.type === 'list_item'
             ? 'blockId,indent,parentId,listStyle'
-            : 'blockId,indent,parentId'
+            : 'blockId,indent,parentId';
+    keys(
+      b.attrs,
+      baseAttrs +
+        (Object.hasOwn(b.attrs ?? {}, 'background') ? ',background' : '')
     );
+    if (
+      Object.hasOwn(b.attrs, 'background') &&
+      (!['paragraph', 'heading', 'list_item'].includes(b.type) ||
+        (b.attrs.background !== null && !isPreset(b.attrs.background)))
+    )
+      throw Error('INVALID_BLOCK_BACKGROUND');
     if (
       b.type === 'heading' &&
       (!Number.isSafeInteger(b.attrs.level) ||
@@ -104,16 +114,18 @@ export function validateDocument(value, schema = noteSchema) {
         keys(n, n.marks === undefined ? 'type,text' : 'type,text,marks');
         if (typeof n.text !== 'string' || !n.text || /[\r\n]/.test(n.text))
           throw Error('INVALID_TEXT');
+        if (n.marks !== undefined && !Array.isArray(n.marks))
+          throw Error('INVALID_MARKS');
+        const markTypes = new Set();
         for (const m of n.marks ?? []) {
-          keys(m, 'type,attrs');
-          keys(m.attrs, 'href');
-          if (
-            m.type !== 'link' ||
-            typeof m.attrs.href !== 'string' ||
-            m.attrs.href.length > 8192 ||
-            !/^(https?:|mailto:)/i.test(m.attrs.href)
-          )
-            throw Error('INVALID_LINK');
+          keys(m, m.attrs === undefined ? 'type' : 'type,attrs');
+          if (markTypes.has(m.type)) throw Error('DUPLICATE_MARK');
+          markTypes.add(m.type);
+          validateFormat(
+            m.type,
+            m.attrs === undefined ? {} : m.attrs,
+            index === 0
+          );
         }
       } else if (n.type === 'hard_break' && index > 0) {
         keys(n, 'type');

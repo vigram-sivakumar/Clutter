@@ -224,3 +224,15 @@ Use `node tools/check-clients.mjs --prepare`, then follow
 [client acceptance](foundation/rebuild/client-acceptance-68.md). Existing bundled
 runtime/launcher/session; no build/install or product change. Both real CLI/MCP clients
 exercise read/write/conflict and UI accepted save/reopen. Never print session tokens.
+
+## Formatting69
+
+[Current scope/checklist](foundation/rebuild/formatting-69.md). Apply over68 and run
+`npm run desktop -- --new` for the updated shared editor/schema/UI bundle. No install.
+Earlier synthetic sessions retain their own bundles. Actual Mac client acceptance68
+is complete; real formatted peer regressions run with each change, no repeated manual
+client milestone. Title formatting stays restricted. AI active-app integration later.
+
+Targeted ignores preserve old generated schemas/experiments/runtime downloads and
+worker .dev.vars/.wrangler locally while keeping them out of staging. Do not use
+broad git add/clean on the retired remnants; current patch stages exact source paths.

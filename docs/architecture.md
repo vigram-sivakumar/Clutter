@@ -210,3 +210,20 @@ canonical block ID restores a surviving target, shared body fallback handles rem
 Do not set addToHistory:false on this bridge: the binding can carry that flag into
 the actual pending content transaction. No binding-internal changes/dependency fork,
 second document/history manager, saved selection styling or OS-specific feature path.
+
+## Shared formatting69
+
+formatting-spec.mjs owns stored mark names, safe link validation and preset IDs/values.
+Schema, strict JSON model and raw Y validation use it; clients cannot add arbitrary CSS
+or unknown mark fields and have them silently discarded. Body text supports bold,
+italic, underline, strike, link, text_color/highlight marks and nullable preset block
+background. Title retains link-only marks; reference/date/break atoms remain unmarked.
+
+createFormattingTransaction is the one toolbar/shortcut executor. Replica dispatcher
+uses the existing origin context history boundaries and focus path for formatting and
+insertion. React toolbar owns controls/input/geometry only, outside editable DOM; it
+has no copied body, persistence callback or independent history. View-local selection
+is retained/mapped, palette controls preserve it, and inactive/read-only/removed ranges
+refuse toolbar commands. Block background is kept by text conversion/list outdent;
+indent and graph selectors retain their existing ownership. Core catalogue, SQLite,
+revision/conflict protection, native adapters and dependencies remain unchanged.

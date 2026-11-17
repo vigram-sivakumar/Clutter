@@ -15,6 +15,7 @@ function changeOnly(state, convert) {
   }
   const attrs = {
     blockId: node.attrs.blockId,
+    background: node.attrs.background,
     indent,
     parentId,
     ...(!convert && node.type.name === 'list_item'

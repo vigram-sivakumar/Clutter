@@ -1374,3 +1374,137 @@ test('68 bundled CLI/MCP acceptance runner verifies conflict, UI save and same-s
       }
   }
 });
+
+test('69 production floating toolbar preserves body range through controls, saves formats and restores after context reopen', async () => {
+  const dir = await session();
+  let ui = await browserWindow(dir, 'format69');
+  try {
+    ui.button('+ New page').click();
+    await ui.wait(() => !!ui.active());
+    await ui.type('Alpha beta gamma');
+    const editor = ui.active(),
+      pageId = ui.panes()[0].dataset.page,
+      p = editor.querySelector('p');
+    const range = ui.doc.createRange();
+    range.setStart(p.firstChild, 0);
+    range.setEnd(p.firstChild, 5);
+    const selection = ui.dom.window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    ui.doc.dispatchEvent(new ui.dom.window.Event('selectionchange'));
+    await ui.wait(() =>
+      ui.doc.querySelector('[role=toolbar][aria-label="Text formatting"]')
+    );
+    const toolbar = () =>
+      ui.doc.querySelector('[role=toolbar][aria-label="Text formatting"]');
+    for (const [label, tag] of [
+      ['Bold', 'strong'],
+      ['Italic', 'em'],
+      ['Underline', 'u'],
+      ['Strikethrough', 's'],
+    ]) {
+      const button = toolbar().querySelector(
+        'button[aria-label="' + label + '"]'
+      );
+      const down = new ui.dom.window.MouseEvent('mousedown', {
+        bubbles: true,
+        cancelable: true,
+      });
+      button.dispatchEvent(down);
+      assert(down.defaultPrevented);
+      button.click();
+      await ui.wait(() => editor.querySelector(tag)?.textContent === 'Alpha');
+      assert.equal(selection.toString(), 'Alpha');
+      assert.equal(ui.active(), editor);
+    }
+    for (const [label, value, selector] of [
+      [
+        'Text colour',
+        'blue',
+        'span[data-format="text_color"][data-preset="blue"]',
+      ],
+      [
+        'Text highlight',
+        'yellow',
+        'span[data-format="highlight"][data-preset="yellow"]',
+      ],
+      ['Block background', 'green', 'p[data-background="green"]'],
+    ]) {
+      const select = toolbar().querySelector(
+        'select[aria-label="' + label + '"]'
+      );
+      select.focus();
+      select.value = value;
+      select.dispatchEvent(
+        new ui.dom.window.Event('change', { bubbles: true })
+      );
+      await ui.wait(() => !!editor.querySelector(selector));
+      assert.equal(selection.toString(), 'Alpha');
+      assert.equal(ui.doc.activeElement, editor);
+    }
+    toolbar().querySelector('[aria-label="Link"]').click();
+    await ui.wait(
+      () => !!toolbar()?.querySelector('input[aria-label="Link URL"]')
+    );
+    const input = toolbar().querySelector('input');
+    input.focus();
+    const setter = Object.getOwnPropertyDescriptor(
+      ui.dom.window.HTMLInputElement.prototype,
+      'value'
+    ).set;
+    setter.call(input, 'javascript:alert(1)');
+    input.dispatchEvent(new ui.dom.window.Event('input', { bubbles: true }));
+    toolbar()
+      .querySelector('form')
+      .dispatchEvent(
+        new ui.dom.window.Event('submit', { bubbles: true, cancelable: true })
+      );
+    await ui.wait(() => !!toolbar()?.querySelector('[role=alert]'));
+    setter.call(input, 'https://example.com');
+    input.dispatchEvent(new ui.dom.window.Event('input', { bubbles: true }));
+    toolbar()
+      .querySelector('form')
+      .dispatchEvent(
+        new ui.dom.window.Event('submit', { bubbles: true, cancelable: true })
+      );
+    await ui.wait(
+      () =>
+        editor.querySelector('a')?.getAttribute('href') ===
+        'https://example.com'
+    );
+    assert.equal(selection.toString(), 'Alpha');
+    await ui.saved();
+    const read = (await ui.api({ method: 'page.read', pageId })).value;
+    const block = read.content.value.content[1];
+    assert.equal(block.attrs.background, 'green');
+    assert.deepEqual(
+      block.content[0].marks.map((m) => m.type).sort(),
+      [
+        'bold',
+        'highlight',
+        'italic',
+        'link',
+        'strike',
+        'text_color',
+        'underline',
+      ].sort()
+    );
+    await ui.dispose();
+    ui = await browserWindow(dir, 'format69');
+    await ui.wait(() =>
+      ui.active()?.querySelector('p[data-background="green"]')
+    );
+    assert.equal(ui.active().querySelector('strong').textContent, 'Alpha');
+    assert.equal(
+      ui.active().querySelector('a').getAttribute('href'),
+      'https://example.com'
+    );
+    assert.equal(
+      ui.doc.querySelector('[role=toolbar]'),
+      null,
+      'no stale toolbar on reopen without body range'
+    );
+  } finally {
+    await ui.dispose();
+  }
+});

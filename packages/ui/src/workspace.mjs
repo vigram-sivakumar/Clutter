@@ -1,3 +1,4 @@
+import { renderFormattingToolbar } from './formatting-toolbar.mjs';
 import { renderSlashMenu } from './slash-menu.mjs';
 import { EditorSession, EditingContextRegistry, sha256 } from '@clutter/core';
 import { createEditorReplica, browserCodec } from '@clutter/editor/browser';
@@ -50,6 +51,7 @@ export class EditorWorkspace {
               ...viewOptions,
               codec: browserCodec,
               renderSlashMenu,
+              renderFormattingToolbar,
               onProjection: (p) => this.onChanged(p),
               canEdit: () => this.isEditable(),
             }

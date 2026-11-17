@@ -1,3 +1,4 @@
+import { textFormatting, isFormattingTransaction } from './formatting.mjs';
 import { guardNodeSelections } from './node-selection-bridge.mjs';
 import { objectInteractions } from './object-interactions.mjs';
 import { blockIndentation } from './block-indentation.mjs';
@@ -137,6 +138,10 @@ export function createEditorReplica(
           plugins: [
             ySyncPlugin(fragment),
             history.plugin(),
+            textFormatting({
+              canEdit: options.canEdit,
+              renderToolbar: options.renderFormattingToolbar,
+            }),
             blockInsertion({
               nextId: nextBlockId,
               canEdit: options.canEdit,
@@ -195,14 +200,15 @@ export function createEditorReplica(
               seen.add(id);
             });
           }
-          const insertion =
-            isInsertionTransaction(tr) &&
+          const localAction =
+            (isInsertionTransaction(tr) || isFormattingTransaction(tr)) &&
             !tr.getMeta(ySyncPluginKey)?.isChangeOrigin;
-          if (insertion) history.manager.stopCapturing();
+          if (localAction) history.manager.stopCapturing();
           this.updateState(this.state.apply(tr));
-          if (insertion) {
+          if (localAction) {
             history.manager.stopCapturing();
-            if (insertionWantsFocus(tr)) this.focus();
+            if (insertionWantsFocus(tr) || isFormattingTransaction(tr))
+              this.focus();
           }
         },
       });

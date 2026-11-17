@@ -473,3 +473,69 @@ button:focus-visible {
   outline-offset: 5px;
   background-color: #e8f1f8;
 }
+
+.formatting-toolbar-host {
+  position: fixed;
+  z-index: 1000;
+  max-width: calc(100vw - 16px);
+}
+.formatting-toolbar-host[hidden] {
+  display: none;
+}
+.formatting-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid #b6c7d1;
+  border-radius: 8px;
+  background: #fff;
+  color: #24343e;
+  box-shadow: 0 3px 14px #172a3a26;
+  max-width: min(680px, calc(100vw - 16px));
+}
+.formatting-toolbar button {
+  padding: 5px 8px;
+}
+.formatting-toolbar button[aria-pressed='true'] {
+  background: #dcecff;
+}
+.formatting-toolbar label {
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.formatting-toolbar select,
+.formatting-toolbar input {
+  color: inherit;
+  background: #fff;
+  border: 1px solid #b6c7d1;
+  border-radius: 4px;
+  padding: 4px;
+}
+.formatting-toolbar form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex-basis: 100%;
+}
+.formatting-toolbar [role='alert'] {
+  color: #b42332;
+}
+.ProseMirror [data-format='text_color'] a {
+  color: inherit;
+}
+.formatting-toolbar button[aria-label='Bold'] {
+  font-weight: 700;
+}
+.formatting-toolbar button[aria-label='Italic'] {
+  font-style: italic;
+}
+.formatting-toolbar button[aria-label='Underline'] {
+  text-decoration: underline;
+}
+.formatting-toolbar button[aria-label='Strikethrough'] {
+  text-decoration: line-through;
+}
