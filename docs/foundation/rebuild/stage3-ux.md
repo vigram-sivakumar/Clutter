@@ -66,17 +66,18 @@ conflate it with text-range selection or the independent block-selection mode be
 | S01 | Trigger | Show the menu immediately when the user types `/` anywhere in body text, including inside existing text. No whitespace boundary is required. |
 | S02 | URL exception | Leave URL slashes alone; do not open the block menu for them. |
 | S03 | Query with no matching item | Dismiss the menu. Menu dismissal must not erase the typed `/text`. |
-| S04 | Selecting a command | Consume/replace **only the `/command` range**. Preserve all text before and after it, unchanged and in its original order. Do not replace the whole paragraph or absorb its text into the inserted block. |
-| S05 | Structural insertion | If the block type requires splitting the surrounding container, retain the surrounding text; changing structure is not permission to delete it. |
-| S06 | Focus after slash insertion | Retain the cursor in the same current block. No separator cursor-jump override; see placement rule S09. |
+| S04 | Selecting a command | Consume only `/command`. Preserve all remaining inline content together in the current block; no prefix/suffix splitting. |
+| S05 | Editable text-block insertion (latest user correction65) | After command removal, an empty block converts to the selected paragraph/heading/list type, retaining its identity. With content remaining, insert the selected type below and preserve the existing block/text. |
+| S06 | Focus (latest user correction65) | Editable text types receive the caret ready to type. Object insertion uses its registered focus/placement policy; Separator retains the current caret per S09. Policies must be per-type configurable properties with one shared executor, not per-command UI logic. |
 | S07 | Table choices | Offer the 2×2, 3×3 and 4×4 presets in the menu before insertion. |
 | S08 | Image choice | Open the single-file picker immediately. |
 | S09 | Separator placement (latest user correction,17 November2026) | Remove only `/separator`. If the current block is then empty, insert the separator ABOVE it. If text/content remains, insert BELOW it. Keep the same block, text/type and mapped caret; do not split text or create a continuation paragraph. This supersedes the earlier below-divider cursor override. |
 
-The exact caret mapping when its `/command` range is consumed is an implementation
-issue to resolve consistently with S04/S06. It is not permission to restore the
-rejected automatic focus-in-new-block behavior. Enter while typing a list/task is
-a separate interaction from selecting an insertion command in this menu.
+65 supersedes the earlier retain-caret rule for editable text types, and the earlier
+prefix/suffix split. Separator S09 is retained. Table/object placement and editable
+focus targets require their own confirmed policy/actual implementation; do not infer
+all object placement from Separator. Entry points share one insertion transaction;
+selection is view-local, content/hierarchy remain on the shared Core/editor path.
 
 ## 5. Floating formatting toolbar
 

@@ -1,20 +1,8 @@
 import { Plugin, TextSelection } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 
-// Flat rows carry explicit visual parentage. Indentation is never a DOM nesting owner.
-export function blockRows(doc) {
-  const rows = [];
-  doc.forEach((node, pos, index) => {
-    if (index) rows.push({ node, pos });
-  });
-  return rows;
-}
-export function descendantIds(doc, blockId) {
-  const selected = new Set([blockId]);
-  for (const { node } of blockRows(doc))
-    if (selected.has(node.attrs.parentId)) selected.add(node.attrs.blockId);
-  return selected;
-}
+import { blockRows, descendantIds } from './block-structure.mjs';
+
 function parentAtIndent(rows, parentId, indent) {
   const byId = new Map(rows.map((r) => [r.node.attrs.blockId, r.node]));
   while (parentId && byId.get(parentId)?.attrs.indent >= indent)

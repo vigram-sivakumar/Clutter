@@ -1,5 +1,10 @@
 # Capability64 — ordered and unordered lists
 
+**Insertion/focus refinement65:** read [the current policy](insertion-policy-65.md).
+Empty text blocks now convert in place; filled text blocks insert below; caret enters
+the chosen editable block. Earlier instructions below to click the inserted row or
+retain/split the original paragraph are historical, not the current text-insertion rule.
+
 17 November2026. Implemented; automated checks PASS. Scoped Mac list check next.
 Both63 separator checks are user PASS. No formatting or3C block selection is bundled.
 

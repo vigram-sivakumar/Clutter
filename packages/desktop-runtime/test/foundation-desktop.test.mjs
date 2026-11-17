@@ -1013,10 +1013,13 @@ test('61 production React slash menu inserts a heading without remount or focus 
     assert.equal(editor.querySelector('h2').textContent, '');
     assert.deepEqual(
       [...editor.querySelectorAll('p')].map((n) => n.textContent),
-      ['before', 'after']
+      ['beforeafter']
     );
-    assert.equal(ui.dom.window.getSelection().anchorNode, p.firstChild);
-    assert.equal(ui.dom.window.getSelection().anchorOffset, 6);
+    assert(
+      editor
+        .querySelector('h2')
+        .contains(ui.dom.window.getSelection().anchorNode)
+    );
     await ui.saved();
     const value = (await ui.api({ method: 'page.read', pageId })).value;
     assert.equal(value.content.value.content[2].type, 'heading');
@@ -1145,8 +1148,8 @@ test('64 real list menu, markers, Enter/Tab and saved reopen use the retained ed
     await ui.saved();
     const pageId = ui.panes()[0].dataset.page;
     const read = (await ui.api({ method: 'page.read', pageId })).value;
-    assert.equal(read.content.value.content[2].type, 'list_item');
-    assert.equal(read.content.value.content[3].content[0].text, 'Second');
+    assert.equal(read.content.value.content[1].type, 'list_item');
+    assert.equal(read.content.value.content[2].content[0].text, 'Second');
     await ui.dispose();
     ui = await browserWindow(dir, 'lists64');
     await ui.wait(

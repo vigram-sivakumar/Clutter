@@ -1,5 +1,10 @@
 # Capability61 — slash block insertion
 
+**Insertion/focus refinement65:** read [the current policy](insertion-policy-65.md).
+Empty text blocks now convert in place; filled text blocks insert below; caret enters
+the chosen editable block. Earlier instructions below to click the inserted row or
+retain/split the original paragraph are historical, not the current text-insertion rule.
+
 **Current separator behavior is defined by [correction63](separator-63.md).**
 The earlier cursor-jump/normal-paragraph rule below is historical and superseded.
 

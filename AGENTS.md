@@ -8,6 +8,8 @@ The user authorized complete removal of old architecture, not a compatibility pr
 Do not resurrect the retired CM6/full-or-compact Markdown/vault/persistence pipeline.
 
 Stage3 execution order and acceptance: docs/foundation/rebuild/stage3-implementation-plan.md.
-3A and separator63 scoped Mac checks PASS.64 implements ordered/unordered lists.
-Verify the scoped list checklist before formatting. Read docs/foundation/rebuild/lists-64.md.
-Finish one capability before the next. Ctrl+A/title-exclusion A01–A05 remains3C.
+3A and separator63 scoped Mac checks PASS.64 lists are implemented;65 corrects insertion.
+Read docs/foundation/rebuild/insertion-policy-65.md. Editable text: convert empty in
+place; insert below nonempty; focus chosen block. Separator retains63. Per-type
+insertionPolicies prop and one transaction executor own this; no UI/OS case logic.
+Verify Mac insertion/list checks before formatting. Ctrl+A A01–A05 remains3C.

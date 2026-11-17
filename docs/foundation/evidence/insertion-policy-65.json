@@ -1,0 +1,27 @@
+{
+  "delivery": 65,
+  "date": "2026-11-17",
+  "scope": "configurable shared insertion policy correction",
+  "status": "implemented-automated-pass-mac-check-pending",
+  "userDecision": {
+    "editableEmpty": "convert in place; focus ready",
+    "editableNonempty": "keep remaining text together, insert below and focus",
+    "objects": "per-type policy; separator63 retains caret/placement"
+  },
+  "architecture": [
+    "immutable block definitions and validated insertionPolicies workspace prop",
+    "generic insertion transaction; thin slash adapter",
+    "shared graph selectors for lists/insertion",
+    "dispatcher-owned insertion history; existing Core accepted path"
+  ],
+  "automated": {
+    "tests": 171,
+    "pass": 171,
+    "fail": 0,
+    "strictCoreRuntimeTypecheck": "PASS",
+    "boundarySources": 48,
+    "oldAssertions": "updated for superseding UX; no opposite requirements counted"
+  },
+  "platform": "shared editor/UI change only; no OS/native/schema/contracts/dependency/lock/CSS changes; Windows/native65 unverified",
+  "next": "Mac text insertion/focus check; continue list keys; formatting later; Ctrl+A3C"
+}

@@ -146,7 +146,8 @@ independent from title navigation; visual task indentation does not create subta
 
 User explicitly requested17 November2026: finish and test ONE capability before the
 next, without weakening architecture.3A passed its scoped Mac checks.61 implemented paragraph/heading/separator insertion;63 separator correction is now
-user PASS.64 implements lists; its scoped Mac checklist is next. Formatting remains
+user PASS.64 implements lists;65 corrects shared text insertion/focus policy. Its scoped Mac
+check is next, then continue list checks. Formatting remains
 the next separate capability under3B.3C now includes
 A01–A05 two-stage Ctrl+A/body-only block selection and title isolation. This sequencing
 refines delivery size, not the agreed feature scope or package ownership.
@@ -204,3 +205,8 @@ Read [UX decisions](stage3-ux.md), [checkpoint](../START-HERE.md),
 for59; source inspection and documentation/package checks are the evidence for59.
 User56 flicker PASS and57 scoped navigation/new-window PASS remain recorded; neither
 establishes that the stage3 editor or wider native/release gates are complete.
+
+65 implements the user-required configurable insertion policy. Current S04–S06 and
+[insertion-policy65](insertion-policy-65.md) supersede earlier retain-focus/splitting
+for editable text. One generic transaction, stable conversion ID, shared hierarchy
+selectors and dispatcher-owned history remain required; no per-OS insertion logic.

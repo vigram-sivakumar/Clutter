@@ -1,38 +1,19 @@
 import { Plugin, PluginKey, TextSelection } from 'prosemirror-state';
 import { ySyncPluginKey } from 'y-prosemirror';
-export const blockCommands = Object.freeze([
-  { id: 'paragraph', label: 'Paragraph', terms: ['paragraph', 'text', 'p'] },
-  ...[1, 2, 3, 4, 5, 6].map((level) => ({
-    id: 'heading-' + level,
-    label: 'Heading ' + level,
-    level,
-    terms: ['heading ' + level, 'heading' + level, 'h' + level],
-  })),
-  {
-    id: 'ordered-list',
-    label: 'Ordered list',
-    listStyle: 'ordered',
-    terms: ['ordered list', 'numbered list', 'ol', 'list'],
-  },
-  {
-    id: 'unordered-list',
-    label: 'Unordered list',
-    listStyle: 'unordered',
-    terms: ['unordered list', 'bullet list', 'ul', 'list'],
-  },
-  {
-    id: 'separator',
-    label: 'Separator',
-    terms: ['separator', 'divider', 'line'],
-  },
-]);
+import {
+  blockDefinitions,
+  createBlockDefinitions,
+} from './block-definitions.mjs';
+import { afterSubtree } from './block-structure.mjs';
+export const blockCommands = blockDefinitions;
 const key = new PluginKey('block-insertion');
-function queryAt(state) {
+function queryAt(state, definitions = blockDefinitions) {
   const { $from, empty } = state.selection;
   if (
     !empty ||
     $from.depth !== 1 ||
-    !['paragraph', 'heading', 'list_item'].includes($from.parent.type.name)
+    !$from.parent.isTextblock ||
+    $from.index(0) === 0
   )
     return null;
   if ($from.marks().some((m) => m.type.name === 'link')) return null;
@@ -48,82 +29,113 @@ function queryAt(state) {
   )
     return null;
   const query = before.slice(slash + 1).toLowerCase();
-  const items = blockCommands.filter((c) =>
+  const items = definitions.filter((c) =>
     c.terms.some((term) => term.startsWith(query))
   );
   if (!items.length) return null;
   return { from: $from.start() + slash, to: $from.pos, query, items, index: 0 };
 }
-// Deterministic structural transform; UI supplies intent, never a second document.
-export function insertBlock(state, commandId, range, nextId) {
-  const command = blockCommands.find((c) => c.id === commandId),
-    current = queryAt(state);
+function targetType(schema, definition) {
+  const type = schema.nodes[definition.nodeType],
+    policy = definition.insertion;
   if (
-    !command ||
+    !type ||
+    (policy.focus === 'inserted' && !type.isTextblock) ||
+    (policy.empty === 'convert' && !type.isTextblock)
+  )
+    throw Error('UNSUPPORTED_BLOCK_INSERTION_POLICY');
+  return type;
+}
+// Slash adapter validates its live trigger; all placement/focus is delegated.
+export function insertBlock(
+  state,
+  commandId,
+  range,
+  nextId,
+  definitions = blockDefinitions
+) {
+  const current = queryAt(state, definitions);
+  if (
     !current ||
     current.from !== range.from ||
     current.to !== range.to ||
     current.query !== range.query
   )
     return null;
-  const $from = state.doc.resolve(range.from),
-    node = $from.parent,
-    start = $from.before(),
-    end = start + node.nodeSize;
-  const prefix = node.content.cut(0, range.from - start - 1),
-    suffix = node.content.cut(range.to - start - 1);
-  const attrs = {
-    blockId: nextId(),
-    indent: node.attrs.indent,
-    parentId: node.attrs.parentId,
-  };
-  const inserted = command.listStyle
-    ? state.schema.nodes.list_item.create({
-        ...attrs,
-        listStyle: command.listStyle,
-      })
-    : command.level
-      ? state.schema.nodes.heading.create({ ...attrs, level: command.level })
-      : state.schema.nodes[command.id].create(attrs);
-  // Keep existing children attached to the original prefix. Place new siblings after
-  // that visual group; no child identities, parent references or order are rewritten.
-  let after = end;
-  for (let i = $from.index(0) + 1; i < state.doc.childCount; i++) {
-    const child = state.doc.child(i);
-    if (child.attrs.indent <= node.attrs.indent) break;
-    after += child.nodeSize;
-  }
-  if (command.id === 'separator') {
-    // Remove only the command. Keep the same text block and its mapped selection.
-    const tr = state.tr.delete(range.from, range.to);
-    const empty = tr.doc.nodeAt(start).content.size === 0;
-    tr.insert(empty ? start : tr.mapping.map(after, -1), inserted);
-    return tr.setMeta(key, { close: true });
-  }
-  const tail = suffix.size
-    ? node.type.create({ ...node.attrs, blockId: nextId() }, suffix)
-    : null;
-  const tr = state.tr.replaceWith(
-    start,
-    end,
-    node.type.create(node.attrs, prefix)
-  );
-  tr.insert(tr.mapping.map(after, -1), tail ? [inserted, tail] : inserted);
-  // Other inserted blocks retain the cursor with the original prefix.
-  return tr
-    .setSelection(TextSelection.create(tr.doc, start + 1 + prefix.size))
-    .setMeta(key, { close: true });
+  return createInsertionTransaction(state, commandId, nextId, {
+    definitions,
+    removeRange: range,
+  });
 }
+// Shared by slash and future insertion controls. Without a trigger range, existing
+// text/selection is not deleted. No command-ID conditions or UI/OS/save mechanisms.
+export function createInsertionTransaction(
+  state,
+  commandId,
+  nextId,
+  { definitions = blockDefinitions, removeRange } = {}
+) {
+  const definition = definitions.find((d) => d.id === commandId);
+  if (!definition) return null;
+  const range = removeRange ?? {
+    from: state.selection.from,
+    to: state.selection.from,
+  };
+  if (range.from > range.to) return null;
+  const $at = state.doc.resolve(range.from),
+    $end = state.doc.resolve(range.to);
+  if (
+    $at.depth !== 1 ||
+    $at.index(0) === 0 ||
+    !$at.parent.isTextblock ||
+    !$at.sameParent($end)
+  )
+    return null;
+  const type = targetType(state.schema, definition),
+    policy = definition.insertion;
+  const $from = state.doc.resolve(range.from),
+    start = $from.before(),
+    id = $from.parent.attrs.blockId;
+  const after = afterSubtree(state.doc, id),
+    tr = state.tr.delete(range.from, range.to),
+    source = tr.doc.nodeAt(start);
+  const action = source.content.size === 0 ? policy.empty : policy.nonEmpty;
+  const attrs = {
+    indent: source.attrs.indent,
+    parentId: source.attrs.parentId,
+    ...definition.attrs,
+  };
+  let target;
+  if (action === 'convert') {
+    target = start;
+    tr.setNodeMarkup(start, type, { ...attrs, blockId: id });
+  } else {
+    target = action === 'before' ? start : tr.mapping.map(after, -1);
+    tr.insert(target, type.create({ ...attrs, blockId: nextId() }));
+  }
+  if (policy.focus === 'inserted')
+    tr.setSelection(TextSelection.create(tr.doc, target + 1))
+      .setStoredMarks([])
+      .scrollIntoView();
+  return tr.setMeta(key, { close: true, insertion: true });
+}
+export const isInsertionTransaction = (tr) =>
+  tr.getMeta(key)?.insertion === true;
 export function blockInsertion({
   nextId,
   canEdit,
-  stopCapturing,
   renderMenu,
+  insertionPolicies,
 } = {}) {
+  const definitions = createBlockDefinitions(insertionPolicies);
   return new Plugin({
     key,
     state: {
-      init: () => null,
+      init: (_config, state) => {
+        for (const definition of definitions)
+          targetType(state.schema, definition);
+        return null;
+      },
       apply(tr, previous, _old, state) {
         const intent = tr.getMeta(key);
         if (intent?.close) return null;
@@ -134,7 +146,7 @@ export function blockInsertion({
           (tr.docChanged && !remote) ||
           (previous && (tr.docChanged || tr.selectionSet))
         ) {
-          const next = queryAt(state);
+          const next = queryAt(state, definitions);
           if (next && previous?.query === next.query)
             next.index = Math.min(previous.index, next.items.length - 1);
           return next;
@@ -260,11 +272,9 @@ export function blockInsertion({
   }
   function choose(view, id, range) {
     if (canEdit?.() === false) return false;
-    const tr = insertBlock(view.state, id, range, nextId);
+    const tr = insertBlock(view.state, id, range, nextId, definitions);
     if (!tr) return false;
-    stopCapturing?.();
     view.dispatch(tr);
-    stopCapturing?.();
     return true;
   }
 }

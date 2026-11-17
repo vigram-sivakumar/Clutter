@@ -191,3 +191,12 @@ lock change. Working slash commands: Ordered list (/ol), Unordered list (/ul), o
 list row before typing. Enter makes the immediate sibling; Tab/ShiftTab carry its
 children. See [list outcome/checklist](foundation/rebuild/lists-64.md) for the
 confirmed matrix and scoped Mac checks. No formatting/drag/marquee/Ctrl+A claim.
+
+## Insertion policy65
+
+Apply over64, then `npm run desktop -- --new`. [Current rule/check](foundation/rebuild/insertion-policy-65.md).
+Empty text block converts in place; with content, keep text together and insert below.
+Editable types receive caret: type immediately after /ol, /ul, /h1 etc. No extra click.
+Separator63 remains above-empty/below-filled with retained caret. insertionPolicies
+can override empty/nonEmpty/focus per registered ID on mountWorkspace/WindowWorkspace.
+No install/native/schema/contract/lock/CSS change or OS feature fork is introduced.

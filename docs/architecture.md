@@ -172,3 +172,20 @@ immediate sibling and transfers direct children to it; empty Enter and Backspace
 children at their existing indent as detached rows under the old parent/free roots.
 These are visual list relationships, not semantic task ownership. History stays in
 the one retained context, including foreign-text protection for list containers.
+
+## Declarative insertion policy65
+
+Editor block-definitions.mjs owns declarative node type/attrs, menu identity and
+empty/nonEmpty/focus policy. Defaults convert empty text blocks or insert after
+nonempty content and focus the new text; Separator keeps object retention policy.
+insertionPolicies is a mount/workspace prop forwarded to the replica. No UI/OS switch
+implements those rules. Invalid config is rejected before edits; definitions are
+immutable snapshots, not a second content store.
+
+createInsertionTransaction is the common PM transaction builder. Slash is a thin
+live-query/range adapter. Stable conversion identity preserves child references;
+shared block-structure selectors serve lists/insertion. Dispatcher handles insertion
+history boundaries for any entry point. Core still validates accepted roots and owns
+entity/media semantics; future task/image commands must satisfy those atomic rules
+before a registry entry is enabled. A policy does not implement an unbuilt feature.
+React renders choices, PM owns editable DOM, OS mechanisms stay in desktop adapters.

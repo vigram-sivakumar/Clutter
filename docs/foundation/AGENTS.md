@@ -131,3 +131,15 @@ carry explicit descendants; Enter transfers direct children to immediate new sib
 empty Enter/Backspace affect just current row and detach children at unchanged indent.
 Lists are not semantic tasks/subtasks. Core/client/CLI/MCP share the same schema/save
 path. No native64 pass inferred. A01–A05 Ctrl+A remains queued for3C, not implemented.
+
+## Latest insertion decision65 — text types receive focus
+
+User explicitly corrected64: empty editable block CONVERTS in place; nonempty keeps
+remaining text together, inserts chosen type below and focuses it. Paragraph/heading/
+ordered/unordered list all use this. Separator63's object behavior stays unchanged.
+Read rebuild/insertion-policy-65.md and S04–S06; earlier retain-focus/split instructions
+for text are historical. Definitions declare empty/nonEmpty/focus policy; one shared
+transaction executor and context history path implement it. insertionPolicies is a
+workspace prop; no per-ID UI/cursor/save branches. Shared selectors own graph scope.
+No native65 pass inferred. Lists still need scoped Mac checks after correction;
+formatting later, Ctrl+A/block selection remains3C. OS mechanisms stay in adapters.

@@ -1,5 +1,5 @@
 import { listInteractions } from './list-interactions.mjs';
-import { blockInsertion } from './block-insertion.mjs';
+import { blockInsertion, isInsertionTransaction } from './block-insertion.mjs';
 import { titleInteractions } from './title-interactions.mjs';
 import { assertBodyRebase } from '../../core/src/editor-rebase.ts';
 // Explicit composition adapter: actual PM/Y views over the new runtime port.
@@ -132,8 +132,8 @@ export function createEditorReplica(
             blockInsertion({
               nextId: nextBlockId,
               canEdit: options.canEdit,
-              stopCapturing: () => history.manager.stopCapturing(),
               renderMenu: options.renderSlashMenu,
+              insertionPolicies: options.insertionPolicies,
             }),
             listInteractions({
               nextId: nextBlockId,
@@ -178,7 +178,12 @@ export function createEditorReplica(
               seen.add(id);
             });
           }
+          const insertion =
+            isInsertionTransaction(tr) &&
+            !tr.getMeta(ySyncPluginKey)?.isChangeOrigin;
+          if (insertion) history.manager.stopCapturing();
           this.updateState(this.state.apply(tr));
+          if (insertion) history.manager.stopCapturing();
         },
       });
       views.add(view);

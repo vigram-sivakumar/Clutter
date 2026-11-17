@@ -55,3 +55,7 @@ New Ctrl+A/title-exclusion decisions A01–A05 are queued for3C block selection.
 64 adds ordered/unordered lists and L01–L15 key behavior. Read
 [list outcome/checklist](lists-64.md). Mac checks next; formatting follows only
 once this capability passes. Both63 separator cases are user PASS; keep its rule.
+
+65 corrects text insertion through per-type policy and one shared executor. Read
+[insertion architecture/outcome](insertion-policy-65.md). Verify this before resuming
+list Mac checks and the later formatting capability. Separator63 is unchanged.

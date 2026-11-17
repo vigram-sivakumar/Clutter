@@ -13,6 +13,7 @@ export class WindowWorkspace {
     allowDuplicateNoteInTab = false,
     initialPageId = null,
     openWindow = null,
+    insertionPolicies,
   }) {
     Object.assign(this, {
       client,
@@ -23,6 +24,7 @@ export class WindowWorkspace {
       stateStore,
       initialPageId,
       openWindow,
+      insertionPolicies,
     });
     this.navigationOptions = Object.freeze({ allowDuplicateNoteInTab });
     this.navigation = new WindowNavigation(
@@ -459,6 +461,7 @@ export class WindowWorkspace {
         pageId,
         windowId: this.windowId,
         nextId: this.nextId,
+        viewOptions: { insertionPolicies: this.insertionPolicies },
         onStatus: (status) => this.notify(status),
         onChanged: ({ title }) => {
           const index = this.pages.findIndex((p) => p.pageId === pageId);

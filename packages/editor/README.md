@@ -15,3 +15,9 @@ scope, keyboard policy and derived markers. Body hard_break is admitted; title h
 breaks remain refused. Parent-before-child/lower-indent validation permits outdenting
 one branch without reordering/changing unrelated siblings. See
 ../../docs/foundation/rebuild/lists-64.md. No new owner/Markdown/nested-list reducer.
+
+65 centralizes insertion in block-definitions.mjs (per-type policy) and
+block-insertion.mjs (generic transaction plus slash adapter). block-structure.mjs
+provides shared identity/descendant selectors for lists/insertion. Empty conversion
+retains ID; focus is configured via workspace insertionPolicies. Dispatcher groups
+history for insertion transactions. See ../../docs/foundation/rebuild/insertion-policy-65.md.

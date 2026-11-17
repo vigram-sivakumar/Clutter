@@ -1,6 +1,6 @@
 # Resume Clutter Structured
 
-## Current checkpoint — lists64, 17 November 2026
+## Current checkpoint — insertion policy65, 17 November 2026
 
 **3A title/body is complete with scoped user Mac PASS.** All requested checks passed:
 new-note title focus/Enter, Backspace boundary, Shift+Enter, Enter before existing
@@ -11,29 +11,34 @@ See [title/body outcome](rebuild/title-body-60.md) and its evidence JSON.
 above, nonempty adds below; caret retained, cursor override removed. Do not reinstate
 62. [Record](rebuild/separator-63.md).
 
-**Current capability64: ordered/unordered lists.** Implemented and automated checks
-PASS; scoped Mac list check is next. [Outcome/checklist](rebuild/lists-64.md).
-Includes slash insertion, derived numbering/bullets, free indentation, explicit
-parent/child scope, Tab/Shift+Tab, Enter/Shift+Enter and Backspace matrix. Complete
-this capability's Mac check before formatting. No block drag/marquee implementation
-is claimed; those remain3C. No renewed UX questionnaire/framework research.
+**Current correction65: shared block insertion policies.** User64 corrected insertion:
+empty paragraph/heading/list converts in place; a nonempty block keeps all remaining
+text together and inserts the chosen editable block below. Caret goes into the chosen
+text block, ready to type. Objects use per-type policy; Separator63 retains its rule.
+Read [policy architecture/outcome](rebuild/insertion-policy-65.md). Text focus is no
+longer retained in the old paragraph. The list keyboard capability remains implemented;
+Mac list/cursor checks continue after this correction, before formatting.
+
+One registry declares node type/attrs plus empty/nonEmpty/focus properties. Slash
+validates its query then delegates to the same generic transaction entry used by
+other insertion controls. Dispatcher groups insertion history. Shared block-graph
+selectors serve insertion and lists; no second hierarchy/save/UI/OS owner.
 
 **New UX queued:** two-stage Ctrl+A/body block selection with title exclusion and
 Escape. See A01–A05 in [stage3 UX](rebuild/stage3-ux.md). This is3C, not implemented61.
 Body Ctrl+A must never include title; Ctrl+A in title selects only title text.
 
-Validation64: full162-test Linux suite PASS; final77-test editor run adds
-list/title-boundary and linked-text line-break tests (164 unique passing tests). Strict Core/runtime TS and
-46-source dependency checks PASS. Actual React/PM/Core/SQLite and real CLI/MCP list
-edits, history/foreign work, save/reopen are covered. No native64 keyboard/pointer/
-IME/no-blank-paint or shipping pass inferred. Native/locks/dependencies unchanged.
+Validation65:171 full-suite Linux tests PASS, strict Core/runtime TS PASS and48-source
+boundary checks PASS. Matrix covers paragraph/heading/list source conversions, all
+editable targets, preserved IDs/children/content, workspace prop overrides, generic
+entry/Undo and actual React/PM/Core/SQLite/CLI/MCP regressions. Superseded assertions
+were updated, not counted as simultaneously passing opposite requirements.
 
-Apply64 over63 and `npm run desktop -- --new` to build changed source in a fresh
-synthetic Space. Old sessions keep original bundles. One Core/save/history path;
-shared ordered block graph, no nested-list owner or React body mirror. Explicit
-parent references must point to earlier lower-indented body blocks; they need not
-form a depth-first DOM tree. That preserves unaffected siblings when another
-branch outdents without reordering them. See the list outcome for the tested case.
+Apply65 over64 and `npm run desktop -- --new`. No native/schema/contract/CSS/dependency/
+lock changes. Mac focus/keyboard/IME/Windows/browser/shipping qualification is not
+inferred. The new rules remain in shared React/editor/Core layers; native mechanisms
+stay behind adapters. Windows still needs its adapters/builds/tests; no feature-logic
+extraction from Mac-specific source is being introduced by this correction.
 
 
 ## Working agreement
