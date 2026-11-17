@@ -8,5 +8,7 @@ The user authorized complete removal of old architecture, not a compatibility pr
 Do not resurrect the retired CM6/full-or-compact Markdown/vault/persistence pipeline.
 
 Stage3 execution order and acceptance: docs/foundation/rebuild/stage3-implementation-plan.md.
-The UX baseline is recorded;60 implements3A. Verify its scoped Mac checklist, then3B.
-Finish one capability before the next. Read docs/foundation/rebuild/title-body-60.md.
+3A title/body Mac checks PASS.61 implements the first3B capability: slash insertion
+of paragraphs/H1–H6/separators. Verify its Mac checklist, then lists/formatting.
+Finish one capability before the next. Read docs/foundation/rebuild/block-insertion-61.md.
+Ctrl+A/title-exclusion UX A01–A05 is queued for3C; not implemented61.

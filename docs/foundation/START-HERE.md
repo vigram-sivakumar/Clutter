@@ -1,31 +1,37 @@
 # Resume Clutter Structured
 
-## Current checkpoint — title/body capability60, 17 November 2026
+## Current checkpoint — slash block insertion61, 17 November 2026
 
-**3A is implemented; targeted Mac verification is next.** Read
-[the outcome and test checklist](rebuild/title-body-60.md), then the
-[stage3 UX](rebuild/stage3-ux.md) and [implementation plan](rebuild/stage3-implementation-plan.md).
-Do not restart the UX questionnaire or host/framework comparison.
+**3A title/body is complete with scoped user Mac PASS.** All requested checks passed:
+new-note title focus/Enter, Backspace boundary, Shift+Enter, Enter before existing
+body, ordered Undo/Redo, multiline paste feedback and Save/close/reopen persistence.
+See [title/body outcome](rebuild/title-body-60.md) and its evidence JSON.
 
-One structured document now owns title and body in the same PM/Y context/history.
-Plain title is derived for read/list/tab/sidebar; scalar title writes are rejected.
-The current minimal UI is the working product carrier. Final Clutter layout/global
-components follow after working capabilities; do not restore retired controllers.
+**Current capability61:** Paragraph/H1–H6/Separator insertion through the real shared
+React slash menu. Implementation and automated checks pass; scoped Mac menu checks
+are next. Read [outcome/checklist](rebuild/block-insertion-61.md). One capability at
+a time: verify this before adding lists or formatting.61 is only the first part of3B.
+No framework/profiling research, migration project or minor-detail UX questionnaire.
 
-**User workflow:** finish one capability, verify it, then move on. Complete scoped
-Mac title/body checks before starting3B. Full stage3 is NOT complete. Next code part
-is3B common blocks/formatting, following the existing UX; no feature expansion in60.
+The editor owns query/range/structural transactions and context history. React owns
+menu chrome outside PM's editable DOM. Only the /command range is consumed, text on
+both sides survives, cursor stays with the original text. URLs/unmatched queries
+are left untouched. Noneditable blocks stop Backspace merging. Foreign heading text
+survives structural Undo, extending paragraph protection to title/heading containers.
 
-Schema2 is explicit: `content:{format:"clutter.page-json",schemaVersion:2,value:...}`.
-Use `npm run desktop -- --new` after applying60. This compiles changed source into
-a fresh synthetic Space. Old sessions remain with their original bundles; no
-migration/reinterpretation. Native host/dependency locks are unchanged.
+**New UX queued:** two-stage Ctrl+A/body block selection with title exclusion and
+Escape. See A01–A05 in [stage3 UX](rebuild/stage3-ux.md). This is3C, not implemented61.
+Body Ctrl+A must never include title; Ctrl+A in title selects only title text.
 
-Validation:120 Linux tests (119 full-suite plus the final single-line paste check),
-strict Core/runtime TS and43-source boundary checks passed. Actual React/PM/Core/
-SQLite and real CLI/MCP processes are exercised; native build/caret/scroll/IME and
-shipping qualification are NOT inferred. Preserve the prior scoped user56/57 passes
-and intermittent native caret risk. Do not replay retired measurement suites.
+Validation:133 Linux tests, strict Core/runtime TS and45-source boundary checks
+passed; the final49-test editor run also covers URL punctuation. Actual PM/React/Core/
+SQLite and CLI/MCP processes are tested. No native61 menu/caret/scroll/IME or shipping
+qualification is inferred. Native source/dependencies/locks remain unchanged.
+
+Apply61 over60 and run `npm run desktop -- --new` to build the changed source into
+a fresh synthetic Space. Prior sessions remain with original bundles. One content
+owner, no React body mirror, unchanged stable navigation/surface lifecycle. Final
+Clutter components/layout follow working capability checks, not another writer.
 
 ## Working agreement
 

@@ -153,6 +153,23 @@ both an ancestor and descendant happen to be explicitly selected.
 | B13 | Delete/Backspace | Delete **only explicitly selected blocks**. Delete children only when they are selected too. |
 | B14 | Parent deleted, children not selected | Keep those children at their current indentation. Do not automatically outdent or delete them. |
 
+
+### Select-all refinement — user confirmed17 November2026; queued for3C
+
+| ID | Interaction | Confirmed behavior |
+| --- | --- | --- |
+| A01 | First Ctrl+A with caret in a body block | Select all text in that block only. |
+| A02 | Second Ctrl+A | Leave text selection and select all BODY blocks as blocks, excluding the title. |
+| A03 | Title isolation | Ctrl+A originating in the body must NEVER include the title. |
+| A04 | Ctrl+A with caret in title | Select only title text; do not expand into body blocks. |
+| A05 | Escape | Clear selection; block mode follows B11 (no text caret). |
+
+Implement this with the block-selection mode in3C, including platform-standard
+Command+A on Mac and Ctrl+A elsewhere.61 records the decision; it does not add a
+competing temporary select-all implementation to block insertion. Table-cell mode
+retains its own contract. Do not let PM's default whole-document selectAll become
+the final product behavior.
+
 Table-cell selection remains a separate mode with its already-confirmed Escape,
 Enter and Tab behavior. B11 must not overwrite that table contract. The persistent
 paste highlight in section3 is also separate from this selection model.

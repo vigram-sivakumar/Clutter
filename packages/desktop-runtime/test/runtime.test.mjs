@@ -672,3 +672,34 @@ test('3A one structured write contract rejects scalar titles and old schema; sem
   }
   assert.equal(ok(await read(x)).head, accepted.head);
 });
+
+test('61 heading levels and leaf separator fields validate before any root is committed', async (t) => {
+  const x = await seeded(t);
+  for (const [i, mutate] of [
+    (c) => {
+      c.value.content[1].type = 'heading';
+      c.value.content[1].attrs.level = 7;
+    },
+    (c) => {
+      c.value.content[1].type = 'heading';
+      c.value.content[1].attrs.level = '1';
+    },
+    (c) => {
+      c.value.content[1].type = 'separator';
+    },
+    (c) => {
+      c.value.content[1].attrs.extra = 'unknown';
+    },
+  ].entries()) {
+    const content = body();
+    mutate(content);
+    const r = await x.run(
+      update(x.v.spaceId, x.head, {
+        operationId: 'invalid-block-' + i,
+        patch: { content },
+      })
+    );
+    assert.equal(r.ok, false);
+    assert.equal(ok(await read(x)).head, x.head);
+  }
+});

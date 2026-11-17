@@ -978,3 +978,51 @@ test('3A real UI title starts empty, updates tab/sidebar without replacing the e
     await ui.dispose();
   }
 });
+
+test('61 production React slash menu inserts a heading without remount or focus loss, then persists it', async () => {
+  const dir = await session(),
+    ui = await browserWindow(dir, 'slash61');
+  try {
+    ui.button('+ New page').click();
+    await ui.wait(() => !!ui.active());
+    const editor = ui.active(),
+      pageId = ui.panes()[0].dataset.page,
+      p = editor.querySelector('p');
+    editor.focus();
+    p.textContent = 'before/h2after';
+    ui.dom.window
+      .getSelection()
+      .setBaseAndExtent(p.firstChild, 9, p.firstChild, 9);
+    await ui.wait(() => !!ui.doc.querySelector('[role=listbox]'));
+    const menu = ui.doc.querySelector('[role=listbox]');
+    assert.deepEqual(
+      [...menu.querySelectorAll('[role=option]')].map((n) => n.textContent),
+      ['Heading 2']
+    );
+    const option = menu.querySelector('button');
+    option.dispatchEvent(
+      new ui.dom.window.MouseEvent('mousedown', {
+        bubbles: true,
+        cancelable: true,
+      })
+    );
+    option.click();
+    await ui.wait(() => !!editor.querySelector('h2'));
+    assert.equal(ui.active(), editor);
+    assert.equal(ui.doc.activeElement, editor);
+    assert.equal(editor.querySelector('h2').textContent, '');
+    assert.deepEqual(
+      [...editor.querySelectorAll('p')].map((n) => n.textContent),
+      ['before', 'after']
+    );
+    assert.equal(ui.dom.window.getSelection().anchorNode, p.firstChild);
+    assert.equal(ui.dom.window.getSelection().anchorOffset, 6);
+    await ui.saved();
+    const value = (await ui.api({ method: 'page.read', pageId })).value;
+    assert.equal(value.content.value.content[2].type, 'heading');
+    assert.equal(value.content.value.content[2].attrs.level, 2);
+    assert.equal(ui.active(), editor);
+  } finally {
+    await ui.dispose();
+  }
+});

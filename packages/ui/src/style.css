@@ -391,3 +391,57 @@ button:focus-visible {
 .ProseMirror.paste-feedback {
   caret-color: transparent;
 }
+
+.slash-menu-host {
+  position: fixed;
+  z-index: 100;
+  width: 240px;
+}
+.slash-menu {
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  background: white;
+  border: 1px solid #becbd3;
+  border-radius: 10px;
+  box-shadow: 0 6px 24px #17252d26;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.slash-menu button {
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 8px 12px;
+  border-radius: 5px;
+  color: #20343e;
+  font: inherit;
+  cursor: pointer;
+}
+.slash-menu button[aria-selected='true'],
+.slash-menu button:hover {
+  background: #e8f1f7;
+}
+.ProseMirror h1:not([data-title]) {
+  font-size: 1.8rem;
+}
+.ProseMirror h2 {
+  font-size: 1.6rem;
+}
+.ProseMirror h3 {
+  font-size: 1.4rem;
+}
+.ProseMirror h4 {
+  font-size: 1.2rem;
+}
+.ProseMirror h5 {
+  font-size: 1.1rem;
+}
+.ProseMirror h6 {
+  font-size: 1rem;
+}
+.ProseMirror hr {
+  border: 0;
+  border-top: 1px solid #b6c7d1;
+  margin: 1rem 0;
+}

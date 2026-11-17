@@ -2,8 +2,13 @@ import { Schema } from 'prosemirror-model';
 // One document, one fragment, one history. Body hierarchy is explicit and independent
 // of list nesting; free indented roots are valid. Inline semantics share one schema.
 const identity = { blockId: { default: null } };
+const blockAttrs = {
+  ...identity,
+  indent: { default: 0 },
+  parentId: { default: null },
+};
 const nodes = {
-  doc: { content: 'title paragraph+' },
+  doc: { content: 'title block+' },
   title: {
     content: 'inline*',
     marks: 'link',
@@ -23,15 +28,42 @@ const nodes = {
   paragraph: {
     group: 'block',
     content: 'inline*',
-    attrs: {
-      ...identity,
-      indent: { default: 0 },
-      parentId: { default: null },
-    },
+    attrs: blockAttrs,
     toDOM: (node) => ['p', { 'data-block-id': node.attrs.blockId }, 0],
     parseDOM: [
       {
         tag: 'p',
+        getAttrs: (dom) => ({ blockId: dom.getAttribute('data-block-id') }),
+      },
+    ],
+  },
+  heading: {
+    group: 'block',
+    content: 'inline*',
+    defining: true,
+    attrs: { ...blockAttrs, level: { default: 1 } },
+    toDOM: (node) => [
+      'h' + node.attrs.level,
+      { 'data-block-id': node.attrs.blockId },
+      0,
+    ],
+    parseDOM: [1, 2, 3, 4, 5, 6].map((level) => ({
+      tag: 'h' + level + ':not([data-title])',
+      getAttrs: (dom) => ({
+        blockId: dom.getAttribute('data-block-id'),
+        level,
+      }),
+    })),
+  },
+  separator: {
+    group: 'block',
+    atom: true,
+    selectable: true,
+    attrs: blockAttrs,
+    toDOM: (node) => ['hr', { 'data-block-id': node.attrs.blockId }],
+    parseDOM: [
+      {
+        tag: 'hr',
         getAttrs: (dom) => ({ blockId: dom.getAttribute('data-block-id') }),
       },
     ],

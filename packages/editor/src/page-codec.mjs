@@ -20,11 +20,19 @@ function validateXml(fragment) {
   fragment.toArray().forEach((block, index) => {
     if (
       !(block instanceof Y.XmlElement) ||
-      block.nodeName !== (index === 0 ? 'title' : 'paragraph')
+      !(
+        index === 0 ? ['title'] : ['paragraph', 'heading', 'separator']
+      ).includes(block.nodeName)
     )
       throw Error('UNSUPPORTED_CONTENT');
     const allowed =
-      index === 0 ? ['blockId'] : ['blockId', 'indent', 'parentId'];
+      index === 0
+        ? ['blockId']
+        : block.nodeName === 'heading'
+          ? ['blockId', 'indent', 'parentId', 'level']
+          : ['blockId', 'indent', 'parentId'];
+    if (block.nodeName === 'separator' && block.length)
+      throw Error('INVALID_SEPARATOR');
     if (Object.keys(block.getAttributes()).some((k) => !allowed.includes(k)))
       throw Error('UNSUPPORTED_CONTENT');
     for (const child of block.toArray()) {

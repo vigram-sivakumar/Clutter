@@ -1,6 +1,6 @@
 # Stage 3 implementation plan
 
-17 November 2026. **3A implemented in60; targeted Mac check pending.3B–3E pending.**
+17 November 2026. **3A complete with user Mac PASS.3B block insertion in61; remaining3B–3E pending.**
 
 See [capability60 outcome](title-body-60.md). The following baseline inspection and
 plan were recorded at59; they are not claims that the old scalar-title path remains.
@@ -142,6 +142,15 @@ the same task's page-enabled state, retaining ID/status/properties/body/location
 It is not a copy or a per-window presentation preference. Checkbox completion remains
 independent from title navigation; visual task indentation does not create subtasks.
 
+## Capability-sized execution within the parts
+
+User explicitly requested17 November2026: finish and test ONE capability before the
+next, without weakening architecture.3A passed its scoped Mac checks.61 implements
+3B's paragraph/heading/separator + slash insertion first; scoped Mac check is next.
+Lists and formatting remain separate follow-on capabilities under3B.3C now includes
+A01–A05 two-stage Ctrl+A/body-only block selection and title isolation. This sequencing
+refines delivery size, not the agreed feature scope or package ownership.
+
 ## Delivery order: five working parts
 
 Each part extends the real application, includes appropriate checks and updates the
@@ -152,7 +161,7 @@ has not landed; do not create fake controls or start another comparison harness.
 | --- | --- | --- |
 | **3A — content, title and history** | Versioned shared content/inline schema; command/codec/client/engine changes; one title+body editor/context/history; derived plain-title projection; title placeholder/focus/boundary keys; multi-line title paste with persistent view feedback. Define the common block identity/hierarchy and history extension contracts here. | New note starts in `New note` title; title/body edit, Undo/Redo, save/reopen and two-view reconciliation use one path; title paste appends all lines and follows the agreed no-caret/highlight/click behavior. Sidebar/tab title updates do not trigger remounts. |
 | **3B — common blocks and formatting** | Shared deterministic block transforms/renderers for paragraphs, H1–H6, ordered/unordered lists and separators; all agreed list keyboard/child-transfer rules; slash menu with query/URL rules; shared note-reference/date/link inline behavior; floating toolbar with eight actions and preset colours only. | Actual commands preserve surrounding text and insertion focus; lists match the UX matrix; title inline capabilities share the same implementation; toolbar preserves selection and applies range highlight versus whole-block background correctly. |
-| **3C — block interaction** | Own-block handle/geometry registry; text-drag-to-marquee transition; flat explicit block selection; Shift-additive marquee; group reorder; separate hierarchical move/indent scope and explicit-only deletion; click/Escape/typing mode behavior. | Touch selects and moving off deselects live; parents/children do not auto-select each other; disjoint selections drag in document order; unselected children survive parent deletion with unchanged indentation; no horizontal drag indentation or global UI flicker. |
+| **3C — block interaction** | Two-step Ctrl+A/body-only block selection and title isolation (A01–A05); own-block handle/geometry registry; text-drag-to-marquee transition; flat explicit block selection; Shift-additive marquee; group reorder; separate hierarchical move/indent scope and explicit-only deletion; click/Escape/typing mode behavior. | Touch selects and moving off deselects live; parents/children do not auto-select each other; disjoint selections drag in document order; unselected children survive parent deletion with unchanged indentation; no horizontal drag indentation or global UI flicker. |
 | **3D — tasks and images** | Core atomic task placement/lifecycle/conversion/history operations; inline task component and same-entity task-page opening; single-image file picker; immutable ingress plus atomic image placement/association; unknown-result retry and recovery. | Inline title editing, Enter/Backspace/Shift+Enter and conversion follow UX; task checkbox/navigation remain distinct; no duplicate/orphan task or semantic subtask; image uses one file and the existing Core asset path; failure/cancel does not discard unrelated content. |
 | **3E — tables and integrated UI review** | Table schema/commands/NodeView chrome, slash presets and existing navigation/selection/axis rules; shared styling/familiar editor layout; integrated pointer/caret/history review. | Table contract passes on new components; foreign-view work is protected; all stage3 blocks, toolbar and selection coexist in the real app without remount/ownership regressions. Actual scoped Mac observations complete the interaction evidence. |
 

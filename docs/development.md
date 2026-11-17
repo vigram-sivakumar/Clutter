@@ -152,3 +152,15 @@ takes `patch.content`/`patch.properties`. Reads/list summaries derive `title`.
 Complete the title/body checklist, record actual observations, then proceed to3B.
 One capability per delivery; do not claim all stage3, native IME/caret or installed
 storage qualification from the automated tests.
+
+## Slash block insertion61
+
+[Outcome and scoped Mac checklist](foundation/rebuild/block-insertion-61.md).
+Build with `npm run desktop -- --new` after applying61 over60. No dependency install,
+lock update or native source change. Type / in a body text block for Paragraph,
+Heading1–6 and Separator. /h1…/h6 filter directly; URL slashes and unmatched queries
+stay literal. Arrows choose; Enter inserts; Escape dismisses without deleting query.
+Insertion retains the original caret/prefix rather than focusing the new block.
+
+3A Mac title/body checks are user-reported PASS. Verify61 before lists/formatting.
+Ctrl+A body-only/title-isolated two-stage selection is recorded for3C; pending.

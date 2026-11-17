@@ -1,0 +1,35 @@
+{
+  "delivery": 61,
+  "capability": "3B first capability: paragraph/heading/separator slash insertion",
+  "status": "implemented-automated-pass-mac-check-pending",
+  "date": "2026-11-17",
+  "automated": {
+    "fullSuite": {
+      "tests": 133,
+      "pass": 133,
+      "fail": 0
+    },
+    "finalEditorSuite": {
+      "tests": 49,
+      "pass": 49,
+      "fail": 0
+    },
+    "typecheck": "Core/runtime strict PASS",
+    "boundarySources": 45,
+    "testsRemoved": 0
+  },
+  "native61": "not run here; scoped Mac menu checklist pending; no native/lock/dependency changes",
+  "recordedUserPasses60": [
+    "title focus and Enter",
+    "Backspace to title",
+    "Shift+Enter inert",
+    "Enter above existing body",
+    "ordered title/body Undo/Redo",
+    "multiline paste/scroll/no caret/highlight/dismiss",
+    "Save/close/reopen persistence"
+  ],
+  "queuedUX": "A01-A05 two-stage Ctrl+A; body excludes title; title selects itself; Escape clears;3C",
+  "historyRegression": "foreign-context heading content survives structural Undo and accepted save",
+  "peerIntegration": "real CLI/MCP heading/separator writes update mounted UI; UI edit readback shares Core/SQLite",
+  "next": "Mac61 checklist, then next3B capability; no stage3 completion claim"
+}

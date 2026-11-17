@@ -1581,3 +1581,237 @@ test('3A single-line title paste inserts normally without body append or paste f
   a.history(av, 'undo');
   assert.equal(av.state.doc.firstChild.textContent, '');
 });
+
+function bodyInput(view, value, offset = value.length) {
+  const start = view.state.doc.firstChild.nodeSize + 1;
+  const tr = view.state.tr.replaceWith(
+    start,
+    start + view.state.doc.child(1).content.size,
+    value ? view.state.schema.text(value) : []
+  );
+  view.dispatch(tr.setSelection(TextSelection.create(tr.doc, start + offset)));
+}
+for (const level of [1, 2, 3, 4, 5, 6])
+  test(`61 slash H${level} preserves prefix/suffix, inserts empty heading and retains original caret/history`, async (t) => {
+    const x = await seeded(t),
+      a = await x.open('heading_' + level),
+      av = x.mount(a);
+    av.focus();
+    bodyInput(av, 'before/h' + level + 'after', 9);
+    a.stopCapturing();
+    assert.equal(keydown(av, 'Enter').defaultPrevented, true);
+    assert.equal(av.state.doc.child(1).textContent, 'before');
+    assert.equal(av.state.doc.child(2).type.name, 'heading');
+    assert.equal(av.state.doc.child(2).attrs.level, level);
+    assert.equal(av.state.doc.child(2).textContent, '');
+    assert.equal(av.state.doc.child(3).textContent, 'after');
+    assert.equal(
+      av.state.selection.$from.parent.attrs.blockId,
+      av.state.doc.child(1).attrs.blockId
+    );
+    assert.equal(av.state.selection.$from.parentOffset, 6);
+    assert.equal(av.hasFocus(), true);
+    await a.flush();
+    await settle(a);
+    assert.equal(
+      ok(await x.read()).content.value.content[2].attrs.level,
+      level
+    );
+    assert.equal(a.history(av, 'undo'), true);
+    assert.equal(text(av), 'before/h' + level + 'after');
+    assert.equal(av.state.doc.childCount, 2);
+    assert.equal(a.history(av, 'redo'), true);
+    assert.equal(av.state.doc.child(2).attrs.level, level);
+  });
+test('61 slash menu triggers mid-text, filters immediately, supports arrows/Escape and leaves unmatched queries/URLs alone', async (t) => {
+  const x = await seeded(t),
+    a = await x.open('queries'),
+    av = x.mount(a);
+  const menu = () =>
+    av.state.plugins
+      .find((p) => p.key.startsWith('block-insertion'))
+      .getState(av.state);
+  av.focus();
+  bodyInput(av, 'abc/');
+  assert(menu());
+  assert.equal(menu().items.length, 8);
+  keydown(av, 'ArrowDown');
+  assert.equal(menu().index, 1);
+  keydown(av, 'ArrowUp');
+  assert.equal(menu().index, 0);
+  keydown(av, 'Escape');
+  assert.equal(menu(), null);
+  assert.equal(text(av), 'abc/');
+  bodyInput(av, 'abc/h2');
+  assert.equal(menu().items.length, 1);
+  assert.equal(menu().items[0].id, 'heading-2');
+  bodyInput(av, 'abc/doesnotmatch');
+  assert.equal(menu(), null);
+  assert.equal(text(av), 'abc/doesnotmatch');
+  for (const url of [
+    '(https://example.com/h1',
+    '"https://example.com/h2',
+    'https:/',
+    'https://example.com/h1',
+    'www.example.com/h2',
+    'example.com/h3',
+    'mailto:someone@example.com/h4',
+  ]) {
+    bodyInput(av, url);
+    assert.equal(menu(), null, url);
+    assert.equal(text(av), url);
+  }
+  bodyInput(av, 'url https://example.com/ and/h5');
+  assert(menu());
+  assert.equal(menu().items[0].id, 'heading-5');
+});
+test('61 paragraph and separator commands preserve text; Backspace after separator does nothing', async (t) => {
+  const x = await seeded(t),
+    a = await x.open('basic_blocks'),
+    av = x.mount(a);
+  av.focus();
+  bodyInput(av, 'prefix/paragraphsuffix', 16);
+  keydown(av, 'Enter');
+  assert.deepEqual(
+    Array.from({ length: 3 }, (_, i) => av.state.doc.child(i + 1).textContent),
+    ['prefix', '', 'suffix']
+  );
+  a.history(av, 'undo');
+  bodyInput(av, 'prefix/separatorsuffix', 16);
+  keydown(av, 'Enter');
+  assert.equal(av.state.doc.child(2).type.name, 'separator');
+  const suffixPos =
+    av.state.doc.firstChild.nodeSize +
+    av.state.doc.child(1).nodeSize +
+    av.state.doc.child(2).nodeSize +
+    1;
+  av.dispatch(
+    av.state.tr.setSelection(TextSelection.create(av.state.doc, suffixPos))
+  );
+  const before = av.state.doc.toJSON();
+  assert(keydown(av, 'Backspace').defaultPrevented);
+  assert.deepEqual(av.state.doc.toJSON(), before);
+  assert.equal(av.state.selection.head, suffixPos);
+  await a.flush();
+  assert.equal(ok(await x.read()).content.value.content[2].type, 'separator');
+});
+test('61 heading keyboard Enter at end creates normal paragraph, with unique stable identities', async (t) => {
+  const x = await seeded(t),
+    a = await x.open('heading_enter'),
+    av = x.mount(a);
+  av.focus();
+  bodyInput(av, '/h1');
+  keydown(av, 'Enter');
+  const pos =
+    av.state.doc.firstChild.nodeSize + av.state.doc.child(1).nodeSize + 1;
+  const tr = av.state.tr.insertText('Heading', pos);
+  av.dispatch(tr.setSelection(TextSelection.create(tr.doc, pos + 7)));
+  keydown(av, 'Enter');
+  assert.equal(av.state.selection.$from.parent.type.name, 'paragraph');
+  const ids = [];
+  av.state.doc.forEach((n) => ids.push(n.attrs.blockId));
+  assert.equal(new Set(ids).size, ids.length);
+  await a.flush();
+});
+
+test('61 undo of heading insertion preserves text another context typed into that heading', async (t) => {
+  const x = await seeded(t),
+    a = await x.open('heading_local'),
+    b = await x.open('heading_foreign'),
+    av = x.mount(a),
+    bv = x.mount(b);
+  av.focus();
+  bodyInput(av, '/h3');
+  keydown(av, 'Enter');
+  await a.flush();
+  await settle(a, b);
+  const pos =
+    bv.state.doc.firstChild.nodeSize + bv.state.doc.child(1).nodeSize + 1;
+  bv.dispatch(bv.state.tr.insertText('FOREIGN HEADING', pos));
+  await b.flush();
+  await settle(a, b);
+  a.history(av, 'undo');
+  assert(
+    av.state.doc.textContent.includes('FOREIGN HEADING'),
+    'foreign text must survive structural undo'
+  );
+  await a.flush();
+  await settle(a, b);
+  assert(
+    ok(await x.read()).content.value.content.some((n) =>
+      (n.content ?? []).some((t) => t.text === 'FOREIGN HEADING')
+    )
+  );
+});
+
+test('61 CLI and MCP admit headings/separators through the same Core as the mounted editor', async (t) => {
+  const x = await seeded(t),
+    a = await x.open('blocks_peers'),
+    av = x.mount(a);
+  for (const mode of ['cli', 'mcp']) {
+    const content = body(mode.toUpperCase());
+    content.value.content[1].type = 'heading';
+    content.value.content[1].attrs.level = 6;
+    content.value.content.push({
+      type: 'separator',
+      attrs: { blockId: 'separator', indent: 0, parentId: null },
+    });
+    const c = {
+      apiVersion: 1,
+      spaceId: x.v.spaceId,
+      pageId: 'p',
+      method: 'page.update',
+      operationId: x.next(),
+      expectedHead: x.v.load('p').head,
+      patch: { content },
+    };
+    if (mode === 'cli') ok((await stdio(x, 'cli', JSON.stringify(c)))[0]);
+    else {
+      const messages = [
+        {
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'initialize',
+          params: {
+            protocolVersion: '2025-11-25',
+            capabilities: {},
+            clientInfo: { name: 'test', version: '1' },
+          },
+        },
+        { jsonrpc: '2.0', method: 'notifications/initialized' },
+        {
+          jsonrpc: '2.0',
+          id: 2,
+          method: 'tools/call',
+          params: { name: 'clutter_command', arguments: c },
+        },
+      ];
+      const replies = await stdio(
+        x,
+        'mcp',
+        messages.map(JSON.stringify).join('\n') + '\n'
+      );
+      ok(JSON.parse(replies.at(-1).result.content[0].text));
+    }
+    await settle(a);
+    assert.equal(av.dom.querySelector('h6').textContent, mode.toUpperCase());
+    assert(av.dom.querySelector('hr'));
+    assert.equal(
+      a.history(av, 'undo'),
+      false,
+      'peer writes do not enter local history'
+    );
+  }
+  const pos = av.state.doc.firstChild.nodeSize + 1;
+  av.dispatch(av.state.tr.insertText('UI ', pos));
+  await a.flush();
+  const readCommand = {
+    apiVersion: 1,
+    spaceId: x.v.spaceId,
+    pageId: 'p',
+    method: 'page.read',
+  };
+  const read = ok((await stdio(x, 'cli', JSON.stringify(readCommand)))[0]);
+  assert.equal(read.content.value.content[1].content[0].text, 'UI MCP');
+  assert.equal(read.content.value.content[2].type, 'separator');
+});

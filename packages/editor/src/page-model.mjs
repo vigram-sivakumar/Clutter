@@ -55,10 +55,27 @@ export function validateDocument(value, schema = noteSchema) {
   const seen = new Map(),
     ancestry = [];
   for (const [index, b] of value.content.entries()) {
-    const expected = index === 0 ? 'title' : 'paragraph';
+    const allowed =
+      index === 0 ? ['title'] : ['paragraph', 'heading', 'separator'];
     keys(b, b.content === undefined ? 'type,attrs' : 'type,attrs,content');
-    if (b.type !== expected) throw Error('UNSUPPORTED_CONTENT');
-    keys(b.attrs, index === 0 ? 'blockId' : 'blockId,indent,parentId');
+    if (!allowed.includes(b.type)) throw Error('UNSUPPORTED_CONTENT');
+    if (b.type === 'separator' && b.content !== undefined)
+      throw Error('INVALID_SEPARATOR');
+    keys(
+      b.attrs,
+      index === 0
+        ? 'blockId'
+        : b.type === 'heading'
+          ? 'blockId,indent,parentId,level'
+          : 'blockId,indent,parentId'
+    );
+    if (
+      b.type === 'heading' &&
+      (!Number.isSafeInteger(b.attrs.level) ||
+        b.attrs.level < 1 ||
+        b.attrs.level > 6)
+    )
+      throw Error('INVALID_HEADING_LEVEL');
     if (!id(b.attrs.blockId) || seen.has(b.attrs.blockId))
       throw Error('DUPLICATE_OR_INVALID_BLOCK_ID');
     if (index > 0) {

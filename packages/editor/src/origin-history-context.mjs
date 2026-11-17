@@ -27,9 +27,16 @@ export class OriginHistoryContext {
     this.beforeSelection = null;
     this.actionSelection = null;
     this.restoreBookmark = null;
+    // Every editable text container must retain foreign work during structural undo.
+    // The upstream default protects only paragraphs; headings/title share that rule.
+    const protectedNodes = new Set([
+      ...defaultProtectedNodes,
+      'title',
+      'heading',
+    ]);
     this.manager = new UndoManager(fragment, {
       trackedOrigins: new Set([ySyncPluginKey]),
-      deleteFilter: (item) => defaultDeleteFilter(item, defaultProtectedNodes),
+      deleteFilter: (item) => defaultDeleteFilter(item, protectedNodes),
       captureTransaction: (transaction) =>
         transaction.meta.get('addToHistory') !== false,
     });

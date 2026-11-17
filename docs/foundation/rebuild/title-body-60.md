@@ -1,6 +1,10 @@
 # Capability60 — title and body
 
-17 November 2026.3A implementation complete; scoped Mac observation pending.
+17 November 2026.3A complete; all listed Mac checks passed by user confirmation.
+
+User reported PASS for title focus/Enter, Backspace boundary, Shift+Enter, Enter
+before existing content, ordered Undo/Redo and multiline paste feedback; then
+confirmed save/close/reopen retained title and body. Recorded17 November2026.
 One capability is finished and checked before starting the next. This is the real
 application's minimal working UI; final Clutter components/layout come later.
 
@@ -62,10 +66,11 @@ claimed. Prior user56 flicker PASS and57 scoped navigation/new-window PASS remai
 valid only for their observed scopes. The intermittent native caret report remains
 a risk to watch during the following bounded check, not a claimed fixed bug.
 
-## Next: scoped Mac checklist
+## Completed scoped Mac checklist — user PASS
 
 Build changed source using `npm run desktop -- --new`. Use synthetic text only.
-Do these one at a time and record actual results before3B:
+All steps below were confirmed by the user. Retained as the test record; do not
+replay for bookkeeping:
 
 1. New page: caret starts at New note. Type Title check. Tab/sidebar update without
    replacing/flickering the editor. Enter moves into empty body; type Body check.

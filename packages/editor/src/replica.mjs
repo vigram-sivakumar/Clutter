@@ -1,3 +1,4 @@
+import { blockInsertion } from './block-insertion.mjs';
 import { titleInteractions } from './title-interactions.mjs';
 import { assertBodyRebase } from '../../core/src/editor-rebase.ts';
 // Explicit composition adapter: actual PM/Y views over the new runtime port.
@@ -127,6 +128,12 @@ export function createEditorReplica(
           plugins: [
             ySyncPlugin(fragment),
             history.plugin(),
+            blockInsertion({
+              nextId: nextBlockId,
+              canEdit: options.canEdit,
+              stopCapturing: () => history.manager.stopCapturing(),
+              renderMenu: options.renderSlashMenu,
+            }),
             titleInteractions(nextBlockId, options.canEdit),
             keymap({
               'Mod-z': () => {

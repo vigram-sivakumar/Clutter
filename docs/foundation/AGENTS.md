@@ -89,3 +89,13 @@ CLI/MCP use the same Core and have real process integration coverage. Targeted M
 checks remain; no native pass is inferred from Linux. Build60 with --new, not old
 session reopen. No old-data migration or dependency changes. Next implementation3B
 only after this capability's scoped check; use already recorded UX decisions.
+
+## Capability61 continuation
+
+3A user Mac checklist passed in full.61 adds only paragraph/H1–H6/separator insertion
+with slash query/menu and shared history; read rebuild/block-insertion-61.md for the
+next scoped Mac check. One capability complete/verified before lists or formatting.
+User added A01–A05 Ctrl+A behavior: body block text first, all body blocks second,
+NEVER title; title selects itself only; Escape clears selection. Implement in3C with
+block selection, not as an independent temporary whole-document selection path.
+No native61 pass inferred. Ctrl+A, lists, toolbar/tasks/images/tables are not done.

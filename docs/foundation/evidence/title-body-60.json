@@ -2,7 +2,7 @@
   "capability": "3A title/body",
   "delivery": 60,
   "date": "2026-11-17",
-  "status": "implemented-mac-check-pending",
+  "status": "complete-scoped-user-mac-pass",
   "automated": {
     "fullSuite": {
       "tests": 119,
@@ -30,11 +30,20 @@
   ],
   "native": {
     "build": "not run; no native or lock changes",
-    "manual": "pending scoped Mac checklist",
+    "manual": {
+      "source": "user conversation confirmations, 17 November 2026",
+      "newNoteTitleFocusAndEnter": "PASS",
+      "bodyStartBackspace": "PASS",
+      "titleShiftEnter": "PASS",
+      "titleEnterBeforeExistingBody": "PASS",
+      "orderedTitleBodyUndoRedo": "PASS",
+      "multilineTitlePasteScrollNoCaretHighlightDismissal": "PASS",
+      "saveCloseReopenTitleBodyAndPaste": "PASS"
+    },
     "priorUserPasses": "56 flicker;57 scoped split/window check only",
     "risk": "intermittent prior native caret report; jsdom is not native caret/scroll/IME proof"
   },
-  "next": "Mac title/body checklist, then3B; one capability at a time",
+  "next": "3B first capability: paragraph/heading/separator insertion through slash menu",
   "format": "clutter.page-json/schema2;clutter-page-y-v2;no old-root migration",
   "base": "plan59"
 }
