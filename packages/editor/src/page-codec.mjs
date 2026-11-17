@@ -21,7 +21,9 @@ function validateXml(fragment) {
     if (
       !(block instanceof Y.XmlElement) ||
       !(
-        index === 0 ? ['title'] : ['paragraph', 'heading', 'separator']
+        index === 0
+          ? ['title']
+          : ['paragraph', 'heading', 'separator', 'list_item']
       ).includes(block.nodeName)
     )
       throw Error('UNSUPPORTED_CONTENT');
@@ -30,7 +32,9 @@ function validateXml(fragment) {
         ? ['blockId']
         : block.nodeName === 'heading'
           ? ['blockId', 'indent', 'parentId', 'level']
-          : ['blockId', 'indent', 'parentId'];
+          : block.nodeName === 'list_item'
+            ? ['blockId', 'indent', 'parentId', 'listStyle']
+            : ['blockId', 'indent', 'parentId'];
     if (block.nodeName === 'separator' && block.length)
       throw Error('INVALID_SEPARATOR');
     if (Object.keys(block.getAttributes()).some((k) => !allowed.includes(k)))
@@ -53,9 +57,11 @@ function validateXml(fragment) {
       } else {
         const attrs =
           child instanceof Y.XmlElement ? child.getAttributes() : {};
-        const fields = { note_reference: ['label', 'pageId'], date: ['value'] }[
-          child.nodeName
-        ];
+        const fields = {
+          note_reference: ['label', 'pageId'],
+          date: ['value'],
+          hard_break: [],
+        }[child.nodeName];
         if (
           !fields ||
           child.length ||

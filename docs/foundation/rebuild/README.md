@@ -10,7 +10,7 @@ architecture. No migration/compatibility façade, dual writer or permanent paral
 | R0 | Closed51 | Old/main import inventory and concrete clean rebuild decision |
 | R1 prerequisites | Closed52 | Exact native manifests/full locks checked in; old experiment cache dependency removed |
 | R1 source | Delivered53; later scoped user checks recorded through57 | Actual package split, single React/Tauri product entry, real Core catalogue/create/open/edit/save/reopen flow; coherent old-pipeline removal |
-| R2 / roadmap stage3 | 3A Mac PASS;61 slash insertion; remaining3B–3E pending | Title/full block schema, real component/NodeView adapters, tables/tasks/media and agreed interaction behavior |
+| R2 / roadmap stage3 | 3A/63 Mac PASS;64 lists; formatting/3C–3E pending | Title/full block schema, real component/NodeView adapters, tables/tasks/media and agreed interaction behavior |
 | R3 | Pending | Complete navigation/windows/panes/tabs, daily notes/templates/folders, task/property/collection UX, history/search/recovery/interchange |
 | Data/release gates | Pending before real data/shipping | Installed storage/final format/security/physical identity/native durability, scale, Windows/web mechanisms and distribution |
 
@@ -51,3 +51,7 @@ migration work is part of this.
 61 implements paragraph/H1–H6/separator slash insertion. See
 [its outcome/checklist](block-insertion-61.md). Verify one capability before the next.
 New Ctrl+A/title-exclusion decisions A01–A05 are queued for3C block selection.
+
+64 adds ordered/unordered lists and L01–L15 key behavior. Read
+[list outcome/checklist](lists-64.md). Mac checks next; formatting follows only
+once this capability passes. Both63 separator cases are user PASS; keep its rule.

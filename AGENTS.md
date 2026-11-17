@@ -8,8 +8,6 @@ The user authorized complete removal of old architecture, not a compatibility pr
 Do not resurrect the retired CM6/full-or-compact Markdown/vault/persistence pipeline.
 
 Stage3 execution order and acceptance: docs/foundation/rebuild/stage3-implementation-plan.md.
-3A title/body Mac checks PASS.61 implements the first3B capability: slash insertion
-of paragraphs/H1–H6/separators. 63 supersedes62: divider above empty block/below nonempty block; retain caret.
-Verify both cases before lists/formatting.
-Finish one capability before the next. Read docs/foundation/rebuild/separator-63.md.
-Ctrl+A/title-exclusion UX A01–A05 is queued for3C; not implemented61.
+3A and separator63 scoped Mac checks PASS.64 implements ordered/unordered lists.
+Verify the scoped list checklist before formatting. Read docs/foundation/rebuild/lists-64.md.
+Finish one capability before the next. Ctrl+A/title-exclusion A01–A05 remains3C.

@@ -45,12 +45,13 @@ Structured canonical roots are not .md; Markdown remains a future interchange pa
 with explicit loss reporting, not a retained full/compact renderer or dual writer.
 
 The current schema2 document has one structured title followed by paragraphs, H1–H6
-headings or separators with
+headings, separators or ordered/unordered list rows with
 stable block identities, explicit indent and optional visual parent identity. Title
 and body share one Y fragment and one origin history. Plain title is derived; UI,
 CLI and MCP write the same structured content contract. Shared inline reference/date/
 link schema exists;61 adds the shared React slash menu and deterministic block
-insertion. Formatting, lists and semantic-inline insertion menus remain pending. Task
+insertion. 64 adds flat list transforms, derived markers and body hard breaks. Formatting
+and semantic-inline insertion menus remain pending. Task
 is still an independent page kind; full body/cover/media/embed/property scope is a
 required target, not complete UI in this slice. Tables and other content components
 must implement the retained product/keyboard contracts. No existing-user migration,
@@ -156,3 +157,18 @@ session identity and written privately before reveal. Explicit developer reopen 
 window ID preserves protected-context addressability. Finished automatic window
 restoration/recents and installed Windows support remain later UX/platform work.
 No Core/editor/storage format/dependency graph change is required by this slice.
+
+## List hierarchy64
+
+List rows are editable inline blocks in the same PM/Y document. Ordered/bullet markers
+are view projections, never Markdown text or a second ordered-list store. Stable IDs,
+indentation and explicit visual parentId define operation scope. Parent-before-child
+and lower parent indentation rule out cycles without demanding a nested/depth-first
+DOM tree. A branch can outdent while later siblings retain their existing parent,
+indentation and order. UI and CLI/MCP share the same accepted validation.
+
+Tab/ShiftTab transform the targeted explicit subtree. Enter splits one item into an
+immediate sibling and transfers direct children to it; empty Enter and Backspace keep
+children at their existing indent as detached rows under the old parent/free roots.
+These are visual list relationships, not semantic task ownership. History stays in
+the one retained context, including foreign-text protection for list containers.

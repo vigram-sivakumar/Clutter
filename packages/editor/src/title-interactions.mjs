@@ -44,7 +44,9 @@ export function titleInteractions(nextId, canEdit) {
           if (event.altKey || event.metaKey || event.ctrlKey) return false;
           const start = state.doc.firstChild.nodeSize;
           const bodyEmpty =
-            state.doc.childCount === 2 && state.doc.child(1).content.size === 0;
+            state.doc.childCount === 2 &&
+            state.doc.child(1).type.name === 'paragraph' &&
+            state.doc.child(1).content.size === 0;
           let tr = state.tr;
           if (!bodyEmpty)
             tr = tr.insert(

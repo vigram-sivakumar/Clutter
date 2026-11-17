@@ -1,7 +1,7 @@
 {
   "delivery": 63,
   "date": "2026-11-17",
-  "status": "implemented-scoped-mac-check-pending",
+  "status": "complete-scoped-user-mac-pass",
   "supersedes": "62 separator cursor override explicitly withdrawn by user",
   "rule": {
     "emptyAfterRemovingCommand": "insert divider ABOVE same block",
@@ -22,5 +22,10 @@
     61,
     62
   ],
-  "next": "verify two separator cases; then next capability; Ctrl+A remains3C"
+  "next": "64 ordered/unordered lists",
+  "manual63": {
+    "source": "user conversation confirmation",
+    "emptyBlockAboveRetainsCaret": "PASS",
+    "nonemptyBlockBelowRetainsCaret": "PASS"
+  }
 }

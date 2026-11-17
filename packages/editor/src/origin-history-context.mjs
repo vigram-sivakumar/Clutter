@@ -33,6 +33,7 @@ export class OriginHistoryContext {
       ...defaultProtectedNodes,
       'title',
       'heading',
+      'list_item',
     ]);
     this.manager = new UndoManager(fragment, {
       trackedOrigins: new Set([ySyncPluginKey]),

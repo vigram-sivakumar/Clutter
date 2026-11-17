@@ -52,11 +52,12 @@ export function validateDocument(value, schema = noteSchema) {
     value.content.length < 2
   )
     throw Error('INVALID_DOCUMENT');
-  const seen = new Map(),
-    ancestry = [];
+  const seen = new Map();
   for (const [index, b] of value.content.entries()) {
     const allowed =
-      index === 0 ? ['title'] : ['paragraph', 'heading', 'separator'];
+      index === 0
+        ? ['title']
+        : ['paragraph', 'heading', 'separator', 'list_item'];
     keys(b, b.content === undefined ? 'type,attrs' : 'type,attrs,content');
     if (!allowed.includes(b.type)) throw Error('UNSUPPORTED_CONTENT');
     if (b.type === 'separator' && b.content !== undefined)
@@ -67,7 +68,9 @@ export function validateDocument(value, schema = noteSchema) {
         ? 'blockId'
         : b.type === 'heading'
           ? 'blockId,indent,parentId,level'
-          : 'blockId,indent,parentId'
+          : b.type === 'list_item'
+            ? 'blockId,indent,parentId,listStyle'
+            : 'blockId,indent,parentId'
     );
     if (
       b.type === 'heading' &&
@@ -76,24 +79,23 @@ export function validateDocument(value, schema = noteSchema) {
         b.attrs.level > 6)
     )
       throw Error('INVALID_HEADING_LEVEL');
+    if (
+      b.type === 'list_item' &&
+      !['ordered', 'unordered'].includes(b.attrs.listStyle)
+    )
+      throw Error('INVALID_LIST_STYLE');
     if (!id(b.attrs.blockId) || seen.has(b.attrs.blockId))
       throw Error('DUPLICATE_OR_INVALID_BLOCK_ID');
     if (index > 0) {
       const { indent, parentId } = b.attrs;
       if (!Number.isSafeInteger(indent) || indent < 0 || indent > 64)
         throw Error('INVALID_INDENT');
-      while (ancestry.length && ancestry.at(-1).indent >= indent)
-        ancestry.pop();
-      if (parentId !== null && !ancestry.some((a) => a.id === parentId))
-        throw Error('INVALID_PARENT_ORDER');
       if (
         parentId !== null &&
         (!id(parentId) || !seen.has(parentId) || seen.get(parentId) >= indent)
       )
         throw Error('INVALID_PARENT');
     }
-    if (index > 0)
-      ancestry.push({ id: b.attrs.blockId, indent: b.attrs.indent });
     seen.set(b.attrs.blockId, index === 0 ? Infinity : b.attrs.indent);
     if (b.content !== undefined && !Array.isArray(b.content))
       throw Error('INVALID_INLINE');
@@ -113,6 +115,8 @@ export function validateDocument(value, schema = noteSchema) {
           )
             throw Error('INVALID_LINK');
         }
+      } else if (n.type === 'hard_break' && index > 0) {
+        keys(n, 'type');
       } else if (n.type === 'note_reference') {
         keys(n, 'type,attrs');
         keys(n.attrs, 'pageId,label');

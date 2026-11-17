@@ -7,6 +7,11 @@ const blockAttrs = {
   indent: { default: 0 },
   parentId: { default: null },
 };
+const bodyDOM = (node) => ({
+  'data-block-id': node.attrs.blockId,
+  'data-indent': node.attrs.indent,
+  style: '--block-indent:' + node.attrs.indent,
+});
 const nodes = {
   doc: { content: 'title block+' },
   title: {
@@ -29,7 +34,7 @@ const nodes = {
     group: 'block',
     content: 'inline*',
     attrs: blockAttrs,
-    toDOM: (node) => ['p', { 'data-block-id': node.attrs.blockId }, 0],
+    toDOM: (node) => ['p', bodyDOM(node), 0],
     parseDOM: [
       {
         tag: 'p',
@@ -42,11 +47,7 @@ const nodes = {
     content: 'inline*',
     defining: true,
     attrs: { ...blockAttrs, level: { default: 1 } },
-    toDOM: (node) => [
-      'h' + node.attrs.level,
-      { 'data-block-id': node.attrs.blockId },
-      0,
-    ],
+    toDOM: (node) => ['h' + node.attrs.level, bodyDOM(node), 0],
     parseDOM: [1, 2, 3, 4, 5, 6].map((level) => ({
       tag: 'h' + level + ':not([data-title])',
       getAttrs: (dom) => ({
@@ -67,6 +68,40 @@ const nodes = {
         getAttrs: (dom) => ({ blockId: dom.getAttribute('data-block-id') }),
       },
     ],
+  },
+  list_item: {
+    group: 'block',
+    content: 'inline*',
+    defining: true,
+    attrs: { ...blockAttrs, listStyle: { default: 'unordered' } },
+    toDOM: (node) => [
+      'div',
+      {
+        ...bodyDOM(node),
+        'data-list-style': node.attrs.listStyle,
+        'data-marker': node.attrs.listStyle === 'ordered' ? '1.' : '•',
+        class: 'list-block',
+      },
+      0,
+    ],
+    parseDOM: [
+      {
+        tag: 'div[data-list-style]',
+        getAttrs: (dom) => ({
+          blockId: dom.getAttribute('data-block-id'),
+          listStyle: dom.getAttribute('data-list-style'),
+          indent: Number(dom.getAttribute('data-indent')) || 0,
+        }),
+      },
+    ],
+  },
+  hard_break: {
+    inline: true,
+    group: 'inline',
+    selectable: false,
+    toDOM: () => ['br'],
+    parseDOM: [{ tag: 'br' }],
+    leafText: () => '\n',
   },
   text: { group: 'inline' },
   note_reference: {

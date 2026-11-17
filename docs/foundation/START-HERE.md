@@ -1,37 +1,39 @@
 # Resume Clutter Structured
 
-## Current checkpoint — separator placement63, 17 November 2026
+## Current checkpoint — lists64, 17 November 2026
 
 **3A title/body is complete with scoped user Mac PASS.** All requested checks passed:
 new-note title focus/Enter, Backspace boundary, Shift+Enter, Enter before existing
 body, ordered Undo/Redo, multiline paste feedback and Save/close/reopen persistence.
 See [title/body outcome](rebuild/title-body-60.md) and its evidence JSON.
 
-**Current correction63:** latest user decision REMOVES the separator cursor override.
-After removing only /separator: empty current block → divider ABOVE; nonempty block
-→ divider BELOW. Keep the same block/type, remaining text together and mapped caret.
-Do not split into suffix blocks, insert a continuation paragraph or move the cursor.
-This supersedes62's normal-paragraph/jump rule. Read [outcome/check](rebuild/separator-63.md).
+**Separator63 is complete with both scoped user Mac checks PASS:** empty block adds
+above, nonempty adds below; caret retained, cursor override removed. Do not reinstate
+62. [Record](rebuild/separator-63.md).
 
-User61 said everything looks good apart from the separator correction.63 is the
-current focused correction; verify its two cases on Mac before lists/formatting.
-Ordinary heading insertion still retains its current block caret. Heading CSS was
-already present; an empty heading below is separate from the paragraph being edited.
+**Current capability64: ordered/unordered lists.** Implemented and automated checks
+PASS; scoped Mac list check is next. [Outcome/checklist](rebuild/lists-64.md).
+Includes slash insertion, derived numbering/bullets, free indentation, explicit
+parent/child scope, Tab/Shift+Tab, Enter/Shift+Enter and Backspace matrix. Complete
+this capability's Mac check before formatting. No block drag/marquee implementation
+is claimed; those remain3C. No renewed UX questionnaire/framework research.
 
 **New UX queued:** two-stage Ctrl+A/body block selection with title exclusion and
 Escape. See A01–A05 in [stage3 UX](rebuild/stage3-ux.md). This is3C, not implemented61.
 Body Ctrl+A must never include title; Ctrl+A in title selects only title text.
 
-Validation61:133 Linux tests, strict Core/runtime TS and45-source checks passed.
-Correction63:56 editor tests and1 production React/PM/Core/SQLite test PASS;
-45-source dependency checks PASS. Tests for the superseded62 behavior were updated
-to the new user decision, not counted as separate passing coverage. No full-suite
-replay, native63 menu/caret/scroll/IME or shipping result is inferred. Native source,
-contracts/schema, dependencies/locks and CSS are unchanged.
+Validation64: full162-test Linux suite PASS; final77-test editor run adds
+list/title-boundary and linked-text line-break tests (164 unique passing tests). Strict Core/runtime TS and
+46-source dependency checks PASS. Actual React/PM/Core/SQLite and real CLI/MCP list
+edits, history/foreign work, save/reopen are covered. No native64 keyboard/pointer/
+IME/no-blank-paint or shipping pass inferred. Native/locks/dependencies unchanged.
 
-63 applies over61 OR62; no need to apply62 first. Run `npm run desktop -- --new` to
-build changed source into a fresh synthetic Space. Old sessions keep original bundles.
-One Core owner, no React body mirror, stable editor/navigation lifecycle retained.
+Apply64 over63 and `npm run desktop -- --new` to build changed source in a fresh
+synthetic Space. Old sessions keep original bundles. One Core/save/history path;
+shared ordered block graph, no nested-list owner or React body mirror. Explicit
+parent references must point to earlier lower-indented body blocks; they need not
+form a depth-first DOM tree. That preserves unaffected siblings when another
+branch outdents without reordering them. See the list outcome for the tested case.
 
 
 ## Working agreement

@@ -1,6 +1,6 @@
 # Stage 3 implementation plan
 
-17 November 2026. **3A complete with user Mac PASS.3B block insertion in61; remaining3B–3E pending.**
+17 November 2026. **3A and separator63 have scoped user Mac PASS.64 implements lists; list Mac check next. Formatting/3C–3E pending.**
 
 See [capability60 outcome](title-body-60.md). The following baseline inspection and
 plan were recorded at59; they are not claims that the old scalar-title path remains.
@@ -145,9 +145,9 @@ independent from title navigation; visual task indentation does not create subta
 ## Capability-sized execution within the parts
 
 User explicitly requested17 November2026: finish and test ONE capability before the
-next, without weakening architecture.3A passed its scoped Mac checks.61 implements
-3B's paragraph/heading/separator + slash insertion first; scoped Mac check is next.
-Lists and formatting remain separate follow-on capabilities under3B.3C now includes
+next, without weakening architecture.3A passed its scoped Mac checks.61 implemented paragraph/heading/separator insertion;63 separator correction is now
+user PASS.64 implements lists; its scoped Mac checklist is next. Formatting remains
+the next separate capability under3B.3C now includes
 A01–A05 two-stage Ctrl+A/body-only block selection and title isolation. This sequencing
 refines delivery size, not the agreed feature scope or package ownership.
 

@@ -9,6 +9,18 @@ export const blockCommands = Object.freeze([
     terms: ['heading ' + level, 'heading' + level, 'h' + level],
   })),
   {
+    id: 'ordered-list',
+    label: 'Ordered list',
+    listStyle: 'ordered',
+    terms: ['ordered list', 'numbered list', 'ol', 'list'],
+  },
+  {
+    id: 'unordered-list',
+    label: 'Unordered list',
+    listStyle: 'unordered',
+    terms: ['unordered list', 'bullet list', 'ul', 'list'],
+  },
+  {
     id: 'separator',
     label: 'Separator',
     terms: ['separator', 'divider', 'line'],
@@ -20,7 +32,7 @@ function queryAt(state) {
   if (
     !empty ||
     $from.depth !== 1 ||
-    !['paragraph', 'heading'].includes($from.parent.type.name)
+    !['paragraph', 'heading', 'list_item'].includes($from.parent.type.name)
   )
     return null;
   if ($from.marks().some((m) => m.type.name === 'link')) return null;
@@ -65,9 +77,14 @@ export function insertBlock(state, commandId, range, nextId) {
     indent: node.attrs.indent,
     parentId: node.attrs.parentId,
   };
-  const inserted = command.level
-    ? state.schema.nodes.heading.create({ ...attrs, level: command.level })
-    : state.schema.nodes[command.id].create(attrs);
+  const inserted = command.listStyle
+    ? state.schema.nodes.list_item.create({
+        ...attrs,
+        listStyle: command.listStyle,
+      })
+    : command.level
+      ? state.schema.nodes.heading.create({ ...attrs, level: command.level })
+      : state.schema.nodes[command.id].create(attrs);
   // Keep existing children attached to the original prefix. Place new siblings after
   // that visual group; no child identities, parent references or order are rewritten.
   let after = end;
@@ -158,6 +175,8 @@ export function blockInsertion({
           $from.depth === 1 &&
           $from.parent.isTextblock &&
           $from.parent.type.name !== 'title' &&
+          $from.parent.type.name !== 'list_item' &&
+          !$from.parent.attrs.indent &&
           $from.parentOffset === 0
         ) {
           if ($from.index(0) === 1) {

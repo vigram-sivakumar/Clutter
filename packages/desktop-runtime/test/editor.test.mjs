@@ -1634,7 +1634,7 @@ test('61 slash menu triggers mid-text, filters immediately, supports arrows/Esca
   av.focus();
   bodyInput(av, 'abc/');
   assert(menu());
-  assert.equal(menu().items.length, 8);
+  assert.equal(menu().items.length, 10);
   keydown(av, 'ArrowDown');
   assert.equal(menu().index, 1);
   keydown(av, 'ArrowUp');
@@ -1900,4 +1900,459 @@ test('63 separator above an empty command block retains it with no extra blank b
     assert.equal(av.state.doc.child(2).textContent, 'Typing stays here');
     await a.flush();
   }
+});
+
+async function seededList(t, specs, listStyle = 'unordered') {
+  const x = await seeded(t),
+    content = body('');
+  content.value.content = content.value.content.slice(0, 1).concat(
+    specs.map((s) => ({
+      type: s.type ?? 'list_item',
+      attrs: {
+        blockId: s.id,
+        indent: s.indent ?? 0,
+        parentId: s.parent ?? null,
+        ...((s.type ?? 'list_item') === 'list_item'
+          ? { listStyle: s.style ?? listStyle }
+          : {}),
+      },
+      ...(s.text ? { content: [{ type: 'text', text: s.text }] } : {}),
+    }))
+  );
+  ok(
+    await x.run({
+      apiVersion: 1,
+      spaceId: x.v.spaceId,
+      pageId: 'p',
+      method: 'page.update',
+      expectedHead: x.v.load('p').head,
+      operationId: x.next(),
+      patch: { content },
+    })
+  );
+  const a = await x.open('lists'),
+    av = x.mount(a);
+  av.focus();
+  return { ...x, a, av };
+}
+function rowAt(view, id, offset = 0) {
+  let pos;
+  view.state.doc.forEach((node, start) => {
+    if (node.attrs.blockId === id) pos = start + 1 + offset;
+  });
+  assert.notEqual(pos, undefined, 'block exists: ' + id);
+  view.dispatch(
+    view.state.tr.setSelection(TextSelection.create(view.state.doc, pos))
+  );
+}
+function listRows(view) {
+  const rows = [];
+  view.state.doc.forEach((n, i) => {
+    if (n.type.name !== 'title')
+      rows.push({
+        id: n.attrs.blockId,
+        type: n.type.name,
+        indent: n.attrs.indent,
+        parent: n.attrs.parentId,
+        text: n.textContent,
+      });
+  });
+  return rows;
+}
+for (const style of ['ordered', 'unordered']) {
+  test(`64 ${style} Tab/Shift+Tab carry descendants only; preceding sibling becomes parent`, async (t) => {
+    const { a, av, ...x } = await seededList(
+      t,
+      [
+        { id: 'a', text: 'A' },
+        { id: 'ac', text: 'a child', indent: 1, parent: 'a' },
+        { id: 'b', text: 'B' },
+        { id: 'bc', text: 'b child', indent: 1, parent: 'b' },
+        { id: 'c', text: 'C' },
+      ],
+      style
+    );
+    rowAt(av, 'b');
+    keydown(av, 'Tab');
+    assert.deepEqual(
+      listRows(av).map((r) => [r.id, r.indent, r.parent]),
+      [
+        ['a', 0, null],
+        ['ac', 1, 'a'],
+        ['b', 1, 'a'],
+        ['bc', 2, 'b'],
+        ['c', 0, null],
+      ]
+    );
+    keydown(av, 'Tab', { shiftKey: true });
+    assert.deepEqual(
+      listRows(av).map((r) => [r.id, r.indent, r.parent]),
+      [
+        ['a', 0, null],
+        ['ac', 1, 'a'],
+        ['b', 0, null],
+        ['bc', 1, 'b'],
+        ['c', 0, null],
+      ]
+    );
+    a.history(av, 'undo');
+    assert.equal(listRows(av)[2].indent, 1);
+    a.history(av, 'redo');
+    assert.equal(listRows(av)[2].indent, 0);
+    await a.flush();
+    assert.equal(
+      ok(await x.read()).content.value.content[3].attrs.parentId,
+      null
+    );
+  });
+  test(`64 ${style} first item indents without a parent and leaves following siblings unchanged; leftmost Shift+Tab does nothing`, async (t) => {
+    const { a, av, ...x } = await seededList(
+      t,
+      [
+        { id: 'a', text: 'A' },
+        { id: 'ac', text: 'child', indent: 1, parent: 'a' },
+        { id: 'b', text: 'B' },
+      ],
+      style
+    );
+    rowAt(av, 'a');
+    const before = av.state.doc.toJSON();
+    assert(keydown(av, 'Tab', { shiftKey: true }).defaultPrevented);
+    assert.deepEqual(av.state.doc.toJSON(), before);
+    keydown(av, 'Tab');
+    assert.deepEqual(
+      listRows(av).map((r) => [r.id, r.indent, r.parent]),
+      [
+        ['a', 1, null],
+        ['ac', 2, 'a'],
+        ['b', 0, null],
+      ]
+    );
+    assert.equal(av.state.selection.$from.parent.attrs.blockId, 'a');
+    await a.flush();
+  });
+  for (const where of ['middle', 'end'])
+    test(`64 ${style} Enter at ${where} creates an immediate sibling and transfers existing children`, async (t) => {
+      const { a, av, ...x } = await seededList(
+        t,
+        [
+          { id: 'a', text: 'Alpha beta' },
+          { id: 'child', text: 'child', indent: 1, parent: 'a' },
+          { id: 'grand', text: 'grand', indent: 2, parent: 'child' },
+          { id: 'last', text: 'last' },
+        ],
+        style
+      );
+      const before = av.state.doc.toJSON();
+      rowAt(av, 'a', where === 'middle' ? 5 : 10);
+      keydown(av, 'Enter');
+      const rows = listRows(av),
+        next = rows[1].id;
+      assert.equal(rows[0].text, where === 'middle' ? 'Alpha' : 'Alpha beta');
+      assert.equal(rows[1].text, where === 'middle' ? ' beta' : '');
+      assert.equal(rows[1].type, 'list_item');
+      assert.equal(rows[1].indent, 0);
+      assert.equal(rows[2].id, 'child');
+      assert.equal(rows[2].parent, next);
+      assert.equal(rows[3].parent, 'child');
+      assert.equal(rows[3].indent, 2);
+      assert.equal(rows[4].id, 'last');
+      assert.equal(av.state.selection.$from.parent.attrs.blockId, next);
+      const after = av.state.doc.toJSON();
+      await a.flush();
+      a.history(av, 'undo');
+      assert.deepEqual(av.state.doc.toJSON(), before);
+      a.history(av, 'redo');
+      assert.deepEqual(av.state.doc.toJSON(), after);
+      await a.flush();
+    });
+  test(`64 ${style} empty Enter outdents only itself then becomes a paragraph; children retain indentation`, async (t) => {
+    const { a, av, ...x } = await seededList(
+      t,
+      [
+        { id: 'a', indent: 2 },
+        { id: 'child', text: 'child', indent: 3, parent: 'a' },
+        { id: 'grand', text: 'grand', indent: 4, parent: 'child' },
+      ],
+      style
+    );
+    rowAt(av, 'a');
+    keydown(av, 'Enter');
+    let rows = listRows(av);
+    assert.equal(rows[0].indent, 1);
+    assert.equal(rows[1].indent, 3);
+    assert.equal(rows[1].parent, null);
+    assert.equal(rows[2].parent, 'child');
+    keydown(av, 'Enter');
+    assert.equal(listRows(av)[0].indent, 0);
+    assert.equal(listRows(av)[0].type, 'list_item');
+    keydown(av, 'Enter');
+    rows = listRows(av);
+    assert.equal(rows[0].type, 'paragraph');
+    assert.equal(rows[1].type, 'list_item');
+    assert.equal(rows[1].indent, 3);
+    assert.equal(rows[2].indent, 4);
+    await a.flush();
+  });
+  test(`64 ${style} Backspace first converts at same indent, then outdents just paragraph, then respects title boundary`, async (t) => {
+    const { a, av, ...x } = await seededList(
+      t,
+      [
+        { id: 'a', text: 'Keep', indent: 2 },
+        { id: 'child', text: 'child', indent: 3, parent: 'a' },
+      ],
+      style
+    );
+    rowAt(av, 'a');
+    keydown(av, 'Backspace');
+    let rows = listRows(av);
+    assert.equal(rows[0].type, 'paragraph');
+    assert.equal(rows[0].indent, 2);
+    assert.equal(rows[0].text, 'Keep');
+    assert.equal(rows[1].indent, 3);
+    assert.equal(rows[1].parent, null);
+    keydown(av, 'Backspace');
+    assert.equal(listRows(av)[0].indent, 1);
+    keydown(av, 'Backspace');
+    assert.equal(listRows(av)[0].indent, 0);
+    keydown(av, 'Backspace');
+    assert.equal(av.state.selection.$from.parent.type.name, 'title');
+    assert.equal(listRows(av)[0].text, 'Keep');
+    await a.flush();
+  });
+  test(`64 ${style} Shift+Enter creates an inline line break and retains children`, async (t) => {
+    const { a, av, ...x } = await seededList(
+      t,
+      [
+        { id: 'a', text: 'AB' },
+        { id: 'child', text: 'child', indent: 1, parent: 'a' },
+      ],
+      style
+    );
+    rowAt(av, 'a', 1);
+    keydown(av, 'Enter', { shiftKey: true });
+    const doc = av.state.doc.toJSON();
+    assert.deepEqual(doc.content[1].content, [
+      { type: 'text', text: 'A' },
+      { type: 'hard_break' },
+      { type: 'text', text: 'B' },
+    ]);
+    assert.equal(doc.content[2].attrs.parentId, 'a');
+    assert.equal(doc.content.length, 3);
+    await a.flush();
+    assert.equal(
+      ok(await x.read()).content.value.content[1].content[1].type,
+      'hard_break'
+    );
+  });
+}
+test('64 outdent preserves following siblings and explicit parents even when flat rows are not depth-first nested', async (t) => {
+  const { a, av, ...x } = await seededList(t, [
+    { id: 'a', text: 'A' },
+    { id: 'b', text: 'B', indent: 1, parent: 'a' },
+    { id: 'bc', text: 'Bc', indent: 2, parent: 'b' },
+    { id: 'c', text: 'C', indent: 1, parent: 'a' },
+  ]);
+  rowAt(av, 'b');
+  keydown(av, 'Tab', { shiftKey: true });
+  assert.deepEqual(
+    listRows(av).map((r) => [r.id, r.indent, r.parent]),
+    [
+      ['a', 0, null],
+      ['b', 0, null],
+      ['bc', 1, 'b'],
+      ['c', 1, 'a'],
+    ]
+  );
+  await a.flush();
+  assert.equal(a.dirty, false);
+});
+test('64 ordered numbering is derived per sibling group; bullets and non-list blocks reset a run', async (t) => {
+  const { a, av, ...x } = await seededList(
+    t,
+    [
+      { id: 'a', text: 'A' },
+      { id: 'ac', text: 'child', indent: 1, parent: 'a' },
+      { id: 'b', text: 'B' },
+      { id: 'break', type: 'paragraph', text: 'break' },
+      { id: 'c', text: 'C' },
+      { id: 'bullet', text: 'bullet', style: 'unordered' },
+      { id: 'd', text: 'D' },
+    ],
+    'ordered'
+  );
+  assert.deepEqual(
+    [...av.dom.querySelectorAll('[data-list-style]')].map((n) =>
+      n.getAttribute('data-marker')
+    ),
+    ['1.', '1.', '2.', '1.', '•', '1.']
+  );
+  assert(!JSON.stringify(ok(await x.read()).content).includes('data-marker'));
+});
+
+test('64 Undo of list Enter retains foreign text in the new sibling and valid child parentage', async (t) => {
+  const { a, av, ...x } = await seededList(t, [
+    { id: 'a', text: 'Parent' },
+    { id: 'child', text: 'child', indent: 1, parent: 'a' },
+  ]);
+  rowAt(av, 'a', 6);
+  keydown(av, 'Enter');
+  const sibling = listRows(av)[1].id;
+  await a.flush();
+  const b = await x.open('foreign_list'),
+    bv = x.mount(b);
+  rowAt(bv, sibling);
+  bv.dispatch(bv.state.tr.insertText('FOREIGN'));
+  await b.flush();
+  await settle(a, b);
+  a.history(av, 'undo');
+  assert(av.state.doc.textContent.includes('FOREIGN'));
+  await a.flush();
+  await settle(a, b);
+  assert.equal(av.state.doc.textContent, bv.state.doc.textContent);
+  assert(
+    ok(await x.read()).content.value.content.some((n) =>
+      (n.content ?? []).some((t) => t.text === 'FOREIGN')
+    )
+  );
+});
+test('64 actual CLI/MCP list writes and UI list typing share one accepted document', async (t) => {
+  const x = await seeded(t),
+    a = await x.open('list_peers'),
+    av = x.mount(a);
+  for (const mode of ['cli', 'mcp']) {
+    const content = body('');
+    content.value.content[1] = {
+      type: 'list_item',
+      attrs: {
+        blockId: 'row',
+        indent: 1,
+        parentId: null,
+        listStyle: mode === 'cli' ? 'ordered' : 'unordered',
+      },
+      content: [{ type: 'text', text: mode.toUpperCase() }],
+    };
+    const c = {
+      apiVersion: 1,
+      spaceId: x.v.spaceId,
+      pageId: 'p',
+      method: 'page.update',
+      operationId: x.next(),
+      expectedHead: x.v.load('p').head,
+      patch: { content },
+    };
+    if (mode === 'cli') ok((await stdio(x, 'cli', JSON.stringify(c)))[0]);
+    else {
+      const messages = [
+        {
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'initialize',
+          params: {
+            protocolVersion: '2025-11-25',
+            capabilities: {},
+            clientInfo: { name: 'test', version: '1' },
+          },
+        },
+        { jsonrpc: '2.0', method: 'notifications/initialized' },
+        {
+          jsonrpc: '2.0',
+          id: 2,
+          method: 'tools/call',
+          params: { name: 'clutter_command', arguments: c },
+        },
+      ];
+      ok(
+        JSON.parse(
+          (
+            await stdio(
+              x,
+              'mcp',
+              messages.map(JSON.stringify).join('\n') + '\n'
+            )
+          ).at(-1).result.content[0].text
+        )
+      );
+    }
+    await settle(a);
+    const row = av.dom.querySelector('[data-list-style]');
+    assert.equal(row.textContent, mode.toUpperCase());
+    assert.equal(
+      row.dataset.listStyle,
+      mode === 'cli' ? 'ordered' : 'unordered'
+    );
+    assert.equal(a.history(av, 'undo'), false);
+  }
+  rowAt(av, 'row');
+  av.dispatch(av.state.tr.insertText('UI '));
+  await a.flush();
+  const read = ok(
+    (
+      await stdio(
+        x,
+        'cli',
+        JSON.stringify({
+          apiVersion: 1,
+          spaceId: x.v.spaceId,
+          pageId: 'p',
+          method: 'page.read',
+        })
+      )
+    )[0]
+  );
+  assert.equal(read.content.value.content[1].type, 'list_item');
+  assert.equal(read.content.value.content[1].content[0].text, 'UI MCP');
+});
+test('64 leftmost paragraph merges only with preceding text; non-text separator blocks Backspace', async (t) => {
+  for (const previous of ['list_item', 'separator']) {
+    const { a, av, ...x } = await seededList(t, [
+      {
+        id: 'above',
+        type: previous,
+        text: previous === 'list_item' ? 'Above' : '',
+      },
+      { id: 'current', text: 'Current', type: 'paragraph' },
+    ]);
+    rowAt(av, 'current');
+    const before = av.state.doc.toJSON();
+    keydown(av, 'Backspace');
+    if (previous === 'separator')
+      assert.deepEqual(av.state.doc.toJSON(), before);
+    else {
+      assert.equal(listRows(av).length, 1);
+      assert.equal(listRows(av)[0].text, 'AboveCurrent');
+    }
+    await a.flush();
+  }
+});
+test('64 title Enter treats an empty list as existing structure and inserts a paragraph before it', async (t) => {
+  const { a, av, ...x } = await seededList(t, [{ id: 'item' }]);
+  av.dispatch(av.state.tr.setSelection(TextSelection.create(av.state.doc, 1)));
+  keydown(av, 'Enter');
+  assert.equal(av.state.doc.child(1).type.name, 'paragraph');
+  assert.equal(av.state.doc.child(2).type.name, 'list_item');
+  assert.equal(av.state.doc.child(2).attrs.blockId, 'item');
+  assert.equal(av.state.selection.$from.parent.type.name, 'paragraph');
+  await a.flush();
+});
+test('64 Shift+Enter inside a link creates a saveable line break without copying text-only mark fields', async (t) => {
+  const { a, av, ...x } = await seededList(t, [{ id: 'a', text: 'AB' }]);
+  const start = av.state.doc.firstChild.nodeSize + 1;
+  av.dispatch(
+    av.state.tr.addMark(
+      start,
+      start + 2,
+      av.state.schema.marks.link.create({ href: 'https://example.com' })
+    )
+  );
+  rowAt(av, 'a', 1);
+  keydown(av, 'Enter', { shiftKey: true });
+  assert.equal(av.state.doc.child(1).child(1).type.name, 'hard_break');
+  assert.equal(av.state.doc.child(1).child(1).marks.length, 0);
+  await a.flush();
+  assert.equal(a.dirty, false);
+  assert.equal(
+    ok(await x.read()).content.value.content[1].content[1].type,
+    'hard_break'
+  );
 });

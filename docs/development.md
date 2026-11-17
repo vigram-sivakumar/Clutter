@@ -182,3 +182,12 @@ remove /separator only; empty block inserts divider above, nonempty inserts belo
 The same block/type and mapped cursor stay; no text splitting or generated paragraph.
 63 applies over61 or62, so62 is not a required intermediate step. Build with
 `npm run desktop -- --new`. No native/lock/dependency/schema/CSS changes.
+
+## Lists64
+
+Apply64 over63; build with `npm run desktop -- --new`. No dependency install/native
+lock change. Working slash commands: Ordered list (/ol), Unordered list (/ul), or
+/list to filter both. Per S06, insertion keeps the existing caret: CLICK the new
+list row before typing. Enter makes the immediate sibling; Tab/ShiftTab carry its
+children. See [list outcome/checklist](foundation/rebuild/lists-64.md) for the
+confirmed matrix and scoped Mac checks. No formatting/drag/marquee/Ctrl+A claim.

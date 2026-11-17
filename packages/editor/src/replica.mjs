@@ -1,3 +1,4 @@
+import { listInteractions } from './list-interactions.mjs';
 import { blockInsertion } from './block-insertion.mjs';
 import { titleInteractions } from './title-interactions.mjs';
 import { assertBodyRebase } from '../../core/src/editor-rebase.ts';
@@ -133,6 +134,11 @@ export function createEditorReplica(
               canEdit: options.canEdit,
               stopCapturing: () => history.manager.stopCapturing(),
               renderMenu: options.renderSlashMenu,
+            }),
+            listInteractions({
+              nextId: nextBlockId,
+              canEdit: options.canEdit,
+              stopCapturing: () => history.manager.stopCapturing(),
             }),
             titleInteractions(nextBlockId, options.canEdit),
             keymap({

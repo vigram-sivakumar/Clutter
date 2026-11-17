@@ -1084,3 +1084,81 @@ test('63 production separator placement retains the same paragraph DOM and caret
     await ui.dispose();
   }
 });
+
+test('64 real list menu, markers, Enter/Tab and saved reopen use the retained editor and shared Core', async () => {
+  const dir = await session();
+  let ui = await browserWindow(dir, 'lists64');
+  try {
+    ui.button('+ New page').click();
+    await ui.wait(() => !!ui.active());
+    const editor = ui.active();
+    await ui.type('/ol');
+    await ui.wait(
+      () =>
+        ui.doc.querySelector('[role=option]')?.textContent === 'Ordered list'
+    );
+    ui.doc.querySelector('[role=option]').click();
+    await ui.wait(() => !!editor.querySelector('[data-list-style]'));
+    const typeList = async (value) => {
+      const selected = ui.dom.window.getSelection();
+      const list = [...editor.querySelectorAll('[data-list-style]')].at(-1);
+      editor.focus();
+      list.textContent = value;
+      selected.selectAllChildren(list);
+      selected.collapseToEnd();
+      await new Promise((ok) => setTimeout(ok, 30));
+    };
+    const key = (key, extra = {}) =>
+      editor.dispatchEvent(
+        new ui.dom.window.KeyboardEvent('keydown', {
+          key,
+          bubbles: true,
+          cancelable: true,
+          ...extra,
+        })
+      );
+    await typeList('First');
+    key('Enter');
+    await ui.wait(
+      () => editor.querySelectorAll('[data-list-style]').length === 2
+    );
+    await typeList('Second');
+    key('Tab');
+    await ui.wait(
+      () =>
+        [...editor.querySelectorAll('[data-list-style]')].at(-1).dataset
+          .indent === '1'
+    );
+    key('Tab', { shiftKey: true });
+    await ui.wait(
+      () =>
+        [...editor.querySelectorAll('[data-list-style]')].at(-1).dataset
+          .indent === '0'
+    );
+    assert.deepEqual(
+      [...editor.querySelectorAll('[data-list-style]')].map(
+        (n) => n.dataset.marker
+      ),
+      ['1.', '2.']
+    );
+    assert(ui.active() === editor);
+    await ui.saved();
+    const pageId = ui.panes()[0].dataset.page;
+    const read = (await ui.api({ method: 'page.read', pageId })).value;
+    assert.equal(read.content.value.content[2].type, 'list_item');
+    assert.equal(read.content.value.content[3].content[0].text, 'Second');
+    await ui.dispose();
+    ui = await browserWindow(dir, 'lists64');
+    await ui.wait(
+      () => ui.active()?.querySelectorAll('[data-list-style]').length === 2
+    );
+    assert.deepEqual(
+      [...ui.active().querySelectorAll('[data-list-style]')].map(
+        (n) => n.textContent
+      ),
+      ['First', 'Second']
+    );
+  } finally {
+    await ui.dispose();
+  }
+});

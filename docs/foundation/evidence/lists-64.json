@@ -1,0 +1,31 @@
+{
+  "delivery": 64,
+  "date": "2026-11-17",
+  "capability": "ordered/unordered list editing",
+  "status": "implemented-automated-pass-mac-check-pending",
+  "previous63": "both empty/above and nonempty/below placement user PASS",
+  "automated": {
+    "fullSuite": {
+      "tests": 162,
+      "pass": 162,
+      "fail": 0
+    },
+    "finalEditorSuite": {
+      "tests": 77,
+      "pass": 77,
+      "fail": 0,
+      "addedFinalCases": [
+        "title Enter before empty list",
+        "Shift+Enter inside linked text"
+      ]
+    },
+    "uniquePassingTests": 164,
+    "strictCoreRuntimeTypecheck": "PASS",
+    "boundarySources": 46,
+    "removedTests": 0
+  },
+  "architecture": "one flat block graph and shared editor/Core history/save; markers derived; parent before child and lower indent without depth-first restriction",
+  "peerEvidence": "real CLI/MCP writes and UI readback; production React/PM/Core/SQLite list keys/save/reopen",
+  "native64": "not run here; scoped Mac list checklist next; no native/lock/dependency changes",
+  "queued": "formatting next after list check; Ctrl+A A01-A05 and block selection3C"
+}

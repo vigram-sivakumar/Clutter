@@ -445,3 +445,23 @@ button:focus-visible {
   border-top: 1px solid #b6c7d1;
   margin: 1rem 0;
 }
+
+.ProseMirror [data-indent] {
+  margin-left: calc(var(--block-indent, 0) * 1.5rem);
+}
+.ProseMirror .list-block {
+  position: relative;
+  padding-left: 1.5rem;
+  min-height: 1.8em;
+  margin-bottom: 4px;
+}
+.ProseMirror .list-block::before {
+  content: attr(data-marker);
+  position: absolute;
+  left: 0;
+  min-width: 1.1rem;
+  text-align: right;
+  color: #536875;
+  pointer-events: none;
+  user-select: none;
+}

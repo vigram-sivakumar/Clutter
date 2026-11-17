@@ -703,3 +703,39 @@ test('61 heading levels and leaf separator fields validate before any root is co
     assert.equal(ok(await read(x)).head, x.head);
   }
 });
+
+test('64 list schema rejects invalid style/parentage and title line breaks without overwriting roots', async (t) => {
+  const x = await seeded(t);
+  for (const [i, mutate] of [
+    (c) => {
+      c.value.content[1].attrs.listStyle = 'checkbox';
+    },
+    (c) => {
+      c.value.content[1].attrs.parentId = 'missing';
+    },
+    (c) => {
+      c.value.content[1].attrs.parentId = 'b';
+    },
+    (c) => {
+      c.value.content[0].content = [{ type: 'hard_break' }];
+    },
+    (c) => {
+      c.value.content[1].content = [
+        { type: 'hard_break', attrs: { hidden: 'ignored' } },
+      ];
+    },
+  ].entries()) {
+    const content = body();
+    content.value.content[1].type = 'list_item';
+    content.value.content[1].attrs.listStyle = 'ordered';
+    mutate(content);
+    const result = await x.run(
+      update(x.v.spaceId, x.head, {
+        operationId: 'bad-list-' + i,
+        patch: { content },
+      })
+    );
+    assert.equal(result.ok, false);
+    assert.equal(ok(await read(x)).head, x.head);
+  }
+});

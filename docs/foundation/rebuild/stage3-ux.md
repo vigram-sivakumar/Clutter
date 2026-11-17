@@ -1,6 +1,6 @@
 # Stage 3 — confirmed editor UX decisions
 
-Recorded 17 November 2026. Status: **UX baseline recorded.3A implemented in60, Mac check pending;3B–3E pending.**
+Recorded 17 November 2026. Status: **UX baseline recorded.3A/63 scoped Mac PASS.64 lists implemented; list Mac check next; remaining3B–3E pending.**
 This document consolidates the user's decisions and corrections from the stage3
 conversation. It records the final agreed behavior, not earlier proposals. Current
 application behavior and editor-library defaults are not substitutes for these rules.

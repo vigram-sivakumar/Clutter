@@ -1,7 +1,7 @@
 # Separator placement63
 
 17 November2026. Latest confirmed user decision; supersedes62. Implemented;
-focused Mac confirmation pending. No new capability is bundled into this correction.
+empty-block/above placement is user PASS. Nonempty-block/below check is next. No new capability is bundled into this correction.
 
 ## Current behavior
 

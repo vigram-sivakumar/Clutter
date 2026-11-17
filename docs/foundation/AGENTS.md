@@ -119,3 +119,15 @@ remaining inline content and mapped selection. No new paragraph, suffix splittin
 or forced normal-size conversion. Read rebuild/separator-63.md.63 applies over61/62;
 verify two scoped Mac cases before next capability. Earlier62 instructions are
 historical and MUST NOT be reinstated. Ctrl+A remains queued for3C.
+
+## Capability64 — lists, not formatting or block selection
+
+Both63 separator cases are user PASS.64 implements ordered/unordered list insertion,
+markers and the agreed L01–L15 key matrix. Verify rebuild/lists-64.md before formatting.
+Flat block IDs/indent/parentId own visual hierarchy, not nested DOM or markers.
+A parent must precede its child and have lower indent; do not require depth-first
+contiguity or reparent unrelated siblings when another branch outdents. Tab/ShiftTab
+carry explicit descendants; Enter transfers direct children to immediate new sibling;
+empty Enter/Backspace affect just current row and detach children at unchanged indent.
+Lists are not semantic tasks/subtasks. Core/client/CLI/MCP share the same schema/save
+path. No native64 pass inferred. A01–A05 Ctrl+A remains queued for3C, not implemented.
