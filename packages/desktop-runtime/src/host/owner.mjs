@@ -8,6 +8,7 @@ import { SqliteStore } from '@clutter/desktop-runtime/sqlite';
 import { qualifiedEngine } from '@clutter/editor/backend';
 import { MediaIngress } from '../media-ingress.mjs';
 import { readSession } from './session.mjs';
+import { WindowStateStore } from './view-state.mjs';
 const [resources, directory] = process.argv.slice(2);
 if (
   process.version !== 'v24.22.1' ||
@@ -17,10 +18,11 @@ if (
   throw Error('BUNDLED_PINNED_RUNTIME_REQUIRED');
 const m = readSession(directory, resources);
 const origin = `http://127.0.0.1:${m.port}`,
-  flags = { failSaves: false, failProtection: false };
+  flags = { failSaves: false, failProtection: false, failViewState: false };
 let core,
   vault,
   ingress,
+  windowStates,
   ready = false,
   draining = false;
 const pending = new Set();
@@ -136,6 +138,8 @@ const server = createServer(
         if (draining) throw Error('OWNER_STOPPING');
         if (url.pathname === '/api')
           return execute(c, token === 'ui' ? 'ui' : 'automation');
+        if (url.pathname === '/view-state' && token === 'ui')
+          return { ok: true, value: windowStates.execute(c) };
         if (url.pathname === '/media' && token === 'ui')
           return ingress.submit(c);
         throw Error('NOT_FOUND');
@@ -181,6 +185,9 @@ server.listen(
         spaceId: m.spaceId,
         peerId: 'ui',
         execute: (c) => execute(c, 'ui'),
+      });
+      windowStates = new WindowStateStore(directory, () => {
+        if (flags.failViewState) throw Error('WINDOW_STATE_WRITE_FAILED');
       });
       await ingress.replay();
       ready = true;

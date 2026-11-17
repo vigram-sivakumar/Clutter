@@ -3,6 +3,31 @@
 Dated experimental implementation history is archived in Git. This is the concise
 current ledger; revisions below are delivery identifiers, not document file versions.
 
+## 54 — 2026-11-17
+
+- Implement final P-40: current-tab normal navigation, per-pane Back/Forward,
+  note-menu new-tab and in-active-tab split actions; each tab retains its layout.
+- Retain independent view/context identities and local selection/scroll/history;
+  same-note views reconcile through one Core. No global selected-note routing.
+- Checkpoint bounded, versioned per-window ID/layout metadata through an injected UI
+  port; opaque private runtime mechanism, no duplicate document bodies or semantics.
+  Persist visited references and register new identities before editing; guard close
+  across hidden contexts, pending creation and layout writes. Recover after restart.
+- 102 Linux integration tests, strict Core/runtime TS and41-source boundaries pass.
+  No dependency/native pins or Core/editor source changes. Mac54 observation pending.
+- User53 note-switching PASS retained. From stage3 onward, discuss UX before each
+  stage, ask one question at a time and record answers. No stage3 implementation yet.
+
+## Clarification after53 — 2026-11-17
+
+- User PASS: new entry switches between notes. Close/reopen and multi-window results
+  are not inferred.
+- Latest P-40: each window has tabs, each tab has a split layout of note views.
+  Ordinary opening navigates the current tab/active pane with Back/Forward history.
+  Menu actions explicitly open a new tab or a split within the active tab. Different
+  and same notes are supported. Earlier pane-owned tabs/global focus-existing-tab
+  default proposals are superseded, not implemented or passed.
+
 ## 53 — 2026-11-17
 
 - User broadened explicit teardown to full and compact Markdown, vault/persistence

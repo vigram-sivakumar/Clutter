@@ -43,8 +43,53 @@ process-singleton socket (Operation not permitted). No elevation/workaround, bro
 input or screenshot result claimed from that pilot. jsdom executes real PM DOM/model
 and React/transport paths but has no layout/presentation engine.
 
-Native compile/window/edit/close/same-Space reopen for53 awaits the user's Mac.
-Initial check: two synthetic pages, distinct text, switch, save/close, reopen.
+User reports PASS for switching between notes in53. The new window is observed
+through that manual result; no raw compiler/signature or close/reopen pass inferred.
+Remaining bounded check: save/close/same-Space reopen, unless separately confirmed.
 No profiler or broad legacy suite replay. Windows/browser builds, full editor/task/
 media/property/navigation UX, installed security/durability/format/identity, scale
 and shipping distribution remain open. Use synthetic Spaces until their gates close.
+
+## 2026-11-17 — navigation contract clarified (latest instruction)
+
+User PASS for switching between notes in53. No independent tab/pane/back-forward or
+new close/reopen pass inferred. Same-note split tests are consistency tests, not a
+product restriction. After intermediate discussion, the user's explicit final rule:
+Window -> Tabs -> per-tab split layout -> note panes. Ordinary note opening navigates
+within the current tab/active pane with Back/Forward history. New tab is an explicit
+menu action; split is an explicit menu action within the active tab. Both different
+and same notes may appear in splits. Tab layouts/history stay separate; all accepted
+content has one authority. Earlier pane-owned tabs/global existing-tab focus default
+were superseded, not implemented. No new navigation code/test pass yet.
+
+## 2026-11-17 — navigation54 source validation
+
+User's final navigation instruction is P-40: current-tab/active-pane normal opening,
+Back/Forward per pane, explicit new-tab and in-tab split menu actions. 54 implements
+this, superseding intermediate designs without restoring old controllers. Current
+102 Linux tests pass (93 at53 +7 navigation/state tests +2 additional rendered-bundle
+cases). Strict TS checks apply to Core/runtime TS; UI/MJS mechanisms are covered by
+behavioral tests and actual bundles.41 shared source files pass boundary checks.
+
+Rendered React/PM/jsdom coverage uses real private transport/SQLite, not mocked text
+reducers: same tab normal navigation, independent per-tab split layouts, same-note
+updates, hidden-tab failed save/protection, successful retry and same-window layout
+restore. A separate actual owner restart recovers protected work in the original
+hidden tab after loading the same persisted IDs. UI-only metadata endpoint tests
+reject non-UI access, retain the prior record on write failure, leave registered
+editors usable, and block an unregistered new view until a successful retry. Pure
+state/IO cases cover history branching, scoped IDs, stale/conflicting/exact retry,
+corrupt/oversized rejection and close waiting for navigation acknowledgement.
+
+Initial UI attempt found a fixture selecting the old same-text tab before React
+switched it; the fixture now waits for the specific pane identity. It also exposed
+registered editors being hidden after a metadata close-write failure; registration
+tracking now distinguishes existing safe contexts from unregistered views. The
+passing run and preceding scoped attempts are retained in54 evidence. No native
+macOS, browser-layout, gesture, IME or new caret fix pass is inferred.
+
+Mac54 build/basic navigation/close/reopen awaits user observation. Still synthetic
+Spaces only. The current UI is not the final visual design, and tab/pane closing,
+reorder/resize and installed cross-process/window/security/durability/scale/release
+work are not completed by this slice. From stage3 onward, user agrees UX first,
+one question at a time, before implementation.

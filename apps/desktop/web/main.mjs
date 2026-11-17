@@ -24,7 +24,25 @@ const client = new CoreClient(async (command) => {
 const { model } = mountWorkspace(document.querySelector('#app'), {
   client,
   ...config,
+  stateStore: {
+    load: () => windowState({ action: 'read' }),
+    save: (record) => windowState({ action: 'write', ...record }),
+  },
 });
+async function windowState(request) {
+  const r = await fetch(config.url + '/view-state', {
+    method: 'POST',
+    headers: {
+      authorization: 'Bearer ' + config.token,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ ...request, windowId: config.windowId }),
+    signal: AbortSignal.timeout(10000),
+  });
+  const result = await r.json();
+  if (!r.ok || !result.ok) throw Error('WINDOW_STATE_UNAVAILABLE');
+  return result.value;
+}
 let ready = false;
 let syncing = false;
 const sync = async () => {

@@ -19,8 +19,9 @@ required. `npm run desktop:reopen` reopens the same development Space. This is a
 synthetic-content development entry, not a data-bearing release. Tests need
 Node24.22.1; the native bootstrap itself supports developer Node24.11.
 
-The first UI supports page creation/list/open, paragraph editing, retained sessions
-across navigation, split views, context-specific undo/redo, save and protected close.
+The development UI supports page creation/list/open, paragraph editing, current-tab
+navigation with Back/Forward, explicit new-tab/in-tab split menus, retained sessions,
+context-specific undo/redo, saved tab layouts and protected close across hidden views.
 It is intentionally incomplete: full editor components, task/media/property UI,
 complete navigation and installed persistence/security/distribution remain next.
 There are no existing-user migration or legacy-compatibility requirements.

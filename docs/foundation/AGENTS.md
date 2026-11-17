@@ -45,3 +45,12 @@ specifications are retired; Git history is the archive, not an implementation co
   verify apply/reapply/main refusal. No generated binaries/cache/private sessions.
   Download names in quoted user Bash paths use SPACES. User Mac root is
   /Users/sivakuv3/Documents/Personal/projects/Clutter Structured.
+
+## UX agreement from stage3 onward
+
+User instruction2026-11-17: finish the already-authorized stage2 navigation work.
+Before implementation of EACH stage starting with stage3 (editor/familiar UI),
+discuss expected UX with the user. Ask ONE question at a time, record their answers
+and resolve that stage's UX before coding it. Do not batch questions or infer the
+new UX from retired controllers/sample UI. Do not re-ask already confirmed behavior.
+This is the requested product workflow, not permission for more architecture research.

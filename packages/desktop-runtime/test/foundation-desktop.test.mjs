@@ -248,14 +248,12 @@ test('local transport denies foreign origins, bad tokens, admin mutations and ov
   });
   assert.equal(huge.status, 400);
 });
-test('React product creates pages, retains edits across navigation and refuses unsafe native close', async () => {
-  const dir = await session(),
-    m = readSession(dir, resources),
+async function browserWindow(dir, windowId = 'window54') {
+  const m = readSession(dir, resources),
     start = await run(dir);
   assert.equal(start.code, 0, start.err);
-  const before = JSON.parse(start.out).instanceId,
-    url = `http://127.0.0.1:${m.port}`;
-  const errors = [],
+  const url = `http://127.0.0.1:${m.port}`,
+    errors = [],
     events = [],
     console = new VirtualConsole();
   console.on('jsdomError', (e) => errors.push(e.message));
@@ -268,121 +266,349 @@ test('React product creates pages, retains edits across navigation and refuses u
       virtualConsole: console,
     }
   );
-  try {
-    Object.defineProperty(dom.window, 'crypto', { value: globalThis.crypto });
-    dom.window.structuredClone = structuredClone;
-    dom.window.AbortSignal = AbortSignal;
-    // jsdom has no layout engine: these rectangles test command flow only.
-    dom.window.Range.prototype.getClientRects = () => [];
-    dom.window.Range.prototype.getBoundingClientRect = () => ({
-      left: 0,
-      right: 0,
-      top: 0,
-      bottom: 0,
-      width: 0,
-      height: 0,
+  Object.defineProperty(dom.window, 'crypto', { value: globalThis.crypto });
+  Object.assign(dom.window, {
+    structuredClone,
+    AbortSignal,
+    TextEncoder,
+    TextDecoder,
+  });
+  dom.window.Range.prototype.getClientRects = () => [];
+  dom.window.Range.prototype.getBoundingClientRect = () => ({
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 0,
+    height: 0,
+  });
+  dom.window.fetch = (address, options = {}) =>
+    fetch(address, {
+      ...options,
+      headers: { ...options.headers, origin: url },
     });
-    dom.window.TextEncoder = TextEncoder;
-    dom.window.TextDecoder = TextDecoder;
-    dom.window.fetch = (address, options = {}) =>
-      fetch(address, {
-        ...options,
-        headers: { ...options.headers, origin: url },
-      });
-    dom.window.__clutterHost = {
-      url,
-      spaceId: m.spaceId,
-      token: m.tokens.ui,
-      windowId: 'window48',
-    };
-    dom.window.__clutterHostEvent = (e) => events.push(e);
-    dom.window.eval(readFileSync(join(resources, 'web/app.js'), 'utf8'));
-    for (let n = 0; n < 160 && !events.some((e) => e.event === 'ready'); n++)
-      await new Promise((ok) => setTimeout(ok, 20));
-    assert(
-      events.some((e) => e.event === 'ready'),
-      JSON.stringify({
-        events,
-        errors,
-        status: dom.window.document.querySelector('[role=status]')?.textContent,
-      })
-    );
-
-    const doc = dom.window.document;
-    async function wait(check) {
-      for (let n = 0; n < 200; n++) {
-        if (check()) return;
-        await new Promise((ok) => setTimeout(ok, 15));
-      }
-      assert(check(), doc.body.textContent);
+  dom.window.__clutterHost = {
+    url,
+    spaceId: m.spaceId,
+    token: m.tokens.ui,
+    windowId,
+  };
+  dom.window.__clutterHostEvent = (e) => events.push(e);
+  dom.window.eval(readFileSync(join(resources, 'web/app.js'), 'utf8'));
+  const doc = dom.window.document;
+  const wait = async (check) => {
+    for (let n = 0; n < 250; n++) {
+      if (check()) return;
+      await new Promise((ok) => setTimeout(ok, 15));
     }
-    const button = (text) =>
-      [...doc.querySelectorAll('button')].find((b) => b.textContent === text);
-    const editor = () => doc.querySelector('[data-pane=a] .ProseMirror');
-    await wait(() => button('+ New page'));
-    button('+ New page').click();
-    await wait(() => editor());
-    editor().focus();
-    editor().querySelector('p').textContent = 'FIRST PAGE';
+    assert(
+      check(),
+      JSON.stringify({ body: doc.body.textContent, errors, events })
+    );
+  };
+  const button = (text) =>
+    [...doc.querySelectorAll('button')].find((b) => b.textContent === text);
+  const panes = () => [...doc.querySelectorAll('[data-pane]')];
+  const active = () =>
+    doc.querySelector('[data-pane][data-active=true] .ProseMirror');
+  const tabs = () => [...doc.querySelectorAll('[role=tab]')];
+  await wait(() => events.some((e) => e.event === 'ready'));
+  await wait(() => button('+ New page') && !button('+ New page').disabled);
+  const api = async (command) => {
+    const r = await fetch(url + '/api', {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer ' + m.tokens.ui,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ apiVersion: 1, spaceId: m.spaceId, ...command }),
+    });
+    return r.json();
+  };
+  const menu = async (pageId, action) => {
+    const row = doc
+      .querySelector('.page-link[data-page="' + pageId + '"]')
+      .closest('.page-row');
+    row.querySelector('.note-menu-trigger').click();
+    await wait(() => !!row.querySelector('[role=menuitem]'));
+    [...row.querySelectorAll('[role=menuitem]')]
+      .find((b) => b.textContent === action)
+      .click();
+  };
+  const type = async (text, element = active()) => {
+    element.focus();
+    element.querySelector('p').textContent = text;
+    const selection = dom.window.getSelection();
+    selection.selectAllChildren(element.querySelector('p'));
+    selection.collapseToEnd();
+    await new Promise((ok) => setTimeout(ok, 30));
+  };
+  const saved = async () => {
+    button('Save').click();
     await wait(
       () => doc.querySelector('[role=status]').textContent === 'Saved'
     );
-    button('+ New page').click();
-    await wait(
-      () =>
-        doc.querySelectorAll('.page-link').length === 2 &&
-        editor()?.textContent === ''
-    );
-    editor().focus();
-    editor().querySelector('p').textContent = 'SECOND PAGE';
-    await new Promise((ok) => setTimeout(ok, 350));
-    const pages = () => [...doc.querySelectorAll('.page-link')];
-    const other = pages().find((p) => !p.hasAttribute('aria-current'));
-    other.click();
-    await wait(() => editor()?.textContent === 'FIRST PAGE');
-    await control(dir, { failSaves: true, failProtection: true });
-    editor().focus();
-    editor().querySelector('p').firstChild.textContent += ' PENDING';
-    await new Promise((ok) => setTimeout(ok, 80));
-    // Navigate away: hidden-page edits must still participate in close protection.
-    pages()
-      .find((p) => !p.hasAttribute('aria-current'))
-      .click();
-    await wait(() => editor()?.textContent === 'SECOND PAGE');
-    assert.equal((await dom.window.clutterWindow.prepareClose()).safe, false);
-    assert.equal(editor().getAttribute('contenteditable'), 'true');
-    await control(dir, { failSaves: false, failProtection: false });
-    assert.equal((await dom.window.clutterWindow.prepareClose()).safe, true);
-    const listed = await run(
-      dir,
-      [],
-      JSON.stringify({ apiVersion: 1, method: 'page.list', spaceId: m.spaceId })
-    );
-    const list = JSON.parse(listed.out).value.pages;
-    assert.equal(list.length, 2);
-    const bodies = [];
-    for (const page of list) {
-      const read = await run(
-        dir,
-        [],
-        JSON.stringify(command(m, { pageId: page.pageId }))
-      );
-      bodies.push(
-        JSON.parse(read.out).value.body.value.content[0].content[0].text
-      );
+  };
+  const close = async () => {
+    const r = await dom.window.clutterWindow.prepareClose();
+    await new Promise((ok) => setTimeout(ok, 40));
+    return r;
+  };
+  const dispose = async () => {
+    try {
+      await control(dir, {
+        failSaves: false,
+        failProtection: false,
+        failViewState: false,
+      });
+      await close();
+    } finally {
+      dom.window.close();
     }
+    assert.deepEqual(errors, []);
+  };
+  return {
+    doc,
+    dom,
+    wait,
+    button,
+    active,
+    panes,
+    tabs,
+    api,
+    menu,
+    type,
+    saved,
+    close,
+    dispose,
+    m,
+    instanceId: JSON.parse(start.out).instanceId,
+  };
+}
+test('React navigation stays in the current tab, owns split layouts per tab, and keeps same-note views consistent', async () => {
+  const dir = await session();
+  let ui = await browserWindow(dir);
+  try {
+    ui.button('+ New page').click();
+    await ui.wait(() => !!ui.active());
+    const first = ui.panes()[0].dataset.page;
+    await ui.type('FIRST PAGE');
+    await ui.saved();
+    ui.button('+ New page').click();
+    await ui.wait(
+      () =>
+        ui.doc.querySelectorAll('.page-link').length === 2 &&
+        ui.active()?.textContent === ''
+    );
+    const second = ui.panes()[0].dataset.page;
+    await ui.type('SECOND PAGE');
+    await ui.saved();
+    assert.equal(ui.tabs().length, 1);
+    ui.doc.querySelector('[aria-label=Back]').click();
+    await ui.wait(() => ui.active()?.textContent === 'FIRST PAGE');
+    ui.doc.querySelector('[aria-label=Forward]').click();
+    await ui.wait(() => ui.active()?.textContent === 'SECOND PAGE');
+    await ui.menu(first, 'Open in split view');
+    await ui.wait(
+      () => ui.panes().length === 2 && ui.active()?.textContent === 'FIRST PAGE'
+    );
+    assert.deepEqual(
+      ui.panes().map((p) => p.querySelector('.ProseMirror')?.textContent),
+      ['SECOND PAGE', 'FIRST PAGE']
+    );
+    assert.equal(ui.tabs().length, 1);
+    await ui.menu(second, 'Open in new tab');
+    await ui.wait(
+      () =>
+        ui.tabs().length === 2 &&
+        ui.panes().length === 1 &&
+        ui.active()?.textContent === 'SECOND PAGE'
+    );
+    // Normal click must not switch to another existing tab or create a tab.
+    ui.doc.querySelector('.page-link[data-page="' + first + '"]').click();
+    await ui.wait(() => ui.active()?.textContent === 'FIRST PAGE');
+    assert.equal(ui.tabs()[1].getAttribute('aria-selected'), 'true');
+    assert.equal(ui.tabs().length, 2);
+    ui.tabs()[0].click();
+    await ui.wait(
+      () => ui.panes().length === 2 && ui.active()?.textContent === 'FIRST PAGE'
+    );
+    await ui.menu(second, 'Open in split view');
+    await ui.wait(
+      () =>
+        ui.panes().length === 3 && ui.active()?.textContent === 'SECOND PAGE'
+    );
+    await ui.type('SECOND PAGE SHARED');
+    await ui.saved();
+    await ui.wait(
+      () =>
+        ui.panes()[0].querySelector('.ProseMirror')?.textContent ===
+        'SECOND PAGE SHARED'
+    );
+    // A dirty context on a hidden tab must still refuse unsafe close.
+    await control(dir, { failSaves: true, failProtection: true });
+    await ui.type('SECOND PAGE SHARED PENDING');
+    ui.tabs()[1].click();
+    await ui.wait(
+      () => ui.panes().length === 1 && ui.active()?.textContent === 'FIRST PAGE'
+    );
+    assert.equal((await ui.close()).safe, false);
+    await ui.wait(
+      () => ui.active()?.getAttribute('contenteditable') === 'true'
+    );
+    await control(dir, { failSaves: false, failProtection: false });
+    const instance = ui.instanceId;
+    assert.equal((await ui.close()).safe, true);
+    const list = await ui.api({ method: 'page.list' });
+    assert.equal(list.value.pages.length, 2);
+    const bodies = [];
+    for (const page of list.value.pages)
+      bodies.push(
+        (await ui.api({ method: 'page.read', pageId: page.pageId })).value.body
+          .value.content[0].content[0].text
+      );
     assert.deepEqual(
       bodies.sort(),
-      ['FIRST PAGE PENDING', 'SECOND PAGE'].sort()
+      ['FIRST PAGE', 'SECOND PAGE SHARED PENDING'].sort()
     );
-    assert.deepEqual(errors, []);
-    await new Promise((ok) => setTimeout(ok, 80));
+    await ui.dispose();
+    ui = null;
+    // Reopening the same window restores tab-owned layouts and view identities.
+    ui = await browserWindow(dir);
+    assert.equal(ui.instanceId, instance);
+    await ui.wait(
+      () => ui.tabs().length === 2 && ui.active()?.textContent === 'FIRST PAGE'
+    );
+    assert.equal(ui.tabs()[1].getAttribute('aria-selected'), 'true');
+    ui.tabs()[0].click();
+    await ui.wait(
+      () =>
+        ui.panes().length === 3 &&
+        ui.active()?.textContent === 'SECOND PAGE SHARED PENDING'
+    );
+    assert.equal(ui.doc.querySelector('[aria-label=Back]').disabled, true);
   } finally {
-    dom.window.close();
+    if (ui) await ui.dispose();
   }
-  const after = await run(dir);
-  assert.equal(after.code, 0, after.err);
-  assert.equal(JSON.parse(after.out).instanceId, before);
+});
+test('protected edits remain recoverable in their original hidden tab after close and owner restart', async () => {
+  const dir = await session();
+  let ui = await browserWindow(dir, 'recover-window');
+  try {
+    ui.button('+ New page').click();
+    await ui.wait(() => !!ui.active());
+    const page = ui.panes()[0].dataset.page;
+    await ui.type('ACCEPTED');
+    await ui.saved();
+    await ui.menu(page, 'Open in new tab');
+    await ui.wait(
+      () => ui.tabs().length === 2 && ui.active()?.textContent === 'ACCEPTED'
+    );
+    const protectedPane = ui.panes()[0].dataset.pane;
+    await control(dir, { failSaves: true });
+    await ui.type('ACCEPTED PROTECTED');
+    ui.tabs()[0].click();
+    await ui.wait(() => ui.active()?.textContent === 'ACCEPTED');
+    assert.equal((await ui.close()).safe, true);
+    ui.dom.window.close();
+    ui = null;
+    await control(dir, 'stop');
+    // The process-restart helper must reuse this same session, not a fresh Space.
+    const metadata = readSession(dir, resources);
+    for (let n = 0; n < 100; n++) {
+      try {
+        await fetch(`http://127.0.0.1:${metadata.port}/status`, {
+          signal: AbortSignal.timeout(100),
+        });
+      } catch {
+        break;
+      }
+      await new Promise((ok) => setTimeout(ok, 20));
+    }
+    ui = await browserWindow(dir, 'recover-window');
+    await ui.wait(
+      () => ui.tabs().length === 2 && ui.active()?.textContent === 'ACCEPTED'
+    );
+    ui.tabs()[1].click();
+    await ui.wait(
+      () =>
+        ui.active()?.textContent === 'ACCEPTED' &&
+        ui.active()?.closest('[data-pane]').dataset.pane === protectedPane
+    );
+    ui.button('Recover protected work').click();
+    await ui.wait(() => ui.active()?.textContent === 'ACCEPTED PROTECTED');
+    await ui.saved();
+    assert.equal(
+      (await ui.api({ method: 'page.read', pageId: page })).value.body.value
+        .content[0].content[0].text,
+      'ACCEPTED PROTECTED'
+    );
+  } finally {
+    if (ui) await ui.dispose();
+  }
+});
+test('window-state endpoint is UI-only and navigation write failure refuses close without replacing state', async () => {
+  const dir = await session();
+  let ui = await browserWindow(dir);
+  try {
+    ui.button('+ New page').click();
+    await ui.wait(() => !!ui.active());
+    const page = ui.panes()[0].dataset.page;
+    await ui.type('BODY ONLY IN CORE');
+    await ui.saved();
+    const url = `http://127.0.0.1:${ui.m.port}/view-state`;
+    const request = { action: 'read', windowId: 'window54' };
+    const send = async (token, body) =>
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer ' + token,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+    const record = await (await send(ui.m.tokens.ui, request)).json();
+    assert(record.ok);
+    assert(!record.value.value.includes('BODY ONLY IN CORE'));
+    assert(record.value.value.includes(page));
+    assert.equal((await send(ui.m.tokens.admin, request)).status, 403);
+    assert.equal((await send(ui.m.tokens.automation, request)).status, 400);
+    await control(dir, { failViewState: true });
+    assert.equal((await ui.close()).safe, false);
+    await ui.wait(
+      () => ui.active()?.getAttribute('contenteditable') === 'true'
+    );
+    assert.equal(
+      (await (await send(ui.m.tokens.ui, request)).json()).value.value,
+      record.value.value
+    );
+    await control(dir, { failViewState: false });
+    ui.button('Retry navigation').click();
+    await ui.wait(
+      () =>
+        ui.active()?.textContent === 'BODY ONLY IN CORE' &&
+        !ui.doc
+          .querySelector('[role=status]')
+          .textContent.includes('Retry navigation')
+    );
+    await control(dir, { failViewState: true });
+    await ui.menu(page, 'Open in new tab');
+    await ui.wait(
+      () => ui.tabs().length === 2 && !!ui.button('Retry navigation')
+    );
+    assert.equal(
+      ui.panes().length,
+      0,
+      'an unregistered new view must not become editable'
+    );
+    assert.equal((await ui.close()).safe, false);
+    await control(dir, { failViewState: false });
+    ui.button('Retry navigation').click();
+    await ui.wait(() => ui.active()?.textContent === 'BODY ONLY IN CORE');
+    assert.equal((await ui.close()).safe, true);
+  } finally {
+    if (ui) await ui.dispose();
+  }
 });
 test('runtime/bootstrap pins fail closed and no secret is placed in the navigation address', () => {
   assert.equal(lock.version, 'v24.22.1');

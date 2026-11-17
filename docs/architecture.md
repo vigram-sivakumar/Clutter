@@ -55,3 +55,41 @@ persistence), automation tied to that app, old Foundation demo entry/package nam
 duplicate draft-only DesktopSession, proof-only native host, research executables and
 obsolete app architecture/governance documentation. Selected mechanisms moved once;
 useful media/stdio test fixtures moved into runtime tests. Git history is the archive.
+
+## Tab-owned navigation (P-40, implemented54)
+
+WindowNavigation is the shared UI owner of tabs, split panes, active selection and
+per-pane Back/Forward page-reference histories. Normal note activation navigates
+within the current tab's active pane. Explicit note-menu actions create a new tab
+or add a split in the active tab. Different and identical notes are supported;
+ordinary opening never implicitly switches to another tab just because that note
+is open there. Selecting a tab restores its own split layout and active pane.
+
+Each tab/pane has a separate stable ID. A note's editing context hashes Space +
+window + page + the tab/pane view key. EditorSession retains document/context history;
+Back/Forward only chooses notes, never rolls back accepted content or issues another
+save policy. Detached views retain contexts and in-memory selection/viewport bookmarks.
+Navigation snapshots retain IDs for visited notes even after forward-history branching.
+
+A UI-injected window-state port loads/checkpoints versioned layout/ID/history JSON.
+The desktop runtime stores opaque snapshots in the private development session,
+not the semantic Space document database. It never decides navigation policy or
+stores copied bodies/titles/credentials in those UI snapshots. The endpoint is UI-only
+within the existing private authenticated owner; revisions are monotonic and exact
+retries idempotent. Files use private atomic writes and directory synchronization.
+This is a mechanism, not a second Core or a new user-facing per-Space access code.
+
+New identities are checkpointed before their views become editable, and the window
+close guard waits for navigation/creation writes plus protection of all retained
+contexts. A metadata write failure leaves already-registered views usable, blocks
+unregistered new views and exposes retry. Unreadable/invalid metadata is not reset or
+silently replaced. Restoring saved IDs makes protected work addressable after reopen
+and owner restart. These are development mechanisms; installed identity/registry,
+native durability/security and release qualification remain open.
+
+Current bounds (64 tabs,8 panes/tab,128 history entries,1024 visited references/pane,
+512KiB serialized layout) are explicit development admission limits, not final
+product UX commitments. Limit refusal does not truncate histories or silently discard
+contexts. Tab/pane closing/reordering/resizing, native navigation gestures and complete
+multi-window UX are outside54. Stage3 editor/familiar-UI UX must be discussed with the
+user one question at a time before implementation. Current UI is still provisional.

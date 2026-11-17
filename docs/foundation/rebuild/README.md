@@ -10,7 +10,7 @@ architecture. No migration/compatibility façade, dual writer or permanent paral
 | R0 | Closed51 | Old/main import inventory and concrete clean rebuild decision |
 | R1 prerequisites | Closed52 | Exact native manifests/full locks checked in; old experiment cache dependency removed |
 | R1 source | Delivered53; Mac verification pending | Actual package split, single React/Tauri product entry, real Core catalogue/create/open/edit/save/reopen flow; coherent old-pipeline removal |
-| R2 | Next after new entry check | Title/full block schema, real component/NodeView adapters, tables/tasks/media and agreed interaction behavior |
+| R2 / roadmap stage3 | UX discussion required before code | Title/full block schema, real component/NodeView adapters, tables/tasks/media and agreed interaction behavior |
 | R3 | Pending | Complete navigation/windows/panes/tabs, daily notes/templates/folders, task/property/collection UX, history/search/recovery/interchange |
 | Data/release gates | Pending before real data/shipping | Installed storage/final format/security/physical identity/native durability, scale, Windows/web mechanisms and distribution |
 
@@ -26,3 +26,15 @@ ownership. New UI currently reimplements a small sidebar/header/page composition
 button styling; old widgets/controllers are not transplanted. Existing requirements
 survive even though old implementation and proof executables were deleted. No additional
 host-selection/profiling phase is authorized as a prerequisite to continued product work.
+
+## UX before implementation, starting stage3
+
+The user requests a UX discussion before each stage from stage3 onward, one question
+at a time. Record agreed behavior, then implement that stage. Stage2 navigation is
+already authorized and continues; this does not reopen the architecture selection.
+
+Roadmap stage2 /54 adds actual tab-owned split layouts and active-pane note history
+before R2/editor work. Current-tab normal navigation and explicit menu actions are
+implemented;102 Linux tests pass, Mac54 check pending. Stage3 and every later stage
+must begin with UX discussion, one question at a time. No architecture comparison
+restart or migration work is part of this.

@@ -1,0 +1,45 @@
+{
+  "format": "clutter-tab-owned-navigation54",
+  "date": "2026-11-17",
+  "baseTree53": "c3596dd7d81d76fb0078625b7e15dc7cf11eda1c",
+  "stage": "roadmap2 navigation foundation; stage3 UX discussion required before code",
+  "userRules": [
+    "Normal opening navigates current tab active pane; no implicit new tab or global existing-tab focus switch",
+    "Per-pane Back/Forward history",
+    "Explicit menu actions open new tab or split inside active tab",
+    "Each tab retains its layout; same and different notes supported",
+    "From stage3 onward agree UX first, one question at a time"
+  ],
+  "checks": {
+    "runtime": "102/102 Linux tests pass (93 prior +7 navigation/state cases +2 more rendered bundle cases)",
+    "strictTypeScript": "Core/runtime TS pass; UI/MJS covered by behavioral tests and bundling",
+    "sourceBoundaries": "41 shared source files pass",
+    "bundledUI": "Actual production React/PM bundle + real private owner/Core/SQLite/CLI/MCP exercised under jsdom",
+    "recovery": "Protected hidden-tab draft recovered after actual owner process restart using restored view IDs",
+    "faults": "Failed save+protection refuses close; failed layout write keeps registered editor usable, refuses close and blocks new unregistered editor until retry",
+    "metadata": "UI-only endpoint; independent windows; bounded/versioned snapshots; strict corrupt/oversized refusal; monotonic/exact retry; directory synchronization; no note body stored",
+    "history": "Forward-history branching retains visited note identities for context addressability"
+  },
+  "unchanged": [
+    "Semantic Core source",
+    "Editor engine/schema source",
+    "Root dependencies and complete lock graph",
+    "Exact exported native dependencies/locks",
+    "Tauri/Rust host and OS lifecycle policy",
+    "main worktree"
+  ],
+  "scopedFailuresAndCorrections": [
+    "Initial recovery fixture clicked before same-text tab switch completed; now waits for intended pane identity",
+    "Initial UI hid existing editors after metadata close-write failure; registration tracking now separates registered and unregistered contexts"
+  ],
+  "limits": {
+    "nativeMac54": "not yet observed",
+    "nativeLayoutIMEGesturesA11y": "not qualified by jsdom",
+    "realBrowserPilot": "not repeated; prior host Chromium restriction retained",
+    "store": "marked synthetic development sessions only, installed-data gates still open",
+    "notImplemented": "tab/pane close/reorder/resize and complete multi-window UI; title/rich editor/familiar UI not started",
+    "admission": "64 tabs,8 panes/tab,128 history entries,1024 visited refs/pane,512KiB layout; prototype decode/admission bounds, not product UX limits",
+    "priorCaretRisk": "intermittent/unreproduced, no new native fix claim"
+  },
+  "next": "User builds fresh synthetic54 with desktop -- --new; check current-tab Back/Forward + explicit new-tab/in-tab split and tab layout retention. Then discuss stage3 UX one question at a time, record agreements before implementation."
+}

@@ -67,6 +67,8 @@ is visible for planning with zero influence on architectural selection.
 | P-38 | One shared web UI/editor and product interaction implementation across Mac, Windows and future browser host; no duplicated per-OS native feature UI. Core/command ownership stays single for UI/CLI/MCP. |
 | P-39 | Mac first with shared modules free of OS/framework assumptions from the start. Windows/browser add explicit adapters and platform testing rather than repo restructuring or feature rewrites. Separate wrapper families require a demonstrated benefit to justify extra maintenance. |
 
+| P-40 | Windows contain tabs; each tab owns its split layout of note panes. Ordinary note opening navigates the active pane within the current tab and records Back/Forward history; it does not implicitly create or switch top-level tabs. Explicit menu actions open a note in a new tab, or in a split pane within the currently active tab. Split panes may show different notes or independent views of the same note. Switching tabs retains each tab's own layout/navigation state. Shared content uses one Space authority; caret/selection/scroll/history contexts remain view-local. |
+
 ## Specification completion
 
 The product-behaviour document owns the detailed rules behind P-25 through P-33.

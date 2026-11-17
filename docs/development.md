@@ -39,7 +39,28 @@ switch back, close safely and reopen with npm run desktop:reopen. Confirm the sa
 pages/text. Do not replay old profiler/qualification suites. Native build, window
 lifecycle and editor behavior are only claimed after actual observation.
 
-R1 is a development slice. Current title is Untitled (title editing is next); page
+R1 is a development slice. Current title is Untitled (title UX/implementation waits for the stage3 discussion); page
 list/create/open and paragraphs are implemented. The rest of editor/feature UI,
 actual installed storage paths/permissions/single-owner discovery, final format,
 Windows/browser compositions, scale and release/distribution remain tracked.
+
+## Navigation54
+
+Normal note clicks navigate the current tab/active pane. Back/Forward are the header
+arrow buttons for that pane. The ellipsis menu beside each sidebar note offers
+Open in new tab and Open in split view; splits belong to the active tab. Click inside
+a pane to make it the navigation target. Selecting a tab restores its own panes.
+Use the same note in multiple views to check shared-content consistency separately
+from the usual different-note comparison. Undo/Redo belong to each editor context.
+
+The private per-window snapshot records IDs, histories and visited note references,
+never note bodies. It lives in the marked development session outside source control.
+Same-session reopen restores tabs/layout and stable recovery contexts. Native shape,
+caret/scroll behavior and OS gestures still need their actual scoped checks; Linux
+jsdom has no layout engine. No installed-storage qualification is inferred.
+
+Apply54 then rebuild changed source with npm run desktop -- --new (previous sessions
+retained; new synthetic Space is explicit). No dependency install is needed for54.
+Reopen that new session with npm run desktop:reopen. Tab/pane closing, rearranging and
+resizing are not implemented in this slice. From stage3 onward, agree UX first via
+one question at a time; do not implement title/rich-text/final visual UI before then.

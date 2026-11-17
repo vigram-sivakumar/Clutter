@@ -1,0 +1,13 @@
+{
+  "apps/desktop/web/main.mjs": "91e39e9995184345705b427d8278f30b910687d195141db059ee181c8f58298d",
+  "packages/ui/src/navigation.mjs": "c28239865cdce837bde1080c1dd477c6b643227402ba00ddf05c6871c3a828e3",
+  "packages/ui/src/window-workspace.mjs": "aeb3ff1740fe6f636f434cb89ae541f6ad1ac6f794a050a38233098fb403663d",
+  "packages/ui/src/workspace.mjs": "ca5ca8634338799809f01ae56a57fbe33b1fa37e2c3d4ccfd4c616a861776df5",
+  "packages/ui/src/app.jsx": "2df35abe9869ca9e538f4b9aa7f9c7f61d25aa075c585a089027b67fbc6aed85",
+  "packages/ui/src/note-menu.jsx": "15c5325e157add6937fc9708f82d13303e4e735e67487a5e6c2147f41c6ce311",
+  "packages/ui/src/style.css": "4037aa49c6046c9b52faad1b13723131c433f6a5eef9affc69ba4dadc12be74f",
+  "packages/desktop-runtime/src/host/view-state.mjs": "643a5e3f64e282566c3ab048971c831ec3bae55260eb9569abf8bf92fbb5eba8",
+  "packages/desktop-runtime/src/host/owner.mjs": "96cc890132a9d15c10c25fafa13bc0a6266a4a541e13cf86eff6a59d1cd83ec1",
+  "packages/desktop-runtime/test/navigation.test.mjs": "e759fc39d107033974fdfe6d6a3b19a9a6e6b1de80e2a946dfc2b4c04d7cfbd4",
+  "packages/desktop-runtime/test/foundation-desktop.test.mjs": "404d3591953532cffb576730a6531e2b0075cf8fc53b4ffb189e2db54d991890"
+}

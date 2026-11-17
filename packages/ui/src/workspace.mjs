@@ -25,6 +25,7 @@ export class EditorWorkspace {
     this.mountTasks = new Set();
     this.mountTickets = new Map();
     this.bookmarks = new Map();
+    this.viewports = new Map();
     this.contexts = new Map();
     this.timers = new Map();
     this.frozen = false;
@@ -154,16 +155,19 @@ export class EditorWorkspace {
     if (!r.ok) throw Error(r.error.code);
     this.onStatus('Recovered work is ready to save');
   }
-  prepareClose() {
-    if (this.closing) return this.closing;
+  freeze() {
     this.frozen = true;
     for (const t of this.timers.values()) clearTimeout(t);
     this.timers.clear();
+    for (const { view } of this.views.values())
+      view.setProps({ editable: () => false });
+  }
+  prepareClose() {
+    if (this.closing) return this.closing;
     const focused = [...this.views.values()].find((e) =>
       e.view.hasFocus()
     )?.view;
-    for (const { view } of this.views.values())
-      view.setProps({ editable: () => false });
+    this.freeze();
     this.closing = (async () => {
       let safe = true;
       try {
