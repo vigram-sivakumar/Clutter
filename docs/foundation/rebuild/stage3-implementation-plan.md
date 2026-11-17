@@ -241,3 +241,7 @@ of client milestone68 or formatting required for bookkeeping.
 isolation, explicit body IDs, Escape/no-caret mode, typing guards, explicit-only
 deletion/history/peer mapping. [Details](body-selection-71.md). This is not whole3C:
 marquee/handles/group reorder next on the same selection model after scoped Mac check.
+
+71 scoped native select-all check works.72 [caret re-entry correction](caret-restore-72.md)
+preserves no-caret bulk deletion and fixes first click/selection guard timing. Native
+blink retest next; pointer marquee/handles/reorder remain pending on same model.

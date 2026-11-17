@@ -105,3 +105,7 @@ change. Scoped native check required before completing formatting and starting3C
 Formatting70 now user Mac COMPLETE including Undo/Redo/save/window reopen.71 begins3C
 with [keyboard/body selection](body-selection-71.md). Shared explicit selection model
 also owns later marquee/handles; those pointer features remain next, not yet delivered.
+
+71 scoped native select-all check works.72 [caret re-entry correction](caret-restore-72.md)
+preserves no-caret bulk deletion and fixes first click/selection guard timing. Native
+blink retest next; pointer marquee/handles/reorder remain pending on same model.

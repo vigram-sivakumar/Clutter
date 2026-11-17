@@ -256,3 +256,19 @@ ancestor while preserving indentation/content/format. Object67 retains its body-
 destination; bulk mode remains no-caret until text click. Schema/Core/runtime/native
 sources unchanged. Marquee/handles/group drag and table-cell modes are not implemented
 by this keyboard adapter or inferred from its tests.
+
+## Text re-entry and Y selection-guard scope72
+
+The body-block adapter transitions to normal text on mouse-down, resolving public PM
+hit positions through TextSelection.near (empty block boundary included). Focus comes
+before a single visible pointer selection; default native dragging/multi-click keeps
+running. handleClick uses the same fallback helper, not a second cursor algorithm.
+Body whitespace cannot select title; atomic-object/nested modes keep their handlers.
+
+createViewSelectionGuard replaces guardNodeSelections, scoped by replica document
+updates, accepted remote apply and context history operations. Selection/focus-only
+updates no longer normalize through internal AllSelection protection. Actual changes
+still protect node/body-block bookmarks through existing public Y events and stable
+IDs. No private binding mutation/dependency fork, separate state owner, saved selection,
+production timer or synthetic caret blink/colour. Bulk deletion stays no-caret; normal
+click re-enters text. Native caret painting remains an actual platform check.

@@ -1,6 +1,6 @@
 import { bodyBlockInteractions } from './block-selection.mjs';
 import { textFormatting, isFormattingTransaction } from './formatting.mjs';
-import { guardNodeSelections } from './node-selection-bridge.mjs';
+import { createViewSelectionGuard } from './node-selection-bridge.mjs';
 import { objectInteractions } from './object-interactions.mjs';
 import { blockIndentation } from './block-indentation.mjs';
 import { listInteractions } from './list-interactions.mjs';
@@ -38,7 +38,7 @@ export function createEditorReplica(
     views = new Set(),
     remote = Symbol('accepted-root'),
     selectionOwner = Symbol('view-selection-owner');
-  const releaseNodeSelections = guardNodeSelections(doc, views);
+  const selectionGuard = createViewSelectionGuard(doc, views);
   let disposed = false,
     acceptedBody = projection(doc, kind(checkout.kind)).content;
   const changed = (_update, origin) => {
@@ -94,7 +94,9 @@ export function createEditorReplica(
     const bookmark = historyOptions.preserveSelection
       ? history.bookmark(view.state)
       : undefined;
-    const changed = history.run(direction, view.state);
+    const changed = selectionGuard.run(() =>
+      history.run(direction, view.state)
+    );
     if (changed)
       history.restore(view.state, (tr) => view.dispatch(tr), bookmark);
     return changed;
@@ -121,7 +123,9 @@ export function createEditorReplica(
           projection(doc, kind(checkout.kind)).content,
           next
         );
-        Y.applyUpdate(doc, Y.encodeStateAsUpdate(accepted), remote);
+        selectionGuard.run(() =>
+          Y.applyUpdate(doc, Y.encodeStateAsUpdate(accepted), remote)
+        );
         acceptedBody = next;
       } finally {
         accepted.destroy();
@@ -210,7 +214,9 @@ export function createEditorReplica(
             (isInsertionTransaction(tr) || isFormattingTransaction(tr)) &&
             !tr.getMeta(ySyncPluginKey)?.isChangeOrigin;
           if (localAction) history.manager.stopCapturing();
-          this.updateState(this.state.apply(tr));
+          if (tr.docChanged)
+            selectionGuard.run(() => this.updateState(this.state.apply(tr)));
+          else this.updateState(this.state.apply(tr));
           if (localAction) {
             history.manager.stopCapturing();
             if (insertionWantsFocus(tr) || isFormattingTransaction(tr))
@@ -251,7 +257,7 @@ export function createEditorReplica(
       for (const view of [...views]) view.destroy();
       doc.off('update', changed);
       history.destroy();
-      releaseNodeSelections();
+      selectionGuard.destroy();
       doc.destroy();
       disposed = true;
     },

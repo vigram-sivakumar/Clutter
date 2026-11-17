@@ -14,6 +14,34 @@ const preventBlockReplacement = (view, event) => {
   event.preventDefault();
   return true;
 };
+// Leave hidden block mode before native mouse-down placement/dragging begins.
+// Resolve through public PM hit testing; root whitespace may map to a block edge.
+export function resumeTextSelection(view, pos, event) {
+  if (
+    !(view.state.selection instanceof BodyBlockSelection) ||
+    event.button !== 0 ||
+    event.shiftKey ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.altKey
+  )
+    return false;
+  const $at = view.state.doc.resolve(pos);
+  const selection = TextSelection.near($at);
+  if (
+    !(selection instanceof TextSelection) ||
+    selection.$from.depth !== 1 ||
+    !selection.$from.parent.isTextblock ||
+    (pos >= view.state.doc.firstChild.nodeSize &&
+      selection.$from.index(0) === 0)
+  )
+    return false;
+  // Focus first, then publish one visible selection (the same order as PM's own
+  // pointer selection). No delayed focus/caret colour workaround.
+  view.focus();
+  view.dispatch(view.state.tr.setSelection(selection).setMeta('pointer', true));
+  return true;
+}
 export function bodyBlockInteractions({ canEdit, nextId, stopCapturing } = {}) {
   return new Plugin({
     key,
@@ -151,27 +179,29 @@ export function bodyBlockInteractions({ canEdit, nextId, stopCapturing } = {}) {
           return false;
         return true;
       },
-      handleClick(view, pos, event) {
-        if (
-          !(view.state.selection instanceof BodyBlockSelection) ||
-          event.button !== 0 ||
-          event.shiftKey ||
-          event.metaKey ||
-          event.ctrlKey ||
-          event.altKey
-        )
-          return false;
-        const $at = view.state.doc.resolve(pos);
-        if ($at.depth !== 1 || !$at.parent.isTextblock) return false;
-        view.dispatch(view.state.tr.setSelection(TextSelection.near($at)));
-        view.focus();
-        return true;
-      },
+      handleClick: resumeTextSelection,
       handleTextInput: (view) =>
         view.state.selection instanceof BodyBlockSelection,
       handlePaste: (view) => view.state.selection instanceof BodyBlockSelection,
       handleDrop: (view) => view.state.selection instanceof BodyBlockSelection,
       handleDOMEvents: {
+        mousedown(view, event) {
+          if (!(view.state.selection instanceof BodyBlockSelection))
+            return false;
+          const hit = view.posAtCoords({
+            left: event.clientX,
+            top: event.clientY,
+          });
+          if (!hit) return false;
+          const node =
+            hit.inside >= 0
+              ? view.state.doc.nodeAt(hit.inside)
+              : view.state.doc.nodeAt(hit.pos);
+          if (node?.isBlock && !node.isTextblock) return false;
+          resumeTextSelection(view, hit.pos, event);
+          // Let PM/browser continue normal text dragging and multi-click handling.
+          return false;
+        },
         beforeinput: preventBlockReplacement,
         cut: preventBlockReplacement,
       },

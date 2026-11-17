@@ -1,0 +1,34 @@
+{
+  "delivery": 72,
+  "date": "2026-11-17",
+  "scope": "immediate text re-entry after hidden body selection; scoped Y selection protection",
+  "manual71": {
+    "firstSelectAllCheck": "works",
+    "reportedBug": "delayed/faded initial caret blinking after deletion and clicking editor"
+  },
+  "deletionPolicy": "preserved no-caret bulk delete; assistant alternative automatic-caret proposal never implemented",
+  "automated": {
+    "fullSuite": 220,
+    "pass": 220,
+    "fail": 0,
+    "focusedSelectionObject": 12,
+    "strictCoreRuntimeTypecheck": "PASS",
+    "boundarySources": 57,
+    "newRegressions": [
+      "selection-only updates have no AllSelection roundtrip",
+      "public empty-paragraph boundary hit restores one visible TextSelection on mouse-down before mouse-up",
+      "hidden mode classes removed and repeated clicks do not oscillate",
+      "real CLI/MCP confirm unchanged accepted head for selection-only activity",
+      "immediate typing reaches same accepted Core"
+    ],
+    "nativeLimit": "hit positions simulated, no native caret paint/colour qualification"
+  },
+  "architectureReview": {
+    "click": "one shared public PM focus/selection helper for down and click fallback; default drag/multiclick preserved",
+    "guard": "unscoped guard replaced with createViewSelectionGuard around potential document changes only",
+    "ownership": "same context/history/Core; no native binding fork/private API/timer/CSS blink/colour workaround",
+    "unchanged": "schema/Core/runtime/native/UI CSS/components/locks/dependencies"
+  },
+  "manual72": "pending actual Mac caret appearance/typing retest",
+  "next": "Mac delete/no-caret then click/body caret retest; marquee/handles remain later"
+}

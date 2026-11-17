@@ -8,14 +8,15 @@ The user authorized complete removal of old architecture, not a compatibility pr
 Do not resurrect the retired CM6/full-or-compact Markdown/vault/persistence pipeline.
 
 Stage3 execution order and acceptance: docs/foundation/rebuild/stage3-implementation-plan.md.
-68 real Mac client milestone and70 formatting controls/history/save/window-reopen
-are user PASS. Current71 implements3C keyboard selection: first Cmd/Ctrl+A current
-body text, second explicit BODY block IDs excluding title; title stays title-only.
-Escape clears without caret; typing cannot replace blocks; delete explicit IDs only,
-preserve unselected children. Read docs/foundation/rebuild/body-selection-71.md.
-One BodyBlockSelection model is already used by keyboard and context/history mapping;
-marquee/handles/reorder will use it next, not implemented or claimed in71. No temporary
-whole-document selectAll path. Native keyboard check next. AI app integration deferred.
+68 client and70 formatting Mac milestones complete.71 user requested two-stage
+Cmd+A/body/title-exclusion check works; bulk deletion remains no-caret mode. The
+assistant suggestion to automatically show caret was NOT implemented;72 preserves71.
+Current72 fixes return to text: resolve public text hit on mouse-down (including
+empty paragraph boundary), focus before one visible selection, keep native drag/
+multi-click handling. Scope Y selection guard to potential document changes so
+selection-only updates don't roundtrip hidden/All modes. Read
+ docs/foundation/rebuild/caret-restore-72.md. Native blink/colour retest NEXT; no native
+fix qualification from jsdom. Same model/format/history/Core path; no marquee yet.
 
 MANDATORY ON EVERY CHANGE: follow the completion review in docs/foundation/AGENTS.md.
 Remove superseded paths; check for duplicate owners/implementations and boundary

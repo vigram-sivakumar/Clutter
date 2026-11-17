@@ -25,11 +25,15 @@ export function bodySelectionNear(doc, at) {
 
 // y-prosemirror's relative NodeSelection restore does not guard a deleted target
 // at doc-end. Use public Y transaction events and PM selection APIs, with no fork
-// or mutation of binding internals. The temporary AllSelection is selection-only,
+// or mutation of binding internals. Protection is scoped to document-changing
+// replica operations: selection/focus-only updates never get an AllSelection roundtrip.
+// The temporary AllSelection is selection-only,
 // synchronous, not history and never persisted. Restore by canonical block ID.
-export function guardNodeSelections(doc, views) {
+export function createViewSelectionGuard(doc, views) {
+  let changing = 0;
   const pending = new Map();
   const before = () => {
+    if (!changing) return;
     for (const view of views) {
       const selection = view.state.selection;
       if (selection instanceof BodyBlockSelection) {
@@ -75,9 +79,19 @@ export function guardNodeSelections(doc, views) {
   };
   doc.on('beforeAllTransactions', before);
   doc.on('afterAllTransactions', after);
-  return () => {
-    doc.off('beforeAllTransactions', before);
-    doc.off('afterAllTransactions', after);
-    pending.clear();
+  return {
+    run(action) {
+      changing++;
+      try {
+        return action();
+      } finally {
+        changing--;
+      }
+    },
+    destroy() {
+      doc.off('beforeAllTransactions', before);
+      doc.off('afterAllTransactions', after);
+      pending.clear();
+    },
   };
 }

@@ -3686,3 +3686,119 @@ test('71 read-only deletion and beforeinput guards prevent block replacement', a
   assert(locked.props.handleDrop(av));
   assert(locked.props.handlePaste(av));
 });
+
+test('72 selection-only body mode updates do not roundtrip through a temporary AllSelection', async (t) => {
+  const x = await seeded(t),
+    a = await x.open('selection-only72'),
+    av = x.mount(a);
+  const original = av.props.dispatchTransaction,
+    transitions = [];
+  av.setProps({
+    dispatchTransaction(tr) {
+      transitions.push(tr.selection.constructor.name);
+      original.call(this, tr);
+    },
+  });
+  av.dispatch(selectBodyBlocks(av.state, ['paragraph-1']));
+  keydown(av, 'Escape');
+  assert(av.state.selection instanceof BodyBlockSelection);
+  assert.deepEqual(av.state.selection.ids, []);
+  assert(
+    !transitions.includes('AllSelection'),
+    'pure selection updates must not normalize through whole-document selection'
+  );
+  assert.deepEqual(transitions, ['BodyBlockSelection', 'BodyBlockSelection']);
+  const before = ok(await x.read()).head;
+  await a.flush();
+  assert.equal(ok(await x.read()).head, before);
+});
+test('72 mouse-down after bulk delete restores one visible body caret before mouse-up without content changes', async (t) => {
+  const x = await seeded(t),
+    a = await x.open('caret72'),
+    av = x.mount(a);
+  av.focus();
+  rowAt(av, 'paragraph-1');
+  keydown(av, 'a', { metaKey: true });
+  keydown(av, 'a', { metaKey: true });
+  keydown(av, 'Delete');
+  assert(av.state.selection instanceof BodyBlockSelection);
+  assert.equal(av.state.selection.visible, false);
+  await a.flush();
+  const before = ok(await x.read()),
+    transitions = [],
+    original = av.props.dispatchTransaction,
+    hitTest = av.posAtCoords;
+  av.setProps({
+    dispatchTransaction(tr) {
+      transitions.push(tr.selection.constructor.name);
+      original.call(this, tr);
+    },
+  });
+  // Model the public hit-test returning the boundary below an empty paragraph,
+  // which must resolve to that body paragraph, never back into the title.
+  av.posAtCoords = () => ({ pos: av.state.doc.content.size, inside: -1 });
+  try {
+    for (let n = 0; n < 3; n++) {
+      if (n) {
+        av.dispatch(selectBodyBlocks(av.state, []));
+        assert.equal(av.state.selection.visible, false);
+      }
+      transitions.length = 0;
+      av.dom.dispatchEvent(
+        new dom.window.MouseEvent('mousedown', {
+          button: 0,
+          bubbles: true,
+          cancelable: true,
+          clientX: 20,
+          clientY: 40,
+        })
+      );
+      assert(
+        av.state.selection instanceof TextSelection,
+        'restore on down, not after mouse-up'
+      );
+      assert.equal(av.state.selection.$from.parent.type.name, 'paragraph');
+      assert.equal(av.state.selection.$from.parentOffset, 0);
+      assert.equal(av.state.selection.visible, true);
+      assert(av.hasFocus());
+      assert(!av.dom.hasAttribute('data-body-selection'));
+      assert(!av.dom.classList.contains('body-selection-mode'));
+      assert(!av.dom.classList.contains('ProseMirror-hideselection'));
+      assert.deepEqual(transitions, ['TextSelection']);
+      av.dom.dispatchEvent(
+        new dom.window.MouseEvent('mouseup', {
+          button: 0,
+          bubbles: true,
+          cancelable: true,
+          clientX: 20,
+          clientY: 40,
+        })
+      );
+      assert(av.state.selection instanceof TextSelection);
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      assert(av.state.selection instanceof TextSelection);
+      assert(!av.dom.classList.contains('body-selection-mode'));
+    }
+    for (const mode of ['cli', 'mcp']) {
+      const read = ok(
+        await peerCommand67(x, mode, {
+          apiVersion: 1,
+          method: 'page.read',
+          spaceId: x.v.spaceId,
+          pageId: 'p',
+        })
+      );
+      assert.equal(read.head, before.head);
+      assert.equal(read.content.value.content[1].type, 'paragraph');
+      assert.equal(read.content.value.content[1].content, undefined);
+    }
+    av.dispatch(av.state.tr.insertText('Immediate typing'));
+    await a.flush();
+    assert.equal(
+      ok(await x.read()).content.value.content[1].content[0].text,
+      'Immediate typing'
+    );
+  } finally {
+    av.posAtCoords = hitTest;
+  }
+});

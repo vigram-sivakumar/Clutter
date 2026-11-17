@@ -20,7 +20,12 @@
     "history": "existing context bookmarks and public Y selection guard extended; no new manager",
     "unchanged": "Core/runtime/native/schema/contracts/dependencies/locks"
   },
-  "manual71": "pending scoped Mac select-all/title isolation",
+  "manual71": {
+    "result": "requested first select-all check works",
+    "source": "user works; then asks deletion caret UX and reports delayed/faded blink after clicking editor",
+    "scope": "two-stage body text/block select-all and title exclusion",
+    "followup": "72 caret re-entry correction; bulk-delete no-caret preserved"
+  },
   "notImplemented": "marquee/handles/group/hierarchical pointer reorder; next on same model",
-  "next": "Mac two-stage Cmd+A body/title check, then Escape/title/deletion checks before pointer capability"
+  "next": "Mac caret re-entry72 retest before remaining block checks/pointer capability"
 }

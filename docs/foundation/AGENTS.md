@@ -235,3 +235,14 @@ Generic deleteBlocks is shared with object67, preserving surviving child graph/i
 History/relative sync guard handles custom selection without another saved fact or
 Undo manager. No marquee/handles/group reorder yet: implement next using same model,
 not a parallel state machine. Native keyboard check first; don't mark whole3C complete.
+
+## Caret re-entry correction72
+
+71 first Cmd+A/body/title exclusion native check works. Preserve bulk-delete no-caret
+mode (assistant's alternate caret proposal was not implemented).72 moves text re-entry
+to mouse-down with public PM hit testing, including empty paragraph boundary. Keep
+one helper for click fallback, native drag/multi-click, object/table separation.
+Selection guard is scoped to potential document changes; selection-only updates must
+not oscillate hidden/All modes. No native binding internals/CSS blink/timer workaround.
+Native slow/faded blink retest next; do not claim browser pixels from jsdom tests.
+Read rebuild/caret-restore-72.md; marquee/handles still pending.

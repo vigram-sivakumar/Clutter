@@ -1,43 +1,41 @@
 # Resume Clutter Structured
 
-## Current checkpoint — body selection71, 17 November 2026
+## Current checkpoint — caret restore72, 17 November 2026
 
-**Formatting70 COMPLETE — user Mac PASS:** all controls, final Undo/Redo and
-Save/red-button close/same-session reopen retained text/formats.68 actual real
-CLI/MCP milestone is also complete (native window/context reopen, no owner restart).
-Do not replay those completed manual milestones for bookkeeping.
+**71 native first check works:** user reports requested two-stage Cmd+A/body/title
+exclusion works. User observes slow/faded/odd initial blinking after deleting blocks
+then clicking editor.72 preserves no-caret after bulk deletion; earlier assistant
+suggestion to automatically show caret was not implemented. Click must resume normal
+text immediately. Existing object67 deletion still follows its separate caret rule.
 
-**71 delivers the keyboard capability within3C.** Cmd/Ctrl+A first selects current
-body-block text; second switches to explicit BODY-block selection, excluding title.
-Repeated select-all in title stays title-only. Escape clears selection/highlights
-without caret; ordinary typing cannot replace blocks. Normal text click restores
-caret editing. Delete/Backspace removes only selected IDs, preserving title and
-unselected children at unchanged indent under nearest surviving parent. One empty
-paragraph remains when all body blocks are removed. Read [outcome/checklist](rebuild/body-selection-71.md).
+**72 fixes shared text re-entry and guard scope.** Block-mode click previously waited
+for mouse-up and rejected root-boundary positions such as below an empty paragraph.
+One public hit-test/text-selection helper now runs on mouse-down, focuses first and
+publishes visible selection, while letting native text drag/multi-click continue.
+Late handleClick remains a fallback using the same helper. Object/nested-table paths
+are not taken over; body whitespace cannot jump back into title.
 
-One custom PM BodyBlockSelection owns stable explicit IDs and empty/no-caret mode;
-no content attributes or React copy. History/bookmarks and shared Y selection guard
-preserve mode across Undo/peer edits. Object and block deletion share one structural
-transform, retain their different cursor destinations. Real CLI/MCP observe accepted
-deleted roots with surviving child formatting/indent. Bulk deletion leaves no-caret
-mode; click text to resume. Selection-only commands do not mutate accepted root.
+Existing Y selection protection now runs only around potential document changes
+(local doc-changing transaction, accepted remote apply, context Undo/Redo). Plain
+selection/focus updates no longer cycle through temporary whole-document protection.
+No private binding API, new range owner/history, production timeout, forced blink/
+caret colour CSS or OS branch. Read [scope and retest](rebuild/caret-restore-72.md).
 
-Validation71:218 full Linux tests PASS;8 scoped new selection tests PASS, final
-expanded disjoint copy/delete/real-peer check PASS. Strict Core/runtime TS and57-source
-boundaries PASS. Production React/PM/Core/SQLite selection/title isolation, input
-guards, delete/Undo/save/context reopen PASS. Actual native keyboard/pointer checks
-remain pending.
+Validation72:220 full Linux tests PASS;12 focused selection/object cases PASS;
+strict Core/runtime TS and57-source boundaries PASS. New regression asserts one
+visible text-selection transition on mouse-down, no selection-only All roundtrip,
+empty-paragraph boundary handling, immediate typing and unchanged accepted head
+through real CLI/MCP reads. Native blink/colour itself remains unverified.
 
-NEXT scoped Mac Cmd+A/title-exclusion check. Marquee, handles and group/hierarchical
-reorder remain the next3C pointer capability on THIS SAME selection model; they are
-not claimed implemented. No inactive controls/placeholders added. Table-cell mode
-remains separately scoped. Ctrl+A is no longer a queued temporary path.
+NEXT Mac retest: delete body blocks (no caret), click empty body once. Clear normal
+caret should appear immediately, and typing work immediately; no delay/faded initial
+blinks. Actual renderer behaviour is still pending; Linux tests check model/style
+state only. Marquee/handles/reorder remain next on the same explicit selection model.
 
-Build71 fresh synthetic app `npm run desktop -- --new`; no install/schema/contract/
-Core/runtime/native/dependency/lock changes. Existing bundles/sessions remain intact.
-AI active-app integration remains deferred roadmap. Current source delivery includes
-final formatting observation docs queued after70. Native71 pointer/pixel/Windows/IME
-qualification is not inferred from Linux tests.
+68 real client and70 formatting controls/Undo/save/window-reopen milestones complete;
+no bookkeeping replay. Core/schema/runtime/native/dependencies/locks unchanged. Build
+changed source with `npm run desktop -- --new`; no install. Prior sessions retain
+original bundles. AI active-app integration remains deferred roadmap.
 
 
 ## Working agreement

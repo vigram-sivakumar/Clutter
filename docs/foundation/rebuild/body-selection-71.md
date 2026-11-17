@@ -84,3 +84,11 @@ is extended for the one selection type, not duplicated. No Core/runtime/native/
 schema/contracts/dependencies/locks changed. Keyboard selection transforms and CSS
 are shared across platforms; actual Mac/Windows/IME pointer/pixel claims remain
 separate. Marquee/handles/reordering tests are not claimed from keyboard coverage.
+
+## Actual71 observation and72 correction
+
+User says the requested two-stage Cmd+A/body/title check works. User reports delayed,
+faded initial caret blinks after deleting then clicking editor.72 preserves no-caret
+bulk-delete behavior and corrects text re-entry/selection-guard timing. Read
+[caret restore72](caret-restore-72.md). The assistant's alternate show-caret-on-delete
+proposal was not applied. No whole3C/native pointer completion inferred.

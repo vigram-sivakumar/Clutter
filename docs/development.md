@@ -250,3 +250,11 @@ losing toolbar/range. Only Bold was user-confirmed in69; native correction pendi
 `npm run desktop -- --new`; no install. First Cmd/Ctrl+A block text, second BODY blocks,
 never title. Escape no caret; click text to edit. Explicit deletion/history/peer
 mapping shares existing Core. Marquee/handles/reorder next, not available in71.
+
+## Caret restore72
+
+[Scope/retest](foundation/rebuild/caret-restore-72.md). Apply over71 and
+`npm run desktop -- --new`; no install. Bulk delete stays without caret; click in
+empty body should restore a clear caret/typing immediately. No CSS blink override.
+Public hit-test/selection transition and document-only Y guard are shared; actual
+native renderer retest required. Earlier client/formatting milestones stay complete.
