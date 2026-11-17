@@ -1,38 +1,38 @@
 # Resume Clutter Structured
 
-## Current checkpoint — selected objects67, 17 November 2026
+## Current checkpoint — real client acceptance68, 17 November 2026
 
-User reports66 “everything looks good except separator”; preserve that scoped
-observation. Separator63 previously passed its old checks, but user now explicitly
-supersedes its retained-caret/empty-placement rule. Text conversion and body-wide
-indentation66 remain current.3A title/body remains user PASS.
+**User67 scoped Mac PASS:** filled text/list separator insertion selects/highlights;
+Enter starts normal paragraph below ready to type (the requested first check).
+Do not extend this into an unobserved full click/delete/Undo matrix. Text controls66,
+selected-object UX67 and earlier3A observations remain recorded.
 
-**67: select the separator, Enter to continue.** Empty command block converts into
-selected separator; filled source text stays intact and separator inserts after its
-explicit descendants. No automatic continuation paragraph during insertion. Clicking
-the separator selects/highlights it. Enter uses an immediately following empty normal
-paragraph at the same indent/parent, or inserts one below and places the caret there.
-Backspace/Delete remove the selected object: previous body text end, otherwise next
-body text start, otherwise neighboring object selected; empty body gets a paragraph.
-Never move to title. Unselected children survive with unchanged indent.
-Read [architecture/checklist](rebuild/object-selection-67.md).
+**68 is verification-only:** real bundled CLI/MCP read/write/conflict, UI save and
+same-session window/context reopen. Read [exact steps and limits](rebuild/client-acceptance-68.md).
+Runner: `node tools/check-clients.mjs --prepare`, then UI appends UI VERIFIED to the
+new Client check68 note; Save, `--verify`, close/reopen SAME app window/session and
+`--verify-reopen`. Formatting follows acceptance, not another profiling/research gate.
 
-One registry focus policy and shared transaction executor select objects; one atomic
-body-object keyboard/click handler continues/deletes them. Node selection is view-local.
-Public Y/PM selection bridge guards selected nodes disappearing during Undo/peer writes;
-no dependency fork, native feature logic, separate history/save or Core owner.
+One synthetic note is created through real CLI; MCP and CLI update it using expected
+heads. Both clients must reject stale writes without accepted changes. Shared UI adds
+marker; both peer clients read it. Reopen verifier requires a new live native process,
+old recorded process gone and same accepted head; operator still confirms visual note
+restoration. No owner restart/disk-recovery qualification is inferred. Reports/plan
+live privately under Git metadata, bound to the exact bundle/Space/session. No tokens
+or note bodies in returned summaries. Existing notes stay untouched.
 
-Validation:191 full Linux tests PASS; final16 focused editor tests PASS (including
-2 subsequently added ordered/unordered parent/child continuation cases). Strict
-Core/runtime TS and51-source boundaries PASS. Real CLI/MCP read accepted UI separator,
-continuation/deletion; MCP removal of selected last object survives safely. Production
-React/PM/Core/SQLite selection/continuation test PASS. No native/pixel/Windows/IME pass.
+Linux evidence68: one new end-to-end test PASS using actual bundled client processes,
+headless owner/Core/SQLite and production React/PM UI save/context restoration. Native
+PID transition guards are tested using disposable stand-in processes, not Mac UI.
+Strict Core/runtime TS and51-source boundaries PASS. Product packages, native code,
+schema/contracts/dependencies/locks unchanged; no rebuild/install needed for68.
+No full-suite replay claimed; preceding67 had191 full tests plus final16 scoped checks.
 
-Apply67 over66; `npm run desktop -- --new`, no install. NEXT scoped Mac object check,
-then dedicated real Mac CLI/MCP read/write/conflict/save/reopen acceptance BEFORE
-formatting. Ctrl+A/body block selection A01–A05 remains3C, not implemented here.
-C01 source fixed66; user67 says everything else looks good, but no separate full
-multi-level ordered/unordered C01 visual checklist is inferred from that statement.
+NEXT: apply68 over67, run --prepare while current test app remains open. Click Refresh
+pages, open Client check68 and inspect its three client lines. Add UI VERIFIED at the
+BODY bottom without removing those lines; Save. Await that scoped result before the
+next command. Do not mark the Mac client milestone complete before verify/reopen and
+user observation. Ctrl+A/body block selection remains3C, no formatting added here.
 
 
 ## Working agreement

@@ -1,0 +1,34 @@
+{
+  "delivery": 68,
+  "date": "2026-11-17",
+  "scope": "dedicated real Mac CLI/MCP acceptance helper; verification only",
+  "priorManual67": {
+    "result": "PASS",
+    "scope": "requested separator insert/select/Enter/type check"
+  },
+  "automated": {
+    "newEndToEndTests": 1,
+    "pass": 1,
+    "real": "bundled CLI/MCP processes, production React/PM, accepted Core/SQLite, context save/reopen",
+    "checks": [
+      "CLI/MCP read-write",
+      "both stale conflicts leave accepted head unchanged",
+      "UI body marker read by both clients",
+      "same-session context reopen",
+      "repeat-prepare/no-marker/no-new-process refusals",
+      "unrelated note preserved"
+    ],
+    "nativePidGuard": "disposable stand-in processes only",
+    "fullSuite": "not replayed; product source unchanged",
+    "strictCoreRuntimeTypecheck": "PASS",
+    "boundarySources": 51
+  },
+  "architectureReview": {
+    "owner": "existing bundled launcher and reserved Core only",
+    "writes": "real peer commands, no direct HTTP/DB/byte mutation",
+    "fixture": "existing shared schema helper",
+    "unchanged": "all product/editor/UI/native/runtime sources, schema/contracts, dependencies/locks"
+  },
+  "macAcceptance": "pending prepare -> visual read/UI save -> verify -> native window reopen -> verify-reopen/operator observation",
+  "next": "formatting only after scoped Mac client milestone passes"
+}

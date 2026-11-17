@@ -217,3 +217,10 @@ Insert/click selects separator; Enter continues below; Backspace/Delete delete w
 body-only caret fallback. Build changed source: `npm run desktop -- --new`; no install.
 Text conversion/indentation66 stays. Dedicated Mac CLI/MCP acceptance follows the
 scoped object check, before formatting. No Windows/native result inferred from Linux.
+
+## Dedicated peer acceptance68
+
+Use `node tools/check-clients.mjs --prepare`, then follow
+[client acceptance](foundation/rebuild/client-acceptance-68.md). Existing bundled
+runtime/launcher/session; no build/install or product change. Both real CLI/MCP clients
+exercise read/write/conflict and UI accepted save/reopen. Never print session tokens.

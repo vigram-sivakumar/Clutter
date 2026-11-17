@@ -8,13 +8,12 @@ The user authorized complete removal of old architecture, not a compatibility pr
 Do not resurrect the retired CM6/full-or-compact Markdown/vault/persistence pipeline.
 
 Stage3 execution order and acceptance: docs/foundation/rebuild/stage3-implementation-plan.md.
-3A and earlier separator63 scoped Mac checks PASS. Current67 supersedes separator63:
-empty converts to selected separator; filled inserts below/after descendants and
-selects it. Click selects; Enter uses/creates normal paragraph below. Backspace/Delete
-remove selected object and move to nearby BODY text/object, never title. Read
-docs/foundation/rebuild/object-selection-67.md. Text conversion/indentation66 stays.
-Verify scoped Mac separator check, then dedicated real Mac CLI/MCP read/write/conflict/
-save/reopen acceptance BEFORE formatting. Ctrl+A A01–A05 remains3C.
+User67 scoped insert/select/Enter/type Mac check PASS. Current68 is the dedicated
+real Mac CLI/MCP acceptance, BEFORE formatting. Read docs/foundation/rebuild/client-acceptance-68.md. Run
+node tools/check-clients.mjs --prepare against the current67 synthetic session; then
+UI marker/save, --verify, native window close/reopen and --verify-reopen. Do not infer
+native visual/reopen pass from automation alone. Text controls66 and selected-object
+UX67 remain current. Ctrl+A A01–A05 remains3C; no formatting implementation yet.
 
 MANDATORY ON EVERY CHANGE: follow the completion review in docs/foundation/AGENTS.md.
 Remove superseded paths; check for duplicate owners/implementations and boundary

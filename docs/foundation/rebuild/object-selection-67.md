@@ -70,3 +70,10 @@ sessions keep their old bundles. No dependency install.
 
 Record scoped result before moving to dedicated real Mac CLI/MCP read/write/conflict/
 save/reopen acceptance, then formatting. Ctrl+A/body block selection remains3C.
+
+## User observation after67
+
+User says PASS after the requested first Mac check: filled text/list separator is
+selected, Enter starts normal paragraph below and typing works. Record this scoped
+pass; click/Delete/Backspace/Undo matrix is not independently confirmed by that reply.
+Next is [dedicated real client acceptance68](client-acceptance-68.md), before formatting.

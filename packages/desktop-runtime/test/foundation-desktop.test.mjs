@@ -21,6 +21,7 @@ import {
   readSession,
   readJSON,
   hash,
+  privateJSON,
 } from '../src/host/session.mjs';
 import { verifyArchive, lock } from '../../../apps/desktop/tools/runtime.mjs';
 import { bootstrap } from '../../../apps/desktop/host/bootstrap.mjs';
@@ -1229,5 +1230,147 @@ test('66 production paragraphs and converted headings share indentation and the 
     assert.equal(read.content.value.content[1].type, 'paragraph');
   } finally {
     await ui.dispose();
+  }
+});
+
+// Native window IDs are represented by short-lived processes ONLY for the PID
+// transition guard. React/PM and bundled CLI/MCP/Core/SQLite below are real; this
+// does not qualify a native Mac window or its visual restoration.
+test('68 bundled CLI/MCP acceptance runner verifies conflict, UI save and same-session context reopen', async () => {
+  const dir = await session(),
+    reportDir = join(base, 'client-check68-' + crypto.randomUUID());
+  mkdirSync(reportDir, { mode: 0o700 });
+  const locator = join(reportDir, 'current.json'),
+    processes = [];
+  const fakeWindow = () => {
+    const p = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)'], {
+      stdio: 'ignore',
+    });
+    processes.push(p);
+    return p;
+  };
+  let windowProcess = fakeWindow(),
+    ui = await browserWindow(dir, 'clients68');
+  const current = {
+    format: 'clutter-structured-run53',
+    resources,
+    session: dir,
+    uiPid: windowProcess.pid,
+  };
+  privateJSON(locator, current);
+  const check = async (phase) => {
+    const child = spawn(
+      process.execPath,
+      [
+        resolve(
+          'packages/desktop-runtime/test/fixtures/client-check-entry.mjs'
+        ),
+      ],
+      { stdio: ['pipe', 'pipe', 'pipe'] }
+    );
+    let output = '',
+      stderr = '';
+    child.stdout.on('data', (c) => (output += c));
+    child.stderr.on('data', (c) => (stderr += c));
+    const ended = once(child, 'exit');
+    child.stdin.end(
+      JSON.stringify({
+        phase,
+        locator,
+        recordsDirectory: join(reportDir, 'reports'),
+      })
+    );
+    const [code] = await ended;
+    const reply = JSON.parse(output);
+    if (!reply.ok) throw Error(reply.error);
+    assert.equal(code, 0, stderr);
+    return reply.value;
+  };
+  try {
+    ui.button('+ New page').click();
+    await ui.wait(() => !!ui.active());
+    await ui.type('UNRELATED NOTE');
+    await ui.saved();
+    const unrelatedId = ui.panes()[0].dataset.page;
+    const unrelated = (
+      await ui.api({ method: 'page.read', pageId: unrelatedId })
+    ).value;
+    const prepared = await check('prepare');
+    assert.equal(prepared.status, 'peer-checks-pass-awaiting-ui');
+    assert.equal(prepared.checks.cliReadWrite, 'PASS');
+    assert.equal(prepared.checks.mcpHandshakeReadWrite, 'PASS');
+    assert.equal(prepared.checks.cliStaleConflict, 'PASS');
+    assert.equal(prepared.checks.mcpStaleConflict, 'PASS');
+    await assert.rejects(() => check('prepare'), /CHECK_ALREADY_PREPARED/);
+    await assert.rejects(
+      () => check('verify'),
+      /UI_MARKER_OR_TEST_TEXT_NOT_SAVED/
+    );
+    const listing = await ui.api({ method: 'page.list', limit: 50 });
+    assert.equal(listing.ok, true, JSON.stringify(listing));
+    ui.button('Refresh pages').click();
+    await ui.wait(() =>
+      ui.doc.querySelector('[data-page="' + prepared.pageId + '"]')
+    );
+    ui.doc
+      .querySelector('.page-link[data-page="' + prepared.pageId + '"]')
+      .click();
+    await ui.wait(() => ui.active()?.textContent.includes('MCP UPDATED'));
+    const editor = ui.active();
+    assert(editor.textContent.includes('CLI CREATED'));
+    assert(editor.textContent.includes('CLI UPDATED'));
+    const p = editor.querySelectorAll('p')[2];
+    p.textContent += ' UI VERIFIED';
+    const selection = ui.dom.window.getSelection();
+    selection.selectAllChildren(p);
+    selection.collapseToEnd();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    await ui.saved();
+    const saved = await check('verify');
+    assert.equal(saved.status, 'ui-save-visible-to-cli-and-mcp');
+    assert.equal(
+      saved.nativeVisual,
+      'not inferred; operator confirmation required'
+    );
+    await assert.rejects(() => check('verify-reopen'), /CLOSE_AND_REOPEN/);
+    const before = (
+      await ui.api({ method: 'page.read', pageId: prepared.pageId })
+    ).value;
+    await ui.dispose();
+    ui = null;
+    const ended = once(windowProcess, 'exit');
+    windowProcess.kill();
+    await ended;
+    windowProcess = fakeWindow();
+    current.uiPid = windowProcess.pid;
+    privateJSON(locator, current);
+    ui = await browserWindow(dir, 'clients68');
+    await ui.wait(() => ui.active()?.textContent.includes('UI VERIFIED'));
+    const reopened = await check('verify-reopen');
+    assert.equal(reopened.status, 'same-root-after-window-reopen');
+    assert.equal(reopened.windowProcessReplaced, true);
+    assert.equal(
+      reopened.ownerRestart,
+      'not performed; this is window/context reopen'
+    );
+    const after = (
+      await ui.api({ method: 'page.read', pageId: prepared.pageId })
+    ).value;
+    assert.equal(after.head, before.head);
+    assert.equal(
+      (await ui.api({ method: 'page.read', pageId: unrelatedId })).value.head,
+      unrelated.head
+    );
+    const report = JSON.stringify(reopened);
+    assert(!report.includes(readSession(dir, resources).tokens.automation));
+    assert(!report.includes(readSession(dir, resources).tokens.ui));
+  } finally {
+    if (ui) await ui.dispose();
+    for (const p of processes)
+      if (p.exitCode === null && p.signalCode === null) {
+        const done = once(p, 'exit');
+        p.kill();
+        await done;
+      }
   }
 });

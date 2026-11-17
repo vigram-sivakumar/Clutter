@@ -67,3 +67,7 @@ After Mac editor/C01 check, dedicated Mac CLI/MCP acceptance precedes formatting
 Current67 [object selection](object-selection-67.md) supersedes separator63. Verify
 Mac selection/Enter/delete/caret behavior, then dedicated real Mac CLI/MCP acceptance
 before formatting. Text conversion/indentation66 remains current.
+
+User67 requested separator insert/select/Enter/type check PASS. Current68 is
+[real client acceptance](client-acceptance-68.md), verification-only, before formatting.
+Keep current67 app/session; no rebuild/install. Native observations remain pending.

@@ -22,6 +22,11 @@
     "ownership": "unchanged Core/SQLite/context-history paths",
     "unchanged": "native mechanisms, contracts/schema, dependencies/locks, runtime source"
   },
-  "manual67": "pending scoped Mac check",
-  "next": "Mac object check then dedicated Mac CLI/MCP read/write/conflict/save/reopen BEFORE formatting"
+  "manual67": {
+    "source": "user says Pass, proceed to next",
+    "scope": "requested first check: filled text/list separator select, Enter and type below",
+    "result": "PASS",
+    "limits": "does not independently confirm full click/delete/Undo matrix"
+  },
+  "next": "dedicated Mac CLI/MCP acceptance68 before formatting"
 }

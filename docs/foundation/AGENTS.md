@@ -178,3 +178,15 @@ retained-caret insertion or62 eager continuation. Tables retain their cell contr
 Selection mapping must survive selected target removal by Undo or peer writes without
 binding-private patches or a dependency fork. Current67 Mac check precedes dedicated
 Mac CLI/MCP acceptance and formatting.66 text conversion/indentation remains current.
+
+## Dedicated real-client acceptance68
+
+User67 passed the requested insert/select/Enter/type Mac check.68 is verification
+only, not another editor feature or a host-comparison gate. Read rebuild/client-acceptance-68.md. tools/check-clients.mjs uses the current
+bundled launcher/runtime and same reserved owner; never a new authority or direct DB
+writer. Prepare creates one synthetic target, exercises both clients and conflicts;
+verify checks accepted UI body marker; verify-reopen checks unchanged accepted root
+and native process replacement. Operator confirms actual visual restoration. Native
+process guards in Linux tests are stand-ins, not native evidence. Do not restart or
+kill owner/windows automatically. No rebuild needed; keep latest session. After this
+scoped Mac acceptance, proceed to already-agreed formatting; Ctrl+A remains3C.
