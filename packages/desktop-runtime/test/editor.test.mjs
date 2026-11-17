@@ -1680,6 +1680,15 @@ test('61 paragraph and separator commands preserve text; Backspace after separat
   bodyInput(av, 'prefix/separatorsuffix', 16);
   keydown(av, 'Enter');
   assert.equal(av.state.doc.child(2).type.name, 'separator');
+  av.dispatch(
+    av.state.tr.insert(
+      av.state.doc.content.size,
+      av.state.schema.nodes.paragraph.create(
+        { blockId: 'after-divider' },
+        av.state.schema.text('After')
+      )
+    )
+  );
   const suffixPos =
     av.state.doc.firstChild.nodeSize +
     av.state.doc.child(1).nodeSize +
@@ -1817,83 +1826,78 @@ test('61 CLI and MCP admit headings/separators through the same Core as the moun
 });
 
 for (const level of [1, 2, 3, 4, 5, 6])
-  test(`62 separator from H${level} continues in a normal paragraph with suffix and caret below`, async (t) => {
+  test(`63 separator below nonempty H${level} retains its type, complete text and original caret`, async (t) => {
     const x = await seeded(t),
       a = await x.open('separator_heading_' + level),
       av = x.mount(a);
-    const start = av.state.doc.firstChild.nodeSize;
     av.dispatch(
-      av.state.tr.setNodeMarkup(start, av.state.schema.nodes.heading, {
-        ...av.state.doc.child(1).attrs,
-        level,
-      })
+      av.state.tr.setNodeMarkup(
+        av.state.doc.firstChild.nodeSize,
+        av.state.schema.nodes.heading,
+        { ...av.state.doc.child(1).attrs, level }
+      )
     );
     av.focus();
     bodyInput(av, 'prefix/separatorsuffix', 16);
     a.stopCapturing();
+    const id = av.state.doc.child(1).attrs.blockId;
     keydown(av, 'Enter');
+    assert.equal(av.state.doc.childCount, 3);
     assert.equal(av.state.doc.child(1).type.name, 'heading');
     assert.equal(av.state.doc.child(1).attrs.level, level);
-    assert.equal(av.state.doc.child(1).textContent, 'prefix');
+    assert.equal(av.state.doc.child(1).textContent, 'prefixsuffix');
     assert.equal(av.state.doc.child(2).type.name, 'separator');
-    assert.equal(av.state.doc.child(3).type.name, 'paragraph');
-    assert.equal(av.state.doc.child(3).textContent, 'suffix');
-    assert.equal(av.state.selection.$from.parent.type.name, 'paragraph');
-    assert.equal(av.state.selection.$from.parentOffset, 0);
-    assert.equal(
-      av.state.selection.$from.parent.attrs.blockId,
-      av.state.doc.child(3).attrs.blockId
-    );
+    assert.equal(av.state.selection.$from.parent.attrs.blockId, id);
+    assert.equal(av.state.selection.$from.parentOffset, 6);
     assert.equal(av.hasFocus(), true);
     await a.flush();
     const saved = ok(await x.read());
-    assert.equal(saved.content.value.content[3].type, 'paragraph');
+    assert.equal(saved.content.value.content[1].attrs.level, level);
     a.history(av, 'undo');
     assert.equal(av.state.doc.childCount, 2);
-    assert.equal(av.state.doc.child(1).type.name, 'heading');
     assert.equal(av.state.doc.child(1).textContent, 'prefix/separatorsuffix');
     a.history(av, 'redo');
-    assert.equal(av.state.doc.child(3).type.name, 'paragraph');
+    assert.equal(av.state.doc.child(1).textContent, 'prefixsuffix');
+    assert.equal(av.state.doc.child(2).type.name, 'separator');
   });
-test('62 separator creates a paragraph at document end and reuses a following paragraph without converting an existing heading', async (t) => {
+test('63 separator above an empty command block retains it with no extra blank block or caret jump', async (t) => {
   for (const following of ['none', 'paragraph', 'heading']) {
     const x = await seeded(t),
       a = await x.open('separator_' + following),
       av = x.mount(a);
-    if (following !== 'none') {
-      const node = av.state.schema.nodes[following].create(
-        {
-          blockId: 'existing-after',
-          indent: 0,
-          parentId: null,
-          ...(following === 'heading' ? { level: 2 } : {}),
-        },
-        av.state.schema.text('Existing')
+    if (following !== 'none')
+      av.dispatch(
+        av.state.tr.insert(
+          av.state.doc.content.size,
+          av.state.schema.nodes[following].create(
+            {
+              blockId: 'existing-after',
+              indent: 0,
+              parentId: null,
+              ...(following === 'heading' ? { level: 2 } : {}),
+            },
+            av.state.schema.text('Existing')
+          )
+        )
       );
-      av.dispatch(av.state.tr.insert(av.state.doc.content.size, node));
-    }
     av.focus();
     bodyInput(av, '/separator');
     a.stopCapturing();
+    const id = av.state.doc.child(1).attrs.blockId;
     keydown(av, 'Enter');
-    assert.equal(av.state.doc.child(2).type.name, 'separator');
-    assert.equal(av.state.doc.child(3).type.name, 'paragraph');
-    assert.equal(
-      av.state.selection.$from.parent.attrs.blockId,
-      av.state.doc.child(3).attrs.blockId
-    );
-    if (following === 'paragraph') {
-      assert.equal(av.state.doc.childCount, 4);
+    assert.equal(av.state.doc.child(1).type.name, 'separator');
+    assert.equal(av.state.doc.child(2).type.name, 'paragraph');
+    assert.equal(av.state.doc.child(2).attrs.blockId, id);
+    assert.equal(av.state.doc.child(2).textContent, '');
+    assert.equal(av.state.selection.$from.parent.attrs.blockId, id);
+    assert.equal(av.state.selection.$from.parentOffset, 0);
+    assert.equal(av.state.doc.childCount, following === 'none' ? 3 : 4);
+    if (following !== 'none') {
       assert.equal(av.state.doc.child(3).attrs.blockId, 'existing-after');
-    } else assert.equal(av.state.doc.child(3).textContent, '');
-    if (following === 'heading') {
-      assert.equal(av.state.doc.child(4).attrs.blockId, 'existing-after');
-      assert.equal(av.state.doc.child(4).type.name, 'heading');
-      assert.equal(av.state.doc.child(4).attrs.level, 2);
+      assert.equal(av.state.doc.child(3).type.name, following);
     }
-    av.dispatch(av.state.tr.insertText('Normal text'));
-    assert.equal(av.state.selection.$from.parent.type.name, 'paragraph');
-    assert.equal(av.state.selection.$from.parent.marks.length, 0);
+    av.dispatch(av.state.tr.insertText('Typing stays here'));
+    assert.equal(av.state.doc.child(2).textContent, 'Typing stays here');
     await a.flush();
   }
 });

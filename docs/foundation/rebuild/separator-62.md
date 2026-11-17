@@ -1,5 +1,8 @@
 # Separator correction62
 
+**Current separator behavior is defined by [correction63](separator-63.md).**
+The earlier cursor-jump/normal-paragraph rule below is historical and superseded.
+
 17 November2026. Shared insertion fix implemented; scoped Mac confirmation pending.
 User61: everything looks good, except separator must move caret below. User explicitly
 confirmed this exception to the earlier keep-caret rule (S09). No new capability.

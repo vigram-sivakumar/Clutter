@@ -1,5 +1,8 @@
 # Capability61 — slash block insertion
 
+**Current separator behavior is defined by [correction63](separator-63.md).**
+The earlier cursor-jump/normal-paragraph rule below is historical and superseded.
+
 17 November2026. Implemented/automated checks PASS; scoped Mac check pending.
 This is the first capability under3B, not all blocks/formatting or all stage3.
 User61 reports everything looks good with one separator-focus correction.

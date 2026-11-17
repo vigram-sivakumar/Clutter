@@ -1027,58 +1027,59 @@ test('61 production React slash menu inserts a heading without remount or focus 
   }
 });
 
-test('62 separator before an existing empty heading focuses a normal paragraph, retaining heading styles and editor DOM', async () => {
+test('63 production separator placement retains the same paragraph DOM and caret for empty and nonempty blocks', async () => {
   const dir = await session(),
-    ui = await browserWindow(dir, 'separator62');
+    ui = await browserWindow(dir, 'separator63');
   try {
     ui.button('+ New page').click();
     await ui.wait(() => !!ui.active());
     const editor = ui.active(),
       pageId = ui.panes()[0].dataset.page;
-    await ui.type('/h2', editor);
-    await ui.wait(() => !!ui.doc.querySelector('[role=option]'));
-    ui.doc.querySelector('[role=option]').click();
-    await ui.wait(() => !!editor.querySelector('h2'));
-    const heading = editor.querySelector('h2'),
-      p = editor.querySelector('p');
-    assert.equal(heading.textContent, '');
-    assert(
-      p.contains(ui.dom.window.getSelection().anchorNode),
-      'heading insertion keeps the original paragraph caret'
-    );
-    editor.focus();
-    p.textContent = 'prefix/separatorsuffix';
-    ui.dom.window
-      .getSelection()
-      .setBaseAndExtent(p.firstChild, 16, p.firstChild, 16);
-    await ui.wait(
-      () => ui.doc.querySelector('[role=option]')?.textContent === 'Separator'
-    );
-    ui.doc.querySelector('[role=option]').click();
-    await ui.wait(() => !!editor.querySelector('hr'));
-    const below = editor.querySelector('hr').nextElementSibling;
-    assert.equal(below.tagName, 'P');
-    assert.equal(below.textContent, 'suffix');
-    assert.equal(
-      editor.querySelector('h2'),
-      heading,
-      'existing heading retains its own identity'
-    );
-    assert.equal(ui.doc.activeElement, editor);
-    assert(below.contains(ui.dom.window.getSelection().anchorNode));
-    assert.equal(ui.dom.window.getSelection().anchorOffset, 0);
-    assert.equal(ui.active(), editor);
-    // CSS follows semantic block type; the generated continuation is not a heading.
-    assert.equal(
-      ui.dom.window.getComputedStyle(below).fontSize,
-      ui.dom.window.getComputedStyle(editor).fontSize
-    );
-    await ui.saved();
-    const value = (await ui.api({ method: 'page.read', pageId })).value;
-    assert.deepEqual(
-      value.content.value.content.map((n) => n.type),
-      ['title', 'paragraph', 'separator', 'paragraph', 'heading']
-    );
+    for (const value of ['/separator', 'prefix/separator']) {
+      // First remove the previous divider through normal retained-context Undo.
+      if (editor.querySelector('hr')) {
+        ui.button('Undo').click();
+        await ui.wait(() => !editor.querySelector('hr'));
+      }
+      const p = editor.querySelector('p');
+      await ui.type(value, editor);
+      await ui.wait(
+        () => ui.doc.querySelector('[role=option]')?.textContent === 'Separator'
+      );
+      ui.doc.querySelector('[role=option]').click();
+      await ui.wait(() => !!editor.querySelector('hr'));
+      assert(ui.active() === editor, 'editor DOM is retained');
+      assert(
+        editor.querySelector('p') === p,
+        'paragraph DOM is retained during insertion'
+      );
+      assert(ui.doc.activeElement === editor, 'editor retains focus');
+      const selection = ui.dom.window.getSelection();
+      assert(p.contains(selection.anchorNode) || selection.anchorNode === p);
+      if (value === '/separator') {
+        assert(
+          editor.querySelector('hr').nextElementSibling === p,
+          'divider is above current paragraph'
+        );
+        assert.equal(p.textContent, '');
+        assert.equal(editor.querySelectorAll('p').length, 1);
+      } else {
+        assert.equal(p.nextElementSibling.tagName, 'HR');
+        assert.equal(p.textContent, 'prefix');
+        const beforeCaret = ui.doc.createRange();
+        beforeCaret.selectNodeContents(p);
+        beforeCaret.setEnd(selection.anchorNode, selection.anchorOffset);
+        assert.equal(beforeCaret.toString().length, 6);
+      }
+      await ui.saved();
+      const read = (await ui.api({ method: 'page.read', pageId })).value;
+      assert.deepEqual(
+        read.content.value.content.map((n) => n.type),
+        value === '/separator'
+          ? ['title', 'separator', 'paragraph']
+          : ['title', 'paragraph', 'separator']
+      );
+    }
   } finally {
     await ui.dispose();
   }

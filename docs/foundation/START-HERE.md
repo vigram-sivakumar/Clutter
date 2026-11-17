@@ -1,37 +1,38 @@
 # Resume Clutter Structured
 
-## Current checkpoint — slash block insertion61, 17 November 2026
+## Current checkpoint — separator placement63, 17 November 2026
 
 **3A title/body is complete with scoped user Mac PASS.** All requested checks passed:
 new-note title focus/Enter, Backspace boundary, Shift+Enter, Enter before existing
 body, ordered Undo/Redo, multiline paste feedback and Save/close/reopen persistence.
 See [title/body outcome](rebuild/title-body-60.md) and its evidence JSON.
 
-**Current correction62:** user61 says everything looks good except separator focus,
-then confirms separator must move caret into the line BELOW.62 now creates/reuses a
-normal paragraph there, retaining inline suffix content and existing later headings.
-Read [correction/checklist](rebuild/separator-62.md). Scoped Mac confirmation is next;
-no new capability is added until this correction is checked.
+**Current correction63:** latest user decision REMOVES the separator cursor override.
+After removing only /separator: empty current block → divider ABOVE; nonempty block
+→ divider BELOW. Keep the same block/type, remaining text together and mapped caret.
+Do not split into suffix blocks, insert a continuation paragraph or move the cursor.
+This supersedes62's normal-paragraph/jump rule. Read [outcome/check](rebuild/separator-63.md).
 
-Ordinary heading insertion still retains the original paragraph caret per S06. An
-empty heading is actually created below with basic heading CSS; continued typing in
-the original paragraph is not proof heading styles are absent. The automated UI
-reproduces this sequence and verifies separator continuation is paragraph-sized.
+User61 said everything looks good apart from the separator correction.63 is the
+current focused correction; verify its two cases on Mac before lists/formatting.
+Ordinary heading insertion still retains its current block caret. Heading CSS was
+already present; an empty heading below is separate from the paragraph being edited.
 
 **New UX queued:** two-stage Ctrl+A/body block selection with title exclusion and
 Escape. See A01–A05 in [stage3 UX](rebuild/stage3-ux.md). This is3C, not implemented61.
 Body Ctrl+A must never include title; Ctrl+A in title selects only title text.
 
 Validation61:133 Linux tests, strict Core/runtime TS and45-source checks passed.
-Correction62:56 editor tests plus1 production React/PM/Core/SQLite test passed;
-45-source checks pass. No full-suite replay/changed native build is claimed for62. Actual PM/React/Core/
-SQLite and CLI/MCP processes are tested. No native61 menu/caret/scroll/IME or shipping
-qualification is inferred. Native source/dependencies/locks remain unchanged.
+Correction63:56 editor tests and1 production React/PM/Core/SQLite test PASS;
+45-source dependency checks PASS. Tests for the superseded62 behavior were updated
+to the new user decision, not counted as separate passing coverage. No full-suite
+replay, native63 menu/caret/scroll/IME or shipping result is inferred. Native source,
+contracts/schema, dependencies/locks and CSS are unchanged.
 
-Apply62 over61 and run `npm run desktop -- --new` to build the changed source into
-a fresh synthetic Space. Prior sessions remain with original bundles. One content
-owner, no React body mirror, unchanged stable navigation/surface lifecycle. Final
-Clutter components/layout follow working capability checks, not another writer.
+63 applies over61 OR62; no need to apply62 first. Run `npm run desktop -- --new` to
+build changed source into a fresh synthetic Space. Old sessions keep original bundles.
+One Core owner, no React body mirror, stable editor/navigation lifecycle retained.
+
 
 ## Working agreement
 

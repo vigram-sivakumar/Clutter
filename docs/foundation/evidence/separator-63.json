@@ -1,0 +1,26 @@
+{
+  "delivery": 63,
+  "date": "2026-11-17",
+  "status": "implemented-scoped-mac-check-pending",
+  "supersedes": "62 separator cursor override explicitly withdrawn by user",
+  "rule": {
+    "emptyAfterRemovingCommand": "insert divider ABOVE same block",
+    "nonempty": "insert BELOW; retain prefix/suffix together",
+    "selection": "normal PM mapping in same block; no cursor-jump override",
+    "blockType": "preserved; no forced paragraph conversion"
+  },
+  "automated": {
+    "editorTests": 56,
+    "editorPass": 56,
+    "productionReactIntegrationTests": 1,
+    "productionPass": 1,
+    "boundaries": 45,
+    "scope": "superseded62 assertions rewritten; no contradictory requirements counted"
+  },
+  "native63": "not run here; user two-case check next",
+  "deliveryBases": [
+    61,
+    62
+  ],
+  "next": "verify two separator cases; then next capability; Ctrl+A remains3C"
+}

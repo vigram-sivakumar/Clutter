@@ -76,37 +76,22 @@ export function insertBlock(state, commandId, range, nextId) {
     if (child.attrs.indent <= node.attrs.indent) break;
     after += child.nodeSize;
   }
-  const separator = command.id === 'separator';
+  if (command.id === 'separator') {
+    // Remove only the command. Keep the same text block and its mapped selection.
+    const tr = state.tr.delete(range.from, range.to);
+    const empty = tr.doc.nodeAt(start).content.size === 0;
+    tr.insert(empty ? start : tr.mapping.map(after, -1), inserted);
+    return tr.setMeta(key, { close: true });
+  }
   const tail = suffix.size
-    ? separator
-      ? state.schema.nodes.paragraph.create(
-          { ...attrs, blockId: nextId() },
-          suffix
-        )
-      : node.type.create({ ...node.attrs, blockId: nextId() }, suffix)
+    ? node.type.create({ ...node.attrs, blockId: nextId() }, suffix)
     : null;
   const tr = state.tr.replaceWith(
     start,
     end,
     node.type.create(node.attrs, prefix)
   );
-  const insertion = tr.mapping.map(after, -1);
-  tr.insert(insertion, tail ? [inserted, tail] : inserted);
-  if (separator) {
-    const below = insertion + inserted.nodeSize;
-    // Separator is the explicit focus exception: edit a normal paragraph below.
-    // Reuse a following paragraph, preserve other existing blocks, create if absent.
-    if (tr.doc.nodeAt(below)?.type !== state.schema.nodes.paragraph)
-      tr.insert(
-        below,
-        state.schema.nodes.paragraph.create({ ...attrs, blockId: nextId() })
-      );
-    return tr
-      .setSelection(TextSelection.create(tr.doc, below + 1))
-      .setStoredMarks([])
-      .setMeta(key, { close: true })
-      .scrollIntoView();
-  }
+  tr.insert(tr.mapping.map(after, -1), tail ? [inserted, tail] : inserted);
   // Other inserted blocks retain the cursor with the original prefix.
   return tr
     .setSelection(TextSelection.create(tr.doc, start + 1 + prefix.size))

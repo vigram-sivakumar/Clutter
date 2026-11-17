@@ -110,3 +110,12 @@ Ordinary heading/paragraph insertion still keeps original caret. Basic H1–H6 C
 was already present; a newly inserted empty heading below an original paragraph can
 explain the apparent mismatch. Read rebuild/separator-62.md; targeted Mac check next.
 No new feature, no native/lock/dependency changes, no inferred native62 pass.
+
+## Latest separator decision63 — supersedes62
+
+User explicitly removed cursor-jump override: strip only /separator; if block then
+empty add divider ABOVE; otherwise BELOW. Keep that same block, type, complete
+remaining inline content and mapped selection. No new paragraph, suffix splitting
+or forced normal-size conversion. Read rebuild/separator-63.md.63 applies over61/62;
+verify two scoped Mac cases before next capability. Earlier62 instructions are
+historical and MUST NOT be reinstated. Ctrl+A remains queued for3C.

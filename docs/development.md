@@ -174,3 +174,11 @@ No CSS-size override, schema, native, lock or dependency change. Basic headings
 already have sizes; a heading inserted below while the caret remains in the original
 paragraph explains the apparent paragraph/heading mismatch. Verify this scoped
 correction before adding the next capability.
+
+## Latest separator placement63
+
+User removed62's cursor override. [Current rule/check](foundation/rebuild/separator-63.md):
+remove /separator only; empty block inserts divider above, nonempty inserts below.
+The same block/type and mapped cursor stay; no text splitting or generated paragraph.
+63 applies over61 or62, so62 is not a required intermediate step. Build with
+`npm run desktop -- --new`. No native/lock/dependency/schema/CSS changes.
