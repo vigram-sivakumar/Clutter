@@ -7,32 +7,12 @@ import { fresh, encode, decode, projection, apply } from './page-codec.mjs';
 import { Fault, stable, parseAssetLinks } from '../../core/src/contracts.ts';
 const kind = (k) => (k === 'note' ? 'notes' : 'tasks');
 function content(c) {
-  if (c.body.format !== 'clutter.pm-json' || c.body.schemaVersion !== 1)
-    throw new Fault('UNSUPPORTED_CONTENT');
-  const body = c.body.value;
-  // Do not silently accept unimplemented owned-task placements or lose unknown keys.
   if (
-    !body ||
-    body.type !== 'doc' ||
-    Object.keys(body).some((k) => !['type', 'content'].includes(k)) ||
-    (body.content !== undefined && !Array.isArray(body.content))
+    c.content?.format !== 'clutter.page-json' ||
+    c.content.schemaVersion !== 2
   )
     throw new Fault('UNSUPPORTED_CONTENT');
-  for (const b of body.content ?? []) {
-    if (
-      b.type !== 'paragraph' ||
-      Object.keys(b).some((k) => !['type', 'attrs', 'content'].includes(k)) ||
-      !b.attrs ||
-      Object.keys(b.attrs).join() !== 'blockId' ||
-      (b.content ?? []).some(
-        (t) =>
-          t.type !== 'text' ||
-          Object.keys(t).some((k) => !['type', 'text'].includes(k))
-      )
-    )
-      throw new Fault('UNSUPPORTED_CONTENT');
-  }
-  return { title: c.title, body, properties: c.properties };
+  return { content: c.content.value, properties: c.properties };
 }
 const root = (d, id, k) => {
   const r = encode(d, id, kind(k));
@@ -44,6 +24,8 @@ function staged(fn) {
     return fn();
   } catch (e) {
     if (e instanceof Fault) throw e;
+    if (e.message === 'UNSUPPORTED_PAGE_CODEC')
+      throw new Fault('UNSUPPORTED_PAGE_CODEC');
     throw new Fault('INVALID_CONTENT');
   }
 }
@@ -55,50 +37,26 @@ function mergeUpdate(previous, update) {
     const decoder = createDecoder(update);
     Y.readUpdate(decoder, d);
     if (hasContent(decoder)) throw new Fault('INVALID_UPDATE_ENCODING');
-    const fragment = d.getMap('page').get('body');
-    for (const block of fragment.toArray()) {
-      if (
-        !(block instanceof Y.XmlElement) ||
-        block.nodeName !== 'paragraph' ||
-        Object.keys(block.getAttributes()).some((k) => k !== 'blockId')
-      )
-        throw new Fault('UNSUPPORTED_CONTENT');
-      for (const text of block.toArray())
-        if (
-          !(text instanceof Y.XmlText) ||
-          text
-            .toDelta()
-            .some(
-              (op) =>
-                typeof op.insert !== 'string' ||
-                (op.attributes && Object.keys(op.attributes).length)
-            )
-        )
-          throw new Fault('UNSUPPORTED_CONTENT');
-    }
     if (d.store.pendingStructs || d.store.pendingDs)
       throw new Fault('INCOMPLETE_UPDATE');
     const after = projection(d, kind(previous.kind));
     if (
       stable({
-        title: after.title,
         properties: after.properties,
         links: after.links,
       }) !==
       stable({
-        title: before.title,
         properties: before.properties,
         links: before.links,
       })
     )
       throw new Fault('EDITOR_SCOPE_VIOLATION');
     content({
-      title: after.title,
       properties: after.properties,
-      body: {
-        format: 'clutter.pm-json',
-        schemaVersion: 1,
-        value: after.body,
+      content: {
+        format: 'clutter.page-json',
+        schemaVersion: 2,
+        value: after.content,
       },
     });
     return root(d, previous.pageId, previous.kind);
@@ -137,9 +95,9 @@ export const qualifiedEngine = {
     return staged(() => {
       const draft = mergeUpdate(base, update);
       assertBodyRebase(
-        qualifiedEngine.project(base).body.value,
-        qualifiedEngine.project(draft).body.value,
-        qualifiedEngine.project(latest).body.value
+        qualifiedEngine.project(base).content.value,
+        qualifiedEngine.project(draft).content.value,
+        qualifiedEngine.project(latest).content.value
       );
       return mergeUpdate(latest, update);
     });
@@ -172,10 +130,10 @@ export const qualifiedEngine = {
         const p = projection(d, kind(r.kind));
         return {
           title: p.title,
-          body: {
-            format: 'clutter.pm-json',
-            schemaVersion: 1,
-            value: p.body,
+          content: {
+            format: 'clutter.page-json',
+            schemaVersion: 2,
+            value: p.content,
           },
           properties: p.properties,
         };

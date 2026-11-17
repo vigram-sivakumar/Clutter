@@ -71,10 +71,21 @@ quit/refusal, protected-child recovery and shipping qualification remain pending
 
 Read [the consolidated record](rebuild/stage3-ux.md) before proposing or implementing
 stage3 behavior. It owns final title/list/marquee/task/media/table decisions and
-supersedes older proposals. No stage3 code has begun. After58, the user resumed UX
+supersedes older proposals. At58 no stage3 code had begun. After58, the user resumed UX
 and approved all proposed formatting actions plus whole-block background colour.
 Preset colours ONLY are confirmed. The [stage3 implementation plan](rebuild/stage3-implementation-plan.md) is prepared;
-implement3A next, not more serial UX questions about minor details. Ask only genuine material
+60 implements3A. Verify the scoped Mac title/body checklist next, then3B; do not restart serial UX questions about minor details. Ask only genuine material
 blockers one at a time. Do not re-ask the action list or custom colours, and do not
 claim stage3 implementation is complete.
 Do not treat user56/57 scoped native passes as complete lifecycle qualification.
+
+## Capability60 handoff
+
+User explicitly wants one complete capability per delivery before the next.3A title/
+body is implemented in the minimal working UI; familiar components are a later UI
+integration, not a parallel save pipeline. Read rebuild/title-body-60.md. Scalar title
+and body-v1 writes are removed; content schema2 has title+body in one Y fragment.
+CLI/MCP use the same Core and have real process integration coverage. Targeted Mac
+checks remain; no native pass is inferred from Linux. Build60 with --new, not old
+session reopen. No old-data migration or dependency changes. Next implementation3B
+only after this capability's scoped check; use already recorded UX decisions.

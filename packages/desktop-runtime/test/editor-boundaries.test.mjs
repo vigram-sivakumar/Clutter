@@ -1,3 +1,4 @@
+import { pageContent } from '../../editor/src/schema.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
@@ -12,22 +13,8 @@ import { browserCodec } from '../../editor/src/browser-codec.mjs';
 import { toBase64 } from '../../core/src/contracts.ts';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../editor');
 const content = {
-  title: 'Shared',
+  content: pageContent('Shared', 'Alpha beta'),
   properties: {},
-  body: {
-    format: 'clutter.pm-json',
-    schemaVersion: 1,
-    value: {
-      type: 'doc',
-      content: [
-        {
-          type: 'paragraph',
-          attrs: { blockId: 'block' },
-          content: [{ type: 'text', text: 'Alpha beta' }],
-        },
-      ],
-    },
-  },
 };
 test('public browser entry bundles with no backend/OS/experiment imports and a single Yjs instance', async () => {
   const out = await build({
@@ -70,7 +57,7 @@ test('public browser entry bundles with no backend/OS/experiment imports and a s
     const codec = browser.window.ClutterSharedEditor.browserCodec;
     const doc = codec.read({ ...accepted, payload: toBase64(accepted.bytes) });
     try {
-      assert.equal(codec.projection(doc, 'notes').title, content.title);
+      assert.equal(codec.projection(doc, 'notes').title, 'Shared');
     } finally {
       doc.destroy();
     }
@@ -121,10 +108,10 @@ test('backend builds independently of docs and its accepted root matches browser
           JSON.parse(
             JSON.stringify(
               browserCodec.projection(doc, kind === 'note' ? 'notes' : 'tasks')
-                .body
+                .content
             )
           ),
-          projection.body.value
+          projection.content.value
         );
       } finally {
         doc.destroy();

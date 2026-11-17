@@ -1,6 +1,7 @@
-// Page validation/mutation mechanics shared by the current codec and historical fixtures.
+// Canonical page validation and deterministic fragment replacement.
+import { plainTitle } from '../../core/src/page-fields.ts';
 import { initProseMirrorDoc, updateYFragment } from 'y-prosemirror';
-import { noteSchema, taskSchema, slotId, parse } from './schema.mjs';
+import { noteSchema, taskSchema, parse } from './schema.mjs';
 const keys = (value, expected) => {
   if (
     !value ||
@@ -42,36 +43,97 @@ function properties(p) {
     if (!valid) throw Error('INVALID_PROPERTY_VALUE');
   }
 }
-export function validatePage(
-  kind,
-  n,
-  { seenBlocks = new Set(), hasTask = () => true } = {}
-) {
-  keys(n, kind === 'notes' ? 'title,body' : 'title,body,properties');
-  if (typeof n.title !== 'string' || n.title.length > 10000)
-    throw Error('INVALID_TITLE');
-  const doc = parse(kind === 'notes' ? noteSchema : taskSchema, n.body);
-  if (doc.nodeSize > 200000) throw Error('BODY_LIMIT');
-  const slots = [];
-  doc.descendants((b) => {
-    if (b.isText) return;
-    if (!id(b.attrs.blockId) || seenBlocks.has(b.attrs.blockId))
+// Strict JSON validation precedes PM parsing: nodeFromJSON otherwise discards unknown fields.
+export function validateDocument(value, schema = noteSchema) {
+  keys(value, 'type,content');
+  if (
+    value.type !== 'doc' ||
+    !Array.isArray(value.content) ||
+    value.content.length < 2
+  )
+    throw Error('INVALID_DOCUMENT');
+  const seen = new Map(),
+    ancestry = [];
+  for (const [index, b] of value.content.entries()) {
+    const expected = index === 0 ? 'title' : 'paragraph';
+    keys(b, b.content === undefined ? 'type,attrs' : 'type,attrs,content');
+    if (b.type !== expected) throw Error('UNSUPPORTED_CONTENT');
+    keys(b.attrs, index === 0 ? 'blockId' : 'blockId,indent,parentId');
+    if (!id(b.attrs.blockId) || seen.has(b.attrs.blockId))
       throw Error('DUPLICATE_OR_INVALID_BLOCK_ID');
-    seenBlocks.add(b.attrs.blockId);
-    if (b.type.name === 'task_slot') {
-      if (!hasTask(b.attrs.taskId)) throw Error('DANGLING_TASK');
-      if (b.attrs.blockId !== slotId(b.attrs.taskId))
-        throw Error('INVALID_SLOT_ID');
-      slots.push({ taskId: b.attrs.taskId, blockId: b.attrs.blockId });
+    if (index > 0) {
+      const { indent, parentId } = b.attrs;
+      if (!Number.isSafeInteger(indent) || indent < 0 || indent > 64)
+        throw Error('INVALID_INDENT');
+      while (ancestry.length && ancestry.at(-1).indent >= indent)
+        ancestry.pop();
+      if (parentId !== null && !ancestry.some((a) => a.id === parentId))
+        throw Error('INVALID_PARENT_ORDER');
+      if (
+        parentId !== null &&
+        (!id(parentId) || !seen.has(parentId) || seen.get(parentId) >= indent)
+      )
+        throw Error('INVALID_PARENT');
     }
-  });
-  if (kind === 'tasks') properties(n.properties);
-  return { blockIds: [...seenBlocks], slots };
+    if (index > 0)
+      ancestry.push({ id: b.attrs.blockId, indent: b.attrs.indent });
+    seen.set(b.attrs.blockId, index === 0 ? Infinity : b.attrs.indent);
+    if (b.content !== undefined && !Array.isArray(b.content))
+      throw Error('INVALID_INLINE');
+    for (const n of b.content ?? []) {
+      if (n.type === 'text') {
+        keys(n, n.marks === undefined ? 'type,text' : 'type,text,marks');
+        if (typeof n.text !== 'string' || !n.text || /[\r\n]/.test(n.text))
+          throw Error('INVALID_TEXT');
+        for (const m of n.marks ?? []) {
+          keys(m, 'type,attrs');
+          keys(m.attrs, 'href');
+          if (
+            m.type !== 'link' ||
+            typeof m.attrs.href !== 'string' ||
+            m.attrs.href.length > 8192 ||
+            !/^(https?:|mailto:)/i.test(m.attrs.href)
+          )
+            throw Error('INVALID_LINK');
+        }
+      } else if (n.type === 'note_reference') {
+        keys(n, 'type,attrs');
+        keys(n.attrs, 'pageId,label');
+        if (
+          !id(n.attrs.pageId) ||
+          typeof n.attrs.label !== 'string' ||
+          n.attrs.label.length > 10000 ||
+          /[\r\n]/.test(n.attrs.label)
+        )
+          throw Error('INVALID_REFERENCE');
+      } else if (n.type === 'date') {
+        keys(n, 'type,attrs');
+        keys(n.attrs, 'value');
+        const v = n.attrs.value;
+        if (
+          typeof v !== 'string' ||
+          !/^\d{4}-\d{2}-\d{2}$/.test(v) ||
+          !Number.isFinite(Date.parse(v)) ||
+          new Date(v).toISOString().slice(0, 10) !== v
+        )
+          throw Error('INVALID_DATE');
+      } else throw Error('UNSUPPORTED_CONTENT');
+    }
+  }
+  const doc = parse(schema, value);
+  if (doc.nodeSize > 200000 || plainTitle(value).length > 10000)
+    throw Error('CONTENT_LIMIT');
+  return doc;
 }
-export function setBody(record, schema, body, d) {
-  const fragment = record.get('body'),
+export function validatePage(kind, n) {
+  keys(n, 'content,properties');
+  validateDocument(n.content, kind === 'notes' ? noteSchema : taskSchema);
+  properties(n.properties);
+}
+export function setContent(record, schema, content, d) {
+  const fragment = record.get('content'),
     { mapping } = initProseMirrorDoc(fragment, schema);
-  updateYFragment(d, fragment, parse(schema, body), {
+  updateYFragment(d, fragment, validateDocument(content, schema), {
     mapping,
     isOMark: new Map(),
   });

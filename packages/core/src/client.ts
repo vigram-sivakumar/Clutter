@@ -1,3 +1,4 @@
+import { plainTitle } from './page-fields.ts';
 import { sha256 } from './root-envelope.ts';
 import {
   parseCommand,
@@ -82,6 +83,8 @@ export class CoreClient {
           )
             throw Error('INVALID_REPLY');
           const page = v as PageSnapshot;
+          if (page.title !== plainTitle(page.content?.value))
+            throw Error('INVALID_REPLY');
           parseCommand({
             apiVersion: 1,
             spaceId: c.spaceId,
@@ -89,8 +92,7 @@ export class CoreClient {
             operationId: 'reply-validation',
             pageId: page.pageId,
             kind: page.kind,
-            title: page.title,
-            body: page.body,
+            content: page.content,
             properties: page.properties,
           });
         } else if (

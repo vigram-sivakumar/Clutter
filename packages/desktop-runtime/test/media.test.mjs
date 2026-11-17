@@ -1,3 +1,4 @@
+import { pageContent } from '../../editor/src/schema.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -77,21 +78,7 @@ function setup(t, hooks = {}) {
         method: 'page.create',
         operationId: x.next(),
         kind,
-        title: pageId,
-        body: {
-          format: 'clutter.pm-json',
-          schemaVersion: 1,
-          value: {
-            type: 'doc',
-            content: [
-              {
-                type: 'paragraph',
-                attrs: { blockId: pageId + '-body' },
-                content: [{ type: 'text', text: 'Body' }],
-              },
-            ],
-          },
-        },
+        content: pageContent(pageId, ''),
         properties: {},
       })
     );
@@ -364,7 +351,7 @@ test('full-body/metadata edits preserve associations and history closure', async
       method: 'page.update',
       operationId: 'edit',
       expectedHead: x.v.load('p').head,
-      patch: { title: 'Renamed' },
+      patch: { content: pageContent('Renamed') },
     })
   );
   assert.equal((await x.list()).assets.image.hash, hash(png));

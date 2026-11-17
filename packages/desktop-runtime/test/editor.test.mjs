@@ -1,3 +1,4 @@
+import { pageContent } from '../../editor/src/schema.mjs';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
@@ -70,20 +71,7 @@ const code = (r, c) => {
   assert.equal(r.error.code, c);
 };
 function body(text = 'Alpha beta') {
-  return {
-    format: 'clutter.pm-json',
-    schemaVersion: 1,
-    value: {
-      type: 'doc',
-      content: [
-        {
-          type: 'paragraph',
-          attrs: { blockId: 'paragraph-1' },
-          content: [{ type: 'text', text }],
-        },
-      ],
-    },
-  };
+  return pageContent('', text, { title: 'title', body: 'paragraph-1' });
 }
 function setup(t, hooks = {}) {
   const v = SqliteStore.createDisposable(hooks);
@@ -166,21 +154,23 @@ async function seeded(t, hooks = {}) {
       method: 'page.create',
       operationId: 'create',
       kind: 'note',
-      title: 'Page',
-      body: body(),
+      content: body(),
       properties: {},
     })
   );
   return x;
 }
 const insert = (view, text, pos = 1) =>
-  view.dispatch(view.state.tr.insertText(text, pos));
-const text = (view) => view.state.doc.textContent;
+  view.dispatch(view.state.tr.insertText(text, pos + 2));
+const text = (view) =>
+  Array.from(
+    { length: view.state.doc.childCount - 1 },
+    (_, i) => view.state.doc.child(i + 1).textContent
+  ).join('');
 const savedText = async (x) =>
   ok(await x.read())
-    .body.value.content.map((p) =>
-      (p.content ?? []).map((t) => t.text).join('')
-    )
+    .content.value.content.slice(1)
+    .map((p) => (p.content ?? []).map((t) => t.text).join(''))
     .join('\n');
 async function settle(...sessions) {
   for (const a of sessions) await a.settle();
@@ -218,19 +208,19 @@ test('destroying a view preserves context history and other view selections', as
     b = await x.open('B'),
     av = x.mount(a),
     bv = x.mount(b);
-  bv.dispatch(bv.state.tr.setSelection(TextSelection.create(bv.state.doc, 8)));
+  bv.dispatch(bv.state.tr.setSelection(TextSelection.create(bv.state.doc, 10)));
   insert(av, 'LOCAL ');
   a.stopCapturing();
   ok(await a.save());
   await settle(a, b);
-  assert.equal(bv.state.selection.head, 14);
+  assert.equal(bv.state.selection.head, 16);
   av.destroy();
   const remounted = x.mount(a);
   assert.equal(a.history(remounted, 'undo'), true);
   ok(await a.save());
   await settle(a, b);
   assert.equal(text(bv), 'Alpha beta');
-  assert.equal(bv.state.selection.head, 8);
+  assert.equal(bv.state.selection.head, 10);
 });
 test('missed notifications reconcile on resume using the authoritative root', async (t) => {
   const x = await seeded(t),
@@ -316,6 +306,7 @@ test('failed saves remain provisional; protected close and restart restore the e
   const a = await x.open('A'),
     av = x.mount(a);
   insert(av, 'PROTECTED ');
+  av.dispatch(av.state.tr.insertText('Protected title', 1));
   code(await a.save(), 'INTERNAL_ERROR');
   const pending = a.pendingCommand;
   assert.equal(await savedText(x), 'Alpha beta');
@@ -330,12 +321,14 @@ test('failed saves remain provisional; protected close and restart restore the e
   assert.equal(text(rv), 'Alpha beta');
   ok(await recovered.recover());
   assert.equal(text(rv), 'PROTECTED Alpha beta');
+  assert.equal(rv.state.doc.firstChild.textContent, 'Protected title');
   assert.deepEqual(recovered.pendingCommand, pending);
   assert.equal(recovered.historyBoundary, 'PROTECTED_RECOVERY');
   await recovered.flush();
   await recovered.settle();
   assert.equal(await savedText(x), 'PROTECTED Alpha beta');
   assert.equal(recovered.dirty, false);
+  assert.equal(ok(await x.read()).title, 'Protected title');
 });
 test('failed protection refuses context close and leaves the view editable', async (t) => {
   let fail = true;
@@ -474,7 +467,7 @@ test('context grants and private outcomes/protection are bound to the trusted pe
   await a.flush();
   await a.settle();
 });
-test('raw updates cannot change title/properties/links or introduce unknown nodes', async (t) => {
+test('raw updates cannot add scalar-title metadata, alter properties/links or introduce unknown nodes', async (t) => {
   const x = await seeded(t);
   const opened = ok(
     await x.run({
@@ -496,7 +489,7 @@ test('raw updates cannot change title/properties/links or introduce unknown node
     (d) =>
       d
         .getMap('page')
-        .get('body')
+        .get('content')
         .insert(0, [new Y.XmlElement('unknown')]),
   ].entries()) {
     const d = decode({
@@ -575,7 +568,7 @@ test('semantic CLI-style writes and task pages use the same Core and editor rout
       method: 'page.update',
       operationId: 'automation',
       expectedHead: snapshot.head,
-      patch: { body: body('From automation') },
+      patch: { content: body('From automation') },
     })
   );
   await a.settle();
@@ -589,8 +582,7 @@ test('semantic CLI-style writes and task pages use the same Core and editor rout
       method: 'page.create',
       operationId: 'task',
       kind: 'task',
-      title: 'Task page',
-      body: body('Task body'),
+      content: body('Task body'),
       properties: { Due: { type: 'date', value: '2026-11-16' } },
     })
   );
@@ -610,7 +602,7 @@ test('semantic CLI-style writes and task pages use the same Core and editor rout
   assert.equal(read.kind, 'task');
   assert.equal(read.properties.Due.value, '2026-11-16');
   assert.equal(
-    read.body.value.content[0].content[0].text,
+    read.content.value.content[1].content[0].text,
     'Written inside Task body'
   );
 });
@@ -619,7 +611,7 @@ test('keyboard Enter creates stable paragraph identities through the actual bind
     a = await x.open('A'),
     av = x.mount(a);
   av.focus();
-  av.dispatch(av.state.tr.setSelection(TextSelection.create(av.state.doc, 6)));
+  av.dispatch(av.state.tr.setSelection(TextSelection.create(av.state.doc, 8)));
   const event = new dom.window.KeyboardEvent('keydown', {
     key: 'Enter',
     code: 'Enter',
@@ -627,22 +619,22 @@ test('keyboard Enter creates stable paragraph identities through the actual bind
     cancelable: true,
   });
   av.dom.dispatchEvent(event);
-  assert.equal(av.state.doc.childCount, 2);
+  assert.equal(av.state.doc.childCount, 3);
   const ids = [];
   av.state.doc.forEach((n) => ids.push(n.attrs.blockId));
-  assert.equal(new Set(ids).size, 2);
+  assert.equal(new Set(ids).size, 3);
   assert.ok(ids.every(Boolean));
   await a.flush();
   await a.settle();
-  assert.equal(ok(await x.read()).body.value.content.length, 2);
+  assert.equal(ok(await x.read()).content.value.content.length, 3);
   a.stopCapturing();
   assert.equal(a.history(av, 'undo'), true);
-  assert.equal(av.state.doc.childCount, 1);
+  assert.equal(av.state.doc.childCount, 2);
   assert.equal(text(av), 'Alpha beta');
   await a.flush();
   await a.settle();
   assert.equal(a.history(av, 'redo'), true);
-  assert.equal(av.state.doc.childCount, 2);
+  assert.equal(av.state.doc.childCount, 3);
   await a.flush();
   await a.settle();
 });
@@ -726,8 +718,8 @@ test('protection refuses pending work absent from its staged snapshot', async (t
     }),
     vector = Y.encodeStateVector(d);
   d.getMap('page')
-    .get('body')
-    .toArray()[0]
+    .get('content')
+    .toArray()[1]
     .toArray()[0]
     .insert(0, 'NOT PROTECTED ');
   const update = toBase64(Y.encodeStateAsUpdate(d, vector));
@@ -812,12 +804,26 @@ test('real CLI/MCP processes update a mounted view and read back UI edits', asyn
     method: 'page.update',
     operationId: x.next(),
     expectedHead: x.v.load('p').head,
-    patch: { body: body('CLI') },
+    patch: {
+      content: pageContent('CLI title', 'CLI', {
+        title: 'title',
+        body: 'paragraph-1',
+      }),
+    },
   });
   ok((await stdio(x, 'cli', JSON.stringify(command())))[0]);
   await a.settle();
   assert.equal(text(av), 'CLI');
-  const c = { ...command(), patch: { body: body('MCP') } },
+  assert.equal(av.state.doc.firstChild.textContent, 'CLI title');
+  const c = {
+      ...command(),
+      patch: {
+        content: pageContent('MCP title', 'MCP', {
+          title: 'title',
+          body: 'paragraph-1',
+        }),
+      },
+    },
     messages = [
       {
         jsonrpc: '2.0',
@@ -845,8 +851,12 @@ test('real CLI/MCP processes update a mounted view and read back UI edits', asyn
   ok(JSON.parse(replies.at(-1).result.content[0].text));
   await a.settle();
   assert.equal(text(av), 'MCP');
+  assert.equal(av.state.doc.firstChild.textContent, 'MCP title');
   assert.equal(a.history(av, 'undo'), false);
-  insert(av, 'UI ');
+  av.dispatch(
+    av.state.tr.insertText('UI ', av.state.doc.firstChild.nodeSize + 1)
+  );
+  av.dispatch(av.state.tr.insertText('UI ', 1));
   await a.flush();
   await a.settle();
   const page = ok(
@@ -863,7 +873,8 @@ test('real CLI/MCP processes update a mounted view and read back UI edits', asyn
       )
     )[0]
   );
-  assert.equal(page.body.value.content[0].content[0].text, 'UI MCP');
+  assert.equal(page.content.value.content[1].content[0].text, 'UI MCP');
+  assert.equal(page.title, 'UI MCP title');
 });
 for (const method of ['editor.apply', 'editor.protect'])
   test(`real process death: ${method} is old-or-new with exact durable replay`, async (t) => {
@@ -886,8 +897,8 @@ for (const method of ['editor.apply', 'editor.protect'])
         }),
         vector = Y.encodeStateVector(d);
       d.getMap('page')
-        .get('body')
-        .toArray()[0]
+        .get('content')
+        .toArray()[1]
         .toArray()[0]
         .insert(0, 'CRASH ');
       const update = toBase64(Y.encodeStateAsUpdate(d, vector));
@@ -973,7 +984,7 @@ test('a foreign paragraph replacement cannot silently consume unsaved local text
   insert(av, 'UNSAVED ');
   const before = ok(await x.read()),
     replacement = body('FOREIGN');
-  replacement.value.content[0].attrs.blockId = 'replacement';
+  replacement.value.content[1].attrs.blockId = 'replacement';
   ok(
     await x.run({
       apiVersion: 1,
@@ -982,7 +993,7 @@ test('a foreign paragraph replacement cannot silently consume unsaved local text
       method: 'page.update',
       operationId: 'replace',
       expectedHead: before.head,
-      patch: { body: replacement },
+      patch: { content: replacement },
     })
   );
   await assert.rejects(a.sync(), /EDITOR_REBASE_CONFLICT/);
@@ -1014,7 +1025,7 @@ test('undo after a foreign edit in a newly split paragraph preserves the foreign
     b = await x.open('B'),
     av = x.mount(a),
     bv = x.mount(b);
-  av.dispatch(av.state.tr.setSelection(TextSelection.create(av.state.doc, 6)));
+  av.dispatch(av.state.tr.setSelection(TextSelection.create(av.state.doc, 8)));
   av.dom.dispatchEvent(
     new dom.window.KeyboardEvent('keydown', {
       key: 'Enter',
@@ -1180,7 +1191,7 @@ test('clearing a note remains saveable/protectable through the real view binding
   await a.flush();
   await a.settle();
   const p = ok(await x.read());
-  assert.equal(p.body.value.type, 'doc');
+  assert.equal(p.content.value.type, 'doc');
   assert.equal(av.state.doc.textContent, '');
   assert.equal(a.dirty, false);
   assert.equal(a.canClose, true);
@@ -1297,7 +1308,7 @@ test('view-local selection bookmark maps foreign edits while detached and refuse
     b = await x.open('selection_b');
   const av = x.mount(a),
     bv = x.mount(b);
-  av.dispatch(av.state.tr.setSelection(TextSelection.create(av.state.doc, 6)));
+  av.dispatch(av.state.tr.setSelection(TextSelection.create(av.state.doc, 8)));
   const bookmark = a.captureSelection(av);
   av.destroy();
   insert(bv, 'FOREIGN ', 1);
@@ -1305,7 +1316,7 @@ test('view-local selection bookmark maps foreign edits while detached and refuse
   await settle(a, b);
   const reopened = x.mount(a);
   assert.equal(a.restoreSelection(reopened, bookmark), true);
-  assert.equal(reopened.state.selection.anchor, 14);
+  assert.equal(reopened.state.selection.anchor, 16);
   assert.throws(() => b.restoreSelection(bv, bookmark), /WRONG_CONTEXT_VIEW/);
 });
 
@@ -1315,20 +1326,20 @@ test('toolbar caret before surviving first character stays before it across pref
     av = x.mount(a);
   insert(av, 'LOCAL ');
   a.stopCapturing();
-  av.dispatch(av.state.tr.setSelection(TextSelection.create(av.state.doc, 7)));
+  av.dispatch(av.state.tr.setSelection(TextSelection.create(av.state.doc, 9)));
   assert.equal(text(av), 'LOCAL Alpha beta');
   assert.equal(a.history(av, 'undo', { preserveSelection: true }), true);
   assert.equal(text(av), 'Alpha beta');
   assert.equal(
     av.state.selection.head,
-    1,
+    3,
     'caret must stay before A after removing the prefix'
   );
   assert.equal(a.history(av, 'redo', { preserveSelection: true }), true);
   assert.equal(text(av), 'LOCAL Alpha beta');
   assert.equal(
     av.state.selection.head,
-    7,
+    9,
     'caret must stay before A after restoring the prefix'
   );
 });
@@ -1339,7 +1350,7 @@ test('toolbar uses the visible focused DOM caret when native selectionchange is 
     av = x.mount(a);
   insert(av, 'LOCAL ');
   a.stopCapturing();
-  av.dispatch(av.state.tr.setSelection(TextSelection.create(av.state.doc, 8)));
+  av.dispatch(av.state.tr.setSelection(TextSelection.create(av.state.doc, 10)));
   av.focus();
   const node = av.dom.querySelector('p').firstChild;
   // Native click has moved the visible caret before A; selectionchange has not
@@ -1348,20 +1359,20 @@ test('toolbar uses the visible focused DOM caret when native selectionchange is 
   visible.setBaseAndExtent(node, 6, node, 6);
   assert.equal(
     av.state.selection.head,
-    8,
+    10,
     'stored selection intentionally lags DOM'
   );
   assert.equal(a.history(av, 'undo', { preserveSelection: true }), true);
   assert.equal(text(av), 'Alpha beta');
   assert.equal(
     av.state.selection.head,
-    1,
+    3,
     'toolbar must use visible caret before A'
   );
   assert.equal(a.history(av, 'redo', { preserveSelection: true }), true);
   assert.equal(
     av.state.selection.head,
-    7,
+    9,
     'redo must retain the same logical boundary'
   );
 });
@@ -1376,11 +1387,11 @@ test('toolbar reconciles a pending backward DOM range without reversing its endp
   const node = av.dom.querySelector('p').firstChild;
   av.dom.ownerDocument.getSelection().setBaseAndExtent(node, 16, node, 6);
   a.history(av, 'undo', { preserveSelection: true });
-  assert.equal(av.state.selection.anchor, 11);
-  assert.equal(av.state.selection.head, 1);
+  assert.equal(av.state.selection.anchor, 13);
+  assert.equal(av.state.selection.head, 3);
   a.history(av, 'redo', { preserveSelection: true });
-  assert.equal(av.state.selection.anchor, 17);
-  assert.equal(av.state.selection.head, 7);
+  assert.equal(av.state.selection.anchor, 19);
+  assert.equal(av.state.selection.head, 9);
 });
 test('toolbar targeting an unfocused context never borrows another editor DOM caret', async (t) => {
   const x = await seeded(t),
@@ -1392,11 +1403,181 @@ test('toolbar targeting an unfocused context never borrows another editor DOM ca
   a.stopCapturing();
   ok(await a.save());
   await settle(a, b);
-  av.dispatch(av.state.tr.setSelection(TextSelection.create(av.state.doc, 17)));
+  av.dispatch(av.state.tr.setSelection(TextSelection.create(av.state.doc, 19)));
   bv.focus();
   const node = bv.dom.querySelector('p').firstChild;
   bv.dom.ownerDocument.getSelection().setBaseAndExtent(node, 6, node, 6);
   a.history(av, 'undo', { preserveSelection: true });
-  assert.equal(av.state.selection.head, 11);
+  assert.equal(av.state.selection.head, 13);
   assert.equal(bv.hasFocus(), true);
+});
+
+const keydown = (view, key, extra = {}) => {
+  const event = new dom.window.KeyboardEvent('keydown', {
+    key,
+    bubbles: true,
+    cancelable: true,
+    ...extra,
+  });
+  view.dom.dispatchEvent(event);
+  return event;
+};
+test('3A title/body share ordered history and accepted persistence; foreign title survives local body undo', async (t) => {
+  const x = await seeded(t),
+    a = await x.open('title_a'),
+    b = await x.open('title_b'),
+    av = x.mount(a),
+    bv = x.mount(b);
+  assert.equal(av.state.selection.head, 1, 'new editor starts in its title');
+  assert.equal(
+    av.dom.querySelector('[data-title]').getAttribute('data-placeholder'),
+    'New note'
+  );
+  av.dispatch(av.state.tr.insertText('Named', 1));
+  a.stopCapturing();
+  av.dispatch(
+    av.state.tr.insertText('BODY ', av.state.doc.firstChild.nodeSize + 1)
+  );
+  a.stopCapturing();
+  assert.equal(a.history(av, 'undo'), true);
+  assert.equal(av.state.doc.firstChild.textContent, 'Named');
+  assert.equal(text(av), 'Alpha beta');
+  assert.equal(a.history(av, 'undo'), true);
+  assert.equal(av.state.doc.firstChild.textContent, '');
+  a.history(av, 'redo');
+  a.history(av, 'redo');
+  await a.flush();
+  await settle(a, b);
+  assert.equal(bv.state.doc.firstChild.textContent, 'Named');
+  bv.dispatch(bv.state.tr.insertText(' foreign', 6));
+  b.stopCapturing();
+  await b.flush();
+  await settle(a, b);
+  a.history(av, 'undo');
+  assert.equal(av.state.doc.firstChild.textContent, 'Named foreign');
+  assert.equal(text(av), 'Alpha beta');
+  await a.flush();
+  await settle(a, b);
+  const saved = ok(await x.read());
+  assert.equal(saved.title, 'Named foreign');
+  assert.equal(saved.content.schemaVersion, 2);
+  av.destroy();
+  const remount = x.mount(a);
+  assert.equal(remount.state.doc.firstChild.textContent, 'Named foreign');
+  assert.equal(a.history(remount, 'redo'), true);
+  assert.equal(text(remount), 'BODY Alpha beta');
+});
+test('3A Enter and Backspace respect title/body boundary and Shift+Enter is inert', async (t) => {
+  const x = await seeded(t),
+    a = await x.open('title_keys'),
+    av = x.mount(a);
+  av.dispatch(av.state.tr.insertText('Title', 1));
+  a.stopCapturing();
+  av.focus();
+  const before = av.state.doc.toJSON(),
+    caret = av.state.selection.head;
+  assert.equal(keydown(av, 'Enter', { shiftKey: true }).defaultPrevented, true);
+  assert.deepEqual(av.state.doc.toJSON(), before);
+  assert.equal(av.state.selection.head, caret);
+  keydown(av, 'Enter');
+  assert.equal(av.state.doc.childCount, 3);
+  assert.equal(av.state.doc.child(1).textContent, '');
+  assert.equal(av.state.doc.child(2).textContent, 'Alpha beta');
+  assert.equal(av.state.selection.head, av.state.doc.firstChild.nodeSize + 1);
+  keydown(av, 'Backspace');
+  assert.equal(av.state.selection.head, av.state.doc.firstChild.nodeSize - 1);
+  assert.deepEqual(av.state.doc.child(2).textContent, 'Alpha beta');
+  // Empty first body is reused, not duplicated, when it is the only body block.
+  av.dispatch(
+    av.state.tr.replaceWith(
+      av.state.doc.firstChild.nodeSize,
+      av.state.doc.content.size,
+      av.state.schema.nodes.paragraph.create({ blockId: 'empty-body' })
+    )
+  );
+  av.dispatch(av.state.tr.setSelection(TextSelection.create(av.state.doc, 1)));
+  keydown(av, 'Enter');
+  assert.equal(av.state.doc.childCount, 2);
+  assert.equal(av.state.selection.$from.parent.type.name, 'paragraph');
+});
+test('3A multiline title paste appends every line, has no caret, persists highlight until any click, and undoes once', async (t) => {
+  const x = await seeded(t),
+    a = await x.open('title_paste'),
+    av = x.mount(a);
+  av.dispatch(av.state.tr.insertText('Keep', 1));
+  a.stopCapturing();
+  av.focus();
+  const event = new dom.window.Event('paste', {
+    bubbles: true,
+    cancelable: true,
+  });
+  Object.defineProperty(event, 'clipboardData', {
+    value: {
+      getData: (type) => (type === 'text/plain' ? 'first\r\n\r\nlast\n' : ''),
+    },
+  });
+  let scrolled = false;
+  const old = dom.window.HTMLElement.prototype.scrollIntoView;
+  dom.window.HTMLElement.prototype.scrollIntoView = function () {
+    if (this.classList.contains('pasted-block')) scrolled = true;
+  };
+  try {
+    av.dom.dispatchEvent(event);
+  } finally {
+    dom.window.HTMLElement.prototype.scrollIntoView = old;
+  }
+  assert.equal(event.defaultPrevented, true);
+  assert.equal(av.state.doc.firstChild.textContent, 'Keep');
+  assert.deepEqual(
+    Array.from(
+      { length: av.state.doc.childCount - 1 },
+      (_, i) => av.state.doc.child(i + 1).textContent
+    ),
+    ['Alpha beta', 'first', '', 'last', '']
+  );
+  assert.equal(av.hasFocus(), false);
+  assert(av.dom.classList.contains('paste-feedback'));
+  assert.equal(av.dom.querySelectorAll('.pasted-block').length, 4);
+  assert(scrolled);
+  await a.flush();
+  await settle(a);
+  assert.equal(
+    av.dom.querySelectorAll('.pasted-block').length,
+    4,
+    'saving does not dismiss feedback'
+  );
+  const saved = ok(await x.read());
+  assert(!JSON.stringify(saved.content).includes('pasted-block'));
+  document.body.dispatchEvent(
+    new dom.window.Event('pointerdown', { bubbles: true })
+  );
+  assert.equal(av.dom.querySelectorAll('.pasted-block').length, 0);
+  assert.equal(av.dom.classList.contains('paste-feedback'), false);
+  assert.equal(a.history(av, 'undo'), true);
+  assert.equal(av.state.doc.firstChild.textContent, 'Keep');
+  assert.equal(text(av), 'Alpha beta');
+  a.history(av, 'redo');
+  assert.equal(av.state.doc.childCount, 6);
+});
+test('3A single-line title paste inserts normally without body append or paste feedback', async (t) => {
+  const x = await seeded(t),
+    a = await x.open('single-paste'),
+    av = x.mount(a);
+  av.focus();
+  const event = new dom.window.Event('paste', {
+    bubbles: true,
+    cancelable: true,
+  });
+  Object.defineProperty(event, 'clipboardData', {
+    value: { getData: (type) => (type === 'text/plain' ? 'One line' : '') },
+  });
+  av.dom.dispatchEvent(event);
+  assert.equal(av.state.doc.firstChild.textContent, 'One line');
+  assert.equal(text(av), 'Alpha beta');
+  assert.equal(av.state.doc.childCount, 2);
+  assert(!av.dom.classList.contains('paste-feedback'));
+  assert(av.hasFocus());
+  a.stopCapturing();
+  a.history(av, 'undo');
+  assert.equal(av.state.doc.firstChild.textContent, '');
 });

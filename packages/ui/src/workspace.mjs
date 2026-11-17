@@ -48,6 +48,7 @@ export class EditorWorkspace {
             {
               ...viewOptions,
               codec: browserCodec,
+              onProjection: (p) => this.onChanged(p),
               canEdit: () => this.isEditable(),
             }
           ),
@@ -173,7 +174,6 @@ export class EditorWorkspace {
   }
   async sync() {
     for (const s of this.contexts.values()) await s.sync();
-    this.onChanged();
   }
   async flush() {
     for (const s of this.contexts.values()) {

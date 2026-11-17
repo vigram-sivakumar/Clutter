@@ -2,4 +2,4 @@
 export { createEditorReplica } from './replica.mjs';
 export { browserCodec } from './browser-codec.mjs';
 export { OriginHistoryContext } from './origin-history-context.mjs';
-export { noteSchema, taskSchema } from './schema.mjs';
+export { noteSchema, taskSchema, pageContent } from './schema.mjs';

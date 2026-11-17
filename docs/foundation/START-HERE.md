@@ -1,31 +1,31 @@
 # Resume Clutter Structured
 
-## Current checkpoint — stage3 implementation plan59, 17 November 2026
+## Current checkpoint — title/body capability60, 17 November 2026
 
-**Read [Stage3 UX decisions](rebuild/stage3-ux.md) first.** It consolidates the final
-confirmed rules, corrections, scope and deferred work from this conversation.
-The final UX record includes the toolbar actions and preset-only colour policy.
-Read [the implementation plan](rebuild/stage3-implementation-plan.md) next.
+**3A is implemented; targeted Mac verification is next.** Read
+[the outcome and test checklist](rebuild/title-body-60.md), then the
+[stage3 UX](rebuild/stage3-ux.md) and [implementation plan](rebuild/stage3-implementation-plan.md).
+Do not restart the UX questionnaire or host/framework comparison.
 
-**Status:** UX discussion in progress. No stage3 editor/schema/application code has
-been implemented. Do not mistake agreed UX or historical tests for completed work.
+One structured document now owns title and body in the same PM/Y context/history.
+Plain title is derived for read/list/tab/sidebar; scalar title writes are rejected.
+The current minimal UI is the working product carrier. Final Clutter layout/global
+components follow after working capabilities; do not restore retired controllers.
 
-**Latest answer after58:** the user resumed UX discussion and approved bold, italic,
-underline, strikethrough, links, text colour and highlight, plus BLOCK BACKGROUND
-COLOUR. Highlight affects selected text; block background affects the entire block
-containing that selection. The toolbar action list is no longer unanswered.
+**User workflow:** finish one capability, verify it, then move on. Complete scoped
+Mac title/body checks before starting3B. Full stage3 is NOT complete. Next code part
+is3B common blocks/formatting, following the existing UX; no feature expansion in60.
 
-**Latest answer:** PRESET COLOURS ONLY; no custom colour input.
+Schema2 is explicit: `content:{format:"clutter.page-json",schemaVersion:2,value:...}`.
+Use `npm run desktop -- --new` after applying60. This compiles changed source into
+a fresh synthetic Space. Old sessions remain with their original bundles; no
+migration/reinterpretation. Native host/dependency locks are unchanged.
 
-**Exact next step: implement part3A of the plan** — one canonical structured title/body
-document and shared context/history, typed Core/codec changes, derived sidebar title,
-and the agreed title/paste/boundary interactions. No standalone React title writer.
-
-The plan has five buildable parts:3A content/title/history;3B blocks/formatting;
-3C selection/drag;3D tasks/images;3E tables/integrated UI.59 is documentation only;
-no stage3 application/schema/native code or dependencies have changed yet. No more
-required pre-code UX questions. Use consistent defaults for ordinary details; ask
-only a genuine material blocker, one at a time.
+Validation:120 Linux tests (119 full-suite plus the final single-line paste check),
+strict Core/runtime TS and43-source boundary checks passed. Actual React/PM/Core/
+SQLite and real CLI/MCP processes are exercised; native build/caret/scroll/IME and
+shipping qualification are NOT inferred. Preserve the prior scoped user56/57 passes
+and intermittent native caret risk. Do not replay retired measurement suites.
 
 ## Working agreement
 
@@ -50,7 +50,7 @@ single-file Image picker, table presets and deferred embeds. Important distincti
 - Table presets2×2/3×3/4×4 live inside the slash menu. Existing
   [table interactions](table-interaction-contract.md) remain authoritative.
 
-## Application baseline and observations
+## Historical application baseline and observations
 
 Delivered57 is the latest application baseline: stable surfaces/scoped UI lifecycle,
 default duplicate-split restriction with an enabling option, and shared-owner native

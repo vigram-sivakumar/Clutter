@@ -1,3 +1,4 @@
+import { pageContent } from '@clutter/editor/browser';
 import { EditorWorkspace } from './workspace.mjs';
 import { WindowNavigation } from './navigation.mjs';
 /** Window-local navigation/lifecycle. Core owns accepted page content. */
@@ -459,6 +460,15 @@ export class WindowWorkspace {
         windowId: this.windowId,
         nextId: this.nextId,
         onStatus: (status) => this.notify(status),
+        onChanged: ({ title }) => {
+          const index = this.pages.findIndex((p) => p.pageId === pageId);
+          if (index >= 0 && this.pages[index].title !== title) {
+            this.pages = this.pages.map((p, i) =>
+              i === index ? { ...p, title } : p
+            );
+            this.changed();
+          }
+        },
       });
       if (this.frozen) e.freeze();
       this.editors.set(pageId, e);
@@ -477,15 +487,10 @@ export class WindowWorkspace {
         pageId: this.nextId(),
         operationId: this.nextId(),
         kind: 'note',
-        title: 'Untitled',
-        body: {
-          format: 'clutter.pm-json',
-          schemaVersion: 1,
-          value: {
-            type: 'doc',
-            content: [{ type: 'paragraph', attrs: { blockId: this.nextId() } }],
-          },
-        },
+        content: pageContent('', '', {
+          title: this.nextId(),
+          body: this.nextId(),
+        }),
         properties: {},
       };
     }

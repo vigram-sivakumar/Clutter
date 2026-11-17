@@ -39,8 +39,9 @@ switch back, close safely and reopen with npm run desktop:reopen. Confirm the sa
 pages/text. Do not replay old profiler/qualification suites. Native build, window
 lifecycle and editor behavior are only claimed after actual observation.
 
-R1 is a development slice. Current title is Untitled (title UX/implementation waits for the stage3 discussion); page
-list/create/open and paragraphs are implemented. The rest of editor/feature UI,
+This is a development slice.60 adds the actual shared title/body editor; empty title
+is the placeholder New note, never stored as content. Page list/create/open and
+paragraphs are implemented. Read the capability60 checklist below. The rest of editor/feature UI,
 actual installed storage paths/permissions/single-owner discovery, final format,
 Windows/browser compositions, scale and release/distribution remain tracked.
 
@@ -138,3 +139,16 @@ structured title/body schema, Core/codec contract and one editing history, follo
 by the real title/paste view. Later parts add common blocks/formatting, block
 selection/drag, tasks/images and tables. No new architecture-selection or migration
 phase.59 itself is docs only; no install/build/session change is required.
+
+## Title/body60
+
+[Outcome and bounded manual checklist](foundation/rebuild/title-body-60.md).
+Rebuild with `npm run desktop -- --new`: content schema2 intentionally refuses old
+roots/writable scalar title. Earlier synthetic sessions remain with original bundles.
+No npm install or native lock change is needed. The single command catalogue supplies
+UI/CLI/MCP validation. `page.create` takes `content` and `properties`; `page.update`
+takes `patch.content`/`patch.properties`. Reads/list summaries derive `title`.
+
+Complete the title/body checklist, record actual observations, then proceed to3B.
+One capability per delivery; do not claim all stage3, native IME/caret or installed
+storage qualification from the automated tests.

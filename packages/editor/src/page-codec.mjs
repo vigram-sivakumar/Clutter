@@ -9,13 +9,55 @@ import { noteSchema, taskSchema, parse } from './schema.mjs';
 import {
   validatePage,
   validateProperties,
-  setBody,
+  setContent,
   setProperties,
 } from './page-model.mjs';
 import { createHash } from 'node:crypto';
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
 export const codec = PAGE_CODEC;
 const prefix = (pageId, kind) => Buffer.from(pageRootPrefix(pageId, kind));
+function validateXml(fragment) {
+  fragment.toArray().forEach((block, index) => {
+    if (
+      !(block instanceof Y.XmlElement) ||
+      block.nodeName !== (index === 0 ? 'title' : 'paragraph')
+    )
+      throw Error('UNSUPPORTED_CONTENT');
+    const allowed =
+      index === 0 ? ['blockId'] : ['blockId', 'indent', 'parentId'];
+    if (Object.keys(block.getAttributes()).some((k) => !allowed.includes(k)))
+      throw Error('UNSUPPORTED_CONTENT');
+    for (const child of block.toArray()) {
+      if (child instanceof Y.XmlText) {
+        for (const op of child.toDelta()) {
+          if (
+            typeof op.insert !== 'string' ||
+            Object.keys(op.attributes ?? {}).some((k) => k !== 'link')
+          )
+            throw Error('UNSUPPORTED_CONTENT');
+          if (
+            op.attributes?.link &&
+            (typeof op.attributes.link !== 'object' ||
+              Object.keys(op.attributes.link).join() !== 'href')
+          )
+            throw Error('INVALID_LINK');
+        }
+      } else {
+        const attrs =
+          child instanceof Y.XmlElement ? child.getAttributes() : {};
+        const fields = { note_reference: ['label', 'pageId'], date: ['value'] }[
+          child.nodeName
+        ];
+        if (
+          !fields ||
+          child.length ||
+          Object.keys(attrs).sort().join() !== fields.join()
+        )
+          throw Error('UNSUPPORTED_CONTENT');
+      }
+    }
+  });
+}
 export function projection(d, kind) {
   if (!['notes', 'tasks'].includes(kind)) throw Error('UNSUPPORTED_PAGE_KIND');
   d.getMap('links');
@@ -23,11 +65,12 @@ export function projection(d, kind) {
     throw Error('UNSUPPORTED_PAGE_ROOT');
   const record = d.getMap('page');
   if (
-    [...record.keys()].sort().join() !== 'body,properties,title' ||
-    !(record.get('body') instanceof Y.XmlFragment) ||
+    [...record.keys()].sort().join() !== 'content,properties' ||
+    !(record.get('content') instanceof Y.XmlFragment) ||
     !(record.get('properties') instanceof Y.Map)
   )
     throw Error('INVALID_PAGE_RECORD');
+  validateXml(record.get('content'));
   const p = pageFields(d, (fragment) =>
     yXmlFragmentToProseMirrorRootNode(
       fragment,
@@ -38,20 +81,20 @@ export function projection(d, kind) {
   validatePage(kind, entityProjection(p, kind));
   return p;
 }
-export const entityProjection = (p, kind) =>
-  kind === 'notes'
-    ? { title: p.title, body: p.body }
-    : { title: p.title, body: p.body, properties: p.properties };
+export const entityProjection = (p, _kind) => ({
+  content: p.content,
+  properties: p.properties,
+});
 export function fresh(kind, p) {
+  validatePage(kind, p);
   const d = new Y.Doc(),
     record = d.getMap('page'),
     body = new Y.XmlFragment();
-  record.set('title', p.title);
-  record.set('body', body);
+  record.set('content', body);
   record.set('properties', new Y.Map());
   d.getMap('links');
   prosemirrorToYXmlFragment(
-    parse(kind === 'notes' ? noteSchema : taskSchema, p.body),
+    parse(kind === 'notes' ? noteSchema : taskSchema, p.content),
     body
   );
   setProperties(record, p.properties ?? {});
@@ -89,7 +132,6 @@ export function decode(row, metrics) {
 }
 export function apply(d, kind, p) {
   const record = d.getMap('page');
-  record.set('title', p.title);
-  setBody(record, kind === 'notes' ? noteSchema : taskSchema, p.body, d);
+  setContent(record, kind === 'notes' ? noteSchema : taskSchema, p.content, d);
   if (p.properties !== undefined) setProperties(record, p.properties);
 }

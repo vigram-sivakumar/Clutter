@@ -172,15 +172,14 @@ const properties: Schema<Record<string, Infer<typeof property>>> = {
     return out;
   },
 };
-const body = object({
-  format: literal('clutter.pm-json'),
-  schemaVersion: literal(1),
+const content = object({
+  format: literal('clutter.page-json'),
+  schemaVersion: literal(2),
   value: json,
 });
 const base = { apiVersion: literal(1), spaceId: id };
 const patch = object({
-  title: optional(text(10000)),
-  body: optional(body),
+  content: optional(content),
   properties: optional(properties),
 });
 const head = text(64, '^[a-f0-9]{64}$');
@@ -311,8 +310,7 @@ export const catalogue = {
     operationId: id,
     pageId: id,
     kind: union(literal('note'), literal('task')),
-    title: text(10000),
-    body,
+    content,
     properties,
   }),
   'page.read': object({
@@ -336,10 +334,11 @@ export type EditorApply = Extract<Command, { method: 'editor.apply' }>;
 export type EditorProtect = Extract<Command, { method: 'editor.protect' }>;
 export type PageContent = Pick<
   Extract<Command, { method: 'page.create' }>,
-  'title' | 'body' | 'properties'
+  'content' | 'properties'
 >;
 export type PageKind = Extract<Command, { method: 'page.create' }>['kind'];
 export type PageSnapshot = PageContent & {
+  title: string;
   pageId: string;
   kind: PageKind;
   head: string;

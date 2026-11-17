@@ -1,3 +1,4 @@
+import { pageContent } from '../../editor/src/schema.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { rmSync } from 'node:fs';
@@ -40,15 +41,7 @@ const create = (x, pageId) => ({
   operationId: 'create_' + pageId,
   pageId,
   kind: pageId === 'b' ? 'task' : 'note',
-  title: 'Title ' + pageId,
-  body: {
-    format: 'clutter.pm-json',
-    schemaVersion: 1,
-    value: {
-      type: 'doc',
-      content: [{ type: 'paragraph', attrs: { blockId: 'first' } }],
-    },
-  },
+  content: pageContent('Title ' + pageId, ''),
   properties: {},
 });
 test('real catalogue query returns bounded ordered current heads and survives restart', async (t) => {
@@ -88,7 +81,7 @@ test('real catalogue query returns bounded ordered current heads and survives re
         pageId: 'a',
         operationId: 'rename',
         expectedHead: prior.head,
-        patch: { title: 'Renamed' },
+        patch: { content: pageContent('Renamed') },
       })
     ).ok
   );

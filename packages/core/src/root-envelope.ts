@@ -1,5 +1,5 @@
 import { Fault } from './contracts.ts';
-export const PAGE_CODEC = 'clutter-page-y-v1';
+export const PAGE_CODEC = 'clutter-page-y-v2';
 export function pageRootPrefix(pageId: string, kind: string): Uint8Array {
   if (
     !['notes', 'tasks'].includes(kind) ||
@@ -7,7 +7,7 @@ export function pageRootPrefix(pageId: string, kind: string): Uint8Array {
   )
     throw new Fault('UNSUPPORTED_PAGE_CODEC');
   return new TextEncoder().encode(
-    PAGE_CODEC + '\0schema1\0yjs13.6.33\0' + pageId + '\0' + kind + '\0'
+    PAGE_CODEC + '\0schema2\0yjs13.6.33\0' + pageId + '\0' + kind + '\0'
   );
 }
 export function pageRootPayload(

@@ -1,3 +1,4 @@
+import { pageContent } from '../../editor/src/schema.mjs';
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -112,21 +113,7 @@ test('parallel app-closed launchers attach to one reserved owner; CLI, MCP and U
         method: 'page.create',
         operationId: 'test-seed',
         kind: 'note',
-        title: 'Test page',
-        body: {
-          format: 'clutter.pm-json',
-          schemaVersion: 1,
-          value: {
-            type: 'doc',
-            content: [
-              {
-                type: 'paragraph',
-                attrs: { blockId: 'first' },
-                content: [{ type: 'text', text: 'Alpha beta' }],
-              },
-            ],
-          },
-        },
+        content: pageContent('Test page', ''),
         properties: {},
       })
     )
@@ -539,8 +526,8 @@ test('React navigation stays in the current tab, owns split layouts per tab, and
     const bodies = [];
     for (const page of list.value.pages)
       bodies.push(
-        (await ui.api({ method: 'page.read', pageId: page.pageId })).value.body
-          .value.content[0].content[0].text
+        (await ui.api({ method: 'page.read', pageId: page.pageId })).value
+          .content.value.content[1].content[0].text
       );
     assert.deepEqual(
       bodies.sort(),
@@ -616,8 +603,8 @@ test('protected edits remain recoverable in their original hidden tab after clos
     await ui.wait(() => ui.active()?.textContent === 'ACCEPTED PROTECTED');
     await ui.saved();
     assert.equal(
-      (await ui.api({ method: 'page.read', pageId: page })).value.body.value
-        .content[0].content[0].text,
+      (await ui.api({ method: 'page.read', pageId: page })).value.content.value
+        .content[1].content[0].text,
       'ACCEPTED PROTECTED'
     );
   } finally {
@@ -937,6 +924,57 @@ test('default menu blocks only already-displayed split notes; new tabs/windows s
     assert.equal(ui.panes().length, 1);
   } finally {
     if (child) await child.dispose();
+    await ui.dispose();
+  }
+});
+
+test('3A real UI title starts empty, updates tab/sidebar without replacing the editor, and persists with body', async () => {
+  const dir = await session();
+  const ui = await browserWindow(dir, 'title60');
+  try {
+    ui.button('+ New page').click();
+    await ui.wait(() => !!ui.active());
+    const editor = ui.active(),
+      pageId = ui.panes()[0].dataset.page;
+    const title = editor.querySelector('[data-title]');
+    assert.equal(title.textContent, '');
+    assert.equal(title.getAttribute('data-placeholder'), 'New note');
+    const selection = ui.dom.window.getSelection();
+    assert(
+      title.contains(selection.anchorNode) || selection.anchorNode === title,
+      'new note focuses title'
+    );
+    title.textContent = 'Working title';
+    selection.selectAllChildren(title);
+    selection.collapseToEnd();
+    await ui.wait(
+      () =>
+        ui.doc.querySelector('.page-link span:last-child').textContent ===
+        'Working title'
+    );
+    assert(ui.tabs()[0].textContent.includes('Working title'));
+    assert.equal(ui.active(), editor);
+    assert.equal(editor.querySelector('[data-title]'), title);
+    await ui.type('Body belongs to same document', editor);
+    await ui.saved();
+    const read = await ui.api({ method: 'page.read', pageId });
+    assert(read.ok);
+    assert.equal(read.value.title, 'Working title');
+    assert.equal(
+      read.value.content.value.content[1].content[0].text,
+      'Body belongs to same document'
+    );
+    assert.equal(ui.active(), editor);
+    ui.button('+ New page').click();
+    await ui.wait(() => ui.panes()[0].dataset.page !== pageId);
+    ui.doc.querySelector('.page-link[data-page="' + pageId + '"]').click();
+    await ui.wait(() => ui.panes()[0].dataset.page === pageId);
+    assert.equal(ui.active(), editor);
+    assert.equal(
+      editor.querySelector('[data-title]').textContent,
+      'Working title'
+    );
+  } finally {
     await ui.dispose();
   }
 });

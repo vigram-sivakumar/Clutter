@@ -1,6 +1,9 @@
 # Stage 3 implementation plan
 
-17 November 2026. **Planning complete; implementation has not started.**
+17 November 2026. **3A implemented in60; targeted Mac check pending.3B–3E pending.**
+
+See [capability60 outcome](title-body-60.md). The following baseline inspection and
+plan were recorded at59; they are not claims that the old scalar-title path remains.
 Application baseline: delivered57. Documentation58 recorded UX; this59 update adds
 the preset-only formatting decision and this plan. No application/schema/native or
 dependency changes are made by this delivery.
@@ -180,7 +183,7 @@ passing tests. Broaden/repeat checks only for new changes or unresolved failures
 
 ## Next concrete action and handoff
 
-**Implement 3A next.** Start in the shared content/schema and Core contract/codec
+**At59 the next action was3A;60 implements it. Verify its Mac checklist before3B.** Start in the shared content/schema and Core contract/codec
 path, then connect the actual title/body view and derived sidebar projection. Include
 the block/hierarchy/history extension boundaries so later parts do not add parallel
 implementations. Do not start with a React title input calling `page.update` while
@@ -188,7 +191,7 @@ leaving the body on a separate history/save path.
 
 Read [UX decisions](stage3-ux.md), [checkpoint](../START-HERE.md),
 [architecture](../../architecture.md) and [table contract](../table-interaction-contract.md).
-No application implementation has been made by this plan. No tests/builds were run
-for it; source inspection and documentation/package checks are the evidence for59.
+59 itself made no application implementation. No tests/builds were run
+for59; source inspection and documentation/package checks are the evidence for59.
 User56 flicker PASS and57 scoped navigation/new-window PASS remain recorded; neither
 establishes that the stage3 editor or wider native/release gates are complete.

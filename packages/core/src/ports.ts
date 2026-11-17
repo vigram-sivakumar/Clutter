@@ -19,7 +19,7 @@ export type Stored = Root & { sequence: number };
 export interface PageEngine {
   create(pageId: string, kind: PageKind, content: PageContent): Root;
   update(previous: Root, content: PageContent): Root;
-  project(root: Root): PageContent;
+  project(root: Root): PageContent & { title: string };
   assetLinks?(root: Root): AssetLinks;
   withAssetLinks?(root: Root, links: AssetLinks): Root;
   applyUpdate?(latest: Root, base: Root, update: Uint8Array): Root;

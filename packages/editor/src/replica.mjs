@@ -1,16 +1,16 @@
+import { titleInteractions } from './title-interactions.mjs';
 import { assertBodyRebase } from '../../core/src/editor-rebase.ts';
-import { Schema } from 'prosemirror-model';
 // Explicit composition adapter: actual PM/Y views over the new runtime port.
-// Temporary supported schema/codec; no legacy app wiring or second save path.
+// One title/body document; no mirrored React value or second save path.
 import * as Y from 'yjs';
-import { EditorState, Plugin, TextSelection } from 'prosemirror-state';
+import { EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { keymap } from 'prosemirror-keymap';
 import { baseKeymap } from 'prosemirror-commands';
 import { ySyncPlugin, ySyncPluginKey, initProseMirrorDoc } from 'y-prosemirror';
 import { noteSchema, taskSchema } from './schema.mjs';
 import { OriginHistoryContext } from './origin-history-context.mjs';
-import { fromBase64, toBase64, Fault } from '../../core/src/contracts.ts';
+import { toBase64, Fault } from '../../core/src/contracts.ts';
 export function createEditorReplica(
   checkout,
   onLocal,
@@ -21,28 +21,17 @@ export function createEditorReplica(
   const kind = (k) => (k === 'note' ? 'notes' : 'tasks');
   const doc = read(checkout),
     sourceSchema = checkout.kind === 'note' ? noteSchema : taskSchema,
-    schema = new Schema({
-      nodes: sourceSchema.spec.nodes.update('paragraph', {
-        ...sourceSchema.nodes.paragraph.spec,
-        toDOM: (node) => ['p', { 'data-block-id': node.attrs.blockId }, 0],
-        parseDOM: [
-          {
-            tag: 'p',
-            getAttrs: (dom) => ({ blockId: dom.getAttribute('data-block-id') }),
-          },
-        ],
-      }),
-      marks: sourceSchema.spec.marks,
-    }),
-    fragment = doc.getMap('page').get('body'),
+    schema = sourceSchema,
+    fragment = doc.getMap('page').get('content'),
     history = new OriginHistoryContext(fragment, schema),
     views = new Set(),
     remote = Symbol('accepted-root'),
     selectionOwner = Symbol('view-selection-owner');
   let disposed = false,
-    acceptedBody = projection(doc, kind(checkout.kind)).body;
+    acceptedBody = projection(doc, kind(checkout.kind)).content;
   const changed = (_update, origin) => {
     if (origin === ySyncPluginKey || origin === history.manager) onLocal();
+    options.onProjection?.(projection(doc, kind(checkout.kind)));
   };
   doc.on('update', changed);
   // Native selectionchange can lag a visible click. Before a toolbar bookmark,
@@ -114,10 +103,10 @@ export function createEditorReplica(
         throw new Fault('WRONG_DESTINATION');
       const accepted = read(root);
       try {
-        const next = projection(accepted, kind(checkout.kind)).body;
+        const next = projection(accepted, kind(checkout.kind)).content;
         assertBodyRebase(
           acceptedBody,
-          projection(doc, kind(checkout.kind)).body,
+          projection(doc, kind(checkout.kind)).content,
           next
         );
         Y.applyUpdate(doc, Y.encodeStateAsUpdate(accepted), remote);
@@ -138,6 +127,7 @@ export function createEditorReplica(
           plugins: [
             ySyncPlugin(fragment),
             history.plugin(),
+            titleInteractions(nextBlockId, options.canEdit),
             keymap({
               'Mod-z': () => {
                 runHistory(view, 'undo');
@@ -163,7 +153,7 @@ export function createEditorReplica(
           if (tr.docChanged && !tr.getMeta(ySyncPluginKey)?.isChangeOrigin) {
             const seen = new Set();
             tr.doc.descendants((node, pos) => {
-              if (node.isText) return;
+              if (!node.isBlock) return;
               let id = node.attrs.blockId;
               if (!id || seen.has(id)) {
                 id = nextBlockId();

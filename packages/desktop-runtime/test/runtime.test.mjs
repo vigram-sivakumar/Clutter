@@ -1,3 +1,4 @@
+import { pageContent } from '../../editor/src/schema.mjs';
 import ts from 'typescript';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -29,20 +30,8 @@ import {
 import { qualifiedEngine } from '../../editor/src/engine.mjs';
 const here = dirname(fileURLToPath(import.meta.url)),
   root = join(here, '../../..');
-const body = (text = 'initial') => ({
-  format: 'clutter.pm-json',
-  schemaVersion: 1,
-  value: {
-    type: 'doc',
-    content: [
-      {
-        type: 'paragraph',
-        attrs: { blockId: 'b' },
-        ...(text ? { content: [{ type: 'text', text }] } : {}),
-      },
-    ],
-  },
-});
+const body = (text = 'initial', title = 'Page') =>
+  pageContent(title, text, { title: 'title', body: 'b' });
 const create = (spaceId, over = {}) => ({
   apiVersion: 1,
   spaceId,
@@ -50,8 +39,7 @@ const create = (spaceId, over = {}) => ({
   pageId: 'p',
   operationId: 'create',
   kind: 'note',
-  title: 'Page',
-  body: body(),
+  content: body(),
   properties: {},
   ...over,
 });
@@ -62,7 +50,7 @@ const update = (spaceId, head, over = {}) => ({
   pageId: 'p',
   operationId: 'edit',
   expectedHead: head,
-  patch: { title: 'Edited' },
+  patch: { content: body('initial', 'Edited') },
   ...over,
 });
 function setup(t, hooks = {}) {
@@ -135,14 +123,14 @@ test('catalogue generates strict schemas and inferred commands from the same fie
     { ...c, principal: 'admin' },
     { ...c, apiVersion: 2 },
     { ...c, spaceId: 'bad/path' },
-    { ...c, body: { ...c.body, extra: 1 } },
+    { ...c, content: { ...c.content, extra: 1 } },
     { ...c, properties: { x: { type: 'number', value: 'wrong' } } },
   ])
     assert.throws(() => parseCommand(v), /INVALID_REQUEST/);
   let nested = {};
   for (let i = 0; i < 34; i++) nested = { nested };
   assert.throws(
-    () => parseCommand({ ...c, body: { ...c.body, value: nested } }),
+    () => parseCommand({ ...c, content: { ...c.content, value: nested } }),
     /INVALID_REQUEST/
   );
   assert.throws(
@@ -166,7 +154,7 @@ test('real Y root persists once; note and task share the same page operations', 
         pageId: 'task',
         operationId: 'task',
         kind: 'task',
-        body: body('task body'),
+        content: body('task body'),
         properties: { due: { type: 'date', value: '2026-11-15' } },
       })
     )
@@ -182,13 +170,13 @@ test('real Y root persists once; note and task share the same page operations', 
       pageId: 'task',
     })
   );
-  assert.equal(tp.body.value.content[0].content[0].text, 'task body');
+  assert.equal(tp.content.value.content[1].content[0].text, 'task body');
   ok(
     await x.run(
       update(x.v.spaceId, task.head, {
         pageId: 'task',
         operationId: 'task-edit',
-        patch: { title: 'Task page' },
+        patch: { content: body('task body', 'Task page') },
       })
     )
   );
@@ -199,7 +187,7 @@ test('real Y root persists once; note and task share the same page operations', 
   // Same connection holds exclusive lock; inspecting via another connection is intentionally refused.
   assert.throws(() => db.prepare('SELECT * FROM roots').all(), /locked/);
   const r = x.v.load('p');
-  assert.ok(Buffer.from(r.bytes).includes(Buffer.from('clutter-page-y-v1')));
+  assert.ok(Buffer.from(r.bytes).includes(Buffer.from('clutter-page-y-v2')));
   assert.equal(x.v.load('p').head, x.head);
 });
 test('one running writer and durable identity survive service restart', async (t) => {
@@ -223,7 +211,7 @@ test('all adapters receive the same conflict/outcome semantics; operation IDs ar
   const receipt = ok(await x.run(c));
   assert.deepEqual(ok(await x.client.execute(c)), receipt);
   code(
-    await x.run({ ...c, patch: { title: 'different' } }),
+    await x.run({ ...c, patch: { content: body('initial', 'different') } }),
     'OPERATION_ID_REUSED'
   );
   code(await x.run({ ...c, operationId: 'stale' }), 'CONFLICT');
@@ -243,14 +231,14 @@ test('queued request is snapshotted; later caller mutation cannot change admitte
   const x = setup(t),
     c = create(x.v.spaceId);
   const p = x.run(c);
-  c.title = 'mutated';
+  c.content.value.content[0].content[0].text = 'mutated';
   ok(await p);
   assert.equal(ok(await read(x)).title, 'Page');
 });
 test('unknown fields/schema/content refuse without overwriting the current root', async (t) => {
   const x = await seeded(t);
   const invalids = [
-    { ...body(), schemaVersion: 2 },
+    { ...body(), schemaVersion: 999 },
     { ...body(), value: { type: 'doc', content: [{ type: 'unknown' }] } },
     { ...body(), value: { ...body().value, unknown: true } },
     {
@@ -270,7 +258,7 @@ test('unknown fields/schema/content refuse without overwriting the current root'
     const r = await x.run(
       update(x.v.spaceId, x.head, {
         operationId: 'bad' + i,
-        patch: { body: b },
+        patch: { content: b },
       })
     );
     assert.equal(r.ok, false);
@@ -518,7 +506,7 @@ test('malformed mutation replies remain unknown and malformed read replies are u
   }
   const client = new CoreClient(async () => ({
     ok: true,
-    value: { ...ok(await read(x)), body: { format: 'other' } },
+    value: { ...ok(await read(x)), content: { format: 'other' } },
   }));
   code(
     await client.execute({
@@ -571,21 +559,21 @@ test('SpaceStore port atomically guards and commits several page roots in one Sp
     {
       root: qualifiedEngine.update(p, {
         ...qualifiedEngine.project(p),
-        title: 'P new',
+        content: body('initial', 'P new'),
       }),
       expectedHead: p.head,
     },
     {
       root: qualifiedEngine.update(q, {
         ...qualifiedEngine.project(q),
-        title: 'Q new',
+        content: body('initial', 'Q new'),
       }),
       expectedHead: q.head,
     },
   ];
   const command = update(x.v.spaceId, p.head, {
     operationId: 'multi',
-    patch: { title: 'P new' },
+    patch: { content: body('initial', 'P new') },
   });
   await assert.rejects(
     x.v.commit(command, [
@@ -616,4 +604,71 @@ test('SpaceStore port atomically guards and commits several page roots in one Sp
   );
   assert.equal(reopened.load('p').head, changes[0].root.head);
   assert.equal(reopened.load('q').head, changes[1].root.head);
+});
+
+test('3A one structured write contract rejects scalar titles and old schema; semantic title projection is derived', async (t) => {
+  const x = await seeded(t),
+    content = body('kept', 'Title ');
+  content.value.content[0].content.push(
+    { type: 'note_reference', attrs: { pageId: 'another', label: 'Other' } },
+    { type: 'date', attrs: { value: '2026-11-17' } },
+    {
+      type: 'text',
+      text: ' link',
+      marks: [{ type: 'link', attrs: { href: 'https://example.com' } }],
+    }
+  );
+  const accepted = ok(
+    await x.run(update(x.v.spaceId, x.head, { patch: { content } }))
+  );
+  const page = ok(await read(x));
+  assert.equal(page.title, 'Title @Other2026-11-17 link');
+  code(
+    await x.run(
+      update(x.v.spaceId, accepted.head, {
+        operationId: 'scalar',
+        patch: { title: 'duplicate owner' },
+      })
+    ),
+    'INVALID_REQUEST'
+  );
+  code(
+    await x.run({
+      ...create(x.v.spaceId, { pageId: 'old', operationId: 'old' }),
+      title: 'old',
+      body: {
+        format: 'clutter.pm-json',
+        schemaVersion: 1,
+        value: { type: 'doc' },
+      },
+    }),
+    'INVALID_REQUEST'
+  );
+  for (const [i, mutate] of [
+    (c) => (c.value.content[1].attrs.parentId = 'missing'),
+    (c) => (c.value.content[1].attrs.indent = -1),
+    (c) => (c.value.content[1].attrs.blockId = 'title'),
+    (c) => (c.value.content[0].attrs.extra = true),
+    (c) =>
+      (c.value.content[0].content[0].marks = [
+        { type: 'link', attrs: { href: 'javascript:evil()' } },
+      ]),
+    (c) =>
+      c.value.content[0].content.push({
+        type: 'unknown',
+        text: 'silently discarded',
+      }),
+    (c) => (c.value.content[0].content[0].text = 'line\nbreak'),
+  ].entries()) {
+    const bad = structuredClone(content);
+    mutate(bad);
+    const result = await x.run(
+      update(x.v.spaceId, accepted.head, {
+        operationId: 'invalid-doc-' + i,
+        patch: { content: bad },
+      })
+    );
+    assert.equal(result.ok, false, 'invalid structured document refused');
+  }
+  assert.equal(ok(await read(x)).head, accepted.head);
 });

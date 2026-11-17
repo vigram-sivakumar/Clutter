@@ -44,7 +44,11 @@ security/durability/cleanup guarantees and distribution are not yet qualified.
 Structured canonical roots are not .md; Markdown remains a future interchange path
 with explicit loss reporting, not a retained full/compact renderer or dual writer.
 
-The current editable schema admits paragraphs with stable block identities. Task
+The current schema2 document has one structured title followed by paragraphs with
+stable block identities, explicit indent and optional visual parent identity. Title
+and body share one Y fragment and one origin history. Plain title is derived; UI,
+CLI and MCP write the same structured content contract. Shared inline reference/date/
+link schema exists; insertion menus/formatting arrive in3B. Task
 is still an independent page kind; full body/cover/media/embed/property scope is a
 required target, not complete UI in this slice. Tables and other content components
 must implement the retained product/keyboard contracts. No existing-user migration,

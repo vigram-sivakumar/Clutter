@@ -15,7 +15,7 @@ const missingHead: Command = {
   method: 'page.update',
   pageId: 'p',
   operationId: 'o',
-  patch: { title: 'x' },
+  patch: { properties: {} },
 };
 const mismatch: PageContent['properties'] = {
   // @ts-expect-error typed property values cannot disagree with their type

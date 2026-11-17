@@ -369,3 +369,25 @@ button:focus-visible {
 .surface-staging > .editor-pane {
   flex: none;
 }
+
+/* PM owns the title and body. Placeholder/paste feedback never enters saved data. */
+.ProseMirror h1[data-title] {
+  position: relative;
+  font-size: 2rem;
+  line-height: 1.25;
+  margin: 0 0 1.25rem;
+  min-height: 1.25em;
+  font-weight: 600;
+}
+.ProseMirror [data-placeholder]::before {
+  content: attr(data-placeholder);
+  position: absolute;
+  color: #788992;
+  pointer-events: none;
+}
+.ProseMirror .pasted-block {
+  background: #dcecf9;
+}
+.ProseMirror.paste-feedback {
+  caret-color: transparent;
+}

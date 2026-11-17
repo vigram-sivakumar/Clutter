@@ -71,7 +71,7 @@ const NoteView = memo(function NoteView({
   const title = useModel(
     model,
     useCallback(
-      (m) => m.pages.find((p) => p.pageId === pageId)?.title || 'Untitled',
+      (m) => m.pages.find((p) => p.pageId === pageId)?.title || 'New note',
       [pageId]
     )
   );
@@ -122,7 +122,6 @@ const NoteView = memo(function NoteView({
         </Button>
       </div>
       <div className="note-scroll">
-        <h1>{title}</h1>
         <div className="editor-content" ref={target} />
       </div>
     </section>
@@ -176,10 +175,10 @@ const Sidebar = memo(function Sidebar({ model }) {
               onClick={() => void model.open(page.pageId)}
             >
               <span aria-hidden="true">▤</span>
-              <span>{page.title || 'Untitled'}</span>
+              <span>{page.title || 'New note'}</span>
             </button>
             <NoteMenu
-              label={page.title || 'Untitled'}
+              label={page.title || 'New note'}
               disabled={!model.canNavigate}
               splitDisabled={!model.canSplit(page.pageId)}
               windowDisabled={!model.canOpenWindow}
@@ -215,7 +214,7 @@ const PageBar = memo(function PageBar({ model }) {
   useModel(model, titles);
   const pane = model.navigation.activePane;
   const title = (pageId) =>
-    model.pages.find((p) => p.pageId === pageId)?.title || 'Untitled';
+    model.pages.find((p) => p.pageId === pageId)?.title || 'New note';
   return (
     <header className="page-bar">
       <div className="navigation-tools">
@@ -248,7 +247,7 @@ const Tabs = memo(function Tabs({ model }) {
   useModel(model, titles);
   const tab = model.navigation.activeTab;
   const title = (pageId) =>
-    model.pages.find((p) => p.pageId === pageId)?.title || 'Untitled';
+    model.pages.find((p) => p.pageId === pageId)?.title || 'New note';
   const tabKey = (event) => {
     const tabs = model.navigation.tabs;
     const index = tabs.findIndex(

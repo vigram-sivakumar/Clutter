@@ -1,0 +1,40 @@
+{
+  "capability": "3A title/body",
+  "delivery": 60,
+  "date": "2026-11-17",
+  "status": "implemented-mac-check-pending",
+  "automated": {
+    "fullSuite": {
+      "tests": 119,
+      "pass": 119,
+      "fail": 0
+    },
+    "finalEditorSuite": {
+      "tests": 38,
+      "pass": 38,
+      "fail": 0,
+      "includesOneAdditionalTest": "single-line title paste"
+    },
+    "uniqueTests": 120,
+    "typecheck": "strict Core and runtime passed",
+    "boundaries": 43,
+    "removedTests": 0
+  },
+  "integration": [
+    "actual PM/React bundles",
+    "Core and SQLite",
+    "real CLI/MCP processes write title/body and read UI edits",
+    "protected title/body recovery after failed save and restart",
+    "title/body history and foreign-title retention",
+    "derived sidebar/tab titles preserve actual editor DOM"
+  ],
+  "native": {
+    "build": "not run; no native or lock changes",
+    "manual": "pending scoped Mac checklist",
+    "priorUserPasses": "56 flicker;57 scoped split/window check only",
+    "risk": "intermittent prior native caret report; jsdom is not native caret/scroll/IME proof"
+  },
+  "next": "Mac title/body checklist, then3B; one capability at a time",
+  "format": "clutter.page-json/schema2;clutter-page-y-v2;no old-root migration",
+  "base": "plan59"
+}
