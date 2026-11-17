@@ -210,3 +210,7 @@ establishes that the stage3 editor or wider native/release gates are complete.
 [insertion-policy65](insertion-policy-65.md) supersede earlier retain-focus/splitting
 for editable text. One generic transaction, stable conversion ID, shared hierarchy
 selectors and dispatcher-owned history remain required; no per-OS insertion logic.
+
+Current66: [text controls](text-controls-66.md) supersedes filled insert-below65 and
+list-only Tab scope64. All body text shares indentation; text types convert in place.
+After Mac editor/C01 check, dedicated Mac CLI/MCP acceptance precedes formatting.

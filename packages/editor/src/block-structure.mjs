@@ -21,3 +21,10 @@ export function afterSubtree(doc, blockId) {
   if (end === undefined) throw Error('BLOCK_NOT_FOUND');
   return end;
 }
+
+export function parentAtIndent(rows, parentId, indent) {
+  const byId = new Map(rows.map((r) => [r.node.attrs.blockId, r.node]));
+  while (parentId && byId.get(parentId)?.attrs.indent >= indent)
+    parentId = byId.get(parentId).attrs.parentId;
+  return parentId;
+}

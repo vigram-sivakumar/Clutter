@@ -132,7 +132,7 @@ empty Enter/Backspace affect just current row and detach children at unchanged i
 Lists are not semantic tasks/subtasks. Core/client/CLI/MCP share the same schema/save
 path. No native64 pass inferred. A01–A05 Ctrl+A remains queued for3C, not implemented.
 
-## Latest insertion decision65 — text types receive focus
+## Historical insertion decision65 — superseded by66
 
 User explicitly corrected64: empty editable block CONVERTS in place; nonempty keeps
 remaining text together, inserts chosen type below and focuses it. Paragraph/heading/
@@ -143,3 +143,26 @@ transaction executor and context history path implement it. insertionPolicies is
 workspace prop; no per-ID UI/cursor/save branches. Shared selectors own graph scope.
 No native65 pass inferred. Lists still need scoped Mac checks after correction;
 formatting later, Ctrl+A/block selection remains3C. OS mechanisms stay in adapters.
+
+## Mandatory completion review — every change
+
+User explicitly requires the WHOLE architecture check on every task, not only a
+CLI/MCP test: remove superseded implementations; search for duplicate behavior/owners;
+verify package/platform boundaries; confirm UI, CLI and MCP use the same accepted
+Core and persistence path, with interactive history remaining context-owned. Verify
+relevant real CLI/MCP client behavior and record the evidence. Keep one shared
+indentation transform and one policy-driven insertion/conversion path where these
+behaviors apply; no UI/native/CLI forks or leftover alternative handlers.
+Distinguish automated/Linux evidence from actual Mac/manual results. A dedicated
+Mac CLI/MCP read/write/conflict/save-reopen check is next after the current editor
+correction, before formatting. Do not defer peer-client wiring until final UI.
+
+## Current text controls66
+
+Read rebuild/text-controls-66.md. Latest user approval replaces filled insert-below
+with conversion IN PLACE for all text types. Retain remaining content, block identity,
+indent/parentage and mapped caret; default text policy is convert/convert/inserted.
+Objects retain their own policies; separator63 unchanged. One block-indentation
+module/plugin serves all indentable BODY text; no list-only Tab handler remains.
+C01 source CSS fixed, Mac visual check pending. After scoped editor checks, run the
+dedicated Mac CLI/MCP read/write/conflict/save/reopen acceptance before formatting.

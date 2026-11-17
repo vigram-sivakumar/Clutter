@@ -1,5 +1,10 @@
+import { blockIndentation } from './block-indentation.mjs';
 import { listInteractions } from './list-interactions.mjs';
-import { blockInsertion, isInsertionTransaction } from './block-insertion.mjs';
+import {
+  blockInsertion,
+  isInsertionTransaction,
+  insertionWantsFocus,
+} from './block-insertion.mjs';
 import { titleInteractions } from './title-interactions.mjs';
 import { assertBodyRebase } from '../../core/src/editor-rebase.ts';
 // Explicit composition adapter: actual PM/Y views over the new runtime port.
@@ -135,6 +140,10 @@ export function createEditorReplica(
               renderMenu: options.renderSlashMenu,
               insertionPolicies: options.insertionPolicies,
             }),
+            blockIndentation({
+              canEdit: options.canEdit,
+              stopCapturing: () => history.manager.stopCapturing(),
+            }),
             listInteractions({
               nextId: nextBlockId,
               canEdit: options.canEdit,
@@ -183,7 +192,10 @@ export function createEditorReplica(
             !tr.getMeta(ySyncPluginKey)?.isChangeOrigin;
           if (insertion) history.manager.stopCapturing();
           this.updateState(this.state.apply(tr));
-          if (insertion) history.manager.stopCapturing();
+          if (insertion) {
+            history.manager.stopCapturing();
+            if (insertionWantsFocus(tr)) this.focus();
+          }
         },
       });
       views.add(view);

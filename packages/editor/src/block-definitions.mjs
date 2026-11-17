@@ -1,7 +1,7 @@
 // Shared insertion configuration. UI controls choose IDs; they do not own policy.
 const textPolicy = Object.freeze({
   empty: 'convert',
-  nonEmpty: 'after',
+  nonEmpty: 'convert',
   focus: 'inserted',
 });
 const objectPolicy = Object.freeze({
@@ -79,7 +79,7 @@ export function createBlockDefinitions(insertionPolicies = {}) {
       const insertion = { ...spec.insertion, ...override };
       if (
         !['convert', 'before', 'after'].includes(insertion.empty) ||
-        !['before', 'after'].includes(insertion.nonEmpty) ||
+        !['convert', 'before', 'after'].includes(insertion.nonEmpty) ||
         !['inserted', 'retain'].includes(insertion.focus)
       )
         throw Error('INVALID_INSERTION_POLICY');

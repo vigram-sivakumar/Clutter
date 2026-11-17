@@ -1592,35 +1592,34 @@ function bodyInput(view, value, offset = value.length) {
   view.dispatch(tr.setSelection(TextSelection.create(tr.doc, start + offset)));
 }
 for (const level of [1, 2, 3, 4, 5, 6])
-  test(`65 slash H${level} retains complete source text and focuses the inserted heading`, async (t) => {
+  test(`66 slash H${level} converts existing text in place and keeps its mapped caret/history`, async (t) => {
     const x = await seeded(t),
       a = await x.open('heading_' + level),
       av = x.mount(a);
     av.focus();
     bodyInput(av, 'before/h' + level + 'after', 9);
     a.stopCapturing();
-    assert.equal(keydown(av, 'Enter').defaultPrevented, true);
-    assert.equal(av.state.doc.child(1).textContent, 'beforeafter');
-    assert.equal(av.state.doc.child(2).type.name, 'heading');
-    assert.equal(av.state.doc.child(2).attrs.level, level);
-    assert.equal(av.state.doc.child(2).textContent, '');
-    assert.equal(
-      av.state.selection.$from.parent.attrs.blockId,
-      av.state.doc.child(2).attrs.blockId
-    );
-    assert.equal(av.state.selection.$from.parentOffset, 0);
-    assert.equal(av.hasFocus(), true);
+    keydown(av, 'Enter');
+    const node = av.state.doc.child(1);
+    assert.equal(av.state.doc.childCount, 2);
+    assert.equal(node.type.name, 'heading');
+    assert.equal(node.attrs.level, level);
+    assert.equal(node.textContent, 'beforeafter');
+    assert.equal(node.attrs.blockId, 'paragraph-1');
+    assert.equal(av.state.selection.$from.parent.attrs.blockId, 'paragraph-1');
+    assert.equal(av.state.selection.$from.parentOffset, 6);
+    assert(av.hasFocus());
     await a.flush();
-    await settle(a);
     assert.equal(
-      ok(await x.read()).content.value.content[2].attrs.level,
+      ok(await x.read()).content.value.content[1].attrs.level,
       level
     );
-    assert.equal(a.history(av, 'undo'), true);
+    a.history(av, 'undo');
     assert.equal(text(av), 'before/h' + level + 'after');
-    assert.equal(av.state.doc.childCount, 2);
-    assert.equal(a.history(av, 'redo'), true);
-    assert.equal(av.state.doc.child(2).attrs.level, level);
+    assert.equal(av.state.doc.child(1).type.name, 'paragraph');
+    a.history(av, 'redo');
+    assert.equal(av.state.doc.child(1).type.name, 'heading');
+    await a.flush();
   });
 test('61 slash menu triggers mid-text, filters immediately, supports arrows/Escape and leaves unmatched queries/URLs alone', async (t) => {
   const x = await seeded(t),
@@ -1672,8 +1671,8 @@ test('61 paragraph and separator commands preserve text; Backspace after separat
   bodyInput(av, 'prefix/paragraphsuffix', 16);
   keydown(av, 'Enter');
   assert.deepEqual(
-    Array.from({ length: 2 }, (_, i) => av.state.doc.child(i + 1).textContent),
-    ['prefixsuffix', '']
+    Array.from({ length: 1 }, (_, i) => av.state.doc.child(i + 1).textContent),
+    ['prefixsuffix']
   );
   a.history(av, 'undo');
   bodyInput(av, 'prefix/separatorsuffix', 16);
@@ -1911,7 +1910,9 @@ async function seededList(t, specs, listStyle = 'unordered') {
         parentId: s.parent ?? null,
         ...((s.type ?? 'list_item') === 'list_item'
           ? { listStyle: s.style ?? listStyle }
-          : {}),
+          : s.type === 'heading'
+            ? { level: s.level ?? 2 }
+            : {}),
       },
       ...(s.text ? { content: [{ type: 'text', text: s.text }] } : {}),
     }))
@@ -2417,25 +2418,21 @@ test('65 empty text-block conversion matrix keeps one block/identity, strips old
       await a.flush();
     }
 });
-test('65 all text insertion targets keep nonempty inline content together and focus a new empty block', async (t) => {
+test('66 filled editable conversion matrix keeps complete inline text and original ID/caret', async (t) => {
   for (const target of insertionCases) {
     const x = await seeded(t),
-      a = await x.open('insert'),
+      a = await x.open('convert_filled'),
       av = x.mount(a);
     av.focus();
     bodyInput(av, 'prefix' + target.query + 'suffix', 6 + target.query.length);
     keydown(av, 'Enter');
-    assert.equal(av.state.doc.childCount, 3);
-    assert.equal(av.state.doc.child(1).textContent, 'prefixsuffix');
+    assert.equal(av.state.doc.childCount, 2);
+    assert.equal(av.state.doc.child(1).type.name, target.type);
     assert.equal(av.state.doc.child(1).attrs.blockId, 'paragraph-1');
-    assert.equal(av.state.doc.child(2).type.name, target.type);
-    assert.equal(av.state.doc.child(2).textContent, '');
-    assert.equal(
-      av.state.selection.$from.parent.attrs.blockId,
-      av.state.doc.child(2).attrs.blockId
-    );
+    assert.equal(av.state.doc.child(1).textContent, 'prefixsuffix');
+    assert.equal(av.state.selection.$from.parentOffset, 6);
     av.dispatch(av.state.tr.insertText('Ready'));
-    assert.equal(av.state.doc.child(2).textContent, 'Ready');
+    assert.equal(av.state.doc.child(1).textContent, 'prefixReadysuffix');
     await a.flush();
   }
 });
@@ -2467,7 +2464,7 @@ test('65 insertion policy prop overrides focus/placement without changing the sh
   av.focus();
   bodyInput(av, 'before/h2after', 9);
   const definitions = createBlockDefinitions({
-    'heading-2': { focus: 'retain', empty: 'after' },
+    'heading-2': { focus: 'retain', empty: 'after', nonEmpty: 'after' },
   });
   const tr = insertBlock(
     av.state,
@@ -2518,14 +2515,15 @@ test('65 generic insertion entry works without slash text and rejects incompatib
   assert.deepEqual(av.state.doc.toJSON(), before);
   av.dispatch(createInsertionTransaction(av.state, 'ordered-list', x.next));
   assert.equal(av.state.doc.child(1).textContent, 'Alpha beta');
-  assert.equal(av.state.doc.child(2).type.name, 'list_item');
+  assert.equal(av.state.doc.child(1).type.name, 'list_item');
   assert.equal(
     av.state.selection.$from.parent.attrs.blockId,
-    av.state.doc.child(2).attrs.blockId
+    av.state.doc.child(1).attrs.blockId
   );
   await a.flush();
   assert.equal(a.history(av, 'undo'), true);
   assert.equal(av.state.doc.childCount, 2);
+  assert.equal(av.state.doc.child(1).type.name, 'paragraph');
   assert.equal(av.state.doc.child(1).textContent, 'Alpha beta');
   assert.equal(a.history(av, 'redo'), true);
   await a.flush();
@@ -2537,7 +2535,9 @@ test('65 workspace insertionPolicies prop reaches actual editor behavior', async
       client: x.client(),
       spaceId: x.v.spaceId,
       windowId: 'prop_window',
-      insertionPolicies: { 'heading-2': { focus: 'retain' } },
+      insertionPolicies: {
+        'heading-2': { focus: 'retain', nonEmpty: 'after' },
+      },
     });
   await model.start();
   const e = model.editor('p'),
@@ -2573,7 +2573,18 @@ test('65 insertion uses explicit descendants rather than unrelated indented rows
   const pos = av.state.selection.from;
   av.dispatch(av.state.tr.insertText('x'));
   av.dispatch(av.state.tr.delete(pos, pos + 1));
-  keydown(av, 'Enter');
+  const { insertBlock } = await import('../../editor/src/block-insertion.mjs');
+  const { createBlockDefinitions } =
+    await import('../../editor/src/block-definitions.mjs');
+  av.dispatch(
+    insertBlock(
+      av.state,
+      'heading-2',
+      { from: 9, to: 12, query: 'h2' },
+      x.next,
+      createBlockDefinitions({ 'heading-2': { nonEmpty: 'after' } })
+    )
+  );
   const rows = listRows(av);
   assert.equal(rows[0].text, 'beforeafter');
   assert.equal(rows[1].id, 'child');
@@ -2582,4 +2593,200 @@ test('65 insertion uses explicit descendants rather than unrelated indented rows
   assert.equal(rows[3].id, 'free');
   assert.equal(av.state.selection.$from.parent.attrs.blockId, rows[2].id);
   await a.flush();
+});
+
+const indentableCases = [
+  { name: 'paragraph', type: 'paragraph' },
+  ...[1, 2, 3, 4, 5, 6].map((level) => ({
+    name: 'H' + level,
+    type: 'heading',
+    level,
+  })),
+  { name: 'ordered', type: 'list_item', style: 'ordered' },
+  { name: 'unordered', type: 'list_item', style: 'unordered' },
+];
+for (const spec of indentableCases)
+  test(`66 ${spec.name} indents/outdents from root using the shared body text handler`, async (t) => {
+    const { a, av, ...x } = await seededList(t, [
+      {
+        id: 'a',
+        text: 'Keep text',
+        type: spec.type,
+        level: spec.level,
+        style: spec.style,
+      },
+    ]);
+    rowAt(av, 'a', 4);
+    const initial = av.state.doc.toJSON();
+    assert(keydown(av, 'Tab', { shiftKey: true }).defaultPrevented);
+    assert.deepEqual(av.state.doc.toJSON(), initial);
+    keydown(av, 'Tab');
+    keydown(av, 'Tab');
+    assert.equal(av.state.doc.child(1).attrs.indent, 2);
+    assert.equal(av.state.doc.child(1).type.name, spec.type);
+    assert.equal(av.state.selection.$from.parentOffset, 4);
+    assert.equal(av.state.doc.child(1).textContent, 'Keep text');
+    keydown(av, 'Tab', { shiftKey: true });
+    assert.equal(av.state.doc.child(1).attrs.indent, 1);
+    await a.flush();
+    assert.equal(ok(await x.read()).content.value.content[1].attrs.indent, 1);
+    a.history(av, 'undo');
+    assert.equal(av.state.doc.child(1).attrs.indent, 2);
+    a.history(av, 'redo');
+    assert.equal(av.state.doc.child(1).attrs.indent, 1);
+    keydown(av, 'Tab', { shiftKey: true });
+    assert.equal(av.state.doc.child(1).attrs.indent, 0);
+    await a.flush();
+  });
+test('66 heading subtree indentation preserves mixed text children and unrelated siblings', async (t) => {
+  const { a, av, ...x } = await seededList(t, [
+    { id: 'root', type: 'paragraph', text: 'Root' },
+    {
+      id: 'h',
+      type: 'heading',
+      level: 2,
+      text: 'Heading',
+      indent: 1,
+      parent: 'root',
+    },
+    { id: 'child', text: 'Child', indent: 2, parent: 'h' },
+    {
+      id: 'grand',
+      type: 'paragraph',
+      text: 'Grand',
+      indent: 3,
+      parent: 'child',
+    },
+    { id: 'last', type: 'paragraph', text: 'Last' },
+  ]);
+  rowAt(av, 'h', 2);
+  keydown(av, 'Tab', { shiftKey: true });
+  assert.deepEqual(
+    listRows(av).map((r) => [r.id, r.indent, r.parent]),
+    [
+      ['root', 0, null],
+      ['h', 0, null],
+      ['child', 1, 'h'],
+      ['grand', 2, 'child'],
+      ['last', 0, null],
+    ]
+  );
+  keydown(av, 'Tab');
+  assert.deepEqual(
+    listRows(av).map((r) => [r.id, r.indent, r.parent]),
+    [
+      ['root', 0, null],
+      ['h', 1, 'root'],
+      ['child', 2, 'h'],
+      ['grand', 3, 'child'],
+      ['last', 0, null],
+    ]
+  );
+  await a.flush();
+});
+test('66 title and separator cannot initiate block indentation', async (t) => {
+  const { NodeSelection } = await import('prosemirror-state');
+  const { a, av } = await seededList(t, [
+    { id: 'sep', type: 'separator' },
+    { id: 'p', type: 'paragraph', text: 'Text' },
+  ]);
+  av.dispatch(av.state.tr.setSelection(TextSelection.create(av.state.doc, 1)));
+  let before = av.state.doc.toJSON();
+  keydown(av, 'Tab');
+  assert.deepEqual(av.state.doc.toJSON(), before);
+  av.dispatch(
+    av.state.tr.setSelection(
+      NodeSelection.create(av.state.doc, av.state.doc.firstChild.nodeSize)
+    )
+  );
+  before = av.state.doc.toJSON();
+  keydown(av, 'Tab');
+  keydown(av, 'Tab', { shiftKey: true });
+  assert.deepEqual(av.state.doc.toJSON(), before);
+  await a.flush();
+});
+test('66 shared indentation and conversion roundtrip through real CLI/MCP clients', async (t) => {
+  const x = await seeded(t),
+    a = await x.open('indent_peers'),
+    av = x.mount(a);
+  for (const mode of ['cli', 'mcp']) {
+    const content = body(mode.toUpperCase());
+    content.value.content[1].type = 'heading';
+    content.value.content[1].attrs.level = 2;
+    content.value.content[1].attrs.indent = 2;
+    const command = {
+      apiVersion: 1,
+      spaceId: x.v.spaceId,
+      pageId: 'p',
+      method: 'page.update',
+      operationId: x.next(),
+      expectedHead: x.v.load('p').head,
+      patch: { content },
+    };
+    if (mode === 'cli') ok((await stdio(x, 'cli', JSON.stringify(command)))[0]);
+    else {
+      const messages = [
+        {
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'initialize',
+          params: {
+            protocolVersion: '2025-11-25',
+            capabilities: {},
+            clientInfo: { name: 'test', version: '1' },
+          },
+        },
+        { jsonrpc: '2.0', method: 'notifications/initialized' },
+        {
+          jsonrpc: '2.0',
+          id: 2,
+          method: 'tools/call',
+          params: { name: 'clutter_command', arguments: command },
+        },
+      ];
+      ok(
+        JSON.parse(
+          (
+            await stdio(
+              x,
+              'mcp',
+              messages.map(JSON.stringify).join('\n') + '\n'
+            )
+          ).at(-1).result.content[0].text
+        )
+      );
+    }
+    await settle(a);
+    assert.equal(av.state.doc.child(1).attrs.indent, 2);
+    assert.equal(av.state.doc.child(1).textContent, mode.toUpperCase());
+    rowAt(av, 'paragraph-1');
+    keydown(av, 'Tab', { shiftKey: true });
+    assert.equal(av.state.doc.child(1).attrs.indent, 1);
+    bodyInput(av, mode.toUpperCase() + '/ol');
+    keydown(av, 'Enter');
+    assert.equal(av.state.doc.childCount, 2);
+    assert.equal(av.state.doc.child(1).type.name, 'list_item');
+    assert.equal(av.state.doc.child(1).attrs.indent, 1);
+    await a.flush();
+    const read = ok(
+      (
+        await stdio(
+          x,
+          'cli',
+          JSON.stringify({
+            apiVersion: 1,
+            spaceId: x.v.spaceId,
+            pageId: 'p',
+            method: 'page.read',
+          })
+        )
+      )[0]
+    );
+    assert.equal(read.content.value.content[1].type, 'list_item');
+    assert.equal(read.content.value.content[1].attrs.indent, 1);
+    assert.equal(
+      read.content.value.content[1].content[0].text,
+      mode.toUpperCase()
+    );
+  }
 });

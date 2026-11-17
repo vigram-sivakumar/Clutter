@@ -41,7 +41,8 @@ function targetType(schema, definition) {
   if (
     !type ||
     (policy.focus === 'inserted' && !type.isTextblock) ||
-    (policy.empty === 'convert' && !type.isTextblock)
+    ((policy.empty === 'convert' || policy.nonEmpty === 'convert') &&
+      !type.isTextblock)
   )
     throw Error('UNSUPPORTED_BLOCK_INSERTION_POLICY');
   return type;
@@ -113,12 +114,15 @@ export function createInsertionTransaction(
     target = action === 'before' ? start : tr.mapping.map(after, -1);
     tr.insert(target, type.create({ ...attrs, blockId: nextId() }));
   }
-  if (policy.focus === 'inserted')
+  if (policy.focus === 'inserted' && action !== 'convert')
     tr.setSelection(TextSelection.create(tr.doc, target + 1))
       .setStoredMarks([])
       .scrollIntoView();
-  return tr.setMeta(key, { close: true, insertion: true });
+  if (policy.focus === 'inserted') tr.scrollIntoView();
+  return tr.setMeta(key, { close: true, insertion: true, focus: policy.focus });
 }
+export const insertionWantsFocus = (tr) =>
+  tr.getMeta(key)?.focus === 'inserted';
 export const isInsertionTransaction = (tr) =>
   tr.getMeta(key)?.insertion === true;
 export function blockInsertion({

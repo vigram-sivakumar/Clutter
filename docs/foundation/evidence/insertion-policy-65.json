@@ -2,7 +2,7 @@
   "delivery": 65,
   "date": "2026-11-17",
   "scope": "configurable shared insertion policy correction",
-  "status": "implemented-automated-pass-mac-check-pending",
+  "status": "scoped-empty-list-insertion-user-pass-further-checks-pending",
   "userDecision": {
     "editableEmpty": "convert in place; focus ready",
     "editableNonempty": "keep remaining text together, insert below and focus",
@@ -23,5 +23,11 @@
     "oldAssertions": "updated for superseding UX; no opposite requirements counted"
   },
   "platform": "shared editor/UI change only; no OS/native/schema/contracts/dependency/lock/CSS changes; Windows/native65 unverified",
-  "next": "Mac text insertion/focus check; continue list keys; formatting later; Ctrl+A3C"
+  "next": "Mac nonempty text insertion/focus check; shared component indent styling C01 deferred",
+  "manual65": {
+    "source": "user conversation confirmation",
+    "emptyOrderedConversionImmediateTypingAndEnter": "PASS",
+    "nonemptyInsertionFocus": "pending",
+    "listBackspaceObservation": "logical indentation retained, visual paragraph indentation missing; tracked C01"
+  }
 }

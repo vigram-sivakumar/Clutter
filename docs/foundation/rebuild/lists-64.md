@@ -1,5 +1,10 @@
 # Capability64 — ordered and unordered lists
 
+Historical delivery record. Current66 supersedes filled-text insert-below and list-only
+Tab scope. Read [text controls66](text-controls-66.md); original checks below remain
+scoped historical evidence, not simultaneous opposite requirements.
+
+
 **Insertion/focus refinement65:** read [the current policy](insertion-policy-65.md).
 Empty text blocks now convert in place; filled text blocks insert below; caret enters
 the chosen editable block. Earlier instructions below to click the inserted row or

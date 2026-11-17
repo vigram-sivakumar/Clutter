@@ -1,47 +1,42 @@
 # Resume Clutter Structured
 
-## Current checkpoint — insertion policy65, 17 November 2026
+## Current checkpoint — text controls66, 17 November 2026
 
-**3A title/body is complete with scoped user Mac PASS.** All requested checks passed:
-new-note title focus/Enter, Backspace boundary, Shift+Enter, Enter before existing
-body, ordered Undo/Redo, multiline paste feedback and Save/close/reopen persistence.
-See [title/body outcome](rebuild/title-body-60.md) and its evidence JSON.
+3A title/body and both separator63 scoped Mac cases are user PASS.65 empty ordered
+conversion/immediate typing/Enter is user PASS. Broader list/manual completion is
+not inferred from those scoped observations.
 
-**Separator63 is complete with both scoped user Mac checks PASS:** empty block adds
-above, nonempty adds below; caret retained, cursor override removed. Do not reinstate
-62. [Record](rebuild/separator-63.md).
+**66: shared body indentation and in-place text conversion.** Paragraphs, H1–H6,
+ordered and unordered items use ONE Tab/Shift+Tab transform with explicit descendants.
+Title and object blocks are excluded. Text /commands convert the current block
+whether empty or filled, remove only /command and retain all other inline content,
+ID/indent/parentage and mapped caret. One registry/policy executor and existing
+context history/Core/save path own this. Separator63 remains unchanged.
+Read [architecture and scoped checks](rebuild/text-controls-66.md).
 
-**Current correction65: shared block insertion policies.** User64 corrected insertion:
-empty paragraph/heading/list converts in place; a nonempty block keeps all remaining
-text together and inserts the chosen editable block below. Caret goes into the chosen
-text block, ready to type. Objects use per-type policy; Separator63 retains its rule.
-Read [policy architecture/outcome](rebuild/insertion-policy-65.md). Text focus is no
-longer retained in the old paragraph. The list keyboard capability remains implemented;
-Mac list/cursor checks continue after this correction, before formatting.
+[C01](component-followups.md): paragraph margin shorthand overriding shared indent
+was removed. Source fixed66; actual Mac visual confirmation remains pending. Do not
+claim native rendering from jsdom metadata checks.
 
-One registry declares node type/attrs plus empty/nonEmpty/focus properties. Slash
-validates its query then delegates to the same generic transaction entry used by
-other insertion controls. Dispatcher groups insertion history. Shared block-graph
-selectors serve insertion and lists; no second hierarchy/save/UI/OS owner.
+Validation66:184 full Linux tests PASS, final scoped UI metadata check PASS, strict
+Core/runtime TS PASS and49-source boundary checks PASS. Real CLI/MCP clients exercise
+heading indentation and observe UI indentation/conversion through the same accepted
+root. Old list-only Tab implementation removed. No native/Windows/IME/shipping pass.
 
-**New UX queued:** two-stage Ctrl+A/body block selection with title exclusion and
-Escape. See A01–A05 in [stage3 UX](rebuild/stage3-ux.md). This is3C, not implemented61.
-Body Ctrl+A must never include title; Ctrl+A in title selects only title text.
-
-Validation65:171 full-suite Linux tests PASS, strict Core/runtime TS PASS and48-source
-boundary checks PASS. Matrix covers paragraph/heading/list source conversions, all
-editable targets, preserved IDs/children/content, workspace prop overrides, generic
-entry/Undo and actual React/PM/Core/SQLite/CLI/MCP regressions. Superseded assertions
-were updated, not counted as simultaneously passing opposite requirements.
-
-Apply65 over64 and `npm run desktop -- --new`. No native/schema/contract/CSS/dependency/
-lock changes. Mac focus/keyboard/IME/Windows/browser/shipping qualification is not
-inferred. The new rules remain in shared React/editor/Core layers; native mechanisms
-stay behind adapters. Windows still needs its adapters/builds/tests; no feature-logic
-extraction from Mac-specific source is being introduced by this correction.
+Apply66 over65 and `npm run desktop -- --new`; no dependency install. Verify the
+reported indentation/conversion and C01 on Mac. NEXT: dedicated real Mac CLI/MCP
+read/write/conflict/save/reopen acceptance, before formatting. Ctrl+A A01–A05 remains
+queued3C: first current body-block text, second all BODY blocks excluding title;
+inside title selects title only; Escape clears selection. Not implemented here.
 
 
 ## Working agreement
+
+**Mandatory AI rule for EVERY change:** apply the completion review in [AGENTS](AGENTS.md).
+Remove superseded code, check duplicate behavior/owners and package/platform boundaries,
+verify the one UI/CLI/MCP Core/persistence path and record relevant real peer-client
+checks. Report automated versus native/manual evidence accurately. This is a standing
+completion requirement, not an optional review or a one-time cleanup.
 
 Discuss and agree UX before implementing each stage from stage3 onward. Ask ONE
 question at a time and record answers. Latest explicit corrections supersede older

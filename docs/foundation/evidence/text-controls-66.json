@@ -1,0 +1,24 @@
+{
+  "delivery": 66,
+  "date": "2026-11-17",
+  "scope": "body-wide shared indentation, filled text conversion and mandatory AI completion review",
+  "automated": {
+    "fullTests": 184,
+    "pass": 184,
+    "fail": 0,
+    "finalScopedProductionUi": "PASS; DOM/style metadata, not native pixel layout",
+    "strictCoreRuntimeTypecheck": "PASS",
+    "boundarySources": 49,
+    "realPeers": "CLI/MCP write heading with indent2; UI outdent/type conversion; CLI reads accepted root"
+  },
+  "architectureReview": {
+    "superseded": "removed list-only indentList and Tab handler",
+    "shared": "one block indentation transform, graph selectors and policy conversion executor",
+    "ownership": "existing Core/SQLite accepted path and per-context history",
+    "unchanged": "native adapters, Core/schema/contracts, dependencies/locks"
+  },
+  "C01": "source CSS fixed; Mac visual confirmation pending; jsdom does not resolve CSS var/calc pixels; local Chromium probe unavailable due runtime socket restriction",
+  "manual66": "pending",
+  "next": "Mac editor/C01 check then dedicated Mac CLI/MCP read/write/conflict/save/reopen BEFORE formatting",
+  "strictRule": "root AGENTS, foundation AGENTS and START-HERE: mandatory every-change completion review"
+}

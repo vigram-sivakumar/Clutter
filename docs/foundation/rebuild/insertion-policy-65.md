@@ -1,5 +1,10 @@
 # Insertion policy65
 
+Historical delivery record. Current66 supersedes filled-text insert-below and list-only
+Tab scope. Read [text controls66](text-controls-66.md); original checks below remain
+scoped historical evidence, not simultaneous opposite requirements.
+
+
 17 November2026. User corrected text insertion after64 and requested a configurable,
 clean shared architecture. Implemented and automated checks PASS; Mac check pending.
 
@@ -84,3 +89,11 @@ synthetic Space; previous sessions keep original bundles. No npm install/migrati
 Then continue list key checks from64, before formatting. Ctrl+A A01–A05 and block
 selection remain3C, not implemented here.3A and both separator63 checks are user PASS;
 list Mac completion is not claimed from the correction conversation.
+
+## User observation after delivery65
+
+Empty ordered-list conversion/immediate typing/Enter: user PASS. Indented-list
+Backspace retains logical levels but converted paragraph lacks visible indentation:
+OPEN [C01](../component-followups.md), deferred by user to component/block styling.
+Nonempty insertion/focus is the next manual check; broader list/native completion
+is not inferred from this scoped pass. No application code changed for recording it.

@@ -67,13 +67,13 @@ conflate it with text-range selection or the independent block-selection mode be
 | S02 | URL exception | Leave URL slashes alone; do not open the block menu for them. |
 | S03 | Query with no matching item | Dismiss the menu. Menu dismissal must not erase the typed `/text`. |
 | S04 | Selecting a command | Consume only `/command`. Preserve all remaining inline content together in the current block; no prefix/suffix splitting. |
-| S05 | Editable text-block insertion (latest user correction65) | After command removal, an empty block converts to the selected paragraph/heading/list type, retaining its identity. With content remaining, insert the selected type below and preserve the existing block/text. |
-| S06 | Focus (latest user correction65) | Editable text types receive the caret ready to type. Object insertion uses its registered focus/placement policy; Separator retains the current caret per S09. Policies must be per-type configurable properties with one shared executor, not per-command UI logic. |
+| S05 | Editable text-block conversion (latest user approval66) | After command removal, convert the current empty OR filled block to the selected paragraph/heading/list type. Retain all remaining inline content together, identity, indent and parentage. |
+| S06 | Focus (latest user approval66) | Editable text types receive focus with the mapped current caret, ready to type. Object insertion uses its registered focus/placement policy; Separator retains the current caret per S09. Policies must be per-type configurable properties with one shared executor, not per-command UI logic. |
 | S07 | Table choices | Offer the 2×2, 3×3 and 4×4 presets in the menu before insertion. |
 | S08 | Image choice | Open the single-file picker immediately. |
 | S09 | Separator placement (latest user correction,17 November2026) | Remove only `/separator`. If the current block is then empty, insert the separator ABOVE it. If text/content remains, insert BELOW it. Keep the same block, text/type and mapped caret; do not split text or create a continuation paragraph. This supersedes the earlier below-divider cursor override. |
 
-65 supersedes the earlier retain-caret rule for editable text types, and the earlier
+66 supersedes65 filled-text insert-below behavior;65 superseded the earlier retain-caret rule for editable text types, and the earlier
 prefix/suffix split. Separator S09 is retained. Table/object placement and editable
 focus targets require their own confirmed policy/actual implementation; do not infer
 all object placement from Separator. Entry points share one insertion transaction;
@@ -90,6 +90,14 @@ selection is view-local, content/hierarchy remain on the shared Core/editor path
 | F05 | Text highlight | Highlight applies to the selected text range, separately from block background colour. |
 | F06 | Block background colour | Change the background of the entire block containing the selected text, rather than only the selected characters. |
 | F07 | Colour choices | PRESET COLOURS ONLY for the toolbar colour controls. Do not add custom colour entry/pickers. Exact preset swatches are not yet specified and can be reviewed with the component. |
+
+## Body-wide indentation (confirmed66)
+
+Tab/Shift+Tab apply to every editable body paragraph, H1–H6 and list item using one
+shared transform. Carry explicit descendants; preserve text/type, selection and
+parent/child relationships. Free indentation needs no parent. Root Shift+Tab does
+nothing. Title, separator and object blocks do not initiate this operation; table
+cell mode retains its separate contract. List Enter/Backspace rules below remain.
 
 ## 6. Lists: indentation, Enter and Backspace
 

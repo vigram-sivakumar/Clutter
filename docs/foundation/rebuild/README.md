@@ -59,3 +59,7 @@ once this capability passes. Both63 separator cases are user PASS; keep its rule
 65 corrects text insertion through per-type policy and one shared executor. Read
 [insertion architecture/outcome](insertion-policy-65.md). Verify this before resuming
 list Mac checks and the later formatting capability. Separator63 is unchanged.
+
+Current66: [text controls](text-controls-66.md) supersedes filled insert-below65 and
+list-only Tab scope64. All body text shares indentation; text types convert in place.
+After Mac editor/C01 check, dedicated Mac CLI/MCP acceptance precedes formatting.

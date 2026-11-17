@@ -1,56 +1,8 @@
 import { Plugin, TextSelection } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 
-import { blockRows, descendantIds } from './block-structure.mjs';
+import { blockRows, parentAtIndent } from './block-structure.mjs';
 
-function parentAtIndent(rows, parentId, indent) {
-  const byId = new Map(rows.map((r) => [r.node.attrs.blockId, r.node]));
-  while (parentId && byId.get(parentId)?.attrs.indent >= indent)
-    parentId = byId.get(parentId).attrs.parentId;
-  return parentId;
-}
-export function indentList(state, delta) {
-  const rows = blockRows(state.doc),
-    id = state.selection.$from.parent.attrs.blockId;
-  const index = rows.findIndex((r) => r.node.attrs.blockId === id),
-    row = rows[index];
-  if (!row || !['list_item', 'paragraph'].includes(row.node.type.name))
-    return null;
-  const targets = descendantIds(state.doc, id),
-    indent = row.node.attrs.indent + delta;
-  if (
-    rows.some(
-      (r) =>
-        targets.has(r.node.attrs.blockId) &&
-        (r.node.attrs.indent + delta < 0 || r.node.attrs.indent + delta > 64)
-    )
-  )
-    return null;
-  let parentId = row.node.attrs.parentId;
-  if (delta > 0) {
-    // Only the immediately preceding same-level list sibling becomes a parent.
-    for (let i = index - 1; i >= 0; i--) {
-      const candidate = rows[i].node;
-      if (candidate.attrs.indent > row.node.attrs.indent) continue;
-      if (
-        candidate.attrs.indent === row.node.attrs.indent &&
-        candidate.type.name === 'list_item' &&
-        candidate.attrs.parentId === parentId
-      )
-        parentId = candidate.attrs.blockId;
-      break;
-    }
-  } else parentId = parentAtIndent(rows, parentId, indent);
-  const tr = state.tr;
-  for (const { node, pos } of rows)
-    if (targets.has(node.attrs.blockId))
-      tr.setNodeMarkup(pos, undefined, {
-        ...node.attrs,
-        indent: node.attrs.indent + delta,
-        ...(node.attrs.blockId === id ? { parentId } : {}),
-      });
-  return tr;
-}
 function changeOnly(state, convert) {
   const { $from } = state.selection,
     node = $from.parent,
@@ -150,12 +102,7 @@ export function listInteractions({ nextId, canEdit, stopCapturing }) {
         const list = node.type.name === 'list_item',
           paragraph = node.type.name === 'paragraph';
         let tr;
-        if (
-          event.key === 'Tab' &&
-          (list || (paragraph && node.attrs.indent > 0))
-        )
-          tr = indentList(state, event.shiftKey ? -1 : 1);
-        else if (event.key === 'Enter' && list) {
+        if (event.key === 'Enter' && list) {
           tr = event.shiftKey
             ? state.tr
                 .replaceSelectionWith(

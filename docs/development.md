@@ -187,16 +187,25 @@ The same block/type and mapped cursor stay; no text splitting or generated parag
 
 Apply64 over63; build with `npm run desktop -- --new`. No dependency install/native
 lock change. Working slash commands: Ordered list (/ol), Unordered list (/ul), or
-/list to filter both. Per S06, insertion keeps the existing caret: CLICK the new
-list row before typing. Enter makes the immediate sibling; Tab/ShiftTab carry its
+/list to filter both. Historical64 retained the old caret; current66 converts in place and focuses
+the mapped caret, ready to type. Enter makes the immediate sibling; Tab/ShiftTab carry its
 children. See [list outcome/checklist](foundation/rebuild/lists-64.md) for the
 confirmed matrix and scoped Mac checks. No formatting/drag/marquee/Ctrl+A claim.
 
 ## Insertion policy65
 
 Apply over64, then `npm run desktop -- --new`. [Current rule/check](foundation/rebuild/insertion-policy-65.md).
-Empty text block converts in place; with content, keep text together and insert below.
+Historical65 converted empty text and inserted below filled text. Current66 converts
+both in place; retain remaining inline text/ID/indent and mapped caret.
 Editable types receive caret: type immediately after /ol, /ul, /h1 etc. No extra click.
 Separator63 remains above-empty/below-filled with retained caret. insertionPolicies
 can override empty/nonEmpty/focus per registered ID on mountWorkspace/WindowWorkspace.
 No install/native/schema/contract/lock/CSS change or OS feature fork is introduced.
+
+## Current text controls66
+
+[Current architecture/checks](foundation/rebuild/text-controls-66.md). Build changed
+source with `npm run desktop -- --new`. No install; old bundles are not live-updated.
+All body text supports Tab/Shift+Tab. Confirm C01 visual paragraph indentation on Mac;
+then dedicated real Mac CLI/MCP read/write/conflict/save/reopen before formatting.
+Every change must satisfy docs/foundation/AGENTS.md completion review.

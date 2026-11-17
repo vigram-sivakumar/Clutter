@@ -1010,10 +1010,10 @@ test('61 production React slash menu inserts a heading without remount or focus 
     await ui.wait(() => !!editor.querySelector('h2'));
     assert.equal(ui.active(), editor);
     assert.equal(ui.doc.activeElement, editor);
-    assert.equal(editor.querySelector('h2').textContent, '');
+    assert.equal(editor.querySelector('h2').textContent, 'beforeafter');
     assert.deepEqual(
       [...editor.querySelectorAll('p')].map((n) => n.textContent),
-      ['beforeafter']
+      []
     );
     assert(
       editor
@@ -1022,8 +1022,8 @@ test('61 production React slash menu inserts a heading without remount or focus 
     );
     await ui.saved();
     const value = (await ui.api({ method: 'page.read', pageId })).value;
-    assert.equal(value.content.value.content[2].type, 'heading');
-    assert.equal(value.content.value.content[2].attrs.level, 2);
+    assert.equal(value.content.value.content[1].type, 'heading');
+    assert.equal(value.content.value.content[1].attrs.level, 2);
     assert.equal(ui.active(), editor);
   } finally {
     await ui.dispose();
@@ -1161,6 +1161,87 @@ test('64 real list menu, markers, Enter/Tab and saved reopen use the retained ed
       ),
       ['First', 'Second']
     );
+  } finally {
+    await ui.dispose();
+  }
+});
+
+test('66 production paragraphs and converted headings share indentation and the paragraph margin cascade', async () => {
+  const dir = await session(),
+    ui = await browserWindow(dir, 'indent66');
+  try {
+    ui.button('+ New page').click();
+    await ui.wait(() => !!ui.active());
+    const editor = ui.active();
+    const key = (key, extra = {}) =>
+      editor.dispatchEvent(
+        new ui.dom.window.KeyboardEvent('keydown', {
+          key,
+          bubbles: true,
+          cancelable: true,
+          ...extra,
+        })
+      );
+    await ui.type('Source');
+    key('Tab');
+    key('Tab');
+    await ui.wait(() => editor.querySelector('p').dataset.indent === '2');
+    assert.equal(
+      editor.querySelector('p').style.getPropertyValue('--block-indent'),
+      '2'
+    );
+    // jsdom cannot resolve var/calc layout pixels here. Assert the actual DOM
+    // projection; native visual confirmation for C01 remains a separate check.
+
+    await ui.type('Source/h2');
+    await ui.wait(
+      () => ui.doc.querySelector('[role=option]')?.textContent === 'Heading 2'
+    );
+    ui.doc.querySelector('[role=option]').click();
+    await ui.wait(() => !!editor.querySelector('h2'));
+    let heading = editor.querySelector('h2');
+    assert.equal(heading.textContent, 'Source');
+    assert.equal(heading.dataset.indent, '2');
+    assert.equal(editor.querySelectorAll('p').length, 0);
+    key('Tab', { shiftKey: true });
+    await ui.wait(() => editor.querySelector('h2').dataset.indent === '1');
+    key('Tab', { shiftKey: true });
+    assert.equal(editor.querySelector('h2').dataset.indent, '0');
+    heading = editor.querySelector('h2');
+    heading.textContent = 'Source/ol';
+    const selection = ui.dom.window.getSelection();
+    selection.selectAllChildren(heading);
+    selection.collapseToEnd();
+    await ui.wait(
+      () =>
+        ui.doc.querySelector('[role=option]')?.textContent === 'Ordered list'
+    );
+    ui.doc.querySelector('[role=option]').click();
+    await ui.wait(() => !!editor.querySelector('[data-list-style]'));
+    assert.equal(
+      editor.querySelector('[data-list-style]').textContent,
+      'Source'
+    );
+    assert.equal(editor.querySelectorAll('h2').length, 0);
+    key('Tab');
+    key('Tab');
+    const row = editor.querySelector('[data-list-style]');
+    selection.selectAllChildren(row);
+    selection.collapseToStart();
+    await new Promise((ok) => setTimeout(ok, 30));
+    key('Backspace');
+    await ui.wait(() => !!editor.querySelector('p'));
+    const paragraph = editor.querySelector('p');
+    assert.equal(paragraph.dataset.indent, '2');
+    assert.equal(paragraph.style.getPropertyValue('--block-indent'), '2');
+
+    assert(ui.active() === editor);
+    await ui.saved();
+    const read = (
+      await ui.api({ method: 'page.read', pageId: ui.panes()[0].dataset.page })
+    ).value;
+    assert.equal(read.content.value.content[1].attrs.indent, 2);
+    assert.equal(read.content.value.content[1].type, 'paragraph');
   } finally {
     await ui.dispose();
   }

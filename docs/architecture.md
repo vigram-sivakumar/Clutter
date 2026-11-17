@@ -176,8 +176,8 @@ the one retained context, including foreign-text protection for list containers.
 ## Declarative insertion policy65
 
 Editor block-definitions.mjs owns declarative node type/attrs, menu identity and
-empty/nonEmpty/focus policy. Defaults convert empty text blocks or insert after
-nonempty content and focus the new text; Separator keeps object retention policy.
+empty/nonEmpty/focus policy. Current66 defaults convert empty AND filled text
+blocks in place, retaining content/ID/indent and mapped caret; Separator retains63.
 insertionPolicies is a mount/workspace prop forwarded to the replica. No UI/OS switch
 implements those rules. Invalid config is rejected before edits; definitions are
 immutable snapshots, not a second content store.
@@ -189,3 +189,7 @@ history boundaries for any entry point. Core still validates accepted roots and 
 entity/media semantics; future task/image commands must satisfy those atomic rules
 before a registry entry is enabled. A policy does not implement an unbuilt feature.
 React renders choices, PM owns editable DOM, OS mechanisms stay in desktop adapters.
+
+66 moves all body text Tab/Shift+Tab into one block-indentation transform/plugin;
+list interactions no longer own a separate Tab path. Shared graph selectors own
+hierarchy. Paragraph vertical margins no longer override derived indent styling.
