@@ -99,3 +99,14 @@ User added A01–A05 Ctrl+A behavior: body block text first, all body blocks sec
 NEVER title; title selects itself only; Escape clears selection. Implement in3C with
 block selection, not as an independent temporary whole-document selection path.
 No native61 pass inferred. Ctrl+A, lists, toolbar/tasks/images/tables are not done.
+
+## Correction62 — separator is a focus exception
+
+User61 says all looks good except separator focus, explicitly confirmed caret must
+move into a normal paragraph BELOW separator (create if absent). S09 overrides S06
+only for separator.62 does this in the shared structural transaction, converts its
+inline suffix continuation to paragraph, and preserves existing later headings.
+Ordinary heading/paragraph insertion still keeps original caret. Basic H1–H6 CSS
+was already present; a newly inserted empty heading below an original paragraph can
+explain the apparent mismatch. Read rebuild/separator-62.md; targeted Mac check next.
+No new feature, no native/lock/dependency changes, no inferred native62 pass.

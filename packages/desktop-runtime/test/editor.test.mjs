@@ -1815,3 +1815,85 @@ test('61 CLI and MCP admit headings/separators through the same Core as the moun
   assert.equal(read.content.value.content[1].content[0].text, 'UI MCP');
   assert.equal(read.content.value.content[2].type, 'separator');
 });
+
+for (const level of [1, 2, 3, 4, 5, 6])
+  test(`62 separator from H${level} continues in a normal paragraph with suffix and caret below`, async (t) => {
+    const x = await seeded(t),
+      a = await x.open('separator_heading_' + level),
+      av = x.mount(a);
+    const start = av.state.doc.firstChild.nodeSize;
+    av.dispatch(
+      av.state.tr.setNodeMarkup(start, av.state.schema.nodes.heading, {
+        ...av.state.doc.child(1).attrs,
+        level,
+      })
+    );
+    av.focus();
+    bodyInput(av, 'prefix/separatorsuffix', 16);
+    a.stopCapturing();
+    keydown(av, 'Enter');
+    assert.equal(av.state.doc.child(1).type.name, 'heading');
+    assert.equal(av.state.doc.child(1).attrs.level, level);
+    assert.equal(av.state.doc.child(1).textContent, 'prefix');
+    assert.equal(av.state.doc.child(2).type.name, 'separator');
+    assert.equal(av.state.doc.child(3).type.name, 'paragraph');
+    assert.equal(av.state.doc.child(3).textContent, 'suffix');
+    assert.equal(av.state.selection.$from.parent.type.name, 'paragraph');
+    assert.equal(av.state.selection.$from.parentOffset, 0);
+    assert.equal(
+      av.state.selection.$from.parent.attrs.blockId,
+      av.state.doc.child(3).attrs.blockId
+    );
+    assert.equal(av.hasFocus(), true);
+    await a.flush();
+    const saved = ok(await x.read());
+    assert.equal(saved.content.value.content[3].type, 'paragraph');
+    a.history(av, 'undo');
+    assert.equal(av.state.doc.childCount, 2);
+    assert.equal(av.state.doc.child(1).type.name, 'heading');
+    assert.equal(av.state.doc.child(1).textContent, 'prefix/separatorsuffix');
+    a.history(av, 'redo');
+    assert.equal(av.state.doc.child(3).type.name, 'paragraph');
+  });
+test('62 separator creates a paragraph at document end and reuses a following paragraph without converting an existing heading', async (t) => {
+  for (const following of ['none', 'paragraph', 'heading']) {
+    const x = await seeded(t),
+      a = await x.open('separator_' + following),
+      av = x.mount(a);
+    if (following !== 'none') {
+      const node = av.state.schema.nodes[following].create(
+        {
+          blockId: 'existing-after',
+          indent: 0,
+          parentId: null,
+          ...(following === 'heading' ? { level: 2 } : {}),
+        },
+        av.state.schema.text('Existing')
+      );
+      av.dispatch(av.state.tr.insert(av.state.doc.content.size, node));
+    }
+    av.focus();
+    bodyInput(av, '/separator');
+    a.stopCapturing();
+    keydown(av, 'Enter');
+    assert.equal(av.state.doc.child(2).type.name, 'separator');
+    assert.equal(av.state.doc.child(3).type.name, 'paragraph');
+    assert.equal(
+      av.state.selection.$from.parent.attrs.blockId,
+      av.state.doc.child(3).attrs.blockId
+    );
+    if (following === 'paragraph') {
+      assert.equal(av.state.doc.childCount, 4);
+      assert.equal(av.state.doc.child(3).attrs.blockId, 'existing-after');
+    } else assert.equal(av.state.doc.child(3).textContent, '');
+    if (following === 'heading') {
+      assert.equal(av.state.doc.child(4).attrs.blockId, 'existing-after');
+      assert.equal(av.state.doc.child(4).type.name, 'heading');
+      assert.equal(av.state.doc.child(4).attrs.level, 2);
+    }
+    av.dispatch(av.state.tr.insertText('Normal text'));
+    assert.equal(av.state.selection.$from.parent.type.name, 'paragraph');
+    assert.equal(av.state.selection.$from.parent.marks.length, 0);
+    await a.flush();
+  }
+});

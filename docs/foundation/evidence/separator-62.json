@@ -1,0 +1,19 @@
+{
+  "delivery": 62,
+  "date": "2026-11-17",
+  "scope": "separator continuation/focus correction, not a new capability",
+  "userDecision": "S09: caret in paragraph below separator, create if needed; exception to S06",
+  "priorUser61": "everything looks good; separator focus correction requested",
+  "implementation": "one shared PM structural transaction; suffix continues as paragraph; existing following paragraphs reused and later headings preserved",
+  "automated": {
+    "editorTests": 56,
+    "editorPass": 56,
+    "productionReactCoreIntegrationTests": 1,
+    "productionPass": 1,
+    "boundaries": 45,
+    "fullSuite62": "not rerun;61 full133 recorded separately"
+  },
+  "native62": "pending focused user check; no native/lock/dependency changes",
+  "fontFinding": "heading CSS is present; suffix source type and an existing empty heading are reproducible explanations, not a captured exact user sequence",
+  "next": "verify62 separator continuation, then next3B capability; Ctrl+A remains3C"
+}

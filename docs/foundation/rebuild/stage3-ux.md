@@ -68,9 +68,10 @@ conflate it with text-range selection or the independent block-selection mode be
 | S03 | Query with no matching item | Dismiss the menu. Menu dismissal must not erase the typed `/text`. |
 | S04 | Selecting a command | Consume/replace **only the `/command` range**. Preserve all text before and after it, unchanged and in its original order. Do not replace the whole paragraph or absorb its text into the inserted block. |
 | S05 | Structural insertion | If the block type requires splitting the surrounding container, retain the surrounding text; changing structure is not permission to delete it. |
-| S06 | Focus after slash insertion | Leave the cursor/focus where it was. **Do not automatically move it into the newly inserted block.** |
+| S06 | Focus after slash insertion | Leave cursor/focus where it was for other blocks. **Separator is the explicit exception in S09.** |
 | S07 | Table choices | Offer the 2×2, 3×3 and 4×4 presets in the menu before insertion. |
 | S08 | Image choice | Open the single-file picker immediately. |
+| S09 | Separator focus (user correction,17 November2026) | After insertion, put the caret in a normal paragraph immediately BELOW the separator; create it if needed. This explicitly overrides S06 for separators. Preserve inline suffix text; it continues as paragraph text. |
 
 The exact caret mapping when its `/command` range is consumed is an implementation
 issue to resolve consistently with S04/S06. It is not permission to restore the

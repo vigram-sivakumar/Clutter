@@ -7,28 +7,28 @@ new-note title focus/Enter, Backspace boundary, Shift+Enter, Enter before existi
 body, ordered Undo/Redo, multiline paste feedback and Save/close/reopen persistence.
 See [title/body outcome](rebuild/title-body-60.md) and its evidence JSON.
 
-**Current capability61:** Paragraph/H1–H6/Separator insertion through the real shared
-React slash menu. Implementation and automated checks pass; scoped Mac menu checks
-are next. Read [outcome/checklist](rebuild/block-insertion-61.md). One capability at
-a time: verify this before adding lists or formatting.61 is only the first part of3B.
-No framework/profiling research, migration project or minor-detail UX questionnaire.
+**Current correction62:** user61 says everything looks good except separator focus,
+then confirms separator must move caret into the line BELOW.62 now creates/reuses a
+normal paragraph there, retaining inline suffix content and existing later headings.
+Read [correction/checklist](rebuild/separator-62.md). Scoped Mac confirmation is next;
+no new capability is added until this correction is checked.
 
-The editor owns query/range/structural transactions and context history. React owns
-menu chrome outside PM's editable DOM. Only the /command range is consumed, text on
-both sides survives, cursor stays with the original text. URLs/unmatched queries
-are left untouched. Noneditable blocks stop Backspace merging. Foreign heading text
-survives structural Undo, extending paragraph protection to title/heading containers.
+Ordinary heading insertion still retains the original paragraph caret per S06. An
+empty heading is actually created below with basic heading CSS; continued typing in
+the original paragraph is not proof heading styles are absent. The automated UI
+reproduces this sequence and verifies separator continuation is paragraph-sized.
 
 **New UX queued:** two-stage Ctrl+A/body block selection with title exclusion and
 Escape. See A01–A05 in [stage3 UX](rebuild/stage3-ux.md). This is3C, not implemented61.
 Body Ctrl+A must never include title; Ctrl+A in title selects only title text.
 
-Validation:133 Linux tests, strict Core/runtime TS and45-source boundary checks
-passed; the final49-test editor run also covers URL punctuation. Actual PM/React/Core/
+Validation61:133 Linux tests, strict Core/runtime TS and45-source checks passed.
+Correction62:56 editor tests plus1 production React/PM/Core/SQLite test passed;
+45-source checks pass. No full-suite replay/changed native build is claimed for62. Actual PM/React/Core/
 SQLite and CLI/MCP processes are tested. No native61 menu/caret/scroll/IME or shipping
 qualification is inferred. Native source/dependencies/locks remain unchanged.
 
-Apply61 over60 and run `npm run desktop -- --new` to build the changed source into
+Apply62 over61 and run `npm run desktop -- --new` to build the changed source into
 a fresh synthetic Space. Prior sessions remain with original bundles. One content
 owner, no React body mirror, unchanged stable navigation/surface lifecycle. Final
 Clutter components/layout follow working capability checks, not another writer.

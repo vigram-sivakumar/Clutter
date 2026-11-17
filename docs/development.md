@@ -164,3 +164,13 @@ Insertion retains the original caret/prefix rather than focusing the new block.
 
 3A Mac title/body checks are user-reported PASS. Verify61 before lists/formatting.
 Ctrl+A body-only/title-isolated two-stage selection is recorded for3C; pending.
+
+## Separator correction62
+
+Apply over61, then `npm run desktop -- --new`. [Outcome/check](foundation/rebuild/separator-62.md).
+Separator now moves the caret to a normal paragraph below; creates/reuses it and
+preserves suffix text. Other block insertions retain their earlier focus policy.
+No CSS-size override, schema, native, lock or dependency change. Basic headings
+already have sizes; a heading inserted below while the caret remains in the original
+paragraph explains the apparent paragraph/heading mismatch. Verify this scoped
+correction before adding the next capability.

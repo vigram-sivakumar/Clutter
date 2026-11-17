@@ -2,6 +2,9 @@
 
 17 November2026. Implemented/automated checks PASS; scoped Mac check pending.
 This is the first capability under3B, not all blocks/formatting or all stage3.
+User61 reports everything looks good with one separator-focus correction.
+[Correction62](separator-62.md) implements the confirmed exception: normal paragraph
+and caret BELOW the separator. Other insertions keep the original caret.
 
 ## Delivered behavior
 

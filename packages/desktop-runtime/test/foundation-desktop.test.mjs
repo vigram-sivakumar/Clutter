@@ -1026,3 +1026,60 @@ test('61 production React slash menu inserts a heading without remount or focus 
     await ui.dispose();
   }
 });
+
+test('62 separator before an existing empty heading focuses a normal paragraph, retaining heading styles and editor DOM', async () => {
+  const dir = await session(),
+    ui = await browserWindow(dir, 'separator62');
+  try {
+    ui.button('+ New page').click();
+    await ui.wait(() => !!ui.active());
+    const editor = ui.active(),
+      pageId = ui.panes()[0].dataset.page;
+    await ui.type('/h2', editor);
+    await ui.wait(() => !!ui.doc.querySelector('[role=option]'));
+    ui.doc.querySelector('[role=option]').click();
+    await ui.wait(() => !!editor.querySelector('h2'));
+    const heading = editor.querySelector('h2'),
+      p = editor.querySelector('p');
+    assert.equal(heading.textContent, '');
+    assert(
+      p.contains(ui.dom.window.getSelection().anchorNode),
+      'heading insertion keeps the original paragraph caret'
+    );
+    editor.focus();
+    p.textContent = 'prefix/separatorsuffix';
+    ui.dom.window
+      .getSelection()
+      .setBaseAndExtent(p.firstChild, 16, p.firstChild, 16);
+    await ui.wait(
+      () => ui.doc.querySelector('[role=option]')?.textContent === 'Separator'
+    );
+    ui.doc.querySelector('[role=option]').click();
+    await ui.wait(() => !!editor.querySelector('hr'));
+    const below = editor.querySelector('hr').nextElementSibling;
+    assert.equal(below.tagName, 'P');
+    assert.equal(below.textContent, 'suffix');
+    assert.equal(
+      editor.querySelector('h2'),
+      heading,
+      'existing heading retains its own identity'
+    );
+    assert.equal(ui.doc.activeElement, editor);
+    assert(below.contains(ui.dom.window.getSelection().anchorNode));
+    assert.equal(ui.dom.window.getSelection().anchorOffset, 0);
+    assert.equal(ui.active(), editor);
+    // CSS follows semantic block type; the generated continuation is not a heading.
+    assert.equal(
+      ui.dom.window.getComputedStyle(below).fontSize,
+      ui.dom.window.getComputedStyle(editor).fontSize
+    );
+    await ui.saved();
+    const value = (await ui.api({ method: 'page.read', pageId })).value;
+    assert.deepEqual(
+      value.content.value.content.map((n) => n.type),
+      ['title', 'paragraph', 'separator', 'paragraph', 'heading']
+    );
+  } finally {
+    await ui.dispose();
+  }
+});
