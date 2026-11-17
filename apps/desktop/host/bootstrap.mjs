@@ -1,5 +1,6 @@
+import { caretTraceSource } from './caret-trace.mjs';
 // Native/window mechanism only; semantic policy stays in the shared UI/Core.
-export function bootstrap(config) {
+export function bootstrap(config, { caretTrace = false } = {}) {
   const url = new URL(config.url);
   const id = (value) =>
     typeof value === 'string' && /^[a-zA-Z0-9_-]{1,128}$/.test(value);
@@ -45,5 +46,6 @@ export function bootstrap(config) {
  Object.defineProperty(globalThis,'__clutterHostEvent',{value:m=>{if(['ready','error'].includes(m?.event))emit({event:m.event});}});
  Object.defineProperty(globalThis,'__clutterClose',{value:async guardNonce=>{let safe=false;try{safe=(await globalThis.clutterWindow?.prepareClose())?.safe===true;}catch{}emit({event:'close',guardNonce,safe});}});
  Object.defineProperty(globalThis,'__clutterResume',{value:()=>globalThis.clutterWindow?.resume()});
+ ${caretTrace ? caretTraceSource() : ''}
  })();`;
 }

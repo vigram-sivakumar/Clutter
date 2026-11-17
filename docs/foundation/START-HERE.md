@@ -1,41 +1,36 @@
 # Resume Clutter Structured
 
-## Current checkpoint — caret restore72, 17 November 2026
+## Current checkpoint — native caret capture73, 17 November 2026
 
-**71 native first check works:** user reports requested two-stage Cmd+A/body/title
-exclusion works. User observes slow/faded/odd initial blinking after deleting blocks
-then clicking editor.72 preserves no-caret after bulk deletion; earlier assistant
-suggestion to automatically show caret was not implemented. Click must resume normal
-text immediately. Existing object67 deletion still follows its separate caret rule.
+**72 native issue NOT fixed.** User still sees2–3 rapid caret blinks then normal,
+**only on the first click after deleting ALL body blocks**. Earlier model regression
+passes remain valid but do not establish native caret paint. No-caret bulk deletion
+is retained.68 client and70 formatting native milestones remain complete.
 
-**72 fixes shared text re-entry and guard scope.** Block-mode click previously waited
-for mouse-up and rejected root-boundary positions such as below an empty paragraph.
-One public hit-test/text-selection helper now runs on mouse-down, focuses first and
-publishes visible selection, while letting native text drag/multi-click continue.
-Late handleClick remains a fallback using the same helper. Object/nested-table paths
-are not taken over; body whitespace cannot jump back into title.
+**73 is an opt-in diagnostic, no new caret behavior.** Existing source host bootstrap
+can inject a bounded12-second focus/selection observer into the immutable72 app on
+normal same-session reopen. `CLUTTER_CARET_TRACE=1 npm run desktop:reopen`. No native
+compile/new bundle/new Space or semantic writer. Default reopen has no trace panel.
+Read [exact capture steps](rebuild/caret-capture-73.md).
 
-Existing Y selection protection now runs only around potential document changes
-(local doc-changing transaction, accepted remote apply, context Undo/Redo). Plain
-selection/focus updates no longer cycle through temporary whole-document protection.
-No private binding API, new range owner/history, production timeout, forced blink/
-caret colour CSS or OS branch. Read [scope and retest](rebuild/caret-restore-72.md).
+User closes window normally, applies73, reopens same app with flag. Bottom-right
+Caret trace (development): put body text in note first; Start; click body, Cmd+A twice,
+Delete; click empty body ONCE and leave input alone while trace completes. Copy trace
+and paste into chat. Native DOM focus/selection writes/selectionchange/hidden-mode/
+caret-colour state only; no note text, URLs, IDs, credentials or literal typed chars.
+400-row cap,12-second auto-stop; original native methods restored on stop/cap. Report
+lists which methods were instrumented; unchanged state fields are omitted per row.
 
-Validation72:220 full Linux tests PASS;12 focused selection/object cases PASS;
-strict Core/runtime TS and57-source boundaries PASS. New regression asserts one
-visible text-selection transition on mouse-down, no selection-only All roundtrip,
-empty-paragraph boundary handling, immediate typing and unchanged accepted head
-through real CLI/MCP reads. Native blink/colour itself remains unverified.
+NEXT inspect this single actual native report before another caret correction; do
+not move to marquee or label73 a bug fix. Instrumentation may affect timing, so user
+should also say if the rapid blink did not occur during capture. No benchmark claims.
+Temporary opt-in capture should be removed after cause is resolved unless retained
+as a justified development diagnostic; never enable by default or ship silently.
 
-NEXT Mac retest: delete body blocks (no caret), click empty body once. Clear normal
-caret should appear immediately, and typing work immediately; no delay/faded initial
-blinks. Actual renderer behaviour is still pending; Linux tests check model/style
-state only. Marquee/handles/reorder remain next on the same explicit selection model.
-
-68 real client and70 formatting controls/Undo/save/window-reopen milestones complete;
-no bookkeeping replay. Core/schema/runtime/native/dependencies/locks unchanged. Build
-changed source with `npm run desktop -- --new`; no install. Prior sessions retain
-original bundles. AI active-app integration remains deferred roadmap.
+Validation73:3 trace tests PASS,2 existing host bridge/reopen tests PASS,3 relevant
+editor/real CLI/MCP regressions PASS; strict Core/runtime TS and57-source boundaries
+PASS. No full-suite replay: existing editor/UI/Core/runtime/native/schema/dependency/
+lock/bundled resources untouched. Prior72 full220 tests do not qualify native blink.
 
 
 ## Working agreement

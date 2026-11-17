@@ -277,7 +277,9 @@ try {
     windowsDirectory,
     bootNonce: randomUUID(),
   };
-  host.script = bootstrap(host);
+  host.script = bootstrap(host, {
+    caretTrace: process.env.CLUTTER_CARET_TRACE === '1',
+  });
   const config = join(base, 'host-' + randomUUID() + '.json');
   privateJSON(config, host);
   const executable = join(

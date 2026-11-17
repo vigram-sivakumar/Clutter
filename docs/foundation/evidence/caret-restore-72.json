@@ -29,6 +29,11 @@
     "ownership": "same context/history/Core; no native binding fork/private API/timer/CSS blink/colour workaround",
     "unchanged": "schema/Core/runtime/native/UI CSS/components/locks/dependencies"
   },
-  "manual72": "pending actual Mac caret appearance/typing retest",
-  "next": "Mac delete/no-caret then click/body caret retest; marquee/handles remain later"
+  "manual72": {
+    "result": "FAIL: native symptom persists",
+    "source": "user still fast blinks2\u20133 times then normal; only FIRST click after deleting ALL body blocks",
+    "limits": "model/transaction regressions passed but did not reproduce native paint",
+    "next": "single native metadata capture73"
+  },
+  "next": "inspect native first-click trace73; no renderer fix claimed"
 }

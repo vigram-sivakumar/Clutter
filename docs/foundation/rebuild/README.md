@@ -109,3 +109,7 @@ also owns later marquee/handles; those pointer features remain next, not yet del
 71 scoped native select-all check works.72 [caret re-entry correction](caret-restore-72.md)
 preserves no-caret bulk deletion and fixes first click/selection guard timing. Native
 blink retest next; pointer marquee/handles/reorder remain pending on same model.
+
+72 native first-click blink still OPEN after deleting ALL body blocks.73
+[opt-in native capture](caret-capture-73.md) is diagnosis only, no rebuild/new Space.
+Inspect one metadata trace before next caret change; pointer capability stays pending.

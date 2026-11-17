@@ -55,3 +55,10 @@ native blinking/colour. Native retest still required. One shared resume helper r
 late-only click logic; createViewSelectionGuard replaces old unscoped guard function,
 no leftover alias or second history/selection owner. No CSS/schema/Core/runtime/native/
 UI component/dependency/lock change; formatting and delete policy unchanged.
+
+## Native retest72 — issue remains OPEN
+
+User still observes2–3 rapid blinks before normal cadence. Clarification: ONLY first
+click after deletion of ALL body blocks. Do not mark72 a native renderer fix. Next
+[73 native capture](caret-capture-73.md) observes that exact one-click transition;
+no additional speculative caret behavior change or full research/profiling gate.

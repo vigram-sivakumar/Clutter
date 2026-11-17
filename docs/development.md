@@ -258,3 +258,11 @@ mapping shares existing Core. Marquee/handles/reorder next, not available in71.
 empty body should restore a clear caret/typing immediately. No CSS blink override.
 Public hit-test/selection transition and document-only Y guard are shared; actual
 native renderer retest required. Earlier client/formatting milestones stay complete.
+
+## Native first-click caret capture73
+
+[Capture instructions](foundation/rebuild/caret-capture-73.md). Close existing window
+normally, apply source patch, then `CLUTTER_CARET_TRACE=1 npm run desktop:reopen`.
+No rebuild, install, new Space or bundle mutation. Dev-only panel Start captures12s
+metadata then restores instrumented methods; Copy trace explicit. Normal reopen
+without flag omits panel. This is not another cursor fix;72 native issue still open.

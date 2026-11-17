@@ -246,3 +246,14 @@ Selection guard is scoped to potential document changes; selection-only updates 
 not oscillate hidden/All modes. No native binding internals/CSS blink/timer workaround.
 Native slow/faded blink retest next; do not claim browser pixels from jsdom tests.
 Read rebuild/caret-restore-72.md; marquee/handles still pending.
+
+## Native caret capture73 — unresolved first click
+
+72 user retest still fails:2–3 fast blinks only on first click after deleting ALL
+body blocks, then normal. Preserve narrow repro.73 opt-in host-injected trace does
+not change editor/UI behavior or rebuild bundle; use current same-session --reopen
+with CLUTTER_CARET_TRACE=1. Read rebuild/caret-capture-73.md. Capture one12-second
+first-click sequence; no note content/URLs/IDs/tokens/typed characters, metadata only,
+explicit copy. Native cause still unresolved; next analyze report, not speculative
+caret CSS/timers or marquee. Default off; remove temporary hook after resolution
+unless justified as a development tool. Existing client/formatting passes remain.

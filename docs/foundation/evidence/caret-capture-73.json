@@ -1,0 +1,24 @@
+{
+  "delivery": 73,
+  "date": "2026-11-17",
+  "scope": "opt-in native first-click caret metadata capture; diagnosis only",
+  "native72": "FAIL persists: first click only after deletion of ALL body blocks;2\u20133 fast blinks then normal",
+  "change": "host bootstrap optional observer via existing source-runner initialization script on same-session reopen",
+  "automated": {
+    "traceTests": 3,
+    "hostBridgeReopenTests": 2,
+    "relevantEditorRealClientRegressions": 3,
+    "strictCoreRuntimeTypecheck": "PASS",
+    "boundarySources": 57,
+    "fullSuite": "not replayed; editor/UI/Core/runtime/native/bundle untouched"
+  },
+  "capture": {
+    "enabled": "CLUTTER_CARET_TRACE=1 on source runner reopen, default disabled",
+    "bounded": "12 seconds/400 events; exact method descriptors restored",
+    "content": "no text/URLs/IDs/tokens/literal characters; delta-state metadata only",
+    "output": "in memory, explicit user Copy trace; no network/DB/report write path",
+    "native": "awaiting actual Mac capture; can affect timing, not latency/pixel qualification"
+  },
+  "architectureReview": "existing host mechanism only, no feature/selection/history/save owner or cursor-style/timer fix; origin guarded",
+  "next": "analyze one actual native first-click report before further caret change; marquee pending"
+}

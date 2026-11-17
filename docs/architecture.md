@@ -272,3 +272,15 @@ still protect node/body-block bookmarks through existing public Y events and sta
 IDs. No private binding mutation/dependency fork, separate state owner, saved selection,
 production timer or synthetic caret blink/colour. Bulk deletion stays no-caret; normal
 click re-enters text. Native caret painting remains an actual platform check.
+
+## Opt-in native caret observation73
+
+Development host bootstrap optionally injects a bounded metadata-only observer on
+same-session reopen. Source runner flag CLUTTER_CARET_TRACE=1; disabled by default.
+Existing immutable browser/native bundle and Core owner remain unchanged. Public DOM
+focus/selection methods are temporarily wrapped only while user explicitly records,
+then descriptors restored on stop/time/cap. No editor transactions, content/SQL/RPC,
+network or persistence path is added. Report is in-memory, explicitly copied by user;
+no notes/IDs/URLs/tokens/literal characters. This is diagnostic, can affect timing,
+and establishes event sequence rather than pixels/latency. Default bootstrap origin
+guard still applies. Remove temporary hook after diagnosis unless a justified dev tool.

@@ -8,15 +8,15 @@ The user authorized complete removal of old architecture, not a compatibility pr
 Do not resurrect the retired CM6/full-or-compact Markdown/vault/persistence pipeline.
 
 Stage3 execution order and acceptance: docs/foundation/rebuild/stage3-implementation-plan.md.
-68 client and70 formatting Mac milestones complete.71 user requested two-stage
-Cmd+A/body/title-exclusion check works; bulk deletion remains no-caret mode. The
-assistant suggestion to automatically show caret was NOT implemented;72 preserves71.
-Current72 fixes return to text: resolve public text hit on mouse-down (including
-empty paragraph boundary), focus before one visible selection, keep native drag/
-multi-click handling. Scope Y selection guard to potential document changes so
-selection-only updates don't roundtrip hidden/All modes. Read
- docs/foundation/rebuild/caret-restore-72.md. Native blink/colour retest NEXT; no native
-fix qualification from jsdom. Same model/format/history/Core path; no marquee yet.
+72 native caret issue remains OPEN: user still sees2–3 fast blinks then normal,
+ONLY FIRST CLICK after deleting ALL body blocks. Do not mark renderer fixed from
+model tests. Current73 is opt-in native metadata capture, not another cursor fix.
+Read docs/foundation/rebuild/caret-capture-73.md. Existing72 editor/UI/bundle stays
+unchanged; close normally then CLUTTER_CARET_TRACE=1 npm run desktop:reopen injects
+trace through existing source host bootstrap, no rebuild/new Space. One12-second
+first-click capture; no text/URLs/tokens/key characters collected; explicit Copy trace.
+NEXT inspect actual report before further caret changes. No marquee progression yet.
+No-caret bulk deletion retained;68 client and70 formatting milestones remain complete.
 
 MANDATORY ON EVERY CHANGE: follow the completion review in docs/foundation/AGENTS.md.
 Remove superseded paths; check for duplicate owners/implementations and boundary
