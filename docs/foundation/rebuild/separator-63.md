@@ -1,5 +1,10 @@
 # Separator placement63
 
+Historical separator behavior is superseded by [selected objects67](object-selection-67.md).
+Earlier scoped passes remain historical evidence.67 changes separator focus/empty
+placement;66 text conversion and body-wide indentation remain current.
+
+
 17 November2026. Latest confirmed user decision; supersedes62. Implemented;
 empty-block/above placement is user PASS. Nonempty-block/below check is next. No new capability is bundled into this correction.
 

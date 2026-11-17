@@ -5,9 +5,9 @@ const textPolicy = Object.freeze({
   focus: 'inserted',
 });
 const objectPolicy = Object.freeze({
-  empty: 'before',
+  empty: 'convert',
   nonEmpty: 'after',
-  focus: 'retain',
+  focus: 'selected',
 });
 const specs = [
   {
@@ -80,7 +80,7 @@ export function createBlockDefinitions(insertionPolicies = {}) {
       if (
         !['convert', 'before', 'after'].includes(insertion.empty) ||
         !['convert', 'before', 'after'].includes(insertion.nonEmpty) ||
-        !['inserted', 'retain'].includes(insertion.focus)
+        !['inserted', 'selected', 'retain'].includes(insertion.focus)
       )
         throw Error('INVALID_INSERTION_POLICY');
       return Object.freeze({

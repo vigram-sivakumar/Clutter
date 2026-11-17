@@ -1,0 +1,27 @@
+{
+  "delivery": 67,
+  "date": "2026-11-17",
+  "scope": "selected atomic objects and explicit continuation/deletion",
+  "supersedes": "separator63 retained-caret/empty-placement; text66 unchanged",
+  "userObservation66": "everything looks good except separator; no broader manual claim",
+  "automated": {
+    "fullSuite": 191,
+    "pass": 191,
+    "fail": 0,
+    "finalFocusedEditor": 16,
+    "extraAfterFullSuite": "two list-style continuation regression tests; source unchanged",
+    "typecheck": "PASS",
+    "boundarySources": 51,
+    "realPeers": "CLI and MCP read UI separator continuation/deletion; MCP removes selected final object safely",
+    "productionUI": "PASS menu selection DOM/focus, Enter and accepted persistence"
+  },
+  "architectureReview": {
+    "oneExecutor": "existing generic insertion; selected policy",
+    "oneObjectHandler": "shared body atomic selection/Enter/delete",
+    "selection": "public Y/PM event bridge guards erased NodeSelection; no dependency fork/private binding fields",
+    "ownership": "unchanged Core/SQLite/context-history paths",
+    "unchanged": "native mechanisms, contracts/schema, dependencies/locks, runtime source"
+  },
+  "manual67": "pending scoped Mac check",
+  "next": "Mac object check then dedicated Mac CLI/MCP read/write/conflict/save/reopen BEFORE formatting"
+}

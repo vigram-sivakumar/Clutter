@@ -1,4 +1,9 @@
-import { Plugin, PluginKey, TextSelection } from 'prosemirror-state';
+import {
+  Plugin,
+  PluginKey,
+  TextSelection,
+  NodeSelection,
+} from 'prosemirror-state';
 import { ySyncPluginKey } from 'y-prosemirror';
 import {
   blockDefinitions,
@@ -41,8 +46,11 @@ function targetType(schema, definition) {
   if (
     !type ||
     (policy.focus === 'inserted' && !type.isTextblock) ||
-    ((policy.empty === 'convert' || policy.nonEmpty === 'convert') &&
-      !type.isTextblock)
+    (policy.focus === 'selected' &&
+      (!type.isBlock ||
+        !type.isAtom ||
+        !NodeSelection.isSelectable(type.create(definition.attrs)))) ||
+    (policy.nonEmpty === 'convert' && !type.isTextblock)
   )
     throw Error('UNSUPPORTED_BLOCK_INSERTION_POLICY');
   return type;
@@ -114,6 +122,8 @@ export function createInsertionTransaction(
     target = action === 'before' ? start : tr.mapping.map(after, -1);
     tr.insert(target, type.create({ ...attrs, blockId: nextId() }));
   }
+  if (policy.focus === 'selected')
+    tr.setSelection(NodeSelection.create(tr.doc, target)).scrollIntoView();
   if (policy.focus === 'inserted' && action !== 'convert')
     tr.setSelection(TextSelection.create(tr.doc, target + 1))
       .setStoredMarks([])
@@ -122,7 +132,7 @@ export function createInsertionTransaction(
   return tr.setMeta(key, { close: true, insertion: true, focus: policy.focus });
 }
 export const insertionWantsFocus = (tr) =>
-  tr.getMeta(key)?.focus === 'inserted';
+  ['inserted', 'selected'].includes(tr.getMeta(key)?.focus);
 export const isInsertionTransaction = (tr) =>
   tr.getMeta(key)?.insertion === true;
 export function blockInsertion({

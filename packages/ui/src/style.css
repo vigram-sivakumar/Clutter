@@ -466,3 +466,10 @@ button:focus-visible {
   pointer-events: none;
   user-select: none;
 }
+
+/* Atomic object selection uses the editor's actual NodeSelection, not saved style. */
+.ProseMirror hr.ProseMirror-selectednode {
+  outline: 2px solid #4a87be;
+  outline-offset: 5px;
+  background-color: #e8f1f8;
+}

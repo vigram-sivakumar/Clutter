@@ -59,7 +59,7 @@ globalThis.cancelAnimationFrame = dom.window.cancelAnimationFrame.bind(
 );
 const { createQualifiedReplica } =
   await import('../../editor/src/qualified-replica.mjs');
-const { TextSelection } = await import('prosemirror-state');
+const { TextSelection, NodeSelection } = await import('prosemirror-state');
 const Y = await import('yjs');
 const { decode } = await import('../../editor/src/page-codec.mjs');
 const ok = (r) => {
@@ -1822,7 +1822,7 @@ test('61 CLI and MCP admit headings/separators through the same Core as the moun
 });
 
 for (const level of [1, 2, 3, 4, 5, 6])
-  test(`63 separator below nonempty H${level} retains its type, complete text and original caret`, async (t) => {
+  test(`67 separator below nonempty H${level} retains text/type and selects the object`, async (t) => {
     const x = await seeded(t),
       a = await x.open('separator_heading_' + level),
       av = x.mount(a);
@@ -1843,8 +1843,9 @@ for (const level of [1, 2, 3, 4, 5, 6])
     assert.equal(av.state.doc.child(1).attrs.level, level);
     assert.equal(av.state.doc.child(1).textContent, 'prefixsuffix');
     assert.equal(av.state.doc.child(2).type.name, 'separator');
-    assert.equal(av.state.selection.$from.parent.attrs.blockId, id);
-    assert.equal(av.state.selection.$from.parentOffset, 6);
+    assert(av.state.selection instanceof NodeSelection);
+    assert.equal(av.state.selection.node.type.name, 'separator');
+    assert.equal(av.state.doc.child(1).attrs.blockId, id);
     assert.equal(av.hasFocus(), true);
     await a.flush();
     const saved = ok(await x.read());
@@ -1856,8 +1857,8 @@ for (const level of [1, 2, 3, 4, 5, 6])
     assert.equal(av.state.doc.child(1).textContent, 'prefixsuffix');
     assert.equal(av.state.doc.child(2).type.name, 'separator');
   });
-test('63 separator above an empty command block retains it with no extra blank block or caret jump', async (t) => {
-  for (const following of ['none', 'paragraph', 'heading']) {
+test('67 empty command block converts to selected separator; Enter creates/reuses a paragraph below', async (t) => {
+  for (const following of ['none', 'paragraph', 'heading', 'empty-paragraph']) {
     const x = await seeded(t),
       a = await x.open('separator_' + following),
       av = x.mount(a);
@@ -1865,14 +1866,16 @@ test('63 separator above an empty command block retains it with no extra blank b
       av.dispatch(
         av.state.tr.insert(
           av.state.doc.content.size,
-          av.state.schema.nodes[following].create(
+          av.state.schema.nodes[
+            following === 'empty-paragraph' ? 'paragraph' : following
+          ].create(
             {
               blockId: 'existing-after',
-              indent: 0,
-              parentId: null,
               ...(following === 'heading' ? { level: 2 } : {}),
             },
-            av.state.schema.text('Existing')
+            following === 'empty-paragraph'
+              ? null
+              : av.state.schema.text('Existing')
           )
         )
       );
@@ -1882,19 +1885,36 @@ test('63 separator above an empty command block retains it with no extra blank b
     const id = av.state.doc.child(1).attrs.blockId;
     keydown(av, 'Enter');
     assert.equal(av.state.doc.child(1).type.name, 'separator');
+    assert.equal(av.state.doc.child(1).attrs.blockId, id);
+    assert(av.state.selection instanceof NodeSelection);
+    assert.equal(av.state.doc.childCount, following === 'none' ? 2 : 3);
+    assert(
+      av.dom.querySelector('hr').classList.contains('ProseMirror-selectednode')
+    );
+    keydown(av, 'Enter');
     assert.equal(av.state.doc.child(2).type.name, 'paragraph');
-    assert.equal(av.state.doc.child(2).attrs.blockId, id);
     assert.equal(av.state.doc.child(2).textContent, '');
-    assert.equal(av.state.selection.$from.parent.attrs.blockId, id);
+    assert.equal(
+      av.state.selection.$from.parent.attrs.blockId,
+      av.state.doc.child(2).attrs.blockId
+    );
     assert.equal(av.state.selection.$from.parentOffset, 0);
-    assert.equal(av.state.doc.childCount, following === 'none' ? 3 : 4);
-    if (following !== 'none') {
+    assert.equal(
+      av.state.doc.childCount,
+      following === 'none' ? 3 : following === 'empty-paragraph' ? 3 : 4
+    );
+    if (following === 'empty-paragraph')
+      assert.equal(av.state.doc.child(2).attrs.blockId, 'existing-after');
+    if (following === 'heading' || following === 'paragraph') {
       assert.equal(av.state.doc.child(3).attrs.blockId, 'existing-after');
       assert.equal(av.state.doc.child(3).type.name, following);
     }
-    av.dispatch(av.state.tr.insertText('Typing stays here'));
-    assert.equal(av.state.doc.child(2).textContent, 'Typing stays here');
+    av.dispatch(av.state.tr.insertText('Continue'));
     await a.flush();
+    assert.equal(
+      ok(await x.read()).content.value.content[2].content[0].text,
+      'Continue'
+    );
   }
 });
 
@@ -2790,3 +2810,322 @@ test('66 shared indentation and conversion roundtrip through real CLI/MCP client
     );
   }
 });
+
+function selectObject(view, id) {
+  let pos;
+  view.state.doc.forEach((node, start) => {
+    if (node.attrs.blockId === id) pos = start;
+  });
+  assert.notEqual(pos, undefined);
+  view.dispatch(
+    view.state.tr.setSelection(NodeSelection.create(view.state.doc, pos))
+  );
+}
+test('67 object click selects without mutation; Enter continuation is normal text with separate undo', async (t) => {
+  const x = await seededList(t, [
+      { id: 'before', type: 'heading', text: 'Heading', level: 3 },
+      { id: 'divider', type: 'separator', indent: 2 },
+      { id: 'after', type: 'heading', text: 'Keep', level: 2 },
+    ]),
+    { av, a } = x;
+  const before = av.state.doc.toJSON();
+  let at;
+  av.state.doc.forEach((node, pos) => {
+    if (node.attrs.blockId === 'divider') at = pos;
+  });
+  const event = new dom.window.MouseEvent('click', { button: 0 });
+  assert.equal(
+    av.someProp('handleClickOn', (handler) =>
+      handler(av, at, av.state.doc.nodeAt(at), at, event, true)
+    ),
+    true
+  );
+  assert(av.state.selection instanceof NodeSelection);
+  assert.equal(av.state.selection.node.attrs.blockId, 'divider');
+  assert.deepEqual(av.state.doc.toJSON(), before);
+  assert(av.hasFocus());
+  assert(
+    av.dom.querySelector('hr').classList.contains('ProseMirror-selectednode')
+  );
+  keydown(av, 'Enter');
+  const p = av.state.doc.child(3);
+  assert.equal(p.type.name, 'paragraph');
+  assert.equal(p.attrs.indent, 2);
+  assert.equal(p.textContent, '');
+  assert.equal(av.state.selection.$from.parent.attrs.blockId, p.attrs.blockId);
+  assert.equal(av.state.doc.child(4).attrs.blockId, 'after');
+  await a.flush();
+  assert(a.history(av, 'undo'));
+  assert.deepEqual(av.state.doc.toJSON(), before);
+  assert(a.history(av, 'redo'));
+  assert.equal(av.state.doc.child(3).type.name, 'paragraph');
+  await a.flush();
+});
+for (const key of ['Backspace', 'Delete'])
+  test(`67 selected object ${key} chooses nearby body caret/object and keeps children`, async (t) => {
+    const cases = [
+      {
+        rows: [
+          { id: 'prev', type: 'paragraph', text: 'Before' },
+          { id: 'sep', type: 'separator' },
+          { id: 'next', type: 'paragraph', text: 'After' },
+        ],
+        text: 'prev',
+        offset: 6,
+      },
+      {
+        rows: [
+          { id: 'prev', type: 'separator' },
+          { id: 'sep', type: 'separator' },
+          { id: 'next', type: 'paragraph', text: 'After' },
+        ],
+        text: 'next',
+        offset: 0,
+      },
+      {
+        rows: [
+          { id: 'prev', type: 'separator' },
+          { id: 'sep', type: 'separator' },
+        ],
+        object: 'prev',
+      },
+      {
+        rows: [
+          { id: 'sep', type: 'separator' },
+          { id: 'next', type: 'separator' },
+        ],
+        object: 'next',
+      },
+      { rows: [{ id: 'sep', type: 'separator' }], empty: true },
+      {
+        rows: [
+          { id: 'sep', type: 'separator' },
+          {
+            id: 'child',
+            type: 'paragraph',
+            text: 'Child',
+            indent: 1,
+            parent: 'sep',
+          },
+        ],
+        text: 'child',
+        offset: 0,
+      },
+    ];
+    for (const c of cases) {
+      const x = await seededList(t, c.rows),
+        { av, a } = x;
+      const before = av.state.doc.toJSON();
+      selectObject(av, 'sep');
+      assert(keydown(av, key).defaultPrevented);
+      assert(!listRows(av).some((row) => row.id === 'sep'));
+      assert(av.hasFocus());
+      if (c.object) {
+        assert(av.state.selection instanceof NodeSelection);
+        assert.equal(av.state.selection.node.attrs.blockId, c.object);
+      } else {
+        assert(av.state.selection instanceof TextSelection);
+        assert.notEqual(av.state.selection.$from.parent.type.name, 'title');
+        if (c.text) {
+          assert.equal(av.state.selection.$from.parent.attrs.blockId, c.text);
+          assert.equal(av.state.selection.$from.parentOffset, c.offset);
+        } else {
+          assert.equal(av.state.doc.childCount, 2);
+          assert.equal(av.state.doc.child(1).type.name, 'paragraph');
+          assert.equal(av.state.doc.child(1).textContent, '');
+        }
+      }
+      if (c.text === 'child') {
+        assert.equal(av.state.doc.child(1).attrs.parentId, null);
+        assert.equal(av.state.doc.child(1).attrs.indent, 1);
+      }
+      await a.flush();
+      assert(a.history(av, 'undo'));
+      assert.deepEqual(av.state.doc.toJSON(), before);
+      assert(a.history(av, 'redo'));
+      await a.flush();
+    }
+  });
+test('67 selected object key guards do not mutate on modified Enter, composition or read-only', async (t) => {
+  const x = await seededList(t, [{ id: 'sep', type: 'separator' }]),
+    { av, a } = x;
+  selectObject(av, 'sep');
+  const before = av.state.doc.toJSON();
+  const { objectInteractions } =
+    await import('../../editor/src/object-interactions.mjs');
+  const plugin = objectInteractions({ nextId: x.next, canEdit: () => true });
+  for (const extra of [
+    { shiftKey: true },
+    { ctrlKey: true },
+    { isComposing: true },
+  ]) {
+    assert.equal(
+      plugin.props.handleKeyDown(
+        av,
+        new dom.window.KeyboardEvent('keydown', { key: 'Enter', ...extra })
+      ),
+      false
+    );
+    assert.deepEqual(av.state.doc.toJSON(), before);
+  }
+  const locked = objectInteractions({ nextId: x.next, canEdit: () => false });
+  for (const key of ['Enter', 'Backspace', 'Delete'])
+    assert.equal(
+      locked.props.handleKeyDown(
+        av,
+        new dom.window.KeyboardEvent('keydown', { key })
+      ),
+      false
+    );
+});
+async function peerCommand67(x, mode, command) {
+  if (mode === 'cli') return (await stdio(x, mode, JSON.stringify(command)))[0];
+  const messages = [
+    {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: {
+        protocolVersion: '2025-11-25',
+        capabilities: {},
+        clientInfo: { name: 'separator67', version: '1' },
+      },
+    },
+    { jsonrpc: '2.0', method: 'notifications/initialized' },
+    {
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: { name: 'clutter_command', arguments: command },
+    },
+  ];
+  return JSON.parse(
+    (await stdio(x, mode, messages.map(JSON.stringify).join('\n') + '\n')).at(
+      -1
+    ).result.content[0].text
+  );
+}
+test('67 real CLI/MCP read UI separator continuation/deletion and reload the same accepted root', async (t) => {
+  const x = await seeded(t),
+    a = await x.open('objects67'),
+    av = x.mount(a);
+  av.focus();
+  bodyInput(av, 'Alpha/separator');
+  keydown(av, 'Enter');
+  assert(av.state.selection instanceof NodeSelection);
+  const id = av.state.selection.node.attrs.blockId;
+  keydown(av, 'Enter');
+  av.dispatch(av.state.tr.insertText('Below'));
+  await a.flush();
+  for (const mode of ['cli', 'mcp']) {
+    const command = {
+      apiVersion: 1,
+      method: 'page.read',
+      spaceId: x.v.spaceId,
+      pageId: 'p',
+    };
+    const read = ok(await peerCommand67(x, mode, command));
+    assert.deepEqual(
+      read.content.value.content.map((n) => n.type),
+      ['title', 'paragraph', 'separator', 'paragraph']
+    );
+    assert.equal(read.content.value.content[3].content[0].text, 'Below');
+  }
+  selectObject(av, id);
+  keydown(av, 'Delete');
+  await a.flush();
+  for (const mode of ['cli', 'mcp']) {
+    const read = ok(
+      await peerCommand67(x, mode, {
+        apiVersion: 1,
+        method: 'page.read',
+        spaceId: x.v.spaceId,
+        pageId: 'p',
+      })
+    );
+    assert.deepEqual(
+      read.content.value.content.map((n) => n.type),
+      ['title', 'paragraph', 'paragraph']
+    );
+    assert.equal(read.content.value.content[1].content[0].text, 'Alpha');
+    assert.equal(read.content.value.content[2].content[0].text, 'Below');
+  }
+  const b = await x.open('reopened67'),
+    bv = x.mount(b);
+  assert.deepEqual(bv.state.doc.toJSON(), av.state.doc.toJSON());
+});
+test('67 peer removal of a selected last separator cannot crash selection restoration or move into title', async (t) => {
+  const x = await seededList(t, [
+      { id: 'before', type: 'paragraph', text: 'Body' },
+      { id: 'sep', type: 'separator' },
+    ]),
+    { av, a } = x;
+  selectObject(av, 'sep');
+  const content = body('Peer body');
+  ok(
+    await peerCommand67(x, 'mcp', {
+      apiVersion: 1,
+      method: 'page.update',
+      spaceId: x.v.spaceId,
+      pageId: 'p',
+      operationId: x.next(),
+      expectedHead: x.v.load('p').head,
+      patch: { content },
+    })
+  );
+  await settle(a);
+  assert.equal(av.state.doc.childCount, 2);
+  assert(av.state.selection instanceof TextSelection);
+  assert.equal(av.state.selection.$from.parent.type.name, 'paragraph');
+  assert.equal(av.state.doc.child(1).textContent, 'Peer body');
+});
+test('67 generic object selection policy rejects non-atomic text and nonempty destructive conversion', async (t) => {
+  const { createInsertionTransaction } =
+    await import('../../editor/src/block-insertion.mjs');
+  const { createBlockDefinitions } =
+    await import('../../editor/src/block-definitions.mjs');
+  const x = await seeded(t),
+    a = await x.open('object_config'),
+    av = x.mount(a);
+  rowAt(av, 'paragraph-1');
+  const before = av.state.doc.toJSON();
+  for (const config of [
+    { paragraph: { focus: 'selected' } },
+    { separator: { nonEmpty: 'convert' } },
+  ])
+    assert.throws(
+      () =>
+        createInsertionTransaction(av.state, Object.keys(config)[0], x.next, {
+          definitions: createBlockDefinitions(config),
+        }),
+      /UNSUPPORTED_BLOCK_INSERTION_POLICY/
+    );
+  assert.deepEqual(av.state.doc.toJSON(), before);
+});
+for (const listStyle of ['ordered', 'unordered'])
+  test(`67 ${listStyle} list inserts selected separator after its child group then Enter starts a normal paragraph`, async (t) => {
+    const x = await seededList(
+        t,
+        [
+          { id: 'list', text: 'Parent', indent: 1 },
+          { id: 'child', text: 'Child', indent: 2, parent: 'list' },
+        ],
+        listStyle
+      ),
+      { av, a } = x;
+    rowAt(av, 'list', 6);
+    av.dispatch(av.state.tr.insertText('/separator'));
+    keydown(av, 'Enter');
+    assert.deepEqual(
+      listRows(av).map((row) => row.type),
+      ['list_item', 'list_item', 'separator']
+    );
+    assert(av.state.selection instanceof NodeSelection);
+    keydown(av, 'Enter');
+    assert.equal(av.state.doc.child(4).type.name, 'paragraph');
+    assert.equal(av.state.doc.child(4).attrs.indent, 1);
+    assert.equal(av.state.doc.child(2).attrs.parentId, 'list');
+    assert.equal(av.state.doc.child(1).textContent, 'Parent');
+    assert.equal(av.state.doc.child(2).textContent, 'Child');
+    await a.flush();
+  });

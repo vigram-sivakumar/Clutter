@@ -166,3 +166,15 @@ Objects retain their own policies; separator63 unchanged. One block-indentation
 module/plugin serves all indentable BODY text; no list-only Tab handler remains.
 C01 source CSS fixed, Mac visual check pending. After scoped editor checks, run the
 dedicated Mac CLI/MCP read/write/conflict/save/reopen acceptance before formatting.
+
+## Current selected-object UX67 — supersedes separator63
+
+Read rebuild/object-selection-67.md. User now approves separator selection on insert
+and click, Enter to normal paragraph below (reuse adjacent matching empty paragraph),
+and Backspace/Delete deletion with nearby BODY destination, never title. Empty block
+converts to separator; filled text preserved and separator placed after descendants.
+One selected-object policy/executor and one shared object handler; do not restore63
+retained-caret insertion or62 eager continuation. Tables retain their cell contract.
+Selection mapping must survive selected target removal by Undo or peer writes without
+binding-private patches or a dependency fork. Current67 Mac check precedes dedicated
+Mac CLI/MCP acceptance and formatting.66 text conversion/indentation remains current.

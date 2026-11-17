@@ -193,3 +193,20 @@ React renders choices, PM owns editable DOM, OS mechanisms stay in desktop adapt
 66 moves all body text Tab/Shift+Tab into one block-indentation transform/plugin;
 list interactions no longer own a separate Tab path. Shared graph selectors own
 hierarchy. Paragraph vertical margins no longer override derived indent styling.
+
+## Selected atomic objects67
+
+Registry focus:selected selects supported atomic block targets through the same
+insertion executor. Empty separator source converts; filled source inserts after its
+subtree. object-interactions owns shared click/Enter/Backspace/Delete for selected
+atomic BODY objects. Continuation is an explicit normal paragraph, not inherited
+heading/list formatting. Deletion reparents direct unselected children at unchanged
+indent and chooses nearby body text/object, never title.
+
+node-selection-bridge uses public Y before/afterAllTransactions and PM selection APIs
+to shield relative NodeSelection restoration when the selected target disappears.
+A synchronous temporary AllSelection is view-local, unsaved and selection-only;
+canonical block ID restores a surviving target, shared body fallback handles removal.
+Do not set addToHistory:false on this bridge: the binding can carry that flag into
+the actual pending content transaction. No binding-internal changes/dependency fork,
+second document/history manager, saved selection styling or OS-specific feature path.

@@ -1,3 +1,5 @@
+import { guardNodeSelections } from './node-selection-bridge.mjs';
+import { objectInteractions } from './object-interactions.mjs';
 import { blockIndentation } from './block-indentation.mjs';
 import { listInteractions } from './list-interactions.mjs';
 import {
@@ -34,6 +36,7 @@ export function createEditorReplica(
     views = new Set(),
     remote = Symbol('accepted-root'),
     selectionOwner = Symbol('view-selection-owner');
+  const releaseNodeSelections = guardNodeSelections(doc, views);
   let disposed = false,
     acceptedBody = projection(doc, kind(checkout.kind)).content;
   const changed = (_update, origin) => {
@@ -140,6 +143,11 @@ export function createEditorReplica(
               renderMenu: options.renderSlashMenu,
               insertionPolicies: options.insertionPolicies,
             }),
+            objectInteractions({
+              nextId: nextBlockId,
+              canEdit: options.canEdit,
+              stopCapturing: () => history.manager.stopCapturing(),
+            }),
             blockIndentation({
               canEdit: options.canEdit,
               stopCapturing: () => history.manager.stopCapturing(),
@@ -231,6 +239,7 @@ export function createEditorReplica(
       for (const view of [...views]) view.destroy();
       doc.off('update', changed);
       history.destroy();
+      releaseNodeSelections();
       doc.destroy();
       disposed = true;
     },

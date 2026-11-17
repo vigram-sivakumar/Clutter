@@ -1030,59 +1030,44 @@ test('61 production React slash menu inserts a heading without remount or focus 
   }
 });
 
-test('63 production separator placement retains the same paragraph DOM and caret for empty and nonempty blocks', async () => {
+test('67 production separator selection, continuation, deletion and accepted persistence keep one editor', async () => {
   const dir = await session(),
-    ui = await browserWindow(dir, 'separator63');
+    ui = await browserWindow(dir, 'separator67');
   try {
     ui.button('+ New page').click();
     await ui.wait(() => !!ui.active());
     const editor = ui.active(),
       pageId = ui.panes()[0].dataset.page;
-    for (const value of ['/separator', 'prefix/separator']) {
-      // First remove the previous divider through normal retained-context Undo.
-      if (editor.querySelector('hr')) {
-        ui.button('Undo').click();
-        await ui.wait(() => !editor.querySelector('hr'));
-      }
-      const p = editor.querySelector('p');
-      await ui.type(value, editor);
-      await ui.wait(
-        () => ui.doc.querySelector('[role=option]')?.textContent === 'Separator'
-      );
-      ui.doc.querySelector('[role=option]').click();
-      await ui.wait(() => !!editor.querySelector('hr'));
-      assert(ui.active() === editor, 'editor DOM is retained');
-      assert(
-        editor.querySelector('p') === p,
-        'paragraph DOM is retained during insertion'
-      );
-      assert(ui.doc.activeElement === editor, 'editor retains focus');
-      const selection = ui.dom.window.getSelection();
-      assert(p.contains(selection.anchorNode) || selection.anchorNode === p);
-      if (value === '/separator') {
-        assert(
-          editor.querySelector('hr').nextElementSibling === p,
-          'divider is above current paragraph'
-        );
-        assert.equal(p.textContent, '');
-        assert.equal(editor.querySelectorAll('p').length, 1);
-      } else {
-        assert.equal(p.nextElementSibling.tagName, 'HR');
-        assert.equal(p.textContent, 'prefix');
-        const beforeCaret = ui.doc.createRange();
-        beforeCaret.selectNodeContents(p);
-        beforeCaret.setEnd(selection.anchorNode, selection.anchorOffset);
-        assert.equal(beforeCaret.toString().length, 6);
-      }
-      await ui.saved();
-      const read = (await ui.api({ method: 'page.read', pageId })).value;
-      assert.deepEqual(
-        read.content.value.content.map((n) => n.type),
-        value === '/separator'
-          ? ['title', 'separator', 'paragraph']
-          : ['title', 'paragraph', 'separator']
-      );
-    }
+    await ui.type('prefix/separator', editor);
+    await ui.wait(
+      () => ui.doc.querySelector('[role=option]')?.textContent === 'Separator'
+    );
+    ui.doc.querySelector('[role=option]').click();
+    await ui.wait(() => !!editor.querySelector('hr.ProseMirror-selectednode'));
+    assert.equal(editor.querySelector('p').textContent, 'prefix');
+    assert.equal(editor.querySelectorAll('p').length, 1);
+    assert.equal(ui.doc.activeElement, editor);
+    editor.dispatchEvent(
+      new ui.dom.window.KeyboardEvent('keydown', {
+        key: 'Enter',
+        bubbles: true,
+        cancelable: true,
+      })
+    );
+    await ui.wait(() => editor.querySelectorAll('p').length === 2);
+    const after = editor.querySelectorAll('p')[1];
+    const selection = ui.dom.window.getSelection();
+    assert(
+      after.contains(selection.anchorNode) || selection.anchorNode === after
+    );
+    assert.equal(editor.querySelector('hr.ProseMirror-selectednode'), null);
+    await ui.saved();
+    const read = (await ui.api({ method: 'page.read', pageId })).value;
+    assert.deepEqual(
+      read.content.value.content.map((n) => n.type),
+      ['title', 'paragraph', 'separator', 'paragraph']
+    );
+    assert.equal(ui.active(), editor);
   } finally {
     await ui.dispose();
   }

@@ -1,5 +1,10 @@
 # Shared text controls66
 
+Historical separator behavior is superseded by [selected objects67](object-selection-67.md).
+Earlier scoped passes remain historical evidence.67 changes separator focus/empty
+placement;66 text conversion and body-wide indentation remain current.
+
+
 17 November2026. Implements the latest approved conversion UX and body-wide indent.
 
 | Action | Behavior |

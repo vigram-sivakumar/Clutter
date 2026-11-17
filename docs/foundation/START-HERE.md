@@ -1,33 +1,38 @@
 # Resume Clutter Structured
 
-## Current checkpoint — text controls66, 17 November 2026
+## Current checkpoint — selected objects67, 17 November 2026
 
-3A title/body and both separator63 scoped Mac cases are user PASS.65 empty ordered
-conversion/immediate typing/Enter is user PASS. Broader list/manual completion is
-not inferred from those scoped observations.
+User reports66 “everything looks good except separator”; preserve that scoped
+observation. Separator63 previously passed its old checks, but user now explicitly
+supersedes its retained-caret/empty-placement rule. Text conversion and body-wide
+indentation66 remain current.3A title/body remains user PASS.
 
-**66: shared body indentation and in-place text conversion.** Paragraphs, H1–H6,
-ordered and unordered items use ONE Tab/Shift+Tab transform with explicit descendants.
-Title and object blocks are excluded. Text /commands convert the current block
-whether empty or filled, remove only /command and retain all other inline content,
-ID/indent/parentage and mapped caret. One registry/policy executor and existing
-context history/Core/save path own this. Separator63 remains unchanged.
-Read [architecture and scoped checks](rebuild/text-controls-66.md).
+**67: select the separator, Enter to continue.** Empty command block converts into
+selected separator; filled source text stays intact and separator inserts after its
+explicit descendants. No automatic continuation paragraph during insertion. Clicking
+the separator selects/highlights it. Enter uses an immediately following empty normal
+paragraph at the same indent/parent, or inserts one below and places the caret there.
+Backspace/Delete remove the selected object: previous body text end, otherwise next
+body text start, otherwise neighboring object selected; empty body gets a paragraph.
+Never move to title. Unselected children survive with unchanged indent.
+Read [architecture/checklist](rebuild/object-selection-67.md).
 
-[C01](component-followups.md): paragraph margin shorthand overriding shared indent
-was removed. Source fixed66; actual Mac visual confirmation remains pending. Do not
-claim native rendering from jsdom metadata checks.
+One registry focus policy and shared transaction executor select objects; one atomic
+body-object keyboard/click handler continues/deletes them. Node selection is view-local.
+Public Y/PM selection bridge guards selected nodes disappearing during Undo/peer writes;
+no dependency fork, native feature logic, separate history/save or Core owner.
 
-Validation66:184 full Linux tests PASS, final scoped UI metadata check PASS, strict
-Core/runtime TS PASS and49-source boundary checks PASS. Real CLI/MCP clients exercise
-heading indentation and observe UI indentation/conversion through the same accepted
-root. Old list-only Tab implementation removed. No native/Windows/IME/shipping pass.
+Validation:191 full Linux tests PASS; final16 focused editor tests PASS (including
+2 subsequently added ordered/unordered parent/child continuation cases). Strict
+Core/runtime TS and51-source boundaries PASS. Real CLI/MCP read accepted UI separator,
+continuation/deletion; MCP removal of selected last object survives safely. Production
+React/PM/Core/SQLite selection/continuation test PASS. No native/pixel/Windows/IME pass.
 
-Apply66 over65 and `npm run desktop -- --new`; no dependency install. Verify the
-reported indentation/conversion and C01 on Mac. NEXT: dedicated real Mac CLI/MCP
-read/write/conflict/save/reopen acceptance, before formatting. Ctrl+A A01–A05 remains
-queued3C: first current body-block text, second all BODY blocks excluding title;
-inside title selects title only; Escape clears selection. Not implemented here.
+Apply67 over66; `npm run desktop -- --new`, no install. NEXT scoped Mac object check,
+then dedicated real Mac CLI/MCP read/write/conflict/save/reopen acceptance BEFORE
+formatting. Ctrl+A/body block selection A01–A05 remains3C, not implemented here.
+C01 source fixed66; user67 says everything else looks good, but no separate full
+multi-level ordered/unordered C01 visual checklist is inferred from that statement.
 
 
 ## Working agreement

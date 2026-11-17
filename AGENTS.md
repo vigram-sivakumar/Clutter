@@ -8,12 +8,13 @@ The user authorized complete removal of old architecture, not a compatibility pr
 Do not resurrect the retired CM6/full-or-compact Markdown/vault/persistence pipeline.
 
 Stage3 execution order and acceptance: docs/foundation/rebuild/stage3-implementation-plan.md.
-3A and separator63 scoped Mac checks PASS.66 supersedes filled insertion65 and
-list-only indentation64. Read docs/foundation/rebuild/text-controls-66.md. Text
-commands convert the current empty OR filled block, retaining text/ID/indent and
-mapped caret. One shared Tab/Shift+Tab transform serves all editable body text.
-Separator retains63. Verify Mac editor/C01 checks, then dedicated real Mac CLI/MCP
-read/write/conflict/save/reopen acceptance BEFORE formatting. Ctrl+A remains3C.
+3A and earlier separator63 scoped Mac checks PASS. Current67 supersedes separator63:
+empty converts to selected separator; filled inserts below/after descendants and
+selects it. Click selects; Enter uses/creates normal paragraph below. Backspace/Delete
+remove selected object and move to nearby BODY text/object, never title. Read
+docs/foundation/rebuild/object-selection-67.md. Text conversion/indentation66 stays.
+Verify scoped Mac separator check, then dedicated real Mac CLI/MCP read/write/conflict/
+save/reopen acceptance BEFORE formatting. Ctrl+A A01–A05 remains3C.
 
 MANDATORY ON EVERY CHANGE: follow the completion review in docs/foundation/AGENTS.md.
 Remove superseded paths; check for duplicate owners/implementations and boundary

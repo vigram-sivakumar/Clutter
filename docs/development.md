@@ -209,3 +209,11 @@ source with `npm run desktop -- --new`. No install; old bundles are not live-upd
 All body text supports Tab/Shift+Tab. Confirm C01 visual paragraph indentation on Mac;
 then dedicated real Mac CLI/MCP read/write/conflict/save/reopen before formatting.
 Every change must satisfy docs/foundation/AGENTS.md completion review.
+
+## Selected objects67
+
+[Current UX/checklist](foundation/rebuild/object-selection-67.md) supersedes separator63.
+Insert/click selects separator; Enter continues below; Backspace/Delete delete with
+body-only caret fallback. Build changed source: `npm run desktop -- --new`; no install.
+Text conversion/indentation66 stays. Dedicated Mac CLI/MCP acceptance follows the
+scoped object check, before formatting. No Windows/native result inferred from Linux.

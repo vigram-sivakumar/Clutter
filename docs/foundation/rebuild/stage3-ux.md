@@ -68,16 +68,31 @@ conflate it with text-range selection or the independent block-selection mode be
 | S03 | Query with no matching item | Dismiss the menu. Menu dismissal must not erase the typed `/text`. |
 | S04 | Selecting a command | Consume only `/command`. Preserve all remaining inline content together in the current block; no prefix/suffix splitting. |
 | S05 | Editable text-block conversion (latest user approval66) | After command removal, convert the current empty OR filled block to the selected paragraph/heading/list type. Retain all remaining inline content together, identity, indent and parentage. |
-| S06 | Focus (latest user approval66) | Editable text types receive focus with the mapped current caret, ready to type. Object insertion uses its registered focus/placement policy; Separator retains the current caret per S09. Policies must be per-type configurable properties with one shared executor, not per-command UI logic. |
+| S06 | Focus (latest user approval66) | Editable text types receive focus with the mapped current caret, ready to type. Object insertion uses its registered focus/placement policy; Separator selects the inserted object per S09. Policies must be per-type configurable properties with one shared executor, not per-command UI logic. |
 | S07 | Table choices | Offer the 2×2, 3×3 and 4×4 presets in the menu before insertion. |
 | S08 | Image choice | Open the single-file picker immediately. |
-| S09 | Separator placement (latest user correction,17 November2026) | Remove only `/separator`. If the current block is then empty, insert the separator ABOVE it. If text/content remains, insert BELOW it. Keep the same block, text/type and mapped caret; do not split text or create a continuation paragraph. This supersedes the earlier below-divider cursor override. |
+| S09 | Separator placement/selection (user approval67) | Remove only `/separator`. Empty source converts into the selected separator. Filled source preserves all remaining text/type; separator inserts below after its explicit descendants and is selected/highlighted, without text caret. No eager continuation paragraph. This supersedes63. |
 
 66 supersedes65 filled-text insert-below behavior;65 superseded the earlier retain-caret rule for editable text types, and the earlier
-prefix/suffix split. Separator S09 is retained. Table/object placement and editable
+prefix/suffix split.67 supersedes separator63 with selected-object S09. Table/object placement and editable
 focus targets require their own confirmed policy/actual implementation; do not infer
 all object placement from Separator. Entry points share one insertion transaction;
 selection is view-local, content/hierarchy remain on the shared Core/editor path.
+
+## Selected atomic body objects (approved67)
+
+| Interaction | Behavior |
+| --- | --- |
+| Click separator | Select/highlight that object; no text caret |
+| Enter while selected | Use adjacent empty normal paragraph below at the same indent/parent, or create one; caret at its beginning |
+| Backspace / Delete while selected | Delete object; prefer previous body-text end, otherwise next body-text start; otherwise select previous/next adjacent object without caret |
+| Body becomes empty | Keep/create one empty normal paragraph and place caret there |
+| Title boundary | Never move to title as the selected-object deletion destination |
+| Unselected children | Preserve them at unchanged indent; detach direct children to deleted object's former parent |
+
+Shared object selection/continuation capability, not a separator-only save/history
+path. Text clicks retain normal caret placement. Tables' cell editing remains separate;
+this does not replace their selection/Enter/Tab contract.
 
 ## 5. Floating formatting toolbar
 

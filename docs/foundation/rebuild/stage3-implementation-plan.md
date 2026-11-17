@@ -214,3 +214,7 @@ selectors and dispatcher-owned history remain required; no per-OS insertion logi
 Current66: [text controls](text-controls-66.md) supersedes filled insert-below65 and
 list-only Tab scope64. All body text shares indentation; text types convert in place.
 After Mac editor/C01 check, dedicated Mac CLI/MCP acceptance precedes formatting.
+
+Current67 [object selection](object-selection-67.md) supersedes separator63. Verify
+Mac selection/Enter/delete/caret behavior, then dedicated real Mac CLI/MCP acceptance
+before formatting. Text conversion/indentation66 remains current.
