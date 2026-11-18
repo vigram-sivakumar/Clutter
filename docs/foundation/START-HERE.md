@@ -1,8 +1,9 @@
 # Resume Clutter Structured
 
-## Current checkpoint — body block handles, build 84
+## Current checkpoint — hovered body block handles, build 85
 
-Every body block has a gutter handle. Click it to select only that block, or
+A body block reveals its gutter handle on hover. It stays visible while the
+pointer crosses the gutter to the handle. Click it to select only that block, or
 use Cmd on Mac and Ctrl on Windows to toggle it in the current selection.
 Parent and child handles select independently. Handles live in editor chrome
 and use the same selection as marquee and paste. Drag reorder is pending.

@@ -146,7 +146,7 @@ stock list behavior for this matrix or assume unspecified list details are appro
 
 | ID | Interaction | Confirmed behavior |
 | --- | --- | --- |
-| D01 | Handles | Every block has a chrome handle. |
+| D01 | Handles | Every body block has a chrome handle that appears on hover and stays visible while moving to it. |
 | D02 | Click a parent handle | Select only that parent block. Do not auto-select its children. |
 | D03 | Drag a parent | Move that parent with its entire child hierarchy. Children travel with it even though selection membership is independent. |
 | D04 | Drag a child | Move that child and its descendants. Leave its parent and siblings in place. |

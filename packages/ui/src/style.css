@@ -575,8 +575,14 @@ button:focus-visible {
   border-radius: 4px;
   background: transparent;
   color: #70818e;
-  pointer-events: auto;
+  visibility: hidden;
+  pointer-events: none;
   cursor: pointer;
+}
+
+.block-handle-layer button[data-revealed] {
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .block-handle-layer button::before {

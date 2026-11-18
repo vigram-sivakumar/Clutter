@@ -18,9 +18,59 @@ export function mountBlockHandles(view, canEdit) {
   const layer = doc.createElement('div');
   layer.className = 'block-handle-layer';
   dom.after(layer);
+  const host = dom.parentElement;
   const handles = new Map();
+  let hovered;
   let rows = [];
   let frame;
+
+  function reveal(id) {
+    if (id === hovered) return;
+    handles.get(hovered)?.removeAttribute('data-revealed');
+    hovered = id;
+    handles.get(hovered)?.setAttribute('data-revealed', '');
+  }
+
+  function hover(event) {
+    if (event.pointerType === 'touch') return;
+    if (!hovered && !host.contains(event.target)) return;
+    if (dom.closest('[inert]')) {
+      reveal();
+      return;
+    }
+    const handle = event.target.closest('[data-block-handle]');
+    const block = event.target.closest('[data-block-id]');
+    const id = layer.contains(handle)
+      ? handle.dataset.blockHandle
+      : dom.contains(block)
+        ? block.dataset.blockId
+        : undefined;
+    if (handles.has(id)) {
+      reveal(id);
+      return;
+    }
+
+    // Keep the handle exposed while the pointer travels across its gutter gap.
+    const row =
+      hovered && rows.find(({ node }) => node.attrs.blockId === hovered);
+    const canvas = dom.closest('[data-block-selection-canvas]') ?? host;
+    const blockBox = row && view.nodeDOM(row.pos)?.getBoundingClientRect();
+    if (blockBox && canvas.contains(event.target)) {
+      const handleBox = handles.get(hovered).getBoundingClientRect();
+      if (
+        event.clientX >= handleBox.left &&
+        event.clientX <= blockBox.left &&
+        event.clientY >= Math.min(blockBox.top, handleBox.top) &&
+        event.clientY <= Math.max(blockBox.bottom, handleBox.bottom)
+      )
+        return;
+    }
+    reveal();
+  }
+
+  const leave = (event) => {
+    if (!event.relatedTarget) reveal();
+  };
 
   function positionHandles() {
     const top = layer.getBoundingClientRect().top;
@@ -45,6 +95,7 @@ export function mountBlockHandles(view, canEdit) {
     if (!previous || previous.doc !== current.state.doc) {
       rows = blockRows(current.state.doc);
       const ids = new Set(rows.map(({ node }) => node.attrs.blockId));
+      if (!ids.has(hovered)) reveal();
       for (const [id, handle] of handles) {
         if (!ids.has(id)) {
           handle.remove();
@@ -97,6 +148,9 @@ export function mountBlockHandles(view, canEdit) {
     focusBlockSelection(view);
   }
 
+  doc.addEventListener('pointerover', hover);
+  doc.addEventListener('pointermove', hover);
+  doc.addEventListener('pointerout', leave);
   layer.addEventListener('mousedown', mouseDown);
   layer.addEventListener('click', click);
   const resize = win.ResizeObserver && new win.ResizeObserver(schedulePosition);
@@ -106,6 +160,9 @@ export function mountBlockHandles(view, canEdit) {
     update,
     destroy() {
       resize?.disconnect();
+      doc.removeEventListener('pointerover', hover);
+      doc.removeEventListener('pointermove', hover);
+      doc.removeEventListener('pointerout', leave);
       if (frame !== undefined) win.cancelAnimationFrame(frame);
       layer.remove();
     },
