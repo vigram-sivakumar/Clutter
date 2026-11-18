@@ -144,7 +144,7 @@ function setup(t, hooks = {}) {
   });
   return state;
 }
-async function seeded(t, hooks = {}) {
+async function seeded(t, hooks = {}, initialBody) {
   const x = setup(t, hooks);
   ok(
     await x.run({
@@ -154,7 +154,7 @@ async function seeded(t, hooks = {}) {
       method: 'page.create',
       operationId: 'create',
       kind: 'note',
-      content: body(),
+      content: body(initialBody),
       properties: {},
     })
   );
@@ -1500,83 +1500,101 @@ test('3A Enter and Backspace respect title/body boundary and Shift+Enter is iner
   assert.equal(av.state.doc.childCount, 2);
   assert.equal(av.state.selection.$from.parent.type.name, 'paragraph');
 });
-test('76 multiline title paste selects only appended blocks, expands with Ctrl+A, and undoes once', async (t) => {
-  const x = await seeded(t),
-    a = await x.open('title_paste'),
-    av = x.mount(a);
-  av.dispatch(av.state.tr.insertText('Keep', 1));
-  a.stopCapturing();
-  av.focus();
-  const event = new dom.window.Event('paste', {
-    bubbles: true,
-    cancelable: true,
-  });
-  Object.defineProperty(event, 'clipboardData', {
-    value: {
-      getData: (type) => (type === 'text/plain' ? 'first\r\n\r\nlast\n' : ''),
-    },
-  });
-  let scrolled = false;
-  const old = dom.window.HTMLElement.prototype.scrollIntoView;
-  dom.window.HTMLElement.prototype.scrollIntoView = function () {
-    if (this.classList.contains('selected-body-block')) scrolled = true;
-  };
-  try {
-    av.dom.dispatchEvent(event);
-  } finally {
-    dom.window.HTMLElement.prototype.scrollIntoView = old;
-  }
-  assert.equal(event.defaultPrevented, true);
-  assert.equal(av.state.doc.firstChild.textContent, 'Keep');
-  assert.deepEqual(
-    Array.from(
-      { length: av.state.doc.childCount - 1 },
-      (_, i) => av.state.doc.child(i + 1).textContent
-    ),
-    ['Alpha beta', 'first', '', 'last', '']
-  );
-  assert(av.hasFocus());
-  assert(av.state.selection instanceof BodyBlockSelection);
-  assert.equal(av.state.selection.visible, false);
-  assert.deepEqual(
-    av.state.selection.ids,
-    av.state.doc
-      .toJSON()
-      .content.slice(2)
-      .map((node) => node.attrs.blockId)
-  );
-  assert.equal(av.dom.querySelectorAll('.selected-body-block').length, 4);
-  assert(scrolled);
-  await a.flush();
-  await settle(a);
-  assert.equal(av.dom.querySelectorAll('.selected-body-block').length, 4);
-  for (const mode of ['cli', 'mcp']) {
-    const saved = ok(
-      await peerCommand67(x, mode, {
-        apiVersion: 1,
-        method: 'page.read',
-        spaceId: x.v.spaceId,
-        pageId: 'p',
-      })
-    );
-    assert.equal(saved.head, ok(await x.read()).head);
+for (const initialBody of ['', 'Alpha beta'])
+  test(`77 multiline title paste into an ${initialBody ? 'existing' : 'empty'} body selects the pasted blocks and undoes once`, async (t) => {
+    const x = await seeded(t, {}, initialBody),
+      a = await x.open('title_paste'),
+      av = x.mount(a);
+    av.dispatch(av.state.tr.insertText('Keep', 1));
+    a.stopCapturing();
+    av.focus();
+    const selectionStart = initialBody ? 2 : 1;
+    const bodyLines = [
+      ...(initialBody ? [initialBody] : []),
+      'first',
+      '',
+      'last',
+      '',
+    ];
+    const initialBlock = av.state.doc.child(1);
+    const event = new dom.window.Event('paste', {
+      bubbles: true,
+      cancelable: true,
+    });
+    Object.defineProperty(event, 'clipboardData', {
+      value: {
+        getData: (type) => (type === 'text/plain' ? 'first\r\n\r\nlast\n' : ''),
+      },
+    });
+    let scrolled = false;
+    const old = dom.window.HTMLElement.prototype.scrollIntoView;
+    dom.window.HTMLElement.prototype.scrollIntoView = function () {
+      if (this.classList.contains('selected-body-block')) scrolled = true;
+    };
+    try {
+      av.dom.dispatchEvent(event);
+    } finally {
+      dom.window.HTMLElement.prototype.scrollIntoView = old;
+    }
+    assert.equal(event.defaultPrevented, true);
+    assert.equal(av.state.doc.firstChild.textContent, 'Keep');
     assert.deepEqual(
-      saved.content.value.content
-        .slice(2)
-        .map((node) => node.content?.[0]?.text ?? ''),
-      ['first', '', 'last', '']
+      Array.from(
+        { length: av.state.doc.childCount - 1 },
+        (_, i) => av.state.doc.child(i + 1).textContent
+      ),
+      bodyLines
     );
-    assert(!JSON.stringify(saved.content).includes('selected-body-block'));
-  }
-  assert(keydown(av, 'a', { ctrlKey: true }).defaultPrevented);
-  assert.equal(av.state.selection.ids.length, 5);
-  assert.equal(av.dom.querySelectorAll('.selected-body-block').length, 5);
-  assert(keydown(av, 'z', { ctrlKey: true }).defaultPrevented);
-  assert.equal(av.state.doc.firstChild.textContent, 'Keep');
-  assert.equal(text(av), 'Alpha beta');
-  a.history(av, 'redo');
-  assert.equal(av.state.doc.childCount, 6);
-});
+    assert(av.hasFocus());
+    assert(av.state.selection instanceof BodyBlockSelection);
+    assert.equal(av.state.selection.visible, false);
+    assert.deepEqual(
+      av.state.selection.ids,
+      av.state.doc
+        .toJSON()
+        .content.slice(selectionStart)
+        .map((node) => node.attrs.blockId)
+    );
+    assert.equal(av.dom.querySelectorAll('.selected-body-block').length, 4);
+    assert(scrolled);
+    assert.equal(
+      av.state.doc.child(1).attrs.blockId,
+      initialBlock.attrs.blockId
+    );
+    await a.flush();
+    await settle(a);
+    assert.equal(av.dom.querySelectorAll('.selected-body-block').length, 4);
+    for (const mode of ['cli', 'mcp']) {
+      const saved = ok(
+        await peerCommand67(x, mode, {
+          apiVersion: 1,
+          method: 'page.read',
+          spaceId: x.v.spaceId,
+          pageId: 'p',
+        })
+      );
+      assert.equal(saved.head, ok(await x.read()).head);
+      assert.deepEqual(
+        saved.content.value.content
+          .slice(selectionStart)
+          .map((node) => node.content?.[0]?.text ?? ''),
+        ['first', '', 'last', '']
+      );
+      assert(!JSON.stringify(saved.content).includes('selected-body-block'));
+    }
+    assert(keydown(av, 'a', { ctrlKey: true }).defaultPrevented);
+    assert.equal(av.state.selection.ids.length, bodyLines.length);
+    assert.equal(
+      av.dom.querySelectorAll('.selected-body-block').length,
+      bodyLines.length
+    );
+    assert(keydown(av, 'z', { ctrlKey: true }).defaultPrevented);
+    assert.equal(av.state.doc.firstChild.textContent, 'Keep');
+    assert.equal(av.state.doc.childCount, 2);
+    assert(av.state.doc.child(1).eq(initialBlock));
+    a.history(av, 'redo');
+    assert.equal(av.state.doc.childCount, bodyLines.length + 1);
+  });
 test('3A single-line title paste inserts normally without body append or block selection', async (t) => {
   const x = await seeded(t),
     a = await x.open('single-paste'),

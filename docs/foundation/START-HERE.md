@@ -1,16 +1,17 @@
 # Resume Clutter Structured
 
-## Current checkpoint — shared paste selection, build 76
+## Current checkpoint — title paste in an empty body, build 77
 
 The user confirmed the build 75 caret fix on macOS. Build 76 replaces the separate
 multiline title-paste highlight with the same block selection used by Cmd/Ctrl+A.
-Paste appends all lines, scrolls to the first appended block and selects exactly
-the appended blocks. Cmd/Ctrl+A then includes the existing body blocks. The
-title stays outside block selection. Future drag and marquee use this selection.
+Build 77 fills the single empty paragraph when pasting into a blank body. Notes
+with existing blocks receive the pasted lines at the bottom. The same selection
+outlines the pasted blocks and Cmd/Ctrl+A selects the whole body. The title
+stays outside block selection.
 
-12 targeted editor checks passed, including accepted paste readback through real
-CLI and MCP clients, undo, and the caret regressions. TypeScript and the 57-source
-boundary audit passed. Mac acceptance for paste selection is pending.
+Eight targeted tests passed, including both paste cases, real CLI/MCP readback,
+Undo/Redo and caret reentry. TypeScript and package boundary checks passed.
+Mac acceptance for build 77 is pending.
 
 ## Working agreement
 
@@ -33,8 +34,8 @@ single-file Image picker, table presets and deferred embeds. Important distincti
   them, and Delete removes children only when explicitly selected.
 - Marquee needs no Shift; crossing the starting block changes text selection into
   block selection. Shift+drag adds disjoint blocks to the prior selection.
-- Multiline title paste appends ALL content to the body bottom, leaves no caret,
-  scrolls there and selects the appended blocks using the shared block selection.
+- Multiline title paste fills a blank body or appends to a populated body.
+  It scrolls to and selects the pasted blocks with no text caret.
 - Task titles edit inline until icon-driven page conversion; after conversion,
   title clicks open the task page and checkbox clicks still toggle completion.
 - Images use an immediate ONE-file picker. Embed is deferred, including YouTube.

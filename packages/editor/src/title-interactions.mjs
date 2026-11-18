@@ -2,6 +2,14 @@ import { Plugin, TextSelection } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import { BodyBlockSelection } from './body-selection.mjs';
 
+function emptyBodyParagraph(doc) {
+  if (doc.childCount !== 2) return null;
+  const paragraph = doc.child(1);
+  return paragraph.type.name === 'paragraph' && paragraph.content.size === 0
+    ? paragraph
+    : null;
+}
+
 export function titleInteractions(nextId, canEdit) {
   return new Plugin({
     props: {
@@ -23,12 +31,8 @@ export function titleInteractions(nextId, canEdit) {
           if (event.shiftKey) return true;
           if (event.altKey || event.metaKey || event.ctrlKey) return false;
           const start = state.doc.firstChild.nodeSize;
-          const bodyEmpty =
-            state.doc.childCount === 2 &&
-            state.doc.child(1).type.name === 'paragraph' &&
-            state.doc.child(1).content.size === 0;
           let tr = state.tr;
-          if (!bodyEmpty)
+          if (!emptyBodyParagraph(state.doc))
             tr = tr.insert(
               start,
               state.schema.nodes.paragraph.create({ blockId: nextId() })
@@ -70,13 +74,17 @@ export function titleInteractions(nextId, canEdit) {
         const text = event.clipboardData?.getData('text/plain');
         if (typeof text !== 'string' || !/[\r\n]/.test(text)) return false;
         const lines = text.replace(/\r\n?/g, '\n').split('\n');
-        const blocks = lines.map((line) =>
-          view.state.schema.nodes.paragraph.create(
-            { blockId: nextId() },
-            line ? view.state.schema.text(line) : null
+        const { state } = view;
+        const starter = emptyBodyParagraph(state.doc);
+        const blocks = lines.map((line, index) =>
+          state.schema.nodes.paragraph.create(
+            index === 0 && starter ? starter.attrs : { blockId: nextId() },
+            line ? state.schema.text(line) : null
           )
         );
-        const tr = view.state.tr.insert(view.state.doc.content.size, blocks);
+        const end = state.doc.content.size;
+        const start = starter ? state.doc.firstChild.nodeSize : end;
+        const tr = state.tr.replaceWith(start, end, blocks);
         view.dispatch(
           tr.setSelection(
             new BodyBlockSelection(

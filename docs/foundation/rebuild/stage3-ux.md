@@ -50,7 +50,7 @@ A representation change must preserve one owner per fact and shared inline behav
 
 | ID | Interaction | Confirmed behavior |
 | --- | --- | --- |
-| P01 | Paste containing more than one line | Append **all** pasted lines at the **bottom of the body**. Do not put the first line into the title. Leave the title unchanged. |
+| P01 | Paste containing more than one line | If the body is a single empty paragraph, use it for the first pasted line. Otherwise append all lines after the existing blocks. Preserve the title and any blank lines in the pasted text. |
 | P02 | Cursor | Show no text caret after this paste. |
 | P03 | Scrolling | Scroll the note to the appended content. |
 | P04 | Selection | Select exactly the appended blocks with the shared block selection and its blue outline. Keep keyboard focus so block commands work immediately. |
