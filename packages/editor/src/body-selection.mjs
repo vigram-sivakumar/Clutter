@@ -71,8 +71,12 @@ Selection.jsonID('body-blocks', BodyBlockSelection);
 export const selectBodyBlocks = (state, ids) =>
   state.tr.setSelection(new BodyBlockSelection(state.doc, ids));
 
+export function isApplePlatform(platform) {
+  return /Mac|iP(hone|[oa]d)/.test(platform);
+}
+
 export function isBlockToggleModifier(event, platform) {
-  return /Mac|iP(hone|[oa]d)/.test(platform) ? event.metaKey : event.ctrlKey;
+  return isApplePlatform(platform) ? event.metaKey : event.ctrlKey;
 }
 
 export function toggleBlockId(ids, id) {

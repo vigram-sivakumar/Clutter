@@ -9,6 +9,7 @@ import {
   BodyBlockSelection,
   presentsBodySelection,
   isInactiveBodySelection,
+  isApplePlatform,
 } from './body-selection.mjs';
 import { blockRows } from './block-structure.mjs';
 import {
@@ -25,8 +26,7 @@ const preventBlockReplacement = (view, event) => {
 };
 // Leave hidden block mode before native mouse-down placement/dragging begins.
 // Resolve through public PM hit testing; root whitespace may map to a block edge.
-function placeTextCaret(view, pos, event) {
-  if (event.button !== 0 || event.defaultPrevented) return false;
+function placeTextCaret(view, pos) {
   const $at = view.state.doc.resolve(pos);
   const selection = TextSelection.near($at);
   if (
@@ -38,7 +38,10 @@ function placeTextCaret(view, pos, event) {
   )
     return false;
   const wasInactive = isInactiveBodySelection(view.state.selection);
-  view.dispatch(view.state.tr.setSelection(selection).setMeta('pointer', true));
+  if (!view.state.selection.eq(selection))
+    view.dispatch(
+      view.state.tr.setSelection(selection).setMeta('pointer', true)
+    );
   if (view.editable) {
     // A focused noneditable root can retain DOM focus without starting a native
     // editing session. Reacquire focus once, after editability is restored.
@@ -50,7 +53,28 @@ function placeTextCaret(view, pos, event) {
 export function resumeTextSelection(view, pos, event) {
   return (
     view.state.selection instanceof BodyBlockSelection &&
-    placeTextCaret(view, pos, event)
+    event.button === 0 &&
+    !event.defaultPrevented &&
+    placeTextCaret(view, pos)
+  );
+}
+
+function movePointerCaret(view, event) {
+  const hit = view.posAtCoords({ left: event.clientX, top: event.clientY });
+  if (!hit) return false;
+  const node = view.state.doc.nodeAt(hit.inside >= 0 ? hit.inside : hit.pos);
+  if (node?.isBlock && !node.isTextblock) return false;
+  return placeTextCaret(view, hit.pos);
+}
+
+function isAppleControlClick(view, event) {
+  const block = event.target.closest?.('[data-block-id]');
+  return (
+    event.ctrlKey &&
+    !event.metaKey &&
+    block &&
+    view.dom.contains(block) &&
+    isApplePlatform(view.dom.ownerDocument.defaultView.navigator.platform)
   );
 }
 
@@ -227,27 +251,31 @@ export function bodyBlockInteractions({ canEdit, nextId, stopCapturing } = {}) {
           return !!handled;
         },
         mousedown(view, event) {
+          if (event.button !== 0 || event.defaultPrevented) return false;
+          const controlClick = isAppleControlClick(view, event);
           const selection = view.state.selection;
           if (
+            !controlClick &&
             !(selection instanceof BodyBlockSelection) &&
             !(event.shiftKey && selection instanceof TextSelection)
           )
             return false;
-          const hit = view.posAtCoords({
-            left: event.clientX,
-            top: event.clientY,
-          });
-          if (!hit) return false;
-          const node =
-            hit.inside >= 0
-              ? view.state.doc.nodeAt(hit.inside)
-              : view.state.doc.nodeAt(hit.pos);
-          if (node?.isBlock && !node.isTextblock) return false;
-          // Establish the anchor at the pressed position before the browser
-          // handles Shift. A click moves the caret and a drag starts here.
-          placeTextCaret(view, hit.pos, event);
-          // Let PM/browser continue normal text dragging and multi-click handling.
-          return false;
+
+          // Place the caret before native modifier handling. Consume the
+          // Apple Control click so native secondary-click selection cannot
+          // replace it. The canvas still tracks cross-block movement.
+          if (!movePointerCaret(view, event) || !controlClick) return false;
+          event.preventDefault();
+          return true;
+        },
+        contextmenu(view, event) {
+          if (
+            !isAppleControlClick(view, event) ||
+            !movePointerCaret(view, event)
+          )
+            return false;
+          event.preventDefault();
+          return true;
         },
         beforeinput: preventBlockReplacement,
         cut: preventBlockReplacement,

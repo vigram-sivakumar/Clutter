@@ -1,6 +1,6 @@
 # Resume Clutter Structured
 
-## Current checkpoint — whole-body drag, build 90
+## Current checkpoint — macOS Control+click, build 91
 
 Hovering a body block or directly over its handle position reveals the handle.
 It stays visible while the pointer crosses the gutter to the handle. Click it to select only that block, or
@@ -12,6 +12,16 @@ The user confirmed block reorder on macOS in build 88. Build 89 adds a
 pointer-following preview of the blocks that will move, including descendants.
 The insertion line marks the drop location. The preview uses snippets from the
 existing move scope and does not enter the editable document.
+
+Build 91 makes macOS Control+click in editor text place a caret and dismiss
+the secondary-click action for that gesture. Ordinary right-click remains
+available, and Cmd/Ctrl still toggles blocks on its respective platform.
+The user confirmed reorder works on Mac. Build 91 native retest is pending.
+
+The next capability in the agreed sequence is inline tasks (3D). Core already
+supports a task page kind. Start with atomic task creation and note placement
+under the same identity. Before conversion the title edits inline; conversion
+opens that same entity as a full page. See the UX and single-location contract.
 
 Build 90 starts a drag even when the move scope covers the entire body. Its
 source-note marker is at the first body block, immediately below the title.

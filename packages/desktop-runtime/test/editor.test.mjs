@@ -4541,3 +4541,40 @@ test('90 all-body handle drag previews the top slot and drops without saving or 
   assert.equal(a.history(av, 'undo'), false);
   assert.equal(ok(await read()).head, accepted.head);
 });
+
+test('91 Mac Control-click in text places the caret and cancels the context menu; right-click remains available', async (t) => {
+  const nav = dom.window.navigator;
+  Object.defineProperty(nav, 'platform', {
+    configurable: true,
+    value: 'MacIntel',
+  });
+  t.after(() => Reflect.deleteProperty(nav, 'platform'));
+  const { av } = await seededList(t, [
+    { id: 'one', text: 'First block' },
+    { id: 'two', text: 'Second block' },
+  ]);
+  rowAt(av, 'one', 2);
+  const start =
+    av.state.doc.firstChild.nodeSize + av.state.doc.child(1).nodeSize;
+  av.posAtCoords = () => ({ pos: start + 4, inside: start });
+  const body = av.dom.querySelector('[data-block-id="two"]');
+  const mouse = (type, props) => {
+    const event = new dom.window.MouseEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      clientX: 10,
+      clientY: 40,
+      ...props,
+    });
+    body.dispatchEvent(event);
+    return event;
+  };
+  mouse('mousedown', { button: 0, buttons: 1, ctrlKey: true });
+  assert(av.state.selection instanceof TextSelection);
+  assert(av.state.selection.empty);
+  assert.equal(av.state.selection.head, start + 4);
+  assert(mouse('contextmenu', { button: 2, ctrlKey: true }).defaultPrevented);
+  mouse('mouseup', { button: 0, ctrlKey: true });
+  assert(!mouse('contextmenu', { button: 2 }).defaultPrevented);
+  assert.equal(av.state.selection.head, start + 4);
+});

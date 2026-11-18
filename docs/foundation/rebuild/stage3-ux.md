@@ -184,6 +184,7 @@ both an ancestor and descendant happen to be explicitly selected.
 | B16 | Cmd+drag on Mac, Ctrl+drag on Windows | Toggle each live hit against the initial selection. Previously selected hits become unselected and previously unselected hits become selected. |
 | B17 | Plain click in blank note space | Clear selection, leave no caret and release editor focus. A drag from the same area starts marquee. |
 | B18 | Shift+click in text | Place the caret at the clicked position. Shift+drag still follows the ordinary text-to-marquee boundary rule. |
+| B19 | Control+click in text on macOS | Place the caret without selecting a word or opening the context menu. Ordinary right-click retains its normal menu. |
 
 
 
