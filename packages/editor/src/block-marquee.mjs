@@ -30,6 +30,7 @@ export function mountBlockMarquee(view, canEdit) {
   const { dom } = view;
   const doc = dom.ownerDocument;
   const win = doc.defaultView;
+  const apple = /Mac|iP(hone|[oa]d)/.test(win.navigator.platform);
   const overlay = doc.createElement('div');
   overlay.className = 'body-marquee';
   overlay.setAttribute('aria-hidden', 'true');
@@ -56,12 +57,14 @@ export function mountBlockMarquee(view, canEdit) {
     suppressClick = false;
     suppressContextMenu = false;
     const target = event.target;
+    const primaryModifier = apple ? event.metaKey : event.ctrlKey;
+    const otherModifier = apple ? event.ctrlKey : event.metaKey;
     if (
       !onCanvas(event) ||
       event.button !== 0 ||
-      (event.detail > 1 && !event.ctrlKey) ||
+      (event.detail > 1 && !primaryModifier) ||
       event.altKey ||
-      event.metaKey ||
+      otherModifier ||
       view.composing ||
       !available() ||
       target.closest?.(
@@ -76,18 +79,19 @@ export function mountBlockMarquee(view, canEdit) {
     const selection = view.state.selection;
     const selected =
       selection instanceof BodyBlockSelection ? selection.ids : [];
-    if (event.ctrlKey && !selected.length) return;
-    const mode = event.ctrlKey
-      ? 'subtract'
-      : event.shiftKey && selected.length
-        ? 'add'
-        : 'replace';
+    const mode =
+      primaryModifier && selected.length
+        ? 'subtract'
+        : !primaryModifier && event.shiftKey && selected.length
+          ? 'add'
+          : 'replace';
     gesture = {
       origin: { x: origin.x - root.left, y: origin.y - root.top },
       end: origin,
       startBlock: mode === 'replace' ? block : null,
       clickedId: block?.dataset.blockId,
-      dismissOnClick: mode === 'replace' && !event.shiftKey && !block,
+      dismissOnClick:
+        mode === 'replace' && !primaryModifier && !event.shiftKey && !block,
       baseline: mode === 'replace' ? [] : selected,
       mode,
     };

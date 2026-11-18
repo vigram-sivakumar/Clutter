@@ -1,14 +1,15 @@
 # Resume Clutter Structured
 
-## Current checkpoint — marquee and canvas deselection, build 80
+## Current checkpoint — marquee and platform modifier, build 81
 
 Drag inside the starting block to select text. Drag outside it to draw a marquee.
 A touched body block joins immediately and drops out when the rectangle leaves it.
 Shift+drag adds to the selection that existed when the gesture started. The
 title is excluded from block membership. Escape clears the selection.
 
-Ctrl+click removes one selected block. Ctrl+drag subtracts touched blocks from
-the selection at gesture start. A plain click in blank note space clears the
+Cmd on Mac and Ctrl on Windows remove one selected block on click or subtract
+touched blocks during a drag. With no blocks selected, a modified drag still
+starts marquee when it crosses the starting block. A plain click in blank note space clears the
 selection and releases editor focus. Drag can start in that same blank space,
 including the note margins. The note toolbar, tabs and sidebar are outside the
 gesture area.

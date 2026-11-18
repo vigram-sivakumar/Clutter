@@ -176,8 +176,8 @@ both an ancestor and descendant happen to be explicitly selected.
 | B12 | Ordinary typing with blocks selected | Do nothing. Do not replace selected blocks with typed text or a new paragraph. |
 | B13 | Delete/Backspace | Delete **only explicitly selected blocks**. Delete children only when they are selected too. |
 | B14 | Parent deleted, children not selected | Keep those children at their current indentation. Do not automatically outdent or delete them. |
-| B15 | Ctrl+click | Remove the clicked block from the current selection. |
-| B16 | Ctrl+drag | Subtract the rectangle's live hits from the selection at gesture start. Moving off restores only blocks from that baseline. |
+| B15 | Cmd+click on Mac, Ctrl+click on Windows | Remove the clicked block from the current selection. |
+| B16 | Cmd+drag on Mac, Ctrl+drag on Windows | Subtract live hits from the initial block selection. Moving off restores blocks from that baseline. With no selected blocks, crossing the starting block starts ordinary marquee. |
 | B17 | Plain click in blank note space | Clear selection, leave no caret and release editor focus. A drag from the same area starts marquee. |
 
 
