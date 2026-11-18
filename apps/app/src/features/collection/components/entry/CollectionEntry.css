@@ -104,7 +104,7 @@ stays while it is checked. In selection mode (some item is checked) every entry 
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-weight: var(--fw-medium);
+  /* font-weight: var(--fw-medium); */
 }
 
 .collection-entry__description {

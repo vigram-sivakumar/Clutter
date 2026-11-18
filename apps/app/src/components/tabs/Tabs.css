@@ -27,7 +27,7 @@
   padding: 0;
   gap: var(--space-6);
   background: transparent;
-  color: var(--foreground-tertiary);
+  color: var(--foreground-secondary);
   border-radius: var(--radius-md);
   border: 0px solid transparent;
 
@@ -71,7 +71,18 @@
   white-space: nowrap;
 }
 .tabs--ghost .tab:hover {
-  background: var(--state-hover-strong);
+  background: var(--state-hover);
+}
+.tabs--ghost .tab--active {
+  background: var(--state-selected);
+  box-shadow: none;
+}
+.tabs--ghost .tab--active:hover {
+  background: color-mix(
+    in srgb,
+    var(--state-selected),
+    rgb(var(--state-base)) var(--state-hover-strength-medium)
+  );
 }
 .tabs--flat .tab {
   position: relative;
@@ -79,7 +90,7 @@
   box-shadow: none;
 }
 .tabs--flat .tab:hover {
-  background: var(--state-hover-strong);
+  background: var(--state-hover);
 }
 
 .tab--active {
