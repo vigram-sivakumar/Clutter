@@ -1,6 +1,6 @@
 # Resume Clutter Structured
 
-## Current checkpoint — handle hover and drag preview, build 89
+## Current checkpoint — whole-body drag, build 90
 
 Hovering a body block or directly over its handle position reveals the handle.
 It stays visible while the pointer crosses the gutter to the handle. Click it to select only that block, or
@@ -12,6 +12,12 @@ The user confirmed block reorder on macOS in build 88. Build 89 adds a
 pointer-following preview of the blocks that will move, including descendants.
 The insertion line marks the drop location. The preview uses snippets from the
 existing move scope and does not enter the editable document.
+
+Build 90 starts a drag even when the move scope covers the entire body. Its
+source-note marker is at the first body block, immediately below the title.
+Dropping in the source note keeps order, selection, save state and history
+intact. The ghost stays active when the pointer leaves the source pane.
+Cross-note drop handling is a separate feature.
 
 Build 88 previews drops with an insertion line and writes one undoable reorder
 on release. A parent carries its descendants and a selected group retains its

@@ -153,6 +153,7 @@ stock list behavior for this matrix or assume unspecified list details are appro
 | D05 | Horizontal drag | Dragging **only reorders** blocks. Moving left/right must not change indentation. |
 | D06 | Drag a selected group | Dragging any selected block's handle moves the whole selected group, retaining its original document order. Parent/descendant movement follows D03/D04. |
 | D07 | Drag feedback | A floating preview shows which blocks will move. The insertion line shows a valid drop location. |
+| D08 | Whole-body drag | Allow drag even with the entire body selected. Show the first body slot in the source note and keep existing order when dropped there. |
 
 
 

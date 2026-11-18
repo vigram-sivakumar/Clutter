@@ -55,8 +55,25 @@ export function mountHandleDrag(view, layer, canEdit, stopCapturing) {
         ? selection.ids
         : [id];
     const scope = blockMoveScope(view.state.doc, ids);
-    if (!scope.moved.length || !scope.retained.length) return;
-    drag = { startY: event.clientY, point: null, ids, scope, active: false };
+    if (!scope.moved.length) return;
+    drag = {
+      startX: event.clientX,
+      startY: event.clientY,
+      point: null,
+      ids,
+      scope,
+      active: false,
+    };
+  }
+
+  function showMarker(top, bounds) {
+    const editor = dom.getBoundingClientRect();
+    marker.style.left = Math.max(editor.left, bounds.left) + 'px';
+    marker.style.right =
+      Math.max(0, win.innerWidth - Math.min(editor.right, bounds.right)) + 'px';
+    marker.style.top =
+      Math.max(bounds.top, Math.min(bounds.bottom, top)) + 'px';
+    if (!marker.isConnected) doc.body.append(marker);
   }
 
   function preview(point) {
@@ -71,6 +88,17 @@ export function mountHandleDrag(view, layer, canEdit, stopCapturing) {
       y > bounds.bottom
     ) {
       marker.remove();
+      return null;
+    }
+    // A whole-body drag is valid even when this note has no reorder to
+    // commit. Its only local slot is immediately before the first block.
+    if (!drag.scope.retained.length) {
+      const first = view
+        .nodeDOM(drag.scope.moved[0].pos)
+        ?.getBoundingClientRect();
+      if (first && first.top >= bounds.top && first.top <= bounds.bottom)
+        showMarker(first.top, bounds);
+      else marker.remove();
       return null;
     }
     const boxes = drag.scope.retained.map(({ pos }) =>
@@ -93,13 +121,7 @@ export function mountHandleDrag(view, layer, canEdit, stopCapturing) {
       before && after
         ? (before.bottom + after.top) / 2
         : (after?.top ?? before.bottom);
-    const editor = dom.getBoundingClientRect();
-    marker.style.left = Math.max(editor.left, bounds.left) + 'px';
-    marker.style.right =
-      Math.max(0, win.innerWidth - Math.min(editor.right, bounds.right)) + 'px';
-    marker.style.top =
-      Math.max(bounds.top, Math.min(bounds.bottom, top)) + 'px';
-    if (!marker.isConnected) doc.body.append(marker);
+    showMarker(top, bounds);
     return plan;
   }
 
@@ -136,7 +158,10 @@ export function mountHandleDrag(view, layer, canEdit, stopCapturing) {
       return;
     }
     if (!drag.active) {
-      if (Math.abs(event.clientY - drag.startY) < 4) return;
+      const vertical = Math.abs(event.clientY - drag.startY);
+      const horizontal = Math.abs(event.clientX - drag.startX);
+      if (vertical < 4 && (drag.scope.retained.length || horizontal < 4))
+        return;
       drag.active = true;
       showGhost();
     }

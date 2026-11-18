@@ -4492,3 +4492,52 @@ test('88 foreign content is preserved when a stale reorder conflicts', async (t)
   );
   assert.equal(saved.content.value.content[1].attrs.blockId, 'one');
 });
+
+test('90 all-body handle drag previews the top slot and drops without saving or creating history', async (t) => {
+  const { av, a, read } = await seededList(t, [
+    { id: 'first', text: 'First' },
+    { id: 'second', text: 'Second' },
+  ]);
+  const host = av.dom.parentElement;
+  host.setAttribute('data-block-selection-canvas', '');
+  const rect = (top, bottom) => ({ left: 0, right: 240, top, bottom });
+  host.getBoundingClientRect = av.dom.getBoundingClientRect = () =>
+    rect(0, 240);
+  for (const [i, block] of Array.from(av.dom.children).entries())
+    block.getBoundingClientRect = () => rect(30 * i, 30 * i + 24);
+  const handle = host.querySelector('[data-block-handle="second"]');
+  const mouse = (type, target, x) =>
+    target.dispatchEvent(
+      new dom.window.MouseEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+        clientX: x,
+        clientY: 66,
+        buttons: type === 'mouseup' ? 0 : 1,
+      })
+    );
+  const accepted = ok(await read());
+  av.dispatch(selectBodyBlocks(av.state, ['first', 'second']));
+  const before = av.state.doc;
+  mouse('mousedown', handle, 15);
+  mouse('mousemove', av.dom, 100);
+  assert.equal(document.querySelector('.block-drop-line')?.style.top, '30px');
+  assert(document.querySelector('.block-drag-ghost'));
+  mouse('mousemove', document.body, 300);
+  assert(
+    document.querySelector('.block-drag-ghost'),
+    'drag continues outside the source note'
+  );
+  assert(!document.querySelector('.block-drop-line'));
+  mouse('mousemove', av.dom, 100);
+  assert.equal(document.querySelector('.block-drop-line')?.style.top, '30px');
+  mouse('mouseup', av.dom, 100);
+  assert(!document.querySelector('.block-drag-ghost'));
+  assert(!document.querySelector('.block-drop-line'));
+  assert.deepEqual(av.state.selection.ids, ['first', 'second']);
+  assert.equal(av.state.doc, before);
+  assert(!a.dirty);
+  assert.equal(a.history(av, 'undo'), false);
+  assert.equal(ok(await read()).head, accepted.head);
+});
