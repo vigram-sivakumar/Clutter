@@ -1,6 +1,6 @@
 # Resume Clutter Structured
 
-## Current checkpoint — hovered body block handles, build 85
+## Current checkpoint — wrapped caret layout candidate, build 86
 
 A body block reveals its gutter handle on hover. It stays visible while the
 pointer crosses the gutter to the handle. Click it to select only that block, or
@@ -8,9 +8,12 @@ use Cmd on Mac and Ctrl on Windows to toggle it in the current selection.
 Parent and child handles select independently. Handles live in editor chrome
 and use the same selection as marquee and paste. Drag reorder is pending.
 
-Next, investigate the user-confirmed taller caret on wrapped lines on macOS.
-The caret returns to normal when the same text fits on one line. Check a
-layout candidate before changing line spacing. Then resume handle drag reorder.
+WebKit sizes the native caret to the line box in the reported wrapping case
+(https://bugs.webkit.org/show_bug.cgi?id=287429). Build 86 reduces body line
+height from 1.8 to 1.4 and moves the difference into block padding. Chromium
+confirmed the single-line block heights, outside gaps and wrap points in the
+fixture. Wrapped lines sit closer together. Mac caret verification is pending.
+Then resume handle drag reorder.
 
 Drag inside the starting block to select text. Drag outside it to draw a marquee.
 A touched body block joins immediately and drops out when the rectangle leaves it.
