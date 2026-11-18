@@ -3712,7 +3712,7 @@ test('72 selection-only body mode updates do not roundtrip through a temporary A
   await a.flush();
   assert.equal(ok(await x.read()).head, before);
 });
-test('72 mouse-down after bulk delete restores one visible body caret before mouse-up without content changes', async (t) => {
+test('75 body pointer reentry restores editable focus before mouse-up without content changes', async (t) => {
   const x = await seeded(t),
     a = await x.open('caret72'),
     av = x.mount(a);
@@ -3726,8 +3726,13 @@ test('72 mouse-down after bulk delete restores one visible body caret before mou
   await a.flush();
   const before = ok(await x.read()),
     transitions = [],
+    focusChanges = [],
     original = av.props.dispatchTransaction,
     hitTest = av.posAtCoords;
+  av.dom.addEventListener('blur', () => focusChanges.push('blur'));
+  av.dom.addEventListener('focus', () => {
+    focusChanges.push(av.editable ? 'editable focus' : 'inactive focus');
+  });
   av.setProps({
     dispatchTransaction(tr) {
       transitions.push(tr.selection.constructor.name);
@@ -3738,12 +3743,17 @@ test('72 mouse-down after bulk delete restores one visible body caret before mou
   // which must resolve to that body paragraph, never back into the title.
   av.posAtCoords = () => ({ pos: av.state.doc.content.size, inside: -1 });
   try {
-    for (let n = 0; n < 3; n++) {
-      if (n) {
+    for (const mode of ['focused inactive', 'unfocused inactive', 'selected']) {
+      if (mode === 'unfocused inactive') {
         av.dispatch(selectBodyBlocks(av.state, []));
-        assert.equal(av.state.selection.visible, false);
+        av.dom.blur();
+      } else if (mode === 'selected') {
+        av.dispatch(
+          selectBodyBlocks(av.state, [av.state.doc.child(1).attrs.blockId])
+        );
       }
       transitions.length = 0;
+      focusChanges.length = 0;
       av.dom.dispatchEvent(
         new dom.window.MouseEvent('mousedown', {
           button: 0,
@@ -3766,6 +3776,14 @@ test('72 mouse-down after bulk delete restores one visible body caret before mou
       assert(!av.dom.classList.contains('body-selection-mode'));
       assert(!av.dom.classList.contains('ProseMirror-hideselection'));
       assert.deepEqual(transitions, ['TextSelection']);
+      assert.deepEqual(
+        focusChanges,
+        mode === 'focused inactive'
+          ? ['blur', 'editable focus']
+          : mode === 'unfocused inactive'
+            ? ['editable focus']
+            : []
+      );
       av.dom.dispatchEvent(
         new dom.window.MouseEvent('mouseup', {
           button: 0,

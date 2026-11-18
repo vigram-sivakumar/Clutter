@@ -25,12 +25,11 @@ Core/history/save and object67 semantics unchanged. Redundant already-focused fo
 call and transparent caret CSS removed. No blink animation, timers, native OS branch,
 private binding mutation, dependency change or second semantic owner.
 
-Native74 RETEST PENDING. Build changed source with `npm run desktop -- --new` (no
-install, normal trace flag off). Delete all BODY blocks with Cmd+A twice/Delete:
-no caret expected. Click empty body once, watch initial blinks and type. Confirm on
-Mac before marquee/handles/reorder. Optional73 diagnostic remains default-off until
-resolution; remove temporary hook after actual native confirmation. Prior68 client
-and70 formatting native passes stay complete, no bookkeeping replay.
+Build 74 failed the Mac retest. After deleting all body blocks, the first click
+left the caret without its normal blink. Clicking outside and back restored it.
+Build 75 restores the editable text selection before focusing the editor. If the
+inactive editor already held focus, it releases and reacquires focus once during
+that click. This is a targeted focus workaround. The native blink is pending retest.
 
 MANDATORY ON EVERY CHANGE: follow the completion review in docs/foundation/AGENTS.md.
 Remove superseded paths; check for duplicate owners/implementations and boundary

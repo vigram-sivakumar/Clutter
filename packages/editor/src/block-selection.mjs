@@ -40,10 +40,14 @@ export function resumeTextSelection(view, pos, event) {
       selection.$from.index(0) === 0)
   )
     return false;
-  // Focus first, then publish one visible selection (the same order as PM's own
-  // pointer selection). No delayed focus/caret colour workaround.
-  if (!view.hasFocus()) view.focus();
+  const wasInactive = isInactiveBodySelection(view.state.selection);
   view.dispatch(view.state.tr.setSelection(selection).setMeta('pointer', true));
+  if (view.editable) {
+    // A focused noneditable root can retain DOM focus without starting a native
+    // editing session. Reacquire focus once, after editability is restored.
+    if (wasInactive && view.hasFocus()) view.dom.blur();
+    if (!view.hasFocus()) view.focus();
+  }
   return true;
 }
 export function bodyBlockInteractions({ canEdit, nextId, stopCapturing } = {}) {

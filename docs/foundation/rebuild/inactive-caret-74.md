@@ -21,12 +21,11 @@ Core/history/save and object67 semantics unchanged. Redundant already-focused fo
 call and transparent caret CSS removed. No blink animation, timers, native OS branch,
 private binding mutation, dependency change or second semantic owner.
 
-Native74 RETEST PENDING. Build changed source with `npm run desktop -- --new` (no
-install, normal trace flag off). Delete all BODY blocks with Cmd+A twice/Delete:
-no caret expected. Click empty body once, watch initial blinks and type. Confirm on
-Mac before marquee/handles/reorder. Optional73 diagnostic remains default-off until
-resolution; remove temporary hook after actual native confirmation. Prior68 client
-and70 formatting native passes stay complete, no bookkeeping replay.
+Build 74 failed the Mac retest. After deleting all body blocks, the first click
+left the caret without its normal blink. Clicking outside and back restored it.
+Build 75 restores the editable text selection before focusing the editor. If the
+inactive editor already held focus, it releases and reacquires focus once during
+that click. This is a targeted focus workaround. The native blink is pending retest.
 
 ## Completion review
 
@@ -48,3 +47,13 @@ in evidence/inactive-caret-74.json relative to foundation root.
 Validation74: full225 tests PASS (0 failures), including2 new regressions and real
 CLI/MCP processes.12 prior focused selection/object cases PASS. Strict Core/runtime
 TypeScript and57-source boundary audit PASS. Native build/blink NOT inferred.
+
+## Build 75 verification
+
+Ten editor checks and the production select-all/delete/undo/save/reopen check passed.
+The pointer regression covers entry from focused and unfocused inactive states and
+from a focused block selection. Existing CLI/MCP clients see the same accepted
+document after focus returns. TypeScript and the 57-source boundary audit passed.
+The existing editor selection adapter owns the transition. Core, save, history and
+platform boundaries remain as designed. Test the first click again on the Mac
+before treating the blink issue as resolved. Build with `npm run desktop -- --new`.

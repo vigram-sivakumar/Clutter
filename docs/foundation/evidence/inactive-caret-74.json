@@ -4,7 +4,7 @@
   "scope": "stable inactive-body presentation and normal text re-entry",
   "trace": "usable73 report156 events,dropped0; pre-click mode/colour oscillation; no further focus/selection writes after5027ms through12002ms",
   "native72": "FAIL first-click fast blinks after all-body deletion",
-  "native74": "PENDING actual Mac retest; paint not qualified by model tests",
+  "native74": "FAIL: no normal caret blink on first click after bulk deletion; clicking outside and back restores blink",
   "automated": {
     "fullSuite": {
       "tests": 225,
@@ -32,5 +32,13 @@
     "object67 behavior"
   ],
   "review": "one view-local selection model, one Core/SpaceService/history/save path; superseded presentation removed; no OS branch/private binding mutation/new clipboard owner or blink timers",
-  "next": "normal npm run desktop -- --new; single first-click native check before marquee;73 optional diagnostic remains off pending actual resolution"
+  "next": "native75 first-click retest on a new build",
+  "followup75": {
+    "editorChecksPassed": 10,
+    "productionDeleteSaveReopenPassed": 1,
+    "realCliAndMcpAcceptedHead": "PASS",
+    "types": "PASS",
+    "boundarySources": 57,
+    "native": "pending"
+  }
 }
