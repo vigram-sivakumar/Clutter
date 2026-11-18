@@ -1,4 +1,10 @@
-import { BodyBlockSelection, selectBodyBlocks } from './body-selection.mjs';
+import {
+  BodyBlockSelection,
+  selectBodyBlocks,
+  isBlockToggleModifier,
+  toggleBlockId,
+  focusBlockSelection,
+} from './body-selection.mjs';
 import { blockRows } from './block-structure.mjs';
 
 const point = (event) => ({ x: event.clientX, y: event.clientY });
@@ -17,11 +23,6 @@ const touches = (a, b) =>
   a.bottom >= b.top;
 
 const activeViews = new WeakSet();
-const toggleId = (ids, id) => {
-  if (ids.has(id)) ids.delete(id);
-  else ids.add(id);
-};
-
 // PM may defer writing DOM selection during a native drag. Once marquee owns
 // the drag, a late DOM selectionchange must keep the model's block selection.
 export function marqueeSelectionBetween(view) {
@@ -34,7 +35,7 @@ export function mountBlockMarquee(view, canEdit) {
   const { dom } = view;
   const doc = dom.ownerDocument;
   const win = doc.defaultView;
-  const apple = /Mac|iP(hone|[oa]d)/.test(win.navigator.platform);
+  const platform = win.navigator.platform;
   const overlay = doc.createElement('div');
   overlay.className = 'body-marquee';
   overlay.setAttribute('aria-hidden', 'true');
@@ -59,7 +60,7 @@ export function mountBlockMarquee(view, canEdit) {
     finish();
     suppressClick = false;
     const target = event.target;
-    const primaryModifier = apple ? event.metaKey : event.ctrlKey;
+    const primaryModifier = isBlockToggleModifier(event, platform);
     if (
       !onCanvas(event) ||
       event.button !== 0 ||
@@ -98,10 +99,7 @@ export function mountBlockMarquee(view, canEdit) {
       view.dispatch(tr.setMeta('pointer', true));
     if (!keepFocus) {
       if (view.hasFocus()) dom.blur();
-    } else if (!view.hasFocus()) {
-      if (view.editable) view.focus();
-      else dom.focus({ preventScroll: true });
-    }
+    } else focusBlockSelection(view);
   }
 
   function update(event) {
@@ -141,7 +139,7 @@ export function mountBlockMarquee(view, canEdit) {
         element.getBoundingClientRect &&
         touches(box, element.getBoundingClientRect())
       ) {
-        if (gesture.toggle) toggleId(ids, node.attrs.blockId);
+        if (gesture.toggle) toggleBlockId(ids, node.attrs.blockId);
         else ids.add(node.attrs.blockId);
       }
     }
@@ -171,7 +169,7 @@ export function mountBlockMarquee(view, canEdit) {
         const releasedId = block?.dataset.blockId;
         if (releasedId && releasedId === gesture.clickedId) {
           const ids = new Set(gesture.baseline);
-          toggleId(ids, releasedId);
+          toggleBlockId(ids, releasedId);
           applySelection(ids);
         }
         suppressClick = true;

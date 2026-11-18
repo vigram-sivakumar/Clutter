@@ -553,3 +553,39 @@ button:focus-visible {
   border: 1px solid #4a87be;
   background: rgb(74 135 190 / 12%);
 }
+
+.editor-surface {
+  position: relative;
+}
+
+.block-handle-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.block-handle-layer button {
+  position: absolute;
+  left: -29px;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #70818e;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.block-handle-layer button::before {
+  content: '⠿';
+  font-size: 16px;
+}
+
+.block-handle-layer button:hover,
+.block-handle-layer button[aria-pressed='true'] {
+  background: #e3edf7;
+  color: #325e88;
+}

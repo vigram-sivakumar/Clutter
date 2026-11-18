@@ -15,6 +15,7 @@ import {
   mountBlockMarquee,
   marqueeSelectionBetween,
 } from './block-marquee.mjs';
+import { mountBlockHandles } from './block-handles.mjs';
 import { deleteBlocks } from './block-deletion.mjs';
 const key = new PluginKey('body-block-selection');
 const preventBlockReplacement = (view, event) => {
@@ -56,7 +57,17 @@ export function resumeTextSelection(view, pos, event) {
 export function bodyBlockInteractions({ canEdit, nextId, stopCapturing } = {}) {
   return new Plugin({
     key,
-    view: (view) => mountBlockMarquee(view, canEdit),
+    view(view) {
+      const marquee = mountBlockMarquee(view, canEdit);
+      const handles = mountBlockHandles(view, canEdit);
+      return {
+        update: handles.update,
+        destroy() {
+          marquee.destroy();
+          handles.destroy();
+        },
+      };
+    },
     state: {
       init: () => null,
       apply(tr, previous, oldState) {

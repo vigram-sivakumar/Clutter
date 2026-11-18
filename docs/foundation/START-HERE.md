@@ -1,6 +1,15 @@
 # Resume Clutter Structured
 
-## Current checkpoint — marquee and Shift+click caret, build 83
+## Current checkpoint — body block handles, build 84
+
+Every body block has a gutter handle. Click it to select only that block, or
+use Cmd on Mac and Ctrl on Windows to toggle it in the current selection.
+Parent and child handles select independently. Handles live in editor chrome
+and use the same selection as marquee and paste. Drag reorder is pending.
+
+Next, investigate the user-confirmed taller caret on wrapped lines on macOS.
+The caret returns to normal when the same text fits on one line. Check a
+layout candidate before changing line spacing. Then resume handle drag reorder.
 
 Drag inside the starting block to select text. Drag outside it to draw a marquee.
 A touched body block joins immediately and drops out when the rectangle leaves it.

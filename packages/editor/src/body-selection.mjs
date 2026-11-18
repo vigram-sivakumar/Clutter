@@ -71,6 +71,21 @@ Selection.jsonID('body-blocks', BodyBlockSelection);
 export const selectBodyBlocks = (state, ids) =>
   state.tr.setSelection(new BodyBlockSelection(state.doc, ids));
 
+export function isBlockToggleModifier(event, platform) {
+  return /Mac|iP(hone|[oa]d)/.test(platform) ? event.metaKey : event.ctrlKey;
+}
+
+export function toggleBlockId(ids, id) {
+  if (ids.has(id)) ids.delete(id);
+  else ids.add(id);
+}
+
+export function focusBlockSelection(view) {
+  if (view.hasFocus()) return;
+  if (view.editable) view.focus();
+  else view.dom.focus({ preventScroll: true });
+}
+
 // Internal Y protection still serializes as AllSelection, but its DOM presentation
 // stays in the originating block mode. It is not another persisted selection owner.
 export class BodySelectionShield extends AllSelection {

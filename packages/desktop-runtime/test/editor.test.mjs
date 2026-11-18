@@ -4284,3 +4284,61 @@ for (const [platform, modifier] of [
       );
     }
   });
+
+test('84 body handles select explicit blocks without changing accepted content', async (t) => {
+  const x = await seededList(t, [
+    { id: 'parent', text: 'Parent' },
+    { id: 'child', text: 'Child', parent: 'parent', indent: 1 },
+    { id: 'line', type: 'separator' },
+  ]);
+  const { av, a } = x;
+  const host = av.dom.parentElement;
+  const handle = (id) => host.querySelector(`[data-block-handle="${id}"]`);
+  const click = (id, options = {}) =>
+    handle(id).dispatchEvent(
+      new dom.window.MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+        ...options,
+      })
+    );
+  assert.deepEqual(
+    Array.from(
+      host.querySelectorAll('[data-block-handle]'),
+      (el) => el.dataset.blockHandle
+    ),
+    ['parent', 'child', 'line']
+  );
+  assert.equal(av.dom.querySelector('[data-block-handle]'), null);
+  const before = ok(await x.read());
+  rowAt(av, 'child');
+  click('parent');
+  assert.deepEqual(av.state.selection.ids, ['parent']);
+  assert.equal(handle('parent').getAttribute('aria-pressed'), 'true');
+  assert.equal(handle('child').getAttribute('aria-pressed'), 'false');
+  click('line', { shiftKey: true });
+  assert.deepEqual(av.state.selection.ids, ['line']);
+  click('child', { ctrlKey: true });
+  assert.deepEqual(av.state.selection.ids, ['child', 'line']);
+  click('line', { ctrlKey: true });
+  assert.deepEqual(av.state.selection.ids, ['child']);
+  assert(av.hasFocus());
+  assert.equal(handle('line').getAttribute('aria-pressed'), 'false');
+  for (const mode of ['cli', 'mcp']) {
+    const read = ok(
+      await peerCommand67(x, mode, {
+        apiVersion: 1,
+        method: 'page.read',
+        spaceId: x.v.spaceId,
+        pageId: 'p',
+      })
+    );
+    assert.equal(read.head, before.head);
+    assert.deepEqual(read.content, JSON.parse(JSON.stringify(before.content)));
+  }
+  keydown(av, 'Backspace');
+  await a.flush();
+  assert.equal(handle('child'), null);
+  assert(handle('parent'));
+  assert(handle('line'));
+});

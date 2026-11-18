@@ -162,7 +162,7 @@ has not landed; do not create fake controls or start another comparison harness.
 | --- | --- | --- |
 | **3A — content, title and history** | Versioned shared content/inline schema; command/codec/client/engine changes; one title+body editor/context/history; derived plain-title projection; title placeholder/focus/boundary keys; multi-line title paste with shared block selection. Define the common block identity/hierarchy and history extension contracts here. | New note starts in `New note` title; title/body edit, Undo/Redo, save/reopen and two-view reconciliation use one path; title paste appends all lines and follows the agreed no-caret and shared block selection behavior. Sidebar/tab title updates do not trigger remounts. |
 | **3B — common blocks and formatting** | Shared deterministic block transforms/renderers for paragraphs, H1–H6, ordered/unordered lists and separators; all agreed list keyboard/child-transfer rules; slash menu with query/URL rules; shared note-reference/date/link inline behavior; floating toolbar with eight actions and preset colours only. | Actual commands preserve surrounding text and insertion focus; lists match the UX matrix; title inline capabilities share the same implementation; toolbar preserves selection and applies range highlight versus whole-block background correctly. |
-| **3C — block interaction** | Two-step Ctrl+A/body-only block selection and title isolation (A01–A05); own-block handle/geometry registry; text-drag-to-marquee transition; flat explicit block selection; Shift-additive marquee; group reorder; separate hierarchical move/indent scope and explicit-only deletion; click/Escape/typing mode behavior. | Touch selects and moving off deselects live; parents/children do not auto-select each other; disjoint selections drag in document order; unselected children survive parent deletion with unchanged indentation; no horizontal drag indentation or global UI flicker. |
+| **3C — block interaction** | Two-step Ctrl+A/body-only block selection and title isolation (A01–A05); own-block handle/geometry registry; text-drag-to-marquee transition; flat explicit block selection; Cmd/Ctrl toggle marquee; group reorder; separate hierarchical move/indent scope and explicit-only deletion; click/Escape/typing mode behavior. | Touch selects and moving off deselects live; parents/children do not auto-select each other; disjoint selections drag in document order; unselected children survive parent deletion with unchanged indentation; no horizontal drag indentation or global UI flicker. |
 | **3D — tasks and images** | Core atomic task placement/lifecycle/conversion/history operations; inline task component and same-entity task-page opening; single-image file picker; immutable ingress plus atomic image placement/association; unknown-result retry and recovery. | Inline title editing, Enter/Backspace/Shift+Enter and conversion follow UX; task checkbox/navigation remain distinct; no duplicate/orphan task or semantic subtask; image uses one file and the existing Core asset path; failure/cancel does not discard unrelated content. |
 | **3E — tables and integrated UI review** | Table schema/commands/NodeView chrome, slash presets and existing navigation/selection/axis rules; shared styling/familiar editor layout; integrated pointer/caret/history review. | Table contract passes on new components; foreign-view work is protected; all stage3 blocks, toolbar and selection coexist in the real app without remount/ownership regressions. Actual scoped Mac observations complete the interaction evidence. |
 
@@ -273,3 +273,12 @@ Touch an adjacent block and move back off it. Hold Cmd on Mac or Ctrl on
 Windows and drag over mixed selected and unselected blocks to toggle them. Press Escape
 to clear without a caret, then click to resume text editing. Handles and
 group reordering are separate work.
+
+## Build 84 — body block handles
+
+Each body block gets a gutter button keyed by its block ID. The gutter sits
+outside editable DOM. Plain handle click selects that block alone, Cmd/Ctrl
+toggles it, and hierarchy never expands the clicked selection. Handle clicks
+update the existing view-local selection. Real CLI/MCP readback confirms the
+accepted page stays the same. Drag reorder will use these handles in a later
+build. The next task is the macOS wrapped caret layout issue.
