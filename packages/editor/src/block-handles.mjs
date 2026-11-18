@@ -6,11 +6,12 @@ import {
   toggleBlockId,
   focusBlockSelection,
 } from './body-selection.mjs';
+import { mountHandleDrag } from './block-handle-drag.mjs';
 import { blockRows } from './block-structure.mjs';
 
 // Handles are editor chrome. Keep them outside the editable DOM and its
 // native text hit targets, with one button keyed to each canonical body ID.
-export function mountBlockHandles(view, canEdit) {
+export function mountBlockHandles(view, canEdit, stopCapturing) {
   const { dom } = view;
   const doc = dom.ownerDocument;
   const win = doc.defaultView;
@@ -19,6 +20,7 @@ export function mountBlockHandles(view, canEdit) {
   layer.className = 'block-handle-layer';
   dom.after(layer);
   const host = dom.parentElement;
+  const drag = mountHandleDrag(view, layer, canEdit, stopCapturing);
   const handles = new Map();
   let hovered;
   let rows = [];
@@ -128,12 +130,8 @@ export function mountBlockHandles(view, canEdit) {
       handle.setAttribute('aria-pressed', String(ids.has(id)));
   }
 
-  function mouseDown(event) {
-    if (event.button === 0 && event.target.closest('[data-block-handle]'))
-      event.preventDefault();
-  }
-
   function click(event) {
+    if (drag.consumeDragClick()) return;
     const handle = event.target.closest('[data-block-handle]');
     if (!handle || canEdit?.() === false || dom.closest('[inert]')) return;
     const id = handle.dataset.blockHandle;
@@ -151,7 +149,6 @@ export function mountBlockHandles(view, canEdit) {
   doc.addEventListener('pointerover', hover);
   doc.addEventListener('pointermove', hover);
   doc.addEventListener('pointerout', leave);
-  layer.addEventListener('mousedown', mouseDown);
   layer.addEventListener('click', click);
   const resize = win.ResizeObserver && new win.ResizeObserver(schedulePosition);
   resize?.observe(dom);
@@ -159,6 +156,7 @@ export function mountBlockHandles(view, canEdit) {
   return {
     update,
     destroy() {
+      drag.destroy();
       resize?.disconnect();
       doc.removeEventListener('pointerover', hover);
       doc.removeEventListener('pointermove', hover);

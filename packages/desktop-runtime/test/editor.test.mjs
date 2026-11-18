@@ -4342,3 +4342,145 @@ test('84 body handles select explicit blocks without changing accepted content',
   assert(handle('parent'));
   assert(handle('line'));
 });
+
+test('88 dragging a selected handle moves an ordered group with descendants in one undoable edit', async (t) => {
+  const x = await seededList(t, [
+    { id: 'parent', text: 'Parent' },
+    { id: 'child', text: 'Child', parent: 'parent', indent: 1 },
+    { id: 'other', text: 'Other' },
+    { id: 'group', text: 'Group' },
+    { id: 'last', text: 'Last' },
+  ]);
+  const { av, a } = x;
+  const host = av.dom.parentElement;
+  host.setAttribute('data-block-selection-canvas', '');
+  const rect = (top, bottom) => ({ left: 0, right: 240, top, bottom });
+  host.getBoundingClientRect = av.dom.getBoundingClientRect = () =>
+    rect(0, 300);
+  for (const [i, child] of Array.from(av.dom.children).entries())
+    child.getBoundingClientRect = () => rect(30 * i, 30 * i + 24);
+  const handle = (id) => host.querySelector(`[data-block-handle="${id}"]`);
+  const mouse = (type, target, x, y) =>
+    target.dispatchEvent(
+      new dom.window.MouseEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+        detail: 1,
+        clientX: x,
+        clientY: y,
+        buttons: type === 'mouseup' ? 0 : 1,
+      })
+    );
+  const order = () =>
+    av.state.doc
+      .toJSON()
+      .content.slice(1)
+      .map((n) => n.attrs.blockId);
+  const baseline = order();
+  const head = ok(await x.read()).head;
+  av.dispatch(selectBodyBlocks(av.state, ['parent', 'group']));
+  mouse('mousedown', handle('parent'), 12, 36);
+  mouse('mousemove', av.dom, 155, 36);
+  mouse('mouseup', av.dom, 155, 36);
+  assert.deepEqual(order(), baseline);
+
+  mouse('mousedown', handle('group'), 12, 126);
+  mouse('mousemove', host, 100, 186);
+  assert(document.querySelector('.block-drop-line'));
+  assert.deepEqual(order(), baseline, 'preview does not change content');
+  assert.equal(ok(await x.read()).head, head);
+  mouse('mouseup', host, 100, 186);
+  assert(!document.querySelector('.block-drop-line'));
+  const moved = ['other', 'last', 'parent', 'child', 'group'];
+  assert.deepEqual(order(), moved);
+  assert.deepEqual(av.state.selection.ids, ['parent', 'group']);
+  assert.equal(av.state.doc.child(4).attrs.parentId, 'parent');
+  assert.equal(av.state.doc.child(4).attrs.indent, 1);
+  ok(await a.save());
+  for (const mode of ['cli', 'mcp']) {
+    const saved = ok(
+      await peerCommand67(x, mode, {
+        apiVersion: 1,
+        method: 'page.read',
+        spaceId: x.v.spaceId,
+        pageId: 'p',
+      })
+    );
+    assert.deepEqual(
+      saved.content.value.content.slice(1).map((n) => n.attrs.blockId),
+      moved
+    );
+  }
+  assert(a.history(av, 'undo'));
+  assert.deepEqual(order(), baseline);
+  assert(a.history(av, 'redo'));
+  assert.deepEqual(order(), moved);
+  await a.flush();
+});
+
+test('88 move scope carries child descendants and rejects drops before the retained parent', async (t) => {
+  const { av } = await seededList(t, [
+    { id: 'parent', text: 'Parent' },
+    { id: 'child', text: 'Child', parent: 'parent', indent: 1 },
+    { id: 'grand', text: 'Grandchild', parent: 'child', indent: 2 },
+    { id: 'sibling', text: 'Sibling', parent: 'parent', indent: 1 },
+  ]);
+  const { blockMoveScope, planBlockMove, moveBlocks } =
+    await import('../../editor/src/block-reorder.mjs');
+  const scope = blockMoveScope(av.state.doc, ['child', 'grand']);
+  assert.deepEqual(
+    scope.moved.map((row) => row.node.attrs.blockId),
+    ['child', 'grand']
+  );
+  assert(!planBlockMove(scope, 0));
+  const tr = moveBlocks(av.state, scope, planBlockMove(scope, 2), ['child']);
+  assert.deepEqual(
+    tr.doc
+      .toJSON()
+      .content.slice(1)
+      .map((n) => n.attrs.blockId),
+    ['parent', 'sibling', 'child', 'grand']
+  );
+  assert.equal(tr.doc.child(3).attrs.parentId, 'parent');
+  assert.equal(tr.doc.child(4).attrs.parentId, 'child');
+});
+
+test('88 foreign content is preserved when a stale reorder conflicts', async (t) => {
+  const x = await seededList(t, [
+    { id: 'one', text: 'One' },
+    { id: 'two', text: 'Two' },
+  ]);
+  const a = await x.open(
+    'stale-reorder',
+    x.client('desktop', undefined, false)
+  );
+  const av = x.mount(a);
+  const { blockMoveScope, planBlockMove, moveBlocks } =
+    await import('../../editor/src/block-reorder.mjs');
+  const scope = blockMoveScope(av.state.doc, ['one']);
+  av.dispatch(moveBlocks(av.state, scope, planBlockMove(scope, 1), ['one']));
+  const prior = ok(await x.read());
+  const content = structuredClone(prior.content);
+  content.value.content[1].content[0].text = 'Peer changed One';
+  ok(
+    await peerCommand67(x, 'cli', {
+      apiVersion: 1,
+      method: 'page.update',
+      spaceId: x.v.spaceId,
+      pageId: 'p',
+      operationId: x.next(),
+      expectedHead: prior.head,
+      patch: { content },
+    })
+  );
+  await assert.rejects(a.sync(), /EDITOR_REBASE_CONFLICT/);
+  code(await a.save(), 'EDITOR_REBASE_CONFLICT');
+  assert(a.dirty);
+  const saved = ok(await x.read());
+  assert.equal(
+    saved.content.value.content[1].content[0].text,
+    'Peer changed One'
+  );
+  assert.equal(saved.content.value.content[1].attrs.blockId, 'one');
+});

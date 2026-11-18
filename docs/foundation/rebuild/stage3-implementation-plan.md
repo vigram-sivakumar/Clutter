@@ -282,3 +282,18 @@ toggles it, and hierarchy never expands the clicked selection. Handle clicks
 update the existing view-local selection. Real CLI/MCP readback confirms the
 accepted page stays the same. Drag reorder will use these handles in a later
 build. The next task is the macOS wrapped caret layout issue.
+
+## Build 88 — handle drag reorder
+
+The pointer adapter previews a gap without writing. A pure move planner
+expands explicit selection to descendants for this operation and preserves row
+identity and order. The drop is one editor transaction in context history.
+Moves keep indentation and parent IDs, and reject a gap that would put a child
+before its parent. Document changes during a drag cancel the preview.
+
+The existing editor rebase check refuses concurrent page changes when either
+branch reorders existing blocks. This prevents a Y XML move from overwriting
+a foreign edit to a recreated node. An exact acknowledgement of the editor's
+own saved head can reconcile its already accepted move. CLI and MCP read the
+same accepted order as the UI. Chromium pointer checks cover the drop preview
+and selected group drag. Native macOS verification remains pending.

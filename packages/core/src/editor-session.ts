@@ -17,7 +17,8 @@ export type HistoryOptions = { preserveSelection?: boolean };
 export interface EditorReplica {
   delta(base: EditorCheckout): string;
   applyRemote(
-    checkout: Pick<EditorCheckout, 'pageId' | 'kind' | 'head' | 'payload'>
+    checkout: Pick<EditorCheckout, 'pageId' | 'kind' | 'head' | 'payload'>,
+    options?: { ownSave?: boolean }
   ): void;
   mount(target: unknown): EditorViewHandle;
   history(
@@ -125,7 +126,7 @@ export class EditorSession {
   stopCapturing(): void {
     this.replica.stopCapturing();
   }
-  private async reconcile(): Promise<Reply<EditorCheckout>> {
+  private async reconcile(savedHead?: string): Promise<Reply<EditorCheckout>> {
     const r = await this.options.client.execute({
       apiVersion: 1,
       method: 'editor.open',
@@ -143,7 +144,7 @@ export class EditorSession {
       this.replica.clearHistory();
       this.historyBoundary = 'SERVICE_RESTART';
     }
-    this.replica.applyRemote(r.value);
+    this.replica.applyRemote(r.value, { ownSave: r.value.head === savedHead });
     this.base = r.value;
     return r;
   }
@@ -197,7 +198,7 @@ export class EditorSession {
       this.lastError = r.error.code;
       return r;
     }
-    const opened = await this.reconcile();
+    const opened = await this.reconcile(r.value.head);
     if (!opened.ok || opened.value.sequence < r.value.sequence) {
       this.lastError = 'OUTCOME_UNKNOWN';
       return {

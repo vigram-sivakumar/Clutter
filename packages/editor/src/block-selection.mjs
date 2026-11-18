@@ -59,7 +59,7 @@ export function bodyBlockInteractions({ canEdit, nextId, stopCapturing } = {}) {
     key,
     view(view) {
       const marquee = mountBlockMarquee(view, canEdit);
-      const handles = mountBlockHandles(view, canEdit);
+      const handles = mountBlockHandles(view, canEdit, stopCapturing);
       return {
         update: handles.update,
         destroy() {

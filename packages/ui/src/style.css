@@ -583,7 +583,7 @@ button:focus-visible {
   color: #70818e;
   visibility: hidden;
   pointer-events: none;
-  cursor: pointer;
+  cursor: grab;
 }
 
 .block-handle-layer button[data-revealed] {
@@ -600,4 +600,17 @@ button:focus-visible {
 .block-handle-layer button[aria-pressed='true'] {
   background: #e3edf7;
   color: #325e88;
+}
+
+.block-drop-line {
+  position: fixed;
+  z-index: 7;
+  height: 2px;
+  background: #4a87be;
+  pointer-events: none;
+}
+
+
+.block-handle-layer button:active {
+  cursor: grabbing;
 }

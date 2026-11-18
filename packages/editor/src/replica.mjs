@@ -112,7 +112,7 @@ export function createEditorReplica(
         accepted.destroy();
       }
     },
-    applyRemote(root) {
+    applyRemote(root, { ownSave = false } = {}) {
       if (root.pageId !== checkout.pageId || root.kind !== checkout.kind)
         throw new Fault('WRONG_DESTINATION');
       const accepted = read(root);
@@ -121,7 +121,8 @@ export function createEditorReplica(
         assertBodyRebase(
           acceptedBody,
           projection(doc, kind(checkout.kind)).content,
-          next
+          next,
+          ownSave
         );
         selectionGuard.run(() =>
           Y.applyUpdate(doc, Y.encodeStateAsUpdate(accepted), remote)

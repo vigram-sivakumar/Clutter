@@ -1,19 +1,22 @@
 # Resume Clutter Structured
 
-## Current checkpoint — wrapped caret natural line height, build 87
+## Current checkpoint — drag reorder, build 88
 
 A body block reveals its gutter handle on hover. It stays visible while the
 pointer crosses the gutter to the handle. Click it to select only that block, or
 use Cmd on Mac and Ctrl on Windows to toggle it in the current selection.
 Parent and child handles select independently. Handles live in editor chrome
-and use the same selection as marquee and paste. Drag reorder is pending.
+and use the same selection as marquee and paste. Drag a handle to reorder.
 
-Build 86 reduced the wrapped caret but the user's Mac screenshots still show
-about 44 image pixels on a wrapped continuation versus 36 on the first line.
-Build 87 uses the font's natural line height plus block padding. Chromium
-confirmed original single-line block heights and outside gaps in the fixture.
-Wrapped lines sit closer together. Native Mac caret verification is pending.
-Then resume handle drag reorder.
+Build 88 previews drops with an insertion line and writes one undoable reorder
+on release. A parent carries its descendants and a selected group retains its
+document order. Indentation and explicit selection membership are preserved.
+Drops that would put a child before its parent are refused. If a concurrent
+edit conflicts with an order change, the shared rebase guard preserves both
+the accepted version and the unsaved work.
+
+The user confirmed build 87 fixed the wrapped caret on Mac. Keep natural
+line height and block padding.
 
 Drag inside the starting block to select text. Drag outside it to draw a marquee.
 A touched body block joins immediately and drops out when the rectangle leaves it.
