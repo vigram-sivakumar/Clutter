@@ -121,7 +121,7 @@ const NoteView = memo(function NoteView({
           Recover protected work
         </Button>
       </div>
-      <div className="note-scroll">
+      <div className="note-scroll" data-block-selection-canvas="">
         <div className="editor-content" ref={target} />
       </div>
     </section>

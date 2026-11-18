@@ -35,6 +35,15 @@ export function mountBlockMarquee(view, canEdit) {
   overlay.setAttribute('aria-hidden', 'true');
   let gesture;
   let suppressClick = false;
+  let suppressContextMenu = false;
+  const canvas = () => dom.closest('[data-block-selection-canvas]') ?? dom;
+  const onCanvas = (event) => canvas().contains(event.target);
+  const available = () =>
+    dom.isConnected && !dom.closest('[inert]') && canEdit?.() !== false;
+  const blockAt = (target) => {
+    const block = target.closest?.('[data-block-id]');
+    return block && dom.contains(block) ? block : null;
+  };
 
   function finish() {
     if (activeViews.delete(view)) suppressClick = true;
@@ -45,17 +54,16 @@ export function mountBlockMarquee(view, canEdit) {
   function start(event) {
     finish();
     suppressClick = false;
+    suppressContextMenu = false;
     const target = event.target;
     if (
-      !dom.contains(target) ||
+      !onCanvas(event) ||
       event.button !== 0 ||
-      event.detail > 1 ||
+      (event.detail > 1 && !event.ctrlKey) ||
       event.altKey ||
-      event.ctrlKey ||
       event.metaKey ||
       view.composing ||
-      canEdit?.() === false ||
-      dom.closest('[inert]') ||
+      !available() ||
       target.closest?.(
         'table, button, input, textarea, select, [data-block-handle]'
       )
@@ -64,20 +72,43 @@ export function mountBlockMarquee(view, canEdit) {
 
     const origin = point(event);
     const root = dom.getBoundingClientRect();
-    const block = target.closest?.('[data-block-id]');
+    const block = blockAt(target);
     const selection = view.state.selection;
-    const additive = event.shiftKey && selection instanceof BodyBlockSelection;
+    const selected =
+      selection instanceof BodyBlockSelection ? selection.ids : [];
+    if (event.ctrlKey && !selected.length) return;
+    const mode = event.ctrlKey
+      ? 'subtract'
+      : event.shiftKey && selected.length
+        ? 'add'
+        : 'replace';
     gesture = {
       origin: { x: origin.x - root.left, y: origin.y - root.top },
       end: origin,
-      startBlock: !additive && block && dom.contains(block) ? block : null,
-      baseline: additive ? selection.ids : [],
+      startBlock: mode === 'replace' ? block : null,
+      clickedId: block?.dataset.blockId,
+      dismissOnClick: mode === 'replace' && !event.shiftKey && !block,
+      baseline: mode === 'replace' ? [] : selected,
+      mode,
     };
-    if (additive) event.preventDefault();
+    suppressContextMenu = mode === 'subtract';
+    if (mode !== 'replace' || gesture.dismissOnClick) event.preventDefault();
+  }
+
+  function applySelection(ids, keepFocus = true) {
+    const tr = selectBodyBlocks(view.state, ids);
+    if (!tr.selection.eq(view.state.selection))
+      view.dispatch(tr.setMeta('pointer', true));
+    if (!keepFocus) {
+      if (view.hasFocus()) dom.blur();
+    } else if (!view.hasFocus()) {
+      if (view.editable) view.focus();
+      else dom.focus({ preventScroll: true });
+    }
   }
 
   function update(event) {
-    if (!dom.isConnected || dom.closest('[inert]') || canEdit?.() === false) {
+    if (!available()) {
       finish();
       return;
     }
@@ -112,13 +143,12 @@ export function mountBlockMarquee(view, canEdit) {
         element?.isConnected &&
         element.getBoundingClientRect &&
         touches(box, element.getBoundingClientRect())
-      )
-        ids.add(node.attrs.blockId);
+      ) {
+        if (gesture.mode === 'subtract') ids.delete(node.attrs.blockId);
+        else ids.add(node.attrs.blockId);
+      }
     }
-    const tr = selectBodyBlocks(view.state, ids);
-    if (!tr.selection.eq(view.state.selection))
-      view.dispatch(tr.setMeta('pointer', true));
-    if (!view.hasFocus() && view.editable) view.focus();
+    applySelection(ids);
   }
 
   function move(event) {
@@ -138,15 +168,35 @@ export function mountBlockMarquee(view, canEdit) {
     if (activeViews.has(view)) {
       gesture.end = point(event);
       update(event);
+    } else if (available() && onCanvas(event)) {
+      const block = blockAt(event.target);
+      if (gesture.mode === 'subtract') {
+        const releasedId = block?.dataset.blockId;
+        if (
+          releasedId &&
+          releasedId === gesture.clickedId &&
+          gesture.baseline.includes(releasedId)
+        )
+          applySelection(gesture.baseline.filter((id) => id !== releasedId));
+        suppressClick = true;
+      } else if (gesture.dismissOnClick && !block) {
+        applySelection([], false);
+        suppressClick = true;
+      }
     }
     finish();
   }
   function click(event) {
-    if (!suppressClick || !dom.contains(event.target) || event.detail === 0)
-      return;
+    if (!suppressClick || !onCanvas(event) || event.detail === 0) return;
     suppressClick = false;
     event.preventDefault();
     event.stopPropagation();
+  }
+  function contextMenu(event) {
+    if (suppressContextMenu && onCanvas(event)) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
   }
   function keydown(event) {
     if (event.key === 'Escape' && gesture) finish();
@@ -164,6 +214,7 @@ export function mountBlockMarquee(view, canEdit) {
     [doc, 'mousemove', move],
     [win, 'mouseup', release, false],
     [doc, 'click', click],
+    [doc, 'contextmenu', contextMenu],
     [doc, 'keydown', keydown],
     [doc, 'selectstart', guardNativeSelection],
     [doc, 'dragstart', guardNativeSelection],

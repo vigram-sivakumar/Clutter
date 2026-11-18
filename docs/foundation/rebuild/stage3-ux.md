@@ -165,7 +165,7 @@ both an ancestor and descendant happen to be explicitly selected.
 | B01 | Shift+click on handles | Do **not** select the range between handles. |
 | B02 | Ordinary drag inside starting block | Use text selection while the drag remains inside that block. |
 | B03 | Drag leaves starting block | Transition to block/marquee selection. **Shift is not required.** |
-| B04 | Where marquee can begin | Anywhere in the editor, including on top of a block; not restricted to empty space. |
+| B04 | Where marquee can begin | Anywhere in the note canvas, including on top of a block or in the note margins. Toolbar, tabs and sidebar are outside the canvas. |
 | B05 | Shift+drag | Add blocks elsewhere while retaining the pre-existing selection. Selecting top and bottom blocks must not automatically select everything between them. |
 | B06 | Hit rule | Select a block the moment the rectangle touches any part of it. Full enclosure is not required. |
 | B07 | Drag back off a block | Deselect it immediately when the current rectangle no longer touches it. |
@@ -176,6 +176,10 @@ both an ancestor and descendant happen to be explicitly selected.
 | B12 | Ordinary typing with blocks selected | Do nothing. Do not replace selected blocks with typed text or a new paragraph. |
 | B13 | Delete/Backspace | Delete **only explicitly selected blocks**. Delete children only when they are selected too. |
 | B14 | Parent deleted, children not selected | Keep those children at their current indentation. Do not automatically outdent or delete them. |
+| B15 | Ctrl+click | Remove the clicked block from the current selection. |
+| B16 | Ctrl+drag | Subtract the rectangle's live hits from the selection at gesture start. Moving off restores only blocks from that baseline. |
+| B17 | Plain click in blank note space | Clear selection, leave no caret and release editor focus. A drag from the same area starts marquee. |
+
 
 
 ### Select-all refinement — confirmed; keyboard implementation71 and marquee implementation79

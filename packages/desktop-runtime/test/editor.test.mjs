@@ -3792,7 +3792,7 @@ test('75 body pointer reentry restores editable focus before mouse-up without co
       original.call(this, tr);
     },
   });
-  // Model the public hit-test returning the boundary below an empty paragraph,
+  // Model the public hit-test returning the end boundary when clicking an empty paragraph,
   // which must resolve to that body paragraph, never back into the title.
   av.posAtCoords = () => ({ pos: av.state.doc.content.size, inside: -1 });
   try {
@@ -3807,7 +3807,7 @@ test('75 body pointer reentry restores editable focus before mouse-up without co
       }
       transitions.length = 0;
       focusChanges.length = 0;
-      av.dom.dispatchEvent(
+      av.dom.querySelector('p').dispatchEvent(
         new dom.window.MouseEvent('mousedown', {
           button: 0,
           bubbles: true,
@@ -3837,7 +3837,7 @@ test('75 body pointer reentry restores editable focus before mouse-up without co
             ? ['editable focus']
             : []
       );
-      av.dom.dispatchEvent(
+      av.dom.querySelector('p').dispatchEvent(
         new dom.window.MouseEvent('mouseup', {
           button: 0,
           bubbles: true,
@@ -4153,4 +4153,97 @@ test('79 marquee can start on title and whitespace, and Escape cancels an active
   assert(!document.querySelector('.body-marquee'));
   dispatch(document.body, 'mousemove', 70);
   assert(!document.querySelector('.body-marquee'));
+});
+
+test('80 Ctrl subtracts and blank canvas clicks dismiss while drags select', async (t) => {
+  const x = await seededList(t, [
+    { id: 'one', text: 'One' },
+    { id: 'two', text: 'Two' },
+    { id: 'three', text: 'Three' },
+  ]);
+  const { av } = x;
+  const before = ok(await x.read());
+  av.posAtCoords = () => ({
+    pos: av.state.doc.firstChild.nodeSize + 1,
+    inside: av.state.doc.firstChild.nodeSize,
+  });
+  const canvas = av.dom.parentElement;
+  canvas.setAttribute('data-block-selection-canvas', '');
+  const outside = document.body.appendChild(document.createElement('button'));
+  const [title, one, two, three] = av.dom.children;
+  const bounds = (top, bottom) => ({ left: 40, right: 190, top, bottom });
+  av.dom.getBoundingClientRect = () => bounds(10, 210);
+  title.getBoundingClientRect = () => bounds(10, 30);
+  one.getBoundingClientRect = () => bounds(50, 80);
+  two.getBoundingClientRect = () => bounds(100, 130);
+  three.getBoundingClientRect = () => bounds(150, 180);
+  function mouse(type, target, x, y, ctrlKey = false, button = 0) {
+    const event = new dom.window.MouseEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      buttons: ['mousedown', 'mousemove'].includes(type) ? 1 : 0,
+      clientX: x,
+      clientY: y,
+      detail: 1,
+      ctrlKey,
+      button,
+    });
+    target.dispatchEvent(event);
+    return event;
+  }
+  // Outside the PM root, in the note canvas padding.
+  mouse('mousedown', canvas, 10, 45);
+  mouse('mousemove', three, 70, 160);
+  mouse('mouseup', three, 70, 160);
+  assert.deepEqual(av.state.selection.ids, ['one', 'two', 'three']);
+
+  assert(mouse('mousedown', two, 55, 115, true).defaultPrevented);
+  assert(mouse('contextmenu', two, 55, 115, true).defaultPrevented);
+  mouse('mouseup', two, 55, 115, true);
+  assert(mouse('click', two, 55, 115, true).defaultPrevented);
+  assert.deepEqual(av.state.selection.ids, ['one', 'three']);
+  mouse('mousedown', canvas, 10, 45, true);
+  mouse('mousemove', three, 70, 160, true);
+  assert.deepEqual(av.state.selection.ids, []);
+  mouse('mousemove', two, 70, 120, true);
+  assert.deepEqual(
+    av.state.selection.ids,
+    ['three'],
+    'retreat restores prior members only'
+  );
+  mouse('mouseup', two, 70, 120, true);
+  assert.deepEqual(av.state.selection.ids, ['three']);
+
+  mouse('mousedown', outside, 10, 45);
+  mouse('mousemove', one, 70, 60);
+  mouse('mouseup', one, 70, 60);
+  assert.deepEqual(
+    av.state.selection.ids,
+    ['three'],
+    'app chrome starts no gesture'
+  );
+  mouse('mousedown', one, 55, 60, false, 2);
+  assert.equal(
+    mouse('contextmenu', one, 55, 60, false, 2).defaultPrevented,
+    false
+  );
+  assert(mouse('mousedown', av.dom, 55, 140).defaultPrevented);
+  mouse('mouseup', av.dom, 55, 140);
+  assert(mouse('click', av.dom, 55, 140).defaultPrevented);
+  assert.deepEqual(av.state.selection.ids, []);
+  assert.equal(av.state.selection.visible, false);
+  assert(!av.hasFocus(), 'blank click dismisses the editor focus');
+  assert(!document.querySelector('.body-marquee'));
+  for (const mode of ['cli', 'mcp']) {
+    const read = ok(
+      await peerCommand67(x, mode, {
+        apiVersion: 1,
+        method: 'page.read',
+        spaceId: x.v.spaceId,
+        pageId: 'p',
+      })
+    );
+    assert.equal(read.head, before.head);
+    assert.deepEqual(read.content, JSON.parse(JSON.stringify(before.content)));
+  }
 });
