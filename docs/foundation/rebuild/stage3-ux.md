@@ -178,7 +178,7 @@ both an ancestor and descendant happen to be explicitly selected.
 | B14 | Parent deleted, children not selected | Keep those children at their current indentation. Do not automatically outdent or delete them. |
 
 
-### Select-all refinement — confirmed; keyboard implementation71, pointer3C pending
+### Select-all refinement — confirmed; keyboard implementation71 and marquee implementation79
 
 | ID | Interaction | Confirmed behavior |
 | --- | --- | --- |

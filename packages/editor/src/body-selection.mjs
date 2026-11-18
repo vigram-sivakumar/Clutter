@@ -1,8 +1,8 @@
 import { Selection, SelectionRange, AllSelection } from 'prosemirror-state';
 import { Slice, Fragment } from 'prosemirror-model';
 import { blockRows } from './block-structure.mjs';
-// The single view-local explicit body-block selection model. Ctrl+A and future
-// marquee/handle adapters choose IDs; neither hierarchy nor DOM owns membership.
+// The single view-local explicit body-block selection model. Keyboard, paste and
+// marquee adapters choose IDs; neither hierarchy nor DOM owns membership.
 export class BodyBlockSelection extends Selection {
   constructor(doc, ids = []) {
     const requested = new Set(ids),

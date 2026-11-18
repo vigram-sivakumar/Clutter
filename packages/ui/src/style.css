@@ -543,3 +543,13 @@ button:focus-visible {
   outline-offset: 1px;
   background-color: #dcecff !important;
 }
+
+
+.body-marquee {
+  position: fixed;
+  z-index: 6;
+  pointer-events: none;
+  box-sizing: border-box;
+  border: 1px solid #4a87be;
+  background: rgb(74 135 190 / 12%);
+}

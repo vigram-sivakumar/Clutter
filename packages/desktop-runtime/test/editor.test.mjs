@@ -3976,3 +3976,181 @@ test('74 inactive body retains keyboard commands and copy remains body-only', as
   assert.equal(av.state.doc.firstChild.textContent, 'Private title');
   await a.flush();
 });
+
+test('79 marquee leaves same-block text drag native, hits touching blocks and adds to a fixed Shift baseline', async (t) => {
+  const x = await seededList(t, [
+    { id: 'parent', text: 'Parent' },
+    { id: 'child', text: 'Child', indent: 1, parent: 'parent' },
+    { id: 'third', text: 'Third' },
+    { id: 'fourth', text: 'Fourth' },
+  ]);
+  const { av, a } = x;
+  const el = (id) => av.dom.querySelector(`[data-block-id="${id}"]`);
+  const rect = (left, top, right, bottom) => ({ left, top, right, bottom });
+  av.dom.getBoundingClientRect = () => rect(0, 0, 200, 230);
+  for (const [id, box] of [
+    ['title', rect(10, 10, 190, 40)],
+    ['parent', rect(10, 60, 190, 80)],
+    ['child', rect(40, 95, 190, 115)],
+    ['third', rect(10, 130, 190, 150)],
+    ['fourth', rect(10, 170, 190, 190)],
+  ]) {
+    el(id).getBoundingClientRect = () => box;
+  }
+  // PM uses its ordinary hit-test on mousedown. Provide synthetic geometry for
+  // its coordinates as well as the DOM boxes used by marquee.
+  av.posAtCoords = ({ top }) => {
+    let pos = 0;
+    const index =
+      top < 50 ? 0 : top < 90 ? 1 : top < 120 ? 2 : top < 160 ? 3 : 4;
+    for (let i = 0; i < index; i++) pos += av.state.doc.child(i).nodeSize;
+    return { pos: pos + 1, inside: pos };
+  };
+  function mouse(type, target, x, y, extra = {}) {
+    const event = new dom.window.MouseEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      detail: 1,
+      buttons: type === 'mousedown' || type === 'mousemove' ? 1 : 0,
+      clientX: x,
+      clientY: y,
+      ...extra,
+    });
+    target.dispatchEvent(event);
+    return event;
+  }
+  const selected = () =>
+    Array.from(
+      av.dom.querySelectorAll('.selected-body-block'),
+      (node) => node.dataset.blockId
+    );
+  const overlay = () => document.querySelector('.body-marquee');
+  const before = ok(await x.read());
+
+  rowAt(av, 'parent');
+  mouse('mousedown', el('parent'), 20, 65);
+  assert.equal(
+    mouse('mousemove', el('parent'), 60, 70).defaultPrevented,
+    false
+  );
+  assert(av.state.selection instanceof TextSelection);
+  assert(!overlay());
+  mouse('mousemove', av.dom, 35, 95);
+  assert.deepEqual(
+    selected(),
+    ['parent'],
+    'the indented child is outside the rectangle'
+  );
+  assert(overlay());
+  mouse('mousemove', el('child'), 40, 95);
+  assert.deepEqual(
+    selected(),
+    ['parent', 'child'],
+    'edge contact is sufficient'
+  );
+  mouse('mousemove', av.dom, 35, 91);
+  assert.deepEqual(selected(), ['parent'], 'moving off the child removes it');
+  mouse('mouseup', av.dom, 35, 91);
+  assert(!overlay());
+  assert(mouse('click', av.dom, 35, 91).defaultPrevented);
+  assert.deepEqual(selected(), ['parent']);
+
+  mouse('mousedown', el('fourth'), 20, 180, { shiftKey: true });
+  mouse('mousemove', el('fourth'), 30, 180, { shiftKey: true });
+  assert.deepEqual(selected(), ['parent', 'fourth']);
+
+  mouse('mousemove', av.dom, 30, 150, { shiftKey: true });
+  assert.deepEqual(selected(), ['parent', 'third', 'fourth']);
+  mouse('mousemove', av.dom, 30, 157, { shiftKey: true });
+  assert.deepEqual(
+    selected(),
+    ['parent', 'fourth'],
+    'Shift keeps only the prior selection and live hits'
+  );
+  mouse('mouseup', av.dom, 30, 157, { shiftKey: true });
+  assert(!overlay());
+
+  for (const mode of ['cli', 'mcp']) {
+    const read = ok(
+      await peerCommand67(x, mode, {
+        apiVersion: 1,
+        method: 'page.read',
+        spaceId: x.v.spaceId,
+        pageId: 'p',
+      })
+    );
+    assert.equal(read.head, before.head);
+    assert.deepEqual(read.content, JSON.parse(JSON.stringify(before.content)));
+  }
+  keydown(av, 'Delete');
+  await a.flush();
+  assert.deepEqual(
+    av.state.doc
+      .toJSON()
+      .content.slice(1)
+      .map((n) => n.attrs.blockId),
+    ['child', 'third']
+  );
+  assert.equal(av.state.doc.child(1).attrs.indent, 1);
+  assert.equal(av.state.doc.child(1).attrs.parentId, null);
+});
+
+test('79 marquee can start on title and whitespace, and Escape cancels an active drag', async (t) => {
+  const x = await seeded(t),
+    a = await x.open('marquee79'),
+    av = x.mount(a);
+  const [title, body] = av.dom.children;
+  av.dom.getBoundingClientRect = () => ({
+    left: 0,
+    top: 0,
+    right: 200,
+    bottom: 200,
+  });
+  title.getBoundingClientRect = () => ({
+    left: 10,
+    top: 10,
+    right: 190,
+    bottom: 40,
+  });
+  body.getBoundingClientRect = () => ({
+    left: 10,
+    top: 60,
+    right: 190,
+    bottom: 90,
+  });
+  av.posAtCoords = ({ top }) =>
+    top < 50
+      ? { pos: 1, inside: 0 }
+      : {
+          pos: av.state.doc.firstChild.nodeSize + 1,
+          inside: av.state.doc.firstChild.nodeSize,
+        };
+  av.focus();
+  const dispatch = (target, type, y, buttons = 1) =>
+    target.dispatchEvent(
+      new dom.window.MouseEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        buttons,
+        clientX: 20,
+        clientY: y,
+        detail: 1,
+      })
+    );
+  dispatch(title, 'mousedown', 30);
+  dispatch(body, 'mousemove', 70);
+  assert.deepEqual(av.state.selection.ids, ['paragraph-1']);
+  assert(!title.classList.contains('selected-body-block'));
+  keydown(av, 'Escape');
+  assert(!document.querySelector('.body-marquee'));
+  dispatch(body, 'mousemove', 80);
+  dispatch(body, 'mouseup', 80, 0);
+  assert.deepEqual(av.state.selection.ids, []);
+  dispatch(av.dom, 'mousedown', 110);
+  dispatch(body, 'mousemove', 90);
+  assert.deepEqual(av.state.selection.ids, ['paragraph-1']);
+  av.destroy();
+  assert(!document.querySelector('.body-marquee'));
+  dispatch(document.body, 'mousemove', 70);
+  assert(!document.querySelector('.body-marquee'));
+});

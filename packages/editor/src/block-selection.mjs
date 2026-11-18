@@ -11,6 +11,10 @@ import {
   isInactiveBodySelection,
 } from './body-selection.mjs';
 import { blockRows } from './block-structure.mjs';
+import {
+  mountBlockMarquee,
+  marqueeSelectionBetween,
+} from './block-marquee.mjs';
 import { deleteBlocks } from './block-deletion.mjs';
 const key = new PluginKey('body-block-selection');
 const preventBlockReplacement = (view, event) => {
@@ -53,6 +57,7 @@ export function resumeTextSelection(view, pos, event) {
 export function bodyBlockInteractions({ canEdit, nextId, stopCapturing } = {}) {
   return new Plugin({
     key,
+    view: (view) => mountBlockMarquee(view, canEdit),
     state: {
       init: () => null,
       apply(tr, previous, oldState) {
@@ -64,6 +69,7 @@ export function bodyBlockInteractions({ canEdit, nextId, stopCapturing } = {}) {
       },
     },
     props: {
+      createSelectionBetween: marqueeSelectionBetween,
       // Empty/no-caret mode keeps keyboard focus without a live transparent caret.
       editable: (state) => !isInactiveBodySelection(state.selection),
       attributes: (state) =>

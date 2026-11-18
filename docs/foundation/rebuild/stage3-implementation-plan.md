@@ -258,3 +258,18 @@ empty/no-caret body noneditable with existing keyboard commands and preserves th
 presentation through the Y guard. Removes transparent-caret CSS. One shared editor/
 Core/history/save path; native74 blink confirmation pending before marquee. Build
 changed source with `npm run desktop -- --new`; no install or old milestone replay.
+
+## Build 79 — marquee selection
+
+The editor measures each top-level body block independently and writes the hit
+IDs into the shared block selection. The selection rectangle is view-local.
+Text selection stays native inside the starting block. Once marquee starts,
+ProseMirror's public selection hook preserves block selection against delayed
+native selection events during the gesture. There is no persistence or command
+adapter for marquee. Existing block commands and Core handle its results.
+
+Scoped Mac check: drag inside one line of text, then continue past its block.
+Touch an adjacent block and move back off it. Shift+drag over a separate
+block and check that the blocks between the two are unselected. Press Escape
+to clear without a caret, then click to resume text editing. Handles and
+group reordering are separate work.

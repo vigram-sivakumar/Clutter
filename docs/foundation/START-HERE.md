@@ -1,17 +1,19 @@
 # Resume Clutter Structured
 
-## Current checkpoint — title paste into a trailing empty paragraph, build 78
+## Current checkpoint — marquee selection, build 79
 
-The user confirmed the build 75 caret fix on macOS. Build 76 replaces the separate
-multiline title-paste highlight with the same block selection used by Cmd/Ctrl+A.
-Build 78 fills the last body paragraph when it is empty, including on a new note.
-If the body ends in content, the paste starts on a new line. The same selection
-outlines the pasted blocks and Cmd/Ctrl+A selects the whole body. The title
-stays outside block selection.
+Drag inside the starting block to select text. Drag outside it to draw a marquee.
+A touched body block joins immediately and drops out when the rectangle leaves it.
+Shift+drag adds to the selection that existed when the gesture started. The
+title is excluded from block membership. Escape clears the selection.
 
-Nine targeted tests passed, including all three paste cases, real CLI/MCP readback,
-Undo/Redo and caret reentry. TypeScript and package boundary checks passed.
-Mac acceptance for build 78 is pending.
+Marquee uses the same block selection as multiline title paste and Cmd/Ctrl+A.
+Delete uses the existing explicit block deletion path. The gesture and rectangle
+are local to the mounted editor. Chromium passed with real mouse input. Mac
+acceptance is pending. Block handles and group reorder follow separately.
+
+Build 78 fills the last body paragraph on multiline title paste when it is empty,
+including on a new note. Code and real client checks passed in build 78.
 
 ## Working agreement
 
