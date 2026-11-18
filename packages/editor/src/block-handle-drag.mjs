@@ -13,6 +13,9 @@ export function mountHandleDrag(view, layer, canEdit, stopCapturing) {
   const marker = doc.createElement('div');
   marker.className = 'block-drop-line';
   marker.setAttribute('aria-hidden', 'true');
+  const ghost = doc.createElement('div');
+  ghost.className = 'block-drag-ghost';
+  ghost.setAttribute('aria-hidden', 'true');
   let drag;
   let suppressClick = false;
 
@@ -27,6 +30,8 @@ export function mountHandleDrag(view, layer, canEdit, stopCapturing) {
     if (drag?.active) suppressClick = true;
     drag = undefined;
     marker.remove();
+    ghost.remove();
+    ghost.replaceChildren();
   }
 
   function start(event) {
@@ -98,16 +103,46 @@ export function mountHandleDrag(view, layer, canEdit, stopCapturing) {
     return plan;
   }
 
+  function showGhost() {
+    const { moved } = drag.scope;
+    for (const { node } of moved.slice(0, 3)) {
+      const row = doc.createElement(
+        node.type.name === 'separator' ? 'hr' : 'div'
+      );
+      if (node.type.name !== 'separator')
+        row.textContent = node.textContent.slice(0, 160) || 'Empty block';
+      ghost.append(row);
+    }
+    if (moved.length > 3) {
+      const count = doc.createElement('small');
+      count.textContent = '+' + (moved.length - 3) + ' more';
+      ghost.append(count);
+    }
+    doc.body.append(ghost);
+    drag.ghostSize = ghost.getBoundingClientRect();
+  }
+
+  function positionGhost({ x, y }) {
+    const { width, height } = drag.ghostSize;
+    const left = Math.max(8, Math.min(x + 16, win.innerWidth - width - 8));
+    const top = Math.max(8, Math.min(y + 12, win.innerHeight - height - 8));
+    ghost.style.transform = `translate(${left}px, ${top}px)`;
+  }
+
   function move(event) {
     if (!drag) return;
     if (!(event.buttons & 1) || !valid()) {
       finish();
       return;
     }
-    if (!drag.active && Math.abs(event.clientY - drag.startY) < 4) return;
-    drag.active = true;
+    if (!drag.active) {
+      if (Math.abs(event.clientY - drag.startY) < 4) return;
+      drag.active = true;
+      showGhost();
+    }
     drag.point = { x: event.clientX, y: event.clientY };
     event.preventDefault();
+    positionGhost(drag.point);
     preview(drag.point);
   }
 

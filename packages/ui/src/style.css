@@ -581,14 +581,18 @@ button:focus-visible {
   border-radius: 4px;
   background: transparent;
   color: #70818e;
-  visibility: hidden;
+  opacity: 0;
   pointer-events: none;
   cursor: grab;
 }
 
-.block-handle-layer button[data-revealed] {
-  visibility: visible;
+/* The gutter target stays available once positioned, even before reveal. */
+.block-handle-layer button[data-positioned] {
   pointer-events: auto;
+}
+
+.block-handle-layer button[data-revealed] {
+  opacity: 1;
 }
 
 .block-handle-layer button::before {
@@ -610,7 +614,35 @@ button:focus-visible {
   pointer-events: none;
 }
 
-
 .block-handle-layer button:active {
   cursor: grabbing;
+}
+
+.block-drag-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 8;
+  pointer-events: none;
+  width: min(240px, calc(100vw - 16px));
+  padding: 8px 10px;
+  border: 1px solid #b8c8d9;
+  border-radius: 6px;
+  background: rgb(248 251 255 / 94%);
+  color: #34475d;
+  box-shadow: 0 4px 14px rgb(25 40 60 / 14%);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.block-drag-ghost > div {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.block-drag-ghost hr {
+  border: 0;
+  border-top: 1px solid #8da4bd;
+  margin: 6px 0;
 }

@@ -82,6 +82,7 @@ export function mountBlockHandles(view, canEdit, stopCapturing) {
       const box = element.getBoundingClientRect();
       const handle = handles.get(node.attrs.blockId);
       handle.style.top = box.top - top + Math.min(box.height / 2, 14) + 'px';
+      handle.setAttribute('data-positioned', '');
     }
   }
 

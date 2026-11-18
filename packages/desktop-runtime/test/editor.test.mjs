@@ -4388,10 +4388,18 @@ test('88 dragging a selected handle moves an ordered group with descendants in o
   mouse('mousedown', handle('group'), 12, 126);
   mouse('mousemove', host, 100, 186);
   assert(document.querySelector('.block-drop-line'));
+  const ghost = document.querySelector('.block-drag-ghost');
+  assert.deepEqual(
+    Array.from(ghost.children, (row) => row.textContent),
+    ['Parent', 'Child', 'Group']
+  );
+  assert(!av.dom.contains(ghost));
+
   assert.deepEqual(order(), baseline, 'preview does not change content');
   assert.equal(ok(await x.read()).head, head);
   mouse('mouseup', host, 100, 186);
   assert(!document.querySelector('.block-drop-line'));
+  assert(!document.querySelector('.block-drag-ghost'));
   const moved = ['other', 'last', 'parent', 'child', 'group'];
   assert.deepEqual(order(), moved);
   assert.deepEqual(av.state.selection.ids, ['parent', 'group']);

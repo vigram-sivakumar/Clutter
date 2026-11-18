@@ -146,12 +146,15 @@ stock list behavior for this matrix or assume unspecified list details are appro
 
 | ID | Interaction | Confirmed behavior |
 | --- | --- | --- |
-| D01 | Handles | Every body block has a chrome handle that appears on hover and stays visible while moving to it. |
+| D01 | Handles | Every body block has a chrome handle that appears when hovering the block or the handle position. It stays visible while moving across the gutter to it. |
 | D02 | Click a parent handle | Select only that parent block. Do not auto-select its children. |
 | D03 | Drag a parent | Move that parent with its entire child hierarchy. Children travel with it even though selection membership is independent. |
 | D04 | Drag a child | Move that child and its descendants. Leave its parent and siblings in place. |
 | D05 | Horizontal drag | Dragging **only reorders** blocks. Moving left/right must not change indentation. |
 | D06 | Drag a selected group | Dragging any selected block's handle moves the whole selected group, retaining its original document order. Parent/descendant movement follows D03/D04. |
+| D07 | Drag feedback | A floating preview shows which blocks will move. The insertion line shows a valid drop location. |
+
+
 
 Do not confuse explicit selection membership with an operation's scope. A parent's
 children travel with a drag or Tab/Shift+Tab, but are not thereby auto-selected and
