@@ -1,6 +1,6 @@
 # Resume Clutter Structured
 
-## Current checkpoint — marquee toggle, build 82
+## Current checkpoint — marquee and Shift+click caret, build 83
 
 Drag inside the starting block to select text. Drag outside it to draw a marquee.
 A touched body block joins immediately and drops out when the rectangle leaves it.
@@ -12,6 +12,10 @@ A plain click in blank note space clears the
 selection and releases editor focus. Drag can start in that same blank space,
 including the note margins. The note toolbar, tabs and sidebar are outside the
 gesture area.
+
+Shift+click places the caret at the clicked text position. Shift+drag keeps
+ordinary text-to-marquee behavior. The user confirmed that Cmd+click from
+text mode already selects the block.
 
 Marquee uses the same block selection as multiline title paste and Cmd/Ctrl+A.
 Delete uses the existing explicit block deletion path. The gesture and rectangle

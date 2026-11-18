@@ -4247,9 +4247,27 @@ for (const [platform, modifier] of [
     assert.equal(av.state.selection.visible, false);
     assert(!av.hasFocus(), 'blank click dismisses the editor focus');
     assert(!document.querySelector('.body-marquee'));
+    rowAt(av, 'three');
+    assert(av.state.selection instanceof TextSelection);
     mouse('mousedown', one, 55, 60, true);
     mouse('mouseup', one, 55, 60, true);
     assert.deepEqual(av.state.selection.ids, ['one']);
+    rowAt(av, 'three');
+    one.dispatchEvent(
+      new dom.window.MouseEvent('mousedown', {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+        buttons: 1,
+        clientX: 55,
+        clientY: 60,
+        shiftKey: true,
+      })
+    );
+    assert(av.state.selection instanceof TextSelection);
+    assert(av.state.selection.empty);
+    assert.equal(av.state.selection.$head.parent.attrs.blockId, 'one');
+    mouse('mouseup', one, 55, 60);
     for (const mode of ['cli', 'mcp']) {
       const read = ok(
         await peerCommand67(x, mode, {

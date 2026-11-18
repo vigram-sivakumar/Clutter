@@ -24,13 +24,8 @@ const preventBlockReplacement = (view, event) => {
 };
 // Leave hidden block mode before native mouse-down placement/dragging begins.
 // Resolve through public PM hit testing; root whitespace may map to a block edge.
-export function resumeTextSelection(view, pos, event) {
-  if (
-    !(view.state.selection instanceof BodyBlockSelection) ||
-    event.button !== 0 ||
-    event.defaultPrevented
-  )
-    return false;
+function placeTextCaret(view, pos, event) {
+  if (event.button !== 0 || event.defaultPrevented) return false;
   const $at = view.state.doc.resolve(pos);
   const selection = TextSelection.near($at);
   if (
@@ -51,6 +46,13 @@ export function resumeTextSelection(view, pos, event) {
   }
   return true;
 }
+export function resumeTextSelection(view, pos, event) {
+  return (
+    view.state.selection instanceof BodyBlockSelection &&
+    placeTextCaret(view, pos, event)
+  );
+}
+
 export function bodyBlockInteractions({ canEdit, nextId, stopCapturing } = {}) {
   return new Plugin({
     key,
@@ -214,7 +216,11 @@ export function bodyBlockInteractions({ canEdit, nextId, stopCapturing } = {}) {
           return !!handled;
         },
         mousedown(view, event) {
-          if (!(view.state.selection instanceof BodyBlockSelection))
+          const selection = view.state.selection;
+          if (
+            !(selection instanceof BodyBlockSelection) &&
+            !(event.shiftKey && selection instanceof TextSelection)
+          )
             return false;
           const hit = view.posAtCoords({
             left: event.clientX,
@@ -226,7 +232,9 @@ export function bodyBlockInteractions({ canEdit, nextId, stopCapturing } = {}) {
               ? view.state.doc.nodeAt(hit.inside)
               : view.state.doc.nodeAt(hit.pos);
           if (node?.isBlock && !node.isTextblock) return false;
-          resumeTextSelection(view, hit.pos, event);
+          // Establish the anchor at the pressed position before the browser
+          // handles Shift. A click moves the caret and a drag starts here.
+          placeTextCaret(view, hit.pos, event);
           // Let PM/browser continue normal text dragging and multi-click handling.
           return false;
         },
