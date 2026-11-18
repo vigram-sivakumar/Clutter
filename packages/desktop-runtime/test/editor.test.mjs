@@ -3977,7 +3977,7 @@ test('74 inactive body retains keyboard commands and copy remains body-only', as
   await a.flush();
 });
 
-test('79 marquee leaves same-block text drag native, hits touching blocks and adds to a fixed Shift baseline', async (t) => {
+test('79 marquee leaves same-block text drag native, hits touching blocks and replaces selection with Shift held', async (t) => {
   const x = await seededList(t, [
     { id: 'parent', text: 'Parent' },
     { id: 'child', text: 'Child', indent: 1, parent: 'parent' },
@@ -4057,18 +4057,14 @@ test('79 marquee leaves same-block text drag native, hits touching blocks and ad
 
   mouse('mousedown', el('fourth'), 20, 180, { shiftKey: true });
   mouse('mousemove', el('fourth'), 30, 180, { shiftKey: true });
-  assert.deepEqual(selected(), ['parent', 'fourth']);
-
+  assert(!overlay());
   mouse('mousemove', av.dom, 30, 150, { shiftKey: true });
-  assert.deepEqual(selected(), ['parent', 'third', 'fourth']);
+  assert.deepEqual(selected(), ['third', 'fourth']);
   mouse('mousemove', av.dom, 30, 157, { shiftKey: true });
-  assert.deepEqual(
-    selected(),
-    ['parent', 'fourth'],
-    'Shift keeps only the prior selection and live hits'
-  );
+  assert.deepEqual(selected(), ['fourth']);
   mouse('mouseup', av.dom, 30, 157, { shiftKey: true });
   assert(!overlay());
+  av.dispatch(selectBodyBlocks(av.state, ['parent', 'fourth']));
 
   for (const mode of ['cli', 'mcp']) {
     const read = ok(
@@ -4159,7 +4155,7 @@ for (const [platform, modifier] of [
   ['MacIntel', 'metaKey'],
   ['Win32', 'ctrlKey'],
 ])
-  test(`81 ${platform} primary modifier subtracts and keeps cross-block drags in marquee`, async (t) => {
+  test(`82 ${platform} primary modifier toggles mixed hits from a fixed baseline`, async (t) => {
     const nav = dom.window.navigator;
     Object.defineProperty(nav, 'platform', {
       configurable: true,
@@ -4202,8 +4198,8 @@ for (const [platform, modifier] of [
       return event;
     }
     mouse('mousedown', one, 55, 60, true);
-    assert.equal(mouse('mousemove', one, 75, 68, true).defaultPrevented, false);
-    assert(!document.querySelector('.body-marquee'));
+    assert(mouse('mousemove', one, 75, 68, true).defaultPrevented);
+    assert.deepEqual(av.state.selection.ids, ['one']);
     mouse('mousemove', two, 75, 115, true);
     assert.deepEqual(av.state.selection.ids, ['one', 'two']);
     mouse('mouseup', two, 75, 115, true);
@@ -4216,28 +4212,27 @@ for (const [platform, modifier] of [
     assert.deepEqual(av.state.selection.ids, ['one', 'two', 'three']);
 
     assert(mouse('mousedown', two, 55, 115, true).defaultPrevented);
-    assert(mouse('contextmenu', two, 55, 115, true).defaultPrevented);
     mouse('mouseup', two, 55, 115, true);
     assert(mouse('click', two, 55, 115, true).defaultPrevented);
     assert.deepEqual(av.state.selection.ids, ['one', 'three']);
     mouse('mousedown', canvas, 10, 45, true);
     mouse('mousemove', three, 70, 160, true);
-    assert.deepEqual(av.state.selection.ids, []);
+    assert.deepEqual(av.state.selection.ids, ['two']);
     mouse('mousemove', two, 70, 120, true);
     assert.deepEqual(
       av.state.selection.ids,
-      ['three'],
-      'retreat restores prior members only'
+      ['two', 'three'],
+      'retreat restores blocks according to their original state'
     );
     mouse('mouseup', two, 70, 120, true);
-    assert.deepEqual(av.state.selection.ids, ['three']);
+    assert.deepEqual(av.state.selection.ids, ['two', 'three']);
 
     mouse('mousedown', outside, 10, 45);
     mouse('mousemove', one, 70, 60);
     mouse('mouseup', one, 70, 60);
     assert.deepEqual(
       av.state.selection.ids,
-      ['three'],
+      ['two', 'three'],
       'app chrome starts no gesture'
     );
     mouse('mousedown', one, 55, 60, false, 2);
@@ -4252,6 +4247,9 @@ for (const [platform, modifier] of [
     assert.equal(av.state.selection.visible, false);
     assert(!av.hasFocus(), 'blank click dismisses the editor focus');
     assert(!document.querySelector('.body-marquee'));
+    mouse('mousedown', one, 55, 60, true);
+    mouse('mouseup', one, 55, 60, true);
+    assert.deepEqual(av.state.selection.ids, ['one']);
     for (const mode of ['cli', 'mcp']) {
       const read = ok(
         await peerCommand67(x, mode, {

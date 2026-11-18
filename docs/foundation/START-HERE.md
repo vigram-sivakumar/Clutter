@@ -1,15 +1,14 @@
 # Resume Clutter Structured
 
-## Current checkpoint — marquee and platform modifier, build 81
+## Current checkpoint — marquee toggle, build 82
 
 Drag inside the starting block to select text. Drag outside it to draw a marquee.
 A touched body block joins immediately and drops out when the rectangle leaves it.
-Shift+drag adds to the selection that existed when the gesture started. The
-title is excluded from block membership. Escape clears the selection.
-
-Cmd on Mac and Ctrl on Windows remove one selected block on click or subtract
-touched blocks during a drag. With no blocks selected, a modified drag still
-starts marquee when it crosses the starting block. A plain click in blank note space clears the
+Plain drag replaces block selection. The title is excluded from membership.
+Escape clears the selection. Cmd on Mac and Ctrl on Windows toggle a body
+block on click or all touched blocks on drag, using the original selection
+for the entire gesture. Moving off a block restores its original membership.
+A plain click in blank note space clears the
 selection and releases editor focus. Drag can start in that same blank space,
 including the note margins. The note toolbar, tabs and sidebar are outside the
 gesture area.
@@ -42,7 +41,7 @@ single-file Image picker, table presets and deferred embeds. Important distincti
 - Tab/Shift+Tab and parent dragging carry descendants; selection does not auto-select
   them, and Delete removes children only when explicitly selected.
 - Marquee needs no Shift; crossing the starting block changes text selection into
-  block selection. Shift+drag adds disjoint blocks to the prior selection.
+  block selection. Cmd/Ctrl+drag toggles blocks against the prior selection.
 - Multiline title paste reuses a trailing empty paragraph or appends new blocks.
   It scrolls to and selects the pasted blocks with no text caret.
 - Task titles edit inline until icon-driven page conversion; after conversion,

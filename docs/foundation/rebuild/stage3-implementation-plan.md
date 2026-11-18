@@ -269,7 +269,7 @@ native selection events during the gesture. There is no persistence or command
 adapter for marquee. Existing block commands and Core handle its results.
 
 Scoped Mac check: drag inside one line of text, then continue past its block.
-Touch an adjacent block and move back off it. Shift+drag over a separate
-block and check that the blocks between the two are unselected. Press Escape
+Touch an adjacent block and move back off it. Hold Cmd on Mac or Ctrl on
+Windows and drag over mixed selected and unselected blocks to toggle them. Press Escape
 to clear without a caret, then click to resume text editing. Handles and
 group reordering are separate work.

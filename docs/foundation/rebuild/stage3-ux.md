@@ -166,18 +166,18 @@ both an ancestor and descendant happen to be explicitly selected.
 | B02 | Ordinary drag inside starting block | Use text selection while the drag remains inside that block. |
 | B03 | Drag leaves starting block | Transition to block/marquee selection. **Shift is not required.** |
 | B04 | Where marquee can begin | Anywhere in the note canvas, including on top of a block or in the note margins. Toolbar, tabs and sidebar are outside the canvas. |
-| B05 | Shift+drag | Add blocks elsewhere while retaining the pre-existing selection. Selecting top and bottom blocks must not automatically select everything between them. |
+| B05 | Drag without Cmd on Mac or Ctrl on Windows | Crossing the starting block starts a fresh marquee selection. |
 | B06 | Hit rule | Select a block the moment the rectangle touches any part of it. Full enclosure is not required. |
 | B07 | Drag back off a block | Deselect it immediately when the current rectangle no longer touches it. |
-| B08 | Shift-additive baseline | Retain the selection that existed before the current Shift+drag. Live hit-testing changes the current gesture's additions. |
+| B08 | Toggle baseline | Compare live hits with the selection at gesture start. When the marquee moves off a block, restore its original selection state. |
 | B09 | Hierarchy | Marquee operates strictly per block. No parent-child selection propagation in either direction. Use each block's own area, not an enclosing parent box that includes child blocks. |
 | B10 | Normal click inside text | Clear block selection and place the caret at the clicked position. |
 | B11 | Escape | Clear block selection and leave **no text cursor**. |
 | B12 | Ordinary typing with blocks selected | Do nothing. Do not replace selected blocks with typed text or a new paragraph. |
 | B13 | Delete/Backspace | Delete **only explicitly selected blocks**. Delete children only when they are selected too. |
 | B14 | Parent deleted, children not selected | Keep those children at their current indentation. Do not automatically outdent or delete them. |
-| B15 | Cmd+click on Mac, Ctrl+click on Windows | Remove the clicked block from the current selection. |
-| B16 | Cmd+drag on Mac, Ctrl+drag on Windows | Subtract live hits from the initial block selection. Moving off restores blocks from that baseline. With no selected blocks, crossing the starting block starts ordinary marquee. |
+| B15 | Cmd+click on Mac, Ctrl+click on Windows | Toggle the clicked body block in the selection. |
+| B16 | Cmd+drag on Mac, Ctrl+drag on Windows | Toggle each live hit against the initial selection. Previously selected hits become unselected and previously unselected hits become selected. |
 | B17 | Plain click in blank note space | Clear selection, leave no caret and release editor focus. A drag from the same area starts marquee. |
 
 

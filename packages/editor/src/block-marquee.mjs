@@ -17,6 +17,10 @@ const touches = (a, b) =>
   a.bottom >= b.top;
 
 const activeViews = new WeakSet();
+const toggleId = (ids, id) => {
+  if (ids.has(id)) ids.delete(id);
+  else ids.add(id);
+};
 
 // PM may defer writing DOM selection during a native drag. Once marquee owns
 // the drag, a late DOM selectionchange must keep the model's block selection.
@@ -36,7 +40,6 @@ export function mountBlockMarquee(view, canEdit) {
   overlay.setAttribute('aria-hidden', 'true');
   let gesture;
   let suppressClick = false;
-  let suppressContextMenu = false;
   const canvas = () => dom.closest('[data-block-selection-canvas]') ?? dom;
   const onCanvas = (event) => canvas().contains(event.target);
   const available = () =>
@@ -55,16 +58,12 @@ export function mountBlockMarquee(view, canEdit) {
   function start(event) {
     finish();
     suppressClick = false;
-    suppressContextMenu = false;
     const target = event.target;
     const primaryModifier = apple ? event.metaKey : event.ctrlKey;
-    const otherModifier = apple ? event.ctrlKey : event.metaKey;
     if (
       !onCanvas(event) ||
       event.button !== 0 ||
       (event.detail > 1 && !primaryModifier) ||
-      event.altKey ||
-      otherModifier ||
       view.composing ||
       !available() ||
       target.closest?.(
@@ -79,24 +78,18 @@ export function mountBlockMarquee(view, canEdit) {
     const selection = view.state.selection;
     const selected =
       selection instanceof BodyBlockSelection ? selection.ids : [];
-    const mode =
-      primaryModifier && selected.length
-        ? 'subtract'
-        : !primaryModifier && event.shiftKey && selected.length
-          ? 'add'
-          : 'replace';
     gesture = {
       origin: { x: origin.x - root.left, y: origin.y - root.top },
       end: origin,
-      startBlock: mode === 'replace' ? block : null,
-      clickedId: block?.dataset.blockId,
-      dismissOnClick:
-        mode === 'replace' && !primaryModifier && !event.shiftKey && !block,
-      baseline: mode === 'replace' ? [] : selected,
-      mode,
+      startBlock: primaryModifier ? null : block,
+      clickedId: block?.hasAttribute('data-title')
+        ? null
+        : block?.dataset.blockId,
+      dismissOnClick: !primaryModifier && !block,
+      baseline: primaryModifier ? selected : [],
+      toggle: primaryModifier,
     };
-    suppressContextMenu = mode === 'subtract';
-    if (mode !== 'replace' || gesture.dismissOnClick) event.preventDefault();
+    if (primaryModifier || gesture.dismissOnClick) event.preventDefault();
   }
 
   function applySelection(ids, keepFocus = true) {
@@ -148,7 +141,7 @@ export function mountBlockMarquee(view, canEdit) {
         element.getBoundingClientRect &&
         touches(box, element.getBoundingClientRect())
       ) {
-        if (gesture.mode === 'subtract') ids.delete(node.attrs.blockId);
+        if (gesture.toggle) toggleId(ids, node.attrs.blockId);
         else ids.add(node.attrs.blockId);
       }
     }
@@ -174,14 +167,13 @@ export function mountBlockMarquee(view, canEdit) {
       update(event);
     } else if (available() && onCanvas(event)) {
       const block = blockAt(event.target);
-      if (gesture.mode === 'subtract') {
+      if (gesture.toggle) {
         const releasedId = block?.dataset.blockId;
-        if (
-          releasedId &&
-          releasedId === gesture.clickedId &&
-          gesture.baseline.includes(releasedId)
-        )
-          applySelection(gesture.baseline.filter((id) => id !== releasedId));
+        if (releasedId && releasedId === gesture.clickedId) {
+          const ids = new Set(gesture.baseline);
+          toggleId(ids, releasedId);
+          applySelection(ids);
+        }
         suppressClick = true;
       } else if (gesture.dismissOnClick && !block) {
         applySelection([], false);
@@ -195,12 +187,6 @@ export function mountBlockMarquee(view, canEdit) {
     suppressClick = false;
     event.preventDefault();
     event.stopPropagation();
-  }
-  function contextMenu(event) {
-    if (suppressContextMenu && onCanvas(event)) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
   }
   function keydown(event) {
     if (event.key === 'Escape' && gesture) finish();
@@ -218,7 +204,6 @@ export function mountBlockMarquee(view, canEdit) {
     [doc, 'mousemove', move],
     [win, 'mouseup', release, false],
     [doc, 'click', click],
-    [doc, 'contextmenu', contextMenu],
     [doc, 'keydown', keydown],
     [doc, 'selectstart', guardNativeSelection],
     [doc, 'dragstart', guardNativeSelection],

@@ -28,10 +28,7 @@ export function resumeTextSelection(view, pos, event) {
   if (
     !(view.state.selection instanceof BodyBlockSelection) ||
     event.button !== 0 ||
-    event.shiftKey ||
-    event.metaKey ||
-    event.ctrlKey ||
-    event.altKey
+    event.defaultPrevented
   )
     return false;
   const $at = view.state.doc.resolve(pos);
