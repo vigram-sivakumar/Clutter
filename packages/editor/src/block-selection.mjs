@@ -5,7 +5,11 @@ import {
   NodeSelection,
 } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
-import { BodyBlockSelection } from './body-selection.mjs';
+import {
+  BodyBlockSelection,
+  presentsBodySelection,
+  isInactiveBodySelection,
+} from './body-selection.mjs';
 import { blockRows } from './block-structure.mjs';
 import { deleteBlocks } from './block-deletion.mjs';
 const key = new PluginKey('body-block-selection');
@@ -38,7 +42,7 @@ export function resumeTextSelection(view, pos, event) {
     return false;
   // Focus first, then publish one visible selection (the same order as PM's own
   // pointer selection). No delayed focus/caret colour workaround.
-  view.focus();
+  if (!view.hasFocus()) view.focus();
   view.dispatch(view.state.tr.setSelection(selection).setMeta('pointer', true));
   return true;
 }
@@ -56,12 +60,18 @@ export function bodyBlockInteractions({ canEdit, nextId, stopCapturing } = {}) {
       },
     },
     props: {
+      // Empty/no-caret mode keeps keyboard focus without a live transparent caret.
+      editable: (state) => !isInactiveBodySelection(state.selection),
       attributes: (state) =>
-        state.selection instanceof BodyBlockSelection
-          ? { 'data-body-selection': '', class: 'body-selection-mode' }
-          : {},
+        presentsBodySelection(state.selection)
+          ? {
+              tabindex: '0',
+              'data-body-selection': '',
+              class: 'body-selection-mode',
+            }
+          : { tabindex: '0' },
       decorations(state) {
-        if (!(state.selection instanceof BodyBlockSelection)) return null;
+        if (!presentsBodySelection(state.selection)) return null;
         const ids = new Set(state.selection.ids);
         return DecorationSet.create(
           state.doc,
@@ -185,6 +195,17 @@ export function bodyBlockInteractions({ canEdit, nextId, stopCapturing } = {}) {
       handlePaste: (view) => view.state.selection instanceof BodyBlockSelection,
       handleDrop: (view) => view.state.selection instanceof BodyBlockSelection,
       handleDOMEvents: {
+        keydown(view, event) {
+          if (view.editable || !isInactiveBodySelection(view.state.selection))
+            return false;
+          // PM skips its editing key pipeline when noneditable. Route the same
+          // public handlers once; copy remains the native non-editing copy path.
+          const handled = view.someProp('handleKeyDown', (handler) =>
+            handler(view, event)
+          );
+          if (handled) event.preventDefault();
+          return !!handled;
+        },
         mousedown(view, event) {
           if (!(view.state.selection instanceof BodyBlockSelection))
             return false;

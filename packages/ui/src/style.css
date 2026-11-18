@@ -541,9 +541,6 @@ button:focus-visible {
 }
 
 /* View-local block membership. Saved block background remains unchanged. */
-.ProseMirror.body-selection-mode {
-  caret-color: transparent;
-}
 .ProseMirror.body-selection-mode ::selection {
   background: transparent;
 }

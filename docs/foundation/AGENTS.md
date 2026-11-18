@@ -257,3 +257,29 @@ first-click sequence; no note content/URLs/IDs/tokens/typed characters, metadata
 explicit copy. Native cause still unresolved; next analyze report, not speculative
 caret CSS/timers or marquee. Default off; remove temporary hook after resolution
 unless justified as a development tool. Existing client/formatting passes remain.
+
+## Current caret checkpoint74
+
+74 analyzes the actual73 native trace:156 events,12,002ms,dropped0. The report
+is usable; no recollection needed. Save/sync repeatedly left/re-entered block mode
+and transparent/normal caret colour BEFORE the first post-delete click at5025ms.
+One focus/selection restoration at5026ms; normal caret state by5027ms, no subsequent
+JS focus/selection writes through12002ms. This does NOT establish a post-click JS
+reset loop or measure native caret paint.72 remains native FAIL.
+
+74 removes the live transparent caret from empty/no-caret body mode: editor becomes
+noneditable but keeps keyboard focus/tabindex. Public key handlers still own commands;
+selected nonempty body blocks keep normal copy behavior. Text click restores editable
+TextSelection. Existing Y guard uses an internal AllSelection-derived presentation
+shield, preserving body mode/editability through remote restores and preventing its
+own selection dispatches re-entering protection. Saved BodyBlockSelection model,
+Core/history/save and object67 semantics unchanged. Redundant already-focused focus
+call and transparent caret CSS removed. No blink animation, timers, native OS branch,
+private binding mutation, dependency change or second semantic owner.
+
+Native74 RETEST PENDING. Build changed source with `npm run desktop -- --new` (no
+install, normal trace flag off). Delete all BODY blocks with Cmd+A twice/Delete:
+no caret expected. Click empty body once, watch initial blinks and type. Confirm on
+Mac before marquee/handles/reorder. Optional73 diagnostic remains default-off until
+resolution; remove temporary hook after actual native confirmation. Prior68 client
+and70 formatting native passes stay complete, no bookkeeping replay.

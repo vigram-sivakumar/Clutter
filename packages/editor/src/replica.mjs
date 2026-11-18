@@ -187,6 +187,7 @@ export function createEditorReplica(
           ],
         }),
         dispatchTransaction(tr) {
+          selectionGuard.preservePresentation(this, tr);
           if (
             tr.docChanged &&
             !tr.getMeta(ySyncPluginKey)?.isChangeOrigin &&

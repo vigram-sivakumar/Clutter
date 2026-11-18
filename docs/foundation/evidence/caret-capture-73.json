@@ -17,8 +17,20 @@
     "bounded": "12 seconds/400 events; exact method descriptors restored",
     "content": "no text/URLs/IDs/tokens/literal characters; delta-state metadata only",
     "output": "in memory, explicit user Copy trace; no network/DB/report write path",
-    "native": "awaiting actual Mac capture; can affect timing, not latency/pixel qualification"
+    "native": "received usable156-event report; analyzed in74, native paint not measured"
   },
   "architectureReview": "existing host mechanism only, no feature/selection/history/save owner or cursor-style/timer fix; origin guarded",
-  "next": "analyze one actual native first-click report before further caret change; marquee pending"
+  "next": "native74 source correction retest, no new capture requested",
+  "traceAnalysis74": {
+    "sha256": "d2de697c2935f939e2f2bcde922dc3da057bf5359eecaf3976a4df8e543707d7",
+    "bytes": 11562,
+    "events": 156,
+    "durationMs": 12002,
+    "dropped": 0,
+    "firstPostDeleteClickMs": 5025,
+    "restoredStateMs": 5027,
+    "lastObservationMs": 12002,
+    "finding": "pre-click guard presentation/caret colour oscillation; no post-restoration JS selection/focus writes",
+    "rawTraceTracked": false
+  }
 }

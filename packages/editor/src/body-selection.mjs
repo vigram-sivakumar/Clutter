@@ -1,4 +1,4 @@
-import { Selection, SelectionRange } from 'prosemirror-state';
+import { Selection, SelectionRange, AllSelection } from 'prosemirror-state';
 import { Slice, Fragment } from 'prosemirror-model';
 import { blockRows } from './block-structure.mjs';
 // The single view-local explicit body-block selection model. Ctrl+A and future
@@ -70,3 +70,29 @@ BodyBlockSelection.prototype.visible = false;
 Selection.jsonID('body-blocks', BodyBlockSelection);
 export const selectBodyBlocks = (state, ids) =>
   state.tr.setSelection(new BodyBlockSelection(state.doc, ids));
+
+// Internal Y protection still serializes as AllSelection, but its DOM presentation
+// stays in the originating block mode. It is not another persisted selection owner.
+export class BodySelectionShield extends AllSelection {
+  constructor(doc, ids) {
+    super(doc);
+    this.ids = ids;
+  }
+  map(doc) {
+    return new BodySelectionShield(doc, this.ids);
+  }
+  eq(other) {
+    return (
+      other instanceof BodySelectionShield &&
+      this.ids.length === other.ids.length &&
+      this.ids.every((id, i) => id === other.ids[i])
+    );
+  }
+}
+BodySelectionShield.prototype.visible = false;
+export const presentsBodySelection = (selection) =>
+  selection instanceof BodyBlockSelection ||
+  selection instanceof BodySelectionShield;
+
+export const isInactiveBodySelection = (selection) =>
+  presentsBodySelection(selection) && selection.ids.length === 0;

@@ -3760,6 +3760,7 @@ test('72 mouse-down after bulk delete restores one visible body caret before mou
       assert.equal(av.state.selection.$from.parent.type.name, 'paragraph');
       assert.equal(av.state.selection.$from.parentOffset, 0);
       assert.equal(av.state.selection.visible, true);
+      assert.equal(av.dom.getAttribute('contenteditable'), 'true');
       assert(av.hasFocus());
       assert(!av.dom.hasAttribute('data-body-selection'));
       assert(!av.dom.classList.contains('body-selection-mode'));
@@ -3801,4 +3802,106 @@ test('72 mouse-down after bulk delete restores one visible body caret before mou
   } finally {
     av.posAtCoords = hitTest;
   }
+});
+
+test('74 inactive body stays noneditable through accepted save and real MCP reconciliation', async (t) => {
+  const x = await seeded(t),
+    a = await x.open('inactive74'),
+    av = x.mount(a);
+  av.focus();
+  rowAt(av, 'paragraph-1');
+  keydown(av, 'a', { metaKey: true });
+  keydown(av, 'a', { metaKey: true });
+  keydown(av, 'Delete');
+  assert.equal(av.dom.getAttribute('contenteditable'), 'false');
+  assert.equal(av.dom.getAttribute('tabindex'), '0');
+  const original = av.props.dispatchTransaction,
+    states = [];
+  av.setProps({
+    dispatchTransaction(tr) {
+      original.call(this, tr);
+      states.push({
+        selection: av.state.selection.constructor.name,
+        editable: av.dom.getAttribute('contenteditable'),
+        mode: av.dom.hasAttribute('data-body-selection'),
+      });
+    },
+  });
+  await a.flush();
+  const content = body('Remote while inactive');
+  ok(
+    await peerCommand67(x, 'mcp', {
+      apiVersion: 1,
+      method: 'page.update',
+      spaceId: x.v.spaceId,
+      pageId: 'p',
+      operationId: x.next(),
+      expectedHead: x.v.load('p').head,
+      patch: { content },
+    })
+  );
+  await settle(a);
+  assert(states.length > 0);
+  assert(
+    states.some((s) => s.selection === 'BodySelectionShield'),
+    'exercise actual Y guard'
+  );
+  assert(
+    states.every((s) => s.mode && s.editable === 'false'),
+    JSON.stringify(states)
+  );
+  assert(av.state.selection instanceof BodyBlockSelection);
+  assert.deepEqual(av.state.selection.ids, []);
+  assert.equal(text(av), 'Remote while inactive');
+  const cli = ok(
+    await peerCommand67(x, 'cli', {
+      apiVersion: 1,
+      method: 'page.read',
+      spaceId: x.v.spaceId,
+      pageId: 'p',
+    })
+  );
+  assert.equal(cli.head, ok(await x.read()).head);
+  assert(!JSON.stringify(cli).includes('BodySelectionShield'));
+});
+
+test('74 inactive body retains keyboard commands and copy remains body-only', async (t) => {
+  const x = await seeded(t),
+    a = await x.open('keyboard74'),
+    av = x.mount(a);
+  av.dispatch(av.state.tr.insertText('Private title', 1));
+  av.focus();
+  rowAt(av, 'paragraph-1');
+  keydown(av, 'a', { ctrlKey: true });
+  keydown(av, 'a', { ctrlKey: true });
+  const copied = new Map(),
+    copy = new dom.window.Event('copy', { bubbles: true, cancelable: true });
+  Object.defineProperty(copy, 'clipboardData', {
+    value: {
+      clearData() {
+        copied.clear();
+      },
+      setData(type, value) {
+        copied.set(type, value);
+      },
+    },
+  });
+  av.dom.dispatchEvent(copy);
+  assert.equal(copied.get('text/plain'), 'Alpha beta');
+  assert(!copied.get('text/html').includes('Private title'));
+  keydown(av, 'Delete');
+  assert.equal(av.editable, false);
+  assert(av.hasFocus());
+  assert(keydown(av, 'a', { ctrlKey: true }).defaultPrevented);
+  assert(av.state.selection instanceof BodyBlockSelection);
+  assert.equal(av.state.selection.ids.length, 1);
+  keydown(av, 'Escape');
+  assert.equal(av.editable, false);
+  assert.deepEqual(av.state.selection.ids, []);
+  keydown(av, 'z', { ctrlKey: true });
+  assert.equal(text(av), 'Alpha beta');
+  keydown(av, 'z', { ctrlKey: true, shiftKey: true });
+  assert.equal(text(av), '');
+  assert.equal(av.state.doc.firstChild.textContent, 'Private title');
+  await a.flush();
 });

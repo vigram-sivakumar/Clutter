@@ -266,3 +266,12 @@ normally, apply source patch, then `CLUTTER_CARET_TRACE=1 npm run desktop:reopen
 No rebuild, install, new Space or bundle mutation. Dev-only panel Start captures12s
 metadata then restores instrumented methods; Copy trace explicit. Normal reopen
 without flag omits panel. This is not another cursor fix;72 native issue still open.
+
+## Current caret checkpoint74
+
+[Trace finding, source correction and native retest](foundation/rebuild/inactive-caret-74.md). The actual73 log
+shows pre-click presentation oscillation, no post-click selection-write loop.74 keeps
+empty/no-caret body noneditable with existing keyboard commands and preserves that
+presentation through the Y guard. Removes transparent-caret CSS. One shared editor/
+Core/history/save path; native74 blink confirmation pending before marquee. Build
+changed source with `npm run desktop -- --new`; no install or old milestone replay.

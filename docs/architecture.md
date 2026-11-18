@@ -284,3 +284,12 @@ network or persistence path is added. Report is in-memory, explicitly copied by 
 no notes/IDs/URLs/tokens/literal characters. This is diagnostic, can affect timing,
 and establishes event sequence rather than pixels/latency. Default bootstrap origin
 guard still applies. Remove temporary hook after diagnosis unless a justified dev tool.
+
+## Current caret checkpoint74
+
+[Trace finding, source correction and native retest](foundation/rebuild/inactive-caret-74.md). The actual73 log
+shows pre-click presentation oscillation, no post-click selection-write loop.74 keeps
+empty/no-caret body noneditable with existing keyboard commands and preserves that
+presentation through the Y guard. Removes transparent-caret CSS. One shared editor/
+Core/history/save path; native74 blink confirmation pending before marquee. Build
+changed source with `npm run desktop -- --new`; no install or old milestone replay.

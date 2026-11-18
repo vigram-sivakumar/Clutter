@@ -1,0 +1,36 @@
+{
+  "delivery": 74,
+  "date": "2026-11-17",
+  "scope": "stable inactive-body presentation and normal text re-entry",
+  "trace": "usable73 report156 events,dropped0; pre-click mode/colour oscillation; no further focus/selection writes after5027ms through12002ms",
+  "native72": "FAIL first-click fast blinks after all-body deletion",
+  "native74": "PENDING actual Mac retest; paint not qualified by model tests",
+  "automated": {
+    "fullSuite": {
+      "tests": 225,
+      "pass": 225,
+      "fail": 0
+    },
+    "newRegressions": 2,
+    "existingFocusedRegressions": 12,
+    "strictCoreRuntimeTypecheck": "PASS",
+    "sharedBoundarySources": 57
+  },
+  "realClients": "new actual MCP write/CLI read of same accepted root while inactive; full suite also client read/write/conflict/UI save/reopen cases",
+  "changes": [
+    "inactive empty selection noneditable with tabindex and same public keyboard commands",
+    "internal AllSelection-derived Y shield keeps body presentation across intermediate restores; guard does not recursively shield own selection dispatch",
+    "remove transparent caret CSS and redundant already-focused focus call"
+  ],
+  "frozen": [
+    "schema",
+    "Core",
+    "runtime mechanisms",
+    "native app",
+    "dependencies",
+    "locks",
+    "object67 behavior"
+  ],
+  "review": "one view-local selection model, one Core/SpaceService/history/save path; superseded presentation removed; no OS branch/private binding mutation/new clipboard owner or blink timers",
+  "next": "normal npm run desktop -- --new; single first-click native check before marquee;73 optional diagnostic remains off pending actual resolution"
+}

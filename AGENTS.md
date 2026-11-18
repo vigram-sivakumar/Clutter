@@ -8,15 +8,29 @@ The user authorized complete removal of old architecture, not a compatibility pr
 Do not resurrect the retired CM6/full-or-compact Markdown/vault/persistence pipeline.
 
 Stage3 execution order and acceptance: docs/foundation/rebuild/stage3-implementation-plan.md.
-72 native caret issue remains OPEN: user still sees2–3 fast blinks then normal,
-ONLY FIRST CLICK after deleting ALL body blocks. Do not mark renderer fixed from
-model tests. Current73 is opt-in native metadata capture, not another cursor fix.
-Read docs/foundation/rebuild/caret-capture-73.md. Existing72 editor/UI/bundle stays
-unchanged; close normally then CLUTTER_CARET_TRACE=1 npm run desktop:reopen injects
-trace through existing source host bootstrap, no rebuild/new Space. One12-second
-first-click capture; no text/URLs/tokens/key characters collected; explicit Copy trace.
-NEXT inspect actual report before further caret changes. No marquee progression yet.
-No-caret bulk deletion retained;68 client and70 formatting milestones remain complete.
+74 analyzes the actual73 native trace:156 events,12,002ms,dropped0. The report
+is usable; no recollection needed. Save/sync repeatedly left/re-entered block mode
+and transparent/normal caret colour BEFORE the first post-delete click at5025ms.
+One focus/selection restoration at5026ms; normal caret state by5027ms, no subsequent
+JS focus/selection writes through12002ms. This does NOT establish a post-click JS
+reset loop or measure native caret paint.72 remains native FAIL.
+
+74 removes the live transparent caret from empty/no-caret body mode: editor becomes
+noneditable but keeps keyboard focus/tabindex. Public key handlers still own commands;
+selected nonempty body blocks keep normal copy behavior. Text click restores editable
+TextSelection. Existing Y guard uses an internal AllSelection-derived presentation
+shield, preserving body mode/editability through remote restores and preventing its
+own selection dispatches re-entering protection. Saved BodyBlockSelection model,
+Core/history/save and object67 semantics unchanged. Redundant already-focused focus
+call and transparent caret CSS removed. No blink animation, timers, native OS branch,
+private binding mutation, dependency change or second semantic owner.
+
+Native74 RETEST PENDING. Build changed source with `npm run desktop -- --new` (no
+install, normal trace flag off). Delete all BODY blocks with Cmd+A twice/Delete:
+no caret expected. Click empty body once, watch initial blinks and type. Confirm on
+Mac before marquee/handles/reorder. Optional73 diagnostic remains default-off until
+resolution; remove temporary hook after actual native confirmation. Prior68 client
+and70 formatting native passes stay complete, no bookkeeping replay.
 
 MANDATORY ON EVERY CHANGE: follow the completion review in docs/foundation/AGENTS.md.
 Remove superseded paths; check for duplicate owners/implementations and boundary

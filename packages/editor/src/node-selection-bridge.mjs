@@ -1,4 +1,4 @@
-import { BodyBlockSelection } from './body-selection.mjs';
+import { BodyBlockSelection, BodySelectionShield } from './body-selection.mjs';
 import {
   AllSelection,
   NodeSelection,
@@ -30,56 +30,83 @@ export function bodySelectionNear(doc, at) {
 // The temporary AllSelection is selection-only,
 // synchronous, not history and never persisted. Restore by canonical block ID.
 export function createViewSelectionGuard(doc, views) {
-  let changing = 0;
+  let changing = 0,
+    internalSelection = false;
   const pending = new Map();
   const before = () => {
-    if (!changing) return;
-    for (const view of views) {
-      const selection = view.state.selection;
-      if (selection instanceof BodyBlockSelection) {
-        pending.set(view, { ids: selection.ids });
+    if (!changing || internalSelection) return;
+    internalSelection = true;
+    try {
+      for (const view of views) {
+        const selection = view.state.selection;
+        if (selection instanceof BodyBlockSelection) {
+          pending.set(view, { ids: selection.ids });
+          view.dispatch(
+            view.state.tr.setSelection(
+              new BodySelectionShield(view.state.doc, selection.ids)
+            )
+          );
+          continue;
+        }
+        if (!(selection instanceof NodeSelection)) continue;
+        pending.set(view, {
+          id: selection.node.attrs.blockId,
+          pos: selection.from,
+        });
         view.dispatch(
           view.state.tr.setSelection(new AllSelection(view.state.doc))
         );
-        continue;
       }
-      if (!(selection instanceof NodeSelection)) continue;
-      pending.set(view, {
-        id: selection.node.attrs.blockId,
-        pos: selection.from,
-      });
-      view.dispatch(
-        view.state.tr.setSelection(new AllSelection(view.state.doc))
-      );
+    } finally {
+      internalSelection = false;
     }
   };
   const after = () => {
-    for (const [view, saved] of pending) {
-      if (!views.has(view)) continue;
-      if (saved.ids) {
-        view.dispatch(
-          view.state.tr.setSelection(
-            new BodyBlockSelection(view.state.doc, saved.ids)
-          )
-        );
-        continue;
-      }
-      let pos;
-      view.state.doc.forEach((node, start) => {
-        if (node.attrs.blockId === saved.id && NodeSelection.isSelectable(node))
-          pos = start;
-      });
-      const selection =
-        pos === undefined
-          ? bodySelectionNear(view.state.doc, saved.pos)
-          : NodeSelection.create(view.state.doc, pos);
-      view.dispatch(view.state.tr.setSelection(selection));
-    }
+    if (internalSelection) return;
+    const savedSelections = [...pending];
     pending.clear();
+    internalSelection = true;
+    try {
+      for (const [view, saved] of savedSelections) {
+        if (!views.has(view)) continue;
+        if (saved.ids) {
+          view.dispatch(
+            view.state.tr.setSelection(
+              new BodyBlockSelection(view.state.doc, saved.ids)
+            )
+          );
+          continue;
+        }
+        let pos;
+        view.state.doc.forEach((node, start) => {
+          if (
+            node.attrs.blockId === saved.id &&
+            NodeSelection.isSelectable(node)
+          )
+            pos = start;
+        });
+        const selection =
+          pos === undefined
+            ? bodySelectionNear(view.state.doc, saved.pos)
+            : NodeSelection.create(view.state.doc, pos);
+        view.dispatch(view.state.tr.setSelection(selection));
+      }
+    } finally {
+      internalSelection = false;
+    }
   };
   doc.on('beforeAllTransactions', before);
   doc.on('afterAllTransactions', after);
   return {
+    preservePresentation(view, tr) {
+      const saved = pending.get(view);
+      if (
+        saved?.ids &&
+        !(tr.selection instanceof BodyBlockSelection) &&
+        !(tr.selection instanceof BodySelectionShield)
+      )
+        tr.setSelection(new BodySelectionShield(tr.doc, saved.ids));
+    },
     run(action) {
       changing++;
       try {

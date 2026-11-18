@@ -1,37 +1,32 @@
 # Resume Clutter Structured
 
-## Current checkpoint — native caret capture73, 17 November 2026
+## Current checkpoint — inactive body caret74, 17 November2026
 
-**72 native issue NOT fixed.** User still sees2–3 rapid caret blinks then normal,
-**only on the first click after deleting ALL body blocks**. Earlier model regression
-passes remain valid but do not establish native caret paint. No-caret bulk deletion
-is retained.68 client and70 formatting native milestones remain complete.
+74 analyzes the actual73 native trace:156 events,12,002ms,dropped0. The report
+is usable; no recollection needed. Save/sync repeatedly left/re-entered block mode
+and transparent/normal caret colour BEFORE the first post-delete click at5025ms.
+One focus/selection restoration at5026ms; normal caret state by5027ms, no subsequent
+JS focus/selection writes through12002ms. This does NOT establish a post-click JS
+reset loop or measure native caret paint.72 remains native FAIL.
 
-**73 is an opt-in diagnostic, no new caret behavior.** Existing source host bootstrap
-can inject a bounded12-second focus/selection observer into the immutable72 app on
-normal same-session reopen. `CLUTTER_CARET_TRACE=1 npm run desktop:reopen`. No native
-compile/new bundle/new Space or semantic writer. Default reopen has no trace panel.
-Read [exact capture steps](rebuild/caret-capture-73.md).
+74 removes the live transparent caret from empty/no-caret body mode: editor becomes
+noneditable but keeps keyboard focus/tabindex. Public key handlers still own commands;
+selected nonempty body blocks keep normal copy behavior. Text click restores editable
+TextSelection. Existing Y guard uses an internal AllSelection-derived presentation
+shield, preserving body mode/editability through remote restores and preventing its
+own selection dispatches re-entering protection. Saved BodyBlockSelection model,
+Core/history/save and object67 semantics unchanged. Redundant already-focused focus
+call and transparent caret CSS removed. No blink animation, timers, native OS branch,
+private binding mutation, dependency change or second semantic owner.
 
-User closes window normally, applies73, reopens same app with flag. Bottom-right
-Caret trace (development): put body text in note first; Start; click body, Cmd+A twice,
-Delete; click empty body ONCE and leave input alone while trace completes. Copy trace
-and paste into chat. Native DOM focus/selection writes/selectionchange/hidden-mode/
-caret-colour state only; no note text, URLs, IDs, credentials or literal typed chars.
-400-row cap,12-second auto-stop; original native methods restored on stop/cap. Report
-lists which methods were instrumented; unchanged state fields are omitted per row.
+Native74 RETEST PENDING. Build changed source with `npm run desktop -- --new` (no
+install, normal trace flag off). Delete all BODY blocks with Cmd+A twice/Delete:
+no caret expected. Click empty body once, watch initial blinks and type. Confirm on
+Mac before marquee/handles/reorder. Optional73 diagnostic remains default-off until
+resolution; remove temporary hook after actual native confirmation. Prior68 client
+and70 formatting native passes stay complete, no bookkeeping replay.
 
-NEXT inspect this single actual native report before another caret correction; do
-not move to marquee or label73 a bug fix. Instrumentation may affect timing, so user
-should also say if the rapid blink did not occur during capture. No benchmark claims.
-Temporary opt-in capture should be removed after cause is resolved unless retained
-as a justified development diagnostic; never enable by default or ship silently.
-
-Validation73:3 trace tests PASS,2 existing host bridge/reopen tests PASS,3 relevant
-editor/real CLI/MCP regressions PASS; strict Core/runtime TS and57-source boundaries
-PASS. No full-suite replay: existing editor/UI/Core/runtime/native/schema/dependency/
-lock/bundled resources untouched. Prior72 full220 tests do not qualify native blink.
-
+Read [source correction and check](rebuild/inactive-caret-74.md).
 
 ## Working agreement
 

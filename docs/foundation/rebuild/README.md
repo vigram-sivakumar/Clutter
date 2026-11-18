@@ -113,3 +113,12 @@ blink retest next; pointer marquee/handles/reorder remain pending on same model.
 72 native first-click blink still OPEN after deleting ALL body blocks.73
 [opt-in native capture](caret-capture-73.md) is diagnosis only, no rebuild/new Space.
 Inspect one metadata trace before next caret change; pointer capability stays pending.
+
+## Current caret checkpoint74
+
+[Trace finding, source correction and native retest](inactive-caret-74.md). The actual73 log
+shows pre-click presentation oscillation, no post-click selection-write loop.74 keeps
+empty/no-caret body noneditable with existing keyboard commands and preserves that
+presentation through the Y guard. Removes transparent-caret CSS. One shared editor/
+Core/history/save path; native74 blink confirmation pending before marquee. Build
+changed source with `npm run desktop -- --new`; no install or old milestone replay.
