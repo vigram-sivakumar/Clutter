@@ -2,12 +2,8 @@ import { Plugin, TextSelection } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import { BodyBlockSelection } from './body-selection.mjs';
 
-function emptyBodyParagraph(doc) {
-  if (doc.childCount !== 2) return null;
-  const paragraph = doc.child(1);
-  return paragraph.type.name === 'paragraph' && paragraph.content.size === 0
-    ? paragraph
-    : null;
+function isEmptyParagraph(node) {
+  return node?.type.name === 'paragraph' && node.content.size === 0;
 }
 
 export function titleInteractions(nextId, canEdit) {
@@ -32,7 +28,10 @@ export function titleInteractions(nextId, canEdit) {
           if (event.altKey || event.metaKey || event.ctrlKey) return false;
           const start = state.doc.firstChild.nodeSize;
           let tr = state.tr;
-          if (!emptyBodyParagraph(state.doc))
+          if (
+            state.doc.childCount !== 2 ||
+            !isEmptyParagraph(state.doc.lastChild)
+          )
             tr = tr.insert(
               start,
               state.schema.nodes.paragraph.create({ blockId: nextId() })
@@ -75,15 +74,20 @@ export function titleInteractions(nextId, canEdit) {
         if (typeof text !== 'string' || !/[\r\n]/.test(text)) return false;
         const lines = text.replace(/\r\n?/g, '\n').split('\n');
         const { state } = view;
-        const starter = emptyBodyParagraph(state.doc);
+        const last = state.doc.lastChild;
+        const trailingParagraph = isEmptyParagraph(last) ? last : null;
         const blocks = lines.map((line, index) =>
           state.schema.nodes.paragraph.create(
-            index === 0 && starter ? starter.attrs : { blockId: nextId() },
+            index === 0 && trailingParagraph
+              ? trailingParagraph.attrs
+              : { blockId: nextId() },
             line ? state.schema.text(line) : null
           )
         );
         const end = state.doc.content.size;
-        const start = starter ? state.doc.firstChild.nodeSize : end;
+        const start = trailingParagraph
+          ? end - trailingParagraph.nodeSize
+          : end;
         const tr = state.tr.replaceWith(start, end, blocks);
         view.dispatch(
           tr.setSelection(
@@ -93,7 +97,7 @@ export function titleInteractions(nextId, canEdit) {
             )
           )
         );
-        // Scroll the actual appended block in its existing pane, without a remount.
+        // Scroll the first pasted block in its existing pane, without a remount.
         view.dom
           .querySelector(`[data-block-id="${blocks[0].attrs.blockId}"]`)
           ?.scrollIntoView?.({ block: 'nearest' });

@@ -1500,13 +1500,30 @@ test('3A Enter and Backspace respect title/body boundary and Shift+Enter is iner
   assert.equal(av.state.doc.childCount, 2);
   assert.equal(av.state.selection.$from.parent.type.name, 'paragraph');
 });
-for (const initialBody of ['', 'Alpha beta'])
-  test(`77 multiline title paste into an ${initialBody ? 'existing' : 'empty'} body selects the pasted blocks and undoes once`, async (t) => {
+for (const { initialBody, trailingEmpty, label } of [
+  { initialBody: '', label: 'blank body' },
+  { initialBody: 'Alpha beta', label: 'body ending in text' },
+  {
+    initialBody: 'Alpha beta',
+    trailingEmpty: true,
+    label: 'body ending in an empty paragraph',
+  },
+])
+  test(`78 multiline title paste into a ${label} selects the pasted blocks and undoes once`, async (t) => {
     const x = await seeded(t, {}, initialBody),
       a = await x.open('title_paste'),
       av = x.mount(a);
     av.dispatch(av.state.tr.insertText('Keep', 1));
+    if (trailingEmpty) {
+      av.dispatch(
+        av.state.tr.insert(
+          av.state.doc.content.size,
+          av.state.schema.nodes.paragraph.create({ blockId: 'trailing-empty' })
+        )
+      );
+    }
     a.stopCapturing();
+    const initialDoc = av.state.doc;
     av.focus();
     const selectionStart = initialBody ? 2 : 1;
     const bodyLines = [
@@ -1516,7 +1533,6 @@ for (const initialBody of ['', 'Alpha beta'])
       'last',
       '',
     ];
-    const initialBlock = av.state.doc.child(1);
     const event = new dom.window.Event('paste', {
       bubbles: true,
       cancelable: true,
@@ -1557,10 +1573,12 @@ for (const initialBody of ['', 'Alpha beta'])
     );
     assert.equal(av.dom.querySelectorAll('.selected-body-block').length, 4);
     assert(scrolled);
-    assert.equal(
-      av.state.doc.child(1).attrs.blockId,
-      initialBlock.attrs.blockId
-    );
+    if (!initialBody || trailingEmpty) {
+      assert.equal(
+        av.state.selection.ids[0],
+        initialDoc.lastChild.attrs.blockId
+      );
+    }
     await a.flush();
     await settle(a);
     assert.equal(av.dom.querySelectorAll('.selected-body-block').length, 4);
@@ -1576,9 +1594,9 @@ for (const initialBody of ['', 'Alpha beta'])
       assert.equal(saved.head, ok(await x.read()).head);
       assert.deepEqual(
         saved.content.value.content
-          .slice(selectionStart)
+          .slice(1)
           .map((node) => node.content?.[0]?.text ?? ''),
-        ['first', '', 'last', '']
+        bodyLines
       );
       assert(!JSON.stringify(saved.content).includes('selected-body-block'));
     }
@@ -1590,8 +1608,7 @@ for (const initialBody of ['', 'Alpha beta'])
     );
     assert(keydown(av, 'z', { ctrlKey: true }).defaultPrevented);
     assert.equal(av.state.doc.firstChild.textContent, 'Keep');
-    assert.equal(av.state.doc.childCount, 2);
-    assert(av.state.doc.child(1).eq(initialBlock));
+    assert(av.state.doc.eq(initialDoc));
     a.history(av, 'redo');
     assert.equal(av.state.doc.childCount, bodyLines.length + 1);
   });

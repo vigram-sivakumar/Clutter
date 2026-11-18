@@ -1,17 +1,17 @@
 # Resume Clutter Structured
 
-## Current checkpoint — title paste in an empty body, build 77
+## Current checkpoint — title paste into a trailing empty paragraph, build 78
 
 The user confirmed the build 75 caret fix on macOS. Build 76 replaces the separate
 multiline title-paste highlight with the same block selection used by Cmd/Ctrl+A.
-Build 77 fills the single empty paragraph when pasting into a blank body. Notes
-with existing blocks receive the pasted lines at the bottom. The same selection
+Build 78 fills the last body paragraph when it is empty, including on a new note.
+If the body ends in content, the paste starts on a new line. The same selection
 outlines the pasted blocks and Cmd/Ctrl+A selects the whole body. The title
 stays outside block selection.
 
-Eight targeted tests passed, including both paste cases, real CLI/MCP readback,
+Nine targeted tests passed, including all three paste cases, real CLI/MCP readback,
 Undo/Redo and caret reentry. TypeScript and package boundary checks passed.
-Mac acceptance for build 77 is pending.
+Mac acceptance for build 78 is pending.
 
 ## Working agreement
 
@@ -34,7 +34,7 @@ single-file Image picker, table presets and deferred embeds. Important distincti
   them, and Delete removes children only when explicitly selected.
 - Marquee needs no Shift; crossing the starting block changes text selection into
   block selection. Shift+drag adds disjoint blocks to the prior selection.
-- Multiline title paste fills a blank body or appends to a populated body.
+- Multiline title paste reuses a trailing empty paragraph or appends new blocks.
   It scrolls to and selects the pasted blocks with no text caret.
 - Task titles edit inline until icon-driven page conversion; after conversion,
   title clicks open the task page and checkbox clicks still toggle completion.
