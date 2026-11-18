@@ -177,7 +177,7 @@ button:focus-visible {
   outline: none;
   white-space: pre-wrap;
   overflow-wrap: break-word;
-  line-height: 1.4;
+  line-height: normal;
   font-size: 16px;
   padding: 12px 0;
 }
@@ -444,10 +444,10 @@ button:focus-visible {
 .ProseMirror [data-indent] {
   margin-left: calc(var(--block-indent, 0) * 1.5rem);
 }
-/* Use block padding for outer spacing. WebKit can size the native caret to
-   the full line box on wrapped text (WebKit bug 287429). */
+/* Keep the font's natural line height for the native WebKit caret on wrapped
+   text (bug 287429). Keep the original single-line block height with padding. */
 .ProseMirror :is(p, h1, h2, h3, h4, h5, h6, .list-block)[data-indent] {
-  padding-block: 0.2em;
+  padding-block: max(0px, calc((1.8em - 1lh) / 2));
 }
 
 .ProseMirror .list-block {
