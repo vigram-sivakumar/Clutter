@@ -1500,7 +1500,7 @@ test('3A Enter and Backspace respect title/body boundary and Shift+Enter is iner
   assert.equal(av.state.doc.childCount, 2);
   assert.equal(av.state.selection.$from.parent.type.name, 'paragraph');
 });
-test('3A multiline title paste appends every line, has no caret, persists highlight until any click, and undoes once', async (t) => {
+test('76 multiline title paste selects only appended blocks, expands with Ctrl+A, and undoes once', async (t) => {
   const x = await seeded(t),
     a = await x.open('title_paste'),
     av = x.mount(a);
@@ -1519,7 +1519,7 @@ test('3A multiline title paste appends every line, has no caret, persists highli
   let scrolled = false;
   const old = dom.window.HTMLElement.prototype.scrollIntoView;
   dom.window.HTMLElement.prototype.scrollIntoView = function () {
-    if (this.classList.contains('pasted-block')) scrolled = true;
+    if (this.classList.contains('selected-body-block')) scrolled = true;
   };
   try {
     av.dom.dispatchEvent(event);
@@ -1535,31 +1535,49 @@ test('3A multiline title paste appends every line, has no caret, persists highli
     ),
     ['Alpha beta', 'first', '', 'last', '']
   );
-  assert.equal(av.hasFocus(), false);
-  assert(av.dom.classList.contains('paste-feedback'));
-  assert.equal(av.dom.querySelectorAll('.pasted-block').length, 4);
+  assert(av.hasFocus());
+  assert(av.state.selection instanceof BodyBlockSelection);
+  assert.equal(av.state.selection.visible, false);
+  assert.deepEqual(
+    av.state.selection.ids,
+    av.state.doc
+      .toJSON()
+      .content.slice(2)
+      .map((node) => node.attrs.blockId)
+  );
+  assert.equal(av.dom.querySelectorAll('.selected-body-block').length, 4);
   assert(scrolled);
   await a.flush();
   await settle(a);
-  assert.equal(
-    av.dom.querySelectorAll('.pasted-block').length,
-    4,
-    'saving does not dismiss feedback'
-  );
-  const saved = ok(await x.read());
-  assert(!JSON.stringify(saved.content).includes('pasted-block'));
-  document.body.dispatchEvent(
-    new dom.window.Event('pointerdown', { bubbles: true })
-  );
-  assert.equal(av.dom.querySelectorAll('.pasted-block').length, 0);
-  assert.equal(av.dom.classList.contains('paste-feedback'), false);
-  assert.equal(a.history(av, 'undo'), true);
+  assert.equal(av.dom.querySelectorAll('.selected-body-block').length, 4);
+  for (const mode of ['cli', 'mcp']) {
+    const saved = ok(
+      await peerCommand67(x, mode, {
+        apiVersion: 1,
+        method: 'page.read',
+        spaceId: x.v.spaceId,
+        pageId: 'p',
+      })
+    );
+    assert.equal(saved.head, ok(await x.read()).head);
+    assert.deepEqual(
+      saved.content.value.content
+        .slice(2)
+        .map((node) => node.content?.[0]?.text ?? ''),
+      ['first', '', 'last', '']
+    );
+    assert(!JSON.stringify(saved.content).includes('selected-body-block'));
+  }
+  assert(keydown(av, 'a', { ctrlKey: true }).defaultPrevented);
+  assert.equal(av.state.selection.ids.length, 5);
+  assert.equal(av.dom.querySelectorAll('.selected-body-block').length, 5);
+  assert(keydown(av, 'z', { ctrlKey: true }).defaultPrevented);
   assert.equal(av.state.doc.firstChild.textContent, 'Keep');
   assert.equal(text(av), 'Alpha beta');
   a.history(av, 'redo');
   assert.equal(av.state.doc.childCount, 6);
 });
-test('3A single-line title paste inserts normally without body append or paste feedback', async (t) => {
+test('3A single-line title paste inserts normally without body append or block selection', async (t) => {
   const x = await seeded(t),
     a = await x.open('single-paste'),
     av = x.mount(a);
@@ -1575,7 +1593,7 @@ test('3A single-line title paste inserts normally without body append or paste f
   assert.equal(av.state.doc.firstChild.textContent, 'One line');
   assert.equal(text(av), 'Alpha beta');
   assert.equal(av.state.doc.childCount, 2);
-  assert(!av.dom.classList.contains('paste-feedback'));
+  assert(av.state.selection instanceof TextSelection);
   assert(av.hasFocus());
   a.stopCapturing();
   a.history(av, 'undo');

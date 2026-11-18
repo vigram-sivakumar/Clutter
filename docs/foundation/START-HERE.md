@@ -1,31 +1,16 @@
 # Resume Clutter Structured
 
-## Current checkpoint — editable focus after bulk delete, 18 November 2026
+## Current checkpoint — shared paste selection, build 76
 
-74 analyzes the actual73 native trace:156 events,12,002ms,dropped0. The report
-is usable; no recollection needed. Save/sync repeatedly left/re-entered block mode
-and transparent/normal caret colour BEFORE the first post-delete click at5025ms.
-One focus/selection restoration at5026ms; normal caret state by5027ms, no subsequent
-JS focus/selection writes through12002ms. This does NOT establish a post-click JS
-reset loop or measure native caret paint.72 remains native FAIL.
+The user confirmed the build 75 caret fix on macOS. Build 76 replaces the separate
+multiline title-paste highlight with the same block selection used by Cmd/Ctrl+A.
+Paste appends all lines, scrolls to the first appended block and selects exactly
+the appended blocks. Cmd/Ctrl+A then includes the existing body blocks. The
+title stays outside block selection. Future drag and marquee use this selection.
 
-74 removes the live transparent caret from empty/no-caret body mode: editor becomes
-noneditable but keeps keyboard focus/tabindex. Public key handlers still own commands;
-selected nonempty body blocks keep normal copy behavior. Text click restores editable
-TextSelection. Existing Y guard uses an internal AllSelection-derived presentation
-shield, preserving body mode/editability through remote restores and preventing its
-own selection dispatches re-entering protection. Saved BodyBlockSelection model,
-Core/history/save and object67 semantics unchanged. Redundant already-focused focus
-call and transparent caret CSS removed. No blink animation, timers, native OS branch,
-private binding mutation, dependency change or second semantic owner.
-
-Build 74 failed the Mac retest. After deleting all body blocks, the first click
-left the caret without its normal blink. Clicking outside and back restored it.
-Build 75 restores the editable text selection before focusing the editor. If the
-inactive editor already held focus, it releases and reacquires focus once during
-that click. This is a targeted focus workaround. The native blink is pending retest.
-
-Read [source correction and check](rebuild/inactive-caret-74.md).
+12 targeted editor checks passed, including accepted paste readback through real
+CLI and MCP clients, undo, and the caret regressions. TypeScript and the 57-source
+boundary audit passed. Mac acceptance for paste selection is pending.
 
 ## Working agreement
 
@@ -49,7 +34,7 @@ single-file Image picker, table presets and deferred embeds. Important distincti
 - Marquee needs no Shift; crossing the starting block changes text selection into
   block selection. Shift+drag adds disjoint blocks to the prior selection.
 - Multiline title paste appends ALL content to the body bottom, leaves no caret,
-  scrolls there and highlights until any click. No three-second timer.
+  scrolls there and selects the appended blocks using the shared block selection.
 - Task titles edit inline until icon-driven page conversion; after conversion,
   title clicks open the task page and checkbox clicks still toggle completion.
 - Images use an immediate ONE-file picker. Embed is deferred, including YouTube.

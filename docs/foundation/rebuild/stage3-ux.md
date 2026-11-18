@@ -53,11 +53,10 @@ A representation change must preserve one owner per fact and shared inline behav
 | P01 | Paste containing more than one line | Append **all** pasted lines at the **bottom of the body**. Do not put the first line into the title. Leave the title unchanged. |
 | P02 | Cursor | Show no text caret after this paste. |
 | P03 | Scrolling | Scroll the note to the appended content. |
-| P04 | Feedback | Highlight the appended blocks. **No automatic timeout.** |
-| P05 | Dismissal | Clear that highlight immediately when the user clicks **anywhere**. |
+| P04 | Selection | Select exactly the appended blocks with the shared block selection and its blue outline. Keep keyboard focus so block commands work immediately. |
+| P05 | Follow-up | Use normal block selection rules. Cmd/Ctrl+A expands to all body blocks. Future additive marquee and dragging use this same selection. |
 
-The paste highlight is transient view feedback, not saved text formatting. Do not
-conflate it with text-range selection or the independent block-selection mode below.
+Multiline title paste enters the same view-local block selection mode as body select-all.
 
 ## 4. Slash menu and block insertion
 
@@ -196,8 +195,7 @@ retains its own contract. Do not let PM's default whole-document selectAll becom
 the final product behavior.
 
 Table-cell selection remains a separate mode with its already-confirmed Escape,
-Enter and Tab behavior. B11 must not overwrite that table contract. The persistent
-paste highlight in section3 is also separate from this selection model.
+Enter and Tab behavior. B11 must not overwrite that table contract.
 
 ## 9. Task blocks and page conversion
 
@@ -245,7 +243,7 @@ stage3 component.
 | Earlier wording/proposal | Final decision |
 | --- | --- |
 | Untitled placeholder | **New note** placeholder; real title initially empty. |
-| Pasted-block highlight disappears after three seconds | **No timeout**; clear immediately on any click. |
+| Pasted-block highlight has its own dismissal behavior | Use shared block selection and its normal interactions. |
 | Move cursor into a slash-inserted block | **Keep the cursor where it was.** |
 | Shift required for marquee over text | No Shift: text selection inside starting block becomes block selection when dragged outside. Shift is for additive selection. |
 | Select parent implies select children | **No** automatic family selection. |

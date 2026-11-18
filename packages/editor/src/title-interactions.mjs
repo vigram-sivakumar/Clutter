@@ -1,38 +1,18 @@
-import { Plugin, PluginKey, TextSelection } from 'prosemirror-state';
+import { Plugin, TextSelection } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
-const key = new PluginKey('title-and-paste');
-// Local feedback only: IDs survive mapped edits, but are never document attributes.
+import { BodyBlockSelection } from './body-selection.mjs';
+
 export function titleInteractions(nextId, canEdit) {
   return new Plugin({
-    key,
-    state: {
-      init: () => [],
-      apply(tr, ids) {
-        return tr.getMeta(key) ?? ids;
-      },
-    },
     props: {
       decorations(state) {
-        const ids = key.getState(state),
-          decorations = [];
-        state.doc.forEach((node, pos) => {
-          if (node.type.name === 'title' && !node.content.size)
-            decorations.push(
-              Decoration.node(pos, pos + node.nodeSize, {
-                'data-placeholder': 'New note',
-              })
-            );
-          if (ids.includes(node.attrs.blockId))
-            decorations.push(
-              Decoration.node(pos, pos + node.nodeSize, {
-                class: 'pasted-block',
-              })
-            );
-        });
-        return DecorationSet.create(state.doc, decorations);
-      },
-      attributes(state) {
-        return key.getState(state).length ? { class: 'paste-feedback' } : {};
+        const title = state.doc.firstChild;
+        if (title.content.size) return null;
+        return DecorationSet.create(state.doc, [
+          Decoration.node(0, title.nodeSize, {
+            'data-placeholder': 'New note',
+          }),
+        ]);
       },
       handleKeyDown(view, event) {
         if (canEdit?.() === false || event.isComposing || view.composing)
@@ -96,39 +76,21 @@ export function titleInteractions(nextId, canEdit) {
             line ? view.state.schema.text(line) : null
           )
         );
+        const tr = view.state.tr.insert(view.state.doc.content.size, blocks);
         view.dispatch(
-          view.state.tr.insert(view.state.doc.content.size, blocks).setMeta(
-            key,
-            blocks.map((b) => b.attrs.blockId)
+          tr.setSelection(
+            new BodyBlockSelection(
+              tr.doc,
+              blocks.map((block) => block.attrs.blockId)
+            )
           )
         );
-        view.dom.blur();
         // Scroll the actual appended block in its existing pane, without a remount.
         view.dom
           .querySelector(`[data-block-id="${blocks[0].attrs.blockId}"]`)
           ?.scrollIntoView?.({ block: 'nearest' });
         return true;
       },
-    },
-    view(view) {
-      const clear = () => {
-        if (key.getState(view.state).length)
-          view.dispatch(
-            view.state.tr.setMeta(key, []).setMeta('addToHistory', false)
-          );
-      };
-      view.dom.ownerDocument.addEventListener('pointerdown', clear, true);
-      view.dom.ownerDocument.addEventListener('click', clear, true);
-      return {
-        destroy() {
-          view.dom.ownerDocument.removeEventListener(
-            'pointerdown',
-            clear,
-            true
-          );
-          view.dom.ownerDocument.removeEventListener('click', clear, true);
-        },
-      };
     },
   });
 }

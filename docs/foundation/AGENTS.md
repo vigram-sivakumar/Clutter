@@ -282,3 +282,6 @@ left the caret without its normal blink. Clicking outside and back restored it.
 Build 75 restores the editable text selection before focusing the editor. If the
 inactive editor already held focus, it releases and reacquires focus once during
 that click. This is a targeted focus workaround. The native blink is pending retest.
+
+Build 75 caret retest passed on macOS. Build 76 uses shared block selection for
+multiline title paste. See the current checkpoint and stage3 UX rules.

@@ -36,3 +36,6 @@ Remove superseded paths; check for duplicate owners/implementations and boundary
 violations; verify UI/CLI/MCP share the accepted Core/persistence path. Record relevant
 real CLI/MCP checks and distinguish automated evidence from actual Mac observations.
 Do not declare completion without this review, even for a small correction.
+
+Build 75 caret retest passed on macOS. Build 76 uses shared block selection for
+multiline title paste. See the current checkpoint and stage3 UX rules.

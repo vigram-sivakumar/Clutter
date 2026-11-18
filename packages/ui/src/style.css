@@ -386,12 +386,6 @@ button:focus-visible {
   color: #788992;
   pointer-events: none;
 }
-.ProseMirror .pasted-block {
-  background: #dcecf9;
-}
-.ProseMirror.paste-feedback {
-  caret-color: transparent;
-}
 
 .slash-menu-host {
   position: fixed;
