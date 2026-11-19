@@ -4,6 +4,7 @@ import { buildNoteLocationFolders } from '@features/notes/helpers/buildNoteLocat
 import type { SpaceSettingsSource } from '@features/settings/space-settings/SpaceSettingsSource';
 import type { NoteLocationSource } from '@features/settings/default-note-location-setting/DefaultNoteLocationSetting';
 import type { TemplatesSource } from '@features/settings/preferred-templates/PreferredTemplates';
+import type { TasksViewConfigSource } from '@features/settings/tasks-setting/TasksViewDisplaySetting';
 import { createTemplate } from '@features/notes/helpers/createTemplate';
 import type { PreferredTemplatesContext } from '@core/application/templates/PreferredTemplatesStore';
 import { sortTemplatesByRecentUse } from '@features/notes/helpers/templateSuggestions';
@@ -13,6 +14,7 @@ export interface SettingsSources {
   templates: TemplatesSource;
   noteLocation: NoteLocationSource;
   spaceSettings: SpaceSettingsSource;
+  tasksViewConfig: TasksViewConfigSource;
 }
 
 function buildSettingsSources(application: Application): SettingsSources {
@@ -78,7 +80,17 @@ function buildSettingsSources(application: Application): SettingsSources {
       setAutoDeleteUnusedTags: (enabled) => void application.setAutoDeleteUnusedTags(enabled),
       subscribe: (listener: () => void) => application.spaceProfileStore.subscribe(listener),
   };
-  return { templates: settingsTemplates, noteLocation: settingsNoteLocation, spaceSettings: settingsSpace };
+  const settingsTasksViewConfig: TasksViewConfigSource = {
+      get: () => application.tasksViewConfigStore.get(),
+      update: (patch) => application.tasksViewConfigStore.update(patch),
+      subscribe: (listener) => application.tasksViewConfigStore.subscribe(listener),
+  };
+  return {
+    templates: settingsTemplates,
+    noteLocation: settingsNoteLocation,
+    spaceSettings: settingsSpace,
+    tasksViewConfig: settingsTasksViewConfig,
+  };
 }
 
 /**
