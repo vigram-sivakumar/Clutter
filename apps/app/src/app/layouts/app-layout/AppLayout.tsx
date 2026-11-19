@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type RefObject } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type RefObject } from 'react';
 import { AppStatusProvider } from './status/AppStatus';
 import './AppLayout.css';
 import { CreateTemplateProvider } from '@app/layouts/createTemplate/CreateTemplateProvider';
@@ -169,10 +169,18 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
   // The shared Tasks-view display preferences live in TasksViewConfigStore.
   // useSyncExternalStore keeps the sidebar, Tasks collection and Settings
   // dialog in sync when any of those surfaces changes the same preferences.
-  const persistedTasksViewConfig = useSyncExternalStore(
-    (listener) => application.tasksViewConfigStore.subscribe(listener),
+  const subscribeTasksViewConfig = useCallback(
+    (listener: () => void) => application.tasksViewConfigStore.subscribe(listener),
+    [application]
+  );
+  const getTasksViewConfig = useCallback(
     () => application.tasksViewConfigStore.get(),
-    () => application.tasksViewConfigStore.get()
+    [application]
+  );
+  const persistedTasksViewConfig = useSyncExternalStore(
+    subscribeTasksViewConfig,
+    getTasksViewConfig,
+    getTasksViewConfig
   );
   const tasksViewConfig = resolveTasksViewConfig(persistedTasksViewConfig);
 
