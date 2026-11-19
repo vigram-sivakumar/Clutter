@@ -20,8 +20,7 @@ export type TaskGroups = {
 /**
  * The Tasks sidebar's Show completed / Auto-sort completed settings
  * (persisted through `TasksViewConfigStore`, resolved to real booleans by
- * the caller) — the two independent toggles the settings menu on the
- * Today/Everything else section headers controls. Passed explicitly to
+ * the caller) — the two independent toggles the Tasks settings page controls. Passed explicitly to
  * every `groupTasks` call (never defaulted inside `groupTasks` itself) so
  * a call site that must keep its existing behavior — the dedicated
  * Unscheduled collection view, which has never shown completed tasks — says
@@ -32,7 +31,7 @@ export interface TaskDisplayConfig {
   readonly showCompleted: boolean;
   readonly autoSortCompleted: boolean;
   /**
-   * Sidebar sections the user has switched off in the All Tasks settings menu. Presentation only:
+   * Sidebar sections the user has switched off in the Tasks settings page. Presentation only:
    * `groupTasks` ignores it (membership is unchanged) and only the sidebar's `renderTasksByDate`
    * reads it — the Today/Overdue/Upcoming/Unscheduled pages and their navigation entries are unaffected.
    * Absent means every group is shown.
@@ -49,7 +48,7 @@ export type TaskGroupId = (typeof TASK_GROUP_IDS)[number];
  */
 export type TaskExpansionKey = TaskGroupId | `${TaskGroupId}:${string}`;
 /**
- * The groups the Options menu lets the user switch off — every group but Today, which always stays
+ * The groups the Tasks settings page lets the user switch off — every group but Today, which always stays
  * visible. Anything else (a stale persisted `today`, a hand-edited file) is ignored on load, so Today
  * can never end up hidden with no way to bring it back.
  */
