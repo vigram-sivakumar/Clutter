@@ -10,8 +10,8 @@ import type { VaultFileSystem } from '../../vault/providers/VaultFileSystem';
  * tasks show at all in the Today/Everything else sections, and whether
  * they're auto-sorted to the bottom of their section when shown. A single,
  * shared entry, not one per section: Today and Everything else both read
- * and write the same `tasksViewConfig` key, so toggling either setting
- * from one section's settings menu changes the other's too.
+ * and write the same `tasksViewConfig` key, so the Settings page and
+ * Tasks collection menu always reflect the same choices.
  *
  * Every field is optional, resolved to its ordinary default by the caller
  * (`groupTasks.ts`'s `DEFAULT_TASK_DISPLAY_CONFIG`) — this store has no
