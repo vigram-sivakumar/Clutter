@@ -15,9 +15,6 @@ export function buildTasksShortcutHandler(
         // NavigationRouter.createTask() has a real capability behind it.
         navigation.createTask();
         break;
-      case 'options':
-        // Unreachable: TasksShortcuts opens the Options menu itself.
-        break;
       case 'all-tasks':
         navigation.openAllTasks();
         break;
