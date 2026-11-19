@@ -36,7 +36,7 @@ describe('TasksViewDisplaySetting', () => {
     const titles = [...group.querySelectorAll('.settings-entry__title')].map((entry) => entry.textContent);
 
     expect(titles).toContain('Show completed');
-    expect(titles).toContain('Sort completed');
+    expect(titles).toContain('Auto-sort completed');
     expect(titles).toContain('Overdue');
     expect(titles).toContain('Upcoming');
     expect(titles).toContain('Unscheduled');
@@ -48,7 +48,7 @@ describe('TasksViewDisplaySetting', () => {
     fireEvent.click(screen.getByText('Tasks'));
 
     const showCompleted = screen.getByRole('switch', { name: 'Show completed' });
-    const sortCompleted = screen.getByRole('switch', { name: 'Sort completed' });
+    const sortCompleted = screen.getByRole('switch', { name: 'Auto-sort completed' });
 
     expect(showCompleted).toBeChecked();
     expect(sortCompleted).toBeEnabled();
