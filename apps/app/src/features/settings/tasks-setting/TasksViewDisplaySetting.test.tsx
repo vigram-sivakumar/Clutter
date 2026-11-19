@@ -27,7 +27,7 @@ function createSource(initial: PersistedTasksViewConfig = {}) {
 afterEach(() => cleanup());
 
 describe('TasksViewDisplaySetting', () => {
-  it('places the task display and group visibility controls in Tasks → Sidebar appearance', () => {
+  it('places the completed-task controls in Tasks → Sidebar appearance', () => {
     const { source } = createSource();
     render(<Settings tasksViewConfig={source} />);
     fireEvent.click(screen.getByText('Tasks'));
@@ -37,9 +37,9 @@ describe('TasksViewDisplaySetting', () => {
 
     expect(titles).toContain('Show completed');
     expect(titles).toContain('Auto-sort completed');
-    expect(titles).toContain('Overdue');
-    expect(titles).toContain('Upcoming');
-    expect(titles).toContain('Unscheduled');
+    expect(titles).not.toContain('Overdue');
+    expect(titles).not.toContain('Upcoming');
+    expect(titles).not.toContain('Unscheduled');
   });
 
   it('updates Show completed and disables Sort completed while preserving its saved choice', () => {
@@ -62,17 +62,5 @@ describe('TasksViewDisplaySetting', () => {
     expect(read().autoSortCompleted).toBe(true);
   });
 
-  it('keeps the existing group visibility preferences and lets Settings change them', () => {
-    const { source, read } = createSource({ hiddenGroups: ['unscheduled'] });
-    render(<Settings tasksViewConfig={source} />);
-    fireEvent.click(screen.getByText('Tasks'));
 
-    const overdue = screen.getByRole('switch', { name: 'Show Overdue section' });
-    const unscheduled = screen.getByRole('switch', { name: 'Show Unscheduled section' });
-
-    expect(overdue).toBeChecked();
-    expect(unscheduled).not.toBeChecked();
-    fireEvent.click(unscheduled);
-    expect(read().hiddenGroups).toEqual([]);
-  });
 });
