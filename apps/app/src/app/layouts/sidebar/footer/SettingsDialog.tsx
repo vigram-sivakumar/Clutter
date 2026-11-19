@@ -6,6 +6,7 @@ import { useSharedSettingsDialogState } from '@features/settings/SettingsDialogS
 import type { SpaceSettingsSource } from '@features/settings/space-settings/SpaceSettingsSource';
 import type { NoteLocationSource } from '@features/settings/default-note-location-setting/DefaultNoteLocationSetting';
 import type { TemplatesSource } from '@features/settings/preferred-templates/PreferredTemplates';
+import type { TasksViewConfigSource } from '@features/settings/tasks-setting/TasksViewDisplaySetting';
 import type { ResetSettingsOutcome } from '@features/settings/reset-settings/resetSettingsToDefaults';
 import { DEFAULT_SPACE_AVATAR, type ListedSpace } from './SpaceMenu';
 
@@ -27,6 +28,7 @@ interface SettingsDialogProps {
   templates?: TemplatesSource;
   noteLocation?: NoteLocationSource;
   spaceSettings?: SpaceSettingsSource;
+  tasksViewConfig?: TasksViewConfigSource;
   /** "Reset settings to defaults", for every Space; without it the Reset section resets the app-wide preferences only. */
   onResetSettings?: () => Promise<ResetSettingsOutcome>;
 }
@@ -54,6 +56,7 @@ export function SettingsDialog({
   templates,
   noteLocation,
   spaceSettings,
+  tasksViewConfig,
   onResetSettings,
 }: SettingsDialogProps) {
   const state = useSharedSettingsDialogState();
@@ -75,6 +78,7 @@ export function SettingsDialog({
         templates={templates}
         noteLocation={noteLocation}
         spaceSettings={spaceSettings}
+        tasksViewConfig={tasksViewConfig}
         onResetSettings={onResetSettings}
         space={{
           onRemoveSpace,
