@@ -1238,7 +1238,7 @@
   background: transparent;
   flex-shrink: 0;
   cursor: pointer;
-  color: var(--foreground-tertiary);
+  color: var(--foreground-secondary);
   user-select: none;
   vertical-align: bottom;
   transition:
