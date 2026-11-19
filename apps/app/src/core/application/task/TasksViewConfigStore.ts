@@ -59,6 +59,8 @@ export class TasksViewConfigStore {
     private entry: PersistedTasksViewConfig
   ) {}
 
+  private readonly listeners = new Set<() => void>();
+
   /**
    * An empty store with no persisted configuration — `Application`'s
    * constructor default, for the many existing tests that construct
@@ -123,6 +125,12 @@ export class TasksViewConfigStore {
     return this.entry;
   }
 
+  /** Subscribe to in-memory changes so every view of the shared Tasks preferences stays in sync. */
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
   /**
    * Merges `patch` into the single persisted entry and persists the whole
    * store — one mutation method, extensible by field rather than by method
@@ -133,6 +141,7 @@ export class TasksViewConfigStore {
    */
   update(patch: Partial<PersistedTasksViewConfig>): void {
     this.entry = { ...this.entry, ...patch };
+    for (const listener of this.listeners) listener();
     void this.persist();
   }
 
