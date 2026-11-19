@@ -320,9 +320,8 @@ interface PageHostProps {
    * (owned by `AppLayout`, the common ancestor of this and Sidebar's Tasks
    * panel) — applied to the Today/Everything else collection pages'
    * `TasksCollectionBody` below, so they always render identically to
-   * their sidebar counterparts. Read-only here: the settings menu that
-   * changes it lives only on the sidebar's All Tasks row (see
-   * TasksViewSettingsMenu's doc comment).
+   * their sidebar counterparts. The Settings page owns the persisted preference;
+   * this collection menu also offers a quick way to change it.
    */
   readonly tasksViewConfig: TaskDisplayConfig;
   /** Persists a change to the shared Tasks-view display preference (owned by AppLayout). */
@@ -2600,6 +2599,7 @@ export function PageHost({
                   id: 'auto-sort-completed',
                   label: 'Auto-sort completed',
                   checked: tasksViewConfig.autoSortCompleted,
+                  disabled: !tasksViewConfig.showCompleted,
                   onChange: (autoSortCompleted) =>
                     onTasksViewConfigChange({
                       ...tasksViewConfig,
