@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type RefObject } from 'react';
 import { AppStatusProvider } from './status/AppStatus';
 import './AppLayout.css';
 import { CreateTemplateProvider } from '@app/layouts/createTemplate/CreateTemplateProvider';
@@ -65,7 +65,7 @@ import {
   type TaskGroupId,
 } from '@features/tasks/helpers/groupTasks';
 import { resolveTasksTab, type TasksTabValue } from '@features/tasks/page/TasksTabs';
-import type { TasksViewConfigStore } from '@core/application/task/TasksViewConfigStore';
+import type { PersistedTasksViewConfig, TasksViewConfigStore } from '@core/application/task/TasksViewConfigStore';
 import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal';
 
 /**
@@ -76,8 +76,7 @@ import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal'
  * reason: the store's persisted shape is optional-by-field, the caller
  * resolves defaults, never the store itself.
  */
-function resolveTasksViewConfig(store: TasksViewConfigStore): TaskDisplayConfig {
-  const persisted = store.get();
+function resolveTasksViewConfig(persisted: PersistedTasksViewConfig): TaskDisplayConfig {
   return {
     showCompleted: persisted.showCompleted ?? DEFAULT_TASK_DISPLAY_CONFIG.showCompleted,
     autoSortCompleted: persisted.autoSortCompleted ?? DEFAULT_TASK_DISPLAY_CONFIG.autoSortCompleted,
@@ -176,12 +175,14 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
   // through `updateTasksViewConfig` below, which keeps this render-visible
   // state and the store in sync, the same shape PageHost.tsx's own
   // `collectionViewState`/`setCollectionViewMode` pairing uses.
-  const [tasksViewConfig, setTasksViewConfig] = useState<TaskDisplayConfig>(() =>
-    resolveTasksViewConfig(application.tasksViewConfigStore)
+  const persistedTasksViewConfig = useSyncExternalStore(
+    (listener) => application.tasksViewConfigStore.subscribe(listener),
+    () => application.tasksViewConfigStore.get(),
+    () => application.tasksViewConfigStore.get()
   );
+  const tasksViewConfig = resolveTasksViewConfig(persistedTasksViewConfig);
 
   function updateTasksViewConfig(next: TaskDisplayConfig): void {
-    setTasksViewConfig(next);
     application.tasksViewConfigStore.update(next);
   }
 
