@@ -310,7 +310,7 @@ export function renderTasksByDate({
   const upcoming = groups.upcoming.filter(
     (task) => !unscheduled.includes(task)
   );
-  // Today is not a hideable group (the Options menu doesn't offer it and AppLayout drops a stale persisted
+  // Today is not a hideable group (the Tasks settings page doesn't offer it and AppLayout drops a stale persisted
   // one), so the Today section below always renders.
   const hidden = displayConfig.hiddenGroups ?? [];
 
