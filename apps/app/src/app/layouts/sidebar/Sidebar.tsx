@@ -58,7 +58,6 @@ interface SidebarProps {
   readonly onOpenResource: (resource: VaultResource) => void;
   /** See AppLayout's own doc comment on its `tasksViewConfig` state — lifted here since Sidebar's Tasks panel is one of its two consumers. */
   readonly tasksViewConfig: TaskDisplayConfig;
-  readonly onTasksViewConfigChange: (next: TaskDisplayConfig) => void;
   /** See AppLayout's own doc comment on its `pendingReveal` state — set here by Tasks' "Show in note" (and by PageHost's own Tag collection "Open note"), consumed by PageHost. */
   readonly onRequestReveal: (reveal: PendingEditorReveal) => void;
   /** Search is an overlay owned by `AppLayout`: its tab opens that overlay instead of showing a panel. */
@@ -69,7 +68,6 @@ export function Sidebar({
   application,
   onOpenResource,
   tasksViewConfig,
-  onTasksViewConfigChange,
   onRequestReveal,
   onOpenSearch,
 }: SidebarProps) {
@@ -234,7 +232,6 @@ export function Sidebar({
           folderOperations={folderOperations}
           effectivePageState={effectivePageState}
           tasksViewConfig={tasksViewConfig}
-          onTasksViewConfigChange={onTasksViewConfigChange}
           expandedGroups={expandedTaskGroups}
           onToggleGroup={(id) =>
             setExpandedTaskGroups((prev) =>
