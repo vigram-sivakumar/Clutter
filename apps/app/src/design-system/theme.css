@@ -45,8 +45,8 @@ Neutrals    charcoal / gray
   --overlay-scrim-strong: rgba(20, 20, 20, 0.8);
 
   /* Text & icons */
-  --foreground-primary: #f7f7f7;
-  --foreground-secondary: #a6a6a6;
+  --foreground-primary: #e7e7e7;
+  --foreground-secondary: #afafaf;
   --foreground-tertiary: #737373;
   --foreground-placeholder: #575757;
   --foreground-inverse: var(--neutral-700);
@@ -221,7 +221,7 @@ Neutrals    charcoal / gray
 
   /* Text & icons */
   --foreground-primary: #333333;
-  --foreground-secondary: #737373;
+  --foreground-secondary: #5e5e5e;
   --foreground-tertiary: #8c8c8c;
   --foreground-placeholder: #cccccc;
   --foreground-inverse: #d4d4d4;
