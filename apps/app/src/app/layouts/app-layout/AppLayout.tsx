@@ -65,7 +65,7 @@ import {
   type TaskGroupId,
 } from '@features/tasks/helpers/groupTasks';
 import { resolveTasksTab, type TasksTabValue } from '@features/tasks/page/TasksTabs';
-import type { PersistedTasksViewConfig, TasksViewConfigStore } from '@core/application/task/TasksViewConfigStore';
+import type { PersistedTasksViewConfig } from '@core/application/task/TasksViewConfigStore';
 import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal';
 
 /**
@@ -525,7 +525,6 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
               application={application}
               onOpenResource={openVaultResourceOverlay}
               tasksViewConfig={tasksViewConfig}
-              onTasksViewConfigChange={updateTasksViewConfig}
               onRequestReveal={setPendingReveal}
               onOpenSearch={openSearch}
             />
