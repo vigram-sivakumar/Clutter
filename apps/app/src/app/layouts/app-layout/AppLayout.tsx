@@ -166,15 +166,9 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
   // one. See resourceOverlay.ts for the full shape/reasoning.
   const [resourceOverlay, setResourceOverlay] = useState<ResourceOverlayState>(null);
 
-  // The shared Tasks-view Show completed / Auto-sort completed preference
-  // — lifted here (rather than local state inside Sidebar's Tasks panel or
-  // PageHost's TasksCollectionBody individually) because AppLayout is the
-  // confirmed common ancestor of both consumers, the same reasoning
-  // resourceOverlay above already documents. Persisted through
-  // `application.tasksViewConfigStore`, read once at mount — updates go
-  // through `updateTasksViewConfig` below, which keeps this render-visible
-  // state and the store in sync, the same shape PageHost.tsx's own
-  // `collectionViewState`/`setCollectionViewMode` pairing uses.
+  // The shared Tasks-view display preferences live in TasksViewConfigStore.
+  // useSyncExternalStore keeps the sidebar, Tasks collection and Settings
+  // dialog in sync when any of those surfaces changes the same preferences.
   const persistedTasksViewConfig = useSyncExternalStore(
     (listener) => application.tasksViewConfigStore.subscribe(listener),
     () => application.tasksViewConfigStore.get(),
