@@ -37,7 +37,6 @@ interface TasksPanelProps {
    * own wiring for why this can't just be local state here.
    */
   readonly tasksViewConfig: TaskDisplayConfig;
-  readonly onTasksViewConfigChange: (next: TaskDisplayConfig) => void;
   /** Groups whose "N more" row was clicked — owned by Sidebar so it outlives this panel unmounting on a tab switch, and resets on restart. */
   readonly expandedGroups: readonly TaskExpansionKey[];
   readonly onToggleGroup: (key: TaskExpansionKey) => void;
@@ -58,7 +57,6 @@ export function Tasks({
   folderOperations,
   effectivePageState,
   tasksViewConfig,
-  onTasksViewConfigChange,
   expandedGroups,
   onToggleGroup,
   onRequestReveal,
@@ -139,8 +137,7 @@ export function Tasks({
         <TasksShortcuts
           onShortcut={onShortcut}
           onRequestNewTask={onRequestNewTask}
-          tasksViewConfig={tasksViewConfig}
-          onTasksViewConfigChange={onTasksViewConfigChange}
+          
         />
       }
     >
