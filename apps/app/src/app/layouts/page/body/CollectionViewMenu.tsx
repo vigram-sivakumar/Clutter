@@ -42,6 +42,7 @@ export interface CollectionViewToggle {
   readonly id: string;
   readonly label: string;
   readonly checked: boolean;
+  readonly disabled?: boolean;
   readonly onChange: (checked: boolean) => void;
 }
 
@@ -195,6 +196,7 @@ export function CollectionViewMenu({ view, onLayoutChange, onPropertyChange, onS
                   {toggles.map((toggle) => (
                     <MenuItem
                       key={toggle.id}
+                      disabled={toggle.disabled}
                       leading={toggle.checked ? <AppIcon icon="tick" /> : <span className="app-icon" />}
                       onClick={(event) => {
                         event.stopPropagation();
