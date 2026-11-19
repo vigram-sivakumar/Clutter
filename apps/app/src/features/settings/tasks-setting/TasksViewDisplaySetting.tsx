@@ -1,9 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { Switch } from '@components/switch/Switch';
 import type { PersistedTasksViewConfig } from '@core/application/task/TasksViewConfigStore';
-import {
-  DEFAULT_TASK_DISPLAY_CONFIG,
-} from '@features/tasks/helpers/groupTasks';
+import { DEFAULT_TASK_DISPLAY_CONFIG } from '@features/tasks/helpers/groupTasks';
 import { SettingsEntry } from '../settings-entry/SettingsEntry';
 
 export interface TasksViewConfigSource {
@@ -47,7 +45,6 @@ function TasksViewDisplaySettingContent({ source }: { readonly source: TasksView
           />
         }
       />
-
     </>
   );
 }
