@@ -46,11 +46,11 @@ function TasksViewDisplaySettingContent({ source }: { readonly source: TasksView
         }
       />
       <SettingsEntry
-        title="Sort completed"
+        title="Auto-sort completed"
         description="Move completed tasks below active tasks"
         trailing={
           <Switch
-            aria-label="Sort completed"
+            aria-label="Auto-sort completed"
             isChecked={autoSortCompleted}
             disabled={!showCompleted}
             onCheckedChange={(enabled) => source.update({ autoSortCompleted: enabled })}
