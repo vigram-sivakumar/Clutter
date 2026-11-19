@@ -50,8 +50,7 @@ function SidebarHost({
 }
 
 // A resolved-by-default stub — every test that doesn't care about
-// onCreateTask's own behavior still needs a well-typed prop to render at
-// all (TasksShortcutsProps.onCreateTask is required, no default).
+// task creation still needs a well-typed callback for the hosted dialog.
 function renderTasksShortcuts(overrides?: {
   onShortcut?: ReturnType<typeof vi.fn<(id: TasksShortcutId) => void>>;
   onCreateTask?: ReturnType<
