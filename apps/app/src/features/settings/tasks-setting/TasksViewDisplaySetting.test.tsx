@@ -36,14 +36,15 @@ describe('completed-task settings', () => {
     const titles = [...group.querySelectorAll('.settings-entry__title')].map((entry) => entry.textContent);
 
     expect(titles).toEqual([
-      'Group tasks by due date',
-      'Show up to',
+      'Group by due date',
+      'Show',
       'Show completed',
       'Auto-sort completed',
     ]);
     expect(titles).not.toContain('Overdue');
     expect(titles).not.toContain('Upcoming');
     expect(titles).not.toContain('Unscheduled');
+    expect(group.querySelectorAll('.settings-group__divider')).toHaveLength(3);
   });
 
   it('keeps Auto-sort completed enabled when Show completed is off', () => {
