@@ -3,8 +3,6 @@ import { Switch } from '@components/switch/Switch';
 import type { PersistedTasksViewConfig } from '@core/application/task/TasksViewConfigStore';
 import {
   DEFAULT_TASK_DISPLAY_CONFIG,
-  HIDEABLE_TASK_GROUP_IDS,
-  type TaskGroupId,
 } from '@features/tasks/helpers/groupTasks';
 import { SettingsEntry } from '../settings-entry/SettingsEntry';
 
@@ -13,13 +11,6 @@ export interface TasksViewConfigSource {
   update(patch: Partial<PersistedTasksViewConfig>): void;
   subscribe(listener: () => void): () => void;
 }
-
-const GROUP_LABELS: Record<TaskGroupId, string> = {
-  today: 'Today',
-  overdue: 'Overdue',
-  upcoming: 'Upcoming',
-  unscheduled: 'Unscheduled',
-};
 
 export function TasksViewDisplaySetting({ source }: { readonly source?: TasksViewConfigSource }) {
   if (!source) return null;
@@ -30,7 +21,6 @@ function TasksViewDisplaySettingContent({ source }: { readonly source: TasksView
   const persisted = useSyncExternalStore(source.subscribe, source.get, source.get);
   const showCompleted = persisted.showCompleted ?? DEFAULT_TASK_DISPLAY_CONFIG.showCompleted;
   const autoSortCompleted = persisted.autoSortCompleted ?? DEFAULT_TASK_DISPLAY_CONFIG.autoSortCompleted;
-  const hiddenGroups = persisted.hiddenGroups ?? DEFAULT_TASK_DISPLAY_CONFIG.hiddenGroups ?? [];
 
   return (
     <>
@@ -57,30 +47,7 @@ function TasksViewDisplaySettingContent({ source }: { readonly source: TasksView
           />
         }
       />
-      {HIDEABLE_TASK_GROUP_IDS.map((id) => {
-        const isShown = !hiddenGroups.includes(id);
-        const label = GROUP_LABELS[id];
-        return (
-          <SettingsEntry
-            key={id}
-            title={label}
-            description={`Show the ${label} section in the Tasks sidebar`}
-            trailing={
-              <Switch
-                aria-label={`Show ${label} section`}
-                isChecked={isShown}
-                onCheckedChange={(enabled) =>
-                  source.update({
-                    hiddenGroups: enabled
-                      ? hiddenGroups.filter((hidden) => hidden !== id)
-                      : [...hiddenGroups, id],
-                  })
-                }
-              />
-            }
-          />
-        );
-      })}
+
     </>
   );
 }
