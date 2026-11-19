@@ -26,8 +26,8 @@ function createSource(initial: PersistedTasksViewConfig = {}) {
 
 afterEach(() => cleanup());
 
-describe('TasksViewDisplaySetting', () => {
-  it('places the completed-task controls in Tasks → Sidebar appearance', () => {
+describe('completed-task settings', () => {
+  it('renders Show completed and Auto-sort completed as separate entries after the other sidebar settings', () => {
     const { source } = createSource();
     render(<Settings tasksViewConfig={source} />);
     fireEvent.click(screen.getByText('Tasks'));
@@ -35,32 +35,35 @@ describe('TasksViewDisplaySetting', () => {
     const group = screen.getByText('Sidebar appearance', { selector: '.settings-group__title' }).closest('.settings-group')!;
     const titles = [...group.querySelectorAll('.settings-entry__title')].map((entry) => entry.textContent);
 
-    expect(titles).toContain('Show completed');
-    expect(titles).toContain('Auto-sort completed');
+    expect(titles).toEqual([
+      'Group tasks by due date',
+      'Show up to',
+      'Show completed',
+      'Auto-sort completed',
+    ]);
     expect(titles).not.toContain('Overdue');
     expect(titles).not.toContain('Upcoming');
     expect(titles).not.toContain('Unscheduled');
   });
 
-  it('updates Show completed and disables Sort completed while preserving its saved choice', () => {
-    const { source, read } = createSource({ showCompleted: true, autoSortCompleted: false });
+  it('keeps Auto-sort completed enabled when Show completed is off', () => {
+    const { source, read } = createSource({ showCompleted: false, autoSortCompleted: false });
     render(<Settings tasksViewConfig={source} />);
     fireEvent.click(screen.getByText('Tasks'));
 
     const showCompleted = screen.getByRole('switch', { name: 'Show completed' });
-    const sortCompleted = screen.getByRole('switch', { name: 'Auto-sort completed' });
+    const autoSortCompleted = screen.getByRole('switch', { name: 'Auto-sort completed' });
 
-    expect(showCompleted).toBeChecked();
-    expect(sortCompleted).toBeEnabled();
-    fireEvent.click(sortCompleted);
+    expect(showCompleted).not.toBeChecked();
+    expect(autoSortCompleted).toBeEnabled();
+
+    fireEvent.click(autoSortCompleted);
     expect(read().autoSortCompleted).toBe(true);
-    expect(sortCompleted).toBeChecked();
+    expect(autoSortCompleted).toBeChecked();
 
     fireEvent.click(showCompleted);
-    expect(read().showCompleted).toBe(false);
-    expect(sortCompleted).toBeDisabled();
+    expect(read().showCompleted).toBe(true);
+    expect(autoSortCompleted).toBeEnabled();
     expect(read().autoSortCompleted).toBe(true);
   });
-
-
 });
