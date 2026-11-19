@@ -137,7 +137,6 @@ export function Tasks({
         <TasksShortcuts
           onShortcut={onShortcut}
           onRequestNewTask={onRequestNewTask}
-          
         />
       }
     >
