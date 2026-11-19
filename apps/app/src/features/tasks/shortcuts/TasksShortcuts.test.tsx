@@ -9,7 +9,6 @@ import { TasksShortcuts } from './TasksShortcuts';
 import { NewTaskDialog } from './NewTaskDialog';
 import type { TasksShortcutId } from './tasksShortcuts.config';
 import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
-import { DEFAULT_TASK_DISPLAY_CONFIG, type TaskDisplayConfig } from '../helpers/groupTasks';
 
 // Overlay's anchored positioning (useOverlayPosition) observes the anchor/
 // surface elements via ResizeObserver, which jsdom doesn't implement — same
@@ -58,22 +57,18 @@ function renderTasksShortcuts(overrides?: {
   onCreateTask?: ReturnType<
     typeof vi.fn<(title: string, dueDate: string | undefined) => Promise<void>>
   >;
-  tasksViewConfig?: TaskDisplayConfig;
 }) {
   const onShortcut = overrides?.onShortcut ?? vi.fn();
   const onCreateTask = overrides?.onCreateTask ?? vi.fn().mockResolvedValue(undefined);
-  const onTasksViewConfigChange = vi.fn<(next: TaskDisplayConfig) => void>();
 
   render(
     <SidebarHost
       onShortcut={onShortcut}
       onCreateTask={onCreateTask}
-      tasksViewConfig={overrides?.tasksViewConfig ?? DEFAULT_TASK_DISPLAY_CONFIG}
-      onTasksViewConfigChange={onTasksViewConfigChange}
     />
   );
 
-  return { onShortcut, onCreateTask, onTasksViewConfigChange };
+  return { onShortcut, onCreateTask };
 }
 
 describe('TasksShortcuts', () => {
@@ -180,52 +175,11 @@ describe('TasksShortcuts', () => {
     expect(onShortcut).toHaveBeenCalledWith(id);
   });
 
-  describe('the Options row (Tasks-view settings)', () => {
-    const optionsRow = () => screen.getByText('Options').closest('.entry') as HTMLElement;
+  it('does not render an Options row; task display preferences live in Settings', () => {
+    renderTasksShortcuts();
 
-    it('has no Completed quick-access row', () => {
-      renderTasksShortcuts();
-
-      expect(screen.queryByText('Completed')).toBeNull();
-    });
-
-    it('is the last row, and All tasks carries no settings button any more', () => {
-      renderTasksShortcuts();
-
-      const rows = [...document.querySelectorAll('.entry')].map((row) => row.textContent ?? '');
-      expect(rows[rows.length - 1]).toContain('Options');
-      expect(screen.queryByLabelText('Task display settings')).toBeNull();
-    });
-
-    it('opens the menu (Groups, Display) without navigating, and keeps the row in the hover state (not selected) while open', () => {
-      const { onShortcut } = renderTasksShortcuts();
-
-      expect(screen.queryByText('Show completed')).not.toBeInTheDocument();
-      expect(optionsRow()).not.toHaveClass('entry-force-hover');
-
-      fireEvent.click(screen.getByText('Options'));
-
-      expect(screen.getByText('Groups')).toBeInTheDocument();
-      expect(screen.getByText('Display')).toBeInTheDocument();
-      expect(screen.getByText('Show completed')).toBeInTheDocument();
-      expect(screen.getByText('Sort completed')).toBeInTheDocument();
-      expect(optionsRow()).toHaveClass('entry-force-hover');
-      expect(onShortcut).not.toHaveBeenCalled();
-    });
-
-    it('writes the shared Tasks-view config and leaves the menu open when a setting is toggled', () => {
-      const { onTasksViewConfigChange } = renderTasksShortcuts({
-        tasksViewConfig: { showCompleted: true, autoSortCompleted: false },
-      });
-
-      fireEvent.click(screen.getByText('Options'));
-      fireEvent.click(screen.getByText('Sort completed'));
-
-      expect(onTasksViewConfigChange).toHaveBeenCalledWith({
-        showCompleted: true,
-        autoSortCompleted: true,
-      });
-      expect(screen.getByText('Sort completed')).toBeInTheDocument();
-    });
+    expect(screen.queryByText('Options')).toBeNull();
+    expect(screen.queryByText('Show completed')).toBeNull();
+    expect(screen.queryByText('Sort completed')).toBeNull();
   });
 });
