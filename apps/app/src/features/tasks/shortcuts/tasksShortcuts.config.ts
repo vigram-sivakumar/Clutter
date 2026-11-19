@@ -12,10 +12,6 @@ export const tasksShortcuts = [
     icon: getSystemLocationPresentation('tasks-all').icon,
     disabled: false,
   },
-  // Handled locally by TasksShortcuts (opens the Options menu — Groups and
-  // Display settings); never dispatched through NavigationRouter. The icon
-  // registry has no sliders/tune icon, so this reuses 'settings'.
-  { id: 'options', title: 'Options', icon: 'settings', disabled: false },
 ] as const satisfies readonly NavigationItem[];
 
 export type TasksShortcutId = (typeof tasksShortcuts)[number]['id'];
