@@ -39,7 +39,7 @@ import { ThemeSetting } from './theme-setting/ThemeSetting';
 import { DefaultTaskLocationSetting } from './tasks-setting/DefaultTaskLocationSetting';
 import { TaskItemsSetting } from './tasks-setting/TaskItemsSetting';
 import { GroupTasksByDueDateSetting } from './tasks-setting/GroupTasksByDueDateSetting';
-import { TasksViewDisplaySetting, type TasksViewConfigSource } from './tasks-setting/TasksViewDisplaySetting';
+import { AutoSortCompletedSetting, ShowCompletedSetting, type TasksViewConfigSource } from './tasks-setting/TasksViewDisplaySetting';
 import { ApplyTemplateIconSetting } from './templates-setting/ApplyTemplateIconSetting';
 import { ApplyTemplateCoverSetting } from './templates-setting/ApplyTemplateCoverSetting';
 import { ShowDailyNoteEmojiSetting } from './daily-notes-setting/ShowDailyNoteEmojiSetting';
@@ -186,9 +186,10 @@ export function Settings({ templates, noteLocation, spaceSettings, tasksViewConf
               <DefaultTaskLocationSetting />
             </SettingsGroup>
             <SettingsGroup title="Sidebar appearance">
-              <TasksViewDisplaySetting source={tasksViewConfig} />
               <GroupTasksByDueDateSetting />
               <TaskItemsSetting />
+              <ShowCompletedSetting source={tasksViewConfig} />
+              <AutoSortCompletedSetting source={tasksViewConfig} />
             </SettingsGroup>
           </>
         )}
