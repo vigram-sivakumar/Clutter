@@ -16,6 +16,7 @@ export interface EntryFixture {
   readonly title?: string;
   readonly icon?: SystemIcon;
   readonly emoji?: string | null;
+  readonly iconImage?: string | null;
   readonly selected?: boolean;
   readonly onClick?: () => void;
   readonly description?: string;
@@ -40,7 +41,7 @@ export interface EntryFixture {
 }
 
 function entryOf(type: 'note' | 'folder', defaults: { id: string; title: string; icon: SystemIcon }, fixture: EntryFixture): CollectionEntryModel {
-  const { id, title, icon, emoji, selected, onClick, description, cover, created, updated, archived, source, ...payload } = fixture;
+  const { id, title, icon, emoji, iconImage, selected, onClick, description, cover, created, updated, archived, source, ...payload } = fixture;
 
   return {
     id: id ?? defaults.id,
