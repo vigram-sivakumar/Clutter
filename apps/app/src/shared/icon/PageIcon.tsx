@@ -12,15 +12,15 @@ export interface PageIconProps {
   systemIcon?: SystemIcon;
   /** A resolved, loadable image URL. Vault path resolution belongs outside this component. */
   imageSrc?: string | null;
-  /** Consistent dimensions for each UI context. */
+  /** Consistent dimensions for each UI context: sidebar, collection, and page title. */
   size?: PageIconSize;
   className?: string;
 }
 
 const SIZE_TOKENS: Record<PageIconSize, { slot: number; glyph: number }> = {
-  small: { slot: 16, glyph: 16 },
-  medium: { slot: 20, glyph: 16 },
-  large: { slot: 28, glyph: 24 },
+  small: { slot: 20, glyph: 16 },
+  medium: { slot: 24, glyph: 20 },
+  large: { slot: 72, glyph: 64 },
 };
 
 interface FallbackProps {
