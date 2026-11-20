@@ -5,6 +5,7 @@
 const APP_COMMANDS: &[&str] = &[
     "frontend_ready",
     "frontend_failed",
+    "set_dock_badge",
     "set_copy_page_link_enabled",
     "atomic_write_file",
     "atomic_inspect_write",
