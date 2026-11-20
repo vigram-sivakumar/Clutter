@@ -172,6 +172,7 @@ export function Sidebar({
           resourceOperations={resourceOperations}
           effectivePageState={effectivePageState}
           membershipSelector={membershipSelector}
+          resolveIconImage={(reference) => application.resolvePageIconImageForDisplay(reference)}
           getDefaultNoteFolderId={() => application.resolveDefaultNoteFolderId()}
           onOpen={(pageId) => pageOperations.open(pageId)}
           onOpenFolder={(folderId) => folderOperations.open(folderId)}
