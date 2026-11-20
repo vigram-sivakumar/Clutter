@@ -2337,6 +2337,11 @@ export function PageHost({
           hasIconImage={Boolean(folder.metadata.iconImage)}
           fallbackIcon={getPageIcon('folder')}
           onUploadIconImage={isFolderUserEditable ? onUploadFolderIconImage : undefined}
+          onIconImageError={
+            isFolderUserEditable && folder.metadata.iconImage
+              ? () => void application.clearFolderIconImageIfUnchanged(folder.id, folder.metadata.iconImage!)
+              : undefined
+          }
           icon={folderSystemIcon}
           showMoreActions={isFolderUserEditable}
           onSelectEmoji={
@@ -3566,6 +3571,11 @@ export function PageHost({
         hasIconImage={Boolean(page.metadata.iconImage)}
         fallbackIcon={getPageIcon('note')}
         onUploadIconImage={!isPageArchived ? onUploadIconImage : undefined}
+        onIconImageError={
+          !isPageArchived && page.metadata.iconImage
+            ? () => void application.clearPageIconImageIfUnchanged(page.id, page.metadata.iconImage!)
+            : undefined
+        }
         onSelectEmoji={!isPageArchived ? onSelectEmoji : undefined}
         onRemoveEmoji={!isPageArchived ? onRemoveEmoji : undefined}
         // A Daily Note's calendar button sits in the controls row above its title (a visual placement experiment).
