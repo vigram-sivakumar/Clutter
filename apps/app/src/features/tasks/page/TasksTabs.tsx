@@ -3,6 +3,7 @@ import type { TaskViewKind } from '../helpers/tasksForView';
 
 const TASK_TABS = [
   { value: 'all', label: 'All tasks' },
+  { value: 'completed', label: 'Completed' },
   { value: 'today', label: 'Today' },
   { value: 'overdue', label: 'Overdue' },
   { value: 'upcoming', label: 'Upcoming' },
@@ -19,6 +20,7 @@ export function resolveTasksTab(stored: string | undefined): TasksTabValue {
 /** The dataset each tab shows — `tasksForView` decides its membership. */
 export const TASKS_TAB_VIEW: Readonly<Record<TasksTabValue, TaskViewKind>> = {
   all: 'tasks-all',
+  completed: 'tasks-completed',
   today: 'tasks-today',
   overdue: 'tasks-overdue',
   upcoming: 'tasks-upcoming',
