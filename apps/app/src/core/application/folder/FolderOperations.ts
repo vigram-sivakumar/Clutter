@@ -22,6 +22,7 @@ import type { Folder } from '../../vault/models/Folder';
 import type { FolderMetadata } from '../../vault/models/FolderMetadata';
 import { isDailyNotesFolderOrDescendant, type ReservedFolderId } from '../../vault/initialize/ReservedResources';
 import { VaultPath } from '../../vault/ingest/VaultPath';
+import { normalizeIconMetadataPatch } from '../iconMetadataPatch';
 import { resolveFolderPathOrRoot } from '../../vault/persistence/resolveFolderPathOrRoot';
 import { evaluateTemplateMarker } from '../../vault/ingest/frontmatter/templateMarker';
 import {
@@ -970,6 +971,7 @@ export class FolderOperations {
         | 'coverPositionAbove'
         | 'coverPositionSide'
         | 'icon'
+        | 'iconImage'
         | 'description'
         | 'defaultTemplateId'
       >
@@ -978,7 +980,7 @@ export class FolderOperations {
     this.assertEditable(folderId);
     const result = await this.coordinator.enqueue(folderId, {
       kind: 'update-folder-metadata',
-      metadata: patch,
+      metadata: normalizeIconMetadataPatch(patch),
     });
 
     if (
