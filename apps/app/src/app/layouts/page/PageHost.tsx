@@ -627,9 +627,7 @@ export function PageHost({
     defaultTemplate,
     menuLabels,
     addLabel,
-    toggles,
   }: {
-    toggles?: CollectionHeaderActionsProps['menu']['toggles'];
     onAdd?: () => void;
     onAddFolder?: () => void;
     fromTemplate?: CollectionHeaderActionsProps['fromTemplate'];
@@ -657,7 +655,6 @@ export function PageHost({
                   ),
               }
             : undefined,
-        toggles,
       }}
       onAdd={onAdd}
       onAddFolder={onAddFolder}
@@ -2608,7 +2605,9 @@ export function PageHost({
             tasks={[...vault.tasks()]}
             inboxPageId={inboxPageId}
             onOpenLink={(url) => {
-              void openExternalUrl(url).catch((error) => toast.fail('Couldn’t open the link', error));
+              void openExternalUrl(url).catch((error) =>
+                toast.fail('Couldn’t open the link', error)
+              );
             }}
             onToggleComplete={taskActions.toggleComplete}
             onOpenTask={(task) => {
