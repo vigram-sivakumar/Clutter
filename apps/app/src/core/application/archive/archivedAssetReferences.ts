@@ -10,7 +10,7 @@ import { isRemoteAssetUrl, resolveLocalAssetReference } from '../membership/Asse
  * It does not have a resolver of its own. What counts as a reference, and how a reference becomes a file, is the
  * Assets catalog's (ADR-039, `AssetCatalogBuilder`): a `![[path]]` embed (its target, alias and heading already
  * split off), a standard `![alt](path)` image (the shared `ImageReferenceExtractor`: titles dropped, `<…>` removed,
- * code ignored), a note's cover and a folder's cover — and a reference is a vault-relative path, exactly, with a
+ * code ignored), a note/folder cover and a page/folder icon image — and a reference is a vault-relative path, exactly, with a
  * leading `./` and percent-encoding allowed (`resolveLocalAssetReference`). On top of that this adds what a delete
  * needs and the catalog, which is about display, does not:
  *  - a hidden cover is still a reference (un-hiding it must not find the file gone);
