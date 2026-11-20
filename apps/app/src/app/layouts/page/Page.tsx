@@ -98,6 +98,7 @@ type PageProps = {
   hasIconImage?: boolean;
   fallbackIcon?: SystemIcon;
   onUploadIconImage?: PageHeaderControlsProps['onUploadIconImage'];
+  onIconImageError?: PageHeaderControlsProps['onIconImageError'];
   onSetCoverImage?(url: string, credit?: CoverCredit | null): CoverApplyResult;
   onSetCoverImageFromUpload?(sourcePath: string): CoverApplyResult;
   /**
@@ -540,6 +541,7 @@ export function Page({
               hasIconImage={hasIconImage}
               fallbackIcon={fallbackIcon}
               onUploadIconImage={onUploadIconImage}
+              onIconImageError={onIconImageError}
               hasDescription={Boolean(description)}
               onEditDescription={onEditDescription}
               propertiesControl={propertiesControl}
