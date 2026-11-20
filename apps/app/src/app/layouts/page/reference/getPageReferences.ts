@@ -40,9 +40,9 @@ export interface TaskReference {
 
 export interface PageReferences {
   /**
-   * Tasks whose own line links to or embeds the open page: open dated (due date ascending), open undated,
-   * then completed (most recently completed first; ones with no completion date by due date). Ties go to
-   * the most recently modified source note.
+   * Tasks whose own line links to or embeds the open page. When the open page is a Daily Note, also includes
+   * every active task due on that date, regardless of whether it links to the Daily Note. Ordered open dated,
+   * open undated, then completed; ties go to the most recently modified source note.
    */
   readonly tasks: readonly TaskReference[];
   /**
@@ -57,9 +57,8 @@ export interface PageReferences {
 const NONE: PageReferences = { tasks: [], notes: [], dailyNotes: [] };
 
 /**
- * The inbound references to `pageId`, read from the Vault's knowledge graph — the one place that already
- * resolves links and embeds, and that already leaves archived pages out. Nothing here scans the vault: it
- * walks only the edges that point at this page, through the graph's own incoming index.
+ * The inbound references to `pageId`, read from the Vault's knowledge graph. For Daily Notes, the Tasks
+ * group additionally includes all active tasks due on that date, sourced from the Vault's task projection.
  *
  * Identity is the stable page id throughout (never a title or a path). A source that is the page itself, or
  * lives in Templates (a template's content is raw material, not a note — the same rule `Vault.tasks()` applies),
