@@ -2,6 +2,8 @@ import type { CoverCredit, CoverLayout } from './PageMetadata';
 
 export interface FolderMetadata {
   readonly icon: string | null;
+  /** Vault-relative image asset used instead of the emoji icon when valid. */
+  readonly iconImage?: string | null;
   readonly favorite: boolean;
   /**
    * `string | null` (not a bare `string` defaulting to `''`) so an unset
