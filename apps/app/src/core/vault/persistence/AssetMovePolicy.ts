@@ -31,7 +31,7 @@ export interface AssetReferenceFailure {
   readonly id: string;
   /** Where it lives, to find it by (a note's path, a folder's path). */
   readonly path: string;
-  readonly usage: 'text' | 'cover' | 'avatar';
+  readonly usage: 'text' | 'cover' | 'icon' | 'avatar';
   readonly message: string;
 }
 
