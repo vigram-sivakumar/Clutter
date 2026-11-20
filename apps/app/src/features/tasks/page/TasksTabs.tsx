@@ -3,11 +3,11 @@ import type { TaskViewKind } from '../helpers/tasksForView';
 
 const TASK_TABS = [
   { value: 'all', label: 'All tasks' },
-  { value: 'completed', label: 'Completed' },
   { value: 'today', label: 'Today' },
   { value: 'overdue', label: 'Overdue' },
   { value: 'upcoming', label: 'Upcoming' },
-  { value: 'unscheduled', label: 'Unscheduled' },
+  { value: 'unscheduled', label: 'Unplanned' },
+  { value: 'completed', label: 'Completed' },
 ] as const;
 
 export type TasksTabValue = (typeof TASK_TABS)[number]['value'];
