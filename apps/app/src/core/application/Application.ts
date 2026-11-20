@@ -311,6 +311,7 @@ export class Application {
   /** The platform's "is this folder confirmed gone" check; replaceable only by tests. */
   private isRootConfirmedMissing: (path: string) => Promise<boolean> = isFolderConfirmedMissing;
   private workspaceVaultReconciliationUnsubscribe!: () => void;
+  private readonly iconImageReconciliation = new Set<string>();
 
   static async bootstrap(
     rootPath: string,
@@ -1924,6 +1925,98 @@ export class Application {
     }
 
     return cover;
+  }
+
+  /**
+   * Resolves a page/folder icon's strictly vault-relative image reference.
+   * Unlike covers, icon images never accept remote URLs, absolute paths,
+   * unsupported file kinds, non-canonical paths, or unindexed files.
+   */
+  public resolvePageIconImageForDisplay(reference: string | null | undefined): string | null {
+    if (
+      !reference ||
+      reference.startsWith('/') ||
+      reference.includes('\\') ||
+      /^[a-z][a-z0-9+.-]*:/i.test(reference)
+    ) {
+      return null;
+    }
+
+    const absolutePath = `${this.rootPath}/${reference}`;
+    if (!this.isIndexedVaultReference(reference, absolutePath)) {
+      return null;
+    }
+
+    const resource = this.vault.getResourceByPathCaseInsensitive(absolutePath);
+    if (!resource || resource.kind !== 'image') {
+      return null;
+    }
+
+    return this.coverImageUrlResolver.toLoadableUrl(resource.path);
+  }
+
+  /**
+   * Best-effort cleanup for a page opened with a stale iconImage reference.
+   * This runs from the open lifecycle, never from render. A valid image wins
+   * over a hand-edited emoji/image conflict; an invalid image is cleared
+   * while preserving the emoji fallback.
+   */
+  public async reconcilePageIconImage(pageId: string): Promise<void> {
+    const key = `page:${pageId}`;
+    if (this.iconImageReconciliation.has(key)) return;
+    this.iconImageReconciliation.add(key);
+
+    try {
+      const page = this.vault.getPage(pageId);
+      const reference = page?.metadata.iconImage;
+      if (!page || !reference || this.vault.isPageEffectivelyArchived(page)) return;
+
+      if (this.resolvePageIconImageForDisplay(reference) !== null) {
+        if (page.metadata.icon) {
+          await this.pageOperations.updateMetadata(pageId, {
+            icon: null,
+            iconImage: reference,
+          });
+        }
+        return;
+      }
+
+      await this.pageOperations.updateMetadata(pageId, { iconImage: null });
+    } catch {
+      // Rendering already uses the safe fallback. A later open or relevant
+      // Vault update retries this best-effort metadata cleanup.
+    } finally {
+      this.iconImageReconciliation.delete(key);
+    }
+  }
+
+  /** Folder counterpart to reconcilePageIconImage; persists through FolderOperations/.folder.md. */
+  public async reconcileFolderIconImage(folderId: string): Promise<void> {
+    const key = `folder:${folderId}`;
+    if (this.iconImageReconciliation.has(key)) return;
+    this.iconImageReconciliation.add(key);
+
+    try {
+      const folder = this.vault.getFolder(folderId);
+      const reference = folder?.metadata.iconImage;
+      if (!folder || !reference || this.vault.isFolderEffectivelyArchived(folderId)) return;
+
+      if (this.resolvePageIconImageForDisplay(reference) !== null) {
+        if (folder.metadata.icon) {
+          await this.folderOperations.updateMetadata(folderId, {
+            icon: null,
+            iconImage: reference,
+          });
+        }
+        return;
+      }
+
+      await this.folderOperations.updateMetadata(folderId, { iconImage: null });
+    } catch {
+      // As above, never block opening/rendering; retry on a later open.
+    } finally {
+      this.iconImageReconciliation.delete(key);
+    }
   }
 
   /**
