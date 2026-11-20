@@ -68,6 +68,23 @@ describe('PageHeaderMoreActionsMenu — root view', () => {
     expect(screen.getByText('Description')).toBeInTheDocument();
   });
 
+  it('offers a first-time icon image upload when the upload handler is available', () => {
+    renderMenu({ onUploadIconImage: vi.fn() });
+
+    fireEvent.click(screen.getByText('Upload icon image'));
+
+    expect(document.querySelector('.image-picker-upload')).toBeInTheDocument();
+  });
+
+  it('omits the first-time image upload once an emoji or image is already set', () => {
+    renderMenu({ onUploadIconImage: vi.fn(), emoji: '🍄' });
+    expect(screen.queryByText('Upload icon image')).not.toBeInTheDocument();
+    cleanup();
+
+    renderMenu({ onUploadIconImage: vi.fn(), hasIconImage: true });
+    expect(screen.queryByText('Upload icon image')).not.toBeInTheDocument();
+  });
+
   it('omits Emoji once an emoji is already set — the visible emoji itself is the entry point instead', () => {
     renderMenu({ emoji: '🍄' });
 
