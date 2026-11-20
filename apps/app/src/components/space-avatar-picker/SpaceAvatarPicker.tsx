@@ -20,14 +20,15 @@ interface SpaceAvatarPickerProps {
   /** An image chosen from the user's computer (an absolute path). */
   onUploadImage: (filePath: string) => void;
   onRemove: () => void;
+  /** Label used by the remove action when this picker is reused for another identity icon. */
+  entityLabel?: 'avatar' | 'icon';
   /** Where the popover sits along the anchor's bottom edge. Defaults to `center`, as the Space details dialog has it. */
   alignment?: 'start' | 'center' | 'end';
 }
 
 /**
- * The space avatar picker: the shared EmojiTray and the cover picker's Upload step under two tabs, in the
- * same Popover every Change icon surface uses. Upload only — a space being created has no vault whose
- * assets could be offered.
+ * Shared emoji/image picker for Space avatars and page/folder identity icons. It composes the existing
+ * EmojiTray and local-image upload step under two tabs; callers own persistence and fallback behaviour.
  */
 export function SpaceAvatarPicker({
   anchorRef,
@@ -37,6 +38,7 @@ export function SpaceAvatarPicker({
   onSelectEmoji,
   onUploadImage,
   onRemove,
+  entityLabel = 'avatar',
   alignment = 'center',
 }: SpaceAvatarPickerProps) {
   const [tab, setTab] = useState<AvatarTab>('emoji');
@@ -62,7 +64,7 @@ export function SpaceAvatarPicker({
           </Tabs>
           <Button
             // variant="outline-fill"
-            aria-label="Remove avatar"
+            aria-label={`Remove ${entityLabel}`}
             disabled={!hasAvatar}
             onClick={onRemove}
           >
