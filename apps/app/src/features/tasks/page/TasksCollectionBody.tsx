@@ -306,7 +306,9 @@ export function TasksCollectionBody({
   return (
     <TasksPageBody>
       {dateGroups.map(({ date, items }) => {
-        const isOverdueGroup = classifyDueDate(date) === 'past';
+        const isOverdueGroup = items.some(({ task }) =>
+          !task.completed && classifyDueDate(task.dueDate) === 'past'
+        );
         return (
           <Section
             key={date || 'unscheduled'}
