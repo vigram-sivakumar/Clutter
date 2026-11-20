@@ -2586,30 +2586,6 @@ export function PageHost({
             {renderCollectionHeaderActions({
               onAdd: () => setIsNewTaskOpen(true),
               addLabel: 'New task',
-              // The Tasks view's own display preferences — the same shared setting the Tasks sidebar edits.
-              toggles: [
-                {
-                  id: 'show-completed',
-                  label: 'Show completed',
-                  checked: tasksViewConfig.showCompleted,
-                  onChange: (showCompleted) =>
-                    onTasksViewConfigChange({
-                      ...tasksViewConfig,
-                      showCompleted,
-                    }),
-                },
-                {
-                  id: 'auto-sort-completed',
-                  label: 'Auto-sort completed',
-                  checked: tasksViewConfig.autoSortCompleted,
-                  disabled: !tasksViewConfig.showCompleted,
-                  onChange: (autoSortCompleted) =>
-                    onTasksViewConfigChange({
-                      ...tasksViewConfig,
-                      autoSortCompleted,
-                    }),
-                },
-              ],
             })}
             <NewTaskDialog
               open={isNewTaskOpen}
