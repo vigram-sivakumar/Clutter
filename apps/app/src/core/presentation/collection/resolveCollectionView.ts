@@ -125,8 +125,9 @@ export function resolveCollectionView(
     config.layout !== undefined && definition.layouts.includes(config.layout) ? config.layout : definition.defaultLayout;
 
   const available = availableProperties(definition);
+  // Due-date grouping is the Tasks collection's default; an explicit `none` remains the user's opt-out.
   const groupBy: CollectionGroupBy | undefined = definition.kind === 'tasks'
-    ? (config.groupBy === 'dueDate' ? 'dueDate' : 'none') : undefined;
+    ? (config.groupBy === 'none' ? 'none' : 'dueDate') : undefined;
   const disabled: readonly PropertyId[] = groupBy === 'dueDate' ? ['dueDate'] : [];
   const required = requiredProperties(definition, layout);
   const locked = available.filter((id) => required.includes(id));
