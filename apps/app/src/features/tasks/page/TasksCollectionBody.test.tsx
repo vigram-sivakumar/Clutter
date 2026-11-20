@@ -453,6 +453,7 @@ describe('TasksCollectionBody', () => {
           tasks={[target]}
           collectionView={resolveCollectionView(TASKS_COLLECTION, {
             layout: 'table',
+            groupBy: 'none',
           })}
           {...noop}
           onToggleComplete={onToggleComplete}
