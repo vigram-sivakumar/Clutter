@@ -5,7 +5,7 @@ import { type ChangeListener, type Observable } from '../shared/Observable';
  * by a query rather than a location in the folder tree (ADR-022). Grows
  * only when a real consumer ships; 'workspace'/'favorites' (root
  * folders+notes, favorited items), the six task collection views
- * (Today/Overdue/Upcoming/Completed/All Tasks/Unscheduled), 'tag' (notes
+ * (Today/Overdue/Upcoming/Completed/All Tasks/Unplanned), 'tag' (notes
  * referencing one tag), and 'assets' (every supported VaultResource
  * anywhere in the vault, not just inside the physical Assets/ folder) are
  * the ones that exist today.
