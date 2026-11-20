@@ -52,6 +52,7 @@ describe('FolderBuilder', () => {
 
     expect(folder.metadata).toEqual({
       icon: null,
+      iconImage: null,
       favorite: false,
       description: null,
       cover: null,
@@ -73,6 +74,7 @@ describe('FolderBuilder', () => {
       frontmatter: {
         id: 'folder-1',
         icon: '📁',
+        iconImage: 'Assets/folder.png',
         favorite: true,
         description: 'Project files',
         cover: 'cover.png',
@@ -87,6 +89,7 @@ describe('FolderBuilder', () => {
 
     expect(folder.metadata).toEqual({
       icon: '📁',
+      iconImage: 'Assets/folder.png',
       favorite: true,
       description: 'Project files',
       cover: 'cover.png',
