@@ -23,19 +23,29 @@ export function LaunchAtLoginSetting() {
     }
 
     let active = true;
-    invoke<string>('get_launch_at_login_status')
-      .then((nextStatus) => {
-        if (active) setStatus(nextStatus as LaunchAtLoginStatus);
-      })
-      .catch((reason: unknown) => {
-        if (active) {
-          setError(String(reason));
-          setStatus('not-found');
-        }
-      });
+    const refreshStatus = () => {
+      invoke<string>('get_launch_at_login_status')
+        .then((nextStatus) => {
+          if (active) {
+            setStatus(nextStatus as LaunchAtLoginStatus);
+            setError(undefined);
+          }
+        })
+        .catch((reason: unknown) => {
+          if (active) {
+            setError(String(reason));
+            setStatus('not-found');
+          }
+        });
+    };
+
+    refreshStatus();
+    // The user may change Clutter's Login Item in System Settings while this window is open.
+    window.addEventListener('focus', refreshStatus);
 
     return () => {
       active = false;
+      window.removeEventListener('focus', refreshStatus);
     };
   }, []);
 
