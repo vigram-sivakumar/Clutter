@@ -470,6 +470,86 @@ describe('attachTableHandleOverlay — click-to-select', () => {
     expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 2 });
   });
 
+  function mountWidget(view: EditorView, wrapper: HTMLElement): HTMLElement {
+    const widget = document.createElement('div');
+    widget.className = 'cm-table-widget';
+    widget.dataset.tableFrom = String(TEST_TABLE_FROM);
+    widget.appendChild(wrapper);
+    view.dom.appendChild(widget);
+    return widget;
+  }
+
+  it('opens the column menu on the first click using the replacement widget handle', () => {
+    const { wrapper, table } = buildTable(2, 3);
+    const { view, controller } = mountRootView();
+    const onMenuChange = vi.fn();
+    mountWidget(view, wrapper);
+    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => onMenuChange);
+
+    hoverBodyCell(wrapper, table, 0, 2);
+    const originalHit = table.querySelector('thead th:nth-child(3) .cm-table-column-handle-hit')!;
+    originalHit.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, clientX: 0, clientY: 0 }));
+
+    // Model the synchronous TableWidget replacement caused by the
+    // pointerdown selection dispatch before the browser emits pointerup.
+    wrapper.parentElement!.remove();
+    const replacement = buildTable(2, 3);
+    mountWidget(view, replacement.wrapper);
+    attachTableHandleOverlay(replacement.wrapper, 3, view, controller, TEST_TABLE_FROM, 2, null, () => onMenuChange);
+    const freshAnchor = replacement.wrapper.querySelector('.cm-table-column-handle')!;
+
+    document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, cancelable: true, button: 0, clientX: 0, clientY: 0 }));
+
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'column', tableFrom: TEST_TABLE_FROM, columnIndex: 2 });
+    expect(onMenuChange).toHaveBeenCalledTimes(1);
+    expect(onMenuChange).toHaveBeenCalledWith({
+      anchor: freshAnchor,
+      selection: { kind: 'column', tableFrom: TEST_TABLE_FROM, columnIndex: 2 },
+    });
+  });
+
+  it('opens the row menu on the first click using the replacement widget handle', () => {
+    const { wrapper, table } = buildTable(2, 3);
+    const { view, controller } = mountRootView();
+    const onMenuChange = vi.fn();
+    mountWidget(view, wrapper);
+    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => onMenuChange);
+
+    const row = hoverBodyCell(wrapper, table, 1, 0);
+    const originalHit = row.children[0]!.querySelector('.cm-table-row-handle-hit')!;
+    originalHit.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, clientX: 0, clientY: 0 }));
+
+    wrapper.parentElement!.remove();
+    const replacement = buildTable(2, 3);
+    mountWidget(view, replacement.wrapper);
+    attachTableHandleOverlay(replacement.wrapper, 3, view, controller, TEST_TABLE_FROM, null, 2, () => onMenuChange);
+    const freshAnchor = replacement.wrapper.querySelector('.cm-table-row-handle')!;
+
+    document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, cancelable: true, button: 0, clientX: 0, clientY: 0 }));
+
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 2 });
+    expect(onMenuChange).toHaveBeenCalledTimes(1);
+    expect(onMenuChange).toHaveBeenCalledWith({
+      anchor: freshAnchor,
+      selection: { kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 2 },
+    });
+  });
+
+  it('does not open the menu after a handle drag', () => {
+    const { wrapper, table } = buildTable(2, 3);
+    const { view, controller } = mountRootView();
+    const onMenuChange = vi.fn();
+    mountWidget(view, wrapper);
+    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => onMenuChange);
+
+    const hit = table.querySelector('thead th:nth-child(2) .cm-table-column-handle-hit')!;
+    hit.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, clientX: 0, clientY: 0 }));
+    document.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, cancelable: true, clientX: 10, clientY: 0 }));
+    document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, cancelable: true, button: 0, clientX: 10, clientY: 0 }));
+
+    expect(onMenuChange).not.toHaveBeenCalled();
+  });
+
   it('a click on the column/row handle never modifies the document or the root selection', () => {
     const { wrapper, table } = buildTable(2, 3);
     const { view, controller } = mountRootView();
