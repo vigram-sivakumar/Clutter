@@ -119,7 +119,7 @@ export class TaskOperations {
         before = body;
         return body;
       });
-      const tasks = datedTasks(before);
+      const tasks = transferableTasks(before);
       if (!tasks.length) return;
       const legacyId = legacyTransferId(before);
       record = {
@@ -144,8 +144,8 @@ export class TaskOperations {
     }
     if (source !== record.before)
       throw new Error('Inbox changed during Tidy up; its tasks were kept');
-    const tasks = datedTasks(record.before);
-    const dates = [...new Set(tasks.map((task) => task.dueDate!))];
+    const tasks = transferableTasks(record.before);
+    const dates = [...new Set(tasks.map((task) => transferDate(task)!))];
     if (
       new Set(record.destinations.map((d) => d.date)).size !==
         record.destinations.length ||
@@ -160,7 +160,7 @@ export class TaskOperations {
         { type: 'daily-note' }
       );
       const lines = tasks
-        .filter((task) => task.dueDate === date)
+        .filter((task) => transferDate(task) === date)
         .map((task) => task.rawText);
       const block = lines.join('\n');
       let destination = record.destinations.find((d) => d.date === date);
@@ -798,13 +798,25 @@ function insertTaskBlock(markdown: string, block: string): string {
   return lines.join('\n');
 }
 
-function datedTasks(markdown: string) {
+function transferDate(task: ReturnType<TaskExtractor['extract']>[number]): string | undefined {
+  // An explicit due date always takes precedence. If it is malformed, keep
+  // the task in Inbox rather than silently substituting its completion date.
+  if (task.dueDate !== undefined) {
+    return isValidCalendarDate(task.dueDate) ? task.dueDate : undefined;
+  }
+
+  // Completed tasks without a due date are filed by their recorded
+  // completion date. Incomplete or undated completions stay in Inbox.
+  if (!task.completed || !task.completedAt) return undefined;
+  return isValidCalendarDate(task.completedAt) ? task.completedAt : undefined;
+}
+function transferableTasks(markdown: string) {
   return new TaskExtractor()
     .extract(markdown)
-    .filter((task) => task.dueDate && isValidCalendarDate(task.dueDate));
+    .filter((task) => transferDate(task) !== undefined);
 }
 function removeTaskLines(markdown: string): string {
-  const offsets = new Set(datedTasks(markdown).map((task) => task.startOffset));
+  const offsets = new Set(transferableTasks(markdown).map((task) => task.startOffset));
   let offset = 0;
   return markdown
     .split('\n')
@@ -822,8 +834,8 @@ function legacyTransferId(markdown: string): string | undefined {
   const marker = text.lastIndexOf(LEGACY_INBOX_PLAN_PREFIX);
   const prefix = marker === 0 ? '' : text.slice(0, marker - 1);
   if (prefix === plan.body) return plan.id;
-  const original = new Set(datedTasks(plan.body).map((task) => task.rawText));
-  if (datedTasks(prefix).some((task) => original.has(task.rawText))) {
+  const original = new Set(transferableTasks(plan.body).map((task) => task.rawText));
+  if (transferableTasks(prefix).some((task) => original.has(task.rawText))) {
     throw new Error(
       'An earlier Tidy up checkpoint changed; Inbox tasks were kept for review'
     );
@@ -831,7 +843,7 @@ function legacyTransferId(markdown: string): string | undefined {
   return undefined;
 }
 function destinationsSaved(record: TaskTransferRecord): boolean {
-  const dates = new Set(datedTasks(record.before).map((task) => task.dueDate));
+  const dates = new Set(transferableTasks(record.before).map((task) => transferDate(task)));
   return (
     dates.size > 0 &&
     record.destinations.length === dates.size &&
