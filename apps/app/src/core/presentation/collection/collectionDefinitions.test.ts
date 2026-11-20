@@ -113,6 +113,8 @@ describe('the Tasks collection', () => {
     expect([...TASKS_COLLECTION.properties].sort()).toEqual(['dueDate', 'name', 'source']);
     expect([...TASKS_COLLECTION.defaultVisible].sort()).toEqual(['dueDate', 'name', 'source']);
     expect(TASKS_COLLECTION.defaultSort).toEqual({ property: 'name', direction: 'down' });
+    expect(TASKS_COLLECTION.defaultGroupBy).toBe('dueDate');
+    expect(TASK_INBOX_COLLECTION.defaultGroupBy).toBe('none');
   });
 
   it('the fixed Tasks List starts as Name and Due date without offering Properties', () => {
