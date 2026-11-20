@@ -18,14 +18,15 @@ export function renderFolderGrid(
   /** Extra props per card (the Collection View's drag handlers and markers); absent, none. */
   dragProps?: (entry: CollectionEntryModel) => object | undefined,
   /** Each folder card's selection checkbox; absent, the cards have none. */
-  selectionFor?: (entry: CollectionEntryModel) => CollectionItemSelection
+  selectionFor?: (entry: CollectionEntryModel) => CollectionItemSelection,
+  resolveIconImage?: (reference: string | null | undefined) => string | null
 ) {
   return (
     <CollectionGrid {...FOLDER_GRID}>
       {entries.map((entry) => (
         <CollectionEntry
           key={entry.id}
-          {...toFolderEntryProps(entry)}
+          {...toFolderEntryProps(entry, resolveIconImage)}
           selection={selectionFor?.(entry)}
           {...dragProps?.(entry)}
         />
