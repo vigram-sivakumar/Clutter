@@ -83,6 +83,17 @@ describe('toNoteCardProps', () => {
     expect(page.querySelector('h1')?.textContent).toBe('Heading');
   });
 
+  it('resolves a local icon image for the collection card title', () => {
+    const { container } = draw(entry({ iconImage: 'Assets/note-icon.png' }), {
+      resolveIconImage: (reference) => `app://vault/${reference}`,
+    });
+
+    expect(container.querySelector('.card-title-section__leading img')).toHaveAttribute(
+      'src',
+      'app://vault/Assets/note-icon.png'
+    );
+  });
+
   it("draws the note's emoji instead of the note icon", () => {
     const { container } = draw(entry({ emoji: '🌊' }));
 
