@@ -2,7 +2,7 @@
 
 **Status:** Deferred — not implemented. Use this document when resuming work.
 
-**Goal:** Extend the Page Title section so users can choose either an **emoji** (existing) or an **uploaded image**, reusing the Space avatar picker pattern and the existing asset import pipeline. Do not duplicate upload logic or store absolute paths / Base64 in frontmatter.
+**Goal:** Extend page and folder title icons so users can choose either an **emoji** (existing) or an **uploaded image**. The same icon must appear consistently in page/folder headers and sidebar rows. Reuse the existing asset import, Vault resource index, metadata operations, and image presentation patterns. Do not duplicate upload logic or store absolute paths / Base64 in frontmatter.\n\n**UX invariant:** Never show a broken image, an empty icon slot, or a flash of a broken/late-loading image. Keep the emoji or generic fallback visible until the image has loaded successfully.
 
 ---
 
@@ -98,16 +98,16 @@ Keep `icon` for emoji so existing pages and all emoji-oriented code paths stay u
 - Pick image → set `iconImage`, clear `icon`.
 - Remove → clear both.
 
-**Read normalization (corrupt / hand-edited files):** If both present, prefer `iconImage` when it looks like a vault-relative asset reference; normalize on next save.
+**Read normalization (corrupt / hand-edited files):** If both are present, prefer `iconImage` only when it passes the shared Vault-relative path validation and exists in the Vault index; otherwise use a valid emoji. Normalize the conflict on the next successful metadata save. Do not mutate Markdown during rendering.
 
 **Constraints:**
 
 - No Base64, no absolute filesystem paths in frontmatter.
 - Only vault-relative references produced by `importCoverAsset` (same as cover assets).
 - Survives Space relocation (path is relative to vault root).
-- Missing file: resolve URL → `null`; header falls back (mirror `SpaceAvatar` / missing cover).
+- Missing, invalid, unsupported, or non-canonical file: do not attempt to render it; use the emoji fallback, otherwise the generic default icon. Clear stale `iconImage` metadata through the relevant operations API on open/relevant Vault sync, without blocking rendering.
 
-Apply the same keys on **folders** (`FolderFrontmatter` / `.folder.md`) for collection folder headers.
+Apply the same keys to folder metadata using the existing FolderOperations and folder metadata persistence path. Folders do not use `.folder.md`; do not introduce that file or a new sidecar persistence mechanism.
 
 **Durability:** Metadata edits follow the normal Gate path (Committed → Durable → Reconciled per `docs/durability-model.md`). Asset copy ordering should match avatar/cover (rollback created asset if metadata write fails, where applicable).
 
@@ -122,7 +122,7 @@ Optional: store under `Assets/page-icons/` via `importAsset(..., destinationFold
 - `SpaceAvatarPicker` (or one shared emoji+upload popover extracted from it)
 - `ImagePickerUpload`
 - `Application.importCoverAsset`
-- `Application.resolveCoverImageForDisplay` for `<img src>` on `iconImage`
+- Shared Vault-relative asset validation/resolution extracted from the cover implementation (do not make icon UI depend on a cover-specific API)
 - `PageOperations.updateMetadata` / `FolderOperations.updateMetadata`
 
 ### Do not use for v1 page icon
@@ -213,6 +213,61 @@ flowchart TB
   umd --> ser
   ser --> fm
 ```
+
+
+---
+
+## Required behaviour: sidebar, loading fallback, and stale-reference cleanup
+
+This section supersedes any earlier wording that limited image icons to headers.
+
+The feature includes **page headers, folder headers, note sidebar rows, and folder sidebar rows** from the first release. All four surfaces must use the same shared icon presentation behaviour. Do not implement separate image checks in each component.
+
+### Fallback-first rendering
+
+| Condition | Presentation |
+|---|---|
+| Image is valid and has loaded successfully | Show image |
+| Image is being resolved or loaded | Keep emoji visible, otherwise generic default icon |
+| Image is missing, moved, invalid, unsupported, or fails to decode | Keep emoji visible, otherwise generic default icon |
+| No image, valid emoji exists | Show emoji |
+| Neither image nor emoji exists | Show generic default icon |
+
+Never render an unverified image URL and wait for an image error to replace it. Keep the fallback visible until the image load event confirms success; only then reveal the image. On error, remain on the fallback. When the reference changes, reset loading state for the new reference and never briefly show the previous image. Preserve each surface's existing icon dimensions/layout.
+
+The image element's error handler is a final presentation safeguard, not the source of truth for local Vault file existence. For Vault-managed assets, validate using the same canonical path, supported-resource, internal-path, and Vault-index rules already used by the cover resolver. Extract/reuse that logic at a shared boundary; do not create a second path validator or make icon presentation depend on a cover-named API.
+
+### Missing and invalid reference reconciliation
+
+When a note or folder is opened, and when Vault sync reports a relevant asset move/deletion:
+
+1. Validate the iconImage reference using the shared Vault-relative path validation and resource-index check.
+2. If it is invalid, unsupported, non-canonical, or missing from the Vault index, do not attempt to load it.
+3. Clear only iconImage through PageOperations.updateMetadata or FolderOperations.updateMetadata.
+4. Preserve a valid emoji fallback. If no emoji exists, show the generic default icon.
+5. If metadata cleanup fails, continue opening/rendering with the safe fallback. Keep the reference for a later retry; do not block the UI.
+6. Do not delete the image file itself.
+7. Deduplicate reconciliation so sidebar rendering never enqueues writes on every render. Trigger it from an application-owned open/sync lifecycle, not from React render.
+
+Do not infer that an arbitrary unindexed path is missing without applying the explicit validation rules. For iconImage, however, only canonical, supported, Vault-relative image references are valid; unsupported/unindexable references must be cleared.
+
+### Asset movement
+
+Extend planMovedAssetReferences / rewriteMovedAssetReferences to include page and folder iconImage references, alongside cover and Space avatar references. Rewrite references when a supported move/rename completes. Do not clear a reference while an in-progress supported move is being reconciled; use the completed Vault sync/move result.
+
+### Implementation and test requirements
+
+- [ ] Shared fallback-first icon presentation used by page header, folder header, note sidebar row, and folder sidebar row.
+- [ ] Keep fallback visible until successful image load; no broken-image flash, blank slot, or stale previous image when the reference changes.
+- [ ] Missing, moved, invalid, non-canonical, unsupported, and decode-failing image references never appear as broken images.
+- [ ] Preserve emoji fallback; use generic default when no emoji exists.
+- [ ] Reconcile stale iconImage on open and relevant Vault sync events through the existing operations APIs.
+- [ ] Reconciliation is deduplicated and never runs as a render side effect.
+- [ ] Failed cleanup does not block opening/rendering and can be retried on a later meaningful lifecycle event.
+- [ ] Asset move/rename rewrites page and folder iconImage references.
+- [ ] Existing emoji flows and archived/read-only constraints remain unchanged.
+- [ ] Folder metadata continues using its existing persistence mechanism; no .folder.md is introduced.
+
 
 ---
 
