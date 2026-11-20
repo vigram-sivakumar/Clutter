@@ -5,7 +5,9 @@ import { CollectionSourceLink } from '@features/collection/components/entry/Coll
 import { CollectionDataList } from '@features/collection/components/list/CollectionDataList';
 import { Section } from '@app/layouts/sidebar/section/Section';
 import { groupByTaskDueDate } from '../helpers/groupByTaskDueDate';
+import { classifyDueDate } from '../helpers/taskDueDate';
 import { formatTaskDueDateLong } from '../helpers/formatTaskDueDate';
+import { isTomorrow } from '@shared/helpers/time';
 import { useCollectionItemContextMenu } from '@app/layouts/page/body/useCollectionItemContextMenu';
 import { TaskDatePicker } from '../sidebar/TaskDatePicker';
 import { buildTaskMenu } from '../helpers/buildTaskMenu';
@@ -126,11 +128,11 @@ export function TasksCollectionBody({
 }: TasksCollectionBodyProps) {
   const { visible, sort, groupBy } = collectionView ?? resolveCollectionView(view === 'tasks-inbox' ? TASK_INBOX_COLLECTION : TASKS_COLLECTION);
   const [collapsedGroups, setCollapsedGroups] = useState<readonly string[]>([]);
-  const sectionProps = (date: string) => {
-    const key = `${view}:${date}`;
+  const sectionProps = (id: string, title: string) => {
+    const key = `${view}:${id}`;
     return {
       hasHeader: true,
-      title: date ? formatTaskDueDateLong(date) : 'Unscheduled',
+      title,
       isCollapsible: true,
       isTitleToggle: true,
       isExpanded: !collapsedGroups.includes(key),
@@ -283,13 +285,45 @@ export function TasksCollectionBody({
     };
   };
 
+  if (!dateGroups) {
+    return (
+      <TasksPageBody>
+        <CollectionDataList className="task-list" items={entries.map(itemOf)} />
+        {menuOverlays}
+      </TasksPageBody>
+    );
+  }
+
+  // Keep the existing exact-date grouping as the source of ordering and membership.
+  // The All Tasks page only gives the date groups clearer planning-level headings.
+  const overdueGroups = dateGroups.filter(({ date }) => classifyDueDate(date) === 'past');
+  const todayGroup = dateGroups.find(({ date }) => classifyDueDate(date) === 'today');
+  const tomorrowGroup = dateGroups.find(({ date }) => isTomorrow(date));
+  const upcomingGroups = dateGroups.filter(({ date }) =>
+    classifyDueDate(date) === 'future' && !isTomorrow(date)
+  );
+  const unscheduledGroup = dateGroups.find(({ date }) => date === '');
+  const renderGroup = (id: string, title: string, items: readonly TaskEntry[]) => (
+    <Section key={id} {...sectionProps(id, title)}>
+      <CollectionDataList className="task-list" items={items.map(itemOf)} />
+    </Section>
+  );
+
   return (
     <TasksPageBody>
-      {dateGroups ? dateGroups.map(({ date, items }) => (
-        <Section key={date || 'unscheduled'} {...sectionProps(date)}>
-          <CollectionDataList className="task-list" items={items.map(itemOf)} />
+      {overdueGroups.length > 0 && renderGroup('overdue', 'Overdue', overdueGroups.flatMap(({ items }) => items))}
+      {todayGroup && renderGroup('today', 'Today', todayGroup.items)}
+      {tomorrowGroup && renderGroup('tomorrow', 'Tomorrow', tomorrowGroup.items)}
+      {upcomingGroups.length > 0 && (
+        <Section key="upcoming" {...sectionProps('upcoming', 'Upcoming')}>
+          {upcomingGroups.map(({ date, items }) => (
+            <Section key={date} {...sectionProps(`upcoming:${date}`, formatTaskDueDateLong(date))}>
+              <CollectionDataList className="task-list" items={items.map(itemOf)} />
+            </Section>
+          ))}
         </Section>
-      )) : <CollectionDataList className="task-list" items={entries.map(itemOf)} />}
+      )}
+      {unscheduledGroup && renderGroup('unscheduled', 'No date', unscheduledGroup.items)}
       {menuOverlays}
     </TasksPageBody>
   );
