@@ -4,7 +4,12 @@
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { isTauri } from '@tauri-apps/api/core';
+import { invoke, isTauri } from '@tauri-apps/api/core';
+import {
+  hasInitializedLaunchAtLogin,
+  LAUNCH_AT_LOGIN_STATUS_CHANGED_EVENT,
+  markLaunchAtLoginInitialized,
+} from '@shared/helpers/launchAtLoginPreference';
 import { App } from './App';
 import { installResizeDiagnostics } from './devResizeDiagnostics';
 import { installNativeContextMenuPolicy } from './suppressNativeContextMenu';
@@ -25,6 +30,25 @@ import '../design-system/styles/utilities.css';
 // CSS that needs to differ between the desktop app and the browser build
 // (e.g. Page.TopBar.css's native-traffic-light clearance) reads this.
 document.documentElement.dataset.runtime = isTauri() ? 'tauri' : 'web';
+
+// Launch at Login is enabled on first launch. Once this initial decision has been made, never
+// re-register automatically: the user may subsequently disable Clutter in System Settings.
+if (isTauri() && !hasInitializedLaunchAtLogin()) {
+  void invoke<string>('get_launch_at_login_status')
+    .then(async (status) => {
+      if (status === 'not-registered') {
+        await invoke<string>('set_launch_at_login_enabled', { enabled: true });
+      }
+
+      if (status === 'enabled' || status === 'not-registered' || status === 'requires-approval') {
+        markLaunchAtLoginInitialized();
+        window.dispatchEvent(new Event(LAUNCH_AT_LOGIN_STATUS_CHANGED_EVENT));
+      }
+    })
+    .catch(() => {
+      // A failed registration remains eligible for a retry on the next app launch.
+    });
+}
 
 // Reflects the Markdown italic font setting on the root element, now and on every change (tokens.css reads it).
 installMarkdownItalicFontSync();

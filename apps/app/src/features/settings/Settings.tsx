@@ -33,6 +33,7 @@ import { CoverPositionSetting } from './cover-position-setting/CoverPositionSett
 import { FolderItemsSetting } from './folder-items-setting/FolderItemsSetting';
 import { SidebarSetting } from './sidebar-setting/SidebarSetting';
 import { StartupSetting } from './startup-setting/StartupSetting';
+import { LaunchAtLoginSetting } from './launch-at-login-setting/LaunchAtLoginSetting';
 import { DateFormatSetting } from './date-format-setting/DateFormatSetting';
 import { WeekStartSetting } from './week-start-setting/WeekStartSetting';
 import { ThemeSetting } from './theme-setting/ThemeSetting';
@@ -145,6 +146,7 @@ export function Settings({ templates, noteLocation, spaceSettings, space, onClos
                 <CoverPositionSetting source={spaceSettings} />
               </SettingsGroup>
               <SettingsGroup title="Startup">
+                <LaunchAtLoginSetting />
                 <StartupSetting />
                 <SidebarSetting />
               </SettingsGroup>
