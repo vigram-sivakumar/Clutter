@@ -55,6 +55,8 @@ describe('TasksCollectionBody', () => {
       onToggleComplete={onToggleComplete} onOpenTask={onOpenTask} onChangeDueDate={vi.fn()}
     />);
     expect(container.querySelectorAll('.section-header')).toHaveLength(3);
+    expect(container.querySelectorAll('.section-header[data-section="overdue"]')).toHaveLength(2);
+    expect(container.querySelectorAll('.task-row__due.is-overdue')).toHaveLength(3);
     expect([...container.querySelectorAll('.task-title')].map((node) => node.textContent)).toEqual(['Alpha', 'Zebra', 'Future', 'No date']);
     expect(container.querySelectorAll('.collection__bottom-spacer')).toHaveLength(1);
     expect(container.querySelector('.task-row__due')).not.toBeNull();
@@ -93,6 +95,7 @@ describe('TasksCollectionBody', () => {
       'No date task',
     ].sort());
     expect(container.querySelectorAll('.task-row__due')).toHaveLength(4);
+    expect(container.querySelectorAll('.task-row__due.is-overdue')).toHaveLength(4);
   });
 
   it('honours the saved date-grouping choice in All Tasks and keeps No date as a group', () => {
