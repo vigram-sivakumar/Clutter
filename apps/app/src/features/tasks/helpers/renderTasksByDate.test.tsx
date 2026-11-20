@@ -42,7 +42,7 @@ function task(overrides: Partial<TaskOccurrence>): TaskOccurrence {
 function fakeNavigation(): NavigationRouter {
   return {
     openAllTasks: vi.fn(),
-    openTasksUnscheduled: vi.fn(),
+    openTasksUnplanned: vi.fn(),
   } as unknown as NavigationRouter;
 }
 
@@ -379,7 +379,7 @@ describe('renderTasksByDate', () => {
       expect(queryByText(child)).not.toBeNull();
 
       expect(navigation.openAllTasks).not.toHaveBeenCalled();
-      expect(navigation.openTasksUnscheduled).not.toHaveBeenCalled();
+      expect(navigation.openTasksUnplanned).not.toHaveBeenCalled();
     });
 
     it('Today is not collapsible: no caret, no aria-expanded, clicking or pressing Enter leaves it open and never navigates', () => {
@@ -530,7 +530,7 @@ describe('renderTasksByDate', () => {
       expect(titles).toEqual(['Today', 'Overdue', 'Upcoming']);
     });
 
-    it('puts tasks with no due date in their own Unscheduled section below Upcoming', () => {
+    it('puts tasks with no due date in their own Unplanned section below Upcoming', () => {
       const dueSoon = task({ text: 'Book flights', dueDate: '2026-08-05' });
       const undated = task({ text: 'Someday idea' });
 
@@ -552,7 +552,7 @@ describe('renderTasksByDate', () => {
       const titles = Array.from(document.querySelectorAll('.section-header__title')).map(
         (el) => el.textContent
       );
-      expect(titles).toEqual(['Today', 'Upcoming', 'Unscheduled']);
+      expect(titles).toEqual(['Today', 'Upcoming', 'Unplanned']);
     });
   });
 
