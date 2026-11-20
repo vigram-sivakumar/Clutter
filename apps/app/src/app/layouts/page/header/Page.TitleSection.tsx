@@ -40,6 +40,7 @@ interface PageTitleSectionProps extends Omit<
   hasIconImage?: boolean;
   fallbackIcon?: SystemIcon;
   onUploadIconImage?: PageHeaderControlsProps['onUploadIconImage'];
+  onIconImageError?: PageHeaderControlsProps['onIconImageError'];
   /** Whether the page currently has a cover image — no header preview/control, just gates the More-actions "Cover image" item. See PageHeaderControls' own doc comment. */
   hasCoverImage?: boolean;
   /** Whether an existing cover is currently suppressed from view — see PageHeaderControls' own doc comment. */
@@ -77,6 +78,7 @@ export function PageTitleSection({
   hasIconImage,
   fallbackIcon,
   onUploadIconImage,
+  onIconImageError,
   hasCoverImage,
   coverHidden,
   onSetCoverImage,
@@ -108,6 +110,7 @@ export function PageTitleSection({
         hasIconImage={hasIconImage}
         fallbackIcon={fallbackIcon}
         onUploadIconImage={onUploadIconImage}
+        onIconImageError={onIconImageError}
         hasCoverImage={hasCoverImage}
         coverHidden={coverHidden}
         onSetCoverImage={onSetCoverImage}
