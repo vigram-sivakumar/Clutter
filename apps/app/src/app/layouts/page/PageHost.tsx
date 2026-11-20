@@ -315,7 +315,7 @@ interface PageHostProps {
       readonly actionsEnabled?: boolean;
     }
   ) => void;
-  /** Shared Tasks display preferences; retained for the Inbox collection and sidebar parity. */
+  /** Legacy persisted completion preferences, still used by the separate Inbox collection. */
   readonly tasksViewConfig: TaskDisplayConfig;
   /** The Tasks page's selected tab, and its change handler — owned and persisted by AppLayout. */
   readonly tasksTab: TasksTabValue;
