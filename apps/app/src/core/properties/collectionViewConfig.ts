@@ -40,7 +40,7 @@ export function isCollectionLayout(value: unknown): value is CollectionLayout {
 export type PropertyOverrides = Partial<Record<PropertyId, boolean>>;
 
 export interface CollectionViewConfig {
-  /** Task collection grouping, shared across layouts. Absent means the collection's default applies. */
+  /** Task collection grouping, shared across layouts. Absent means none. */
   readonly groupBy?: CollectionGroupBy;
   readonly layout?: CollectionLayout;
   readonly propertyOverrides?: PropertyOverrides;
