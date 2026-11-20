@@ -7,7 +7,7 @@ import { classifyDueDate } from './taskDueDate';
  * sidebar opens); `tasks-today`, `tasks-overdue` and `tasks-upcoming` are datasets only — the Tasks page's tabs select them
  * (ADR-051, ADR-068).
  */
-export type TaskViewKind = 'tasks-inbox' | 'tasks-all' | 'tasks-today' | 'tasks-overdue' | 'tasks-upcoming' | 'tasks-unscheduled';
+export type TaskViewKind = 'tasks-inbox' | 'tasks-all' | 'tasks-completed' | 'tasks-today' | 'tasks-overdue' | 'tasks-upcoming' | 'tasks-unscheduled';
 
 /**
  * The slice of the shared Tasks-view display preference that decides MEMBERSHIP (the other half,
@@ -24,12 +24,13 @@ export interface TaskViewMembershipConfig {
  *
  * Membership (due dates are interpreted only by `classifyDueDate`):
  *  - Inbox        — tasks from the managed Inbox source, respecting Show completed.
- *  - Tasks        — every task. The shared "Show completed" setting applies: off hides completed ones.
- *  - Today        — explicit valid due date is today. "Show completed" applies.
+ *  - Tasks        — active tasks only; completed tasks have their own Completed tab.
+ *  - Completed    — every completed task, regardless of due date or source.
+ *  - Today        — explicit valid due date is today, incomplete tasks only.
 
  *  - Overdue      — explicit valid due date before today, and not completed (the sidebar's Overdue rule), so it
  *    ignores "Show completed" like Unscheduled.
- *  - Upcoming     — explicit valid due date after today (never unscheduled tasks). "Show completed" applies.
+ *  - Upcoming     — explicit valid due date after today, incomplete tasks only (never unscheduled tasks).
  *  - Unscheduled  — no valid explicit due date. Active tasks only — a completed task never appears
  *    there — so it ignores "Show completed".
  *
@@ -47,13 +48,15 @@ export function tasksForView(
     case 'tasks-inbox':
       return tasks.filter((task) => task.sourcePageId === inboxPageId && visible(task));
     case 'tasks-all':
-      return tasks.filter(visible);
+      return tasks.filter((task) => !task.completed);
+    case 'tasks-completed':
+      return tasks.filter((task) => task.completed);
     case 'tasks-today':
-      return tasks.filter((task) => visible(task) && classifyDueDate(task.dueDate) === 'today');
+      return tasks.filter((task) => !task.completed && classifyDueDate(task.dueDate) === 'today');
     case 'tasks-overdue':
       return tasks.filter((task) => !task.completed && classifyDueDate(task.dueDate) === 'past');
     case 'tasks-upcoming':
-      return tasks.filter((task) => visible(task) && classifyDueDate(task.dueDate) === 'future');
+      return tasks.filter((task) => !task.completed && classifyDueDate(task.dueDate) === 'future');
     case 'tasks-unscheduled':
       return tasks.filter((task) => !task.completed && classifyDueDate(task.dueDate) === 'unscheduled');
   }
