@@ -61,6 +61,7 @@ export interface AssetsCollectionBodyProps {
   readonly sort?: CollectionSort;
   /** `Application.resolveResourceImageUrl` — turns a vault file's path into a loadable URL, for the Card view's previews and the Table's Preview column. A remote asset's own URL is used as is. */
   readonly resolveResourceUrl?: (path: string) => string;
+  readonly resolveIconImage?(reference: string | null | undefined): string | null;
   /**
    * Opens the asset, for every layout alike — the caller routes by source and
    * kind: a vault file to the image overlay or the PDF viewer (where its other
@@ -116,6 +117,7 @@ export function AssetsCollectionBody({
   visible = DEFAULT_VIEW.visible,
   sort,
   resolveResourceUrl,
+  resolveIconImage,
   onOpenAsset,
   onCreate,
   emptyCreateLabel,
@@ -259,7 +261,8 @@ export function AssetsCollectionBody({
             sortedFolders,
             onCreateFolder,
             (entry) => ({ ...folderContextMenu.entryProps(entry), 'data-assets-drop-folder': entry.id }),
-            (entry) => selection.selectionFor(entry.id, entry.values.name)
+            (entry) => selection.selectionFor(entry.id, entry.values.name),
+            resolveIconImage
           )}
           {assets.length > 0 && layout}
         </>
