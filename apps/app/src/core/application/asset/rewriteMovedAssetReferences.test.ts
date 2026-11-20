@@ -16,13 +16,13 @@ const resource = (relative: string, id = relative): VaultResource => ({
   parentId: null,
 });
 
-function note(id: string, body: string, options: { cover?: string | null } = {}): Page {
+function note(id: string, body: string, options: { cover?: string | null; iconImage?: string | null } = {}): Page {
   return new PageBuilder(ROOT).build({
     parentId: null,
     page: {
       path: `${ROOT}/${id}.md`,
       directoryPath: ROOT,
-      frontmatter: { id, ...(options.cover !== undefined && options.cover !== null && { cover: options.cover }) },
+      frontmatter: { id, ...(options.cover !== undefined && options.cover !== null && { cover: options.cover }), ...(options.iconImage !== undefined && options.iconImage !== null && { iconImage: options.iconImage }) },
       frontmatterAnalysis: { aliases: [] },
       content: body,
       analysis: {
@@ -37,8 +37,8 @@ function note(id: string, body: string, options: { cover?: string | null } = {})
   } as never);
 }
 
-const folder = (id: string, cover: string | null = null): Folder =>
-  ({ id, name: id, path: `${ROOT}/${id}`, parentId: null, metadata: { cover } }) as unknown as Folder;
+const folder = (id: string, cover: string | null = null, iconImage: string | null = null): Folder =>
+  ({ id, name: id, path: `${ROOT}/${id}`, parentId: null, metadata: { cover, iconImage } }) as unknown as Folder;
 
 interface World {
   pages?: Page[];
@@ -56,6 +56,8 @@ function setup(world: World) {
     body: [] as { id: string; after: string }[],
     pageCover: [] as { id: string; cover: string }[],
     folderCover: [] as { id: string; cover: string }[],
+    pageIconImage: [] as { id: string; iconImage: string }[],
+    folderIconImage: [] as { id: string; iconImage: string }[],
     avatar: [] as string[],
   };
   const pages = world.pages ?? [];
@@ -75,7 +77,9 @@ function setup(world: World) {
       writes.body.push({ id: pageId, after: transform(current) });
     }),
     writePageCover: vi.fn(async (id: string, cover: string) => void writes.pageCover.push({ id, cover })),
+    writePageIconImage: vi.fn(async (id: string, iconImage: string) => void writes.pageIconImage.push({ id, iconImage })),
     writeFolderCover: vi.fn(async (id: string, cover: string) => void writes.folderCover.push({ id, cover })),
+    writeFolderIconImage: vi.fn(async (id: string, iconImage: string) => void writes.folderIconImage.push({ id, iconImage })),
     writeAvatar: vi.fn(async (reference: string) => void writes.avatar.push(reference)),
   };
 
@@ -111,7 +115,7 @@ describe('planMovedAssetReferences: nothing points at the files', () => {
     const result = await planned;
     expect(result.referenceCount).toBe(0);
     expect(await result.commit()).toMatchObject({ complete: true, updated: 0, failed: [] });
-    expect(writes).toEqual({ body: [], pageCover: [], folderCover: [], avatar: [] });
+    expect(writes).toEqual({ body: [], pageCover: [], folderCover: [], pageIconImage: [], folderIconImage: [], avatar: [] });
   });
 });
 
@@ -147,6 +151,20 @@ describe('planMovedAssetReferences + commit: what is rewritten', () => {
     expect(writes.pageCover).toEqual([{ id: 'a', cover: 'Docs/logo.png' }]);
     expect(writes.body).toEqual([]);
     expect(result.updated).toBe(1);
+  });
+
+  it('rewrites page and folder icon images when their asset moves', async () => {
+    const { planned, writes } = plan({
+      resources: [logo],
+      pages: [note('a', 'No body references', { iconImage: 'Assets/logo.png' })],
+      folders: [folder('Projects', null, 'Assets/logo.png')],
+    });
+
+    const result = await (await planned).commit();
+
+    expect(writes.pageIconImage).toEqual([{ id: 'a', iconImage: 'Docs/logo.png' }]);
+    expect(writes.folderIconImage).toEqual([{ id: 'Projects', iconImage: 'Docs/logo.png' }]);
+    expect(result).toMatchObject({ complete: true, updated: 2 });
   });
 
   it('points a folder cover at the new path', async () => {
