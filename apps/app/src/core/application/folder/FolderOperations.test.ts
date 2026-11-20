@@ -1416,6 +1416,35 @@ describe('FolderOperations.updateMetadata() (description)', () => {
   });
 });
 
+describe('FolderOperations.updateMetadata() (iconImage)', () => {
+  it('persists iconImage to the existing .folder.md path and clears the emoji', async () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { vault, fileSystem, folderOperations } = setup([folder]);
+    await fileSystem.createDirectory(folder.path);
+
+    await folderOperations.updateMetadata('folder-1', { iconImage: 'Assets/folder-icon.png' });
+
+    expect(vault.getFolder('folder-1')!.metadata).toMatchObject({
+      icon: null,
+      iconImage: 'Assets/folder-icon.png',
+    });
+    const content = await fileSystem.readFile(`${ROOT}/Projects/.folder.md`);
+    expect(content).toContain('iconImage: Assets/folder-icon.png');
+  });
+
+  it('clears only iconImage when the emoji fallback should remain', async () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { vault, folderOperations } = setup([folder]);
+
+    await folderOperations.updateMetadata('folder-1', { icon: '📁' });
+    await folderOperations.updateMetadata('folder-1', { iconImage: 'Assets/folder-icon.png' });
+    await folderOperations.updateMetadata('folder-1', { iconImage: null });
+
+    expect(vault.getFolder('folder-1')!.metadata.icon).toBeNull();
+    expect(vault.getFolder('folder-1')!.metadata.iconImage).toBeNull();
+  });
+});
+
 describe('FolderOperations.updateMetadata() (cover)', () => {
   it('sets cover in the vault and persists it to the .folder.md on disk', async () => {
     const folder = makeFolder('folder-1', `${ROOT}/Projects`);
