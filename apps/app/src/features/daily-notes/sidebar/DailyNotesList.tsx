@@ -148,6 +148,7 @@ interface DailyNotesListProps {
   resolveWikiLink?: ResolveWikiLink;
   resolveTag?: ResolveTag;
   resolveEmbed?: ResolvePageEmbed;
+  resolveIconImage?(reference: string | null | undefined): string | null;
 }
 
 function collectRealMonthSections(
@@ -270,6 +271,7 @@ export const DailyNotesList = forwardRef<
     resolveWikiLink,
     resolveTag,
     resolveEmbed,
+    resolveIconImage,
   },
   ref
 ) {
@@ -482,6 +484,7 @@ export const DailyNotesList = forwardRef<
             date={entry.name}
             isToday={isToday(entry.name)}
             emoji={entry.icon}
+            imageSrc={resolveIconImage?.(entry.iconImage)}
             // The Show emoji preference hides the drawn emoji only: the note's `icon` and the row's Change icon picker
             // (which still offers Remove for it) are untouched.
             showEmoji={showEmoji}
