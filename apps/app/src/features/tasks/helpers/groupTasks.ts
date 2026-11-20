@@ -18,14 +18,10 @@ export type TaskGroups = {
 };
 
 /**
- * The Tasks sidebar's Show completed / Auto-sort completed settings
- * (persisted through `TasksViewConfigStore`, resolved to real booleans by
- * the caller) — the two independent toggles the Tasks settings page controls. Passed explicitly to
- * every `groupTasks` call (never defaulted inside `groupTasks` itself) so
- * a call site that must keep its existing behavior — the dedicated
- * Unplanned collection view, which has never shown completed tasks — says
- * so explicitly rather than silently inheriting whatever the shared
- * Tasks-view preference happens to be.
+ * Display preferences shared with the task collection renderer. The sidebar
+ * now always excludes completed tasks; only `hiddenGroups` affects its
+ * presentation. The legacy completion fields remain readable for existing
+ * Inbox collection preferences.
  */
 export interface TaskDisplayConfig {
   readonly showCompleted: boolean;
@@ -55,8 +51,7 @@ export type TaskExpansionKey = TaskGroupId | `${TaskGroupId}:${string}`;
 export const HIDEABLE_TASK_GROUP_IDS: readonly TaskGroupId[] = TASK_GROUP_IDS.filter((id) => id !== 'today');
 
 /**
- * The Tasks-view preference's out-of-the-box defaults — completed tasks shown, in their normal position;
- * Overdue and Upcoming sections shown, Unplanned off until the user turns it on.
+ * Default presentation: all task groups except Unplanned are shown in the sidebar.
  */
 export const DEFAULT_TASK_DISPLAY_CONFIG: TaskDisplayConfig = {
   showCompleted: true,
@@ -138,14 +133,6 @@ function byDueDateThenTitle(a: TaskOccurrence, b: TaskOccurrence): number {
   return dateComparison !== 0 ? dateComparison : byTimeThenTitle(a, b);
 }
 
-/**
- * A stable partition, not a resort: incomplete tasks keep their existing
- * relative order, completed tasks keep theirs, but every completed task
- * moves after every incomplete one — `Array.prototype.sort` has been
- * required to be stable since ES2019, so this is the one place "auto-sort
- * completed to the bottom" is implemented, reused by every section below
- * rather than each reimplementing its own bottom-sort.
- */
 /**
  * Groups only active tasks into the Tasks sidebar's Today/Overdue/Upcoming sections
  * (plus Upcoming's Unplanned subset). Completed tasks are available in the Tasks
