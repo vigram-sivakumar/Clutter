@@ -1,6 +1,6 @@
 /**
  * What each KIND of collection is, declared as data: which of the global properties it
- * offers, which are on by default, which layouts it supports, its default grouping and sort, which
+ * offers, which are on by default, which layouts it supports, its default sort, which
  * actions it supports, and the few named behaviors that genuinely differ. A
  * `CollectionDefinition` is POLICY — a selection from the one property registry
  * (`core/properties/collectionProperties.ts`), never another copy of it: no labels, no
@@ -19,7 +19,7 @@ import type { MembershipSelector } from '@core/application/membership/Membership
 import type { FilteredView } from '@core/workspace/Workspace';
 import type { PropertyId } from '@core/properties/collectionProperties';
 import type { CollectionSort } from '@core/properties/collectionSort';
-import type { CollectionGroupBy, CollectionLayout } from '@core/properties/collectionViewConfig';
+import type { CollectionLayout } from '@core/properties/collectionViewConfig';
 
 import { getSystemLocationForFolder } from '../systemPresentation';
 
@@ -75,8 +75,6 @@ export interface CollectionDefinition {
   readonly defaultVisibleByLayout?: Partial<Record<CollectionLayout, readonly PropertyId[]>>;
   readonly layouts: readonly CollectionLayout[];
   readonly defaultLayout: CollectionLayout;
-  /** The initial grouping for collections that support it; an explicit user choice always wins. */
-  readonly defaultGroupBy?: CollectionGroupBy;
   readonly defaultSort: CollectionSort;
   readonly actions: CollectionActions;
   readonly behavior?: CollectionBehavior;
@@ -239,7 +237,6 @@ export const TASKS_COLLECTION: CollectionDefinition = {
   defaultVisibleByLayout: { list: ['name', 'dueDate'] },
   layouts: ['list'],
   defaultLayout: 'list',
-  defaultGroupBy: 'none',
   defaultSort: DEFAULT_SORT,
   actions: { create: true },
   required: { list: ['name'] },
