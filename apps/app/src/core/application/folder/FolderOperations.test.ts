@@ -1435,7 +1435,8 @@ describe('FolderOperations.updateMetadata() (iconImage)', () => {
   it('clears only iconImage when the emoji fallback should remain', async () => {
     const base = makeFolder('folder-1', `${ROOT}/Projects`);
     const folder = { ...base, metadata: { ...base.metadata, icon: '📁', iconImage: 'Assets/folder-icon.png' } };
-    const { vault, folderOperations } = setup([folder]);
+    const { vault, fileSystem, folderOperations } = setup([folder]);
+    await fileSystem.createDirectory(folder.path);
 
     await folderOperations.updateMetadata('folder-1', { iconImage: null });
 
