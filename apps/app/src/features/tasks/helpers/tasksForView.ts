@@ -44,7 +44,11 @@ export function tasksForView(
     case 'tasks-completed':
       return tasks.filter((task) => task.completed);
     case 'tasks-today':
-      return tasks.filter((task) => !task.completed && ['today', 'past'].includes(classifyDueDate(task.dueDate)));
+      return tasks.filter((task) => {
+        if (task.completed) return false;
+        const relation = classifyDueDate(task.dueDate);
+        return relation === 'today' || relation === 'past';
+      });
     case 'tasks-overdue':
       return tasks.filter((task) => !task.completed && classifyDueDate(task.dueDate) === 'past');
     case 'tasks-upcoming':
