@@ -11,7 +11,7 @@ Sidebar-toggle and section-collapse state were built out in ADR-021 by extending
 Confirmed by direct inspection that every current navigation entry point already funnels through exactly three `Workspace` methods and no others:
 - `PageOperations.open()`/`.openDraft()`/`.openAtPath()`/`.create()` → `workspace.openPage()`
 - `FolderOperations.open()` → `workspace.openFolder()`
-- `NavigationRouter`'s nine view intents (`openArchive`, `openInbox`, `openTemplates`, `openWorkspace`, `openFavorites`, `openTasksToday/Upcoming/Completed/All/Unscheduled`, `openTag`) → either `folderOperations.open()` above, or `workspace.openFilteredView()` directly
+- `NavigationRouter`'s nine view intents (`openArchive`, `openInbox`, `openTemplates`, `openWorkspace`, `openFavorites`, `openTasksToday/Upcoming/Completed/All/Unplanned`, `openTag`) → either `folderOperations.open()` above, or `workspace.openFilteredView()` directly
 
 `workspace.closePage()`/`closeFolder()` also mutate `activeView`, but only as a tab-close side effect (restoring the last-open tab, or ADR-025's delete-time fallback) — never a user "go to X" action.
 
