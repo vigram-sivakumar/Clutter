@@ -50,7 +50,7 @@ On macOS, smoke-check the three global creation destinations, Inbox's contextual
 
 Inbox is now the default and reset value for global New task. Explicit `today` and `due-date` preferences remain supported. Earlier versions removed the storage key when Today was selected, so an absent key cannot distinguish that former selection from an unset preference; both now use Inbox. Changing this default does not relocate any existing tasks.
 
-Tidy up is shown only when the Inbox contains a task with a valid due date (including completed tasks), and is hidden while a transfer runs. Its existing brush icon and button styling are retained.
+Tidy up is shown when the Inbox contains a task with a valid due date, or a completed task without a due date and with a valid completion date. It is hidden while a transfer runs. Its existing brush icon and button styling are retained.
 
 Task collections opt into URL activation in the existing compact Markdown renderer. The shared tokenizer retains destinations only for that opt-in, using the same parsed Link/URL nodes and the destination decoder extracted from the existing editor link context menu; standard Markdown links display their existing label. The inner title becomes a real anchor while the outer element retains strike ownership. Its selectors share the editor’s existing link color/cursor and underline rules, without duplicating declarations or restoring commented-out compact CSS. Opening uses the existing external-URL helper, and activation does not open the task row. Other compact rendering callers retain their current passive behavior and span shapes. Executable and local-file anchor destinations are not activated.
 
