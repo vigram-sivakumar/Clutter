@@ -1,5 +1,6 @@
 import { isTaskInboxPath } from '../../vault/initialize/ReservedResources';
 import { NameTakenError } from '../NameTakenError';
+import { normalizeIconMetadataPatch } from '../iconMetadataPatch';
 import { classifySaveFailure, classifyWriteRefusal, isRetryableSaveFailure, type SaveFailureKind, type WriteRefusal } from '../../vault/atomicWrite/atomicWriteErrors';
 import type {
   CreateFromSourceOutcome,
