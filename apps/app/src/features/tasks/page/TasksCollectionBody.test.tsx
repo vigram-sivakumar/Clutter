@@ -519,7 +519,7 @@ describe('TasksCollectionBody', () => {
       expect(container.querySelectorAll('.collection-entry')).toHaveLength(2);
     });
 
-    it('sorts by the chosen property with the shared engine; with Auto-sort completed on, incomplete tasks come before completed ones', () => {
+    it('sorts active tasks by the chosen property with the shared engine', () => {
       const tasks = [
         task({ text: 'Banana', startOffset: 0 }),
         task({ text: 'Apple', startOffset: 1 }),
@@ -556,18 +556,8 @@ describe('TasksCollectionBody', () => {
         return result;
       };
 
-      expect(titles({ property: 'name', direction: 'down' })).toEqual([
-        'Apple',
-        'Banana',
-        'Avocado (done)',
-        'Cherry (done)',
-      ]);
-      expect(titles({ property: 'name', direction: 'up' })).toEqual([
-        'Banana',
-        'Apple',
-        'Cherry (done)',
-        'Avocado (done)',
-      ]);
+      expect(titles({ property: 'name', direction: 'down' })).toEqual(['Apple', 'Banana']);
+      expect(titles({ property: 'name', direction: 'up' })).toEqual(['Banana', 'Apple']);
     });
 
     describe('the Tasks-view display preference (Show completed / Auto-sort completed)', () => {
@@ -839,7 +829,7 @@ describe('TasksCollectionBody', () => {
   });
 
   describe('one Task Collection: every task view renders through the shared collection renderer', () => {
-    const VIEWS = ['tasks-all', 'tasks-unscheduled'] as const;
+    const VIEWS = ['tasks-all', 'tasks-completed', 'tasks-unscheduled'] as const;
     const noop = {
       onToggleComplete: vi.fn(),
       onOpenTask: vi.fn(),
@@ -1027,7 +1017,7 @@ describe('TasksCollectionBody', () => {
   });
 
   describe('displayConfig', () => {
-    it('hides completed tasks from tasks-all by default (DEFAULT_TASK_DISPLAY_CONFIG shows them, so this checks the explicit-off case)', () => {
+    it('keeps completed tasks out of tasks-all', () => {
       const completedToday = task({
         text: 'Submit expenses',
         completed: true,
@@ -1048,25 +1038,24 @@ describe('TasksCollectionBody', () => {
       expect(queryByText('Submit expenses')).toBeNull();
     });
 
-    it('keeps completed tasks out of tasks-all when showCompleted is true', () => {
+    it('shows completed tasks in the dedicated tasks-completed view', () => {
       const completedToday = task({
         text: 'Submit expenses',
         completed: true,
         dueDate: '2026-08-04',
       });
 
-      const { queryByText } = render(
+      const { getByText } = render(
         <TasksCollectionBody
-          view="tasks-all"
+          view="tasks-completed"
           tasks={[completedToday]}
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
           onChangeDueDate={vi.fn()}
-          displayConfig={{ showCompleted: true, autoSortCompleted: false }}
         />
       );
 
-      expect(queryByText('Submit expenses')).toBeNull();
+      expect(getByText('Submit expenses')).toBeInTheDocument();
     });
 
     it('keeps completed tasks out of tasks-all even when auto-sort is enabled', () => {
