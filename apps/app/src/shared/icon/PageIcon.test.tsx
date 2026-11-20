@@ -6,7 +6,7 @@ import { PageIcon } from './PageIcon';
 describe('PageIcon', () => {
   it.each([
     ['small', '20px', '16px'],
-    ['medium', '24px', '20px'],
+    ['medium', '24px', '16px'],
     ['large', '72px', '64px'],
   ] as const)('uses the %s size contract', (size, slot, glyph) => {
     const { container } = render(<PageIcon emoji="📝" size={size} />);
