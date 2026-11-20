@@ -1110,7 +1110,7 @@ describe('Task Inbox transfers', () => {
       '- [ ] Still open',
       '- [x] Missing completion date',
       '- [x] Invalid due date @2026-13-45 @completed:2026-11-18',
-    ].join('\\n');
+    ].join('\n');
     const env = setup(inbox(body));
     await env.taskOperations.tidyInbox(ROOT, 'inbox-source');
 
@@ -1119,7 +1119,7 @@ describe('Task Inbox transfers', () => {
         '- [ ] Still open',
         '- [x] Missing completion date',
         '- [x] Invalid due date @2026-13-45 @completed:2026-11-18',
-      ].join('\\n')
+      ].join('\n')
     );
 
     const { DailyNotePath } = await import('../../vault/ingest/DailyNotePath');
