@@ -1,6 +1,6 @@
 # ADR-051: The Tasks page tabs select the dataset (Today / Upcoming return as tab datasets, not views)
 
-**Status:** Accepted (product decision, Vigram, 2026-10-09). Follows [ADR-050](./050-remove-unreachable-task-views.md), which anticipated this.
+**Status:** Accepted (product decision, Vigram, 2026-10-09). Follows [ADR-050](./050-remove-unreachable-task-views.md), which anticipated this. Amended by [ADR-077](./077-completed-tasks-have-a-dedicated-view.md) for the current tab order and completed-task membership.
 
 ## Context
 
