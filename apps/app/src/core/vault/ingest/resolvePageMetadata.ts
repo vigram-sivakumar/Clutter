@@ -13,6 +13,7 @@ import type { PageMetadata } from '../models/PageMetadata';
 export function resolvePageMetadata(frontmatter: PageFrontmatter): PageMetadata {
   return {
     icon: frontmatter.icon ?? null,
+    iconImage: frontmatter.iconImage ?? null,
     cover: frontmatter.cover ?? null,
     coverCredit: frontmatter.coverCredit ?? null,
     coverHidden: frontmatter.coverHidden ?? false,
