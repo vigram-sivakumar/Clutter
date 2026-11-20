@@ -1,4 +1,5 @@
-import { AppIcon } from '@shared/icon';
+import { PageIcon } from '@shared/icon';
+import { getPageIcon } from '@core/presentation/getPageIcon';
 import type { CollectionEntryProps } from '@features/collection/components/entry/CollectionEntry';
 import type { CollectionGridColumns } from '@features/collection/components/grid/CollectionGrid';
 import type { CollectionEntryModel } from '../../page/CollectionEntryModel';
@@ -16,14 +17,17 @@ export const FOLDER_GRID: { readonly columns: CollectionGridColumns; readonly ro
  * A folder as a `CollectionEntry` cell: its icon or emoji, its name, and its subfolder / note counts (when it
  * has them) as the description. The folder-specific part is this mapping; drawing it is `CollectionEntry`'s job.
  */
-export function toFolderEntryProps(entry: CollectionEntryModel): CollectionEntryProps {
+export function toFolderEntryProps(
+  entry: CollectionEntryModel,
+  resolveIconImage?: (reference: string | null | undefined) => string | null
+): CollectionEntryProps {
   // A folder entry that carries no counts (e.g. a Daily Notes year) shows just its name.
   const hasCounts = entry.subfolderCount !== undefined || entry.noteCount !== undefined;
 
   return {
     layout: 'cell',
     className: 'collection-entry--folder-card',
-    leading: <AppIcon icon="folder" emoji={entry.emoji ?? undefined} />,
+    leading: <PageIcon systemIcon={getPageIcon('folder')} emoji={entry.emoji} imageSrc={resolveIconImage?.(entry.iconImage)} size="medium" />,
     title: entry.values.name,
     // Two spans, spaced by the card description's flex gap; the {' '} keeps the plain text readable.
     description: hasCounts ? (
