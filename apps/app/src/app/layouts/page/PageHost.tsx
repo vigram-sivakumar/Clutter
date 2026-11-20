@@ -2431,6 +2431,7 @@ export function PageHost({
                 // A frozen folder's notes show their covers but offer no way to change one.
                 noteCover={isFolderArchived ? undefined : noteCoverActions}
                 previewResolvers={notePreviewResolvers}
+                resolveIconImage={(reference) => application.resolvePageIconImageForDisplay(reference)}
                 moveDrag={moveDrag}
                 itemMenu={collectionItemMenu}
               />
@@ -2896,6 +2897,7 @@ export function PageHost({
               emptyMessage={collectionDefinition.emptyMessage}
               noteCover={noteCoverActions}
               previewResolvers={notePreviewResolvers}
+              resolveIconImage={(reference) => application.resolvePageIconImageForDisplay(reference)}
               // The vault root's own collection: its folders and notes move like any other folder's.
               moveDrag={
                 collectionDefinition.kind === 'workspace'
