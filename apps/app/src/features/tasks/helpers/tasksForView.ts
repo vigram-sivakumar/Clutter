@@ -29,9 +29,9 @@ export interface TaskViewMembershipConfig {
  *  - Today        — explicit valid due date is today, incomplete tasks only.
 
  *  - Overdue      — explicit valid due date before today, and not completed (the sidebar's Overdue rule), so it
- *    ignores "Show completed" like Unscheduled.
+ *    ignores "Show completed" like Unplanned.
  *  - Upcoming     — explicit valid due date after today, incomplete tasks only (never unscheduled tasks).
- *  - Unscheduled  — no valid explicit due date. Active tasks only — a completed task never appears
+ *  - Unplanned  — no valid explicit due date. Active tasks only — a completed task never appears
  *    there — so it ignores "Show completed".
  *
  * Ordering is the collection's sort; this function decides membership only.
