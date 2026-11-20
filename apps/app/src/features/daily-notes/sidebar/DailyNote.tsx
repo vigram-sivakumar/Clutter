@@ -41,6 +41,7 @@ interface DailyNoteProps extends Omit<EntryProps, 'children'> {
    */
   emoji?: string | null;
   imageSrc?: string | null;
+  hasIconImage?: boolean;
   /**
    * Whether `emoji` is drawn on the row (true when omitted). Presentation only: the picker still knows the note has an
    * emoji (so it offers Remove), whatever is shown. The sidebar's Show emoji setting drives this.
@@ -64,6 +65,7 @@ export function DailyNote({
   onMenuSelect,
   emoji,
   imageSrc,
+  hasIconImage = false,
   showEmoji = true,
   onChangeIcon,
   ...entryProps
@@ -83,7 +85,14 @@ export function DailyNote({
         // forced while the Change icon picker is open.
         forceHover={menuOpen || changeIconTrigger.open}
         leading={<DateLabel isToday={isToday} date={day} />}
-        trailing={emoji && showEmoji ? <AppIcon emoji={emoji} /> : undefined}
+        trailing={(emoji && showEmoji) || hasIconImage ? (
+          <PageIcon
+            systemIcon={getPageIcon('daily-note', isToday)}
+            emoji={showEmoji ? emoji : undefined}
+            imageSrc={imageSrc}
+            size="small"
+          />
+        ) : undefined}
         actions={
           <OverflowMenu
             buttonSize="xs"
