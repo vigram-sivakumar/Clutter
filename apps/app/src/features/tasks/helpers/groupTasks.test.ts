@@ -162,17 +162,21 @@ describe('groupTasks', () => {
     const completedFuture = task({ text: 'completed future', completed: true, dueDate: '2026-09-01' });
     const completedUnplanned = task({ text: 'completed unplanned', completed: true });
 
-    const groups = groupTasks([
+    const completed = [
       completedToday,
       completedOverdue,
       completedFuture,
       completedUnplanned,
-    ], SHOWN_SORTED);
+    ];
 
-    expect(groups.today).toEqual([]);
-    expect(groups.overdue).toEqual([]);
-    expect(groups.upcoming).toEqual([]);
-    expect(groups.unscheduled).toEqual([]);
+    for (const config of [HIDDEN, SHOWN, SHOWN_SORTED]) {
+      const groups = groupTasks(completed, config);
+
+      expect(groups.today).toEqual([]);
+      expect(groups.overdue).toEqual([]);
+      expect(groups.upcoming).toEqual([]);
+      expect(groups.unscheduled).toEqual([]);
+    }
   });
 
   it('DEFAULT_TASK_DISPLAY_CONFIG keeps Unplanned hidden by default', () => {
