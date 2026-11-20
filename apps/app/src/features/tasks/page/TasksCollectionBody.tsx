@@ -294,6 +294,21 @@ export function TasksCollectionBody({
     );
   }
 
+  // Other task datasets keep their existing exact-date headings. The planning hierarchy
+  // is specific to All Tasks; the shared collection renderer and row implementation stay unchanged.
+  if (view !== 'tasks-all') {
+    return (
+      <TasksPageBody>
+        {dateGroups.map(({ date, items }) => (
+          <Section key={date || 'unscheduled'} {...sectionProps(date, date ? formatTaskDueDateLong(date) : 'Unscheduled')}>
+            <CollectionDataList className="task-list" items={items.map(itemOf)} />
+          </Section>
+        ))}
+        {menuOverlays}
+      </TasksPageBody>
+    );
+  }
+
   // Keep the existing exact-date grouping as the source of ordering and membership.
   // The All Tasks page only gives the date groups clearer planning-level headings.
   const overdueGroups = dateGroups.filter(({ date }) => classifyDueDate(date) === 'past');
