@@ -19,6 +19,7 @@ export interface FolderProps extends Omit<EntryProps, 'children'> {
   /** Shown by EditableText during rename when the title buffer is empty. */
   titlePlaceholder?: string;
   emoji?: string | null;
+  imageSrc?: string | null;
   /**
    * How many items the folder holds (its subfolders and notes), shown as a CountBadge in the trailing slot — drawn only
    * while the sidebar is hovered (Sidebar.css). Omitted: no badge, and the caller's own `trailing` (if any) is used.
@@ -89,6 +90,7 @@ export function Folder({
   titleStyle = 'default',
   titlePlaceholder,
   emoji,
+  imageSrc,
   count,
   isEmpty = false,
   hasCaret = true,
@@ -138,6 +140,7 @@ export function Folder({
         leading={
           <FolderLeading
             emoji={emoji}
+            imageSrc={imageSrc}
             isEmpty={isEmpty}
             hasCaret={hasCaret}
             isExpanded={isExpanded}
