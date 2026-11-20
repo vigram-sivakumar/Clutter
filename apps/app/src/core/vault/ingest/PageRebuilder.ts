@@ -44,7 +44,7 @@ export class PageRebuilder {
 
       metadata: {
         icon: frontmatter.icon ?? null,
-        iconImage: frontmatter.iconImage ?? null,
+        ...(frontmatter.iconImage !== undefined && { iconImage: frontmatter.iconImage }),
         cover: frontmatter.cover ?? null,
         coverCredit: frontmatter.coverCredit ?? null,
         coverHidden: frontmatter.coverHidden ?? false,
