@@ -64,14 +64,6 @@ function isOverdue(task: TaskOccurrence): boolean {
   return classifyDueDate(task.dueDate) === 'past';
 }
 
-// The Overdue section's exact membership rule — due before today, and
-// still incomplete — factored out once so both the section itself and
-// Upcoming's "not already claimed by Overdue" filter read from the same
-// definition rather than restating it.
-function isOverdueAndIncomplete(task: TaskOccurrence): boolean {
-  return !task.completed && isOverdue(task);
-}
-
 // A task belongs in Upcoming's "scheduled" ordering group — sorted
 // chronologically ahead of the unscheduled ones — whenever it carries a
 // real, calendar-valid due date. That covers both a future-dated task and
