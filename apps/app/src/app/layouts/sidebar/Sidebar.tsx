@@ -3,6 +3,7 @@ import { useLocalDay } from '@app/hooks/useLocalDay';
 import { tasksForView } from '@features/tasks/helpers/tasksForView';
 import { useWorkspace } from '@app/hooks/useWorkspace';
 import { useEffect, useState, type ReactNode } from 'react';
+import { invoke, isTauri } from '@tauri-apps/api/core';
 import { useFolderItemLimit } from '@shared/helpers/folderItemLimitPreference';
 import { collectionViewKeyForSidebarLevel } from '@core/application/collection/collectionViewKey';
 import { forgetInLevelOrder, levelOrderContextFor, setLevelSort } from '@features/notes/sidebar/sidebarOrderActions';
@@ -89,8 +90,18 @@ export function Sidebar({
   // The clock also refreshes the indicator when the local day changes or the app resumes.
   useLocalDay();
   const currentTasks = effectivePageState.getTasks();
-  const hasDueTasks = tasksForView('tasks-today', currentTasks, { showCompleted: false }).length > 0
-    || tasksForView('tasks-overdue', currentTasks, { showCompleted: false }).length > 0;
+  // The Today view already includes both overdue and due-today tasks; this is the single count
+  // used by the sidebar indicator and the native macOS Dock badge.
+  const dueTaskCount = tasksForView('tasks-today', currentTasks, { showCompleted: false }).length;
+  const hasDueTasks = dueTaskCount > 0;
+
+  useEffect(() => {
+    if (!isTauri()) return;
+
+    void invoke('set_dock_badge', { count: dueTaskCount }).catch((error: unknown) => {
+      console.error('Could not update the Dock task badge:', error);
+    });
+  }, [dueTaskCount]);
 
   const spaces = useSpaces();
   const activeDailyNoteDate = getActiveDailyNoteDate(
