@@ -112,7 +112,7 @@ function toCollectionEntry(
     type,
     icon,
     emoji,
-    iconImage,
+    ...(iconImage && { iconImage }),
     selected,
     // Its Name is the line itself, so sorting by name sorts what the entry shows; its Source is the note the line lives
     // in (the note's display label, as the Tags sidebar's note row shows it); every other value is the note's.
