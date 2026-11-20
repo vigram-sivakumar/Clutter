@@ -170,6 +170,11 @@ export class FrontmatterParser {
             frontmatter.icon = scalar;
           }
           break;
+        case 'iconImage':
+          if (typeof scalar === 'string') {
+            frontmatter.iconImage = scalar;
+          }
+          break;
         case 'cover':
           if (typeof scalar === 'string') {
             frontmatter.cover = scalar;
