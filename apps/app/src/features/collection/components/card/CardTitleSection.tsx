@@ -6,6 +6,8 @@ export interface CardTitleSectionProps {
   icon?: SystemIcon;
   /** Drawn instead of `icon` when set. */
   emoji?: string;
+  /** A fully composed icon/image, used when a local icon image is available. */
+  leading?: ReactNode;
 
   title?: string;
   /** Replaces the plain-text `title` (an inline rename editor, most commonly); the title row is unchanged. */
@@ -36,6 +38,7 @@ export interface CardTitleSectionProps {
 export function CardTitleSection({
   icon,
   emoji,
+  leading,
   title,
   titleContent,
   description,
@@ -45,7 +48,7 @@ export function CardTitleSection({
   className,
 }: CardTitleSectionProps) {
   const hasTitle = titleContent !== undefined || Boolean(title);
-  const hasLeading = Boolean(icon || emoji);
+  const hasLeading = leading !== undefined || Boolean(icon || emoji);
   const items = metadata ?? [];
   const reservesMetadata = items.length > 0 || minMetadataLines > 0;
 
@@ -57,7 +60,7 @@ export function CardTitleSection({
         <div className="card-title-section__heading">
           {hasLeading && (
             <span className="card-title-section__leading">
-              <AppIcon icon={icon} emoji={emoji} />
+              {leading ?? <AppIcon icon={icon} emoji={emoji} />}
             </span>
           )}
           {hasTitle && <div className="card-title-section__title">{titleContent ?? title}</div>}
