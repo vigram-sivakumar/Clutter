@@ -55,7 +55,7 @@ describe('TasksCollectionBody', () => {
       onToggleComplete={onToggleComplete} onOpenTask={onOpenTask} onChangeDueDate={vi.fn()}
     />);
     expect([...container.querySelectorAll('.section-header__title')].map((node) => node.textContent)).toEqual([
-      'Overdue', 'Upcoming', formatTaskDueDateLong('2026-08-08'), 'No date',
+      'Overdue', formatTaskDueDateLong('2026-08-02'), 'Upcoming', formatTaskDueDateLong('2026-08-08'), 'No date',
     ]);
     expect([...container.querySelectorAll('.task-title')].map((node) => node.textContent)).toEqual(['Alpha', 'Zebra', 'Future', 'No date']);
     expect(container.querySelectorAll('.collection__bottom-spacer')).toHaveLength(1);
@@ -87,6 +87,7 @@ describe('TasksCollectionBody', () => {
 
     expect([...container.querySelectorAll('.section-header__title')].map((node) => node.textContent)).toEqual([
       'Overdue',
+      formatTaskDueDateLong('2026-08-02'),
       'Today',
       'Tomorrow',
       'Upcoming',
@@ -143,7 +144,7 @@ describe('TasksCollectionBody', () => {
     ]);
     rerender(<TasksCollectionBody {...props} displayConfig={{ showCompleted: false, autoSortCompleted: true }} />);
     expect([...container.querySelectorAll('.task-title')].map((node) => node.textContent)).toEqual(['Zebra open']);
-    expect(container.querySelectorAll('.section-header')).toHaveLength(1);
+    expect(container.querySelectorAll('.section-header')).toHaveLength(2);
   });
 
   it('groups Inbox tasks without including tasks stored in other notes', () => {
@@ -421,12 +422,12 @@ describe('TasksCollectionBody', () => {
     });
 
     it('falls back from saved Table to List, preserving Name, Due date and saved Source visibility', () => {
-      const view = resolveCollectionView(TASKS_COLLECTION, { layout: 'table', listPropertyOverrides: { source: true } });
+      const view = resolveCollectionView(TASKS_COLLECTION, { layout: 'table', groupBy: 'none', listPropertyOverrides: { source: true } });
       const { container, getAllByRole } = render(
         <TasksCollectionBody
           view="tasks-all"
           tasks={[task({ text: 'Plan trip', dueDate: '2026-08-20' })]}
-          collectionView={resolveCollectionView(TASKS_COLLECTION, { layout: 'table', groupBy: 'none', listPropertyOverrides: { source: true } })}
+          collectionView={view}
           getSource={source}
           {...noop}
         />
