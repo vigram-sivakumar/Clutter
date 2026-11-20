@@ -1120,6 +1120,7 @@ export function PageHost({
       visible={collectionView.visible}
       sort={collectionView.sort}
       resolveResourceUrl={(path) => application.resolveResourceImageUrl(path)}
+      resolveIconImage={(reference) => application.resolvePageIconImageForDisplay(reference)}
       // A vault file opens in its viewer (with its actions); a remote image in the plain image overlay.
       onOpenAsset={(asset) =>
         asset.source === 'local'
