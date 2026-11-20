@@ -46,7 +46,7 @@ export function buildEntryPresentation(entry: Folder | EntryPresentationPageInpu
       titleStyle: getPageDisplayLabelStyle(label),
       icon: getPageIcon('folder'),
       emoji: entry.metadata.icon,
-      iconImage: entry.metadata.iconImage ?? null,
+      ...(entry.metadata.iconImage && { iconImage: entry.metadata.iconImage }),
     };
   }
 
@@ -57,6 +57,6 @@ export function buildEntryPresentation(entry: Folder | EntryPresentationPageInpu
     titleStyle: getPageDisplayLabelStyle(label),
     icon: getPageIcon(entry.type, entry.type === 'daily-note' && isToday(entry.name)),
     emoji: entry.icon,
-    iconImage: entry.iconImage ?? null,
+    ...(entry.iconImage && { iconImage: entry.iconImage }),
   };
 }
