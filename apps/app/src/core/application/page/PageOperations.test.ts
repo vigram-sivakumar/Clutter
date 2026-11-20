@@ -94,7 +94,7 @@ function archivePathFor(page: Page): string {
 }
 
 function buildPage(
-  overrides: { icon?: string; favorite?: boolean } = {}
+  overrides: { icon?: string; iconImage?: string; favorite?: boolean } = {}
 ): Page {
   const builder = new PageBuilder();
   return builder.build({
@@ -105,6 +105,7 @@ function buildPage(
       frontmatter: {
         id: 'page-1',
         icon: overrides.icon,
+        iconImage: overrides.iconImage,
         favorite: overrides.favorite,
       },
       frontmatterAnalysis: { aliases: [] },
