@@ -181,12 +181,12 @@ describe('Tasks page tab selection persists across an app restart', () => {
     expect(document.querySelectorAll('.collection-list .task-title')).toHaveLength(3);
   });
 
-  it('a first launch opens on All tasks, with every task listed', async () => {
+  it('a first launch opens on Today, showing overdue and due-today tasks', async () => {
     render(<AppLayout application={await boot(new InMemoryVaultFileSystem())} />);
     await flush();
 
-    expect(activeTab()).toBe('All tasks');
-    expect(listedTasks()).toHaveLength(3);
+    expect(activeTab()).toBe('Today');
+    expect(listedTasks()).toEqual(['Due today task']);
   });
 
   it.each([
@@ -212,25 +212,25 @@ describe('Tasks page tab selection persists across an app restart', () => {
     expect(listedTasks()).toEqual(expected);
   });
 
-  it('the latest selection wins, and returning to All tasks is remembered too', async () => {
+  it('the latest selection wins and the selected tab is remembered, async () => {
     const fileSystem = new InMemoryVaultFileSystem();
 
     const first = render(<AppLayout application={await boot(fileSystem)} />);
     await flush();
     fireEvent.click(tab('Today'));
     await flush();
-    fireEvent.click(tab('All tasks'));
+    fireEvent.click(tab('Upcoming'));
     await flush();
     first.unmount();
 
     render(<AppLayout application={await boot(fileSystem)} />);
     await flush();
 
-    expect(activeTab()).toBe('All tasks');
-    expect(listedTasks()).toHaveLength(3);
+    expect(activeTab()).toBe('Upcoming');
+    expect(listedTasks()).toEqual(['Due later task']);
   });
 
-  it('an unrecognised stored tab (an old or hand-edited file) opens All tasks instead of failing', async () => {
+  it('an unrecognised stored tab (an old or hand-edited file) opens Today instead of failing', async () => {
     const fileSystem = new InMemoryVaultFileSystem({
       [`${ROOT}/.clutter/workspace.json`]: JSON.stringify({ tasksViewConfig: { selectedTab: 'done' } }),
     });
@@ -238,6 +238,6 @@ describe('Tasks page tab selection persists across an app restart', () => {
     render(<AppLayout application={await boot(fileSystem)} />);
     await flush();
 
-    expect(activeTab()).toBe('All tasks');
+    expect(activeTab()).toBe('Today');
   });
 });
