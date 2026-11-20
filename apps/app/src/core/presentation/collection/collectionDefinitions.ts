@@ -1,6 +1,6 @@
 /**
  * What each KIND of collection is, declared as data: which of the global properties it
- * offers, which are on by default, which layouts it supports, its default sort, which
+ * offers, which are on by default, which layouts it supports, its default grouping and sort, which
  * actions it supports, and the few named behaviors that genuinely differ. A
  * `CollectionDefinition` is POLICY — a selection from the one property registry
  * (`core/properties/collectionProperties.ts`), never another copy of it: no labels, no
@@ -19,7 +19,7 @@ import type { MembershipSelector } from '@core/application/membership/Membership
 import type { FilteredView } from '@core/workspace/Workspace';
 import type { PropertyId } from '@core/properties/collectionProperties';
 import type { CollectionSort } from '@core/properties/collectionSort';
-import type { CollectionLayout } from '@core/properties/collectionViewConfig';
+import type { CollectionGroupBy, CollectionLayout } from '@core/properties/collectionViewConfig';
 
 import { getSystemLocationForFolder } from '../systemPresentation';
 
@@ -75,6 +75,8 @@ export interface CollectionDefinition {
   readonly defaultVisibleByLayout?: Partial<Record<CollectionLayout, readonly PropertyId[]>>;
   readonly layouts: readonly CollectionLayout[];
   readonly defaultLayout: CollectionLayout;
+  /** The initial grouping for collections that support it; an explicit user choice always wins. */
+  readonly defaultGroupBy?: CollectionGroupBy;
   readonly defaultSort: CollectionSort;
   readonly actions: CollectionActions;
   readonly behavior?: CollectionBehavior;
@@ -226,7 +228,7 @@ export const ASSETS_COLLECTION: CollectionDefinition = {
 /**
  * The Task Collection uses the generic List for every dataset. Layout and Properties controls are
  * not offered; saved property choices are retained, and obsolete Table selections resolve to List.
- * The default List shows task names and due dates directly on each row.
+ * The default List shows Name and Due date; grouping by date hides the repeated due-date value.
  */
 export const TASKS_COLLECTION: CollectionDefinition = {
   kind: 'tasks',
@@ -237,6 +239,7 @@ export const TASKS_COLLECTION: CollectionDefinition = {
   defaultVisibleByLayout: { list: ['name', 'dueDate'] },
   layouts: ['list'],
   defaultLayout: 'list',
+  defaultGroupBy: 'dueDate',
   defaultSort: DEFAULT_SORT,
   actions: { create: true },
   required: { list: ['name'] },
@@ -246,6 +249,7 @@ export const TASKS_COLLECTION: CollectionDefinition = {
 export const TASK_INBOX_COLLECTION: CollectionDefinition = {
   ...TASKS_COLLECTION,
   emptyMessage: 'Tasks you create in Inbox will appear here',
+  defaultGroupBy: 'none',
   properties: ['name', 'dueDate'],
   defaultVisible: ['name', 'dueDate'],
 };
