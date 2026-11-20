@@ -13,6 +13,7 @@ export type FavoriteItem = {
   titleStyle: 'default' | 'placeholder';
   type: 'note' | 'folder';
   emoji: string | null;
+  iconImage?: string | null;
   status?: FolderMetadata['status'];
   /** A note that lives in Templates — it has no Move and no Create template. Set only when true. */
   isTemplate?: boolean;
