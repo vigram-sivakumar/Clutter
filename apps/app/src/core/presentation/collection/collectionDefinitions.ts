@@ -239,7 +239,7 @@ export const TASKS_COLLECTION: CollectionDefinition = {
   defaultVisibleByLayout: { list: ['name', 'dueDate'] },
   layouts: ['list'],
   defaultLayout: 'list',
-  defaultGroupBy: 'dueDate',
+  defaultGroupBy: 'none',
   defaultSort: DEFAULT_SORT,
   actions: { create: true },
   required: { list: ['name'] },
