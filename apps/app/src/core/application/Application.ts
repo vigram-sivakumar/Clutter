@@ -1992,6 +1992,48 @@ export class Application {
     }
   }
 
+  /** Clears a decoded-but-invalid page icon only if the metadata still points at the failed reference. */
+  public async clearPageIconImageIfUnchanged(pageId: string, expectedReference: string): Promise<void> {
+    const key = `page-image-error:${pageId}`;
+    if (this.iconImageReconciliation.has(key)) return;
+    this.iconImageReconciliation.add(key);
+    try {
+      const page = this.vault.getPage(pageId);
+      if (
+        page &&
+        page.metadata.iconImage === expectedReference &&
+        !this.vault.isPageEffectivelyArchived(page)
+      ) {
+        await this.pageOperations.updateMetadata(pageId, { iconImage: null });
+      }
+    } catch {
+      // The PageIcon has already switched to its fallback. A later open retries validation.
+    } finally {
+      this.iconImageReconciliation.delete(key);
+    }
+  }
+
+  /** Folder counterpart; the existing FolderOperations path writes .folder.md. */
+  public async clearFolderIconImageIfUnchanged(folderId: string, expectedReference: string): Promise<void> {
+    const key = `folder-image-error:${folderId}`;
+    if (this.iconImageReconciliation.has(key)) return;
+    this.iconImageReconciliation.add(key);
+    try {
+      const folder = this.vault.getFolder(folderId);
+      if (
+        folder &&
+        folder.metadata.iconImage === expectedReference &&
+        !this.vault.isFolderEffectivelyArchived(folderId)
+      ) {
+        await this.folderOperations.updateMetadata(folderId, { iconImage: null });
+      }
+    } catch {
+      // The PageIcon has already switched to its fallback. A later open retries validation.
+    } finally {
+      this.iconImageReconciliation.delete(key);
+    }
+  }
+
   /** Folder counterpart to reconcilePageIconImage; persists through FolderOperations/.folder.md. */
   public async reconcileFolderIconImage(folderId: string): Promise<void> {
     const key = `folder:${folderId}`;
