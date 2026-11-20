@@ -485,6 +485,7 @@ export const DailyNotesList = forwardRef<
             isToday={isToday(entry.name)}
             emoji={entry.icon}
             imageSrc={resolveIconImage?.(entry.iconImage)}
+            hasIconImage={Boolean(entry.iconImage)}
             // The Show emoji preference hides the drawn emoji only: the note's `icon` and the row's Change icon picker
             // (which still offers Remove for it) are untouched.
             showEmoji={showEmoji}
