@@ -1,6 +1,6 @@
 # ADR-068: The Tasks page gets an Overdue tab (amends ADR-051's "no tab for Overdue")
 
-**Status:** Accepted (product decision, Vigram, 2026-11-05). Amends one sentence of [ADR-051](./051-tasks-page-tabs-select-the-dataset.md).
+**Status:** Superseded by [ADR-078](./078-tasks-page-uses-four-action-oriented-tabs.md) (product decision, Vigram, 2026-11-20).
 
 ## Context
 
@@ -14,6 +14,8 @@ ADR-051 wired the Tasks page's tab strip to datasets and left Overdue and Done o
 - Everything else in ADR-051 stands: the tab is page-local state owned by `AppLayout`, persisted as `selectedTab` in `tasksViewConfig` (an old stored value that is not a tab still opens All tasks), the dataset shares the one `view:tasks` configuration, renderer and sort, and `FilteredView`, `NavigationRouter`, the collection-key and session-restore code are unchanged. Overdue is reachable only as a tab. Done remains removed.
 
 ## Consequences
+
+This decision is superseded: Overdue is no longer a standalone Tasks page tab. Overdue tasks are included in Today; the dedicated sidebar Overdue section remains unchanged.
 
 - No write path, subsystem boundary or public API changes; one dataset, one tab entry.
 - A stored `selectedTab` of `overdue` was invalid before this and fell back to All tasks; it is now a valid value.
