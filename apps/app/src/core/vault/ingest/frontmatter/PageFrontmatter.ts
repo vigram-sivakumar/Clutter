@@ -10,6 +10,7 @@ export interface PageFrontmatter {
   id?: string;
   type?: PageType;
   icon?: string;
+  iconImage?: string;
   cover?: string;
   coverCredit?: CoverCredit;
   coverHidden?: boolean;
