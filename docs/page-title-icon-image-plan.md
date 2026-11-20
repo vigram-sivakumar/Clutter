@@ -1,6 +1,6 @@
 # Page and folder icon images — implementation plan
 
-**Status:** Implementation in progress on `feature/page-icon-component`.
+**Status:** Implemented on `feature/page-icon-component`; local automated and macOS runtime verification remain.
 
 **Goal:** Keep `icon` as the existing emoji field and add `iconImage` for a local image asset. Render the same identity consistently in page/folder headers, sidebar rows, Daily Notes, and Collection views. Reuse the existing PageIcon, SpaceAvatarPicker, asset import, Vault resolver, metadata operations, and asset-move rewrite paths.
 
@@ -91,7 +91,7 @@ Do not add a second image importer, filesystem path validator, metadata writer, 
 - [ ] Review all UI call sites and existing regression tests after the new leading icon nodes.
 - [ ] Validate on macOS: upload, restart, move/rename asset, missing file, corrupt image, and folder metadata persistence.
 - [ ] Confirm archived/read-only views remain non-editable and fallback correctly.
-- [ ] Update the architecture specification and ADR record to match the implemented contract.
+- [x] Record the contract in ADR-073 and update the architecture specification.
 
 ---
 
