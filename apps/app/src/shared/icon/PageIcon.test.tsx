@@ -44,6 +44,26 @@ describe('PageIcon', () => {
     expect(container.querySelector('.emoji-icon')?.textContent).toBe('📝');
   });
 
+  it('keeps the fallback visible while a replacement image loads', () => {
+    const { container, rerender } = render(
+      <PageIcon emoji="📝" imageSrc="asset://first.png" size="small" />
+    );
+    const firstImage = container.querySelector('img') as HTMLImageElement;
+
+    fireEvent.load(firstImage);
+    expect(firstImage.style.visibility).toBe('');
+
+    rerender(<PageIcon emoji="📄" imageSrc="asset://second.png" size="small" />);
+
+    const replacementImage = container.querySelector('img') as HTMLImageElement;
+    const fallback = container.querySelector('.page-icon__fallback') as HTMLElement;
+
+    expect(replacementImage.getAttribute('src')).toBe('asset://second.png');
+    expect(replacementImage.style.visibility).toBe('hidden');
+    expect(fallback.style.visibility).toBe('');
+    expect(fallback.querySelector('.emoji-icon')?.textContent).toBe('📄');
+  });
+
   it('reports a decode failure so the owner can clear stale metadata', () => {
     const onImageError = vi.fn();
     const { container } = render(
