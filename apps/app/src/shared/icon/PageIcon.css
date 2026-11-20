@@ -1,23 +1,35 @@
-.page-icon-container {
-  display: inline-flex;
-  flex: 0 0 auto;
-}
-
-.page-icon--image {
+.page-icon {
   position: relative;
   display: inline-flex;
+  flex: 0 0 var(--page-icon-slot-size);
+  width: var(--page-icon-slot-size);
+  height: var(--page-icon-slot-size);
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
 .page-icon__fallback {
   display: inline-flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+}
+
+.page-icon__fallback .app-icon {
+  width: 100%;
+  height: 100%;
+  font-size: var(--page-icon-glyph-size);
+}
+
+.page-icon__fallback .emoji-icon {
+  font-size: var(--page-icon-glyph-size);
 }
 
 .page-icon__image {
   position: absolute;
   inset: 0;
-  z-index: 1;
   display: block;
   width: 100%;
   height: 100%;
