@@ -8,7 +8,7 @@ import { TasksCollectionBody } from './TasksCollectionBody';
 import { buildTaskMenu } from '../helpers/buildTaskMenu';
 import { DEFAULT_TASK_DISPLAY_CONFIG } from '../helpers/groupTasks';
 import { resolveCollectionView } from '@core/presentation/collection/resolveCollectionView';
-import { formatTaskDueTime, formatTaskDueDateLong } from '../helpers/formatTaskDueDate';
+import { formatTaskDueTime } from '../helpers/formatTaskDueDate';
 import { TASKS_COLLECTION } from '@core/presentation/collection/collectionDefinitions';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
 import { pinDateFormat } from '@shared/testing/pinDateFormat';
