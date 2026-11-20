@@ -53,7 +53,8 @@ describe('resolveCollectionView — order and membership', () => {
 
   it('offers grouping only for task collections and keeps it across layouts', () => {
     for (const definition of [TASKS_COLLECTION, TASK_INBOX_COLLECTION]) {
-      expect(resolveCollectionView(definition).groupBy).toBe('none');
+      expect(resolveCollectionView(definition).groupBy).toBe('dueDate');
+      expect(resolveCollectionView(definition, { groupBy: 'none' }).groupBy).toBe('none');
       for (const layout of ['list', 'table'] as const) {
         expect(resolveCollectionView(definition, { layout, groupBy: 'dueDate' }).groupBy).toBe('dueDate');
       }
