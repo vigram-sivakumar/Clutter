@@ -1,6 +1,6 @@
 # ADR-077: Completed tasks are separated from active task views
 
-**Status:** Accepted (product decision, Vigram, 2026-11-20). Amends [ADR-046](./046-task-views-are-datasets-of-one-task-collection), [ADR-051](./051-tasks-page-tabs-select-the-dataset) and [ADR-068](./068-tasks-page-gets-an-overdue-tab).
+**Status:** Accepted (product decision, Vigram, 2026-11-20). Amends [ADR-046](./046-task-views-are-datasets-of-one-task-collection), [ADR-051](./051-tasks-page-tabs-select-the-dataset) and [ADR-068](./068-tasks-page-gets-an-overdue-tab). The tab structure is further amended by [ADR-078](./078-tasks-page-uses-four-action-oriented-tabs).
 
 ## Context
 
@@ -10,7 +10,7 @@ The page References section has its own ordering rule: open dated tasks, open un
 
 ## Decision
 
-1. **Tab order:** All tasks, Today, Overdue, Upcoming, Unplanned, Completed. Completed is the final tab.
+1. **Tab order at the time:** All tasks, Today, Overdue, Upcoming, Unplanned, Completed. Completed was the final tab; ADR-078 subsequently replaces this with four tabs.
 2. **Active task datasets:** All tasks, Today, Overdue, Upcoming and Unplanned contain incomplete tasks only. Completed contains every completed task, regardless of due date or source note.
 3. **Tasks sidebar:** Today, Overdue, Upcoming and Unplanned contain incomplete tasks only. Completing a task removes it from the sidebar; it remains in its original Markdown source and is available in the Completed tab.
 4. **No completion display controls:** Remove Show completed and Auto-sort completed from Tasks settings and the Tasks collection Configure menu. The sidebar does not auto-sort completed tasks because it never displays them.
@@ -19,7 +19,7 @@ The page References section has its own ordering rule: open dated tasks, open un
 
 ## Consequences
 
-- Completed tasks have one obvious destination in the Tasks page and do not clutter active task views or the sidebar.
+- Completed tasks have one obvious destination in the Tasks page and do not clutter active task views or the sidebar. The four-tab arrangement is defined by ADR-078.
 - The References section continues to show completed tasks in its existing completion-date order.
 - Existing `showCompleted` and `autoSortCompleted` values in `.clutter/workspace.json` are tolerated for backward compatibility. They no longer control sidebar visibility; the separate Inbox collection retains its existing persisted behaviour.
 - Renaming Unscheduled to Unplanned is presentation-only and does not alter due-date classification or task metadata.
