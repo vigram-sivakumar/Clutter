@@ -16,3 +16,9 @@
   color: var(--danger-foreground);
   font-weight: var(--fw-medium);
 }
+
+/* All Tasks: overdue date headings and individual due-date values use the same danger treatment. */
+.task-row__due.is-overdue {
+  color: var(--danger-foreground);
+  font-weight: var(--fw-medium);
+}
