@@ -308,66 +308,54 @@ describe('tableCellNavigation — ArrowUp exits the table from its first row (he
   });
 });
 
-describe('tableCellNavigation — Enter creates a new row and activates the same column', () => {
+describe('tableCellNavigation — Enter moves down within the same column', () => {
   const NAMED_TABLE = '| Name | Role |\n| --- | --- |\n| Vikram | Designer |';
 
-  it('creates an empty row immediately below the current one, preserving column count, without splitting existing text', () => {
-    const root = mountRootView(NAMED_TABLE);
-    const { controller } = activateCellContaining(root, 'Vikram');
-
-    dispatchKey(controller.nestedView!, 'Enter');
-
-    expect(root.state.doc.toString()).toBe('| Name | Role |\n| --- | --- |\n| Vikram | Designer |\n| | |');
-  });
-
-  it('activates the same column of the new row, with an empty nested document', () => {
-    const root = mountRootView(NAMED_TABLE);
-    const { controller } = activateCellContaining(root, 'Designer');
-
-    dispatchKey(controller.nestedView!, 'Enter');
-
-    expect(controller.nestedView!.state.doc.toString()).toBe('');
-    expect(root.state.doc.toString()).toBe('| Name | Role |\n| --- | --- |\n| Vikram | Designer |\n| | |');
-    // The new active cell is the second column of the freshly created row.
-    expect(root.state.sliceDoc(controller.activeAnchor!.from, controller.activeAnchor!.to)).toBe('');
-    const newCell = resolveLogicalCell(root.state, controller.activeAnchor!.from);
-    expect(newCell?.columnIndex).toBe(1);
-    expect(newCell?.row.from).toBe(root.state.doc.toString().lastIndexOf('| | |'));
-  });
-
-  it('works when the current cell is already empty', () => {
-    const doc = '| A | |\n| --- | --- |\n| 1 | |';
-    const root = mountRootView(doc);
-    const controller = new TableActiveCellController();
-    controller.setNestedExtensions([tableCellNavigation(() => root, controller)]);
-    const container = makeContainer();
-    const emptyCellPos = doc.lastIndexOf('| |') + 2;
-    const cell = resolveLogicalCell(root.state, emptyCellPos)!;
-    const range = trimmed(root.state, cell.bounds);
-    controller.activate(root, container, range.from, range.to, emptyCellPos);
-
-    dispatchKey(controller.nestedView!, 'Enter');
-
-    expect(root.state.doc.toString()).toBe('| A | |\n| --- | --- |\n| 1 | |\n| | |');
-  });
-
-  it('Enter in the header inserts the new row after the delimiter row, keeping header/delimiter adjacent', () => {
+  it('moves from a header cell to the first body row in the same column', () => {
     const root = mountRootView(NAMED_TABLE);
     const { controller } = activateCellContaining(root, 'Name');
 
     dispatchKey(controller.nestedView!, 'Enter');
 
-    expect(root.state.doc.toString()).toBe('| Name | Role |\n| --- | --- |\n| | |\n| Vikram | Designer |');
+    expect(controller.nestedView!.state.doc.toString()).toBe('Vikram');
+    expect(root.state.doc.toString()).toBe(NAMED_TABLE);
+    expect(resolveLogicalCell(root.state, controller.activeAnchor!.from)?.columnIndex).toBe(0);
   });
 
-  it('is a single root undo step', () => {
-    const root = mountRootView(NAMED_TABLE);
-    const { controller } = activateCellContaining(root, 'Vikram');
+  it('moves to the next row in the same column', () => {
+    const doc = '| Name | Role |\n| --- | --- |\n| Vikram | Designer |\n| Another | Writer |';
+    const root = mountRootView(doc);
+    const { controller } = activateCellContaining(root, 'Designer');
 
     dispatchKey(controller.nestedView!, 'Enter');
 
-    expect(root.state.doc.toString()).toBe('| Name | Role |\n| --- | --- |\n| Vikram | Designer |\n| | |');
-    undo(root);
+    expect(controller.nestedView!.state.doc.toString()).toBe('Writer');
+    expect(resolveLogicalCell(root.state, controller.activeAnchor!.from)?.columnIndex).toBe(1);
+    expect(root.state.doc.toString()).toBe(doc);
+  });
+
+  it('does nothing at the last row', () => {
+    const root = mountRootView(NAMED_TABLE);
+    const { controller } = activateCellContaining(root, 'Designer');
+    const anchorBefore = controller.activeAnchor;
+
+    dispatchKey(controller.nestedView!, 'Enter');
+
+    expect(controller.activeAnchor).toEqual(anchorBefore);
+    expect(controller.nestedView!.state.doc.toString()).toBe('Designer');
+    expect(root.state.doc.toString()).toBe(NAMED_TABLE);
+  });
+
+  it('Shift-Enter does nothing, including in the middle of cell content', () => {
+    const root = mountRootView(NAMED_TABLE);
+    const { controller } = activateCellContaining(root, 'Designer');
+    controller.nestedView!.dispatch({ selection: { anchor: 3 } });
+    const anchorBefore = controller.activeAnchor;
+
+    dispatchKey(controller.nestedView!, 'Enter', true);
+
+    expect(controller.activeAnchor).toEqual(anchorBefore);
+    expect(controller.nestedView!.state.doc.toString()).toBe('Designer');
     expect(root.state.doc.toString()).toBe(NAMED_TABLE);
   });
 });
