@@ -12,7 +12,7 @@ export interface IconMetadataPatch {
   readonly iconImage?: string | null;
 }
 
-export function normalizeIconMetadataPatch<T extends IconMetadataPatch>(patch: T): T & IconMetadataPatch {
+export function normalizeIconMetadataPatch<T extends object>(patch: T & IconMetadataPatch): T & IconMetadataPatch {
   if (patch.iconImage) {
     return { ...patch, icon: null };
   }
