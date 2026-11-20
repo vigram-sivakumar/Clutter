@@ -234,7 +234,7 @@ export function TasksCollectionBody({
       <TaskDueDateButton
         date={task.dueDate}
         time={task.dueTime}
-        isOverdue={!task.completed && classifyDueDate(task.dueDate) === 'past'}
+        isOverdue={view === 'tasks-all' && !task.completed && classifyDueDate(task.dueDate) === 'past'}
         onChange={(date) => onChangeDueDate(task, date)}
       />
     );
@@ -270,7 +270,7 @@ export function TasksCollectionBody({
     </>
   );
 
-  const showDueDate = view === 'tasks-all' || visible.includes('dueDate');
+  const showDueDate = !dateGroups && visible.includes('dueDate');
   const showSource = visible.includes('source');
 
   const itemOf = (entry: TaskEntry) => {
@@ -306,7 +306,7 @@ export function TasksCollectionBody({
   return (
     <TasksPageBody>
       {dateGroups.map(({ date, items }) => {
-        const isOverdueGroup = items.some(({ task }) =>
+        const isOverdueGroup = view === 'tasks-all' && items.some(({ task }) =>
           !task.completed && classifyDueDate(task.dueDate) === 'past'
         );
         return (
