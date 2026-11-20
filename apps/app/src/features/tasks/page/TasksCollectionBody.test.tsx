@@ -619,7 +619,7 @@ describe('TasksCollectionBody', () => {
         );
 
         expect(getByRole('status')).toHaveTextContent(
-          'Tasks you create or add to notes will appear here'
+          'No active tasks'
         );
       });
     });
@@ -1014,6 +1014,18 @@ describe('TasksCollectionBody', () => {
     expect(getByText('No due date')).not.toBeNull();
     expect(queryByText('Has due date')).toBeNull();
     expect(queryByText('Completed, no due date')).toBeNull();
+  });
+
+  it('shows a dedicated empty state when there are no completed tasks', () => {
+    render(<TasksCollectionBody
+      view="tasks-completed"
+      tasks={[task({ text: 'Still active' })]}
+      onToggleComplete={vi.fn()}
+      onOpenTask={vi.fn()}
+      onChangeDueDate={vi.fn()}
+    />);
+
+    expect(screen.getByRole('status')).toHaveTextContent('No completed tasks');
   });
 
   describe('displayConfig', () => {
