@@ -922,7 +922,6 @@ describe('TasksCollectionBody', () => {
               groupBy: 'none',
               propertyOverrides: { source: false },
               sort: { property: 'name', direction: 'up' },
-              groupBy: 'none',
             })}
             {...noop}
           />
