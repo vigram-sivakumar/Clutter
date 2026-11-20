@@ -5,9 +5,7 @@ import { CollectionSourceLink } from '@features/collection/components/entry/Coll
 import { CollectionDataList } from '@features/collection/components/list/CollectionDataList';
 import { Section } from '@app/layouts/sidebar/section/Section';
 import { groupByTaskDueDate } from '../helpers/groupByTaskDueDate';
-import { classifyDueDate } from '../helpers/taskDueDate';
 import { formatTaskDueDateLong } from '../helpers/formatTaskDueDate';
-import { isTomorrow } from '@shared/helpers/time';
 import { useCollectionItemContextMenu } from '@app/layouts/page/body/useCollectionItemContextMenu';
 import { TaskDatePicker } from '../sidebar/TaskDatePicker';
 import { buildTaskMenu } from '../helpers/buildTaskMenu';
@@ -186,7 +184,11 @@ export function TasksCollectionBody({
         sort
       );
 
-  const dateGroups = groupBy === 'dueDate' ? groupByTaskDueDate(entries, (entry) => entry.task.dueDate) : undefined;
+  // All Tasks is already the aggregate view behind the task tabs. Keep it as one flat list;
+  // due dates remain visible on rows rather than becoming a second layer of navigation.
+  const dateGroups = view !== 'tasks-all' && groupBy === 'dueDate'
+    ? groupByTaskDueDate(entries, (entry) => entry.task.dueDate)
+    : undefined;
 
   if (entries.length === 0) {
     const hiddenInboxTasks = view === 'tasks-inbox' && tasksForView(view, tasks, { showCompleted: true }, inboxPageId).length > 0;
@@ -261,7 +263,7 @@ export function TasksCollectionBody({
     </>
   );
 
-  const showDueDate = visible.includes('dueDate');
+  const showDueDate = view === 'tasks-all' || visible.includes('dueDate');
   const showSource = visible.includes('source');
 
   const itemOf = (entry: TaskEntry) => {
@@ -294,57 +296,23 @@ export function TasksCollectionBody({
     );
   }
 
-  // Other task datasets keep their existing exact-date headings. The planning hierarchy
-  // is specific to All Tasks; the shared collection renderer and row implementation stay unchanged.
-  if (view !== 'tasks-all') {
+  // Other task datasets keep their existing exact-date headings; All Tasks stays flat.
+  if (!dateGroups) {
     return (
       <TasksPageBody>
-        {dateGroups.map(({ date, items }) => (
-          <Section key={date || 'unscheduled'} {...sectionProps(date, date ? formatTaskDueDateLong(date) : 'Unscheduled')}>
-            <CollectionDataList className="task-list" items={items.map(itemOf)} />
-          </Section>
-        ))}
+        <CollectionDataList className="task-list" items={entries.map(itemOf)} />
         {menuOverlays}
       </TasksPageBody>
     );
   }
 
-  // Keep the existing exact-date grouping as the source of ordering and membership.
-  // The All Tasks page only gives the date groups clearer planning-level headings.
-  const overdueGroups = dateGroups.filter(({ date }) => classifyDueDate(date) === 'past');
-  const todayGroup = dateGroups.find(({ date }) => classifyDueDate(date) === 'today');
-  const tomorrowGroup = dateGroups.find(({ date }) => isTomorrow(date));
-  const upcomingGroups = dateGroups.filter(({ date }) =>
-    classifyDueDate(date) === 'future' && !isTomorrow(date)
-  );
-  const unscheduledGroup = dateGroups.find(({ date }) => date === '');
-  const renderGroup = (id: string, title: string, items: readonly TaskEntry[]) => (
-    <Section key={id} {...sectionProps(id, title)}>
-      <CollectionDataList className="task-list" items={items.map(itemOf)} />
-    </Section>
-  );
-  const renderDateGroups = (parentId: string, groups: readonly { date: string; items: readonly TaskEntry[] }[]) =>
-    groups.map(({ date, items }) => (
-      <Section key={date} {...sectionProps(`${parentId}:${date}`, formatTaskDueDateLong(date))}>
-        <CollectionDataList className="task-list" items={items.map(itemOf)} />
-      </Section>
-    ));
-
   return (
     <TasksPageBody>
-      {overdueGroups.length > 0 && (
-        <Section key="overdue" {...sectionProps('overdue', 'Overdue')}>
-          {renderDateGroups('overdue', overdueGroups)}
+      {dateGroups.map(({ date, items }) => (
+        <Section key={date || 'unscheduled'} {...sectionProps(date, date ? formatTaskDueDateLong(date) : 'Unscheduled')}>
+          <CollectionDataList className="task-list" items={items.map(itemOf)} />
         </Section>
-      )}
-      {todayGroup && renderGroup('today', 'Today', todayGroup.items)}
-      {tomorrowGroup && renderGroup('tomorrow', 'Tomorrow', tomorrowGroup.items)}
-      {upcomingGroups.length > 0 && (
-        <Section key="upcoming" {...sectionProps('upcoming', 'Upcoming')}>
-          {renderDateGroups('upcoming', upcomingGroups)}
-        </Section>
-      )}
-      {unscheduledGroup && renderGroup('unscheduled', 'No date', unscheduledGroup.items)}
+      ))}
       {menuOverlays}
     </TasksPageBody>
   );
