@@ -94,6 +94,10 @@ type PageProps = {
   /** Forwarded to PageTitleSection's own More-actions menu — see PageHeaderControls' doc comments. Presence gates the Emoji/Cover image menu items (undefined omits the corresponding item entirely, e.g. an archived page gets none). */
   onSelectEmoji?(emoji: string): void;
   onRemoveEmoji?(): void;
+  iconImageSrc?: string | null;
+  hasIconImage?: boolean;
+  fallbackIcon?: SystemIcon;
+  onUploadIconImage?: PageHeaderControlsProps['onUploadIconImage'];
   onSetCoverImage?(url: string, credit?: CoverCredit | null): CoverApplyResult;
   onSetCoverImageFromUpload?(sourcePath: string): CoverApplyResult;
   /**
@@ -532,6 +536,10 @@ export function Page({
               showMoreActions={showMoreActions}
               onSelectEmoji={onSelectEmoji}
               onRemoveEmoji={onRemoveEmoji}
+              iconImageSrc={iconImageSrc}
+              hasIconImage={hasIconImage}
+              fallbackIcon={fallbackIcon}
+              onUploadIconImage={onUploadIconImage}
               hasDescription={Boolean(description)}
               onEditDescription={onEditDescription}
               propertiesControl={propertiesControl}
