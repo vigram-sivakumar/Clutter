@@ -24,7 +24,7 @@
 }
 
 .page-icon__fallback .emoji-icon {
-  font-size: var(--page-icon-glyph-size);
+  font-size: var(--page-icon-slot-size);
 }
 
 .page-icon__image {
