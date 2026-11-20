@@ -203,6 +203,28 @@
     "blockReferences": []
    }
   },
+  "page icon image": {
+   "frontmatter": {
+    "id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    "iconImage": "Assets/icon.png",
+    "entryOrder": [
+     "id",
+     "iconImage"
+    ]
+   },
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "Body\n",
+   "analysis": {
+    "tasks": [],
+    "tags": [],
+    "links": [],
+    "embeds": [],
+    "headings": [],
+    "blockReferences": []
+   }
+  },
   "aliases and tags in frontmatter": {
    "frontmatter": {
     "id": "44444444-4444-4444-8444-444444444444",
@@ -1409,28 +1431,6 @@
       "endOffset": 705
      }
     ],
-    "embeds": [],
-    "headings": [],
-    "blockReferences": []
-   }
-  },
-  "page icon image": {
-   "frontmatter": {
-    "id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
-    "iconImage": "Assets/icon.png",
-    "entryOrder": [
-     "id",
-     "iconImage"
-    ]
-   },
-   "frontmatterAnalysis": {
-    "aliases": []
-   },
-   "body": "Body\n",
-   "analysis": {
-    "tasks": [],
-    "tags": [],
-    "links": [],
     "embeds": [],
     "headings": [],
     "blockReferences": []
