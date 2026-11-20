@@ -77,6 +77,7 @@ describe('TasksCollectionBody', () => {
           task({ text: 'Later task', dueDate: '2026-08-08' }),
           task({ text: 'No date task' }),
         ]}
+        collectionView={resolveCollectionView(TASKS_COLLECTION, { groupBy: 'none' })}
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
         onChangeDueDate={vi.fn()}
