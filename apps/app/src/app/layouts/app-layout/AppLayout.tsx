@@ -555,7 +555,6 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
           onSetAssetAsCover={askForCoverNote}
           onNeedsRestoreDestination={setRestoreRequest}
           tasksViewConfig={tasksViewConfig}
-          onTasksViewConfigChange={updateTasksViewConfig}
           tasksTab={tasksTab}
           onTasksTabChange={updateTasksTab}
           pendingReveal={pendingReveal}
