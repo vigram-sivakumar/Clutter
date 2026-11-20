@@ -68,7 +68,7 @@ export interface TasksCollectionBodyProps {
    */
   readonly displayConfig?: TaskDisplayConfig;
   /**
-   * The Task Collection's resolved Configure state (visible properties, sort) — shared by all six task views, the same
+   * The Task Collection's resolved Configure state (visible properties, sort) — shared by all task datasets, the same
    * `resolveCollectionView` result every collection page draws from. Absent: the collection's defaults.
    */
   readonly collectionView?: ResolvedCollectionView;
@@ -310,7 +310,7 @@ export function TasksCollectionBody({
   return (
     <TasksPageBody>
       {dateGroups.map(({ date, items }) => {
-        const isOverdueGroup = view === 'tasks-all' && items.some(({ task }) =>
+        const isOverdueGroup = (view === 'tasks-today' || view === 'tasks-all') && items.some(({ task }) =>
           !task.completed && classifyDueDate(task.dueDate) === 'past'
         );
         return (
