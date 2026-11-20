@@ -21,7 +21,7 @@ export interface PageIconProps {
 
 const SIZE_TOKENS: Record<PageIconSize, { slot: number; glyph: number }> = {
   small: { slot: 20, glyph: 16 },
-  medium: { slot: 24, glyph: 20 },
+  medium: { slot: 24, glyph: 16 },
   large: { slot: 72, glyph: 64 },
 };
 
