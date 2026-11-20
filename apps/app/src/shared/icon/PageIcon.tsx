@@ -15,6 +15,8 @@ export interface PageIconProps {
   /** Consistent dimensions for each UI context: sidebar, collection, and page title. */
   size?: PageIconSize;
   className?: string;
+  /** Called when the resolved image cannot be decoded by the WebView. */
+  onImageError?: () => void;
 }
 
 const SIZE_TOKENS: Record<PageIconSize, { slot: number; glyph: number }> = {
@@ -36,9 +38,11 @@ function IconFallback({ emoji, systemIcon, glyphSize }: FallbackProps) {
 function ImageLayer({
   src,
   fallback,
+  onImageError,
 }: {
   src: string;
   fallback: React.ReactNode;
+  onImageError?: () => void;
 }) {
   const [status, setStatus] = useState<'loading' | 'loaded' | 'failed'>('loading');
 
@@ -59,7 +63,10 @@ function ImageLayer({
         aria-hidden="true"
         style={status === 'loading' ? { visibility: 'hidden' } : undefined}
         onLoad={() => setStatus('loaded')}
-        onError={() => setStatus('failed')}
+        onError={() => {
+          setStatus('failed');
+          onImageError?.();
+        }}
       />
     </>
   );
@@ -78,6 +85,7 @@ export function PageIcon({
   imageSrc,
   size = 'medium',
   className,
+  onImageError,
 }: PageIconProps) {
   const dimensions = SIZE_TOKENS[size];
   const fallback = (
@@ -92,7 +100,7 @@ export function PageIcon({
   return (
     <span className={`page-icon ${className ?? ''}`.trim()} style={style}>
       {src ? (
-        <ImageLayer key={src} src={src} fallback={fallback} />
+        <ImageLayer key={src} src={src} fallback={fallback} onImageError={onImageError} />
       ) : (
         <span className="page-icon__fallback">{fallback}</span>
       )}
