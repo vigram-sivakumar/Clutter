@@ -114,7 +114,7 @@ describe('the Tasks collection', () => {
     expect([...TASKS_COLLECTION.properties].sort()).toEqual(['dueDate', 'name', 'source']);
     expect([...TASKS_COLLECTION.defaultVisible].sort()).toEqual(['dueDate', 'name', 'source']);
     expect(TASKS_COLLECTION.defaultSort).toEqual({ property: 'name', direction: 'down' });
-    expect(TASKS_COLLECTION.defaultGroupBy).toBe('dueDate');
+    expect(TASKS_COLLECTION.defaultGroupBy).toBe('none');
     expect(TASK_INBOX_COLLECTION.defaultGroupBy).toBe('none');
   });
 
