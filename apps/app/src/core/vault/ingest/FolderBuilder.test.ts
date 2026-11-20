@@ -52,7 +52,6 @@ describe('FolderBuilder', () => {
 
     expect(folder.metadata).toEqual({
       icon: null,
-      iconImage: null,
       favorite: false,
       description: null,
       cover: null,
