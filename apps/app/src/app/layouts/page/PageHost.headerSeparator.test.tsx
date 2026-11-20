@@ -207,7 +207,7 @@ describe('Header separator is limited to notes and daily notes', () => {
     ['Favorites', (a) => a.navigation.openFavorites()],
     ['the Archive', (a) => a.navigation.openArchive()],
     ['All tasks', (a) => a.navigation.openAllTasks()],
-    ['Unscheduled tasks', (a) => a.navigation.openTasksUnscheduled()],
+    ['Unplanned tasks', (a) => a.navigation.openTasksUnplanned()],
     ['a tag collection', (a) => a.navigation.openTag('design')],
     [
       'a folder',
