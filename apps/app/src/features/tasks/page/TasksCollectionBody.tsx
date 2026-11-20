@@ -100,7 +100,7 @@ function TasksPageBody({ children }: { readonly children: ReactNode }) {
 
 /**
  * The page body of every task view — ONE renderer. The view decides the dataset (`tasksForView`, the
- * single authority on which tasks belong to Today / Overdue / Upcoming / Unscheduled / Done / All), the
+ * single authority on which tasks belong to Today / Overdue / Upcoming / Unplanned / Done / All), the
  * shared collection configuration (`collectionView`: layout, properties, sort) decides how that dataset
  * is drawn, through the generic `CollectionDataList`. Deliberately not a
  * CollectionBody variant — CollectionEntryModel (folder/note-shaped) has no room for
