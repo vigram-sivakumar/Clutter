@@ -2,10 +2,10 @@ import type { PropertiesControl } from './propertiesControl';
 import type { CoverCredit } from '@core/vault/models/PageMetadata';
 import { useRef, useState, type ReactNode } from 'react';
 import { Button } from '@components/button/Button';
-import { ChangeIconPicker } from '@components/change-icon-picker/ChangeIconPicker';
-import { AppIcon } from '@shared/icon';
+import { SpaceAvatarPicker } from '@components/space-avatar-picker/SpaceAvatarPicker';
+import { AppIcon, PageIcon } from '@shared/icon';
 import type { SystemIcon } from '@shared/icon';
-import { PageHeaderMoreActionsMenu } from './PageHeaderMoreActionsMenu';
+import { PageHeaderMoreActionsMenu, type CoverApplyResult } from './PageHeaderMoreActionsMenu';
 import './PageHeaderControls.css';
 
 /** What a caller's extra control is given so its menu takes part in the row's single open-menu state. */
@@ -49,6 +49,14 @@ export interface PageHeaderControlsProps {
    */
   onSelectEmoji?: (emoji: string) => void;
   onRemoveEmoji?: () => void;
+  /** A strictly resolved local icon image URL; null means use the emoji/system fallback. */
+  iconImageSrc?: string | null;
+  /** Raw metadata presence, kept separate from resolution so an invalid reference still shows the fallback icon. */
+  hasIconImage?: boolean;
+  /** Generic page/folder icon shown if an image reference is invalid and no emoji exists. */
+  fallbackIcon?: SystemIcon;
+  /** Imports and persists an image selected from the user's computer. */
+  onUploadIconImage?: (sourcePath: string) => CoverApplyResult;
   /**
    * Whether the page currently has a cover image — there is no cover
    * control/preview in the header itself (the cover renders wherever it
@@ -85,6 +93,10 @@ export function PageHeaderControls({
   showMoreActions = true,
   onSelectEmoji,
   onRemoveEmoji,
+  iconImageSrc,
+  hasIconImage = false,
+  fallbackIcon,
+  onUploadIconImage,
   hasCoverImage = false,
   coverHidden = false,
   onSetCoverImage,
@@ -96,15 +108,10 @@ export function PageHeaderControls({
   propertiesControl,
   extraControls,
 }: PageHeaderControlsProps) {
-  // The one already-set-emoji entry point — "Clicking the visible emoji
-  // opens the picker directly, without opening More Actions first." Same
-  // ChangeIconPicker (Popover + EmojiTray) every sidebar row already uses
-  // (Folder.tsx/Note.tsx/Tag.tsx) — not a second implementation, just a
-  // new anchor. Kept independent of PageHeaderMoreActionsMenu's own
-  // in-place Emoji view below, which only ever exists to *set* a first
-  // emoji, never to change an existing one.
-  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
-  const emojiButtonRef = useRef<HTMLButtonElement>(null);
+  // The same picker used by Space avatars provides emoji and local-image tabs.
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const iconButtonRef = useRef<HTMLButtonElement>(null);
+  const hasUserIcon = Boolean(emoji || hasIconImage);
 
   // Which of the row's two menus is open, if either — one state, so opening one closes the other.
   const [openMenu, setOpenMenu] = useState<HeaderMenuId | null>(null);
@@ -116,42 +123,60 @@ export function PageHeaderControls({
   return (
     // data-menu-open keeps both hover-revealed buttons visible while either menu is open (PageHeaderControls.css).
     <div className="page-header-controls" data-menu-open={openMenu !== null ? '' : undefined}>
-      {emoji && !onSelectEmoji && (
-        // Nothing here can change the icon (an archived page, say): it is shown, not offered.
-        <span className="page-header-controls__emoji page-header-controls__emoji--static">
-          <AppIcon emoji={emoji} />
-        </span>
-      )}
-      {emoji && onSelectEmoji && (
+      {hasUserIcon && onSelectEmoji && onUploadIconImage && (
         <>
           <Button
             className="page-header-controls__emoji"
-            ref={emojiButtonRef}
+            ref={iconButtonRef}
             isIconOnly
             variant="ghost"
             interaction="subtle"
-            aria-label="Change emoji"
-            onClick={() => setEmojiPickerOpen(true)}
-            >
-            <AppIcon emoji={emoji} />
+            aria-label="Change page icon"
+            onClick={() => setIconPickerOpen(true)}
+          >
+            <PageIcon
+              emoji={emoji}
+              systemIcon={fallbackIcon}
+              imageSrc={iconImageSrc}
+              size="large"
+            />
           </Button>
-          <ChangeIconPicker
-            anchorRef={emojiButtonRef}
-            open={emojiPickerOpen}
-            onClose={() => setEmojiPickerOpen(false)}
-            hasIcon
-            side="bottom"
-            alignment="start"
-            onSelect={(selected) => {
+          <SpaceAvatarPicker
+            anchorRef={iconButtonRef}
+            open={iconPickerOpen}
+            onClose={() => setIconPickerOpen(false)}
+            hasAvatar={hasUserIcon}
+            onSelectEmoji={(selected) => {
               onSelectEmoji(selected);
-              setEmojiPickerOpen(false);
+              setIconPickerOpen(false);
+            }}
+            onUploadImage={(sourcePath) => {
+              const result = onUploadIconImage(sourcePath);
+              if (result instanceof Promise) {
+                void result.then((applied) => {
+                  if (applied !== false) setIconPickerOpen(false);
+                }).catch(() => {});
+              } else if (result !== false) {
+                setIconPickerOpen(false);
+              }
             }}
             onRemove={() => {
               onRemoveEmoji?.();
-              setEmojiPickerOpen(false);
+              setIconPickerOpen(false);
             }}
-            />
+            alignment="start"
+          />
         </>
+      )}
+      {hasUserIcon && (!onSelectEmoji || !onUploadIconImage) && (
+        <span className="page-header-controls__emoji page-header-controls__emoji--static">
+          <PageIcon
+            emoji={emoji}
+            systemIcon={fallbackIcon}
+            imageSrc={iconImageSrc}
+            size="large"
+          />
+        </span>
       )}
       {extraControls && (
         <div className="page-header-controls__extra">
@@ -160,7 +185,7 @@ export function PageHeaderControls({
       )}
       {icon && (
         <span className="page-header-controls__icon">
-          <AppIcon icon={icon} size={64} strokeWidth={0.8} />
+          <PageIcon systemIcon={icon} size="large" />
         </span>
       )}
       {showMoreActions && (
@@ -169,6 +194,8 @@ export function PageHeaderControls({
           emoji={emoji}
           onSelectEmoji={onSelectEmoji}
           onRemoveEmoji={onRemoveEmoji}
+          hasIconImage={hasIconImage}
+          onUploadIconImage={onUploadIconImage}
           hasCoverImage={hasCoverImage}
           coverHidden={coverHidden}
           onSetCoverImage={onSetCoverImage}
