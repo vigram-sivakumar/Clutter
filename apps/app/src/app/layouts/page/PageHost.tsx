@@ -21,6 +21,7 @@ import {
   toPageDisplayLabelInput,
 } from '@core/presentation/getPageDisplayLabel';
 import { resolvePageIdentityIcon } from '@app/layouts/page/resolvePageIdentityIcon';
+import { getPageIcon } from '@core/presentation/getPageIcon';
 
 import { useActivePage } from '@app/hooks/useActivePage';
 import { useReferencesDisplayStore } from '@app/hooks/useReferencesDisplayStore';
@@ -1619,6 +1620,20 @@ export function PageHost({
       icon: null,
     });
   };
+  const onUploadIconImage = (sourcePath: string): Promise<boolean> =>
+    (async () => {
+      if (!activePageId) return false;
+      try {
+        const reference = await application.importCoverAsset(sourcePath);
+        await application.pageOperations.updateMetadata(activePageId, {
+          iconImage: reference,
+        });
+        return true;
+      } catch (error) {
+        toast.fail('Couldn’t set the page icon image', error);
+        return false;
+      }
+    })();
 
   // Distinct from onRemoveCoverImage: leaves `cover` untouched, only sets
   // coverHidden — see PageCover.tsx's own onHide doc comment for why this
@@ -2064,6 +2079,19 @@ export function PageHost({
       void application.folderOperations.updateMetadata(folder.id, {
         icon: null,
       });
+    const onUploadFolderIconImage = (sourcePath: string): Promise<boolean> =>
+      (async () => {
+        try {
+          const reference = await application.importCoverAsset(sourcePath);
+          await application.folderOperations.updateMetadata(folder.id, {
+            iconImage: reference,
+          });
+          return true;
+        } catch (error) {
+          toast.fail('Couldn’t set the folder icon image', error);
+          return false;
+        }
+      })();
 
     const folderSystemLocationId = getSystemLocationForFolder(
       folder,
@@ -2305,6 +2333,10 @@ export function PageHost({
               ? undefined
               : (folder.metadata.icon ?? undefined)
           }
+          iconImageSrc={folderIconImageSrc}
+          hasIconImage={Boolean(folder.metadata.iconImage)}
+          fallbackIcon={getPageIcon('folder')}
+          onUploadIconImage={isFolderUserEditable ? onUploadFolderIconImage : undefined}
           icon={folderSystemIcon}
           showMoreActions={isFolderUserEditable}
           onSelectEmoji={
@@ -3528,6 +3560,10 @@ export function PageHost({
         // still its date (isRenameable above draws that line), but nothing
         // about it stops it carrying an emoji.
         emoji={page.metadata.icon ?? undefined}
+        iconImageSrc={pageIconImageSrc}
+        hasIconImage={Boolean(page.metadata.iconImage)}
+        fallbackIcon={getPageIcon('note')}
+        onUploadIconImage={!isPageArchived ? onUploadIconImage : undefined}
         onSelectEmoji={!isPageArchived ? onSelectEmoji : undefined}
         onRemoveEmoji={!isPageArchived ? onRemoveEmoji : undefined}
         // A Daily Note's calendar button sits in the controls row above its title (a visual placement experiment).
