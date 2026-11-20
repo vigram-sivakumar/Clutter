@@ -19,14 +19,14 @@ const resource = (id: string, relativePath: string): VaultResource => ({
 });
 
 /** A page as far as references care: its `![[…]]` embed targets, its Markdown body and its cover. */
-const page = (options: { embeds?: string[]; markdown?: string; cover?: string | null } = {}): Page =>
+const page = (options: { embeds?: string[]; markdown?: string; cover?: string | null; iconImage?: string | null } = {}): Page =>
   ({
     analysis: { embeds: (options.embeds ?? []).map((target) => ({ target })) },
     source: { markdown: options.markdown ?? '' },
-    metadata: { cover: options.cover ?? null },
+    metadata: { cover: options.cover ?? null, iconImage: options.iconImage ?? null },
   }) as unknown as Page;
 
-const folder = (cover: string | null): Folder => ({ metadata: { cover } }) as unknown as Folder;
+const folder = (cover: string | null, iconImage: string | null = null): Folder => ({ metadata: { cover, iconImage } }) as unknown as Folder;
 
 const stayingFrom = (...resources: VaultResource[]) => new Map(resources.map((r) => [r.path, r] as const));
 
@@ -74,6 +74,12 @@ describe('collectAssetReferences — every supported form', () => {
       'Assets/folder-cover.png',
       'Assets/avatar.png',
     ]);
+  });
+
+  it('reads page and folder icon image references alongside covers', () => {
+    expect(
+      collect([page({ iconImage: 'Assets/page-icon.png' })], [folder(null, 'Assets/folder-icon.png')])
+    ).toEqual(['Assets/page-icon.png', 'Assets/folder-icon.png']);
   });
 
   it('ignores a reference written inside code, which is text about a reference', () => {
