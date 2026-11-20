@@ -44,6 +44,7 @@ export interface ArchiveCollectionBodyProps {
   archivedAtByPath?: ReadonlyMap<string, string>;
   /** A vault file's path → a loadable URL, for its thumbnail. */
   resolveResourceUrl?: (path: string) => string;
+  resolveIconImage?(reference: string | null | undefined): string | null;
   /** Opens an archived file (its viewer, where its Restore / Delete live). */
   onOpenResource?(resource: VaultResource): void;
   /**
@@ -95,6 +96,7 @@ export function ArchiveCollectionBody({
   sort = DEFAULT_VIEW.sort,
   archivedAtByPath,
   resolveResourceUrl,
+  resolveIconImage,
   onOpenResource,
   itemMenu,
   resourceMenu,
@@ -118,14 +120,14 @@ export function ArchiveCollectionBody({
     ...folders.map((entry) => ({
       id: entry.id,
       values: entry.values,
-      listItem: withMenuProps(toFolderListItem(entry, { visible }), entryContextMenu.entryProps(entry)),
-      tableRow: withMenuProps(toFolderTableRow(entry, { visible }), entryContextMenu.entryProps(entry)),
+      listItem: withMenuProps(toFolderListItem(entry, { visible, resolveIconImage }), entryContextMenu.entryProps(entry)),
+      tableRow: withMenuProps(toFolderTableRow(entry, { visible, resolveIconImage }), entryContextMenu.entryProps(entry)),
     })),
     ...notes.map((entry) => ({
       id: entry.id,
       values: entry.values,
-      listItem: withMenuProps(toNoteListItem(entry, { visible }), entryContextMenu.entryProps(entry)),
-      tableRow: withMenuProps(toNoteTableRow(entry, { visible }), entryContextMenu.entryProps(entry)),
+      listItem: withMenuProps(toNoteListItem(entry, { visible, resolveIconImage }), entryContextMenu.entryProps(entry)),
+      tableRow: withMenuProps(toNoteTableRow(entry, { visible, resolveIconImage }), entryContextMenu.entryProps(entry)),
     })),
     ...resources.map((resource) => {
       const asset = assetOfResource(resource);
