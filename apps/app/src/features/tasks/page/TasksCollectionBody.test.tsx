@@ -68,11 +68,16 @@ describe('TasksCollectionBody', () => {
     expect(onOpenTask).toHaveBeenCalledWith(tasks[1]);
   });
 
-  it('does not apply All Tasks overdue danger styling in the dedicated Overdue tab', () => {
+  it('Today combines overdue and due-today tasks, marks overdue date groups, and excludes future and completed tasks', () => {
     const { container } = render(
       <TasksCollectionBody
-        view="tasks-overdue"
-        tasks={[task({ text: 'Overdue task', dueDate: '2026-08-02' })]}
+        view="tasks-today"
+        tasks={[
+          task({ text: 'Overdue task', dueDate: '2026-08-02' }),
+          task({ text: 'Today task', dueDate: '2026-08-04' }),
+          task({ text: 'Upcoming task', dueDate: '2026-08-08' }),
+          task({ text: 'Completed overdue', dueDate: '2026-08-01', completed: true }),
+        ]}
         collectionView={resolveCollectionView(TASKS_COLLECTION, { groupBy: 'dueDate' })}
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
@@ -80,8 +85,11 @@ describe('TasksCollectionBody', () => {
       />
     );
 
-    expect(container.querySelector('.section-header[data-section="overdue"]')).toBeNull();
-    expect(container.querySelector('.task-row__due')).toBeNull();
+    expect(container.querySelectorAll('.section-header[data-section="overdue"]')).toHaveLength(1);
+    expect([...container.querySelectorAll('.task-title')].map((node) => node.textContent).sort()).toEqual([
+      'Overdue task',
+      'Today task',
+    ]);
   });
 
   it('keeps All Tasks as one flat list with due dates shown on rows', () => {
