@@ -55,6 +55,7 @@ export interface EffectivePage {
   readonly description: string | null;
   readonly markdown: string;
   readonly icon: string | null;
+  readonly iconImage: string | null;
   readonly favorite: boolean;
   readonly cover: string | null;
   /** The Unsplash credit for `cover` (ADR-054). */
@@ -312,6 +313,7 @@ export class EffectivePageState {
           ? page.source.markdown
           : '',
       icon: page ? page.metadata.icon : null,
+      iconImage: page ? (page.metadata.iconImage ?? null) : null,
       favorite: page ? page.metadata.favorite : false,
       cover: page ? page.metadata.cover : null,
       coverCredit: page ? (page.metadata.coverCredit ?? null) : null,
