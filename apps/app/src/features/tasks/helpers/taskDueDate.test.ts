@@ -16,9 +16,11 @@ describe('classifyDueDate — the one interpretation of a task due date', () => 
     expect(classifyDueDate(undefined)).toBe('unscheduled');
   });
 
-  it('today / yesterday / tomorrow compare by local calendar day', () => {
+  it('classifies every calendar day before today as past, not only yesterday', () => {
     expect(classifyDueDate('2026-10-06')).toBe('today');
     expect(classifyDueDate('2026-10-05')).toBe('past');
+    expect(classifyDueDate('2026-10-01')).toBe('past');
+    expect(classifyDueDate('2026-09-28')).toBe('past');
     expect(classifyDueDate('2026-10-07')).toBe('future');
   });
 
