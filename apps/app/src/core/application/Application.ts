@@ -1990,8 +1990,7 @@ export class Application {
 
       await this.pageOperations.updateMetadata(pageId, { iconImage: null });
     } catch {
-      // Rendering already uses the safe fallback. A later open or relevant
-      // Vault update retries this best-effort metadata cleanup.
+      // Rendering already uses the safe fallback. A later open retries this best-effort metadata cleanup.
     } finally {
       this.iconImageReconciliation.delete(key);
       const failedReference = this.pendingIconImageFailures.get(key);
@@ -2023,6 +2022,11 @@ export class Application {
       // The PageIcon has already switched to its fallback. A later open retries validation.
     } finally {
       this.iconImageReconciliation.delete(key);
+      const failedReference = this.pendingIconImageFailures.get(key);
+      if (failedReference !== undefined) {
+        this.pendingIconImageFailures.delete(key);
+        void this.clearPageIconImageIfUnchanged(pageId, failedReference);
+      }
     }
   }
 
@@ -2085,6 +2089,11 @@ export class Application {
       // As above, never block opening/rendering; retry on a later open.
     } finally {
       this.iconImageReconciliation.delete(key);
+      const failedReference = this.pendingIconImageFailures.get(key);
+      if (failedReference !== undefined) {
+        this.pendingIconImageFailures.delete(key);
+        void this.clearFolderIconImageIfUnchanged(folderId, failedReference);
+      }
     }
   }
 
@@ -2094,12 +2103,12 @@ export class Application {
    * canonical path: the index is keyed by exact paths, so `./x.png` or `a/../x.png` can't be
    * looked up in it even though the disk resolves them.
    */
-  private isIndexedVaultReference(cover: string, absolutePath: string): boolean {
-    const canonical = cover.split('/').every((segment) => segment !== '' && segment !== '.' && segment !== '..');
+  private isIndexedVaultReference(reference: string, absolutePath: string): boolean {
+    const canonical = reference.split('/').every((segment) => segment !== '' && segment !== '.' && segment !== '..');
 
     return (
       canonical &&
-      classifySupportedResourceFile(cover) !== null &&
+      classifySupportedResourceFile(reference) !== null &&
       !isClutterInternalPath(this.rootPath, absolutePath)
     );
   }
