@@ -3,36 +3,28 @@ import type { TaskOccurrence } from '@core/vault/models/occurrences';
 import { classifyDueDate } from './taskDueDate';
 
 /**
- * The task datasets of the Task Collection. `tasks-inbox`, `tasks-all` and `tasks-unscheduled` are also `FilteredView` kinds (pages the
- * sidebar opens); `tasks-today`, `tasks-overdue` and `tasks-upcoming` are datasets only — the Tasks page's tabs select them
- * (ADR-051, ADR-068).
+ * The task datasets of the Task Collection. `tasks-inbox`, `tasks-all` and `tasks-unscheduled` are also
+ * `FilteredView` kinds (pages the sidebar opens); `tasks-today` combines overdue and due-today tasks for the
+ * Tasks page tab (ADR-078).
  */
 export type TaskViewKind = 'tasks-inbox' | 'tasks-all' | 'tasks-completed' | 'tasks-today' | 'tasks-overdue' | 'tasks-upcoming' | 'tasks-unscheduled';
 
-/**
- * The legacy Show completed preference still controls Inbox membership. The All Tasks tab datasets
- * now have explicit active/completed membership and do not consult this preference.
- */
+/** The legacy Show completed preference still controls Inbox membership. */
 export interface TaskViewMembershipConfig {
   readonly showCompleted: boolean;
 }
 
 /**
- * THE single semantic authority for which tasks belong to each task view. View identity decides
- * the dataset; the shared collection configuration (layout, properties, sort) decides how that
- * dataset is drawn. Nothing else — no render branch, helper or component — filters tasks per view.
+ * THE single semantic authority for which tasks belong to each task view. View identity decides the dataset;
+ * the shared collection configuration (layout, properties, sort) decides how that dataset is drawn.
  *
- * Membership (due dates are interpreted only by `classifyDueDate`):
- *  - Inbox        — tasks from the managed Inbox source, respecting Show completed.
- *  - Tasks        — active tasks only; completed tasks have their own Completed tab.
- *  - Completed    — every completed task, regardless of due date or source.
- *  - Today        — explicit valid due date is today, incomplete tasks only.
-
- *  - Overdue      — explicit valid due date before today, and not completed (the sidebar's Overdue rule), so it
- *    ignores "Show completed" like Unplanned.
- *  - Upcoming     — explicit valid due date after today, incomplete tasks only (never unscheduled tasks).
- *  - Unplanned  — no valid explicit due date. Active tasks only — a completed task never appears
- *    there — so it ignores "Show completed".
+ * - Inbox: tasks from the managed Inbox source, respecting Show completed.
+ * - Tasks: active tasks only.
+ * - Completed: every completed task, regardless of due date or source.
+ * - Today: active tasks due today OR overdue (due before today).
+ * - Overdue: active tasks due before today (retained as an internal compatibility dataset).
+ * - Upcoming: active tasks due after today.
+ * - Unplanned: active tasks without a valid explicit due date.
  *
  * Ordering is the collection's sort; this function decides membership only.
  */
@@ -52,7 +44,7 @@ export function tasksForView(
     case 'tasks-completed':
       return tasks.filter((task) => task.completed);
     case 'tasks-today':
-      return tasks.filter((task) => !task.completed && classifyDueDate(task.dueDate) === 'today');
+      return tasks.filter((task) => !task.completed && ['today', 'past'].includes(classifyDueDate(task.dueDate)));
     case 'tasks-overdue':
       return tasks.filter((task) => !task.completed && classifyDueDate(task.dueDate) === 'past');
     case 'tasks-upcoming':
