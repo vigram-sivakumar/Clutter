@@ -6,13 +6,10 @@ import { exitEditorUp } from '../editorExitUp';
 
 import { tableActiveCellChanged, type TableActiveCellController } from './tableActiveCellController';
 import {
-  buildEmptyRowText,
-  emptyRowCellOffset,
   endOfCellContent,
   getNavigableRows,
   getRectangularRowCellBounds,
   getRowCellBounds,
-  insertRowAfterPosition,
   resolveCellAt,
   resolveLogicalCell,
   startOfCellContent,
@@ -133,7 +130,7 @@ function trimmedCellRange(state: EditorState, bounds: CellBounds): { readonly fr
 }
 
 /** Every key `tableCellNavigation()`'s own keymap binds — shared with `runTableCellNavigationCommand`'s own key parameter so the two can never drift out of sync with each other. */
-export type TableCellNavigationKey = 'Tab' | 'Shift-Tab' | 'Enter' | 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight';
+export type TableCellNavigationKey = 'Tab' | 'Shift-Tab' | 'Enter' | 'Shift-Enter' | 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight';
 
 /**
  * Builds the nested-editor keymap's own command set. Pass `getRootView` (a
@@ -212,7 +209,7 @@ function buildTableCellCommands(
    * "a line already follows" and "nothing follows, create one" — the
    * fuller behavior this needs, not a special case to reintroduce here.
    */
-  function moveOrExitVertical(rowOffset: 1 | -1): boolean {
+  function moveWithinColumn(rowOffset: 1 | -1, exitAtBoundary: boolean): boolean {
     const rootView = getRootView();
     const anchor = controller.activeAnchor;
     if (!anchor) {
@@ -223,35 +220,36 @@ function buildTableCellCommands(
       return false;
     }
     const target = resolveCellAt(current.table, current.rowIndex + rowOffset, current.columnIndex);
-    if (target) {
-      const container = activeContainer(controller);
-      if (!container) {
+    if (!target) {
+      return exitAtBoundary
+        ? rowOffset === 1
+          ? exitBelow(rootView, current.table)
+          : exitAbove(rootView, current.table)
+        : true;
+    }
+    const container = activeContainer(controller);
+    if (!container) {
+      return true;
+    }
+    // Materialize a synthetic destination before activating it, preserving
+    // the table's rectangular navigation invariant.
+    if (target.bounds.synthetic) {
+      const tableInfo = { node: current.table, from: current.table.from, to: current.table.to };
+      const resolved = ensureRectangularCellBounds(rootView, tableInfo, current.rowIndex + rowOffset, current.columnIndex);
+      if (!resolved) {
         return true;
       }
-      // A `synthetic` target (rectangular-invariant padding — `resolveCellAt`'s
-      // own doc comment) has no real source to activate yet — materialize
-      // it for real first, then activate the now-real bounds. `container`
-      // itself needs no re-resolution after that dispatch: it's only ever
-      // meaningful for `activate()`'s own *very first* lazy nested-view
-      // creation, and every activation from here on is re-parented
-      // correctly by `tableWidgetField`'s own rebuild regardless (that
-      // field's own `isActive` check, driven by `controller.activeAnchor`,
-      // not by whatever DOM node this function happened to pass in).
-      if (target.bounds.synthetic) {
-        const tableInfo = { node: current.table, from: current.table.from, to: current.table.to };
-        const resolved = ensureRectangularCellBounds(rootView, tableInfo, current.rowIndex + rowOffset, current.columnIndex);
-        if (!resolved) {
-          return true;
-        }
-        const range = trimmedCellRange(rootView.state, resolved.bounds);
-        controller.activate(rootView, container, range.from, range.to, range.from);
-        return true;
-      }
-      const range = trimmedCellRange(rootView.state, target.bounds);
+      const range = trimmedCellRange(rootView.state, resolved.bounds);
       controller.activate(rootView, container, range.from, range.to, range.from);
       return true;
     }
-    return rowOffset === 1 ? exitBelow(rootView, current.table) : exitAbove(rootView, current.table);
+    const range = trimmedCellRange(rootView.state, target.bounds);
+    controller.activate(rootView, container, range.from, range.to, range.from);
+    return true;
+  }
+
+  function moveOrExitVertical(rowOffset: 1 | -1): boolean {
+    return moveWithinColumn(rowOffset, true);
   }
 
   const arrowUpCommand: Command = () => moveOrExitVertical(-1);
@@ -419,51 +417,11 @@ function buildTableCellCommands(
   const arrowRightCommand: Command = (nestedView) => moveOrExit(nestedView, 1);
 
   /**
-   * Enter: creates a new, empty row — same column count as the table's
-   * own header, same column as the current cell — immediately after the
-   * current row (or after the delimiter row, if fired in the header, so
-   * the delimiter row stays the header's very next line per GFM). Ported
-   * from the deleted `tableEnterKeymap.ts`; the new cell's real bounds
-   * are re-resolved via `resolveLogicalCell` against the post-insert root
-   * state rather than hand-computed, so this can't drift from what
-   * `tableGeometry.ts` itself considers that cell's bounds to be.
+   * Enter moves to the next row in the same column. At the final row it is
+   * consumed without moving or changing the table.
    */
-  const enterCommand: Command = () => {
-    const rootView = getRootView();
-    const anchor = controller.activeAnchor;
-    if (!anchor) {
-      return false;
-    }
-    const current = resolveLogicalCell(rootView.state, anchor.from);
-    if (!current) {
-      return false;
-    }
-    const header = current.table.firstChild;
-    if (!header || header.name !== 'TableHeader') {
-      return false;
-    }
-    const columnCount = getRowCellBounds(header).length;
-    if (columnCount === 0) {
-      return false;
-    }
-    const insertPos = insertRowAfterPosition(current.row);
-    if (insertPos === null) {
-      return false;
-    }
-
-    const insertText = '\n' + buildEmptyRowText(columnCount);
-    const cursorPos = insertPos + 1 + emptyRowCellOffset(current.columnIndex);
-
-    rootView.dispatch({ changes: { from: insertPos, to: insertPos, insert: insertText } });
-
-    const container = activeContainer(controller);
-    const newCell = resolveLogicalCell(rootView.state, cursorPos);
-    if (container && newCell) {
-      const range = trimmedCellRange(rootView.state, newCell.bounds);
-      controller.activate(rootView, container, range.from, range.to, cursorPos);
-    }
-    return true;
-  };
+  const enterCommand: Command = () => moveWithinColumn(1, false);
+  const shiftEnterCommand: Command = () => true;
 
   /**
    * Backspace/Delete — **not** a navigation command at all, added here
@@ -524,6 +482,7 @@ function buildTableCellCommands(
     Tab: tabCommand,
     'Shift-Tab': shiftTabCommand,
     Enter: enterCommand,
+    'Shift-Enter': shiftEnterCommand,
     ArrowUp: arrowUpCommand,
     ArrowDown: arrowDownCommand,
     ArrowLeft: arrowLeftCommand,
@@ -543,6 +502,7 @@ export function tableCellNavigation(getRootView: () => EditorView, controller: T
     { key: 'Tab', run: commands.Tab },
     { key: 'Shift-Tab', run: commands['Shift-Tab'] },
     { key: 'Enter', run: commands.Enter },
+    { key: 'Shift-Enter', run: commands['Shift-Enter'] },
     { key: 'ArrowUp', run: commands.ArrowUp },
     { key: 'ArrowDown', run: commands.ArrowDown },
     { key: 'ArrowLeft', run: commands.ArrowLeft },
