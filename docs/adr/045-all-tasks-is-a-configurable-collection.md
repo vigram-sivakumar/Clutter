@@ -16,7 +16,7 @@ All Tasks (`tasks-all`) becomes a first-class collection by plugging into the *e
 4. **Rendering:** `TasksCollectionBody` maps each task to the shared `PropertyValues` (`taskPropertyValues`), orders with `sortEntries`, and draws `CollectionDataList` or `CollectionDataTable` (`buildPropertyTableColumns` / `propertyValueCells`). Incomplete tasks stay before completed ones, each group sorted by the chosen property. The List's due-date control and source link are driven by the Due date / Source properties; the Table shows them as plain values.
 5. **Header:** the page uses `renderCollectionHeaderActions` (Configure + Add), Add opening the New task dialog.
 
-Only `tasks-all` is configurable. Today / Overdue / Upcoming / Done / Unscheduled keep their current rendering (they become sections later); no date grouping is introduced here.
+Only `tasks-all` is configurable. Today / Overdue / Upcoming / Done / Unplanned keep their current rendering (they become sections later); no date grouping is introduced here.
 
 ## Consequences
 
