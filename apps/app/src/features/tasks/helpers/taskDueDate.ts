@@ -3,7 +3,7 @@ import { isValidCalendarDate } from '@shared/helpers/time/helpers/isValidCalenda
 
 /**
  * Where a task's explicit due date sits relative to today — the ONE interpretation of a due date
- * for every task view (the page's Today / Overdue / Upcoming / Unscheduled datasets via
+ * for every task view (the page's Today / Overdue / Upcoming / Unplanned datasets via
  * `tasksForView`, and the sidebar's `groupTasks`), so no view can parse or compare dates on its own.
  *
  * - `unscheduled`: no due date, OR one that is not a real calendar date. `TaskExtractor` captures a

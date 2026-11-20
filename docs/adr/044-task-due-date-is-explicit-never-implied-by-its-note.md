@@ -14,13 +14,13 @@ The note a task lives in is **context**; the due date is **explicit metadata**. 
 2. New tasks are always created in **today's** Daily Note (`createTaskInDailyNote`, resolved without opening it — `PageOperations.ensureAtPath`, see below). An explicit due date is written onto the line via `TaskOperations.create(pageId, title, dueDate?)`; without one the task is undated. A due date never opens, creates, or moves a task to another day's note.
 3. Changing or clearing a due date edits only the date token in place (`setDate`/`clearDate`/`update`, already so); no operation moves a task between Daily Notes.
 4. The New Task dialog's date field defaults to empty, not today.
-5. Classification (`groupTasks`) is unchanged and now correct by construction: Today = explicit date is today; Overdue = before today; Upcoming = after; no date = Unscheduled.
+5. Classification (`groupTasks`) is unchanged and now correct by construction: Today = explicit date is today; Overdue = before today; Upcoming = after; no date = Unplanned.
 
 `PageOperations.ensureAtPath(path, { type })` is the non-activating sibling of `openAtPath`: resolve the page, reuse the live draft for that path, or persist it empty through `persistDraft` (the same path `create()` uses) — without changing the active view. It exists so a caller can write into a page the user isn't looking at; a task added from the All Tasks page must not navigate (and `openAtPath` opened an empty editor before the write landed, leaving the note looking empty).
 
 ## Consequences
 
-- **Behavior change for existing vaults:** tasks in Daily Notes that carry no inline date were previously shown dated by their note; they are now Unscheduled. No file is rewritten. A task the user wants dated gets an explicit date.
+- **Behavior change for existing vaults:** tasks in Daily Notes that carry no inline date were previously shown dated by their note; they are now Unplanned. No file is rewritten. A task the user wants dated gets an explicit date.
 - Amends ADR-042's consequence "Tasks inside a archived Daily Note keep their date-implied due date": there is no date-implied due date any more; an archived Daily Note's tasks keep only their explicit dates.
 - `Vault.tasks()` stays a live projection with the same signature; only `TaskBuilder`'s derivation shrank. `PageOperations` gains one method (`ensureAtPath`); the frozen specification's §PageOperations lists `openAtPath` only and should add it.
 

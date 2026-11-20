@@ -69,12 +69,9 @@ import type { PersistedTasksViewConfig } from '@core/application/task/TasksViewC
 import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal';
 
 /**
- * Resolves the shared Tasks-view Show completed / Auto-sort completed
- * preference from `TasksViewConfigStore`, falling back to
- * DEFAULT_TASK_DISPLAY_CONFIG for any field never persisted — mirrors
- * PageHost.tsx's own `resolveCollectionViewState` exactly, for the same
- * reason: the store's persisted shape is optional-by-field, the caller
- * resolves defaults, never the store itself.
+ * Resolves persisted task-collection display fields, retaining legacy
+ * completion preferences for existing Inbox collection state. The sidebar
+ * itself now always excludes completed tasks.
  */
 function resolveTasksViewConfig(persisted: PersistedTasksViewConfig): TaskDisplayConfig {
   return {
@@ -166,9 +163,7 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
   // one. See resourceOverlay.ts for the full shape/reasoning.
   const [resourceOverlay, setResourceOverlay] = useState<ResourceOverlayState>(null);
 
-  // The shared Tasks-view display preferences live in TasksViewConfigStore.
-  // useSyncExternalStore keeps the sidebar, Tasks collection and Settings
-  // dialog in sync when any of those surfaces changes the same preferences.
+  // Task collection display state and the selected tab live in TasksViewConfigStore.
   const subscribeTasksViewConfig = useCallback(
     (listener: () => void) => application.tasksViewConfigStore.subscribe(listener),
     [application]
@@ -184,12 +179,8 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
   );
   const tasksViewConfig = resolveTasksViewConfig(persistedTasksViewConfig);
 
-  function updateTasksViewConfig(next: TaskDisplayConfig): void {
-    application.tasksViewConfigStore.update(next);
-  }
-
-  // The Tasks page's selected tab — lifted here for the same reason, and persisted in the same store (merged into
-  // the same `tasksViewConfig` entry, so the display preferences above are never overwritten by it, nor it by them),
+  // The Tasks page's selected tab — persisted in the same store (merged into
+  // the same `tasksViewConfig` entry, so other stored collection state is never overwritten),
   // so the page reopens on the tab it was left on, across restarts.
   const [tasksTab, setTasksTab] = useState<TasksTabValue>(() =>
     resolveTasksTab(application.tasksViewConfigStore.get().selectedTab)
@@ -555,7 +546,6 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
           onSetAssetAsCover={askForCoverNote}
           onNeedsRestoreDestination={setRestoreRequest}
           tasksViewConfig={tasksViewConfig}
-          onTasksViewConfigChange={updateTasksViewConfig}
           tasksTab={tasksTab}
           onTasksTabChange={updateTasksTab}
           pendingReveal={pendingReveal}

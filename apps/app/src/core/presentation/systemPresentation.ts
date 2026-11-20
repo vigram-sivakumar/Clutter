@@ -82,7 +82,7 @@ export const SYSTEM_LOCATION_PRESENTATION: Readonly<
   'tasks-inbox': { id: 'tasks-inbox', label: 'Inbox', icon: 'tray' },
   'tasks-unscheduled': {
     id: 'tasks-unscheduled',
-    label: 'Unscheduled',
+    label: 'Unplanned',
     icon: 'calendar',
   },
   tags: { id: 'tags', label: 'Tags', icon: 'tag' },

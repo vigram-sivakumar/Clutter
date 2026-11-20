@@ -95,7 +95,7 @@ const headings = (root: ParentNode) =>
 const moreRow = (root: HTMLElement) => root.querySelector('.show-more-entry');
 
 describe('ungrouped (Group by due date off)', () => {
-  it('keeps Today, Overdue and Upcoming as flat lists in their existing order, with Unscheduled apart', () => {
+  it('keeps Today, Overdue and Upcoming as flat lists in their existing order, with Unplanned apart', () => {
     const { section } = mount({ limit: Infinity });
 
     expect(titles(section('Today'))).toEqual(['t1', 't2', 't3']);
@@ -167,8 +167,7 @@ describe('grouped (Group by due date on)', () => {
     expect(headings(section('Upcoming'))).toEqual(['10 August', '12 August']);
   });
 
-  it('sorts the date groups chronologically even when a section’s own order interleaves dates', () => {
-    // A completed, past-due task falls into Upcoming; Auto-sort completed would move it away from its same-date siblings.
+  it('groups only active tasks by date, even when completed tasks share those dates', () => {
     const tasks = [
       task('a', '2026-08-12'),
       task('b', '2026-08-10', { completed: true }),
@@ -178,7 +177,8 @@ describe('grouped (Group by due date on)', () => {
     const { section } = mount({ grouped: true, limit: Infinity, tasks });
 
     expect(headings(section('Upcoming'))).toEqual(['10 August', '12 August']);
-    expect(dateGroups(section('Upcoming')).map(titles)).toEqual([['b', 'd'], ['a', 'c']]);
+    expect(dateGroups(section('Upcoming')).map(titles)).toEqual([['d'], ['a', 'c']]);
+    expect(section('Upcoming')).not.toHaveTextContent('b');
   });
 
   it('applies the limit to each date group on its own, with "N more" only on a group over it', () => {
@@ -224,14 +224,14 @@ describe('grouped (Group by due date on)', () => {
     expect(titles(section('Today'))).toEqual(['t1', 't2', 't3']);
   });
 
-  it('keeps tasks without a due date flat in Unscheduled, as before, capped by the same limit', () => {
+  it('keeps tasks without a due date flat in Unplanned, as before, capped by the same limit', () => {
     const tasks = [task('n1'), task('n2'), task('n3'), task('x', '2026-08-10')];
     const { section } = mount({ grouped: true, limit: 2, tasks });
 
-    // Unscheduled is hidden by the app's default display config only when the caller passes it; here every group shows.
-    expect(dateGroups(section('Unscheduled'))).toHaveLength(0);
-    expect(titles(section('Unscheduled'))).toEqual(['n1', 'n2']);
-    expect(within(section('Unscheduled')).getByText('1 more')).toBeInTheDocument();
+    // Unplanned is hidden by the app's default display config only when the caller passes it; here every group shows.
+    expect(dateGroups(section('Unplanned'))).toHaveLength(0);
+    expect(titles(section('Unplanned'))).toEqual(['n1', 'n2']);
+    expect(within(section('Unplanned')).getByText('1 more')).toBeInTheDocument();
     expect(headings(section('Upcoming'))).toEqual(['10 August']);
   });
 

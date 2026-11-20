@@ -39,7 +39,6 @@ import { ThemeSetting } from './theme-setting/ThemeSetting';
 import { DefaultTaskLocationSetting } from './tasks-setting/DefaultTaskLocationSetting';
 import { TaskItemsSetting } from './tasks-setting/TaskItemsSetting';
 import { GroupTasksByDueDateSetting } from './tasks-setting/GroupTasksByDueDateSetting';
-import { AutoSortCompletedSetting, ShowCompletedSetting, type TasksViewConfigSource } from './tasks-setting/TasksViewDisplaySetting';
 import { ApplyTemplateIconSetting } from './templates-setting/ApplyTemplateIconSetting';
 import { ApplyTemplateCoverSetting } from './templates-setting/ApplyTemplateCoverSetting';
 import { ShowDailyNoteEmojiSetting } from './daily-notes-setting/ShowDailyNoteEmojiSetting';
@@ -74,8 +73,6 @@ interface SettingsProps {
   noteLocation?: NoteLocationSource;
   /** The open Space's own settings (cover position, automatic archive cleanup): saved in the Space, so each Space has its own. */
   spaceSettings?: SpaceSettingsSource;
-  /** The active Space's persisted Tasks sidebar display preferences. */
-  tasksViewConfig?: TasksViewConfigSource;
   /** The open Space's avatar and name for the sidebar header. */
   space?: SettingsSpace;
   /** Closes the dialog the settings are shown in, for a setting that navigates away (e.g. opening a template). */
@@ -87,7 +84,7 @@ interface SettingsProps {
   onResetSettings?: () => Promise<ResetSettingsOutcome>;
 }
 
-export function Settings({ templates, noteLocation, spaceSettings, tasksViewConfig, space, onClose, onResetSettings }: SettingsProps = {}) {
+export function Settings({ templates, noteLocation, spaceSettings, space, onClose, onResetSettings }: SettingsProps = {}) {
   const shared = useSharedSettingsDialogState();
   const [localPageId, setLocalPageId] = useState<SettingsPageId>(DEFAULT_SETTINGS_PAGE);
   const pageId = shared?.pageId ?? localPageId;
@@ -188,8 +185,6 @@ export function Settings({ templates, noteLocation, spaceSettings, tasksViewConf
             <SettingsGroup title="Sidebar appearance">
               <GroupTasksByDueDateSetting />
               <TaskItemsSetting />
-              <ShowCompletedSetting source={tasksViewConfig} />
-              <AutoSortCompletedSetting source={tasksViewConfig} />
             </SettingsGroup>
           </>
         )}

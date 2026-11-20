@@ -63,14 +63,12 @@ export interface TasksCollectionBodyProps {
   /** Deletes the task's line from its source note (never the note) — the row menu's Delete. Absent, the menu has none. */
   readonly onDeleteTask?: (task: TaskOccurrence) => void;
   /**
-   * The shared Tasks-view Show completed / Auto-sort completed preference (see groupTasks.ts's
-   * TaskDisplayConfig). Show completed decides MEMBERSHIP for the views that can hold both states and
-   * is applied by `tasksForView` (the rule is documented there); Auto-sort completed is ordering and is
-   * applied here. Defaults to DEFAULT_TASK_DISPLAY_CONFIG.
+   * Legacy persisted completion preferences. They remain relevant to the separate Inbox collection;
+   * All Tasks and its tabs now have explicit active/completed membership.
    */
   readonly displayConfig?: TaskDisplayConfig;
   /**
-   * The Task Collection's resolved Configure state (visible properties, sort) — shared by all six task views, the same
+   * The Task Collection's resolved Configure state (visible properties, sort) — shared by all task datasets, the same
    * `resolveCollectionView` result every collection page draws from. Absent: the collection's defaults.
    */
   readonly collectionView?: ResolvedCollectionView;
@@ -100,7 +98,7 @@ function TasksPageBody({ children }: { readonly children: ReactNode }) {
 
 /**
  * The page body of every task view — ONE renderer. The view decides the dataset (`tasksForView`, the
- * single authority on which tasks belong to Today / Overdue / Upcoming / Unscheduled / Done / All), the
+ * single authority on which tasks belong to Today (overdue + due today) / Upcoming / Unplanned / Completed / All), the
  * shared collection configuration (`collectionView`: layout, properties, sort) decides how that dataset
  * is drawn, through the generic `CollectionDataList`. Deliberately not a
  * CollectionBody variant — CollectionEntryModel (folder/note-shaped) has no room for
@@ -172,9 +170,8 @@ export function TasksCollectionBody({
     };
   };
 
-  // The view decides the dataset. Ordering: the collection's sort (Name A→Z by default). Auto-sort completed
-  // on moves completed tasks (newest-completed-first before sorting) below the incomplete ones, each group
-  // sorted by the chosen property; off leaves them in their sorted place among the rest.
+  // The view decides the dataset. Ordering uses the collection's sort (Name A→Z by default). The legacy
+  // auto-sort preference only has an effect on the separate Inbox collection, which can contain both states.
   const dataset = tasksForView(view, tasks, displayConfig, inboxPageId);
   const entries = displayConfig.autoSortCompleted
     ? [
@@ -194,9 +191,18 @@ export function TasksCollectionBody({
 
   if (entries.length === 0) {
     const hiddenInboxTasks = view === 'tasks-inbox' && tasksForView(view, tasks, { showCompleted: true }, inboxPageId).length > 0;
+    const emptyMessage = view === 'tasks-completed'
+      ? 'No completed tasks'
+      : view === 'tasks-today'
+        ? 'You’re all clear for today'
+      : view === 'tasks-all' && tasks.some((task) => task.completed)
+        ? 'No active tasks'
+        : hiddenInboxTasks
+          ? 'No tasks to show with the current settings'
+          : (view === 'tasks-inbox' ? TASK_INBOX_COLLECTION : TASKS_COLLECTION).emptyMessage;
     return (
       <TasksPageBody>
-        <CollectionEmptyState message={hiddenInboxTasks ? 'No tasks to show with the current settings' : (view === 'tasks-inbox' ? TASK_INBOX_COLLECTION : TASKS_COLLECTION).emptyMessage} />
+        <CollectionEmptyState message={emptyMessage} />
       </TasksPageBody>
     );
   }
@@ -306,7 +312,7 @@ export function TasksCollectionBody({
   return (
     <TasksPageBody>
       {dateGroups.map(({ date, items }) => {
-        const isOverdueGroup = view === 'tasks-all' && items.some(({ task }) =>
+        const isOverdueGroup = (view === 'tasks-today' || view === 'tasks-all') && items.some(({ task }) =>
           !task.completed && classifyDueDate(task.dueDate) === 'past'
         );
         return (

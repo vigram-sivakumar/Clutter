@@ -30,11 +30,8 @@ interface TasksPanelProps {
   readonly folderOperations: FolderOperations;
   readonly effectivePageState: EffectivePageState;
   /**
-   * The shared Tasks-view Show completed / Auto-sort completed preference,
-   * lifted to AppLayout (the common ancestor of this sidebar panel and the
-   * Today/Everything else collection pages rendered by PageHost) and
-   * persisted through `application.tasksViewConfigStore` — see AppLayout's
-   * own wiring for why this can't just be local state here.
+   * Persisted sidebar presentation state. Completed tasks are always
+   * excluded here; only hidden section preferences affect this panel.
    */
   readonly tasksViewConfig: TaskDisplayConfig;
   /** Groups whose "N more" row was clicked — owned by Sidebar so it outlives this panel unmounting on a tab switch, and resets on restart. */

@@ -63,8 +63,7 @@ interface TaskRowOptions {
 
 // A due date is never worth showing when it's today — whichever section a
 // row is in already conveys "today" by construction, so the label would
-// just repeat it. Any other date (including a completed task's past or
-// future due date, when Show completed surfaces it in Everything else) is
+// just repeat it. Any other date is
 // shown normally.
 //
 // Time follows the same "don't repeat what the context already says"
@@ -139,8 +138,8 @@ function renderTaskList(
 
 export interface RenderTodayContentProps
   extends TaskRowCallbacks, TaskRowResolvers {
-  // Pre-grouped, not raw tasks, and already filtered/ordered per the
-  // Tasks-view display config (groupTasks) — the outer Section
+  // Pre-grouped, not raw tasks, and already filtered to active tasks and
+  // ordered by groupTasks — the outer Section
   // (renderTasksByDate) and the Today collection page (TasksCollectionBody)
   // both need this same array to decide their own default-expansion/
   // emptiness, so grouping happens once at whichever call site owns that
@@ -189,9 +188,7 @@ export interface RenderOverdueContentProps
 
 /**
  * The Overdue section's content only — no outer Section wrapper, same reuse
- * reasoning as renderTodayContent. Overdue is never affected by Show
- * completed/Auto-sort completed (groupTasks.ts never puts a completed task
- * in this group), so there is nothing for those preferences to do here.
+ * reasoning as renderTodayContent. The sidebar only receives active tasks.
  */
 export function renderOverdueContent({
   overdue,
@@ -262,13 +259,7 @@ interface RenderTasksByDateProps extends TaskRowCallbacks, TaskRowResolvers {
   readonly workspace: Workspace;
   /** Unused by the section headers now (they only expand/collapse); kept so callers and the Collection routes stay untouched. */
   readonly navigation?: NavigationRouter;
-  /**
-   * The shared Tasks-view Show completed / Auto-sort completed preference
-   * — applied identically to every group. Read-only here: the one control
-   * that changes it is the All Tasks row's settings action
-   * (TasksShortcuts.tsx), never a group header. Defaults to
-   * DEFAULT_TASK_DISPLAY_CONFIG for callers (most tests) that don't care.
-   */
+  /** Presentation preferences for the sidebar, currently only its hidden groups. */
   readonly displayConfig?: TaskDisplayConfig;
   /** Groups the user has expanded with their "N more" row — shown in full, with a "Show less" row to fold back. Session-only; the owner decides its lifetime. */
   readonly expandedGroups?: readonly TaskExpansionKey[];
@@ -293,7 +284,7 @@ export function renderTasksByDate({
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
-  // Every group shown unless the caller says otherwise (the app's own default hides Unscheduled — see AppLayout).
+  // Every group shown unless the caller says otherwise (the app's own default hides Unplanned — see AppLayout).
   displayConfig = { ...DEFAULT_TASK_DISPLAY_CONFIG, hiddenGroups: [] },
   expandedGroups = [],
   onToggleGroup,
@@ -304,7 +295,7 @@ export function renderTasksByDate({
   // empty (for default expansion) as well as what to render, and
   // renderTodayContent/renderOverdueContent/renderUpcomingContent take the
   // groups directly so groupTasks never runs a second time for the same tree.
-  const groups = groupTasks(tasks, displayConfig);
+  const groups = groupTasks(tasks);
   const { today, overdue, unscheduled } = groups;
   // `groups.upcoming` carries the unscheduled tasks as its tail; they get their own section below.
   const upcoming = groups.upcoming.filter(
@@ -345,7 +336,7 @@ export function renderTasksByDate({
   // A section's rows. Flat: the section's own tasks, capped as one list. Grouped by due date: one non-collapsible Section
   // per date (the sidebar's shared grouping component), oldest first, headed by the date in the app's long label, each
   // capped and expanded on its own; the heading says the date, so its rows leave out the trailing one. A section with
-  // nothing to group by stays flat: Today is one date (its title says so), Unscheduled has none.
+  // nothing to group by stays flat: Today is one date (its title says so), Unplanned has none.
   const sectionBody = (id: TaskGroupId, list: readonly TaskOccurrence[]) => {
     if (!groupTasksByDueDate || id === 'today' || id === 'unscheduled') {
       return (
@@ -364,7 +355,7 @@ export function renderTasksByDate({
               key={key}
               hasHeader
               interaction="subtle"
-              title={date ? formatTaskDueDateLong(date) : 'Unscheduled'}
+              title={date ? formatTaskDueDateLong(date) : 'Unplanned'}
             >
               {renderTaskList(capped(key, tasks), {
                 ...rowProps,
@@ -386,8 +377,7 @@ export function renderTasksByDate({
         // Not collapsible: Today is always open. The hook is for the accent-pill title style (renderTasksByDate.css).
         data-section="today"
       >
-        {/* Nothing due today — never scheduled, or all done with completed tasks hidden — says one line
-            either way. */}
+        {/* Nothing due today says one line. */}
         {today.length === 0 ? (
           <EmptyEntry>You’re all clear for today</EmptyEntry>
         ) : (
@@ -428,7 +418,7 @@ export function renderTasksByDate({
       {!hidden.includes('unscheduled') && unscheduled.length > 0 && (
         <Section
           hasHeader
-          title="Unscheduled"
+          title="Unplanned"
           isCollapsible
           isTitleToggle
           isExpanded={workspace.isSectionExpanded('tasks-unscheduled')}

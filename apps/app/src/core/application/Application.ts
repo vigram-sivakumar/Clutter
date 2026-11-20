@@ -192,9 +192,8 @@ export class Application {
    */
   public readonly collectionViewConfigStore: CollectionViewConfigStore;
   /**
-   * Persisted, shared Tasks-sidebar display configuration (Show completed /
-   * Auto-sort completed), through a sibling top-level key of the same
-   * `.clutter/workspace.json` `foldStateStore`/`collectionViewConfigStore`
+   * Persisted task collection/sidebar presentation configuration, through
+   * a sibling top-level key of the same `.clutter/workspace.json` `foldStateStore`/`collectionViewConfigStore`
    * above own (`tasksViewConfig`) — loaded once in `bootstrap()` below. Not
    * Gate-backed and not owned by `Workspace`, for the same reasons
    * `collectionViewConfigStore` isn't (see `TasksViewConfigStore`'s own doc

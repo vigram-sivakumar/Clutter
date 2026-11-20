@@ -11,15 +11,14 @@ afterEach(() => {
 });
 
 describe('TasksTabs', () => {
-  it('shows All tasks, Today, Overdue, Upcoming and Unscheduled, with the given tab selected', () => {
+  it('shows Today, Upcoming, Unplanned and Completed, with the given tab selected', () => {
     const { container } = render(<TasksTabs value="today" onValueChange={vi.fn()} />);
 
     expect([...container.querySelectorAll('.tab')].map((tab) => tab.textContent)).toEqual([
-      'All tasks',
       'Today',
-      'Overdue',
       'Upcoming',
-      'Unscheduled',
+      'Unplanned',
+      'Completed',
     ]);
     expect(container.querySelector('.tab--active')).toHaveTextContent('Today');
     expect(container.querySelectorAll('.tab--active')).toHaveLength(1);
@@ -27,39 +26,39 @@ describe('TasksTabs', () => {
 
   it('clicking a tab reports it — the page owns the selection', () => {
     const onValueChange = vi.fn();
-    const { container, getByText } = render(<TasksTabs value="all" onValueChange={onValueChange} />);
+    const { container, getByText } = render(<TasksTabs value="today" onValueChange={onValueChange} />);
 
     fireEvent.click(getByText('Upcoming'));
 
     expect(onValueChange).toHaveBeenCalledWith('upcoming');
     // Controlled: it does not move its own highlight.
-    expect(container.querySelector('.tab--active')).toHaveTextContent('All tasks');
+    expect(container.querySelector('.tab--active')).toHaveTextContent('Today');
   });
 
   it('maps each tab to the dataset it shows', () => {
     expect(TASKS_TAB_VIEW).toEqual({
-      all: 'tasks-all',
       today: 'tasks-today',
-      overdue: 'tasks-overdue',
       upcoming: 'tasks-upcoming',
       unscheduled: 'tasks-unscheduled',
+      completed: 'tasks-completed',
     });
   });
 
   it('renders the Tabs component directly, with no wrapper element', () => {
-    const { container } = render(<TasksTabs value="all" onValueChange={vi.fn()} />);
+    const { container } = render(<TasksTabs value="today" onValueChange={vi.fn()} />);
 
     expect(container.firstElementChild).toHaveClass('tabs', 'tabs--ghost');
   });
 
-  it('resolveTasksTab keeps a known persisted tab and falls back to All tasks for anything else', () => {
+  it('resolveTasksTab keeps a known persisted tab and falls back to Today for legacy or unknown values', () => {
     expect(resolveTasksTab('today')).toBe('today');
-    expect(resolveTasksTab('overdue')).toBe('overdue');
+    expect(resolveTasksTab('completed')).toBe('completed');
     expect(resolveTasksTab('upcoming')).toBe('upcoming');
     expect(resolveTasksTab('unscheduled')).toBe('unscheduled');
-    expect(resolveTasksTab('all')).toBe('all');
-    expect(resolveTasksTab(undefined)).toBe('all');
-    expect(resolveTasksTab('done')).toBe('all');
-    expect(resolveTasksTab('')).toBe('all');
+    expect(resolveTasksTab(undefined)).toBe('today');
+    expect(resolveTasksTab('all')).toBe('today');
+    expect(resolveTasksTab('overdue')).toBe('today');
+    expect(resolveTasksTab('done')).toBe('today');
+    expect(resolveTasksTab('')).toBe('today');
   });
 });

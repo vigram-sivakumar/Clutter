@@ -29,21 +29,6 @@ export interface CollectionViewMenuProps {
    * (`SIDEBAR_SORT_OPTIONS`, Manual included) and reads/writes this instead of `view.sort`.
    */
   levelSort?: { readonly sort: SidebarSort; readonly onChange: (next: SidebarSort) => void };
-  /**
-   * Extra on/off preferences a collection offers beyond Layout / Properties / Sort by — drawn as
-   * flat Display rows above Sort by (All Tasks' Show completed / Auto-sort completed). Absent or
-   * empty: the menu is exactly the standard one. Like a property toggle, flipping one does not
-   * close the menu.
-   */
-  toggles?: readonly CollectionViewToggle[];
-}
-
-export interface CollectionViewToggle {
-  readonly id: string;
-  readonly label: string;
-  readonly checked: boolean;
-  readonly disabled?: boolean;
-  readonly onChange: (checked: boolean) => void;
 }
 
 const VIEW_ITEMS: ReadonlyArray<{
@@ -96,7 +81,7 @@ type ConfigureMenuView = 'root' | 'properties';
  *
  * The trigger icon is `settings` (svg/settings.svg).
  */
-export function CollectionViewMenu({ view, onLayoutChange, onPropertyChange, onSortChange, onGroupByChange, levelSort, toggles }: CollectionViewMenuProps) {
+export function CollectionViewMenu({ view, onLayoutChange, onPropertyChange, onSortChange, onGroupByChange, levelSort }: CollectionViewMenuProps) {
   const { sort } = view;
   const [open, setOpen] = useState(false);
   const [panel, setPanel] = useState<ConfigureMenuView>('root');
@@ -185,25 +170,6 @@ export function CollectionViewMenu({ view, onLayoutChange, onPropertyChange, onS
                       }}
                     >
                       {value === 'none' ? 'None' : propertyLabel('dueDate')}
-                    </MenuItem>
-                  ))}
-                </>
-              )}
-              {toggles && toggles.length > 0 && (
-                <>
-                  <div className="menu__divider" role="separator" />
-                  <MenuGroupTitle>Display</MenuGroupTitle>
-                  {toggles.map((toggle) => (
-                    <MenuItem
-                      key={toggle.id}
-                      disabled={toggle.disabled}
-                      leading={toggle.checked ? <AppIcon icon="tick" /> : <span className="app-icon" />}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        toggle.onChange(!toggle.checked);
-                      }}
-                    >
-                      {toggle.label}
                     </MenuItem>
                   ))}
                 </>

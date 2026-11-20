@@ -315,17 +315,8 @@ interface PageHostProps {
       readonly actionsEnabled?: boolean;
     }
   ) => void;
-  /**
-   * The shared Tasks-view Show completed / Auto-sort completed preference
-   * (owned by `AppLayout`, the common ancestor of this and Sidebar's Tasks
-   * panel) — applied to the Today/Everything else collection pages'
-   * `TasksCollectionBody` below, so they always render identically to
-   * their sidebar counterparts. The Settings page owns the persisted preference;
-   * this collection menu also offers a quick way to change it.
-   */
+  /** Legacy persisted completion preferences, still used by the separate Inbox collection. */
   readonly tasksViewConfig: TaskDisplayConfig;
-  /** Persists a change to the shared Tasks-view display preference (owned by AppLayout). */
-  readonly onTasksViewConfigChange: (next: TaskDisplayConfig) => void;
   /** The Tasks page's selected tab, and its change handler — owned and persisted by AppLayout. */
   readonly tasksTab: TasksTabValue;
   readonly onTasksTabChange: (next: TasksTabValue) => void;
@@ -396,7 +387,6 @@ export function PageHost({
   onSetAssetAsCover,
   onNeedsRestoreDestination,
   tasksViewConfig,
-  onTasksViewConfigChange,
   tasksTab,
   onTasksTabChange,
   pendingReveal,
@@ -2503,8 +2493,11 @@ export function PageHost({
       [...vault.tasks()].some(
         (task) =>
           task.sourcePageId === inboxPageId &&
-          task.dueDate !== undefined &&
-          isValidCalendarDate(task.dueDate)
+          (task.dueDate !== undefined
+            ? isValidCalendarDate(task.dueDate)
+            : task.completed &&
+              task.completedAt !== undefined &&
+              isValidCalendarDate(task.completedAt))
       );
 
     return (
@@ -2552,7 +2545,7 @@ export function PageHost({
             >
               <Confirmation
                 title="Tidy up Inbox?"
-                description="Move tasks with due dates, including completed tasks, to their corresponding Daily Notes. Tasks without a valid due date stay in Inbox"
+                description="Move tasks with due dates, and completed tasks without due dates using their completion dates, to their corresponding Daily Notes. Tasks without a valid destination date stay in Inbox"
                 confirmLabel={tidying ? 'Tidying up…' : 'Tidy up'}
                 confirmVariant="primary"
                 confirmDisabled={tidying}
@@ -2583,30 +2576,6 @@ export function PageHost({
             {renderCollectionHeaderActions({
               onAdd: () => setIsNewTaskOpen(true),
               addLabel: 'New task',
-              // The Tasks view's own display preferences — the same shared setting the Tasks sidebar edits.
-              toggles: [
-                {
-                  id: 'show-completed',
-                  label: 'Show completed',
-                  checked: tasksViewConfig.showCompleted,
-                  onChange: (showCompleted) =>
-                    onTasksViewConfigChange({
-                      ...tasksViewConfig,
-                      showCompleted,
-                    }),
-                },
-                {
-                  id: 'auto-sort-completed',
-                  label: 'Auto-sort completed',
-                  checked: tasksViewConfig.autoSortCompleted,
-                  disabled: !tasksViewConfig.showCompleted,
-                  onChange: (autoSortCompleted) =>
-                    onTasksViewConfigChange({
-                      ...tasksViewConfig,
-                      autoSortCompleted,
-                    }),
-                },
-              ],
             })}
             <NewTaskDialog
               open={isNewTaskOpen}
