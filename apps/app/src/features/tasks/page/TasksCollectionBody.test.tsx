@@ -40,7 +40,7 @@ function task(overrides: Partial<TaskOccurrence>): TaskOccurrence {
 const LIST_WITH_SOURCE = resolveCollectionView(TASKS_COLLECTION, { groupBy: 'none', listPropertyOverrides: { source: true } });
 
 describe('TasksCollectionBody', () => {
-  it.each(['list', 'table'] as const)('%s keeps All Tasks flat while preserving sorting and actions', (layout) => {
+  it.each(['list', 'table'] as const)('%s groups All Tasks by exact due date when grouping is enabled', (layout) => {
     const onToggleComplete = vi.fn();
     const onOpenTask = vi.fn();
     const tasks = [
@@ -54,8 +54,8 @@ describe('TasksCollectionBody', () => {
       collectionView={resolveCollectionView(TASKS_COLLECTION, { layout, groupBy: 'dueDate' })}
       onToggleComplete={onToggleComplete} onOpenTask={onOpenTask} onChangeDueDate={vi.fn()}
     />);
-    expect(container.querySelectorAll('.section-header')).toHaveLength(0);
-    expect([...container.querySelectorAll('.task-title')].map((node) => node.textContent)).toEqual(['Alpha', 'Future', 'No date', 'Zebra']);
+    expect(container.querySelectorAll('.section-header')).toHaveLength(3);
+    expect([...container.querySelectorAll('.task-title')].map((node) => node.textContent)).toEqual(['Alpha', 'Zebra', 'Future', 'No date']);
     expect(container.querySelectorAll('.collection__bottom-spacer')).toHaveLength(1);
     expect(container.querySelector('.task-row__due')).not.toBeNull();
     expect(container.querySelector('.collection-table')).toBeNull();
@@ -94,7 +94,7 @@ describe('TasksCollectionBody', () => {
     expect(container.querySelectorAll('.task-row__due')).toHaveLength(4);
   });
 
-  it('ignores a saved date-grouping choice in All Tasks and keeps due dates visible', () => {
+  it('honours the saved date-grouping choice in All Tasks and keeps No date as a group', () => {
     const props = {
       view: 'tasks-all' as const,
       tasks: [task({ text: 'Dated', dueDate: '2026-08-02' }), task({ text: 'Undated' })],
@@ -102,9 +102,10 @@ describe('TasksCollectionBody', () => {
     };
     const { container, rerender, queryByText } = render(<TasksCollectionBody {...props}
       collectionView={resolveCollectionView(TASKS_COLLECTION, { layout: 'list', groupBy: 'dueDate' })} />);
-    expect(container.querySelector('.section-header')).toBeNull();
+    expect(container.querySelectorAll('.section-header')).toHaveLength(2);
     expect(queryByText('Dated')).toBeInTheDocument();
     expect(queryByText('Undated')).toBeInTheDocument();
+    expect(container).toHaveTextContent('No date');
     expect(container.querySelector('.task-row__due')).not.toBeNull();
     rerender(<TasksCollectionBody {...props}
       collectionView={resolveCollectionView(TASKS_COLLECTION, { layout: 'table', groupBy: 'none' })} />);
@@ -112,7 +113,7 @@ describe('TasksCollectionBody', () => {
     expect(queryByText('Dated')).toBeInTheDocument();
   });
 
-  it.each(['list', 'table'] as const)('%s applies completion visibility and sorting in the flat All Tasks list', (layout) => {
+  it.each(['list', 'table'] as const)('%s applies completion visibility and sorting when All Tasks is grouped', (layout) => {
     const tasks = [
       task({ text: 'Alpha completed', completed: true, dueDate: '2026-08-02' }),
       task({ text: 'Zebra open', dueDate: '2026-08-02' }),
@@ -130,7 +131,7 @@ describe('TasksCollectionBody', () => {
     ]);
     rerender(<TasksCollectionBody {...props} displayConfig={{ showCompleted: false, autoSortCompleted: true }} />);
     expect([...container.querySelectorAll('.task-title')].map((node) => node.textContent)).toEqual(['Zebra open']);
-    expect(container.querySelectorAll('.section-header')).toHaveLength(0);
+    expect(container.querySelectorAll('.section-header')).toHaveLength(2);
   });
 
   it('groups Inbox tasks without including tasks stored in other notes', () => {
