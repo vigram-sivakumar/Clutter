@@ -194,6 +194,59 @@ describe('Application.resolveCoverImageForDisplay', () => {
   });
 });
 
+describe('Application.resolvePageIconImageForDisplay', () => {
+  const root = '/vault';
+  const loadable: CoverImageUrlResolver = { toLoadableUrl: (path) => `loadable:${path}` };
+
+  function create(resources: VaultResource[] = []): Application {
+    const application = new Application(
+      makeVault(root, resources),
+      new InMemoryVaultFileSystem(),
+      new SelfWriteRegistry(),
+      loadable
+    );
+    setRootPath(application, root);
+    return application;
+  }
+
+  it('resolves an indexed local image and uses the resource’s canonical path', () => {
+    const application = create([makeImageResource('r1', '/vault/Assets/Icon.PNG')]);
+
+    expect(application.resolvePageIconImageForDisplay('assets/icon.png')).toBe(
+      'loadable:/vault/Assets/Icon.PNG'
+    );
+  });
+
+  it.each([
+    'https://example.com/icon.png',
+    '/vault/Assets/icon.png',
+    './Assets/icon.png',
+    'Assets/../icon.png',
+    'Assets//icon.png',
+    'Assets\\icon.png',
+    '.clutter/icon.png',
+    'Assets/missing.png',
+  ])('rejects non-local, non-canonical, or missing reference %s', (reference) => {
+    expect(create([makeImageResource('r1', '/vault/Assets/icon.png')]).resolvePageIconImageForDisplay(reference)).toBeNull();
+  });
+
+  it('rejects a supported Vault resource that is not an image', () => {
+    const pdf: VaultResource = { id: 'pdf', kind: 'pdf', name: 'guide.pdf', path: '/vault/Assets/guide.pdf', parentId: null };
+
+    expect(create([pdf]).resolvePageIconImageForDisplay('Assets/guide.pdf')).toBeNull();
+  });
+
+  it('returns null after the indexed image is removed', () => {
+    const vault = makeVault(root, [makeImageResource('r1', '/vault/Assets/icon.png')]);
+    const application = new Application(vault, new InMemoryVaultFileSystem(), new SelfWriteRegistry(), loadable);
+    setRootPath(application, root);
+
+    vault.removeResource('r1');
+
+    expect(application.resolvePageIconImageForDisplay('Assets/icon.png')).toBeNull();
+  });
+});
+
 describe('Application.importCoverAsset', () => {
   it('delegates to importCoverAsset using the application filesystem', async () => {
     const vaultRoot = '/vault';
