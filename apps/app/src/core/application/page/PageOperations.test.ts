@@ -348,8 +348,8 @@ describe('PageOperations.updateMetadata()', () => {
     );
   });
 
-  it('preserves unrelated metadata (icon, favorite) across a metadata-only patch', async () => {
-    const page = buildPage({ icon: '📝', favorite: true });
+  it('preserves unrelated metadata (icon, iconImage, favorite) across a metadata-only patch', async () => {
+    const page = buildPage({ icon: '📝', iconImage: 'Assets/icon.png', favorite: true });
     const { vault, pageOperations } = setup(page);
 
     await pageOperations.updateMetadata(page.id, {
@@ -358,6 +358,7 @@ describe('PageOperations.updateMetadata()', () => {
 
     const updated = vault.getPage(page.id)!;
     expect(updated.metadata.icon).toBe('📝');
+    expect(updated.metadata.iconImage).toBe('Assets/icon.png');
     expect(updated.metadata.favorite).toBe(true);
   });
 
