@@ -48,6 +48,7 @@ interface FavoriteListProps {
    */
   getFolderSort?(folderId: string): SidebarSort | undefined;
   onFolderSortChange?(folderId: string | null, sort: SidebarSort): void;
+  resolveIconImage?(reference: string | null | undefined): string | null;
 }
 
 /**
@@ -70,6 +71,7 @@ export function FavoriteList({
   resolveEmbed,
   getFolderSort,
   onFolderSortChange,
+  resolveIconImage,
 }: FavoriteListProps) {
   return items.map((item) => {
     const isEditing = rowActions?.editingId === item.id;
@@ -98,6 +100,7 @@ export function FavoriteList({
           titlePlaceholder={isEditing && hasGeneratedName ? getPageTitlePlaceholder('note') : undefined}
           titleStyle={item.titleStyle}
           emoji={item.emoji}
+          imageSrc={resolveIconImage?.(item.iconImage)}
           resolveWikiLink={resolveWikiLink}
           resolveTag={resolveTag}
           resolveEmbed={resolveEmbed}
@@ -158,6 +161,7 @@ export function FavoriteList({
         title={isEditing ? (hasGeneratedName ? '' : rawName) : item.title}
         titlePlaceholder={isEditing && hasGeneratedName ? getFolderTitlePlaceholder() : undefined}
         emoji={item.emoji}
+        imageSrc={resolveIconImage?.(item.iconImage)}
         hasCaret={false}
         selected={workspace.activeFolderId === item.id}
         onClick={isEditing ? undefined : () => onOpenFolder(item.id)}
