@@ -214,7 +214,7 @@ function toRanges(edges: readonly GraphEdge[]): readonly SourceRange[] {
 }
 
 function isValidIsoDate(value: string): boolean {
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return false;
   }
 
