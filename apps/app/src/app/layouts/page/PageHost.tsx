@@ -2404,6 +2404,7 @@ export function PageHost({
                 resolveResourceUrl={(path) =>
                   application.resolveResourceImageUrl(path)
                 }
+                resolveIconImage={(reference) => application.resolvePageIconImageForDisplay(reference)}
                 onOpenResource={openArchivedResourceOverlay}
                 itemMenu={collectionItemMenu}
                 resourceMenu={archivedResourceMenu}
