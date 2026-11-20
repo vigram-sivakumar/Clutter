@@ -944,8 +944,8 @@ export class FolderOperations {
    * Metadata-only patch, backed by the Gate's 'update-folder-metadata'
    * kind — the folder-scoped counterpart to
    * PageOperations.updateMetadata(). Scoped to
-   * `favorite`/`cover`/`coverHidden`/`coverLayout`/`icon`/`description` —
-   * the only folder metadata fields with a shipped writer today (cover
+   * `favorite`/`cover`/`coverHidden`/`coverLayout`/`icon`/`iconImage`/`description` —
+   * the folder metadata fields with a shipped writer today (cover
    * added for the folder "Cover image" topbar action, coverHidden for
    * PageCover's "Hide" action, coverLayout for its "Layout" action,
    * description for the folder-description-editing milestone —
