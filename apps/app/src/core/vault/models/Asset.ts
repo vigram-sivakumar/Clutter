@@ -12,7 +12,7 @@ export type AssetKind = 'image' | 'pdf';
  * `attachment` is part of the vocabulary, but nothing in Clutter attaches a
  * file today, so the catalog never produces it yet.
  */
-export type AssetUsage = 'embed' | 'cover' | 'attachment';
+export type AssetUsage = 'embed' | 'cover' | 'icon' | 'attachment';
 
 /** One place an asset is used: the page or folder, and how. */
 export interface AssetReference {
