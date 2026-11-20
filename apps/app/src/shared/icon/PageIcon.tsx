@@ -17,22 +17,45 @@ export interface PageIconProps {
   className?: string;
 }
 
-function LoadedImage({ src }: { src: string }) {
-  const [loaded, setLoaded] = useState(false);
-  const [failed, setFailed] = useState(false);
+interface IconFallbackProps {
+  icon?: SystemIcon;
+  emoji?: string | null;
+  size?: number;
+  slotSize?: number;
+}
 
-  if (failed) return null;
+function IconFallback({ icon, emoji, size, slotSize }: IconFallbackProps) {
+  return <AppIcon icon={icon} emoji={emoji} size={size} slotSize={slotSize} />;
+}
+
+function ImageIcon({
+  src,
+  icon,
+  emoji,
+  size,
+  slotSize,
+}: IconFallbackProps & { src: string }) {
+  const [status, setStatus] = useState<'loading' | 'loaded' | 'failed'>('loading');
+
+  if (status === 'failed') {
+    return <IconFallback icon={icon} emoji={emoji} size={size} slotSize={slotSize} />;
+  }
 
   return (
-    <img
-      className="page-icon__image"
-      src={src}
-      alt=""
-      aria-hidden="true"
-      style={loaded ? undefined : { display: 'none' }}
-      onLoad={() => setLoaded(true)}
-      onError={() => setFailed(true)}
-    />
+    <span className="page-icon page-icon--image">
+      {status === 'loading' && (
+        <IconFallback icon={icon} emoji={emoji} size={size} slotSize={slotSize} />
+      )}
+      <img
+        className="page-icon__image"
+        src={src}
+        alt=""
+        aria-hidden="true"
+        style={status === 'loading' ? { display: 'none' } : undefined}
+        onLoad={() => setStatus('loaded')}
+        onError={() => setStatus('failed')}
+      />
+    </span>
   );
 }
 
@@ -52,12 +75,23 @@ export function PageIcon({
   slotSize,
   className,
 }: PageIconProps) {
-  const hasImage = Boolean(imageSrc?.trim());
+  const fallback = <IconFallback icon={icon} emoji={emoji} size={size} slotSize={slotSize} />;
+  const src = imageSrc?.trim() ? imageSrc : null;
+
+  if (!src) {
+    return className ? <span className={className}>{fallback}</span> : fallback;
+  }
 
   return (
-    <span className={`page-icon ${className ?? ''}`.trim()}>
-      <AppIcon icon={icon} emoji={emoji} size={size} slotSize={slotSize} />
-      {hasImage && <LoadedImage key={imageSrc} src={imageSrc!} />}
+    <span className={`page-icon-container ${className ?? ''}`.trim()}>
+      <ImageIcon
+        key={src}
+        src={src}
+        icon={icon}
+        emoji={emoji}
+        size={size}
+        slotSize={slotSize}
+      />
     </span>
   );
 }
