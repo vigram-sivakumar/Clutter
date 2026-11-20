@@ -560,7 +560,7 @@ describe('TasksCollectionBody', () => {
       expect(titles({ property: 'name', direction: 'up' })).toEqual(['Banana', 'Apple']);
     });
 
-    describe('the Tasks-view display preference (Show completed / Auto-sort completed)', () => {
+    describe('completed-task membership in All Tasks', () => {
       const tasks = [
         task({ text: 'Banana', startOffset: 0 }),
         task({
@@ -590,7 +590,7 @@ describe('TasksCollectionBody', () => {
         return result;
       };
 
-      it('completed tasks stay out of All Tasks regardless of Show completed', () => {
+      it('keeps completed tasks out of All Tasks regardless of legacy Inbox preferences', () => {
         expect(
           titles({ showCompleted: false, autoSortCompleted: false })
         ).toEqual(['Banana', 'Cherry']);
