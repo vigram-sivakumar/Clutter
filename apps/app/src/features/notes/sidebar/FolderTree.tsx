@@ -356,6 +356,7 @@ interface FolderTreeProps {
   resolveWikiLink?: ResolveWikiLink;
   resolveTag?: ResolveTag;
   resolveEmbed?: ResolvePageEmbed;
+  resolveIconImage?(reference: string | null | undefined): string | null;
   /** Folders (by id, or ROOT_FOLDER_CAP_KEY) whose "N more" row was clicked — shown in full. Session-only; the owner decides its lifetime. */
   expandedFolders?: readonly string[];
   /** Called when a folder's "N more" / "Show less" row is clicked. */
@@ -406,6 +407,7 @@ export interface PageEntryProps {
   resolveWikiLink?: ResolveWikiLink;
   resolveTag?: ResolveTag;
   resolveEmbed?: ResolvePageEmbed;
+  resolveIconImage?(reference: string | null | undefined): string | null;
   /**
    * Spliced into the standard note menu (the Note sidebar menu's items),
    * immediately above "Reveal in Finder" — see insertBeforeRevealInFinder
@@ -490,6 +492,7 @@ export function PageEntry({
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
+  resolveIconImage,
   extraMenuItems,
   onExtraMenuSelect,
   highlightActive = true,
@@ -508,6 +511,7 @@ export function PageEntry({
       }
       titleStyle={getPageDisplayLabelStyle(label)}
       emoji={entry.icon}
+      imageSrc={resolveIconImage?.(entry.iconImage)}
       resolveWikiLink={resolveWikiLink}
       resolveTag={resolveTag}
       resolveEmbed={resolveEmbed}
@@ -690,6 +694,7 @@ export function FolderTree({
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
+  resolveIconImage,
   expandedFolders = [],
   onToggleFolderCap,
   enableDrag = false,
@@ -859,6 +864,7 @@ export function FolderTree({
               }
               titleStyle={getPageDisplayLabelStyle(folderLabel)}
               emoji={folder.metadata.icon}
+              imageSrc={resolveIconImage?.(folder.metadata.iconImage)}
               count={countFolderItems(membershipSelector, folder.id)}
               level={level}
               className={folderDragProps?.isSource ? 'entry--drag-source' : undefined}
@@ -968,6 +974,7 @@ export function FolderTree({
                   resolveWikiLink={resolveWikiLink}
                   resolveTag={resolveTag}
                   resolveEmbed={resolveEmbed}
+                  resolveIconImage={resolveIconImage}
                   expandedFolders={expandedFolders}
                   onToggleFolderCap={onToggleFolderCap}
                   enableDrag={enableDrag}
@@ -1032,6 +1039,7 @@ export function FolderTree({
           resolveWikiLink={resolveWikiLink}
           resolveTag={resolveTag}
           resolveEmbed={resolveEmbed}
+          resolveIconImage={resolveIconImage}
         />
       );
     }
