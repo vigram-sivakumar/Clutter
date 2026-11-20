@@ -193,6 +193,8 @@ export function TasksCollectionBody({
     const hiddenInboxTasks = view === 'tasks-inbox' && tasksForView(view, tasks, { showCompleted: true }, inboxPageId).length > 0;
     const emptyMessage = view === 'tasks-completed'
       ? 'No completed tasks'
+      : view === 'tasks-today'
+        ? 'You’re all clear for today'
       : view === 'tasks-all' && tasks.some((task) => task.completed)
         ? 'No active tasks'
         : hiddenInboxTasks
