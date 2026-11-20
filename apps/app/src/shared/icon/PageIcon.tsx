@@ -30,22 +30,22 @@ interface FallbackProps {
   emoji?: string | null;
   systemIcon?: SystemIcon;
   glyphSize: number;
+  slotSize: number;
+  strokeWidth?: number;
 }
 
-function IconFallback({ emoji, systemIcon, glyphSize }: FallbackProps) {
-  return <AppIcon icon={systemIcon} emoji={emoji} size={glyphSize} />;
+function IconFallback({ emoji, systemIcon, glyphSize, slotSize, strokeWidth }: FallbackProps) {
+  return <AppIcon icon={systemIcon} emoji={emoji} size={glyphSize} slotSize={slotSize} strokeWidth={strokeWidth} />;
 }
 
 function ImageLayer({
   src,
   fallback,
   onImageError,
-  strokeWidth,
 }: {
   src: string;
   fallback: React.ReactNode;
   onImageError?: () => void;
-  strokeWidth?: number;
 }) {
   const [status, setStatus] = useState<'loading' | 'loaded' | 'failed'>('loading');
 
@@ -93,7 +93,7 @@ export function PageIcon({
 }: PageIconProps) {
   const dimensions = SIZE_TOKENS[size];
   const fallback = (
-    <IconFallback emoji={emoji} systemIcon={systemIcon} glyphSize={dimensions.glyph} />
+    <IconFallback emoji={emoji} systemIcon={systemIcon} glyphSize={dimensions.glyph} slotSize={dimensions.slot} strokeWidth={strokeWidth} />
   );
   const src = imageSrc?.trim() || null;
   const style = {
@@ -104,7 +104,7 @@ export function PageIcon({
   return (
     <span className={`page-icon ${className ?? ''}`.trim()} style={style}>
       {src ? (
-        <ImageLayer key={src} src={src} fallback={fallback} onImageError={onImageError} strokeWidth={strokeWidth} />
+        <ImageLayer key={src} src={src} fallback={fallback} onImageError={onImageError} />
       ) : (
         <span className="page-icon__fallback">{fallback}</span>
       )}
