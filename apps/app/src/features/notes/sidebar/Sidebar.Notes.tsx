@@ -73,6 +73,7 @@ interface NotesProps {
   resourceOperations: ResourceOperations;
   effectivePageState: EffectivePageState;
   membershipSelector: MembershipSelector;
+  resolveIconImage?(reference: string | null | undefined): string | null;
   /** The Space's default note folder (Settings → Notes), or undefined for Inbox; where the New row creates. */
   getDefaultNoteFolderId?: () => string | undefined;
   onOpen(pageId: string): void;
@@ -126,6 +127,7 @@ export function Notes({
   resourceOperations,
   effectivePageState,
   membershipSelector,
+  resolveIconImage,
   onOpen,
   onOpenFolder,
   onOpenDraft,
@@ -550,6 +552,7 @@ export function Notes({
           resolveWikiLink={resolveWikiLink}
           resolveTag={resolveTag}
           resolveEmbed={resolveEmbed}
+          resolveIconImage={resolveIconImage}
           onOpenPage={(id) => {
             onOpen(id);
           }}
@@ -559,6 +562,7 @@ export function Notes({
           rowActions={favoriteRowActions}
           getFolderSort={getFolderSort}
           onFolderSortChange={onFolderSortChange}
+          resolveIconImage={resolveIconImage}
         />
       </FavoritesSection>
       <Section
