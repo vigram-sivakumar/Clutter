@@ -6,6 +6,7 @@ import { Menu } from '@components/menu/Menu';
 import { MenuItem } from '@components/menu/MenuItem';
 import { EmojiTray } from '@components/emoji-tray/EmojiTray';
 import { ImagePicker } from '@app/layouts/page/cover/image-picker/ImagePicker';
+import { ImagePickerUpload } from '@app/layouts/page/cover/image-picker/ImagePicker.Upload';
 import { AppIcon } from '@shared/icon';
 import type { PropertiesControl } from './propertiesControl';
 import './PageHeaderMoreActionsMenu.css';
@@ -31,6 +32,10 @@ export interface PageHeaderMoreActionsMenuProps {
    */
   onSelectEmoji?: (emoji: string) => void;
   onRemoveEmoji?: () => void;
+  /** Whether an image reference is already stored; a set icon is edited from its visible icon control. */
+  hasIconImage?: boolean;
+  /** Uploads and persists a local page/folder icon image. */
+  onUploadIconImage?: (sourcePath: string) => CoverApplyResult;
   /** Gates whether the root view offers "Cover image" at all (only when unset; the cover thumbnail itself is the entry point once one exists, see PageHeaderControls) — same convention as `emoji` above. */
   hasCoverImage: boolean;
   /**
@@ -84,7 +89,7 @@ export interface PageHeaderMoreActionsMenuProps {
   propertiesControl?: PropertiesControl;
 }
 
-type MenuView = 'root' | 'emoji' | 'cover';
+type MenuView = 'root' | 'emoji' | 'cover' | 'icon-image';
 
 /**
  * The page header's "More actions" menu. Structurally, this is one
@@ -143,6 +148,8 @@ export function PageHeaderMoreActionsMenu({
   emoji,
   onSelectEmoji,
   onRemoveEmoji,
+  hasIconImage = false,
+  onUploadIconImage,
   hasCoverImage,
   coverHidden,
   onSetCoverImage,
@@ -177,6 +184,7 @@ export function PageHeaderMoreActionsMenu({
   // A cover pick still being applied: the picker stays open until it is, and a second pick meanwhile is ignored,
   // so one image is never applied twice.
   const applyingCoverRef = useRef(false);
+  const applyingIconImageRef = useRef(false);
   const applyCover = (apply: () => CoverApplyResult): void => {
     if (applyingCoverRef.current) {
       return;
@@ -224,7 +232,30 @@ export function PageHeaderMoreActionsMenu({
     }
   }
 
-  const showEmojiItem = Boolean(onSelectEmoji) && !emoji;
+  const applyIconImage = (apply: () => CoverApplyResult): void => {
+    if (applyingIconImageRef.current) return;
+    const result = apply();
+
+    if (!(result instanceof Promise)) {
+      if (result !== false) setOpen(false);
+      return;
+    }
+
+    applyingIconImageRef.current = true;
+    result.then(
+      (applied) => {
+        if (applied !== false) setOpen(false);
+      },
+      () => {
+        // Keep the picker open after a failed import so the user can retry.
+      }
+    ).finally(() => {
+      applyingIconImageRef.current = false;
+    });
+  };
+
+  const showEmojiItem = Boolean(onSelectEmoji) && !emoji && !hasIconImage;
+  const showIconImageItem = Boolean(onUploadIconImage) && !hasIconImage && !emoji;
   // Same "omit once set, the thumbnail itself becomes the entry point"
   // convention as Emoji above, mirrored for Cover image now that
   // PageHeaderControls renders its own cover thumbnail button. Only
@@ -242,6 +273,7 @@ export function PageHeaderMoreActionsMenu({
   // for it either (a page that has its emoji, cover, description and properties already).
   const hasItems =
     showEmojiItem ||
+    showIconImageItem ||
     showCoverItem ||
     showShowCoverImageItem ||
     showDescriptionItem ||
@@ -286,6 +318,17 @@ export function PageHeaderMoreActionsMenu({
                 }}
               >
                 Change icon
+              </MenuItem>
+            )}
+            {showIconImageItem && (
+              <MenuItem
+                leading={<AppIcon icon="image" />}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setView('icon-image');
+                }}
+              >
+                Upload icon image
               </MenuItem>
             )}
             {showCoverItem && (
@@ -363,6 +406,14 @@ export function PageHeaderMoreActionsMenu({
               onRemoveEmoji?.();
               setOpen(false);
             }}
+          />
+        )}
+
+        {view === 'icon-image' && onUploadIconImage && (
+          <ImagePickerUpload
+            onSubmit={(sourcePath) =>
+              applyIconImage(() => onUploadIconImage(sourcePath))
+            }
           />
         )}
 
