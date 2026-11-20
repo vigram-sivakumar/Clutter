@@ -31,8 +31,11 @@ describe('tasksForView — the single authority on which tasks belong to each ta
     const done = task('done', { completed: true, completedAt: '2026-10-01' });
     const all = [noDate, today, yesterday, tomorrow, done];
 
-    it('Tasks → every task', () => {
-      expect(titles('tasks-all', all)).toEqual(all.map((t) => t.text));
+    it('All tasks contains incomplete tasks only', () => {
+      expect(titles('tasks-all', all)).toEqual(['no date', 'due today', 'due yesterday', 'due tomorrow']);
+    });
+    it('Completed contains every completed task regardless of due date', () => {
+      expect(titles('tasks-completed', all)).toEqual(['done']);
     });
     it('no due date → Unscheduled', () => {
       expect(titles('tasks-unscheduled', all)).toEqual(['no date']);
@@ -66,13 +69,15 @@ describe('tasksForView — the single authority on which tasks belong to each ta
     const completedNoDate = task('done undated', { completed: true, completedAt: '2026-10-03' });
     const everyCompleted = [completedToday, completedNoDate];
 
-    it('Show completed applies to Tasks, Today and Upcoming', () => {
+    it('completed tasks are excluded from active tabs regardless of the legacy Show completed setting', () => {
       const completedFuture = task('done future', { completed: true, dueDate: '2026-10-09', completedAt: '2026-10-05' });
-      expect(titles('tasks-all', everyCompleted, SHOW)).toHaveLength(2);
+      expect(titles('tasks-all', everyCompleted, SHOW)).toEqual([]);
       expect(titles('tasks-all', everyCompleted, HIDE)).toEqual([]);
-      expect(titles('tasks-today', everyCompleted, SHOW)).toEqual(['done today']);
+      expect(titles('tasks-completed', everyCompleted, SHOW)).toEqual(['done today', 'done undated']);
+      expect(titles('tasks-completed', everyCompleted, HIDE)).toEqual(['done today', 'done undated']);
+      expect(titles('tasks-today', everyCompleted, SHOW)).toEqual([]);
       expect(titles('tasks-today', everyCompleted, HIDE)).toEqual([]);
-      expect(titles('tasks-upcoming', [completedFuture], SHOW)).toEqual(['done future']);
+      expect(titles('tasks-upcoming', [completedFuture], SHOW)).toEqual([]);
       expect(titles('tasks-upcoming', [completedFuture], HIDE)).toEqual([]);
     });
 
