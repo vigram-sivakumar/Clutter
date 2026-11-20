@@ -3,7 +3,7 @@ import type { CoverCredit } from '@core/vault/models/PageMetadata';
 import { useRef, useState, type ReactNode } from 'react';
 import { Button } from '@components/button/Button';
 import { SpaceAvatarPicker } from '@components/space-avatar-picker/SpaceAvatarPicker';
-import { AppIcon, PageIcon } from '@shared/icon';
+import { PageIcon } from '@shared/icon';
 import type { SystemIcon } from '@shared/icon';
 import { PageHeaderMoreActionsMenu, type CoverApplyResult } from './PageHeaderMoreActionsMenu';
 import './PageHeaderControls.css';
@@ -169,7 +169,7 @@ export function PageHeaderControls({
         </>
       )}
       {hasUserIcon && (!onSelectEmoji || !onUploadIconImage) && (
-        <span className="page-header-controls__emoji page-header-controls__emoji--static">
+        <span className="page-header-controls__emoji">
           <PageIcon
             emoji={emoji}
             systemIcon={fallbackIcon}
