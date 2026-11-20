@@ -146,53 +146,21 @@ function byDueDateThenTitle(a: TaskOccurrence, b: TaskOccurrence): number {
  * completed to the bottom" is implemented, reused by every section below
  * rather than each reimplementing its own bottom-sort.
  */
-function sortCompletedLast(tasks: readonly TaskOccurrence[]): readonly TaskOccurrence[] {
-  return [...tasks].sort((a, b) => Number(a.completed) - Number(b.completed));
-}
-
 /**
- * Groups tasks into the Tasks sidebar's Today/Overdue/Upcoming sections
- * (plus Upcoming's Unscheduled subset), honoring `config`'s Show completed /
- * Auto-sort completed preference. Every eligible task lands in exactly one
- * of the three top-level groups.
+ * Groups only active tasks into the Tasks sidebar's Today/Overdue/Upcoming sections
+ * (plus Upcoming's Unplanned subset). Completed tasks are available in the Tasks
+ * collection's dedicated Completed tab and never appear in the sidebar.
  *
- * `config.showCompleted` decides membership the same way it always has:
- * false excludes every completed task from every group (their pre-existing,
- * unaffected behavior); true includes them, bucketed by `dueDate` exactly
- * like an incomplete task would be — with one deliberate exception. Overdue
- * is defined as "due before today AND still incomplete" (a completed task
- * isn't "still overdue" in the actionable sense that section exists to
- * surface), so a completed task with a past due date is never pulled into
- * `overdue` — it falls into `upcoming` instead, exactly where it already
- * lived before this section existed, which is what keeps this change from
- * altering completion display semantics. A completed task due today still
- * lands in `today`, unchanged.
- *
- * Within each of those three groups, ordering follows Group → Due date →
- * Time → Title: Today sorts by time then title (every member shares
- * today's date, so date comparison is always a tie; a timed task always
- * sorts before a time-less one, then chronologically among the timed ones
- * — see `byTimeThenTitle`); Overdue and
- * Upcoming's scheduled tasks sort chronologically by `dueDate` ascending,
- * then by time, falling through to the same alphabetical, case-insensitive
- * title compare whenever two tasks share a date and time
- * (`byDueDateThenTitle`/`byTimeThenTitle`/`byTitle`). Upcoming's
- * unscheduled tail keeps its own existing (unsorted) relative order,
- * unchanged by this.
- *
- * `config.autoSortCompleted` then decides ordering within Today/Upcoming
- * on top of that: false leaves it untouched; true moves every completed
- * task in that section to the bottom, below every incomplete one (see
- * `sortCompletedLast`) — a stable partition over whatever order the
- * Group → Due date → Title sort already produced, not a second resort.
- * Overdue never contains a completed task by definition, so auto-sort has
- * nothing to do there.
+ * Ordering follows Group → Due date → Time → Title. Today sorts by time then title;
+ * Overdue and Upcoming's scheduled tasks sort chronologically by due date, then
+ * time and title. Unplanned tasks retain their source order at the end of Upcoming.
  */
+
 export function groupTasks(
   tasks: readonly TaskOccurrence[],
-  config: TaskDisplayConfig
+  _config?: TaskDisplayConfig
 ): TaskGroups {
-  const eligible = config.showCompleted ? tasks : tasks.filter((task) => !task.completed);
+  const eligible = tasks.filter((task) => !task.completed);
 
   const today = eligible.filter(isDueToday).sort(byTimeThenTitle);
 
@@ -220,9 +188,9 @@ export function groupTasks(
   const upcoming = [...scheduled, ...unscheduled];
 
   return {
-    today: config.autoSortCompleted ? sortCompletedLast(today) : today,
+    today,
     overdue,
-    upcoming: config.autoSortCompleted ? sortCompletedLast(upcoming) : upcoming,
-    unscheduled: config.autoSortCompleted ? sortCompletedLast(unscheduled) : unscheduled,
+    upcoming,
+    unscheduled,
   };
 }
