@@ -15,21 +15,21 @@ const resource = (path: string, kind: VaultResource['kind'] = 'image'): VaultRes
 
 function page(
   id: string,
-  options: { markdown?: string; embeds?: string[]; cover?: string | null; coverHidden?: boolean } = {}
+  options: { markdown?: string; embeds?: string[]; cover?: string | null; coverHidden?: boolean; iconImage?: string | null } = {}
 ): Page {
   return {
     id,
     name: `${id}.md`,
     path: `${ROOT}/${id}.md`,
     parentId: null,
-    metadata: { cover: options.cover ?? null, coverHidden: options.coverHidden ?? false },
+    metadata: { cover: options.cover ?? null, coverHidden: options.coverHidden ?? false, iconImage: options.iconImage ?? null },
     source: { markdown: options.markdown ?? '' },
     analysis: { embeds: (options.embeds ?? []).map((target) => ({ target })) },
   } as unknown as Page;
 }
 
-const folder = (id: string, cover: string | null): Folder =>
-  ({ id, name: id, path: `${ROOT}/${id}`, parentId: null, metadata: { cover, coverHidden: false } }) as unknown as Folder;
+const folder = (id: string, cover: string | null, iconImage: string | null = null): Folder =>
+  ({ id, name: id, path: `${ROOT}/${id}`, parentId: null, metadata: { cover, iconImage, coverHidden: false } }) as unknown as Folder;
 
 const build = (input: { resources?: VaultResource[]; pages?: Page[]; folders?: Folder[] }) =>
   new AssetCatalogBuilder().build({ root: ROOT, resources: [], pages: [], folders: [], ...input });
@@ -76,6 +76,20 @@ describe('AssetCatalogBuilder', () => {
       { usage: 'embed', referrer: { kind: 'page', id: 'a' } },
       { usage: 'cover', referrer: { kind: 'page', id: 'a' } },
       { usage: 'cover', referrer: { kind: 'folder', id: 'f' } },
+    ]);
+  });
+
+  it('counts page and folder icon images as local icon usages of the same asset', () => {
+    const catalog = build({
+      resources: [resource('assets/icon.png')],
+      pages: [page('a', { iconImage: 'assets/icon.png' })],
+      folders: [folder('f', null, 'assets/icon.png')],
+    });
+
+    expect(catalog).toHaveLength(1);
+    expect(catalog[0]!.references).toEqual([
+      { usage: 'icon', referrer: { kind: 'page', id: 'a' } },
+      { usage: 'icon', referrer: { kind: 'folder', id: 'f' } },
     ]);
   });
 
