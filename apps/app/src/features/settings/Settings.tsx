@@ -84,7 +84,7 @@ interface SettingsProps {
   onResetSettings?: () => Promise<ResetSettingsOutcome>;
 }
 
-export function Settings({ templates, noteLocation, spaceSettings, tasksViewConfig, space, onClose, onResetSettings }: SettingsProps = {}) {
+export function Settings({ templates, noteLocation, spaceSettings, space, onClose, onResetSettings }: SettingsProps = {}) {
   const shared = useSharedSettingsDialogState();
   const [localPageId, setLocalPageId] = useState<SettingsPageId>(DEFAULT_SETTINGS_PAGE);
   const pageId = shared?.pageId ?? localPageId;
