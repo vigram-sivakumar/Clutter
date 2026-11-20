@@ -313,7 +313,7 @@ export class EffectivePageState {
           ? page.source.markdown
           : '',
       icon: page ? page.metadata.icon : null,
-      iconImage: page ? (page.metadata.iconImage ?? null) : null,
+      ...(page?.metadata.iconImage && { iconImage: page.metadata.iconImage }),
       favorite: page ? page.metadata.favorite : false,
       cover: page ? page.metadata.cover : null,
       coverCredit: page ? (page.metadata.coverCredit ?? null) : null,
