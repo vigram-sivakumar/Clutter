@@ -414,6 +414,20 @@ describe('Tidy up button availability', () => {
     expect(document.querySelector('button[aria-label="Tidy up"]')).toBeNull();
   });
 
+  it('shows the trigger for completed undated tasks with a valid completion date', async () => {
+    const { application } = setup([
+      pageWith(
+        'inbox-source',
+        '- [x] Finished yesterday @completed:2026-11-19',
+        '.clutter/inbox.md'
+      ),
+    ]);
+    application.navigation.openTaskInbox();
+    render(<AppLayout application={application} />);
+    await flush();
+    expect(document.querySelector('button[aria-label="Tidy up"]')).not.toBeNull();
+  });
+
   it('hides the trigger during a transfer and restores it after a failed attempt', async () => {
     const { application } = setup([pageWith('inbox-source', '- [ ] Dated @2026-11-20', '.clutter/inbox.md')]);
     let fail!: (error: Error) => void;
