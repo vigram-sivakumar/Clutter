@@ -37,7 +37,7 @@ function task(overrides: Partial<TaskOccurrence>): TaskOccurrence {
 }
 
 // The List starts as just Name and Due date; Source is one the user turns on.
-const LIST_WITH_SOURCE = resolveCollectionView(TASKS_COLLECTION, { listPropertyOverrides: { source: true } });
+const LIST_WITH_SOURCE = resolveCollectionView(TASKS_COLLECTION, { groupBy: 'none', listPropertyOverrides: { source: true } });
 
 describe('TasksCollectionBody', () => {
   it.each(['list', 'table'] as const)('%s groups dates chronologically, preserves sorting and actions, and places Unscheduled last', (layout) => {
@@ -55,7 +55,7 @@ describe('TasksCollectionBody', () => {
       onToggleComplete={onToggleComplete} onOpenTask={onOpenTask} onChangeDueDate={vi.fn()}
     />);
     expect([...container.querySelectorAll('.section-header__title')].map((node) => node.textContent)).toEqual([
-      formatTaskDueDateLong('2026-08-02'), formatTaskDueDateLong('2026-08-08'), 'Unscheduled',
+      'Overdue', 'Upcoming', formatTaskDueDateLong('2026-08-08'), 'No date',
     ]);
     expect([...container.querySelectorAll('.task-title')].map((node) => node.textContent)).toEqual(['Alpha', 'Zebra', 'Future', 'No date']);
     expect(container.querySelectorAll('.collection__bottom-spacer')).toHaveLength(1);
@@ -160,6 +160,7 @@ describe('TasksCollectionBody', () => {
       <TasksCollectionBody
         view="tasks-all"
         tasks={[task({ text: 'Plan trip', dueDate: '2026-08-20' })]}
+        collectionView={resolveCollectionView(TASKS_COLLECTION, { groupBy: 'none' })}
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
         onChangeDueDate={vi.fn()}
@@ -219,6 +220,7 @@ describe('TasksCollectionBody', () => {
         onOpenTask={vi.fn()}
         onChangeDueDate={vi.fn()}
         getSource={() => ({ label: 'Trips', icon: 'note', emoji: null })}
+        collectionView={resolveCollectionView(TASKS_COLLECTION, { groupBy: 'none' })}
       />
     );
 
@@ -236,12 +238,12 @@ describe('TasksCollectionBody', () => {
       onChangeDueDate: vi.fn(),
     };
 
-    const list = render(<TasksCollectionBody {...props} />);
+    const list = render(<TasksCollectionBody {...props} collectionView={resolveCollectionView(TASKS_COLLECTION, { groupBy: 'none' })} />);
     expect(list.container.querySelector('.task-row__due')).toHaveTextContent(`20 August, ${formatTaskDueTime('16:00')}`);
     list.unmount();
 
     const table = render(
-      <TasksCollectionBody {...props} collectionView={resolveCollectionView(TASKS_COLLECTION, { layout: 'table' })} />
+      <TasksCollectionBody {...props} collectionView={resolveCollectionView(TASKS_COLLECTION, { layout: 'table', groupBy: 'none' })} />
     );
     expect(table.container.querySelector('.task-row__due')).toHaveTextContent(`20 August, ${formatTaskDueTime('16:00')}`);
   });
@@ -497,7 +499,7 @@ describe('TasksCollectionBody', () => {
           <TasksCollectionBody
             view="tasks-all"
             tasks={tasks}
-            collectionView={resolveCollectionView(TASKS_COLLECTION, { sort })}
+            collectionView={resolveCollectionView(TASKS_COLLECTION, { sort, groupBy: 'none' })}
             displayConfig={{ showCompleted: true, autoSortCompleted: true }}
             {...noop}
           />
@@ -603,6 +605,7 @@ describe('TasksCollectionBody', () => {
           // 'up' on a date property is oldest first (its arrow semantics: 'down' is newest first).
           collectionView={resolveCollectionView(TASKS_COLLECTION, {
             sort: { property: 'dueDate', direction: 'up' },
+            groupBy: 'none',
           })}
           {...noop}
         />
@@ -663,7 +666,7 @@ describe('TasksCollectionBody', () => {
         <TasksCollectionBody
           view="tasks-all"
           tasks={[target]}
-          collectionView={resolveCollectionView(TASKS_COLLECTION, { layout })}
+          collectionView={resolveCollectionView(TASKS_COLLECTION, { layout, groupBy: 'none' })}
           onToggleComplete={vi.fn()}
           onOpenTask={onOpenTask}
           onChangeDueDate={onChangeDueDate}
@@ -852,6 +855,7 @@ describe('TasksCollectionBody', () => {
             tasks={everyDataset}
             collectionView={resolveCollectionView(TASKS_COLLECTION, {
               layout: 'table',
+              groupBy: 'none',
             })}
             {...noop}
           />
@@ -874,6 +878,7 @@ describe('TasksCollectionBody', () => {
             tasks={everyDataset}
             collectionView={resolveCollectionView(TASKS_COLLECTION, {
               layout: 'table',
+              groupBy: 'none',
               propertyOverrides: { source: false },
               sort: { property: 'name', direction: 'up' },
             })}
