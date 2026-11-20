@@ -847,6 +847,21 @@ export function PageHost({
   const activePageId = workspace.activePageId;
   const activeFolderId = workspace.activeFolderId;
   const page = useActivePage(vault, activePageId);
+  const activeFolderForIcon = activeFolderId ? vault.getFolder(activeFolderId) : undefined;
+  const pageIconImageSrc = page
+    ? application.resolvePageIconImageForDisplay(page.metadata.iconImage)
+    : null;
+  const folderIconImageSrc = activeFolderForIcon
+    ? application.resolvePageIconImageForDisplay(activeFolderForIcon.metadata.iconImage)
+    : null;
+
+  // Stale references are reconciled from the active-page/folder lifecycle,
+  // not from a render. The resolved URL is a dependency so a Vault sync
+  // deletion retriggers cleanup even when the metadata string is unchanged.
+  useEffect(() => {
+    if (activePageId) void application.reconcilePageIconImage(activePageId);
+    if (activeFolderId) void application.reconcileFolderIconImage(activeFolderId);
+  }, [application, activePageId, activeFolderId, pageIconImageSrc, folderIconImageSrc]);
   // ADR-052: the open note's saved References choices. References are hidden unless the user chose
   // Show, so the menu label names what a click does. The count also trails the menu item.
   const referencesDisplay = useReferencesDisplayStore(
