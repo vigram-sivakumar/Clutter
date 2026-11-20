@@ -18,6 +18,7 @@ export const GOLDEN_SAMPLES: Readonly<Record<string, string>> = {
   'unterminated frontmatter':
     '---\nid: 22222222-2222-4222-8222-222222222222\nBody that never closes\n',
   'frontmatter only': '---\nid: 33333333-3333-4333-8333-333333333333\n---\n',
+  'page icon image': '---\nid: cccccccc-cccc-4ccc-8ccc-cccccccccccc\niconImage: Assets/icon.png\n---\nBody\n',
   'aliases and tags in frontmatter':
     '---\nid: 44444444-4444-4444-8444-444444444444\naliases:\n  - First Alias\n  - Second Alias\ntags:\n  - alpha\n  - beta\n---\nBody #inline\n',
   'inline flow aliases': '---\naliases: [One, Two]\ntags: [x, y]\n---\nBody\n',
