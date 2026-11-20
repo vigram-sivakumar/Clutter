@@ -167,8 +167,7 @@ describe('grouped (Group by due date on)', () => {
     expect(headings(section('Upcoming'))).toEqual(['10 August', '12 August']);
   });
 
-  it('sorts the date groups chronologically even when a section’s own order interleaves dates', () => {
-    // A completed, past-due task falls into Upcoming; Auto-sort completed would move it away from its same-date siblings.
+  it('groups only active tasks by date, even when completed tasks share those dates', () => {
     const tasks = [
       task('a', '2026-08-12'),
       task('b', '2026-08-10', { completed: true }),
@@ -178,7 +177,8 @@ describe('grouped (Group by due date on)', () => {
     const { section } = mount({ grouped: true, limit: Infinity, tasks });
 
     expect(headings(section('Upcoming'))).toEqual(['10 August', '12 August']);
-    expect(dateGroups(section('Upcoming')).map(titles)).toEqual([['b', 'd'], ['a', 'c']]);
+    expect(dateGroups(section('Upcoming')).map(titles)).toEqual([['d'], ['a', 'c']]);
+    expect(section('Upcoming')).not.toHaveTextContent('b');
   });
 
   it('applies the limit to each date group on its own, with "N more" only on a group over it', () => {
