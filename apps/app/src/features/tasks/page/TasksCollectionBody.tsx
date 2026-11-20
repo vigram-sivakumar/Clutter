@@ -5,6 +5,7 @@ import { CollectionSourceLink } from '@features/collection/components/entry/Coll
 import { CollectionDataList } from '@features/collection/components/list/CollectionDataList';
 import { Section } from '@app/layouts/sidebar/section/Section';
 import { groupByTaskDueDate } from '../helpers/groupByTaskDueDate';
+import { classifyDueDate } from '../helpers/taskDueDate';
 import { formatTaskDueDateLong } from '../helpers/formatTaskDueDate';
 import { useCollectionItemContextMenu } from '@app/layouts/page/body/useCollectionItemContextMenu';
 import { TaskDatePicker } from '../sidebar/TaskDatePicker';
@@ -229,7 +230,12 @@ export function TasksCollectionBody({
   // none of them opens the row's note.
   const dueDateOf = ({ task }: TaskEntry) =>
     task.dueDate !== undefined && (
-      <TaskDueDateButton date={task.dueDate} time={task.dueTime} onChange={(date) => onChangeDueDate(task, date)} />
+      <TaskDueDateButton
+        date={task.dueDate}
+        time={task.dueTime}
+        isOverdue={!task.completed && classifyDueDate(task.dueDate) === 'past'}
+        onChange={(date) => onChangeDueDate(task, date)}
+      />
     );
   const sourceOf = ({ task, source }: TaskEntry) =>
     source && (
@@ -298,11 +304,18 @@ export function TasksCollectionBody({
 
   return (
     <TasksPageBody>
-      {dateGroups.map(({ date, items }) => (
-        <Section key={date || 'unscheduled'} {...sectionProps(date, date ? formatTaskDueDateLong(date) : 'Unscheduled')}>
-          <CollectionDataList className="task-list" items={items.map(itemOf)} />
-        </Section>
-      ))}
+      {dateGroups.map(({ date, items }) => {
+        const isOverdueGroup = classifyDueDate(date) === 'past';
+        return (
+          <Section
+            key={date || 'unscheduled'}
+            data-section={isOverdueGroup ? 'overdue' : undefined}
+            {...sectionProps(date, date ? formatTaskDueDateLong(date) : 'No date')}
+          >
+            <CollectionDataList className="task-list" items={items.map(itemOf)} />
+          </Section>
+        );
+      })}
       {menuOverlays}
     </TasksPageBody>
   );
