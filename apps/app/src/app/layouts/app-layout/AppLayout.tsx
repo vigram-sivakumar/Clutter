@@ -184,10 +184,6 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
   );
   const tasksViewConfig = resolveTasksViewConfig(persistedTasksViewConfig);
 
-  function updateTasksViewConfig(next: TaskDisplayConfig): void {
-    application.tasksViewConfigStore.update(next);
-  }
-
   // The Tasks page's selected tab — lifted here for the same reason, and persisted in the same store (merged into
   // the same `tasksViewConfig` entry, so the display preferences above are never overwritten by it, nor it by them),
   // so the page reopens on the tab it was left on, across restarts.
