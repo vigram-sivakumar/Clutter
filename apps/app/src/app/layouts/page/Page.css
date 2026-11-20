@@ -28,7 +28,7 @@
 
   background: var(--surface-primary);
   border-radius: var(--border-radius);
-  box-shadow: var(--shadow-inset-thin-medium);
+  box-shadow: var(--shadow-inset-medium);
   padding-bottom: 1px;
 }
 
