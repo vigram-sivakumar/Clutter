@@ -2260,7 +2260,7 @@ export class PageOperations {
   }
 
   /**
-   * Updates user-editable metadata (description, icon, cover, coverHidden,
+   * Updates user-editable metadata (description, icon/iconImage, cover, coverHidden,
    * coverLayout, favorite) for a page — persisted or still a draft.
    *
    * Persisted branch (unchanged from before this milestone): deliberately
