@@ -11,16 +11,16 @@ afterEach(() => {
 });
 
 describe('TasksTabs', () => {
-  it('shows All tasks, Completed, Today, Overdue, Upcoming and Unscheduled, with the given tab selected', () => {
+  it('shows All tasks, Today, Overdue, Upcoming, Unplanned and Completed, with the given tab selected', () => {
     const { container } = render(<TasksTabs value="today" onValueChange={vi.fn()} />);
 
     expect([...container.querySelectorAll('.tab')].map((tab) => tab.textContent)).toEqual([
       'All tasks',
-      'Completed',
       'Today',
       'Overdue',
       'Upcoming',
-      'Unscheduled',
+      'Unplanned',
+      'Completed',
     ]);
     expect(container.querySelector('.tab--active')).toHaveTextContent('Today');
     expect(container.querySelectorAll('.tab--active')).toHaveLength(1);
