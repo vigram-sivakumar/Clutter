@@ -75,10 +75,12 @@ export function collectAssetReferences(input: {
     imageExtractor.extract(page.source.markdown).forEach(add);
     // Hidden or not: the cover is still saved in the note, and showing it again must not find the file gone.
     add(page.metadata.cover);
+    add(page.metadata.iconImage);
   }
 
   for (const folder of input.folders) {
     add(folder.metadata.cover);
+    add(folder.metadata.iconImage);
   }
 
   add(input.avatarSource);
