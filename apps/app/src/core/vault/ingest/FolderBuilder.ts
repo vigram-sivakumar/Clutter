@@ -36,7 +36,7 @@ export class FolderBuilder {
 
       metadata: {
         icon: frontmatter?.icon ?? null,
-        iconImage: frontmatter?.iconImage ?? null,
+        ...(frontmatter?.iconImage !== undefined && { iconImage: frontmatter.iconImage }),
         favorite: frontmatter?.favorite ?? false,
         description: frontmatter?.description ?? null,
         cover: frontmatter?.cover ?? null,
