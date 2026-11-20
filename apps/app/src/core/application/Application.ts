@@ -1332,7 +1332,9 @@ export class Application {
         }
       },
       writePageCover: (pageId, cover) => this.pageOperations.updateMetadata(pageId, { cover }, { allowArchived: true }),
+      writePageIconImage: (pageId, iconImage) => this.pageOperations.updateMetadata(pageId, { iconImage }, { allowArchived: true }),
       writeFolderCover: (folderId, cover) => this.folderOperations.updateMetadata(folderId, { cover }),
+      writeFolderIconImage: (folderId, iconImage) => this.folderOperations.updateMetadata(folderId, { iconImage }),
       writeAvatar: async (reference) => {
         await this.spaceProfileStore.setAvatar({ type: 'image', src: reference });
       },
