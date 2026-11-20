@@ -469,6 +469,7 @@ describe('TasksCollectionBody', () => {
     it('saved hidden properties remain hidden after falling back from Table to List', () => {
       const view = resolveCollectionView(TASKS_COLLECTION, {
         layout: 'table',
+        groupBy: 'none',
         propertyOverrides: { dueDate: false, source: false },
       });
       const { container } = render(
@@ -488,6 +489,7 @@ describe('TasksCollectionBody', () => {
 
     it('List layout: the Due date and Source properties drive the due-date controls and the source link', () => {
       const view = resolveCollectionView(TASKS_COLLECTION, {
+        groupBy: 'none',
         propertyOverrides: { dueDate: false, source: false },
       });
       const { container } = render(
