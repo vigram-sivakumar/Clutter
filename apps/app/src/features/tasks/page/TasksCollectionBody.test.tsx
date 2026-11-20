@@ -68,6 +68,40 @@ describe('TasksCollectionBody', () => {
     expect(onOpenTask).toHaveBeenCalledWith(tasks[1]);
   });
 
+  it('defaults All Tasks to Overdue, Today, Tomorrow, Upcoming dates and No date', () => {
+    const { container } = render(
+      <TasksCollectionBody
+        view="tasks-all"
+        tasks={[
+          task({ text: 'Overdue task', dueDate: '2026-08-02' }),
+          task({ text: 'Today task', dueDate: '2026-08-04' }),
+          task({ text: 'Tomorrow task', dueDate: '2026-08-05' }),
+          task({ text: 'Later task', dueDate: '2026-08-08' }),
+          task({ text: 'No date task' }),
+        ]}
+        onToggleComplete={vi.fn()}
+        onOpenTask={vi.fn()}
+        onChangeDueDate={vi.fn()}
+      />
+    );
+
+    expect([...container.querySelectorAll('.section-header__title')].map((node) => node.textContent)).toEqual([
+      'Overdue',
+      'Today',
+      'Tomorrow',
+      'Upcoming',
+      formatTaskDueDateLong('2026-08-08'),
+      'No date',
+    ]);
+    expect([...container.querySelectorAll('.task-title')].map((node) => node.textContent)).toEqual([
+      'Overdue task',
+      'Today task',
+      'Tomorrow task',
+      'Later task',
+      'No date task',
+    ]);
+  });
+
   it('keeps date-group collapse when an obsolete Table preference resolves to List and can ungroup', () => {
     const props = {
       view: 'tasks-all' as const,
