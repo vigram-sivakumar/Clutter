@@ -20,7 +20,7 @@
 .page-icon__fallback .app-icon {
   width: 100%;
   height: 100%;
-  font-size: var(--page-icon-glyph-size);
+  font-size: var(--page-icon-slot-size);
 }
 
 .page-icon__fallback .emoji-icon {
