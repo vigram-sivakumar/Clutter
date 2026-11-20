@@ -66,11 +66,13 @@ const NONE: PageReferences = { tasks: [], notes: [], dailyNotes: [] };
  * is not a reference.
  */
 export function getPageReferences(vault: Vault, pageId: string): PageReferences {
-  const edges = vault.knowledgeGraph().incomingEdges(pageId);
+  const openPage = vault.getPage(pageId);
 
-  if (edges.length === 0) {
+  if (!openPage) {
     return NONE;
   }
+
+  const edges = vault.knowledgeGraph().incomingEdges(pageId);
 
   const edgesBySource = new Map<string, GraphEdge[]>();
 
@@ -169,6 +171,33 @@ export function getPageReferences(vault: Vault, pageId: string): PageReferences 
           line,
           excerpt: toExcerpt(markdown, lineRanges),
         });
+      }
+    }
+  }
+
+  // On a Daily Note, Tasks references also show every active task due on that date.
+  // Vault.tasks() includes the Tasks Inbox and other active pages, while excluding Templates and Archive.
+  // Tasks written directly in this Daily Note are already visible in its content.
+  if (openPage.type === 'daily-note' && isValidIsoDate(openPage.name)) {
+    for (const task of vault.tasks()) {
+      if (task.dueDate !== openPage.name || task.sourcePageId === openPage.id) {
+        continue;
+      }
+
+      const sourcePage = vault.getPage(task.sourcePageId);
+
+      if (!sourcePage || vault.isPageEffectivelyArchived(sourcePage)) {
+        continue;
+      }
+
+      const alreadyIncluded = tasks.some(
+        ({ task: existing }) =>
+          existing.sourcePageId === task.sourcePageId &&
+          existing.startOffset === task.startOffset
+      );
+
+      if (!alreadyIncluded) {
+        tasks.push({ task, page: sourcePage });
       }
     }
   }
