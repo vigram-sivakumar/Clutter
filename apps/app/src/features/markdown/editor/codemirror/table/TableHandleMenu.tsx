@@ -312,20 +312,11 @@ function buildColumnItems(
  * subtree. See that constant's own doc comment for why this exemption is
  * required for correctness, not cosmetic.
  *
- * `backdrop={false}` — unlike every other menu here, which each treat any
- * click elsewhere as a plain "close." This menu's own spec requires a
- * click on a table cell to *both* close the menu *and* activate that cell
- * in the same click. `Overlay`'s default (transparent but
- * `pointer-events: auto`) backdrop sits over the whole viewport and would
- * itself become the click's actual target, silently swallowing it before
- * it ever reaches the cell — confirmed directly: with a backdrop present,
- * the click closed the menu but the cell never activated (no caret, focus
- * stayed on `<body>`). Disabling it lets the click pass straight through
- * to whatever is under the cursor, so the cell's own click-to-activate
- * fires normally; closing on that same click is still handled correctly,
- * without a backdrop, by the existing `attachTableOutsideClickHandling`
- * (a `document`-level `mousedown` listener, unaffected by backdrop
- * presence) plus the `TABLE_HANDLE_MENU_CLASS` exemption above.
+ * The shared `Overlay` keeps its default transparent backdrop. It blocks
+ * pointer interaction with the table and every other surface behind this
+ * menu; clicking the backdrop dismisses the menu instead of activating the
+ * underlying cell or another row/column handle. This is the standard modal
+ * interaction contract for overlays in Clutter.
  */
 export function TableHandleMenu({
   anchor,
@@ -402,7 +393,6 @@ export function TableHandleMenu({
       side={selection?.kind === 'column' ? 'bottom' : 'right'}
       alignment="start"
       className={TABLE_HANDLE_MENU_CLASS}
-      backdrop={false}
     >
       <OverflowMenuBody
         items={items}
