@@ -657,14 +657,17 @@ describe('renderTasksByDate', () => {
     });
   });
 
-  describe('Show completed / Auto-sort completed', () => {
-    it('shows a completed task due today in the Today section when showCompleted is true', () => {
+  describe('completed tasks', () => {
+    it('always excludes completed tasks from every sidebar group, regardless of legacy display preferences', () => {
       const completedToday = task({ text: 'Submit expenses', completed: true, dueDate: '2026-08-04' });
+      const completedOverdue = task({ text: 'Old report', completed: true, dueDate: '2026-07-01' });
+      const completedUnplanned = task({ text: 'Completed unplanned', completed: true });
+      const activeToday = task({ text: 'Active today', dueDate: '2026-08-04' });
 
-      const { getByText } = render(
+      const { container, queryByText } = render(
         <>
           {renderTasksByDate({
-            tasks: [completedToday],
+            tasks: [completedToday, completedOverdue, completedUnplanned, activeToday],
             workspace: new Workspace(),
             onToggleComplete: vi.fn(),
             onOpenTask: vi.fn(),
@@ -672,134 +675,16 @@ describe('renderTasksByDate', () => {
             onDuplicateTask: vi.fn(),
             onDeleteTask: vi.fn(),
             navigation: fakeNavigation(),
-            displayConfig: { showCompleted: true, autoSortCompleted: false },
-          })}
-        </>
-      );
-
-      expect(getByText('Submit expenses')).toBeInTheDocument();
-    });
-
-    it('hides a completed task from the Today section when showCompleted is false', () => {
-      const completedToday = task({ text: 'Submit expenses', completed: true, dueDate: '2026-08-04' });
-
-      const { queryByText } = render(
-        <>
-          {renderTasksByDate({
-            tasks: [completedToday],
-            workspace: new Workspace(),
-            onToggleComplete: vi.fn(),
-            onOpenTask: vi.fn(),
-            onChangeDueDate: vi.fn(),
-            onDuplicateTask: vi.fn(),
-            onDeleteTask: vi.fn(),
-            navigation: fakeNavigation(),
-            displayConfig: { showCompleted: false, autoSortCompleted: false },
+            displayConfig: { showCompleted: true, autoSortCompleted: true },
           })}
         </>
       );
 
       expect(queryByText('Submit expenses')).not.toBeInTheDocument();
-    });
-
-    it('shows a completed, past-due task in the Upcoming section (not Overdue) when showCompleted is true', () => {
-      const completedOverdue = task({ text: 'Old report', completed: true, dueDate: '2026-07-01' });
-
-      const { getByText, queryByText } = render(
-        <>
-          {renderTasksByDate({
-            tasks: [completedOverdue],
-            workspace: new Workspace(),
-            onToggleComplete: vi.fn(),
-            onOpenTask: vi.fn(),
-            onChangeDueDate: vi.fn(),
-            onDuplicateTask: vi.fn(),
-            onDeleteTask: vi.fn(),
-            navigation: fakeNavigation(),
-            displayConfig: { showCompleted: true, autoSortCompleted: false },
-          })}
-        </>
-      );
-
-      expect(getByText('Old report')).toBeInTheDocument();
-      expect(getByText('Upcoming')).toBeInTheDocument();
-      expect(queryByText('Overdue')).not.toBeInTheDocument();
-    });
-
-    it('auto-sort off still sorts a mixed complete+incomplete Today section alphabetically by title', () => {
-      const completed = task({ text: 'Completed task', completed: true, dueDate: '2026-08-04' });
-      const active1 = task({ text: 'Active task 1', dueDate: '2026-08-04' });
-      const active2 = task({ text: 'Active task 2', dueDate: '2026-08-04' });
-
-      const { container } = render(
-        <>
-          {renderTasksByDate({
-            tasks: [completed, active1, active2],
-            workspace: new Workspace(),
-            onToggleComplete: vi.fn(),
-            onOpenTask: vi.fn(),
-            onChangeDueDate: vi.fn(),
-            onDuplicateTask: vi.fn(),
-            onDeleteTask: vi.fn(),
-            navigation: fakeNavigation(),
-            displayConfig: { showCompleted: true, autoSortCompleted: false },
-          })}
-        </>
-      );
-
-      const titles = Array.from(container.querySelectorAll('.task-title')).map((el) => el.textContent);
-      expect(titles).toEqual(['Active task 1', 'Active task 2', 'Completed task']);
-    });
-
-    it('auto-sort on moves the completed task to the bottom of the Today section', () => {
-      const completed = task({ text: 'Completed task', completed: true, dueDate: '2026-08-04' });
-      const active1 = task({ text: 'Active task 1', dueDate: '2026-08-04' });
-      const active2 = task({ text: 'Active task 2', dueDate: '2026-08-04' });
-
-      const { container } = render(
-        <>
-          {renderTasksByDate({
-            tasks: [completed, active1, active2],
-            workspace: new Workspace(),
-            onToggleComplete: vi.fn(),
-            onOpenTask: vi.fn(),
-            onChangeDueDate: vi.fn(),
-            onDuplicateTask: vi.fn(),
-            onDeleteTask: vi.fn(),
-            navigation: fakeNavigation(),
-            displayConfig: { showCompleted: true, autoSortCompleted: true },
-          })}
-        </>
-      );
-
-      const titles = Array.from(container.querySelectorAll('.task-title')).map((el) => el.textContent);
-      expect(titles).toEqual(['Active task 1', 'Active task 2', 'Completed task']);
-    });
-
-    it('turning Show completed off does not reset a previously-enabled Auto-sort completed — re-enabling Show completed keeps auto-sort applied', () => {
-      const completed = task({ text: 'Completed task', completed: true, dueDate: '2026-08-04' });
-      const active = task({ text: 'Active task', dueDate: '2026-08-04' });
-
-      // Simulates: both were on, the user turned Show completed off (auto-sort
-      // preference itself is untouched in the persisted config), then back on.
-      const { container } = render(
-        <>
-          {renderTasksByDate({
-            tasks: [completed, active],
-            workspace: new Workspace(),
-            onToggleComplete: vi.fn(),
-            onOpenTask: vi.fn(),
-            onChangeDueDate: vi.fn(),
-            onDuplicateTask: vi.fn(),
-            onDeleteTask: vi.fn(),
-            navigation: fakeNavigation(),
-            displayConfig: { showCompleted: true, autoSortCompleted: true },
-          })}
-        </>
-      );
-
-      const titles = Array.from(container.querySelectorAll('.task-title')).map((el) => el.textContent);
-      expect(titles).toEqual(['Active task', 'Completed task']);
+      expect(queryByText('Old report')).not.toBeInTheDocument();
+      expect(queryByText('Completed unplanned')).not.toBeInTheDocument();
+      expect(container.querySelectorAll('.task-title')).toHaveLength(1);
+      expect(container.querySelector('.task-title')).toHaveTextContent('Active today');
     });
   });
 });
@@ -840,7 +725,7 @@ describe('renderTasksByDate: Today empty state', () => {
     expect(getByText(MESSAGE)).toBeVisible();
   });
 
-  it('says the same line when every task due today is completed and completed tasks are hidden', () => {
+  it('says the all-clear line when every task due today is completed', () => {
     const { getByText, queryByText } = renderToday(
       [task({ text: 'Done', dueDate: '2026-08-04', completed: true })],
       { showCompleted: false, autoSortCompleted: false }
@@ -850,14 +735,14 @@ describe('renderTasksByDate: Today empty state', () => {
     expect(queryByText('Done')).toBeNull();
   });
 
-  it('shows the completed rows, not the line, when completed tasks are shown', () => {
+  it('keeps completed tasks out of Today and shows the all-clear line', () => {
     const { getByText, queryByText } = renderToday(
       [task({ text: 'Done', dueDate: '2026-08-04', completed: true })],
       { showCompleted: true, autoSortCompleted: false }
     );
 
-    expect(getByText('Done')).toBeVisible();
-    expect(queryByText(MESSAGE)).toBeNull();
+    expect(queryByText('Done')).toBeNull();
+    expect(getByText(MESSAGE)).toBeVisible();
   });
 
   it('shows no line while a task is still due today', () => {
