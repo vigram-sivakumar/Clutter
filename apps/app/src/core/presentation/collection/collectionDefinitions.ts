@@ -19,7 +19,7 @@ import type { MembershipSelector } from '@core/application/membership/Membership
 import type { FilteredView } from '@core/workspace/Workspace';
 import type { PropertyId } from '@core/properties/collectionProperties';
 import type { CollectionSort } from '@core/properties/collectionSort';
-import type { CollectionLayout } from '@core/properties/collectionViewConfig';
+import type { CollectionGroupBy, CollectionLayout } from '@core/properties/collectionViewConfig';
 
 import { getSystemLocationForFolder } from '../systemPresentation';
 
@@ -75,6 +75,8 @@ export interface CollectionDefinition {
   readonly defaultVisibleByLayout?: Partial<Record<CollectionLayout, readonly PropertyId[]>>;
   readonly layouts: readonly CollectionLayout[];
   readonly defaultLayout: CollectionLayout;
+  /** The initial grouping for collections that support it; an explicit user choice always wins. */
+  readonly defaultGroupBy?: CollectionGroupBy;
   readonly defaultSort: CollectionSort;
   readonly actions: CollectionActions;
   readonly behavior?: CollectionBehavior;
@@ -237,6 +239,7 @@ export const TASKS_COLLECTION: CollectionDefinition = {
   defaultVisibleByLayout: { list: ['name', 'dueDate'] },
   layouts: ['list'],
   defaultLayout: 'list',
+  defaultGroupBy: 'dueDate',
   defaultSort: DEFAULT_SORT,
   actions: { create: true },
   required: { list: ['name'] },
@@ -246,6 +249,7 @@ export const TASKS_COLLECTION: CollectionDefinition = {
 export const TASK_INBOX_COLLECTION: CollectionDefinition = {
   ...TASKS_COLLECTION,
   emptyMessage: 'Tasks you create in Inbox will appear here',
+  defaultGroupBy: 'none',
   properties: ['name', 'dueDate'],
   defaultVisible: ['name', 'dueDate'],
 };
