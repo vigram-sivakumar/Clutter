@@ -14,7 +14,8 @@
  * 5 = parsed tasks carry `dueTime` (commit b104c0aa), so a cache entry written before it lacks the field. The golden-corpus test
  * (`parserGolden.test.ts`) fails if the output changes without a bump;
  * 6 = indented code is standard CommonMark again (`IndentedCode` is no longer removed from the grammar), so a line indented
- * four or more columns after a blank line is code, and the tags, tasks and links inside it are no longer extracted.
+ * four or more columns after a blank line is code, and the tags, tasks and links inside it are no longer extracted;
+ * 7 = `iconImage` became an owned frontmatter key for page and folder icon assets.
  *
  * The dependency versions — the resolved versions of the packages the
  * analyzer's grammar depends on, injected at build time (see vite.config.ts) —
@@ -22,7 +23,7 @@
  * version number did not change; that is managed by lockfile-controlled
  * installs, the golden-corpus test and `PARSER_VERSION`.
  */
-export const PARSER_VERSION = 6;
+export const PARSER_VERSION = 7;
 
 declare const __PARSE_DEPENDENCY_VERSIONS__: Record<string, string> | undefined;
 
