@@ -4,6 +4,7 @@ export interface FolderFrontmatter {
   id?: string;
 
   icon?: string;
+  iconImage?: string;
   favorite?: boolean;
   description?: string;
   cover?: string;
