@@ -426,7 +426,7 @@ describe('TasksCollectionBody', () => {
         <TasksCollectionBody
           view="tasks-all"
           tasks={[task({ text: 'Plan trip', dueDate: '2026-08-20' })]}
-          collectionView={view}
+          collectionView={resolveCollectionView(TASKS_COLLECTION, { layout: 'table', groupBy: 'none', listPropertyOverrides: { source: true } })}
           getSource={source}
           {...noop}
         />
@@ -870,7 +870,12 @@ describe('TasksCollectionBody', () => {
       '%s: draws its dataset as generic CollectionDataList rows, with the bottom spacer',
       (view) => {
         const { container } = render(
-          <TasksCollectionBody view={view} tasks={everyDataset} {...noop} />
+          <TasksCollectionBody
+            view={view}
+            tasks={everyDataset}
+            collectionView={resolveCollectionView(TASKS_COLLECTION, { groupBy: 'none' })}
+            {...noop}
+          />
         );
 
         expect(container.querySelector('.collection-list')).not.toBeNull();
@@ -916,6 +921,7 @@ describe('TasksCollectionBody', () => {
               groupBy: 'none',
               propertyOverrides: { source: false },
               sort: { property: 'name', direction: 'up' },
+              groupBy: 'none',
             })}
             {...noop}
           />
