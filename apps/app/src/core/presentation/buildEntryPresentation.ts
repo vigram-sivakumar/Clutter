@@ -16,6 +16,7 @@ import { getPageIcon } from './getPageIcon';
  */
 export type EntryPresentationPageInput = PageDisplayLabelInput & {
   readonly icon: string | null;
+  readonly iconImage?: string | null;
 };
 
 function isFolder(
@@ -45,6 +46,7 @@ export function buildEntryPresentation(entry: Folder | EntryPresentationPageInpu
       titleStyle: getPageDisplayLabelStyle(label),
       icon: getPageIcon('folder'),
       emoji: entry.metadata.icon,
+      iconImage: entry.metadata.iconImage ?? null,
     };
   }
 
@@ -55,5 +57,6 @@ export function buildEntryPresentation(entry: Folder | EntryPresentationPageInpu
     titleStyle: getPageDisplayLabelStyle(label),
     icon: getPageIcon(entry.type, entry.type === 'daily-note' && isToday(entry.name)),
     emoji: entry.icon,
+    iconImage: entry.iconImage ?? null,
   };
 }
