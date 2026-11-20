@@ -141,6 +141,7 @@ export function PageHeaderControls({
               systemIcon={fallbackIcon}
               imageSrc={iconImageSrc}
               onImageError={onIconImageError}
+              strokeWidth={0.8}
               size="large"
             />
           </Button>
@@ -179,6 +180,7 @@ export function PageHeaderControls({
             systemIcon={fallbackIcon}
             imageSrc={iconImageSrc}
             onImageError={onIconImageError}
+            strokeWidth={0.8}
             size="large"
           />
         </span>
@@ -190,7 +192,7 @@ export function PageHeaderControls({
       )}
       {icon && (
         <span className="page-header-controls__icon">
-          <PageIcon systemIcon={icon} size="large" />
+          <PageIcon systemIcon={icon} strokeWidth={0.8} size="large" />
         </span>
       )}
       {showMoreActions && (
