@@ -128,7 +128,7 @@ export function PageHeaderControls({
       {hasUserIcon && onSelectEmoji && onUploadIconImage && (
         <>
           <Button
-            className="page-header-controls__emoji page-header-controls__emoji--static"
+            className="page-header-controls__emoji"
             ref={iconButtonRef}
             isIconOnly
             variant="ghost"
@@ -172,7 +172,7 @@ export function PageHeaderControls({
         </>
       )}
       {hasUserIcon && (!onSelectEmoji || !onUploadIconImage) && (
-        <span className="page-header-controls__emoji">
+        <span className="page-header-controls__emoji page-header-controls__emoji--static">
           <PageIcon
             emoji={emoji}
             systemIcon={fallbackIcon}
