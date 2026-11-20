@@ -27,6 +27,8 @@ export interface CoverCredit {
 
 export interface PageMetadata {
   readonly icon: string | null;
+  /** Vault-relative image asset used instead of the emoji icon when valid. */
+  readonly iconImage?: string | null;
   readonly cover: string | null;
   /**
    * The credit for `cover`, when it is an Unsplash photo picked through
