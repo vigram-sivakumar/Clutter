@@ -194,9 +194,16 @@ export function TasksCollectionBody({
 
   if (entries.length === 0) {
     const hiddenInboxTasks = view === 'tasks-inbox' && tasksForView(view, tasks, { showCompleted: true }, inboxPageId).length > 0;
+    const emptyMessage = view === 'tasks-completed'
+      ? 'No completed tasks'
+      : view === 'tasks-all' && tasks.some((task) => task.completed)
+        ? 'No active tasks'
+        : hiddenInboxTasks
+          ? 'No tasks to show with the current settings'
+          : (view === 'tasks-inbox' ? TASK_INBOX_COLLECTION : TASKS_COLLECTION).emptyMessage;
     return (
       <TasksPageBody>
-        <CollectionEmptyState message={hiddenInboxTasks ? 'No tasks to show with the current settings' : (view === 'tasks-inbox' ? TASK_INBOX_COLLECTION : TASKS_COLLECTION).emptyMessage} />
+        <CollectionEmptyState message={emptyMessage} />
       </TasksPageBody>
     );
   }
