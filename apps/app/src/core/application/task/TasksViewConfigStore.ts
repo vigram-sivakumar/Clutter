@@ -6,20 +6,19 @@ import { WORKSPACE_STATE_RELATIVE_PATH } from '../../vault/initialize/ReservedRe
 import type { VaultFileSystem } from '../../vault/providers/VaultFileSystem';
 
 /**
- * The Tasks sidebar's persisted display preferences — whether completed
- * tasks show at all in the Today/Everything else sections, and whether
- * they're auto-sorted to the bottom of their section when shown. A single,
- * shared entry, not one per section: Today and Everything else both read
- * and write the same `tasksViewConfig` key, so the Settings page and
- * Tasks collection menu always reflect the same choices.
+ * Persisted Tasks collection/sidebar presentation state. The completion
+ * fields are legacy preferences retained for existing Inbox collection
+ * behaviour; they are no longer exposed in Settings and do not control
+ * sidebar membership. `selectedTab` and `hiddenGroups` remain active
+ * presentation preferences.
  *
- * Every field is optional, resolved to its ordinary default by the caller
- * (`groupTasks.ts`'s `DEFAULT_TASK_DISPLAY_CONFIG`) — this store has no
- * opinion on what those defaults are, the same posture
- * `PersistedCollectionViewConfig`'s own doc comment documents.
+ * Every field is optional and resolved by its caller, matching
+ * `PersistedCollectionViewConfig`'s own storage contract.
  */
 export interface PersistedTasksViewConfig {
+  /** Legacy Inbox collection visibility preference; no longer controls the sidebar. */
   readonly showCompleted?: boolean;
+  /** Legacy Inbox collection ordering preference; no longer controls the sidebar. */
   readonly autoSortCompleted?: boolean;
   /** Sidebar group ids (`today`/`overdue`/`upcoming`/`unscheduled`) the user has hidden. */
   readonly hiddenGroups?: readonly string[];
