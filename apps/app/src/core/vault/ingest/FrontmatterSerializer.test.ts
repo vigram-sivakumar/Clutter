@@ -70,6 +70,18 @@ describe('FrontmatterSerializer round-trip', () => {
     expect(serializer.serializePage(dailyNotePage)).not.toContain('type:');
   });
 
+  it('round-trips a vault-relative iconImage reference', () => {
+    const page = makePage({
+      metadata: { ...makePage().metadata, icon: null, iconImage: 'Assets/page-icon.png' },
+    });
+
+    const frontmatterBlock = serializer.serializePage(page);
+    const parsed = parser.parse(`${frontmatterBlock}\n`);
+
+    expect(frontmatterBlock).toContain('iconImage: Assets/page-icon.png');
+    expect(parsed.frontmatter.iconImage).toBe('Assets/page-icon.png');
+  });
+
   it('produces deterministic output for identical Page models', () => {
     const page = makePage();
 
