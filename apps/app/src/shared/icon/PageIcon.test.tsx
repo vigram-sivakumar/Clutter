@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getPageIcon } from '@core/presentation/getPageIcon';
 import { PageIcon } from './PageIcon';
+
+afterEach(cleanup);
 
 describe('PageIcon', () => {
   it.each([
