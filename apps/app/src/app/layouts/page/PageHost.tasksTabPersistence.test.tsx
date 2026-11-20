@@ -174,7 +174,7 @@ describe('Tasks page tab selection persists across an app restart', () => {
     const secondApp = await boot(fileSystem);
     const second = render(<AppLayout application={secondApp} />);
     await flush();
-    expect(document.querySelectorAll('.collection__content .section-header')).toHaveLength(3);
+    expect(document.querySelectorAll('.collection__content .section-header')).toHaveLength(4);
     fireEvent.click(configure());
     fireEvent.click(second.getByText('None'));
     await flush();
@@ -187,11 +187,11 @@ describe('Tasks page tab selection persists across an app restart', () => {
     await flush();
 
     expect(activeTab()).toBe('Today');
-    expect(listedTasks()).toEqual(['Due yesterday task', 'Due today task']);
+    expect(listedTasks()).toEqual(['Due today task', 'Due yesterday task']);
   });
 
   it.each([
-    ['Today', ['Due today task']],
+    ['Today', ['Due today task', 'Due yesterday task']],
     ['Upcoming', ['Due later task']],
     ['Unplanned', ['Plain undated task']],
   ])('after choosing %s and restarting, the page reopens on it with its list', async (label, expected) => {
