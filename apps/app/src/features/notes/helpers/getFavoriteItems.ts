@@ -23,7 +23,7 @@ function toFavoriteItem(
     name: entry.name,
     titleStyle,
     emoji,
-    iconImage,
+    ...(iconImage && { iconImage }),
     type: isPage ? 'note' : 'folder',
     // Favorites list only items outside Archive/ (location decides), so a folder here is active
     // whatever stale provenance its own status carries.
