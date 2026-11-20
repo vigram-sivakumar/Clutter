@@ -63,8 +63,7 @@ interface TaskRowOptions {
 
 // A due date is never worth showing when it's today — whichever section a
 // row is in already conveys "today" by construction, so the label would
-// just repeat it. Any other date (including a completed task's past or
-// future due date, when Show completed surfaces it in Everything else) is
+// just repeat it. Any other date is
 // shown normally.
 //
 // Time follows the same "don't repeat what the context already says"
@@ -139,8 +138,8 @@ function renderTaskList(
 
 export interface RenderTodayContentProps
   extends TaskRowCallbacks, TaskRowResolvers {
-  // Pre-grouped, not raw tasks, and already filtered/ordered per the
-  // Tasks-view display config (groupTasks) — the outer Section
+  // Pre-grouped, not raw tasks, and already filtered to active tasks and
+  // ordered by groupTasks — the outer Section
   // (renderTasksByDate) and the Today collection page (TasksCollectionBody)
   // both need this same array to decide their own default-expansion/
   // emptiness, so grouping happens once at whichever call site owns that
@@ -189,9 +188,7 @@ export interface RenderOverdueContentProps
 
 /**
  * The Overdue section's content only — no outer Section wrapper, same reuse
- * reasoning as renderTodayContent. Overdue is never affected by Show
- * completed/Auto-sort completed (groupTasks.ts never puts a completed task
- * in this group), so there is nothing for those preferences to do here.
+ * reasoning as renderTodayContent. The sidebar only receives active tasks.
  */
 export function renderOverdueContent({
   overdue,
@@ -262,13 +259,7 @@ interface RenderTasksByDateProps extends TaskRowCallbacks, TaskRowResolvers {
   readonly workspace: Workspace;
   /** Unused by the section headers now (they only expand/collapse); kept so callers and the Collection routes stay untouched. */
   readonly navigation?: NavigationRouter;
-  /**
-   * The shared Tasks-view Show completed / Auto-sort completed preference
-   * — applied identically to every group. Read-only here: the one control
-   * that changes it is the All Tasks row's settings action
-   * (TasksShortcuts.tsx), never a group header. Defaults to
-   * DEFAULT_TASK_DISPLAY_CONFIG for callers (most tests) that don't care.
-   */
+  /** Presentation preferences for the sidebar, currently only its hidden groups. */
   readonly displayConfig?: TaskDisplayConfig;
   /** Groups the user has expanded with their "N more" row — shown in full, with a "Show less" row to fold back. Session-only; the owner decides its lifetime. */
   readonly expandedGroups?: readonly TaskExpansionKey[];
