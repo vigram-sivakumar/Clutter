@@ -6,6 +6,8 @@
  */
 const STORAGE_KEY = 'clutter-launch-at-login-initialized';
 
+export const LAUNCH_AT_LOGIN_STATUS_CHANGED_EVENT = 'clutter-launch-at-login-status-changed';
+
 export function hasInitializedLaunchAtLogin(): boolean {
   try {
     return localStorage.getItem(STORAGE_KEY) === 'true';
