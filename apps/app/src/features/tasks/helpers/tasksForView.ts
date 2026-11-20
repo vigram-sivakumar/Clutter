@@ -10,8 +10,8 @@ import { classifyDueDate } from './taskDueDate';
 export type TaskViewKind = 'tasks-inbox' | 'tasks-all' | 'tasks-completed' | 'tasks-today' | 'tasks-overdue' | 'tasks-upcoming' | 'tasks-unscheduled';
 
 /**
- * The slice of the shared Tasks-view display preference that decides MEMBERSHIP (the other half,
- * Auto-sort completed, is ordering and belongs to the collection).
+ * The legacy Show completed preference still controls Inbox membership. The All Tasks tab datasets
+ * now have explicit active/completed membership and do not consult this preference.
  */
 export interface TaskViewMembershipConfig {
   readonly showCompleted: boolean;
