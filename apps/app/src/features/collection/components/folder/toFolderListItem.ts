@@ -1,4 +1,6 @@
 import type { CollectionDataListItem } from '@features/collection/components/list/CollectionDataList';
+import { PageIcon } from '@shared/icon';
+import { getPageIcon } from '@core/presentation/getPageIcon';
 import type { CollectionDataTableRow } from '@features/collection/components/table/CollectionDataTable';
 import type { PropertyId } from '@core/properties/collectionProperties';
 
@@ -25,6 +27,7 @@ export function folderSummary(entry: CollectionEntryModel): string | undefined {
 export interface FolderRowOptions {
   /** The visible properties (from the resolved view). A folder has only the values its adapter fills (its name, and an archive date in the Archive). */
   readonly visible: readonly PropertyId[];
+  readonly resolveIconImage?(reference: string | null | undefined): string | null;
 }
 
 /**
@@ -32,11 +35,12 @@ export interface FolderRowOptions {
  * they are cards). The contents line ("1 subfolder · 1 note") goes in the description slot, and the
  * visible values (like the archive date) go in the trailing run.
  */
-export function toFolderListItem(entry: CollectionEntryModel, { visible }: FolderRowOptions): CollectionDataListItem {
+export function toFolderListItem(entry: CollectionEntryModel, { visible, resolveIconImage }: FolderRowOptions): CollectionDataListItem {
   return {
     id: entry.id,
     icon: 'folder',
     emoji: entry.emoji ?? undefined,
+    leading: <PageIcon systemIcon={getPageIcon('folder')} emoji={entry.emoji} imageSrc={resolveIconImage?.(entry.iconImage)} size="medium" />,
     title: entry.values.name,
     description: folderSummary(entry),
     metadata: valueProperties(visible)
@@ -48,7 +52,7 @@ export function toFolderListItem(entry: CollectionEntryModel, { visible }: Folde
 }
 
 /** A folder as a row of the generic collection table: the same name cell and summary, then its property values. */
-export function toFolderTableRow(entry: CollectionEntryModel, { visible }: FolderRowOptions): CollectionDataTableRow {
+export function toFolderTableRow(entry: CollectionEntryModel, { visible, resolveIconImage }: FolderRowOptions): CollectionDataTableRow {
   return {
     id: entry.id,
     cells: {
@@ -56,6 +60,7 @@ export function toFolderTableRow(entry: CollectionEntryModel, { visible }: Folde
         variant: 'header',
         icon: 'folder',
         emoji: entry.emoji ?? undefined,
+        leading: <PageIcon systemIcon={getPageIcon('folder')} emoji={entry.emoji} imageSrc={resolveIconImage?.(entry.iconImage)} size="medium" />,
         title: entry.values.name,
         description: folderSummary(entry),
       },
