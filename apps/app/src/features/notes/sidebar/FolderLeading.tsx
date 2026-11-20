@@ -1,9 +1,10 @@
 import { Caret } from '@components/caret/Caret';
-import { AppIcon } from '@shared/icon';
+import { PageIcon } from '@shared/icon';
 import { getPageIcon } from '@core/presentation/getPageIcon';
 
 interface FolderLeadingProps {
   emoji?: string | null;
+  imageSrc?: string | null;
   isEmpty?: boolean;
   hasCaret?: boolean;
   isExpanded?: boolean;
@@ -20,6 +21,7 @@ interface FolderLeadingProps {
  */
 export function FolderLeading({
   emoji,
+  imageSrc,
   isEmpty = false,
   hasCaret = true,
   isExpanded = false,
@@ -50,10 +52,12 @@ export function FolderLeading({
         </span>
       )}
 
-      <AppIcon
+      <PageIcon
         className="folder__icon"
-        icon={getPageIcon('folder')}
+        systemIcon={getPageIcon('folder')}
         emoji={emoji}
+        imageSrc={imageSrc}
+        size="small"
       />
     </span>
   );
