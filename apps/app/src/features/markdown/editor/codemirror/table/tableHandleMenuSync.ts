@@ -10,7 +10,7 @@ import { tableSelectionField, type TableSelection } from './tableSelection';
  *
  * `Extract<TableSelection, {kind:'row'}|{kind:'column'}>` — never `range`:
  * only the row/column handles have a menu at all (`tableHandleOverlay.ts`'s
- * own click handlers are the only callers that ever construct one of
+ * own pointerup handler is the only caller that constructs one of
  * these).
  */
 export type TableHandleMenuSelection = Extract<TableSelection, { kind: 'row' } | { kind: 'column' }>;
@@ -53,14 +53,14 @@ export { TABLE_HANDLE_MENU_CLASS } from './tableSelection';
  * Deliberately does **not** fire when the selection changes from one
  * non-null value to a different one (row → another row, row → column,
  * etc.) — that transition is exactly a handle click, and
- * `tableHandleOverlay.ts`'s own click handler already calls
- * `OnTableHandleMenuChange` directly with the new anchor/selection right
- * after dispatching, which is the only place a real anchor *element* is
- * available (a `StateField`/`Transaction` has no DOM access at all, so
+ * `tableHandleOverlay.ts`'s document-level pointerup handler calls
+ * `OnTableHandleMenuChange` directly with the new anchor/selection after
+ * the selection dispatch and any synchronous widget rebuild, which is the
+ * only place a fresh anchor *element* is available (a `StateField`/`Transaction` has no DOM access at all, so
  * "open with this specific handle as anchor" can never be derived from
  * state alone the way "close" can). Firing here too would be redundant at
  * best; since it also has no anchor to offer, it could only ever close the
- * menu, immediately fighting the click handler's own very next call to
+ * menu, immediately fighting the pointerup handler's own call to
  * reopen it.
  */
 export function tableHandleMenuSync(getOnTableHandleMenuChange: () => OnTableHandleMenuChange | undefined): Extension {
