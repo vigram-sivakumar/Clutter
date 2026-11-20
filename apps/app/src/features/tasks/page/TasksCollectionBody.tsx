@@ -63,10 +63,8 @@ export interface TasksCollectionBodyProps {
   /** Deletes the task's line from its source note (never the note) — the row menu's Delete. Absent, the menu has none. */
   readonly onDeleteTask?: (task: TaskOccurrence) => void;
   /**
-   * The shared Tasks-view Show completed / Auto-sort completed preference (see groupTasks.ts's
-   * TaskDisplayConfig). Show completed decides MEMBERSHIP for the views that can hold both states and
-   * is applied by `tasksForView` (the rule is documented there); Auto-sort completed is ordering and is
-   * applied here. Defaults to DEFAULT_TASK_DISPLAY_CONFIG.
+   * Legacy persisted completion preferences. They remain relevant to the separate Inbox collection;
+   * All Tasks and its tabs now have explicit active/completed membership.
    */
   readonly displayConfig?: TaskDisplayConfig;
   /**
@@ -172,9 +170,8 @@ export function TasksCollectionBody({
     };
   };
 
-  // The view decides the dataset. Ordering: the collection's sort (Name A→Z by default). Auto-sort completed
-  // on moves completed tasks (newest-completed-first before sorting) below the incomplete ones, each group
-  // sorted by the chosen property; off leaves them in their sorted place among the rest.
+  // The view decides the dataset. Ordering uses the collection's sort (Name A→Z by default). The legacy
+  // auto-sort preference only has an effect on the separate Inbox collection, which can contain both states.
   const dataset = tasksForView(view, tasks, displayConfig, inboxPageId);
   const entries = displayConfig.autoSortCompleted
     ? [
