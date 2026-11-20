@@ -34,7 +34,9 @@ export interface MovedAssetReferenceDeps {
   /** Rewrites a note's text, an open editor's unsaved text included, archived notes included. */
   readonly writeBody: (pageId: string, transform: (markdown: string) => string) => Promise<void>;
   readonly writePageCover: (pageId: string, cover: string) => Promise<void>;
+  readonly writePageIconImage: (pageId: string, iconImage: string) => Promise<void>;
   readonly writeFolderCover: (folderId: string, cover: string) => Promise<void>;
+  readonly writeFolderIconImage: (folderId: string, iconImage: string) => Promise<void>;
   readonly writeAvatar: (reference: string) => Promise<void>;
 }
 
@@ -146,7 +148,9 @@ async function plan(
 
   const pagesToRewrite: Page[] = [];
   const pageCovers = new Map<string, string>();
+  const pageIconImages = new Map<string, string>();
   const folderCovers = new Map<string, string>();
+  const folderIconImages = new Map<string, string>();
   let avatar: string | undefined;
   const open = deps.openNoteMarkdown();
   const seenPages = new Set<string>();
@@ -200,7 +204,15 @@ async function plan(
     if (coverMatch.kind === 'exact' && coverMatch.move) {
       pageCovers.set(page.id, coverMatch.move.to);
     }
-    if (inText || coverMatch.kind === 'exact') {
+    const iconImage = page.metadata.iconImage?.trim() ?? '';
+    const iconMatch = match(iconImage);
+    if (iconMatch.kind === 'ambiguous') {
+      refuseSpelling(where, iconImage);
+    }
+    if (iconMatch.kind === 'exact' && iconMatch.move) {
+      pageIconImages.set(page.id, iconMatch.move.to);
+    }
+    if (inText || coverMatch.kind === 'exact' || iconMatch.kind === 'exact') {
       pagesToRewrite.push(page);
     }
   }
@@ -214,20 +226,18 @@ async function plan(
 
   for (const folder of deps.folders()) {
     const cover = folder.metadata.cover?.trim() ?? '';
-    const result = match(cover);
+    const coverMatch = match(cover);
+    const iconImage = folder.metadata.iconImage?.trim() ?? '';
+    const iconMatch = match(iconImage);
 
-    if (result.kind === 'none') {
-      continue;
-    }
-    if (result.kind === 'ambiguous') {
-      refuseSpelling(folder.path, cover);
-    }
+    if (coverMatch.kind === 'none' && iconMatch.kind === 'none') continue;
+    if (coverMatch.kind === 'ambiguous') refuseSpelling(folder.path, cover);
+    if (iconMatch.kind === 'ambiguous') refuseSpelling(folder.path, iconImage);
     if (deps.isFolderArchived(folder)) {
       throw new AssetMoveRefusedError('archived-folder', subject, folder.path);
     }
-    if (result.move) {
-      folderCovers.set(folder.id, result.move.to);
-    }
+    if (coverMatch.move) folderCovers.set(folder.id, coverMatch.move.to);
+    if (iconMatch.move) folderIconImages.set(folder.id, iconMatch.move.to);
   }
 
   const avatarSource = deps.avatarSource()?.trim() ?? '';
@@ -247,9 +257,13 @@ async function plan(
     }
   }
 
-  const referenceCount = pagesToRewrite.length + folderCovers.size + (avatar === undefined ? 0 : 1);
+  const folderReferenceIds = new Set([...folderCovers.keys(), ...folderIconImages.keys()]);
+  const referenceCount = pagesToRewrite.length + folderReferenceIds.size + (avatar === undefined ? 0 : 1);
 
-  return { referenceCount, commit: () => commit(deps, moves, pagesToRewrite, pageCovers, folderCovers, avatar) };
+  return {
+    referenceCount,
+    commit: () => commit(deps, moves, pagesToRewrite, pageCovers, pageIconImages, folderCovers, folderIconImages, avatar),
+  };
 }
 
 /**
@@ -261,7 +275,9 @@ async function commit(
   moves: readonly Move[],
   pages: readonly Page[],
   pageCovers: ReadonlyMap<string, string>,
+  pageIconImages: ReadonlyMap<string, string>,
   folderCovers: ReadonlyMap<string, string>,
+  folderIconImages: ReadonlyMap<string, string>,
   avatar: string | undefined
 ): Promise<AssetMoveReferenceSummary> {
   const failed: AssetReferenceFailure[] = [];
@@ -299,8 +315,10 @@ async function commit(
         : await attempt({ ...failure, usage: 'text' }, () => deps.writeBody(page.id, transform));
     const cover = pageCovers.get(page.id);
     const coverOk = cover === undefined ? true : await attempt({ ...failure, usage: 'cover' }, () => deps.writePageCover(page.id, cover));
+    const iconImage = pageIconImages.get(page.id);
+    const iconOk = iconImage === undefined ? true : await attempt({ ...failure, usage: 'icon' }, () => deps.writePageIconImage(page.id, iconImage));
 
-    if (bodyOk && coverOk) {
+    if (bodyOk && coverOk && iconOk) {
       updated += 1;
     }
   }
@@ -311,13 +329,15 @@ async function commit(
     foldersById.set(folder.id, folder);
   }
 
-  for (const [id, cover] of folderCovers) {
-    const ok = await attempt(
-      { kind: 'folder', id, path: foldersById.get(id)?.path ?? '', usage: 'cover' },
-      () => deps.writeFolderCover(id, cover)
-    );
-
-    updated += Number(ok);
+  const folderIds = new Set([...folderCovers.keys(), ...folderIconImages.keys()]);
+  for (const id of folderIds) {
+    const folder = foldersById.get(id);
+    const cover = folderCovers.get(id);
+    const iconImage = folderIconImages.get(id);
+    const failure = { kind: 'folder' as const, id, path: folder?.path ?? '' };
+    const coverOk = cover === undefined ? true : await attempt({ ...failure, usage: 'cover' }, () => deps.writeFolderCover(id, cover));
+    const iconOk = iconImage === undefined ? true : await attempt({ ...failure, usage: 'icon' }, () => deps.writeFolderIconImage(id, iconImage));
+    updated += Number(coverOk && iconOk);
   }
 
   if (avatar !== undefined) {
