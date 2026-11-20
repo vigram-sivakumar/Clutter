@@ -1,4 +1,6 @@
 import { showsDescriptionSnippet } from './toNoteTagContent';
+import { PageIcon } from '@shared/icon';
+import { getPageIcon } from '@core/presentation/getPageIcon';
 import { CardDivider } from '@features/collection/components/card/CardDivider';
 import { CardTitleSection } from '@features/collection/components/card/CardTitleSection';
 import type { CollectionCardProps } from '@features/collection/components/card/CollectionCard';
@@ -25,6 +27,7 @@ export interface NoteCardOptions {
   readonly visible: readonly PropertyId[];
   /** Resolves the cover and the Markdown's links/embeds for the page canvas. */
   readonly resolvers?: NotePreviewResolvers;
+  readonly resolveIconImage?(reference: string | null | undefined): string | null;
   /** Draws a rule between the header and the page. The page decides whether to show it (the header-separator setting); the mapper only draws it. */
   readonly divider?: boolean;
 }
@@ -39,7 +42,7 @@ export interface NoteCardOptions {
  */
 export function toNoteCardProps(
   entry: CollectionEntryModel,
-  { visible, resolvers, divider }: NoteCardOptions
+  { visible, resolvers, resolveIconImage, divider }: NoteCardOptions
 ): CollectionCardProps {
   // Every visible plain-value property the note has a value for (Created, Edited), each one plain line.
   const dates = cardMetadataLines(entry.values, visible).map((line) => `${line.label} ${line.value}`);
@@ -52,6 +55,7 @@ export function toNoteCardProps(
       <CardTitleSection
         icon="note"
         emoji={entry.emoji ?? undefined}
+        leading={<PageIcon systemIcon={getPageIcon('note')} emoji={entry.emoji} imageSrc={resolveIconImage?.(entry.iconImage)} size="medium" />}
         title={entry.values.name}
         description={showsDescriptionSnippet(entry, visible) ? entry.values.description : undefined}
         metadata={dates}
