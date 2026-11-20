@@ -162,7 +162,8 @@ describe('Tasks page tab selection persists across an app restart', () => {
     expect(document.querySelectorAll('.collection__content .section-header')).toHaveLength(3);
     expect(first.queryByText('Layout')).toBeNull();
     expect(first.queryByText('Properties')).toBeNull();
-    expect(first.getByText('Show completed')).toBeInTheDocument();
+    expect(first.queryByText('Show completed')).toBeNull();
+    expect(first.queryByText('Auto-sort completed')).toBeNull();
     expect(document.querySelector('.collection-table')).toBeNull();
     expect(document.querySelector('.collection-list')).not.toBeNull();
     expect(firstApp.collectionViewConfigStore.get('view:tasks')).toMatchObject({ groupBy: 'dueDate', layout: 'table' });
@@ -191,7 +192,7 @@ describe('Tasks page tab selection persists across an app restart', () => {
   it.each([
     ['Today', ['Due today task']],
     ['Upcoming', ['Due later task']],
-    ['Unscheduled', ['Plain undated task']],
+    ['Unplanned', ['Plain undated task']],
   ])('after choosing %s and restarting, the page reopens on it with its list', async (label, expected) => {
     const fileSystem = new InMemoryVaultFileSystem();
 
