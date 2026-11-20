@@ -1433,14 +1433,13 @@ describe('FolderOperations.updateMetadata() (iconImage)', () => {
   });
 
   it('clears only iconImage when the emoji fallback should remain', async () => {
-    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const base = makeFolder('folder-1', `${ROOT}/Projects`);
+    const folder = { ...base, metadata: { ...base.metadata, icon: '📁', iconImage: 'Assets/folder-icon.png' } };
     const { vault, folderOperations } = setup([folder]);
 
-    await folderOperations.updateMetadata('folder-1', { icon: '📁' });
-    await folderOperations.updateMetadata('folder-1', { iconImage: 'Assets/folder-icon.png' });
     await folderOperations.updateMetadata('folder-1', { iconImage: null });
 
-    expect(vault.getFolder('folder-1')!.metadata.icon).toBeNull();
+    expect(vault.getFolder('folder-1')!.metadata.icon).toBe('📁');
     expect(vault.getFolder('folder-1')!.metadata.iconImage).toBeNull();
   });
 });
