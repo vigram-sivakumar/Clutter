@@ -3,6 +3,10 @@ import { invoke, isTauri } from '@tauri-apps/api/core';
 import { Button } from '@components/button/Button';
 import { Switch } from '@components/switch/Switch';
 import { SettingsEntry } from '../settings-entry/SettingsEntry';
+import {
+  LAUNCH_AT_LOGIN_STATUS_CHANGED_EVENT,
+  markLaunchAtLoginInitialized,
+} from '@shared/helpers/launchAtLoginPreference';
 
 type LaunchAtLoginStatus =
   | 'enabled'
@@ -42,10 +46,12 @@ export function LaunchAtLoginSetting() {
     refreshStatus();
     // The user may change Clutter's Login Item in System Settings while this window is open.
     window.addEventListener('focus', refreshStatus);
+    window.addEventListener(LAUNCH_AT_LOGIN_STATUS_CHANGED_EVENT, refreshStatus);
 
     return () => {
       active = false;
       window.removeEventListener('focus', refreshStatus);
+      window.removeEventListener(LAUNCH_AT_LOGIN_STATUS_CHANGED_EVENT, refreshStatus);
     };
   }, []);
 
@@ -56,6 +62,7 @@ export function LaunchAtLoginSetting() {
     setError(undefined);
     try {
       const nextStatus = await invoke<string>('set_launch_at_login_enabled', { enabled });
+      markLaunchAtLoginInitialized();
       setStatus(nextStatus as LaunchAtLoginStatus);
     } catch (reason) {
       setError(String(reason));
