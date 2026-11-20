@@ -331,6 +331,38 @@ describe('getPageReferences', () => {
     ]);
   });
 
+  it('shows all tasks due on the open Daily Note date, including Tasks Inbox tasks without a link', () => {
+    const today = daily('2026-11-20', '');
+    const inbox = page(
+      'task-inbox',
+      'Inbox/Tasks.md',
+      '- [ ] Inbox task @2026-11-20\n- [x] Completed inbox task @2026-11-20',
+      { parentId: 'inbox-folder' }
+    );
+    const regular = page('planner', 'Planner.md', '- [ ] Planning task @2026-11-20');
+    const folders: Folder[] = [
+      { id: 'inbox-folder', name: 'Inbox', path: `${ROOT}/Inbox`, parentId: null, metadata: folderMeta },
+    ];
+    const references = getPageReferences(makeVault([today, inbox, regular], folders), today.id);
+
+    expect(references.tasks.map(({ task }) => task.text)).toEqual([
+      'Inbox task @2026-11-20',
+      'Planning task @2026-11-20',
+      'Completed inbox task @2026-11-20',
+    ]);
+    expect(references.tasks.map(({ page: source }) => source.id)).toEqual([
+      'task-inbox',
+      'planner',
+      'task-inbox',
+    ]);
+  });
+
+  it('does not repeat tasks already written in the open Daily Note', () => {
+    const today = daily('2026-11-20', '- [ ] Already here @2026-11-20');
+    const references = getPageReferences(makeVault([today]), today.id);
+
+    expect(references.tasks).toEqual([]);
+  });
   it('works for a daily note as the open page', () => {
     const today = daily('2026-10-11', '');
     const vault = makeVault([today, page('n', 'N.md', 'On [[Daily Notes/2026-10-11]] I decided')]);
@@ -370,7 +402,7 @@ describe('getPageReferences', () => {
     expect(ids(getPageReferences(vault, 'target').notes)).toEqual(['n']);
   });
 
-  it('reads the graph, never the vault-wide page or task lists, and reuses it until a mutation', () => {
+  it('reads the graph without scanning vault-wide pages or tasks for an ordinary note', () => {
     const vault = makeVault([TARGET, page('n', 'N.md', '- [ ] [[Projects/Target]]')]);
     const pages = vi.spyOn(vault, 'pages');
     const tasks = vi.spyOn(vault, 'tasks');
