@@ -323,19 +323,25 @@ export function TasksCollectionBody({
       <CollectionDataList className="task-list" items={items.map(itemOf)} />
     </Section>
   );
+  const renderDateGroups = (parentId: string, groups: readonly { date: string; items: readonly TaskEntry[] }[]) =>
+    groups.map(({ date, items }) => (
+      <Section key={date} {...sectionProps(`${parentId}:${date}`, formatTaskDueDateLong(date))}>
+        <CollectionDataList className="task-list" items={items.map(itemOf)} />
+      </Section>
+    ));
 
   return (
     <TasksPageBody>
-      {overdueGroups.length > 0 && renderGroup('overdue', 'Overdue', overdueGroups.flatMap(({ items }) => items))}
+      {overdueGroups.length > 0 && (
+        <Section key="overdue" {...sectionProps('overdue', 'Overdue')}>
+          {renderDateGroups('overdue', overdueGroups)}
+        </Section>
+      )}
       {todayGroup && renderGroup('today', 'Today', todayGroup.items)}
       {tomorrowGroup && renderGroup('tomorrow', 'Tomorrow', tomorrowGroup.items)}
       {upcomingGroups.length > 0 && (
         <Section key="upcoming" {...sectionProps('upcoming', 'Upcoming')}>
-          {upcomingGroups.map(({ date, items }) => (
-            <Section key={date} {...sectionProps(`upcoming:${date}`, formatTaskDueDateLong(date))}>
-              <CollectionDataList className="task-list" items={items.map(itemOf)} />
-            </Section>
-          ))}
+          {renderDateGroups('upcoming', upcomingGroups)}
         </Section>
       )}
       {unscheduledGroup && renderGroup('unscheduled', 'No date', unscheduledGroup.items)}
