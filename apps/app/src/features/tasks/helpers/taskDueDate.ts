@@ -1,4 +1,4 @@
-import { isPast, isToday } from '@shared/helpers/time';
+import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 import { isValidCalendarDate } from '@shared/helpers/time/helpers/isValidCalendarDate';
 
 /**
@@ -24,9 +24,12 @@ export function classifyDueDate(dueDate: string | undefined): DueDateRelation {
     return 'unscheduled';
   }
 
-  if (isToday(dueDate)) {
+  // Both values are validated/local YYYY-MM-DD calendar dates, so lexical comparison
+  // gives the correct day relation without introducing Date parsing or time-of-day effects.
+  const today = toISODate(new Date());
+  if (dueDate === today) {
     return 'today';
   }
 
-  return isPast(dueDate) ? 'past' : 'future';
+  return dueDate < today ? 'past' : 'future';
 }
