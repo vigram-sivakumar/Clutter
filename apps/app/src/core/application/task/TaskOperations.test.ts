@@ -1104,6 +1104,34 @@ describe('Task Inbox transfers', () => {
     expect([...env.vault.tasks()]).toHaveLength(count);
   });
 
+  it('moves completed tasks without due dates by completion date only', async () => {
+    const body = [
+      '- [x] Finished yesterday @completed:2026-11-19',
+      '- [ ] Still open',
+      '- [x] Missing completion date',
+      '- [x] Invalid due date @2026-13-45 @completed:2026-11-18',
+    ].join('\\n');
+    const env = setup(inbox(body));
+    await env.taskOperations.tidyInbox(ROOT, 'inbox-source');
+
+    expect(env.vault.getPage('inbox-source')!.source.markdown).toBe(
+      [
+        '- [ ] Still open',
+        '- [x] Missing completion date',
+        '- [x] Invalid due date @2026-13-45 @completed:2026-11-18',
+      ].join('\\n')
+    );
+
+    const { DailyNotePath } = await import('../../vault/ingest/DailyNotePath');
+    const yesterday = await env.pageOperations.ensureAtPath(
+      DailyNotePath.absoluteFrom(ROOT, new Date(2026, 10, 19)),
+      { type: 'daily-note' }
+    );
+    expect(env.vault.getPage(yesterday)!.source.markdown).toBe(
+      '- [x] Finished yesterday @completed:2026-11-19'
+    );
+  });
+
   it('resumes a failed source removal using private recovery metadata, including identical tasks', async () => {
     const env = setup(inbox('- [ ] Same @2026-11-20\n- [ ] Same @2026-11-20'));
     const persist = env.pageOperations.mutateBodyAndSave.bind(
