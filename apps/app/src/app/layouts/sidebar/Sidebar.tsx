@@ -220,6 +220,7 @@ export function Sidebar({
           folderOperations={folderOperations}
           effectivePageState={effectivePageState}
           activeDate={activeDailyNoteDate}
+          resolveIconImage={(reference) => application.resolvePageIconImageForDisplay(reference)}
           onOpen={(pageId) => pageOperations.open(pageId)}
           onOpenDraft={(pageId) => pageOperations.open(pageId)}
           onOpenDate={(date) =>
