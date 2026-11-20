@@ -4,7 +4,7 @@
 
 ## Context
 
-ADR-050 removed the unreachable Today / Overdue / Upcoming / Completed task *views* (navigation identities nobody could open) and noted that wiring the Tasks page's tab strip to Today / Upcoming would bring those membership rules back through a new ADR. The strip (All Tasks / Completed / Today / Overdue / Upcoming / Unscheduled) now lives in `PageTitleSection`'s `tabs` slot and should filter the list below it.
+ADR-050 removed the unreachable Today / Overdue / Upcoming / Completed task *views* (navigation identities nobody could open) and noted that wiring the Tasks page's tab strip to Today / Upcoming would bring those membership rules back through a new ADR. The strip (All Tasks / Completed / Today / Overdue / Upcoming / Unplanned) now lives in `PageTitleSection`'s `tabs` slot and should filter the list below it.
 
 ## Decision
 
