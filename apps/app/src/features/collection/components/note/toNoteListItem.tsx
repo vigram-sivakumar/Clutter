@@ -16,7 +16,7 @@ import type { CompactMarkdownResolvers } from '@features/markdown/render/renderC
 export interface NoteListItemOptions {
   /** How a Tag collection's matching content lines resolve their wiki links, tags and embeds (see `toNoteTagContent`). */
   readonly resolvers?: CompactMarkdownResolvers;
-  readonly resolveIconImage?(reference: string | null | undefined): string | null;
+  readonly resolveIconImage?: (reference: string | null | undefined) => string | null;
   /** The visible properties (from the resolved view) — a property that isn't visible is omitted, never a blanked-out but still-fetched value. */
   readonly visible: readonly PropertyId[];
   /**

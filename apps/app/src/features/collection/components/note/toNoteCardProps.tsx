@@ -27,7 +27,7 @@ export interface NoteCardOptions {
   readonly visible: readonly PropertyId[];
   /** Resolves the cover and the Markdown's links/embeds for the page canvas. */
   readonly resolvers?: NotePreviewResolvers;
-  readonly resolveIconImage?(reference: string | null | undefined): string | null;
+  readonly resolveIconImage?: (reference: string | null | undefined) => string | null;ull;
   /** Draws a rule between the header and the page. The page decides whether to show it (the header-separator setting); the mapper only draws it. */
   readonly divider?: boolean;
 }

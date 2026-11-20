@@ -25,7 +25,9 @@ const SHOW_EMPTY_DESCRIPTION_PLACEHOLDER = false;
 export interface NoteTableRowOptions {
   /** How a Tag collection's matching content lines resolve their wiki links, tags and embeds (see `toNoteTagContent`). */
   readonly resolvers?: CompactMarkdownResolvers;
-  readonly resolveIconImage?(reference: string | null | undefined): string | null;
+  readonly resolveIconImage?: (
+    reference: string | null | undefined
+  ) => string | null;
   /**
    * The visible properties (from the resolved view) — must be the same ones the table's columns
    * were built from. Description is not a column: it is drawn inside the Name cell (its
@@ -60,10 +62,20 @@ export function toNoteTableRow(
       variant: 'header',
       icon: 'note',
       emoji: entry.emoji ?? undefined,
-      leading: <PageIcon systemIcon={getPageIcon('note')} emoji={entry.emoji} imageSrc={resolveIconImage?.(entry.iconImage)} size="medium" />,
+      leading: (
+        <PageIcon
+          systemIcon={getPageIcon('note')}
+          emoji={entry.emoji}
+          imageSrc={resolveIconImage?.(entry.iconImage)}
+          size="medium"
+        />
+      ),
       title: entry.values.name,
       // Tag collection: a matching-content entry's Name is the line (see `toNoteTagContent`).
-      ...(tagContent && { leading: tagContent.leading, titleContent: tagContent.titleContent }),
+      ...(tagContent && {
+        leading: tagContent.leading,
+        titleContent: tagContent.titleContent,
+      }),
       description: showDescription ? entry.values.description : undefined,
       descriptionPlaceholder:
         showDescription && SHOW_EMPTY_DESCRIPTION_PLACEHOLDER
@@ -72,17 +84,29 @@ export function toNoteTableRow(
     },
     ...propertyValueCells(visible, entry.values),
     // A matching-content entry's Source is the same link the Task Collection draws (see `toNoteTagContent`).
-    ...(tagContent?.source && visible.includes('source') && { source: { variant: 'custom' as const, children: tagContent.source } }),
+    ...(tagContent?.source &&
+      visible.includes('source') && {
+        source: { variant: 'custom' as const, children: tagContent.source },
+      }),
   };
 
   if (visible.includes('cover') && cover) {
     cells.cover = {
       variant: 'media',
-      children: toNoteCoverImage(cover.url, entry.coverPositionAbove, noteCoverAttributionLabel(entry)),
+      children: toNoteCoverImage(
+        cover.url,
+        entry.coverPositionAbove,
+        noteCoverAttributionLabel(entry)
+      ),
       onClick: cover.onClick,
       label: cover.url ? 'Change cover image' : 'Add cover image',
     };
   }
 
-  return { id: entry.id, cells, isSelected: entry.selected, onClick: entry.onClick };
+  return {
+    id: entry.id,
+    cells,
+    isSelected: entry.selected,
+    onClick: entry.onClick,
+  };
 }

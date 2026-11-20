@@ -1,12 +1,26 @@
-import { useFileDropTarget, type FileDropOptions } from '@shared/hooks/useFileDropTarget';
+import {
+  useFileDropTarget,
+  type FileDropOptions,
+} from '@shared/hooks/useFileDropTarget';
 import type { PropertiesControl } from './header/propertiesControl';
 import type { CoverApplyResult } from './header/PageHeaderMoreActionsMenu';
 import { PageDivider, type DividerVariant } from './PageDivider';
-import { shouldShowHeaderSeparator, useHeaderSeparatorMode, useHeaderSeparatorStyle } from './headerSeparator';
+import {
+  shouldShowHeaderSeparator,
+  useHeaderSeparatorMode,
+  useHeaderSeparatorStyle,
+} from './headerSeparator';
 import type { PageHeaderControlsProps } from './header/PageHeaderControls';
 import type { CoverCredit } from '@core/vault/models/PageMetadata';
 import { useShortcutHandler } from '@app/shortcuts/ShortcutsProvider';
-import { useImperativeHandle, useRef, useState, type MouseEvent, type ReactNode, type RefObject } from 'react';
+import {
+  useImperativeHandle,
+  useRef,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import type { EditableTextHandle } from '@components/editable-text/EditableText.types';
 import type { SystemIcon } from '@shared/icon';
 import type { CoverLayout } from '@core/vault/models/PageMetadata';
@@ -285,6 +299,11 @@ export function Page({
   tabs,
   emoji,
   icon,
+  iconImageSrc,
+  hasIconImage,
+  fallbackIcon,
+  onUploadIconImage,
+  onIconImageError,
   showMoreActions,
   onSelectEmoji,
   onRemoveEmoji,
@@ -331,7 +350,12 @@ export function Page({
   descriptionKey,
 }: PageProps) {
   const pageRef = useRef<HTMLDivElement>(null);
-  const fileDropTarget = useFileDropTarget(pageRef, fileDrop?.onDrop, fileDrop?.onError ?? console.error, fileDrop?.targetFor);
+  const fileDropTarget = useFileDropTarget(
+    pageRef,
+    fileDrop?.onDrop,
+    fileDrop?.onError ?? console.error,
+    fileDrop?.targetFor
+  );
 
   // Responsive hide (AppLayout decides). Display-only — OR-ed into PageCover's `hidden` below and never
   // written to `coverHidden`, so the note's saved cover state is untouched.
@@ -343,7 +367,8 @@ export function Page({
   // section — its rows, or only its "Add a property" row — is on screen, which is exactly whether `properties` was given.
   const headerSeparatorMode = useHeaderSeparatorMode();
   const showHeaderSeparator =
-    appliesHeaderSeparator && shouldShowHeaderSeparator(headerSeparatorMode, Boolean(properties));
+    appliesHeaderSeparator &&
+    shouldShowHeaderSeparator(headerSeparatorMode, Boolean(properties));
   const headerSeparatorStyle = useHeaderSeparatorStyle();
   // The one place "is this entity missing its title" is decided for the
   // editing/identity surface — driven entirely by the title string the
@@ -358,7 +383,8 @@ export function Page({
   // it was still empty (showDescriptionEditor, PageHost's own transient
   // per-id state) — without the latter, an empty description would never
   // render at all, and "Add a description" would have nothing to focus.
-  const showDescription = Boolean(showDescriptionEditor) || Boolean(description);
+  const showDescription =
+    Boolean(showDescriptionEditor) || Boolean(description);
   // Mirrors shouldAutoFocusTitle's "only autofocus while genuinely
   // missing" rule: autofocus only the moment the editor is freshly opened
   // on a still-empty description, never when clicking back into an
@@ -418,7 +444,11 @@ export function Page({
     const order = ['title', 'description', 'body'] as const;
     const step = direction === 'up' ? -1 : 1;
 
-    for (let index = order.indexOf(from) + step; index >= 0 && index < order.length; index += step) {
+    for (
+      let index = order.indexOf(from) + step;
+      index >= 0 && index < order.length;
+      index += step
+    ) {
       const region = order[index];
 
       if (region === 'body') {
@@ -458,7 +488,10 @@ export function Page({
       return;
     }
     const target = event.target as Node;
-    if (target !== event.currentTarget && target.parentNode !== event.currentTarget) {
+    if (
+      target !== event.currentTarget &&
+      target.parentNode !== event.currentTarget
+    ) {
       return;
     }
     event.preventDefault();
@@ -466,7 +499,11 @@ export function Page({
   };
 
   return (
-    <div className="page" ref={pageRef} {...(fileDrop ? fileDropTarget.props : {})}>
+    <div
+      className="page"
+      ref={pageRef}
+      {...(fileDrop ? fileDropTarget.props : {})}
+    >
       {fileDropTarget.feedback}
       <div className="page__document">
         <PageTopBar
@@ -483,7 +520,11 @@ export function Page({
             <ArchivedBanner
               archivedAt={archived.archivedAt}
               onRestore={archived.onRestore}
-              variant={coverImage && !coverHidden && coverLayout === 'above' ? 'inset' : 'full-width'}
+              variant={
+                coverImage && !coverHidden && coverLayout === 'above'
+                  ? 'inset'
+                  : 'full-width'
+              }
             />
           )}
           {coverLayout === 'above' && cover}
@@ -498,11 +539,15 @@ export function Page({
                 <PageTitle
                   key={titleKey}
                   ref={titleRef}
-                  onNavigate={(direction, clientX) => focusNeighbor('title', direction, clientX)}
+                  onNavigate={(direction, clientX) =>
+                    focusNeighbor('title', direction, clientX)
+                  }
                   editable={titleEditable}
                   placeholder={titlePlaceholder}
                   autoFocus={shouldAutoFocusTitle}
-                  onSubmit={() => bodyFocusRef?.current?.focusAtNewLineAtStart()}
+                  onSubmit={() =>
+                    bodyFocusRef?.current?.focusAtNewLineAtStart()
+                  }
                   onCommit={onTitleCommit}
                   onEdit={onTitleEdit}
                   onFlush={onTitleFlush}
@@ -516,7 +561,9 @@ export function Page({
                   <PageDescription
                     key={descriptionKey}
                     ref={descriptionRef}
-                    onNavigate={(direction, clientX) => focusNeighbor('description', direction, clientX)}
+                    onNavigate={(direction, clientX) =>
+                      focusNeighbor('description', direction, clientX)
+                    }
                     editable={descriptionEditable}
                     placeholder={descriptionPlaceholder}
                     autoFocus={shouldAutoFocusDescription}
@@ -554,7 +601,9 @@ export function Page({
             />
           </header>
           {properties && <div className="page__properties">{properties}</div>}
-          {showHeaderSeparator && <PageDivider variant={dividerVariant ?? headerSeparatorStyle} />}
+          {showHeaderSeparator && (
+            <PageDivider variant={dividerVariant ?? headerSeparatorStyle} />
+          )}
           <main className="page__body" onMouseDown={handleBodyMouseDown}>
             {body}
           </main>
