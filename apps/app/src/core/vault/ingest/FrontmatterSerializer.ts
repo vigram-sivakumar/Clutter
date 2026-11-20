@@ -23,6 +23,7 @@ const OWNED_WRITE_ORDER = [
   'modified',
   'favorite',
   'icon',
+  'iconImage',
   'cover',
   'coverCredit',
   'coverHidden',
@@ -135,6 +136,7 @@ export class FrontmatterSerializer {
       ['id', page.id],
       ['favorite', page.metadata.favorite],
       ['icon', page.metadata.icon],
+      ['iconImage', page.metadata.iconImage],
       ['cover', page.metadata.cover],
       // Omitted unless a valid credit — see coverCredit.ts (ADR-054).
       ['coverCredit', formatCoverCredit(page.metadata.coverCredit)],
@@ -300,6 +302,7 @@ export class FrontmatterSerializer {
     const entries: [string, any][] = [
       ['id', folder.id],
       ['icon', folder.metadata.icon],
+      ['iconImage', folder.metadata.iconImage],
       ['favorite', folder.metadata.favorite],
       ['description', folder.metadata.description],
       ['cover', folder.metadata.cover],
