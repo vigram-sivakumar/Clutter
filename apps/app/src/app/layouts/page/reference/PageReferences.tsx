@@ -169,17 +169,21 @@ export function PageReferences({
       isChecked={task?.completed}
       onCheckedChange={task ? () => taskActions.toggleComplete(task) : undefined}
       preview={
-        line === null ? undefined : (
-          <ReferencePreview
-            markdown={line}
-            extensions={previewExtensions}
-            isCompleted={task?.completed}
-          />
-        )
+        task
+          ? containsEmbed(task.text) ? undefined : (
+              <ReferencePreview
+                markdown={task.text}
+                extensions={previewExtensions}
+                isCompleted={task.completed}
+              />
+            )
+          : line === null ? undefined : (
+              <ReferencePreview markdown={line} extensions={previewExtensions} />
+            )
       }
-      onOpen={() => openSource(sourcePage?.id ?? page.id, sourcePage ? ranges : ranges)}
+      onOpen={() => openSource(sourcePage?.id ?? page.id, ranges)}
     >
-      {renderCompactMarkdown(excerpt, resolvers)}
+      {renderCompactMarkdown(task?.text ?? excerpt, resolvers)}
     </ReferenceEntry>
   );
 
