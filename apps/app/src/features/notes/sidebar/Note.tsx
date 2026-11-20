@@ -7,7 +7,7 @@ import { useMoveDestinationTrigger } from '@components/move-destination-picker/u
 import { ChangeIconPicker } from '@components/change-icon-picker/ChangeIconPicker';
 import { useChangeIconTrigger } from '@components/change-icon-picker/useChangeIconTrigger';
 import type { PickerListItem } from '@components/picker-list/PickerList.types';
-import { AppIcon } from '@shared/icon';
+import { PageIcon } from '@shared/icon';
 import { getPageIcon } from '@core/presentation/getPageIcon';
 import { renderCompactMarkdown } from '@features/markdown/render/renderCompactMarkdown';
 import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
@@ -21,6 +21,7 @@ interface NoteProps extends Omit<EntryProps, 'children'> {
   /** Shown by EditableText during rename when the title buffer is empty. */
   titlePlaceholder?: string;
   emoji?: string | null;
+  imageSrc?: string | null;
 
   /**
    * Injected exactly like the page editor's own WikiLink/Tag/embed
@@ -85,6 +86,7 @@ export function Note({
   titleStyle = 'default',
   titlePlaceholder,
   emoji,
+  imageSrc,
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
@@ -125,10 +127,12 @@ export function Note({
         // it explicitly.
         forceHover={externalForceHover || menuOpen || moveTrigger.open || changeIconTrigger.open}
         leading={
-          <AppIcon
+          <PageIcon
             className="note__icon"
-            icon={getPageIcon('note')}
+            systemIcon={getPageIcon('note')}
             emoji={emoji}
+            imageSrc={imageSrc}
+            size="small"
           />
         }
         actions={
