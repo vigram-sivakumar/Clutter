@@ -417,10 +417,6 @@ export function attachTableHandleOverlay(
   }
 
   let dragSession: DragSession | null = null;
-  // Set the instant a real drag (one that crossed `DRAG_THRESHOLD_PX`)
-  // commits — every `click` handler below checks and clears this first.
-  let suppressNextClick = false;
-
   /**
    * The outcome of resolving a drag's target from the pointer's current
    * position — three genuinely different situations, not one nullable
@@ -766,14 +762,23 @@ export function attachTableHandleOverlay(
       return;
     }
     if (!session.dragging) {
-      // Never crossed the threshold — an ordinary press/release. The
-      // native `click` event this same gesture is about to fire handles
-      // select-and-open-menu exactly as before; nothing to do here.
-      // Neither the ghost nor the source-hiding was ever created, so
-      // there's nothing to clean up either.
+      // A plain press/release opens the menu from pointerup, not the later
+      // native click event. The pointerdown selection may synchronously
+      // rebuild this widget, so this callback can belong to the old
+      // instance; resolve the anchor from the live EditorView DOM instead.
+      const selection =
+        session.axis === 'column'
+          ? ({ kind: 'column' as const, tableFrom, columnIndex: session.startIndex })
+          : ({ kind: 'row' as const, tableFrom, rowIndex: session.startIndex });
+      const freshAnchor =
+        session.axis === 'column'
+          ? resolveFreshColumnHandle(session.startIndex)
+          : resolveFreshRowHandle(session.startIndex);
+      if (freshAnchor) {
+        getOnTableHandleMenuChange()?.({ anchor: freshAnchor, selection });
+      }
       return;
     }
-    suppressNextClick = true;
     // Commit first, then restore/remove the visuals — matches the
     // milestone's own stated order, and means a failed/no-op move (the
     // "moved" check inside `commitDrag`, mirroring the pre-ghost behavior)
@@ -883,7 +888,6 @@ export function attachTableHandleOverlay(
       return;
     }
     const startIndex = axis === 'row' ? info.row.rowIndex : info.columnIndex;
-    suppressNextClick = false;
     const selection = axis === 'row' ? ({ kind: 'row' as const, tableFrom, rowIndex: startIndex }) : ({ kind: 'column' as const, tableFrom, columnIndex: startIndex });
     controller.deactivate();
     // A genuine selection change (this handle's row/column wasn't already
@@ -935,56 +939,9 @@ export function attachTableHandleOverlay(
     return cell ? findRowHandlePair(cell)?.visible ?? null : null;
   }
 
-  // Click-to-open-menu. `click` fires whenever mousedown+mouseup land on
-  // (or near) the same element — true for an ordinary press/release *and*
-  // for a completed drag that happened to release back over its own
-  // handle, so each branch below checks `suppressNextClick` first (set by
-  // `handlePointerUp` the instant a real drag commits) before doing
-  // anything else. The `mousedown` listener above still guarantees neither
-  // a click nor a drag can ever reach root CM6 or the nested cell editor.
-  //
-  // Selection itself is never dispatched here — the pointerdown handler
-  // above already did that, unconditionally, before this same gesture's
-  // `click` even fires (this file's own top doc comment, "Selection
-  // model"). This handler's only remaining job is opening/updating the
-  // handle menu for a *plain* click (never a completed drag).
-  wrapper.addEventListener('click', (event) => {
-    const columnHit = closestHit(event.target, 'cm-table-column-handle-hit');
-    const rowHit = columnHit ? null : closestHit(event.target, 'cm-table-row-handle-hit');
-    if (!columnHit && !rowHit) {
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-    if (suppressNextClick) {
-      suppressNextClick = false;
-      return;
-    }
-    if (columnHit) {
-      const info = resolveHoveredCell(wrapper, columnHit);
-      if (!info) {
-        return;
-      }
-      const selection = { kind: 'column' as const, tableFrom, columnIndex: info.columnIndex };
-      const freshAnchor = resolveFreshColumnHandle(info.columnIndex);
-      if (freshAnchor) {
-        getOnTableHandleMenuChange()?.({ anchor: freshAnchor, selection });
-      }
-      return;
-    }
-    if (rowHit) {
-      const info = resolveHoveredCell(wrapper, rowHit);
-      if (!info) {
-        return;
-      }
-      const rowIndex = info.row.rowIndex;
-      const selection = { kind: 'row' as const, tableFrom, rowIndex };
-      const freshAnchor = resolveFreshRowHandle(rowIndex);
-      if (freshAnchor) {
-        getOnTableHandleMenuChange()?.({ anchor: freshAnchor, selection });
-      }
-    }
-  });
+  // Menu opening is coordinated with the drag session's document-level
+  // pointerup handler above. Do not attach it to this widget's wrapper:
+  // pointerdown can synchronously replace that wrapper before click fires.
 
   // Initial state — this widget may be freshly (re)built with a
   // `TableSelection` already set and no hover having occurred yet on this
