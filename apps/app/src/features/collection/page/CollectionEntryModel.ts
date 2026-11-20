@@ -27,6 +27,7 @@ export interface CollectionEntryModel {
   readonly type: 'folder' | 'note';
   readonly icon: SystemIcon;
   readonly emoji: string | null;
+  readonly iconImage?: string | null;
   readonly selected: boolean;
   readonly onClick: () => void;
 
