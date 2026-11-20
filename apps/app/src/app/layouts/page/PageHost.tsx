@@ -856,13 +856,14 @@ export function PageHost({
     ? application.resolvePageIconImageForDisplay(activeFolderForIcon.metadata.iconImage)
     : null;
 
-  // Stale references are reconciled from the active-page/folder lifecycle,
-  // not from a render. The resolved URL is a dependency so a Vault sync
-  // deletion retriggers cleanup even when the metadata string is unchanged.
+  // Reconcile on open or when the stored reference changes, never merely
+  // because the Vault index changes. An app-initiated asset move updates the
+  // index before its planned reference rewrite commits; watching the resolved
+  // URL here would race that rewrite and could clear the old path too early.
   useEffect(() => {
     if (activePageId) void application.reconcilePageIconImage(activePageId);
     if (activeFolderId) void application.reconcileFolderIconImage(activeFolderId);
-  }, [application, activePageId, activeFolderId, pageIconImageSrc, folderIconImageSrc]);
+  }, [application, activePageId, activeFolderId, page?.metadata.iconImage, activeFolderForIcon?.metadata.iconImage]);
   // ADR-052: the open note's saved References choices. References are hidden unless the user chose
   // Show, so the menu label names what a click does. The count also trails the menu item.
   const referencesDisplay = useReferencesDisplayStore(
