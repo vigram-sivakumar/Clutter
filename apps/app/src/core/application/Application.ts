@@ -312,6 +312,7 @@ export class Application {
   private isRootConfirmedMissing: (path: string) => Promise<boolean> = isFolderConfirmedMissing;
   private workspaceVaultReconciliationUnsubscribe!: () => void;
   private readonly iconImageReconciliation = new Set<string>();
+  private readonly pendingIconImageFailures = new Map<string, string>();
 
   static async bootstrap(
     rootPath: string,
@@ -1993,13 +1994,21 @@ export class Application {
       // Vault update retries this best-effort metadata cleanup.
     } finally {
       this.iconImageReconciliation.delete(key);
+      const failedReference = this.pendingIconImageFailures.get(key);
+      if (failedReference !== undefined) {
+        this.pendingIconImageFailures.delete(key);
+        void this.clearPageIconImageIfUnchanged(pageId, failedReference);
+      }
     }
   }
 
   /** Clears a decoded-but-invalid page icon only if the metadata still points at the failed reference. */
   public async clearPageIconImageIfUnchanged(pageId: string, expectedReference: string): Promise<void> {
-    const key = `page-image-error:${pageId}`;
-    if (this.iconImageReconciliation.has(key)) return;
+    const key = `page:${pageId}`;
+    if (this.iconImageReconciliation.has(key)) {
+      this.pendingIconImageFailures.set(key, expectedReference);
+      return;
+    }
     this.iconImageReconciliation.add(key);
     try {
       const page = this.vault.getPage(pageId);
@@ -2019,8 +2028,11 @@ export class Application {
 
   /** Folder counterpart; the existing FolderOperations path writes .folder.md. */
   public async clearFolderIconImageIfUnchanged(folderId: string, expectedReference: string): Promise<void> {
-    const key = `folder-image-error:${folderId}`;
-    if (this.iconImageReconciliation.has(key)) return;
+    const key = `folder:${folderId}`;
+    if (this.iconImageReconciliation.has(key)) {
+      this.pendingIconImageFailures.set(key, expectedReference);
+      return;
+    }
     this.iconImageReconciliation.add(key);
     try {
       const folder = this.vault.getFolder(folderId);
@@ -2035,6 +2047,11 @@ export class Application {
       // The PageIcon has already switched to its fallback. A later open retries validation.
     } finally {
       this.iconImageReconciliation.delete(key);
+      const failedReference = this.pendingIconImageFailures.get(key);
+      if (failedReference !== undefined) {
+        this.pendingIconImageFailures.delete(key);
+        void this.clearFolderIconImageIfUnchanged(folderId, failedReference);
+      }
     }
   }
 
