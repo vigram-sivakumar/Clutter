@@ -74,3 +74,4 @@ These record why the target architecture (`docs/architecture-target.md`, frozen 
 | [074](./074-task-inbox-and-default-task-location.md) | Task Inbox and configurable creation destination | Accepted |
 | [076](./076-task-collections-group-by-due-date.md) | Task collections group by due date in List and Table through one shared date-bucketing helper and the existing collection configuration store | Accepted |
 | [077](./077-completed-tasks-have-a-dedicated-view.md) | Completed tasks have a dedicated Tasks tab; active task views and the sidebar exclude them; References keeps its independent completion-date ordering | Accepted |
+| [078](./078-tasks-page-uses-four-action-oriented-tabs.md) | The Tasks page uses four action-oriented tabs; Today combines overdue and due-today tasks | Accepted |
