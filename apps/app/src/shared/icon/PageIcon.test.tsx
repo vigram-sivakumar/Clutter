@@ -1,5 +1,6 @@
 import { fireEvent, render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import { getPageIcon } from '@core/presentation/getPageIcon';
 import { PageIcon } from './PageIcon';
 
 describe('PageIcon', () => {
@@ -45,7 +46,7 @@ describe('PageIcon', () => {
 
   it('renders the system fallback when no emoji is set', () => {
     const { container } = render(
-      <PageIcon systemIcon="note" imageSrc="asset://missing.png" size="small" />
+      <PageIcon systemIcon={getPageIcon("note")} imageSrc="asset://missing.png" size="small" />
     );
 
     fireEvent.error(container.querySelector('img') as HTMLImageElement);
