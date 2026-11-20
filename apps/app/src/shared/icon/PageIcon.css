@@ -10,6 +10,10 @@
   justify-content: center;
 }
 
+.page-icon__fallback {
+  display: inline-flex;
+}
+
 .page-icon__image {
   position: absolute;
   inset: 0;
