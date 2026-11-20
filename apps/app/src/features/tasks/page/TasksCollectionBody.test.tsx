@@ -59,13 +59,29 @@ describe('TasksCollectionBody', () => {
     expect(container.querySelectorAll('.task-row__due.is-overdue')).toHaveLength(3);
     expect([...container.querySelectorAll('.task-title')].map((node) => node.textContent)).toEqual(['Alpha', 'Zebra', 'Future', 'No date']);
     expect(container.querySelectorAll('.collection__bottom-spacer')).toHaveLength(1);
-    expect(container.querySelector('.task-row__due')).not.toBeNull();
+    expect(container.querySelector('.task-row__due')).toBeNull();
     expect(container.querySelector('.collection-table')).toBeNull();
     expect(container.querySelector('.collection-list')).not.toBeNull();
     fireEvent.click(getAllByRole('checkbox')[0]!);
     expect(onToggleComplete).toHaveBeenCalledWith(tasks[1]);
     fireEvent.click(getByText('Alpha'));
     expect(onOpenTask).toHaveBeenCalledWith(tasks[1]);
+  });
+
+  it('does not apply All Tasks overdue danger styling in the dedicated Overdue tab', () => {
+    const { container } = render(
+      <TasksCollectionBody
+        view="tasks-overdue"
+        tasks={[task({ text: 'Overdue task', dueDate: '2026-08-02' })]}
+        collectionView={resolveCollectionView(TASKS_COLLECTION, { groupBy: 'dueDate' })}
+        onToggleComplete={vi.fn()}
+        onOpenTask={vi.fn()}
+        onChangeDueDate={vi.fn()}
+      />
+    );
+
+    expect(container.querySelector('.section-header[data-section="overdue"]')).toBeNull();
+    expect(container.querySelector('.task-row__due')).toBeNull();
   });
 
   it('keeps All Tasks as one flat list with due dates shown on rows', () => {
