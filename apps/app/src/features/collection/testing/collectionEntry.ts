@@ -48,6 +48,7 @@ function entryOf(type: 'note' | 'folder', defaults: { id: string; title: string;
     type,
     icon: icon ?? defaults.icon,
     emoji: emoji ?? null,
+    ...(iconImage !== undefined && { iconImage }),
     selected: selected ?? false,
     onClick: onClick ?? vi.fn(),
     values: {
