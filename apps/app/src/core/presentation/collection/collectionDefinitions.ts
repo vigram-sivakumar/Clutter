@@ -1,6 +1,6 @@
 /**
  * What each KIND of collection is, declared as data: which of the global properties it
- * offers, which are on by default, which layouts it supports, its default sort, which
+ * offers, which are on by default, which layouts it supports, its default grouping and sort, which
  * actions it supports, and the few named behaviors that genuinely differ. A
  * `CollectionDefinition` is POLICY — a selection from the one property registry
  * (`core/properties/collectionProperties.ts`), never another copy of it: no labels, no
