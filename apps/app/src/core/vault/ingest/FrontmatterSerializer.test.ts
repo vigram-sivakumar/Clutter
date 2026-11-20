@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { FrontmatterSerializer } from './FrontmatterSerializer';
 import { FrontmatterParser } from './FrontmatterParser';
 import type { Page } from '../models/Page';
+import type { Folder } from '../models/Folder';
 
 function makePage(overrides: Partial<Page> = {}): Page {
   return {
@@ -80,6 +81,38 @@ describe('FrontmatterSerializer round-trip', () => {
 
     expect(frontmatterBlock).toContain('iconImage: Assets/page-icon.png');
     expect(parsed.frontmatter.iconImage).toBe('Assets/page-icon.png');
+  });
+
+  it('round-trips a folder iconImage through the existing .folder.md serializer', () => {
+    const folder = {
+      id: 'folder-123',
+      name: 'Projects',
+      path: '/vault/Projects',
+      parentId: null,
+      metadata: {
+        icon: null,
+        iconImage: 'Assets/folder-icon.png',
+        favorite: false,
+        description: null,
+        cover: null,
+        coverCredit: null,
+        coverHidden: false,
+        coverLayout: 'side' as const,
+        coverPositionAbove: 50,
+        coverPositionSide: 50,
+        defaultTemplateId: null,
+        status: 'active' as const,
+        archivedAt: null,
+        originalPath: null,
+        originalParentId: null,
+      },
+    } as Folder;
+
+    const document = serializer.serializeFolderDocument(folder);
+    const parsed = parser.parse(document);
+
+    expect(document).toContain('iconImage: Assets/folder-icon.png');
+    expect(parsed.frontmatter.iconImage).toBe('Assets/folder-icon.png');
   });
 
   it('produces deterministic output for identical Page models', () => {
