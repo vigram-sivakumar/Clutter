@@ -184,9 +184,9 @@ export function TasksCollectionBody({
         sort
       );
 
-  // All Tasks is already the aggregate view behind the task tabs. Keep it as one flat list;
-  // due dates remain visible on rows rather than becoming a second layer of navigation.
-  const dateGroups = view !== 'tasks-all' && groupBy === 'dueDate'
+  // Grouping is controlled by the existing collection preference for every task view,
+  // including All Tasks. Keep exact-date sections; do not add planning-level Overdue/Upcoming groups.
+  const dateGroups = groupBy === 'dueDate'
     ? groupByTaskDueDate(entries, (entry) => entry.task.dueDate)
     : undefined;
 
