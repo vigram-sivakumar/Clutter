@@ -175,7 +175,7 @@ describe('groupTasks', () => {
     expect(groups.unscheduled).toEqual([]);
   });
 
-  it('DEFAULT_TASK_DISPLAY_CONFIG shows completed tasks without auto-sorting them, with Overdue/Upcoming shown and Unplanned off', () => {
+  it('DEFAULT_TASK_DISPLAY_CONFIG keeps Unplanned hidden by default', () => {
     expect(DEFAULT_TASK_DISPLAY_CONFIG).toEqual({
       showCompleted: true,
       autoSortCompleted: false,
