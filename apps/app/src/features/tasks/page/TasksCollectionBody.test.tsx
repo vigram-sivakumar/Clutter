@@ -991,7 +991,7 @@ describe('TasksCollectionBody', () => {
   it('renders only incomplete tasks with no due date for the tasks-unscheduled view, regardless of displayConfig', () => {
     const unscheduled = task({ text: 'No due date' });
     const scheduled = task({ text: 'Has due date', dueDate: '2026-08-10' });
-    const completedUnscheduled = task({
+    const completedUnplanned = task({
       text: 'Completed, no due date',
       completed: true,
       completedAt: '2026-08-01',
@@ -1000,11 +1000,11 @@ describe('TasksCollectionBody', () => {
     const { getByText, queryByText } = render(
       <TasksCollectionBody
         view="tasks-unscheduled"
-        tasks={[unscheduled, scheduled, completedUnscheduled]}
+        tasks={[unscheduled, scheduled, completedUnplanned]}
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
         onChangeDueDate={vi.fn()}
-        // Even with Show completed enabled, the Unscheduled view keeps its
+        // Even with Show completed enabled, the Unplanned view keeps its
         // pre-existing, unaffected behavior — it isn't one of the two
         // sections (Today/Everything else) the setting targets.
         displayConfig={{ showCompleted: true, autoSortCompleted: false }}
