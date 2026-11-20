@@ -167,6 +167,7 @@ interface RenderNoteListOptions {
   onCreate?: () => void;
   /** Resolves a Tag collection's matching content lines (wiki links, tags, embeds) — the Card mode's `previewResolvers`. */
   resolvers?: NotePreviewResolvers;
+  resolveIconImage?(reference: string | null | undefined): string | null;
 }
 
 /**
@@ -183,7 +184,7 @@ interface RenderNoteListOptions {
 function renderNoteList(
   entries: readonly CollectionEntryModel[],
   visible: readonly PropertyId[] = DEFAULT_VIEW.visible,
-  { coverFor, onCreate, resolvers, dragProps, selectionFor }: RenderNoteListOptions = {}
+  { coverFor, onCreate, resolvers, resolveIconImage, dragProps, selectionFor }: RenderNoteListOptions = {}
 ) {
   return (
     <CollectionDataList
@@ -192,6 +193,7 @@ function renderNoteList(
           visible,
           cover: visible.includes('cover') ? coverFor?.(entry) : undefined,
           resolvers,
+          resolveIconImage,
         });
         const drag = dragProps?.(entry);
         const selection = selectionFor?.(entry);
@@ -216,6 +218,7 @@ interface RenderNoteTableOptions {
   onCreate?: () => void;
   /** Resolves a Tag collection's matching content lines (wiki links, tags, embeds) — the Card mode's `previewResolvers`. */
   resolvers?: NotePreviewResolvers;
+  resolveIconImage?(reference: string | null | undefined): string | null;
 }
 
 /**
@@ -228,7 +231,7 @@ interface RenderNoteTableOptions {
 function renderNoteTable(
   entries: readonly CollectionEntryModel[],
   visible: readonly PropertyId[] = DEFAULT_VIEW.visible,
-  { coverFor, onCreate, resolvers, dragProps, selectionFor }: RenderNoteTableOptions = {}
+  { coverFor, onCreate, resolvers, resolveIconImage, dragProps, selectionFor }: RenderNoteTableOptions = {}
 ) {
   return (
     <CollectionDataTable
@@ -238,6 +241,7 @@ function renderNoteTable(
           visible,
           cover: coverFor?.(entry),
           resolvers,
+          resolveIconImage,
         });
         const drag = dragProps?.(entry);
         const selection = selectionFor?.(entry);
