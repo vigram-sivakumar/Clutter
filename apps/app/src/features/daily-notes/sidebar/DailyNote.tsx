@@ -4,7 +4,8 @@ import { OverflowMenu } from '@components/menu/OverflowMenu';
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 import { ChangeIconPicker } from '@components/change-icon-picker/ChangeIconPicker';
 import { useChangeIconTrigger } from '@components/change-icon-picker/useChangeIconTrigger';
-import { AppIcon } from '@shared/icon';
+import { PageIcon } from '@shared/icon';
+import { getPageIcon } from '@core/presentation/getPageIcon';
 import { formatDate } from '@shared/helpers/time';
 import { renderCompactMarkdown } from '@features/markdown/render/renderCompactMarkdown';
 import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
@@ -39,6 +40,7 @@ interface DailyNoteProps extends Omit<EntryProps, 'children'> {
    * its leading icon; a Daily Note's leading slot is its date, so the emoji goes trailing.
    */
   emoji?: string | null;
+  imageSrc?: string | null;
   /**
    * Whether `emoji` is drawn on the row (true when omitted). Presentation only: the picker still knows the note has an
    * emoji (so it offers Remove), whatever is shown. The sidebar's Show emoji setting drives this.
@@ -61,6 +63,7 @@ export function DailyNote({
   onMenuOpenChange,
   onMenuSelect,
   emoji,
+  imageSrc,
   showEmoji = true,
   onChangeIcon,
   ...entryProps
