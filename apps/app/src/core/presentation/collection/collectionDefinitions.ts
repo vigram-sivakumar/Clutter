@@ -226,7 +226,7 @@ export const ASSETS_COLLECTION: CollectionDefinition = {
 /**
  * The Task Collection uses the generic List for every dataset. Layout and Properties controls are
  * not offered; saved property choices are retained, and obsolete Table selections resolve to List.
- * The default List shows Name and Due date; grouping by date hides the repeated due-date value.
+ * The default List shows task names and due dates directly on each row.
  */
 export const TASKS_COLLECTION: CollectionDefinition = {
   kind: 'tasks',
@@ -246,7 +246,6 @@ export const TASKS_COLLECTION: CollectionDefinition = {
 export const TASK_INBOX_COLLECTION: CollectionDefinition = {
   ...TASKS_COLLECTION,
   emptyMessage: 'Tasks you create in Inbox will appear here',
-  defaultGroupBy: 'none',
   properties: ['name', 'dueDate'],
   defaultVisible: ['name', 'dueDate'],
 };
