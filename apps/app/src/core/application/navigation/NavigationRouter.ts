@@ -245,7 +245,7 @@ export class NavigationRouter {
   /**
    * Shows every incomplete task with no due date.
    */
-  public openTasksUnscheduled(): void {
+  public openTasksUnplanned(): void {
     this.workspace.openFilteredView({ kind: 'tasks-unscheduled' });
   }
 
