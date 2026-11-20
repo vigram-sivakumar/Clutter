@@ -37,7 +37,7 @@ describe('tasksForView — the single authority on which tasks belong to each ta
     it('Completed contains every completed task regardless of due date', () => {
       expect(titles('tasks-completed', all)).toEqual(['done']);
     });
-    it('no due date → Unscheduled', () => {
+    it('no due date → Unplanned', () => {
       expect(titles('tasks-unscheduled', all)).toEqual(['no date']);
     });
     it('due today → Today', () => {
@@ -53,12 +53,12 @@ describe('tasksForView — the single authority on which tasks belong to each ta
 
   describe('Daily Note independence (ADR-044)', () => {
     // Lives in today's Daily Note (sourcePageId); only the explicit due date decides the view.
-    it('a task in today\'s Daily Note with no due date is Unscheduled', () => {
+    it('a task in today\'s Daily Note with no due date is Unplanned', () => {
       const t = task('buy groceries');
       expect(titles('tasks-unscheduled', [t])).toEqual(['buy groceries']);
     });
 
-    it('a task in today\'s Daily Note with a due date is not Unscheduled', () => {
+    it('a task in today\'s Daily Note with a due date is not Unplanned', () => {
       const t = task('submit report', { dueDate: '2026-10-07' });
       expect(titles('tasks-unscheduled', [t])).toEqual([]);
     });
@@ -87,7 +87,7 @@ describe('tasksForView — the single authority on which tasks belong to each ta
       expect(titles('tasks-overdue', [completedPast], HIDE)).toEqual([]);
     });
 
-    it('a completed task never appears in Unscheduled — with Show completed on or off', () => {
+    it('a completed task never appears in Unplanned — with Show completed on or off', () => {
       expect(titles('tasks-unscheduled', everyCompleted, SHOW)).toEqual([]);
       expect(titles('tasks-unscheduled', everyCompleted, HIDE)).toEqual([]);
     });
