@@ -15,6 +15,7 @@ export interface PageIconProps {
   /** Consistent dimensions for each UI context: sidebar, collection, and page title. */
   size?: PageIconSize;
   className?: string;
+  strokeWidth?: number;
   /** Called when the resolved image cannot be decoded by the WebView. */
   onImageError?: () => void;
 }
@@ -39,10 +40,12 @@ function ImageLayer({
   src,
   fallback,
   onImageError,
+  strokeWidth,
 }: {
   src: string;
   fallback: React.ReactNode;
   onImageError?: () => void;
+  strokeWidth?: number;
 }) {
   const [status, setStatus] = useState<'loading' | 'loaded' | 'failed'>('loading');
 
@@ -86,6 +89,7 @@ export function PageIcon({
   size = 'medium',
   className,
   onImageError,
+  strokeWidth,
 }: PageIconProps) {
   const dimensions = SIZE_TOKENS[size];
   const fallback = (
@@ -100,7 +104,7 @@ export function PageIcon({
   return (
     <span className={`page-icon ${className ?? ''}`.trim()} style={style}>
       {src ? (
-        <ImageLayer key={src} src={src} fallback={fallback} onImageError={onImageError} />
+        <ImageLayer key={src} src={src} fallback={fallback} onImageError={onImageError} strokeWidth={strokeWidth} />
       ) : (
         <span className="page-icon__fallback">{fallback}</span>
       )}
