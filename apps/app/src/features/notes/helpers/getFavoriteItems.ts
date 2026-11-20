@@ -15,7 +15,7 @@ function toFavoriteItem(
   getFolderMoveZone: (folderId: string | null) => MoveZone
 ): FavoriteItem {
   const isPage = 'type' in entry;
-  const { title, titleStyle, emoji } = buildEntryPresentation(entry);
+  const { title, titleStyle, emoji, iconImage } = buildEntryPresentation(entry);
 
   return {
     id: entry.id,
@@ -23,6 +23,7 @@ function toFavoriteItem(
     name: entry.name,
     titleStyle,
     emoji,
+    iconImage,
     type: isPage ? 'note' : 'folder',
     // Favorites list only items outside Archive/ (location decides), so a folder here is active
     // whatever stale provenance its own status carries.
