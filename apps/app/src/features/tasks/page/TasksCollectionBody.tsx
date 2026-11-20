@@ -296,16 +296,6 @@ export function TasksCollectionBody({
     );
   }
 
-  // Other task datasets keep their existing exact-date headings; All Tasks stays flat.
-  if (!dateGroups) {
-    return (
-      <TasksPageBody>
-        <CollectionDataList className="task-list" items={entries.map(itemOf)} />
-        {menuOverlays}
-      </TasksPageBody>
-    );
-  }
-
   return (
     <TasksPageBody>
       {dateGroups.map(({ date, items }) => (
