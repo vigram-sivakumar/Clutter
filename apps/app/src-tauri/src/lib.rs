@@ -4,6 +4,7 @@ use std::time::Duration;
 use tauri::{AppHandle, Manager, RunEvent, Url, WebviewWindow};
 
 mod app_menu;
+mod dock_badge;
 // The atomic vault writer and its commands (ADR-063). Compiled in only with the `atomic-writes` Cargo feature, which
 // is on by default and is the only way Clutter saves (a release build refuses to compile without it: see build.rs).
 // Callable only from the `main` window (checked in the commands themselves).
@@ -195,6 +196,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             frontend_ready,
             frontend_failed,
+            dock_badge::set_dock_badge,
             app_menu::set_copy_page_link_enabled,
             #[cfg(all(target_os = "macos", feature = "atomic-writes"))]
             atomic_commands::atomic_write_file,
