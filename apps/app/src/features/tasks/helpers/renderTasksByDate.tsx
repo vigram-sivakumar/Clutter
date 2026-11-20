@@ -377,8 +377,7 @@ export function renderTasksByDate({
         // Not collapsible: Today is always open. The hook is for the accent-pill title style (renderTasksByDate.css).
         data-section="today"
       >
-        {/* Nothing due today — never scheduled, or all done with completed tasks hidden — says one line
-            either way. */}
+        {/* Nothing due today says one line. */}
         {today.length === 0 ? (
           <EmptyEntry>You’re all clear for today</EmptyEntry>
         ) : (
