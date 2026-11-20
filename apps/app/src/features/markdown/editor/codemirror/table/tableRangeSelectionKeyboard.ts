@@ -114,6 +114,11 @@ export function tableRangeSelectionKeyboard(controller: TableActiveCellControlle
     return (view) => activateAnchorAndRun(view, key, cursorAt);
   };
 
+  const shiftEnter: Command = (view) => {
+    const selection = view.state.field(tableSelectionField, false) ?? null;
+    return selection?.kind === 'range';
+  };
+
   const bindings: readonly KeyBinding[] = [
     { key: 'ArrowUp', run: makeCommand('ArrowUp', 'end') },
     { key: 'ArrowDown', run: makeCommand('ArrowDown', 'start') },
@@ -122,6 +127,7 @@ export function tableRangeSelectionKeyboard(controller: TableActiveCellControlle
     { key: 'Tab', run: makeCommand('Tab', 'end') },
     { key: 'Shift-Tab', run: makeCommand('Shift-Tab', 'end') },
     { key: 'Enter', run: makeCommand('Enter', 'end') },
+    { key: 'Shift-Enter', run: shiftEnter },
   ];
 
   return Prec.highest(keymap.of(bindings));
