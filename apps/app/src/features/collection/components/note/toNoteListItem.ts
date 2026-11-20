@@ -1,4 +1,6 @@
 import type { MouseEvent } from 'react';
+import { PageIcon } from '@shared/icon';
+import { getPageIcon } from '@core/presentation/getPageIcon';
 
 import { noteCoverAttributionLabel } from './noteCoverAttributionLabel';
 import type { CollectionDataListItem } from '@features/collection/components/list/CollectionDataList';
@@ -14,6 +16,7 @@ import type { CompactMarkdownResolvers } from '@features/markdown/render/renderC
 export interface NoteListItemOptions {
   /** How a Tag collection's matching content lines resolve their wiki links, tags and embeds (see `toNoteTagContent`). */
   readonly resolvers?: CompactMarkdownResolvers;
+  readonly resolveIconImage?(reference: string | null | undefined): string | null;
   /** The visible properties (from the resolved view) — a property that isn't visible is omitted, never a blanked-out but still-fetched value. */
   readonly visible: readonly PropertyId[];
   /**
@@ -36,7 +39,7 @@ export interface NoteListItemOptions {
  */
 export function toNoteListItem(
   entry: CollectionEntryModel,
-  { visible, cover, resolvers }: NoteListItemOptions
+  { visible, cover, resolvers, resolveIconImage }: NoteListItemOptions
 ): CollectionDataListItem {
   // Every visible plain-value property, in canonical order, that this note actually has.
   const tagContent = toNoteTagContent(entry, resolvers);
@@ -53,6 +56,7 @@ export function toNoteListItem(
     id: entry.id,
     icon: 'note',
     emoji: entry.emoji ?? undefined,
+    leading: <PageIcon systemIcon={getPageIcon('note')} emoji={entry.emoji} imageSrc={resolveIconImage?.(entry.iconImage)} size="medium" />,
     title: entry.values.name,
     // Tag collection: a matching-content entry's Name is the line (see `toNoteTagContent`).
     ...(tagContent && { leading: tagContent.leading, titleContent: tagContent.titleContent }),
