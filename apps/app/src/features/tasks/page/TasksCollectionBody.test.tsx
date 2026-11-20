@@ -55,7 +55,7 @@ describe('TasksCollectionBody', () => {
       onToggleComplete={onToggleComplete} onOpenTask={onOpenTask} onChangeDueDate={vi.fn()}
     />);
     expect(container.querySelectorAll('.section-header')).toHaveLength(0);
-    expect([...container.querySelectorAll('.task-title')].map((node) => node.textContent)).toEqual(['Alpha', 'Zebra', 'Future', 'No date']);
+    expect([...container.querySelectorAll('.task-title')].map((node) => node.textContent)).toEqual(['Alpha', 'Future', 'No date', 'Zebra']);
     expect(container.querySelectorAll('.collection__bottom-spacer')).toHaveLength(1);
     expect(container.querySelector('.task-row__due')).not.toBeNull();
     expect(container.querySelector('.collection-table')).toBeNull();
