@@ -156,50 +156,30 @@ describe('tableRangeSelectionKeyboard — Tab/Shift-Tab clear the range and navi
   });
 });
 
-describe('tableRangeSelectionKeyboard — Enter clears the range and runs ordinary Enter from the anchor', () => {
-  it('inserts a new row after the anchor\'s row and activates the new cell, with the selection already cleared', () => {
+describe('tableRangeSelectionKeyboard — Enter and Shift-Enter', () => {
+  it('clears the range and attempts same-column navigation from the anchor without changing the table at its last row', () => {
     const { view, controller } = mountViewWithController(TABLE);
-    const linesBefore = view.state.doc.lines;
+    const docBefore = view.state.doc.toString();
     dragRange(view, 'Designer', 'Delhi'); // anchor: row1/col1 ("Designer")
 
     dispatchKey(view, 'Enter');
 
-    expect(view.state.doc.lines).toBe(linesBefore + 1);
+    expect(view.state.doc.toString()).toBe(docBefore);
     expect(selection(view)).toBeNull();
-    expect(activeCellText(controller)).toBe('');
-    const active = controller.activeAnchor && resolveLogicalCell(view.state, controller.activeAnchor.from);
-    expect(active?.rowIndex).toBe(2); // the newly inserted row, immediately after row1
-    expect(active?.columnIndex).toBe(1); // same column as the anchor
+    expect(activeCellText(controller)).toBe('Designer');
+    expect(resolveLogicalCell(view.state, controller.activeAnchor!.from)?.columnIndex).toBe(1);
   });
 
-  it('regression: no window exists where a range selection is still active during the structural insert', () => {
-    // The row-insert above is a real, reachable structural edit from a
-    // range-selection state (flagged per this milestone's own
-    // instruction) — this test proves the selection is provably cleared
-    // *before* it, not just asserted so in `tableRangeSelectionKeyboard.ts`'s
-    // own doc comment: a dispatch spy captures every transaction this
-    // gesture produces (the clear, the anchor reactivation, the row
-    // insert) and confirms none of them carries a non-null `range`
-    // `tableSelectionChanged` effect — i.e. the selection is `null` for
-    // every transaction from the moment this key is pressed onward,
-    // including the one that inserts the row.
-    const { view } = mountViewWithController(TABLE);
+  it('consumes Shift-Enter without clearing or changing an active range selection', () => {
+    const { view, controller } = mountViewWithController(TABLE);
     dragRange(view, 'Designer', 'Delhi');
+    const before = selection(view);
 
-    const dispatchSpy = vi.spyOn(view, 'dispatch');
-    dispatchKey(view, 'Enter');
+    dispatchKey(view, 'Enter', true);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- inspecting raw dispatch args for a test-only assertion, not production code.
-    const rangeEffectValues: unknown[] = dispatchSpy.mock.calls
-      .map((call) => call[0] as any)
-      .flatMap((spec) => {
-        const effects = spec?.effects;
-        return effects === undefined ? [] : Array.isArray(effects) ? effects : [effects];
-      })
-      .filter((effect) => effect?.is?.(tableSelectionChanged))
-      .map((effect) => effect.value);
-
-    expect(rangeEffectValues.every((value) => value === null)).toBe(true);
+    expect(selection(view)).toEqual(before);
+    expect(controller.activeAnchor).toBeNull();
+    expect(view.state.doc.toString()).toBe(TABLE);
   });
 });
 
