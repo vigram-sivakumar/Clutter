@@ -2,9 +2,7 @@ import { Tab, Tabs } from '@components/tabs/Tabs';
 import type { TaskViewKind } from '../helpers/tasksForView';
 
 const TASK_TABS = [
-  { value: 'all', label: 'All tasks' },
   { value: 'today', label: 'Today' },
-  { value: 'overdue', label: 'Overdue' },
   { value: 'upcoming', label: 'Upcoming' },
   { value: 'unscheduled', label: 'Unplanned' },
   { value: 'completed', label: 'Completed' },
@@ -12,19 +10,17 @@ const TASK_TABS = [
 
 export type TasksTabValue = (typeof TASK_TABS)[number]['value'];
 
-/** A persisted tab value back to a valid tab — anything unrecognised (an old or hand-edited value) opens All Tasks. */
+/** A persisted tab value back to a valid tab — anything unrecognised opens Today. */
 export function resolveTasksTab(stored: string | undefined): TasksTabValue {
   return TASK_TABS.find((tab) => tab.value === stored)?.value ?? TASK_TABS[0].value;
 }
 
 /** The dataset each tab shows — `tasksForView` decides its membership. */
 export const TASKS_TAB_VIEW: Readonly<Record<TasksTabValue, TaskViewKind>> = {
-  all: 'tasks-all',
-  completed: 'tasks-completed',
   today: 'tasks-today',
-  overdue: 'tasks-overdue',
   upcoming: 'tasks-upcoming',
   unscheduled: 'tasks-unscheduled',
+  completed: 'tasks-completed',
 };
 
 interface TasksTabsProps {
