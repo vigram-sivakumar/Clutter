@@ -1,5 +1,5 @@
 {
- "parserVersion": 6,
+ "parserVersion": 7,
  "samples": {
   "empty": {
    "frontmatter": {},
@@ -1409,6 +1409,28 @@
       "endOffset": 705
      }
     ],
+    "embeds": [],
+    "headings": [],
+    "blockReferences": []
+   }
+  },
+  "page icon image": {
+   "frontmatter": {
+    "id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    "iconImage": "Assets/icon.png",
+    "entryOrder": [
+     "id",
+     "iconImage"
+    ]
+   },
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "Body\n",
+   "analysis": {
+    "tasks": [],
+    "tags": [],
+    "links": [],
     "embeds": [],
     "headings": [],
     "blockReferences": []
