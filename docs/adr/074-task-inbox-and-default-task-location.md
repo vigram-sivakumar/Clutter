@@ -13,7 +13,7 @@ Global New task currently stores its Markdown in today's Daily Note (ADR-044). A
 - Global creation has one workflow. An app-wide preference selects today's Daily Note (default), the explicit due date's Daily Note (today when undated), or Inbox. The due date remains inline metadata; later edits never relocate tasks. Inbox's contextual New action explicitly chooses Inbox.
 - All task mutations retain TaskOperations -> PageOperations -> session/save or Persistence Gate. PageOperations coalesces simultaneous ensureAtPath calls and submits body transforms to the existing Persistence Gate queue so concurrent task additions cannot capture the same stale body; the existing save operation accepts an optional transform evaluated at dequeue time. Open-session edits retain their synchronous commit behavior. `mutateBodyAndSave(id, transform)` additionally verifies Durable state, accounting for the existing save-time normalization of open sessions while preserving their raw committed Markdown; requestSave alone intentionally does not throw on a failed session save and is not sufficient as a transfer boundary.
 - The Inbox is another task collection dataset, without tabs or Source, using the shared List/Table renderer, task rows, menus, editing dialog and display preferences. Its collection configuration is separate so hiding Source does not alter All tasks. Inbox membership is source identity, independent of due date or completion state.
-- Only the Unscheduled sidebar navigation is removed; all existing tab, grouping, filtering and saved-view behavior remains.
+- Only the Unplanned sidebar navigation is removed; all existing tab, grouping, filtering and saved-view behavior remains.
 
 ## Tidy up and interruption recovery
 
