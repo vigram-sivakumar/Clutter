@@ -55,7 +55,7 @@ export interface EffectivePage {
   readonly description: string | null;
   readonly markdown: string;
   readonly icon: string | null;
-  readonly iconImage: string | null;
+  readonly iconImage?: string | null;
   readonly favorite: boolean;
   readonly cover: string | null;
   /** The Unsplash credit for `cover` (ADR-054). */
