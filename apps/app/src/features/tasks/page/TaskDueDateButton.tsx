@@ -8,6 +8,8 @@ interface TaskDueDateButtonProps {
   readonly date: string;
   /** The task's `HH:MM` due time, if it has one: shown after the date, as the sidebar's rows do ("9 October, 4:00 PM"). */
   readonly time?: string;
+  /** True only for an incomplete task whose due date is before today. */
+  readonly isOverdue?: boolean;
   /** A date string sets it, null clears it — never moves the task (same contract as the row menu's Change due date). */
   readonly onChange: (date: string | null) => void;
 }
@@ -18,7 +20,7 @@ interface TaskDueDateButtonProps {
  * selected, to change or clear it. Its hover pill is a `::before` that extends past the text, so the text
  * lines up with the column title. Clicking never opens the row's note.
  */
-export function TaskDueDateButton({ date, time, onChange }: TaskDueDateButtonProps) {
+export function TaskDueDateButton({ date, time, isOverdue = false, onChange }: TaskDueDateButtonProps) {
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLDivElement>(null);
 
@@ -26,7 +28,7 @@ export function TaskDueDateButton({ date, time, onChange }: TaskDueDateButtonPro
     <>
       <CollectionEntryProperties
         ref={anchorRef}
-        className="collection-entry-properties--action task-row__due"
+        className={`collection-entry-properties--action task-row__due${isOverdue ? ' is-overdue' : ''}`}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={(event) => {
