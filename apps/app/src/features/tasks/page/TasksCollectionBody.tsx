@@ -6,6 +6,7 @@ import { CollectionDataList } from '@features/collection/components/list/Collect
 import { Section } from '@app/layouts/sidebar/section/Section';
 import { groupByTaskDueDate } from '../helpers/groupByTaskDueDate';
 import { classifyDueDate } from '../helpers/taskDueDate';
+import '../helpers/renderTasksByDate.css';
 import { formatTaskDueDateLong } from '../helpers/formatTaskDueDate';
 import { useCollectionItemContextMenu } from '@app/layouts/page/body/useCollectionItemContextMenu';
 import { TaskDatePicker } from '../sidebar/TaskDatePicker';
