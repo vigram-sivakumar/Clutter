@@ -156,6 +156,7 @@ export type EditablePageMetadata = Pick<
   PageMetadata,
   | 'description'
   | 'icon'
+  | 'iconImage'
   | 'cover'
   | 'coverCredit'
   | 'coverHidden'
@@ -2305,6 +2306,7 @@ export class PageOperations {
     patch: Partial<EditablePageMetadata>,
     options: EditOptions = {}
   ): Promise<void> {
+    const normalizedPatch = normalizeIconMetadataPatch(patch);
     const page = this.vault.getPage(pageId);
 
     if (page) {
@@ -2317,7 +2319,7 @@ export class PageOperations {
       const result = await this.enqueueGate(pageId, {
         kind: 'save',
         content: page.source.markdown,
-        metadata: this.withEditedKeysCanonicalized(page, patch),
+        metadata: this.withEditedKeysCanonicalized(page, normalizedPatch),
       });
 
       if (result.status === 'abandoned') {
@@ -2334,8 +2336,8 @@ export class PageOperations {
     }
 
     const defaults = resolvePageMetadata({});
-    const keys = Object.keys(patch) as (keyof EditablePageMetadata)[];
-    const isCommittedChange = keys.some((key) => patch[key] !== defaults[key]);
+    const keys = Object.keys(normalizedPatch) as (keyof EditablePageMetadata)[];
+    const isCommittedChange = keys.some((key) => normalizedPatch[key] !== defaults[key]);
 
     if (!isCommittedChange) {
       return;
@@ -2346,7 +2348,7 @@ export class PageOperations {
 
     // Custom-property lines are not a PageFrontmatter field: persistDraft writes them as their own
     // `unownedLines`, in the same create.
-    const { unownedFrontmatter, ...metadataPatch } = patch;
+    const { unownedFrontmatter, ...metadataPatch } = normalizedPatch;
 
     await this.persistDraft(pageId, descriptor, body, metadataPatch, unownedFrontmatter);
   }
