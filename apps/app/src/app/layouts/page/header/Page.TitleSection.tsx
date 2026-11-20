@@ -36,6 +36,10 @@ interface PageTitleSectionProps extends Omit<
   /** Forwarded to PageHeaderControls — see its own doc comments for the full More-actions/emoji/cover-image wiring. */
   onSelectEmoji?: (emoji: string) => void;
   onRemoveEmoji?: () => void;
+  iconImageSrc?: string | null;
+  hasIconImage?: boolean;
+  fallbackIcon?: SystemIcon;
+  onUploadIconImage?: PageHeaderControlsProps['onUploadIconImage'];
   /** Whether the page currently has a cover image — no header preview/control, just gates the More-actions "Cover image" item. See PageHeaderControls' own doc comment. */
   hasCoverImage?: boolean;
   /** Whether an existing cover is currently suppressed from view — see PageHeaderControls' own doc comment. */
@@ -69,6 +73,10 @@ export function PageTitleSection({
   showMoreActions,
   onSelectEmoji,
   onRemoveEmoji,
+  iconImageSrc,
+  hasIconImage,
+  fallbackIcon,
+  onUploadIconImage,
   hasCoverImage,
   coverHidden,
   onSetCoverImage,
@@ -96,6 +104,10 @@ export function PageTitleSection({
         showMoreActions={showMoreActions}
         onSelectEmoji={onSelectEmoji}
         onRemoveEmoji={onRemoveEmoji}
+        iconImageSrc={iconImageSrc}
+        hasIconImage={hasIconImage}
+        fallbackIcon={fallbackIcon}
+        onUploadIconImage={onUploadIconImage}
         hasCoverImage={hasCoverImage}
         coverHidden={coverHidden}
         onSetCoverImage={onSetCoverImage}
