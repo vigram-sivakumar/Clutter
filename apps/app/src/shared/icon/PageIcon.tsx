@@ -42,7 +42,7 @@ function ImageLayer({
 }) {
   const [status, setStatus] = useState<'loading' | 'loaded' | 'failed'>('loading');
 
-  if (status === 'failed') return <>{fallback}</>;
+  if (status === 'failed') return <span className="page-icon__fallback">{fallback}</span>;
 
   return (
     <>
