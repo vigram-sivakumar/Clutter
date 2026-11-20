@@ -17,7 +17,7 @@ Global New task currently stores its Markdown in today's Daily Note (ADR-044). A
 
 ## Tidy up and interruption recovery
 
-Tidy up includes every Inbox task with a valid due date, whether completed or incomplete, including tasks hidden by display settings. It preserves each complete original task line, including time, completion and unknown metadata, and preserves undated content in Inbox.
+Tidy up includes every Inbox task with a valid due date, whether completed or incomplete, including tasks hidden by display settings. A completed task without a due date is also included when it has a valid `@completed:` date; that completion date determines its Daily Note destination. An explicit due date takes precedence over the completion date. Tasks with no due date and no valid completion date remain in Inbox, as do tasks with an invalid explicit due date. Tidy up preserves each complete original task line, including time, completion and unknown metadata, and preserves all other Inbox content.
 
 The TaskOperations workflow first saves a versioned Markdown-comment plan in the Inbox containing an operation UUID and exact source-body snapshot. It ensures each Daily Note through PageOperations, then saves the unchanged task lines with a Markdown-comment receipt identifying that operation/date. Only after all destinations reach Durable does it remove the selected source lines and the plan in one source save. Receipts remain outside task lines, allowing a retry to recognize a destination already written. They are transfer recovery metadata, not another task model or projection.
 
