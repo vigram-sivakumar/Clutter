@@ -90,7 +90,7 @@ function toCollectionEntry(
   tagEntry?: { readonly line?: { readonly text: string; readonly index: number } }
 ): CollectionEntryModel {
   const type = isFolder(entry) ? 'folder' : 'note';
-  const { title, icon, emoji } = buildEntryPresentation(entry);
+  const { title, icon, emoji, iconImage } = buildEntryPresentation(entry);
   // An active folder counts what the active app shows inside it; an archived one (a row in the Archive)
   // counts what it physically holds, since the active views return nothing for an archived parent.
   const folderCounts = isFolder(entry)
@@ -112,6 +112,7 @@ function toCollectionEntry(
     type,
     icon,
     emoji,
+    iconImage,
     selected,
     // Its Name is the line itself, so sorting by name sorts what the entry shows; its Source is the note the line lives
     // in (the note's display label, as the Tags sidebar's note row shows it); every other value is the note's.
