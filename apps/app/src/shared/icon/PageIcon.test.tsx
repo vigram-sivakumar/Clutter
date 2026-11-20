@@ -1,0 +1,55 @@
+import { fireEvent, render } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { PageIcon } from './PageIcon';
+
+describe('PageIcon', () => {
+  it.each([
+    ['small', '20px', '16px'],
+    ['medium', '24px', '20px'],
+    ['large', '72px', '64px'],
+  ] as const)('uses the %s size contract', (size, slot, glyph) => {
+    const { container } = render(<PageIcon emoji="📝" size={size} />);
+    const icon = container.querySelector('.page-icon') as HTMLElement;
+
+    expect(icon.style.getPropertyValue('--page-icon-slot-size')).toBe(slot);
+    expect(icon.style.getPropertyValue('--page-icon-glyph-size')).toBe(glyph);
+  });
+
+  it('keeps the fallback visible until the image has loaded', () => {
+    const { container } = render(
+      <PageIcon emoji="📝" imageSrc="asset://icon.png" size="small" />
+    );
+    const image = container.querySelector('img') as HTMLImageElement;
+    const fallback = container.querySelector('.page-icon__fallback') as HTMLElement;
+
+    expect(image.style.visibility).toBe('hidden');
+    expect(fallback.style.visibility).toBe('');
+
+    fireEvent.load(image);
+
+    expect(image.style.visibility).toBe('');
+    expect(fallback.style.visibility).toBe('hidden');
+  });
+
+  it('removes a failed image and immediately restores the fallback', () => {
+    const { container } = render(
+      <PageIcon emoji="📝" imageSrc="asset://missing.png" size="small" />
+    );
+    const image = container.querySelector('img') as HTMLImageElement;
+
+    fireEvent.error(image);
+
+    expect(container.querySelector('img')).toBeNull();
+    expect(container.querySelector('.emoji-icon')?.textContent).toBe('📝');
+  });
+
+  it('renders the system fallback when no emoji is set', () => {
+    const { container } = render(
+      <PageIcon systemIcon="note" imageSrc="asset://missing.png" size="small" />
+    );
+
+    fireEvent.error(container.querySelector('img') as HTMLImageElement);
+
+    expect(container.querySelector('.app-icon svg')).not.toBeNull();
+  });
+});
