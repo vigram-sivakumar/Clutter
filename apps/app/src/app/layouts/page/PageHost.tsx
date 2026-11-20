@@ -315,17 +315,8 @@ interface PageHostProps {
       readonly actionsEnabled?: boolean;
     }
   ) => void;
-  /**
-   * The shared Tasks-view Show completed / Auto-sort completed preference
-   * (owned by `AppLayout`, the common ancestor of this and Sidebar's Tasks
-   * panel) — applied to the Today/Everything else collection pages'
-   * `TasksCollectionBody` below, so they always render identically to
-   * their sidebar counterparts. The Settings page owns the persisted preference;
-   * this collection menu also offers a quick way to change it.
-   */
+  /** Shared Tasks display preferences; retained for the Inbox collection and sidebar parity. */
   readonly tasksViewConfig: TaskDisplayConfig;
-  /** Persists a change to the shared Tasks-view display preference (owned by AppLayout). */
-  readonly onTasksViewConfigChange: (next: TaskDisplayConfig) => void;
   /** The Tasks page's selected tab, and its change handler — owned and persisted by AppLayout. */
   readonly tasksTab: TasksTabValue;
   readonly onTasksTabChange: (next: TasksTabValue) => void;
@@ -396,7 +387,6 @@ export function PageHost({
   onSetAssetAsCover,
   onNeedsRestoreDestination,
   tasksViewConfig,
-  onTasksViewConfigChange,
   tasksTab,
   onTasksTabChange,
   pendingReveal,
