@@ -345,7 +345,7 @@ export function renderTasksByDate({
   // A section's rows. Flat: the section's own tasks, capped as one list. Grouped by due date: one non-collapsible Section
   // per date (the sidebar's shared grouping component), oldest first, headed by the date in the app's long label, each
   // capped and expanded on its own; the heading says the date, so its rows leave out the trailing one. A section with
-  // nothing to group by stays flat: Today is one date (its title says so), Unscheduled has none.
+  // nothing to group by stays flat: Today is one date (its title says so), Unplanned has none.
   const sectionBody = (id: TaskGroupId, list: readonly TaskOccurrence[]) => {
     if (!groupTasksByDueDate || id === 'today' || id === 'unscheduled') {
       return (
@@ -364,7 +364,7 @@ export function renderTasksByDate({
               key={key}
               hasHeader
               interaction="subtle"
-              title={date ? formatTaskDueDateLong(date) : 'Unscheduled'}
+              title={date ? formatTaskDueDateLong(date) : 'Unplanned'}
             >
               {renderTaskList(capped(key, tasks), {
                 ...rowProps,
@@ -428,7 +428,7 @@ export function renderTasksByDate({
       {!hidden.includes('unscheduled') && unscheduled.length > 0 && (
         <Section
           hasHeader
-          title="Unscheduled"
+          title="Unplanned"
           isCollapsible
           isTitleToggle
           isExpanded={workspace.isSectionExpanded('tasks-unscheduled')}
