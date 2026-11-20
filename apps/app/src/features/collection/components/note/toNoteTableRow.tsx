@@ -1,4 +1,6 @@
 import type { MouseEvent } from 'react';
+import { PageIcon } from '@shared/icon';
+import { getPageIcon } from '@core/presentation/getPageIcon';
 
 import { noteCoverAttributionLabel } from './noteCoverAttributionLabel';
 import type {
@@ -23,6 +25,7 @@ const SHOW_EMPTY_DESCRIPTION_PLACEHOLDER = false;
 export interface NoteTableRowOptions {
   /** How a Tag collection's matching content lines resolve their wiki links, tags and embeds (see `toNoteTagContent`). */
   readonly resolvers?: CompactMarkdownResolvers;
+  readonly resolveIconImage?(reference: string | null | undefined): string | null;
   /**
    * The visible properties (from the resolved view) — must be the same ones the table's columns
    * were built from. Description is not a column: it is drawn inside the Name cell (its
@@ -48,7 +51,7 @@ export interface NoteTableRowOptions {
  */
 export function toNoteTableRow(
   entry: CollectionEntryModel,
-  { visible, cover, resolvers }: NoteTableRowOptions
+  { visible, cover, resolvers, resolveIconImage }: NoteTableRowOptions
 ): CollectionDataTableRow {
   const showDescription = showsDescriptionSnippet(entry, visible);
   const tagContent = toNoteTagContent(entry, resolvers);
@@ -57,6 +60,7 @@ export function toNoteTableRow(
       variant: 'header',
       icon: 'note',
       emoji: entry.emoji ?? undefined,
+      leading: <PageIcon systemIcon={getPageIcon('note')} emoji={entry.emoji} imageSrc={resolveIconImage?.(entry.iconImage)} size="medium" />,
       title: entry.values.name,
       // Tag collection: a matching-content entry's Name is the line (see `toNoteTagContent`).
       ...(tagContent && { leading: tagContent.leading, titleContent: tagContent.titleContent }),
