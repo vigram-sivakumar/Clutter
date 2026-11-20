@@ -424,12 +424,16 @@ describe('Sidebar Tasks tab due-task dot', () => {
     const id = await application.pageOperations.openDraft({ folderId: null, title: 'Closed tasks' });
     await application.pageOperations.save(id, '- [ ] Due @2026-11-13\n- [x] Done @2026-11-13\n- [ ] Future @2026-11-14');
     application.pageOperations.close(id);
-    application.tasksViewConfigStore.update({ showCompleted: true, hiddenGroups: ['today', 'overdue'], selectedTab: 'unscheduled' });
+    application.tasksViewConfigStore.update({ showCompleted: true, hiddenGroups: ['overdue'], selectedTab: 'unscheduled' });
     render(<AppLayout application={application} />);
     const tab = screen.getByTestId('sidebar.tab.tasks');
     expect(tab.querySelector('.tab__indicator')).toBeInTheDocument();
+    fireEvent.click(tab);
+    expect(screen.getByText('Due')).toBeInTheDocument();
+    expect(screen.queryByText('Done')).toBeNull();
     const due = application.effectivePageState.getTasks().find((task) => !task.completed && task.dueDate === '2026-11-13')!;
     await act(async () => { await application.taskOperations.toggleComplete(due); });
+    expect(screen.queryByText('Due')).toBeNull();
     expect(tab.querySelector('.tab__indicator')).toBeNull();
     expect(tab.querySelector('.app-icon')).not.toBeNull();
   });
