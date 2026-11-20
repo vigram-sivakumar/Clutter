@@ -1810,6 +1810,7 @@ export class PagePersistenceCoordinator {
   private extractEditableMetadataPatch(frontmatter: PageFrontmatter): {
     description?: PageMetadata['description'];
     icon?: PageMetadata['icon'];
+    iconImage?: PageMetadata['iconImage'];
     cover?: PageMetadata['cover'];
     coverCredit?: PageMetadata['coverCredit'];
     coverHidden?: PageMetadata['coverHidden'];
@@ -1820,6 +1821,7 @@ export class PagePersistenceCoordinator {
     const patch: {
       description?: PageMetadata['description'];
       icon?: PageMetadata['icon'];
+      iconImage?: PageMetadata['iconImage'];
       cover?: PageMetadata['cover'];
       coverCredit?: PageMetadata['coverCredit'];
       coverHidden?: PageMetadata['coverHidden'];
@@ -1833,6 +1835,9 @@ export class PagePersistenceCoordinator {
     }
     if (frontmatter.icon !== undefined) {
       patch.icon = frontmatter.icon;
+    }
+    if (frontmatter.iconImage !== undefined) {
+      patch.iconImage = frontmatter.iconImage;
     }
     if (frontmatter.cover !== undefined) {
       patch.cover = frontmatter.cover;
