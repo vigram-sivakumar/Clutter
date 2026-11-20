@@ -50,7 +50,7 @@ describe('TasksTabs', () => {
     expect(container.firstElementChild).toHaveClass('tabs', 'tabs--ghost');
   });
 
-  it('resolveTasksTab keeps a known persisted tab and falls back to All tasks for anything else', () => {
+  it('resolveTasksTab keeps a known persisted tab and falls back to Today for legacy or unknown values', () => {
     expect(resolveTasksTab('today')).toBe('today');
     expect(resolveTasksTab('completed')).toBe('completed');
     expect(resolveTasksTab('upcoming')).toBe('upcoming');
