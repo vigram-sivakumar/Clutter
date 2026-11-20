@@ -85,6 +85,8 @@ describe('tasksForView — the single authority on which tasks belong to each ta
       const completedPast = task('done past', { completed: true, dueDate: '2026-10-01', completedAt: '2026-10-01' });
       expect(titles('tasks-overdue', [completedPast], SHOW)).toEqual([]);
       expect(titles('tasks-overdue', [completedPast], HIDE)).toEqual([]);
+      expect(titles('tasks-today', [completedPast], SHOW)).toEqual([]);
+      expect(titles('tasks-today', [completedPast], HIDE)).toEqual([]);
     });
 
     it('a completed task never appears in Unplanned — with Show completed on or off', () => {
