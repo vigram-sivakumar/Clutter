@@ -5,6 +5,7 @@ use tauri::{AppHandle, Manager, RunEvent, Url, WebviewWindow};
 
 mod app_menu;
 mod dock_badge;
+mod launch_at_login;
 // The atomic vault writer and its commands (ADR-063). Compiled in only with the `atomic-writes` Cargo feature, which
 // is on by default and is the only way Clutter saves (a release build refuses to compile without it: see build.rs).
 // Callable only from the `main` window (checked in the commands themselves).
@@ -197,6 +198,9 @@ pub fn run() {
             frontend_ready,
             frontend_failed,
             dock_badge::set_dock_badge,
+            launch_at_login::get_launch_at_login_status,
+            launch_at_login::set_launch_at_login_enabled,
+            launch_at_login::open_login_items_settings,
             app_menu::set_copy_page_link_enabled,
             #[cfg(all(target_os = "macos", feature = "atomic-writes"))]
             atomic_commands::atomic_write_file,

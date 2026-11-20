@@ -63,6 +63,7 @@ objc2-core-foundation = { version = "0.3", default-features = false, features = 
 objc2 = "0.6"
 objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSDockTile", "NSOpenPanel", "NSPanel", "NSResponder", "NSSavePanel", "NSWindow"] }
 objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSDictionary", "NSError", "NSFileManager", "NSObject", "NSString", "NSURL"] }
+objc2-service-management = { version = "0.3.2", default-features = false, features = ["objc2", "objc2-foundation", "SMAppService"] }
 
 # Test-only: Tauri's mock runtime, so the atomic-write commands are exercised through the real IPC dispatch and the
 # real fs-plugin scope (src/atomic_commands.rs). Adds no crate to the graph.
