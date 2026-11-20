@@ -43,9 +43,9 @@ function ImageIcon({
 
   return (
     <span className="page-icon page-icon--image">
-      {status === 'loading' && (
+      <span className="page-icon__fallback" style={status === 'loaded' ? { visibility: 'hidden' } : undefined}>
         <IconFallback icon={icon} emoji={emoji} size={size} slotSize={slotSize} />
-      )}
+      </span>
       <img
         className="page-icon__image"
         src={src}
