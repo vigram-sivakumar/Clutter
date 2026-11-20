@@ -146,11 +146,20 @@ export class AssetCatalogBuilder {
       if (page.metadata.cover && !page.metadata.coverHidden) {
         use(draftFor(page.metadata.cover, 'image'), 'cover', referrer);
       }
+      if (page.metadata.iconImage) {
+        const resource = resolveLocal(root, resourcesByPath, page.metadata.iconImage.trim());
+        if (resource) use(drafts.get(resource.id), 'icon', referrer);
+      }
     }
 
     for (const folder of folders) {
+      const referrer = { kind: 'folder', id: folder.id } as const;
       if (folder.metadata.cover && !folder.metadata.coverHidden) {
-        use(draftFor(folder.metadata.cover, 'image'), 'cover', { kind: 'folder', id: folder.id });
+        use(draftFor(folder.metadata.cover, 'image'), 'cover', referrer);
+      }
+      if (folder.metadata.iconImage) {
+        const resource = resolveLocal(root, resourcesByPath, folder.metadata.iconImage.trim());
+        if (resource) use(drafts.get(resource.id), 'icon', referrer);
       }
     }
 
