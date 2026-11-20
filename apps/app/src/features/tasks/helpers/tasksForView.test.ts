@@ -40,8 +40,8 @@ describe('tasksForView — the single authority on which tasks belong to each ta
     it('no due date → Unplanned', () => {
       expect(titles('tasks-unscheduled', all)).toEqual(['no date']);
     });
-    it('due today → Today', () => {
-      expect(titles('tasks-today', all)).toEqual(['due today']);
+    it('overdue and due today → Today', () => {
+      expect(titles('tasks-today', all)).toEqual(['due today', 'due yesterday']);
     });
     it('due before today and not completed → Overdue', () => {
       expect(titles('tasks-overdue', all)).toEqual(['due yesterday']);
