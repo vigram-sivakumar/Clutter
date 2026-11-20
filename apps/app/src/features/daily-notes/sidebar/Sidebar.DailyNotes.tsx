@@ -40,6 +40,7 @@ interface DailyNotesPanelProps {
   folderOperations: FolderOperations;
   effectivePageState: EffectivePageState;
   activeDate: string | undefined;
+  resolveIconImage?(reference: string | null | undefined): string | null;
   onOpen(pageId: string): void;
   onOpenDraft(pageId: string): void;
   onOpenDate(date: string): void;
@@ -56,6 +57,7 @@ export function DailyNotes({
   folderOperations,
   effectivePageState,
   activeDate,
+  resolveIconImage,
   onOpen,
   onOpenDraft,
   onOpenDate,
@@ -157,6 +159,7 @@ export function DailyNotes({
         resolveWikiLink={resolveWikiLink}
         resolveTag={resolveTag}
         resolveEmbed={resolveEmbed}
+        resolveIconImage={resolveIconImage}
       />
     </View>
   );
