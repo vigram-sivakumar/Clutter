@@ -1,5 +1,5 @@
 import { fireEvent, render } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { getPageIcon } from '@core/presentation/getPageIcon';
 import { PageIcon } from './PageIcon';
 
@@ -42,6 +42,17 @@ describe('PageIcon', () => {
 
     expect(container.querySelector('img')).toBeNull();
     expect(container.querySelector('.emoji-icon')?.textContent).toBe('📝');
+  });
+
+  it('reports a decode failure so the owner can clear stale metadata', () => {
+    const onImageError = vi.fn();
+    const { container } = render(
+      <PageIcon emoji="📝" imageSrc="asset://broken.png" onImageError={onImageError} />
+    );
+
+    fireEvent.error(container.querySelector('img') as HTMLImageElement);
+
+    expect(onImageError).toHaveBeenCalledTimes(1);
   });
 
   it('renders the system fallback when no emoji is set', () => {
