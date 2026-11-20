@@ -128,7 +128,7 @@ export function PageHeaderControls({
       {hasUserIcon && onSelectEmoji && onUploadIconImage && (
         <>
           <Button
-            className="page-header-controls__emoji"
+            className="page-header-controls__emoji page-header-controls__emoji--static"
             ref={iconButtonRef}
             isIconOnly
             variant="ghost"
