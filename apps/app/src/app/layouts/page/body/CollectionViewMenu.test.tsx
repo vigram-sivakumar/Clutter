@@ -90,26 +90,22 @@ const sortLabels = () => {
 };
 
 describe('CollectionViewMenu — root view', () => {
-  it('shows flat Group by, Display and Sort by sections for Tasks, with no Layout or Properties controls', () => {
-    const onDisplay = vi.fn();
+  it('shows Group by and Sort by sections for Tasks, with no Display, Layout or Properties controls', () => {
     const onGroupByChange = vi.fn();
     const { container, getByText, queryByText, queryByRole } = render(<CollectionViewMenu
       view={resolveCollectionView(TASKS_COLLECTION, { layout: 'table', groupBy: 'dueDate' })}
       onLayoutChange={vi.fn()} onPropertyChange={vi.fn()} onSortChange={vi.fn()} onGroupByChange={onGroupByChange}
-      toggles={[{ id: 'show', label: 'Show completed', checked: true, onChange: onDisplay }]}
     />);
     fireEvent.click(container.querySelector('[aria-haspopup="menu"]')!);
     const text = document.querySelector('.menu')!.textContent!;
-    expect(text.indexOf('Group by')).toBeLessThan(text.indexOf('Display'));
-    expect(text.indexOf('Display')).toBeLessThan(text.indexOf('Sort by'));
+    expect(text.indexOf('Group by')).toBeLessThan(text.indexOf('Sort by'));
+    expect(queryByText('Display')).not.toBeInTheDocument();
     for (const label of ['Layout', 'List', 'Table', 'Card', 'Properties']) expect(queryByText(label)).toBeNull();
     expect(queryByRole('button', { name: 'Back to configure' })).toBeNull();
     expect(getByText('None')).toBeInTheDocument();
-    expect(getByText('Show completed')).toBeInTheDocument();
+    expect(queryByText('Show completed')).not.toBeInTheDocument();
     fireEvent.click(getByText('None'));
     expect(onGroupByChange).toHaveBeenCalledWith('none');
-    fireEvent.click(getByText('Show completed'));
-    expect(onDisplay).toHaveBeenCalledWith(false);
     expect(getByText('Sort by')).toBeInTheDocument();
   });
 
@@ -608,67 +604,5 @@ describe('CollectionViewMenu — Last opened is gone', () => {
       expect(queryByText('Last opened')).not.toBeInTheDocument();
       cleanup();
     }
-  });
-});
-
-describe('CollectionViewMenu — extra toggles (All tasks: Show completed / Auto-sort completed)', () => {
-  function renderWithToggles(checked: { show: boolean; auto: boolean }) {
-    const onShow = vi.fn();
-    const onAuto = vi.fn();
-    const utils = render(
-      <CollectionViewMenu
-        view={resolveCollectionView(FOLDER_COLLECTION, { layout: 'list' })}
-        onLayoutChange={vi.fn()}
-        onPropertyChange={vi.fn()}
-        onSortChange={vi.fn()}
-        toggles={[
-          { id: 'show', label: 'Show completed', checked: checked.show, onChange: onShow },
-          { id: 'auto', label: 'Auto-sort completed', checked: checked.auto, onChange: onAuto },
-        ]}
-      />
-    );
-    fireEvent.click(utils.container.querySelector('[aria-haspopup="menu"]')!);
-    return { ...utils, onShow, onAuto };
-  }
-
-  it('lists the toggles directly under Display, with a tick on the checked ones', () => {
-    renderWithToggles({ show: true, auto: false });
-
-    const labels = menuLabels();
-    expect(labels).toContain('Show completed');
-    expect(labels.indexOf('Auto-sort completed')).toBe(labels.indexOf('Show completed') + 1);
-
-    const rows = [...document.querySelectorAll('[role="menuitem"]')];
-    const show = rows.find((row) => row.textContent?.trim() === 'Show completed')!;
-    const auto = rows.find((row) => row.textContent?.trim() === 'Auto-sort completed')!;
-    expect(show.querySelector('svg')).not.toBeNull();
-    expect(auto.querySelector('svg')).toBeNull();
-    expect(document.querySelectorAll('[role="separator"]').length).toBeGreaterThan(0);
-  });
-
-  it('groups the toggles under a Display title, and shows no Display title without toggles', () => {
-    const { getByText } = renderWithToggles({ show: true, auto: false });
-    expect(getByText('Display')).toBeInTheDocument();
-    cleanup();
-
-    const { queryByText } = renderMenu();
-    expect(queryByText('Display')).not.toBeInTheDocument();
-  });
-
-  it('flipping one reports the new value and keeps the menu open', () => {
-    const { getByText, onShow, onAuto } = renderWithToggles({ show: true, auto: false });
-
-    fireEvent.click(getByText('Show completed'));
-    fireEvent.click(getByText('Auto-sort completed'));
-
-    expect(onShow).toHaveBeenCalledWith(false);
-    expect(onAuto).toHaveBeenCalledWith(true);
-    expect(getByText('Display')).toBeInTheDocument();
-  });
-
-  it('draws nothing extra without toggles (every other collection)', () => {
-    renderMenu();
-
-    expect(menuLabels()).not.toContain('Show completed');
   });
 });
