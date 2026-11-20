@@ -93,7 +93,6 @@ describe('getPageReferences', () => {
   });
 
   it('also lists a referenced task under the Daily Note matching its due date, while retaining it in Tasks', () => {
-    const dueDate = '2026-11-20';
     const dueNote = page(
       'due-note',
       'Daily Notes/2026/November/2026-11-20.md',
