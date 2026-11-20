@@ -348,6 +348,29 @@ describe('PageOperations.updateMetadata()', () => {
     );
   });
 
+  it('keeps emoji and image icon metadata mutually exclusive', async () => {
+    const page = buildPage({ icon: '📝' });
+    const { vault, pageOperations } = setup(page);
+
+    await pageOperations.updateMetadata(page.id, { iconImage: 'Assets/page-icon.png' });
+    expect(vault.getPage(page.id)!.metadata).toMatchObject({
+      icon: null,
+      iconImage: 'Assets/page-icon.png',
+    });
+
+    await pageOperations.updateMetadata(page.id, { icon: '📌' });
+    expect(vault.getPage(page.id)!.metadata).toMatchObject({
+      icon: '📌',
+      iconImage: null,
+    });
+
+    await pageOperations.updateMetadata(page.id, { icon: null });
+    expect(vault.getPage(page.id)!.metadata).toMatchObject({
+      icon: null,
+      iconImage: null,
+    });
+  });
+
   it('preserves unrelated metadata (icon, iconImage, favorite) across a metadata-only patch', async () => {
     const page = buildPage({ icon: '📝', iconImage: 'Assets/icon.png', favorite: true });
     const { vault, pageOperations } = setup(page);
