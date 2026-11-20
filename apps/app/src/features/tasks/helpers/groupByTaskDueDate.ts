@@ -1,6 +1,6 @@
 import { classifyDueDate } from './taskDueDate';
 
-/** Exact due-date groups; stable within each date, chronological dates, Unscheduled last. */
+/** Exact due-date groups; stable within each date, chronological dates, Unplanned last. */
 export function groupByTaskDueDate<T>(items: readonly T[], dueDateOf: (item: T) => string | undefined) {
   const byDate = new Map<string, T[]>();
   for (const item of items) {
