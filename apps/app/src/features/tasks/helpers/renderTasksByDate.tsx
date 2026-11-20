@@ -293,7 +293,7 @@ export function renderTasksByDate({
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
-  // Every group shown unless the caller says otherwise (the app's own default hides Unscheduled — see AppLayout).
+  // Every group shown unless the caller says otherwise (the app's own default hides Unplanned — see AppLayout).
   displayConfig = { ...DEFAULT_TASK_DISPLAY_CONFIG, hiddenGroups: [] },
   expandedGroups = [],
   onToggleGroup,
