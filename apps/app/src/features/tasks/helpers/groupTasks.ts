@@ -12,7 +12,7 @@ export type TaskGroups = {
   overdue: readonly TaskOccurrence[];
   upcoming: readonly TaskOccurrence[];
   // The unscheduled subset of `upcoming`, exposed separately for the
-  // dedicated Unscheduled collection view — computed once here rather
+  // dedicated Unplanned collection view — computed once here rather
   // than re-deriving the same predicate a second time at the call site.
   unscheduled: readonly TaskOccurrence[];
 };
@@ -23,7 +23,7 @@ export type TaskGroups = {
  * the caller) — the two independent toggles the Tasks settings page controls. Passed explicitly to
  * every `groupTasks` call (never defaulted inside `groupTasks` itself) so
  * a call site that must keep its existing behavior — the dedicated
- * Unscheduled collection view, which has never shown completed tasks — says
+ * Unplanned collection view, which has never shown completed tasks — says
  * so explicitly rather than silently inheriting whatever the shared
  * Tasks-view preference happens to be.
  */
@@ -33,7 +33,7 @@ export interface TaskDisplayConfig {
   /**
    * Sidebar sections the user has switched off in the Tasks settings page. Presentation only:
    * `groupTasks` ignores it (membership is unchanged) and only the sidebar's `renderTasksByDate`
-   * reads it — the Today/Overdue/Upcoming/Unscheduled pages and their navigation entries are unaffected.
+   * reads it — the Today/Overdue/Upcoming/Unplanned pages and their navigation entries are unaffected.
    * Absent means every group is shown.
    */
   readonly hiddenGroups?: readonly TaskGroupId[];
@@ -56,7 +56,7 @@ export const HIDEABLE_TASK_GROUP_IDS: readonly TaskGroupId[] = TASK_GROUP_IDS.fi
 
 /**
  * The Tasks-view preference's out-of-the-box defaults — completed tasks shown, in their normal position;
- * Overdue and Upcoming sections shown, Unscheduled off until the user turns it on.
+ * Overdue and Upcoming sections shown, Unplanned off until the user turns it on.
  */
 export const DEFAULT_TASK_DISPLAY_CONFIG: TaskDisplayConfig = {
   showCompleted: true,
