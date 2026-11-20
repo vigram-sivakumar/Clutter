@@ -125,8 +125,9 @@ export function resolveCollectionView(
     config.layout !== undefined && definition.layouts.includes(config.layout) ? config.layout : definition.defaultLayout;
 
   const available = availableProperties(definition);
+  // Grouping defaults are collection policy; an explicit user choice always wins.
   const groupBy: CollectionGroupBy | undefined = definition.kind === 'tasks'
-    ? (config.groupBy ?? 'none') : undefined;
+    ? (config.groupBy ?? definition.defaultGroupBy ?? 'none') : undefined;
   const disabled: readonly PropertyId[] = groupBy === 'dueDate' ? ['dueDate'] : [];
   const required = requiredProperties(definition, layout);
   const locked = available.filter((id) => required.includes(id));
