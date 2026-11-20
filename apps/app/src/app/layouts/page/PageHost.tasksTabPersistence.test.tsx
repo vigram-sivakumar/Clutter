@@ -94,6 +94,7 @@ function pageWith(id: string, body: string, segment = `${id}.md`): Page {
 
 const TASKS = [
   '- [ ] Plain undated task',
+  '- [ ] Due yesterday task @' + new Date(Date.now() - 86400000).toISOString().slice(0, 10),
   '- [ ] Due today task @' + new Date().toISOString().slice(0, 10),
   '- [ ] Due later task @2999-01-01',
 ].join('\n');
@@ -159,7 +160,7 @@ describe('Tasks page tab selection persists across an app restart', () => {
     const dueDateChoices = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].filter((row) => row.textContent === 'Due date');
     fireEvent.click(dueDateChoices[0]!);
     await flush();
-    expect(document.querySelectorAll('.collection__content .section-header')).toHaveLength(3);
+    expect(document.querySelectorAll('.collection__content .section-header')).toHaveLength(4);
     expect(first.queryByText('Layout')).toBeNull();
     expect(first.queryByText('Properties')).toBeNull();
     expect(first.queryByText('Show completed')).toBeNull();
@@ -178,7 +179,7 @@ describe('Tasks page tab selection persists across an app restart', () => {
     fireEvent.click(second.getByText('None'));
     await flush();
     expect(document.querySelectorAll('.collection__content .section-header')).toHaveLength(0);
-    expect(document.querySelectorAll('.collection-list .task-title')).toHaveLength(3);
+    expect(document.querySelectorAll('.collection-list .task-title')).toHaveLength(4);
   });
 
   it('a first launch opens on Today, showing overdue and due-today tasks', async () => {
@@ -186,7 +187,7 @@ describe('Tasks page tab selection persists across an app restart', () => {
     await flush();
 
     expect(activeTab()).toBe('Today');
-    expect(listedTasks()).toEqual(['Due today task']);
+    expect(listedTasks()).toEqual(['Due yesterday task', 'Due today task']);
   });
 
   it.each([
@@ -212,7 +213,7 @@ describe('Tasks page tab selection persists across an app restart', () => {
     expect(listedTasks()).toEqual(expected);
   });
 
-  it('the latest selection wins and the selected tab is remembered, async () => {
+  it('the latest selection wins and the selected tab is remembered', async () => {
     const fileSystem = new InMemoryVaultFileSystem();
 
     const first = render(<AppLayout application={await boot(fileSystem)} />);
