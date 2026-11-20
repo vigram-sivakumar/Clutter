@@ -133,7 +133,7 @@ describe('TasksCollectionBody', () => {
     expect(queryByText('Dated')).toBeInTheDocument();
   });
 
-  it.each(['list', 'table'] as const)('%s applies completion visibility and sorting when All Tasks is grouped', (layout) => {
+  it.each(['list', 'table'] as const)('%s keeps completed tasks out of active All Tasks when grouped', (layout) => {
     const tasks = [
       task({ text: 'Alpha completed', completed: true, dueDate: '2026-08-02' }),
       task({ text: 'Zebra open', dueDate: '2026-08-02' }),
@@ -147,11 +147,11 @@ describe('TasksCollectionBody', () => {
     const { container, rerender } = render(<TasksCollectionBody {...props}
       displayConfig={{ showCompleted: true, autoSortCompleted: true }} />);
     expect([...container.querySelectorAll('.task-title')].map((node) => node.textContent)).toEqual([
-      'Zebra open', 'Alpha completed', 'Only completed',
+      'Zebra open',
     ]);
     rerender(<TasksCollectionBody {...props} displayConfig={{ showCompleted: false, autoSortCompleted: true }} />);
     expect([...container.querySelectorAll('.task-title')].map((node) => node.textContent)).toEqual(['Zebra open']);
-    expect(container.querySelectorAll('.section-header')).toHaveLength(2);
+    expect(container.querySelectorAll('.section-header')).toHaveLength(1);
   });
 
   it('groups Inbox tasks without including tasks stored in other notes', () => {
@@ -175,7 +175,7 @@ describe('TasksCollectionBody', () => {
     vi.useRealTimers();
   });
 
-  it('renders every task, incomplete and completed, for the tasks-all view', () => {
+  it('renders only incomplete tasks in the tasks-all view', () => {
     const incomplete = task({ text: 'Still open' });
     const completed = task({
       text: 'Done already',
@@ -194,7 +194,7 @@ describe('TasksCollectionBody', () => {
     );
 
     expect(getByText('Still open')).not.toBeNull();
-    expect(getByText('Done already')).not.toBeNull();
+    expect(getByText('Done already')).toBeNull();
   });
 
   it('renders a dated tasks-all row with its due date as a button in the trailing slot: no pill, no add-due-date icon button, no More actions', () => {
@@ -600,22 +600,19 @@ describe('TasksCollectionBody', () => {
         return result;
       };
 
-      it('Show completed off drops completed tasks', () => {
+      it('completed tasks stay out of All Tasks regardless of Show completed', () => {
         expect(
           titles({ showCompleted: false, autoSortCompleted: false })
         ).toEqual(['Banana', 'Cherry']);
-      });
-
-      it('Auto-sort completed off leaves completed tasks in their sorted place; on moves them last', () => {
         expect(
           titles({ showCompleted: true, autoSortCompleted: false })
-        ).toEqual(['Apple (done)', 'Banana', 'Cherry']);
+        ).toEqual(['Banana', 'Cherry']);
         expect(
           titles({ showCompleted: true, autoSortCompleted: true })
-        ).toEqual(['Banana', 'Cherry', 'Apple (done)']);
+        ).toEqual(['Banana', 'Cherry']);
       });
 
-      it('shows the empty state when Show completed hides every task', () => {
+      it('shows the empty state when all tasks are completed', () => {
         const { getByRole } = render(
           <TasksCollectionBody
             view="tasks-all"
@@ -863,12 +860,12 @@ describe('TasksCollectionBody', () => {
     ];
     const expected: Record<(typeof VIEWS)[number], string[]> = {
       'tasks-all': [
-        'T-done',
         'T-overdue',
         'T-today',
         'T-unscheduled',
         'T-upcoming',
       ],
+      'tasks-completed': ['T-done'],
       'tasks-unscheduled': ['T-unscheduled'],
     };
     const titlesIn = (container: HTMLElement) =>
@@ -1051,14 +1048,14 @@ describe('TasksCollectionBody', () => {
       expect(queryByText('Submit expenses')).toBeNull();
     });
 
-    it('shows a completed task in tasks-all when showCompleted is true', () => {
+    it('keeps completed tasks out of tasks-all when showCompleted is true', () => {
       const completedToday = task({
         text: 'Submit expenses',
         completed: true,
         dueDate: '2026-08-04',
       });
 
-      const { getByText } = render(
+      const { queryByText } = render(
         <TasksCollectionBody
           view="tasks-all"
           tasks={[completedToday]}
@@ -1069,10 +1066,10 @@ describe('TasksCollectionBody', () => {
         />
       );
 
-      expect(getByText('Submit expenses')).not.toBeNull();
+      expect(queryByText('Submit expenses')).toBeNull();
     });
 
-    it('auto-sort moves a completed task to the bottom of tasks-all', () => {
+    it('keeps completed tasks out of tasks-all even when auto-sort is enabled', () => {
       const completed = task({
         text: 'Completed task',
         completed: true,
@@ -1094,7 +1091,7 @@ describe('TasksCollectionBody', () => {
       const titles = Array.from(container.querySelectorAll('.task-title')).map(
         (el) => el.textContent
       );
-      expect(titles).toEqual(['Active task', 'Completed task']);
+      expect(titles).toEqual(['Active task']);
     });
   });
 
@@ -1147,7 +1144,7 @@ describe('TasksCollectionBody', () => {
 
       const completedResult = render(
         <TasksCollectionBody
-          view="tasks-all"
+          view="tasks-completed"
           tasks={[completed]}
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
