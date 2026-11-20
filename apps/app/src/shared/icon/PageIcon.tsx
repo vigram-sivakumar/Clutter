@@ -3,95 +3,99 @@ import { AppIcon } from './AppIcon';
 import type { SystemIcon } from './types';
 import './PageIcon.css';
 
+export type PageIconSize = 'small' | 'medium' | 'large';
+
 export interface PageIconProps {
-  /** The page or folder's default system icon. */
-  icon?: SystemIcon;
-  /** The page or folder's optional emoji override. */
+  /** Emoji stored in page or folder metadata. */
   emoji?: string | null;
+  /** Optional system-icon fallback when no emoji is available. */
+  systemIcon?: SystemIcon;
   /** A resolved, loadable image URL. Vault path resolution belongs outside this component. */
   imageSrc?: string | null;
-  /** Size of the system icon glyph. */
-  size?: number;
-  /** Size of the icon slot, matching AppIcon's layout. */
-  slotSize?: number;
+  /** Consistent dimensions for each UI context. */
+  size?: PageIconSize;
   className?: string;
 }
 
-interface IconFallbackProps {
-  icon?: SystemIcon;
+const SIZE_TOKENS: Record<PageIconSize, { slot: number; glyph: number }> = {
+  small: { slot: 16, glyph: 16 },
+  medium: { slot: 20, glyph: 16 },
+  large: { slot: 28, glyph: 24 },
+};
+
+interface FallbackProps {
   emoji?: string | null;
-  size?: number;
-  slotSize?: number;
+  systemIcon?: SystemIcon;
+  glyphSize: number;
 }
 
-function IconFallback({ icon, emoji, size, slotSize }: IconFallbackProps) {
-  return <AppIcon icon={icon} emoji={emoji} size={size} slotSize={slotSize} />;
+function IconFallback({ emoji, systemIcon, glyphSize }: FallbackProps) {
+  return <AppIcon icon={systemIcon} emoji={emoji} size={glyphSize} />;
 }
 
-function ImageIcon({
+function ImageLayer({
   src,
-  icon,
-  emoji,
-  size,
-  slotSize,
-}: IconFallbackProps & { src: string }) {
+  fallback,
+}: {
+  src: string;
+  fallback: React.ReactNode;
+}) {
   const [status, setStatus] = useState<'loading' | 'loaded' | 'failed'>('loading');
 
-  if (status === 'failed') {
-    return <IconFallback icon={icon} emoji={emoji} size={size} slotSize={slotSize} />;
-  }
+  if (status === 'failed') return <>{fallback}</>;
 
   return (
-    <span className="page-icon page-icon--image">
-      <span className="page-icon__fallback" style={status === 'loaded' ? { visibility: 'hidden' } : undefined}>
-        <IconFallback icon={icon} emoji={emoji} size={size} slotSize={slotSize} />
+    <>
+      <span
+        className="page-icon__fallback"
+        style={status === 'loaded' ? { visibility: 'hidden' } : undefined}
+      >
+        {fallback}
       </span>
       <img
         className="page-icon__image"
         src={src}
         alt=""
         aria-hidden="true"
-        style={status === 'loading' ? { display: 'none' } : undefined}
+        style={status === 'loading' ? { visibility: 'hidden' } : undefined}
         onLoad={() => setStatus('loaded')}
         onError={() => setStatus('failed')}
       />
-    </span>
+    </>
   );
 }
 
 /**
- * Shared page/folder identity icon. The existing AppIcon remains the single
- * implementation for emoji and system-icon rendering; an image replaces it
- * only after the browser confirms that the image has loaded successfully.
+ * Shared page/folder identity icon. AppIcon remains responsible for emoji and
+ * system-icon rendering. Images replace the fallback only after loading.
  *
- * Pass a resolved URL in imageSrc. This component deliberately does not
- * inspect the filesystem or mutate metadata.
+ * Pass a resolved URL in imageSrc. This component does not inspect the
+ * filesystem or mutate metadata.
  */
 export function PageIcon({
-  icon,
   emoji,
+  systemIcon,
   imageSrc,
-  size,
-  slotSize,
+  size = 'medium',
   className,
 }: PageIconProps) {
-  const fallback = <IconFallback icon={icon} emoji={emoji} size={size} slotSize={slotSize} />;
-  const src = imageSrc?.trim() ? imageSrc : null;
-
-  if (!src) {
-    return className ? <span className={className}>{fallback}</span> : fallback;
-  }
+  const dimensions = SIZE_TOKENS[size];
+  const fallback = (
+    <IconFallback emoji={emoji} systemIcon={systemIcon} glyphSize={dimensions.glyph} />
+  );
+  const src = imageSrc?.trim() || null;
+  const style = {
+    '--page-icon-slot-size': `${dimensions.slot}px`,
+    '--page-icon-glyph-size': `${dimensions.glyph}px`,
+  } as React.CSSProperties;
 
   return (
-    <span className={`page-icon-container ${className ?? ''}`.trim()}>
-      <ImageIcon
-        key={src}
-        src={src}
-        icon={icon}
-        emoji={emoji}
-        size={size}
-        slotSize={slotSize}
-      />
+    <span className={`page-icon ${className ?? ''}`.trim()} style={style}>
+      {src ? (
+        <ImageLayer key={src} src={src} fallback={fallback} />
+      ) : (
+        <span className="page-icon__fallback">{fallback}</span>
+      )}
     </span>
   );
 }
