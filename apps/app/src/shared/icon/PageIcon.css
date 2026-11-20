@@ -1,7 +1,11 @@
-.page-icon {
-  position: relative;
+.page-icon-container {
   display: inline-flex;
   flex: 0 0 auto;
+}
+
+.page-icon--image {
+  position: relative;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
 }
