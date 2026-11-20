@@ -57,6 +57,7 @@ export interface PageHeaderControlsProps {
   fallbackIcon?: SystemIcon;
   /** Imports and persists an image selected from the user's computer. */
   onUploadIconImage?: (sourcePath: string) => CoverApplyResult;
+  onIconImageError?: () => void;
   /**
    * Whether the page currently has a cover image — there is no cover
    * control/preview in the header itself (the cover renders wherever it
@@ -97,6 +98,7 @@ export function PageHeaderControls({
   hasIconImage = false,
   fallbackIcon,
   onUploadIconImage,
+  onIconImageError,
   hasCoverImage = false,
   coverHidden = false,
   onSetCoverImage,
@@ -138,6 +140,7 @@ export function PageHeaderControls({
               emoji={emoji}
               systemIcon={fallbackIcon}
               imageSrc={iconImageSrc}
+              onImageError={onIconImageError}
               size="large"
             />
           </Button>
@@ -174,6 +177,7 @@ export function PageHeaderControls({
             emoji={emoji}
             systemIcon={fallbackIcon}
             imageSrc={iconImageSrc}
+            onImageError={onIconImageError}
             size="large"
           />
         </span>
