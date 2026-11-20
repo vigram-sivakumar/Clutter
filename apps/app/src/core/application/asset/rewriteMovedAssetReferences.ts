@@ -77,8 +77,8 @@ function textReferences(markdown: string): TextReferences {
  * anything in another Space is not a reference to this file and is left alone.
  *
  * Where it looks: every note including archived ones (an archived note can be restored) — its `![[…]]` embeds, `[[…]]`
- * links to the file's exact path, `![](…)` images and cover (hidden or not); an open note's text as it is now, saved or
- * not; every folder's cover; the Space avatar.
+ * links to the file's exact path, `![](…)` images, covers and `iconImage` references; an open note's text as it is now, saved or
+ * not; every folder's cover and `iconImage`; the Space avatar.
  */
 export async function planMovedAssetReferences(
   deps: MovedAssetReferenceDeps,
