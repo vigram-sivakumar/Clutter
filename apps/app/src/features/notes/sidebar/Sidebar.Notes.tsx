@@ -562,7 +562,6 @@ export function Notes({
           rowActions={favoriteRowActions}
           getFolderSort={getFolderSort}
           onFolderSortChange={onFolderSortChange}
-          resolveIconImage={resolveIconImage}
         />
       </FavoritesSection>
       <Section
@@ -622,6 +621,7 @@ export function Notes({
           resolveWikiLink={resolveWikiLink}
           resolveTag={resolveTag}
           resolveEmbed={resolveEmbed}
+          resolveIconImage={resolveIconImage}
           expandedFolders={expandedFolders}
           onToggleFolderCap={onToggleFolderCap}
           enableDrag
