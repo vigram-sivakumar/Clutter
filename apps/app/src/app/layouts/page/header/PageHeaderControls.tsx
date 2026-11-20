@@ -149,6 +149,7 @@ export function PageHeaderControls({
             open={iconPickerOpen}
             onClose={() => setIconPickerOpen(false)}
             hasAvatar={hasUserIcon}
+            entityLabel="icon"
             onSelectEmoji={(selected) => {
               onSelectEmoji(selected);
               setIconPickerOpen(false);
