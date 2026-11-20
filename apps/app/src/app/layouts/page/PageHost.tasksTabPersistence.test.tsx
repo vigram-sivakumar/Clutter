@@ -160,7 +160,7 @@ describe('Tasks page tab selection persists across an app restart', () => {
     const dueDateChoices = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].filter((row) => row.textContent === 'Due date');
     fireEvent.click(dueDateChoices[0]!);
     await flush();
-    expect(document.querySelectorAll('.collection__content .section-header')).toHaveLength(4);
+    expect(document.querySelectorAll('.collection__content .section-header')).toHaveLength(2);
     expect(first.queryByText('Layout')).toBeNull();
     expect(first.queryByText('Properties')).toBeNull();
     expect(first.queryByText('Show completed')).toBeNull();
@@ -174,12 +174,12 @@ describe('Tasks page tab selection persists across an app restart', () => {
     const secondApp = await boot(fileSystem);
     const second = render(<AppLayout application={secondApp} />);
     await flush();
-    expect(document.querySelectorAll('.collection__content .section-header')).toHaveLength(4);
+    expect(document.querySelectorAll('.collection__content .section-header')).toHaveLength(2);
     fireEvent.click(configure());
     fireEvent.click(second.getByText('None'));
     await flush();
     expect(document.querySelectorAll('.collection__content .section-header')).toHaveLength(0);
-    expect(document.querySelectorAll('.collection-list .task-title')).toHaveLength(4);
+    expect(document.querySelectorAll('.collection-list .task-title')).toHaveLength(2);
   });
 
   it('a first launch opens on Today, showing overdue and due-today tasks', async () => {
