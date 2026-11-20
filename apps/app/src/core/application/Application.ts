@@ -1971,7 +1971,11 @@ export class Application {
     try {
       const page = this.vault.getPage(pageId);
       const reference = page?.metadata.iconImage;
-      if (!page || !reference || this.vault.isPageEffectivelyArchived(page)) return;
+      if (!page || reference == null || this.vault.isPageEffectivelyArchived(page)) return;
+      if (!reference.trim()) {
+        await this.pageOperations.updateMetadata(pageId, { iconImage: null });
+        return;
+      }
 
       if (this.resolvePageIconImageForDisplay(reference) !== null) {
         if (page.metadata.icon) {
@@ -2043,7 +2047,11 @@ export class Application {
     try {
       const folder = this.vault.getFolder(folderId);
       const reference = folder?.metadata.iconImage;
-      if (!folder || !reference || this.vault.isFolderEffectivelyArchived(folderId)) return;
+      if (!folder || reference == null || this.vault.isFolderEffectivelyArchived(folderId)) return;
+      if (!reference.trim()) {
+        await this.folderOperations.updateMetadata(folderId, { iconImage: null });
+        return;
+      }
 
       if (this.resolvePageIconImageForDisplay(reference) !== null) {
         if (folder.metadata.icon) {
