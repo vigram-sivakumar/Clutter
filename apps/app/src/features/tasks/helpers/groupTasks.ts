@@ -65,11 +65,8 @@ function isOverdue(task: TaskOccurrence): boolean {
 }
 
 // A task belongs in Upcoming's "scheduled" ordering group — sorted
-// chronologically ahead of the unscheduled ones — whenever it carries a
-// real, calendar-valid due date. That covers both a future-dated task and
-// a completed task whose due date is in the past (the one case a valid
-// past date reaches `upcoming` at all: see the `overdue` doc comment on
-// `TaskGroups`), sorted together by date rather than as two separate runs.
+// chronologically ahead of unplanned tasks — whenever it carries a real,
+// calendar-valid due date.
 function hasScheduledDueDate(task: TaskOccurrence): boolean {
   return classifyDueDate(task.dueDate) !== 'unscheduled';
 }
@@ -143,12 +140,9 @@ export function groupTasks(
   const overdue = remaining.filter(isOverdue).sort(byDueDateThenTitle);
 
   // Upcoming: everything eligible that's neither Today nor Overdue — a
-  // future-dated or unplanned task. Scheduled tasks
-  // (any calendar-valid due date) sort chronologically first, then
-  // alphabetically for tasks sharing the same date; unscheduled ones
-  // (missing, or shape-valid-but-calendar-invalid, e.g. a malformed @due
-  // value) come last, keeping their existing relative order rather than
-  // being silently dropped or alphabetized themselves.
+  // future-dated or unplanned task. Scheduled tasks sort chronologically
+  // first, then alphabetically for tasks sharing the same date; unplanned
+  // tasks (missing or invalid @due values) keep their source order at the end.
   const upcomingSource = remaining.filter((task) => !isOverdue(task));
   const scheduled = upcomingSource.filter(hasScheduledDueDate).sort(byDueDateThenTitle);
   const unscheduled = upcomingSource.filter((task) => !hasScheduledDueDate(task));
