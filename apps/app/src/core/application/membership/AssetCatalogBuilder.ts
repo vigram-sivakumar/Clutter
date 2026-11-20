@@ -3,13 +3,13 @@
  * logical collection (ADR-039).
  *
  *   resources (files in the vault)  ─┐
- *   pages: embeds, images, covers   ─┼─►  one Asset per canonical reference
- *   folders: covers                 ─┘
+ *   pages: embeds, images, covers, icons ─┼─►  one Asset per canonical reference
+ *   folders: covers, icons               ─┘
  *
  * An asset is identified by its canonical reference — a local file's resource
  * id, or a remote URL — so a file referenced by three notes and used as a
  * cover is still one asset, with four references. Source (local / remote) and
- * usage (embed / cover) are separate: nothing here has a "cover asset" type.
+ * usage (embed / cover / icon) are separate: nothing here has a "cover asset" type.
  *
  * Pure and derived: nothing is stored, nothing is read from disk, and a remote
  * URL is never copied into the vault. The only cache is the per-page image
