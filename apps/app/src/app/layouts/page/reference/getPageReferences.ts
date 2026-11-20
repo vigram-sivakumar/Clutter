@@ -4,6 +4,7 @@ import { resolveEffectivePageDates } from '@core/vault/models/effectivePageDates
 import type { GraphEdge } from '@core/vault/models/graph/GraphEdge';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
 import type { SourceRange } from '@core/presentation/getTagOccurrenceRanges';
+import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
 import { extractReferenceLine } from './extractReferenceLine';
 import {
   getPageDisplayLabel,
@@ -25,6 +26,10 @@ export interface PageReference {
   readonly line: string | null;
   /** The referencing line, trimmed of its list/heading marker — the compact fallback for `line`. */
   readonly excerpt: string;
+  /** Present when this entry is a task surfaced under the Daily Note matching its due date. */
+  readonly task?: TaskOccurrence;
+  /** The page containing the task line; differs from `page` when grouped under its due-date Daily Note. */
+  readonly sourcePage?: Page;
 }
 
 /** A task that references the open page, with the page its line lives in. */
@@ -105,6 +110,33 @@ export function getPageReferences(vault: Vault, pageId: string): PageReferences 
 
     for (const task of referencingTasks) {
       tasks.push({ task, page: source });
+
+      // A due date also associates the task with that date's Daily Note. Keep the original task reference
+      // above; this is an additional appearance in Daily Notes, not a move or replacement.
+      if (task.dueDate && isValidIsoDate(task.dueDate)) {
+        const [year, month, day] = task.dueDate.split('-').map(Number);
+        const dailyNotePath = `${vault.root}/${DailyNotePath.from(new Date(year!, month! - 1, day!))}`;
+        const dueDateNote = vault.getPageByPath(dailyNotePath);
+
+        // A task created in the matching Daily Note is already part of that note's own content.
+        if (
+          dueDateNote?.type === 'daily-note' &&
+          dueDateNote.id !== source.id &&
+          !vault.isPageEffectivelyArchived(dueDateNote)
+        ) {
+          dailyNotes.push({
+            page: dueDateNote,
+            sourcePage: source,
+            task,
+            lineFrom: task.startOffset ?? 0,
+            ranges: task.startOffset !== undefined && task.endOffset !== undefined
+              ? [{ from: task.startOffset, to: task.endOffset }]
+              : [],
+            line: task.text,
+            excerpt: task.text,
+          });
+        }
+      }
     }
 
     // The source is also listed as a note only for references that are not on a task line — those are already
@@ -179,6 +211,16 @@ function toRanges(edges: readonly GraphEdge[]): readonly SourceRange[] {
   }
 
   return [...ranges.values()].sort((a, b) => a.from - b.from);
+}
+
+function isValidIsoDate(value: string): boolean {
+  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) {
+    return false;
+  }
+
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(year!, month! - 1, day!);
+  return date.getFullYear() === year && date.getMonth() === month! - 1 && date.getDate() === day;
 }
 
 function isEdgeWithin(edge: GraphEdge, task: TaskOccurrence): boolean {

@@ -157,6 +157,8 @@ export function PageReferences({
   // is very long) the entry shows the line through the compact renderer instead.
   const pageEntry = ({
     page,
+    sourcePage,
+    task,
     lineFrom,
     ranges,
     line,
@@ -164,12 +166,18 @@ export function PageReferences({
   }: PageReference) => (
     <ReferenceEntry
       key={`${page.id}:${lineFrom}`}
+      isChecked={task?.completed}
+      onCheckedChange={task ? () => taskActions.toggleComplete(task) : undefined}
       preview={
         line === null ? undefined : (
-          <ReferencePreview markdown={line} extensions={previewExtensions} />
+          <ReferencePreview
+            markdown={line}
+            extensions={previewExtensions}
+            isCompleted={task?.completed}
+          />
         )
       }
-      onOpen={() => openSource(page.id, ranges)}
+      onOpen={() => openSource(sourcePage?.id ?? page.id, sourcePage ? ranges : ranges)}
     >
       {renderCompactMarkdown(excerpt, resolvers)}
     </ReferenceEntry>

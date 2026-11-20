@@ -92,6 +92,58 @@ describe('getPageReferences', () => {
     expect(ids(references.dailyNotes)).toEqual(['d-2026-10-10']);
   });
 
+  it('also lists a referenced task under the Daily Note matching its due date, while retaining it in Tasks', () => {
+    const dueDate = '2026-11-20';
+    const dueNote = page(
+      'due-note',
+      'Daily Notes/2026/November/2026-11-20.md',
+      '',
+      { type: 'daily-note' }
+    );
+    const source = page('planner', 'Planner.md', '- [ ] Follow up @2026-11-20 [[Projects/Target]]');
+    const references = getPageReferences(makeVault([TARGET, dueNote, source]), 'target');
+
+    expect(references.tasks.map(({ task }) => task.text)).toEqual([
+      'Follow up @2026-11-20 [[Projects/Target]]',
+    ]);
+    expect(ids(references.dailyNotes)).toEqual(['due-note']);
+    expect(references.dailyNotes[0]!.task?.text).toBe('Follow up @2026-11-20 [[Projects/Target]]');
+    expect(references.dailyNotes[0]!.sourcePage?.id).toBe('planner');
+  });
+
+  it('does not add a task to its own Daily Note date group, but keeps it in Tasks', () => {
+    const source = page(
+      'same-day',
+      'Daily Notes/2026/November/2026-11-20.md',
+      '- [ ] Follow up @2026-11-20 [[Projects/Target]]',
+      { type: 'daily-note' }
+    );
+    const references = getPageReferences(makeVault([TARGET, source]), 'target');
+
+    expect(references.tasks).toHaveLength(1);
+    expect(references.dailyNotes).toEqual([]);
+  });
+
+  it('associates a task from another Daily Note with its due-date Daily Note', () => {
+    const dueNote = page(
+      'due-note',
+      'Daily Notes/2026/November/2026-11-20.md',
+      '',
+      { type: 'daily-note' }
+    );
+    const source = page(
+      'other-day',
+      'Daily Notes/2026/November/2026-11-19.md',
+      '- [ ] Follow up @2026-11-20 [[Projects/Target]]',
+      { type: 'daily-note' }
+    );
+    const references = getPageReferences(makeVault([TARGET, dueNote, source]), 'target');
+
+    expect(references.tasks).toHaveLength(1);
+    expect(ids(references.dailyNotes)).toEqual(['due-note']);
+    expect(references.dailyNotes[0]!.sourcePage?.id).toBe('other-day');
+  });
+
   it('lists only tasks whose own line references the page, not other tasks in a referencing note', () => {
     const vault = makeVault([
       TARGET,
