@@ -128,6 +128,8 @@ export interface CollectionBodyProps {
    * resolver factories. Only consulted when `viewMode === 'card'`.
    */
   previewResolvers?: NotePreviewResolvers;
+  /** Resolves a persisted local icon image reference through Application's Vault-aware resolver. */
+  resolveIconImage?(reference: string | null | undefined): string | null;
   /**
    * The Cover image thumbnail — a column in Table mode, the trailing media in
    * List mode: shows each note's cover and opens the cover picker for that note
@@ -268,6 +270,7 @@ export function CollectionBody({
   foldersInGivenOrder = false,
   entryOrder,
   previewResolvers,
+  resolveIconImage,
   noteCover,
   moveDrag,
   itemMenu,
@@ -338,6 +341,7 @@ export function CollectionBody({
       onCreate: createInNotes,
       coverFor,
       resolvers: previewResolvers,
+      resolveIconImage,
       dragProps: entryProps,
       selectionFor,
     }) : viewMode === 'card' ? (
@@ -348,6 +352,7 @@ export function CollectionBody({
             {...toNoteCardProps(entry, {
               visible,
               resolvers: previewResolvers,
+              resolveIconImage,
               divider: cardDivider,
             })}
             selection={selectionFor(entry)}
@@ -363,6 +368,7 @@ export function CollectionBody({
       onCreate: createInNotes,
       coverFor,
       resolvers: previewResolvers,
+      resolveIconImage,
       dragProps: entryProps,
       selectionFor,
     });
@@ -380,7 +386,7 @@ export function CollectionBody({
       ) : (
         <>
           {/* The folders' Create card is likewise only for adding to folders that are there. */}
-          {sortedFolders.length > 0 && renderFolderGrid(sortedFolders, onCreateFolder, entryProps, selectionFor)}
+          {sortedFolders.length > 0 && renderFolderGrid(sortedFolders, onCreateFolder, entryProps, selectionFor, resolveIconImage)}
           {showNotes && noteSection}
         </>
       )}
