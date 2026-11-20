@@ -2503,8 +2503,11 @@ export function PageHost({
       [...vault.tasks()].some(
         (task) =>
           task.sourcePageId === inboxPageId &&
-          task.dueDate !== undefined &&
-          isValidCalendarDate(task.dueDate)
+          (task.dueDate !== undefined
+            ? isValidCalendarDate(task.dueDate)
+            : task.completed &&
+              task.completedAt !== undefined &&
+              isValidCalendarDate(task.completedAt))
       );
 
     return (
@@ -2552,7 +2555,7 @@ export function PageHost({
             >
               <Confirmation
                 title="Tidy up Inbox?"
-                description="Move tasks with due dates, including completed tasks, to their corresponding Daily Notes. Tasks without a valid due date stay in Inbox"
+                description="Move tasks with due dates, and completed tasks without due dates, to their corresponding Daily Notes. Undated incomplete tasks stay in Inbox"
                 confirmLabel={tidying ? 'Tidying up…' : 'Tidy up'}
                 confirmVariant="primary"
                 confirmDisabled={tidying}
