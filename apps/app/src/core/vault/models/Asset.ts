@@ -8,7 +8,7 @@ export type AssetKind = 'image' | 'pdf';
 
 /**
  * How a page or folder uses an asset. A usage is never an asset type: a local
- * image is `source: local` whether it is embedded, a cover, or both.
+ * image is `source: local` whether it is embedded, a cover, an icon, or used in several places.
  * `attachment` is part of the vocabulary, but nothing in Clutter attaches a
  * file today, so the catalog never produces it yet.
  */
