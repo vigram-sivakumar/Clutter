@@ -315,8 +315,12 @@ export function embedObjectSelectionKeymap(): Extension {
   );
 
   const selectionTheme = EditorView.theme({
-    '&.cm-embed-object-selection-active .cm-cursor': {
-      visibility: 'hidden',
+    // Hide the entire cursor layer, not only the caret element. CM6 can
+    // keep the cursor layer's line-box visible at the end of a block widget,
+    // which looks like a caret wrapped underneath the embed even when the
+    // inner cursor itself is hidden.
+    '&.cm-embed-object-selection-active .cm-cursorLayer': {
+      visibility: 'hidden !important',
     },
   });
 
