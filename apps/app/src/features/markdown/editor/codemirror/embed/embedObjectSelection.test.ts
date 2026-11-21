@@ -64,7 +64,7 @@ describe('embedObjectSelectionKeymap', () => {
 
   it('selects an embed in one ArrowRight press from the preceding line boundary', () => {
     const embed = '![[note]]';
-    const doc = `above\\n${embed}\\nbelow`;
+    const doc = `above\n${embed}\nbelow`;
     const embedFrom = 'above'.length + 1;
     const embedTo = embedFrom + embed.length;
     const view = mount(doc, 'above'.length);
@@ -84,7 +84,7 @@ describe('embedObjectSelectionKeymap', () => {
 
   it('selects an embed in one ArrowLeft press from the following line boundary', () => {
     const embed = '![[note]]';
-    const doc = `above\\n${embed}\\nbelow`;
+    const doc = `above\n${embed}\nbelow`;
     const embedFrom = 'above'.length + 1;
     const embedTo = embedFrom + embed.length;
     const view = mount(doc, embedTo + 1);
