@@ -6,7 +6,7 @@ import { EditorState } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
-import { DEFAULT_IMAGE_UI_STATE, imageUiStateField, setImageUiState } from '../image/imageUiState';
+import { DEFAULT_IMAGE_UI_STATE, getImageUiState, imageUiStateField, setImageUiState } from '../image/imageUiState';
 import {
   embedObjectSelectionField,
   embedObjectSelectionKeymap,
@@ -62,7 +62,7 @@ describe('embedObjectSelectionKeymap', () => {
     expect(view.state.doc.toString()).toBe(doc);
     expect(view.state.selection.main.head).toBe(doc.length);
     expect(view.state.field(embedObjectSelectionField)).toEqual({ from: 0, to: doc.length });
-    expect(view.state.field(imageUiStateField).toJSON).toBeDefined();
+    expect(getImageUiState(view.state, 0, doc.length).pendingFirstLeave).toBe(false);
   });
 
   it('does not intercept Space for an embed inside ordinary text', () => {
