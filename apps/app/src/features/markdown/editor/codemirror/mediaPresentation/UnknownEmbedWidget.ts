@@ -63,6 +63,7 @@ export class UnknownEmbedWidget extends WidgetType {
     // The only class added here — `renderInvalidEmbedCard` below adds its
     // own `.cm-invalid-embed`; nothing else, on purpose.
     container.classList.add('cm-media-block');
+    if (!this.ui.revealed) container.dataset.embedFrom = String(this.pos);
 
     renderInvalidEmbedCard(container, {
       icon: UNKNOWN_FILE_ICON,
