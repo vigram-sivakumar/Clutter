@@ -19,7 +19,7 @@ export const SUPPORTED_TYPE = /^(?:image\/(?:png|jpeg|gif|webp|svg\+xml)|applica
  * - `empty`        nothing to insert (no plain text, no URI list): change nothing
  * - `default`      everything else: CodeMirror's own paste (with the input filters of the editor)
  */
-export type PasteStrategy = 'tableRange' | 'tableCell' | 'tableCreate' | 'files' | 'richHtml' | 'empty' | 'default';
+export type PasteStrategy = 'tableRange' | 'tableSelectionFill' | 'tableCell' | 'tableCreate' | 'files' | 'richHtml' | 'empty' | 'default';
 
 /** Why clipboard files are left out: an `unsupported` type, or a `target` (a table) that takes no files. */
 export interface SkippedFiles {
@@ -70,9 +70,12 @@ export function classifyPaste(data: DataTransfer, env: PasteEnvironment): PasteC
   const supported = files.filter((file) => SUPPORTED_TYPE.test(file.type));
   const unsupported = files.filter((file) => !SUPPORTED_TYPE.test(file.type));
   const table = readClipboardTable(data);
-  const range = state.field(tableSelectionField, false)?.kind === 'range';
+  const selection = state.field(tableSelectionField, false) ?? null;
+  const range = selection?.kind === 'range';
+  const rowOrColumn = selection?.kind === 'row' || selection?.kind === 'column';
   const context = pasteContextAt(state, state.selection.main.from);
-  const nothing = data.getData('text/plain') === '' && data.getData('text/uri-list') === '';
+  const plainText = data.getData('text/plain');
+  const nothing = plainText === '' && data.getData('text/uri-list') === '';
   const fallback: PasteStrategy = nothing ? 'empty' : 'default';
 
   const names = (list: readonly File[]): string[] => list.map((file) => file.name || 'file');
@@ -94,6 +97,12 @@ export function classifyPaste(data: DataTransfer, env: PasteEnvironment): PasteC
 
   if (range) {
     return result(table ? 'tableRange' : fallback, { names: names(files), reason: 'target' });
+  }
+
+  // A scalar clipboard value fills every cell covered by a row/column handle
+  // selection. Grid-shaped clipboard content keeps its existing paste path.
+  if (rowOrColumn && table === null && plainText !== '') {
+    return result('tableSelectionFill', { names: names(files), reason: 'target' });
   }
 
   // Rich HTML can be converted here (an importer is wired, not in code, no table where a table would break the block).

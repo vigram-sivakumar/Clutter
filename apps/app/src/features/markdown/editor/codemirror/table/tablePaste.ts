@@ -408,7 +408,8 @@ function pasteGridIntoTable(
   controller: TableActiveCellController | null,
   target: PasteTarget,
   grid: readonly (readonly string[])[],
-  deactivateCell: boolean
+  deactivateCell: boolean,
+  selectionAfterPaste?: TableSelection
 ): boolean {
   const table = findAllTables(view.state).find((t) => t.from === target.tableFrom);
   if (!table) {
@@ -425,7 +426,7 @@ function pasteGridIntoTable(
   }
 
   const changeSet = view.state.changes(changes);
-  const nextSelection: TableSelection = {
+  const nextSelection: TableSelection = selectionAfterPaste ?? {
     kind: 'range',
     tableFrom: target.tableFrom,
     anchor: { row: target.row, col: target.col },
@@ -460,6 +461,42 @@ export function pasteIntoSelectedRange(view: EditorView, selection: TableSelecti
     col: Math.min(selection.anchor.col, selection.head.col),
   };
   return pasteGridIntoTable(view, null, target, cellGrid(table), false);
+}
+
+/**
+ * Fill every cell covered by a row/column handle selection with one plain
+ * clipboard value. The selection remains a row or column selection after
+ * the single document transaction; no rows or columns are inserted.
+ */
+export function pasteTextIntoSelectedRowOrColumn(
+  view: EditorView,
+  selection: Extract<TableSelection, { readonly kind: 'row' | 'column' }>,
+  text: string
+): boolean {
+  const table = findAllTables(view.state).find((candidate) => candidate.from === selection.tableFrom);
+  if (!table) return false;
+
+  const rows = getNavigableRows(table.node);
+  const header = rows[0];
+  if (!header) return false;
+  const columnCount = getRowColumnSegments(header).length;
+  if (columnCount === 0 || rows.length === 0) return false;
+
+  const value = escapeTableCellText(text.replace(/\r?\n/g, ' '));
+  let target: PasteTarget;
+  let grid: string[][];
+
+  if (selection.kind === 'row') {
+    if (selection.rowIndex < 0 || selection.rowIndex >= rows.length) return false;
+    target = { tableFrom: selection.tableFrom, row: selection.rowIndex, col: 0 };
+    grid = [Array.from({ length: columnCount }, () => value)];
+  } else {
+    if (selection.columnIndex < 0 || selection.columnIndex >= columnCount) return false;
+    target = { tableFrom: selection.tableFrom, row: 0, col: selection.columnIndex };
+    grid = Array.from({ length: rows.length }, () => [value]);
+  }
+
+  return pasteGridIntoTable(view, null, target, grid, false, selection);
 }
 
 /**

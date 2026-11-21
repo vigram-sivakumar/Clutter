@@ -316,6 +316,58 @@ describe('tablePaste — range-selection paste', () => {
   });
 });
 
+
+describe('tablePaste — row/column handle selection fill', () => {
+  it('replaces every cell in the selected row with one pasted value and keeps the row selected', () => {
+    const controller = new TableActiveCellController();
+    const view = mountRootView(TABLE, controller);
+    const table = findAllTables(view.state)[0]!;
+    const selected: TableSelection = { kind: 'row', tableFrom: table.from, rowIndex: 1 };
+    view.dispatch({ effects: [tableSelectionChanged.of(selected)] });
+
+    const event = dispatchPasteOn(view.contentDOM, (d) => d.setData('text/plain', 'Nairobi'));
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(cellText(view, 1, 0)).toBe('Nairobi');
+    expect(cellText(view, 1, 1)).toBe('Nairobi');
+    expect(cellText(view, 1, 2)).toBe('Nairobi');
+    expect(cellText(view, 2, 0)).toBe('Alex');
+    expect(selection(view)).toEqual(selected);
+  });
+
+  it('replaces every cell in the selected column, including the header, and keeps the column selected', () => {
+    const controller = new TableActiveCellController();
+    const view = mountRootView(TABLE, controller);
+    const table = findAllTables(view.state)[0]!;
+    const selected: TableSelection = { kind: 'column', tableFrom: table.from, columnIndex: 1 };
+    view.dispatch({ effects: [tableSelectionChanged.of(selected)] });
+
+    const event = dispatchPasteOn(view.contentDOM, (d) => d.setData('text/plain', 'Designer'));
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(cellText(view, 0, 1)).toBe('Designer');
+    expect(cellText(view, 1, 1)).toBe('Designer');
+    expect(cellText(view, 2, 1)).toBe('Designer');
+    expect(cellText(view, 1, 0)).toBe('Vik');
+    expect(cellText(view, 2, 2)).toBe('Tokyo');
+    expect(selection(view)).toEqual(selected);
+  });
+
+  it('escapes table delimiters in the pasted value', () => {
+    const controller = new TableActiveCellController();
+    const view = mountRootView(TABLE, controller);
+    const table = findAllTables(view.state)[0]!;
+    view.dispatch({ effects: [tableSelectionChanged.of({ kind: 'row', tableFrom: table.from, rowIndex: 1 })] });
+
+    dispatchPasteOn(view.contentDOM, (d) => d.setData('text/plain', 'A | B'));
+
+    expect(cellText(view, 1, 0)).toBe('A \\\\| B');
+    expect(cellText(view, 1, 1)).toBe('A \\\\| B');
+    expect(cellText(view, 1, 2)).toBe('A \\\\| B');
+    expect(getNavigableRows(findAllTables(view.state)[0]!.node)).toHaveLength(4);
+  });
+});
+
 describe('tablePaste — safety and structure', () => {
   it('preserves header semantics and alignment when widening', () => {
     const doc = '| Name | Role |\n| :--- | ---: |\n| Alex | Engineer |';

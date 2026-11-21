@@ -3,7 +3,7 @@ import { EditorView } from '@codemirror/view';
 
 import { createTableFromClipboard } from '../table/tableCreatePaste';
 import type { TableActiveCellController } from '../table/tableActiveCellController';
-import { type PasteTarget, pasteIntoActiveCell, pasteIntoSelectedRange, resolveActiveCellTarget } from '../table/tablePaste';
+import { type PasteTarget, pasteIntoActiveCell, pasteIntoSelectedRange, pasteTextIntoSelectedRowOrColumn, resolveActiveCellTarget } from '../table/tablePaste';
 import { tableSelectionField } from '../table/tableSelection';
 import { embedPasted, type PasteAssets } from './assetPaste';
 import { classifyPaste, type PasteClassification } from './pasteClassification';
@@ -29,6 +29,11 @@ function run(
     case 'tableRange': {
       const selection = view.state.field(tableSelectionField, false);
       return selection?.kind === 'range' && table !== null && pasteIntoSelectedRange(view, selection, table);
+    }
+    case 'tableSelectionFill': {
+      const selection = view.state.field(tableSelectionField, false);
+      return (selection?.kind === 'row' || selection?.kind === 'column') &&
+        pasteTextIntoSelectedRowOrColumn(view, selection, event.clipboardData?.getData('text/plain') ?? '');
     }
     case 'tableCreate':
       createTableFromClipboard(view, table!);
