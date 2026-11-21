@@ -104,7 +104,7 @@ describe('embedObjectSelectionKeymap', () => {
     expect(view.state.doc.toString()).toBe(doc);
   });
 
-  it('removes the selected embed source on Enter and leaves an empty line in its place', () => {
+  it('keeps the selected embed and moves the caret to a new line below on Enter', () => {
     const embed = '![[image.png]]';
     const doc = `above\n${embed}\nbelow`;
     const embedFrom = 'above\n'.length;
@@ -120,8 +120,39 @@ describe('embedObjectSelectionKeymap', () => {
     press(view, 'Enter');
 
     expect(view.state.field(embedObjectSelectionField)).toBeNull();
+    expect(view.state.selection.main.head).toBe(embedFrom + embed.length + 1);
+    expect(view.state.doc.toString()).toBe(doc);
+  });
+
+
+  it('removes the selected embed source with Backspace', () => {
+    const embed = '![[image.png]]';
+    const doc = `above\\n${embed}\\nbelow`;
+    const embedFrom = 'above\\n'.length;
+    const view = mount(doc, embedFrom);
+    addRenderedEmbedMarker(view, embedFrom);
+
+    press(view, 'ArrowRight');
+    press(view, 'Backspace');
+
+    expect(view.state.field(embedObjectSelectionField)).toBeNull();
+    expect(view.state.doc.toString()).toBe('above\\n\\nbelow');
     expect(view.state.selection.main.head).toBe(embedFrom);
-    expect(view.state.doc.toString()).toBe('above\n\nbelow');
+  });
+
+  it('removes the selected embed source with Delete', () => {
+    const embed = '![[image.png]]';
+    const doc = `above\\n${embed}\\nbelow`;
+    const embedFrom = 'above\\n'.length;
+    const view = mount(doc, embedFrom);
+    addRenderedEmbedMarker(view, embedFrom);
+
+    press(view, 'ArrowRight');
+    press(view, 'Delete');
+
+    expect(view.state.field(embedObjectSelectionField)).toBeNull();
+    expect(view.state.doc.toString()).toBe('above\\n\\nbelow');
+    expect(view.state.selection.main.head).toBe(embedFrom);
   });
 
   it('does nothing on Shift+Enter while an embed is selected', () => {
