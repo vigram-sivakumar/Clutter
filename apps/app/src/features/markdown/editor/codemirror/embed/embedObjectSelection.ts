@@ -1,6 +1,6 @@
 import { syntaxTree } from '@codemirror/language';
 import { EditorSelection, Prec, StateEffect, StateField, type Extension } from '@codemirror/state';
-import { keymap, type Command, type EditorView, type KeyBinding } from '@codemirror/view';
+import { keymap, ViewPlugin, type Command, type EditorView, type KeyBinding } from '@codemirror/view';
 
 interface EmbedObjectSelection {
   readonly from: number;
@@ -24,6 +24,7 @@ export const embedObjectSelectionField = StateField.define<EmbedObjectSelection 
 export function selectEmbedObject(view: EditorView, from: number, to: number): void {
   if (view.state.readOnly) return;
   view.dispatch({ effects: embedObjectSelectionChanged.of({ from, to }) });
+  view.focus();
   syncEmbedObjectSelection(view);
 }
 
@@ -109,6 +110,8 @@ export function embedObjectSelectionKeymap(): Extension {
       selection: EditorSelection.cursor(cursor),
       scrollIntoView: true,
     });
+    view.focus();
+    syncEmbedObjectSelection(view);
     return true;
   };
 
@@ -173,7 +176,48 @@ export function embedObjectSelectionKeymap(): Extension {
     { key: 'Escape', run: clearSelection },
   ];
 
-  return Prec.highest(keymap.of(bindings));
+  const lifecycle = ViewPlugin.fromClass(
+    class {
+      private readonly onPointerDown = (event: PointerEvent) => {
+        const target = event.target;
+        if (!(target instanceof Node)) return;
+        // A nested note editor is a separate interaction surface.
+        if (
+          !view.dom.contains(target) ||
+          (target instanceof Element && target.closest('.cm-editor') !== view.dom)
+        ) {
+          this.clear();
+        }
+      };
+
+      private readonly onFocusOut = (event: FocusEvent) => {
+        const nextTarget = event.relatedTarget;
+        if (!(nextTarget instanceof Node) || !view.dom.contains(nextTarget)) this.clear();
+      };
+
+      private readonly onWindowBlur = () => this.clear();
+
+      constructor(private readonly view: EditorView) {
+        view.dom.ownerDocument.addEventListener('pointerdown', this.onPointerDown, true);
+        view.dom.addEventListener('focusout', this.onFocusOut);
+        view.dom.ownerDocument.defaultView?.addEventListener('blur', this.onWindowBlur);
+      }
+
+      private clear(): void {
+        if (!this.view.state.field(embedObjectSelectionField, false)) return;
+        this.view.dispatch({ effects: embedObjectSelectionChanged.of(null) });
+        syncEmbedObjectSelection(this.view);
+      }
+
+      destroy(): void {
+        this.view.dom.ownerDocument.removeEventListener('pointerdown', this.onPointerDown, true);
+        this.view.dom.removeEventListener('focusout', this.onFocusOut);
+        this.view.dom.ownerDocument.defaultView?.removeEventListener('blur', this.onWindowBlur);
+      }
+    }
+  );
+
+  return Prec.highest([keymap.of(bindings), lifecycle]);
 }
 
 /** Apply the active state to the already-rendered widget DOM. */
