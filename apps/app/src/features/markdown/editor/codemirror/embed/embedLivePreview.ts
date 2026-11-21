@@ -665,14 +665,19 @@ export function embedLivePreview(options: EmbedLivePreviewOptions): Extension {
 
       update(update: ViewUpdate) {
         const uiChanged = update.startState.field(imageUiStateField) !== update.state.field(imageUiStateField);
-        if (update.docChanged || update.viewportChanged || update.selectionSet || uiChanged) {
+        const selectionChanged =
+          update.startState.field(embedObjectSelectionField) !== update.state.field(embedObjectSelectionField);
+        const decorationsChanged = update.docChanged || update.viewportChanged || update.selectionSet || uiChanged;
+        if (decorationsChanged) {
           ({ decorations: this.decorations, atomic: this.atomic } = buildDecorations(
             update.view,
             options,
             this.pdfDocumentCache
           ));
         }
-        update.view.requestMeasure({ write: (measureView) => syncEmbedObjectSelection(measureView) });
+        if (decorationsChanged || selectionChanged) {
+          update.view.requestMeasure({ write: (measureView) => syncEmbedObjectSelection(measureView) });
+        }
       }
 
       destroy() {
