@@ -78,7 +78,7 @@ export function classifyPaste(data: DataTransfer, env: PasteEnvironment): PasteC
   const html = data.getData('text/html');
   const hasHtmlTable = HAS_TABLE.test(html);
   const isTableTarget = selection !== null || (env.scope === 'cell' && env.cellActive === true);
-  const isSingleCellText = plainText !== '' && !/[\\r\\n\\t]/.test(plainText) && !hasHtmlTable;
+  const isSingleCellText = plainText !== '' && !/[\r\n\t]/.test(plainText) && !hasHtmlTable;
   const table: ClipboardTable | null = parsedTable ?? (
     isTableTarget && isSingleCellText
       ? { source: 'text', grid: [[plainText]] }
