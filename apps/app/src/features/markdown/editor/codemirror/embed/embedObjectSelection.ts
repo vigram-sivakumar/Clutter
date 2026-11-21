@@ -80,7 +80,7 @@ export function embedObjectSelectionKeymap(): Extension {
     const hasFollowingNewline =
       selected.to < view.state.doc.length &&
       view.state.doc.sliceString(selected.to, selected.to + 1) === '\n';
-    if (direction === 'before' && selected.from === 0) return false;
+    if (direction === 'before' && selected.from === 0) return true;
     if (direction === 'after' && !hasFollowingNewline && selected.to === view.state.doc.length) {
       view.dispatch({
         changes: { from: selected.to, insert: '\n' },
@@ -159,7 +159,9 @@ export function embedObjectSelectionKeymap(): Extension {
   const clearSelection: Command = (view) => {
     const selected = view.state.field(embedObjectSelectionField, false) ?? null;
     if (!selected) return false;
-    return moveOutOfSelection('after')(view);
+    view.dispatch({ effects: embedObjectSelectionChanged.of(null) });
+    syncEmbedObjectSelection(view);
+    return true;
   };
 
   const bindings: readonly KeyBinding[] = [
