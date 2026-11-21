@@ -30,8 +30,10 @@ function mount(doc: string, anchor = 0, readOnly = false): EditorView {
   return view;
 }
 
-function press(view: EditorView, key: string): void {
-  view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+function press(view: EditorView, key: string, shiftKey = false): void {
+  view.contentDOM.dispatchEvent(
+    new KeyboardEvent('keydown', { key, shiftKey, bubbles: true, cancelable: true })
+  );
 }
 
 function addRenderedEmbedMarker(view: EditorView, from: number): HTMLElement {
@@ -102,18 +104,47 @@ describe('embedObjectSelectionKeymap', () => {
     expect(view.state.doc.toString()).toBe(doc);
   });
 
-  it('selects the whole rendered embed on ArrowLeft and Enter creates a line below it', () => {
-    const doc = '![[image.png]]';
-    const view = mount(doc, doc.length);
-    addRenderedEmbedMarker(view, 0);
+  it('removes the selected embed source on Enter and leaves an empty line in its place', () => {
+    const embed = '![[image.png]]';
+    const doc = `above\n${embed}\nbelow`;
+    const embedFrom = 'above\n'.length;
+    const view = mount(doc, embedFrom);
+    addRenderedEmbedMarker(view, embedFrom);
 
-    press(view, 'ArrowLeft');
-    expect(view.state.field(embedObjectSelectionField)).toEqual({ from: 0, to: doc.length });
+    press(view, 'ArrowRight');
+    expect(view.state.field(embedObjectSelectionField)).toEqual({
+      from: embedFrom,
+      to: embedFrom + embed.length,
+    });
 
     press(view, 'Enter');
+
     expect(view.state.field(embedObjectSelectionField)).toBeNull();
-    expect(view.state.selection.main.head).toBe(doc.length + 1);
-    expect(view.state.doc.toString()).toBe(`${doc}\n`);
+    expect(view.state.selection.main.head).toBe(embedFrom);
+    expect(view.state.doc.toString()).toBe('above\n\nbelow');
+  });
+
+  it('does nothing on Shift+Enter while an embed is selected', () => {
+    const embed = '![[image.png]]';
+    const doc = `above\n${embed}\nbelow`;
+    const embedFrom = 'above\n'.length;
+    const view = mount(doc, embedFrom);
+    const marker = addRenderedEmbedMarker(view, embedFrom);
+
+    press(view, 'ArrowRight');
+    expect(view.state.field(embedObjectSelectionField)).toEqual({
+      from: embedFrom,
+      to: embedFrom + embed.length,
+    });
+
+    press(view, 'Enter', true);
+
+    expect(view.state.field(embedObjectSelectionField)).toEqual({
+      from: embedFrom,
+      to: embedFrom + embed.length,
+    });
+    expect(marker.classList.contains('cm-embed-object-selected')).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc);
   });
 
   it('selects an embed when ArrowDown moves vertically into its rendered block', () => {
