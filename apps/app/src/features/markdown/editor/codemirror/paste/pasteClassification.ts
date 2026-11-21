@@ -75,9 +75,12 @@ export function classifyPaste(data: DataTransfer, env: PasteEnvironment): PasteC
   const plainText = data.getData('text/plain');
   // Plain text is a 1x1 clipboard grid when a table cell or table selection
   // is the explicit target. Elsewhere it keeps normal editor paste behaviour.
+  const html = data.getData('text/html');
+  const hasHtmlTable = HAS_TABLE.test(html);
   const isTableTarget = selection !== null || (env.scope === 'cell' && env.cellActive === true);
+  const isSingleCellText = plainText !== '' && !/[\\r\\n\\t]/.test(plainText) && !hasHtmlTable;
   const table: ClipboardTable | null = parsedTable ?? (
-    isTableTarget && plainText !== ''
+    isTableTarget && isSingleCellText
       ? { source: 'text', grid: [[plainText]] }
       : null
   );
@@ -106,8 +109,7 @@ export function classifyPaste(data: DataTransfer, env: PasteEnvironment): PasteC
   }
 
   // Rich HTML can be converted here (an importer is wired, not in code, no table where a table would break the block).
-  const html = data.getData('text/html');
-  const htmlTable = HAS_TABLE.test(html);
+  const htmlTable = hasHtmlTable;
   let richHtmlResult: boolean | undefined;
   const richHtml = (): boolean =>
     (richHtmlResult ??= env.canEmbed && context !== 'code' && !(htmlTable && (context === 'list' || context === 'quote')) && hasRichHtml(html));

@@ -468,7 +468,9 @@ export function pasteIntoSelectedTableSelection(view: EditorView, selection: Tab
   } else {
     target = { tableFrom: selection.tableFrom, row: 0, col: selection.columnIndex };
   }
-  return pasteGridIntoTable(view, null, target, cellGrid(table), false, selection);
+  return selection.kind === 'range'
+    ? pasteGridIntoTable(view, null, target, cellGrid(table), false)
+    : pasteGridIntoTable(view, null, target, cellGrid(table), false, selection);
 }
 
 /**

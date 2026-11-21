@@ -329,7 +329,7 @@ describe('tablePaste — row/column handle selection', () => {
 
     expect(cellText(view, 1, 0)).toBe('Nairobi');
     expect(cellText(view, 1, 1)).toBe('UX');
-    expect(cellText(view, 1, 2)).toBe('India');
+    expect(cellText(view, 1, 2)).toBe('Delhi');
     expect(cellText(view, 2, 0)).toBe('Alex');
     expect(selection(view)).toEqual(selected);
   });
