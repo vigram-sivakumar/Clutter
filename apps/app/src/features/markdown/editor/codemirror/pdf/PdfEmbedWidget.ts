@@ -28,6 +28,7 @@ import type { PdfDocumentCache } from './pdfDocumentCache';
 import { applyMediaAlignment, applyMediaWidth, disconnectMediaWidthObserver, type ResizeObserverHolder } from '../mediaPresentation/mediaLayoutStyle';
 import type { PdfPresentation } from '../mediaPresentation/mediaPresentationModel';
 import { attachPdfResizeHandle } from './pdfResizeHandle';
+import { selectEmbedObject } from '../embed/embedObjectSelection';
 
 import './PdfEmbedWidget.css';
 
@@ -543,6 +544,31 @@ export class PdfEmbedWidget extends WidgetType {
     attachPdfResizeHandle(rightHandle, container, 'right', view, getCurrentTo, pdfResizeHooks);
 
     container.append(leftHandle, rightHandle);
+
+    const isPdfEmbedSurface = (event: MouseEvent): boolean => {
+      const target = event.target;
+      return (
+        target instanceof Element &&
+        event.button === 0 &&
+        !event.defaultPrevented &&
+        target.closest('button, input, a, .cm-media-control, .cm-pdf-control') === null
+      );
+    };
+    container.addEventListener('mousedown', (event) => {
+      if (isPdfEmbedSurface(event)) event.preventDefault();
+    });
+    container.addEventListener('click', (event) => {
+      if (!isPdfEmbedSurface(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      selectEmbedObject(view, this.pos, this.to);
+    });
+    container.addEventListener('dblclick', (event) => {
+      if (!isPdfEmbedSurface(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      this.getOnPdfEmbedClick()?.(this.path);
+    });
 
     this.docCache.get(this.url).then(
       (loadedDoc) => {
