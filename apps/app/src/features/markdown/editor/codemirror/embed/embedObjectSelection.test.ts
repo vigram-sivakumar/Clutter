@@ -70,8 +70,8 @@ describe('embedObjectSelectionKeymap', () => {
 
     press(view, 'Enter');
     expect(view.state.field(embedObjectSelectionField)).toBeNull();
-    expect(view.state.selection.main.head).toBe(doc.length);
-    expect(view.state.doc.toString()).toBe(doc);
+    expect(view.state.selection.main.head).toBe(doc.length + 1);
+    expect(view.state.doc.toString()).toBe(`${doc}\n`);
   });
 
   it('selects an embed when ArrowDown moves vertically into its rendered block', () => {
