@@ -151,8 +151,8 @@ export function embedObjectSelectionKeymap(): Extension {
     const { doc } = view.state;
     const crossesLineBoundary =
       direction === 'right'
-        ? position < doc.length && doc.sliceString(position, position + 1) === '\\n'
-        : position > 0 && doc.sliceString(position - 1, position) === '\\n';
+        ? position < doc.length && doc.sliceString(position, position + 1) === '\n'
+        : position > 0 && doc.sliceString(position - 1, position) === '\n';
     const candidates: EmbedObjectSelection[] = [];
     syntaxTree(view.state).iterate({
       from: Math.max(0, position - 1),
