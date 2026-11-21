@@ -1,6 +1,6 @@
 import { syntaxTree } from '@codemirror/language';
 import { EditorSelection, Prec, StateEffect, StateField, type Extension } from '@codemirror/state';
-import { keymap, type Command, type KeyBinding } from '@codemirror/view';
+import { keymap, type Command, type EditorView, type KeyBinding } from '@codemirror/view';
 
 interface EmbedObjectSelection {
   readonly from: number;
@@ -92,7 +92,7 @@ export function embedObjectSelectionKeymap(): Extension {
 }
 
 /** Apply the active state to the already-rendered widget DOM. */
-export function syncEmbedObjectSelection(view: import('@codemirror/view').EditorView): void {
+export function syncEmbedObjectSelection(view: EditorView): void {
   const selected = view.state.field(embedObjectSelectionField, false) ?? null;
   for (const widget of view.dom.querySelectorAll<HTMLElement>('[data-embed-from]')) {
     widget.classList.toggle(
