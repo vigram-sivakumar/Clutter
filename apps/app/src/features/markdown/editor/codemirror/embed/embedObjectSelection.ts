@@ -42,6 +42,7 @@ export function embedObjectSelectionKeymap(): Extension {
   };
 
   const selectAdjacentEmbed = (direction: 'left' | 'right'): Command => (view) => {
+    if (view.state.readOnly) return false;
     const current = view.state.field(embedObjectSelectionField, false) ?? null;
     if (current) {
       return moveOutOfSelection(direction === 'left' ? 'before' : 'after')(view);
@@ -50,7 +51,7 @@ export function embedObjectSelectionKeymap(): Extension {
     const main = view.state.selection.main;
     if (!main.empty) return false;
     const position = main.head;
-    let candidate: EmbedObjectSelection | null = null;
+    const candidates: EmbedObjectSelection[] = [];
 
     syntaxTree(view.state).iterate({
       from: Math.max(0, position - 1),
@@ -64,10 +65,11 @@ export function embedObjectSelectionKeymap(): Extension {
         // intercepting navigation for incomplete, first-leave-pending, or
         // explicitly source-revealed Markdown.
         const widget = view.dom.querySelector<HTMLElement>(`[data-embed-from="${node.from}"]`);
-        if (widget) candidate = { from: node.from, to: node.to };
+        if (widget) candidates.push({ from: node.from, to: node.to });
       },
     });
 
+    const candidate = candidates[0];
     if (!candidate) return false;
     view.dispatch({ effects: embedObjectSelectionChanged.of(candidate) });
     return true;
@@ -82,6 +84,7 @@ export function embedObjectSelectionKeymap(): Extension {
   const bindings: readonly KeyBinding[] = [
     { key: 'ArrowLeft', run: selectAdjacentEmbed('left') },
     { key: 'ArrowRight', run: selectAdjacentEmbed('right') },
+    { key: 'Enter', run: moveOutOfSelection('after') },
     { key: 'Escape', run: clearSelection },
   ];
 
