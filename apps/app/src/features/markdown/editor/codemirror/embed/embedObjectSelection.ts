@@ -126,13 +126,27 @@ export function embedObjectSelectionKeymap(): Extension {
     return true;
   };
 
-  const removeSelectedEmbedAndCreateLine: Command = (view) => {
+  const createLineBelowSelectedEmbed: Command = (view) => {
     const selected = view.state.field(embedObjectSelectionField, false) ?? null;
     if (!selected || view.state.readOnly) return false;
 
-    // The embed occupies its own rendered block. Removing its Markdown source
-    // leaves the surrounding line breaks in place, creating an empty line
-    // where the object was selected.
+    const hasFollowingNewline =
+      selected.to < view.state.doc.length &&
+      view.state.doc.sliceString(selected.to, selected.to + 1) === '\\n';
+    view.dispatch({
+      changes: hasFollowingNewline ? undefined : { from: selected.to, insert: '\\n' },
+      effects: embedObjectSelectionChanged.of(null),
+      selection: EditorSelection.cursor(hasFollowingNewline ? selected.to + 1 : selected.to + 1),
+      scrollIntoView: true,
+    });
+    view.focus();
+    syncEmbedObjectSelection(view);
+    return true;
+  };
+
+  const removeSelectedEmbed: Command = (view) => {
+    const selected = view.state.field(embedObjectSelectionField, false) ?? null;
+    if (!selected || view.state.readOnly) return false;
     view.dispatch({
       changes: { from: selected.from, to: selected.to, insert: '' },
       selection: EditorSelection.cursor(selected.from),
@@ -141,6 +155,11 @@ export function embedObjectSelectionKeymap(): Extension {
     view.focus();
     syncEmbedObjectSelection(view);
     return true;
+  };
+
+  const deleteOrSelectEmbed = (direction: 'backspace' | 'delete'): Command => (view) => {
+    if (view.state.field(embedObjectSelectionField, false)) return removeSelectedEmbed(view);
+    return selectEmbedAtDeletionBoundary(direction)(view);
   };
 
   const ignoreShiftEnterOnSelectedEmbed: Command = (view) => {
@@ -208,14 +227,14 @@ export function embedObjectSelectionKeymap(): Extension {
   };
 
   const bindings: readonly KeyBinding[] = [
-    { key: 'Backspace', run: selectEmbedAtDeletionBoundary('backspace') },
-    { key: 'Delete', run: selectEmbedAtDeletionBoundary('delete') },
+    { key: 'Backspace', run: deleteOrSelectEmbed('backspace') },
+    { key: 'Delete', run: deleteOrSelectEmbed('delete') },
     { key: 'ArrowLeft', run: selectAdjacentEmbed('left') },
     { key: 'ArrowRight', run: selectAdjacentEmbed('right') },
     { key: 'ArrowUp', run: selectVerticallyAdjacentEmbed('up') },
     { key: 'ArrowDown', run: selectVerticallyAdjacentEmbed('down') },
     { key: 'Shift-Enter', run: ignoreShiftEnterOnSelectedEmbed },
-    { key: 'Enter', run: removeSelectedEmbedAndCreateLine },
+    { key: 'Enter', run: createLineBelowSelectedEmbed },
     { key: 'Escape', run: clearSelection },
   ];
 
