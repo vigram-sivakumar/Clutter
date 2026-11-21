@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { forceParsing } from '@codemirror/language';
 import { defaultKeymap } from '@codemirror/commands';
 import { EditorState } from '@codemirror/state';
@@ -71,6 +71,48 @@ describe('embedObjectSelectionKeymap', () => {
     press(view, 'Enter');
     expect(view.state.field(embedObjectSelectionField)).toBeNull();
     expect(view.state.selection.main.head).toBe(doc.length);
+    expect(view.state.doc.toString()).toBe(doc);
+  });
+
+  it('selects an embed when ArrowDown moves vertically into its rendered block', () => {
+    const doc = 'above\\n![[image.png]]\\nbelow';
+    const embedFrom = 'above\\n'.length;
+    const view = mount(doc, 'above'.length);
+    const marker = addRenderedEmbedMarker(view, embedFrom);
+    vi.spyOn(view, 'coordsAtPos').mockReturnValue({ top: 0, bottom: 16, left: 40, right: 40 } as DOMRect);
+    vi.spyOn(marker, 'getBoundingClientRect').mockReturnValue({
+      top: 20, bottom: 120, left: 0, right: 500, width: 500, height: 100, x: 0, y: 20,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    press(view, 'ArrowDown');
+
+    expect(view.state.field(embedObjectSelectionField)).toEqual({
+      from: embedFrom,
+      to: embedFrom + '![[image.png]]'.length,
+    });
+    expect(marker.classList.contains('cm-embed-object-selected')).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc);
+  });
+
+  it('selects an embed when ArrowUp moves vertically into its rendered block', () => {
+    const doc = 'above\\n![[image.png]]\\nbelow';
+    const embedFrom = 'above\\n'.length;
+    const view = mount(doc, doc.length);
+    const marker = addRenderedEmbedMarker(view, embedFrom);
+    vi.spyOn(view, 'coordsAtPos').mockReturnValue({ top: 120, bottom: 136, left: 40, right: 40 } as DOMRect);
+    vi.spyOn(marker, 'getBoundingClientRect').mockReturnValue({
+      top: 20, bottom: 115, left: 0, right: 500, width: 500, height: 95, x: 0, y: 20,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    press(view, 'ArrowUp');
+
+    expect(view.state.field(embedObjectSelectionField)).toEqual({
+      from: embedFrom,
+      to: embedFrom + '![[image.png]]'.length,
+    });
+    expect(marker.classList.contains('cm-embed-object-selected')).toBe(true);
     expect(view.state.doc.toString()).toBe(doc);
   });
 
