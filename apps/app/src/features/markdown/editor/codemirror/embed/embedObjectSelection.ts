@@ -168,14 +168,15 @@ export function embedObjectSelectionKeymap(): Extension {
     const selected = view.state.field(embedObjectSelectionField, false) ?? null;
     if (!selected || view.state.readOnly) return false;
 
-    const hasFollowingNewline =
-      selected.to < view.state.doc.length &&
-      view.state.doc.sliceString(selected.to, selected.to + 1) === '\n';
+    // Enter always creates a fresh editable line directly below the embed.
+    // If another line already follows, preserve it and insert a blank line
+    // between the embed and that content.
     view.dispatch({
-      changes: hasFollowingNewline ? undefined : { from: selected.to, insert: '\n' },
+      changes: { from: selected.to, insert: '\n' },
       effects: embedObjectSelectionChanged.of(null),
       selection: EditorSelection.cursor(selected.to + 1),
       scrollIntoView: true,
+      userEvent: 'input',
     });
     view.focus();
     syncEmbedObjectSelection(view);
