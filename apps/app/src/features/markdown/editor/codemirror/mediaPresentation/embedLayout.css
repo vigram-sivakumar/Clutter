@@ -88,7 +88,7 @@
   opacity: 0.12;
   border-radius: inherit;
   pointer-events: none;
-  z-index: 10;
+  z-index: 2147483647;
 }
 
 .cm-widgetBuffer:has(+ .cm-media-block),
