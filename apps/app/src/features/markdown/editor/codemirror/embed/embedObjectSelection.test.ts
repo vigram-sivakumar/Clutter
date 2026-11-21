@@ -6,6 +6,7 @@ import { EditorState } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
+import { imageUiStateField } from '../image/imageUiState';
 
 import {
   embedObjectSelectionField,
