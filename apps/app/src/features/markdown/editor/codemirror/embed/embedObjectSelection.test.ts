@@ -8,7 +8,6 @@ import { markdownLanguageExtension } from '../markdownLanguage';
 import {
   embedObjectSelectionField,
   embedObjectSelectionKeymap,
-  syncEmbedObjectSelection,
 } from './embedObjectSelection';
 
 function mount(doc: string, anchor = 0, readOnly = false): EditorView {
@@ -49,7 +48,6 @@ describe('embedObjectSelectionKeymap', () => {
     press(view, 'ArrowRight');
 
     expect(view.state.field(embedObjectSelectionField)).toEqual({ from: 0, to: doc.length });
-    syncEmbedObjectSelection(view);
     expect(marker.classList.contains('cm-embed-object-selected')).toBe(true);
     expect(view.state.doc.toString()).toBe(doc);
 
