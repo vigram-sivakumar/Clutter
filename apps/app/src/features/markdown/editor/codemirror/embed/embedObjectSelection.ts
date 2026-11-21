@@ -1,6 +1,6 @@
 import { syntaxTree } from '@codemirror/language';
 import { EditorSelection, Prec, StateEffect, StateField, type Extension } from '@codemirror/state';
-import { getImageUiState, imageUiStateField, setImageUiState } from '../image/imageUiState';
+
 import { EditorView, keymap, ViewPlugin, type Command, type KeyBinding } from '@codemirror/view';
 
 interface EmbedObjectSelection {
@@ -13,7 +13,7 @@ const embedObjectSelectionChanged = StateEffect.define<EmbedObjectSelection | nu
 export const embedObjectSelectionField = StateField.define<EmbedObjectSelection | null>({
   create: () => null,
   update(selection, transaction) {
-    let next = transaction.docChanged || transaction.selectionSet ? null : selection;
+    let next = transaction.docChanged || transaction.selection !== undefined ? null : selection;
     for (const effect of transaction.effects) {
       if (effect.is(embedObjectSelectionChanged)) next = effect.value;
     }
@@ -251,7 +251,7 @@ export function embedObjectSelectionKeymap(): Extension {
 
       private readonly onFocusOut = (event: FocusEvent) => {
         const nextTarget = event.relatedTarget;
-        if (!(nextTarget instanceof Node) || !view.dom.contains(nextTarget)) this.clear();
+        if (!(nextTarget instanceof Node) || !this.view.dom.contains(nextTarget)) this.clear();
       };
 
       private readonly onWindowBlur = () => this.clear();
