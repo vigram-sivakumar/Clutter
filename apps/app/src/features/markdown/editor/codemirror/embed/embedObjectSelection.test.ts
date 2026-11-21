@@ -106,6 +106,28 @@ describe('embedObjectSelectionKeymap', () => {
     expect(view.state.doc.toString()).toBe(doc);
   });
 
+  it('moves directly from one selected embed to the next with ArrowDown', () => {
+    const first = '![[first]]';
+    const second = '![[second]]';
+    const doc = `${first}\n${second}`;
+    const secondFrom = first.length + 1;
+    const view = mount(doc, 0);
+    const firstMarker = addRenderedEmbedMarker(view, 0);
+    const secondMarker = addRenderedEmbedMarker(view, secondFrom);
+
+    press(view, 'ArrowRight');
+    expect(view.state.field(embedObjectSelectionField)).toEqual({ from: 0, to: first.length });
+
+    press(view, 'ArrowDown');
+
+    expect(view.state.field(embedObjectSelectionField)).toEqual({
+      from: secondFrom,
+      to: secondFrom + second.length,
+    });
+    expect(firstMarker.classList.contains('cm-embed-object-selected')).toBe(false);
+    expect(secondMarker.classList.contains('cm-embed-object-selected')).toBe(true);
+  });
+
   it('moves from a selected embed to the visible line above in one ArrowUp press', () => {
     const doc = 'above\n![[note]]\nbelow';
     const embedFrom = 'above\n'.length;
