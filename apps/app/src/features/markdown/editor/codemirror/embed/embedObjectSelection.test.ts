@@ -75,8 +75,8 @@ describe('embedObjectSelectionKeymap', () => {
   });
 
   it('selects an embed when ArrowDown moves vertically into its rendered block', () => {
-    const doc = 'above\\n![[image.png]]\\nbelow';
-    const embedFrom = 'above\\n'.length;
+    const doc = 'above\n![[image.png]]\nbelow';
+    const embedFrom = 'above\n'.length;
     const view = mount(doc, 'above'.length);
     const marker = addRenderedEmbedMarker(view, embedFrom);
     vi.spyOn(view, 'coordsAtPos').mockReturnValue({ top: 0, bottom: 16, left: 40, right: 40 } as DOMRect);
@@ -96,8 +96,8 @@ describe('embedObjectSelectionKeymap', () => {
   });
 
   it('selects an embed when ArrowUp moves vertically into its rendered block', () => {
-    const doc = 'above\\n![[image.png]]\\nbelow';
-    const embedFrom = 'above\\n'.length;
+    const doc = 'above\n![[image.png]]\nbelow';
+    const embedFrom = 'above\n'.length;
     const view = mount(doc, doc.length);
     const marker = addRenderedEmbedMarker(view, embedFrom);
     vi.spyOn(view, 'coordsAtPos').mockReturnValue({ top: 120, bottom: 136, left: 40, right: 40 } as DOMRect);
