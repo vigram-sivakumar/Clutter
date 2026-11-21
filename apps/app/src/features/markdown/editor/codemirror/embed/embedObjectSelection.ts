@@ -100,43 +100,6 @@ function adjacentEditablePosition(view: EditorView, selection: EmbedObjectSelect
 }
 
 export function embedObjectSelectionKeymap(): Extension {
-  // Space completes a standalone, freshly typed embed: render it and select
-  // the resulting object without inserting whitespace or a paragraph.
-  const renderAndSelectStandaloneEmbed: Command = (view) => {
-    if (view.state.readOnly || !view.state.selection.main.empty) return false;
-    const position = view.state.selection.main.head;
-    const line = view.state.doc.lineAt(position);
-    if (position !== line.to || line.from === line.to) return false;
-
-    let candidate: EmbedObjectSelection | null = null;
-    syntaxTree(view.state).iterate({
-      from: line.from,
-      to: line.to,
-      enter(node) {
-        if (node.name === 'Embed' && node.from === line.from && node.to === line.to) {
-          candidate = { from: node.from, to: node.to };
-        }
-      },
-    });
-    if (!candidate) return false;
-
-    const currentUi = getImageUiState(view.state, candidate.from, candidate.to);
-    if (!currentUi.pendingFirstLeave) return false;
-
-    view.dispatch({
-      effects: [
-        setImageUiState.of({
-          pos: candidate.from,
-          to: candidate.to,
-          state: { ...currentUi, pendingFirstLeave: false },
-        }),
-        embedObjectSelectionChanged.of(candidate),
-      ],
-    });
-    view.focus();
-    syncEmbedObjectSelection(view);
-    return true;
-  };
   const moveOutOfSelection = (direction: 'before' | 'after'): Command => (view) => {
     const selected = view.state.field(embedObjectSelectionField, false) ?? null;
     if (!selected) return false;
@@ -266,7 +229,6 @@ export function embedObjectSelectionKeymap(): Extension {
   };
 
   const bindings: readonly KeyBinding[] = [
-    { key: 'Space', run: renderAndSelectStandaloneEmbed },
     { key: 'Backspace', run: deleteOrSelectEmbed('backspace') },
     { key: 'Delete', run: deleteOrSelectEmbed('delete') },
     { key: 'ArrowLeft', run: selectAdjacentEmbed('left') },
