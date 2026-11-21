@@ -21,7 +21,11 @@ import { resolveEmbedAliasFields } from '../mediaPresentation/mediaPresentationU
 import { resolveImagePresentation, resolvePdfPresentation } from '../mediaPresentation/mediaPresentationModel';
 import { getEmbedMarkerRanges, scanEmbed } from '../../../../../core/vault/ingest/grammar/embedScanner';
 import { findEmbedAt, isEngaged } from './embedEngagement';
-import { embedObjectSelectionField, embedObjectSelectionKeymap, syncEmbedObjectSelection } from './embedObjectSelection';
+import {
+  embedObjectSelectionField,
+  embedObjectSelectionKeymap,
+  syncEmbedObjectSelection,
+} from './embedObjectSelection';
 import type { ResolveEmbedImage } from './embedImageResolution';
 import { classifyEmbedTargetExtension } from './embedTargetKind';
 import { UnknownEmbedWidget } from '../mediaPresentation/UnknownEmbedWidget';
@@ -657,12 +661,11 @@ export function embedLivePreview(options: EmbedLivePreviewOptions): Extension {
           options,
           this.pdfDocumentCache
         ));
-        view.requestMeasure({ write: (measureView) => syncEmbedObjectSelection(measureView) });
       }
 
       update(update: ViewUpdate) {
         const uiChanged = update.startState.field(imageUiStateField) !== update.state.field(imageUiStateField);
-        if (update.docChanged || update.viewportChanged || update.selectionSet || uiChanged || update.startState.field(embedObjectSelectionField) !== update.state.field(embedObjectSelectionField)) {
+        if (update.docChanged || update.viewportChanged || update.selectionSet || uiChanged) {
           ({ decorations: this.decorations, atomic: this.atomic } = buildDecorations(
             update.view,
             options,
