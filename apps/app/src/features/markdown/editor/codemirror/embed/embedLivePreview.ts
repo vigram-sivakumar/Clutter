@@ -676,7 +676,10 @@ export function embedLivePreview(options: EmbedLivePreviewOptions): Extension {
           ));
         }
         if (decorationsChanged || selectionChanged) {
-          update.view.requestMeasure({ write: (measureView) => syncEmbedObjectSelection(measureView) });
+          update.view.requestMeasure({
+            read: () => null,
+            write: (measureView) => syncEmbedObjectSelection(measureView),
+          });
         }
       }
 
