@@ -17,7 +17,7 @@ import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { PageOperations } from '@core/application/page/PageOperations';
 import type { FolderOperations } from '@core/application/folder/FolderOperations';
 
-import { canCreateReferencedPage, createWikiLinkResolver, openSystemFolderThrough } from './resolveWikiLink';
+import { canCreateReferencedPage, createReferencedPage, createWikiLinkResolver, openSystemFolderThrough } from './resolveWikiLink';
 
 /**
  * `[[Projects/]]` (a folder), `[[Assets/hero.png]]` (an asset) and a bare `[[Projects]]` that no note
@@ -528,5 +528,44 @@ describe('icons of folder and asset links', () => {
 
     expect(resolve('a.png', null)).toMatchObject({ icon: 'image' });
     expect(resolve('b.pdf', null)).toMatchObject({ icon: 'pdf' });
+  });
+});
+
+
+describe('createReferencedPage default destination', () => {
+  it('creates a bare title inside Inbox', async () => {
+    const inbox = makeFolder('Inbox');
+    const vault = makeVault([], [inbox]);
+    const create = vi.fn(() => Promise.resolve('new'));
+    const folderCreate = vi.fn(() => Promise.resolve('unexpected-folder'));
+
+    await createReferencedPage(
+      vault,
+      { create: folderCreate } as unknown as FolderOperations,
+      { create } as unknown as PageOperations,
+      'My Note',
+      false
+    );
+
+    expect(create).toHaveBeenCalledWith({ folderId: inbox.id, title: 'My Note', activate: false });
+    expect(folderCreate).not.toHaveBeenCalled();
+  });
+
+  it('keeps an explicitly supplied folder path unchanged', async () => {
+    const projects = makeFolder('Projects');
+    const vault = makeVault([], [projects]);
+    const create = vi.fn(() => Promise.resolve('new'));
+    const folderCreate = vi.fn(() => Promise.resolve('unexpected-folder'));
+
+    await createReferencedPage(
+      vault,
+      { create: folderCreate } as unknown as FolderOperations,
+      { create } as unknown as PageOperations,
+      'Projects/Plan',
+      false
+    );
+
+    expect(create).toHaveBeenCalledWith({ folderId: projects.id, title: 'Plan', activate: false });
+    expect(folderCreate).not.toHaveBeenCalled();
   });
 });
