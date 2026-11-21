@@ -203,6 +203,36 @@ describe('embedObjectSelectionKeymap', () => {
     expect(marker.classList.contains('cm-embed-object-selected')).toBe(false);
   });
 
+  it('selects the embed instead of deleting its boundary newline with Backspace', () => {
+    const embed = '![[note]]';
+    const doc = `${embed}\nbelow`;
+    const view = mount(doc, embed.length + 1);
+    const marker = addRenderedEmbedMarker(view, 0);
+
+    press(view, 'Backspace');
+
+    expect(view.state.field(embedObjectSelectionField)).toEqual({ from: 0, to: embed.length });
+    expect(marker.classList.contains('cm-embed-object-selected')).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc);
+  });
+
+  it('selects the embed instead of deleting its boundary newline with Delete', () => {
+    const embed = '![[note]]';
+    const doc = `above\n${embed}`;
+    const embedFrom = 'above\n'.length;
+    const view = mount(doc, 'above'.length);
+    const marker = addRenderedEmbedMarker(view, embedFrom);
+
+    press(view, 'Delete');
+
+    expect(view.state.field(embedObjectSelectionField)).toEqual({
+      from: embedFrom,
+      to: embedFrom + embed.length,
+    });
+    expect(marker.classList.contains('cm-embed-object-selected')).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc);
+  });
+
   it('Escape clears object selection without editing the Markdown', () => {
     const doc = '![[image.png]]';
     const view = mount(doc);
