@@ -94,9 +94,9 @@ export function embedObjectSelectionKeymap(): Extension {
     const cursor = view.coordsAtPos(main.head);
     if (!cursor) return false;
 
-    // Probe the adjacent visual line at the caret's current horizontal
-    // position. If that point falls inside a rendered embed widget, the
-    // vertical movement is entering that object and should select it.
+    // Probe the adjacent visual line. If it intersects a rendered embed
+    // widget, vertical navigation is entering that block and should select
+    // the whole object rather than leave a caret at its source boundary.
     const targetY =
       direction === 'down'
         ? cursor.bottom + view.defaultLineHeight / 2
