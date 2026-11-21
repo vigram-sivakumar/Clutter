@@ -540,20 +540,25 @@ export class NoteEmbedWidget extends WidgetType {
     // A single click selects the note embed as one object. Opening the source note
     // is a deliberate double-click action; controls and nested media keep their
     // existing independent interactions.
-    const isNoteEmbedSurface = (event: MouseEvent): boolean => {
+    const isNoteEmbedSurface = (event: PointerEvent | MouseEvent): boolean => {
       const target = event.target;
       if (!(target instanceof Element) || event.button !== 0 || event.defaultPrevented) return false;
       const owner = target.closest('button, a, input, .tok-link, .tok-wikilink, .tok-tag, .tok-date, .cm-media-block');
       return (owner === null || owner === container) && !window.getSelection()?.toString();
     };
-    container.addEventListener('mousedown', (event) => {
-      if (isNoteEmbedSurface(event)) event.preventDefault();
-    });
-    container.addEventListener('click', (event) => {
+    // Select on pointerdown, not click: the editor-level capture listener
+    // clears any previous object selection during this same pointerdown.
+    // Selecting here in the bubble phase makes the first click authoritative
+    // instead of relying on a later click event that can be lost during focus
+    // changes between the outer and nested read-only editors.
+    container.addEventListener('pointerdown', (event) => {
       if (!isNoteEmbedSurface(event)) return;
       event.preventDefault();
       event.stopPropagation();
       selectEmbedObject(view, this.pos, this.to);
+    });
+    container.addEventListener('mousedown', (event) => {
+      if (isNoteEmbedSurface(event)) event.preventDefault();
     });
     container.addEventListener('dblclick', (event) => {
       if (!isNoteEmbedSurface(event)) return;
@@ -694,8 +699,8 @@ export class NoteEmbedWidget extends WidgetType {
         event.preventDefault();
       }
     });
-    container.addEventListener('click', (event) => {
-      if (!(event.target instanceof Element) || event.defaultPrevented || event.target.closest('button')) return;
+    container.addEventListener('pointerdown', (event) => {
+      if (!(event.target instanceof Element) || event.button !== 0 || event.defaultPrevented || event.target.closest('button')) return;
       event.preventDefault();
       event.stopPropagation();
       selectEmbedObject(view, this.pos, this.to);
