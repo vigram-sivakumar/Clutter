@@ -44,6 +44,22 @@ function findRenderedEmbed(view: EditorView, from: number): EmbedObjectSelection
   return marker ? result : null;
 }
 
+function findRenderedEmbedOnLine(view: EditorView, lineNumber: number): EmbedObjectSelection | null {
+  if (lineNumber < 1 || lineNumber > view.state.doc.lines) return null;
+  const line = view.state.doc.line(lineNumber);
+  let candidate: EmbedObjectSelection | null = null;
+  syntaxTree(view.state).iterate({
+    from: line.from,
+    to: Math.min(view.state.doc.length, line.to + 1),
+    enter(node) {
+      if (node.name === 'Embed' && node.from >= line.from && node.from <= line.to) {
+        candidate = findRenderedEmbed(view, node.from);
+      }
+    },
+  });
+  return candidate;
+}
+
 function adjacentEditablePosition(view: EditorView, selection: EmbedObjectSelection, direction: 'before' | 'after'): number {
   const { doc } = view.state;
   if (direction === 'before') {
@@ -125,28 +141,19 @@ export function embedObjectSelectionKeymap(): Extension {
   const selectVerticallyAdjacentEmbed = (direction: 'up' | 'down'): Command => (view) => {
     if (view.state.readOnly) return false;
     const selected = view.state.field(embedObjectSelectionField, false) ?? null;
+    const currentLineNumber = selected
+      ? view.state.doc.lineAt(selected.from).number
+      : view.state.doc.lineAt(view.state.selection.main.head).number;
+    if (!selected && !view.state.selection.main.empty) return false;
+
+    const targetLineNumber = currentLineNumber + (direction === 'down' ? 1 : -1);
+    const adjacentEmbed = findRenderedEmbedOnLine(view, targetLineNumber);
+    if (adjacentEmbed) {
+      selectEmbedObject(view, adjacentEmbed.from, adjacentEmbed.to);
+      return true;
+    }
     if (selected) return moveOutOfSelection(direction === 'up' ? 'before' : 'after')(view);
-
-    const main = view.state.selection.main;
-    if (!main.empty) return false;
-    const currentLine = view.state.doc.lineAt(main.head);
-    const targetLineNumber = currentLine.number + (direction === 'down' ? 1 : -1);
-    if (targetLineNumber < 1 || targetLineNumber > view.state.doc.lines) return false;
-
-    const targetLine = view.state.doc.line(targetLineNumber);
-    let candidate: EmbedObjectSelection | null = null;
-    syntaxTree(view.state).iterate({
-      from: targetLine.from,
-      to: Math.min(view.state.doc.length, targetLine.to + 1),
-      enter(node) {
-        if (node.name === 'Embed' && node.from >= targetLine.from && node.from <= targetLine.to) {
-          candidate = findRenderedEmbed(view, node.from);
-        }
-      },
-    });
-    if (!candidate) return false;
-    selectEmbedObject(view, candidate.from, candidate.to);
-    return true;
+    return false;
   };
 
   const clearSelection: Command = (view) => {
