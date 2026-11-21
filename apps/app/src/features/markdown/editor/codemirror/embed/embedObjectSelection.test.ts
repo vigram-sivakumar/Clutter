@@ -6,6 +6,7 @@ import { EditorState } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
+import { DEFAULT_IMAGE_UI_STATE, imageUiStateField, setImageUiState } from '../image/imageUiState';
 import {
   embedObjectSelectionField,
   embedObjectSelectionKeymap,
@@ -19,6 +20,7 @@ function mount(doc: string, anchor = 0, readOnly = false): EditorView {
     selection: { anchor },
     extensions: [
       markdownLanguageExtension(),
+      imageUiStateField,
       ...(readOnly ? [EditorState.readOnly.of(true)] : []),
       embedObjectSelectionField,
       embedObjectSelectionKeymap(),
@@ -44,6 +46,34 @@ function addRenderedEmbedMarker(view: EditorView, from: number): HTMLElement {
 }
 
 describe('embedObjectSelectionKeymap', () => {
+  it('renders and selects a freshly typed standalone embed on Space without inserting whitespace', () => {
+    const doc = '![[note]]';
+    const view = mount(doc, doc.length);
+    view.dispatch({
+      effects: setImageUiState.of({
+        pos: 0,
+        to: doc.length,
+        state: { ...DEFAULT_IMAGE_UI_STATE, pendingFirstLeave: true },
+      }),
+    });
+
+    press(view, ' ');
+
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(view.state.selection.main.head).toBe(doc.length);
+    expect(view.state.field(embedObjectSelectionField)).toEqual({ from: 0, to: doc.length });
+    expect(view.state.field(imageUiStateField).toJSON).toBeDefined();
+  });
+
+  it('does not intercept Space for an embed inside ordinary text', () => {
+    const doc = 'before ![[note]]';
+    const view = mount(doc, doc.length);
+    press(view, ' ');
+
+    expect(view.state.doc.toString()).toBe(`${doc} `);
+    expect(view.state.field(embedObjectSelectionField)).toBeNull();
+  });
+
   it('selects the whole rendered embed on ArrowRight, then moves past it on the next ArrowRight', () => {
     const doc = '![[image.png]]';
     const view = mount(doc);
