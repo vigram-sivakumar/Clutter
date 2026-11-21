@@ -151,9 +151,20 @@ describe('embedObjectSelectionKeymap', () => {
 
     expect(view.state.field(embedObjectSelectionField)).toBeNull();
     expect(view.state.selection.main.head).toBe(embedFrom + embed.length + 1);
-    expect(view.state.doc.toString()).toBe(doc);
+    expect(view.state.doc.toString()).toBe(`above\n${embed}\n\nbelow`);
   });
 
+  it('creates a new line below a selected embed at the end of the document', () => {
+    const embed = '![[image.png]]';
+    const view = mount(embed);
+    addRenderedEmbedMarker(view, 0);
+    press(view, 'ArrowRight');
+    press(view, 'Enter');
+
+    expect(view.state.doc.toString()).toBe(`${embed}\n`);
+    expect(view.state.selection.main.head).toBe(embed.length + 1);
+    expect(view.state.field(embedObjectSelectionField)).toBeNull();
+  });
 
   it('removes the selected embed source with Backspace', () => {
     const embed = '![[image.png]]';
