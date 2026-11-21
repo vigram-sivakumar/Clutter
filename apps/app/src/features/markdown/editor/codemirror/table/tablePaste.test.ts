@@ -365,7 +365,7 @@ describe('tablePaste — range-selection paste', () => {
 
 
 describe('tablePaste — row/column handle selection', () => {
-  it('pastes a clipboard grid into a selected row from its first cell and retains the row selection', () => {
+  it('pastes a clipboard grid into a selected row from its first cell', () => {
     const controller = new TableActiveCellController();
     const view = mountRootView(TABLE, controller);
     const table = findAllTables(view.state)[0]!;
@@ -379,6 +379,27 @@ describe('tablePaste — row/column handle selection', () => {
     expect(cellText(view, 1, 2)).toBe('India');
     expect(cellText(view, 2, 0)).toBe('Alex');
     expect(selection(view)).toMatchObject({ kind: 'range', anchor: { row: 1, col: 0 }, head: { row: 1, col: 2 } });
+  });
+
+  it('adds rows when a 2x3 grid is pasted from the last row handle selection', () => {
+    const controller = new TableActiveCellController();
+    const view = mountRootView('| Name | Role | City | Team |\n| --- | --- | --- | --- |\n| Alex | Engineer | Tokyo | Design |', controller);
+    const table = findAllTables(view.state)[0]!;
+    const selected: TableSelection = { kind: 'row', tableFrom: table.from, rowIndex: 1 };
+    view.dispatch({ effects: [tableSelectionChanged.of(selected)] });
+
+    dispatchPasteOn(view.contentDOM, (d) => d.setData('text/plain', 'A\tB\tC\nD\tE\tF'));
+
+    const updatedTable = findAllTables(view.state)[0]!;
+    expect(getNavigableRows(updatedTable.node)).toHaveLength(3);
+    expect(cellText(view, 1, 0)).toBe('A');
+    expect(cellText(view, 1, 1)).toBe('B');
+    expect(cellText(view, 1, 2)).toBe('C');
+    expect(cellText(view, 2, 0)).toBe('D');
+    expect(cellText(view, 2, 1)).toBe('E');
+    expect(cellText(view, 2, 2)).toBe('F');
+    expect(cellText(view, 2, 3)).toBe('');
+    expect(selection(view)).toMatchObject({ kind: 'range', anchor: { row: 1, col: 0 }, head: { row: 2, col: 2 } });
   });
 
   it('fills every cell in a selected row when the clipboard contains one value', () => {
