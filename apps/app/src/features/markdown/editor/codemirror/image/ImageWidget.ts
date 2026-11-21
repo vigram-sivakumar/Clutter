@@ -22,6 +22,7 @@ import {
 } from '../mediaPresentation/mediaLayoutStyle';
 import type { ImagePresentation } from '../mediaPresentation/mediaPresentationModel';
 import { attachImageResizeHandle } from './imageResizeHandle';
+import { selectEmbedObject } from '../embed/embedObjectSelection';
 
 // Temporary icons only (per this change's own scope) — plain inline SVG
 // following TaskCheckboxWidget.ts's exact established convention for
@@ -570,8 +571,19 @@ export class ImageWidget extends WidgetType {
     imageButton.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
-      this.getOnImageClick()?.(this.url, this.alt, this.copyUrl);
+      if (this.isEmbed) {
+        selectEmbedObject(view, this.pos, this.to);
+      } else {
+        this.getOnImageClick()?.(this.url, this.alt, this.copyUrl);
+      }
     });
+    if (this.isEmbed) {
+      imageButton.addEventListener('dblclick', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        this.getOnImageClick()?.(this.url, this.alt, this.copyUrl);
+      });
+    }
 
     // Applied synchronously here, before the `<img>` itself even exists
     // yet (`probeThenMount` mounts it once the probe confirms `this.url`
