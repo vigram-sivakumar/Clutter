@@ -72,6 +72,14 @@
   display: block;
 }
 
+/* Keyboard-selected ![[...]] embeds reuse the collection selection token
+   and inset outline treatment; no widget-specific appearance is introduced. */
+.cm-editor .cm-media-block.cm-embed-object-selected {
+  border-color: var(--border-active);
+  outline: 2px solid var(--border-active);
+  outline-offset: -2px;
+}
+
 .cm-widgetBuffer:has(+ .cm-media-block),
 .cm-media-block + .cm-widgetBuffer {
   display: block;
