@@ -73,14 +73,14 @@
 }
 
 /* Selected embeds use a subtle brand-surface overlay, extending 2px beyond the object. */
-.cm-editor .cm-media-block.cm-embed-object-selected {
+.cm-editor .cm-embed-object-selected {
   position: relative;
   isolation: isolate;
   border-color: transparent;
   outline: none;
 }
 
-.cm-editor .cm-media-block.cm-embed-object-selected::after {
+.cm-editor .cm-embed-object-selected::after {
   content: '';
   position: absolute;
   inset: -2px;
