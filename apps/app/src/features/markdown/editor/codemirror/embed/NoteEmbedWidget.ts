@@ -7,6 +7,7 @@ import { splitTargetFragment } from '../../../../../core/vault/ingest/grammar/ta
 import { createEditorView } from '../createEditorView';
 import { CARET_DOWN_ICON, CARET_RIGHT_ICON } from '../fold/FoldToggleWidget';
 import { setImageUiState, type ImageUiState } from '../image/imageUiState';
+import { selectEmbedObject } from './embedObjectSelection';
 import { EXPAND_ICON, MORE_ICON } from '../mediaPresentation/embedControlIcons';
 import {
   EDIT_ICON,
