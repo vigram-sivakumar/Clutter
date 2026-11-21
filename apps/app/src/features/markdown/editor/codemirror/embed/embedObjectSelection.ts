@@ -61,6 +61,18 @@ export function embedObjectSelectionKeymap(): Extension {
   const moveOutOfSelection = (direction: 'before' | 'after'): Command => (view) => {
     const selected = view.state.field(embedObjectSelectionField, false) ?? null;
     if (!selected) return false;
+    const hasFollowingNewline =
+      selected.to < view.state.doc.length &&
+      view.state.doc.sliceString(selected.to, selected.to + 1) === '\n';
+    if (direction === 'before' && selected.from === 0) return false;
+    if (direction === 'after' && !hasFollowingNewline && selected.to === view.state.doc.length) {
+      view.dispatch({
+        changes: { from: selected.to, insert: '\n' },
+        selection: EditorSelection.cursor(selected.to + 1),
+        scrollIntoView: true,
+      });
+      return true;
+    }
     const position = adjacentEditablePosition(view, selected, direction);
     view.dispatch({
       effects: embedObjectSelectionChanged.of(null),
@@ -74,11 +86,8 @@ export function embedObjectSelectionKeymap(): Extension {
   const createLineBelowSelection: Command = (view) => {
     const selected = view.state.field(embedObjectSelectionField, false) ?? null;
     if (!selected || view.state.readOnly) return false;
-    const hasFollowingNewline =
-      selected.to < view.state.doc.length &&
-      view.state.doc.sliceString(selected.to, selected.to + 1) === '\n';
-    const insert = hasFollowingNewline ? '\n' : '\n\n';
-    const cursor = selected.to + insert.length;
+    const insert = '\n';
+    const cursor = selected.to + 1;
     view.dispatch({
       changes: { from: selected.to, insert },
       selection: EditorSelection.cursor(cursor),
