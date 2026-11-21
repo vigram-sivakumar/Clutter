@@ -61,6 +61,30 @@ function findRenderedEmbedOnLine(view: EditorView, lineNumber: number): EmbedObj
   return candidate;
 }
 
+function selectEmbedAtDeletionBoundary(direction: 'backspace' | 'delete'): Command {
+  return (view) => {
+    if (view.state.readOnly || !view.state.selection.main.empty) return false;
+    const position = view.state.selection.main.head;
+    const line = view.state.doc.lineAt(position);
+    let adjacent: EmbedObjectSelection | null = null;
+
+    if (direction === 'backspace') {
+      if (position !== line.from || line.number <= 1) return false;
+      const previousLine = view.state.doc.line(line.number - 1);
+      adjacent = findRenderedEmbedOnLine(view, previousLine.number);
+      if (!adjacent || adjacent.from !== previousLine.from || adjacent.to !== previousLine.to) return false;
+    } else {
+      if (position !== line.to || line.number >= view.state.doc.lines) return false;
+      const nextLine = view.state.doc.line(line.number + 1);
+      adjacent = findRenderedEmbedOnLine(view, nextLine.number);
+      if (!adjacent || adjacent.from !== nextLine.from || adjacent.to !== nextLine.to) return false;
+    }
+
+    selectEmbedObject(view, adjacent.from, adjacent.to);
+    return true;
+  };
+}
+
 function adjacentEditablePosition(view: EditorView, selection: EmbedObjectSelection, direction: 'before' | 'after'): number {
   const { doc } = view.state;
   if (direction === 'before') {
@@ -170,6 +194,8 @@ export function embedObjectSelectionKeymap(): Extension {
   };
 
   const bindings: readonly KeyBinding[] = [
+    { key: 'Backspace', run: selectEmbedAtDeletionBoundary('backspace') },
+    { key: 'Delete', run: selectEmbedAtDeletionBoundary('delete') },
     { key: 'ArrowLeft', run: selectAdjacentEmbed('left') },
     { key: 'ArrowRight', run: selectAdjacentEmbed('right') },
     { key: 'ArrowUp', run: selectVerticallyAdjacentEmbed('up') },
