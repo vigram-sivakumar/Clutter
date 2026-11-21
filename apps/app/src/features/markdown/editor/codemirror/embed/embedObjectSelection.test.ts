@@ -17,8 +17,12 @@ function mount(doc: string, anchor = 0, readOnly = false): EditorView {
   const state = EditorState.create({
     doc,
     selection: { anchor },
-    readOnly,
-    extensions: [markdownLanguageExtension(), embedObjectSelectionField, embedObjectSelectionKeymap()],
+    extensions: [
+      markdownLanguageExtension(),
+      ...(readOnly ? [EditorState.readOnly.of(true)] : []),
+      embedObjectSelectionField,
+      embedObjectSelectionKeymap(),
+    ],
   });
   const view = new EditorView({ state, parent });
   forceParsing(view);
