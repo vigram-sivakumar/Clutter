@@ -1,6 +1,6 @@
 import { syntaxTree } from '@codemirror/language';
 import { EditorSelection, Prec, StateEffect, StateField, type Extension } from '@codemirror/state';
-import { keymap, ViewPlugin, type Command, type EditorView, type KeyBinding } from '@codemirror/view';
+import { EditorView, keymap, ViewPlugin, type Command, type KeyBinding } from '@codemirror/view';
 
 interface EmbedObjectSelection {
   readonly from: number;
