@@ -57,7 +57,7 @@ describe('embedObjectSelectionKeymap', () => {
 
     expect(view.state.field(embedObjectSelectionField)).toBeNull();
     expect(view.state.selection.main.head).toBe(doc.length + 1);
-    expect(view.state.doc.toString()).toBe(`${doc}\\n`);
+    expect(view.state.doc.toString()).toBe(`${doc}\n`);
     expect(marker.classList.contains('cm-embed-object-selected')).toBe(false);
   });
 
@@ -163,6 +163,44 @@ describe('embedObjectSelectionKeymap', () => {
     expect(view.state.field(embedObjectSelectionField)).toBeNull();
     expect(view.state.selection.main.head).toBe(embedTo + 1);
     expect(view.state.doc.toString()).toBe(doc);
+  });
+
+  it('moves through an intervening editable line from one embed to the next', () => {
+    const first = '![[first]]';
+    const middle = 'editable text';
+    const second = '![[second]]';
+    const secondFrom = first.length + 1 + middle.length + 1;
+    const doc = first + '\n' + middle + '\n' + second;
+    const view = mount(doc);
+    const firstMarker = addRenderedEmbedMarker(view, 0);
+    const secondMarker = addRenderedEmbedMarker(view, secondFrom);
+
+    press(view, 'ArrowRight');
+    expect(view.state.field(embedObjectSelectionField)).toEqual({ from: 0, to: first.length });
+
+    press(view, 'ArrowDown');
+    expect(view.state.field(embedObjectSelectionField)).toBeNull();
+    expect(view.state.selection.main.head).toBe(first.length + 1);
+
+    press(view, 'ArrowDown');
+    expect(view.state.field(embedObjectSelectionField)).toEqual({
+      from: secondFrom,
+      to: secondFrom + second.length,
+    });
+    expect(firstMarker.classList.contains('cm-embed-object-selected')).toBe(false);
+    expect(secondMarker.classList.contains('cm-embed-object-selected')).toBe(true);
+  });
+
+  it('clears the visual selection when the pointer moves outside this editor', () => {
+    const view = mount('![[note]]');
+    const marker = addRenderedEmbedMarker(view, 0);
+    press(view, 'ArrowRight');
+    expect(marker.classList.contains('cm-embed-object-selected')).toBe(true);
+
+    document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+
+    expect(view.state.field(embedObjectSelectionField)).toBeNull();
+    expect(marker.classList.contains('cm-embed-object-selected')).toBe(false);
   });
 
   it('Escape clears object selection without editing the Markdown', () => {
