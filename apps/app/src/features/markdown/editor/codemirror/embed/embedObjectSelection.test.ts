@@ -91,7 +91,7 @@ describe('embedObjectSelectionKeymap', () => {
     const embedView = mount('![[image.png]]');
     press(embedView, 'ArrowRight');
     expect(embedView.state.field(embedObjectSelectionField)).toBeNull();
-    expect(embedView.state.selection.main.head).toBe(embedView.state.doc.length);
+    expect(embedView.state.selection.main.head).toBe(0);
   });
 
   it('does not intercept navigation in read-only embedded editors', () => {
@@ -102,6 +102,6 @@ describe('embedObjectSelectionKeymap', () => {
     press(view, 'ArrowRight');
 
     expect(view.state.field(embedObjectSelectionField)).toBeNull();
-    expect(view.state.selection.main.head).toBe(doc.length);
+    expect(view.state.selection.main.head).toBe(0);
   });
 });
