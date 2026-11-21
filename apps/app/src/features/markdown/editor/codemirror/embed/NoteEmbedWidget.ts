@@ -537,35 +537,60 @@ export class NoteEmbedWidget extends WidgetType {
     content.hidden = collapsed;
     container.classList.toggle('cm-note-embed--collapsed', collapsed);
 
-    // A single click selects the note embed as one object. Opening the source note
-    // is a deliberate double-click action; controls and nested media keep their
-    // existing independent interactions.
-    const isNoteEmbedSurface = (event: PointerEvent | MouseEvent): boolean => {
+    // The rendered note body is a single, inert object: links, tags, dates,
+    // nested media, code controls and text selection inside it have no
+    // independent interaction. A primary click selects the whole embed;
+    // a double-click opens the source note. Header controls remain separate.
+    const isNoteEmbedContentEvent = (event: PointerEvent | MouseEvent): boolean => {
       const target = event.target;
-      if (!(target instanceof Element) || event.button !== 0 || event.defaultPrevented) return false;
-      const owner = target.closest('button, a, input, .tok-link, .tok-wikilink, .tok-tag, .tok-date, .cm-media-block');
-      return (owner === null || owner === container) && !window.getSelection()?.toString();
+      return (
+        target instanceof Node &&
+        content.contains(target) &&
+        event.button === 0 &&
+        !event.defaultPrevented
+      );
     };
-    // Select on pointerdown, not click: the editor-level capture listener
-    // clears any previous object selection during this same pointerdown.
-    // Selecting here in the bubble phase makes the first click authoritative
-    // instead of relying on a later click event that can be lost during focus
-    // changes between the outer and nested read-only editors.
-    container.addEventListener('pointerdown', (event) => {
-      if (!isNoteEmbedSurface(event)) return;
-      event.preventDefault();
-      event.stopPropagation();
-      selectEmbedObject(view, this.pos, this.to);
-    });
-    container.addEventListener('mousedown', (event) => {
-      if (isNoteEmbedSurface(event)) event.preventDefault();
-    });
-    container.addEventListener('dblclick', (event) => {
-      if (!isNoteEmbedSurface(event)) return;
-      event.preventDefault();
-      event.stopPropagation();
-      this.openSource(resolution.pageId);
-    });
+
+    // Use capture-phase handlers on the body so nested CodeMirror widgets
+    // and rendered links cannot handle the pointer/click before the embed.
+    content.addEventListener(
+      'pointerdown',
+      (event) => {
+        if (!isNoteEmbedContentEvent(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        selectEmbedObject(view, this.pos, this.to);
+      },
+      true
+    );
+    content.addEventListener(
+      'mousedown',
+      (event) => {
+        if (!isNoteEmbedContentEvent(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+      },
+      true
+    );
+    content.addEventListener(
+      'click',
+      (event) => {
+        if (!isNoteEmbedContentEvent(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+      },
+      true
+    );
+    content.addEventListener(
+      'dblclick',
+      (event) => {
+        if (!isNoteEmbedContentEvent(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        this.openSource(resolution.pageId);
+      },
+      true
+    );
 
     // See this class's own "Collapse/expand" doc comment — direct DOM
     // mutation (`content.hidden`, this button's own icon/label/aria-label/
