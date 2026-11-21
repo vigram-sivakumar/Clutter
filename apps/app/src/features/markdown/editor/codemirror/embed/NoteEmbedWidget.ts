@@ -416,6 +416,7 @@ export class NoteEmbedWidget extends WidgetType {
     // additionally claim to be a working `.cm-note-embed` it isn't — see
     // that module's own doc comment.
     container.classList.add('cm-media-block');
+    if (!this.ui.revealed) container.dataset.embedFrom = String(this.pos);
 
     if (this.resolution === null) {
       return this.renderBroken(container, view);
