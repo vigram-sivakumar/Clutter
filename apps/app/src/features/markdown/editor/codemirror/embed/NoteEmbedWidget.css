@@ -10,6 +10,11 @@
  */
 
 /* Not a card: a surface with an inset hairline and shadow. */
+.cm-editor .cm-media-block.cm-note-embed.cm-embed-object-selected {
+  outline: 0 !important;
+  border-color: transparent;
+}
+
 .cm-media-block.cm-note-embed {
   position: relative;
   display: flex;
