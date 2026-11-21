@@ -450,27 +450,59 @@ function pasteGridIntoTable(
 }
 
 /**
- * Paste a clipboard grid into any table selection. Row and column handle
- * selections resolve to their top-left cell just like a rectangular range;
- * the clipboard grid determines which cells are replaced. The original
- * selection is retained after the paste.
+ * Paste from the selection's top-left cell. A 1x1 clipboard value fills the
+ * complete selected shape; a real grid is pasted at its natural dimensions,
+ * expanding beyond the selected shape when necessary.
  */
 export function pasteIntoSelectedTableSelection(view: EditorView, selection: TableSelection, table: ClipboardTable): boolean {
+  const currentTable = findAllTables(view.state).find((candidate) => candidate.from === selection.tableFrom);
+  if (!currentTable) {
+    return false;
+  }
+
+  const rows = getNavigableRows(currentTable.node);
+  const header = rows[0];
+  if (!header) {
+    return false;
+  }
+
   let target: PasteTarget;
+  let selectedRows: number;
+  let selectedCols: number;
+
   if (selection.kind === 'range') {
-    target = {
-      tableFrom: selection.tableFrom,
-      row: Math.min(selection.anchor.row, selection.head.row),
-      col: Math.min(selection.anchor.col, selection.head.col),
-    };
+    const minRow = Math.min(selection.anchor.row, selection.head.row);
+    const maxRow = Math.max(selection.anchor.row, selection.head.row);
+    const minCol = Math.min(selection.anchor.col, selection.head.col);
+    const maxCol = Math.max(selection.anchor.col, selection.head.col);
+    target = { tableFrom: selection.tableFrom, row: minRow, col: minCol };
+    selectedRows = maxRow - minRow + 1;
+    selectedCols = maxCol - minCol + 1;
   } else if (selection.kind === 'row') {
     target = { tableFrom: selection.tableFrom, row: selection.rowIndex, col: 0 };
+    selectedRows = 1;
+    selectedCols = getRowColumnSegments(header).length;
   } else {
     target = { tableFrom: selection.tableFrom, row: 0, col: selection.columnIndex };
+    selectedRows = rows.length;
+    selectedCols = 1;
   }
-  return selection.kind === 'range'
-    ? pasteGridIntoTable(view, null, target, cellGrid(table), false)
-    : pasteGridIntoTable(view, null, target, cellGrid(table), false, selection);
+
+  let grid = cellGrid(table);
+  const isScalar = grid.length === 1 && grid[0]?.length === 1;
+  if (isScalar) {
+    const value = grid[0]![0]!;
+    grid = Array.from({ length: selectedRows }, () => Array.from({ length: selectedCols }, () => value));
+    return pasteGridIntoTable(view, null, target, grid, false, selection);
+  }
+
+  const pastedSelection: TableSelection = {
+    kind: 'range',
+    tableFrom: selection.tableFrom,
+    anchor: { row: target.row, col: target.col },
+    head: { row: target.row + grid.length - 1, col: target.col + (grid[0]?.length ?? 1) - 1 },
+  };
+  return pasteGridIntoTable(view, null, target, grid, false, pastedSelection);
 }
 
 /**

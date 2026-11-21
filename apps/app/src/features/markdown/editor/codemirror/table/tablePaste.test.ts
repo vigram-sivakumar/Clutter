@@ -314,6 +314,53 @@ describe('tablePaste — range-selection paste', () => {
 
     expect(cellText(view, 1, 0)).toBe('X');
   });
+
+  it('pastes a 2x3 grid from a 1x1 selection and expands the resulting selection', () => {
+    const controller = new TableActiveCellController();
+    const view = mountRootView(TABLE, controller);
+    selectRange(view, { row: 2, col: 1 }, { row: 2, col: 1 });
+
+    dispatchPasteOn(view.contentDOM, (d) => d.setData('text/plain', 'A\tB\tC\nD\tE\tF'));
+
+    expect(cellText(view, 2, 1)).toBe('A');
+    expect(cellText(view, 2, 2)).toBe('B');
+    expect(cellText(view, 2, 3)).toBe('C');
+    expect(cellText(view, 3, 1)).toBe('D');
+    expect(cellText(view, 3, 2)).toBe('E');
+    expect(cellText(view, 3, 3)).toBe('F');
+    expect(selection(view)).toMatchObject({ kind: 'range', anchor: { row: 2, col: 1 }, head: { row: 3, col: 3 } });
+  });
+
+  it('pastes a grid beyond the last row and creates the required rows', () => {
+    const controller = new TableActiveCellController();
+    const view = mountRootView(TABLE, controller);
+    selectRange(view, { row: 3, col: 0 }, { row: 3, col: 2 });
+
+    dispatchPasteOn(view.contentDOM, (d) => d.setData('text/plain', 'A\tB\tC\nD\tE\tF'));
+
+    const table = findAllTables(view.state)[0]!;
+    expect(getNavigableRows(table.node)).toHaveLength(5);
+    expect(cellText(view, 3, 0)).toBe('A');
+    expect(cellText(view, 3, 1)).toBe('B');
+    expect(cellText(view, 3, 2)).toBe('C');
+    expect(cellText(view, 4, 0)).toBe('D');
+    expect(cellText(view, 4, 1)).toBe('E');
+    expect(cellText(view, 4, 2)).toBe('F');
+  });
+
+  it('fills every cell in a selected range when the clipboard contains one value', () => {
+    const controller = new TableActiveCellController();
+    const view = mountRootView(TABLE, controller);
+    selectRange(view, { row: 1, col: 0 }, { row: 2, col: 1 });
+
+    dispatchPasteOn(view.contentDOM, (d) => d.setData('text/plain', 'Replace'));
+
+    expect(cellText(view, 1, 0)).toBe('Replace');
+    expect(cellText(view, 1, 1)).toBe('Replace');
+    expect(cellText(view, 2, 0)).toBe('Replace');
+    expect(cellText(view, 2, 1)).toBe('Replace');
+    expect(selection(view)).toMatchObject({ kind: 'range', anchor: { row: 1, col: 0 }, head: { row: 2, col: 1 } });
+  });
 });
 
 
@@ -331,6 +378,21 @@ describe('tablePaste — row/column handle selection', () => {
     expect(cellText(view, 1, 1)).toBe('UX');
     expect(cellText(view, 1, 2)).toBe('India');
     expect(cellText(view, 2, 0)).toBe('Alex');
+    expect(selection(view)).toEqual(selected);
+  });
+
+  it('fills every cell in a selected row when the clipboard contains one value', () => {
+    const controller = new TableActiveCellController();
+    const view = mountRootView(TABLE, controller);
+    const table = findAllTables(view.state)[0]!;
+    const selected: TableSelection = { kind: 'row', tableFrom: table.from, rowIndex: 1 };
+    view.dispatch({ effects: [tableSelectionChanged.of(selected)] });
+
+    dispatchPasteOn(view.contentDOM, (d) => d.setData('text/plain', 'Replace'));
+
+    expect(cellText(view, 1, 0)).toBe('Replace');
+    expect(cellText(view, 1, 1)).toBe('Replace');
+    expect(cellText(view, 1, 2)).toBe('Replace');
     expect(selection(view)).toEqual(selected);
   });
 
