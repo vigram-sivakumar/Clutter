@@ -65,7 +65,10 @@ export function embedObjectSelectionKeymap(): Extension {
         // The marker exists only on a live rendered widget. This avoids
         // intercepting navigation for incomplete, first-leave-pending, or
         // explicitly source-revealed Markdown.
-        const widget = view.dom.querySelector<HTMLElement>(`[data-embed-from="${node.from}"]`);
+        const widget = Array.from(view.dom.querySelectorAll<HTMLElement>('[data-embed-from]')).find(
+          (element) =>
+            element.closest('.cm-editor') === view.dom && Number(element.dataset.embedFrom) === node.from
+        );
         if (widget) candidates.push({ from: node.from, to: node.to });
       },
     });
@@ -98,6 +101,7 @@ export function embedObjectSelectionKeymap(): Extension {
 export function syncEmbedObjectSelection(view: EditorView): void {
   const selected = view.state.field(embedObjectSelectionField, false) ?? null;
   for (const widget of view.dom.querySelectorAll<HTMLElement>('[data-embed-from]')) {
+    if (widget.closest('.cm-editor') !== view.dom) continue;
     widget.classList.toggle(
       'cm-embed-object-selected',
       selected !== null && Number(widget.dataset.embedFrom) === selected.from
