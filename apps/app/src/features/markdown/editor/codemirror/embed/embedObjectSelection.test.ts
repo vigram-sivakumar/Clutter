@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import { forceParsing } from '@codemirror/language';
+import { defaultKeymap } from '@codemirror/commands';
 import { EditorState } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
+import { EditorView, keymap } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import {
@@ -21,6 +22,7 @@ function mount(doc: string, anchor = 0, readOnly = false): EditorView {
       ...(readOnly ? [EditorState.readOnly.of(true)] : []),
       embedObjectSelectionField,
       embedObjectSelectionKeymap(),
+      keymap.of(defaultKeymap),
     ],
   });
   const view = new EditorView({ state, parent });
@@ -93,7 +95,7 @@ describe('embedObjectSelectionKeymap', () => {
     const embedView = mount('![[image.png]]');
     press(embedView, 'ArrowRight');
     expect(embedView.state.field(embedObjectSelectionField)).toBeNull();
-    expect(embedView.state.selection.main.head).toBe(0);
+    expect(embedView.state.selection.main.head).toBe(1);
   });
 
   it('does not intercept navigation in read-only embedded editors', () => {
@@ -104,6 +106,6 @@ describe('embedObjectSelectionKeymap', () => {
     press(view, 'ArrowRight');
 
     expect(view.state.field(embedObjectSelectionField)).toBeNull();
-    expect(view.state.selection.main.head).toBe(0);
+    expect(view.state.selection.main.head).toBe(1);
   });
 });
