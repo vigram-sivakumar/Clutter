@@ -72,12 +72,23 @@
   display: block;
 }
 
-/* Keyboard-selected ![[...]] embeds reuse the collection selection token
-   and inset outline treatment; no widget-specific appearance is introduced. */
+/* Selected embeds use a subtle brand-surface overlay, extending 2px beyond the object. */
 .cm-editor .cm-media-block.cm-embed-object-selected {
-  border-color: var(--border-active);
-  outline: 2px solid var(--border-active);
-  outline-offset: -2px;
+  position: relative;
+  isolation: isolate;
+  border-color: transparent;
+  outline: none;
+}
+
+.cm-editor .cm-media-block.cm-embed-object-selected::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  background: var(--surface-brand);
+  opacity: 0.12;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 10;
 }
 
 .cm-widgetBuffer:has(+ .cm-media-block),
