@@ -30,6 +30,17 @@
    embed container (not just the small pill itself — the arrows should
    already be visible by the time the pointer reaches them). */
 
+/* The rendered PDF is a selectable embed object, not an inline text surface.
+   Keep a pointer cursor over the page and its text layer; controls below
+   retain their own explicit enabled/disabled cursor states. */
+.cm-editor .cm-pdf-embed-container,
+.cm-editor .cm-pdf-embed-container .cm-pdf-embed-page,
+.cm-editor .cm-pdf-embed-container .pdf-viewer__page,
+.cm-editor .cm-pdf-embed-container .textLayer,
+.cm-editor .cm-pdf-embed-container .textLayer span {
+  cursor: pointer;
+}
+
 .cm-editor .cm-pdf-embed-container {
   position: relative;
   /* Redundant with the shared `.cm-media-block` class this widget's own
