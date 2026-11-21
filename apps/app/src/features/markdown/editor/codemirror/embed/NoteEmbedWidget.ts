@@ -536,23 +536,27 @@ export class NoteEmbedWidget extends WidgetType {
     content.hidden = collapsed;
     container.classList.toggle('cm-note-embed--collapsed', collapsed);
 
-    // The embed is a clickable card: a click anywhere on the wrapper opens the source note, through the same
-    // `openSource` the Expand button uses. What has its own click behavior keeps it and does not navigate:
-    // buttons (the header's controls, the task and list markers, Copy), links and inputs, the semantic
-    // tokens (link, WikiLink, tag, date — they act on `mousedown`, so the click that follows is not itself
-    // marked handled) and media blocks (an image, a PDF, a nested embed — which is a card of its own: its
-    // listener runs first and stops the click, so only the innermost embed opens its source). Anything
-    // already handled (`defaultPrevented`) and the end of a text selection never navigate, so text stays
-    // selectable. `owner !== container` because the wrapper is itself a media block.
-    container.addEventListener('click', (event) => {
+    // A single click selects the note embed as one object. Opening the source note
+    // is a deliberate double-click action; controls and nested media keep their
+    // existing independent interactions.
+    const isNoteEmbedSurface = (event: MouseEvent): boolean => {
       const target = event.target;
-      if (!(target instanceof Element) || event.button !== 0 || event.defaultPrevented) {
-        return;
-      }
+      if (!(target instanceof Element) || event.button !== 0 || event.defaultPrevented) return false;
       const owner = target.closest('button, a, input, .tok-link, .tok-wikilink, .tok-tag, .tok-date, .cm-media-block');
-      if ((owner !== null && owner !== container) || window.getSelection()?.toString()) {
-        return;
-      }
+      return (owner === null || owner === container) && !window.getSelection()?.toString();
+    };
+    container.addEventListener('mousedown', (event) => {
+      if (isNoteEmbedSurface(event)) event.preventDefault();
+    });
+    container.addEventListener('click', (event) => {
+      if (!isNoteEmbedSurface(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      selectEmbedObject(view, this.pos, this.to);
+    });
+    container.addEventListener('dblclick', (event) => {
+      if (!isNoteEmbedSurface(event)) return;
+      event.preventDefault();
       event.stopPropagation();
       this.openSource(resolution.pageId);
     });
