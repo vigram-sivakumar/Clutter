@@ -569,3 +569,16 @@ describe('createReferencedPage default destination', () => {
     expect(folderCreate).not.toHaveBeenCalled();
   });
 });
+
+
+describe('bare WikiLink Inbox fallback', () => {
+  it('resolves a bare title to Inbox when no vault-root note matches', () => {
+    const { resolve } = setup([makePage('Inbox/My Note')], []);
+    expect(resolve('My Note', null)).toMatchObject({ status: 'resolved', pageId: 'page:Inbox/My Note' });
+  });
+
+  it('keeps an explicit folder-qualified path exact', () => {
+    const { resolve } = setup([makePage('Inbox/My Note')], []);
+    expect(resolve('Projects/My Note', null).status).toBe('unresolved');
+  });
+});
