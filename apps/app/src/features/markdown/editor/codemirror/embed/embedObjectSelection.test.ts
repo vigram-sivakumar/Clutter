@@ -127,8 +127,8 @@ describe('embedObjectSelectionKeymap', () => {
 
   it('removes the selected embed source with Backspace', () => {
     const embed = '![[image.png]]';
-    const doc = `above\\n${embed}\\nbelow`;
-    const embedFrom = 'above\\n'.length;
+    const doc = `above\n${embed}\nbelow`;
+    const embedFrom = 'above\n'.length;
     const view = mount(doc, embedFrom);
     addRenderedEmbedMarker(view, embedFrom);
 
@@ -136,14 +136,14 @@ describe('embedObjectSelectionKeymap', () => {
     press(view, 'Backspace');
 
     expect(view.state.field(embedObjectSelectionField)).toBeNull();
-    expect(view.state.doc.toString()).toBe('above\\n\\nbelow');
+    expect(view.state.doc.toString()).toBe('above\n\nbelow');
     expect(view.state.selection.main.head).toBe(embedFrom);
   });
 
   it('removes the selected embed source with Delete', () => {
     const embed = '![[image.png]]';
-    const doc = `above\\n${embed}\\nbelow`;
-    const embedFrom = 'above\\n'.length;
+    const doc = `above\n${embed}\nbelow`;
+    const embedFrom = 'above\n'.length;
     const view = mount(doc, embedFrom);
     addRenderedEmbedMarker(view, embedFrom);
 
@@ -151,7 +151,7 @@ describe('embedObjectSelectionKeymap', () => {
     press(view, 'Delete');
 
     expect(view.state.field(embedObjectSelectionField)).toBeNull();
-    expect(view.state.doc.toString()).toBe('above\\n\\nbelow');
+    expect(view.state.doc.toString()).toBe('above\n\nbelow');
     expect(view.state.selection.main.head).toBe(embedFrom);
   });
 
