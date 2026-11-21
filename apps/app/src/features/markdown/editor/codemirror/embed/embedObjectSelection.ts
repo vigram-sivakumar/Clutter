@@ -126,19 +126,25 @@ export function embedObjectSelectionKeymap(): Extension {
     return true;
   };
 
-  const createLineBelowSelection: Command = (view) => {
+  const removeSelectedEmbedAndCreateLine: Command = (view) => {
     const selected = view.state.field(embedObjectSelectionField, false) ?? null;
     if (!selected || view.state.readOnly) return false;
-    const insert = '\n';
-    const cursor = selected.to + 1;
+
+    // The embed occupies its own rendered block. Removing its Markdown source
+    // leaves the surrounding line breaks in place, creating an empty line
+    // where the object was selected.
     view.dispatch({
-      changes: { from: selected.to, insert },
-      selection: EditorSelection.cursor(cursor),
+      changes: { from: selected.from, to: selected.to, insert: '' },
+      selection: EditorSelection.cursor(selected.from),
       scrollIntoView: true,
     });
     view.focus();
     syncEmbedObjectSelection(view);
     return true;
+  };
+
+  const ignoreShiftEnterOnSelectedEmbed: Command = (view) => {
+    return view.state.field(embedObjectSelectionField, false) !== null;
   };
 
   const selectAdjacentEmbed = (direction: 'left' | 'right'): Command => (view) => {
@@ -208,7 +214,8 @@ export function embedObjectSelectionKeymap(): Extension {
     { key: 'ArrowRight', run: selectAdjacentEmbed('right') },
     { key: 'ArrowUp', run: selectVerticallyAdjacentEmbed('up') },
     { key: 'ArrowDown', run: selectVerticallyAdjacentEmbed('down') },
-    { key: 'Enter', run: createLineBelowSelection },
+    { key: 'Shift-Enter', run: ignoreShiftEnterOnSelectedEmbed },
+    { key: 'Enter', run: removeSelectedEmbedAndCreateLine },
     { key: 'Escape', run: clearSelection },
   ];
 
