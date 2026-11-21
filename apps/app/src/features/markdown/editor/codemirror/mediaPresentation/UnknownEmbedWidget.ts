@@ -4,6 +4,7 @@ import { WidgetType, type EditorView } from '@codemirror/view';
 import { setImageUiState, type ImageUiState } from '../image/imageUiState';
 import { computeEmbedRemovalRange } from './embedRemovalRange';
 import { renderInvalidEmbedCard } from './invalidEmbedCard';
+import { selectEmbedObject } from '../embed/embedObjectSelection';
 
 // Hand-copied from `shared/icon/svg/question.svg` — same reason
 // `ImageWidget.ts`'s `IMAGE_ICON`/`PdfEmbedWidget.ts`'s
@@ -83,6 +84,18 @@ export class UnknownEmbedWidget extends WidgetType {
           scrollIntoView: revealing,
         });
       },
+    });
+
+    container.addEventListener('mousedown', (event) => {
+      if (event.target instanceof Element && event.target.closest('button') === null) {
+        event.preventDefault();
+      }
+    });
+    container.addEventListener('click', (event) => {
+      if (!(event.target instanceof Element) || event.defaultPrevented || event.target.closest('button')) return;
+      event.preventDefault();
+      event.stopPropagation();
+      selectEmbedObject(view, this.pos, this.to);
     });
 
     return container;
