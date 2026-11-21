@@ -688,6 +688,18 @@ export class NoteEmbedWidget extends WidgetType {
       },
     });
 
+    container.addEventListener('mousedown', (event) => {
+      if (event.target instanceof Element && event.target.closest('button') === null) {
+        event.preventDefault();
+      }
+    });
+    container.addEventListener('click', (event) => {
+      if (!(event.target instanceof Element) || event.defaultPrevented || event.target.closest('button')) return;
+      event.preventDefault();
+      event.stopPropagation();
+      selectEmbedObject(view, this.pos, this.to);
+    });
+
     return container;
   }
 
