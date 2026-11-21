@@ -34,7 +34,7 @@ function mount(doc: string, anchor = 0, readOnly = false): EditorView {
 
 function press(view: EditorView, key: string, shiftKey = false): void {
   view.contentDOM.dispatchEvent(
-    new KeyboardEvent('keydown', { key, shiftKey, bubbles: true, cancelable: true })
+    new KeyboardEvent('keydown', { key, code: key === ' ' ? 'Space' : key, keyCode: key === ' ' ? 32 : 0, shiftKey, bubbles: true, cancelable: true })
   );
 }
 
