@@ -8,7 +8,10 @@ import type { CollectionEntryModel } from '@features/collection/page/CollectionE
 import { useMarqueeSelection } from '@features/collection/selection/useMarqueeSelection';
 import { useCollectionSelection } from '@features/collection/selection/useCollectionSelection';
 import { PageBody } from './Page.Body';
-import { useCollectionItemContextMenu, type CollectionItemMenuResolver } from './useCollectionItemContextMenu';
+import {
+  useCollectionItemContextMenu,
+  type CollectionItemMenuResolver,
+} from './useCollectionItemContextMenu';
 import { useCollectionSelectionMenu } from './useCollectionSelectionMenu';
 import { CollectionEmptyState } from '@features/collection/components/empty/CollectionEmptyState';
 import { EditableText } from '@components/editable-text/EditableText';
@@ -25,9 +28,15 @@ import {
   ASSET_GRID,
   toAssetCardProps,
 } from '@features/collection/components/asset/toAssetCardProps';
-import { ASSET_SORT_OPTIONS, toAssetEntry } from '@features/collection/components/asset/toAssetEntry';
+import {
+  ASSET_SORT_OPTIONS,
+  toAssetEntry,
+} from '@features/collection/components/asset/toAssetEntry';
 import type { PropertyId } from '@core/properties/collectionProperties';
-import { sortEntries, type CollectionSort } from '@core/properties/collectionSort';
+import {
+  sortEntries,
+  type CollectionSort,
+} from '@core/properties/collectionSort';
 import type { CollectionLayout } from '@core/properties/collectionViewConfig';
 import { ASSETS_COLLECTION } from '@core/presentation/collection/collectionDefinitions';
 import { resolveCollectionView } from '@core/presentation/collection/resolveCollectionView';
@@ -61,7 +70,9 @@ export interface AssetsCollectionBodyProps {
   readonly sort?: CollectionSort;
   /** `Application.resolveResourceImageUrl` — turns a vault file's path into a loadable URL, for the Card view's previews and the Table's Preview column. A remote asset's own URL is used as is. */
   readonly resolveResourceUrl?: (path: string) => string;
-  readonly resolveIconImage?(reference: string | null | undefined): string | null;
+  readonly resolveIconImage?: (
+    reference: string | null | undefined
+  ) => string | null;
   /**
    * Opens the asset, for every layout alike — the caller routes by source and
    * kind: a vault file to the image overlay or the PDF viewer (where its other
@@ -105,7 +116,10 @@ export interface AssetsCollectionBodyProps {
 const DEFAULT_VIEW = resolveCollectionView(ASSETS_COLLECTION);
 
 /** An item or row with the context menu's attributes merged into its own `props`. */
-function withMenuProps<T extends { props?: object }>(item: T, menuProps: object | undefined): T {
+function withMenuProps<T extends { props?: object }>(
+  item: T,
+  menuProps: object | undefined
+): T {
   return menuProps ? { ...item, props: { ...item.props, ...menuProps } } : item;
 }
 
@@ -129,7 +143,10 @@ export function AssetsCollectionBody({
 }: AssetsCollectionBodyProps) {
   // Which folders and assets are checked (never saved; see `useCollectionSelection`), and the menu a right-click
   // opens while any is: composed from each checked item's own menu.
-  const selection = useCollectionSelection([...folders.map((entry) => entry.id), ...unsorted.map((asset) => asset.id)]);
+  const selection = useCollectionSelection([
+    ...folders.map((entry) => entry.id),
+    ...unsorted.map((asset) => asset.id),
+  ]);
   const marquee = useMarqueeSelection(selection);
   const selectionMenu = useCollectionSelectionMenu(selection, (id) => {
     const folder = folders.find((entry) => entry.id === id);
@@ -139,19 +156,34 @@ export function AssetsCollectionBody({
     const asset = unsorted.find((candidate) => candidate.id === id);
     return asset && assetMenu ? assetMenu(asset) : null;
   });
-  const assetContextMenu = useCollectionItemContextMenu<Asset>(assetMenu, selectionMenu);
-  const folderContextMenu = useCollectionItemContextMenu(folderMenu, selectionMenu);
-  const sortedFolders = sort ? sortEntries(folders, sort, NOTE_SORT_OPTIONS) : folders;
-  const selectionForAsset = (asset: Asset) => selection.selectionFor(asset.id, getResourceDisplayName(asset));
+  const assetContextMenu = useCollectionItemContextMenu<Asset>(
+    assetMenu,
+    selectionMenu
+  );
+  const folderContextMenu = useCollectionItemContextMenu(
+    folderMenu,
+    selectionMenu
+  );
+  const sortedFolders = sort
+    ? sortEntries(folders, sort, NOTE_SORT_OPTIONS)
+    : folders;
+  const selectionForAsset = (asset: Asset) =>
+    selection.selectionFor(asset.id, getResourceDisplayName(asset));
   const [editingId, setEditingId] = useState<string | null>(null);
   // A hidden card title leaves nothing to edit in place, so F2 renames nothing then.
   const titleHidden = viewMode === 'card' && !visible.includes('name');
   const assets = sort
-    ? sortEntries(unsorted.map((asset) => toAssetEntry(asset)), sort, ASSET_SORT_OPTIONS).map((entry) => entry.asset)
+    ? sortEntries(
+        unsorted.map((asset) => toAssetEntry(asset)),
+        sort,
+        ASSET_SORT_OPTIONS
+      ).map((entry) => entry.asset)
     : unsorted;
   // A vault file's preview URL comes from the resolver, a remote asset's is itself.
   const urlFor = (asset: Asset): string | undefined =>
-    asset.source === 'remote' ? asset.url : resolveResourceUrl?.(asset.resource.path);
+    asset.source === 'remote'
+      ? asset.url
+      : resolveResourceUrl?.(asset.resource.path);
 
   // F2 on a focused item renames it — the items carry `data-resource-id`, so one
   // handler on the layout container serves every layout. (A double-click would
@@ -160,7 +192,9 @@ export function AssetsCollectionBody({
     if (event.key !== 'F2' || editingId !== null || titleHidden) {
       return;
     }
-    const item = (event.target as HTMLElement).closest<HTMLElement>('[data-resource-id]');
+    const item = (event.target as HTMLElement).closest<HTMLElement>(
+      '[data-resource-id]'
+    );
     if (item?.dataset.resourceId) {
       event.preventDefault();
       setEditingId(item.dataset.resourceId);
@@ -169,7 +203,9 @@ export function AssetsCollectionBody({
 
   // While an item is renaming, clicks (in the editor) must not open it.
   const clickFor = (asset: Asset) =>
-    asset.source === 'local' && editingId === asset.resource.id ? undefined : onOpenAsset;
+    asset.source === 'local' && editingId === asset.resource.id
+      ? undefined
+      : onOpenAsset;
 
   // The inline rename editor an asset's title becomes: EditableText seeded with the
   // extension-free display name, committing through `ResourceOperations.renameResource`
@@ -202,14 +238,21 @@ export function AssetsCollectionBody({
             {...assetContextMenu.entryProps(asset)}
           />
         ))}
-        {onCreate && <CreateCard onCreate={onCreate} aspectRatio={ASSET_CARD_ASPECT_RATIO} />}
+        {onCreate && (
+          <CreateCard
+            onCreate={onCreate}
+            aspectRatio={ASSET_CARD_ASPECT_RATIO}
+          />
+        )}
       </CollectionGrid>
     );
   } else if (viewMode === 'table') {
     layout = (
       <CollectionDataTable
         // The File size column has always been headed "Size" here (a known wording drift, kept as it was).
-        columns={buildPropertyTableColumns(visible, { headers: { size: 'Size' } })}
+        columns={buildPropertyTableColumns(visible, {
+          headers: { size: 'Size' },
+        })}
         rows={assets.map((asset) =>
           withMenuProps(
             {
@@ -254,16 +297,31 @@ export function AssetsCollectionBody({
   return (
     <PageBody className="collection__content" ref={marquee.ref}>
       {assets.length === 0 && folders.length === 0 ? (
-        <CollectionEmptyState message={emptyMessage} action={onCreate && emptyCreateLabel ? { label: emptyCreateLabel, onClick: onCreate, icon: emptyCreateIcon } : undefined} />
+        <CollectionEmptyState
+          message={emptyMessage}
+          action={
+            onCreate && emptyCreateLabel
+              ? {
+                  label: emptyCreateLabel,
+                  onClick: onCreate,
+                  icon: emptyCreateIcon,
+                }
+              : undefined
+          }
+        />
       ) : (
         <>
-          {folders.length > 0 && renderFolderGrid(
-            sortedFolders,
-            onCreateFolder,
-            (entry) => ({ ...folderContextMenu.entryProps(entry), 'data-assets-drop-folder': entry.id }),
-            (entry) => selection.selectionFor(entry.id, entry.values.name),
-            resolveIconImage
-          )}
+          {folders.length > 0 &&
+            renderFolderGrid(
+              sortedFolders,
+              onCreateFolder,
+              (entry) => ({
+                ...folderContextMenu.entryProps(entry),
+                'data-assets-drop-folder': entry.id,
+              }),
+              (entry) => selection.selectionFor(entry.id, entry.values.name),
+              resolveIconImage
+            )}
           {assets.length > 0 && layout}
         </>
       )}

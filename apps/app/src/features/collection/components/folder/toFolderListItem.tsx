@@ -27,7 +27,7 @@ export function folderSummary(entry: CollectionEntryModel): string | undefined {
 export interface FolderRowOptions {
   /** The visible properties (from the resolved view). A folder has only the values its adapter fills (its name, and an archive date in the Archive). */
   readonly visible: readonly PropertyId[];
-  readonly resolveIconImage?(reference: string | null | undefined): string | null;
+  readonly resolveIconImage?: (reference: string | null | undefined) => string | null;
 }
 
 /**

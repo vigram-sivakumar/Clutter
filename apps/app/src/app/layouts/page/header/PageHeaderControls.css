@@ -34,8 +34,11 @@
 }
 .page-header-controls__emoji:not(.page-header-controls__emoji--static):hover
   .app-icon {
-  opacity: var(--opacity-subtle);
-  transition: opacity 120ms ease;
+  /* opacity: var(--opacity-subtle); */
+  scale: 0.98;
+  transition:
+    opacity 120ms ease,
+    scale 220ms ease;
 }
 
 /* The system-icon slot — same footprint as .page-header-controls__emoji
