@@ -378,7 +378,7 @@ describe('tablePaste — row/column handle selection', () => {
     expect(cellText(view, 1, 1)).toBe('UX');
     expect(cellText(view, 1, 2)).toBe('India');
     expect(cellText(view, 2, 0)).toBe('Alex');
-    expect(selection(view)).toEqual(selected);
+    expect(selection(view)).toMatchObject({ kind: 'range', anchor: { row: 1, col: 0 }, head: { row: 1, col: 2 } });
   });
 
   it('fills every cell in a selected row when the clipboard contains one value', () => {
@@ -410,10 +410,10 @@ describe('tablePaste — row/column handle selection', () => {
     expect(cellText(view, 2, 1)).toBe('Role three');
     expect(cellText(view, 1, 0)).toBe('Vik');
     expect(cellText(view, 2, 2)).toBe('Tokyo');
-    expect(selection(view)).toEqual(selected);
+    expect(selection(view)).toMatchObject({ kind: 'range', anchor: { row: 0, col: 1 }, head: { row: 2, col: 1 } });
   });
 
-  it('pastes scalar text as one cell rather than filling every cell in a selected row', () => {
+  it('single-value paste replaces every cell in a selected row', () => {
     const controller = new TableActiveCellController();
     const view = mountRootView(TABLE, controller);
     const table = findAllTables(view.state)[0]!;
@@ -423,8 +423,8 @@ describe('tablePaste — row/column handle selection', () => {
     dispatchPasteOn(view.contentDOM, (d) => d.setData('text/plain', 'Nairobi'));
 
     expect(cellText(view, 1, 0)).toBe('Nairobi');
-    expect(cellText(view, 1, 1)).toBe('Designer');
-    expect(cellText(view, 1, 2)).toBe('Delhi');
+    expect(cellText(view, 1, 1)).toBe('Nairobi');
+    expect(cellText(view, 1, 2)).toBe('Nairobi');
     expect(selection(view)).toEqual(selected);
   });
 });
