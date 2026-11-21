@@ -14,128 +14,136 @@ export const embedObjectSelectionField = StateField.define<EmbedObjectSelection 
   update(selection, transaction) {
     let next = transaction.docChanged || transaction.selectionSet ? null : selection;
     for (const effect of transaction.effects) {
-      if (effect.is(embedObjectSelectionChanged)) {
-        next = effect.value;
-      }
+      if (effect.is(embedObjectSelectionChanged)) next = effect.value;
     }
     return next;
   },
 });
 
-/**
- * Treats a rendered resource/note embed as one keyboard-selectable object.
- * The widget DOM advertises its source position with data-embed-from; that
- * marker is only present for rendered ![[...]] embeds, never standard
- * Markdown images or source-revealed embeds.
- */
+/** Select a rendered ![[...]] object without placing a caret in its hidden source. */
+export function selectEmbedObject(view: EditorView, from: number, to: number): void {
+  if (view.state.readOnly) return;
+  view.dispatch({ effects: embedObjectSelectionChanged.of({ from, to }) });
+  syncEmbedObjectSelection(view);
+}
+
+function findRenderedEmbed(view: EditorView, from: number): EmbedObjectSelection | null {
+  let result: EmbedObjectSelection | null = null;
+  syntaxTree(view.state).iterate({
+    from,
+    to: Math.min(view.state.doc.length, from + 1),
+    enter(node) {
+      if (node.name === 'Embed' && node.from === from) result = { from: node.from, to: node.to };
+    },
+  });
+  if (!result) return null;
+  const marker = Array.from(view.dom.querySelectorAll<HTMLElement>('[data-embed-from]')).find(
+    (element) =>
+      element.closest('.cm-editor') === view.dom && Number(element.dataset.embedFrom) === from
+  );
+  return marker ? result : null;
+}
+
+function adjacentEditablePosition(view: EditorView, selection: EmbedObjectSelection, direction: 'before' | 'after'): number {
+  const { doc } = view.state;
+  if (direction === 'before') {
+    return selection.from > 0 && doc.sliceString(selection.from - 1, selection.from) === '\n'
+      ? selection.from - 1
+      : selection.from;
+  }
+  if (selection.to < doc.length && doc.sliceString(selection.to, selection.to + 1) === '\n') {
+    return selection.to + 1;
+  }
+  return selection.to;
+}
+
 export function embedObjectSelectionKeymap(): Extension {
   const moveOutOfSelection = (direction: 'before' | 'after'): Command => (view) => {
-    const selection = view.state.field(embedObjectSelectionField, false) ?? null;
-    if (!selection) return false;
-
+    const selected = view.state.field(embedObjectSelectionField, false) ?? null;
+    if (!selected) return false;
+    const position = adjacentEditablePosition(view, selected, direction);
     view.dispatch({
       effects: embedObjectSelectionChanged.of(null),
-      selection: EditorSelection.cursor(direction === 'before' ? selection.from : selection.to),
+      selection: EditorSelection.cursor(position),
       scrollIntoView: true,
     });
     syncEmbedObjectSelection(view);
     return true;
   };
 
+  const createLineBelowSelection: Command = (view) => {
+    const selected = view.state.field(embedObjectSelectionField, false) ?? null;
+    if (!selected || view.state.readOnly) return false;
+    const hasFollowingNewline =
+      selected.to < view.state.doc.length &&
+      view.state.doc.sliceString(selected.to, selected.to + 1) === '\n';
+    const insert = hasFollowingNewline ? '\n' : '\n\n';
+    const cursor = selected.to + insert.length;
+    view.dispatch({
+      changes: { from: selected.to, insert },
+      selection: EditorSelection.cursor(cursor),
+      scrollIntoView: true,
+    });
+    return true;
+  };
+
   const selectAdjacentEmbed = (direction: 'left' | 'right'): Command => (view) => {
     if (view.state.readOnly) return false;
-    const current = view.state.field(embedObjectSelectionField, false) ?? null;
-    if (current) {
-      return moveOutOfSelection(direction === 'left' ? 'before' : 'after')(view);
-    }
+    const selected = view.state.field(embedObjectSelectionField, false) ?? null;
+    if (selected) return moveOutOfSelection(direction === 'left' ? 'before' : 'after')(view);
 
-    const main = view.state.selection.main;
-    if (!main.empty) return false;
-    const position = main.head;
+    const position = view.state.selection.main.head;
+    if (!view.state.selection.main.empty) return false;
     const candidates: EmbedObjectSelection[] = [];
-
     syntaxTree(view.state).iterate({
       from: Math.max(0, position - 1),
       to: Math.min(view.state.doc.length, position + 1),
       enter(node) {
         if (node.name !== 'Embed') return;
-        const matchesBoundary = direction === 'right' ? node.from === position : node.to === position;
-        if (!matchesBoundary) return;
-
-        // The marker exists only on a live rendered widget. This avoids
-        // intercepting navigation for incomplete, first-leave-pending, or
-        // explicitly source-revealed Markdown.
-        const widget = Array.from(view.dom.querySelectorAll<HTMLElement>('[data-embed-from]')).find(
-          (element) =>
-            element.closest('.cm-editor') === view.dom && Number(element.dataset.embedFrom) === node.from
-        );
-        if (widget) candidates.push({ from: node.from, to: node.to });
+        const atBoundary = direction === 'right' ? node.from === position : node.to === position;
+        if (atBoundary && findRenderedEmbed(view, node.from)) {
+          candidates.push({ from: node.from, to: node.to });
+        }
       },
     });
-
-    const candidate = candidates[0];
-    if (!candidate) return false;
-    view.dispatch({ effects: embedObjectSelectionChanged.of(candidate) });
-    syncEmbedObjectSelection(view);
+    if (!candidates[0]) return false;
+    selectEmbedObject(view, candidates[0].from, candidates[0].to);
     return true;
   };
 
+  // Vertical navigation is based on document lines, not a guessed screen
+  // coordinate. A rendered embed occupies its source line as one block.
   const selectVerticallyAdjacentEmbed = (direction: 'up' | 'down'): Command => (view) => {
     if (view.state.readOnly) return false;
-
-    const current = view.state.field(embedObjectSelectionField, false) ?? null;
-    if (current) {
-      return moveOutOfSelection(direction === 'up' ? 'before' : 'after')(view);
-    }
+    const selected = view.state.field(embedObjectSelectionField, false) ?? null;
+    if (selected) return moveOutOfSelection(direction === 'up' ? 'before' : 'after')(view);
 
     const main = view.state.selection.main;
     if (!main.empty) return false;
+    const currentLine = view.state.doc.lineAt(main.head);
+    const targetLineNumber = currentLine.number + (direction === 'down' ? 1 : -1);
+    if (targetLineNumber < 1 || targetLineNumber > view.state.doc.lines) return false;
 
-    const cursor = view.coordsAtPos(main.head);
-    if (!cursor) return false;
-
-    // Probe the adjacent visual line. If it intersects a rendered embed
-    // widget, vertical navigation is entering that block and should select
-    // the whole object rather than leave a caret at its source boundary.
-    const targetY =
-      direction === 'down'
-        ? cursor.bottom + view.defaultLineHeight / 2
-        : cursor.top - view.defaultLineHeight / 2;
-
-    for (const widget of view.dom.querySelectorAll<HTMLElement>('[data-embed-from]')) {
-      if (widget.closest('.cm-editor') !== view.dom) continue;
-
-      const rect = widget.getBoundingClientRect();
-      if (targetY < rect.top || targetY > rect.bottom) continue;
-
-      const from = Number(widget.dataset.embedFrom);
-      if (!Number.isInteger(from)) continue;
-
-      let candidate: EmbedObjectSelection | null = null;
-      syntaxTree(view.state).iterate({
-        from,
-        to: Math.min(view.state.doc.length, from + 1),
-        enter(node) {
-          if (node.name === 'Embed' && node.from === from) {
-            candidate = { from: node.from, to: node.to };
-          }
-        },
-      });
-
-      if (!candidate) continue;
-      view.dispatch({ effects: embedObjectSelectionChanged.of(candidate) });
-      syncEmbedObjectSelection(view);
-      return true;
-    }
-
-    return false;
+    const targetLine = view.state.doc.line(targetLineNumber);
+    let candidate: EmbedObjectSelection | null = null;
+    syntaxTree(view.state).iterate({
+      from: targetLine.from,
+      to: Math.min(view.state.doc.length, targetLine.to + 1),
+      enter(node) {
+        if (node.name === 'Embed' && node.from >= targetLine.from && node.from <= targetLine.to) {
+          candidate = findRenderedEmbed(view, node.from);
+        }
+      },
+    });
+    if (!candidate) return false;
+    selectEmbedObject(view, candidate.from, candidate.to);
+    return true;
   };
 
   const clearSelection: Command = (view) => {
-    if (!(view.state.field(embedObjectSelectionField, false) ?? null)) return false;
-    view.dispatch({ effects: embedObjectSelectionChanged.of(null) });
-    syncEmbedObjectSelection(view);
-    return true;
+    const selected = view.state.field(embedObjectSelectionField, false) ?? null;
+    if (!selected) return false;
+    return moveOutOfSelection('after')(view);
   };
 
   const bindings: readonly KeyBinding[] = [
@@ -143,7 +151,7 @@ export function embedObjectSelectionKeymap(): Extension {
     { key: 'ArrowRight', run: selectAdjacentEmbed('right') },
     { key: 'ArrowUp', run: selectVerticallyAdjacentEmbed('up') },
     { key: 'ArrowDown', run: selectVerticallyAdjacentEmbed('down') },
-    { key: 'Enter', run: moveOutOfSelection('after') },
+    { key: 'Enter', run: createLineBelowSelection },
     { key: 'Escape', run: clearSelection },
   ];
 
