@@ -495,7 +495,10 @@ export async function createReferencedPage(
   path: string,
   activate = true
 ): Promise<void> {
-  const targetPath = `${vault.root}/${path}.md`;
+  // A bare title defaults to Inbox. A path containing a folder segment is explicit
+  // and keeps its requested location (for example, Projects/Plan).
+  const destination = path.includes('/') ? path : `Inbox/${path}`;
+  const targetPath = `${vault.root}/${destination}.md`;
 
   const existing = vault.getPageByPath(targetPath);
   if (existing) {
@@ -511,7 +514,7 @@ export async function createReferencedPage(
 
   // The reference may name an item that was archived. It still exists: open it (never restoring it), and never
   // make a replacement — and when several archived items claim the path, make nothing and guess nothing.
-  const archived = findArchivedReferenceTarget(vault, path);
+  const archived = findArchivedReferenceTarget(vault, destination);
   if (archived !== undefined) {
     if (activate && archived !== 'ambiguous' && archived.kind === 'page') {
       void pageOperations.open(archived.page.id);
@@ -519,8 +522,8 @@ export async function createReferencedPage(
     return;
   }
 
-  const title = VaultPath.filename(path);
-  const parentDirectory = VaultPath.parentDirectory(path);
+  const title = VaultPath.filename(destination);
+  const parentDirectory = VaultPath.parentDirectory(destination);
   const folderId = parentDirectory
     ? await ensureFolderChain(vault, folderOperations, parentDirectory)
     : null;
