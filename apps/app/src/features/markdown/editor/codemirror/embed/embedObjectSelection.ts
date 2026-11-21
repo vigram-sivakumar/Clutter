@@ -265,7 +265,7 @@ export function embedObjectSelectionKeymap(): Extension {
   };
 
   const bindings: readonly KeyBinding[] = [
-    { key: ' ', run: renderAndSelectStandaloneEmbed },
+    { key: 'Space', run: renderAndSelectStandaloneEmbed },
     { key: 'Backspace', run: deleteOrSelectEmbed('backspace') },
     { key: 'Delete', run: deleteOrSelectEmbed('delete') },
     { key: 'ArrowLeft', run: selectAdjacentEmbed('left') },
