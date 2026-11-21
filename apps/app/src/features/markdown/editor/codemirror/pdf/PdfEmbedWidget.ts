@@ -253,6 +253,7 @@ export class PdfEmbedWidget extends WidgetType {
     // additionally claim to be a working `.cm-pdf-embed` it isn't — see
     // that module's own doc comment.
     container.classList.add('cm-media-block');
+    if (!this.ui.revealed) container.dataset.embedFrom = String(this.pos);
     container.dataset.sourceRevealed = String(this.ui.revealed);
 
     if (this.ui.broken) {
