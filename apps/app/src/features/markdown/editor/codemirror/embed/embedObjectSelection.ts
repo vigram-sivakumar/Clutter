@@ -180,16 +180,11 @@ export function embedObjectSelectionKeymap(): Extension {
 
   const lifecycle = ViewPlugin.fromClass(
     class {
-      private readonly onPointerDown = (event: PointerEvent) => {
-        const target = event.target;
-        if (!(target instanceof Node)) return;
-        // A nested note editor is a separate interaction surface.
-        if (
-          !view.dom.contains(target) ||
-          (target instanceof Element && target.closest('.cm-editor') !== view.dom)
-        ) {
-          this.clear();
-        }
+      // Any new pointer interaction ends the previous object selection.
+      // If the click lands on another embed, that widget's click handler
+      // selects it again after this capture-phase clear.
+      private readonly onPointerDown = () => {
+        this.clear();
       };
 
       private readonly onFocusOut = (event: FocusEvent) => {
