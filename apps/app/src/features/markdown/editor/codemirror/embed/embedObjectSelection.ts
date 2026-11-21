@@ -148,13 +148,21 @@ export function embedObjectSelectionKeymap(): Extension {
 
     const position = view.state.selection.main.head;
     if (!view.state.selection.main.empty) return false;
+    const { doc } = view.state;
+    const crossesLineBoundary =
+      direction === 'right'
+        ? position < doc.length && doc.sliceString(position, position + 1) === '\\n'
+        : position > 0 && doc.sliceString(position - 1, position) === '\\n';
     const candidates: EmbedObjectSelection[] = [];
     syntaxTree(view.state).iterate({
       from: Math.max(0, position - 1),
-      to: Math.min(view.state.doc.length, position + 1),
+      to: Math.min(doc.length, position + 2),
       enter(node) {
         if (node.name !== 'Embed') return;
-        const atBoundary = direction === 'right' ? node.from === position : node.to === position;
+        const atBoundary =
+          direction === 'right'
+            ? node.from === position || (crossesLineBoundary && node.from === position + 1)
+            : node.to === position || (crossesLineBoundary && node.to === position - 1);
         if (atBoundary && findRenderedEmbed(view, node.from)) {
           candidates.push({ from: node.from, to: node.to });
         }
