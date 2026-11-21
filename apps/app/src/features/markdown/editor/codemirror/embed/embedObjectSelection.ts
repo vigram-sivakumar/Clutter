@@ -132,11 +132,11 @@ export function embedObjectSelectionKeymap(): Extension {
 
     const hasFollowingNewline =
       selected.to < view.state.doc.length &&
-      view.state.doc.sliceString(selected.to, selected.to + 1) === '\\n';
+      view.state.doc.sliceString(selected.to, selected.to + 1) === '\n';
     view.dispatch({
-      changes: hasFollowingNewline ? undefined : { from: selected.to, insert: '\\n' },
+      changes: hasFollowingNewline ? undefined : { from: selected.to, insert: '\n' },
       effects: embedObjectSelectionChanged.of(null),
-      selection: EditorSelection.cursor(hasFollowingNewline ? selected.to + 1 : selected.to + 1),
+      selection: EditorSelection.cursor(selected.to + 1),
       scrollIntoView: true,
     });
     view.focus();
