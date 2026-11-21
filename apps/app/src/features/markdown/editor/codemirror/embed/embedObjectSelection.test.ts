@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { forceParsing } from '@codemirror/language';
 import { defaultKeymap } from '@codemirror/commands';
 import { EditorState } from '@codemirror/state';
@@ -79,11 +79,6 @@ describe('embedObjectSelectionKeymap', () => {
     const embedFrom = 'above\n'.length;
     const view = mount(doc, 'above'.length);
     const marker = addRenderedEmbedMarker(view, embedFrom);
-    vi.spyOn(view, 'coordsAtPos').mockReturnValue({ top: 0, bottom: 16, left: 40, right: 40 } as DOMRect);
-    vi.spyOn(marker, 'getBoundingClientRect').mockReturnValue({
-      top: 20, bottom: 120, left: 0, right: 500, width: 500, height: 100, x: 0, y: 20,
-      toJSON: () => ({}),
-    } as DOMRect);
 
     press(view, 'ArrowDown');
 
@@ -100,11 +95,6 @@ describe('embedObjectSelectionKeymap', () => {
     const embedFrom = 'above\n'.length;
     const view = mount(doc, doc.length);
     const marker = addRenderedEmbedMarker(view, embedFrom);
-    vi.spyOn(view, 'coordsAtPos').mockReturnValue({ top: 120, bottom: 136, left: 40, right: 40 } as DOMRect);
-    vi.spyOn(marker, 'getBoundingClientRect').mockReturnValue({
-      top: 20, bottom: 115, left: 0, right: 500, width: 500, height: 95, x: 0, y: 20,
-      toJSON: () => ({}),
-    } as DOMRect);
 
     press(view, 'ArrowUp');
 
