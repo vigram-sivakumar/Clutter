@@ -7,6 +7,7 @@ import { splitTargetFragment } from '../../../../../core/vault/ingest/grammar/ta
 import { createEditorView } from '../createEditorView';
 import { CARET_DOWN_ICON, CARET_RIGHT_ICON } from '../fold/FoldToggleWidget';
 import { setImageUiState, type ImageUiState } from '../image/imageUiState';
+import { selectEmbedObject } from './embedObjectSelection';
 import { EXPAND_ICON, MORE_ICON } from '../mediaPresentation/embedControlIcons';
 import {
   EDIT_ICON,
@@ -416,6 +417,7 @@ export class NoteEmbedWidget extends WidgetType {
     // additionally claim to be a working `.cm-note-embed` it isn't — see
     // that module's own doc comment.
     container.classList.add('cm-media-block');
+    if (!this.ui.revealed) container.dataset.embedFrom = String(this.pos);
 
     if (this.resolution === null) {
       return this.renderBroken(container, view);
@@ -535,26 +537,60 @@ export class NoteEmbedWidget extends WidgetType {
     content.hidden = collapsed;
     container.classList.toggle('cm-note-embed--collapsed', collapsed);
 
-    // The embed is a clickable card: a click anywhere on the wrapper opens the source note, through the same
-    // `openSource` the Expand button uses. What has its own click behavior keeps it and does not navigate:
-    // buttons (the header's controls, the task and list markers, Copy), links and inputs, the semantic
-    // tokens (link, WikiLink, tag, date — they act on `mousedown`, so the click that follows is not itself
-    // marked handled) and media blocks (an image, a PDF, a nested embed — which is a card of its own: its
-    // listener runs first and stops the click, so only the innermost embed opens its source). Anything
-    // already handled (`defaultPrevented`) and the end of a text selection never navigate, so text stays
-    // selectable. `owner !== container` because the wrapper is itself a media block.
-    container.addEventListener('click', (event) => {
+    // The rendered note body is a single, inert object: links, tags, dates,
+    // nested media, code controls and text selection inside it have no
+    // independent interaction. A primary click selects the whole embed;
+    // a double-click opens the source note. Header controls remain separate.
+    const isNoteEmbedContentEvent = (event: PointerEvent | MouseEvent): boolean => {
       const target = event.target;
-      if (!(target instanceof Element) || event.button !== 0 || event.defaultPrevented) {
-        return;
-      }
-      const owner = target.closest('button, a, input, .tok-link, .tok-wikilink, .tok-tag, .tok-date, .cm-media-block');
-      if ((owner !== null && owner !== container) || window.getSelection()?.toString()) {
-        return;
-      }
-      event.stopPropagation();
-      this.openSource(resolution.pageId);
-    });
+      return (
+        target instanceof Node &&
+        content.contains(target) &&
+        event.button === 0 &&
+        !event.defaultPrevented
+      );
+    };
+
+    // Use capture-phase handlers on the body so nested CodeMirror widgets
+    // and rendered links cannot handle the pointer/click before the embed.
+    content.addEventListener(
+      'pointerdown',
+      (event) => {
+        if (!isNoteEmbedContentEvent(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        selectEmbedObject(view, this.pos, this.to);
+      },
+      true
+    );
+    content.addEventListener(
+      'mousedown',
+      (event) => {
+        if (!isNoteEmbedContentEvent(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+      },
+      true
+    );
+    content.addEventListener(
+      'click',
+      (event) => {
+        if (!isNoteEmbedContentEvent(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+      },
+      true
+    );
+    content.addEventListener(
+      'dblclick',
+      (event) => {
+        if (!isNoteEmbedContentEvent(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        this.openSource(resolution.pageId);
+      },
+      true
+    );
 
     // See this class's own "Collapse/expand" doc comment — direct DOM
     // mutation (`content.hidden`, this button's own icon/label/aria-label/
@@ -681,6 +717,18 @@ export class NoteEmbedWidget extends WidgetType {
           scrollIntoView: revealing,
         });
       },
+    });
+
+    container.addEventListener('mousedown', (event) => {
+      if (event.target instanceof Element && event.target.closest('button') === null) {
+        event.preventDefault();
+      }
+    });
+    container.addEventListener('pointerdown', (event) => {
+      if (!(event.target instanceof Element) || event.button !== 0 || event.defaultPrevented || event.target.closest('button')) return;
+      event.preventDefault();
+      event.stopPropagation();
+      selectEmbedObject(view, this.pos, this.to);
     });
 
     return container;

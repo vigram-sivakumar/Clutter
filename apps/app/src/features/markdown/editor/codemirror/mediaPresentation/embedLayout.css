@@ -72,6 +72,25 @@
   display: block;
 }
 
+/* Selected embeds use a subtle brand-surface overlay, extending 2px beyond the object. */
+.cm-editor .cm-embed-object-selected {
+  position: relative;
+  isolation: isolate;
+  border-color: transparent;
+  outline: none;
+}
+
+.cm-editor .cm-embed-object-selected::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  background: var(--surface-brand);
+  opacity: 0.12;
+  border-radius: var(--radius-lg);
+  pointer-events: none;
+  z-index: 2147483647;
+}
+
 .cm-widgetBuffer:has(+ .cm-media-block),
 .cm-media-block + .cm-widgetBuffer {
   display: block;

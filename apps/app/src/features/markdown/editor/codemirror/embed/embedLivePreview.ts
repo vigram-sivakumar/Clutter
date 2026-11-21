@@ -21,6 +21,11 @@ import { resolveEmbedAliasFields } from '../mediaPresentation/mediaPresentationU
 import { resolveImagePresentation, resolvePdfPresentation } from '../mediaPresentation/mediaPresentationModel';
 import { getEmbedMarkerRanges, scanEmbed } from '../../../../../core/vault/ingest/grammar/embedScanner';
 import { findEmbedAt, isEngaged } from './embedEngagement';
+import {
+  embedObjectSelectionField,
+  embedObjectSelectionKeymap,
+  syncEmbedObjectSelection,
+} from './embedObjectSelection';
 import type { ResolveEmbedImage } from './embedImageResolution';
 import { classifyEmbedTargetExtension } from './embedTargetKind';
 import { UnknownEmbedWidget } from '../mediaPresentation/UnknownEmbedWidget';
@@ -600,7 +605,8 @@ function buildDecorations(
           getOnOpenImageMenu,
           getCurrentSource,
           copyUrl,
-          resolveImagePresentation(resolveEmbedAliasFields(match.alias).tokens)
+          resolveImagePresentation(resolveEmbedAliasFields(match.alias).tokens),
+          true
         );
 
         if (ui.revealed) {
@@ -659,12 +665,18 @@ export function embedLivePreview(options: EmbedLivePreviewOptions): Extension {
 
       update(update: ViewUpdate) {
         const uiChanged = update.startState.field(imageUiStateField) !== update.state.field(imageUiStateField);
-        if (update.docChanged || update.viewportChanged || update.selectionSet || uiChanged) {
+        const selectionChanged =
+          update.startState.field(embedObjectSelectionField) !== update.state.field(embedObjectSelectionField);
+        const decorationsChanged = update.docChanged || update.viewportChanged || update.selectionSet || uiChanged;
+        if (decorationsChanged) {
           ({ decorations: this.decorations, atomic: this.atomic } = buildDecorations(
             update.view,
             options,
             this.pdfDocumentCache
           ));
+        }
+        if (decorationsChanged || selectionChanged) {
+          update.view.requestMeasure({ write: (measureView) => syncEmbedObjectSelection(measureView) });
         }
       }
 
@@ -687,5 +699,5 @@ export function embedLivePreview(options: EmbedLivePreviewOptions): Extension {
   //
   // Prec.high for the same reason imageLivePreview.ts/wikiLinkLivePreview.ts
   // document on themselves.
-  return Prec.high([imageUiStateField, plugin, atomic]);
+  return Prec.high([imageUiStateField, embedObjectSelectionField, embedObjectSelectionKeymap(), plugin, atomic]);
 }

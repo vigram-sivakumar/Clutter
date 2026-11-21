@@ -22,6 +22,7 @@ import {
 } from '../mediaPresentation/mediaLayoutStyle';
 import type { ImagePresentation } from '../mediaPresentation/mediaPresentationModel';
 import { attachImageResizeHandle } from './imageResizeHandle';
+import { selectEmbedObject } from '../embed/embedObjectSelection';
 
 // Temporary icons only (per this change's own scope) — plain inline SVG
 // following TaskCheckboxWidget.ts's exact established convention for
@@ -235,7 +236,9 @@ export class ImageWidget extends WidgetType {
      * Defaulted so every pre-existing construction site (tests included)
      * keeps compiling unchanged.
      */
-    readonly presentation: ImagePresentation = { width: 11, height: null, alignment: 'left', mode: 'fill' }
+    readonly presentation: ImagePresentation = { width: 11, height: null, alignment: 'left', mode: 'fill' },
+    /** True only for ![[...]] resource embeds; standard Markdown images remain unchanged. */
+    readonly isEmbed: boolean = false
   ) {
     super();
   }
@@ -263,6 +266,7 @@ export class ImageWidget extends WidgetType {
       this.copyUrl === other.copyUrl &&
       this.pos === other.pos &&
       this.to === other.to &&
+      this.isEmbed === other.isEmbed &&
       this.ui.revealed === other.ui.revealed &&
       this.ui.displayMode === other.ui.displayMode &&
       this.ui.broken === other.ui.broken &&
@@ -452,6 +456,7 @@ export class ImageWidget extends WidgetType {
     // additionally claim to be a working `.cm-image-container` it isn't —
     // see that module's own doc comment.
     container.classList.add('cm-media-block');
+    if (this.isEmbed && !this.ui.revealed) container.dataset.embedFrom = String(this.pos);
     container.dataset.imageSourceRevealed = String(this.ui.revealed);
     // Starts closed unconditionally — a freshly-rendered widget is never
     // mid-open (there is no CM6-tracked "menu is open" state for this to
@@ -566,8 +571,19 @@ export class ImageWidget extends WidgetType {
     imageButton.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
-      this.getOnImageClick()?.(this.url, this.alt, this.copyUrl);
+      if (this.isEmbed) {
+        selectEmbedObject(view, this.pos, this.to);
+      } else {
+        this.getOnImageClick()?.(this.url, this.alt, this.copyUrl);
+      }
     });
+    if (this.isEmbed) {
+      imageButton.addEventListener('dblclick', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        this.getOnImageClick()?.(this.url, this.alt, this.copyUrl);
+      });
+    }
 
     // Applied synchronously here, before the `<img>` itself even exists
     // yet (`probeThenMount` mounts it once the probe confirms `this.url`
@@ -715,6 +731,20 @@ export class ImageWidget extends WidgetType {
     });
 
     this.probeForRecovery(view);
+
+    if (this.isEmbed) {
+      container.addEventListener('mousedown', (event) => {
+        if (event.target instanceof Element && event.target.closest('button') === null) {
+          event.preventDefault();
+        }
+      });
+      container.addEventListener('click', (event) => {
+        if (!(event.target instanceof Element) || event.defaultPrevented || event.target.closest('button')) return;
+        event.preventDefault();
+        event.stopPropagation();
+        selectEmbedObject(view, this.pos, this.to);
+      });
+    }
 
     return container;
   }

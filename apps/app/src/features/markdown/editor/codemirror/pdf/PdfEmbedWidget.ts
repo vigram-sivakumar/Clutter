@@ -28,6 +28,7 @@ import type { PdfDocumentCache } from './pdfDocumentCache';
 import { applyMediaAlignment, applyMediaWidth, disconnectMediaWidthObserver, type ResizeObserverHolder } from '../mediaPresentation/mediaLayoutStyle';
 import type { PdfPresentation } from '../mediaPresentation/mediaPresentationModel';
 import { attachPdfResizeHandle } from './pdfResizeHandle';
+import { selectEmbedObject } from '../embed/embedObjectSelection';
 
 import './PdfEmbedWidget.css';
 
@@ -253,6 +254,7 @@ export class PdfEmbedWidget extends WidgetType {
     // additionally claim to be a working `.cm-pdf-embed` it isn't — see
     // that module's own doc comment.
     container.classList.add('cm-media-block');
+    if (!this.ui.revealed) container.dataset.embedFrom = String(this.pos);
     container.dataset.sourceRevealed = String(this.ui.revealed);
 
     if (this.ui.broken) {
@@ -287,6 +289,18 @@ export class PdfEmbedWidget extends WidgetType {
           scrollIntoView: revealing,
         });
       },
+    });
+
+    container.addEventListener('mousedown', (event) => {
+      if (event.target instanceof Element && event.target.closest('button') === null) {
+        event.preventDefault();
+      }
+    });
+    container.addEventListener('click', (event) => {
+      if (!(event.target instanceof Element) || event.defaultPrevented || event.target.closest('button')) return;
+      event.preventDefault();
+      event.stopPropagation();
+      selectEmbedObject(view, this.pos, this.to);
     });
 
     return container;
@@ -542,6 +556,31 @@ export class PdfEmbedWidget extends WidgetType {
     attachPdfResizeHandle(rightHandle, container, 'right', view, getCurrentTo, pdfResizeHooks);
 
     container.append(leftHandle, rightHandle);
+
+    const isPdfEmbedSurface = (event: MouseEvent): boolean => {
+      const target = event.target;
+      return (
+        target instanceof Element &&
+        event.button === 0 &&
+        !event.defaultPrevented &&
+        target.closest('button, input, a, .cm-media-control, .cm-pdf-control') === null
+      );
+    };
+    container.addEventListener('mousedown', (event) => {
+      if (isPdfEmbedSurface(event)) event.preventDefault();
+    });
+    container.addEventListener('click', (event) => {
+      if (!isPdfEmbedSurface(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      selectEmbedObject(view, this.pos, this.to);
+    });
+    container.addEventListener('dblclick', (event) => {
+      if (!isPdfEmbedSurface(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      this.getOnPdfEmbedClick()?.(this.path);
+    });
 
     this.docCache.get(this.url).then(
       (loadedDoc) => {

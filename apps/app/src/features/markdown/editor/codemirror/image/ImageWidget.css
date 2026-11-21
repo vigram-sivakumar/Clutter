@@ -56,6 +56,7 @@
   position: relative;
   width: fit-content;
   max-width: 100%;
+  border-radius: var(--md-embed-radius);
   /* Presentation-update flicker fix — a subtle, fast transition on the
      dimensions `applyMediaWidth`/`ImageWidget.updateDOM` actually mutate
      via inline style, so a width/mode change reads as continuous layout
@@ -135,7 +136,7 @@ put it there. */
   without this, an image whose natural aspect ratio doesn't match
   400px at the container's width would render past this box's own
   edges instead of being cropped. */
-  overflow: hidden;
+  /* The image button owns the crop so the outer embed can show its selection overlay beyond this edge. */
   /* Do not use transition for height and width because it causes resizing issues and the element doesn't follow the cursor */
 }
 
@@ -220,6 +221,11 @@ body.cm-image-resizing-nesw .cm-image-container {
    container has no fixed height (`height: auto`, driven by `.tok-image
    --fit`'s intrinsic-aspect-ratio sizing), so `height: 100%` on this
    button resolves against that same auto value, a no-op. */
+.cm-editor .cm-image-container--fill .cm-image-button {
+  overflow: hidden;
+  border-radius: var(--md-embed-radius);
+}
+
 .cm-editor .cm-image-button {
   display: block;
   width: 100%;

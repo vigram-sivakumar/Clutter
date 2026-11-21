@@ -297,6 +297,14 @@ export function createWikiLinkResolver(
       return resolvedTo(literal, localAlias, fragment);
     }
 
+    // A bare title falls back to Inbox after an exact vault-root path, but before aliases.
+    // Explicit folder-qualified paths are never redirected.
+    const inboxPagePart = pagePart.includes('/') ? null : `Inbox/${pagePart}`;
+    const inboxLiteral = inboxPagePart ? vault.getPageByPath(`${vault.root}/${inboxPagePart}.md`) : undefined;
+    if (inboxLiteral) {
+      return resolvedTo(inboxLiteral, localAlias, fragment);
+    }
+
     // Alias-based resolution is tried only after a literal path match
     // fails, per the locked fallback ordering — never auto-rewritten to
     // the canonical path.
@@ -324,7 +332,9 @@ export function createWikiLinkResolver(
     // Nothing active claims it. The item it names may have been archived: it sits in Archive/ now, still exists,
     // and is found by where it was archived from. Opening it never restores it; a reference to an archived item
     // is never a reason to create a new one.
-    const archived = findArchivedReferenceTarget(vault, pagePart, fragment !== null);
+    const archived =
+      findArchivedReferenceTarget(vault, pagePart, fragment !== null) ??
+      (inboxPagePart ? findArchivedReferenceTarget(vault, inboxPagePart, fragment !== null) : undefined);
     if (archived === 'ambiguous') {
       return { status: 'ambiguous', displayLabel: localAlias ?? VaultPath.pageName(pagePart), activate: () => {} };
     }
@@ -495,7 +505,10 @@ export async function createReferencedPage(
   path: string,
   activate = true
 ): Promise<void> {
-  const targetPath = `${vault.root}/${path}.md`;
+  // A bare title defaults to Inbox. A path containing a folder segment is explicit
+  // and keeps its requested location (for example, Projects/Plan).
+  const destination = path.includes('/') ? path : `Inbox/${path}`;
+  const targetPath = `${vault.root}/${destination}.md`;
 
   const existing = vault.getPageByPath(targetPath);
   if (existing) {
@@ -511,7 +524,7 @@ export async function createReferencedPage(
 
   // The reference may name an item that was archived. It still exists: open it (never restoring it), and never
   // make a replacement — and when several archived items claim the path, make nothing and guess nothing.
-  const archived = findArchivedReferenceTarget(vault, path);
+  const archived = findArchivedReferenceTarget(vault, destination);
   if (archived !== undefined) {
     if (activate && archived !== 'ambiguous' && archived.kind === 'page') {
       void pageOperations.open(archived.page.id);
@@ -519,8 +532,8 @@ export async function createReferencedPage(
     return;
   }
 
-  const title = VaultPath.filename(path);
-  const parentDirectory = VaultPath.parentDirectory(path);
+  const title = VaultPath.filename(destination);
+  const parentDirectory = VaultPath.parentDirectory(destination);
   const folderId = parentDirectory
     ? await ensureFolderChain(vault, folderOperations, parentDirectory)
     : null;

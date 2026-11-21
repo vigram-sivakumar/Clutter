@@ -69,7 +69,6 @@
    width rule that can ever apply to this element in the first place. */
 .cm-editor .cm-invalid-embed {
   width: calc(100% - 1px);
-  overflow: hidden;
 }
 
 /* The one row `renderInvalidEmbedCard` builds — content (icon + title/
@@ -87,6 +86,7 @@
    card the whole thing renders as. */
 .cm-editor .cm-invalid-embed__row {
   display: flex;
+  overflow: hidden;
   align-items: center;
   justify-content: space-between;
   width: 100%;
