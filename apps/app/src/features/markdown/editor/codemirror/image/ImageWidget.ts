@@ -235,7 +235,9 @@ export class ImageWidget extends WidgetType {
      * Defaulted so every pre-existing construction site (tests included)
      * keeps compiling unchanged.
      */
-    readonly presentation: ImagePresentation = { width: 11, height: null, alignment: 'left', mode: 'fill' }
+    readonly presentation: ImagePresentation = { width: 11, height: null, alignment: 'left', mode: 'fill' },
+    /** True only for ![[...]] resource embeds; standard Markdown images remain unchanged. */
+    readonly isEmbed: boolean = false
   ) {
     super();
   }
@@ -263,6 +265,7 @@ export class ImageWidget extends WidgetType {
       this.copyUrl === other.copyUrl &&
       this.pos === other.pos &&
       this.to === other.to &&
+      this.isEmbed === other.isEmbed &&
       this.ui.revealed === other.ui.revealed &&
       this.ui.displayMode === other.ui.displayMode &&
       this.ui.broken === other.ui.broken &&
@@ -452,6 +455,7 @@ export class ImageWidget extends WidgetType {
     // additionally claim to be a working `.cm-image-container` it isn't —
     // see that module's own doc comment.
     container.classList.add('cm-media-block');
+    if (this.isEmbed && !this.ui.revealed) container.dataset.embedFrom = String(this.pos);
     container.dataset.imageSourceRevealed = String(this.ui.revealed);
     // Starts closed unconditionally — a freshly-rendered widget is never
     // mid-open (there is no CM6-tracked "menu is open" state for this to
