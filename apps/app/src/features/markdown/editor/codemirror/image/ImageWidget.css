@@ -56,6 +56,7 @@
   position: relative;
   width: fit-content;
   max-width: 100%;
+  border-radius: var(--md-embed-radius);
   /* Presentation-update flicker fix — a subtle, fast transition on the
      dimensions `applyMediaWidth`/`ImageWidget.updateDOM` actually mutate
      via inline style, so a width/mode change reads as continuous layout
