@@ -99,6 +99,14 @@ export function createPageEmbedResolver(vault: Vault, effectivePageState: Effect
       return resolvedTo(literal, headingQuery);
     }
 
+    // A bare title falls back to Inbox after an exact vault-root path, but before aliases.
+    // Explicit folder-qualified paths are never redirected.
+    const inboxPagePath = pagePath.includes('/') ? null : `Inbox/${pagePath}`;
+    const inboxLiteral = inboxPagePath ? vault.getPageByPath(`${vault.root}/${inboxPagePath}.md`) : undefined;
+    if (inboxLiteral) {
+      return resolvedTo(inboxLiteral, headingQuery);
+    }
+
     const aliasMatches = findPagesByAlias(vault, pagePath);
     if (aliasMatches.length === 1) {
       return resolvedTo(aliasMatches[0] as Page, headingQuery);
@@ -110,7 +118,9 @@ export function createPageEmbedResolver(vault: Vault, effectivePageState: Effect
 
     // Nothing active claims it: the note may have been archived. It still exists, so the embed shows it (found
     // by where it was archived from, by full path); several archived notes claiming the path is `ambiguous`.
-    const archived = findArchivedReferenceTarget(vault, pagePath, true);
+    const archived =
+      findArchivedReferenceTarget(vault, pagePath, true) ??
+      (inboxPagePath ? findArchivedReferenceTarget(vault, inboxPagePath, true) : undefined);
     if (archived === 'ambiguous') {
       return { status: 'ambiguous', displayLabel: VaultPath.pageName(pagePath) };
     }
