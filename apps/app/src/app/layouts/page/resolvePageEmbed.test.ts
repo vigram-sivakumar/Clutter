@@ -82,6 +82,22 @@ describe('createPageEmbedResolver', () => {
     expect(result).toEqual({ status: 'resolved', pageId: 'p1', title: 'Alpha', markdown: 'New uncommitted content', icon: 'note', emoji: null });
   });
 
+  it('resolves a bare title to Inbox when no vault-root note matches', () => {
+    const page = makePage({ id: 'p1', path: '/vault/Inbox/Alpha.md', name: 'Alpha', source: { markdown: '# Alpha' } });
+    const vault = makeVault([page]);
+    const resolve = createPageEmbedResolver(vault, makeEffectivePageState(() => undefined));
+
+    expect(resolve('Alpha')).toMatchObject({ status: 'resolved', pageId: 'p1', title: 'Alpha' });
+  });
+
+  it('does not redirect an explicit folder-qualified embed path into Inbox', () => {
+    const page = makePage({ id: 'p1', path: '/vault/Inbox/Alpha.md', name: 'Alpha', source: { markdown: '# Alpha' } });
+    const vault = makeVault([page]);
+    const resolve = createPageEmbedResolver(vault, makeEffectivePageState(() => undefined));
+
+    expect(resolve('Projects/Alpha')).toEqual({ status: 'unresolved', displayLabel: 'Alpha' });
+  });
+
   it('resolves via alias when no literal path matches', () => {
     const page = makePage({
       id: 'p1',
