@@ -464,39 +464,25 @@ export function pasteIntoSelectedRange(view: EditorView, selection: TableSelecti
 }
 
 /**
- * Fill every cell covered by a row/column handle selection with one plain
- * clipboard value. The selection remains a row or column selection after
- * the single document transaction; no rows or columns are inserted.
+ * Paste a clipboard grid into any table selection. Row and column handle
+ * selections resolve to their top-left cell just like a rectangular range;
+ * the clipboard grid determines which cells are replaced. The original
+ * selection is retained after the paste.
  */
-export function pasteTextIntoSelectedRowOrColumn(
-  view: EditorView,
-  selection: Extract<TableSelection, { readonly kind: 'row' | 'column' }>,
-  text: string
-): boolean {
-  const table = findAllTables(view.state).find((candidate) => candidate.from === selection.tableFrom);
-  if (!table) return false;
-
-  const rows = getNavigableRows(table.node);
-  const header = rows[0];
-  if (!header) return false;
-  const columnCount = getRowColumnSegments(header).length;
-  if (columnCount === 0 || rows.length === 0) return false;
-
-  const value = escapeTableCellText(text.replace(/\r?\n/g, ' '));
+export function pasteIntoSelectedTableSelection(view: EditorView, selection: TableSelection, table: ClipboardTable): boolean {
   let target: PasteTarget;
-  let grid: string[][];
-
-  if (selection.kind === 'row') {
-    if (selection.rowIndex < 0 || selection.rowIndex >= rows.length) return false;
+  if (selection.kind === 'range') {
+    target = {
+      tableFrom: selection.tableFrom,
+      row: Math.min(selection.anchor.row, selection.head.row),
+      col: Math.min(selection.anchor.col, selection.head.col),
+    };
+  } else if (selection.kind === 'row') {
     target = { tableFrom: selection.tableFrom, row: selection.rowIndex, col: 0 };
-    grid = [Array.from({ length: columnCount }, () => value)];
   } else {
-    if (selection.columnIndex < 0 || selection.columnIndex >= columnCount) return false;
     target = { tableFrom: selection.tableFrom, row: 0, col: selection.columnIndex };
-    grid = Array.from({ length: rows.length }, () => [value]);
   }
-
-  return pasteGridIntoTable(view, null, target, grid, false, selection);
+  return pasteGridIntoTable(view, null, target, cellGrid(table), false, selection);
 }
 
 /**

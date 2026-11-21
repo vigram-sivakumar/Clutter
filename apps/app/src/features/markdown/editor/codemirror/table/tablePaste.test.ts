@@ -317,54 +317,53 @@ describe('tablePaste — range-selection paste', () => {
 });
 
 
-describe('tablePaste — row/column handle selection fill', () => {
-  it('replaces every cell in the selected row with one pasted value and keeps the row selected', () => {
+describe('tablePaste — row/column handle selection', () => {
+  it('pastes a clipboard grid into a selected row from its first cell and retains the row selection', () => {
     const controller = new TableActiveCellController();
     const view = mountRootView(TABLE, controller);
     const table = findAllTables(view.state)[0]!;
     const selected: TableSelection = { kind: 'row', tableFrom: table.from, rowIndex: 1 };
     view.dispatch({ effects: [tableSelectionChanged.of(selected)] });
 
-    const event = dispatchPasteOn(view.contentDOM, (d) => d.setData('text/plain', 'Nairobi'));
+    dispatchPasteOn(view.contentDOM, (d) => d.setData('text/plain', 'Nairobi\tUX\tIndia'));
 
-    expect(event.defaultPrevented).toBe(true);
     expect(cellText(view, 1, 0)).toBe('Nairobi');
-    expect(cellText(view, 1, 1)).toBe('Nairobi');
-    expect(cellText(view, 1, 2)).toBe('Nairobi');
+    expect(cellText(view, 1, 1)).toBe('UX');
+    expect(cellText(view, 1, 2)).toBe('India');
     expect(cellText(view, 2, 0)).toBe('Alex');
     expect(selection(view)).toEqual(selected);
   });
 
-  it('replaces every cell in the selected column, including the header, and keeps the column selected', () => {
+  it('pastes a clipboard grid into a selected column from its first cell and retains the column selection', () => {
     const controller = new TableActiveCellController();
     const view = mountRootView(TABLE, controller);
     const table = findAllTables(view.state)[0]!;
     const selected: TableSelection = { kind: 'column', tableFrom: table.from, columnIndex: 1 };
     view.dispatch({ effects: [tableSelectionChanged.of(selected)] });
 
-    const event = dispatchPasteOn(view.contentDOM, (d) => d.setData('text/plain', 'Designer'));
+    dispatchPasteOn(view.contentDOM, (d) => d.setData(CLUTTER_TABLE_RANGE_MIME, internalPayload([['Role one'], ['Role two'], ['Role three']])));
 
-    expect(event.defaultPrevented).toBe(true);
-    expect(cellText(view, 0, 1)).toBe('Designer');
-    expect(cellText(view, 1, 1)).toBe('Designer');
-    expect(cellText(view, 2, 1)).toBe('Designer');
+    expect(cellText(view, 0, 1)).toBe('Role one');
+    expect(cellText(view, 1, 1)).toBe('Role two');
+    expect(cellText(view, 2, 1)).toBe('Role three');
     expect(cellText(view, 1, 0)).toBe('Vik');
     expect(cellText(view, 2, 2)).toBe('Tokyo');
     expect(selection(view)).toEqual(selected);
   });
 
-  it('escapes table delimiters in the pasted value', () => {
+  it('pastes scalar text as one cell rather than filling every cell in a selected row', () => {
     const controller = new TableActiveCellController();
     const view = mountRootView(TABLE, controller);
     const table = findAllTables(view.state)[0]!;
-    view.dispatch({ effects: [tableSelectionChanged.of({ kind: 'row', tableFrom: table.from, rowIndex: 1 })] });
+    const selected: TableSelection = { kind: 'row', tableFrom: table.from, rowIndex: 1 };
+    view.dispatch({ effects: [tableSelectionChanged.of(selected)] });
 
-    dispatchPasteOn(view.contentDOM, (d) => d.setData('text/plain', 'A | B'));
+    dispatchPasteOn(view.contentDOM, (d) => d.setData('text/plain', 'Nairobi'));
 
-    expect(cellText(view, 1, 0)).toBe('A \\| B');
-    expect(cellText(view, 1, 1)).toBe('A \\\\| B');
-    expect(cellText(view, 1, 2)).toBe('A \\\\| B');
-    expect(getNavigableRows(findAllTables(view.state)[0]!.node)).toHaveLength(3);
+    expect(cellText(view, 1, 0)).toBe('Nairobi');
+    expect(cellText(view, 1, 1)).toBe('Designer');
+    expect(cellText(view, 1, 2)).toBe('India');
+    expect(selection(view)).toEqual(selected);
   });
 });
 
@@ -482,19 +481,14 @@ describe('tablePaste — safety and structure', () => {
     expect(view.state.doc.toString()).toContain('INSERTED');
   });
 
-  it('non-tabular plain text pasted into an active cell falls through to normal paste (declines interception)', () => {
+  it('plain text pasted into an active cell replaces the cell content', () => {
     const controller = new TableActiveCellController();
     const view = mountRootView(TABLE, controller);
     activateCell(view, controller, 1, 0);
 
     dispatchPasteOnActiveCell(controller, (d) => d.setData('text/plain', 'Nairobi'));
 
-    // This module's own table-paste logic declined — the plain text was
-    // inserted by the nested editor's own ordinary default paste handling
-    // instead (at its current caret, the start of "Vik"), then forwarded to
-    // root like any other nested-editor edit. Not replaced/cleared, not a
-    // table-shaped mutation — genuinely normal single-value paste behavior.
-    expect(cellText(view, 1, 0)).toBe('NairobiVik');
+    expect(cellText(view, 1, 0)).toBe('Nairobi');
   });
 
   it('multiline plain text without tabs pasted into an active cell falls through to normal paste, not new table rows', () => {

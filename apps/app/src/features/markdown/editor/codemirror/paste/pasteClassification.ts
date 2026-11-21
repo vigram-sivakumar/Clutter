@@ -19,7 +19,7 @@ export const SUPPORTED_TYPE = /^(?:image\/(?:png|jpeg|gif|webp|svg\+xml)|applica
  * - `empty`        nothing to insert (no plain text, no URI list): change nothing
  * - `default`      everything else: CodeMirror's own paste (with the input filters of the editor)
  */
-export type PasteStrategy = 'tableRange' | 'tableSelectionFill' | 'tableCell' | 'tableCreate' | 'files' | 'richHtml' | 'empty' | 'default';
+export type PasteStrategy = 'tableRange' | 'tableCell' | 'tableCreate' | 'files' | 'richHtml' | 'empty' | 'default';
 
 /** Why clipboard files are left out: an `unsupported` type, or a `target` (a table) that takes no files. */
 export interface SkippedFiles {
@@ -69,12 +69,18 @@ export function classifyPaste(data: DataTransfer, env: PasteEnvironment): PasteC
   const files = Array.from(data.files ?? []);
   const supported = files.filter((file) => SUPPORTED_TYPE.test(file.type));
   const unsupported = files.filter((file) => !SUPPORTED_TYPE.test(file.type));
-  const table = readClipboardTable(data);
   const selection = state.field(tableSelectionField, false) ?? null;
-  const range = selection?.kind === 'range';
-  const rowOrColumn = selection?.kind === 'row' || selection?.kind === 'column';
+  const parsedTable = readClipboardTable(data);
   const context = pasteContextAt(state, state.selection.main.from);
   const plainText = data.getData('text/plain');
+  // Plain text is a 1x1 clipboard grid when a table cell or table selection
+  // is the explicit target. Elsewhere it keeps normal editor paste behaviour.
+  const isTableTarget = selection !== null || (env.scope === 'cell' && env.cellActive === true);
+  const table: ClipboardTable | null = parsedTable ?? (
+    isTableTarget && plainText !== ''
+      ? { source: 'text', grid: [[plainText]] }
+      : null
+  );
   const nothing = plainText === '' && data.getData('text/uri-list') === '';
   const fallback: PasteStrategy = nothing ? 'empty' : 'default';
 
@@ -95,14 +101,8 @@ export function classifyPaste(data: DataTransfer, env: PasteEnvironment): PasteC
     return result(env.cellActive && table ? 'tableCell' : fallback, { names: names(files), reason: 'target' });
   }
 
-  if (range) {
+  if (selection) {
     return result(table ? 'tableRange' : fallback, { names: names(files), reason: 'target' });
-  }
-
-  // A scalar clipboard value fills every cell covered by a row/column handle
-  // selection. Grid-shaped clipboard content keeps its existing paste path.
-  if (rowOrColumn && table === null && plainText !== '') {
-    return result('tableSelectionFill', { names: names(files), reason: 'target' });
   }
 
   // Rich HTML can be converted here (an importer is wired, not in code, no table where a table would break the block).
