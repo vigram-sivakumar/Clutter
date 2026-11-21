@@ -56,7 +56,8 @@ describe('embedObjectSelectionKeymap', () => {
     press(view, 'ArrowRight');
 
     expect(view.state.field(embedObjectSelectionField)).toBeNull();
-    expect(view.state.selection.main.head).toBe(doc.length);
+    expect(view.state.selection.main.head).toBe(doc.length + 1);
+    expect(view.state.doc.toString()).toBe(`${doc}\\n`);
     expect(marker.classList.contains('cm-embed-object-selected')).toBe(false);
   });
 
