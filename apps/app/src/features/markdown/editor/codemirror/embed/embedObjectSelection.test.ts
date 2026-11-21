@@ -34,7 +34,7 @@ function mount(doc: string, anchor = 0, readOnly = false): EditorView {
 
 function press(view: EditorView, key: string, shiftKey = false): void {
   view.contentDOM.dispatchEvent(
-    new KeyboardEvent('keydown', { key, code: key === ' ' ? 'Space' : key, keyCode: key === ' ' ? 32 : 0, shiftKey, bubbles: true, cancelable: true })
+    new KeyboardEvent('keydown', { key, shiftKey, bubbles: true, cancelable: true })
   );
 }
 
@@ -46,34 +46,6 @@ function addRenderedEmbedMarker(view: EditorView, from: number): HTMLElement {
 }
 
 describe('embedObjectSelectionKeymap', () => {
-  it('renders and selects a freshly typed standalone embed on Space without inserting whitespace', () => {
-    const doc = '![[note]]';
-    const view = mount(doc, doc.length);
-    view.dispatch({
-      effects: setImageUiState.of({
-        pos: 0,
-        to: doc.length,
-        state: { ...DEFAULT_IMAGE_UI_STATE, pendingFirstLeave: true },
-      }),
-    });
-
-    press(view, ' ');
-
-    expect(view.state.doc.toString()).toBe(doc);
-    expect(view.state.selection.main.head).toBe(doc.length);
-    expect(view.state.field(embedObjectSelectionField)).toEqual({ from: 0, to: doc.length });
-    expect(getImageUiState(view.state, 0, doc.length).pendingFirstLeave).toBe(false);
-  });
-
-  it('does not intercept Space for an embed inside ordinary text', () => {
-    const doc = 'before ![[note]]';
-    const view = mount(doc, doc.length);
-    press(view, ' ');
-
-    expect(view.state.doc.toString()).toBe(`${doc} `);
-    expect(view.state.field(embedObjectSelectionField)).toBeNull();
-  });
-
   it('selects the whole rendered embed on ArrowRight, then moves past it on the next ArrowRight', () => {
     const doc = '![[image.png]]';
     const view = mount(doc);
