@@ -80,6 +80,57 @@ export function embedObjectSelectionKeymap(): Extension {
     return true;
   };
 
+  const selectVerticallyAdjacentEmbed = (direction: 'up' | 'down'): Command => (view) => {
+    if (view.state.readOnly) return false;
+
+    const current = view.state.field(embedObjectSelectionField, false) ?? null;
+    if (current) {
+      return moveOutOfSelection(direction === 'up' ? 'before' : 'after')(view);
+    }
+
+    const main = view.state.selection.main;
+    if (!main.empty) return false;
+
+    const cursor = view.coordsAtPos(main.head);
+    if (!cursor) return false;
+
+    // Probe the adjacent visual line at the caret's current horizontal
+    // position. If that point falls inside a rendered embed widget, the
+    // vertical movement is entering that object and should select it.
+    const targetY =
+      direction === 'down'
+        ? cursor.bottom + view.defaultLineHeight / 2
+        : cursor.top - view.defaultLineHeight / 2;
+
+    for (const widget of view.dom.querySelectorAll<HTMLElement>('[data-embed-from]')) {
+      if (widget.closest('.cm-editor') !== view.dom) continue;
+
+      const rect = widget.getBoundingClientRect();
+      if (targetY < rect.top || targetY > rect.bottom) continue;
+
+      const from = Number(widget.dataset.embedFrom);
+      if (!Number.isInteger(from)) continue;
+
+      let candidate: EmbedObjectSelection | null = null;
+      syntaxTree(view.state).iterate({
+        from,
+        to: Math.min(view.state.doc.length, from + 1),
+        enter(node) {
+          if (node.name === 'Embed' && node.from === from) {
+            candidate = { from: node.from, to: node.to };
+          }
+        },
+      });
+
+      if (!candidate) continue;
+      view.dispatch({ effects: embedObjectSelectionChanged.of(candidate) });
+      syncEmbedObjectSelection(view);
+      return true;
+    }
+
+    return false;
+  };
+
   const clearSelection: Command = (view) => {
     if (!(view.state.field(embedObjectSelectionField, false) ?? null)) return false;
     view.dispatch({ effects: embedObjectSelectionChanged.of(null) });
@@ -90,6 +141,8 @@ export function embedObjectSelectionKeymap(): Extension {
   const bindings: readonly KeyBinding[] = [
     { key: 'ArrowLeft', run: selectAdjacentEmbed('left') },
     { key: 'ArrowRight', run: selectAdjacentEmbed('right') },
+    { key: 'ArrowUp', run: selectVerticallyAdjacentEmbed('up') },
+    { key: 'ArrowDown', run: selectVerticallyAdjacentEmbed('down') },
     { key: 'Enter', run: moveOutOfSelection('after') },
     { key: 'Escape', run: clearSelection },
   ];
