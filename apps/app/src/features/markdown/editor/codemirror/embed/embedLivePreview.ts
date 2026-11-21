@@ -672,6 +672,7 @@ export function embedLivePreview(options: EmbedLivePreviewOptions): Extension {
             this.pdfDocumentCache
           ));
         }
+        update.view.requestMeasure({ write: (measureView) => syncEmbedObjectSelection(measureView) });
       }
 
       destroy() {
