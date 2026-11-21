@@ -38,6 +38,7 @@ export function embedObjectSelectionKeymap(): Extension {
       selection: EditorSelection.cursor(direction === 'before' ? selection.from : selection.to),
       scrollIntoView: true,
     });
+    syncEmbedObjectSelection(view);
     return true;
   };
 
@@ -72,12 +73,14 @@ export function embedObjectSelectionKeymap(): Extension {
     const candidate = candidates[0];
     if (!candidate) return false;
     view.dispatch({ effects: embedObjectSelectionChanged.of(candidate) });
+    syncEmbedObjectSelection(view);
     return true;
   };
 
   const clearSelection: Command = (view) => {
     if (!(view.state.field(embedObjectSelectionField, false) ?? null)) return false;
     view.dispatch({ effects: embedObjectSelectionChanged.of(null) });
+    syncEmbedObjectSelection(view);
     return true;
   };
 
