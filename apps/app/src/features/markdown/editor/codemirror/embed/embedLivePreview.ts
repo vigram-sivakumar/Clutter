@@ -677,7 +677,7 @@ export function embedLivePreview(options: EmbedLivePreviewOptions): Extension {
         }
         if (decorationsChanged || selectionChanged) {
           update.view.requestMeasure({
-            read: () => null,
+            read: (measureView) => measureView,
             write: (measureView) => syncEmbedObjectSelection(measureView),
           });
         }
