@@ -53,7 +53,7 @@ describe('PageIcon', () => {
     const firstImage = container.querySelector('img') as HTMLImageElement;
 
     fireEvent.load(firstImage);
-    expect(firstImage.style.visibility).toBe('');
+    expect(firstImage.style.visibility).toBe('visible');
 
     rerender(<PageIcon emoji="📄" imageSrc="asset://second.png" size="small" />);
 
