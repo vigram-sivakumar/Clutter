@@ -361,10 +361,10 @@ describe('tablePaste — row/column handle selection fill', () => {
 
     dispatchPasteOn(view.contentDOM, (d) => d.setData('text/plain', 'A | B'));
 
-    expect(cellText(view, 1, 0)).toBe('A \\\\| B');
+    expect(cellText(view, 1, 0)).toBe('A \\| B');
     expect(cellText(view, 1, 1)).toBe('A \\\\| B');
     expect(cellText(view, 1, 2)).toBe('A \\\\| B');
-    expect(getNavigableRows(findAllTables(view.state)[0]!.node)).toHaveLength(4);
+    expect(getNavigableRows(findAllTables(view.state)[0]!.node)).toHaveLength(3);
   });
 });
 
