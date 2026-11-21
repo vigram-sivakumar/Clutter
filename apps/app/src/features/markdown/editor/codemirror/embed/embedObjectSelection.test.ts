@@ -51,6 +51,7 @@ describe('embedObjectSelectionKeymap', () => {
 
     expect(view.state.field(embedObjectSelectionField)).toEqual({ from: 0, to: doc.length });
     expect(marker.classList.contains('cm-embed-object-selected')).toBe(true);
+    expect(view.dom.classList.contains('cm-embed-object-selection-active')).toBe(true);
     expect(view.state.doc.toString()).toBe(doc);
 
     press(view, 'ArrowRight');
@@ -201,6 +202,7 @@ describe('embedObjectSelectionKeymap', () => {
 
     expect(view.state.field(embedObjectSelectionField)).toBeNull();
     expect(marker.classList.contains('cm-embed-object-selected')).toBe(false);
+    expect(view.dom.classList.contains('cm-embed-object-selection-active')).toBe(false);
   });
 
   it('selects the embed instead of deleting its boundary newline with Backspace', () => {
