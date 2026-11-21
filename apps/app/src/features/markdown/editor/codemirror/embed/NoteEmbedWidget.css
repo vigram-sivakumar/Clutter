@@ -22,14 +22,6 @@
   isolation: isolate;
 }
 
-/* The shared selection ring also applies to note embeds. Keep it on the
- * outer note surface so the nested read-only editor cannot mask it. */
-.cm-editor .cm-media-block.cm-note-embed.cm-embed-object-selected {
-  outline: 2px solid var(--border-active);
-  outline-offset: -2px;
-  border-radius: var(--md-embed-radius);
-}
-
 /* The whole card opens the source note (NoteEmbedWidget.ts), so it shows the pointer, including over the
  * nested editor's text, whose own cursors would otherwise show through. Buttons and links keep theirs. */
 .cm-note-embed,
