@@ -88,6 +88,8 @@ export function embedObjectSelectionKeymap(): Extension {
         selection: EditorSelection.cursor(selected.to + 1),
         scrollIntoView: true,
       });
+      view.focus();
+      syncEmbedObjectSelection(view);
       return true;
     }
     const position = adjacentEditablePosition(view, selected, direction);
