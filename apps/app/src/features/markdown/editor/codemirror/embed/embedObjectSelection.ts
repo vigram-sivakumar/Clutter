@@ -240,12 +240,21 @@ export function embedObjectSelectionKeymap(): Extension {
     }
   );
 
-  return Prec.highest([keymap.of(bindings), lifecycle]);
+  const selectionTheme = EditorView.theme({
+    '&.cm-embed-object-selection-active .cm-cursor': {
+      visibility: 'hidden',
+    },
+  });
+
+  return Prec.highest([selectionTheme, keymap.of(bindings), lifecycle]);
 }
 
 /** Apply the active state to the already-rendered widget DOM. */
 export function syncEmbedObjectSelection(view: EditorView): void {
   const selected = view.state.field(embedObjectSelectionField, false) ?? null;
+  // Keep CodeMirror focused for keyboard navigation, but never show its
+  // text caret while focus is represented by a selected embed object.
+  view.dom.classList.toggle('cm-embed-object-selection-active', selected !== null);
   for (const widget of view.dom.querySelectorAll<HTMLElement>('[data-embed-from]')) {
     if (widget.closest('.cm-editor') !== view.dom) continue;
     widget.classList.toggle(
