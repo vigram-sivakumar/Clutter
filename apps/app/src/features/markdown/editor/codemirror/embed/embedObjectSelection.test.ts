@@ -60,7 +60,7 @@ describe('embedObjectSelectionKeymap', () => {
     expect(marker.classList.contains('cm-embed-object-selected')).toBe(false);
   });
 
-  it('selects the whole rendered embed on ArrowLeft and Enter exits after it', () => {
+  it('selects the whole rendered embed on ArrowLeft and Enter creates a line below it', () => {
     const doc = '![[image.png]]';
     const view = mount(doc, doc.length);
     addRenderedEmbedMarker(view, 0);
@@ -113,6 +113,42 @@ describe('embedObjectSelectionKeymap', () => {
       to: embedFrom + '![[image.png]]'.length,
     });
     expect(marker.classList.contains('cm-embed-object-selected')).toBe(true);
+    expect(view.state.doc.toString()).toBe(doc);
+  });
+
+  it('moves from a selected embed to the visible line above in one ArrowUp press', () => {
+    const doc = 'above\n![[note]]\nbelow';
+    const embedFrom = 'above\n'.length;
+    const view = mount(doc, embedFrom);
+    addRenderedEmbedMarker(view, embedFrom);
+
+    press(view, 'ArrowRight');
+    expect(view.state.field(embedObjectSelectionField)).toEqual({
+      from: embedFrom,
+      to: embedFrom + '![[note]]'.length,
+    });
+
+    press(view, 'ArrowUp');
+
+    expect(view.state.field(embedObjectSelectionField)).toBeNull();
+    expect(view.state.selection.main.head).toBe('above'.length);
+    expect(view.state.doc.toString()).toBe(doc);
+  });
+
+  it('moves from a selected embed to the visible line below in one ArrowDown press', () => {
+    const doc = 'above\n![[note]]\nbelow';
+    const embedFrom = 'above\n'.length;
+    const embedTo = embedFrom + '![[note]]'.length;
+    const view = mount(doc, embedTo);
+    addRenderedEmbedMarker(view, embedFrom);
+
+    press(view, 'ArrowLeft');
+    expect(view.state.field(embedObjectSelectionField)).not.toBeNull();
+
+    press(view, 'ArrowDown');
+
+    expect(view.state.field(embedObjectSelectionField)).toBeNull();
+    expect(view.state.selection.main.head).toBe(embedTo + 1);
     expect(view.state.doc.toString()).toBe(doc);
   });
 
