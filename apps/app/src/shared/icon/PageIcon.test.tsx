@@ -25,15 +25,13 @@ describe('PageIcon', () => {
       <PageIcon emoji="📝" imageSrc="asset://icon.png" size="small" />
     );
     const image = container.querySelector('img') as HTMLImageElement;
-    const fallback = container.querySelector('.page-icon__fallback') as HTMLElement;
-
     expect(image.style.visibility).toBe('hidden');
-    expect(fallback.style.visibility).toBe('');
+    expect(container.querySelector('.page-icon__fallback')).not.toBeNull();
 
     fireEvent.load(image);
 
-    expect(image.style.visibility).toBe('');
-    expect(fallback.style.visibility).toBe('hidden');
+    expect(image.style.visibility).toBe('visible');
+    expect(container.querySelector('.page-icon__fallback')).toBeNull();
   });
 
   it('removes a failed image and immediately restores the fallback', () => {
