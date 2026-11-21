@@ -450,20 +450,6 @@ function pasteGridIntoTable(
 }
 
 /**
- * Strategy: paste `table` into the cells selected by the `range` `TableSelection` of the root view (the grid starts at
- * the selection's top-left cell). Chosen by `classifyPaste` (`pasteClassification.ts`) and run by `pasteRouting.ts`.
- * No controller/deactivation is involved: an active cell never coexists with a range selection.
- */
-export function pasteIntoSelectedRange(view: EditorView, selection: TableSelection & { readonly kind: 'range' }, table: ClipboardTable): boolean {
-  const target: PasteTarget = {
-    tableFrom: selection.tableFrom,
-    row: Math.min(selection.anchor.row, selection.head.row),
-    col: Math.min(selection.anchor.col, selection.head.col),
-  };
-  return pasteGridIntoTable(view, null, target, cellGrid(table), false);
-}
-
-/**
  * Paste a clipboard grid into any table selection. Row and column handle
  * selections resolve to their top-left cell just like a rectangular range;
  * the clipboard grid determines which cells are replaced. The original
