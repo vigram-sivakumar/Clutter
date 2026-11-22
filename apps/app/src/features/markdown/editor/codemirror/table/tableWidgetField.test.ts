@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { history, redo, undo, closeHistory } from '@codemirror/commands';
 import { EditorState } from '@codemirror/state';
-
 import { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
@@ -10,7 +10,6 @@ import { findAllTables } from './tableGeometry';
 import { tableSelectionChanged, tableSelectionField } from './tableSelection';
 import { tableWidgetDecoration } from './tableWidgetField';
 
-import { history, redo, undo } from '@codemirror/commands';
 import { tableSelectionDeletionHistory } from './tableSelectionDeletion';
 import { insertRowBelowSelection } from './tableRowInsertion';
 import { insertColumnRightSelection } from './tableColumnInsertion';
@@ -1001,9 +1000,7 @@ describe('tableWidgetField — rendered projection survives structural history',
 
     // The replacement must be present synchronously after every transaction,
     // not merely after a later parse/view update.
-    expect(view.dom.textContent).not.toContain('| Name |');
-    expect(view.dom.textContent).not.toContain('| --- |');
-    expect(view.dom.textContent).not.toContain('| Vik |');
+    expect(view.dom.textContent).not.toContain('|');
   }
 
   it('keeps the table projected through row insertion, undo and redo', () => {
@@ -1050,6 +1047,7 @@ describe('tableWidgetField — rendered projection survives structural history',
       view.dispatch({ effects: tableSelectionChanged.of({ kind: 'row', tableFrom: 0, rowIndex: 1 }) });
       expect(insertRowBelowSelection(view, view.state.field(tableSelectionField)!)).toBe(true);
       expectTableProjection(view, 4, 2);
+      closeHistory(view);
 
       view.dispatch({ effects: tableSelectionChanged.of({ kind: 'column', tableFrom: 0, columnIndex: 1 }) });
       expect(insertColumnRightSelection(view, view.state.field(tableSelectionField)!)).toBe(true);
