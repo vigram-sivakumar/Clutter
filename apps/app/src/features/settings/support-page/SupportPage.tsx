@@ -16,7 +16,7 @@ const CONTRIBUTIONS = [
   {
     name: 'Believer',
     amount: '$30',
-    description: 'A generous contribution to independent software.',
+    description: 'A generous way to keep Clutter moving.',
   },
 ];
 
@@ -36,7 +36,7 @@ export function SupportPage() {
 
       <section className="support-page__contributions">
         <div className="support-page__section-heading">
-          <h2>Support Clutter</h2>
+          <h2>Help keep Clutter growing</h2>
           <p>Every contribution is optional, made just once, and helps fund continued development.</p>
         </div>
 
