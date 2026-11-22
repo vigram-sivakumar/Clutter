@@ -40,14 +40,16 @@ describe('Settings → Editor → Layout', () => {
 describe('Settings → Clutter → Support', () => {
   it('shows the support page from the settings sidebar without opening payment services', () => {
     render(<Settings />);
-    expect(screen.queryByText('Help keep Clutter free.')).toBeNull();
+    expect(screen.queryByText('Choose your support')).toBeNull();
 
-    fireEvent.click(screen.getByText('Support Clutter'));
+    fireEvent.click(screen.getByText('Support'));
 
-    expect(screen.getByText('Help keep Clutter free.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Support Clutter' })).toBeInTheDocument();
+    expect(screen.getByText('Choose your support')).toBeInTheDocument();
     expect(screen.getByText('$5')).toBeInTheDocument();
     expect(screen.getByText('$15')).toBeInTheDocument();
     expect(screen.getByText('$30')).toBeInTheDocument();
-    expect(screen.getByText(/Contributions aren't available yet/)).toBeInTheDocument();
+    expect(screen.getByText('Free for everyone, always.')).toBeInTheDocument();
+    expect(document.querySelectorAll('.support-page a')).toHaveLength(0);
   });
 });
