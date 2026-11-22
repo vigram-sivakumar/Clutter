@@ -82,7 +82,7 @@ export function classifyPaste(data: DataTransfer, env: PasteEnvironment): PasteC
   const isSingleCellText = plainText !== '' && !plainText.includes('\t') && !hasHtmlTable;
   const table: ClipboardTable | null = parsedTable ?? (
     isTableTarget && isSingleCellText
-      ? { source: 'text', grid: [[plainText]] }
+      ? { source: 'text', grid: [[plainText.replace(/\r\n?/g, ' ').replace(/\n/g, ' ')]] }
       : null
   );
   const nothing = plainText === '' && data.getData('text/uri-list') === '';
