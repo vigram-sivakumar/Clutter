@@ -5,14 +5,8 @@
   min-width: 0;
 }
 
-.get-support-page__destination {
+.get-support-page__action {
   display: flex;
   align-items: center;
   min-height: 40px;
-}
-
-.get-support-page__status {
-  color: var(--foreground-tertiary);
-  font-size: var(--text-label-small);
-  line-height: var(--lh-label-small);
 }

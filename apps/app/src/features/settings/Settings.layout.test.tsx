@@ -38,14 +38,14 @@ describe('Settings → Editor → Layout', () => {
 
 
 describe('Settings → Clutter → Get Support', () => {
-  it('shows Discord and email support placeholders', () => {
+  it('shows Discord and email support actions', () => {
     render(<Settings />);
     fireEvent.click(screen.getByText('Get Support'));
     expect(screen.getByRole('heading', { name: 'Get Support' })).toBeInTheDocument();
     expect(screen.getByText('Discord community')).toBeInTheDocument();
-    expect(screen.getByText('Invite link coming soon')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Join Discord' })).toBeInTheDocument();
     expect(screen.getByText('Email support')).toBeInTheDocument();
-    expect(screen.getByText('Support email coming soon')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Email support' })).toBeInTheDocument();
   });
 });
 
