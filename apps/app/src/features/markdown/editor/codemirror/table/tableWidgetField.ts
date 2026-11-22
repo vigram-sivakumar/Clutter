@@ -1,4 +1,5 @@
 import { ensureSyntaxTree } from '@codemirror/language';
+import { sharedMarkdownParser } from '../../../render/sharedMarkdownParser';
 import { StateField, type EditorState, type Extension, type Range } from '@codemirror/state';
 import { Decoration, EditorView, type DecorationSet } from '@codemirror/view';
 
@@ -244,13 +245,16 @@ function buildTableDecorations(
   // the currently visible viewport. `syntaxTree(state)` may otherwise expose
   // only the parser's currently available (viewport-prioritised) prefix after
   // undo/redo or a structural edit. Scanning that partial tree silently omits
-  // tables and lets their raw Markdown reach the DOM. Complete the parse before
-  // deriving the document-wide replacement set; the parser is incremental, so
-  // this is normally a no-op once the current document has been parsed.
-  ensureSyntaxTree(state, state.doc.length, 5000);
+  // tables and lets their raw Markdown reach the DOM.
+  //
+  // First ask CodeMirror to complete its incremental parse. If that bounded
+  // attempt times out, use Clutter's shared parser synchronously as a correctness
+  // fallback. Both parsers use the same grammar; the fallback is deliberately
+  // rare and ensures the replacement set is never built from a partial tree.
+  const tree = ensureSyntaxTree(state, state.doc.length, 5000) ?? sharedMarkdownParser.parse(state.doc.toString());
 
   const ranges: Range<Decoration>[] = [];
-  for (const table of findAllTables(state)) {
+  for (const table of findAllTables(state, tree)) {
     const range = buildTableWidgetRange(state, table, controller, getOnTableHandleMenuChange);
     if (range) {
       ranges.push(range);
