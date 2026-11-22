@@ -63,13 +63,13 @@ function columnCountOf(table: TableInfo): number {
   return header ? getRowCellBounds(header).length : 0;
 }
 
-function dispatchInsertion(view: EditorView, changes: ChangeSpec[], nextSelection: TableSelection): void {
+function dispatchInsertion(view: EditorView, changes: ChangeSpec[], nextSelection?: TableSelection): void {
   const changeSet = view.state.changes(changes);
   view.dispatch({
     changes,
     selection: view.state.selection.map(changeSet),
-    effects: [tableSelectionChanged.of(nextSelection)],
-    scrollIntoView: true,
+    ...(nextSelection ? { effects: [tableSelectionChanged.of(nextSelection)] } : {}),
+    scrollIntoView: nextSelection !== undefined,
   });
 }
 
@@ -124,7 +124,7 @@ function insertRowAbove(view: EditorView, table: TableInfo, rowIndex: number): b
  * module's own top doc comment on why `insertRowAfterPosition` already
  * makes the header case ordinary here).
  */
-function insertRowBelow(view: EditorView, table: TableInfo, rowIndex: number): boolean {
+function insertRowBelow(view: EditorView, table: TableInfo, rowIndex: number, selectInserted = true): boolean {
   const navigableRows = getNavigableRows(table.node);
   const row = navigableRows[rowIndex];
   if (!row) {
@@ -149,7 +149,7 @@ function insertRowBelow(view: EditorView, table: TableInfo, rowIndex: number): b
   // symmetric header-promotion case.
   const changes: ChangeSpec[] = [{ from: insertPos, to: insertPos, insert: '\n' + newRowText }];
 
-  dispatchInsertion(view, changes, { kind: 'row', tableFrom: table.from, rowIndex: rowIndex + 1 });
+  dispatchInsertion(view, changes, selectInserted ? { kind: 'row', tableFrom: table.from, rowIndex: rowIndex + 1 } : undefined);
   return true;
 }
 
@@ -166,7 +166,7 @@ export function insertRowAboveSelection(view: EditorView, selection: TableSelect
 }
 
 /** Symmetric to `insertRowAboveSelection`, for "Insert row below." */
-export function insertRowBelowSelection(view: EditorView, selection: TableSelection): boolean {
+export function insertRowBelowSelection(view: EditorView, selection: TableSelection, selectInserted = true): boolean {
   if (selection.kind !== 'row') {
     return false;
   }
@@ -174,7 +174,7 @@ export function insertRowBelowSelection(view: EditorView, selection: TableSelect
   if (!table) {
     return false;
   }
-  return insertRowBelow(view, table, selection.rowIndex);
+  return insertRowBelow(view, table, selection.rowIndex, selectInserted);
 }
 
 /**
