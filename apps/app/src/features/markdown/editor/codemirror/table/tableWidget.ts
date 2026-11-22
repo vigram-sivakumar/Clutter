@@ -969,5 +969,7 @@ export class TableWidget extends WidgetType {
     this.resizeObserver = null;
     this.breakoutWidthHandle?.disconnect();
     this.breakoutWidthHandle = null;
+    this.quickAddResizeObserver?.disconnect();
+    this.quickAddResizeObserver = null;
   }
 }
