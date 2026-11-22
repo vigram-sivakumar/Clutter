@@ -53,6 +53,7 @@ import { EnableEmojiListsSetting } from './markdown-setting/EnableEmojiListsSett
 import { PreferClutterQuoteSyntaxSetting } from './markdown-setting/PreferClutterQuoteSyntaxSetting';
 import { ResetSettings } from './reset-settings/ResetSettings';
 import { LegalLinks } from './legal-links/LegalLinks';
+import { SupportPage } from './support-page/SupportPage';
 import type { ResetSettingsOutcome } from './reset-settings/resetSettingsToDefaults';
 
 const PAGE_TITLES: Record<FixedSettingsPageId, string> = {
@@ -65,6 +66,7 @@ const PAGE_TITLES: Record<FixedSettingsPageId, string> = {
   templates: 'Templates',
   layout: 'Layout',
   markdown: 'Markdown',
+  support: 'Support Clutter',
 };
 
 interface SettingsProps {
@@ -100,7 +102,12 @@ export function Settings({ templates, noteLocation, spaceSettings, space, onClos
   return (
     <div className="settings">
       <SettingsSidebar selectedId={pageId} onSelect={setPageId} space={space} />
-      <SettingsPage key={pageId} title={isSpacePageId(pageId) ? 'Space setting' : PAGE_TITLES[pageId]}>
+      <SettingsPage
+        key={pageId}
+        className={pageId === 'support' ? 'settings-page--support' : undefined}
+        title={isSpacePageId(pageId) ? 'Space setting' : PAGE_TITLES[pageId]}
+        description={pageId === 'support' ? 'Clutter is free to use. Your contribution helps fund its continued development and future improvements.' : undefined}
+      >
         {isSpacePageId(pageId) && selectedSpace && (
           <SpacePage
             key={selectedSpace.path}
@@ -233,6 +240,7 @@ export function Settings({ templates, noteLocation, spaceSettings, space, onClos
             <PreferClutterQuoteSyntaxSetting />
           </SettingsGroup>
         )}
+        {pageId === 'support' && <SupportPage />}
         {pageId === 'daily-notes' && (
           <>
             <SettingsGroup title="Sidebar appearance">

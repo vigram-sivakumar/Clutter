@@ -35,3 +35,26 @@ describe('Settings → Editor → Layout', () => {
     expect(titles).toEqual(['Header separator', 'Header separator style']);
   });
 });
+
+
+describe('Settings → Clutter → Support', () => {
+  it('shows the support page from the settings sidebar without opening payment services', () => {
+    render(<Settings />);
+    expect(screen.queryByText('Support Clutter')).toBeNull();
+
+    fireEvent.click(screen.getByText('Support'));
+
+    expect(screen.getByRole('heading', { name: 'Keep Clutter growing' })).toBeInTheDocument();
+    expect(screen.getByText(/Clutter is free for everyone/)).toBeInTheDocument();
+    expect(screen.getByText('$5')).toBeInTheDocument();
+    expect(screen.getByText('$15')).toBeInTheDocument();
+    expect(screen.getByText('$30')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Support' })).toHaveLength(3);
+    expect(screen.getAllByRole('button', { name: 'Support' }).every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
+    
+    
+    expect(screen.getByRole('button', { name: 'Set an amount' })).toBeDisabled();
+    expect(screen.getByText('Free for everyone, always.')).toBeInTheDocument();
+    expect(document.querySelectorAll('.support-page a')).toHaveLength(0);
+  });
+});
