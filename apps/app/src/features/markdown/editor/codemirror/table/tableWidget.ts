@@ -556,8 +556,16 @@ export class TableWidget extends WidgetType {
       addRow.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
+        const currentScroll = view.dom.querySelector<HTMLElement>(
+          `.cm-table-widget[data-table-from="${this.tableFrom}"] .cm-table-wrapper > .cm-table-scroll`
+        );
+        if (currentScroll) {
+          pendingScrollRestoreByTableFrom.set(this.tableFrom, currentScroll.scrollLeft);
+        }
         if (insertRowBelowSelection(view, { kind: 'row', tableFrom: this.tableFrom, rowIndex: this.bodyRows.length }, false)) {
           view.focus();
+        } else {
+          pendingScrollRestoreByTableFrom.delete(this.tableFrom);
         }
       });
 
@@ -578,6 +586,9 @@ export class TableWidget extends WidgetType {
         if (lastColumnIndex < 0) {
           return;
         }
+        // Column quick-add has its own destination (the new right edge),
+        // so discard any older restore request before this synchronous rebuild.
+        pendingScrollRestoreByTableFrom.delete(this.tableFrom);
         pendingScrollToEndByTableFrom.add(this.tableFrom);
         if (insertColumnRightSelection(view, { kind: 'column', tableFrom: this.tableFrom, columnIndex: lastColumnIndex }, false, true)) {
           view.focus();
