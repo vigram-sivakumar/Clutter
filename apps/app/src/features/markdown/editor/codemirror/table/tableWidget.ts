@@ -12,6 +12,8 @@ import type { OnTableHandleMenuChange } from './tableHandleMenuSync';
 import { ensureRectangularCellBounds } from './tableRectangularNormalization';
 import { renderInlineMarkdown } from './renderInlineMarkdown';
 import { attachTableWidgetBreakoutWidth, type BreakoutWidthHandle } from './tableWidgetBreakoutWidth';
+import { insertRowBelowSelection } from './tableRowInsertion';
+import { insertColumnRightSelection } from './tableColumnInsertion';
 import {
   attachTableSelectionOverlayResize,
   createTableSelectionOverlay,
@@ -519,6 +521,51 @@ export class TableWidget extends WidgetType {
       tbody.appendChild(this.buildRow(view, row, 'td', index + 1));
     });
     table.appendChild(tbody);
+
+    // Quick-add controls sit outside the table's own border, but inside
+    // the same intrinsic-width element. This keeps their edges aligned
+    // with the rendered table even when explicit column widths make it
+    // wider than the editor's reading column.
+    if (this.controller) {
+      const addRow = document.createElement('button');
+      addRow.type = 'button';
+      addRow.className = 'cm-table-quick-add cm-table-quick-add-row';
+      addRow.setAttribute('aria-label', 'Add row');
+      addRow.title = 'Add row';
+      addRow.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 3v10M3 8h10" /></svg>';
+      addRow.addEventListener('mousedown', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      });
+      addRow.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (insertRowBelowSelection(view, { kind: 'row', tableFrom: this.tableFrom, rowIndex: this.bodyRows.length })) {
+          view.focus();
+        }
+      });
+
+      const addColumn = document.createElement('button');
+      addColumn.type = 'button';
+      addColumn.className = 'cm-table-quick-add cm-table-quick-add-column';
+      addColumn.setAttribute('aria-label', 'Add column');
+      addColumn.title = 'Add column';
+      addColumn.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 3v10M3 8h10" /></svg>';
+      addColumn.addEventListener('mousedown', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      });
+      addColumn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const lastColumnIndex = this.headerCells.length - 1;
+        if (lastColumnIndex >= 0 && insertColumnRightSelection(view, { kind: 'column', tableFrom: this.tableFrom, columnIndex: lastColumnIndex })) {
+          view.focus();
+        }
+      });
+
+      tableInner.append(addRow, addColumn);
+    }
 
     // Hover-only column/row handle overlay (visual only — no click/drag/
     // selection yet, a later milestone; see `tableHandleOverlay.ts`'s own
