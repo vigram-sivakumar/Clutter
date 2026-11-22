@@ -1,6 +1,7 @@
 import { Button } from '@components/button/Button';
 import { useToast } from '@components/toast/ToastProvider';
 import { AppIcon } from '@shared/icon';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { openExternalUrl } from '@shared/helpers/openExternalUrl';
 import { SettingsEntry } from '../settings-entry/SettingsEntry';
 import { SettingsGroup } from '../settings-group/SettingsGroup';
@@ -16,6 +17,14 @@ export function GetSupportPage() {
       await openExternalUrl(url);
     } catch (error) {
       toast.fail('Couldn’t open the link', error);
+    }
+  }
+
+  async function openEmailSupport() {
+    try {
+      await openUrl(`mailto:${SUPPORT_EMAIL}`);
+    } catch (error) {
+      toast.fail('Couldn’t open your email app', error);
     }
   }
 
@@ -40,7 +49,7 @@ export function GetSupportPage() {
         title="Email support"
         description="For private questions, bug reports or help with installation."
         trailing={
-          <Button variant="outline-fill" size="medium" onClick={() => void open(`mailto:${SUPPORT_EMAIL}`)}>
+          <Button variant="outline-fill" size="medium" onClick={() => void openEmailSupport()}>
             Email support
           </Button>
         }
