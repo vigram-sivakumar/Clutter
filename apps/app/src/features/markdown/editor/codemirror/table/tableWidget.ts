@@ -28,6 +28,19 @@ const ALIGN_CLASS: Readonly<Record<Exclude<TableColumnAlignment, null>, string>>
   right: 'cm-table-widget-align-right',
 };
 
+let nextTableWidgetDiagnosticsId = 1;
+
+function tableDiagnosticsEnabled(): boolean {
+  return import.meta.env.DEV && typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).has('debugTables');
+}
+
+function logTableDiagnostic(event: string, details: Record<string, unknown>): void {
+  if (tableDiagnosticsEnabled()) {
+    console.info('[Clutter table diagnostics]', event, details);
+  }
+}
+
 type SelectedRangeBounds = { readonly minRow: number; readonly maxRow: number; readonly minCol: number; readonly maxCol: number } | null;
 
 function rangeEq(a: SelectedRangeBounds, b: SelectedRangeBounds): boolean {
@@ -172,6 +185,8 @@ export interface TableCellData {
  * Same shape as `NoteEmbedWidget.ts` (`toDOM`/`destroy`/`eq`).
  */
 export class TableWidget extends WidgetType {
+  private readonly diagnosticsId = nextTableWidgetDiagnosticsId++;
+
   constructor(
     /** Header row's cells, left to right. */
     readonly headerCells: readonly TableCellData[],
@@ -322,6 +337,13 @@ export class TableWidget extends WidgetType {
   }
 
   override toDOM(view: EditorView): HTMLElement {
+    logTableDiagnostic('widget-toDOM-start', {
+      widgetId: this.diagnosticsId,
+      tableFrom: this.tableFrom,
+      rawTextLength: this.rawText.length,
+      rowCount: this.bodyRows.length + 1,
+      columnCount: this.headerCells.length,
+    });
     // M5 "preserve focus across rebuilds" fix — captured *before* touching
     // any DOM below, while the nested view's current DOM position (inside
     // whichever `<td>` the *previous* toDOM() call built) is still the
@@ -465,6 +487,18 @@ export class TableWidget extends WidgetType {
     const tableScroll = document.createElement('div');
     tableScroll.className = 'cm-table-scroll';
     tableWrapper.appendChild(tableScroll);
+    if (tableDiagnosticsEnabled()) {
+      tableScroll.addEventListener('scroll', () => {
+        logTableDiagnostic('scroll', {
+          widgetId: this.diagnosticsId,
+          tableFrom: this.tableFrom,
+          scrollLeft: tableScroll.scrollLeft,
+          clientWidth: tableScroll.clientWidth,
+          scrollWidth: tableScroll.scrollWidth,
+          connected: tableScroll.isConnected,
+        });
+      }, { passive: true });
+    }
 
     // Separates two concerns that would otherwise collide on `.cm-table-scroll`
     // itself when that element has explicit widths: centering this whole
@@ -785,6 +819,11 @@ export class TableWidget extends WidgetType {
       });
     }
 
+    logTableDiagnostic('widget-toDOM-complete', {
+      widgetId: this.diagnosticsId,
+      tableFrom: this.tableFrom,
+      connected: widget.isConnected,
+    });
     return widget;
   }
 
@@ -1014,6 +1053,11 @@ export class TableWidget extends WidgetType {
    * no equivalent cleanup because their detached elements can be collected.
    */
   override destroy(): void {
+    logTableDiagnostic('widget-destroy', {
+      widgetId: this.diagnosticsId,
+      tableFrom: this.tableFrom,
+      rawTextLength: this.rawText.length,
+    });
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
     this.breakoutWidthHandle?.disconnect();
