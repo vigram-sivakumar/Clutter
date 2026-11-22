@@ -82,6 +82,9 @@ function columnWidthsEq(a: readonly number[] | null, b: readonly number[] | null
  */
 const pendingScrollRestoreByTableFrom = new Map<number, number>();
 
+/** Quick-add column insertion must reveal the newly appended rightmost column after the widget rebuilds. */
+const pendingScrollToEndByTableFrom = new Set<number>();
+
 /**
  * Lets a caller outside this file (`tableHandleOverlay.ts`'s pointerdown
  * handler) register a pre-rebuild `scrollLeft` the same way `buildRow()`'s
@@ -553,7 +556,7 @@ export class TableWidget extends WidgetType {
       addRow.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
-        if (insertRowBelowSelection(view, { kind: 'row', tableFrom: this.tableFrom, rowIndex: this.bodyRows.length })) {
+        if (insertRowBelowSelection(view, { kind: 'row', tableFrom: this.tableFrom, rowIndex: this.bodyRows.length }, false)) {
           view.focus();
         }
       });
@@ -572,8 +575,14 @@ export class TableWidget extends WidgetType {
         event.preventDefault();
         event.stopPropagation();
         const lastColumnIndex = this.headerCells.length - 1;
-        if (lastColumnIndex >= 0 && insertColumnRightSelection(view, { kind: 'column', tableFrom: this.tableFrom, columnIndex: lastColumnIndex })) {
+        if (lastColumnIndex < 0) {
+          return;
+        }
+        pendingScrollToEndByTableFrom.add(this.tableFrom);
+        if (insertColumnRightSelection(view, { kind: 'column', tableFrom: this.tableFrom, columnIndex: lastColumnIndex }, false)) {
           view.focus();
+        } else {
+          pendingScrollToEndByTableFrom.delete(this.tableFrom);
         }
       });
 
@@ -621,7 +630,9 @@ export class TableWidget extends WidgetType {
       // `attachTableColumnResizeHandles()` treats as "nothing to restore."
       const pendingScrollLeft = pendingScrollRestoreByTableFrom.get(this.tableFrom);
       pendingScrollRestoreByTableFrom.delete(this.tableFrom);
-      attachTableColumnResizeHandles(tableWrapper, this.tableFrom, view, this.headerCells.length, this.columnWidths, pendingScrollLeft);
+      const scrollToEnd = pendingScrollToEndByTableFrom.has(this.tableFrom);
+      pendingScrollToEndByTableFrom.delete(this.tableFrom);
+      attachTableColumnResizeHandles(tableWrapper, this.tableFrom, view, this.headerCells.length, this.columnWidths, pendingScrollLeft, scrollToEnd);
     }
 
     // Column/row-selection outline (range outlines land later, reusing
