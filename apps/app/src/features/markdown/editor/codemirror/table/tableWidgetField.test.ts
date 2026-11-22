@@ -45,8 +45,8 @@ describe('tableWidgetField — complete document parsing', () => {
     // beyond the parser's initially available viewport-prioritised syntax tree.
     // Without completing the parse before findAllTables(), this table can be
     // omitted and its raw Markdown becomes visible.
-    const prefix = Array.from({ length: 2000 }, (_, index) => `Paragraph ${index}`).join('\\n\\n');
-    const view = mountView(`${prefix}\\n\\n${BASIC_TABLE}`);
+    const prefix = Array.from({ length: 2000 }, (_, index) => `Paragraph ${index}`).join('\n\n');
+    const view = mountView(`${prefix}\n\n${BASIC_TABLE}`);
 
     expect(view.dom.querySelectorAll('.cm-table-widget')).toHaveLength(1);
     expect(view.dom.textContent).not.toContain('|');
