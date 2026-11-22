@@ -11,6 +11,8 @@ import { tableSelectionChanged, tableSelectionField } from './tableSelection';
 import { tableWidgetDecoration } from './tableWidgetField';
 
 import { tableSelectionDeletionHistory } from './tableSelectionDeletion';
+import { tableRectangularNormalization } from './tableRectangularNormalization';
+import { sharedMarkdownParser } from '../../../render/sharedMarkdownParser';
 import { insertRowBelowSelection } from './tableRowInsertion';
 import { insertColumnRightSelection } from './tableColumnInsertion';
 
@@ -1016,6 +1018,7 @@ describe('tableWidgetField — rendered projection survives structural history',
         markdownLanguageExtension(),
         tableSelectionField,
         tableSelectionDeletionHistory(),
+        tableRectangularNormalization(),
         history(),
         tableWidgetDecoration(),
       ],
@@ -1102,4 +1105,55 @@ describe('tableWidgetField — rendered projection survives structural history',
       view.destroy();
     }
   });
+
+  it('keeps a nine-column table recognised through repeated column insertion, undo and redo with rectangular normalisation installed', () => {
+    const doc = [
+      '|-|                                                            |                                                               |                                                               |   |   |   |   |   |   |',
+      '| ------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------- | - | - | - | - | - | - |',
+      "| I've corrected both directly on GitHub \x60main\x60. Pushed to main | I've corrected both directly on GitHub \x60main\x60. Pushed to main | I've corrected both directly on GitHub \x60main\x60. Pushed to main |   |   |   |   |   |   |",
+    ].join('\n');
+    const view = mountHistoryView(doc);
+
+    const expectBothParsersAndProjection = (expectedColumns: number) => {
+      expect(findAllTables(view.state)).toHaveLength(1);
+
+      const freshTree = sharedMarkdownParser.parse(view.state.doc.toString());
+      let freshTableCount = 0;
+      freshTree.iterate({ enter: (node) => {
+        if (node.name === 'Table') freshTableCount += 1;
+      } });
+      expect(freshTableCount).toBe(1);
+
+      expectTableProjection(view, 2, expectedColumns);
+    };
+
+    try {
+      expectBothParsersAndProjection(9);
+
+      // Each insertion is a distinct user history step, as it is when the
+      // user performs separate handle-menu actions.
+      for (let i = 0; i < 3; i += 1) {
+        const selection = view.state.field(tableSelectionField);
+        if (!selection || selection.kind !== 'column') {
+          view.dispatch({ effects: tableSelectionChanged.of({ kind: 'column', tableFrom: 0, columnIndex: 0 }) });
+        }
+        expect(insertColumnRightSelection(view, view.state.field(tableSelectionField)!)).toBe(true);
+        expectBothParsersAndProjection(10 + i);
+        view.dispatch({ annotations: isolateHistory.of('full') });
+      }
+
+      for (let columns = 12; columns > 9; columns -= 1) {
+        undo(view);
+        expectBothParsersAndProjection(columns - 1);
+      }
+
+      for (let columns = 10; columns <= 12; columns += 1) {
+        redo(view);
+        expectBothParsersAndProjection(columns);
+      }
+    } finally {
+      view.destroy();
+    }
+  });
+
 });
