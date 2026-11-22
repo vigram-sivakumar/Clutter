@@ -1108,7 +1108,7 @@ describe('tableWidgetField — rendered projection survives structural history',
 
   it('keeps a nine-column table recognised through repeated column insertion, undo and redo with rectangular normalisation installed', () => {
     const doc = [
-      '|-|                                                            |                                                               |                                                               |   |   |   |   |   |   |',
+      '| - | | | | | | | | |',
       '| ------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------- | - | - | - | - | - | - |',
       "| I've corrected both directly on GitHub \x60main\x60. Pushed to main | I've corrected both directly on GitHub \x60main\x60. Pushed to main | I've corrected both directly on GitHub \x60main\x60. Pushed to main |   |   |   |   |   |   |",
     ].join('\n');
@@ -1133,11 +1133,10 @@ describe('tableWidgetField — rendered projection survives structural history',
       // Each insertion is a distinct user history step, as it is when the
       // user performs separate handle-menu actions.
       for (let i = 0; i < 3; i += 1) {
-        const selection = view.state.field(tableSelectionField);
-        if (!selection || selection.kind !== 'column') {
-          view.dispatch({ effects: tableSelectionChanged.of({ kind: 'column', tableFrom: 0, columnIndex: 0 }) });
-        }
-        expect(insertColumnRightSelection(view, view.state.field(tableSelectionField)!)).toBe(true);
+        // Match the actual quick-add-column path: append after the final
+        // header column, do not change the selected column, and preserve
+        // measured widths in the same transaction.
+        expect(insertColumnRightSelection(view, { kind: 'column', tableFrom: 0, columnIndex: 8 + i }, false, true)).toBe(true);
         expectBothParsersAndProjection(10 + i);
         view.dispatch({ annotations: isolateHistory.of('full') });
       }
