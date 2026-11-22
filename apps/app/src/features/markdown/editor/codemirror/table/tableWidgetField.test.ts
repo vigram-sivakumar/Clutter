@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { history, redo, undo, closeHistory } from '@codemirror/commands';
+import { history, redo, undo, isolateHistory } from '@codemirror/commands';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
@@ -13,6 +13,31 @@ import { tableWidgetDecoration } from './tableWidgetField';
 import { tableSelectionDeletionHistory } from './tableSelectionDeletion';
 import { insertRowBelowSelection } from './tableRowInsertion';
 import { insertColumnRightSelection } from './tableColumnInsertion';
+
+ 
+// TableWidget creates ResizeObservers for its quick-add controls. jsdom does
+// not provide ResizeObserver, so provide a no-op fallback for tests that do
+// not need to inspect observer behaviour. The focused observer suites below
+// replace this with their controllable MockResizeObserver.
+const originalResizeObserver = globalThis.ResizeObserver;
+class FallbackResizeObserver {
+  constructor(_callback: ResizeObserverCallback) {}
+  observe(_target: Element): void {}
+  unobserve(_target: Element): void {}
+  disconnect(): void {}
+}
+
+beforeEach(() => {
+  globalThis.ResizeObserver ??= FallbackResizeObserver as unknown as typeof ResizeObserver;
+});
+
+afterEach(() => {
+  if (originalResizeObserver) {
+    globalThis.ResizeObserver = originalResizeObserver;
+  } else {
+    Reflect.deleteProperty(globalThis, 'ResizeObserver');
+  }
+});
 
 
 function mountView(doc: string, controller?: TableActiveCellController): EditorView {
@@ -46,16 +71,25 @@ const MULTI_ROW_TABLE = '| a | b |\n| - | - |\n| 1 | 2 |\n| 3 | 4 |\n| 5 | 6 |';
 const RAGGED_ROW_TABLE = '| a | b |\n| - | - |\n| 1 | 2 |\n| 3 |\n| 5 | 6 |';
 
 describe('tableWidgetField — complete document parsing', () => {
-  it('keeps a table near the end of a long document inside the table widget projection', () => {
-    // The table field replaces every table in the document, including ones
-    // beyond the parser's initially available viewport-prioritised syntax tree.
-    // Without completing the parse before findAllTables(), this table can be
-    // omitted and its raw Markdown becomes visible.
+  it('keeps a table near the end of a long document in the decoration projection', () => {
+    // CodeMirror virtualises off-screen DOM, so a table thousands of lines
+    // below the viewport is not expected to have a widget element mounted.
+    // Inspect the directly-provided block decoration instead: the table's
+    // complete source range must already be replaced in editor state.
     const prefix = Array.from({ length: 2000 }, (_, index) => `Paragraph ${index}`).join('\n\n');
+    const tableFrom = prefix.length + 2;
+    const tableTo = tableFrom + BASIC_TABLE.length;
     const view = mountView(`${prefix}\n\n${BASIC_TABLE}`);
 
-    expect(view.dom.querySelectorAll('.cm-table-widget')).toHaveLength(1);
-    expect(view.dom.textContent).not.toContain('|');
+    const hasTableReplacement = view.state.facet(EditorView.decorations).some((set) => {
+      let found = false;
+      set.between(tableFrom, tableTo, (from, to) => {
+        if (from === tableFrom && to === tableTo) found = true;
+      });
+      return found;
+    });
+
+    expect(hasTableReplacement).toBe(true);
   });
 });
 
@@ -1047,7 +1081,7 @@ describe('tableWidgetField — rendered projection survives structural history',
       view.dispatch({ effects: tableSelectionChanged.of({ kind: 'row', tableFrom: 0, rowIndex: 1 }) });
       expect(insertRowBelowSelection(view, view.state.field(tableSelectionField)!)).toBe(true);
       expectTableProjection(view, 4, 2);
-      closeHistory(view);
+      view.dispatch({ annotations: isolateHistory.of('full') });
 
       view.dispatch({ effects: tableSelectionChanged.of({ kind: 'column', tableFrom: 0, columnIndex: 1 }) });
       expect(insertColumnRightSelection(view, view.state.field(tableSelectionField)!)).toBe(true);
