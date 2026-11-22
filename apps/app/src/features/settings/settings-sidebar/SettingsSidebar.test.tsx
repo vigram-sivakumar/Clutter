@@ -71,8 +71,8 @@ describe('SettingsSidebar', () => {
     render(<SettingsSidebar selectedId="preferences" onSelect={onSelect} />);
 
     expect(screen.getByText('Clutter')).toBeInTheDocument();
-    expect(row('Support Clutter').querySelector('[data-icon="heart"]')).not.toBeNull();
-    fireEvent.click(screen.getByText('Support Clutter'));
+    expect(row('Support').querySelector('[data-icon="heart"]')).not.toBeNull();
+    fireEvent.click(screen.getByText('Support'));
     expect(onSelect).toHaveBeenCalledWith('support');
   });
 

@@ -102,7 +102,11 @@ export function Settings({ templates, noteLocation, spaceSettings, space, onClos
   return (
     <div className="settings">
       <SettingsSidebar selectedId={pageId} onSelect={setPageId} space={space} />
-      <SettingsPage key={pageId} title={isSpacePageId(pageId) ? 'Space setting' : PAGE_TITLES[pageId]}>
+      <SettingsPage
+        key={pageId}
+        title={isSpacePageId(pageId) ? 'Space setting' : PAGE_TITLES[pageId]}
+        description={pageId === 'support' ? 'Clutter is free to use. Your contribution helps fund its continued development.' : undefined}
+      >
         {isSpacePageId(pageId) && selectedSpace && (
           <SpacePage
             key={selectedSpace.path}
