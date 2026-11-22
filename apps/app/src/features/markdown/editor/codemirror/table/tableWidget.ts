@@ -564,6 +564,18 @@ export class TableWidget extends WidgetType {
         }
         if (insertRowBelowSelection(view, { kind: 'row', tableFrom: this.tableFrom, rowIndex: this.bodyRows.length }, false)) {
           view.focus();
+          const scrollLeft = currentScroll?.scrollLeft ?? 0;
+          // The insertion can cause more than one synchronous widget rebuild
+          // (including transaction-filter normalisation). Restore against the
+          // final live widget, not an intermediate replacement.
+          requestAnimationFrame(() => {
+            const rebuiltScroll = view.dom.querySelector<HTMLElement>(
+              `.cm-table-widget[data-table-from="${this.tableFrom}"] .cm-table-wrapper > .cm-table-scroll`
+            );
+            if (rebuiltScroll?.isConnected) {
+              rebuiltScroll.scrollLeft = scrollLeft;
+            }
+          });
         } else {
           pendingScrollRestoreByTableFrom.delete(this.tableFrom);
         }
@@ -592,6 +604,21 @@ export class TableWidget extends WidgetType {
         pendingScrollToEndByTableFrom.add(this.tableFrom);
         if (insertColumnRightSelection(view, { kind: 'column', tableFrom: this.tableFrom, columnIndex: lastColumnIndex }, false, true)) {
           view.focus();
+          // Apply the destination after all synchronous transaction-filter
+          // rebuilds have settled; an intermediate widget can otherwise
+          // consume the pending request before the final widget exists.
+          requestAnimationFrame(() => {
+            const rebuiltScroll = view.dom.querySelector<HTMLElement>(
+              `.cm-table-widget[data-table-from="${this.tableFrom}"] .cm-table-wrapper > .cm-table-scroll`
+            );
+            const rebuiltTable = rebuiltScroll?.querySelector<HTMLTableElement>('table');
+            if (rebuiltScroll?.isConnected && rebuiltTable) {
+              const tableRect = rebuiltTable.getBoundingClientRect();
+              const scrollRect = rebuiltScroll.getBoundingClientRect();
+              const tableRightInScrollContent = tableRect.right - scrollRect.left + rebuiltScroll.scrollLeft;
+              rebuiltScroll.scrollLeft = Math.max(0, tableRightInScrollContent - rebuiltScroll.clientWidth);
+            }
+          });
         } else {
           pendingScrollToEndByTableFrom.delete(this.tableFrom);
         }
