@@ -505,10 +505,11 @@
 }
 .cm-editor .cm-table-wrapper--explicit-widths .cm-table-inner {
   width: max-content;
-  /* The layout reserves 30px for the 24px column bar and its 6px gap.
-   * Resolve the table's minimum width against the remaining table track,
-   * not the already widened layout, or the bar gets pushed 30px away. */
-  min-width: calc(100% - 30px);
+  /* Explicit-width tables must keep their intrinsic width. Do not give
+   * this track a percentage minimum: the parent is already widened for
+   * the column bar, so a percentage minimum creates empty space between
+   * the table and that bar. */
+  min-width: 0;
   flex: 0 0 auto;
 }
 
