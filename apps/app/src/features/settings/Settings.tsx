@@ -66,7 +66,7 @@ const PAGE_TITLES: Record<FixedSettingsPageId, string> = {
   templates: 'Templates',
   layout: 'Layout',
   markdown: 'Markdown',
-  support: 'Keep Clutter growing',
+  support: 'Support independent development',
 };
 
 interface SettingsProps {
@@ -104,10 +104,11 @@ export function Settings({ templates, noteLocation, spaceSettings, space, onClos
       <SettingsSidebar selectedId={pageId} onSelect={setPageId} space={space} />
       <SettingsPage
         key={pageId}
+        className={pageId === 'support' ? 'settings-page--support' : undefined}
         title={isSpacePageId(pageId) ? 'Space setting' : PAGE_TITLES[pageId]}
         description={
           pageId === 'support'
-            ? 'Clutter is free for everyone. If it has made a little more room for your thoughts, you can help keep it growing. Every contribution is optional, made just once, and helps fund continued development.'
+            ? 'If Clutter has been useful to you, a one-time contribution helps support its continued development.'
             : undefined
         }
       >
