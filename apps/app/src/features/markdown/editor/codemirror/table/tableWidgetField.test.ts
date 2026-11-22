@@ -39,6 +39,20 @@ const MULTI_ROW_TABLE = '| a | b |\n| - | - |\n| 1 | 2 |\n| 3 | 4 |\n| 5 | 6 |';
 // two columns — for the row-selection ragged-row test below.
 const RAGGED_ROW_TABLE = '| a | b |\n| - | - |\n| 1 | 2 |\n| 3 |\n| 5 | 6 |';
 
+describe('tableWidgetField — complete document parsing', () => {
+  it('keeps a table near the end of a long document inside the table widget projection', () => {
+    // The table field replaces every table in the document, including ones
+    // beyond the parser's initially available viewport-prioritised syntax tree.
+    // Without completing the parse before findAllTables(), this table can be
+    // omitted and its raw Markdown becomes visible.
+    const prefix = Array.from({ length: 2000 }, (_, index) => `Paragraph ${index}`).join('\\n\\n');
+    const view = mountView(`${prefix}\\n\\n${BASIC_TABLE}`);
+
+    expect(view.dom.querySelectorAll('.cm-table-widget')).toHaveLength(1);
+    expect(view.dom.textContent).not.toContain('|');
+  });
+});
+
 describe('tableWidgetField — basic table', () => {
   it('renders a real <table> element, hiding every pipe delimiter', () => {
     const view = mountView(`${BASIC_TABLE}\n\nOther`);
