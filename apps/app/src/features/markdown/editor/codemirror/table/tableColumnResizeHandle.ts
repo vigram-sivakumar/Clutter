@@ -146,7 +146,8 @@ export function attachTableColumnResizeHandles(
   view: EditorView,
   columnCount: number,
   columnWidths: readonly number[] | null,
-  restoreScrollLeftAfterPositioning?: number
+  restoreScrollLeftAfterPositioning?: number,
+  scrollToEndAfterPositioning = false
 ): void {
   if (columnCount < 1) {
     return;
@@ -637,7 +638,12 @@ export function attachTableColumnResizeHandles(
   queueMicrotask(() => {
     if (wrapper.isConnected) {
       positionBoundaries();
-      if (restoreScrollLeftAfterPositioning !== undefined) {
+      if (scrollToEndAfterPositioning) {
+        const table = tableScroll.querySelector<HTMLTableElement>('table');
+        if (table) {
+          tableScroll.scrollLeft = Math.max(0, table.getBoundingClientRect().width - tableScroll.clientWidth);
+        }
+      } else if (restoreScrollLeftAfterPositioning !== undefined) {
         tableScroll.scrollLeft = restoreScrollLeftAfterPositioning;
       }
     }
