@@ -1009,17 +1009,17 @@ describe('tableWidgetField — rendered projection survives structural history',
   it('keeps the table projected through row insertion, undo and redo', () => {
     const view = mountHistoryView(HISTORY_TABLE);
     try {
-      expectTableProjection(view, 4, 2);
+      expectTableProjection(view, 3, 2);
 
       view.dispatch({ effects: tableSelectionChanged.of({ kind: 'row', tableFrom: 0, rowIndex: 1 }) });
       expect(insertRowBelowSelection(view, view.state.field(tableSelectionField)!)).toBe(true);
-      expectTableProjection(view, 5, 2);
-
-      undo(view);
       expectTableProjection(view, 4, 2);
 
+      undo(view);
+      expectTableProjection(view, 3, 2);
+
       redo(view);
-      expectTableProjection(view, 5, 2);
+      expectTableProjection(view, 4, 2);
     } finally {
       view.destroy();
     }
@@ -1028,17 +1028,17 @@ describe('tableWidgetField — rendered projection survives structural history',
   it('keeps the table projected through column insertion, undo and redo', () => {
     const view = mountHistoryView(HISTORY_TABLE);
     try {
-      expectTableProjection(view, 4, 2);
+      expectTableProjection(view, 3, 2);
 
       view.dispatch({ effects: tableSelectionChanged.of({ kind: 'column', tableFrom: 0, columnIndex: 1 }) });
       expect(insertColumnRightSelection(view, view.state.field(tableSelectionField)!)).toBe(true);
-      expectTableProjection(view, 4, 3);
+      expectTableProjection(view, 3, 3);
 
       undo(view);
-      expectTableProjection(view, 4, 2);
+      expectTableProjection(view, 3, 2);
 
       redo(view);
-      expectTableProjection(view, 4, 3);
+      expectTableProjection(view, 3, 3);
     } finally {
       view.destroy();
     }
@@ -1049,23 +1049,23 @@ describe('tableWidgetField — rendered projection survives structural history',
     try {
       view.dispatch({ effects: tableSelectionChanged.of({ kind: 'row', tableFrom: 0, rowIndex: 1 }) });
       expect(insertRowBelowSelection(view, view.state.field(tableSelectionField)!)).toBe(true);
-      expectTableProjection(view, 5, 2);
+      expectTableProjection(view, 4, 2);
 
       view.dispatch({ effects: tableSelectionChanged.of({ kind: 'column', tableFrom: 0, columnIndex: 1 }) });
       expect(insertColumnRightSelection(view, view.state.field(tableSelectionField)!)).toBe(true);
-      expectTableProjection(view, 5, 3);
-
-      undo(view);
-      expectTableProjection(view, 5, 2);
+      expectTableProjection(view, 4, 3);
 
       undo(view);
       expectTableProjection(view, 4, 2);
 
-      redo(view);
-      expectTableProjection(view, 5, 2);
+      undo(view);
+      expectTableProjection(view, 3, 2);
 
       redo(view);
-      expectTableProjection(view, 5, 3);
+      expectTableProjection(view, 4, 2);
+
+      redo(view);
+      expectTableProjection(view, 4, 3);
     } finally {
       view.destroy();
     }
