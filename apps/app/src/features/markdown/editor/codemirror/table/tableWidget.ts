@@ -473,9 +473,13 @@ export class TableWidget extends WidgetType {
     // that blocks parent/child margin collapsing outright, and the
     // centering math on `.cm-table-scroll` never has to account for a
     // margin it doesn't have.
+    const tableLayout = document.createElement('div');
+    tableLayout.className = 'cm-table-layout';
+    tableScroll.appendChild(tableLayout);
+
     const tableInner = document.createElement('div');
     tableInner.className = 'cm-table-inner';
-    tableScroll.appendChild(tableInner);
+    tableLayout.appendChild(tableInner);
 
     const table = document.createElement('table');
     tableInner.appendChild(table);
@@ -564,7 +568,8 @@ export class TableWidget extends WidgetType {
         }
       });
 
-      tableInner.append(addRow, addColumn);
+      tableInner.append(addRow);
+      tableLayout.append(addColumn);
     }
 
     // Hover-only column/row handle overlay (visual only — no click/drag/
