@@ -579,7 +579,7 @@ export class TableWidget extends WidgetType {
           return;
         }
         pendingScrollToEndByTableFrom.add(this.tableFrom);
-        if (insertColumnRightSelection(view, { kind: 'column', tableFrom: this.tableFrom, columnIndex: lastColumnIndex }, false)) {
+        if (insertColumnRightSelection(view, { kind: 'column', tableFrom: this.tableFrom, columnIndex: lastColumnIndex }, false, true)) {
           view.focus();
         } else {
           pendingScrollToEndByTableFrom.delete(this.tableFrom);
