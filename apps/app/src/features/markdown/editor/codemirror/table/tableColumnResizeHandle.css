@@ -23,8 +23,6 @@
  */
 .cm-table-column-resize-hit {
   position: absolute;
-  top: var(--cm-table-handle-gutter, 0px);
-  bottom: 0;
   width: 8px;
   transform: translateX(-50%);
   cursor: col-resize;
