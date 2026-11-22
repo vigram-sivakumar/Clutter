@@ -163,7 +163,22 @@ function insertColumn(
       ])
     : buildTableColumnWidthsAttributeChange(attribute, nextWidths);
   if (widthsChange) {
-    changes.push(widthsChange);
+    // A no-metadata table's new width attribute is inserted at table.to.
+    // Appending a column to the final row can also insert at that exact
+    // position, so combine those insertions rather than dispatching
+    // overlapping ChangeSpecs.
+    const samePositionInsertion = changes.findIndex(
+      (change) => change.from === widthsChange.from && change.to === widthsChange.to
+    );
+    if (samePositionInsertion >= 0 && widthsChange.from === widthsChange.to) {
+      const existingChange = changes[samePositionInsertion]!;
+      changes[samePositionInsertion] = {
+        ...existingChange,
+        insert: (existingChange.insert ?? '') + (widthsChange.insert ?? ''),
+      };
+    } else {
+      changes.push(widthsChange);
+    }
   }
 
   dispatchInsertion(view, changes, selectInserted ? { kind: 'column', tableFrom: table.from, columnIndex: targetIndex } : undefined);
