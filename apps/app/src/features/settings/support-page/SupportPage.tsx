@@ -67,10 +67,7 @@ export function SupportPage() {
       </section>
 
       <footer className="support-page__promise">
-        <p className="support-page__promise-title">Free for everyone, always.</p>
-        <p className="support-page__promise-copy">
-          Contributions do not unlock features or change how Clutter works.
-        </p>
+        <p className="support-page__promise-copy">Free for everyone, always.</p>
       </footer>
     </div>
   );
