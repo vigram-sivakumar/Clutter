@@ -1149,4 +1149,51 @@ describe('tableWidgetField — rendered projection survives structural history',
     }
   });
 
+  it('keeps column counts and persisted widths in sync across rapid insertions, individual undo and redo', () => {
+    const doc = [
+      '| Name | Role | City |',
+      '| --- | --- | --- |',
+      '| Vik | Designer | Chennai |',
+      '{table-col-widths="240,240,240"}',
+    ].join('\n');
+    const view = mountHistoryView(doc, true);
+
+    const expectState = (columns: number) => {
+      expect(findAllTables(view.state)).toHaveLength(1);
+      expectTableProjection(view, 2, columns);
+
+      const widthLine = view.state.doc.toString().split('\n').find((line) => line.startsWith('{table-col-widths='));
+      expect(widthLine).toBeDefined();
+      const widths = widthLine?.replace('{table-col-widths="', '').replace('"}', '').split(',').map(Number);
+      expect(widths).toEqual([240, 240, 240, ...Array.from({ length: columns - 3 }, () => 200)]);
+    };
+
+    try {
+      expectState(3);
+
+      // Deliberately do not insert isolateHistory transactions between clicks:
+      // production must make each structural menu action its own undo step.
+      for (let i = 0; i < 7; i += 1) {
+        expect(insertColumnRightSelection(view, {
+          kind: 'column',
+          tableFrom: 0,
+          columnIndex: 2 + i,
+        })).toBe(true);
+        expectState(4 + i);
+      }
+
+      for (let columns = 10; columns > 3; columns -= 1) {
+        undo(view);
+        expectState(columns - 1);
+      }
+
+      for (let columns = 4; columns <= 10; columns += 1) {
+        redo(view);
+        expectState(columns);
+      }
+    } finally {
+      view.destroy();
+    }
+  });
+
 });
