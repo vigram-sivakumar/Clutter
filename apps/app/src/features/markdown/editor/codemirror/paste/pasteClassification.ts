@@ -73,12 +73,13 @@ export function classifyPaste(data: DataTransfer, env: PasteEnvironment): PasteC
   const parsedTable = readClipboardTable(data);
   const context = pasteContextAt(state, state.selection.main.from);
   const plainText = data.getData('text/plain');
-  // Plain text is a 1x1 clipboard grid when a table cell or table selection
-  // is the explicit target. Elsewhere it keeps normal editor paste behaviour.
+  // Plain text without tabs is one cell value when a table cell or table selection
+  // is the explicit target. Newlines are normalised to spaces by normalizeGrid;
+  // tabs remain reserved for spreadsheet-style grid pastes.
   const html = data.getData('text/html');
   const hasHtmlTable = HAS_TABLE.test(html);
   const isTableTarget = selection !== null || (env.scope === 'cell' && env.cellActive === true);
-  const isSingleCellText = plainText !== '' && !/[\r\n\t]/.test(plainText) && !hasHtmlTable;
+  const isSingleCellText = plainText !== '' && !plainText.includes('\t') && !hasHtmlTable;
   const table: ClipboardTable | null = parsedTable ?? (
     isTableTarget && isSingleCellText
       ? { source: 'text', grid: [[plainText]] }
