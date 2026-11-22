@@ -158,6 +158,18 @@ export function Footer({
             >
               Markdown guide
             </MenuItem>
+            <MenuItem
+              leading={<AppIcon icon="help" />}
+              onClick={() => {
+                helpMenu.hide();
+                if (settingsDialog) {
+                  settingsDialog.setPageId('get-support');
+                  settingsDialog.setOpen(true);
+                }
+              }}
+            >
+              Get Support
+            </MenuItem>
           </Menu>
         </Overlay>
         <Button

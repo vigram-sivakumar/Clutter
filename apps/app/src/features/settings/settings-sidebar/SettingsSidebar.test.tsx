@@ -76,6 +76,14 @@ describe('SettingsSidebar', () => {
     expect(onSelect).toHaveBeenCalledWith('support');
   });
 
+  it('lists Get Support directly below Support and reports its page id', () => {
+    const onSelect = vi.fn();
+    render(<SettingsSidebar selectedId="preferences" onSelect={onSelect} />);
+    expect(row('Support').compareDocumentPosition(row('Get Support')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(screen.getByText('Get Support'));
+    expect(onSelect).toHaveBeenCalledWith('get-support');
+  });
+
   it('draws the settings icon for Preferences', () => {
     render(<SettingsSidebar selectedId="preferences" onSelect={() => {}} />);
     expect(

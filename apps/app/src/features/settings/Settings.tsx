@@ -54,6 +54,7 @@ import { PreferClutterQuoteSyntaxSetting } from './markdown-setting/PreferClutte
 import { ResetSettings } from './reset-settings/ResetSettings';
 import { LegalLinks } from './legal-links/LegalLinks';
 import { SupportPage } from './support-page/SupportPage';
+import { GetSupportPage } from './get-support-page/GetSupportPage';
 import type { ResetSettingsOutcome } from './reset-settings/resetSettingsToDefaults';
 
 const PAGE_TITLES: Record<FixedSettingsPageId, string> = {
@@ -67,6 +68,7 @@ const PAGE_TITLES: Record<FixedSettingsPageId, string> = {
   layout: 'Layout',
   markdown: 'Markdown',
   support: 'Support Clutter',
+  'get-support': 'Get Support',
 };
 
 interface SettingsProps {
@@ -241,6 +243,7 @@ export function Settings({ templates, noteLocation, spaceSettings, space, onClos
           </SettingsGroup>
         )}
         {pageId === 'support' && <SupportPage />}
+        {pageId === 'get-support' && <GetSupportPage />}
         {pageId === 'daily-notes' && (
           <>
             <SettingsGroup title="Sidebar appearance">

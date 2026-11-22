@@ -37,6 +37,18 @@ describe('Settings → Editor → Layout', () => {
 });
 
 
+describe('Settings → Clutter → Get Support', () => {
+  it('shows Discord and email support placeholders', () => {
+    render(<Settings />);
+    fireEvent.click(screen.getByText('Get Support'));
+    expect(screen.getByRole('heading', { name: 'Get Support' })).toBeInTheDocument();
+    expect(screen.getByText('Discord community')).toBeInTheDocument();
+    expect(screen.getByText('Invite link coming soon')).toBeInTheDocument();
+    expect(screen.getByText('Email support')).toBeInTheDocument();
+    expect(screen.getByText('Support email coming soon')).toBeInTheDocument();
+  });
+});
+
 describe('Settings → Clutter → Support', () => {
   it('shows the support page from the settings sidebar without opening payment services', () => {
     render(<Settings />);
