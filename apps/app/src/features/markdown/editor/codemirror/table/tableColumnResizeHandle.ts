@@ -242,13 +242,22 @@ export function attachTableColumnResizeHandles(
     }
     const scrollRect = tableScroll!.getBoundingClientRect();
     const scrollLeft = tableScroll!.scrollLeft;
+    const tableRect = tableEl!.getBoundingClientRect();
+    // Resize hit strips are children of the scroll viewport so they track
+    // horizontal scrolling with the table. Their vertical extent must be
+    // measured from the table itself, not stretched to the viewport's
+    // bottom: the viewport now also contains the quick-add row/column bars.
+    const tableTop = tableRect.top - scrollRect.top + tableScroll!.scrollTop;
     for (let i = 0; i < boundaries.length; i++) {
       const cell = headerRow.children[i] as HTMLElement | undefined;
       if (!cell) {
         continue;
       }
       const cellRect = cell.getBoundingClientRect();
-      boundaries[i]!.style.left = `${cellRect.right - scrollRect.left + scrollLeft}px`;
+      const boundary = boundaries[i]!;
+      boundary.style.left = `${cellRect.right - scrollRect.left + scrollLeft}px`;
+      boundary.style.top = `${tableTop}px`;
+      boundary.style.height = `${tableRect.height}px`;
     }
   }
 
