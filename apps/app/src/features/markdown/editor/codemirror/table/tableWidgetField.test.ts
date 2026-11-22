@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { EditorState } from '@codemirror/state';
+
 import { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
@@ -8,6 +9,12 @@ import { TableActiveCellController } from './tableActiveCellController';
 import { findAllTables } from './tableGeometry';
 import { tableSelectionChanged, tableSelectionField } from './tableSelection';
 import { tableWidgetDecoration } from './tableWidgetField';
+
+import { history, redo, undo } from '@codemirror/commands';
+import { tableSelectionDeletionHistory } from './tableSelectionDeletion';
+import { insertRowBelowSelection } from './tableRowInsertion';
+import { insertColumnRightSelection } from './tableColumnInsertion';
+
 
 function mountView(doc: string, controller?: TableActiveCellController): EditorView {
   const parent = document.createElement('div');
@@ -962,5 +969,105 @@ describe('tableWidgetField/TableWidget — cell activation preserves horizontal 
 
     await flushPendingScrollRestore();
     expect(freshCell.contains(controller.nestedView!.dom)).toBe(true);
+  });
+});
+
+describe('tableWidgetField — rendered projection survives structural history', () => {
+  const HISTORY_TABLE = '| Name | Role |\n| --- | --- |\n| Vik | Designer |\n| Sam | Engineer |';
+
+  function mountHistoryView(doc: string): EditorView {
+    const parent = document.body.appendChild(document.createElement('div'));
+    const state = EditorState.create({
+      doc,
+      extensions: [
+        markdownLanguageExtension(),
+        tableSelectionField,
+        tableSelectionDeletionHistory(),
+        history(),
+        tableWidgetDecoration(),
+      ],
+    });
+    return new EditorView({ state, parent });
+  }
+
+  function expectTableProjection(view: EditorView, expectedRows: number, expectedColumns: number): void {
+    const widgets = view.dom.querySelectorAll('.cm-table-widget');
+    expect(widgets).toHaveLength(1);
+
+    const table = widgets[0]!.querySelector('table') as HTMLTableElement | null;
+    expect(table).not.toBeNull();
+    expect(table!.rows).toHaveLength(expectedRows);
+    expect(table!.rows[0]!.cells).toHaveLength(expectedColumns);
+
+    // The replacement must be present synchronously after every transaction,
+    // not merely after a later parse/view update.
+    expect(view.dom.textContent).not.toContain('| Name |');
+    expect(view.dom.textContent).not.toContain('| --- |');
+    expect(view.dom.textContent).not.toContain('| Vik |');
+  }
+
+  it('keeps the table projected through row insertion, undo and redo', () => {
+    const view = mountHistoryView(HISTORY_TABLE);
+    try {
+      expectTableProjection(view, 4, 2);
+
+      view.dispatch({ effects: tableSelectionChanged.of({ kind: 'row', tableFrom: 0, rowIndex: 1 }) });
+      expect(insertRowBelowSelection(view, view.state.field(tableSelectionField)!)).toBe(true);
+      expectTableProjection(view, 5, 2);
+
+      undo(view);
+      expectTableProjection(view, 4, 2);
+
+      redo(view);
+      expectTableProjection(view, 5, 2);
+    } finally {
+      view.destroy();
+    }
+  });
+
+  it('keeps the table projected through column insertion, undo and redo', () => {
+    const view = mountHistoryView(HISTORY_TABLE);
+    try {
+      expectTableProjection(view, 4, 2);
+
+      view.dispatch({ effects: tableSelectionChanged.of({ kind: 'column', tableFrom: 0, columnIndex: 1 }) });
+      expect(insertColumnRightSelection(view, view.state.field(tableSelectionField)!)).toBe(true);
+      expectTableProjection(view, 4, 3);
+
+      undo(view);
+      expectTableProjection(view, 4, 2);
+
+      redo(view);
+      expectTableProjection(view, 4, 3);
+    } finally {
+      view.destroy();
+    }
+  });
+
+  it('keeps the table projected through consecutive undo and redo operations', () => {
+    const view = mountHistoryView(HISTORY_TABLE);
+    try {
+      view.dispatch({ effects: tableSelectionChanged.of({ kind: 'row', tableFrom: 0, rowIndex: 1 }) });
+      expect(insertRowBelowSelection(view, view.state.field(tableSelectionField)!)).toBe(true);
+      expectTableProjection(view, 5, 2);
+
+      view.dispatch({ effects: tableSelectionChanged.of({ kind: 'column', tableFrom: 0, columnIndex: 1 }) });
+      expect(insertColumnRightSelection(view, view.state.field(tableSelectionField)!)).toBe(true);
+      expectTableProjection(view, 5, 3);
+
+      undo(view);
+      expectTableProjection(view, 5, 2);
+
+      undo(view);
+      expectTableProjection(view, 4, 2);
+
+      redo(view);
+      expectTableProjection(view, 5, 2);
+
+      redo(view);
+      expectTableProjection(view, 5, 3);
+    } finally {
+      view.destroy();
+    }
   });
 });
