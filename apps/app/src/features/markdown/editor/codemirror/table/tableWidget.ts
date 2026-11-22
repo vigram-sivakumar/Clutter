@@ -593,6 +593,12 @@ export class TableWidget extends WidgetType {
         const currentScroll = view.dom.querySelector<HTMLElement>(
           `.cm-table-widget[data-table-from="${this.tableFrom}"] .cm-table-wrapper > .cm-table-scroll`
         );
+        const pageContent = document.querySelector<HTMLElement>('.page__content');
+        logTableDiagnostic('quick-add-row-click', {
+          tableFrom: this.tableFrom,
+          scrollLeft: currentScroll?.scrollLeft ?? null,
+          pageScrollTop: pageContent?.scrollTop ?? null,
+        });
         if (currentScroll) {
           pendingScrollRestoreByTableFrom.set(this.tableFrom, currentScroll.scrollLeft);
         }
@@ -607,7 +613,22 @@ export class TableWidget extends WidgetType {
               `.cm-table-widget[data-table-from="${this.tableFrom}"] .cm-table-wrapper > .cm-table-scroll`
             );
             if (rebuiltScroll?.isConnected) {
+              const before = rebuiltScroll.scrollLeft;
               rebuiltScroll.scrollLeft = scrollLeft;
+              logTableDiagnostic('scroll-write', {
+                reason: 'quick-add-row-animation-frame',
+                tableFrom: this.tableFrom,
+                before,
+                requested: scrollLeft,
+                after: rebuiltScroll.scrollLeft,
+                pageScrollTop: pageContent?.scrollTop ?? null,
+              });
+            } else {
+              logTableDiagnostic('quick-add-row-restore-missed', {
+                tableFrom: this.tableFrom,
+                scrollLeft,
+                pageScrollTop: pageContent?.scrollTop ?? null,
+              });
             }
           });
         } else {
@@ -629,6 +650,15 @@ export class TableWidget extends WidgetType {
         event.preventDefault();
         event.stopPropagation();
         const lastColumnIndex = this.headerCells.length - 1;
+        const pageContent = document.querySelector<HTMLElement>('.page__content');
+        const currentScroll = view.dom.querySelector<HTMLElement>(
+          `.cm-table-widget[data-table-from="${this.tableFrom}"] .cm-table-wrapper > .cm-table-scroll`
+        );
+        logTableDiagnostic('quick-add-column-click', {
+          tableFrom: this.tableFrom,
+          scrollLeft: currentScroll?.scrollLeft ?? null,
+          pageScrollTop: pageContent?.scrollTop ?? null,
+        });
         if (lastColumnIndex < 0) {
           return;
         }
@@ -650,7 +680,22 @@ export class TableWidget extends WidgetType {
               const tableRect = rebuiltTable.getBoundingClientRect();
               const scrollRect = rebuiltScroll.getBoundingClientRect();
               const tableRightInScrollContent = tableRect.right - scrollRect.left + rebuiltScroll.scrollLeft;
-              rebuiltScroll.scrollLeft = Math.max(0, tableRightInScrollContent - rebuiltScroll.clientWidth);
+              const requested = Math.max(0, tableRightInScrollContent - rebuiltScroll.clientWidth);
+              const before = rebuiltScroll.scrollLeft;
+              rebuiltScroll.scrollLeft = requested;
+              logTableDiagnostic('scroll-write', {
+                reason: 'quick-add-column-animation-frame',
+                tableFrom: this.tableFrom,
+                before,
+                requested,
+                after: rebuiltScroll.scrollLeft,
+                pageScrollTop: pageContent?.scrollTop ?? null,
+              });
+            } else {
+              logTableDiagnostic('quick-add-column-restore-missed', {
+                tableFrom: this.tableFrom,
+                pageScrollTop: pageContent?.scrollTop ?? null,
+              });
             }
           });
         } else {
