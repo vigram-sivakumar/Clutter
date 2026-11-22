@@ -489,6 +489,23 @@ export class TableWidget extends WidgetType {
     tableWrapper.appendChild(tableScroll);
     if (tableDiagnosticsEnabled()) {
       tableScroll.addEventListener('scroll', () => {
+        // Keep the column-insertion destination through follow-up widget
+        // replacements. A deliberate user scroll away from the right edge
+        // cancels the intent; the programmatic move to the edge does not.
+        if (pendingScrollToEndByTableFrom.has(this.tableFrom)) {
+          const layout = tableScroll.querySelector<HTMLElement>(':scope > .cm-table-layout');
+          if (layout) {
+            const layoutRect = layout.getBoundingClientRect();
+            const scrollRect = tableScroll.getBoundingClientRect();
+            const maxScrollLeft = Math.max(
+              0,
+              layoutRect.right - scrollRect.left + tableScroll.scrollLeft - tableScroll.clientWidth
+            );
+            if (Math.abs(tableScroll.scrollLeft - maxScrollLeft) > 1) {
+              pendingScrollToEndByTableFrom.delete(this.tableFrom);
+            }
+          }
+        }
         logTableDiagnostic('scroll', {
           widgetId: this.diagnosticsId,
           tableFrom: this.tableFrom,
@@ -641,42 +658,12 @@ export class TableWidget extends WidgetType {
         if (lastColumnIndex < 0) {
           return;
         }
-        // Column quick-add has its own destination (the new right edge),
-        // so discard any older restore request before this synchronous rebuild.
+        // The destination remains pending across replacement widgets until
+        // the user deliberately scrolls away from the far edge.
         pendingScrollRestoreByTableFrom.delete(this.tableFrom);
         pendingScrollToEndByTableFrom.add(this.tableFrom);
         if (insertColumnRightSelection(view, { kind: 'column', tableFrom: this.tableFrom, columnIndex: lastColumnIndex }, false, true)) {
           view.focus();
-          // Apply the destination after all synchronous transaction-filter
-          // rebuilds have settled; an intermediate widget can otherwise
-          // consume the pending request before the final widget exists.
-          requestAnimationFrame(() => {
-            const rebuiltScroll = view.dom.querySelector<HTMLElement>(
-              `.cm-table-widget[data-table-from="${this.tableFrom}"] .cm-table-wrapper > .cm-table-scroll`
-            );
-            const rebuiltTable = rebuiltScroll?.querySelector<HTMLTableElement>('table');
-            if (rebuiltScroll?.isConnected && rebuiltTable) {
-              const tableRect = rebuiltTable.getBoundingClientRect();
-              const scrollRect = rebuiltScroll.getBoundingClientRect();
-              const tableRightInScrollContent = tableRect.right - scrollRect.left + rebuiltScroll.scrollLeft;
-              const requested = Math.max(0, tableRightInScrollContent - rebuiltScroll.clientWidth);
-              const before = rebuiltScroll.scrollLeft;
-              rebuiltScroll.scrollLeft = requested;
-              logTableDiagnostic('scroll-write', {
-                reason: 'quick-add-column-animation-frame',
-                tableFrom: this.tableFrom,
-                before,
-                requested,
-                after: rebuiltScroll.scrollLeft,
-                pageScrollTop: pageContent?.scrollTop ?? null,
-              });
-            } else {
-              logTableDiagnostic('quick-add-column-restore-missed', {
-                tableFrom: this.tableFrom,
-                pageScrollTop: pageContent?.scrollTop ?? null,
-              });
-            }
-          });
         } else {
           pendingScrollToEndByTableFrom.delete(this.tableFrom);
         }
@@ -727,8 +714,33 @@ export class TableWidget extends WidgetType {
       const pendingScrollLeft = pendingScrollRestoreByTableFrom.get(this.tableFrom);
       pendingScrollRestoreByTableFrom.delete(this.tableFrom);
       const scrollToEnd = pendingScrollToEndByTableFrom.has(this.tableFrom);
-      pendingScrollToEndByTableFrom.delete(this.tableFrom);
-      attachTableColumnResizeHandles(tableWrapper, this.tableFrom, view, this.headerCells.length, this.columnWidths, pendingScrollLeft, scrollToEnd);
+      // Keep the intent until a live replacement widget has completed its
+      // layout. A second transaction can replace this widget before paint.
+      attachTableColumnResizeHandles(tableWrapper, this.tableFrom, view, this.headerCells.length, this.columnWidths, pendingScrollLeft, false);
+      if (scrollToEnd) {
+        requestAnimationFrame(() => {
+          if (!widget.isConnected || !tableScroll.isConnected ||
+              view.dom.querySelector(`.cm-table-widget[data-table-from="${this.tableFrom}"]`) !== widget) {
+            return;
+          }
+          const layout = tableScroll.querySelector<HTMLElement>(':scope > .cm-table-layout');
+          if (!layout) return;
+          const layoutRect = layout.getBoundingClientRect();
+          const scrollRect = tableScroll.getBoundingClientRect();
+          const layoutRightInScrollContent = layoutRect.right - scrollRect.left + tableScroll.scrollLeft;
+          const requested = Math.max(0, layoutRightInScrollContent - tableScroll.clientWidth);
+          const before = tableScroll.scrollLeft;
+          tableScroll.scrollLeft = requested;
+          logTableDiagnostic('scroll-write', {
+            reason: 'quick-add-column-final-layout',
+            widgetId: this.diagnosticsId,
+            tableFrom: this.tableFrom,
+            before,
+            requested,
+            after: tableScroll.scrollLeft,
+          });
+        });
+      }
     }
 
     // Column/row-selection outline (range outlines land later, reusing

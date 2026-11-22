@@ -407,6 +407,9 @@
  * padding surrounds it on both sides equally.
  */
 .cm-editor .cm-table-wrapper--explicit-widths .cm-table-scroll {
+  /* Keep macOS overlay scrollbars in a reserved strip below the row
+   * quick-add control instead of painting over its hit area. */
+  padding-bottom: 12px;
   /* A real, inherited custom property (not just a `var(..., 8px)` fallback
    * used only here) — `tableColumnResizeHandle.css`'s own
    * `.cm-table-column-resize-hit` rule reads this same property to anchor
