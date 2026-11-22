@@ -106,7 +106,7 @@ export function Settings({ templates, noteLocation, spaceSettings, space, onClos
         key={pageId}
         className={pageId === 'support' ? 'settings-page--support' : undefined}
         title={isSpacePageId(pageId) ? 'Space setting' : PAGE_TITLES[pageId]}
-        description={pageId === 'support' ? 'Optional contributions help support the continued development of Clutter.' : undefined}
+        description={pageId === 'support' ? 'Clutter is free to use. Your contribution helps fund its continued development and future improvements.' : undefined}
       >
         {isSpacePageId(pageId) && selectedSpace && (
           <SpacePage
