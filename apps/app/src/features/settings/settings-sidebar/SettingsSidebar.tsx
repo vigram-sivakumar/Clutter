@@ -56,7 +56,7 @@ const SECTIONS: { title: string; entries: SettingsSidebarEntry[] }[] = [
     title: 'Clutter',
     entries: [
       { id: 'support', title: 'Support', icon: 'heart' },
-      { id: 'get-support', title: 'Get Support', icon: 'help' },
+      { id: 'get-support', title: 'Get Support', icon: 'question' },
     ],
   },
 ];

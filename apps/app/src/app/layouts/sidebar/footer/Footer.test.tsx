@@ -119,7 +119,7 @@ describe('Footer space selector: title, caret, archive', () => {
       </SettingsDialogStateProvider>
     );
     fireEvent.click(screen.getByRole('button', { name: 'Help' }));
-    fireEvent.click(screen.getByText('Get Support'));
+    fireEvent.click(within(screen.getByRole('menu')).getByText('Get Support'));
     expect(screen.getByRole('heading', { name: 'Get Support' })).toBeInTheDocument();
     expect(screen.getByText('Discord community')).toBeInTheDocument();
   });
