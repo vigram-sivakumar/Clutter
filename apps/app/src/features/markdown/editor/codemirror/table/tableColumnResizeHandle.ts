@@ -10,6 +10,17 @@ import {
 } from './tableColumnWidthMetadata';
 import { findAllTables } from './tableGeometry';
 
+function tableDiagnosticsEnabled(): boolean {
+  return import.meta.env.DEV && typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).has('debugTables');
+}
+
+function logTableDiagnostic(event: string, details: Record<string, unknown>): void {
+  if (tableDiagnosticsEnabled()) {
+    console.info('[Clutter table diagnostics]', event, details);
+  }
+}
+
 /**
  * Column-boundary resize — geometrically and interactionally distinct from
  * `tableHandleOverlay.ts`'s own column select/reorder handle: that handle
@@ -384,7 +395,15 @@ export function attachTableColumnResizeHandles(
     }
     const maxScrollLeft = tableEl.getBoundingClientRect().width - tableScroll!.clientWidth;
     if (tableScroll!.scrollLeft > maxScrollLeft) {
+      const before = tableScroll!.scrollLeft;
       tableScroll!.scrollLeft = maxScrollLeft;
+      logTableDiagnostic('scroll-write', {
+        reason: 'resize-reconcile-clamp',
+        tableFrom,
+        before,
+        requested: maxScrollLeft,
+        after: tableScroll!.scrollLeft,
+      });
     }
   }
 
@@ -520,7 +539,16 @@ export function attachTableColumnResizeHandles(
     // No `padding-left` term — see `reconcileScrollPosition`'s own doc
     // comment above for why `<table>`'s own width is the complete story.
     const maxScrollLeft = Math.max(0, freshTable.getBoundingClientRect().width - freshScroll.clientWidth);
-    freshScroll.scrollLeft = Math.min(finalScrollLeft, maxScrollLeft);
+    const requested = Math.min(finalScrollLeft, maxScrollLeft);
+    const before = freshScroll.scrollLeft;
+    freshScroll.scrollLeft = requested;
+    logTableDiagnostic('scroll-write', {
+      reason: 'resize-commit-restore',
+      tableFrom,
+      before,
+      requested,
+      after: freshScroll.scrollLeft,
+    });
   }
 
   function handlePointerUp(event: PointerEvent): void {
@@ -644,10 +672,27 @@ export function attachTableColumnResizeHandles(
           const tableRect = table.getBoundingClientRect();
           const scrollRect = tableScroll.getBoundingClientRect();
           const tableRightInScrollContent = tableRect.right - scrollRect.left + tableScroll.scrollLeft;
-          tableScroll.scrollLeft = Math.max(0, tableRightInScrollContent - tableScroll.clientWidth);
+          const requested = Math.max(0, tableRightInScrollContent - tableScroll.clientWidth);
+          const before = tableScroll.scrollLeft;
+          tableScroll.scrollLeft = requested;
+          logTableDiagnostic('scroll-write', {
+            reason: 'resize-handles-scroll-to-end',
+            tableFrom,
+            before,
+            requested,
+            after: tableScroll.scrollLeft,
+          });
         }
       } else if (restoreScrollLeftAfterPositioning !== undefined) {
+        const before = tableScroll.scrollLeft;
         tableScroll.scrollLeft = restoreScrollLeftAfterPositioning;
+        logTableDiagnostic('scroll-write', {
+          reason: 'resize-handles-restore',
+          tableFrom,
+          before,
+          requested: restoreScrollLeftAfterPositioning,
+          after: tableScroll.scrollLeft,
+        });
       }
     }
   });
