@@ -293,6 +293,13 @@ export class TableWidget extends WidgetType {
    */
   private breakoutWidthHandle: BreakoutWidthHandle | null = null;
 
+  /**
+   * Keeps the quick-add bars matched to the table's rendered border-box.
+   * The row bar must not inherit a wider flex track, and the column bar
+   * must stop at the table rather than stretching alongside the row bar.
+   */
+  private quickAddResizeObserver: ResizeObserver | null = null;
+
   override eq(other: TableWidget): boolean {
     // The controller is part of what the DOM is built from: the same table drawn static (read-only) and
     // drawn interactive (editable) is not the same DOM, and an editor switching modes in place must not
@@ -347,6 +354,8 @@ export class TableWidget extends WidgetType {
     // comment for why it needs both elements.
     this.breakoutWidthHandle?.disconnect();
     this.breakoutWidthHandle = null;
+    this.quickAddResizeObserver?.disconnect();
+    this.quickAddResizeObserver = null;
     widget.contentEditable = 'false';
     // The one lookup handle `tableBoundaryNavigation.ts` needs: keyboard-
     // driven entry (ArrowUp/ArrowDown from a root line adjacent to the
@@ -570,6 +579,16 @@ export class TableWidget extends WidgetType {
 
       tableInner.append(addRow);
       tableLayout.append(addColumn);
+
+      this.quickAddResizeObserver = new ResizeObserver(() => {
+        if (!table.isConnected) {
+          return;
+        }
+        const tableRect = table.getBoundingClientRect();
+        addRow.style.width = `${tableRect.width}px`;
+        addColumn.style.height = `${tableRect.height}px`;
+      });
+      this.quickAddResizeObserver.observe(table);
     }
 
     // Hover-only column/row handle overlay (visual only — no click/drag/
