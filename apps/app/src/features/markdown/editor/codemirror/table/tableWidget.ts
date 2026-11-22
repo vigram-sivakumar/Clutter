@@ -58,54 +58,84 @@ function columnWidthsEq(a: readonly number[] | null, b: readonly number[] | null
 }
 
 /**
- * Cell activation's own captured pre-rebuild `scrollLeft`, keyed by
- * `tableFrom`, waiting to be handed to `attachTableColumnResizeHandles()`'s
- * own `queueMicrotask()` callback (`tableColumnResizeHandle.ts`) — the
- * single existing deferred point where restoring it is actually safe.
- * `TableWidget.eq()` still rebuilds on every activation (`activeFrom`/
- * `activeTo` staying part of it, this architecture's own unchanged
- * active-cell contract), and every such rebuild replaces
- * `.cm-table-scroll` with a brand-new element that starts at its own
- * default `scrollLeft` of 0 — confirmed live (read-by-read instrumentation,
- * two prior attempts) that restoring it any earlier than this is
- * unreliable: `attachTableColumnResizeHandles()` appends the resize-hit
- * strips synchronously during `toDOM()`, but the call that actually
- * *positions* them — `positionBoundaries()`, including the last column's
- * own strip extending past the table's own right edge — is itself
- * deferred to that file's own `queueMicrotask()` (its own doc comment:
- * `getBoundingClientRect()` on a still-detached subtree is meaningless, so
- * it can't run synchronously inside `toDOM()`). Assigning `scrollLeft`
- * *before* that microtask fires gets silently clamped by the browser's own
- * native setter to whatever the container's incomplete, pre-positioning
- * scrollable extent currently supports — confirmed live: the assignment
- * itself reads back already-truncated in the same synchronous tick, and
- * never self-corrects afterward. Waiting until *after* `positionBoundaries()`
- * has actually run needs no clamp math of its own at all: by then the
- * container's true scrollable extent already matches what the user was
- * really looking at, and the browser's own native `scrollLeft` semantics
- * clamp correctly on their own, the same way any ordinary assignment does.
- *
- * Set by `buildRow()`'s own mousedown handler below, immediately before
- * calling `controller.activate()` — and, via `setPendingTableScrollRestore()`
- * below, by `tableHandleOverlay.ts`'s own pointerdown handler immediately
- * before its selection dispatch, the same "genuine selection change rebuilds
- * the whole widget" case documented on that file's own top doc comment
- * ("Selection model") — read and deleted by `toDOM()` when it calls
- * `attachTableColumnResizeHandles()` for the resulting rebuild.
+ * Scroll state is owned by the table-widget lifecycle. Every rebuild
+ * replaces the scrollport, so the outgoing widget captures its position
+ * in destroy() and one deferred restore targets the final live widget.
+ * State is scoped to its EditorView to keep embedded editors independent.
  */
-const pendingScrollRestoreByTableFrom = new Map<number, number>();
+const pendingScrollRestoreByView = new WeakMap<
+  EditorView,
+  Map<number, { readonly scrollLeft: number; readonly rawText: string }>
+>();
+const scheduledScrollRestoreByView = new WeakMap<EditorView, Set<number>>();
+const pendingScrollToEndByView = new WeakMap<EditorView, Set<number>>();
 
-/** Quick-add column insertion must reveal the newly appended rightmost column after the widget rebuilds. */
-const pendingScrollToEndByTableFrom = new Set<number>();
+function pendingRestoreMap(
+  view: EditorView
+): Map<number, { readonly scrollLeft: number; readonly rawText: string }> {
+  let map = pendingScrollRestoreByView.get(view);
+  if (!map) {
+    map = new Map();
+    pendingScrollRestoreByView.set(view, map);
+  }
+  return map;
+}
 
-/**
- * Lets a caller outside this file (`tableHandleOverlay.ts`'s pointerdown
- * handler) register a pre-rebuild `scrollLeft` the same way `buildRow()`'s
- * own mousedown handler does below — see `pendingScrollRestoreByTableFrom`'s
- * own doc comment just above for the full timing reasoning this shares.
- */
-export function setPendingTableScrollRestore(tableFrom: number, scrollLeft: number): void {
-  pendingScrollRestoreByTableFrom.set(tableFrom, scrollLeft);
+function pendingEndSet(view: EditorView): Set<number> {
+  let set = pendingScrollToEndByView.get(view);
+  if (!set) {
+    set = new Set();
+    pendingScrollToEndByView.set(view, set);
+  }
+  return set;
+}
+
+function scheduleTableScrollRestore(view: EditorView, tableFrom: number): void {
+  let scheduled = scheduledScrollRestoreByView.get(view);
+  if (!scheduled) {
+    scheduled = new Set();
+    scheduledScrollRestoreByView.set(view, scheduled);
+  }
+  if (scheduled.has(tableFrom)) {
+    return;
+  }
+  scheduled.add(tableFrom);
+  requestAnimationFrame(() => {
+    scheduled!.delete(tableFrom);
+    const pending = pendingRestoreMap(view);
+    const restore = pending.get(tableFrom);
+    const revealEnd = pendingEndSet(view).has(tableFrom);
+    const tables = findAllTables(view.state);
+    const matchingTable =
+      tables
+        .filter((table) => restore && view.state.sliceDoc(table.from, table.to) === restore.rawText)
+        .sort((left, right) => Math.abs(left.from - tableFrom) - Math.abs(right.from - tableFrom))[0] ??
+      tables.find((table) => table.from === tableFrom);
+    const widget = matchingTable
+      ? view.dom.querySelector<HTMLElement>(`.cm-table-widget[data-table-from="${matchingTable.from}"]`)
+      : null;
+    const scroll = widget?.querySelector<HTMLElement>(':scope > .cm-table-wrapper > .cm-table-scroll');
+    const requested = restore?.scrollLeft;
+    if (scroll) {
+      const target = revealEnd
+        ? Math.max(0, scroll.scrollWidth - scroll.clientWidth)
+        : requested;
+      if (target !== undefined) {
+        const before = scroll.scrollLeft;
+        scroll.scrollLeft = target;
+        logTableDiagnostic('scroll-write', {
+          reason: revealEnd ? 'widget-lifecycle-reveal-end' : 'widget-lifecycle-restore',
+          tableFrom,
+          resolvedTableFrom: matchingTable?.from ?? null,
+          before,
+          requested: target,
+          after: scroll.scrollLeft,
+        });
+      }
+    }
+    pending.delete(tableFrom);
+    pendingEndSet(view).delete(tableFrom);
+  });
 }
 
 /**
@@ -311,6 +341,9 @@ export class TableWidget extends WidgetType {
    */
   private breakoutWidthHandle: BreakoutWidthHandle | null = null;
 
+  /** Root view retained for lifecycle-level scroll restoration. */
+  private rootView: EditorView | null = null;
+
   /**
    * Keeps the quick-add bars matched to the table's rendered border-box.
    * The row bar must not inherit a wider flex track, and the column bar
@@ -337,6 +370,7 @@ export class TableWidget extends WidgetType {
   }
 
   override toDOM(view: EditorView): HTMLElement {
+    this.rootView = view;
     logTableDiagnostic('widget-toDOM-start', {
       widgetId: this.diagnosticsId,
       tableFrom: this.tableFrom,
@@ -493,10 +527,10 @@ export class TableWidget extends WidgetType {
       // not: its children can overflow it without increasing its width.
       // Use the scrollport's native extent both to cancel stale intent on
       // deliberate user movement and to calculate the actual right edge.
-      if (pendingScrollToEndByTableFrom.has(this.tableFrom)) {
+      if (pendingEndSet(view).has(this.tableFrom)) {
         const maxScrollLeft = Math.max(0, tableScroll.scrollWidth - tableScroll.clientWidth);
         if (Math.abs(tableScroll.scrollLeft - maxScrollLeft) > 1) {
-          pendingScrollToEndByTableFrom.delete(this.tableFrom);
+          pendingEndSet(view).delete(this.tableFrom);
         }
       }
       if (tableDiagnosticsEnabled()) {
@@ -610,19 +644,9 @@ export class TableWidget extends WidgetType {
           scrollLeft: currentScroll?.scrollLeft ?? null,
           pageScrollTop: pageContent?.scrollTop ?? null,
         });
-        if (currentScroll) {
-          pendingScrollRestoreByTableFrom.set(this.tableFrom, currentScroll.scrollLeft);
-        }
         if (insertRowBelowSelection(view, { kind: 'row', tableFrom: this.tableFrom, rowIndex: this.bodyRows.length }, false)) {
-          // The pre-dispatch position was captured above in
-          // pendingScrollRestoreByTableFrom. The replacement widget consumes
-          // it in toDOM(), and attachTableColumnResizeHandles restores it only
-          // after its boundary geometry has been positioned. Do not read the
-          // old element again after dispatch: CodeMirror has already detached
-          // that element, and its scrollLeft may have reset to zero.
+          // The outgoing widget captures scroll automatically in destroy().
           view.focus();
-        } else {
-          pendingScrollRestoreByTableFrom.delete(this.tableFrom);
         }
       });
 
@@ -654,12 +678,11 @@ export class TableWidget extends WidgetType {
         }
         // The destination remains pending across replacement widgets until
         // the user deliberately scrolls away from the far edge.
-        pendingScrollRestoreByTableFrom.delete(this.tableFrom);
-        pendingScrollToEndByTableFrom.add(this.tableFrom);
+        pendingEndSet(view).add(this.tableFrom);
         if (insertColumnRightSelection(view, { kind: 'column', tableFrom: this.tableFrom, columnIndex: lastColumnIndex }, false, true)) {
           view.focus();
         } else {
-          pendingScrollToEndByTableFrom.delete(this.tableFrom);
+          pendingEndSet(view).delete(this.tableFrom);
         }
       });
 
@@ -700,40 +723,10 @@ export class TableWidget extends WidgetType {
       // cannot collide with the select/reorder handle above). Gated on
       // `this.controller` for the same read-only-table reason.
       //
-      // `pendingScrollRestoreByTableFrom` (this file's own doc comment) —
-      // read and cleared here, on *every* rebuild, not just the one a cell
-      // activation actually triggered: `undefined` on any other rebuild
-      // (a doc edit, a different table's own activation, ...), which
-      // `attachTableColumnResizeHandles()` treats as "nothing to restore."
-      const pendingScrollLeft = pendingScrollRestoreByTableFrom.get(this.tableFrom);
-      pendingScrollRestoreByTableFrom.delete(this.tableFrom);
-      const scrollToEnd = pendingScrollToEndByTableFrom.has(this.tableFrom);
-      // Keep the intent until a live replacement widget has completed its
-      // layout. A second transaction can replace this widget before paint.
-      attachTableColumnResizeHandles(tableWrapper, this.tableFrom, view, this.headerCells.length, this.columnWidths, pendingScrollLeft, false);
-      if (scrollToEnd) {
-        requestAnimationFrame(() => {
-          if (!widget.isConnected || !tableScroll.isConnected ||
-              view.dom.querySelector(`.cm-table-widget[data-table-from="${this.tableFrom}"]`) !== widget) {
-            return;
-          }
-          // Native scrollWidth is the authoritative content extent. The
-          // .cm-table-layout border box can remain narrow while its table
-          // child overflows it, so measuring that box misses most of the
-          // horizontal range (and the quick-add column track).
-          const requested = Math.max(0, tableScroll.scrollWidth - tableScroll.clientWidth);
-          const before = tableScroll.scrollLeft;
-          tableScroll.scrollLeft = requested;
-          logTableDiagnostic('scroll-write', {
-            reason: 'quick-add-column-final-layout',
-            widgetId: this.diagnosticsId,
-            tableFrom: this.tableFrom,
-            before,
-            requested,
-            after: tableScroll.scrollLeft,
-          });
-        });
-      }
+      // The outgoing widget restores scroll after the final replacement
+      // in the transaction chain. Resize boundaries position in a microtask
+      // first; the lifecycle restore runs in the following animation frame.
+      attachTableColumnResizeHandles(tableWrapper, this.tableFrom, view, this.headerCells.length, this.columnWidths);
     }
 
     // Column/row-selection outline (range outlines land later, reusing
@@ -962,29 +955,7 @@ export class TableWidget extends WidgetType {
             // clicked position (visible as a second, simultaneous caret) and
             // winning the focus race against this cell's own activation.
             event.stopPropagation();
-            // Captured before any dispatch this handler may trigger below
-            // (a synthetic cell's own `ensureRectangularCellBounds` commit,
-            // then `controller.activate()`'s own `tableActiveCellChanged`
-            // dispatch) — both rebuild `tableWidgetField`'s decorations via
-            // `TableWidget.eq()` (still comparing `activeFrom`/`activeTo`,
-            // this architecture's own unchanged active-cell contract), and
-            // every such rebuild replaces `.cm-table-scroll` with a
-            // brand-new element (`toDOM()`'s own "always a fresh subtree"
-            // doc comment) that starts at its own default `scrollLeft` of
-            // 0 — silently resetting an already-scrolled table back to its
-            // start on every ordinary cell click. Handed to
-            // `pendingScrollRestoreByTableFrom` (this file's own doc
-            // comment on that map has the full timing reasoning) rather
-            // than restored here directly — `toDOM()` below picks it up
-            // and passes it on to `attachTableColumnResizeHandles()`, which
-            // restores it only once its own existing `positionBoundaries()`
-            // microtask has actually run.
-            const currentScroll = view.dom.querySelector<HTMLElement>(
-              `.cm-table-widget[data-table-from="${this.tableFrom}"] .cm-table-wrapper > .cm-table-scroll`
-            );
-            if (currentScroll) {
-              pendingScrollRestoreByTableFrom.set(this.tableFrom, currentScroll.scrollLeft);
-            }
+            // Scroll is captured by the outgoing widget's destroy() hook.
             // `cell.from`/`cell.to` are captured in this exact `toDOM()`
             // call's own closure, always rebuilt fresh alongside the rest
             // of this cell's rendering — never a range surviving past the
@@ -1081,11 +1052,23 @@ export class TableWidget extends WidgetType {
    * also explicitly disconnected below; ordinary DOM event listeners need
    * no equivalent cleanup because their detached elements can be collected.
    */
-  override destroy(): void {
+  override destroy(dom: HTMLElement): void {
+    const view = this.rootView;
+    const oldScroll = dom.querySelector<HTMLElement>(':scope > .cm-table-wrapper > .cm-table-scroll');
+    if (view && oldScroll) {
+      const pending = pendingRestoreMap(view);
+      // Keep the first pre-rebuild position through chained replacements;
+      // intermediate widgets begin at zero and must not overwrite it.
+      if (!pending.has(this.tableFrom)) {
+        pending.set(this.tableFrom, { scrollLeft: oldScroll.scrollLeft, rawText: this.rawText });
+      }
+      scheduleTableScrollRestore(view, this.tableFrom);
+    }
     logTableDiagnostic('widget-destroy', {
       widgetId: this.diagnosticsId,
       tableFrom: this.tableFrom,
       rawTextLength: this.rawText.length,
+      capturedScrollLeft: oldScroll?.scrollLeft ?? null,
     });
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
