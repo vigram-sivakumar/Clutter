@@ -600,14 +600,15 @@ describe('tablePaste — safety and structure', () => {
     expect(getNavigableRows(findAllTables(view.state)[0]!.node)).toHaveLength(rowCountBefore);
   });
 
-  it('normalises CRLF and trailing line breaks when pasted into an active cell', () => {
+  it('normalises CRLF and ignores a trailing clipboard line terminator in an active cell', () => {
     const controller = new TableActiveCellController();
     const view = mountRootView(TABLE, controller);
     activateCell(view, controller, 1, 0);
 
     dispatchPasteOnActiveCell(controller, (d) => d.setData('text/plain', 'Line one\r\nLine two\n'));
 
-    expect(cellText(view, 1, 0)).toBe('Line one Line two ');
+    // The interior line break becomes a space; the final newline is a clipboard terminator, not trailing cell content.
+    expect(cellText(view, 1, 0)).toBe('Line one Line two');
   });
 
   it('declines when there is no active cell and no range selection', () => {
