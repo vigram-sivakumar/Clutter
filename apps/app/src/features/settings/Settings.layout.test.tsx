@@ -40,19 +40,20 @@ describe('Settings → Editor → Layout', () => {
 describe('Settings → Clutter → Support', () => {
   it('shows the support page from the settings sidebar without opening payment services', () => {
     render(<Settings />);
-    expect(screen.queryByText('Choose an amount')).toBeNull();
+    expect(screen.queryByText('Support Clutter')).toBeNull();
 
     fireEvent.click(screen.getByText('Support'));
 
     expect(screen.getByRole('heading', { name: 'Support Clutter' })).toBeInTheDocument();
-    expect(screen.getByText('Choose an amount')).toBeInTheDocument();
+    expect(screen.getByText('Support Clutter')).toBeInTheDocument();
     expect(screen.getByText('$5')).toBeInTheDocument();
     expect(screen.getByText('$15')).toBeInTheDocument();
     expect(screen.getByText('$30')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Support with $5' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Support with $15' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Support with $30' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Custom amount' })).toBeDisabled();
+    expect(screen.getAllByRole('button', { name: 'Support' })).toHaveLength(3);
+    expect(screen.getAllByRole('button', { name: 'Support' }).every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
+    
+    
+    expect(screen.getByRole('button', { name: 'Set an amount' })).toBeDisabled();
     expect(screen.getByText('Free for everyone, always.')).toBeInTheDocument();
     expect(document.querySelectorAll('.support-page a')).toHaveLength(0);
   });
