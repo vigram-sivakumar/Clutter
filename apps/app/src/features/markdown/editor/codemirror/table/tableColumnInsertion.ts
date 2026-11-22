@@ -6,6 +6,8 @@ import { findAllTables, getNavigableRows, getRowColumnSegments, isAlignmentRow, 
 import { tableSelectionChanged, type TableSelection } from './tableSelection';
 import {
   buildTableColumnWidthsAttributeChange,
+  computeTableColumnWidthsCommitChange,
+  DEFAULT_TABLE_COLUMN_WIDTH,
   nextWidthsAfterColumnDuplication,
   nextWidthsAfterColumnInsertion,
   resolveTableColumnWidths,
@@ -98,7 +100,14 @@ function dispatchInsertion(view: EditorView, changes: ChangeSpec[], nextSelectio
  * `right`, mirroring `tableRowInsertion.ts`'s own "insert above keeps the
  * same index, insert below is index + 1" convention exactly.
  */
-function insertColumn(view: EditorView, table: TableInfo, columnIndex: number, side: 'left' | 'right', selectInserted = true): boolean {
+function insertColumn(
+  view: EditorView,
+  table: TableInfo,
+  columnIndex: number,
+  side: 'left' | 'right',
+  selectInserted = true,
+  preserveExistingWidths = false
+): boolean {
   const navigableRows = getNavigableRows(table.node);
   const header = navigableRows[0];
   if (!header) {
@@ -139,7 +148,20 @@ function insertColumn(view: EditorView, table: TableInfo, columnIndex: number, s
   // that does gets `DEFAULT_TABLE_COLUMN_WIDTH` inserted at `targetIndex`.
   const attribute = resolveTableColumnWidths(view.state, table);
   const nextWidths = nextWidthsAfterColumnInsertion(attribute?.widths ?? null, targetIndex);
-  const widthsChange = buildTableColumnWidthsAttributeChange(attribute, nextWidths);
+  const widthsChange = preserveExistingWidths
+    ? computeTableColumnWidthsCommitChange(view.state, table, [
+        ...Array.from({ length: headerColumnCount }, (_, index) => {
+          if (attribute?.widths[index] !== undefined) {
+            return attribute.widths[index]!;
+          }
+          const widget = view.dom.querySelector<HTMLElement>(`.cm-table-widget[data-table-from="${table.from}"]`);
+          const headerCell = widget?.querySelector<HTMLTableRowElement>('thead tr')?.children[index] as HTMLElement | undefined;
+          const measured = headerCell ? Math.round(headerCell.getBoundingClientRect().width) : 0;
+          return measured > 0 ? measured : DEFAULT_TABLE_COLUMN_WIDTH;
+        }),
+        DEFAULT_TABLE_COLUMN_WIDTH,
+      ])
+    : buildTableColumnWidthsAttributeChange(attribute, nextWidths);
   if (widthsChange) {
     changes.push(widthsChange);
   }
@@ -161,7 +183,12 @@ export function insertColumnLeftSelection(view: EditorView, selection: TableSele
 }
 
 /** Symmetric to `insertColumnLeftSelection`, for "Insert column right." */
-export function insertColumnRightSelection(view: EditorView, selection: TableSelection, selectInserted = true): boolean {
+export function insertColumnRightSelection(
+  view: EditorView,
+  selection: TableSelection,
+  selectInserted = true,
+  preserveExistingWidths = false
+): boolean {
   if (selection.kind !== 'column') {
     return false;
   }
@@ -169,7 +196,7 @@ export function insertColumnRightSelection(view: EditorView, selection: TableSel
   if (!table) {
     return false;
   }
-  return insertColumn(view, table, selection.columnIndex, 'right', selectInserted);
+  return insertColumn(view, table, selection.columnIndex, 'right', selectInserted, preserveExistingWidths);
 }
 
 /**
