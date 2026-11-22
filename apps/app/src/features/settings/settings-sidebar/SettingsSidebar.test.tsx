@@ -66,6 +66,16 @@ describe('SettingsSidebar', () => {
     expect(onSelect).toHaveBeenCalledWith('notes');
   });
 
+  it('lists Support Clutter in its own Clutter section and reports its page id', () => {
+    const onSelect = vi.fn();
+    render(<SettingsSidebar selectedId="preferences" onSelect={onSelect} />);
+
+    expect(screen.getByText('Clutter')).toBeInTheDocument();
+    expect(row('Support Clutter').querySelector('[data-icon="heart"]')).not.toBeNull();
+    fireEvent.click(screen.getByText('Support Clutter'));
+    expect(onSelect).toHaveBeenCalledWith('support');
+  });
+
   it('draws the settings icon for Preferences', () => {
     render(<SettingsSidebar selectedId="preferences" onSelect={() => {}} />);
     expect(

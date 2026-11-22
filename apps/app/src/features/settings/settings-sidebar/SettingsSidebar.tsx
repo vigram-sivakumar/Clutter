@@ -10,7 +10,7 @@ import { Entry } from '@components/entry/Entry';
 import { AppIcon, type SystemIcon } from '@shared/icon';
 import './SettingsSidebar.css';
 
-export type FixedSettingsPageId = 'preferences' | 'notes' | 'daily-notes' | 'tasks' | 'tags' | 'assets' | 'templates' | 'layout' | 'markdown';
+export type FixedSettingsPageId = 'preferences' | 'notes' | 'daily-notes' | 'tasks' | 'tags' | 'assets' | 'templates' | 'layout' | 'markdown' | 'support';
 /** A Space's own page, identified by its path. */
 export type SpaceSettingsPageId = `space:${string}`;
 export type SettingsPageId = FixedSettingsPageId | SpaceSettingsPageId;
@@ -52,6 +52,10 @@ const SECTIONS: { title: string; entries: SettingsSidebarEntry[] }[] = [
       { id: 'markdown', title: 'Markdown', icon: 'edit' },
     ],
   },
+  {
+    title: 'Clutter',
+    entries: [{ id: 'support', title: 'Support Clutter', icon: 'heart' }],
+  },
 ];
 
 /** One Space in the sidebar's Spaces section. The avatar is drawn by whoever renders Settings, with the shared `SpaceAvatar`. */
@@ -89,8 +93,8 @@ export interface SettingsSpace {
    */
   readonly onRenameActiveSpace?: (newName: string) => Promise<{ error?: string }>;
   /**
-   * Renames the folder of a Space that is NOT open, without touching the open one. Same result shape as above: `{}`
-   * once carried out, or `{ error }` with what to show. Absent: another Space's name is read-only.
+   * Renames the folder of a Space that is NOT open, without touching the open one. Same result shape as above:
+   * `{}` once carried out, or `{ error }` with what to show. Absent: another Space's name is read-only.
    */
   /**
    * Changes the OPEN Space's avatar (`undefined` removes it): an emoji, or an image given by the absolute path of the file

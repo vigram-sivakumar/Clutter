@@ -35,3 +35,19 @@ describe('Settings → Editor → Layout', () => {
     expect(titles).toEqual(['Header separator', 'Header separator style']);
   });
 });
+
+
+describe('Settings → Clutter → Support', () => {
+  it('shows the support page from the settings sidebar without opening payment services', () => {
+    render(<Settings />);
+    expect(screen.queryByText('Help keep Clutter free.')).toBeNull();
+
+    fireEvent.click(screen.getByText('Support Clutter'));
+
+    expect(screen.getByText('Help keep Clutter free.')).toBeInTheDocument();
+    expect(screen.getByText('$5')).toBeInTheDocument();
+    expect(screen.getByText('$15')).toBeInTheDocument();
+    expect(screen.getByText('$30')).toBeInTheDocument();
+    expect(screen.getByText(/Contributions aren't available yet/)).toBeInTheDocument();
+  });
+});
