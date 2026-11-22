@@ -1,3 +1,4 @@
+import { ensureSyntaxTree } from '@codemirror/language';
 import { StateField, type EditorState, type Extension, type Range } from '@codemirror/state';
 import { Decoration, EditorView, type DecorationSet } from '@codemirror/view';
 
@@ -239,6 +240,15 @@ function buildTableDecorations(
   controller: TableActiveCellController | undefined,
   getOnTableHandleMenuChange: () => OnTableHandleMenuChange | undefined
 ): DecorationSet {
+  // This field owns block replacements for every table in the document, not just
+  // the currently visible viewport. `syntaxTree(state)` may otherwise expose
+  // only the parser's currently available (viewport-prioritised) prefix after
+  // undo/redo or a structural edit. Scanning that partial tree silently omits
+  // tables and lets their raw Markdown reach the DOM. Complete the parse before
+  // deriving the document-wide replacement set; the parser is incremental, so
+  // this is normally a no-op once the current document has been parsed.
+  ensureSyntaxTree(state, state.doc.length, 5000);
+
   const ranges: Range<Decoration>[] = [];
   for (const table of findAllTables(state)) {
     const range = buildTableWidgetRange(state, table, controller, getOnTableHandleMenuChange);
