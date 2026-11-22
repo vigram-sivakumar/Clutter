@@ -957,12 +957,12 @@ export class TableWidget extends WidgetType {
    * selection/active-cell change). The one piece of cleanup this widget
    * needs that a plain DOM event listener never would: `this.resizeObserver`
    * (set in `toDOM()` above, only when this instance had a selected
-   * column) holds its own internal reference to the `<table>` element
-   * `toDOM()` created, which would otherwise keep reporting size changes
-   * — and keep that discarded `<table>` reachable — indefinitely. Every
-   * *other* per-render listener in this file needs no equivalent
-   * override: a plain `addEventListener` simply stops mattering once its
-   * own element is detached and garbage-collected.
+   * column) and `this.quickAddResizeObserver` (the editable table's
+   * quick-add controls) both observe rendered table geometry. Without
+   * disconnecting them, they can retain discarded table DOM and continue
+   * reporting size changes after a rebuild. The breakout-width handle is
+   * also explicitly disconnected below; ordinary DOM event listeners need
+   * no equivalent cleanup because their detached elements can be collected.
    */
   override destroy(): void {
     this.resizeObserver?.disconnect();
