@@ -603,34 +603,13 @@ export class TableWidget extends WidgetType {
           pendingScrollRestoreByTableFrom.set(this.tableFrom, currentScroll.scrollLeft);
         }
         if (insertRowBelowSelection(view, { kind: 'row', tableFrom: this.tableFrom, rowIndex: this.bodyRows.length }, false)) {
+          // The pre-dispatch position was captured above in
+          // pendingScrollRestoreByTableFrom. The replacement widget consumes
+          // it in toDOM(), and attachTableColumnResizeHandles restores it only
+          // after its boundary geometry has been positioned. Do not read the
+          // old element again after dispatch: CodeMirror has already detached
+          // that element, and its scrollLeft may have reset to zero.
           view.focus();
-          const scrollLeft = currentScroll?.scrollLeft ?? 0;
-          // The insertion can cause more than one synchronous widget rebuild
-          // (including transaction-filter normalisation). Restore against the
-          // final live widget, not an intermediate replacement.
-          requestAnimationFrame(() => {
-            const rebuiltScroll = view.dom.querySelector<HTMLElement>(
-              `.cm-table-widget[data-table-from="${this.tableFrom}"] .cm-table-wrapper > .cm-table-scroll`
-            );
-            if (rebuiltScroll?.isConnected) {
-              const before = rebuiltScroll.scrollLeft;
-              rebuiltScroll.scrollLeft = scrollLeft;
-              logTableDiagnostic('scroll-write', {
-                reason: 'quick-add-row-animation-frame',
-                tableFrom: this.tableFrom,
-                before,
-                requested: scrollLeft,
-                after: rebuiltScroll.scrollLeft,
-                pageScrollTop: pageContent?.scrollTop ?? null,
-              });
-            } else {
-              logTableDiagnostic('quick-add-row-restore-missed', {
-                tableFrom: this.tableFrom,
-                scrollLeft,
-                pageScrollTop: pageContent?.scrollTop ?? null,
-              });
-            }
-          });
         } else {
           pendingScrollRestoreByTableFrom.delete(this.tableFrom);
         }
