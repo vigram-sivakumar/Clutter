@@ -449,14 +449,14 @@
  * an additional track beside it. */
 .cm-editor .cm-table-layout {
   display: flex;
-  align-items: stretch;
+  align-items: flex-start;
   gap: 6px;
   width: calc(100% + 30px);
   min-width: calc(100% + 30px);
 }
 .cm-editor .cm-table-inner {
   display: flex;
-  flex: 1 0 calc(100% - 30px);
+  flex: 0 0 calc(100% - 30px);
   flex-direction: column;
   gap: 6px;
   min-width: 0;
@@ -489,9 +489,11 @@
   height: var(--height-sm);
 }
 .cm-editor .cm-table-quick-add-column {
-  align-self: stretch;
+  align-self: flex-start;
+  flex: 0 0 var(--height-sm);
   width: var(--height-sm);
   min-height: 0;
+  box-sizing: border-box;
 }
 .cm-editor .cm-table-quick-add svg {
   width: 18px;
@@ -503,9 +505,10 @@
 }
 .cm-editor .cm-table-wrapper--explicit-widths .cm-table-inner {
   width: max-content;
-  min-width: 100%;
-}
-.cm-editor .cm-table-wrapper--explicit-widths .cm-table-inner {
+  /* The layout reserves 30px for the 24px column bar and its 6px gap.
+   * Resolve the table's minimum width against the remaining table track,
+   * not the already widened layout, or the bar gets pushed 30px away. */
+  min-width: calc(100% - 30px);
   flex: 0 0 auto;
 }
 
