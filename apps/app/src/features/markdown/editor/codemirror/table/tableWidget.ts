@@ -487,25 +487,19 @@ export class TableWidget extends WidgetType {
     const tableScroll = document.createElement('div');
     tableScroll.className = 'cm-table-scroll';
     tableWrapper.appendChild(tableScroll);
-    if (tableDiagnosticsEnabled()) {
-      tableScroll.addEventListener('scroll', () => {
-        // Keep the column-insertion destination through follow-up widget
-        // replacements. A deliberate user scroll away from the right edge
-        // cancels the intent; the programmatic move to the edge does not.
-        if (pendingScrollToEndByTableFrom.has(this.tableFrom)) {
-          const layout = tableScroll.querySelector<HTMLElement>(':scope > .cm-table-layout');
-          if (layout) {
-            const layoutRect = layout.getBoundingClientRect();
-            const scrollRect = tableScroll.getBoundingClientRect();
-            const maxScrollLeft = Math.max(
-              0,
-              layoutRect.right - scrollRect.left + tableScroll.scrollLeft - tableScroll.clientWidth
-            );
-            if (Math.abs(tableScroll.scrollLeft - maxScrollLeft) > 1) {
-              pendingScrollToEndByTableFrom.delete(this.tableFrom);
-            }
-          }
+    tableScroll.addEventListener('scroll', () => {
+      // scrollWidth includes all overflowing descendants, including the
+      // column quick-add track. The layout element's own border box does
+      // not: its children can overflow it without increasing its width.
+      // Use the scrollport's native extent both to cancel stale intent on
+      // deliberate user movement and to calculate the actual right edge.
+      if (pendingScrollToEndByTableFrom.has(this.tableFrom)) {
+        const maxScrollLeft = Math.max(0, tableScroll.scrollWidth - tableScroll.clientWidth);
+        if (Math.abs(tableScroll.scrollLeft - maxScrollLeft) > 1) {
+          pendingScrollToEndByTableFrom.delete(this.tableFrom);
         }
+      }
+      if (tableDiagnosticsEnabled()) {
         logTableDiagnostic('scroll', {
           widgetId: this.diagnosticsId,
           tableFrom: this.tableFrom,
@@ -514,8 +508,8 @@ export class TableWidget extends WidgetType {
           scrollWidth: tableScroll.scrollWidth,
           connected: tableScroll.isConnected,
         });
-      }, { passive: true });
-    }
+      }
+    }, { passive: true });
 
     // Separates two concerns that would otherwise collide on `.cm-table-scroll`
     // itself when that element has explicit widths: centering this whole
@@ -723,12 +717,11 @@ export class TableWidget extends WidgetType {
               view.dom.querySelector(`.cm-table-widget[data-table-from="${this.tableFrom}"]`) !== widget) {
             return;
           }
-          const layout = tableScroll.querySelector<HTMLElement>(':scope > .cm-table-layout');
-          if (!layout) return;
-          const layoutRect = layout.getBoundingClientRect();
-          const scrollRect = tableScroll.getBoundingClientRect();
-          const layoutRightInScrollContent = layoutRect.right - scrollRect.left + tableScroll.scrollLeft;
-          const requested = Math.max(0, layoutRightInScrollContent - tableScroll.clientWidth);
+          // Native scrollWidth is the authoritative content extent. The
+          // .cm-table-layout border box can remain narrow while its table
+          // child overflows it, so measuring that box misses most of the
+          // horizontal range (and the quick-add column track).
+          const requested = Math.max(0, tableScroll.scrollWidth - tableScroll.clientWidth);
           const before = tableScroll.scrollLeft;
           tableScroll.scrollLeft = requested;
           logTableDiagnostic('scroll-write', {
