@@ -25,7 +25,7 @@
 .settings-page__header {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 4px;
 }
 
 .settings-page__title {
