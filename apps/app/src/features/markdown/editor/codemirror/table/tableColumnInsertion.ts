@@ -80,13 +80,13 @@ function alignmentInsertionChange(row: SyntaxNode, rawText: string, targetIndex:
   return { from: row.from, to: row.to, insert: '| ' + next.join(' | ') + ' |' };
 }
 
-function dispatchInsertion(view: EditorView, changes: ChangeSpec[], nextSelection: TableSelection): void {
+function dispatchInsertion(view: EditorView, changes: ChangeSpec[], nextSelection?: TableSelection): void {
   const changeSet = view.state.changes(changes);
   view.dispatch({
     changes,
     selection: view.state.selection.map(changeSet),
-    effects: [tableSelectionChanged.of(nextSelection)],
-    scrollIntoView: true,
+    ...(nextSelection ? { effects: [tableSelectionChanged.of(nextSelection)] } : {}),
+    scrollIntoView: nextSelection !== undefined,
   });
 }
 
@@ -98,7 +98,7 @@ function dispatchInsertion(view: EditorView, changes: ChangeSpec[], nextSelectio
  * `right`, mirroring `tableRowInsertion.ts`'s own "insert above keeps the
  * same index, insert below is index + 1" convention exactly.
  */
-function insertColumn(view: EditorView, table: TableInfo, columnIndex: number, side: 'left' | 'right'): boolean {
+function insertColumn(view: EditorView, table: TableInfo, columnIndex: number, side: 'left' | 'right', selectInserted = true): boolean {
   const navigableRows = getNavigableRows(table.node);
   const header = navigableRows[0];
   if (!header) {
@@ -144,7 +144,7 @@ function insertColumn(view: EditorView, table: TableInfo, columnIndex: number, s
     changes.push(widthsChange);
   }
 
-  dispatchInsertion(view, changes, { kind: 'column', tableFrom: table.from, columnIndex: targetIndex });
+  dispatchInsertion(view, changes, selectInserted ? { kind: 'column', tableFrom: table.from, columnIndex: targetIndex } : undefined);
   return true;
 }
 
@@ -161,7 +161,7 @@ export function insertColumnLeftSelection(view: EditorView, selection: TableSele
 }
 
 /** Symmetric to `insertColumnLeftSelection`, for "Insert column right." */
-export function insertColumnRightSelection(view: EditorView, selection: TableSelection): boolean {
+export function insertColumnRightSelection(view: EditorView, selection: TableSelection, selectInserted = true): boolean {
   if (selection.kind !== 'column') {
     return false;
   }
@@ -169,7 +169,7 @@ export function insertColumnRightSelection(view: EditorView, selection: TableSel
   if (!table) {
     return false;
   }
-  return insertColumn(view, table, selection.columnIndex, 'right');
+  return insertColumn(view, table, selection.columnIndex, 'right', selectInserted);
 }
 
 /**
