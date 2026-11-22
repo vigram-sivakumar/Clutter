@@ -24,21 +24,7 @@ const CONTRIBUTIONS = [
 export function SupportPage() {
   return (
     <div className="support-page">
-      <section className="support-page__intro">
-        <div className="support-page__intro-copy">
-          <h2>Good tools grow with good people.</h2>
-          <p>
-            Clutter is free for everyone. If it has made a little more room for your thoughts,
-            you can help keep it growing.
-          </p>
-        </div>
-      </section>
-
       <section className="support-page__contributions">
-        <div className="support-page__section-heading">
-          <h2>Help keep Clutter growing</h2>
-          <p>Every contribution is optional, made just once, and helps fund continued development.</p>
-        </div>
 
         <div className="support-page__amounts">
           {CONTRIBUTIONS.map((contribution) => (

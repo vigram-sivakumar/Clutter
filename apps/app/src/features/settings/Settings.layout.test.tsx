@@ -44,8 +44,8 @@ describe('Settings → Clutter → Support', () => {
 
     fireEvent.click(screen.getByText('Support'));
 
-    expect(screen.getByRole('heading', { name: 'Support Clutter' })).toBeInTheDocument();
-    expect(screen.getByText('Support Clutter')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Keep Clutter growing' })).toBeInTheDocument();
+    expect(screen.getByText(/Clutter is free for everyone/)).toBeInTheDocument();
     expect(screen.getByText('$5')).toBeInTheDocument();
     expect(screen.getByText('$15')).toBeInTheDocument();
     expect(screen.getByText('$30')).toBeInTheDocument();
