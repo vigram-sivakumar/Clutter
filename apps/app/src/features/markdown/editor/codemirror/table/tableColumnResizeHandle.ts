@@ -641,7 +641,10 @@ export function attachTableColumnResizeHandles(
       if (scrollToEndAfterPositioning) {
         const table = tableScroll.querySelector<HTMLTableElement>('table');
         if (table) {
-          tableScroll.scrollLeft = Math.max(0, table.getBoundingClientRect().width - tableScroll.clientWidth);
+          const tableRect = table.getBoundingClientRect();
+          const scrollRect = tableScroll.getBoundingClientRect();
+          const tableRightInScrollContent = tableRect.right - scrollRect.left + tableScroll.scrollLeft;
+          tableScroll.scrollLeft = Math.max(0, tableRightInScrollContent - tableScroll.clientWidth);
         }
       } else if (restoreScrollLeftAfterPositioning !== undefined) {
         tableScroll.scrollLeft = restoreScrollLeftAfterPositioning;
