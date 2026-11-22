@@ -496,14 +496,12 @@ describe('attachTableHandleOverlay — click-to-select', () => {
     const replacement = buildTable(2, 3);
     mountWidget(view, replacement.wrapper);
     attachTableHandleOverlay(replacement.wrapper, 3, view, controller, TEST_TABLE_FROM, 2, null, () => onMenuChange);
-    const freshAnchor = replacement.wrapper.querySelector('.cm-table-column-handle')!;
 
     document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, cancelable: true, button: 0, clientX: 0, clientY: 0 }));
 
     expect(view.state.field(tableSelectionField)).toEqual({ kind: 'column', tableFrom: TEST_TABLE_FROM, columnIndex: 2 });
     expect(onMenuChange).toHaveBeenCalledTimes(1);
     expect(onMenuChange).toHaveBeenCalledWith({
-      anchor: freshAnchor,
       selection: { kind: 'column', tableFrom: TEST_TABLE_FROM, columnIndex: 2 },
     });
   });
@@ -523,14 +521,12 @@ describe('attachTableHandleOverlay — click-to-select', () => {
     const replacement = buildTable(2, 3);
     mountWidget(view, replacement.wrapper);
     attachTableHandleOverlay(replacement.wrapper, 3, view, controller, TEST_TABLE_FROM, null, 2, () => onMenuChange);
-    const freshAnchor = replacement.wrapper.querySelector('.cm-table-row-handle')!;
 
     document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, cancelable: true, button: 0, clientX: 0, clientY: 0 }));
 
     expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 2 });
     expect(onMenuChange).toHaveBeenCalledTimes(1);
     expect(onMenuChange).toHaveBeenCalledWith({
-      anchor: freshAnchor,
       selection: { kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 2 },
     });
   });
@@ -667,12 +663,11 @@ describe('attachTableHandleOverlay — opening the handle menu', () => {
     click(table.querySelector('thead th:nth-child(3) .cm-table-column-handle-hit')!);
 
     expect(onMenuChange).toHaveBeenCalledExactlyOnceWith({
-      anchor: table.querySelector('thead th:nth-child(3) .cm-table-column-handle'),
       selection: { kind: 'column', tableFrom: TEST_TABLE_FROM, columnIndex: 2 },
     });
   });
 
-  it('clicking a row handle calls the menu-change callback synchronously (no deferral needed — position is pure CSS now)', () => {
+  it('clicking a row handle reports its logical selection synchronously', () => {
     const { view, controller } = mountRootView();
     const { wrapper, table } = buildTable(2, 3);
     embedInViewDom(view, wrapper, TEST_TABLE_FROM);
@@ -684,7 +679,6 @@ describe('attachTableHandleOverlay — opening the handle menu', () => {
     click(row.children[0]!.querySelector('.cm-table-row-handle-hit')!);
 
     expect(onMenuChange).toHaveBeenCalledExactlyOnceWith({
-      anchor: row.children[0]!.querySelector('.cm-table-row-handle'),
       selection: { kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 2 },
     });
   });
@@ -705,7 +699,6 @@ describe('attachTableHandleOverlay — opening the handle menu', () => {
     click(row.children[0]!.querySelector('.cm-table-row-handle-hit')!);
 
     expect(onMenuChange).toHaveBeenCalledExactlyOnceWith({
-      anchor: row.children[0]!.querySelector('.cm-table-row-handle'),
       selection: { kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 1 },
     });
   });

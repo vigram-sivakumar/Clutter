@@ -16,8 +16,55 @@ import { tableSelectionField, type TableSelection } from './tableSelection';
 export type TableHandleMenuSelection = Extract<TableSelection, { kind: 'row' } | { kind: 'column' }>;
 
 export interface OpenTableHandleMenuParams {
-  readonly anchor: HTMLElement;
   readonly selection: TableHandleMenuSelection;
+}
+
+/** Resolve the physical handle from the current TableSelection and live editor DOM. */
+export function resolveTableHandleMenuAnchor(
+  view: EditorView | null,
+  requestedSelection: TableHandleMenuSelection | null
+): HTMLElement | null {
+  if (!view || !requestedSelection || !view.dom.isConnected) {
+    return null;
+  }
+
+  const currentSelection = view.state.field(tableSelectionField, false) ?? null;
+  if (!currentSelection) {
+    return null;
+  }
+
+  let tableFrom: number;
+  if (requestedSelection.kind === 'row') {
+    if (currentSelection.kind !== 'row' || currentSelection.rowIndex !== requestedSelection.rowIndex) {
+      return null;
+    }
+    tableFrom = currentSelection.tableFrom;
+  } else {
+    if (currentSelection.kind !== 'column' || currentSelection.columnIndex !== requestedSelection.columnIndex) {
+      return null;
+    }
+    tableFrom = currentSelection.tableFrom;
+  }
+
+  // tableFrom is read from current state, not the pointer event's snapshot,
+  // because CodeMirror maps it when edits occur above the table.
+  const widget = view.dom.querySelector<HTMLElement>(
+    `.cm-table-widget[data-table-from="${tableFrom}"]`
+  );
+  const table = widget?.querySelector<HTMLTableElement>(
+    '.cm-table-wrapper > .cm-table-scroll table'
+  );
+  const cell =
+    requestedSelection.kind === 'column'
+      ? table?.rows[0]?.cells[requestedSelection.columnIndex]
+      : table?.rows[requestedSelection.rowIndex]?.cells[0];
+  const handleClass =
+    requestedSelection.kind === 'column'
+      ? '.cm-table-column-handle'
+      : '.cm-table-row-handle';
+  const anchor = cell?.querySelector<HTMLElement>(`:scope > ${handleClass}`) ?? null;
+
+  return anchor?.isConnected && view.dom.contains(anchor) ? anchor : null;
 }
 
 /**

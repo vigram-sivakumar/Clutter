@@ -9,7 +9,7 @@ import { TABLE_HANDLE_MENU_CLASS } from './tableSelection';
 import type { TableHandleMenuSelection } from './tableHandleMenuSync';
 
 export interface TableHandleMenuAnchor {
-  readonly current: HTMLElement;
+  readonly current: HTMLElement | null;
 }
 
 export interface TableHandleMenuProps {
@@ -385,11 +385,13 @@ export function TableHandleMenu({
     }
   }
 
+  if (!selection || !anchor?.current) return null;
+
   return (
     <Overlay
-      open={anchor !== null}
+      open
       onClose={onClose}
-      anchorRef={(anchor ?? { current: null }) as RefObject<HTMLElement>}
+      anchorRef={anchor as RefObject<HTMLElement>}
       side={selection?.kind === 'column' ? 'bottom' : 'right'}
       alignment="start"
       className={TABLE_HANDLE_MENU_CLASS}

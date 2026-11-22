@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import { closeCompletion } from '@codemirror/autocomplete';
 import { EditorView } from '@codemirror/view';
@@ -48,7 +48,7 @@ import { resolveColumnAlignment, setSelectedColumnAlignment } from './codemirror
 import { normalizeTableAt } from './codemirror/table/tableColumnNormalization';
 import type { TableColumnAlignment } from './codemirror/table/tableAlignment';
 import { TableHandleMenu, type TableHandleMenuAnchor } from './codemirror/table/TableHandleMenu';
-import type { OnTableHandleMenuChange, TableHandleMenuSelection } from './codemirror/table/tableHandleMenuSync';
+import { resolveTableHandleMenuAnchor, type OnTableHandleMenuChange, type TableHandleMenuSelection } from './codemirror/table/tableHandleMenuSync';
 import { computeEmbedRemovalRange } from './codemirror/mediaPresentation/embedRemovalRange';
 import { setRevealHighlight } from './codemirror/highlight/editorRevealHighlight';
 import { ImageOptionsMenu } from './codemirror/image/ImageOptionsMenu';
@@ -665,10 +665,16 @@ export const MarkdownEditor = forwardRef<
   // way every other menu's own trigger works. See that module's own doc
   // comment for why closing needs a different mechanism than opening here
   // (no DOM anchor is ever available from CM6 state alone).
-  const [tableHandleMenu, setTableHandleMenu] = useState<{
-    anchor: TableHandleMenuAnchor;
-    selection: TableHandleMenuSelection;
-  } | null>(null);
+  const [tableHandleMenu, setTableHandleMenu] = useState<{ selection: TableHandleMenuSelection } | null>(null);
+
+  // Stable ref identity with a live getter: CodeMirror may replace the table
+  // widget after selection changes, so the overlay resolves the current
+  // handle rather than measuring a DOM node captured by the pointer gesture.
+  const tableHandleMenuAnchorRef = useMemo<TableHandleMenuAnchor>(() => ({
+    get current() {
+      return resolveTableHandleMenuAnchor(viewRef.current, tableHandleMenu?.selection ?? null);
+    },
+  }), [tableHandleMenu?.selection]);
 
   // Lifted out of `TableHandleMenu.tsx` itself (unlike every other menu
   // here, which each own a local `useRef(false)`) specifically so this
@@ -694,7 +700,7 @@ export const MarkdownEditor = forwardRef<
     if (params === null) {
       tableHandleMenuSuppressReturnFocusRef.current = true;
     }
-    setTableHandleMenu(params ? { anchor: { current: params.anchor }, selection: params.selection } : null);
+    setTableHandleMenu(params ? { selection: params.selection } : null);
   });
 
   const closeTableHandleMenu = () => {
@@ -2030,7 +2036,7 @@ export const MarkdownEditor = forwardRef<
         onRemove={handleRemoveNoteEmbed}
       />
       <TableHandleMenu
-        anchor={tableHandleMenu?.anchor ?? null}
+        anchor={tableHandleMenu ? tableHandleMenuAnchorRef : null}
         selection={tableHandleMenu?.selection ?? null}
         onClose={closeTableHandleMenu}
         onClearContents={handleClearTableSelectionFromMenu}

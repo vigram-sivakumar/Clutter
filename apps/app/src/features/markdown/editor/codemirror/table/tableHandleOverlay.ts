@@ -769,13 +769,9 @@ export function attachTableHandleOverlay(
         session.axis === 'column'
           ? ({ kind: 'column' as const, tableFrom, columnIndex: session.startIndex })
           : ({ kind: 'row' as const, tableFrom, rowIndex: session.startIndex });
-      const freshAnchor =
-        session.axis === 'column'
-          ? resolveFreshColumnHandle(session.startIndex)
-          : resolveFreshRowHandle(session.startIndex);
-      if (freshAnchor) {
-        getOnTableHandleMenuChange()?.({ anchor: freshAnchor, selection });
-      }
+      // Publish logical identity only. React resolves the live handle from
+      // the current EditorView when Overlay measures its anchor.
+      getOnTableHandleMenuChange()?.({ selection });
       return;
     }
     // Commit first, then restore/remove the visuals — matches the
@@ -907,21 +903,6 @@ export function attachTableHandleOverlay(
     // the live one, so resume tracking the possible drag right here.
     resumePendingDragIfMine();
   });
-
-  /** This exact table's own fresh `<table>` element — resolved from `view.dom` by `tableFrom`, never a closure-captured reference, since a click's own dispatch synchronously rebuilds this widget. A descendant combinator for the final hop — see `resolveTableElement`'s own doc comment above for why. */
-  function resolveFreshTable(): HTMLTableElement | null {
-    return view.dom.querySelector<HTMLTableElement>(`.cm-table-widget[data-table-from="${tableFrom}"] .cm-table-wrapper > .cm-table-scroll table`);
-  }
-
-  function resolveFreshColumnHandle(columnIndex: number): HTMLElement | null {
-    const cell = resolveFreshTable()?.rows[0]?.children[columnIndex] as HTMLElement | undefined;
-    return cell ? findColumnHandlePair(cell)?.visible ?? null : null;
-  }
-
-  function resolveFreshRowHandle(rowIndex: number): HTMLElement | null {
-    const cell = resolveFreshTable()?.rows[rowIndex]?.children[0] as HTMLElement | undefined;
-    return cell ? findRowHandlePair(cell)?.visible ?? null : null;
-  }
 
   // Menu opening is coordinated with the drag session's document-level
   // pointerup handler above. Do not attach it to this widget's wrapper:

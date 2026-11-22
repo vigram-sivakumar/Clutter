@@ -5,7 +5,7 @@ import { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { tableSelectionChanged, tableSelectionField, type TableSelection } from './tableSelection';
-import { tableHandleMenuSync, type OnTableHandleMenuChange } from './tableHandleMenuSync';
+import { resolveTableHandleMenuAnchor, tableHandleMenuSync, type OnTableHandleMenuChange } from './tableHandleMenuSync';
 
 const mountedViews: EditorView[] = [];
 
@@ -93,5 +93,33 @@ describe('tableHandleMenuSync', () => {
     selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 1 });
 
     expect(() => selectTable(view, null)).not.toThrow();
+  });
+});
+
+
+describe('resolveTableHandleMenuAnchor', () => {
+  const makeWidget = () => {
+    const widget = document.createElement('div'); widget.className = 'cm-table-widget'; widget.dataset.tableFrom = '0';
+    widget.innerHTML = '<div class="cm-table-wrapper"><div class="cm-table-scroll"><table><thead><tr><th><div class="cm-table-column-handle"></div></th><th><div class="cm-table-column-handle"></div></th></tr></thead><tbody><tr><td><div class="cm-table-row-handle"></div></td><td></td></tr><tr><td><div class="cm-table-row-handle"></div></td><td></td></tr></tbody></table></div></div>';
+    return widget;
+  };
+  it('resolves row and column handles from the current table selection', () => {
+    const view = mountRootView(TABLE, vi.fn()); const widget = makeWidget(); view.dom.appendChild(widget);
+    const rowSelection = { kind: 'row' as const, tableFrom: 0, rowIndex: 2 }; selectTable(view, rowSelection);
+    expect(resolveTableHandleMenuAnchor(view, rowSelection)).toBe(widget.querySelector('tbody tr:nth-child(2) .cm-table-row-handle'));
+    const columnSelection = { kind: 'column' as const, tableFrom: 0, columnIndex: 1 }; selectTable(view, columnSelection);
+    expect(resolveTableHandleMenuAnchor(view, columnSelection)).toBe(widget.querySelector('thead th:nth-child(2) .cm-table-column-handle'));
+  });
+  it('resolves a replacement widget instead of retaining a detached handle', () => {
+    const view = mountRootView(TABLE, vi.fn()); const firstWidget = makeWidget(); view.dom.appendChild(firstWidget);
+    const selection = { kind: 'row' as const, tableFrom: 0, rowIndex: 1 }; selectTable(view, selection);
+    const firstHandle = resolveTableHandleMenuAnchor(view, selection); const replacementWidget = makeWidget(); firstWidget.replaceWith(replacementWidget);
+    const currentHandle = resolveTableHandleMenuAnchor(view, selection);
+    expect(currentHandle).toBe(replacementWidget.querySelector('.cm-table-row-handle'));
+    expect(currentHandle).not.toBe(firstHandle); expect(firstHandle?.isConnected).toBe(false);
+  });
+  it('returns null when the selected handle is absent from the live editor DOM', () => {
+    const view = mountRootView(TABLE, vi.fn()); const selection = { kind: 'row' as const, tableFrom: 0, rowIndex: 1 }; selectTable(view, selection);
+    expect(resolveTableHandleMenuAnchor(view, selection)).toBeNull();
   });
 });
