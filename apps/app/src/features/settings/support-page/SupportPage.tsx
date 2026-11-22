@@ -78,12 +78,11 @@ export function SupportPage() {
             Set an amount
           </Button>
         </div>
-        <p className="support-page__availability">Contribution checkout is coming soon.</p>
       </section>
 
       <footer className="support-page__promise">
-        <h2>Free for everyone, always.</h2>
-        <p>
+        <p className="support-page__promise-title">Free for everyone, always.</p>
+        <p className="support-page__promise-copy">
           Contributions do not unlock features or change how Clutter works.
         </p>
       </footer>
