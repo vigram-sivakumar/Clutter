@@ -361,6 +361,20 @@ describe('tablePaste — range-selection paste', () => {
     expect(cellText(view, 2, 1)).toBe('Replace');
     expect(selection(view)).toMatchObject({ kind: 'range', anchor: { row: 1, col: 0 }, head: { row: 2, col: 1 } });
   });
+
+  it('pastes multiline plain text as one value into every selected cell', () => {
+    const controller = new TableActiveCellController();
+    const view = mountRootView(TABLE, controller);
+    selectRange(view, { row: 1, col: 0 }, { row: 2, col: 1 });
+
+    dispatchPasteOn(view.contentDOM, (d) => d.setData('text/plain', 'First line\nSecond line'));
+
+    expect(cellText(view, 1, 0)).toBe('First line Second line');
+    expect(cellText(view, 1, 1)).toBe('First line Second line');
+    expect(cellText(view, 2, 0)).toBe('First line Second line');
+    expect(cellText(view, 2, 1)).toBe('First line Second line');
+    expect(selection(view)).toMatchObject({ kind: 'range', anchor: { row: 1, col: 0 }, head: { row: 2, col: 1 } });
+  });
 });
 
 
@@ -574,7 +588,7 @@ describe('tablePaste — safety and structure', () => {
     expect(cellText(view, 1, 0)).toBe('Nairobi');
   });
 
-  it('multiline plain text without tabs pasted into an active cell falls through to normal paste, not new table rows', () => {
+  it('multiline plain text pasted into an active cell becomes one cell value with spaces', () => {
     const controller = new TableActiveCellController();
     const view = mountRootView(TABLE, controller);
     const rowCountBefore = getNavigableRows(findAllTables(view.state)[0]!.node).length;
@@ -582,19 +596,18 @@ describe('tablePaste — safety and structure', () => {
 
     dispatchPasteOnActiveCell(controller, (d) => d.setData('text/plain', 'Line one\nLine two'));
 
-    // Declined interception — no grid-shaped mutation, no new rows created.
+    expect(cellText(view, 1, 0)).toBe('Line one Line two');
     expect(getNavigableRows(findAllTables(view.state)[0]!.node)).toHaveLength(rowCountBefore);
   });
 
-  it('trailing-newline plain text pasted into an active cell falls through to normal paste, not new table rows', () => {
+  it('normalises CRLF and trailing line breaks when pasted into an active cell', () => {
     const controller = new TableActiveCellController();
     const view = mountRootView(TABLE, controller);
-    const rowCountBefore = getNavigableRows(findAllTables(view.state)[0]!.node).length;
     activateCell(view, controller, 1, 0);
 
-    dispatchPasteOnActiveCell(controller, (d) => d.setData('text/plain', 'Nairobi\n'));
+    dispatchPasteOnActiveCell(controller, (d) => d.setData('text/plain', 'Line one\r\nLine two\n'));
 
-    expect(getNavigableRows(findAllTables(view.state)[0]!.node)).toHaveLength(rowCountBefore);
+    expect(cellText(view, 1, 0)).toBe('Line one Line two ');
   });
 
   it('declines when there is no active cell and no range selection', () => {
