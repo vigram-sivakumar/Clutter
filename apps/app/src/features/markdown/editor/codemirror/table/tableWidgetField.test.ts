@@ -876,20 +876,14 @@ describe('tableWidgetField/TableWidget — cell activation preserves horizontal 
   }
 
   /**
-   * The actual lifecycle under test, per `tableWidget.ts`'s own
-   * `pendingScrollRestoreByTableFrom` doc comment: `mousedown(...)` above
-   * captures the pre-rebuild `scrollLeft` and hands it to
-   * `TableWidget.toDOM()`'s own `attachTableColumnResizeHandles()` call,
-   * which restores it — with no clamp math of its own — from *inside*
-   * `tableColumnResizeHandle.ts`'s own pre-existing `queueMicrotask()`,
-   * immediately after that same callback's own `positionBoundaries()` call
-   * completes. A synchronous read right after `mousedown()` therefore sees
-   * the fresh `.cm-table-scroll`'s own untouched default (`0`) — only
-   * *awaiting* a microtask tick (this helper) lets the queued restoration
-   * actually run, the same one real production code already relies on.
+   * `TableWidget.destroy()` schedules lifecycle scroll restoration with
+   * `requestAnimationFrame()`. A microtask is not sufficient: it runs
+   * before the next animation frame, so reading `scrollLeft` after only
+   * `Promise.resolve()` observes the fresh scrollport's default zero.
+   * Wait for the same animation-frame boundary used by production.
    */
   async function flushPendingScrollRestore(): Promise<void> {
-    await Promise.resolve();
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
   }
 
   it('clicking a cell while horizontally scrolled preserves scrollLeft', async () => {
