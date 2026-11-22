@@ -28,7 +28,7 @@ function run(
   switch (strategy) {
     case 'tableRange': {
       const selection = view.state.field(tableSelectionField, false);
-      return selection !== null && table !== null && pasteIntoSelectedTableSelection(view, selection, table);
+      return selection != null && table !== null && pasteIntoSelectedTableSelection(view, selection, table);
     }
     case 'tableCreate':
       createTableFromClipboard(view, table!);
