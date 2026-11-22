@@ -1010,7 +1010,7 @@ describe('tableWidgetField/TableWidget — cell activation preserves horizontal 
 describe('tableWidgetField — rendered projection survives structural history', () => {
   const HISTORY_TABLE = '| Name | Role |\n| --- | --- |\n| Vik | Designer |\n| Sam | Engineer |';
 
-  function mountHistoryView(doc: string): EditorView {
+  function mountHistoryView(doc: string, includeRectangularNormalization = false): EditorView {
     const parent = document.body.appendChild(document.createElement('div'));
     const state = EditorState.create({
       doc,
@@ -1018,7 +1018,7 @@ describe('tableWidgetField — rendered projection survives structural history',
         markdownLanguageExtension(),
         tableSelectionField,
         tableSelectionDeletionHistory(),
-        tableRectangularNormalization(),
+        ...(includeRectangularNormalization ? [tableRectangularNormalization()] : []),
         history(),
         tableWidgetDecoration(),
       ],
@@ -1112,7 +1112,7 @@ describe('tableWidgetField — rendered projection survives structural history',
       '| ------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------- | - | - | - | - | - | - |',
       "| I've corrected both directly on GitHub \x60main\x60. Pushed to main | I've corrected both directly on GitHub \x60main\x60. Pushed to main | I've corrected both directly on GitHub \x60main\x60. Pushed to main |   |   |   |   |   |   |",
     ].join('\n');
-    const view = mountHistoryView(doc);
+    const view = mountHistoryView(doc, true);
 
     const expectBothParsersAndProjection = (expectedColumns: number) => {
       expect(findAllTables(view.state)).toHaveLength(1);
