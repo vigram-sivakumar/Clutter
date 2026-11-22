@@ -131,6 +131,8 @@ import Trash from './svg/trash.svg?react';
 import WidthFill from './svg/width-fill.svg?react';
 import WidthHug from './svg/width-hug.svg?react';
 
+import Discord from './svg/discord.svg?react';
+
 import { CalendarTodayIcon } from './svg/calendar-today';
 
 export const iconRegistry = {
@@ -189,6 +191,7 @@ export const iconRegistry = {
   dragHandle: DragHandle,
   edit: Edit,
   description: Description,
+  discord: Discord,
   expandDiagonal: ExpandDiagonal,
   favouriteFilled: FavouriteFilled,
   favouriteOutline: FavouriteOutline,

@@ -6,6 +6,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 
 import { ShortcutsProvider } from '@app/shortcuts/ShortcutsProvider';
 import { Footer } from './Footer';
+import { Settings } from '@features/settings/Settings';
+import { SettingsDialogStateProvider } from '@features/settings/SettingsDialogState';
 import type { SpaceAvatarValue } from '@components/space-avatar/SpaceAvatar';
 
 class ResizeObserverMock {
@@ -109,11 +111,25 @@ describe('Footer space selector: title, caret, archive', () => {
     expect(await screen.findAllByText('Markdown guide', { selector: '.settings-sidebar *' })).toHaveLength(1);
   });
 
-  it('opens the help menu with the shortcut entries', () => {
+  it('opens Settings on Get Support from the Help menu', () => {
+    render(
+      <SettingsDialogStateProvider>
+        <Footer vaultFolderName="v" onOpenArchive={vi.fn()} />
+        <Settings />
+      </SettingsDialogStateProvider>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Help' }));
+    fireEvent.click(within(screen.getByRole('menu')).getByText('Get Support'));
+    expect(screen.getByRole('heading', { name: 'Get Support' })).toBeInTheDocument();
+    expect(screen.getByText('Discord community')).toBeInTheDocument();
+  });
+
+  it('opens the help menu with the shortcut entries and Get Support', () => {
     render(<Footer vaultFolderName="v" onOpenArchive={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Help' }));
     expect(screen.getByText('Keyboard shortcuts')).toBeTruthy();
     expect(screen.getByText('Markdown guide')).toBeTruthy();
+    expect(screen.getByText('Get Support')).toBeTruthy();
   });
 
   it('opens the keyboard shortcuts dialog and closes it with the dismiss button', () => {
