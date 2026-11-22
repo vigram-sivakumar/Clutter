@@ -1,7 +1,7 @@
 import { syntaxTree } from '@codemirror/language';
 import type { EditorState, SelectionRange } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
-import type { SyntaxNode } from '@lezer/common';
+import type { SyntaxNode, Tree } from '@lezer/common';
 
 /**
  * Shared table syntax-tree/geometry primitives — rendering-mechanism-
@@ -39,9 +39,9 @@ export interface TableInfo {
 }
 
 /** Every `Table` node in the document, in document order — the rendering-mechanism-agnostic enumeration `tableWidgetField.ts` (Architecture E, docs/table-implementation-plan.md) needs to build one block decoration per table. Same tree-walk pattern as every other whole-document scan in this codebase (e.g. `blockSeparatorDecoration.ts`'s `syntaxTree(state).iterate(...)`), just collecting `Table` nodes instead of computing per-node decorations. */
-export function findAllTables(state: EditorState): TableInfo[] {
+export function findAllTables(state: EditorState, tree: Tree = syntaxTree(state)): TableInfo[] {
   const tables: TableInfo[] = [];
-  syntaxTree(state).iterate({
+  tree.iterate({
     enter: (node) => {
       if (node.name === 'Table') {
         tables.push({ node: node.node, from: node.from, to: node.to });
