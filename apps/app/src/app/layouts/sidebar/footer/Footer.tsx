@@ -184,7 +184,10 @@ export function Footer({
               Contact Us
             </MenuItem>
             {isPublicHttpsUrl(LEGAL_LINKS.privacyPolicy) && (
-              <MenuItem onClick={() => void openPrivacyPolicy()}>
+              <MenuItem
+                leading={<AppIcon icon="lock" />}
+                onClick={() => void openPrivacyPolicy()}
+              >
                 Privacy Policy
               </MenuItem>
             )}
