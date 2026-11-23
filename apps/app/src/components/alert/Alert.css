@@ -1,0 +1,121 @@
+.alert {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-layer-strong);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-inset-thin-medium), var(--shadow-md);
+  overflow: hidden;
+}
+
+.alert__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding-left: var(--space-12);
+  padding-right: var(--space-6);
+  height: var(--height-lg);
+}
+
+.alert__content {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.alert__title {
+  color: var(--foreground-primary);
+  font-size: var(--text-label);
+  line-height: var(--lh-label);
+  text-align: center;
+}
+
+.alert__description {
+  padding: 0 var(--space-12) var(--space-6);
+  color: var(--foreground-tertiary);
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label);
+  text-align: center;
+}
+
+.alert__dismiss {
+  flex: 0 0 auto;
+  background: transparent;
+}
+
+.alert__border {
+  flex: 0 0 auto;
+  height: 1px;
+  margin: 0 var(--space-12);
+  background: var(--border-medium);
+}
+
+.alert__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-12);
+}
+
+.alert__actions .button {
+  flex: 1;
+}
+
+.alert__details {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+
+/* Collapsed alerts reveal their details on hover or keyboard focus. */
+.alert--collapsed {
+  display: grid;
+  grid-template-rows: auto 0fr;
+  background: var(--surface-layer-strong);
+  transition:
+    grid-template-rows 220ms var(--easing-interaction),
+    background-color 220ms var(--easing-interaction);
+}
+
+.alert--collapsed .alert__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alert--collapsed .alert__details {
+  min-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 220ms var(--easing-interaction);
+}
+
+.alert--collapsed .alert__dismiss {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms var(--easing-interaction);
+}
+
+.alert--collapsed:hover,
+.alert--collapsed:focus-within {
+  grid-template-rows: auto 1fr;
+  background: var(--surface-primary);
+}
+
+.alert--collapsed:hover .alert__title,
+.alert--collapsed:focus-within .alert__title {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.alert--collapsed:hover .alert__details,
+.alert--collapsed:focus-within .alert__details {
+  opacity: 1;
+}
+
+.alert--collapsed:hover .alert__dismiss,
+.alert--collapsed:focus-within .alert__dismiss {
+  opacity: 1;
+  pointer-events: auto;
+}

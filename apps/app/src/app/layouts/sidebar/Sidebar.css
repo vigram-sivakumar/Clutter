@@ -36,3 +36,12 @@
 .sidebar:has(:focus-visible) .count-badge--on-sidebar-hover {
   opacity: 1;
 }
+
+.sidebar__footer {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: var(--space-12);
+  width: 100%;
+}
+

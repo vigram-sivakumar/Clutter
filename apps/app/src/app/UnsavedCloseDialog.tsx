@@ -4,7 +4,7 @@ import { unsavedCloseCopy, type UnsavedAction } from './unsavedCloseCopy';
 import type { UnsavedCloseChoice } from './windowCloseHandler';
 
 interface UnsavedCloseDialogProps {
-  /** How many notes still have unsaved changes, or null when no close is waiting on the user. */
+  /** How many notes still have unsaved changes, or null when no action is waiting on the user. */
   readonly unsavedCount: number | null;
   /** What the user was doing, which words the question: closing Clutter, or switching to another space. */
   readonly action?: UnsavedAction;
@@ -12,9 +12,9 @@ interface UnsavedCloseDialogProps {
 }
 
 /**
- * The question asked when Clutter is closed (the window's close button or ⌘Q) while notes still have unsaved
- * changes after the flush. Dismissing it any way other than the destructive button is "cancel": the user goes back
- * to their notes and nothing has been discarded.
+ * The question asked when Clutter is closed, restarted for an update, or leaves a Space while notes still have unsaved
+ * changes. Dismissing it any way other than the destructive button is "cancel": the user goes back to their notes and
+ * nothing has been discarded.
  */
 export function UnsavedCloseDialog({
   unsavedCount,

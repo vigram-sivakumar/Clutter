@@ -8,12 +8,17 @@
 #   and one set of notarization credentials:
 #     APPLE_ID + APPLE_PASSWORD (an app-specific password) + APPLE_TEAM_ID
 #     or APPLE_API_KEY + APPLE_API_ISSUER + APPLE_API_KEY_PATH (an App Store Connect API key)
+#   TAURI_SIGNING_PRIVATE_KEY or TAURI_SIGNING_PRIVATE_KEY_PATH (the Tauri updater signing key)
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD when that key is password-protected
 # Optional: CARGO_TARGET_DIR (where to build).
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 cd "$HERE/.."
 
 MISSING=()
+if [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}${TAURI_SIGNING_PRIVATE_KEY_PATH:-}" ]; then
+  MISSING+=("TAURI_SIGNING_PRIVATE_KEY or TAURI_SIGNING_PRIVATE_KEY_PATH (the Tauri updater signing key)")
+fi
 [ -n "${APPLE_SIGNING_IDENTITY:-}" ] || MISSING+=("APPLE_SIGNING_IDENTITY (a Developer ID Application certificate)")
 if [ -z "${APPLE_ID:-}${APPLE_API_KEY:-}" ]; then
   MISSING+=("notarization credentials: APPLE_ID + APPLE_PASSWORD + APPLE_TEAM_ID, or APPLE_API_KEY + APPLE_API_ISSUER + APPLE_API_KEY_PATH")
@@ -36,9 +41,11 @@ security find-identity -v -p codesigning | grep -qF "$APPLE_SIGNING_IDENTITY" \
   || { echo "The identity '$APPLE_SIGNING_IDENTITY' is not in your keychain." >&2; exit 1; }
 
 "$HERE/check-atomic-default.sh"
-../../node_modules/.bin/tauri build
+VITE_CLUTTER_DIRECT_UPDATES=1 ../../node_modules/.bin/tauri build --features direct-updates --config src-tauri/tauri.direct-updates.conf.json
 TARGET="${CARGO_TARGET_DIR:-src-tauri/target}"
 BUNDLE=$(ls -d "$TARGET"/release/bundle/macos/*.app | head -1)
 echo "built: $BUNDLE"
 "$HERE/verify-bundle.sh" "$BUNDLE" --share
-ls "$TARGET"/release/bundle/dmg/*.dmg 2>/dev/null | sed 's/^/installer: /'
+node "$HERE/write-update-manifest.mjs"
+echo "Build artifacts are ready. After deploying the Cloudflare updates Worker, publish with: npm run publish:update"
+ls "$TARGET"/release/bundle/dmg/*.dmg "$TARGET"/release/bundle/macos/*.app.tar.gz "$TARGET"/release/bundle/macos/*.app.tar.gz.sig "$TARGET"/release/bundle/macos/latest.json

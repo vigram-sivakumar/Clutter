@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
 import { isTauri } from '@tauri-apps/api/core';
+import { getVersion } from '@tauri-apps/api/app';
+import type { Update } from '@tauri-apps/plugin-updater';
 import { BrowserRecoveryStorage } from '../core/recovery/RecoveryStorage';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
@@ -379,6 +381,259 @@ function AppShellContent() {
     []
   );
   const confirmUnsavedClose = useCallback((count: number) => confirmUnsaved(count, 'close'), [confirmUnsaved]);
+  const directUpdateRef = useRef<Update | null>(null);
+  const directUpdateDownloadedRef = useRef(false);
+  const directUpdateStartupStartedRef = useRef(false);
+  const updateOperationRef = useRef(false);
+  const [directUpdatesReady, setDirectUpdatesReady] = useState(
+    !__CLUTTER_DIRECT_UPDATES__ || !isTauri()
+  );
+
+  const downloadDirectUpdate = useCallback(async (): Promise<boolean> => {
+    const update = directUpdateRef.current;
+    if (!__CLUTTER_DIRECT_UPDATES__ || !isTauri() || !update || updateOperationRef.current) return false;
+    updateOperationRef.current = true;
+    try {
+      await update.download();
+      directUpdateDownloadedRef.current = true;
+      return true;
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      const { message } = await import('@tauri-apps/plugin-dialog');
+      await message(`Clutter couldn't download the update.\n\n${detail}`, {
+        title: 'Clutter Update',
+        kind: 'error',
+      });
+      return false;
+    } finally {
+      updateOperationRef.current = false;
+    }
+  }, []);
+
+  const installDirectUpdateAndRestart = useCallback(async () => {
+    const update = directUpdateRef.current;
+    if (!__CLUTTER_DIRECT_UPDATES__ || !isTauri() || !update || updateOperationRef.current) return;
+    updateOperationRef.current = true;
+    let applicationClosed = false;
+    try {
+      const open = applicationRef.current;
+      if (open) {
+        const unsaved = await open.checkUnsavedBeforeClose();
+        if (unsaved > 0) {
+          await open.snapshotUnsavedWork();
+          const choice = await confirmUnsaved(unsaved, 'restart');
+          if (choice !== 'close') return;
+        }
+        await open.close();
+        applicationClosed = true;
+        applicationRef.current = null;
+        openedPathRef.current = null;
+        setApplication(null);
+        setIsLoading(true);
+      }
+      await update.install();
+      directUpdateRef.current = null;
+      directUpdateDownloadedRef.current = false;
+      const { relaunch } = await import('@tauri-apps/plugin-process');
+      await relaunch();
+    } catch (error) {
+      if (applicationClosed) setReopenNonce((nonce) => nonce + 1);
+      const detail = error instanceof Error ? error.message : String(error);
+      const { message } = await import('@tauri-apps/plugin-dialog');
+      await message(`Clutter couldn't install the update.\n\n${detail}`, {
+        title: 'Clutter Update',
+        kind: 'error',
+      });
+    } finally {
+      updateOperationRef.current = false;
+    }
+  }, [confirmUnsaved]);
+
+  const checkForUpdatesFromMenu = useCallback(async () => {
+    if (!__CLUTTER_DIRECT_UPDATES__ || !isTauri() || updateOperationRef.current) return;
+    updateOperationRef.current = true;
+    try {
+      const [{ check }, { message, ask }, version] = await Promise.all([
+        import('@tauri-apps/plugin-updater'),
+        import('@tauri-apps/plugin-dialog'),
+        getVersion(),
+      ]);
+      // A development-only override makes each native alert state testable without publishing a release.
+      // Vite strips this branch from production builds; it can never bypass signature checks in shipped apps.
+      const testState = import.meta.env.DEV
+        ? import.meta.env.VITE_CLUTTER_UPDATE_TEST_STATE
+        : undefined;
+      if (testState === 'error') {
+        throw new Error('Development-only simulated update check failure');
+      }
+      if (testState === 'latest') {
+        directUpdateRef.current = null;
+        directUpdateDownloadedRef.current = false;
+        await message(version, {
+          title: "You're on the latest version of Clutter!",
+          kind: 'info',
+        });
+        return;
+      }
+      if (testState === 'available') {
+        directUpdateRef.current = null;
+        directUpdateDownloadedRef.current = false;
+        const testVersion = import.meta.env.VITE_CLUTTER_UPDATE_TEST_VERSION || '99.0.0';
+        const install = await ask(
+          testVersion,
+          { title: 'New update available', kind: 'info', okLabel: 'Download and Install', cancelLabel: 'Later' }
+        );
+        if (install) {
+          console.info('Clutter update alert test: Download and Install selected; no update was downloaded.');
+        }
+        return;
+      }
+
+      const update = directUpdateRef.current ?? await check();
+      directUpdateRef.current = update;
+      if (!update) {
+        await message(version, {
+          title: "You're on the latest version of Clutter!",
+          kind: 'info',
+        });
+        return;
+      }
+      const install = await ask(
+        update.version,
+        { title: 'New update available', kind: 'info', okLabel: 'Download and Install', cancelLabel: 'Later' }
+      );
+      if (!install) return;
+      updateOperationRef.current = false;
+      if (directUpdateDownloadedRef.current || await downloadDirectUpdate()) {
+        await installDirectUpdateAndRestart();
+      }
+    } catch (error) {
+      console.error('Clutter update check failed:', error);
+      const { message } = await import('@tauri-apps/plugin-dialog');
+      await message('Try again', {
+        title: "Couldn't check for updates",
+        kind: 'error',
+      });
+    } finally {
+      updateOperationRef.current = false;
+    }
+  }, [downloadDirectUpdate, installDirectUpdateAndRestart]);
+
+  // Do not open a Space until the launch-time update check has completed. If an update exists,
+  // install it now and relaunch before the workspace is bootstrapped.
+  useEffect(() => {
+    if (
+      !__CLUTTER_DIRECT_UPDATES__ ||
+      !isTauri() ||
+      directUpdateStartupStartedRef.current
+    ) return;
+    // React StrictMode re-runs effects in development. Keep the launch check single-flight
+    // across that simulated unmount/remount so it cannot download or install twice.
+    directUpdateStartupStartedRef.current = true;
+
+    void (async () => {
+      let update: Update | null = null;
+      let restartRequested = false;
+      updateOperationRef.current = true;
+      try {
+        const { check } = await import('@tauri-apps/plugin-updater');
+        update = await check();
+        if (update) {
+          await update.download();
+          await update.install();
+          const { relaunch } = await import('@tauri-apps/plugin-process');
+          restartRequested = true;
+          await relaunch();
+          return;
+        }
+      } catch (error) {
+        restartRequested = false;
+        console.warn('Launch-time update check or installation failed; continuing startup:', error);
+        try {
+          await update?.close();
+        } catch (closeError) {
+          console.warn('Could not release the failed launch-time update:', closeError);
+        }
+      } finally {
+        updateOperationRef.current = false;
+        if (!restartRequested) setDirectUpdatesReady(true);
+      }
+    })();
+  }, []);
+
+  // Check again every 24 hours while Clutter remains open. The updater keeps the downloaded
+  // package in memory only; if Clutter exits, the next launch checks and downloads it again.
+  useEffect(() => {
+    if (!__CLUTTER_DIRECT_UPDATES__ || !isTauri() || !directUpdatesReady) return;
+    let disposed = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const scheduleNextCheck = () => {
+      if (!disposed) {
+        timer = setTimeout(() => void checkInBackground(), 24 * 60 * 60 * 1000);
+      }
+    };
+
+    const checkInBackground = async () => {
+      if (disposed) return;
+      if (updateOperationRef.current || directUpdateRef.current) {
+        scheduleNextCheck();
+        return;
+      }
+
+      updateOperationRef.current = true;
+      let update: Update | null = null;
+      try {
+        const { check } = await import('@tauri-apps/plugin-updater');
+        update = await check();
+        if (update) {
+          await update.download();
+          directUpdateRef.current = update;
+          directUpdateDownloadedRef.current = true;
+          update = null;
+        }
+      } catch (error) {
+        console.warn('Background update check failed:', error);
+        try {
+          await update?.close();
+        } catch (closeError) {
+          console.warn('Could not release the failed background update:', closeError);
+        }
+      } finally {
+        updateOperationRef.current = false;
+        scheduleNextCheck();
+      }
+    };
+
+    scheduleNextCheck();
+    return () => {
+      disposed = true;
+      if (timer !== undefined) clearTimeout(timer);
+      const pendingUpdate = directUpdateRef.current;
+      directUpdateRef.current = null;
+      directUpdateDownloadedRef.current = false;
+      void pendingUpdate?.close().catch((error) => {
+        console.warn('Could not release the pending update:', error);
+      });
+    };
+  }, [directUpdatesReady]);
+
+  useEffect(() => {
+    if (!__CLUTTER_DIRECT_UPDATES__ || !isTauri()) return;
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    listen('menu:check-for-updates', () => void checkForUpdatesFromMenu())
+      .then((fn) => {
+        if (disposed) fn();
+        else unlisten = fn;
+      })
+      .catch((error) => console.error('Could not listen for the Check for Updates menu item', error));
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, [checkForUpdatesFromMenu]);
+
   const answerUnsavedClose = useCallback((choice: UnsavedCloseChoice) => {
     const answer = unsavedCloseAnswerRef.current;
     unsavedCloseAnswerRef.current = null;
@@ -454,7 +709,7 @@ function AppShellContent() {
   // watcher, restore its session), and swap the UI in one render. A newer request supersedes an
   // older one that has not committed yet: the older one's built Application is closed and unused.
   useEffect(() => {
-    if (!spaces.ready) return;
+    if (!directUpdatesReady || !spaces.ready) return;
 
     // Nothing to open — no Space configured, or the configured folder is confirmed missing (and
     // bootstrap would create it): there is no Application, and the Welcome dialog is showing.
@@ -672,7 +927,7 @@ function AppShellContent() {
     bootstrapRef.current = run();
     // `spaces` is a fresh object each render; only a change of root, readiness or missing-folder state starts a run.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vaultPath, spaces.ready, spaces.activeSpaceMissing, missingRoot, reopenNonce]);
+  }, [vaultPath, spaces.ready, spaces.activeSpaceMissing, missingRoot, reopenNonce, directUpdatesReady]);
 
   // Unmount: supersede any run in flight and close the open Application.
   useEffect(

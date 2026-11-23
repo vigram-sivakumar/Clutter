@@ -37,6 +37,10 @@ pub const SETTINGS_ITEM_ID: &str = "app-settings";
 /// Event the frontend listens for to open its Settings dialog (see src/app/useNativeSettingsMenu.ts).
 pub const OPEN_SETTINGS_EVENT: &str = "menu:open-settings";
 
+/// Id and frontend event for the direct-download update command.
+pub const CHECK_FOR_UPDATES_ITEM_ID: &str = "app-check-for-updates";
+pub const CHECK_FOR_UPDATES_EVENT: &str = "menu:check-for-updates";
+
 /// File-menu items that run an existing app action: (item id, label, frontend event, accelerator). The frontend
 /// listens for these exact event names (src/app/layouts/sidebar/useNativeFileMenu.ts) and runs the same handlers as
 /// the sidebar's Create menu. The accelerators are the shortcuts the Keyboard shortcuts dialog lists
@@ -156,6 +160,15 @@ fn build_app_submenu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>
         Some("CmdOrCtrl+,"),
     )?;
 
+    #[cfg(feature = "direct-updates")]
+    let check_for_updates = MenuItem::with_id(
+        app,
+        CHECK_FOR_UPDATES_ITEM_ID,
+        "Check for Updates…",
+        true,
+        None::<&str>,
+    )?;
+
     let quit = MenuItem::with_id(
         app,
         QUIT_ITEM_ID,
@@ -164,7 +177,7 @@ fn build_app_submenu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>
         Some("CmdOrCtrl+Q"),
     )?;
 
-    Submenu::with_items(
+    let submenu = Submenu::with_items(
         app,
         &name,
         true,
@@ -181,7 +194,13 @@ fn build_app_submenu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>
             &PredefinedMenuItem::separator(app)?,
             &quit,
         ],
-    )
+    )?;
+    #[cfg(feature = "direct-updates")]
+    {
+        submenu.insert(&check_for_updates, 4)?;
+        submenu.insert(&PredefinedMenuItem::separator(app)?, 5)?;
+    }
+    Ok(submenu)
 }
 
 /// New Note, Today’s Daily Note / New Folder, grouped by separators. There is deliberately no Close Window item and
@@ -360,6 +379,10 @@ fn event_for_item(id: &str) -> Option<&'static str> {
     if id == SETTINGS_ITEM_ID {
         return Some(OPEN_SETTINGS_EVENT);
     }
+    #[cfg(feature = "direct-updates")]
+    if id == CHECK_FOR_UPDATES_ITEM_ID {
+        return Some(CHECK_FOR_UPDATES_EVENT);
+    }
     if id == COPY_PAGE_LINK_ITEM_ID {
         return Some(COPY_PAGE_LINK_EVENT);
     }
@@ -411,6 +434,12 @@ mod tests {
                 ("go-forward", "CmdOrCtrl+]"),
             ]
         );
+    }
+
+    #[cfg(feature = "direct-updates")]
+    #[test]
+    fn check_for_updates_forwards_to_its_frontend_event() {
+        assert_eq!(event_for_item(CHECK_FOR_UPDATES_ITEM_ID), Some(CHECK_FOR_UPDATES_EVENT));
     }
 
     #[test]

@@ -4,6 +4,7 @@
   gap: var(--space-6);
   color: var(--foreground-tertiary);
   padding-inline: var(--sidebar-padding-inline);
+  width: 100%;
 }
 .footer__actions {
   display: flex;
