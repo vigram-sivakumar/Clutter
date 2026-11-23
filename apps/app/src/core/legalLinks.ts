@@ -1,11 +1,8 @@
 /**
- * The public addresses of Clutter's privacy policy and support page, shown in Settings → Preferences → Privacy and
- * support (`features/settings/legal-links`).
+ * The public privacy policy and support addresses for Clutter.
  *
- * `null` means that page is not published yet, and its entry is not shown: the app never points at an address that
- * does not exist. Before a Mac App Store build, publish `docs/privacy-policy.md` and `docs/support.md` somewhere public,
- * set both addresses here (https only), and use the same two addresses in App Store Connect. `npm run check:legal-links`
- * fails until both are set, and `build:appstore` runs it.
+ * The privacy policy is linked from the sidebar Help menu. The support address is retained for the Mac App Store's
+ * Support URL requirement; in-app contact is provided separately by the same Help menu.
  */
 export interface LegalLinks {
   readonly privacyPolicy: string | null;
@@ -13,11 +10,11 @@ export interface LegalLinks {
 }
 
 export const LEGAL_LINKS: LegalLinks = {
-  privacyPolicy: null,
-  support: null,
+  privacyPolicy: 'https://clutter-privacy.pages.dev/privacy/',
+  support: 'https://clutter-privacy.pages.dev/contact/',
 };
 
-/** Whether `value` is a usable public address: an `https` URL with a host. Nothing else is ever opened from Settings. */
+/** Whether `value` is a usable public address: an `https` URL with a host. Only a validated public HTTPS address is exposed in the Help menu. */
 export function isPublicHttpsUrl(value: string | null | undefined): value is string {
   if (!value) {
     return false;
@@ -30,8 +27,4 @@ export function isPublicHttpsUrl(value: string | null | undefined): value is str
   } catch {
     return false;
   }
-}
-
-export function hasLegalLinks(links: LegalLinks = LEGAL_LINKS): boolean {
-  return isPublicHttpsUrl(links.privacyPolicy) || isPublicHttpsUrl(links.support);
 }

@@ -1,6 +1,9 @@
 import './Footer.css';
 import { useRef, useState } from 'react';
 import { Button } from '@components/button/Button';
+import { useToast } from '@components/toast/ToastProvider';
+import { LEGAL_LINKS, isPublicHttpsUrl } from '@core/legalLinks';
+import { openExternalUrl } from '@shared/helpers/openExternalUrl';
 import { AppIcon } from '@shared/icon';
 import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
 import { Entry } from '@components/entry/Entry';
@@ -62,6 +65,7 @@ export function Footer({
   onOpenArchive,
 }: FooterProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const toast = useToast();
   const settingsDialog = useSharedSettingsDialogState();
   const selectorRef = useRef<HTMLDivElement>(null);
   const helpMenu = useOverlay<HTMLButtonElement>();
@@ -77,6 +81,15 @@ export function Footer({
       ? avatar
       : (spaces?.find((space) => space.path === activeSpacePath)?.avatar ??
         avatar);
+  async function openPrivacyPolicy() {
+    helpMenu.hide();
+    if (!isPublicHttpsUrl(LEGAL_LINKS.privacyPolicy)) return;
+    try {
+      await openExternalUrl(LEGAL_LINKS.privacyPolicy);
+    } catch (error) {
+      toast.fail('Couldn’t open the page', error);
+    }
+  }
   const avatarView = (
     <SpaceAvatar
       avatar={activeAvatar}
@@ -170,6 +183,14 @@ export function Footer({
             >
               Contact Us
             </MenuItem>
+            {isPublicHttpsUrl(LEGAL_LINKS.privacyPolicy) && (
+              <MenuItem
+                leading={<AppIcon icon="lock" />}
+                onClick={() => void openPrivacyPolicy()}
+              >
+                Privacy Policy
+              </MenuItem>
+            )}
           </Menu>
         </Overlay>
         <Button

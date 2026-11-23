@@ -52,7 +52,6 @@ import { PreserveBulletStyleSetting } from './markdown-setting/PreserveBulletSty
 import { EnableEmojiListsSetting } from './markdown-setting/EnableEmojiListsSetting';
 import { PreferClutterQuoteSyntaxSetting } from './markdown-setting/PreferClutterQuoteSyntaxSetting';
 import { ResetSettings } from './reset-settings/ResetSettings';
-import { LegalLinks } from './legal-links/LegalLinks';
 import { SupportPage } from './support-page/SupportPage';
 import { GetSupportPage } from './get-support-page/GetSupportPage';
 import type { ResetSettingsOutcome } from './reset-settings/resetSettingsToDefaults';
@@ -167,7 +166,6 @@ export function Settings({ templates, noteLocation, spaceSettings, space, onClos
                 <AutoDeleteArchivedSetting source={spaceSettings} />
               </SettingsGroup>
             </Fragment>
-            <LegalLinks />
             <ResetSettings
               onReset={onResetSettings}
               busy={space?.busy}
