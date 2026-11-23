@@ -187,7 +187,7 @@ pub(crate) fn app_context<R: tauri::Runtime>() -> tauri::Context<R> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .on_page_load(|_, payload| {
             if let tauri::webview::PageLoadEvent::Started = payload.event() {
                 RETRY_PENDING.store(false, Ordering::SeqCst);
@@ -253,8 +253,14 @@ pub fn run() {
         // those are persisted.
         .plugin(tauri_plugin_persisted_scope::init())
         .plugin(tauri_plugin_http::init())
-        .plugin(tauri_plugin_opener::init())
-        .setup(|app| {
+        .plugin(tauri_plugin_opener::init());
+
+    #[cfg(feature = "direct-updates")]
+    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    #[cfg(feature = "direct-updates")]
+    let builder = builder.plugin(tauri_plugin_process::init());
+
+    builder.setup(|app| {
             // Which folders the user authorized in the App Sandbox (empty state outside it); see space_access.rs.
             app.manage(space_access::build_state(app.handle()));
             app.manage(space_access::SpaceScopeGrants::default());

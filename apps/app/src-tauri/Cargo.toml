@@ -49,6 +49,8 @@ tauri-plugin-opener = "2"
 # Only for the atomic-writes feature: matching a path against the runtime scope's forbidden patterns (src/atomic_commands.rs).
 # Already in the graph through tauri.
 glob = { version = "0.3", optional = true }
+tauri-plugin-updater = { version = "=2.10.1", optional = true }
+tauri-plugin-process = { version = "=2.3.1", optional = true }
 
 # The startup-recovery alert (src/startup_notice.rs) holds its own
 # CFUserNotification handle so it can be cancelled. Already in the graph via
@@ -77,3 +79,5 @@ tauri = { version = "2.11.3", features = ["test"] }
 default = ["atomic-writes"]
 atomic-writes = ["dep:glob"]
 automation = ["dep:tauri-plugin-wdio-webdriver"]
+direct-updates = ["dep:tauri-plugin-updater", "dep:tauri-plugin-process"]
+tauri-plugin-process = ["dep:tauri-plugin-process"]

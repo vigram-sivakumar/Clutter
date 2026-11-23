@@ -13,3 +13,5 @@ interface ImportMetaEnv {
    */
   readonly VITE_UNSPLASH_PROXY_URL?: string;
 }
+/** True only in direct-download builds; false in App Store and development builds. */
+declare const __CLUTTER_DIRECT_UPDATES__: boolean;

@@ -36,7 +36,7 @@ security find-identity -v -p codesigning | grep -qF "$APPLE_SIGNING_IDENTITY" \
   || { echo "The identity '$APPLE_SIGNING_IDENTITY' is not in your keychain." >&2; exit 1; }
 
 "$HERE/check-atomic-default.sh"
-../../node_modules/.bin/tauri build
+VITE_CLUTTER_DIRECT_UPDATES=1 ../../node_modules/.bin/tauri build --features direct-updates --config src-tauri/tauri.direct-updates.conf.json
 TARGET="${CARGO_TARGET_DIR:-src-tauri/target}"
 BUNDLE=$(ls -d "$TARGET"/release/bundle/macos/*.app | head -1)
 echo "built: $BUNDLE"
