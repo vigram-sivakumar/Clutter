@@ -197,8 +197,8 @@ fn build_app_submenu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>
     )?;
     #[cfg(feature = "direct-updates")]
     {
-        submenu.insert(&PredefinedMenuItem::separator(app)?, 3)?;
         submenu.insert(&check_for_updates, 4)?;
+        submenu.insert(&PredefinedMenuItem::separator(app)?, 5)?;
     }
     Ok(submenu)
 }
