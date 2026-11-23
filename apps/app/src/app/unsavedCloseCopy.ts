@@ -6,15 +6,30 @@ export type UnsavedAction = 'close' | 'switch' | 'restart';
  *
  * Switching Spaces: the title ("Switch spaces?"), how many notes, and the danger action "Switch anyway".
  *
- * Closing: what is true when the user chooses "Close anyway". The changes are not saved to the vault; Clutter writes a
- * recovery copy as it closes, which may be offered when it opens again, but the copy is not guaranteed to hold the
- * latest keystrokes (and none is written if the recovery location cannot be written). It must not promise recovery, and
- * must not suggest the copy is already in the vault.
+ * Closing or restarting: what is true when the user chooses the destructive action. The changes are not saved to the
+ * vault; Clutter writes a recovery copy as it closes, which may be offered when it opens again, but the copy is not
+ * guaranteed to hold the latest keystrokes (and none is written if the recovery location cannot be written). It must
+ * not promise recovery, and must not suggest the copy is already in the vault.
  */
 export function unsavedCloseCopy(unsavedCount: number, action: UnsavedAction = 'close') {
   const one = unsavedCount === 1;
 
-  if (action === 'restart') {\n    const subject = one\n      ? 'You have unsaved changes that won’t be saved to your vault'\n      : `You have ${unsavedCount} notes with unsaved changes that won’t be saved to your vault`;\n    const recovery = one\n      ? 'A recovery copy may be available when Clutter opens again, but it might not include your latest edits'\n      : 'Recovery copies may be available when Clutter opens again, but they might not include your latest edits';\n    return {\n      title: 'Restart without saving?',\n      description: `${subject}. ${recovery}`,\n      confirmLabel: 'Restart anyway',\n      cancelLabel: 'Keep editing',\n    };\n  }\n\n  if (action === 'switch') {
+  if (action === 'restart') {
+    const subject = one
+      ? 'You have unsaved changes that won’t be saved to your vault'
+      : `You have ${unsavedCount} notes with unsaved changes that won’t be saved to your vault`;
+    const recovery = one
+      ? 'A recovery copy may be available when Clutter opens again, but it might not include your latest edits'
+      : 'Recovery copies may be available when Clutter opens again, but they might not include your latest edits';
+    return {
+      title: 'Restart without saving?',
+      description: `${subject}. ${recovery}`,
+      confirmLabel: 'Restart anyway',
+      cancelLabel: 'Keep editing',
+    };
+  }
+
+  if (action === 'switch') {
     return {
       title: 'Switch spaces?',
       description: one ? 'You have unsaved changes' : `You have ${unsavedCount} notes with unsaved changes`,
