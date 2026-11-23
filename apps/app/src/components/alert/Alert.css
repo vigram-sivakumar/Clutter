@@ -93,6 +93,13 @@
   grid-template-rows: auto 1fr;
 }
 
+.alert--collapsed:hover .alert__title,
+.alert--collapsed:focus-within .alert__title {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
 .alert--collapsed:hover .alert__details,
 .alert--collapsed:focus-within .alert__details {
   opacity: 1;
