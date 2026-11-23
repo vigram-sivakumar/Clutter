@@ -11,7 +11,7 @@
   display: flex;
   align-items: flex-start;
   gap: var(--space-12);
-  padding: var(--space-4) var(--space-12);
+  padding: var(--space-6) var(--space-12);
 }
 
 .alert__content {
@@ -60,11 +60,9 @@
    the full content, so only its height and the secondary elements animate. */
 .alert--collapsed {
   box-sizing: border-box;
-  height: calc(
-    var(--space-4) * 2 + max(var(--lh-label), var(--height-xs))
-  );
+  height: calc(var(--space-6) * 2 + max(var(--lh-label), var(--height-xs)));
   /* Delay shrinking until the secondary elements have faded out. */
-  transition: height 250ms var(--easing-interaction) 100ms;
+  transition: height 220ms var(--easing-interaction);
 }
 
 .alert--collapsed > * {
@@ -83,18 +81,14 @@
 .alert--collapsed .alert__actions {
   opacity: 0;
   pointer-events: none;
-  transition: opacity 100ms var(--easing-interaction);
+  transition: opacity 220ms var(--easing-interaction);
 }
 
 .alert--collapsed:hover,
 .alert--collapsed:focus-within {
   height: calc(
-    var(--space-4) * 2 +
-      var(--lh-label) * 2 +
-      var(--space-4) +
-      1px +
-      var(--space-12) * 2 +
-      var(--height-md)
+    var(--space-6) * 2 + var(--lh-label) * 2 + var(--space-6) + 1px +
+      var(--space-12) * 2 + var(--height-md)
   );
   /* Expand immediately, then reveal the secondary elements. */
   transition-delay: 0ms;
@@ -110,5 +104,5 @@
 .alert--collapsed:focus-within .alert__actions {
   opacity: 1;
   pointer-events: auto;
-  transition: opacity 150ms var(--easing-interaction) 100ms;
+  transition: opacity 220ms var(--easing-interaction);
 }
