@@ -37,6 +37,10 @@ pub const SETTINGS_ITEM_ID: &str = "app-settings";
 /// Event the frontend listens for to open its Settings dialog (see src/app/useNativeSettingsMenu.ts).
 pub const OPEN_SETTINGS_EVENT: &str = "menu:open-settings";
 
+/// Id and frontend event for the direct-download update command.
+pub const CHECK_FOR_UPDATES_ITEM_ID: &str = "app-check-for-updates";
+pub const CHECK_FOR_UPDATES_EVENT: &str = "menu:check-for-updates";
+
 /// File-menu items that run an existing app action: (item id, label, frontend event, accelerator). The frontend
 /// listens for these exact event names (src/app/layouts/sidebar/useNativeFileMenu.ts) and runs the same handlers as
 /// the sidebar's Create menu. The accelerators are the shortcuts the Keyboard shortcuts dialog lists
@@ -156,6 +160,15 @@ fn build_app_submenu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>
         Some("CmdOrCtrl+,"),
     )?;
 
+    #[cfg(feature = "direct-updates")]
+    let check_for_updates = MenuItem::with_id(
+        app,
+        CHECK_FOR_UPDATES_ITEM_ID,
+        "Check for Updates…",
+        true,
+        None::<&str>,
+    )?;
+
     let quit = MenuItem::with_id(
         app,
         QUIT_ITEM_ID,
@@ -164,24 +177,37 @@ fn build_app_submenu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>
         Some("CmdOrCtrl+Q"),
     )?;
 
-    Submenu::with_items(
-        app,
-        &name,
-        true,
-        &[
-            &PredefinedMenuItem::about(app, Some(&format!("About {name}")), Some(about))?,
-            &PredefinedMenuItem::separator(app)?,
-            &settings,
-            &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::services(app, None)?,
-            &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::hide(app, Some(&format!("Hide {name}")))?,
-            &PredefinedMenuItem::hide_others(app, None)?,
-            &PredefinedMenuItem::show_all(app, None)?,
-            &PredefinedMenuItem::separator(app)?,
-            &quit,
-        ],
-    )
+    #[cfg(feature = "direct-updates")]
+    let items: Vec<&dyn tauri::menu::IsMenuItem<R>> = vec![
+        &PredefinedMenuItem::about(app, Some(&format!("About {name}")), Some(about))?,
+        &PredefinedMenuItem::separator(app)?,
+        &settings,
+        &PredefinedMenuItem::separator(app)?,
+        &check_for_updates,
+        &PredefinedMenuItem::separator(app)?,
+        &PredefinedMenuItem::services(app, None)?,
+        &PredefinedMenuItem::separator(app)?,
+        &PredefinedMenuItem::hide(app, Some(&format!("Hide {name}")))?,
+        &PredefinedMenuItem::hide_others(app, None)?,
+        &PredefinedMenuItem::show_all(app, None)?,
+        &PredefinedMenuItem::separator(app)?,
+        &quit,
+    ];
+    #[cfg(not(feature = "direct-updates"))]
+    let items: Vec<&dyn tauri::menu::IsMenuItem<R>> = vec![
+        &PredefinedMenuItem::about(app, Some(&format!("About {name}")), Some(about))?,
+        &PredefinedMenuItem::separator(app)?,
+        &settings,
+        &PredefinedMenuItem::separator(app)?,
+        &PredefinedMenuItem::services(app, None)?,
+        &PredefinedMenuItem::separator(app)?,
+        &PredefinedMenuItem::hide(app, Some(&format!("Hide {name}")))?,
+        &PredefinedMenuItem::hide_others(app, None)?,
+        &PredefinedMenuItem::show_all(app, None)?,
+        &PredefinedMenuItem::separator(app)?,
+        &quit,
+    ];
+    Submenu::with_items(app, &name, true, &items)
 }
 
 /// New Note, Today’s Daily Note / New Folder, grouped by separators. There is deliberately no Close Window item and
