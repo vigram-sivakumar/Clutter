@@ -375,31 +375,33 @@ export function Sidebar({
         {tabs.find((tab) => tab.value === workspace.activeSidebarTab)?.panel}
       </div>
       </RowContextMenuEnabled>
-      {showUpdatePreview && (
-        <div className="sidebar__update-preview">
-          <Alert
-            title="New update available"
-            description="Version 1.1.0"
-            isDismissible
-            onDismiss={() => setShowUpdatePreview(false)}
-            actionsSlot={
-              <Button variant="primary" size="medium" block>
-                Restart now
-              </Button>
-            }
-          />
-        </div>
-      )}
-      <Footer
-        vaultFolderName={VaultPath.filename(vault.root)}
-        spaces={spaces?.spaces}
-        activeSpacePath={vault.root}
-        onSwitchSpace={spaces?.onSwitchSpace}
-        onNewSpace={spaces?.onAddSpace}
-        onSpacesMenuOpen={spaces?.refreshAvailability}
-        resolveImageUrl={spaces?.resolveAvatarImageUrl ?? ((src) => application.resolveCoverImageForDisplay(src))}
-        onOpenArchive={() => navigation.openArchive()}
-      />
+      <div className="sidebar__footer">
+        {showUpdatePreview && (
+          <div className="sidebar__update-preview">
+            <Alert
+              title="New update available"
+              description="Version 1.1.0"
+              isDismissible
+              onDismiss={() => setShowUpdatePreview(false)}
+              actionsSlot={
+                <Button variant="primary" size="medium" block>
+                  Restart now
+                </Button>
+              }
+            />
+          </div>
+        )}
+        <Footer
+          vaultFolderName={VaultPath.filename(vault.root)}
+          spaces={spaces?.spaces}
+          activeSpacePath={vault.root}
+          onSwitchSpace={spaces?.onSwitchSpace}
+          onNewSpace={spaces?.onAddSpace}
+          onSpacesMenuOpen={spaces?.refreshAvailability}
+          resolveImageUrl={spaces?.resolveAvatarImageUrl ?? ((src) => application.resolveCoverImageForDisplay(src))}
+          onOpenArchive={() => navigation.openArchive()}
+        />
+      </div>
 
       <NewTaskDialog
         open={creationDialog === 'task'}
