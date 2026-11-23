@@ -1,5 +1,5 @@
 /** What the user was doing when Clutter found notes that are still unsaved. */
-export type UnsavedAction = 'close' | 'switch';
+export type UnsavedAction = 'close' | 'switch' | 'restart';
 
 /**
  * The wording of the dialog shown when closing Clutter or leaving a Space while notes still have unsaved changes.
@@ -14,7 +14,7 @@ export type UnsavedAction = 'close' | 'switch';
 export function unsavedCloseCopy(unsavedCount: number, action: UnsavedAction = 'close') {
   const one = unsavedCount === 1;
 
-  if (action === 'switch') {
+  if (action === 'restart') {\n    const subject = one\n      ? 'You have unsaved changes that won’t be saved to your vault'\n      : `You have ${unsavedCount} notes with unsaved changes that won’t be saved to your vault`;\n    const recovery = one\n      ? 'A recovery copy may be available when Clutter opens again, but it might not include your latest edits'\n      : 'Recovery copies may be available when Clutter opens again, but they might not include your latest edits';\n    return {\n      title: 'Restart without saving?',\n      description: `${subject}. ${recovery}`,\n      confirmLabel: 'Restart anyway',\n      cancelLabel: 'Keep editing',\n    };\n  }\n\n  if (action === 'switch') {
     return {
       title: 'Switch spaces?',
       description: one ? 'You have unsaved changes' : `You have ${unsavedCount} notes with unsaved changes`,
