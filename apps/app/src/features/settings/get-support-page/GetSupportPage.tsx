@@ -9,8 +9,6 @@ import { SettingsGroup } from '../settings-group/SettingsGroup';
 const DISCORD_URL = 'https://discord.gg/kbPgnmAet5';
 const SUPPORT_EMAIL = 'support.clutter@gmail.com';
 const SUPPORT_SUBJECT = 'Clutter Support';
-const GMAIL_COMPOSE_URL =
-  `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(SUPPORT_EMAIL)}&su=${encodeURIComponent(SUPPORT_SUBJECT)}`;
 
 export function GetSupportPage() {
   const toast = useToast();
@@ -32,7 +30,7 @@ export function GetSupportPage() {
         !isTauri() || (await invoke<boolean>('should_use_gmail_for_support_email'));
       await openExternalUrl(
         useGmail
-          ? GMAIL_COMPOSE_URL
+          ? 'https://mail.google.com/'
           : `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(SUPPORT_SUBJECT)}`,
       );
     } catch (error) {
