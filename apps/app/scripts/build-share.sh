@@ -46,4 +46,6 @@ TARGET="${CARGO_TARGET_DIR:-src-tauri/target}"
 BUNDLE=$(ls -d "$TARGET"/release/bundle/macos/*.app | head -1)
 echo "built: $BUNDLE"
 "$HERE/verify-bundle.sh" "$BUNDLE" --share
-ls "$TARGET"/release/bundle/dmg/*.dmg 2>/dev/null | sed 's/^/installer: /'
+node "$HERE/write-update-manifest.mjs"
+echo "Upload these files to the GitHub release ${UPDATE_RELEASE_TAG:-v$(node -p "require('./package.json').version")}:"
+ls "$TARGET"/release/bundle/dmg/*.dmg "$TARGET"/release/bundle/macos/*.app.tar.gz "$TARGET"/release/bundle/macos/*.app.tar.gz.sig "$TARGET"/release/bundle/macos/latest.json
