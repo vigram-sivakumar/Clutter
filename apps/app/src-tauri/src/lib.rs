@@ -13,6 +13,8 @@ mod launch_at_login;
 mod atomic_replace;
 #[cfg(all(target_os = "macos", feature = "atomic-writes"))]
 mod atomic_commands;
+#[cfg(target_os = "macos")]
+mod mailto_handler;
 mod export_file;
 mod fs_authorization;
 mod macos_trash;
@@ -212,6 +214,8 @@ pub fn run() {
             atomic_commands::check_space_filesystem,
             #[cfg(all(target_os = "macos", feature = "atomic-writes"))]
             atomic_commands::initialize_space,
+            #[cfg(target_os = "macos")]
+            mailto_handler::should_use_gmail_for_support_email,
             export_file::export_pick_destination,
             export_file::export_copy_file,
             export_file::export_write_file,

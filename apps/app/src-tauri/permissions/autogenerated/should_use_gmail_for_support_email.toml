@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-should-use-gmail-for-support-email"
+description = "Enables the should_use_gmail_for_support_email command without any pre-configured scope."
+commands.allow = ["should_use_gmail_for_support_email"]
+
+[[permission]]
+identifier = "deny-should-use-gmail-for-support-email"
+description = "Denies the should_use_gmail_for_support_email command without any pre-configured scope."
+commands.deny = ["should_use_gmail_for_support_email"]
