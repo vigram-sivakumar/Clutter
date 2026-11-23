@@ -5,10 +5,15 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { ShortcutsProvider } from '@app/shortcuts/ShortcutsProvider';
+import { ToastProvider } from '@components/toast/ToastProvider';
+import { LEGAL_LINKS } from '@core/legalLinks';
 import { Footer } from './Footer';
 import { Settings } from '@features/settings/Settings';
 import { SettingsDialogStateProvider } from '@features/settings/SettingsDialogState';
 import type { SpaceAvatarValue } from '@components/space-avatar/SpaceAvatar';
+
+const openExternalUrl = vi.fn<(url: string) => Promise<void>>();
+vi.mock('@shared/helpers/openExternalUrl', () => ({ openExternalUrl: (url: string) => openExternalUrl(url) }));
 
 class ResizeObserverMock {
   observe = vi.fn();
@@ -122,6 +127,41 @@ describe('Footer space selector: title, caret, archive', () => {
     fireEvent.click(within(screen.getByRole('menu')).getByText('Contact Us'));
     expect(screen.getByRole('heading', { name: 'Contact Us' })).toBeInTheDocument();
     expect(screen.getByText('Discord community')).toBeInTheDocument();
+  });
+
+  it('opens the published Privacy Policy from the Help menu without a trailing arrow', async () => {
+    openExternalUrl.mockReset();
+    openExternalUrl.mockResolvedValue(undefined);
+    render(
+      <ToastProvider>
+        <Footer vaultFolderName="v" onOpenArchive={vi.fn()} />
+      </ToastProvider>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Help' }));
+    const item = within(screen.getByRole('menu')).getByText('Privacy Policy').closest('[role="menuitem"]');
+
+    expect(item).not.toBeNull();
+    expect(item!.querySelector('.entry__trailing')).toBeNull();
+    fireEvent.click(item!);
+
+    expect(openExternalUrl).toHaveBeenCalledWith(LEGAL_LINKS.privacyPolicy);
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('shows an error toast if the Privacy Policy cannot be opened', async () => {
+    openExternalUrl.mockReset();
+    openExternalUrl.mockRejectedValue(new Error('no browser'));
+    render(
+      <ToastProvider>
+        <Footer vaultFolderName="v" onOpenArchive={vi.fn()} />
+      </ToastProvider>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Help' }));
+    fireEvent.click(screen.getByText('Privacy Policy'));
+
+    expect(await screen.findByText('Couldn’t open the page')).toBeInTheDocument();
   });
 
   it('opens the help menu with the shortcut entries and Contact Us', () => {
