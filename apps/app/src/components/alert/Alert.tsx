@@ -27,9 +27,6 @@ export function Alert({
       <div className="alert__header">
         <div className="alert__content">
           <div className="alert__title">{title}</div>
-          {description && (
-            <div className="alert__description">{description}</div>
-          )}
         </div>
         {isDismissible && onDismiss && (
           <RoundIconButton
@@ -40,8 +37,13 @@ export function Alert({
           />
         )}
       </div>
-      <span className="alert__border" />
-      {actionsSlot && <div className="alert__actions">{actionsSlot}</div>}
+      <div className="alert__details">
+        {description && (
+          <div className="alert__description">{description}</div>
+        )}
+        <span className="alert__border" />
+        {actionsSlot && <div className="alert__actions">{actionsSlot}</div>}
+      </div>
     </section>
   );
 }
