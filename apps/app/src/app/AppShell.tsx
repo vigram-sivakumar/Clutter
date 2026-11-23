@@ -394,7 +394,7 @@ function AppShellContent() {
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       const { message } = await import('@tauri-apps/plugin-dialog');
-      await message(`Clutter couldn't download the update.\\n\\n${detail}`, {
+      await message(`Clutter couldn't download the update.\n\n${detail}`, {
         title: 'Clutter Update',
         kind: 'error',
       });
@@ -432,7 +432,7 @@ function AppShellContent() {
       if (applicationClosed) setReopenNonce((nonce) => nonce + 1);
       const detail = error instanceof Error ? error.message : String(error);
       const { message } = await import('@tauri-apps/plugin-dialog');
-      await message(`Clutter couldn't install the update.\\n\\n${detail}`, {
+      await message(`Clutter couldn't install the update.\n\n${detail}`, {
         title: 'Clutter Update',
         kind: 'error',
       });
@@ -453,23 +453,23 @@ function AppShellContent() {
       const update = await check();
       directUpdateRef.current = update;
       if (!update) {
-        await message(`You're on the latest version of Clutter!\\n\\n${version}`, {
+        await message(`You're on the latest version of Clutter!\n\n${version}`, {
           title: 'Clutter',
           kind: 'info',
         });
         return;
       }
       const install = await ask(
-        `A new version of Clutter is available.\\n\\nVersion ${update.version}\\n\\nWould you like to download and install it now?`,
+        `A new version of Clutter is available.\n\nVersion ${update.version}\n\nWould you like to download and install it now?`,
         { title: 'Clutter Update', kind: 'info', okLabel: 'Download and Install', cancelLabel: 'Later' }
       );
       if (!install) return;
       updateOperationRef.current = false;
       if (await downloadDirectUpdate()) await installDirectUpdateAndRestart();
     } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
+      console.error('Clutter update check failed:', error);
       const { message } = await import('@tauri-apps/plugin-dialog');
-      await message(`Clutter couldn't check for updates.\\n\\n${detail}`, {
+      await message("Couldn't check for updates.\n\nPlease try again later.", {
         title: 'Check for Updates',
         kind: 'error',
       });
