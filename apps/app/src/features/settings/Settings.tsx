@@ -170,7 +170,7 @@ export function Settings({ templates, noteLocation, spaceSettings, space, onClos
               </SettingsGroup>
             </Fragment>
             {directUpdates && (
-              <SettingsGroup title="Updates">
+              <SettingsGroup>
                 <DirectUpdatesSetting {...directUpdates} />
               </SettingsGroup>
             )}
