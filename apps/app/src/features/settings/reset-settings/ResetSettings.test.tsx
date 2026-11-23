@@ -43,8 +43,8 @@ describe('Settings → Preferences → Reset', () => {
       'Startup',
       'Calendar',
       'Data & storage',
-      // Present once a privacy policy or support address is published (core/legalLinks.ts).
-      ...(hasLegalLinks() ? ['Privacy and support'] : []),
+      // Present when the published privacy policy is configured (core/legalLinks.ts).
+      ...(hasLegalLinks() ? ['Privacy'] : []),
     ]);
   });
 
