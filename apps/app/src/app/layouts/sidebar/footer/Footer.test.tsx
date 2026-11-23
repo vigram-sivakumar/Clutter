@@ -23,6 +23,16 @@ class ResizeObserverMock {
 
 beforeAll(() => {
   vi.stubGlobal('ResizeObserver', ResizeObserverMock);
+  vi.stubGlobal('matchMedia', vi.fn().mockImplementation((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })));
 });
 
 afterAll(() => {
@@ -105,7 +115,7 @@ describe('Footer space selector: title, caret, archive', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Help' }));
     fireEvent.click(screen.getByText('Markdown guide'));
     expect(await screen.findAllByText('Markdown guide', { selector: '.settings-sidebar *' })).toHaveLength(1);
-    expect(document.querySelectorAll('.settings-sidebar .sidebar__navigation')).toHaveLength(6);
+    expect(document.querySelectorAll('.settings-sidebar .sidebar__navigation')).toHaveLength(7);
     expect(screen.queryByRole('heading', { name: 'Keyboard shortcuts' })).toBeNull();
   });
 
