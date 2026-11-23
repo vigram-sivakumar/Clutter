@@ -45,6 +45,3 @@
   width: 100%;
 }
 
-.sidebar__update-preview {
-  width: calc(100% - var(--sidebar-padding-inline) * 2);
-}
