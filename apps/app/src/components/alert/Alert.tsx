@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react';
-
-import { RoundIconButton } from '../button/RoundIconButton';
-
 import './Alert.css';
+import { Button } from '@components/button/Button';
+import { AppIcon } from '@shared/icon';
 
 export interface AlertProps {
   title: string;
@@ -23,24 +22,29 @@ export function Alert({
   onDismiss,
 }: AlertProps) {
   return (
-    <section className={`alert${isCollapsed ? ' alert--collapsed' : ''}`} role="status">
+    <section
+      className={`alert${isCollapsed ? ' alert--collapsed' : ''}`}
+      role="status"
+    >
       <div className="alert__header">
         <div className="alert__content">
           <div className="alert__title">{title}</div>
         </div>
         {isDismissible && onDismiss && (
-          <RoundIconButton
+          <Button
             className="alert__dismiss"
-            icon="dismiss"
+            isIconOnly
+            size="small"
+            interaction="subtle"
             aria-label="Dismiss"
             onClick={onDismiss}
-          />
+          >
+            <AppIcon icon="dismiss" />
+          </Button>
         )}
       </div>
       <div className="alert__details">
-        {description && (
-          <div className="alert__description">{description}</div>
-        )}
+        {description && <div className="alert__description">{description}</div>}
         <span className="alert__border" />
         {actionsSlot && <div className="alert__actions">{actionsSlot}</div>}
       </div>

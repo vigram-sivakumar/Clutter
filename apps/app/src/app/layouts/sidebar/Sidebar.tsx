@@ -6,14 +6,21 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { useFolderItemLimit } from '@shared/helpers/folderItemLimitPreference';
 import { collectionViewKeyForSidebarLevel } from '@core/application/collection/collectionViewKey';
-import { forgetInLevelOrder, levelOrderContextFor, setLevelSort } from '@features/notes/sidebar/sidebarOrderActions';
+import {
+  forgetInLevelOrder,
+  levelOrderContextFor,
+  setLevelSort,
+} from '@features/notes/sidebar/sidebarOrderActions';
 import type { TaskExpansionKey } from '@features/tasks/helpers/groupTasks';
 import { useTaskItemLimit } from '@shared/helpers/taskItemLimitPreference';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import type { TaskDisplayConfig } from '@features/tasks/helpers/groupTasks';
 import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
 import { getActiveDailyNoteDate } from '@features/daily-notes/helpers/getActiveDailyNoteDate';
-import { shiftDailyNoteDate, todayAsDailyNoteDate } from '@features/daily-notes/helpers/shiftDailyNoteDate';
+import {
+  shiftDailyNoteDate,
+  todayAsDailyNoteDate,
+} from '@features/daily-notes/helpers/shiftDailyNoteDate';
 import { toDate } from '@shared/helpers/time/helpers/toDate';
 import './Sidebar.css';
 import { Tabs, Tab } from '@components/tabs/Tabs';
@@ -44,7 +51,10 @@ import { NewFolderDialog } from '@features/notes/shortcuts/NewFolderDialog';
 import { createAndOpenFolder } from '@features/notes/helpers/createAndOpenFolder';
 import { createNote } from '@features/notes/helpers/createNote';
 import { createTemplate } from '@features/notes/helpers/createTemplate';
-import { reportUpload, uploadAssets } from '@features/notes/helpers/uploadAssets';
+import {
+  reportUpload,
+  uploadAssets,
+} from '@features/notes/helpers/uploadAssets';
 import { useToast } from '@components/toast/ToastProvider';
 import { createTask } from '@features/tasks/helpers/createTask';
 import { testIds } from '@shared/testing/selectors';
@@ -94,15 +104,19 @@ export function Sidebar({
   const currentTasks = effectivePageState.getTasks();
   // The Today view already includes both overdue and due-today tasks; this is the single count
   // used by the sidebar indicator and the native macOS Dock badge.
-  const dueTaskCount = tasksForView('tasks-today', currentTasks, { showCompleted: false }).length;
+  const dueTaskCount = tasksForView('tasks-today', currentTasks, {
+    showCompleted: false,
+  }).length;
   const hasDueTasks = dueTaskCount > 0;
 
   useEffect(() => {
     if (!isTauri()) return;
 
-    void invoke('set_dock_badge', { count: dueTaskCount }).catch((error: unknown) => {
-      console.error('Could not update the Dock task badge:', error);
-    });
+    void invoke('set_dock_badge', { count: dueTaskCount }).catch(
+      (error: unknown) => {
+        console.error('Could not update the Dock task badge:', error);
+      }
+    );
   }, [dueTaskCount]);
 
   const spaces = useSpaces();
@@ -119,7 +133,9 @@ export function Sidebar({
   // confirmed common ancestor of both, no sibling outside Sidebar needs
   // this. One-shot, cleared via onRevealHandled once the Notes panel has
   // applied it (same request/ack shape as PendingEditorReveal).
-  const [sidebarNoteReveal, setSidebarNoteReveal] = useState<string | null>(null);
+  const [sidebarNoteReveal, setSidebarNoteReveal] = useState<string | null>(
+    null
+  );
   const [showUpdatePreview, setShowUpdatePreview] = useState(true);
   // Tasks groups whose "N more" row was clicked. Session-only on purpose: held here (Sidebar stays
   // mounted, the Tasks panel doesn't) and never written to disk, so a restart collapses them again.
@@ -127,24 +143,39 @@ export function Sidebar({
   const [, setSortRevision] = useState(0);
   // A sort or order written from ANYWHERE — here, or by a drop that began in a Collection View — is drawn at once.
   useEffect(
-    () => application.collectionViewConfigStore.subscribe(() => setSortRevision((revision) => revision + 1)),
+    () =>
+      application.collectionViewConfigStore.subscribe(() =>
+        setSortRevision((revision) => revision + 1)
+      ),
     [application]
   );
   const [expandedFolders, setExpandedFolders] = useState<readonly string[]>([]);
   // A new Folder items limit applies to every folder alike: whichever ones had been opened with "N more" go back
   // to the limit, so none is left showing everything (or part of it) under a limit that no longer says so.
   const folderItemLimit = useFolderItemLimit();
-  useEffect(() => setExpandedFolders((prev) => (prev.length > 0 ? [] : prev)), [folderItemLimit]);
-  const [expandedTaskGroups, setExpandedTaskGroups] = useState<readonly TaskExpansionKey[]>([]);
+  useEffect(
+    () => setExpandedFolders((prev) => (prev.length > 0 ? [] : prev)),
+    [folderItemLimit]
+  );
+  const [expandedTaskGroups, setExpandedTaskGroups] = useState<
+    readonly TaskExpansionKey[]
+  >([]);
   // Same as the folders above: a new Tasks "Show" limit applies to every list alike, so every one opened with "N more" goes back to it.
   const taskItemLimit = useTaskItemLimit();
-  useEffect(() => setExpandedTaskGroups((prev) => (prev.length > 0 ? [] : prev)), [taskItemLimit]);
+  useEffect(
+    () => setExpandedTaskGroups((prev) => (prev.length > 0 ? [] : prev)),
+    [taskItemLimit]
+  );
 
   // The creation dialogs are hosted here, not inside their panels, so the top controls' menu and
   // each panel's own "New" row open the very same dialog whichever sidebar tab is mounted.
   // The task whose Edit task modal is open (Edit in a task row's menu) — the same dialog the Task Collection opens.
-  const [editingTask, setEditingTask] = useState<TaskOccurrence | undefined>(undefined);
-  const [creationDialog, setCreationDialog] = useState<'task' | 'tag' | 'folder' | null>(null);
+  const [editingTask, setEditingTask] = useState<TaskOccurrence | undefined>(
+    undefined
+  );
+  const [creationDialog, setCreationDialog] = useState<
+    'task' | 'tag' | 'folder' | null
+  >(null);
   const closeCreationDialog = () => setCreationDialog(null);
 
   function revealNoteInNotesSidebar(pageId: string): void {
@@ -175,31 +206,56 @@ export function Sidebar({
           resourceOperations={resourceOperations}
           effectivePageState={effectivePageState}
           membershipSelector={membershipSelector}
-          getDefaultNoteFolderId={() => application.resolveDefaultNoteFolderId()}
+          getDefaultNoteFolderId={() =>
+            application.resolveDefaultNoteFolderId()
+          }
           onOpen={(pageId) => pageOperations.open(pageId)}
           onOpenFolder={(folderId) => folderOperations.open(folderId)}
           onOpenDraft={(pageId) => pageOperations.open(pageId)}
           onOpenResource={onOpenResource}
           expandedFolders={expandedFolders}
-          getFolderSort={(parentId) => application.collectionViewConfigStore.get(collectionViewKeyForSidebarLevel(parentId))?.sidebarSort}
-          getLevelOrder={(parentId) => application.collectionViewConfigStore.get(collectionViewKeyForSidebarLevel(parentId))?.sidebarOrder}
+          getFolderSort={(parentId) =>
+            application.collectionViewConfigStore.get(
+              collectionViewKeyForSidebarLevel(parentId)
+            )?.sidebarSort
+          }
+          getLevelOrder={(parentId) =>
+            application.collectionViewConfigStore.get(
+              collectionViewKeyForSidebarLevel(parentId)
+            )?.sidebarOrder
+          }
           onLevelOrderChange={(parentId, order) =>
             // A reorder makes the level Manual and stores its order in one write (ADR-055) — the same write a
             // drop from a Collection View makes.
-            levelOrderContextFor(application.collectionViewConfigStore, membershipSelector).setOrder(parentId, order)
+            levelOrderContextFor(
+              application.collectionViewConfigStore,
+              membershipSelector
+            ).setOrder(parentId, order)
           }
           onItemLeftLevel={(parentId, kind, id) =>
             // A successful move out of `parentId`: forget the item in that level's saved order.
-            forgetInLevelOrder(application.collectionViewConfigStore, parentId, kind, id)
+            forgetInLevelOrder(
+              application.collectionViewConfigStore,
+              parentId,
+              kind,
+              id
+            )
           }
           onFolderSortChange={(folderId, sort) => {
-            setLevelSort(application.collectionViewConfigStore, membershipSelector, folderId, sort);
+            setLevelSort(
+              application.collectionViewConfigStore,
+              membershipSelector,
+              folderId,
+              sort
+            );
             // The store is the source of truth; this just re-renders the tree to read it again.
             setSortRevision((revision) => revision + 1);
           }}
           onToggleFolderCap={(key) =>
             setExpandedFolders((prev) =>
-              prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+              prev.includes(key)
+                ? prev.filter((k) => k !== key)
+                : [...prev, key]
             )
           }
           revealPageId={sidebarNoteReveal}
@@ -288,7 +344,11 @@ export function Sidebar({
 
   // One implementation each for the Create menu and the native File menu.
   const newNote = () =>
-    void createNote(folderOperations, pageOperations, application.resolveDefaultNoteFolderId()).catch(() => {});
+    void createNote(
+      folderOperations,
+      pageOperations,
+      application.resolveDefaultNoteFolderId()
+    ).catch(() => {});
   const openDailyNote = () =>
     void pageOperations
       .openAtPath(DailyNotePath.absoluteFrom(vault.root, new Date()), {
@@ -296,7 +356,11 @@ export function Sidebar({
       })
       .catch(() => {});
   const newFolder = () => setCreationDialog('folder');
-  useNativeFileMenu({ onNewNote: newNote, onNewDailyNote: openDailyNote, onNewFolder: newFolder });
+  useNativeFileMenu({
+    onNewNote: newNote,
+    onNewDailyNote: openDailyNote,
+    onNewFolder: newFolder,
+  });
   // The same create actions by keyboard (shortcuts.ts). In the desktop app the File menu owns ⌘N, ⇧⌘N and ⇧⌘D, so
   // the dispatcher only handles those in the browser build; ⇧⌘T (New task) has no menu item and is always handled here.
   // Previous / next daily note step from the open Daily Note, or from today when none is open.
@@ -305,7 +369,12 @@ export function Sidebar({
       .openAtPath(
         DailyNotePath.absoluteFrom(
           vault.root,
-          toDate(shiftDailyNoteDate(activeDailyNoteDate ?? todayAsDailyNoteDate(), days))
+          toDate(
+            shiftDailyNoteDate(
+              activeDailyNoteDate ?? todayAsDailyNoteDate(),
+              days
+            )
+          )
         ),
         { type: 'daily-note' }
       )
@@ -321,9 +390,15 @@ export function Sidebar({
   });
   // The native Edit menu's "Copy Link to Current Page": the same "Copy path → As Markdown" action the page menus use,
   // on the open page. Enabled only while a page (note or daily note) is open.
-  const openPage = workspace.activePageId ? vault.getPage(workspace.activePageId) : undefined;
+  const openPage = workspace.activePageId
+    ? vault.getPage(workspace.activePageId)
+    : undefined;
   useNativeEditMenu(openPage !== undefined, () =>
-    createLocationActions(vault.root, toast).copyPath(openPage, 'page', 'as-markdown')
+    createLocationActions(vault.root, toast).copyPath(
+      openPage,
+      'page',
+      'as-markdown'
+    )
   );
 
   return (
@@ -339,8 +414,9 @@ export function Sidebar({
         onNewFolder={newFolder}
         onNewTag={() => setCreationDialog('tag')}
         onNewTemplate={() =>
-          void createTemplate(folderOperations, pageOperations).catch((error: unknown) =>
-            toast.fail('Couldn’t create the template', error)
+          void createTemplate(folderOperations, pageOperations).catch(
+            (error: unknown) =>
+              toast.fail('Couldn’t create the template', error)
           )
         }
         onUpload={() =>
@@ -348,21 +424,33 @@ export function Sidebar({
             application.importAsset(source, destination)
           )
             .then((result) => reportUpload(toast, result))
-            .catch((error: unknown) => toast.fail('Couldn’t add the files', error))
+            .catch((error: unknown) =>
+              toast.fail('Couldn’t add the files', error)
+            )
         }
       />
       <div className="sidebar--tabs">
         <Tabs
           value={workspace.activeSidebarTab}
           // The Search tab is an action: it opens the overlay and leaves the sidebar on the tab it was showing.
-          onValueChange={(tab) => (tab === 'search' ? onOpenSearch() : workspace.setActiveSidebarTab(tab))}
+          onValueChange={(tab) =>
+            tab === 'search'
+              ? onOpenSearch()
+              : workspace.setActiveSidebarTab(tab)
+          }
         >
           {tabs.map((tab) => (
             <Tab
               key={tab.value}
               value={tab.value}
               hasIndicator={tab.value === 'tasks' && hasDueTasks}
-              aria-label={tab.value === 'tasks' ? (hasDueTasks ? 'Tasks, due today or overdue' : 'Tasks') : undefined}
+              aria-label={
+                tab.value === 'tasks'
+                  ? hasDueTasks
+                    ? 'Tasks, due today or overdue'
+                    : 'Tasks'
+                  : undefined
+              }
             >
               <AppIcon icon={tab.icon} emoji={tab.emoji} />
             </Tab>
@@ -371,9 +459,9 @@ export function Sidebar({
       </div>
 
       <RowContextMenuEnabled value>
-      <div className="sidebar--content">
-        {tabs.find((tab) => tab.value === workspace.activeSidebarTab)?.panel}
-      </div>
+        <div className="sidebar--content">
+          {tabs.find((tab) => tab.value === workspace.activeSidebarTab)?.panel}
+        </div>
       </RowContextMenuEnabled>
       <div className="sidebar__footer">
         {showUpdatePreview && (
@@ -382,10 +470,8 @@ export function Sidebar({
               title="New update available"
               description="Version 1.1.0"
               isCollapsed
-              isDismissible
-              onDismiss={() => setShowUpdatePreview(false)}
               actionsSlot={
-                <Button variant="primary" size="medium" block>
+                <Button variant="primary" size="medium">
                   Restart now
                 </Button>
               }
@@ -399,7 +485,10 @@ export function Sidebar({
           onSwitchSpace={spaces?.onSwitchSpace}
           onNewSpace={spaces?.onAddSpace}
           onSpacesMenuOpen={spaces?.refreshAvailability}
-          resolveImageUrl={spaces?.resolveAvatarImageUrl ?? ((src) => application.resolveCoverImageForDisplay(src))}
+          resolveImageUrl={
+            spaces?.resolveAvatarImageUrl ??
+            ((src) => application.resolveCoverImageForDisplay(src))
+          }
           onOpenArchive={() => navigation.openArchive()}
         />
       </div>
@@ -412,20 +501,31 @@ export function Sidebar({
         }
       />
       {editingTask && (
-        <EditTaskDialog task={editingTask} taskOperations={taskOperations} onClose={() => setEditingTask(undefined)} />
+        <EditTaskDialog
+          task={editingTask}
+          taskOperations={taskOperations}
+          onClose={() => setEditingTask(undefined)}
+        />
       )}
       <NewTagDialog
         open={creationDialog === 'tag'}
         onClose={closeCreationDialog}
-        validateName={(input) => application.tagOperations.checkNewTagName(input)}
-        onSubmit={(name, icon) => application.tagOperations.declare(name, { icon })}
+        validateName={(input) =>
+          application.tagOperations.checkNewTagName(input)
+        }
+        onSubmit={(name, icon) =>
+          application.tagOperations.declare(name, { icon })
+        }
       />
       <NewFolderDialog
         open={creationDialog === 'folder'}
         onClose={closeCreationDialog}
         canCreate={(name) => folderOperations.canCreate(name, null)}
         onSubmit={(name, icon, description) =>
-          createAndOpenFolder(folderOperations, name, null, { icon, description })
+          createAndOpenFolder(folderOperations, name, null, {
+            icon,
+            description,
+          })
         }
       />
     </aside>
