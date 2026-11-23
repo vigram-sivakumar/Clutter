@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
 import { isTauri } from '@tauri-apps/api/core';
+import type { Update } from '@tauri-apps/plugin-updater';
 import { BrowserRecoveryStorage } from '../core/recovery/RecoveryStorage';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
@@ -88,6 +89,7 @@ import type {
 import { useSpaceRegistry } from './spaces/useSpaceRegistry';
 import type { NarrowSidebarOverride } from './layouts/app-layout/useSidebarVisibility';
 import { MissingSpaceDialog } from '@components/missing-space-dialog/MissingSpaceDialog';
+import type { DirectUpdatesState, DirectUpdatesSettingProps } from '../features/settings/updates-setting/DirectUpdatesSetting';
 
 /** A Space's own profile, read without opening it (read-only, never throws). The web runtime has none. */
 async function readProfileAt(path: string): Promise<SpaceProfile | null> {
@@ -379,6 +381,118 @@ function AppShellContent() {
     []
   );
   const confirmUnsavedClose = useCallback((count: number) => confirmUnsaved(count, 'close'), [confirmUnsaved]);
+  const [directUpdateState, setDirectUpdateState] = useState<DirectUpdatesState>({ status: 'idle' });
+  const directUpdateRef = useRef<Update | null>(null);
+  const updateOperationRef = useRef(false);
+  const autoUpdateCheckStartedRef = useRef(false);
+
+  const checkForDirectUpdates = useCallback(async () => {
+    if (!__CLUTTER_DIRECT_UPDATES__ || !isTauri() || updateOperationRef.current) return;
+    updateOperationRef.current = true;
+    setDirectUpdateState({ status: 'checking' });
+    try {
+      const { check } = await import('@tauri-apps/plugin-updater');
+      const update = await check();
+      directUpdateRef.current = update;
+      setDirectUpdateState(
+        update ? { status: 'available', version: update.version } : { status: 'current' }
+      );
+    } catch (error) {
+      setDirectUpdateState({
+        status: 'error',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      updateOperationRef.current = false;
+    }
+  }, []);
+
+  const downloadDirectUpdate = useCallback(async () => {
+    const update = directUpdateRef.current;
+    if (!__CLUTTER_DIRECT_UPDATES__ || !isTauri() || !update || updateOperationRef.current) return;
+    updateOperationRef.current = true;
+    setDirectUpdateState({ status: 'downloading', version: update.version });
+    let totalBytes = 0;
+    let downloadedBytes = 0;
+    try {
+      await update.download((event) => {
+        if (event.event === 'Started') {
+          totalBytes = event.data.contentLength ?? 0;
+        } else if (event.event === 'Progress') {
+          downloadedBytes += event.data.chunkLength;
+          setDirectUpdateState({
+            status: 'downloading',
+            version: update.version,
+            progress: totalBytes > 0 ? Math.min(100, Math.round((downloadedBytes / totalBytes) * 100)) : undefined,
+          });
+        }
+      });
+      setDirectUpdateState({ status: 'ready', version: update.version });
+    } catch (error) {
+      setDirectUpdateState({
+        status: 'error',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      updateOperationRef.current = false;
+    }
+  }, []);
+
+  const installDirectUpdateAndRestart = useCallback(async () => {
+    const update = directUpdateRef.current;
+    if (!__CLUTTER_DIRECT_UPDATES__ || !isTauri() || !update || updateOperationRef.current) return;
+    updateOperationRef.current = true;
+    setDirectUpdateState({ status: 'installing', version: update.version });
+    let applicationClosed = false;
+    try {
+      const open = applicationRef.current;
+      if (open) {
+        const unsaved = await open.checkUnsavedBeforeClose();
+        if (unsaved > 0) {
+          await open.snapshotUnsavedWork();
+          const choice = await confirmUnsaved(unsaved, 'restart');
+          if (choice !== 'close') {
+            setDirectUpdateState({ status: 'ready', version: update.version });
+            return;
+          }
+        }
+        await open.close();
+        applicationClosed = true;
+        applicationRef.current = null;
+        openedPathRef.current = null;
+        setApplication(null);
+        setIsLoading(true);
+      }
+      await update.install();
+      const { relaunch } = await import('@tauri-apps/plugin-process');
+      await relaunch();
+    } catch (error) {
+      setDirectUpdateState({
+        status: 'error',
+        error: error instanceof Error ? error.message : String(error),
+      });
+      if (applicationClosed) setReopenNonce((nonce) => nonce + 1);
+    } finally {
+      updateOperationRef.current = false;
+    }
+  }, [confirmUnsaved]);
+
+  useEffect(() => {
+    if (!__CLUTTER_DIRECT_UPDATES__ || !isTauri() || autoUpdateCheckStartedRef.current) return;
+    autoUpdateCheckStartedRef.current = true;
+    return scheduleAfterFirstPaint(() => void checkForDirectUpdates());
+  }, [checkForDirectUpdates]);
+
+  const directUpdates: DirectUpdatesSettingProps | undefined =
+    __CLUTTER_DIRECT_UPDATES__ && isTauri()
+      ? {
+          state: directUpdateState,
+          onCheck: () => void checkForDirectUpdates(),
+          onDownload: () => void downloadDirectUpdate(),
+          onInstallAndRestart: () => void installDirectUpdateAndRestart(),
+        }
+      : undefined;
+
   const answerUnsavedClose = useCallback((choice: UnsavedCloseChoice) => {
     const answer = unsavedCloseAnswerRef.current;
     unsavedCloseAnswerRef.current = null;
@@ -1489,7 +1603,7 @@ function AppShellContent() {
         onAnswer={answerUnsavedClose}
       />
       {settingsAvailable && (
-        <ActiveSpaceSettingsDialog application={application} busy={application === null || renameInFlight} />
+        <ActiveSpaceSettingsDialog application={application} busy={application === null || renameInFlight} directUpdates={directUpdates} />
       )}
     </SpacesContext.Provider>
   );
