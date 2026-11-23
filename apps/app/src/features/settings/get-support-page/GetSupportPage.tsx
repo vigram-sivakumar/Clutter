@@ -56,7 +56,7 @@ export function GetSupportPage() {
         }
       />
       <SettingsEntry
-        title="Email"
+        title="Email us"
         description="For private questions, bug reports or help with installation."
         trailing={
           <Button variant="outline-fill" size="medium" onClick={() => void openSupportEmail()}>
