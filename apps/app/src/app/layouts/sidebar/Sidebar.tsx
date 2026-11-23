@@ -120,6 +120,7 @@ export function Sidebar({
   // this. One-shot, cleared via onRevealHandled once the Notes panel has
   // applied it (same request/ack shape as PendingEditorReveal).
   const [sidebarNoteReveal, setSidebarNoteReveal] = useState<string | null>(null);
+  const [showUpdatePreview, setShowUpdatePreview] = useState(true);
   // Tasks groups whose "N more" row was clicked. Session-only on purpose: held here (Sidebar stays
   // mounted, the Tasks panel doesn't) and never written to disk, so a restart collapses them again.
   // Same idea for the Notes tree: folders (by id, or the root key) showing all their notes/files.
@@ -374,19 +375,21 @@ export function Sidebar({
         {tabs.find((tab) => tab.value === workspace.activeSidebarTab)?.panel}
       </div>
       </RowContextMenuEnabled>
-      <div className="sidebar__update-preview">
-        <Alert
-          title="New update available"
-          description="Version 1.1.0"
-          isDismissible
-          onDismiss={() => {}}
-          actionsSlot={
-            <Button variant="primary" size="medium" block>
-              Restart now
-            </Button>
-          }
-        />
-      </div>
+      {showUpdatePreview && (
+        <div className="sidebar__update-preview">
+          <Alert
+            title="New update available"
+            description="Version 1.1.0"
+            isDismissible
+            onDismiss={() => setShowUpdatePreview(false)}
+            actionsSlot={
+              <Button variant="primary" size="medium" block>
+                Restart now
+              </Button>
+            }
+          />
+        </div>
+      )}
       <Footer
         vaultFolderName={VaultPath.filename(vault.root)}
         spaces={spaces?.spaces}
