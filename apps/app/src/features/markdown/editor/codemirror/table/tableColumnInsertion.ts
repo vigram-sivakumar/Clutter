@@ -191,7 +191,7 @@ function insertColumn(
       if (isRangeChangeSpec(existingChange)) {
         changes[samePositionInsertion] = {
           ...existingChange,
-          insert: (existingChange.insert ?? '') + (widthsChange.insert ?? ''),
+          insert: String(existingChange.insert ?? '') + String(widthsChange.insert ?? ''),
         };
       } else {
         changes.push(widthsChange);
