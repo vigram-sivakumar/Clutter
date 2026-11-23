@@ -66,7 +66,9 @@
   max-height: 0;
   opacity: 0;
   overflow: hidden;
-  transition: max-height 180ms ease, opacity 120ms ease;
+  transition:
+    max-height var(--duration-interaction) var(--easing-interaction),
+    opacity var(--duration-interaction) var(--easing-interaction);
 }
 
 .alert--collapsed .alert__dismiss {
@@ -76,7 +78,11 @@
   opacity: 0;
   overflow: hidden;
   pointer-events: none;
-  transition: opacity 120ms ease;
+  transition:
+    width var(--duration-interaction) var(--easing-interaction),
+    height var(--duration-interaction) var(--easing-interaction),
+    margin var(--duration-interaction) var(--easing-interaction),
+    opacity var(--duration-interaction) var(--easing-interaction);
 }
 
 .alert--collapsed .alert__border,
@@ -88,7 +94,10 @@
   opacity: 0;
   overflow: hidden;
   pointer-events: none;
-  transition: max-height 180ms ease, opacity 120ms ease, padding 180ms ease;
+  transition:
+    max-height var(--duration-interaction) var(--easing-interaction),
+    opacity var(--duration-interaction) var(--easing-interaction),
+    padding var(--duration-interaction) var(--easing-interaction);
 }
 
 .alert--collapsed:hover .alert__description,
