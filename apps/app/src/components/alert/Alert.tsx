@@ -9,6 +9,7 @@ export interface AlertProps {
   description?: string;
   actionsSlot?: ReactNode;
   isDismissible?: boolean;
+  isCollapsed?: boolean;
   onDismiss?: () => void;
 }
 
@@ -18,10 +19,11 @@ export function Alert({
   description,
   actionsSlot,
   isDismissible = false,
+  isCollapsed = false,
   onDismiss,
 }: AlertProps) {
   return (
-    <section className="alert" role="status">
+    <section className={`alert${isCollapsed ? ' alert--collapsed' : ''}`} role="status">
       <div className="alert__header">
         <div className="alert__content">
           <div className="alert__title">{title}</div>
