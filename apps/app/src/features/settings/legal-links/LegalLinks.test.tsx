@@ -35,37 +35,39 @@ const renderLinks = (links: Parameters<typeof LegalLinks>[0]['links']) =>
     </ToastProvider>
   );
 
-describe('Settings → Preferences → Privacy and support', () => {
-  it('shows nothing while no page has a published address, so the app never points at a missing page', () => {
-    renderLinks({ privacyPolicy: null, support: null });
+describe('Settings → Preferences → Privacy', () => {
+  it('shows nothing until the privacy policy has a published address', () => {
+    renderLinks({ privacyPolicy: null, support: SUPPORT });
 
-    expect(screen.queryByText('Privacy and support')).toBeNull();
+    expect(screen.queryByText('Privacy')).toBeNull();
     expect(screen.queryByRole('button', { name: /^Open/ })).toBeNull();
   });
 
-  it('shows an entry for each published page, and only for it', () => {
-    renderLinks({ privacyPolicy: PRIVACY, support: null });
+  it('shows the privacy policy entry without adding a duplicate support entry', () => {
+    renderLinks({ privacyPolicy: PRIVACY, support: SUPPORT });
 
-    expect(screen.getByText('Privacy and support')).toBeInTheDocument();
+    expect(screen.getByText('Privacy')).toBeInTheDocument();
     expect(screen.getByText('Privacy policy')).toBeInTheDocument();
     expect(screen.getByText('How Clutter handles your information')).toBeInTheDocument();
     expect(screen.queryByText('Support')).toBeNull();
+    expect(screen.queryByText('Get help with Clutter')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Open support' })).toBeNull();
   });
 
-  it('opens exactly the published address when the entry’s button is pressed', async () => {
+  it('opens exactly the published privacy policy address', async () => {
     renderLinks({ privacyPolicy: PRIVACY, support: SUPPORT });
 
     fireEvent.click(screen.getByRole('button', { name: 'Open privacy policy' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Open support' }));
 
-    await waitFor(() => expect(openExternalUrl).toHaveBeenCalledTimes(2));
-    expect(openExternalUrl.mock.calls.map(([url]) => url)).toEqual([PRIVACY, SUPPORT]);
+    await waitFor(() => expect(openExternalUrl).toHaveBeenCalledTimes(1));
+    expect(openExternalUrl).toHaveBeenCalledWith(PRIVACY);
   });
 
-  it('never offers an address that is not an https URL', () => {
-    renderLinks({ privacyPolicy: 'http://example.com/privacy', support: 'javascript:alert(1)' });
+  it('never offers a privacy address that is not an https URL', () => {
+    renderLinks({ privacyPolicy: 'http://example.com/privacy', support: SUPPORT });
 
-    expect(screen.queryByText('Privacy and support')).toBeNull();
+    expect(screen.queryByText('Privacy')).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Open/ })).toBeNull();
   });
 
   it('says so when the page cannot be opened, and keeps the entry', async () => {
@@ -78,7 +80,7 @@ describe('Settings → Preferences → Privacy and support', () => {
     expect(screen.getByRole('button', { name: 'Open privacy policy' })).toBeInTheDocument();
   });
 
-  it('is part of the Preferences page, above Reset, once an address is published', () => {
+  it('is part of the Preferences page, above Reset, once the policy is published', () => {
     const original = { ...LEGAL_LINKS };
 
     try {
@@ -92,7 +94,7 @@ describe('Settings → Preferences → Privacy and support', () => {
       const titles = Array.from(document.querySelectorAll('.settings-group__title')).map((title) => title.textContent);
 
       expect(titles.at(-1)).toBe('Reset');
-      expect(titles.at(-2)).toBe('Privacy and support');
+      expect(titles.at(-2)).toBe('Privacy');
     } finally {
       (LEGAL_LINKS as { privacyPolicy: string | null }).privacyPolicy = original.privacyPolicy;
     }
@@ -107,7 +109,7 @@ describe('legal links configuration', () => {
     }
   });
 
-  it('reports whether any page is published', () => {
+  it('reports whether any public page is configured', () => {
     expect(hasLegalLinks({ privacyPolicy: null, support: null })).toBe(false);
     expect(hasLegalLinks({ privacyPolicy: PRIVACY, support: null })).toBe(true);
   });
