@@ -62,6 +62,10 @@
   align-items: center;
 }
 
+.alert--collapsed .alert__dismiss {
+  align-self: flex-start;
+}
+
 .alert--collapsed .alert__description {
   max-height: 0;
   opacity: 0;
