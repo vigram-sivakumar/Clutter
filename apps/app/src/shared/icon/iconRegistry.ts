@@ -74,6 +74,7 @@ import KeyEnter from './svg/key-enter.svg?react';
 import KeyEsc from './svg/key-esc.svg?react';
 import Keyboard from './svg/keyboard.svg?react';
 import MagnifyingGlass from './svg/magnifying-glass.svg?react';
+import Lock from './svg/lock.svg?react';
 import Minus from './svg/minus.svg?react';
 import MoreHorizontal from './svg/more-horizontal.svg?react';
 import MoreVertical from './svg/more-vertical.svg?react';
@@ -211,6 +212,7 @@ export const iconRegistry = {
   layers: Layers,
   layout: Layout,
   link: Link,
+  lock: Lock,
   magnifyingGlass: MagnifyingGlass,
   minus: Minus,
   moreHorizontal: MoreHorizontal,
