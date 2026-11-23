@@ -37,27 +37,27 @@ describe('Settings → Editor → Layout', () => {
 });
 
 
-describe('Settings → Clutter → Get Support', () => {
+describe('Settings → Clutter → Contact Us', () => {
   it('shows Discord and email support actions', () => {
     render(<Settings />);
-    fireEvent.click(screen.getByText('Get Support'));
-    expect(screen.getByRole('heading', { name: 'Get Support' })).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Contact Us'));
+    expect(screen.getByRole('heading', { name: 'Contact Us' })).toBeInTheDocument();
     expect(screen.getByText('Discord community')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Join Discord' })).toBeInTheDocument();
-    expect(screen.getByText('Email support')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Email support' })).toBeInTheDocument();
+    expect(screen.getByText('Email us')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Send email' })).toBeInTheDocument();
   });
 });
 
-describe('Settings → Clutter → Support', () => {
+describe('Settings → Clutter → Support Clutter', () => {
   it('shows the support page from the settings sidebar without opening payment services', () => {
     render(<Settings />);
-    expect(screen.queryByText('Support Clutter')).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Support Clutter' })).toBeNull();
 
-    fireEvent.click(screen.getByText('Support'));
+    fireEvent.click(screen.getByText('Support Clutter'));
 
-    expect(screen.getByRole('heading', { name: 'Keep Clutter growing' })).toBeInTheDocument();
-    expect(screen.getByText(/Clutter is free for everyone/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Support Clutter' })).toBeInTheDocument();
+    expect(screen.getByText('Free for everyone, always.')).toBeInTheDocument();
     expect(screen.getByText('$5')).toBeInTheDocument();
     expect(screen.getByText('$15')).toBeInTheDocument();
     expect(screen.getByText('$30')).toBeInTheDocument();

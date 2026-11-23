@@ -26,6 +26,7 @@ import CalendarDots from './svg/calendar-dots.svg?react';
 import CalendarNote from './svg/calendar-note.svg?react';
 import Car from './svg/car.svg?react';
 import Card from './svg/card.svg?react';
+import Chat from './svg/chat.svg?react';
 import CaretDown from './svg/caret-down.svg?react';
 import CaretLeft from './svg/caret-left.svg?react';
 import CaretRightDouble from './svg/caret-right-double.svg?react';
@@ -162,6 +163,7 @@ export const iconRegistry = {
   exclamationMark: ExclamationMark,
   car: Car,
   card: Card,
+  chat: Chat,
   caretDown: CaretDown,
   caretLeft: CaretLeft,
   caretRight: CaretRight,

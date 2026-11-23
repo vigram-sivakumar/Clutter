@@ -159,7 +159,7 @@ export function Footer({
               Markdown guide
             </MenuItem>
             <MenuItem
-              leading={<AppIcon icon="question" />}
+              leading={<AppIcon icon="chat" />}
               onClick={() => {
                 helpMenu.hide();
                 if (settingsDialog) {

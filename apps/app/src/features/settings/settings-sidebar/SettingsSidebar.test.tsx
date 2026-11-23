@@ -71,16 +71,16 @@ describe('SettingsSidebar', () => {
     render(<SettingsSidebar selectedId="preferences" onSelect={onSelect} />);
 
     expect(screen.getByText('Clutter')).toBeInTheDocument();
-    expect(row('Support').querySelector('[data-icon="heart"]')).not.toBeNull();
-    fireEvent.click(screen.getByText('Support'));
+    expect(row('Support Clutter').querySelector('[data-icon="heart"]')).not.toBeNull();
+    fireEvent.click(screen.getByText('Support Clutter'));
     expect(onSelect).toHaveBeenCalledWith('support');
   });
 
-  it('lists Get Support directly below Support and reports its page id', () => {
+  it('lists Contact Us directly below Support Clutter and reports its page id', () => {
     const onSelect = vi.fn();
     render(<SettingsSidebar selectedId="preferences" onSelect={onSelect} />);
-    expect(row('Support').compareDocumentPosition(row('Get Support')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    fireEvent.click(screen.getByText('Get Support'));
+    expect(row('Support Clutter').compareDocumentPosition(row('Contact Us')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(screen.getByText('Contact Us'));
     expect(onSelect).toHaveBeenCalledWith('get-support');
   });
 
