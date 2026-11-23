@@ -65,6 +65,18 @@ describe('UnsavedCloseDialog', () => {
     expect(screen.getByRole('button', { name: 'Switch anyway' })).toBeInTheDocument();
   });
 
+  it('asks before restarting when notes still have unsaved changes', () => {
+    const onAnswer = vi.fn();
+    render(<UnsavedCloseDialog unsavedCount={2} action="restart" onAnswer={onAnswer} />);
+
+    expect(screen.getByText('Restart without saving?')).toBeInTheDocument();
+    expect(screen.getByText(/2 notes with unsaved changes that won’t be saved to your vault/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
+    expect(onAnswer).toHaveBeenLastCalledWith('cancel');
+    fireEvent.click(screen.getByRole('button', { name: 'Restart anyway' }));
+    expect(onAnswer).toHaveBeenLastCalledWith('close');
+  });
+
   it('counts notes', () => {
     expect(unsavedCloseCopy(3, 'switch').description).toBe('You have 3 notes with unsaved changes');
     expect(unsavedCloseCopy(3).description).toBe(
