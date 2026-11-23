@@ -14,7 +14,7 @@ export const LEGAL_LINKS: LegalLinks = {
   support: 'https://clutter-privacy.pages.dev/contact/',
 };
 
-/** Whether `value` is a usable public address: an `https` URL with a host. Nothing else is ever opened from Settings. */
+/** Whether `value` is a usable public address: an `https` URL with a host. Only a validated public HTTPS address is exposed in the Help menu. */
 export function isPublicHttpsUrl(value: string | null | undefined): value is string {
   if (!value) {
     return false;
