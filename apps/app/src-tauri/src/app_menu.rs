@@ -379,6 +379,10 @@ fn event_for_item(id: &str) -> Option<&'static str> {
     if id == SETTINGS_ITEM_ID {
         return Some(OPEN_SETTINGS_EVENT);
     }
+    #[cfg(feature = "direct-updates")]
+    if id == CHECK_FOR_UPDATES_ITEM_ID {
+        return Some(CHECK_FOR_UPDATES_EVENT);
+    }
     if id == COPY_PAGE_LINK_ITEM_ID {
         return Some(COPY_PAGE_LINK_EVENT);
     }
