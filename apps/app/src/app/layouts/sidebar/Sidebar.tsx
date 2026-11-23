@@ -34,8 +34,6 @@ import { Tasks } from '@features/tasks/sidebar/Sidebar.Tasks';
 import { Tags } from '@features/tags/sidebar/Sidebar.Tags';
 import { Controls } from '@app/layouts/sidebar/controls/Controls';
 import { Footer } from './footer/Footer';
-import { Alert } from '@components/alert/Alert';
-import { Button } from '@components/button/Button';
 import { useNativeFileMenu } from './useNativeFileMenu';
 import { useShortcutHandlers } from '@app/shortcuts/ShortcutsProvider';
 import { useNativeEditMenu } from './useNativeEditMenu';
@@ -136,7 +134,6 @@ export function Sidebar({
   const [sidebarNoteReveal, setSidebarNoteReveal] = useState<string | null>(
     null
   );
-  const [showUpdatePreview, setShowUpdatePreview] = useState(true);
   // Tasks groups whose "N more" row was clicked. Session-only on purpose: held here (Sidebar stays
   // mounted, the Tasks panel doesn't) and never written to disk, so a restart collapses them again.
   // Same idea for the Notes tree: folders (by id, or the root key) showing all their notes/files.
@@ -464,20 +461,6 @@ export function Sidebar({
         </div>
       </RowContextMenuEnabled>
       <div className="sidebar__footer">
-        {showUpdatePreview && (
-          <div className="sidebar__update-preview">
-            <Alert
-              title="New update available"
-              description="Version 1.1.0"
-              isCollapsed
-              actionsSlot={
-                <Button variant="primary" size="medium">
-                  Restart now
-                </Button>
-              }
-            />
-          </div>
-        )}
         <Footer
           vaultFolderName={VaultPath.filename(vault.root)}
           spaces={spaces?.spaces}
