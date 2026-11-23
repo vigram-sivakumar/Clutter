@@ -27,6 +27,8 @@ import { Tasks } from '@features/tasks/sidebar/Sidebar.Tasks';
 import { Tags } from '@features/tags/sidebar/Sidebar.Tags';
 import { Controls } from '@app/layouts/sidebar/controls/Controls';
 import { Footer } from './footer/Footer';
+import { Alert } from '@components/alert/Alert';
+import { Button } from '@components/button/Button';
 import { useNativeFileMenu } from './useNativeFileMenu';
 import { useShortcutHandlers } from '@app/shortcuts/ShortcutsProvider';
 import { useNativeEditMenu } from './useNativeEditMenu';
@@ -372,6 +374,19 @@ export function Sidebar({
         {tabs.find((tab) => tab.value === workspace.activeSidebarTab)?.panel}
       </div>
       </RowContextMenuEnabled>
+      <div className="sidebar__update-preview">
+        <Alert
+          title="New update available"
+          description="Version 1.1.0"
+          isDismissible
+          onDismiss={() => {}}
+          actionsSlot={
+            <Button variant="primary" size="medium" block>
+              Restart now
+            </Button>
+          }
+        />
+      </div>
       <Footer
         vaultFolderName={VaultPath.filename(vault.root)}
         spaces={spaces?.spaces}
