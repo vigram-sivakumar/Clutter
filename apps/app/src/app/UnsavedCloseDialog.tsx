@@ -4,7 +4,7 @@ import { unsavedCloseCopy, type UnsavedAction } from './unsavedCloseCopy';
 import type { UnsavedCloseChoice } from './windowCloseHandler';
 
 interface UnsavedCloseDialogProps {
-  /** How many notes still have unsaved changes, or null when no close is waiting on the user. */
+  /** How many notes still have unsaved changes, or null when no action is waiting on the user. */
   readonly unsavedCount: number | null;
   /** What the user was doing, which words the question: closing Clutter, or switching to another space. */
   readonly action?: UnsavedAction;
