@@ -450,6 +450,35 @@ function AppShellContent() {
         import('@tauri-apps/plugin-dialog'),
         getVersion(),
       ]);
+      // A development-only override makes each native alert state testable without publishing a release.
+      // Vite strips this branch from production builds; it can never bypass signature checks in shipped apps.
+      const testState = import.meta.env.DEV
+        ? import.meta.env.VITE_CLUTTER_UPDATE_TEST_STATE
+        : undefined;
+      if (testState === 'error') {
+        throw new Error('Development-only simulated update check failure');
+      }
+      if (testState === 'latest') {
+        directUpdateRef.current = null;
+        await message(version, {
+          title: "You're on the latest version of Clutter!",
+          kind: 'info',
+        });
+        return;
+      }
+      if (testState === 'available') {
+        directUpdateRef.current = null;
+        const testVersion = import.meta.env.VITE_CLUTTER_UPDATE_TEST_VERSION || '99.0.0';
+        const install = await ask(
+          testVersion,
+          { title: 'New update available', kind: 'info', okLabel: 'Download and Install', cancelLabel: 'Later' }
+        );
+        if (install) {
+          console.info('Clutter update alert test: Download and Install selected; no update was downloaded.');
+        }
+        return;
+      }
+
       const update = await check();
       directUpdateRef.current = update;
       if (!update) {
