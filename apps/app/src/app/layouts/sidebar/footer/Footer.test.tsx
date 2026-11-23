@@ -111,7 +111,7 @@ describe('Footer space selector: title, caret, archive', () => {
     expect(await screen.findAllByText('Markdown guide', { selector: '.settings-sidebar *' })).toHaveLength(1);
   });
 
-  it('opens Settings on Get Support from the Help menu', () => {
+  it('opens Settings on Contact Us from the Help menu', () => {
     render(
       <SettingsDialogStateProvider>
         <Footer vaultFolderName="v" onOpenArchive={vi.fn()} />
@@ -119,17 +119,17 @@ describe('Footer space selector: title, caret, archive', () => {
       </SettingsDialogStateProvider>
     );
     fireEvent.click(screen.getByRole('button', { name: 'Help' }));
-    fireEvent.click(within(screen.getByRole('menu')).getByText('Get Support'));
-    expect(screen.getByRole('heading', { name: 'Get Support' })).toBeInTheDocument();
+    fireEvent.click(within(screen.getByRole('menu')).getByText('Contact Us'));
+    expect(screen.getByRole('heading', { name: 'Contact Us' })).toBeInTheDocument();
     expect(screen.getByText('Discord community')).toBeInTheDocument();
   });
 
-  it('opens the help menu with the shortcut entries and Get Support', () => {
+  it('opens the help menu with the shortcut entries and Contact Us', () => {
     render(<Footer vaultFolderName="v" onOpenArchive={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Help' }));
     expect(screen.getByText('Keyboard shortcuts')).toBeTruthy();
     expect(screen.getByText('Markdown guide')).toBeTruthy();
-    expect(screen.getByText('Get Support')).toBeTruthy();
+    expect(screen.getByText('Contact Us')).toBeTruthy();
   });
 
   it('opens the keyboard shortcuts dialog and closes it with the dismiss button', () => {

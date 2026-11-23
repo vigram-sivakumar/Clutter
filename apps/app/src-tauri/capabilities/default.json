@@ -19,6 +19,7 @@
     "allow-set-launch-at-login-enabled",
     "allow-open-login-items-settings",
     "allow-set-copy-page-link-enabled",
+    "allow-should-use-gmail-for-support-email",
     "allow-atomic-write-file",
     "allow-atomic-inspect-write",
     "allow-atomic-confirm-durability",

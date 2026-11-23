@@ -68,7 +68,7 @@ const PAGE_TITLES: Record<FixedSettingsPageId, string> = {
   layout: 'Layout',
   markdown: 'Markdown',
   support: 'Support Clutter',
-  'get-support': 'Get Support',
+  'get-support': 'Contact Us',
 };
 
 interface SettingsProps {

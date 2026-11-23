@@ -38,11 +38,10 @@ percent-encoding = "2"
 sha2 = "0.10"
 
 # Automation/testing only, and `optional = true`: excluded from every
-# ordinary build's dependency graph (debug or release — `cfg(debug_assertions)`
-# is NOT a real Cargo target-cfg predicate, it only covers platform/arch, so
+# ordinary build's dependency graph (debug or release — `cfg(debug_assertions)` is NOT a real Cargo target-cfg predicate, it only covers platform/arch, so
 # an earlier attempt to gate this that way silently did nothing and the
-# crate ended up in release builds too). The `automation` feature below is
-# the actual gate: nothing enables it except packages/automation's own build
+# crate ended up in release builds too). The `automation` feature below is the
+# actual gate: nothing enables it except packages/automation's own build
 # invocation. See packages/automation/AUTOMATION.md.
 tauri-plugin-wdio-webdriver = { version = "1", optional = true }
 tauri-plugin-opener = "2"
@@ -61,7 +60,7 @@ objc2-core-foundation = { version = "0.3", default-features = false, features = 
 # what is used. NSDictionary and NSError serve the volume-type lookup in src/atomic_replace.rs (ADR-069); NSFileManager
 # serves moving an entry to the Trash (src/macos_trash.rs, ADR-072).
 objc2 = "0.6"
-objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSDockTile", "NSOpenPanel", "NSPanel", "NSResponder", "NSSavePanel", "NSWindow"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSDockTile", "NSOpenPanel", "NSPanel", "NSResponder", "NSSavePanel", "NSWindow", "NSWorkspace"] }
 objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSDictionary", "NSError", "NSFileManager", "NSObject", "NSString", "NSURL"] }
 objc2-service-management = { version = "0.3.2", default-features = false, features = ["std", "objc2", "objc2-foundation", "SMAppService"] }
 
