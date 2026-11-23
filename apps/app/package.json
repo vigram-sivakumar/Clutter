@@ -16,6 +16,8 @@
     "build:appstore": "scripts/build-app-store.sh",
     "build:share": "scripts/build-share.sh",
     "publish:update": "bash scripts/publish-update.sh",
+    "release": "bash scripts/release.sh production",
+    "release:local": "bash scripts/release.sh local",
     "verify:bundle": "scripts/verify-bundle.sh",
     "check:atomic": "scripts/check-atomic-default.sh",
     "check:version": "scripts/check-version-sync.sh",
