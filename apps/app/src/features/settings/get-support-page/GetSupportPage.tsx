@@ -60,7 +60,7 @@ export function GetSupportPage() {
         description="For private questions, bug reports or help with installation."
         trailing={
           <Button variant="outline-fill" size="medium" onClick={() => void openSupportEmail()}>
-            Contact us
+            Send email
           </Button>
         }
       />
