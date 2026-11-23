@@ -410,7 +410,7 @@ function AppShellContent() {
 
   const downloadDirectUpdate = useCallback(async (): Promise<boolean> => {
     const update = directUpdateRef.current;
-    if (!__CLUTTER_DIRECT_UPDATES__ || !isTauri() || !update || updateOperationRef.current) return;
+    if (!__CLUTTER_DIRECT_UPDATES__ || !isTauri() || !update || updateOperationRef.current) return false;
     updateOperationRef.current = true;
     setDirectUpdateState({ status: 'downloading', version: update.version });
     let totalBytes = 0;
@@ -500,7 +500,7 @@ function AppShellContent() {
       directUpdateRef.current = update;
       if (!update) {
         setDirectUpdateState({ status: 'current' });
-        await message(`You're on the latest version of Clutter!\\n\\n${version}`, {
+        await message(`You're on the latest version of Clutter!\n\n${version}`, {
           title: 'Clutter',
           kind: 'info',
         });
@@ -508,7 +508,7 @@ function AppShellContent() {
       }
       setDirectUpdateState({ status: 'available', version: update.version });
       const install = await ask(
-        `A new version of Clutter is available.\\n\\nVersion ${update.version}\\n\\nWould you like to download and install it now?`,
+        `A new version of Clutter is available.\n\nVersion ${update.version}\n\nWould you like to download and install it now?`,
         { title: 'Clutter Update', kind: 'info', okLabel: 'Download and Install', cancelLabel: 'Later' }
       );
       if (!install) return;
@@ -518,7 +518,7 @@ function AppShellContent() {
       const detail = error instanceof Error ? error.message : String(error);
       setDirectUpdateState({ status: 'error', error: detail });
       const { message } = await import('@tauri-apps/plugin-dialog');
-      await message(`Clutter couldn't check for updates.\\n\\n${detail}`, {
+      await message(`Clutter couldn't check for updates.\n\n${detail}`, {
         title: 'Check for Updates',
         kind: 'error',
       });
