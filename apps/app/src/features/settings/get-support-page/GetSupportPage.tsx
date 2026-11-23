@@ -7,6 +7,8 @@ import { SettingsGroup } from '../settings-group/SettingsGroup';
 
 const DISCORD_URL = 'https://discord.gg/kbPgnmAet5';
 const SUPPORT_EMAIL = 'support.clutter@gmail.com';
+const GMAIL_COMPOSE_URL =
+  `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(SUPPORT_EMAIL)}&su=${encodeURIComponent('Clutter Support')}`;
 
 export function GetSupportPage() {
   const toast = useToast();
@@ -16,6 +18,18 @@ export function GetSupportPage() {
       await openExternalUrl(url);
     } catch (error) {
       toast.fail('Couldn’t open the link', error);
+    }
+  }
+
+  async function openSupportEmail() {
+    try {
+      await openExternalUrl(`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('Clutter Support')}`);
+    } catch {
+      try {
+        await openExternalUrl(GMAIL_COMPOSE_URL);
+      } catch (error) {
+        toast.fail('Couldn’t open email support', error);
+      }
     }
   }
 
@@ -40,7 +54,7 @@ export function GetSupportPage() {
         title="Email support"
         description="For private questions, bug reports or help with installation."
         trailing={
-          <Button variant="outline-fill" size="medium" onClick={() => void open(`mailto:${SUPPORT_EMAIL}`)}>
+          <Button variant="outline-fill" size="medium" onClick={() => void openSupportEmail()}>
             Email support
           </Button>
         }
