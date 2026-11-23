@@ -30,7 +30,7 @@ export function GetSupportPage() {
         !isTauri() || (await invoke<boolean>('should_use_gmail_for_support_email'));
       await openExternalUrl(
         useGmail
-          ? 'https://mail.google.com/'
+          ? `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(SUPPORT_EMAIL)}&su=${encodeURIComponent(SUPPORT_SUBJECT)}`
           : `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(SUPPORT_SUBJECT)}`,
       );
     } catch (error) {
