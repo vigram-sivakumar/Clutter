@@ -6,47 +6,40 @@ import { SettingsEntry } from '../settings-entry/SettingsEntry';
 import { SettingsGroup } from '../settings-group/SettingsGroup';
 
 export interface LegalLinksProps {
-  /** The published addresses. Default: the app's own (`core/legalLinks.ts`). A page with no address shows no entry. */
+  /** The published addresses. Default: the app's own (core/legalLinks.ts). */
   links?: LegalLinksConfig;
 }
 
 /**
- * Settings → Preferences → Privacy and support: where a person reads how Clutter handles their information and gets
- * help. Each entry opens the published page in the default browser. Shows nothing until at least one page has an address.
+ * Settings → Preferences: a direct link to Clutter's published privacy policy.
+ * Contact is handled separately by the existing Settings → Contact Us page.
  */
 export function LegalLinks({ links = LEGAL_LINKS }: LegalLinksProps) {
   const toast = useToast();
-  const entries = [
-    { url: links.privacyPolicy, title: 'Privacy policy', description: 'How Clutter handles your information' },
-    { url: links.support, title: 'Support', description: 'Get help with Clutter' },
-  ].filter((entry): entry is typeof entry & { url: string } => isPublicHttpsUrl(entry.url));
 
-  if (entries.length === 0) {
+  if (!isPublicHttpsUrl(links.privacyPolicy)) {
     return null;
   }
 
-  async function open(url: string) {
+  async function open() {
     try {
-      await openExternalUrl(url);
+      await openExternalUrl(links.privacyPolicy!);
     } catch (error) {
       toast.fail('Couldn’t open the page', error);
     }
   }
 
   return (
-    <SettingsGroup title="Privacy and support">
-      {entries.map((entry) => (
-        <SettingsEntry
-          key={entry.title}
-          title={entry.title}
-          description={entry.description}
-          trailing={
-            <Button variant="outline" size="small" aria-label={`Open ${entry.title.toLowerCase()}`} onClick={() => void open(entry.url)}>
-              Open
-            </Button>
-          }
-        />
-      ))}
+    <SettingsGroup title="Privacy">
+      <SettingsEntry
+        title="Privacy policy"
+        description="How Clutter handles your information"
+        trailing={
+          <Button variant="outline" size="small" aria-label="Open privacy policy" onClick={() => void open()}>
+            Open
+          </Button>
+        }
+      />
     </SettingsGroup>
   );
 }
