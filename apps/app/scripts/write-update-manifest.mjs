@@ -34,7 +34,7 @@ if (!platform) {
 }
 
 const releaseTag = process.env.UPDATE_RELEASE_TAG || `v${packageJson.version}`;
-const releaseUrl = `https://github.com/vigram-sivakumar/Clutter/releases/download/${encodeURIComponent(releaseTag)}/${encodeURIComponent(basename(archive))}`;
+const releaseUrl = `https://clutter-updates.vigram-sivakumar.workers.dev/releases/${encodeURIComponent(basename(archive))}`;
 const manifest = {
   version: packageJson.version,
   notes: process.env.UPDATE_RELEASE_NOTES || '',
