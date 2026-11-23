@@ -1,8 +1,7 @@
 .alert {
   display: flex;
   flex-direction: column;
-  background: var(--surface-secondary);
-  border: 1px solid var(--border-medium);
+  background: var(--surface-primary);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-inset-medium);
   overflow: hidden;
@@ -12,7 +11,7 @@
   display: flex;
   align-items: flex-start;
   gap: var(--space-12);
-  padding: var(--space-12);
+  padding: var(--space-8) var(--space-12);
 }
 
 .alert__content {
@@ -26,20 +25,18 @@
 .alert__title {
   color: var(--foreground-primary);
   font-size: var(--text-label);
-  font-weight: var(--fw-medium);
   line-height: var(--lh-label);
 }
 
 .alert__description {
   color: var(--foreground-tertiary);
   font-size: var(--text-label-small);
-  font-weight: var(--fw-regular);
   line-height: var(--lh-label);
 }
 
 .alert__dismiss {
   flex: 0 0 auto;
-  margin: calc(var(--space-4) * -1);
+  height: var(--lh-label);
 }
 .alert__border {
   flex: 0 0 auto;
