@@ -8,6 +8,10 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 cd "$HERE/.."
 
 MODE="${1:-production}"
+PUBLISH_LOCAL=false
+if [ "$MODE" = "local" ] && [ "${2:-}" = "--publish" ]; then
+  PUBLISH_LOCAL=true
+fi
 case "$MODE" in
   local)
     "$HERE/check-atomic-default.sh"
@@ -25,8 +29,16 @@ case "$MODE" in
     "$HERE/verify-bundle.sh" "$APP" --local
     node "$HERE/write-update-manifest.mjs"
 
+    if [ "$PUBLISH_LOCAL" = true ]; then
+      npm run publish:update
+    fi
+
     echo
-    echo "Local release artefacts are ready. Nothing was uploaded."
+    if [ "$PUBLISH_LOCAL" = true ]; then
+      echo "Local test release built and published to Cloudflare R2."
+    else
+      echo "Local release artefacts are ready. Nothing was uploaded."
+    fi
     echo "DMG:      $TARGET/release/bundle/dmg/"
     echo "Updater:  $TARGET/release/bundle/macos/*.app.tar.gz"
     echo "Signature:$TARGET/release/bundle/macos/*.app.tar.gz.sig"
@@ -37,7 +49,7 @@ case "$MODE" in
     npm run publish:update
     ;;
   *)
-    echo "Usage: npm run release [-- local|production]" >&2
+    echo "Usage: npm run release [-- local [--publish]|production]" >&2
     exit 2
     ;;
 esac
