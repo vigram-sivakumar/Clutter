@@ -55,7 +55,6 @@ import { ResetSettings } from './reset-settings/ResetSettings';
 import { SupportPage } from './support-page/SupportPage';
 import { GetSupportPage } from './get-support-page/GetSupportPage';
 import type { ResetSettingsOutcome } from './reset-settings/resetSettingsToDefaults';
-import { DirectUpdatesSetting, type DirectUpdatesSettingProps } from './updates-setting/DirectUpdatesSetting';
 
 const PAGE_TITLES: Record<FixedSettingsPageId, string> = {
   preferences: 'Preferences',
@@ -87,11 +86,9 @@ interface SettingsProps {
    * resets the app-wide preferences only.
    */
   onResetSettings?: () => Promise<ResetSettingsOutcome>;
-  /** Direct-download updater controls. Omitted from App Store builds. */
-  directUpdates?: DirectUpdatesSettingProps;
 }
 
-export function Settings({ templates, noteLocation, spaceSettings, space, onClose, onResetSettings, directUpdates }: SettingsProps = {}) {
+export function Settings({ templates, noteLocation, spaceSettings, space, onClose, onResetSettings }: SettingsProps = {}) {
   const shared = useSharedSettingsDialogState();
   const [localPageId, setLocalPageId] = useState<SettingsPageId>(DEFAULT_SETTINGS_PAGE);
   const pageId = shared?.pageId ?? localPageId;
@@ -169,11 +166,6 @@ export function Settings({ templates, noteLocation, spaceSettings, space, onClos
                 <AutoDeleteArchivedSetting source={spaceSettings} />
               </SettingsGroup>
             </Fragment>
-            {directUpdates && (
-              <SettingsGroup>
-                <DirectUpdatesSetting {...directUpdates} />
-              </SettingsGroup>
-            )}
             <ResetSettings
               onReset={onResetSettings}
               busy={space?.busy}
