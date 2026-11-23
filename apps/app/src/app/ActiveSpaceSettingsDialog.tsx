@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { isTauri } from '@tauri-apps/api/core';
 import type { Application } from '@core/application/Application';
+import type { DirectUpdatesSettingProps } from '@features/settings/updates-setting/DirectUpdatesSetting';
 import { VaultPath } from '@core/vault/ingest/VaultPath';
 import { openVaultFileSystem } from '@core/vault/providers/openVaultFileSystem';
 import { resetSettingsToDefaults } from '@features/settings/reset-settings/resetSettingsToDefaults';
@@ -15,6 +16,7 @@ interface ActiveSpaceSettingsDialogProps {
   application: Application | null;
   /** The Space is changing under the dialog (a rename is running): its own controls are disabled. */
   busy?: boolean;
+  directUpdates?: DirectUpdatesSettingProps;
 }
 
 /**
@@ -26,7 +28,7 @@ interface ActiveSpaceSettingsDialogProps {
  * while there is none, nothing is read: the dialog never reaches into a closed Application. The Space's own controls
  * are disabled for that time (`busy`), and it reconnects to the next Application as soon as one is open.
  */
-export function ActiveSpaceSettingsDialog({ application, busy = false }: ActiveSpaceSettingsDialogProps) {
+export function ActiveSpaceSettingsDialog({ application, busy = false, directUpdates }: ActiveSpaceSettingsDialogProps) {
   const spaces = useSpaces();
   const sources = useSettingsSources(application);
   const activePath = spaces?.activePath ?? '';
@@ -83,6 +85,7 @@ export function ActiveSpaceSettingsDialog({ application, busy = false }: ActiveS
         spaces?.resolveAvatarImageUrl ?? (application ? (src) => application.resolveCoverImageForDisplay(src) : undefined)
       }
       onResetSettings={onResetSettings}
+      directUpdates={directUpdates}
       {...sources}
     />
   );
