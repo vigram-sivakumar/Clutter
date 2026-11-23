@@ -8,12 +8,17 @@
 #   and one set of notarization credentials:
 #     APPLE_ID + APPLE_PASSWORD (an app-specific password) + APPLE_TEAM_ID
 #     or APPLE_API_KEY + APPLE_API_ISSUER + APPLE_API_KEY_PATH (an App Store Connect API key)
+#   TAURI_SIGNING_PRIVATE_KEY or TAURI_SIGNING_PRIVATE_KEY_PATH (the Tauri updater signing key)
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD when that key is password-protected
 # Optional: CARGO_TARGET_DIR (where to build).
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 cd "$HERE/.."
 
 MISSING=()
+if [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}${TAURI_SIGNING_PRIVATE_KEY_PATH:-}" ]; then
+  MISSING+=("TAURI_SIGNING_PRIVATE_KEY or TAURI_SIGNING_PRIVATE_KEY_PATH (the Tauri updater signing key)")
+fi
 [ -n "${APPLE_SIGNING_IDENTITY:-}" ] || MISSING+=("APPLE_SIGNING_IDENTITY (a Developer ID Application certificate)")
 if [ -z "${APPLE_ID:-}${APPLE_API_KEY:-}" ]; then
   MISSING+=("notarization credentials: APPLE_ID + APPLE_PASSWORD + APPLE_TEAM_ID, or APPLE_API_KEY + APPLE_API_ISSUER + APPLE_API_KEY_PATH")
