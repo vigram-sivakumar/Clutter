@@ -36,7 +36,6 @@
 
 .alert__dismiss {
   flex: 0 0 auto;
-  height: var(--lh-label);
 }
 .alert__border {
   flex: 0 0 auto;
