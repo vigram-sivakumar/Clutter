@@ -37,107 +37,74 @@
 .alert__dismiss {
   flex: 0 0 auto;
 }
+
 .alert__border {
   flex: 0 0 auto;
   height: 1px;
   margin: 0 var(--space-12);
   background: var(--border-medium);
 }
+
 .alert__actions {
   display: flex;
   align-items: center;
   gap: var(--space-8);
-  padding: var(--space-12) var(--space-12);
+  padding: var(--space-12);
 }
+
 .alert__actions .button {
   flex: 1;
 }
 
-/* Collapsed alerts reveal their details when hovered or keyboard-focused. */
-.alert--collapsed .alert__header {
-  align-items: center;
+/* Collapsed alerts expand on hover or keyboard focus. The container clips
+   the full content, so only its height and the secondary elements animate. */
+.alert--collapsed {
+  box-sizing: border-box;
+  height: calc(
+    var(--space-4) * 2 + max(var(--lh-label), var(--height-xs))
+  );
+  transition: height var(--duration-interaction) var(--easing-interaction);
 }
 
-.alert--collapsed .alert__content {
-  gap: 0;
-  transition: gap var(--duration-interaction) var(--easing-interaction);
+.alert--collapsed > * {
+  flex-shrink: 0;
 }
 
-.alert--collapsed .alert__dismiss {
-  align-self: flex-start;
-}
-
-.alert--collapsed .alert__description {
-  max-height: 0;
-  opacity: 0;
+.alert--collapsed .alert__title {
   overflow: hidden;
-  transition:
-    max-height var(--duration-interaction) var(--easing-interaction),
-    opacity var(--duration-interaction) var(--easing-interaction);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.alert--collapsed .alert__dismiss {
-  width: 0;
-  height: 0;
-  margin: 0;
-  opacity: 0;
-  overflow: hidden;
-  pointer-events: none;
-  transition:
-    width var(--duration-interaction) var(--easing-interaction),
-    height var(--duration-interaction) var(--easing-interaction),
-    margin var(--duration-interaction) var(--easing-interaction),
-    opacity var(--duration-interaction) var(--easing-interaction);
-}
-
+.alert--collapsed .alert__description,
+.alert--collapsed .alert__dismiss,
 .alert--collapsed .alert__border,
 .alert--collapsed .alert__actions {
-  max-height: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-  border-width: 0;
   opacity: 0;
-  overflow: hidden;
   pointer-events: none;
-  transition:
-    max-height var(--duration-interaction) var(--easing-interaction),
-    opacity var(--duration-interaction) var(--easing-interaction),
-    padding var(--duration-interaction) var(--easing-interaction);
+  transition: opacity var(--duration-interaction) var(--easing-interaction);
 }
 
-.alert--collapsed:hover .alert__content,
-.alert--collapsed:focus-within .alert__content {
-  gap: var(--space-4);
+.alert--collapsed:hover,
+.alert--collapsed:focus-within {
+  height: calc(
+    var(--space-4) * 2 +
+      var(--lh-label) * 2 +
+      var(--space-4) +
+      1px +
+      var(--space-12) * 2 +
+      var(--height-md)
+  );
 }
 
 .alert--collapsed:hover .alert__description,
-.alert--collapsed:focus-within .alert__description {
-  max-height: 4rem;
-  opacity: 1;
-}
-
 .alert--collapsed:hover .alert__dismiss,
-.alert--collapsed:focus-within .alert__dismiss {
-  width: auto;
-  height: auto;
-  margin: 0;
-  opacity: 1;
-  pointer-events: auto;
-}
-
 .alert--collapsed:hover .alert__border,
-.alert--collapsed:focus-within .alert__border {
-  max-height: 1px;
-  margin-top: 0;
-  margin-bottom: 0;
-  opacity: 1;
-}
-
 .alert--collapsed:hover .alert__actions,
+.alert--collapsed:focus-within .alert__description,
+.alert--collapsed:focus-within .alert__dismiss,
+.alert--collapsed:focus-within .alert__border,
 .alert--collapsed:focus-within .alert__actions {
-  max-height: 5rem;
-  padding-top: var(--space-12);
-  padding-bottom: var(--space-12);
   opacity: 1;
   pointer-events: auto;
 }
