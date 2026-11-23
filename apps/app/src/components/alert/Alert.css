@@ -56,3 +56,69 @@
 .alert__actions .button {
   flex: 1;
 }
+
+/* Collapsed alerts reveal their details when hovered or keyboard-focused. */
+.alert--collapsed .alert__header {
+  align-items: center;
+}
+
+.alert--collapsed .alert__description {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 180ms ease, opacity 120ms ease;
+}
+
+.alert--collapsed .alert__dismiss {
+  width: 0;
+  height: 0;
+  margin: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.alert--collapsed .alert__border,
+.alert--collapsed .alert__actions {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition: max-height 180ms ease, opacity 120ms ease, padding 180ms ease;
+}
+
+.alert--collapsed:hover .alert__description,
+.alert--collapsed:focus-within .alert__description {
+  max-height: 4rem;
+  opacity: 1;
+}
+
+.alert--collapsed:hover .alert__dismiss,
+.alert--collapsed:focus-within .alert__dismiss {
+  width: auto;
+  height: auto;
+  margin: calc(var(--space-4) * -1);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.alert--collapsed:hover .alert__border,
+.alert--collapsed:focus-within .alert__border {
+  max-height: 1px;
+  margin-top: 0;
+  margin-bottom: 0;
+  opacity: 1;
+}
+
+.alert--collapsed:hover .alert__actions,
+.alert--collapsed:focus-within .alert__actions {
+  max-height: 5rem;
+  padding-top: var(--space-12);
+  padding-bottom: var(--space-12);
+  opacity: 1;
+  pointer-events: auto;
+}
