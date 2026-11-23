@@ -58,6 +58,11 @@
   align-items: center;
 }
 
+.alert--collapsed .alert__content {
+  gap: 0;
+  transition: gap var(--duration-interaction) var(--easing-interaction);
+}
+
 .alert--collapsed .alert__dismiss {
   align-self: flex-start;
 }
@@ -98,6 +103,11 @@
     max-height var(--duration-interaction) var(--easing-interaction),
     opacity var(--duration-interaction) var(--easing-interaction),
     padding var(--duration-interaction) var(--easing-interaction);
+}
+
+.alert--collapsed:hover .alert__content,
+.alert--collapsed:focus-within .alert__content {
+  gap: var(--space-4);
 }
 
 .alert--collapsed:hover .alert__description,
