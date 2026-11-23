@@ -83,7 +83,8 @@ describe('tableWidgetField — complete document parsing', () => {
     const tableTo = tableFrom + BASIC_TABLE.length;
     const view = mountView(`${prefix}\n\n${BASIC_TABLE}`);
 
-    const hasTableReplacement = view.state.facet(EditorView.decorations).some((set) => {
+    const hasTableReplacement = view.state.facet(EditorView.decorations).some((decoration) => {
+      const set = typeof decoration === 'function' ? decoration(view) : decoration;
       let found = false;
       set.between(tableFrom, tableTo, (from, to) => {
         if (from === tableFrom && to === tableTo) found = true;
