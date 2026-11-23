@@ -168,7 +168,7 @@ export function Footer({
                 }
               }}
             >
-              Get Support
+              Contact Us
             </MenuItem>
           </Menu>
         </Overlay>
