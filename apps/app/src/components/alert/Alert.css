@@ -110,7 +110,7 @@
 .alert--collapsed:focus-within .alert__dismiss {
   width: auto;
   height: auto;
-  margin: calc(var(--space-4) * -1);
+  margin: 0;
   opacity: 1;
   pointer-events: auto;
 }
