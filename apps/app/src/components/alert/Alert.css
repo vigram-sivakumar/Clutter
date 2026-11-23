@@ -1,7 +1,7 @@
 .alert {
   display: flex;
   flex-direction: column;
-  background: var(--surface-primary);
+  background: var(--surface-layer-strong);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-inset-medium);
   overflow: hidden;
@@ -11,7 +11,7 @@
   display: flex;
   align-items: flex-start;
   gap: var(--space-12);
-  padding: var(--space-8) var(--space-12);
+  padding: var(--space-4) var(--space-12);
 }
 
 .alert__content {
