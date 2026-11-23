@@ -388,23 +388,16 @@ function AppShellContent() {
     const update = directUpdateRef.current;
     if (!__CLUTTER_DIRECT_UPDATES__ || !isTauri() || !update || updateOperationRef.current) return false;
     updateOperationRef.current = true;
-    let totalBytes = 0;
-    let downloadedBytes = 0;
     try {
-      await update.download((event) => {
-        if (event.event === 'Started') {
-          totalBytes = event.data.contentLength ?? 0;
-        } else if (event.event === 'Progress') {
-          downloadedBytes += event.data.chunkLength;
-          setDirectUpdateState({
-            status: 'downloading',
-            version: update.version,
-            progress: totalBytes > 0 ? Math.min(100, Math.round((downloadedBytes / totalBytes) * 100)) : undefined,
-          });
-        }
-      });
+      await update.download();
       return true;
     } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      const { message } = await import('@tauri-apps/plugin-dialog');
+      await message(`Clutter couldn't download the update.\\n\\n${detail}`, {
+        title: 'Clutter Update',
+        kind: 'error',
+      });
       return false;
     } finally {
       updateOperationRef.current = false;
@@ -423,9 +416,7 @@ function AppShellContent() {
         if (unsaved > 0) {
           await open.snapshotUnsavedWork();
           const choice = await confirmUnsaved(unsaved, 'restart');
-          if (choice !== 'close') {
-            return;
-          }
+          if (choice !== 'close') return;
         }
         await open.close();
         applicationClosed = true;
@@ -438,11 +429,13 @@ function AppShellContent() {
       const { relaunch } = await import('@tauri-apps/plugin-process');
       await relaunch();
     } catch (error) {
-      setDirectUpdateState({
-        status: 'error',
-        error: error instanceof Error ? error.message : String(error),
-      });
       if (applicationClosed) setReopenNonce((nonce) => nonce + 1);
+      const detail = error instanceof Error ? error.message : String(error);
+      const { message } = await import('@tauri-apps/plugin-dialog');
+      await message(`Clutter couldn't install the update.\\n\\n${detail}`, {
+        title: 'Clutter Update',
+        kind: 'error',
+      });
     } finally {
       updateOperationRef.current = false;
     }
@@ -451,7 +444,6 @@ function AppShellContent() {
   const checkForUpdatesFromMenu = useCallback(async () => {
     if (!__CLUTTER_DIRECT_UPDATES__ || !isTauri() || updateOperationRef.current) return;
     updateOperationRef.current = true;
-    setDirectUpdateState({ status: 'checking' });
     try {
       const [{ check }, { message, ask }, version] = await Promise.all([
         import('@tauri-apps/plugin-updater'),
@@ -461,14 +453,14 @@ function AppShellContent() {
       const update = await check();
       directUpdateRef.current = update;
       if (!update) {
-        await message(`You're on the latest version of Clutter!\n\n${version}`, {
+        await message(`You're on the latest version of Clutter!\\n\\n${version}`, {
           title: 'Clutter',
           kind: 'info',
         });
         return;
       }
       const install = await ask(
-        `A new version of Clutter is available.\n\nVersion ${update.version}\n\nWould you like to download and install it now?`,
+        `A new version of Clutter is available.\\n\\nVersion ${update.version}\\n\\nWould you like to download and install it now?`,
         { title: 'Clutter Update', kind: 'info', okLabel: 'Download and Install', cancelLabel: 'Later' }
       );
       if (!install) return;
@@ -477,7 +469,7 @@ function AppShellContent() {
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       const { message } = await import('@tauri-apps/plugin-dialog');
-      await message(`Clutter couldn't check for updates.\n\n${detail}`, {
+      await message(`Clutter couldn't check for updates.\\n\\n${detail}`, {
         title: 'Check for Updates',
         kind: 'error',
       });
