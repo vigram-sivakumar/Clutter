@@ -12,7 +12,7 @@ import { Settings } from '@features/settings/Settings';
 import { SettingsDialogStateProvider } from '@features/settings/SettingsDialogState';
 import type { SpaceAvatarValue } from '@components/space-avatar/SpaceAvatar';
 
-const openExternalUrl = vi.fn<(url: string) => Promise<void>>();
+const openExternalUrl = vi.hoisted(() => vi.fn<(url: string) => Promise<void>>());
 vi.mock('@shared/helpers/openExternalUrl', () => ({ openExternalUrl: (url: string) => openExternalUrl(url) }));
 
 class ResizeObserverMock {
