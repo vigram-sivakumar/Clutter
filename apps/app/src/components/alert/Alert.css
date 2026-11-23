@@ -66,7 +66,10 @@
 .alert--collapsed {
   display: grid;
   grid-template-rows: auto 0fr;
-  transition: grid-template-rows 220ms var(--easing-interaction);
+  background: var(--surface-layer-subtle);
+  transition:
+    grid-template-rows 220ms var(--easing-interaction),
+    background-color 220ms var(--easing-interaction);
 }
 
 .alert--collapsed .alert__title {
@@ -91,6 +94,7 @@
 .alert--collapsed:hover,
 .alert--collapsed:focus-within {
   grid-template-rows: auto 1fr;
+  background: var(--surface-layer-strong);
 }
 
 .alert--collapsed:hover .alert__title,
