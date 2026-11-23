@@ -79,10 +79,7 @@
   min-height: 0;
   overflow: hidden;
   opacity: 0;
-  transform: translateY(-6px);
-  transition:
-    opacity 180ms var(--easing-interaction),
-    transform 380ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: opacity 180ms var(--easing-interaction);
 }
 
 .alert--collapsed .alert__dismiss {
@@ -106,11 +103,38 @@
 .alert--collapsed:hover .alert__details,
 .alert--collapsed:focus-within .alert__details {
   opacity: 1;
-  transform: translateY(0);
 }
 
 .alert--collapsed:hover .alert__dismiss,
 .alert--collapsed:focus-within .alert__dismiss {
   opacity: 1;
   pointer-events: auto;
+}
+
+/* Add a small amount of temporary space so the alert expands past its
+   natural height, then settles back to its content-driven size. */
+@keyframes alert-expand-spring {
+  0% {
+    padding-bottom: 0;
+  }
+
+  68% {
+    padding-bottom: 8px;
+  }
+
+  100% {
+    padding-bottom: 0;
+  }
+}
+
+.alert--collapsed:hover .alert__details,
+.alert--collapsed:focus-within .alert__details {
+  animation: alert-expand-spring 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alert--collapsed:hover .alert__details,
+  .alert--collapsed:focus-within .alert__details {
+    animation: none;
+  }
 }
