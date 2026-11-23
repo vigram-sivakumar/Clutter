@@ -34,7 +34,7 @@ export function GetSupportPage() {
           : `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(SUPPORT_SUBJECT)}`,
       );
     } catch (error) {
-      toast.fail('Couldn’t open email support', error);
+      toast.fail('Couldn’t open email', error);
     }
   }
 
@@ -56,11 +56,11 @@ export function GetSupportPage() {
         }
       />
       <SettingsEntry
-        title="Email support"
+        title="Email"
         description="For private questions, bug reports or help with installation."
         trailing={
           <Button variant="outline-fill" size="medium" onClick={() => void openSupportEmail()}>
-            Email support
+            Contact us
           </Button>
         }
       />
