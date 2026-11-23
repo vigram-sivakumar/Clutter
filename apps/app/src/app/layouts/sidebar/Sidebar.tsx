@@ -381,6 +381,7 @@ export function Sidebar({
             <Alert
               title="New update available"
               description="Version 1.1.0"
+              isCollapsed
               isDismissible
               onDismiss={() => setShowUpdatePreview(false)}
               actionsSlot={
