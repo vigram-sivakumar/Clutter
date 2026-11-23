@@ -83,6 +83,11 @@ function alignmentInsertionChange(row: SyntaxNode, rawText: string, targetIndex:
   return { from: row.from, to: row.to, insert: '| ' + next.join(' | ') + ' |' };
 }
 
+/** CodeMirror's ChangeSpec also accepts a pre-built ChangeSet. These table operations construct range-based specs, so narrow before reading or combining range fields. */
+function isRangeChangeSpec(change: ChangeSpec): change is Extract<ChangeSpec, { from: number }> {
+  return 'from' in change;
+}
+
 function dispatchInsertion(view: EditorView, changes: ChangeSpec[], nextSelection?: TableSelection): void {
   const changeSet = view.state.changes(changes);
   view.dispatch({
@@ -169,15 +174,28 @@ function insertColumn(
     // Appending a column to the final row can also insert at that exact
     // position, so combine those insertions rather than dispatching
     // overlapping ChangeSpecs.
-    const samePositionInsertion = changes.findIndex(
-      (change) => change.from === widthsChange.from && change.to === widthsChange.to
-    );
-    if (samePositionInsertion >= 0 && widthsChange.from === widthsChange.to) {
+    const samePositionInsertion = isRangeChangeSpec(widthsChange)
+      ? changes.findIndex(
+          (change) =>
+            isRangeChangeSpec(change) &&
+            change.from === widthsChange.from &&
+            change.to === widthsChange.to
+        )
+      : -1;
+    if (
+      samePositionInsertion >= 0 &&
+      isRangeChangeSpec(widthsChange) &&
+      widthsChange.from === widthsChange.to
+    ) {
       const existingChange = changes[samePositionInsertion]!;
-      changes[samePositionInsertion] = {
-        ...existingChange,
-        insert: (existingChange.insert ?? '') + (widthsChange.insert ?? ''),
-      };
+      if (isRangeChangeSpec(existingChange)) {
+        changes[samePositionInsertion] = {
+          ...existingChange,
+          insert: (existingChange.insert ?? '') + (widthsChange.insert ?? ''),
+        };
+      } else {
+        changes.push(widthsChange);
+      }
     } else {
       changes.push(widthsChange);
     }
