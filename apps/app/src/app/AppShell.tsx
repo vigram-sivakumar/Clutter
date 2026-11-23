@@ -453,15 +453,15 @@ function AppShellContent() {
       const update = await check();
       directUpdateRef.current = update;
       if (!update) {
-        await message(`You're on the latest version of Clutter!\n\n${version}`, {
-          title: 'Clutter',
+        await message(version, {
+          title: "You're on the latest version of Clutter!",
           kind: 'info',
         });
         return;
       }
       const install = await ask(
-        `A new version of Clutter is available.\n\nVersion ${update.version}\n\nWould you like to download and install it now?`,
-        { title: 'Clutter Update', kind: 'info', okLabel: 'Download and Install', cancelLabel: 'Later' }
+        update.version,
+        { title: 'New update available', kind: 'info', okLabel: 'Download and Install', cancelLabel: 'Later' }
       );
       if (!install) return;
       updateOperationRef.current = false;
@@ -469,8 +469,8 @@ function AppShellContent() {
     } catch (error) {
       console.error('Clutter update check failed:', error);
       const { message } = await import('@tauri-apps/plugin-dialog');
-      await message("Couldn't check for updates.\n\nPlease try again later.", {
-        title: 'Check for Updates',
+      await message('Try again', {
+        title: "Couldn't check for updates",
         kind: 'error',
       });
     } finally {
