@@ -1,8 +1,8 @@
 /**
  * The public privacy policy and support addresses for Clutter.
  *
- * The privacy policy is linked from Settings → Preferences. The support address is retained for the Mac App Store's
- * Support URL requirement; in-app contact is provided separately by Settings → Contact Us.
+ * The privacy policy is linked from the sidebar Help menu. The support address is retained for the Mac App Store's
+ * Support URL requirement; in-app contact is provided separately by the same Help menu.
  */
 export interface LegalLinks {
   readonly privacyPolicy: string | null;
@@ -27,8 +27,4 @@ export function isPublicHttpsUrl(value: string | null | undefined): value is str
   } catch {
     return false;
   }
-}
-
-export function hasLegalLinks(links: LegalLinks = LEGAL_LINKS): boolean {
-  return isPublicHttpsUrl(links.privacyPolicy) || isPublicHttpsUrl(links.support);
 }
