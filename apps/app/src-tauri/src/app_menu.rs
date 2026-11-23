@@ -177,37 +177,30 @@ fn build_app_submenu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>
         Some("CmdOrCtrl+Q"),
     )?;
 
+    let submenu = Submenu::with_items(
+        app,
+        &name,
+        true,
+        &[
+            &PredefinedMenuItem::about(app, Some(&format!("About {name}")), Some(about))?,
+            &PredefinedMenuItem::separator(app)?,
+            &settings,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::services(app, None)?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::hide(app, Some(&format!("Hide {name}")))?,
+            &PredefinedMenuItem::hide_others(app, None)?,
+            &PredefinedMenuItem::show_all(app, None)?,
+            &PredefinedMenuItem::separator(app)?,
+            &quit,
+        ],
+    )?;
     #[cfg(feature = "direct-updates")]
-    let items: Vec<&dyn tauri::menu::IsMenuItem<R>> = vec![
-        &PredefinedMenuItem::about(app, Some(&format!("About {name}")), Some(about))?,
-        &PredefinedMenuItem::separator(app)?,
-        &settings,
-        &PredefinedMenuItem::separator(app)?,
-        &check_for_updates,
-        &PredefinedMenuItem::separator(app)?,
-        &PredefinedMenuItem::services(app, None)?,
-        &PredefinedMenuItem::separator(app)?,
-        &PredefinedMenuItem::hide(app, Some(&format!("Hide {name}")))?,
-        &PredefinedMenuItem::hide_others(app, None)?,
-        &PredefinedMenuItem::show_all(app, None)?,
-        &PredefinedMenuItem::separator(app)?,
-        &quit,
-    ];
-    #[cfg(not(feature = "direct-updates"))]
-    let items: Vec<&dyn tauri::menu::IsMenuItem<R>> = vec![
-        &PredefinedMenuItem::about(app, Some(&format!("About {name}")), Some(about))?,
-        &PredefinedMenuItem::separator(app)?,
-        &settings,
-        &PredefinedMenuItem::separator(app)?,
-        &PredefinedMenuItem::services(app, None)?,
-        &PredefinedMenuItem::separator(app)?,
-        &PredefinedMenuItem::hide(app, Some(&format!("Hide {name}")))?,
-        &PredefinedMenuItem::hide_others(app, None)?,
-        &PredefinedMenuItem::show_all(app, None)?,
-        &PredefinedMenuItem::separator(app)?,
-        &quit,
-    ];
-    Submenu::with_items(app, &name, true, &items)
+    {
+        submenu.insert(&PredefinedMenuItem::separator(app)?, 3)?;
+        submenu.insert(&check_for_updates, 4)?;
+    }
+    Ok(submenu)
 }
 
 /// New Note, Today’s Daily Note / New Folder, grouped by separators. There is deliberately no Close Window item and
