@@ -382,7 +382,7 @@ function AppShellContent() {
     []
   );
   const confirmUnsavedClose = useCallback((count: number) => confirmUnsaved(count, 'close'), [confirmUnsaved]);
-  const [directUpdateState, setDirectUpdateState] = useState<DirectUpdatesState>({ status: 'idle' });
+  const [, setDirectUpdateState] = useState<DirectUpdatesState>({ status: 'idle' });
   const directUpdateRef = useRef<Update | null>(null);
   const updateOperationRef = useRef(false);
   const autoUpdateCheckStartedRef = useRef(false);
@@ -1653,7 +1653,7 @@ function AppShellContent() {
         onAnswer={answerUnsavedClose}
       />
       {settingsAvailable && (
-        <ActiveSpaceSettingsDialog application={application} busy={application === null || renameInFlight} directUpdates={directUpdates} />
+        <ActiveSpaceSettingsDialog application={application} busy={application === null || renameInFlight} />
       )}
     </SpacesContext.Provider>
   );
