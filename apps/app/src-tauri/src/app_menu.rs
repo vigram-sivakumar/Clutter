@@ -432,6 +432,12 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "direct-updates")]
+    #[test]
+    fn check_for_updates_forwards_to_its_frontend_event() {
+        assert_eq!(event_for_item(CHECK_FOR_UPDATES_ITEM_ID), Some(CHECK_FOR_UPDATES_EVENT));
+    }
+
     #[test]
     fn copy_page_link_forwards_to_its_frontend_event() {
         assert_eq!(event_for_item("edit-copy-page-link"), Some("menu:copy-page-link"));
