@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
 import { isTauri } from '@tauri-apps/api/core';
+import { getVersion } from '@tauri-apps/api/app';
 import type { Update } from '@tauri-apps/plugin-updater';
 import { BrowserRecoveryStorage } from '../core/recovery/RecoveryStorage';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -89,7 +90,7 @@ import type {
 import { useSpaceRegistry } from './spaces/useSpaceRegistry';
 import type { NarrowSidebarOverride } from './layouts/app-layout/useSidebarVisibility';
 import { MissingSpaceDialog } from '@components/missing-space-dialog/MissingSpaceDialog';
-import type { DirectUpdatesState, DirectUpdatesSettingProps } from '../features/settings/updates-setting/DirectUpdatesSetting';
+import type { DirectUpdatesState } from '../features/settings/updates-setting/DirectUpdatesSetting';
 
 /** A Space's own profile, read without opening it (read-only, never throws). The web runtime has none. */
 async function readProfileAt(path: string): Promise<SpaceProfile | null> {
@@ -407,7 +408,7 @@ function AppShellContent() {
     }
   }, []);
 
-  const downloadDirectUpdate = useCallback(async () => {
+  const downloadDirectUpdate = useCallback(async (): Promise<boolean> => {
     const update = directUpdateRef.current;
     if (!__CLUTTER_DIRECT_UPDATES__ || !isTauri() || !update || updateOperationRef.current) return;
     updateOperationRef.current = true;
@@ -428,11 +429,13 @@ function AppShellContent() {
         }
       });
       setDirectUpdateState({ status: 'ready', version: update.version });
+      return true;
     } catch (error) {
       setDirectUpdateState({
         status: 'error',
         error: error instanceof Error ? error.message : String(error),
       });
+      return false;
     } finally {
       updateOperationRef.current = false;
     }
@@ -483,15 +486,62 @@ function AppShellContent() {
     return scheduleAfterFirstPaint(() => void checkForDirectUpdates());
   }, [checkForDirectUpdates]);
 
-  const directUpdates: DirectUpdatesSettingProps | undefined =
-    __CLUTTER_DIRECT_UPDATES__ && isTauri()
-      ? {
-          state: directUpdateState,
-          onCheck: () => void checkForDirectUpdates(),
-          onDownload: () => void downloadDirectUpdate(),
-          onInstallAndRestart: () => void installDirectUpdateAndRestart(),
-        }
-      : undefined;
+  const checkForUpdatesFromMenu = useCallback(async () => {
+    if (!__CLUTTER_DIRECT_UPDATES__ || !isTauri() || updateOperationRef.current) return;
+    updateOperationRef.current = true;
+    setDirectUpdateState({ status: 'checking' });
+    try {
+      const [{ check }, { message, ask }, version] = await Promise.all([
+        import('@tauri-apps/plugin-updater'),
+        import('@tauri-apps/plugin-dialog'),
+        getVersion(),
+      ]);
+      const update = await check();
+      directUpdateRef.current = update;
+      if (!update) {
+        setDirectUpdateState({ status: 'current' });
+        await message(`You're on the latest version of Clutter!\\n\\n${version}`, {
+          title: 'Clutter',
+          kind: 'info',
+        });
+        return;
+      }
+      setDirectUpdateState({ status: 'available', version: update.version });
+      const install = await ask(
+        `A new version of Clutter is available.\\n\\nVersion ${update.version}\\n\\nWould you like to download and install it now?`,
+        { title: 'Clutter Update', kind: 'info', okLabel: 'Download and Install', cancelLabel: 'Later' }
+      );
+      if (!install) return;
+      updateOperationRef.current = false;
+      if (await downloadDirectUpdate()) await installDirectUpdateAndRestart();
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      setDirectUpdateState({ status: 'error', error: detail });
+      const { message } = await import('@tauri-apps/plugin-dialog');
+      await message(`Clutter couldn't check for updates.\\n\\n${detail}`, {
+        title: 'Check for Updates',
+        kind: 'error',
+      });
+    } finally {
+      updateOperationRef.current = false;
+    }
+  }, [downloadDirectUpdate, installDirectUpdateAndRestart]);
+
+  useEffect(() => {
+    if (!__CLUTTER_DIRECT_UPDATES__ || !isTauri()) return;
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    listen('menu:check-for-updates', () => void checkForUpdatesFromMenu())
+      .then((fn) => {
+        if (disposed) fn();
+        else unlisten = fn;
+      })
+      .catch((error) => console.error('Could not listen for the Check for Updates menu item', error));
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, [checkForUpdatesFromMenu]);
 
   const answerUnsavedClose = useCallback((choice: UnsavedCloseChoice) => {
     const answer = unsavedCloseAnswerRef.current;
