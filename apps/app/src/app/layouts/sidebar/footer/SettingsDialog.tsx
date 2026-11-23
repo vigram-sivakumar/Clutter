@@ -7,7 +7,6 @@ import type { SpaceSettingsSource } from '@features/settings/space-settings/Spac
 import type { NoteLocationSource } from '@features/settings/default-note-location-setting/DefaultNoteLocationSetting';
 import type { TemplatesSource } from '@features/settings/preferred-templates/PreferredTemplates';
 import type { ResetSettingsOutcome } from '@features/settings/reset-settings/resetSettingsToDefaults';
-import type { DirectUpdatesSettingProps } from '@features/settings/updates-setting/DirectUpdatesSetting';
 import { DEFAULT_SPACE_AVATAR, type ListedSpace } from './SpaceMenu';
 
 interface SettingsDialogProps {
@@ -30,7 +29,6 @@ interface SettingsDialogProps {
   spaceSettings?: SpaceSettingsSource;
   /** "Reset settings to defaults", for every Space; without it the Reset section resets the app-wide preferences only. */
   onResetSettings?: () => Promise<ResetSettingsOutcome>;
-  directUpdates?: DirectUpdatesSettingProps;
 }
 
 /**
@@ -57,7 +55,6 @@ export function SettingsDialog({
   noteLocation,
   spaceSettings,
   onResetSettings,
-  directUpdates,
 }: SettingsDialogProps) {
   const state = useSharedSettingsDialogState();
   const title = spaceName || vaultFolderName;
@@ -79,7 +76,6 @@ export function SettingsDialog({
         noteLocation={noteLocation}
         spaceSettings={spaceSettings}
         onResetSettings={onResetSettings}
-        directUpdates={directUpdates}
         space={{
           onRemoveSpace,
           onChangeMissingSpaceLocation,
