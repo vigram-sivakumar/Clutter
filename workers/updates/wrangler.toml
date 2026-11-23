@@ -1,0 +1,12 @@
+name = "clutter-updates"
+main = "src/index.ts"
+compatibility_date = "2026-11-23"
+workers_dev = true
+preview_urls = false
+
+[[r2_buckets]]
+binding = "RELEASES"
+bucket_name = "clutter-releases"
+
+[observability]
+enabled = false
