@@ -12,6 +12,10 @@ interface ImportMetaEnv {
    * lives only in the Worker. Defaults to the deployed proxy; an empty value turns Unsplash off.
    */
   readonly VITE_UNSPLASH_PROXY_URL?: string;
+  /** Development-only updater alert scenario: latest, available, or error. */
+  readonly VITE_CLUTTER_UPDATE_TEST_STATE?: 'latest' | 'available' | 'error';
+  /** Optional version shown by the development-only available-update alert. */
+  readonly VITE_CLUTTER_UPDATE_TEST_VERSION?: string;
 }
 /** True only in direct-download builds; false in App Store and development builds. */
 declare const __CLUTTER_DIRECT_UPDATES__: boolean;
