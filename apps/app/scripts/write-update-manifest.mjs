@@ -33,7 +33,6 @@ if (!platform) {
   throw new Error(`Unsupported macOS updater target: ${targetTriple}`);
 }
 
-const releaseTag = process.env.UPDATE_RELEASE_TAG || `v${packageJson.version}`;
 const releaseUrl = `https://clutter-updates.vigram-sivakumar.workers.dev/releases/${encodeURIComponent(basename(archive))}`;
 const manifest = {
   version: packageJson.version,
