@@ -9,7 +9,7 @@
 
 .alert__header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-12);
   padding: var(--space-6) var(--space-12);
 }
@@ -19,7 +19,6 @@
   flex: 1;
   min-width: 0;
   flex-direction: column;
-  gap: var(--space-4);
 }
 
 .alert__title {
@@ -29,6 +28,7 @@
 }
 
 .alert__description {
+  padding: 0 var(--space-12) var(--space-6);
   color: var(--foreground-tertiary);
   font-size: var(--text-label-small);
   line-height: var(--lh-label);
@@ -56,17 +56,17 @@
   flex: 1;
 }
 
-/* Collapsed alerts expand on hover or keyboard focus. The container clips
-   the full content, so only its height and the secondary elements animate. */
-.alert--collapsed {
-  box-sizing: border-box;
-  height: calc(var(--space-6) * 2 + max(var(--lh-label), var(--height-xs)));
-  /* Delay shrinking until the secondary elements have faded out. */
-  transition: height 220ms var(--easing-interaction);
+.alert__details {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
 }
 
-.alert--collapsed > * {
-  flex-shrink: 0;
+/* Collapsed alerts reveal their details on hover or keyboard focus. */
+.alert--collapsed {
+  display: grid;
+  grid-template-rows: auto 0fr;
+  transition: grid-template-rows 220ms var(--easing-interaction);
 }
 
 .alert--collapsed .alert__title {
@@ -75,10 +75,14 @@
   white-space: nowrap;
 }
 
-.alert--collapsed .alert__description,
-.alert--collapsed .alert__dismiss,
-.alert--collapsed .alert__border,
-.alert--collapsed .alert__actions {
+.alert--collapsed .alert__details {
+  min-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 220ms var(--easing-interaction);
+}
+
+.alert--collapsed .alert__dismiss {
   opacity: 0;
   pointer-events: none;
   transition: opacity 220ms var(--easing-interaction);
@@ -86,23 +90,16 @@
 
 .alert--collapsed:hover,
 .alert--collapsed:focus-within {
-  height: calc(
-    var(--space-6) * 2 + var(--lh-label) * 2 + var(--space-6) + 1px +
-      var(--space-12) * 2 + var(--height-md)
-  );
-  /* Expand immediately, then reveal the secondary elements. */
-  transition-delay: 0ms;
+  grid-template-rows: auto 1fr;
 }
 
-.alert--collapsed:hover .alert__description,
+.alert--collapsed:hover .alert__details,
+.alert--collapsed:focus-within .alert__details {
+  opacity: 1;
+}
+
 .alert--collapsed:hover .alert__dismiss,
-.alert--collapsed:hover .alert__border,
-.alert--collapsed:hover .alert__actions,
-.alert--collapsed:focus-within .alert__description,
-.alert--collapsed:focus-within .alert__dismiss,
-.alert--collapsed:focus-within .alert__border,
-.alert--collapsed:focus-within .alert__actions {
+.alert--collapsed:focus-within .alert__dismiss {
   opacity: 1;
   pointer-events: auto;
-  transition: opacity 220ms var(--easing-interaction);
 }
