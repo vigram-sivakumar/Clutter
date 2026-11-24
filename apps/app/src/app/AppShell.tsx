@@ -383,6 +383,7 @@ function AppShellContent() {
   const confirmUnsavedClose = useCallback((count: number) => confirmUnsaved(count, 'close'), [confirmUnsaved]);
   const directUpdateRef = useRef<Update | null>(null);
   const directUpdateDownloadedRef = useRef(false);
+  const [directUpdateReady, setDirectUpdateReady] = useState(false);
   const directUpdateStartupStartedRef = useRef(false);
   const updateOperationRef = useRef(false);
   const [directUpdatesReady, setDirectUpdatesReady] = useState(
@@ -396,14 +397,10 @@ function AppShellContent() {
     try {
       await update.download();
       directUpdateDownloadedRef.current = true;
+      setDirectUpdateReady(true);
       return true;
     } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
-      const { message } = await import('@tauri-apps/plugin-dialog');
-      await message(`Clutter couldn't download the update.\n\n${detail}`, {
-        title: 'Clutter Update',
-        kind: 'error',
-      });
+      console.error('Clutter update download failed:', error);
       return false;
     } finally {
       updateOperationRef.current = false;
@@ -432,8 +429,10 @@ function AppShellContent() {
         setIsLoading(true);
       }
       await update.install();
+      await update.close();
       directUpdateRef.current = null;
       directUpdateDownloadedRef.current = false;
+      setDirectUpdateReady(false);
       const { relaunch } = await import('@tauri-apps/plugin-process');
       await relaunch();
     } catch (error) {
@@ -469,6 +468,7 @@ function AppShellContent() {
       if (testState === 'latest') {
         directUpdateRef.current = null;
         directUpdateDownloadedRef.current = false;
+        setDirectUpdateReady(false);
         await message(version, {
           title: "You're on the latest version of Clutter!",
           kind: 'info',
@@ -478,6 +478,7 @@ function AppShellContent() {
       if (testState === 'available') {
         directUpdateRef.current = null;
         directUpdateDownloadedRef.current = false;
+        setDirectUpdateReady(false);
         const testVersion = import.meta.env.VITE_CLUTTER_UPDATE_TEST_VERSION || '99.0.0';
         const install = await ask(
           testVersion,
@@ -502,7 +503,11 @@ function AppShellContent() {
         update.version,
         { title: 'New update available', kind: 'info', okLabel: 'Download and Install', cancelLabel: 'Later' }
       );
-      if (!install) return;
+      if (!install) {
+        // "Later" dismisses the native prompt, but the update is still prepared in the background.
+        if (!directUpdateDownloadedRef.current) void downloadDirectUpdate();
+        return;
+      }
       updateOperationRef.current = false;
       if (directUpdateDownloadedRef.current || await downloadDirectUpdate()) {
         await installDirectUpdateAndRestart();
@@ -553,9 +558,9 @@ function AppShellContent() {
         updateOperationRef.current = false;
         setDirectUpdatesReady(true);
       }
-      if (updateFound) void checkForUpdatesFromMenu();
+      if (updateFound) void downloadDirectUpdate();
     })();
-  }, [checkForUpdatesFromMenu]);
+  }, [downloadDirectUpdate]);
 
   // Check again every 24 hours while Clutter remains open. When an update is found,
   // show the same native prompt as the manual Check for Updates action.
@@ -599,7 +604,7 @@ function AppShellContent() {
         updateOperationRef.current = false;
         scheduleNextCheck();
       }
-      if (updateFound) void checkForUpdatesFromMenu();
+      if (updateFound) void downloadDirectUpdate();
     };
 
     scheduleNextCheck();
@@ -613,7 +618,7 @@ function AppShellContent() {
         console.warn('Could not release the pending update:', error);
       });
     };
-  }, [directUpdatesReady, checkForUpdatesFromMenu]);
+  }, [directUpdatesReady, downloadDirectUpdate]);
 
   useEffect(() => {
     if (!__CLUTTER_DIRECT_UPDATES__ || !isTauri()) return;
@@ -1688,6 +1693,8 @@ function AppShellContent() {
           application={application}
           narrowSidebarOverride={narrowSidebarOverride}
           onNarrowSidebarOverrideChange={setNarrowSidebarOverride}
+          updateReady={directUpdateReady}
+          onRestartUpdate={() => void installDirectUpdateAndRestart()}
         />
         {pendingSpace && (
           <Dialog
