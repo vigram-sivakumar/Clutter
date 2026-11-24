@@ -563,8 +563,8 @@ function AppShellContent() {
     })();
   }, [downloadDirectUpdate]);
 
-  // Check again every 24 hours while Clutter remains open. When an update is found,
-  // show the same native prompt as the manual Check for Updates action.
+  // Check again every 24 hours while Clutter remains open. Automatic checks download updates
+  // silently; the sidebar alert appears only after the download succeeds.
   useEffect(() => {
     if (!__CLUTTER_DIRECT_UPDATES__ || !isTauri() || !directUpdatesReady) return;
     let disposed = false;
@@ -578,7 +578,12 @@ function AppShellContent() {
 
     const checkInBackground = async () => {
       if (disposed) return;
-      if (updateOperationRef.current || directUpdateRef.current) {
+      if (updateOperationRef.current) {
+        scheduleNextCheck();
+        return;
+      }
+      if (directUpdateRef.current) {
+        if (!directUpdateDownloadedRef.current) void downloadDirectUpdate();
         scheduleNextCheck();
         return;
       }
