@@ -42,7 +42,6 @@ export default defineConfig({
 
   define: {
     __PARSE_DEPENDENCY_VERSIONS__: JSON.stringify(parseDependencyVersions),
-    __CLUTTER_DIRECT_UPDATES__: JSON.stringify(process.env.VITE_CLUTTER_DIRECT_UPDATES === '1'),
   },
 
   resolve: {
