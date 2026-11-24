@@ -41,7 +41,14 @@ mkdir -p "$WORK/sources/no-match" "$WORK/sources/inapplicable" "$WORK/target" "$
 copy_app() {
   local source="$1" dest="$2" version="$3" build="$4"
   codesign --verify --deep --strict "$source"
-  codesign -d --verbose=4 "$source" 2>&1 | grep -q '^Signature=adhoc$'
+  # Capture the complete output before checking it: grep -q can close a
+  # pipe early and cause codesign to exit with SIGPIPE under pipefail.
+  local signature
+  signature=$(codesign -d --verbose=4 "$source" 2>&1)
+  if ! grep -q '^Signature=adhoc$' <<< "$signature"; then
+    echo "Expected an ad-hoc signed fixture: $source" >&2
+    return 1
+  fi
   ditto "$source" "$dest"
   python3 -I - "$dest/Contents/Info.plist" "$KEY" "$BASE/appcast.xml" "$version" "$build" <<'PY'
 import plistlib, sys
