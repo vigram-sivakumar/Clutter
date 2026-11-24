@@ -2,6 +2,8 @@ interface Env { readonly RELEASES: R2Bucket; }
 
 const LEGACY_FILE = /^[A-Za-z0-9][A-Za-z0-9._-]*\.(?:app\.tar\.gz|dmg)$/;
 const SPARKLE_FILE = /^Clutter_beta_[0-9]+\.[0-9]+\.[0-9]+_aarch64\.(?:zip|dmg)$/;
+const UNIVERSAL_FILE = /^Clutter_[0-9]+\.[0-9]+\.[0-9]+_universal\.(?:zip|dmg)$/;
+const DELTA_FILE = /^Clutter_[0-9]+_to_[0-9]+_universal\.delta$/;
 const NO_CACHE = 'no-store, max-age=0';
 
 function textResponse(status: number, body: string): Response {
@@ -21,9 +23,9 @@ export async function handle(request: Request, env: Env): Promise<Response> {
   } else {
     const match = /^\/releases\/([^/]+)$/.exec(path);
     const filename = match?.[1];
-    if (!filename || (!LEGACY_FILE.test(filename) && !SPARKLE_FILE.test(filename))) return textResponse(404, 'Not found');
+    if (!filename || (!LEGACY_FILE.test(filename) && !SPARKLE_FILE.test(filename) && !UNIVERSAL_FILE.test(filename) && !DELTA_FILE.test(filename))) return textResponse(404, 'Not found');
     key = 'releases/' + filename;
-    contentType = filename.endsWith('.dmg') ? 'application/x-apple-diskimage' : filename.endsWith('.zip') ? 'application/zip' : 'application/gzip';
+    contentType = filename.endsWith('.dmg') ? 'application/x-apple-diskimage' : filename.endsWith('.zip') ? 'application/zip' : filename.endsWith('.delta') ? 'application/octet-stream' : 'application/gzip';
     attachment = true;
   }
   const object = await env.RELEASES.get(key);
