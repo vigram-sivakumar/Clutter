@@ -52,6 +52,8 @@ end openInstaller
 
 on run argv
     set mountAlias to (POSIX file (item 1 of argv)) as alias
+    -- Resolve the actual file outside Finder, before sending its set command.
+    set backgroundAlias to (POSIX file ((item 1 of argv) & "/.background/installer.png")) as alias
     tell application "Finder"
         set w to my openInstaller(mountAlias)
         set targetFolder to target of w
@@ -63,7 +65,9 @@ on run argv
         set arrangement of opts to not arranged
         set icon size of opts to 128
         set text size of opts to 13
-        set background picture of opts to file "installer.png" of folder ".background" of targetFolder
+        tell w
+            set background picture of its icon view options to backgroundAlias
+        end tell
         set position of item "Clutter.app" of targetFolder to {180, 170}
         set position of item "Applications" of targetFolder to {480, 170}
         close w
