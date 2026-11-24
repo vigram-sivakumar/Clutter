@@ -2,6 +2,7 @@
 # One-command Clutter release workflow.
 #   npm run release       Build a Developer ID signed/notarized release and publish it to Cloudflare R2.
 #   npm run release:local Build and verify a local installer/update package without publishing it.
+#   npm run release:beta Build an Apple Silicon beta installer without Apple signing or publishing it.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -44,12 +45,15 @@ case "$MODE" in
     echo "Signature:$TARGET/release/bundle/macos/*.app.tar.gz.sig"
     echo "Manifest: $TARGET/release/bundle/macos/latest.json"
     ;;
+  beta)
+    bash "$HERE/build-beta.sh"
+    ;;
   production)
     npm run build:share
     npm run publish:update
     ;;
   *)
-    echo "Usage: npm run release [-- local [--publish]|production]" >&2
+    echo "Usage: npm run release [-- local [--publish]|beta|production]" >&2
     exit 2
     ;;
 esac
