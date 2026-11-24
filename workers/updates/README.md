@@ -14,7 +14,7 @@ Production URL: `https://updates.clutterapp.workers.dev`
 
 ## Terminal installation
 
-Starting with the first release built with the new hostname and SHA-256 metadata (planned 0.0.9), users can run:
+Starting with 0.0.9, users can run:
 
 ```sh
 curl -fsS https://updates.clutterapp.workers.dev/install.sh | bash
@@ -30,9 +30,9 @@ bash "$installer"
 rm -f "$installer"
 ```
 
-Quit less with q to proceed to the installer's confirmation prompt. The script uses the same universal ZIP as Sparkle, checks the platform, feed URL, SHA-256 and size, bundle signature, bundle identifier, version, pinned public updater key and embedded feed URL, then stages the app in /Applications before a no-clobber move. No sudo, no Homebrew, no change to system security settings or quarantine, and no automatic launch. Existing Clutter installations in /Applications or ~/Applications must be updated through Sparkle or handled manually.
+Quit less with q to execute the reviewed installer. Running the installation command is consent to install; there is no extra confirmation prompt. The script uses the same universal ZIP as Sparkle, checks the platform, feed URL, SHA-256 and size, bundle signature, bundle identifier, version, pinned public updater key and embedded feed URL, then stages the app in /Applications before a no-clobber move. No sudo, no Homebrew, no change to system security settings or quarantine, and automatic launch after successful installation. A launch failure is reported separately, without undoing the verified installation. Existing Clutter installations in /Applications or ~/Applications must be updated through Sparkle or handled manually.
 
-The bootstrap and its checksum metadata are trusted through HTTPS. The installer does not independently verify Sparkle's Ed25519 signature; the publisher verifies it before upload, and installed Sparkle clients verify their updates. Ad-hoc beta signatures do not authenticate a developer and the script requires interactive approval. Developer ID releases additionally require a Developer ID signature and successful Gatekeeper assessment. Pin the production signing team before public release. Native installation on both architectures remains to be validated.
+The bootstrap and its checksum metadata are trusted through HTTPS. The installer does not independently verify Sparkle's Ed25519 signature; the publisher verifies it before upload, and installed Sparkle clients verify their updates. Ad-hoc beta signatures do not authenticate a developer. Beta distribution instructions must disclose that Apple has not notarized the app; macOS may still require approval. The installer reports this limitation if the launch command fails. Developer ID releases additionally require a Developer ID signature and successful Gatekeeper assessment. Pin the production signing team before public release. Native installation on both architectures remains to be validated.
 
 ## Deployment and publication
 
