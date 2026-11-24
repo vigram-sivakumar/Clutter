@@ -29,7 +29,7 @@ case "$HTTP" in
   *) echo "Could not check the existing remote appcast (HTTP $HTTP)" >&2; exit 1 ;;
 esac
 python3 -I - "$DIR" "$APP/Contents/Info.plist" "$HOME/.tauri/clutter-sparkle-beta.pub" "$VERSION" "$BASE" "$HTTP" "$TMP/previous.xml" "$SIGN_TOOL" > "$TMP/files" <<'PY'
-import pathlib, plistlib, re, subprocess, sys, xml.etree.ElementTree as ET
+import hashlib, pathlib, plistlib, re, subprocess, sys, xml.etree.ElementTree as ET
 directory, plist, pin, version, base, status, previous, signer = sys.argv[1:]
 directory = pathlib.Path(directory)
 ns = 'http://www.andymatuschak.org/xml-namespaces/sparkle'
@@ -77,6 +77,8 @@ for e in [full, *deltas]:
     assert e.get('url') == base + '/releases/' + name
     artifact = directory / name
     assert artifact.stat().st_size == int(e.get('length'))
+    if e is full:
+        assert e.get(f'{{{c}}}sha256') == hashlib.sha256(artifact.read_bytes()).hexdigest(), 'Terminal installer archive digest mismatch'
     sig = subprocess.check_output([signer, '--account', 'com.vigram.clutter.sparkle.beta', '-p', str(artifact)], text=True).strip()
     assert re.fullmatch(r'[A-Za-z0-9+/]{86}==', sig) and sig == e.get(tag('edSignature')), 'Archive signature mismatch'
     names.append(name)
