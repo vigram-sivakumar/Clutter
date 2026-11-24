@@ -24,7 +24,7 @@
 #
 # usage: verify-bundle.sh <path/to/Clutter.app> [--local|--beta|--share|--submission] [--allow-test-harness]
 set -uo pipefail
-APP="${1:?usage: verify-bundle.sh <path/to/Clutter.app> [--local|--share|--submission] [--allow-test-harness]}"
+APP="${1:?usage: verify-bundle.sh <path/to/Clutter.app> [--local|--beta|--share|--submission] [--allow-test-harness]}"
 shift
 MODE=local
 ALLOW_HARNESS=false
