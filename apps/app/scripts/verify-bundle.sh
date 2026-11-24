@@ -23,9 +23,9 @@
 #                    application and team identifiers Apple requires, with the production bundle identifier
 #                    (com.vigram.clutter) and a valid build number.
 #
-# usage: verify-bundle.sh <path/to/Clutter.app> [--local|--beta|--sparkle-integration|--sparkle-beta|--sparkle-direct|--share|--submission] [--allow-test-harness]
+# usage: verify-bundle.sh <path/to/Clutter.app> [--local|--beta|--sparkle-integration|--sparkle-beta|--sparkle-direct|--appstore-preflight|--share|--submission] [--allow-test-harness]
 set -uo pipefail
-APP="${1:?usage: verify-bundle.sh <path/to/Clutter.app> [--local|--beta|--sparkle-integration|--sparkle-beta|--sparkle-direct|--share|--submission] [--allow-test-harness]}"
+APP="${1:?usage: verify-bundle.sh <path/to/Clutter.app> [--local|--beta|--sparkle-integration|--sparkle-beta|--sparkle-direct|--appstore-preflight|--share|--submission] [--allow-test-harness]}"
 shift
 MODE=local
 ALLOW_HARNESS=false
@@ -36,6 +36,7 @@ for ARG in "$@"; do
     --sparkle-integration) MODE=sparkle-integration ;;
     --sparkle-beta) MODE=sparkle-beta ;;
     --sparkle-direct) MODE=sparkle-direct ;;
+    --appstore-preflight) MODE=appstore-preflight ;;
     --share) MODE=share ;;
     --submission) MODE=submission ;;
     --allow-test-harness) ALLOW_HARNESS=true ;;
@@ -108,6 +109,10 @@ PY
 else
   echo "$ENTITLEMENTS" | grep -q 'temporary-exception' && fail "forbidden temporary exception" || pass "no temporary exceptions"
   [ ! -d "$APP/Contents/Frameworks/Sparkle.framework" ] || fail "unexpected Sparkle framework in non-Sparkle build"
+  if [ "$MODE" = submission ] || [ "$MODE" = appstore-preflight ]; then
+    /usr/libexec/PlistBuddy -c "Print :SUFeedURL" "$APP/Contents/Info.plist" >/dev/null 2>&1 && fail "App Store build contains a Sparkle feed" || true
+    /usr/libexec/PlistBuddy -c "Print :SUPublicEDKey" "$APP/Contents/Info.plist" >/dev/null 2>&1 && fail "App Store build contains a Sparkle key" || true
+  fi
 fi
 if echo "$ENTITLEMENTS" | grep -q "network.server"; then
   $ALLOW_HARNESS && pass "network.server allowed for the test harness" || fail "network.server is not allowed"
@@ -213,6 +218,11 @@ PY
 }
 
 case "$MODE" in
+  appstore-preflight)
+    $ADHOC && pass "ad-hoc preflight signature" || fail "preflight must be ad-hoc signed"
+    [ "$IDENTIFIER" = "com.vigram.clutter" ] && pass "production bundle identifier" || fail "incorrect bundle identifier"
+    verify_universal
+    ;;
   local)
     $ADHOC && warn "ad-hoc signature: fine to install here, but Gatekeeper blocks it on other Macs (use --share builds for testers)"
     [ "$IDENTIFIER" = "com.vigram.clutter" ] || warn "bundle identifier is $IDENTIFIER, not the production one (com.vigram.clutter)"
