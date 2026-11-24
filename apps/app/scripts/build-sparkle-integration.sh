@@ -204,10 +204,7 @@ if [ "$MODE" = beta ]; then
   # Package the final Sparkle-signed app, not Tauri's intermediate bundle.
   python3 -I "$HERE/add-sparkle-delta.py" "$STAGING" "$DEST/Clutter.app" "$SDK" "$ACCOUNT" "$PUBLIC_KEY" "$BASE_URL" "$BUILD_NUMBER"
   DMG_NAME="Clutter_${VERSION}_universal.dmg"
-  mkdir "$STAGING/dmg-root"
-  ditto "$DEST/Clutter.app" "$STAGING/dmg-root/Clutter.app"
-  ln -s /Applications "$STAGING/dmg-root/Applications"
-  hdiutil create -volname Clutter -srcfolder "$STAGING/dmg-root" -format UDZO "$STAGING/$DMG_NAME"
+  bash "$HERE/package-direct-dmg.sh" "$DEST/Clutter.app" "$STAGING/$DMG_NAME"
   if [ "$SIGNING" = developer-id ]; then
     codesign --force --sign "$APPLE_SIGNING_IDENTITY" --timestamp "$STAGING/$DMG_NAME"
     xcrun notarytool submit "$STAGING/$DMG_NAME" --keychain-profile "$CLUTTER_NOTARY_PROFILE" --wait
@@ -215,7 +212,6 @@ if [ "$MODE" = beta ]; then
     xcrun stapler validate "$STAGING/$DMG_NAME"
   fi
   hdiutil verify "$STAGING/$DMG_NAME"
-  rm -rf "$STAGING/dmg-root"
   # Publish only from this version's completed artefact directory.
   RELEASE="$ROOT/releases/$VERSION"
   (cd "$STAGING" && shasum -a 256 "$NAME" "$DMG_NAME" appcast.xml $(find . -maxdepth 1 -name '*.delta' -print) > SHA256SUMS)
