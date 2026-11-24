@@ -1,5 +1,5 @@
 #!/bin/bash
-# Publish a completed, signed and notarized Clutter release to the private R2 bucket.
+# Publish a completed Clutter beta or production release to the private R2 bucket.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -13,7 +13,7 @@ WRANGLER="$HERE/../../../workers/updates/node_modules/.bin/wrangler"
 WRANGLER_CONFIG="$HERE/../../../workers/updates/wrangler.toml"
 
 [ -f "$MANIFEST" ] || {
-  echo "Missing $MANIFEST. Run npm run build:share first." >&2
+  echo "Missing $MANIFEST. Run npm run release:beta or npm run build:share first." >&2
   exit 1
 }
 
