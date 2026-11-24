@@ -43,6 +43,7 @@ const APP_COMMANDS: &[&str] = &[
     "check_rename_parent_access",
     "request_rename_parent_access",
     "allow_vault_asset_scope",
+    "should_use_gmail_for_support_email",
     "start_vault_watcher",
     "stop_vault_watcher",
 ];
