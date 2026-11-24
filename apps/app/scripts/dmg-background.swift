@@ -36,7 +36,6 @@ let attributes: [NSAttributedString.Key: Any] = [
 ]
 let size = instruction.size(withAttributes: attributes)
 instruction.draw(at: NSPoint(x: (CGFloat(width) - size.width) / 2, y: 75), withAttributes: attributes)
-context.flushGraphics()
 NSGraphicsContext.restoreGraphicsState()
 guard let png = bitmap.representation(using: .png, properties: [:]) else {
     fatalError("Cannot encode installer background")
