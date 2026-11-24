@@ -14,13 +14,15 @@
 #   * the code signature verifies.
 #
 # --local (default)  an installable build for this Mac: an ad-hoc signature is fine.
+# --beta             an Apple Silicon beta build: production bundle identifier, arm64-only executable and a valid
+#                    ad-hoc signature. Gatekeeper may block downloads on other Macs; no notarization is implied.
 # --share            a build to give to testers: must carry a Developer ID signature with the hardened runtime, and be
 #                    notarized with the ticket stapled, or Gatekeeper blocks it on other Macs.
 # --submission       a Mac App Store candidate: a distribution signature, the embedded provisioning profile, and the
 #                    application and team identifiers Apple requires, with the production bundle identifier
 #                    (com.vigram.clutter) and a valid build number.
 #
-# usage: verify-bundle.sh <path/to/Clutter.app> [--local|--share|--submission] [--allow-test-harness]
+# usage: verify-bundle.sh <path/to/Clutter.app> [--local|--beta|--share|--submission] [--allow-test-harness]
 set -uo pipefail
 APP="${1:?usage: verify-bundle.sh <path/to/Clutter.app> [--local|--share|--submission] [--allow-test-harness]}"
 shift
@@ -29,6 +31,7 @@ ALLOW_HARNESS=false
 for ARG in "$@"; do
   case "$ARG" in
     --local) MODE=local ;;
+    --beta) MODE=beta ;;
     --share) MODE=share ;;
     --submission) MODE=submission ;;
     --allow-test-harness) ALLOW_HARNESS=true ;;
@@ -135,6 +138,12 @@ case "$MODE" in
   local)
     $ADHOC && warn "ad-hoc signature: fine to install here, but Gatekeeper blocks it on other Macs (use --share builds for testers)"
     [ "$IDENTIFIER" = "com.vigram.clutter" ] || warn "bundle identifier is $IDENTIFIER, not the production one (com.vigram.clutter)"
+    ;;
+  beta)
+    [ "$IDENTIFIER" = "com.vigram.clutter" ] && pass "bundle identifier $IDENTIFIER" || fail "bundle identifier is $IDENTIFIER, not com.vigram.clutter"
+    $ADHOC && warn "ad-hoc signature: macOS may block this downloaded beta; testers may need to approve it in Privacy & Security" || fail "beta build must use an ad-hoc signature (Apple signing is out of scope)"
+    ARCHS=$(lipo -archs "$BINARY" 2>/dev/null)
+    [ "$ARCHS" = "arm64" ] && pass "architecture arm64 (Apple Silicon)" || fail "architectures '$ARCHS', expected arm64 only"
     ;;
   share)
     [ "$IDENTIFIER" = "com.vigram.clutter" ] && pass "bundle identifier $IDENTIFIER" || fail "bundle identifier is $IDENTIFIER, not com.vigram.clutter"
