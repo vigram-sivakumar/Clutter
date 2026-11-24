@@ -23,9 +23,9 @@
 #                    application and team identifiers Apple requires, with the production bundle identifier
 #                    (com.vigram.clutter) and a valid build number.
 #
-# usage: verify-bundle.sh <path/to/Clutter.app> [--local|--beta|--sparkle-integration|--sparkle-beta|--share|--submission] [--allow-test-harness]
+# usage: verify-bundle.sh <path/to/Clutter.app> [--local|--beta|--sparkle-integration|--sparkle-beta|--sparkle-direct|--share|--submission] [--allow-test-harness]
 set -uo pipefail
-APP="${1:?usage: verify-bundle.sh <path/to/Clutter.app> [--local|--beta|--sparkle-integration|--sparkle-beta|--share|--submission] [--allow-test-harness]}"
+APP="${1:?usage: verify-bundle.sh <path/to/Clutter.app> [--local|--beta|--sparkle-integration|--sparkle-beta|--sparkle-direct|--share|--submission] [--allow-test-harness]}"
 shift
 MODE=local
 ALLOW_HARNESS=false
@@ -35,6 +35,7 @@ for ARG in "$@"; do
     --beta) MODE=beta ;;
     --sparkle-integration) MODE=sparkle-integration ;;
     --sparkle-beta) MODE=sparkle-beta ;;
+    --sparkle-direct) MODE=sparkle-direct ;;
     --share) MODE=share ;;
     --submission) MODE=submission ;;
     --allow-test-harness) ALLOW_HARNESS=true ;;
@@ -61,7 +62,7 @@ done
 for FORBIDDEN in 'files.all' 'get-task-allow' 'disable-library-validation' 'allow-dyld-environment' 'automation.apple-events' 'cs.debugger'; do
   echo "$ENTITLEMENTS" | grep -q "$FORBIDDEN" && fail "forbidden entitlement matching '$FORBIDDEN'" || pass "no entitlement matching '$FORBIDDEN'"
 done
-if [ "$MODE" = "sparkle-integration" ] || [ "$MODE" = "sparkle-beta" ]; then
+if [ "$MODE" = "sparkle-integration" ] || [ "$MODE" = "sparkle-beta" ] || [ "$MODE" = "sparkle-direct" ]; then
   # No additional exceptions are allowed: compare the complete entitlement dictionary.
   if printf '%s' "$ENTITLEMENTS" | python3 -I -c '
 import plistlib, sys
@@ -84,7 +85,7 @@ sys.exit(0 if plistlib.loads(sys.stdin.buffer.read()) == expected else 1)
   [ -d "$SPARKLE/Versions/B/XPCServices/Installer.xpc" ] && pass "Sparkle Installer.xpc present" || fail "Sparkle installer missing"
   [ "$(/usr/libexec/PlistBuddy -c 'Print :SUEnableInstallerLauncherService' "$APP/Contents/Info.plist" 2>/dev/null)" = true ] && pass "Sparkle installer enabled" || fail "Sparkle installer disabled"
   codesign --verify --deep --strict "$SPARKLE" 2>/dev/null && pass "Sparkle framework signature valid" || fail "Sparkle framework signature invalid"
-  if [ "$MODE" = "sparkle-beta" ]; then
+  if [ "$MODE" = "sparkle-beta" ] || [ "$MODE" = "sparkle-direct" ]; then
     if python3 -I - "$APP/Contents/Info.plist" "$HOME/.tauri/clutter-sparkle-beta.pub" <<'PY'
 import plistlib, sys, re
 with open(sys.argv[1], 'rb') as f: info = plistlib.load(f)
@@ -184,16 +185,47 @@ IDENTIFIER=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP/Conten
 ADHOC=false
 echo "$SIGNATURE" | grep -q "Signature=adhoc" && ADHOC=true
 
+# Check every Mach-O, including bundled native helpers, not only the main executable.
+verify_universal() {
+  if python3 -I - "$APP" <<'PY'
+import os, subprocess, sys
+magic = {bytes.fromhex(x) for x in ('feedface','cefaedfe','feedfacf','cffaedfe','cafebabe','bebafeca','cafebabf','bfbafeca')}
+bad = []
+count = 0
+for root, _, files in os.walk(sys.argv[1]):
+    for name in files:
+        path = os.path.join(root, name)
+        if os.path.islink(path): continue
+        with open(path, 'rb') as f:
+            if f.read(4) not in magic: continue
+        arch = subprocess.run(['lipo','-archs',path], capture_output=True, text=True)
+        count += 1
+        if arch.returncode or set(arch.stdout.split()) != {'arm64','x86_64'}:
+            bad.append(path + ': ' + arch.stdout.strip())
+if not count or bad:
+    print('Non-universal Mach-O files:', *bad, sep='\n')
+    sys.exit(1)
+print('Verified', count, 'universal Mach-O files')
+PY
+  then pass "all native executables are universal"
+  else fail "universal architecture verification failed"
+  fi
+}
+
 case "$MODE" in
   local)
     $ADHOC && warn "ad-hoc signature: fine to install here, but Gatekeeper blocks it on other Macs (use --share builds for testers)"
     [ "$IDENTIFIER" = "com.vigram.clutter" ] || warn "bundle identifier is $IDENTIFIER, not the production one (com.vigram.clutter)"
     ;;
-  beta|sparkle-integration|sparkle-beta)
+  beta|sparkle-integration|sparkle-beta|sparkle-direct)
     [ "$IDENTIFIER" = "com.vigram.clutter" ] && pass "bundle identifier $IDENTIFIER" || fail "bundle identifier is $IDENTIFIER, not com.vigram.clutter"
     $ADHOC && warn "ad-hoc signature: macOS may block this downloaded beta; testers may need to approve it in Privacy & Security" || fail "beta build must use an ad-hoc signature (Apple signing is out of scope)"
     ARCHS=$(lipo -archs "$BINARY" 2>/dev/null)
-    [ "$ARCHS" = "arm64" ] && pass "architecture arm64 (Apple Silicon)" || fail "architectures '$ARCHS', expected arm64 only"
+    if [ "$MODE" = sparkle-direct ] || [ "$MODE" = sparkle-integration ]; then
+      verify_universal
+    else
+      [ "$ARCHS" = "arm64" ] && pass "architecture arm64" || fail "expected arm64 only"
+    fi
     ;;
   share)
     [ "$IDENTIFIER" = "com.vigram.clutter" ] && pass "bundle identifier $IDENTIFIER" || fail "bundle identifier is $IDENTIFIER, not com.vigram.clutter"
@@ -218,7 +250,7 @@ case "$MODE" in
     MINIMUM_SYSTEM=$(/usr/libexec/PlistBuddy -c "Print :LSMinimumSystemVersion" "$APP/Contents/Info.plist" 2>/dev/null)
     [ -n "$MINIMUM_SYSTEM" ] && [ "$(printf '%s\n%s\n' 13.3 "$MINIMUM_SYSTEM" | sort -V | head -1)" = "13.3" ] && pass "minimum macOS $MINIMUM_SYSTEM (13.3 or later)" || fail "LSMinimumSystemVersion '$MINIMUM_SYSTEM' is below 13.3 (the web code needs WebKit 16.4)"
     ARCHS=$(lipo -archs "$BINARY" 2>/dev/null)
-    [ "$ARCHS" = "arm64" ] && pass "architecture arm64 (Apple silicon only, as decided for 1.0)" || fail "architectures '$ARCHS', expected arm64 only"
+    verify_universal
     /usr/libexec/PlistBuddy -c "Print :LSApplicationCategoryType" "$APP/Contents/Info.plist" >/dev/null 2>&1 && pass "App Store category set" || fail "no LSApplicationCategoryType"
     ;;
 esac
