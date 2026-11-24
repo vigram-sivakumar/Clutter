@@ -23,7 +23,9 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "clean": "rm -rf node_modules apps/*/node_modules apps/*/dist apps/*/coverage packages/*/node_modules",
     "release:direct": "npm run release:direct --workspace=apps/app --",
-    "release:appstore": "npm run release:appstore --workspace=apps/app --"
+    "release:appstore": "npm run release:appstore --workspace=apps/app --",
+    "check:release": "npm run check:release --workspace=apps/app",
+    "check:appstore": "npm run check:appstore --workspace=apps/app"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.1",
