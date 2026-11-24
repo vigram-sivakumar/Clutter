@@ -103,7 +103,7 @@ export CLUTTER_SPARKLE_FRAMEWORK="$FRAMEWORK"
 # Tauri produces the intermediate bundle only. Sign/notarize the complete app below.
 (
   unset APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID APPLE_API_KEY APPLE_API_ISSUER APPLE_API_KEY_PATH
-  APPLE_SIGNING_IDENTITY=- VITE_CLUTTER_DIRECT_UPDATES=0 VITE_CLUTTER_SPARKLE_UPDATES=1 \
+  APPLE_SIGNING_IDENTITY=- VITE_CLUTTER_SPARKLE_UPDATES=1 \
     ../../node_modules/.bin/tauri build --target universal-apple-darwin --bundles app --features sparkle-updates
 )
 APP="$CARGO_TARGET_DIR/universal-apple-darwin/release/bundle/macos/Clutter.app"
