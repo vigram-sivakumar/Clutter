@@ -29,6 +29,7 @@ done
 "$KEY_TOOL" --account "$ACCOUNT"
 KEY=$("$KEY_TOOL" --account "$ACCOUNT" -p | tr -d '\r\n')
 [[ "$KEY" =~ ^[A-Za-z0-9+/]{43}=$ ]] || { echo 'Invalid test public key' >&2; exit 1; }
+[ -s "$HOME/.tauri/clutter-sparkle-beta.pub" ] || { echo 'Missing production public-key pin; cannot check test key separation' >&2; exit 1; }
 [ "$KEY" != "$(cat "$HOME/.tauri/clutter-sparkle-beta.pub")" ] || { echo 'Refusing production signing key' >&2; exit 1; }
 
 # Shared, uniquely named directory so a disposable macOS account can run the
