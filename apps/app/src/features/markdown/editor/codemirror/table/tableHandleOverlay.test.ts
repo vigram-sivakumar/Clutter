@@ -635,6 +635,10 @@ describe('attachTableHandleOverlay — opening the handle menu', () => {
   }
 
   function click(el: Element): void {
+    // Selection begins on pointerdown; pointerup opens the menu if the
+    // gesture did not become a drag. A synthetic click alone is insufficient.
+    el.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, clientX: 0, clientY: 0 }));
+    document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, cancelable: true, button: 0, clientX: 0, clientY: 0 }));
     el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
   }
 
@@ -652,7 +656,7 @@ describe('attachTableHandleOverlay — opening the handle menu', () => {
     view.dom.appendChild(widget);
   }
 
-  it('clicking a column handle calls the menu-change callback with that column\'s own fresh header handle as anchor', () => {
+  it('clicking a column handle reports that column's logical selection', () => {
     const { view, controller } = mountRootView();
     const { wrapper, table } = buildTable(2, 3);
     embedInViewDom(view, wrapper, TEST_TABLE_FROM);
