@@ -33,22 +33,27 @@ test('installer runs non-interactively and launches only after successful instal
   assert.doesNotMatch(INSTALLER_SCRIPT, /\/dev\/tty|\[y\/N\]/);
   const verified = INSTALLER_SCRIPT.indexOf('verify_app "$STAGE/Clutter.app"');
   const moved = INSTALLER_SCRIPT.indexOf('mv -n "$STAGE/Clutter.app" /Applications/');
-  const success = INSTALLER_SCRIPT.indexOf('Clutter successfully installed!');
+  const success = INSTALLER_SCRIPT.indexOf('\n    print_summary\n');
   const launch = INSTALLER_SCRIPT.indexOf('if ! open "$DEST"; then');
   assert.ok(verified >= 0 && moved > verified && success > moved && launch > success);
   assert.match(INSTALLER_SCRIPT, /Clutter is installed, but macOS could not launch it/);
 });
 
-test('installer displays version and location with optional terminal colors', () => {
+test('installer shows only a concise summary with matching metadata colors', () => {
   assert.match(INSTALLER_SCRIPT, /\[ -t 1 \]/);
   assert.match(INSTALLER_SCRIPT, /printenv NO_COLOR/);
-  assert.match(INSTALLER_SCRIPT, /Version:/);
-  assert.match(INSTALLER_SCRIPT, /Location:/);
-  assert.doesNotMatch(INSTALLER_SCRIPT, /Architecture:/);
+  assert.doesNotMatch(INSTALLER_SCRIPT, /Architecture:|Downloaded universal application|Verified application integrity|Installed application/);
   const start = INSTALLER_SCRIPT.indexOf('    GREEN="" BOLD=""');
   const end = INSTALLER_SCRIPT.indexOf('    download "$BASE/appcast.xml"', start);
   assert.ok(start >= 0 && end > start);
-  const result = spawnSync('/bin/bash', ['-eu', '-c', INSTALLER_SCRIPT.slice(start, end) + '\nstep_done "Downloaded universal application"'], { encoding: 'utf8' });
-  assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.stdout, '\nInstalling Clutter...\n\n✓ Downloaded universal application\n');
+  const format = INSTALLER_SCRIPT.slice(start, end);
+  const args = '\nVERSION=0.0.9\nDEST=/Applications/Clutter.app\n';
+  const plain = spawnSync('/bin/bash', ['-eu', '-c', format + args + '\nprint_summary'], { encoding: 'utf8' });
+  assert.equal(plain.status, 0, plain.stderr);
+  assert.equal(plain.stdout, '\nInstalling Clutter...\n\n✓ Clutter successfully installed!\n\n  Version:  0.0.9\n  Location: /Applications/Clutter.app\n\nLaunching Clutter...\n');
+  // Exercise the formatter without needing a real terminal or installing an app.
+  const colored = spawnSync('/bin/bash', ['-eu', '-c', format + args + '\nYELLOW=$' + "'\\033[33m'" + '\nRESET=$' + "'\\033[0m'" + '\nprint_summary'], { encoding: 'utf8' });
+  assert.equal(colored.status, 0, colored.stderr);
+  assert.ok(colored.stdout.includes('\x1b[33m0.0.9\x1b[0m'));
+  assert.ok(colored.stdout.includes('\x1b[33m/Applications/Clutter.app\x1b[0m'));
 });
