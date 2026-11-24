@@ -384,6 +384,9 @@ function AppShellContent() {
   const directUpdateRef = useRef<Update | null>(null);
   const directUpdateDownloadedRef = useRef(false);
   const [directUpdateReady, setDirectUpdateReady] = useState(false);
+  // Preview the downloaded-update UI without changing real updater state.
+  const previewUpdateReady = import.meta.env.DEV &&
+    import.meta.env.VITE_CLUTTER_UPDATE_TEST_STATE === 'ready';
   const directUpdateStartupStartedRef = useRef(false);
   const updateOperationRef = useRef(false);
   const [directUpdatesReady, setDirectUpdatesReady] = useState(
@@ -1699,8 +1702,10 @@ function AppShellContent() {
           application={application}
           narrowSidebarOverride={narrowSidebarOverride}
           onNarrowSidebarOverrideChange={setNarrowSidebarOverride}
-          updateReady={directUpdateReady}
-          onRestartUpdate={() => void installDirectUpdateAndRestart()}
+          updateReady={directUpdateReady || previewUpdateReady}
+          onRestartUpdate={() => {
+            if (!previewUpdateReady) void installDirectUpdateAndRestart();
+          }}
         />
         {pendingSpace && (
           <Dialog
