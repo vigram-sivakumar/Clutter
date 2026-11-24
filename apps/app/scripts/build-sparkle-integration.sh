@@ -22,7 +22,7 @@ case "$MODE" in
   beta|direct)
     MODE=beta # Preserve internal key/account compatibility; public distribution is direct.
     ACCOUNT=com.vigram.clutter.sparkle.beta
-    BASE_URL="https://clutter-updates.vigram-sivakumar.workers.dev"
+    BASE_URL="https://updates.clutterapp.workers.dev"
     ROOT="$PWD/src-tauri/target/sparkle"
     ARCHIVE_PREFIX="$BASE_URL/releases"
     ;;
