@@ -179,9 +179,9 @@ ditto -c -k --sequesterRsrc --keepParent "$DEST/Clutter.app" "$ZIP"
 SIG=$("$SIGN_TOOL" --account "$ACCOUNT" -p "$ZIP" | tr -d '\r\n')
 [[ "$SIG" =~ ^[A-Za-z0-9+/]{86}==$ ]] || { echo 'Invalid Sparkle archive signature' >&2; exit 1; }
 LENGTH=$(stat -f%z "$ZIP")
-python3 - "$STAGING/appcast.xml" "$VERSION" "$BUILD_NUMBER" "$ARCHIVE_PREFIX/$NAME" "$LENGTH" "$SIG" "$PUBLIC_KEY" "$MODE" "$SIGNING" <<'PY'
-import sys, xml.etree.ElementTree as ET
-path, version, build, url, length, signature, public_key, mode, signing = sys.argv[1:]
+python3 - "$STAGING/appcast.xml" "$VERSION" "$BUILD_NUMBER" "$ARCHIVE_PREFIX/$NAME" "$LENGTH" "$SIG" "$PUBLIC_KEY" "$MODE" "$SIGNING" "$ZIP" <<'PY'
+import hashlib, sys, xml.etree.ElementTree as ET
+path, version, build, url, length, signature, public_key, mode, signing, archive = sys.argv[1:]
 ns = 'http://www.andymatuschak.org/xml-namespaces/sparkle'
 ET.register_namespace('sparkle', ns)
 root = ET.Element('rss', version='2.0')
@@ -197,7 +197,10 @@ ET.SubElement(item, 'title').text = 'Version ' + version
 ET.SubElement(item, '{'+ns+'}version').text = build
 ET.SubElement(item, '{'+ns+'}shortVersionString').text = version
 ET.SubElement(item, '{'+ns+'}minimumSystemVersion').text = '13.3'
-ET.SubElement(item, 'enclosure', {'url':url,'length':length,'type':'application/octet-stream','{'+ns+'}edSignature':signature})
+enclosure = ET.SubElement(item, 'enclosure', {'url':url,'length':length,'type':'application/octet-stream','{'+ns+'}edSignature':signature})
+if mode == 'beta':
+    with open(archive, 'rb') as f:
+        enclosure.set('{https://clutter-updates.vigram-sivakumar.workers.dev/ns}sha256', hashlib.sha256(f.read()).hexdigest())
 ET.ElementTree(root).write(path, encoding='utf-8', xml_declaration=True)
 PY
 if [ "$MODE" = beta ]; then
