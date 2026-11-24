@@ -1,32 +1,43 @@
 interface Env { readonly RELEASES: R2Bucket; }
 
-const FILE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*\.(?:app\.tar\.gz|dmg)$/;
+const LEGACY_FILE = /^[A-Za-z0-9][A-Za-z0-9._-]*\.(?:app\.tar\.gz|dmg)$/;
+const SPARKLE_FILE = /^Clutter_beta_[0-9]+\.[0-9]+\.[0-9]+_aarch64\.(?:zip|dmg)$/;
+const NO_CACHE = 'no-store, max-age=0';
 
 function textResponse(status: number, body: string): Response {
-  return new Response(body, { status, headers: { 'Cache-Control': 'no-store', 'Content-Type': 'text/plain; charset=utf-8', 'X-Content-Type-Options': 'nosniff' } });
+  return new Response(body, { status, headers: { 'Cache-Control': NO_CACHE, 'Content-Type': 'text/plain; charset=utf-8', 'X-Content-Type-Options': 'nosniff' } });
 }
 
 export async function handle(request: Request, env: Env): Promise<Response> {
-  if (request.method !== 'GET' && request.method !== 'HEAD') return new Response(null, { status: 405, headers: { Allow: 'GET, HEAD', 'Cache-Control': 'no-store' } });
+  if (request.method !== 'GET' && request.method !== 'HEAD') return new Response(null, { status: 405, headers: { Allow: 'GET, HEAD', 'Cache-Control': NO_CACHE } });
   const path = new URL(request.url).pathname;
   let key: string;
   let contentType: string;
-  let cacheControl: string;
+  let attachment = false;
   if (path === '/latest.json') {
-    key = 'latest.json'; contentType = 'application/json; charset=utf-8'; cacheControl = 'no-store, max-age=0';
+    key = 'latest.json'; contentType = 'application/json; charset=utf-8';
+  } else if (path === '/appcast.xml') {
+    key = 'appcast.xml'; contentType = 'application/rss+xml; charset=utf-8';
   } else {
     const match = /^\/releases\/([^/]+)$/.exec(path);
     const filename = match?.[1];
-    if (!filename || !FILE_NAME.test(filename)) return textResponse(404, 'Not found');
+    if (!filename || (!LEGACY_FILE.test(filename) && !SPARKLE_FILE.test(filename))) return textResponse(404, 'Not found');
     key = 'releases/' + filename;
-    contentType = filename.endsWith('.dmg') ? 'application/x-apple-diskimage' : 'application/gzip';
-    cacheControl = filename.endsWith('.dmg') ? 'public, max-age=31536000, immutable' : 'no-store, max-age=0';
+    contentType = filename.endsWith('.dmg') ? 'application/x-apple-diskimage' : filename.endsWith('.zip') ? 'application/zip' : 'application/gzip';
+    attachment = true;
   }
   const object = await env.RELEASES.get(key);
   if (!object) return textResponse(404, 'Not found');
-  const headers = new Headers({ 'Cache-Control': cacheControl, 'Content-Type': contentType, 'Content-Length': String(object.size), ETag: object.httpEtag, 'X-Content-Type-Options': 'nosniff' });
+  const headers = new Headers();
   object.writeHttpMetadata(headers);
-  if (key !== 'latest.json') headers.set('Content-Disposition', 'attachment');
+  // Authoritative route metadata: stale R2 metadata must not override the feed/cache policy.
+  headers.set('Cache-Control', NO_CACHE);
+  headers.set('Content-Type', contentType);
+  headers.set('Content-Length', String(object.size));
+  headers.set('ETag', object.httpEtag);
+  headers.set('X-Content-Type-Options', 'nosniff');
+  if (attachment) headers.set('Content-Disposition', 'attachment');
+  else headers.delete('Content-Disposition');
   return new Response(request.method === 'HEAD' ? null : object.body, { status: 200, headers });
 }
 
