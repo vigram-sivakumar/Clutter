@@ -259,3 +259,21 @@ Acceptance sequence:
 ### Hostname migration (2026-11-24)
 
 The Worker is now `updates` under `clutterapp.workers.dev`. Keep the existing R2 bucket, Sparkle key, bundle identifier, and XML namespace `https://clutter-updates.vigram-sivakumar.workers.dev/ns` (an identifier, not a network request). Delta preparation can map a strictly matched legacy universal archive URL to the new origin, verifying the original Ed25519 signature. Existing beta apps use the old feed URL and require a fresh installation if that endpoint no longer works. Do not overwrite existing versioned archives. Live verification is pending.
+
+## 13. Release progress — 2026-11-24
+
+This section supersedes the earlier pending validation statements where the following evidence is available. The branch remains `release/apple-silicon-beta` (historical name; artifacts are universal).
+
+| Stage | Status | Evidence / outstanding work |
+| --- | --- | --- |
+| 1. Delta update | Passed on Apple Silicon | Published 0.0.9 (build 10) -> 0.0.10 (build 11). Full ZIP 22,334,380 bytes; delta 1,720,682 bytes (92.3% smaller). Native logs recorded delta selection and successful EdDSA verification; user confirmed relaunch and restored Space data. Logs do not independently exclude a later full retry in this particular run. |
+| 2. Full fallback | Passed on Apple Silicon | Isolated localhost feed, separate Sparkle test key and temporary macOS account. 0.0.8 -> 0.0.10 requested only full ZIP; user confirmed relaunch and note preservation. 0.0.9 -> 0.0.10 with signed inapplicable delta requested delta then full ZIP (HTTP 200), relaunched as 0.0.10. Data preservation in this second scenario was not explicitly reported. |
+| 3. Cross-machine validation | Apple Silicon passed; Intel deferred by owner | User confirmed installed 0.0.10 retained Space access across quit/relaunch, note editing/saving, Unsplash search, attribution and cover persistence. Fresh DMG installation reproduced expected Gatekeeper warning on ad-hoc build; Terminal installation tested. Universal bundle verification passed for all six Mach-O files. Native Intel installation, launch, save and updater tests remain pending hardware; do not claim runtime Intel validation. |
+| 4. Architecture and security audit | In progress | See [release architecture and security audit](release-architecture-security-audit.md). |
+| 5. Consolidation and merge | Pending | Resolve or explicitly accept findings, rerun checks, reconcile source versions and locks, review branch before merging. |
+| 6. Apple Developer enrollment | Deferred | Owner requires credential-independent readiness first. |
+| 7. Official distribution | Pending | Developer ID signing/notarization, signing/channel migration, App Store signed package and submission. |
+
+Additional evidence: the universal 0.0.10 release passed checksum, entitlement, code-signature, atomic-write, privacy-manifest, icon and architecture checks before publication. The public feed was advanced after archive uploads. The shared symlink-safe bundle comparison passed six regression tests. Earlier Worker deployment passed nine tests; final installer colour revision requires confirmation of its own deployment/test output. The full regression suite passed 18,425 tests at an earlier revision and must be rerun before merge.
+
+The current public release remains 0.0.10. The fallback fixtures must never be published or distributed as production installers. Intel deferral allows the audit to proceed, not a claim of verified Intel behavior.
