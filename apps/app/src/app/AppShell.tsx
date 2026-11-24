@@ -383,7 +383,7 @@ function AppShellContent() {
   const confirmUnsavedClose = useCallback((count: number) => confirmUnsaved(count, 'close'), [confirmUnsaved]);
   const directUpdateRef = useRef<Update | null>(null);
   const directUpdateDownloadedRef = useRef(false);
-  const [directUpdateReady, setDirectUpdateReady] = useState(false);
+  const [directUpdateVersion, setDirectUpdateVersion] = useState<string | undefined>();
   // Preview the downloaded-update UI without changing real updater state.
   const previewUpdateReady = import.meta.env.DEV &&
     import.meta.env.VITE_CLUTTER_UPDATE_TEST_STATE === 'ready';
@@ -400,7 +400,7 @@ function AppShellContent() {
     try {
       await update.download();
       directUpdateDownloadedRef.current = true;
-      setDirectUpdateReady(true);
+      setDirectUpdateVersion(update.version);
       return true;
     } catch (error) {
       console.error('Clutter update download failed:', error);
@@ -435,7 +435,7 @@ function AppShellContent() {
       await update.close();
       directUpdateRef.current = null;
       directUpdateDownloadedRef.current = false;
-      setDirectUpdateReady(false);
+      setDirectUpdateVersion(undefined);
       const { relaunch } = await import('@tauri-apps/plugin-process');
       await relaunch();
     } catch (error) {
@@ -471,7 +471,7 @@ function AppShellContent() {
       if (testState === 'latest') {
         directUpdateRef.current = null;
         directUpdateDownloadedRef.current = false;
-        setDirectUpdateReady(false);
+        setDirectUpdateVersion(undefined);
         await message(version, {
           title: "You're on the latest version of Clutter!",
           kind: 'info',
@@ -481,7 +481,7 @@ function AppShellContent() {
       if (testState === 'available') {
         directUpdateRef.current = null;
         directUpdateDownloadedRef.current = false;
-        setDirectUpdateReady(false);
+        setDirectUpdateVersion(undefined);
         const testVersion = import.meta.env.VITE_CLUTTER_UPDATE_TEST_VERSION || '99.0.0';
         const install = await ask(
           testVersion,
@@ -1702,7 +1702,9 @@ function AppShellContent() {
           application={application}
           narrowSidebarOverride={narrowSidebarOverride}
           onNarrowSidebarOverrideChange={setNarrowSidebarOverride}
-          updateReady={directUpdateReady || previewUpdateReady}
+          updateVersion={previewUpdateReady
+            ? (import.meta.env.VITE_CLUTTER_UPDATE_TEST_VERSION || '0.0.2')
+            : directUpdateVersion}
           onRestartUpdate={() => {
             if (!previewUpdateReady) void installDirectUpdateAndRestart();
           }}
