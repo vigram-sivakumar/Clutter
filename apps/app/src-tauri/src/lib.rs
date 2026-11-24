@@ -4,6 +4,7 @@ use std::time::Duration;
 use tauri::{AppHandle, Manager, RunEvent, Url, WebviewWindow};
 
 mod app_menu;
+mod sparkle_update;
 mod dock_badge;
 mod launch_at_login;
 // The atomic vault writer and its commands (ADR-063). Compiled in only with the `atomic-writes` Cargo feature, which
@@ -198,6 +199,7 @@ pub fn run() {
         .manage(app_menu::ZoomState::default())
         .invoke_handler(tauri::generate_handler![
             frontend_ready,
+            sparkle_update::sparkle_update,
             frontend_failed,
             dock_badge::set_dock_badge,
             launch_at_login::get_launch_at_login_status,
