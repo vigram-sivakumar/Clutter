@@ -23,9 +23,9 @@
 #                    application and team identifiers Apple requires, with the production bundle identifier
 #                    (com.vigram.clutter) and a valid build number.
 #
-# usage: verify-bundle.sh <path/to/Clutter.app> [--local|--beta|--sparkle-integration|--share|--submission] [--allow-test-harness]
+# usage: verify-bundle.sh <path/to/Clutter.app> [--local|--beta|--sparkle-integration|--sparkle-beta|--share|--submission] [--allow-test-harness]
 set -uo pipefail
-APP="${1:?usage: verify-bundle.sh <path/to/Clutter.app> [--local|--beta|--sparkle-integration|--share|--submission] [--allow-test-harness]}"
+APP="${1:?usage: verify-bundle.sh <path/to/Clutter.app> [--local|--beta|--sparkle-integration|--sparkle-beta|--share|--submission] [--allow-test-harness]}"
 shift
 MODE=local
 ALLOW_HARNESS=false
@@ -34,6 +34,7 @@ for ARG in "$@"; do
     --local) MODE=local ;;
     --beta) MODE=beta ;;
     --sparkle-integration) MODE=sparkle-integration ;;
+    --sparkle-beta) MODE=sparkle-beta ;;
     --share) MODE=share ;;
     --submission) MODE=submission ;;
     --allow-test-harness) ALLOW_HARNESS=true ;;
@@ -60,7 +61,7 @@ done
 for FORBIDDEN in 'files.all' 'get-task-allow' 'disable-library-validation' 'allow-dyld-environment' 'automation.apple-events' 'cs.debugger'; do
   echo "$ENTITLEMENTS" | grep -q "$FORBIDDEN" && fail "forbidden entitlement matching '$FORBIDDEN'" || pass "no entitlement matching '$FORBIDDEN'"
 done
-if [ "$MODE" = "sparkle-integration" ]; then
+if [ "$MODE" = "sparkle-integration" ] || [ "$MODE" = "sparkle-beta" ]; then
   # No additional exceptions are allowed: compare the complete entitlement dictionary.
   if printf '%s' "$ENTITLEMENTS" | python3 -I -c '
 import plistlib, sys
@@ -83,6 +84,26 @@ sys.exit(0 if plistlib.loads(sys.stdin.buffer.read()) == expected else 1)
   [ -d "$SPARKLE/Versions/B/XPCServices/Installer.xpc" ] && pass "Sparkle Installer.xpc present" || fail "Sparkle installer missing"
   [ "$(/usr/libexec/PlistBuddy -c 'Print :SUEnableInstallerLauncherService' "$APP/Contents/Info.plist" 2>/dev/null)" = true ] && pass "Sparkle installer enabled" || fail "Sparkle installer disabled"
   codesign --verify --deep --strict "$SPARKLE" 2>/dev/null && pass "Sparkle framework signature valid" || fail "Sparkle framework signature invalid"
+  if [ "$MODE" = "sparkle-beta" ]; then
+    if python3 -I - "$APP/Contents/Info.plist" "$HOME/.tauri/clutter-sparkle-beta.pub" <<'PY'
+import plistlib, sys, re
+with open(sys.argv[1], 'rb') as f: info = plistlib.load(f)
+with open(sys.argv[2]) as f: key = f.read().strip()
+ats = info.get('NSAppTransportSecurity', {})
+version = info['CFBundleShortVersionString']
+major, minor, patch = map(int, version.split('.'))
+assert info.get('SUFeedURL') == 'https://clutter-updates.vigram-sivakumar.workers.dev/appcast.xml'
+assert re.fullmatch(r'[A-Za-z0-9+/]{43}=', key) and info.get('SUPublicEDKey') == key
+assert info.get('SUVerifyUpdateBeforeExtraction') is True
+assert info.get('SUEnableAutomaticChecks') is True
+assert info.get('SUAutomaticallyUpdate') is True
+assert info.get('CFBundleVersion') == str(major * 1000000 + minor * 1000 + patch + 1)
+assert not ats.get('NSAllowsArbitraryLoads') and not ats.get('NSAllowsLocalNetworking')
+PY
+    then pass "beta HTTPS feed, pinned key and build number verified"
+    else fail "invalid Sparkle beta feed, signing key or build number"
+    fi
+  fi
 else
   echo "$ENTITLEMENTS" | grep -q 'temporary-exception' && fail "forbidden temporary exception" || pass "no temporary exceptions"
   [ ! -d "$APP/Contents/Frameworks/Sparkle.framework" ] || fail "unexpected Sparkle framework in non-Sparkle build"
@@ -168,7 +189,7 @@ case "$MODE" in
     $ADHOC && warn "ad-hoc signature: fine to install here, but Gatekeeper blocks it on other Macs (use --share builds for testers)"
     [ "$IDENTIFIER" = "com.vigram.clutter" ] || warn "bundle identifier is $IDENTIFIER, not the production one (com.vigram.clutter)"
     ;;
-  beta|sparkle-integration)
+  beta|sparkle-integration|sparkle-beta)
     [ "$IDENTIFIER" = "com.vigram.clutter" ] && pass "bundle identifier $IDENTIFIER" || fail "bundle identifier is $IDENTIFIER, not com.vigram.clutter"
     $ADHOC && warn "ad-hoc signature: macOS may block this downloaded beta; testers may need to approve it in Privacy & Security" || fail "beta build must use an ad-hoc signature (Apple signing is out of scope)"
     ARCHS=$(lipo -archs "$BINARY" 2>/dev/null)
