@@ -1,18 +1,32 @@
 #!/bin/bash
-# Build actual Clutter with the experimental Sparkle bridge and a loopback-only appcast.
-# Does not alter the existing Tauri release artifacts or upload anything.
+# Shared Apple Silicon Sparkle builder: loopback integration or HTTPS beta.
+# Builds only; publishing is a separate step. Neither mode changes the App Store build.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 cd "$HERE/.."
 [ "$(uname -s)" = Darwin ] && [ "$(uname -m)" = arm64 ] || { echo 'Apple Silicon macOS required' >&2; exit 1; }
 xcrun --find clang >/dev/null
 SPARKLE_VERSION=2.10.1
-ACCOUNT=com.vigram.clutter.sparkle.integration
+MODE="${1:-integration}"
 PORT=18766
-BASE_URL="http://localhost:$PORT"
-ROOT="$PWD/src-tauri/target/sparkle-integration"
-SDK="$ROOT/sdk-$SPARKLE_VERSION"
-mkdir -p "$ROOT" "$ROOT/feed" "$ROOT/builds"
+CACHE="$PWD/src-tauri/target/sparkle-integration"
+SDK="$CACHE/sdk-$SPARKLE_VERSION"
+case "$MODE" in
+  integration)
+    ACCOUNT=com.vigram.clutter.sparkle.integration
+    BASE_URL="http://localhost:$PORT"
+    ROOT="$CACHE"
+    ARCHIVE_PREFIX="$BASE_URL"
+    ;;
+  beta)
+    ACCOUNT=com.vigram.clutter.sparkle.beta
+    BASE_URL="https://clutter-updates.vigram-sivakumar.workers.dev"
+    ROOT="$PWD/src-tauri/target/sparkle-beta"
+    ARCHIVE_PREFIX="$BASE_URL/releases"
+    ;;
+  *) echo "Usage: $0 [integration|beta]" >&2; exit 2 ;;
+esac
+mkdir -p "$CACHE" "$ROOT" "$ROOT/feed" "$ROOT/builds"
 npm run check:version
 "$HERE/check-atomic-default.sh"
 VERSION=$(node -p "require('./package.json').version")
@@ -26,7 +40,7 @@ PY
 )
 
 if [ ! -f "$SDK/Sparkle.framework/Headers/Sparkle.h" ]; then
-  STAGING=$(mktemp -d "$ROOT/sdk-download.XXXXXX")
+  STAGING=$(mktemp -d "$CACHE/sdk-download.XXXXXX")
   curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' \
     "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz" \
     -o "$STAGING/Sparkle.tar.xz"
@@ -42,12 +56,30 @@ KEY_TOOL=$(find "$SDK" -type f -name generate_keys -print -quit)
 SIGN_TOOL=$(find "$SDK" -type f -name sign_update -print -quit)
 [ -x "$KEY_TOOL" ] && [ -x "$SIGN_TOOL" ] || { echo 'Sparkle signing tools missing' >&2; exit 1; }
 codesign --verify --deep --strict "$FRAMEWORK"
-"$KEY_TOOL" --account "$ACCOUNT"
-PUBLIC_KEY=$("$KEY_TOOL" --account "$ACCOUNT" -p | tr -d '\r\n')
+# Beta uses a separate, persistent signing identity. Never silently rotate a key.
+if [ "$MODE" = beta ]; then
+  PIN="$HOME/.tauri/clutter-sparkle-beta.pub"
+  mkdir -p "$(dirname "$PIN")"
+  if [ -f "$PIN" ]; then
+    PUBLIC_KEY=$("$KEY_TOOL" --account "$ACCOUNT" -p | tr -d '\r\n')
+    [ "$PUBLIC_KEY" = "$(cat "$PIN")" ] || { echo 'Beta signing key does not match the pinned public key. Restore the original Keychain key.' >&2; exit 1; }
+  else
+    # Do not generate a replacement for an already published feed.
+    HTTP=$(curl --silent --show-error --max-time 30 --output /dev/null --write-out '%{http_code}' "$BASE_URL/appcast.xml")
+    [ "$HTTP" = 404 ] || { echo "Cannot initialise a beta key: remote appcast status $HTTP. Restore the existing key and public-key pin if already published." >&2; exit 1; }
+    "$KEY_TOOL" --account "$ACCOUNT"
+    PUBLIC_KEY=$("$KEY_TOOL" --account "$ACCOUNT" -p | tr -d '\r\n')
+    [[ "$PUBLIC_KEY" =~ ^[A-Za-z0-9+/]{43}=$ ]] || { echo 'Invalid Sparkle beta public key' >&2; exit 1; }
+    (umask 077; printf '%s\n' "$PUBLIC_KEY" > "$PIN")
+  fi
+else
+  "$KEY_TOOL" --account "$ACCOUNT"
+  PUBLIC_KEY=$("$KEY_TOOL" --account "$ACCOUNT" -p | tr -d '\r\n')
+fi
 [[ "$PUBLIC_KEY" =~ ^[A-Za-z0-9+/]{43}=$ ]] || { echo 'Invalid Sparkle public key' >&2; exit 1; }
 
 # Use separate Cargo/bundle output so legacy release scripts cannot accidentally publish this app.
-export CARGO_TARGET_DIR="$ROOT/cargo"
+export CARGO_TARGET_DIR="$CACHE/cargo"
 export CLUTTER_SPARKLE_FRAMEWORK="$FRAMEWORK"
 VITE_CLUTTER_DIRECT_UPDATES=0 VITE_CLUTTER_SPARKLE_UPDATES=1 \
   ../../node_modules/.bin/tauri build --bundles app --features sparkle-updates
@@ -56,9 +88,9 @@ APP="$CARGO_TARGET_DIR/release/bundle/macos/Clutter.app"
 mkdir -p "$APP/Contents/Frameworks"
 [ ! -e "$APP/Contents/Frameworks/Sparkle.framework" ] || { echo 'Unexpected pre-existing Sparkle framework' >&2; exit 1; }
 ditto "$FRAMEWORK" "$APP/Contents/Frameworks/Sparkle.framework"
-python3 - "$APP/Contents/Info.plist" "$BUILD_NUMBER" "$PUBLIC_KEY" "$BASE_URL/appcast.xml" <<'PY'
+python3 - "$APP/Contents/Info.plist" "$BUILD_NUMBER" "$PUBLIC_KEY" "$BASE_URL/appcast.xml" "$MODE" <<'PY'
 import plistlib, sys
-path, build, public_key, feed = sys.argv[1:]
+path, build, public_key, feed, mode = sys.argv[1:]
 with open(path, 'rb') as source: info = plistlib.load(source)
 info.update({
     'CFBundleVersion': build,
@@ -73,34 +105,51 @@ info.update({
     'SUVerifyUpdateBeforeExtraction': True,
     'SUShowReleaseNotes': False,
 })
-# Local integration feed only. No arbitrary HTTP access in the eventual production build.
-info.setdefault('NSAppTransportSecurity', {})['NSAllowsLocalNetworking'] = True
+# Only the loopback integration build may use local HTTP.
+if mode == 'integration':
+    info.setdefault('NSAppTransportSecurity', {})['NSAllowsLocalNetworking'] = True
+else:
+    assert feed.startswith('https://'), 'Beta feed must use HTTPS'
+    ats = info.get('NSAppTransportSecurity', {})
+    assert not ats.get('NSAllowsArbitraryLoads') and not ats.get('NSAllowsLocalNetworking'), 'Unexpected ATS exception'
 with open(path, 'wb') as dest: plistlib.dump(info, dest)
 PY
 # Match the already validated probe: preserve nested signatures, sign the outer bundle only.
 codesign --force --sign - --timestamp=none --entitlements src-tauri/Entitlements.sparkle.plist "$APP"
-"$HERE/verify-bundle.sh" "$APP" --sparkle-integration
+if [ "$MODE" = beta ]; then
+  "$HERE/verify-bundle.sh" "$APP" --sparkle-beta
+else
+  "$HERE/verify-bundle.sh" "$APP" --sparkle-integration
+fi
 
 # Preserve each build for the two-version test; do not overwrite an installed app.
 DEST="$ROOT/builds/$VERSION"
 mkdir -p "$DEST"
 if [ -e "$DEST/Clutter.app" ]; then rm -rf "$DEST/Clutter.app"; fi
 ditto "$APP" "$DEST/Clutter.app"
-NAME="Clutter_${VERSION}_aarch64.zip"
+if [ "$MODE" = beta ]; then
+  NAME="Clutter_beta_${VERSION}_aarch64.zip"
+else
+  NAME="Clutter_${VERSION}_aarch64.zip"
+fi
 STAGING=$(mktemp -d "$ROOT/archive.XXXXXX")
 ZIP="$STAGING/$NAME"
 ditto -c -k --sequesterRsrc --keepParent "$DEST/Clutter.app" "$ZIP"
 SIG=$("$SIGN_TOOL" --account "$ACCOUNT" -p "$ZIP" | tr -d '\r\n')
 [[ "$SIG" =~ ^[A-Za-z0-9+/]{86}==$ ]] || { echo 'Invalid Sparkle archive signature' >&2; exit 1; }
 LENGTH=$(stat -f%z "$ZIP")
-python3 - "$STAGING/appcast.xml" "$VERSION" "$BUILD_NUMBER" "$BASE_URL/$NAME" "$LENGTH" "$SIG" <<'PY'
+python3 - "$STAGING/appcast.xml" "$VERSION" "$BUILD_NUMBER" "$ARCHIVE_PREFIX/$NAME" "$LENGTH" "$SIG" "$PUBLIC_KEY" "$MODE" <<'PY'
 import sys, xml.etree.ElementTree as ET
-path, version, build, url, length, signature = sys.argv[1:]
+path, version, build, url, length, signature, public_key, mode = sys.argv[1:]
 ns = 'http://www.andymatuschak.org/xml-namespaces/sparkle'
 ET.register_namespace('sparkle', ns)
 root = ET.Element('rss', version='2.0')
 channel = ET.SubElement(root, 'channel')
-ET.SubElement(channel, 'title').text = 'Clutter local integration feed'
+ET.SubElement(channel, 'title').text = 'Clutter beta' if mode == 'beta' else 'Clutter local integration feed'
+if mode == 'beta':
+    # Publishing guard; Sparkle verifies archives against the key in the signed app.
+    ET.register_namespace('clutter', 'https://clutter-updates.vigram-sivakumar.workers.dev/ns')
+    ET.SubElement(channel, '{https://clutter-updates.vigram-sivakumar.workers.dev/ns}signingPublicKey').text = public_key
 item = ET.SubElement(channel, 'item')
 ET.SubElement(item, 'title').text = 'Version ' + version
 ET.SubElement(item, '{'+ns+'}version').text = build
@@ -109,14 +158,37 @@ ET.SubElement(item, '{'+ns+'}minimumSystemVersion').text = '13.3'
 ET.SubElement(item, 'enclosure', {'url':url,'length':length,'type':'application/octet-stream','{'+ns+'}edSignature':signature})
 ET.ElementTree(root).write(path, encoding='utf-8', xml_declaration=True)
 PY
-# Artifact first, appcast last, so a running local server never offers a missing archive.
-mv "$ZIP" "$ROOT/feed/$NAME"
-mv "$STAGING/appcast.xml" "$ROOT/feed/appcast.xml"
-rmdir "$STAGING"
-echo
-echo "Sparkle integration build $VERSION (build $BUILD_NUMBER) is ready."
-echo "App: $DEST/Clutter.app"
-echo "Feed: $ROOT/feed/appcast.xml"
-echo 'Nothing was uploaded. Use only a disposable test Space for validation.'
-echo "Start local feed: python3 -m http.server $PORT --bind 127.0.0.1 --directory \"$ROOT/feed\""
-open "$DEST"
+if [ "$MODE" = beta ]; then
+  # Package the final Sparkle-signed app, not Tauri's intermediate bundle.
+  DMG_NAME="Clutter_beta_${VERSION}_aarch64.dmg"
+  mkdir "$STAGING/dmg-root"
+  ditto "$DEST/Clutter.app" "$STAGING/dmg-root/Clutter.app"
+  ln -s /Applications "$STAGING/dmg-root/Applications"
+  hdiutil create -volname Clutter -srcfolder "$STAGING/dmg-root" -format UDZO "$STAGING/$DMG_NAME"
+  hdiutil verify "$STAGING/$DMG_NAME"
+  rm -rf "$STAGING/dmg-root"
+  # Publish only from this version's completed artefact directory.
+  RELEASE="$ROOT/releases/$VERSION"
+  mkdir -p "$RELEASE"
+  mv "$ZIP" "$RELEASE/$NAME"
+  mv "$STAGING/$DMG_NAME" "$RELEASE/$DMG_NAME"
+  mv "$STAGING/appcast.xml" "$RELEASE/appcast.xml"
+  rmdir "$STAGING"
+  echo "Sparkle beta build $VERSION (build $BUILD_NUMBER) is ready."
+  echo "DMG: $RELEASE/$DMG_NAME"
+  echo "Updater: $RELEASE/$NAME"
+  echo "Appcast: $RELEASE/appcast.xml"
+  echo 'Nothing was uploaded.'
+  open "$RELEASE"
+else
+  # Artifact first, appcast last, so a running local server never offers a missing archive.
+  mv "$ZIP" "$ROOT/feed/$NAME"
+  mv "$STAGING/appcast.xml" "$ROOT/feed/appcast.xml"
+  rmdir "$STAGING"
+  echo "Sparkle integration build $VERSION (build $BUILD_NUMBER) is ready."
+  echo "App: $DEST/Clutter.app"
+  echo "Feed: $ROOT/feed/appcast.xml"
+  echo 'Nothing was uploaded. Use only a disposable test Space for validation.'
+  echo "Start local feed: python3 -m http.server $PORT --bind 127.0.0.1 --directory \"$ROOT/feed\""
+  open "$DEST"
+fi
