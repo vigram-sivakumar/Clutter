@@ -1096,11 +1096,11 @@ describe('auto-scroll while dragging', () => {
     await build();
     dragStart('A00'); // grabbed 14px down its row
     move(60, 390);
-    const before = document.querySelector<HTMLElement>('.drag-ghost')!.style.transform;
+    const before = document.querySelector<HTMLElement>('.drag-snapshot')!.style.transform;
     frames(6);
 
     expect(scrollTop).toBeGreaterThan(0);
-    expect(document.querySelector<HTMLElement>('.drag-ghost')!.style.transform).toBe(before);
+    expect(document.querySelector<HTMLElement>('.drag-snapshot')!.style.transform).toBe(before);
     expect(before).toBe('translate3d(0, 376px, 0)'); // pinned to the sidebar column while over it: 390 − the 14px grip, 390 − 14
   });
 
