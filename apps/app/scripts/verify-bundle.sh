@@ -94,7 +94,7 @@ with open(sys.argv[2]) as f: key = f.read().strip()
 ats = info.get('NSAppTransportSecurity', {})
 version = info['CFBundleShortVersionString']
 major, minor, patch = map(int, version.split('.'))
-assert info.get('SUFeedURL') == 'https://clutter-updates.vigram-sivakumar.workers.dev/appcast.xml'
+assert info.get('SUFeedURL') == 'https://updates.clutterapp.workers.dev/appcast.xml'
 assert re.fullmatch(r'[A-Za-z0-9+/]{43}=', key) and info.get('SUPublicEDKey') == key
 assert info.get('SUVerifyUpdateBeforeExtraction') is True
 assert info.get('SUEnableAutomaticChecks') is True
