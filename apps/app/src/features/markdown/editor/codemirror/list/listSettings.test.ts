@@ -170,7 +170,7 @@ describe('Preserve bullet style — the editor marker DOM and CSS', () => {
   });
 
   it('the dot override applies only in dot mode, to - and + only, and paints the dot rule\'s own weight and offsets', () => {
-    const rule = /:root\[data-markdown-bullet-style='dot'\] \.cm-editor \.cm-bullet-list-marker--dash::before,\s*:root\[data-markdown-bullet-style='dot'\] \.cm-editor \.cm-bullet-list-marker--plus::before \{([^}]*)\}/.exec(
+    const rule = /:root\[data-markdown-bullet-style='dot'\]\s+\.cm-editor\s+\.cm-bullet-list-marker--dash::before,\s*:root\[data-markdown-bullet-style='dot'\]\s+\.cm-editor\s+\.cm-bullet-list-marker--plus::before \{([^}]*)\}/.exec(
       css
     )?.[1];
 
