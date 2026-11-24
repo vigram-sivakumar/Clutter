@@ -61,3 +61,17 @@ if (typeof Range !== 'undefined' && !Range.prototype.getClientRects) {
  * its own (`{ locale }` to a formatter, or `setSystemLocaleOverride`).
  */
 setSystemLocaleOverride('en-IN');
+
+// jsdom has no layout engine and does not implement ResizeObserver. Ordinary
+// widget tests need the subscription lifecycle, not synthetic layout callbacks.
+// Geometry-specific tests should install their own controllable observer.
+// Keep the node environment and any native implementation untouched.
+if (typeof window !== 'undefined' && typeof globalThis.ResizeObserver === 'undefined') {
+  class TestResizeObserver implements ResizeObserver {
+    constructor(_callback: ResizeObserverCallback) {}
+    observe(_target: Element, _options?: ResizeObserverOptions): void {}
+    unobserve(_target: Element): void {}
+    disconnect(): void {}
+  }
+  globalThis.ResizeObserver = TestResizeObserver;
+}
