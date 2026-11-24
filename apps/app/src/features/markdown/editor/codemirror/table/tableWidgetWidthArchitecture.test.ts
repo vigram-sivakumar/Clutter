@@ -201,13 +201,15 @@ describe('tableWidget.css — width architecture source', () => {
     expect(overrideScrollRule).not.toContain('margin-inline');
   });
 
-  it('.cm-table-inner is a transparent pass-through — only its own intrinsic width, never any margin or overflow of its own (the handle-clipping gutter\'s margin lives on .cm-table-scroll itself, not here)', () => {
+  it('.cm-table-inner keeps its intrinsic width without stretching into the quick-add column track or introducing clipping', () => {
     const innerIndex = ruleIndex(css, '.cm-editor .cm-table-wrapper--explicit-widths .cm-table-inner');
     expect(innerIndex).toBeGreaterThan(-1);
     const innerRule = css.slice(innerIndex, css.indexOf('}', innerIndex));
 
     expect(innerRule).toContain('width: max-content');
-    expect(innerRule).toContain('min-width: 100%');
+    expect(innerRule).toContain('min-width: 0');
+    expect(innerRule).toContain('flex: 0 0 auto');
+    expect(innerRule).not.toContain('min-width: 100%');
     expect(innerRule).not.toContain('margin');
     expect(innerRule).not.toContain('overflow');
     expect(innerRule).not.toContain('max-width');
