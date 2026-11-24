@@ -10,8 +10,6 @@ import re
 import subprocess
 import sys
 import tempfile
-import urllib.error
-import urllib.request
 import xml.etree.ElementTree as ET
 
 NS = "http://www.andymatuschak.org/xml-namespaces/sparkle"
@@ -33,14 +31,22 @@ def main():
     stage, app, sdk, account, key, base, build = sys.argv[1:]
     stage, app, sdk = map(pathlib.Path, (stage, app, sdk))
     build = int(build)
-    try:
-        with urllib.request.urlopen(base + "/appcast.xml", timeout=30) as response:
-            old = ET.fromstring(response.read()).find("channel")
-    except urllib.error.HTTPError as error:
-        if error.code != 404:
-            raise
-        print("No published release; full archive only.")
-        return
+    # Use the same HTTPS transport as the release publisher. Distinguish
+    # a missing feed from denied access or transport failure; never treat
+    # those errors as permission to publish against an unknown base.
+    with tempfile.TemporaryDirectory(prefix="clutter-appcast-") as temp:
+        feed = pathlib.Path(temp) / "appcast.xml"
+        status = run("curl", "--silent", "--show-error", "--max-time", "30",
+                     "--proto", "=https", "--output", feed,
+                     "--write-out", "%{http_code}", base + "/appcast.xml")
+        if status == "404":
+            print("No published release; full archive only.")
+            return
+        if status != "200":
+            raise SystemExit(f"Cannot read previous appcast (HTTP {status}); check update endpoint access before retrying.")
+        old = ET.parse(feed).getroot().find("channel")
+        if old is None:
+            raise SystemExit("Previous appcast is missing its channel")
     if old.findtext(f"{{{CLUTTER}}}signingPublicKey") != key:
         raise SystemExit("Previous feed signing identity differs")
     item = max(old.findall("item"), key=lambda i: int(i.findtext(tag("version"))))
