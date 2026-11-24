@@ -84,10 +84,41 @@ done
 [ -s "$MOUNT/.DS_Store" ] || { echo "Finder did not save installer layout" >&2; exit 1; }
 [ "$(readlink "$MOUNT/Applications")" = /Applications ] || { echo "Applications shortcut missing" >&2; exit 1; }
 codesign --verify --deep --strict "$MOUNT/Clutter.app"
-diff -qr "$APP" "$MOUNT/Clutter.app"
+# Compare paths, file bytes and literal symlink targets without dereferencing
+# Sparkle's versioned framework links. Fail closed on any discrepancy.
+python3 -I - "$APP" "$MOUNT/Clutter.app" <<'PY'
+import os
+import stat
+import sys
+from pathlib import Path
+import filecmp
+
+def compare(source, copy):
+    a, b = source.lstat(), copy.lstat()
+    kind = stat.S_IFMT(a.st_mode)
+    if kind != stat.S_IFMT(b.st_mode):
+        raise SystemExit(f"Bundle entry type mismatch: {source}")
+    if stat.S_ISLNK(kind):
+        if os.readlink(source) != os.readlink(copy):
+            raise SystemExit(f"Bundle symlink mismatch: {source}")
+    elif stat.S_ISDIR(kind):
+        names = {p.name for p in source.iterdir()}
+        if names != {p.name for p in copy.iterdir()}:
+            raise SystemExit(f"Bundle directory entries mismatch: {source}")
+        for name in sorted(names):
+            compare(source / name, copy / name)
+    elif stat.S_ISREG(kind):
+        if not filecmp.cmp(source, copy, shallow=False):
+            raise SystemExit(f"Bundle file mismatch: {source}")
+    else:
+        raise SystemExit(f"Unsupported bundle entry: {source}")
+
+compare(Path(sys.argv[1]), Path(sys.argv[2]))
+print("Verified app bundle bytes and symlink targets")
+PY
 sync
 hdiutil detach "$MOUNT"
 ATTACHED=0
-hdiutil convert "$WORK/layout.dmg" -format UDZO -o "$OUTPUT"
+hdiutil convert "$WORK/layout.dmg" -format ULFO -o "$OUTPUT"
 hdiutil verify "$OUTPUT"
 echo "Verified styled installer: $OUTPUT"
