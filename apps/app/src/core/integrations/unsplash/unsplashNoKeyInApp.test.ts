@@ -38,7 +38,7 @@ describe('the app carries no Unsplash credential', () => {
   it('the Content-Security-Policy allows the proxy and not api.unsplash.com', () => {
     const csp = fs.readFileSync(path.join(APP, 'src-tauri/tauri.conf.json'), 'utf8');
 
-    expect(csp).toContain('https://clutter-unsplash-proxy.vigram-sivakumar.workers.dev');
+    expect(csp).toContain('https://unsplash-proxy.clutterapp.workers.dev');
     expect(csp).not.toContain('api.unsplash.com');
   });
 
