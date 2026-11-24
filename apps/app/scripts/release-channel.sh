@@ -5,14 +5,18 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 cd "$HERE/.."
 MODE="${1:-}"
 VERSION="${2:-}"
+OPTION="${3:-}"
+[ "$#" -le 3 ] || { echo "Too many release arguments" >&2; exit 2; }
 [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || { echo 'Usage: npm run release:direct -- X.Y.Z or npm run release:appstore -- X.Y.Z' >&2; exit 2; }
 case "$MODE" in
   direct)
+    [ -z "$OPTION" ] || [ "$OPTION" = "--prepare" ] || { echo 'Direct release accepts only --prepare as an optional argument' >&2; exit 2; }
     WRANGLER="$HERE/../../../workers/updates/node_modules/.bin/wrangler"
     [ -x "$WRANGLER" ] || { echo 'Install dependencies in workers/updates first' >&2; exit 1; }
     "$WRANGLER" whoami >/dev/null
     ;;
   appstore)
+    if [ -n "$OPTION" ]; then export APP_STORE_BUILD_NUMBER="$OPTION"; fi
     for NAME in APPLE_SIGNING_IDENTITY APPLE_INSTALLER_IDENTITY APPLE_PROVISIONING_PROFILE APP_STORE_API_KEY APP_STORE_API_ISSUER APP_STORE_BUILD_NUMBER; do
       [ -n "${!NAME:-}" ] || { echo "App Store release requires $NAME" >&2; exit 1; }
     done
@@ -51,7 +55,11 @@ case "$MODE" in
     if [ ! -d "$PWD/src-tauri/target/sparkle/releases/$VERSION" ]; then
       bash "$HERE/build-sparkle-integration.sh" direct
     fi
-    bash "$HERE/publish-update.sh"
+    if [ "$OPTION" = "--prepare" ]; then
+      echo "Prepared $VERSION. Nothing published; repeat without --prepare to publish these exact bytes."
+    else
+      bash "$HERE/publish-update.sh"
+    fi
     ;;
   appstore)
     APP_STORE_UPLOAD=1 bash "$HERE/build-app-store.sh"
