@@ -45,3 +45,7 @@
   width: 100%;
 }
 
+.sidebar__update-alert {
+  align-self: stretch;
+  margin-inline: var(--sidebar-padding-inline);
+}
