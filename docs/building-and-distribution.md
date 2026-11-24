@@ -1,5 +1,9 @@
 # Building and distributing Clutter
 
+> **Current release runbook (2026-11-24):** [Application updates and direct distribution — ODR](sparkle-updater-and-beta-distribution-odr.md) supersedes the older distribution commands and Apple Silicon-only assumptions below. The historical sandbox/durability audit evidence is retained. The new universal pipeline is implemented but not yet runtime-verified; the last verified remote release is 0.0.7.
+>
+> From the repository root: `npm run release:direct -- X.Y.Z` builds and publishes the Sparkle-enabled universal direct release; `npm run release:appstore -- X.Y.Z BUILD_NUMBER` builds and uploads the separate universal App Store package once credentials are configured. Before Apple enrollment, `npm run check:release` and `npm run check:appstore` provide credential-independent validation. For the first universal migration, `npm run release:direct -- 0.0.8 --prepare` builds without publishing. See the ODR for Worker deployment, delta selection, signing, installation and audit gates.
+
 **One Clutter. One saving system. One sandbox and permission system. Different packaging only.**
 
 Sandboxing, the folder permissions, security-scoped bookmarks and atomic saves ([ADR-063](./adr/063-atomic-vault-saves.md)) are Clutter's own functionality, not Mac App Store features. A `.dmg` you build and install locally behaves exactly like the app downloaded from the Mac App Store: App Sandbox on; Create Space makes `~/Documents/<name>` after the user clicks Create, asking once for Documents authorization; Open Existing Space uses the native picker for any folder macOS permits and keeps access across restarts through bookmarks; atomic saves always, with the old writer disabled and no fallback. None of it is behind a distribution flag. The entitlements live in `src-tauri/Entitlements.plist` and `tauri.conf.json`, and every packaged build is signed with them. The distribution variants differ only in signing and packaging.
