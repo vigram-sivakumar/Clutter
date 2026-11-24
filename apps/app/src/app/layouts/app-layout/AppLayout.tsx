@@ -93,9 +93,17 @@ interface AppLayoutProps {
    */
   narrowSidebarOverride?: NarrowSidebarOverride;
   onNarrowSidebarOverrideChange?: (override: NarrowSidebarOverride) => void;
+  updateReady?: boolean;
+  onRestartUpdate?: () => void;
 }
 
-export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarOverrideChange }: AppLayoutProps) {
+export function AppLayout({
+  application,
+  narrowSidebarOverride,
+  onNarrowSidebarOverrideChange,
+  updateReady = false,
+  onRestartUpdate,
+}: AppLayoutProps) {
   const toast = useToast();
   // Single vault subscription for sibling Sidebar + PageHost re-renders.
   useVault(application.vault);
@@ -520,6 +528,8 @@ export function AppLayout({ application, narrowSidebarOverride, onNarrowSidebarO
               tasksViewConfig={tasksViewConfig}
               onRequestReveal={setPendingReveal}
               onOpenSearch={openSearch}
+              updateReady={updateReady}
+              onRestartUpdate={onRestartUpdate}
             />
           }
         </aside>
