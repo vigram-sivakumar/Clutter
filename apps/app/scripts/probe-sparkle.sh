@@ -20,7 +20,20 @@ if [ "$#" -eq 0 ]; then
     "https://github.com/sparkle-project/Sparkle/releases/download/$VERSION/Sparkle-$VERSION.tar.xz" -o "$ARCHIVE"
 fi
 tar -xf "$ARCHIVE" -C "$DIST"
-FRAMEWORK=$(find "$DIST" -type d -name Sparkle.framework -print -quit)
+# The release also contains a sample app with a runtime-only framework.
+# Select the SDK framework, which includes the public Objective-C headers.
+FRAMEWORK=""
+while IFS= read -r -d '' candidate; do
+  if [ -f "$candidate/Headers/Sparkle.h" ]; then
+    FRAMEWORK="$candidate"
+    break
+  fi
+done < <(find "$DIST" -type d -name Sparkle.framework -prune -print0)
+[ -n "$FRAMEWORK" ] || {
+  echo 'No Sparkle SDK framework containing Headers/Sparkle.h found.' >&2
+  exit 1
+}
+echo "Using Sparkle SDK: $FRAMEWORK"
 KEY_TOOL=$(find "$DIST" -type f -name generate_keys -print -quit)
 SIGN_TOOL=$(find "$DIST" -type f -name sign_update -print -quit)
 [ -n "$FRAMEWORK" ] && [ -x "$KEY_TOOL" ] && [ -x "$SIGN_TOOL" ] || {
