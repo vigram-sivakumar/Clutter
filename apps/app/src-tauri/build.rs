@@ -99,7 +99,11 @@ fn build_sparkle_bridge() {
     }
     assert!(std::env::var_os("CARGO_FEATURE_DIRECT_UPDATES").is_none(), "Sparkle and Tauri updaters must never coexist");
     assert_eq!(std::env::var("CARGO_CFG_TARGET_OS").as_deref(), Ok("macos"));
-    assert_eq!(std::env::var("CARGO_CFG_TARGET_ARCH").as_deref(), Ok("aarch64"));
+    let arch = match std::env::var("CARGO_CFG_TARGET_ARCH").as_deref() {
+        Ok("aarch64") => "arm64",
+        Ok("x86_64") => "x86_64",
+        other => panic!("Unsupported Sparkle target: {other:?}"),
+    };
     let framework = std::path::PathBuf::from(std::env::var_os("CLUTTER_SPARKLE_FRAMEWORK")
         .expect("Use scripts/build-sparkle-integration.sh to provide the Sparkle SDK"));
     assert!(framework.join("Headers/Sparkle.h").is_file(), "Sparkle SDK headers missing");
@@ -108,7 +112,7 @@ fn build_sparkle_bridge() {
     let object = out.join("sparkle_bridge.o");
     let archive = out.join("libclutter_sparkle_bridge.a");
     let status = std::process::Command::new("xcrun")
-        .args(["--sdk", "macosx", "clang", "-arch", "arm64", "-mmacosx-version-min=13.3",
+        .args(["--sdk", "macosx", "clang", "-arch", arch, "-mmacosx-version-min=13.3",
                "-fobjc-arc", "-fblocks", "-c", "src/sparkle_bridge.m", "-F"])
         .arg(search).arg("-o").arg(&object).status().expect("run clang");
     assert!(status.success(), "Sparkle Objective-C bridge failed to compile");
