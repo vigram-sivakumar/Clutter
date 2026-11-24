@@ -175,10 +175,11 @@ describe('existing collection configurations still load', () => {
   });
 
   it('a collection whose own default layout is the List (Tasks) keeps choices saved before the List had its own', () => {
-    // The List starts as Name and Due date; a choice saved before it had its own still applies.
-    expect(resolveCollectionView(TASKS_COLLECTION, {}).visible).toEqual(['name', 'dueDate']);
-    expect(resolveCollectionView(TASKS_COLLECTION, { propertyOverrides: { dueDate: false } }).visible).toEqual(['name']);
-    expect(resolveCollectionView(TASKS_COLLECTION, { propertyOverrides: { source: true } }).visible).toEqual([
+    // Due date is hidden while grouped by date, but saved visibility still applies when ungrouped.
+    expect(resolveCollectionView(TASKS_COLLECTION, {}).visible).toEqual(['name']);
+    expect(resolveCollectionView(TASKS_COLLECTION, { groupBy: 'none' }).visible).toEqual(['name', 'dueDate']);
+    expect(resolveCollectionView(TASKS_COLLECTION, { groupBy: 'none', propertyOverrides: { dueDate: false } }).visible).toEqual(['name']);
+    expect(resolveCollectionView(TASKS_COLLECTION, { groupBy: 'none', propertyOverrides: { source: true } }).visible).toEqual([
       'name',
       'dueDate',
       'source',
@@ -186,6 +187,7 @@ describe('existing collection configurations still load', () => {
     // Once the List is customized it has its own, and the shared ones no longer drive it.
     expect(
       resolveCollectionView(TASKS_COLLECTION, {
+        groupBy: 'none',
         propertyOverrides: { source: true },
         listPropertyOverrides: { dueDate: false },
       }).visible
