@@ -13,7 +13,7 @@ import { markdownLanguageExtension } from './codemirror/markdownLanguage';
 import { __clearAllCachedEditorHistoryForTests } from './codemirror/editorHistoryCache';
 import type { PasteAssets } from './codemirror/paste/assetPaste';
 import { findAllTables } from './codemirror/table/tableGeometry';
-import { tableSelectionChanged } from './codemirror/table/tableSelection';
+import { tableSelectionChanged, tableSelectionField } from './codemirror/table/tableSelection';
 
 /**
  * CHARACTERIZATION of the paste pipeline as the app runs it: a real `<MarkdownEditor>` (so the real
@@ -283,11 +283,12 @@ describe('A. table range selection — which handler takes the paste', () => {
     expect(o.userEvents).toEqual([null]);
   });
 
-  it('[behaviour] rich HTML that is not a table, with cells selected, is not converted: pasteAssets yields and the default paste inserts its plain text (as for any text with no tabs)', async () => {
+  it('[behaviour] rich HTML that is not a table fills the selected cells with its plain text', async () => {
     const o = await paste(SELECTED, { html: '<p>hello <b>bold</b></p>', text: 'hello bold' });
 
-    expect(o.doc.startsWith(DOC_TABLE)).toBe(true); // the cells are untouched
-    expect(o.doc.slice(DOC_TABLE.length)).toBe('hello bold'); // plain text, not Markdown
+    expect(o.doc).toBe(DOC_TABLE.replace('| a1 | b1 |\n| a2 | b2 |', '| hello bold | hello bold |\n| hello bold | hello bold |'));
+    expect(o.undoRestores).toBe(true);
+    expect(o.redoRestores).toBe(true);
     expect(o.stored).toEqual([]);
   });
 
@@ -306,15 +307,15 @@ describe('A. table range selection — which handler takes the paste', () => {
     expect(o.stored).toEqual([]);
   });
 
-  it('[behaviour] a file with rich HTML and cells selected: no embed and no conversion; the default paste inserts the plain text at the root caret', async () => {
+  it('[behaviour] a file with rich HTML and cells selected: no embed; plain text fills the selection', async () => {
     const o = await paste(SELECTED, { files: [png()], html: '<p>hi <b>b</b></p>', text: 'hi b' });
 
-    expect(o.doc.startsWith(DOC_TABLE)).toBe(true);
-    expect(o.doc.slice(DOC_TABLE.length)).toBe('hi b');
+    expect(o.doc).toBe(DOC_TABLE.replace('| a1 | b1 |\n| a2 | b2 |', '| hi b | hi b |\n| hi b | hi b |'));
+    expect(o.skipped).toEqual([{ names: ['shot.png'], reason: 'target' }]);
     expect(o.stored).toEqual([]);
   });
 
-  it('[behaviour] only a RANGE selection is yielded to tablePaste: with a whole row selected, rich HTML and files are still handled by pasteAssets at the root caret', async () => {
+  it('[behaviour] a whole row selection is also a table paste target: plain text fills only that row', async () => {
     const fake = fakeAssets();
     const { container } = render(<MarkdownEditor pageId="page" markdown={DOC_TABLE} pasteAssets={fake.assets} />);
     const root = rootOf(container);
@@ -326,14 +327,16 @@ describe('A. table range selection — which handler takes the paste', () => {
     });
     await sleep();
 
-    expect(root.state.doc.toString().endsWith('Outrohello **bold**')).toBe(true);
+    expect(root.state.doc.toString()).toBe(DOC_TABLE.replace('| a1 | b1 |', '| hello bold | hello bold |'));
+    expect(fake.stored).toEqual([]);
+    expect(root.state.field(tableSelectionField)).toMatchObject({ kind: 'row', rowIndex: 1 });
   });
 
-  it('[behaviour] plain text with no tabs is left to the default paste, which inserts at the root caret (tablePaste declines a non-grid)', async () => {
+  it('[behaviour] plain text with no tabs fills the entire selected range', async () => {
     const o = await paste(SELECTED, { text: 'just text' });
 
-    expect(o.doc.startsWith(DOC_TABLE)).toBe(true);
-    expect(o.doc.slice(DOC_TABLE.length)).toBe('just text');
+    expect(o.doc).toBe(DOC_TABLE.replace('| a1 | b1 |\n| a2 | b2 |', '| just text | just text |\n| just text | just text |'));
+    expect(o.undoRestores).toBe(true);
   });
 });
 
@@ -441,22 +444,22 @@ describe('C. the root editor versus the active nested cell editor', () => {
   const CELL: Setup = { markdown: DOC_TABLE, cell: 'a1' };
   const cellRow = (doc: string) => doc.split('\n')[4];
 
-  it('[behaviour] plain text goes into the cell', async () => {
-    expect(cellRow((await paste(CELL, { text: 'plain' }, 'cell')).doc)).toBe('| a1plain | b1 |');
+  it('[behaviour] plain text replaces the entire active cell value', async () => {
+    expect(cellRow((await paste(CELL, { text: 'plain' }, 'cell')).doc)).toBe('| plain | b1 |');
   });
 
   it('[intentional] multi-line text is flattened to one line in a cell (the root keeps the newline)', async () => {
-    expect(cellRow((await paste(CELL, { text: 'line one\nline two' }, 'cell')).doc)).toBe('| a1line one line two | b1 |');
+    expect(cellRow((await paste(CELL, { text: 'line one\nline two' }, 'cell')).doc)).toBe('| line one line two | b1 |');
     expect((await paste(PLAIN, { text: 'line one\nline two' })).doc).toBe('Startline one\nline two\n\nEnd');
   });
 
   it('[defect] Markdown text is NOT compacted in a cell (the root compacts it): blank lines become double spaces and the Markdown is flattened', async () => {
-    expect(cellRow((await paste(CELL, { text: 'one\n\ntwo\n\n- a\n\n- b' }, 'cell')).doc)).toBe('| a1one  two  - a  - b | b1 |');
+    expect(cellRow((await paste(CELL, { text: 'one\n\ntwo\n\n- a\n\n- b' }, 'cell')).doc)).toBe('| one  two  - a  - b | b1 |');
     expect((await paste(PLAIN, { text: 'one\n\ntwo\n\n- a\n\n- b' })).doc).toBe('Startone\ntwo\n- a\n- b\n\nEnd');
   });
 
   it('[defect] rich HTML is NOT converted in a cell (the root converts it): the plain-text fallback is pasted and the formatting is lost', async () => {
-    expect(cellRow((await paste(CELL, { html: '<p>hello <b>bold</b></p>', text: 'PLAINFALLBACK' }, 'cell')).doc)).toBe('| a1PLAINFALLBACK | b1 |');
+    expect(cellRow((await paste(CELL, { html: '<p>hello <b>bold</b></p>', text: 'PLAINFALLBACK' }, 'cell')).doc)).toBe('| PLAINFALLBACK | b1 |');
     expect((await paste(PLAIN, { html: '<p>hello <b>bold</b></p>', text: 'PLAINFALLBACK' })).doc).toBe('Starthello **bold**\n\nEnd');
   });
 
@@ -1303,41 +1306,41 @@ describe('J. pipes pasted into cells', () => {
   it('[intentional] plain text with a pipe is escaped; the row keeps its two cells', async () => {
     const o = await paste(CELL, { text: 'a|b' }, 'cell');
 
-    expect(row(o.doc)).toBe('| a1a\\|b | b1 |');
+    expect(row(o.doc)).toBe('| a\\|b | b1 |');
     expect(cellCounts(o.doc)).toEqual([2, 2, 2]);
   });
 
   it('[intentional] several pipes in one cell are all escaped', async () => {
     const o = await paste(CELL, { text: 'x|y|z' }, 'cell');
 
-    expect(row(o.doc)).toBe('| a1x\\|y\\|z | b1 |');
+    expect(row(o.doc)).toBe('| x\\|y\\|z | b1 |');
     expect(cellCounts(o.doc)).toEqual([2, 2, 2]);
   });
 
   it('[intentional] rich HTML with a pipe pastes its text escaped (no conversion in a cell)', async () => {
     const o = await paste(CELL, { html: '<p>a|<b>b</b></p>', text: 'a|b' }, 'cell');
 
-    expect(row(o.doc)).toBe('| a1a\\|b | b1 |');
+    expect(row(o.doc)).toBe('| a\\|b | b1 |');
     expect(cellCounts(o.doc)).toEqual([2, 2, 2]);
   });
 
   it('[intentional] an already escaped pipe is not escaped again', async () => {
     const o = await paste(CELL, { text: 'a\\|b' }, 'cell');
 
-    expect(row(o.doc)).toBe('| a1a\\|b | b1 |');
+    expect(row(o.doc)).toBe('| a\\|b | b1 |');
     expect(cellCounts(o.doc)).toEqual([2, 2, 2]);
   });
 
   it('[intentional] a backslash run before a pipe: odd means escaped, even means a literal backslash and a pipe that needs escaping', async () => {
-    expect(row((await paste(CELL, { text: 'a\\\\|b' }, 'cell')).doc)).toBe('| a1a\\\\\\|b | b1 |');
-    expect(row((await paste(CELL, { text: 'a\\\\\\|b' }, 'cell')).doc)).toBe('| a1a\\\\\\|b | b1 |');
+    expect(row((await paste(CELL, { text: 'a\\\\|b' }, 'cell')).doc)).toBe('| a\\\\\\|b | b1 |');
+    expect(row((await paste(CELL, { text: 'a\\\\\\|b' }, 'cell')).doc)).toBe('| a\\\\\\|b | b1 |');
     const even = await paste(CELL, { text: 'a\\\\|b' }, 'cell');
     expect(cellCounts(even.doc)).toEqual([2, 2, 2]);
   });
 
   it('[intentional] text without a pipe is unchanged', async () => {
-    expect(row((await paste(CELL, { text: 'plain' }, 'cell')).doc)).toBe('| a1plain | b1 |');
-    expect(row((await paste(CELL, { text: 'a\\b' }, 'cell')).doc)).toBe('| a1a\\b | b1 |');
+    expect(row((await paste(CELL, { text: 'plain' }, 'cell')).doc)).toBe('| plain | b1 |');
+    expect(row((await paste(CELL, { text: 'a\\b' }, 'cell')).doc)).toBe('| a\\b | b1 |');
   });
 
   it('[intentional] a grid of plain text pasted from a cell has its pipes escaped and the table keeps its shape', async () => {
@@ -1391,7 +1394,7 @@ describe('K. the paste router', () => {
   it.each<[string, Setup, Payload, 'root' | 'cell', PasteStrategy]>([
     ['a selected range and a grid', { markdown: DOC_TABLE, range: [[1, 0], [2, 1]] }, { text: TSV }, 'root', 'tableRange'],
     ['an active cell and a grid', { markdown: DOC_TABLE, cell: 'a1' }, { text: TSV }, 'cell', 'tableCell'],
-    ['an active cell and plain text', { markdown: DOC_TABLE, cell: 'a1' }, { text: 'x' }, 'cell', 'default'],
+    ['an active cell and plain text', { markdown: DOC_TABLE, cell: 'a1' }, { text: 'x' }, 'cell', 'tableCell'],
     ['an active cell and an image', { markdown: DOC_TABLE, cell: 'a1' }, { files: [png()], text: '' }, 'cell', 'empty'],
     ['a grid at a caret', PLAIN, { text: TSV }, 'root', 'tableCreate'],
     ['two bare HTML tables', PLAIN, { html: htmlTable([['a']]) + htmlTable([['b']]), text: 'a\nb' }, 'root', 'richHtml'],
