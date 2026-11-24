@@ -7,7 +7,7 @@ let height = 400
 guard CommandLine.arguments.count == 2,
       let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width,
         pixelsHigh: height, bitsPerSample: 8, samplesPerPixel: 4,
-        hasAlpha: true, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0),
+        hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0),
       let context = NSGraphicsContext(bitmapImageRep: bitmap) else {
     fatalError("Cannot create installer background")
 }
