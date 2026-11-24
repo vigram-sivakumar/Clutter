@@ -1,3 +1,5 @@
+import { INSTALLER_SCRIPT } from "./installer";
+
 interface Env { readonly RELEASES: R2Bucket; }
 
 const LEGACY_FILE = /^[A-Za-z0-9][A-Za-z0-9._-]*\.(?:app\.tar\.gz|dmg)$/;
@@ -13,6 +15,12 @@ function textResponse(status: number, body: string): Response {
 export async function handle(request: Request, env: Env): Promise<Response> {
   if (request.method !== 'GET' && request.method !== 'HEAD') return new Response(null, { status: 405, headers: { Allow: 'GET, HEAD', 'Cache-Control': NO_CACHE } });
   const path = new URL(request.url).pathname;
+  if (path === '/install.sh') {
+    return new Response(request.method === 'HEAD' ? null : INSTALLER_SCRIPT, {
+      status: 200,
+      headers: { 'Cache-Control': NO_CACHE, 'Content-Type': 'text/plain; charset=utf-8', 'X-Content-Type-Options': 'nosniff' },
+    });
+  }
   let key: string;
   let contentType: string;
   let attachment = false;
