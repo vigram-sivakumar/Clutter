@@ -2,7 +2,7 @@
 # One-command Clutter release workflow.
 #   npm run release       Build a Developer ID signed/notarized release and publish it to Cloudflare R2.
 #   npm run release:local Build and verify a local installer/update package without publishing it.
-#   npm run release:beta Build an Apple Silicon beta installer without Apple signing or publishing it.
+#   npm run release:beta Build, verify and publish an Apple Silicon beta release.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -46,7 +46,20 @@ case "$MODE" in
     echo "Manifest: $TARGET/release/bundle/macos/latest.json"
     ;;
   beta)
+    WRANGLER="$HERE/../../../workers/updates/node_modules/.bin/wrangler"
+    WRANGLER_CONFIG="$HERE/../../../workers/updates/wrangler.toml"
+    [ -x "$WRANGLER" ] || {
+      echo "Wrangler not found. Run npm install in workers/updates first." >&2
+      exit 1
+    }
+    [ -f "$WRANGLER_CONFIG" ] || {
+      echo "Cloudflare update Worker config not found: $WRANGLER_CONFIG" >&2
+      exit 1
+    }
+    "$WRANGLER" whoami >/dev/null
     bash "$HERE/build-beta.sh"
+    npm run publish:update
+    echo "Apple Silicon beta release built, verified and published to Cloudflare R2."
     ;;
   production)
     npm run build:share
