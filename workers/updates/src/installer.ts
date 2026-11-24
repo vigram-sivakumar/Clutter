@@ -42,18 +42,35 @@ main() (
     }
 
     # Respect the terminal palette and disable ANSI formatting for plain output.
-    GREEN="" BOLD="" MUTED="" YELLOW="" RESET=""
+    GREEN="" BOLD="" MUTED="" ORANGE="" RESET=""
     if [ -t 1 ] && [ -z "$(printenv NO_COLOR || true)" ] && [ -n "$(printenv TERM || true)" ] && [ "$(printenv TERM || true)" != dumb ]; then
-        printf -v GREEN '\033[32m'
+        # Match the reference green/orange when supported, with palette fallbacks.
+        case "$(printenv COLORTERM || true)" in
+            truecolor|24bit)
+                printf -v GREEN '\033[38;2;86;185;127m'
+                printf -v ORANGE '\033[38;2;240;142;53m'
+                ;;
+            *)
+                case "$(printenv TERM || true)" in
+                    *256color*)
+                        printf -v GREEN '\033[38;5;72m'
+                        printf -v ORANGE '\033[38;5;208m'
+                        ;;
+                    *)
+                        printf -v GREEN '\033[32m'
+                        printf -v ORANGE '\033[33m'
+                        ;;
+                esac
+                ;;
+        esac
         printf -v BOLD '\033[1m'
         printf -v MUTED '\033[2m'
-        printf -v YELLOW '\033[33m'
         printf -v RESET '\033[0m'
     fi
     print_summary() {
-        printf '\n%s%s✓ Clutter successfully installed!%s\n\n' "$GREEN" "$BOLD" "$RESET"
-        printf '  %sVersion:%s  %s%s%s\n' "$MUTED" "$RESET" "$YELLOW" "$VERSION" "$RESET"
-        printf '  %sLocation:%s %s%s%s\n\n' "$MUTED" "$RESET" "$YELLOW" "$DEST" "$RESET"
+        printf '\n%s✓ Clutter successfully installed!%s\n\n' "$GREEN" "$RESET"
+        printf '  %sVersion:%s  %s%s%s\n' "$MUTED" "$RESET" "$ORANGE" "$VERSION" "$RESET"
+        printf '  %sLocation:%s %s%s%s\n\n' "$MUTED" "$RESET" "$ORANGE" "$DEST" "$RESET"
         printf '%sLaunching Clutter...%s\n' "$MUTED" "$RESET"
     }
     printf '\n%sInstalling Clutter...%s\n' "$BOLD" "$RESET"
