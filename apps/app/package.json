@@ -23,7 +23,9 @@
     "check:version": "scripts/check-version-sync.sh",
     "check:privacy": "python3 -I scripts/check-privacy-manifest.py src-tauri/PrivacyInfo.xcprivacy",
     "check:legal-links": "scripts/check-legal-links.sh",
-    "dev:sandbox": "scripts/dev-sandboxed.sh"
+    "dev:sandbox": "scripts/dev-sandboxed.sh",
+    "build:beta": "bash scripts/build-beta.sh",
+    "release:beta": "bash scripts/release.sh beta"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
