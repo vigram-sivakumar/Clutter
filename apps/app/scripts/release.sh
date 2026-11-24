@@ -21,7 +21,7 @@ case "${1:-production}" in
     echo "Apple Silicon Sparkle beta built, verified and published."
     ;;
   production)
-    echo 'Developer ID / notarized distribution has not yet migrated to Sparkle. Use release:beta for the current beta or build:appstore for App Store packaging.' >&2
+    echo 'Use npm run release:direct -- X.Y.Z or npm run release:appstore -- X.Y.Z.' >&2
     exit 1
     ;;
   *)
