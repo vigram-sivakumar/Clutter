@@ -1,10 +1,10 @@
 # Clutter's Unsplash proxy. The Unsplash Access Key is NOT in this file: it is a secret binding named
 # UNSPLASH_ACCESS_KEY, set with `wrangler secret put UNSPLASH_ACCESS_KEY` (see README.md).
-name = "clutter-unsplash-proxy"
+name = "unsplash-proxy"
 main = "src/index.ts"
 compatibility_date = "2025-10-01"
 workers_dev = true
-# Version preview URLs (<version>-clutter-unsplash-proxy.<subdomain>.workers.dev) default to the value of
+# Version preview URLs (<version>-unsplash-proxy.<subdomain>.workers.dev) default to the value of
 # `workers_dev`. They would serve this same Worker, with its secret, under extra hostnames; nothing needs them.
 preview_urls = false
 
