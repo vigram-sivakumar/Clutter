@@ -21,10 +21,19 @@
 
 static ClutterSparkleDriver *driver;
 
+// Some Sparkle errors have an empty localized description. Never show a blank
+// alert, and log the actual error domain/code even when localization is absent.
+static NSString *ErrorDetail(NSError *error) {
+    NSString *description = [error.localizedDescription stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+    if (description.length == 0) description = @"Sparkle did not provide an error description.";
+    if (!error) return description;
+    return [NSString stringWithFormat:@"%@ (%@, code %ld)", description, error.domain, (long)error.code];
+}
+
 static void Notice(NSString *title, NSString *detail, NSAlertStyle style) {
     NSAlert *alert = [NSAlert new];
     alert.messageText = title;
-    alert.informativeText = detail ?: @"";
+    alert.informativeText = detail.length > 0 ? detail : @"No additional information was provided.";
     alert.alertStyle = style;
     [alert addButtonWithTitle:@"OK"];
     [alert runModal];
@@ -74,6 +83,7 @@ static BOOL Ask(NSString *version) {
     self.manual = YES;
     self.phase = @"checking";
     self.errorMessage = @"";
+    NSLog(@"Clutter Sparkle: manual check started");
     [self.updater checkForUpdates];
 }
 
@@ -130,12 +140,13 @@ static BOOL Ask(NSString *version) {
 
 - (void)showUpdateNotFoundWithError:(NSError *)error acknowledgement:(void (^)(void))acknowledgement {
     NSNumber *reason = error.userInfo[SPUNoUpdateFoundReasonKey];
-    if (reason.integerValue == SPUNoUpdateFoundReasonOnLatestVersion ||
-        reason.integerValue == SPUNoUpdateFoundReasonOnNewerThanLatestVersion) {
+    NSLog(@"Clutter Sparkle: no update found, reason=%@, error=%@", reason, error);
+    if (reason != nil && (reason.integerValue == SPUNoUpdateFoundReasonOnLatestVersion ||
+        reason.integerValue == SPUNoUpdateFoundReasonOnNewerThanLatestVersion)) {
         Notice(@"You're on the latest version of Clutter!",
             [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"], NSAlertStyleInformational);
     } else {
-        Notice(@"No compatible update available", error.localizedDescription, NSAlertStyleInformational);
+        Notice(@"No compatible update available", ErrorDetail(error), NSAlertStyleInformational);
     }
     self.phase = @"idle";
     self.manual = NO;
@@ -143,14 +154,15 @@ static BOOL Ask(NSString *version) {
 }
 
 - (void)showUpdaterError:(NSError *)error acknowledgement:(void (^)(void))acknowledgement {
+    NSLog(@"Clutter Sparkle: updater error: %@; userInfo=%@", error, error.userInfo);
     BOOL show = self.manual || self.explicitInstall;
     self.phase = @"failed";
-    self.errorMessage = error.localizedDescription;
+    self.errorMessage = ErrorDetail(error);
     self.prepare = nil;
     self.install = nil;
     self.explicitInstall = NO;
     self.manual = NO;
-    if (show) Notice(@"Clutter Update", error.localizedDescription, NSAlertStyleWarning);
+    if (show) Notice(@"Clutter Update", self.errorMessage, NSAlertStyleWarning);
     acknowledgement();
 }
 
@@ -212,6 +224,7 @@ static BOOL Ask(NSString *version) {
 
 - (void)updater:(SPUUpdater *)updater didFinishUpdateCycleForUpdateCheck:(SPUUpdateCheck)updateCheck
                                           error:(NSError *)error {
+    NSLog(@"Clutter Sparkle: cycle finished, check=%ld, error=%@", (long)updateCheck, error);
     if (self.backgroundAfterDismiss) {
         self.backgroundAfterDismiss = NO;
         self.manual = NO;
@@ -223,7 +236,7 @@ static BOOL Ask(NSString *version) {
     if (self.install || self.prepare || [self.phase isEqualToString:@"failed"]) return;
     if (error && error.code != SUNoUpdateError) {
         self.phase = @"failed";
-        self.errorMessage = error.localizedDescription;
+        self.errorMessage = ErrorDetail(error);
     } else {
         self.phase = @"idle";
     }
@@ -244,8 +257,10 @@ char *clutter_sparkle_action(const char *action) {
                 driver.updater = [[SPUUpdater alloc] initWithHostBundle:NSBundle.mainBundle
                     applicationBundle:NSBundle.mainBundle userDriver:driver delegate:driver];
                 NSError *error = nil;
+                NSLog(@"Clutter Sparkle: starting bundle=%@, version=%@, build=%@, feed=%@", NSBundle.mainBundle.bundlePath, [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"], [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleVersion"], [NSBundle.mainBundle objectForInfoDictionaryKey:@"SUFeedURL"]);
                 if (![driver.updater startUpdater:&error]) {
-                    failure = error.localizedDescription ?: @"Sparkle could not start.";
+                    failure = ErrorDetail(error);
+                    NSLog(@"Clutter Sparkle: startup failed: %@; userInfo=%@", error, error.userInfo);
                     driver = nil;
                 } else if (driver.updater.automaticallyChecksForUpdates) {
                     [driver.updater checkForUpdatesInBackground];
