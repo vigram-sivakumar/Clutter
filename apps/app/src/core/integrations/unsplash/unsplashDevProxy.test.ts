@@ -43,6 +43,6 @@ describe('Unsplash proxy in development', () => {
   });
 
   it('the default address stays the deployed Worker, so a build without an override is unchanged', () => {
-    expect(DEFAULT_UNSPLASH_PROXY_URL).toBe('https://clutter-unsplash-proxy.vigram-sivakumar.workers.dev');
+    expect(DEFAULT_UNSPLASH_PROXY_URL).toBe('https://unsplash-proxy.clutterapp.workers.dev');
   });
 });
