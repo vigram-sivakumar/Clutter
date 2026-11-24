@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
-import { isTauri } from '@tauri-apps/api/core';
+import { invoke, isTauri } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import type { Update } from '@tauri-apps/plugin-updater';
 import { BrowserRecoveryStorage } from '../core/recovery/RecoveryStorage';
@@ -641,6 +641,107 @@ function AppShellContent() {
       unlisten?.();
     };
   }, [checkForUpdatesFromMenu]);
+
+  // Sparkle is opt-in until the real Clutter integration has been tested.
+  // The normal desktop/App Store builds do not invoke this adapter.
+  const sparkleEnabled = import.meta.env.VITE_CLUTTER_SPARKLE_UPDATES === '1' && isTauri();
+  const [sparkleUpdateVersion, setSparkleUpdateVersion] = useState<string>();
+  const sparkleRestartBusyRef = useRef(false);
+  const sparkleClosedRef = useRef(false);
+  const sparkleAction = useCallback((action: string) =>
+    invoke<{ phase: string; version: string; error: string }>('sparkle_update', { action }), []);
+
+  const reportSparkleFailure = useCallback(async (error: unknown) => {
+    const detail = error instanceof Error ? error.message : String(error);
+    const { message } = await import('@tauri-apps/plugin-dialog');
+    await message(detail, { title: 'Clutter Update', kind: 'error' });
+  }, []);
+
+  const commitSparkleRestart = useCallback(async () => {
+    if (sparkleRestartBusyRef.current) return;
+    sparkleRestartBusyRef.current = true;
+    try {
+      // Never terminate during an in-flight vault bootstrap.
+      await bootstrapRef.current?.catch(() => undefined);
+      const open = applicationRef.current;
+      if (open) {
+        const unsaved = await open.checkUnsavedBeforeClose();
+        if (unsaved > 0) {
+          await open.snapshotUnsavedWork();
+          const choice = await confirmUnsaved(unsaved, 'restart');
+          if (choice !== 'close') {
+            await sparkleAction('cancel_restart');
+            return;
+          }
+        }
+        await open.close();
+        sparkleClosedRef.current = true;
+        applicationRef.current = null;
+        openedPathRef.current = null;
+        setApplication(null);
+        setIsLoading(true);
+      }
+      // Sparkle owns installation and relaunch, never the Tauri process plugin.
+      await sparkleAction('commit_restart');
+    } catch (error) {
+      if (sparkleClosedRef.current) {
+        sparkleClosedRef.current = false;
+        setReopenNonce((nonce) => nonce + 1);
+      }
+      await sparkleAction('cancel_restart').catch(() => undefined);
+      await reportSparkleFailure(error);
+    } finally {
+      sparkleRestartBusyRef.current = false;
+    }
+  }, [confirmUnsaved, reportSparkleFailure, sparkleAction]);
+
+  useEffect(() => {
+    if (!sparkleEnabled) return;
+    let disposed = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let unlisten: (() => void) | undefined;
+
+    // Only read native in-process state; Sparkle owns all network checks.
+    const poll = async () => {
+      if (disposed) return;
+      try {
+        const state = await sparkleAction('status');
+        if (disposed) return;
+        setSparkleUpdateVersion(
+          state.phase === 'ready' || state.phase === 'downloaded'
+            ? state.version || undefined : undefined
+        );
+        if (state.phase === 'restart_requested') void commitSparkleRestart();
+        if (sparkleClosedRef.current && (state.phase === 'failed' || state.phase === 'idle')) {
+          sparkleClosedRef.current = false;
+          setReopenNonce((nonce) => nonce + 1);
+        }
+      } catch (error) {
+        console.warn('Sparkle status unavailable:', error);
+      } finally {
+        if (!disposed) timer = setTimeout(() => void poll(), 750);
+      }
+    };
+
+    const started = sparkleAction('start');
+    void started.then(() => {
+      if (!disposed) void poll();
+    }).catch((error) => console.error('Sparkle could not start:', error));
+    listen('menu:check-for-updates', () => {
+      void sparkleAction('start').then(() => sparkleAction('check'))
+        .then(() => { if (!disposed && !timer) void poll(); })
+        .catch(reportSparkleFailure);
+    }).then((fn) => {
+      if (disposed) fn();
+      else unlisten = fn;
+    }).catch((error) => console.error('Could not listen for Check for Updates:', error));
+
+    return () => {
+      disposed = true;
+      if (timer !== undefined) clearTimeout(timer);
+      unlisten?.();
+    };
+  }, [sparkleEnabled, sparkleAction, commitSparkleRestart, reportSparkleFailure]);
 
   const answerUnsavedClose = useCallback((choice: UnsavedCloseChoice) => {
     const answer = unsavedCloseAnswerRef.current;
@@ -1699,8 +1800,11 @@ function AppShellContent() {
           application={application}
           narrowSidebarOverride={narrowSidebarOverride}
           onNarrowSidebarOverrideChange={setNarrowSidebarOverride}
-          updateVersion={directUpdateVersion}
-          onRestartUpdate={() => void installDirectUpdateAndRestart()}
+          updateVersion={sparkleEnabled ? sparkleUpdateVersion : directUpdateVersion}
+          onRestartUpdate={() => {
+            if (sparkleEnabled) void sparkleAction('restart').catch(reportSparkleFailure);
+            else void installDirectUpdateAndRestart();
+          }}
         />
         {pendingSpace && (
           <Dialog
