@@ -75,7 +75,7 @@ interface SidebarProps {
   readonly onRequestReveal: (reveal: PendingEditorReveal) => void;
   /** Search is an overlay owned by `AppLayout`: its tab opens that overlay instead of showing a panel. */
   readonly onOpenSearch: () => void;
-  readonly updateReady?: boolean;
+  readonly updateVersion?: string;
   readonly onRestartUpdate?: () => void;
 }
 
@@ -85,7 +85,7 @@ export function Sidebar({
   tasksViewConfig,
   onRequestReveal,
   onOpenSearch,
-  updateReady = false,
+  updateVersion,
   onRestartUpdate,
 }: SidebarProps) {
   const toast = useToast();
@@ -467,11 +467,11 @@ export function Sidebar({
         </div>
       </RowContextMenuEnabled>
       <div className="sidebar__footer">
-        {updateReady && (
+        {updateVersion && (
           <div className="sidebar__update-alert">
             <Alert
               title="New update available"
-              description="A new version of Clutter is ready to install."
+              description={`Version ${updateVersion}`}
               isCollapsed
               actionsSlot={
                 <Button variant="primary" size="medium" onClick={onRestartUpdate}>
