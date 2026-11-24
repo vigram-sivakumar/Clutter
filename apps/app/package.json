@@ -73,8 +73,8 @@
     "jsdom": "^29.0.2",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",
-    "vite": "^6.0.3",
+    "vite": "6.4.5",
     "vite-plugin-svgr": "^5.2.0",
-    "vitest": "^4.0.17"
+    "vitest": "4.1.12"
   }
 }
