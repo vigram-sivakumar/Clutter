@@ -49,6 +49,8 @@ const RESET_KEYS = [
  * settings reset leaves them.
  */
 const KEPT_KEYS = [
+  // First-launch guard, not a preference: resetting it could silently re-enable login registration.
+  'clutter-launch-at-login-initialized',
   'clutter-sidebar-width',
   'clutter-cover-picker-source',
   'clutter-unsplash-editorial',
