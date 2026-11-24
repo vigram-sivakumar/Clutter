@@ -652,9 +652,10 @@ function AppShellContent() {
     invoke<{ phase: string; version: string; error: string }>('sparkle_update', { action }), []);
 
   const reportSparkleFailure = useCallback(async (error: unknown) => {
-    const detail = error instanceof Error ? error.message : String(error);
+    console.error('Clutter Sparkle action failed:', error);
+    const detail = (error instanceof Error ? error.message : String(error ?? '')).trim();
     const { message } = await import('@tauri-apps/plugin-dialog');
-    await message(detail, { title: 'Clutter Update', kind: 'error' });
+    await message(detail || 'The updater returned an empty error. Check the Clutter Sparkle diagnostic log.', { title: 'Clutter Update', kind: 'error' });
   }, []);
 
   const commitSparkleRestart = useCallback(async () => {
