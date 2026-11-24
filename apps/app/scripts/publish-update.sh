@@ -46,9 +46,20 @@ build = int(item.findtext(tag('version')))
 assert item.findtext(tag('shortVersionString')) == version == info['CFBundleShortVersionString']
 assert str(build) == info['CFBundleVersion']
 assert channel.findtext(f'{{{c}}}signingPublicKey') == key == info['SUPublicEDKey']
+signing = channel.findtext(f'{{{c}}}codeSigning')
+assert signing in ('adhoc', 'developer-id')
+app = str(pathlib.Path(plist).parent.parent)
+signature = subprocess.run(['codesign','-dvv',app], capture_output=True, text=True, check=True).stderr
+assert ('Signature=adhoc' in signature) == (signing == 'adhoc')
+if signing == 'developer-id':
+    assert 'Authority=Developer ID Application' in signature
+    dmg = directory / f'Clutter_{version}_universal.dmg'
+    subprocess.run(['xcrun','stapler','validate',str(dmg)], check=True, stdout=sys.stderr)
+    subprocess.run(['codesign','--verify',str(dmg)], check=True, stdout=sys.stderr)
 if status == '200':
     old = ET.parse(previous).getroot().find('channel')
     assert old.findtext(f'{{{c}}}signingPublicKey') == key, 'Signing key changed'
+    assert old.findtext(f'{{{c}}}codeSigning', 'adhoc') != 'developer-id' or signing == 'developer-id', 'Refusing signing downgrade'
     newest = max(int(i.findtext(tag('version'))) for i in old.findall('item'))
     assert build > newest or (build == newest and manifest.read_bytes() == pathlib.Path(previous).read_bytes()), 'Version must advance; only identical retry allowed'
 full = item.find('enclosure')
