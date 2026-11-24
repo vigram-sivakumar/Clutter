@@ -157,7 +157,7 @@ describe('tableRangeSelectionKeyboard — Tab/Shift-Tab clear the range and navi
 });
 
 describe('tableRangeSelectionKeyboard — Enter and Shift-Enter', () => {
-  it('clears the range and attempts same-column navigation from the anchor without changing the table at its last row', () => {
+  it('clears the range and moves down one row in the anchor column without changing the table', () => {
     const { view, controller } = mountViewWithController(TABLE);
     const docBefore = view.state.doc.toString();
     dragRange(view, 'Designer', 'Delhi'); // anchor: row1/col1 ("Designer")
@@ -166,7 +166,7 @@ describe('tableRangeSelectionKeyboard — Enter and Shift-Enter', () => {
 
     expect(view.state.doc.toString()).toBe(docBefore);
     expect(selection(view)).toBeNull();
-    expect(activeCellText(controller)).toBe('Designer');
+    expect(activeCellText(controller)).toBe('Engineer');
     expect(resolveLogicalCell(view.state, controller.activeAnchor!.from)?.columnIndex).toBe(1);
   });
 
