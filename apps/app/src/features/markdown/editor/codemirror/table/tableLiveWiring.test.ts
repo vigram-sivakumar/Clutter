@@ -108,7 +108,7 @@ function findCell(view: EditorView, text: string): Element {
 const TABLE = '| Name | Role |\n| --- | --- |\n| Vik | Designer |';
 
 describe('table live wiring — DOM structure', () => {
-  it('the widget is a div.cm-table-widget[contenteditable=false] wrapping a div.cm-table-wrapper wrapping a div.cm-table-scroll wrapping a div.cm-table-inner wrapping the real <table>', () => {
+  it('the widget is a div.cm-table-widget[contenteditable=false] wrapping a div.cm-table-wrapper wrapping a div.cm-table-scroll wrapping a div.cm-table-layout wrapping a div.cm-table-inner wrapping the real <table>', () => {
     const view = mount(TABLE, true);
 
     const widget = view.dom.querySelector(':scope .cm-table-widget');
@@ -128,14 +128,11 @@ describe('table live wiring — DOM structure', () => {
     const scroll = wrapper?.querySelector(':scope > .cm-table-scroll');
     expect(scroll?.tagName).toBe('DIV');
 
-    // .cm-table-inner exists purely to host the table-widget breakout's own
-    // canceling negative margins somewhere other than .cm-table-scroll
-    // itself — see tableWidget.css's own doc comment on
-    // .cm-table-wrapper--explicit-widths .cm-table-inner for the two
-    // independent reasons (margin-collapse escaping to .cm-table-widget's
-    // own page-level reserve, and interference with .cm-table-scroll's own
-    // centering transform).
-    const inner = scroll?.querySelector(':scope > .cm-table-inner');
+    // Quick-add controls have their own layout track; the table and its row
+    // control remain inside the intrinsic-width inner track.
+    const layout = scroll?.querySelector(':scope > .cm-table-layout');
+    expect(layout?.tagName).toBe('DIV');
+    const inner = layout?.querySelector(':scope > .cm-table-inner');
     expect(inner?.tagName).toBe('DIV');
 
     const table = inner?.querySelector(':scope > table');
