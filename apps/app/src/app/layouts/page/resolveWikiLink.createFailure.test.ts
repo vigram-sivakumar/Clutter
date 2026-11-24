@@ -10,7 +10,7 @@ import type { FolderOperations } from '@core/application/folder/FolderOperations
 import { createWikiLinkResolver } from './resolveWikiLink';
 
 function emptyVault(): Vault {
-  return new Vault('/vault', [], [], new TagBuilder().build([]), [], [], new KnowledgeGraph([]), new VaultProjectionBuilder());
+  return new Vault('/vault', [], [{ id: 'inbox', path: '/vault/Inbox', name: 'Inbox', parentId: null, metadata: { status: 'active' } } as import('@core/vault/models/Folder').Folder], new TagBuilder().build([]), [], [], new KnowledgeGraph([]), new VaultProjectionBuilder());
 }
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
