@@ -33,8 +33,22 @@ test('installer runs non-interactively and launches only after successful instal
   assert.doesNotMatch(INSTALLER_SCRIPT, /\/dev\/tty|\[y\/N\]/);
   const verified = INSTALLER_SCRIPT.indexOf('verify_app "$STAGE/Clutter.app"');
   const moved = INSTALLER_SCRIPT.indexOf('mv -n "$STAGE/Clutter.app" /Applications/');
-  const success = INSTALLER_SCRIPT.indexOf('Clutter installed successfully');
+  const success = INSTALLER_SCRIPT.indexOf('Clutter successfully installed!');
   const launch = INSTALLER_SCRIPT.indexOf('if ! open "$DEST"; then');
   assert.ok(verified >= 0 && moved > verified && success > moved && launch > success);
   assert.match(INSTALLER_SCRIPT, /Clutter is installed, but macOS could not launch it/);
+});
+
+test('installer displays version and location with optional terminal colors', () => {
+  assert.match(INSTALLER_SCRIPT, /\[ -t 1 \]/);
+  assert.match(INSTALLER_SCRIPT, /printenv NO_COLOR/);
+  assert.match(INSTALLER_SCRIPT, /Version:/);
+  assert.match(INSTALLER_SCRIPT, /Location:/);
+  assert.doesNotMatch(INSTALLER_SCRIPT, /Architecture:/);
+  const start = INSTALLER_SCRIPT.indexOf('    GREEN="" BOLD=""');
+  const end = INSTALLER_SCRIPT.indexOf('    download "$BASE/appcast.xml"', start);
+  assert.ok(start >= 0 && end > start);
+  const result = spawnSync('/bin/bash', ['-eu', '-c', INSTALLER_SCRIPT.slice(start, end) + '\nstep_done "Downloaded universal application"'], { encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, '\nInstalling Clutter...\n\n✓ Downloaded universal application\n');
 });
