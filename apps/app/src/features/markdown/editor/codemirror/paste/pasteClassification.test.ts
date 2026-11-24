@@ -68,13 +68,13 @@ describe('classifyPaste — one strategy per clipboard and context', () => {
     expect(strategy({ files: [png], html: TABLE_HTML, text: TSV }, '- item', 4)).toBe('files');
   });
 
-  it('a selected range takes a grid; everything else with a range is the plain paste or empty', () => {
+  it('a selected range takes a grid or single text cell; files alone are empty', () => {
     const range = { range: true };
     expect(strategy({ text: TSV }, 'Start', 0, range)).toBe('tableRange');
     expect(strategy({ html: TABLE_HTML, text: TSV }, 'Start', 0, range)).toBe('tableRange');
     expect(strategy({ files: [png], text: '' }, 'Start', 0, range)).toBe('empty');
-    expect(strategy({ files: [png], text: 'x' }, 'Start', 0, range)).toBe('default');
-    expect(strategy({ html: RICH, text: 'x y' }, 'Start', 0, range)).toBe('default');
+    expect(strategy({ files: [png], text: 'x' }, 'Start', 0, range)).toBe('tableRange');
+    expect(strategy({ html: RICH, text: 'x y' }, 'Start', 0, range)).toBe('tableRange');
     expect(strategy({}, 'Start', 0, range)).toBe('empty');
   });
 
@@ -108,15 +108,15 @@ describe('classifyPaste — one strategy per clipboard and context', () => {
     expect(strategy({ files: [png], text: '' }, 'Start', 5, { readOnly: true })).toBe('default');
   });
 
-  it('the cell editor: a grid fills from the cell, everything else is the cell paste or empty', () => {
+  it('the cell editor: a grid or single text value fills from the active cell', () => {
     const cell = (payload: Parameters<typeof clipboard>[0], cellActive = true) =>
       classifyPaste(clipboard(payload), { scope: 'cell', state: stateAt('Start', 0), canEmbed: true, cellActive }).strategy;
 
     expect(cell({ text: TSV })).toBe('tableCell');
     expect(cell({ html: TABLE_HTML })).toBe('tableCell');
     expect(cell({ text: TSV }, false)).toBe('default');
-    expect(cell({ text: 'plain' })).toBe('default');
-    expect(cell({ html: RICH, text: 'x y' })).toBe('default');
+    expect(cell({ text: 'plain' })).toBe('tableCell');
+    expect(cell({ html: RICH, text: 'x y' })).toBe('tableCell');
     expect(cell({ files: [png], text: '' })).toBe('empty');
     expect(cell({})).toBe('empty');
   });
