@@ -4,6 +4,7 @@
 /// fails the build of the tests if this list, the handler and the capability ever disagree.
 const APP_COMMANDS: &[&str] = &[
     "frontend_ready",
+    "sparkle_update",
     "frontend_failed",
     "set_dock_badge",
     "get_launch_at_login_status",
@@ -89,8 +90,42 @@ fn require_what_every_packaged_build_needs() {
     }
 }
 
+/// Compile the small Objective-C adapter against the pinned Sparkle SDK only for the integration build.
+fn build_sparkle_bridge() {
+    println!("cargo:rerun-if-env-changed=CLUTTER_SPARKLE_FRAMEWORK");
+    println!("cargo:rerun-if-changed=src/sparkle_bridge.m");
+    if std::env::var_os("CARGO_FEATURE_SPARKLE_UPDATES").is_none() {
+        return;
+    }
+    assert!(std::env::var_os("CARGO_FEATURE_DIRECT_UPDATES").is_none(), "Sparkle and Tauri updaters must never coexist");
+    assert_eq!(std::env::var("CARGO_CFG_TARGET_OS").as_deref(), Ok("macos"));
+    assert_eq!(std::env::var("CARGO_CFG_TARGET_ARCH").as_deref(), Ok("aarch64"));
+    let framework = std::path::PathBuf::from(std::env::var_os("CLUTTER_SPARKLE_FRAMEWORK")
+        .expect("Use scripts/build-sparkle-integration.sh to provide the Sparkle SDK"));
+    assert!(framework.join("Headers/Sparkle.h").is_file(), "Sparkle SDK headers missing");
+    let search = framework.parent().expect("framework parent");
+    let out = std::path::PathBuf::from(std::env::var_os("OUT_DIR").expect("OUT_DIR"));
+    let object = out.join("sparkle_bridge.o");
+    let archive = out.join("libclutter_sparkle_bridge.a");
+    let status = std::process::Command::new("xcrun")
+        .args(["--sdk", "macosx", "clang", "-arch", "arm64", "-mmacosx-version-min=13.3",
+               "-fobjc-arc", "-fblocks", "-c", "src/sparkle_bridge.m", "-F"])
+        .arg(search).arg("-o").arg(&object).status().expect("run clang");
+    assert!(status.success(), "Sparkle Objective-C bridge failed to compile");
+    let status = std::process::Command::new("xcrun").args(["ar", "crs"])
+        .arg(&archive).arg(&object).status().expect("run ar");
+    assert!(status.success(), "archive Sparkle bridge");
+    println!("cargo:rustc-link-search=native={}", out.display());
+    println!("cargo:rustc-link-lib=static=clutter_sparkle_bridge");
+    println!("cargo:rustc-link-search=framework={}", search.display());
+    println!("cargo:rustc-link-lib=framework=Sparkle");
+    println!("cargo:rustc-link-lib=framework=Cocoa");
+    println!("cargo:rustc-link-arg=-Wl,-rpath,@executable_path/../Frameworks");
+}
+
 fn main() {
     require_what_every_packaged_build_needs();
+    build_sparkle_bridge();
     let attributes = tauri_build::Attributes::new().app_manifest(tauri_build::AppManifest::new().commands(APP_COMMANDS));
     tauri_build::try_build(attributes).expect("failed to run the Tauri build script");
 }
