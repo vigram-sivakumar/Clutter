@@ -25,6 +25,8 @@ import { toDate } from '@shared/helpers/time/helpers/toDate';
 import './Sidebar.css';
 import { Tabs, Tab } from '@components/tabs/Tabs';
 import { AppIcon } from '@shared/icon';
+import { Alert } from '@components/alert/Alert';
+import { Button } from '@components/button/Button';
 import type { SystemIcon } from '@shared/icon';
 import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
 
@@ -73,6 +75,8 @@ interface SidebarProps {
   readonly onRequestReveal: (reveal: PendingEditorReveal) => void;
   /** Search is an overlay owned by `AppLayout`: its tab opens that overlay instead of showing a panel. */
   readonly onOpenSearch: () => void;
+  readonly updateReady?: boolean;
+  readonly onRestartUpdate?: () => void;
 }
 
 export function Sidebar({
@@ -81,6 +85,8 @@ export function Sidebar({
   tasksViewConfig,
   onRequestReveal,
   onOpenSearch,
+  updateReady = false,
+  onRestartUpdate,
 }: SidebarProps) {
   const toast = useToast();
   const {
@@ -404,6 +410,13 @@ export function Sidebar({
           isSidebarVisible; nothing currently unmounts it based on that
           state. Controls no longer renders the sidebar-toggle button
           itself — see SidebarToggle (app-layout/sidebar-toggle). */}
+      {updateReady && (
+        <Alert
+          title="New update available"
+          description="A new version of Clutter is ready to install."
+          actionsSlot={<Button onClick={onRestartUpdate}>Restart now</Button>}
+        />
+      )}
       <Controls
         onNewNote={newNote}
         onOpenDailyNote={openDailyNote}
