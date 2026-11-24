@@ -45,6 +45,10 @@ def main():
         raise SystemExit("Previous feed signing identity differs")
     item = max(old.findall("item"), key=lambda i: int(i.findtext(tag("version"))))
     previous = int(item.findtext(tag("version")))
+    current_channel = ET.parse(stage / "appcast.xml").getroot().find("channel")
+    if old.findtext(f"{{{CLUTTER}}}codeSigning", "adhoc") != current_channel.findtext(f"{{{CLUTTER}}}codeSigning"):
+        print("Code signing transition; full archive only.")
+        return
     if previous >= build:
         raise SystemExit("Release must be newer than the published version")
     enclosure = item.find("enclosure")
