@@ -84,7 +84,7 @@ fi
 python3 -I "$HERE/check-privacy-manifest.py" src-tauri/PrivacyInfo.xcprivacy
 rustup target add aarch64-apple-darwin x86_64-apple-darwin
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$PWD/src-tauri/target/appstore}"
-VITE_CLUTTER_DIRECT_UPDATES=0 VITE_CLUTTER_SPARKLE_UPDATES=0 ../../node_modules/.bin/tauri build --config "$CONFIG" --bundles app --target universal-apple-darwin
+VITE_CLUTTER_SPARKLE_UPDATES=0 ../../node_modules/.bin/tauri build --config "$CONFIG" --bundles app --target universal-apple-darwin
 TARGET="${CARGO_TARGET_DIR:-src-tauri/target}"
 BUNDLE="$TARGET/universal-apple-darwin/release/bundle/macos/Clutter.app"
 "$HERE/verify-bundle.sh" "$BUNDLE" --submission
