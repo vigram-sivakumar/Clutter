@@ -13,6 +13,7 @@ import tempfile
 import xml.etree.ElementTree as ET
 
 NS = "http://www.andymatuschak.org/xml-namespaces/sparkle"
+# Stable XML namespace identifier, not a network endpoint.
 CLUTTER = "https://clutter-updates.vigram-sivakumar.workers.dev/ns"
 def tag(name):
     return f"{{{NS}}}{name}"
@@ -59,6 +60,12 @@ def main():
         raise SystemExit("Release must be newer than the published version")
     enclosure = item.find("enclosure")
     url = enclosure.attrib["url"]
+    # The R2 objects did not move during the November 2026 hostname migration.
+    # Accept only the exact legacy universal archive path, then fetch it from
+    # the current origin. The existing pinned Ed25519 signature is still checked.
+    legacy_base = "https://clutter-updates.vigram-sivakumar.workers.dev"
+    if re.fullmatch(re.escape(legacy_base) + r"/releases/Clutter_[0-9]+\.[0-9]+\.[0-9]+_universal\.zip", url):
+        url = base + url[len(legacy_base):]
     if not re.fullmatch(re.escape(base) + r"/releases/Clutter_[0-9]+\.[0-9]+\.[0-9]+_universal\.zip", url):
         print("Previous release is not universal; full migration archive only.")
         return
