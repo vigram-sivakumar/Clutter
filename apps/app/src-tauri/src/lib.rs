@@ -257,11 +257,6 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_opener::init());
 
-    #[cfg(feature = "direct-updates")]
-    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
-    #[cfg(feature = "direct-updates")]
-    let builder = builder.plugin(tauri_plugin_process::init());
-
     builder.setup(|app| {
             // Which folders the user authorized in the App Sandbox (empty state outside it); see space_access.rs.
             app.manage(space_access::build_state(app.handle()));
