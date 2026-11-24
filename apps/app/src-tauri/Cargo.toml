@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "0.0.1"
+version = "0.0.10"
 description = "Clutter: a local-first Markdown notes app for macOS"
 authors = ["Vigram Sivakumar"]
 # No `license` on purpose: which licence (if any) Clutter is released under has not been decided. Not published to crates.io.
