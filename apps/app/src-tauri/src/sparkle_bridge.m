@@ -204,6 +204,11 @@ static BOOL Ask(NSString *version) {
                                     withRequest:(NSMutableURLRequest *)request {
     self.version = item.displayVersionString;
     self.phase = @"downloading";
+    if ([request.URL.pathExtension isEqualToString:@"delta"]) {
+        NSLog(@"Clutter Sparkle: downloading delta archive");
+    } else {
+        NSLog(@"Clutter Sparkle: downloading full archive");
+    }
 }
 
 - (BOOL)updater:(SPUUpdater *)updater willInstallUpdateOnQuit:(SUAppcastItem *)item
