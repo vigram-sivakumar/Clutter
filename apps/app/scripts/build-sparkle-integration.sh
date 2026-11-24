@@ -173,6 +173,7 @@ if [ "$MODE" = beta ]; then
   mv "$ZIP" "$RELEASE/$NAME"
   mv "$STAGING/$DMG_NAME" "$RELEASE/$DMG_NAME"
   mv "$STAGING/appcast.xml" "$RELEASE/appcast.xml"
+  (cd "$RELEASE" && shasum -a 256 "$NAME" "$DMG_NAME" appcast.xml > SHA256SUMS)
   rmdir "$STAGING"
   echo "Sparkle beta build $VERSION (build $BUILD_NUMBER) is ready."
   echo "DMG: $RELEASE/$DMG_NAME"
