@@ -24,7 +24,7 @@ main() (
         fi
     done
     [ -w /Applications ] || fail "Applications is not writable. Use the DMG installation instead."
-    for cmd in curl xmllint shasum ditto codesign spctl stat mktemp; do
+    for cmd in curl xmllint shasum ditto codesign spctl stat mktemp open; do
         command -v "$cmd" >/dev/null || fail "Missing system utility: $cmd. Use the DMG installation instead."
     done
     WORK=$(mktemp -d -t clutter-install)
@@ -41,7 +41,6 @@ main() (
         curl -q --fail --silent --show-error --proto '=https' --tlsv1.2 --max-time 300 "$1" -o "$2"
     }
 
-    printf 'Checking latest Clutter release...\n'
     download "$BASE/appcast.xml" "$WORK/feed.xml"
     if grep -Eq '<!DOCTYPE|<!ENTITY' "$WORK/feed.xml"; then fail "Unexpected XML declarations."; fi
     xml() { xmllint --nonet --xpath "$1" "$WORK/feed.xml"; }
@@ -59,15 +58,11 @@ main() (
     [ "$URL" = "$BASE/releases/Clutter_$VERSION"_universal.zip ] || fail "This release predates Terminal installation. Use the DMG or try the next release."
     [[ "$SHA" =~ ^[a-f0-9]{64}$ ]] || fail "This release lacks Terminal installer integrity metadata."
     case "$SIGNING" in
-        adhoc) printf 'Clutter %s is an ad-hoc-signed beta. Apple has not notarized it.\n' "$VERSION" ;;
-        developer-id) printf 'Clutter %s is a Developer ID release.\n' "$VERSION" ;;
+        adhoc|developer-id) ;;
         *) fail "Unknown signing mode." ;;
     esac
-    printf 'Install in /Applications? [y/N] '
-    read -r answer </dev/tty || fail "Interactive confirmation required."
-    case "$answer" in y|Y|yes|YES) ;; *) fail "Installation canceled." ;; esac
-
-    printf 'Downloading Clutter %s (universal)...\n' "$VERSION"
+    printf 'Installing Clutter %s\n\n' "$VERSION"
+    printf 'Downloading Clutter...\n'
     download "$URL" "$WORK/Clutter.zip"
     [ "$(stat -f%z "$WORK/Clutter.zip")" = "$SIZE" ] || fail "Download size mismatch."
     actual=$(shasum -a 256 "$WORK/Clutter.zip")
@@ -104,9 +99,14 @@ main() (
     # Move into the parent directory on the same filesystem, with no-clobber.
     mv -n "$STAGE/Clutter.app" /Applications/
     [ ! -e "$STAGE/Clutter.app" ] && [ -d "$DEST" ] || fail "Installation destination is occupied."
-    printf 'Clutter %s installed successfully.\nOpen Clutter from Applications.\n' "$VERSION"
-    if [ "$SIGNING" = adhoc ]; then
-        printf 'macOS may require one-time approval for this unnotarized beta.\n'
+    printf '\n✓ Clutter installed successfully\n'
+    printf 'Launching Clutter...\n'
+    if ! open "$DEST"; then
+        printf 'Clutter is installed, but macOS could not launch it. Open it from Applications.\n' >&2
+        if [ "$SIGNING" = adhoc ]; then
+            printf 'This beta is not notarized by Apple; macOS may require approval.\n' >&2
+        fi
+        exit 1
     fi
 )
 main
