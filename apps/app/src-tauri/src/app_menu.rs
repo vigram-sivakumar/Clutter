@@ -160,7 +160,7 @@ fn build_app_submenu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>
         Some("CmdOrCtrl+,"),
     )?;
 
-    #[cfg(any(feature = "direct-updates", feature = "sparkle-updates"))]
+    #[cfg(feature = "sparkle-updates")]
     let check_for_updates = MenuItem::with_id(
         app,
         CHECK_FOR_UPDATES_ITEM_ID,
@@ -195,7 +195,7 @@ fn build_app_submenu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>
             &quit,
         ],
     )?;
-    #[cfg(any(feature = "direct-updates", feature = "sparkle-updates"))]
+    #[cfg(feature = "sparkle-updates")]
     {
         submenu.insert(&check_for_updates, 4)?;
         submenu.insert(&PredefinedMenuItem::separator(app)?, 5)?;
@@ -379,7 +379,7 @@ fn event_for_item(id: &str) -> Option<&'static str> {
     if id == SETTINGS_ITEM_ID {
         return Some(OPEN_SETTINGS_EVENT);
     }
-    #[cfg(any(feature = "direct-updates", feature = "sparkle-updates"))]
+    #[cfg(feature = "sparkle-updates")]
     if id == CHECK_FOR_UPDATES_ITEM_ID {
         return Some(CHECK_FOR_UPDATES_EVENT);
     }
@@ -436,7 +436,7 @@ mod tests {
         );
     }
 
-    #[cfg(any(feature = "direct-updates", feature = "sparkle-updates"))]
+    #[cfg(feature = "sparkle-updates")]
     #[test]
     fn check_for_updates_forwards_to_its_frontend_event() {
         assert_eq!(event_for_item(CHECK_FOR_UPDATES_ITEM_ID), Some(CHECK_FOR_UPDATES_EVENT));
