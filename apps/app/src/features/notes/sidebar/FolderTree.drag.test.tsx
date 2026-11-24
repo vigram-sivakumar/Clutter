@@ -355,7 +355,7 @@ describe('FolderTree drag: ghost', () => {
     expect(ghost()!.style.transform).toBe('translate3d(182px, 386px, 0)'); // 300 − 118, 400 − 14
   });
 
-  it('is as wide as the row, whatever width the sidebar has been resized to', () => {
+  it('captures the row width at drag start and keeps the snapshot stable during resize', () => {
     renderTree(env);
     press(rowFor('Alpha'));
     move(40, 140);
@@ -364,7 +364,8 @@ describe('FolderTree drag: ghost', () => {
     ROW_RECT.width = 300;
     try {
       move(40, 150);
-      expect(ghost()!.style.width).toBe(`${ROW_RECT.width}px`);
+      expect(ghost()!.style.width).toBe('236px');
+      expect(document.querySelector<HTMLElement>('.drag-snapshot')!.style.width).toBe('236px');
     } finally {
       ROW_RECT.width = 236;
     }
