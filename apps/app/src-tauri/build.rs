@@ -91,14 +91,13 @@ fn require_what_every_packaged_build_needs() {
     }
 }
 
-/// Compile the small Objective-C adapter against the pinned Sparkle SDK only for the integration build.
+/// Compile the small Objective-C adapter against the pinned Sparkle SDK for direct distribution.
 fn build_sparkle_bridge() {
     println!("cargo:rerun-if-env-changed=CLUTTER_SPARKLE_FRAMEWORK");
     println!("cargo:rerun-if-changed=src/sparkle_bridge.m");
     if std::env::var_os("CARGO_FEATURE_SPARKLE_UPDATES").is_none() {
         return;
     }
-    assert!(std::env::var_os("CARGO_FEATURE_DIRECT_UPDATES").is_none(), "Sparkle and Tauri updaters must never coexist");
     assert_eq!(std::env::var("CARGO_CFG_TARGET_OS").as_deref(), Ok("macos"));
     let arch = match std::env::var("CARGO_CFG_TARGET_ARCH").as_deref() {
         Ok("aarch64") => "arm64",
