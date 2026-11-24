@@ -292,7 +292,8 @@ char *clutter_sparkle_action(const char *action) {
                 @"phase": driver.phase ?: @"failed",
                 @"version": driver.version ?: @"",
                 @"error": failure ?: driver.errorMessage ?: @"",
-                @"ok": @(failure == nil)
+                // Box an explicit BOOL, not the integer result of a C comparison.
+                @"ok": failure == nil ? @YES : @NO
             };
             NSData *json = [NSJSONSerialization dataWithJSONObject:snapshot options:0 error:nil];
             NSString *string = [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding];
