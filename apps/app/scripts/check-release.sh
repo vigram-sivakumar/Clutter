@@ -22,6 +22,7 @@ for path in pathlib.Path(sys.argv[1]).glob('*.sh'):
     if start is not None: raise SystemExit(f'Unclosed Python heredoc: {path}')
 print('Release shell and Python syntax passed')
 PY
+python3 -I "$HERE/test-compare-bundles.py"
 npm run check:version
 VITE_CLUTTER_SPARKLE_UPDATES=1 npm run build
 cargo test --manifest-path src-tauri/Cargo.toml --test command_permissions
