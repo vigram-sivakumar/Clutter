@@ -16,15 +16,16 @@
 # --local (default)  an installable build for this Mac: an ad-hoc signature is fine.
 # --beta             an Apple Silicon beta build: production bundle identifier, arm64-only executable and a valid
 #                    ad-hoc signature. Gatekeeper may block downloads on other Macs; no notarization is implied.
+# --sparkle-integration isolated local Sparkle validation; exact two installer Mach lookups are permitted.
 # --share            a build to give to testers: must carry a Developer ID signature with the hardened runtime, and be
 #                    notarized with the ticket stapled, or Gatekeeper blocks it on other Macs.
 # --submission       a Mac App Store candidate: a distribution signature, the embedded provisioning profile, and the
 #                    application and team identifiers Apple requires, with the production bundle identifier
 #                    (com.vigram.clutter) and a valid build number.
 #
-# usage: verify-bundle.sh <path/to/Clutter.app> [--local|--beta|--share|--submission] [--allow-test-harness]
+# usage: verify-bundle.sh <path/to/Clutter.app> [--local|--beta|--sparkle-integration|--share|--submission] [--allow-test-harness]
 set -uo pipefail
-APP="${1:?usage: verify-bundle.sh <path/to/Clutter.app> [--local|--beta|--share|--submission] [--allow-test-harness]}"
+APP="${1:?usage: verify-bundle.sh <path/to/Clutter.app> [--local|--beta|--sparkle-integration|--share|--submission] [--allow-test-harness]}"
 shift
 MODE=local
 ALLOW_HARNESS=false
@@ -32,6 +33,7 @@ for ARG in "$@"; do
   case "$ARG" in
     --local) MODE=local ;;
     --beta) MODE=beta ;;
+    --sparkle-integration) MODE=sparkle-integration ;;
     --share) MODE=share ;;
     --submission) MODE=submission ;;
     --allow-test-harness) ALLOW_HARNESS=true ;;
@@ -55,9 +57,36 @@ has_true() { echo "$ENTITLEMENTS" | grep -q "<key>$1</key><true/>"; }
 for REQUIRED in com.apple.security.app-sandbox com.apple.security.files.user-selected.read-write com.apple.security.files.bookmarks.app-scope com.apple.security.network.client; do
   has_true "$REQUIRED" && pass "entitlement $REQUIRED" || fail "missing entitlement $REQUIRED"
 done
-for FORBIDDEN in 'temporary-exception' 'files.all' 'get-task-allow' 'disable-library-validation' 'allow-dyld-environment' 'automation.apple-events' 'cs.debugger'; do
+for FORBIDDEN in 'files.all' 'get-task-allow' 'disable-library-validation' 'allow-dyld-environment' 'automation.apple-events' 'cs.debugger'; do
   echo "$ENTITLEMENTS" | grep -q "$FORBIDDEN" && fail "forbidden entitlement matching '$FORBIDDEN'" || pass "no entitlement matching '$FORBIDDEN'"
 done
+if [ "$MODE" = "sparkle-integration" ]; then
+  # No additional exceptions are allowed: compare the complete entitlement dictionary.
+  if printf '%s' "$ENTITLEMENTS" | python3 -I -c '
+import plistlib, sys
+expected = {
+  "com.apple.security.app-sandbox": True,
+  "com.apple.security.files.user-selected.read-write": True,
+  "com.apple.security.files.bookmarks.app-scope": True,
+  "com.apple.security.network.client": True,
+  "com.apple.security.temporary-exception.mach-lookup.global-name": [
+    "com.vigram.clutter-spks", "com.vigram.clutter-spki"
+  ]
+}
+sys.exit(0 if plistlib.loads(sys.stdin.buffer.read()) == expected else 1)
+'; then
+    pass "exact Sparkle integration entitlements"
+  else
+    fail "unexpected Sparkle integration entitlements"
+  fi
+  SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
+  [ -d "$SPARKLE/Versions/B/XPCServices/Installer.xpc" ] && pass "Sparkle Installer.xpc present" || fail "Sparkle installer missing"
+  [ "$(/usr/libexec/PlistBuddy -c 'Print :SUEnableInstallerLauncherService' "$APP/Contents/Info.plist" 2>/dev/null)" = true ] && pass "Sparkle installer enabled" || fail "Sparkle installer disabled"
+  codesign --verify --deep --strict "$SPARKLE" 2>/dev/null && pass "Sparkle framework signature valid" || fail "Sparkle framework signature invalid"
+else
+  echo "$ENTITLEMENTS" | grep -q 'temporary-exception' && fail "forbidden temporary exception" || pass "no temporary exceptions"
+  [ ! -d "$APP/Contents/Frameworks/Sparkle.framework" ] || fail "unexpected Sparkle framework in non-Sparkle build"
+fi
 if echo "$ENTITLEMENTS" | grep -q "network.server"; then
   $ALLOW_HARNESS && pass "network.server allowed for the test harness" || fail "network.server is not allowed"
 else
@@ -139,7 +168,7 @@ case "$MODE" in
     $ADHOC && warn "ad-hoc signature: fine to install here, but Gatekeeper blocks it on other Macs (use --share builds for testers)"
     [ "$IDENTIFIER" = "com.vigram.clutter" ] || warn "bundle identifier is $IDENTIFIER, not the production one (com.vigram.clutter)"
     ;;
-  beta)
+  beta|sparkle-integration)
     [ "$IDENTIFIER" = "com.vigram.clutter" ] && pass "bundle identifier $IDENTIFIER" || fail "bundle identifier is $IDENTIFIER, not com.vigram.clutter"
     $ADHOC && warn "ad-hoc signature: macOS may block this downloaded beta; testers may need to approve it in Privacy & Security" || fail "beta build must use an ad-hoc signature (Apple signing is out of scope)"
     ARCHS=$(lipo -archs "$BINARY" 2>/dev/null)
