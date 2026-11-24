@@ -25,7 +25,9 @@
     "check:legal-links": "scripts/check-legal-links.sh",
     "dev:sandbox": "scripts/dev-sandboxed.sh",
     "build:beta": "bash scripts/build-beta.sh",
-    "release:beta": "bash scripts/release.sh beta"
+    "release:beta": "bash scripts/release.sh beta",
+    "release:direct": "bash scripts/release-channel.sh direct",
+    "release:appstore": "bash scripts/release-channel.sh appstore"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
