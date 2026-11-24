@@ -2,7 +2,7 @@
 
 A public, read-only Worker serves Tauri's signed update manifest and release artifacts from the private `clutter-releases` R2 bucket. The bucket itself stays private.
 
-Production URL: `https://clutter-updates.vigram-sivakumar.workers.dev`
+Production URL: `https://updates.clutterapp.workers.dev`
 
 - `GET /latest.json` serves the current manifest with no-store caching.
 - `GET /releases/<filename>.app.tar.gz` serves a signed Tauri updater archive.
@@ -18,7 +18,7 @@ Tauri verifies the archive signature against the public key embedded in the dire
 2. From this directory, run `npm install` and `npx wrangler login`.
 3. Run `npm run typecheck` and `npm run build:check`.
 4. Deploy with `npx wrangler deploy`.
-5. Verify `curl -i https://clutter-updates.vigram-sivakumar.workers.dev/latest.json` returns 404 while the bucket is empty.
+5. Verify `curl -i https://updates.clutterapp.workers.dev/latest.json` returns 404 while the bucket is empty.
 
 Wrangler creates the `RELEASES` binding from `wrangler.toml`. Do not enable public bucket access and do not put API tokens, bucket credentials or the Tauri signing key in this Worker.
 
