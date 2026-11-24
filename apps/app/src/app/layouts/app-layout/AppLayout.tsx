@@ -93,7 +93,7 @@ interface AppLayoutProps {
    */
   narrowSidebarOverride?: NarrowSidebarOverride;
   onNarrowSidebarOverrideChange?: (override: NarrowSidebarOverride) => void;
-  updateReady?: boolean;
+  updateVersion?: string;
   onRestartUpdate?: () => void;
 }
 
@@ -101,7 +101,7 @@ export function AppLayout({
   application,
   narrowSidebarOverride,
   onNarrowSidebarOverrideChange,
-  updateReady = false,
+  updateVersion,
   onRestartUpdate,
 }: AppLayoutProps) {
   const toast = useToast();
@@ -528,7 +528,7 @@ export function AppLayout({
               tasksViewConfig={tasksViewConfig}
               onRequestReveal={setPendingReveal}
               onOpenSearch={openSearch}
-              updateReady={updateReady}
+              updateVersion={updateVersion}
               onRestartUpdate={onRestartUpdate}
             />
           }
