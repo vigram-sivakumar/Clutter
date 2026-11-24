@@ -52,10 +52,10 @@ test('installer shows only a concise summary with matching metadata colors', () 
   assert.equal(plain.status, 0, plain.stderr);
   assert.equal(plain.stdout, '\nInstalling Clutter...\n\n✓ Clutter successfully installed!\n\n  Version:  0.0.9\n  Location: /Applications/Clutter.app\n\nLaunching Clutter...\n');
   // Exercise the formatter without needing a real terminal or installing an app.
-  const colored = spawnSync('/bin/bash', ['-eu', '-c', format + args + '\nORANGE=$' + "'\\033[38;2;240;142;53m'" + '\nRESET=$' + "'\\033[0m'" + '\nprint_summary'], { encoding: 'utf8' });
+  const colored = spawnSync('/bin/bash', ['-eu', '-c', format + args + '\nORANGE=$' + "'\\033[38;2;210;103;0m'" + '\nRESET=$' + "'\\033[0m'" + '\nprint_summary'], { encoding: 'utf8' });
   assert.equal(colored.status, 0, colored.stderr);
-  assert.ok(colored.stdout.includes('\x1b[38;2;240;142;53m0.0.9\x1b[0m'));
-  assert.ok(colored.stdout.includes('\x1b[38;2;240;142;53m/Applications/Clutter.app\x1b[0m'));
+  assert.ok(colored.stdout.includes('\x1b[38;2;210;103;0m0.0.9\x1b[0m'));
+  assert.ok(colored.stdout.includes('\x1b[38;2;210;103;0m/Applications/Clutter.app\x1b[0m'));
 });
 
 test('success text uses green without bold weight', () => {
@@ -63,8 +63,8 @@ test('success text uses green without bold weight', () => {
   const end = INSTALLER_SCRIPT.indexOf('\n    printf', start);
   assert.ok(start >= 0 && end > start);
   const result = spawnSync('/bin/bash', ['-eu', '-c', INSTALLER_SCRIPT.slice(start, end) +
-    "\nGREEN=$'\\033[38;2;86;185;127m'\nORANGE=''\nBOLD=$'\\033[1m'\nMUTED=''\nRESET=$'\\033[0m'\nVERSION=0.0.9\nDEST=/Applications/Clutter.app\nprint_summary"], { encoding: 'utf8' });
+    "\nGREEN=$'\\033[38;2;0;191;116m'\nORANGE=''\nBOLD=$'\\033[1m'\nMUTED=''\nRESET=$'\\033[0m'\nVERSION=0.0.9\nDEST=/Applications/Clutter.app\nprint_summary"], { encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
-  assert.ok(result.stdout.includes('\x1b[38;2;86;185;127m✓ Clutter successfully installed!\x1b[0m'));
+  assert.ok(result.stdout.includes('\x1b[38;2;0;191;116m✓ Clutter successfully installed!\x1b[0m'));
   assert.ok(!result.stdout.includes('\x1b[1m'));
 });
