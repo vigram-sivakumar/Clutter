@@ -219,7 +219,16 @@ case "$MODE" in
     ;;
   beta|sparkle-integration|sparkle-beta|sparkle-direct)
     [ "$IDENTIFIER" = "com.vigram.clutter" ] && pass "bundle identifier $IDENTIFIER" || fail "bundle identifier is $IDENTIFIER, not com.vigram.clutter"
-    $ADHOC && warn "ad-hoc signature: macOS may block this downloaded beta; testers may need to approve it in Privacy & Security" || fail "beta build must use an ad-hoc signature (Apple signing is out of scope)"
+    if $ADHOC; then
+      warn "ad-hoc signature: intended for controlled testing, macOS may block downloads"
+    elif [ "$MODE" = sparkle-direct ]; then
+      echo "$SIGNATURE" | grep -q "Authority=Developer ID Application" && pass "Developer ID signature" || fail "unexpected direct signing identity"
+      echo "$SIGNATURE" | grep -q "flags=.*runtime" && pass "hardened runtime" || fail "hardened runtime missing"
+      xcrun stapler validate "$APP" >/dev/null 2>&1 && pass "app notarization ticket stapled" || fail "app notarization ticket missing"
+      spctl --assess --type execute "$APP" >/dev/null 2>&1 && pass "Gatekeeper accepts direct app" || fail "Gatekeeper rejects direct app"
+    else
+      fail "integration/legacy build must be ad-hoc signed"
+    fi
     ARCHS=$(lipo -archs "$BINARY" 2>/dev/null)
     if [ "$MODE" = sparkle-direct ] || [ "$MODE" = sparkle-integration ]; then
       verify_universal
