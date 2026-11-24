@@ -32,6 +32,9 @@ mkdir -p "$CACHE" "$ROOT" "$ROOT/feed" "$ROOT/builds"
 npm run check:version
 "$HERE/check-atomic-default.sh"
 VERSION=$(node -p "require('./package.json').version")
+if [ "$MODE" = beta ] && [ -e "$ROOT/releases/$VERSION" ]; then
+  echo "Release $VERSION already built; use publish:update or the direct release command to resume." >&2; exit 1
+fi
 # Separate monotonic Sparkle build number. Do not change the App Store's bundleVersion.
 BUILD_NUMBER=$(python3 - "$VERSION" <<'PY'
 import sys
@@ -129,11 +132,7 @@ DEST="$ROOT/builds/$VERSION"
 mkdir -p "$DEST"
 if [ -e "$DEST/Clutter.app" ]; then rm -rf "$DEST/Clutter.app"; fi
 ditto "$APP" "$DEST/Clutter.app"
-if [ "$MODE" = beta ]; then
-  NAME="Clutter_${VERSION}_universal.zip"
-else
-  NAME="Clutter_${VERSION}_universal.zip"
-fi
+NAME="Clutter_${VERSION}_universal.zip"
 STAGING=$(mktemp -d "$ROOT/archive.XXXXXX")
 ZIP="$STAGING/$NAME"
 ditto -c -k --sequesterRsrc --keepParent "$DEST/Clutter.app" "$ZIP"
