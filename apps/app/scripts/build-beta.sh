@@ -18,8 +18,8 @@ case "$RUST_HOST" in
   *) echo "Rust host target is $RUST_HOST; expected aarch64-apple-darwin." >&2; exit 1 ;;
 esac
 
-if [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}${TAURI_SIGNING_PRIVATE_KEY_PATH:-}" ]; then
-  echo "Set TAURI_SIGNING_PRIVATE_KEY to the updater key file path (and its password if required)." >&2
+if [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+  echo "Set TAURI_SIGNING_PRIVATE_KEY to the updater key file path (and TAURI_SIGNING_PRIVATE_KEY_PASSWORD if required)." >&2
   exit 1
 fi
 
