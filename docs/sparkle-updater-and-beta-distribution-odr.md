@@ -96,9 +96,9 @@ References: [Sparkle delta format and fallback](https://sparkle-project.org/docu
 
 ## 7. Distribution infrastructure and trust
 
-Worker: `clutter-updates`. R2 bucket: `clutter-releases`, binding `RELEASES`. Existing base URL and appcast remain unchanged:
+Worker: `updates`. R2 bucket: `clutter-releases`, binding `RELEASES`. Current appcast endpoint (renamed 2026-11-24; deployment verification pending):
 
-`https://clutter-updates.vigram-sivakumar.workers.dev/appcast.xml`
+`https://updates.clutterapp.workers.dev/appcast.xml`
 
 | Route | Purpose |
 | --- | --- |
@@ -254,3 +254,8 @@ Acceptance sequence:
 | workers/updates/src/index.ts / tests/index.test.ts | Read-only distribution endpoint and tests |
 
 **Decision:** keep one direct updater, one Store path and two public release commands. Finish validation and hardening before Apple enrollment. No release has been published by this code-review session.
+
+
+### Hostname migration (2026-11-24)
+
+The Worker is now `updates` under `clutterapp.workers.dev`. Keep the existing R2 bucket, Sparkle key, bundle identifier, and XML namespace `https://clutter-updates.vigram-sivakumar.workers.dev/ns` (an identifier, not a network request). Delta preparation can map a strictly matched legacy universal archive URL to the new origin, verifying the original Ed25519 signature. Existing beta apps use the old feed URL and require a fresh installation if that endpoint no longer works. Do not overwrite existing versioned archives. Live verification is pending.
