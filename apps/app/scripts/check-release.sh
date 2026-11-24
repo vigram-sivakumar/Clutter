@@ -26,5 +26,5 @@ npm run check:version
 VITE_CLUTTER_SPARKLE_UPDATES=1 npm run build
 cargo test --manifest-path src-tauri/Cargo.toml --test command_permissions
 cargo test --manifest-path src-tauri/Cargo.toml --lib sparkle_update::tests
-(cd "$HERE/../../../workers/updates" && npm run typecheck)
+(cd "$HERE/../../../workers/updates" && npm run typecheck && npm test)
 echo 'Release structural and focused checks passed; native universal and delta installation require the separate runtime tests.'
