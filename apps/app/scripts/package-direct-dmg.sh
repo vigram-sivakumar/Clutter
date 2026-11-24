@@ -2,7 +2,6 @@
 # Package the final signed app without rebuilding or modifying its contents.
 # Finder presentation is build-time only; no runtime Automation entitlement.
 set -euo pipefail
-HERE="$(cd "$(dirname "$0")" && pwd)"
 APP="$1"
 OUTPUT="$2"
 [ "$(uname -s)" = Darwin ] || { echo "macOS required" >&2; exit 1; }
@@ -22,10 +21,9 @@ cleanup() {
 }
 trap cleanup EXIT
 
-mkdir -p "$WORK/source/.background" "$MOUNT"
+mkdir -p "$WORK/source" "$MOUNT"
 ditto "$APP" "$WORK/source/Clutter.app"
 ln -s /Applications "$WORK/source/Applications"
-xcrun swift "$HERE/dmg-background.swift" "$WORK/source/.background/installer.png"
 hdiutil create -volname Clutter -srcfolder "$WORK/source" -fs HFS+ -format UDRW "$WORK/layout.dmg"
 hdiutil attach "$WORK/layout.dmg" -noautoopen -mountpoint "$MOUNT"
 ATTACHED=1
@@ -52,29 +50,25 @@ end openInstaller
 
 on run argv
     set mountAlias to (POSIX file (item 1 of argv)) as alias
-    -- Resolve the actual file outside Finder, before sending its set command.
-    set backgroundAlias to (POSIX file ((item 1 of argv) & "/.background/installer.png")) as alias
     tell application "Finder"
         set w to my openInstaller(mountAlias)
         set targetFolder to target of w
         set current view of w to icon view
         set toolbar visible of w to false
         set statusbar visible of w to false
-        set bounds of w to {200, 200, 860, 600}
+        set bounds of w to {200, 200, 800, 500}
         set opts to icon view options of w
         set arrangement of opts to not arranged
         set icon size of opts to 128
         set text size of opts to 13
-        tell w
-            set background picture of its icon view options to backgroundAlias
-        end tell
-        set position of item "Clutter.app" of targetFolder to {180, 170}
-        set position of item "Applications" of targetFolder to {480, 170}
+        -- Leave the native Finder background and global path bar preference unchanged.
+        set position of item "Clutter.app" of targetFolder to {160, 120}
+        set position of item "Applications" of targetFolder to {440, 120}
         close w
         set w to my openInstaller(mountAlias)
-        set bounds of w to {200, 200, 850, 590}
+        set bounds of w to {200, 200, 790, 490}
         delay 1
-        set bounds of w to {200, 200, 860, 600}
+        set bounds of w to {200, 200, 800, 500}
         set toolbar visible of w to false
         set statusbar visible of w to false
         delay 3
