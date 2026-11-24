@@ -80,4 +80,6 @@ default = ["atomic-writes"]
 atomic-writes = ["dep:glob"]
 automation = ["dep:tauri-plugin-wdio-webdriver"]
 direct-updates = ["dep:tauri-plugin-updater", "dep:tauri-plugin-process"]
+# Opt-in macOS Sparkle integration; never enabled by the App Store or legacy beta scripts.
+sparkle-updates = []
 tauri-plugin-process = ["dep:tauri-plugin-process"]
