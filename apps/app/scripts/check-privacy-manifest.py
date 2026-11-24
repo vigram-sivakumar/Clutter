@@ -112,7 +112,7 @@ def check_structure(manifest):
 
 def executable_use(path):
     symbols = set()
-    names = subprocess.run(["nm", "-u", path], capture_output=True, text=True).stdout.split()
+    names = subprocess.run(["nm", "-arch", "all", "-u", path], capture_output=True, text=True, check=True).stdout.split()
     for token in names:
         symbols.add(re.sub(r"\$.*$", "", token.lstrip("_")))
     data = open(path, "rb").read()
