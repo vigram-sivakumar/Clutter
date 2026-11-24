@@ -1,10 +1,11 @@
 #!/bin/bash
-# Shared Apple Silicon Sparkle builder: loopback integration or HTTPS beta.
+# Universal Sparkle builder: loopback integration or HTTPS direct distribution.
 # Builds only; publishing is a separate step. Neither mode changes the App Store build.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 cd "$HERE/.."
-[ "$(uname -s)" = Darwin ] && [ "$(uname -m)" = arm64 ] || { echo 'Apple Silicon macOS required' >&2; exit 1; }
+[ "$(uname -s)" = Darwin ] || { echo "macOS required" >&2; exit 1; }
+rustup target add aarch64-apple-darwin x86_64-apple-darwin
 xcrun --find clang >/dev/null
 SPARKLE_VERSION=2.10.1
 MODE="${1:-integration}"
@@ -18,10 +19,11 @@ case "$MODE" in
     ROOT="$CACHE"
     ARCHIVE_PREFIX="$BASE_URL"
     ;;
-  beta)
+  beta|direct)
+    MODE=beta # Preserve internal key/account compatibility; public distribution is direct.
     ACCOUNT=com.vigram.clutter.sparkle.beta
     BASE_URL="https://clutter-updates.vigram-sivakumar.workers.dev"
-    ROOT="$PWD/src-tauri/target/sparkle-beta"
+    ROOT="$PWD/src-tauri/target/sparkle"
     ARCHIVE_PREFIX="$BASE_URL/releases"
     ;;
   *) echo "Usage: $0 [integration|beta]" >&2; exit 2 ;;
@@ -82,8 +84,8 @@ fi
 export CARGO_TARGET_DIR="$CACHE/cargo"
 export CLUTTER_SPARKLE_FRAMEWORK="$FRAMEWORK"
 VITE_CLUTTER_DIRECT_UPDATES=0 VITE_CLUTTER_SPARKLE_UPDATES=1 \
-  ../../node_modules/.bin/tauri build --bundles app --features sparkle-updates
-APP="$CARGO_TARGET_DIR/release/bundle/macos/Clutter.app"
+  ../../node_modules/.bin/tauri build --target universal-apple-darwin --bundles app --features sparkle-updates
+APP="$CARGO_TARGET_DIR/universal-apple-darwin/release/bundle/macos/Clutter.app"
 [ -d "$APP" ] || { echo "Missing Tauri application at $APP" >&2; exit 1; }
 mkdir -p "$APP/Contents/Frameworks"
 [ ! -e "$APP/Contents/Frameworks/Sparkle.framework" ] || { echo 'Unexpected pre-existing Sparkle framework' >&2; exit 1; }
@@ -117,7 +119,7 @@ PY
 # Match the already validated probe: preserve nested signatures, sign the outer bundle only.
 codesign --force --sign - --timestamp=none --entitlements src-tauri/Entitlements.sparkle.plist "$APP"
 if [ "$MODE" = beta ]; then
-  "$HERE/verify-bundle.sh" "$APP" --sparkle-beta
+  "$HERE/verify-bundle.sh" "$APP" --sparkle-direct
 else
   "$HERE/verify-bundle.sh" "$APP" --sparkle-integration
 fi
@@ -128,9 +130,9 @@ mkdir -p "$DEST"
 if [ -e "$DEST/Clutter.app" ]; then rm -rf "$DEST/Clutter.app"; fi
 ditto "$APP" "$DEST/Clutter.app"
 if [ "$MODE" = beta ]; then
-  NAME="Clutter_beta_${VERSION}_aarch64.zip"
+  NAME="Clutter_${VERSION}_universal.zip"
 else
-  NAME="Clutter_${VERSION}_aarch64.zip"
+  NAME="Clutter_${VERSION}_universal.zip"
 fi
 STAGING=$(mktemp -d "$ROOT/archive.XXXXXX")
 ZIP="$STAGING/$NAME"
@@ -145,7 +147,7 @@ ns = 'http://www.andymatuschak.org/xml-namespaces/sparkle'
 ET.register_namespace('sparkle', ns)
 root = ET.Element('rss', version='2.0')
 channel = ET.SubElement(root, 'channel')
-ET.SubElement(channel, 'title').text = 'Clutter beta' if mode == 'beta' else 'Clutter local integration feed'
+ET.SubElement(channel, 'title').text = 'Clutter direct updates' if mode == 'beta' else 'Clutter local integration feed'
 if mode == 'beta':
     # Publishing guard; Sparkle verifies archives against the key in the signed app.
     ET.register_namespace('clutter', 'https://clutter-updates.vigram-sivakumar.workers.dev/ns')
@@ -160,7 +162,8 @@ ET.ElementTree(root).write(path, encoding='utf-8', xml_declaration=True)
 PY
 if [ "$MODE" = beta ]; then
   # Package the final Sparkle-signed app, not Tauri's intermediate bundle.
-  DMG_NAME="Clutter_beta_${VERSION}_aarch64.dmg"
+  python3 -I "$HERE/add-sparkle-delta.py" "$STAGING" "$DEST/Clutter.app" "$SDK" "$ACCOUNT" "$PUBLIC_KEY" "$BASE_URL" "$BUILD_NUMBER"
+  DMG_NAME="Clutter_${VERSION}_universal.dmg"
   mkdir "$STAGING/dmg-root"
   ditto "$DEST/Clutter.app" "$STAGING/dmg-root/Clutter.app"
   ln -s /Applications "$STAGING/dmg-root/Applications"
@@ -169,13 +172,11 @@ if [ "$MODE" = beta ]; then
   rm -rf "$STAGING/dmg-root"
   # Publish only from this version's completed artefact directory.
   RELEASE="$ROOT/releases/$VERSION"
-  mkdir -p "$RELEASE"
-  mv "$ZIP" "$RELEASE/$NAME"
-  mv "$STAGING/$DMG_NAME" "$RELEASE/$DMG_NAME"
-  mv "$STAGING/appcast.xml" "$RELEASE/appcast.xml"
-  (cd "$RELEASE" && shasum -a 256 "$NAME" "$DMG_NAME" appcast.xml > SHA256SUMS)
-  rmdir "$STAGING"
-  echo "Sparkle beta build $VERSION (build $BUILD_NUMBER) is ready."
+  (cd "$STAGING" && shasum -a 256 "$NAME" "$DMG_NAME" appcast.xml $(find . -maxdepth 1 -name '*.delta' -print) > SHA256SUMS)
+  mkdir -p "$(dirname "$RELEASE")"
+  [ ! -e "$RELEASE" ] || { echo "Release directory already exists: $RELEASE. Publish the existing verified artifacts or choose a new version." >&2; exit 1; }
+  mv "$STAGING" "$RELEASE"
+  echo "Sparkle direct build $VERSION (build $BUILD_NUMBER) is ready."
   echo "DMG: $RELEASE/$DMG_NAME"
   echo "Updater: $RELEASE/$NAME"
   echo "Appcast: $RELEASE/appcast.xml"
