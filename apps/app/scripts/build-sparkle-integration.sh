@@ -28,6 +28,20 @@ case "$MODE" in
     ;;
   *) echo "Usage: $0 [integration|beta]" >&2; exit 2 ;;
 esac
+SIGNING=adhoc
+if [ "$MODE" = beta ]; then
+  SIGNING="${CLUTTER_DIRECT_SIGNING:-adhoc}"
+  case "$SIGNING" in
+    adhoc) ;;
+    developer-id)
+      : "${APPLE_SIGNING_IDENTITY:?Set Developer ID Application identity}"
+      : "${CLUTTER_NOTARY_PROFILE:?Set notarytool Keychain profile}"
+      [[ "$APPLE_SIGNING_IDENTITY" = "Developer ID Application:"* ]] || { echo 'Developer ID Application identity required' >&2; exit 1; }
+      security find-identity -v -p codesigning | grep -qF "$APPLE_SIGNING_IDENTITY" || { echo 'Developer ID identity not in Keychain' >&2; exit 1; }
+      ;;
+    *) echo 'CLUTTER_DIRECT_SIGNING must be adhoc or developer-id' >&2; exit 1 ;;
+  esac
+fi
 mkdir -p "$CACHE" "$ROOT" "$ROOT/feed" "$ROOT/builds"
 npm run check:version
 "$HERE/check-atomic-default.sh"
@@ -86,8 +100,12 @@ fi
 # Use separate Cargo/bundle output so legacy release scripts cannot accidentally publish this app.
 export CARGO_TARGET_DIR="$CACHE/cargo"
 export CLUTTER_SPARKLE_FRAMEWORK="$FRAMEWORK"
-VITE_CLUTTER_DIRECT_UPDATES=0 VITE_CLUTTER_SPARKLE_UPDATES=1 \
-  ../../node_modules/.bin/tauri build --target universal-apple-darwin --bundles app --features sparkle-updates
+# Tauri produces the intermediate bundle only. Sign/notarize the complete app below.
+(
+  unset APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID APPLE_API_KEY APPLE_API_ISSUER APPLE_API_KEY_PATH
+  APPLE_SIGNING_IDENTITY=- VITE_CLUTTER_DIRECT_UPDATES=0 VITE_CLUTTER_SPARKLE_UPDATES=1 \
+    ../../node_modules/.bin/tauri build --target universal-apple-darwin --bundles app --features sparkle-updates
+)
 APP="$CARGO_TARGET_DIR/universal-apple-darwin/release/bundle/macos/Clutter.app"
 [ -d "$APP" ] || { echo "Missing Tauri application at $APP" >&2; exit 1; }
 mkdir -p "$APP/Contents/Frameworks"
@@ -119,8 +137,30 @@ else:
     assert not ats.get('NSAllowsArbitraryLoads') and not ats.get('NSAllowsLocalNetworking'), 'Unexpected ATS exception'
 with open(path, 'wb') as dest: plistlib.dump(info, dest)
 PY
-# Match the already validated probe: preserve nested signatures, sign the outer bundle only.
-codesign --force --sign - --timestamp=none --entitlements src-tauri/Entitlements.sparkle.plist "$APP"
+if [ "$SIGNING" = developer-id ]; then
+  # Sparkle's documented inside-out signing order. Never use --deep to sign.
+  SPK="$APP/Contents/Frameworks/Sparkle.framework"
+  V="$SPK/Versions/B"
+  sign() { codesign --force --sign "$APPLE_SIGNING_IDENTITY" --options runtime --timestamp "$@"; }
+  sign "$V/XPCServices/Installer.xpc"
+  if [ -d "$V/XPCServices/Downloader.xpc" ]; then
+    sign --preserve-metadata=entitlements "$V/XPCServices/Downloader.xpc"
+  fi
+  sign "$V/Autoupdate"
+  sign "$V/Updater.app"
+  sign "$SPK"
+  sign --entitlements src-tauri/Entitlements.sparkle.plist "$APP"
+  codesign --verify --deep --strict "$APP"
+  NOTARY=$(mktemp -d "$ROOT/notary.XXXXXX")
+  ditto -c -k --sequesterRsrc --keepParent "$APP" "$NOTARY/Clutter.zip"
+  xcrun notarytool submit "$NOTARY/Clutter.zip" --keychain-profile "$CLUTTER_NOTARY_PROFILE" --wait
+  xcrun stapler staple "$APP"
+  xcrun stapler validate "$APP"
+  rm -rf "$NOTARY"
+else
+  # Previously validated ad-hoc path. Preserve nested framework signatures.
+  codesign --force --sign - --timestamp=none --entitlements src-tauri/Entitlements.sparkle.plist "$APP"
+fi
 if [ "$MODE" = beta ]; then
   "$HERE/verify-bundle.sh" "$APP" --sparkle-direct
 else
@@ -139,9 +179,9 @@ ditto -c -k --sequesterRsrc --keepParent "$DEST/Clutter.app" "$ZIP"
 SIG=$("$SIGN_TOOL" --account "$ACCOUNT" -p "$ZIP" | tr -d '\r\n')
 [[ "$SIG" =~ ^[A-Za-z0-9+/]{86}==$ ]] || { echo 'Invalid Sparkle archive signature' >&2; exit 1; }
 LENGTH=$(stat -f%z "$ZIP")
-python3 - "$STAGING/appcast.xml" "$VERSION" "$BUILD_NUMBER" "$ARCHIVE_PREFIX/$NAME" "$LENGTH" "$SIG" "$PUBLIC_KEY" "$MODE" <<'PY'
+python3 - "$STAGING/appcast.xml" "$VERSION" "$BUILD_NUMBER" "$ARCHIVE_PREFIX/$NAME" "$LENGTH" "$SIG" "$PUBLIC_KEY" "$MODE" "$SIGNING" <<'PY'
 import sys, xml.etree.ElementTree as ET
-path, version, build, url, length, signature, public_key, mode = sys.argv[1:]
+path, version, build, url, length, signature, public_key, mode, signing = sys.argv[1:]
 ns = 'http://www.andymatuschak.org/xml-namespaces/sparkle'
 ET.register_namespace('sparkle', ns)
 root = ET.Element('rss', version='2.0')
@@ -151,6 +191,7 @@ if mode == 'beta':
     # Publishing guard; Sparkle verifies archives against the key in the signed app.
     ET.register_namespace('clutter', 'https://clutter-updates.vigram-sivakumar.workers.dev/ns')
     ET.SubElement(channel, '{https://clutter-updates.vigram-sivakumar.workers.dev/ns}signingPublicKey').text = public_key
+    ET.SubElement(channel, '{https://clutter-updates.vigram-sivakumar.workers.dev/ns}codeSigning').text = signing
 item = ET.SubElement(channel, 'item')
 ET.SubElement(item, 'title').text = 'Version ' + version
 ET.SubElement(item, '{'+ns+'}version').text = build
@@ -167,6 +208,12 @@ if [ "$MODE" = beta ]; then
   ditto "$DEST/Clutter.app" "$STAGING/dmg-root/Clutter.app"
   ln -s /Applications "$STAGING/dmg-root/Applications"
   hdiutil create -volname Clutter -srcfolder "$STAGING/dmg-root" -format UDZO "$STAGING/$DMG_NAME"
+  if [ "$SIGNING" = developer-id ]; then
+    codesign --force --sign "$APPLE_SIGNING_IDENTITY" --timestamp "$STAGING/$DMG_NAME"
+    xcrun notarytool submit "$STAGING/$DMG_NAME" --keychain-profile "$CLUTTER_NOTARY_PROFILE" --wait
+    xcrun stapler staple "$STAGING/$DMG_NAME"
+    xcrun stapler validate "$STAGING/$DMG_NAME"
+  fi
   hdiutil verify "$STAGING/$DMG_NAME"
   rm -rf "$STAGING/dmg-root"
   # Publish only from this version's completed artefact directory.
