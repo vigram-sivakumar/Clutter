@@ -47,14 +47,14 @@ main() (
         # Match the reference green/orange when supported, with palette fallbacks.
         case "$(printenv COLORTERM || true)" in
             truecolor|24bit)
-                printf -v GREEN '\033[38;2;86;185;127m'
-                printf -v ORANGE '\033[38;2;240;142;53m'
+                printf -v GREEN '\033[38;2;0;191;116m'
+                printf -v ORANGE '\033[38;2;210;103;0m'
                 ;;
             *)
                 case "$(printenv TERM || true)" in
                     *256color*)
-                        printf -v GREEN '\033[38;5;72m'
-                        printf -v ORANGE '\033[38;5;208m'
+                        printf -v GREEN '\033[38;5;35m'
+                        printf -v ORANGE '\033[38;5;166m'
                         ;;
                     *)
                         printf -v GREEN '\033[32m'
