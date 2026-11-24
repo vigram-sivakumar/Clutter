@@ -18,7 +18,7 @@ The policy states all of this and does not claim that nothing leaves the device.
 
 | Service | Role | Receives | Verified |
 | --- | --- | --- | --- |
-| Cloudflare Workers (`clutter-unsplash-proxy.vigram-sivakumar.workers.dev`) | Hosts the proxy | Request URL (search text, page, photo id), client IP, headers, while serving | Deployment, settings and bundle checked below |
+| Cloudflare Workers (`unsplash-proxy.clutterapp.workers.dev`) | Hosts the proxy | Request URL (search text, page, photo id), client IP, headers, while serving | Deployment, settings and bundle checked below |
 | Unsplash API (`api.unsplash.com`) | Photo search and download tracking | Query, page, orientation, photo id, `ixid`, from the proxy's address with Clutter's key | Request flow in code; live search returns results |
 | Unsplash image servers (`images.unsplash.com`, `plus.unsplash.com`) | Photo display | Image GET from the device (IP, user agent); view tracking by `ixid` | In code; live traffic not captured |
 | Any other host in a note or cover, or one the user saves from | Image display or download | Image GET from the device | In code |
@@ -105,7 +105,7 @@ Changed in the repository (not deployed: the settings are identical in effect): 
 ### External account actions for Cloudflare
 
 1. **Accept the Customer DPA** on the Cloudflare account that hosts the Worker (Cloudflare dashboard, Account home, Configurations or Legal; the DPA is at <https://www.cloudflare.com/cloudflare-customer-dpa/>, version 6.4 at the time of writing). Its status could not be read through the API token available here (`workers` scopes only). Confirm it is in force, and keep a copy.
-2. **Dashboard check (once):** Workers & Pages, `clutter-unsplash-proxy`, Settings, Observability: confirm Workers Logs shows Disabled, and Logpush shows no jobs. The API already reports this; the dashboard is the owner's confirmation.
+2. **Dashboard check (once):** Workers & Pages, `unsplash-proxy`, Settings, Observability: confirm Workers Logs shows Disabled, and Logpush shows no jobs. The API already reports this; the dashboard is the owner's confirmation.
 3. **Optional:** put the Worker on a custom domain (above).
 
 ## Unsplash production configuration
