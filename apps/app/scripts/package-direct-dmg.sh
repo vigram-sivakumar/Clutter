@@ -27,25 +27,34 @@ ditto "$APP" "$WORK/source/Clutter.app"
 ln -s /Applications "$WORK/source/Applications"
 xcrun swift "$HERE/dmg-background.swift" "$WORK/source/.background/installer.png"
 hdiutil create -volname Clutter -srcfolder "$WORK/source" -fs HFS+ -format UDRW "$WORK/layout.dmg"
-hdiutil attach "$WORK/layout.dmg" -nobrowse -noautoopen -mountpoint "$MOUNT"
+hdiutil attach "$WORK/layout.dmg" -noautoopen -mountpoint "$MOUNT"
 ATTACHED=1
 
 # Finder persists the installation presentation in the image's .DS_Store.
-# Refuse ambiguous volume names rather than changing a different mounted disk.
+# Resolve the exact mounted folder, not a Finder disk name. The temporary
+# mount must be browsable so Finder can persist its own window metadata.
 # This requires an interactive macOS release session and Finder automation access.
 osascript - "$MOUNT" <<'APPLESCRIPT'
-on run argv
-    set mountPath to (item 1 of argv) & "/"
+on openInstaller(mountAlias)
+    set expectedPath to POSIX path of mountAlias
     tell application "Finder"
-        if (count of disks whose name is "Clutter") is not 1 then
-            error "Eject other Clutter disk images before creating an installer"
-        end if
-        set targetDisk to disk "Clutter"
-        if POSIX path of (targetDisk as alias) is not mountPath then
-            error "Mounted disk does not match the temporary installer"
-        end if
-        open targetDisk
-        set w to container window of targetDisk
+        open mountAlias
+        repeat 20 times
+            delay 0.25
+            try
+                set w to front Finder window
+                if (POSIX path of (target of w as alias)) is expectedPath then return w
+            end try
+        end repeat
+        error "Finder did not open the temporary installer mount"
+    end tell
+end openInstaller
+
+on run argv
+    set mountAlias to (POSIX file (item 1 of argv)) as alias
+    tell application "Finder"
+        set w to my openInstaller(mountAlias)
+        set targetFolder to target of w
         set current view of w to icon view
         set toolbar visible of w to false
         set statusbar visible of w to false
@@ -54,13 +63,11 @@ on run argv
         set arrangement of opts to not arranged
         set icon size of opts to 128
         set text size of opts to 13
-        set background picture of opts to file ".background:installer.png" of targetDisk
-        set position of item "Clutter.app" of targetDisk to {180, 170}
-        set position of item "Applications" of targetDisk to {480, 170}
+        set background picture of opts to file "installer.png" of folder ".background" of targetFolder
+        set position of item "Clutter.app" of targetFolder to {180, 170}
+        set position of item "Applications" of targetFolder to {480, 170}
         close w
-        open targetDisk
-        delay 1
-        set w to container window of targetDisk
+        set w to my openInstaller(mountAlias)
         set bounds of w to {200, 200, 850, 590}
         delay 1
         set bounds of w to {200, 200, 860, 600}
