@@ -505,7 +505,8 @@ function AppShellContent() {
       );
       if (!install) {
         // "Later" dismisses the native prompt, but the update is still prepared in the background.
-        if (!directUpdateDownloadedRef.current) void downloadDirectUpdate();
+        updateOperationRef.current = false;
+        if (!directUpdateDownloadedRef.current) await downloadDirectUpdate();
         return;
       }
       updateOperationRef.current = false;
