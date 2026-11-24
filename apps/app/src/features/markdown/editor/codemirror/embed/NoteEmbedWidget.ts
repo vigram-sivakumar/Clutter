@@ -677,6 +677,18 @@ export class NoteEmbedWidget extends WidgetType {
     });
     nestedViews.set(container, nestedView);
 
+    // The body has its own capture-phase handlers. The card frame and
+    // header must select the same object, without intercepting controls.
+    container.addEventListener('mousedown', (event) => {
+      if (event.target instanceof Element && !event.target.closest('button')) event.preventDefault();
+    });
+    container.addEventListener('pointerdown', (event) => {
+      if (!(event.target instanceof Element) || event.button !== 0 || event.defaultPrevented || event.target.closest('button')) return;
+      event.preventDefault();
+      event.stopPropagation();
+      selectEmbedObject(view, this.pos, this.to);
+    });
+
     return container;
   }
 
