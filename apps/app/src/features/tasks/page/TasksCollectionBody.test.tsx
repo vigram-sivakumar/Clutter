@@ -55,8 +55,8 @@ describe('TasksCollectionBody', () => {
       onToggleComplete={onToggleComplete} onOpenTask={onOpenTask} onChangeDueDate={vi.fn()}
     />);
     expect(container.querySelectorAll('.section-header')).toHaveLength(3);
-    expect(container.querySelectorAll('.section-header[data-section="overdue"]')).toHaveLength(2);
-    expect(container.querySelectorAll('.task-row__due.is-overdue')).toHaveLength(3);
+    expect(container.querySelectorAll('.section-header[data-section="overdue"]')).toHaveLength(1);
+    expect(container.querySelectorAll('.task-row__due.is-overdue')).toHaveLength(0);
     expect([...container.querySelectorAll('.task-title')].map((node) => node.textContent)).toEqual(['Alpha', 'Zebra', 'Future', 'No date']);
     expect(container.querySelectorAll('.collection__bottom-spacer')).toHaveLength(1);
     expect(container.querySelector('.task-row__due')).toBeNull();
@@ -119,7 +119,7 @@ describe('TasksCollectionBody', () => {
       'No date task',
     ].sort());
     expect(container.querySelectorAll('.task-row__due')).toHaveLength(4);
-    expect(container.querySelectorAll('.task-row__due.is-overdue')).toHaveLength(4);
+    expect(container.querySelectorAll('.task-row__due.is-overdue')).toHaveLength(1);
   });
 
   it('honours the saved date-grouping choice in All Tasks and keeps No date as a group', () => {
@@ -134,11 +134,12 @@ describe('TasksCollectionBody', () => {
     expect(queryByText('Dated')).toBeInTheDocument();
     expect(queryByText('Undated')).toBeInTheDocument();
     expect(container).toHaveTextContent('No date');
-    expect(container.querySelector('.task-row__due')).not.toBeNull();
+    expect(container.querySelector('.task-row__due')).toBeNull();
     rerender(<TasksCollectionBody {...props}
       collectionView={resolveCollectionView(TASKS_COLLECTION, { layout: 'table', groupBy: 'none' })} />);
     expect(container.querySelector('.section-header')).toBeNull();
     expect(queryByText('Dated')).toBeInTheDocument();
+    expect(container.querySelector('.task-row__due')).not.toBeNull();
   });
 
   it.each(['list', 'table'] as const)('%s keeps completed tasks out of active All Tasks when grouped', (layout) => {
@@ -191,7 +192,7 @@ describe('TasksCollectionBody', () => {
       completedAt: '2026-08-01',
     });
 
-    const { getByText } = render(
+    const { getByText, queryByText } = render(
       <TasksCollectionBody
         view="tasks-all"
         tasks={[incomplete, completed]}
@@ -202,7 +203,7 @@ describe('TasksCollectionBody', () => {
     );
 
     expect(getByText('Still open')).not.toBeNull();
-    expect(getByText('Done already')).toBeNull();
+    expect(queryByText('Done already')).toBeNull();
   });
 
   it('renders a dated tasks-all row with its due date as a button in the trailing slot: no pill, no add-due-date icon button, no More actions', () => {
@@ -340,6 +341,7 @@ describe('TasksCollectionBody', () => {
       <TasksCollectionBody
         view="tasks-all"
         tasks={[target]}
+        collectionView={resolveCollectionView(TASKS_COLLECTION, { groupBy: 'none' })}
         onToggleComplete={vi.fn()}
         onOpenTask={onOpenTask}
         onChangeDueDate={onChangeDueDate}
