@@ -27,7 +27,9 @@
     "build:beta": "bash scripts/build-beta.sh",
     "release:beta": "bash scripts/release.sh beta",
     "release:direct": "bash scripts/release-channel.sh direct",
-    "release:appstore": "bash scripts/release-channel.sh appstore"
+    "release:appstore": "bash scripts/release-channel.sh appstore",
+    "check:release": "bash scripts/check-release.sh",
+    "check:appstore": "bash scripts/check-appstore.sh"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
