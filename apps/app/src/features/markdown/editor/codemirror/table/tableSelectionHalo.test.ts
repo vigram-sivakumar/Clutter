@@ -428,7 +428,7 @@ describe('table selection halo — geometry targets the actual <table>, not the 
 
     const scroll = view.dom.querySelector('.cm-table-wrapper-selected > .cm-table-scroll');
     expect(scroll).not.toBeNull();
-    expect(scroll!.querySelector(':scope > .cm-table-inner > table')).not.toBeNull();
+    expect(scroll!.querySelector(':scope > .cm-table-layout > .cm-table-inner > table')).not.toBeNull();
     // Not `.cm-table-wrapper--explicit-widths` — this table has no
     // `{table-col-widths=...}` metadata, yet the halo's own target
     // element (`<table>`) is structured identically either way.
