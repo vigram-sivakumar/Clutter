@@ -75,3 +75,13 @@ if (typeof window !== 'undefined' && typeof globalThis.ResizeObserver === 'undef
   }
   globalThis.ResizeObserver = TestResizeObserver;
 }
+
+// A layout-free default for tests that do not exercise media-query changes.
+// Theme-specific tests may replace it with a controllable matchMedia mock.
+if (typeof window !== 'undefined' && typeof window.matchMedia === 'undefined') {
+  window.matchMedia = (query: string): MediaQueryList => ({
+    matches: false, media: query, onchange: null,
+    addListener() {}, removeListener() {},
+    addEventListener() {}, removeEventListener() {}, dispatchEvent() { return true; },
+  });
+}
