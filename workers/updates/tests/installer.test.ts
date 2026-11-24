@@ -28,3 +28,13 @@ test('installer shell syntax is valid without executing it', () => {
   const result = spawnSync('/bin/bash', ['-n'], { input: INSTALLER_SCRIPT, encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr || String(result.error ?? ''));
 });
+
+test('installer runs non-interactively and launches only after successful installation', () => {
+  assert.doesNotMatch(INSTALLER_SCRIPT, /\/dev\/tty|\[y\/N\]/);
+  const verified = INSTALLER_SCRIPT.indexOf('verify_app "$STAGE/Clutter.app"');
+  const moved = INSTALLER_SCRIPT.indexOf('mv -n "$STAGE/Clutter.app" /Applications/');
+  const success = INSTALLER_SCRIPT.indexOf('Clutter installed successfully');
+  const launch = INSTALLER_SCRIPT.indexOf('if ! open "$DEST"; then');
+  assert.ok(verified >= 0 && moved > verified && success > moved && launch > success);
+  assert.match(INSTALLER_SCRIPT, /Clutter is installed, but macOS could not launch it/);
+});
