@@ -410,13 +410,6 @@ export function Sidebar({
           isSidebarVisible; nothing currently unmounts it based on that
           state. Controls no longer renders the sidebar-toggle button
           itself — see SidebarToggle (app-layout/sidebar-toggle). */}
-      {updateReady && (
-        <Alert
-          title="New update available"
-          description="A new version of Clutter is ready to install."
-          actionsSlot={<Button onClick={onRestartUpdate}>Restart now</Button>}
-        />
-      )}
       <Controls
         onNewNote={newNote}
         onOpenDailyNote={openDailyNote}
@@ -474,6 +467,20 @@ export function Sidebar({
         </div>
       </RowContextMenuEnabled>
       <div className="sidebar__footer">
+        {updateReady && (
+          <div className="sidebar__update-alert">
+            <Alert
+              title="New update available"
+              description="A new version of Clutter is ready to install."
+              isCollapsed
+              actionsSlot={
+                <Button variant="primary" size="medium" onClick={onRestartUpdate}>
+                  Restart now
+                </Button>
+              }
+            />
+          </div>
+        )}
         <Footer
           vaultFolderName={VaultPath.filename(vault.root)}
           spaces={spaces?.spaces}
