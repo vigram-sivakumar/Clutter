@@ -279,7 +279,7 @@ describe('selected styling', () => {
     const rules = css('entry/CollectionEntry.css');
 
     expect(rules).toMatch(
-      /\.collection-entry--layout-list\.collection-entry--checked,\s*\.collection-entry--layout-list\.collection-entry--checked:is\(:hover, \[data-context-menu-open='true'\]\)\s*\{\s*background: var\(--surface-selected\);/
+      /\.collection-entry--layout-list\.collection-entry--checked,\s*\.collection-entry--layout-list\.collection-entry--checked:is\(\s*:hover,\s*\[data-context-menu-open='true'\]\s*\)\s*\{\s*background: var\(--surface-selected\);/
     );
     // The same token a checked table row uses.
     expect(css('table/CollectionTableRow.css')).toMatch(/collection-table-row--selected[^{]*\{\s*background: var\(--surface-selected\);/);
@@ -299,8 +299,8 @@ describe('selected styling', () => {
   it('swaps the icon for the checkbox on hover or focus, and keeps the checkbox while checked (CSS contract)', () => {
     const rules = css('entry/CollectionEntry.css');
 
-    expect(rules).toMatch(/\.collection-entry--layout-list:is\(:hover, :focus-within\) \.collection-entry__leading-hover[^{]*\{\s*visibility: visible;/);
-    expect(rules).toMatch(/:is\(:hover, :focus-within\) > \.collection-entry--layout-cell \.collection-entry__leading-hover[^{]*\{\s*visibility: visible;/);
+    expect(rules).toMatch(/\.collection-entry--layout-list:is\(:hover, :focus-within\)\s+\.collection-entry__leading-hover[^{]*\{\s*visibility: visible;/);
+    expect(rules).toMatch(/:is\(:hover, :focus-within\)\s*>\s*\.collection-entry--layout-cell\s+\.collection-entry__leading-hover[^{]*\{\s*visibility: visible;/);
     expect(rules).toMatch(/\.collection-entry--checked \.collection-entry__leading-rest[^{]*\{\s*visibility: hidden;/);
     expect(rules).toMatch(/\.collection-entry--checked \.collection-entry__leading-hover[^{]*\{\s*visibility: visible;/);
   });
@@ -326,7 +326,7 @@ describe('selected styling', () => {
     const rules = css('card/CollectionCard.css');
 
     expect(rules).toMatch(/\.collection-card__selection\s*\{[^}]*position: absolute;[^}]*top: var\(--space-8\);[^}]*right: var\(--space-8\);[^}]*display: none;/);
-    expect(rules).toMatch(/:is\(:hover, :focus-within[^)]*\) > \.collection-card__selection,\s*\.collection-card--checked > \.collection-card__selection,\s*\.collection-card--selecting > \.collection-card__selection\s*\{\s*display: flex;/);
+    expect(rules).toMatch(/:is\(:hover, :focus-within[^)]*\)\s*>\s*\.collection-card__selection,\s*\.collection-card--checked > \.collection-card__selection,\s*\.collection-card--selecting > \.collection-card__selection\s*\{\s*display: flex;/);
     expect(rules.match(/\.collection-card__selection\s*\{[^}]*\}/)![0]).not.toMatch(/background|border|box-shadow|filter/);
   });
 });
