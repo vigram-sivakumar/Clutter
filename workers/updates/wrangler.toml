@@ -1,4 +1,4 @@
-name = "clutter-updates"
+name = "updates"
 main = "src/index.ts"
 compatibility_date = "2026-11-23"
 workers_dev = true
