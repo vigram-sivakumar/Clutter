@@ -20,7 +20,7 @@ export async function handle(request: Request, env: Env): Promise<Response> {
     if (!filename || !FILE_NAME.test(filename)) return textResponse(404, 'Not found');
     key = 'releases/' + filename;
     contentType = filename.endsWith('.dmg') ? 'application/x-apple-diskimage' : 'application/gzip';
-    cacheControl = 'public, max-age=31536000, immutable';
+    cacheControl = filename.endsWith('.dmg') ? 'public, max-age=31536000, immutable' : 'no-store, max-age=0';
   }
   const object = await env.RELEASES.get(key);
   if (!object) return textResponse(404, 'Not found');
