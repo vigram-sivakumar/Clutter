@@ -1,7 +1,77 @@
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 use tauri::{AppHandle, Manager, Runtime};
 use tauri_plugin_fs::FsExt;
+
+/// The fs plugin's runtime scope starts empty. Tauri's deny APIs and the persistence plugin populate it with
+/// escaped literal paths and, for directories, a separate glob ending in a separator and `*` or `**`.
+/// Tauri exposes the resulting patterns but only accepts literal paths when adding runtime exclusions.
+fn exclusion_path(pattern: &str) -> Result<(PathBuf, Option<bool>), std::io::Error> {
+    let (literal, recursive) = [("**", true), ("*", false)]
+        .into_iter()
+        .find_map(|(suffix, recursive)| {
+            let literal = pattern.strip_suffix(suffix)?;
+            literal.ends_with(std::path::MAIN_SEPARATOR).then_some((literal, Some(recursive)))
+        })
+        .unwrap_or((pattern, None));
+    let mut path = String::with_capacity(literal.len());
+    let mut rest = literal;
+    while let Some(ch) = rest.chars().next() {
+        if let Some(escape) = ["[[]", "[]]", "[?]", "[*]"].into_iter().find(|escape| rest.starts_with(escape)) {
+            path.push(char::from(escape.as_bytes()[1]));
+            rest = &rest[escape.len()..];
+        } else if matches!(ch, '[' | ']' | '?' | '*') {
+            return Err(std::io::Error::other(format!("unsupported runtime filesystem exclusion: {pattern}")));
+        } else {
+            path.push(ch);
+            rest = &rest[ch.len_utf8()..];
+        }
+    }
+    Ok((PathBuf::from(path), recursive))
+}
+
+fn copy_fs_exclusions(
+    fs: &tauri::fs::Scope,
+    assets: &tauri::fs::Scope,
+    copied: &mut HashSet<String>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    for pattern in fs.forbidden_patterns() {
+        if copied.contains(pattern.as_str()) {
+            continue;
+        }
+        let (path, recursive) = exclusion_path(pattern.as_str())?;
+        match recursive {
+            Some(recursive) => assets.forbid_directory(path, recursive)?,
+            None => assets.forbid_file(path)?,
+        }
+        copied.insert(pattern.to_string());
+    }
+    Ok(())
+}
+
+/// Keep exclusions on the actual asset protocol scope, including grants made directly by the dialog plugin.
+pub(crate) fn asset_exclusions<R: Runtime>() -> tauri::plugin::TauriPlugin<R> {
+    tauri::plugin::Builder::new("asset-exclusions")
+        .setup(|app, _| {
+            let fs = app.fs_scope();
+            let assets = app.asset_protocol_scope();
+            let copied = Mutex::new(HashSet::new());
+            copy_fs_exclusions(&fs, &assets, &mut copied.lock().unwrap())?;
+            let source = fs.clone();
+            fs.listen(move |event| {
+                if let tauri::fs::Event::PathForbidden(path) = event {
+                    if let Err(error) = copy_fs_exclusions(&source, &assets, &mut copied.lock().unwrap()) {
+                        log::error!("Could not mirror filesystem exclusion for {}: {error}", path.display());
+                        let _ = assets.forbid_directory(path, true);
+                    }
+                }
+            });
+            Ok(())
+        })
+        .build()
+}
 
 /// The folder to serve through the asset protocol, or why it must not be.
 ///
@@ -10,7 +80,7 @@ use tauri_plugin_fs::FsExt;
 /// beyond anything the user chose. A folder is now granted only when it is already inside the runtime fs scope: the
 /// folder the user picked in the native dialog, the Space Clutter created, or a Space inside an authorized folder
 /// (`space_access::allow` and `create_space_folder` already grant those their asset access when they grant the fs
-/// scope). The asset scope can therefore never be larger than the fs scope the user's own choices built.
+/// scope). Filesystem exclusions are mirrored separately onto the shared asset scope.
 pub(crate) fn authorize_asset_root(root: &str, in_fs_scope: &dyn Fn(&Path) -> bool) -> Result<PathBuf, String> {
     let path = PathBuf::from(root);
     if !path.is_absolute() {
@@ -124,4 +194,71 @@ mod tests {
         let _ = std::fs::remove_dir_all(&vault);
         let _ = std::fs::remove_dir_all(&outside);
     }
+    #[test]
+    fn filesystem_exclusions_win_over_asset_grants_and_resolved_aliases() {
+        let vault = scratch("deny-vault");
+        let outside = scratch("deny-outside");
+        let excluded = vault.join("private[*]");
+        let flat = vault.join("flat");
+        let alias = vault.join("alias");
+        let visible = vault.join("cover.png");
+        let secret = excluded.join("nested/secret.png");
+        let flat_child = flat.join("child.png");
+        let flat_deeper = flat.join("nested/allowed.png");
+        let elsewhere = outside.join("secret.png");
+        for file in [&visible, &secret, &flat_child, &flat_deeper, &elsewhere] {
+            std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+            std::fs::write(file, "fixture").unwrap();
+        }
+        std::os::unix::fs::symlink(&visible, &alias).unwrap();
+
+        let app = mock_builder()
+            .plugin(tauri_plugin_fs::init())
+            .plugin(tauri::plugin::Builder::<_, ()>::new("test-exclusions").setup({
+                let excluded = excluded.clone();
+                let flat = flat.clone();
+                move |app, _| {
+                    app.fs_scope().forbid_directory(&excluded, true)?;
+                    app.fs_scope().forbid_directory(&flat, false)?;
+                    Ok(())
+                }
+            }).build())
+            .plugin(asset_exclusions())
+            .invoke_handler(tauri::generate_handler![allow_vault_asset_scope])
+            .build(mock_context(noop_assets()))
+            .unwrap();
+        app.fs_scope().allow_directory(&vault, true).unwrap();
+        let window = tauri::WebviewWindowBuilder::new(&app, "main", Default::default()).build().unwrap();
+        let grant = |path: &Path| get_ipc_response(
+            &window,
+            InvokeRequest {
+                cmd: "allow_vault_asset_scope".into(),
+                callback: CallbackFn(0),
+                error: CallbackFn(1),
+                url: "tauri://localhost".parse().unwrap(),
+                body: InvokeBody::Json(json!({ "vaultRoot": path })),
+                headers: Default::default(),
+                invoke_key: INVOKE_KEY.to_string(),
+            },
+        );
+        assert!(grant(&excluded).is_err());
+        assert!(grant(&vault).is_ok());
+        let assets = app.asset_protocol_scope();
+        assert!(assets.is_allowed(&visible));
+        assert!(assets.is_allowed(&alias));
+        assert!(assets.is_allowed(&flat_deeper));
+        assert!(!assets.is_allowed(&flat_child));
+        assert!(!assets.is_allowed(&secret));
+
+        for target in [&secret, &elsewhere] {
+            std::fs::remove_file(&alias).unwrap();
+            std::os::unix::fs::symlink(target, &alias).unwrap();
+            assert!(!assets.is_allowed(&alias));
+        }
+        app.fs_scope().forbid_file(&visible).unwrap();
+        assert!(!assets.is_allowed(&visible));
+        std::fs::remove_dir_all(vault).unwrap();
+        std::fs::remove_dir_all(outside).unwrap();
+    }
+
 }

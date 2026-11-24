@@ -64,6 +64,7 @@ impl BookmarkRole {
 struct SavedEntry {
     bookmark: Vec<u8>,
     role: BookmarkRole,
+    also_for_rename: bool,
 }
 
 /// Whether this process runs in the App Sandbox: the system sets `APP_SANDBOX_CONTAINER_ID` for sandboxed processes
@@ -201,6 +202,7 @@ fn parse_store_entries(value: &serde_json::Value) -> Option<BTreeMap<String, Sav
                         SavedEntry {
                             bookmark: from_hex(data.as_str()?)?,
                             role: BookmarkRole::Space,
+                            also_for_rename: false,
                         },
                     ))
                 })
@@ -216,7 +218,8 @@ fn parse_store_entries(value: &serde_json::Value) -> Option<BTreeMap<String, Sav
             .filter_map(|(path, data)| {
                 let bookmark = from_hex(data["bookmark"].as_str()?)?;
                 let role = BookmarkRole::parse(data["role"].as_str().unwrap_or("space"))?;
-                Some((path.clone(), SavedEntry { bookmark, role }))
+                let also_for_rename = data["alsoForRename"].as_bool().unwrap_or(false);
+                Some((path.clone(), SavedEntry { bookmark, role, also_for_rename }))
             })
             .collect(),
     )
@@ -253,6 +256,7 @@ impl SpaceAccess {
                     serde_json::json!({
                         "bookmark": to_hex(&entry.bookmark),
                         "role": entry.role.as_str(),
+                        "alsoForRename": entry.also_for_rename,
                     }),
                 )
             })
@@ -280,7 +284,7 @@ impl SpaceAccess {
                     let mut status = RestoreStatus::Restored;
                     if resolved.stale {
                         if let Ok(fresh) = self.os.create(&resolved.path) {
-                            state.saved.insert(path.clone(), SavedEntry { bookmark: fresh, role: entry.role });
+                            state.saved.insert(path.clone(), SavedEntry { bookmark: fresh, ..entry });
                             changed = true;
                             status = RestoreStatus::Refreshed;
                         }
@@ -310,13 +314,29 @@ impl SpaceAccess {
         self.remember_with_role(path, BookmarkRole::ParentForRename)
     }
 
-    fn remember_with_role(&self, path: &Path, role: BookmarkRole) -> Result<(), String> {
+    fn remember_with_role(&self, path: &Path, requested_role: BookmarkRole) -> Result<(), String> {
         let data = self.os.create(path)?;
         let path_key = key(path);
         let mut state = self.state.lock().unwrap();
-        state.saved.insert(path_key.clone(), SavedEntry { bookmark: data, role });
+        let previous = state.saved.get(&path_key);
+        let was_space = previous.is_some_and(|entry| entry.role == BookmarkRole::Space);
+        let was_rename_parent = previous.is_some_and(|entry| {
+            entry.role == BookmarkRole::ParentForRename || entry.also_for_rename
+        });
+        let is_space = was_space || requested_role == BookmarkRole::Space;
+        let role = if is_space { BookmarkRole::Space } else { BookmarkRole::ParentForRename };
+        let also_for_rename = is_space && (was_rename_parent || requested_role == BookmarkRole::ParentForRename);
+        let previous = state.saved.insert(path_key.clone(), SavedEntry { bookmark: data, role, also_for_rename });
+        if let Err(error) = self.persist(&state.saved) {
+            if let Some(entry) = previous {
+                state.saved.insert(path_key, entry);
+            } else {
+                state.saved.remove(&path_key);
+            }
+            return Err(error);
+        }
         state.active.insert(path_key);
-        self.persist(&state.saved)
+        Ok(())
     }
 
     /// Whether a restored or remembered path should receive Tauri's runtime fs scope (not macOS rename parent access).
@@ -345,9 +365,23 @@ impl SpaceAccess {
     /// authorized folder such as Documents) is a no-op, so this never touches the parent's access.
     pub fn forget(&self, path: &Path) -> Result<(), String> {
         let mut state = self.state.lock().unwrap();
-        state.active.remove(&key(path));
-        if state.saved.remove(&key(path)).is_some() {
-            return self.persist(&state.saved);
+        let path = key(path);
+        if state.saved.get(&path).is_some_and(|entry| entry.role == BookmarkRole::Space) {
+            let entry = state.saved.remove(&path).unwrap();
+            if entry.also_for_rename {
+                state.saved.insert(path.clone(), SavedEntry {
+                    bookmark: entry.bookmark.clone(),
+                    role: BookmarkRole::ParentForRename,
+                    also_for_rename: false,
+                });
+            }
+            if let Err(error) = self.persist(&state.saved) {
+                state.saved.insert(path, entry);
+                return Err(error);
+            }
+            if !entry.also_for_rename {
+                state.active.remove(&path);
+            }
         }
         Ok(())
     }
@@ -361,10 +395,9 @@ impl SpaceAccess {
             return Ok(false);
         }
         let data = self.os.create(new)?;
-        let role = state.saved.get(&key(old)).map(|entry| entry.role).unwrap_or(BookmarkRole::Space);
         let previous = state.saved.clone();
-        state.saved.remove(&key(old));
-        state.saved.insert(key(new), SavedEntry { bookmark: data, role });
+        let entry = state.saved.remove(&key(old)).unwrap();
+        state.saved.insert(key(new), SavedEntry { bookmark: data, ..entry });
         if let Err(error) = self.persist(&state.saved) {
             state.saved = previous;
             return Err(error);
@@ -510,6 +543,21 @@ use tauri::{AppHandle, Manager};
 #[cfg(not(target_os = "macos"))]
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_fs::FsExt;
+
+/// In the sandbox, only successfully restored Space bookmarks should recreate runtime grants. The former
+/// cache contains no bookmark ownership information, so it cannot distinguish a forgotten folder from an
+/// authorized Space. Keep protecting the old cache file. Unsandboxed builds still use picker persistence.
+pub(crate) fn runtime_scope_plugin<R: tauri::Runtime>(sandboxed: bool) -> tauri::plugin::TauriPlugin<R> {
+    if !sandboxed {
+        return tauri_plugin_persisted_scope::init();
+    }
+    tauri::plugin::Builder::new("sandbox-scope")
+        .setup(|app, _| {
+            app.fs_scope().forbid_file(app.path().app_data_dir()?.join(".persisted-scope"))?;
+            Ok(())
+        })
+        .build()
+}
 
 /// The registry, managed by the app. `None` outside the sandbox: nothing is remembered or restored there.
 pub struct SpaceAccessState(pub Option<SpaceAccess>);
@@ -658,24 +706,28 @@ pub fn sandbox_info(app: AppHandle) -> Result<SandboxInfo, String> {
 /// Starts access to every folder the user authorized in an earlier run and grants it to the fs and asset scopes the
 /// commands check. Called once at launch, before any Space is opened. Empty outside the sandbox.
 #[tauri::command]
-pub async fn restore_space_access(app: AppHandle) -> Result<Vec<RestoredAccess>, String> {
+pub async fn restore_space_access<R: tauri::Runtime>(app: AppHandle<R>) -> Result<Vec<RestoredAccess>, String> {
     let handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let state = handle.state::<SpaceAccessState>();
         let Some(access) = state.0.as_ref() else { return Vec::new() };
-        let report = access.restore();
-        for entry in &report {
-            if entry.status != RestoreStatus::NeedsReselect {
-                let folder = Path::new(&entry.path);
-                if access.grants_tauri_scope(folder) {
-                    allow(&handle, folder);
-                }
-            }
-        }
-        report
+        restore_scope_grants(&handle, access)
     })
     .await
     .map_err(|error| error.to_string())
+}
+
+fn restore_scope_grants<R: tauri::Runtime>(app: &AppHandle<R>, access: &SpaceAccess) -> Vec<RestoredAccess> {
+    let report = access.restore();
+    for entry in &report {
+        let folder = Path::new(&entry.path);
+        if entry.status != RestoreStatus::NeedsReselect && access.grants_tauri_scope(folder) {
+            if let Err(error) = allow_folder(app, folder) {
+                log::error!("Could not authorize {} for Clutter: {error}", folder.display());
+            }
+        }
+    }
+    report
 }
 
 /// Records a folder the user has just picked as authorized. Refused for a folder the picker did not grant (it is not
@@ -707,7 +759,7 @@ pub async fn remember_space_access(app: AppHandle, path: String) -> Result<bool,
 /// Clutter no longer uses. Only the exact folder's own bookmark is dropped; a Space inside Documents has none, and
 /// Documents' bookmark is never touched on its behalf. A no-op outside the sandbox. Nothing on disk is touched.
 #[tauri::command]
-pub async fn forget_space_access(app: AppHandle, path: String) -> Result<(), String> {
+pub async fn forget_space_access<R: tauri::Runtime>(app: AppHandle<R>, path: String) -> Result<(), String> {
     let handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let state = handle.state::<SpaceAccessState>();
@@ -1591,4 +1643,103 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
         fs::remove_dir_all(store).unwrap();
     }
+    #[test]
+    fn sandbox_restart_restores_only_remaining_space_grants() {
+        use tauri::ipc::{CallbackFn, InvokeBody};
+        use tauri::test::{get_ipc_response, INVOKE_KEY};
+        use tauri::webview::InvokeRequest;
+
+        let root = std::fs::canonicalize(scratch("sandbox-restart")).unwrap();
+        let forgotten = space_with_profile(&root, "Forgotten", "forgotten-id");
+        let ancestor = space_with_profile(&root, "Ancestor", "ancestor-id");
+        let nested = space_with_profile(&ancestor, "Nested", "nested-id");
+        let independent = space_with_profile(&root, "Independent", "independent-id");
+        let parent = space_with_profile(&root, "Rename parent", "parent-id");
+        let child = space_with_profile(&parent, "Child", "child-id");
+        let unavailable = space_with_profile(&root, "Unavailable", "unavailable-id");
+        let spaces = [&forgotten, &ancestor, &nested, &independent, &parent, &child, &unavailable];
+        let fake = Arc::new(Fake::default());
+        let app_data = root.join("app-data");
+        let build = |sandboxed| {
+            let mut context = crate::app_context();
+            context.config_mut().identifier = app_data.to_string_lossy().into_owned();
+            let app = tauri::test::mock_builder()
+                .plugin(tauri_plugin_fs::init())
+                .plugin(runtime_scope_plugin(sandboxed))
+                .plugin(crate::vault_asset_scope::asset_exclusions())
+                .invoke_handler(tauri::generate_handler![forget_space_access, restore_space_access])
+                .build(context)
+                .unwrap();
+            app.manage(SpaceScopeGrants::default());
+            app.manage(ProtectedFolders::default());
+            let data = app.path().app_data_dir().unwrap();
+            app.manage(SpaceAccessState(Some(registry(&data, &fake))));
+            app
+        };
+        let command = |window: &tauri::WebviewWindow<tauri::test::MockRuntime>, cmd: &str, args| {
+            get_ipc_response(
+                window,
+                InvokeRequest {
+                    cmd: cmd.into(),
+                    callback: CallbackFn(0),
+                    error: CallbackFn(1),
+                    url: "tauri://localhost".parse().unwrap(),
+                    body: InvokeBody::Json(args),
+                    headers: Default::default(),
+                    invoke_key: INVOKE_KEY.to_string(),
+                },
+            )
+            .unwrap()
+        };
+
+        let old = build(false); // Write the same legacy cache as the old sandboxed build.
+        assert_eq!(old.path().app_data_dir().unwrap(), app_data);
+        let state = old.state::<SpaceAccessState>();
+        let access = state.0.as_ref().unwrap();
+        access.remember_parent_for_rename(&parent).unwrap();
+        for folder in spaces {
+            access.remember(folder).unwrap();
+            allow_folder(old.handle(), folder).unwrap();
+        }
+        let cache = app_data.join(".persisted-scope");
+        assert!(cache.is_file());
+        let old_window = tauri::WebviewWindowBuilder::new(&old, "main", Default::default()).build().unwrap();
+        for folder in [&forgotten, &nested, &parent] {
+            command(&old_window, "forget_space_access", serde_json::json!({ "path": folder }));
+        }
+        assert!(old.fs_scope().is_allowed(forgotten.join("fixture.md")));
+        drop(old_window);
+        drop(old);
+        fake.gone.lock().unwrap().insert(key(&unavailable));
+
+        let restarted = build(true);
+        let window = tauri::WebviewWindowBuilder::new(&restarted, "main", Default::default()).build().unwrap();
+        assert!(!restarted.fs_scope().is_allowed(&forgotten));
+        assert!(restarted.fs_scope().is_forbidden(&cache));
+        let report = command(&window, "restore_space_access", serde_json::json!({})).deserialize::<serde_json::Value>().unwrap();
+        assert!(report.as_array().unwrap().iter().any(|entry| entry["status"] == "needsReselect"));
+        let state = restarted.state::<SpaceAccessState>();
+        let access = state.0.as_ref().unwrap();
+        assert!(access.is_active(&parent));
+        assert!(!access.grants_tauri_scope(&parent));
+        // Check the same native fs IPC and asset matcher used by the desktop app.
+        for (folder, allowed) in [
+            (&forgotten, false), (&ancestor, true), (&nested, true), (&independent, true),
+            (&parent, false), (&child, true), (&unavailable, false),
+        ] {
+            let file = folder.join("fixture.md");
+            fs::write(&file, "fixture").unwrap();
+            if allowed {
+                assert_eq!(exists(&window, &file), Ok(true));
+            } else {
+                assert!(is_forbidden(exists(&window, &file)), "{}", file.display());
+            }
+            assert_eq!(restarted.asset_protocol_scope().is_allowed(&file), allowed, "{}", file.display());
+        }
+        drop(window);
+        drop(restarted);
+        fs::remove_dir_all(app_data).unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
 }

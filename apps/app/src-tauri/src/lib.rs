@@ -250,10 +250,8 @@ pub fn run() {
         ])
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
-        // After fs: it restores the saved scope into the fs plugin's scope at startup. Only folders the user
-        // chose in the native picker are ever added to that scope (JS cannot grant itself access), so only
-        // those are persisted.
-        .plugin(tauri_plugin_persisted_scope::init())
+        .plugin(space_access::runtime_scope_plugin(space_access::is_sandboxed()))
+        .plugin(vault_asset_scope::asset_exclusions())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_opener::init());
 
