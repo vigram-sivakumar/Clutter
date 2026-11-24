@@ -2905,6 +2905,7 @@ describe('AppShell: the sidebar "New space" picker', () => {
     function renameSucceeds() {
       tauri.invoke.mockImplementation(
         async (command: string, args: { path: string; newName: string }) => {
+          if (command === 'check_rename_parent_access') return { status: 'granted' };
           if (command !== RENAME) return undefined;
           const renamed = `${args.path.slice(0, args.path.lastIndexOf('/'))}/${args.newName}`;
           const profile = profileFiles.get(args.path);
@@ -2918,6 +2919,7 @@ describe('AppShell: the sidebar "New space" picker', () => {
     }
     function renameFails(reason: string) {
       tauri.invoke.mockImplementation(async (command: string) => {
+        if (command === 'check_rename_parent_access') return { status: 'granted' };
         if (command === RENAME) throw reason;
         return undefined;
       });
