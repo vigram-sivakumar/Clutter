@@ -375,7 +375,8 @@ describe('PageHost: Task Inbox collection', () => {
     expect(button).not.toBeDisabled();
     fireEvent.click(button);
     await flush();
-    expect(document.body).toHaveTextContent('including completed tasks');
+    expect(document.body).toHaveTextContent('Move tasks with due dates, and completed tasks without due dates using their completion dates, to their corresponding Daily Notes.');
+    expect(document.body).toHaveTextContent('Tasks without a valid destination date stay in Inbox');
     expect(tidy).not.toHaveBeenCalled();
     const confirm = document.querySelector<HTMLButtonElement>(
       '.confirmation__actions button:last-child'
