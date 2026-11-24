@@ -656,7 +656,7 @@ describe('attachTableHandleOverlay — opening the handle menu', () => {
     view.dom.appendChild(widget);
   }
 
-  it('clicking a column handle reports that column's logical selection', () => {
+  it('clicking a column handle reports its logical selection', () => {
     const { view, controller } = mountRootView();
     const { wrapper, table } = buildTable(2, 3);
     embedInViewDom(view, wrapper, TEST_TABLE_FROM);
