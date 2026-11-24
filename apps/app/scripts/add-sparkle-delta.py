@@ -103,7 +103,7 @@ def main():
         subprocess.run([str(binary_delta), "apply", str(old_app), str(patched), str(delta)], check=True)
         subprocess.run(["codesign", "--verify", "--deep", "--strict", str(patched)], check=True)
         # Compare bundle contents and symlink targets; BinaryDelta itself also verifies the resulting tree hash.
-        subprocess.run(["diff", "-qr", str(app), str(patched)], check=True)
+        subprocess.run([sys.executable, "-I", str(pathlib.Path(__file__).with_name("compare-bundles.py")), str(app), str(patched)], check=True)
         signature = run(signer, "--account", account, "-p", delta)
         if not re.fullmatch(r"[A-Za-z0-9+/]{86}==", signature):
             raise SystemExit("Invalid delta signature")
