@@ -1,3 +1,5 @@
+import { isTableDelimiterLine } from './tableDelimiterLine';
+
 /**
  * Shared label-extraction logic for Clutter's own divider variants
  * (`WavyHorizontalRule`/`DoubleHorizontalRule`/`DottedHorizontalRule`, plus
@@ -58,7 +60,10 @@ export function matchStraightLabeledDivider(text: string): string | null {
   if (!trimmed.startsWith(prefix) || !trimmed.endsWith(suffix)) {
     return null;
   }
-  if (/^[-\s]*$/.test(trimmed)) {
+  // A valid GFM delimiter without outer pipes can look exactly like a
+  // labelled divider (e.g. "--- | ---"). Reserve this shape for GFM,
+  // including in endLeaf, which runs before the Table leaf parser.
+  if (isTableDelimiterLine(trimmed) || /^[-\s]*$/.test(trimmed)) {
     return null;
   }
 

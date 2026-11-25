@@ -16,6 +16,22 @@ const doc = before + table + after;
 const start = before.length;
 
 describe('table-next model and structural commands', () => {
+  it.each(['--- | ---', '--- | :--- | ---', '| --- | --- |'])(
+    'gives GFM delimiter rows precedence over Clutter labelled dividers: %s',
+    (delimiter) => {
+      const header = delimiter === '--- | :--- | ---' ? 'A | B | C' : 'A | B';
+      const text = header + '\n' + delimiter;
+      const snapshot = readTable(text, 0, parse);
+      expect(snapshot.model.header).toEqual(header.split(' | '));
+      expect(snapshot.source).toBe(text);
+      expect(parse(text).toString()).not.toContain('LabeledHorizontalRule');
+    }
+  );
+
+  it('still recognises an ordinary labelled divider after a paragraph', () => {
+    expect(parse('Paragraph\n--- Chapter 1 ---').toString()).toContain('LabeledHorizontalRule');
+  });
+
   it('derives one model and range map from the shared parser', () => {
     const snapshot = readTable(doc, start, parse);
     expect(snapshot.model).toEqual({ header: ['A', 'B'], rows: [['one', 'two']], alignments: ['none', 'center'], columnWidths: null });

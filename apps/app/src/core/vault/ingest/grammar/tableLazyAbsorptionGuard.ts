@@ -1,4 +1,5 @@
 import type { BlockContext, LeafBlock, Line, MarkdownConfig } from '@lezer/markdown';
+import { isTableDelimiterLine } from './tableDelimiterLine';
 
 /**
  * Closes a gap in `@lezer/markdown`'s own GFM `Table` extension: once a
@@ -68,7 +69,7 @@ import type { BlockContext, LeafBlock, Line, MarkdownConfig } from '@lezer/markd
  * established table" only ever needs to look at `leaf.content`'s first
  * two lines, independent of how far into the table the candidate line is.
  */
-const tableDelimiterRow = /^[>\s]*\|?(\s*:?-+:?\s*\|)+(\s*:?-+:?\s*)?$/;
+
 
 function hasUnescapedPipe(text: string, start: number): boolean {
   for (let i = start; i < text.length; i++) {
@@ -91,7 +92,7 @@ function isEstablishedTableLeaf(leafContent: string): boolean {
   const headerLine = leafContent.slice(0, firstBreak);
   const secondBreak = leafContent.indexOf('\n', firstBreak + 1);
   const delimiterCandidate = secondBreak < 0 ? leafContent.slice(firstBreak + 1) : leafContent.slice(firstBreak + 1, secondBreak);
-  return hasUnescapedPipe(headerLine, 0) && tableDelimiterRow.test(delimiterCandidate);
+  return hasUnescapedPipe(headerLine, 0) && isTableDelimiterLine(delimiterCandidate.replace(/^[>\s]*/, ''));
 }
 
 function endsTableLazyAbsorption(_cx: BlockContext, line: Line, leaf: LeafBlock): boolean {
