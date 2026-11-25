@@ -40,7 +40,7 @@ Positive evidence: production capabilities do not include the generic fs plugin 
 
 ## Remaining release-specific review
 
-Retain the outstanding items in the Sparkle ODR: separate key backup/recovery, SDK provenance, feed authentication and migration, single-publisher race/CAS, native restart/save races, termination retry, ordinary quit, offline and failed signature cases, Developer ID and App Store signing/channel migrations. Terminal bootstrap trusts HTTPS for script/feed/checksum; does not independently verify Ed25519. Production developer team pin and installer verification are pending. Test-only fallback fixtures are never release artifacts.
+Retain the outstanding items in the Sparkle ODR: feed authentication and migration, remote publication concurrency, native restart/save integration, termination retry, and Developer ID and App Store signing/channel migrations. Terminal bootstrap trusts HTTPS for script/feed/checksum; does not independently verify Ed25519. Production developer team pin and installer verification are pending. Test-only fallback fixtures are never release artifacts.
 
 ## Required local evidence (not yet collected in this pass)
 
@@ -333,7 +333,7 @@ Reviewed against 223e4a96 on release/apple-silicon-beta. The public 0.0.10 appca
 | Area | Disposition |
 | --- | --- |
 | Sparkle signature enforcement | The released bundle requires EdDSA verification before extraction. The released full ZIP and delta verified offline against the key in both the app and installer. Changing either a ZIP byte or a signature caused verification to fail. |
-| Update failures | Existing Apple Silicon evidence covers an EdDSA-verified update, full-only skips and an inapplicable signed delta falling back to the full ZIP. The bridge clears pending install actions on error. Packaged wrong-signature, offline and quit/retry UI cases remain in consolidated validation. |
+| Update failures | Apple Silicon evidence covers a verified update, full-only skips and signed-delta fallback. Local signed sandbox fixtures verified rejection of a bad signature, handling of an unavailable feed, cancellation of an explicit restart and installation on ordinary quit. A termination veto left the updater in `installing` with no working retry action. See the failure-path results below. |
 | Signing-key recovery | **Closed on 25 November 2026.** The release owner confirmed an encrypted offline backup and isolated restore on a personal Mac. The restored key matched the published public key, signed a disposable fixture whose signature verified independently, and was removed from the temporary Keychain entry. The image was ejected and the production signing identity preserved. [Recovery runbook](sparkle-signing-key-recovery.md) |
 | SDK provenance | **Fixed.** Build and publish extract tools privately from the exact Sparkle 2.10.1 archive pinned to the upstream SHA-256. The framework still passes strict code-signature verification. The fallback fixture builder shares the same extraction path. |
 | Artifact integrity and publication | **Fixed.** Publication verifies checksum coverage and compares the app inside the actual ZIP with the verified staging bundle. All publisher entry points take the local lock. Existing version, key continuity, signing downgrade, remote byte comparison and appcast-last controls remain in place. |
@@ -345,6 +345,19 @@ The SDK tests accepted the official digest and refused a modified archive before
 
 Use one publishing machine. Signed-feed migration and conditional remote writes remain deferred, along with performance work, legacy cleanup and standalone verifier improvements. Full regression and universal App Store preflight remain reserved for consolidated validation. Intel runtime remains deferred. [Distribution progress](sparkle-updater-and-beta-distribution-odr.md#14-distribution-security-and-privacy-review) · [App Store gates](mac-app-store-release-checklist.md#current-submission-gates)
 
+### Updater failure-path verification
+
+On 25 November 2026, isolated ad-hoc-signed Apple Silicon sandbox fixtures exercised the Clutter Objective-C bridge and Sparkle 2.10.1 against loopback feeds using a disposable signing key. The fixtures controlled alert responses and app termination. They used a separate bundle identity and did not use the production signing key. [Native bridge](../apps/app/src-tauri/src/sparkle_bridge.m)
+
+| Scenario | Result |
+| --- | --- |
+| Wrong EdDSA signature | Sparkle rejected the archive before extraction. The bridge entered `failed`, cleared both pending actions and refused `commit_restart`. The original bundle remained at build 1 and passed strict signature verification. |
+| Unavailable feed | A manual check against a closed loopback port reached the user notification path and entered `failed`. The bridge cleared pending actions and refused `commit_restart`. The original signed bundle remained at build 1. |
+| Later | A manual search with automatic checks disabled exercised Later and returned control to Sparkle for a background check. That fixture did not download. With automatic checks enabled and an update already prepared, Later preserved `ready` without requesting a restart. The manual Later-to-download sequence with automatic checks enabled and the 24-hour scheduler remain unverified. |
+| Cancel restart and quit | Canceling `restart_requested` restored `ready` and a stale commit was refused. A subsequent ordinary quit installed the prepared build 2, which passed strict signature verification. The native fixture did not run the full Tauri close handler. |
+| Termination veto | After a valid restart commit, a controlled AppKit termination veto left the running process on build 1 in `installing`. A second restart action left the state unchanged during the 13-second observation. The fixture then exited and Sparkle installed build 2. The custom driver does not use Sparkle's termination retry callback. Keep retry open and verify propagation through the packaged Clutter close flow before deciding on a targeted fix. |
+
+Passed 23 existing frontend close, dialog and recovery tests, 2 focused AppShell cases with mocked IPC, and 3 native Rust updater IPC decoding tests. The AppShell cases verified that Keep editing cancels the restart without closing the Space, and that a commit rejection after service close cancels the restart and reopens the Space. A packaged Tauri save-through-quit test remains open. The full suite, universal App Store preflight and Intel runtime were outside this run. [Close handler](../apps/app/src/app/AppShell.tsx) · [Distribution progress](sparkle-updater-and-beta-distribution-odr.md#14-distribution-security-and-privacy-review)
 
 ### Privacy policy publication
 
