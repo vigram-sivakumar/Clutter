@@ -3,7 +3,7 @@
 **Date:** 2026-11-24  
 **Branch:** `release/apple-silicon-beta`  
 **Last runtime-verified release:** 0.0.7 (Apple Silicon, ad-hoc, remote Sparkle update).  
-**Current implementation:** Universal direct and App Store release paths, signed deltas and unified release commands. **Pending macOS validation.**
+**Current implementation:** Universal direct and App Store release paths, signed deltas and unified release commands. **Apple Silicon validation completed. Intel runtime remains deferred.**
 
 This living document supersedes the earlier Apple Silicon-only beta architecture, not its historical test results. "Direct" describes the distribution method; beta and stable describe release maturity. Scope: the complete update, build, signing, packaging, publication, installation and cross-cutting durability/security architecture. This is not a claim that every editor, vault or application feature has been re-audited or regression-tested.
 
@@ -201,6 +201,8 @@ Diagnostic commands: npm run check:release, npm run check:appstore, npm run buil
 
 ## 10. Audit findings and controls
 
+Historical observations follow. Sections 13–14 and the final release-branch review in the security audit supersede pending statements where later evidence is recorded.
+
 | Severity / area | Observation and disposition |
 | --- | --- |
 | Critical — updater installation | Tauri updater failed in sandbox. Sparkle replaced it and passed remote 0.0.7 test. Old runtime and direct dependencies removed. New branch still requires regression build. |
@@ -219,6 +221,8 @@ Diagnostic commands: npm run check:release, npm run check:appstore, npm run buil
 | Medium — OS/store migration | Same bundle identifier does not prove bookmark access survives a signing-identity or channel change. Test ad-hoc -> Developer ID and direct -> App Store separately before promising seamless migration. |
 
 ## 11. Validation and acceptance gates
+
+The original validation sequence follows. Consolidated results and the final source review are recorded in the security audit. App Store preparation and enrolment are now on hold at the owner’s direction.
 
 **Previously passed (2026-11-24):** sandboxed native Sparkle probe; local 0.0.3 latest check; manual 0.0.3 -> 0.0.4; automatic 0.0.4 -> 0.0.5; Cloudflare deployment; remote installation 0.0.6 and separate-Mac 0.0.6 -> 0.0.7 update. A local server connection failure and IPC Boolean error were fixed. This is historical evidence for the earlier ARM-only path.
 
@@ -270,7 +274,7 @@ This section supersedes the earlier pending validation statements where the foll
 | 2. Full fallback | Passed on Apple Silicon | Isolated localhost feed, separate Sparkle test key and temporary macOS account. 0.0.8 -> 0.0.10 requested only full ZIP; user confirmed relaunch and note preservation. 0.0.9 -> 0.0.10 with signed inapplicable delta requested delta then full ZIP (HTTP 200), relaunched as 0.0.10. Data preservation in this second scenario was not explicitly reported. |
 | 3. Cross-machine validation | Apple Silicon passed; Intel deferred by owner | User confirmed installed 0.0.10 retained Space access across quit/relaunch, note editing/saving, Unsplash search, attribution and cover persistence. Fresh DMG installation reproduced expected Gatekeeper warning on ad-hoc build; Terminal installation tested. Universal bundle verification passed for all six Mach-O files. Native Intel installation, launch, save and updater tests remain pending hardware; do not claim runtime Intel validation. |
 | 4. Architecture and security audit | Confirmed defect remediation and targeted validation complete | Remaining readiness work and accepted limitations are recorded in the [release audit](release-architecture-security-audit.md#final-consolidated-validation--25-november-2026). |
-| 5. Consolidation and merge | Consolidated checks passed, branch review pending | Full frontend/native and Worker suites, release checks and universal credential-independent preflight passed against 9b677ed3. Complete remaining readiness work and review the branch before a merge decision. |
+| 5. Consolidation and merge | Consolidated checks and final branch review complete | Full frontend/native and Worker suites, release checks and universal credential-independent preflight passed. Final review of 81b63a0f found no additional confirmed application blocker. Cloudflare account-wide confirmation remains open. Any merge is a separate decision. |
 | 6. Apple Developer enrollment | Deferred | Owner requires credential-independent readiness first. |
 | 7. Official distribution | Pending | Developer ID signing/notarization, signing/channel migration, App Store signed package and submission. |
 
@@ -296,3 +300,5 @@ These gates supersede the earlier progress notes where evidence has advanced. Pu
 - **Developer ID.** Establish the Team ID, Developer ID Application identity and notarytool profile. Validate signing of nested Sparkle services, notarization and stapling for the app and DMG, and Gatekeeper on a clean Mac. Test ad-hoc-to-Developer-ID migration with the existing EdDSA key, full fallback, bookmarks, notes, settings and recovery.
 - **Terminal installer.** Pin the enrolled Team ID before distributing Developer ID builds through Terminal. Test that the expected notarized build passes and a different signer, changed archive or occupied install path fails. The ad-hoc beta retains the documented HTTPS trust boundary. [Apple macOS distribution](https://developer.apple.com/macos/distribution)
 - **Mac App Store.** Register the App ID and create the listing. Configure matching distribution and installer certificates, profile and App Store Connect upload access. Verify the independent Store build number, signed dry run, signed package, privacy manifest and Apple's validation. Test direct-to-Store migration and bookmark reauthorization. Complete App Privacy, age rating, export compliance, review notes and listing materials. [App Store gates](mac-app-store-release-checklist.md#current-submission-gates)
+
+Final release-branch review completed on 25 November 2026 against 81b63a0f and remote main 1768e470. See [final review and finding dispositions](release-architecture-security-audit.md#final-release-branch-review--25-november-2026). App Store listing materials, export-compliance work and Apple Developer enrolment are on hold.

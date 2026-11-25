@@ -21,6 +21,8 @@ Started 2026-11-24. Scope: the entire desktop application, native bridge, worksp
 
 ## Initial source review
 
+Historical baseline findings follow. Current dispositions are recorded in the final release-branch review at the end of this document.
+
 The following findings are based on inspected portions of the named files. Severity is provisional until actual reachability and intended behavior are verified. A known trade-off is not automatically a new vulnerability. No product code was changed during this initial pass.
 
 | ID | Priority | Evidence and finding | Verification / disposition |
@@ -383,9 +385,9 @@ The execution sandbox initially refused compression, Trash and test-runner IPC o
 ### Remaining readiness work
 
 - Production dependency licence inventory and required acknowledgements completed on 25 November 2026. Refresh when dependencies change.
-- Prepare screenshots, listing copy and review notes, and resolve the export-compliance declaration.
+- App Store screenshots, listing copy, review notes and the export-compliance declaration are on hold at the owner’s direction.
 - Confirm account-level Cloudflare logging, Logpush and retention against the published policy.
-- Review the release branch and accepted limitations before any merge decision.
+- Final release-branch review completed on 25 November 2026. A merge remains a separate owner decision.
 - After Apple Developer enrolment, verify Developer ID and App Store signing, notarization, Gatekeeper, installer Team ID pinning, package validation and signing/channel migration.
 - Intel runtime verification remains deferred. Signed-feed migration, remote publication concurrency, performance work, legacy cleanup and standalone verifier improvements retain their existing dispositions.
 
@@ -408,3 +410,28 @@ The deployed Updates and Unsplash Workers report Logpush false, observability nu
 The published provider disclosures remain consistent with these settings. Cloudflare's independent operational retention and rate-limit key retention have no verified fixed period. No policy change was identified.
 
 Account-wide Logpush enumeration remains open because the current API login returned HTTP 403. The available browser is at the Cloudflare sign-in page. Both Workers have their own Logpush setting disabled, but that does not establish the absence of account-wide jobs. Confirm through the dashboard after owner sign-in. The historical DPA acceptance status remains unverified. See the [current privacy review](privacy-release.md#current-cloudflare-verification--25-november-2026).
+
+## Final release-branch review — 25 November 2026
+
+Reviewed release revision `81b63a0f` against freshly fetched `origin/main` at `1768e470`, using merge base `73b2d063`. The comparison covers 125 changed files. Reviewed the updater and close flow, native authorization and exclusions, bounded remote downloads, recovery retention, distribution entry points, dependency and resource changes, and validation evidence. Existing editor behavior fixes and test-environment compatibility changes are retained.
+
+No additional confirmed application release blocker was found in this review. The read-only three-tree merge comparison produced no conflict markers. This is source review evidence, with no new installation or runtime coverage implied.
+
+| Finding | Final disposition |
+| --- | --- |
+| A01 | Broad app-container reads are an intentional part of the existing sandbox architecture. Existing native authorization and atomic writer protections stand. |
+| A02 | Broad HTTP/HTTPS support retained for user-selected remote assets. Redirect scope checks implemented and verified. |
+| A03 | Asset grants mirror filesystem exclusions and preserve canonical-path checks. Fixed and verified. |
+| A04 | Persisted grants reconcile with Space bookmarks across restart. Overlapping grants and rename-parent access are preserved. Process-lifetime grants and the local check/use window are accepted limitations. |
+| A05 | Confirmed stale code-export defects fixed. Direct destination-file interruption remains a documented platform limitation. |
+| A06 | Premature recovery cleanup and linked-directory handling fixed. Power-loss durability, unavailable recovery storage and simultaneous instances retain their documented limits. |
+| A07 | Obsolete internal commentary is deferred with legacy cleanup. It does not change the verified shipping save path. |
+| A08 | Application source and locks align at 0.0.10. Toolchain minimums align with the dependency requirements. Legacy command aliases reach the current release paths. |
+| A09 | Deployed proxy includes the rate limiter and matches the reviewed source. Both Workers have persistent logs and Logpush disabled. Account-wide Logpush enumeration awaits dashboard access. |
+| A10 | Published policy includes automatic image and update requests. Deployed scripts and website were checked in the privacy review. No additional renderer defect was established. |
+| A11 | Shared streaming validation enforces status, non-empty content, byte limits and body deadlines before writing export destinations. Fixed and verified. |
+| A12 | Standalone verifier work remains deferred. Desktop native and packaged validation provide the current release evidence. |
+
+The consolidated regression record at `9b677ed3` covers the current application logic. Later application changes only added the checked-in third-party acknowledgements and their resource mapping. The universal preflight was rerun for that packaging change. This review reran six bundle-comparison regressions, version alignment, shell/Python syntax and inventory/resource consistency checks. Inventory hashes match both lockfiles, all 341 components reference included notices, and every mapped common resource exists. Temporary updater harness hooks are absent from product source. Tracked paths include no private signing-key or release archive files.
+
+The review is complete before the Cloudflare account-wide check. That external confirmation remains open. App Store listing preparation, export-compliance work and Apple Developer enrolment are on hold at the owner’s direction. Intel runtime remains deferred, as do the documented signed-feed migration, remote publication concurrency, performance, legacy cleanup and standalone verifier improvements. The separate volume smoke and volume-full tests were not rerun during consolidation. Any future merge or publication requires a separate decision.
